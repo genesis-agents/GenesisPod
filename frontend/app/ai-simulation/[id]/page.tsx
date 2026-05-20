@@ -10,6 +10,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { toast } from '@/stores';
 import ClientDate from '@/components/common/ClientDate';
+import { Modal } from '@/components/ui/dialogs/Modal';
 // 知名公司Logo映射 - 使用 Clearbit Logo API 或官方Logo
 const COMPANY_LOGOS: Record<string, string> = {
   // 科技巨头
@@ -447,271 +448,273 @@ export default function ScenarioDetailPage() {
       )}
 
       {/* 启动错误提示 */}
-      {startError && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-          <div className="max-w-md rounded-xl bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-              <svg
-                className="h-6 w-6 text-red-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </div>
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">
-              启动失败
-            </h3>
-            <p className="mb-4 text-sm text-gray-600">{startError}</p>
-            <button
-              onClick={() => setStartError(null)}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+      <Modal
+        open={!!startError}
+        onClose={() => setStartError(null)}
+        title="启动失败"
+        size="sm"
+        footer={
+          <button
+            onClick={() => setStartError(null)}
+            className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            关闭
+          </button>
+        }
+      >
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+            <svg
+              className="h-6 w-6 text-red-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              关闭
-            </button>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
           </div>
+          <p className="text-sm text-gray-600">{startError}</p>
         </div>
-      )}
+      </Modal>
 
       {/* 角色选择模态框 */}
-      {showRoleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              配置推演参数
-            </h3>
-
-            {/* 推演模式选择 */}
-            <div className="mb-6">
-              <div className="mb-3 text-sm font-medium text-gray-700">
-                推演模式
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {/* 全自动推演 */}
-                <label
-                  className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
-                    simulationMode === 'auto'
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="mode"
-                    value="auto"
-                    checked={simulationMode === 'auto'}
-                    onChange={() => setSimulationMode('auto')}
-                    className="sr-only"
-                  />
-                  <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                      simulationMode === 'auto' ? 'bg-green-100' : 'bg-gray-100'
-                    }`}
-                  >
-                    <svg
-                      className={`h-6 w-6 ${simulationMode === 'auto' ? 'text-green-600' : 'text-gray-400'}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="text-center">
-                    <div
-                      className={`font-medium ${simulationMode === 'auto' ? 'text-green-700' : 'text-gray-700'}`}
-                    >
-                      全自动推演
-                    </div>
-                    <p className="mt-1 text-[10px] text-gray-500">
-                      AI完全自主运行，一键到底
-                    </p>
-                  </div>
-                </label>
-
-                {/* 人工参与推演 */}
-                <label
-                  className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
-                    simulationMode === 'interactive'
-                      ? 'border-indigo-500 bg-indigo-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="mode"
-                    value="interactive"
-                    checked={simulationMode === 'interactive'}
-                    onChange={() => setSimulationMode('interactive')}
-                    className="sr-only"
-                  />
-                  <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                      simulationMode === 'interactive'
-                        ? 'bg-indigo-100'
-                        : 'bg-gray-100'
-                    }`}
-                  >
-                    <svg
-                      className={`h-6 w-6 ${simulationMode === 'interactive' ? 'text-indigo-600' : 'text-gray-400'}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="text-center">
-                    <div
-                      className={`font-medium ${simulationMode === 'interactive' ? 'text-indigo-700' : 'text-gray-700'}`}
-                    >
-                      人机协同推演
-                    </div>
-                    <p className="mt-1 text-[10px] text-gray-500">
-                      每{scenario?.params?.humanBreakEvery || 2}回合暂停，可干预
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {/* 分隔线 */}
-            <div className="mb-4 border-t border-gray-200" />
-
-            <div className="mb-3 text-sm font-medium text-gray-700">
-              选择观察视角
-            </div>
-            <p className="mb-4 text-xs text-gray-500">
-              不同角色会看到不同的信息。
+      <Modal
+        open={showRoleModal}
+        onClose={() => setShowRoleModal(false)}
+        title="配置推演参数"
+        size="md"
+        footer={
+          <div className="flex w-full justify-end gap-3">
+            <button
+              onClick={() => setShowRoleModal(false)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              取消
+            </button>
+            <button
+              onClick={confirmStartRun}
+              className={`rounded-lg px-4 py-2 text-sm font-medium text-white ${
+                simulationMode === 'auto'
+                  ? 'bg-green-600 hover:bg-green-700'
+                  : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
+            >
               {simulationMode === 'auto'
-                ? '全自动模式下推荐使用上帝视角。'
-                : '人机协同模式下可扮演蓝军角色参与决策。'}
-            </p>
-
-            <div className="mb-6 space-y-3">
-              {/* 观察者角色 */}
+                ? '开始全自动推演'
+                : '开始人机协同推演'}
+            </button>
+          </div>
+        }
+      >
+        <>
+          {/* 推演模式选择 */}
+          <div className="mb-6">
+            <div className="mb-3 text-sm font-medium text-gray-700">
+              推演模式
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {/* 全自动推演 */}
               <label
-                className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-4 transition-all ${
-                  selectedRole === 'observer'
+                className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
+                  simulationMode === 'auto'
+                    ? 'border-green-500 bg-green-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="mode"
+                  value="auto"
+                  checked={simulationMode === 'auto'}
+                  onChange={() => setSimulationMode('auto')}
+                  className="sr-only"
+                />
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                    simulationMode === 'auto' ? 'bg-green-100' : 'bg-gray-100'
+                  }`}
+                >
+                  <svg
+                    className={`h-6 w-6 ${simulationMode === 'auto' ? 'text-green-600' : 'text-gray-400'}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                </div>
+                <div className="text-center">
+                  <div
+                    className={`font-medium ${simulationMode === 'auto' ? 'text-green-700' : 'text-gray-700'}`}
+                  >
+                    全自动推演
+                  </div>
+                  <p className="mt-1 text-[10px] text-gray-500">
+                    AI完全自主运行，一键到底
+                  </p>
+                </div>
+              </label>
+
+              {/* 人工参与推演 */}
+              <label
+                className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
+                  simulationMode === 'interactive'
                     ? 'border-indigo-500 bg-indigo-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
                 <input
                   type="radio"
-                  name="role"
-                  value="observer"
-                  checked={selectedRole === 'observer'}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                  className="mt-1"
+                  name="mode"
+                  value="interactive"
+                  checked={simulationMode === 'interactive'}
+                  onChange={() => setSimulationMode('interactive')}
+                  className="sr-only"
                 />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">👁️</span>
-                    <span className="font-medium text-gray-900">
-                      战略观察者（上帝视角）
-                    </span>
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                      推荐
-                    </span>
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                    simulationMode === 'interactive'
+                      ? 'bg-indigo-100'
+                      : 'bg-gray-100'
+                  }`}
+                >
+                  <svg
+                    className={`h-6 w-6 ${simulationMode === 'interactive' ? 'text-indigo-600' : 'text-gray-400'}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                </div>
+                <div className="text-center">
+                  <div
+                    className={`font-medium ${simulationMode === 'interactive' ? 'text-indigo-700' : 'text-gray-700'}`}
+                  >
+                    人机协同推演
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    以第三方视角观看所有阵营的行动和内心想法，全局把控，发现盲点和机会。
-                    适合学习和分析。
+                  <p className="mt-1 text-[10px] text-gray-500">
+                    每{scenario?.params?.humanBreakEvery || 2}回合暂停，可干预
                   </p>
                 </div>
               </label>
-
-              {/* 分隔线 */}
-              <div className="flex items-center gap-2 py-2">
-                <div className="h-px flex-1 bg-gray-200" />
-                <span className="text-xs text-gray-400">
-                  或扮演蓝军角色参与决策
-                </span>
-                <div className="h-px flex-1 bg-gray-200" />
-              </div>
-
-              {/* 蓝军角色列表 */}
-              {blueAgents.length > 0 ? (
-                blueAgents.map((agent) => (
-                  <label
-                    key={agent.role}
-                    className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-4 transition-all ${
-                      selectedRole === agent.role
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="role"
-                      value={agent.role}
-                      checked={selectedRole === agent.role}
-                      onChange={(e) => setSelectedRole(e.target.value)}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700">
-                          🔵 蓝军
-                        </span>
-                        <span className="font-medium text-gray-900">
-                          {agent.role}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">
-                        {agent.companyName ? `${agent.companyName} - ` : ''}
-                        扮演此角色参与决策，只能看到该视角的信息。
-                      </p>
-                    </div>
-                  </label>
-                ))
-              ) : (
-                <div className="rounded-lg bg-gray-50 p-4 text-center text-xs text-gray-500">
-                  当前场景未配置蓝军角色，请先在"角色配置"中添加。
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowRoleModal(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                取消
-              </button>
-              <button
-                onClick={confirmStartRun}
-                className={`rounded-lg px-4 py-2 text-sm font-medium text-white ${
-                  simulationMode === 'auto'
-                    ? 'bg-green-600 hover:bg-green-700'
-                    : 'bg-indigo-600 hover:bg-indigo-700'
-                }`}
-              >
-                {simulationMode === 'auto'
-                  ? '开始全自动推演'
-                  : '开始人机协同推演'}
-              </button>
             </div>
           </div>
-        </div>
-      )}
+
+          {/* 分隔线 */}
+          <div className="mb-4 border-t border-gray-200" />
+
+          <div className="mb-3 text-sm font-medium text-gray-700">
+            选择观察视角
+          </div>
+          <p className="mb-4 text-xs text-gray-500">
+            不同角色会看到不同的信息。
+            {simulationMode === 'auto'
+              ? '全自动模式下推荐使用上帝视角。'
+              : '人机协同模式下可扮演蓝军角色参与决策。'}
+          </p>
+
+          <div className="mb-6 space-y-3">
+            {/* 观察者角色 */}
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-4 transition-all ${
+                selectedRole === 'observer'
+                  ? 'border-indigo-500 bg-indigo-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <input
+                type="radio"
+                name="role"
+                value="observer"
+                checked={selectedRole === 'observer'}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="mt-1"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">👁️</span>
+                  <span className="font-medium text-gray-900">
+                    战略观察者（上帝视角）
+                  </span>
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                    推荐
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  以第三方视角观看所有阵营的行动和内心想法，全局把控，发现盲点和机会。
+                  适合学习和分析。
+                </p>
+              </div>
+            </label>
+
+            {/* 分隔线 */}
+            <div className="flex items-center gap-2 py-2">
+              <div className="h-px flex-1 bg-gray-200" />
+              <span className="text-xs text-gray-400">
+                或扮演蓝军角色参与决策
+              </span>
+              <div className="h-px flex-1 bg-gray-200" />
+            </div>
+
+            {/* 蓝军角色列表 */}
+            {blueAgents.length > 0 ? (
+              blueAgents.map((agent) => (
+                <label
+                  key={agent.role}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-4 transition-all ${
+                    selectedRole === agent.role
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="role"
+                    value={agent.role}
+                    checked={selectedRole === agent.role}
+                    onChange={(e) => setSelectedRole(e.target.value)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700">
+                        🔵 蓝军
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        {agent.role}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {agent.companyName ? `${agent.companyName} - ` : ''}
+                      扮演此角色参与决策，只能看到该视角的信息。
+                    </p>
+                  </div>
+                </label>
+              ))
+            ) : (
+              <div className="rounded-lg bg-gray-50 p-4 text-center text-xs text-gray-500">
+                当前场景未配置蓝军角色，请先在"角色配置"中添加。
+              </div>
+            )}
+          </div>
+        </>
+      </Modal>
 
       <main className="flex-1 overflow-auto">
         <div className="space-y-6 px-8 py-6">

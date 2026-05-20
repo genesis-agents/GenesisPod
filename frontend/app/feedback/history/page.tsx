@@ -15,8 +15,8 @@ import {
   ChevronRight,
   Paperclip,
   MessageSquare,
-  X,
 } from 'lucide-react';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import { logger } from '@/lib/utils/logger';
 
 interface Feedback {
@@ -250,57 +250,66 @@ export default function FeedbackHistoryPage() {
         </main>
 
         {/* Detail Modal */}
-        {selectedFeedback && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl">
-              <div className="sticky top-0 flex items-center justify-between border-b bg-white p-4">
-                <h2 className="text-lg font-semibold">
-                  {t('feedback.details')}
-                </h2>
-                <button
-                  onClick={() => setSelectedFeedback(null)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X className="h-6 w-6" />
-                </button>
+        <Modal
+          open={!!selectedFeedback}
+          onClose={() => setSelectedFeedback(null)}
+          title={t('feedback.details')}
+          size="lg"
+        >
+          {selectedFeedback && (
+            <>
+              {/* Status Banner */}
+              <div
+                className={`mb-6 rounded-lg border p-4 ${STATUS_COLORS[selectedFeedback.status]}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-semibold">
+                    {getStatusLabel(selectedFeedback.status)}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm opacity-80">
+                  {getStatusDescription(selectedFeedback.status)}
+                </p>
               </div>
 
-              <div className="p-6">
-                {/* Status Banner */}
-                <div
-                  className={`mb-6 rounded-lg border p-4 ${STATUS_COLORS[selectedFeedback.status]}`}
+              {/* Type & Title */}
+              <div className="mb-4">
+                <span
+                  className={`mb-2 inline-block rounded-full px-3 py-1 text-sm font-medium ${TYPE_COLORS[selectedFeedback.type]}`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-semibold">
-                      {getStatusLabel(selectedFeedback.status)}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm opacity-80">
-                    {getStatusDescription(selectedFeedback.status)}
-                  </p>
-                </div>
+                  {getTypeLabel(selectedFeedback.type)}
+                </span>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {selectedFeedback.title}
+                </h3>
+              </div>
 
-                {/* Type & Title */}
-                <div className="mb-4">
-                  <span
-                    className={`mb-2 inline-block rounded-full px-3 py-1 text-sm font-medium ${TYPE_COLORS[selectedFeedback.type]}`}
-                  >
-                    {getTypeLabel(selectedFeedback.type)}
-                  </span>
-                  <h3 className="text-xl font-semibold text-gray-900">
-                    {selectedFeedback.title}
-                  </h3>
+              {/* Meta */}
+              <div className="mb-4 text-sm text-gray-500">
+                <div>
+                  ID: <span className="font-mono">{selectedFeedback.id}</span>
                 </div>
-
-                {/* Meta */}
-                <div className="mb-4 text-sm text-gray-500">
+                <div>
+                  {t('feedback.submitted')}:{' '}
+                  <ClientDate
+                    date={selectedFeedback.created_at}
+                    format="datetime"
+                    locale="zh-CN"
+                    dateOptions={{
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }}
+                  />
+                </div>
+                {selectedFeedback.updated_at !==
+                  selectedFeedback.created_at && (
                   <div>
-                    ID: <span className="font-mono">{selectedFeedback.id}</span>
-                  </div>
-                  <div>
-                    {t('feedback.submitted')}:{' '}
+                    {t('feedback.lastUpdated')}:{' '}
                     <ClientDate
-                      date={selectedFeedback.created_at}
+                      date={selectedFeedback.updated_at}
                       format="datetime"
                       locale="zh-CN"
                       dateOptions={{
@@ -312,77 +321,57 @@ export default function FeedbackHistoryPage() {
                       }}
                     />
                   </div>
-                  {selectedFeedback.updated_at !==
-                    selectedFeedback.created_at && (
-                    <div>
-                      {t('feedback.lastUpdated')}:{' '}
-                      <ClientDate
-                        date={selectedFeedback.updated_at}
-                        format="datetime"
-                        locale="zh-CN"
-                        dateOptions={{
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Description */}
-                <div className="mb-6 rounded-lg bg-gray-50 p-4">
-                  <h4 className="mb-2 font-medium text-gray-700">
-                    {t('feedback.yourFeedback')}
-                  </h4>
-                  <p className="whitespace-pre-wrap text-gray-600">
-                    {selectedFeedback.description}
-                  </p>
-                </div>
-
-                {/* Admin Response */}
-                {selectedFeedback.admin_notes && (
-                  <div className="mb-6 rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4">
-                    <h4 className="mb-2 font-medium text-blue-900">
-                      {t('feedback.teamResponse')}
-                    </h4>
-                    <p className="whitespace-pre-wrap text-blue-800">
-                      {selectedFeedback.admin_notes}
-                    </p>
-                  </div>
-                )}
-
-                {/* Attachments */}
-                {selectedFeedback.attachments?.length > 0 && (
-                  <div>
-                    <h4 className="mb-2 font-medium text-gray-700">
-                      {t('feedback.attachments')} (
-                      {selectedFeedback.attachments.length})
-                    </h4>
-                    <div className="space-y-2">
-                      {selectedFeedback.attachments.map((att, idx) => (
-                        <a
-                          key={idx}
-                          href={att.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 rounded-lg border p-2 text-sm hover:bg-gray-50"
-                        >
-                          <Paperclip className="h-5 w-5 text-gray-400" />
-                          <span className="flex-1 truncate">
-                            {att.filename}
-                          </span>
-                        </a>
-                      ))}
-                    </div>
-                  </div>
                 )}
               </div>
-            </div>
-          </div>
-        )}
+
+              {/* Description */}
+              <div className="mb-6 rounded-lg bg-gray-50 p-4">
+                <h4 className="mb-2 font-medium text-gray-700">
+                  {t('feedback.yourFeedback')}
+                </h4>
+                <p className="whitespace-pre-wrap text-gray-600">
+                  {selectedFeedback.description}
+                </p>
+              </div>
+
+              {/* Admin Response */}
+              {selectedFeedback.admin_notes && (
+                <div className="mb-6 rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4">
+                  <h4 className="mb-2 font-medium text-blue-900">
+                    {t('feedback.teamResponse')}
+                  </h4>
+                  <p className="whitespace-pre-wrap text-blue-800">
+                    {selectedFeedback.admin_notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Attachments */}
+              {selectedFeedback.attachments?.length > 0 && (
+                <div>
+                  <h4 className="mb-2 font-medium text-gray-700">
+                    {t('feedback.attachments')} (
+                    {selectedFeedback.attachments.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {selectedFeedback.attachments.map((att, idx) => (
+                      <a
+                        key={idx}
+                        href={att.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-lg border p-2 text-sm hover:bg-gray-50"
+                      >
+                        <Paperclip className="h-5 w-5 text-gray-400" />
+                        <span className="flex-1 truncate">{att.filename}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </Modal>
       </div>
     </AppShell>
   );

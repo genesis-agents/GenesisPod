@@ -20,7 +20,6 @@ import {
   RefreshCw,
   Sparkles,
   Timer,
-  X as XIcon,
   Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -35,6 +34,7 @@ import { ReconciliationPanel } from './ReconciliationPanel';
 import { ToolRecallTrace } from './ToolRecallTrace';
 import { ExportDialog } from '@/components/common/ExportDialog';
 import { ReportVersionDrawer } from './ReportVersionDrawer';
+import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 
 type ViewMode = 'continuous' | 'chapter' | 'quick';
 
@@ -321,86 +321,70 @@ export function ArtifactReader({
       )}
 
       {/* ★ 2026-04-30 (#51): 报告分析 slide-over —— 元信息抽屉 */}
-      {insightsOpen && (
-        <>
-          {/* backdrop */}
-          <div
-            className="fixed inset-0 z-40 bg-black/30"
-            onClick={() => setInsightsOpen(false)}
-          />
-          {/* panel */}
-          <div className="fixed right-0 top-0 z-50 flex h-full w-[480px] max-w-[92vw] flex-col border-l border-gray-200 bg-white shadow-2xl">
-            {/* header + tabs */}
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-              <h3 className="text-sm font-semibold text-gray-900">报告分析</h3>
+      <SideDrawer
+        open={insightsOpen}
+        onClose={() => setInsightsOpen(false)}
+        title="报告分析"
+        widthPx={480}
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-1 text-[11px]">
+            {(
+              [
+                { key: 'quality', label: '质量' },
+                { key: 'meta', label: '元信息' },
+                ...(artifact.factTable.length > 0
+                  ? [{ key: 'fact', label: '事实表' } as const]
+                  : []),
+                ...(reconciliationReport
+                  ? [{ key: 'recon', label: '对账' } as const]
+                  : []),
+                ...(toolRecallEntries && toolRecallEntries.length > 0
+                  ? [{ key: 'tool', label: '工具召回' } as const]
+                  : []),
+              ] as const
+            ).map((t) => (
               <button
+                key={t.key}
                 type="button"
-                onClick={() => setInsightsOpen(false)}
-                className="rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-                title="关闭"
+                onClick={() => setInsightsTab(t.key)}
+                className={
+                  insightsTab === t.key
+                    ? 'rounded-md bg-blue-50 px-2 py-1 font-medium text-blue-700 ring-1 ring-blue-200'
+                    : 'rounded-md px-2 py-1 text-gray-600 hover:bg-gray-50'
+                }
               >
-                <XIcon className="h-4 w-4" />
+                {t.label}
               </button>
-            </div>
-            <div className="flex flex-wrap gap-1 border-b border-gray-100 px-3 py-2 text-[11px]">
-              {(
-                [
-                  { key: 'quality', label: '质量' },
-                  { key: 'meta', label: '元信息' },
-                  ...(artifact.factTable.length > 0
-                    ? [{ key: 'fact', label: '事实表' } as const]
-                    : []),
-                  ...(reconciliationReport
-                    ? [{ key: 'recon', label: '对账' } as const]
-                    : []),
-                  ...(toolRecallEntries && toolRecallEntries.length > 0
-                    ? [{ key: 'tool', label: '工具召回' } as const]
-                    : []),
-                ] as const
-              ).map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => setInsightsTab(t.key)}
-                  className={
-                    insightsTab === t.key
-                      ? 'rounded-md bg-blue-50 px-2 py-1 font-medium text-blue-700 ring-1 ring-blue-200'
-                      : 'rounded-md px-2 py-1 text-gray-600 hover:bg-gray-50'
-                  }
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            {/* body */}
-            <div className="flex-1 overflow-auto p-4">
-              {insightsTab === 'quality' && (
-                <QualityTabBody artifact={artifact} />
-              )}
-              {insightsTab === 'meta' && (
-                <MetaTabBody
-                  artifact={artifact}
-                  currentVersion={currentVersion}
-                />
-              )}
-              {insightsTab === 'fact' && artifact.factTable.length > 0 && (
-                <FactTablePanel
-                  factTable={artifact.factTable}
-                  citations={artifact.citations}
-                />
-              )}
-              {insightsTab === 'recon' && reconciliationReport && (
-                <ReconciliationPanel report={reconciliationReport} />
-              )}
-              {insightsTab === 'tool' &&
-                toolRecallEntries &&
-                toolRecallEntries.length > 0 && (
-                  <ToolRecallTrace entries={toolRecallEntries} />
-                )}
-            </div>
+            ))}
           </div>
-        </>
-      )}
+          <div>
+            {insightsTab === 'quality' && (
+              <QualityTabBody artifact={artifact} />
+            )}
+            {insightsTab === 'meta' && (
+              <MetaTabBody
+                artifact={artifact}
+                currentVersion={currentVersion}
+              />
+            )}
+            {insightsTab === 'fact' && artifact.factTable.length > 0 && (
+              <FactTablePanel
+                factTable={artifact.factTable}
+                citations={artifact.citations}
+              />
+            )}
+            {insightsTab === 'recon' && reconciliationReport && (
+              <ReconciliationPanel report={reconciliationReport} />
+            )}
+            {insightsTab === 'tool' &&
+              toolRecallEntries &&
+              toolRecallEntries.length > 0 && (
+                <ToolRecallTrace entries={toolRecallEntries} />
+              )}
+          </div>
+        </div>
+      </SideDrawer>
 
       {/* ★ 2026-05-07 版本历史抽屉 —— 学 TI ReportRevisionHistory 卡片样式 */}
       {reportVersions && onSelectVersion && (

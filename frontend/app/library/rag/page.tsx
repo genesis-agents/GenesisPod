@@ -18,6 +18,7 @@ import {
   Hash,
   Mail,
 } from 'lucide-react';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { EmptyState } from '@/components/ui/states/EmptyState';
@@ -418,70 +419,73 @@ function CreateKnowledgeBaseDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">创建知识库</h2>
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              名称
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="输入知识库名称"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              描述 (可选)
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="描述这个知识库的用途"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              数据来源
-            </label>
-            <select
-              value={sourceType}
-              onChange={(e) =>
-                setSourceType(e.target.value as typeof sourceType)
-              }
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="MANUAL">手动上传文档</option>
-              <option value="GOOGLE_DRIVE">同步 Google Drive</option>
-              <option value="URL">URL 抓取</option>
-            </select>
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              disabled={!name || creating}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {creating ? '创建中...' : '创建'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Modal
+      open
+      onClose={onClose}
+      title="创建知识库"
+      size="sm"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            form="create-kb-form"
+            type="submit"
+            disabled={!name || creating}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {creating ? '创建中...' : '创建'}
+          </button>
+        </>
+      }
+    >
+      <form id="create-kb-form" onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            名称
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="输入知识库名称"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            描述 (可选)
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="描述这个知识库的用途"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            数据来源
+          </label>
+          <select
+            value={sourceType}
+            onChange={(e) => setSourceType(e.target.value as typeof sourceType)}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="MANUAL">手动上传文档</option>
+            <option value="GOOGLE_DRIVE">同步 Google Drive</option>
+            <option value="URL">URL 抓取</option>
+          </select>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -577,109 +581,85 @@ function QueryPanel({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="max-h-[80vh] w-full max-w-3xl overflow-auto rounded-xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">测试 RAG 查询</h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-gray-500 hover:bg-gray-100"
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={queryText}
-            onChange={(e) => setQueryText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleQuery()}
-            placeholder="输入查询问题..."
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2"
-          />
-          <button
-            onClick={handleQuery}
-            disabled={loading || !queryText.trim()}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? '查询中...' : '查询'}
-          </button>
-        </div>
-
-        {error && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
-            <p className="text-sm text-red-700">{error.message}</p>
-          </div>
-        )}
-
-        {result && (
-          <div className="mt-4 space-y-4">
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <h3 className="mb-2 font-medium text-gray-900">检索上下文</h3>
-              <pre className="whitespace-pre-wrap text-sm text-gray-700">
-                {result.context.text || '无匹配内容'}
-              </pre>
-            </div>
-
-            {result.context.sources.length > 0 && (
-              <div>
-                <h3 className="mb-2 font-medium text-gray-900">
-                  来源 ({result.context.sources.length})
-                </h3>
-                <div className="space-y-2">
-                  {result.context.sources.map((source, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg border border-gray-200 bg-white p-3"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-900">
-                          {source.documentTitle}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          相关度: {(source.score * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-gray-600">
-                        {source.excerpt}
-                      </p>
-                      {source.sectionTitle && (
-                        <p className="mt-1 text-xs text-gray-500">
-                          章节: {source.sectionTitle}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="text-xs text-gray-500">
-              处理时间: {result.processingTime.total}ms (搜索:{' '}
-              {result.processingTime.search}ms
-              {result.processingTime.hyde &&
-                `, HyDE: ${result.processingTime.hyde}ms`}
-              {result.processingTime.rerank &&
-                `, 重排序: ${result.processingTime.rerank}ms`}
-              )
-            </div>
-          </div>
-        )}
+    <Modal open onClose={onClose} title="测试 RAG 查询" size="xl">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={queryText}
+          onChange={(e) => setQueryText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && void handleQuery()}
+          placeholder="输入查询问题..."
+          className="flex-1 rounded-lg border border-gray-300 px-4 py-2"
+        />
+        <button
+          onClick={() => void handleQuery()}
+          disabled={loading || !queryText.trim()}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {loading ? '查询中...' : '查询'}
+        </button>
       </div>
-    </div>
+
+      {error && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
+          <p className="text-sm text-red-700">{error.message}</p>
+        </div>
+      )}
+
+      {result && (
+        <div className="mt-4 space-y-4">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <h3 className="mb-2 font-medium text-gray-900">检索上下文</h3>
+            <pre className="whitespace-pre-wrap text-sm text-gray-700">
+              {result.context.text || '无匹配内容'}
+            </pre>
+          </div>
+
+          {result.context.sources.length > 0 && (
+            <div>
+              <h3 className="mb-2 font-medium text-gray-900">
+                来源 ({result.context.sources.length})
+              </h3>
+              <div className="space-y-2">
+                {result.context.sources.map((source, i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg border border-gray-200 bg-white p-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-gray-900">
+                        {source.documentTitle}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        相关度: {(source.score * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {source.excerpt}
+                    </p>
+                    {source.sectionTitle && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        章节: {source.sectionTitle}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="text-xs text-gray-500">
+            处理时间: {result.processingTime.total}ms (搜索:{' '}
+            {result.processingTime.search}ms
+            {result.processingTime.hyde &&
+              `, HyDE: ${result.processingTime.hyde}ms`}
+            {result.processingTime.rerank &&
+              `, 重排序: ${result.processingTime.rerank}ms`}
+            )
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -711,53 +691,58 @@ function EditKnowledgeBaseDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">编辑知识库</h2>
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              名称
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="输入知识库名称"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              描述 (可选)
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="描述这个知识库的用途"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              disabled={saving || !name.trim()}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? '保存中...' : '保存'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Modal
+      open
+      onClose={onClose}
+      title="编辑知识库"
+      size="sm"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            form="edit-kb-form"
+            type="submit"
+            disabled={saving || !name.trim()}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? '保存中...' : '保存'}
+          </button>
+        </>
+      }
+    >
+      <form id="edit-kb-form" onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            名称
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="输入知识库名称"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            描述 (可选)
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="描述这个知识库的用途"
+          />
+        </div>
+      </form>
+    </Modal>
   );
 }

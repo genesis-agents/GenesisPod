@@ -10,6 +10,7 @@ import {
 import { useAiGroupStore } from '@/stores/ai-teams';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Archive } from 'lucide-react';
+import { Modal } from '@/components/ui/dialogs/Modal';
 
 interface ResourcesPanelProps {
   topic: Topic;
@@ -110,43 +111,26 @@ export default function ResourcesPanel({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex h-[70vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Shared Resources
-          </h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowAddDialog(true)}
-              className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              Add Resource
-            </button>
-            <button
-              onClick={onClose}
-              className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-            >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
+    <Modal
+      open={true}
+      onClose={onClose}
+      title="Shared Resources"
+      size="lg"
+      contentClassName="flex-1 overflow-auto p-6"
+    >
+      <div className="flex h-[calc(70vh-8rem)] flex-col">
+        {/* Add Resource Button in header area */}
+        <div className="mb-4 flex justify-end">
+          <button
+            onClick={() => setShowAddDialog(true)}
+            className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Add Resource
+          </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto">
           {isLoadingResources ? (
             <div className="flex items-center justify-center py-12">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
@@ -214,29 +198,30 @@ export default function ResourcesPanel({
             </div>
           )}
         </div>
-
-        {/* Add Resource Dialog */}
-        {showAddDialog && (
-          <AddResourceDialog
-            topicId={topic.id}
-            onAdd={async (dto) => {
-              await addResource(topic.id, dto);
-              setShowAddDialog(false);
-            }}
-            onClose={() => setShowAddDialog(false)}
-          />
-        )}
       </div>
-    </div>
+
+      {/* Add Resource Dialog */}
+      <AddResourceDialog
+        open={showAddDialog}
+        topicId={topic.id}
+        onAdd={async (dto) => {
+          await addResource(topic.id, dto);
+          setShowAddDialog(false);
+        }}
+        onClose={() => setShowAddDialog(false)}
+      />
+    </Modal>
   );
 }
 
 // Add Resource Dialog
 function AddResourceDialog({
-  topicId,
+  open,
+  topicId: _topicId,
   onAdd,
   onClose,
 }: {
+  open: boolean;
   topicId: string;
   onAdd: (dto: AddResourceDto) => Promise<void>;
   onClose: () => void;
@@ -262,58 +247,13 @@ function AddResourceDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">
-          Add Resource
-        </h3>
-
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              Type
-            </label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as TopicResourceType)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            >
-              <option value={TopicResourceType.LINK}>Link</option>
-              <option value={TopicResourceType.FILE}>File</option>
-              <option value={TopicResourceType.LIBRARY_RESOURCE}>
-                Library Resource
-              </option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Name
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Resource name"
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              URL
-            </label>
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://..."
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Add Resource"
+      size="sm"
+      footer={
+        <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -321,14 +261,57 @@ function AddResourceDialog({
             Cancel
           </button>
           <button
-            onClick={handleAdd}
+            onClick={() => void handleAdd()}
             disabled={!name.trim() || !url.trim() || isAdding}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isAdding ? 'Adding...' : 'Add Resource'}
           </button>
         </div>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            Type
+          </label>
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as TopicResourceType)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value={TopicResourceType.LINK}>Link</option>
+            <option value={TopicResourceType.FILE}>File</option>
+            <option value={TopicResourceType.LIBRARY_RESOURCE}>
+              Library Resource
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Resource name"
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">URL</label>
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://..."
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 }
