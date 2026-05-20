@@ -1,11 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import {
   BookOpen,
   Building2,
-  ChevronDown,
-  ChevronUp,
   Compass,
   ExternalLink,
   Radio,
@@ -28,6 +25,8 @@ export interface DailySignalView {
   signalTags: string[];
   entities: string[];
   evidenceItemIds: string[];
+  /** PR-DR2 收尾：原文来源（多源全量），卡片底部渲染为可点击链接 */
+  evidenceSources?: EvidenceSource[];
   narrativeId?: string;
 }
 
@@ -63,7 +62,6 @@ export function RadarBriefingCard({
   evidenceSources,
 }: RadarBriefingCardProps) {
   const { t } = useTranslation();
-  const [evidenceExpanded, setEvidenceExpanded] = useState(false);
 
   const visibleTags = signal.signalTags.slice(0, 3);
   const visibleEntities = signal.entities.slice(0, 5);
@@ -72,9 +70,6 @@ export function RadarBriefingCard({
     narrativeEpisodes &&
     narrativeEpisodes.length >= 2 &&
     narrativeLabel;
-
-  const firstSource = evidenceSources?.[0];
-  const restSources = evidenceSources?.slice(1) ?? [];
 
   return (
     <article
@@ -166,48 +161,20 @@ export function RadarBriefingCard({
         />
       )}
 
-      {/* Evidence sources */}
+      {/* Evidence sources —— 多源全量展示，逐条可点击追溯原始链接 */}
       {evidenceSources && evidenceSources.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <p className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
             <BookOpen className="h-3 w-3" aria-hidden="true" />
             {t('radar.detail.evidenceSources')}
+            <span className="text-slate-400">· {evidenceSources.length}</span>
           </p>
-
-          {/* First source always visible */}
-          {firstSource && <EvidenceRow source={firstSource} />}
-
-          {/* Expand toggle for the rest */}
-          {restSources.length > 0 && (
-            <>
-              {evidenceExpanded &&
-                restSources.map((src, idx) => (
-                  <EvidenceRow
-                    key={src.url ?? src.name ?? `evidence-${idx}`}
-                    source={src}
-                  />
-                ))}
-              <button
-                onClick={() => setEvidenceExpanded((v) => !v)}
-                className="flex items-center gap-1 text-xs text-violet-600 hover:underline"
-                aria-expanded={evidenceExpanded}
-              >
-                {evidenceExpanded ? (
-                  <>
-                    <ChevronUp className="h-3 w-3" />
-                    {t('radar.detail.collapseEvidence')}
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-3 w-3" />
-                    {t('radar.detail.expandEvidence', {
-                      n: String(restSources.length),
-                    })}
-                  </>
-                )}
-              </button>
-            </>
-          )}
+          {evidenceSources.map((src, idx) => (
+            <EvidenceRow
+              key={src.url ?? src.name ?? `evidence-${idx}`}
+              source={src}
+            />
+          ))}
         </div>
       )}
 

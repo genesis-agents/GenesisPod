@@ -27,6 +27,13 @@ import {
 } from "../services/briefing/radar-daily-briefing.repo";
 import { RadarTopicService } from "../services/topic/radar-topic.service";
 
+/** PR-DR2 收尾：原文来源 —— join RadarItem 得到，前端可点击追溯 */
+export interface EvidenceSourceDto {
+  name: string;
+  url?: string;
+  publishedAt: string;
+}
+
 export interface DailySignalDto {
   id: string;
   tier: 1 | 2 | 3;
@@ -37,6 +44,8 @@ export interface DailySignalDto {
   signalTags: string[];
   entities: string[];
   evidenceItemIds: string[];
+  /** 原文来源（多源全量，按 evidenceItemIds 原序）；无可解析来源时为空数组 */
+  evidenceSources: EvidenceSourceDto[];
   narrativeId?: string;
 }
 
@@ -113,18 +122,7 @@ export class DailyBriefingController {
       topicId: row.topicId,
       briefingDate: dateStr,
       status: row.status as DailyBriefingDto["status"],
-      signals: signals.map((s) => ({
-        id: s.id,
-        tier: s.tier,
-        title: s.title,
-        oneLineTakeaway: s.oneLineTakeaway,
-        whyItMatters: s.whyItMatters,
-        whatsNext: s.whatsNext,
-        signalTags: s.signalTags ?? [],
-        entities: s.entities ?? [],
-        evidenceItemIds: s.evidenceItemIds ?? [],
-        narrativeId: s.narrativeId,
-      })),
+      signals: await this.toSignalDtos(signals),
       generationRunId: row.generationRunId ?? undefined,
       rerunCount,
       canRerun: rerunCount < 2, // RERUN_LIMIT_PER_DAY in radar-run.controller
@@ -156,26 +154,17 @@ export class DailyBriefingController {
     const { from, to } = computeBucketRange(b, now);
     const rows = await this.repo.findInRange(topicId, from, to);
 
-    const briefings = rows.map((row) => {
-      const signals = (row.signals as unknown as DailySignal[]) ?? [];
-      return {
-        id: row.id,
-        briefingDate: row.briefingDate.toISOString().slice(0, 10),
-        status: row.status as "completed" | "no_signals" | "generating",
-        signals: signals.map((s) => ({
-          id: s.id,
-          tier: s.tier,
-          title: s.title,
-          oneLineTakeaway: s.oneLineTakeaway,
-          whyItMatters: s.whyItMatters,
-          whatsNext: s.whatsNext,
-          signalTags: s.signalTags ?? [],
-          entities: s.entities ?? [],
-          evidenceItemIds: s.evidenceItemIds ?? [],
-          narrativeId: s.narrativeId,
-        })),
-      };
-    });
+    const briefings = await Promise.all(
+      rows.map(async (row) => {
+        const signals = (row.signals as unknown as DailySignal[]) ?? [];
+        return {
+          id: row.id,
+          briefingDate: row.briefingDate.toISOString().slice(0, 10),
+          status: row.status as "completed" | "no_signals" | "generating",
+          signals: await this.toSignalDtos(signals),
+        };
+      }),
+    );
 
     return {
       bucket: b,
@@ -184,6 +173,37 @@ export class DailyBriefingController {
       briefings,
       totalSignals: briefings.reduce((sum, b) => sum + b.signals.length, 0),
     };
+  }
+
+  /**
+   * DailySignal → DTO，并 join evidenceItemIds → evidenceSources（多源全量，
+   * 按 evidenceItemIds 原序）。一次批量查 RadarItem 防 N+1。
+   */
+  private async toSignalDtos(
+    signals: DailySignal[],
+  ): Promise<DailySignalDto[]> {
+    const allIds = [...new Set(signals.flatMap((s) => s.evidenceItemIds ?? []))];
+    const sourceMap = await this.repo.findEvidenceSources(allIds);
+    return signals.map((s) => ({
+      id: s.id,
+      tier: s.tier,
+      title: s.title,
+      oneLineTakeaway: s.oneLineTakeaway,
+      whyItMatters: s.whyItMatters,
+      whatsNext: s.whatsNext,
+      signalTags: s.signalTags ?? [],
+      entities: s.entities ?? [],
+      evidenceItemIds: s.evidenceItemIds ?? [],
+      evidenceSources: (s.evidenceItemIds ?? [])
+        .map((id) => sourceMap.get(id))
+        .filter((x): x is NonNullable<typeof x> => x != null)
+        .map((x) => ({
+          name: x.name,
+          url: x.url ?? undefined,
+          publishedAt: x.publishedAt,
+        })),
+      narrativeId: s.narrativeId,
+    }));
   }
 }
 

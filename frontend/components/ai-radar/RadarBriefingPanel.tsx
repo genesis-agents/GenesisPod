@@ -170,6 +170,7 @@ export function RadarBriefingPanel({
                     topicId={topicId}
                     topicName={topicName}
                     detailUrl={`/ai-radar/topic/${topicId}/signal/${signal.id}`}
+                    evidenceSources={signal.evidenceSources}
                     initiallyFavorited={favoritedIds?.has(signal.id)}
                   />
                 ))}

@@ -130,6 +130,49 @@ export class RadarDailyBriefingRepo {
   }
 
   /**
+   * PR-DR2 收尾：把 signal.evidenceItemIds join 回 RadarItem，拿原文
+   * 标题/url/发布时间，让前端能追溯到原始链接。返回 id → 来源详情 的映射，
+   * controller 按 signal 组装 evidenceSources（多源全量）。
+   *
+   * name 优先用文章标题（最利于辨认具体原文），回退源标签 / 源标识。
+   * url 可能为 null（X/YouTube 等部分源无规范文章 URL），前端按无链接降级。
+   */
+  async findEvidenceSources(
+    ids: string[],
+  ): Promise<
+    Map<string, { name: string; url: string | null; publishedAt: string }>
+  > {
+    const map = new Map<
+      string,
+      { name: string; url: string | null; publishedAt: string }
+    >();
+    if (ids.length === 0) return map;
+    const items = await this.prisma.radarItem.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        title: true,
+        url: true,
+        publishedAt: true,
+        source: { select: { label: true, identifier: true } },
+      },
+    });
+    for (const it of items) {
+      const name =
+        it.title?.trim() ||
+        it.source?.label?.trim() ||
+        it.source?.identifier ||
+        "(原文)";
+      map.set(it.id, {
+        name,
+        url: it.url,
+        publishedAt: it.publishedAt.toISOString().slice(0, 10),
+      });
+    }
+    return map;
+  }
+
+  /**
    * 跨日延续 boost 用（B3）：拉昨天的 entity 集合
    * 返回扁平化去重 entity 名（保留大小写，由 LLM 自行 normalize）
    */

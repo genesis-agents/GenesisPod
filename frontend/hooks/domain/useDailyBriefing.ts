@@ -12,6 +12,8 @@ export interface DailySignalView {
   signalTags: string[];
   entities: string[];
   evidenceItemIds: string[];
+  /** PR-DR2 收尾：原文来源（后端 join，多源全量），卡片用于追溯原始链接 */
+  evidenceSources?: { name: string; url?: string; publishedAt: string }[];
   narrativeId?: string;
 }
 

@@ -143,7 +143,7 @@ describe('RadarBriefingCard', () => {
     expect(screen.queryByText(/第 2 集/)).toBeNull();
   });
 
-  it('shows first evidence source and collapse toggle for rest', () => {
+  it('renders all evidence sources (multi-source, no collapse)', () => {
     const sources = [
       {
         name: 'Bloomberg',
@@ -158,32 +158,27 @@ describe('RadarBriefingCard', () => {
       { name: 'CNBC', publishedAt: '2026-05-17' },
     ];
     render(<RadarBriefingCard {...defaultProps} evidenceSources={sources} />);
+    // 多源全量直接可见，不再折叠
     expect(screen.getByText('Bloomberg')).toBeTruthy();
-    // Rest are collapsed behind the toggle
-    expect(screen.queryByText('Reuters')).toBeNull();
-    expect(screen.getByText(/展开另 2 条来源/)).toBeTruthy();
+    expect(screen.getByText('Reuters')).toBeTruthy();
+    expect(screen.getByText('CNBC')).toBeTruthy();
+    expect(screen.queryByText(/展开另/)).toBeNull();
   });
 
-  it('expands rest of evidence sources on toggle click', () => {
+  it('renders url-less source as plain text (no link)', () => {
     const sources = [
       {
         name: 'Bloomberg',
         url: 'https://bloomberg.com',
         publishedAt: '2026-05-17',
       },
-      {
-        name: 'Reuters',
-        url: 'https://reuters.com',
-        publishedAt: '2026-05-17',
-      },
+      { name: 'CNBC', publishedAt: '2026-05-17' },
     ];
     render(<RadarBriefingCard {...defaultProps} evidenceSources={sources} />);
-
-    const toggle = screen.getByRole('button', { name: /展开另/ });
-    fireEvent.click(toggle);
-
-    expect(screen.getByText('Reuters')).toBeTruthy();
-    expect(screen.getByText('收起')).toBeTruthy();
+    // 有 url → 渲染成可点击链接（追溯原文）
+    expect(screen.getByText('Bloomberg').closest('a')).toBeTruthy();
+    // 无 url → 降级为纯文本，不报错
+    expect(screen.getByText('CNBC').closest('a')).toBeNull();
   });
 
   it('does not render evidence section when evidenceSources is empty', () => {
