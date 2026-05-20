@@ -13,7 +13,7 @@
  *   and assert structural invariants — catching contract drift that passes TS
  *   but breaks at runtime.
  *
- * Fixtures: frontend/__tests__/__fixtures__/playground/{status}-{shortId}.json
+ * Fixtures: frontend/lib/agent-playground/__tests__/__fixtures__/{status}-{shortId}.json
  */
 
 import { describe, it, expect } from 'vitest';
@@ -28,7 +28,7 @@ import type { MissionTodo } from '@/lib/agent-playground/todo-ledger';
 // Fixture loading
 // ---------------------------------------------------------------------------
 
-const FIXTURES_DIR = path.join(__dirname, '../__fixtures__/playground');
+const FIXTURES_DIR = path.join(__dirname, '__fixtures__');
 
 interface FixtureFile {
   name: string;

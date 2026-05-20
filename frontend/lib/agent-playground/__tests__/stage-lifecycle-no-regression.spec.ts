@@ -22,7 +22,7 @@ import * as path from 'path';
 import { deriveView, mapStepIdToStageId } from '@/lib/agent-playground/derive';
 import type { PlaygroundEvent } from '@/hooks/useAgentPlaygroundStream';
 
-const FIXTURES = path.join(__dirname, '../__fixtures__/playground');
+const FIXTURES = path.join(__dirname, '__fixtures__');
 
 describe('stage:lifecycle 单轨化无回归', () => {
   it('mapStepIdToStageId 覆盖 13 个 backend stepId', () => {
