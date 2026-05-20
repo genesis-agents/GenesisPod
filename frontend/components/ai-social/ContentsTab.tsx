@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -687,10 +688,10 @@ export default function ContentsTab({
       ) : filteredContents.length > 0 ? (
         /* Content List */
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3">
+          <Table className="min-w-full divide-y divide-gray-200">
+            <THead className="bg-gray-50">
+              <Tr>
+                <Th className="px-6 py-3">
                   <input
                     type="checkbox"
                     checked={
@@ -702,28 +703,28 @@ export default function ContentsTab({
                     className="h-4 w-4 rounded border-gray-300 text-rose-600 focus:ring-rose-500 disabled:opacity-50"
                     aria-label={t('aiSocial.batch.selectAll')}
                   />
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                </Th>
+                <Th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   {t('aiSocial.contents.table.title')}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                </Th>
+                <Th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   {t('aiSocial.contents.table.type')}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                </Th>
+                <Th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   {t('aiSocial.contents.table.source')}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                </Th>
+                <Th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   {t('aiSocial.contents.table.status')}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                </Th>
+                <Th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   {t('aiSocial.contents.table.date')}
-                </th>
-                <th className="relative px-6 py-3">
+                </Th>
+                <Th className="relative px-6 py-3">
                   <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
+                </Th>
+              </Tr>
+            </THead>
+            <TBody className="divide-y divide-gray-200 bg-white">
               {filteredContents.map((content, index) => {
                 const isSelected = selectedIds.has(content.id);
                 return (
@@ -741,7 +742,7 @@ export default function ContentsTab({
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2, delay: index * 0.02 }}
                   >
-                    <td className="whitespace-nowrap px-6 py-4">
+                    <Td className="whitespace-nowrap px-6 py-4">
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -756,8 +757,8 @@ export default function ContentsTab({
                         className="h-4 w-4 rounded border-gray-300 text-rose-600 focus:ring-rose-500 disabled:opacity-50"
                         aria-label={`${t('aiSocial.batch.select')} ${content.title}`}
                       />
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
+                    </Td>
+                    <Td className="whitespace-nowrap px-6 py-4">
                       <div className="flex items-center gap-3">
                         <FileText className="h-5 w-5 text-gray-400" />
                         <button
@@ -776,24 +777,24 @@ export default function ContentsTab({
                           {content.title}
                         </button>
                       </div>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                    </Td>
+                    <Td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                       {t(
                         `aiSocial.contentTypes.${content.contentType.toLowerCase()}`
                       )}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                    </Td>
+                    <Td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                       {t(
                         `aiSocial.sources.${content.sourceType.toLowerCase()}`
                       )}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
+                    </Td>
+                    <Td className="whitespace-nowrap px-6 py-4">
                       {getStatusBadge(content.status, content.errorMessage)}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                    </Td>
+                    <Td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                       <ClientDate date={content.updatedAt} format="date" />
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
+                    </Td>
+                    <Td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
                         {(content.status === 'DRAFT' ||
                           content.status === 'FAILED') && (
@@ -865,12 +866,12 @@ export default function ContentsTab({
                           </button>
                         </Tooltip>
                       </div>
-                    </td>
+                    </Td>
                   </motion.tr>
                 );
               })}
-            </tbody>
-          </table>
+            </TBody>
+          </Table>
         </div>
       ) : (
         /* Empty State */

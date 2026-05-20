@@ -12,6 +12,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
 import {
   Plus,
@@ -209,11 +210,11 @@ function TaskRow({
     .join(' · ');
 
   return (
-    <tr
+    <Tr
       className="group cursor-pointer border-b border-gray-100 transition-colors hover:bg-rose-50/40"
       onClick={onClick}
     >
-      <td className="px-4 py-3.5">
+      <Td className="px-4 py-3.5">
         <div className={`line-clamp-1 ${titleStyle}`} title={title}>
           {title}
         </div>
@@ -234,8 +235,8 @@ function TaskRow({
             {task.errorMessage}
           </div>
         )}
-      </td>
-      <td className="px-4 py-3.5">
+      </Td>
+      <Td className="px-4 py-3.5">
         {firstSourceMeta ? (
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
@@ -262,12 +263,12 @@ function TaskRow({
         ) : (
           <span className="text-sm text-gray-400">—</span>
         )}
-      </td>
-      <td className="px-4 py-3.5 text-sm text-gray-700">{platformLabel}</td>
-      <td className="px-4 py-3.5">
+      </Td>
+      <Td className="px-4 py-3.5 text-sm text-gray-700">{platformLabel}</Td>
+      <Td className="px-4 py-3.5">
         <StatusPill status={task.status} />
-      </td>
-      <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
+      </Td>
+      <Td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1">
           {/* 状态相关的快捷操作 */}
           {task.status === 'DRAFT_READY' && (
@@ -316,8 +317,8 @@ function TaskRow({
           {/* 默认 hover 露出 → 进详情指示 */}
           <ChevronRight className="ml-1 h-4 w-4 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100" />
         </div>
-      </td>
-    </tr>
+      </Td>
+    </Tr>
   );
 }
 
@@ -425,30 +426,30 @@ export default function TasksTab() {
 
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <table className="w-full text-left">
-          <thead className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            <tr>
-              <th className="w-[40%] px-4 py-3">内容</th>
-              <th className="w-[20%] px-4 py-3">来源</th>
-              <th className="w-[15%] px-4 py-3">平台</th>
-              <th className="w-[12%] px-4 py-3">状态</th>
-              <th className="w-[13%] px-4 py-3 text-right">操作</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="w-full text-left">
+          <THead className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <Tr>
+              <Th className="w-[40%] px-4 py-3">内容</Th>
+              <Th className="w-[20%] px-4 py-3">来源</Th>
+              <Th className="w-[15%] px-4 py-3">平台</Th>
+              <Th className="w-[12%] px-4 py-3">状态</Th>
+              <Th className="w-[13%] px-4 py-3 text-right">操作</Th>
+            </Tr>
+          </THead>
+          <TBody>
             {isLoading && tasks.length === 0 && (
-              <tr>
-                <td
+              <Tr>
+                <Td
                   colSpan={5}
                   className="px-4 py-12 text-center text-gray-400"
                 >
                   <Loader2 className="mx-auto h-6 w-6 animate-spin" />
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             )}
             {!isLoading && tasks.length === 0 && (
-              <tr>
-                <td
+              <Tr>
+                <Td
                   colSpan={5}
                   className="px-4 py-12 text-center text-gray-400"
                 >
@@ -462,8 +463,8 @@ export default function TasksTab() {
                     <Plus className="h-3 w-3" />
                     {t('aiSocial.tasks.create')}
                   </button>
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             )}
             {tasks.map((task) => (
               <TaskRow
@@ -473,8 +474,8 @@ export default function TasksTab() {
                 onCancel={() => handleCancel(task)}
               />
             ))}
-          </tbody>
-        </table>
+          </TBody>
+        </Table>
       </div>
 
       <NewTaskDialog

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Table, Th, Td } from '@/components/ui/table';
 import { useParams, useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -215,20 +216,20 @@ export default function ReportPage() {
                   components={{
                     table: ({ node, ...props }) => (
                       <div className="overflow-x-auto">
-                        <table
+                        <Table
                           className="min-w-full divide-y divide-gray-300 border"
                           {...props}
                         />
                       </div>
                     ),
                     th: ({ node, ...props }) => (
-                      <th
+                      <Th
                         className="border bg-gray-50 px-4 py-2 text-left text-sm font-semibold"
                         {...props}
                       />
                     ),
                     td: ({ node, ...props }) => (
-                      <td className="border px-4 py-2 text-sm" {...props} />
+                      <Td className="border px-4 py-2 text-sm" {...props} />
                     ),
                   }}
                 >

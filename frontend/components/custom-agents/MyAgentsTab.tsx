@@ -8,6 +8,7 @@
  * 配色与 /me/ai 主框架统一。
  */
 import { useEffect, useState } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { Plus, Pencil, Trash2, Play, ChevronLeft } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { CustomAgentWizard } from './CustomAgentWizard';
@@ -129,34 +130,34 @@ export function MyAgentsTab() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-600">
-              <tr>
-                <th className="px-4 py-2 text-left">名称</th>
-                <th className="px-4 py-2 text-left">Slug</th>
-                <th className="px-4 py-2 text-left">状态</th>
-                <th className="px-4 py-2 text-left">版本</th>
-                <th className="px-4 py-2 text-left">更新时间</th>
-                <th className="px-4 py-2 text-right">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
+          <Table className="w-full text-sm">
+            <THead className="bg-gray-50 text-xs text-gray-600">
+              <Tr>
+                <Th className="px-4 py-2 text-left">名称</Th>
+                <Th className="px-4 py-2 text-left">Slug</Th>
+                <Th className="px-4 py-2 text-left">状态</Th>
+                <Th className="px-4 py-2 text-left">版本</Th>
+                <Th className="px-4 py-2 text-left">更新时间</Th>
+                <Th className="px-4 py-2 text-right">操作</Th>
+              </Tr>
+            </THead>
+            <TBody className="divide-y divide-gray-100">
               {items.map((it) => (
-                <tr key={it.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 font-medium text-gray-900">
+                <Tr key={it.id} className="hover:bg-gray-50">
+                  <Td className="px-4 py-2 font-medium text-gray-900">
                     {it.displayName}
                     {it.description && (
                       <p className="mt-0.5 line-clamp-1 text-xs text-gray-500">
                         {it.description}
                       </p>
                     )}
-                  </td>
-                  <td className="px-4 py-2 text-gray-700">
+                  </Td>
+                  <Td className="px-4 py-2 text-gray-700">
                     <code className="rounded bg-gray-100 px-1 py-0.5 text-xs">
                       {it.slug}
                     </code>
-                  </td>
-                  <td className="px-4 py-2">
+                  </Td>
+                  <Td className="px-4 py-2">
                     <span
                       className={`inline-flex rounded px-2 py-0.5 text-xs ${
                         it.status === 'PUBLISHED'
@@ -168,14 +169,14 @@ export function MyAgentsTab() {
                     >
                       {it.status}
                     </span>
-                  </td>
-                  <td className="px-4 py-2 text-xs text-gray-500">
+                  </Td>
+                  <Td className="px-4 py-2 text-xs text-gray-500">
                     v{it.version}
-                  </td>
-                  <td className="px-4 py-2 text-xs text-gray-500">
+                  </Td>
+                  <Td className="px-4 py-2 text-xs text-gray-500">
                     {new Date(it.updatedAt).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2 text-right">
+                  </Td>
+                  <Td className="px-4 py-2 text-right">
                     {it.status === 'PUBLISHED' && (
                       <a
                         href={`/custom-agents/${it.id}`}
@@ -199,11 +200,11 @@ export function MyAgentsTab() {
                     >
                       <Trash2 className="h-3 w-3" /> 删除
                     </button>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
+            </TBody>
+          </Table>
         </div>
       )}
     </div>

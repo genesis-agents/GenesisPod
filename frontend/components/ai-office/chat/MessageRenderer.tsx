@@ -6,6 +6,7 @@
  */
 
 import React, { useMemo } from 'react';
+import { Table, THead, Tr, Th, Td } from '@/components/ui/table';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -258,32 +259,32 @@ export default function MessageRenderer({
           // 表格 - 优雅样式
           table: ({ node, ...props }) => (
             <div className="my-4 overflow-x-auto">
-              <table
+              <Table
                 className="min-w-full border-collapse overflow-hidden rounded-lg bg-white shadow-sm"
                 {...props}
               />
             </div>
           ),
           thead: ({ node, ...props }) => (
-            <thead
+            <THead
               className="bg-gradient-to-r from-blue-500 to-blue-600 text-white"
               {...props}
             />
           ),
           th: ({ node, ...props }) => (
-            <th
+            <Th
               className="px-4 py-3 text-left text-sm font-semibold"
               {...props}
             />
           ),
           td: ({ node, ...props }) => (
-            <td
+            <Td
               className="border-t border-gray-200 px-4 py-3 text-sm text-gray-700"
               {...props}
             />
           ),
           tr: ({ node, ...props }) => (
-            <tr className="transition-colors hover:bg-blue-50" {...props} />
+            <Tr className="transition-colors hover:bg-blue-50" {...props} />
           ),
 
           // 链接 - 带下划线和悬停效果

@@ -17,6 +17,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
 import {
   AlertTriangle,
@@ -393,12 +394,12 @@ export function NotificationPreferencesView({
                 基础开关 OFF 时整类静音；矩阵勾选不会越过基础开关。
               </p>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
-                      <th className="px-2 py-2 font-medium">业务类型</th>
+                <Table className="w-full text-sm">
+                  <THead>
+                    <Tr className="border-b border-slate-200 text-left text-xs text-slate-500">
+                      <Th className="px-2 py-2 font-medium">业务类型</Th>
                       {CHANNELS.map((ch) => (
-                        <th
+                        <Th
                           key={ch.key}
                           className="w-32 px-2 py-2 text-center font-medium"
                         >
@@ -414,17 +415,17 @@ export function NotificationPreferencesView({
                               </span>
                             )}
                           </div>
-                        </th>
+                        </Th>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
+                    </Tr>
+                  </THead>
+                  <TBody>
                     {NOTIFICATION_TYPE_ROWS.map((row) => (
-                      <tr
+                      <Tr
                         key={row.type}
                         className="border-b border-slate-100 last:border-0"
                       >
-                        <td className="px-2 py-3">
+                        <Td className="px-2 py-3">
                           <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
                             {row.type === 'RADAR_TIER3_INSTANT' && (
                               <Star
@@ -437,14 +438,14 @@ export function NotificationPreferencesView({
                           <div className="text-xs text-slate-500">
                             {row.desc}
                           </div>
-                        </td>
+                        </Td>
                         {CHANNELS.map((ch) => {
                           const current = matrix[row.type]?.[ch.key] ?? null;
                           const renderValue: TriState = ch.available
                             ? current
                             : null;
                           return (
-                            <td key={ch.key} className="px-2 py-3">
+                            <Td key={ch.key} className="px-2 py-3">
                               <TriStateSegmented
                                 value={renderValue}
                                 disabled={!ch.available}
@@ -454,13 +455,13 @@ export function NotificationPreferencesView({
                                   setChannelFor(row.type, ch.key, v)
                                 }
                               />
-                            </td>
+                            </Td>
                           );
                         })}
-                      </tr>
+                      </Tr>
                     ))}
-                  </tbody>
-                </table>
+                  </TBody>
+                </Table>
               </div>
             </div>
 

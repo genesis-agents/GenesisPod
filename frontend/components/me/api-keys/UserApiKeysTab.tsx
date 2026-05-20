@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Edit,
   Heart,
@@ -213,40 +214,40 @@ export function UserApiKeysTab() {
 
       {/* 表格（结构和列宽与 admin SecretsManager 完全一致） */}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+        <Table className="w-full">
+          <THead className="bg-gray-50">
+            <Tr>
+              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Name
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              </Th>
+              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Category
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              </Th>
+              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Value
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              </Th>
+              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Status
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              </Th>
+              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Usage Count
-              </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              </Th>
+              <Th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                 Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
+              </Th>
+            </Tr>
+          </THead>
+          <TBody className="divide-y divide-gray-200">
             {filteredProviders.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+              <Tr>
+                <Td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                   {searchTerm ||
                   categoryFilter !== 'ALL' ||
                   statusFilter !== 'ALL'
                     ? '无匹配 Provider'
                     : '暂无 Provider'}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ) : (
               filteredProviders.map((provider) => (
                 <ProviderRow
@@ -261,8 +262,8 @@ export function UserApiKeysTab() {
                 />
               ))
             )}
-          </tbody>
-        </table>
+          </TBody>
+        </Table>
       </div>
 
       {/* 共享 drawer：Configure（空 keys 走 Add Key）+ Manage Keys 都进它 */}
@@ -315,8 +316,8 @@ function ProviderRow({
   const keyHint = existingKey?.keyHint ?? '—';
 
   return (
-    <tr className="hover:bg-gray-50">
-      <td className="px-4 py-4">
+    <Tr className="hover:bg-gray-50">
+      <Td className="px-4 py-4">
         <div className="flex items-center gap-3">
           <div
             className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${iconInfo.color}`}
@@ -338,8 +339,8 @@ function ProviderRow({
             </div>
           </div>
         </div>
-      </td>
-      <td className="px-4 py-4">
+      </Td>
+      <Td className="px-4 py-4">
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
             isBuiltin
@@ -354,13 +355,13 @@ function ProviderRow({
             {providerKeys.length} keys
           </span>
         )}
-      </td>
-      <td className="px-4 py-4">
+      </Td>
+      <Td className="px-4 py-4">
         <code className="font-mono rounded bg-gray-100 px-2 py-1 text-sm text-gray-700">
           {keyHint}
         </code>
-      </td>
-      <td className="px-4 py-4">
+      </Td>
+      <Td className="px-4 py-4">
         {existingKey ? (
           existingKey.mode === 'donated' ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-pink-100 px-2 py-1 text-xs font-medium text-pink-800">
@@ -378,9 +379,9 @@ function ProviderRow({
             {t('profile.apiKeys.statusNotConfigured')}
           </span>
         )}
-      </td>
-      <td className="px-4 py-4 text-sm text-gray-500">{totalUsage}</td>
-      <td className="px-4 py-4 text-right">
+      </Td>
+      <Td className="px-4 py-4 text-sm text-gray-500">{totalUsage}</Td>
+      <Td className="px-4 py-4 text-right">
         <div className="flex items-center justify-end gap-2">
           {existingKey ? (
             <>
@@ -423,8 +424,8 @@ function ProviderRow({
             </button>
           )}
         </div>
-      </td>
-    </tr>
+      </Td>
+    </Tr>
   );
 }
 

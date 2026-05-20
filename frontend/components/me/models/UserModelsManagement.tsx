@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Check,
   Clock,
@@ -382,49 +383,49 @@ export function UserModelsManagement() {
       {/* 表格 — MODEL / MODEL ID / TYPE / SOURCE / API KEY / STATUS / CAPABILITIES / ACTIONS
           SOURCE 列让用户能区分自配 vs 系统授权；SYSTEM 行编辑/启停/删除按钮 disable */}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+        <Table className="w-full">
+          <THead className="bg-gray-50">
+            <Tr>
+              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Model
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              </Th>
+              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Model ID
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              </Th>
+              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Type
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              </Th>
+              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Source
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              </Th>
+              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 API Key
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+              </Th>
+              <Th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
                 Status
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              </Th>
+              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Capabilities
-              </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              </Th>
+              <Th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                 Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
+              </Th>
+            </Tr>
+          </THead>
+          <TBody className="divide-y divide-gray-200">
             {loading && (
-              <tr>
-                <td
+              <Tr>
+                <Td
                   colSpan={8}
                   className="px-4 py-12 text-center text-sm text-gray-500"
                 >
                   加载中...
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr>
-                <td
+              <Tr>
+                <Td
                   colSpan={8}
                   className="px-4 py-12 text-center text-sm text-gray-500"
                 >
@@ -436,8 +437,8 @@ export function UserModelsManagement() {
                   ) : (
                     <>没有匹配的模型</>
                   )}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             )}
             {filtered.map((m) => {
               const isSystem = m.source === 'SYSTEM';
@@ -456,12 +457,12 @@ export function UserModelsManagement() {
                   ? (a.userQuotaCents / 100).toFixed(2)
                   : null;
               return (
-                <tr
+                <Tr
                   key={m.rowKey}
                   className={`hover:bg-gray-50 ${!m.isEnabled ? 'opacity-60' : ''}`}
                 >
                   {/* MODEL */}
-                  <td className="px-4 py-4">
+                  <Td className="px-4 py-4">
                     <div className="flex items-center gap-3">
                       <div
                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg font-semibold text-white shadow-sm ${
@@ -493,17 +494,17 @@ export function UserModelsManagement() {
                         </div>
                       </div>
                     </div>
-                  </td>
+                  </Td>
 
                   {/* MODEL ID */}
-                  <td className="px-4 py-4">
+                  <Td className="px-4 py-4">
                     <code className="font-mono rounded bg-gray-100 px-2 py-1 text-xs">
                       {m.modelId}
                     </code>
-                  </td>
+                  </Td>
 
                   {/* TYPE */}
-                  <td className="whitespace-nowrap px-4 py-4">
+                  <Td className="whitespace-nowrap px-4 py-4">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         TYPE_BADGE_CLASS[m.modelType] ??
@@ -517,10 +518,10 @@ export function UserModelsManagement() {
                         {m.apiFormat}
                       </div>
                     )}
-                  </td>
+                  </Td>
 
                   {/* SOURCE */}
-                  <td className="whitespace-nowrap px-4 py-4">
+                  <Td className="whitespace-nowrap px-4 py-4">
                     {isSystem ? (
                       <span
                         className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800"
@@ -547,10 +548,10 @@ export function UserModelsManagement() {
                             : null}
                       </div>
                     )}
-                  </td>
+                  </Td>
 
                   {/* API KEY */}
-                  <td className="px-4 py-4">
+                  <Td className="px-4 py-4">
                     {isSystem ? (
                       <>
                         <span className="text-sm font-medium text-emerald-600">
@@ -574,10 +575,10 @@ export function UserModelsManagement() {
                         </div>
                       </>
                     )}
-                  </td>
+                  </Td>
 
                   {/* STATUS toggle / state */}
-                  <td className="px-4 py-4 text-center">
+                  <Td className="px-4 py-4 text-center">
                     {isSystem ? (
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -612,10 +613,10 @@ export function UserModelsManagement() {
                         />
                       </button>
                     )}
-                  </td>
+                  </Td>
 
                   {/* CAPABILITIES */}
-                  <td className="px-4 py-4">
+                  <Td className="px-4 py-4">
                     <div className="flex flex-wrap gap-1">
                       {m.supportsTemperature && (
                         <span
@@ -660,10 +661,10 @@ export function UserModelsManagement() {
                         {m.maxTokens}tok
                       </div>
                     )}
-                  </td>
+                  </Td>
 
                   {/* ACTIONS */}
-                  <td className="px-4 py-4 text-right">
+                  <Td className="px-4 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       {isSystem ? (
                         <span
@@ -735,12 +736,12 @@ export function UserModelsManagement() {
                         </>
                       )}
                     </div>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               );
             })}
-          </tbody>
-        </table>
+          </TBody>
+        </Table>
       </div>
 
       {/* Add / Edit Modal — 字段完全对齐管理员 AIModelSettings */}
