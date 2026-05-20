@@ -9,6 +9,7 @@ import React from 'react';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { Youtube, FileText, Globe, Plus, X } from 'lucide-react';
 import type { Resource } from '@/lib/types/ai-office';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 const getResourceIcon = (type: string) => {
   switch (type) {
@@ -176,15 +177,11 @@ export default function ResourceList() {
       {/* 资源列表 */}
       <div className="flex-1 space-y-2 overflow-y-auto p-4">
         {resources.length === 0 ? (
-          <div className="py-8 text-center">
-            <div className="mb-4 text-gray-400">
-              <Plus className="mx-auto h-12 w-12" />
-            </div>
-            <p className="mb-2 text-sm text-gray-600">还没有添加资源</p>
-            <p className="text-xs text-gray-500">
-              在 Explore 页面点击"AI Reports"添加资源
-            </p>
-          </div>
+          <EmptyState
+            icon={<Plus className="h-12 w-12" />}
+            title="还没有添加资源"
+            description='在 Explore 页面点击"AI Reports"添加资源'
+          />
         ) : (
           resources.map((resource) => (
             <ResourceCard key={resource._id} resource={resource} />
