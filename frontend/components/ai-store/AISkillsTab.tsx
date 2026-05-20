@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useTranslation } from '@/lib/i18n';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   TrendingUp,
   RefreshCw,
@@ -578,39 +579,25 @@ export default function AISkillsTab() {
           </div>
 
           {filteredSkills.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <svg
-                className="h-16 w-16 text-gray-300"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <h3 className="mt-4 text-lg font-medium text-gray-700">
-                {t('aiSkills.empty.title')}
-              </h3>
-              <p className="mt-2 text-sm text-gray-500">
-                {t('aiSkills.empty.description')}
-              </p>
-              <button
-                onClick={() => void handleSync()}
-                disabled={isSyncing}
-                className="mt-4 flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
-              >
-                {isSyncing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                {isSyncing ? 'Syncing...' : 'Sync from SkillsMP'}
-              </button>
-            </div>
+            <EmptyState
+              type="search"
+              title={t('aiSkills.empty.title')}
+              description={t('aiSkills.empty.description')}
+              action={
+                <button
+                  onClick={() => void handleSync()}
+                  disabled={isSyncing}
+                  className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {isSyncing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  {isSyncing ? 'Syncing...' : 'Sync from SkillsMP'}
+                </button>
+              }
+            />
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredSkills.map((skill) => (

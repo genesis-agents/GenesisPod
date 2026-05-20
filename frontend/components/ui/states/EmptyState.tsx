@@ -1,23 +1,34 @@
 'use client';
 
+import { isValidElement } from 'react';
 import { Inbox, Search, FileX, Plus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { Button } from '../primitives/button';
 
 type EmptyType = 'default' | 'search' | 'noData' | 'error';
 
+type EmptyAction = { label: string; onClick: () => void };
+
 interface EmptyStateProps {
   type?: EmptyType;
   title?: string;
   description?: string;
   icon?: React.ReactNode;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
+  /** 简单按钮 {label,onClick}；或自定义节点（带 loading / 多按钮等富交互） */
+  action?: EmptyAction | React.ReactNode;
   /** md(默认)=满屏内容区空态；sm=紧凑面板/侧栏空态（无 min-h、小图标、小字号） */
   size?: 'sm' | 'md';
   className?: string;
+}
+
+function isActionConfig(a: EmptyStateProps['action']): a is EmptyAction {
+  return (
+    !!a &&
+    typeof a === 'object' &&
+    !isValidElement(a) &&
+    'label' in a &&
+    'onClick' in a
+  );
 }
 
 const defaultConfig: Record<
@@ -78,12 +89,15 @@ export function EmptyState({
           {description || config.description}
         </p>
       </div>
-      {action && (
-        <Button size={sm ? 'sm' : undefined} onClick={action.onClick}>
-          <Plus className="mr-2 h-4 w-4" />
-          {action.label}
-        </Button>
-      )}
+      {action &&
+        (isActionConfig(action) ? (
+          <Button size={sm ? 'sm' : undefined} onClick={action.onClick}>
+            <Plus className="mr-2 h-4 w-4" />
+            {action.label}
+          </Button>
+        ) : (
+          (action as React.ReactNode)
+        ))}
     </div>
   );
 }

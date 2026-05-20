@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   Sparkles,
   MessageSquare,
@@ -448,15 +449,11 @@ export default function AIToolsTab() {
         </div>
 
         {filteredTools.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Search className="mx-auto h-16 w-16 text-gray-300" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">
-              {t('aiStore.empty.title')}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {t('aiStore.empty.description')}
-            </p>
-          </div>
+          <EmptyState
+            type="search"
+            title={t('aiStore.empty.title')}
+            description={t('aiStore.empty.description')}
+          />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredTools.map((tool) => (
