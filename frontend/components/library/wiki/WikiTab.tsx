@@ -81,6 +81,7 @@ import {
   useWikiIngestPolling,
 } from './useWikiIngestPolling';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Modal } from '@/components/ui/dialogs/Modal';
 
 // Extend the default sanitizer to allow our internal `wikilink:` scheme on
 // anchor href attributes � without this, rehype-sanitize strips the href and
@@ -1481,83 +1482,13 @@ function CreateWikiPageModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="flex max-h-[90vh] w-[640px] flex-col rounded-lg bg-white shadow-xl">
-        <header className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h3 className="text-base font-semibold text-gray-900">
-            {t('library.wiki.create.title')}
-          </h3>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-            aria-label={t('library.wiki.query.close')}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </header>
-        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-          <Field label={t('library.wiki.create.slugLabel')}>
-            <input
-              type="text"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value.toLowerCase())}
-              placeholder="my-page-slug"
-              className="font-mono w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
-            />
-          </Field>
-          <Field label={t('library.wiki.create.titleLabel')}>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={500}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
-            />
-          </Field>
-          <Field label={t('library.wiki.create.categoryLabel')}>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as WikiPageCategory)}
-              className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
-            >
-              <option value="ENTITY">
-                {t('library.wiki.create.category.entity')}
-              </option>
-              <option value="CONCEPT">
-                {t('library.wiki.create.category.concept')}
-              </option>
-              <option value="SUMMARY">
-                {t('library.wiki.create.category.summary')}
-              </option>
-              <option value="SOURCE">
-                {t('library.wiki.create.category.source')}
-              </option>
-            </select>
-          </Field>
-          <Field label={t('library.wiki.create.oneLinerLabel')}>
-            <input
-              type="text"
-              value={oneLiner}
-              onChange={(e) => setOneLiner(e.target.value)}
-              maxLength={280}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
-            />
-          </Field>
-          <Field label={t('library.wiki.create.bodyLabel')}>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={12}
-              className="font-mono w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
-            />
-          </Field>
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-        </div>
-        <footer className="flex items-center justify-end gap-3 border-t border-gray-100 px-5 py-4">
+    <Modal
+      open
+      onClose={onClose}
+      title={t('library.wiki.create.title')}
+      size="lg"
+      footer={
+        <>
           <button
             onClick={onClose}
             disabled={submitting}
@@ -1573,9 +1504,72 @@ function CreateWikiPageModal({
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             {t('library.wiki.create.create')}
           </button>
-        </footer>
+        </>
+      }
+    >
+      <div className="space-y-4 px-5 py-4">
+        <Field label={t('library.wiki.create.slugLabel')}>
+          <input
+            type="text"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value.toLowerCase())}
+            placeholder="my-page-slug"
+            className="font-mono w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+          />
+        </Field>
+        <Field label={t('library.wiki.create.titleLabel')}>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={500}
+            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+          />
+        </Field>
+        <Field label={t('library.wiki.create.categoryLabel')}>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as WikiPageCategory)}
+            className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+          >
+            <option value="ENTITY">
+              {t('library.wiki.create.category.entity')}
+            </option>
+            <option value="CONCEPT">
+              {t('library.wiki.create.category.concept')}
+            </option>
+            <option value="SUMMARY">
+              {t('library.wiki.create.category.summary')}
+            </option>
+            <option value="SOURCE">
+              {t('library.wiki.create.category.source')}
+            </option>
+          </select>
+        </Field>
+        <Field label={t('library.wiki.create.oneLinerLabel')}>
+          <input
+            type="text"
+            value={oneLiner}
+            onChange={(e) => setOneLiner(e.target.value)}
+            maxLength={280}
+            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+          />
+        </Field>
+        <Field label={t('library.wiki.create.bodyLabel')}>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={12}
+            className="font-mono w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+          />
+        </Field>
+        {error && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -1644,78 +1638,23 @@ function WikiDiffReviewModal({
   const conflicted = diff?.status === 'CONFLICTED';
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6">
-      <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {t('library.wiki.diff.title')}
-            </h2>
-            {diff && (
-              <p className="text-xs text-gray-500">
-                {t('library.wiki.diff.totalItems', {
-                  // P3 BLOCKER C2 (2026-05-12): renamed affectedSlugs →
-                  // affectedKeys; entries are `slug:locale` composites.
-                  count: diff.affectedKeys.length,
-                  status: diff.status,
-                })}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </header>
-        {conflicted && (
-          <div className="border-b border-red-200 bg-red-50 px-6 py-3 text-sm text-red-800">
-            {t('library.wiki.diff.baselineMismatch')}
-          </div>
-        )}
-        <main className="flex-1 overflow-y-auto px-6 py-4">
-          {loading || !diff ? (
-            <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
-          ) : (
-            <div className="space-y-4">
-              {diff.items.creates.map((c) => (
-                <DiffItemCard
-                  key={`c-${c.slug}`}
-                  kind="CREATE"
-                  slug={c.slug}
-                  selected={selected.has(c.slug)}
-                  onToggle={() => toggle(selected, setSelected, c.slug)}
-                  preview={c.body.slice(0, 600)}
-                  meta={`${c.category} � ${c.title}`}
-                />
-              ))}
-              {diff.items.updates.map((u) => (
-                <DiffItemCard
-                  key={`u-${u.slug}`}
-                  kind="UPDATE"
-                  slug={u.slug}
-                  selected={selected.has(u.slug)}
-                  onToggle={() => toggle(selected, setSelected, u.slug)}
-                  preview={u.newBody.slice(0, 600)}
-                  meta={u.newOneLiner ?? ''}
-                />
-              ))}
-              {diff.items.deletes.map((s) => (
-                <DiffItemCard
-                  key={`d-${s}`}
-                  kind="DELETE"
-                  slug={s}
-                  selected={selected.has(s)}
-                  onToggle={() => toggle(selected, setSelected, s)}
-                  preview={t('library.wiki.diff.deletedPreview')}
-                  meta=""
-                />
-              ))}
-            </div>
-          )}
-        </main>
-        <footer className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-3">
+    <Modal
+      open
+      onClose={onClose}
+      title={t('library.wiki.diff.title')}
+      subtitle={
+        diff
+          ? t('library.wiki.diff.totalItems', {
+              // P3 BLOCKER C2 (2026-05-12): renamed affectedSlugs →
+              // affectedKeys; entries are `slug:locale` composites.
+              count: diff.affectedKeys.length,
+              status: diff.status,
+            })
+          : undefined
+      }
+      size="2xl"
+      footer={
+        <>
           <button
             disabled={applying}
             onClick={async () => {
@@ -1759,9 +1698,56 @@ function WikiDiffReviewModal({
               ? t('library.wiki.diff.applyWithCount', { count: selected.size })
               : t('library.wiki.diff.apply')}
           </button>
-        </footer>
+        </>
+      }
+    >
+      <div className="px-6 py-4">
+        {conflicted && (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {t('library.wiki.diff.baselineMismatch')}
+          </div>
+        )}
+        {loading || !diff ? (
+          <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+        ) : (
+          <div className="space-y-4">
+            {diff.items.creates.map((c) => (
+              <DiffItemCard
+                key={`c-${c.slug}`}
+                kind="CREATE"
+                slug={c.slug}
+                selected={selected.has(c.slug)}
+                onToggle={() => toggle(selected, setSelected, c.slug)}
+                preview={c.body.slice(0, 600)}
+                meta={`${c.category} � ${c.title}`}
+              />
+            ))}
+            {diff.items.updates.map((u) => (
+              <DiffItemCard
+                key={`u-${u.slug}`}
+                kind="UPDATE"
+                slug={u.slug}
+                selected={selected.has(u.slug)}
+                onToggle={() => toggle(selected, setSelected, u.slug)}
+                preview={u.newBody.slice(0, 600)}
+                meta={u.newOneLiner ?? ''}
+              />
+            ))}
+            {diff.items.deletes.map((s) => (
+              <DiffItemCard
+                key={`d-${s}`}
+                kind="DELETE"
+                slug={s}
+                selected={selected.has(s)}
+                onToggle={() => toggle(selected, setSelected, s)}
+                preview={t('library.wiki.diff.deletedPreview')}
+                meta=""
+              />
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -2431,77 +2417,67 @@ function WikiEnableToggleModal({
   const eligible = kbs.filter((kb) => !kb.wikiEnabled);
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6">
-      <div className="flex h-[70vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {t('library.wiki.enable.title')}
-            </h2>
-            <p className="mt-0.5 text-xs text-gray-500">
-              {t('library.wiki.enable.subtitle')}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </header>
-        <main className="flex-1 overflow-y-auto px-6 py-4">
-          {loading ? (
-            <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
-          ) : error ? (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-              {error}
-            </div>
-          ) : eligible.length === 0 ? (
-            <EmptyState
-              title={
-                kbs.length === 0
-                  ? t('library.wiki.enable.noKbsForUser')
-                  : t('library.wiki.enable.allEnabled')
-              }
-              size="sm"
-            />
-          ) : (
-            <ul className="space-y-2">
-              {eligible.map((kb) => (
-                <li
-                  key={kb.id}
-                  className="flex items-center justify-between rounded border border-gray-200 px-4 py-3 hover:border-violet-300"
-                >
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {kb.name}
-                    </div>
-                    <div className="mt-0.5 text-xs text-gray-500">
-                      {kb.type === 'TEAM'
-                        ? t('library.wiki.enable.kbTypeTeam')
-                        : t('library.wiki.enable.kbTypePersonal')}
-                    </div>
-                  </div>
-                  <button
-                    disabled={busyKbId === kb.id}
-                    onClick={() => enable(kb.id)}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
-                  >
-                    {busyKbId === kb.id && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
-                    {t('library.wiki.enable.enableButton')}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </main>
-        <footer className="border-t border-gray-200 px-6 py-3 text-xs text-gray-500">
+    <Modal
+      open
+      onClose={onClose}
+      title={t('library.wiki.enable.title')}
+      subtitle={t('library.wiki.enable.subtitle')}
+      size="lg"
+      footer={
+        <span className="text-xs text-gray-500">
           {t('library.wiki.enable.footnote')}
-        </footer>
+        </span>
+      }
+    >
+      <div className="px-6 py-4">
+        {loading ? (
+          <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+        ) : error ? (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {error}
+          </div>
+        ) : eligible.length === 0 ? (
+          <EmptyState
+            title={
+              kbs.length === 0
+                ? t('library.wiki.enable.noKbsForUser')
+                : t('library.wiki.enable.allEnabled')
+            }
+            size="sm"
+          />
+        ) : (
+          <ul className="space-y-2">
+            {eligible.map((kb) => (
+              <li
+                key={kb.id}
+                className="flex items-center justify-between rounded border border-gray-200 px-4 py-3 hover:border-violet-300"
+              >
+                <div>
+                  <div className="text-sm font-medium text-gray-900">
+                    {kb.name}
+                  </div>
+                  <div className="mt-0.5 text-xs text-gray-500">
+                    {kb.type === 'TEAM'
+                      ? t('library.wiki.enable.kbTypeTeam')
+                      : t('library.wiki.enable.kbTypePersonal')}
+                  </div>
+                </div>
+                <button
+                  disabled={busyKbId === kb.id}
+                  onClick={() => enable(kb.id)}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {busyKbId === kb.id && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                  {t('library.wiki.enable.enableButton')}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -2547,12 +2523,35 @@ function WikiDisableConfirmDialog({
   // the box calls DELETE /destroy which clears all wiki tables for this KB.
   const [alsoDestroy, setAlsoDestroy] = useState(false);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-900">
-          {t('library.wiki.grid.disable.title')}
-        </h3>
-        <p className="mt-2 text-sm text-gray-600">
+    <Modal
+      open
+      onClose={onCancel}
+      title={t('library.wiki.grid.disable.title')}
+      size="sm"
+      footer={
+        <>
+          <button
+            disabled={busy}
+            onClick={onCancel}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {t('library.wiki.grid.disable.cancel')}
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => onConfirm(alsoDestroy)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+            {alsoDestroy
+              ? t('library.wiki.grid.disable.confirmDestroy')
+              : t('library.wiki.grid.disable.confirm')}
+          </button>
+        </>
+      }
+    >
+      <div className="px-6 py-4">
+        <p className="text-sm text-gray-600">
           {t('library.wiki.grid.disable.message', { kbName })}
         </p>
         <label className="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm">
@@ -2572,26 +2571,7 @@ function WikiDisableConfirmDialog({
             </div>
           </div>
         </label>
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            disabled={busy}
-            onClick={onCancel}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {t('library.wiki.grid.disable.cancel')}
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => onConfirm(alsoDestroy)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            {alsoDestroy
-              ? t('library.wiki.grid.disable.confirmDestroy')
-              : t('library.wiki.grid.disable.confirm')}
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

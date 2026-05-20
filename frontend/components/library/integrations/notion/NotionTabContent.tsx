@@ -44,6 +44,7 @@ import { NotionPageRow } from './NotionPageRow';
 import { AiOrganizeButton } from '@/components/common/ai-organizer/AiOrganizeButton';
 import { AiOrganizePanel } from '@/components/common/ai-organizer/AiOrganizePanel';
 import type { FileInfo } from '@/services/ai-organizer/api';
+import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 
 export default function NotionTabContent() {
   const router = useRouter();
@@ -1089,24 +1090,19 @@ export default function NotionTabContent() {
       )}
 
       {/* AI Organize Panel (Slide-in) */}
-      {showAiOrganize && (
-        <div className="fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/30"
-            onClick={() => setShowAiOrganize(false)}
-          />
-          {/* Panel */}
-          <div className="animate-slide-in-right relative ml-auto h-full w-full max-w-md">
-            <AiOrganizePanel
-              files={getSelectedPagesForAi()}
-              onClose={() => setShowAiOrganize(false)}
-              onApplied={handleAiOrganizeApplied}
-              title="AI Page Organization"
-            />
-          </div>
-        </div>
-      )}
+      <SideDrawer
+        open={showAiOrganize}
+        onClose={() => setShowAiOrganize(false)}
+        title="AI Page Organization"
+        widthPx={448}
+      >
+        <AiOrganizePanel
+          files={getSelectedPagesForAi()}
+          onClose={() => setShowAiOrganize(false)}
+          onApplied={handleAiOrganizeApplied}
+          title="AI Page Organization"
+        />
+      </SideDrawer>
     </div>
   );
 }

@@ -26,6 +26,7 @@ import {
 } from '@/services/ai-writing/api';
 import { formatDateSafe } from '@/lib/utils/date';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Modal } from '@/components/ui/dialogs/Modal';
 
 interface ChapterImportModalProps {
   projectId: string;
@@ -255,133 +256,174 @@ export default function ChapterImportModal({
     return formatDateSafe(dateStr, 'datetime');
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
-        {/* 头部 */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">📥</span>
-            <div>
-              <h2 className="text-lg font-bold text-gray-800">导入章节</h2>
-              <p className="text-sm text-gray-500">
-                {step === 'input' && '粘贴或上传内容以导入章节'}
-                {step === 'preview' && '预览解析结果并选择要导入的章节'}
-                {step === 'importing' && '正在导入中...'}
-                {step === 'complete' && '导入完成'}
-                {step === 'history' && '导入历史记录'}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {step === 'input' && (
-              <button
-                onClick={loadHistory}
-                className="rounded px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-              >
-                📋 历史记录
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="rounded p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
+  const subtitle =
+    step === 'input'
+      ? '粘贴或上传内容以导入章节'
+      : step === 'preview'
+        ? '预览解析结果并选择要导入的章节'
+        : step === 'importing'
+          ? '正在导入中...'
+          : step === 'complete'
+            ? '导入完成'
+            : '导入历史记录';
 
-        {/* 错误提示 */}
-        {error && (
-          <div className="bg-red-50 px-6 py-3 text-sm text-red-600">
-            {error}
-            <button onClick={() => setError(null)} className="ml-2 underline">
-              关闭
-            </button>
-          </div>
+  const footerButtons = (
+    <div className="flex w-full items-center justify-between">
+      <button
+        onClick={() => {
+          if (step === 'preview') {
+            setStep('input');
+          } else if (step === 'history') {
+            setStep('input');
+          } else {
+            onClose();
+          }
+        }}
+        className="rounded px-4 py-2 text-gray-600 hover:bg-gray-100"
+      >
+        {step === 'preview' || step === 'history' ? '← 返回' : '取消'}
+      </button>
+
+      <div className="flex gap-2">
+        {step === 'input' && (
+          <button
+            onClick={handleParse}
+            disabled={loading || !content.trim()}
+            className="rounded bg-violet-600 px-4 py-2 text-white hover:bg-violet-700 disabled:opacity-50"
+          >
+            {loading ? '解析中...' : '解析内容'}
+          </button>
         )}
 
-        {/* 内容区 */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* 步骤1: 输入 */}
+        {step === 'preview' && (
+          <button
+            onClick={handleConfirmImport}
+            disabled={
+              loading || selectedChapters.length === 0 || !targetVolumeId
+            }
+            className="rounded bg-violet-600 px-4 py-2 text-white hover:bg-violet-700 disabled:opacity-50"
+          >
+            {loading ? '导入中...' : `导入 ${selectedChapters.length} 个章节`}
+          </button>
+        )}
+
+        {step === 'complete' && (
+          <button
+            onClick={() => {
+              onSuccess?.();
+              onClose();
+            }}
+            className="rounded bg-violet-600 px-4 py-2 text-white hover:bg-violet-700"
+          >
+            完成
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <Modal
+      open={true}
+      onClose={onClose}
+      title={
+        <span className="flex items-center gap-2">
+          <span>📥</span>
+          <span>导入章节</span>
           {step === 'input' && (
-            <div className="space-y-6">
-              {/* 来源选择 */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  导入来源
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(IMPORT_SOURCES)
-                    .filter(([key]) =>
-                      ['PASTE', 'FILE_TXT', 'FILE_MD'].includes(key)
-                    )
-                    .map(([key, config]) => (
-                      <button
-                        key={key}
-                        onClick={() => setSource(key as ImportSource)}
-                        className={`rounded-lg border px-3 py-2 text-sm ${
-                          source === key
-                            ? 'border-violet-400 bg-violet-50 text-violet-700'
-                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                        }`}
-                      >
-                        {config.icon} {config.label}
-                      </button>
-                    ))}
-                </div>
-              </div>
+            <button
+              onClick={loadHistory}
+              className="ml-2 rounded px-2 py-1 text-sm font-normal text-gray-600 hover:bg-gray-100"
+            >
+              📋 历史记录
+            </button>
+          )}
+        </span>
+      }
+      subtitle={subtitle}
+      size="2xl"
+      footer={footerButtons}
+      footerClassName="px-6 py-4"
+    >
+      {/* 错误提示 */}
+      {error && (
+        <div className="mb-4 rounded bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+          <button onClick={() => setError(null)} className="ml-2 underline">
+            关闭
+          </button>
+        </div>
+      )}
 
-              {/* 章节分割模式 */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  章节分割模式
-                </label>
-                <select
-                  value={chapterPattern}
-                  onChange={(e) =>
-                    setChapterPattern(e.target.value as ChapterPatternType)
-                  }
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none"
-                >
-                  {Object.entries(PATTERN_OPTIONS).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
+      {/* 内容区 */}
+      <div className="space-y-4">
+        {/* 步骤1: 输入 */}
+        {step === 'input' && (
+          <div className="space-y-6">
+            {/* 来源选择 */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                导入来源
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(IMPORT_SOURCES)
+                  .filter(([key]) =>
+                    ['PASTE', 'FILE_TXT', 'FILE_MD'].includes(key)
+                  )
+                  .map(([key, config]) => (
+                    <button
+                      key={key}
+                      onClick={() => setSource(key as ImportSource)}
+                      className={`rounded-lg border px-3 py-2 text-sm ${
+                        source === key
+                          ? 'border-violet-400 bg-violet-50 text-violet-700'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      {config.icon} {config.label}
+                    </button>
                   ))}
-                </select>
-                {chapterPattern === 'custom' && (
-                  <input
-                    type="text"
-                    value={customPattern}
-                    onChange={(e) => setCustomPattern(e.target.value)}
-                    placeholder="输入正则表达式..."
-                    className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                  />
-                )}
               </div>
+            </div>
 
-              {/* 内容输入 */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  内容 <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="粘贴要导入的小说内容...
+            {/* 章节分割模式 */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                章节分割模式
+              </label>
+              <select
+                value={chapterPattern}
+                onChange={(e) =>
+                  setChapterPattern(e.target.value as ChapterPatternType)
+                }
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none"
+              >
+                {Object.entries(PATTERN_OPTIONS).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              {chapterPattern === 'custom' && (
+                <input
+                  type="text"
+                  value={customPattern}
+                  onChange={(e) => setCustomPattern(e.target.value)}
+                  placeholder="输入正则表达式..."
+                  className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                />
+              )}
+            </div>
+
+            {/* 内容输入 */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                内容 <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="粘贴要导入的小说内容...
 
 支持的格式:
 第一章 开端
@@ -389,331 +431,274 @@ export default function ChapterImportModal({
 
 第二章 发展
 内容..."
-                  className="h-64 w-full rounded-lg border border-gray-200 p-4 text-sm focus:border-violet-400 focus:outline-none"
-                />
-                <p className="mt-1 text-xs text-gray-400">
-                  已输入 {content.length.toLocaleString()} 字符
-                </p>
-              </div>
+                className="h-64 w-full rounded-lg border border-gray-200 p-4 text-sm focus:border-violet-400 focus:outline-none"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                已输入 {content.length.toLocaleString()} 字符
+              </p>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* 步骤2: 预览 */}
-          {step === 'preview' && preview && (
-            <div className="space-y-6">
-              {/* 统计 */}
-              <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
-                <div className="flex gap-6">
-                  <div>
-                    <p className="text-2xl font-bold text-violet-600">
-                      {preview.totalChapters}
-                    </p>
-                    <p className="text-sm text-gray-500">章节</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-violet-600">
-                      {preview.totalWords.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-500">总字数</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-green-600">
-                      {selectedChapters.length}
-                    </p>
-                    <p className="text-sm text-gray-500">已选择</p>
-                  </div>
-                </div>
-                <button
-                  onClick={toggleSelectAll}
-                  className="rounded px-3 py-1.5 text-sm text-violet-600 hover:bg-violet-50"
-                >
-                  {selectedChapters.length === preview.chapters.length
-                    ? '取消全选'
-                    : '全选'}
-                </button>
-              </div>
-
-              {/* 章节列表 */}
-              <div className="max-h-64 space-y-2 overflow-y-auto">
-                {preview.chapters.map((chapter) => (
-                  <label
-                    key={chapter.index}
-                    className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-                      selectedChapters.includes(chapter.index)
-                        ? 'border-violet-300 bg-violet-50'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedChapters.includes(chapter.index)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedChapters([
-                            ...selectedChapters,
-                            chapter.index,
-                          ]);
-                        } else {
-                          setSelectedChapters(
-                            selectedChapters.filter((i) => i !== chapter.index)
-                          );
-                        }
-                      }}
-                      className="mt-1 h-4 w-4 rounded border-gray-300 text-violet-600"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-800">
-                          {chapter.title}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {chapter.wordCount.toLocaleString()} 字
-                        </span>
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-                        {chapter.preview}
-                      </p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-
-              {/* 导入配置 */}
-              <div className="grid grid-cols-2 gap-4 rounded-lg border border-gray-200 p-4">
+        {/* 步骤2: 预览 */}
+        {step === 'preview' && preview && (
+          <div className="space-y-6">
+            {/* 统计 */}
+            <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
+              <div className="flex gap-6">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    目标卷
-                  </label>
-                  <select
-                    value={targetVolumeId}
-                    onChange={(e) => setTargetVolumeId(e.target.value)}
-                    className="w-full rounded border border-gray-200 px-3 py-2 text-sm"
-                    disabled={isCreatingVolume}
-                  >
-                    {isCreatingVolume ? (
-                      <option value="">创建默认卷中...</option>
-                    ) : localVolumes.length === 0 ? (
-                      <option value="">暂无可用卷</option>
-                    ) : (
-                      localVolumes.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          第{v.volumeNumber}卷 {v.title}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    起始章节号
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={startChapterNumber}
-                    onChange={(e) =>
-                      setStartChapterNumber(parseInt(e.target.value) || 1)
-                    }
-                    className="w-full rounded border border-gray-200 px-3 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    冲突处理
-                  </label>
-                  <select
-                    value={conflictStrategy}
-                    onChange={(e) =>
-                      setConflictStrategy(e.target.value as ConflictStrategy)
-                    }
-                    className="w-full rounded border border-gray-200 px-3 py-2 text-sm"
-                  >
-                    <option value="skip">跳过已存在</option>
-                    <option value="overwrite">覆盖已存在</option>
-                    <option value="append">追加内容</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col justify-center gap-2">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={runConsistencyCheck}
-                      onChange={(e) => setRunConsistencyCheck(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-violet-600"
-                    />
-                    导入后检查一致性
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={extractToBible}
-                      onChange={(e) => setExtractToBible(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-violet-600"
-                    />
-                    自动提取设定到圣经
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 步骤3: 导入中 */}
-          {step === 'importing' && importStatus && (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="mb-4 h-16 w-16 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
-              <p className="text-lg font-medium text-gray-800">正在导入...</p>
-              {importStatus.progress && (
-                <div className="mt-4 w-full max-w-md">
-                  <div className="flex justify-between text-sm text-gray-500">
-                    <span>
-                      {importStatus.progress.current} /{' '}
-                      {importStatus.progress.total}
-                    </span>
-                    <span>{importStatus.progress.currentChapter}</span>
-                  </div>
-                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200">
-                    <div
-                      className="h-full bg-violet-500 transition-all"
-                      style={{
-                        width: `${(importStatus.progress.current / importStatus.progress.total) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 步骤4: 完成 */}
-          {step === 'complete' && importStatus && (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                <span className="text-3xl">✓</span>
-              </div>
-              <p className="text-lg font-medium text-gray-800">导入完成</p>
-              {importStatus.result && (
-                <div className="mt-4 text-center text-sm text-gray-500">
-                  <p>
-                    成功导入 {importStatus.result.importedChapterIds.length}{' '}
-                    个章节
+                  <p className="text-2xl font-bold text-violet-600">
+                    {preview.totalChapters}
                   </p>
-                  {importStatus.result.skippedCount > 0 && (
-                    <p>跳过 {importStatus.result.skippedCount} 个章节</p>
-                  )}
-                  {importStatus.result.errors.length > 0 && (
-                    <p className="text-red-500">
-                      失败 {importStatus.result.errors.length} 个章节
-                    </p>
-                  )}
+                  <p className="text-sm text-gray-500">章节</p>
                 </div>
-              )}
+                <div>
+                  <p className="text-2xl font-bold text-violet-600">
+                    {preview.totalWords.toLocaleString()}
+                  </p>
+                  <p className="text-sm text-gray-500">总字数</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-green-600">
+                    {selectedChapters.length}
+                  </p>
+                  <p className="text-sm text-gray-500">已选择</p>
+                </div>
+              </div>
+              <button
+                onClick={toggleSelectAll}
+                className="rounded px-3 py-1.5 text-sm text-violet-600 hover:bg-violet-50"
+              >
+                {selectedChapters.length === preview.chapters.length
+                  ? '取消全选'
+                  : '全选'}
+              </button>
             </div>
-          )}
 
-          {/* 历史记录 */}
-          {step === 'history' && (
-            <div className="space-y-3">
-              {history.length === 0 ? (
-                <EmptyState size="sm" title="暂无导入历史" />
-              ) : (
-                history.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-lg border border-gray-200 bg-white p-4"
-                  >
+            {/* 章节列表 */}
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {preview.chapters.map((chapter) => (
+                <label
+                  key={chapter.index}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+                    selectedChapters.includes(chapter.index)
+                      ? 'border-violet-300 bg-violet-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedChapters.includes(chapter.index)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedChapters([
+                          ...selectedChapters,
+                          chapter.index,
+                        ]);
+                      } else {
+                        setSelectedChapters(
+                          selectedChapters.filter((i) => i !== chapter.index)
+                        );
+                      }
+                    }}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-violet-600"
+                  />
+                  <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span>{IMPORT_SOURCES[item.source].icon}</span>
-                        <span className="font-medium text-gray-800">
-                          {item.fileName || IMPORT_SOURCES[item.source].label}
-                        </span>
-                        <span
-                          className={`rounded px-2 py-0.5 text-xs ${
-                            item.status === 'COMPLETED'
-                              ? 'bg-green-100 text-green-700'
-                              : item.status === 'FAILED'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                          }`}
-                        >
-                          {item.status}
-                        </span>
-                      </div>
+                      <span className="font-medium text-gray-800">
+                        {chapter.title}
+                      </span>
                       <span className="text-xs text-gray-400">
-                        {formatTime(item.createdAt)}
+                        {chapter.wordCount.toLocaleString()} 字
                       </span>
                     </div>
-                    <div className="mt-2 flex gap-4 text-sm text-gray-500">
-                      <span>{item.totalChapters} 章节</span>
-                      <span>{item.totalWords.toLocaleString()} 字</span>
-                      <span>导入 {item.importedChapterIds.length} 章</span>
-                    </div>
+                    <p className="mt-1 line-clamp-2 text-sm text-gray-500">
+                      {chapter.preview}
+                    </p>
                   </div>
-                ))
-              )}
+                </label>
+              ))}
             </div>
-          )}
-        </div>
 
-        {/* 底部按钮 */}
-        <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
-          <button
-            onClick={() => {
-              if (step === 'preview') {
-                setStep('input');
-              } else if (step === 'history') {
-                setStep('input');
-              } else {
-                onClose();
-              }
-            }}
-            className="rounded px-4 py-2 text-gray-600 hover:bg-gray-100"
-          >
-            {step === 'preview' || step === 'history' ? '← 返回' : '取消'}
-          </button>
+            {/* 导入配置 */}
+            <div className="grid grid-cols-2 gap-4 rounded-lg border border-gray-200 p-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  目标卷
+                </label>
+                <select
+                  value={targetVolumeId}
+                  onChange={(e) => setTargetVolumeId(e.target.value)}
+                  className="w-full rounded border border-gray-200 px-3 py-2 text-sm"
+                  disabled={isCreatingVolume}
+                >
+                  {isCreatingVolume ? (
+                    <option value="">创建默认卷中...</option>
+                  ) : localVolumes.length === 0 ? (
+                    <option value="">暂无可用卷</option>
+                  ) : (
+                    localVolumes.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        第{v.volumeNumber}卷 {v.title}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
 
-          <div className="flex gap-2">
-            {step === 'input' && (
-              <button
-                onClick={handleParse}
-                disabled={loading || !content.trim()}
-                className="rounded bg-violet-600 px-4 py-2 text-white hover:bg-violet-700 disabled:opacity-50"
-              >
-                {loading ? '解析中...' : '解析内容'}
-              </button>
-            )}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  起始章节号
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={startChapterNumber}
+                  onChange={(e) =>
+                    setStartChapterNumber(parseInt(e.target.value) || 1)
+                  }
+                  className="w-full rounded border border-gray-200 px-3 py-2 text-sm"
+                />
+              </div>
 
-            {step === 'preview' && (
-              <button
-                onClick={handleConfirmImport}
-                disabled={
-                  loading || selectedChapters.length === 0 || !targetVolumeId
-                }
-                className="rounded bg-violet-600 px-4 py-2 text-white hover:bg-violet-700 disabled:opacity-50"
-              >
-                {loading
-                  ? '导入中...'
-                  : `导入 ${selectedChapters.length} 个章节`}
-              </button>
-            )}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  冲突处理
+                </label>
+                <select
+                  value={conflictStrategy}
+                  onChange={(e) =>
+                    setConflictStrategy(e.target.value as ConflictStrategy)
+                  }
+                  className="w-full rounded border border-gray-200 px-3 py-2 text-sm"
+                >
+                  <option value="skip">跳过已存在</option>
+                  <option value="overwrite">覆盖已存在</option>
+                  <option value="append">追加内容</option>
+                </select>
+              </div>
 
-            {step === 'complete' && (
-              <button
-                onClick={() => {
-                  onSuccess?.();
-                  onClose();
-                }}
-                className="rounded bg-violet-600 px-4 py-2 text-white hover:bg-violet-700"
-              >
-                完成
-              </button>
+              <div className="flex flex-col justify-center gap-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={runConsistencyCheck}
+                    onChange={(e) => setRunConsistencyCheck(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-violet-600"
+                  />
+                  导入后检查一致性
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={extractToBible}
+                    onChange={(e) => setExtractToBible(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-violet-600"
+                  />
+                  自动提取设定到圣经
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 步骤3: 导入中 */}
+        {step === 'importing' && importStatus && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="mb-4 h-16 w-16 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
+            <p className="text-lg font-medium text-gray-800">正在导入...</p>
+            {importStatus.progress && (
+              <div className="mt-4 w-full max-w-md">
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>
+                    {importStatus.progress.current} /{' '}
+                    {importStatus.progress.total}
+                  </span>
+                  <span>{importStatus.progress.currentChapter}</span>
+                </div>
+                <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200">
+                  <div
+                    className="h-full bg-violet-500 transition-all"
+                    style={{
+                      width: `${(importStatus.progress.current / importStatus.progress.total) * 100}%`,
+                    }}
+                  />
+                </div>
+              </div>
             )}
           </div>
-        </div>
+        )}
+
+        {/* 步骤4: 完成 */}
+        {step === 'complete' && importStatus && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+              <span className="text-3xl">✓</span>
+            </div>
+            <p className="text-lg font-medium text-gray-800">导入完成</p>
+            {importStatus.result && (
+              <div className="mt-4 text-center text-sm text-gray-500">
+                <p>
+                  成功导入 {importStatus.result.importedChapterIds.length}{' '}
+                  个章节
+                </p>
+                {importStatus.result.skippedCount > 0 && (
+                  <p>跳过 {importStatus.result.skippedCount} 个章节</p>
+                )}
+                {importStatus.result.errors.length > 0 && (
+                  <p className="text-red-500">
+                    失败 {importStatus.result.errors.length} 个章节
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 历史记录 */}
+        {step === 'history' && (
+          <div className="space-y-3">
+            {history.length === 0 ? (
+              <EmptyState size="sm" title="暂无导入历史" />
+            ) : (
+              history.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-gray-200 bg-white p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span>{IMPORT_SOURCES[item.source].icon}</span>
+                      <span className="font-medium text-gray-800">
+                        {item.fileName || IMPORT_SOURCES[item.source].label}
+                      </span>
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs ${
+                          item.status === 'COMPLETED'
+                            ? 'bg-green-100 text-green-700'
+                            : item.status === 'FAILED'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {formatTime(item.createdAt)}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex gap-4 text-sm text-gray-500">
+                    <span>{item.totalChapters} 章节</span>
+                    <span>{item.totalWords.toLocaleString()} 字</span>
+                    <span>导入 {item.importedChapterIds.length} 章</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

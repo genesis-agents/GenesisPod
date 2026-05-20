@@ -17,6 +17,7 @@ import DocumentListDialog from '../dialogs/DocumentListDialog';
 import AddDocumentsDialog from '../resources/AddDocumentsDialog';
 import KnowledgeBaseDetailDialog from './KnowledgeBaseDetailDialog';
 import SignInPrompt, { isAuthError } from '@/components/common/SignInPrompt';
+import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 import KnowledgeBaseCard from './KnowledgeBaseCard';
 import CreateKnowledgeBaseCard from './CreateKnowledgeBaseCard';
 import SectionTitle from '../_design/SectionTitle';
@@ -209,32 +210,18 @@ export default function TeamKnowledgeBaseTab({
         />
       )}
 
-      {deletingKbId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">确认删除</h3>
-            <p className="mt-2 text-gray-600">
-              确定要删除这个团队知识库吗？此操作不可撤销，所有相关的文档、向量数据和成员权限都将被删除。
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setDeletingKbId(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                取消
-              </button>
-              <button
-                onClick={() => {
-                  void handleDelete(deletingKbId);
-                }}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-              >
-                删除
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={!!deletingKbId}
+        onClose={() => setDeletingKbId(null)}
+        onConfirm={() => {
+          if (deletingKbId) void handleDelete(deletingKbId);
+        }}
+        title="确认删除"
+        description="确定要删除这个团队知识库吗？此操作不可撤销，所有相关的文档、向量数据和成员权限都将被删除。"
+        type="danger"
+        confirmText="删除"
+        cancelText="取消"
+      />
 
       {managingMembersKbId && (
         <MemberManagementDialog

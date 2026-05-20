@@ -7,6 +7,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
 import { toast } from '@/stores';
+import { Modal } from '@/components/ui/dialogs/Modal';
 interface CompanyCardProps {
   index: number;
   company: ScenarioFormCompany;
@@ -273,33 +274,37 @@ export function CompanyCard({
       </div>
 
       {/* AI确认对话框 */}
-      {showConfirmDialog && aiSuggestion && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white">
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">
-                  AI生成的指标建议
-                </h3>
-                <p className="text-sm text-gray-500">{company.name}</p>
-              </div>
-            </div>
-
+      <Modal
+        open={showConfirmDialog && !!aiSuggestion}
+        onClose={() => {
+          setShowConfirmDialog(false);
+          setAiSuggestion(null);
+        }}
+        title="AI生成的指标建议"
+        subtitle={company.name}
+        size="md"
+        footer={
+          <>
+            <button
+              onClick={() => {
+                setShowConfirmDialog(false);
+                setAiSuggestion(null);
+              }}
+              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              取消
+            </button>
+            <button
+              onClick={applyAiSuggestion}
+              className="flex-1 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:from-purple-600 hover:to-indigo-700"
+            >
+              应用建议
+            </button>
+          </>
+        }
+      >
+        {aiSuggestion && (
+          <>
             {/* 数据来源标识 */}
             {aiSuggestion.dataSource && (
               <div className="mb-3 flex items-center gap-2">
@@ -312,7 +317,7 @@ export function CompanyCard({
                         : 'bg-gray-100 text-gray-700'
                   }`}
                 >
-                  📊 {aiSuggestion.dataSource}
+                  {aiSuggestion.dataSource}
                 </span>
               </div>
             )}
@@ -324,92 +329,71 @@ export function CompanyCard({
             </div>
 
             {/* 指标预览 */}
-            <div className="mb-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">现金储备</span>
-                  <p className="font-semibold text-gray-900">
-                    ${aiSuggestion.metrics.cash?.toLocaleString()}万
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">市场份额</span>
-                  <p className="font-semibold text-gray-900">
-                    {aiSuggestion.metrics.share}%
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">毛利率</span>
-                  <p className="font-semibold text-gray-900">
-                    {aiSuggestion.metrics.margin}%
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">负债</span>
-                  <p className="font-semibold text-gray-900">
-                    ${aiSuggestion.metrics.debt?.toLocaleString()}万
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">产能</span>
-                  <p className="font-semibold text-gray-900">
-                    {aiSuggestion.metrics.capacity?.toLocaleString()}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">库存</span>
-                  <p className="font-semibold text-gray-900">
-                    {aiSuggestion.metrics.inventory?.toLocaleString()}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">价格定位</span>
-                  <p className="font-semibold text-gray-900">
-                    {aiSuggestion.metrics.priceBand}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">交付周期</span>
-                  <p className="font-semibold text-gray-900">
-                    {aiSuggestion.metrics.delivery}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">专利数量</span>
-                  <p className="font-semibold text-gray-900">
-                    {aiSuggestion.metrics.patents?.toLocaleString()}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">渠道</span>
-                  <p className="font-semibold text-gray-900">
-                    {aiSuggestion.metrics.channels}
-                  </p>
-                </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-lg bg-gray-50 p-2">
+                <span className="text-gray-500">现金储备</span>
+                <p className="font-semibold text-gray-900">
+                  ${aiSuggestion.metrics.cash?.toLocaleString()}万
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-2">
+                <span className="text-gray-500">市场份额</span>
+                <p className="font-semibold text-gray-900">
+                  {aiSuggestion.metrics.share}%
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-2">
+                <span className="text-gray-500">毛利率</span>
+                <p className="font-semibold text-gray-900">
+                  {aiSuggestion.metrics.margin}%
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-2">
+                <span className="text-gray-500">负债</span>
+                <p className="font-semibold text-gray-900">
+                  ${aiSuggestion.metrics.debt?.toLocaleString()}万
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-2">
+                <span className="text-gray-500">产能</span>
+                <p className="font-semibold text-gray-900">
+                  {aiSuggestion.metrics.capacity?.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-2">
+                <span className="text-gray-500">库存</span>
+                <p className="font-semibold text-gray-900">
+                  {aiSuggestion.metrics.inventory?.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-2">
+                <span className="text-gray-500">价格定位</span>
+                <p className="font-semibold text-gray-900">
+                  {aiSuggestion.metrics.priceBand}
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-2">
+                <span className="text-gray-500">交付周期</span>
+                <p className="font-semibold text-gray-900">
+                  {aiSuggestion.metrics.delivery}
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-2">
+                <span className="text-gray-500">专利数量</span>
+                <p className="font-semibold text-gray-900">
+                  {aiSuggestion.metrics.patents?.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-2">
+                <span className="text-gray-500">渠道</span>
+                <p className="font-semibold text-gray-900">
+                  {aiSuggestion.metrics.channels}
+                </p>
               </div>
             </div>
-
-            {/* 操作按钮 */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowConfirmDialog(false);
-                  setAiSuggestion(null);
-                }}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-              >
-                取消
-              </button>
-              <button
-                onClick={applyAiSuggestion}
-                className="flex-1 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:from-purple-600 hover:to-indigo-700"
-              >
-                应用建议
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
       {/* Expanded - 量化指标详情 */}
       {expanded && (

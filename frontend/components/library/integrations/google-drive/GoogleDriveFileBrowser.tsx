@@ -24,6 +24,7 @@ import { ViewToggle, type ViewMode } from '@/components/common/ViewToggle';
 import { AiOrganizeButton } from '@/components/common/ai-organizer/AiOrganizeButton';
 import { AiOrganizePanel } from '@/components/common/ai-organizer/AiOrganizePanel';
 import type { FileInfo } from '@/services/ai-organizer/api';
+import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 
 interface GoogleDriveFileBrowserProps {
   connectionId: string;
@@ -543,24 +544,19 @@ export function GoogleDriveFileBrowser({
       )}
 
       {/* AI Organize Panel (Slide-in) */}
-      {showAiOrganize && (
-        <div className="fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/30"
-            onClick={() => setShowAiOrganize(false)}
-          />
-          {/* Panel */}
-          <div className="animate-slide-in-right relative ml-auto h-full w-full max-w-md">
-            <AiOrganizePanel
-              files={getSelectedFilesForAi()}
-              onClose={() => setShowAiOrganize(false)}
-              onApplied={handleAiOrganizeApplied}
-              title="AI File Organization"
-            />
-          </div>
-        </div>
-      )}
+      <SideDrawer
+        open={showAiOrganize}
+        onClose={() => setShowAiOrganize(false)}
+        title="AI File Organization"
+        widthPx={448}
+      >
+        <AiOrganizePanel
+          files={getSelectedFilesForAi()}
+          onClose={() => setShowAiOrganize(false)}
+          onApplied={handleAiOrganizeApplied}
+          title="AI File Organization"
+        />
+      </SideDrawer>
     </div>
   );
 }

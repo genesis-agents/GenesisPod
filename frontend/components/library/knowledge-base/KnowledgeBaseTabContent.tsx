@@ -18,6 +18,7 @@ import {
 import GoogleDriveFolderPicker from '../import-panels/GoogleDriveFolderPicker';
 import SignInPrompt, { isAuthError } from '@/components/common/SignInPrompt';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Modal } from '@/components/ui/dialogs/Modal';
 
 /**
  * Library 页面的知识库 TAB 内容
@@ -265,10 +266,33 @@ function CreateKnowledgeBaseDialog({
     (sourceType !== 'GOOGLE_DRIVE' || selectedFolderIds.length > 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">创建知识库</h2>
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+    <Modal
+      open
+      onClose={onClose}
+      title="创建知识库"
+      size="md"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            type="submit"
+            form="create-kb-form"
+            disabled={!canSubmit}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {creating ? '创建中...' : '创建'}
+          </button>
+        </>
+      }
+    >
+      <div className="px-6 py-4">
+        <form id="create-kb-form" onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">
               名称
@@ -337,25 +361,8 @@ function CreateKnowledgeBaseDialog({
               )}
             </div>
           )}
-
-          <div className="flex justify-end gap-2 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {creating ? '创建中...' : '创建'}
-            </button>
-          </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }
