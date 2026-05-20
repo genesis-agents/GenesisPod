@@ -10,6 +10,12 @@ export * from './editors';
 // 同步相关组件
 export * from './sync';
 
+// 跨 feature 上提的业务组件（Wave A / A4）
+export * from './resource-lists';
+export * from './ai-organizer';
+export * from './tables';
+export * from './report-workspace';
+
 // 选择器组件
 export * from './selectors';
 
