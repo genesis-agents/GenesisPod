@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Activity,
   RefreshCw,
@@ -791,42 +792,42 @@ export default function MonitoringPageContent({
             </h3>
             <div className="rounded-lg bg-white shadow">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                    <tr>
-                      <th className="px-4 py-3">Error Code</th>
-                      <th className="px-4 py-3">Count</th>
-                      <th className="px-4 py-3">Severity</th>
-                      <th className="px-4 py-3">Component</th>
-                      <th className="px-4 py-3">Latest Message</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
+                <Table className="w-full text-left text-sm">
+                  <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                    <Tr>
+                      <Th className="px-4 py-3">Error Code</Th>
+                      <Th className="px-4 py-3">Count</Th>
+                      <Th className="px-4 py-3">Severity</Th>
+                      <Th className="px-4 py-3">Component</Th>
+                      <Th className="px-4 py-3">Latest Message</Th>
+                    </Tr>
+                  </THead>
+                  <TBody className="divide-y">
                     {dashboard.errors.topErrors.map((err, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="font-mono px-4 py-3 text-sm text-gray-900">
+                      <Tr key={i} className="hover:bg-gray-50">
+                        <Td className="font-mono px-4 py-3 text-sm text-gray-900">
                           {err.errorCode}
-                        </td>
-                        <td className="px-4 py-3 font-bold text-red-600">
+                        </Td>
+                        <Td className="px-4 py-3 font-bold text-red-600">
                           {err.count}
-                        </td>
-                        <td className="px-4 py-3">
+                        </Td>
+                        <Td className="px-4 py-3">
                           <span
                             className={`rounded px-2 py-1 text-xs font-medium ${getSeverityColor(err.severity)}`}
                           >
                             {err.severity}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">
+                        </Td>
+                        <Td className="px-4 py-3 text-gray-600">
                           {err.component || '-'}
-                        </td>
-                        <td className="max-w-xs truncate px-4 py-3 text-gray-500">
+                        </Td>
+                        <Td className="max-w-xs truncate px-4 py-3 text-gray-500">
                           {err.latestMessage}
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     ))}
-                  </tbody>
-                </table>
+                  </TBody>
+                </Table>
               </div>
             </div>
           </div>
@@ -963,38 +964,38 @@ export default function MonitoringPageContent({
             </h3>
             <div className="rounded-lg bg-white shadow">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                    <tr>
-                      <th className="px-4 py-3">Model</th>
-                      <th className="px-4 py-3">Total Calls</th>
-                      <th className="px-4 py-3">Success</th>
-                      <th className="px-4 py-3">Tokens</th>
-                      <th className="px-4 py-3">Est. Cost</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
+                <Table className="w-full text-left text-sm">
+                  <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                    <Tr>
+                      <Th className="px-4 py-3">Model</Th>
+                      <Th className="px-4 py-3">Total Calls</Th>
+                      <Th className="px-4 py-3">Success</Th>
+                      <Th className="px-4 py-3">Tokens</Th>
+                      <Th className="px-4 py-3">Est. Cost</Th>
+                    </Tr>
+                  </THead>
+                  <TBody className="divide-y">
                     {dashboard.aiMetrics.modelUsage.map((model, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="font-mono px-4 py-3 text-sm text-gray-900">
+                      <Tr key={i} className="hover:bg-gray-50">
+                        <Td className="font-mono px-4 py-3 text-sm text-gray-900">
                           {model.modelId}
-                        </td>
-                        <td className="px-4 py-3 text-blue-600">
+                        </Td>
+                        <Td className="px-4 py-3 text-blue-600">
                           {formatNumber(model.totalCalls)}
-                        </td>
-                        <td className="px-4 py-3 text-green-600">
+                        </Td>
+                        <Td className="px-4 py-3 text-green-600">
                           {formatNumber(model.successfulCalls)}
-                        </td>
-                        <td className="px-4 py-3 text-purple-600">
+                        </Td>
+                        <Td className="px-4 py-3 text-purple-600">
                           {formatNumber(model.totalTokens)}
-                        </td>
-                        <td className="px-4 py-3 text-amber-600">
+                        </Td>
+                        <Td className="px-4 py-3 text-amber-600">
                           {formatCost(model.estimatedCost)}
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     ))}
-                  </tbody>
-                </table>
+                  </TBody>
+                </Table>
               </div>
             </div>
           </div>

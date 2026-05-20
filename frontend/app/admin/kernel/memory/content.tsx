@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Database,
   Search,
@@ -144,14 +145,14 @@ function MemoryEntryRow({ entry }: MemoryEntryRowProps) {
 
   return (
     <>
-      <tr
+      <Tr
         className={
           isLong ? 'cursor-pointer hover:bg-gray-50' : 'hover:bg-gray-50'
         }
         onClick={() => isLong && setExpanded((prev) => !prev)}
       >
         {/* Expand toggle */}
-        <td className="w-8 px-4 py-3">
+        <Td className="w-8 px-4 py-3">
           {isLong ? (
             expanded ? (
               <ChevronDown className="h-4 w-4 text-gray-400" />
@@ -161,37 +162,37 @@ function MemoryEntryRow({ entry }: MemoryEntryRowProps) {
           ) : (
             <span className="inline-block h-4 w-4" />
           )}
-        </td>
+        </Td>
         {/* Process ID */}
-        <td className="px-4 py-3">
+        <Td className="px-4 py-3">
           <span className="font-mono text-xs text-gray-700">
             {entry.processId}
           </span>
-        </td>
+        </Td>
         {/* Layer */}
-        <td className="px-4 py-3">
+        <Td className="px-4 py-3">
           <LayerBadge layer={entry.layer} />
-        </td>
+        </Td>
         {/* Key */}
-        <td className="px-4 py-3">
+        <Td className="px-4 py-3">
           <span className="font-mono text-xs font-medium text-gray-800">
             {entry.key}
           </span>
-        </td>
+        </Td>
         {/* Value */}
-        <td className="max-w-xs px-4 py-3">
+        <Td className="max-w-xs px-4 py-3">
           <span className="font-mono text-xs text-gray-600">
             {expanded ? fullValue : truncateValue(entry.value)}
           </span>
-        </td>
+        </Td>
         {/* Expires At */}
-        <td className="px-4 py-3 text-xs text-gray-500">
+        <Td className="px-4 py-3 text-xs text-gray-500">
           {formatExpiresAt(entry.expiresAt)}
-        </td>
-      </tr>
+        </Td>
+      </Tr>
       {expanded && isLong && (
-        <tr>
-          <td colSpan={6} className="border-t bg-gray-50 px-4 py-3">
+        <Tr>
+          <Td colSpan={6} className="border-t bg-gray-50 px-4 py-3">
             <pre className="font-mono whitespace-pre-wrap break-all text-xs text-gray-700">
               {(() => {
                 try {
@@ -201,8 +202,8 @@ function MemoryEntryRow({ entry }: MemoryEntryRowProps) {
                 }
               })()}
             </pre>
-          </td>
-        </tr>
+          </Td>
+        </Tr>
       )}
     </>
   );
@@ -381,46 +382,46 @@ export default function KernelMemoryPageContent({
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                <tr>
-                  <th className="px-4 py-2.5">State</th>
-                  <th className="px-4 py-2.5">Process ID</th>
-                  <th className="px-4 py-2.5">Agent</th>
-                  <th className="px-4 py-2.5">Created</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+            <Table className="w-full text-left text-sm">
+              <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                <Tr>
+                  <Th className="px-4 py-2.5">State</Th>
+                  <Th className="px-4 py-2.5">Process ID</Th>
+                  <Th className="px-4 py-2.5">Agent</Th>
+                  <Th className="px-4 py-2.5">Created</Th>
+                </Tr>
+              </THead>
+              <TBody className="divide-y">
                 {processes.map((p) => (
-                  <tr
+                  <Tr
                     key={p.id}
                     onClick={() => handleProcessRowClick(p)}
                     className={`cursor-pointer transition-colors ${
                       processId === p.id ? 'bg-violet-50' : 'hover:bg-gray-50'
                     }`}
                   >
-                    <td className="px-4 py-2.5">
+                    <Td className="px-4 py-2.5">
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${STATE_BADGE_CLASSES[p.state]}`}
                       >
                         {p.state}
                       </span>
-                    </td>
-                    <td className="px-4 py-2.5">
+                    </Td>
+                    <Td className="px-4 py-2.5">
                       <span className="font-mono text-xs text-gray-700">
                         {p.id}
                       </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-gray-600">
+                    </Td>
+                    <Td className="px-4 py-2.5 text-xs text-gray-600">
                       {p.agentId || '-'}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-gray-500">
+                    </Td>
+                    <Td className="px-4 py-2.5 text-xs text-gray-500">
                       {new Date(p.createdAt).toLocaleString()}
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         </div>
       )}
@@ -553,26 +554,26 @@ export default function KernelMemoryPageContent({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                <tr>
-                  <th className="w-8 px-4 py-3" />
-                  <th className="px-4 py-3">Process ID</th>
-                  <th className="px-4 py-3">Layer</th>
-                  <th className="px-4 py-3">Key</th>
-                  <th className="px-4 py-3">Value</th>
-                  <th className="px-4 py-3">Expires At</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+            <Table className="w-full text-left text-sm">
+              <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                <Tr>
+                  <Th className="w-8 px-4 py-3" />
+                  <Th className="px-4 py-3">Process ID</Th>
+                  <Th className="px-4 py-3">Layer</Th>
+                  <Th className="px-4 py-3">Key</Th>
+                  <Th className="px-4 py-3">Value</Th>
+                  <Th className="px-4 py-3">Expires At</Th>
+                </Tr>
+              </THead>
+              <TBody className="divide-y">
                 {entries.map((entry, idx) => (
                   <MemoryEntryRow
                     key={`${entry.processId}-${entry.layer}-${entry.key}-${idx}`}
                     entry={entry}
                   />
                 ))}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         )}
       </div>
@@ -654,41 +655,41 @@ export default function KernelMemoryPageContent({
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-                  <table className="w-full text-left text-xs">
-                    <thead className="border-b bg-gray-50 text-[10px] uppercase text-gray-500">
-                      <tr>
-                        <th className="px-3 py-2">Layer</th>
-                        <th className="px-3 py-2">Key</th>
-                        <th className="px-3 py-2">Value</th>
-                        <th className="px-3 py-2">Expires</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
+                  <Table className="w-full text-left text-xs">
+                    <THead className="border-b bg-gray-50 text-[10px] uppercase text-gray-500">
+                      <Tr>
+                        <Th className="px-3 py-2">Layer</Th>
+                        <Th className="px-3 py-2">Key</Th>
+                        <Th className="px-3 py-2">Value</Th>
+                        <Th className="px-3 py-2">Expires</Th>
+                      </Tr>
+                    </THead>
+                    <TBody className="divide-y">
                       {entries.map((e, idx) => (
-                        <tr
+                        <Tr
                           key={`${e.processId}-${e.layer}-${e.key}-${idx}`}
                           className="hover:bg-gray-50"
                         >
-                          <td className="px-3 py-2">
+                          <Td className="px-3 py-2">
                             <LayerBadge layer={e.layer} />
-                          </td>
-                          <td className="px-3 py-2">
+                          </Td>
+                          <Td className="px-3 py-2">
                             <span className="font-mono text-[11px] text-gray-700">
                               {e.key}
                             </span>
-                          </td>
-                          <td className="max-w-[220px] px-3 py-2">
+                          </Td>
+                          <Td className="max-w-[220px] px-3 py-2">
                             <span className="font-mono block truncate text-[11px] text-gray-500">
                               {truncateValue(e.value, 80)}
                             </span>
-                          </td>
-                          <td className="px-3 py-2 text-[10px] text-gray-400">
+                          </Td>
+                          <Td className="px-3 py-2 text-[10px] text-gray-400">
                             {formatExpiresAt(e.expiresAt)}
-                          </td>
-                        </tr>
+                          </Td>
+                        </Tr>
                       ))}
-                    </tbody>
-                  </table>
+                    </TBody>
+                  </Table>
                 </div>
               )}
             </div>

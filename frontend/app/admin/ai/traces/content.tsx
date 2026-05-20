@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { Activity, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -120,42 +121,42 @@ function TraceRow({ trace, apiUrl }: { trace: TraceSummary; apiUrl: string }) {
 
   return (
     <>
-      <tr className="cursor-pointer hover:bg-gray-50" onClick={handleExpand}>
-        <td className="px-4 py-3">
+      <Tr className="cursor-pointer hover:bg-gray-50" onClick={handleExpand}>
+        <Td className="px-4 py-3">
           {expanded ? (
             <ChevronDown className="h-4 w-4 text-gray-400" />
           ) : (
             <ChevronRight className="h-4 w-4 text-gray-400" />
           )}
-        </td>
-        <td className="px-4 py-3">
+        </Td>
+        <Td className="px-4 py-3">
           <span className="text-sm font-medium text-gray-900">
             {trace.name}
           </span>
-        </td>
-        <td className="px-4 py-3">
+        </Td>
+        <Td className="px-4 py-3">
           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
             {trace.type}
           </span>
-        </td>
-        <td className="px-4 py-3">
+        </Td>
+        <Td className="px-4 py-3">
           <span
             className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[trace.status] ?? 'bg-gray-100 text-gray-800'}`}
           >
             {trace.status}
           </span>
-        </td>
-        <td className="px-4 py-3 text-sm text-gray-500">
+        </Td>
+        <Td className="px-4 py-3 text-sm text-gray-500">
           <ClientDate date={trace.startTime} format="datetime" />
-        </td>
-        <td className="px-4 py-3 text-sm text-gray-500">
+        </Td>
+        <Td className="px-4 py-3 text-sm text-gray-500">
           {formatDuration(trace.duration)}
-        </td>
-        <td className="px-4 py-3 text-sm text-gray-500">{trace.spanCount}</td>
-      </tr>
+        </Td>
+        <Td className="px-4 py-3 text-sm text-gray-500">{trace.spanCount}</Td>
+      </Tr>
       {expanded && (
-        <tr>
-          <td colSpan={7} className="bg-gray-50 px-4 py-3">
+        <Tr>
+          <Td colSpan={7} className="bg-gray-50 px-4 py-3">
             {loading ? (
               <div className="text-sm text-gray-500">Loading spans...</div>
             ) : !detail ? (
@@ -175,36 +176,36 @@ function TraceRow({ trace, apiUrl }: { trace: TraceSummary; apiUrl: string }) {
                   <div className="text-sm text-gray-500">No spans recorded</div>
                 ) : (
                   <div className="overflow-x-auto rounded border bg-white">
-                    <table className="w-full text-left text-xs">
-                      <thead className="border-b bg-gray-100">
-                        <tr>
-                          <th className="px-3 py-2 font-medium">Span</th>
-                          <th className="px-3 py-2 font-medium">Type</th>
-                          <th className="px-3 py-2 font-medium">Status</th>
-                          <th className="px-3 py-2 font-medium">Duration</th>
-                          <th className="px-3 py-2 font-medium">Output</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
+                    <Table className="w-full text-left text-xs">
+                      <THead className="border-b bg-gray-100">
+                        <Tr>
+                          <Th className="px-3 py-2 font-medium">Span</Th>
+                          <Th className="px-3 py-2 font-medium">Type</Th>
+                          <Th className="px-3 py-2 font-medium">Status</Th>
+                          <Th className="px-3 py-2 font-medium">Duration</Th>
+                          <Th className="px-3 py-2 font-medium">Output</Th>
+                        </Tr>
+                      </THead>
+                      <TBody className="divide-y">
                         {detail.spans.map((span) => (
-                          <tr key={span.id} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 font-medium text-gray-800">
+                          <Tr key={span.id} className="hover:bg-gray-50">
+                            <Td className="px-3 py-2 font-medium text-gray-800">
                               {span.name}
-                            </td>
-                            <td className="px-3 py-2 text-gray-500">
+                            </Td>
+                            <Td className="px-3 py-2 text-gray-500">
                               {span.type}
-                            </td>
-                            <td className="px-3 py-2">
+                            </Td>
+                            <Td className="px-3 py-2">
                               <span
                                 className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${STATUS_COLORS[span.status] ?? 'bg-gray-100 text-gray-800'}`}
                               >
                                 {span.status}
                               </span>
-                            </td>
-                            <td className="px-3 py-2 text-gray-500">
+                            </Td>
+                            <Td className="px-3 py-2 text-gray-500">
                               {formatDuration(span.duration)}
-                            </td>
-                            <td className="max-w-xs truncate px-3 py-2 text-gray-500">
+                            </Td>
+                            <Td className="max-w-xs truncate px-3 py-2 text-gray-500">
                               {span.error ? (
                                 <span className="text-red-600">
                                   {span.error}
@@ -214,17 +215,17 @@ function TraceRow({ trace, apiUrl }: { trace: TraceSummary; apiUrl: string }) {
                               ) : (
                                 '-'
                               )}
-                            </td>
-                          </tr>
+                            </Td>
+                          </Tr>
                         ))}
-                      </tbody>
-                    </table>
+                      </TBody>
+                    </Table>
                   </div>
                 )}
               </div>
             )}
-          </td>
-        </tr>
+          </Td>
+        </Tr>
       )}
     </>
   );
@@ -342,24 +343,24 @@ export default function TracesPageContent({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                <tr>
-                  <th className="w-8 px-4 py-3" />
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Started</th>
-                  <th className="px-4 py-3">Duration</th>
-                  <th className="px-4 py-3">Spans</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+            <Table className="w-full text-left text-sm">
+              <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                <Tr>
+                  <Th className="w-8 px-4 py-3" />
+                  <Th className="px-4 py-3">Name</Th>
+                  <Th className="px-4 py-3">Type</Th>
+                  <Th className="px-4 py-3">Status</Th>
+                  <Th className="px-4 py-3">Started</Th>
+                  <Th className="px-4 py-3">Duration</Th>
+                  <Th className="px-4 py-3">Spans</Th>
+                </Tr>
+              </THead>
+              <TBody className="divide-y">
                 {traces.map((trace) => (
                   <TraceRow key={trace.id} trace={trace} apiUrl={apiUrl} />
                 ))}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         )}
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { config } from '@/lib/utils/config';
 import { useThumbnailGenerator } from '@/hooks';
 
@@ -210,31 +211,31 @@ export default function ThumbnailsAdminPage() {
 
               {/* Resources List */}
               <div className="overflow-hidden rounded-lg border border-gray-200">
-                <table className="w-full">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+                <Table className="w-full">
+                  <THead className="bg-gray-100">
+                    <Tr>
+                      <Th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
                         Select
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+                      </Th>
+                      <Th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
                         Title
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+                      </Th>
+                      <Th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
                         Status
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+                      </Th>
+                      <Th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
                         Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
+                      </Th>
+                    </Tr>
+                  </THead>
+                  <TBody className="divide-y divide-gray-200">
                     {resources.map((resource) => {
                       const hasThumbnail = !!resource.thumbnailUrl;
                       const hasPdf = !!resource.pdfUrl;
 
                       return (
-                        <tr key={resource.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">
+                        <Tr key={resource.id} className="hover:bg-gray-50">
+                          <Td className="px-4 py-3">
                             {hasPdf && !hasThumbnail && (
                               <input
                                 type="checkbox"
@@ -245,13 +246,13 @@ export default function ThumbnailsAdminPage() {
                                 className="h-4 w-4"
                               />
                             )}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
+                          </Td>
+                          <Td className="px-4 py-3 text-sm text-gray-900">
                             <div className="max-w-md truncate">
                               {resource.title}
                             </div>
-                          </td>
-                          <td className="px-4 py-3">
+                          </Td>
+                          <Td className="px-4 py-3">
                             {hasThumbnail && (
                               <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
                                 Has Thumbnail
@@ -267,8 +268,8 @@ export default function ThumbnailsAdminPage() {
                                 No PDF
                               </span>
                             )}
-                          </td>
-                          <td className="px-4 py-3">
+                          </Td>
+                          <Td className="px-4 py-3">
                             {hasPdf && !hasThumbnail && resource.pdfUrl && (
                               <button
                                 onClick={() =>
@@ -293,12 +294,12 @@ export default function ThumbnailsAdminPage() {
                                 View
                               </a>
                             )}
-                          </td>
-                        </tr>
+                          </Td>
+                        </Tr>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </TBody>
+                </Table>
               </div>
             </>
           )}

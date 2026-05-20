@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Bell,
   Send,
@@ -370,52 +371,52 @@ export default function NotificationsPageContent({
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-gray-50 text-left text-gray-500">
-                      <th className="px-4 py-2">
+                <Table className="w-full text-sm">
+                  <THead>
+                    <Tr className="border-b bg-gray-50 text-left text-gray-500">
+                      <Th className="px-4 py-2">
                         {t('admin.notifications.columns.type')}
-                      </th>
-                      <th className="px-4 py-2">
+                      </Th>
+                      <Th className="px-4 py-2">
                         {t('admin.notifications.columns.title')}
-                      </th>
-                      <th className="px-4 py-2">
+                      </Th>
+                      <Th className="px-4 py-2">
                         {t('admin.notifications.columns.user')}
-                      </th>
-                      <th className="px-4 py-2">
+                      </Th>
+                      <Th className="px-4 py-2">
                         {t('admin.notifications.columns.time')}
-                      </th>
-                      <th className="px-4 py-2">
+                      </Th>
+                      <Th className="px-4 py-2">
                         {t('admin.notifications.columns.status')}
-                      </th>
-                      <th className="px-4 py-2 text-right">
+                      </Th>
+                      <Th className="px-4 py-2 text-right">
                         {t('admin.notifications.columns.actions')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                      </Th>
+                    </Tr>
+                  </THead>
+                  <TBody>
                     {notifData?.items.map((item) => (
-                      <tr
+                      <Tr
                         key={item.id}
                         className="border-b last:border-0 hover:bg-gray-50"
                       >
-                        <td className="px-4 py-2">
+                        <Td className="px-4 py-2">
                           <span
                             className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[item.type] ?? 'bg-gray-100 text-gray-800'}`}
                           >
                             {item.type}
                           </span>
-                        </td>
-                        <td className="max-w-[200px] truncate px-4 py-2 font-medium">
+                        </Td>
+                        <Td className="max-w-[200px] truncate px-4 py-2 font-medium">
                           {item.title}
-                        </td>
-                        <td className="px-4 py-2 text-gray-500">
+                        </Td>
+                        <Td className="px-4 py-2 text-gray-500">
                           {item.userEmail}
-                        </td>
-                        <td className="px-4 py-2 text-gray-500">
+                        </Td>
+                        <Td className="px-4 py-2 text-gray-500">
                           <ClientDate date={item.createdAt} />
-                        </td>
-                        <td className="px-4 py-2">
+                        </Td>
+                        <Td className="px-4 py-2">
                           <span
                             className={`rounded-full px-2 py-0.5 text-xs ${item.read ? 'bg-gray-100 text-gray-500' : 'bg-yellow-100 text-yellow-700'}`}
                           >
@@ -423,8 +424,8 @@ export default function NotificationsPageContent({
                               ? t('admin.notifications.read')
                               : t('admin.notifications.unread')}
                           </span>
-                        </td>
-                        <td className="px-4 py-2 text-right">
+                        </Td>
+                        <Td className="px-4 py-2 text-right">
                           <div className="flex items-center justify-end gap-1">
                             {!item.read && (
                               <button
@@ -443,21 +444,21 @@ export default function NotificationsPageContent({
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     ))}
                     {(!notifData?.items || notifData.items.length === 0) && (
-                      <tr>
-                        <td
+                      <Tr>
+                        <Td
                           colSpan={6}
                           className="px-4 py-8 text-center text-gray-400"
                         >
                           {t('admin.notifications.noNotifications')}
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     )}
-                  </tbody>
-                </table>
+                  </TBody>
+                </Table>
               </div>
               {notifData && notifData.totalPages > 1 && (
                 <div className="flex items-center justify-between border-t px-4 py-3">

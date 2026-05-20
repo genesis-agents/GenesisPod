@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { FlaskConical, Plus, Pencil, Trash2, Copy, Power } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
@@ -219,26 +220,26 @@ export default function ResearchTemplatesPage() {
               {category.replace(/_/g, ' ')}
             </h3>
             <div className="overflow-hidden rounded-lg border border-zinc-700/50 bg-zinc-800/50">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-700/50 text-left text-zinc-400">
-                    <th className="px-4 py-3 font-medium">Name</th>
-                    <th className="px-4 py-3 font-medium">Template ID</th>
-                    <th className="px-4 py-3 font-medium">Iterations</th>
-                    <th className="px-4 py-3 font-medium">Usage</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 text-right font-medium">
+              <Table className="w-full text-sm">
+                <THead>
+                  <Tr className="border-b border-zinc-700/50 text-left text-zinc-400">
+                    <Th className="px-4 py-3 font-medium">Name</Th>
+                    <Th className="px-4 py-3 font-medium">Template ID</Th>
+                    <Th className="px-4 py-3 font-medium">Iterations</Th>
+                    <Th className="px-4 py-3 font-medium">Usage</Th>
+                    <Th className="px-4 py-3 font-medium">Status</Th>
+                    <Th className="px-4 py-3 text-right font-medium">
                       Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+                    </Th>
+                  </Tr>
+                </THead>
+                <TBody>
                   {catTemplates.map((template) => (
-                    <tr
+                    <Tr
                       key={template.id}
                       className="border-b border-zinc-700/30 last:border-0 hover:bg-zinc-700/20"
                     >
-                      <td className="px-4 py-3">
+                      <Td className="px-4 py-3">
                         <div className="font-medium text-zinc-200">
                           {template.name}
                         </div>
@@ -247,17 +248,17 @@ export default function ResearchTemplatesPage() {
                             {template.description}
                           </div>
                         )}
-                      </td>
-                      <td className="font-mono px-4 py-3 text-xs text-zinc-400">
+                      </Td>
+                      <Td className="font-mono px-4 py-3 text-xs text-zinc-400">
                         {template.templateId}
-                      </td>
-                      <td className="px-4 py-3 text-zinc-400">
+                      </Td>
+                      <Td className="px-4 py-3 text-zinc-400">
                         {template.iterationCount}
-                      </td>
-                      <td className="px-4 py-3 text-zinc-400">
+                      </Td>
+                      <Td className="px-4 py-3 text-zinc-400">
                         {template.usageCount}
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <button
                           onClick={() => handleToggleEnabled(template)}
                           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
@@ -269,8 +270,8 @@ export default function ResearchTemplatesPage() {
                           <Power className="h-3 w-3" />
                           {template.enabled ? 'Enabled' : 'Disabled'}
                         </button>
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleEdit(template)}
@@ -296,11 +297,11 @@ export default function ResearchTemplatesPage() {
                             </button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   ))}
-                </tbody>
-              </table>
+                </TBody>
+              </Table>
             </div>
           </div>
         ))}

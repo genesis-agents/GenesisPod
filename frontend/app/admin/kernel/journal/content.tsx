@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { ScrollText, RefreshCw, Loader2, Search } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -194,44 +195,44 @@ export default function KernelJournalPageContent({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                <tr>
-                  <th className="px-4 py-3">Time</th>
-                  <th className="px-4 py-3">Process ID</th>
-                  <th className="px-4 py-3">Sequence</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Payload</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+            <Table className="w-full text-left text-sm">
+              <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                <Tr>
+                  <Th className="px-4 py-3">Time</Th>
+                  <Th className="px-4 py-3">Process ID</Th>
+                  <Th className="px-4 py-3">Sequence</Th>
+                  <Th className="px-4 py-3">Type</Th>
+                  <Th className="px-4 py-3">Payload</Th>
+                </Tr>
+              </THead>
+              <TBody className="divide-y">
                 {entries.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-gray-50">
+                  <Tr key={entry.id} className="hover:bg-gray-50">
                     {/* Time */}
-                    <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
+                    <Td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
                       <ClientDate date={entry.timestamp} format="datetime" />
-                    </td>
+                    </Td>
                     {/* Process ID */}
-                    <td className="px-4 py-3">
+                    <Td className="px-4 py-3">
                       <span
                         className="font-mono text-xs text-gray-700"
                         title={entry.processId}
                       >
                         {truncateId(entry.processId)}
                       </span>
-                    </td>
+                    </Td>
                     {/* Sequence */}
-                    <td className="px-4 py-3 text-xs text-gray-600">
+                    <Td className="px-4 py-3 text-xs text-gray-600">
                       #{entry.sequence}
-                    </td>
+                    </Td>
                     {/* Type */}
-                    <td className="px-4 py-3">
+                    <Td className="px-4 py-3">
                       <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
                         {entry.type}
                       </span>
-                    </td>
+                    </Td>
                     {/* Payload */}
-                    <td className="px-4 py-3">
+                    <Td className="px-4 py-3">
                       <span
                         className="font-mono max-w-xs truncate text-xs text-gray-500"
                         title={
@@ -242,11 +243,11 @@ export default function KernelJournalPageContent({
                       >
                         {truncatePayload(entry.payload)}
                       </span>
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         )}
       </div>

@@ -10,6 +10,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   BarChart3,
   RefreshCw,
@@ -490,21 +491,21 @@ export default function EvalDashboardPageContent({
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b text-xs uppercase text-gray-400">
-                <tr>
-                  <th className="py-2 pr-4">Dataset</th>
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4">Score</th>
-                  <th className="py-2 pr-4">Pass Rate</th>
-                  <th className="py-2 pr-4">Cases</th>
-                  <th className="py-2 pr-4">Started</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+            <Table className="w-full text-left text-sm">
+              <THead className="border-b text-xs uppercase text-gray-400">
+                <Tr>
+                  <Th className="py-2 pr-4">Dataset</Th>
+                  <Th className="py-2 pr-4">Status</Th>
+                  <Th className="py-2 pr-4">Score</Th>
+                  <Th className="py-2 pr-4">Pass Rate</Th>
+                  <Th className="py-2 pr-4">Cases</Th>
+                  <Th className="py-2 pr-4">Started</Th>
+                </Tr>
+              </THead>
+              <TBody className="divide-y">
                 {evalRuns.map((run) => (
-                  <tr key={run.id}>
-                    <td className="py-2 pr-4">
+                  <Tr key={run.id}>
+                    <Td className="py-2 pr-4">
                       <div className="font-medium text-gray-900">
                         {run.datasetName}
                       </div>
@@ -512,8 +513,8 @@ export default function EvalDashboardPageContent({
                         {run.datasetId}
                         {run.datasetVersion ? `:${run.datasetVersion}` : ''}
                       </div>
-                    </td>
-                    <td className="py-2 pr-4">
+                    </Td>
+                    <Td className="py-2 pr-4">
                       <span
                         className={`rounded-full px-2 py-1 text-xs font-medium ${
                           run.status === 'completed'
@@ -523,27 +524,27 @@ export default function EvalDashboardPageContent({
                       >
                         {run.status}
                       </span>
-                    </td>
-                    <td
+                    </Td>
+                    <Td
                       className={`py-2 pr-4 font-semibold ${scoreColor(
                         run.summary.averageScore
                       )}`}
                     >
                       {run.summary.averageScore}
-                    </td>
-                    <td className="py-2 pr-4 text-gray-700">
+                    </Td>
+                    <Td className="py-2 pr-4 text-gray-700">
                       {(run.summary.passRate * 100).toFixed(0)}%
-                    </td>
-                    <td className="py-2 pr-4 text-gray-500">
+                    </Td>
+                    <Td className="py-2 pr-4 text-gray-500">
                       {run.summary.passed}/{run.summary.total}
-                    </td>
-                    <td className="py-2 pr-4 text-gray-500">
+                    </Td>
+                    <Td className="py-2 pr-4 text-gray-500">
                       {formatTime(run.startedAt)}
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         </div>
       )}

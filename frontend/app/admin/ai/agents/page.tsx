@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Bot,
   Plus,
@@ -309,25 +310,25 @@ export default function AgentManagementPage() {
               {domain}
             </h3>
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 text-left text-gray-500">
-                    <th className="px-4 py-3 font-medium">Name</th>
-                    <th className="px-4 py-3 font-medium">Agent ID</th>
-                    <th className="px-4 py-3 font-medium">Type</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 text-right font-medium">
+              <Table className="w-full text-sm">
+                <THead>
+                  <Tr className="border-b border-gray-200 text-left text-gray-500">
+                    <Th className="px-4 py-3 font-medium">Name</Th>
+                    <Th className="px-4 py-3 font-medium">Agent ID</Th>
+                    <Th className="px-4 py-3 font-medium">Type</Th>
+                    <Th className="px-4 py-3 font-medium">Status</Th>
+                    <Th className="px-4 py-3 text-right font-medium">
                       Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+                    </Th>
+                  </Tr>
+                </THead>
+                <TBody>
                   {domainAgents.map((agent) => (
-                    <tr
+                    <Tr
                       key={agent.id}
                       className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
                     >
-                      <td className="px-4 py-3">
+                      <Td className="px-4 py-3">
                         <div className="font-medium text-gray-900">
                           {agent.name}
                         </div>
@@ -336,16 +337,16 @@ export default function AgentManagementPage() {
                             {agent.description}
                           </div>
                         )}
-                      </td>
-                      <td className="font-mono px-4 py-3 text-xs text-gray-500">
+                      </Td>
+                      <Td className="font-mono px-4 py-3 text-xs text-gray-500">
                         {agent.agentId}
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                           {agent.agentType}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <button
                           onClick={() => {
                             void handleToggleEnabled(agent);
@@ -359,8 +360,8 @@ export default function AgentManagementPage() {
                           <Power className="h-3 w-3" />
                           {agent.enabled ? 'Enabled' : 'Disabled'}
                         </button>
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleEdit(agent)}
@@ -381,11 +382,11 @@ export default function AgentManagementPage() {
                             </button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   ))}
-                </tbody>
-              </table>
+                </TBody>
+              </Table>
             </div>
           </div>
         ))}

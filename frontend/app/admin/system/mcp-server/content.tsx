@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Radio,
   RefreshCw,
@@ -399,38 +400,38 @@ export default function MCPServerPageContent({
           </h3>
           <div className="rounded-lg bg-white shadow">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                  <tr>
-                    <th className="px-4 py-3">
+              <Table className="w-full text-left text-sm">
+                <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                  <Tr>
+                    <Th className="px-4 py-3">
                       {t('admin.mcpServer.tools.name')}
-                    </th>
-                    <th className="px-4 py-3">
+                    </Th>
+                    <Th className="px-4 py-3">
                       {t('admin.mcpServer.metrics.errorType')}
-                    </th>
-                    <th className="px-4 py-3">
+                    </Th>
+                    <Th className="px-4 py-3">
                       {t('admin.mcpServer.metrics.timestamp')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
+                    </Th>
+                  </Tr>
+                </THead>
+                <TBody className="divide-y">
                   {metrics.recentErrors.map((err, i) => (
-                    <tr key={i} className="hover:bg-gray-50">
-                      <td className="font-mono px-4 py-3 text-sm text-gray-900">
+                    <Tr key={i} className="hover:bg-gray-50">
+                      <Td className="font-mono px-4 py-3 text-sm text-gray-900">
                         {err.toolName}
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <span className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
                           {err.errorType}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500">
+                      </Td>
+                      <Td className="px-4 py-3 text-gray-500">
                         {formatDate(err.timestamp)}
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   ))}
-                </tbody>
-              </table>
+                </TBody>
+              </Table>
             </div>
           </div>
         </div>
@@ -542,46 +543,46 @@ export default function MCPServerPageContent({
               </h3>
               <div className="rounded-lg bg-white shadow">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                      <tr>
-                        <th className="px-4 py-3">
+                  <Table className="w-full text-left text-sm">
+                    <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                      <Tr>
+                        <Th className="px-4 py-3">
                           {t('admin.mcpServer.tools.name')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.mcpServer.tools.calls')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.mcpServer.tools.errors')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.mcpServer.tools.avgDuration')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
+                        </Th>
+                      </Tr>
+                    </THead>
+                    <TBody className="divide-y">
                       {Object.entries(metrics.byTool).map(
                         ([toolName, stats]) => (
-                          <tr key={toolName} className="hover:bg-gray-50">
-                            <td className="font-mono px-4 py-3 text-sm text-gray-900">
+                          <Tr key={toolName} className="hover:bg-gray-50">
+                            <Td className="font-mono px-4 py-3 text-sm text-gray-900">
                               {toolName}
-                            </td>
-                            <td className="px-4 py-3 font-bold text-blue-600">
+                            </Td>
+                            <Td className="px-4 py-3 font-bold text-blue-600">
                               {stats.calls}
-                            </td>
-                            <td
+                            </Td>
+                            <Td
                               className={`px-4 py-3 font-bold ${stats.errors > 0 ? 'text-red-600' : 'text-green-600'}`}
                             >
                               {stats.errors}
-                            </td>
-                            <td className="px-4 py-3 text-purple-600">
+                            </Td>
+                            <Td className="px-4 py-3 text-purple-600">
                               {formatDuration(stats.avgDuration)}
-                            </td>
-                          </tr>
+                            </Td>
+                          </Tr>
                         )
                       )}
-                    </tbody>
-                  </table>
+                    </TBody>
+                  </Table>
                 </div>
               </div>
             </div>
@@ -595,41 +596,41 @@ export default function MCPServerPageContent({
               </h3>
               <div className="rounded-lg bg-white shadow">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                      <tr>
-                        <th className="px-4 py-3">
+                  <Table className="w-full text-left text-sm">
+                    <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                      <Tr>
+                        <Th className="px-4 py-3">
                           {t('admin.mcpServer.metrics.apiKey')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.mcpServer.tools.calls')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.mcpServer.metrics.lastUsed')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
+                        </Th>
+                      </Tr>
+                    </THead>
+                    <TBody className="divide-y">
                       {Object.entries(metrics.byApiKey).map(
                         ([apiKey, stats]) => (
-                          <tr key={apiKey} className="hover:bg-gray-50">
-                            <td className="font-mono px-4 py-3 text-sm text-gray-900">
+                          <Tr key={apiKey} className="hover:bg-gray-50">
+                            <Td className="font-mono px-4 py-3 text-sm text-gray-900">
                               <div className="flex items-center gap-2">
                                 <Key className="h-4 w-4 text-gray-400" />
                                 {apiKey}
                               </div>
-                            </td>
-                            <td className="px-4 py-3 font-bold text-blue-600">
+                            </Td>
+                            <Td className="px-4 py-3 font-bold text-blue-600">
                               {stats.calls}
-                            </td>
-                            <td className="px-4 py-3 text-gray-500">
+                            </Td>
+                            <Td className="px-4 py-3 text-gray-500">
                               {formatDate(stats.lastUsed)}
-                            </td>
-                          </tr>
+                            </Td>
+                          </Tr>
                         )
                       )}
-                    </tbody>
-                  </table>
+                    </TBody>
+                  </Table>
                 </div>
               </div>
             </div>
@@ -643,38 +644,38 @@ export default function MCPServerPageContent({
               </h3>
               <div className="rounded-lg bg-white shadow">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                      <tr>
-                        <th className="px-4 py-3">
+                  <Table className="w-full text-left text-sm">
+                    <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                      <Tr>
+                        <Th className="px-4 py-3">
                           {t('admin.mcpServer.tools.name')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.mcpServer.metrics.errorType')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.mcpServer.metrics.timestamp')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
+                        </Th>
+                      </Tr>
+                    </THead>
+                    <TBody className="divide-y">
                       {metrics.recentErrors.map((err, i) => (
-                        <tr key={i} className="hover:bg-gray-50">
-                          <td className="font-mono px-4 py-3 text-sm text-gray-900">
+                        <Tr key={i} className="hover:bg-gray-50">
+                          <Td className="font-mono px-4 py-3 text-sm text-gray-900">
                             {err.toolName}
-                          </td>
-                          <td className="px-4 py-3">
+                          </Td>
+                          <Td className="px-4 py-3">
                             <span className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
                               {err.errorType}
                             </span>
-                          </td>
-                          <td className="px-4 py-3 text-gray-500">
+                          </Td>
+                          <Td className="px-4 py-3 text-gray-500">
                             {formatDate(err.timestamp)}
-                          </td>
-                        </tr>
+                          </Td>
+                        </Tr>
                       ))}
-                    </tbody>
-                  </table>
+                    </TBody>
+                  </Table>
                 </div>
               </div>
             </div>
@@ -694,27 +695,27 @@ export default function MCPServerPageContent({
       {sessions.length > 0 ? (
         <div className="rounded-lg bg-white shadow">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                <tr>
-                  <th className="px-4 py-3">
+            <Table className="w-full text-left text-sm">
+              <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                <Tr>
+                  <Th className="px-4 py-3">
                     {t('admin.mcpServer.sessions.sessionId')}
-                  </th>
-                  <th className="px-4 py-3">
+                  </Th>
+                  <Th className="px-4 py-3">
                     {t('admin.mcpServer.sessions.client')}
-                  </th>
-                  <th className="px-4 py-3">
+                  </Th>
+                  <Th className="px-4 py-3">
                     {t('admin.mcpServer.sessions.createdAt')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+                  </Th>
+                </Tr>
+              </THead>
+              <TBody className="divide-y">
                 {sessions.map((session) => (
-                  <tr key={session.sessionId} className="hover:bg-gray-50">
-                    <td className="font-mono px-4 py-3 text-xs text-gray-900">
+                  <Tr key={session.sessionId} className="hover:bg-gray-50">
+                    <Td className="font-mono px-4 py-3 text-xs text-gray-900">
                       {session.sessionId}
-                    </td>
-                    <td className="px-4 py-3">
+                    </Td>
+                    <Td className="px-4 py-3">
                       {session.clientInfo ? (
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4 text-gray-400" />
@@ -728,14 +729,14 @@ export default function MCPServerPageContent({
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">
+                    </Td>
+                    <Td className="px-4 py-3 text-gray-500">
                       {formatDate(session.createdAt)}
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         </div>
       ) : (
@@ -864,43 +865,43 @@ export default function MCPServerPageContent({
       {mcpApiKeys.length > 0 ? (
         <div className="mb-6 rounded-lg bg-white shadow">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                <tr>
-                  <th className="px-4 py-3">
+            <Table className="w-full text-left text-sm">
+              <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                <Tr>
+                  <Th className="px-4 py-3">
                     {t('admin.mcpServer.apiKeys.name')}
-                  </th>
-                  <th className="px-4 py-3">
+                  </Th>
+                  <Th className="px-4 py-3">
                     {t('admin.mcpServer.apiKeys.key')}
-                  </th>
-                  <th className="px-4 py-3">
+                  </Th>
+                  <Th className="px-4 py-3">
                     {t('admin.mcpServer.apiKeys.status')}
-                  </th>
-                  <th className="px-4 py-3">
+                  </Th>
+                  <Th className="px-4 py-3">
                     {t('admin.mcpServer.apiKeys.usage')}
-                  </th>
-                  <th className="px-4 py-3">
+                  </Th>
+                  <Th className="px-4 py-3">
                     {t('admin.mcpServer.apiKeys.lastUsed')}
-                  </th>
-                  <th className="px-4 py-3">
+                  </Th>
+                  <Th className="px-4 py-3">
                     {t('admin.mcpServer.apiKeys.actions')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+                  </Th>
+                </Tr>
+              </THead>
+              <TBody className="divide-y">
                 {mcpApiKeys.map((secret) => {
                   const keyUsage = metrics?.byApiKey?.[secret.maskedValue];
                   return (
-                    <tr key={secret.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
+                    <Tr key={secret.id} className="hover:bg-gray-50">
+                      <Td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <Key className="h-4 w-4 text-gray-400" />
                           <span className="font-medium text-gray-900">
                             {secret.displayName}
                           </span>
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <code className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-600">
                             {revealedKeys[secret.name] ?? secret.maskedValue}
@@ -928,8 +929,8 @@ export default function MCPServerPageContent({
                             </button>
                           )}
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <span
                           className={`rounded-full px-2 py-1 text-xs font-medium ${
                             secret.isActive
@@ -941,18 +942,18 @@ export default function MCPServerPageContent({
                             ? t('admin.mcpServer.apiKeys.active')
                             : t('admin.mcpServer.apiKeys.inactive')}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">
+                      </Td>
+                      <Td className="px-4 py-3 text-gray-600">
                         {keyUsage?.calls ?? secret.accessCount ?? 0}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500">
+                      </Td>
+                      <Td className="px-4 py-3 text-gray-500">
                         {keyUsage?.lastUsed
                           ? formatDate(keyUsage.lastUsed)
                           : secret.lastAccessedAt
                             ? formatDate(secret.lastAccessedAt)
                             : t('admin.mcpServer.apiKeys.never')}
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <button
                           onClick={() => handleDeleteApiKey(secret)}
                           disabled={isDeleting}
@@ -960,12 +961,12 @@ export default function MCPServerPageContent({
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   );
                 })}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         </div>
       ) : (

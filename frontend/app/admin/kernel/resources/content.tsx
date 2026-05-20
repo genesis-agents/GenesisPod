@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Gauge,
   RefreshCw,
@@ -139,52 +140,52 @@ function CircuitBreakerRow({
   const rateColor = getSuccessRateColor(breaker.successRate);
 
   return (
-    <tr className="hover:bg-gray-50">
+    <Tr className="hover:bg-gray-50">
       {/* Entity ID */}
-      <td className="px-4 py-3">
+      <Td className="px-4 py-3">
         <span
           className="font-mono text-xs text-gray-700"
           title={breaker.entityId}
         >
           {truncateId(breaker.entityId)}
         </span>
-      </td>
+      </Td>
 
       {/* State */}
-      <td className="px-4 py-3">
+      <Td className="px-4 py-3">
         <span
           className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}
         >
           {breaker.state}
         </span>
-      </td>
+      </Td>
 
       {/* Success Rate */}
-      <td className="px-4 py-3">
+      <Td className="px-4 py-3">
         <span className={`text-sm font-medium ${rateColor}`}>
           {breaker.successRate.toFixed(1)}%
         </span>
-      </td>
+      </Td>
 
       {/* Avg Response Time */}
-      <td className="px-4 py-3 text-sm text-gray-600">
+      <Td className="px-4 py-3 text-sm text-gray-600">
         {formatMs(breaker.avgResponseTime)}
-      </td>
+      </Td>
 
       {/* Current Load */}
-      <td className="px-4 py-3 text-sm text-gray-600">{breaker.currentLoad}</td>
+      <Td className="px-4 py-3 text-sm text-gray-600">{breaker.currentLoad}</Td>
 
       {/* Available */}
-      <td className="px-4 py-3">
+      <Td className="px-4 py-3">
         {breaker.isAvailable ? (
           <CheckCircle className="h-4 w-4 text-green-600" />
         ) : (
           <XCircle className="h-4 w-4 text-red-500" />
         )}
-      </td>
+      </Td>
 
       {/* Actions */}
-      <td className="px-4 py-3">
+      <Td className="px-4 py-3">
         <button
           title="Reset circuit breaker"
           disabled={resetting}
@@ -198,8 +199,8 @@ function CircuitBreakerRow({
           )}
           Reset
         </button>
-      </td>
-    </tr>
+      </Td>
+    </Tr>
   );
 }
 
@@ -410,19 +411,19 @@ export default function KernelResourcesPageContent({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                  <tr>
-                    <th className="px-4 py-3">Entity ID</th>
-                    <th className="px-4 py-3">State</th>
-                    <th className="px-4 py-3">Success Rate</th>
-                    <th className="px-4 py-3">Avg Response</th>
-                    <th className="px-4 py-3">Load</th>
-                    <th className="px-4 py-3">Available</th>
-                    <th className="px-4 py-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
+              <Table className="w-full text-left text-sm">
+                <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                  <Tr>
+                    <Th className="px-4 py-3">Entity ID</Th>
+                    <Th className="px-4 py-3">State</Th>
+                    <Th className="px-4 py-3">Success Rate</Th>
+                    <Th className="px-4 py-3">Avg Response</Th>
+                    <Th className="px-4 py-3">Load</Th>
+                    <Th className="px-4 py-3">Available</Th>
+                    <Th className="px-4 py-3">Actions</Th>
+                  </Tr>
+                </THead>
+                <TBody className="divide-y">
                   {breakers.map((breaker) => (
                     <CircuitBreakerRow
                       key={breaker.entityId}
@@ -431,8 +432,8 @@ export default function KernelResourcesPageContent({
                       resetting={resettingIds.has(breaker.entityId)}
                     />
                   ))}
-                </tbody>
-              </table>
+                </TBody>
+              </Table>
             </div>
           )}
         </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   GitBranch,
   RefreshCw,
@@ -275,60 +276,60 @@ export default function KernelIpcPageContent({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                  <tr>
-                    <th className="px-4 py-3">ID</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Name</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Progress</th>
-                    <th className="px-4 py-3">Phase</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
+              <Table className="w-full text-left text-sm">
+                <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                  <Tr>
+                    <Th className="px-4 py-3">ID</Th>
+                    <Th className="px-4 py-3">Type</Th>
+                    <Th className="px-4 py-3">Name</Th>
+                    <Th className="px-4 py-3">Status</Th>
+                    <Th className="px-4 py-3">Progress</Th>
+                    <Th className="px-4 py-3">Phase</Th>
+                  </Tr>
+                </THead>
+                <TBody className="divide-y">
                   {tasks.map((task) => (
-                    <tr key={task.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
+                    <Tr key={task.id} className="hover:bg-gray-50">
+                      <Td className="px-4 py-3">
                         <span
                           className="font-mono text-xs text-gray-700"
                           title={task.id}
                         >
                           {truncateId(task.id)}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
                           {task.type}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <span
                           className="max-w-[14rem] truncate text-sm text-gray-800"
                           title={task.name}
                         >
                           {task.name}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <span
                           className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusBadgeClass(task.status)}`}
                         >
                           {task.status}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td className="px-4 py-3">
                         <ProgressBar value={task.progress} />
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">
+                      </Td>
+                      <Td className="px-4 py-3 text-xs text-gray-500">
                         {task.currentPhase ?? (
                           <span className="text-gray-300">-</span>
                         )}
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   ))}
-                </tbody>
-              </table>
+                </TBody>
+              </Table>
             </div>
           )}
         </div>
@@ -386,31 +387,31 @@ export default function KernelIpcPageContent({
                 {messages.length} of {messageTotal} messages
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                    <tr>
-                      <th className="px-4 py-3">Time</th>
-                      <th className="px-4 py-3">From</th>
-                      <th className="px-4 py-3">To</th>
-                      <th className="px-4 py-3">Type</th>
-                      <th className="px-4 py-3">Payload</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
+                <Table className="w-full text-left text-sm">
+                  <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                    <Tr>
+                      <Th className="px-4 py-3">Time</Th>
+                      <Th className="px-4 py-3">From</Th>
+                      <Th className="px-4 py-3">To</Th>
+                      <Th className="px-4 py-3">Type</Th>
+                      <Th className="px-4 py-3">Payload</Th>
+                    </Tr>
+                  </THead>
+                  <TBody className="divide-y">
                     {messages.map((msg) => (
-                      <tr key={msg.id} className="hover:bg-gray-50">
-                        <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
+                      <Tr key={msg.id} className="hover:bg-gray-50">
+                        <Td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
                           <ClientDate date={msg.timestamp} format="datetime" />
-                        </td>
-                        <td className="px-4 py-3">
+                        </Td>
+                        <Td className="px-4 py-3">
                           <span
                             className="font-mono text-xs text-gray-700"
                             title={msg.fromAgentId}
                           >
                             {truncateId(msg.fromAgentId, 12)}
                           </span>
-                        </td>
-                        <td className="px-4 py-3">
+                        </Td>
+                        <Td className="px-4 py-3">
                           {msg.toAgentId ? (
                             <span
                               className="font-mono text-xs text-gray-700"
@@ -423,24 +424,24 @@ export default function KernelIpcPageContent({
                               broadcast
                             </span>
                           )}
-                        </td>
-                        <td className="px-4 py-3">
+                        </Td>
+                        <Td className="px-4 py-3">
                           <span className="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">
                             {msg.type}
                           </span>
-                        </td>
-                        <td className="max-w-xs px-4 py-3">
+                        </Td>
+                        <Td className="max-w-xs px-4 py-3">
                           <span
                             className="font-mono truncate text-xs text-gray-500"
                             title={JSON.stringify(msg.payload)}
                           >
                             {truncatePayload(msg.payload)}
                           </span>
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     ))}
-                  </tbody>
-                </table>
+                  </TBody>
+                </Table>
               </div>
             </>
           )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Activity,
   RefreshCw,
@@ -258,34 +259,34 @@ function DataTable<T>({
 
   return (
     <div className="overflow-x-auto rounded-lg bg-white shadow">
-      <table className="w-full text-left text-sm">
-        <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-          <tr>
+      <Table className="w-full text-left text-sm">
+        <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+          <Tr>
             {columns.map((col) => (
-              <th
+              <Th
                 key={col.header}
                 className={`px-4 py-3 ${col.className ?? ''}`}
               >
                 {col.header}
-              </th>
+              </Th>
             ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y">
+          </Tr>
+        </THead>
+        <TBody className="divide-y">
           {rows.map((row) => (
-            <tr key={keyFn(row)} className="hover:bg-gray-50">
+            <Tr key={keyFn(row)} className="hover:bg-gray-50">
               {columns.map((col) => (
-                <td
+                <Td
                   key={col.header}
                   className={`px-4 py-3 ${col.className ?? ''}`}
                 >
                   {col.render(row)}
-                </td>
+                </Td>
               ))}
-            </tr>
+            </Tr>
           ))}
-        </tbody>
-      </table>
+        </TBody>
+      </Table>
     </div>
   );
 }

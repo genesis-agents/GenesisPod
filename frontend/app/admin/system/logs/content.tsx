@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { ScrollText } from 'lucide-react';
 import { Tabs } from '@/components/ui/tabs';
 import { config } from '@/lib/utils/config';
@@ -294,57 +295,57 @@ export default function LogsPageContent({
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                      <tr>
-                        <th className="px-4 py-3">
+                  <Table className="w-full text-left text-sm">
+                    <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                      <Tr>
+                        <Th className="px-4 py-3">
                           {t('admin.logs.columns.email')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.logs.columns.loginTime')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.logs.columns.ip')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.logs.columns.device')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.logs.columns.browser')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.logs.columns.location')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
+                        </Th>
+                      </Tr>
+                    </THead>
+                    <TBody className="divide-y">
                       {loginData.items.map((record) => (
-                        <tr key={record.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium text-gray-900">
+                        <Tr key={record.id} className="hover:bg-gray-50">
+                          <Td className="px-4 py-3 font-medium text-gray-900">
                             {record.userEmail}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
+                          </Td>
+                          <Td className="px-4 py-3 text-gray-600">
                             <ClientDate
                               date={record.loginAt}
                               format="datetime"
                             />
-                          </td>
-                          <td className="font-mono px-4 py-3 text-xs text-gray-500">
+                          </Td>
+                          <Td className="font-mono px-4 py-3 text-xs text-gray-500">
                             {record.ipAddress || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
+                          </Td>
+                          <Td className="px-4 py-3 text-gray-600">
                             {record.device || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
+                          </Td>
+                          <Td className="px-4 py-3 text-gray-600">
                             {record.browser || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
+                          </Td>
+                          <Td className="px-4 py-3 text-gray-600">
                             {record.location || '-'}
-                          </td>
-                        </tr>
+                          </Td>
+                        </Tr>
                       ))}
-                    </tbody>
-                  </table>
+                    </TBody>
+                  </Table>
                 </div>
                 {renderPagination(
                   loginData.page,
@@ -397,36 +398,36 @@ export default function LogsPageContent({
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                      <tr>
-                        <th className="px-4 py-3">
+                  <Table className="w-full text-left text-sm">
+                    <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                      <Tr>
+                        <Th className="px-4 py-3">
                           {t('admin.logs.columns.taskName')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.logs.columns.source')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.logs.columns.status')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.logs.columns.items')}
-                        </th>
-                        <th className="px-4 py-3">
+                        </Th>
+                        <Th className="px-4 py-3">
                           {t('admin.logs.columns.createdAt')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
+                        </Th>
+                      </Tr>
+                    </THead>
+                    <TBody className="divide-y">
                       {taskData.items.map((task) => (
-                        <tr key={task.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium text-gray-900">
+                        <Tr key={task.id} className="hover:bg-gray-50">
+                          <Td className="px-4 py-3 font-medium text-gray-900">
                             {task.name}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
+                          </Td>
+                          <Td className="px-4 py-3 text-gray-600">
                             {task.sourceName}
-                          </td>
-                          <td className="px-4 py-3">
+                          </Td>
+                          <Td className="px-4 py-3">
                             <span
                               className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                                 TASK_STATUS_COLORS[task.status] ||
@@ -437,8 +438,8 @@ export default function LogsPageContent({
                                 `admin.logs.taskStatuses.${task.status.toLowerCase()}`
                               )}
                             </span>
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
+                          </Td>
+                          <Td className="px-4 py-3 text-gray-600">
                             <span className="text-green-600">
                               {task.successItems}
                             </span>
@@ -452,17 +453,17 @@ export default function LogsPageContent({
                                 / {task.duplicateItems} dup
                               </span>
                             )}
-                          </td>
-                          <td className="px-4 py-3 text-gray-500">
+                          </Td>
+                          <Td className="px-4 py-3 text-gray-500">
                             <ClientDate
                               date={task.createdAt}
                               format="datetime"
                             />
-                          </td>
-                        </tr>
+                          </Td>
+                        </Tr>
                       ))}
-                    </tbody>
-                  </table>
+                    </TBody>
+                  </Table>
                 </div>
                 {renderPagination(
                   taskData.page,

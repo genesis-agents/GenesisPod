@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Cpu,
   RefreshCw,
@@ -582,33 +583,33 @@ function ProcessRow({ process, apiUrl, onUpdate }: ProcessRowProps) {
 
   return (
     <>
-      <tr className="cursor-pointer hover:bg-gray-50" onClick={handleToggle}>
+      <Tr className="cursor-pointer hover:bg-gray-50" onClick={handleToggle}>
         {/* Expand toggle */}
-        <td className="w-8 px-4 py-3">
+        <Td className="w-8 px-4 py-3">
           {expanded ? (
             <ChevronDown className="h-4 w-4 text-gray-400" />
           ) : (
             <ChevronRight className="h-4 w-4 text-gray-400" />
           )}
-        </td>
+        </Td>
         {/* State */}
-        <td className="px-4 py-3">
+        <Td className="px-4 py-3">
           <StateBadge state={process.state} />
-        </td>
+        </Td>
         {/* Process ID */}
-        <td className="px-4 py-3">
+        <Td className="px-4 py-3">
           <span className="font-mono text-xs text-gray-700" title={process.id}>
             {truncateId(process.id)}
           </span>
-        </td>
+        </Td>
         {/* Agent ID */}
-        <td className="px-4 py-3">
+        <Td className="px-4 py-3">
           <span className="max-w-[12rem] truncate text-sm text-gray-700">
             {process.agentId}
           </span>
-        </td>
+        </Td>
         {/* Team Session */}
-        <td className="px-4 py-3">
+        <Td className="px-4 py-3">
           {process.teamSessionId ? (
             <span
               className="font-mono text-xs text-gray-500"
@@ -619,40 +620,40 @@ function ProcessRow({ process, apiUrl, onUpdate }: ProcessRowProps) {
           ) : (
             <span className="text-xs text-gray-300">-</span>
           )}
-        </td>
+        </Td>
         {/* Priority */}
-        <td className="px-4 py-3 text-sm text-gray-600">{process.priority}</td>
+        <Td className="px-4 py-3 text-sm text-gray-600">{process.priority}</Td>
         {/* Tokens */}
-        <td className="px-4 py-3 text-xs text-gray-600">
+        <Td className="px-4 py-3 text-xs text-gray-600">
           {formatTokens(process.tokensUsed, process.tokenBudget)}
-        </td>
+        </Td>
         {/* Cost */}
-        <td className="px-4 py-3 text-xs text-gray-600">
+        <Td className="px-4 py-3 text-xs text-gray-600">
           <span>{formatCost(process.costUsed)}</span>
           <span className="text-gray-400">
             {' '}
             / {formatCost(process.costBudget)}
           </span>
-        </td>
+        </Td>
         {/* Created At */}
-        <td className="px-4 py-3 text-xs text-gray-500">
+        <Td className="px-4 py-3 text-xs text-gray-500">
           <ClientDate date={process.createdAt} format="datetime" />
-        </td>
+        </Td>
         {/* Actions */}
-        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+        <Td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
           <ActionButtons
             process={process}
             apiUrl={apiUrl}
             onUpdate={onUpdate}
           />
-        </td>
-      </tr>
+        </Td>
+      </Tr>
       {expanded && (
-        <tr>
-          <td colSpan={10} className="border-t bg-gray-50 p-0">
+        <Tr>
+          <Td colSpan={10} className="border-t bg-gray-50 p-0">
             <ProcessDetailPanel process={process} apiUrl={apiUrl} />
-          </td>
-        </tr>
+          </Td>
+        </Tr>
       )}
     </>
   );
@@ -800,22 +801,22 @@ export default function KernelProcessesPageContent({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                <tr>
-                  <th className="w-8 px-4 py-3" />
-                  <th className="px-4 py-3">State</th>
-                  <th className="px-4 py-3">Process ID</th>
-                  <th className="px-4 py-3">Agent</th>
-                  <th className="px-4 py-3">Team Session</th>
-                  <th className="px-4 py-3">Priority</th>
-                  <th className="px-4 py-3">Tokens</th>
-                  <th className="px-4 py-3">Cost</th>
-                  <th className="px-4 py-3">Created At</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+            <Table className="w-full text-left text-sm">
+              <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                <Tr>
+                  <Th className="w-8 px-4 py-3" />
+                  <Th className="px-4 py-3">State</Th>
+                  <Th className="px-4 py-3">Process ID</Th>
+                  <Th className="px-4 py-3">Agent</Th>
+                  <Th className="px-4 py-3">Team Session</Th>
+                  <Th className="px-4 py-3">Priority</Th>
+                  <Th className="px-4 py-3">Tokens</Th>
+                  <Th className="px-4 py-3">Cost</Th>
+                  <Th className="px-4 py-3">Created At</Th>
+                  <Th className="px-4 py-3">Actions</Th>
+                </Tr>
+              </THead>
+              <TBody className="divide-y">
                 {processes.map((proc) => (
                   <ProcessRow
                     key={proc.id}
@@ -824,8 +825,8 @@ export default function KernelProcessesPageContent({
                     onUpdate={handleProcessUpdate}
                   />
                 ))}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         )}
       </div>
