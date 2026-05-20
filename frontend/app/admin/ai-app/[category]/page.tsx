@@ -5,7 +5,7 @@ import {
   AI_APP_CATEGORIES,
   type AiAppCategoryId,
   type AiAppCategoryModule,
-} from '@/lib/admin/ai-app-categories';
+} from '@/lib/features/admin/ai-app-categories';
 import AiAppCategoryView from '@/components/admin/ai-app/AiAppCategoryView';
 
 export const dynamic = 'force-dynamic';

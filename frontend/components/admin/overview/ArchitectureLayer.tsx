@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import {
   type ArchitectureLayer as LayerType,
   LAYER_STYLES,
-} from '@/lib/admin/architecture';
+} from '@/lib/features/admin/architecture';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils/common';
 import ArchitectureCard from './ArchitectureCard';

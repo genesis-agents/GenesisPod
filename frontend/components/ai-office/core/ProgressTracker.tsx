@@ -33,7 +33,7 @@ import {
   ProgressState,
   ToolType,
   AgentEvent,
-} from '@/lib/ai-office/agents/types';
+} from '@/lib/features/ai-office/agents/types';
 
 interface ProgressTrackerProps {
   progress: ProgressState;

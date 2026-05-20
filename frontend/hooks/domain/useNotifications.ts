@@ -4,7 +4,7 @@ import { apiClient } from '@/lib/api/client';
 import {
   emitNotificationMutated,
   onNotificationMutated,
-} from '@/lib/notifications/notification-events';
+} from '@/lib/features/notifications/notification-events';
 
 /**
  * 通知类型

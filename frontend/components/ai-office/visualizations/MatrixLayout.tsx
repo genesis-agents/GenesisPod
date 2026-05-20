@@ -6,8 +6,8 @@
  */
 
 import React from 'react';
-import type { MatrixItem } from '@/lib/ai-office/markdown-parser';
-import type { PPTTemplate } from '@/lib/ai-office/ppt-templates';
+import type { MatrixItem } from '@/lib/features/ai-office/markdown-parser';
+import type { PPTTemplate } from '@/lib/features/ai-office/ppt-templates';
 
 interface MatrixLayoutProps {
   items: MatrixItem[];

@@ -33,8 +33,8 @@ import {
   classifyToolId,
   getCategoryById,
   toolBelongsToTab,
-} from '@/lib/admin/tool-categories';
-import { useToolSecretSuggestions } from '@/lib/admin/tool-secrets';
+} from '@/lib/features/admin/tool-categories';
+import { useToolSecretSuggestions } from '@/lib/features/admin/tool-secrets';
 import { DrawerShell, Row, Section, Th } from '../_shared/admin-tables';
 import { SecretComboBox } from './_shared/SecretComboBox';
 
@@ -73,7 +73,7 @@ interface ToolsResponse {
   };
 }
 
-// 2026-05-11 W3r4：分类和排除走 @/lib/admin/tool-categories 共享真源。
+// 2026-05-11 W3r4：分类和排除走 @/lib/features/admin/tool-categories 共享真源。
 
 export function BuiltinToolsTable() {
   const [allTools, setAllTools] = useState<ToolRow[]>([]);
@@ -485,7 +485,7 @@ function BuiltinToolDrawer({
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   // 秘钥下拉建议：双闸过滤（credential 模式 + toolId 命中）+ 截顶 30
-  // 共享真源在 @/lib/admin/tool-secrets
+  // 共享真源在 @/lib/features/admin/tool-secrets
   const { names: secretNames, loading: secretsLoading } =
     useToolSecretSuggestions(tool?.toolId);
 

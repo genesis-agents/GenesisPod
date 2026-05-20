@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   CoordinatorAgent,
   ResourceAnalysisAgent,
-} from '@/lib/ai-office/multi-agents';
+} from '@/lib/features/ai-office/multi-agents';
 import type { Resource, ResourceType } from '@/lib/types/ai-office';
 
 import { logger } from '@/lib/utils/logger';

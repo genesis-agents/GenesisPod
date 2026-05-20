@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { type StatusType, getStatusBadgeClasses } from '@/lib/admin/styles';
+import {
+  type StatusType,
+  getStatusBadgeClasses,
+} from '@/lib/features/admin/styles';
 
 interface AdminConfigCardProps {
   title: string;

@@ -22,7 +22,7 @@ import type {
   AgentLiveState,
   AgentRole,
   AgentTraceItem,
-} from '@/lib/agent-playground/derive';
+} from '@/lib/features/agent-playground/derive';
 import { ExpandableText } from '@/components/agent-playground/ui';
 
 const ROLE_META: Record<

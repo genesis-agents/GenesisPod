@@ -46,7 +46,7 @@ import {
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { ViewPerspective } from '@/components/ai-simulation/PerspectiveSelector';
-import { isContentVisible } from '@/lib/ai-simulation/perspectiveFilter';
+import { isContentVisible } from '@/lib/features/ai-simulation/perspectiveFilter';
 
 import { logger } from '@/lib/utils/logger';
 import { useI18n } from '@/lib/i18n';

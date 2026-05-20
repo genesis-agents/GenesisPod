@@ -25,7 +25,7 @@ import {
   type TeamTopologyConnection,
   type TeamTopologyLegendItem,
 } from '@/components/common/team-topology';
-import { getAgentDetails } from '@/lib/ai-writing/agent-config';
+import { getAgentDetails } from '@/lib/features/ai-writing/agent-config';
 
 // Agent configuration for the writing team
 const WRITING_AGENTS = [

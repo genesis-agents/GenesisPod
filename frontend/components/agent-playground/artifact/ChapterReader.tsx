@@ -6,8 +6,8 @@ import type {
   ArtifactCitation,
   ArtifactSection,
   ReportArtifact,
-} from '@/lib/agent-playground/report-artifact.types';
-import type { DimensionPipelineState } from '@/lib/agent-playground/derive';
+} from '@/lib/features/agent-playground/report-artifact.types';
+import type { DimensionPipelineState } from '@/lib/features/agent-playground/derive';
 import { ArtifactMarkdown } from './ArtifactMarkdown';
 
 interface Props {

@@ -27,7 +27,7 @@ import { SecretKeysDrawer } from './SecretKeysDrawer';
 import { useTranslation } from '@/lib/i18n';
 import ClientDate from '@/components/common/ClientDate';
 import { AdminStatusBadge } from '@/components/admin/shared';
-import type { StatusType } from '@/lib/admin/styles';
+import type { StatusType } from '@/lib/features/admin/styles';
 
 const CATEGORY_OPTIONS: {
   value: SecretCategory;

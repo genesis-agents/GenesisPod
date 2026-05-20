@@ -10,7 +10,7 @@ import {
   getStylePresets,
   type WritingStylePreset,
 } from '@/services/ai-writing/api';
-import { WRITING_AGENT_REGISTRY } from '@/lib/ai-writing/agent-config';
+import { WRITING_AGENT_REGISTRY } from '@/lib/features/ai-writing/agent-config';
 import ShareModal from '@/components/common/dialogs/ShareModal';
 import { SkillsModal } from '@/components/common/skills/SkillsModal';
 import {

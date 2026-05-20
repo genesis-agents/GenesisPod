@@ -1,7 +1,7 @@
 'use client';
 
 import { Gavel, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
-import type { VerifierVerdict } from '@/lib/agent-playground/derive';
+import type { VerifierVerdict } from '@/lib/features/agent-playground/derive';
 import { Card, ExpandableText } from '@/components/agent-playground/ui';
 
 const VERIFIER_META: Record<

@@ -19,8 +19,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { deriveView } from '@/lib/agent-playground/derive';
-import { deriveTodoLedger } from '@/lib/agent-playground/todo-ledger';
+import { deriveView } from '@/lib/features/agent-playground/derive';
+import { deriveTodoLedger } from '@/lib/features/agent-playground/todo-ledger';
 import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
 
 // ---------------------------------------------------------------------------

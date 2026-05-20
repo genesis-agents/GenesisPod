@@ -13,7 +13,7 @@ import {
 import type {
   ArtifactFactTriple,
   ArtifactCitation,
-} from '@/lib/agent-playground/report-artifact.types';
+} from '@/lib/features/agent-playground/report-artifact.types';
 
 interface Props {
   factTable: ArtifactFactTriple[];

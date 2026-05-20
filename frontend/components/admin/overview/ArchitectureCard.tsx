@@ -5,7 +5,7 @@ import { ArrowRight } from 'lucide-react';
 import {
   type ArchitectureCard as CardType,
   LAYER_STYLES,
-} from '@/lib/admin/architecture';
+} from '@/lib/features/admin/architecture';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils/common';
 

@@ -8,7 +8,7 @@ import {
   AlertTriangle,
   Info,
 } from 'lucide-react';
-import type { ArtifactQualityVerdicts } from '@/lib/agent-playground/report-artifact.types';
+import type { ArtifactQualityVerdicts } from '@/lib/features/agent-playground/report-artifact.types';
 
 interface Props {
   quality: ArtifactQualityVerdicts;

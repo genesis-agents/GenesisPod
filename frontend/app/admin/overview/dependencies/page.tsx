@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Layers } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-import { ALL_DIAGRAMS } from '@/lib/admin/dependency-diagrams';
+import { ALL_DIAGRAMS } from '@/lib/features/admin/dependency-diagrams';
 import { cn } from '@/lib/utils/common';
 
 export default function DependenciesIndexPage() {

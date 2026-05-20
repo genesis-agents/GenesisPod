@@ -15,7 +15,7 @@ import type {
   DocumentVersion,
   AIConfig,
 } from '@/lib/types/ai-office';
-import { calculateSlideCount } from '@/lib/ai-office/ppt-utils';
+import { calculateSlideCount } from '@/lib/features/ai-office/ppt-utils';
 import { logger } from '@/lib/utils/logger';
 
 // ============================================================================

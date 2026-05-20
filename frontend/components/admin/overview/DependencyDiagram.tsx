@@ -11,7 +11,7 @@ import type {
   ArrowData,
   DepCardData,
   LegendItem,
-} from '@/lib/admin/dependency-diagrams';
+} from '@/lib/features/admin/dependency-diagrams';
 
 // --- Scale levels ---
 

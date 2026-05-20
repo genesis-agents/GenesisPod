@@ -37,8 +37,8 @@ import {
   type MissionActionButtonSpec,
 } from '@/components/common/mission-detail';
 import { cn } from '@/lib/utils/common';
-import { deriveView } from '@/lib/agent-playground/derive';
-import { deriveTodoLedger } from '@/lib/agent-playground/todo-ledger';
+import { deriveView } from '@/lib/features/agent-playground/derive';
+import { deriveTodoLedger } from '@/lib/features/agent-playground/todo-ledger';
 import { useAgentPlaygroundStream } from '@/hooks/features/useAgentPlaygroundStream';
 import { useSocialTask } from '@/hooks/domain/useSocialTasks';
 import {
@@ -47,7 +47,7 @@ import {
 } from '@/services/ai-social/task-api';
 import { RefreshCw } from 'lucide-react';
 import { SocialPublishPanel } from './SocialPublishPanel';
-import { deriveSocialStages } from '@/lib/ai-social/derive-social-stages';
+import { deriveSocialStages } from '@/lib/features/ai-social/derive-social-stages';
 import type { SocialContentTaskStatus } from '@/services/ai-social/task-types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

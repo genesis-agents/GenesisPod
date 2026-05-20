@@ -2,7 +2,7 @@
 
 import { type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { type StatusType, STATUS_COLORS } from '@/lib/admin/styles';
+import { type StatusType, STATUS_COLORS } from '@/lib/features/admin/styles';
 
 interface AdminToggleCardProps {
   title: string;

@@ -24,7 +24,7 @@ import {
   CompleteEvent,
   ErrorEvent,
   ProgressEvent as AgentProgressEvent,
-} from '@/lib/ai-office/agents/types';
+} from '@/lib/features/ai-office/agents/types';
 
 /**
  * 思考步骤 - 用于展示 AI 思考过程
@@ -147,7 +147,7 @@ export const useAgentStore = create<AgentStore>()(
         switch (event.type) {
           case 'progress':
             // 处理进度更新事件
-            const progressEvent = event as AgentProgressEvent;
+            const progressEvent = event;
             const progressData = progressEvent.data || {
               phase: '',
               percentage: 0,
@@ -210,7 +210,7 @@ export const useAgentStore = create<AgentStore>()(
 
           case 'plan_ready':
             // 保存计划，计算总步骤数用于进度计算
-            const planEvent = event as PlanReadyEvent;
+            const planEvent = event;
             const plan = planEvent.plan;
             const totalSteps = plan?.steps?.length || 1;
 
@@ -241,7 +241,7 @@ export const useAgentStore = create<AgentStore>()(
 
           case 'step_start':
             // 记录当前步骤，更新进度
-            const stepStartEvent = event as StepStartEvent;
+            const stepStartEvent = event;
             const stepIndex = 0; // 使用步骤ID而非索引
             const total = progress.totalSteps || 1;
             // 进度从 10% 到 90%，按步骤均分
@@ -276,7 +276,7 @@ export const useAgentStore = create<AgentStore>()(
 
           case 'step_progress':
             // 步骤内进度更新 - event.progress 是 0-100
-            const stepProgressEvent = event as StepProgressEvent;
+            const stepProgressEvent = event;
             const baseProgress = progress.percentage || 10;
             const stepTotal = progress.totalSteps || 1;
             const increment =
@@ -292,7 +292,7 @@ export const useAgentStore = create<AgentStore>()(
 
           case 'step_complete':
             // 完成最后一个处理中的思考步骤
-            const stepCompleteEvent = event as StepCompleteEvent;
+            const stepCompleteEvent = event;
             const completedThinkingSteps = thinkingSteps.map((step) => {
               if (step.status === 'processing') {
                 return {
@@ -321,7 +321,7 @@ export const useAgentStore = create<AgentStore>()(
 
           case 'tool_call':
             // 创建新的思考步骤
-            const toolCallEvent = event as ToolCallEvent;
+            const toolCallEvent = event;
             const toolCallId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const toolName = toolCallEvent.tool || 'unknown';
             const toolInput = toolCallEvent.input;
@@ -356,7 +356,7 @@ export const useAgentStore = create<AgentStore>()(
             break;
 
           case 'tool_result':
-            const toolResultEvent = event as ToolResultEvent;
+            const toolResultEvent = event;
             const toolCalls = [...progress.toolCalls];
             const lastCall = toolCalls[toolCalls.length - 1];
             const resultTool = toolResultEvent.tool;
@@ -391,7 +391,7 @@ export const useAgentStore = create<AgentStore>()(
 
           case 'thinking':
             // 处理 AI 思考事件（新增事件类型）
-            const thinkingEvent = event as ThinkingEvent;
+            const thinkingEvent = event;
             const thinkingId = `thinking_${Date.now()}`;
             set({
               thinkingSteps: [
@@ -413,7 +413,7 @@ export const useAgentStore = create<AgentStore>()(
             break;
 
           case 'complete':
-            const completeEvent = event as CompleteEvent;
+            const completeEvent = event;
             set({
               progress: {
                 ...progress,
@@ -427,7 +427,7 @@ export const useAgentStore = create<AgentStore>()(
 
           case 'error':
             // 将最后一个处理中的思考步骤标记为错误
-            const errorEvent = event as ErrorEvent;
+            const errorEvent = event;
             const errorSteps = thinkingSteps.map((step) => {
               if (step.status === 'processing') {
                 return {

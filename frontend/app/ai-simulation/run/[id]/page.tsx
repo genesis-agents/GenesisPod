@@ -29,7 +29,7 @@ import {
   ViewPerspective,
 } from '@/components/ai-simulation/PerspectiveSelector';
 import { useSimulationPerspective } from '@/hooks';
-import { isContentVisible } from '@/lib/ai-simulation/perspectiveFilter';
+import { isContentVisible } from '@/lib/features/ai-simulation/perspectiveFilter';
 
 import { logger } from '@/lib/utils/logger';
 import ClientDate from '@/components/common/ClientDate';

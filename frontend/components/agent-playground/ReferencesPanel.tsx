@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import type { ArtifactCitation } from '@/lib/agent-playground/report-artifact.types';
+import type { ArtifactCitation } from '@/lib/features/agent-playground/report-artifact.types';
 import { Card } from '@/components/agent-playground/ui';
 
 interface Props {

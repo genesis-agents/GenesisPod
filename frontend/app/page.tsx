@@ -176,7 +176,7 @@ import ResponsiveNav, {
 import {
   AIContextBuilder,
   type Resource as AIResource,
-} from '@/lib/ai-office/context-builder';
+} from '@/lib/features/ai-office/context-builder';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import type { Resource as AIOfficeResource } from '@/lib/types/ai-office';
 import {

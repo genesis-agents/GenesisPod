@@ -13,7 +13,7 @@ import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import { AdminTabs, type AdminTab } from '@/components/admin/shared';
 import { MarkdownViewer } from '@/components/common/markdown-viewer';
-import type { AiAppCategoryId } from '@/lib/admin/ai-app-categories';
+import type { AiAppCategoryId } from '@/lib/features/admin/ai-app-categories';
 import type { ResolvedModuleDoc } from '@/app/admin/ai-app/[category]/page';
 
 const MermaidDiagram = dynamic(

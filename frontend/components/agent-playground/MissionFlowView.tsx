@@ -43,8 +43,8 @@ import {
   deriveTodoLedger,
   type SystemStageId,
   type MissionTodo,
-} from '@/lib/agent-playground/todo-ledger';
-import type { DerivedView } from '@/lib/agent-playground/derive';
+} from '@/lib/features/agent-playground/todo-ledger';
+import type { DerivedView } from '@/lib/features/agent-playground/derive';
 import {
   StageStepper,
   type StageStepperItem,

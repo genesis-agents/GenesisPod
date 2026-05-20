@@ -1,7 +1,7 @@
 'use client';
 
 import { MousePointerClick, Eye, Layers } from 'lucide-react';
-import { ARCHITECTURE_LAYERS } from '@/lib/admin/architecture';
+import { ARCHITECTURE_LAYERS } from '@/lib/features/admin/architecture';
 import { useTranslation } from '@/lib/i18n';
 import { useApiGet } from '@/hooks/core';
 import ArchitectureLayer from './ArchitectureLayer';

@@ -33,7 +33,7 @@ export class FeatureChecker {
     try {
       // 检查Agent模块是否可导入
       const { CoordinatorAgent, ResourceAnalysisAgent, VerificationAgent } =
-        await import('@/lib/ai-office/multi-agents');
+        await import('@/lib/features/ai-office/multi-agents');
 
       if (!CoordinatorAgent || !ResourceAnalysisAgent || !VerificationAgent) {
         return {
@@ -77,7 +77,8 @@ export class FeatureChecker {
    */
   async checkTemplateSystem(): Promise<FeatureCheckResult> {
     try {
-      const { getAllTemplates } = await import('@/lib/ai-office/ppt-templates');
+      const { getAllTemplates } =
+        await import('@/lib/features/ai-office/ppt-templates');
       const templates = getAllTemplates();
 
       if (templates.length < 10) {

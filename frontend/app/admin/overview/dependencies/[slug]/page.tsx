@@ -2,7 +2,7 @@
 
 import { useParams, redirect } from 'next/navigation';
 import { DependencyDiagram } from '@/components/admin/overview';
-import { getDiagramBySlug } from '@/lib/admin/dependency-diagrams';
+import { getDiagramBySlug } from '@/lib/features/admin/dependency-diagrams';
 
 export default function DependencyDiagramPage() {
   const params = useParams<{ slug: string }>();

@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import type { PPTTemplate } from '@/lib/ai-office/ppt-templates';
+import type { PPTTemplate } from '@/lib/features/ai-office/ppt-templates';
 
 interface SlideDecorationsProps {
   template: PPTTemplate;

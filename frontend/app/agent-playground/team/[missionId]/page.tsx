@@ -39,18 +39,18 @@ import {
 import {
   deriveTodoLedger,
   type MissionTodo,
-} from '@/lib/agent-playground/todo-ledger';
+} from '@/lib/features/agent-playground/todo-ledger';
 import { cn } from '@/lib/utils/common';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { Tabs } from '@/components/ui/tabs';
 import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/LeadJournalPanel';
 import { BudgetAndTimeLimitPanel } from '@/components/agent-playground/BudgetAndTimeLimitPanel';
-import { isReportArtifact } from '@/lib/agent-playground/report-artifact.types';
-import { ensureRenderableArtifact } from '@/lib/agent-playground/synthesize-artifact';
+import { isReportArtifact } from '@/lib/features/agent-playground/report-artifact.types';
+import { ensureRenderableArtifact } from '@/lib/features/agent-playground/synthesize-artifact';
 import { setCitationClickCallback } from '@/components/common/citations/citationNavigation';
 import { useAgentPlaygroundStream } from '@/hooks/features/useAgentPlaygroundStream';
-import { deriveView } from '@/lib/agent-playground/derive';
+import { deriveView } from '@/lib/features/agent-playground/derive';
 import {
   cancelMission,
   getMissionDetail,

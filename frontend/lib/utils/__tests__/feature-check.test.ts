@@ -18,13 +18,13 @@ vi.mock('@/lib/utils/logger', () => ({
   },
 }));
 
-vi.mock('@/lib/ai-office/multi-agents', () => ({
+vi.mock('@/lib/features/ai-office/multi-agents', () => ({
   CoordinatorAgent: class CoordinatorAgent {},
   ResourceAnalysisAgent: class ResourceAnalysisAgent {},
   VerificationAgent: class VerificationAgent {},
 }));
 
-vi.mock('@/lib/ai-office/ppt-templates', () => ({
+vi.mock('@/lib/features/ai-office/ppt-templates', () => ({
   getAllTemplates: vi
     .fn()
     .mockReturnValue([
@@ -169,7 +169,8 @@ describe('FeatureChecker', () => {
     });
 
     it('returns warn when too few templates exist', async () => {
-      const { getAllTemplates } = await import('@/lib/ai-office/ppt-templates');
+      const { getAllTemplates } =
+        await import('@/lib/features/ai-office/ppt-templates');
       vi.mocked(getAllTemplates).mockReturnValueOnce([
         { id: 't1' },
         { id: 't2' },
@@ -183,7 +184,8 @@ describe('FeatureChecker', () => {
     });
 
     it('returns warn when required templates are missing', async () => {
-      const { getAllTemplates } = await import('@/lib/ai-office/ppt-templates');
+      const { getAllTemplates } =
+        await import('@/lib/features/ai-office/ppt-templates');
       // Enough templates but missing required ones
       vi.mocked(getAllTemplates).mockReturnValueOnce(
         Array.from({ length: 11 }, (_, i) => ({
@@ -309,7 +311,8 @@ describe('FeatureChecker', () => {
     });
 
     it('adds recommendations for failed and warned checks', async () => {
-      const { getAllTemplates } = await import('@/lib/ai-office/ppt-templates');
+      const { getAllTemplates } =
+        await import('@/lib/features/ai-office/ppt-templates');
       vi.mocked(getAllTemplates).mockReturnValue([{ id: 't1' }] as ReturnType<
         typeof getAllTemplates
       >);

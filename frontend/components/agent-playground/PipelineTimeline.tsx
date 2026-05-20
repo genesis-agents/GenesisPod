@@ -13,7 +13,10 @@ import {
   ChevronRight,
   AlertTriangle,
 } from 'lucide-react';
-import type { StageState, StageId } from '@/lib/agent-playground/derive';
+import type {
+  StageState,
+  StageId,
+} from '@/lib/features/agent-playground/derive';
 
 const META: Record<StageId, { label: string; Icon: typeof Brain }> = {
   leader: { label: 'Leader', Icon: Brain },

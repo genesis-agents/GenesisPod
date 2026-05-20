@@ -11,7 +11,7 @@ import { logger } from '@/lib/utils/logger';
 import {
   notionBlocksToBlockNote,
   blockNoteToNotionBlocks,
-} from '@/lib/notion/block-converter';
+} from '@/lib/features/notion/block-converter';
 
 interface NotionBlockEditorProps {
   initialBlocks?: Array<Record<string, unknown>>;

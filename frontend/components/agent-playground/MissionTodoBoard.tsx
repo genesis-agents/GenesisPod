@@ -36,15 +36,15 @@ import type {
   MissionTodo,
   MissionTodoStatus,
   MissionTodoAssignee,
-} from '@/lib/agent-playground/todo-ledger';
+} from '@/lib/features/agent-playground/todo-ledger';
 import type {
   AgentLiveState,
   DimensionPipelineState,
-} from '@/lib/agent-playground/derive';
+} from '@/lib/features/agent-playground/derive';
 import { Card, StatusPill, RoleChip } from '@/components/agent-playground/ui';
 import { statusToken } from '@/lib/design/tokens';
-import { friendlyError } from '@/lib/agent-playground/friendly-error.util';
-import { FRONTEND_STAGE_TO_STEP_ID } from '@/lib/agent-playground/stage-id-mapping';
+import { friendlyError } from '@/lib/features/agent-playground/friendly-error.util';
+import { FRONTEND_STAGE_TO_STEP_ID } from '@/lib/features/agent-playground/stage-id-mapping';
 import {
   AgentInspector,
   type AgentInspectorAgent,

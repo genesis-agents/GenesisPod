@@ -3,7 +3,7 @@
 import { type LucideIcon, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/common';
-import { type AdminDomain, ADMIN_COLORS } from '@/lib/admin/styles';
+import { type AdminDomain, ADMIN_COLORS } from '@/lib/features/admin/styles';
 
 interface AdminPageLayoutProps {
   title: string;

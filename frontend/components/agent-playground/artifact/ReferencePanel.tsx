@@ -1,7 +1,7 @@
 'use client';
 
 import { ExternalLink } from 'lucide-react';
-import type { ArtifactCitation } from '@/lib/agent-playground/report-artifact.types';
+import type { ArtifactCitation } from '@/lib/features/agent-playground/report-artifact.types';
 
 interface Props {
   citations: ArtifactCitation[];

@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/button';
 import { cn } from '@/lib/utils/common';
-import { AgentType, UploadedFile } from '@/lib/ai-office/agents/types';
+import { AgentType, UploadedFile } from '@/lib/features/ai-office/agents/types';
 
 interface PromptBarProps {
   placeholder?: string;

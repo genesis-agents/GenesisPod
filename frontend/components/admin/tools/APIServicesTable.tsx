@@ -42,8 +42,8 @@ import {
   getCategoryById,
   toolBelongsToTab,
   categoryFilterOptionsForTab,
-} from '@/lib/admin/tool-categories';
-import { useToolSecretSuggestions } from '@/lib/admin/tool-secrets';
+} from '@/lib/features/admin/tool-categories';
+import { useToolSecretSuggestions } from '@/lib/features/admin/tool-secrets';
 import { DrawerShell, Row, Section, Th } from '../_shared/admin-tables';
 import { SecretComboBox } from './_shared/SecretComboBox';
 
@@ -74,7 +74,7 @@ interface ToolsResponse {
   tools: ToolRow[];
 }
 
-// 2026-05-11 W3r4：分类走 @/lib/admin/tool-categories 共享真源
+// 2026-05-11 W3r4：分类走 @/lib/features/admin/tool-categories 共享真源
 // （恢复昨天 capability-mapping.ts 的 13 类 + 中文 label + 颜色主题）。
 // 本文件不再维护本地 USE_CASE_GROUPS 副本，避免与内置工具 tab 漂移。
 
@@ -501,7 +501,7 @@ function APIServiceDrawer({
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   // 秘钥下拉建议：双闸过滤（credential 模式 + toolId 命中）+ 截顶 30
-  // 共享真源在 @/lib/admin/tool-secrets
+  // 共享真源在 @/lib/features/admin/tool-secrets
   const { names: secretNames, loading: secretsLoading } =
     useToolSecretSuggestions(tool?.toolId);
 

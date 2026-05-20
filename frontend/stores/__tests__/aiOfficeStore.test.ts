@@ -22,7 +22,7 @@ vi.mock('@/lib/utils/logger', () => ({
   },
 }));
 
-vi.mock('@/lib/ai-office/ppt-utils', () => ({
+vi.mock('@/lib/features/ai-office/ppt-utils', () => ({
   calculateSlideCount: vi.fn((markdown: string) => {
     // Simple mock: count '---' separators + 1
     return (markdown.match(/^---$/gm) || []).length + 1;

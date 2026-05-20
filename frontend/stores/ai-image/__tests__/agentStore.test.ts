@@ -10,18 +10,23 @@ import {
   useIsProcessing,
 } from '../agentStore';
 import type { ThinkingStep } from '../agentStore';
-import { AgentType, AgentTaskStatus } from '@/lib/ai-office/agents/types';
+import {
+  AgentType,
+  AgentTaskStatus,
+} from '@/lib/features/ai-office/agents/types';
 import type {
   AgentTask,
   AgentPlan,
   AgentResult,
-} from '@/lib/ai-office/agents/types';
+} from '@/lib/features/ai-office/agents/types';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-vi.mock('@/lib/ai-office/agents/types', async (importOriginal) => {
+vi.mock('@/lib/features/ai-office/agents/types', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('@/lib/ai-office/agents/types')>();
+    await importOriginal<
+      typeof import('@/lib/features/ai-office/agents/types')
+    >();
   return {
     ...actual,
     AGENT_CONFIGS: {

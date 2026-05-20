@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { documentExportService } from '@/lib/utils/document-export.service';
-import { getTemplateById } from '@/lib/ai-office/ppt-templates';
+import { getTemplateById } from '@/lib/features/ai-office/ppt-templates';
 
 import { logger } from '@/lib/utils/logger';
 /**

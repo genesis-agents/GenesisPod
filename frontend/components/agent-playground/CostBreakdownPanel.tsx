@@ -1,7 +1,7 @@
 'use client';
 
 import { Coins } from 'lucide-react';
-import type { CostState } from '@/lib/agent-playground/derive';
+import type { CostState } from '@/lib/features/agent-playground/derive';
 import { Card } from '@/components/agent-playground/ui';
 
 const STAGE_LABEL: Record<string, string> = {

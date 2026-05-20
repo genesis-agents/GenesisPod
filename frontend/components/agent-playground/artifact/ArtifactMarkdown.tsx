@@ -9,7 +9,7 @@ import rehypeSanitize from 'rehype-sanitize';
 import type {
   ArtifactCitation,
   ArtifactFigure,
-} from '@/lib/agent-playground/report-artifact.types';
+} from '@/lib/features/agent-playground/report-artifact.types';
 import { CitationBadge } from '@/components/common/citations/CitationBadge';
 import { FigureRenderer as PublicFigureRenderer } from '@/components/common/chart-viewer/FigureRenderer';
 import type { RenderableChart } from '@/components/common/chart-viewer/types';

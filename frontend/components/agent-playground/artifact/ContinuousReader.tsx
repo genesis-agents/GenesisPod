@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type {
   ArtifactCitation,
   ReportArtifact,
-} from '@/lib/agent-playground/report-artifact.types';
+} from '@/lib/features/agent-playground/report-artifact.types';
 import { ArtifactMarkdown } from './ArtifactMarkdown';
 import { ReferencePanel } from './ReferencePanel';
 import { AlertTriangle } from 'lucide-react';

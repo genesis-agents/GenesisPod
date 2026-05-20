@@ -33,7 +33,7 @@ import DocumentGenerationWizard, {
 } from '../document/DocumentGenerationWizard';
 import GenerationProgress from '../document/GenerationProgress';
 import MessageRenderer from './MessageRenderer';
-import { calculateSlideCount } from '@/lib/ai-office/ppt-utils';
+import { calculateSlideCount } from '@/lib/features/ai-office/ppt-utils';
 import SlashCommandMenu, {
   SLASH_COMMANDS,
   parseSlashCommand,

@@ -30,8 +30,8 @@ import type {
   CostState,
   AgentLiveState,
   DimensionPipelineState,
-} from '@/lib/agent-playground/derive';
-import type { MissionTodo } from '@/lib/agent-playground/todo-ledger';
+} from '@/lib/features/agent-playground/derive';
+import type { MissionTodo } from '@/lib/features/agent-playground/todo-ledger';
 import { Card } from '@/components/agent-playground/ui';
 
 interface Props {

@@ -13,7 +13,7 @@ import {
   ExternalLink,
   Target,
 } from 'lucide-react';
-import type { ReportArtifact } from '@/lib/agent-playground/report-artifact.types';
+import type { ReportArtifact } from '@/lib/features/agent-playground/report-artifact.types';
 
 /**
  * 清洗快速视图纯文本字段（按 TI cleanQuickViewText）：

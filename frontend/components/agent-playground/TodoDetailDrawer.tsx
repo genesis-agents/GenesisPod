@@ -27,15 +27,15 @@ import { cn } from '@/lib/utils/common';
 import type {
   MissionTodo,
   MissionTodoNarrativeItem,
-} from '@/lib/agent-playground/todo-ledger';
-import { deriveLayerBreadcrumb } from '@/lib/agent-playground/todo-ledger';
+} from '@/lib/features/agent-playground/todo-ledger';
+import { deriveLayerBreadcrumb } from '@/lib/features/agent-playground/todo-ledger';
 import type {
   AgentLiveState,
   AgentTraceItem,
   DimensionPipelineState,
-} from '@/lib/agent-playground/derive';
-import { deriveDrawerSections } from '@/lib/agent-playground/drawer-derive';
-import { FRONTEND_STAGE_TO_STEP_ID } from '@/lib/agent-playground/stage-id-mapping';
+} from '@/lib/features/agent-playground/derive';
+import { deriveDrawerSections } from '@/lib/features/agent-playground/drawer-derive';
+import { FRONTEND_STAGE_TO_STEP_ID } from '@/lib/features/agent-playground/stage-id-mapping';
 import {
   Card,
   Section,
@@ -54,7 +54,7 @@ import {
   type ToneKey,
   type RoleKey,
 } from '@/lib/design/tokens';
-import { friendlyError } from '@/lib/agent-playground/friendly-error.util';
+import { friendlyError } from '@/lib/features/agent-playground/friendly-error.util';
 
 interface Props {
   todo: MissionTodo | undefined;

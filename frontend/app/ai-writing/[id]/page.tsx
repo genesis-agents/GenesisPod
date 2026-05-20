@@ -14,7 +14,7 @@ import {
 } from '@/hooks/features/useWritingWebSocket';
 import type { Chapter, MissionLogItem } from '@/services/ai-writing/api';
 import { getMissionLogs, getProjectMissions } from '@/services/ai-writing/api';
-import { matchAgentByName } from '@/lib/ai-writing/agent-config';
+import { matchAgentByName } from '@/lib/features/ai-writing/agent-config';
 import { WritingTeamPanel } from '@/components/ai-writing/WritingTeamPanel';
 import CharacterRelationshipGraph from '@/components/ai-writing/CharacterRelationshipGraph';
 import ChapterEditPanel from '@/components/ai-writing/ChapterEditPanel';

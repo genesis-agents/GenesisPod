@@ -8,7 +8,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDocumentStore } from '@/stores/aiOfficeStore';
 import { toast } from '@/stores';
-import { getTemplateById, PPTTemplate } from '@/lib/ai-office/ppt-templates';
+import {
+  getTemplateById,
+  PPTTemplate,
+} from '@/lib/features/ai-office/ppt-templates';
 import type { Document } from '@/lib/types/ai-office';
 import {
   FileDown,
@@ -28,7 +31,7 @@ import {
 } from 'lucide-react';
 import VersionHistory from './VersionHistory';
 import VersionSelector from './VersionSelector';
-import { parseMarkdownToEnhancedSlides } from '@/lib/ai-office/markdown-parser';
+import { parseMarkdownToEnhancedSlides } from '@/lib/features/ai-office/markdown-parser';
 import EnhancedSlideRenderer from './EnhancedSlideRenderer';
 import ResearchPageRenderer from './ResearchPageRenderer';
 import { getResearchPageTemplateById } from '@/lib/templates/research-page-templates';

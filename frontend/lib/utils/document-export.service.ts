@@ -14,7 +14,10 @@ import {
 } from 'docx';
 import PptxGenJS from 'pptxgenjs';
 import TurndownService from 'turndown';
-import { PPTTemplate, getTemplateById } from '../ai-office/ppt-templates';
+import {
+  PPTTemplate,
+  getTemplateById,
+} from '@/lib/features/ai-office/ppt-templates';
 import { config } from './config';
 
 interface ExportOptions {

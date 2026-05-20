@@ -10,7 +10,7 @@ import {
   Sparkles,
   History,
 } from 'lucide-react';
-import type { ReportDraft } from '@/lib/agent-playground/derive';
+import type { ReportDraft } from '@/lib/features/agent-playground/derive';
 import { Card } from '@/components/agent-playground/ui';
 
 const MD_COMPONENTS = {

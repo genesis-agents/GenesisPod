@@ -15,7 +15,7 @@ import NotesList from '@/components/common/resource-lists/NotesList';
 import {
   AIContextBuilder,
   type Resource as AIResource,
-} from '@/lib/ai-office/context-builder';
+} from '@/lib/features/ai-office/context-builder';
 import AIMessageRenderer from '@/components/ui/content/AIMessageRenderer';
 import TextSelectionToolbar from '@/components/ui/content/TextSelectionToolbar';
 import KeyMomentsPanel, {
@@ -34,7 +34,7 @@ import {
   saveTranslationToCache,
   fetchSavedTranslation,
   type TranslatedSegment,
-} from '@/lib/explore/youtube-transcript';
+} from '@/lib/features/explore/youtube-transcript';
 import ClientDate from '@/components/common/ClientDate';
 import { useI18n } from '@/lib/i18n/i18n-context';
 import { toast } from '@/stores';

@@ -16,8 +16,8 @@ import {
   isNavGroupActive,
   type NavGroup,
   type NavItem,
-} from '@/lib/admin/navigation';
-import { ADMIN_COLORS, type AdminDomain } from '@/lib/admin/styles';
+} from '@/lib/features/admin/navigation';
+import { ADMIN_COLORS, type AdminDomain } from '@/lib/features/admin/styles';
 import { cn } from '@/lib/utils/common';
 
 interface AdminSidebarProps {

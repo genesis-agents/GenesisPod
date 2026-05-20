@@ -4,7 +4,7 @@ import {
   type StatusType,
   STATUS_COLORS,
   getStatusBadgeClasses,
-} from '@/lib/admin/styles';
+} from '@/lib/features/admin/styles';
 
 interface AdminStatusBadgeProps {
   status: StatusType;

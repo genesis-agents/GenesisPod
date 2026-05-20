@@ -23,7 +23,7 @@ import {
 import type {
   AgentLiveState,
   DimensionPipelineState,
-} from '@/lib/agent-playground/derive';
+} from '@/lib/features/agent-playground/derive';
 
 interface Props {
   open: boolean;

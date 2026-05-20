@@ -87,7 +87,7 @@ vi.mock('@/lib/utils/config', () => ({
 }));
 
 // Mock ppt-templates so we have a predictable template
-vi.mock('@/lib/ai-office/ppt-templates', () => {
+vi.mock('@/lib/features/ai-office/ppt-templates', () => {
   const fakeTemplate = {
     id: 'corporate',
     name: 'Corporate Professional',

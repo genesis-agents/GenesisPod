@@ -26,8 +26,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import type { ChartData } from '@/lib/ai-office/markdown-parser';
-import type { PPTTemplate } from '@/lib/ai-office/ppt-templates';
+import type { ChartData } from '@/lib/features/ai-office/markdown-parser';
+import type { PPTTemplate } from '@/lib/features/ai-office/ppt-templates';
 
 interface ChartRendererProps {
   data: ChartData;
