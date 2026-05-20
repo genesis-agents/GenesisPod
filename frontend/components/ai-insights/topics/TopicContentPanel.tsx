@@ -91,6 +91,8 @@ import {
 } from '@/components/common/citations/citationNavigation';
 import { safeString } from '@/lib/utils/common';
 import { Tabs } from '@/components/ui/tabs';
+import { Modal } from '@/components/ui/dialogs/Modal';
+import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 
 // 报告视图模式
 type ReportViewMode = 'continuous' | 'chapter' | 'quick';
@@ -1626,46 +1628,17 @@ export function TopicContentPanel({
         )}
 
         {/* Delete confirmation modal */}
-        {showDeleteConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                  <TrashIcon className="h-5 w-5 text-red-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {t('topicResearch.contentPanel.confirmDeleteTitle')}
-                </h3>
-              </div>
-              <p className="mb-6 text-sm text-gray-600">
-                {t('topicResearch.contentPanel.deleteConfirmMessage')}
-              </p>
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  disabled={isDeleting}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  {t('topicResearch.contentPanel.cancelButton')}
-                </button>
-                <button
-                  onClick={handleDeleteReport}
-                  disabled={isDeleting}
-                  className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-                >
-                  {isDeleting ? (
-                    <>
-                      <SpinnerIcon className="h-4 w-4 animate-spin" />
-                      {t('topicResearch.contentPanel.deletingButton')}
-                    </>
-                  ) : (
-                    t('topicResearch.contentPanel.confirmDeleteButtonText')
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmDialog
+          open={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={handleDeleteReport}
+          title={t('topicResearch.contentPanel.confirmDeleteTitle')}
+          description={t('topicResearch.contentPanel.deleteConfirmMessage')}
+          type="danger"
+          confirmText={t('topicResearch.contentPanel.confirmDeleteButtonText')}
+          cancelText={t('topicResearch.contentPanel.cancelButton')}
+          loading={isDeleting}
+        />
 
         {/* Tab Content */}
         <div
@@ -2051,61 +2024,50 @@ export function TopicContentPanel({
       </div>
 
       {/* Regenerate feedback dialog */}
-      {showRegenerateDialog && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setShowRegenerateDialog(false)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setShowRegenerateDialog(false);
-          }}
-        >
-          <div
-            className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-base font-semibold text-gray-900">
-              {t('topicResearch.contentPanel.regenerateReportTitle')}
-            </h3>
-            <div className="mt-3">
-              <label className="text-sm text-gray-600">
-                {t('topicResearch.contentPanel.optimizationDirectionLabel')}
-              </label>
-              <textarea
-                autoFocus
-                value={regenerateFeedback}
-                onChange={(e) => setRegenerateFeedback(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    doRegenerate(regenerateFeedback.trim());
-                  }
-                }}
-                placeholder={t(
-                  'topicResearch.contentPanel.optimizationPlaceholder'
-                )}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                rows={3}
-                maxLength={500}
-              />
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setShowRegenerateDialog(false)}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
-              >
-                {t('topicResearch.contentPanel.cancelButton')}
-              </button>
-              <button
-                onClick={() => doRegenerate(regenerateFeedback.trim())}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                {t('topicResearch.contentPanel.regenerateButton')}
-              </button>
-            </div>
+      <Modal
+        open={showRegenerateDialog}
+        onClose={() => setShowRegenerateDialog(false)}
+        title={t('topicResearch.contentPanel.regenerateReportTitle')}
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setShowRegenerateDialog(false)}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            >
+              {t('topicResearch.contentPanel.cancelButton')}
+            </button>
+            <button
+              onClick={() => doRegenerate(regenerateFeedback.trim())}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              {t('topicResearch.contentPanel.regenerateButton')}
+            </button>
           </div>
+        }
+      >
+        <div>
+          <label className="text-sm text-gray-600">
+            {t('topicResearch.contentPanel.optimizationDirectionLabel')}
+          </label>
+          <textarea
+            autoFocus
+            value={regenerateFeedback}
+            onChange={(e) => setRegenerateFeedback(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                doRegenerate(regenerateFeedback.trim());
+              }
+            }}
+            placeholder={t(
+              'topicResearch.contentPanel.optimizationPlaceholder'
+            )}
+            className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            rows={3}
+            maxLength={500}
+          />
         </div>
-      )}
+      </Modal>
     </>
   );
 }
@@ -4627,110 +4589,90 @@ function TeamInteractionTabContent({
       </div>
 
       {/* Agent Details Modal - ★ 使用安全访问器 */}
-      {selectedAgent &&
-        (() => {
-          const details = getAgentDetails(selectedAgent, t);
-          return (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-              onClick={() => setSelectedAgent(null)}
-            >
-              <div
-                className="relative mx-4 w-full max-w-md rounded-2xl bg-white shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br ${details.gradient} text-xl text-white shadow-md`}
-                    >
-                      {details.icon}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        {details.name}
-                      </h3>
-                      <span className="text-sm text-gray-500">
-                        {details.role}
+      {(() => {
+        const details = selectedAgent
+          ? getAgentDetails(selectedAgent, t)
+          : null;
+        return (
+          <Modal
+            open={!!selectedAgent}
+            onClose={() => setSelectedAgent(null)}
+            size="sm"
+            title={
+              details ? (
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br ${details.gradient} text-xl text-white shadow-md`}
+                  >
+                    {details.icon}
+                  </div>
+                  <div>
+                    <span className="text-lg font-bold text-gray-900">
+                      {details.name}
+                    </span>
+                    <p className="text-sm text-gray-500">{details.role}</p>
+                  </div>
+                </div>
+              ) : (
+                ''
+              )
+            }
+            footer={
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => setSelectedAgent(null)}
+                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                >
+                  关闭
+                </button>
+              </div>
+            }
+          >
+            {details && (
+              <div className="px-2">
+                {/* Description */}
+                <p className="text-sm leading-relaxed text-gray-600">
+                  {details.description}
+                </p>
+
+                {/* Skills */}
+                <div className="mt-4">
+                  <h4 className="mb-2 text-sm font-semibold text-gray-800">
+                    技能
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {details.skills.map((skill) => (
+                      <span
+                        key={skill}
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${details.bgColor} ${details.color}`}
+                      >
+                        {skill}
                       </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setSelectedAgent(null)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                  >
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Modal Content */}
-                <div className="px-6 py-4">
-                  {/* Description */}
-                  <p className="text-sm leading-relaxed text-gray-600">
-                    {details.description}
-                  </p>
-
-                  {/* Skills */}
-                  <div className="mt-4">
-                    <h4 className="mb-2 text-sm font-semibold text-gray-800">
-                      技能
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {details.skills.map((skill) => (
-                        <span
-                          key={skill}
-                          className={`rounded-full px-3 py-1 text-xs font-medium ${details.bgColor} ${details.color}`}
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Tools */}
-                  <div className="mt-4">
-                    <h4 className="mb-2 text-sm font-semibold text-gray-800">
-                      工具
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {details.tools.map((tool) => (
-                        <span
-                          key={tool}
-                          className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700"
-                        >
-                          {tool}
-                        </span>
-                      ))}
-                    </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Modal Footer */}
-                <div className="flex items-center justify-end border-t border-gray-100 px-6 py-4">
-                  <button
-                    onClick={() => setSelectedAgent(null)}
-                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    关闭
-                  </button>
+                {/* Tools */}
+                <div className="mt-4">
+                  <h4 className="mb-2 text-sm font-semibold text-gray-800">
+                    工具
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {details.tools.map((tool) => (
+                      <span
+                        key={tool}
+                        className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700"
+                      >
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })()}
+            )}
+          </Modal>
+        );
+      })()}
     </div>
   );
 }

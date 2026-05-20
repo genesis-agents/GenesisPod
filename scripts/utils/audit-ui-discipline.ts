@@ -232,6 +232,27 @@ function checkR5LoadingState(file: string, src: string): Violation[] {
   ];
 }
 
+// R6 已审批 bespoke 例外（2026-05-20，用户批准）：`fixed inset-0 z-*` 命中但
+// 本质不是「居中内容弹层」——逐个读源确认，canonical Modal/SideDrawer 不模型化。
+// 类型：点击遮罩(click-away)、进度/加载遮罩、悬浮工具条、移动端导航/侧栏遮罩、
+// 全屏画布/图谱/iframe 阅读器、角落浮层、命令面板(顶部锚定+自带搜索头+键盘环)。
+const R6_BESPOKE_OK = [
+  "components/library/wiki/WikiChromeHeader.tsx", // KB 切换下拉的 click-away 遮罩
+  "components/library/wiki/WikiGraphModal.tsx", // 交互式 pan/zoom SVG 图谱（全幅）
+  "components/ai-office/core/ProgressTracker.tsx", // 进度遮罩
+  "components/ai-office/document/GenerationProgress.tsx", // 生成进度遮罩
+  "components/ai-bar/GlobalAIBar.tsx", // 全局悬浮 AI 条
+  "components/ai-teams/MessageSelectionToolbar.tsx", // 选择工具条
+  "components/ai-teams/TeamCanvasModal.tsx", // 全幅 SVG 画布 drag/pan/zoom（embedded 模式）
+  "components/layout/MobileNav.tsx", // 移动端导航抽屉（入口文件）
+  "components/explore/youtube/subtitle-export-button.tsx", // 加载 spinner + 错误 toast
+  "components/ai-research/discussion/DemosPanel.tsx", // 全屏 iframe 演示查看器
+  "components/ai-research/discussion/CommandPalette.tsx", // 命令面板（顶部锚定+搜索头+键盘环）
+  "components/ai-insights/reports/ReportEditor.tsx", // fixed right-4 top-20 角落浮层（编辑+预览并排）
+  "app/share/topic/[id]/page.tsx", // 移动端侧栏 dismiss 遮罩
+  "app/share/writing/[id]/page.tsx", // 移动端 TOC 侧栏遮罩 + 阅读进度条
+];
+
 // R6: 弹层必须用 MissionDialogShell/SideDrawer/Modal/ConfirmDialog
 function checkR6Dialog(file: string, src: string): Violation[] {
   // 检测自写 dialog/modal/drawer：fixed inset-0 + z-* + backdrop
@@ -247,6 +268,8 @@ function checkR6Dialog(file: string, src: string): Violation[] {
     "AdminModal",
   ];
   if (knownDialogs.some((s) => hasImport(src, s))) return [];
+  const norm = file.split(sep).join("/");
+  if (R6_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
 
   const line = findLine(src, customDialog);
   return [

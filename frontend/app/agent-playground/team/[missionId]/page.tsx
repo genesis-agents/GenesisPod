@@ -62,6 +62,7 @@ import {
   type ReportVersionListItem,
 } from '@/services/agent-playground/api';
 import type { ReportVersionMeta } from '@/components/agent-playground/artifact/ArtifactReader';
+import { Modal } from '@/components/ui/dialogs/Modal';
 
 type TabKey = 'tasks' | 'collab' | 'report' | 'references' | 'cost';
 
@@ -1354,269 +1355,250 @@ function MissionSettingsModal({
     }
   };
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]"
-      onClick={onClose}
-    >
-      <div
-        className="flex w-full max-w-3xl flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_30px_100px_-40px_rgba(15,23,42,0.45)]"
-        style={{ maxHeight: '90vh' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600">
-              Mission Settings
-            </p>
-            <h3 className="mt-1 text-lg font-semibold text-slate-950">
-              Mission 设置
-            </h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-          >
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5 text-sm">
-          <div className="grid grid-cols-2 gap-3">
-            <SettingRow
-              label="耗时"
-              value={`${Math.floor(wallTimeMs / 1000)}s`}
-            />
-            <SettingRow
-              label="累计 token"
-              value={(() => {
-                const inheritedMax = (
-                  userProfile as { maxCredits?: number } | null
-                )?.maxCredits;
-                const used =
-                  cost.tokensUsed >= 1000
-                    ? `${(cost.tokensUsed / 1000).toFixed(1)}k`
-                    : String(cost.tokensUsed);
-                if (inheritedMax) {
-                  const capTokens = inheritedMax * 1000;
-                  const ratio = Math.min(
-                    100,
-                    Math.round((cost.tokensUsed / capTokens) * 100)
-                  );
-                  const capLabel =
-                    capTokens >= 1_000_000
-                      ? `${(capTokens / 1_000_000).toFixed(1)}M`
-                      : `${(capTokens / 1000).toFixed(0)}k`;
-                  return `${used} / ${capLabel} · ${ratio}%`;
-                }
-                return used;
-              })()}
-            />
-          </div>
-
-          <FormField label="主题（必填）">
-            <textarea
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              rows={2}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-[13px] text-slate-900 focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100"
-              placeholder="例：系统洞察一下 Anthropic Managed Agent"
-            />
-          </FormField>
-
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="语言">
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as Lang)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
-              >
-                <option value="zh-CN">中文</option>
-                <option value="en-US">English</option>
-              </select>
-            </FormField>
-            <FormField label="深度">
-              <select
-                value={depth}
-                onChange={(e) => setDepth(e.target.value as Depth)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
-              >
-                <option value="quick">quick · 快速</option>
-                <option value="standard">standard · 标准</option>
-                <option value="deep">deep · 深度</option>
-              </select>
-            </FormField>
-            <FormField label="搜索时效">
-              <select
-                value={searchTimeRange}
-                onChange={(e) => setSearchTimeRange(e.target.value as STR)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
-              >
-                <option value="30d">1 个月</option>
-                <option value="90d">3 个月</option>
-                <option value="180d">6 个月</option>
-                <option value="365d">12 个月</option>
-                <option value="730d">24 个月</option>
-                <option value="all">不限</option>
-              </select>
-            </FormField>
-            <FormField label="长度档位">
-              <select
-                value={lengthProfile}
-                onChange={(e) => setLengthProfile(e.target.value as LP)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
-              >
-                <option value="brief">brief · 3K</option>
-                <option value="standard">standard · 8K</option>
-                <option value="deep">deep · 15K</option>
-                <option value="extended">extended · 25K</option>
-                <option value="epic">epic · 80K</option>
-                <option value="mega">mega · 200K</option>
-              </select>
-            </FormField>
-            <FormField label="文风">
-              <select
-                value={styleProfile}
-                onChange={(e) => setStyleProfile(e.target.value as SP)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
-              >
-                <option value="executive">executive · 管理</option>
-                <option value="academic">academic · 学术</option>
-                <option value="journalistic">journalistic · 新闻</option>
-                <option value="technical">technical · 技术</option>
-              </select>
-            </FormField>
-            <FormField label="受众">
-              <select
-                value={audienceProfile}
-                onChange={(e) => setAudienceProfile(e.target.value as AP)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
-              >
-                <option value="executive">executive · 高管</option>
-                <option value="domain-expert">domain-expert · 专家</option>
-                <option value="general-public">general-public · 大众</option>
-              </select>
-            </FormField>
-            <FormField label="审核层">
-              <select
-                value={auditLayers}
-                onChange={(e) => setAuditLayers(e.target.value as AL)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
-              >
-                <option value="minimal">minimal · 最小</option>
-                <option value="default">default · 默认</option>
-                <option value="thorough">thorough · 深审</option>
-                <option value="thorough+">thorough+ · 全审</option>
-              </select>
-            </FormField>
-            <FormField label="并行数">
-              <input
-                type="number"
-                min={1}
-                max={6}
-                value={concurrency}
-                onChange={(e) =>
-                  setConcurrency(Math.max(1, Math.min(6, +e.target.value)))
-                }
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
-              />
-            </FormField>
-            <FormField label="图文并茂">
-              <label className="flex min-h-[50px] items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900">
-                <input
-                  type="checkbox"
-                  checked={withFigures}
-                  onChange={(e) => setWithFigures(e.target.checked)}
-                  className="h-4 w-4 rounded"
-                />
-                <span>启用</span>
-              </label>
-            </FormField>
-          </div>
-
-          <FormField label="知识库（最多 10 个，留空 = 纯 web-search）">
-            <KnowledgeBaseSelector
-              selectedIds={knowledgeBaseIds}
-              onSelectionChange={setKnowledgeBaseIds}
-              maxSelections={10}
-            />
-          </FormField>
-
-          <BudgetAndTimeLimitPanel
-            maxCredits={maxCredits}
-            setMaxCredits={setMaxCredits}
-            budgetMultiplierOverride={budgetMultiplierOverride}
-            setBudgetMultiplierOverride={setBudgetMultiplierOverride}
-            wallTimeMinutes={wallTimeMinutes}
-            setWallTimeMinutes={setWallTimeMinutes}
-          />
-
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-[11px] leading-relaxed text-blue-900">
-            <p className="font-semibold">
-              说明：「另存为新 mission」会用以上配置创建新 mission，原 mission
-              保留作对比。
-            </p>
-            <p className="mt-0.5">
-              （当前 mission 已经在跑或已完成，参数无法在原 mission 上
-              mutate；这是有意设计，便于复盘和 A/B 对比）
-            </p>
-          </div>
-
-          {saveError && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[11px] leading-relaxed text-red-700">
-              {saveError}
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="rounded-2xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-100 disabled:opacity-50"
-          >
-            关闭
-          </button>
-          {/* 2026-05-13: 非运行状态显示「保存修改」，写回原 mission，下次重跑生效 */}
-          {isTerminal && (
-            <button
-              type="button"
-              onClick={() => void handleSaveInPlace()}
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-              title="把预算配置写回当前 mission，下次「重跑」会用新值"
-            >
-              {saving ? '保存中…' : '保存修改'}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => void handleSaveAsNew()}
-            disabled={saving || !topic.trim()}
-            className="inline-flex items-center gap-1.5 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <RefreshCw
-              className={cn('h-3.5 w-3.5', saving && 'animate-spin')}
-            />
-            {saving ? '创建中…' : '另存为新 mission'}
-          </button>
-        </div>
-      </div>
+  const settingsTitle = (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600">
+        Mission Settings
+      </p>
+      <h3 className="mt-1 text-lg font-semibold text-slate-950">
+        Mission 设置
+      </h3>
     </div>
+  );
+
+  const settingsFooter = (
+    <div className="flex w-full justify-end gap-2">
+      <button
+        type="button"
+        onClick={onClose}
+        disabled={saving}
+        className="rounded-2xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-100 disabled:opacity-50"
+      >
+        关闭
+      </button>
+      {/* 2026-05-13: 非运行状态显示「保存修改」，写回原 mission，下次重跑生效 */}
+      {isTerminal && (
+        <button
+          type="button"
+          onClick={() => void handleSaveInPlace()}
+          disabled={saving}
+          className="inline-flex items-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          title="把预算配置写回当前 mission，下次「重跑」会用新值"
+        >
+          {saving ? '保存中…' : '保存修改'}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => void handleSaveAsNew()}
+        disabled={saving || !topic.trim()}
+        className="inline-flex items-center gap-1.5 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <RefreshCw className={cn('h-3.5 w-3.5', saving && 'animate-spin')} />
+        {saving ? '创建中…' : '另存为新 mission'}
+      </button>
+    </div>
+  );
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={settingsTitle}
+      size="xl"
+      className="rounded-[28px] border border-slate-200 shadow-[0_30px_100px_-40px_rgba(15,23,42,0.45)]"
+      contentClassName="px-5 py-5 text-sm"
+      footerClassName="bg-slate-50/70"
+      footer={settingsFooter}
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <SettingRow
+            label="耗时"
+            value={`${Math.floor(wallTimeMs / 1000)}s`}
+          />
+          <SettingRow
+            label="累计 token"
+            value={(() => {
+              const inheritedMax = (
+                userProfile as { maxCredits?: number } | null
+              )?.maxCredits;
+              const used =
+                cost.tokensUsed >= 1000
+                  ? `${(cost.tokensUsed / 1000).toFixed(1)}k`
+                  : String(cost.tokensUsed);
+              if (inheritedMax) {
+                const capTokens = inheritedMax * 1000;
+                const ratio = Math.min(
+                  100,
+                  Math.round((cost.tokensUsed / capTokens) * 100)
+                );
+                const capLabel =
+                  capTokens >= 1_000_000
+                    ? `${(capTokens / 1_000_000).toFixed(1)}M`
+                    : `${(capTokens / 1000).toFixed(0)}k`;
+                return `${used} / ${capLabel} · ${ratio}%`;
+              }
+              return used;
+            })()}
+          />
+        </div>
+
+        <FormField label="主题（必填）">
+          <textarea
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            rows={2}
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-[13px] text-slate-900 focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100"
+            placeholder="例：系统洞察一下 Anthropic Managed Agent"
+          />
+        </FormField>
+
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="语言">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as Lang)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
+            >
+              <option value="zh-CN">中文</option>
+              <option value="en-US">English</option>
+            </select>
+          </FormField>
+          <FormField label="深度">
+            <select
+              value={depth}
+              onChange={(e) => setDepth(e.target.value as Depth)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
+            >
+              <option value="quick">quick · 快速</option>
+              <option value="standard">standard · 标准</option>
+              <option value="deep">deep · 深度</option>
+            </select>
+          </FormField>
+          <FormField label="搜索时效">
+            <select
+              value={searchTimeRange}
+              onChange={(e) => setSearchTimeRange(e.target.value as STR)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
+            >
+              <option value="30d">1 个月</option>
+              <option value="90d">3 个月</option>
+              <option value="180d">6 个月</option>
+              <option value="365d">12 个月</option>
+              <option value="730d">24 个月</option>
+              <option value="all">不限</option>
+            </select>
+          </FormField>
+          <FormField label="长度档位">
+            <select
+              value={lengthProfile}
+              onChange={(e) => setLengthProfile(e.target.value as LP)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
+            >
+              <option value="brief">brief · 3K</option>
+              <option value="standard">standard · 8K</option>
+              <option value="deep">deep · 15K</option>
+              <option value="extended">extended · 25K</option>
+              <option value="epic">epic · 80K</option>
+              <option value="mega">mega · 200K</option>
+            </select>
+          </FormField>
+          <FormField label="文风">
+            <select
+              value={styleProfile}
+              onChange={(e) => setStyleProfile(e.target.value as SP)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
+            >
+              <option value="executive">executive · 管理</option>
+              <option value="academic">academic · 学术</option>
+              <option value="journalistic">journalistic · 新闻</option>
+              <option value="technical">technical · 技术</option>
+            </select>
+          </FormField>
+          <FormField label="受众">
+            <select
+              value={audienceProfile}
+              onChange={(e) => setAudienceProfile(e.target.value as AP)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
+            >
+              <option value="executive">executive · 高管</option>
+              <option value="domain-expert">domain-expert · 专家</option>
+              <option value="general-public">general-public · 大众</option>
+            </select>
+          </FormField>
+          <FormField label="审核层">
+            <select
+              value={auditLayers}
+              onChange={(e) => setAuditLayers(e.target.value as AL)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
+            >
+              <option value="minimal">minimal · 最小</option>
+              <option value="default">default · 默认</option>
+              <option value="thorough">thorough · 深审</option>
+              <option value="thorough+">thorough+ · 全审</option>
+            </select>
+          </FormField>
+          <FormField label="并行数">
+            <input
+              type="number"
+              min={1}
+              max={6}
+              value={concurrency}
+              onChange={(e) =>
+                setConcurrency(Math.max(1, Math.min(6, +e.target.value)))
+              }
+              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
+            />
+          </FormField>
+          <FormField label="图文并茂">
+            <label className="flex min-h-[50px] items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900">
+              <input
+                type="checkbox"
+                checked={withFigures}
+                onChange={(e) => setWithFigures(e.target.checked)}
+                className="h-4 w-4 rounded"
+              />
+              <span>启用</span>
+            </label>
+          </FormField>
+        </div>
+
+        <FormField label="知识库（最多 10 个，留空 = 纯 web-search）">
+          <KnowledgeBaseSelector
+            selectedIds={knowledgeBaseIds}
+            onSelectionChange={setKnowledgeBaseIds}
+            maxSelections={10}
+          />
+        </FormField>
+
+        <BudgetAndTimeLimitPanel
+          maxCredits={maxCredits}
+          setMaxCredits={setMaxCredits}
+          budgetMultiplierOverride={budgetMultiplierOverride}
+          setBudgetMultiplierOverride={setBudgetMultiplierOverride}
+          wallTimeMinutes={wallTimeMinutes}
+          setWallTimeMinutes={setWallTimeMinutes}
+        />
+
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-[11px] leading-relaxed text-blue-900">
+          <p className="font-semibold">
+            说明：「另存为新 mission」会用以上配置创建新 mission，原 mission
+            保留作对比。
+          </p>
+          <p className="mt-0.5">
+            （当前 mission 已经在跑或已完成，参数无法在原 mission 上
+            mutate；这是有意设计，便于复盘和 A/B 对比）
+          </p>
+        </div>
+
+        {saveError && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[11px] leading-relaxed text-red-700">
+            {saveError}
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
 
