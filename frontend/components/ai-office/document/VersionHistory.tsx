@@ -8,6 +8,8 @@
  */
 
 import React, { useState } from 'react';
+import { FileText } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { sanitizeHtml } from '@/lib/utils/sanitize';
@@ -122,22 +124,12 @@ export default function VersionHistory({
           <div className="w-80 overflow-y-auto border-r border-gray-200">
             <div className="space-y-2 p-4">
               {sortedVersions.length === 0 ? (
-                <div className="py-12 text-center text-gray-500">
-                  <svg
-                    className="mx-auto mb-3 h-12 w-12 text-gray-300"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                  <p className="text-sm">暂无版本历史</p>
-                </div>
+                <EmptyState
+                  size="sm"
+                  icon={<FileText className="h-10 w-10" />}
+                  title="暂无版本历史"
+                  description="编辑保存后会生成版本快照"
+                />
               ) : (
                 sortedVersions.map((version, index) => {
                   const isSelected = selectedVersionId === version.id;
