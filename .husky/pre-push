@@ -73,6 +73,25 @@ rm -f "$ARCH_LOG"
 echo "  架构边界合规"
 echo ""
 
+# 0c. 前端第一层目录结构看护（锁定核心七层 + 支撑目录白名单，防 types/pages 类回归）
+#   ★ 无条件运行（不走 --changed）：目录的增删不在 vitest 依赖图里，[3/6] 的
+#     `vitest run --changed` 抓不到"新增了非法第一层目录"这种变更，必须独立全量跑。
+#   规范：.claude/standards/02-directory-structure.md §Frontend 第一层目录白名单与定位
+echo "[0c/6] 前端目录结构看护..."
+STRUCT_LOG=$(mktemp)
+(cd frontend && npx vitest run __tests__/protection-net/first-level-directory-structure.spec.ts > "$STRUCT_LOG" 2>&1) || {
+    echo ""
+    echo "  前端第一层目录结构违规！（白名单见规范 02 / 测试 ALLOWED_DIRS）"
+    echo "── 最后 30 行输出 ──"
+    tail -30 "$STRUCT_LOG"
+    echo ""
+    rm -f "$STRUCT_LOG"
+    exit 1
+}
+rm -f "$STRUCT_LOG"
+echo "  前端目录结构合规"
+echo ""
+
 # 1. 类型检查（并行执行前后端）
 echo "[1/6] 类型检查（前后端并行）..."
 npx concurrently --kill-others-on-fail --names "fe,be" \

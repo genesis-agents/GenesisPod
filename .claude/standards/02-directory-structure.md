@@ -200,6 +200,46 @@ frontend/app/
 > `components/{feature}/XxxPage.tsx`。feature 级 `layout.tsx` 统一包 `AppShell`，
 > 子页面不重复包（见 ai-social/ai-radar layout 模式）。
 
+### 第一层目录白名单与定位（看护锁定）
+
+> **2026-05-20 新增**：第一层目录已被自动化看护锁定。新增/删除第一层目录前**必须先改本白名单 + 看护测试**，否则 pre-push 拒推。历史偏差 `types/`（已并入 `lib/types/`）、`pages/`（已删，纯 App Router）已清除。
+
+第一层**仅允许**以下三类目录，白名单之外一律拒绝：
+
+#### A. 核心七层（源码主体，依赖单向 `app → components → hooks/stores/contexts → services → lib`）
+
+| 目录          | 定位                                                                                          |
+| ------------- | --------------------------------------------------------------------------------------------- |
+| `app/`        | App Router 路由层：`page.tsx`（只取参+渲染）/ `layout.tsx`（包 AppShell）/ `api/`（BFF 代理） |
+| `components/` | React 组件层（三层：`ui` / `common` / `{feature}` / `layout`）                                |
+| `lib/`        | 纯逻辑层（无 React、无 HTTP；含 `lib/api` 唯一 HTTP 基建 + `lib/types` 全局类型）             |
+| `services/`   | API 调用层（所有 HTTP + SSE，按 `{feature}/api.ts` 组织）                                     |
+| `hooks/`      | React Hooks 层（`core` / `domain` / `swr` / `features`）                                      |
+| `contexts/`   | React Context 层（全局跨树状态，如 AuthContext）                                              |
+| `stores/`     | Zustand 全局 store 层（按 feature 切片）                                                      |
+
+#### B. 支撑目录
+
+| 目录         | 定位                                                                                                                                                                                                                                                                                      |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `__tests__/` | **仅放跨切面 / 元测试**：① protection-net 元测试（lint / config / 目录结构）② **跨模块**集成 / 契约测试。**任何只测单一模块的测试（含 fixture 驱动的回归套件）必须 colocated** 到 `{module}/__tests__/`，其 fixture 也随之 colocated（如 `lib/agent-playground/__tests__/__fixtures__/`） |
+| `public/`    | Next.js 静态资源                                                                                                                                                                                                                                                                          |
+| `scripts/`   | 前端工具脚本                                                                                                                                                                                                                                                                              |
+
+#### C. 构建产物 / 依赖（gitignore，非源码）
+
+`node_modules/`、`coverage/`、`.next/` —— 磁盘存在但不纳入规范。
+
+> **测试放置判断**：「这个测试只测某一个模块吗？」是 → colocated 到该模块旁（`lib/agent-playground/__tests__/` 等）；否（跨模块 / fixture 语料 / 元测试）→ 顶层 `__tests__/`。
+
+#### 看护机制（不可绕过）
+
+1. **看护测试** `frontend/__tests__/protection-net/first-level-directory-structure.spec.ts`：读真实第一层目录比对 `ALLOWED_DIRS` 白名单 + 禁止 `types`/`pages` 复活，含反向证据。
+2. **pre-push 无条件拦截** `.husky/pre-push` `[0c]` 步骤独立全量跑该测试。⚠️ 不能依赖 `[3/6]` 的 `vitest run --changed`——目录增删不在 vitest 依赖图里，`--changed` 抓不到。
+3. **CI 全量兜底** `npm run test:ci:frontend` 必含该测试。
+
+> **新增合法第一层目录的流程**：先在本白名单 + 测试 `ALLOWED_DIRS` 登记，再建目录。
+
 ---
 
 ## AI Service 目录结构 (Python/FastAPI)
