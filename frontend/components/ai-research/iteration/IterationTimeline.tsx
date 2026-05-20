@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Search,
   Lightbulb,
@@ -439,36 +440,36 @@ function MarkdownRecord({ content }: MarkdownRecordProps) {
               key={idx}
               className="overflow-x-auto rounded border border-gray-200"
             >
-              <table className="w-full text-xs">
+              <Table className="w-full text-xs">
                 {header && (
-                  <thead>
-                    <tr className="bg-gray-100">
+                  <THead>
+                    <Tr className="bg-gray-100">
                       {header.map((cell, ci) => (
-                        <th
+                        <Th
                           key={ci}
                           className="px-2 py-1 text-left font-medium text-gray-700"
                         >
                           {cell}
-                        </th>
+                        </Th>
                       ))}
-                    </tr>
-                  </thead>
+                    </Tr>
+                  </THead>
                 )}
-                <tbody>
+                <TBody>
                   {bodyRows.map((row, ri) => (
-                    <tr
+                    <Tr
                       key={ri}
                       className={ri % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
                     >
                       {row.map((cell, ci) => (
-                        <td key={ci} className="px-2 py-1 text-gray-600">
+                        <Td key={ci} className="px-2 py-1 text-gray-600">
                           {cell}
-                        </td>
+                        </Td>
                       ))}
-                    </tr>
+                    </Tr>
                   ))}
-                </tbody>
-              </table>
+                </TBody>
+              </Table>
             </div>
           );
         }

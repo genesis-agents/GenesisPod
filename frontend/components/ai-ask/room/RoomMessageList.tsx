@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { Table, THead, Th, Td } from '@/components/ui/table';
 import { Bot, Info, MessageCircle, Sparkles, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -219,18 +220,18 @@ function AssistantMarkdown({ content }: { content: string }) {
           hr: () => <hr className="my-3 border-gray-200" />,
           table: ({ ...p }) => (
             <div className="my-2 overflow-x-auto">
-              <table className="min-w-full border-collapse text-xs" {...p} />
+              <Table className="min-w-full border-collapse text-xs" {...p} />
             </div>
           ),
-          thead: ({ ...p }) => <thead className="bg-gray-50" {...p} />,
+          thead: ({ ...p }) => <THead className="bg-gray-50" {...p} />,
           th: ({ ...p }) => (
-            <th
+            <Th
               className="border border-gray-200 px-2 py-1 text-left font-semibold"
               {...p}
             />
           ),
           td: ({ ...p }) => (
-            <td className="border border-gray-200 px-2 py-1" {...p} />
+            <Td className="border border-gray-200 px-2 py-1" {...p} />
           ),
         }}
       >

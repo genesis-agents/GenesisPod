@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { useParams, useRouter } from 'next/navigation';
 import {
   AlertCircle,
@@ -740,30 +741,30 @@ function StageTaskBoard({
 
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <table className="w-full table-fixed">
-          <thead className="border-b border-gray-200 bg-gray-50/80">
-            <tr>
-              <th className="w-10 px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
+        <Table className="w-full table-fixed">
+          <THead className="border-b border-gray-200 bg-gray-50/80">
+            <Tr>
+              <Th className="w-10 px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 #
-              </th>
-              <th className="w-[36%] px-3 py-2.5 text-left text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[36%] px-3 py-2.5 text-left text-xs font-semibold text-gray-600">
                 任务名称
-              </th>
-              <th className="w-[20%] px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[20%] px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
                 负责 Agent
-              </th>
-              <th className="w-[14%] px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[14%] px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
                 模型
-              </th>
-              <th className="w-[10%] px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[10%] px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 数据
-              </th>
-              <th className="w-[14%] px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[14%] px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 状态
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+              </Th>
+            </Tr>
+          </THead>
+          <TBody className="divide-y divide-gray-100 bg-white">
             {STAGE_GROUPS.map((g, idx) => {
               const st = stageGroupStatus(run, g, currentStage);
               const stTone = stageStateTone(st);
@@ -784,7 +785,7 @@ function StageTaskBoard({
                 .filter(Boolean)
                 .join(' ');
               return (
-                <tr
+                <Tr
                   key={g.id}
                   role="button"
                   tabIndex={0}
@@ -798,10 +799,10 @@ function StageTaskBoard({
                   }}
                   className={rowCls}
                 >
-                  <td className="px-2 py-2.5 text-center text-xs text-gray-500">
+                  <Td className="px-2 py-2.5 text-center text-xs text-gray-500">
                     {idx + 1}
-                  </td>
-                  <td className="px-3 py-2.5">
+                  </Td>
+                  <Td className="px-3 py-2.5">
                     <div className="flex items-start gap-2">
                       {st === 'completed' ? (
                         <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
@@ -823,16 +824,16 @@ function StageTaskBoard({
                         </p>
                       </div>
                     </div>
-                  </td>
-                  <td className="px-2 py-2.5">
+                  </Td>
+                  <Td className="px-2 py-2.5">
                     <span
                       className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ring-1 ${tone.bg} ${tone.text} ${tone.ring}`}
                     >
                       <Icon className="h-3 w-3" />
                       {g.agent.name}
                     </span>
-                  </td>
-                  <td className="px-2 py-2.5">
+                  </Td>
+                  <Td className="px-2 py-2.5">
                     {g.agent.usesLLM ? (
                       <span
                         className="font-mono inline-flex items-center rounded bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 ring-1 ring-gray-200"
@@ -843,22 +844,22 @@ function StageTaskBoard({
                     ) : (
                       <span className="text-[10px] text-gray-300">—</span>
                     )}
-                  </td>
-                  <td className="px-2 py-2.5 text-center text-sm font-medium text-gray-800">
+                  </Td>
+                  <Td className="px-2 py-2.5 text-center text-sm font-medium text-gray-800">
                     {metricVal != null ? metricVal : '—'}
-                  </td>
-                  <td className="px-2 py-2.5 text-center">
+                  </Td>
+                  <Td className="px-2 py-2.5 text-center">
                     <span
                       className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-2 py-0.5 text-[10.5px] font-medium ring-1 ${stTone.bg} ${stTone.text} ${stTone.ring}`}
                     >
                       {stTone.label}
                     </span>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               );
             })}
-          </tbody>
-        </table>
+          </TBody>
+        </Table>
       </div>
 
       {/* Hint */}

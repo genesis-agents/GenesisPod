@@ -18,6 +18,7 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
+import { Table, THead, Tr, Th, Td } from '@/components/ui/table';
 import {
   LayoutList,
   FileText,
@@ -202,27 +203,27 @@ const PLAN_MARKDOWN_COMPONENTS: React.ComponentPropsWithoutRef<
   // Table styling — allow wider-than-container tables with horizontal scroll
   table: ({ children }) => (
     <div className="mb-3 overflow-x-auto rounded-lg border border-gray-200 last:mb-0">
-      <table className="w-max min-w-full text-sm text-gray-700">
+      <Table className="w-max min-w-full text-sm text-gray-700">
         {children}
-      </table>
+      </Table>
     </div>
   ),
-  thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
+  thead: ({ children }) => <THead className="bg-gray-50">{children}</THead>,
   th: ({ children, style }) => (
-    <th
+    <Th
       className="whitespace-nowrap px-3 py-2 text-xs font-semibold text-gray-900"
       style={style}
     >
       {children}
-    </th>
+    </Th>
   ),
   tr: ({ children }) => (
-    <tr className="border-t border-gray-100 even:bg-gray-50/50">{children}</tr>
+    <Tr className="border-t border-gray-100 even:bg-gray-50/50">{children}</Tr>
   ),
   td: ({ children, style }) => (
-    <td className="min-w-[100px] px-3 py-2 text-sm" style={style}>
+    <Td className="min-w-[100px] px-3 py-2 text-sm" style={style}>
       {children}
-    </td>
+    </Td>
   ),
 };
 
@@ -384,17 +385,17 @@ function buildCitationMarkdownComponents(
       </li>
     ),
     td: ({ children, style }) => (
-      <td className="min-w-[100px] px-3 py-2 text-sm" style={style}>
+      <Td className="min-w-[100px] px-3 py-2 text-sm" style={style}>
         {processCitations(children, references)}
-      </td>
+      </Td>
     ),
     th: ({ children, style }) => (
-      <th
+      <Th
         className="whitespace-nowrap px-3 py-2 text-xs font-semibold text-gray-900"
         style={style}
       >
         {processCitations(children, references)}
-      </th>
+      </Th>
     ),
   };
 }

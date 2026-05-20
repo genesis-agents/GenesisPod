@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback, memo, useMemo } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAiGroupStore } from '@/stores/ai-teams';
@@ -1017,31 +1018,31 @@ const MessageBubble = memo(function MessageBubble({
                             // ★ 表格渲染组件 - 确保表格正确显示
                             table: ({ children }) => (
                               <div className="my-3 overflow-x-auto">
-                                <table className="min-w-full border-collapse text-sm">
+                                <Table className="min-w-full border-collapse text-sm">
                                   {children}
-                                </table>
+                                </Table>
                               </div>
                             ),
                             thead: ({ children }) => (
-                              <thead className="bg-gray-100">{children}</thead>
+                              <THead className="bg-gray-100">{children}</THead>
                             ),
                             th: ({ children }) => (
-                              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-900">
+                              <Th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-900">
                                 {children}
-                              </th>
+                              </Th>
                             ),
                             tbody: ({ children }) => (
-                              <tbody className="divide-y divide-gray-200">
+                              <TBody className="divide-y divide-gray-200">
                                 {children}
-                              </tbody>
+                              </TBody>
                             ),
                             tr: ({ children }) => (
-                              <tr className="hover:bg-gray-50">{children}</tr>
+                              <Tr className="hover:bg-gray-50">{children}</Tr>
                             ),
                             td: ({ children }) => (
-                              <td className="border border-gray-200 px-3 py-2 text-gray-700">
+                              <Td className="border border-gray-200 px-3 py-2 text-gray-700">
                                 {children}
-                              </td>
+                              </Td>
                             ),
                           }}
                         >

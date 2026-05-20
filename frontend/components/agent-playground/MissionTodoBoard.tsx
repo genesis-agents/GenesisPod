@@ -10,6 +10,7 @@
  */
 
 import React, { useState } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
 import {
   ListChecks,
@@ -858,30 +859,30 @@ export function MissionTodoBoard({
     <div className="space-y-3">
       {Header}
       <Card className="overflow-hidden" bordered>
-        <table className="w-full table-fixed">
-          <thead className="border-b border-gray-200 bg-gray-50/80">
-            <tr>
-              <th className="w-10 px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
+        <Table className="w-full table-fixed">
+          <THead className="border-b border-gray-200 bg-gray-50/80">
+            <Tr>
+              <Th className="w-10 px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 #
-              </th>
-              <th className="w-[36%] px-3 py-2.5 text-left text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[36%] px-3 py-2.5 text-left text-xs font-semibold text-gray-600">
                 任务名称
-              </th>
-              <th className="w-[16%] px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[16%] px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
                 负责人
-              </th>
-              <th className="w-[12%] px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[12%] px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
                 模型
-              </th>
-              <th className="w-[14%] px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[14%] px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 状态
-              </th>
-              <th className="w-[18%] px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[18%] px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 操作
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+              </Th>
+            </Tr>
+          </THead>
+          <TBody className="divide-y divide-gray-100 bg-white">
             {sorted.map((td, idx) => {
               const isSelected = selectedKey === td.id;
               const Icon = taskIcon(td);
@@ -913,15 +914,15 @@ export function MissionTodoBoard({
                     }
                   : baseSub;
               return (
-                <tr
+                <Tr
                   key={td.id}
                   onClick={() => onSelect?.(isSelected ? null : td.id)}
                   className={rowCls}
                 >
-                  <td className="px-2 py-2 text-center text-xs text-gray-500">
+                  <Td className="px-2 py-2 text-center text-xs text-gray-500">
                     {idx + 1}
-                  </td>
-                  <td className="px-3 py-2">
+                  </Td>
+                  <Td className="px-3 py-2">
                     <div
                       className="flex items-start gap-2"
                       style={{ paddingLeft: `${depthOf(td) * 18}px` }}
@@ -965,8 +966,8 @@ export function MissionTodoBoard({
                         )}
                       </div>
                     </div>
-                  </td>
-                  <td className="px-2 py-2">
+                  </Td>
+                  <Td className="px-2 py-2">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -982,8 +983,8 @@ export function MissionTodoBoard({
                         size="xs"
                       />
                     </button>
-                  </td>
-                  <td className="px-2 py-2">
+                  </Td>
+                  <Td className="px-2 py-2">
                     {modelId ? (
                       <span
                         title={modelId}
@@ -996,8 +997,8 @@ export function MissionTodoBoard({
                     ) : (
                       <span className="text-[10px] text-gray-300">—</span>
                     )}
-                  </td>
-                  <td className="px-2 py-2 text-center">
+                  </Td>
+                  <Td className="px-2 py-2 text-center">
                     {subStatus ? (
                       <span
                         className={cn(
@@ -1020,8 +1021,8 @@ export function MissionTodoBoard({
                     ) : (
                       <StatusPill status={sk} size="sm" />
                     )}
-                  </td>
-                  <td className="px-2 py-2 text-center">
+                  </Td>
+                  <Td className="px-2 py-2 text-center">
                     <div className="inline-flex items-center justify-end gap-1.5">
                       {canRerunTodo(td) && (
                         <button
@@ -1047,12 +1048,12 @@ export function MissionTodoBoard({
                         详情 <ChevronRight className="h-3 w-3" />
                       </span>
                     </div>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               );
             })}
-          </tbody>
-        </table>
+          </TBody>
+        </Table>
       </Card>
 
       {/* Assignee 点击 → Agent Inspector 弹窗 */}

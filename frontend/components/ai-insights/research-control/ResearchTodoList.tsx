@@ -8,6 +8,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
 import {
   CheckCircle2,
@@ -493,30 +494,30 @@ export function ResearchTodoList({
 
       {/* 单一扁平表格 - 自适应宽度 */}
       <div className="overflow-hidden">
-        <table className="w-full table-fixed">
-          <thead className="border-b border-gray-200 bg-gray-50/80">
-            <tr>
-              <th className="w-8 whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
+        <Table className="w-full table-fixed">
+          <THead className="border-b border-gray-200 bg-gray-50/80">
+            <Tr>
+              <Th className="w-8 whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 {t('topicResearch.researchControl.todoList.columnNumber')}
-              </th>
-              <th className="w-[32%] whitespace-nowrap px-3 py-2.5 text-center text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[32%] whitespace-nowrap px-3 py-2.5 text-center text-xs font-semibold text-gray-600">
                 {t('topicResearch.researchControl.todoList.columnTask')}
-              </th>
-              <th className="w-[22%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[22%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 {t('topicResearch.researchControl.todoList.columnAssignee')}
-              </th>
-              <th className="w-[18%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[18%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 {t('topicResearch.researchControl.todoList.columnModel')}
-              </th>
-              <th className="w-[15%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-[15%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 {t('topicResearch.researchControl.todoList.columnStatus')}
-              </th>
-              <th className="w-12 whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
+              </Th>
+              <Th className="w-12 whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 {t('topicResearch.researchControl.todoList.columnActions')}
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+              </Th>
+            </Tr>
+          </THead>
+          <TBody className="divide-y divide-gray-100 bg-white">
             {sortedTodos.map((todo, index) => {
               const {
                 name: agentName,
@@ -565,7 +566,7 @@ export function ResearchTodoList({
 
               return (
                 <React.Fragment key={todo.id}>
-                  <tr
+                  <Tr
                     onClick={() => onTodoSelect?.(todo.id)}
                     className={cn(
                       'cursor-pointer transition-all duration-150',
@@ -573,7 +574,7 @@ export function ResearchTodoList({
                     )}
                   >
                     {/* 序号 + 展开按钮 */}
-                    <td className="px-2 py-2 text-center">
+                    <Td className="px-2 py-2 text-center">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -591,10 +592,10 @@ export function ResearchTodoList({
                         )}
                         <span>{index + 1}</span>
                       </button>
-                    </td>
+                    </Td>
 
                     {/* 任务名称 */}
-                    <td className="px-3 py-2">
+                    <Td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <span className="flex-shrink-0 text-sm">
                           {TYPE_ICONS[todo.type]}
@@ -677,18 +678,18 @@ export function ResearchTodoList({
                           </span>
                         )}
                       </div>
-                    </td>
+                    </Td>
 
                     {/* 负责人 */}
-                    <td
+                    <Td
                       className="truncate px-2 py-2 text-xs text-gray-600"
                       title={agentName}
                     >
                       {agentName}
-                    </td>
+                    </Td>
 
                     {/* 模型 */}
-                    <td className="px-2 py-2">
+                    <Td className="px-2 py-2">
                       {modelId ? (
                         <ModelBadge
                           modelId={modelId}
@@ -698,29 +699,29 @@ export function ResearchTodoList({
                       ) : (
                         <span className="text-xs text-gray-300">—</span>
                       )}
-                    </td>
+                    </Td>
 
                     {/* 状态 */}
-                    <td className="px-2 py-2">
+                    <Td className="px-2 py-2">
                       <StatusBadge
                         status={todo.status}
                         progress={todo.progress}
                       />
-                    </td>
+                    </Td>
 
                     {/* 操作 */}
-                    <td className="px-2 py-2 text-center">
+                    <Td className="px-2 py-2 text-center">
                       <ActionButtons
                         todo={todo}
                         topicId={topicId}
                         onUpdated={onTodoUpdated}
                       />
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                   {/* 展开的分配理由行 */}
                   {isExpanded && (
-                    <tr className="bg-amber-50/50">
-                      <td colSpan={6} className="px-4 py-3">
+                    <Tr className="bg-amber-50/50">
+                      <Td colSpan={6} className="px-4 py-3">
                         <div className="flex items-start gap-3 text-sm">
                           <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
                           <div className="flex-1 space-y-2">
@@ -749,14 +750,14 @@ export function ResearchTodoList({
                             </div>
                           </div>
                         </div>
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   )}
                 </React.Fragment>
               );
             })}
-          </tbody>
-        </table>
+          </TBody>
+        </Table>
       </div>
     </div>
   );

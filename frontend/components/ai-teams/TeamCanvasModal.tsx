@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Table, THead, Th, Td } from '@/components/ui/table';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -3086,23 +3087,23 @@ function TaskPopover({
                     components={{
                       table: ({ children }) => (
                         <div className="my-2 overflow-x-auto">
-                          <table className="min-w-full border-collapse text-sm">
+                          <Table className="min-w-full border-collapse text-sm">
                             {children}
-                          </table>
+                          </Table>
                         </div>
                       ),
                       thead: ({ children }) => (
-                        <thead className="bg-gray-200">{children}</thead>
+                        <THead className="bg-gray-200">{children}</THead>
                       ),
                       th: ({ children }) => (
-                        <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold">
+                        <Th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold">
                           {children}
-                        </th>
+                        </Th>
                       ),
                       td: ({ children }) => (
-                        <td className="border border-gray-200 px-3 py-2">
+                        <Td className="border border-gray-200 px-3 py-2">
                           {children}
-                        </td>
+                        </Td>
                       ),
                     }}
                   >
@@ -3124,23 +3125,23 @@ function TaskPopover({
                     components={{
                       table: ({ children }) => (
                         <div className="my-2 overflow-x-auto">
-                          <table className="min-w-full border-collapse text-sm">
+                          <Table className="min-w-full border-collapse text-sm">
                             {children}
-                          </table>
+                          </Table>
                         </div>
                       ),
                       thead: ({ children }) => (
-                        <thead className="bg-green-100">{children}</thead>
+                        <THead className="bg-green-100">{children}</THead>
                       ),
                       th: ({ children }) => (
-                        <th className="border border-green-200 px-3 py-2 text-left text-xs font-semibold">
+                        <Th className="border border-green-200 px-3 py-2 text-left text-xs font-semibold">
                           {children}
-                        </th>
+                        </Th>
                       ),
                       td: ({ children }) => (
-                        <td className="border border-green-200 px-3 py-2">
+                        <Td className="border border-green-200 px-3 py-2">
                           {children}
-                        </td>
+                        </Td>
                       ),
                     }}
                   >
@@ -3170,23 +3171,23 @@ function TaskPopover({
                     components={{
                       table: ({ children }) => (
                         <div className="my-2 overflow-x-auto">
-                          <table className="min-w-full border-collapse text-sm">
+                          <Table className="min-w-full border-collapse text-sm">
                             {children}
-                          </table>
+                          </Table>
                         </div>
                       ),
                       thead: ({ children }) => (
-                        <thead className="bg-purple-100">{children}</thead>
+                        <THead className="bg-purple-100">{children}</THead>
                       ),
                       th: ({ children }) => (
-                        <th className="border border-purple-200 px-3 py-2 text-left text-xs font-semibold">
+                        <Th className="border border-purple-200 px-3 py-2 text-left text-xs font-semibold">
                           {children}
-                        </th>
+                        </Th>
                       ),
                       td: ({ children }) => (
-                        <td className="border border-purple-200 px-3 py-2">
+                        <Td className="border border-purple-200 px-3 py-2">
                           {children}
-                        </td>
+                        </Td>
                       ),
                     }}
                   >
