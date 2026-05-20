@@ -1,20 +1,21 @@
 #!/usr/bin/env tsx
 /**
- * UI Discipline Audit — 8 条结构强制规则
+ * UI Discipline Audit — 9 条结构强制规则
  *
  * 检测前端主页面是否绕过公共组件自写实现。
  * 配套方案文档：docs/guides/testing/frontend-ui-validation.md
  * 基线日期：2026-05-18（首次扫描）
  *
- * 6 条规则（仅作用于 frontend/app/** 和 frontend/components/{ai-*,library,explore,me,profile}/**）：
+ * 9 条规则（仅作用于 frontend/app/** 和 frontend/components/{ai-*,library,explore,me,profile}/**）：
  *   R1  AI app 主页（app/{ai-*,library,explore}/page.tsx）必须 import AppShell
  *   R2  列表型 .map 渲染卡片的页面必须 import AssetCard（不准自写 rounded-(xl|lg|2xl) + border 卡片）
  *   R3  含 list.length === 0 / data?.length === 0 分支必须 import EmptyState
  *   R4  含 error state 渲染分支必须 import ErrorState
  *   R5  含 isLoading skeleton 渲染必须 import LoadingState/LoadingSkeleton
  *   R6  弹层（role="dialog" 或 fixed inset-0 backdrop）必须 import MissionDialogShell/SideDrawer/Modal/ConfirmDialog
- *   R7  自写横向 tab 栏（setActiveTab / activeTab 条件样式）必须 import ui/tabs/Tabs
+ *   R7  自写横向 tab 栏（A: onClick→tab setter；B: ≥2 处 activeTab===字面量 + 可点击）必须 import ui/tabs/Tabs
  *   R8  feature 代码禁止直写原生 <table>（交互用 common/tables/DataTable，展示用 ui/table）
+ *   R9  自写 DIY 环形 spinner（animate-spin + rounded-full + border-N）必须改用 LoadingState（不碰内联图标 spinner）
  *
  * 报告模式：默认 exit 0（warn-only 基线期），传 --strict 后违规超基线即 exit 1。
  *
@@ -375,15 +376,33 @@ const R7_BESPOKE_OK = [
   "app/explore/resource/[id]/page.tsx",
 ];
 
+// R7 Signal B：tab 栏的另一种形态——同一类状态变量上 ≥2 处 `xxxTab === '字面量'`
+// 条件样式 + 文件渲染可点击元素（onClick）。要求 ≥2 个不同字面量，排除只读单一
+// 状态的 state holder / context provider（如 ExploreContext 仅 1 处 activeTab==='youtube'，
+// 及其 consumer ExploreContent）——正是旧版纯 activeTab=== 信号会误报的对象。
+const TAB_LITERAL_G =
+  /(?<![.\w])(?:activeTab|selectedTab|currentTab|activeKey|activeSection|activeView|activeMode|tab)\s*===\s*['"][a-z][\w-]*['"]/gi;
+const TAB_LITERAL =
+  /(?<![.\w])(?:activeTab|selectedTab|currentTab|activeKey|activeSection|activeView|activeMode|tab)\s*===\s*['"][a-z][\w-]*['"]/i;
+
+function distinctTabLiterals(src: string): number {
+  const set = new Set<string>();
+  for (const m of src.matchAll(TAB_LITERAL_G)) set.add(m[0].replace(/\s+/g, ""));
+  return set.size;
+}
+
 function checkR7Tabs(file: string, src: string): Violation[] {
-  if (!SELF_TAB.test(src)) return [];
+  const sigA = SELF_TAB.test(src);
+  // Signal B：≥2 个不同 tab 字面量比较 + 有可点击元素（真渲染 tab 栏，非纯状态持有/消费）
+  const sigB = distinctTabLiterals(src) >= 2 && /onClick=\{/.test(src);
+  if (!sigA && !sigB) return [];
   // 已用 tab 组件的不算自写：canonical Tabs，或 admin 设计系统 AdminTabs
   // （AdminTabs→Tabs 属迷你设计系统统一，另册，不在 R7「自写」范畴）。
   if (hasImport(src, "Tabs") || hasImport(src, "AdminTabs")) return [];
   const norm = file.split(sep).join("/");
   if (R7_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
 
-  const line = findLine(src, SELF_TAB);
+  const line = sigA ? findLine(src, SELF_TAB) : findLine(src, TAB_LITERAL);
   return [
     {
       rule: "R7-Tabs-Required",
@@ -414,8 +433,31 @@ function checkR8Table(file: string, src: string): Violation[] {
   ];
 }
 
-// TODO(R9): ProgressBar 强制规则待补——需更精准的检测器避免误报
-//   R9 进度条：`overflow-hidden rounded-full bg-gray-200` + width 填充需区分于头像/胶囊
+// R9: 自写 DIY 环形 spinner 必须改用 LoadingState（canonical 已渲染标准 spinner）。
+// 仅命中"自造整块加载态"环形 loader（animate-spin + rounded-full + border-N 同一
+// className，即手搓 CSS 圆环）；不碰 <Loader2/RefreshCw className="animate-spin"/>
+// 这类合法内联图标 spinner（按钮 loading / 状态位）——与 R5(animate-pulse 骨架) 对称。
+const DIY_SPINNER =
+  /className\s*=\s*[`"'][^`"']*(?:\banimate-spin\b[^`"']*\brounded-full\b[^`"']*\bborder-\d|\brounded-full\b[^`"']*\bborder-\d[^`"']*\banimate-spin\b)/;
+
+function checkR9Spinner(file: string, src: string): Violation[] {
+  if (!DIY_SPINNER.test(src)) return [];
+  if (hasImport(src, "LoadingState") || hasImport(src, "LoadingSkeleton"))
+    return [];
+
+  const line = findLine(src, DIY_SPINNER);
+  return [
+    {
+      rule: "R9-Spinner-LoadingState-Required",
+      file: relative(process.cwd(), file),
+      line,
+      snippet: snippet(src, line),
+    },
+  ];
+}
+
+// TODO(R10): ProgressBar 强制规则待补——需更精准的检测器避免误报
+//   R10 进度条：`overflow-hidden rounded-full bg-gray-200` + width 填充需区分于头像/胶囊
 
 async function main() {
   console.log("[audit:ui-discipline] 扫描 frontend/ 公共组件强制复用规则...");
@@ -439,6 +481,7 @@ async function main() {
     allViolations.push(...checkR6Dialog(file, src));
     allViolations.push(...checkR7Tabs(file, src));
     allViolations.push(...checkR8Table(file, src));
+    allViolations.push(...checkR9Spinner(file, src));
   }
 
   // 按 rule 聚合

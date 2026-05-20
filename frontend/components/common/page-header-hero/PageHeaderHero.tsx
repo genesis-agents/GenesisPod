@@ -5,6 +5,7 @@
  *
  * AI App 主页统一的 hero 头部：圆角渐变 icon 方块 + 标题 + 副标题 + 右侧 actions slot。
  * 抽自 AI Insights / Playground (MissionGalleryView) / AI Radar 三处重复样式（2026-05-16）。
+ * 2026-05-20：新增可选 onBack 返回按钮，使详情页（[id]/[topicId]）复用此 hero 而非自写头部。
  *
  * 设计原则：
  * - 只承担 header 视觉骨架；search bar、tabs、统计条由调用方在 children 中传入或放在组件下方
@@ -13,6 +14,7 @@
  */
 
 import type { ReactNode } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 
 export interface PageHeaderHeroProps {
@@ -37,6 +39,13 @@ export interface PageHeaderHeroProps {
   iconShadowClass?: string;
   /** 右侧 actions slot（"新建"按钮 / Skills 按钮等） */
   actions?: ReactNode;
+  /**
+   * 返回回调。传入即在标题左侧渲染标准返回按钮（ChevronLeft），
+   * 详情页（[id]/[topicId]）用它替代各页自写的返回按钮。不传则不渲染。
+   */
+  onBack?: () => void;
+  /** 返回按钮无障碍标签（默认"返回"）。 */
+  backLabel?: string;
   /** 额外 className，加在根容器上 */
   className?: string;
   /** 在 header 主体下方追加内容（一般是 search bar） */
@@ -50,6 +59,8 @@ export function PageHeaderHero({
   iconGradient = 'from-violet-500 to-purple-600',
   iconShadowClass = 'shadow-violet-500/25',
   actions,
+  onBack,
+  backLabel = '返回',
   className,
   children,
 }: PageHeaderHeroProps) {
@@ -57,6 +68,16 @@ export function PageHeaderHero({
     <div className={cn('px-8 py-6', className)}>
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label={backLabel}
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          )}
           {icon && (
             <div
               className={cn(
