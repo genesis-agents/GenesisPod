@@ -13,6 +13,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 interface GuardrailInfo {
   id: string;
@@ -99,9 +100,7 @@ export default function GuardrailsPageContent({
                 <GuardrailRow key={g.id} guardrail={g} />
               ))}
               {data.input.length === 0 && (
-                <p className="px-5 py-4 text-sm text-muted-foreground">
-                  No input guardrails registered
-                </p>
+                <EmptyState size="sm" title="No input guardrails registered" />
               )}
             </div>
           </div>
@@ -119,9 +118,7 @@ export default function GuardrailsPageContent({
                 <GuardrailRow key={g.id} guardrail={g} />
               ))}
               {data.output.length === 0 && (
-                <p className="px-5 py-4 text-sm text-muted-foreground">
-                  No output guardrails registered
-                </p>
+                <EmptyState size="sm" title="No output guardrails registered" />
               )}
             </div>
           </div>

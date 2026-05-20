@@ -8,6 +8,7 @@ import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import ClientDate from '@/components/common/ClientDate';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { toast } from '@/stores';
 
 interface Feedback {
@@ -522,9 +523,7 @@ export default function FeedbackPageContent({
             {t('common.loading')}
           </div>
         ) : feedbacks.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            {t('admin.feedback.noFeedback')}
-          </div>
+          <EmptyState size="sm" title={t('admin.feedback.noFeedback')} />
         ) : (
           <div className="divide-y divide-gray-200">
             {feedbacks.map((feedback) => (
