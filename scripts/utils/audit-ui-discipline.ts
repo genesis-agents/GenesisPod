@@ -131,13 +131,17 @@ function checkR2AssetCard(file: string, src: string): Violation[] {
   // 检测自写卡片：className 含 rounded-(xl|lg|2xl) + border + bg-white 三件套
   const cardPattern =
     /className\s*=\s*[`"'][^`"']*\brounded-(xl|lg|2xl|3xl)\b[^`"']*\bborder\b[^`"']*\bbg-white\b[^`"']*[`"']/g;
-  const matches = [...src.matchAll(cardPattern)];
-  if (matches.length === 0) return [];
-
-  // 如果已 import AssetCard，则只报"还有 N 处自写"作为提示，不阻断
-  // 如果完全没 import AssetCard 且自写 ≥3 处 → 视为 R2 违规
+  const allMatches = [...src.matchAll(cardPattern)];
+  if (allMatches.length === 0) return [];
   if (hasImport(src, "AssetCard")) return [];
-  if (matches.length < 3) return []; // 单次自写可能是合理特殊容器
+
+  // 仅计「列表 map 渲染的卡片」：card className 出现在某个 .map( 之后 ~600 字符内。
+  // 排除设置卡 / 容器卡 / 统计卡等静态卡片（非 asset 列表）的假阳性。
+  const matches = allMatches.filter((m) => {
+    const idx = m.index ?? 0;
+    return /\.map\s*\(/.test(src.slice(Math.max(0, idx - 600), idx));
+  });
+  if (matches.length < 3) return []; // 非列表 / 单次自写 = 合理特殊容器
 
   const violations: Violation[] = [];
   for (const m of matches.slice(0, 5)) {
@@ -153,14 +157,17 @@ function checkR2AssetCard(file: string, src: string): Violation[] {
   return violations;
 }
 
-// R3: 含 list.length === 0 分支必须用 EmptyState
+// R3: 「空态被渲染为 JSX」时必须用 EmptyState
+// 仅当 .length===0 / .length<1 / isEmpty / !x.length 紧接 JSX 渲染（&& ( / ? ( /
+// && < / ? <）时计违规——排除 `if (x.length===0) return []`、`? null :` 等逻辑判断假阳性。
+const EMPTY_RENDER =
+  /(?:\.length\s*===\s*0|\.length\s*<\s*1|\bisEmpty\b|!\s*\w+\??\.length)\s*(?:&&|\?)\s*[(<]/;
+
 function checkR3EmptyState(file: string, src: string): Violation[] {
-  const emptyBranch =
-    /\b(\w+)\.length\s*===\s*0\b|\bisEmpty\b|\b!\s*\w+\?\.length\b|\b!\s*\w+\.length\b/;
-  if (!emptyBranch.test(src)) return [];
+  if (!EMPTY_RENDER.test(src)) return [];
   if (hasImport(src, "EmptyState")) return [];
 
-  const line = findLine(src, emptyBranch);
+  const line = findLine(src, EMPTY_RENDER);
   return [
     {
       rule: "R3-EmptyState-Required",
