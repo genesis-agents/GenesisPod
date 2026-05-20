@@ -11,6 +11,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { formatDateSafe } from '@/lib/utils/date';
 
@@ -219,11 +220,12 @@ export default function NoteSelectPanel({
           <span className="text-sm">{error}</span>
         </div>
       ) : notes.length === 0 ? (
-        <div className="py-8 text-center text-sm text-gray-500">
-          <StickyNote className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-          <p>暂无可导入的笔记</p>
-          <p className="mt-1 text-xs">在阅读资源时创建的笔记会出现在这里</p>
-        </div>
+        <EmptyState
+          size="sm"
+          icon={<StickyNote className="h-8 w-8" />}
+          title="暂无可导入的笔记"
+          description="在阅读资源时创建的笔记会出现在这里"
+        />
       ) : (
         <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-200 p-2">
           {notes.map((note) => {

@@ -17,6 +17,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { formatDateSafe } from '@/lib/utils/date';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 interface Document {
   id: string;
@@ -185,10 +186,11 @@ export default function DocumentListDialog({
         {/* Document List */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {documents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-              <FileText className="h-12 w-12" />
-              <p className="mt-3 text-sm">暂无文档</p>
-            </div>
+            <EmptyState
+              size="sm"
+              icon={<FileText className="h-12 w-12" />}
+              title="暂无文档"
+            />
           ) : (
             <div className="space-y-3">
               {documents.map((doc) => {
