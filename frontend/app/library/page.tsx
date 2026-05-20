@@ -44,6 +44,8 @@ import { logger } from '@/lib/utils/logger';
 import AddToKnowledgeBaseDialog, {
   type ResourceToAdd,
 } from '@/components/common/dialogs/AddToKnowledgeBaseDialog';
+import { Modal } from '@/components/ui/dialogs/Modal';
+import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 import ClientDate from '@/components/common/ClientDate';
 
 // 懒加载条件渲染的组件
@@ -2109,195 +2111,174 @@ function LibraryPageContent() {
       />
 
       {/* View Details Modal */}
-      {viewModalOpen && selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">
-                Resource Details
-              </h2>
-              <button
-                onClick={() => setViewModalOpen(false)}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-              >
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* Type and Status Row */}
-              <div className="flex items-center justify-between">
-                <span className="inline-block rounded-lg bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
-                  {selectedItem.resource.type.replace('_', ' ')}
-                </span>
-                <ReadStatusBadge
-                  status={selectedItem.readStatus}
-                  onChange={(status) =>
-                    handleUpdateItemStatus(selectedItem.id, status)
-                  }
-                  size="md"
-                />
-              </div>
-
-              {/* Title */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Title
-                </label>
-                <p className="text-gray-900">{selectedItem.resource.title}</p>
-              </div>
-
-              {/* Abstract */}
-              {selectedItem.resource.abstract && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Abstract
-                  </label>
-                  <p className="text-gray-700">
-                    {selectedItem.resource.abstract}
-                  </p>
-                </div>
-              )}
-
-              {/* Tags */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Tags
-                </label>
-                <TagList
-                  tags={selectedItem.tags || []}
-                  onChange={(newTags) =>
-                    handleUpdateItemTags(selectedItem.id, newTags)
-                  }
-                  editable
-                  size="md"
-                />
-              </div>
-
-              {/* Published Date */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Published Date
-                </label>
-                <p className="text-gray-700">
-                  <ClientDate
-                    date={selectedItem.resource.publishedAt}
-                    format="date"
-                    locale="en-US"
-                    dateOptions={{
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    }}
-                  />
-                </p>
-              </div>
-
-              {/* Source URL */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Source URL
-                </label>
-                <a
-                  href={selectedItem.resource.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  {selectedItem.resource.sourceUrl}
-                </a>
-              </div>
-
-              {/* Thumbnail */}
-              {selectedItem.resource.thumbnailUrl &&
-                resolveThumbnailUrl(selectedItem.resource.thumbnailUrl) && (
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Thumbnail
-                    </label>
-                    <img
-                      src={
-                        resolveThumbnailUrl(selectedItem.resource.thumbnailUrl)!
-                      }
-                      alt={selectedItem.resource.title}
-                      className="max-w-full rounded-lg"
-                    />
-                  </div>
-                )}
-
-              {/* Personal Note */}
-              {selectedItem.note && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    My Note
-                  </label>
-                  <div className="rounded-lg bg-amber-50 p-3">
-                    <p className="text-sm text-amber-900">
-                      {selectedItem.note}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setViewModalOpen(false)}
-                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
-              >
-                Close
-              </button>
+      <Modal
+        open={viewModalOpen && selectedItem !== null}
+        onClose={() => setViewModalOpen(false)}
+        title="Resource Details"
+        size="lg"
+        footer={
+          <>
+            <button
+              onClick={() => setViewModalOpen(false)}
+              className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+            >
+              Close
+            </button>
+            {selectedItem && (
               <a
                 href={getResourceLink(selectedItem.resource)}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
               >
                 View Full Details
               </a>
+            )}
+          </>
+        }
+      >
+        {selectedItem && (
+          <div className="space-y-4">
+            {/* Type and Status Row */}
+            <div className="flex items-center justify-between">
+              <span className="inline-block rounded-lg bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
+                {selectedItem.resource.type.replace('_', ' ')}
+              </span>
+              <ReadStatusBadge
+                status={selectedItem.readStatus}
+                onChange={(status) =>
+                  handleUpdateItemStatus(selectedItem.id, status)
+                }
+                size="md"
+              />
             </div>
+
+            {/* Title */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Title
+              </label>
+              <p className="text-gray-900">{selectedItem.resource.title}</p>
+            </div>
+
+            {/* Abstract */}
+            {selectedItem.resource.abstract && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Abstract
+                </label>
+                <p className="text-gray-700">
+                  {selectedItem.resource.abstract}
+                </p>
+              </div>
+            )}
+
+            {/* Tags */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Tags
+              </label>
+              <TagList
+                tags={selectedItem.tags || []}
+                onChange={(newTags) =>
+                  handleUpdateItemTags(selectedItem.id, newTags)
+                }
+                editable
+                size="md"
+              />
+            </div>
+
+            {/* Published Date */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Published Date
+              </label>
+              <p className="text-gray-700">
+                <ClientDate
+                  date={selectedItem.resource.publishedAt}
+                  format="date"
+                  locale="en-US"
+                  dateOptions={{
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  }}
+                />
+              </p>
+            </div>
+
+            {/* Source URL */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Source URL
+              </label>
+              <a
+                href={selectedItem.resource.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                {selectedItem.resource.sourceUrl}
+              </a>
+            </div>
+
+            {/* Thumbnail */}
+            {selectedItem.resource.thumbnailUrl &&
+              resolveThumbnailUrl(selectedItem.resource.thumbnailUrl) && (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Thumbnail
+                  </label>
+                  <img
+                    src={
+                      resolveThumbnailUrl(selectedItem.resource.thumbnailUrl)!
+                    }
+                    alt={selectedItem.resource.title}
+                    className="max-w-full rounded-lg"
+                  />
+                </div>
+              )}
+
+            {/* Personal Note */}
+            {selectedItem.note && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  My Note
+                </label>
+                <div className="rounded-lg bg-amber-50 p-3">
+                  <p className="text-sm text-amber-900">{selectedItem.note}</p>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Edit Note Modal */}
-      {editNoteModalOpen && selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">
-                Edit Bookmark Note
-              </h2>
-              <button
-                onClick={() => setEditNoteModalOpen(false)}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-              >
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
+      <Modal
+        open={editNoteModalOpen && selectedItem !== null}
+        onClose={() => setEditNoteModalOpen(false)}
+        title="Edit Bookmark Note"
+        size="md"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setEditNoteModalOpen(false)}
+              className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="edit-note-form"
+              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+            >
+              Save Note
+            </button>
+          </>
+        }
+      >
+        {selectedItem && (
+          <>
             {/* Resource Info - Read-only */}
             <div className="mb-4 rounded-lg bg-gray-50 p-3">
               <p className="text-sm font-medium text-gray-700">
@@ -2314,6 +2295,7 @@ function LibraryPageContent() {
             </div>
 
             <form
+              id="edit-note-form"
               onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
@@ -2341,76 +2323,26 @@ function LibraryPageContent() {
                   This note is private and only visible to you.
                 </p>
               </div>
-
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setEditNoteModalOpen(false)}
-                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
-                >
-                  Save Note
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
       {/* Remove from Collection Confirmation Dialog */}
-      {removeDialogOpen && selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <div className="mb-4">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
-                <svg
-                  className="h-6 w-6 text-orange-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M20 12H4"
-                  />
-                </svg>
-              </div>
-              <h3 className="mt-4 text-center text-lg font-semibold text-gray-900">
-                Remove from Collection
-              </h3>
-              <p className="mt-2 text-center text-sm text-gray-600">
-                This will remove the bookmark from your collection. The resource
-                itself will not be deleted.
-              </p>
-              <p className="mt-3 rounded-lg bg-gray-50 p-3 text-center text-sm font-medium text-gray-900">
-                "{selectedItem.resource.title}"
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setRemoveDialogOpen(false)}
-                className="flex-1 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmRemove}
-                className="flex-1 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700"
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={removeDialogOpen && selectedItem !== null}
+        onClose={() => setRemoveDialogOpen(false)}
+        onConfirm={confirmRemove}
+        title="Remove from Collection"
+        description={
+          selectedItem
+            ? `This will remove "${selectedItem.resource.title}" from your collection. The resource itself will not be deleted.`
+            : 'This will remove the bookmark from your collection. The resource itself will not be deleted.'
+        }
+        type="warning"
+        confirmText="Remove"
+        cancelText="Cancel"
+      />
 
       {/* Collection Create/Edit Modal */}
       <CollectionModal

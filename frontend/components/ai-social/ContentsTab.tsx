@@ -23,7 +23,6 @@ import {
   ArrowLeft,
   Globe,
   Loader2,
-  X,
   Database,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -42,16 +41,11 @@ import {
 } from '@/hooks/domain/useSocialSWR';
 import { toast } from '@/stores';
 import { ContentTableSkeleton } from './skeletons';
-import { useFocusTrap } from '@/hooks/utils/useFocusTrap';
 import { Tooltip } from '@/components/ui/feedback/Tooltip';
 import { BatchActionBar } from './BatchActionBar';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  FadeIn,
-  scaleVariants,
-  backdropVariants,
-  getAnimationConfig,
-} from '@/components/ui/animations';
+import { motion } from 'framer-motion';
+import { FadeIn } from '@/components/ui/animations';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import { ClientDate } from '@/components/common/ClientDate';
 
 // Types matching backend
@@ -164,16 +158,6 @@ export default function ContentsTab({
   const [contentToPublish, setContentToPublish] =
     useState<SocialContent | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>('');
-
-  // Focus trap for modals
-  const createModalRef = useFocusTrap<HTMLDivElement>(
-    showCreateModal,
-    resetModal
-  );
-  const publishModalRef = useFocusTrap<HTMLDivElement>(
-    showPublishModal,
-    cancelPublishModal
-  );
 
   // SWR handles data loading automatically - no need for useEffect
 
@@ -887,345 +871,255 @@ export default function ContentsTab({
       )}
 
       {/* Create Content Modal */}
-      <AnimatePresence>
-        {showCreateModal && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                resetModal();
-              }
-            }}
-            role="presentation"
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={getAnimationConfig(backdropVariants) || undefined}
-          >
-            <motion.div
-              ref={createModalRef}
-              className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="create-modal-title"
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              variants={getAnimationConfig(scaleVariants) || undefined}
-            >
-              {/* Step 1: Source Selection */}
-              {modalStep === 1 && (
-                <>
-                  <div className="mb-6 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-100">
-                        <Sparkles className="h-5 w-5 text-rose-600" />
-                      </div>
-                      <div>
-                        <h3
-                          id="create-modal-title"
-                          className="text-lg font-semibold text-gray-900"
-                        >
-                          {t('aiSocial.contents.createTitle')}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {t('aiSocial.contents.createDescription')}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={resetModal}
-                      className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
-                      aria-label={t('common.close')}
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
+      <Modal
+        open={showCreateModal}
+        onClose={resetModal}
+        size="md"
+        title={
+          modalStep === 1
+            ? t('aiSocial.contents.createTitle')
+            : t('aiSocial.sources.external_url')
+        }
+        subtitle={
+          modalStep === 1
+            ? t('aiSocial.contents.createDescription')
+            : t('aiSocial.modal.enterUrl')
+        }
+        footer={
+          modalStep === 1 ? (
+            <>
+              <button
+                onClick={resetModal}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleContinue}
+                disabled={!selectedSource}
+                className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t('common.continue')}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={resetModal}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleProcessUrl}
+                disabled={!externalUrl.trim() || isProcessing}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t('aiSocial.modal.processing')}
+                  </>
+                ) : (
+                  t('aiSocial.modal.processUrl')
+                )}
+              </button>
+            </>
+          )
+        }
+      >
+        {/* Step 1: Source Selection */}
+        {modalStep === 1 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 pb-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-100">
+                <Sparkles className="h-5 w-5 text-rose-600" />
+              </div>
+            </div>
+            <label className="text-sm font-medium text-gray-700">
+              {t('aiSocial.contents.selectSource')}
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  'EXTERNAL_URL',
+                  'AI_EXPLORE',
+                  'AI_RESEARCH',
+                  'AI_OFFICE',
+                  'AI_WRITING',
+                  'AI_TOPIC_INSIGHTS',
+                ] as SourceType[]
+              ).map((source) => (
+                <button
+                  key={source}
+                  type="button"
+                  onClick={() => setSelectedSource(source)}
+                  className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 ${
+                    selectedSource === source
+                      ? 'border-rose-500 bg-rose-50 ring-1 ring-rose-500'
+                      : 'border-gray-200 hover:border-rose-300 hover:bg-rose-50'
+                  }`}
+                  aria-pressed={selectedSource === source}
+                >
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                      selectedSource === source ? 'bg-rose-100' : 'bg-gray-100'
+                    }`}
+                  >
+                    <FileText
+                      className={`h-4 w-4 ${
+                        selectedSource === source
+                          ? 'text-rose-600'
+                          : 'text-gray-600'
+                      }`}
+                    />
                   </div>
-
-                  {/* Source Selection */}
-                  <div className="mb-6 space-y-3">
-                    <label className="text-sm font-medium text-gray-700">
-                      {t('aiSocial.contents.selectSource')}
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {(
-                        [
-                          'EXTERNAL_URL',
-                          'AI_EXPLORE',
-                          'AI_RESEARCH',
-                          'AI_OFFICE',
-                          'AI_WRITING',
-                          'AI_TOPIC_INSIGHTS',
-                        ] as SourceType[]
-                      ).map((source) => (
-                        <button
-                          key={source}
-                          type="button"
-                          onClick={() => setSelectedSource(source)}
-                          className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 ${
-                            selectedSource === source
-                              ? 'border-rose-500 bg-rose-50 ring-1 ring-rose-500'
-                              : 'border-gray-200 hover:border-rose-300 hover:bg-rose-50'
-                          }`}
-                          aria-pressed={selectedSource === source}
-                        >
-                          <div
-                            className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                              selectedSource === source
-                                ? 'bg-rose-100'
-                                : 'bg-gray-100'
-                            }`}
-                          >
-                            <FileText
-                              className={`h-4 w-4 ${
-                                selectedSource === source
-                                  ? 'text-rose-600'
-                                  : 'text-gray-600'
-                              }`}
-                            />
-                          </div>
-                          <span
-                            className={`text-sm font-medium ${
-                              selectedSource === source
-                                ? 'text-rose-700'
-                                : 'text-gray-900'
-                            }`}
-                          >
-                            {t(`aiSocial.sources.${source.toLowerCase()}`)}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-3">
-                    <button
-                      onClick={resetModal}
-                      className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
-                    >
-                      {t('common.cancel')}
-                    </button>
-                    <button
-                      onClick={handleContinue}
-                      disabled={!selectedSource}
-                      className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {t('common.continue')}
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {/* Step 2: External URL Input */}
-              {modalStep === 2 && selectedSource === 'EXTERNAL_URL' && (
-                <>
-                  <div className="mb-6 flex items-center gap-3">
-                    <button
-                      onClick={() => setModalStep(1)}
-                      className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500"
-                      aria-label={t('common.back')}
-                    >
-                      <ArrowLeft className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {t('aiSocial.sources.external_url')}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        {t('aiSocial.modal.enterUrl')}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* URL Input */}
-                  <div className="mb-6 space-y-3">
-                    <label
-                      htmlFor="external-url"
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      {t('aiSocial.modal.urlLabel')}
-                    </label>
-                    <div className="relative">
-                      <Globe className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                      <input
-                        id="external-url"
-                        type="url"
-                        value={externalUrl}
-                        onChange={(e) => setExternalUrl(e.target.value)}
-                        placeholder="https://example.com/article"
-                        className="w-full rounded-lg border border-gray-200 py-3 pl-11 pr-4 text-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      {t('aiSocial.modal.urlHint')}
-                    </p>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-3">
-                    <button
-                      onClick={resetModal}
-                      className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
-                    >
-                      {t('common.cancel')}
-                    </button>
-                    <button
-                      onClick={handleProcessUrl}
-                      disabled={!externalUrl.trim() || isProcessing}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          {t('aiSocial.modal.processing')}
-                        </>
-                      ) : (
-                        t('aiSocial.modal.processUrl')
-                      )}
-                    </button>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          </motion.div>
+                  <span
+                    className={`text-sm font-medium ${
+                      selectedSource === source
+                        ? 'text-rose-700'
+                        : 'text-gray-900'
+                    }`}
+                  >
+                    {t(`aiSocial.sources.${source.toLowerCase()}`)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+
+        {/* Step 2: External URL Input */}
+        {modalStep === 2 && selectedSource === 'EXTERNAL_URL' && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setModalStep(1)}
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500"
+                aria-label={t('common.back')}
+              >
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <label
+                htmlFor="external-url"
+                className="text-sm font-medium text-gray-700"
+              >
+                {t('aiSocial.modal.urlLabel')}
+              </label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <input
+                  id="external-url"
+                  type="url"
+                  value={externalUrl}
+                  onChange={(e) => setExternalUrl(e.target.value)}
+                  placeholder="https://example.com/article"
+                  className="w-full rounded-lg border border-gray-200 py-3 pl-11 pr-4 text-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                {t('aiSocial.modal.urlHint')}
+              </p>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Publish Modal - Connection Selection */}
-      <AnimatePresence>
-        {showPublishModal && contentToPublish && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                cancelPublishModal();
-              }
-            }}
-            role="presentation"
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={getAnimationConfig(backdropVariants) || undefined}
-          >
-            <motion.div
-              ref={publishModalRef}
-              className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="publish-modal-title"
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              variants={getAnimationConfig(scaleVariants) || undefined}
+      <Modal
+        open={showPublishModal && contentToPublish !== null}
+        onClose={cancelPublishModal}
+        size="sm"
+        title={t('aiSocial.publish.selectAccount')}
+        subtitle={t('aiSocial.publish.selectAccountDescription')}
+        footer={
+          <>
+            <button
+              onClick={cancelPublishModal}
+              className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
             >
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <h3
-                    id="publish-modal-title"
-                    className="text-lg font-semibold text-gray-900"
+              {t('common.cancel')}
+            </button>
+            <button
+              onClick={() =>
+                contentToPublish &&
+                confirmPublish(contentToPublish.id, selectedConnectionId)
+              }
+              disabled={!selectedConnectionId || publishing}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {publishing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('aiSocial.publish.publishing')}
+                </>
+              ) : (
+                t('aiSocial.publish.confirm')
+              )}
+            </button>
+          </>
+        }
+      >
+        {/* Connection Selection */}
+        <div className="space-y-3">
+          {contentToPublish &&
+            connections
+              .filter((conn) => {
+                if (contentToPublish.contentType === 'WECHAT_ARTICLE') {
+                  return conn.platformType === 'WECHAT_MP';
+                }
+                if (contentToPublish.contentType === 'XIAOHONGSHU_NOTE') {
+                  return conn.platformType === 'XIAOHONGSHU';
+                }
+                return true;
+              })
+              .map((conn) => (
+                <button
+                  key={conn.id}
+                  onClick={() => setSelectedConnectionId(conn.id)}
+                  className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 ${
+                    selectedConnectionId === conn.id
+                      ? 'border-rose-500 bg-rose-50 ring-1 ring-rose-500'
+                      : 'border-gray-200 hover:border-rose-300 hover:bg-rose-50'
+                  }`}
+                  aria-pressed={selectedConnectionId === conn.id}
+                >
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                      conn.platformType === 'WECHAT_MP'
+                        ? 'bg-green-100'
+                        : 'bg-red-100'
+                    }`}
                   >
-                    {t('aiSocial.publish.selectAccount')}
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {t('aiSocial.publish.selectAccountDescription')}
-                  </p>
-                </div>
-                <button
-                  onClick={cancelPublishModal}
-                  className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
-                  aria-label={t('common.close')}
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              {/* Connection Selection */}
-              <div className="mb-6 space-y-3">
-                {connections
-                  .filter((conn) => {
-                    if (contentToPublish.contentType === 'WECHAT_ARTICLE') {
-                      return conn.platformType === 'WECHAT_MP';
-                    }
-                    if (contentToPublish.contentType === 'XIAOHONGSHU_NOTE') {
-                      return conn.platformType === 'XIAOHONGSHU';
-                    }
-                    return true;
-                  })
-                  .map((conn) => (
-                    <button
-                      key={conn.id}
-                      onClick={() => setSelectedConnectionId(conn.id)}
-                      className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 ${
-                        selectedConnectionId === conn.id
-                          ? 'border-rose-500 bg-rose-50 ring-1 ring-rose-500'
-                          : 'border-gray-200 hover:border-rose-300 hover:bg-rose-50'
+                    <span
+                      className={`text-lg font-bold ${
+                        conn.platformType === 'WECHAT_MP'
+                          ? 'text-green-600'
+                          : 'text-red-500'
                       }`}
-                      aria-pressed={selectedConnectionId === conn.id}
                     >
-                      <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                          conn.platformType === 'WECHAT_MP'
-                            ? 'bg-green-100'
-                            : 'bg-red-100'
-                        }`}
-                      >
-                        <span
-                          className={`text-lg font-bold ${
-                            conn.platformType === 'WECHAT_MP'
-                              ? 'text-green-600'
-                              : 'text-red-500'
-                          }`}
-                        >
-                          {conn.platformType === 'WECHAT_MP' ? 'W' : 'X'}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {conn.accountName ||
-                            t(
-                              `aiSocial.platforms.${conn.platformType.toLowerCase()}`
-                            )}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {conn.isActive
-                            ? t('aiSocial.connections.connected')
-                            : t('aiSocial.connections.disconnected')}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3">
-                <button
-                  onClick={cancelPublishModal}
-                  className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
-                >
-                  {t('common.cancel')}
+                      {conn.platformType === 'WECHAT_MP' ? 'W' : 'X'}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {conn.accountName ||
+                        t(
+                          `aiSocial.platforms.${conn.platformType.toLowerCase()}`
+                        )}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {conn.isActive
+                        ? t('aiSocial.connections.connected')
+                        : t('aiSocial.connections.disconnected')}
+                    </p>
+                  </div>
                 </button>
-                <button
-                  onClick={() =>
-                    confirmPublish(contentToPublish.id, selectedConnectionId)
-                  }
-                  disabled={!selectedConnectionId || publishing}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {publishing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t('aiSocial.publish.publishing')}
-                    </>
-                  ) : (
-                    t('aiSocial.publish.confirm')
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              ))}
+        </div>
+      </Modal>
 
       {/* Batch Action Bar */}
       <BatchActionBar

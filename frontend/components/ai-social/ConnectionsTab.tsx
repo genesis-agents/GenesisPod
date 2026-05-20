@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useTranslation } from '@/lib/i18n';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import {
   Link2,
   Plus,
@@ -14,7 +14,6 @@ import {
   Trash2,
   Loader2,
   Terminal,
-  X,
   Database,
 } from 'lucide-react';
 import {
@@ -24,15 +23,8 @@ import {
 } from '@/hooks/domain/useAISocial';
 import { useSocialConnectionsSWR } from '@/hooks/domain/useSocialSWR';
 import { toast } from '@/stores';
-import { useFocusTrap } from '@/hooks/utils/useFocusTrap';
 import { Tooltip } from '@/components/ui/feedback/Tooltip';
-import {
-  AnimatedList,
-  AnimatedListItem,
-  scaleVariants,
-  backdropVariants,
-  getAnimationConfig,
-} from '@/components/ui/animations';
+import { AnimatedList, AnimatedListItem } from '@/components/ui/animations';
 import { ClientDate } from '@/components/common/ClientDate';
 
 // Platform types matching backend
@@ -138,19 +130,6 @@ export default function ConnectionsTab() {
       message: '',
     });
   }, [stopPolling]);
-
-  // Focus trap for login modal
-  const modalRef = useFocusTrap<HTMLDivElement>(
-    loginModal.isOpen,
-    useCallback(() => {
-      if (
-        loginModal.status === 'scanning' ||
-        loginModal.status === 'mcp-guide'
-      ) {
-        closeLoginModal();
-      }
-    }, [loginModal.status, closeLoginModal])
-  );
 
   // Handle add connection - start login flow
   const handleAddConnection = async (platform: PlatformType) => {
@@ -547,161 +526,125 @@ export default function ConnectionsTab() {
       </div>
 
       {/* Login Modal with QR Code */}
-      <AnimatePresence>
-        {loginModal.isOpen && loginModal.platform && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                closeLoginModal();
-              }
-            }}
-            role="presentation"
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={getAnimationConfig(backdropVariants) || undefined}
-          >
-            <motion.div
-              ref={modalRef}
-              className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-6 shadow-xl"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="login-modal-title"
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              variants={getAnimationConfig(scaleVariants) || undefined}
+      <Modal
+        open={loginModal.isOpen && loginModal.platform !== null}
+        onClose={closeLoginModal}
+        title={
+          loginModal.platform
+            ? t('aiSocial.connections.addTitle', {
+                platform: t(
+                  `aiSocial.platforms.${loginModal.platform.toLowerCase()}`
+                ),
+              })
+            : ''
+        }
+        size="lg"
+        closeButtonDisabled={
+          loginModal.status !== 'scanning' && loginModal.status !== 'mcp-guide'
+            ? false
+            : false
+        }
+        footer={
+          loginModal.status === 'scanning' ||
+          loginModal.status === 'mcp-guide' ? (
+            <button
+              onClick={closeLoginModal}
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
             >
-              {/* Header */}
-              <div className="mb-4 flex items-center justify-between">
-                <h3 id="login-modal-title" className="text-lg font-semibold">
-                  {t('aiSocial.connections.addTitle', {
-                    platform: t(
-                      `aiSocial.platforms.${loginModal.platform.toLowerCase()}`
-                    ),
-                  })}
-                </h3>
-                <button
-                  onClick={closeLoginModal}
-                  className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
-                  aria-label={t('common.close')}
-                >
-                  <X className="h-5 w-5" />
-                </button>
+              取消
+            </button>
+          ) : undefined
+        }
+      >
+        {/* Content based on status */}
+        <div className="min-h-[300px]">
+          {loginModal.status === 'loading' && (
+            <div className="flex h-[300px] flex-col items-center justify-center">
+              <Loader2 className="h-12 w-12 animate-spin text-gray-400" />
+              <p className="mt-4 text-sm text-gray-500">{loginModal.message}</p>
+            </div>
+          )}
+
+          {loginModal.status === 'mcp-guide' && (
+            <div className="flex flex-col items-center">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+                <Terminal className="h-8 w-8 text-gray-600" />
               </div>
-
-              {/* Content based on status */}
-              <div className="min-h-[300px]">
-                {loginModal.status === 'loading' && (
-                  <div className="flex h-[300px] flex-col items-center justify-center">
-                    <Loader2 className="h-12 w-12 animate-spin text-gray-400" />
-                    <p className="mt-4 text-sm text-gray-500">
-                      {loginModal.message}
-                    </p>
-                  </div>
-                )}
-
-                {loginModal.status === 'mcp-guide' && (
-                  <div className="flex flex-col items-center">
-                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-                      <Terminal className="h-8 w-8 text-gray-600" />
-                    </div>
-                    <p className="mb-4 text-sm text-gray-600">
-                      {loginModal.message}
-                    </p>
-                    {loginModal.instructions && (
-                      <div className="mb-6 w-full rounded-lg bg-gray-50 p-4">
-                        <ol className="space-y-2 text-sm text-gray-700">
-                          {loginModal.instructions.map((step, i) => (
-                            <li key={i} className="flex items-start gap-2">
-                              <span className="font-mono text-gray-400">
-                                {step}
-                              </span>
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-                    )}
-                    <button
-                      onClick={handleMcpConfirmLogin}
-                      className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
-                    >
-                      {t('aiSocial.connections.confirmLogin', {
-                        defaultValue: 'Confirm Login',
-                      })}
-                    </button>
-                  </div>
-                )}
-
-                {loginModal.status === 'scanning' && (
-                  <div className="flex flex-col items-center">
-                    <p className="mb-4 text-sm text-gray-600">
-                      {loginModal.screenshot
-                        ? `请使用${loginModal.platform === 'WECHAT_MP' ? '微信' : '小红书'}扫描下方二维码登录`
-                        : '正在加载登录页面...'}
-                    </p>
-                    {loginModal.screenshot ? (
-                      <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-white">
-                        <img
-                          src={loginModal.screenshot}
-                          alt="Login QR Code"
-                          className="h-auto w-full max-w-[500px]"
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex h-[300px] w-full max-w-[500px] items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
-                        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                      </div>
-                    )}
-                    <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>{loginModal.message || '等待扫码确认...'}</span>
-                    </div>
-                  </div>
-                )}
-
-                {loginModal.status === 'success' && (
-                  <div className="flex h-[300px] flex-col items-center justify-center">
-                    <CheckCircle className="h-16 w-16 text-green-500" />
-                    <p className="mt-4 text-lg font-medium text-gray-900">
-                      {loginModal.message}
-                    </p>
-                  </div>
-                )}
-
-                {loginModal.status === 'error' && (
-                  <div className="flex h-[300px] flex-col items-center justify-center">
-                    <XCircle className="h-16 w-16 text-red-500" />
-                    <p className="mt-4 text-lg font-medium text-gray-900">
-                      {loginModal.message}
-                    </p>
-                    <button
-                      onClick={() => handleAddConnection(loginModal.platform!)}
-                      className="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
-                    >
-                      重试
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              {(loginModal.status === 'scanning' ||
-                loginModal.status === 'mcp-guide') && (
-                <div className="mt-4 border-t border-gray-100 pt-4">
-                  <button
-                    onClick={closeLoginModal}
-                    className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
-                  >
-                    取消
-                  </button>
+              <p className="mb-4 text-sm text-gray-600">{loginModal.message}</p>
+              {loginModal.instructions && (
+                <div className="mb-6 w-full rounded-lg bg-gray-50 p-4">
+                  <ol className="space-y-2 text-sm text-gray-700">
+                    {loginModal.instructions.map((step, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="font-mono text-gray-400">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
                 </div>
               )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <button
+                onClick={handleMcpConfirmLogin}
+                className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+              >
+                {t('aiSocial.connections.confirmLogin', {
+                  defaultValue: 'Confirm Login',
+                })}
+              </button>
+            </div>
+          )}
+
+          {loginModal.status === 'scanning' && (
+            <div className="flex flex-col items-center">
+              <p className="mb-4 text-sm text-gray-600">
+                {loginModal.screenshot
+                  ? `请使用${loginModal.platform === 'WECHAT_MP' ? '微信' : '小红书'}扫描下方二维码登录`
+                  : '正在加载登录页面...'}
+              </p>
+              {loginModal.screenshot ? (
+                <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-white">
+                  <img
+                    src={loginModal.screenshot}
+                    alt="Login QR Code"
+                    className="h-auto w-full max-w-[500px]"
+                  />
+                </div>
+              ) : (
+                <div className="flex h-[300px] w-full max-w-[500px] items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+              )}
+              <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{loginModal.message || '等待扫码确认...'}</span>
+              </div>
+            </div>
+          )}
+
+          {loginModal.status === 'success' && (
+            <div className="flex h-[300px] flex-col items-center justify-center">
+              <CheckCircle className="h-16 w-16 text-green-500" />
+              <p className="mt-4 text-lg font-medium text-gray-900">
+                {loginModal.message}
+              </p>
+            </div>
+          )}
+
+          {loginModal.status === 'error' && (
+            <div className="flex h-[300px] flex-col items-center justify-center">
+              <XCircle className="h-16 w-16 text-red-500" />
+              <p className="mt-4 text-lg font-medium text-gray-900">
+                {loginModal.message}
+              </p>
+              <button
+                onClick={() => handleAddConnection(loginModal.platform!)}
+                className="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+              >
+                重试
+              </button>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }
