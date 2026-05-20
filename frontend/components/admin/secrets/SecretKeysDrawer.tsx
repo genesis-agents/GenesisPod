@@ -1,7 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
-import { MultiKeyTable } from './MultiKeyTable';
+import { MultiKeyTable } from '@/components/common/tables/MultiKeyTable';
 import { useSecretKeys } from '@/hooks/domain/useSecretKeys';
 import type { Secret } from '@/hooks/domain/useAdminSecrets';
 

@@ -39,7 +39,7 @@ import type {
   Resource as AIOfficeResource,
   WebMetadata,
 } from '@/lib/types/ai-office';
-import type { Note } from '@/components/library/resources/NotesList';
+import type { Note } from '@/components/common/resource-lists/NotesList';
 import { logger } from '@/lib/utils/logger';
 import AddToKnowledgeBaseDialog, {
   type ResourceToAdd,
@@ -48,7 +48,7 @@ import ClientDate from '@/components/common/ClientDate';
 
 // 懒加载条件渲染的组件
 const NotesList = dynamicImport(
-  () => import('@/components/library/resources/NotesList'),
+  () => import('@/components/common/resource-lists/NotesList'),
   { ssr: false }
 );
 

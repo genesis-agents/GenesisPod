@@ -40,8 +40,8 @@ import AddToKnowledgeBaseDialog, {
 } from '@/components/common/dialogs/AddToKnowledgeBaseDialog';
 import { ViewToggle, type ViewMode } from '@/components/common/ViewToggle';
 import { NotionPageRow } from './NotionPageRow';
-import { AiOrganizeButton } from '@/components/ai-office/ai-organizer-panels/AiOrganizeButton';
-import { AiOrganizePanel } from '@/components/ai-office/ai-organizer-panels/AiOrganizePanel';
+import { AiOrganizeButton } from '@/components/common/ai-organizer/AiOrganizeButton';
+import { AiOrganizePanel } from '@/components/common/ai-organizer/AiOrganizePanel';
 import type { FileInfo } from '@/services/ai-organizer/api';
 
 export default function NotionTabContent() {

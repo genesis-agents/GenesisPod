@@ -32,7 +32,7 @@ const ReaderView = dynamic(() => import('@/components/ui/ReaderView'), {
 });
 
 const NotesList = dynamic(
-  () => import('@/components/library/resources/NotesList'),
+  () => import('@/components/common/resource-lists/NotesList'),
   {
     ssr: false,
   }
@@ -44,7 +44,7 @@ const CommentsList = dynamic(
 );
 
 const SimilarResourcesList = dynamic(
-  () => import('@/components/library/resources/SimilarResourcesList'),
+  () => import('@/components/common/resource-lists/SimilarResourcesList'),
   { ssr: false }
 );
 

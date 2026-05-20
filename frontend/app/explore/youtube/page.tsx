@@ -11,7 +11,7 @@ import {
 import { useSearchParams, useRouter } from 'next/navigation';
 import { config } from '@/lib/utils/config';
 import AppShell from '@/components/layout/AppShell';
-import NotesList from '@/components/library/resources/NotesList';
+import NotesList from '@/components/common/resource-lists/NotesList';
 import {
   AIContextBuilder,
   type Resource as AIResource,

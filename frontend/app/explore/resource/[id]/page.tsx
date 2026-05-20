@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { config } from '@/lib/utils/config';
 import NoteEditor from '@/components/library/resources/NoteEditor';
-import NotesList from '@/components/library/resources/NotesList';
+import NotesList from '@/components/common/resource-lists/NotesList';
 import CommentsList from '@/components/common/comments/CommentsList';
 import AppShell from '@/components/layout/AppShell';
 import dynamic from 'next/dynamic';
