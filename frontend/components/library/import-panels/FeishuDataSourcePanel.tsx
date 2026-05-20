@@ -18,6 +18,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { formatDateSafe } from '@/lib/utils/date';
 import { logger } from '@/lib/utils/logger';
@@ -412,13 +413,11 @@ export default function FeishuDataSourcePanel() {
         )}
 
         {items.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 py-12 text-center">
-            <Zap className="mx-auto h-12 w-12 text-gray-300" />
-            <p className="mt-4 text-sm text-gray-500">暂无同步的内容</p>
-            <p className="mt-1 text-xs text-gray-400">
-              在飞书中向机器人发送链接即可同步
-            </p>
-          </div>
+          <EmptyState
+            icon={<Zap className="h-12 w-12" />}
+            title="暂无同步的内容"
+            description="在飞书中向机器人发送链接即可同步"
+          />
         ) : (
           <div className="space-y-2">
             {/* Select all */}

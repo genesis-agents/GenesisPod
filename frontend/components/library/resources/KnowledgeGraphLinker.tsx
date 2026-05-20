@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Network } from 'lucide-react';
 import { config } from '@/lib/utils/config';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 import { logger } from '@/lib/utils/logger';
 interface GraphNode {
@@ -296,55 +298,27 @@ export default function KnowledgeGraphLinker({
           )}
 
           {topics.length === 0 && authors.length === 0 && (
-            <div className="py-8 text-center">
-              <svg
-                className="mx-auto h-12 w-12 text-gray-300"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-                />
-              </svg>
-              <p className="mt-2 text-sm text-gray-500">
-                暂无可关联的知识图谱节点
-              </p>
-              <p className="mt-1 text-xs text-gray-400">
-                系统将在后台为此资源构建知识图谱
-              </p>
-            </div>
+            <EmptyState
+              size="sm"
+              icon={<Network className="h-12 w-12" />}
+              title="暂无可关联的知识图谱节点"
+              description="系统将在后台为此资源构建知识图谱"
+            />
           )}
         </div>
       )}
 
       {/* Empty State */}
       {!showNodeSelector && linkedNodes.length === 0 && (
-        <div className="p-4 text-center">
-          <svg
-            className="mx-auto h-10 w-10 text-gray-300"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-            />
-          </svg>
-          <p className="mt-2 text-sm text-gray-500">暂未关联任何知识图谱节点</p>
-          <button
-            onClick={() => setShowNodeSelector(true)}
-            className="mt-2 text-xs font-medium text-green-600 hover:text-green-800"
-          >
-            开始添加
-          </button>
-        </div>
+        <EmptyState
+          size="sm"
+          icon={<Network className="h-10 w-10" />}
+          title="暂未关联任何知识图谱节点"
+          action={{
+            label: '开始添加',
+            onClick: () => setShowNodeSelector(true),
+          }}
+        />
       )}
     </div>
   );

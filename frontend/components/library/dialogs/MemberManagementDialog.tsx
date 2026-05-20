@@ -13,6 +13,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
@@ -257,9 +258,11 @@ export default function MemberManagementDialog({
           ) : error ? (
             <div className="py-8 text-center text-sm text-red-600">{error}</div>
           ) : members.length === 0 ? (
-            <div className="py-8 text-center text-sm text-gray-500">
-              暂无其他成员，使用上方表单邀请成员
-            </div>
+            <EmptyState
+              size="sm"
+              title="暂无其他成员"
+              description="使用上方表单邀请成员"
+            />
           ) : (
             <div className="space-y-3">
               {members.map((member) => {

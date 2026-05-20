@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 export interface KeyMoment {
   id: string;
@@ -220,12 +221,11 @@ export default function KeyMomentsPanel({
         className="scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-50 min-h-0 flex-1 overflow-y-auto"
       >
         {filteredMoments.length === 0 ? (
-          <div className="py-12 text-center">
-            <div className="text-4xl">🔍</div>
-            <p className="mt-2 text-sm text-gray-500">
-              {filter === 'all' ? '暂无关键时刻' : '此类别暂无内容'}
-            </p>
-          </div>
+          <EmptyState
+            size="sm"
+            type="search"
+            title={filter === 'all' ? '暂无关键时刻' : '此类别暂无内容'}
+          />
         ) : (
           <div className="space-y-2 p-3">
             {filteredMoments.map((moment) => {
