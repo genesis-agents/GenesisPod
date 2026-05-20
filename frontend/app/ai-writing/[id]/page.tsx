@@ -47,6 +47,7 @@ import { EmptyState } from '@/components/ui/states/EmptyState';
 import { ExportDialog } from '@/components/common/ExportDialog';
 import { useTranslation } from '@/lib/i18n';
 import { Modal } from '@/components/ui/dialogs/Modal';
+import { Tabs } from '@/components/ui/tabs';
 
 import { logger } from '@/lib/utils/logger';
 
@@ -2038,97 +2039,94 @@ export default function WritingProjectPage() {
             {/* Tabbed Content */}
             <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
               {/* Tab Header */}
-              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setActiveTab('chapters')}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                      activeTab === 'chapters'
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'text-gray-500 hover:bg-gray-100'
-                    }`}
-                  >
-                    📖 章节列表
-                    <span className="ml-1 text-xs">({allChapters.length})</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('worldview')}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                      activeTab === 'worldview'
-                        ? 'bg-indigo-100 text-indigo-700'
-                        : 'text-gray-500 hover:bg-gray-100'
-                    }`}
-                  >
-                    🌍 世界观
-                    {storyBible?.premise && (
-                      <span className="ml-1 text-xs text-green-500">✓</span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('storyBible')}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                      activeTab === 'storyBible'
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'text-gray-500 hover:bg-gray-100'
-                    }`}
-                  >
-                    📚 故事圣经
-                    {storyBible?.characters &&
-                      storyBible.characters.length > 0 && (
-                        <span className="ml-1 text-xs text-emerald-500">
-                          ({storyBible.characters.length})
+              <Tabs
+                className="px-4"
+                variant="pill"
+                size="sm"
+                value={activeTab}
+                onChange={(key) =>
+                  setActiveTab(
+                    key as
+                      | 'chapters'
+                      | 'worldview'
+                      | 'storyBible'
+                      | 'relationships'
+                      | 'taskDetails'
+                      | 'summaries'
+                      | 'analysis'
+                  )
+                }
+                items={[
+                  {
+                    key: 'chapters',
+                    label: (
+                      <>
+                        📖 章节列表
+                        <span className="ml-1 text-xs">
+                          ({allChapters.length})
                         </span>
-                      )}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('relationships')}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                      activeTab === 'relationships'
-                        ? 'bg-pink-100 text-pink-700'
-                        : 'text-gray-500 hover:bg-gray-100'
-                    }`}
-                  >
-                    🔗 角色关系
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('taskDetails')}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                      activeTab === 'taskDetails'
-                        ? 'bg-violet-100 text-violet-700'
-                        : 'text-gray-500 hover:bg-gray-100'
-                    }`}
-                  >
-                    💬 Team交互区
-                    {taskMessages.length > 0 && (
-                      <span className="ml-1 text-xs">
-                        ({taskMessages.length})
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('summaries')}
-                    className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                      activeTab === 'summaries'
-                        ? 'bg-teal-100 text-teal-700'
-                        : 'text-gray-500 hover:bg-gray-100'
-                    }`}
-                  >
-                    <FileText className="h-4 w-4" />
-                    层次摘要
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('analysis')}
-                    className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                      activeTab === 'analysis'
-                        ? 'bg-orange-100 text-orange-700'
-                        : 'text-gray-500 hover:bg-gray-100'
-                    }`}
-                  >
-                    <BarChart3 className="h-4 w-4" />
-                    分析
-                  </button>
-                </div>
-              </div>
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'worldview',
+                    label: (
+                      <>
+                        🌍 世界观
+                        {storyBible?.premise && (
+                          <span className="ml-1 text-xs text-green-500">✓</span>
+                        )}
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'storyBible',
+                    label: (
+                      <>
+                        📚 故事圣经
+                        {storyBible?.characters &&
+                          storyBible.characters.length > 0 && (
+                            <span className="ml-1 text-xs text-emerald-500">
+                              ({storyBible.characters.length})
+                            </span>
+                          )}
+                      </>
+                    ),
+                  },
+                  { key: 'relationships', label: '🔗 角色关系' },
+                  {
+                    key: 'taskDetails',
+                    label: (
+                      <>
+                        💬 Team交互区
+                        {taskMessages.length > 0 && (
+                          <span className="ml-1 text-xs">
+                            ({taskMessages.length})
+                          </span>
+                        )}
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'summaries',
+                    label: (
+                      <>
+                        <FileText className="h-4 w-4" />
+                        层次摘要
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'analysis',
+                    label: (
+                      <>
+                        <BarChart3 className="h-4 w-4" />
+                        分析
+                      </>
+                    ),
+                  },
+                ]}
+              />
 
               <div className="flex-1 overflow-auto p-4">
                 {/* Chapters Tab */}

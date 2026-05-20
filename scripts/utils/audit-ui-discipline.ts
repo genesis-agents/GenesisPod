@@ -174,11 +174,28 @@ const R3_WELCOME_OK = [
   "app/library/knowledge-graph/page.tsx", // 对话起始 + 建议问题按钮
 ];
 
+// R3 已审批 bespoke 例外（2026-05-20，用户批准）：`.length===0` 命中但渲染的并非
+// 「空数据占位」——逐源确认，EmptyState 不适配。类型：首跑引导、对话欢迎、守卫
+// (return null)、下拉/标签内联文案、<select> 兜底 option、上下文告警、死代码分支。
+const R3_BESPOKE_OK = [
+  "app/ai-office/slides/page.tsx", // 首跑引导（"输入内容，AI团队开始生成"）
+  "app/ai-simulation/run/[id]/page.tsx", // return null 守卫 + 加载中状态文案
+  "components/ai-insights/research-control/ResearchSettingsModal.tsx", // 搜索下拉内联提示 + 标签 toggle
+  "components/ai-office/core/PromptBar.tsx", // 死代码（外层已被 length>0 守卫）
+  "components/ai-social/ContentDetailDrawer.tsx", // 上下文 amber 告警 + 跳连接设置链接
+  "components/library/knowledge-base/TeamKnowledgeBaseTab.tsx", // 团队 KB 功能介绍引导卡
+  "components/library/resources/BatchActionBar.tsx", // if(selectedCount===0) return null 守卫
+  "components/library/wiki/WikiQueryDrawer.tsx", // 聊天式 UI 的欢迎 prompt
+  "components/me/models/UserModelConfigModal.tsx", // <select> 内兜底 <option>
+  "components/me/sections/PersonalizationSection.tsx", // 内联状态 <span> 标签
+];
+
 function checkR3EmptyState(file: string, src: string): Violation[] {
   if (!EMPTY_RENDER.test(src)) return [];
   if (hasImport(src, "EmptyState")) return [];
   const norm = file.split(sep).join("/");
   if (R3_WELCOME_OK.some((p) => norm.endsWith(p))) return [];
+  if (R3_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
 
   const line = findLine(src, EMPTY_RENDER);
   return [
@@ -212,6 +229,20 @@ function checkR4ErrorState(file: string, src: string): Violation[] {
   ];
 }
 
+// R5 已审批 bespoke 例外（2026-05-20，用户批准）：`animate-pulse bg-gray-100/200` 命中但
+// 是「布局专属骨架」或非骨架——逐源确认，generic LoadingSkeleton（h-4 直线条）不适配，
+// 强迁会视觉劣化。类型：卡片/表格/缩略图/页面形态骨架、单条内联占位、混在 spinner 块里。
+const R5_BESPOKE_OK = [
+  "app/admin/ai/eval/content.tsx", // h-20 卡片行占位，非细文本条
+  "app/ai-social/mission/[taskId]/loading.tsx", // 整页布局骨架（头部+侧栏+内容卡）
+  "app/ai-teams/[topicId]/page.tsx", // 图片加载占位 + 状态点，非骨架块
+  "components/ai-image/components/ControlBar.tsx", // 单条 h-7 内联占位（模型选择器）
+  "components/library/knowledge-base/KnowledgeBaseDetailDialog.tsx", // 单条标题占位 + flex-row spinner
+  "components/ai-social/skeletons/ConnectionCardSkeleton.tsx", // 卡片骨架（头像圈+名称+状态+按钮）
+  "components/ai-social/skeletons/ContentTableSkeleton.tsx", // 表格骨架（表头+多列行）
+  "components/explore/resources/ResourceThumbnail.tsx", // 缩略图宽高比占位盒
+];
+
 // R5: 含 isLoading skeleton 渲染必须用 LoadingState/LoadingSkeleton
 function checkR5LoadingState(file: string, src: string): Violation[] {
   // 检测自写 animate-pulse skeleton
@@ -220,6 +251,8 @@ function checkR5LoadingState(file: string, src: string): Violation[] {
   if (!customSkeleton.test(src)) return [];
   if (hasImport(src, "LoadingState") || hasImport(src, "LoadingSkeleton"))
     return [];
+  const norm = file.split(sep).join("/");
+  if (R5_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
 
   const line = findLine(src, customSkeleton);
   return [

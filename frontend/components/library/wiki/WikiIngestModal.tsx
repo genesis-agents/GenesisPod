@@ -20,6 +20,7 @@ import {
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { ErrorState } from '@/components/ui/states/ErrorState';
 import { Modal } from '@/components/ui/dialogs/Modal';
 
 type FilterKey = 'recommended' | 'ready' | 'covered' | 'blocked' | 'all';
@@ -350,7 +351,10 @@ export default function WikiIngestModal({
             <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
           </div>
         ) : error ? (
-          <InlineError message={error} />
+          <ErrorState
+            error={error}
+            title={t('library.wiki.ingest.loadFailed')}
+          />
         ) : docs.length === 0 ? (
           <EmptyState
             icon={<FileSearch className="h-8 w-8" />}
@@ -502,14 +506,6 @@ function Metric({ label, value }: { label: string; value: string }) {
         {label}
       </div>
       <div className="mt-1 text-sm font-medium text-slate-700">{value}</div>
-    </div>
-  );
-}
-
-function InlineError({ message }: { message: string }) {
-  return (
-    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-      {message}
     </div>
   );
 }

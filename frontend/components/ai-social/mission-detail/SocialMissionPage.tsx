@@ -49,6 +49,7 @@ import { RefreshCw } from 'lucide-react';
 import { SocialPublishPanel } from './SocialPublishPanel';
 import { deriveSocialStages } from '@/lib/features/ai-social/derive-social-stages';
 import type { SocialContentTaskStatus } from '@/services/ai-social/task-types';
+import { LoadingSkeleton } from '@/components/ui/states/LoadingState';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -334,11 +335,7 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
       brandGradient="from-rose-500 to-pink-600"
       HeaderIcon={Send}
       title={
-        isLoading ? (
-          <span className="inline-block h-5 w-48 animate-pulse rounded bg-gray-200" />
-        ) : (
-          taskTitle
-        )
+        isLoading ? <LoadingSkeleton lines={1} className="w-48" /> : taskTitle
       }
       subtitle={
         <>
