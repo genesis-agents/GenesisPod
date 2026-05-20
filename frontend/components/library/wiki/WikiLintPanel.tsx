@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Loader2, X } from 'lucide-react';
+import { Tabs } from '@/components/ui/tabs';
 import {
   wikiApi,
   type WikiLintFinding,
@@ -106,20 +107,14 @@ export default function WikiLintPanel({
           </button>
         </div>
       </header>
-      <div className="flex flex-wrap gap-2 border-b border-slate-100 px-4 py-3">
-        {LINT_TABS.map((tabKey) => (
-          <button
-            key={tabKey}
-            onClick={() => setTab(tabKey)}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-              tab === tabKey
-                ? 'bg-violet-100 text-violet-800'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            {tabKey}
-          </button>
-        ))}
+      <div className="border-b border-slate-100 px-4 py-3">
+        <Tabs
+          variant="pill"
+          size="sm"
+          value={tab}
+          onChange={(k) => setTab(k as WikiLintTypeStr)}
+          items={LINT_TABS.map((tabKey) => ({ key: tabKey, label: tabKey }))}
+        />
       </div>
 
       {findings.length > 0 && (
