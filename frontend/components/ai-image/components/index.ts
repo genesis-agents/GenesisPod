@@ -1,5 +1,4 @@
 // Component exports
-export { ThumbnailGallery } from './ThumbnailGallery';
 export { CanvasToolbar } from './CanvasToolbar';
 export { InsightCard } from './InsightCard';
 export { InsightsPanel } from './InsightsPanel';
