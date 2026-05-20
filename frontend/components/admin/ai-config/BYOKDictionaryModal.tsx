@@ -17,13 +17,14 @@
 
 import { useEffect, useState } from 'react';
 import { X, Globe, KeyRound, Tag } from 'lucide-react';
+import { Tabs, type TabItem } from '@/components/ui/tabs';
 import { AIProvidersSettings } from './AIProvidersSettings';
 import { ApiFormatsSettings } from './ApiFormatsSettings';
 import { ModelTypesSettings } from './ModelTypesSettings';
 
 type TabKey = 'providers' | 'apiFormats' | 'modelTypes';
 
-const TABS: Array<{ key: TabKey; label: string; icon: typeof Globe }> = [
+const TABS: TabItem[] = [
   { key: 'providers', label: 'AI Providers', icon: Globe },
   { key: 'apiFormats', label: 'API Formats', icon: KeyRound },
   { key: 'modelTypes', label: 'Model Types', icon: Tag },
@@ -77,27 +78,12 @@ export function BYOKDictionaryModal({
         </div>
 
         {/* Tabs（紧贴 header，无 description 噪声） */}
-        <div className="flex flex-shrink-0 gap-1 border-b border-gray-200 bg-gray-50 px-6">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-                  active
-                    ? 'border-blue-600 text-blue-700'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        <Tabs
+          className="flex-shrink-0 bg-gray-50 px-6"
+          items={TABS}
+          value={activeTab}
+          onChange={(k) => setActiveTab(k as TabKey)}
+        />
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto bg-white p-6">
