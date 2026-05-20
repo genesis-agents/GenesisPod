@@ -11,6 +11,7 @@ import ShareModal from '@/components/common/dialogs/ShareModal';
 
 import { logger } from '@/lib/utils/logger';
 import ClientDate from '@/components/common/ClientDate';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 // AI Image Team - Preview (3 core agents)
 const AI_TEAM_PREVIEW = [
   {
@@ -357,28 +358,11 @@ export default function AIImagePage() {
               </button>
             </div>
           ) : filteredImages.length === 0 && searchQuery ? (
-            /* No Search Results */
-            <div className="flex flex-col items-center justify-center py-12">
-              <svg
-                className="h-16 w-16 text-gray-300"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <h3 className="mt-4 text-lg font-medium text-gray-700">
-                {t('aiImage.noResults.title')}
-              </h3>
-              <p className="mt-2 text-sm text-gray-500">
-                {t('aiImage.noResults.description')}
-              </p>
-            </div>
+            <EmptyState
+              type="search"
+              title={t('aiImage.noResults.title')}
+              description={t('aiImage.noResults.description')}
+            />
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filteredImages.map((image) => {
