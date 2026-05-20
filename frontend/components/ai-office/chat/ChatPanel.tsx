@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   useChatStore,
   useDocumentStore,
@@ -1558,13 +1559,11 @@ ${userInput || ''}
       {/* 对话历史 */}
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {messages.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-gray-400">
-            <div className="text-center">
-              <Sparkles className="mx-auto mb-3 h-12 w-12" />
-              <p className="text-sm">开始与AI对话</p>
-              <p className="mt-1 text-xs">选择资源后，询问AI帮你生成文档</p>
-            </div>
-          </div>
+          <EmptyState
+            icon={<Sparkles className="h-12 w-12" />}
+            title="开始与AI对话"
+            description="选择资源后，询问AI帮你生成文档"
+          />
         ) : (
           <>
             {messages.map((message) => (

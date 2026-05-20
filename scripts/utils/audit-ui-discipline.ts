@@ -164,9 +164,18 @@ function checkR2AssetCard(file: string, src: string): Violation[] {
 const EMPTY_RENDER =
   /(?:\.length\s*===\s*0|\.length\s*<\s*1|\bisEmpty\b|!\s*\w+\??\.length)\s*(?:&&|\?)\s*[(<]/;
 
+// R3 已审批例外：length===0 渲染的是「富欢迎/对话起始页」（登录引导 / 功能介绍 /
+// 建议问题按钮），非「空数据」空态——EmptyState 不适配，保留自写（标准 22 §3 留痕）。
+const R3_WELCOME_OK = [
+  "app/ai-ask/page.tsx", // 未登录欢迎页 + 功能 chips + 建议 prompts
+  "app/library/knowledge-graph/page.tsx", // 对话起始 + 建议问题按钮
+];
+
 function checkR3EmptyState(file: string, src: string): Violation[] {
   if (!EMPTY_RENDER.test(src)) return [];
   if (hasImport(src, "EmptyState")) return [];
+  const norm = file.split(sep).join("/");
+  if (R3_WELCOME_OK.some((p) => norm.endsWith(p))) return [];
 
   const line = findLine(src, EMPTY_RENDER);
   return [

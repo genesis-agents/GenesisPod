@@ -1,7 +1,7 @@
 {
   "R1-AppShell-Required": 8,
   "R2-AssetCard-Required": 12,
-  "R3-EmptyState-Required": 108,
+  "R3-EmptyState-Required": 98,
   "R4-ErrorState-Required": 5,
   "R5-LoadingState-Required": 13,
   "R6-Dialog-Component-Required": 75,
