@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Building2, Users } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   ScenarioCard,
   ScenarioTemplate,
@@ -1772,27 +1774,12 @@ export function EditorModal({
                   />
                 ))}
                 {companies.length === 0 && (
-                  <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
-                    <svg
-                      className="mx-auto h-10 w-10 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                      />
-                    </svg>
-                    <h4 className="mt-3 text-sm font-medium text-gray-900">
-                      暂无公司
-                    </h4>
-                    <p className="mt-1 text-xs text-gray-500">
-                      点击上方"添加公司"或使用AI推荐
-                    </p>
-                  </div>
+                  <EmptyState
+                    size="sm"
+                    icon={<Building2 className="h-10 w-10" />}
+                    title="暂无公司"
+                    description='点击上方"添加公司"或使用AI推荐'
+                  />
                 )}
               </div>
 
@@ -2071,27 +2058,12 @@ export function EditorModal({
                   />
                 ))}
                 {agents.length === 0 && (
-                  <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
-                    <svg
-                      className="mx-auto h-10 w-10 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                      />
-                    </svg>
-                    <h4 className="mt-3 text-sm font-medium text-gray-900">
-                      暂无角色
-                    </h4>
-                    <p className="mt-1 text-xs text-gray-500">
-                      点击"AI推荐"或"添加"按钮配置角色
-                    </p>
-                  </div>
+                  <EmptyState
+                    size="sm"
+                    icon={<Users className="h-10 w-10" />}
+                    title="暂无角色"
+                    description='点击"AI推荐"或"添加"按钮配置角色'
+                  />
                 )}
               </div>
 
