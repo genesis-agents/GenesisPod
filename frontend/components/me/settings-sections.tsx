@@ -1,7 +1,6 @@
 import {
   User,
   SlidersHorizontal,
-  Palette,
   Key,
   Wand2,
   Bot,
@@ -16,7 +15,6 @@ import { MyAgentsTab } from '@/components/custom-agents/MyAgentsTab';
 import { NotificationPreferencesView } from '@/components/me/notifications/NotificationPreferencesView';
 import { AccountSection } from '@/components/me/sections/AccountSection';
 import { GeneralSection } from '@/components/me/sections/GeneralSection';
-import { PersonalizationSection } from '@/components/me/sections/PersonalizationSection';
 import { BillingSection } from '@/components/me/sections/BillingSection';
 import { IntegrationsSection } from '@/components/me/sections/IntegrationsSection';
 
@@ -62,13 +60,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     icon: SlidersHorizontal,
     group: 'profile',
     component: GeneralSection,
-  },
-  {
-    id: 'personalization',
-    labelKey: 'me.nav.personalization',
-    icon: Palette,
-    group: 'profile',
-    component: PersonalizationSection,
   },
   // API 与模型
   {

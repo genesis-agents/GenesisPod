@@ -4,10 +4,11 @@ import { Sun, Moon, Monitor, type LucideIcon } from 'lucide-react';
 import { useThemeStore, type Appearance } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
 import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
+import { PersonalizationSection } from './PersonalizationSection';
 
 /**
- * 通用 /me/general — 外观主题（浅色 / 深色 / 跟随系统）。
- * 写 themeStore.appearance，由 ThemeApplier 落到 <html class="dark">，即时生效并持久化。
+ * 通用 /me/general — 外观主题 + 聊天样式 + 兴趣标签（个性化已合并进来）。
+ * 外观主题写 themeStore.appearance，由 ThemeApplier 落到 <html class="dark">，即时生效并持久化。
  * 语言切换不在此处（见头像菜单），与设计 §3.1 / §9.1 一致。
  */
 const OPTIONS: { value: Appearance; labelKey: string; icon: LucideIcon }[] = [
@@ -56,6 +57,9 @@ export function GeneralSection() {
           })}
         </div>
       </SettingsSectionCard>
+
+      {/* 个性化已合并进通用：聊天样式 + 兴趣标签 */}
+      <PersonalizationSection />
     </div>
   );
 }

@@ -20,13 +20,15 @@ export default function MeSectionPage() {
   const Content = section.component;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-8">
+    <div className="mx-auto min-w-0 max-w-7xl px-4 py-6 md:px-6 md:py-8">
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">
           {t(section.labelKey)}
         </h1>
       </header>
-      <Content />
+      <div className="min-w-0 overflow-x-auto">
+        <Content />
+      </div>
     </div>
   );
 }
