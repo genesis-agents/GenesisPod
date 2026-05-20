@@ -37,7 +37,6 @@ export {
   ReportOutlineNav,
   ReportRevisionHistory,
   ReportTemplateDialog,
-  ReportWorkspace,
   ChapterizedReportView,
   ChangeReviewPanel,
   ChangeSummaryPanel,

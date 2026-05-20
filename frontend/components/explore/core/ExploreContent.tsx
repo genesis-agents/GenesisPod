@@ -15,7 +15,7 @@ import CommentsList from '@/components/common/comments/CommentsList';
 import SimilarResourcesList from '@/components/common/resource-lists/SimilarResourcesList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ReportWorkspace } from '@/components/ai-insights';
+import { ReportWorkspace } from '@/components/common/report-workspace';
 import ResourceThumbnail from '../resources/ResourceThumbnail';
 import { InsightChip } from '../InsightBadge';
 import { useReportWorkspace } from '@/hooks';
