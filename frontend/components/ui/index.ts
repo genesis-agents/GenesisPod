@@ -6,6 +6,7 @@ export * from './collapsible';
 export * from './viewers';
 export * from './badges';
 export * from './progress';
+export * from './tabs';
 
 // Relocated UI components (now in categorized subdirs)
 export {

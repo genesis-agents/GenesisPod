@@ -14,13 +14,14 @@
 
 import { useState } from 'react';
 import { BookOpen, FileText, BookText } from 'lucide-react';
+import { Tabs, type TabItem } from '@/components/ui/tabs';
 import { KnowledgeBaseTable } from './KnowledgeBaseTable';
 import { DocumentTable } from './DocumentTable';
 import { WikiPageTable } from './WikiPageTable';
 
 type TabKey = 'kbs' | 'documents' | 'wiki';
 
-const TABS: Array<{ key: TabKey; label: string; icon: typeof BookOpen }> = [
+const TABS: TabItem[] = [
   { key: 'kbs', label: '知识库', icon: BookOpen },
   { key: 'documents', label: '文档', icon: FileText },
   { key: 'wiki', label: 'Wiki', icon: BookText },
@@ -31,29 +32,11 @@ export default function KnowledgeManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-1">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-                  active
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+      <Tabs
+        items={TABS}
+        value={activeTab}
+        onChange={(k) => setActiveTab(k as TabKey)}
+      />
 
       {activeTab === 'kbs' && <KnowledgeBaseTable />}
       {activeTab === 'documents' && <DocumentTable />}
