@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import { config } from '@/lib/utils/config';
 import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
+import { Input, Textarea } from '@/components/ui/form';
 import { logger } from '@/lib/utils/logger';
 
 /**
@@ -90,23 +91,17 @@ export function AccountSection() {
             <label className="mb-1 block text-sm font-medium text-gray-700">
               {t('profile.name')}
             </label>
-            <input
+            <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
               {t('profile.email')}
             </label>
-            <input
-              type="email"
-              value={user.email || ''}
-              disabled
-              className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-gray-500"
-            />
+            <Input type="email" value={user.email || ''} disabled />
             <p className="mt-1 text-xs text-gray-500">
               {t('profile.emailCannotChange')}
             </p>
@@ -115,12 +110,7 @@ export function AccountSection() {
             <label className="mb-1 block text-sm font-medium text-gray-700">
               {t('profile.bio')}
             </label>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              rows={3}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
+            <Textarea value={bio} onChange={(e) => setBio(e.target.value)} />
           </div>
         </div>
       </SettingsSectionCard>

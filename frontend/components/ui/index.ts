@@ -7,6 +7,8 @@ export * from './viewers';
 export * from './badges';
 export * from './progress';
 export * from './tabs';
+export * from './form';
+export * from './pagination';
 
 // Relocated UI components (now in categorized subdirs)
 export {

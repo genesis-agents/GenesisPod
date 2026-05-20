@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import { config } from '@/lib/utils/config';
 import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
+import { Input } from '@/components/ui/form';
 import { logger } from '@/lib/utils/logger';
 
 /**
@@ -173,13 +174,14 @@ export function PersonalizationSection() {
           )}
         </div>
         <div className="flex gap-2">
-          <input
+          <Input
             type="text"
             value={newInterest}
             onChange={(e) => setNewInterest(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addInterest()}
             placeholder={t('profile.enterInterest')}
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            inputSize="sm"
+            className="flex-1"
           />
           <button
             onClick={addInterest}
