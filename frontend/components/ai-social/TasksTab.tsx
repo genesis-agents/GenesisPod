@@ -13,6 +13,7 @@
 
 import { useMemo, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useRouter } from 'next/navigation';
 import {
   Plus,
@@ -449,20 +450,16 @@ export default function TasksTab() {
             )}
             {!isLoading && tasks.length === 0 && (
               <Tr>
-                <Td
-                  colSpan={5}
-                  className="px-4 py-12 text-center text-gray-400"
-                >
-                  <Inbox className="mx-auto mb-2 h-8 w-8" />
-                  <div className="text-sm">{t('aiSocial.tasks.empty')}</div>
-                  <button
-                    type="button"
-                    onClick={() => setDialogOpen(true)}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-rose-500 px-3 py-1.5 text-xs font-medium text-white"
-                  >
-                    <Plus className="h-3 w-3" />
-                    {t('aiSocial.tasks.create')}
-                  </button>
+                <Td colSpan={5}>
+                  <EmptyState
+                    size="sm"
+                    icon={<Inbox className="h-8 w-8" />}
+                    title={t('aiSocial.tasks.empty')}
+                    action={{
+                      label: t('aiSocial.tasks.create'),
+                      onClick: () => setDialogOpen(true),
+                    }}
+                  />
                 </Td>
               </Tr>
             )}

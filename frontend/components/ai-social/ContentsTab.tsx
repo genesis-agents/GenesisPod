@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -874,23 +875,15 @@ export default function ContentsTab({
           </Table>
         </div>
       ) : (
-        /* Empty State */
-        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-12 text-center">
-          <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-          <h3 className="mb-2 text-lg font-medium text-gray-900">
-            {t('aiSocial.contents.emptyTitle')}
-          </h3>
-          <p className="mb-6 text-sm text-gray-500">
-            {t('aiSocial.contents.emptyDescription')}
-          </p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
-          >
-            <Plus className="h-4 w-4" />
-            {t('aiSocial.contents.createFirst')}
-          </button>
-        </div>
+        <EmptyState
+          icon={<FileText className="h-12 w-12" />}
+          title={t('aiSocial.contents.emptyTitle')}
+          description={t('aiSocial.contents.emptyDescription')}
+          action={{
+            label: t('aiSocial.contents.createFirst'),
+            onClick: () => setShowCreateModal(true),
+          }}
+        />
       )}
 
       {/* Create Content Modal */}
