@@ -8,6 +8,7 @@ import {
   AddAIMemberDto,
   TopicRole,
 } from '@/lib/types/ai-teams';
+import { Tabs } from '@/components/ui/tabs';
 import { useAiGroupStore } from '@/stores/ai-teams';
 import { useAIModels, AIModel } from '@/hooks';
 import { ModelBadges } from '@/components/common/ModelBadges';
@@ -109,36 +110,22 @@ export default function TopicSettingsDialog({
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 px-6">
-          {[
-            { id: 'general', label: 'General' },
-            { id: 'ai', label: 'AI Assistants' },
-            { id: 'members', label: 'Members' },
+        <Tabs
+          className="px-6"
+          items={[
+            { key: 'general', label: 'General' },
+            { key: 'ai', label: 'AI Assistants' },
+            { key: 'members', label: 'Members' },
             {
-              id: 'requests',
+              key: 'requests',
               label: 'Join Requests',
-              badge: joinRequests.length > 0 ? joinRequests.length : undefined,
+              count: joinRequests.length > 0 ? joinRequests.length : undefined,
             },
-            { id: 'danger', label: 'Danger Zone' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {tab.label}
-              {tab.badge && (
-                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs text-white">
-                  {tab.badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+            { key: 'danger', label: 'Danger Zone' },
+          ]}
+          value={activeTab}
+          onChange={(k) => setActiveTab(k as typeof activeTab)}
+        />
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-6">
