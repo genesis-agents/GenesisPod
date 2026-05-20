@@ -22,6 +22,7 @@ import {
   type AnnotationStatus,
 } from '@/services/ai-writing/api';
 import { formatDateSafe } from '@/lib/utils/date';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 interface ChapterAnnotationsProps {
   chapterId: string;
@@ -382,11 +383,14 @@ export default function ChapterAnnotations({
       {/* 批注列表 */}
       <div className="flex-1 overflow-y-auto p-4">
         {filteredAnnotations.length === 0 ? (
-          <div className="py-8 text-center text-gray-500">
-            {filter === 'ALL'
-              ? '暂无批注'
-              : `没有${STATUS_CONFIG[filter].label}的批注`}
-          </div>
+          <EmptyState
+            size="sm"
+            title={
+              filter === 'ALL'
+                ? '暂无批注'
+                : `没有${STATUS_CONFIG[filter].label}的批注`
+            }
+          />
         ) : (
           <div className="space-y-3">
             {filteredAnnotations.map((annotation) => {

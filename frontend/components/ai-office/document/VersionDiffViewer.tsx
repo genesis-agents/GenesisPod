@@ -6,6 +6,8 @@
  */
 
 import React, { useMemo } from 'react';
+import { CheckCircle2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import type { DocumentVersion } from '@/lib/types/ai-office';
@@ -182,23 +184,11 @@ export default function VersionDiffViewer({
       {/* Changes List */}
       <div className="max-h-[60vh] overflow-y-auto p-6">
         {changes.length === 0 ? (
-          <div className="py-12 text-center text-gray-500">
-            <svg
-              className="mx-auto mb-3 h-16 w-16 text-gray-300"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <p className="text-lg font-medium">两个版本内容相同</p>
-            <p className="mt-1 text-sm">未检测到任何变化</p>
-          </div>
+          <EmptyState
+            icon={<CheckCircle2 className="h-16 w-16" />}
+            title="两个版本内容相同"
+            description="未检测到任何变化"
+          />
         ) : (
           <div className="space-y-4">
             {changes.map((change, index) => (

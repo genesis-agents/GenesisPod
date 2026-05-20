@@ -19,6 +19,7 @@ import {
   type RevisionChangeType,
 } from '@/services/ai-writing/api';
 import { formatDateSafe } from '@/lib/utils/date';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 interface ChapterRevisionHistoryProps {
   chapterId: string;
@@ -250,7 +251,7 @@ export default function ChapterRevisionHistory({
           // 版本列表
           <div className="space-y-2">
             {revisions.length === 0 ? (
-              <div className="py-8 text-center text-gray-500">暂无修订历史</div>
+              <EmptyState size="sm" title="暂无修订历史" />
             ) : (
               revisions.map((revision, index) => {
                 const config = CHANGE_TYPE_CONFIG[revision.changeType];

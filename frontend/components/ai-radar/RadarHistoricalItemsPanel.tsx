@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 
 import { listFeed } from '@/services/ai-radar/api';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import type { RadarItem } from '@/services/ai-radar/types';
 
 interface Props {
@@ -136,11 +137,15 @@ export function RadarHistoricalItemsPanel({ topicId }: Props) {
               加载失败：{error}
             </div>
           ) : items.length === 0 ? (
-            <p className="py-6 text-center text-sm text-gray-400">
-              {acceptedOnly
-                ? 'DB 中尚无已入选的信号 — 试试点上方的"重新精选"，等评分跑完后回来看'
-                : 'DB 中没有任何已采集的 item'}
-            </p>
+            <EmptyState
+              size="sm"
+              title="暂无信号"
+              description={
+                acceptedOnly
+                  ? 'DB 中尚无已入选的信号 — 试试点上方的"重新精选"，等评分跑完后回来看'
+                  : 'DB 中没有任何已采集的 item'
+              }
+            />
           ) : (
             <ul className="flex flex-col gap-2">
               {items.map((item) => (

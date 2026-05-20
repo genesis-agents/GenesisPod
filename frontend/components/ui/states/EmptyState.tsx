@@ -69,6 +69,10 @@ export function EmptyState({
   const config = defaultConfig[type];
   const { Icon } = config;
   const sm = size === 'sm';
+  // 给了 description 用之；给了自定义 title 但没 description = 有意 title-only；
+  // title/description 都没给（纯 type 用法）才回落 config.description。
+  const effectiveDescription =
+    description ?? (title ? undefined : config.description);
 
   return (
     <div
@@ -85,9 +89,12 @@ export function EmptyState({
         <h3 className={cn('font-medium text-gray-900', sm && 'text-sm')}>
           {title || config.title}
         </h3>
-        <p className={cn('text-gray-500', sm ? 'text-xs' : 'text-sm')}>
-          {description || config.description}
-        </p>
+        {/* 自定义 title 但未给 description = 有意 title-only（紧凑空态常见），不补默认描述 */}
+        {effectiveDescription && (
+          <p className={cn('text-gray-500', sm ? 'text-xs' : 'text-sm')}>
+            {effectiveDescription}
+          </p>
+        )}
       </div>
       {action &&
         (isActionConfig(action) ? (
