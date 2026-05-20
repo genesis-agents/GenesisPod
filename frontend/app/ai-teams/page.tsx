@@ -13,6 +13,8 @@ import {
 import { useAIModels, AIModel } from '@/hooks';
 import { ModelBadges } from '@/components/common/ModelBadges';
 import AppShell from '@/components/layout/AppShell';
+import { Users } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import ShareModal from '@/components/common/dialogs/ShareModal';
 import * as api from '@/services/ai-teams/api';
 import { PublicTopic, JoinRequest } from '@/services/ai-teams/api';
@@ -342,41 +344,27 @@ export default function AIGroupPage() {
                   <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
                 </div>
               ) : filteredTopics.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <svg
-                    className="h-16 w-16 text-gray-300"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                  </svg>
-                  <h3 className="mt-4 text-lg font-medium text-gray-700">
-                    {t('aiTeams.empty.noTeams')}
-                  </h3>
-                  <p className="mt-2 text-sm text-gray-500">
-                    {t('aiTeams.empty.noTeamsDesc')}
-                  </p>
-                  <div className="mt-4 flex gap-3">
-                    <button
-                      onClick={() => setShowCreateDialog(true)}
-                      className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
-                    >
-                      {t('aiTeams.createTeam')}
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('discover')}
-                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      {t('aiTeams.empty.discoverTeams')}
-                    </button>
-                  </div>
-                </div>
+                <EmptyState
+                  icon={<Users className="h-16 w-16" />}
+                  title={t('aiTeams.empty.noTeams')}
+                  description={t('aiTeams.empty.noTeamsDesc')}
+                  action={
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setShowCreateDialog(true)}
+                        className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                      >
+                        {t('aiTeams.createTeam')}
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('discover')}
+                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        {t('aiTeams.empty.discoverTeams')}
+                      </button>
+                    </div>
+                  }
+                />
               ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {filteredTopics.map((topic) => (
@@ -482,36 +470,18 @@ export default function AIGroupPage() {
                   <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
                 </div>
               ) : publicTopics.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <svg
-                    className="h-16 w-16 text-gray-300"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                  <h3 className="mt-4 text-lg font-medium text-gray-700">
-                    {t('aiTeams.empty.noPublicTeams')}
-                  </h3>
-                  <p className="mt-2 text-sm text-gray-500">
-                    {t('aiTeams.empty.noPublicTeamsDesc')}
-                  </p>
-                  <button
-                    onClick={() => {
+                <EmptyState
+                  type="search"
+                  title={t('aiTeams.empty.noPublicTeams')}
+                  description={t('aiTeams.empty.noPublicTeamsDesc')}
+                  action={{
+                    label: t('aiTeams.createTeam'),
+                    onClick: () => {
                       setActiveTab('my-teams');
                       setShowCreateDialog(true);
-                    }}
-                    className="mt-4 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
-                  >
-                    {t('aiTeams.createTeam')}
-                  </button>
-                </div>
+                    },
+                  }}
+                />
               ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {publicTopics.map((topic) => (
