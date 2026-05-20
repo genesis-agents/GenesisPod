@@ -248,12 +248,12 @@ function checkR6Dialog(file: string, src: string): Violation[] {
 }
 
 // R7: 自写横向 tab 栏必须用 ui/tabs/Tabs
-// 检测「自写 tab 状态」信号——比旧版逐行 button 样式更可靠（旧版只认
-// border-b-2+px+font-medium 同行，漏掉 bg 高亮 / pill / 跨行 className 的 tab，造成假绿）。
-// 信号：setActiveTab 调用 / activeTab===|!== 条件样式 / activeTab ? 三元；
-// 任一出现且未 import canonical Tabs 即违规。
+// 检测「tab 按钮 render」——即 onClick 直接调用 tab setter 的可点击元素。
+// 比旧版逐行 button 样式（border-b-2+px+font-medium 同行）更可靠（漏 bg/pill/跨行），
+// 又比纯 `activeTab===` 状态信号更精准（排除只持有/消费状态、不渲染 bar 的
+// state holder / consumer / 委托组件，如 ExploreContext / ExploreContent）。
 const SELF_TAB =
-  /\bsetActiveTab\b|\bactiveTab\s*[=!]==|\bactiveTab\s*\?/;
+  /onClick=\{[^}]*\b(?:setActiveTab|onTabChange|setTab|setActiveKey|setSelectedTab|handleTabChange|switchTab|changeTab|selectTab)\s*\(/;
 
 function checkR7Tabs(file: string, src: string): Violation[] {
   if (!SELF_TAB.test(src)) return [];
