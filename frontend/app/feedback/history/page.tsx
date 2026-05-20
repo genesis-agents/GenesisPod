@@ -8,6 +8,7 @@ import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { useTranslation } from '@/lib/i18n';
 import ClientDate from '@/components/common/ClientDate';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   FileText,
   Plus,
@@ -161,21 +162,15 @@ export default function FeedbackHistoryPage() {
                 </div>
               </div>
             ) : feedbacks.length === 0 ? (
-              <div className="rounded-lg bg-white p-12 text-center shadow">
-                <MessageSquare className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                <h3 className="mb-2 text-lg font-medium text-gray-900">
-                  {t('feedback.noFeedback')}
-                </h3>
-                <p className="mb-4 text-gray-600">
-                  {t('feedback.noFeedbackDesc')}
-                </p>
-                <Link
-                  href="/feedback"
-                  className="inline-block rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700"
-                >
-                  {t('feedback.submitFeedback')}
-                </Link>
-              </div>
+              <EmptyState
+                icon={<MessageSquare className="h-12 w-12" />}
+                title={t('feedback.noFeedback')}
+                description={t('feedback.noFeedbackDesc')}
+                action={{
+                  label: t('feedback.submitFeedback'),
+                  onClick: () => router.push('/feedback'),
+                }}
+              />
             ) : (
               <div className="space-y-4">
                 {feedbacks.map((feedback) => (
