@@ -170,6 +170,31 @@ modules/integrations/
 > **反模式**：`lib/{feature}/` 和 `services/{feature}/` 同时存在且职责混乱（同 feature 逻辑横跨两处）。
 > 正确：feature 的 API 全进 `services/{feature}/`，纯逻辑全进 `lib/{feature}/`，不交叉。
 
+### lib/ 三层分类（子目录归属唯一判定，2026-05-20 补）
+
+> **背景**：旧规范只定义了"全局层"和"`lib/{feature}`"，漏掉了「跨 feature 技术库」这一类，
+> 导致 `markdown/` `cache/` `i18n/` 等与 features 平铺、看似无规则。`lib/` 子目录**一律平铺**
+> （与 `components/{feature}` 同约定），但每个子目录必属下列三层之一：
+
+| 层                  | 含义                                      | 判定                         | 现有成员                                                                                                                |
+| ------------------- | ----------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| ① 全局平台          | 全站基建 / 全局物                         | 名字即固定四桶               | `api/`（唯一允许 HTTP 基建）`utils/`（跨 feature 纯工具）`constants/` `types/`                                          |
+| ② 跨 feature 技术库 | **无业务**的可复用"小框架"，≥2 feature 用 | 不绑任何 feature，是技术能力 | `markdown/` `annotation/` `cache/` `storage/` `workers/` `animations/` `design/` `templates/` `text-selection/` `i18n/` |
+| ③ feature 纯逻辑    | 单 feature 的 derive/transform/parse      | 目录名 = feature 名          | `ai-social/` `agent-playground/` `ai-office/` `admin/` `notion/` …                                                      |
+
+```
+新建 lib 文件该放哪？
+  1. 是全站基建（HTTP/工具/常量/类型）？     → ① api / utils / constants / types
+  2. 无业务、多 feature 复用的技术能力？      → ② lib/{tech}/（如 markdown、cache）
+  3. 只服务单一 feature 的纯逻辑？            → ③ lib/{feature}/
+  （都不发网络、都不依赖 React——否则见上方 lib vs services / hooks 判定）
+```
+
+> **已知豁免**：`lib/i18n/i18n-context.tsx` 含 React Context，严格说违反"lib 无 React"，
+> 但全站以 `@/lib/i18n` 引用、迁移 churn 大，作为历史既成事实保留，不作为新代码先例。
+> **禁止**：把 features 嵌套进 `lib/features/*`、技术库塞进 `lib/platform/*` 等深层分组——
+> 平铺是有意约定，深层嵌套只增加 import 噪音不增清晰度。
+
 ### components 三层判断
 
 ```
