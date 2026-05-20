@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   Database,
   AlertTriangle,
@@ -205,8 +206,8 @@ export function FactTablePanel({ factTable, citations }: Props) {
             {filtered.length === 0 && (
               <TBody>
                 <Tr>
-                  <Td colSpan={5} className="py-4 text-center text-gray-400">
-                    无匹配事实
+                  <Td colSpan={5}>
+                    <EmptyState size="sm" type="search" title="无匹配事实" />
                   </Td>
                 </Tr>
               </TBody>

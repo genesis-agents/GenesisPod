@@ -19,6 +19,7 @@ import React, {
   useRef,
 } from 'react';
 import { Table, THead, Tr, Th, Td } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   LayoutList,
   FileText,
@@ -741,10 +742,11 @@ export function PlanContentPanel({
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
               </div>
             ) : messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-                <Clock className="mb-3 h-10 w-10 text-gray-300" />
-                <p className="text-sm">{t('aiPlanning.content.noActivity')}</p>
-              </div>
+              <EmptyState
+                size="sm"
+                icon={<Clock className="h-10 w-10" />}
+                title={t('aiPlanning.content.noActivity')}
+              />
             ) : (
               <div className="relative">
                 <div className="absolute bottom-0 left-3 top-0 w-px bg-gray-200" />

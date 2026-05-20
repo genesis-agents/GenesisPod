@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Loader2, X } from 'lucide-react';
 import { Tabs } from '@/components/ui/tabs';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   wikiApi,
   type WikiLintFinding,
@@ -211,9 +212,10 @@ export default function WikiLintPanel({
             <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
           </div>
         ) : findings.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
-            {t('library.wiki.lint.emptyForCategory')}
-          </div>
+          <EmptyState
+            size="sm"
+            title={t('library.wiki.lint.emptyForCategory')}
+          />
         ) : (
           <ul className="space-y-3">
             {findings.map((finding) => {
