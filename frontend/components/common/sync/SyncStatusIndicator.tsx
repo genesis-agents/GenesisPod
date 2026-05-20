@@ -1,6 +1,14 @@
 'use client';
 
-import { RefreshCw, Check, AlertTriangle, Clock, Loader2 } from 'lucide-react';
+import {
+  RefreshCw,
+  Check,
+  AlertTriangle,
+  Clock,
+  Loader2,
+  type LucideIcon,
+} from 'lucide-react';
+import { StatusBadge, type BadgeTone } from '@/components/ui/badges';
 
 export type SyncStatus =
   | 'synced'
@@ -22,53 +30,21 @@ interface SyncStatusIndicatorProps {
   showLabel?: boolean;
 }
 
-const statusConfig: Record<
+const STATUS_MAP: Record<
   SyncStatus,
-  {
-    icon: typeof Check;
-    color: string;
-    bgColor: string;
-    label: string;
-  }
+  { tone: BadgeTone; icon: LucideIcon; label: string; pulse?: boolean }
 > = {
-  synced: {
-    icon: Check,
-    color: 'text-green-600',
-    bgColor: 'bg-green-50',
-    label: 'Synced',
-  },
-  syncing: {
-    icon: Loader2,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    label: 'Syncing...',
-  },
-  pending: {
-    icon: Clock,
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-50',
-    label: 'Pending',
-  },
-  conflict: {
-    icon: AlertTriangle,
-    color: 'text-orange-600',
-    bgColor: 'bg-orange-50',
-    label: 'Conflict',
-  },
-  error: {
-    icon: AlertTriangle,
-    color: 'text-red-600',
-    bgColor: 'bg-red-50',
-    label: 'Error',
-  },
-  not_connected: {
-    icon: RefreshCw,
-    color: 'text-gray-400',
-    bgColor: 'bg-gray-50',
-    label: 'Not Connected',
-  },
+  synced: { tone: 'success', icon: Check, label: 'Synced' },
+  syncing: { tone: 'running', icon: Loader2, label: 'Syncing...', pulse: true },
+  pending: { tone: 'warning', icon: Clock, label: 'Pending' },
+  conflict: { tone: 'warning', icon: AlertTriangle, label: 'Conflict' },
+  error: { tone: 'danger', icon: AlertTriangle, label: 'Error' },
+  not_connected: { tone: 'neutral', icon: RefreshCw, label: 'Not Connected' },
 };
 
+/**
+ * 同步状态指示器：状态徽章走统一 StatusBadge，待同步计数 + 上次同步时间保留。
+ */
 export function SyncStatusIndicator({
   status,
   lastSyncAt,
@@ -76,15 +52,13 @@ export function SyncStatusIndicator({
   className = '',
   showLabel = true,
 }: SyncStatusIndicatorProps) {
-  const config = statusConfig[status] || statusConfig.not_connected;
-  const Icon = config.icon;
+  const cfg = STATUS_MAP[status] || STATUS_MAP.not_connected;
 
   const formatLastSync = (date: Date | string | null | undefined): string => {
     if (!date) return 'Never';
     const d = typeof date === 'string' ? new Date(date) : date;
     const now = new Date();
     const diff = now.getTime() - d.getTime();
-
     if (diff < 60000) return 'Just now';
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
@@ -102,18 +76,13 @@ export function SyncStatusIndicator({
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <div
-        className={`flex items-center gap-1.5 rounded-full px-2 py-1 ${config.bgColor}`}
-      >
-        <Icon
-          className={`h-3.5 w-3.5 ${config.color} ${status === 'syncing' ? 'animate-spin' : ''}`}
-        />
-        {showLabel && (
-          <span className={`text-xs font-medium ${config.color}`}>
-            {config.label}
-          </span>
-        )}
-      </div>
+      <StatusBadge
+        tone={cfg.tone}
+        icon={cfg.icon}
+        pulse={cfg.pulse}
+        label={showLabel ? cfg.label : ''}
+        size="md"
+      />
 
       {hasPendingChanges && (
         <div className="flex items-center gap-1 text-xs text-gray-500">
