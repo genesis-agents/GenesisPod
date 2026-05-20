@@ -7366,7 +7366,14 @@
     "integrations": {
       "notConnected": "Not connected",
       "workspaces": "workspaces",
-      "pages": "pages"
+      "pages": "pages",
+      "accounts": "accounts",
+      "connect": "Connect",
+      "addAccount": "Add account",
+      "viewFiles": "View files",
+      "drive": "Google Drive",
+      "driveDesc": "Sync and manage your Google Drive files",
+      "driveDisconnectConfirm": "Disconnect {{email}}?"
     },
     "menu": {
       "settings": "Settings",

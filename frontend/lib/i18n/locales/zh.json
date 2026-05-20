@@ -7366,7 +7366,14 @@
     "integrations": {
       "notConnected": "未连接",
       "workspaces": "个工作区",
-      "pages": "个页面"
+      "pages": "个页面",
+      "accounts": "个账号",
+      "connect": "连接",
+      "addAccount": "添加账号",
+      "viewFiles": "查看文件",
+      "drive": "Google Drive",
+      "driveDesc": "同步并管理你的 Google Drive 文件",
+      "driveDisconnectConfirm": "确定断开 {{email}}？"
     },
     "menu": {
       "settings": "设置",
