@@ -257,7 +257,9 @@ const SELF_TAB =
 
 function checkR7Tabs(file: string, src: string): Violation[] {
   if (!SELF_TAB.test(src)) return [];
-  if (hasImport(src, "Tabs")) return [];
+  // 已用 tab 组件的不算自写：canonical Tabs，或 admin 设计系统 AdminTabs
+  // （AdminTabs→Tabs 属迷你设计系统统一，另册，不在 R7「自写」范畴）。
+  if (hasImport(src, "Tabs") || hasImport(src, "AdminTabs")) return [];
 
   const line = findLine(src, SELF_TAB);
   return [

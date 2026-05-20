@@ -1,6 +1,7 @@
 'use client';
 
 import type { GeneratedImage, InsightsTab } from '../types';
+import { Tabs } from '@/components/ui/tabs';
 import { getLayoutCapacity, getMaxSections } from '../utils';
 import { InsightCard } from './InsightCard';
 
@@ -34,28 +35,15 @@ export function InsightsPanel({
   return (
     <div className="flex h-full flex-col">
       {/* Tab Headers */}
-      <div className="flex border-b border-gray-200 bg-gray-50">
-        <button
-          onClick={() => onTabChange('insights')}
-          className={`flex-1 px-4 py-2.5 text-xs font-medium transition-all ${
-            activeTab === 'insights'
-              ? 'border-b-2 border-purple-500 bg-white text-purple-600 shadow-sm'
-              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-          }`}
-        >
-          Prompt Insights
-        </button>
-        <button
-          onClick={() => onTabChange('steps')}
-          className={`flex-1 px-4 py-2.5 text-xs font-medium transition-all ${
-            activeTab === 'steps'
-              ? 'border-b-2 border-purple-500 bg-white text-purple-600 shadow-sm'
-              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-          }`}
-        >
-          Processing Steps
-        </button>
-      </div>
+      <Tabs
+        className="bg-gray-50"
+        value={activeTab}
+        onChange={(k) => onTabChange(k as InsightsTab)}
+        items={[
+          { key: 'insights', label: 'Prompt Insights' },
+          { key: 'steps', label: 'Processing Steps' },
+        ]}
+      />
 
       {/* Tab Content */}
       <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 flex-1 overflow-y-auto">
