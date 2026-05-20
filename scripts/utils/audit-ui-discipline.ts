@@ -171,6 +171,7 @@ const R2_BESPOKE_OK = [
   "components/ai-research/discussion/TrendReport.tsx", // 3 列统计卡(图标+计数+chips)，非资产列表
   "app/admin/system/notifications/content.tsx", // 统计卡 + admin 广播表单面板
   "app/admin/system/mcp-server/content.tsx", // admin MCP server 配置卡(admin 自成设计系统)
+  "app/ai-radar/topic/[topicId]/runs/[runId]/page.tsx", // StageTaskBoard 流水线阶段任务表(状态徽章+指标+点击抽屉)，非资产列表
 ];
 
 function checkR2AssetCard(file: string, src: string): Violation[] {
@@ -216,6 +217,7 @@ const EMPTY_RENDER =
 const R3_WELCOME_OK = [
   "app/ai-ask/page.tsx", // 未登录欢迎页 + 功能 chips + 建议 prompts
   "app/library/knowledge-graph/page.tsx", // 对话起始 + 建议问题按钮
+  "app/ai-radar/topic/[topicId]/page.tsx", // sources 为空时渲染功能引导 CTA 卡(非空数据空态)
 ];
 
 // R3 已审批 bespoke 例外（2026-05-20，用户批准）：`.length===0` 命中但渲染的并非
@@ -252,6 +254,15 @@ function checkR3EmptyState(file: string, src: string): Violation[] {
   ];
 }
 
+// R4 已审批 bespoke 例外（2026-05-20，用户批准，逐源确认）：error 渲染命中但非
+// 「整块错误态」——ErrorState（居中图标卡 + retry 按钮）强迁会破布局/语义。
+// 类型：admin 自成设计系统的内联告警条、可关闭的内联错误 banner、连接提示下的内联红字注解。
+const R4_BESPOKE_OK = [
+  "app/admin/data/collection/page.tsx", // admin 紧凑内联错误块（admin 自成设计系统）
+  "app/admin/system/monitoring/content.tsx", // admin 部分数据失败的内联告警 banner（非整块错误态）
+  "components/library/integrations/google-drive/GoogleDriveTabContent.tsx", // 连接提示下的内联红字注解（非独立错误块）
+];
+
 // R4: 含 error 分支渲染必须用 ErrorState
 function checkR4ErrorState(file: string, src: string): Violation[] {
   // 启发式：JSX 中包含 error 渲染分支
@@ -261,6 +272,8 @@ function checkR4ErrorState(file: string, src: string): Violation[] {
   if (hasImport(src, "ErrorState")) return [];
   // 进一步检查是否真的有 JSX 错误展示（avoid 误报 try-catch 中的 error）
   if (!/<\w+[^>]*\b(error|Error)\b/.test(src)) return [];
+  const norm = file.split(sep).join("/");
+  if (R4_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
 
   const line = findLine(src, errorRender);
   return [
@@ -285,6 +298,8 @@ const R5_BESPOKE_OK = [
   "components/ai-social/skeletons/ConnectionCardSkeleton.tsx", // 卡片骨架（头像圈+名称+状态+按钮）
   "components/ai-social/skeletons/ContentTableSkeleton.tsx", // 表格骨架（表头+多列行）
   "components/explore/resources/ResourceThumbnail.tsx", // 缩略图宽高比占位盒
+  "components/ai-radar/RadarBucketSwitcher.tsx", // h-9 w-48 精确占位，保 4-bucket 切换器尺寸不抖动
+  "components/ai-radar/RadarRawItemsPanel.tsx", // 8× h-16 卡高骨架，镜像 item 行高防布局抖动
 ];
 
 // R5: 含 isLoading skeleton 渲染必须用 LoadingState/LoadingSkeleton
@@ -328,6 +343,7 @@ const R6_BESPOKE_OK = [
   "components/ai-insights/reports/ReportEditor.tsx", // fixed right-4 top-20 角落浮层（编辑+预览并排）
   "app/share/topic/[id]/page.tsx", // 移动端侧栏 dismiss 遮罩
   "app/share/writing/[id]/page.tsx", // 移动端 TOC 侧栏遮罩 + 阅读进度条
+  "app/ai-simulation/components/EditorModal.tsx", // 向导式编辑器全屏壳（渐变头+步进器+上/下一步底栏），整件即弹层，Modal 不模型化
 ];
 
 // R6: 弹层必须用 MissionDialogShell/SideDrawer/Modal/ConfirmDialog
@@ -374,6 +390,14 @@ const R7_BESPOKE_OK = [
   "components/layout/ResponsiveNav.tsx",
   // 资源详情：图标方块工具栏（h-10 w-10 渐变 + 角标），非文本 tab 栏
   "app/explore/resource/[id]/page.tsx",
+  // 向导步进器（圆形步号 + 完成勾 + 连接线 + 每步描述），非 tab 语义，canonical Tabs 不模型化
+  "app/ai-simulation/components/EditorModal.tsx",
+  // YouTube 4-tab：grid-cols-4 等宽 + flex-col 图标上文字下 + 品牌渐变激活，且与翻译/导出开关同行混排
+  "app/explore/youtube/page.tsx",
+  // 主 tab 已用 canonical 包装件 LibraryTabs；Signal B 仅命中其内容区 activeTab=== 条件，非自写 bar
+  "app/library/page.tsx",
+  // 纯状态消费：activeTab 仅用于内容条件渲染，onClick 是 setResultsModal（非 tab setter），不渲染 bar
+  "components/library/AIOrganizePanel.tsx",
 ];
 
 // R7 Signal B：tab 栏的另一种形态——同一类状态变量上 ≥2 处 `xxxTab === '字面量'`
@@ -440,10 +464,28 @@ function checkR8Table(file: string, src: string): Violation[] {
 const DIY_SPINNER =
   /className\s*=\s*[`"'][^`"']*(?:\banimate-spin\b[^`"']*\brounded-full\b[^`"']*\bborder-\d|\brounded-full\b[^`"']*\bborder-\d[^`"']*\banimate-spin\b)/;
 
+// R9 已审批 bespoke 例外（2026-05-20，用户批准；6 个迁移 agent 逐源核验后保留）：
+// 环形 className 命中但本质不是「整块加载态」——LoadingState（居中 min-h-[200px] 块）强迁会破布局/语义。
+// 类型：按钮内图标位小环、装饰性同心反向旋转环、流式步骤状态环、缩略图占位/绝对遮罩、品牌化"思考中"空态。
+const R9_BESPOKE_OK = [
+  "app/ai-simulation/[id]/page.tsx", // startingRun 同心 3 环装饰动画
+  "app/ai-simulation/run/[id]/page.tsx", // h-16 "AI 推演中" 品牌化空态（🤖 + 团队状态卡）
+  "components/ai-image/components/InputArea.tsx", // GenerateButton 内 h-3.5 图标位小环
+  "components/ai-image/components/StreamingProgress.tsx", // 流式步骤状态环（配 checkmark/error）
+  "components/ai-image/ImageGenerator.tsx", // 装饰性同心反向环 + 流式步骤环
+  "components/ai-insights/topics/ApplicationButton.tsx", // apply 按钮图标位小环
+  "components/ai-planning/PlanTeamPanel.tsx", // start/advance 按钮图标位小环
+  "components/explore/resources/Base64Image.tsx", // 缩略图按比例占位盒内加载环
+  "components/explore/resources/PdfThumbnail.tsx", // 缩略图 absolute inset-0 遮罩环
+  "components/layout/UserProfileButton.tsx", // check-in 按钮内 h-4 图标位小环
+];
+
 function checkR9Spinner(file: string, src: string): Violation[] {
   if (!DIY_SPINNER.test(src)) return [];
   if (hasImport(src, "LoadingState") || hasImport(src, "LoadingSkeleton"))
     return [];
+  const norm = file.split(sep).join("/");
+  if (R9_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
 
   const line = findLine(src, DIY_SPINNER);
   return [
@@ -460,11 +502,14 @@ function checkR9Spinner(file: string, src: string): Violation[] {
 //   R10 进度条：`overflow-hidden rounded-full bg-gray-200` + width 填充需区分于头像/胶囊
 
 // R11: owner 资产卡基线操作必须接齐（标准 22 §2.2 卡片基线策略）。
-// 背景：各页给 AssetCard 传不同操作子集 → 同类卡 2/3/4 个操作不一致（见 debug 截图）。
-// 检测：渲染 <AssetCard 且为 owner 卡（传 isOwner/onEdit/onDelete/onVisibilityToggle 任一）
-//   → 基线必含 onEdit + onDelete；卡有 visibility 徽章则必含 onVisibilityToggle（有徽章必可切）。
-// 缺任一即违规。R11_BESPOKE_OK 为已审批的只读/特殊卡例外（用 {...spread} 转发的包装件可入此）。
+// 背景：各页给 AssetCard 传不同操作子集 → 同类卡操作不一致（见 debug 截图）。
+// 通用基线 = onEdit + onDelete（全实体都成立）。可见性切换**不入通用基线**——实事求是：
+// 全应用仅 Topic 有真正可切换可见性（TopicVisibility enum）；plans/scenarios/KB/wiki 后端
+// 无可切换可见性字段/接口，强制 onVisibilityToggle 只会造死开关。故规则只查全实体通用的
+// onEdit + onDelete，缺任一即违规。
 const ASSET_CARD_USE = /<AssetCard[\s>]/;
+// 无例外名单：基线收敛到全实体通用的 onEdit + onDelete，达标即合法、不达标即违规——不豁免。
+// 若未来某实体获得真可见性能力，在该实体卡补 onVisibilityToggle 即可，不在此开例外。
 const R11_BESPOKE_OK: string[] = [];
 
 function jsxHasProp(src: string, prop: string): boolean {
@@ -479,8 +524,8 @@ function checkR11CardBaseline(file: string, src: string): Violation[] {
     jsxHasProp(src, "onDelete") ||
     jsxHasProp(src, "onVisibilityToggle");
   if (!ownerSignal) return []; // 纯只读卡不强制基线操作
-  // 基线三件全员必备（用 badges 冒充可见性、漏接 toggle 都算违规 → 逼齐到 TopicCard 那套）
-  const baseline = ["onEdit", "onDelete", "onVisibilityToggle"];
+  // 通用基线：onEdit + onDelete（全实体都成立；可见性切换只属于 Topic 这类真可分享实体）
+  const baseline = ["onEdit", "onDelete"];
   const missing = baseline.filter((p) => !jsxHasProp(src, p));
   if (missing.length === 0) return [];
   const norm = file.split(sep).join("/");

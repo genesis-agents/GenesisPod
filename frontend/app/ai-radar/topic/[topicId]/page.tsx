@@ -11,6 +11,7 @@ import {
   Settings,
   Trash2,
 } from 'lucide-react';
+import { LoadingState } from '@/components/ui/states';
 import {
   deleteTopic,
   getTopic,
@@ -314,7 +315,7 @@ export default function RadarTopicDetailPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl p-6">
-        <div className="h-12 w-64 animate-pulse rounded bg-gray-100" />
+        <LoadingState size="md" />
       </div>
     );
   }

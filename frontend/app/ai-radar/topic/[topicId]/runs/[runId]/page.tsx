@@ -19,6 +19,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { Tabs } from '@/components/ui/tabs';
+import { LoadingState } from '@/components/ui/states';
 import { useParams, useRouter } from 'next/navigation';
 import {
   AlertCircle,
@@ -244,7 +246,7 @@ export default function RadarMissionDetailPage() {
   if (loading && !topic) {
     return (
       <div className="flex h-full items-center justify-center bg-gray-50">
-        <div className="h-12 w-64 animate-pulse rounded bg-gray-100" />
+        <LoadingState size="md" />
       </div>
     );
   }
@@ -366,27 +368,17 @@ export default function RadarMissionDetailPage() {
 
           {/* Tab bar */}
           <div className="flex min-w-0 items-center border-b border-gray-200 bg-white px-4">
-            <div className="scrollbar-thin flex min-w-0 flex-1 overflow-x-auto">
-              {TABS.map((tabDef) => {
-                const Icon = tabDef.Icon;
-                const active = tab === tabDef.key;
-                return (
-                  <button
-                    key={tabDef.key}
-                    type="button"
-                    onClick={() => setTab(tabDef.key)}
-                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors ${
-                      active
-                        ? 'border-violet-500 text-violet-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {tabDef.label}
-                  </button>
-                );
-              })}
-            </div>
+            <Tabs
+              items={TABS.map((t) => ({
+                key: t.key,
+                label: t.label,
+                icon: t.Icon,
+              }))}
+              value={tab}
+              onChange={(k) => setTab(k as TabKey)}
+              variant="underline"
+              className="min-w-0 flex-1 overflow-x-auto border-b-0"
+            />
             <CompactMeters run={run} />
           </div>
 

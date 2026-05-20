@@ -22,6 +22,7 @@ import {
   XCircle,
   type LucideIcon,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states';
 import { ClientDate } from '@/components/common/ClientDate';
 import type { RadarStreamEvent } from '@/services/ai-radar/api';
 
@@ -158,7 +159,9 @@ function EventRow({ ev }: { ev: RadarStreamEvent }) {
     <div
       className={`flex items-start gap-3 rounded-lg px-3 py-2 ${TONE_BG[parsed.tone]}`}
     >
-      <Icon className={`mt-0.5 h-4 w-4 flex-shrink-0 ${TONE_TEXT[parsed.tone]}`} />
+      <Icon
+        className={`mt-0.5 h-4 w-4 flex-shrink-0 ${TONE_TEXT[parsed.tone]}`}
+      />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2">
           <p className="text-[12px] font-semibold text-gray-900">
@@ -224,9 +227,7 @@ export function RadarEventLog({
       </div>
       <div className={`${maxHeightClass} overflow-y-auto p-3`}>
         {events.length === 0 ? (
-          <p className="rounded-lg bg-gray-50 px-3 py-4 text-center text-sm text-gray-500">
-            {emptyHint}
-          </p>
+          <EmptyState size="sm" title={emptyHint} />
         ) : (
           <div className="space-y-1">
             {events.map((ev, i) => (
