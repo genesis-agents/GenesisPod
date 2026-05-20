@@ -7,6 +7,7 @@
 
 import React, { useState } from 'react';
 import { useTaskStore, Task } from '@/stores/aiOfficeStore';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   ListTodo,
   FileText,
@@ -95,17 +96,11 @@ export default function TaskList() {
       {/* 任务列表 */}
       <div className="flex-1 overflow-y-auto">
         {tasks.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-              <ListTodo className="h-10 w-10 text-gray-400" />
-            </div>
-            <p className="mb-1 text-sm font-medium text-gray-900">
-              {t('aiOffice.taskList.empty.title')}
-            </p>
-            <p className="text-xs text-gray-500">
-              {t('aiOffice.taskList.empty.description')}
-            </p>
-          </div>
+          <EmptyState
+            icon={<ListTodo className="h-10 w-10" />}
+            title={t('aiOffice.taskList.empty.title')}
+            description={t('aiOffice.taskList.empty.description')}
+          />
         ) : (
           <div className="space-y-3 p-4">
             {tasks.map((task) => {
