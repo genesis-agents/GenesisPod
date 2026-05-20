@@ -25,8 +25,8 @@
  */
 
 import { readdir, readFile, writeFile } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
-import { existsSync } from "node:fs";
+import { join, relative, sep, dirname } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 
 const FRONTEND_ROOT = join(process.cwd(), "frontend");
 const ARGS = new Set(process.argv.slice(2));
@@ -110,6 +110,34 @@ function snippet(src: string, line: number): string {
   return l.trim().slice(0, 120);
 }
 
+// 页面是否被祖先 layout.tsx 提供的 AppShell 包裹（App Router 标准模式：
+// 外壳放 route layout，子 page 不必各自 import）。从 page 目录向上走到 app/，
+// 任一 layout.tsx import 了 AppShell 即视为已覆盖。
+function coveredByAppShellLayout(file: string): boolean {
+  let dir = dirname(file);
+  for (let i = 0; i < 12; i++) {
+    const layout = join(dir, "layout.tsx");
+    if (existsSync(layout)) {
+      try {
+        if (hasImport(readFileSync(layout, "utf8"), "AppShell")) return true;
+      } catch {
+        /* ignore unreadable layout */
+      }
+    }
+    const norm = dir.split(sep).join("/");
+    if (norm.endsWith("/app") || norm.endsWith("/frontend")) break;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return false;
+}
+
+// 纯 redirect 桩页（只 redirect()、无 JSX 渲染）不需要外壳。
+function isRedirectStub(src: string): boolean {
+  return /\bredirect\s*\(/.test(src) && !/<[A-Za-z]/.test(src);
+}
+
 // R1: AI app 主页必须用 AppShell
 function checkR1AppShell(file: string, src: string): Violation[] {
   const norm = file.split(sep).join("/");
@@ -119,6 +147,9 @@ function checkR1AppShell(file: string, src: string): Violation[] {
     );
   if (!isMainPage) return [];
   if (hasImport(src, "AppShell")) return [];
+  // App Router：外壳常由 route layout.tsx 提供，redirect 桩页无 UI —— 均非缺壳
+  if (isRedirectStub(src)) return [];
+  if (coveredByAppShellLayout(file)) return [];
 
   return [
     {
