@@ -25,6 +25,7 @@ import {
   PowerOff,
   Pencil,
 } from 'lucide-react';
+import { Tabs } from '@/components/ui/tabs';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -1581,23 +1582,15 @@ export default function MCPServerPageContent({
       )}
 
       {/* Tabs */}
-      <div className="mb-6 border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`border-b-2 px-1 pb-4 text-sm font-medium transition-colors ${
-                activeTab === tab
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-              }`}
-            >
-              {t(`admin.mcpServer.tabs.${tab}`)}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <Tabs
+        className="mb-6"
+        items={tabs.map((tab) => ({
+          key: tab,
+          label: t(`admin.mcpServer.tabs.${tab}`),
+        }))}
+        value={activeTab}
+        onChange={(k) => setActiveTab(k as typeof activeTab)}
+      />
 
       {loading ? (
         <div className="p-8 text-center text-gray-500">

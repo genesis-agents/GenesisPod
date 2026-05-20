@@ -19,6 +19,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
+import { Tabs } from '@/components/ui/tabs';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -1226,26 +1227,19 @@ export default function MonitoringPageContent({
       )}
 
       {/* Tabs */}
-      <div className="mb-6 border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {(['overview', 'errors', 'ai', 'traces'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`border-b-2 px-1 pb-4 text-sm font-medium transition-colors ${
-                activeTab === tab
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-              }`}
-            >
-              {tab === 'overview' && 'Overview'}
-              {tab === 'errors' && 'Error Tracking'}
-              {tab === 'ai' && 'AI Metrics'}
-              {tab === 'traces' && 'Agent Traces'}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <Tabs
+        className="mb-6"
+        items={[
+          { key: 'overview', label: 'Overview' },
+          { key: 'errors', label: 'Error Tracking' },
+          { key: 'ai', label: 'AI Metrics' },
+          { key: 'traces', label: 'Agent Traces' },
+        ]}
+        value={activeTab}
+        onChange={(k) =>
+          setActiveTab(k as 'overview' | 'errors' | 'ai' | 'traces')
+        }
+      />
 
       {loading ? (
         <div className="p-8 text-center text-gray-500">

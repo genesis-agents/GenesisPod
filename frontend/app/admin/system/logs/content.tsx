@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ScrollText } from 'lucide-react';
+import { Tabs } from '@/components/ui/tabs';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -242,28 +243,16 @@ export default function LogsPageContent({
       )}
 
       {/* Tab Switcher */}
-      <div className="mb-4 flex gap-2">
-        <button
-          onClick={() => setActiveTab('login')}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'login'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          {t('admin.logs.loginTab')}
-        </button>
-        <button
-          onClick={() => setActiveTab('task')}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'task'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          {t('admin.logs.taskTab')}
-        </button>
-      </div>
+      <Tabs
+        variant="pill"
+        className="mb-4"
+        items={[
+          { key: 'login', label: t('admin.logs.loginTab') },
+          { key: 'task', label: t('admin.logs.taskTab') },
+        ]}
+        value={activeTab}
+        onChange={(k) => setActiveTab(k as 'login' | 'task')}
+      />
 
       {/* Login History Tab */}
       {activeTab === 'login' && (
