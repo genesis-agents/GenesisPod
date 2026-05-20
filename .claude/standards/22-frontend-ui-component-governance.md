@@ -58,7 +58,7 @@ mission 类功能的主页/详情另见 [21-agent-teams-presentation.md](21-agen
 ✅ **canonical 已建**：`Tabs`（`@/components/ui/tabs`，支持 `iconNode`）。规则：
 
 - **横向 Tab 一律用 `Tabs`**，禁止再自写 `activeTab` + `border-b-2` 按钮条。
-- 历史欠账：R7 实测在范围内仍有 21 处自写 tab 待迁（已入基线，逐步清零）。**新代码不得新增自写 tab**。
+- 历史欠账：仍有自写 tab bar 待迁（R7 已入基线，数见 `docs/_archive/ui-discipline-baseline.json`，逐步清零）。**新代码不得新增自写 tab**。
 
 ### 2.4 表格（table）
 
@@ -109,13 +109,13 @@ mission 类功能的主页/详情另见 [21-agent-teams-presentation.md](21-agen
 
 ### 4.1 已补的 canonical（迁移调用方进行中）
 
-| Archetype                      | 状态                                       | 剩余行动                           |
-| ------------------------------ | ------------------------------------------ | ---------------------------------- |
-| Tabs / Tab 条                  | ✅ `ui/tabs/` + audit R7                   | 迁余 21 处自写（R7 已抓全）        |
-| 表单 Input/Textarea            | ✅ `ui/form/`（Checkbox 待补）             | 迁调用方 + 补 Checkbox             |
-| Pagination                     | ✅ `ui/pagination/`                        | 迁调用方                           |
-| **通用 DataTable**（数据网格） | ✅ `common/tables/DataTable`（admin 薄壳） | 迁 R8 名单交互表（admin 8 + 其余） |
-| **ui/table**（展示原语）       | ✅ `components/ui/table/` + audit R8       | 迁 R8 名单展示表                   |
+| Archetype                      | 状态                                       | 剩余行动                            |
+| ------------------------------ | ------------------------------------------ | ----------------------------------- |
+| Tabs / Tab 条                  | ✅ `ui/tabs/` + audit R7                   | 迁余自写 tab（R7 已抓全，数见基线） |
+| 表单 Input/Textarea            | ✅ `ui/form/`（Checkbox 待补）             | 迁调用方 + 补 Checkbox              |
+| Pagination                     | ✅ `ui/pagination/`                        | 迁调用方                            |
+| **通用 DataTable**（数据网格） | ✅ `common/tables/DataTable`（admin 薄壳） | 迁 R8 名单交互表（admin 8 + 其余）  |
+| **ui/table**（展示原语）       | ✅ `components/ui/table/` + audit R8       | 迁 R8 名单展示表                    |
 
 ### 4.2 待补 canonical（实测高频自写，按证据强度排；先补 Alert + Tag）
 

@@ -103,13 +103,13 @@
 
 ### 4.1 已建 canonical（必须直接用；剩余自写逐步迁移）
 
-| canonical               | 路径                         | 剩余迁移                     |
-| ----------------------- | ---------------------------- | ---------------------------- |
-| `Tabs`                  | `@/components/ui/tabs`       | 21 处自写 tab 待迁（R7）     |
-| `Input` / `Textarea`    | `@/components/ui/form`       | 迁调用方（Checkbox 待补）    |
-| `Pagination`            | `@/components/ui/pagination` | 迁调用方                     |
-| `DataTable`（数据网格） | `@/components/common/tables` | 迁交互表（R8）               |
-| `Table` 等（展示原语）  | `@/components/ui/table`      | 迁展示表（R8，已清零在范围） |
+| canonical               | 路径                         | 剩余迁移                      |
+| ----------------------- | ---------------------------- | ----------------------------- |
+| `Tabs`                  | `@/components/ui/tabs`       | 自写 tab 待迁（R7，数见基线） |
+| `Input` / `Textarea`    | `@/components/ui/form`       | 迁调用方（Checkbox 待补）     |
+| `Pagination`            | `@/components/ui/pagination` | 迁调用方                      |
+| `DataTable`（数据网格） | `@/components/common/tables` | 迁交互表（R8）                |
+| `Table` 等（展示原语）  | `@/components/ui/table`      | 迁展示表（R8，已清零在范围）  |
 
 > ⚠ 以上**已有 canonical**，写新 Tab/表单/分页/表格**禁止自写**，直接 import。
 
