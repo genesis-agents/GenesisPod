@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   Edit,
   Heart,
@@ -240,12 +241,17 @@ export function UserApiKeysTab() {
           <TBody className="divide-y divide-gray-200">
             {filteredProviders.length === 0 ? (
               <Tr>
-                <Td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                  {searchTerm ||
-                  categoryFilter !== 'ALL' ||
-                  statusFilter !== 'ALL'
-                    ? '无匹配 Provider'
-                    : '暂无 Provider'}
+                <Td colSpan={6}>
+                  <EmptyState
+                    size="sm"
+                    title={
+                      searchTerm ||
+                      categoryFilter !== 'ALL' ||
+                      statusFilter !== 'ALL'
+                        ? '无匹配 Provider'
+                        : '暂无 Provider'
+                    }
+                  />
                 </Td>
               </Tr>
             ) : (

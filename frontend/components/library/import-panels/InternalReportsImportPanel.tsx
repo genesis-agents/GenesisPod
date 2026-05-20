@@ -30,6 +30,7 @@ import {
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { Tabs } from '@/components/ui/tabs';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { logger } from '@/lib/utils/logger';
 
 interface PlaygroundMissionRow {
@@ -329,11 +330,19 @@ export default function InternalReportsImportPanel({
         )}
 
         {!loading && activeTab === 'playground' && missions.length === 0 && (
-          <EmptyState text="还没有可导入的 Playground 报告。先在 Playground 完成一次 mission。" />
+          <EmptyState
+            size="sm"
+            title="还没有可导入的 Playground 报告"
+            description="先在 Playground 完成一次 mission"
+          />
         )}
 
         {!loading && activeTab === 'topic' && topics.length === 0 && (
-          <EmptyState text="还没有可导入的 Topic Insight 报告。先在 Topic Insight 生成一份报告。" />
+          <EmptyState
+            size="sm"
+            title="还没有可导入的 Topic Insight 报告"
+            description="先在 Topic Insight 生成一份报告"
+          />
         )}
 
         {!loading &&
@@ -423,10 +432,6 @@ export default function InternalReportsImportPanel({
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────
-
-function EmptyState({ text }: { text: string }) {
-  return <div className="py-10 text-center text-sm text-gray-400">{text}</div>;
-}
 
 function MissionRow({
   mission,

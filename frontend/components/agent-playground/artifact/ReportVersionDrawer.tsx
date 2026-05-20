@@ -10,6 +10,7 @@ import {
   X as XIcon,
 } from 'lucide-react';
 import type { ReportVersionMeta } from './ArtifactReader';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 interface Props {
   open: boolean;
@@ -112,13 +113,11 @@ export function ReportVersionDrawer({
         {/* Body */}
         <div className="flex-1 overflow-auto p-4">
           {versions.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-              <Clock className="h-12 w-12 text-gray-300" />
-              <p className="mt-3 text-sm text-gray-500">暂无版本记录</p>
-              <p className="mt-1 text-xs text-gray-400">
-                Mission 完成后将记录首版报告
-              </p>
-            </div>
+            <EmptyState
+              icon={<Clock className="h-12 w-12" />}
+              title="暂无版本记录"
+              description="Mission 完成后将记录首版报告"
+            />
           ) : (
             <div className="relative">
               {/* Timeline line */}
