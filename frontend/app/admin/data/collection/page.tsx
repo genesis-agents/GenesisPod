@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   getDataSources,
   updateDataSource,
@@ -852,19 +853,18 @@ export default function ConfigPage() {
       >
         {groupedSources.find((g) => g.id === showSourcesModal)?.sources
           .length === 0 ? (
-          <div className="py-12 text-center">
-            <Database className="mx-auto h-12 w-12 text-gray-300" />
-            <p className="mt-3 text-sm text-gray-500">No sources configured</p>
-            <button
-              onClick={() => {
+          <EmptyState
+            size="sm"
+            icon={<Database className="h-12 w-12" />}
+            title="No sources configured"
+            action={{
+              label: 'Add First Source',
+              onClick: () => {
                 setShowSourcesModal(null);
                 setShowAddSourceModal(showSourcesModal);
-              }}
-              className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              Add First Source
-            </button>
-          </div>
+              },
+            }}
+          />
         ) : (
           <div className="space-y-3">
             {groupedSources
