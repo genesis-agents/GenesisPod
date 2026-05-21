@@ -1,7 +1,7 @@
 # 006. 对话式 AI 整理 - ChatFacade tool-loop + 薄封装既有写操作
 
 **Date**: 2026-05-21
-**Status**: ✅ Accepted（四路两轮评审 4/4 共识，2026-05-21）。进 P1 前置 = P0 调研 BLK-3（工具隔离+userId 链路）/BLK-4（会话历史注入）/BLK-6（modelConfig 计费）回写设计后锁 v1.0
+**Status**: ✅ Accepted + **v1.0 锁定**（四路 4/4 共识 + P0 调研通过，2026-05-21）。P0 三门禁 BLK-3/4/6 均有可落地答案（工具隔离=roleId+allowedRoles、userId 链路 100% 通、历史 v1 拼 systemPrompt、modelConfig/计费复用 ai-ask）→ **P1 解锁**（见设计 §10）
 **评审纪要**: [features/2026-05-21-design-review-minutes.md](../features/2026-05-21-design-review-minutes.md)
 **关联设计文档**: [features/library/conversational-organize-design.md](../features/library/conversational-organize-design.md)
 

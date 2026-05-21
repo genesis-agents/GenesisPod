@@ -1,11 +1,11 @@
 # 对话式 AI 整理 — 设计基线（Design Baseline）
 
-**状态：** ✅ 评审通过 v0.5（四路两轮 4/4 共识，2026-05-21）；进 P1 受 P0 门禁约束（BLK-3/4/6）
+**状态：** ✅ v1.0 锁定（四路 4/4 共识 + P0 调研通过，2026-05-21）；**P1 可开工**（见 §10）
 **强制级别：** 评审通过后转 MUST
 **日期：** 2026-05-21
 **作者：** Claude Code
 **关联：** [ADR-006](../../decisions/006-conversational-organize.md) · `library/ai-file-organizer` · `library/collections` · AI Ask 流式范式（`ai-ask.service.ts`）
-**评审基线版本：** v0.5（四路两轮评审达成 4/4 共识；见[评审纪要](../2026-05-21-design-review-minutes.md) §6。P0 调研回写后锁 v1.0）
+**评审基线版本：** v1.0（P0 调研通过并回写，已锁定；见 §10 + [评审纪要](../2026-05-21-design-review-minutes.md) §6）
 
 > 一句话目标：让书签 / 笔记 / 外部连接内容的整理，**既能一键执行预设动作，也能像聊天一样下自然语言指令，由 AI 边对话边真实改动用户的库**。
 
@@ -179,6 +179,21 @@ backend/src/modules/ai-app/library/organize-chat/
 - [ ] 计费：整理一轮按 1 次 ai-ask 计，还是按工具调用数计？
 - [ ] 会话持久化：对话整理是否复用 `AskSession` 表，还是独立 `OrganizeSession`？（建议独立，避免污染 ai-ask 会话列表）
 - [ ] tool-loop 最大轮次 N（建议 6）。
+
+---
+
+## 10. P0 技术调研结论（2026-05-21，✅ 通过 → 锁 v1.0）
+
+P0 读码核验三门禁，均有可落地答案：
+
+| 门禁                   | 结论                  | 落地方式（代码锚点）                                                                                                                                                                                                             |
+| ---------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| BLK-3a 工具隔离        | ✅ 平台已内建         | organize ITool 注册全局 + DB `ToolConfig.allowedRoles:['organize-agent']`；调用传 `context.roleId='organize-agent'`，`AICapabilityResolver.resolveToolsForAgent` 自动过滤（`ai-capability-resolver.service.ts:104-116/709-723`） |
+| BLK-3b userId 链路     | ✅ 100% 打通          | `AICapabilityContext.userId` → `function-calling-executor.ts:1192` `ToolContext.userId` → `tool.execute(input, ctx)`。工具内用 `ctx.userId` 调 collections 行级过滤，安全门禁过                                                  |
+| BLK-4 会话历史         | ⚠️ v1 拼 systemPrompt | `chatWithToolsStream` 无 history 入参；v1 把历史拼进 systemPrompt（同 ai-ask `buildSystemPromptWithContext`，零 facade 改动）；后期可薄扩展 `priorMessages`                                                                      |
+| BLK-6 modelConfig/计费 | ✅ 复用 ai-ask        | `getModelConfig`（`ai-ask.service.ts:1381` 抄）+ `BillingContext.run({moduleType:'organize-chat'})` + 入口 `creditsService.checkBalance`。**P1 需实测 chatWithToolsStream 的 token 真扣费**（不确定项，P1 验证）                 |
+
+**结论：P0 通过，#1 解锁 P1。** P1 起步清单：① OrganizeSession Prisma model + 手写迁移（Q4 已批）② organize-chat 模块（service 抄 ai-ask modelConfig/billing/reconcile + ToolFacade.chatWithToolsStream）③ 书签 6 个 ITool（薄封装 collections，注册 + allowedRoles）④ SSE controller。验收见 §7 P1（含「BLK-6 token 真扣费」实测项）。
 
 ```
 
