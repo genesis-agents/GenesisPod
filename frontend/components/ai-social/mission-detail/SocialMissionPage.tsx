@@ -203,6 +203,17 @@ const SOURCE_TYPE_LABEL: Record<string, string> = {
   EXTERNAL: '外部链接',
 };
 
+/** 阶段耗时（startedAt→completedAt）；进行中/未开始给占位 */
+function formatStageDuration(s: SocialStageView): string {
+  if (s.startedAt != null && s.completedAt != null) {
+    const ms = s.completedAt - s.startedAt;
+    if (ms < 1000) return `${ms}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    return `${Math.round(ms / 60000)}m`;
+  }
+  return s.status === 'running' ? '进行中' : '—';
+}
+
 /** social view → team-topology canvas（nodes/rows/connections），Leader 居顶 fan-out */
 function buildSocialTopology(view: SocialMissionView): {
   nodes: TeamTopologyNode[];
@@ -701,9 +712,16 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
                             <Icon className="h-3.5 w-3.5" />
                           </span>
-                          <span className="font-medium text-gray-900">
-                            {s.label}
-                          </span>
+                          <div className="min-w-0">
+                            <div className="truncate font-medium text-gray-900">
+                              {s.label}
+                            </div>
+                            {s.desc && (
+                              <div className="truncate text-xs text-gray-400">
+                                {s.desc}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       );
                     },
@@ -732,6 +750,12 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                         dot
                       />
                     ),
+                  },
+                  {
+                    key: 'duration',
+                    label: '耗时',
+                    className: 'w-20 text-gray-500',
+                    render: (s) => formatStageDuration(s),
                   },
                   {
                     key: 'action',

@@ -24,6 +24,8 @@ export type SocialRoleStatus = 'idle' | 'working' | 'done' | 'failed';
 export interface SocialStageView {
   stepId: string;
   label: string;
+  /** 一句说明（该阶段做什么）*/
+  desc?: string;
   role?: string;
   status: SocialStageStatus;
   startedAt?: number;
@@ -49,21 +51,28 @@ export interface SocialMissionView {
   roles: SocialRoleView[];
 }
 
-/** stepId → 中文 label + 角色（与后端 13 阶段对齐；未知 stepId 走 humanize 兜底） */
-const STEP_META: Record<string, { label: string; role?: string }> = {
-  's1-mission-budget-eval': { label: '预算评估', role: 'Steward' },
-  's2-platform-probe': { label: '平台探测', role: 'PlatformProbe' },
-  's3-content-transform': { label: '内容转换', role: 'ContentTransformer' },
-  's4-leader-assess-transform': { label: 'Leader 评估', role: 'Leader' },
-  's5-cover-craft': { label: '封面制作', role: 'CoverArtist' },
-  's6-body-compose': { label: '正文撰写', role: 'Composer' },
-  's7-polish-review': { label: '润色审核', role: 'PolishReviewer' },
-  's8-publish-execute': { label: '发布执行', role: 'PublishExecutor' },
-  's8b-publish-retry': { label: '发布重试', role: 'PublishExecutor' },
-  's9-publish-verify': { label: '发布验证', role: 'PublishVerifier' },
-  's10-leader-signoff': { label: 'Leader 签收', role: 'Leader' },
-  's11-mission-persist': { label: '结果持久化' },
-  's12-self-evolution': { label: '自进化复盘' },
+/** stepId → 中文 label + 角色 + 一句说明（与后端 13 阶段对齐；未知 stepId 走 humanize 兜底） */
+const STEP_META: Record<
+  string,
+  { label: string; role?: string; desc?: string }
+> = {
+  's1-mission-budget-eval': { label: '预算评估', role: 'Steward', desc: '评估预算与配额闸门' }, // prettier-ignore
+  's2-platform-probe': { label: '平台探测', role: 'PlatformProbe', desc: '探测目标平台规则与限制' }, // prettier-ignore
+  's3-content-transform': { label: '内容转换', role: 'ContentTransformer', desc: '把素材改写适配各平台' }, // prettier-ignore
+  's4-leader-assess-transform': { label: 'Leader 评估', role: 'Leader', desc: 'Leader 审核转换结果' }, // prettier-ignore
+  's5-cover-craft': {
+    label: '封面制作',
+    role: 'CoverArtist',
+    desc: '生成封面图',
+  },
+  's6-body-compose': { label: '正文撰写', role: 'Composer', desc: '编排正文 HTML/排版' }, // prettier-ignore
+  's7-polish-review': { label: '润色审核', role: 'PolishReviewer', desc: '润色 + 质量复审' }, // prettier-ignore
+  's8-publish-execute': { label: '发布执行', role: 'PublishExecutor', desc: '推送到平台草稿箱' }, // prettier-ignore
+  's8b-publish-retry': { label: '发布重试', role: 'PublishExecutor', desc: '发布失败后重试' }, // prettier-ignore
+  's9-publish-verify': { label: '发布验证', role: 'PublishVerifier', desc: '验证发布结果' }, // prettier-ignore
+  's10-leader-signoff': { label: 'Leader 签收', role: 'Leader', desc: 'Leader 终审签收' }, // prettier-ignore
+  's11-mission-persist': { label: '结果持久化', desc: '落库归档轨迹' },
+  's12-self-evolution': { label: '自进化复盘', desc: '复盘与自进化' },
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -101,6 +110,7 @@ export function deriveSocialView(events: MissionEvent[]): SocialMissionView {
     stageMap.set(stepId, {
       stepId,
       label: meta.label,
+      desc: meta.desc,
       role: meta.role,
       status: 'pending',
     });
@@ -128,6 +138,7 @@ export function deriveSocialView(events: MissionEvent[]): SocialMissionView {
       const stage: SocialStageView = stageMap.get(stepId) ?? {
         stepId,
         label: meta?.label ?? humanize(stepId),
+        desc: meta?.desc,
         role: resolvedRole,
         status: 'pending',
       };
