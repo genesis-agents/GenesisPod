@@ -58,6 +58,9 @@ function ActionButton({ action }: { action: AssetCardAction }) {
     <button
       type="button"
       onClick={(e) => {
+        // preventDefault：卡片可能被包在 <Link>/<a> 里（如书签卡），
+        // 仅 stopPropagation 挡不住锚点的默认跳转，会变成"点按钮也跳源"。
+        e.preventDefault();
         e.stopPropagation();
         action.onClick();
       }}
@@ -92,6 +95,7 @@ function BadgesRow({
   if (!hasContent) return null;
 
   const handleVisibilityBadgeClick = (e: MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     if (!isOwner || !onVisibilityClick) return;
     onVisibilityClick();

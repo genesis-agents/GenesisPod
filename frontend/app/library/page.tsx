@@ -1385,7 +1385,16 @@ function LibraryPageContent() {
         }
         timestamp={resource.publishedAt}
         customSection={
-          <div className="space-y-2">
+          // 卡片被包在 <Link> 里：customSection 内的状态徽章/标签/展开等交互件
+          // 必须挡住锚点默认跳转，否则"点任意按钮都直接跳到源"。各子元素自身 onClick
+          // 仍先于此触发；preventDefault 不影响 select 展开与 onChange。
+          <div
+            className="space-y-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+          >
             <div className="flex flex-wrap items-center gap-2">
               <ReadStatusBadge
                 status={item.readStatus}
