@@ -1,11 +1,11 @@
 # 对话式 AI 整理 — 设计基线（Design Baseline）
 
-**状态：** 🟡 评审中（Draft for Review）
+**状态：** ✅ 评审通过 v0.5（四路两轮 4/4 共识，2026-05-21）；进 P1 受 P0 门禁约束（BLK-3/4/6）
 **强制级别：** 评审通过后转 MUST
 **日期：** 2026-05-21
 **作者：** Claude Code
 **关联：** [ADR-006](../../decisions/006-conversational-organize.md) · `library/ai-file-organizer` · `library/collections` · AI Ask 流式范式（`ai-ask.service.ts`）
-**评审基线版本：** v0.3（四路评审 round 1 后迭代；见[评审纪要](../2026-05-21-design-review-minutes.md)。待 P0 + 用户拍板 7 项后锁 v1.0）
+**评审基线版本：** v0.5（四路两轮评审达成 4/4 共识；见[评审纪要](../2026-05-21-design-review-minutes.md) §6。P0 调研回写后锁 v1.0）
 
 > 一句话目标：让书签 / 笔记 / 外部连接内容的整理，**既能一键执行预设动作，也能像聊天一样下自然语言指令，由 AI 边对话边真实改动用户的库**。
 
@@ -115,6 +115,7 @@ backend/src/modules/ai-app/library/organize-chat/
 - `AIOrganizePanel` 顶部加模式切换：**一键整理 | 对话整理**（canonical `Tabs`）。
 - 「对话整理」= 轻量聊天区（消息流 + 输入框），复用 AI Ask 的流式消费 + **代理兜底对账**（`reconcile`）。
 - AI 的工具动作以**结构化卡片**呈现：`已建集合「AI 论文」` / `给 12 条打标 +LLM` / `移动 8 条 → AI 论文`，可点进对应集合。
+- **每张动作卡带 `[撤销]` 入口**（Q2）：点击调对应**反向 batch**（move 回原集合 / remove 刚加标签 / 还原状态）。**P2 验收含「动作卡可撤销且库回滚」**。
 - 破坏性动作（删除/清空类，本期范围内仅潜在的 set/remove 大批量）→ 执行前 inline 确认（复用全局 `confirm`）。
 - 卡片/态/弹层全部走 canonical（标准 22），网格走 `CardGrid`，不自写。
 
@@ -123,12 +124,18 @@ backend/src/modules/ai-app/library/organize-chat/
 ## 5. 数据流 / 时序（对话一轮）
 
 ```
-用户输入 → POST .../organize-chat/bookmarks/stream
+用户：「把所有 AI 论文归到新集合『AI 论文』并打标 LLM，已读的别动」
  → status: planning
- → chat() → toolCalls:[list_items] → 执行 → tool: 已读取 34 条
- → chat() → toolCalls:[create_collection, move_items, tag_items] → 执行 → tool×3
- → chat() → 无 toolCall → chunk(最终总结) → done(本轮 messages 持久化到会话)
-（流被代理掐断 → 前端 GET 对账最近会话消息恢复，同 ai-ask）
+ → tool: list_items({ status:'unread' })           → 18 条未读（已读天然排除＝「已读的别动」）
+ → tool: create_collection({ name:'AI 论文' })      → 新集合 c_ai
+ → agent 从 18 条筛出 AI 论文相关 12 条（itemIds 均 ⊆ 上一步返回集 → BLK-3 服务端校验）
+ → 12 条 ≤20 直接执行；若 >20 先 emit intent_preview 等用户确认（Q3）
+ → tool: move_items({ itemIds:[12 条], targetCollectionId:'c_ai' })
+ → tool: tag_items({ itemIds:[12 条], tags:['LLM'], operation:'add' })
+ → chunk(总结：建集合 + 移 12 条 + 打标，已读 0 触碰) → done
+ 每张动作卡带 [撤销]（反向 batch，Q2）；流被代理掐断 → GET 对账恢复（同 ai-ask）
+
+> 该样例证明工具粒度可表达「带条件过滤的组合意图」：`list_items.status` 过滤 + agent 选子集 + 写工具只作用于该子集（且受 itemIds⊆白名单校验）。
 ```
 
 ---

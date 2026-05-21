@@ -1,7 +1,7 @@
 # 007. Agent Teams 呈现标准化 - 迁到 agent-playground canonical（落实标准 21 P3）
 
 **Date**: 2026-05-21
-**Status**: 🟡 Proposed（四路评审 round 1 完成→迭代 v0.3：补 canonical tab 收窄/角色卡落点/gateway JWT 前置/锚点订正；待用户拍板后走 round 2 至 4/4）
+**Status**: ✅ Accepted（四路两轮评审 4/4 共识，2026-05-21）。进 P0 前置 = 先修 BLK-7（ai-teams.gateway JWT 校验）合入主干；P0 产出 12 事件→MissionEvent 映射表 + 功能映射清单
 **评审纪要**: [features/2026-05-21-design-review-minutes.md](../features/2026-05-21-design-review-minutes.md)
 **关联设计文档**: [features/ai-teams/presentation-migration-design.md](../features/ai-teams/presentation-migration-design.md)
 **关联标准**: [.claude/standards/21-agent-teams-presentation.md](../../.claude/standards/21-agent-teams-presentation.md)（本 ADR = 其 §7 P3 的 ai-teams 落地）
@@ -15,14 +15,14 @@
 按标准 21 **完整迁移**（非仅视觉对齐）：
 
 1. **实时**：用 `useMissionStream`（由 `useAgentPlaygroundStream` 泛化，与标准 21 P1 协同），不自写轮询。
-2. **派生**：新增纯函数 `lib/ai-teams/deriveTeamsView(events)`（+ step-map + 必要时 events adapter），幂等可重放，**带 fixture 回归测试**。
+2. **派生**：新增纯函数 `lib/features/ai-teams/deriveTeamsView(events)`（+ step-map + 必要时 events adapter），幂等可重放，**带 fixture 回归测试**。
 3. **呈现**：复用 `components/common/mission-detail/`（Frame/StageStepper/MissionActionGroup）+ `common/team-topology`。
 4. **标准化 Tab 体系（2026-05-21 评审补充）**：右侧 tab **业务定"展示哪些"、平台定"每个怎么呈现"**。把 tab 抽成 canonical（`common/mission-detail/tabs/`：TaskList/ActionLog/Report/References/Messages/Compute，分别复用 DataTable/report-viewer/citations/MessageCardShell），业务（ai-teams）只声明 `tabs: MissionTab[]`（选哪些 + 数据适配）。即 ai-teams **贡献 step-map + tab 选择/适配 + artifact renderer**，每个 tab 的呈现规则统一不自写。
 5. **瘦页**：`page.tsx` < 100 行；旧 god-class 功能逐块映射后下线，不丢功能。
 
 ## 关键不确定项（P0 先调研）
 
-ai-teams 后端现有事件模型与 `MissionEvent` 的差异 → 决定是否需要 `lib/ai-teams/adapt-events.ts` 适配层。**P0 调研产出事件映射表后再开 P2。**
+ai-teams 后端现有事件模型与 `MissionEvent` 的差异 → 决定是否需要 `lib/features/ai-teams/adapt-events.ts` 适配层。**P0 调研产出事件映射表后再开 P2。**
 
 ## 顺序
 

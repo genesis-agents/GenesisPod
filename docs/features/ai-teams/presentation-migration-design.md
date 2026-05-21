@@ -1,11 +1,11 @@
 # Agent Teams 呈现标准化迁移 — 设计基线（Design Baseline）
 
-**状态：** 🟡 评审中（Draft for Review）
+**状态：** ✅ 评审通过 v0.5（四路两轮 4/4 共识，2026-05-21）；进 P0 受门禁约束（先修 BLK-7 gateway JWT）
 **强制级别：** 评审通过后转 MUST（落实标准 21 的 P3）
 **日期：** 2026-05-21
 **作者：** Claude Code
 **关联：** [标准 21 Agent Teams 呈现](../../../.claude/standards/21-agent-teams-presentation.md)（本设计 = 其 §7 P3 的 ai-teams 落地）· [ADR-007](../../decisions/007-ai-teams-presentation-migration.md) · 模板源 `agent-playground`
-**评审基线版本：** v0.3（四路评审 round 1 后迭代；见[评审纪要](../2026-05-21-design-review-minutes.md)）
+**评审基线版本：** v0.5（四路两轮评审达成 4/4 共识；见[评审纪要](../2026-05-21-design-review-minutes.md) §6）
 
 > 一句话目标：把 `ai-teams` 的详情/执行页从 **3153 行自写 god-class** 迁到 **agent-playground 同款 canonical 呈现**（左：团队拓扑+角色卡+进度；右：任务列表/动作/报告 Tab），组件全复用，ai-teams 只贡献「阶段 step-map + 产出渲染器」。
 
@@ -78,6 +78,8 @@ type MissionTab = {
 | 算力     | `MissionComputeTab`    | `view.cost`               | 抽自 playground `ComputeUsagePanel`         |
 
 > 即：**业务决定 tab 选择与数据适配（差异化），平台统一每个 tab 的呈现规则与组件（标准化）**——与标准 22 卡片体系同思路。表格走 `ui/table`/`DataTable`、卡片走 canonical、不自写。
+>
+> **P1.5 收窄（YAGNI，纪要 §2）**：上表 6 个 canonical tab **先只抽有明确复用源的前 3**（TaskList→DataTable / Report→report-viewer / References→citations）；ActionLog / Messages / Compute 待第二消费方出现再抽。`MissionTab` 契约收紧为 `{ key, label, component: CanonicalTabKey, adapt: (view)=>TabProps }`（业务只能**选** canonical + 数据适配，不能传任意 ReactNode）。
 
 ## 4. 关键设计：事件模型映射（最核心、最需评审）
 

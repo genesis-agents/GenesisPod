@@ -90,11 +90,43 @@
 | Q6 MVP「三类一起」   | 采纳默认：最终三类都要；交付上 P1-P2 先书签打通范式、P3 复制笔记/外部                                                                                                                         |
 | Q7 旧 god-class 下线 | ⚠️ 用户改选 **一次性切换**（非灰度）。→ 风险代偿：切换前必须 (a) BLK-11 功能映射清单**逐项已覆盖** (b) 新页真机跑通含 Reviewer 阶段的 team mission，二者全绿才删旧页（无 fallback，标准更严） |
 
+> Q7「一次性切换」可操作化验收（round 2 reviewer 补强）：(a)「逐项已覆盖」= BLK-11 功能映射清单**每行填新落点 file:line、可 grep 核验**；(b)「真机跑通」= 含 Reviewer 阶段的 team mission **留录屏/fixture 快照存档**；(c) P3→P4 删旧页放行 = 同 round 评审人目视确认后**手动触发**。
+
 > 据此设计迭代至 **v0.4**；剩余非用户决策项 = P0 技术调研（BLK-3 工具隔离/userId 链路、BLK-4 会话历史注入、BLK-6 modelConfig、BLK-7 gateway JWT、BLK-9 namespace 泛化、BLK-11 功能映射），在各自 P0 阶段解决并回写。
 
 ## 5. 放行条件
 
 - **#1**：BLK-3 / BLK-4 两个 P0 在调研中给出明确答案 + Q1–Q5 用户拍板 → 锁 v1.0 → 开 P1。
 - **#2**：BLK-7（gateway JWT）修复列为 P0 前置 + BLK-9 P1 泛化方案产出 + Q7 定 → 开 P0 调研。
+
+---
+
+## 6. Round 2 复核 + 共识达成（2026-05-21，v0.5）
+
+四路对 v0.4 复核结论：
+
+| 评审线 | round 2 结论      | round 1 阻断核销                                                                 |
+| ------ | ----------------- | -------------------------------------------------------------------------------- |
+| 架构   | 🟡→实质同意       | BLK-1/2/8/D1 全销（chatWithToolsStream 经代码三重确认）；残留 ADR-007 2 处旧锚点 |
+| 质量   | 🟡→同意（有序）   | BLK-3/4/5/9/11 已销或正确转 P0 门禁；残留 Q7 验收需可操作化                      |
+| 安全   | ✅ 批准（附条件） | BLK-3/7 正确转 P0 门禁；全部安全加固已落地                                       |
+| 产品   | 🟡→分线放行       | M1/M2 已销（撤销+预演=纠错闭环；角色卡落点坐实）；残留 M3 样例未补               |
+
+**round 2 残留（4 项，已在 v0.5 全部清除）**：
+
+- ✅ ADR-007 残留 `lib/ai-teams/` → `lib/features/ai-teams/`（0 残留）。
+- ✅ 【M3·原 🔴】#1 §5 补「已读的别动」条件过滤端到端样例（list_items.status + 子集 + itemIds⊆白名单）。
+- ✅ #1 §4 + P2 验收补「动作卡 [撤销] 入口 + 库回滚」。
+- ✅ Q7 可操作化验收（grep 核验功能映射 + 录屏存档 + P3→P4 人工放行，见 §4.1）。
+- ✅ #2 §3.5 补 P1.5 收窄注脚（先抽 3 + MissionTab 契约收紧）。
+
+### ✅ 共识达成（4/4）
+
+四路对 v0.4 的全部阻断/残留在 v0.5 清零，reviewer 均预承诺「补完即放行」。**设计共识达成**，两特性获批进入实施——但带**硬门禁**（非设计问题，是实施前置）：
+
+- **#1 进 P1 前必须**：P0 调研给出 BLK-3（工具隔离 + userId→ToolContext 链路）、BLK-4（会话历史注入）、BLK-6（modelConfig/计费）的明确答案并回写设计 → 锁 v1.0。
+- **#2 进 P0 前必须**：先修 BLK-7（`ai-teams.gateway` JWT 校验）合入主干（有 commit 为证）；P0 产出 12 事件→MissionEvent 映射表 + 功能映射清单。
+
+> 顺序（用户已定）：#1 先做。故下一步 = #1 的 **P0 技术调研**（BLK-3/4/6）。
 
 > 评审依据的源码（四线交叉核实）：`ai-harness/facade/{ai.facade,domain/tool.facade,domain/agent.facade,sub-facades/agent.sub-facade,sub-facades/tool-exec.sub-facade,types/facade.types,index}.ts`、`runner/executor/{function-calling-executor,agent-executor.service}.ts`、`runner/capabilities/ai-capability-resolver.service.ts`、`ai-engine/facade/index.ts`、`ai-app/library/collections/collections.service.ts`、`ai-app/teams/ai-teams.gateway.ts`、`frontend/components/common/mission-detail/`、`frontend/components/common/team-topology/`、`frontend/components/agent-playground/`、`frontend/lib/features/{agent-playground,ai-social}/`、`frontend/hooks/features/useAgentPlaygroundStream.ts`、`frontend/app/ai-teams/[topicId]/page.tsx`、标准 21/22/02/10。
