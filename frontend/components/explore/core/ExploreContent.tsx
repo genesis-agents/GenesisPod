@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { confirm } from '@/stores';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import PDFThumbnail from '@/components/ui/viewers/PDFThumbnail';
 import PDFViewer from '@/components/ui/viewers/PDFViewer';
@@ -1586,7 +1587,13 @@ function HomeContent() {
     e.stopPropagation();
     if (!isAdmin) return;
 
-    if (!confirm('确定要删除这个资源吗？此操作无法撤销。')) {
+    if (
+      !(await confirm({
+        title: '确定要删除这个资源吗？',
+        description: '此操作无法撤销。',
+        type: 'danger',
+      }))
+    ) {
       return;
     }
 

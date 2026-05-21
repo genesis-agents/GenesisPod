@@ -22,7 +22,7 @@ import { useExport } from '@/hooks/features/useExport';
 
 import { logger } from '@/lib/utils/logger';
 import ClientDate from '@/components/common/ClientDate';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 interface TeamCanvasModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -640,10 +640,12 @@ export default function TeamCanvasModal({
       logger.error('[Export] Failed to export via unified system:', error);
 
       // Fallback to legacy HTML export
-      const useHtml = window.confirm(
-        'PDF导出失败。是否下载HTML版本？\n\n' +
-          '您可以在浏览器中打开HTML文件后使用"打印到PDF"功能。'
-      );
+      const useHtml = await confirm({
+        title: 'PDF 导出失败，是否下载 HTML 版本？',
+        description: '可在浏览器中打开 HTML 文件后使用「打印到 PDF」功能。',
+        type: 'warning',
+        confirmText: '下载 HTML',
+      });
 
       if (useHtml) {
         // 获取完整任务数据用于 fallback
