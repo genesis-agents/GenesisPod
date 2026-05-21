@@ -89,6 +89,9 @@ model User {
   // ASK AI 会话
   askSessions AskSession[]
 
+  // 对话式整理会话
+  organizeSessions OrganizeSession[]
+
   // Topic 加入请求
   topicJoinRequests         TopicJoinRequest[] @relation("TopicJoinRequestUser")
   topicJoinRequestsReviewed TopicJoinRequest[] @relation("TopicJoinRequestReviewer")
@@ -3108,6 +3111,43 @@ model AskSession {
 enum AskSessionMode {
   SOLO
   ROOM
+}
+
+/// 对话式 AI 整理会话（ADR-006；独立于 AskSession，避免污染问答会话列表）
+model OrganizeSession {
+  id        String        @id @default(uuid())
+  userId    String        @map("user_id")
+  scope     OrganizeScope @default(BOOKMARKS)
+  title     String        @db.VarChar(200)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages OrganizeMessage[]
+
+  @@index([userId, updatedAt])
+  @@map("organize_sessions")
+}
+
+/// 整理会话内的单条消息（含本轮工具动作摘要，供前端动作卡 + 单步撤销 + 代理对账）
+model OrganizeMessage {
+  id          String   @id @default(uuid())
+  sessionId   String   @map("session_id")
+  role        String   @db.VarChar(20) // user | assistant
+  content     String   @db.Text
+  toolActions Json?    @map("tool_actions") // [{ tool, summary, undo?: {...} }]
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  session OrganizeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("organize_messages")
+}
+
+enum OrganizeScope {
+  BOOKMARKS
+  NOTES
+  EXTERNAL
 }
 
 /// room runtime shared watermark / ephemeral coordination state
