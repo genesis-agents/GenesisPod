@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ChevronLeft,
+  ChevronRight,
   Coins,
   Crown,
   FileText,
@@ -45,6 +46,7 @@ import {
   type MissionActionButtonSpec,
 } from '@/components/common/mission-detail';
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
+import { StatusBadge, type BadgeTone } from '@/components/ui/badges';
 import {
   TeamTopologyCanvas,
   type TeamTopologyNode,
@@ -147,18 +149,15 @@ interface SocialMissionPageProps {
 // ─── Report sub-tab (WeChat / 小红书) ─────────────────────────────────────────
 
 /** social 阶段状态 → 样式（任务列表 / roster 共用；animate-pulse 合规，非 spin） */
-const SOCIAL_STAGE_STATUS: Record<
+/** social 阶段状态 → canonical StatusBadge 的 tone + 文案（视觉 SSOT 在 StatusBadge）*/
+const SOCIAL_STATUS_TONE: Record<
   SocialStageStatus,
-  { label: string; dot: string; text: string }
+  { tone: BadgeTone; label: string }
 > = {
-  pending: { label: '待执行', dot: 'bg-gray-300', text: 'text-gray-400' },
-  running: {
-    label: '进行中',
-    dot: 'bg-blue-500 animate-pulse',
-    text: 'text-blue-600',
-  },
-  done: { label: '已完成', dot: 'bg-emerald-500', text: 'text-emerald-600' },
-  failed: { label: '失败', dot: 'bg-red-500', text: 'text-red-600' },
+  pending: { tone: 'neutral', label: '待执行' },
+  running: { tone: 'running', label: '进行中' },
+  done: { tone: 'success', label: '已完成' },
+  failed: { tone: 'danger', label: '失败' },
 };
 
 /** social 团队拓扑布局（playground 同款 canvas，业务定角色：Leader + 流水线工种） */
@@ -683,38 +682,56 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                   {
                     key: 'stage',
                     label: '阶段',
-                    render: (s) => (
-                      <span className="font-medium text-gray-900">
-                        {s.label}
-                      </span>
-                    ),
+                    render: (s) => {
+                      const Icon =
+                        SOCIAL_TEAM.find((m) => m.role === s.role)?.icon ??
+                        Sparkles;
+                      return (
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                            <Icon className="h-3.5 w-3.5" />
+                          </span>
+                          <span className="font-medium text-gray-900">
+                            {s.label}
+                          </span>
+                        </div>
+                      );
+                    },
                   },
                   {
                     key: 'role',
                     label: '角色',
-                    className: 'text-gray-500',
-                    render: (s) => s.role ?? '—',
+                    render: (s) =>
+                      s.role ? (
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                          {s.role}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      ),
                   },
                   {
                     key: 'status',
                     label: '状态',
-                    className: 'w-24',
-                    render: (s) => {
-                      const sc = SOCIAL_STAGE_STATUS[s.status];
-                      return (
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1.5 text-xs font-medium',
-                            sc.text
-                          )}
-                        >
-                          <span
-                            className={cn('h-1.5 w-1.5 rounded-full', sc.dot)}
-                          />
-                          {sc.label}
-                        </span>
-                      );
-                    },
+                    className: 'w-28',
+                    render: (s) => (
+                      <StatusBadge
+                        tone={SOCIAL_STATUS_TONE[s.status].tone}
+                        label={SOCIAL_STATUS_TONE[s.status].label}
+                        dot
+                      />
+                    ),
+                  },
+                  {
+                    key: 'action',
+                    label: '操作',
+                    className: 'w-16 text-right',
+                    render: () => (
+                      <span className="inline-flex items-center gap-0.5 text-xs font-medium text-violet-600">
+                        详情
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </span>
+                    ),
                   },
                 ]}
               />
@@ -733,20 +750,11 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <span className="w-16 shrink-0 text-gray-500">状态</span>
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1.5 font-medium',
-                          SOCIAL_STAGE_STATUS[selectedStage.status].text
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            'h-1.5 w-1.5 rounded-full',
-                            SOCIAL_STAGE_STATUS[selectedStage.status].dot
-                          )}
-                        />
-                        {SOCIAL_STAGE_STATUS[selectedStage.status].label}
-                      </span>
+                      <StatusBadge
+                        tone={SOCIAL_STATUS_TONE[selectedStage.status].tone}
+                        label={SOCIAL_STATUS_TONE[selectedStage.status].label}
+                        dot
+                      />
                     </div>
                     {selectedStage.error && (
                       <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
