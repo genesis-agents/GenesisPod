@@ -1,6 +1,6 @@
 # AI Social Mission 详情页打样 — 前后台整改（统一 Agent Teams UI 的样板）
 
-**状态：** 🟡 定位完成，整改中
+**状态：** 🟢 P1-P4 前后台打通（代码完成 + tsc/audit/派生测试全绿）；P5 真机验收待用户。commits: 后台 replay `115bf84bc` · 前端接流/标题 `35091d5da` · deriveSocialView `13acc1887` · social 渲染 `2367c2ac8`
 **日期：** 2026-05-21
 **关联：** [统一 AI Agent Teams UI 设计](../../architecture/frontend/agent-team-ui-unification.md) · [ADR-008](../../decisions/008-agent-team-ui-unification.md)
 **定位：** 用户钦定 ai-social 为**第一个打样 feature**——前后台全面整改成「和 playground 一模一样的体验，但内容是 social 自己的」，作为其余 6 feature 的迁移模板。
