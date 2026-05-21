@@ -145,13 +145,8 @@ export default function PersonalKnowledgeBaseTab({
         }
       />
 
-      {/* 卡片网格（首格永远是"新建"卡） */}
+      {/* 卡片网格（末格永远是"新建"卡） */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <CreateKnowledgeBaseCard
-          title="新建个人知识库"
-          description="为新主题创建专属空间，用于私人文档、笔记与 AI 检索"
-          onClick={() => setShowCreateDialog(true)}
-        />
         {personalKBs.map((kb) => (
           <KnowledgeBaseCard
             key={kb.id}
@@ -162,6 +157,11 @@ export default function PersonalKnowledgeBaseTab({
             onDelete={() => setDeletingKbId(kb.id)}
           />
         ))}
+        <CreateKnowledgeBaseCard
+          title="新建个人知识库"
+          description="为新主题创建专属空间，用于私人文档、笔记与 AI 检索"
+          onClick={() => setShowCreateDialog(true)}
+        />
       </div>
 
       {/* Create Dialog */}

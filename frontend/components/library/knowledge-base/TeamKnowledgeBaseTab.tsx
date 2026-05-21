@@ -148,11 +148,6 @@ export default function TeamKnowledgeBaseTab({
       />
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <CreateKnowledgeBaseCard
-          title="创建团队知识库"
-          description="与团队共享文档，让团队 AI 助手拥有专属知识"
-          onClick={() => setShowCreateDialog(true)}
-        />
         {teamKBs.map((kb) => (
           <KnowledgeBaseCard
             key={kb.id}
@@ -164,6 +159,11 @@ export default function TeamKnowledgeBaseTab({
             onManageMembers={() => setManagingMembersKbId(kb.id)}
           />
         ))}
+        <CreateKnowledgeBaseCard
+          title="创建团队知识库"
+          description="与团队共享文档，让团队 AI 助手拥有专属知识"
+          onClick={() => setShowCreateDialog(true)}
+        />
       </div>
 
       {/* 团队知识库说明（仅当无任何团队 KB 时） */}
