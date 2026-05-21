@@ -46,6 +46,7 @@ import { ToolInvoker } from "./runner/tool-invoker/tool-invoker";
 import { ToolCircuitBreaker } from "./runner/tool-invoker/tool-circuit-breaker";
 import { LlmExecutor } from "./runner/executor/llm-executor";
 import { AgentExecutorService } from "./runner/executor/agent-executor.service";
+import { FunctionCallingExecutor } from "./runner/executor/function-calling-executor";
 import { OutputReviewerService } from "./evaluation/critique/output-reviewer.service";
 import { ReportArtifactAssembler } from "./evaluation/critique/report-artifact/report-artifact-assembler.service";
 import { InMemoryVectorStore } from "./memory/vector/in-memory-vector-store";
@@ -345,6 +346,15 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     // 之前没在任何 module 注册，DI 永远拿到 undefined → ToolFacade.capabilityResolveTools
     // 永远走 fallback 空 list。修复见 commit 2f418ac01 后续。
     AICapabilityResolver,
+
+    // 2026-05-21: FunctionCallingExecutor — 同 AICapabilityResolver 的坑：@Injectable
+    // 但此前没在任何 module 注册（C2-step2 清理误删 provider 行，planning.module 只剩
+    // 注释 "保留 FunctionCallingExecutor"）。toolFeatureProvider 的
+    // { token: FunctionCallingExecutor, optional } 永远拿到 undefined →
+    // tool-exec.sub-facade / ToolFacade.chatWithToolsStream 报 "Tool execution not
+    // available"（对话整理 / teams 工具调用全挂）。必需依赖 ToolRegistry 来自已 import
+    // 的 AiEngineToolsModule，FunctionCallingLLMAdapter 来自 AiEngineLLMModule，其余 @Optional。
+    FunctionCallingExecutor,
 
     // â˜… PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
     // These are @Global — all ai-app modules can inject them without explicit imports.

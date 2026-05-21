@@ -60,7 +60,10 @@ import { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutti
   ],
   controllers: [],
   providers: [
-    // Executors —— 仅保留 FunctionCallingExecutor (其他 4 个 + handlers 已删 C2-step2)
+    // Executors —— 全部移出本模块。FunctionCallingExecutor 注册在 ai-harness
+    // HarnessModule（它属于 ai-harness/runner/executor，依赖 ToolRegistry）。
+    // 2026-05-21：此前这里只剩注释、HarnessModule 也漏注册 → DI 永远 undefined →
+    // "Tool execution not available"，已在 HarnessModule providers 补回。
 
     // NOTE: harness 服务（ProgressTracker / TraceCollector / CheckpointManager
     // / CircuitBreaker / ConstraintEnforcement / ExecutionStateManager）come
