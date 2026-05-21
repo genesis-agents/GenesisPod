@@ -2,6 +2,7 @@
 
 > 用户协作偏好 + 项目反复踩到的反模式。每条 ≤200 字符，详情看链接文件。
 
+- [feedback_dont_double_down_on_theory_when_user_pushes_back.md](feedback_dont_double_down_on_theory_when_user_pushes_back.md) — 用户带证据反驳时从头重查根因别打补丁辩护；2026-05-21 AI Ask 房间我死磕 xAI 402 三轮被连续打脸，真因是用户第一句说的"代理看不到输出"。反驳一次=可能错，两次=推倒重来；优先采信用户第一手现象
 - [feedback_commit_directly_to_main.md](feedback_commit_directly_to_main.md) — 本项目直接提交推送 main，不开 feature 分支/PR（靠 pre-push 闸门保质量）；2026-05-21 我为修复擅自建 fix 分支推该分支→用户「为什么不到主干？？？」。"提交推送"=commit 到 main + push origin main
 - [feedback_guard_placement_not_just_document.md](feedback_guard_placement_not_just_document.md) — 目录/组件归属约定必须有 audit 守护，光写文档没用（文档会不自洽 + agent 会漂移）；卡片散落 ui/cards+common/cards+common/asset-card 三处无人拦→震怒。落地：全收口 ui/cards + 标准22改写 + audit R15(目录级扫描，绕过 file-walk 排除项)+造违规验证拒推。canonical 放 ui/还是 common/ 是用户决策，别擅自 mv（2026-05-21）
 - [feedback_push_must_fix_gates_not_wait.md](feedback_push_must_fix_gates_not_wait.md) — 硬规则：提交/推送前所有闸门(commitlint/lint-staged/pre-push: verify:arch+type-check+测试+UI audit+i18n+deps)必须整改全绿才算完成；携带的别人 commit 跑红也要修到合规(补契约 baseline 等)，禁「等别人修」/--no-verify/rebase 丢提交（2026-05-20 playground 契约拦截教训）

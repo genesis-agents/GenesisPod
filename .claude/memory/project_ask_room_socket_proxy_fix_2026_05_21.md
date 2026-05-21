@@ -22,3 +22,17 @@ metadata:
 **部署前置**：前端域名必须在后端 `CORS_ORIGINS` 或 `FRONTEND_URL`，否则函数式 CORS 仍拒（非 `*`）。
 
 **故意未做（用户明确缩范围，后续隐患）**：`useNotificationSocket` / `useWritingWebSocket` / `useResearchWebSocket` 仍是同款 `localhost:3001` 旧兜底；`ai-writing` / `ai-teams` 网关仍是严格白名单 CORS。同类问题随时可在这些模块复现。参见 [[feedback_socket_use_config_getbackendurl]]。
+
+## 第二轮（真正的核心问题，commit 476620397）
+
+socket connect 修好后用户说"团队模式没有任何输出"。我**错误地**死磕日志里的 `callXAIAPI 402` + `ModelPricingRegistry not in registry`，连续断言"没额度/key 不对/max_tokens=16000 预扣"，被用户连续打脸：有额度、同一个 key、用的 BYOK、**实际上过了一会回复了，只是代理电脑上看不到**。
+
+真因 = 用户从第一句就说的：**代理环境实时送达**。房间 100% 依赖 socket 显示流式输出；代理缓冲/掐断 socket.io 长连接 → AI 回复已生成且落库，代理机却永远看不到（我前面把 connect_error 静默后更像"什么都没有"）。402 是支线（deepseek 成员失败兜底，grok 成员正常出，截图可见输出确实在）。
+
+**修复**：镜像单聊 `ai-ask-stream.ts` 的 `reconcileAfterStreamCut` 对账轮询——
+
+- `ask-room.store.ts` 加 `reconcileMessages(messages)`：按 id 去重合并已落库消息 + 清 stale pending。
+- `RoomChatPage.tsx`：发送后轮询 `getRoom`（先给 socket 1.5s，之后每 3s，~3min 上限），直到该 turn 在 recentTurns 终态。socket 能用时冗余无害（同 messageId 去重），代理掐 socket 时是唯一生路。
+- 关键：runtime `persistMessages` 在 `finalizeTurn` 之前，故 turn 终态时消息必已落库，轮询拿得到。
+
+教训见 [[feedback_dont_double_down_on_theory_when_user_pushes_back]]。
