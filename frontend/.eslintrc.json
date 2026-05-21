@@ -64,7 +64,31 @@
       }
     ],
     "no-debugger": "error",
-    "no-alert": "warn", // Admin pages may use confirm dialogs
+    "no-alert": "warn", // window.prompt 仍允许（重命名/原因输入）；alert/confirm 见下方硬禁
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "alert",
+        "message": "禁用原生 alert()；用 toast（@/stores）：toast.error/info(title, msg)"
+      },
+      {
+        "name": "confirm",
+        "message": "禁用原生 confirm()；用全局 confirm（@/stores）：await confirm({ title, type })"
+      }
+    ],
+    "no-restricted-properties": [
+      "error",
+      {
+        "object": "window",
+        "property": "alert",
+        "message": "禁用 window.alert()；用 toast（@/stores）"
+      },
+      {
+        "object": "window",
+        "property": "confirm",
+        "message": "禁用 window.confirm()；用全局 confirm（@/stores）"
+      }
+    ],
     "prefer-const": "error",
     "no-var": "error",
 
