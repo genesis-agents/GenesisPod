@@ -35,6 +35,7 @@ function makeTopic(
     description: '关注 OpenAI 新模型',
     entityType: 'topic',
     keywords: ['gpt-5', 'openai'],
+    matchMode: 'semantic',
     refreshCron: '0 */6 * * *',
     status: 'ACTIVE',
     nextDueAt: null,

@@ -44,6 +44,14 @@ export type RadarEntityType =
   | 'event'
   | 'topic';
 
+/**
+ * 关键词匹配模式（mirror 后端 RadarTopic.matchMode）：
+ * - semantic：仅 LLM 语义评分（默认，历史行为）
+ * - literal：标题+正文必须含「任一」关键词（子串、大小写不敏感），否则淘汰
+ * - hybrid：字面命中则在 LLM 分上加分，但不淘汰未命中项
+ */
+export type RadarMatchMode = 'semantic' | 'literal' | 'hybrid';
+
 /** AI 实体抽取出的 entity 类型（backend ExtractedEntity；与 RadarEntityType 不同集合） */
 export type RadarItemEntityKind =
   | 'person'
@@ -61,6 +69,7 @@ export interface RadarTopic {
   description: string | null;
   entityType: string | null;
   keywords: string[];
+  matchMode: RadarMatchMode;
   refreshCron: string;
   status: RadarTopicStatus;
   nextDueAt: string | null;
@@ -232,6 +241,7 @@ export interface CreateRadarTopicInput {
   description?: string;
   entityType?: RadarEntityType;
   keywords: string[];
+  matchMode?: RadarMatchMode;
   refreshCron?: string;
 }
 
@@ -240,6 +250,7 @@ export interface UpdateRadarTopicInput {
   description?: string;
   entityType?: RadarEntityType;
   keywords?: string[];
+  matchMode?: RadarMatchMode;
   refreshCron?: string;
 }
 

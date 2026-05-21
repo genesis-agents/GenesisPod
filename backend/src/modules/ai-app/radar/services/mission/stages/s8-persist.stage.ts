@@ -14,7 +14,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { RADAR_PIPELINE_DEFAULTS } from "../../../radar.constants";
+import {
+  RADAR_LITERAL_MISS_REASON,
+  RADAR_PIPELINE_DEFAULTS,
+} from "../../../radar.constants";
 import { computeNextCronTick } from "../../scheduler/cron-util";
 import type {
   RadarDroppedItem,
@@ -80,7 +83,12 @@ export class RadarS8PersistStage implements RadarStageRunner {
         const qualScore = qual?.score ?? null;
         let reason: string;
         let stage: RadarDroppedItem["stage"];
-        if (relScore === null) {
+        if (rel?.reason === RADAR_LITERAL_MISS_REASON) {
+          // literal 模式被字面过滤淘汰：保留专属原因，不回落到通用「相关性 0 < 40」
+          reason = RADAR_LITERAL_MISS_REASON;
+          stage = "relevance";
+          droppedAtRelevance++;
+        } else if (relScore === null) {
           // S4 LLM 全部失败兜底回 30，理论上 rel 应该有值。none 是真异常
           reason = "未获得相关性分（评分阶段异常）";
           stage = "unknown";

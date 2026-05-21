@@ -38,6 +38,7 @@ const SIGNAL_TYPE_VALUES = [
   "key_event",
   "anomaly",
 ] as const;
+export const MATCH_MODE_VALUES = ["semantic", "literal", "hybrid"] as const;
 
 export class CreateRadarTopicDto {
   @IsString()
@@ -58,6 +59,11 @@ export class CreateRadarTopicDto {
   @ArrayMaxSize(20)
   @IsString({ each: true })
   keywords!: string[];
+
+  /** 关键词匹配模式（semantic 默认 / literal 硬过滤 / hybrid 加分） */
+  @IsOptional()
+  @IsIn(MATCH_MODE_VALUES)
+  matchMode?: (typeof MATCH_MODE_VALUES)[number];
 
   @IsOptional()
   @IsString()

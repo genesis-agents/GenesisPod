@@ -10373,6 +10373,9 @@ model RadarTopic {
   entityType  String? @map("entity_type") @db.VarChar(40)
   /// 关键词数组 string[]，最多 20 个
   keywords    Json
+  /// 关键词匹配模式：semantic（仅 LLM 语义评分，默认）/ literal（标题+正文必须含
+  /// 任一关键词，否则淘汰）/ hybrid（字面命中则加分但不淘汰）。子串大小写不敏感。
+  matchMode   String  @default("semantic") @map("match_mode") @db.VarChar(10)
   /// cron 表达式，默认每 6 小时
   refreshCron String  @default("0 */6 * * *") @map("refresh_cron") @db.VarChar(60)
 
