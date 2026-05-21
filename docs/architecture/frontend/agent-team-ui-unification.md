@@ -1,11 +1,12 @@
 # 统一 AI Agent Teams UI — 设计基线（Design Baseline）
 
-**状态：** 🟡 评审中（Draft for Review）
+**状态：** 🟡 四路评审完成（4× 批准但需改）→ 迭代 v0.2；待用户拍板 5 项后锁 v1.0 开 W0
+**评审纪要：** [agent-team-ui-unification-review.md](agent-team-ui-unification-review.md)
 **强制级别：** 评审通过后转 MUST（落实并扩展[标准 21](../../../.claude/standards/21-agent-teams-presentation.md)）
 **日期：** 2026-05-21
 **作者：** Claude Code
 **关联：** [标准 21 Agent Teams 呈现](../../../.claude/standards/21-agent-teams-presentation.md) · [标准 22 前端 UI 治理](../../../.claude/standards/22-frontend-ui-component-governance.md) · [ADR-008](../../decisions/008-agent-team-ui-unification.md) · 模板源 `agent-playground`
-**评审基线版本：** v0.1
+**评审基线版本：** v0.2（四路评审后迭代；纪要见上。关键订正：playground 未用 Frame、W0 先迁它、DrawerShell 补 header slot、范围补 topic-insights/ai-office、audit 细则）
 
 > 一句话目标：平台里所有「agent 团队跑 mission」类 ai-app（research / insights / radar / social / simulation / planning / writing / teams / playground …）的详情/执行页，**用同一套 canonical 壳**呈现——**业务定内容（自己的团队、自己的 tabs、tab 内容、抽屉内容），平台定风格（壳统一）**，做到全平台视觉/结构一致。
 
@@ -66,15 +67,18 @@
 
 ## 5. 现状盘点（adoption matrix）
 
-| feature                                                             | 用 Frame                                 | 用 useMissionStream | 纯派生 | 状态            |
-| ------------------------------------------------------------------- | ---------------------------------------- | ------------------- | ------ | --------------- |
-| `agent-playground`                                                  | 部分（自写 tab 条，未用 Frame？P0 复核） | ✅（源）            | ✅     | 模板源          |
-| `ai-social`                                                         | ✅                                       | 部分                | ✅     | 基本对齐        |
-| `ai-radar`                                                          | 部分                                     | 部分                | 部分   | 半程            |
-| `ai-insights`                                                       | ✗（自造 Layout + 1403 行 store）         | ✗                   | ✗      | 🔴 待迁（最重） |
-| `ai-research` `ai-planning` `ai-simulation` `ai-writing` `ai-teams` | ✗（bespoke 详情）                        | ✗                   | ✗      | 🔴 待迁         |
+> 评审订正（v0.2）：原矩阵高估了 adoption。**全前端 `MissionDetailFrame` 唯一真实消费者 = `ai-social`**；playground 自身是 1729 行 bespoke、未用 Frame；radar 是另一范式。实情如下：
 
-> ⚠️ **P0 复核项**：playground 自己是否已用 `MissionDetailFrame`？（设计 §3 称模板源，但需确认它和 Frame 是否一致，否则「模板」与「壳」会有偏差）。
+| feature                                                             | 用 Frame                                                                      | stream hook                                              | 纯派生                                             | 状态                                         |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------- |
+| `agent-playground`                                                  | ❌ **未用**（1729 行 bespoke：自写 header/左栏/tab 条/抽屉/弹层）             | `useAgentPlaygroundStream`（=useMissionStream 薄封装）✅ | ✅（派生层是源）                                   | **派生/组件是源，但页面壳未对齐**；W0 先迁它 |
+| `ai-social`                                                         | ✅（**唯一真实消费者** `SocialMissionPage`）                                  | `useSocialMissionStream`                                 | ✅（import playground derive → 待提 lib/missions） | 参考实现                                     |
+| `ai-radar`                                                          | ❌ 另一范式（`SideDrawer`+`useRadarStream`+卡片/briefing，无 mission 详情页） | `useRadarStream`（独立）                                 | 部分                                               | 待确认目标形态（详情层 N/A？）               |
+| `ai-insights` + `topic-insights`                                    | ❌（自造 Layout + 1403 行 store）                                             | ✗                                                        | ✗                                                  | 🔴 待迁（最重，富渲染降级 artifact 面板）    |
+| `ai-research` `ai-planning` `ai-simulation` `ai-writing` `ai-teams` | ❌ bespoke 详情                                                               | ✗                                                        | ✗                                                  | 🔴 待迁                                      |
+| `ai-office`                                                         | —                                                                             | —                                                        | —                                                  | 仅列表层 MUST，编辑器主体例外                |
+
+> **裁决（评审 BLK-A，不再留 P0 待办）**：W0 第一张牌 = **把 playground 自身迁到 `MissionDetailFrame`**，作为真·参考实现 + 视觉基准（它已有全套 panel/drawer，按 §4 契约填 slot）。否则迁完的 feature 与"标杆 playground"两套视觉，一致性反而割裂。覆盖范围 = 标准 21 §2 全表。
 
 ## 6. 迁移计划（地基先行，已用户拍板）
 

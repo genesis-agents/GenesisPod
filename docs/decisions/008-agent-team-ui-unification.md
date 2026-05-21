@@ -1,7 +1,8 @@
 # 008. 统一 AI Agent Teams UI - 业务定内容 / 平台定风格 + audit 强制
 
 **Date**: 2026-05-21
-**Status**: 🟡 Proposed（评审中，待集体评审通过）
+**Status**: 🟡 Proposed（四路评审完成 4× 批准但需改 → v0.2；待用户拍板 5 项后转 Accepted）
+**评审纪要**: [../architecture/frontend/agent-team-ui-unification-review.md](../architecture/frontend/agent-team-ui-unification-review.md)
 **关联设计文档**: [architecture/frontend/agent-team-ui-unification.md](../architecture/frontend/agent-team-ui-unification.md)
 **关联标准**: [21-agent-teams-presentation.md](../../.claude/standards/21-agent-teams-presentation.md)（本 ADR 落地并升级它）· [22-frontend-ui-component-governance.md](../../.claude/standards/22-frontend-ui-component-governance.md)
 
