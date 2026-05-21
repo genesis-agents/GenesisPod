@@ -58,6 +58,7 @@ import {
   type SocialMissionView,
 } from '@/lib/features/ai-social/derive-social';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import { useSocialMissionStream } from '@/hooks/features/useSocialMissionStream';
 import { useSocialTask } from '@/hooks/domain/useSocialTasks';
 import {
@@ -73,7 +74,7 @@ import { Tabs } from '@/components/ui/tabs';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type TabKey = 'tasks' | 'collab' | 'report' | 'references' | 'cost' | 'publish';
+type TabKey = 'tasks' | 'collab' | 'report' | 'references' | 'cost';
 
 const TABS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
   { key: 'tasks', label: '任务列表', Icon: ListChecks },
@@ -81,7 +82,6 @@ const TABS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
   { key: 'report', label: '输出报告', Icon: FileText },
   { key: 'references', label: '参考文献', Icon: Layers },
   { key: 'cost', label: '算力消耗', Icon: Coins },
-  { key: 'publish', label: '发布', Icon: Send },
 ];
 
 // ─── Status pill config ───────────────────────────────────────────────────────
@@ -219,8 +219,10 @@ function buildSocialTopology(view: SocialMissionView): {
 
 function ReportTab({
   task,
+  onPublished,
 }: {
   task: NonNullable<ReturnType<typeof useSocialTask>['task']>;
+  onPublished?: () => void;
 }) {
   const platforms = task.platforms ?? [];
   const [activePlatform, setActivePlatform] = useState(platforms[0] ?? '');
@@ -230,6 +232,7 @@ function ReportTab({
     XIAOHONGSHU: '小红书',
   };
 
+  const [publishOpen, setPublishOpen] = useState(false);
   const version = task.versions?.find((v) => v.platform === activePlatform);
 
   if (platforms.length === 0) {
@@ -242,21 +245,31 @@ function ReportTab({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Platform sub-tabs */}
-      {platforms.length > 1 && (
-        <div className="border-b border-gray-100 px-4 py-2">
-          <Tabs
-            variant="pill"
-            size="sm"
-            value={activePlatform}
-            onChange={setActivePlatform}
-            items={platforms.map((p) => ({
-              key: p,
-              label: PLATFORM_LABELS[p] ?? p,
-            }))}
-          />
+      {/* header：平台子 tab（左）+ 发布按钮（右，参考 playground 导出位置）*/}
+      <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-2">
+        <div className="min-w-0">
+          {platforms.length > 1 && (
+            <Tabs
+              variant="pill"
+              size="sm"
+              value={activePlatform}
+              onChange={setActivePlatform}
+              items={platforms.map((p) => ({
+                key: p,
+                label: PLATFORM_LABELS[p] ?? p,
+              }))}
+            />
+          )}
         </div>
-      )}
+        <button
+          type="button"
+          onClick={() => setPublishOpen(true)}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+        >
+          <Send className="h-4 w-4" />
+          发布
+        </button>
+      </div>
       <div className="flex-1 overflow-auto p-4">
         {version ? (
           <div className="space-y-4">
@@ -285,6 +298,16 @@ function ReportTab({
           </div>
         )}
       </div>
+
+      {/* 发布弹层（原「发布」tab 内容收进此按钮，参考 playground 导出）*/}
+      <Modal
+        open={publishOpen}
+        onClose={() => setPublishOpen(false)}
+        title="发布到草稿箱"
+        size="lg"
+      >
+        <SocialPublishPanel task={task} onAction={() => onPublished?.()} />
+      </Modal>
     </div>
   );
 }
@@ -406,8 +429,8 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
       variant: 'primary',
       emoji: '📤',
       label: '发布到草稿箱',
-      title: '发布到平台草稿箱',
-      onClick: () => setActiveTab('publish'),
+      title: '到「输出报告」查看内容并发布',
+      onClick: () => setActiveTab('report'),
     });
   }
   if (canCancel) {
@@ -684,7 +707,9 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
         </>
       )}
 
-      {activeTab === 'report' && task && <ReportTab task={task} />}
+      {activeTab === 'report' && task && (
+        <ReportTab task={task} onPublished={refresh} />
+      )}
 
       {activeTab === 'references' && (
         <ReferencesPanel
@@ -705,10 +730,6 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
         <div className="flex h-full items-center justify-center text-sm text-gray-400">
           算力消耗将在任务执行后展示
         </div>
-      )}
-
-      {activeTab === 'publish' && task && (
-        <SocialPublishPanel task={task} onAction={refresh} />
       )}
     </MissionDetailFrame>
   );
