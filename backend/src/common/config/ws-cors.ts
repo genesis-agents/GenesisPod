@@ -25,8 +25,8 @@ const buildWsAllowedOrigins = (): Set<string> => {
   add(process.env.CORS_ORIGINS);
   add(process.env.FRONTEND_URL);
   add(process.env.RAILWAY_FRONTEND_URL);
-  add(APP_CONFIG.railway.frontendUrl);
-  add(APP_CONFIG.railway.backendUrl);
+  add(APP_CONFIG.railway?.frontendUrl);
+  add(APP_CONFIG.railway?.backendUrl);
   return origins;
 };
 
