@@ -5,6 +5,7 @@ import { Play } from 'lucide-react';
 import type { VideoAISummary } from '@/lib/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
 import { SectionPanelCard } from '@/components/ui/cards';
+import { MarkdownViewer } from '@/components/common/markdown-viewer';
 
 /**
  * 视频专属结构化摘要组件
@@ -93,13 +94,15 @@ export const VideoAISummaryComponent: React.FC<VideoAISummaryProps> = ({
       {/* 子头部：概览 + 视频指标 */}
       <div className="border-b border-gray-100 px-4 py-3">
         {/* 核心概览 */}
-        <p className="text-sm leading-relaxed text-gray-700">
-          {compact && !isExpanded ? (
-            <>{summary.overview.substring(0, 150)}...</>
-          ) : (
-            summary.overview
-          )}
-        </p>
+        {compact && !isExpanded ? (
+          <p className="text-sm leading-relaxed text-gray-700">
+            {summary.overview.substring(0, 150)}...
+          </p>
+        ) : (
+          <div className="prose prose-sm max-w-none text-gray-700">
+            <MarkdownViewer content={summary.overview} />
+          </div>
+        )}
 
         {/* 视频指标 */}
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600">

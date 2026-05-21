@@ -5,6 +5,7 @@ import { Newspaper } from 'lucide-react';
 import type { NewsAISummary } from '@/lib/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
 import { SectionPanelCard } from '@/components/ui/cards';
+import { MarkdownViewer } from '@/components/common/markdown-viewer';
 
 /**
  * 新闻文章专属结构化摘要组件
@@ -107,13 +108,15 @@ export const NewsAISummaryComponent: React.FC<NewsAISummaryProps> = ({
         </div>
 
         {/* 核心新闻事实 */}
-        <p className="text-sm leading-relaxed text-gray-700">
-          {compact && !isExpanded ? (
-            <>{summary.coreNews.substring(0, 150)}...</>
-          ) : (
-            summary.coreNews
-          )}
-        </p>
+        {compact && !isExpanded ? (
+          <p className="text-sm leading-relaxed text-gray-700">
+            {summary.coreNews.substring(0, 150)}...
+          </p>
+        ) : (
+          <div className="prose prose-sm max-w-none text-gray-700">
+            <MarkdownViewer content={summary.coreNews} />
+          </div>
+        )}
 
         {/* 元信息 */}
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600">

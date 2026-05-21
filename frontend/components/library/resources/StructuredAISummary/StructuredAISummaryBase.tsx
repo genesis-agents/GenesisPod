@@ -3,6 +3,7 @@
 import React from 'react';
 import type { StructuredAISummary } from '@/lib/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
+import { MarkdownViewer } from '@/components/common/markdown-viewer';
 
 /**
  * 结构化AI摘要基础组件
@@ -59,14 +60,16 @@ export const StructuredAISummaryBase: React.FC<
           </div>
         </div>
 
-        {/* 核心概览 */}
-        <p className="text-sm leading-relaxed text-gray-700">
-          {compact && !isExpanded ? (
-            <>{summary.overview.substring(0, 150)}...</>
-          ) : (
-            summary.overview
-          )}
-        </p>
+        {/* 核心概览（markdown 渲染：标题/表格/列表）*/}
+        {compact && !isExpanded ? (
+          <p className="text-sm leading-relaxed text-gray-700">
+            {summary.overview.substring(0, 150)}...
+          </p>
+        ) : (
+          <div className="prose prose-sm max-w-none text-gray-700">
+            <MarkdownViewer content={summary.overview} />
+          </div>
+        )}
 
         {/* 阅读时间 */}
         <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">

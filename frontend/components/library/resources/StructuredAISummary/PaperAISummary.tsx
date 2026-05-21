@@ -5,6 +5,7 @@ import { BookOpen } from 'lucide-react';
 import type { PaperAISummary } from '@/lib/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
 import { SectionPanelCard } from '@/components/ui/cards';
+import { MarkdownViewer } from '@/components/common/markdown-viewer';
 
 /**
  * 学术论文专属结构化摘要组件
@@ -74,13 +75,15 @@ export const PaperAISummaryComponent: React.FC<PaperAISummaryProps> = ({
       {/* 子头部：概览 + 论文指标 */}
       <div className="border-b border-gray-100 px-4 py-3">
         {/* 核心概览 */}
-        <p className="text-sm font-medium leading-relaxed text-gray-700">
-          {compact && !isExpanded ? (
-            <>{summary.overview.substring(0, 150)}...</>
-          ) : (
-            summary.overview
-          )}
-        </p>
+        {compact && !isExpanded ? (
+          <p className="text-sm font-medium leading-relaxed text-gray-700">
+            {summary.overview.substring(0, 150)}...
+          </p>
+        ) : (
+          <div className="prose prose-sm max-w-none text-gray-700">
+            <MarkdownViewer content={summary.overview} />
+          </div>
+        )}
 
         {/* 论文指标 */}
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600">

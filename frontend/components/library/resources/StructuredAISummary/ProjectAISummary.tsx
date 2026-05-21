@@ -13,6 +13,7 @@ import {
 import { SectionPanelCard } from '@/components/ui/cards';
 import type { ProjectAISummary } from '@/lib/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
+import { MarkdownViewer } from '@/components/common/markdown-viewer';
 
 /**
  * 开源项目专属结构化摘要组件
@@ -185,9 +186,9 @@ export const ProjectAISummaryComponent: React.FC<ProjectAISummaryProps> = ({
               <h4 className="mb-2 text-sm font-semibold text-gray-900">
                 📖 Overview
               </h4>
-              <p className="text-sm leading-relaxed text-gray-700">
-                {summary.overview}
-              </p>
+              <div className="prose prose-sm max-w-none text-gray-700">
+                <MarkdownViewer content={summary.overview} />
+              </div>
             </div>
           )}
 
