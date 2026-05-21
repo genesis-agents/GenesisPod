@@ -1,0 +1,172 @@
+# 对话式 AI 整理 — 设计基线（Design Baseline）
+
+**状态：** 🟡 评审中（Draft for Review）
+**强制级别：** 评审通过后转 MUST
+**日期：** 2026-05-21
+**作者：** Claude Code
+**关联：** [ADR-006](../../decisions/006-conversational-organize.md) · `library/ai-file-organizer` · `library/collections` · AI Ask 流式范式（`ai-ask.service.ts`）
+**评审基线版本：** v0.1（本文件即评审对象，按评审意见迭代后锁版）
+
+> 一句话目标：让书签 / 笔记 / 外部连接内容的整理，**既能一键执行预设动作，也能像聊天一样下自然语言指令，由 AI 边对话边真实改动用户的库**。
+
+---
+
+## 1. 背景与目标
+
+### 现状
+
+- `AIOrganizePanel`（前端）= 一键预设动作：批量打标 / 智能分类 / 主题聚类 / 笔记要点 / 笔记关联 / 图片打标…，每个动作固定、不可对话微调。
+- 后端整理能力分散：`ai-file-organizer`（AI 分析建议 analyze→apply）+ `collections.service`（真实写操作：批量打标 / 移动 / 改状态 / 建集合）。
+- 用户痛点：只能跑死板的预设，无法表达「把所有 AI 论文归到一个新集合并打 `LLM`/`agent` 标签，已读的别动」这类组合意图。
+
+### 目标
+
+1. 保留并增强「一键整理」（现有模式不回退）。
+2. 新增「对话整理」：自然语言指令 → AI 规划 → 调工具真实改动库 → 流式回报做了什么 → 用户可继续追加指令。
+3. 覆盖三类内容：**书签、笔记、外部连接**（统一对话界面，按 scope 切换数据源）。
+
+### 非目标（本期不做）
+
+- 不做跨用户 / 团队级整理（仅当前用户自己的库）。
+- 不做自动定时整理（仅用户主动触发）。
+- 不做整理动作的多步「撤销栈」（仅对破坏性动作做执行前确认，见 §8）。
+
+---
+
+## 2. 范围
+
+| 数据源                         | 读                       | 写（整理动作）                                       | 底层既有能力                                |
+| ------------------------------ | ------------------------ | ---------------------------------------------------- | ------------------------------------------- |
+| 书签（collections/resources）  | 列集合 / 列条目 / 看标签 | 建集合、批量打标、移动、改读状态、AI 分类建议        | `collections.service` + `ai-file-organizer` |
+| 笔记（notes）                  | 列笔记 / 标签            | 打标、归集、要点/关联（复用现有一键能力的底层）      | `notes` 模块                                |
+| 外部连接（Notion/GDrive/飞书） | 列已同步内容             | **本期只读 + 归类到集合/知识库**（不回写第三方平台） | 各 integration 同步产物                     |
+
+> 写操作的「破坏性」分级见 §8；外部平台**只读**是硬约束（不回写第三方）。
+
+---
+
+## 3. 架构设计
+
+### 3.1 总体（复用 AI Ask 流式范式 + Engine 原生 Function Calling）
+
+```
+前端「对话整理」面板
+   │  POST /library/organize-chat/stream   (SSE)
+   ▼
+OrganizeChatController (SSE)
+   │  for await event of service.run(...)
+   ▼
+OrganizeChatService.run()  ── async generator，产出 SSE 事件 ──┐
+   │  循环（最多 N 轮）：                                      │
+   │   ChatFacade.chat({ messages, tools, taskProfile })       │ events:
+   │     ├─ 有 toolCalls → 执行 organize 工具 → 结果回灌 messages │  status / tool / chunk / done / error
+   │     └─ 无 toolCalls → 产出最终回复，结束                    │
+   ▼                                                            ▼
+organize-tools.ts （FunctionDefinition[] + 执行器）        前端逐条渲染：
+   映射 name → CollectionsService / AiFileOrganizerService /   「正在分类… / 已建集合 X / 已给 12 条打标 LLM」
+   NotesService 既有方法（薄封装，不重造）
+```
+
+### 3.2 关键决策（ADR 摘要，详见 ADR-006）
+
+| 决策                    | 选择                                                                                   | 理由                                                                                                                                                         |
+| ----------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Function Calling 怎么跑 | **`ChatFacade.chat({tools})` + 服务内薄 tool-loop**（不进 ai-harness 的 agent runner） | Engine 原生支持 `tools`/`toolCalls`；organize 是 ai-app 的「聊天改库」，不是 agent mission；用 harness executor 是跨层 + 过度。符合「单一职责 + 不过度抽象」 |
+| 工具注册                | **不进全局 ToolRegistry**，本模块内联 `FunctionDefinition[]` + switch 执行器           | 这些工具是 library 专属、强权限绑定（userId），不需要全局可发现性                                                                                            |
+| 流式                    | SSE（同 AI Ask）+ **代理兜底**（无 done 时 GET 对账，见已立 `ai-ask-stream` 经验）     | 与近期代理掐断治理一致                                                                                                                                       |
+| 写操作落点              | 工具薄封装 `CollectionsService` 等**既有方法**（带 userId 鉴权），不新写 SQL           | 不重造、复用已测的批量写                                                                                                                                     |
+
+### 3.3 后端模块结构（新建）
+
+```
+backend/src/modules/ai-app/library/organize-chat/
+├── organize-chat.module.ts        imports: CollectionsModule, AiFileOrganizerModule, NotesModule, AIEngine(ChatFacade)
+├── organize-chat.controller.ts    @Post(':scope/stream') SSE；@Throttle；JwtAuthGuard
+├── organize-chat.service.ts       run(): async generator（chat+tool loop）
+├── organize-tools.ts              ORGANIZE_TOOLS: FunctionDefinition[]；executeOrganizeTool(name,args,ctx)
+└── dto/organize-chat.dto.ts       { message, scope, conversationHistory, collectionId? }
+```
+
+### 3.4 工具目录（FunctionDefinition）
+
+| 工具                                    | 入参                                              | 映射                                            | sideEffect |
+| --------------------------------------- | ------------------------------------------------- | ----------------------------------------------- | ---------- |
+| `list_collections`                      | —                                                 | `getUserCollections(userId)`                    | none       |
+| `list_items`                            | `{collectionId?, status?, limit?}`                | `getCollection`/`getCollectionItemsPaginated`   | none       |
+| `create_collection`                     | `{name, description?, icon?, color?}`             | `createCollection`                              | idempotent |
+| `tag_items`                             | `{itemIds[], tags[], operation:add\|remove\|set}` | `batchUpdateTags`                               | idempotent |
+| `move_items`                            | `{itemIds[], targetCollectionId}`                 | `batchMoveItems`                                | idempotent |
+| `set_status`                            | `{itemIds[], status}`                             | `batchUpdateStatus`                             | idempotent |
+| `suggest_classification`                | `{itemIds?}`                                      | `ai-file-organizer.analyze`（只给建议，不落地） | none       |
+| （笔记/外部同形工具，scope 切换数据源） |                                                   | `NotesService` / 同步产物只读                   |            |
+
+> 工具入参全部以 `userId`（从 SSE 鉴权上下文注入，**不信任 LLM 传的 userId**）做行级过滤。
+
+---
+
+## 4. 前端设计
+
+- `AIOrganizePanel` 顶部加模式切换：**一键整理 | 对话整理**（canonical `Tabs`）。
+- 「对话整理」= 轻量聊天区（消息流 + 输入框），复用 AI Ask 的流式消费 + **代理兜底对账**（`reconcile`）。
+- AI 的工具动作以**结构化卡片**呈现：`已建集合「AI 论文」` / `给 12 条打标 +LLM` / `移动 8 条 → AI 论文`，可点进对应集合。
+- 破坏性动作（删除/清空类，本期范围内仅潜在的 set/remove 大批量）→ 执行前 inline 确认（复用全局 `confirm`）。
+- 卡片/态/弹层全部走 canonical（标准 22），网格走 `CardGrid`，不自写。
+
+---
+
+## 5. 数据流 / 时序（对话一轮）
+
+```
+用户输入 → POST .../organize-chat/bookmarks/stream
+ → status: planning
+ → chat() → toolCalls:[list_items] → 执行 → tool: 已读取 34 条
+ → chat() → toolCalls:[create_collection, move_items, tag_items] → 执行 → tool×3
+ → chat() → 无 toolCall → chunk(最终总结) → done(本轮 messages 持久化到会话)
+（流被代理掐断 → 前端 GET 对账最近会话消息恢复，同 ai-ask）
+```
+
+---
+
+## 6. 安全 / 权限 / 破坏性操作
+
+- 全部工具调用强制注入服务端 `userId`，行级过滤；LLM 不能越权改他人数据。
+- 破坏性分级（`sideEffect`）：本期以 `idempotent` 为主；任何「批量 set 覆盖标签 / 移动大批量 / 删除」在前端执行前 `confirm`。
+- 输入：`message` class-validator 校验；`scope` 枚举；`itemIds` 服务端校验归属。
+- 配额：复用 credits（整理 = 一次 LLM 调用 + 工具，计费同 ai-ask `operationType: 'organize'`）。
+
+---
+
+## 7. 分阶段交付 + 验收标准（强成功标准）
+
+| 阶段                       | 内容                                                   | 验收（可独立验证）                                                                                        |
+| -------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| **P1 后端框架 + 书签工具** | module/controller/service/tools；书签 6 工具；SSE+对账 | 单测：tool-loop 给定 mock chat 返回 toolCalls → 正确执行 + 产出 done；`npx tsc` 0；一条指令端到端改动书签 |
+| **P2 前端对话模式**        | 面板 Tabs + 聊天区 + 工具卡片 + 代理兜底               | 真机：选书签→对话「建集合并打标」→看到工具卡片 + 库实际变化；audit/lint 0                                 |
+| **P3 笔记 + 外部**         | NotesService 工具 + 外部只读归类                       | 三个 scope 都能对话整理；外部不回写第三方（断言无写第三方调用）                                           |
+| **P4 加固**                | 破坏性确认、配额、错误路径、i18n                       | 交付前自检清单全过                                                                                        |
+
+---
+
+## 8. 风险与缓解
+
+| 风险                 | 缓解                                                                   |
+| -------------------- | ---------------------------------------------------------------------- |
+| LLM 误改大批量数据   | userId 行级过滤 + 破坏性动作前端确认 + 工具入参服务端校验归属          |
+| 条目过多撑爆 context | `list_items` 分页 + 默认只取必要字段（id/title/tags/collection）+ 上限 |
+| 代理掐断流           | 复用 ai-ask 对账兜底（已验证范式）                                     |
+| tool-loop 死循环     | 最大轮次上限 + 每轮无进展即终止                                        |
+| 与一键模式重复       | 一键 = 对话的「预设快捷指令」，底层共用工具，不双写逻辑                |
+
+---
+
+## 9. 评审清单 / 待确认
+
+- [ ] 破坏性动作清单与确认粒度（逐条 vs 批量一次确认）是否符合预期？
+- [ ] 外部连接「只读 + 归类到本地集合/知识库」是否够用，还是需要回写第三方（明确不做）？
+- [ ] 计费：整理一轮按 1 次 ai-ask 计，还是按工具调用数计？
+- [ ] 会话持久化：对话整理是否复用 `AskSession` 表，还是独立 `OrganizeSession`？（建议独立，避免污染 ai-ask 会话列表）
+- [ ] tool-loop 最大轮次 N（建议 6）。
+
+```
+
+```
