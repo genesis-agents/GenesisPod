@@ -36,6 +36,13 @@ interface Collection {
 /** 仅 3 个真实子数据源——其余 tab 分支已废弃（2026-05-20 全面重构） */
 type OrganizeTab = 'bookmarks' | 'notes' | 'images';
 
+/** 数据源统一整理：tab → 精确源类型（驱动后端跨源整理工具流）。 */
+const TAB_ITEM_TYPE: Record<OrganizeTab, 'BOOKMARK' | 'NOTE' | 'IMAGE'> = {
+  bookmarks: 'BOOKMARK',
+  notes: 'NOTE',
+  images: 'IMAGE',
+};
+
 interface AIOrganizePanelProps {
   collections: Collection[];
   onRefresh: () => void;
@@ -548,15 +555,14 @@ export default function AIOrganizePanel({
           </div>
         </button>
         <div className="flex flex-shrink-0 items-center gap-1">
-          {activeTab === 'bookmarks' && (
-            <button
-              onClick={() => setChatOpen(true)}
-              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50"
-            >
-              <MessageSquare className="h-4 w-4" />
-              对话整理
-            </button>
-          )}
+          {/* 数据源统一整理：书签/笔记/图片均可对话整理 */}
+          <button
+            onClick={() => setChatOpen(true)}
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50"
+          >
+            <MessageSquare className="h-4 w-4" />
+            对话整理
+          </button>
           <button
             onClick={runAll}
             disabled={anyRunning}
@@ -701,15 +707,13 @@ export default function AIOrganizePanel({
         </div>
       )}
 
-      {/* 对话整理浮层（canonical LeaderChatDock；P1 仅书签） */}
-      {activeTab === 'bookmarks' && (
-        <OrganizeChatMode
-          open={chatOpen}
-          onClose={() => setChatOpen(false)}
-          scope="BOOKMARKS"
-          onChanged={fetchStats}
-        />
-      )}
+      {/* 对话整理浮层（canonical LeaderChatDock）：书签/笔记/图片统一入口 */}
+      <OrganizeChatMode
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        itemType={TAB_ITEM_TYPE[activeTab]}
+        onChanged={fetchStats}
+      />
 
       {/* 结果弹层（笔记 / 图片类） */}
       <Modal

@@ -40,6 +40,8 @@ export type OrganizeStreamEvent =
 export interface OrganizeStreamRequestBody {
   message: string;
   scope?: 'BOOKMARKS' | 'NOTES' | 'EXTERNAL';
+  /** 精确数据源类型（数据源统一整理）：驱动后端跨源整理工具流 */
+  itemType?: 'BOOKMARK' | 'NOTE' | 'IMAGE' | 'FEISHU' | 'NOTION' | 'DRIVE';
   sessionId?: string;
   collectionId?: string;
   modelId?: string;
