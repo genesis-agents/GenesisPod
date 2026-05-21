@@ -75,6 +75,17 @@ Windows + 大型 backend 项目 + lint-staged 内置 jest --runInBand --bail 的
 - facade barrel circular bug 已修（[[feedback_facade_barrel_module_cycle]]）—— image-generation / admin spec 不再撞
 - jest --changedSince 模式只要 cwd 在 backend/ 就正常工作
 
+**变体：OOM 崩溃（非 hang）+ 多 session 并发（2026-05-21）**：
+
+- 表现不是 hang 而是 **pre-commit 直接 V8 崩溃**（堆栈 `v8::String::Utf8Value` / `uv_timer_set_repeat` / `SystemClockTimeMillis`，husky exit 1），lint-staged 的 eslint typed-linting 在系统内存压力下 OOM。
+- **此时严禁 mass-kill node**：实测 27 个 node.exe 全是**活的并发 session**（`Get-CimInstance Win32_Process` 查 ParentProcessId，dead-parent 孤儿 = 0）。`taskkill /im node.exe` 会杀掉**自己这个 Claude 会话 + 别 session 的未提交工作**。dead-parent 孤儿检测能精确区分，但本例 0 孤儿 = 没有可杀的。
+- **正解（gate 仍跑、不绕过、不杀进程）**：给 hook 的 node 提堆 →
+  ```bash
+  NODE_OPTIONS='--max-old-space-size=6144' git commit -F - <<'MSG' ... MSG
+  NODE_OPTIONS='--max-old-space-size=6144' git push origin main
+  ```
+  child eslint/jest 继承 NODE_OPTIONS → 不再 OOM → lint-staged 干净跑完（"Applying modifications / Cleaning up" + 自动 pop backup stash）。**优先于 --no-verify**（这是让 gate 正常跑，不是跳过）。
+
 **关键警示**：
 
 - `npx jest --clearCache` 不修 `--changedSince` 报 "Cannot use import statement outside a module" —— 那是 cwd 错误（没 cd 到 backend/）+ 没找到 jest.config.js → fallback 默认配置无 ts-jest transform。**先验证 cwd**
