@@ -11,6 +11,7 @@ import {
   Loader2,
   Database,
   Check,
+  MessageSquare,
 } from 'lucide-react';
 import {
   getConnections,
@@ -46,12 +47,15 @@ import {
 import { NotionPageRow } from './NotionPageRow';
 import { AiOrganizeButton } from '@/components/common/ai-organizer/AiOrganizeButton';
 import { AiOrganizePanel } from '@/components/common/ai-organizer/AiOrganizePanel';
+import { OrganizeChatMode } from '@/components/library/OrganizeChatMode';
 import type { FileInfo } from '@/services/ai-organizer/api';
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import { confirm } from '@/stores';
 
 export default function NotionTabContent() {
   const router = useRouter();
+  // 数据源统一整理：Notion 对话整理浮层开关
+  const [organizeChatOpen, setOrganizeChatOpen] = useState(false);
   const [connections, setConnections] = useState<NotionConnection[]>([]);
   const [syncStatuses, setSyncStatuses] = useState<SyncStatus[]>([]);
   const [pages, setPages] = useState<NotionPage[]>([]);
@@ -532,6 +536,14 @@ export default function NotionTabContent() {
 
           {/* 右侧：同步控件和设置 */}
           <div className="flex items-center gap-3">
+            {/* 数据源统一整理：Notion 页面对话整理 */}
+            <button
+              onClick={() => setOrganizeChatOpen(true)}
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50"
+            >
+              <MessageSquare className="h-4 w-4" />
+              对话整理
+            </button>
             <SyncControls
               status={
                 syncStatuses.some((s) => s.isSyncing)
@@ -1106,6 +1118,13 @@ export default function NotionTabContent() {
           title="AI Page Organization"
         />
       </SideDrawer>
+
+      {/* 数据源统一整理：Notion 页面对话整理浮层 */}
+      <OrganizeChatMode
+        open={organizeChatOpen}
+        onClose={() => setOrganizeChatOpen(false)}
+        itemType="NOTION"
+      />
     </div>
   );
 }

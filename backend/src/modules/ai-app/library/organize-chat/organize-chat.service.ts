@@ -164,7 +164,13 @@ export class OrganizeChatService {
     const modelConfig = await this.getModelConfig(dto.modelId);
 
     // 5. 组装 organize agent：systemPrompt + roleId 隔离 context
-    const systemPrompt = this.buildSystemPrompt(scope, dto.conversationHistory);
+    //    精确源类型优先用 dto.itemType（前端按 tab 传）；否则按粗粒度 scope 兜底。
+    const itemType =
+      dto.itemType ?? (scope === OrganizeScope.NOTES ? "NOTE" : "BOOKMARK");
+    const systemPrompt = this.buildSystemPrompt(
+      itemType,
+      dto.conversationHistory,
+    );
     const capabilityContext: AICapabilityContext = {
       agentId: `organize-${session.id}`,
       userId,
@@ -319,24 +325,40 @@ export class OrganizeChatService {
   }
 
   private buildSystemPrompt(
-    scope: OrganizeScope,
+    itemType: string,
     history?: Array<{ role: string; content: string }>,
   ): string {
-    const scopeLabel =
-      scope === OrganizeScope.NOTES
-        ? "笔记"
-        : scope === OrganizeScope.EXTERNAL
-          ? "外部连接内容"
-          : "书签";
+    const label = ORGANIZE_TYPE_LABEL[itemType] ?? ORGANIZE_TYPE_LABEL.BOOKMARK;
+    // 笔记/图片/飞书：源条目不在集合里，需先 list-source-items → assign 纳入集合，
+    //   再用 collectionItemId 打标/标状态（书签则条目已在集合，直接 list-items）。
+    const isSource =
+      itemType === "NOTE" ||
+      itemType === "IMAGE" ||
+      itemType === "FEISHU" ||
+      itemType === "NOTION" ||
+      itemType === "DRIVE";
     const lines = [
-      `你是用户资料库的「${scopeLabel}」整理助手。根据用户的自然语言指令，调用工具真实整理用户的库。`,
+      `你是用户资料库的「${label}」整理助手。根据用户的自然语言指令，调用工具真实整理用户的库。整理只在本地"整理覆盖层"进行（分集合/打标签/标状态），绝不修改源数据本身（不改笔记正文、不改图片、不写回外部平台）。`,
       "规则：",
-      "1. 先用 organize-list-collections / organize-list-items 了解现状，再做写操作。",
-      "2. 写工具（打标/移动/改状态）的 itemIds 必须来自 organize-list-items 实际返回的 id，不得编造。",
-      "3. 严格遵守用户的限定条件（如「已读的别动」→ 先按 status 过滤再操作）。",
-      "4. 单次写操作最多 100 条；超出请分批并说明。",
-      "5. 完成后用简洁中文总结你做了什么（建了哪些集合、给多少条打了什么标签/移动到哪）。",
     ];
+    if (isSource) {
+      lines.push(
+        `1. 先用 organize-list-source-items（itemType="${itemType}"）了解该源现状——每条返回 sourceId（源 id）、collectionItemId（已纳入集合时的整理 id，未纳入为 null）、所在集合、tags、状态。`,
+        "2. 需要新集合时用 organize-create-collection；用 organize-list-collections 查已有集合。",
+        "3. 把条目纳入集合：organize-assign-items（itemType 同上，sourceIds 来自第 1 步的 sourceId，collectionId 为目标集合）→ 返回 collectionItemIds。",
+        "4. 打标签/标状态：organize-tag-items / organize-set-status，itemIds 用 collectionItemId（来自第 1 步已纳入的，或第 3 步 assign 返回的）。",
+        "5. 所有 id 必须来自工具实际返回，不得编造；单次写操作最多 100 条，超出分批。",
+        "6. 完成后用简洁中文总结你做了什么（建了哪些集合、把多少条纳入、打了什么标签/标了什么状态）。",
+      );
+    } else {
+      lines.push(
+        "1. 先用 organize-list-collections / organize-list-items 了解现状，再做写操作。",
+        "2. 写工具（打标/移动/改状态）的 itemIds 必须来自 organize-list-items 实际返回的 id，不得编造。",
+        "3. 严格遵守用户的限定条件（如「已读的别动」→ 先按 status 过滤再操作）。",
+        "4. 单次写操作最多 100 条；超出请分批并说明。",
+        "5. 完成后用简洁中文总结你做了什么（建了哪些集合、给多少条打了什么标签/移动到哪）。",
+      );
+    }
     if (history && history.length > 0) {
       lines.push("", "对话历史（供延续上下文）：");
       for (const m of history.slice(-20)) {
@@ -346,3 +368,12 @@ export class OrganizeChatService {
     return lines.join("\n");
   }
 }
+
+const ORGANIZE_TYPE_LABEL: Record<string, string> = {
+  BOOKMARK: "书签",
+  NOTE: "笔记",
+  IMAGE: "图片",
+  FEISHU: "飞书",
+  NOTION: "Notion",
+  DRIVE: "Google Drive",
+};

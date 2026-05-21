@@ -2,6 +2,7 @@ import {
   IsString,
   IsOptional,
   IsEnum,
+  IsIn,
   IsArray,
   ArrayMaxSize,
   MaxLength,
@@ -26,10 +27,20 @@ export class OrganizeChatDto {
   @MaxLength(4000)
   message!: string;
 
-  /** 整理范围；P1 仅 BOOKMARKS 有工具，notes/external 待 P3 */
+  /** 整理范围（粗粒度，作 session 标签）：BOOKMARKS / NOTES / EXTERNAL */
   @IsOptional()
   @IsEnum(OrganizeScope)
   scope?: OrganizeScope;
+
+  /**
+   * 精确数据源类型（前端按当前 tab 传）：驱动跨源整理工具流。
+   * BOOKMARK/DRIVE 走集合视图；NOTE/IMAGE/FEISHU 走 list-source-items + assign。
+   * 不传则按书签处理（向后兼容）。
+   */
+  @IsOptional()
+  @IsString()
+  @IsIn(["BOOKMARK", "NOTE", "IMAGE", "FEISHU", "NOTION", "DRIVE"])
+  itemType?: string;
 
   /** 续聊已有会话；不传则新建 */
   @IsOptional()

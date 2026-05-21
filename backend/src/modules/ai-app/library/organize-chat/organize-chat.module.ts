@@ -17,6 +17,8 @@ import {
   OrganizeTagItemsTool,
   OrganizeMoveItemsTool,
   OrganizeSetStatusTool,
+  OrganizeListSourceItemsTool,
+  OrganizeAssignItemsTool,
 } from "./tools/organize-bookmark-tools";
 
 @Module({
@@ -42,6 +44,8 @@ export class OrganizeChatModule implements OnModuleInit {
     private readonly tagItems: OrganizeTagItemsTool,
     private readonly moveItems: OrganizeMoveItemsTool,
     private readonly setStatus: OrganizeSetStatusTool,
+    private readonly listSourceItems: OrganizeListSourceItemsTool,
+    private readonly assignItems: OrganizeAssignItemsTool,
   ) {}
 
   async onModuleInit() {
@@ -52,6 +56,8 @@ export class OrganizeChatModule implements OnModuleInit {
       this.tagItems,
       this.moveItems,
       this.setStatus,
+      this.listSourceItems,
+      this.assignItems,
     ];
 
     // 注册到全局 ToolRegistry（register 内部对已注册者幂等跳过）

@@ -11,8 +11,20 @@
 import { Injectable } from "@nestjs/common";
 import { BaseTool } from "@/modules/ai-harness/facade/base-classes";
 import type { ToolContext, JSONSchema } from "@/modules/ai-engine/facade";
-import { CollectionsService } from "../../collections/collections.service";
+import {
+  CollectionsService,
+  type OrganizeItemType,
+} from "../../collections/collections.service";
 import { ReadStatus } from "../../collections/dto/update-item.dto";
+
+/** 数据源统一整理：非书签源（笔记/图片/飞书/Notion/Drive）的可整理类型。 */
+const ORGANIZE_SOURCE_TYPES: readonly OrganizeItemType[] = [
+  "NOTE",
+  "IMAGE",
+  "FEISHU",
+  "NOTION",
+  "DRIVE",
+] as const;
 
 /** 写操作单次最大条目数（评审安全加固：超限拒绝，不截断，避免部分执行状态不一致）*/
 const MAX_BATCH_ITEMS = 100;
@@ -32,6 +44,14 @@ function assertBatchSize(itemIds: string[]): void {
   if (itemIds.length > MAX_BATCH_ITEMS) {
     throw new Error(
       `单次最多操作 ${MAX_BATCH_ITEMS} 条（收到 ${itemIds.length}），请缩小范围分批处理`,
+    );
+  }
+}
+
+function assertSourceType(itemType: OrganizeItemType): void {
+  if (!ORGANIZE_SOURCE_TYPES.includes(itemType)) {
+    throw new Error(
+      `organize: 不支持的源类型 ${itemType}（跨源工具仅支持 NOTE/IMAGE/FEISHU；书签用 organize-list-items）`,
     );
   }
 }
@@ -333,6 +353,109 @@ export class OrganizeSetStatusTool extends BaseTool<SetStatusInput> {
   }
 }
 
+// ───────────────────── 数据源统一整理：跨源工具 ─────────────────────
+
+interface ListSourceItemsInput {
+  itemType: OrganizeItemType;
+  limit?: number;
+}
+
+@Injectable()
+export class OrganizeListSourceItemsTool extends BaseTool<ListSourceItemsInput> {
+  readonly id = "organize-list-source-items";
+  readonly name = "List Source Items";
+  readonly description =
+    "列出某数据源（NOTE 笔记 / IMAGE 图片 / FEISHU 飞书）的条目及本地整理状态。返回 sourceId（源条目 id，给 organize-assign-items 用）、collectionItemId（已纳入集合时的整理 id，给 organize-tag-items / organize-set-status 用，未纳入为 null）、所在集合、tags、状态。书签请改用 organize-list-items。";
+  readonly category = "information";
+  readonly tags = ["organize"];
+  readonly sideEffect = "none" as const;
+  readonly inputSchema: JSONSchema = {
+    type: "object",
+    properties: {
+      itemType: {
+        type: "string",
+        enum: ["NOTE", "IMAGE", "FEISHU", "NOTION", "DRIVE"],
+      },
+      limit: { type: "number", description: "默认 30，最大 100" },
+    },
+    required: ["itemType"],
+  };
+  readonly outputSchema: JSONSchema = {
+    type: "object",
+    properties: { items: { type: "array" }, total: { type: "number" } },
+  };
+
+  constructor(private readonly collections: CollectionsService) {
+    super();
+  }
+
+  protected async doExecute(
+    input: ListSourceItemsInput,
+    context: ToolContext,
+  ): Promise<unknown> {
+    const userId = requireUserId(context);
+    assertSourceType(input.itemType);
+    return this.collections.listOrganizableItems(userId, input.itemType, {
+      limit: input.limit,
+    });
+  }
+}
+
+interface AssignItemsInput {
+  itemType: OrganizeItemType;
+  sourceIds: string[];
+  collectionId: string;
+}
+
+@Injectable()
+export class OrganizeAssignItemsTool extends BaseTool<AssignItemsInput> {
+  readonly id = "organize-assign-items";
+  readonly name = "Assign Items To Collection";
+  readonly description =
+    "把一批源条目（笔记/图片/飞书）纳入某集合（建本地整理覆盖层，不动源数据）。sourceIds 必须来自 organize-list-source-items 返回的 sourceId；targetCollectionId 来自 organize-list-collections 或 organize-create-collection。返回 collectionItemIds，可直接传给 organize-tag-items / organize-set-status。";
+  readonly category = "processing";
+  readonly tags = ["organize"];
+  readonly sideEffect = "idempotent" as const;
+  readonly inputSchema: JSONSchema = {
+    type: "object",
+    properties: {
+      itemType: {
+        type: "string",
+        enum: ["NOTE", "IMAGE", "FEISHU", "NOTION", "DRIVE"],
+      },
+      sourceIds: {
+        type: "array",
+        items: { type: "string" },
+        maxItems: MAX_BATCH_ITEMS,
+      },
+      collectionId: { type: "string" },
+    },
+    required: ["itemType", "sourceIds", "collectionId"],
+  };
+  readonly outputSchema: JSONSchema = {
+    type: "object",
+    properties: { collectionItemIds: { type: "array" } },
+  };
+
+  constructor(private readonly collections: CollectionsService) {
+    super();
+  }
+
+  protected async doExecute(
+    input: AssignItemsInput,
+    context: ToolContext,
+  ): Promise<unknown> {
+    const userId = requireUserId(context);
+    assertSourceType(input.itemType);
+    assertBatchSize(input.sourceIds);
+    return this.collections.assignItemsToCollection(userId, {
+      itemType: input.itemType,
+      sourceIds: input.sourceIds,
+      collectionId: input.collectionId,
+    });
+  }
+}
+
 /** 本域全部工具（供模块 onModuleInit 注册到 ToolRegistry）*/
 export const ORGANIZE_BOOKMARK_TOOL_PROVIDERS = [
   OrganizeListCollectionsTool,
@@ -341,6 +464,8 @@ export const ORGANIZE_BOOKMARK_TOOL_PROVIDERS = [
   OrganizeTagItemsTool,
   OrganizeMoveItemsTool,
   OrganizeSetStatusTool,
+  OrganizeListSourceItemsTool,
+  OrganizeAssignItemsTool,
 ];
 
 /** organize agent 专用 roleId（DB ToolConfig.allowedRoles 配此值实现隔离）*/

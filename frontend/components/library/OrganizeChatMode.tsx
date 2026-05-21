@@ -46,24 +46,42 @@ function ToolActionRow({ action }: { action: OrganizeToolAction }) {
   );
 }
 
-const SCOPE_LABEL: Record<
-  NonNullable<OrganizeStreamRequestBody['scope']>,
-  string
-> = {
-  BOOKMARKS: '书签',
-  NOTES: '笔记',
-  EXTERNAL: '外部连接',
+/** 数据源统一整理：精确源类型（与后端 OrganizeItemType 对齐）。 */
+type OrganizeItemTypeUI =
+  | 'BOOKMARK'
+  | 'NOTE'
+  | 'IMAGE'
+  | 'FEISHU'
+  | 'NOTION'
+  | 'DRIVE';
+
+const ITEM_TYPE_LABEL: Record<OrganizeItemTypeUI, string> = {
+  BOOKMARK: '书签',
+  NOTE: '笔记',
+  IMAGE: '图片',
+  FEISHU: '飞书',
+  NOTION: 'Notion',
+  DRIVE: 'Google Drive',
 };
+
+/** 精确类型 → 后端粗粒度 scope（仅作 session 标签；行为由 itemType 驱动）。 */
+function itemTypeToScope(
+  itemType: OrganizeItemTypeUI
+): NonNullable<OrganizeStreamRequestBody['scope']> {
+  if (itemType === 'NOTE') return 'NOTES';
+  if (itemType === 'FEISHU' || itemType === 'NOTION') return 'EXTERNAL';
+  return 'BOOKMARKS';
+}
 
 export function OrganizeChatMode({
   open,
   onClose,
-  scope = 'BOOKMARKS',
+  itemType = 'BOOKMARK',
   onChanged,
 }: {
   open: boolean;
   onClose: () => void;
-  scope?: OrganizeStreamRequestBody['scope'];
+  itemType?: OrganizeItemTypeUI;
   onChanged?: () => void;
 }) {
   const { user, accessToken: token } = useAuth();
@@ -120,7 +138,12 @@ export function OrganizeChatMode({
 
       const result = await streamOrganizeMessage(
         token,
-        { message: text, scope, sessionId },
+        {
+          message: text,
+          scope: itemTypeToScope(itemType),
+          itemType,
+          sessionId,
+        },
         onEvent
       );
       setSending(false);
@@ -148,7 +171,7 @@ export function OrganizeChatMode({
         }));
       }
     },
-    [token, scope, sessionId, onChanged]
+    [token, itemType, sessionId, onChanged]
   );
 
   const renderTools = (msg: LeaderChatMessage) => {
@@ -172,7 +195,7 @@ export function OrganizeChatMode({
       error={error}
       onSend={handleSend}
       title="AI 整理助手"
-      subtitle={`对话整理 · ${SCOPE_LABEL[scope ?? 'BOOKMARKS']}`}
+      subtitle={`对话整理 · ${ITEM_TYPE_LABEL[itemType]}`}
       accentColor="violet"
       assistantName="整理助手"
       userName={userName}
