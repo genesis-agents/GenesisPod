@@ -191,10 +191,18 @@ function checkR1AppShell(file: string, src: string): Violation[] {
 // 不适配。类型：3 列统计卡网格（检测器误触内层 chip .map）、admin 层配置卡（admin 自成
 // 设计系统，非 app 用户资源语义）。
 const R2_BESPOKE_OK = [
-  // TrendReport 已迁 StatCard（2026-05-20），不再自写卡，移出 allowlist。
   "app/admin/system/notifications/content.tsx", // 统计卡 + admin 广播表单面板
   "app/admin/system/mcp-server/content.tsx", // admin MCP server 配置卡(admin 自成设计系统)
   "app/ai-radar/topic/[topicId]/runs/[runId]/page.tsx", // StageTaskBoard 流水线阶段任务表(状态徽章+指标+点击抽屉)，非资产列表
+  // 加固后逐源核验（2026-05-20）：均为合法独立卡型，AssetCard 不适配（横版/CTA/日志行/
+  // 可折叠面板/实时状态/admin stat），非「应迁 AssetCard」债务。卡设计系统多卡型留痕。
+  "components/library/knowledge-base/CreateKnowledgeBaseCard.tsx", // 虚线「新建」占位 CTA 卡（非实体卡）
+  "components/library/wiki/WikiActivityDrawer.tsx", // WikiLogCard：活动日志 <li> 行（非实体卡）
+  "components/ai-research/discussion/TrendReport.tsx", // TrendCard：可展开技术趋势卡（方向/成熟度域内可视化）
+  "components/ai-image/components/InsightCard.tsx", // 可折叠洞察面板（标题+图标+展开内容）
+  "components/ai-image/ImageGenerator.tsx", // 同款 InsightCard 可折叠洞察面板（内联）
+  "components/agent-playground/AgentLiveGrid.tsx", // AgentCard：实时 agent 状态卡（role/trace/耗时）
+  "app/admin/ai/dreaming/content.tsx", // 内联 StatCard：统计卡（admin 自成设计系统）
 ];
 
 // 卡片三件套（顺序无关，堵旧版「固定顺序」洞）。两版：
@@ -206,6 +214,10 @@ const CARD_CLASS_ANY =
   /className\s*=\s*[`"'](?=[^`"']*\brounded-(?:lg|xl|2xl|3xl)\b)(?=[^`"']*\bborder\b)(?=[^`"']*\bbg-(?:white|gray-50|slate-50|neutral-50)\b)[^`"']*[`"']/;
 const CARD_COMPONENT_G = /(?:const|function)\s+(\w*Card\w*)\s*[=(]/g;
 const TITLE_SIGNAL = /font-(?:semibold|bold|medium)|<h[34]\b/;
+// 卡设计系统已认的 canonical 卡型——组件体内用了其一即非自写卡（是合法包装）。
+// R2 不再「一切列表卡 → AssetCard」，而是认这一组多卡型；只揪三不像的真自写卡。
+const CANONICAL_CARD_USE =
+  /<(?:AssetCard|StatCard|MessageCardShell|SectionPanelCard|SettingsSectionCard|FeedCard|CitationListItem)\b/;
 
 // 收集「在 .map 里被渲染为列表项」的组件名（每个 .map( 后 ~500 字符内的 <Capitalized 标签）。
 // 用于把 R2 形态 B 收敛到「真·列表项卡」，排除配置/汇总/设置等非列表的域内卡。
@@ -265,7 +277,7 @@ function checkR2AssetCard(
       start,
       start + 1 + (nextDecl >= 0 ? Math.min(nextDecl, 2600) : 2600)
     );
-    if (/<AssetCard\b/.test(body)) continue; // 已用 canonical
+    if (CANONICAL_CARD_USE.test(body)) continue; // 已用 canonical 卡型（多卡型识别）
     if (!CARD_CLASS_ANY.test(body)) continue; // 根节点非自写卡
     if (!TITLE_SIGNAL.test(body)) continue; // 无标题信号（非实体卡）
     const line = src.slice(0, start).split("\n").length;
