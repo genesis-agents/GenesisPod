@@ -8,6 +8,7 @@ import { OnEvent } from "@nestjs/event-emitter";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Server, Socket } from "socket.io";
 import { JwtService } from "@nestjs/jwt";
+import { wsCorsOrigin } from "@/common/config/ws-cors";
 
 interface JwtPayload {
   sub?: string;
@@ -56,7 +57,7 @@ interface NotificationBroadcastEvent {
  */
 @WebSocketGateway({
   namespace: "notifications",
-  cors: { origin: "*", credentials: true },
+  cors: { origin: wsCorsOrigin, credentials: true },
 })
 export class NotificationGateway
   implements OnGatewayConnection, OnModuleDestroy

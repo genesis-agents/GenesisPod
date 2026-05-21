@@ -23,6 +23,7 @@ import {
 } from "@/modules/ai-harness/facade";
 import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
+import { wsCorsOrigin } from "@/common/config/ws-cors";
 
 interface JwtPayload {
   sub?: string;
@@ -32,7 +33,7 @@ interface JwtPayload {
 
 @WebSocketGateway({
   namespace: "agent-playground",
-  cors: { origin: "*", credentials: true },
+  cors: { origin: wsCorsOrigin, credentials: true },
 })
 export class AgentPlaygroundGateway implements OnGatewayInit {
   @WebSocketServer() io!: Server;

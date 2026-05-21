@@ -9,6 +9,24 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
+
+/**
+ * 判断是否为 ChunkLoadError（部署新版本后旧 chunk 被删 → 旧客户端 404 → MIME text/html）。
+ * 这类错误在 next/dynamic 组件渲染期抛出，会被 ErrorBoundary 捕获（而非 window.onerror），
+ * 所以这里也要识别并自动刷新拉取新构建，否则用户看到的是吓人的「出错了」。
+ */
+function isChunkLoadError(error: Error | null | undefined): boolean {
+  if (!error) return false;
+  const msg = error.message || '';
+  return (
+    error.name === 'ChunkLoadError' ||
+    /Loading chunk [\w-]+ failed/i.test(msg) ||
+    /ChunkLoadError/i.test(msg) ||
+    /Failed to fetch dynamically imported module/i.test(msg) ||
+    /'text\/html'.*not executable/i.test(msg)
+  );
+}
+
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
@@ -19,6 +37,7 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  isChunkError: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -28,6 +47,7 @@ export class ErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
+      isChunkError: false,
     };
   }
 
@@ -35,10 +55,29 @@ export class ErrorBoundary extends Component<Props, State> {
     return {
       hasError: true,
       error,
+      isChunkError: isChunkLoadError(error),
     };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    // ChunkLoadError = 部署新版本后旧客户端引用了已删除的 chunk。自动刷新拉新构建，
+    // 不当作崩溃上报、不显示「出错了」。10s 防抖（与 ChunkErrorHandler 共用同一 key）。
+    if (isChunkLoadError(error)) {
+      logger.warn('[ErrorBoundary] ChunkLoadError，自动刷新拉取新版本…');
+      try {
+        const key = 'chunk_error_last_reload';
+        const last = sessionStorage.getItem(key);
+        const now = Date.now();
+        if (!last || now - parseInt(last, 10) > 10000) {
+          sessionStorage.setItem(key, now.toString());
+          window.location.reload();
+        }
+      } catch {
+        window.location.reload();
+      }
+      return;
+    }
+
     // 记录错误到控制台
     logger.error('ErrorBoundary caught an error:', { error, errorInfo });
 
@@ -111,6 +150,17 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     if (this.state.hasError) {
+      // ChunkLoadError：刷新已在 componentDidCatch 触发，这里只显示轻量加载态，
+      // 不显示「出错了」（避免吓人 + 避免误导，因为这只是版本更新）。
+      if (this.state.isChunkError) {
+        return (
+          <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-50 px-4">
+            <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+            <p className="text-sm text-gray-600">正在加载新版本…</p>
+          </div>
+        );
+      }
+
       // 如果提供了自定义fallback，使用它
       if (this.props.fallback) {
         return this.props.fallback;

@@ -25,6 +25,7 @@ import {
   SocketBroadcastAdapter,
 } from "@/modules/ai-harness/facade";
 import { SocialMissionStore } from "./services/mission/lifecycle/social-mission-store.service";
+import { wsCorsOrigin } from "@/common/config/ws-cors";
 
 interface JwtPayload {
   sub?: string;
@@ -34,7 +35,7 @@ interface JwtPayload {
 
 @WebSocketGateway({
   namespace: "social",
-  cors: { origin: "*", credentials: true },
+  cors: { origin: wsCorsOrigin, credentials: true },
 })
 export class SocialGateway implements OnGatewayInit {
   @WebSocketServer() io!: Server;
