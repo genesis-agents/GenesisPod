@@ -89,12 +89,14 @@ CollectionItem（本地整理覆盖层）
 | W4 后端：Notion 页面（NotionPage）接入 + FK 迁移                                                     | ✅   | ab1d0dfac |
 | W4 前端：Notion tab 入口                                                                             | ✅   | 17fad4f6e |
 
-后端覆盖全部源（书签/笔记/图片/飞书/Notion）；前端入口覆盖 书签/笔记/图片/Notion。
+| W3 Drive 全栈：listOrganizableItems DRIVE 分支 + 前端 GoogleDriveTabContent 入口 | ✅ | 9409d1f1e |
 
-**剩余边角（小follow-up）**：
+**后端覆盖全部 6 源**（书签/笔记/图片/飞书/Notion/Drive）；**前端入口覆盖 书签/笔记/图片/Notion/Drive**。
 
-- 飞书前端入口：当前无 `FeishuTabContent` 组件（tab 在联合类型里但页面未渲染飞书）；后端已就绪，等飞书 tab UI 出现后比照 Notion 加一个「对话整理」按钮即可。
-- Google Drive：导入进集合的 Drive 文件已作为书签可整理；如需 Drive tab 独立入口，加 DRIVE 分支（list GoogleDriveImportedFile→Resource + 归属经 connection.userId）+ tab 按钮。
-- 各数据源列表视图统一展示"本地整理覆盖"（tags/集合/状态）：可后置。
+**唯一剩余（无法在本仓完成）**：
+
+- 飞书前端入口：仓库里**没有 `FeishuTabContent` 组件**（`feishu` 在 tab 联合类型里但页面未渲染它）；后端已就绪，等飞书 tab UI 出现后比照 Notion/Drive 加一个「对话整理」按钮即可（约 5 行）。
+
+**可后置增强**：各数据源列表视图统一展示"本地整理覆盖"（tags/集合/状态）。
 
 **合并**：本特性全在 worktree 分支 `worktree-feat-library-unified-organize`，由用户审阅后合回 main；含 2 个手写迁移（须 `prisma migrate deploy`）。
