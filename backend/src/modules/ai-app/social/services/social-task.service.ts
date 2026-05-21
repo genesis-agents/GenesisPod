@@ -9,6 +9,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialDataSourceRegistry } from "../registry/social-data-source.registry";
 import { ContentFetcherService } from "./content-fetcher.service";
 import { SocialPipelineDispatcher } from "./mission/workflow/social-pipeline-dispatcher.service";
+import { SocialEventBuffer } from "./mission/lifecycle/social-event-buffer.service";
 import { CreateSocialTaskDto } from "../dto/create-social-task.dto";
 import type {
   RawContentBag,
@@ -24,7 +25,29 @@ export class SocialTaskService {
     private readonly registry: SocialDataSourceRegistry,
     private readonly contentFetcher: ContentFetcherService,
     private readonly dispatcher: SocialPipelineDispatcher,
+    private readonly buffer: SocialEventBuffer,
   ) {}
+
+  /**
+   * 拉取该 social mission 的累积事件（前端 hydrate + polling 兜底）。
+   * 仿 agent-playground replay；事件源 = SocialEventBuffer（DomainEventBus adapter）。
+   * 鉴权：mission 必须属于该用户（按 missionId 查 task）。
+   */
+  async getMissionReplay(
+    missionId: string,
+    userId: string,
+    sinceTs?: number,
+  ): Promise<{ events: readonly unknown[]; serverNow: number }> {
+    const owned = await this.prisma.socialContentTask.findFirst({
+      where: { missionId, userId },
+      select: { id: true },
+    });
+    if (!owned) {
+      throw new NotFoundException("Mission not found");
+    }
+    const events = this.buffer.read(missionId, sinceTs);
+    return { events, serverNow: Date.now() };
+  }
 
   async createTask(
     dto: CreateSocialTaskDto,

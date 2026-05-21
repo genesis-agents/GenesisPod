@@ -49,6 +49,23 @@ export class SocialTaskController {
     });
   }
 
+  /** GET /ai-social/tasks/mission/:missionId/replay?since=<ts> — 累积事件水合（仿 playground replay） */
+  @Get("mission/:missionId/replay")
+  async replayMission(
+    @Req() req: AuthenticatedRequest,
+    @Param("missionId") missionId: string,
+    @Query("since") since?: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException();
+    const sinceTs = since ? Number(since) : undefined;
+    return this.taskService.getMissionReplay(
+      missionId,
+      userId,
+      Number.isFinite(sinceTs as number) ? (sinceTs as number) : undefined,
+    );
+  }
+
   @Get(":id")
   async getTask(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     const userId = req.user?.id;
