@@ -22,7 +22,7 @@ import {
   InitConnectionResponse,
 } from '@/hooks/domain/useAISocial';
 import { useSocialConnectionsSWR } from '@/hooks/domain/useSocialSWR';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 import { Tooltip } from '@/components/ui/feedback/Tooltip';
 import { AnimatedList, AnimatedListItem } from '@/components/ui/animations';
 import { ClientDate } from '@/components/common/ClientDate';
@@ -284,7 +284,13 @@ export default function ConnectionsTab() {
   const handleDeleteConnection = async (
     connection: SocialPlatformConnection
   ) => {
-    if (!confirm(t('aiSocial.confirm.disconnect'))) return;
+    if (
+      !(await confirm({
+        title: t('aiSocial.confirm.disconnect'),
+        type: 'danger',
+      }))
+    )
+      return;
 
     setDeletingId(connection.id);
     const success = await removeConnection(

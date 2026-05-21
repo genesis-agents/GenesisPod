@@ -7,6 +7,7 @@ import CommentInput, { type Comment as BaseComment } from './CommentInput';
 
 import { logger } from '@/lib/utils/logger';
 import { formatDateSafe } from '@/lib/utils/date';
+import { confirm } from '@/stores';
 interface User {
   id: string;
   username: string;
@@ -107,7 +108,8 @@ export default function CommentItem({
   };
 
   const handleDelete = async () => {
-    if (!confirm('确定要删除这条评论吗？')) return;
+    if (!(await confirm({ title: '确定要删除这条评论吗？', type: 'danger' })))
+      return;
 
     try {
       const response = await fetch(

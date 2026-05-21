@@ -7,6 +7,7 @@
 
 import React, { useState } from 'react';
 import { useTaskStore, Task } from '@/stores/aiOfficeStore';
+import { confirm } from '@/stores';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   ListTodo,
@@ -59,9 +60,14 @@ export default function TaskList() {
     restoreTaskContext(task._id);
   };
 
-  const handleDeleteTask = (e: React.MouseEvent, taskId: string) => {
+  const handleDeleteTask = async (e: React.MouseEvent, taskId: string) => {
     e.stopPropagation(); // 阻止触发任务点击
-    if (confirm(t('aiOffice.taskList.deleteConfirm'))) {
+    if (
+      await confirm({
+        title: t('aiOffice.taskList.deleteConfirm'),
+        type: 'danger',
+      })
+    ) {
       deleteTask(taskId);
     }
   };

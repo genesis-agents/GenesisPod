@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import ClientDate from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 interface Note {
   id: string;
   resourceId: string;
@@ -149,7 +149,8 @@ export default function NotesList({
   };
 
   const handleDelete = async (noteId: string) => {
-    if (!confirm('Are you sure you want to delete this note?')) return;
+    if (!(await confirm({ title: 'Delete this note?', type: 'danger' })))
+      return;
 
     try {
       const response = await fetch(

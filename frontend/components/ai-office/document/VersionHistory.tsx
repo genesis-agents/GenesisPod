@@ -10,6 +10,7 @@
 import React, { useState } from 'react';
 import { FileText } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { confirm } from '@/stores';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { sanitizeHtml } from '@/lib/utils/sanitize';
@@ -43,8 +44,14 @@ export default function VersionHistory({
     null
   );
 
-  const handleRestore = (versionId: string) => {
-    if (confirm('确定要恢复到此版本吗？当前内容将被覆盖。')) {
+  const handleRestore = async (versionId: string) => {
+    if (
+      await confirm({
+        title: '确定要恢复到此版本吗？',
+        description: '当前内容将被覆盖。',
+        type: 'warning',
+      })
+    ) {
       restoreVersion(documentId, versionId);
       setSelectedVersionId(versionId);
     }
