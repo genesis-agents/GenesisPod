@@ -7,8 +7,10 @@
  * 本文件只负责将 RadarTopicWithCounts 业务数据映射成 AssetCard props，
  * 与 TopicCard / WritingProjectCard / Playground MissionCard 保持视觉骨架一致。
  *
- * 字段策略（YAGNI）：
- *  - 不传 visibility/progress —— 雷达本质私有 + 持续运行无"完成度"概念
+ * 字段策略：
+ *  - 不传 progress —— 持续运行无"完成度"概念
+ *  - visibility 已接（多租户权限：私有/共享/公开，2026-05-20）
+ *  - 卡片操作统一为 权限 + 编辑 + 删除（暂停/恢复/归档已删，2026-05-20）
  *  - stats 用 items/sources/runs counts（list API 经 _count 单次拿到，不会 N+1）
  *  - customSection 显示关键词 chips（雷达独有信息，AssetCard 默认布局不覆盖）
  */
