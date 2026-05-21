@@ -91,15 +91,23 @@ const createMockSocket = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+const mockJwt = { verify: jest.fn() };
+
 describe("AiTeamsGateway", () => {
   let gateway: AiTeamsGateway;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // BLK-7：默认把 token 当作 userId 回显（非字符串 token 视为无效 → 抛错）
+    mockJwt.verify.mockImplementation((token: unknown) => {
+      if (typeof token !== "string") throw new Error("invalid token");
+      return { sub: token };
+    });
 
     gateway = new AiTeamsGateway(
       mockAiGroupService as never,
       mockTopicEventEmitter as never,
+      mockJwt as never,
     );
 
     // Inject the server mock
@@ -138,7 +146,7 @@ describe("AiTeamsGateway", () => {
   describe("handleConnection", () => {
     it("sets userId on socket when auth userId provided", async () => {
       const client = createMockSocket({
-        handshake: { auth: { userId: "user-1" }, query: {} },
+        handshake: { auth: { token: "user-1" }, query: {} },
       });
 
       await gateway.handleConnection(client as never);
@@ -147,14 +155,27 @@ describe("AiTeamsGateway", () => {
       expect(client.disconnect).not.toHaveBeenCalled();
     });
 
-    it("sets userId from query when auth userId not provided", async () => {
+    it("derives userId from Authorization header token", async () => {
       const client = createMockSocket({
-        handshake: { auth: {}, query: { userId: "user-2" } },
+        handshake: { auth: { Authorization: "Bearer user-2" }, query: {} },
       });
 
       await gateway.handleConnection(client as never);
 
       expect(client.userId).toBe("user-2");
+    });
+
+    it("disconnects when only a spoofed auth.userId is sent (no JWT)", async () => {
+      const client = createMockSocket({
+        handshake: {
+          auth: { userId: "spoofed" },
+          query: { userId: "spoofed" },
+        },
+      });
+
+      await gateway.handleConnection(client as never);
+
+      expect(client.disconnect).toHaveBeenCalled();
     });
 
     it("disconnects socket when no userId provided", async () => {
@@ -170,11 +191,11 @@ describe("AiTeamsGateway", () => {
     it("tracks multiple sockets for the same user", async () => {
       const client1 = createMockSocket({
         id: "socket-1",
-        handshake: { auth: { userId: "user-1" }, query: {} },
+        handshake: { auth: { token: "user-1" }, query: {} },
       });
       const client2 = createMockSocket({
         id: "socket-2",
-        handshake: { auth: { userId: "user-1" }, query: {} },
+        handshake: { auth: { token: "user-1" }, query: {} },
       });
 
       await gateway.handleConnection(client1 as never);
@@ -190,7 +211,7 @@ describe("AiTeamsGateway", () => {
 
     it("disconnects socket when userId is not a string", async () => {
       const client = createMockSocket({
-        handshake: { auth: { userId: 12345 }, query: {} },
+        handshake: { auth: { token: 12345 }, query: {} },
       });
 
       await gateway.handleConnection(client as never);
@@ -205,7 +226,7 @@ describe("AiTeamsGateway", () => {
     it("removes socket tracking on disconnect", async () => {
       const client = createMockSocket({
         id: "socket-1",
-        handshake: { auth: { userId: "user-1" }, query: {} },
+        handshake: { auth: { token: "user-1" }, query: {} },
       });
 
       await gateway.handleConnection(client as never);
@@ -224,7 +245,7 @@ describe("AiTeamsGateway", () => {
     it("cleans up user tracking when last socket disconnects", async () => {
       const client = createMockSocket({
         id: "socket-1",
-        handshake: { auth: { userId: "user-1" }, query: {} },
+        handshake: { auth: { token: "user-1" }, query: {} },
       });
 
       await gateway.handleConnection(client as never);
@@ -246,7 +267,7 @@ describe("AiTeamsGateway", () => {
 
       const client = createMockSocket({
         userId: "user-1",
-        handshake: { auth: { userId: "user-1" }, query: {} },
+        handshake: { auth: { token: "user-1" }, query: {} },
       });
       // Register socket
       await gateway.handleConnection(client as never);
@@ -283,7 +304,7 @@ describe("AiTeamsGateway", () => {
         Object.assign(
           createMockSocket({
             id: "socket-1",
-            handshake: { auth: { userId: "user-1" }, query: {} },
+            handshake: { auth: { token: "user-1" }, query: {} },
           }),
         ) as never,
       );
@@ -326,7 +347,7 @@ describe("AiTeamsGateway", () => {
         Object.assign(
           createMockSocket({
             id: "socket-1",
-            handshake: { auth: { userId: "user-1" }, query: {} },
+            handshake: { auth: { token: "user-1" }, query: {} },
           }),
         ) as never,
       );
@@ -498,7 +519,7 @@ describe("AiTeamsGateway", () => {
       // Register user-2 socket so emitToUser works
       const user2Socket = createMockSocket({
         id: "socket-user2",
-        handshake: { auth: { userId: "user-2" }, query: {} },
+        handshake: { auth: { token: "user-2" }, query: {} },
       });
       await gateway.handleConnection(user2Socket as never);
 
@@ -538,7 +559,7 @@ describe("AiTeamsGateway", () => {
 
       const user2Socket = createMockSocket({
         id: "socket-user2",
-        handshake: { auth: { userId: "user-2" }, query: {} },
+        handshake: { auth: { token: "user-2" }, query: {} },
       });
       await gateway.handleConnection(user2Socket as never);
 
@@ -792,11 +813,11 @@ describe("AiTeamsGateway", () => {
     it("emits event to all sockets of a user", async () => {
       const client1 = createMockSocket({
         id: "socket-1",
-        handshake: { auth: { userId: "user-1" }, query: {} },
+        handshake: { auth: { token: "user-1" }, query: {} },
       });
       const client2 = createMockSocket({
         id: "socket-2",
-        handshake: { auth: { userId: "user-1" }, query: {} },
+        handshake: { auth: { token: "user-1" }, query: {} },
       });
 
       await gateway.handleConnection(client1 as never);
@@ -887,11 +908,11 @@ describe("AiTeamsGateway", () => {
       // Register some users
       const client1 = createMockSocket({
         id: "socket-1",
-        handshake: { auth: { userId: "user-1" }, query: {} },
+        handshake: { auth: { token: "user-1" }, query: {} },
       });
       const client2 = createMockSocket({
         id: "socket-2",
-        handshake: { auth: { userId: "user-2" }, query: {} },
+        handshake: { auth: { token: "user-2" }, query: {} },
       });
 
       await gateway.handleConnection(client1 as never);
@@ -916,11 +937,11 @@ describe("AiTeamsGateway", () => {
       // Same user with two sockets
       const client1 = createMockSocket({
         id: "socket-1",
-        handshake: { auth: { userId: "user-1" }, query: {} },
+        handshake: { auth: { token: "user-1" }, query: {} },
       });
       const client2 = createMockSocket({
         id: "socket-2",
-        handshake: { auth: { userId: "user-1" }, query: {} },
+        handshake: { auth: { token: "user-1" }, query: {} },
       });
 
       await gateway.handleConnection(client1 as never);

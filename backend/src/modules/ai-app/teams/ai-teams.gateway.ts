@@ -10,6 +10,7 @@ import {
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 import { Logger, Inject, forwardRef } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 import { AiTeamsService } from "./ai-teams.service";
 import { SendMessageDto } from "./dto";
 import { TopicEventEmitterService } from "./services/events";
@@ -18,6 +19,12 @@ import { APP_CONFIG } from "../../../common/config/app.config";
 interface AuthenticatedSocket extends Socket {
   userId?: string;
   currentTopicId?: string;
+}
+
+interface JwtPayload {
+  sub?: string;
+  id?: string;
+  userId?: string;
 }
 
 @WebSocketGateway({
@@ -54,7 +61,36 @@ export class AiTeamsGateway
     @Inject(forwardRef(() => AiTeamsService))
     private readonly aiGroupService: AiTeamsService,
     private readonly topicEventEmitter: TopicEventEmitterService,
+    private readonly jwt: JwtService,
   ) {}
+
+  /**
+   * BLK-7：从握手 JWT 解出 userId（不信任客户端传的 auth.userId / query.userId，
+   * 否则任意客户端可伪造 userId 加入他人 topic）。
+   */
+  private extractUserId(client: Socket): string | null {
+    const auth = (client.handshake.auth ?? {}) as {
+      token?: string;
+      Authorization?: string;
+    };
+    const headerAuth = client.handshake.headers?.authorization;
+    const token =
+      auth.token ??
+      auth.Authorization?.replace(/^Bearer\s+/i, "") ??
+      (typeof headerAuth === "string"
+        ? headerAuth.replace(/^Bearer\s+/i, "")
+        : undefined);
+    if (!token) return null;
+    try {
+      const payload = this.jwt.verify<JwtPayload>(token);
+      return payload.sub ?? payload.id ?? payload.userId ?? null;
+    } catch (err) {
+      this.logger.debug(
+        `JWT verify failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
+    }
+  }
 
   afterInit() {
     // Register the emit handler with TopicEventEmitterService
@@ -69,12 +105,11 @@ export class AiTeamsGateway
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
-      // 从handshake中获取用户信息（由前端传入）
-      const userId =
-        client.handshake.auth?.userId || client.handshake.query?.userId;
+      // BLK-7：从握手 JWT 解出 userId，不信任客户端传的 auth.userId / query.userId
+      const userId = this.extractUserId(client);
 
-      if (!userId || typeof userId !== "string") {
-        this.logger.warn(`Connection rejected: no userId provided`);
+      if (!userId) {
+        this.logger.warn(`Connection rejected: missing/invalid JWT`);
         client.disconnect();
         return;
       }

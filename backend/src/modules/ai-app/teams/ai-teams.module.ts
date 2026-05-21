@@ -17,6 +17,8 @@
  */
 
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { JwtModule } from "@nestjs/jwt";
 import {
   AiTeamsController,
   UsersController,
@@ -83,6 +85,15 @@ import { DEBATE_TEAM_CONFIG } from "./teams";
     CreditsModule,
     NotificationDispatcherModule,
     LongContentModule,
+    // BLK-7：gateway 握手 JWT 校验（不再信任客户端传的 userId）
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>("JWT_SECRET"),
+        signOptions: { expiresIn: "7d" },
+      }),
+      inject: [ConfigService],
+    }),
   ],
   controllers: [
     AiTeamsController,
