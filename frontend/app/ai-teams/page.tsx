@@ -13,7 +13,8 @@ import {
 import { useAIModels, AIModel } from '@/hooks';
 import { ModelBadges } from '@/components/common/ModelBadges';
 import AppShell from '@/components/layout/AppShell';
-import { Users } from 'lucide-react';
+import { Users, Plus } from 'lucide-react';
+import { PageHeaderHero } from '@/components/common/page-header-hero';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import ShareModal from '@/components/common/dialogs/ShareModal';
 import { Modal } from '@/components/ui/dialogs/Modal';
@@ -224,57 +225,40 @@ export default function AIGroupPage() {
       <main className="flex-1 overflow-auto">
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
-          <div className="px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
-                  <svg
-                    className="h-7 w-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {t('aiTeams.title')}
-                  </h1>
-                  <p className="text-sm text-gray-500">
-                    {t('aiTeams.subtitle')}
-                  </p>
-                </div>
-              </div>
+          <PageHeaderHero
+            title={t('aiTeams.title')}
+            subtitle={t('aiTeams.subtitle')}
+            icon={
+              <svg
+                className="h-7 w-7 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                />
+              </svg>
+            }
+            iconGradient="from-violet-500 to-purple-600"
+            iconShadowClass="shadow-violet-500/25"
+            actions={
               <button
                 onClick={() => setShowCreateDialog(true)}
                 className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-violet-700"
               >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
+                <Plus className="h-5 w-5" />
                 {t('aiTeams.newTeam')}
               </button>
-            </div>
+            }
+          />
 
-            {/* Tabs */}
+          {/* Tabs + Search below hero */}
+          <div className="px-8 pb-4">
             <Tabs
-              className="mt-4"
               variant="pill"
               value={activeTab}
               onChange={(v) => setActiveTab(v as TabType)}

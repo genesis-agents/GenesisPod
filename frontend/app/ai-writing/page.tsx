@@ -18,7 +18,16 @@ import {
   type AssetVisibility,
   type AssetVisibilityOption,
 } from '@/components/common/asset-card';
-import { FileText, Globe, Lock, PenLine, Pencil, Sparkles } from 'lucide-react';
+import {
+  FileText,
+  Globe,
+  Lock,
+  PenLine,
+  Pencil,
+  Sparkles,
+  Plus,
+} from 'lucide-react';
+import { PageHeaderHero } from '@/components/common/page-header-hero';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui';
 import { Modal } from '@/components/ui/dialogs/Modal';
@@ -331,34 +340,28 @@ export default function AIWritingPage() {
       <main className="flex-1 overflow-auto">
         {/* Header - Sticky */}
         <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
-          <div className="px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
-                  <svg
-                    className="h-7 w-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {t('aiWriting.title')}
-                  </h1>
-                  <p className="text-sm text-gray-500">
-                    {t('aiWriting.subtitle', { count: 5 })}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
+          <PageHeaderHero
+            title={t('aiWriting.title')}
+            subtitle={t('aiWriting.subtitle', { count: 5 })}
+            icon={
+              <svg
+                className="h-7 w-7 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
+              </svg>
+            }
+            iconGradient="from-amber-500 to-orange-600"
+            iconShadowClass="shadow-amber-500/25"
+            actions={
+              <>
                 <button
                   onClick={() => setShowSkillsModal(true)}
                   className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
@@ -370,50 +373,35 @@ export default function AIWritingPage() {
                   onClick={() => setShowCreateDialog(true)}
                   className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
                 >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
+                  <Plus className="h-5 w-5" />
                   {t('aiWriting.createDialog.startCreating')}
                 </button>
-              </div>
-            </div>
-
-            {/* Search Bar */}
-            <div className="mt-4">
-              <div className="relative">
-                <svg
-                  className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-                <input
-                  type="text"
-                  placeholder={t('aiWriting.searchPlaceholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+              </>
+            }
+          >
+            <div className="relative">
+              <svg
+                className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
-              </div>
+              </svg>
+              <input
+                type="text"
+                placeholder={t('aiWriting.searchPlaceholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+              />
             </div>
-          </div>
+          </PageHeaderHero>
         </div>
 
         {/* Content */}

@@ -13,7 +13,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogIn, Share2, Link2, Bot, ShieldAlert } from 'lucide-react';
+import { LogIn, Share2, Link2, ShieldAlert } from 'lucide-react';
+import { PageHeaderHero } from '@/components/common/page-header-hero';
 import { useTranslation } from '@/lib/i18n';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { SocialErrorFallback } from '@/components/ai-social/SocialErrorFallback';
@@ -118,29 +119,13 @@ export default function AISocialPage() {
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         {/* Header（PR-4: 取消 3 tab，移除 SlideIn 动画包装；连接管理作头部链接） */}
         <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
-          <div className="px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-lg shadow-rose-500/25">
-                  <Share2 className="h-7 w-7 text-white" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-bold text-gray-900">
-                      {t('aiSocial.title')}
-                    </h1>
-                    <span className="flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-600">
-                      <Bot className="h-3 w-3" />
-                      AI
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-500">
-                    {t('aiSocial.subtitle')}
-                  </p>
-                </div>
-              </div>
-
-              {/* 连接管理入口（旧 ConnectionsTab 拆独立路由） */}
+          <PageHeaderHero
+            title={t('aiSocial.title')}
+            subtitle={t('aiSocial.subtitle')}
+            icon={<Share2 className="h-7 w-7 text-white" />}
+            iconGradient="from-rose-500 to-pink-600"
+            iconShadowClass="shadow-rose-500/25"
+            actions={
               <button
                 type="button"
                 onClick={() => router.push('/ai-social/connections')}
@@ -150,8 +135,8 @@ export default function AISocialPage() {
                 {t('aiSocial.connectionsLink')} (
                 {connections.filter((c) => c.isActive).length})
               </button>
-            </div>
-          </div>
+            }
+          />
         </div>
 
         {/* 主视图 = 任务列表（点 row 跳 /mission/[taskId]）*/}

@@ -14,6 +14,8 @@ import { logger } from '@/lib/utils/logger';
 import ClientDate from '@/components/common/ClientDate';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui/states';
+import { Plus } from 'lucide-react';
+import { PageHeaderHero } from '@/components/common/page-header-hero';
 // AI Image Team - Preview (3 core agents)
 const AI_TEAM_PREVIEW = [
   {
@@ -230,80 +232,59 @@ export default function AIImagePage() {
       <main className="flex-1 overflow-auto">
         {/* Header - Sticky */}
         <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
-          <div className="px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 shadow-lg shadow-pink-500/25">
-                  <svg
-                    className="h-7 w-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {t('aiImage.title')}
-                  </h1>
-                  <p className="text-sm text-gray-500">
-                    {t('aiImage.subtitle', { count: 3 })}
-                  </p>
-                </div>
-              </div>
+          <PageHeaderHero
+            title={t('aiImage.title')}
+            subtitle={t('aiImage.subtitle', { count: 3 })}
+            icon={
+              <svg
+                className="h-7 w-7 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+            }
+            iconGradient="from-pink-500 to-rose-600"
+            iconShadowClass="shadow-pink-500/25"
+            actions={
               <button
                 onClick={() => router.push('/ai-image/create')}
                 className="flex items-center gap-2 rounded-lg bg-pink-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pink-700"
               >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
+                <Plus className="h-5 w-5" />
                 {t('aiImage.startCreating')}
               </button>
-            </div>
-
-            {/* Search Bar */}
-            <div className="mt-4">
-              <div className="relative">
-                <svg
-                  className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-                <input
-                  type="text"
-                  placeholder={t('aiImage.searchPlaceholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20"
+            }
+          >
+            <div className="relative">
+              <svg
+                className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
-              </div>
+              </svg>
+              <input
+                type="text"
+                placeholder={t('aiImage.searchPlaceholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20"
+              />
             </div>
-          </div>
+          </PageHeaderHero>
         </div>
 
         {/* Content */}

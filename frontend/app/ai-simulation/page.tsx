@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
-import { Layers } from 'lucide-react';
+import { Layers, Plus } from 'lucide-react';
+import { PageHeaderHero } from '@/components/common/page-header-hero';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
@@ -171,57 +172,41 @@ export default function AISimulationPage() {
   return (
     <AppShell>
       <main className="flex-1 overflow-auto">
-        <div className="px-8 py-6">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25">
-                  <svg
-                    className="h-7 w-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {t('aiSimulation.title')}
-                  </h1>
-                  <p className="text-sm text-gray-500">
-                    {t('aiSimulation.subtitle')}
-                  </p>
-                </div>
-              </div>
+        {/* Header */}
+        <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+          <PageHeaderHero
+            title={t('aiSimulation.title')}
+            subtitle={t('aiSimulation.subtitle')}
+            icon={
+              <svg
+                className="h-7 w-7 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+                />
+              </svg>
+            }
+            iconGradient="from-indigo-500 to-purple-600"
+            iconShadowClass="shadow-indigo-500/25"
+            actions={
               <button
                 onClick={handleCreate}
                 className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
               >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
+                <Plus className="h-5 w-5" />
                 {t('aiSimulation.newSimulation')}
               </button>
-            </div>
-          </div>
+            }
+          />
+        </div>
 
+        <div className="px-8 py-6">
           {/* Templates */}
           <div className="mb-8">
             <div className="mb-4 flex items-center justify-between">

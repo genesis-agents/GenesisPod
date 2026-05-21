@@ -7,6 +7,7 @@ import AppShell from '@/components/layout/AppShell';
 import WorkspaceLayout from '@/components/ai-office/layout/WorkspaceLayout';
 import { SkillsModal } from '@/components/common/skills/SkillsModal';
 import { LogIn, Sparkles } from 'lucide-react';
+import { PageHeaderHero } from '@/components/common/page-header-hero';
 import { useTranslation } from '@/lib/i18n';
 import { LoadingState } from '@/components/ui/states/LoadingState';
 
@@ -74,34 +75,28 @@ export default function AIOfficePage() {
       <main className="flex-1 overflow-auto">
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
-          <div className="px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
-                  <svg
-                    className="h-7 w-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {t('aiOffice.title')}
-                  </h1>
-                  <p className="text-sm text-gray-500">
-                    {t('aiOffice.subtitle')}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
+          <PageHeaderHero
+            title={t('aiOffice.title')}
+            subtitle={t('aiOffice.subtitle')}
+            icon={
+              <svg
+                className="h-7 w-7 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            }
+            iconGradient="from-violet-500 to-purple-600"
+            iconShadowClass="shadow-violet-500/25"
+            actions={
+              <>
                 <button
                   onClick={() => setShowSkillsModal(true)}
                   className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
@@ -112,9 +107,9 @@ export default function AIOfficePage() {
                 <span className="text-sm text-gray-500">
                   {t('aiOffice.header.selectResources')}
                 </span>
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
         </div>
 
         {/* 内容区域 */}
