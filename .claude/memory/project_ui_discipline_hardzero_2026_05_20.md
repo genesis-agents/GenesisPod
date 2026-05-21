@@ -44,4 +44,13 @@ metadata:
 
 **加固版**（`scripts/utils/audit-ui-discipline.ts`）：lookahead 顺序无关；形态 A=内联 `.map` 卡(bg-white+标题信号,≥3)；形态 B=命名 `*Card` 且根节点自写卡(无 `<AssetCard`)+「标题信号」；用**跨文件 `.map` 列表项组件名索引** `collectMapRenderedComponents` 把 B 收敛到真·列表卡（排除 config/summary/insight 等域内卡，22→9）。
 
-**收尾（用户选「棘轮冻结」）**：R2 移出 `HARD_ZERO_RULES`，进新 `RATCHET_RULES`，**默认运行即强制「不劣化」**(cur>baseline 即 exit 1，已实测验证)。baseline 锁 `R2=9`（`docs/_archive/ui-discipline-baseline.json`）。存量 9 个真自写列表卡（explore `ResourceCard`、wiki `WikiLogCard`、`CreateKnowledgeBaseCard`、`TrendCard`、ai-image `InsightCard`×2、`AgentCard`、admin `StatCard`×2）逐步迁，新卡拦截。**教训：「audit TOTAL 0」≠「无自写卡」，启发式 lint 不是证明。**
+**棘轮过渡**：R2 先移出 `HARD_ZERO_RULES`、进 `RATCHET_RULES`，**默认即强制「不劣化」**(cur>baseline 即 exit 1，已实测)。baseline 临时锁 9。
+
+**多卡型修正 + 逐源核验归 0（用户指出「该为 explore 专门定义卡，别强塞 AssetCard」）**：
+
+- R2 旧模型「一切列表卡→AssetCard」是错的——本项目是**多卡型设计系统**。新增 `CANONICAL_CARD_USE`（AssetCard/StatCard/MessageCardShell/SectionPanelCard/SettingsSectionCard/FeedCard/CitationListItem），组件体内用其一即非自写卡。
+- **新增 canonical `FeedCard`**（`components/common/cards/FeedCard.tsx`，**卡设计系统第 8 类**：横版信息流卡，左缩略图+右内容+底部带文字动作条，slot: thumbnail/meta/title/description/actions）。explore `ResourceCard` 改为其领域包装（零回归），不再被误判。
+- 加固后浮现的 9 张**逐源核验 = 0 真债务**：explore 迁 FeedCard；其余 7 张（CreateKnowledgeBaseCard=新建CTA磁贴 / WikiLogCard=日志行 / TrendCard=可展开趋势卡 / InsightCard×2=可折叠洞察面板 / AgentCard=实时agent状态 / admin StatCard）都是**合法独立卡型，AssetCard 不适配** → 进 `R2_BESPOKE_OK` 留痕。
+- **棘轮 baseline 锁 0**（`--ratchet`），新自写实体卡仍即拒。
+
+**教训**：①「audit TOTAL 0」≠「无自写卡」，启发式 lint 不是证明。②强制复用 ≠ 万物归一卡——要认设计系统的多卡型，缺型就**新建该型 canonical**（FeedCard），别硬塞别的卡型。详见 [[feedback_check_reuse_before_building]]。
