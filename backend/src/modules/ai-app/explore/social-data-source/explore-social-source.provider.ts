@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { ResourceType } from '@prisma/client';
-import { PrismaService } from '../../../../common/prisma/prisma.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { ResourceType } from "@prisma/client";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { RAGFacade } from "@/modules/ai-harness/facade";
 import {
   SocialDataSource,
   SocialDataSourceProvider,
@@ -8,13 +9,13 @@ import {
   SourceItem,
   SourceListFilter,
   SourceListResult,
-} from '../../contracts/social-data-source';
+} from "../../contracts/social-data-source";
 
 /** ResourceType values that represent video content */
 const VIDEO_TYPES = new Set<ResourceType>([ResourceType.YOUTUBE_VIDEO]);
 
-function toContentKind(type: ResourceType): SourceItem['contentKind'] {
-  return VIDEO_TYPES.has(type) ? 'video' : 'article';
+function toContentKind(type: ResourceType): SourceItem["contentKind"] {
+  return VIDEO_TYPES.has(type) ? "video" : "article";
 }
 
 /**
@@ -30,17 +31,22 @@ function toContentKind(type: ResourceType): SourceItem['contentKind'] {
 @Injectable()
 @SocialDataSourceProvider()
 export class ExploreSocialSourceProvider implements SocialDataSource {
-  readonly id = 'AI_EXPLORE';
-  readonly displayName = { 'zh-CN': 'AI 探索', 'en-US': 'AI Explore' };
-  readonly icon = 'Compass';
+  readonly id = "AI_EXPLORE";
+  readonly displayName = { "zh-CN": "AI 探索", "en-US": "AI Explore" };
+  readonly icon = "Compass";
   readonly description = {
-    'zh-CN': '从我收藏的 AI 探索资源（视频/文章）中选择',
-    'en-US': "Pick from my curated AI Explore resources (videos/articles)",
+    "zh-CN": "从我收藏的 AI 探索资源（视频/文章）中选择",
+    "en-US": "Pick from my curated AI Explore resources (videos/articles)",
   };
-  readonly contentKinds = ['article', 'video'] as const;
+  readonly contentKinds = ["article", "video"] as const;
   readonly maxItemsPerTask = 10;
 
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ExploreSocialSourceProvider.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ragFacade: RAGFacade,
+  ) {}
 
   async listItems(
     userId: string,
@@ -55,12 +61,12 @@ export class ExploreSocialSourceProvider implements SocialDataSource {
         collectionItems: {
           some: { collection: { userId } },
         },
-        NOT: { title: '' },
+        NOT: { title: "" },
         ...(filter.search
           ? {
               OR: [
-                { title: { contains: filter.search, mode: 'insensitive' } },
-                { abstract: { contains: filter.search, mode: 'insensitive' } },
+                { title: { contains: filter.search, mode: "insensitive" } },
+                { abstract: { contains: filter.search, mode: "insensitive" } },
               ],
             }
           : {}),
@@ -86,7 +92,7 @@ export class ExploreSocialSourceProvider implements SocialDataSource {
         tags: true,
         createdAt: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: limit + 1,
     });
 
@@ -138,24 +144,60 @@ export class ExploreSocialSourceProvider implements SocialDataSource {
       },
     });
 
-    return resources.map((r) => ({
-      sourceType: this.id,
-      sourceId: r.id,
-      title: r.title,
-      body: r.content ?? r.abstract ?? '',
-      bodyMime: 'text/plain' as const,
-      sourceMetadata: {
-        resourceType: r.type,
-        contentKind: toContentKind(r.type),
-        sourceUrl: r.sourceUrl,
-        thumbnailUrl: r.thumbnailUrl ?? null,
-        tags: Array.isArray(r.tags) ? r.tags : [],
-        createdAt: r.createdAt.toISOString(),
-      },
-      displayMetadata: {
-        contentKind: toContentKind(r.type),
-        thumbnailUrl: r.thumbnailUrl ?? null,
-      },
-    }));
+    return Promise.all(
+      resources.map(async (r) => ({
+        sourceType: this.id,
+        sourceId: r.id,
+        title: r.title,
+        body: await this.resolveBody(r),
+        bodyMime: "text/plain" as const,
+        sourceMetadata: {
+          resourceType: r.type,
+          contentKind: toContentKind(r.type),
+          sourceUrl: r.sourceUrl,
+          thumbnailUrl: r.thumbnailUrl ?? null,
+          tags: Array.isArray(r.tags) ? r.tags : [],
+          createdAt: r.createdAt.toISOString(),
+        },
+        displayMetadata: {
+          contentKind: toContentKind(r.type),
+          thumbnailUrl: r.thumbnailUrl ?? null,
+        },
+      })),
+    );
+  }
+
+  /**
+   * 取正文：视频资源用引擎字幕能力抓脚本（DB 缓存优先 → Supadata/youtubei.js），
+   * 而非占位 content；抓不到才回退 content/abstract。
+   * 与 social/content-fetcher.service.ts 走同一能力（fetchFromYoutubeUrl），消除「拿到 stub」的根因。
+   */
+  private async resolveBody(r: {
+    id: string;
+    type: ResourceType;
+    content: string | null;
+    abstract: string | null;
+    sourceUrl: string | null;
+  }): Promise<string> {
+    const fallback = r.content ?? r.abstract ?? "";
+    if (!VIDEO_TYPES.has(r.type) || !r.sourceUrl) return fallback;
+    try {
+      const videoId = this.ragFacade.contentFetch!.extractYoutubeVideoId(
+        r.sourceUrl,
+      );
+      if (!videoId) return fallback;
+      const yt = await this.ragFacade.contentFetch!.fetchFromYoutubeUrl(
+        videoId,
+        r.sourceUrl,
+      );
+      if (yt?.content && yt.content.trim().length > 100) return yt.content;
+    } catch (err) {
+      this.logger.warn(
+        `YouTube transcript fetch failed for resource ${r.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+    return fallback;
   }
 }
