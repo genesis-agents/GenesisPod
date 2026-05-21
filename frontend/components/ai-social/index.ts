@@ -1,2 +1,2 @@
-export { default as ConnectionsTab } from './ConnectionsTab';
-export { default as ContentsTab } from './ContentsTab';
+export { default as ConnectionsTab } from './tabs/ConnectionsTab';
+export { default as ContentsTab } from './tabs/ContentsTab';

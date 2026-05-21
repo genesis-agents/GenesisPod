@@ -316,7 +316,7 @@ const R3_BESPOKE_OK = [
   "app/ai-simulation/run/[id]/page.tsx", // return null 守卫 + 加载中状态文案
   "components/ai-insights/research-control/ResearchSettingsModal.tsx", // 搜索下拉内联提示 + 标签 toggle
   "components/ai-office/core/PromptBar.tsx", // 死代码（外层已被 length>0 守卫）
-  "components/ai-social/ContentDetailDrawer.tsx", // 上下文 amber 告警 + 跳连接设置链接
+  "components/ai-social/drawers/ContentDetailDrawer.tsx", // 上下文 amber 告警 + 跳连接设置链接（02 归位后路径）
   "components/library/knowledge-base/TeamKnowledgeBaseTab.tsx", // 团队 KB 功能介绍引导卡
   "components/library/resources/BatchActionBar.tsx", // if(selectedCount===0) return null 守卫
   "components/library/wiki/WikiQueryDrawer.tsx", // 聊天式 UI 的欢迎 prompt

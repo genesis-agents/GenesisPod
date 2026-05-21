@@ -17,8 +17,8 @@ import { LogIn, Share2, Link2, ShieldAlert } from 'lucide-react';
 import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { useTranslation } from '@/lib/i18n';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
-import { SocialErrorFallback } from '@/components/ai-social/SocialErrorFallback';
-import TasksTab from '@/components/ai-social/TasksTab';
+import { SocialErrorFallback } from '@/components/ai-social/feedback/SocialErrorFallback';
+import TasksTab from '@/components/ai-social/tabs/TasksTab';
 import { LoadingState } from '@/components/ui/states';
 import {
   getConnections,

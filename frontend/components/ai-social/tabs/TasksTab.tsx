@@ -46,7 +46,7 @@ import type {
   SocialContentTask,
   SocialContentTaskStatus,
 } from '@/services/ai-social/task-types';
-import { NewTaskDialog } from './NewTaskDialog';
+import { NewTaskDialog } from '../dialogs/NewTaskDialog';
 import { logger } from '@/lib/utils/logger';
 
 // Status pill style + label fallback

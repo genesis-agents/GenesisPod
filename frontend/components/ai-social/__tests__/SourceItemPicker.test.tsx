@@ -15,9 +15,18 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from '@testing-library/react';
 import React from 'react';
-import type { SourceItem, SocialDataSourceDescriptor } from '@/services/ai-social/task-types';
+import type {
+  SourceItem,
+  SocialDataSourceDescriptor,
+} from '@/services/ai-social/task-types';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -26,7 +35,7 @@ vi.mock('@/hooks/domain/useSourceItems', () => ({
   useSourceItems: (...args: unknown[]) => mockUseSourceItems(...args),
 }));
 
-import { SourceItemPicker } from '../SourceItemPicker';
+import { SourceItemPicker } from '../pickers/SourceItemPicker';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -135,7 +144,7 @@ describe('SourceItemPicker', () => {
         const lastCall = calls[calls.length - 1];
         expect(lastCall?.[1]?.search).toBe('GPT');
       },
-      { timeout: 500 },
+      { timeout: 500 }
     );
   });
 
@@ -144,7 +153,7 @@ describe('SourceItemPicker', () => {
     const buttons = screen.getAllByRole('button');
     // Find a button containing item text
     const item1Button = buttons.find((btn) =>
-      btn.textContent?.includes('Item 1'),
+      btn.textContent?.includes('Item 1')
     );
     expect(item1Button).toBeDefined();
     fireEvent.click(item1Button!);
@@ -157,7 +166,7 @@ describe('SourceItemPicker', () => {
     // Click Item 1
     const buttons = screen.getAllByRole('button');
     const item1Button = buttons.find((btn) =>
-      btn.textContent?.includes('Item 1'),
+      btn.textContent?.includes('Item 1')
     );
     fireEvent.click(item1Button!);
     // Click confirm
@@ -189,7 +198,7 @@ describe('SourceItemPicker', () => {
     // Click first 5 items
     const allButtons = screen.getAllByRole('button');
     const itemButtons = allButtons.filter((btn) =>
-      /Item [123456]/.test(btn.textContent ?? ''),
+      /Item [123456]/.test(btn.textContent ?? '')
     );
 
     for (let i = 0; i < 5; i++) {
@@ -208,7 +217,7 @@ describe('SourceItemPicker', () => {
 
     const allButtons = screen.getAllByRole('button');
     const itemButtons = allButtons.filter((btn) =>
-      /Item [1234]/.test(btn.textContent ?? ''),
+      /Item [1234]/.test(btn.textContent ?? '')
     );
 
     // Pick 2
@@ -264,7 +273,7 @@ describe('SourceItemPicker', () => {
     await waitFor(() => {
       const calls = mockUseSourceItems.mock.calls;
       const hasCursorCall = calls.some(
-        (call) => call[1]?.cursor === 'cursor-next',
+        (call) => call[1]?.cursor === 'cursor-next'
       );
       expect(hasCursorCall).toBe(true);
     });

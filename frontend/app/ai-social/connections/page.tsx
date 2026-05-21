@@ -15,8 +15,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Link2, ShieldAlert, LogIn, Share2 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
-import { SocialErrorFallback } from '@/components/ai-social/SocialErrorFallback';
-import ConnectionsTab from '@/components/ai-social/ConnectionsTab';
+import { SocialErrorFallback } from '@/components/ai-social/feedback/SocialErrorFallback';
+import ConnectionsTab from '@/components/ai-social/tabs/ConnectionsTab';
 import { LoadingState } from '@/components/ui/states';
 
 export default function AISocialConnectionsPage() {

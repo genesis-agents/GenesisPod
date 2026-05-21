@@ -15,16 +15,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-} from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
-import type {
-  SocialDataSourceDescriptor,
-} from '@/services/ai-social/task-types';
+import type { SocialDataSourceDescriptor } from '@/services/ai-social/task-types';
 import type { SocialPlatformConnection } from '@/services/ai-social/api';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
@@ -56,7 +49,7 @@ vi.mock('@/hooks/domain/useSourceItems', () => ({
   }),
 }));
 
-import { NewTaskDialog } from '../NewTaskDialog';
+import { NewTaskDialog } from '../dialogs/NewTaskDialog';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -72,7 +65,7 @@ const makeSource = (id: string, name: string): SocialDataSourceDescriptor => ({
 const makeConnection = (
   id: string,
   platformType: 'WECHAT_MP' | 'XIAOHONGSHU',
-  accountName = `Account-${id}`,
+  accountName = `Account-${id}`
 ): SocialPlatformConnection => ({
   id,
   userId: 'user-1',
@@ -119,20 +112,19 @@ async function addExternalUrl(url = 'https://example.com/article') {
   fireEvent.click(screen.getByText(/\+ 外部 URL/));
   await waitFor(() =>
     expect(
-      screen.getByPlaceholderText('https://example.com/article'),
-    ).toBeInTheDocument(),
+      screen.getByPlaceholderText('https://example.com/article')
+    ).toBeInTheDocument()
   );
-  fireEvent.change(
-    screen.getByPlaceholderText('https://example.com/article'),
-    { target: { value: url } },
-  );
+  fireEvent.change(screen.getByPlaceholderText('https://example.com/article'), {
+    target: { value: url },
+  });
   fireEvent.click(screen.getByRole('button', { name: '添加' }));
 }
 
 /** Check the first available (non-disabled) platform checkbox */
 async function pickFirstPlatform() {
   await waitFor(() =>
-    expect(screen.getByText(/WeChat 公众号/)).toBeInTheDocument(),
+    expect(screen.getByText(/WeChat 公众号/)).toBeInTheDocument()
   );
   const checkboxes = screen.getAllByRole('checkbox');
   const enabledCheckbox = checkboxes.find((cb) => !cb.hasAttribute('disabled'));
@@ -230,10 +222,12 @@ describe('NewTaskDialog', () => {
 
     // Wait for connections to load and check both platforms
     await waitFor(() =>
-      expect(screen.getByText(/WeChat 公众号/)).toBeInTheDocument(),
+      expect(screen.getByText(/WeChat 公众号/)).toBeInTheDocument()
     );
     const checkboxes = screen.getAllByRole('checkbox');
-    const enabledBoxes = checkboxes.filter((cb) => !cb.hasAttribute('disabled'));
+    const enabledBoxes = checkboxes.filter(
+      (cb) => !cb.hasAttribute('disabled')
+    );
     for (const cb of enabledBoxes) {
       fireEvent.click(cb);
     }
@@ -283,12 +277,12 @@ describe('NewTaskDialog', () => {
     fireEvent.click(screen.getByText(/\+ 外部 URL/));
     await waitFor(() =>
       expect(
-        screen.getByPlaceholderText('https://example.com/article'),
-      ).toBeInTheDocument(),
+        screen.getByPlaceholderText('https://example.com/article')
+      ).toBeInTheDocument()
     );
     fireEvent.change(
       screen.getByPlaceholderText('https://example.com/article'),
-      { target: { value: 'not-a-valid-url' } },
+      { target: { value: 'not-a-valid-url' } }
     );
     fireEvent.click(screen.getByRole('button', { name: '添加' }));
     await waitFor(() => {
@@ -302,7 +296,7 @@ describe('NewTaskDialog', () => {
     // Try to add same URL again
     fireEvent.change(
       screen.getByPlaceholderText('https://example.com/article'),
-      { target: { value: 'https://example.com/dup' } },
+      { target: { value: 'https://example.com/dup' } }
     );
     fireEvent.click(screen.getByRole('button', { name: '添加' }));
     await waitFor(() => {
@@ -314,7 +308,7 @@ describe('NewTaskDialog', () => {
     render(<NewTaskDialog {...baseProps} />);
     const buttons = screen.getAllByRole('button');
     const sourceButton = buttons.find((btn) =>
-      btn.textContent?.includes('AI 写作'),
+      btn.textContent?.includes('AI 写作')
     );
     expect(sourceButton).toBeDefined();
     fireEvent.click(sourceButton!);

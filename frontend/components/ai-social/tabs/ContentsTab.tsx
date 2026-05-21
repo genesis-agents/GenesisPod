@@ -34,15 +34,18 @@ import {
   SocialContentStatus,
   SocialPlatformConnection,
 } from '@/hooks/domain/useAISocial';
-import { AdvancedFilters, AdvancedFilterValues } from './AdvancedFilters';
+import {
+  AdvancedFilters,
+  AdvancedFilterValues,
+} from '../filters/AdvancedFilters';
 import {
   useSocialContentsSWR,
   useSocialConnectionsSWR,
 } from '@/hooks/domain/useSocialSWR';
 import { confirm, toast } from '@/stores';
-import { ContentTableSkeleton } from './skeletons';
+import { ContentTableSkeleton } from '../skeletons';
 import { Tooltip } from '@/components/ui/feedback/Tooltip';
-import { BatchActionBar } from './BatchActionBar';
+import { BatchActionBar } from '../filters/BatchActionBar';
 import { motion } from 'framer-motion';
 import { FadeIn } from '@/components/ui/animations';
 import { Modal } from '@/components/ui/dialogs/Modal';

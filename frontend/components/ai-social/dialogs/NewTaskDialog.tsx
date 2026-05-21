@@ -20,7 +20,7 @@ import type {
   PickedSourceItem,
   SocialDataSourceDescriptor,
 } from '@/services/ai-social/task-types';
-import { SourceItemPicker } from './SourceItemPicker';
+import { SourceItemPicker } from '../pickers/SourceItemPicker';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 
