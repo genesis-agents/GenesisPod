@@ -188,7 +188,7 @@ export function useWritingWebSocket(
     logger.debug('[WritingWS] Connecting to:', `${baseUrl}/ai-writing`);
 
     const socket = io(`${baseUrl}/ai-writing`, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 3,
       reconnectionDelay: 2000,

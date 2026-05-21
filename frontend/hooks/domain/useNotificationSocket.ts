@@ -57,7 +57,7 @@ export function useNotificationSocket(opts: UseNotificationSocketOptions = {}) {
     const baseUrl = apiUrl?.replace('/api/v1', '') || 'http://localhost:3001';
 
     const socket = io(`${baseUrl}/notifications`, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 3,
       reconnectionDelay: 2000,

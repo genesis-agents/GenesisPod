@@ -260,7 +260,7 @@ export function useResearchWebSocket(
     logger.debug('[ResearchWS] Connecting to:', `${baseUrl}/topic-insights`);
 
     const socket = io(`${baseUrl}/topic-insights`, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 3,
       reconnectionDelay: 2000,

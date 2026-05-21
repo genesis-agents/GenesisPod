@@ -100,7 +100,7 @@ export function useRadarSocket(
     if (!token) return;
     const socket = io(`${config.apiBaseUrl}/ai-radar`, {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnectionAttempts: 3,
     });
     socketRef.current = socket;

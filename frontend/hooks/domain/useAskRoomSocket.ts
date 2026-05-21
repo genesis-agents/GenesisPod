@@ -55,7 +55,7 @@ export function useAskRoomSocket(opts: UseAskRoomSocketOptions): SocketHandle {
     const baseUrl = apiUrl?.replace('/api/v1', '') || 'http://localhost:3001';
 
     const socket = io(`${baseUrl}${ASK_ROOM_NAMESPACE}`, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 3,
       reconnectionDelay: 2000,

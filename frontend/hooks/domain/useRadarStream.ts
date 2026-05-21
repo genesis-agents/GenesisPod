@@ -19,10 +19,7 @@ import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
-import {
-  replayRadarRun,
-  type RadarStreamEvent,
-} from '@/services/ai-radar/api';
+import { replayRadarRun, type RadarStreamEvent } from '@/services/ai-radar/api';
 
 const MAX_EVENTS = 5000;
 const POLL_INTERVAL_MS = 4000;
@@ -93,7 +90,7 @@ export function useRadarStream(runId: string | null | undefined): {
     const token =
       getAuthHeader().Authorization?.replace(/^Bearer\s+/i, '') ?? '';
     socket = io(`${config.getBackendUrl()}/ai-radar`, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       auth: token ? { token } : {},
       reconnectionAttempts: 8,
       reconnectionDelay: 1000,

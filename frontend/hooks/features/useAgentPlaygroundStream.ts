@@ -106,7 +106,7 @@ export function useAgentPlaygroundStream(missionId: string | null) {
     // socket.io 自动 negotiate；不强制 ['websocket'] 单一 transport，避免硬死。
     // 重试次数提到 8 + 指数退避 → 短暂网络抖动可恢复，不立即降级 polling /replay。
     socket = io(`${config.getBackendUrl()}/agent-playground`, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       auth: token ? { token } : {},
       reconnectionAttempts: 8,
       reconnectionDelay: 1000,

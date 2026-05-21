@@ -56,7 +56,7 @@ export function useSocialMissionStream(missionId: string | null) {
     const auth = getAuthHeader();
     const token = auth.Authorization?.replace(/^Bearer\s+/i, '') ?? auth.token;
     socket = io(`${config.getBackendUrl()}/social`, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       auth: token ? { token } : {},
       reconnectionAttempts: 8,
       reconnectionDelay: 1000,
