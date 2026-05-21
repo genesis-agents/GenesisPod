@@ -14,10 +14,7 @@ import {
   Users,
   HardDrive,
   BookOpen,
-  Eye,
   CheckCircle2,
-  FileOutput,
-  Sparkles,
   StickyNote,
   ThumbsUp,
 } from 'lucide-react';
@@ -93,14 +90,6 @@ const CollectionModal = dynamicImport(
 
 const BatchActionBar = dynamicImport(
   () => import('@/components/library/resources/BatchActionBar'),
-  { ssr: false }
-);
-
-const AddToAIStudioDialog = dynamicImport(
-  () =>
-    import('@/components/common/dialogs/AddToAIStudioDialog').then(
-      (mod) => mod.AddToAIStudioDialog
-    ),
   { ssr: false }
 );
 
@@ -314,7 +303,6 @@ function LibraryPageContent() {
   } = useMultiSelect(50);
 
   // Modal states
-  const [viewModalOpen, setViewModalOpen] = useState(false);
   const [editNoteModalOpen, setEditNoteModalOpen] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
@@ -405,11 +393,6 @@ function LibraryPageContent() {
     type: 'success' | 'error';
   } | null>(null);
 
-  // AI Studio dialog state
-  const [aiStudioDialogOpen, setAiStudioDialogOpen] = useState(false);
-  const [selectedResourceForStudio, setSelectedResourceForStudio] =
-    useState<Resource | null>(null);
-
   // Auto-hide toast after 3 seconds
   useEffect(() => {
     if (toast) {
@@ -417,25 +400,6 @@ function LibraryPageContent() {
       return () => clearTimeout(timer);
     }
   }, [toast]);
-
-  // Convert resource to AI Office format (simplified version for adding to store)
-  const convertToAIOfficeResource = (
-    resource: Resource
-  ): Partial<AIOfficeResource> => ({
-    _id: resource.id,
-    userId: 'current-user',
-    resourceId: resource.id,
-    resourceType: 'web_page' as const,
-    status: 'collected' as const,
-    collectedAt: new Date(),
-    updatedAt: new Date(),
-    metadata: {
-      title: resource.title,
-      description: resource.abstract || '',
-      siteName: resource.sourceUrl,
-      language: 'en',
-    } as WebMetadata,
-  });
 
   // Handle adding a note to AI Office
   const handleAddNoteToOffice = (note: Note) => {
@@ -917,12 +881,6 @@ function LibraryPageContent() {
     }
   };
 
-  // Handle view resource
-  const handleView = (item: CollectionItem) => {
-    setSelectedItem(item);
-    setViewModalOpen(true);
-  };
-
   // Handle edit note
   const handleEditNote = (item: CollectionItem) => {
     setSelectedItem(item);
@@ -1378,18 +1336,11 @@ function LibraryPageContent() {
     const cfg = typeConfig[resource.type];
     const inSel = selectionMode;
     const itemSelected = isSelected(item.id);
-    const inOffice = aiOfficeStore.resources.some((r) => r._id === resource.id);
 
+    // 书签卡仅保留：编辑 + 删除（权限）+ 多选（批量入口）。查看/加Office/加Studio 已移除（2026-05-21）。
     const extraActions: AssetCardAction[] = inSel
       ? []
       : [
-          {
-            key: 'view',
-            title: '查看详情',
-            tone: 'info',
-            icon: <Eye className="h-4 w-4" />,
-            onClick: () => handleView(item),
-          },
           {
             key: 'select',
             title: '多选',
@@ -1397,31 +1348,6 @@ function LibraryPageContent() {
             onClick: () => {
               setSelectionMode(true);
               toggleSelect(item.id);
-            },
-          },
-          {
-            key: 'office',
-            title: inOffice ? '已在 AI Office' : '加入 AI Office',
-            tone: 'success',
-            icon: <FileOutput className="h-4 w-4" />,
-            onClick: () => {
-              if (!inOffice) {
-                const aiResource = convertToAIOfficeResource(resource);
-                aiOfficeStore.addResource(aiResource as AIOfficeResource);
-                setToast({
-                  message: `Added "${resource.title.slice(0, 30)}..." to AI Office`,
-                  type: 'success',
-                });
-              }
-            },
-          },
-          {
-            key: 'studio',
-            title: '加入 AI Studio',
-            icon: <Sparkles className="h-4 w-4" />,
-            onClick: () => {
-              setSelectedResourceForStudio(resource);
-              setAiStudioDialogOpen(true);
             },
           },
         ];
@@ -1888,148 +1814,6 @@ function LibraryPageContent() {
         }}
       />
 
-      {/* View Details Modal */}
-      <Modal
-        open={viewModalOpen && selectedItem !== null}
-        onClose={() => setViewModalOpen(false)}
-        title="Resource Details"
-        size="lg"
-        footer={
-          <>
-            <button
-              onClick={() => setViewModalOpen(false)}
-              className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
-            >
-              Close
-            </button>
-            {selectedItem && (
-              <a
-                href={getResourceLink(selectedItem.resource)}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-              >
-                View Full Details
-              </a>
-            )}
-          </>
-        }
-      >
-        {selectedItem && (
-          <div className="space-y-4">
-            {/* Type and Status Row */}
-            <div className="flex items-center justify-between">
-              <span className="inline-block rounded-lg bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
-                {selectedItem.resource.type.replace('_', ' ')}
-              </span>
-              <ReadStatusBadge
-                status={selectedItem.readStatus}
-                onChange={(status) =>
-                  handleUpdateItemStatus(selectedItem.id, status)
-                }
-                size="md"
-              />
-            </div>
-
-            {/* Title */}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Title
-              </label>
-              <p className="text-gray-900">{selectedItem.resource.title}</p>
-            </div>
-
-            {/* Abstract */}
-            {selectedItem.resource.abstract && (
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Abstract
-                </label>
-                <p className="text-gray-700">
-                  {selectedItem.resource.abstract}
-                </p>
-              </div>
-            )}
-
-            {/* Tags */}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Tags
-              </label>
-              <TagList
-                tags={selectedItem.tags || []}
-                onChange={(newTags) =>
-                  handleUpdateItemTags(selectedItem.id, newTags)
-                }
-                editable
-                size="md"
-              />
-            </div>
-
-            {/* Published Date */}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Published Date
-              </label>
-              <p className="text-gray-700">
-                <ClientDate
-                  date={selectedItem.resource.publishedAt}
-                  format="date"
-                  locale="en-US"
-                  dateOptions={{
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  }}
-                />
-              </p>
-            </div>
-
-            {/* Source URL */}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Source URL
-              </label>
-              <a
-                href={selectedItem.resource.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
-              >
-                {selectedItem.resource.sourceUrl}
-              </a>
-            </div>
-
-            {/* Thumbnail */}
-            {selectedItem.resource.thumbnailUrl &&
-              resolveThumbnailUrl(selectedItem.resource.thumbnailUrl) && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Thumbnail
-                  </label>
-                  <img
-                    src={
-                      resolveThumbnailUrl(selectedItem.resource.thumbnailUrl)!
-                    }
-                    alt={selectedItem.resource.title}
-                    className="max-w-full rounded-lg"
-                  />
-                </div>
-              )}
-
-            {/* Personal Note */}
-            {selectedItem.note && (
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  My Note
-                </label>
-                <div className="rounded-lg bg-amber-50 p-3">
-                  <p className="text-sm text-amber-900">{selectedItem.note}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
-
       {/* Edit Note Modal */}
       <Modal
         open={editNoteModalOpen && selectedItem !== null}
@@ -2278,24 +2062,6 @@ function LibraryPageContent() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Add to AI Studio Dialog */}
-      {selectedResourceForStudio && (
-        <AddToAIStudioDialog
-          isOpen={aiStudioDialogOpen}
-          onClose={() => {
-            setAiStudioDialogOpen(false);
-            setSelectedResourceForStudio(null);
-          }}
-          resource={selectedResourceForStudio}
-          onSuccess={(projectId, projectName) => {
-            setToast({
-              message: `Added to "${projectName}" in AI Studio`,
-              type: 'success',
-            });
-          }}
-        />
       )}
 
       {/* Add to Knowledge Base Dialog */}
