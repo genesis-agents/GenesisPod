@@ -1,7 +1,7 @@
 # 007. Agent Teams 呈现标准化 - 迁到 agent-playground canonical（落实标准 21 P3）
 
 **Date**: 2026-05-21
-**Status**: ✅ Accepted（四路两轮评审 4/4 共识，2026-05-21）。进 P0 前置 = 先修 BLK-7（ai-teams.gateway JWT 校验）合入主干；P0 产出 12 事件→MissionEvent 映射表 + 功能映射清单
+**Status**: ✅ Accepted + 实施中（四路两轮 4/4 共识，2026-05-21）。**BLK-7 gateway JWT 已修** `20e9d0e31`；**P0 事件调研已完成**（见设计 §4.1：adapter 强制必需 ~580 行 + cost/dimension 无源 → 本期略 Compute tab + 23 项功能映射底稿）。下一波 P1 泛化 useMissionStream
 **评审纪要**: [features/2026-05-21-design-review-minutes.md](../features/2026-05-21-design-review-minutes.md)
 **关联设计文档**: [features/ai-teams/presentation-migration-design.md](../features/ai-teams/presentation-migration-design.md)
 **关联标准**: [.claude/standards/21-agent-teams-presentation.md](../../.claude/standards/21-agent-teams-presentation.md)（本 ADR = 其 §7 P3 的 ai-teams 落地）

@@ -92,7 +92,29 @@ type MissionTab = {
 | 历史水合        | 详情页进入时 replay 历史事件（DB 快照兜底），与 playground 一致                                                 |
 | stages 拓扑     | ai-teams 的「Leader 拆解 → 多 Researcher 并行 → Reviewer → Writer」阶段，落 step-map                            |
 
-> ⚠️ 若 ai-teams 后端事件与 `MissionEvent` 差异大，P1 需要一层 **events adapter**（`lib/ai-teams/adapt-events.ts`），把后端事件规范化后再喂 deriveTeamsView——这是工作量的关键不确定项，**P0 调研先定**。
+> ⚠️ 若 ai-teams 后端事件与 `MissionEvent` 差异大，P1 需要一层 **events adapter**，把后端事件规范化后再喂 deriveTeamsView——这是工作量的关键不确定项，**P0 调研先定**。
+
+### 4.1 P0 调研结论（2026-05-21，✅ 完成）
+
+**核心发现：ai-teams 事件与 agent-playground 事件族不匹配，adapter 强制必需**（直接喂 `deriveView` → mission/stages/agents/cost 全空）。
+
+ai-teams 实际 emit ~24 个事件（gateway + mission/tool/ai 服务），与 playground derive 期待的映射：
+
+| playground 事件（derive 消费）   | ai-teams 对应                                                    | 完成度 | 处置                                         |
+| -------------------------------- | ---------------------------------------------------------------- | ------ | -------------------------------------------- |
+| `mission:started`                | `mission:created`（缺 input 字段）                               | 70%    | adapter 补字段                               |
+| `stage:lifecycle`                | `mission:agent_working`(心跳)+`mission:agent_done`+`task:status` | 40%    | adapter 聚合 task→stage                      |
+| `agent:lifecycle/thought/action` | `ai:typing/response/error`                                       | 50%    | adapter 转换                                 |
+| `agent:action/observation`       | `tool:calling/result/complete`（3 阶段）                         | 60%    | adapter 3→2 阶段                             |
+| `cost:tick`                      | **无**                                                           | 0%     | ⚠️ 决策：后端补 emit 或 Teams 略 Compute tab |
+| `dimension:*/chapter:*`          | **无**（ai-teams 是 task 模型非 research pipeline）              | —      | 不适用，Teams step-map 用 task 拓扑          |
+
+**结论 + 工作量**：
+
+- **必做**：`lib/features/ai-teams/adapt-events.ts`（命名空间包装 + mission/task/tool/ai 事件转换）≈ **580 行（含测试）≈ 2-3 天**。这是原设计未充分估计的工作量，纳入 P2。
+- **决策点（需用户/评审定）**：`cost:tick` 与 pipeline 在 ai-teams **无数据源** → (a) 后端补 emit `cost:tick`（~200 行，长期更干净）；或 (b) Teams 详情页**不展示算力 tab**（前端零成本，本期推荐）。建议 **(b) 本期略 Compute tab**，后端标准化列为后续。
+- deriveTeamsView **不复用** playground 的 dimension/chapter 派生（research 专属）；只取通用 mission/stages/agents/todos + 一个 ai-teams **task→stage step-map**。
+- god-class 功能映射清单已产出（~23 项功能 → page.tsx 行号，见调研记录），作为 P3「一次性切换不丢功能」的逐项验收底稿。
 
 ## 5. 组件复用清单（标准 21 §8）
 
@@ -123,6 +145,20 @@ type MissionTab = {
 | **P4 旧 god-class 下线**   | 删 3153 行旧详情，import 全切                                                                                                         | 无残留引用；audit/lint/tsc 0                                                              |
 
 > 与 #1（对话整理）的顺序：用户已定 **#1 先做**；本迁移在 #1 后启动，P0 调研可并行准备。
+
+### 7.1 落地进度（backfill）
+
+| 波次                              | 状态 | commit / 说明                                                                                            |
+| --------------------------------- | ---- | -------------------------------------------------------------------------------------------------------- |
+| BLK-7 gateway JWT 校验（P0 前置） | ✅   | `20e9d0e31`（gateway 改 JWT verify + module 加 JwtModule + spec 46 绿）                                  |
+| P0 事件调研 + god-class 功能映射  | ✅   | 见 §4.1：adapter 强制必需（~580 行）+ cost/dimension 无源（决策：本期略 Compute tab）+ 23 项功能映射底稿 |
+| P1 泛化 useMissionStream          | ⏳   | 待开（namespace 参数化 + replay 端点 + 不丢 ai-teams 原生事件）                                          |
+| P1.5 抽 3 canonical tabs          | ⏳   | TaskList/Report/References                                                                               |
+| P2 deriveTeamsView + adapt-events | ⏳   | task→stage step-map + adapter（§4.1）+ fixture 回归                                                      |
+| P3 详情页迁移（一次性切换）       | ⏳   | 逐项对照功能映射底稿                                                                                     |
+| P4 删旧 god-class                 | ⏳   | grep 0 引用                                                                                              |
+
+> P0 已清门禁。**下一波 P1**（泛化 `useMissionStream`）可开。提交注意：当前机器多 session 并发，lint-staged 易 OOM 崩溃 → 用 `NODE_OPTIONS='--max-old-space-size=6144' git commit/push`（见 memory，勿杀 node 进程）。
 
 ## 8. 架构铁律（标准 21 §4，迁移必须遵守）
 
