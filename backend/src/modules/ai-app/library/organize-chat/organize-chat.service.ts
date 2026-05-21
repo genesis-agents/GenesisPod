@@ -335,7 +335,8 @@ export class OrganizeChatService {
       itemType === "NOTE" ||
       itemType === "IMAGE" ||
       itemType === "FEISHU" ||
-      itemType === "NOTION";
+      itemType === "NOTION" ||
+      itemType === "DRIVE";
     const lines = [
       `你是用户资料库的「${label}」整理助手。根据用户的自然语言指令，调用工具真实整理用户的库。整理只在本地"整理覆盖层"进行（分集合/打标签/标状态），绝不修改源数据本身（不改笔记正文、不改图片、不写回外部平台）。`,
       "规则：",

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Cloud, Loader2, AlertCircle } from 'lucide-react';
+import { Cloud, Loader2, AlertCircle, MessageSquare } from 'lucide-react';
+import { OrganizeChatMode } from '@/components/library/OrganizeChatMode';
 import { useGoogleDrive } from '@/hooks/domain';
 import { useGoogleDriveImport } from '@/hooks/domain/useGoogleDriveImport';
 import { GoogleDriveFileBrowser } from './GoogleDriveFileBrowser';
@@ -28,6 +29,8 @@ import { confirm } from '@/stores';
  */
 export default function GoogleDriveTabContent() {
   const [showSettings, setShowSettings] = useState(false);
+  // 数据源统一整理：Drive 对话整理浮层开关
+  const [organizeChatOpen, setOrganizeChatOpen] = useState(false);
   const [importStatus, setImportStatus] = useState<{
     show: boolean;
     message: string;
@@ -341,6 +344,14 @@ export default function GoogleDriveTabContent() {
 
           {/* 右侧：同步控件和设置 */}
           <div className="flex items-center gap-3">
+            {/* 数据源统一整理：Drive 文件对话整理 */}
+            <button
+              onClick={() => setOrganizeChatOpen(true)}
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50"
+            >
+              <MessageSquare className="h-4 w-4" />
+              对话整理
+            </button>
             <SyncControls
               status={
                 isSyncing
@@ -477,6 +488,13 @@ export default function GoogleDriveTabContent() {
           </div>
         </div>
       )}
+
+      {/* 数据源统一整理：Google Drive 文件对话整理浮层 */}
+      <OrganizeChatMode
+        open={organizeChatOpen}
+        onClose={() => setOrganizeChatOpen(false)}
+        itemType="DRIVE"
+      />
     </div>
   );
 }

@@ -17,12 +17,13 @@ import {
 } from "../../collections/collections.service";
 import { ReadStatus } from "../../collections/dto/update-item.dto";
 
-/** 数据源统一整理：非书签源（笔记/图片/飞书/Notion）的可整理类型。 */
+/** 数据源统一整理：非书签源（笔记/图片/飞书/Notion/Drive）的可整理类型。 */
 const ORGANIZE_SOURCE_TYPES: readonly OrganizeItemType[] = [
   "NOTE",
   "IMAGE",
   "FEISHU",
   "NOTION",
+  "DRIVE",
 ] as const;
 
 /** 写操作单次最大条目数（评审安全加固：超限拒绝，不截断，避免部分执行状态不一致）*/
@@ -371,7 +372,10 @@ export class OrganizeListSourceItemsTool extends BaseTool<ListSourceItemsInput> 
   readonly inputSchema: JSONSchema = {
     type: "object",
     properties: {
-      itemType: { type: "string", enum: ["NOTE", "IMAGE", "FEISHU", "NOTION"] },
+      itemType: {
+        type: "string",
+        enum: ["NOTE", "IMAGE", "FEISHU", "NOTION", "DRIVE"],
+      },
       limit: { type: "number", description: "默认 30，最大 100" },
     },
     required: ["itemType"],
@@ -415,7 +419,10 @@ export class OrganizeAssignItemsTool extends BaseTool<AssignItemsInput> {
   readonly inputSchema: JSONSchema = {
     type: "object",
     properties: {
-      itemType: { type: "string", enum: ["NOTE", "IMAGE", "FEISHU", "NOTION"] },
+      itemType: {
+        type: "string",
+        enum: ["NOTE", "IMAGE", "FEISHU", "NOTION", "DRIVE"],
+      },
       sourceIds: {
         type: "array",
         items: { type: "string" },

@@ -888,7 +888,52 @@ export class CollectionsService {
       };
     }
 
-    // BOOKMARK / DRIVE：走既有 collection 视图（条目已是 CollectionItem）
+    if (itemType === "DRIVE") {
+      // Drive 文件即 Resource（GoogleDriveImportedFile.resourceId）。无 Prisma
+      // relation，两步取：先拿用户 Drive 文件的 resourceId，再查 Resource + 覆盖层。
+      const driveWhere = { connection: { userId } };
+      const [files, total] = await Promise.all([
+        this.prisma.googleDriveImportedFile.findMany({
+          where: driveWhere,
+          select: { resourceId: true, googleFileName: true },
+          orderBy: { lastSyncedAt: "desc" },
+          take: limit,
+        }),
+        this.prisma.googleDriveImportedFile.count({ where: driveWhere }),
+      ]);
+      const resourceIds = files.map((f) => f.resourceId);
+      const resources = await this.prisma.resource.findMany({
+        where: { id: { in: resourceIds } },
+        select: {
+          id: true,
+          title: true,
+          collectionItems: {
+            select: {
+              id: true,
+              collectionId: true,
+              tags: true,
+              readStatus: true,
+            },
+            take: 1,
+          },
+        },
+      });
+      const byId = new Map(resources.map((r) => [r.id, r]));
+      return {
+        items: files.map((f) => {
+          const r = byId.get(f.resourceId);
+          return this.toOrganizableItem(
+            "DRIVE",
+            f.resourceId,
+            r?.title || f.googleFileName,
+            r?.collectionItems[0],
+          );
+        }),
+        total,
+      };
+    }
+
+    // BOOKMARK：条目已是 collection 里的 CollectionItem，走既有视图
     const page = await this.getCollectionItemsPaginated(
       opts.collectionId ?? null,
       userId,
@@ -1013,8 +1058,13 @@ export class CollectionsService {
       count = await this.prisma.notionPage.count({
         where: { id: { in: sourceIds }, connection: { userId } },
       });
+    } else if (itemType === "DRIVE") {
+      // Drive 文件 sourceId 为 resourceId；归属经 GoogleDriveImportedFile.connection.userId
+      count = await this.prisma.googleDriveImportedFile.count({
+        where: { resourceId: { in: sourceIds }, connection: { userId } },
+      });
     } else {
-      // BOOKMARK/DRIVE：sourceId 为 resourceId，校验存在于用户某集合
+      // BOOKMARK：sourceId 为 resourceId，校验存在于用户某集合
       count = await this.prisma.collectionItem.count({
         where: { resourceId: { in: sourceIds }, collection: { userId } },
       });
