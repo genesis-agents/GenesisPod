@@ -35,7 +35,7 @@ import type {
 } from '@/hooks/domain/useKnowledgeBase';
 import SignInPrompt, { isAuthError } from '@/components/common/SignInPrompt';
 import { InternalReportsImportPanel } from '@/components/library/import-panels';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 
 /**
  * RAG 知识库管理页面
@@ -82,7 +82,11 @@ export default function RAGPage() {
 
   const handleDelete = async (id: string) => {
     if (
-      !window.confirm('确定要删除这个知识库吗？所有文档和向量数据都将被删除。')
+      !(await confirm({
+        title: '确定要删除这个知识库吗？',
+        description: '所有文档和向量数据都将被删除。',
+        type: 'danger',
+      }))
     ) {
       return;
     }

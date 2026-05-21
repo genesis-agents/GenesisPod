@@ -7,7 +7,7 @@ import { useAiPlanningStore } from '@/stores/aiPlanningStore';
 import AppShell from '@/components/layout/AppShell';
 import CreatePlanDialog from '@/components/ai-planning/CreatePlanDialog';
 import { useTranslation } from '@/lib/i18n';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 import type { PlanSummary } from '@/services/ai-planning/api';
 import { setVisibility } from '@/services/ai-planning/api';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
@@ -129,7 +129,10 @@ export default function AiPlanningPage() {
   };
 
   const handleDelete = async (planId: string) => {
-    if (!confirm(t('aiPlanning.confirmDelete'))) return;
+    if (
+      !(await confirm({ title: t('aiPlanning.confirmDelete'), type: 'danger' }))
+    )
+      return;
     try {
       await deletePlan(planId);
     } catch (error) {

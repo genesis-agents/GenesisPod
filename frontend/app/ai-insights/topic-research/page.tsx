@@ -12,7 +12,7 @@ import { useTranslation } from '@/lib/i18n';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 import {
   TopicCard,
   CreateTopicDialog,
@@ -247,7 +247,13 @@ export default function TopicResearchPage() {
   };
 
   const handleDelete = async (topicId: string) => {
-    if (!confirm(t('topicResearch.confirmDelete'))) return;
+    if (
+      !(await confirm({
+        title: t('topicResearch.confirmDelete'),
+        type: 'danger',
+      }))
+    )
+      return;
     try {
       await deleteTopic(topicId);
     } catch (err) {

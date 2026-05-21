@@ -8,7 +8,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 import ClientDate from '@/components/common/ClientDate';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { Tabs } from '@/components/ui/tabs';
@@ -321,7 +321,13 @@ export default function ScenarioDetailPage() {
 
   const handleDeleteRun = async (runId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // 阻止点击事件冒泡到父元素
-    if (!confirm('确定要删除此推演记录吗？此操作不可恢复。')) {
+    if (
+      !(await confirm({
+        title: '确定要删除此推演记录吗？',
+        description: '此操作不可恢复。',
+        type: 'danger',
+      }))
+    ) {
       return;
     }
 

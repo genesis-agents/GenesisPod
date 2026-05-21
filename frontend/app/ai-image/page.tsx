@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { confirm } from '@/stores';
 import ShareModal from '@/components/common/dialogs/ShareModal';
 
 import { logger } from '@/lib/utils/logger';
@@ -90,7 +91,13 @@ export default function AIImagePage() {
 
   const handleDelete = async (e: React.MouseEvent, imageId: string) => {
     e.stopPropagation();
-    if (!confirm(t('aiImage.actions.confirmDelete'))) return;
+    if (
+      !(await confirm({
+        title: t('aiImage.actions.confirmDelete'),
+        type: 'danger',
+      }))
+    )
+      return;
 
     try {
       const response = await fetch(

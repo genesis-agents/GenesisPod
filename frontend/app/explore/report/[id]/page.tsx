@@ -9,7 +9,7 @@ import { config } from '@/lib/utils/config';
 import ClientDate from '@/components/common/ClientDate';
 import { CitationListItem } from '@/components/common/citations';
 import { formatDateSafe } from '@/lib/utils/date';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 
 interface ReportSection {
   title: string;
@@ -113,7 +113,14 @@ export default function ReportPage() {
   };
 
   const handleRegenerate = async () => {
-    if (!confirm('确定要重新生成报告吗？这将花费一些时间。')) return;
+    if (
+      !(await confirm({
+        title: '确定要重新生成报告吗？',
+        description: '这将花费一些时间。',
+        type: 'warning',
+      }))
+    )
+      return;
 
     toast.info('Regeneration feature is not yet available');
   };

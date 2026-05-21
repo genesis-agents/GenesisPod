@@ -21,7 +21,7 @@ import * as api from '@/services/ai-teams/api';
 import { PublicTopic, JoinRequest } from '@/services/ai-teams/api';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 import {
   AssetCard,
   type AssetCardBadge,
@@ -154,7 +154,13 @@ export default function AIGroupPage() {
 
   // Cancel join request
   const handleCancelJoinRequest = async (requestId: string) => {
-    if (!confirm(t('aiTeams.pendingRequests.confirmCancel'))) return;
+    if (
+      !(await confirm({
+        title: t('aiTeams.pendingRequests.confirmCancel'),
+        type: 'warning',
+      }))
+    )
+      return;
     try {
       await api.cancelJoinRequest(requestId);
       const requests = await api.getMyJoinRequests();
@@ -380,7 +386,12 @@ export default function AIGroupPage() {
                         setEditingTopic(topic);
                       }}
                       onDelete={async (topicId) => {
-                        if (confirm(t('aiTeams.confirmDelete'))) {
+                        if (
+                          await confirm({
+                            title: t('aiTeams.confirmDelete'),
+                            type: 'danger',
+                          })
+                        ) {
                           await deleteTopic(topicId);
                           await fetchTopics();
                         }

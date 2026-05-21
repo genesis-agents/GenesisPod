@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
-import { useAIWritingStore } from '@/stores';
+import { useAIWritingStore, confirm } from '@/stores';
 import {
   getStylePresets,
   type WritingStylePreset,
@@ -218,7 +218,12 @@ export default function AIWritingPage() {
 
   const handleDelete = async (e: React.MouseEvent, projectId: string) => {
     e.stopPropagation();
-    if (confirm(t('aiWriting.actions.confirmDelete'))) {
+    if (
+      await confirm({
+        title: t('aiWriting.actions.confirmDelete'),
+        type: 'danger',
+      })
+    ) {
       await deleteProject(projectId);
     }
   };
