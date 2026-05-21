@@ -1658,6 +1658,9 @@ export default function ImageGenerator({
       }
 
       let buffer = '';
+      let sawComplete = false;
+      // proxy 兜底基线：本次生成前已有的图 id，用于流被掐断后回捞新图
+      const knownImageIds = new Set(generatedImages.map((img) => img.id));
 
       while (true) {
         const { done, value } = await reader.read();
@@ -1680,6 +1683,7 @@ export default function ImageGenerator({
                   renderingMode: data.renderingMode,
                 });
               } else if (data.type === 'complete') {
+                sawComplete = true;
                 const newImage: GeneratedImage = {
                   ...data.result,
                   createdAt: new Date().toISOString(),
@@ -1695,6 +1699,37 @@ export default function ImageGenerator({
               logger.warn('Failed to parse SSE data:', line);
             }
           }
+        }
+      }
+
+      // proxy 兜底：未收到 complete（流被代理/网络掐断）→ 后端通常已生成入库，
+      // 轮询 history 回捞本次新图，避免「转完了却没图」的黑洞。
+      if (!sawComplete) {
+        let recovered: GeneratedImage | null = null;
+        for (let attempt = 0; attempt < 12 && !recovered; attempt++) {
+          await new Promise((r) => setTimeout(r, attempt < 3 ? 1500 : 3000));
+          try {
+            const histRes = await fetch(
+              `${config.apiBaseUrl}/api/v1/ai-image/history`,
+              { headers: getAuthHeader() }
+            );
+            if (!histRes.ok) continue;
+            const histJson = await histRes.json();
+            const list: GeneratedImage[] = histJson?.data ?? histJson ?? [];
+            recovered =
+              list.find((img) => img?.id && !knownImageIds.has(img.id)) ?? null;
+          } catch {
+            // 轮询期间瞬时错误，继续重试
+          }
+        }
+        if (recovered) {
+          const found = recovered;
+          setGeneratedImages((prev) => [found, ...prev]);
+          setSelectedImage(found);
+        } else {
+          setError(
+            '生成流被网络/代理中断，且未回捞到结果，请稍后在历史查看或重试。'
+          );
         }
       }
 
