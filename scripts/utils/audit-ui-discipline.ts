@@ -1,12 +1,12 @@
 #!/usr/bin/env tsx
 /**
- * UI Discipline Audit — 11 条结构强制规则
+ * UI Discipline Audit — 12 条结构强制规则
  *
  * 检测前端主页面是否绕过公共组件自写实现。
  * 配套方案文档：docs/guides/testing/frontend-ui-validation.md
  * 基线日期：2026-05-18（首次扫描）
  *
- * 11 条规则（仅作用于 frontend/app/** 和 frontend/components/{ai-*,library,explore,me,profile}/**）：
+ * 12 条规则（仅作用于 frontend/app/** 和 frontend/components/{ai-*,library,explore,me,profile}/**）：
  *   R1  AI app 主页（app/{ai-*,library,explore}/page.tsx）必须 import AppShell
  *   R2  列表型 .map 渲染卡片的页面必须 import AssetCard（不准自写 rounded-(xl|lg|2xl) + border 卡片）
  *   R3  含 list.length === 0 / data?.length === 0 分支必须 import EmptyState
@@ -18,6 +18,7 @@
  *   R9  自写 DIY 环形 spinner（animate-spin + rounded-full + border-N）必须改用 LoadingState（不碰内联图标 spinner）
  *   R11 owner 资产卡基线操作 onEdit + onDelete 必须接齐（运营型卡仅 extraActions 者不在此列）
  *   R12 自写引用/来源「行卡」必须用 CitationListItem（common/citations）
+ *   R13 对话流消息卡（message-cards/ 目录）必须用 MessageCardShell（统一外壳 + tone 配色）
  *
  * 报告模式：全部规则已焊死（HARD_ZERO，2026-05-20）——任一规则违规即 exit 1 拒推（已退出 warn-only 灰度）。
  *
@@ -50,6 +51,7 @@ const HARD_ZERO_RULES = new Set<string>([
   "R9-Spinner-LoadingState-Required",
   "R11-CardBaseline-Required",
   "R12-CitationListItem-Required",
+  "R13-MessageCardShell-Required",
 ]);
 const BASELINE_PATH = (() => {
   const idx = process.argv.indexOf("--baseline");
@@ -600,6 +602,30 @@ function checkR12CitationRow(file: string, src: string): Violation[] {
   return [];
 }
 
+// R13: 对话流消息卡必须用 MessageCardShell（卡片设计系统第 3 类）。仅作用于 message-cards/ 目录：
+// 自写 `rounded-lg border + bg-(purple|orange|blue|green|amber|yellow)-50` 外壳而不 import MessageCardShell 即违规。
+const MSG_SHELL_PAT =
+  /rounded-lg\b[^"`']*\bborder\b[^"`']*\bbg-(?:purple|orange|blue|green|amber|yellow)-50/;
+function checkR13MessageShell(file: string, src: string): Violation[] {
+  const norm = file.split(sep).join("/");
+  if (!norm.includes("topic-content/message-cards/")) return [];
+  if (hasImport(src, "MessageCardShell")) return [];
+  if (!MSG_SHELL_PAT.test(src)) return [];
+  const line = findLine(src, MSG_SHELL_PAT);
+  return [
+    {
+      rule: "R13-MessageCardShell-Required",
+      file: relative(process.cwd(), file),
+      line,
+      snippet: snippet(src, line),
+    },
+  ];
+}
+
+// 注：内容/洞察展示卡（SectionPanelCard，卡片设计系统第 5 类）不设硬零检测器——
+// 其「渐变头卡」视觉特征与弹层/面板/页头共用（无法精确区分），强检测会误拦 Modal/Dialog 等。
+// 故 SectionPanelCard 作为「文档约定 + 已迁清晰用例」治理，不进 HARD_ZERO（实事求是）。
+
 async function main() {
   console.log("[audit:ui-discipline] 扫描 frontend/ 公共组件强制复用规则...");
 
@@ -625,6 +651,7 @@ async function main() {
     allViolations.push(...checkR9Spinner(file, src));
     allViolations.push(...checkR11CardBaseline(file, src));
     allViolations.push(...checkR12CitationRow(file, src));
+    allViolations.push(...checkR13MessageShell(file, src));
   }
 
   // 按 rule 聚合

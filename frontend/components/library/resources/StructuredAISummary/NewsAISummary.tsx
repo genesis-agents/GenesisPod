@@ -1,8 +1,10 @@
 'use client';
 
 import React from 'react';
+import { Newspaper } from 'lucide-react';
 import type { NewsAISummary } from '@/lib/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
+import { SectionPanelCard } from '@/components/ui/cards';
 
 /**
  * 新闻文章专属结构化摘要组件
@@ -91,22 +93,18 @@ export const NewsAISummaryComponent: React.FC<NewsAISummaryProps> = ({
   const [isExpanded, setIsExpanded] = React.useState(!compact);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-      {/* 头部 */}
-      <div className="border-b border-gray-100 bg-gradient-to-r from-red-50 to-orange-50 p-4">
-        {/* 新闻类型和状态 */}
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <NewsFactorBadge newsFactor={summary.newsFactor} />
-            <UrgencyBadge urgency={summary.urgency} />
-          </div>
-          <SentimentIndicator sentiment={summary.sentiment} />
+    <SectionPanelCard
+      title={summary.headline}
+      icon={<Newspaper className="h-4 w-4" />}
+      accent="red"
+      actions={<SentimentIndicator sentiment={summary.sentiment} />}
+    >
+      {/* 子头部：新闻类型/状态徽章 + 核心内容 + 元信息 */}
+      <div className="border-b border-gray-100 px-4 py-3">
+        <div className="mb-2 flex items-center gap-2">
+          <NewsFactorBadge newsFactor={summary.newsFactor} />
+          <UrgencyBadge urgency={summary.urgency} />
         </div>
-
-        {/* 标题 */}
-        <h3 className="mb-2 text-base font-bold leading-snug text-gray-900">
-          {summary.headline}
-        </h3>
 
         {/* 核心新闻事实 */}
         <p className="text-sm leading-relaxed text-gray-700">
@@ -260,6 +258,6 @@ export const NewsAISummaryComponent: React.FC<NewsAISummaryProps> = ({
           </button>
         </div>
       )}
-    </div>
+    </SectionPanelCard>
   );
 };

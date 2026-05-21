@@ -34,6 +34,7 @@ import {
 import { apiClient } from '@/lib/api/client';
 import { toast } from '@/stores';
 import { Modal } from '@/components/ui/dialogs/Modal';
+import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
 import { UserModelConfigModal } from './UserModelConfigModal';
 import { UserModelsAutoConfigureButton } from './UserModelsAutoConfigureButton';
 
@@ -318,23 +319,17 @@ export function UserModelsManagement() {
 
       {/* 需求概览 —— 告诉用户 Topic Insights / Research / RAG 等功能依赖哪些 modelType，
           以及当前缺什么。一键定位到 Add Modal 并预选缺失类型。 */}
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <div className="text-sm font-medium text-gray-900">
-              模型需求概览
-            </div>
-            <div className="mt-0.5 text-xs text-gray-500">
-              不同功能（AI 问答 / Topic Insights / 知识库
-              RAG）依赖不同类型的模型； 建议至少配置标记为「必需」的类型。
-            </div>
-          </div>
-          {missingRequired.length > 0 && (
+      <SettingsSectionCard
+        title="模型需求概览"
+        description="不同功能（AI 问答 / Topic Insights / 知识库 RAG）依赖不同类型的模型； 建议至少配置标记为「必需」的类型。"
+        action={
+          missingRequired.length > 0 ? (
             <div className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
               缺 {missingRequired.length} 类必需模型
             </div>
-          )}
-        </div>
+          ) : undefined
+        }
+      >
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
           {USER_MODEL_TYPE_OPTIONS.map((opt) => {
             const c = coverage.get(opt.value)!;
@@ -353,7 +348,7 @@ export function UserModelsManagement() {
             );
           })}
         </div>
-      </div>
+      </SettingsSectionCard>
 
       {/* Search + Filter — 对齐管理员 */}
       <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">

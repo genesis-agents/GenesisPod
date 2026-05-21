@@ -1,8 +1,10 @@
 'use client';
 
 import React from 'react';
+import { Play } from 'lucide-react';
 import type { VideoAISummary } from '@/lib/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
+import { SectionPanelCard } from '@/components/ui/cards';
 
 /**
  * 视频专属结构化摘要组件
@@ -75,24 +77,21 @@ export const VideoAISummaryComponent: React.FC<VideoAISummaryProps> = ({
   const [isExpanded, setIsExpanded] = React.useState(!compact);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-      {/* 头部 */}
-      <div className="border-b border-gray-100 bg-gradient-to-r from-red-50 to-pink-50 p-4">
-        {/* 视频类型和难度 */}
-        <div className="mb-3 flex items-center justify-between gap-2">
+    <SectionPanelCard
+      title={summary.mainTopic}
+      icon={<Play className="h-4 w-4" />}
+      accent="red"
+      actions={
+        <div className="flex items-center gap-2">
           <VideoTypeBadge type={summary.videoType} />
-          <div className="flex items-center gap-2 text-xs">
-            <span className="rounded border border-gray-200 bg-white px-2 py-1">
-              {summary.pace}
-            </span>
-          </div>
+          <span className="rounded border border-gray-200 bg-white px-2 py-1 text-xs">
+            {summary.pace}
+          </span>
         </div>
-
-        {/* 主题 */}
-        <h3 className="mb-2 text-base font-bold text-gray-900">
-          {summary.mainTopic}
-        </h3>
-
+      }
+    >
+      {/* 子头部：概览 + 视频指标 */}
+      <div className="border-b border-gray-100 px-4 py-3">
         {/* 核心概览 */}
         <p className="text-sm leading-relaxed text-gray-700">
           {compact && !isExpanded ? (
@@ -297,6 +296,6 @@ export const VideoAISummaryComponent: React.FC<VideoAISummaryProps> = ({
           </button>
         </div>
       )}
-    </div>
+    </SectionPanelCard>
   );
 };

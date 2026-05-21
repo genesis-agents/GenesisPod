@@ -1,8 +1,10 @@
 'use client';
 
 import React from 'react';
+import { FileText } from 'lucide-react';
 import type { ReportAISummary } from '@/lib/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
+import { SectionPanelCard } from '@/components/ui/cards';
 
 /**
  * 报告专属结构化摘要组件
@@ -127,35 +129,28 @@ export const ReportAISummaryComponent: React.FC<ReportAISummaryProps> = ({
   const [isExpanded, setIsExpanded] = React.useState(!compact);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-      {/* 头部：发布商和报告类型 */}
-      <div className="border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50 p-4">
-        <div className="mb-3 flex items-start justify-between gap-4">
-          <div className="flex flex-1 items-start gap-3">
-            {/* 发布商Logo */}
-            {summary.publisherLogo && (
-              <img
-                src={summary.publisherLogo}
-                alt={summary.publisherName}
-                className="h-10 w-10 rounded-lg object-cover"
-              />
-            )}
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-gray-900">
-                {summary.publisherName}
-              </p>
-              <p className="text-xs text-gray-500">
-                <ClientDate date={summary.reportDate} format="date" />
-              </p>
-            </div>
-          </div>
-          <ReportTypeBadge reportType={summary.reportType} />
+    <SectionPanelCard
+      title={summary.reportTitle}
+      subtitle={summary.publisherName}
+      icon={<FileText className="h-4 w-4" />}
+      accent="violet"
+      actions={<ReportTypeBadge reportType={summary.reportType} />}
+    >
+      {/* 子头部：发布商信息 + 执行摘要 */}
+      <div className="border-b border-gray-100 px-4 py-3">
+        <div className="mb-2 flex items-start gap-3">
+          {/* 发布商Logo */}
+          {summary.publisherLogo && (
+            <img
+              src={summary.publisherLogo}
+              alt={summary.publisherName}
+              className="h-10 w-10 rounded-lg object-cover"
+            />
+          )}
+          <p className="text-xs text-gray-500">
+            <ClientDate date={summary.reportDate} format="date" />
+          </p>
         </div>
-
-        {/* 报告标题 */}
-        <h3 className="mb-2 text-base font-bold text-gray-900">
-          {summary.reportTitle}
-        </h3>
 
         {/* 执行摘要 */}
         <p className="line-clamp-2 text-sm leading-relaxed text-gray-700">
@@ -429,6 +424,6 @@ export const ReportAISummaryComponent: React.FC<ReportAISummaryProps> = ({
           </button>
         )}
       </div>
-    </div>
+    </SectionPanelCard>
   );
 };

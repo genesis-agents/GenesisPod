@@ -1,8 +1,10 @@
 'use client';
 
 import React from 'react';
+import { BookOpen } from 'lucide-react';
 import type { PaperAISummary } from '@/lib/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
+import { SectionPanelCard } from '@/components/ui/cards';
 
 /**
  * 学术论文专属结构化摘要组件
@@ -62,22 +64,15 @@ export const PaperAISummaryComponent: React.FC<PaperAISummaryProps> = ({
   const [isExpanded, setIsExpanded] = React.useState(!compact);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-      {/* 头部 */}
-      <div className="border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
-        {/* 分类和难度 */}
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-medium text-blue-700">
-              {summary.field}
-            </span>
-            {summary.subfield && (
-              <span className="text-xs text-gray-600">{summary.subfield}</span>
-            )}
-          </div>
-          <DifficultyBadge difficulty={summary.difficulty} />
-        </div>
-
+    <SectionPanelCard
+      title={summary.field}
+      subtitle={summary.subfield}
+      icon={<BookOpen className="h-4 w-4" />}
+      accent="blue"
+      actions={<DifficultyBadge difficulty={summary.difficulty} />}
+    >
+      {/* 子头部：概览 + 论文指标 */}
+      <div className="border-b border-gray-100 px-4 py-3">
         {/* 核心概览 */}
         <p className="text-sm font-medium leading-relaxed text-gray-700">
           {compact && !isExpanded ? (
@@ -285,6 +280,6 @@ export const PaperAISummaryComponent: React.FC<PaperAISummaryProps> = ({
           </button>
         </div>
       )}
-    </div>
+    </SectionPanelCard>
   );
 };

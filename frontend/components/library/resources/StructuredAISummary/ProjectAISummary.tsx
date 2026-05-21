@@ -1,7 +1,16 @@
 'use client';
 
 import React from 'react';
-import { Star, GitFork, AlertCircle, Users, Circle, Award } from 'lucide-react';
+import {
+  Star,
+  GitFork,
+  AlertCircle,
+  Users,
+  Circle,
+  Award,
+  FolderGit2,
+} from 'lucide-react';
+import { SectionPanelCard } from '@/components/ui/cards';
 import type { ProjectAISummary } from '@/lib/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
 
@@ -75,27 +84,20 @@ export const ProjectAISummaryComponent: React.FC<ProjectAISummaryProps> = ({
   const [isExpanded, setIsExpanded] = React.useState(!compact);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-      {/* 头部 */}
-      <div className="border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50 p-4">
-        {/* 成熟度和活力指标 */}
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <MaturityBadge maturity={summary.maturity} />
-            <ActivityIndicator isActive={summary.activity.isActive} />
-          </div>
+    <SectionPanelCard
+      title={summary.projectName}
+      subtitle={summary.purpose}
+      icon={<FolderGit2 className="h-4 w-4" />}
+      accent="blue"
+      actions={
+        <div className="flex items-center gap-2">
+          <MaturityBadge maturity={summary.maturity} />
+          <ActivityIndicator isActive={summary.activity.isActive} />
         </div>
-
-        {/* 项目名称 */}
-        <h3 className="mb-2 text-base font-bold text-gray-900">
-          {summary.projectName}
-        </h3>
-
-        {/* 项目目的 */}
-        <p className="mb-3 text-sm leading-relaxed text-gray-700">
-          {summary.purpose}
-        </p>
-
+      }
+    >
+      {/* 子头部：项目指标 + 元信息 */}
+      <div className="border-b border-gray-100 px-4 py-3">
         {/* 项目指标 */}
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="flex items-center gap-1 text-gray-600">
@@ -301,6 +303,6 @@ export const ProjectAISummaryComponent: React.FC<ProjectAISummaryProps> = ({
           </button>
         </div>
       )}
-    </div>
+    </SectionPanelCard>
   );
 };
