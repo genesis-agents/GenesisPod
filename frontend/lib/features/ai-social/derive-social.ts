@@ -94,6 +94,18 @@ function humanize(stepId: string): string {
 
 export function deriveSocialView(events: MissionEvent[]): SocialMissionView {
   const stageMap = new Map<string, SocialStageView>();
+
+  // 预置全部阶段（pending）——任务列表一开始就是完整列表（而非只有已发事件的几行）；
+  // 事件到来后在原位更新状态。
+  for (const [stepId, meta] of Object.entries(STEP_META)) {
+    stageMap.set(stepId, {
+      stepId,
+      label: meta.label,
+      role: meta.role,
+      status: 'pending',
+    });
+  }
+
   let status: SocialMissionStatus = 'idle';
   let startedAt: number | undefined;
   let completedAt: number | undefined;

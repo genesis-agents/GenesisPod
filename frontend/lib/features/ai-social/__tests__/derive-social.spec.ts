@@ -10,15 +10,22 @@ function ev(
   return { type, payload, timestamp };
 }
 
+const find = (v: ReturnType<typeof deriveSocialView>, stepId: string) =>
+  v.stages.find((s) => s.stepId === stepId);
+
+// 13 个预置阶段（s1..s12 + s8b）
+const SEEDED = 13;
+
 describe('deriveSocialView', () => {
-  it('空事件 → idle / 0 阶段', () => {
+  it('空事件 → idle，预置完整阶段列表（全 pending）', () => {
     const v = deriveSocialView([]);
     expect(v.status).toBe('idle');
-    expect(v.stages).toHaveLength(0);
-    expect(v.progress).toEqual({ done: 0, total: 0 });
+    expect(v.stages).toHaveLength(SEEDED);
+    expect(v.stages.every((s) => s.status === 'pending')).toBe(true);
+    expect(v.progress).toEqual({ done: 0, total: SEEDED });
   });
 
-  it('running 中间态：s1 完成 + s2 运行中 → 1/2，状态 running', () => {
+  it('running 中间态：s1 完成 + s2 运行中 → done 1，状态 running', () => {
     const v = deriveSocialView([
       ev(
         'social.stage:lifecycle',
@@ -37,18 +44,16 @@ describe('deriveSocialView', () => {
       ),
     ]);
     expect(v.status).toBe('running');
-    expect(v.stages).toHaveLength(2);
-    expect(v.stages[0]).toMatchObject({
-      stepId: 's1-mission-budget-eval',
+    expect(v.stages).toHaveLength(SEEDED);
+    expect(find(v, 's1-mission-budget-eval')).toMatchObject({
       label: '预算评估',
       status: 'done',
     });
-    expect(v.stages[1]).toMatchObject({
-      stepId: 's2-platform-probe',
+    expect(find(v, 's2-platform-probe')).toMatchObject({
       label: '平台探测',
       status: 'running',
     });
-    expect(v.progress).toEqual({ done: 1, total: 2 });
+    expect(v.progress).toEqual({ done: 1, total: SEEDED });
   });
 
   it('completed：mission:completed → 状态 completed', () => {
@@ -62,7 +67,7 @@ describe('deriveSocialView', () => {
     ]);
     expect(v.status).toBe('completed');
     expect(v.completedAt).toBe(2);
-    expect(v.progress.done).toBe(1);
+    expect(find(v, 's6-body-compose')?.status).toBe('done');
   });
 
   it('failed：stage failed + mission:failed → 阶段失败 + mission 失败信息', () => {
@@ -76,13 +81,13 @@ describe('deriveSocialView', () => {
     ]);
     expect(v.status).toBe('failed');
     expect(v.failedMessage).toBe('发布失败');
-    expect(v.stages[0]).toMatchObject({
+    expect(find(v, 's8-publish-execute')).toMatchObject({
       status: 'failed',
       error: '账号未授权',
     });
   });
 
-  it('未知 stepId → humanize 兜底 label', () => {
+  it('未知 stepId → humanize 兜底 + 追加到列表', () => {
     const v = deriveSocialView([
       ev(
         'social.stage:lifecycle',
@@ -90,30 +95,27 @@ describe('deriveSocialView', () => {
         1
       ),
     ]);
-    expect(v.stages[0].label).toBe('some new stage');
+    expect(v.stages).toHaveLength(SEEDED + 1);
+    expect(find(v, 's99-some-new-stage')?.label).toBe('some new stage');
   });
 
   it('roles 聚合：按阶段角色汇总状态', () => {
     const v = deriveSocialView([
       ev(
         'social.stage:lifecycle',
-        {
-          stepId: 's2-platform-probe',
-          status: 'completed',
-          primitive: 'PlatformProbe',
-        },
+        { stepId: 's2-platform-probe', status: 'completed' },
         1
       ),
       ev(
         'social.stage:lifecycle',
-        { stepId: 's6-body-compose', status: 'started', primitive: 'Composer' },
+        { stepId: 's6-body-compose', status: 'started' },
         2
       ),
     ]);
-    const composer = v.roles.find((r) => r.role === 'Composer');
-    const probe = v.roles.find((r) => r.role === 'PlatformProbe');
-    expect(probe?.status).toBe('done');
-    expect(composer?.status).toBe('working');
+    expect(v.roles.find((r) => r.role === 'PlatformProbe')?.status).toBe(
+      'done'
+    );
+    expect(v.roles.find((r) => r.role === 'Composer')?.status).toBe('working');
   });
 
   it('幂等：重复事件不重复建阶段', () => {
@@ -129,6 +131,6 @@ describe('deriveSocialView', () => {
         1
       ),
     ];
-    expect(deriveSocialView(events).stages).toHaveLength(1);
+    expect(deriveSocialView(events).stages).toHaveLength(SEEDED);
   });
 });

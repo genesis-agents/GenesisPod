@@ -41,8 +41,11 @@ import {
 import {
   MissionDetailFrame,
   MissionActionGroup,
+  MissionTaskList,
+  RoleCard,
   type MissionActionButtonSpec,
 } from '@/components/common/mission-detail';
+import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import {
   TeamTopologyCanvas,
   type TeamTopologyNode,
@@ -55,10 +58,11 @@ import { deriveTodoLedger } from '@/lib/features/agent-playground/todo-ledger';
 import {
   deriveSocialView,
   type SocialStageStatus,
+  type SocialStageView,
   type SocialMissionView,
 } from '@/lib/features/ai-social/derive-social';
-import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { Modal } from '@/components/ui/dialogs/Modal';
+import DOMPurify from 'isomorphic-dompurify';
 import { useSocialMissionStream } from '@/hooks/features/useSocialMissionStream';
 import { useSocialTask } from '@/hooks/domain/useSocialTasks';
 import {
@@ -286,11 +290,18 @@ function ReportTab({
                 ))}
               </div>
             )}
-            <div className="whitespace-pre-wrap rounded-xl bg-gray-50 p-4 text-sm leading-relaxed text-gray-700">
-              {version.content || (
-                <span className="text-gray-400">内容生成中…</span>
-              )}
-            </div>
+            {version.content ? (
+              <div
+                className="prose prose-sm max-w-none rounded-xl bg-gray-50 p-4 text-sm leading-relaxed text-gray-700"
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(version.content),
+                }}
+              />
+            ) : (
+              <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-400">
+                内容生成中…
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex h-32 items-center justify-center text-sm text-gray-400">
@@ -345,6 +356,9 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
 
   const [activeTab, setActiveTab] = useState<TabKey>('tasks');
   const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const selectedStage =
+    socialView.stages.find((s) => s.stepId === selectedStageId) ?? null;
   const [cancelling, setCancelling] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
@@ -531,6 +545,34 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                         {socialView.progress.done}/{socialView.progress.total}
                       </span>
                     </div>
+                    {socialView.roles.length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          关键角色
+                        </p>
+                        {socialView.roles.map((r) => {
+                          const meta = SOCIAL_TEAM.find(
+                            (m) => m.role === r.role
+                          );
+                          return (
+                            <RoleCard
+                              key={r.role}
+                              label={r.label}
+                              icon={meta?.icon ?? Sparkles}
+                              status={
+                                r.status === 'working'
+                                  ? 'running'
+                                  : r.status === 'done'
+                                    ? 'completed'
+                                    : r.status === 'failed'
+                                      ? 'failed'
+                                      : 'idle'
+                              }
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {(view.cost.tokensUsed > 0 || view.cost.costUsd > 0) && (
@@ -613,64 +655,98 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
               </div>
             </div>
           ) : missionId ? (
-            <div className="p-6">
-              {socialView.stages.length > 0 ? (
-                <Table>
-                  <THead>
-                    <Tr>
-                      <Th className="w-12">#</Th>
-                      <Th>阶段</Th>
-                      <Th>角色</Th>
-                      <Th className="w-24">状态</Th>
-                    </Tr>
-                  </THead>
-                  <TBody>
-                    {socialView.stages.map((s, i) => {
+            <>
+              <MissionTaskList<SocialStageView>
+                items={socialView.stages}
+                getRowKey={(s) => s.stepId}
+                selectedKey={selectedStageId}
+                onRowClick={(s) => setSelectedStageId(s.stepId)}
+                emptyTitle="等待任务启动"
+                emptyDescription="任务刚被创建，协作管线正在初始化。各阶段会实时出现在此处。"
+                columns={[
+                  {
+                    key: 'idx',
+                    label: '#',
+                    className: 'w-12 text-gray-400',
+                    render: (_s, i) => i + 1,
+                  },
+                  {
+                    key: 'stage',
+                    label: '阶段',
+                    render: (s) => (
+                      <span className="font-medium text-gray-900">
+                        {s.label}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'role',
+                    label: '角色',
+                    className: 'text-gray-500',
+                    render: (s) => s.role ?? '—',
+                  },
+                  {
+                    key: 'status',
+                    label: '状态',
+                    className: 'w-24',
+                    render: (s) => {
                       const sc = SOCIAL_STAGE_STATUS[s.status];
                       return (
-                        <Tr key={s.stepId} hoverable>
-                          <Td className="text-gray-400">{i + 1}</Td>
-                          <Td className="font-medium text-gray-900">
-                            {s.label}
-                          </Td>
-                          <Td className="text-gray-500">{s.role ?? '—'}</Td>
-                          <Td>
-                            <span
-                              className={cn(
-                                'inline-flex items-center gap-1.5 text-xs font-medium',
-                                sc.text
-                              )}
-                            >
-                              <span
-                                className={cn(
-                                  'h-1.5 w-1.5 rounded-full',
-                                  sc.dot
-                                )}
-                              />
-                              {sc.label}
-                            </span>
-                          </Td>
-                        </Tr>
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1.5 text-xs font-medium',
+                            sc.text
+                          )}
+                        >
+                          <span
+                            className={cn('h-1.5 w-1.5 rounded-full', sc.dot)}
+                          />
+                          {sc.label}
+                        </span>
                       );
-                    })}
-                  </TBody>
-                </Table>
-              ) : (
-                <div className="flex h-full items-center justify-center p-8">
-                  <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center shadow-sm">
-                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-100 to-pink-100">
-                      <ListChecks className="h-7 w-7 text-rose-500" />
+                    },
+                  },
+                ]}
+              />
+              <SideDrawer
+                open={selectedStage !== null}
+                onClose={() => setSelectedStageId(null)}
+                title={selectedStage?.label ?? '任务明细'}
+              >
+                {selectedStage && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="w-16 shrink-0 text-gray-500">角色</span>
+                      <span className="font-medium text-gray-900">
+                        {selectedStage.role ?? '—'}
+                      </span>
                     </div>
-                    <h3 className="text-base font-semibold text-gray-900">
-                      等待任务启动
-                    </h3>
-                    <p className="mt-1.5 text-sm text-gray-500">
-                      任务刚被创建，协作管线正在初始化。各阶段会实时出现在此处。
-                    </p>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="w-16 shrink-0 text-gray-500">状态</span>
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1.5 font-medium',
+                          SOCIAL_STAGE_STATUS[selectedStage.status].text
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'h-1.5 w-1.5 rounded-full',
+                            SOCIAL_STAGE_STATUS[selectedStage.status].dot
+                          )}
+                        />
+                        {SOCIAL_STAGE_STATUS[selectedStage.status].label}
+                      </span>
+                    </div>
+                    {selectedStage.error && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                        {selectedStage.error}
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </SideDrawer>
+            </>
           ) : (
             <div className="flex h-full items-center justify-center p-8">
               <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center shadow-sm">

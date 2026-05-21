@@ -41,7 +41,7 @@ export interface MissionTaskListProps<T> {
   className?: string;
 }
 
-export function MissionTaskList<T extends { id?: string }>({
+export function MissionTaskList<T>({
   items,
   columns,
   getRowKey,
@@ -53,7 +53,7 @@ export function MissionTaskList<T extends { id?: string }>({
   className,
 }: MissionTaskListProps<T>) {
   const keyOf = (item: T, i: number): string =>
-    getRowKey?.(item) ?? item.id ?? String(i);
+    getRowKey?.(item) ?? (item as { id?: string }).id ?? String(i);
 
   if (items.length === 0) {
     return (
