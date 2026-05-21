@@ -21,7 +21,7 @@ import { LinkPreviewList } from '@/components/ai-teams/LinkPreviewCard';
 import type { ParsedUrl } from '@/services/ai-teams/api';
 import { getProviderBrand } from '@/lib/constants/ai-provider-logos';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 
 // Helper to get short capability labels and colors
 const CAPABILITY_CONFIG: Record<
@@ -2804,7 +2804,11 @@ export default function TopicPage() {
                 onClick={async () => {
                   if (!topicId || !currentMission) return;
                   if (
-                    confirm(`确认要取消当前任务吗？\n\n${currentMission.title}`)
+                    await confirm({
+                      title: '确认要取消当前任务吗？',
+                      description: currentMission.title,
+                      type: 'danger',
+                    })
                   ) {
                     await cancelMission(topicId, currentMission.id);
                   }
@@ -2842,9 +2846,10 @@ export default function TopicPage() {
                   onClick={async () => {
                     if (!topicId) return;
                     if (
-                      confirm(
-                        `确定要重新规划并执行任务「${currentMission.title}」吗？`
-                      )
+                      await confirm({
+                        title: `确定要重新规划并执行任务「${currentMission.title}」吗？`,
+                        type: 'warning',
+                      })
                     ) {
                       try {
                         await retryMission(topicId, currentMission.id, {

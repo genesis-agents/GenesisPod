@@ -44,7 +44,7 @@ import {
   PaginatedResult,
 } from '@/hooks';
 import { useResourceStore } from '@/stores/aiOfficeStore';
-import { useImageSourceStore, toast as showToast } from '@/stores';
+import { useImageSourceStore, toast as showToast, confirm } from '@/stores';
 import type {
   Resource as AIOfficeResource,
   WebMetadata,
@@ -785,9 +785,11 @@ function LibraryPageContent() {
 
   const handleDeleteCollection = async (collection: Collection) => {
     if (
-      !confirm(
-        `Are you sure you want to delete "${collection.name}"? All bookmarks in this collection will be removed.`
-      )
+      !(await confirm({
+        title: `Delete "${collection.name}"?`,
+        description: 'All bookmarks in this collection will be removed.',
+        type: 'danger',
+      }))
     ) {
       return;
     }

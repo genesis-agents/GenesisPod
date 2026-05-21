@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { confirm } from '@/stores';
 import { ScenarioCard, ScenarioTemplate, ScenarioRun } from './types';
 import { SCENARIO_TEMPLATES } from './constants';
 import { EditorModal } from './components/EditorModal';
@@ -90,7 +91,12 @@ export default function AISimulationPage() {
   const handleDelete = async (scenario: ScenarioCard, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    if (!confirm(t('aiSimulation.confirm.delete', { name: scenario.name }))) {
+    if (
+      !(await confirm({
+        title: t('aiSimulation.confirm.delete', { name: scenario.name }),
+        type: 'danger',
+      }))
+    ) {
       return;
     }
 

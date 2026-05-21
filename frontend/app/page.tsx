@@ -192,7 +192,7 @@ import {
 import { useAIModels, pickPreferredModel, userHasBYOK } from '@/hooks';
 import { ModelSelect } from '@/components/common/ModelSelect';
 import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
-import { useImageSourceStore, toast as showToast } from '@/stores';
+import { useImageSourceStore, toast as showToast, confirm } from '@/stores';
 
 import { logger } from '@/lib/utils/logger';
 interface Resource {
@@ -1985,9 +1985,11 @@ function HomeContent() {
     if (!isAdmin) return;
 
     if (
-      !confirm(
-        'Are you sure you want to delete this resource? This action cannot be undone.'
-      )
+      !(await confirm({
+        title: 'Delete this resource?',
+        description: 'This action cannot be undone.',
+        type: 'danger',
+      }))
     ) {
       return;
     }
