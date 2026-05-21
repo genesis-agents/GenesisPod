@@ -1,15 +1,12 @@
 'use client';
 
 /**
- * 对话式整理（ADR-006 P2）。复用平台 agent 工具循环的 SSE 客户端，
- * 逐事件渲染工具动作 + 总结。P1 范围：书签（scope=BOOKMARKS）。
- *
- * 注：单步撤销（Q2）需后端 reverse-batch 端点，列为 P2 后续；本组件先把
- * 「理解意图 → 真实改库 → 看得到做了什么」闭环跑通。
+ * 对话式整理（ADR-006 P2）。复用 canonical `LeaderChatDock`（与「与 Leader 对话」
+ * 同款浮层对话框），消费 streamOrganizeMessage 的 SSE，逐事件把工具动作渲染为 chip。
+ * P1 范围：书签（scope=BOOKMARKS）。
  */
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
-  Send,
   FolderPlus,
   Tag,
   ArrowRight,
@@ -17,25 +14,16 @@ import {
   Search,
   Sparkles,
 } from 'lucide-react';
-import { cn } from '@/lib/utils/common';
-import { EmptyState } from '@/components/ui/states';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  LeaderChatDock,
+  type LeaderChatMessage,
+} from '@/components/common/leader-chat';
 import {
   streamOrganizeMessage,
   type OrganizeStreamEvent,
   type OrganizeStreamRequestBody,
 } from '@/lib/api/organize-chat-stream';
-
-type ToolAction = { tool: string };
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  tools: ToolAction[];
-  pending?: boolean;
-  error?: boolean;
-}
 
 const TOOL_META: Record<string, { label: string; icon: typeof Tag }> = {
   'organize-create-collection': { label: '新建集合', icon: FolderPlus },
@@ -57,153 +45,132 @@ function ToolChip({ tool }: { tool: string }) {
   );
 }
 
+const SCOPE_LABEL: Record<
+  NonNullable<OrganizeStreamRequestBody['scope']>,
+  string
+> = {
+  BOOKMARKS: '书签',
+  NOTES: '笔记',
+  EXTERNAL: '外部连接',
+};
+
 export function OrganizeChatMode({
+  open,
+  onClose,
   scope = 'BOOKMARKS',
   onChanged,
 }: {
+  open: boolean;
+  onClose: () => void;
   scope?: OrganizeStreamRequestBody['scope'];
   onChanged?: () => void;
 }) {
   const { accessToken: token } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
-  const [streaming, setStreaming] = useState(false);
+  const [messages, setMessages] = useState<LeaderChatMessage[]>([]);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | undefined>();
-  const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages]);
+  const handleSend = useCallback(
+    async (text: string) => {
+      if (!token) return;
+      setSending(true);
+      setError(null);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
-    if (!text || streaming || !token) return;
+      const userId = `u-${Date.now()}`;
+      const asstId = `a-${Date.now()}`;
+      const now = new Date().toISOString();
+      setMessages((prev) => [
+        ...prev,
+        { id: userId, role: 'user', content: text, createdAt: now },
+        {
+          id: asstId,
+          role: 'assistant',
+          content: '__THINKING__',
+          createdAt: now,
+          meta: { tools: [] },
+        },
+      ]);
 
-    const userMsg: ChatMessage = {
-      id: `u-${Date.now()}`,
-      role: 'user',
-      content: text,
-      tools: [],
-    };
-    const asstId = `a-${Date.now()}`;
-    const asstMsg: ChatMessage = {
-      id: asstId,
-      role: 'assistant',
-      content: '',
-      tools: [],
-      pending: true,
-    };
-    setMessages((m) => [...m, userMsg, asstMsg]);
-    setInput('');
-    setStreaming(true);
+      const patch = (fn: (m: LeaderChatMessage) => LeaderChatMessage) =>
+        setMessages((prev) => prev.map((m) => (m.id === asstId ? fn(m) : m)));
 
-    const patch = (fn: (x: ChatMessage) => ChatMessage) =>
-      setMessages((m) => m.map((x) => (x.id === asstId ? fn(x) : x)));
+      const onEvent = (e: OrganizeStreamEvent) => {
+        if (e.type === 'tool' && e.phase === 'result') {
+          patch((m) => {
+            const tools = (m.meta?.tools as { tool: string }[]) ?? [];
+            return {
+              ...m,
+              meta: { ...m.meta, tools: [...tools, { tool: e.tool }] },
+            };
+          });
+        } else if (e.type === 'chunk') {
+          patch((m) => ({
+            ...m,
+            content:
+              (m.content === '__THINKING__' ? '' : m.content) + e.content,
+          }));
+        }
+      };
 
-    const onEvent = (e: OrganizeStreamEvent) => {
-      if (e.type === 'tool' && e.phase === 'result') {
-        patch((x) => ({ ...x, tools: [...x.tools, { tool: e.tool }] }));
-      } else if (e.type === 'chunk') {
-        patch((x) => ({ ...x, content: x.content + e.content }));
+      const result = await streamOrganizeMessage(
+        token,
+        { message: text, scope, sessionId },
+        onEvent
+      );
+      setSending(false);
+
+      if (result.ok) {
+        setSessionId(result.sessionId);
+        patch((m) => ({
+          ...m,
+          content:
+            result.summary ||
+            (m.content === '__THINKING__' ? '已完成整理' : m.content),
+        }));
+        onChanged?.();
+      } else {
+        setError(result.error);
+        patch((m) => ({
+          ...m,
+          content: result.partialSummary || `整理未完成：${result.error}`,
+        }));
       }
-    };
+    },
+    [token, scope, sessionId, onChanged]
+  );
 
-    const result = await streamOrganizeMessage(
-      token,
-      { message: text, scope, sessionId },
-      onEvent
+  const renderTools = (msg: LeaderChatMessage) => {
+    const tools = (msg.meta?.tools as { tool: string }[]) ?? [];
+    if (tools.length === 0) return null;
+    return (
+      <div className="mt-2 flex flex-wrap gap-1">
+        {tools.map((t, i) => (
+          <ToolChip key={`${msg.id}-${i}`} tool={t.tool} />
+        ))}
+      </div>
     );
-    setStreaming(false);
-
-    if (result.ok) {
-      setSessionId(result.sessionId);
-      patch((x) => ({
-        ...x,
-        content: result.summary || x.content || '已完成整理',
-        pending: false,
-      }));
-      onChanged?.();
-    } else {
-      patch((x) => ({
-        ...x,
-        content: result.partialSummary
-          ? `${result.partialSummary}\n\n⚠ ${result.error}`
-          : `⚠ ${result.error}`,
-        pending: false,
-        error: true,
-      }));
-    }
-  }, [input, streaming, token, scope, sessionId, onChanged]);
+  };
 
   return (
-    <div className="flex h-[420px] flex-col">
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
-        {messages.length === 0 ? (
-          <EmptyState
-            icon={<Sparkles className="h-6 w-6 text-violet-400" />}
-            title="用对话整理你的库"
-            description="例如：「把所有 AI 论文归到新集合『AI 论文』并打标 LLM，已读的别动」"
-          />
-        ) : (
-          messages.map((m) => (
-            <div
-              key={m.id}
-              className={cn(
-                'flex',
-                m.role === 'user' ? 'justify-end' : 'justify-start'
-              )}
-            >
-              <div
-                className={cn(
-                  'max-w-[85%] rounded-2xl px-3 py-2 text-sm',
-                  m.role === 'user'
-                    ? 'bg-violet-600 text-white'
-                    : m.error
-                      ? 'bg-red-50 text-red-700'
-                      : 'bg-gray-100 text-gray-800'
-                )}
-              >
-                {m.tools.length > 0 && (
-                  <div className="mb-2 flex flex-wrap gap-1">
-                    {m.tools.map((t, i) => (
-                      <ToolChip key={`${m.id}-${i}`} tool={t.tool} />
-                    ))}
-                  </div>
-                )}
-                <p className="whitespace-pre-wrap">
-                  {m.content || (m.pending ? '整理中…' : '')}
-                </p>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="flex items-end gap-2 border-t border-gray-100 p-3">
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              void send();
-            }
-          }}
-          rows={2}
-          placeholder="下达整理指令，Enter 发送 / Shift+Enter 换行"
-          disabled={streaming}
-          className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 outline-none focus:border-violet-400 disabled:bg-gray-50"
-        />
-        <button
-          type="button"
-          onClick={() => void send()}
-          disabled={streaming || !input.trim()}
-          className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-violet-600 px-3 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Send className="h-4 w-4" />
-          {streaming ? '整理中' : '发送'}
-        </button>
-      </div>
-    </div>
+    <LeaderChatDock
+      open={open}
+      onClose={onClose}
+      messages={messages}
+      sending={sending}
+      error={error}
+      onSend={handleSend}
+      title="AI 整理助手"
+      subtitle={`对话整理 · ${SCOPE_LABEL[scope ?? 'BOOKMARKS']}`}
+      accentColor="violet"
+      assistantName="整理助手"
+      labels={{
+        emptyTitle: '用对话整理你的库',
+        emptyHint:
+          '例如：「把所有 AI 论文归到新集合『AI 论文』并打标 LLM，已读的别动」',
+        placeholder: '下达整理指令…',
+      }}
+      renderAssistantBodyExtra={renderTools}
+    />
   );
 }
