@@ -1,7 +1,7 @@
 # 008. 统一 AI Agent Teams UI - 业务定内容 / 平台定风格 + audit 强制
 
 **Date**: 2026-05-21
-**Status**: ✅ Accepted（四路评审 4× 批准 + 用户拍板 5 项，2026-05-21，v1.0 锁定）。W0=playground 迁 Frame + DrawerShell 加 header slot；audit warn→棘轮→焊死；DrawerShell(mission)/SideDrawer(其他)分场景；topic-insights 同 insights 波
+**Status**: ✅ Accepted（四路评审 4× 批准 + 用户拍板，2026-05-21，v1.0 锁定）。**W0 走 B 路（用户改判）**：playground 零改（活标杆），反向把其外壳原样抽成 canonical（== playground），其余 feature 用抽出来的壳 → 一模一样；DrawerShell 加 header slot；audit warn→棘轮→焊死；DrawerShell(mission)/SideDrawer(其他)分场景；topic-insights 同 insights 波。成功标准 = 每 feature 体验与现 playground 完全一致（硬验收，真机比对）
 **评审纪要**: [../architecture/frontend/agent-team-ui-unification-review.md](../architecture/frontend/agent-team-ui-unification-review.md)
 **关联设计文档**: [architecture/frontend/agent-team-ui-unification.md](../architecture/frontend/agent-team-ui-unification.md)
 **关联标准**: [21-agent-teams-presentation.md](../../.claude/standards/21-agent-teams-presentation.md)（本 ADR 落地并升级它）· [22-frontend-ui-component-governance.md](../../.claude/standards/22-frontend-ui-component-governance.md)

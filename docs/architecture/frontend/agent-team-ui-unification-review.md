@@ -41,13 +41,13 @@
 
 ## 3.1 用户拍板结果（2026-05-21，已锁 v1.0）
 
-| #   | 决定                                                                                                 |
-| --- | ---------------------------------------------------------------------------------------------------- |
-| Q1  | ✅ **W0 先迁 playground 到 MissionDetailFrame**，成真·标杆 + 视觉基准                                |
-| Q2  | ✅ **DrawerShell 加可选 `header` slot**（标准标题 + 关闭标准位），保留 escape hatch                  |
-| Q3  | ✅ **分场景**：mission 详情页用 `DrawerShell`(+header)；非 mission 场景用 `SideDrawer`；文档写死边界 |
-| Q4  | ✅ `topic-insights` 与 `ai-insights` 同波迁                                                          |
-| Q5  | ✅ audit：warn-only 出基线 → playground 迁完清零标杆 → 逐 feature 棘轮 → HARD_ZERO                   |
+| #   | 决定                                                                                                                                         |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q1  | ⏪ **改判（用户）：B 路** — playground 零改（活标杆），反向抽其外壳为 canonical（==playground），其余 feature 用；不迁 playground。原 A 作废 |
+| Q2  | ✅ **DrawerShell 加可选 `header` slot**（标准标题 + 关闭标准位），保留 escape hatch                                                          |
+| Q3  | ✅ **分场景**：mission 详情页用 `DrawerShell`(+header)；非 mission 场景用 `SideDrawer`；文档写死边界                                         |
+| Q4  | ✅ `topic-insights` 与 `ai-insights` 同波迁                                                                                                  |
+| Q5  | ✅ audit：warn-only 出基线 → playground 迁完清零标杆 → 逐 feature 棘轮 → HARD_ZERO                                                           |
 
 → 设计锁 **v1.0**，放行条件满足，开 **W0（playground → Frame + DrawerShell header slot）**。
 

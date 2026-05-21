@@ -1,6 +1,6 @@
 # 统一 AI Agent Teams UI — 设计基线（Design Baseline）
 
-**状态：** ✅ v1.0 锁定（四路 4× 批准 + 用户拍板 5 项，2026-05-21）；开 **W0：playground → MissionDetailFrame + DrawerShell 加 header slot**
+**状态：** ✅ v1.0 锁定（四路 4× 批准 + 用户拍板，2026-05-21）；**W0 改走 B 路（用户 2026-05-21 定）：playground 零改（活标杆），反向把其外壳原样抽成 canonical（== playground），其余 feature 用抽出来的壳 → 自动一致**。理由：「整体体验和现在 playground 一模一样」下，不碰 playground 是最稳的（迁它反而可能引入差异）。
 **评审纪要：** [agent-team-ui-unification-review.md](agent-team-ui-unification-review.md)
 **强制级别：** 评审通过后转 MUST（落实并扩展[标准 21](../../../.claude/standards/21-agent-teams-presentation.md)）
 **日期：** 2026-05-21
