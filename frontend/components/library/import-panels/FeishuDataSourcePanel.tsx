@@ -16,12 +16,14 @@ import {
   Plus,
   Zap,
   BookOpen,
+  MessageSquare,
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { formatDateSafe } from '@/lib/utils/date';
 import { logger } from '@/lib/utils/logger';
+import { OrganizeChatMode } from '@/components/library/OrganizeChatMode';
 
 interface FeishuItem {
   id: string;
@@ -56,6 +58,8 @@ interface FeishuStatus {
 }
 
 export default function FeishuDataSourcePanel() {
+  // 数据源统一整理：飞书对话整理浮层开关
+  const [organizeChatOpen, setOrganizeChatOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<FeishuStatus | null>(null);
   const [items, setItems] = useState<FeishuItem[]>([]);
@@ -360,6 +364,14 @@ export default function FeishuDataSourcePanel() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* 数据源统一整理：飞书内容对话整理 */}
+            <button
+              onClick={() => setOrganizeChatOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50"
+            >
+              <MessageSquare className="h-4 w-4" />
+              对话整理
+            </button>
             <button
               onClick={() => setShowAddUrl(!showAddUrl)}
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
@@ -500,6 +512,13 @@ export default function FeishuDataSourcePanel() {
           </div>
         )}
       </div>
+
+      {/* 数据源统一整理：飞书内容对话整理浮层 */}
+      <OrganizeChatMode
+        open={organizeChatOpen}
+        onClose={() => setOrganizeChatOpen(false)}
+        itemType="FEISHU"
+      />
     </div>
   );
 }
