@@ -18,7 +18,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
-import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
+import { SettingsSectionCard } from '@/components/ui/cards/SettingsSectionCard';
 import {
   AlertTriangle,
   Bell,

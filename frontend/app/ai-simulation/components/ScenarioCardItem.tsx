@@ -7,7 +7,7 @@ import {
   type AssetCardBadge,
   type AssetVisibility,
   type AssetVisibilityOption,
-} from '@/components/common/asset-card';
+} from '@/components/ui/cards/asset-card';
 import { Building2, Globe, Layers, Lock, Target, Users } from 'lucide-react';
 
 interface ScenarioCardItemProps {

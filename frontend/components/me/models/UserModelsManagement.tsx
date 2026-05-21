@@ -34,7 +34,7 @@ import {
 import { apiClient } from '@/lib/api/client';
 import { confirm, toast } from '@/stores';
 import { Modal } from '@/components/ui/dialogs/Modal';
-import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
+import { SettingsSectionCard } from '@/components/ui/cards/SettingsSectionCard';
 import { UserModelConfigModal } from './UserModelConfigModal';
 import { UserModelsAutoConfigureButton } from './UserModelsAutoConfigureButton';
 

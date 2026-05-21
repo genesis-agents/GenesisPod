@@ -1,7 +1,7 @@
 'use client';
 
 import { Factory, Building2, Users, MapPin } from 'lucide-react';
-import { AssetCard } from '@/components/common/asset-card';
+import { AssetCard } from '@/components/ui/cards/asset-card';
 import { ScenarioTemplate } from '../types';
 import { useI18n } from '@/lib/i18n';
 

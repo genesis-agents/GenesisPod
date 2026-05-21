@@ -14,7 +14,7 @@ import { useAIModels, AIModel } from '@/hooks';
 import { ModelBadges } from '@/components/common/ModelBadges';
 import AppShell from '@/components/layout/AppShell';
 import { Users, Plus } from 'lucide-react';
-import { CreateCard } from '@/components/common/cards/CreateCard';
+import { CreateCard } from '@/components/ui/cards/CreateCard';
 import { PageHeaderHero } from '@/components/common/page-header-hero';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import ShareModal from '@/components/common/dialogs/ShareModal';
@@ -29,7 +29,7 @@ import {
   type AssetCardBadge,
   type AssetVisibility,
   type AssetVisibilityOption,
-} from '@/components/common/asset-card';
+} from '@/components/ui/cards/asset-card';
 import { Globe, Lock, Sparkles, Users as UsersIcon } from 'lucide-react';
 import { Tabs } from '@/components/ui/tabs';
 import { LoadingState } from '@/components/ui/states';

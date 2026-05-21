@@ -45,13 +45,25 @@ mission 类功能的主页/详情另见 [21-agent-teams-presentation.md](21-agen
 
 ### 2.2 卡片（card）
 
+> **单一归属（2026-05-21 收口）**：所有卡片 canonical **一律在 `components/ui/cards/`**，不得散落到
+> `common/cards`、`common/asset-card` 等。由 audit **R15** 守护（卡片目录只能出现在 `ui/cards/`）。
+> 历史曾分裂为 ui/cards（primitive）+ common（composite），因无守护而漂移——现统一收口。
+
 | 用途            | canonical             | 路径                               |
 | --------------- | --------------------- | ---------------------------------- |
-| 内容/资产列表项 | `AssetCard`           | `components/common/asset-card/`    |
-| 设置/区块卡     | `SettingsSectionCard` | `components/common/cards/`         |
+| 内容/资产列表项 | `AssetCard`           | `components/ui/cards/asset-card/`  |
+| 统计/指标 tile  | `StatCard`            | `components/ui/cards/`             |
+| 区块/面板卡     | `SectionPanelCard`    | `components/ui/cards/`             |
+| 对话消息卡外壳  | `MessageCardShell`    | `components/ui/cards/`             |
+| 设置/区块卡     | `SettingsSectionCard` | `components/ui/cards/`             |
+| 标准卡片网格    | `CardGrid`            | `components/ui/cards/`             |
+| 横向信息流行卡  | `FeedCard`            | `components/ui/cards/`             |
+| “+新建”占位卡   | `CreateCard`          | `components/ui/cards/`             |
 | 通用容器卡      | `ResponsiveCard`      | `components/ui/ResponsiveCard.tsx` |
 
-禁止：feature 内联 `rounded-(xl\|lg\|2xl) + border + bg-white` 三件套（R2 拦截，≥3 处即违规）。
+禁止：① feature 内联 `rounded-(xl\|lg\|2xl) + border + bg-white` 三件套（R2 拦截，≥3 处即违规）；
+② 在 `components/ui/cards/` 以外新建卡片组件或 `cards`/`asset-card` 目录（R15 拦截）。
+卡片网格统一用 `<CardGrid>`（1/2/3/4 列响应式 + 等高），不要各页硬编码 `grid-cols` 串。
 
 ### 2.3 Tab 页
 

@@ -667,7 +667,7 @@ export default function DataSourcesTab({
   return (
     <div className="flex flex-col gap-6 md:flex-row md:gap-8">
       {/* 左侧竖向分组菜单 */}
-      <aside className="md:w-44 md:flex-shrink-0 md:border-r md:border-gray-100 md:pr-5">
+      <aside className="md:w-48 md:flex-shrink-0 md:border-r md:border-gray-100 md:pr-6">
         <div className="md:sticky md:top-6">
           <VerticalNavMenu
             groups={navGroups}

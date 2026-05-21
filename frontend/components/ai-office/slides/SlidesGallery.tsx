@@ -26,7 +26,7 @@ import type { SlidesHistoryItem } from '@/stores';
 import { formatRelativeTime } from '@/stores';
 import { useI18n } from '@/lib/i18n/i18n-context';
 import { SourceUpdateBadge } from './SourceUpdateBadge';
-import { AssetCard } from '@/components/common/asset-card';
+import { AssetCard } from '@/components/ui/cards/asset-card';
 
 // ============================================================================
 // 主题渐变映射（内部常量，不 export）

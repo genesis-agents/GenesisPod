@@ -16,9 +16,9 @@ import {
   type AssetCardBadge,
   type AssetVisibility,
   type AssetVisibilityOption,
-} from '@/components/common/asset-card';
+} from '@/components/ui/cards/asset-card';
 import { Globe, Lock, Users, Lightbulb, Plus } from 'lucide-react';
-import { CreateCard } from '@/components/common/cards/CreateCard';
+import { CreateCard } from '@/components/ui/cards/CreateCard';
 import { PageHeaderHero } from '@/components/common/page-header-hero';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui/states';

@@ -16,7 +16,7 @@ import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui/states';
 import { Plus } from 'lucide-react';
 import { PageHeaderHero } from '@/components/common/page-header-hero';
-import { CreateCard } from '@/components/common/cards/CreateCard';
+import { CreateCard } from '@/components/ui/cards/CreateCard';
 // AI Image Team - Preview (3 core agents)
 const AI_TEAM_PREVIEW = [
   {

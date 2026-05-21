@@ -24,7 +24,7 @@ import {
 import {
   AssetCard,
   type AssetCardAction,
-} from '@/components/common/asset-card';
+} from '@/components/ui/cards/asset-card';
 import { useTranslation } from '@/lib/i18n';
 import AppShell from '@/components/layout/AppShell';
 import LibraryHeader from '@/components/library/header/LibraryHeader';
@@ -1484,7 +1484,7 @@ function LibraryPageContent() {
     );
 
     return (
-      <div className="relative">
+      <div className="relative h-full">
         {inSel && (
           <div className="absolute left-3 top-3 z-20">
             <input
@@ -1498,7 +1498,7 @@ function LibraryPageContent() {
         {inSel ? (
           card
         ) : (
-          <Link href={getResourceLink(resource)} className="block">
+          <Link href={getResourceLink(resource)} className="block h-full">
             {card}
           </Link>
         )}

@@ -17,7 +17,8 @@
  */
 
 import { BookOpen, FileText, Plus } from 'lucide-react';
-import { AssetCard } from '@/components/common/asset-card';
+import { AssetCard } from '@/components/ui/cards/asset-card';
+import { CardGrid } from '@/components/ui/cards/CardGrid';
 import { useTranslation } from '@/lib/i18n';
 import type { WikiKbSummary } from '@/lib/api/wiki';
 import CreateKnowledgeBaseCard from '../knowledge-base/CreateKnowledgeBaseCard';
@@ -59,7 +60,7 @@ export default function WikiCardGrid({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <CardGrid>
         {kbs.map((kb) => (
           <AssetCard
             key={kb.id}
@@ -107,7 +108,7 @@ export default function WikiCardGrid({
           description={t('library.wiki.grid.createCardDescription')}
           onClick={onEnableMore}
         />
-      </div>
+      </CardGrid>
     </div>
   );
 }

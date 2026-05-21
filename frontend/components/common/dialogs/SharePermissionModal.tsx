@@ -17,7 +17,7 @@ import { useState, type ReactNode } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { cn } from '@/lib/utils/common';
-import type { AssetVisibility } from '@/components/common/asset-card';
+import type { AssetVisibility } from '@/components/ui/cards/asset-card';
 
 export interface SharePermissionLevel {
   value: AssetVisibility;

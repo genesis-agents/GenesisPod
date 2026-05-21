@@ -1,6 +1,6 @@
 'use client';
 
-import { CreateCard } from '@/components/common/cards/CreateCard';
+import { CreateCard } from '@/components/ui/cards/CreateCard';
 
 interface CreateKnowledgeBaseCardProps {
   title: string;

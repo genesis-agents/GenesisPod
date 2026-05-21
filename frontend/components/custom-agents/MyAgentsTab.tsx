@@ -9,7 +9,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Plus, ChevronLeft, Bot, Hash } from 'lucide-react';
-import { AssetCard } from '@/components/common/asset-card';
+import { AssetCard } from '@/components/ui/cards/asset-card';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
 import { EmptyState } from '@/components/ui/states/EmptyState';

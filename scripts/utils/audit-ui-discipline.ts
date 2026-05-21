@@ -53,6 +53,7 @@ const HARD_ZERO_RULES = new Set<string>([
   "R12-CitationListItem-Required",
   "R13-MessageCardShell-Required",
   "R14-PageHeaderHero-Required",
+  "R15-CardHome-Required",
 ]);
 
 // 棘轮规则：不进 hard-zero 的「不劣化」规则（cur ≤ baseline）。
@@ -720,6 +721,45 @@ function checkR14PageHeaderHero(file: string, src: string): Violation[] {
   ];
 }
 
+// R15: 卡片单一归属（2026-05-21 收口，标准 22 §2.2）——所有卡片 canonical 只允许在
+// components/ui/cards/。任何 `cards/` 或 `asset-card/` 目录出现在 ui/cards 之外即违规
+// （历史 common/cards、common/asset-card 因无守护而漂移；现焊死，杜绝任意 agent 乱放）。
+//
+// ★ 必须用文件系统目录扫描，不能走 file-walk：walkDir 通过 EXCLUDE_PATTERNS 排除了
+//   components/common/、components/ui/ 等目录，per-file 规则永远看不到散落在被排除目录里的卡。
+async function scanCardDirHomes(): Promise<Violation[]> {
+  const violations: Violation[] = [];
+  async function walk(dir: string) {
+    let entries: Awaited<ReturnType<typeof readdir>>;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (!e.isDirectory()) continue;
+      if (e.name === "node_modules" || e.name === "__tests__") continue;
+      const full = join(dir, e.name);
+      const norm = full.split(sep).join("/");
+      if (
+        (e.name === "cards" || e.name === "asset-card") &&
+        !norm.includes("/components/ui/cards")
+      ) {
+        violations.push({
+          rule: "R15-CardHome-Required",
+          file: relative(process.cwd(), full),
+          line: 1,
+          snippet:
+            "卡片目录只允许在 components/ui/cards/（标准 22 §2.2；禁止 common/cards、common/asset-card 等散落）",
+        });
+      }
+      await walk(full);
+    }
+  }
+  await walk(join(FRONTEND_ROOT, "components"));
+  return violations;
+}
+
 // 注：内容/洞察展示卡（SectionPanelCard，卡片设计系统第 5 类）不设硬零检测器——
 // 其「渐变头卡」视觉特征与弹层/面板/页头共用（无法精确区分），强检测会误拦 Modal/Dialog 等。
 // 故 SectionPanelCard 作为「文档约定 + 已迁清晰用例」治理，不进 HARD_ZERO（实事求是）。
@@ -760,6 +800,8 @@ async function main() {
     allViolations.push(...checkR13MessageShell(file, src));
     allViolations.push(...checkR14PageHeaderHero(file, src));
   }
+  // R15 结构检查：独立于 file-walk 的目录扫描（卡片目录归属）
+  allViolations.push(...(await scanCardDirHomes()));
 
   // 按 rule 聚合
   const byRule = new Map<string, Violation[]>();

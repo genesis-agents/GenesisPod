@@ -20,6 +20,7 @@ import SignInPrompt, { isAuthError } from '@/components/common/SignInPrompt';
 import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 import KnowledgeBaseCard from './KnowledgeBaseCard';
 import CreateKnowledgeBaseCard from './CreateKnowledgeBaseCard';
+import { CardGrid } from '@/components/ui/cards/CardGrid';
 import SectionTitle from '../_design/SectionTitle';
 
 import { logger } from '@/lib/utils/logger';
@@ -155,7 +156,7 @@ export default function TeamKnowledgeBaseTab({
         }
       />
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <CardGrid>
         {teamKBs.map((kb) => (
           <KnowledgeBaseCard
             key={kb.id}
@@ -175,7 +176,7 @@ export default function TeamKnowledgeBaseTab({
           description="与团队共享文档，让团队 AI 助手拥有专属知识"
           onClick={() => setShowCreateDialog(true)}
         />
-      </div>
+      </CardGrid>
 
       {/* 团队知识库说明（仅当无任何团队 KB 时） */}
       {teamKBs.length === 0 && (

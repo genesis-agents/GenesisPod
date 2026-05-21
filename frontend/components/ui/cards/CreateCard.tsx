@@ -4,7 +4,7 @@ import { type ReactNode } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 
-interface CreateCardProps {
+export interface CreateCardProps {
   title: string;
   description?: string;
   onClick: () => void;

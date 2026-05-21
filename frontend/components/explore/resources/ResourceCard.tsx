@@ -8,10 +8,7 @@ import { getSourceName, getSourceBadgeColor } from '../utils/resourceHelpers';
 import type { Resource } from '../utils/types';
 import { useI18n } from '@/lib/i18n/i18n-context';
 import { ClientDate } from '@/components/common/ClientDate';
-import {
-  FeedCard,
-  type FeedCardAction,
-} from '@/components/common/cards/FeedCard';
+import { FeedCard, type FeedCardAction } from '@/components/ui/cards/FeedCard';
 
 interface ResourceCardProps {
   resource: Resource;

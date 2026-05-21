@@ -15,7 +15,7 @@ import { useCredits, useCreditsStats, useCheckinHistory } from '@/hooks/domain';
 import { useCreditsTransactions } from '@/hooks/domain/useCredits';
 import { config } from '@/lib/utils/config';
 import ClientDate from '@/components/common/ClientDate';
-import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
+import { SettingsSectionCard } from '@/components/ui/cards/SettingsSectionCard';
 import { logger } from '@/lib/utils/logger';
 
 interface UserStats {

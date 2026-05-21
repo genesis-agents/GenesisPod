@@ -32,7 +32,7 @@ import {
   type AssetCardBadge,
   type AssetVisibility,
   type AssetVisibilityOption,
-} from '@/components/common/asset-card';
+} from '@/components/ui/cards/asset-card';
 import { PageHeaderHero } from '@/components/common/page-header-hero';
 import type { MissionListItem } from '@/services/agent-playground/api';
 

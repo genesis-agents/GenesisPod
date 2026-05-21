@@ -10,7 +10,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import { config } from '@/lib/utils/config';
-import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
+import { SettingsSectionCard } from '@/components/ui/cards/SettingsSectionCard';
 import { Input } from '@/components/ui/form';
 import { logger } from '@/lib/utils/logger';
 

@@ -19,6 +19,7 @@ import SignInPrompt, { isAuthError } from '@/components/common/SignInPrompt';
 import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 import KnowledgeBaseCard from './KnowledgeBaseCard';
 import CreateKnowledgeBaseCard from './CreateKnowledgeBaseCard';
+import { CardGrid } from '@/components/ui/cards/CardGrid';
 import SectionTitle from '../_design/SectionTitle';
 
 import { logger } from '@/lib/utils/logger';
@@ -154,7 +155,7 @@ export default function PersonalKnowledgeBaseTab({
       />
 
       {/* 卡片网格（末格永远是"新建"卡） */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <CardGrid>
         {personalKBs.map((kb) => (
           <KnowledgeBaseCard
             key={kb.id}
@@ -173,7 +174,7 @@ export default function PersonalKnowledgeBaseTab({
           description="为新主题创建专属空间，用于私人文档、笔记与 AI 检索"
           onClick={() => setShowCreateDialog(true)}
         />
-      </div>
+      </CardGrid>
 
       {/* Create Dialog */}
       {showCreateDialog && (

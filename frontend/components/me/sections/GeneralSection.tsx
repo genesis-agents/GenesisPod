@@ -3,7 +3,7 @@
 import { Sun, Moon, Monitor, type LucideIcon } from 'lucide-react';
 import { useThemeStore, type Appearance } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
-import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
+import { SettingsSectionCard } from '@/components/ui/cards/SettingsSectionCard';
 import { PersonalizationSection } from './PersonalizationSection';
 
 /**

@@ -42,7 +42,7 @@ import {
   type AssetCardStat,
   type AssetVisibility,
   type AssetVisibilityOption,
-} from '@/components/common/asset-card';
+} from '@/components/ui/cards/asset-card';
 import type {
   KnowledgeBase,
   KnowledgeBaseStats,
