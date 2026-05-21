@@ -28,7 +28,7 @@ import {
   MAX_CREDITS_LIMIT,
   MULTIPLIER_LIMIT,
   WALL_TIME_LIMIT_MINUTES,
-} from '@/components/agent-playground/BudgetAndTimeLimitPanel';
+} from '@/components/agent-playground/panels/BudgetAndTimeLimitPanel';
 
 interface PlaygroundMissionDialogProps {
   isOpen: boolean;

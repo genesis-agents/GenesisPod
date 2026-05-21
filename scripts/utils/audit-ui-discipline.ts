@@ -203,7 +203,7 @@ const R2_BESPOKE_OK = [
   "components/ai-research/discussion/TrendReport.tsx", // TrendCard：可展开技术趋势卡（方向/成熟度域内可视化）
   "components/ai-image/components/InsightCard.tsx", // 可折叠洞察面板（标题+图标+展开内容）
   "components/ai-image/ImageGenerator.tsx", // 同款 InsightCard 可折叠洞察面板（内联）
-  "components/agent-playground/AgentLiveGrid.tsx", // AgentCard：实时 agent 状态卡（role/trace/耗时）
+  "components/agent-playground/roster/AgentLiveGrid.tsx", // AgentCard：实时 agent 状态卡（role/trace/耗时）
   "app/admin/ai/dreaming/content.tsx", // 内联 StatCard：统计卡（admin 自成设计系统）
 ];
 
