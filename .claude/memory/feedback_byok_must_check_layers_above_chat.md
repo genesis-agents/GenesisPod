@@ -47,6 +47,16 @@ metadata:
    → `NoAvailableKeyError(provider)`（前端 "No API Key available for provider xai"）。
    caller（对话整理）故意传 apiKey=undefined 期望按 BYOK 解析。**修法：setConfig 补
    `userId: request.context.userId`**。凡走工具循环（chatWithToolsStream）的 ai-app 都吃这条。
+10. **`FunctionCallingLLMAdapter.callAiChatServiceWithTools` 把解析好的 apiKey 显式
+    传给 `aiChatService.chat`**（2026-05-21，commit 0930f9c30）—— `chat()` 见 `apiKey
+&& provider` 即走 **Path B（AiDirectKeyService）**，而 Path B：① 不转发 `tools`
+    （工具循环失效）；② 给 xai 无条件注入**已废弃的 Live Search `search_parameters`**
+    → xAI "Live search is deprecated"。**修法：有 BYOK userId 且无显式 apiKey 时传
+    `userId` 不传 apiKey，让 chat() 走 Standard 路径（callXAIAPI 转发 tools + 按 userId
+    解析 BYOK，见 ai-chat.service.ts:1849-1865）。** 核心教训：**function calling 必须
+    走 tools-capable 的 Standard 路径，不能走"直连 apiKey"的 Path B**。
+    遗留另案：`ai-direct-key.service.ts:168` 仍给所有 xai 调用注入 search_parameters，
+    其它走 Path B 的 grok BYOK 直连仍会踩。
 
 ## Why（2026-05-12 两轮事故）
 
