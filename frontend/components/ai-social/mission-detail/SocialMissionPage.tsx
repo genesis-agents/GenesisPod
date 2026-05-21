@@ -18,6 +18,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowLeft,
+  ChevronLeft,
   Coins,
   FileText,
   Layers,
@@ -27,9 +28,7 @@ import {
 import {
   ComputeUsagePanel,
   MissionFlowView,
-  MissionTodoBoard,
   ReferencesPanel,
-  TeamRosterPanel,
 } from '@/components/agent-playground';
 import {
   MissionDetailFrame,
@@ -39,6 +38,11 @@ import {
 import { cn } from '@/lib/utils/common';
 import { deriveView } from '@/lib/features/agent-playground/derive';
 import { deriveTodoLedger } from '@/lib/features/agent-playground/todo-ledger';
+import {
+  deriveSocialView,
+  type SocialStageStatus,
+} from '@/lib/features/ai-social/derive-social';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { useSocialMissionStream } from '@/hooks/features/useSocialMissionStream';
 import { useSocialTask } from '@/hooks/domain/useSocialTasks';
 import {
@@ -123,6 +127,28 @@ interface SocialMissionPageProps {
 }
 
 // ─── Report sub-tab (WeChat / 小红书) ─────────────────────────────────────────
+
+/** social 阶段状态 → 样式（任务列表 / roster 共用；animate-pulse 合规，非 spin） */
+const SOCIAL_STAGE_STATUS: Record<
+  SocialStageStatus,
+  { label: string; dot: string; text: string }
+> = {
+  pending: { label: '待执行', dot: 'bg-gray-300', text: 'text-gray-400' },
+  running: {
+    label: '进行中',
+    dot: 'bg-blue-500 animate-pulse',
+    text: 'text-blue-600',
+  },
+  done: { label: '已完成', dot: 'bg-emerald-500', text: 'text-emerald-600' },
+  failed: { label: '失败', dot: 'bg-red-500', text: 'text-red-600' },
+};
+
+const SOCIAL_ROLE_DOT: Record<string, string> = {
+  idle: 'bg-gray-300',
+  working: 'bg-blue-500 animate-pulse',
+  done: 'bg-emerald-500',
+  failed: 'bg-red-500',
+};
 
 function ReportTab({
   task,
@@ -211,6 +237,9 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
 
   // Derive playground view from stream events
   const view = useMemo(() => deriveView(events), [events]);
+
+  // social 自己的派生（13 阶段 + 角色 + 进度），喂左栏 roster + 任务列表（打样 P3/P4）
+  const socialView = useMemo(() => deriveSocialView(events), [events]);
 
   const todoLedger = useMemo(
     () =>
@@ -382,27 +411,51 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
             {missionId ? (
               <div className="space-y-0 divide-y divide-gray-100">
                 <div className="p-4">
-                  <TeamRosterPanel
-                    agents={view.agents}
-                    stages={view.stages}
-                    missionStatus={
-                      view.mission.completedAt
-                        ? 'completed'
-                        : view.mission.failedAt
-                          ? 'failed'
-                          : view.mission.cancelledAt
-                            ? 'cancelled'
-                            : events.length > 0
-                              ? 'running'
-                              : 'idle'
-                    }
-                    dimensions={
-                      (view.mission.dimensions as
-                        | { name: string; rationale?: string }[]
-                        | undefined) ?? undefined
-                    }
-                    onCollapse={() => setLeftCollapsed(true)}
-                  />
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        SOCIAL TEAM
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setLeftCollapsed(true)}
+                        className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                        title="收起"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {socialView.roles.length > 0 ? (
+                      <div className="space-y-2">
+                        {socialView.roles.map((r) => (
+                          <div
+                            key={r.role}
+                            className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
+                          >
+                            <span className="text-sm font-medium text-gray-900">
+                              {r.label}
+                            </span>
+                            <span
+                              className={cn(
+                                'h-2 w-2 rounded-full',
+                                SOCIAL_ROLE_DOT[r.status]
+                              )}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">
+                        团队将在任务启动后展示
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between pt-1 text-xs text-gray-500">
+                      <span>进度</span>
+                      <span className="font-mono">
+                        {socialView.progress.done}/{socialView.progress.total}
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 {(view.cost.tokensUsed > 0 || view.cost.costUsd > 0) && (
                   <div className="p-4">
@@ -484,19 +537,64 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
               </div>
             </div>
           ) : missionId ? (
-            <MissionTodoBoard
-              todos={todoLedger}
-              missionId={missionId}
-              agents={view.agents}
-              dimensionPipelines={view.dimensionPipelines}
-              missionTerminal={
-                !!(
-                  view.mission.completedAt ||
-                  view.mission.failedAt ||
-                  view.mission.cancelledAt
-                )
-              }
-            />
+            <div className="p-6">
+              {socialView.stages.length > 0 ? (
+                <Table>
+                  <THead>
+                    <Tr>
+                      <Th className="w-12">#</Th>
+                      <Th>阶段</Th>
+                      <Th>角色</Th>
+                      <Th className="w-24">状态</Th>
+                    </Tr>
+                  </THead>
+                  <TBody>
+                    {socialView.stages.map((s, i) => {
+                      const sc = SOCIAL_STAGE_STATUS[s.status];
+                      return (
+                        <Tr key={s.stepId} hoverable>
+                          <Td className="text-gray-400">{i + 1}</Td>
+                          <Td className="font-medium text-gray-900">
+                            {s.label}
+                          </Td>
+                          <Td className="text-gray-500">{s.role ?? '—'}</Td>
+                          <Td>
+                            <span
+                              className={cn(
+                                'inline-flex items-center gap-1.5 text-xs font-medium',
+                                sc.text
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  'h-1.5 w-1.5 rounded-full',
+                                  sc.dot
+                                )}
+                              />
+                              {sc.label}
+                            </span>
+                          </Td>
+                        </Tr>
+                      );
+                    })}
+                  </TBody>
+                </Table>
+              ) : (
+                <div className="flex h-full items-center justify-center p-8">
+                  <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center shadow-sm">
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-100 to-pink-100">
+                      <ListChecks className="h-7 w-7 text-rose-500" />
+                    </div>
+                    <h3 className="text-base font-semibold text-gray-900">
+                      等待任务启动
+                    </h3>
+                    <p className="mt-1.5 text-sm text-gray-500">
+                      任务刚被创建，协作管线正在初始化。各阶段会实时出现在此处。
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             <div className="flex h-full items-center justify-center p-8">
               <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center shadow-sm">
