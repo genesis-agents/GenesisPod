@@ -240,6 +240,16 @@ export class OrganizeChatService {
       }
     }
 
+    // 6.5 如实兜底：agent 没产出总结时，按实际写动作给诚实结论，
+    //     避免"啥都没做却显示已完成"。有动作→列动作；无动作→明说没改 + 范围说明。
+    if (!summary.trim()) {
+      summary =
+        toolActions.length > 0
+          ? `已完成整理：${toolActions.map((a) => a.detail).join("；")}`
+          : "本次没有进行任何更改。我只能整理已有内容（建集合 / 归类 / 打标签 / 标阅读状态），无法新建或修改条目本身（如新建文件、新建页面、写正文）。";
+      yield { type: "chunk", content: summary };
+    }
+
     // 7. 持久化助手消息 + 触碰会话时间
     const assistantMessage = await this.prisma.organizeMessage.create({
       data: {
@@ -339,6 +349,7 @@ export class OrganizeChatService {
       itemType === "DRIVE";
     const lines = [
       `你是用户资料库的「${label}」整理助手。根据用户的自然语言指令，调用工具真实整理用户的库。整理只在本地"整理覆盖层"进行（分集合/打标签/标状态），绝不修改源数据本身（不改笔记正文、不改图片、不写回外部平台）。`,
+      `你的能力仅限：建集合、把已有条目归入集合、打标签、标阅读状态。你【不能】新建、删除或修改条目本身——例如新建文件、新建 ${label} 页面/文档、编辑正文。这类请求超出你的范围。`,
       "规则：",
     ];
     if (isSource) {
@@ -359,6 +370,11 @@ export class OrganizeChatService {
         "5. 完成后用简洁中文总结你做了什么（建了哪些集合、给多少条打了什么标签/移动到哪）。",
       );
     }
+    // 共用守则：超范围请求要如实拒绝，且严禁假装完成
+    lines.push(
+      "【超范围】若请求超出你的整理能力（如新建/删除文件、新建页面、写内容），不要调用任何工具、不要假装完成，直接用中文说明你做不了 + 你能做什么。",
+      "【如实总结】只有真的调用了写工具（建集合/纳入/打标/标状态）才说「已完成」并逐条列出实际动作；若本轮没做任何更改，必须明确回复「本次没有进行任何更改」并说明原因，绝不能回复「已完成整理」之类含糊的成功话术。",
+    );
     if (history && history.length > 0) {
       lines.push("", "对话历史（供延续上下文）：");
       for (const m of history.slice(-20)) {

@@ -150,11 +150,18 @@ export function OrganizeChatMode({
 
       if (result.ok) {
         setSessionId(result.sessionId);
+        const hasActions =
+          !!result.toolActions && result.toolActions.length > 0;
         patch((m) => ({
           ...m,
+          // 如实兜底：无总结时按是否真有写动作显示，绝不在啥都没做时假装「已完成」
           content:
             result.summary ||
-            (m.content === '__THINKING__' ? '已完成整理' : m.content),
+            (m.content !== '__THINKING__'
+              ? m.content
+              : hasActions
+                ? '已完成整理'
+                : '本次没有进行任何更改'),
           // 权威明细：done/对账带回的 toolActions 覆盖实时累积——代理掉了实时
           // tool 事件时，这是唯一能看到"做了什么"的来源。
           meta:
