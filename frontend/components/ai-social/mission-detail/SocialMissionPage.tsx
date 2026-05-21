@@ -39,7 +39,7 @@ import {
 import { cn } from '@/lib/utils/common';
 import { deriveView } from '@/lib/features/agent-playground/derive';
 import { deriveTodoLedger } from '@/lib/features/agent-playground/todo-ledger';
-import { useAgentPlaygroundStream } from '@/hooks/features/useAgentPlaygroundStream';
+import { useSocialMissionStream } from '@/hooks/features/useSocialMissionStream';
 import { useSocialTask } from '@/hooks/domain/useSocialTasks';
 import {
   cancelSocialTask,
@@ -207,7 +207,7 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
   const missionId = task?.missionId ?? null;
 
   // Stream — only subscribes when missionId is available
-  const { events } = useAgentPlaygroundStream(missionId);
+  const { events } = useSocialMissionStream(missionId);
 
   // Derive playground view from stream events
   const view = useMemo(() => deriveView(events), [events]);
@@ -236,6 +236,7 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
     const firstVersion = task.versions?.[0];
     return (
       firstVersion?.title ||
+      task.title ||
       task.prompt?.slice(0, 60) ||
       `任务 ${taskId.slice(0, 8)}`
     );
