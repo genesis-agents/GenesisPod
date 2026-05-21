@@ -147,6 +147,16 @@ export async function archiveTopic(id: string): Promise<RadarTopic> {
   return request<RadarTopic>(`/topics/${id}/archive`, { method: 'POST' });
 }
 
+export async function setVisibility(
+  id: string,
+  visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC'
+): Promise<RadarTopic> {
+  return request<RadarTopic>(`/topics/${id}/visibility`, {
+    method: 'PATCH',
+    body: JSON.stringify({ visibility }),
+  });
+}
+
 // ── Source ────────────────────────────────────────────
 
 export async function listSources(topicId: string): Promise<RadarSource[]> {

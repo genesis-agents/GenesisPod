@@ -30,6 +30,7 @@ function makeTopic(
   return {
     id: 'tid-1',
     userId: 'u-1',
+    visibility: 'PRIVATE',
     name: 'GPT-5 发布动态',
     description: '关注 OpenAI 新模型',
     entityType: 'topic',

@@ -5,7 +5,12 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma, RadarTopic, RadarTopicStatus } from "@prisma/client";
+import {
+  ContentVisibility,
+  Prisma,
+  RadarTopic,
+  RadarTopicStatus,
+} from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { computeNextCronTick } from "../scheduler/cron-util";
 import {
@@ -120,6 +125,19 @@ export class RadarTopicService {
     if (!topic) throw new NotFoundException("Radar topic not found");
     if (topic.userId !== userId) throw new ForbiddenException("Not owner");
     return topic;
+  }
+
+  /** 多租户可见性切换（仅所有者，getOwnedById 已强制 owner 校验）。 */
+  async updateVisibility(
+    userId: string,
+    topicId: string,
+    visibility: ContentVisibility,
+  ): Promise<RadarTopic> {
+    await this.getOwnedById(userId, topicId);
+    return this.prisma.radarTopic.update({
+      where: { id: topicId },
+      data: { visibility },
+    });
   }
 
   async update(

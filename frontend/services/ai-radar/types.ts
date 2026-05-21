@@ -56,6 +56,7 @@ export type RadarItemEntityKind =
 export interface RadarTopic {
   id: string;
   userId: string;
+  visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC';
   name: string;
   description: string | null;
   entityType: string | null;

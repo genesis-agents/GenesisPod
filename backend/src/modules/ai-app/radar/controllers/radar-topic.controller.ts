@@ -15,6 +15,7 @@ import {
 import { RadarTopicStatus } from "@prisma/client";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
+import { UpdateVisibilityDto } from "../../../../common/visibility";
 import { CreateRadarTopicDto, UpdateRadarTopicDto } from "../dto";
 import { RadarTopicService } from "../services/topic/radar-topic.service";
 
@@ -62,6 +63,15 @@ export class RadarTopicController {
   async delete(@Request() req: RequestWithUser, @Param("id") id: string) {
     await this.topics.delete(req.user.id, id);
     return { deleted: true };
+  }
+
+  @Patch(":id/visibility")
+  async updateVisibility(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateVisibilityDto,
+  ) {
+    return this.topics.updateVisibility(req.user.id, id, dto.visibility);
   }
 
   @Post(":id/pause")

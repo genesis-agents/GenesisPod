@@ -10321,6 +10321,8 @@ model RadarTopic {
   id          String  @id @default(uuid())
   userId      String  @map("user_id")
   user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 多租户可见性（PRIVATE 私有 / SHARED 同工作区 / PUBLIC 公开）
+  visibility  ContentVisibility @default(PRIVATE)
   name        String  @db.VarChar(160)
   description String? @db.Text
   /// 主题对象类型 person|company|product|event|topic
