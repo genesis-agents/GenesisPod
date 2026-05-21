@@ -19,6 +19,40 @@ import {
 } from "./dto";
 
 /**
+ * 数据源统一整理支持的源类型（W2 NOTE/IMAGE、W3 FEISHU；BOOKMARK/DRIVE 走既有集合）。
+ * 是 Prisma `CollectionItemType` 的子集；NOTION 待 W4。
+ */
+export type OrganizeItemType =
+  | "BOOKMARK"
+  | "NOTE"
+  | "IMAGE"
+  | "FEISHU"
+  | "DRIVE";
+
+/** 统一的"可整理条目"视图：源 id + 本地覆盖状态（在哪个集合 / tags / 状态）。 */
+export interface OrganizableItem {
+  itemType: OrganizeItemType;
+  /** 源条目 id（resourceId / noteId / imageId / feishuItemId） */
+  sourceId: string;
+  /** 已纳入覆盖层时的 CollectionItem id（用于后续 tag/move/status），未纳入为 null */
+  collectionItemId: string | null;
+  collectionId: string | null;
+  title: string;
+  tags: string[];
+  readStatus: string | null;
+}
+
+/** getCollectionItemsPaginated 返回项的最小形状（BOOKMARK 分支用）。 */
+interface CollectionItemWithResource {
+  id: string;
+  resourceId: string | null;
+  collectionId: string;
+  tags: unknown;
+  readStatus: string | null;
+  resource: { title: string | null } | null;
+}
+
+/**
  * 收藏系统服务
  *
  * 核心功能：
@@ -701,6 +735,255 @@ export class CollectionsService {
     });
 
     return { success: true, updatedCount: updated.count };
+  }
+
+  // ============================================================================
+  // 数据源统一整理（W2+）：多态"本地整理覆盖层"——把笔记/图片/飞书/Notion 等源
+  // 条目纳入 collections 进行整理。tag/move/status 仍走上面 CollectionItem-id 的
+  // 既有方法（覆盖层行建好后即可用）。详见 docs/features/library/unified-organize-design.md
+  // ============================================================================
+
+  /**
+   * 列出某源（scope）可整理的条目 + 其本地覆盖状态（在哪个集合、tags、状态）。
+   * BOOKMARK/DRIVE 走既有 collection 视图；NOTE/IMAGE/FEISHU 列源条目并左联覆盖层。
+   */
+  async listOrganizableItems(
+    userId: string,
+    itemType: OrganizeItemType,
+    opts: { limit?: number; collectionId?: string | null } = {},
+  ): Promise<{ items: OrganizableItem[]; total: number }> {
+    const limit = Math.min(opts.limit ?? 30, 100);
+
+    if (itemType === "NOTE") {
+      const [rows, total] = await Promise.all([
+        this.prisma.note.findMany({
+          where: { userId },
+          select: {
+            id: true,
+            title: true,
+            content: true,
+            collectionItems: {
+              select: {
+                id: true,
+                collectionId: true,
+                tags: true,
+                readStatus: true,
+              },
+              take: 1,
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: limit,
+        }),
+        this.prisma.note.count({ where: { userId } }),
+      ]);
+      return {
+        items: rows.map((r) =>
+          this.toOrganizableItem(
+            "NOTE",
+            r.id,
+            r.title?.trim() || r.content.slice(0, 60),
+            r.collectionItems[0],
+          ),
+        ),
+        total,
+      };
+    }
+
+    if (itemType === "IMAGE") {
+      const where = { userId, isBookmarked: true };
+      const [rows, total] = await Promise.all([
+        this.prisma.generatedImage.findMany({
+          where,
+          select: {
+            id: true,
+            prompt: true,
+            collectionItems: {
+              select: {
+                id: true,
+                collectionId: true,
+                tags: true,
+                readStatus: true,
+              },
+              take: 1,
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: limit,
+        }),
+        this.prisma.generatedImage.count({ where }),
+      ]);
+      return {
+        items: rows.map((r) =>
+          this.toOrganizableItem(
+            "IMAGE",
+            r.id,
+            r.prompt.slice(0, 60),
+            r.collectionItems[0],
+          ),
+        ),
+        total,
+      };
+    }
+
+    if (itemType === "FEISHU") {
+      const [rows, total] = await Promise.all([
+        this.prisma.feishuItem.findMany({
+          where: { userId },
+          select: {
+            id: true,
+            title: true,
+            collectionItems: {
+              select: {
+                id: true,
+                collectionId: true,
+                tags: true,
+                readStatus: true,
+              },
+              take: 1,
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: limit,
+        }),
+        this.prisma.feishuItem.count({ where: { userId } }),
+      ]);
+      return {
+        items: rows.map((r) =>
+          this.toOrganizableItem("FEISHU", r.id, r.title, r.collectionItems[0]),
+        ),
+        total,
+      };
+    }
+
+    // BOOKMARK / DRIVE：走既有 collection 视图（条目已是 CollectionItem）
+    const page = await this.getCollectionItemsPaginated(
+      opts.collectionId ?? null,
+      userId,
+      { limit },
+    );
+    const items = (page.items as CollectionItemWithResource[]).map((ci) => ({
+      itemType: "BOOKMARK" as const,
+      sourceId: ci.resourceId ?? ci.id,
+      collectionItemId: ci.id,
+      collectionId: ci.collectionId,
+      title: ci.resource?.title ?? "(无标题)",
+      tags: (ci.tags as string[]) ?? [],
+      readStatus: ci.readStatus ?? null,
+    }));
+    return { items, total: page.pagination.total };
+  }
+
+  private toOrganizableItem(
+    itemType: OrganizeItemType,
+    sourceId: string,
+    title: string,
+    overlay?: {
+      id: string;
+      collectionId: string;
+      tags: unknown;
+      readStatus: string | null;
+    },
+  ): OrganizableItem {
+    return {
+      itemType,
+      sourceId,
+      collectionItemId: overlay?.id ?? null,
+      collectionId: overlay?.collectionId ?? null,
+      title,
+      tags: (overlay?.tags as string[]) ?? [],
+      readStatus: overlay?.readStatus ?? null,
+    };
+  }
+
+  /**
+   * 把一批源条目纳入（或移动到）某集合——upsert 多态覆盖层行。
+   * 笔记/图片/飞书：建覆盖层；书签：移动。返回生成/更新的 CollectionItem id（供 tag/status 用）。
+   */
+  async assignItemsToCollection(
+    userId: string,
+    dto: {
+      itemType: OrganizeItemType;
+      sourceIds: string[];
+      collectionId: string;
+    },
+  ): Promise<{ success: boolean; collectionItemIds: string[] }> {
+    const collection = await this.prisma.collection.findFirst({
+      where: { id: dto.collectionId, userId },
+      select: { id: true },
+    });
+    if (!collection) {
+      throw new NotFoundException("Collection not found");
+    }
+    await this.assertSourceOwnership(userId, dto.itemType, dto.sourceIds);
+
+    const fkFor = (
+      sourceId: string,
+    ): Pick<
+      Prisma.CollectionItemUncheckedCreateInput,
+      "resourceId" | "noteId" | "imageId" | "feishuItemId"
+    > => {
+      switch (dto.itemType) {
+        case "NOTE":
+          return { noteId: sourceId };
+        case "IMAGE":
+          return { imageId: sourceId };
+        case "FEISHU":
+          return { feishuItemId: sourceId };
+        default:
+          return { resourceId: sourceId };
+      }
+    };
+
+    const collectionItemIds: string[] = [];
+    for (const sourceId of dto.sourceIds) {
+      const fk = fkFor(sourceId);
+      const existing = await this.prisma.collectionItem.findFirst({
+        where: { collectionId: dto.collectionId, ...fk },
+        select: { id: true },
+      });
+      if (existing) {
+        collectionItemIds.push(existing.id);
+        continue;
+      }
+      const created = await this.prisma.collectionItem.create({
+        data: { collectionId: dto.collectionId, itemType: dto.itemType, ...fk },
+        select: { id: true },
+      });
+      collectionItemIds.push(created.id);
+    }
+    return { success: true, collectionItemIds };
+  }
+
+  /** 校验源条目归属当前用户（防越权 + LLM 编造 id）。*/
+  private async assertSourceOwnership(
+    userId: string,
+    itemType: OrganizeItemType,
+    sourceIds: string[],
+  ): Promise<void> {
+    if (sourceIds.length === 0) return;
+    let count = 0;
+    if (itemType === "NOTE") {
+      count = await this.prisma.note.count({
+        where: { id: { in: sourceIds }, userId },
+      });
+    } else if (itemType === "IMAGE") {
+      count = await this.prisma.generatedImage.count({
+        where: { id: { in: sourceIds }, userId },
+      });
+    } else if (itemType === "FEISHU") {
+      count = await this.prisma.feishuItem.count({
+        where: { id: { in: sourceIds }, userId },
+      });
+    } else {
+      // BOOKMARK/DRIVE：sourceId 为 resourceId，校验存在于用户某集合
+      count = await this.prisma.collectionItem.count({
+        where: { resourceId: { in: sourceIds }, collection: { userId } },
+      });
+    }
+    if (count !== new Set(sourceIds).size) {
+      throw new ForbiddenException("Some items do not belong to you");
+    }
   }
 
   /**
