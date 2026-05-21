@@ -49,6 +49,8 @@ components/common/mission-detail/  MissionDetailFrame + StageStepper + MissionAc
 
 其余（拓扑、角色卡、阶段进度、事件流、todo 板、引用、算力、实时通道、派生引擎、**以及每个 tab 的统一呈现**）**全部复用，不得各造**。
 
+**左栏布局（BLK-10，角色卡落点）**：团队拓扑（`common/team-topology` canvas）→ 其下**角色卡列表**（复用 `team-topology/avatars/` 现有 leader/researcher/reviewer/writer 等 10 个角色卡组件），数据取 `view.agents`，点击角色卡展开该 agent 的子任务/产出/状态 → 进度条（`StageStepper`）→ 操作（`MissionActionGroup`：开启/更新/取消/重试）。即 Screenshot_100 左栏逐元素都有 canonical 落点。
+
 ### 3.5 标准化 Tab 体系（评审重点：业务定"展示哪些"，平台定"每个怎么呈现"）
 
 > 现状缺口：`common/mission-detail/` 只有 Frame/Stepper/ActionGroup，**没有 canonical tab 组件**——playground 自己拼了任务表/算力面板。要落实「每个 tab 统一规范、最大化复用」，需把 tab 抽成 canonical。
