@@ -35,6 +35,7 @@ import { getProviderBrand } from '@/lib/constants/ai-provider-logos';
 import { logger } from '@/lib/utils/logger';
 import { getComputeUsage } from '@/services/topic-insights/api';
 import { LoadingState } from '@/components/ui/states';
+import { StatCard } from '@/components/ui/cards';
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -235,35 +236,6 @@ const CHART_COLORS = [
 // ──────────────────────────────────────────────────────────────
 // Sub-components
 // ──────────────────────────────────────────────────────────────
-
-function SummaryCard({
-  icon,
-  label,
-  value,
-  subText,
-  colorClass,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  subText?: string;
-  colorClass: string;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex items-center gap-2">
-        <div
-          className={`flex h-8 w-8 items-center justify-center rounded-lg ${colorClass}`}
-        >
-          {icon}
-        </div>
-        <span className="text-xs font-medium text-gray-500">{label}</span>
-      </div>
-      <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
-      {subText && <p className="mt-0.5 text-xs text-gray-400">{subText}</p>}
-    </div>
-  );
-}
 
 function ModelName({ modelId }: { modelId: string }) {
   if (!modelId) return <span className="text-gray-400">—</span>;
@@ -720,11 +692,11 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
       {/* ═══ Section 1: Summary Cards ═══ */}
       <section>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-          <SummaryCard
-            icon={<Zap className="h-4 w-4 text-indigo-600" />}
+          <StatCard
+            icon={<Zap className="h-5 w-5" />}
             label={t('topicResearch.computeUsage.totalTokens')}
             value={formatNumber(summary.totalTokens)}
-            subText={
+            hint={
               summary.inputTokens > 0 || summary.outputTokens > 0
                 ? t('topicResearch.computeUsage.inputOutput', {
                     input: formatNumber(summary.inputTokens),
@@ -732,39 +704,39 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
                   })
                 : `${summary.totalDimensions} ${t('topicResearch.computeUsage.dimension')}`
             }
-            colorClass="bg-indigo-50"
+            tone="blue"
           />
-          <SummaryCard
-            icon={<DollarSign className="h-4 w-4 text-emerald-600" />}
+          <StatCard
+            icon={<DollarSign className="h-5 w-5" />}
             label={t('topicResearch.computeUsage.creditsConsumed')}
             value={formatNumberFull(summary.totalCreditsConsumed)}
-            subText={
+            hint={
               summary.estimatedCostUsd > 0
                 ? `~$${summary.estimatedCostUsd.toFixed(2)} USD`
                 : undefined
             }
-            colorClass="bg-emerald-50"
+            tone="emerald"
           />
-          <SummaryCard
-            icon={<Activity className="h-4 w-4 text-violet-600" />}
+          <StatCard
+            icon={<Activity className="h-5 w-5" />}
             label={t('topicResearch.computeUsage.llmCalls')}
             value={formatNumberFull(summary.totalLlmCalls)}
-            subText={`${summary.totalDimensions} ${t('topicResearch.computeUsage.dimension')}`}
-            colorClass="bg-violet-50"
+            hint={`${summary.totalDimensions} ${t('topicResearch.computeUsage.dimension')}`}
+            tone="violet"
           />
-          <SummaryCard
-            icon={<Clock className="h-4 w-4 text-orange-600" />}
+          <StatCard
+            icon={<Clock className="h-5 w-5" />}
             label={t('topicResearch.computeUsage.researchDuration')}
             value={formatDuration(summary.researchDurationMs)}
-            subText={
+            hint={
               summary.reportGenerationMs > 0
                 ? `${t('topicResearch.computeUsage.reportGen')}: ${formatDuration(summary.reportGenerationMs)}`
                 : undefined
             }
-            colorClass="bg-orange-50"
+            tone="amber"
           />
-          <SummaryCard
-            icon={<TrendingUp className="h-4 w-4 text-sky-600" />}
+          <StatCard
+            icon={<TrendingUp className="h-5 w-5" />}
             label={t('topicResearch.computeUsage.avgTokenPerDim')}
             value={
               summary.totalDimensions > 0
@@ -773,15 +745,15 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
                   )
                 : '—'
             }
-            colorClass="bg-sky-50"
+            tone="blue"
           />
           {cacheSavings.savedTokens > 0 && (
-            <SummaryCard
-              icon={<Shield className="h-4 w-4 text-teal-600" />}
+            <StatCard
+              icon={<Shield className="h-5 w-5" />}
               label={t('topicResearch.computeUsage.cacheSavings')}
               value={`~$${cacheSavings.savedUsd.toFixed(2)}`}
-              subText={`${formatNumber(cacheSavings.savedTokens)} tokens cached`}
-              colorClass="bg-teal-50"
+              hint={`${formatNumber(cacheSavings.savedTokens)} tokens cached`}
+              tone="emerald"
             />
           )}
         </div>
@@ -1082,41 +1054,41 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
 
           {/* Summary Row */}
           <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <SummaryCard
-              icon={<Clock className="h-4 w-4 text-orange-600" />}
+            <StatCard
+              icon={<Clock className="h-5 w-5" />}
               label={t('topicResearch.computeUsage.researchDuration')}
               value={formatDuration(data.latency.totalDurationMs)}
-              subText={`${data.latency.llmCallCount} ${t('topicResearch.computeUsage.calls')}`}
-              colorClass="bg-orange-50"
+              hint={`${data.latency.llmCallCount} ${t('topicResearch.computeUsage.calls')}`}
+              tone="amber"
             />
-            <SummaryCard
-              icon={<Cpu className="h-4 w-4 text-indigo-600" />}
+            <StatCard
+              icon={<Cpu className="h-5 w-5" />}
               label="LLM 累计耗时"
               value={formatDuration(data.latency.llmTotalTimeMs)}
-              subText={
+              hint={
                 data.latency.llmTimePercent > 100
                   ? `${Math.round(data.latency.llmTimePercent / 100)}x 并行`
                   : `${data.latency.llmTimePercent.toFixed(0)}%`
               }
-              colorClass="bg-indigo-50"
+              tone="blue"
             />
-            <SummaryCard
-              icon={<BarChart3 className="h-4 w-4 text-emerald-600" />}
+            <StatCard
+              icon={<BarChart3 className="h-5 w-5" />}
               label="并行度"
               value={
                 data.latency.llmTimePercent > 100
                   ? `${(data.latency.llmTimePercent / 100).toFixed(1)}x`
                   : `${Math.max(0, 100 - data.latency.llmTimePercent).toFixed(0)}% 空闲`
               }
-              subText={`${data.latency.llmCallCount} ${t('topicResearch.computeUsage.calls')}`}
-              colorClass="bg-emerald-50"
+              hint={`${data.latency.llmCallCount} ${t('topicResearch.computeUsage.calls')}`}
+              tone="emerald"
             />
-            <SummaryCard
-              icon={<TrendingUp className="h-4 w-4 text-sky-600" />}
+            <StatCard
+              icon={<TrendingUp className="h-5 w-5" />}
               label={t('topicResearch.computeUsage.tokenThroughput')}
               value={`${data.latency.avgTokenThroughput.toFixed(1)}`}
-              subText={t('topicResearch.computeUsage.tokensPerSec')}
-              colorClass="bg-sky-50"
+              hint={t('topicResearch.computeUsage.tokensPerSec')}
+              tone="blue"
             />
           </div>
 

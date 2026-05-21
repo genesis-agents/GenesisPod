@@ -23,6 +23,7 @@ import {
   Package,
   type LucideIcon,
 } from 'lucide-react';
+import { StatCard } from '@/components/ui/cards';
 import {
   AreaChart,
   Area,
@@ -291,29 +292,22 @@ export default function AISkillsTab() {
       {/* Stats Cards */}
       <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Total Skills Card */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Total Skills</p>
-              <p className="mt-1 text-3xl font-bold text-gray-900">
-                {isLoading ? (
-                  <span className="text-gray-300">--</span>
-                ) : (
-                  (stats?.totalSkills ?? 66541).toLocaleString()
-                )}
-              </p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100">
-              <Star className="h-6 w-6 text-violet-600" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center gap-2">
-            <span className="flex items-center gap-1 text-sm font-medium text-green-600">
-              <TrendingUp className="h-4 w-4" />+{stats?.weeklyGrowth ?? 12.5}%
-            </span>
-            <span className="text-sm text-gray-500">this week</span>
-          </div>
-        </div>
+        <StatCard
+          label="Total Skills"
+          value={
+            isLoading ? (
+              <span className="text-gray-300">--</span>
+            ) : (
+              (stats?.totalSkills ?? 66541).toLocaleString()
+            )
+          }
+          icon={<Star className="h-5 w-5" />}
+          tone="violet"
+          trend={{
+            direction: 'up',
+            value: `+${stats?.weeklyGrowth ?? 12.5}% this week`,
+          }}
+        />
 
         {/* Sync Status Card */}
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -345,28 +339,19 @@ export default function AISkillsTab() {
         </div>
 
         {/* Featured Skills Card */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                {t('aiSkills.featured')}
-              </p>
-              <p className="mt-1 text-3xl font-bold text-gray-900">
-                {isLoading ? (
-                  <span className="text-gray-300">--</span>
-                ) : (
-                  (stats?.featuredCount ?? featuredSkills.length)
-                )}
-              </p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100">
-              <Download className="h-6 w-6 text-amber-600" />
-            </div>
-          </div>
-          <p className="mt-4 text-sm text-gray-500">
-            Curated skills for your workflow
-          </p>
-        </div>
+        <StatCard
+          label={t('aiSkills.featured')}
+          value={
+            isLoading ? (
+              <span className="text-gray-300">--</span>
+            ) : (
+              (stats?.featuredCount ?? featuredSkills.length)
+            )
+          }
+          hint="Curated skills for your workflow"
+          icon={<Download className="h-5 w-5" />}
+          tone="amber"
+        />
       </div>
 
       {/* Trend Chart */}

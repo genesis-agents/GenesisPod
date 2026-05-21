@@ -33,6 +33,7 @@ import type {
 } from '@/lib/features/agent-playground/derive';
 import type { MissionTodo } from '@/lib/features/agent-playground/todo-ledger';
 import { Card } from '@/components/agent-playground/ui';
+import { StatCard } from '@/components/ui/cards';
 
 interface Props {
   cost: CostState;
@@ -90,63 +91,36 @@ function SummaryStrip({
   totalCalls: number;
   avgLatencyMs: number;
 }) {
-  const cells: {
-    Icon: typeof Coins;
-    label: string;
-    value: string;
-    sub?: string;
-    tone: string;
-  }[] = [
-    {
-      Icon: Coins,
-      label: '总成本',
-      value: fmtUsd(costUsd),
-      sub: '估算（按 $3/1M tokens 折算）',
-      tone: 'bg-amber-50 text-amber-600 ring-amber-100',
-    },
-    {
-      Icon: Cpu,
-      label: '总 tokens',
-      value: fmtTokens(totalTokens),
-      sub: '所有 stage 累计',
-      tone: 'bg-violet-50 text-violet-600 ring-violet-100',
-    },
-    {
-      Icon: Activity,
-      label: '工具调用',
-      value: String(totalCalls),
-      sub: 'tool / LLM 次数',
-      tone: 'bg-sky-50 text-sky-600 ring-sky-100',
-    },
-    {
-      Icon: Gauge,
-      label: '平均延迟',
-      value: fmtLatency(avgLatencyMs),
-      sub: '工具单次调用平均',
-      tone: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
-    },
-  ];
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      {cells.map((c) => (
-        <Card key={c.label} className="px-4 py-3" bordered>
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              {c.label}
-            </p>
-            <span
-              className={cn(
-                'flex h-7 w-7 items-center justify-center rounded-lg ring-1',
-                c.tone
-              )}
-            >
-              <c.Icon className="h-4 w-4" />
-            </span>
-          </div>
-          <p className="mt-1.5 text-2xl font-bold text-gray-900">{c.value}</p>
-          {c.sub && <p className="mt-0.5 text-xs text-gray-500">{c.sub}</p>}
-        </Card>
-      ))}
+      <StatCard
+        label="总成本"
+        value={fmtUsd(costUsd)}
+        hint="估算（按 $3/1M tokens 折算）"
+        icon={<Coins className="h-5 w-5" />}
+        tone="amber"
+      />
+      <StatCard
+        label="总 tokens"
+        value={fmtTokens(totalTokens)}
+        hint="所有 stage 累计"
+        icon={<Cpu className="h-5 w-5" />}
+        tone="violet"
+      />
+      <StatCard
+        label="工具调用"
+        value={String(totalCalls)}
+        hint="tool / LLM 次数"
+        icon={<Activity className="h-5 w-5" />}
+        tone="blue"
+      />
+      <StatCard
+        label="平均延迟"
+        value={fmtLatency(avgLatencyMs)}
+        hint="工具单次调用平均"
+        icon={<Gauge className="h-5 w-5" />}
+        tone="emerald"
+      />
     </div>
   );
 }
