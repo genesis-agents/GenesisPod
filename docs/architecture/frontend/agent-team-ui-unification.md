@@ -1,6 +1,6 @@
 # 统一 AI Agent Teams UI — 设计基线（Design Baseline）
 
-**状态：** 🟡 四路评审完成（4× 批准但需改）→ 迭代 v0.2；待用户拍板 5 项后锁 v1.0 开 W0
+**状态：** ✅ v1.0 锁定（四路 4× 批准 + 用户拍板 5 项，2026-05-21）；开 **W0：playground → MissionDetailFrame + DrawerShell 加 header slot**
 **评审纪要：** [agent-team-ui-unification-review.md](agent-team-ui-unification-review.md)
 **强制级别：** 评审通过后转 MUST（落实并扩展[标准 21](../../../.claude/standards/21-agent-teams-presentation.md)）
 **日期：** 2026-05-21
