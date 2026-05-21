@@ -229,7 +229,9 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       maxTokens?: number;
       temperature?: number;
       systemPrompt?: string;
-      tools?: Array<{ type: "function"; function: FunctionDefinition }>;
+      // ★ RAW FunctionDefinition[]，不预包成 {type,function}。下游 callXAIAPI /
+      // callOpenAICompatibleAPI 会用 buildOpenAICompatibleTools 统一包一次。
+      tools?: FunctionDefinition[];
       tool_choice?: string | { type: string; function: { name: string } };
     }
 
@@ -254,7 +256,12 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
 
     // 如果有工具定义，添加 tools 参数
     if (functions && functions.length > 0) {
-      requestParams.tools = this.formatTools(functions);
+      // ★ 2026-05-21：传 RAW functions，不在此 formatTools 预包成 {type,function}。
+      // 下游 callXAIAPI / callOpenAICompatibleAPI 会用 buildOpenAICompatibleTools
+      // 统一包一次；这里再包就 double-wrap → tools[0].function 变成 {type,function}
+      // 无 name → xAI 422 "tools[0]: missing field `name`"（Option A 把工具循环引到
+      // callXAIAPI 后才暴露：此前 Path B 直接丢 tools，从没真正发出去）。
+      requestParams.tools = functions;
       requestParams.tool_choice = options.tool_choice || "auto";
     }
 
@@ -285,7 +292,8 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
     maxTokens?: number;
     temperature?: number;
     taskProfile: unknown;
-    tools?: Array<{ type: "function"; function: FunctionDefinition }>;
+    // RAW FunctionDefinition[]（下游 buildOpenAICompatibleTools 统一包装）
+    tools?: FunctionDefinition[];
     tool_choice?: string | { type: string; function: { name: string } };
   }): Promise<unknown> {
     const {
