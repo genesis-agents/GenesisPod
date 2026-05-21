@@ -41,6 +41,12 @@ metadata:
 7. **AI App 内 caller 显式写死的 `model: "specific-id"`** —— 历史包袱常有。
 8. **Runtime env `getModelAvailability().fallbackTo`** —— 不可用时切的"同类替补"也可
    能是 admin pool。
+9. **`ai-harness/facade/sub-facades/tool-exec.sub-facade.ts` chatWithToolsStream →
+   `llmAdapter.setConfig({...})`**（2026-05-21，commit 9c5c140ca）—— 漏传 `userId`
+   → `FunctionCallingLLMAdapter.resolveApiKeyForProvider` 无 userId → 不走 KeyResolver
+   → `NoAvailableKeyError(provider)`（前端 "No API Key available for provider xai"）。
+   caller（对话整理）故意传 apiKey=undefined 期望按 BYOK 解析。**修法：setConfig 补
+   `userId: request.context.userId`**。凡走工具循环（chatWithToolsStream）的 ai-app 都吃这条。
 
 ## Why（2026-05-12 两轮事故）
 
