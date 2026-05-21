@@ -146,6 +146,7 @@ export interface MissionListItem {
   reportTitle: string | null;
   reportSummary: string | null;
   errorMessage: string | null;
+  visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC';
 }
 
 export interface MissionDetail extends MissionListItem {
@@ -460,6 +461,34 @@ export async function updateMission(
   }
   const raw: unknown = await res.json();
   return unwrapStandard<{ ok: true }>(raw);
+}
+
+export async function setVisibility(
+  missionId: string,
+  visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC'
+): Promise<{ id: string; visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC' }> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/visibility`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ visibility }),
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      `Set visibility failed: ${res.status} ${text.slice(0, 200)}`
+    );
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<{
+    id: string;
+    visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC';
+  }>(raw);
 }
 
 export async function cancelMission(

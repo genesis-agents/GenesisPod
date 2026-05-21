@@ -1650,11 +1650,12 @@ enum MissionLogType {
 
 // Topic 群组
 model Topic {
-  id          String    @id @default(uuid())
-  name        String    @db.VarChar(200)
-  description String?   @db.Text
-  type        TopicType @default(PRIVATE)
-  avatar      String?   @db.Text
+  id          String            @id @default(uuid())
+  name        String            @db.VarChar(200)
+  description String?           @db.Text
+  type        TopicType         @default(PRIVATE)
+  avatar      String?           @db.Text
+  visibility  ContentVisibility @default(PRIVATE) // 多租户可见性：私有/共享/公开
 
   createdById String @map("created_by_id")
   createdBy   User   @relation("TopicCreator", fields: [createdById], references: [id], onDelete: Cascade)
@@ -3258,8 +3259,9 @@ enum SimulationRunStatus {
 }
 
 model SimulationScenario {
-  id          String  @id @default(uuid())
-  name        String  @db.VarChar(200)
+  id          String            @id @default(uuid())
+  visibility  ContentVisibility @default(PRIVATE)
+  name        String            @db.VarChar(200)
   industry    String  @db.VarChar(100)
   region      String? @db.VarChar(100)
   goals       Json?
@@ -4146,6 +4148,7 @@ enum SearchPriority {
 
 model KnowledgeBase {
   id          String                  @id @default(uuid())
+  visibility  ContentVisibility       @default(PRIVATE)
   name        String
   description String?                 @db.Text
   sourceType  KnowledgeBaseSourceType @default(MANUAL) @map("source_type") // 保留向后兼容
@@ -9694,6 +9697,7 @@ model AgentPlaygroundMission {
   id            String                @id @default(uuid())
   userId        String                @map("user_id")
   user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  visibility    ContentVisibility     @default(PRIVATE)
   workspaceId   String?               @map("workspace_id")
   electionState MissionElectionState?
 

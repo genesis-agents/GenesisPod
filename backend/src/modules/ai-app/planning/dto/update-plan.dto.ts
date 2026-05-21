@@ -16,3 +16,14 @@ export class UpdatePlanDto {
   @IsEnum(PlanningDepth)
   depth?: PlanningDepth;
 }
+
+export enum PlanVisibility {
+  PRIVATE = "PRIVATE",
+  SHARED = "SHARED",
+  PUBLIC = "PUBLIC",
+}
+
+export class UpdatePlanVisibilityDto {
+  @IsEnum(PlanVisibility)
+  visibility!: PlanVisibility;
+}

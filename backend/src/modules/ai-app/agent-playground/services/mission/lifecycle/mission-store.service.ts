@@ -8,12 +8,14 @@
  */
 
 import {
+  ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   Optional,
   PayloadTooLargeException,
 } from "@nestjs/common";
-import type { Prisma } from "@prisma/client";
+import type { ContentVisibility, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "@/modules/ai-engine/facade";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
@@ -37,6 +39,7 @@ export interface MissionListItem {
   reportTitle: string | null;
   reportSummary: string | null;
   errorMessage: string | null;
+  visibility: ContentVisibility;
 }
 
 export interface MissionDetail extends MissionListItem {
@@ -401,6 +404,25 @@ export class MissionStore {
     );
   }
 
+  /** 多租户可见性切换（仅所有者）。 */
+  async updateVisibility(
+    userId: string,
+    missionId: string,
+    visibility: ContentVisibility,
+  ): Promise<{ id: string; visibility: ContentVisibility }> {
+    const row = await this.prisma.agentPlaygroundMission.findFirst({
+      where: { id: missionId },
+      select: { userId: true },
+    });
+    if (!row) throw new NotFoundException("Mission not found");
+    if (row.userId !== userId) throw new ForbiddenException("Not owner");
+    return this.prisma.agentPlaygroundMission.update({
+      where: { id: missionId },
+      data: { visibility },
+      select: { id: true, visibility: true },
+    });
+  }
+
   async listByUser(userId: string, limit = 50): Promise<MissionListItem[]> {
     const rows = await this.prisma.agentPlaygroundMission.findMany({
       where: { userId },
@@ -421,6 +443,7 @@ export class MissionStore {
         reportTitle: true,
         reportSummary: true,
         errorMessage: true,
+        visibility: true,
       },
     });
     return rows.map((r) => ({
@@ -451,6 +474,7 @@ export class MissionStore {
         reportTitle: true,
         reportSummary: true,
         errorMessage: true,
+        visibility: true,
       },
     });
     const mapped = rows.map((r) => ({
@@ -500,6 +524,7 @@ export class MissionStore {
       outlinePlan: row.outlinePlan,
       analystOutput: row.analystOutput,
       heartbeatAt: row.heartbeatAt,
+      visibility: row.visibility,
     };
   }
 }

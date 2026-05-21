@@ -19,12 +19,14 @@ import {
   Get,
   Logger,
   Param,
+  Patch,
   Post,
   Query,
   Request,
   UseGuards,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { UpdateVisibilityDto } from "../../../../common/visibility";
 import {
   RateLimit,
   RateLimitGuard,
@@ -132,6 +134,21 @@ export class MissionReadController extends BaseMissionController {
       };
     }
     throw new ForbiddenException("Mission not found");
+  }
+
+  /**
+   * PATCH /api/v1/agent-playground/missions/:id/visibility
+   * 多租户可见性切换（仅所有者）。
+   */
+  @Patch("missions/:id/visibility")
+  async updateVisibility(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateVisibilityDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    return this.store.updateVisibility(userId, id, dto.visibility);
   }
 
   /**

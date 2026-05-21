@@ -40,6 +40,7 @@ import {
   ImportNotesDto,
   ImportOcrDto,
 } from "./dto";
+import { UpdateVisibilityDto } from "../../../../common/visibility";
 import { UrlFetchService } from "./services/url-fetch.service";
 import { PlatformImportService } from "./services/platform-import.service";
 import { PlaygroundReportImportService } from "./services/playground-report-import.service";
@@ -159,6 +160,21 @@ export class RAGController {
     @Body() dto: UpdateKnowledgeBaseDto,
   ) {
     return this.knowledgeBaseService.update(id, req.user.id, dto);
+  }
+
+  @Patch("knowledge-bases/:id/visibility")
+  @ApiOperation({ summary: "Update knowledge base visibility" })
+  @ApiResponse({ status: 200, description: "Visibility updated" })
+  async updateKnowledgeBaseVisibility(
+    @Req() req: RequestWithUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateVisibilityDto,
+  ) {
+    return this.knowledgeBaseService.updateVisibility(
+      req.user.id,
+      id,
+      dto.visibility,
+    );
   }
 
   @Delete("knowledge-bases/:id")

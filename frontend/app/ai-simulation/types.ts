@@ -14,6 +14,7 @@ export interface ScenarioCard {
   runs?: ScenarioRun[];
   goals?: ScenarioGoals;
   params?: ScenarioParams;
+  visibility?: 'PRIVATE' | 'SHARED' | 'PUBLIC';
   createdAt: string;
   updatedAt: string;
 }

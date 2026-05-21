@@ -40,6 +40,8 @@ import {
   type AssetCardAction,
   type AssetCardBadge,
   type AssetCardStat,
+  type AssetVisibility,
+  type AssetVisibilityOption,
 } from '@/components/common/asset-card';
 import type {
   KnowledgeBase,
@@ -53,9 +55,30 @@ import {
 
 type SourceType = KnowledgeBase['sourceType'];
 
+const VISIBILITY_OPTIONS: Record<AssetVisibility, AssetVisibilityOption> = {
+  PRIVATE: {
+    value: 'PRIVATE',
+    label: '私有',
+    icon: <Lock className="h-3 w-3" />,
+    className: 'bg-gray-100 text-gray-600',
+  },
+  SHARED: {
+    value: 'SHARED',
+    label: '共享',
+    icon: <Users className="h-3 w-3" />,
+    className: 'bg-blue-100 text-blue-600',
+  },
+  PUBLIC: {
+    value: 'PUBLIC',
+    label: '公开',
+    icon: <Globe className="h-3 w-3" />,
+    className: 'bg-green-100 text-green-600',
+  },
+};
+
 interface KnowledgeBaseCardProps {
   kb: KnowledgeBase;
-  /** 'personal' | 'team' — drives visibility badge + 成员管理 action */
+  /** 'personal' | 'team' — drives status badge + 成员管理 action */
   variant: 'personal' | 'team';
   /** Whether to fetch RAG embedding stats (default true). */
   loadStats?: boolean;
@@ -65,6 +88,8 @@ interface KnowledgeBaseCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onManageMembers?: () => void;
+  /** 多租户可见性切换（权限：私有/共享/公开）。 */
+  onVisibilityChange?: (kb: KnowledgeBase, next: AssetVisibility) => void;
 }
 
 const SOURCE_ICON: Record<string, LucideIcon> = {
@@ -100,6 +125,7 @@ export default function KnowledgeBaseCard({
   onEdit,
   onDelete,
   onManageMembers,
+  onVisibilityChange,
 }: KnowledgeBaseCardProps) {
   const docCount = kb._count?.documents ?? 0;
   const shouldFetchStats = loadStats && !statsOverride && docCount > 0;
@@ -130,15 +156,15 @@ export default function KnowledgeBaseCard({
   const badges: AssetCardBadge[] = [
     variant === 'team'
       ? {
-          key: 'visibility',
+          key: 'type',
           icon: <Users className="h-3 w-3" />,
           label: '团队',
           className: 'bg-blue-100 text-blue-700',
         }
       : {
-          key: 'visibility',
+          key: 'type',
           icon: <Lock className="h-3 w-3" />,
-          label: '私有',
+          label: '个人',
           className: 'bg-gray-100 text-gray-600',
         },
     {
@@ -209,6 +235,12 @@ export default function KnowledgeBaseCard({
       customSection={customSection}
       timestamp={kb.updatedAt}
       isOwner
+      visibility={kb.visibility ?? 'PRIVATE'}
+      visibilityOptions={VISIBILITY_OPTIONS}
+      visibilityToggleCycle={['PRIVATE', 'SHARED', 'PUBLIC']}
+      onVisibilityToggle={
+        onVisibilityChange ? (next) => onVisibilityChange(kb, next) : undefined
+      }
       onEdit={onEdit}
       onDelete={onDelete}
       extraActions={extraActions}

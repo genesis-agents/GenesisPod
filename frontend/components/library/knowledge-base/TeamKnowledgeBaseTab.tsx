@@ -59,6 +59,7 @@ export default function TeamKnowledgeBaseTab({
     creating,
     createKnowledgeBase,
     deleteKnowledgeBase,
+    setVisibility,
     refreshList,
   } = useKnowledgeBase();
 
@@ -72,6 +73,13 @@ export default function TeamKnowledgeBaseTab({
     } catch (err) {
       logger.error('Failed to delete knowledge base:', err);
     }
+  };
+
+  const handleVisibilityChange = async (
+    kb: KnowledgeBase,
+    next: 'PRIVATE' | 'SHARED' | 'PUBLIC'
+  ) => {
+    await setVisibility(kb.id, next);
   };
 
   const teamKBs = knowledgeBases.filter((kb) => {
@@ -157,6 +165,9 @@ export default function TeamKnowledgeBaseTab({
             onEdit={() => setEditingKbId(kb.id)}
             onDelete={() => setDeletingKbId(kb.id)}
             onManageMembers={() => setManagingMembersKbId(kb.id)}
+            onVisibilityChange={(k, next) =>
+              void handleVisibilityChange(k, next)
+            }
           />
         ))}
         <CreateKnowledgeBaseCard

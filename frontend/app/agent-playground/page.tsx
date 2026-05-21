@@ -16,6 +16,7 @@ import {
   listMissions,
   deleteMission,
   updateMission,
+  setVisibility,
   type MissionListItem,
 } from '@/services/agent-playground/api';
 import { MissionGalleryView } from '@/components/common/missions/MissionGalleryView';
@@ -51,6 +52,18 @@ export default function PlaygroundIndexPage() {
     }
   };
 
+  const handleVisibilityChange = async (
+    mission: MissionListItem,
+    next: 'PRIVATE' | 'SHARED' | 'PUBLIC'
+  ) => {
+    try {
+      await setVisibility(mission.id, next);
+      setGalleryReloadKey((n) => n + 1);
+    } catch (e) {
+      alert(`切换权限失败：${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
   return (
     <>
       <MissionGalleryView
@@ -63,6 +76,7 @@ export default function PlaygroundIndexPage() {
         onMissionClick={(m) => router.push(`/agent-playground/team/${m.id}`)}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onVisibilityChange={(m, next) => void handleVisibilityChange(m, next)}
         reloadKey={galleryReloadKey}
         emptyState={{
           title: '还没有 Mission',

@@ -76,6 +76,7 @@ export interface PlanSummary {
   createdAt: string;
   updatedAt: string;
   memberCount: number;
+  visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC';
 }
 
 export interface PlanDetail extends PlanSummary {
@@ -186,5 +187,15 @@ export async function replanFromPhase(
 export async function deletePlan(planId: string): Promise<void> {
   return fetchWithAuth(`/api/v1/ai-planning/${planId}`, {
     method: 'DELETE',
+  });
+}
+
+export async function setVisibility(
+  planId: string,
+  visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC'
+): Promise<{ success: boolean; visibility: string }> {
+  return fetchWithAuth(`/api/v1/ai-planning/${planId}/visibility`, {
+    method: 'PATCH',
+    body: JSON.stringify({ visibility }),
   });
 }

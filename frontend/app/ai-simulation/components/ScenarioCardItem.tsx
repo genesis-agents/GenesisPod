@@ -2,8 +2,13 @@
 
 import { ScenarioCard, ScenarioRun } from '../types';
 import { useI18n } from '@/lib/i18n';
-import { AssetCard, type AssetCardBadge } from '@/components/common/asset-card';
-import { Building2, Layers, Target } from 'lucide-react';
+import {
+  AssetCard,
+  type AssetCardBadge,
+  type AssetVisibility,
+  type AssetVisibilityOption,
+} from '@/components/common/asset-card';
+import { Building2, Globe, Layers, Lock, Target, Users } from 'lucide-react';
 
 interface ScenarioCardItemProps {
   scenario: ScenarioCard;
@@ -11,7 +16,29 @@ interface ScenarioCardItemProps {
   onView: () => void;
   onEdit: (e: React.MouseEvent) => void;
   onDelete: (e: React.MouseEvent) => void;
+  onVisibilityChange?: (scenario: ScenarioCard, next: AssetVisibility) => void;
 }
+
+const VISIBILITY_OPTIONS: Record<AssetVisibility, AssetVisibilityOption> = {
+  PRIVATE: {
+    value: 'PRIVATE',
+    label: '私有',
+    icon: <Lock className="h-3 w-3" />,
+    className: 'bg-gray-100 text-gray-600',
+  },
+  SHARED: {
+    value: 'SHARED',
+    label: '共享',
+    icon: <Users className="h-3 w-3" />,
+    className: 'bg-blue-100 text-blue-600',
+  },
+  PUBLIC: {
+    value: 'PUBLIC',
+    label: '公开',
+    icon: <Globe className="h-3 w-3" />,
+    className: 'bg-green-100 text-green-600',
+  },
+};
 
 const SCENARIO_GRADIENTS = [
   'from-indigo-500 to-purple-600',
@@ -39,6 +66,7 @@ export function ScenarioCardItem({
   onView,
   onEdit,
   onDelete,
+  onVisibilityChange,
 }: ScenarioCardItemProps) {
   const { t } = useI18n();
   const gradient = getScenarioGradient(scenario.id);
@@ -96,6 +124,14 @@ export function ScenarioCardItem({
       gradient={gradient}
       badges={[industryBadge, statusBadge]}
       isOwner
+      visibility={scenario.visibility}
+      visibilityOptions={VISIBILITY_OPTIONS}
+      visibilityToggleCycle={['PRIVATE', 'SHARED', 'PUBLIC']}
+      onVisibilityToggle={
+        onVisibilityChange
+          ? (next) => onVisibilityChange(scenario, next)
+          : undefined
+      }
       onEdit={() => onEdit({ stopPropagation: () => {} } as React.MouseEvent)}
       onDelete={() =>
         onDelete({ stopPropagation: () => {} } as React.MouseEvent)

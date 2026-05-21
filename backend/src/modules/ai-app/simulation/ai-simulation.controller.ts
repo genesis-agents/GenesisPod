@@ -5,6 +5,7 @@ import {
   Param,
   Post,
   Query,
+  Request,
   UseGuards,
   Patch,
   Delete,
@@ -15,6 +16,8 @@ import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Observable, interval, map, switchMap, from, takeWhile } from "rxjs";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import type { RequestWithUser } from "../../../common/types/express-request.types";
+import { UpdateVisibilityDto } from "../../../common/visibility";
 import { AiSimulationService, ViewPerspective } from "./ai-simulation.service";
 import { Prisma, SimulationTeam, SimulationRunStatus } from "@prisma/client";
 import { ExternalDataService } from "./external-data.service";
@@ -109,6 +112,19 @@ export class AiSimulationController {
   @Delete("scenarios/:id")
   async deleteScenario(@Param("id") id: string) {
     return this.simulationService.deleteScenario(id);
+  }
+
+  @Patch("scenarios/:id/visibility")
+  async updateVisibility(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateVisibilityDto,
+  ) {
+    return this.simulationService.updateVisibility(
+      req.user.id,
+      id,
+      dto.visibility,
+    );
   }
 
   @Post("runs")

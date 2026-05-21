@@ -9,9 +9,15 @@ import CreatePlanDialog from '@/components/ai-planning/CreatePlanDialog';
 import { useTranslation } from '@/lib/i18n';
 import { toast } from '@/stores';
 import type { PlanSummary } from '@/services/ai-planning/api';
+import { setVisibility } from '@/services/ai-planning/api';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
-import { AssetCard, type AssetCardBadge } from '@/components/common/asset-card';
-import { Users, Lightbulb } from 'lucide-react';
+import {
+  AssetCard,
+  type AssetCardBadge,
+  type AssetVisibility,
+  type AssetVisibilityOption,
+} from '@/components/common/asset-card';
+import { Globe, Lock, Users, Lightbulb } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui/states';
 
@@ -34,6 +40,27 @@ function getPlanGradient(id: string) {
   }
   return PLAN_GRADIENTS[Math.abs(hash) % PLAN_GRADIENTS.length];
 }
+
+const VISIBILITY_OPTIONS: Record<AssetVisibility, AssetVisibilityOption> = {
+  PRIVATE: {
+    value: 'PRIVATE',
+    label: '私有',
+    icon: <Lock className="h-3 w-3" />,
+    className: 'bg-gray-100 text-gray-600',
+  },
+  SHARED: {
+    value: 'SHARED',
+    label: '共享',
+    icon: <Users className="h-3 w-3" />,
+    className: 'bg-blue-100 text-blue-600',
+  },
+  PUBLIC: {
+    value: 'PUBLIC',
+    label: '公开',
+    icon: <Globe className="h-3 w-3" />,
+    className: 'bg-green-100 text-green-600',
+  },
+};
 
 export default function AiPlanningPage() {
   const { t } = useTranslation();
@@ -111,6 +138,18 @@ export default function AiPlanningPage() {
           ? error.message
           : t('aiPlanning.error.deleteFailed')
       );
+    }
+  };
+
+  const handleVisibilityChange = async (
+    planId: string,
+    next: 'PRIVATE' | 'SHARED' | 'PUBLIC'
+  ) => {
+    try {
+      await setVisibility(planId, next);
+      void fetchPlans();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '更新可见性失败');
     }
   };
 
@@ -251,6 +290,9 @@ export default function AiPlanningPage() {
                   onClick={() => router.push(`/ai-planning/${plan.id}`)}
                   onEditClick={() => setEditingPlan(plan)}
                   onDelete={() => handleDelete(plan.id)}
+                  onVisibilityChange={(next) =>
+                    void handleVisibilityChange(plan.id, next)
+                  }
                 />
               ))}
 
@@ -316,11 +358,13 @@ function PlanCard({
   onClick,
   onEditClick,
   onDelete,
+  onVisibilityChange,
 }: {
   plan: PlanSummary;
   onClick: () => void;
   onEditClick: () => void;
   onDelete: () => void;
+  onVisibilityChange?: (next: AssetVisibility) => void;
 }) {
   const { t } = useTranslation();
 
@@ -360,6 +404,10 @@ function PlanCard({
       gradient={gradient}
       badges={[phaseBadge]}
       isOwner
+      visibility={plan.visibility ?? 'PRIVATE'}
+      visibilityOptions={VISIBILITY_OPTIONS}
+      visibilityToggleCycle={['PRIVATE', 'SHARED', 'PUBLIC']}
+      onVisibilityToggle={onVisibilityChange}
       onEdit={onEditClick}
       onDelete={onDelete}
       onClick={onClick}

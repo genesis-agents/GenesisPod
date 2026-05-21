@@ -1,6 +1,17 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { Prisma, SimulationRunStatus, SimulationTeam } from "@prisma/client";
+import {
+  ContentVisibility,
+  Prisma,
+  SimulationRunStatus,
+  SimulationScenario,
+  SimulationTeam,
+} from "@prisma/client";
 import { AiSimulationEngineService } from "./ai-simulation.engine";
 import { BillingContext } from "../../ai-infra/facade";
 
@@ -195,6 +206,25 @@ export class AiSimulationService {
     });
 
     return { success: true, message: "Scenario deleted successfully" };
+  }
+
+  /** 多租户可见性切换（仅创建者）。createdById 为 nullable，需非空才可比对。 */
+  async updateVisibility(
+    userId: string,
+    scenarioId: string,
+    visibility: ContentVisibility,
+  ): Promise<SimulationScenario> {
+    const scenario = await this.prisma.simulationScenario.findUnique({
+      where: { id: scenarioId },
+    });
+    if (!scenario) throw new NotFoundException("Scenario not found");
+    if (!scenario.createdById || scenario.createdById !== userId) {
+      throw new ForbiddenException("Not owner");
+    }
+    return this.prisma.simulationScenario.update({
+      where: { id: scenarioId },
+      data: { visibility },
+    });
   }
 
   async updateScenario(id: string, input: Partial<CreateScenarioInput>) {

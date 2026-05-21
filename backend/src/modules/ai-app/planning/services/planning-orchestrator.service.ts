@@ -85,6 +85,7 @@ export interface PlanSummary {
   createdAt: Date;
   updatedAt: Date;
   memberCount: number;
+  visibility: "PRIVATE" | "SHARED" | "PUBLIC";
 }
 
 export interface PlanDetail extends PlanSummary {
@@ -246,6 +247,8 @@ export class PlanningOrchestratorService {
         createdAt: topic.createdAt,
         updatedAt: topic.updatedAt,
         memberCount: topic._count.aiMembers,
+        visibility:
+          (topic.visibility as "PRIVATE" | "SHARED" | "PUBLIC") || "PRIVATE",
       };
     });
   }
@@ -290,6 +293,8 @@ export class PlanningOrchestratorService {
       memberCount: topic._count.aiMembers,
       members: topic.aiMembers,
       references: meta.references || [],
+      visibility:
+        (topic.visibility as "PRIVATE" | "SHARED" | "PUBLIC") || "PRIVATE",
     };
   }
 
@@ -343,6 +348,32 @@ export class PlanningOrchestratorService {
     });
 
     return this.getPlanDetail(planId, userId);
+  }
+
+  async updatePlanVisibility(
+    planId: string,
+    userId: string,
+    visibility: "PRIVATE" | "SHARED" | "PUBLIC",
+  ): Promise<{ success: boolean; visibility: string }> {
+    const topic = await this.prisma.topic.findFirst({
+      where: {
+        id: planId,
+        createdById: userId,
+        metadata: { path: ["planningMode"], equals: true },
+      },
+    });
+
+    if (!topic) {
+      throw new NotFoundException("Plan not found");
+    }
+
+    await this.prisma.topic.update({
+      where: { id: planId },
+      data: { visibility },
+    });
+
+    this.logger.log(`Plan ${planId} visibility updated to ${visibility}`);
+    return { success: true, visibility };
   }
 
   // ==================== Phase State Machine (Fix 2) ====================

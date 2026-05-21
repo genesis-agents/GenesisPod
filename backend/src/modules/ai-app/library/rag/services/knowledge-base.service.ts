@@ -4,13 +4,18 @@
  */
 
 import {
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
   Optional,
 } from "@nestjs/common";
+import {
+  ContentVisibility,
+  KnowledgeBaseStatus,
+  KnowledgeBaseSourceType,
+} from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { KnowledgeBaseStatus, KnowledgeBaseSourceType } from "@prisma/client";
 import { DocumentProcessorService } from "./document-processor.service";
 import { EmbeddingProcessorService } from "./embedding-processor.service";
 import { KnowledgeBaseStats } from "@/modules/ai-harness/facade";
@@ -362,6 +367,26 @@ export class KnowledgeBaseService {
     return this.prisma.knowledgeBase.update({
       where: { id },
       data: updateData,
+    });
+  }
+
+  /**
+   * 多租户可见性切换（仅所有者，owner check via userId field）。
+   */
+  async updateVisibility(
+    userId: string,
+    kbId: string,
+    visibility: ContentVisibility,
+  ) {
+    const kb = await this.prisma.knowledgeBase.findUnique({
+      where: { id: kbId },
+      select: { userId: true },
+    });
+    if (!kb) throw new NotFoundException("Knowledge base not found");
+    if (kb.userId !== userId) throw new ForbiddenException("Not owner");
+    return this.prisma.knowledgeBase.update({
+      where: { id: kbId },
+      data: { visibility },
     });
   }
 

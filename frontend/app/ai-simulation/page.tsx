@@ -16,6 +16,7 @@ import { ScenarioCardItem } from './components/ScenarioCardItem';
 import { useTranslation } from '@/lib/i18n';
 
 import { logger } from '@/lib/utils/logger';
+import { setVisibility } from '@/services/ai-simulation/api';
 export default function AISimulationPage() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -131,6 +132,14 @@ export default function AISimulationPage() {
     setShowEditor(false);
     setEditing(null);
     setSeed(null);
+    void fetchScenarios();
+  };
+
+  const handleVisibilityChange = async (
+    scenario: ScenarioCard,
+    next: 'PRIVATE' | 'SHARED' | 'PUBLIC'
+  ) => {
+    await setVisibility(scenario.id, next);
     void fetchScenarios();
   };
 
@@ -275,6 +284,9 @@ export default function AISimulationPage() {
                     onView={() => handleViewDetail(s)}
                     onEdit={(e) => handleEdit(s, e)}
                     onDelete={(e) => handleDelete(s, e)}
+                    onVisibilityChange={(sc, next) =>
+                      void handleVisibilityChange(sc, next)
+                    }
                   />
                 ))}
               </div>

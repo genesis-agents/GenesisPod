@@ -19,12 +19,20 @@ import {
   Activity,
   CheckCircle2,
   Coins,
+  Globe,
+  Lock,
   Loader2,
   Sparkles,
   Trophy,
+  Users,
   XCircle,
 } from 'lucide-react';
-import { AssetCard, type AssetCardBadge } from '@/components/common/asset-card';
+import {
+  AssetCard,
+  type AssetCardBadge,
+  type AssetVisibility,
+  type AssetVisibilityOption,
+} from '@/components/common/asset-card';
 import { PageHeaderHero } from '@/components/common/page-header-hero';
 import type { MissionListItem } from '@/services/agent-playground/api';
 
@@ -71,6 +79,27 @@ const DEPTH_GRADIENT: Record<string, string> = {
   deep: 'from-rose-500 to-pink-600',
 };
 
+const VISIBILITY_OPTIONS: Record<AssetVisibility, AssetVisibilityOption> = {
+  PRIVATE: {
+    value: 'PRIVATE',
+    label: '私有',
+    icon: <Lock className="h-3 w-3" />,
+    className: 'bg-gray-100 text-gray-600',
+  },
+  SHARED: {
+    value: 'SHARED',
+    label: '共享',
+    icon: <Users className="h-3 w-3" />,
+    className: 'bg-blue-100 text-blue-600',
+  },
+  PUBLIC: {
+    value: 'PUBLIC',
+    label: '公开',
+    icon: <Globe className="h-3 w-3" />,
+    className: 'bg-green-100 text-green-600',
+  },
+};
+
 const SearchIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -109,11 +138,16 @@ function MissionCard({
   onClick,
   onEdit,
   onDelete,
+  onVisibilityChange,
 }: {
   mission: MissionListItem;
   onClick: () => void;
   onEdit: (mission: MissionListItem) => void;
   onDelete: (mission: MissionListItem) => void;
+  onVisibilityChange?: (
+    mission: MissionListItem,
+    next: AssetVisibility
+  ) => void;
 }) {
   // ★ 2026-05-06: 后端字段可能为 null（DB 老数据 / mission 启动失败 partial）→ 防 toUpperCase / DEPTH_GRADIENT[null] 触发 ErrorBoundary
   const safeStatus = mission.status || 'running';
@@ -201,6 +235,14 @@ function MissionCard({
       gradient={gradient}
       badges={badges}
       isOwner
+      visibility={mission.visibility}
+      visibilityOptions={VISIBILITY_OPTIONS}
+      visibilityToggleCycle={['PRIVATE', 'SHARED', 'PUBLIC']}
+      onVisibilityToggle={
+        onVisibilityChange
+          ? (next) => onVisibilityChange(mission, next)
+          : undefined
+      }
       onEdit={() => onEdit(mission)}
       onDelete={() => onDelete(mission)}
       onClick={onClick}
@@ -232,6 +274,11 @@ export interface MissionGalleryViewProps {
   /** 重命名 / 删除 callback */
   onEdit: (mission: MissionListItem) => Promise<void> | void;
   onDelete: (mission: MissionListItem) => Promise<void> | void;
+  /** 多租户可见性切换（权限：私有/共享/公开）。 */
+  onVisibilityChange?: (
+    mission: MissionListItem,
+    next: AssetVisibility
+  ) => Promise<void> | void;
   /** Empty state 文案 */
   emptyState?: {
     title: string;
@@ -255,6 +302,7 @@ export function MissionGalleryView({
   onMissionClick,
   onEdit,
   onDelete,
+  onVisibilityChange,
   emptyState,
   searchPlaceholder = '按 topic 或报告内容搜索…',
   reloadKey = 0,
@@ -311,6 +359,12 @@ export function MissionGalleryView({
 
   const handleEdit = wrapAction(onEdit);
   const handleDelete = wrapAction(onDelete);
+  const handleVisibilityChange = onVisibilityChange
+    ? async (m: MissionListItem, next: AssetVisibility) => {
+        await onVisibilityChange(m, next);
+        triggerReload();
+      }
+    : undefined;
 
   return (
     <div className="h-full overflow-auto bg-gray-50">
@@ -401,6 +455,11 @@ export function MissionGalleryView({
                   onClick={() => onMissionClick(m)}
                   onEdit={(mm) => void handleEdit(mm)}
                   onDelete={(mm) => void handleDelete(mm)}
+                  onVisibilityChange={
+                    handleVisibilityChange
+                      ? (mm, next) => void handleVisibilityChange(mm, next)
+                      : undefined
+                  }
                 />
               ))}
               <button

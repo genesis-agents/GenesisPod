@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import {
   deleteMission,
   updateMission,
+  setVisibility,
   type MissionListItem,
 } from '@/services/agent-playground/api';
 import { listCustomAgentMissions } from '@/services/custom-agents/api';
@@ -100,6 +101,18 @@ export default function CustomAgentHomePage({
     }
   };
 
+  const handleVisibilityChange = async (
+    mission: MissionListItem,
+    next: 'PRIVATE' | 'SHARED' | 'PUBLIC'
+  ) => {
+    try {
+      await setVisibility(mission.id, next);
+      triggerGalleryReload();
+    } catch (e) {
+      alert(`切换权限失败：${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
   if (agentLoading) {
     return (
       <div className="h-full overflow-auto bg-gray-50 px-8 py-6">
@@ -159,6 +172,7 @@ export default function CustomAgentHomePage({
         onMissionClick={(m) => router.push(`/agent-playground/team/${m.id}`)}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onVisibilityChange={(m, next) => void handleVisibilityChange(m, next)}
         emptyState={{
           title: '还没用这个 Agent 启动过 Mission',
           hint: `点击「启动 Mission」用「${agent.displayName}」做你的第一次研究`,

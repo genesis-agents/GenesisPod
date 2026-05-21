@@ -39,6 +39,7 @@ export interface KnowledgeBase {
   name: string;
   description?: string;
   type?: 'PERSONAL' | 'TEAM';
+  visibility?: 'PRIVATE' | 'SHARED' | 'PUBLIC';
   sourceType: KnowledgeBaseSourceType; // 保持向后兼容
   sourceTypes?: KnowledgeBaseSourceType[]; // 新增：多数据源类型
   status: 'PENDING' | 'PROCESSING' | 'READY' | 'UPDATING' | 'ERROR';
@@ -188,6 +189,16 @@ export function useKnowledgeBase() {
     [fetchList]
   );
 
+  const setVisibility = useCallback(
+    async (id: string, visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC') => {
+      await apiClient.patch(`/rag/knowledge-bases/${id}/visibility`, {
+        visibility,
+      });
+      await fetchList();
+    },
+    [fetchList]
+  );
+
   return {
     knowledgeBases: knowledgeBases || [],
     loading: listLoading,
@@ -202,6 +213,7 @@ export function useKnowledgeBase() {
       return result;
     },
     deleteKnowledgeBase,
+    setVisibility,
   };
 }
 

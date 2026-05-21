@@ -23,7 +23,7 @@ import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { PlanningOrchestratorService } from "../services/planning-orchestrator.service";
 import { PlanningTemplateService } from "../services/planning-template.service";
 import { CreatePlanDto } from "../dto/create-plan.dto";
-import { UpdatePlanDto } from "../dto/update-plan.dto";
+import { UpdatePlanDto, UpdatePlanVisibilityDto } from "../dto/update-plan.dto";
 import { ReplanDto } from "../dto/replan.dto";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 
@@ -83,6 +83,21 @@ export class PlanningController {
     @Body() dto: UpdatePlanDto,
   ) {
     return this.orchestrator.updatePlan(planId, req.user.id, dto);
+  }
+
+  @Patch(":planId/visibility")
+  @ApiOperation({ summary: "更新策划可见性" })
+  @ApiResponse({ status: 200, description: "可见性更新成功" })
+  async updatePlanVisibility(
+    @Request() req: RequestWithUser,
+    @Param("planId") planId: string,
+    @Body() dto: UpdatePlanVisibilityDto,
+  ) {
+    return this.orchestrator.updatePlanVisibility(
+      planId,
+      req.user.id,
+      dto.visibility,
+    );
   }
 
   @Post(":planId/advance")

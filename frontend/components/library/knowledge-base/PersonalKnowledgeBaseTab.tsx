@@ -55,6 +55,7 @@ export default function PersonalKnowledgeBaseTab({
     creating,
     createKnowledgeBase,
     deleteKnowledgeBase,
+    setVisibility,
     refreshList,
   } = useKnowledgeBase();
 
@@ -68,6 +69,13 @@ export default function PersonalKnowledgeBaseTab({
     } catch (err) {
       logger.error('Failed to delete knowledge base:', err);
     }
+  };
+
+  const handleVisibilityChange = async (
+    kb: KnowledgeBase,
+    next: 'PRIVATE' | 'SHARED' | 'PUBLIC'
+  ) => {
+    await setVisibility(kb.id, next);
   };
 
   const personalKBs = knowledgeBases.filter((kb) => {
@@ -155,6 +163,9 @@ export default function PersonalKnowledgeBaseTab({
             onOpen={() => setShowDetailKbId(kb.id)}
             onEdit={() => setEditingKbId(kb.id)}
             onDelete={() => setDeletingKbId(kb.id)}
+            onVisibilityChange={(k, next) =>
+              void handleVisibilityChange(k, next)
+            }
           />
         ))}
         <CreateKnowledgeBaseCard
