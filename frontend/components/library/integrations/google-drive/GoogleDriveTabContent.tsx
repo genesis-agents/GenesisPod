@@ -431,13 +431,31 @@ export default function GoogleDriveTabContent() {
         />
       )}
 
-      {/* 文件浏览器 */}
-      {connection && (
+      {/* 文件浏览器：仅连接正常时拉文件；ERROR/失效时不渲染（停止反复 400 轮询）+ 引导重连 */}
+      {connection && connection.status === 'ACTIVE' ? (
         <GoogleDriveFileBrowser
           connectionId={connection.id}
           onImport={handleImportFiles}
         />
-      )}
+      ) : connection ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-red-200 bg-red-50/40 py-16">
+          <AlertCircle className="h-12 w-12 text-red-500" />
+          <h3 className="mt-3 text-base font-medium text-gray-900">
+            Google Drive 连接已失效
+          </h3>
+          <p className="mt-1 max-w-md text-center text-sm text-gray-500">
+            {connection.lastError ||
+              '授权已过期或被撤销，暂时无法读取文件。请重新授权后继续。'}
+          </p>
+          <button
+            onClick={handleConnect}
+            className="mt-5 flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+          >
+            <Cloud className="h-4 w-4" />
+            重新授权
+          </button>
+        </div>
+      ) : null}
 
       {/* 导入进度指示 */}
       {importHook.importing && connection && (
