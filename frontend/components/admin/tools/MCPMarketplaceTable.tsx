@@ -44,6 +44,7 @@ import {
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
+import { confirm } from '@/stores';
 
 // ──────────────── types ────────────────
 
@@ -420,7 +421,13 @@ export function MCPMarketplaceTable() {
   };
 
   const deleteServer = async (serverId: string) => {
-    if (!confirm(`删除 MCP 服务器 ${serverId}？`)) return;
+    if (
+      !(await confirm({
+        title: `删除 MCP 服务器 ${serverId}？`,
+        type: 'danger',
+      }))
+    )
+      return;
     setActingId(serverId);
     try {
       const res = await fetch(

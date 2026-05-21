@@ -13,7 +13,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { logger } from '@/lib/utils/logger';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 import {
   createCollectionTask,
   executeTask,
@@ -286,7 +286,8 @@ export default function BatchCollectionDrawer({
   };
 
   const handleStop = async () => {
-    if (!confirm('确定要停止所有任务吗？')) return;
+    if (!(await confirm({ title: '确定要停止所有任务吗？', type: 'warning' })))
+      return;
 
     try {
       for (const [taskId, progress] of taskProgress.entries()) {
@@ -301,10 +302,13 @@ export default function BatchCollectionDrawer({
     }
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
     if (isRunning) {
       if (
-        !confirm('任务正在运行中，关闭后任务将继续在后台执行。确定关闭吗？')
+        !(await confirm({
+          title: '任务正在运行中，关闭后任务将继续在后台执行。确定关闭吗？',
+          type: 'warning',
+        }))
       ) {
         return;
       }

@@ -18,6 +18,7 @@ import { Modal } from '@/components/ui/dialogs/Modal';
 import { useAdminAgents, AgentConfig } from '@/hooks/domain/useAdminAgents';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { confirm } from '@/stores';
 
 export default function AgentManagementPage() {
   const { t } = useTranslation();
@@ -133,9 +134,10 @@ export default function AgentManagementPage() {
   const handleDelete = useCallback(
     async (id: string) => {
       if (
-        window.confirm(
-          'Are you sure you want to delete this agent configuration?'
-        )
+        await confirm({
+          title: 'Are you sure you want to delete this agent configuration?',
+          type: 'danger',
+        })
       ) {
         await deleteAgent(id);
       }

@@ -5,7 +5,7 @@ import { Layers } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useTableManagement } from '@/hooks/domain';
 import { AdminPageLayout } from '@/components/admin/layout';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 import TableStatsCards from './TableStatsCards';
 import TableToolbar from './TableToolbar';
 import TableDataGrid from './TableDataGrid';
@@ -104,7 +104,10 @@ export function TableManagementContent() {
 
   // Handle batch cleanup
   const handleBatchCleanup = useCallback(async () => {
-    const confirmed = window.confirm(t('admin.tables.cleanup.confirmBatch'));
+    const confirmed = await confirm({
+      title: t('admin.tables.cleanup.confirmBatch'),
+      type: 'warning',
+    });
     if (!confirmed) return;
 
     const results = await batchCleanup();

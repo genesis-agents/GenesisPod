@@ -38,6 +38,7 @@ import {
   ExternalMCPServer,
   MCPExternalTool,
 } from '@/hooks/domain/useAdminMCPExternal';
+import { confirm } from '@/stores';
 
 // ==================== Types ====================
 
@@ -781,7 +782,7 @@ export default function MCPServerPageContent({
       '{{name}}',
       secret.displayName
     );
-    if (!window.confirm(message)) return;
+    if (!(await confirm({ title: message, type: 'danger' }))) return;
     await deleteSecret(secret.name);
     setRevealedKeys((prev) => {
       const next = { ...prev };
@@ -1141,7 +1142,13 @@ export default function MCPServerPageContent({
   }
 
   async function handleDeleteExternalServer(server: ExternalMCPServer) {
-    if (!window.confirm(`Remove external MCP server "${server.name}"?`)) return;
+    if (
+      !(await confirm({
+        title: `Remove external MCP server "${server.name}"?`,
+        type: 'danger',
+      }))
+    )
+      return;
     await removeExternalServer(server.id);
   }
 

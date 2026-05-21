@@ -11,6 +11,7 @@ import {
 } from '@/lib/api/wiki';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
+import { confirm } from '@/stores';
 
 const LINT_TABS: WikiLintTypeStr[] = [
   'CONTRADICTION',
@@ -168,12 +169,15 @@ export default function WikiLintPanel({
                   type="button"
                   disabled={batchBusy !== null}
                   onClick={() => {
-                    if (
-                      confirm(
-                        `确认把当前 ${tab} 下全部 ${findings.length} 条都标记为已解决？`
+                    void (async () => {
+                      if (
+                        await confirm({
+                          title: `确认把当前 ${tab} 下全部 ${findings.length} 条都标记为已解决？`,
+                          type: 'warning',
+                        })
                       )
-                    )
-                      void runBatch('resolve', 'all-in-tab');
+                        void runBatch('resolve', 'all-in-tab');
+                    })();
                   }}
                   className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-violet-700 disabled:opacity-60"
                 >
@@ -186,12 +190,15 @@ export default function WikiLintPanel({
                   type="button"
                   disabled={batchBusy !== null}
                   onClick={() => {
-                    if (
-                      confirm(
-                        `确认把当前 ${tab} 下全部 ${findings.length} 条都忽略？`
+                    void (async () => {
+                      if (
+                        await confirm({
+                          title: `确认把当前 ${tab} 下全部 ${findings.length} 条都忽略？`,
+                          type: 'warning',
+                        })
                       )
-                    )
-                      void runBatch('dismiss', 'all-in-tab');
+                        void runBatch('dismiss', 'all-in-tab');
+                    })();
                   }}
                   className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                 >

@@ -45,6 +45,7 @@ import { AiOrganizeButton } from '@/components/common/ai-organizer/AiOrganizeBut
 import { AiOrganizePanel } from '@/components/common/ai-organizer/AiOrganizePanel';
 import type { FileInfo } from '@/services/ai-organizer/api';
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
+import { confirm } from '@/stores';
 
 export default function NotionTabContent() {
   const router = useRouter();
@@ -138,7 +139,10 @@ export default function NotionTabContent() {
 
   const handleDisconnect = async (connectionId: string) => {
     if (
-      !confirm('Are you sure you want to disconnect this Notion workspace?')
+      !(await confirm({
+        title: 'Are you sure you want to disconnect this Notion workspace?',
+        type: 'danger',
+      }))
     ) {
       return;
     }

@@ -11,6 +11,7 @@ import {
   useAdminResearchTemplates,
   ResearchTemplateConfig,
 } from '@/hooks/domain/useAdminResearchTemplates';
+import { confirm } from '@/stores';
 
 export default function ResearchTemplatesPage() {
   const { t } = useTranslation();
@@ -133,9 +134,10 @@ export default function ResearchTemplatesPage() {
   const handleDelete = useCallback(
     async (id: string) => {
       if (
-        window.confirm(
-          'Are you sure you want to delete this research template?'
-        )
+        await confirm({
+          title: 'Are you sure you want to delete this research template?',
+          type: 'danger',
+        })
       ) {
         await deleteTemplate(id);
       }

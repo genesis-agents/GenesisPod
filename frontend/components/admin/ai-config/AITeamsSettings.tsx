@@ -23,7 +23,7 @@ import type {
   UpdateTeamDto,
 } from '@/services/admin-ai-teams/api';
 import AITeamMemberEditor from './AITeamMemberEditor';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 
 // ==================== Team Form Modal ====================
 
@@ -475,7 +475,13 @@ export default function AITeamsSettings({
       toast.warning('System teams cannot be deleted');
       return;
     }
-    if (!confirm(`Delete team "${team.displayName}"?`)) return;
+    if (
+      !(await confirm({
+        title: `Delete team "${team.displayName}"?`,
+        type: 'danger',
+      }))
+    )
+      return;
 
     await api.deleteTeam(team.id);
     setTeams((prev) => prev.filter((t) => t.id !== team.id));
@@ -517,7 +523,13 @@ export default function AITeamsSettings({
   };
 
   const handleDeleteMember = async (member: AITeamMemberTemplate) => {
-    if (!confirm(`Delete member "${member.displayName}"?`)) return;
+    if (
+      !(await confirm({
+        title: `Delete member "${member.displayName}"?`,
+        type: 'danger',
+      }))
+    )
+      return;
 
     await api.deleteMember(member.id);
     if (selectedTeam) {
@@ -537,9 +549,10 @@ export default function AITeamsSettings({
     const existingCount = selectedTeam.members?.length || 0;
     if (existingCount > 0) {
       if (
-        !confirm(
-          `Team has ${existingCount} members. AI will generate and add new members. Continue?`
-        )
+        !(await confirm({
+          title: `Team has ${existingCount} members. AI will generate and add new members. Continue?`,
+          type: 'warning',
+        }))
       )
         return;
     }

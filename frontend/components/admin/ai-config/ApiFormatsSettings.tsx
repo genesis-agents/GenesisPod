@@ -15,6 +15,7 @@ import { Plus, Pencil, Trash2, X, Save, Loader2 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
+import { confirm } from '@/stores';
 
 interface ApiFormat {
   id: string;
@@ -171,7 +172,13 @@ export function ApiFormatsSettings() {
   };
 
   const remove = async (f: ApiFormat) => {
-    if (!confirm(`确认删除 ApiFormat "${f.name}"？`)) return;
+    if (
+      !(await confirm({
+        title: `确认删除 ApiFormat "${f.name}"？`,
+        type: 'danger',
+      }))
+    )
+      return;
     setError(null);
     setSuccess(null);
     try {

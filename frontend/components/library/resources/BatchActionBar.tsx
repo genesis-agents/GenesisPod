@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ReadStatus, Collection } from '@/hooks';
+import { confirm } from '@/stores';
 
 interface BatchActionBarProps {
   selectedCount: number;
@@ -275,13 +276,16 @@ export default function BatchActionBar({
         {/* Delete button */}
         <button
           onClick={() => {
-            if (
-              confirm(
-                `Are you sure you want to remove ${selectedCount} item(s)?`
-              )
-            ) {
-              onDelete();
-            }
+            void (async () => {
+              if (
+                await confirm({
+                  title: `Are you sure you want to remove ${selectedCount} item(s)?`,
+                  type: 'danger',
+                })
+              ) {
+                onDelete();
+              }
+            })();
           }}
           className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-900/50 hover:text-red-300"
         >

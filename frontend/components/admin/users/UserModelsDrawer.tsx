@@ -28,7 +28,7 @@ import {
   type KeyRequestView,
 } from '@/hooks/features/useByokAdmin';
 import { useTranslation } from '@/lib/i18n';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 import { apiClient } from '@/lib/api/client';
 import ClientDate from '@/components/common/ClientDate';
 import type { User } from '@/hooks/domain';
@@ -174,12 +174,13 @@ export default function UserModelsDrawer({
   // Revoke
   const handleRevoke = async (assignment: AssignmentView) => {
     if (
-      !window.confirm(
-        t('admin.users.models.revokeConfirm').replace(
+      !(await confirm({
+        title: t('admin.users.models.revokeConfirm').replace(
           '{model}',
           assignment.modelId
-        )
-      )
+        ),
+        type: 'danger',
+      }))
     ) {
       return;
     }

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { AdminPageLayout } from '@/components/admin/layout';
 import { Tabs } from '@/components/ui/tabs';
+import { confirm } from '@/stores';
 import {
   useApiGet,
   useApiPost,
@@ -316,7 +317,14 @@ function RuleItem({
   };
 
   const hardDelete = async () => {
-    if (!confirm(`确认硬删除？保留历史请用"禁用"\n\n${rule.pattern}`)) return;
+    if (
+      !(await confirm({
+        title: '确认硬删除？保留历史请用"禁用"',
+        description: rule.pattern,
+        type: 'danger',
+      }))
+    )
+      return;
     await remove.execute();
     await onChange();
   };

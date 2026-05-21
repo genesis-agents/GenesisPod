@@ -6,6 +6,7 @@ import { config } from '@/lib/utils/config';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 
 import { logger } from '@/lib/utils/logger';
+import { confirm } from '@/stores';
 interface GraphNode {
   id: string;
   type: string;
@@ -104,7 +105,10 @@ export default function KnowledgeGraphLinker({
 
   const unlinkNode = useCallback(
     async (nodeId: string) => {
-      if (!confirm('确定要移除此节点关联吗？')) return;
+      if (
+        !(await confirm({ title: '确定要移除此节点关联吗？', type: 'danger' }))
+      )
+        return;
 
       try {
         const response = await fetch(

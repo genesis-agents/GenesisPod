@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { AlertCircle, KeyRound, RefreshCw, Trash2, X } from 'lucide-react';
 import { useApiGet } from '@/hooks/core';
 import { apiClient } from '@/lib/api/client';
-import { toast } from '@/stores';
+import { toast, confirm } from '@/stores';
 import { Modal } from '@/components/ui/dialogs/Modal';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -78,7 +78,12 @@ export function GrantKeyModal({ userId, userLabel, onClose, onDone }: Props) {
 
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const handleRevoke = async (assignmentId: string, modelLabel: string) => {
-    if (!confirm(`确定撤销 ${userLabel} 对模型「${modelLabel}」的授权吗？`)) {
+    if (
+      !(await confirm({
+        title: `确定撤销 ${userLabel} 对模型「${modelLabel}」的授权吗？`,
+        type: 'danger',
+      }))
+    ) {
       return;
     }
     setRevokingId(assignmentId);

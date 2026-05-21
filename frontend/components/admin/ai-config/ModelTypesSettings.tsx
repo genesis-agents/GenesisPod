@@ -15,6 +15,7 @@ import { Plus, Pencil, Trash2, X, Save, Loader2 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
+import { confirm } from '@/stores';
 
 interface ModelType {
   id: string;
@@ -177,7 +178,13 @@ export function ModelTypesSettings() {
   };
 
   const remove = async (t: ModelType) => {
-    if (!confirm(`确认删除 ModelType "${t.name}"？`)) return;
+    if (
+      !(await confirm({
+        title: `确认删除 ModelType "${t.name}"？`,
+        type: 'danger',
+      }))
+    )
+      return;
     setError(null);
     setSuccess(null);
     try {

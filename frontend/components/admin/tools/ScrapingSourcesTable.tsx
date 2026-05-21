@@ -17,6 +17,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { DrawerShell, PaginationBar, Th } from '../_shared/admin-tables';
+import { confirm } from '@/stores';
 
 interface ToolRow {
   toolId: string;
@@ -167,7 +168,13 @@ export function ScrapingSourcesTable() {
   const handleDelete = async (id: string) => {
     const source = sources.find((s) => s.id === id);
     if (!source) return;
-    if (!confirm(`确认删除来源「${source.name}」？`)) return;
+    if (
+      !(await confirm({
+        title: `确认删除来源「${source.name}」？`,
+        type: 'danger',
+      }))
+    )
+      return;
     const updated = sources.filter((s) => s.id !== id);
     const ok = await persist(updated);
     if (ok && selectedId === id) setSelectedId(null);

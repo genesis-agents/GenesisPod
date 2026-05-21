@@ -6,6 +6,7 @@ import { config } from '@/lib/utils/config';
 import { useThumbnailGenerator } from '@/hooks';
 
 import { logger } from '@/lib/utils/logger';
+import { confirm } from '@/stores';
 // Disable static generation for this page (requires browser APIs)
 export const dynamic = 'force-dynamic';
 
@@ -64,9 +65,10 @@ export default function ThumbnailsAdminPage() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Generate thumbnails for ${resourcesToGenerate.length} resources?`
-    );
+    const confirmed = await confirm({
+      title: `Generate thumbnails for ${resourcesToGenerate.length} resources?`,
+      type: 'warning',
+    });
 
     if (confirmed) {
       const results = await batchGenerateThumbnails(resourcesToGenerate);

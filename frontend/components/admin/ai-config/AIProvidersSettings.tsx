@@ -16,6 +16,7 @@ import { Plus, Pencil, Trash2, X, Save, Loader2 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
+import { confirm } from '@/stores';
 
 interface AIProvider {
   id: string;
@@ -223,7 +224,13 @@ export function AIProvidersSettings() {
   };
 
   const remove = async (p: AIProvider) => {
-    if (!confirm(`确认删除 Provider "${p.name}"（slug=${p.slug}）？`)) return;
+    if (
+      !(await confirm({
+        title: `确认删除 Provider "${p.name}"（slug=${p.slug}）？`,
+        type: 'danger',
+      }))
+    )
+      return;
     setError(null);
     setSuccess(null);
     try {

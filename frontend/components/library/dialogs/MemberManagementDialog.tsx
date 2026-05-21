@@ -17,6 +17,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { Modal } from '@/components/ui/dialogs/Modal';
 
 import { logger } from '@/lib/utils/logger';
+import { confirm } from '@/stores';
 interface Member {
   id: string;
   role: 'OWNER' | 'ADMIN' | 'EDITOR' | 'VIEWER';
@@ -167,7 +168,8 @@ export default function MemberManagementDialog({
 
   // Remove member
   const handleRemoveMember = async (memberId: string) => {
-    if (!confirm('确定要移除这个成员吗？')) return;
+    if (!(await confirm({ title: '确定要移除这个成员吗？', type: 'danger' })))
+      return;
 
     try {
       const response = await fetch(

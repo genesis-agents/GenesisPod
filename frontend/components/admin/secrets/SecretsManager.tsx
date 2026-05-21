@@ -27,6 +27,7 @@ import { SecretKeysDrawer } from './SecretKeysDrawer';
 import { useTranslation } from '@/lib/i18n';
 import ClientDate from '@/components/common/ClientDate';
 import { AdminStatusBadge } from '@/components/admin/shared';
+import { confirm } from '@/stores';
 import type { StatusType } from '@/lib/features/admin/styles';
 
 const CATEGORY_OPTIONS: {
@@ -173,7 +174,12 @@ export function SecretsManager({
 
   // H3 Fix: 处理Delete with try-finally for error recovery
   const handleDelete = async (name: string) => {
-    if (confirm(`确定要Delete密钥 "${name}" 吗？此Actions不可恢复。`)) {
+    if (
+      await confirm({
+        title: `确定要Delete密钥 "${name}" 吗？此Actions不可恢复。`,
+        type: 'danger',
+      })
+    ) {
       setDeletingName(name);
       try {
         await deleteSecret(name);

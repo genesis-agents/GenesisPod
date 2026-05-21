@@ -21,6 +21,7 @@ import { formatDateSafe } from '@/lib/utils/date';
 import { LoadingState } from '@/components/ui/states';
 
 import { logger } from '@/lib/utils/logger';
+import { confirm } from '@/stores';
 /**
  * Google Drive TAB 主内容组件
  * 检查连接状态，显示连接引导或文件浏览器
@@ -86,8 +87,12 @@ export default function GoogleDriveTabContent() {
 
   // 处理断开连接
   const handleDisconnect = async (connectionId: string) => {
-    // eslint-disable-next-line no-alert
-    if (!window.confirm('Are you sure you want to disconnect Google Drive?')) {
+    if (
+      !(await confirm({
+        title: 'Are you sure you want to disconnect Google Drive?',
+        type: 'danger',
+      }))
+    ) {
       return;
     }
 

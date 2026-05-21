@@ -24,6 +24,7 @@ import { ClientDate } from '@/components/common/ClientDate';
 import { StructuredOutputCapabilitySection } from './StructuredOutputCapabilitySection';
 import { useAdminAIProviders } from '@/hooks/domain/useAdminAIProviders';
 import { ModelEndpointWarning } from './ModelEndpointWarning';
+import { confirm } from '@/stores';
 // AI模型类型枚举 - 支持 Tier 分级
 type AIModelType =
   | 'CHAT'
@@ -931,7 +932,12 @@ export default function AIModelSettings({
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete ${model.displayName}?`))
+    if (
+      !(await confirm({
+        title: `Are you sure you want to delete ${model.displayName}?`,
+        type: 'danger',
+      }))
+    )
       return;
 
     try {
