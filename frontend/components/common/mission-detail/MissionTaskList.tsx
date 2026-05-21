@@ -71,7 +71,7 @@ export function MissionTaskList<T>({
 
   return (
     <div className={cn('p-4', className)}>
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <Table className="w-full table-fixed">
           <THead className="border-b border-gray-200 bg-gray-50/80">
             <Tr>

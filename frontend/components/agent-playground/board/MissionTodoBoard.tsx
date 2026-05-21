@@ -10,8 +10,8 @@
  */
 
 import React, { useState } from 'react';
-import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
+import { MissionTaskList } from '@/components/common/mission-detail';
 import { toast, confirm } from '@/stores';
 import {
   ListChecks,
@@ -860,51 +860,134 @@ export function MissionTodoBoard({
   return (
     <div className="space-y-3">
       {Header}
-      <Card className="overflow-hidden" bordered>
-        <Table className="w-full table-fixed">
-          <THead className="border-b border-gray-200 bg-gray-50/80">
-            <Tr>
-              <Th className="w-10 px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
-                #
-              </Th>
-              <Th className="w-[36%] px-3 py-2.5 text-left text-xs font-semibold text-gray-600">
-                任务名称
-              </Th>
-              <Th className="w-[16%] px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
-                负责人
-              </Th>
-              <Th className="w-[12%] px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
-                模型
-              </Th>
-              <Th className="w-[14%] px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
-                状态
-              </Th>
-              <Th className="w-[18%] px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
-                操作
-              </Th>
-            </Tr>
-          </THead>
-          <TBody className="divide-y divide-gray-100 bg-white">
-            {sorted.map((td, idx) => {
-              const isSelected = selectedKey === td.id;
+      <MissionTaskList<MissionTodo>
+        items={sorted}
+        getRowKey={(td) => td.id}
+        selectedKey={selectedKey}
+        onRowClick={(td) => onSelect?.(selectedKey === td.id ? null : td.id)}
+        getRowClassName={(td) =>
+          cn(
+            td.status === 'in_progress' &&
+              'bg-blue-50/40 border-l-4 border-l-blue-400',
+            td.status === 'done' && 'border-l-4 border-l-emerald-400',
+            td.status === 'failed' &&
+              'bg-red-50/30 border-l-4 border-l-red-400',
+            td.status === 'cancelled' &&
+              'bg-gray-50/40 border-l-4 border-l-gray-300 opacity-70',
+            td.status === 'pending' && 'border-l-4 border-l-transparent',
+            td.status === 'blocked' &&
+              'bg-amber-50/30 border-l-4 border-l-amber-400'
+          ) || undefined
+        }
+        className="!p-0"
+        columns={[
+          {
+            key: 'idx',
+            label: '#',
+            className: 'w-10 text-center',
+            render: (_td, idx) => (
+              <span className="text-xs text-gray-500">{idx + 1}</span>
+            ),
+          },
+          {
+            key: 'name',
+            label: '任务名称',
+            className: 'w-[36%]',
+            render: (td) => {
               const Icon = taskIcon(td);
-              const sk = statusKey(td.status);
-              const rowCls = cn(
-                'cursor-pointer transition-all hover:bg-violet-50/30',
-                td.status === 'in_progress' &&
-                  'bg-blue-50/40 border-l-4 border-l-blue-400',
-                td.status === 'done' && 'border-l-4 border-l-emerald-400',
-                td.status === 'failed' &&
-                  'bg-red-50/30 border-l-4 border-l-red-400',
-                td.status === 'cancelled' &&
-                  'bg-gray-50/40 border-l-4 border-l-gray-300 opacity-70',
-                td.status === 'pending' && 'border-l-4 border-l-transparent',
-                td.status === 'blocked' &&
-                  'bg-amber-50/30 border-l-4 border-l-amber-400',
-                isSelected && 'ring-2 ring-violet-400'
+              return (
+                <div
+                  className="flex items-start gap-2"
+                  style={{ paddingLeft: `${depthOf(td) * 18}px` }}
+                >
+                  {depthOf(td) > 0 && (
+                    <span
+                      className="mt-1.5 inline-block h-3 w-3 flex-shrink-0 border-b-2 border-l-2 border-violet-200"
+                      aria-hidden
+                    />
+                  )}
+                  <span
+                    className={cn(
+                      'mt-0.5 inline-flex flex-shrink-0 cursor-help items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold ring-1',
+                      originBadge(td).tone
+                    )}
+                    title={originBadge(td).hint}
+                  >
+                    {originBadge(td).label}
+                  </span>
+                  <Icon className="mt-1 h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className="line-clamp-1 text-sm font-medium text-gray-900"
+                      title={td.title}
+                    >
+                      {td.title}
+                    </div>
+                    {td.reasonText && (
+                      <p
+                        className="line-clamp-1 text-[11px] text-gray-500"
+                        title={
+                          td.origin === 'self-heal-retry'
+                            ? friendlyError(td.reasonText)
+                            : td.reasonText
+                        }
+                      >
+                        {td.origin === 'self-heal-retry'
+                          ? friendlyError(td.reasonText)
+                          : td.reasonText}
+                      </p>
+                    )}
+                  </div>
+                </div>
               );
+            },
+          },
+          {
+            key: 'assignee',
+            label: '负责人',
+            className: 'w-[16%]',
+            render: (td) => (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setInspectorTodo(td);
+                }}
+                className="rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300"
+                title="点击查看 Agent 详情"
+              >
+                <RoleChip
+                  role={td.assignee.role}
+                  agentId={td.assignee.agentId}
+                  size="xs"
+                />
+              </button>
+            ),
+          },
+          {
+            key: 'model',
+            label: '模型',
+            className: 'w-[12%]',
+            render: (td) => {
               const modelId = agents ? resolveModel(td, agents) : undefined;
-              // Mission 已取消时，仍在 pending / in_progress 的 dim 任务统一展示"已取消"
+              return modelId ? (
+                <span
+                  title={modelId}
+                  className="font-mono inline-flex items-center gap-1 rounded bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 ring-1 ring-gray-200"
+                >
+                  {modelId.length > 14 ? modelId.slice(0, 14) + '…' : modelId}
+                </span>
+              ) : (
+                <span className="text-[10px] text-gray-300">—</span>
+              );
+            },
+          },
+          {
+            key: 'status',
+            label: '状态',
+            className: 'w-[14%] text-center',
+            render: (td) => {
+              const sk = statusKey(td.status);
               const baseSub = deriveDimSubStatus(td, dimensionPipelines, todos);
               const subStatus =
                 missionCancelled &&
@@ -915,148 +998,63 @@ export function MissionTodoBoard({
                       tone: 'bg-gray-100 text-gray-600 ring-gray-200',
                     }
                   : baseSub;
-              return (
-                <Tr
-                  key={td.id}
-                  onClick={() => onSelect?.(isSelected ? null : td.id)}
-                  className={rowCls}
+              return subStatus ? (
+                <span
+                  className={cn(
+                    'inline-flex items-center justify-center whitespace-nowrap rounded-md px-2 py-0.5 text-[10.5px] font-medium ring-1',
+                    subStatus.tone
+                  )}
+                  title={subStatus.label}
                 >
-                  <Td className="px-2 py-2 text-center text-xs text-gray-500">
-                    {idx + 1}
-                  </Td>
-                  <Td className="px-3 py-2">
-                    <div
-                      className="flex items-start gap-2"
-                      style={{ paddingLeft: `${depthOf(td) * 18}px` }}
-                    >
-                      {depthOf(td) > 0 && (
-                        <span
-                          className="mt-1.5 inline-block h-3 w-3 flex-shrink-0 border-b-2 border-l-2 border-violet-200"
-                          aria-hidden
-                        />
-                      )}
-                      <span
-                        className={cn(
-                          'mt-0.5 inline-flex flex-shrink-0 cursor-help items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold ring-1',
-                          originBadge(td).tone
-                        )}
-                        title={originBadge(td).hint}
-                      >
-                        {originBadge(td).label}
-                      </span>
-                      <Icon className="mt-1 h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
-                      <div className="min-w-0 flex-1">
-                        <div
-                          className="line-clamp-1 text-sm font-medium text-gray-900"
-                          title={td.title}
-                        >
-                          {td.title}
-                        </div>
-                        {td.reasonText && (
-                          <p
-                            className="line-clamp-1 text-[11px] text-gray-500"
-                            title={
-                              td.origin === 'self-heal-retry'
-                                ? friendlyError(td.reasonText)
-                                : td.reasonText
-                            }
-                          >
-                            {td.origin === 'self-heal-retry'
-                              ? friendlyError(td.reasonText)
-                              : td.reasonText}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </Td>
-                  <Td className="px-2 py-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setInspectorTodo(td);
-                      }}
-                      className="rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300"
-                      title="点击查看 Agent 详情"
-                    >
-                      <RoleChip
-                        role={td.assignee.role}
-                        agentId={td.assignee.agentId}
-                        size="xs"
-                      />
-                    </button>
-                  </Td>
-                  <Td className="px-2 py-2">
-                    {modelId ? (
-                      <span
-                        title={modelId}
-                        className="font-mono inline-flex items-center gap-1 rounded bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 ring-1 ring-gray-200"
-                      >
-                        {modelId.length > 14
-                          ? modelId.slice(0, 14) + '…'
-                          : modelId}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-gray-300">—</span>
-                    )}
-                  </Td>
-                  <Td className="px-2 py-2 text-center">
-                    {subStatus ? (
-                      <span
-                        className={cn(
-                          'inline-flex items-center justify-center whitespace-nowrap rounded-md px-2 py-0.5 text-[10.5px] font-medium ring-1',
-                          subStatus.tone
-                        )}
-                        title={subStatus.label}
-                      >
-                        {subStatus.label}
-                      </span>
-                    ) : missionCancelled &&
-                      (td.status === 'in_progress' ||
-                        td.status === 'pending') ? (
-                      <span
-                        className="inline-flex items-center justify-center whitespace-nowrap rounded-md bg-gray-100 px-2 py-0.5 text-[10.5px] font-medium text-gray-600 ring-1 ring-gray-200"
-                        title="Mission 已取消"
-                      >
-                        已取消
-                      </span>
-                    ) : (
-                      <StatusPill status={sk} size="sm" />
-                    )}
-                  </Td>
-                  <Td className="px-2 py-2 text-center">
-                    <div className="inline-flex items-center justify-end gap-1.5">
-                      {canRerunTodo(td) && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleRerunTodo(td);
-                          }}
-                          disabled={rerunningId === td.id}
-                          className="inline-flex items-center gap-0.5 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10.5px] font-medium text-violet-700 ring-1 ring-violet-200 transition-colors hover:bg-violet-100 disabled:cursor-wait disabled:opacity-60"
-                          title="基于当前结果重新启动一次 mission，重点改进此任务"
-                        >
-                          <RefreshCw
-                            className={cn(
-                              'h-3 w-3',
-                              rerunningId === td.id && 'animate-spin'
-                            )}
-                          />
-                          重跑
-                        </button>
-                      )}
-                      <span className="inline-flex items-center gap-0.5 text-[11px] text-violet-600 hover:text-violet-700">
-                        详情 <ChevronRight className="h-3 w-3" />
-                      </span>
-                    </div>
-                  </Td>
-                </Tr>
+                  {subStatus.label}
+                </span>
+              ) : missionCancelled &&
+                (td.status === 'in_progress' || td.status === 'pending') ? (
+                <span
+                  className="inline-flex items-center justify-center whitespace-nowrap rounded-md bg-gray-100 px-2 py-0.5 text-[10.5px] font-medium text-gray-600 ring-1 ring-gray-200"
+                  title="Mission 已取消"
+                >
+                  已取消
+                </span>
+              ) : (
+                <StatusPill status={sk} size="sm" />
               );
-            })}
-          </TBody>
-        </Table>
-      </Card>
+            },
+          },
+          {
+            key: 'action',
+            label: '操作',
+            className: 'w-[18%] text-center',
+            render: (td) => (
+              <div className="inline-flex items-center justify-end gap-1.5">
+                {canRerunTodo(td) && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleRerunTodo(td);
+                    }}
+                    disabled={rerunningId === td.id}
+                    className="inline-flex items-center gap-0.5 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10.5px] font-medium text-violet-700 ring-1 ring-violet-200 transition-colors hover:bg-violet-100 disabled:cursor-wait disabled:opacity-60"
+                    title="基于当前结果重新启动一次 mission，重点改进此任务"
+                  >
+                    <RefreshCw
+                      className={cn(
+                        'h-3 w-3',
+                        rerunningId === td.id && 'animate-spin'
+                      )}
+                    />
+                    重跑
+                  </button>
+                )}
+                <span className="inline-flex items-center gap-0.5 text-[11px] text-violet-600 hover:text-violet-700">
+                  详情 <ChevronRight className="h-3 w-3" />
+                </span>
+              </div>
+            ),
+          },
+        ]}
+      />
 
       {/* Assignee 点击 → Agent Inspector 弹窗 */}
       {inspectorTodo && (
