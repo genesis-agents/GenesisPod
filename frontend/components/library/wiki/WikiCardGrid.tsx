@@ -60,13 +60,6 @@ export default function WikiCardGrid({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {/* "+ enable wiki for another KB" placeholder — first cell, mirrors
-            the new-KB card in the personal/team KB grids. */}
-        <CreateKnowledgeBaseCard
-          title={t('library.wiki.grid.enableMore')}
-          description={t('library.wiki.grid.createCardDescription')}
-          onClick={onEnableMore}
-        />
         {kbs.map((kb) => (
           <AssetCard
             key={kb.id}
@@ -108,6 +101,12 @@ export default function WikiCardGrid({
             }}
           />
         ))}
+        {/* "+ 启用其他知识库" 放末位 —— 与各列表卡「新建卡置后」统一 */}
+        <CreateKnowledgeBaseCard
+          title={t('library.wiki.grid.enableMore')}
+          description={t('library.wiki.grid.createCardDescription')}
+          onClick={onEnableMore}
+        />
       </div>
     </div>
   );

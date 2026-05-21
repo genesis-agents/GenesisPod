@@ -20,7 +20,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bookmark, Loader2, Plus, Radar } from 'lucide-react';
+import { Loader2, Plus, Radar } from 'lucide-react';
 import {
   archiveTopic,
   deleteTopic,
@@ -219,15 +219,6 @@ export default function AiRadarIndexPage() {
           iconShadowClass="shadow-cyan-500/25"
           actions={
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => router.push('/ai-radar/favorites')}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                aria-label="我的收藏"
-              >
-                <Bookmark className="h-4 w-4" />
-                我的收藏
-              </button>
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
