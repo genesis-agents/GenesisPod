@@ -155,6 +155,12 @@ export class AiDirectKeyService {
       switch (provider.toLowerCase()) {
         case "xai":
         case "grok":
+          // 2026-05-21 收口：移除无条件注入的 search_parameters（Grok Live Search）。
+          // xAI 已废弃 Live Search —— 任何带 search_parameters 的请求都被拒：
+          //   "Live search is deprecated. Please switch to the Agent Tools API
+          //    (https://docs.x.ai/docs/guides/tools/overview)"。
+          // 此前本分支对所有 xai 直连（含完全无搜索意图的对话）都强行附加该字段，
+          // 导致 grok BYOK 直连全部 400。grok 联网搜索需迁移到 xAI Agent Tools API（另案）。
           return await this.callApiWithKey(
             apiEndpoint || "https://api.x.ai/v1/chat/completions",
             {
@@ -165,10 +171,6 @@ export class AiDirectKeyService {
               })),
               max_tokens: maxTokens,
               temperature,
-              search_parameters: {
-                mode: "auto",
-                return_citations: true,
-              },
               ...(responseFormat === "json"
                 ? { response_format: { type: "json_object" } }
                 : {}),
