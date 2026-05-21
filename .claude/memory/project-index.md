@@ -2,6 +2,9 @@
 
 > 项目专属事故、决策、PR 收尾记录。每条 ≤200 字符，详情看链接文件。按近→远排序（新文件加在顶部）。
 
+- [project_unregistered_injectable_optional_undefined.md](project_unregistered_injectable_optional_undefined.md) — 反复坑：@Injectable 类没在任何 module providers 注册，被 optional 注入静默 undefined，功能哑火不报错。已两次（AICapabilityResolver 2026-05-14 / FunctionCallingExecutor 2026-05-21 致「对话整理」Tool execution not available，commit debf2aa89）。排查：grep 类名确认真在 providers 数组（注释"保留 X"不算）
+- [project_design_baselines_organize_and_teams.md](project_design_baselines_organize_and_teams.md) — 对话整理(#1)+Agent Teams 呈现迁移(#2) 设计基线 v0.5 四路两轮评审 4/4 通过、未编码；#1 复用 chatWithToolsStream，进 P1 门禁 BLK-3/4/6；#2 落标准21 P3、进 P0 先修 BLK-7 gateway JWT；用户已拍板撤销/预演/OrganizeSession/一次性切换；顺序 #1 先。纪要 docs/features/2026-05-21-design-review-minutes.md
+- [project_agent_tool_loop_api.md](project_agent_tool_loop_api.md) — ai-app 要 LLM 工具循环(ReAct) 用 ToolFacade.chatWithToolsStream（ai-harness facade，产 AgentEvent 流，AI Ask 在用），不是 executeAgent（实测单次 LLM 无循环无 tools 入参）；工具按 AICapabilityContext role/domain 解析无按次传子集；单一 harness facade 入口
 - [project_ask_room_socket_proxy_fix_2026_05_21.md](project_ask_room_socket_proxy_fix_2026_05_21.md) — AI Ask 房间代理环境 xhr poll error：后端 ask-room CORS 硬编码白名单 + 前端 socket localhost:3001 旧兜底；修为函数式 CORS + config.getBackendUrl() + 优雅降级；notifications/writing/research hook 同隐患故意未动
 - [project_ui_discipline_hardzero_2026_05_20.md](project_ui_discipline_hardzero_2026_05_20.md) — UI-discipline 收口 TOTAL=0 + R1–R11 全部焊死 HARD_ZERO（pushed 77acf2484）；新增 R7 SignalB/R9 spinner 检测器、R11 基线改对去可见性、CitationListItem canonical
 - [project_radar_pr_dr2_implementation_2026_05_18.md](project_radar_pr_dr2_implementation_2026_05_18.md) — AI Radar Daily Briefing 重构 PR-DR2 全量实施：v1.3.1 baseline + 51 task + 5-6 sub-agent 并行 + 35+ commit 推主干
