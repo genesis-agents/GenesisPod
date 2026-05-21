@@ -168,10 +168,12 @@ backend/src/modules/ai-app/library/organize-chat/
 | P1-2 工具层（6 书签 ITool，userId 鉴权 + ≤100 上限）                              | ✅   | `99bf649a7` |
 | P1-3 集成核心（service chatWithToolsStream + SSE controller + module + app 注册） | ✅   | `5b0503124` |
 | P1-4 测试（13 用例：鉴权/上限/SSE 转换/扣费/余额闸）                              | ✅   | `fe78c4e60` |
+| P2-1 前端 SSE 客户端（streamOrganizeMessage + 代理对账）                          | ✅   | `08c79dfc2` |
+| P2-2 对话模式（面板 Tab + OrganizeChatMode + 工具动作 chip + EmptyState）         | ✅   | `4bcf75b1e` |
 
-**P1 后端（书签）功能完成**，每波 tsc 0 + verify:arch 100/100 + pre-push 全闸门绿。
-待运行时实测：BLK-6 `consumeCredits` token 真扣费（单测已断言被调，需部署后真机核账）。
-下一波 P2 前端：`AIOrganizePanel` 对话 Tab + 聊天区 + 动作卡撤销 + 代理对账。
+**P1 后端 + P2 前端（书签）功能完成**——对话整理书签端到端可用。每波 tsc 0 + verify:arch 100/100 + audit 14/14 硬零 + pre-push 全闸门绿。
+待运行时实测：BLK-6 `consumeCredits` token 真扣费 + 真机 E2E（需部署后核账/跑一条指令）。
+剩余：**单步撤销**（Q2，需后端 reverse-batch 端点）· **破坏性/批量>20 预演确认**（Q3）· **P3** 笔记/外部工具 · **P4** i18n/错误路径加固。
 
 ---
 
