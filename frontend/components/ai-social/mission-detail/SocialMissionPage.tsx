@@ -531,70 +531,70 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
       onLeftCollapseToggle={() => setLeftCollapsed((v) => !v)}
       leftPanel={
         <div className="flex h-full flex-col">
-          <div className="flex-1 overflow-y-auto">
-            {missionId ? (
-              <div className="space-y-0 divide-y divide-gray-100">
-                <div className="p-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        SOCIAL TEAM
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setLeftCollapsed(true)}
-                        className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                        title="收起"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                    </div>
-                    {socialView.roles.length > 0 ? (
-                      <TeamTopologyCanvas
-                        {...buildSocialTopology(socialView)}
-                        heightClass="h-[220px]"
-                      />
-                    ) : (
-                      <p className="text-xs text-gray-400">
-                        团队将在任务启动后展示
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between pt-1 text-xs text-gray-500">
-                      <span>进度</span>
-                      <span className="font-mono">
-                        {socialView.progress.done}/{socialView.progress.total}
-                      </span>
-                    </div>
-                    {socialView.roles.length > 0 && (
-                      <div className="space-y-1.5 pt-1">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                          关键角色
-                        </p>
-                        {socialView.roles.map((r) => {
-                          const meta = SOCIAL_TEAM.find(
-                            (m) => m.role === r.role
-                          );
-                          return (
-                            <RoleCard
-                              key={r.role}
-                              label={r.label}
-                              icon={meta?.icon ?? Sparkles}
-                              status={
-                                r.status === 'working'
-                                  ? 'running'
-                                  : r.status === 'done'
-                                    ? 'completed'
-                                    : r.status === 'failed'
-                                      ? 'failed'
-                                      : 'idle'
-                              }
-                            />
-                          );
-                        })}
-                      </div>
-                    )}
+          {missionId ? (
+            <>
+              {/* 固定顶部：组织阵型 + 进度（不随关键角色滚动） */}
+              <div className="shrink-0 border-b border-gray-100 p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      SOCIAL TEAM
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setLeftCollapsed(true)}
+                      className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                      title="收起"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {socialView.roles.length > 0 ? (
+                    <TeamTopologyCanvas
+                      {...buildSocialTopology(socialView)}
+                      heightClass="h-[220px]"
+                    />
+                  ) : (
+                    <p className="text-xs text-gray-400">
+                      团队将在任务启动后展示
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between pt-1 text-xs text-gray-500">
+                    <span>进度</span>
+                    <span className="font-mono">
+                      {socialView.progress.done}/{socialView.progress.total}
+                    </span>
                   </div>
                 </div>
+              </div>
+              {/* 滚动：关键角色 + 算力消耗 */}
+              <div className="flex-1 divide-y divide-gray-100 overflow-y-auto">
+                {socialView.roles.length > 0 && (
+                  <div className="space-y-1.5 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      关键角色
+                    </p>
+                    {socialView.roles.map((r) => {
+                      const meta = SOCIAL_TEAM.find((m) => m.role === r.role);
+                      return (
+                        <RoleCard
+                          key={r.role}
+                          label={r.label}
+                          icon={meta?.icon ?? Sparkles}
+                          status={
+                            r.status === 'working'
+                              ? 'running'
+                              : r.status === 'done'
+                                ? 'completed'
+                                : r.status === 'failed'
+                                  ? 'failed'
+                                  : 'idle'
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                )}
                 {(view.cost.tokensUsed > 0 || view.cost.costUsd > 0) && (
                   <div className="p-4">
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -617,13 +617,13 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="p-4 text-center text-sm text-gray-400">
-                <p>任务尚未关联 Mission</p>
-                <p className="mt-1 text-xs">生成开始后团队信息将在此展示</p>
-              </div>
-            )}
-          </div>
+            </>
+          ) : (
+            <div className="flex-1 p-4 text-center text-sm text-gray-400">
+              <p>任务尚未关联 Mission</p>
+              <p className="mt-1 text-xs">生成开始后团队信息将在此展示</p>
+            </div>
+          )}
           {/* Action buttons - sticky 底部（playground 标杆位置） */}
           {actionButtons.length > 0 && (
             <div className="border-t border-gray-100 p-4">
