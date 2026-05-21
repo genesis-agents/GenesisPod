@@ -1,10 +1,10 @@
 {
-  "R1-AppShell-Required": 8,
-  "R2-AssetCard-Required": 12,
-  "R3-EmptyState-Required": 29,
-  "R4-ErrorState-Required": 5,
-  "R5-LoadingState-Required": 13,
-  "R6-Dialog-Component-Required": 4,
-  "R7-Tabs-Required": 13,
-  "R9-Spinner-LoadingState-Required": 62
+  "R1-AppShell-Required": 0,
+  "R2-AssetCard-Required": 9,
+  "R3-EmptyState-Required": 0,
+  "R4-ErrorState-Required": 0,
+  "R5-LoadingState-Required": 0,
+  "R6-Dialog-Component-Required": 0,
+  "R7-Tabs-Required": 0,
+  "R9-Spinner-LoadingState-Required": 0
 }

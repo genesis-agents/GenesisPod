@@ -41,7 +41,6 @@ const RATCHET = ARGS.has("--ratchet");
 // 任一规则新增违规即 exit 1 拒推，彻底退出灰度 warn-only。新违规只能修/迁，不能放过。
 const HARD_ZERO_RULES = new Set<string>([
   "R1-AppShell-Required",
-  "R2-AssetCard-Required",
   "R3-EmptyState-Required",
   "R4-ErrorState-Required",
   "R5-LoadingState-Required",
@@ -53,6 +52,12 @@ const HARD_ZERO_RULES = new Set<string>([
   "R12-CitationListItem-Required",
   "R13-MessageCardShell-Required",
 ]);
+
+// 棘轮规则：不进 hard-zero（存量债务真实存在），但默认运行即强制「不劣化」——
+// 当前数 ≤ 基线才放行；新增即拒。存量随迁移用 `--ratchet` 锁低，只减不增。
+// 2026-05-20：R2 加固后检测器能看见此前盲区漏掉的自写列表卡（9 个存量），按用户指令
+// 改棘轮冻结：新自写列表卡拦截，存量逐步迁 AssetCard。
+const RATCHET_RULES = new Set<string>(["R2-AssetCard-Required"]);
 const BASELINE_PATH = (() => {
   const idx = process.argv.indexOf("--baseline");
   return idx > 0
@@ -192,36 +197,87 @@ const R2_BESPOKE_OK = [
   "app/ai-radar/topic/[topicId]/runs/[runId]/page.tsx", // StageTaskBoard 流水线阶段任务表(状态徽章+指标+点击抽屉)，非资产列表
 ];
 
-function checkR2AssetCard(file: string, src: string): Violation[] {
-  // 检测自写卡片：className 含 rounded-(xl|lg|2xl) + border + bg-white 三件套
-  const cardPattern =
-    /className\s*=\s*[`"'][^`"']*\brounded-(xl|lg|2xl|3xl)\b[^`"']*\bborder\b[^`"']*\bbg-white\b[^`"']*[`"']/g;
-  const allMatches = [...src.matchAll(cardPattern)];
-  if (allMatches.length === 0) return [];
-  if (hasImport(src, "AssetCard")) return [];
+// 卡片三件套（顺序无关，堵旧版「固定顺序」洞）。两版：
+//  - WHITE：仅 bg-white（内联列表卡用，bg-white 才是「实体卡」，bg-gray-50 多为结果/子面板，避免误报）
+//  - ANY：含 bg-gray-50/slate-50（*Card 组件根节点用，配合命名信号已足够精准）
+const CARD_CLASS_WHITE_G =
+  /className\s*=\s*[`"'](?=[^`"']*\brounded-(?:lg|xl|2xl|3xl)\b)(?=[^`"']*\bborder\b)(?=[^`"']*\bbg-white\b)[^`"']*[`"']/g;
+const CARD_CLASS_ANY =
+  /className\s*=\s*[`"'](?=[^`"']*\brounded-(?:lg|xl|2xl|3xl)\b)(?=[^`"']*\bborder\b)(?=[^`"']*\bbg-(?:white|gray-50|slate-50|neutral-50)\b)[^`"']*[`"']/;
+const CARD_COMPONENT_G = /(?:const|function)\s+(\w*Card\w*)\s*[=(]/g;
+const TITLE_SIGNAL = /font-(?:semibold|bold|medium)|<h[34]\b/;
+
+// 收集「在 .map 里被渲染为列表项」的组件名（每个 .map( 后 ~500 字符内的 <Capitalized 标签）。
+// 用于把 R2 形态 B 收敛到「真·列表项卡」，排除配置/汇总/设置等非列表的域内卡。
+function collectMapRenderedComponents(src: string, set: Set<string>): void {
+  for (const m of src.matchAll(/\.map\s*\(/g)) {
+    const idx = m.index ?? 0;
+    const window = src.slice(idx, idx + 500);
+    for (const t of window.matchAll(/<([A-Z]\w*)/g)) set.add(t[1]);
+  }
+}
+
+// R2（加固版 2026-05-20）：旧版四处盲区已修——
+//   ① 顺序依赖 + 仅 bg-white → 顺序无关（lookahead）
+//   ② 抽成 *Card 组件即免疫 → 新增形态 B：命名含 Card 的自写卡组件
+//   ③ 文件级 import AssetCard 整文件豁免 → 仅按 match 跳过 <AssetCard 用法 / 体内含 <AssetCard 的组件
+//   ④（保留精度）内联形态 A 仍要求 ≥3 + bg-white + 标题信号，避免误报结果/子面板。
+function checkR2AssetCard(
+  file: string,
+  src: string,
+  mapComponents: Set<string>
+): Violation[] {
   const norm = file.split(sep).join("/");
   if (R2_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
 
-  // 仅计「列表 map 渲染的卡片」：card className 出现在某个 .map( 之后 ~600 字符内。
-  // 排除设置卡 / 容器卡 / 统计卡等静态卡片（非 asset 列表）的假阳性。
-  const matches = allMatches.filter((m) => {
-    const idx = m.index ?? 0;
-    return /\.map\s*\(/.test(src.slice(Math.max(0, idx - 600), idx));
-  });
-  if (matches.length < 3) return []; // 非列表 / 单次自写 = 合理特殊容器
-
   const violations: Violation[] = [];
-  for (const m of matches.slice(0, 5)) {
+
+  // 形态 A：内联在 .map 列表项里的自写卡（bg-white + 标题信号），≥3 才计（保精度）
+  const inlineHits = [...src.matchAll(CARD_CLASS_WHITE_G)].filter((m) => {
     const idx = m.index ?? 0;
-    const line = src.slice(0, idx).split("\n").length;
+    const before = src.slice(Math.max(0, idx - 600), idx);
+    if (/<AssetCard\b[^>]*$/.test(before)) return false;
+    return (
+      /\.map\s*\(/.test(before) &&
+      TITLE_SIGNAL.test(src.slice(idx, idx + 400))
+    );
+  });
+  if (inlineHits.length >= 3) {
+    for (const m of inlineHits.slice(0, 3)) {
+      const line = src.slice(0, m.index ?? 0).split("\n").length;
+      violations.push({
+        rule: "R2-AssetCard-Required",
+        file: relative(process.cwd(), file),
+        line,
+        snippet: snippet(src, line),
+      });
+    }
+  }
+
+  // 形态 B：抽出的 *Card 组件，根节点是自写卡且体内不用 <AssetCard（精准命中 ResourceCard 类）
+  for (const m of src.matchAll(CARD_COMPONENT_G)) {
+    const name = m[1];
+    if (!mapComponents.has(name)) continue; // 仅「列表项卡」才是 AssetCard 候选
+    const start = m.index ?? 0;
+    const rest = src.slice(start + 1);
+    const nextDecl = rest.search(/\n(?:export\s+)?(?:const|function)\s/);
+    const body = src.slice(
+      start,
+      start + 1 + (nextDecl >= 0 ? Math.min(nextDecl, 2600) : 2600)
+    );
+    if (/<AssetCard\b/.test(body)) continue; // 已用 canonical
+    if (!CARD_CLASS_ANY.test(body)) continue; // 根节点非自写卡
+    if (!TITLE_SIGNAL.test(body)) continue; // 无标题信号（非实体卡）
+    const line = src.slice(0, start).split("\n").length;
     violations.push({
       rule: "R2-AssetCard-Required",
       file: relative(process.cwd(), file),
       line,
-      snippet: snippet(src, line),
+      snippet: `自写卡组件 ${name}（应改用 AssetCard）`,
     });
   }
-  return violations;
+
+  return violations.slice(0, 8);
 }
 
 // R3: 「空态被渲染为 JSX」时必须用 EmptyState
@@ -632,16 +688,24 @@ async function main() {
   const files = await walkDir(FRONTEND_ROOT);
   console.log(`  扫描文件数：${files.length}`);
 
-  const allViolations: Violation[] = [];
+  // 预读全部源码 + 建「在 .map 里被渲染为列表项的组件名」全局索引（跨文件）。
+  // R2 形态 B 仅对「列表项卡」生效——精准区分实体卡 vs 配置/汇总/洞察等域内卡。
+  const sources = new Map<string, string>();
   for (const file of files) {
-    let src: string;
     try {
-      src = await readFile(file, "utf8");
+      sources.set(file, await readFile(file, "utf8"));
     } catch {
-      continue;
+      /* skip unreadable */
     }
+  }
+  const mapComponents = new Set<string>();
+  for (const src of sources.values())
+    collectMapRenderedComponents(src, mapComponents);
+
+  const allViolations: Violation[] = [];
+  for (const [file, src] of sources) {
     allViolations.push(...checkR1AppShell(file, src));
-    allViolations.push(...checkR2AssetCard(file, src));
+    allViolations.push(...checkR2AssetCard(file, src, mapComponents));
     allViolations.push(...checkR3EmptyState(file, src));
     allViolations.push(...checkR4ErrorState(file, src));
     allViolations.push(...checkR5LoadingState(file, src));
@@ -743,15 +807,30 @@ async function main() {
     process.exit(1);
   }
 
-  // ② strict 模式（灰度全量切换后启用）：任何"劣化"（超基线）即拒
+  // ②.棘轮规则：默认即强制「不劣化」（超基线即拒），不必等 strict。存量冻结、只减不增。
+  const ratchetHit = regressions.filter((r) =>
+    [...RATCHET_RULES].some((rule) => r.startsWith(rule)),
+  );
+  if (ratchetHit.length > 0) {
+    console.error(
+      "✗ 棘轮规则劣化（不得超过基线；新增自写列表卡请改用 AssetCard）：",
+    );
+    for (const r of ratchetHit) console.error(`  ${r}`);
+    process.exit(1);
+  }
+
+  // ③ strict 模式（灰度全量切换后启用）：任何"劣化"（超基线）即拒
   if (STRICT && regressions.length > 0) {
     console.error("✗ UI discipline 劣化（strict 不劣化模式）：");
     for (const r of regressions) console.error(`  ${r}`);
     process.exit(1);
   }
 
+  const ratchetSummary = [...RATCHET_RULES]
+    .map((r) => `${r}=${summary[r] ?? 0}`)
+    .join(", ");
   console.log(
-    `✓ 全部 ${HARD_ZERO_RULES.size} 条规则硬零通过（违规 = 0，已焊死；新增违规即拒推）`,
+    `✓ ${HARD_ZERO_RULES.size} 条 hard-zero 通过（违规 = 0）+ ${RATCHET_RULES.size} 条棘轮规则未劣化（${ratchetSummary}）`,
   );
 }
 
