@@ -15,3 +15,6 @@ export type { DrawerShellProps } from './DrawerShell';
 
 export { ModalShell } from './ModalShell';
 export type { ModalShellProps } from './ModalShell';
+
+// canonical tab 内容（可选复用件，标准 21 P1.5）
+export * from './tabs';
