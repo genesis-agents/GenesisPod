@@ -22,11 +22,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { Loader2, Plus, Radar } from 'lucide-react';
 import {
-  archiveTopic,
   deleteTopic,
   listTopics,
-  pauseTopic,
-  resumeTopic,
   setVisibility,
 } from '@/services/ai-radar/api';
 import type {
@@ -61,8 +58,6 @@ export default function AiRadarIndexPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [archiveTarget, setArchiveTarget] = useState<RadarTopic | null>(null);
-  const [archiving, setArchiving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<RadarTopic | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -94,36 +89,12 @@ export default function AiRadarIndexPage() {
     );
   }, [topics, searchQuery]);
 
-  const handlePause = async (t: RadarTopic) => {
-    await pauseTopic(t.id);
-    void reload();
-  };
-  const handleResume = async (t: RadarTopic) => {
-    await resumeTopic(t.id);
-    void reload();
-  };
   const handleVisibilityChange = async (
     t: RadarTopic,
     next: 'PRIVATE' | 'SHARED' | 'PUBLIC'
   ) => {
     await setVisibility(t.id, next);
     void reload();
-  };
-  const handleArchive = (t: RadarTopic) => {
-    setArchiveTarget(t);
-  };
-  const handleArchiveConfirm = async () => {
-    if (!archiveTarget) return;
-    setArchiving(true);
-    try {
-      await archiveTopic(archiveTarget.id);
-      setArchiveTarget(null);
-      void reload();
-    } catch (e) {
-      setError(`归档失败：${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setArchiving(false);
-    }
   };
   const handleDelete = (t: RadarTopic) => {
     setDeleteTarget(t);
@@ -195,9 +166,6 @@ export default function AiRadarIndexPage() {
             <RadarTopicCard
               key={topic.id}
               topic={topic}
-              onPause={(t) => void handlePause(t)}
-              onResume={(t) => void handleResume(t)}
-              onArchive={handleArchive}
               onDelete={handleDelete}
               onVisibilityChange={(t, next) =>
                 void handleVisibilityChange(t, next)
@@ -267,20 +235,9 @@ export default function AiRadarIndexPage() {
       />
 
       <ConfirmDialog
-        open={archiveTarget !== null}
-        title={`归档主题「${archiveTarget?.name ?? ''}」？`}
-        description="归档后将停止自动刷新；数据保留可随时 resume。"
-        confirmText="归档"
-        type="warning"
-        loading={archiving}
-        onConfirm={handleArchiveConfirm}
-        onClose={() => setArchiveTarget(null)}
-      />
-
-      <ConfirmDialog
         open={deleteTarget !== null}
         title={`删除主题「${deleteTarget?.name ?? ''}」？`}
-        description="将永久删除该主题及其所有采集数据与运行记录，不可恢复（如只想暂停采集请用「归档」）。"
+        description="将永久删除该主题及其所有采集数据与运行记录，不可恢复。"
         confirmText="永久删除"
         type="danger"
         loading={deleting}

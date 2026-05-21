@@ -135,18 +135,6 @@ export async function deleteTopic(id: string): Promise<void> {
   await request<{ deleted: true }>(`/topics/${id}`, { method: 'DELETE' });
 }
 
-export async function pauseTopic(id: string): Promise<RadarTopic> {
-  return request<RadarTopic>(`/topics/${id}/pause`, { method: 'POST' });
-}
-
-export async function resumeTopic(id: string): Promise<RadarTopic> {
-  return request<RadarTopic>(`/topics/${id}/resume`, { method: 'POST' });
-}
-
-export async function archiveTopic(id: string): Promise<RadarTopic> {
-  return request<RadarTopic>(`/topics/${id}/archive`, { method: 'POST' });
-}
-
 export async function setVisibility(
   id: string,
   visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC'

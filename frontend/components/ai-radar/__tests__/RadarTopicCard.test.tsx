@@ -99,78 +99,6 @@ describe('RadarTopicCard', () => {
     expect(container.textContent).not.toMatch(/\+\d/);
   });
 
-  it('ACTIVE topic shows pause + archive in hover actions, no resume', () => {
-    const onPause = vi.fn();
-    const onResume = vi.fn();
-    const onArchive = vi.fn();
-    render(
-      <RadarTopicCard
-        topic={makeTopic({ status: 'ACTIVE' })}
-        onPause={onPause}
-        onResume={onResume}
-        onArchive={onArchive}
-      />
-    );
-    expect(screen.getByLabelText('暂停')).toBeInTheDocument();
-    expect(screen.getByLabelText('归档')).toBeInTheDocument();
-    expect(screen.queryByLabelText('恢复')).toBeNull();
-  });
-
-  it('PAUSED topic shows resume + archive, no pause', () => {
-    render(
-      <RadarTopicCard
-        topic={makeTopic({ status: 'PAUSED' })}
-        onPause={vi.fn()}
-        onResume={vi.fn()}
-        onArchive={vi.fn()}
-      />
-    );
-    expect(screen.getByLabelText('恢复')).toBeInTheDocument();
-    expect(screen.getByLabelText('归档')).toBeInTheDocument();
-    expect(screen.queryByLabelText('暂停')).toBeNull();
-  });
-
-  it('ARCHIVED topic shows no extra actions', () => {
-    render(
-      <RadarTopicCard
-        topic={makeTopic({ status: 'ARCHIVED' })}
-        onPause={vi.fn()}
-        onResume={vi.fn()}
-        onArchive={vi.fn()}
-      />
-    );
-    expect(screen.queryByLabelText('暂停')).toBeNull();
-    expect(screen.queryByLabelText('恢复')).toBeNull();
-    expect(screen.queryByLabelText('归档')).toBeNull();
-  });
-
-  it('calls onPause when pause hover action clicked', () => {
-    const onPause = vi.fn();
-    render(<RadarTopicCard topic={makeTopic()} onPause={onPause} />);
-    fireEvent.click(screen.getByLabelText('暂停'));
-    expect(onPause).toHaveBeenCalledTimes(1);
-    expect(onPause.mock.calls[0]?.[0]).toMatchObject({ id: 'tid-1' });
-  });
-
-  it('calls onResume when resume action clicked on PAUSED topic', () => {
-    const onResume = vi.fn();
-    render(
-      <RadarTopicCard
-        topic={makeTopic({ status: 'PAUSED' })}
-        onResume={onResume}
-      />
-    );
-    fireEvent.click(screen.getByLabelText('恢复'));
-    expect(onResume).toHaveBeenCalledTimes(1);
-  });
-
-  it('calls onArchive when archive action clicked', () => {
-    const onArchive = vi.fn();
-    render(<RadarTopicCard topic={makeTopic()} onArchive={onArchive} />);
-    fireEvent.click(screen.getByLabelText('归档'));
-    expect(onArchive).toHaveBeenCalledTimes(1);
-  });
-
   it('clicking the card routes to detail page', () => {
     const { container } = render(<RadarTopicCard topic={makeTopic()} />);
     const card = container.querySelector('.cursor-pointer');
@@ -191,19 +119,10 @@ describe('RadarTopicCard', () => {
     expect(iconBlock?.className).toMatch(/to-sky-600/);
   });
 
-  it('does not show pause action when onPause not provided', () => {
-    render(<RadarTopicCard topic={makeTopic()} />);
+  it('permission/edit/delete are the only owner actions (no pause/archive)', () => {
+    render(<RadarTopicCard topic={makeTopic()} onDelete={vi.fn()} />);
     expect(screen.queryByLabelText('暂停')).toBeNull();
-  });
-
-  it('PAUSED topic without onArchive shows only resume (no archive)', () => {
-    render(
-      <RadarTopicCard
-        topic={makeTopic({ status: 'PAUSED' })}
-        onResume={vi.fn()}
-      />
-    );
-    expect(screen.getByLabelText('恢复')).toBeInTheDocument();
+    expect(screen.queryByLabelText('恢复')).toBeNull();
     expect(screen.queryByLabelText('归档')).toBeNull();
   });
 });

@@ -16,19 +16,15 @@
 import { useRouter } from 'next/navigation';
 import {
   Activity,
-  Archive,
   Database,
   Globe,
   Lock,
-  PauseCircle,
-  PlayCircle,
   Radar as RadarIcon,
   Rss,
   Users,
 } from 'lucide-react';
 import {
   AssetCard,
-  type AssetCardAction,
   type AssetCardBadge,
   type AssetVisibility,
   type AssetVisibilityOption,
@@ -40,10 +36,7 @@ import type {
 
 interface Props {
   topic: RadarTopicWithCounts;
-  onArchive?: (topic: RadarTopic) => void;
-  onPause?: (topic: RadarTopic) => void;
-  onResume?: (topic: RadarTopic) => void;
-  /** 永久删除（区别于归档：归档可恢复，删除不可恢复）。父级带确认弹层。 */
+  /** 永久删除。父级带确认弹层。 */
   onDelete?: (topic: RadarTopic) => void;
   /** 多租户可见性切换（权限：私有/共享/公开）。 */
   onVisibilityChange?: (topic: RadarTopic, next: AssetVisibility) => void;
@@ -88,14 +81,7 @@ const STATUS_BADGE: Record<
   },
 };
 
-export function RadarTopicCard({
-  topic,
-  onArchive,
-  onPause,
-  onResume,
-  onDelete,
-  onVisibilityChange,
-}: Props) {
+export function RadarTopicCard({ topic, onDelete, onVisibilityChange }: Props) {
   const router = useRouter();
   const status = STATUS_BADGE[topic.status];
 
@@ -106,35 +92,6 @@ export function RadarTopicCard({
       className: status.className,
     },
   ];
-
-  const extraActions: AssetCardAction[] = [];
-  if (topic.status === 'ACTIVE' && onPause) {
-    extraActions.push({
-      key: 'pause',
-      title: '暂停',
-      tone: 'warning',
-      icon: <PauseCircle className="h-4 w-4" />,
-      onClick: () => onPause(topic),
-    });
-  }
-  if (topic.status === 'PAUSED' && onResume) {
-    extraActions.push({
-      key: 'resume',
-      title: '恢复',
-      tone: 'success',
-      icon: <PlayCircle className="h-4 w-4" />,
-      onClick: () => onResume(topic),
-    });
-  }
-  if (topic.status !== 'ARCHIVED' && onArchive) {
-    extraActions.push({
-      key: 'archive',
-      title: '归档',
-      tone: 'default',
-      icon: <Archive className="h-4 w-4" />,
-      onClick: () => onArchive(topic),
-    });
-  }
 
   // 2026-05-17 R3 P1：DB keywords 是 raw Json，理论上前端 type 写 string[]
   // 但任何一行 legacy / corrupted 数据（null / 非数组）原写法都让整页 .slice()
@@ -177,7 +134,6 @@ export function RadarTopicCard({
       }
       onEdit={() => router.push(`/ai-radar/topic/${topic.id}`)}
       onDelete={onDelete ? () => onDelete(topic) : undefined}
-      extraActions={extraActions}
       onClick={() => router.push(`/ai-radar/topic/${topic.id}`)}
       customSection={keywordChips}
       stats={[
