@@ -27,6 +27,7 @@ import {
   listTopics,
   pauseTopic,
   resumeTopic,
+  setVisibility,
 } from '@/services/ai-radar/api';
 import type {
   RadarTopic,
@@ -99,6 +100,13 @@ export default function AiRadarIndexPage() {
   };
   const handleResume = async (t: RadarTopic) => {
     await resumeTopic(t.id);
+    void reload();
+  };
+  const handleVisibilityChange = async (
+    t: RadarTopic,
+    next: 'PRIVATE' | 'SHARED' | 'PUBLIC'
+  ) => {
+    await setVisibility(t.id, next);
     void reload();
   };
   const handleArchive = (t: RadarTopic) => {
@@ -191,6 +199,9 @@ export default function AiRadarIndexPage() {
               onResume={(t) => void handleResume(t)}
               onArchive={handleArchive}
               onDelete={handleDelete}
+              onVisibilityChange={(t, next) =>
+                void handleVisibilityChange(t, next)
+              }
             />
           ))}
           <button

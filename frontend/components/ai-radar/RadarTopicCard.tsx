@@ -18,15 +18,20 @@ import {
   Activity,
   Archive,
   Database,
+  Globe,
+  Lock,
   PauseCircle,
   PlayCircle,
   Radar as RadarIcon,
   Rss,
+  Users,
 } from 'lucide-react';
 import {
   AssetCard,
   type AssetCardAction,
   type AssetCardBadge,
+  type AssetVisibility,
+  type AssetVisibilityOption,
 } from '@/components/common/asset-card';
 import type {
   RadarTopic,
@@ -40,7 +45,30 @@ interface Props {
   onResume?: (topic: RadarTopic) => void;
   /** 永久删除（区别于归档：归档可恢复，删除不可恢复）。父级带确认弹层。 */
   onDelete?: (topic: RadarTopic) => void;
+  /** 多租户可见性切换（权限：私有/共享/公开）。 */
+  onVisibilityChange?: (topic: RadarTopic, next: AssetVisibility) => void;
 }
+
+const VISIBILITY_OPTIONS: Record<AssetVisibility, AssetVisibilityOption> = {
+  PRIVATE: {
+    value: 'PRIVATE',
+    label: '私有',
+    icon: <Lock className="h-3 w-3" />,
+    className: 'bg-gray-100 text-gray-600',
+  },
+  SHARED: {
+    value: 'SHARED',
+    label: '共享',
+    icon: <Users className="h-3 w-3" />,
+    className: 'bg-blue-100 text-blue-600',
+  },
+  PUBLIC: {
+    value: 'PUBLIC',
+    label: '公开',
+    icon: <Globe className="h-3 w-3" />,
+    className: 'bg-green-100 text-green-600',
+  },
+};
 
 const STATUS_BADGE: Record<
   RadarTopic['status'],
@@ -66,6 +94,7 @@ export function RadarTopicCard({
   onPause,
   onResume,
   onDelete,
+  onVisibilityChange,
 }: Props) {
   const router = useRouter();
   const status = STATUS_BADGE[topic.status];
@@ -138,6 +167,14 @@ export function RadarTopicCard({
       gradient="from-cyan-500 to-sky-600"
       badges={badges}
       isOwner
+      visibility={topic.visibility}
+      visibilityOptions={VISIBILITY_OPTIONS}
+      visibilityToggleCycle={['PRIVATE', 'SHARED', 'PUBLIC']}
+      onVisibilityToggle={
+        onVisibilityChange
+          ? (next) => onVisibilityChange(topic, next)
+          : undefined
+      }
       onEdit={() => router.push(`/ai-radar/topic/${topic.id}`)}
       onDelete={onDelete ? () => onDelete(topic) : undefined}
       extraActions={extraActions}
