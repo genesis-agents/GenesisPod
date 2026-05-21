@@ -28,6 +28,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from '@/stores';
 import {
   AlertCircle,
   BookOpen,
@@ -1367,7 +1368,7 @@ async function exportWikiAsMarkdown(
     const list = await wikiApi.listPages(kbId, undefined, 1000);
     const pages = list.items;
     if (pages.length === 0) {
-      alert(t('library.wiki.export.noPagesToExport'));
+      toast.warning(t('library.wiki.export.noPagesToExport'));
       return;
     }
     // ? category ??(SUMMARY ? ENTITY ? CONCEPT ? SOURCE)
@@ -1419,7 +1420,7 @@ async function exportWikiAsMarkdown(
     URL.revokeObjectURL(url);
   } catch (err) {
     logger?.error?.('[wiki] export failed', err);
-    alert(
+    toast.error(
       t('library.wiki.export.exportFailed', {
         message:
           err instanceof Error
@@ -1687,7 +1688,7 @@ function WikiDiffReviewModal({
                 onClose();
               } catch (err) {
                 logger?.error?.('[wiki] apply diff failed', err);
-                alert(t('library.wiki.diff.applyFailed'));
+                toast.error(t('library.wiki.diff.applyFailed'));
               } finally {
                 setApplying(false);
               }

@@ -25,6 +25,7 @@ import { ChevronRight, Lightbulb, RefreshCw } from 'lucide-react';
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import { localRerunTodo } from '@/services/agent-playground/api';
 import { cn } from '@/lib/utils/common';
+import { toast, confirm } from '@/stores';
 import type {
   MissionTodo,
   MissionTodoNarrativeItem,
@@ -803,13 +804,13 @@ export function TodoDetailDrawer({
     if (!missionId || rerunning || !supportsLocalRerun) return;
     // PR-R7: cascade preview 二次确认（只在 stepId 路径显示，老路径直接走）
     if (cascadeChain && cascadeChain.length > 1) {
-      const ok = window.confirm(
-        `局部重跑将顺序执行以下 ${cascadeChain.length} 个阶段：\n\n` +
-          `${cascadeChain.map((s, i) => `${i + 1}. ${STEP_LABEL[s] ?? s}`).join('\n')}\n\n` +
-          `产物会 patch 回原 mission（不创建新 mission）。\n` +
-          `若 mission 当前 failed，重跑会自动 reopen 让最终步骤能 markCompleted。\n\n` +
-          `是否继续？`
-      );
+      const ok = await confirm({
+        title: `局部重跑将顺序执行 ${cascadeChain.length} 个阶段`,
+        description:
+          `${cascadeChain.map((s, i) => `${i + 1}. ${STEP_LABEL[s] ?? s}`).join('，')}。` +
+          `产物会 patch 回原 mission（不创建新 mission）；若当前 failed 会自动 reopen。是否继续？`,
+        type: 'warning',
+      });
       if (!ok) return;
     }
     setRerunning(true);
@@ -826,7 +827,7 @@ export function TodoDetailDrawer({
       });
       setRerunning(false);
     } catch (e) {
-      window.alert(`重跑失败：${e instanceof Error ? e.message : String(e)}`);
+      toast.error('重跑失败', e instanceof Error ? e.message : String(e));
       setRerunning(false);
     }
   };

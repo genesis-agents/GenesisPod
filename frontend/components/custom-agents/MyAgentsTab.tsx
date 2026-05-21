@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/states/EmptyState';
 import { CustomAgentWizard } from './CustomAgentWizard';
 import { notifyCustomAgentChanged } from './usePublishedCustomAgents';
 import type { CustomAgentRecord } from './types';
+import { toast, confirm } from '@/stores';
 
 type ViewMode =
   | { mode: 'list' }
@@ -46,14 +47,19 @@ export function MyAgentsTab() {
   }, [view.mode]);
 
   const remove = async (id: string) => {
-    if (!confirm('确认删除？此操作不可恢复。')) return;
+    const ok = await confirm({
+      title: '确认删除？',
+      description: '此操作不可恢复。',
+      type: 'danger',
+    });
+    if (!ok) return;
     try {
       await apiClient.delete(`/user/custom-agents/${id}`);
       // ★ R-CA bug #4 防御：删除 → 通知 Sidebar 刷新动态菜单
       notifyCustomAgentChanged();
       load();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '删除失败');
+      toast.error('删除失败', e instanceof Error ? e.message : undefined);
     }
   };
 

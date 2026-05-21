@@ -12,6 +12,7 @@
 import React, { useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
+import { toast, confirm } from '@/stores';
 import {
   ListChecks,
   Lightbulb,
@@ -722,12 +723,13 @@ export function MissionTodoBoard({
       }
 
       // 非局部重跑：明确提示用户"将另起新 mission 跑完整流程"
-      const confirmed = window.confirm(
-        `此任务类型不支持局部重跑。\n\n` +
-          `点击"确定"会另起一个新 mission 重跑完整流程（约 5-15 分钟），` +
-          `并把此 todo 作为 leader 的 focus hint。\n\n` +
-          `点击"取消"放弃，不执行任何操作。`
-      );
+      const confirmed = await confirm({
+        title: '此任务类型不支持局部重跑',
+        description:
+          '点击「确认」会另起一个新 mission 重跑完整流程（约 5-15 分钟），并把此 todo 作为 leader 的 focus hint。',
+        type: 'warning',
+        confirmText: '另起新 mission 重跑',
+      });
       if (!confirmed) return;
 
       const { missionId: newId } = await rerunTodo(missionId, td.id, {
@@ -740,7 +742,7 @@ export function MissionTodoBoard({
       router.push(`/agent-playground/team/${newId}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      window.alert(`重跑失败：${msg}`);
+      toast.error('重跑失败', msg);
     } finally {
       setRerunningId(null);
     }

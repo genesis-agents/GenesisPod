@@ -25,6 +25,7 @@ import { apiClient } from '@/lib/api/client';
 import type { CustomAgentRecord } from '@/components/custom-agents/types';
 import { LaunchMissionModal } from '@/components/custom-agents/LaunchMissionModal';
 import { MissionGalleryView } from '@/components/common/missions/MissionGalleryView';
+import { toast, confirm } from '@/stores';
 
 export default function CustomAgentHomePage({
   params,
@@ -88,16 +89,21 @@ export default function CustomAgentHomePage({
     try {
       await updateMission(mission.id, { topic: next.trim() });
     } catch (e) {
-      alert(`重命名失败：${e instanceof Error ? e.message : String(e)}`);
+      toast.error('重命名失败', e instanceof Error ? e.message : String(e));
     }
   };
 
   const handleDelete = async (mission: MissionListItem) => {
-    if (!confirm(`确定删除「${mission.topic}」？此操作不可恢复。`)) return;
+    const ok = await confirm({
+      title: `确定删除「${mission.topic}」？`,
+      description: '此操作不可恢复。',
+      type: 'danger',
+    });
+    if (!ok) return;
     try {
       await deleteMission(mission.id);
     } catch (e) {
-      alert(`删除失败：${e instanceof Error ? e.message : String(e)}`);
+      toast.error('删除失败', e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -109,7 +115,7 @@ export default function CustomAgentHomePage({
       await setVisibility(mission.id, next);
       triggerGalleryReload();
     } catch (e) {
-      alert(`切换权限失败：${e instanceof Error ? e.message : String(e)}`);
+      toast.error('切换权限失败', e instanceof Error ? e.message : String(e));
     }
   };
 

@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { toast, confirm } from '@/stores';
 import {
   Activity,
   AlertTriangle,
@@ -858,8 +859,9 @@ export default function MissionDetailPage() {
                     );
                     router.push(`/agent-playground/team/${newId}`);
                   } catch (e) {
-                    window.alert(
-                      `启动失败：${e instanceof Error ? e.message : String(e)}`
+                    toast.error(
+                      '启动失败',
+                      e instanceof Error ? e.message : String(e)
                     );
                   }
                 })();
@@ -877,15 +879,20 @@ export default function MissionDetailPage() {
                     );
                     router.push(`/agent-playground/team/${newId}`);
                   } catch (e) {
-                    window.alert(
-                      `更新失败：${e instanceof Error ? e.message : String(e)}`
+                    toast.error(
+                      '更新失败',
+                      e instanceof Error ? e.message : String(e)
                     );
                   }
                 })();
               }}
               onCancel={() => {
-                if (!window.confirm('确认取消该 mission？')) return;
                 void (async () => {
+                  const ok = await confirm({
+                    title: '确认取消该 mission？',
+                    type: 'danger',
+                  });
+                  if (!ok) return;
                   try {
                     await cancelMission(missionId);
                     window.location.reload();
@@ -896,12 +903,13 @@ export default function MissionDetailPage() {
                       /not running|status is/i.test(msg) ||
                       /400/i.test(msg)
                     ) {
-                      window.alert(
+                      toast.info(
+                        'Mission 已结束',
                         'Mission 已经结束（或刚刚完成 / 失败），无需取消。页面将刷新展示最新状态。'
                       );
                       window.location.reload();
                     } else {
-                      window.alert(`取消失败：${msg}`);
+                      toast.error('取消失败', msg);
                     }
                   }
                 })();

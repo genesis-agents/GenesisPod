@@ -21,6 +21,7 @@ import {
 } from '@/services/agent-playground/api';
 import { MissionGalleryView } from '@/components/common/missions/MissionGalleryView';
 import { PlaygroundMissionDialog } from '@/components/agent-playground';
+import { toast, confirm } from '@/stores';
 
 export default function PlaygroundIndexPage() {
   const { t } = useTranslation();
@@ -39,16 +40,21 @@ export default function PlaygroundIndexPage() {
     try {
       await updateMission(mission.id, { topic: next.trim() });
     } catch (e) {
-      alert(`重命名失败：${e instanceof Error ? e.message : String(e)}`);
+      toast.error('重命名失败', e instanceof Error ? e.message : String(e));
     }
   };
 
   const handleDelete = async (mission: MissionListItem) => {
-    if (!confirm(`确定删除「${mission.topic}」？此操作不可恢复。`)) return;
+    const ok = await confirm({
+      title: `确定删除「${mission.topic}」？`,
+      description: '此操作不可恢复。',
+      type: 'danger',
+    });
+    if (!ok) return;
     try {
       await deleteMission(mission.id);
     } catch (e) {
-      alert(`删除失败：${e instanceof Error ? e.message : String(e)}`);
+      toast.error('删除失败', e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -60,7 +66,7 @@ export default function PlaygroundIndexPage() {
       await setVisibility(mission.id, next);
       setGalleryReloadKey((n) => n + 1);
     } catch (e) {
-      alert(`切换权限失败：${e instanceof Error ? e.message : String(e)}`);
+      toast.error('切换权限失败', e instanceof Error ? e.message : String(e));
     }
   };
 
