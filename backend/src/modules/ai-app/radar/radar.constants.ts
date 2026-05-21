@@ -78,6 +78,11 @@ export const RADAR_PIPELINE_DEFAULTS = {
   /** Item 入选阈值（写 accepted=true） */
   acceptedRelevanceMin: 60,
   acceptedQualityMin: 50,
+  /**
+   * hybrid 匹配模式：字面命中关键词（标题+正文，子串大小写不敏感）的额外加分，
+   * 上限 100。literal 模式则直接把未命中项判 0 分淘汰，不在此处加分。
+   */
+  literalMatchBoost: 20,
   /** 单 source 单次刷新最多拉多少条 */
   perSourceItemLimit: 20,
   /** S7 信号洞察的对照窗口（天） */
@@ -88,3 +93,9 @@ export const RADAR_PIPELINE_DEFAULTS = {
  * Item 实体抽取上限（防 LLM 输出爆炸）。
  */
 export const RADAR_MAX_ENTITIES_PER_ITEM = 10;
+
+/**
+ * literal 匹配模式下未命中关键词的淘汰原因。S4 写入 relevanceScores，
+ * S8 流失归因时识别此哨兵值并原样呈现（否则会回落到通用「相关性 0 < 40」）。
+ */
+export const RADAR_LITERAL_MISS_REASON = "未命中关键词（精确匹配）";

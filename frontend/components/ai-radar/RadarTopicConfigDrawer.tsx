@@ -1,16 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
+import { Plus, X } from 'lucide-react';
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import { Tabs } from '@/components/ui/tabs';
 import { RadarSourceList } from './RadarSourceList';
-import type { RadarSource } from '@/services/ai-radar/types';
+import type { RadarMatchMode, RadarSource } from '@/services/ai-radar/types';
+
+/** 与后端 UpdateRadarTopicDto / radar-topic.service 校验对齐 */
+const KEYWORD_MAX_COUNT = 20;
+const KEYWORD_MAX_LEN = 80;
 
 export interface RadarTopicConfigDrawerTopic {
   id: string;
   name: string;
   description: string | null;
   keywords: string[];
+  matchMode: RadarMatchMode;
   briefingTime: string;
   signalsTarget: 3 | 5;
   signalTypes: string[];
@@ -33,12 +39,13 @@ export interface RadarTopicConfigDrawerProps {
   onUpdate: (patch: Partial<RadarTopicConfigDrawerTopic>) => Promise<void>;
 }
 
-type TabKey = 'briefing' | 'push' | 'sources' | 'advanced';
+type TabKey = 'briefing' | 'push' | 'sources' | 'keywords' | 'advanced';
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'briefing', label: '精选偏好' },
   { key: 'push', label: '推送方式' },
   { key: 'sources', label: '数据源' },
+  { key: 'keywords', label: '关键词' },
   { key: 'advanced', label: '高级' },
 ];
 
@@ -72,6 +79,8 @@ export function RadarTopicConfigDrawer({
 
   // Reset draft when topic changes or drawer reopens
   const isDirty = JSON.stringify(draft) !== JSON.stringify(topic);
+  // 后端强制至少 1 个关键词；空时禁止保存（避免一次必失败的请求）
+  const keywordsEmpty = draft.keywords.length === 0;
 
   const handleSave = async () => {
     setSaving(true);
@@ -129,6 +138,9 @@ export function RadarTopicConfigDrawer({
           />
         </div>
       )}
+      {activeTab === 'keywords' && (
+        <KeywordsTab draft={draft} onChange={patchDraft} />
+      )}
       {activeTab === 'advanced' && (
         <AdvancedTab draft={draft} onChange={patchDraft} />
       )}
@@ -138,6 +150,11 @@ export function RadarTopicConfigDrawer({
         <div className="mt-6 border-t border-gray-200 pt-4">
           {saveError && (
             <p className="mb-2 text-xs text-red-600">{saveError}</p>
+          )}
+          {keywordsEmpty && (
+            <p className="mb-2 text-xs text-amber-600">
+              至少保留 1 个关键词才能保存
+            </p>
           )}
           {savedOk && <p className="mb-2 text-xs text-emerald-600">已保存</p>}
           <div className="flex justify-end gap-2">
@@ -150,7 +167,7 @@ export function RadarTopicConfigDrawer({
             </button>
             <button
               type="button"
-              disabled={saving || !isDirty}
+              disabled={saving || !isDirty || keywordsEmpty}
               onClick={() => void handleSave()}
               className="rounded-lg bg-cyan-600 px-4 py-1.5 text-sm text-white hover:bg-cyan-700 disabled:opacity-50"
             >
@@ -394,6 +411,175 @@ function PushTab({
           </a>
         </p>
       )}
+    </div>
+  );
+}
+
+// ── Tab: 关键词 ────────────────────────────────────────
+
+const MATCH_MODES: { value: RadarMatchMode; label: string; hint: string }[] = [
+  {
+    value: 'semantic',
+    label: '智能语义',
+    hint: '仅由 AI 按主题语义评分（默认）',
+  },
+  {
+    value: 'literal',
+    label: '精确匹配',
+    hint: '标题或正文必须含任一关键词，否则淘汰',
+  },
+  {
+    value: 'hybrid',
+    label: '混合加分',
+    hint: '命中关键词的内容加分，但不淘汰未命中项',
+  },
+];
+
+function KeywordsTab({
+  draft,
+  onChange,
+}: {
+  draft: RadarTopicConfigDrawerTopic;
+  onChange: (p: Partial<RadarTopicConfigDrawerTopic>) => void;
+}) {
+  const [input, setInput] = useState('');
+  const keywords = draft.keywords;
+  const atLimit = keywords.length >= KEYWORD_MAX_COUNT;
+
+  // 支持空格 / 逗号（中英）批量粘贴；去重 + 长度 + 上限校验，与后端 normalize 对齐
+  const addFromInput = (raw: string) => {
+    const parts = raw
+      .split(/[,，\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return;
+    const next = [...keywords];
+    for (const p of parts) {
+      if (p.length > KEYWORD_MAX_LEN) continue;
+      if (next.includes(p)) continue;
+      if (next.length >= KEYWORD_MAX_COUNT) break;
+      next.push(p);
+    }
+    if (next.length !== keywords.length) onChange({ keywords: next });
+    setInput('');
+  };
+
+  const removeKeyword = (kw: string) => {
+    onChange({ keywords: keywords.filter((k) => k !== kw) });
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addFromInput(input);
+    } else if (e.key === 'Backspace' && input === '' && keywords.length > 0) {
+      removeKeyword(keywords[keywords.length - 1]);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* 关键词 chip 编辑器 */}
+      <div>
+        <div className="mb-1.5 flex items-baseline justify-between">
+          <label className="block text-sm font-medium text-gray-700">
+            关键词
+          </label>
+          <span className="text-xs text-gray-400">
+            {keywords.length}/{KEYWORD_MAX_COUNT}
+          </span>
+        </div>
+
+        {keywords.length > 0 ? (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {keywords.map((kw) => (
+              <span
+                key={kw}
+                className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs text-cyan-700"
+              >
+                {kw}
+                <button
+                  type="button"
+                  onClick={() => removeKeyword(kw)}
+                  aria-label={`删除关键词 ${kw}`}
+                  className="rounded-full text-cyan-500 hover:bg-cyan-100 hover:text-cyan-700"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="mb-2 text-xs text-amber-600">
+            至少保留 1 个关键词，雷达才能采集与评分
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={atLimit}
+            placeholder={atLimit ? '已达上限' : '输入关键词，回车添加…'}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:bg-gray-50 disabled:text-gray-400"
+          />
+          <button
+            type="button"
+            onClick={() => addFromInput(input)}
+            disabled={atLimit || !input.trim()}
+            aria-label="添加关键词"
+            className="inline-flex shrink-0 items-center rounded-lg border border-gray-200 px-3 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-gray-400">
+          空格 / 逗号分隔可批量添加，最多 {KEYWORD_MAX_COUNT} 个，每个 ≤
+          {KEYWORD_MAX_LEN} 字符
+        </p>
+      </div>
+
+      {/* 匹配模式 */}
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+          匹配模式
+        </label>
+        <div className="space-y-1.5">
+          {MATCH_MODES.map((m) => {
+            const checked = draft.matchMode === m.value;
+            return (
+              <label
+                key={m.value}
+                className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 ${
+                  checked
+                    ? 'border-cyan-300 bg-cyan-50'
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="matchMode"
+                  checked={checked}
+                  onChange={() => onChange({ matchMode: m.value })}
+                  className="mt-0.5 h-4 w-4 text-cyan-600 focus:ring-cyan-500"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-gray-800">
+                    {m.label}
+                  </span>
+                  <span className="block text-xs text-gray-500">{m.hint}</span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="mt-1.5 text-xs text-gray-400">
+          精确 / 混合匹配对标题 +
+          正文做大小写不敏感的子串判断，改动在下次「重新精选」生效。
+        </p>
+      </div>
     </div>
   );
 }

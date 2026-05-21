@@ -52,6 +52,7 @@ export class RadarTopicService {
         description: dto.description?.trim() ?? null,
         entityType: dto.entityType ?? null,
         keywords: keywords as Prisma.InputJsonValue,
+        ...(dto.matchMode ? { matchMode: dto.matchMode } : {}),
         refreshCron,
         status: RadarTopicStatus.ACTIVE,
         // nextDueAt 不在 PR-R1 计算，留给 PR-R4 scheduler 接入 cron-parser
@@ -162,6 +163,7 @@ export class RadarTopicService {
       }
       data.keywords = kw as Prisma.InputJsonValue;
     }
+    if (dto.matchMode !== undefined) data.matchMode = dto.matchMode;
     if (dto.refreshCron !== undefined) data.refreshCron = dto.refreshCron;
 
     // 2026-05-19 R10：原 update 静默丢 PR-DR2 6 个 briefing 字段，用户改完

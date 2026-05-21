@@ -280,6 +280,12 @@ export default function RadarTopicDetailPage() {
     // backend UpdateRadarTopicDto accepts briefingTime / signalsTarget etc.
     // Cast to allow passing extended fields through to the API.
     const payload = {
+      ...(patch.keywords !== undefined && {
+        keywords: patch.keywords,
+      }),
+      ...(patch.matchMode !== undefined && {
+        matchMode: patch.matchMode,
+      }),
       ...(patch.briefingTime !== undefined && {
         briefingTime: patch.briefingTime,
       }),
@@ -339,6 +345,7 @@ export default function RadarTopicDetailPage() {
     name: topic.name,
     description: topic.description,
     keywords: topic.keywords,
+    matchMode: topic.matchMode ?? 'semantic',
     briefingTime: (topicAsRecord.briefingTime as string) ?? '08:00',
     signalsTarget: ((topicAsRecord.signalsTarget as number) === 5 ? 5 : 3) as
       | 3

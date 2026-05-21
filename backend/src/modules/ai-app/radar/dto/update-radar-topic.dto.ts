@@ -14,7 +14,7 @@ import {
   Min,
   MinLength,
 } from "class-validator";
-import { RadarEntityType } from "./create-radar-topic.dto";
+import { MATCH_MODE_VALUES, RadarEntityType } from "./create-radar-topic.dto";
 
 const CRON_REGEX = new RegExp(
   "^[\\d*/,-]+\\s+[\\d*/,-]+\\s+[\\d*/,-]+\\s+[\\d*/,-]+\\s+[\\d*/,-]+$",
@@ -51,6 +51,11 @@ export class UpdateRadarTopicDto {
   @ArrayMaxSize(20)
   @IsString({ each: true })
   keywords?: string[];
+
+  /** 关键词匹配模式（semantic 默认 / literal 硬过滤 / hybrid 加分） */
+  @IsOptional()
+  @IsIn(MATCH_MODE_VALUES)
+  matchMode?: (typeof MATCH_MODE_VALUES)[number];
 
   @IsOptional()
   @IsString()

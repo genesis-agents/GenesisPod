@@ -14,7 +14,10 @@ import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { RADAR_PIPELINE_DEFAULTS } from "../../../radar.constants";
+import {
+  RADAR_LITERAL_MISS_REASON,
+  RADAR_PIPELINE_DEFAULTS,
+} from "../../../radar.constants";
 import type {
   RadarMissionContext,
   RadarStageHookArgs,
@@ -22,6 +25,9 @@ import type {
 } from "./radar-stage-types";
 
 const BATCH_SIZE = RADAR_PIPELINE_DEFAULTS.relevanceBatchSize;
+const LITERAL_MATCH_BOOST = RADAR_PIPELINE_DEFAULTS.literalMatchBoost;
+
+type RadarMatchMode = "semantic" | "literal" | "hybrid";
 
 interface RelevanceScored {
   id: string;
@@ -62,12 +68,42 @@ export class RadarS4RelevanceStage implements RadarStageRunner {
     }));
 
     const keywords = parseStringArray(topic.keywords);
+    const matchMode = parseMatchMode(topic.matchMode);
     const scores = new Map<string, { score: number; reason: string }>();
 
-    for (let i = 0; i < itemsForLLM.length; i += BATCH_SIZE) {
+    // 关键词匹配（literal / hybrid）：字面命中 = 标题+正文含「任一」关键词
+    // （子串，大小写不敏感）。semantic 模式 lowerKeywords 为空 → 不影响评分。
+    const lowerKeywords =
+      matchMode === "semantic"
+        ? []
+        : keywords.map((k) => k.toLowerCase().trim()).filter(Boolean);
+    const isLiteralHit = (item: {
+      title: string;
+      content: string;
+    }): boolean => {
+      // 无可用关键词时不淘汰任何条目（避免 literal 把结果清空），交回 LLM 判断
+      if (lowerKeywords.length === 0) return true;
+      const hay = `${item.title}\n${item.content}`.toLowerCase();
+      return lowerKeywords.some((kw) => hay.includes(kw));
+    };
+
+    // literal 模式：未命中项直接判 0 分淘汰并跳过 LLM（省 token），仅命中项送评分。
+    let itemsToScore = itemsForLLM;
+    if (matchMode === "literal" && lowerKeywords.length > 0) {
+      itemsToScore = [];
+      for (const item of itemsForLLM) {
+        if (isLiteralHit(item)) {
+          itemsToScore.push(item);
+        } else {
+          scores.set(item.id, { score: 0, reason: RADAR_LITERAL_MISS_REASON });
+        }
+      }
+    }
+
+    for (let i = 0; i < itemsToScore.length; i += BATCH_SIZE) {
       if (ctx.signal.aborted)
         throw new Error("aborted_during_relevance_scoring");
-      const batch = itemsForLLM.slice(i, i + BATCH_SIZE);
+      const batch = itemsToScore.slice(i, i + BATCH_SIZE);
       const scored = await this.scoreBatch(
         systemPrompt,
         {
@@ -81,6 +117,19 @@ export class RadarS4RelevanceStage implements RadarStageRunner {
       );
       for (const s of scored) {
         scores.set(s.id, { score: s.relevanceScore, reason: s.reason });
+      }
+    }
+
+    // hybrid 模式：字面命中项在 LLM 分上加分（上限 100），不淘汰未命中项。
+    if (matchMode === "hybrid" && lowerKeywords.length > 0) {
+      for (const item of itemsForLLM) {
+        if (!isLiteralHit(item)) continue;
+        const cur = scores.get(item.id);
+        if (!cur) continue;
+        const boosted = Math.min(100, cur.score + LITERAL_MATCH_BOOST);
+        if (boosted !== cur.score) {
+          scores.set(item.id, { score: boosted, reason: cur.reason });
+        }
       }
     }
 
@@ -204,6 +253,11 @@ ${batch
 function parseStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((v): v is string => typeof v === "string");
+}
+
+function parseMatchMode(value: unknown): RadarMatchMode {
+  if (value === "literal" || value === "hybrid") return value;
+  return "semantic";
 }
 
 function tryParseJson<T>(raw: string): T | null {

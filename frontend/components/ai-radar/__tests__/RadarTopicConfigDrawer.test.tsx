@@ -39,6 +39,7 @@ const BASE_TOPIC: RadarTopicConfigDrawerTopic = {
   name: 'AI 动态',
   description: null,
   keywords: ['AI', '机器学习'],
+  matchMode: 'semantic',
   briefingTime: '08:00',
   signalsTarget: 3,
   signalTypes: ['turning_point', 'trend_acceleration'],
@@ -173,5 +174,58 @@ describe('RadarTopicConfigDrawer', () => {
     fireEvent.click(checkbox);
     // Now dirty
     expect(screen.getByText('保存')).not.toBeDisabled();
+  });
+
+  // ── 关键词 Tab ─────────────────────────────────────────
+
+  it('keywords tab: renders existing keywords as removable chips', () => {
+    renderDrawer();
+    fireEvent.click(screen.getByText('关键词'));
+    expect(screen.getByText('AI')).toBeInTheDocument();
+    expect(screen.getByText('机器学习')).toBeInTheDocument();
+    expect(screen.getByLabelText('删除关键词 AI')).toBeInTheDocument();
+  });
+
+  it('keywords tab: adding a keyword via Enter shows new chip + dirties form', () => {
+    renderDrawer();
+    fireEvent.click(screen.getByText('关键词'));
+    const input = screen.getByPlaceholderText('输入关键词，回车添加…');
+    fireEvent.change(input, { target: { value: 'NLP' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(screen.getByText('NLP')).toBeInTheDocument();
+    expect(screen.getByText('保存')).not.toBeDisabled();
+  });
+
+  it('keywords tab: removing a keyword dirties form', () => {
+    renderDrawer();
+    fireEvent.click(screen.getByText('关键词'));
+    fireEvent.click(screen.getByLabelText('删除关键词 AI'));
+    expect(screen.queryByLabelText('删除关键词 AI')).not.toBeInTheDocument();
+    expect(screen.getByText('保存')).not.toBeDisabled();
+  });
+
+  it('keywords tab: emptying all keywords blocks save with a warning', () => {
+    renderDrawer();
+    fireEvent.click(screen.getByText('关键词'));
+    fireEvent.click(screen.getByLabelText('删除关键词 AI'));
+    fireEvent.click(screen.getByLabelText('删除关键词 机器学习'));
+    expect(screen.getByText('至少保留 1 个关键词才能保存')).toBeInTheDocument();
+    expect(screen.getByText('保存')).toBeDisabled();
+  });
+
+  it('keywords tab: switching matchMode to literal saves with matchMode', async () => {
+    const { onUpdate } = renderDrawer();
+    fireEvent.click(screen.getByText('关键词'));
+    // radios order: semantic(0) / literal(1) / hybrid(2)
+    const radios = screen.getAllByRole<HTMLInputElement>('radio');
+    expect(radios).toHaveLength(3);
+    fireEvent.click(radios[1]);
+    expect(screen.getByText('保存')).not.toBeDisabled();
+    fireEvent.click(screen.getByText('保存'));
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ matchMode: 'literal' })
+      );
+    });
   });
 });
