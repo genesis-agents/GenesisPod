@@ -24,9 +24,9 @@ export * from './views';
 
 // 根目录组件
 export { default as ErrorBoundary } from './ErrorBoundary';
-export { default as FilterPanel } from './FilterPanel';
-export { ImportSelector } from './ImportSelector';
-export { default as LanguageSwitcher } from './LanguageSwitcher';
+export { default as FilterPanel } from './selectors/FilterPanel';
+export { ImportSelector } from './selectors/ImportSelector';
+export { default as LanguageSwitcher } from './switchers/LanguageSwitcher';
 export { default as SignInPrompt } from './SignInPrompt';
-export { ViewToggle, type ViewMode } from './ViewToggle';
+export { ViewToggle, type ViewMode } from './switchers/ViewToggle';
 export { ChunkErrorHandler } from './ChunkErrorHandler';

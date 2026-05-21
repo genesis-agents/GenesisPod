@@ -13,7 +13,7 @@ import type { ResearchTopic } from '@/lib/types/topic-insights';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { useResearchWebSocket } from '@/hooks/features/useResearchWebSocket';
 import { TopicResearchLayout } from './TopicResearchLayout';
-import { ExportDialog } from '@/components/common/ExportDialog';
+import { ExportDialog } from '@/components/common/dialogs/ExportDialog';
 import { countWords } from '@/lib/markdown/countWords';
 
 interface TopicDetailProps {

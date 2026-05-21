@@ -21,7 +21,7 @@ import { ReportWorkspace } from '@/components/common/report-workspace';
 import ResourceThumbnail from '../resources/ResourceThumbnail';
 import { InsightChip } from '../InsightBadge';
 import { useReportWorkspace } from '@/hooks';
-import FilterPanel from '@/components/common/FilterPanel';
+import FilterPanel from '@/components/common/selectors/FilterPanel';
 import { ImportUrlDialog } from '@/components/common/dialogs/ImportUrlDialog';
 import { ImportFileDialog } from '@/components/common/dialogs/ImportFileDialog';
 import ResponsiveNav, {
@@ -43,8 +43,8 @@ import {
   Cpu,
 } from 'lucide-react';
 import { useAIModels, pickPreferredModel, userHasBYOK } from '@/hooks';
-import { ModelSelect } from '@/components/common/ModelSelect';
-import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
+import { ModelSelect } from '@/components/common/model-config/ModelSelect';
+import { BYOKRequiredBanner } from '@/components/common/byok/BYOKRequiredBanner';
 import { ClientDate } from '@/components/common/ClientDate';
 import { formatDateSafe } from '@/lib/utils/date';
 

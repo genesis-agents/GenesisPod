@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import UserProfileButton from './UserProfileButton';
-import LanguageSwitcher from '@/components/common/LanguageSwitcher';
+import LanguageSwitcher from '@/components/common/switchers/LanguageSwitcher';
 import { Menu, X } from 'lucide-react';
 import { BrandLogo } from '@/components/common/brand/BrandLogo';
 import { CURRENT_VERSION } from '@/lib/utils/changelog';

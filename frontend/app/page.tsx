@@ -152,9 +152,12 @@ function Base64Image({ src, alt }: { src: string; alt: string }) {
 import { useReportWorkspace } from '@/hooks';
 
 // 懒加载对话框组件
-const FilterPanel = dynamic(() => import('@/components/common/FilterPanel'), {
-  ssr: false,
-});
+const FilterPanel = dynamic(
+  () => import('@/components/common/selectors/FilterPanel'),
+  {
+    ssr: false,
+  }
+);
 
 const ImportUrlDialog = dynamic(
   () =>
@@ -190,8 +193,8 @@ import {
   Cpu,
 } from 'lucide-react';
 import { useAIModels, pickPreferredModel, userHasBYOK } from '@/hooks';
-import { ModelSelect } from '@/components/common/ModelSelect';
-import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
+import { ModelSelect } from '@/components/common/model-config/ModelSelect';
+import { BYOKRequiredBanner } from '@/components/common/byok/BYOKRequiredBanner';
 import { useImageSourceStore, toast as showToast, confirm } from '@/stores';
 
 import { logger } from '@/lib/utils/logger';

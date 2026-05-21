@@ -14,3 +14,9 @@ export { ImportUrlDialog } from './ImportUrlDialog';
 export { UploadFileDialog } from './UploadFileDialog';
 export { MissionDialogShell } from './MissionDialogShell';
 export type { MissionDialogShellProps } from './MissionDialogShell';
+export {
+  ExportDialog,
+  type ExportDialogProps,
+  type ExportModuleType,
+  type ContentScopeOption,
+} from './ExportDialog';

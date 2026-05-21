@@ -29,7 +29,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import { cn } from '@/lib/utils/common';
-import { ExportDialog } from '@/components/common/ExportDialog';
+import { ExportDialog } from '@/components/common/dialogs/ExportDialog';
 import { useTranslation } from '@/lib/i18n';
 import type { DeepResearchReport, ReportReference } from '@/hooks';
 

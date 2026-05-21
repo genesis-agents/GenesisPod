@@ -11,7 +11,7 @@ import {
   UpdateTopicDto,
 } from '@/lib/types/ai-teams';
 import { useAIModels, AIModel } from '@/hooks';
-import { ModelBadges } from '@/components/common/ModelBadges';
+import { ModelBadges } from '@/components/common/badges/ModelBadges';
 import AppShell from '@/components/layout/AppShell';
 import { Users, Plus } from 'lucide-react';
 import { CreateCard } from '@/components/ui/cards/CreateCard';

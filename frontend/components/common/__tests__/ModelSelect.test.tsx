@@ -19,7 +19,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { I18nProvider } from '@/lib/i18n/i18n-context';
 
-import { ModelSelect, type ModelSelectItem } from '../ModelSelect';
+import { ModelSelect, type ModelSelectItem } from '../model-config/ModelSelect';
 
 // Radix DropdownMenu 在 jsdom 下需要 PointerEvent / hasPointerCapture polyfill
 beforeAll(() => {

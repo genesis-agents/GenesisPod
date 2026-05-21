@@ -6,12 +6,15 @@ import { streamAskMessage } from '@/lib/api/ai-ask-stream';
 
 // W4-byok 2026-05-05: 提到共享组件，让所有用到 BYOK 标识的地方走同一来源
 // 2026-05-06 截图 40：ModelKeyMeta 让 AI Ask 模型行也走 KeyRound/Server lucide 图标
-import { ModelBadges, ModelKeyMeta } from '@/components/common/ModelBadges';
+import {
+  ModelBadges,
+  ModelKeyMeta,
+} from '@/components/common/badges/ModelBadges';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, pickPreferredModel, userHasBYOK, AIModel } from '@/hooks';
-import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
+import { BYOKRequiredBanner } from '@/components/common/byok/BYOKRequiredBanner';
 import { config } from '@/lib/utils/config';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import AskToolsButton from '@/components/ai-ask/AskToolsButton';

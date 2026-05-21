@@ -39,7 +39,10 @@ import {
 import AddToKnowledgeBaseDialog, {
   type ResourceToAdd,
 } from '@/components/common/dialogs/AddToKnowledgeBaseDialog';
-import { ViewToggle, type ViewMode } from '@/components/common/ViewToggle';
+import {
+  ViewToggle,
+  type ViewMode,
+} from '@/components/common/switchers/ViewToggle';
 import { NotionPageRow } from './NotionPageRow';
 import { AiOrganizeButton } from '@/components/common/ai-organizer/AiOrganizeButton';
 import { AiOrganizePanel } from '@/components/common/ai-organizer/AiOrganizePanel';

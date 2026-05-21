@@ -1,6 +1,6 @@
 import type { AIModel, AspectRatio, TemplateLayout } from '../types';
 import { ASPECT_RATIOS, IMAGE_STYLES } from '../constants';
-import { ModelSelect } from '@/components/common/ModelSelect';
+import { ModelSelect } from '@/components/common/model-config/ModelSelect';
 
 interface ControlBarProps {
   models: AIModel[];

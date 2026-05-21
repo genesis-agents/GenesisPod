@@ -98,19 +98,11 @@ const FORBIDDEN_IN_COMMON = new Set<string>([
 
 // common/ 根散落 .tsx 存量冻结（grandfather）：不许再新增；存量逐步归位到 concern 子目录。
 const COMMON_ROOT_LOOSE_GRANDFATHER = new Set<string>([
-  'BYOKRequiredBanner.tsx',
   'ChunkErrorHandler.tsx',
   'ClientDate.tsx',
   'ErrorBoundary.tsx',
-  'ExportDialog.tsx',
-  'FilterPanel.tsx',
-  'ImportSelector.tsx',
-  'LanguageSwitcher.tsx',
-  'ModelBadges.tsx',
-  'ModelSelect.tsx',
   'SignInPrompt.tsx',
   'ThemeApplier.tsx',
-  'ViewToggle.tsx',
 ]);
 
 function listDirs(root: string): string[] {

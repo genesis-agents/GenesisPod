@@ -26,8 +26,8 @@ import KeyMomentsPanel, {
 } from '@/components/explore/youtube/KeyMomentsPanel';
 import { SubtitleExportButton } from '@/components/explore/youtube';
 import { useAIModels, pickPreferredModel, userHasBYOK } from '@/hooks';
-import { ModelSelect } from '@/components/common/ModelSelect';
-import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
+import { ModelSelect } from '@/components/common/model-config/ModelSelect';
+import { BYOKRequiredBanner } from '@/components/common/byok/BYOKRequiredBanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';

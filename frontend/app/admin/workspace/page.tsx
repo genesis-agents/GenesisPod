@@ -20,8 +20,8 @@ import {
   pickPreferredModel,
   userHasBYOK,
 } from '@/hooks';
-import { ModelSelect } from '@/components/common/ModelSelect';
-import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
+import { ModelSelect } from '@/components/common/model-config/ModelSelect';
+import { BYOKRequiredBanner } from '@/components/common/byok/BYOKRequiredBanner';
 import ClientDate from '@/components/common/ClientDate';
 
 const TERMINAL_STATUSES = new Set(['SUCCESS', 'FAILED']);

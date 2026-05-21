@@ -1,7 +1,7 @@
 'use client';
 
 import { Cpu } from 'lucide-react';
-import { ModelSelect } from '@/components/common/ModelSelect';
+import { ModelSelect } from '@/components/common/model-config/ModelSelect';
 import type { AIModel } from '@/hooks';
 
 interface AIModelSelectorProps {

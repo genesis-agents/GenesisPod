@@ -32,7 +32,7 @@ import { QualityBadge } from './QualityBadge';
 import { FactTablePanel } from './FactTablePanel';
 import { ReconciliationPanel } from './ReconciliationPanel';
 import { ToolRecallTrace } from './ToolRecallTrace';
-import { ExportDialog } from '@/components/common/ExportDialog';
+import { ExportDialog } from '@/components/common/dialogs/ExportDialog';
 import { ReportVersionDrawer } from './ReportVersionDrawer';
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 

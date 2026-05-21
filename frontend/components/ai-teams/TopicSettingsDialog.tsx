@@ -11,7 +11,7 @@ import {
 import { Tabs } from '@/components/ui/tabs';
 import { useAiGroupStore } from '@/stores/ai-teams';
 import { useAIModels, AIModel } from '@/hooks';
-import { ModelBadges } from '@/components/common/ModelBadges';
+import { ModelBadges } from '@/components/common/badges/ModelBadges';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import * as aiGroupApi from '@/services/ai-teams/api';

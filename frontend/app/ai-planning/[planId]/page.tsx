@@ -12,7 +12,7 @@ import {
   PlanContentPanel,
   type PlanContentTabType,
 } from '@/components/ai-planning/PlanContentPanel';
-import { ExportDialog } from '@/components/common/ExportDialog';
+import { ExportDialog } from '@/components/common/dialogs/ExportDialog';
 import PlanSettingsModal from '@/components/ai-planning/PlanSettingsModal';
 import { useTranslation } from '@/lib/i18n';
 import { toast, confirm } from '@/stores';

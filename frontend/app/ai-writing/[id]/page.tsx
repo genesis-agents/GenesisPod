@@ -45,7 +45,7 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState, LoadingInline, ErrorState } from '@/components/ui';
-import { ExportDialog } from '@/components/common/ExportDialog';
+import { ExportDialog } from '@/components/common/dialogs/ExportDialog';
 import { useTranslation } from '@/lib/i18n';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { Tabs } from '@/components/ui/tabs';
