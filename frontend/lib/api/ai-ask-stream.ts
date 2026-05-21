@@ -168,7 +168,10 @@ interface PersistedAskMessage {
  * 故这里用一次普通短 GET 回捞最新消息，若捞到「本轮」assistant 回复即视为成功
  * （无打字机、稍有延迟，但内容完整），让代理用户也能正常用。
  */
-async function reconcileAfterStreamCut(
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+async function tryReconcileOnce(
   sessionId: string,
   token: string,
   sentContent: string
@@ -237,6 +240,26 @@ async function reconcileAfterStreamCut(
   } catch {
     return null;
   }
+}
+
+/**
+ * 轮询对账：代理可能在「生成中途」就掐断，那一刻后端还没把回复写库，
+ * 立刻去捞会捞空。后端在客户端断开后仍继续生成，回复要等生成完成才入库
+ * （可能 10–40s），故需重试拉取——捞到即返回；超时仍无则放弃（交调用方报失败）。
+ * 前几次间隔短（断在末尾的情况能秒回），之后每 3s 一次，总上限约 40s。
+ */
+async function reconcileAfterStreamCut(
+  sessionId: string,
+  token: string,
+  sentContent: string
+): Promise<AskStreamSuccess | null> {
+  const MAX_ATTEMPTS = 15;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const found = await tryReconcileOnce(sessionId, token, sentContent);
+    if (found) return found;
+    await sleep(attempt < 3 ? 1500 : 3000);
+  }
+  return null;
 }
 
 /**
