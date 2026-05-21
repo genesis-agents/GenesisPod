@@ -1,5 +1,5 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { OrganizeScope } from "@prisma/client";
+import { OrganizeScope, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   ChatFacade,
@@ -14,11 +14,25 @@ import {
 import { OrganizeChatDto } from "./dto/organize-chat.dto";
 import { ORGANIZE_AGENT_ROLE_ID } from "./tools/organize-bookmark-tools";
 
+/** 一条工具动作的可读明细（建了哪些集合 / 打了什么标签给多少条 / 移动多少条）*/
+export interface OrganizeToolAction {
+  tool: string;
+  /** 人类可读明细，如「新建集合「AI 论文」」「打标签 LLM ×5」「移动 3 条」 */
+  detail: string;
+}
+
 /** SSE 事件（前端逐条渲染：会话/状态/工具动作/总结/完成/错误）*/
 export type OrganizeStreamEvent =
   | { type: "session"; sessionId: string }
   | { type: "status"; stage: "planning" }
-  | { type: "tool"; phase: "call" | "result"; tool: string; data?: unknown }
+  | {
+      type: "tool";
+      phase: "call" | "result";
+      tool: string;
+      data?: unknown;
+      /** result 阶段带可读明细，前端直接渲染（与持久化 toolActions 同源）*/
+      detail?: string;
+    }
   | { type: "chunk"; content: string }
   | {
       type: "done";
@@ -26,10 +40,72 @@ export type OrganizeStreamEvent =
       assistantMessageId: string;
       tokensUsed: number;
       summary: string;
+      /** 本轮全部写动作明细（权威列表；代理掉事件时前端以此为准）*/
+      toolActions: OrganizeToolAction[];
     }
   | { type: "error"; message: string };
 
 const ORGANIZE_ESTIMATED_CREDITS = 20;
+
+/** 读工具（只读现状，不算"做了什么"）—— 明细列表里跳过，避免噪声。*/
+const ORGANIZE_READ_TOOLS = new Set([
+  "organize-list-collections",
+  "organize-list-items",
+]);
+
+const ORGANIZE_STATUS_LABEL: Record<string, string> = {
+  UNREAD: "未读",
+  READING: "在读",
+  COMPLETED: "已读",
+  ARCHIVED: "归档",
+};
+
+/**
+ * 把一次工具调用的 input + output 拼成人类可读明细。
+ * 写工具产出具体结果（建了哪些集合 / 打了什么标签给多少条 / 移动多少条）；
+ * 读工具返回 ""（caller 据此跳过，不进明细列表）。
+ */
+function summarizeOrganizeToolAction(
+  tool: string,
+  input: unknown,
+  output: unknown,
+): string {
+  if (ORGANIZE_READ_TOOLS.has(tool)) return "";
+  const inp = (input ?? {}) as Record<string, unknown>;
+  const out = (output ?? {}) as Record<string, unknown>;
+  const itemIds = Array.isArray(inp.itemIds) ? (inp.itemIds as unknown[]) : [];
+  const count = (key: string): number =>
+    typeof out[key] === "number" ? out[key] : itemIds.length;
+
+  switch (tool) {
+    case "organize-create-collection": {
+      const name = (out.name ?? inp.name ?? "") as string;
+      return `新建集合「${name}」`;
+    }
+    case "organize-tag-items": {
+      const tags = Array.isArray(inp.tags)
+        ? (inp.tags as string[]).join("、")
+        : "";
+      const op =
+        inp.operation === "remove"
+          ? "移除标签"
+          : inp.operation === "set"
+            ? "覆盖标签"
+            : "打标签";
+      return `${op} ${tags} ×${count("updated")}`;
+    }
+    case "organize-move-items":
+      return `移动 ${count("moved")} 条`;
+    case "organize-set-status": {
+      const label =
+        ORGANIZE_STATUS_LABEL[(inp.status as string) ?? ""] ??
+        ((inp.status as string) || "状态");
+      return `设为${label} ×${count("updated")}`;
+    }
+    default:
+      return tool;
+  }
+}
 
 @Injectable()
 export class OrganizeChatService {
@@ -106,7 +182,10 @@ export class OrganizeChatService {
     // 6. 跑平台 ReAct 工具循环，AgentEvent → SSE
     let summary = "";
     let tokensUsed = 0;
-    const toolActions: Array<{ tool: string }> = [];
+    const toolActions: OrganizeToolAction[] = [];
+    // 工具循环 parallelToolCalls=false（顺序执行），tool_call 紧邻其 tool_result，
+    // 用 pendingInput 把 call 的 input 配给随后的 result 拼明细。
+    let pendingInput: unknown;
 
     for await (const ev of this.toolFacade.chatWithToolsStream({
       systemPrompt,
@@ -122,17 +201,27 @@ export class OrganizeChatService {
     })) {
       switch (ev.type) {
         case "tool_call":
+          pendingInput = ev.input;
           yield { type: "tool", phase: "call", tool: ev.tool, data: ev.input };
           break;
-        case "tool_result":
-          toolActions.push({ tool: ev.tool });
+        case "tool_result": {
+          const detail = summarizeOrganizeToolAction(
+            ev.tool,
+            pendingInput,
+            ev.output,
+          );
+          pendingInput = undefined;
+          // 只把"做了什么"的写动作进明细列表；读工具(detail="")跳过。
+          if (detail) toolActions.push({ tool: ev.tool, detail });
           yield {
             type: "tool",
             phase: "result",
             tool: ev.tool,
             data: ev.output,
+            detail: detail || undefined,
           };
           break;
+        }
         case "complete":
           summary = ev.result.summary;
           tokensUsed = ev.result.tokensUsed;
@@ -151,7 +240,7 @@ export class OrganizeChatService {
         sessionId: session.id,
         role: "assistant",
         content: summary,
-        toolActions,
+        toolActions: toolActions as unknown as Prisma.InputJsonValue,
       },
     });
     await this.prisma.organizeSession.update({
@@ -184,6 +273,7 @@ export class OrganizeChatService {
       assistantMessageId: assistantMessage.id,
       tokensUsed,
       summary,
+      toolActions,
     };
   }
 
