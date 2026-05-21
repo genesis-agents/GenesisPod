@@ -8,8 +8,9 @@
  * 配色与 /me/ai 主框架统一。
  */
 import { useEffect, useState } from 'react';
-import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Play, ChevronLeft } from 'lucide-react';
+import { Plus, ChevronLeft, Bot, Hash } from 'lucide-react';
+import { AssetCard } from '@/components/common/asset-card';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { CustomAgentWizard } from './CustomAgentWizard';
@@ -27,6 +28,7 @@ export function MyAgentsTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>({ mode: 'list' });
+  const router = useRouter();
 
   const load = () => {
     setLoading(true);
@@ -133,82 +135,45 @@ export function MyAgentsTab() {
           }}
         />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <Table className="w-full text-sm">
-            <THead className="bg-gray-50 text-xs text-gray-600">
-              <Tr>
-                <Th className="px-4 py-2 text-left">名称</Th>
-                <Th className="px-4 py-2 text-left">Slug</Th>
-                <Th className="px-4 py-2 text-left">状态</Th>
-                <Th className="px-4 py-2 text-left">版本</Th>
-                <Th className="px-4 py-2 text-left">更新时间</Th>
-                <Th className="px-4 py-2 text-right">操作</Th>
-              </Tr>
-            </THead>
-            <TBody className="divide-y divide-gray-100">
-              {items.map((it) => (
-                <Tr key={it.id} className="hover:bg-gray-50">
-                  <Td className="px-4 py-2 font-medium text-gray-900">
-                    {it.displayName}
-                    {it.description && (
-                      <p className="mt-0.5 line-clamp-1 text-xs text-gray-500">
-                        {it.description}
-                      </p>
-                    )}
-                  </Td>
-                  <Td className="px-4 py-2 text-gray-700">
-                    <code className="rounded bg-gray-100 px-1 py-0.5 text-xs">
-                      {it.slug}
-                    </code>
-                  </Td>
-                  <Td className="px-4 py-2">
-                    <span
-                      className={`inline-flex rounded px-2 py-0.5 text-xs ${
-                        it.status === 'PUBLISHED'
-                          ? 'bg-green-100 text-green-700'
-                          : it.status === 'ARCHIVED'
-                            ? 'bg-gray-100 text-gray-600'
-                            : 'bg-amber-100 text-amber-700'
-                      }`}
-                    >
-                      {it.status}
-                    </span>
-                  </Td>
-                  <Td className="px-4 py-2 text-xs text-gray-500">
-                    v{it.version}
-                  </Td>
-                  <Td className="px-4 py-2 text-xs text-gray-500">
-                    {new Date(it.updatedAt).toLocaleString()}
-                  </Td>
-                  <Td className="px-4 py-2 text-right">
-                    {it.status === 'PUBLISHED' && (
-                      <a
-                        href={`/custom-agents/${it.id}`}
-                        className="mr-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-                        title="打开 agent 主页 + 历史 mission"
-                      >
-                        <Play className="h-3 w-3" /> 打开
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setView({ mode: 'edit', record: it })}
-                      className="mr-2 inline-flex items-center gap-1 text-xs text-gray-700 hover:text-gray-900"
-                    >
-                      <Pencil className="h-3 w-3" /> 编辑
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(it.id)}
-                      className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-800"
-                    >
-                      <Trash2 className="h-3 w-3" /> 删除
-                    </button>
-                  </Td>
-                </Tr>
-              ))}
-            </TBody>
-          </Table>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((it) => (
+            <AssetCard
+              key={it.id}
+              title={it.displayName}
+              description={it.description}
+              icon={<Bot className="h-6 w-6 text-white" />}
+              badges={[
+                {
+                  key: 'status',
+                  label: it.status,
+                  className:
+                    it.status === 'PUBLISHED'
+                      ? 'bg-green-100 text-green-700'
+                      : it.status === 'ARCHIVED'
+                        ? 'bg-gray-100 text-gray-600'
+                        : 'bg-amber-100 text-amber-700',
+                },
+              ]}
+              isOwner
+              onEdit={() => setView({ mode: 'edit', record: it })}
+              onDelete={() => remove(it.id)}
+              onClick={() =>
+                it.status === 'PUBLISHED'
+                  ? router.push(`/custom-agents/${it.id}`)
+                  : setView({ mode: 'edit', record: it })
+              }
+              stats={[
+                {
+                  key: 'slug',
+                  icon: <Hash className="h-3.5 w-3.5" />,
+                  text: it.slug,
+                },
+                { key: 'ver', icon: null, text: `v${it.version}` },
+              ]}
+              timestamp={it.updatedAt}
+              timestampLabel="更新"
+            />
+          ))}
         </div>
       )}
     </div>
