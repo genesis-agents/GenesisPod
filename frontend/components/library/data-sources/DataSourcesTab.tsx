@@ -495,7 +495,7 @@ export default function DataSourcesTab({
             title="我的内容"
             description="在 Genesis 内创建或收藏的资源"
           />
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <ContentSummaryCard
               icon={Bookmark}
               iconBg="bg-orange-50 text-orange-600"
@@ -531,7 +531,7 @@ export default function DataSourcesTab({
             description="授权第三方平台，自动同步内容到知识库"
             count={connectedCount}
           />
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <ConnectorCard
               icon={HardDrive}
               iconBg="bg-emerald-50 text-emerald-600"

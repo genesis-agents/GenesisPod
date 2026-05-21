@@ -28,7 +28,7 @@ export default function ContentSummaryCard({
   return (
     <button
       onClick={onClick}
-      className="group relative flex flex-col items-start gap-3 overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-lg"
+      className="group relative flex h-full flex-col items-start gap-3 overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-lg"
     >
       <div className="flex w-full items-start justify-between">
         <div
