@@ -66,7 +66,9 @@ export function OrganizeChatMode({
   scope?: OrganizeStreamRequestBody['scope'];
   onChanged?: () => void;
 }) {
-  const { accessToken: token } = useAuth();
+  const { user, accessToken: token } = useAuth();
+  // 用户气泡署名用当前登录用户名（与 UserProfileButton 同源），而非通用 "User"
+  const userName = user?.fullName || user?.username || 'User';
   const [messages, setMessages] = useState<LeaderChatMessage[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,6 +175,7 @@ export function OrganizeChatMode({
       subtitle={`对话整理 · ${SCOPE_LABEL[scope ?? 'BOOKMARKS']}`}
       accentColor="violet"
       assistantName="整理助手"
+      userName={userName}
       labels={{
         emptyTitle: '用对话整理你的库',
         emptyHint:

@@ -4,7 +4,10 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { SocialContentTaskStatus } from "@prisma/client";
+import {
+  SocialContentTaskStatus,
+  SocialContentVersionStatus,
+} from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialDataSourceRegistry } from "../registry/social-data-source.registry";
 import { ContentFetcherService } from "./content-fetcher.service";
@@ -289,6 +292,9 @@ export class SocialTaskService {
       );
 
       if (result.status === "completed") {
+        // 先把生成内容落 SocialContentTaskVersion（输出报告 tab / 发布读此表；
+        // s11 只写了 mission.trajectory，导致 task.versions 永远空 → 「版本生成中…」）
+        await this.persistTaskVersions(taskId, missionId, dto.platforms);
         // ★ R3 P1-2 / R4 P1 fix (2026-05-18): 方案 §6.3 状态聚合规则 —
         //   按 SocialContentTaskVersion[].status 聚合任务级 status。
         await this.recomputeTaskStatus(taskId);
@@ -341,6 +347,64 @@ export class SocialTaskService {
    * dispatcher 内部按 stage 写入 versions 行（可能晚于 mission completed 通知），
    * 因此本方法以 task version 当前快照为准。
    */
+  /**
+   * 把 mission 生成的最终内容（存在 social_missions.trajectory）落到
+   * SocialContentTaskVersion —— 输出报告 tab / 发布面板读此表。
+   * 修复：之前只写 trajectory JSON，task.versions 永远空 → 详情页「版本生成中…」。
+   * 内容映射：title ← trajectory.platformVersions[平台].title；
+   *           content ← trajectory.composed[平台].bodyHtml。
+   */
+  private async persistTaskVersions(
+    taskId: string,
+    missionId: string,
+    platforms: string[],
+  ): Promise<void> {
+    try {
+      const mission = await this.prisma.socialMission.findUnique({
+        where: { id: missionId },
+        select: { trajectory: true },
+      });
+      const traj = mission?.trajectory as {
+        composed?: Record<string, { bodyHtml?: string }>;
+        platformVersions?: Record<
+          string,
+          { title?: string; digest?: string | null }
+        >;
+      } | null;
+      if (!traj) return;
+      for (const platform of platforms) {
+        const content = traj.composed?.[platform]?.bodyHtml ?? "";
+        const title = traj.platformVersions?.[platform]?.title ?? "";
+        const digest = traj.platformVersions?.[platform]?.digest ?? null;
+        if (!content && !title) continue;
+        await this.prisma.socialContentTaskVersion.upsert({
+          where: { taskId_platform: { taskId, platform } },
+          create: {
+            taskId,
+            platform,
+            title: title || "(未命名)",
+            content,
+            digest,
+            bodyMime: "text/html",
+            status: SocialContentVersionStatus.DRAFT_READY,
+          },
+          update: {
+            title: title || "(未命名)",
+            content,
+            digest,
+            status: SocialContentVersionStatus.DRAFT_READY,
+          },
+        });
+      }
+    } catch (err) {
+      this.logger.warn(
+        `[${taskId}] persistTaskVersions failed (non-fatal): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
   private async recomputeTaskStatus(taskId: string): Promise<void> {
     const versions = await this.prisma.socialContentTaskVersion.findMany({
       where: { taskId },
