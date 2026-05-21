@@ -28,6 +28,7 @@ import {
   type AssetVisibilityOption,
 } from '@/components/common/asset-card';
 import { FileText, Globe, Lock, FileSearch, Plus } from 'lucide-react';
+import { CreateCard } from '@/components/common/cards/CreateCard';
 import { EmptyState, LoadingState } from '@/components/ui/states';
 import { PageHeaderHero } from '@/components/common/page-header-hero';
 
@@ -509,27 +510,10 @@ function ResearchPageContent() {
             })}
 
             {/* Create New Card */}
-            <button
+            <CreateCard
+              title={t('aiResearch.newResearch')}
               onClick={openCreateDialog}
-              className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-indigo-400 hover:bg-indigo-50"
-            >
-              <svg
-                className="h-10 w-10 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              <span className="mt-2 text-sm font-medium text-gray-600">
-                {t('aiResearch.newResearch')}
-              </span>
-            </button>
+            />
           </div>
         )}
       </div>

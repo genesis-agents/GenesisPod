@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui/states';
 import { Plus } from 'lucide-react';
 import { PageHeaderHero } from '@/components/common/page-header-hero';
+import { CreateCard } from '@/components/common/cards/CreateCard';
 // AI Image Team - Preview (3 core agents)
 const AI_TEAM_PREVIEW = [
   {
@@ -505,27 +506,11 @@ export default function AIImagePage() {
               })}
 
               {/* Create New Card */}
-              <button
+              <CreateCard
+                title={t('aiImage.createNew')}
                 onClick={() => router.push('/ai-image/create')}
-                className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white transition-colors hover:border-pink-400 hover:bg-pink-50"
-              >
-                <svg
-                  className="h-10 w-10 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                <span className="mt-2 text-sm font-medium text-gray-600">
-                  {t('aiImage.createNew')}
-                </span>
-              </button>
+                className="aspect-square"
+              />
             </div>
           )}
         </div>
