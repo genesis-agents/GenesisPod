@@ -160,6 +160,21 @@ backend/src/modules/ai-app/library/organize-chat/
 
 ---
 
+### 7.1 落地进度（backfill）
+
+| 波次                                                                              | 状态 | commit      |
+| --------------------------------------------------------------------------------- | ---- | ----------- |
+| P1-1 数据层（OrganizeSession/Message + 迁移）                                     | ✅   | `7b931ed40` |
+| P1-2 工具层（6 书签 ITool，userId 鉴权 + ≤100 上限）                              | ✅   | `99bf649a7` |
+| P1-3 集成核心（service chatWithToolsStream + SSE controller + module + app 注册） | ✅   | `5b0503124` |
+| P1-4 测试（13 用例：鉴权/上限/SSE 转换/扣费/余额闸）                              | ✅   | `fe78c4e60` |
+
+**P1 后端（书签）功能完成**，每波 tsc 0 + verify:arch 100/100 + pre-push 全闸门绿。
+待运行时实测：BLK-6 `consumeCredits` token 真扣费（单测已断言被调，需部署后真机核账）。
+下一波 P2 前端：`AIOrganizePanel` 对话 Tab + 聊天区 + 动作卡撤销 + 代理对账。
+
+---
+
 ## 8. 风险与缓解
 
 | 风险                 | 缓解                                                                   |
