@@ -23,6 +23,7 @@ import {
   streamOrganizeMessage,
   type OrganizeStreamEvent,
   type OrganizeStreamRequestBody,
+  type OrganizeToolAction,
 } from '@/lib/api/organize-chat-stream';
 
 const TOOL_META: Record<string, { label: string; icon: typeof Tag }> = {
@@ -34,14 +35,14 @@ const TOOL_META: Record<string, { label: string; icon: typeof Tag }> = {
   'organize-list-items': { label: '读取条目', icon: Search },
 };
 
-function ToolChip({ tool }: { tool: string }) {
-  const meta = TOOL_META[tool] ?? { label: tool, icon: Sparkles };
+function ToolActionRow({ action }: { action: OrganizeToolAction }) {
+  const meta = TOOL_META[action.tool] ?? { label: action.tool, icon: Sparkles };
   const Icon = meta.icon;
   return (
-    <span className="inline-flex items-center gap-1 rounded-lg bg-violet-50 px-2 py-1 text-xs text-violet-700">
-      <Icon className="h-3 w-3" />
-      {meta.label}
-    </span>
+    <div className="inline-flex items-center gap-1.5 text-xs text-violet-700">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-violet-500" />
+      <span>{action.detail || meta.label}</span>
+    </div>
   );
 }
 
@@ -96,12 +97,14 @@ export function OrganizeChatMode({
         setMessages((prev) => prev.map((m) => (m.id === asstId ? fn(m) : m)));
 
       const onEvent = (e: OrganizeStreamEvent) => {
-        if (e.type === 'tool' && e.phase === 'result') {
+        // 只把"做了什么"的写动作（带 detail）进列表；读工具无 detail，跳过避免噪声。
+        if (e.type === 'tool' && e.phase === 'result' && e.detail) {
+          const action: OrganizeToolAction = { tool: e.tool, detail: e.detail };
           patch((m) => {
-            const tools = (m.meta?.tools as { tool: string }[]) ?? [];
+            const tools = (m.meta?.tools as OrganizeToolAction[]) ?? [];
             return {
               ...m,
-              meta: { ...m.meta, tools: [...tools, { tool: e.tool }] },
+              meta: { ...m.meta, tools: [...tools, action] },
             };
           });
         } else if (e.type === 'chunk') {
@@ -127,6 +130,12 @@ export function OrganizeChatMode({
           content:
             result.summary ||
             (m.content === '__THINKING__' ? '已完成整理' : m.content),
+          // 权威明细：done/对账带回的 toolActions 覆盖实时累积——代理掉了实时
+          // tool 事件时，这是唯一能看到"做了什么"的来源。
+          meta:
+            result.toolActions && result.toolActions.length > 0
+              ? { ...m.meta, tools: result.toolActions }
+              : m.meta,
         }));
         onChanged?.();
       } else {
@@ -141,12 +150,12 @@ export function OrganizeChatMode({
   );
 
   const renderTools = (msg: LeaderChatMessage) => {
-    const tools = (msg.meta?.tools as { tool: string }[]) ?? [];
+    const tools = (msg.meta?.tools as OrganizeToolAction[]) ?? [];
     if (tools.length === 0) return null;
     return (
-      <div className="mt-2 flex flex-wrap gap-1">
+      <div className="mt-2 flex flex-col gap-1 border-l-2 border-violet-100 pl-2">
         {tools.map((t, i) => (
-          <ToolChip key={`${msg.id}-${i}`} tool={t.tool} />
+          <ToolActionRow key={`${msg.id}-${i}`} action={t} />
         ))}
       </div>
     );

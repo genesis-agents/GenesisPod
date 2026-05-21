@@ -8,10 +8,23 @@
 import { logger } from '@/lib/utils/logger';
 import { config } from '@/lib/utils/config';
 
+/** 一条工具动作的可读明细（与后端 OrganizeToolAction 同形）*/
+export interface OrganizeToolAction {
+  tool: string;
+  detail: string;
+}
+
 export type OrganizeStreamEvent =
   | { type: 'session'; sessionId: string }
   | { type: 'status'; stage: 'planning' }
-  | { type: 'tool'; phase: 'call' | 'result'; tool: string; data?: unknown }
+  | {
+      type: 'tool';
+      phase: 'call' | 'result';
+      tool: string;
+      data?: unknown;
+      /** result 阶段带可读明细，前端直接渲染 */
+      detail?: string;
+    }
   | { type: 'chunk'; content: string }
   | {
       type: 'done';
@@ -19,6 +32,8 @@ export type OrganizeStreamEvent =
       assistantMessageId: string;
       tokensUsed: number;
       summary: string;
+      /** 本轮全部写动作明细（权威列表；代理掉事件时以此为准）*/
+      toolActions?: OrganizeToolAction[];
     }
   | { type: 'error'; message: string };
 
@@ -37,6 +52,8 @@ export type OrganizeStreamResult =
       sessionId: string;
       summary: string;
       tokensUsed: number;
+      /** 本轮写动作明细；代理掐断后由对账从持久化消息回捞 */
+      toolActions?: OrganizeToolAction[];
     }
   | { ok: false; error: string; partialSummary?: string };
 
@@ -52,6 +69,20 @@ interface OrganizeMessageRow {
   role: string;
   content: string;
   createdAt: string;
+  toolActions?: OrganizeToolAction[] | null;
+}
+
+/** 安全解析持久化的 toolActions JSON（只保留形状对的项）*/
+function parseToolActions(raw: unknown): OrganizeToolAction[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const actions = raw.filter(
+    (a): a is OrganizeToolAction =>
+      !!a &&
+      typeof a === 'object' &&
+      typeof (a as OrganizeToolAction).tool === 'string' &&
+      typeof (a as OrganizeToolAction).detail === 'string'
+  );
+  return actions.length > 0 ? actions : undefined;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -77,7 +108,13 @@ async function tryReconcileOnce(
         new Date(m.createdAt).getTime() >= sinceMs - skew
     );
     if (!reply) return null;
-    return { ok: true, sessionId, summary: reply.content, tokensUsed: 0 };
+    return {
+      ok: true,
+      sessionId,
+      summary: reply.content,
+      tokensUsed: 0,
+      toolActions: parseToolActions(reply.toolActions),
+    };
   } catch {
     return null;
   }
@@ -155,6 +192,7 @@ export async function streamOrganizeMessage(
           sessionId: event.sessionId,
           summary,
           tokensUsed: event.tokensUsed,
+          toolActions: event.toolActions,
         };
       } else if (event.type === 'error') {
         errorMsg = event.message;
