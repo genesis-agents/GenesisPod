@@ -41,12 +41,41 @@ components/common/mission-detail/  MissionDetailFrame + StageStepper + MissionAc
    TeamsArtifactRenderer（辩论/共识/报告产出，挂 ArtifactReader 插槽）
 ```
 
-**ai-teams 只需贡献两样**（标准 21 §3）：
+**ai-teams 只需贡献三样**（业务适配，标准 21 §3 + 本次评审补充）：
 
 1. **step-map**：声明 ai-teams mission 的阶段拓扑（参考 `lib/ai-social/derive-social-stages.ts`）。
-2. **artifact renderer**：团队辩论/共识/报告的展示组件，挂 ArtifactReader 插槽。
+2. **tab 选择 + 数据适配**：业务决定**展示哪些 tab**（如 ai-teams 要任务列表+动作+报告+消息，ai-radar 可能只要信号+报告）+ 提供每个 tab 的数据适配（从 view-model 取数）。
+3. **artifact renderer**：团队辩论/共识/报告的产出展示组件，挂 ArtifactReader 插槽。
 
-其余（拓扑、角色卡、阶段进度、事件流、todo 板、引用、算力、实时通道、派生引擎）**全部复用，不得各造**。
+其余（拓扑、角色卡、阶段进度、事件流、todo 板、引用、算力、实时通道、派生引擎、**以及每个 tab 的统一呈现**）**全部复用，不得各造**。
+
+### 3.5 标准化 Tab 体系（评审重点：业务定"展示哪些"，平台定"每个怎么呈现"）
+
+> 现状缺口：`common/mission-detail/` 只有 Frame/Stepper/ActionGroup，**没有 canonical tab 组件**——playground 自己拼了任务表/算力面板。要落实「每个 tab 统一规范、最大化复用」，需把 tab 抽成 canonical。
+
+**契约**：详情页右侧是一个 `MissionTabs` 容器，吃一份**业务给的 tab 配置**：
+
+```
+type MissionTab = {
+  key: string;                 // 'tasks' | 'actions' | 'report' | 'references' | 'messages' | ...
+  label: string;               // 业务命名
+  render: (view) => ReactNode; // 复用 canonical tab 组件 + 业务数据适配
+};
+// 业务（ai-teams）只声明 tabs: MissionTab[]，决定展示哪些、顺序、命名
+```
+
+**canonical tab 组件（抽到 `common/mission-detail/tabs/`，全特性复用）**：
+
+| tab      | canonical 组件         | 数据来自                  | 复用现有                                    |
+| -------- | ---------------------- | ------------------------- | ------------------------------------------- |
+| 任务列表 | `MissionTaskListTab`   | `view.todos`              | 抽自 playground `MissionTodoBoard`/任务表   |
+| 动作记录 | `MissionActionLogTab`  | `view.events`（派生动作） | 抽自 playground 动作流                      |
+| 输出报告 | `MissionReportTab`     | `view.artifacts`          | 复用 `report-viewer` / ArtifactReader       |
+| 参考文献 | `MissionReferencesTab` | `view.references`         | 复用 `common/citations`（CitationListItem） |
+| 我方消息 | `MissionMessagesTab`   | `view.messages`           | 复用消息卡 `MessageCardShell`               |
+| 算力     | `MissionComputeTab`    | `view.cost`               | 抽自 playground `ComputeUsagePanel`         |
+
+> 即：**业务决定 tab 选择与数据适配（差异化），平台统一每个 tab 的呈现规则与组件（标准化）**——与标准 22 卡片体系同思路。表格走 `ui/table`/`DataTable`、卡片走 canonical、不自写。
 
 ## 4. 关键设计：事件模型映射（最核心、最需评审）
 
@@ -80,13 +109,14 @@ components/common/mission-detail/  MissionDetailFrame + StageStepper + MissionAc
 
 ## 7. 分阶段交付 + 验收标准
 
-| 阶段                     | 内容                                                                                               | 验收                                                     |
-| ------------------------ | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| **P0 调研**（先做）      | 盘点 ai-teams 后端事件模型 + 与 MissionEvent 差异 → 定 adapter 方案                                | 产出事件映射表，更新本设计 §4                            |
-| **P1 派生引擎泛化**      | `useAgentPlaygroundStream`→`useMissionStream`；通用 derive 提 `lib/missions/`（与标准 21 P1 协同） | playground 回归不破；新 hook 有测试                      |
-| **P2 ai-teams 派生层**   | `lib/ai-teams/`：events adapter + deriveTeamsView + step-map + **fixture 回归测试**                | 纯函数测试：生产事件快照 → 期望 view-model               |
-| **P3 详情页迁移**        | 新 `AiTeamsMissionPage` 用 mission-detail Frame + 拓扑 + Tab；page.tsx 瘦身                        | 真机：跑一个 team mission，呈现 = playground；旧功能不丢 |
-| **P4 旧 god-class 下线** | 删 3153 行旧详情，import 全切                                                                      | 无残留引用；audit/lint/tsc 0                             |
+| 阶段                       | 内容                                                                                                                                  | 验收                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **P0 调研**（先做）        | 盘点 ai-teams 后端事件模型 + 与 MissionEvent 差异 → 定 adapter 方案                                                                   | 产出事件映射表，更新本设计 §4                                                             |
+| **P1 派生引擎泛化**        | `useAgentPlaygroundStream`→`useMissionStream`；通用 derive 提 `lib/missions/`（与标准 21 P1 协同）                                    | playground 回归不破；新 hook 有测试                                                       |
+| **P1.5 抽 canonical tabs** | 把 playground 的任务表/动作/算力等抽到 `common/mission-detail/tabs/` + `MissionTabs` 容器 + tab 契约（§3.5），playground 先迁过去验证 | playground 用新 canonical tabs 无回归；每个 tab 复用 DataTable/citations/MessageCardShell |
+| **P2 ai-teams 派生层**     | `lib/ai-teams/`：events adapter + deriveTeamsView + step-map + **fixture 回归测试**                                                   | 纯函数测试：生产事件快照 → 期望 view-model                                                |
+| **P3 详情页迁移**          | 新 `AiTeamsMissionPage` 用 mission-detail Frame + 拓扑 + Tab；page.tsx 瘦身                                                           | 真机：跑一个 team mission，呈现 = playground；旧功能不丢                                  |
+| **P4 旧 god-class 下线**   | 删 3153 行旧详情，import 全切                                                                                                         | 无残留引用；audit/lint/tsc 0                                                              |
 
 > 与 #1（对话整理）的顺序：用户已定 **#1 先做**；本迁移在 #1 后启动，P0 调研可并行准备。
 

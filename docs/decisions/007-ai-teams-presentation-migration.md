@@ -2,7 +2,7 @@
 
 **Date**: 2026-05-21
 **Status**: 🟡 Proposed（评审中，待集体评审通过）
-**关联设计文档**: [frontend/agent-teams-presentation-migration-design.md](../architecture/frontend/agent-teams-presentation-migration-design.md)
+**关联设计文档**: [features/ai-teams/presentation-migration-design.md](../features/ai-teams/presentation-migration-design.md)
 **关联标准**: [.claude/standards/21-agent-teams-presentation.md](../../.claude/standards/21-agent-teams-presentation.md)（本 ADR = 其 §7 P3 的 ai-teams 落地）
 
 ## 背景
@@ -15,8 +15,9 @@
 
 1. **实时**：用 `useMissionStream`（由 `useAgentPlaygroundStream` 泛化，与标准 21 P1 协同），不自写轮询。
 2. **派生**：新增纯函数 `lib/ai-teams/deriveTeamsView(events)`（+ step-map + 必要时 events adapter），幂等可重放，**带 fixture 回归测试**。
-3. **呈现**：复用 `components/common/mission-detail/`（Frame/StageStepper/MissionActionGroup）+ `common/team-topology` + 右侧 Tab（任务列表/动作/报告），ai-teams **只贡献 step-map + artifact renderer**。
-4. **瘦页**：`page.tsx` < 100 行；旧 god-class 功能逐块映射后下线，不丢功能。
+3. **呈现**：复用 `components/common/mission-detail/`（Frame/StageStepper/MissionActionGroup）+ `common/team-topology`。
+4. **标准化 Tab 体系（2026-05-21 评审补充）**：右侧 tab **业务定"展示哪些"、平台定"每个怎么呈现"**。把 tab 抽成 canonical（`common/mission-detail/tabs/`：TaskList/ActionLog/Report/References/Messages/Compute，分别复用 DataTable/report-viewer/citations/MessageCardShell），业务（ai-teams）只声明 `tabs: MissionTab[]`（选哪些 + 数据适配）。即 ai-teams **贡献 step-map + tab 选择/适配 + artifact renderer**，每个 tab 的呈现规则统一不自写。
+5. **瘦页**：`page.tsx` < 100 行；旧 god-class 功能逐块映射后下线，不丢功能。
 
 ## 关键不确定项（P0 先调研）
 

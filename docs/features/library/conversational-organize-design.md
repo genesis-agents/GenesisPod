@@ -47,45 +47,51 @@
 
 ## 3. 架构设计
 
-### 3.1 总体（复用 AI Ask 流式范式 + Engine 原生 Function Calling）
+### 3.1 总体（最大化复用平台 agent 运行时 + 工具框架，不重造轮子）
+
+> 核心原则（评审修订）：**「理解意图 → 选工具 → 执行 → 回应」这套循环平台已有**（`FunctionCallingExecutor`，经 `AiHarnessFacade.executeAgent()` 暴露）。organize 不自写循环，只**注册领域工具 + 复用 agent 运行时**。
 
 ```
 前端「对话整理」面板
    │  POST /library/organize-chat/stream   (SSE)
    ▼
 OrganizeChatController (SSE)
-   │  for await event of service.run(...)
+   │  转发 agent 的 AgentEvent 流为 SSE
    ▼
-OrganizeChatService.run()  ── async generator，产出 SSE 事件 ──┐
-   │  循环（最多 N 轮）：                                      │
-   │   ChatFacade.chat({ messages, tools, taskProfile })       │ events:
-   │     ├─ 有 toolCalls → 执行 organize 工具 → 结果回灌 messages │  status / tool / chunk / done / error
-   │     └─ 无 toolCalls → 产出最终回复，结束                    │
-   ▼                                                            ▼
-organize-tools.ts （FunctionDefinition[] + 执行器）        前端逐条渲染：
-   映射 name → CollectionsService / AiFileOrganizerService /   「正在分类… / 已建集合 X / 已给 12 条打标 LLM」
-   NotesService 既有方法（薄封装，不重造）
+OrganizeChatService
+   │  ① 准备「库整理 agent」：systemPrompt(scope) + 该 scope 的 organize 工具集
+   │  ② 调 AiHarnessFacade.executeAgent({ message, tools, context:{userId,scope} })
+   │     —— 平台 agent 自己理解意图、决定调哪些工具、多轮执行、产出回应
+   ▼
+ToolRegistry / ToolFacade（平台工具框架）
+   │  organize 工具 = 标准 ITool，execute() 内薄封装 ↓ 既有服务
+   ▼
+CollectionsService / AiFileOrganizerService / NotesService（既有写/读，带 userId 鉴权）
 ```
+
+复用点（= 不造的轮子）：意图理解 + 工具选择 + 多轮执行循环（agent 运行时）、工具注册/执行/定义（ToolFacade）、LLM 调用（engine）、流式（agent AgentEvent → SSE）、代理兜底（ai-ask reconcile 范式）、批量写（collections 既有方法）。
 
 ### 3.2 关键决策（ADR 摘要，详见 ADR-006）
 
-| 决策                    | 选择                                                                                   | 理由                                                                                                                                                         |
-| ----------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Function Calling 怎么跑 | **`ChatFacade.chat({tools})` + 服务内薄 tool-loop**（不进 ai-harness 的 agent runner） | Engine 原生支持 `tools`/`toolCalls`；organize 是 ai-app 的「聊天改库」，不是 agent mission；用 harness executor 是跨层 + 过度。符合「单一职责 + 不过度抽象」 |
-| 工具注册                | **不进全局 ToolRegistry**，本模块内联 `FunctionDefinition[]` + switch 执行器           | 这些工具是 library 专属、强权限绑定（userId），不需要全局可发现性                                                                                            |
-| 流式                    | SSE（同 AI Ask）+ **代理兜底**（无 done 时 GET 对账，见已立 `ai-ask-stream` 经验）     | 与近期代理掐断治理一致                                                                                                                                       |
-| 写操作落点              | 工具薄封装 `CollectionsService` 等**既有方法**（带 userId 鉴权），不新写 SQL           | 不重造、复用已测的批量写                                                                                                                                     |
+| 决策                | 选择（评审修订：max reuse）                                                            | 理由                                                                                                              |
+| ------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 意图理解 + 执行循环 | **复用 `AiHarnessFacade.executeAgent()`**（内即 `FunctionCallingExecutor`）            | 平台已有成熟 agent 循环（理解意图→选工具→多轮执行）；自写 tool-loop = 重造轮子。已删 IntentRouter，意图交给 agent |
+| 工具                | **实现为标准 `ITool` 注册 `ToolRegistry`，经 `ToolFacade` 执行**                       | 复用平台工具框架（注册/执行/FunctionDefinition/权限中间件），不内联 switch                                        |
+| 流式                | SSE 转发 agent `AgentEvent` 流 + 代理兜底（`ai-ask-stream` reconcile 范式）            | 复用既有实时 + 抗代理范式                                                                                         |
+| 写操作落点          | 工具 `execute()` 薄封装 `CollectionsService` 等**既有方法**（userId 鉴权），不新写 SQL | 复用已测批量写                                                                                                    |
 
-### 3.3 后端模块结构（新建）
+### 3.3 后端模块结构（新建，薄）
 
 ```
 backend/src/modules/ai-app/library/organize-chat/
-├── organize-chat.module.ts        imports: CollectionsModule, AiFileOrganizerModule, NotesModule, AIEngine(ChatFacade)
+├── organize-chat.module.ts        imports: ToolsModule(ToolFacade)、AiHarnessFacade、CollectionsModule、AiFileOrganizerModule、NotesModule
 ├── organize-chat.controller.ts    @Post(':scope/stream') SSE；@Throttle；JwtAuthGuard
-├── organize-chat.service.ts       run(): async generator（chat+tool loop）
-├── organize-tools.ts              ORGANIZE_TOOLS: FunctionDefinition[]；executeOrganizeTool(name,args,ctx)
+├── organize-chat.service.ts       组装 agent（systemPrompt + scope 工具集）→ executeAgent → AgentEvent 转 SSE（薄，无自写循环）
+├── tools/                         organize ITool 实现（create-collection / tag-items / move-items / set-status / list-* / suggest-classification），onModuleInit 注册到 ToolRegistry
 └── dto/organize-chat.dto.ts       { message, scope, conversationHistory, collectionId? }
 ```
+
+> P0 开工前确认：`executeAgent` 的入参是否支持「按次传入工具子集 + 注入 userId/scope context + 流式 AgentEvent」；若需补一个 harness facade 的薄方法，也属复用而非重造。
 
 ### 3.4 工具目录（FunctionDefinition）
 
