@@ -497,11 +497,21 @@ model Collection {
 }
 
 model CollectionItem {
-  id           String  @id @default(uuid())
-  collectionId String  @map("collection_id")
-  resourceId   String  @map("resource_id")
-  note         String? @db.Text
-  position     Int     @default(0)
+  id           String @id @default(uuid())
+  collectionId String @map("collection_id")
+
+  // ★ 2026-05-21 数据源统一整理：CollectionItem 泛化为多态"本地整理覆盖层"，
+  //   可指向任意源条目（书签/笔记/图片/飞书/Notion）；tag/move/status 只存本地，
+  //   不动源数据。详见 docs/features/library/unified-organize-design.md
+  itemType     CollectionItemType @default(BOOKMARK) @map("item_type")
+  resourceId   String?            @map("resource_id") // BOOKMARK / DRIVE
+  noteId       String?            @map("note_id") // NOTE
+  imageId      String?            @map("image_id") // IMAGE
+  feishuItemId String?            @map("feishu_item_id") // FEISHU
+  notionItemId String?            @map("notion_item_id") // NOTION（FK 待 W4 建表后接）
+
+  note     String? @db.Text
+  position Int     @default(0)
 
   // Reading status tracking
   readStatus   ReadStatus @default(UNREAD) @map("read_status")
@@ -513,16 +523,32 @@ model CollectionItem {
 
   addedAt DateTime @default(now()) @map("added_at")
 
-  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  resource   Resource   @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  collection Collection      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  resource   Resource?       @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  noteRef    Note?           @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  imageRef   GeneratedImage? @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  feishuRef  FeishuItem?     @relation(fields: [feishuItemId], references: [id], onDelete: Cascade)
 
   @@unique([collectionId, resourceId])
+  @@unique([collectionId, noteId])
+  @@unique([collectionId, imageId])
+  @@unique([collectionId, feishuItemId])
   @@index([collectionId])
   @@index([collectionId, addedAt(sort: Desc)])
   @@index([collectionId, readStatus])
   @@index([resourceId])
   @@index([readStatus])
+  @@index([itemType])
   @@map("collection_items")
+}
+
+enum CollectionItemType {
+  BOOKMARK
+  NOTE
+  IMAGE
+  FEISHU
+  NOTION
+  DRIVE
 }
 
 enum ReadStatus {
@@ -656,6 +682,9 @@ model Note {
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   resource Resource? @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  // 数据源统一整理：本地整理覆盖层（多态 CollectionItem）
+  collectionItems CollectionItem[]
 
   @@index([userId])
   @@index([resourceId])
@@ -2845,6 +2874,9 @@ model GeneratedImage {
   // Metadata
   createdAt DateTime @default(now()) @map("created_at")
 
+  // 数据源统一整理：本地整理覆盖层（多态 CollectionItem）
+  collectionItems CollectionItem[]
+
   @@index([userId])
   @@index([createdAt])
   @@index([isBookmarked])
@@ -5004,6 +5036,9 @@ model FeishuItem {
 
   // 关系
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 数据源统一整理：本地整理覆盖层（多态 CollectionItem）
+  collectionItems CollectionItem[]
 
   @@unique([userId, sourceUrl])
   @@unique([userId, nodeToken])
