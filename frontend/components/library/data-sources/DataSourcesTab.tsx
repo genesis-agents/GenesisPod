@@ -22,7 +22,11 @@ import FeishuDataSourcePanel from '../import-panels/FeishuDataSourcePanel';
 import ConnectorCard from './ConnectorCard';
 import ContentSummaryCard from './ContentSummaryCard';
 import SectionTitle from '../_design/SectionTitle';
-import type { ConnectorState } from '../_design/tokens';
+import {
+  CONNECTOR_STATUS_TOKENS,
+  type ConnectorState,
+} from '../_design/tokens';
+import { VerticalNavMenu, type VerticalNavGroup } from '../../ui/nav';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
@@ -47,6 +51,10 @@ interface DataSourcesTabProps {
   renderNotion?: () => React.ReactNode;
   renderGoogleDrive?: () => React.ReactNode;
   renderFeishu?: () => React.ReactNode;
+  /** AI 整理面板（仅书签 / 笔记 / 图片），渲染在内容列表上方 */
+  renderOrganizePanel?: (
+    subTab: 'bookmarks' | 'notes' | 'images'
+  ) => React.ReactNode;
   /** 用户内容计数（书签 / 笔记 / 图片）— 由 page.tsx 透传 */
   contentCounts?: {
     bookmarks?: number;
@@ -141,6 +149,7 @@ export default function DataSourcesTab({
   renderNotion,
   renderGoogleDrive,
   renderFeishu,
+  renderOrganizePanel,
   contentCounts,
 }: DataSourcesTabProps) {
   const { t } = useTranslation();
@@ -320,41 +329,94 @@ export default function DataSourcesTab({
     }
   };
 
-  // Sub-tab navigation（包含飞书，避免点开后无法从导航条切回）
-  const subTabs = [
+  // 连接器状态点（复用 CONNECTOR_STATUS_TOKENS 的 dot 配色）
+  const connectorDot = (type: string) => {
+    const state = deriveConnectorState(dataSourceStatuses[type]);
+    return (
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${CONNECTOR_STATUS_TOKENS[state].dot}`}
+      />
+    );
+  };
+
+  // 左侧二级菜单：概览（独立）→ 我的内容 → 外部连接（与概览页分段语义一致）
+  const navGroups: VerticalNavGroup[] = [
     {
-      id: 'overview' as const,
-      name: t('dataSources.tabs.overview'),
-      icon: FolderOpen,
+      items: [
+        {
+          key: 'overview',
+          label: t('dataSources.tabs.overview'),
+          icon: FolderOpen,
+        },
+      ],
     },
     {
-      id: 'bookmarks' as const,
-      name: t('dataSources.tabs.bookmarks'),
-      icon: Bookmark,
+      title: '我的内容',
+      items: [
+        {
+          key: 'bookmarks',
+          label: t('dataSources.tabs.bookmarks'),
+          icon: Bookmark,
+          count: contentCounts?.bookmarks,
+        },
+        {
+          key: 'notes',
+          label: t('dataSources.tabs.notes'),
+          icon: StickyNote,
+          count: contentCounts?.notes,
+        },
+        {
+          key: 'images',
+          label: t('dataSources.tabs.images'),
+          icon: ImageIcon,
+          count: contentCounts?.images,
+        },
+      ],
     },
     {
-      id: 'notes' as const,
-      name: t('dataSources.tabs.notes'),
-      icon: StickyNote,
+      title: '外部连接',
+      items: [
+        {
+          key: 'notion',
+          label: 'Notion',
+          icon: FileText,
+          trailing: connectorDot('NOTION'),
+        },
+        {
+          key: 'google-drive',
+          label: 'Google Drive',
+          icon: HardDrive,
+          trailing: connectorDot('GOOGLE_DRIVE'),
+        },
+        {
+          key: 'feishu',
+          label: '飞书',
+          icon: Zap,
+          trailing: connectorDot('FEISHU'),
+        },
+      ],
     },
-    {
-      id: 'images' as const,
-      name: t('dataSources.tabs.images'),
-      icon: ImageIcon,
-    },
-    { id: 'notion' as const, name: 'Notion', icon: FileText },
-    { id: 'google-drive' as const, name: 'Google Drive', icon: HardDrive },
-    { id: 'feishu' as const, name: '飞书', icon: Zap },
   ];
+
+  // 书签 / 笔记 / 图片：AI 整理面板置于列表上方
+  const withOrganize = (
+    subTab: 'bookmarks' | 'notes' | 'images',
+    content: React.ReactNode
+  ) => (
+    <div className="space-y-5">
+      {renderOrganizePanel?.(subTab)}
+      {content}
+    </div>
+  );
 
   const renderSubTabContent = () => {
     switch (activeSubTab) {
       case 'bookmarks':
-        return renderBookmarks ? renderBookmarks() : null;
+        return withOrganize('bookmarks', renderBookmarks?.() ?? null);
       case 'notes':
-        return renderNotes ? renderNotes() : null;
+        return withOrganize('notes', renderNotes?.() ?? null);
       case 'images':
-        return renderImages ? renderImages() : null;
+        return withOrganize('images', renderImages?.() ?? null);
       case 'notion':
         return renderNotion ? renderNotion() : null;
       case 'google-drive':
@@ -384,9 +446,9 @@ export default function DataSourcesTab({
     ).length;
 
     return (
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Hub overview bar */}
-        <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-gradient-to-r from-violet-50/40 via-white to-purple-50/40 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-gradient-to-r from-violet-50/40 via-white to-purple-50/40 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-sm">
               <Plug className="h-5 w-5 text-violet-600" />
@@ -603,37 +665,20 @@ export default function DataSourcesTab({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Sub-tab navigation */}
-      <div className="border-b border-gray-200">
-        <div className="scrollbar-hide -mb-px flex items-center gap-1 overflow-x-auto">
-          {subTabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeSubTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveSubTab(tab.id)}
-                className={`relative flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'border-violet-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <Icon
-                  className={`h-4 w-4 ${
-                    isActive ? 'text-violet-500' : 'text-gray-400'
-                  }`}
-                />
-                {tab.name}
-              </button>
-            );
-          })}
+    <div className="flex flex-col gap-6 md:flex-row md:gap-8">
+      {/* 左侧竖向分组菜单 */}
+      <aside className="md:w-52 md:flex-shrink-0 md:border-r md:border-gray-100 md:pr-6">
+        <div className="md:sticky md:top-6">
+          <VerticalNavMenu
+            groups={navGroups}
+            value={activeSubTab}
+            onChange={(key) => setActiveSubTab(key as DataSourceSubTab)}
+          />
         </div>
-      </div>
+      </aside>
 
-      {/* Sub-tab content */}
-      {renderSubTabContent()}
+      {/* 右侧内容区 */}
+      <div className="min-w-0 flex-1">{renderSubTabContent()}</div>
     </div>
   );
 }

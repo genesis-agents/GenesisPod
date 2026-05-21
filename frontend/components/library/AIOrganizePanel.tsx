@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import {
   Sparkles,
   Tag,
@@ -12,32 +13,29 @@ import {
   CheckCircle,
   AlertCircle,
   Zap,
+  FileText,
+  Palette,
+  LayoutGrid,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
-
+import { cn } from '@/lib/utils/common';
 import { logger } from '@/lib/utils/logger';
+
 interface Collection {
   id: string;
   name: string;
   itemCount?: number;
 }
 
+/** 仅 3 个真实子数据源——其余 tab 分支已废弃（2026-05-20 全面重构） */
+type OrganizeTab = 'bookmarks' | 'notes' | 'images';
+
 interface AIOrganizePanelProps {
   collections: Collection[];
   onRefresh: () => void;
-  activeTab?:
-    | 'bookmarks'
-    | 'notes'
-    | 'images'
-    | 'graph'
-    | 'notion'
-    | 'google-drive'
-    | 'knowledge-base'
-    | 'personal-kb'
-    | 'team-kb'
-    | 'data-sources';
+  activeTab?: OrganizeTab;
 }
 
 type TaskType =
@@ -108,15 +106,149 @@ interface TaskResults {
   styles?: Style[];
   summary?: string;
   topics?: string[];
+  taggedCount?: number;
   [key: string]: unknown;
 }
 
 interface TaskState {
   status: TaskStatus;
   message: string;
-  progress?: number;
   results?: TaskResults;
 }
+
+/** 单个动作的静态描述（运行逻辑由 buildActions 注入） */
+interface ActionDef {
+  id: TaskType;
+  icon: LucideIcon;
+  /** 中英双语标题，如 "Batch Tags / 批量标签" */
+  title: string;
+  /** 中文说明 */
+  desc: string;
+  /** 按钮文案（idle） */
+  cta: string;
+  /** 按钮文案（running） */
+  running: string;
+  run: () => Promise<void>;
+  /** 是否有结果弹层（笔记 / 图片类） */
+  hasResultsModal?: boolean;
+}
+
+function statusIcon(status: TaskStatus) {
+  switch (status) {
+    case 'running':
+      return <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" />;
+    case 'success':
+      return <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />;
+    case 'error':
+      return <AlertCircle className="h-3.5 w-3.5 text-red-500" />;
+    default:
+      return null;
+  }
+}
+
+/**
+ * 单个 AI 动作卡（图标 + 标题 + 说明 + 执行按钮 + 状态/结果入口）。
+ * 抽成顶层组件：消除原 9 块重复 JSX，且 className 仅出现一次（不落入 .map 自写卡检测）。
+ */
+function ActionCard({
+  def,
+  state,
+  onViewResults,
+}: {
+  def: ActionDef;
+  state: TaskState;
+  onViewResults: () => void;
+}) {
+  const Icon = def.icon;
+  const running = state.status === 'running';
+  return (
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md">
+      <div className="mb-2 flex items-center gap-2">
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+          <Icon className="h-4 w-4" />
+        </div>
+        <h4 className="text-sm font-semibold text-gray-900">{def.title}</h4>
+      </div>
+      <p className="mb-3 flex-1 text-xs leading-relaxed text-gray-500">
+        {def.desc}
+      </p>
+      <button
+        onClick={() => void def.run()}
+        disabled={running}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {running ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {def.running}
+          </>
+        ) : (
+          <>
+            <Zap className="h-4 w-4" />
+            {def.cta}
+          </>
+        )}
+      </button>
+      {state.message && (
+        <div
+          className={cn(
+            'mt-2 flex items-center gap-1 text-xs',
+            state.status === 'error'
+              ? 'text-red-600'
+              : state.status === 'success'
+                ? 'text-emerald-600'
+                : 'text-gray-500'
+          )}
+        >
+          {statusIcon(state.status)}
+          <span className="line-clamp-2">{state.message}</span>
+        </div>
+      )}
+      {def.hasResultsModal && state.status === 'success' && state.results && (
+        <button
+          onClick={onViewResults}
+          className="mt-2 w-full rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100"
+        >
+          View Results / 查看结果
+        </button>
+      )}
+    </div>
+  );
+}
+
+const TAB_SUBTITLE: Record<OrganizeTab, string> = {
+  bookmarks:
+    'Smart tagging, classification & themes / 智能打标签、分类与主题发现',
+  notes: 'Extract insights & find connections / 分析笔记、提炼要点、发现关联',
+  images: 'Auto-tag, style & visual themes / 图片打标签、风格分析与视觉主题',
+};
+
+const MODAL_META: Record<string, { title: string; subtitle: string }> = {
+  'notes-keypoints': {
+    title: 'Key Points / 关键要点',
+    subtitle: 'Key insights extracted from your notes / 从笔记中提取的关键见解',
+  },
+  'notes-connections': {
+    title: 'Connections / 笔记关联',
+    subtitle: 'Hidden connections between notes / 笔记之间的隐藏关联',
+  },
+  'notes-summarize': {
+    title: 'Summary / 总结摘要',
+    subtitle: 'Comprehensive summary of all notes / 所有笔记的综合总结',
+  },
+  'images-autotag': {
+    title: 'Auto Tags / 自动标签',
+    subtitle: 'AI-generated tags for your images / AI 为图片生成的标签',
+  },
+  'images-style': {
+    title: 'Style Analysis / 风格分析',
+    subtitle: 'Art styles and themes detected / 检测到的艺术风格和主题',
+  },
+  'images-cluster': {
+    title: 'Visual Themes / 视觉主题',
+    subtitle: 'Images grouped by visual similarity / 按视觉相似度分组的图片',
+  },
+};
 
 export default function AIOrganizePanel({
   collections,
@@ -143,24 +275,22 @@ export default function AIOrganizePanel({
   });
   const [selectedCollection, setSelectedCollection] = useState<string>('all');
 
-  // Fetch stats when panel expands
+  // 展开时拉取书签统计
   useEffect(() => {
-    if (isExpanded) {
-      fetchStats();
+    if (isExpanded && activeTab === 'bookmarks') {
+      void fetchStats();
     }
-  }, [isExpanded]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded, activeTab]);
 
   const fetchStats = async () => {
     try {
       const response = await fetch(
         `${config.apiBaseUrl}/api/v1/collections/ai/stats`,
-        {
-          headers: getAuthHeader(),
-        }
+        { headers: getAuthHeader() }
       );
       if (response.ok) {
         const result = await response.json();
-        // Handle wrapped response { success: true, data: {...} }
         const data = result?.data ?? result;
         setStats(data);
       }
@@ -176,433 +306,218 @@ export default function AIOrganizePanel({
     }));
   };
 
-  // 批量打标签
-  const handleBatchTags = async () => {
-    updateTaskState('batch-tags', {
-      status: 'running',
-      message: 'Analyzing resources and generating tags...',
-      progress: 0,
-    });
-
-    try {
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/collections/ai/batch-tags`,
-        {
+  /** 统一的任务执行器：9 个动作只在 endpoint / body / 文案上不同 */
+  const runTask =
+    (
+      task: TaskType,
+      endpoint: string,
+      opts: {
+        body?: Record<string, unknown>;
+        running: string;
+        done: (r: TaskResults) => string;
+        refresh?: boolean;
+      }
+    ) =>
+    async () => {
+      updateTaskState(task, { status: 'running', message: opts.running });
+      try {
+        const response = await fetch(`${config.apiBaseUrl}${endpoint}`, {
           method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+          headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify(opts.body ?? {}),
+        });
+        if (!response.ok) throw new Error('请求失败 / Request failed');
+        const apiResult = await response.json();
+        const result = (apiResult?.data ?? apiResult) as TaskResults;
+        updateTaskState(task, {
+          status: 'success',
+          message: opts.done(result),
+          results: result,
+        });
+        if (opts.refresh) onRefresh();
+      } catch (err: unknown) {
+        updateTaskState(task, {
+          status: 'error',
+          message: err instanceof Error ? err.message : '操作失败 / Failed',
+        });
+      }
+    };
+
+  // 各子数据源的动作配置（替代原 9 块重复 JSX + 9 个 handler）
+  const TAB_ACTIONS: Record<OrganizeTab, ActionDef[]> = {
+    bookmarks: [
+      {
+        id: 'batch-tags',
+        icon: Tag,
+        title: 'Batch Tags / 批量标签',
+        desc: '为缺少标签的资源自动生成相关标签',
+        cta: '生成标签',
+        running: '处理中…',
+        run: runTask('batch-tags', '/api/v1/collections/ai/batch-tags', {
+          body: {
             collectionId:
               selectedCollection === 'all' ? null : selectedCollection,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to generate tags');
-      }
-
-      const apiResult = await response.json();
-      // Handle wrapped response { success: true, data: {...} }
-      const result = apiResult?.data ?? apiResult;
-      updateTaskState('batch-tags', {
-        status: 'success',
-        message: `Successfully tagged ${result.taggedCount} resources`,
-        results: result,
-      });
-      onRefresh();
-    } catch (err: unknown) {
-      updateTaskState('batch-tags', {
-        status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to generate tags',
-      });
-    }
-  };
-
-  // 智能分类
-  const handleSmartClassify = async () => {
-    updateTaskState('smart-classify', {
-      status: 'running',
-      message: 'Analyzing resources and suggesting classifications...',
-    });
-
-    try {
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/collections/ai/smart-classify`,
-        {
-          method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json',
           },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to classify resources');
-      }
-
-      const apiResult = await response.json();
-      // Handle wrapped response { success: true, data: {...} }
-      const result = apiResult?.data ?? apiResult;
-      updateTaskState('smart-classify', {
-        status: 'success',
-        message: `Suggested ${result.suggestions?.length || 0} classifications`,
-        results: result,
-      });
-      onRefresh();
-    } catch (err: unknown) {
-      updateTaskState('smart-classify', {
-        status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to classify',
-      });
-    }
+          running: '正在分析资源并生成标签…',
+          done: (r) => `已为 ${r.taggedCount ?? 0} 个资源打标签`,
+          refresh: true,
+        }),
+      },
+      {
+        id: 'smart-classify',
+        icon: FolderPlus,
+        title: 'Smart Classify / 智能分类',
+        desc: 'AI 建议每个资源应归入的合集',
+        cta: '开始分类',
+        running: '分析中…',
+        run: runTask(
+          'smart-classify',
+          '/api/v1/collections/ai/smart-classify',
+          {
+            running: '正在分析并给出分类建议…',
+            done: (r) => `已生成 ${r.suggestions?.length ?? 0} 条分类建议`,
+            refresh: true,
+          }
+        ),
+      },
+      {
+        id: 'theme-cluster',
+        icon: Link2,
+        title: 'Theme Clusters / 主题聚类',
+        desc: '发现资源间隐藏的主题与规律',
+        cta: '发现主题',
+        running: '发现中…',
+        run: runTask('theme-cluster', '/api/v1/collections/ai/theme-cluster', {
+          running: '正在发现主题与规律…',
+          done: (r) => `发现 ${r.clusters?.length ?? 0} 个主题簇`,
+        }),
+      },
+    ],
+    notes: [
+      {
+        id: 'notes-keypoints',
+        icon: Sparkles,
+        title: 'Key Points / 关键要点',
+        desc: '从笔记中提取关键见解与主要观点',
+        cta: '提取要点',
+        running: '提取中…',
+        hasResultsModal: true,
+        run: runTask('notes-keypoints', '/api/v1/notes/ai/extract-keypoints', {
+          running: '正在从笔记中提取关键见解…',
+          done: (r) => `提取了 ${r.keyPoints?.length ?? 0} 条关键见解`,
+          refresh: true,
+        }),
+      },
+      {
+        id: 'notes-connections',
+        icon: Link2,
+        title: 'Connections / 笔记关联',
+        desc: '发现笔记之间的隐藏关联',
+        cta: '分析关联',
+        running: '分析中…',
+        hasResultsModal: true,
+        run: runTask('notes-connections', '/api/v1/notes/ai/find-connections', {
+          running: '正在寻找笔记之间的关联…',
+          done: (r) => `发现 ${r.connections?.length ?? 0} 条关联`,
+        }),
+      },
+      {
+        id: 'notes-summarize',
+        icon: FileText,
+        title: 'Summarize / 总结摘要',
+        desc: '为所有笔记生成一份综合摘要',
+        cta: '生成摘要',
+        running: '总结中…',
+        hasResultsModal: true,
+        run: runTask('notes-summarize', '/api/v1/notes/ai/summarize', {
+          running: '正在生成综合摘要…',
+          done: () => '摘要生成成功',
+        }),
+      },
+    ],
+    images: [
+      {
+        id: 'images-autotag',
+        icon: Tag,
+        title: 'Auto Tag / 自动打标',
+        desc: 'AI 识别内容并生成相关标签',
+        cta: '标记图片',
+        running: '标记中…',
+        hasResultsModal: true,
+        run: runTask('images-autotag', '/api/v1/ai-image/ai/auto-tag', {
+          running: '正在分析图片并生成标签…',
+          done: (r) =>
+            `标记了 ${r.taggedCount ?? r.images?.length ?? 0} 张图片`,
+          refresh: true,
+        }),
+      },
+      {
+        id: 'images-style',
+        icon: Palette,
+        title: 'Style Analysis / 风格分析',
+        desc: '识别艺术风格、配色与主题',
+        cta: '分析风格',
+        running: '分析中…',
+        hasResultsModal: true,
+        run: runTask('images-style', '/api/v1/ai-image/ai/analyze-styles', {
+          running: '正在分析艺术风格与配色…',
+          done: (r) => `识别了 ${r.styles?.length ?? 0} 种风格`,
+        }),
+      },
+      {
+        id: 'images-cluster',
+        icon: LayoutGrid,
+        title: 'Visual Themes / 视觉主题',
+        desc: '按视觉相似度将图片分组',
+        cta: '聚类主题',
+        running: '聚类中…',
+        hasResultsModal: true,
+        run: runTask('images-cluster', '/api/v1/ai-image/ai/cluster-themes', {
+          running: '正在按视觉主题聚类…',
+          done: (r) => `发现 ${r.clusters?.length ?? 0} 个视觉主题`,
+        }),
+      },
+    ],
   };
 
-  // 主题聚类
-  const handleThemeCluster = async () => {
-    updateTaskState('theme-cluster', {
-      status: 'running',
-      message: 'Discovering themes and patterns...',
-    });
-
-    try {
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/collections/ai/theme-cluster`,
-        {
-          method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to analyze themes');
-      }
-
-      const apiResult = await response.json();
-      // Handle wrapped response { success: true, data: {...} }
-      const result = apiResult?.data ?? apiResult;
-      updateTaskState('theme-cluster', {
-        status: 'success',
-        message: `Found ${result.clusters?.length || 0} theme clusters`,
-        results: result,
-      });
-    } catch (err: unknown) {
-      updateTaskState('theme-cluster', {
-        status: 'error',
-        message:
-          err instanceof Error ? err.message : 'Failed to analyze themes',
-      });
-    }
-  };
-
-  // ===== Notes Tab Handlers =====
-
-  // 提取笔记要点
-  const handleExtractKeyPoints = async () => {
-    updateTaskState('notes-keypoints', {
-      status: 'running',
-      message: 'Extracting key insights from your notes...',
-    });
-
-    try {
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/notes/ai/extract-keypoints`,
-        {
-          method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to extract key points');
-      }
-
-      const apiResult = await response.json();
-      // Handle wrapped response { success: true, data: {...} }
-      const result = apiResult?.data ?? apiResult;
-      updateTaskState('notes-keypoints', {
-        status: 'success',
-        message: `Extracted ${result.keyPoints?.length || 0} key insights`,
-        results: result,
-      });
-      onRefresh();
-    } catch (err: unknown) {
-      updateTaskState('notes-keypoints', {
-        status: 'error',
-        message:
-          err instanceof Error ? err.message : 'Failed to extract key points',
-      });
-    }
-  };
-
-  // 发现笔记关联
-  const handleAnalyzeConnections = async () => {
-    updateTaskState('notes-connections', {
-      status: 'running',
-      message: 'Finding connections between your notes...',
-    });
-
-    try {
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/notes/ai/find-connections`,
-        {
-          method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to analyze connections');
-      }
-
-      const apiResult = await response.json();
-      // Handle wrapped response { success: true, data: {...} }
-      const result = apiResult?.data ?? apiResult;
-      updateTaskState('notes-connections', {
-        status: 'success',
-        message: `Found ${result.connections?.length || 0} connections`,
-        results: result,
-      });
-    } catch (err: unknown) {
-      updateTaskState('notes-connections', {
-        status: 'error',
-        message:
-          err instanceof Error ? err.message : 'Failed to analyze connections',
-      });
-    }
-  };
-
-  // 生成笔记摘要
-  const handleSummarizeNotes = async () => {
-    updateTaskState('notes-summarize', {
-      status: 'running',
-      message: 'Generating comprehensive summary...',
-    });
-
-    try {
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/notes/ai/summarize`,
-        {
-          method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to summarize notes');
-      }
-
-      const apiResult = await response.json();
-      // Handle wrapped response { success: true, data: {...} }
-      const result = apiResult?.data ?? apiResult;
-      updateTaskState('notes-summarize', {
-        status: 'success',
-        message: 'Summary generated successfully',
-        results: result,
-      });
-    } catch (err: unknown) {
-      updateTaskState('notes-summarize', {
-        status: 'error',
-        message:
-          err instanceof Error ? err.message : 'Failed to summarize notes',
-      });
-    }
-  };
-
-  // ===== Images Tab Handlers =====
-
-  // 图片自动打标签
-  const handleAutoTagImages = async () => {
-    updateTaskState('images-autotag', {
-      status: 'running',
-      message: 'Analyzing images and generating tags...',
-    });
-
-    try {
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/ai-image/ai/auto-tag`,
-        {
-          method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to auto-tag images');
-      }
-
-      const apiResult = await response.json();
-      // Handle wrapped response { success: true, data: {...} }
-      const result = apiResult?.data ?? apiResult;
-      updateTaskState('images-autotag', {
-        status: 'success',
-        message: `Tagged ${result.taggedCount || 0} images`,
-        results: result,
-      });
-      onRefresh();
-    } catch (err: unknown) {
-      updateTaskState('images-autotag', {
-        status: 'error',
-        message:
-          err instanceof Error ? err.message : 'Failed to auto-tag images',
-      });
-    }
-  };
-
-  // 图片风格分析
-  const handleAnalyzeStyles = async () => {
-    updateTaskState('images-style', {
-      status: 'running',
-      message: 'Analyzing art styles and color palettes...',
-    });
-
-    try {
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/ai-image/ai/analyze-styles`,
-        {
-          method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to analyze styles');
-      }
-
-      const apiResult = await response.json();
-      // Handle wrapped response { success: true, data: {...} }
-      const result = apiResult?.data ?? apiResult;
-      updateTaskState('images-style', {
-        status: 'success',
-        message: `Identified ${result.styles?.length || 0} styles`,
-        results: result,
-      });
-    } catch (err: unknown) {
-      updateTaskState('images-style', {
-        status: 'error',
-        message:
-          err instanceof Error ? err.message : 'Failed to analyze styles',
-      });
-    }
-  };
-
-  // 视觉主题聚类
-  const handleClusterVisualThemes = async () => {
-    updateTaskState('images-cluster', {
-      status: 'running',
-      message: 'Clustering images by visual themes...',
-    });
-
-    try {
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/ai-image/ai/cluster-themes`,
-        {
-          method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to cluster themes');
-      }
-
-      const apiResult = await response.json();
-      // Handle wrapped response { success: true, data: {...} }
-      const result = apiResult?.data ?? apiResult;
-      updateTaskState('images-cluster', {
-        status: 'success',
-        message: `Found ${result.clusters?.length || 0} visual themes`,
-        results: result,
-      });
-    } catch (err: unknown) {
-      updateTaskState('images-cluster', {
-        status: 'error',
-        message:
-          err instanceof Error ? err.message : 'Failed to cluster themes',
-      });
-    }
-  };
-
-  const getStatusIcon = (status: TaskStatus) => {
-    switch (status) {
-      case 'running':
-        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
-      case 'success':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'error':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return null;
-    }
-  };
+  const actions = TAB_ACTIONS[activeTab];
 
   return (
-    <div className="mb-4">
-      {/* Toggle Button */}
+    <div>
+      {/* 折叠开关 */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`flex w-full items-center justify-between rounded-xl border-2 border-dashed px-4 py-3 transition-all ${
+        className={cn(
+          'flex w-full items-center justify-between rounded-xl border px-4 py-3 transition-colors',
           isExpanded
-            ? 'border-purple-300 bg-gradient-to-r from-purple-50 to-indigo-50'
-            : 'border-gray-200 bg-white hover:border-purple-200 hover:bg-purple-50/50'
-        }`}
+            ? 'border-violet-200 bg-violet-50/60'
+            : 'border-gray-200 bg-white hover:border-violet-200 hover:bg-violet-50/40'
+        )}
       >
         <div className="flex items-center gap-3">
           <div
-            className={`rounded-lg p-2 ${isExpanded ? 'bg-purple-100' : 'bg-gray-100'}`}
+            className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-lg',
+              isExpanded ? 'bg-violet-100' : 'bg-gray-100'
+            )}
           >
             <Sparkles
-              className={`h-5 w-5 ${isExpanded ? 'text-purple-600' : 'text-gray-500'}`}
+              className={cn(
+                'h-5 w-5',
+                isExpanded ? 'text-violet-600' : 'text-gray-500'
+              )}
             />
           </div>
           <div className="text-left">
             <h3
-              className={`font-semibold ${isExpanded ? 'text-purple-900' : 'text-gray-700'}`}
+              className={cn(
+                'text-sm font-semibold',
+                isExpanded ? 'text-violet-900' : 'text-gray-800'
+              )}
             >
-              AI Organize Assistant
+              AI Organize / AI 整理
             </h3>
-            <p className="text-sm text-gray-500">
-              {activeTab === 'bookmarks' &&
-                'Smart tagging, classification, and theme discovery'}
-              {activeTab === 'notes' &&
-                'Analyze notes, extract insights, and find connections'}
-              {activeTab === 'images' &&
-                'Image tagging, style analysis, and visual themes'}
-              {activeTab === 'notion' &&
-                'Sync management, AI insights, and cross-linking'}
-              {activeTab === 'graph' &&
-                'Knowledge graph visualization and exploration'}
-              {activeTab === 'data-sources' &&
-                '请选择一个子数据源（书签、笔记、图片）来使用 AI 整理功能'}
-              {activeTab === 'personal-kb' &&
-                '个人知识库 - 可在 RAG 工作台使用 AI 智能检索'}
-              {activeTab === 'team-kb' &&
-                '团队知识库 - 可在 RAG 工作台使用 AI 智能检索'}
-            </p>
+            <p className="text-xs text-gray-500">{TAB_SUBTITLE[activeTab]}</p>
           </div>
         </div>
         {isExpanded ? (
@@ -612,664 +527,79 @@ export default function AIOrganizePanel({
         )}
       </button>
 
-      {/* Expanded Panel */}
+      {/* 展开内容 */}
       {isExpanded && (
-        <div className="mt-2 rounded-xl border border-purple-100 bg-white p-4 shadow-sm">
-          {/* Stats Bar - Only for Bookmarks */}
+        <div className="mt-2 rounded-xl border border-violet-100 bg-white p-4 shadow-sm">
+          {/* 书签统计条 */}
           {activeTab === 'bookmarks' && (
-            <div className="mb-4 flex items-center gap-4 rounded-lg bg-gray-50 px-4 py-2 text-sm">
+            <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-gray-50 px-4 py-2 text-sm">
               <span className="text-gray-600">
                 <strong className="text-gray-900">{stats.totalCount}</strong>{' '}
-                total resources
+                resources / 资源
               </span>
-              <span className="text-gray-300">|</span>
+              <span className="text-gray-300">·</span>
               <span className="text-amber-600">
-                <strong>{stats.untaggedCount}</strong> without tags
+                <strong>{stats.untaggedCount}</strong> without tags / 无标签
               </span>
-              <span className="text-gray-300">|</span>
-              <span className="text-blue-600">
-                <strong>{stats.unclassifiedCount}</strong> uncategorized
+              <span className="text-gray-300">·</span>
+              <span className="text-violet-600">
+                <strong>{stats.unclassifiedCount}</strong> uncategorized /
+                未分类
               </span>
             </div>
           )}
 
-          {/* Notes Tab Info */}
-          {activeTab === 'notes' && (
-            <div className="mb-4 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 px-4 py-3 text-sm">
-              <p className="text-green-800">
-                AI can help you analyze your notes, find key insights, and
-                discover connections between ideas.
-              </p>
-            </div>
-          )}
-
-          {/* Images Tab Info */}
-          {activeTab === 'images' && (
-            <div className="mb-4 rounded-lg bg-gradient-to-r from-pink-50 to-rose-50 px-4 py-3 text-sm">
-              <p className="text-pink-800">
-                AI can analyze your saved images, detect styles, and help
-                organize them by visual themes.
-              </p>
-            </div>
-          )}
-
-          {/* Data Sources Tab Info */}
-          {activeTab === 'data-sources' && (
-            <div className="mb-4 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm">
-              <p className="text-blue-800">
-                请在上方选择一个具体的数据源类型（书签、笔记、图片等），然后即可使用对应的
-                AI 整理功能。
-              </p>
-            </div>
-          )}
-
-          {/* Personal KB Tab Info */}
-          {activeTab === 'personal-kb' && (
-            <div className="mb-4 rounded-lg bg-gradient-to-r from-violet-50 to-purple-50 px-4 py-3 text-sm">
-              <p className="text-violet-800">
-                个人知识库已具备 AI 向量检索能力。前往{' '}
-                <a
-                  href="/library/rag"
-                  className="font-medium underline hover:text-violet-900"
-                >
-                  RAG 工作台
-                </a>{' '}
-                进行智能问答和知识检索。
-              </p>
-            </div>
-          )}
-
-          {/* Team KB Tab Info */}
-          {activeTab === 'team-kb' && (
-            <div className="mb-4 rounded-lg bg-gradient-to-r from-teal-50 to-cyan-50 px-4 py-3 text-sm">
-              <p className="text-teal-800">
-                团队知识库支持多人协作和 AI 智能检索。前往{' '}
-                <a
-                  href="/library/rag"
-                  className="font-medium underline hover:text-teal-900"
-                >
-                  RAG 工作台
-                </a>{' '}
-                进行团队知识问答。
-              </p>
-            </div>
-          )}
-
-          {/* Collection Selector - Only for Bookmarks */}
+          {/* 合集选择器（仅书签） */}
           {activeTab === 'bookmarks' && (
             <div className="mb-4">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Apply to:
+              <label className="mb-1 block text-xs font-medium text-gray-600">
+                Apply to / 应用到
               </label>
               <select
                 value={selectedCollection}
                 onChange={(e) => setSelectedCollection(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
               >
-                <option value="all">All Collections</option>
+                <option value="all">All Collections / 全部合集</option>
                 {collections.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name} ({c.itemCount || 0} items)
+                    {c.name} ({c.itemCount || 0})
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* Action Cards - Bookmarks Tab */}
-          {activeTab === 'bookmarks' && (
-            <div className="grid grid-cols-3 gap-3">
-              {/* Batch Tags */}
-              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-purple-200 hover:shadow-md">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="rounded-lg bg-amber-100 p-2">
-                    <Tag className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <h4 className="font-medium text-gray-900">Batch Tags</h4>
-                </div>
-                <p className="mb-3 text-xs text-gray-500">
-                  AI generates relevant tags for resources without tags
-                </p>
-                <button
-                  onClick={handleBatchTags}
-                  disabled={taskStates['batch-tags'].status === 'running'}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {taskStates['batch-tags'].status === 'running' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      Generate Tags
-                    </>
-                  )}
-                </button>
-                {taskStates['batch-tags'].message && (
-                  <div
-                    className={`mt-2 flex items-center gap-1 text-xs ${
-                      taskStates['batch-tags'].status === 'error'
-                        ? 'text-red-600'
-                        : taskStates['batch-tags'].status === 'success'
-                          ? 'text-green-600'
-                          : 'text-gray-500'
-                    }`}
-                  >
-                    {getStatusIcon(taskStates['batch-tags'].status)}
-                    {taskStates['batch-tags'].message}
-                  </div>
-                )}
-              </div>
+          {/* 动作卡网格 */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {actions.map((def) => (
+              <ActionCard
+                key={def.id}
+                def={def}
+                state={taskStates[def.id]}
+                onViewResults={() => setResultsModal(def.id)}
+              />
+            ))}
+          </div>
 
-              {/* Smart Classify */}
-              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-purple-200 hover:shadow-md">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="rounded-lg bg-blue-100 p-2">
-                    <FolderPlus className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <h4 className="font-medium text-gray-900">Smart Classify</h4>
-                </div>
-                <p className="mb-3 text-xs text-gray-500">
-                  AI suggests which collection each resource belongs to
-                </p>
-                <button
-                  onClick={handleSmartClassify}
-                  disabled={taskStates['smart-classify'].status === 'running'}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {taskStates['smart-classify'].status === 'running' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      Classify
-                    </>
-                  )}
-                </button>
-                {taskStates['smart-classify'].message && (
-                  <div
-                    className={`mt-2 flex items-center gap-1 text-xs ${
-                      taskStates['smart-classify'].status === 'error'
-                        ? 'text-red-600'
-                        : taskStates['smart-classify'].status === 'success'
-                          ? 'text-green-600'
-                          : 'text-gray-500'
-                    }`}
-                  >
-                    {getStatusIcon(taskStates['smart-classify'].status)}
-                    {taskStates['smart-classify'].message}
-                  </div>
-                )}
-              </div>
-
-              {/* Theme Cluster */}
-              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-purple-200 hover:shadow-md">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="rounded-lg bg-purple-100 p-2">
-                    <Link2 className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <h4 className="font-medium text-gray-900">Theme Clusters</h4>
-                </div>
-                <p className="mb-3 text-xs text-gray-500">
-                  Discover hidden themes and patterns across resources
-                </p>
-                <button
-                  onClick={handleThemeCluster}
-                  disabled={taskStates['theme-cluster'].status === 'running'}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {taskStates['theme-cluster'].status === 'running' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Discovering...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      Discover
-                    </>
-                  )}
-                </button>
-                {taskStates['theme-cluster'].message && (
-                  <div
-                    className={`mt-2 flex items-center gap-1 text-xs ${
-                      taskStates['theme-cluster'].status === 'error'
-                        ? 'text-red-600'
-                        : taskStates['theme-cluster'].status === 'success'
-                          ? 'text-green-600'
-                          : 'text-gray-500'
-                    }`}
-                  >
-                    {getStatusIcon(taskStates['theme-cluster'].status)}
-                    {taskStates['theme-cluster'].message}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Action Cards - Notes Tab */}
-          {activeTab === 'notes' && (
-            <div className="grid grid-cols-3 gap-3">
-              {/* Extract Key Points */}
-              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-green-200 hover:shadow-md">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="rounded-lg bg-green-100 p-2">
-                    <Sparkles className="h-5 w-5 text-green-600" />
-                  </div>
-                  <h4 className="font-medium text-gray-900">Key Points</h4>
-                </div>
-                <p className="mb-3 text-xs text-gray-500">
-                  Extract key insights and main ideas from your notes
-                </p>
-                <button
-                  onClick={handleExtractKeyPoints}
-                  disabled={taskStates['notes-keypoints'].status === 'running'}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {taskStates['notes-keypoints'].status === 'running' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Extracting...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      Extract
-                    </>
-                  )}
-                </button>
-                {taskStates['notes-keypoints'].message && (
-                  <div
-                    className={`mt-2 flex items-center gap-1 text-xs ${
-                      taskStates['notes-keypoints'].status === 'error'
-                        ? 'text-red-600'
-                        : taskStates['notes-keypoints'].status === 'success'
-                          ? 'text-green-600'
-                          : 'text-gray-500'
-                    }`}
-                  >
-                    {getStatusIcon(taskStates['notes-keypoints'].status)}
-                    {taskStates['notes-keypoints'].message}
-                  </div>
-                )}
-                {taskStates['notes-keypoints'].status === 'success' &&
-                  taskStates['notes-keypoints'].results && (
-                    <button
-                      onClick={() => setResultsModal('notes-keypoints')}
-                      className="mt-2 w-full rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"
-                    >
-                      View Results / 查看结果
-                    </button>
-                  )}
-              </div>
-
-              {/* Find Connections */}
-              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-emerald-200 hover:shadow-md">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="rounded-lg bg-emerald-100 p-2">
-                    <Link2 className="h-5 w-5 text-emerald-600" />
-                  </div>
-                  <h4 className="font-medium text-gray-900">Connections</h4>
-                </div>
-                <p className="mb-3 text-xs text-gray-500">
-                  Find hidden connections between your notes
-                </p>
-                <button
-                  onClick={handleAnalyzeConnections}
-                  disabled={
-                    taskStates['notes-connections'].status === 'running'
-                  }
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {taskStates['notes-connections'].status === 'running' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      Analyze
-                    </>
-                  )}
-                </button>
-                {taskStates['notes-connections'].message && (
-                  <div
-                    className={`mt-2 flex items-center gap-1 text-xs ${
-                      taskStates['notes-connections'].status === 'error'
-                        ? 'text-red-600'
-                        : taskStates['notes-connections'].status === 'success'
-                          ? 'text-green-600'
-                          : 'text-gray-500'
-                    }`}
-                  >
-                    {getStatusIcon(taskStates['notes-connections'].status)}
-                    {taskStates['notes-connections'].message}
-                  </div>
-                )}
-                {taskStates['notes-connections'].status === 'success' &&
-                  taskStates['notes-connections'].results && (
-                    <button
-                      onClick={() => setResultsModal('notes-connections')}
-                      className="mt-2 w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
-                    >
-                      View Results / 查看结果
-                    </button>
-                  )}
-              </div>
-
-              {/* Summarize All */}
-              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-teal-200 hover:shadow-md">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="rounded-lg bg-teal-100 p-2">
-                    <FolderPlus className="h-5 w-5 text-teal-600" />
-                  </div>
-                  <h4 className="font-medium text-gray-900">Summarize</h4>
-                </div>
-                <p className="mb-3 text-xs text-gray-500">
-                  Generate a comprehensive summary of all notes
-                </p>
-                <button
-                  onClick={handleSummarizeNotes}
-                  disabled={taskStates['notes-summarize'].status === 'running'}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {taskStates['notes-summarize'].status === 'running' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Summarizing...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      Summarize
-                    </>
-                  )}
-                </button>
-                {taskStates['notes-summarize'].message && (
-                  <div
-                    className={`mt-2 flex items-center gap-1 text-xs ${
-                      taskStates['notes-summarize'].status === 'error'
-                        ? 'text-red-600'
-                        : taskStates['notes-summarize'].status === 'success'
-                          ? 'text-green-600'
-                          : 'text-gray-500'
-                    }`}
-                  >
-                    {getStatusIcon(taskStates['notes-summarize'].status)}
-                    {taskStates['notes-summarize'].message}
-                  </div>
-                )}
-                {taskStates['notes-summarize'].status === 'success' &&
-                  taskStates['notes-summarize'].results && (
-                    <button
-                      onClick={() => setResultsModal('notes-summarize')}
-                      className="mt-2 w-full rounded-lg border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-100"
-                    >
-                      View Results / 查看结果
-                    </button>
-                  )}
-              </div>
-            </div>
-          )}
-
-          {/* Action Cards - Images Tab */}
-          {activeTab === 'images' && (
-            <div className="grid grid-cols-3 gap-3">
-              {/* Auto Tag Images */}
-              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-pink-200 hover:shadow-md">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="rounded-lg bg-pink-100 p-2">
-                    <Tag className="h-5 w-5 text-pink-600" />
-                  </div>
-                  <h4 className="font-medium text-gray-900">Auto Tag</h4>
-                </div>
-                <p className="mb-3 text-xs text-gray-500">
-                  AI detects content and generates relevant tags
-                </p>
-                <button
-                  onClick={handleAutoTagImages}
-                  disabled={taskStates['images-autotag'].status === 'running'}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-pink-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-pink-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {taskStates['images-autotag'].status === 'running' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Tagging...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      Tag Images
-                    </>
-                  )}
-                </button>
-                {taskStates['images-autotag'].message && (
-                  <div
-                    className={`mt-2 flex items-center gap-1 text-xs ${
-                      taskStates['images-autotag'].status === 'error'
-                        ? 'text-red-600'
-                        : taskStates['images-autotag'].status === 'success'
-                          ? 'text-green-600'
-                          : 'text-gray-500'
-                    }`}
-                  >
-                    {getStatusIcon(taskStates['images-autotag'].status)}
-                    {taskStates['images-autotag'].message}
-                  </div>
-                )}
-                {taskStates['images-autotag'].status === 'success' &&
-                  taskStates['images-autotag'].results && (
-                    <button
-                      onClick={() => setResultsModal('images-autotag')}
-                      className="mt-2 w-full rounded-lg border border-pink-200 bg-pink-50 px-3 py-1.5 text-xs font-medium text-pink-700 hover:bg-pink-100"
-                    >
-                      View Results / 查看结果
-                    </button>
-                  )}
-              </div>
-
-              {/* Style Analysis */}
-              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-rose-200 hover:shadow-md">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="rounded-lg bg-rose-100 p-2">
-                    <Sparkles className="h-5 w-5 text-rose-600" />
-                  </div>
-                  <h4 className="font-medium text-gray-900">Style Analysis</h4>
-                </div>
-                <p className="mb-3 text-xs text-gray-500">
-                  Identify art styles, color palettes, and themes
-                </p>
-                <button
-                  onClick={handleAnalyzeStyles}
-                  disabled={taskStates['images-style'].status === 'running'}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {taskStates['images-style'].status === 'running' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      Analyze
-                    </>
-                  )}
-                </button>
-                {taskStates['images-style'].message && (
-                  <div
-                    className={`mt-2 flex items-center gap-1 text-xs ${
-                      taskStates['images-style'].status === 'error'
-                        ? 'text-red-600'
-                        : taskStates['images-style'].status === 'success'
-                          ? 'text-green-600'
-                          : 'text-gray-500'
-                    }`}
-                  >
-                    {getStatusIcon(taskStates['images-style'].status)}
-                    {taskStates['images-style'].message}
-                  </div>
-                )}
-                {taskStates['images-style'].status === 'success' &&
-                  taskStates['images-style'].results && (
-                    <button
-                      onClick={() => setResultsModal('images-style')}
-                      className="mt-2 w-full rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
-                    >
-                      View Results / 查看结果
-                    </button>
-                  )}
-              </div>
-
-              {/* Visual Clusters */}
-              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-fuchsia-200 hover:shadow-md">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="rounded-lg bg-fuchsia-100 p-2">
-                    <Link2 className="h-5 w-5 text-fuchsia-600" />
-                  </div>
-                  <h4 className="font-medium text-gray-900">Visual Themes</h4>
-                </div>
-                <p className="mb-3 text-xs text-gray-500">
-                  Group images by visual similarity and themes
-                </p>
-                <button
-                  onClick={handleClusterVisualThemes}
-                  disabled={taskStates['images-cluster'].status === 'running'}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-fuchsia-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-fuchsia-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {taskStates['images-cluster'].status === 'running' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Clustering...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      Cluster
-                    </>
-                  )}
-                </button>
-                {taskStates['images-cluster'].message && (
-                  <div
-                    className={`mt-2 flex items-center gap-1 text-xs ${
-                      taskStates['images-cluster'].status === 'error'
-                        ? 'text-red-600'
-                        : taskStates['images-cluster'].status === 'success'
-                          ? 'text-green-600'
-                          : 'text-gray-500'
-                    }`}
-                  >
-                    {getStatusIcon(taskStates['images-cluster'].status)}
-                    {taskStates['images-cluster'].message}
-                  </div>
-                )}
-                {taskStates['images-cluster'].status === 'success' &&
-                  taskStates['images-cluster'].results && (
-                    <button
-                      onClick={() => setResultsModal('images-cluster')}
-                      className="mt-2 w-full rounded-lg border border-fuchsia-200 bg-fuchsia-50 px-3 py-1.5 text-xs font-medium text-fuchsia-700 hover:bg-fuchsia-100"
-                    >
-                      View Results / 查看结果
-                    </button>
-                  )}
-              </div>
-            </div>
-          )}
-
-          {/* Action Cards - Notion Tab */}
-          {activeTab === 'notion' && (
-            <div className="grid grid-cols-3 gap-3">
-              {/* Sync Pages */}
-              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-gray-300 hover:shadow-md">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="rounded-lg bg-gray-100 p-2">
-                    <svg
-                      className="h-5 w-5 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                      />
-                    </svg>
-                  </div>
-                  <h4 className="font-medium text-gray-900">Quick Sync</h4>
-                </div>
-                <p className="mb-3 text-xs text-gray-500">
-                  Sync latest changes from your connected Notion workspace
-                </p>
-                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-800 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700">
-                  <Zap className="h-4 w-4" />
-                  Sync Now
-                </button>
-              </div>
-
-              {/* Extract Insights */}
-              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-blue-200 hover:shadow-md">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="rounded-lg bg-blue-100 p-2">
-                    <Sparkles className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <h4 className="font-medium text-gray-900">AI Insights</h4>
-                </div>
-                <p className="mb-3 text-xs text-gray-500">
-                  Extract key insights and summaries from Notion pages
-                </p>
-                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600">
-                  <Zap className="h-4 w-4" />
-                  Analyze
-                </button>
-              </div>
-
-              {/* Link to Library */}
-              <div className="rounded-xl border border-gray-200 p-4 transition-all hover:border-purple-200 hover:shadow-md">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="rounded-lg bg-purple-100 p-2">
-                    <Link2 className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <h4 className="font-medium text-gray-900">Smart Link</h4>
-                </div>
-                <p className="mb-3 text-xs text-gray-500">
-                  Find and link related resources between Notion and Library
-                </p>
-                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-600">
-                  <Zap className="h-4 w-4" />
-                  Find Links
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Results Display - Only for Bookmarks */}
+          {/* 书签内联结果（主题簇 + 分类建议） */}
           {activeTab === 'bookmarks' && (
             <>
-              {/* Results Display */}
               {taskStates['theme-cluster'].status === 'success' &&
                 taskStates['theme-cluster'].results?.clusters &&
                 taskStates['theme-cluster'].results.clusters.length > 0 && (
-                  <div className="mt-4 rounded-lg border border-purple-100 bg-purple-50/50 p-4">
-                    <h4 className="mb-2 font-medium text-purple-900">
-                      Discovered Themes
+                  <div className="mt-4 rounded-lg border border-violet-100 bg-violet-50/50 p-4">
+                    <h4 className="mb-2 text-sm font-medium text-violet-900">
+                      Discovered Themes / 发现的主题
                     </h4>
                     <div className="flex flex-wrap gap-2">
                       {taskStates['theme-cluster'].results.clusters.map(
-                        (cluster, index: number) => (
+                        (cluster, index) => (
                           <span
                             key={index}
-                            className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700"
+                            className="rounded-full bg-violet-100 px-3 py-1 text-sm text-violet-700"
                           >
-                            {cluster.name} ({cluster.count} items)
+                            {cluster.name} ({cluster.count})
                           </span>
                         )
                       )}
@@ -1280,22 +610,22 @@ export default function AIOrganizePanel({
               {taskStates['smart-classify'].status === 'success' &&
                 taskStates['smart-classify'].results?.suggestions &&
                 taskStates['smart-classify'].results.suggestions.length > 0 && (
-                  <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50/50 p-4">
-                    <h4 className="mb-2 font-medium text-blue-900">
-                      Classification Suggestions
+                  <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-4">
+                    <h4 className="mb-2 text-sm font-medium text-gray-900">
+                      Classification Suggestions / 分类建议
                     </h4>
                     <div className="space-y-2">
                       {taskStates['smart-classify'].results.suggestions
                         .slice(0, 5)
-                        .map((suggestion, index: number) => (
+                        .map((suggestion, index) => (
                           <div
                             key={index}
-                            className="flex items-center justify-between rounded-lg bg-white p-2 text-sm"
+                            className="flex items-center justify-between rounded-lg bg-white p-2 text-sm shadow-sm"
                           >
                             <span className="truncate text-gray-700">
                               {suggestion.resourceTitle}
                             </span>
-                            <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                            <span className="ml-2 flex-shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700">
                               → {suggestion.suggestedCollection}
                             </span>
                           </div>
@@ -1308,45 +638,17 @@ export default function AIOrganizePanel({
         </div>
       )}
 
-      {/* Results Modal - Bilingual Popup */}
+      {/* 结果弹层（笔记 / 图片类） */}
       <Modal
         open={!!(resultsModal && taskStates[resultsModal]?.results)}
         onClose={() => setResultsModal(null)}
         size="lg"
-        title={
-          resultsModal === 'notes-keypoints'
-            ? 'Key Points / 关键要点'
-            : resultsModal === 'notes-connections'
-              ? 'Connections / 笔记关联'
-              : resultsModal === 'notes-summarize'
-                ? 'Summary / 总结摘要'
-                : resultsModal === 'images-autotag'
-                  ? 'Auto Tags / 自动标签'
-                  : resultsModal === 'images-style'
-                    ? 'Style Analysis / 风格分析'
-                    : resultsModal === 'images-cluster'
-                      ? 'Visual Themes / 视觉主题'
-                      : ''
-        }
-        subtitle={
-          resultsModal === 'notes-keypoints'
-            ? 'Key insights extracted from your notes / 从笔记中提取的关键见解'
-            : resultsModal === 'notes-connections'
-              ? 'Hidden connections between notes / 笔记之间的隐藏关联'
-              : resultsModal === 'notes-summarize'
-                ? 'Comprehensive summary of all notes / 所有笔记的综合总结'
-                : resultsModal === 'images-autotag'
-                  ? 'AI-generated tags for your images / AI为图片生成的标签'
-                  : resultsModal === 'images-style'
-                    ? 'Art styles and themes detected / 检测到的艺术风格和主题'
-                    : resultsModal === 'images-cluster'
-                      ? 'Images grouped by visual similarity / 按视觉相似度分组的图片'
-                      : undefined
-        }
+        title={resultsModal ? (MODAL_META[resultsModal]?.title ?? '') : ''}
+        subtitle={resultsModal ? MODAL_META[resultsModal]?.subtitle : undefined}
         footer={
           <button
             onClick={() => setResultsModal(null)}
-            className="w-full rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+            className="w-full rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
           >
             Close / 关闭
           </button>
@@ -1354,9 +656,9 @@ export default function AIOrganizePanel({
       >
         {resultsModal && (
           <div>
-            {/* Notes Key Points */}
+            {/* 关键要点 */}
             {resultsModal === 'notes-keypoints' && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {taskStates[resultsModal].results?.keyPoints &&
                 taskStates[resultsModal].results.keyPoints.length > 0 ? (
                   taskStates[resultsModal].results.keyPoints.map(
@@ -1367,22 +669,21 @@ export default function AIOrganizePanel({
                           : point.insight || point.title || point.point || '';
                       const source =
                         typeof point === 'object' ? point.source : undefined;
-
                       return (
                         <div
                           key={index}
-                          className="rounded-lg border border-green-100 bg-green-50 p-4"
+                          className="rounded-lg border border-violet-100 bg-violet-50/60 p-4"
                         >
-                          <div className="mb-2 flex items-start gap-2">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-500 text-xs font-bold text-white">
+                          <div className="flex items-start gap-2">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-500 text-xs font-bold text-white">
                               {index + 1}
                             </span>
                             <div className="flex-1">
-                              <p className="font-medium text-green-900">
+                              <p className="text-sm font-medium text-gray-900">
                                 {pointText}
                               </p>
                               {source && (
-                                <p className="mt-1 text-xs text-green-600">
+                                <p className="mt-1 text-xs text-gray-500">
                                   Source / 来源: {source}
                                 </p>
                               )}
@@ -1393,21 +694,20 @@ export default function AIOrganizePanel({
                     }
                   )
                 ) : (
-                  <p className="text-center text-gray-500">
+                  <p className="py-6 text-center text-sm text-gray-500">
                     No key points found / 未找到关键要点
                   </p>
                 )}
               </div>
             )}
 
-            {/* Notes Connections */}
+            {/* 笔记关联 */}
             {resultsModal === 'notes-connections' && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {taskStates[resultsModal].results?.connections &&
                 taskStates[resultsModal].results.connections.length > 0 ? (
                   taskStates[resultsModal].results.connections.map(
                     (conn: Connection, index: number) => {
-                      // 优先使用带标题的字段，fallback到ID
                       const note1Display =
                         conn.note1Title ||
                         conn.noteIds?.[0] ||
@@ -1422,58 +722,49 @@ export default function AIOrganizePanel({
                         'Unknown';
                       const relationship =
                         conn.relationship || conn.reason || conn.description;
-                      const theme = conn.theme;
-                      const strength = conn.strength;
-
                       return (
                         <div
                           key={index}
-                          className="rounded-lg border border-emerald-100 bg-emerald-50 p-4"
+                          className="rounded-lg border border-gray-100 bg-gray-50 p-4"
                         >
                           <div className="mb-3 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <Link2 className="h-4 w-4 text-emerald-600" />
-                              <span className="font-medium text-emerald-900">
-                                Connection #{index + 1}
+                              <Link2 className="h-4 w-4 text-violet-600" />
+                              <span className="text-sm font-medium text-gray-900">
+                                Connection #{index + 1} / 关联
                               </span>
                             </div>
-                            {strength && (
+                            {conn.strength && (
                               <span
-                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                                  strength === 'strong'
-                                    ? 'bg-emerald-200 text-emerald-800'
-                                    : strength === 'moderate'
-                                      ? 'bg-yellow-200 text-yellow-800'
+                                className={cn(
+                                  'rounded-full px-2 py-0.5 text-xs font-medium',
+                                  conn.strength === 'strong'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : conn.strength === 'moderate'
+                                      ? 'bg-amber-100 text-amber-700'
                                       : 'bg-gray-200 text-gray-600'
-                                }`}
+                                )}
                               >
-                                {strength === 'strong'
+                                {conn.strength === 'strong'
                                   ? 'Strong / 强'
-                                  : strength === 'moderate'
+                                  : conn.strength === 'moderate'
                                     ? 'Moderate / 中'
                                     : 'Weak / 弱'}
                               </span>
                             )}
                           </div>
-
-                          {/* 关联描述 */}
                           {relationship && (
-                            <p className="mb-3 text-sm leading-relaxed text-emerald-800">
+                            <p className="mb-3 text-sm leading-relaxed text-gray-700">
                               {relationship}
                             </p>
                           )}
-
-                          {/* 主题标签 */}
-                          {theme && (
+                          {conn.theme && (
                             <div className="mb-3">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-200 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                                <span className="text-emerald-600">#</span>
-                                {theme}
+                              <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700">
+                                # {conn.theme}
                               </span>
                             </div>
                           )}
-
-                          {/* 关联的笔记 */}
                           <div className="grid grid-cols-2 gap-3">
                             <div className="rounded-lg bg-white p-2.5 shadow-sm">
                               <p className="mb-1 text-xs text-gray-400">
@@ -1497,34 +788,34 @@ export default function AIOrganizePanel({
                     }
                   )
                 ) : (
-                  <p className="text-center text-gray-500">
+                  <p className="py-6 text-center text-sm text-gray-500">
                     No connections found / 未找到关联
                   </p>
                 )}
               </div>
             )}
 
-            {/* Notes Summary */}
+            {/* 总结摘要 */}
             {resultsModal === 'notes-summarize' && (
-              <div className="space-y-4">
+              <div>
                 {taskStates[resultsModal].results?.summary ? (
-                  <div className="rounded-lg border border-teal-100 bg-teal-50 p-4">
-                    <p className="whitespace-pre-wrap leading-relaxed text-teal-900">
+                  <div className="rounded-lg border border-violet-100 bg-violet-50/60 p-4">
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
                       {taskStates[resultsModal].results.summary}
                     </p>
                     {taskStates[resultsModal].results.topics &&
                       Array.isArray(taskStates[resultsModal].results.topics) &&
                       taskStates[resultsModal].results.topics.length > 0 && (
-                        <div className="mt-4 border-t border-teal-200 pt-3">
-                          <p className="mb-2 text-xs font-medium text-teal-700">
-                            Main Topics / 主要主题:
+                        <div className="mt-4 border-t border-violet-200 pt-3">
+                          <p className="mb-2 text-xs font-medium text-violet-700">
+                            Main Topics / 主要主题
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {taskStates[resultsModal].results.topics.map(
                               (topic: string, i: number) => (
                                 <span
                                   key={i}
-                                  className="rounded-full bg-teal-200 px-3 py-1 text-xs text-teal-800"
+                                  className="rounded-full bg-violet-100 px-3 py-1 text-xs text-violet-700"
                                 >
                                   {topic}
                                 </span>
@@ -1535,35 +826,34 @@ export default function AIOrganizePanel({
                       )}
                   </div>
                 ) : (
-                  <p className="text-center text-gray-500">
+                  <p className="py-6 text-center text-sm text-gray-500">
                     No summary generated / 未生成摘要
                   </p>
                 )}
               </div>
             )}
 
-            {/* Images Auto Tag */}
+            {/* 图片自动标签 */}
             {resultsModal === 'images-autotag' && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {taskStates[resultsModal].results?.images &&
                 taskStates[resultsModal].results.images.length > 0 ? (
                   taskStates[resultsModal].results.images.map(
                     (img: ImageTag, index: number) => (
                       <div
                         key={index}
-                        className="rounded-lg border border-pink-100 bg-pink-50 p-4"
+                        className="rounded-lg border border-gray-100 bg-gray-50 p-4"
                       >
-                        <p className="mb-2 truncate font-medium text-pink-900">
+                        <p className="mb-2 truncate text-sm font-medium text-gray-900">
                           {img.prompt?.substring(0, 50) ||
                             img.title ||
                             `Image #${index + 1}`}
-                          ...
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                           {(img.tags || []).map((tag: string, i: number) => (
                             <span
                               key={i}
-                              className="rounded-full bg-pink-200 px-2.5 py-0.5 text-xs font-medium text-pink-800"
+                              className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700"
                             >
                               #{tag}
                             </span>
@@ -1573,34 +863,34 @@ export default function AIOrganizePanel({
                     )
                   )
                 ) : (
-                  <p className="text-center text-gray-500">
+                  <p className="py-6 text-center text-sm text-gray-500">
                     No images tagged / 未标记图片
                   </p>
                 )}
               </div>
             )}
 
-            {/* Images Style Analysis */}
+            {/* 图片风格分析 */}
             {resultsModal === 'images-style' && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {taskStates[resultsModal].results?.styles &&
                 taskStates[resultsModal].results.styles.length > 0 ? (
                   taskStates[resultsModal].results.styles.map(
                     (style: Style, index: number) => (
                       <div
                         key={index}
-                        className="rounded-lg border border-rose-100 bg-rose-50 p-4"
+                        className="rounded-lg border border-gray-100 bg-gray-50 p-4"
                       >
                         <div className="mb-2 flex items-center justify-between">
-                          <span className="font-medium text-rose-900">
+                          <span className="text-sm font-medium text-gray-900">
                             {style.name || style.style || `Style ${index + 1}`}
                           </span>
-                          <span className="rounded-full bg-rose-200 px-2 py-0.5 text-xs text-rose-800">
-                            {style.count || 0} images / 张图片
+                          <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700">
+                            {style.count || 0} images / 张
                           </span>
                         </div>
                         {style.description && (
-                          <p className="text-sm text-rose-700">
+                          <p className="text-sm text-gray-600">
                             {style.description}
                           </p>
                         )}
@@ -1620,37 +910,37 @@ export default function AIOrganizePanel({
                     )
                   )
                 ) : (
-                  <p className="text-center text-gray-500">
+                  <p className="py-6 text-center text-sm text-gray-500">
                     No styles identified / 未识别到风格
                   </p>
                 )}
               </div>
             )}
 
-            {/* Images Visual Clusters */}
+            {/* 图片视觉主题 */}
             {resultsModal === 'images-cluster' && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {taskStates[resultsModal].results?.clusters &&
                 taskStates[resultsModal].results.clusters.length > 0 ? (
                   taskStates[resultsModal].results.clusters.map(
                     (cluster: Cluster, index: number) => (
                       <div
                         key={index}
-                        className="rounded-lg border border-fuchsia-100 bg-fuchsia-50 p-4"
+                        className="rounded-lg border border-gray-100 bg-gray-50 p-4"
                       >
                         <div className="mb-2 flex items-center justify-between">
-                          <span className="font-medium text-fuchsia-900">
+                          <span className="text-sm font-medium text-gray-900">
                             {cluster.theme ||
                               cluster.name ||
                               `Theme ${index + 1}`}
                           </span>
-                          <span className="rounded-full bg-fuchsia-200 px-2 py-0.5 text-xs text-fuchsia-800">
+                          <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700">
                             {cluster.count || cluster.images?.length || 0}{' '}
-                            images / 张图片
+                            images / 张
                           </span>
                         </div>
                         {cluster.description && (
-                          <p className="text-sm text-fuchsia-700">
+                          <p className="text-sm text-gray-600">
                             {cluster.description}
                           </p>
                         )}
@@ -1659,7 +949,7 @@ export default function AIOrganizePanel({
                             {cluster.keywords.map((kw: string, i: number) => (
                               <span
                                 key={i}
-                                className="rounded bg-fuchsia-200/50 px-1.5 py-0.5 text-xs text-fuchsia-700"
+                                className="rounded bg-violet-100/70 px-1.5 py-0.5 text-xs text-violet-700"
                               >
                                 {kw}
                               </span>
@@ -1670,7 +960,7 @@ export default function AIOrganizePanel({
                     )
                   )
                 ) : (
-                  <p className="text-center text-gray-500">
+                  <p className="py-6 text-center text-sm text-gray-500">
                     No visual themes found / 未找到视觉主题
                   </p>
                 )}

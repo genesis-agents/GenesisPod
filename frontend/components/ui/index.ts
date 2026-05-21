@@ -8,6 +8,7 @@ export * from './viewers';
 export * from './badges';
 export * from './progress';
 export * from './tabs';
+export * from './nav';
 export * from './form';
 export * from './pagination';
 

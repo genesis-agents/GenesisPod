@@ -1737,25 +1737,6 @@ function LibraryPageContent() {
 
         {/* Main content area — wiki detail owns its own padding via subheader */}
         <div className={inWikiDetail ? '' : 'px-8 py-6'}>
-          {/* AI Organize Panel - Show for bookmarks, notes, images sub-tabs */}
-          {activeTab === 'data-sources' &&
-            (currentDataSourceSubTab === 'bookmarks' ||
-              currentDataSourceSubTab === 'notes' ||
-              currentDataSourceSubTab === 'images') && (
-              <AIOrganizePanel
-                collections={collections.map((c) => ({
-                  id: c.id,
-                  name: c.name,
-                  itemCount: c.items?.length || 0,
-                }))}
-                onRefresh={() => {
-                  // Refresh based on active sub-tab
-                  loadItems();
-                }}
-                activeTab={currentDataSourceSubTab}
-              />
-            )}
-
           {/* ★ v1.5.3 Wiki Tab (主形态) — Library 默认 tab */}
           {activeTab === 'wiki' && <WikiTab userHash={getUserHash()} />}
 
@@ -1779,6 +1760,19 @@ function LibraryPageContent() {
                 notes: notesTotal,
                 images: imagesTotal,
               }}
+              renderOrganizePanel={(subTab) => (
+                <AIOrganizePanel
+                  collections={collections.map((c) => ({
+                    id: c.id,
+                    name: c.name,
+                    itemCount: c.items?.length || 0,
+                  }))}
+                  onRefresh={() => {
+                    void loadItems();
+                  }}
+                  activeTab={subTab}
+                />
+              )}
               renderBookmarks={() => {
                 // 书签列表视图
                 if (loading && !paginatedItems) {
