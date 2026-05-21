@@ -704,7 +704,8 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                     render: (s) =>
                       s.role ? (
                         <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                          {s.role}
+                          {SOCIAL_TEAM.find((m) => m.role === s.role)?.name ??
+                            s.role}
                         </span>
                       ) : (
                         <span className="text-gray-400">—</span>
