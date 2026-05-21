@@ -175,7 +175,7 @@ export default function AiRadarIndexPage() {
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-cyan-400 hover:bg-cyan-50"
+            className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-cyan-400 hover:bg-cyan-50"
           >
             <Plus className="h-10 w-10 text-gray-400" />
             <span className="mt-2 text-sm font-medium text-gray-600">

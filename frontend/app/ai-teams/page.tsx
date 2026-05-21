@@ -401,7 +401,7 @@ export default function AIGroupPage() {
                   {/* Create New Card */}
                   <button
                     onClick={() => setShowCreateDialog(true)}
-                    className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
+                    className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
                   >
                     <svg
                       className="h-10 w-10 text-gray-400"

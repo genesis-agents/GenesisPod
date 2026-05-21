@@ -540,7 +540,7 @@ export default function AIWritingPage() {
               {/* Create New Card */}
               <button
                 onClick={() => setShowCreateDialog(true)}
-                className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-amber-400 hover:bg-amber-50"
+                className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-amber-400 hover:bg-amber-50"
               >
                 <svg
                   className="h-10 w-10 text-gray-400"
