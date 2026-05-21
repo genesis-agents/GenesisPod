@@ -22,6 +22,7 @@
 
 import { ChevronLeft, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { Tabs } from '@/components/ui/tabs';
 
 const ArrowLeftIcon = ({ className }: { className?: string }) => (
   <svg
@@ -68,7 +69,7 @@ export interface MissionDetailFrameProps<TTab extends string = string> {
   tabs: MissionDetailFrameTab<TTab>[];
   activeTab: TTab;
   onTabChange: (key: TTab) => void;
-  /** 品牌色（active tab 下划线 + 文字色），默认 rose-500 */
+  /** @deprecated W0(B)：tab 改用 canonical `<Tabs>`（统一 underline = playground），此参数已忽略 */
   tabActiveColor?: string;
 
   // ── Left panel（可折叠） ────────────────────────────────────────
@@ -105,7 +106,6 @@ export function MissionDetailFrame<TTab extends string = string>({
   tabs,
   activeTab,
   onTabChange,
-  tabActiveColor = 'border-rose-500 text-rose-600',
   leftPanel,
   leftCollapsed,
   onLeftCollapseToggle,
@@ -194,24 +194,17 @@ export function MissionDetailFrame<TTab extends string = string>({
 
           {/* Tab bar + trailing slot */}
           <div className="flex min-w-0 items-center gap-3 border-b border-gray-200 bg-white px-4">
-            <div className="scrollbar-thin flex min-w-0 flex-1 overflow-x-auto">
-              {tabs.map(({ key, label, Icon }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => onTabChange(key)}
-                  className={cn(
-                    'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors',
-                    activeTab === key
-                      ? tabActiveColor
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </button>
-              ))}
-            </div>
+            {/* W0(B)：用 canonical <Tabs>（与 playground 详情页同款，underline 默认）*/}
+            <Tabs
+              className="scrollbar-thin min-w-0 flex-1 overflow-x-auto border-b-0"
+              items={tabs.map((t) => ({
+                key: t.key,
+                label: t.label,
+                icon: t.Icon,
+              }))}
+              value={activeTab}
+              onChange={(k) => onTabChange(k as TTab)}
+            />
             {tabBarTrailing && <div className="shrink-0">{tabBarTrailing}</div>}
           </div>
 
