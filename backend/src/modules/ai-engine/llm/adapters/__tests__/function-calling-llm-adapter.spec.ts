@@ -313,7 +313,11 @@ describe("FunctionCallingLLMAdapter", () => {
         "openai",
       );
       const callArgs = mockAiChatService.chat.mock.calls[0][0];
-      expect(callArgs.apiKey).toBe("byok-personal-key");
+      // 2026-05-21：BYOK 改为透传 userId 给 AiChatService（Standard 路径解析 key +
+      // 转发 tools），不再由本适配器把 apiKey 塞给 chat（详见 adapter
+      // callAiChatServiceWithTools 注释：传 apiKey 会进 Path B，不支持工具）。
+      expect(callArgs.userId).toBe("u-test");
+      expect(callArgs.apiKey).toBeUndefined();
     });
 
     it("should throw when AI member not found", async () => {

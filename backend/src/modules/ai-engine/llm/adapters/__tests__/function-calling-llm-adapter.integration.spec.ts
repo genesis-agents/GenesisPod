@@ -236,7 +236,11 @@ describe("FunctionCallingLLMAdapter (extended coverage)", () => {
       );
       expect(mockSecretsService.getValueInternal).not.toHaveBeenCalled();
       const callArgs = mockAiChatService.chat.mock.calls[0][0];
-      expect(callArgs.apiKey).toBe("byok-personal-key");
+      // 2026-05-21：BYOK 路径改为把 userId 透传给 AiChatService（由其 Standard 路径
+      // 解析 key + 转发 tools），不再由本适配器把 apiKey 塞给 chat —— 后者会强制进
+      // Path B（不转发 tools + 注入已废弃的 xAI Live Search search_parameters）。
+      expect(callArgs.userId).toBe("alice");
+      expect(callArgs.apiKey).toBeUndefined();
     });
 
     it("falls back to SYSTEM Secret when no userId (background cron)", async () => {

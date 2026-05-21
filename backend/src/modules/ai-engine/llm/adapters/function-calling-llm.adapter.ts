@@ -302,11 +302,19 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       tool_choice,
     } = params;
 
+    // ★ 2026-05-21：function calling 必须走 AiChatService 的 Standard 路径——
+    // 它会把 tools 转发给 callXAIAPI，并按 userId 解析 BYOK key。传显式 apiKey 会强制
+    // 进 Path B（AiDirectKeyService）：①根本不转发 tools（工具循环失效）；②给 xai
+    // 无条件注入已废弃的 Live Search search_parameters → xAI 报 "Live search is
+    // deprecated"。
+    // 优先级：caller 显式 apiKey（连接测试 / 系统直连）> BYOK userId（Standard 路径，
+    // 转发 tools）> 已解析的 apiKey（无 userId 的系统/cron 兜底）。
+    const useByokUserId = !this.config?.apiKey && !!this.config?.userId;
+
     // ★ 调用 AiChatService.chat() - 统一入口
     return this.aiChatService.chat({
       provider,
       model: modelId,
-      apiKey,
       apiEndpoint,
       systemPrompt,
       messages,
@@ -315,6 +323,7 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       // 直接参数（优先级高于 TaskProfile）
       maxTokens,
       temperature,
+      ...(useByokUserId ? { userId: this.config?.userId } : { apiKey }),
       ...(tools ? { tools, tool_choice } : {}),
     } as Parameters<typeof this.aiChatService.chat>[0]);
   }
