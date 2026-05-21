@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { Tabs } from '@/components/ui/tabs';
+import { OrganizeChatMode } from './OrganizeChatMode';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { cn } from '@/lib/utils/common';
@@ -267,6 +269,7 @@ export default function AIOrganizePanel({
   activeTab = 'bookmarks',
 }: AIOrganizePanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [mode, setMode] = useState<'oneclick' | 'chat'>('oneclick');
   const [resultsModal, setResultsModal] = useState<TaskType | null>(null);
   const [stats, setStats] = useState({
     untaggedCount: 0,
@@ -574,117 +577,144 @@ export default function AIOrganizePanel({
       {/* 展开内容 */}
       {isExpanded && (
         <div className="mt-2 overflow-hidden rounded-xl border border-violet-100 bg-white shadow-sm">
-          {/* 书签工具条：统计 + 合集选择器 */}
-          {activeTab === 'bookmarks' && (
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50/70 px-3 py-2">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
-                <span>
-                  <strong className="text-gray-900">{stats.totalCount}</strong>{' '}
-                  资源
-                </span>
-                <span className="text-gray-300">·</span>
-                <span className="text-amber-600">
-                  <strong>{stats.untaggedCount}</strong> 无标签
-                </span>
-                <span className="text-gray-300">·</span>
-                <span className="text-violet-600">
-                  <strong>{stats.unclassifiedCount}</strong> 未分类
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-gray-500">应用到</span>
-                <select
-                  value={selectedCollection}
-                  onChange={(e) => setSelectedCollection(e.target.value)}
-                  className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                >
-                  <option value="all">全部合集</option>
-                  {collections.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.itemCount || 0})
-                    </option>
+          {/* 模式切换：一键整理 | 对话整理 */}
+          <div className="border-b border-gray-100 px-3 py-2">
+            <Tabs
+              items={[
+                { key: 'oneclick', label: '一键整理' },
+                { key: 'chat', label: '对话整理' },
+              ]}
+              value={mode}
+              onChange={(k) => setMode(k as 'oneclick' | 'chat')}
+              variant="pill"
+            />
+          </div>
+          {mode === 'chat' ? (
+            activeTab === 'bookmarks' ? (
+              <OrganizeChatMode scope="BOOKMARKS" onChanged={fetchStats} />
+            ) : (
+              <p className="p-6 text-center text-sm text-gray-500">
+                对话整理暂仅支持书签
+              </p>
+            )
+          ) : (
+            <>
+              {/* 书签工具条：统计 + 合集选择器 */}
+              {activeTab === 'bookmarks' && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50/70 px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                    <span>
+                      <strong className="text-gray-900">
+                        {stats.totalCount}
+                      </strong>{' '}
+                      资源
+                    </span>
+                    <span className="text-gray-300">·</span>
+                    <span className="text-amber-600">
+                      <strong>{stats.untaggedCount}</strong> 无标签
+                    </span>
+                    <span className="text-gray-300">·</span>
+                    <span className="text-violet-600">
+                      <strong>{stats.unclassifiedCount}</strong> 未分类
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-gray-500">应用到</span>
+                    <select
+                      value={selectedCollection}
+                      onChange={(e) => setSelectedCollection(e.target.value)}
+                      className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    >
+                      <option value="all">全部合集</option>
+                      {collections.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.itemCount || 0})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* 动作表格 */}
+              <Table>
+                <THead>
+                  <Tr className="border-b border-gray-100 bg-gray-50/50 text-[11px] uppercase tracking-wide text-gray-400">
+                    <Th className="px-3 py-2">Action / 动作</Th>
+                    <Th className="hidden px-3 py-2 sm:table-cell">
+                      Description / 说明
+                    </Th>
+                    <Th className="px-3 py-2">Status / 状态</Th>
+                    <Th className="px-3 py-2 text-right">Run / 运行</Th>
+                  </Tr>
+                </THead>
+                <TBody className="divide-y divide-gray-100">
+                  {actions.map((def) => (
+                    <ActionRow
+                      key={def.id}
+                      def={def}
+                      state={taskStates[def.id]}
+                      onViewResults={() => setResultsModal(def.id)}
+                    />
                   ))}
-                </select>
-              </div>
-            </div>
-          )}
+                </TBody>
+              </Table>
 
-          {/* 动作表格 */}
-          <Table>
-            <THead>
-              <Tr className="border-b border-gray-100 bg-gray-50/50 text-[11px] uppercase tracking-wide text-gray-400">
-                <Th className="px-3 py-2">Action / 动作</Th>
-                <Th className="hidden px-3 py-2 sm:table-cell">
-                  Description / 说明
-                </Th>
-                <Th className="px-3 py-2">Status / 状态</Th>
-                <Th className="px-3 py-2 text-right">Run / 运行</Th>
-              </Tr>
-            </THead>
-            <TBody className="divide-y divide-gray-100">
-              {actions.map((def) => (
-                <ActionRow
-                  key={def.id}
-                  def={def}
-                  state={taskStates[def.id]}
-                  onViewResults={() => setResultsModal(def.id)}
-                />
-              ))}
-            </TBody>
-          </Table>
+              {/* 书签内联结果（主题簇 + 分类建议） */}
+              {activeTab === 'bookmarks' && (
+                <div className="space-y-3 px-3 pb-3 pt-3">
+                  {taskStates['theme-cluster'].status === 'success' &&
+                    taskStates['theme-cluster'].results?.clusters &&
+                    taskStates['theme-cluster'].results.clusters.length > 0 && (
+                      <div className="rounded-lg border border-violet-100 bg-violet-50/50 p-4">
+                        <h4 className="mb-2 text-sm font-medium text-violet-900">
+                          Discovered Themes / 发现的主题
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {taskStates['theme-cluster'].results.clusters.map(
+                            (cluster, index) => (
+                              <span
+                                key={index}
+                                className="rounded-full bg-violet-100 px-3 py-1 text-sm text-violet-700"
+                              >
+                                {cluster.name} ({cluster.count})
+                              </span>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-          {/* 书签内联结果（主题簇 + 分类建议） */}
-          {activeTab === 'bookmarks' && (
-            <div className="space-y-3 px-3 pb-3 pt-3">
-              {taskStates['theme-cluster'].status === 'success' &&
-                taskStates['theme-cluster'].results?.clusters &&
-                taskStates['theme-cluster'].results.clusters.length > 0 && (
-                  <div className="rounded-lg border border-violet-100 bg-violet-50/50 p-4">
-                    <h4 className="mb-2 text-sm font-medium text-violet-900">
-                      Discovered Themes / 发现的主题
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {taskStates['theme-cluster'].results.clusters.map(
-                        (cluster, index) => (
-                          <span
-                            key={index}
-                            className="rounded-full bg-violet-100 px-3 py-1 text-sm text-violet-700"
-                          >
-                            {cluster.name} ({cluster.count})
-                          </span>
-                        )
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              {taskStates['smart-classify'].status === 'success' &&
-                taskStates['smart-classify'].results?.suggestions &&
-                taskStates['smart-classify'].results.suggestions.length > 0 && (
-                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-                    <h4 className="mb-2 text-sm font-medium text-gray-900">
-                      Classification Suggestions / 分类建议
-                    </h4>
-                    <div className="space-y-2">
-                      {taskStates['smart-classify'].results.suggestions
-                        .slice(0, 5)
-                        .map((suggestion, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center justify-between rounded-lg bg-white p-2 text-sm shadow-sm"
-                          >
-                            <span className="truncate text-gray-700">
-                              {suggestion.resourceTitle}
-                            </span>
-                            <span className="ml-2 flex-shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700">
-                              → {suggestion.suggestedCollection}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-            </div>
+                  {taskStates['smart-classify'].status === 'success' &&
+                    taskStates['smart-classify'].results?.suggestions &&
+                    taskStates['smart-classify'].results.suggestions.length >
+                      0 && (
+                      <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                        <h4 className="mb-2 text-sm font-medium text-gray-900">
+                          Classification Suggestions / 分类建议
+                        </h4>
+                        <div className="space-y-2">
+                          {taskStates['smart-classify'].results.suggestions
+                            .slice(0, 5)
+                            .map((suggestion, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between rounded-lg bg-white p-2 text-sm shadow-sm"
+                              >
+                                <span className="truncate text-gray-700">
+                                  {suggestion.resourceTitle}
+                                </span>
+                                <span className="ml-2 flex-shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700">
+                                  → {suggestion.suggestedCollection}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
