@@ -20,7 +20,7 @@ export default function CreateKnowledgeBaseCard({
   return (
     <button
       onClick={onClick}
-      className="group flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/40 p-6 text-center transition-all hover:border-violet-300 hover:bg-violet-50/30 hover:shadow-md"
+      className="group flex h-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/40 p-5 text-center transition-all hover:border-violet-300 hover:bg-violet-50/30 hover:shadow-md"
     >
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm transition-all group-hover:bg-gradient-to-br group-hover:from-violet-500 group-hover:to-purple-600 group-hover:shadow-lg group-hover:shadow-violet-500/30">
         <Plus className="h-6 w-6 text-gray-400 transition-colors group-hover:text-white" />

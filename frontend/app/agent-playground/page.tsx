@@ -14,8 +14,6 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
   listMissions,
-  rerunMission,
-  cancelMission,
   deleteMission,
   updateMission,
   type MissionListItem,
@@ -32,31 +30,6 @@ export default function PlaygroundIndexPage() {
   // 2026-05-13 #67: 删除主页"可继续"徽章 / banner / 继续按钮 ——
   // 用户反馈：homepage 提示"继续"无意义。续跑入口移到 mission 详情页的「更新」按钮
   // （interrupted 时按钮变"继续上次"+ hint），主页只保留 重跑/取消/编辑/删除。
-
-  const handleRerun = async (mission: MissionListItem) => {
-    if (
-      !confirm(
-        `重新运行「${mission.topic}」？将从头创建一个新的 Mission（清 checkpoint）。`
-      )
-    ) {
-      return;
-    }
-    try {
-      const result = await rerunMission(mission.id, 'fresh');
-      router.push(`/agent-playground/team/${result.missionId}`);
-    } catch (e) {
-      alert(`Rerun 失败：${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
-
-  const handleCancel = async (mission: MissionListItem) => {
-    if (!confirm(`取消「${mission.topic}」运行？`)) return;
-    try {
-      await cancelMission(mission.id);
-    } catch (e) {
-      alert(`取消失败：${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
 
   const handleEdit = async (mission: MissionListItem) => {
     // eslint-disable-next-line no-alert
@@ -88,8 +61,6 @@ export default function PlaygroundIndexPage() {
         onCreateMission={() => setCreateOpen(true)}
         fetchMissions={listMissions}
         onMissionClick={(m) => router.push(`/agent-playground/team/${m.id}`)}
-        onRerun={handleRerun}
-        onCancel={handleCancel}
         onEdit={handleEdit}
         onDelete={handleDelete}
         reloadKey={galleryReloadKey}

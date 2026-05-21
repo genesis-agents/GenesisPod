@@ -20,17 +20,11 @@ import {
   CheckCircle2,
   Coins,
   Loader2,
-  RefreshCw,
   Sparkles,
-  StopCircle,
   Trophy,
   XCircle,
 } from 'lucide-react';
-import {
-  AssetCard,
-  type AssetCardAction,
-  type AssetCardBadge,
-} from '@/components/common/asset-card';
+import { AssetCard, type AssetCardBadge } from '@/components/common/asset-card';
 import { PageHeaderHero } from '@/components/common/page-header-hero';
 import type { MissionListItem } from '@/services/agent-playground/api';
 
@@ -113,15 +107,11 @@ const PlusIcon = ({ className }: { className?: string }) => (
 function MissionCard({
   mission,
   onClick,
-  onRerun,
-  onCancel,
   onEdit,
   onDelete,
 }: {
   mission: MissionListItem;
   onClick: () => void;
-  onRerun: (mission: MissionListItem) => void;
-  onCancel: (mission: MissionListItem) => void;
   onEdit: (mission: MissionListItem) => void;
   onDelete: (mission: MissionListItem) => void;
 }) {
@@ -203,26 +193,6 @@ function MissionCard({
     });
   }
 
-  const extraActions: AssetCardAction[] = [
-    {
-      key: 'rerun',
-      title: '重新运行（从头开始）',
-      tone: 'info',
-      icon: <RefreshCw className="h-4 w-4" />,
-      onClick: () => onRerun(mission),
-    },
-  ];
-  // 2026-05-13 #67: 删除卡片"继续"action —— 续跑请进入详情页按"更新"按钮
-  if (mission.status === 'running') {
-    extraActions.unshift({
-      key: 'cancel',
-      title: '取消运行',
-      tone: 'warning',
-      icon: <StopCircle className="h-4 w-4" />,
-      onClick: () => onCancel(mission),
-    });
-  }
-
   return (
     <AssetCard
       title={mission.topic}
@@ -231,7 +201,6 @@ function MissionCard({
       gradient={gradient}
       badges={badges}
       isOwner
-      extraActions={extraActions}
       onEdit={() => onEdit(mission)}
       onDelete={() => onDelete(mission)}
       onClick={onClick}
@@ -260,9 +229,7 @@ export interface MissionGalleryViewProps {
   fetchMissions: () => Promise<MissionListItem[]>;
   /** mission 卡片点击：跳详情 */
   onMissionClick: (mission: MissionListItem) => void;
-  /** 重跑 / 取消 / 重命名 / 删除 callback */
-  onRerun: (mission: MissionListItem) => Promise<void> | void;
-  onCancel: (mission: MissionListItem) => Promise<void> | void;
+  /** 重命名 / 删除 callback */
   onEdit: (mission: MissionListItem) => Promise<void> | void;
   onDelete: (mission: MissionListItem) => Promise<void> | void;
   /** Empty state 文案 */
@@ -286,8 +253,6 @@ export function MissionGalleryView({
   onCreateMission,
   fetchMissions,
   onMissionClick,
-  onRerun,
-  onCancel,
   onEdit,
   onDelete,
   emptyState,
@@ -344,8 +309,6 @@ export function MissionGalleryView({
       triggerReload();
     };
 
-  const handleRerun = wrapAction(onRerun);
-  const handleCancel = wrapAction(onCancel);
   const handleEdit = wrapAction(onEdit);
   const handleDelete = wrapAction(onDelete);
 
@@ -436,8 +399,6 @@ export function MissionGalleryView({
                   key={m.id}
                   mission={m}
                   onClick={() => onMissionClick(m)}
-                  onRerun={(mm) => void handleRerun(mm)}
-                  onCancel={(mm) => void handleCancel(mm)}
                   onEdit={(mm) => void handleEdit(mm)}
                   onDelete={(mm) => void handleDelete(mm)}
                 />

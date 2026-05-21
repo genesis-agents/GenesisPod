@@ -15,16 +15,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  cancelMission,
   deleteMission,
-  rerunMission,
   updateMission,
   type MissionListItem,
 } from '@/services/agent-playground/api';
-import {
-  attachMissionToCustomAgent,
-  listCustomAgentMissions,
-} from '@/services/custom-agents/api';
+import { listCustomAgentMissions } from '@/services/custom-agents/api';
 import { apiClient } from '@/lib/api/client';
 import type { CustomAgentRecord } from '@/components/custom-agents/types';
 import { LaunchMissionModal } from '@/components/custom-agents/LaunchMissionModal';
@@ -84,31 +79,6 @@ export default function CustomAgentHomePage({
 
   // fetchMissions 必须 stable reference 否则 MissionGalleryView useEffect 死循环
   const fetchMissions = useCallback(() => listCustomAgentMissions(id), [id]);
-
-  const handleRerun = async (mission: MissionListItem) => {
-    if (!confirm(`重新运行「${mission.topic}」？将创建一个新的 Mission。`))
-      return;
-    try {
-      const result = await rerunMission(mission.id);
-      // ★ R-CA 风险#1 清零：新 mission 归属本 agent
-      await attachMissionToCustomAgent(id, {
-        missionId: result.missionId,
-        topic: mission.topic,
-      }).catch(() => undefined);
-      triggerGalleryReload();
-    } catch (e) {
-      alert(`Rerun 失败：${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
-
-  const handleCancel = async (mission: MissionListItem) => {
-    if (!confirm(`取消「${mission.topic}」运行？`)) return;
-    try {
-      await cancelMission(mission.id);
-    } catch (e) {
-      alert(`取消失败：${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
 
   const handleEdit = async (mission: MissionListItem) => {
     // eslint-disable-next-line no-alert
@@ -187,8 +157,6 @@ export default function CustomAgentHomePage({
         onCreateMission={() => setLaunchOpen(true)}
         fetchMissions={fetchMissions}
         onMissionClick={(m) => router.push(`/agent-playground/team/${m.id}`)}
-        onRerun={handleRerun}
-        onCancel={handleCancel}
         onEdit={handleEdit}
         onDelete={handleDelete}
         emptyState={{
