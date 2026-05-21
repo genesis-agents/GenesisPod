@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { Bookmark, Loader2, Plus, Radar } from 'lucide-react';
 import {
   archiveTopic,
+  deleteTopic,
   listTopics,
   pauseTopic,
   resumeTopic,
@@ -61,6 +62,8 @@ export default function AiRadarIndexPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<RadarTopic | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<RadarTopic | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -112,6 +115,22 @@ export default function AiRadarIndexPage() {
       setError(`归档失败：${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setArchiving(false);
+    }
+  };
+  const handleDelete = (t: RadarTopic) => {
+    setDeleteTarget(t);
+  };
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteTopic(deleteTarget.id);
+      setDeleteTarget(null);
+      void reload();
+    } catch (e) {
+      setError(`删除失败：${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -171,6 +190,7 @@ export default function AiRadarIndexPage() {
               onPause={(t) => void handlePause(t)}
               onResume={(t) => void handleResume(t)}
               onArchive={handleArchive}
+              onDelete={handleDelete}
             />
           ))}
           <button
@@ -253,6 +273,17 @@ export default function AiRadarIndexPage() {
         loading={archiving}
         onConfirm={handleArchiveConfirm}
         onClose={() => setArchiveTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={`删除主题「${deleteTarget?.name ?? ''}」？`}
+        description="将永久删除该主题及其所有采集数据与运行记录，不可恢复（如只想暂停采集请用「归档」）。"
+        confirmText="永久删除"
+        type="danger"
+        loading={deleting}
+        onConfirm={handleDeleteConfirm}
+        onClose={() => setDeleteTarget(null)}
       />
     </div>
   );

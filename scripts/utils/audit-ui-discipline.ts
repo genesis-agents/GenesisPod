@@ -536,9 +536,9 @@ function jsxHasProp(src: string, prop: string): boolean {
 
 function checkR11CardBaseline(file: string, src: string): Violation[] {
   if (!ASSET_CARD_USE.test(src)) return [];
-  // R11 只约束「用标准管理操作的卡」：触发信号 = 实际传了 onEdit/onDelete/onVisibilityToggle。
-  // 运营型卡（如 RadarTopicCard：isOwner 简写 + 仅 extraActions 的 pause/resume/archive、无 edit/delete）
-  // 是合法的不同操作集，不强行套 edit+delete 基线——这是规则的正确范围，不是豁免。
+  // R11 只约束「用标准管理操作的卡」：触发信号 = 实际传了 onEdit/onDelete/onVisibilityToggle/isOwner=。
+  // 纯运营型卡（仅 extraActions 领域操作、不传任何标准管理操作）不在此列——合法的不同操作集，非豁免。
+  // （RadarTopicCard 现已接 onEdit+onDelete，作为标准 owner 卡正常达标——见 2026-05-20 雷达卡删除补全。）
   const ownerSignal =
     jsxHasProp(src, "isOwner") ||
     jsxHasProp(src, "onEdit") ||

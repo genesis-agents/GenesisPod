@@ -38,6 +38,8 @@ interface Props {
   onArchive?: (topic: RadarTopic) => void;
   onPause?: (topic: RadarTopic) => void;
   onResume?: (topic: RadarTopic) => void;
+  /** 永久删除（区别于归档：归档可恢复，删除不可恢复）。父级带确认弹层。 */
+  onDelete?: (topic: RadarTopic) => void;
 }
 
 const STATUS_BADGE: Record<
@@ -58,7 +60,13 @@ const STATUS_BADGE: Record<
   },
 };
 
-export function RadarTopicCard({ topic, onArchive, onPause, onResume }: Props) {
+export function RadarTopicCard({
+  topic,
+  onArchive,
+  onPause,
+  onResume,
+  onDelete,
+}: Props) {
   const router = useRouter();
   const status = STATUS_BADGE[topic.status];
 
@@ -130,6 +138,8 @@ export function RadarTopicCard({ topic, onArchive, onPause, onResume }: Props) {
       gradient="from-cyan-500 to-sky-600"
       badges={badges}
       isOwner
+      onEdit={() => router.push(`/ai-radar/topic/${topic.id}`)}
+      onDelete={onDelete ? () => onDelete(topic) : undefined}
       extraActions={extraActions}
       onClick={() => router.push(`/ai-radar/topic/${topic.id}`)}
       customSection={keywordChips}
