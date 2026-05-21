@@ -91,22 +91,74 @@ describe('streamAskMessage', () => {
     expect(result.ragSources).toHaveLength(1);
   });
 
-  it('fails closed when stream ends without done event', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      makeStreamResponse([
-        'data: {"type":"chunk","content":"Partial"}\n\n',
-      ])
-    );
+  it('fails closed when stream cut AND reconcile finds no persisted reply', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        makeStreamResponse(['data: {"type":"chunk","content":"Partial"}\n\n'])
+      )
+      // 对账 GET：库里没有本轮回复 → 仍判失败
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ messages: [] }),
+      } as unknown as Response);
 
-    const result = await streamAskMessage('session-1', 'token-1', {
-      content: 'Question',
-      webSearch: false,
-    });
+    const result = await streamAskMessage(
+      'session-1',
+      'token-1',
+      { content: 'Question', webSearch: false },
+      undefined,
+      { maxAttempts: 1, delayMs: 0 }
+    );
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error).toContain('未收到完成事件');
     expect(result.partialContent).toBe('Partial');
+  });
+
+  it('recovers persisted reply via reconcile when stream is cut (proxy)', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        makeStreamResponse(['data: {"type":"chunk","content":"Partial"}\n\n'])
+      )
+      // 后端在客户端断开后仍跑完并入库 → 对账 GET 捞到本轮回复
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            messages: [
+              {
+                id: 'u1',
+                role: 'user',
+                content: 'Question',
+                createdAt: '2026-05-21T10:00:00.000Z',
+              },
+              {
+                id: 'a1',
+                role: 'assistant',
+                content: 'Full recovered answer',
+                createdAt: '2026-05-21T10:00:05.000Z',
+                modelId: 'm-final',
+                modelName: 'Final Model',
+                tokens: 12,
+              },
+            ],
+          }),
+      } as unknown as Response);
+
+    const result = await streamAskMessage(
+      'session-1',
+      'token-1',
+      { content: 'Question', webSearch: false },
+      undefined,
+      { maxAttempts: 1, delayMs: 0 }
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.assistantMessage.id).toBe('a1');
+    expect(result.assistantMessage.content).toBe('Full recovered answer');
+    expect(result.assistantMessage.tokens).toBe(12);
   });
 
   it('parses a trailing done frame even if EOF arrives without final delimiter', async () => {

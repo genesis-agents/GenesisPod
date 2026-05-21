@@ -248,16 +248,26 @@ async function tryReconcileOnce(
  * （可能 10–40s），故需重试拉取——捞到即返回；超时仍无则放弃（交调用方报失败）。
  * 前几次间隔短（断在末尾的情况能秒回），之后每 3s 一次，总上限约 40s。
  */
+/** 对账轮询参数（生产用默认；测试可注入小值避免真实等待）。 */
+export interface ReconcileOptions {
+  maxAttempts?: number;
+  delayMs?: number;
+}
+
 async function reconcileAfterStreamCut(
   sessionId: string,
   token: string,
-  sentContent: string
+  sentContent: string,
+  opts?: ReconcileOptions
 ): Promise<AskStreamSuccess | null> {
-  const MAX_ATTEMPTS = 15;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+  const maxAttempts = opts?.maxAttempts ?? 15;
+  const baseDelay = opts?.delayMs ?? 3000;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const found = await tryReconcileOnce(sessionId, token, sentContent);
     if (found) return found;
-    await sleep(attempt < 3 ? 1500 : 3000);
+    if (attempt < maxAttempts - 1) {
+      await sleep(attempt < 3 ? Math.min(baseDelay, 1500) : baseDelay);
+    }
   }
   return null;
 }
@@ -274,7 +284,8 @@ export async function streamAskMessage(
   sessionId: string,
   token: string,
   body: AskStreamRequestBody,
-  onChunk?: AskOnChunk
+  onChunk?: AskOnChunk,
+  reconcileOptions?: ReconcileOptions
 ): Promise<AskStreamResult> {
   try {
     const response = await fetch(
@@ -370,7 +381,8 @@ export async function streamAskMessage(
       const reconciled = await reconcileAfterStreamCut(
         sessionId,
         token,
-        body.content
+        body.content,
+        reconcileOptions
       );
       if (reconciled) return reconciled;
       return {
