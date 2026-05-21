@@ -1,7 +1,8 @@
 # 006. 对话式 AI 整理 - ChatFacade tool-loop + 薄封装既有写操作
 
 **Date**: 2026-05-21
-**Status**: 🟡 Proposed（评审中，待集体评审通过）
+**Status**: 🟡 Proposed（四路评审 round 1 完成→迭代 v0.3；架构线曾判 🔴 因 API 认错，已订正 executeAgent→chatWithToolsStream；待 2 个 P0 + 用户拍板后走 round 2 至 4/4）
+**评审纪要**: [features/2026-05-21-design-review-minutes.md](../features/2026-05-21-design-review-minutes.md)
 **关联设计文档**: [features/library/conversational-organize-design.md](../features/library/conversational-organize-design.md)
 
 ## 背景
@@ -10,9 +11,11 @@
 
 ## 决策（2026-05-21 评审修订：最大化复用平台能力，不重复造轮子）
 
-1. **复用平台 agent 运行时理解意图 + 执行**：用 `AiHarnessFacade.executeAgent()`（已暴露，内部即 `FunctionCallingExecutor`：理解意图 → 选工具 → 执行 → 回应的成熟 agent 循环）跑「库整理 agent」。
-   - **不**自写 tool-loop（那是重造平台已有的 agent 循环）。意图理解交给 agent（LLM + 工具），不依赖已删除的 IntentRouter 链路。
-2. **工具进平台工具框架**：organize 工具实现为标准 `ITool` 注册到 `ToolRegistry`，经 `ToolFacade` 执行；工具内部薄封装 `CollectionsService`/`AiFileOrganizerService`/`NotesService` **既有方法**，**不重写 SQL**、不内联 switch 执行器。
+1. **复用平台 ReAct 工具循环（评审订正：原写 `executeAgent` 是认错 API）**：用 `ToolFacade.chatWithToolsStream()`（内即 `FunctionCallingExecutor.executeWithContext`：理解意图 → 选工具 → 多轮执行 → 回应，产 `AsyncGenerator<AgentEvent>`，AI Ask 已在用）跑「库整理 agent」。
+   - **不**自写 tool-loop；意图交给该循环里的 LLM。
+   - ⚠️ `executeAgent()` 经评审实测 = `AgentExecutorService.executeTask`（单次 LLM、无工具循环、非流式、无 `tools` 入参），**不可用于对话整理**——见评审纪要 BLK-1。
+2. **单一 facade 入口 + 平台工具框架**：organize-chat（ai-app）只 `import @/modules/ai-harness/facade`（ToolFacade/AiChatService/ITool/ToolRegistry/ToolContext/AgentEvent 全在此 re-export，比「同时调 harness+engine」更合规）。organize 工具实现为标准 `ITool`、薄封装 `CollectionsService`/`AiFileOrganizerService`/`NotesService` **既有方法**，**不重写 SQL**。
+   - **P0 必答（BLK-3）**：`chatWithToolsStream` 按 `AICapabilityContext` 解析工具、无「按次传子集」入参 → 需定 organize 工具如何只对本 agent 可见（专用 `roleId`/`domain` + resolver role 过滤）+ `userId` 到 `ToolContext.userId` 的完整传递链路（否则行级过滤是虚假保证）。**P0 未答不得进 P1。**
 3. **强权限**：所有工具调用注入服务端 `userId` 做行级过滤，不信任 LLM 传的 id；破坏性动作前端 `confirm`；外部连接**只读 + 归类到本地**，不回写第三方。
 4. **流式**：SSE（同 AI Ask）消费 agent 的 `AgentEvent` 流；+ 代理掐断对账兜底（复用已立 `ai-ask-stream` reconcile 范式）。
 5. **会话**：独立 `OrganizeSession`（不复用 `AskSession`，避免污染 ai-ask 会话列表）。

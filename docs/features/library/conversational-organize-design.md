@@ -5,7 +5,7 @@
 **日期：** 2026-05-21
 **作者：** Claude Code
 **关联：** [ADR-006](../../decisions/006-conversational-organize.md) · `library/ai-file-organizer` · `library/collections` · AI Ask 流式范式（`ai-ask.service.ts`）
-**评审基线版本：** v0.1（本文件即评审对象，按评审意见迭代后锁版）
+**评审基线版本：** v0.3（四路评审 round 1 后迭代；见[评审纪要](../2026-05-21-design-review-minutes.md)。待 P0 + 用户拍板 7 项后锁 v1.0）
 
 > 一句话目标：让书签 / 笔记 / 外部连接内容的整理，**既能一键执行预设动作，也能像聊天一样下自然语言指令，由 AI 边对话边真实改动用户的库**。
 
@@ -49,7 +49,7 @@
 
 ### 3.1 总体（最大化复用平台 agent 运行时 + 工具框架，不重造轮子）
 
-> 核心原则（评审修订）：**「理解意图 → 选工具 → 执行 → 回应」这套循环平台已有**（`FunctionCallingExecutor`，经 `AiHarnessFacade.executeAgent()` 暴露）。organize 不自写循环，只**注册领域工具 + 复用 agent 运行时**。
+> 核心原则（评审修订）：**「理解意图 → 选工具 → 执行 → 回应」这套循环平台已有**（`FunctionCallingExecutor`，经 **`ToolFacade.chatWithToolsStream()`** 暴露；⚠️ `executeAgent` 经评审实测是单次 LLM 无工具循环、不可用——见[评审纪要](../2026-05-21-design-review-minutes.md) BLK-1）。organize 不自写循环，只**注册领域工具 + 复用 agent 运行时**。
 
 ```
 前端「对话整理」面板
@@ -60,8 +60,8 @@ OrganizeChatController (SSE)
    ▼
 OrganizeChatService
    │  ① 准备「库整理 agent」：systemPrompt(scope) + 该 scope 的 organize 工具集
-   │  ② 调 AiHarnessFacade.executeAgent({ message, tools, context:{userId,scope} })
-   │     —— 平台 agent 自己理解意图、决定调哪些工具、多轮执行、产出回应
+   │  ② 调 ToolFacade.chatWithToolsStream({ systemPrompt, userPrompt, context:AICapabilityContext })
+   │     —— 平台 ReAct 循环自己理解意图、决定调哪些工具、多轮执行、产出 AgentEvent 流
    ▼
 ToolRegistry / ToolFacade（平台工具框架）
    │  organize 工具 = 标准 ITool，execute() 内薄封装 ↓ 既有服务
@@ -73,18 +73,18 @@ CollectionsService / AiFileOrganizerService / NotesService（既有写/读，带
 
 ### 3.2 关键决策（ADR 摘要，详见 ADR-006）
 
-| 决策                | 选择（评审修订：max reuse）                                                            | 理由                                                                                                              |
-| ------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| 意图理解 + 执行循环 | **复用 `AiHarnessFacade.executeAgent()`**（内即 `FunctionCallingExecutor`）            | 平台已有成熟 agent 循环（理解意图→选工具→多轮执行）；自写 tool-loop = 重造轮子。已删 IntentRouter，意图交给 agent |
-| 工具                | **实现为标准 `ITool` 注册 `ToolRegistry`，经 `ToolFacade` 执行**                       | 复用平台工具框架（注册/执行/FunctionDefinition/权限中间件），不内联 switch                                        |
-| 流式                | SSE 转发 agent `AgentEvent` 流 + 代理兜底（`ai-ask-stream` reconcile 范式）            | 复用既有实时 + 抗代理范式                                                                                         |
-| 写操作落点          | 工具 `execute()` 薄封装 `CollectionsService` 等**既有方法**（userId 鉴权），不新写 SQL | 复用已测批量写                                                                                                    |
+| 决策                | 选择（评审修订：max reuse）                                                                                                  | 理由                                                                                                              |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 意图理解 + 执行循环 | **复用 `ToolFacade.chatWithToolsStream()`**（内即 `FunctionCallingExecutor`；`executeAgent` 经评审是单次 LLM 不可用，BLK-1） | 平台已有成熟 agent 循环（理解意图→选工具→多轮执行）；自写 tool-loop = 重造轮子。已删 IntentRouter，意图交给 agent |
+| 工具                | **实现为标准 `ITool` 注册 `ToolRegistry`，经 `ToolFacade` 执行**                                                             | 复用平台工具框架（注册/执行/FunctionDefinition/权限中间件），不内联 switch                                        |
+| 流式                | SSE 转发 agent `AgentEvent` 流 + 代理兜底（`ai-ask-stream` reconcile 范式）                                                  | 复用既有实时 + 抗代理范式                                                                                         |
+| 写操作落点          | 工具 `execute()` 薄封装 `CollectionsService` 等**既有方法**（userId 鉴权），不新写 SQL                                       | 复用已测批量写                                                                                                    |
 
 ### 3.3 后端模块结构（新建，薄）
 
 ```
 backend/src/modules/ai-app/library/organize-chat/
-├── organize-chat.module.ts        imports: ToolsModule(ToolFacade)、AiHarnessFacade、CollectionsModule、AiFileOrganizerModule、NotesModule
+├── organize-chat.module.ts        imports: 单一 @/modules/ai-harness/facade（ToolFacade）、CollectionsModule、AiFileOrganizerModule、NotesModule
 ├── organize-chat.controller.ts    @Post(':scope/stream') SSE；@Throttle；JwtAuthGuard
 ├── organize-chat.service.ts       组装 agent（systemPrompt + scope 工具集）→ executeAgent → AgentEvent 转 SSE（薄，无自写循环）
 ├── tools/                         organize ITool 实现（create-collection / tag-items / move-items / set-status / list-* / suggest-classification），onModuleInit 注册到 ToolRegistry

@@ -1,7 +1,8 @@
 # 007. Agent Teams 呈现标准化 - 迁到 agent-playground canonical（落实标准 21 P3）
 
 **Date**: 2026-05-21
-**Status**: 🟡 Proposed（评审中，待集体评审通过）
+**Status**: 🟡 Proposed（四路评审 round 1 完成→迭代 v0.3：补 canonical tab 收窄/角色卡落点/gateway JWT 前置/锚点订正；待用户拍板后走 round 2 至 4/4）
+**评审纪要**: [features/2026-05-21-design-review-minutes.md](../features/2026-05-21-design-review-minutes.md)
 **关联设计文档**: [features/ai-teams/presentation-migration-design.md](../features/ai-teams/presentation-migration-design.md)
 **关联标准**: [.claude/standards/21-agent-teams-presentation.md](../../.claude/standards/21-agent-teams-presentation.md)（本 ADR = 其 §7 P3 的 ai-teams 落地）
 

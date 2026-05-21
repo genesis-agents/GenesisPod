@@ -5,7 +5,7 @@
 **日期：** 2026-05-21
 **作者：** Claude Code
 **关联：** [标准 21 Agent Teams 呈现](../../../.claude/standards/21-agent-teams-presentation.md)（本设计 = 其 §7 P3 的 ai-teams 落地）· [ADR-007](../../decisions/007-ai-teams-presentation-migration.md) · 模板源 `agent-playground`
-**评审基线版本：** v0.1
+**评审基线版本：** v0.3（四路评审 round 1 后迭代；见[评审纪要](../2026-05-21-design-review-minutes.md)）
 
 > 一句话目标：把 `ai-teams` 的详情/执行页从 **3153 行自写 god-class** 迁到 **agent-playground 同款 canonical 呈现**（左：团队拓扑+角色卡+进度；右：任务列表/动作/报告 Tab），组件全复用，ai-teams 只贡献「阶段 step-map + 产出渲染器」。
 
@@ -32,7 +32,7 @@
 ai-teams mission 事件（WS + replay 水合 + 轮询兜底）
         │  useMissionStream（由 useAgentPlaygroundStream 泛化；P1 of 标准21）
         ▼  events: MissionEvent[]
-deriveTeamsView(events)   纯函数（lib/ai-teams/）→ { mission, stages, agents, todos, cost, artifacts }
+deriveTeamsView(events)   纯函数（lib/features/ai-teams/）→ { mission, stages, agents, todos, cost, artifacts }
         │  幂等可重放 + fixture 回归测试
         ▼  只读 view-model
 components/common/mission-detail/  MissionDetailFrame + StageStepper + MissionActionGroup
@@ -43,7 +43,7 @@ components/common/mission-detail/  MissionDetailFrame + StageStepper + MissionAc
 
 **ai-teams 只需贡献三样**（业务适配，标准 21 §3 + 本次评审补充）：
 
-1. **step-map**：声明 ai-teams mission 的阶段拓扑（参考 `lib/ai-social/derive-social-stages.ts`）。
+1. **step-map**：声明 ai-teams mission 的阶段拓扑（参考 `lib/features/ai-social/derive-social-stages.ts`）。
 2. **tab 选择 + 数据适配**：业务决定**展示哪些 tab**（如 ai-teams 要任务列表+动作+报告+消息，ai-radar 可能只要信号+报告）+ 提供每个 tab 的数据适配（从 view-model 取数）。
 3. **artifact renderer**：团队辩论/共识/报告的产出展示组件，挂 ArtifactReader 插槽。
 
@@ -95,7 +95,7 @@ type MissionTab = {
 | 层         | 复用文件                                                                           |
 | ---------- | ---------------------------------------------------------------------------------- |
 | 实时       | `hooks/features/useAgentPlaygroundStream.ts` →（P1 泛化）`useMissionStream`        |
-| 纯派生参考 | `lib/agent-playground/derive.ts` · `todo-ledger.ts`                                |
+| 纯派生参考 | `lib/features/agent-playground/derive.ts` · `todo-ledger.ts`                       |
 | 共享框架   | `components/common/mission-detail/`（Frame/StageStepper/MissionActionGroup/Shell） |
 | 拓扑       | `components/common/team-topology/`                                                 |
 | 列表层     | 已用（`PageHeaderHero`/`AssetCard`/`MissionGalleryView`）                          |
@@ -103,7 +103,7 @@ type MissionTab = {
 ## 6. 拆 god-class（3153 行 → 薄页 + 派生 + 复用组件）
 
 - `page.tsx` 降为 < 100 行（路由+取参+渲染 `components/ai-teams/AiTeamsMissionPage.tsx`）。
-- 业务逻辑 → `lib/ai-teams/`（deriveTeamsView + step-map + events adapter，纯函数 + 测试）。
+- 业务逻辑 → `lib/features/ai-teams/`（deriveTeamsView + step-map + events adapter，纯函数 + 测试）。
 - UI → 复用 `common/mission-detail/` + ai-teams 专属 artifact renderer。
 - 现有 god-class 的功能逐块映射到上述，**不丢功能**（取消任务/重试/分享等 → MissionActionGroup）。
 
@@ -114,7 +114,7 @@ type MissionTab = {
 | **P0 调研**（先做）        | 盘点 ai-teams 后端事件模型 + 与 MissionEvent 差异 → 定 adapter 方案                                                                   | 产出事件映射表，更新本设计 §4                                                             |
 | **P1 派生引擎泛化**        | `useAgentPlaygroundStream`→`useMissionStream`；通用 derive 提 `lib/missions/`（与标准 21 P1 协同）                                    | playground 回归不破；新 hook 有测试                                                       |
 | **P1.5 抽 canonical tabs** | 把 playground 的任务表/动作/算力等抽到 `common/mission-detail/tabs/` + `MissionTabs` 容器 + tab 契约（§3.5），playground 先迁过去验证 | playground 用新 canonical tabs 无回归；每个 tab 复用 DataTable/citations/MessageCardShell |
-| **P2 ai-teams 派生层**     | `lib/ai-teams/`：events adapter + deriveTeamsView + step-map + **fixture 回归测试**                                                   | 纯函数测试：生产事件快照 → 期望 view-model                                                |
+| **P2 ai-teams 派生层**     | `lib/features/ai-teams/`：events adapter + deriveTeamsView + step-map + **fixture 回归测试**                                          | 纯函数测试：生产事件快照 → 期望 view-model                                                |
 | **P3 详情页迁移**          | 新 `AiTeamsMissionPage` 用 mission-detail Frame + 拓扑 + Tab；page.tsx 瘦身                                                           | 真机：跑一个 team mission，呈现 = playground；旧功能不丢                                  |
 | **P4 旧 god-class 下线**   | 删 3153 行旧详情，import 全切                                                                                                         | 无残留引用；audit/lint/tsc 0                                                              |
 
