@@ -110,13 +110,16 @@ export function deriveSocialView(events: MissionEvent[]): SocialMissionView {
       const meta = STEP_META[stepId];
       const primitive =
         typeof p.primitive === 'string' ? p.primitive : undefined;
+      // 角色优先用 stepId 映射（语义明确：Steward/PlatformProbe…），
+      // primitive 是后端泛值（如 'persist'），仅在无映射时兜底。
+      const resolvedRole = meta?.role ?? primitive;
       const stage: SocialStageView = stageMap.get(stepId) ?? {
         stepId,
         label: meta?.label ?? humanize(stepId),
-        role: primitive ?? meta?.role,
+        role: resolvedRole,
         status: 'pending',
       };
-      if (!stage.role) stage.role = primitive ?? meta?.role;
+      if (resolvedRole) stage.role = resolvedRole;
 
       const evStatus = String(p.status ?? '');
       if (evStatus === 'started') {

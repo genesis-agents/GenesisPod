@@ -20,10 +20,18 @@ import {
   ArrowLeft,
   ChevronLeft,
   Coins,
+  Crown,
   FileText,
+  Image as ImageIcon,
   Layers,
   ListChecks,
+  PenTool,
+  Search,
   Send,
+  ShieldCheck,
+  Sparkles,
+  Wand2,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   ComputeUsagePanel,
@@ -35,12 +43,19 @@ import {
   MissionActionGroup,
   type MissionActionButtonSpec,
 } from '@/components/common/mission-detail';
+import {
+  TeamTopologyCanvas,
+  type TeamTopologyNode,
+  type TeamTopologyConnection,
+  type TeamNodeStatus,
+} from '@/components/common/team-topology';
 import { cn } from '@/lib/utils/common';
 import { deriveView } from '@/lib/features/agent-playground/derive';
 import { deriveTodoLedger } from '@/lib/features/agent-playground/todo-ledger';
 import {
   deriveSocialView,
   type SocialStageStatus,
+  type SocialMissionView,
 } from '@/lib/features/ai-social/derive-social';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { useSocialMissionStream } from '@/hooks/features/useSocialMissionStream';
@@ -143,12 +158,64 @@ const SOCIAL_STAGE_STATUS: Record<
   failed: { label: '失败', dot: 'bg-red-500', text: 'text-red-600' },
 };
 
-const SOCIAL_ROLE_DOT: Record<string, string> = {
-  idle: 'bg-gray-300',
-  working: 'bg-blue-500 animate-pulse',
-  done: 'bg-emerald-500',
-  failed: 'bg-red-500',
+/** social 团队拓扑布局（playground 同款 canvas，业务定角色：Leader + 流水线工种） */
+const SOCIAL_TEAM: {
+  role: string;
+  name: string;
+  icon: LucideIcon;
+  colorKey: string;
+  row: number;
+}[] = [
+  { role: 'Leader', name: 'Leader', icon: Crown, colorKey: 'purple', row: 0 },
+  { role: 'Steward', name: '预算管家', icon: Coins, colorKey: 'amber', row: 1 },
+  { role: 'PlatformProbe', name: '平台探测', icon: Search, colorKey: 'blue', row: 1 }, // prettier-ignore
+  { role: 'ContentTransformer', name: '内容转换', icon: Wand2, colorKey: 'indigo', row: 1 }, // prettier-ignore
+  {
+    role: 'CoverArtist',
+    name: '封面',
+    icon: ImageIcon,
+    colorKey: 'pink',
+    row: 1,
+  },
+  { role: 'Composer', name: '撰稿', icon: PenTool, colorKey: 'green', row: 1 },
+  { role: 'PolishReviewer', name: '润色', icon: Sparkles, colorKey: 'rose', row: 2 }, // prettier-ignore
+  { role: 'PublishExecutor', name: '发布', icon: Send, colorKey: 'emerald', row: 2 }, // prettier-ignore
+  { role: 'PublishVerifier', name: '验证', icon: ShieldCheck, colorKey: 'blue', row: 2 }, // prettier-ignore
+];
+
+const SOCIAL_ROLE_NODE_STATUS: Record<string, TeamNodeStatus> = {
+  idle: 'idle',
+  working: 'working',
+  done: 'completed',
+  failed: 'failed',
 };
+
+/** social view → team-topology canvas（nodes/rows/connections），Leader 居顶 fan-out */
+function buildSocialTopology(view: SocialMissionView): {
+  nodes: TeamTopologyNode[];
+  rows: string[][];
+  connections: TeamTopologyConnection[];
+} {
+  const statusByRole = new Map(view.roles.map((r) => [r.role, r.status]));
+  const nodes: TeamTopologyNode[] = SOCIAL_TEAM.map((m) => ({
+    id: m.role,
+    name: m.name,
+    role: m.role,
+    icon: m.icon,
+    colorKey: m.colorKey,
+    isLeader: m.role === 'Leader',
+    status:
+      SOCIAL_ROLE_NODE_STATUS[statusByRole.get(m.role) ?? 'idle'] ?? 'idle',
+    statusLabel: statusByRole.get(m.role) === 'working' ? '进行中' : undefined,
+  }));
+  const rows: string[][] = [0, 1, 2].map((r) =>
+    SOCIAL_TEAM.filter((m) => m.row === r).map((m) => m.role)
+  );
+  const connections: TeamTopologyConnection[] = SOCIAL_TEAM.filter(
+    (m) => m.role !== 'Leader'
+  ).map((m) => ({ from: 'Leader', to: m.role }));
+  return { nodes, rows, connections };
+}
 
 function ReportTab({
   task,
@@ -426,24 +493,10 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                       </button>
                     </div>
                     {socialView.roles.length > 0 ? (
-                      <div className="space-y-2">
-                        {socialView.roles.map((r) => (
-                          <div
-                            key={r.role}
-                            className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
-                          >
-                            <span className="text-sm font-medium text-gray-900">
-                              {r.label}
-                            </span>
-                            <span
-                              className={cn(
-                                'h-2 w-2 rounded-full',
-                                SOCIAL_ROLE_DOT[r.status]
-                              )}
-                            />
-                          </div>
-                        ))}
-                      </div>
+                      <TeamTopologyCanvas
+                        {...buildSocialTopology(socialView)}
+                        heightClass="h-[220px]"
+                      />
                     ) : (
                       <p className="text-xs text-gray-400">
                         团队将在任务启动后展示
