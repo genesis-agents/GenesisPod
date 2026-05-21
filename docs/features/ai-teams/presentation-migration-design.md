@@ -148,15 +148,15 @@ ai-teams 实际 emit ~24 个事件（gateway + mission/tool/ai 服务），与 p
 
 ### 7.1 落地进度（backfill）
 
-| 波次                              | 状态 | commit / 说明                                                                                            |
-| --------------------------------- | ---- | -------------------------------------------------------------------------------------------------------- |
-| BLK-7 gateway JWT 校验（P0 前置） | ✅   | `20e9d0e31`（gateway 改 JWT verify + module 加 JwtModule + spec 46 绿）                                  |
-| P0 事件调研 + god-class 功能映射  | ✅   | 见 §4.1：adapter 强制必需（~580 行）+ cost/dimension 无源（决策：本期略 Compute tab）+ 23 项功能映射底稿 |
-| P1 泛化 useMissionStream          | ⏳   | 待开（namespace 参数化 + replay 端点 + 不丢 ai-teams 原生事件）                                          |
-| P1.5 抽 3 canonical tabs          | ⏳   | TaskList/Report/References                                                                               |
-| P2 deriveTeamsView + adapt-events | ⏳   | task→stage step-map + adapter（§4.1）+ fixture 回归                                                      |
-| P3 详情页迁移（一次性切换）       | ⏳   | 逐项对照功能映射底稿                                                                                     |
-| P4 删旧 god-class                 | ⏳   | grep 0 引用                                                                                              |
+| 波次                              | 状态 | commit / 说明                                                                                               |
+| --------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------- |
+| BLK-7 gateway JWT 校验（P0 前置） | ✅   | `20e9d0e31`（gateway 改 JWT verify + module 加 JwtModule + spec 46 绿）                                     |
+| P0 事件调研 + god-class 功能映射  | ✅   | 见 §4.1：adapter 强制必需（~580 行）+ cost/dimension 无源（决策：本期略 Compute tab）+ 23 项功能映射底稿    |
+| P1 泛化 useMissionStream          | ✅   | `698d98d0a`：useMissionStream 参数化 namespace/replay/join/leave/idKey/acceptEvent；playground 回归 105/105 |
+| P1.5 抽 3 canonical tabs          | ⏳   | TaskList/Report/References                                                                                  |
+| P2 deriveTeamsView + adapt-events | ⏳   | task→stage step-map + adapter（§4.1）+ fixture 回归                                                         |
+| P3 详情页迁移（一次性切换）       | ⏳   | 逐项对照功能映射底稿                                                                                        |
+| P4 删旧 god-class                 | ⏳   | grep 0 引用                                                                                                 |
 
 > P0 已清门禁。**下一波 P1**（泛化 `useMissionStream`）可开。提交注意：当前机器多 session 并发，lint-staged 易 OOM 崩溃 → 用 `NODE_OPTIONS='--max-old-space-size=6144' git commit/push`（见 memory，勿杀 node 进程）。
 
