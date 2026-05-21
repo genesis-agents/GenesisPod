@@ -51,17 +51,60 @@ interface AuthenticatedSocket extends Socket {
   data: { userId?: string };
 }
 
+/**
+ * ★ CORS 白名单（函数式 origin 校验，替代原硬编码数组）
+ * 与 main.ts HTTP CORS / topic-insights WS 网关对齐：
+ *   - 无 Origin（服务端调用、健康检查）放行
+ *   - 开发环境放行 localhost / 127.0.0.1
+ *   - 生产精确匹配 CORS_ORIGINS + FRONTEND_URL + RAILWAY_FRONTEND_URL + Railway 默认域名
+ * 代理/自定义域名部署（如 gens.team）：把前端域名加入 CORS_ORIGINS 或 FRONTEND_URL 即可。
+ * 原硬编码数组只含 *.up.railway.app，自定义域名握手被拒 → 前端报 xhr poll error。
+ */
+const buildAskRoomWsAllowedOrigins = (): Set<string> => {
+  const origins = new Set<string>();
+  const add = (raw?: string | null): void => {
+    if (!raw) return;
+    raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .forEach((s) => origins.add(s));
+  };
+  add(process.env.CORS_ORIGINS);
+  add(process.env.FRONTEND_URL);
+  add(process.env.RAILWAY_FRONTEND_URL);
+  add(APP_CONFIG.railway.frontendUrl);
+  add(APP_CONFIG.railway.backendUrl);
+  return origins;
+};
+
+const askRoomWsAllowedOrigins = buildAskRoomWsAllowedOrigins();
+const askRoomWsIsDev = process.env.NODE_ENV !== "production";
+
+const askRoomWsCorsOrigin = (
+  origin: string,
+  callback: (err: Error | null, allow?: boolean) => void,
+): void => {
+  if (!origin) {
+    callback(null, true);
+    return;
+  }
+  const isLocalhost =
+    askRoomWsIsDev &&
+    (/^http:\/\/localhost:\d+$/.test(origin) ||
+      /^http:\/\/127\.0\.0\.1:\d+$/.test(origin));
+  if (isLocalhost || askRoomWsAllowedOrigins.has(origin)) {
+    callback(null, true);
+  } else {
+    callback(null, false);
+  }
+};
+
 @Injectable()
 @WebSocketGateway({
   namespace: ASK_ROOM_NAMESPACE,
   cors: {
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      APP_CONFIG.railway.frontendUrl,
-      APP_CONFIG.railway.backendUrl,
-      ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
-    ].filter(Boolean),
+    origin: askRoomWsCorsOrigin,
     credentials: true,
   },
   transports: ["websocket", "polling"],

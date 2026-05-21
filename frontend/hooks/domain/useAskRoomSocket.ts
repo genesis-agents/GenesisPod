@@ -11,6 +11,7 @@
 import { useEffect, useRef } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { getAuthTokens } from '@/lib/utils/auth';
+import { config } from '@/lib/utils/config';
 import { logger } from '@/lib/utils/logger';
 import {
   ASK_ROOM_CLIENT_EVENT_NAME,
@@ -51,8 +52,13 @@ export function useAskRoomSocket(opts: UseAskRoomSocketOptions): SocketHandle {
     const tokens = getAuthTokens();
     if (!tokens?.accessToken) return;
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    const baseUrl = apiUrl?.replace('/api/v1', '') || 'http://localhost:3001';
+    // socket 必须直连后端（与 useRadarStream / useSocialMissionStream /
+    // useAgentPlaygroundStream 一致）：gens.team 等自定义域名上 apiBaseUrl 为空字符串
+    // （REST 走 Next.js rewrites 代理），但 rewrites 只代理 /api/v1/*，不代理
+    // /socket.io/*；旧写法 `NEXT_PUBLIC_API_URL?.replace(...) || 'localhost:3001'`
+    // 既不绕代理、未注入时还会兜底到 localhost。getBackendUrl() = NEXT_PUBLIC_API_URL
+    // || RAILWAY_BACKEND_URL，始终返回完整后端 URL。
+    const baseUrl = config.getBackendUrl();
 
     const socket = io(`${baseUrl}${ASK_ROOM_NAMESPACE}`, {
       transports: ['polling', 'websocket'],
@@ -87,9 +93,12 @@ export function useAskRoomSocket(opts: UseAskRoomSocketOptions): SocketHandle {
     });
 
     socket.on('connect_error', (err: Error) => {
+      // 优雅降级（与 useNotificationSocket 一致）：传输层连接失败（代理环境常见的
+      // xhr poll error）不再弹致命红条。RoomChatPage 的 loading 由 HTTP initialLoad
+      // 控制、与 socket 无关（原 "否则卡 loading" 注释不成立）；socket.io 会按
+      // reconnectionAttempts 自行重连。onJoinError 仅保留给真正的 join 拒绝
+      // （ack.ok===false：未登录 / 越权 / 房间不存在），那才是用户需要看到的错误。
       logger.debug(`[AskRoomSocket] connect_error: ${err.message}`);
-      // 评审 W6 阻塞 #2：连接失败也要通知 UI，否则 RoomChatPage 卡 loading
-      onJoinErrorRef.current?.(`connect_error: ${err.message}`);
     });
 
     socket.on('disconnect', (reason: string) => {
