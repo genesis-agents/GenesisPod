@@ -2,6 +2,7 @@
 
 > 用户协作偏好 + 项目反复踩到的反模式。每条 ≤200 字符，详情看链接文件。
 
+- [feedback_push_must_fix_gates_not_wait.md](feedback_push_must_fix_gates_not_wait.md) — 硬规则：提交/推送前所有闸门(commitlint/lint-staged/pre-push: verify:arch+type-check+测试+UI audit+i18n+deps)必须整改全绿才算完成；携带的别人 commit 跑红也要修到合规(补契约 baseline 等)，禁「等别人修」/--no-verify/rebase 丢提交（2026-05-20 playground 契约拦截教训）
 - [feedback_ui_governance_no_fake_exceptions.md](feedback_ui_governance_no_fake_exceptions.md) — UI 治理铁律：不接受假例外，规则越界就改规则(R11 去可见性)、缺真功能就建或诚实说做不了(别造死开关)、canonical 真不适配才 allowlist+留痕；到 0 后全部规则焊死 HARD_ZERO
 - [feedback_commit_only_own_changes.md](feedback_commit_only_own_changes.md) — 提交前必 git diff --cached --name-only 核对,只提交本会话自己改的文件,工作树里无关删除/改动不碰不提交(2026-05-20 误纳 litellm-proxy 删除被纠正)
 - [feedback_frontend_dir_hygiene.md](feedback_frontend_dir_hygiene.md) — 用户对前端目录有强洁癖、逐个追问归属；按 02-directory-structure.md 消费方规则归位，给决断表+分 Tier 独立 commit，不为美观重命名 route 镜像目录（2026-05-20 me/hooks/lib 归位）
