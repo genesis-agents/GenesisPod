@@ -6932,9 +6932,10 @@ enum TopicVisibility {
   PUBLIC // 公开：所有人可见
 }
 
-/// 内容可见性（通用）
+/// 内容可见性（通用，多租户权限隔离统一三档）
 enum ContentVisibility {
   PRIVATE // 私有：仅所有者可见
+  SHARED // 共享：所有者 + 同工作区/协作者可见
   PUBLIC // 公开：所有人可见
 }
 
