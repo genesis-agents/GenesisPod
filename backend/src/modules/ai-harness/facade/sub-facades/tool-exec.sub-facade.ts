@@ -339,6 +339,11 @@ export class ToolExecSubFacade {
       modelId: request.modelConfig.modelId,
       apiKey: request.modelConfig.apiKey,
       apiEndpoint: request.modelConfig.apiEndpoint,
+      // 2026-05-21 BYOK：透传 context.userId，否则 FunctionCallingLLMAdapter
+      // .resolveApiKeyForProvider 拿不到 userId → 不走 KeyResolver →
+      // NoAvailableKeyError("xai")（"No API Key available for provider"）。
+      // 对话整理等 caller 故意传 apiKey=undefined，期望此处按 BYOK 解析用户的 key。
+      userId: request.context.userId,
     });
 
     yield* this.tools.executor.executeWithContext(
