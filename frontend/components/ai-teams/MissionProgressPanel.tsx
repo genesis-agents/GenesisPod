@@ -9,6 +9,7 @@ import {
 } from '@/lib/types/ai-teams';
 import { Target, Plus } from 'lucide-react';
 import { useAiGroupStore } from '@/stores/ai-teams';
+import { confirm } from '@/stores';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui';
 import AIMessageRenderer from '@/components/ui/content/AIMessageRenderer';
@@ -225,7 +226,7 @@ export default function MissionProgressPanel({
   }, [missions, detailMission]);
 
   const handleCancelMission = async (missionId: string) => {
-    if (confirm('确定要取消此任务吗？')) {
+    if (await confirm({ title: '确定要取消此任务吗？', type: 'warning' })) {
       await cancelMission(topicId, missionId);
     }
   };
@@ -238,13 +239,19 @@ export default function MissionProgressPanel({
       mode === 'full'
         ? '确定要重新执行此任务吗？这将重新规划所有子任务。'
         : '确定要继续执行此任务吗？';
-    if (confirm(confirmMsg)) {
+    if (await confirm({ title: confirmMsg, type: 'warning' })) {
       await retryMission(topicId, missionId, { mode });
     }
   };
 
   const handleDeleteMission = async (missionId: string) => {
-    if (confirm('确定要删除此任务吗？此操作不可恢复。')) {
+    if (
+      await confirm({
+        title: '确定要删除此任务吗？',
+        description: '此操作不可恢复。',
+        type: 'danger',
+      })
+    ) {
       await deleteMission(topicId, missionId);
     }
   };

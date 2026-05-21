@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { confirm } from '@/stores';
 import {
   getChapterRevisions,
   compareRevisions,
@@ -134,7 +135,14 @@ export default function ChapterRevisionHistory({
 
   // 回滚到指定版本
   const handleRollback = async (revisionId: string) => {
-    if (!confirm('确定要回滚到此版本吗？当前内容将被覆盖。')) return;
+    if (
+      !(await confirm({
+        title: '确定要回滚到此版本吗？',
+        description: '当前内容将被覆盖。',
+        type: 'warning',
+      }))
+    )
+      return;
 
     try {
       setRollbackLoading(true);

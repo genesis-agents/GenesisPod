@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
+import { confirm } from '@/stores';
 import { TopicCard } from './TopicCard';
 import { CreateTopicDialog } from '../dialogs/CreateTopicDialog';
 import { TopicSharingModal } from '../dialogs/TopicSharingModal';
@@ -231,7 +232,13 @@ export function TopicResearchTab({
 
   // Handle delete
   const handleDelete = async (topicId: string) => {
-    if (!confirm(t('topicResearch.confirmDelete'))) return;
+    if (
+      !(await confirm({
+        title: t('topicResearch.confirmDelete'),
+        type: 'danger',
+      }))
+    )
+      return;
     try {
       await deleteTopic(topicId);
     } catch (err) {

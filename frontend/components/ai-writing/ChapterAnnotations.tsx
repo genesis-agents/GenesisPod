@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { confirm } from '@/stores';
 import {
   getChapterAnnotations,
   createAnnotation,
@@ -158,7 +159,8 @@ export default function ChapterAnnotations({
 
   // 删除批注
   const handleDeleteAnnotation = async (id: string) => {
-    if (!confirm('确定要删除此批注吗？')) return;
+    if (!(await confirm({ title: '确定要删除此批注吗？', type: 'danger' })))
+      return;
 
     try {
       await deleteAnnotation(chapterId, id);

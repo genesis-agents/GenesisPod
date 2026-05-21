@@ -39,7 +39,7 @@ import {
   useSocialContentsSWR,
   useSocialConnectionsSWR,
 } from '@/hooks/domain/useSocialSWR';
-import { toast } from '@/stores';
+import { confirm, toast } from '@/stores';
 import { ContentTableSkeleton } from './skeletons';
 import { Tooltip } from '@/components/ui/feedback/Tooltip';
 import { BatchActionBar } from './BatchActionBar';
@@ -202,7 +202,10 @@ export default function ContentsTab({
   };
 
   const handleDelete = async (contentId: string) => {
-    if (!confirm(t('aiSocial.confirm.delete'))) return;
+    if (
+      !(await confirm({ title: t('aiSocial.confirm.delete'), type: 'danger' }))
+    )
+      return;
 
     setDeletingId(contentId);
     const success = await removeContent(contentId);
@@ -421,7 +424,7 @@ export default function ContentsTab({
       count: selectedIds.size,
     });
 
-    if (!confirm(confirmMessage)) return;
+    if (!(await confirm({ title: confirmMessage, type: 'danger' }))) return;
 
     setIsBatchDeleting(true);
 
@@ -482,7 +485,7 @@ export default function ContentsTab({
       count: selectedIds.size,
     });
 
-    if (!confirm(confirmMessage)) return;
+    if (!(await confirm({ title: confirmMessage, type: 'danger' }))) return;
 
     setIsBatchPublishing(true);
 

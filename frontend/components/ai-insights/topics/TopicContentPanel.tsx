@@ -11,6 +11,7 @@
  */
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import { confirm } from '@/stores';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -596,10 +597,12 @@ export function TopicContentPanel({
 
     // ★ 先确认：会将专题设为公开
     const shareUrl = `${window.location.origin}/share/topic/${topicId}`;
-    const confirmed = window.confirm(
-      t('topicResearch.contentPanel.shareConfirm') ||
-        '将生成公开分享链接，专题将设为公开可访问。是否继续？'
-    );
+    const confirmed = await confirm({
+      title:
+        t('topicResearch.contentPanel.shareConfirm') ||
+        '将生成公开分享链接，专题将设为公开可访问。是否继续？',
+      type: 'warning',
+    });
     if (!confirmed) return;
 
     try {

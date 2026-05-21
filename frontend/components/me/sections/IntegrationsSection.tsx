@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { confirm } from '@/stores';
 import Link from 'next/link';
 import {
   Plus,
@@ -200,7 +201,13 @@ function NotionConnector() {
   };
 
   const handleDisconnect = async (id: string) => {
-    if (!confirm(t('profile.integrations.disconnectConfirm'))) return;
+    if (
+      !(await confirm({
+        title: t('profile.integrations.disconnectConfirm'),
+        type: 'danger',
+      }))
+    )
+      return;
     try {
       await disconnectNotion(id);
       await fetchConnections();
@@ -302,7 +309,12 @@ function DriveConnector() {
   };
 
   const handleDisconnect = async (id: string, email: string) => {
-    if (!confirm(t('me.integrations.driveDisconnectConfirm', { email })))
+    if (
+      !(await confirm({
+        title: t('me.integrations.driveDisconnectConfirm', { email }),
+        type: 'danger',
+      }))
+    )
       return;
     try {
       await disconnect(id);
@@ -456,7 +468,13 @@ function FeishuConnector() {
   };
 
   const handleUnbind = async () => {
-    if (!confirm(t('profile.integrations.feishu.confirmUnbind'))) return;
+    if (
+      !(await confirm({
+        title: t('profile.integrations.feishu.confirmUnbind'),
+        type: 'danger',
+      }))
+    )
+      return;
     setBusy(true);
     try {
       const res = await fetch(`${config.apiUrl}/feishu-data-source/binding`, {

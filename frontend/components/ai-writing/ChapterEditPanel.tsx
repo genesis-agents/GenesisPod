@@ -11,6 +11,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { confirm } from '@/stores';
 import ReactMarkdown from 'react-markdown';
 import {
   updateChapterContent,
@@ -282,9 +283,16 @@ export default function ChapterEditPanel({
             <button
               onClick={() => {
                 if (hasChanges) {
-                  if (window.confirm('有未保存的更改，确定要关闭吗？')) {
-                    onClose();
-                  }
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: '有未保存的更改，确定要关闭吗？',
+                        type: 'warning',
+                      })
+                    ) {
+                      onClose();
+                    }
+                  })();
                 } else {
                   onClose();
                 }

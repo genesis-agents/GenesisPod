@@ -8,6 +8,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { confirm } from '@/stores';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
 import {
@@ -400,9 +401,16 @@ function ActionButtons({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(t('topicResearch.errors.confirmCancelTask'))) {
-                handleAction('cancel');
-              }
+              void (async () => {
+                if (
+                  await confirm({
+                    title: t('topicResearch.errors.confirmCancelTask'),
+                    type: 'warning',
+                  })
+                ) {
+                  handleAction('cancel');
+                }
+              })();
             }}
             className="rounded p-1 text-red-500 hover:bg-red-50"
             title={t('common.cancel')}

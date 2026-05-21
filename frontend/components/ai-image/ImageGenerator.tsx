@@ -11,7 +11,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
-import { useImageSourceStore } from '@/stores';
+import { confirm, useImageSourceStore } from '@/stores';
 
 // Note: The following extracted components are available for future integration:
 import { InputArea } from './components/InputArea';
@@ -1793,7 +1793,12 @@ export default function ImageGenerator({
 
   // Delete
   const handleDelete = async (image: GeneratedImage) => {
-    if (!confirm('Are you sure you want to delete this image?')) {
+    if (
+      !(await confirm({
+        title: 'Are you sure you want to delete this image?',
+        type: 'danger',
+      }))
+    ) {
       setContextMenu(null);
       return;
     }

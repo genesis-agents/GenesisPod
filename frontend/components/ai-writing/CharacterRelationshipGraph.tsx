@@ -7,6 +7,7 @@ import React, {
   useMemo,
   useRef,
 } from 'react';
+import { confirm } from '@/stores';
 import {
   RelationshipGraph,
   RelationshipNode,
@@ -503,7 +504,13 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
 
   // 删除关系
   const handleDeleteRelation = async (edge: RelationshipEdge) => {
-    if (!confirm(`确定要删除关系"${edge.label}"吗？`)) return;
+    if (
+      !(await confirm({
+        title: `确定要删除关系"${edge.label}"吗？`,
+        type: 'danger',
+      }))
+    )
+      return;
 
     try {
       await deleteCharacterRelationship(projectId, edge.id);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { confirm } from '@/stores';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Modal } from '@/components/ui/dialogs/Modal';
@@ -125,9 +126,11 @@ export function UserApiKeysTab() {
     const existing = getKeyForProvider(provider.id);
     if (!existing) return;
     if (
-      !confirm(
-        `确定删除「${provider.name}」的 API Key？此操作不可恢复（保留多 KEY 时请用「Manage Keys」）。`
-      )
+      !(await confirm({
+        title: `确定删除「${provider.name}」的 API Key？`,
+        description: '此操作不可恢复（保留多 KEY 时请用「Manage Keys」）。',
+        type: 'danger',
+      }))
     ) {
       return;
     }
@@ -135,7 +138,13 @@ export function UserApiKeysTab() {
   };
 
   const handleWithdraw = async (provider: ProviderInfo) => {
-    if (!confirm(`撤回「${provider.name}」的捐赠 KEY？将转回个人模式。`))
+    if (
+      !(await confirm({
+        title: `撤回「${provider.name}」的捐赠 KEY？`,
+        description: '将转回个人模式。',
+        type: 'warning',
+      }))
+    )
       return;
     await withdrawDonation(provider.id);
   };

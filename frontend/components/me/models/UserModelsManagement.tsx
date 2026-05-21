@@ -32,7 +32,7 @@ import {
   type UserAssignmentView,
 } from '@/hooks/features/useByokUser';
 import { apiClient } from '@/lib/api/client';
-import { toast } from '@/stores';
+import { confirm, toast } from '@/stores';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
 import { UserModelConfigModal } from './UserModelConfigModal';
@@ -175,7 +175,14 @@ export function UserModelsManagement() {
 
   const handleCancelPending = async () => {
     if (!pendingRequest) return;
-    if (!confirm('确定撤销当前待审批的申请吗？撤销后可重新提交。')) return;
+    if (
+      !(await confirm({
+        title: '确定撤销当前待审批的申请吗？',
+        description: '撤销后可重新提交。',
+        type: 'warning',
+      }))
+    )
+      return;
     setCancellingRequest(true);
     try {
       await cancelKeyRequest(pendingRequest.id);
@@ -717,13 +724,17 @@ export function UserModelsManagement() {
                           </button>
                           <button
                             onClick={() => {
-                              if (
-                                personal &&
-                                confirm(
-                                  `确定删除模型 ${m.displayName}（${m.modelId}）吗？`
-                                )
-                              ) {
-                                void remove(personal.id);
+                              if (personal) {
+                                void (async () => {
+                                  if (
+                                    await confirm({
+                                      title: `确定删除模型 ${m.displayName}（${m.modelId}）吗？`,
+                                      type: 'danger',
+                                    })
+                                  ) {
+                                    void remove(personal.id);
+                                  }
+                                })();
                               }
                             }}
                             title="删除"

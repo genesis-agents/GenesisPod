@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { confirm } from '@/stores';
 import {
   Plus,
   Edit2,
@@ -442,12 +443,16 @@ export function MultiKeyTable({
                           <button
                             title="Delete"
                             onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Delete key "${row.label}"? This cannot be undone.`
+                              void (async () => {
+                                if (
+                                  await confirm({
+                                    title: `Delete key "${row.label}"?`,
+                                    description: 'This cannot be undone.',
+                                    type: 'danger',
+                                  })
                                 )
-                              )
-                                void onDelete(row.id);
+                                  void onDelete(row.id);
+                              })();
                             }}
                             disabled={actionLoading}
                             className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
