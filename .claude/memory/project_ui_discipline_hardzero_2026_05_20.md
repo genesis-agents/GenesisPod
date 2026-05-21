@@ -1,6 +1,6 @@
 ---
 name: project_ui_discipline_hardzero_2026_05_20
-description: UI-discipline audit 全部规则焊死 HARD_ZERO + TOTAL=0 收口（2026-05-20）
+description: UI-discipline audit 规则焊死 HARD_ZERO（2026-05-20）；R2 后发现有盲区，已加固并改棘轮冻结 baseline=9
 metadata:
   node_type: memory
   type: project
@@ -32,3 +32,16 @@ metadata:
 **未硬零（实事求是，精度不够会误拦）**：统计卡（text-2xl 噪声大）、内容卡（渐变头与 Modal/面板共用特征）→ 作"文档约定 + 已迁清晰用例"治理，不进 HARD_ZERO。
 
 详见 [[feedback_ui_governance_no_fake_exceptions]]。多会话协作（exec 写 R11/R1/R2、radar 管 ai-radar 子树）见 [[feedback_lint_staged_stash_safety]]。
+
+## R2 检测器有盲区 → 加固 + 改棘轮（2026-05-20，用户发现「为什么之前违反也硬0通过」）
+
+用户质疑后核实：旧 `checkR2AssetCard` 的「TOTAL 0」是**假绿**，有 4 个盲区，自写资产卡能整片绕过：
+
+1. **抽成 `*Card` 组件即免疫**——R2 只数「内联在 `.map` 旁、≥3 次」的卡 className；卡被抽成独立组件后 className 在组件定义里、离 `.map` 远 → 命中 0。library bookmarks 的自写 `ResourceCard` 就是这样常年漏检（本会话已迁成 `AssetCard`）。
+2. **阈值 ≥3**——单个列表只有 1 个卡模板 → 永远 < 3。
+3. **顺序依赖 + 仅 `bg-white`**——正则要求 `rounded→border→bg-white` 固定顺序；换序或用 `bg-gray-50` 即绕过。
+4. **文件级 import 豁免**——`hasImport(AssetCard)` 整文件 early-return。
+
+**加固版**（`scripts/utils/audit-ui-discipline.ts`）：lookahead 顺序无关；形态 A=内联 `.map` 卡(bg-white+标题信号,≥3)；形态 B=命名 `*Card` 且根节点自写卡(无 `<AssetCard`)+「标题信号」；用**跨文件 `.map` 列表项组件名索引** `collectMapRenderedComponents` 把 B 收敛到真·列表卡（排除 config/summary/insight 等域内卡，22→9）。
+
+**收尾（用户选「棘轮冻结」）**：R2 移出 `HARD_ZERO_RULES`，进新 `RATCHET_RULES`，**默认运行即强制「不劣化」**(cur>baseline 即 exit 1，已实测验证)。baseline 锁 `R2=9`（`docs/_archive/ui-discipline-baseline.json`）。存量 9 个真自写列表卡（explore `ResourceCard`、wiki `WikiLogCard`、`CreateKnowledgeBaseCard`、`TrendCard`、ai-image `InsightCard`×2、`AgentCard`、admin `StatCard`×2）逐步迁，新卡拦截。**教训：「audit TOTAL 0」≠「无自写卡」，启发式 lint 不是证明。**
