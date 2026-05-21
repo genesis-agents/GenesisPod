@@ -33,7 +33,7 @@ import type {
 import { RadarTopicCard } from '@/components/ai-radar/RadarTopicCard';
 import { CreateRadarTopicModal } from '@/components/ai-radar/CreateRadarTopicModal';
 import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
-import { PageHeaderHero } from '@/components/common/page-header-hero';
+import { PageHeaderHero } from '@/components/ui/page-header-hero';
 
 const SearchIcon = ({ className }: { className?: string }) => (
   <svg

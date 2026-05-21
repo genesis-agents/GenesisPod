@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogIn, Share2, Link2, ShieldAlert } from 'lucide-react';
-import { PageHeaderHero } from '@/components/common/page-header-hero';
+import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { useTranslation } from '@/lib/i18n';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { SocialErrorFallback } from '@/components/ai-social/SocialErrorFallback';

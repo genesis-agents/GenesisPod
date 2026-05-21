@@ -7,7 +7,7 @@ import AppShell from '@/components/layout/AppShell';
 import WorkspaceLayout from '@/components/ai-office/layout/WorkspaceLayout';
 import { SkillsModal } from '@/components/common/skills/SkillsModal';
 import { LogIn, Sparkles } from 'lucide-react';
-import { PageHeaderHero } from '@/components/common/page-header-hero';
+import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { useTranslation } from '@/lib/i18n';
 import { LoadingState } from '@/components/ui/states/LoadingState';
 

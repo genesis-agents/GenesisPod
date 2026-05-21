@@ -15,7 +15,7 @@ import { ModelBadges } from '@/components/common/ModelBadges';
 import AppShell from '@/components/layout/AppShell';
 import { Users, Plus } from 'lucide-react';
 import { CreateCard } from '@/components/ui/cards/CreateCard';
-import { PageHeaderHero } from '@/components/common/page-header-hero';
+import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import ShareModal from '@/components/common/dialogs/ShareModal';
 import { Modal } from '@/components/ui/dialogs/Modal';

@@ -140,17 +140,17 @@ modules/integrations/
 
 ### 七大顶层目录职责（必须严格遵守）
 
-| 目录                    | 职责                                                                                                                      | 禁止                                            |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `components/ui/`        | 无业务 UI primitive（Button/Dialog/Card/动画/states），可在任何项目复用                                                   | 含任何 feature 业务逻辑 / API 调用              |
-| `components/common/`    | **跨 feature 复用**的业务组件（asset-card/citations/mission-detail/selectors 等）                                         | 单 feature 专属组件                             |
-| `components/{feature}/` | 单 feature 专属组件（`ai-social`/`ai-radar`/`admin`/`explore`/`library`...）                                              | 被其他 feature import（要复用就上提 common）    |
-| `components/layout/`    | 全局布局（AppShell/Sidebar/MobileNav）                                                                                    | feature 局部布局                                |
-| `lib/`                  | **纯逻辑**：无 React、无 HTTP。derive/transform/parse/格式化/常量/类型                                                    | `fetch`/`axios`/任何网络调用、React hook        |
-| `services/`             | **所有 API 调用**：HTTP 客户端 + SSE 流 + 各 feature 的 API service                                                       | 纯逻辑（放 lib）、React hook（放 hooks）        |
-| `hooks/`                | React hooks（`core` 通用 / `domain` 业务 / `swr` 数据 / `features` 复合 / `utils` 工具 hook）；**禁止散落在 `hooks/` 根** | 非 hook 的纯函数（放 lib）、`hooks/` 根的散文件 |
-| `contexts/`             | React Context（全局跨树状态，如 AuthContext）                                                                             | 能用 props/Zustand 解决的局部状态               |
-| `stores/`               | Zustand 全局 store                                                                                                        | 单组件本地 state                                |
+| 目录                    | 职责                                                                                                                                          | 禁止                                            |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `components/ui/`        | 无业务设计系统：primitive + app-agnostic composite（Button/Dialog/**cards**/**page-header-hero**/table/states/nav/form 等），可在任何项目复用 | 含任何 feature 业务逻辑 / API 调用              |
+| `components/common/`    | **跨 feature 复用**的业务/领域组件（citations/mission-detail/selectors 等），**按 concern 子目录组织，根目录禁堆散落文件**                    | 单 feature 专属组件 / 纯 UI primitive（归 ui/） |
+| `components/{feature}/` | 单 feature 专属组件（`ai-social`/`ai-radar`/`admin`/`explore`/`library`...）                                                                  | 被其他 feature import（要复用就上提 common）    |
+| `components/layout/`    | 全局布局（AppShell/Sidebar/MobileNav）                                                                                                        | feature 局部布局                                |
+| `lib/`                  | **纯逻辑**：无 React、无 HTTP。derive/transform/parse/格式化/常量/类型                                                                        | `fetch`/`axios`/任何网络调用、React hook        |
+| `services/`             | **所有 API 调用**：HTTP 客户端 + SSE 流 + 各 feature 的 API service                                                                           | 纯逻辑（放 lib）、React hook（放 hooks）        |
+| `hooks/`                | React hooks（`core` 通用 / `domain` 业务 / `swr` 数据 / `features` 复合 / `utils` 工具 hook）；**禁止散落在 `hooks/` 根**                     | 非 hook 的纯函数（放 lib）、`hooks/` 根的散文件 |
+| `contexts/`             | React Context（全局跨树状态，如 AuthContext）                                                                                                 | 能用 props/Zustand 解决的局部状态               |
+| `stores/`               | Zustand 全局 store                                                                                                                            | 单组件本地 state                                |
 
 ### lib vs services 边界（最易混淆，必读）
 
@@ -211,6 +211,13 @@ modules/integrations/
 复用升级路径：feature 专属组件被第 2 个 feature 需要时，
 立即上提 components/common/，不允许复制粘贴第二份。
 ```
+
+> **归属边界铁律（2026-05-21，卡片乱放事故后立）**：
+>
+> - **纯 UI primitive / app-agnostic composite → `components/ui/{concern}/`**（cards、page-header-hero 都是；已从 common/ 收回）。卡片**只**许在 `components/ui/cards/`（audit **R15** 焊死）。
+> - **`common/` 必须按 concern 子目录组织，根目录禁堆散落 `.tsx`**（存量 grandfather 冻结，禁新增）。
+> - **新增 `ui/` 或 `common/` 的 concern 目录前，先在看护测试白名单登记**（= 评审闸门），否则 pre-push 拒推。
+> - 看护：`frontend/__tests__/protection-net/component-placement.spec.ts`（pre-push `[0c]` + CI）+ `audit-ui-discipline` R15（pre-push `[4/6]`）。**规则只写文档没用——必须有机器守护，否则必漂移。**
 
 ### App Router 结构
 

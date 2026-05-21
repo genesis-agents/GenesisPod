@@ -79,7 +79,7 @@ echo ""
 #   规范：.claude/standards/02-directory-structure.md §Frontend 第一层目录白名单与定位
 echo "[0c/6] 前端目录结构看护..."
 STRUCT_LOG=$(mktemp)
-(cd frontend && npx vitest run __tests__/protection-net/first-level-directory-structure.spec.ts __tests__/protection-net/lib-layer-structure.spec.ts > "$STRUCT_LOG" 2>&1) || {
+(cd frontend && npx vitest run __tests__/protection-net/first-level-directory-structure.spec.ts __tests__/protection-net/lib-layer-structure.spec.ts __tests__/protection-net/component-placement.spec.ts > "$STRUCT_LOG" 2>&1) || {
     echo ""
     echo "  前端第一层目录结构违规！（白名单见规范 02 / 测试 ALLOWED_DIRS）"
     echo "── 最后 30 行输出 ──"

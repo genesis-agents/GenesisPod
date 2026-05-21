@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { Layers, Plus } from 'lucide-react';
-import { PageHeaderHero } from '@/components/common/page-header-hero';
+import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';

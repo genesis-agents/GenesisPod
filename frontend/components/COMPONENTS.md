@@ -10,35 +10,35 @@
 
 ## 1. 速查：要做某种 UI → 用这个
 
-| 你要做…             | 用 canonical                           | import                                                                  |
-| ------------------- | -------------------------------------- | ----------------------------------------------------------------------- |
-| 菜单主页骨架        | `AppShell` + `PageHeaderHero`          | `@/components/layout/AppShell` · `@/components/common/page-header-hero` |
-| 列表卡片            | `AssetCard`                            | `@/components/common/asset-card`                                        |
-| 设置/区块卡         | `SettingsSectionCard`                  | `@/components/common/cards`                                             |
-| 通用容器卡          | `ResponsiveCard`                       | `@/components/ui`                                                       |
-| 空态                | `EmptyState`                           | `@/components/ui`                                                       |
-| 加载/骨架           | `LoadingState` / `LoadingSkeleton`     | `@/components/ui`                                                       |
-| 错误态              | `ErrorState`                           | `@/components/ui`                                                       |
-| 弹窗                | `Modal` / `ConfirmDialog`              | `@/components/ui`                                                       |
-| 抽屉/侧滑           | `SideDrawer`                           | `@/components/common/drawers`                                           |
-| mission 弹层        | `MissionDialogShell`                   | `@/components/common/dialogs`                                           |
-| 按钮                | `Button`（variant/size）               | `@/components/ui`                                                       |
-| 下拉/菜单           | `DropdownMenu`                         | `@/components/ui`                                                       |
-| 开关                | `Switch`                               | `@/components/ui`                                                       |
-| 提示气泡            | `Tooltip`                              | `@/components/ui/Tooltip`                                               |
-| 全局 toast          | `Toast` / `useToast`                   | `@/components/ui`                                                       |
-| 状态徽章(enum→tone) | `StatusBadge`                          | `@/components/ui/badges`                                                |
-| 品牌/Tier 徽章      | `ModelBadge` / `TierBadge`             | `@/components/common/badges`                                            |
-| 进度条              | `ProgressBar`                          | `@/components/ui/progress`                                              |
-| 日期(防水合)        | `ClientDate`                           | `@/components/common/ClientDate`                                        |
-| 模型选择            | `ModelSelect`                          | `@/components/common/ModelSelect`                                       |
-| mission 详情骨架    | `MissionDetailFrame` + `StageStepper`  | `@/components/common/mission-detail`                                    |
-| mission 列表        | `MissionGalleryView`                   | `@/components/common/missions`                                          |
-| Tab 页(横向)        | `Tabs`                                 | `@/components/ui/tabs`                                                  |
-| 表单 Input/Textarea | `Input` / `Textarea`                   | `@/components/ui/form`                                                  |
-| 分页                | `Pagination`                           | `@/components/ui/pagination`                                            |
-| 数据表格(交互网格)  | `DataTable`                            | `@/components/common/tables`                                            |
-| 展示表格(纯展示)    | `Table`/`THead`/`TBody`/`Tr`/`Th`/`Td` | `@/components/ui/table`                                                 |
+| 你要做…             | 用 canonical                           | import                                                              |
+| ------------------- | -------------------------------------- | ------------------------------------------------------------------- |
+| 菜单主页骨架        | `AppShell` + `PageHeaderHero`          | `@/components/layout/AppShell` · `@/components/ui/page-header-hero` |
+| 列表卡片            | `AssetCard`                            | `@/components/common/asset-card`                                    |
+| 设置/区块卡         | `SettingsSectionCard`                  | `@/components/common/cards`                                         |
+| 通用容器卡          | `ResponsiveCard`                       | `@/components/ui`                                                   |
+| 空态                | `EmptyState`                           | `@/components/ui`                                                   |
+| 加载/骨架           | `LoadingState` / `LoadingSkeleton`     | `@/components/ui`                                                   |
+| 错误态              | `ErrorState`                           | `@/components/ui`                                                   |
+| 弹窗                | `Modal` / `ConfirmDialog`              | `@/components/ui`                                                   |
+| 抽屉/侧滑           | `SideDrawer`                           | `@/components/common/drawers`                                       |
+| mission 弹层        | `MissionDialogShell`                   | `@/components/common/dialogs`                                       |
+| 按钮                | `Button`（variant/size）               | `@/components/ui`                                                   |
+| 下拉/菜单           | `DropdownMenu`                         | `@/components/ui`                                                   |
+| 开关                | `Switch`                               | `@/components/ui`                                                   |
+| 提示气泡            | `Tooltip`                              | `@/components/ui/Tooltip`                                           |
+| 全局 toast          | `Toast` / `useToast`                   | `@/components/ui`                                                   |
+| 状态徽章(enum→tone) | `StatusBadge`                          | `@/components/ui/badges`                                            |
+| 品牌/Tier 徽章      | `ModelBadge` / `TierBadge`             | `@/components/common/badges`                                        |
+| 进度条              | `ProgressBar`                          | `@/components/ui/progress`                                          |
+| 日期(防水合)        | `ClientDate`                           | `@/components/common/ClientDate`                                    |
+| 模型选择            | `ModelSelect`                          | `@/components/common/ModelSelect`                                   |
+| mission 详情骨架    | `MissionDetailFrame` + `StageStepper`  | `@/components/common/mission-detail`                                |
+| mission 列表        | `MissionGalleryView`                   | `@/components/common/missions`                                      |
+| Tab 页(横向)        | `Tabs`                                 | `@/components/ui/tabs`                                              |
+| 表单 Input/Textarea | `Input` / `Textarea`                   | `@/components/ui/form`                                              |
+| 分页                | `Pagination`                           | `@/components/ui/pagination`                                        |
+| 数据表格(交互网格)  | `DataTable`                            | `@/components/common/tables`                                        |
+| 展示表格(纯展示)    | `Table`/`THead`/`TBody`/`Tr`/`Th`/`Td` | `@/components/ui/table`                                             |
 
 ---
 
@@ -71,7 +71,7 @@
 | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------- |
 | `AssetCard`                                                                         | `common/asset-card/`                                                    | 资产/内容列表卡（图标/徽章/可见性/统计/操作） |
 | `SettingsSectionCard`                                                               | `common/cards/`                                                         | 设置页区块卡                                  |
-| `PageHeaderHero`                                                                    | `common/page-header-hero/`                                              | 主页/列表页头部                               |
+| `PageHeaderHero`                                                                    | `ui/page-header-hero/`                                                  | 主页/列表页头部                               |
 | `SideDrawer`                                                                        | `common/drawers/`                                                       | 右侧抽屉                                      |
 | `MissionDialogShell`                                                                | `common/dialogs/`                                                       | mission 弹层外壳                              |
 | `ShareModal` `SharePermissionModal`                                                 | `common/dialogs/`                                                       | 分享/权限                                     |

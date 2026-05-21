@@ -30,7 +30,7 @@ import {
 import { FileText, Globe, Lock, FileSearch, Plus } from 'lucide-react';
 import { CreateCard } from '@/components/ui/cards/CreateCard';
 import { EmptyState, LoadingState } from '@/components/ui/states';
-import { PageHeaderHero } from '@/components/common/page-header-hero';
+import { PageHeaderHero } from '@/components/ui/page-header-hero';
 
 interface ResearchProject {
   id: string;

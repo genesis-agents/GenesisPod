@@ -23,7 +23,7 @@ import { useWeeklyBriefing } from '@/hooks/domain/useWeeklyBriefing';
 import { useTranslation } from '@/lib/i18n';
 import { TierBadge } from '@/components/common/badges/TierBadge';
 import { WhyItMattersCallout } from '@/components/common/callouts/WhyItMattersCallout';
-import { PageHeaderHero } from '@/components/common/page-header-hero/PageHeaderHero';
+import { PageHeaderHero } from '@/components/ui/page-header-hero/PageHeaderHero';
 
 export default function WeeklyBriefingPage() {
   const params = useParams<{ topicId: string }>();

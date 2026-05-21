@@ -14,7 +14,7 @@ import {
 } from '@/components/ai-insights';
 import { ResearchTopicType } from '@/lib/types/topic-insights';
 import { SkillsModal } from '@/components/common/skills/SkillsModal';
-import { PageHeaderHero } from '@/components/common/page-header-hero';
+import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { Sparkles } from 'lucide-react';
 
 // ==================== 图标组件 ====================

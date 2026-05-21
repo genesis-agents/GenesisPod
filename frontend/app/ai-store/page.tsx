@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { Tabs } from '@/components/ui/tabs';
-import { PageHeaderHero } from '@/components/common/page-header-hero';
+import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { useTranslation } from '@/lib/i18n';
 import AIToolsTab from '@/components/ai-store/AIToolsTab';
 import AISkillsTab from '@/components/ai-store/AISkillsTab';

@@ -33,7 +33,7 @@ import {
   type AssetVisibility,
   type AssetVisibilityOption,
 } from '@/components/ui/cards/asset-card';
-import { PageHeaderHero } from '@/components/common/page-header-hero';
+import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import type { MissionListItem } from '@/services/agent-playground/api';
 
 // ─── 共享 status / depth 视觉配置 ──────────────────────────────────────────

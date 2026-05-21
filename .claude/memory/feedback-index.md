@@ -2,6 +2,7 @@
 
 > 用户协作偏好 + 项目反复踩到的反模式。每条 ≤200 字符，详情看链接文件。
 
+- [feedback_guard_placement_not_just_document.md](feedback_guard_placement_not_just_document.md) — 目录/组件归属约定必须有 audit 守护，光写文档没用（文档会不自洽 + agent 会漂移）；卡片散落 ui/cards+common/cards+common/asset-card 三处无人拦→震怒。落地：全收口 ui/cards + 标准22改写 + audit R15(目录级扫描，绕过 file-walk 排除项)+造违规验证拒推。canonical 放 ui/还是 common/ 是用户决策，别擅自 mv（2026-05-21）
 - [feedback_push_must_fix_gates_not_wait.md](feedback_push_must_fix_gates_not_wait.md) — 硬规则：提交/推送前所有闸门(commitlint/lint-staged/pre-push: verify:arch+type-check+测试+UI audit+i18n+deps)必须整改全绿才算完成；携带的别人 commit 跑红也要修到合规(补契约 baseline 等)，禁「等别人修」/--no-verify/rebase 丢提交（2026-05-20 playground 契约拦截教训）
 - [feedback_ui_governance_no_fake_exceptions.md](feedback_ui_governance_no_fake_exceptions.md) — UI 治理铁律：不接受假例外，规则越界就改规则(R11 去可见性)、缺真功能就建或诚实说做不了(别造死开关)、canonical 真不适配才 allowlist+留痕；到 0 后全部规则焊死 HARD_ZERO
 - [feedback_commit_only_own_changes.md](feedback_commit_only_own_changes.md) — 提交前必 git diff --cached --name-only 核对,只提交本会话自己改的文件,工作树里无关删除/改动不碰不提交(2026-05-20 误纳 litellm-proxy 删除被纠正)

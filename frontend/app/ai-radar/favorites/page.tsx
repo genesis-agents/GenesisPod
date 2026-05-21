@@ -21,7 +21,7 @@ import { useTranslation } from '@/lib/i18n';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { TierBadge } from '@/components/common/badges/TierBadge';
 import { WhyItMattersCallout } from '@/components/common/callouts/WhyItMattersCallout';
-import { PageHeaderHero } from '@/components/common/page-header-hero/PageHeaderHero';
+import { PageHeaderHero } from '@/components/ui/page-header-hero/PageHeaderHero';
 
 export default function RadarFavoritesPage() {
   const router = useRouter();
