@@ -9,6 +9,8 @@
 **评审基线版本：** v0.2（四路评审后迭代；纪要见上。关键订正：playground 未用 Frame、W0 先迁它、DrawerShell 补 header slot、范围补 topic-insights/ai-office、audit 细则）
 
 > 一句话目标：平台里所有「agent 团队跑 mission」类 ai-app（research / insights / radar / social / simulation / planning / writing / teams / playground …）的详情/执行页，**用同一套 canonical 壳**呈现——**业务定内容（自己的团队、自己的 tabs、tab 内容、抽屉内容），平台定风格（壳统一）**，做到全平台视觉/结构一致。
+>
+> **成功标准（用户 2026-05-21 强化）：每个迁移后的 feature「整体体验与目前 playground 完全一致」**——不是"相似 / 同风格"，是同一套壳跑出**一致的交互与视觉**（左团队 / 右 tab / 抽屉 / 进度 / 操作 / 流式）。W0 迁 playground 自身必须**体验零变化**（Frame 仅换外壳、逻辑 0 改）；后续每 feature 验收含「与 playground 体验对齐」截图 + 交互核验，作为**硬验收**（与 audit 结构闸并列，非可选）。
 
 ---
 
