@@ -20,7 +20,7 @@
  * 注入，page 自己的逻辑 0 改动。
  */
 
-import { ChevronLeft, type LucideIcon } from 'lucide-react';
+import { ChevronRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { Tabs } from '@/components/ui/tabs';
 
@@ -161,31 +161,29 @@ export function MissionDetailFrame<TTab extends string = string>({
 
       {/* ── Body ────────────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left panel — 折叠态/展开态都直接渲染（playground 折叠态用 w-12 装饰性视图） */}
+        {/* W0(B)：左栏与 playground 同款——折叠态 w-12 strip（leftCollapsedView 或默认展开条），
+            展开态 leftPanel（收起键在业务面板内，经 onLeftCollapseToggle 回调）；无外挂 w-5 切换条 */}
         <aside
           className={cn(
             'flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-white transition-all duration-300',
-            leftCollapsed
-              ? leftCollapsedView
-                ? 'w-12'
-                : 'w-0 overflow-hidden'
-              : leftWidth
+            leftCollapsed ? 'w-12' : leftWidth
           )}
         >
-          {leftCollapsed ? leftCollapsedView : leftPanel}
+          {leftCollapsed
+            ? (leftCollapsedView ?? (
+                <div className="flex h-full flex-col items-center py-4">
+                  <button
+                    type="button"
+                    onClick={onLeftCollapseToggle}
+                    className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                    title="展开"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+              ))
+            : leftPanel}
         </aside>
-
-        {/* Collapse toggle — 仅展开态显示（折叠态由 leftCollapsedView 内部自己提供 expand button，标杆 playground 行为） */}
-        {!leftCollapsed && (
-          <button
-            type="button"
-            onClick={onLeftCollapseToggle}
-            className="relative z-10 flex w-5 shrink-0 items-center justify-center border-r border-gray-200 bg-white hover:bg-gray-50"
-            title="收起左侧"
-          >
-            <ChevronLeft className="h-4 w-4 text-gray-400" />
-          </button>
-        )}
 
         {/* Right panel — banners + tabs + content */}
         <div className="flex flex-1 flex-col overflow-hidden">
