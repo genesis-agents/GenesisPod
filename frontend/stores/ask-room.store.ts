@@ -56,6 +56,13 @@ interface RoomActions {
   setMembers: (members: AskRoomMember[]) => void;
   appendUserMessage: (msg: AskRoomMessage) => void;
   applyEvent: (event: AskRoomServerEvent) => void;
+  /**
+   * 2026-05-21 代理环境兜底：socket 送不到时（代理常缓冲/掐断 socket.io 长连接），
+   * RoomChatPage 轮询 getRoom 把已落库的消息对账进来。按 id 去重：socket 已加的
+   * （participant.done，id=messageId）或上一轮轮询加过的不重复，socket 漏掉的补进来，
+   * 并清掉对应的 stale pending。镜像单聊 ai-ask-stream.ts 的 reconcileAfterStreamCut。
+   */
+  reconcileMessages: (messages: AskRoomMessage[]) => void;
   reset: () => void;
 }
 
@@ -335,6 +342,40 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
         }
       }
       return next;
+    });
+  },
+
+  reconcileMessages(incoming) {
+    set((s) => {
+      if (!incoming || incoming.length === 0) return s;
+      const existingIds = new Set(s.messages.map((m) => m.id));
+      const toAdd = incoming.filter((m) => !existingIds.has(m.id));
+      const incomingIds = new Set(incoming.map((m) => m.id));
+      // socket 漏掉 participant.done 时，pending 会卡在 thinking/streaming；
+      // 一旦该消息已落库（同 id），清掉 stale pending，由 messages 接管。
+      const stalePendingIds = Object.keys(s.pending).filter((id) =>
+        incomingIds.has(id)
+      );
+      if (toAdd.length === 0 && stalePendingIds.length === 0) return s;
+
+      let pending = s.pending;
+      if (stalePendingIds.length > 0) {
+        pending = { ...s.pending };
+        for (const id of stalePendingIds) delete pending[id];
+      }
+
+      const merged =
+        toAdd.length > 0
+          ? [...s.messages, ...toAdd].sort(
+              (a, b) => (a.sequenceNum ?? 0) - (b.sequenceNum ?? 0)
+            )
+          : s.messages;
+      const lastSeq = merged.reduce(
+        (max, m) =>
+          m.sequenceNum && m.sequenceNum > max ? m.sequenceNum : max,
+        s.lastSeq
+      );
+      return { messages: merged, pending, lastSeq };
     });
   },
 

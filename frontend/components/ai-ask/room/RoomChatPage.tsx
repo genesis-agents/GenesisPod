@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -38,10 +38,13 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
   const setRoom = useAskRoomStore((s) => s.setRoom);
   const setMembers = useAskRoomStore((s) => s.setMembers);
   const appendUserMessage = useAskRoomStore((s) => s.appendUserMessage);
+  const reconcileMessages = useAskRoomStore((s) => s.reconcileMessages);
   const reset = useAskRoomStore((s) => s.reset);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 代理环境兜底轮询是否进行中（socket 送不到时，靠它把已落库消息拉回来显示）
+  const [reconciling, setReconciling] = useState(false);
   const [memberPanelOpen, setMemberPanelOpen] = useState(false);
   const [defaultMode, setDefaultMode] = useState<AskRoomMode>('FREECHAT');
   // 2026-05-08（screenshot 41）：header 之前固定显示 roomConfig.defaultMode，
@@ -99,10 +102,75 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
     }
   }, [roomId, setMembers]);
 
+  // 代理环境兜底轮询：socket 在代理下常被缓冲/掐断（与单聊 SSE 同病），但后端
+  // turn 仍会跑完并把消息落库。发送后轮询 getRoom 把已落库消息对账进 store（按 id
+  // 去重，socket 能用时冗余无害），直到该 turn 终态或超时。镜像 ai-ask-stream.ts。
+  const reconcilePollRef = useRef<{ cancelled: boolean } | null>(null);
+
+  const stopReconcilePoll = useCallback(() => {
+    if (reconcilePollRef.current) {
+      reconcilePollRef.current.cancelled = true;
+      reconcilePollRef.current = null;
+    }
+    setReconciling(false);
+  }, []);
+
+  const startReconcilePoll = useCallback(
+    (turnId: string) => {
+      // 连续发送：取消上一轮
+      if (reconcilePollRef.current) reconcilePollRef.current.cancelled = true;
+      const token = { cancelled: false };
+      reconcilePollRef.current = token;
+
+      const DELAY_MS = 3000;
+      const MAX_ATTEMPTS = 60; // ~3min 上限，覆盖团队多成员/多轮
+      let attempt = 0;
+      setReconciling(true);
+
+      const finish = () => {
+        if (reconcilePollRef.current === token) reconcilePollRef.current = null;
+        if (!token.cancelled) setReconciling(false);
+      };
+
+      const tick = async () => {
+        if (token.cancelled) return;
+        try {
+          const detail = await askRoomService.getRoom(roomId);
+          if (token.cancelled) return;
+          reconcileMessages(detail.messages ?? []);
+          const status = detail.recentTurns.find(
+            (t) => t.id === turnId
+          )?.status;
+          if (status && status !== 'RUNNING') {
+            finish();
+            return;
+          }
+        } catch (e) {
+          logger.warn(
+            `[RoomChat] reconcile poll failed: ${(e as Error).message}`
+          );
+        }
+        attempt += 1;
+        if (token.cancelled || attempt >= MAX_ATTEMPTS) {
+          finish();
+          return;
+        }
+        window.setTimeout(() => void tick(), DELAY_MS);
+      };
+
+      // 先给 socket 1.5s 机会（能送达就不依赖轮询），之后开始
+      window.setTimeout(() => void tick(), 1500);
+    },
+    [roomId, reconcileMessages]
+  );
+
   useEffect(() => {
     void initialLoad();
-    return () => reset();
-  }, [initialLoad, reset]);
+    return () => {
+      stopReconcilePoll();
+      reset();
+    };
+  }, [initialLoad, reset, stopReconcilePoll]);
 
   const onEvent = useCallback(
     (event: AskRoomServerEvent) => {
@@ -170,6 +238,8 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
         sequenceNum: res.userMessageSeq ?? lastSeq + 1,
         createdAt: new Date().toISOString(),
       });
+      // 代理环境兜底：socket 送不到时，靠轮询把这一轮 AI 回复对账回来显示。
+      startReconcilePoll(res.turnId);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -252,7 +322,7 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
                     count: activeMembers.length,
                   })}
                 </span>
-                {isStreaming && (
+                {(isStreaming || reconciling) && (
                   <span className="flex items-center gap-1 text-blue-600">
                     <span className="relative flex h-1.5 w-1.5">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span>
