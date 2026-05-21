@@ -1,8 +1,10 @@
 'use client';
 
+import { Lightbulb } from 'lucide-react';
 import { AIInsight } from '../utils/types';
 import TextSelectionToolbar from '@/components/ui/content/TextSelectionToolbar';
 import { useTranslation } from '@/lib/i18n/i18n-context';
+import { SectionPanelCard } from '@/components/ui/cards';
 
 interface AIInsightsCardProps {
   aiInsights: AIInsight[];
@@ -20,36 +22,15 @@ export default function AIInsightsCard({
   const { t } = useTranslation();
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-orange-50 to-yellow-50 px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-600 text-white shadow-sm">
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-              />
-            </svg>
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-gray-900">
-              {aiInsights.length}{' '}
-              {t('explore.aiCards.insights.title') || 'Key Insights'}
-            </h3>
-            <p className="text-[11px] text-gray-500">
-              {t('explore.aiCards.insights.hint') ||
-                'Select text for more options'}
-            </p>
-          </div>
-        </div>
-      </div>
+    <SectionPanelCard
+      accent="orange"
+      titleSize="sm"
+      icon={<Lightbulb className="h-4 w-4" />}
+      title={`${aiInsights.length} ${t('explore.aiCards.insights.title') || 'Key Insights'}`}
+      subtitle={
+        t('explore.aiCards.insights.hint') || 'Select text for more options'
+      }
+    >
       <TextSelectionToolbar
         resourceId={resourceId}
         onAskAI={onAskAI}
@@ -83,6 +64,6 @@ export default function AIInsightsCard({
           ))}
         </div>
       </TextSelectionToolbar>
-    </div>
+    </SectionPanelCard>
   );
 }

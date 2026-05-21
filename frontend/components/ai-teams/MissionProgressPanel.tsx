@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui';
 import AIMessageRenderer from '@/components/ui/content/AIMessageRenderer';
 import ClientDate from '@/components/common/ClientDate';
+import { StatCard } from '@/components/ui/cards';
 
 interface MissionProgressPanelProps {
   topicId: string;
@@ -681,20 +682,8 @@ function MissionCard({
           {/* Quick Stats - Enhanced */}
           {tasks.length > 0 && (
             <div className="mb-3 grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50/50 p-2.5 text-center">
-                <div className="text-xl font-bold text-blue-600">
-                  {inProgressCount}
-                </div>
-                <div className="text-xs font-medium text-blue-500">执行中</div>
-              </div>
-              <div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/50 p-2.5 text-center">
-                <div className="text-xl font-bold text-emerald-600">
-                  {completedCount}
-                </div>
-                <div className="text-xs font-medium text-emerald-500">
-                  已完成
-                </div>
-              </div>
+              <StatCard label="执行中" value={inProgressCount} tone="blue" />
+              <StatCard label="已完成" value={completedCount} tone="emerald" />
             </div>
           )}
 
@@ -920,45 +909,24 @@ function MissionDetailView({
               </div>
             </div>
             {/* Stats Grid */}
-            <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="grid grid-cols-3 gap-2">
               {inProgressCount > 0 && (
-                <div className="rounded-lg bg-blue-50 p-2">
-                  <div className="text-lg font-bold text-blue-600">
-                    {inProgressCount}
-                  </div>
-                  <div className="text-xs text-blue-600">执行中</div>
-                </div>
+                <StatCard label="执行中" value={inProgressCount} tone="blue" />
               )}
               {awaitingReviewCount > 0 && (
-                <div className="rounded-lg bg-purple-50 p-2">
-                  <div className="text-lg font-bold text-purple-600">
-                    {awaitingReviewCount}
-                  </div>
-                  <div className="text-xs text-purple-600">待审核</div>
-                </div>
+                <StatCard
+                  label="待审核"
+                  value={awaitingReviewCount}
+                  tone="violet"
+                />
               )}
               {revisionCount > 0 && (
-                <div className="rounded-lg bg-orange-50 p-2">
-                  <div className="text-lg font-bold text-orange-600">
-                    {revisionCount}
-                  </div>
-                  <div className="text-xs text-orange-600">待修订</div>
-                </div>
+                <StatCard label="待修订" value={revisionCount} tone="amber" />
               )}
               {pendingCount > 0 && (
-                <div className="rounded-lg bg-gray-50 p-2">
-                  <div className="text-lg font-bold text-gray-600">
-                    {pendingCount}
-                  </div>
-                  <div className="text-xs text-gray-600">等待中</div>
-                </div>
+                <StatCard label="等待中" value={pendingCount} tone="gray" />
               )}
-              <div className="rounded-lg bg-green-50 p-2">
-                <div className="text-lg font-bold text-green-600">
-                  {completedCount}
-                </div>
-                <div className="text-xs text-green-600">已完成</div>
-              </div>
+              <StatCard label="已完成" value={completedCount} tone="emerald" />
             </div>
           </div>
         )}
@@ -1558,22 +1526,33 @@ function QuantitativePerformanceSummary({
       </div>
 
       {/* 团队综合评分 */}
-      <div className="mb-3 flex items-center justify-between rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 p-3">
-        <div>
-          <div className="text-xs text-gray-600">团队综合评分</div>
-          <div className="mt-0.5 text-xs text-gray-400">
-            基于完成率、一次通过率、修订次数
-          </div>
-        </div>
-        <div className="text-right">
-          <div className={`text-2xl font-bold ${getScoreColor(teamScore)}`}>
-            {teamScore}
-            <span className="text-sm font-normal text-gray-400">/100</span>
-          </div>
-          <div className={`text-xs ${getScoreColor(teamScore)}`}>
-            {getScoreLabel(teamScore)}
-          </div>
-        </div>
+      <div className="mb-3">
+        <StatCard
+          label="团队综合评分"
+          value={
+            <>
+              {teamScore}
+              <span className="text-sm font-normal text-gray-400">/100</span>
+            </>
+          }
+          hint={
+            <>
+              <span className={getScoreColor(teamScore)}>
+                {getScoreLabel(teamScore)}
+              </span>
+              <span className="ml-2">基于完成率、一次通过率、修订次数</span>
+            </>
+          }
+          tone={
+            teamScore >= 80
+              ? 'emerald'
+              : teamScore >= 60
+                ? 'blue'
+                : teamScore >= 40
+                  ? 'amber'
+                  : 'red'
+          }
+        />
       </div>
 
       {/* 成员绩效排行 - 简洁列表 */}

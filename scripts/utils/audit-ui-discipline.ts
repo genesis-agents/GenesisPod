@@ -184,7 +184,7 @@ function checkR1AppShell(file: string, src: string): Violation[] {
 // 不适配。类型：3 列统计卡网格（检测器误触内层 chip .map）、admin 层配置卡（admin 自成
 // 设计系统，非 app 用户资源语义）。
 const R2_BESPOKE_OK = [
-  "components/ai-research/discussion/TrendReport.tsx", // 3 列统计卡(图标+计数+chips)，非资产列表
+  // TrendReport 已迁 StatCard（2026-05-20），不再自写卡，移出 allowlist。
   "app/admin/system/notifications/content.tsx", // 统计卡 + admin 广播表单面板
   "app/admin/system/mcp-server/content.tsx", // admin MCP server 配置卡(admin 自成设计系统)
   "app/ai-radar/topic/[topicId]/runs/[runId]/page.tsx", // StageTaskBoard 流水线阶段任务表(状态徽章+指标+点击抽屉)，非资产列表

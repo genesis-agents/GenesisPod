@@ -10,3 +10,7 @@
 
 export { StatCard } from './StatCard';
 export type { StatCardProps, StatTone } from './StatCard';
+export { SectionPanelCard } from './SectionPanelCard';
+export type { SectionPanelCardProps, SectionAccent } from './SectionPanelCard';
+export { MessageCardShell } from './MessageCardShell';
+export type { MessageCardShellProps, MessageTone } from './MessageCardShell';

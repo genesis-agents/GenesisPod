@@ -1,5 +1,6 @@
 import type { UIMessage } from '../shared/types';
 import { safeString } from '@/lib/utils/common';
+import { MessageCardShell } from '@/components/ui/cards';
 
 interface GenericMessageCardProps {
   msg: UIMessage;
@@ -7,7 +8,7 @@ interface GenericMessageCardProps {
 
 export function GenericMessageCard({ msg }: GenericMessageCardProps) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3">
+    <MessageCardShell tone="gray" padding="sm">
       <div className="flex items-start gap-2">
         {msg.agentIcon && <span className="text-lg">{msg.agentIcon}</span>}
         <div className="flex-1">
@@ -19,6 +20,6 @@ export function GenericMessageCard({ msg }: GenericMessageCardProps) {
           <p className="text-sm text-gray-600">{safeString(msg.content)}</p>
         </div>
       </div>
-    </div>
+    </MessageCardShell>
   );
 }

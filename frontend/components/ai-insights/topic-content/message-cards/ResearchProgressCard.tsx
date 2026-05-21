@@ -1,6 +1,7 @@
 import type { UIMessage } from '../shared/types';
 import { safeString } from '@/lib/utils/common';
 import { useI18n } from '@/lib/i18n';
+import { MessageCardShell } from '@/components/ui/cards';
 
 interface ResearchProgressCardProps {
   msg: UIMessage;
@@ -22,7 +23,7 @@ export function ResearchProgressCard({ msg }: ResearchProgressCardProps) {
   };
 
   return (
-    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+    <MessageCardShell tone="blue" padding="sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
@@ -40,6 +41,6 @@ export function ResearchProgressCard({ msg }: ResearchProgressCardProps) {
           />
         </div>
       )}
-    </div>
+    </MessageCardShell>
   );
 }

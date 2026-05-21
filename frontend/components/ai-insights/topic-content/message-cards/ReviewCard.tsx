@@ -2,6 +2,7 @@ import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { UIMessage } from '../shared/types';
 import { safeString } from '@/lib/utils/common';
 import { useI18n } from '@/lib/i18n';
+import { MessageCardShell } from '@/components/ui/cards';
 
 interface ReviewCardProps {
   msg: UIMessage;
@@ -14,13 +15,7 @@ export function ReviewCard({ msg }: ReviewCardProps) {
     safeContent.includes('通过') || safeContent.includes('passed');
 
   return (
-    <div
-      className={`rounded-lg border p-4 ${
-        isPassed
-          ? 'border-green-200 bg-green-50'
-          : 'border-yellow-200 bg-yellow-50'
-      }`}
-    >
+    <MessageCardShell tone={isPassed ? 'green' : 'yellow'}>
       <div className="flex items-center gap-2">
         {isPassed ? (
           <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -37,6 +32,6 @@ export function ReviewCard({ msg }: ReviewCardProps) {
         </span>
       </div>
       <p className="mt-2 text-sm text-gray-600">{safeContent}</p>
-    </div>
+    </MessageCardShell>
   );
 }

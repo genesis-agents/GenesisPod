@@ -3,6 +3,7 @@ import { CheckCircle2, Lightbulb } from 'lucide-react';
 import type { UIMessage } from '../shared/types';
 import { safeString } from '@/lib/utils/common';
 import { useI18n } from '@/lib/i18n';
+import { MessageCardShell } from '@/components/ui/cards';
 
 interface ResearchCompleteCardProps {
   msg: UIMessage;
@@ -28,7 +29,7 @@ export function ResearchCompleteCard({ msg }: ResearchCompleteCardProps) {
     '';
 
   return (
-    <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+    <MessageCardShell tone="green">
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -88,6 +89,6 @@ export function ResearchCompleteCard({ msg }: ResearchCompleteCardProps) {
       {!keyFindings.length && summary && (
         <p className="mt-2 line-clamp-3 text-sm text-gray-600">{summary}</p>
       )}
-    </div>
+    </MessageCardShell>
   );
 }

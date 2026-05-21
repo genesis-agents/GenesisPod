@@ -1,6 +1,7 @@
 import type { UIMessage } from '../shared/types';
 import { safeString } from '@/lib/utils/common';
 import { useI18n } from '@/lib/i18n';
+import { MessageCardShell } from '@/components/ui/cards';
 
 interface LeaderPlanCardProps {
   msg: UIMessage;
@@ -17,7 +18,7 @@ export function LeaderPlanCard({ msg }: LeaderPlanCardProps) {
     [];
 
   return (
-    <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+    <MessageCardShell tone="purple">
       <div className="mb-3 flex items-center gap-2">
         <span className="text-lg">📋</span>
         <span className="font-medium text-purple-800">
@@ -56,6 +57,6 @@ export function LeaderPlanCard({ msg }: LeaderPlanCardProps) {
           </div>
         </div>
       )}
-    </div>
+    </MessageCardShell>
   );
 }

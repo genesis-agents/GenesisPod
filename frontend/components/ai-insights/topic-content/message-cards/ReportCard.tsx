@@ -1,5 +1,6 @@
 import type { UIMessage } from '../shared/types';
 import { useI18n } from '@/lib/i18n';
+import { MessageCardShell } from '@/components/ui/cards';
 
 interface ReportCardProps {
   msg: UIMessage;
@@ -13,7 +14,7 @@ export function ReportCard({ msg }: ReportCardProps) {
       : null;
 
   return (
-    <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+    <MessageCardShell tone="orange">
       <div className="mb-2 flex items-center gap-2">
         <span className="text-lg">📊</span>
         <span className="font-medium text-orange-800">
@@ -31,6 +32,6 @@ export function ReportCard({ msg }: ReportCardProps) {
       <button className="mt-3 text-xs text-orange-600 hover:text-orange-700">
         {t('topicResearch.messageCards.report.viewFull')}
       </button>
-    </div>
+    </MessageCardShell>
   );
 }

@@ -22,6 +22,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import ClientDate from '@/components/common/ClientDate';
+import { StatCard } from '@/components/ui/cards';
 
 export interface TechTrend {
   name: string;
@@ -286,71 +287,68 @@ export default function TrendReport({
 
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <div className="flex items-center gap-2 text-green-600">
-            <TrendingUp className="h-5 w-5" />
-            <span className="text-2xl font-bold">
-              {report.emergingTechs.length}
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-gray-500">
-            {t('topicResearch.deepResearch.trendReport.emergingTech')}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {report.emergingTechs.slice(0, 3).map((tech) => (
-              <span
-                key={tech}
-                className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700"
-              >
-                {tech}
+        <StatCard
+          label={t('topicResearch.deepResearch.trendReport.emergingTech')}
+          value={report.emergingTechs.length}
+          icon={<TrendingUp className="h-5 w-5" />}
+          tone="emerald"
+          hint={
+            report.emergingTechs.length > 0 ? (
+              <span className="flex flex-wrap gap-1 pt-1">
+                {report.emergingTechs.slice(0, 3).map((tech) => (
+                  <span
+                    key={tech}
+                    className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700"
+                  >
+                    {tech}
+                  </span>
+                ))}
               </span>
-            ))}
-          </div>
-        </div>
+            ) : undefined
+          }
+        />
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <div className="flex items-center gap-2 text-blue-600">
-            <Zap className="h-5 w-5" />
-            <span className="text-2xl font-bold">
-              {report.topTrends.length}
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-gray-500">
-            {t('topicResearch.deepResearch.trendReport.hotTrends')}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {report.topTrends.slice(0, 3).map((trend) => (
-              <span
-                key={trend.name}
-                className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700"
-              >
-                {trend.name}
+        <StatCard
+          label={t('topicResearch.deepResearch.trendReport.hotTrends')}
+          value={report.topTrends.length}
+          icon={<Zap className="h-5 w-5" />}
+          tone="blue"
+          hint={
+            report.topTrends.length > 0 ? (
+              <span className="flex flex-wrap gap-1 pt-1">
+                {report.topTrends.slice(0, 3).map((trend) => (
+                  <span
+                    key={trend.name}
+                    className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700"
+                  >
+                    {trend.name}
+                  </span>
+                ))}
               </span>
-            ))}
-          </div>
-        </div>
+            ) : undefined
+          }
+        />
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <div className="flex items-center gap-2 text-red-600">
-            <TrendingDown className="h-5 w-5" />
-            <span className="text-2xl font-bold">
-              {report.decliningTechs.length}
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-gray-500">
-            {t('topicResearch.deepResearch.trendReport.decliningTrends')}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {report.decliningTechs.slice(0, 3).map((tech) => (
-              <span
-                key={tech}
-                className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700"
-              >
-                {tech}
+        <StatCard
+          label={t('topicResearch.deepResearch.trendReport.decliningTrends')}
+          value={report.decliningTechs.length}
+          icon={<TrendingDown className="h-5 w-5" />}
+          tone="red"
+          hint={
+            report.decliningTechs.length > 0 ? (
+              <span className="flex flex-wrap gap-1 pt-1">
+                {report.decliningTechs.slice(0, 3).map((tech) => (
+                  <span
+                    key={tech}
+                    className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700"
+                  >
+                    {tech}
+                  </span>
+                ))}
               </span>
-            ))}
-          </div>
-        </div>
+            ) : undefined
+          }
+        />
       </div>
 
       {/* Hype Cycle Button */}

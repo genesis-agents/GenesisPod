@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
+import { StatCard } from '@/components/ui/cards';
 import type { RadarDroppedItem, RadarRun } from '@/services/ai-radar/types';
 import type { RadarStreamEvent } from '@/services/ai-radar/api';
 import {
@@ -216,19 +217,12 @@ export function StageTaskDrawer({
 
         {/* 产出 metrics（如果该 stage 有专属指标） */}
         {metricVal != null && stage.metricLabel && (
-          <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-            <h4 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
-              本 stage 产出
-            </h4>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-emerald-700">
-                {metricVal}
-              </span>
-              <span className="text-xs text-emerald-600">
-                {stage.metricLabel}
-              </span>
-            </div>
-          </section>
+          <StatCard
+            label="本 stage 产出"
+            value={metricVal}
+            hint={stage.metricLabel}
+            tone="emerald"
+          />
         )}
 
         {/* R10 2026-05-19: 流失归因 —— 仅 scorer / persister 显示。
