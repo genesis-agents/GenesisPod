@@ -14,7 +14,17 @@ import {
   Users,
   HardDrive,
   BookOpen,
+  Eye,
+  CheckCircle2,
+  FileOutput,
+  Sparkles,
+  StickyNote,
+  ThumbsUp,
 } from 'lucide-react';
+import {
+  AssetCard,
+  type AssetCardAction,
+} from '@/components/common/asset-card';
 import { useTranslation } from '@/lib/i18n';
 import AppShell from '@/components/layout/AppShell';
 import LibraryHeader from '@/components/library/header/LibraryHeader';
@@ -46,7 +56,11 @@ import AddToKnowledgeBaseDialog, {
 } from '@/components/common/dialogs/AddToKnowledgeBaseDialog';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
-import { LoadingState, LoadingInline } from '@/components/ui/states';
+import {
+  LoadingState,
+  LoadingInline,
+  EmptyState,
+} from '@/components/ui/states';
 import ClientDate from '@/components/common/ClientDate';
 
 // 懒加载条件渲染的组件
@@ -1287,7 +1301,7 @@ function LibraryPageContent() {
               setAddToKBSourceType('URL');
               setAddToKBDialogOpen(true);
             }}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-700"
           >
             <Database className="h-4 w-4" />
             加入知识库
@@ -1356,325 +1370,135 @@ function LibraryPageContent() {
     );
   };
 
-  // Resource Card Component with selection support
+  // Resource Card —— 用 canonical AssetCard（替代原自写卡片）
   const ResourceCard = ({ item }: { item: CollectionItem }) => {
     const { resource } = item;
-    const cfg = typeConfig[resource.type] || {
-      bg: 'bg-gray-50',
-      text: 'text-gray-700',
-      borderColor: 'border-gray-200',
-      icon: (className: string) => (
-        <svg
-          className={className}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-          />
-        </svg>
-      ),
-    };
-
+    const cfg = typeConfig[resource.type];
+    const inSel = selectionMode;
     const itemSelected = isSelected(item.id);
+    const inOffice = aiOfficeStore.resources.some((r) => r._id === resource.id);
 
-    return (
-      <div
-        className={`group relative overflow-hidden rounded-lg border bg-white transition-all hover:shadow-lg ${
-          itemSelected
-            ? 'border-blue-500 ring-2 ring-blue-200'
-            : 'border-gray-200'
-        }`}
-      >
-        {/* Selection checkbox */}
-        {selectionMode && (
-          <div className="absolute left-2 top-2 z-20">
-            <input
-              type="checkbox"
-              checked={itemSelected}
-              onChange={() => toggleSelect(item.id)}
-              className="h-5 w-5 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-          </div>
-        )}
-
-        {/* Action buttons - appear on hover */}
-        <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          {!selectionMode && (
-            <>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSelectionMode(true);
-                  toggleSelect(item.id);
-                }}
-                className="rounded-lg bg-white p-2 shadow-md transition-all hover:bg-gray-50"
-                title="Select"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleView(item);
-                }}
-                className="rounded-lg bg-white p-2 shadow-md transition-all hover:bg-blue-50 hover:text-blue-600"
-                title="View details"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  />
-                </svg>
-              </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleEditNote(item);
-                }}
-                className="rounded-lg bg-white p-2 shadow-md transition-all hover:bg-amber-50 hover:text-amber-600"
-                title="Edit note"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
-              </button>
-              {/* Add to AI Office */}
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (
-                    !aiOfficeStore.resources.some((r) => r._id === resource.id)
-                  ) {
-                    const aiResource = convertToAIOfficeResource(resource);
-                    aiOfficeStore.addResource(aiResource as AIOfficeResource);
-                    setToast({
-                      message: `Added "${resource.title.slice(0, 30)}..." to AI Office`,
-                      type: 'success',
-                    });
-                  }
-                }}
-                disabled={aiOfficeStore.resources.some(
-                  (r) => r._id === resource.id
-                )}
-                className={`rounded-lg p-2 shadow-md transition-all ${
-                  aiOfficeStore.resources.some((r) => r._id === resource.id)
-                    ? 'bg-green-100 text-green-600'
-                    : 'bg-white hover:bg-green-50 hover:text-green-600'
-                }`}
-                title={
-                  aiOfficeStore.resources.some((r) => r._id === resource.id)
-                    ? 'Already in AI Office'
-                    : 'Add to AI Office'
-                }
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill={
-                    aiOfficeStore.resources.some((r) => r._id === resource.id)
-                      ? 'currentColor'
-                      : 'none'
-                  }
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </button>
-              {/* Add to AI Studio */}
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setSelectedResourceForStudio(resource);
-                  setAiStudioDialogOpen(true);
-                }}
-                className="rounded-lg bg-white p-2 shadow-md transition-all hover:bg-purple-50 hover:text-purple-600"
-                title="Add to AI Studio"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-                  />
-                </svg>
-              </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleRemove(item);
-                }}
-                className="rounded-lg bg-white p-2 shadow-md transition-all hover:bg-red-50 hover:text-red-600"
-                title="Remove"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M20 12H4"
-                  />
-                </svg>
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Main card content */}
-        <Link
-          href={getResourceLink(resource)}
-          className="block"
-          onClick={(e) => {
-            if (selectionMode) {
-              e.preventDefault();
+    const extraActions: AssetCardAction[] = inSel
+      ? []
+      : [
+          {
+            key: 'view',
+            title: '查看详情',
+            tone: 'info',
+            icon: <Eye className="h-4 w-4" />,
+            onClick: () => handleView(item),
+          },
+          {
+            key: 'select',
+            title: '多选',
+            icon: <CheckCircle2 className="h-4 w-4" />,
+            onClick: () => {
+              setSelectionMode(true);
               toggleSelect(item.id);
-            }
-          }}
-        >
-          <div className="p-4">
-            {/* Top row: Type badge and status */}
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex-shrink-0">
-                  {cfg.icon('w-4 h-4 text-gray-600')}
-                </div>
-                <span
-                  className={`inline-block rounded px-2.5 py-0.5 text-xs font-semibold ${cfg.text} bg-gray-50`}
-                >
-                  {resource.type.replace('_', ' ')}
-                </span>
-              </div>
+            },
+          },
+          {
+            key: 'office',
+            title: inOffice ? '已在 AI Office' : '加入 AI Office',
+            tone: 'success',
+            icon: <FileOutput className="h-4 w-4" />,
+            onClick: () => {
+              if (!inOffice) {
+                const aiResource = convertToAIOfficeResource(resource);
+                aiOfficeStore.addResource(aiResource as AIOfficeResource);
+                setToast({
+                  message: `Added "${resource.title.slice(0, 30)}..." to AI Office`,
+                  type: 'success',
+                });
+              }
+            },
+          },
+          {
+            key: 'studio',
+            title: '加入 AI Studio',
+            icon: <Sparkles className="h-4 w-4" />,
+            onClick: () => {
+              setSelectedResourceForStudio(resource);
+              setAiStudioDialogOpen(true);
+            },
+          },
+        ];
+
+    const card = (
+      <AssetCard
+        className={`cursor-pointer ${
+          itemSelected ? 'border-violet-500 ring-2 ring-violet-200' : ''
+        }`}
+        title={resource.title}
+        description={resource.abstract}
+        badges={[
+          {
+            key: 'type',
+            label: resource.type.replace('_', ' '),
+            icon: cfg?.icon ? cfg.icon('h-3 w-3') : undefined,
+            className: cfg ? `${cfg.text} bg-gray-100` : undefined,
+          },
+        ]}
+        isOwner={!inSel}
+        onEdit={inSel ? undefined : () => handleEditNote(item)}
+        onDelete={inSel ? undefined : () => handleRemove(item)}
+        extraActions={extraActions}
+        onClick={inSel ? () => toggleSelect(item.id) : undefined}
+        stats={
+          resource.upvoteCount && resource.upvoteCount > 0
+            ? [
+                {
+                  key: 'upvotes',
+                  icon: <ThumbsUp className="h-3.5 w-3.5" />,
+                  text: resource.upvoteCount,
+                },
+              ]
+            : []
+        }
+        timestamp={resource.publishedAt}
+        customSection={
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
               <ReadStatusBadge
                 status={item.readStatus}
                 onChange={(status) => handleUpdateItemStatus(item.id, status)}
                 showLabel={false}
               />
-            </div>
-
-            {/* Title */}
-            <h3 className="mb-2 line-clamp-2 text-sm font-semibold text-gray-900 transition-colors hover:text-blue-600">
-              {resource.title}
-            </h3>
-
-            {/* Abstract */}
-            {resource.abstract && (
-              <p className="mb-3 line-clamp-1 text-xs text-gray-600">
-                {resource.abstract}
-              </p>
-            )}
-
-            {/* Tags */}
-            {item.tags && item.tags.length > 0 && (
-              <div className="mb-3">
+              {item.tags && item.tags.length > 0 && (
                 <TagList tags={item.tags} maxVisible={2} size="sm" />
+              )}
+            </div>
+            {item.note && (
+              <div className="flex items-start gap-2 rounded-lg bg-amber-50/60 px-2.5 py-1.5">
+                <StickyNote className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-600" />
+                <p className="line-clamp-2 text-xs italic text-amber-900">
+                  {item.note}
+                </p>
               </div>
             )}
-
-            {/* Footer */}
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>
-                <ClientDate
-                  date={resource.publishedAt}
-                  format="date"
-                  locale="en-US"
-                />
-              </span>
-              {resource.upvoteCount !== undefined &&
-                resource.upvoteCount > 0 && (
-                  <div className="flex items-center gap-1">
-                    <svg
-                      className="h-3.5 w-3.5 text-gray-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M2 10.5a1.5 1.5 0 113 0v-7a1.5 1.5 0 01-3 0v7zM14 4a1 1 0 011 1v12a1 1 0 11-2 0V5a1 1 0 011-1zm3 1a1 1 0 010 2H9a3 3 0 00-3 3v6a3 3 0 003 3h8a1 1 0 110-2H9a1 1 0 01-1-1v-6a1 1 0 011-1h8z" />
-                    </svg>
-                    <span>{resource.upvoteCount}</span>
-                  </div>
-                )}
-            </div>
           </div>
-        </Link>
+        }
+      />
+    );
 
-        {/* Personal Note Preview */}
-        {item.note && (
-          <div className="border-t border-gray-100 bg-amber-50/50 px-4 py-2">
-            <div className="flex items-start gap-2">
-              <svg
-                className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
-              <p className="line-clamp-2 text-xs italic text-amber-900">
-                {item.note}
-              </p>
-            </div>
+    return (
+      <div className="relative">
+        {inSel && (
+          <div className="absolute left-3 top-3 z-20">
+            <input
+              type="checkbox"
+              checked={itemSelected}
+              onChange={() => toggleSelect(item.id)}
+              className="h-5 w-5 cursor-pointer rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+            />
           </div>
+        )}
+        {inSel ? (
+          card
+        ) : (
+          <Link href={getResourceLink(resource)} className="block">
+            {card}
+          </Link>
         )}
       </div>
     );
@@ -1781,23 +1605,19 @@ function LibraryPageContent() {
 
                 if (!paginatedItems?.items?.length) {
                   return (
-                    <div className="flex flex-col items-center justify-center py-16">
-                      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-                        <Bookmark className="h-8 w-8 text-gray-400" />
-                      </div>
-                      <h3 className="mb-2 text-lg font-semibold text-gray-900">
-                        暂无书签
-                      </h3>
-                      <p className="mb-6 text-center text-sm text-gray-500">
-                        在 Explore 页面收藏资源后，会显示在这里
-                      </p>
-                      <Link
-                        href="/explore"
-                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-                      >
-                        前往探索
-                      </Link>
-                    </div>
+                    <EmptyState
+                      icon={<Bookmark className="h-12 w-12" />}
+                      title="暂无书签"
+                      description="在 Explore 页面收藏资源后，会显示在这里"
+                      action={
+                        <Link
+                          href="/explore"
+                          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700"
+                        >
+                          前往探索
+                        </Link>
+                      }
+                    />
                   );
                 }
 
@@ -1821,7 +1641,7 @@ function LibraryPageContent() {
                           setAddToKBSourceType('BOOKMARK');
                           setAddToKBDialogOpen(true);
                         }}
-                        className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                        className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-700"
                       >
                         <Database className="h-4 w-4" />
                         加入知识库

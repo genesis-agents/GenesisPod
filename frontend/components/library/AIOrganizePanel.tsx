@@ -16,8 +16,10 @@ import {
   FileText,
   Palette,
   LayoutGrid,
+  Wand2,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs/Modal';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { cn } from '@/lib/utils/common';
@@ -147,10 +149,10 @@ function statusIcon(status: TaskStatus) {
 }
 
 /**
- * 单个 AI 动作卡（图标 + 标题 + 说明 + 执行按钮 + 状态/结果入口）。
- * 抽成顶层组件：消除原 9 块重复 JSX，且 className 仅出现一次（不落入 .map 自写卡检测）。
+ * 单行 AI 动作（表格行）：图标+名称 / 说明 / 状态 / 一键运行。
+ * 表格化呈现，空间利用更充分；统一紫色主题。
  */
-function ActionCard({
+function ActionRow({
   def,
   state,
   onViewResults,
@@ -162,57 +164,66 @@ function ActionCard({
   const Icon = def.icon;
   const running = state.status === 'running';
   return (
-    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md">
-      <div className="mb-2 flex items-center gap-2">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
-          <Icon className="h-4 w-4" />
+    <Tr hoverable className="align-middle">
+      <Td className="px-3 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+            <Icon className="h-3.5 w-3.5" />
+          </div>
+          <span className="whitespace-nowrap text-sm font-medium text-gray-900">
+            {def.title}
+          </span>
         </div>
-        <h4 className="text-sm font-semibold text-gray-900">{def.title}</h4>
-      </div>
-      <p className="mb-3 flex-1 text-xs leading-relaxed text-gray-500">
+      </Td>
+      <Td className="hidden px-3 py-2.5 text-xs text-gray-500 sm:table-cell">
         {def.desc}
-      </p>
-      <button
-        onClick={() => void def.run()}
-        disabled={running}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {running ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {def.running}
-          </>
+      </Td>
+      <Td className="px-3 py-2.5">
+        {state.message ? (
+          <span
+            className={cn(
+              'flex items-center gap-1 text-xs',
+              state.status === 'error'
+                ? 'text-red-600'
+                : state.status === 'success'
+                  ? 'text-emerald-600'
+                  : 'text-gray-500'
+            )}
+          >
+            {statusIcon(state.status)}
+            <span className="line-clamp-1">{state.message}</span>
+          </span>
         ) : (
-          <>
-            <Zap className="h-4 w-4" />
-            {def.cta}
-          </>
+          <span className="text-xs text-gray-400">Ready / 就绪</span>
         )}
-      </button>
-      {state.message && (
-        <div
-          className={cn(
-            'mt-2 flex items-center gap-1 text-xs',
-            state.status === 'error'
-              ? 'text-red-600'
-              : state.status === 'success'
-                ? 'text-emerald-600'
-                : 'text-gray-500'
-          )}
-        >
-          {statusIcon(state.status)}
-          <span className="line-clamp-2">{state.message}</span>
+      </Td>
+      <Td className="px-3 py-2.5">
+        <div className="flex items-center justify-end gap-2">
+          {def.hasResultsModal &&
+            state.status === 'success' &&
+            state.results && (
+              <button
+                onClick={onViewResults}
+                className="whitespace-nowrap text-xs font-medium text-violet-600 transition-colors hover:text-violet-700"
+              >
+                查看
+              </button>
+            )}
+          <button
+            onClick={() => void def.run()}
+            disabled={running}
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {running ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Zap className="h-3.5 w-3.5" />
+            )}
+            {running ? def.running : def.cta}
+          </button>
         </div>
-      )}
-      {def.hasResultsModal && state.status === 'success' && state.results && (
-        <button
-          onClick={onViewResults}
-          className="mt-2 w-full rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100"
-        >
-          View Results / 查看结果
-        </button>
-      )}
-    </div>
+      </Td>
+    </Tr>
   );
 }
 
@@ -481,34 +492,45 @@ export default function AIOrganizePanel({
   };
 
   const actions = TAB_ACTIONS[activeTab];
+  const anyRunning = actions.some(
+    (def) => taskStates[def.id].status === 'running'
+  );
+
+  // 一键整理：展开并依次触发当前 tab 全部动作
+  const runAll = () => {
+    setIsExpanded(true);
+    actions.forEach((def) => void def.run());
+  };
 
   return (
     <div>
-      {/* 折叠开关 */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
+      {/* 头部栏：标题（点击折叠）+ 一键整理 + 折叠箭头 */}
+      <div
         className={cn(
-          'flex w-full items-center justify-between rounded-xl border px-4 py-3 transition-colors',
+          'flex items-center justify-between gap-3 rounded-xl border px-3 py-2 transition-colors',
           isExpanded
             ? 'border-violet-200 bg-violet-50/60'
-            : 'border-gray-200 bg-white hover:border-violet-200 hover:bg-violet-50/40'
+            : 'border-gray-200 bg-white'
         )}
       >
-        <div className="flex items-center gap-3">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+        >
           <div
             className={cn(
-              'flex h-9 w-9 items-center justify-center rounded-lg',
+              'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg',
               isExpanded ? 'bg-violet-100' : 'bg-gray-100'
             )}
           >
             <Sparkles
               className={cn(
-                'h-5 w-5',
+                'h-4 w-4',
                 isExpanded ? 'text-violet-600' : 'text-gray-500'
               )}
             />
           </div>
-          <div className="text-left">
+          <div className="min-w-0">
             <h3
               className={cn(
                 'text-sm font-semibold',
@@ -517,78 +539,107 @@ export default function AIOrganizePanel({
             >
               AI Organize / AI 整理
             </h3>
-            <p className="text-xs text-gray-500">{TAB_SUBTITLE[activeTab]}</p>
+            <p className="truncate text-xs text-gray-500">
+              {TAB_SUBTITLE[activeTab]}
+            </p>
           </div>
+        </button>
+        <div className="flex flex-shrink-0 items-center gap-1">
+          <button
+            onClick={runAll}
+            disabled={anyRunning}
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {anyRunning ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Wand2 className="h-4 w-4" />
+            )}
+            一键整理
+          </button>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            aria-label={isExpanded ? '收起' : '展开'}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          >
+            {isExpanded ? (
+              <ChevronUp className="h-5 w-5" />
+            ) : (
+              <ChevronDown className="h-5 w-5" />
+            )}
+          </button>
         </div>
-        {isExpanded ? (
-          <ChevronUp className="h-5 w-5 text-gray-400" />
-        ) : (
-          <ChevronDown className="h-5 w-5 text-gray-400" />
-        )}
-      </button>
+      </div>
 
       {/* 展开内容 */}
       {isExpanded && (
-        <div className="mt-2 rounded-xl border border-violet-100 bg-white p-4 shadow-sm">
-          {/* 书签统计条 */}
+        <div className="mt-2 overflow-hidden rounded-xl border border-violet-100 bg-white shadow-sm">
+          {/* 书签工具条：统计 + 合集选择器 */}
           {activeTab === 'bookmarks' && (
-            <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-gray-50 px-4 py-2 text-sm">
-              <span className="text-gray-600">
-                <strong className="text-gray-900">{stats.totalCount}</strong>{' '}
-                resources / 资源
-              </span>
-              <span className="text-gray-300">·</span>
-              <span className="text-amber-600">
-                <strong>{stats.untaggedCount}</strong> without tags / 无标签
-              </span>
-              <span className="text-gray-300">·</span>
-              <span className="text-violet-600">
-                <strong>{stats.unclassifiedCount}</strong> uncategorized /
-                未分类
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50/70 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                <span>
+                  <strong className="text-gray-900">{stats.totalCount}</strong>{' '}
+                  资源
+                </span>
+                <span className="text-gray-300">·</span>
+                <span className="text-amber-600">
+                  <strong>{stats.untaggedCount}</strong> 无标签
+                </span>
+                <span className="text-gray-300">·</span>
+                <span className="text-violet-600">
+                  <strong>{stats.unclassifiedCount}</strong> 未分类
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500">应用到</span>
+                <select
+                  value={selectedCollection}
+                  onChange={(e) => setSelectedCollection(e.target.value)}
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                >
+                  <option value="all">全部合集</option>
+                  {collections.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.itemCount || 0})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
 
-          {/* 合集选择器（仅书签） */}
-          {activeTab === 'bookmarks' && (
-            <div className="mb-4">
-              <label className="mb-1 block text-xs font-medium text-gray-600">
-                Apply to / 应用到
-              </label>
-              <select
-                value={selectedCollection}
-                onChange={(e) => setSelectedCollection(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-              >
-                <option value="all">All Collections / 全部合集</option>
-                {collections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.itemCount || 0})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* 动作卡网格 */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {actions.map((def) => (
-              <ActionCard
-                key={def.id}
-                def={def}
-                state={taskStates[def.id]}
-                onViewResults={() => setResultsModal(def.id)}
-              />
-            ))}
-          </div>
+          {/* 动作表格 */}
+          <Table>
+            <THead>
+              <Tr className="border-b border-gray-100 bg-gray-50/50 text-[11px] uppercase tracking-wide text-gray-400">
+                <Th className="px-3 py-2">Action / 动作</Th>
+                <Th className="hidden px-3 py-2 sm:table-cell">
+                  Description / 说明
+                </Th>
+                <Th className="px-3 py-2">Status / 状态</Th>
+                <Th className="px-3 py-2 text-right">Run / 运行</Th>
+              </Tr>
+            </THead>
+            <TBody className="divide-y divide-gray-100">
+              {actions.map((def) => (
+                <ActionRow
+                  key={def.id}
+                  def={def}
+                  state={taskStates[def.id]}
+                  onViewResults={() => setResultsModal(def.id)}
+                />
+              ))}
+            </TBody>
+          </Table>
 
           {/* 书签内联结果（主题簇 + 分类建议） */}
           {activeTab === 'bookmarks' && (
-            <>
+            <div className="space-y-3 px-3 pb-3 pt-3">
               {taskStates['theme-cluster'].status === 'success' &&
                 taskStates['theme-cluster'].results?.clusters &&
                 taskStates['theme-cluster'].results.clusters.length > 0 && (
-                  <div className="mt-4 rounded-lg border border-violet-100 bg-violet-50/50 p-4">
+                  <div className="rounded-lg border border-violet-100 bg-violet-50/50 p-4">
                     <h4 className="mb-2 text-sm font-medium text-violet-900">
                       Discovered Themes / 发现的主题
                     </h4>
@@ -610,7 +661,7 @@ export default function AIOrganizePanel({
               {taskStates['smart-classify'].status === 'success' &&
                 taskStates['smart-classify'].results?.suggestions &&
                 taskStates['smart-classify'].results.suggestions.length > 0 && (
-                  <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-4">
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
                     <h4 className="mb-2 text-sm font-medium text-gray-900">
                       Classification Suggestions / 分类建议
                     </h4>
@@ -633,7 +684,7 @@ export default function AIOrganizePanel({
                     </div>
                   </div>
                 )}
-            </>
+            </div>
           )}
         </div>
       )}
