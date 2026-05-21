@@ -2,6 +2,7 @@
 
 > 项目专属事故、决策、PR 收尾记录。每条 ≤200 字符，详情看链接文件。按近→远排序（新文件加在顶部）。
 
+- [project_ui_discipline_hardzero_2026_05_20.md](project_ui_discipline_hardzero_2026_05_20.md) — UI-discipline 收口 TOTAL=0 + R1–R11 全部焊死 HARD_ZERO（pushed 77acf2484）；新增 R7 SignalB/R9 spinner 检测器、R11 基线改对去可见性、CitationListItem canonical
 - [project_radar_pr_dr2_implementation_2026_05_18.md](project_radar_pr_dr2_implementation_2026_05_18.md) — AI Radar Daily Briefing 重构 PR-DR2 全量实施：v1.3.1 baseline + 51 task + 5-6 sub-agent 并行 + 35+ commit 推主干
 - [project_frontend_ui_baseline_2026_05_18.md](project_frontend_ui_baseline_2026_05_18.md) — 前端 UI 验证基线：8 公共组件齐全但复用率 < 10%、4 套 token 系统、815 处 text-[Npx]、5 套弹层并行；详细方案 docs/ui-audit/2026-05-18-frontend-validation-plan.md
 - [project_radar_drop_x_recommendation_2026_05_17.md](project_radar_drop_x_recommendation_2026_05_17.md) — ai-radar source-curator 不再推 type=X，业务对齐 Feedly/Inoreader（X→等价 RSS/YouTube/Newsletter），commit 3cfbcbddd
