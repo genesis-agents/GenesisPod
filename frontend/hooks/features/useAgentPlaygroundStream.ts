@@ -1,205 +1,25 @@
 'use client';
 
 /**
- * useAgentPlaygroundStream — 双通道事件流（replay + socket）
+ * useAgentPlaygroundStream — agent-playground 的 mission 事件流。
  *
- * 设计：
- *   1. 进页面立刻从 /replay 端点拉取累积事件（hydrate）—— 解决刷新页面 UI 全空
- *   2. Socket 连上后追加 live 事件
- *   3. Socket 断/出错时自动 polling /replay (since=lastTs) 兜底
- *   4. 5000 上限防长 mission 内存泄漏
+ * 自标准 21 P1（2026-05-21）起改为 `useMissionStream` 的薄封装：playground 默认
+ * （namespace='/agent-playground'、replayMission、join/leave、含 '.' 前缀过滤），
+ * 行为与旧实现一致；通用逻辑（双通道 / replay / dedup / polling 兜底）下沉到
+ * useMissionStream，供 ai-teams 等复用。
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { io, type Socket } from 'socket.io-client';
-import { config } from '@/lib/utils/config';
-import { getAuthHeader } from '@/lib/utils/auth';
 import { replayMission } from '@/services/agent-playground/api';
+import { useMissionStream, type MissionEvent } from './useMissionStream';
 
-const MAX_EVENTS = 5000;
-const POLL_INTERVAL_MS = 4000;
-
-export interface PlaygroundEvent {
-  type: string;
-  payload: unknown;
-  agentId?: string;
-  traceId?: string;
-  timestamp: number;
-}
-
-type ConnState = 'connecting' | 'live' | 'polling' | 'disconnected';
-
-function dedupeAndCap(events: PlaygroundEvent[]): PlaygroundEvent[] {
-  // 用 type+timestamp+agentId+payload 序列化做 key —— 同 ms 内多条 trace 不会被误吞
-  const seen = new Set<string>();
-  const out: PlaygroundEvent[] = [];
-  for (const e of events) {
-    let payloadKey = '';
-    try {
-      payloadKey = JSON.stringify(e.payload);
-    } catch {
-      payloadKey = String(e.payload);
-    }
-    const key = `${e.type}|${e.timestamp}|${e.agentId ?? ''}|${payloadKey.slice(0, 120)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(e);
-  }
-  out.sort((a, b) => a.timestamp - b.timestamp);
-  return out.length > MAX_EVENTS ? out.slice(-MAX_EVENTS) : out;
-}
+/** 向后兼容别名：consumers 仍 import PlaygroundEvent */
+export type PlaygroundEvent = MissionEvent;
 
 export function useAgentPlaygroundStream(missionId: string | null) {
-  const [events, setEvents] = useState<PlaygroundEvent[]>([]);
-  const [connState, setConnState] = useState<ConnState>('connecting');
-  const [error, setError] = useState<string | null>(null);
-  const lastTsRef = useRef<number>(0);
-  const eventsRef = useRef<PlaygroundEvent[]>([]);
-
-  // keep ref synced (read-only snapshot for non-reactive consumers)
-  useEffect(() => {
-    eventsRef.current = events;
-    // NOTE: lastTsRef is updated eagerly inside append() to avoid the race
-    // where polling tick reads a stale lastTsRef before this effect fires.
-  }, [events]);
-
-  useEffect(() => {
-    if (!missionId || missionId === 'undefined') return;
-    let cancelled = false;
-    let pollTimer: ReturnType<typeof setInterval> | null = null;
-    let socket: Socket | null = null;
-
-    const append = (next: PlaygroundEvent[]) => {
-      if (cancelled || !next.length) return;
-      // ★ P1 (2026-05-06): 在 setEvents updater 内同步更新 lastTsRef，避免 polling
-      //   tick 在 useEffect 触发前读到旧 ts 导致重复拉取已有事件（race condition）。
-      setEvents((prev) => {
-        const merged = dedupeAndCap([...prev, ...next]);
-        if (merged.length) {
-          lastTsRef.current = merged[merged.length - 1].timestamp;
-        }
-        return merged;
-      });
-    };
-
-    // Step 1: hydrate 从 /replay
-    void (async () => {
-      try {
-        const replay = await replayMission(missionId);
-        if (!cancelled) append(replay.events);
-      } catch (e) {
-        if (!cancelled) {
-          setError(`Failed to load mission history: ${(e as Error).message}`);
-        }
-      }
-    })();
-
-    // Step 2: 连 socket
-    // 必须直连后端 —— gens.team 等自定义域名上 apiBaseUrl 是空字符串（走 Next.js
-    // rewrites 代理 REST），但 Next.js 只代理 /api/v1/*，不代理 /socket.io/*，
-    // 用相对 URL 会让 ws 连到 wss://gens.team/socket.io 永久 timeout。
-    // getBackendUrl() 在浏览器/SSR 下都返回完整后端 URL（NEXT_PUBLIC_API_URL 或
-    // RAILWAY_BACKEND_URL fallback）。
-    const auth = getAuthHeader();
-    const token = auth.Authorization?.replace(/^Bearer\s+/i, '') ?? auth.token;
-    // 加 polling fallback：WS 升级失败（CDN/corp firewall）时退回 long-polling，
-    // socket.io 自动 negotiate；不强制 ['websocket'] 单一 transport，避免硬死。
-    // 重试次数提到 8 + 指数退避 → 短暂网络抖动可恢复，不立即降级 polling /replay。
-    socket = io(`${config.getBackendUrl()}/agent-playground`, {
-      transports: ['polling', 'websocket'],
-      auth: token ? { token } : {},
-      reconnectionAttempts: 8,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 10000,
-      timeout: 12000,
-      withCredentials: true,
-    });
-
-    const onConnect = () => {
-      setConnState('live');
-      setError(null);
-      socket?.emit(
-        'join',
-        { missionId },
-        (resp: { ok: boolean; error?: string }) => {
-          if (!resp?.ok) {
-            setError(resp?.error ?? 'join failed');
-            startPolling();
-          }
-        }
-      );
-      // ★ 2026-05-06 #74: hydrate /replay (line 86) → socket join 之间发生的事件
-      //   既不在 initial replay 快照里，也不在 socket live 流里 → 永远丢失。
-      //   常见现象：S2 leader-plan completed 在 socket join 前 emit，dim 任务卡
-      //   永不出现，必须刷新页面才能看到（刷新 = 重新 hydrate /replay 拿全量）。
-      //   修法：onConnect 后用 lastTs 兜底拉一次 /replay 覆盖空隙。
-      void (async () => {
-        try {
-          const replay = await replayMission(missionId, lastTsRef.current);
-          if (!cancelled) append(replay.events);
-        } catch {
-          // 忽略错误：socket live 流仍在跑，下次 disconnect 时 startPolling 会兜底
-        }
-      })();
-    };
-    const onDisconnect = () => {
-      if (cancelled) return;
-      setConnState('polling');
-      startPolling();
-    };
-    const onConnectError = (err: Error) => {
-      if (cancelled) return;
-      setError(err.message);
-      setConnState('polling');
-      startPolling();
-    };
-    const onAnyHandler = (type: string, data: PlaygroundEvent) => {
-      // 2026-05-19: 兼容多 namespace（agent-playground / social / ai-radar）—
-      //   mission id 在 join 时已绑定，socket 只会收到本 mission 的事件，namespace
-      //   前缀不再用作过滤条件。derive.ts / todo-ledger.ts 已规范化剥离 namespace。
-      if (!type.includes('.')) return; // 只接受有 namespace 前缀的事件类型
-      append([{ ...data, type }]);
-    };
-
-    const startPolling = () => {
-      if (pollTimer) return;
-      const tick = async () => {
-        if (cancelled) return;
-        try {
-          const replay = await replayMission(missionId, lastTsRef.current);
-          append(replay.events);
-        } catch {
-          // 忽略 polling 错误
-        }
-      };
-      pollTimer = setInterval(() => {
-        void tick();
-      }, POLL_INTERVAL_MS);
-    };
-
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-    socket.on('connect_error', onConnectError);
-    socket.onAny(onAnyHandler);
-
-    return () => {
-      cancelled = true;
-      if (pollTimer) clearInterval(pollTimer);
-      if (socket) {
-        socket.emit('leave', { missionId });
-        socket.off('connect', onConnect);
-        socket.off('disconnect', onDisconnect);
-        socket.off('connect_error', onConnectError);
-        socket.offAny(onAnyHandler);
-        socket.disconnect();
-      }
-    };
-  }, [missionId]);
-
-  return {
-    events,
-    connState,
-    connected: connState === 'live',
-    error,
-  };
+  return useMissionStream(missionId, {
+    namespace: '/agent-playground',
+    replay: replayMission,
+    // 默认 joinEvent='join' / leaveEvent='leave' / idKey='missionId' /
+    // acceptEvent=(t)=>t.includes('.') —— 与旧实现完全一致
+  });
 }
