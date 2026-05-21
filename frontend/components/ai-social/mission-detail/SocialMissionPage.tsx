@@ -36,7 +36,6 @@ import {
 import {
   ComputeUsagePanel,
   MissionFlowView,
-  ReferencesPanel,
 } from '@/components/agent-playground';
 import {
   MissionDetailFrame,
@@ -192,6 +191,17 @@ const SOCIAL_ROLE_NODE_STATUS: Record<string, TeamNodeStatus> = {
   working: 'working',
   done: 'completed',
   failed: 'failed',
+};
+
+/** 来源类型 → 中文标签（参考文献按类型聚合展示，不露 UUID）*/
+const SOURCE_TYPE_LABEL: Record<string, string> = {
+  BOOKMARK: '书签',
+  NOTE: '笔记',
+  RESOURCE: '资源',
+  WECHAT_ARTICLE: '微信文章',
+  YOUTUBE: 'YouTube',
+  URL: '外部链接',
+  EXTERNAL: '外部链接',
 };
 
 /** social view → team-topology canvas（nodes/rows/connections），Leader 居顶 fan-out */
@@ -788,9 +798,32 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
       )}
 
       {activeTab === 'references' && (
-        <ReferencesPanel
-          fallbackSources={task?.sources?.map((s) => s.sourceId) ?? []}
-        />
+        <div className="p-6">
+          {task?.sources && task.sources.length > 0 ? (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">
+                本内容基于 {task.sources.length} 个来源生成：
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(
+                  task.sources.reduce<Record<string, number>>((acc, s) => {
+                    acc[s.sourceType] = (acc[s.sourceType] ?? 0) + 1;
+                    return acc;
+                  }, {})
+                ).map(([type, count]) => (
+                  <span
+                    key={type}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
+                  >
+                    {SOURCE_TYPE_LABEL[type] ?? type} ×{count}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">本任务未关联外部来源</p>
+          )}
+        </div>
       )}
 
       {activeTab === 'cost' && missionId && (
