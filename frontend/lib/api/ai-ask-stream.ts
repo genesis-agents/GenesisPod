@@ -149,6 +149,96 @@ const networkErrorMessage = (status: number, raw: unknown): string => {
   return `调用失败 (HTTP ${status})。请稍后重试或更换模型。`;
 };
 
+interface PersistedAskMessage {
+  id: string;
+  role: string;
+  content: string;
+  createdAt: string;
+  modelId?: string | null;
+  modelName?: string | null;
+  tokens?: number | null;
+}
+
+/**
+ * 流被中途掐断（无 done）后的对账兜底。
+ *
+ * 背景：经**代理上网**的客户端，代理常对 `text/event-stream` 长连接做缓冲 / idle-timeout，
+ * 转发部分 chunk 后把连接掐断 → 前端永远等不到 `done`（后端 X-Accel-Buffering 等头管不到
+ * 客户端侧代理）。但**后端生成器在客户端断开后仍跑完并已持久化** user/assistant 消息。
+ * 故这里用一次普通短 GET 回捞最新消息，若捞到「本轮」assistant 回复即视为成功
+ * （无打字机、稍有延迟，但内容完整），让代理用户也能正常用。
+ */
+async function reconcileAfterStreamCut(
+  sessionId: string,
+  token: string,
+  sentContent: string
+): Promise<AskStreamSuccess | null> {
+  try {
+    const res = await fetch(
+      `${config.apiUrl}/ask/sessions/${sessionId}/messages?limit=6`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) return null;
+    const json = (await res.json().catch(() => null)) as {
+      messages?: PersistedAskMessage[];
+      data?: { messages?: PersistedAskMessage[] };
+    } | null;
+    const list: PersistedAskMessage[] = Array.isArray(json?.messages)
+      ? json.messages
+      : Array.isArray(json?.data?.messages)
+        ? json.data.messages
+        : [];
+    if (list.length < 2) return null;
+
+    // list 为时间正序。从尾部找最近一条 assistant，及其紧邻的前一条 user。
+    let assistantIdx = -1;
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i].role === 'assistant') {
+        assistantIdx = i;
+        break;
+      }
+    }
+    if (assistantIdx <= 0) return null;
+    const assistant = list[assistantIdx];
+    let user: PersistedAskMessage | undefined;
+    for (let i = assistantIdx - 1; i >= 0; i--) {
+      if (list[i].role === 'user') {
+        user = list[i];
+        break;
+      }
+    }
+    if (!user) return null;
+
+    // 必须是「我们刚发的这一轮」，且 assistant 不是后端持久化的错误占位（"Error: ..."）。
+    if (user.content.trim() !== sentContent.trim()) return null;
+    if (!assistant.content || assistant.content.startsWith('Error:'))
+      return null;
+
+    return {
+      ok: true,
+      userMessage: {
+        id: user.id,
+        content: user.content,
+        createdAt: user.createdAt,
+        modelId: user.modelId ?? undefined,
+        modelName: user.modelName ?? undefined,
+      },
+      assistantMessage: {
+        id: assistant.id,
+        content: assistant.content,
+        createdAt: assistant.createdAt,
+        modelId: assistant.modelId ?? undefined,
+        modelName: assistant.modelName ?? undefined,
+        tokens: assistant.tokens ?? 0,
+      },
+      ragSources: undefined,
+      suggestedActions: undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 发起 SSE 流式发送消息。
  *
@@ -252,6 +342,14 @@ export async function streamAskMessage(
     }
 
     if (!sawDone || !donePayload) {
+      // 流被中途掐断（最常见：客户端经代理上网，代理缓冲/超时掐断 SSE 长连接）。
+      // 后端生成器仍已跑完并持久化 → 回捞最新消息对账，捞到本轮回复即按成功返回。
+      const reconciled = await reconcileAfterStreamCut(
+        sessionId,
+        token,
+        body.content
+      );
+      if (reconciled) return reconciled;
       return {
         ok: false,
         error: '流式响应意外中断，未收到完成事件。',
