@@ -332,7 +332,10 @@ export class OrganizeChatService {
     // 笔记/图片/飞书：源条目不在集合里，需先 list-source-items → assign 纳入集合，
     //   再用 collectionItemId 打标/标状态（书签则条目已在集合，直接 list-items）。
     const isSource =
-      itemType === "NOTE" || itemType === "IMAGE" || itemType === "FEISHU";
+      itemType === "NOTE" ||
+      itemType === "IMAGE" ||
+      itemType === "FEISHU" ||
+      itemType === "NOTION";
     const lines = [
       `你是用户资料库的「${label}」整理助手。根据用户的自然语言指令，调用工具真实整理用户的库。整理只在本地"整理覆盖层"进行（分集合/打标签/标状态），绝不修改源数据本身（不改笔记正文、不改图片、不写回外部平台）。`,
       "规则：",

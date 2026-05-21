@@ -528,11 +528,13 @@ model CollectionItem {
   noteRef    Note?           @relation(fields: [noteId], references: [id], onDelete: Cascade)
   imageRef   GeneratedImage? @relation(fields: [imageId], references: [id], onDelete: Cascade)
   feishuRef  FeishuItem?     @relation(fields: [feishuItemId], references: [id], onDelete: Cascade)
+  notionRef  NotionPage?     @relation(fields: [notionItemId], references: [id], onDelete: Cascade)
 
   @@unique([collectionId, resourceId])
   @@unique([collectionId, noteId])
   @@unique([collectionId, imageId])
   @@unique([collectionId, feishuItemId])
+  @@unique([collectionId, notionItemId])
   @@index([collectionId])
   @@index([collectionId, addedAt(sort: Desc)])
   @@index([collectionId, readStatus])
@@ -3690,6 +3692,9 @@ model NotionPage {
   // 关系
   connection NotionConnection     @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   versions   NotionBlockVersion[]
+
+  // 数据源统一整理：本地整理覆盖层（多态 CollectionItem）
+  collectionItems CollectionItem[]
 
   @@unique([connectionId, notionPageId])
   @@index([connectionId])

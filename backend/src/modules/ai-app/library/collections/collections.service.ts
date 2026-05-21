@@ -27,6 +27,7 @@ export type OrganizeItemType =
   | "NOTE"
   | "IMAGE"
   | "FEISHU"
+  | "NOTION"
   | "DRIVE";
 
 /** 统一的"可整理条目"视图：源 id + 本地覆盖状态（在哪个集合 / tags / 状态）。 */
@@ -856,6 +857,37 @@ export class CollectionsService {
       };
     }
 
+    if (itemType === "NOTION") {
+      const where = { connection: { userId } };
+      const [rows, total] = await Promise.all([
+        this.prisma.notionPage.findMany({
+          where,
+          select: {
+            id: true,
+            title: true,
+            collectionItems: {
+              select: {
+                id: true,
+                collectionId: true,
+                tags: true,
+                readStatus: true,
+              },
+              take: 1,
+            },
+          },
+          orderBy: { notionUpdatedAt: "desc" },
+          take: limit,
+        }),
+        this.prisma.notionPage.count({ where }),
+      ]);
+      return {
+        items: rows.map((r) =>
+          this.toOrganizableItem("NOTION", r.id, r.title, r.collectionItems[0]),
+        ),
+        total,
+      };
+    }
+
     // BOOKMARK / DRIVE：走既有 collection 视图（条目已是 CollectionItem）
     const page = await this.getCollectionItemsPaginated(
       opts.collectionId ?? null,
@@ -921,7 +953,7 @@ export class CollectionsService {
       sourceId: string,
     ): Pick<
       Prisma.CollectionItemUncheckedCreateInput,
-      "resourceId" | "noteId" | "imageId" | "feishuItemId"
+      "resourceId" | "noteId" | "imageId" | "feishuItemId" | "notionItemId"
     > => {
       switch (dto.itemType) {
         case "NOTE":
@@ -930,6 +962,8 @@ export class CollectionsService {
           return { imageId: sourceId };
         case "FEISHU":
           return { feishuItemId: sourceId };
+        case "NOTION":
+          return { notionItemId: sourceId };
         default:
           return { resourceId: sourceId };
       }
@@ -974,6 +1008,10 @@ export class CollectionsService {
     } else if (itemType === "FEISHU") {
       count = await this.prisma.feishuItem.count({
         where: { id: { in: sourceIds }, userId },
+      });
+    } else if (itemType === "NOTION") {
+      count = await this.prisma.notionPage.count({
+        where: { id: { in: sourceIds }, connection: { userId } },
       });
     } else {
       // BOOKMARK/DRIVE：sourceId 为 resourceId，校验存在于用户某集合
