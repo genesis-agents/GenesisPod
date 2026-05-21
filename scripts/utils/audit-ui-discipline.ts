@@ -41,6 +41,7 @@ const RATCHET = ARGS.has("--ratchet");
 // 任一规则新增违规即 exit 1 拒推，彻底退出灰度 warn-only。新违规只能修/迁，不能放过。
 const HARD_ZERO_RULES = new Set<string>([
   "R1-AppShell-Required",
+  "R2-AssetCard-Required",
   "R3-EmptyState-Required",
   "R4-ErrorState-Required",
   "R5-LoadingState-Required",
@@ -51,13 +52,13 @@ const HARD_ZERO_RULES = new Set<string>([
   "R11-CardBaseline-Required",
   "R12-CitationListItem-Required",
   "R13-MessageCardShell-Required",
+  "R14-PageHeaderHero-Required",
 ]);
 
-// 棘轮规则：不进 hard-zero（存量债务真实存在），但默认运行即强制「不劣化」——
-// 当前数 ≤ 基线才放行；新增即拒。存量随迁移用 `--ratchet` 锁低，只减不增。
-// 2026-05-20：R2 加固后检测器能看见此前盲区漏掉的自写列表卡（9 个存量），按用户指令
-// 改棘轮冻结：新自写列表卡拦截，存量逐步迁 AssetCard。
-const RATCHET_RULES = new Set<string>(["R2-AssetCard-Required"]);
+// 棘轮规则：不进 hard-zero 的「不劣化」规则（cur ≤ baseline）。
+// 2026-05-20 R2 加固后曾棘轮冻结存量自写列表卡；2026-05-21 逐源核验存量 = 0（真债务为 0，
+// 其余皆合法卡型 allowlist 留痕），R2 已升回 HARD_ZERO 焊死。当前棘轮集为空。
+const RATCHET_RULES = new Set<string>([]);
 const BASELINE_PATH = (() => {
   const idx = process.argv.indexOf("--baseline");
   return idx > 0
@@ -690,6 +691,35 @@ function checkR13MessageShell(file: string, src: string): Violation[] {
   ];
 }
 
+// R14: AI app 主页自写 hero 页头必须用 PageHeaderHero（固化「页头统一」成果，2026-05-21）。
+// 命中「主 index 页直接写 <h1 … text-2xl/3xl font-bold>」(hero 标题特征) 但未 import PageHeaderHero。
+// 仅作用于一级主页（app/<module>/page.tsx，不含 [id] 详情页与深层子页），避免误伤无 hero 的页面。
+const HERO_H1 = /<h1[^>]*\btext-(?:2xl|3xl)\b[^>]*\bfont-bold\b/;
+// R14 已审批例外：内容页/特殊布局——PageHeaderHero（string subtitle + 渐变 icon hero）不适配。
+const R14_BESPOKE_OK = [
+  "app/changelog/page.tsx", // 居中内容页(max-w-3xl) + 富 subtitle(版本徽章 JSX)，非渐变 hero
+];
+function checkR14PageHeaderHero(file: string, src: string): Violation[] {
+  const norm = file.split(sep).join("/");
+  const isMainIndexPage =
+    /\/frontend\/app\/(ai-[a-z-]+|library|explore|knowledge-graph|custom-agents|notifications|credits|me|profile|feedback|changelog)\/page\.tsx$/.test(
+      norm,
+    );
+  if (!isMainIndexPage) return [];
+  if (!HERO_H1.test(src)) return []; // 没自写 hero 标题（用了 header 组件 / 无 hero）
+  if (hasImport(src, "PageHeaderHero")) return []; // 已用 canonical
+  if (R14_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
+  const line = findLine(src, HERO_H1);
+  return [
+    {
+      rule: "R14-PageHeaderHero-Required",
+      file: relative(process.cwd(), file),
+      line,
+      snippet: snippet(src, line),
+    },
+  ];
+}
+
 // 注：内容/洞察展示卡（SectionPanelCard，卡片设计系统第 5 类）不设硬零检测器——
 // 其「渐变头卡」视觉特征与弹层/面板/页头共用（无法精确区分），强检测会误拦 Modal/Dialog 等。
 // 故 SectionPanelCard 作为「文档约定 + 已迁清晰用例」治理，不进 HARD_ZERO（实事求是）。
@@ -728,6 +758,7 @@ async function main() {
     allViolations.push(...checkR11CardBaseline(file, src));
     allViolations.push(...checkR12CitationRow(file, src));
     allViolations.push(...checkR13MessageShell(file, src));
+    allViolations.push(...checkR14PageHeaderHero(file, src));
   }
 
   // 按 rule 聚合
@@ -838,11 +869,14 @@ async function main() {
     process.exit(1);
   }
 
-  const ratchetSummary = [...RATCHET_RULES]
-    .map((r) => `${r}=${summary[r] ?? 0}`)
-    .join(", ");
+  const ratchetSuffix =
+    RATCHET_RULES.size > 0
+      ? ` + ${RATCHET_RULES.size} 条棘轮规则未劣化（${[...RATCHET_RULES]
+          .map((r) => `${r}=${summary[r] ?? 0}`)
+          .join(", ")}）`
+      : "";
   console.log(
-    `✓ ${HARD_ZERO_RULES.size} 条 hard-zero 通过（违规 = 0）+ ${RATCHET_RULES.size} 条棘轮规则未劣化（${ratchetSummary}）`,
+    `✓ 全部 ${HARD_ZERO_RULES.size} 条规则硬零通过（违规 = 0，已焊死）${ratchetSuffix}`,
   );
 }
 
