@@ -670,6 +670,16 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                 getRowKey={(s) => s.stepId}
                 selectedKey={selectedStageId}
                 onRowClick={(s) => setSelectedStageId(s.stepId)}
+                getRowClassName={(s) =>
+                  cn(
+                    s.status === 'running' &&
+                      'border-l-4 border-l-blue-400 bg-blue-50/40',
+                    s.status === 'done' && 'border-l-4 border-l-emerald-400',
+                    s.status === 'failed' &&
+                      'border-l-4 border-l-red-400 bg-red-50/30',
+                    s.status === 'pending' && 'border-l-4 border-l-transparent'
+                  )
+                }
                 emptyTitle="等待任务启动"
                 emptyDescription="任务刚被创建，协作管线正在初始化。各阶段会实时出现在此处。"
                 columns={[
