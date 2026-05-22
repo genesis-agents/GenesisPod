@@ -14,7 +14,10 @@
 
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
-import { resolveMissionTotalWords } from "../../contracts/word-budget.contract";
+import {
+  resolveMissionTotalWords,
+  CHAPTER_WORDS_PER_CHAPTER_RANGE,
+} from "../../contracts/word-budget.contract";
 
 const Input = z.object({
   topic: z.string(),
@@ -74,7 +77,20 @@ const Output = z
         keyPointsToCover: z.array(z.string()).min(1),
       }),
     ),
-    targetWordsPerChapter: z.record(z.string(), z.number()),
+    // ★ 2026-05-22 follow-up：生产方侧 clamp（非 reject）—— LLM 产出的每章字数夹到
+    //   CHAPTER_WORDS_PER_CHAPTER_RANGE[400,12000]，下游 single-shot-writer 拿到的
+    //   永远在界内（消费方无需严格 reject，避免 LLM 超限触发重试 churn）。
+    targetWordsPerChapter: z.record(
+      z.string(),
+      z
+        .number()
+        .transform((v) =>
+          Math.min(
+            CHAPTER_WORDS_PER_CHAPTER_RANGE.max,
+            Math.max(CHAPTER_WORDS_PER_CHAPTER_RANGE.min, Math.round(v)),
+          ),
+        ),
+    ),
     factAllocation: z.record(z.string(), z.array(z.string())).default({}),
     figurePlan: z.record(z.string(), z.array(z.string())).default({}),
   })
@@ -139,7 +155,9 @@ export class MissionOutlinePlannerAgent extends AgentSpec<
     // ★ P0-R4-5 (round 4): ChapterWriter budget.maxTokens=22000 + 中文 1:1 token，
     // 25K 字单章永远写不到 ≥85% 字数门槛 → epic 死循环。降到 12000 与 chapter-writer
     // schema 上限对齐；epic 200K → 17 章 × 12K 安全可达。
-    const PER_CHAPTER_HARD_CAP = 12000;
+    // ★ 2026-05-22 单一源：单章硬上限 = CHAPTER_WORDS_PER_CHAPTER_RANGE.max（与输出
+    //   clamp + chapter-writer schema 同源），不再写死 12000。
+    const PER_CHAPTER_HARD_CAP = CHAPTER_WORDS_PER_CHAPTER_RANGE.max;
     const naivePerChapter = Math.round(target / input.plan.dimensions.length);
     const perChapter = Math.min(naivePerChapter, PER_CHAPTER_HARD_CAP);
     const requiresMoreChaptersForCap = naivePerChapter > PER_CHAPTER_HARD_CAP;

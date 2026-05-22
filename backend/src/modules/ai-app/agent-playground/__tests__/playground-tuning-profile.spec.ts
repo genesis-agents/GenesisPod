@@ -53,14 +53,14 @@ describe("playground-tuning-profile", () => {
       const o = getProfileOverrides("local-quantized");
       expect(o.minFindingsThreshold).toBe(3);
       expect(o.chapterToleranceRatio).toBe(0.4);
-      expect(o.researcherMaxIterations).toBe(10);
+      expect(o.staleThresholdMin).toBe(30);
     });
 
-    it("returns the documented local-reasoning overrides incl. disableBudgetAbort", () => {
+    it("returns the documented local-reasoning overrides (longer liveness windows)", () => {
       const o = getProfileOverrides("local-reasoning");
-      expect(o.researcherMaxIterations).toBe(15);
-      expect(o.researcherMaxWallTimeMs).toBe(1_800_000);
-      expect(o.disableBudgetAbort).toBe(true);
+      expect(o.minFindingsThreshold).toBe(3);
+      expect(o.staleThresholdMin).toBe(60);
+      expect(o.softWarnThresholdMin).toBe(75);
     });
   });
 
@@ -71,7 +71,7 @@ describe("playground-tuning-profile", () => {
       } as NodeJS.ProcessEnv);
       expect(cfg.minFindingsThreshold).toBe(4); // DEFAULT
       expect(cfg.chapterToleranceRatio).toBe(0.3); // DEFAULT
-      expect(cfg.disableBudgetAbort).toBe(false); // DEFAULT
+      expect(cfg.staleThresholdMin).toBe(15); // DEFAULT
     });
 
     it("local-quantized profile applies its overrides without per-knob env", () => {
@@ -80,19 +80,17 @@ describe("playground-tuning-profile", () => {
       } as NodeJS.ProcessEnv);
       expect(cfg.minFindingsThreshold).toBe(3); // profile
       expect(cfg.chapterToleranceRatio).toBe(0.4); // profile
-      expect(cfg.researcherMaxIterations).toBe(10); // profile
       expect(cfg.staleThresholdMin).toBe(30); // profile
-      expect(cfg.disableBudgetAbort).toBe(false); // DEFAULT (profile doesn't override)
+      expect(cfg.softWarnThresholdMin).toBe(40); // profile
     });
 
-    it("local-reasoning profile applies longer-wait + disableBudgetAbort", () => {
+    it("local-reasoning profile applies longer liveness windows", () => {
       const cfg = loadPlaygroundRuntimeConfig({
         PLAYGROUND_TUNING_PROFILE: "local-reasoning",
       } as NodeJS.ProcessEnv);
-      expect(cfg.researcherMaxIterations).toBe(15); // profile
-      expect(cfg.researcherMaxWallTimeMs).toBe(1_800_000); // profile
+      expect(cfg.minFindingsThreshold).toBe(3); // profile
       expect(cfg.staleThresholdMin).toBe(60); // profile
-      expect(cfg.disableBudgetAbort).toBe(true); // profile
+      expect(cfg.softWarnThresholdMin).toBe(75); // profile
     });
 
     it("per-knob env vars override the profile baseline", () => {
@@ -106,16 +104,8 @@ describe("playground-tuning-profile", () => {
       expect(cfg.minFindingsThreshold).toBe(1);
       expect(cfg.chapterToleranceRatio).toBe(0.6);
       // Other profile values still apply
-      expect(cfg.researcherMaxIterations).toBe(15);
-      expect(cfg.disableBudgetAbort).toBe(true);
-    });
-
-    it("env can override a profile-set boolean back to false (explicit override)", () => {
-      const cfg = loadPlaygroundRuntimeConfig({
-        PLAYGROUND_TUNING_PROFILE: "local-reasoning",
-        PLAYGROUND_DISABLE_BUDGET_ABORT: "0",
-      } as NodeJS.ProcessEnv);
-      expect(cfg.disableBudgetAbort).toBe(false);
+      expect(cfg.staleThresholdMin).toBe(60);
+      expect(cfg.softWarnThresholdMin).toBe(75);
     });
 
     it("unknown profile name falls back to frontier silently", () => {
@@ -134,7 +124,7 @@ describe("playground-tuning-profile", () => {
         PLAYGROUND_TUNING_PROFILE: "local-quantized",
       } as NodeJS.ProcessEnv);
       expect(profile).toBe("local-quantized");
-      expect(config.researcherMaxIterations).toBe(10);
+      expect(config.staleThresholdMin).toBe(30);
     });
 
     it("reports 'frontier' when no profile env is set", () => {
