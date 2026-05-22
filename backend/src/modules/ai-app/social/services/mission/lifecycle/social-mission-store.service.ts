@@ -132,6 +132,52 @@ export class SocialMissionStore {
       });
   }
 
+  /**
+   * Liveness 扫描用：列出所有 running mission 的存活字段。
+   * 供 AiSocialModule onModuleInit 注册的 MissionLivenessGuard adapter 调用——
+   * ★ 2026-05-22 C8：social_missions 早有 heartbeatAt/podId + [status,heartbeatAt] 索引，
+   *   但此前从未注册 liveness adapter，孤儿 running 行永不回收。本方法 + 注册补上扫描链。
+   */
+  async fetchRunningForLiveness(): Promise<
+    Array<{
+      id: string;
+      userId: string;
+      startedAt: Date;
+      heartbeatAt: Date | null;
+    }>
+  > {
+    return this.prisma.socialMission.findMany({
+      where: { status: "running" },
+      select: { id: true, userId: true, startedAt: true, heartbeatAt: true },
+      take: 200,
+    });
+  }
+
+  /**
+   * Liveness 回收专用 markFailed —— 用 updateMany + WHERE status='running' 条件写，
+   * 避免与刚 markCompleted 的 mission 抢写（既有 markFailed 是无条件 update by id，
+   * 有 TOCTOU；C0/G1 会把终态写统一收口到 MissionLifecycleManager 单入口仲裁）。
+   */
+  async markFailedByLiveness(
+    missionId: string,
+    errorMessage: string,
+  ): Promise<void> {
+    await this.prisma.socialMission
+      .updateMany({
+        where: { id: missionId, status: "running" },
+        data: {
+          status: "failed",
+          completedAt: new Date(),
+          errorMessage: errorMessage.slice(0, 4000),
+        },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[markFailedByLiveness] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
   /** 写 S11 trajectory；与 markCompleted 解耦，让 S11 失败也能保留 partial trajectory */
   async saveTrajectory(
     missionId: string,

@@ -62,6 +62,7 @@ import { SOCIAL_EVENTS } from "./social.events";
 import {
   DomainEventBus,
   DomainEventRegistry,
+  MissionLivenessGuard,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
 } from "@/modules/ai-harness/facade";
@@ -87,7 +88,11 @@ import { PromptSkillRegistrationService } from "@/modules/ai-engine/facade";
       inject: [ConfigService],
     }),
   ],
-  controllers: [AiSocialController, SocialDataSourceController, SocialTaskController],
+  controllers: [
+    AiSocialController,
+    SocialDataSourceController,
+    SocialTaskController,
+  ],
   providers: [
     AiSocialService,
     SocialLeaderService,
@@ -150,6 +155,8 @@ export class AiSocialModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly registry: DomainEventRegistry,
     private readonly buffer: SocialEventBuffer,
     private readonly promptSkillBridge: PromptSkillRegistrationService,
+    private readonly livenessGuard: MissionLivenessGuard,
+    private readonly missionStore: SocialMissionStore,
   ) {}
 
   onModuleInit(): void {
@@ -177,6 +184,35 @@ export class AiSocialModule implements OnModuleInit, OnApplicationBootstrap {
     this.logger.log(
       `Registered ${SOCIAL_EVENTS.length} social.* event types + buffer adapter`,
     );
+
+    // ★ 2026-05-22 C8：注册 MissionLivenessGuard adapter。
+    //    social_missions 早有 heartbeatAt/podId + [status,heartbeatAt] 索引，但此前从未
+    //    注册 adapter——心跳写了没人扫，孤儿 running 行永不回收。本注册补上扫描链。
+    //    social 无 mission-event 表，getMostRecentEventTs 返回空，liveness 仅按 heartbeatAt 判活。
+    //    markFailed 走 store.markFailedByLiveness（status='running' 条件写，避免抢写已完成 mission）。
+    this.livenessGuard.registerAdapter("ai-social", {
+      fetchRunningMissions: async () => {
+        try {
+          return await this.missionStore.fetchRunningForLiveness();
+        } catch (err: unknown) {
+          this.logger.warn(
+            `[liveness] fetchRunningForLiveness failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          return [];
+        }
+      },
+      getMostRecentEventTs: async () => new Map<string, number>(),
+      markFailed: async (missionId, reason, errorMessage) => {
+        await this.missionStore.markFailedByLiveness(
+          missionId,
+          `[liveness:${reason}] ${errorMessage}`,
+        );
+        this.logger.warn(
+          `[liveness] social mission ${missionId} reclaimed (${reason})`,
+        );
+      },
+    });
+    this.logger.log("Registered MissionLivenessGuard adapter (ai-social)");
   }
 
   /**
