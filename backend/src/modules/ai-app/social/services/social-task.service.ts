@@ -225,7 +225,7 @@ export class SocialTaskService {
   ): Promise<{ mode: "cancelled" | "deleted" }> {
     const task = await this.prisma.socialContentTask.findFirst({
       where: { id: taskId, userId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, missionId: true },
     });
 
     if (!task) {
@@ -238,6 +238,19 @@ export class SocialTaskService {
     ];
 
     if (cancellable.includes(task.status)) {
+      // ★ 2026-05-22 C1/G0：真停。此前只改 task 表 status，正在跑的 mission 不被中断，
+      //   继续烧预算。现触发 dispatcher.abortMission：mission 在下一个 stage 边界收到 abort
+      //   抛 StageAbortError，pipeline 自行落终态、停止计费。无 in-flight session（pod 重启/
+      //   已结束）返回 false，仅改 task 表即可。
+      if (task.missionId) {
+        const aborted = this.dispatcher.abortMission(
+          task.missionId,
+          "user_cancelled",
+        );
+        this.logger.log(
+          `[cancelTask] task=${taskId} mission=${task.missionId} abort ${aborted ? "triggered" : "no-op(no in-flight session)"}`,
+        );
+      }
       await this.prisma.socialContentTask.update({
         where: { id: taskId },
         data: { status: SocialContentTaskStatus.CANCELLED },

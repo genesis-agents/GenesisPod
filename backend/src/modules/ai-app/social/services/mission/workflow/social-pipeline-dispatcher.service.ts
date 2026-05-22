@@ -336,6 +336,25 @@ export class SocialPipelineDispatcher implements OnModuleInit {
   }
 
   /**
+   * 真停一个正在跑的 mission（★ 2026-05-22 C1/G0：治"取消假停继续烧预算"）。
+   * 此前 SocialTaskService.cancelTask 只改 task 表 status，从不真停 mission——取消后
+   * mission 继续跑、继续烧预算。本方法触发 missionAbort signal：正在跑的 stage 在下一个
+   * stage 边界收到 abort → 抛 StageAbortError → handleMissionFailure 落终态。
+   *
+   * S8（publish-execute，唯一外部副作用 stage）内部不查 signal，故发布原子完成、不产生
+   * 半发布——abort 只在 S8 完成后的 stage 边界生效（RB6 gate-before-stage 由构造保证）。
+   *
+   * @returns true=已触发 abort；false=无 in-flight session（pod 重启/已结束，调用方走 DB 兜底）
+   */
+  abortMission(missionId: string, reason = "user_cancelled"): boolean {
+    const entry = this.sessions.get(missionId);
+    if (!entry) return false;
+    entry.session.missionAbort.abort(reason);
+    this.log.log(`[${missionId}] abort requested (reason=${reason})`);
+    return true;
+  }
+
+  /**
    * 从 SocialContent 表 hydrate raw 内容（title / body / digest / coverImageUrl），
    * 供 s3/s5/s6 stage 消费。若 contentId 找不到 → throw，dispatcher 把 mission
    * 标 failed（不让空跑）。
