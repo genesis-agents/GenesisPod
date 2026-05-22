@@ -102,6 +102,7 @@ mission 类功能的主页/详情另见 [21-agent-teams-presentation.md](21-agen
 | 徽章          | `ModelBadge`/`TierBadge`         | `components/common/badges/`                  | —     |
 | 提示条/banner | `Alert`(tone)                    | `components/ui/feedback/Alert.tsx`           | —     |
 | 关键词标签    | `Tag`                            | `components/ui/tag/`                         | —     |
+| 复制按钮      | `CopyButton`                     | `components/ui/primitives/CopyButton.tsx`    | —     |
 
 ---
 
@@ -174,7 +175,7 @@ social=rose · playground=violet。
 | ------- | --------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | ✅ done | **Alert / Banner**    | 31 文件内联 `bg-{c}-50 + border` → 已建 canonical（2026-05-22）             | `components/ui/feedback/Alert.tsx`（toneToken 语义色）；存量待迁 |
 | ✅ done | **Tag / Chip / Pill** | 204 文件 `rounded-full px-2/3` → 已建 canonical（仅收关键词标签）           | `components/ui/tag/Tag.tsx`（状态片仍归 StatusBadge）；存量待迁  |
-| 🟡 P1   | CopyButton            | 27 文件 `navigator.clipboard`                                               | `ui/CopyButton`（复制 + 已复制反馈）                             |
+| ✅ done | CopyButton            | 27 文件 `navigator.clipboard` → 已建 canonical（2026-05-22）                | `components/ui/primitives/CopyButton.tsx`；存量待迁              |
 | 🟡 P1   | SearchBar             | `explore/SearchBar` 成品，admin 用裸 input                                  | 上提 `ui/SearchBar`                                              |
 | 🟡 P1   | SectionHeader         | `library/_design/SectionTitle` + `agent-playground/ui/Section`              | `ui/SectionHeader`                                               |
 | 🟡 P1   | Skeleton 原语         | `AdminLoadingSkeleton`/`RadarBriefingSkeleton`/`ai-social/skeletons/*` 各造 | 把 `LoadingSkeleton` 做成可组合原语                              |
