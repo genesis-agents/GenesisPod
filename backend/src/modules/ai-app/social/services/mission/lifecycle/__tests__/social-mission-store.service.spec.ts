@@ -16,6 +16,7 @@ function createMockPrisma() {
     socialMission: {
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
     },
@@ -206,8 +207,10 @@ describe("SocialMissionStore", () => {
   // =========================================================================
 
   describe("markCompleted", () => {
-    it("should call prisma.update with status=completed and completedAt", async () => {
-      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+    it("should call prisma.updateMany with status=completed (条件写 WHERE running)", async () => {
+      (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
 
       await store.markCompleted(MOCK_MISSION_ID, {
         wallTimeMs: 12000,
@@ -215,9 +218,9 @@ describe("SocialMissionStore", () => {
         costUsd: 0.03,
       });
 
-      expect(mockPrisma.socialMission.update).toHaveBeenCalledWith(
+      expect(mockPrisma.socialMission.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: MOCK_MISSION_ID },
+          where: { id: MOCK_MISSION_ID, status: "running" },
           data: expect.objectContaining({
             status: "completed",
             wallTimeMs: 12000,
@@ -228,27 +231,31 @@ describe("SocialMissionStore", () => {
     });
 
     it("should convert tokensUsed to BigInt", async () => {
-      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
 
       await store.markCompleted(MOCK_MISSION_ID, { tokensUsed: 1234 });
 
-      const updateArg = (mockPrisma.socialMission.update as jest.Mock).mock
+      const updateArg = (mockPrisma.socialMission.updateMany as jest.Mock).mock
         .calls[0][0];
       expect(updateArg.data.tokensUsed).toBe(BigInt(1234));
     });
 
     it("should pass null tokensUsed when not provided", async () => {
-      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
 
       await store.markCompleted(MOCK_MISSION_ID);
 
-      const updateArg = (mockPrisma.socialMission.update as jest.Mock).mock
+      const updateArg = (mockPrisma.socialMission.updateMany as jest.Mock).mock
         .calls[0][0];
       expect(updateArg.data.tokensUsed).toBeNull();
     });
 
     it("should silently log warn on prisma error (non-fatal)", async () => {
-      (mockPrisma.socialMission.update as jest.Mock).mockRejectedValue(
+      (mockPrisma.socialMission.updateMany as jest.Mock).mockRejectedValue(
         new Error("update failed"),
       );
 
@@ -264,17 +271,19 @@ describe("SocialMissionStore", () => {
   // =========================================================================
 
   describe("markFailed", () => {
-    it("should call prisma.update with status=failed and errorMessage", async () => {
-      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+    it("should call prisma.updateMany with status=failed (条件写 WHERE running)", async () => {
+      (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
 
       await store.markFailed(MOCK_MISSION_ID, {
         errorMessage: "Something went wrong",
         wallTimeMs: 5000,
       });
 
-      expect(mockPrisma.socialMission.update).toHaveBeenCalledWith(
+      expect(mockPrisma.socialMission.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: MOCK_MISSION_ID },
+          where: { id: MOCK_MISSION_ID, status: "running" },
           data: expect.objectContaining({
             status: "failed",
             wallTimeMs: 5000,
@@ -284,41 +293,47 @@ describe("SocialMissionStore", () => {
     });
 
     it("should truncate errorMessage longer than 4000 chars", async () => {
-      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
       const longMessage = "E".repeat(5000);
 
       await store.markFailed(MOCK_MISSION_ID, { errorMessage: longMessage });
 
-      const updateArg = (mockPrisma.socialMission.update as jest.Mock).mock
+      const updateArg = (mockPrisma.socialMission.updateMany as jest.Mock).mock
         .calls[0][0];
       expect(updateArg.data.errorMessage.length).toBe(4000);
     });
 
     it("should convert tokensUsed to BigInt when provided", async () => {
-      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
 
       await store.markFailed(MOCK_MISSION_ID, {
         errorMessage: "err",
         tokensUsed: 888,
       });
 
-      const updateArg = (mockPrisma.socialMission.update as jest.Mock).mock
+      const updateArg = (mockPrisma.socialMission.updateMany as jest.Mock).mock
         .calls[0][0];
       expect(updateArg.data.tokensUsed).toBe(BigInt(888));
     });
 
     it("should pass null tokensUsed when not provided", async () => {
-      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
 
       await store.markFailed(MOCK_MISSION_ID, { errorMessage: "err" });
 
-      const updateArg = (mockPrisma.socialMission.update as jest.Mock).mock
+      const updateArg = (mockPrisma.socialMission.updateMany as jest.Mock).mock
         .calls[0][0];
       expect(updateArg.data.tokensUsed).toBeNull();
     });
 
     it("should silently log warn on prisma error (non-fatal)", async () => {
-      (mockPrisma.socialMission.update as jest.Mock).mockRejectedValue(
+      (mockPrisma.socialMission.updateMany as jest.Mock).mockRejectedValue(
         new Error("DB gone"),
       );
 

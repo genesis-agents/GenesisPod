@@ -91,9 +91,11 @@ export class SocialMissionStore {
     missionId: string,
     detail?: MarkCompletedDetail,
   ): Promise<void> {
+    // ★ C0/T16：条件写 WHERE status='running'(原 update by id 无条件,会 clobber 已被
+    //   cancel/liveness 终结的 mission)。首写赢:已终态则本次 no-op,不覆盖首写原因。
     await this.prisma.socialMission
-      .update({
-        where: { id: missionId },
+      .updateMany({
+        where: { id: missionId, status: "running" },
         data: {
           status: "completed",
           completedAt: new Date(),
@@ -112,9 +114,11 @@ export class SocialMissionStore {
   }
 
   async markFailed(missionId: string, detail: MarkFailedDetail): Promise<void> {
+    // ★ C0/T16：条件写 WHERE status='running'(原 update by id 无条件,有 TOCTOU——
+    //   会覆盖刚 markCompleted/markCancelled 的 mission)。首写赢:已终态则 no-op。
     await this.prisma.socialMission
-      .update({
-        where: { id: missionId },
+      .updateMany({
+        where: { id: missionId, status: "running" },
         data: {
           status: "failed",
           completedAt: new Date(),

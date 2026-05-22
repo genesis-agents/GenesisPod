@@ -120,8 +120,10 @@ export class RadarMissionStore {
     });
     const startedAt = run?.startedAt ?? now;
     const durationMs = now.getTime() - startedAt.getTime();
-    await this.prisma.radarRun.update({
-      where: { id: missionId },
+    // ★ C0/T16：条件写 WHERE status='running'(原 update by id 是无条件,会 clobber 已被
+    //   abort/liveness 终结的 mission)。首写赢:已终态则本次 no-op,不覆盖首写原因。
+    await this.prisma.radarRun.updateMany({
+      where: { id: missionId, status: "running" },
       data: {
         status: "completed",
         completedAt: now,
