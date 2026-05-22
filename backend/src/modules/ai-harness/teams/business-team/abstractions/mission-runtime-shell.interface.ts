@@ -26,7 +26,8 @@ export interface MissionRuntimeSession {
   readonly pool: MissionBudgetPool;
   readonly budgetMultiplier: number;
   readonly missionAbort: AbortController;
-  readonly wallTimeMs: number;
+  /** ★ C4/G5:wall-time 上限(配置态,喂给 setTimeout)。原名 wallTimeMs 二义→ wallTimeCapMs。 */
+  readonly wallTimeCapMs: number;
   cleanup(): void;
 }
 
@@ -42,8 +43,8 @@ export interface MissionRuntimeSession {
  *   - billingModuleType：BillingContext.run 用，区分计费归属
  */
 export interface IMissionRuntimeAdapter<TInput = unknown> {
-  /** 业务方决定 wall time 计算（depth × audit × budget 等矩阵） */
-  resolveWallTimeMs(input: TInput): number;
+  /** 业务方决定 wall time **上限**计算（depth × audit × budget 等矩阵）。C4:cap 语义。 */
+  resolveWallTimeCapMs(input: TInput): number;
   /** 业务方决定 mission 级 max credits */
   resolveMaxCredits(input: TInput): number;
   /** 业务方决定 agent budget multiplier */

@@ -28,7 +28,7 @@ function makeAdapter(
   overrides: Partial<IMissionRuntimeAdapter<unknown>> = {},
 ): IMissionRuntimeAdapter<unknown> {
   return {
-    resolveWallTimeMs: jest.fn().mockReturnValue(60_000),
+    resolveWallTimeCapMs: jest.fn().mockReturnValue(60_000),
     resolveMaxCredits: jest.fn().mockReturnValue(100),
     resolveBudgetMultiplier: jest.fn().mockReturnValue(1),
     createMissionRow: jest.fn().mockResolvedValue(undefined),
@@ -204,7 +204,7 @@ describe("MissionRuntimeShellFramework", () => {
 
       // Short wall time so timer fires quickly
       const adapter = makeAdapter({
-        resolveWallTimeMs: jest.fn().mockReturnValue(100),
+        resolveWallTimeCapMs: jest.fn().mockReturnValue(100),
       });
       const session = await framework.openSession({
         missionId: "m1",

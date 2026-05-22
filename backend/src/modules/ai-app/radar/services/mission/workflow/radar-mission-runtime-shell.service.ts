@@ -85,7 +85,7 @@ export class RadarMissionRuntimeShell {
     return {
       eventNamespace: RADAR_EVENT_NAMESPACE,
       billingModuleType: RADAR_BILLING_MODULE_TYPE,
-      resolveWallTimeMs: (input) =>
+      resolveWallTimeCapMs: (input) =>
         isDiscoveryInput(input)
           ? resolveRadarDiscoveryWallTimeMs()
           : resolveRadarMissionWallTimeMs(),

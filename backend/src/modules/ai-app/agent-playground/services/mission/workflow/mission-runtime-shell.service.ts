@@ -66,7 +66,7 @@ export class MissionRuntimeShellService {
     return {
       eventNamespace: "agent-playground",
       billingModuleType: "agent-playground",
-      resolveWallTimeMs: (input) => resolveMissionWallTimeMs(input),
+      resolveWallTimeCapMs: (input) => resolveMissionWallTimeMs(input),
       resolveMaxCredits: (input) => resolveMissionCredits(input),
       resolveBudgetMultiplier: (input) => resolveBudgetMultiplier(input),
       createMissionRow: async ({

@@ -254,7 +254,9 @@ describe("LocalRerunService.run (PR-R6)", () => {
     ).rejects.toThrow(/in-flight/);
   });
 
-  it("实时 cost guard：cost_usd >= max_credits → throw BadRequest", async () => {
+  it("实时 cost guard：cost_usd >= 额度代理上限(maxCredits×0.002) → throw BadRequest", async () => {
+    // ★ C3a/G11:阈值从错配的 maxCredits(credits) 改为额度代理 USD(creditBudgetProxyUsd,
+    //   与 MissionBudgetPool 同一 cap)。costUsd 1.5 远超 maxCredits=1 的代理上限 0.002 USD → throw。
     const m = makeMocks({
       id: "m1",
       status: "failed",
@@ -265,7 +267,7 @@ describe("LocalRerunService.run (PR-R6)", () => {
     const svc = makeService(m);
     await expect(
       svc.run({ ...baseInput, stepId: "s8-writer" }, noopEmit),
-    ).rejects.toThrow(/累积 cost.*已达 maxCredits/);
+    ).rejects.toThrow(/累积 cost.*已达额度代理上限/);
   });
 
   it("24h 频次 50 次 → 第 51 次 throw 429（保底防恶意脚本）", async () => {

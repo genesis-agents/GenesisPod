@@ -34,7 +34,10 @@ import {
 } from "@nestjs/common";
 import { CtxHydratorService } from "./ctx-hydrator.service";
 import { RerunGuardService } from "./rerun-guard.service";
-import { RerunLockRegistry } from "@/modules/ai-harness/facade";
+import {
+  RerunLockRegistry,
+  ResolvedBudgetCaps,
+} from "@/modules/ai-harness/facade";
 import { StageRerunDispatcher } from "./stage-rerun.dispatcher";
 import type { EmitFn } from "../workflow/mission-deps";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
@@ -210,16 +213,22 @@ export class LocalRerunService {
           `mission ${missionId} not found or not owned by ${userId}`,
         );
       }
-      // 实时 cost guard：累积成本超 maxCredits → 拒绝（防 rerun 无限烧钱）
+      // 实时 cost guard：累积成本超额度代理上限 → 拒绝（防 rerun 无限烧钱）。
+      // ★ C3a/G4 修正:原代码把 costUsd(USD)直接和 maxCredits(credits)比,单位错配。
+      //   走 ResolvedBudgetCaps 把 credits 换成额度代理 USD(creditBudgetProxyUsd)再比同单位。
       if (
         typeof exists.maxCredits === "number" &&
         typeof exists.costUsd === "number" &&
-        exists.maxCredits > 0 &&
-        exists.costUsd >= exists.maxCredits
+        exists.maxCredits > 0
       ) {
-        throw new BadRequestException(
-          `mission 累积 cost ${exists.costUsd.toFixed(4)} USD 已达 maxCredits ${exists.maxCredits.toFixed(4)} USD，拒绝重跑`,
-        );
+        const budgetProxyUsd = ResolvedBudgetCaps.resolve({
+          maxCredits: exists.maxCredits,
+        }).creditBudgetProxyUsd;
+        if (exists.costUsd >= budgetProxyUsd) {
+          throw new BadRequestException(
+            `mission 累积 cost ${exists.costUsd.toFixed(4)} USD 已达额度代理上限 ${budgetProxyUsd.toFixed(4)} USD（maxCredits=${exists.maxCredits}），拒绝重跑`,
+          );
+        }
       }
     });
 

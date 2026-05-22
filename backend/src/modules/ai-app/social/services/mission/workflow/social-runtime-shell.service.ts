@@ -104,7 +104,7 @@ export class SocialRuntimeShellService {
     return {
       eventNamespace: "social",
       billingModuleType: "ai-social",
-      resolveWallTimeMs: (input) =>
+      resolveWallTimeCapMs: (input) =>
         WALL_TIME_BY_DEPTH[input.depth] ?? 30 * 60_000,
       resolveMaxCredits: (input) =>
         MAX_CREDITS_BY_PROFILE[input.budgetProfile] ?? 20,
