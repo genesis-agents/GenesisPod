@@ -17,8 +17,8 @@
  *   Budget-Hard — budget estimate affordable=false, suggestion=abort → throws
  *   Budget-Soft — budget estimate affordable=false, suggestion=warn → continues
  *   Stage-Degraded — S3 all dims fail → markStageDegraded narrative emitted
- *   MaxCredits — resolveMissionCredits returns exactly input.maxCredits
- *   WallTime — resolveMissionWallTimeMs uses matrix; wallTimeMs override respected
+ *   MaxCredits — resolveMissionCredits returns input.maxCredits 或按 depth 档位解析
+ *   WallTime — resolveMissionWallTimeMs 按 depth 档位（DEPTH_BUDGET_TIERS）解析; wallTimeMs override 优先
  *   MaxIterations — RESEARCHER_MAX_ITERATIONS_HARD_CAP constant exists and is finite
  *   BudgetExhausted — dispatcher calls abortRegistry.abort on pool.isExhausted()
  *   LivenessConfig — playground registers staleThresholdMs >= 15min
@@ -406,35 +406,29 @@ describe("resolveMissionWallTimeMs — pure function contracts", () => {
     expect(resolveMissionWallTimeMs(input)).toBe(300_000);
   });
 
-  it("caps output at 3 hours (10800000 ms)", () => {
-    // deep + thorough+ + unlimited would exceed 3h raw
-    const input = validInput({
-      depth: "deep",
-      auditLayers: "thorough+",
-      budgetProfile: "unlimited",
-    });
+  it("never exceeds 3 hours hard ceiling (10800000 ms)", () => {
+    // 最大档位 deep = 180min = 3h（与 DTO wallTimeMs.max 对齐），不超过硬顶
+    const input = validInput({ depth: "deep" });
     expect(resolveMissionWallTimeMs(input)).toBeLessThanOrEqual(
       3 * 60 * 60 * 1000,
     );
   });
 
-  it("standard+default+medium equals 45 min (key regression)", () => {
-    const input = validInput({
-      depth: "standard",
-      auditLayers: "default",
-      budgetProfile: "medium",
-    });
-    expect(resolveMissionWallTimeMs(input)).toBe(45 * 60 * 1000);
+  // ★ 2026-05-22 单一源：wall-time 改由 DEPTH_BUDGET_TIERS 按 depth 解析
+  //   （去掉旧 depth×audit×budget 矩阵）。standard=60min / quick=20min / deep=180min。
+  it("standard tier wall-time is 60 min (DEPTH_BUDGET_TIERS, key regression)", () => {
+    const input = validInput({ depth: "standard" });
+    expect(resolveMissionWallTimeMs(input)).toBe(60 * 60 * 1000);
   });
 
-  it("quick depth base is 15 min", () => {
-    const input = validInput({
-      depth: "quick",
-      auditLayers: "default",
-      budgetProfile: "medium",
-    });
-    // quick × 1.0 × 1.0 = 15 min
-    expect(resolveMissionWallTimeMs(input)).toBe(15 * 60 * 1000);
+  it("quick tier wall-time is 20 min", () => {
+    const input = validInput({ depth: "quick" });
+    expect(resolveMissionWallTimeMs(input)).toBe(20 * 60 * 1000);
+  });
+
+  it("deep tier wall-time is 180 min (3h)", () => {
+    const input = validInput({ depth: "deep" });
+    expect(resolveMissionWallTimeMs(input)).toBe(180 * 60 * 1000);
   });
 });
 
