@@ -17,6 +17,7 @@
 import { ConflictException, Injectable } from "@nestjs/common";
 import { Prisma, RadarRun, RadarRunTrigger } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { MissionFailureCode } from "@/modules/ai-harness/facade";
 
 export type RadarMissionStatus =
   | "running"
@@ -142,6 +143,12 @@ export class RadarMissionStore {
     });
     const startedAt = run?.startedAt ?? now;
     const durationMs = now.getTime() - startedAt.getTime();
+    // ★ C2/G3：落 canonical failure_code（取代纯 message）。简单 message→code 启发式。
+    const failureCode = /budget|exhaust/i.test(error)
+      ? MissionFailureCode.budget_exhausted
+      : /timeout|timed out|wall.?time/i.test(error)
+        ? MissionFailureCode.wall_time_exceeded
+        : MissionFailureCode.provider_error;
     await this.prisma.radarRun.updateMany({
       where: { id: missionId, status: "running" },
       data: {
@@ -149,6 +156,7 @@ export class RadarMissionStore {
         completedAt: now,
         durationMs,
         error: error.slice(0, 4000),
+        failureCode,
       },
     });
   }
@@ -168,6 +176,7 @@ export class RadarMissionStore {
         completedAt: now,
         durationMs,
         error: reason?.slice(0, 4000) ?? null,
+        failureCode: MissionFailureCode.user_cancelled,
       },
     });
   }
@@ -195,6 +204,8 @@ export class RadarMissionStore {
         completedAt: now,
         durationMs,
         error: reason.slice(0, 4000),
+        // reject = budget 预检/限额拒绝 → canonical budget_exhausted
+        failureCode: MissionFailureCode.budget_exhausted,
       },
     });
   }
