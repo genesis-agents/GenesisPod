@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS "social_missions" (
   "status"               VARCHAR(20) NOT NULL,
   "started_at"           TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "completed_at"         TIMESTAMP(3),
-  "wall_time_ms"         INTEGER,
+  -- ★ C4/G11:建表分支也只产 canonical 新列,杜绝单路径切换后从建表路径重新引入旧语义列。
+  "elapsed_wall_time_ms" INTEGER,
 
   -- 完成时填充
   "tokens_used"          BIGINT,

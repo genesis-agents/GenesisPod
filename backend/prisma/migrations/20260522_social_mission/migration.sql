@@ -26,7 +26,8 @@ CREATE TABLE "social_missions" (
   "status"               VARCHAR(20) NOT NULL,
   "started_at"           TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "completed_at"         TIMESTAMP(3),
-  "wall_time_ms"         INTEGER,
+  -- ★ C4/G11:social 实测耗时,直接建 canonical 新列名(原 wall_time_ms 二义)。
+  "elapsed_wall_time_ms" INTEGER,
 
   -- 完成时填充
   "tokens_used"          BIGINT,
