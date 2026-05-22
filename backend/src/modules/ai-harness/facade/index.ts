@@ -423,6 +423,16 @@ export {
   MissionAbortReason,
 } from "../lifecycle/mission-lifecycle/abort-registry";
 export { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
+// ★ 2026-05-22 C2/G3: mission 级失败 canonical 契约（code/category 投影/abort+agent 映射）
+export {
+  MissionFailureCode,
+  FailureCategory,
+  codeToCategory,
+  buildMissionFailure,
+  mapAbortReasonToFailureCode,
+  mapAgentFailureCode,
+} from "../lifecycle/mission-lifecycle/abstractions/mission-failure";
+export type { MissionFailure } from "../lifecycle/mission-lifecycle/abstractions/mission-failure";
 // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
 export { MissionRuntimeShellFramework } from "../teams/business-team/lifecycle/mission-runtime-shell.framework";
 export type {
