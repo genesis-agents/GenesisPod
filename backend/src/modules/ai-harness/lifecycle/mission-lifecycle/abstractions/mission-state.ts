@@ -36,6 +36,30 @@ export function toTerminalOutcome(
 }
 
 /**
+ * 字符串容忍版:部分 app 的 status 集比平台 3 终态宽(如 `rejected` / `quality-failed`)。
+ * 给前端/DTO 用——把任意 app status 投影成平台 outcome,非终态返回 null。
+ * 投影口径(G9 共识):成功=success;取消=cancelled;其余终态(failed/quality-failed/
+ * rejected 等)=failure(业务细分留 failureCode/businessOutcomeCode,不污染平台 3 值)。
+ */
+export function outcomeFromStatus(
+  status: string | null | undefined,
+): MissionTerminalOutcome | null {
+  switch (status) {
+    case "completed":
+      return MissionTerminalOutcome.success;
+    case "cancelled":
+      return MissionTerminalOutcome.cancelled;
+    case "failed":
+    case "quality-failed":
+    case "rejected":
+      return MissionTerminalOutcome.failure;
+    default:
+      // running / starting / pending / null / 未知 → 非终态
+      return null;
+  }
+}
+
+/**
  * 前端聚合状态(给 UI 直接消费)。lifecycle/outcome 是平台层;failureCode/category 由 C2 派生;
  * businessOutcomeCode 是 app 业务态(如 leader_signoff_rejected),平台不解释。
  */

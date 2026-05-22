@@ -455,6 +455,7 @@ export type {
 export {
   MissionTerminalOutcome,
   toTerminalOutcome,
+  outcomeFromStatus,
 } from "../lifecycle/mission-lifecycle/abstractions/mission-state";
 export type { MissionPresentationState } from "../lifecycle/mission-lifecycle/abstractions/mission-state";
 // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
