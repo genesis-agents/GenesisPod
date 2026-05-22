@@ -35,6 +35,7 @@ import { apiClient } from '@/lib/api/client';
 import { confirm, toast } from '@/stores';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { SettingsSectionCard } from '@/components/ui/cards/SettingsSectionCard';
+import { Alert } from '@/components/ui/feedback/Alert';
 import { UserModelConfigModal } from './UserModelConfigModal';
 import { UserModelsAutoConfigureButton } from './UserModelsAutoConfigureButton';
 
@@ -891,47 +892,40 @@ function PendingRequestBanner({
   const submittedAt = new Date(request.createdAt).toLocaleString();
 
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
-      <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-        <Clock className="h-3.5 w-3.5" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">
-            待审批
-          </span>
-          <span className="text-sm font-medium text-amber-900">
-            你有 1 条待管理员处理的系统模型申请
-          </span>
-        </div>
-        <div className="mt-2 space-y-1 text-xs text-amber-800">
-          <div>提交时间：{submittedAt}</div>
-          {request.estimatedUsage && (
-            <div>预计用量：{usageLabel[request.estimatedUsage]}</div>
+    <Alert
+      tone="warn"
+      title="你有 1 条待管理员处理的系统模型申请"
+      icon={<Clock className="h-4 w-4" />}
+      action={
+        <button
+          onClick={onCancel}
+          disabled={cancelling}
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {cancelling ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <X className="h-3.5 w-3.5" />
           )}
-          {request.reason && (
-            <div className="truncate" title={request.reason}>
-              使用目的：{request.reason}
-            </div>
-          )}
-        </div>
-        <p className="mt-2 text-xs text-amber-700">
+          {cancelling ? '撤销中...' : '撤销申请'}
+        </button>
+      }
+    >
+      <div className="space-y-1 text-xs">
+        <div>提交时间：{submittedAt}</div>
+        {request.estimatedUsage && (
+          <div>预计用量：{usageLabel[request.estimatedUsage]}</div>
+        )}
+        {request.reason && (
+          <div className="truncate" title={request.reason}>
+            使用目的：{request.reason}
+          </div>
+        )}
+        <p className="mt-1">
           提交新申请前，请等待管理员处理或先撤销当前申请。审批通过后会出现在下方表格中（标识为「系统授权」）。
         </p>
       </div>
-      <button
-        onClick={onCancel}
-        disabled={cancelling}
-        className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {cancelling ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <X className="h-3.5 w-3.5" />
-        )}
-        {cancelling ? '撤销中...' : '撤销申请'}
-      </button>
-    </div>
+    </Alert>
   );
 }
 

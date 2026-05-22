@@ -349,6 +349,7 @@ const R4_BESPOKE_OK = [
   "app/admin/data/collection/page.tsx", // admin 紧凑内联错误块（admin 自成设计系统）
   "app/admin/system/monitoring/content.tsx", // admin 部分数据失败的内联告警 banner（非整块错误态）
   "components/library/integrations/google-drive/GoogleDriveTabContent.tsx", // 连接提示下的内联红字注解（非独立错误块）
+  "components/library/integrations/notion/NotionTabContent.tsx", // 可关闭 + 动态成功/错误的内联同步 banner（非整块错误态；Alert 正确，R4 正则误命中 tone="error"）
 ];
 
 // R4: 含 error 分支渲染必须用 ErrorState
@@ -357,7 +358,8 @@ function checkR4ErrorState(file: string, src: string): Violation[] {
   const errorRender =
     /\{\s*error\s*&&|\bif\s*\(\s*error\s*\)|\berror\s*\?\s*\(/;
   if (!errorRender.test(src)) return [];
-  if (hasImport(src, "ErrorState")) return [];
+  // ErrorState（整块错误态）或 ErrorInline（canonical 内联错误，同模块）均满足
+  if (hasImport(src, "ErrorState") || hasImport(src, "ErrorInline")) return [];
   // 进一步检查是否真的有 JSX 错误展示（avoid 误报 try-catch 中的 error）
   if (!/<\w+[^>]*\b(error|Error)\b/.test(src)) return [];
   const norm = file.split(sep).join("/");

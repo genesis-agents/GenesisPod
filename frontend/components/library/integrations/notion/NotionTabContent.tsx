@@ -51,6 +51,7 @@ import { OrganizeChatMode } from '@/components/library/OrganizeChatMode';
 import type { FileInfo } from '@/services/ai-organizer/api';
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import { confirm } from '@/stores';
+import { Alert } from '@/components/ui/feedback/Alert';
 
 export default function NotionTabContent() {
   const router = useRouter();
@@ -457,15 +458,9 @@ export default function NotionTabContent() {
   return (
     <div className="space-y-6">
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <Alert tone="error" onClose={() => setError(null)}>
           {error}
-          <button
-            onClick={() => setError(null)}
-            className="ml-2 text-red-500 hover:text-red-700"
-          >
-            ×
-          </button>
-        </div>
+        </Alert>
       )}
 
       {/* 集成头部 - 工作区状态 + AI 助手 */}
@@ -709,25 +704,14 @@ export default function NotionTabContent() {
 
       {/* 同步状态消息 */}
       {syncMessage.show && (
-        <div
-          className={`rounded-lg border px-4 py-3 ${
-            syncMessage.type === 'success'
-              ? 'border-green-200 bg-green-50 text-green-700'
-              : 'border-red-200 bg-red-50 text-red-700'
-          }`}
+        <Alert
+          tone={syncMessage.type === 'success' ? 'success' : 'error'}
+          onClose={() =>
+            setSyncMessage({ show: false, message: '', type: 'success' })
+          }
         >
-          <div className="flex items-center justify-between">
-            <span className="text-sm">{syncMessage.message}</span>
-            <button
-              onClick={() =>
-                setSyncMessage({ show: false, message: '', type: 'success' })
-              }
-              className="text-current hover:opacity-70"
-            >
-              ×
-            </button>
-          </div>
-        </div>
+          {syncMessage.message}
+        </Alert>
       )}
 
       {/* 冲突解决面板 */}

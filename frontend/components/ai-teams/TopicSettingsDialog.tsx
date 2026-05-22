@@ -20,6 +20,7 @@ import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState, LoadingInline } from '@/components/ui';
 import { Bot, CheckCircle } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs/Modal';
+import { ErrorInline } from '@/components/ui/states/ErrorState';
 
 import { logger } from '@/lib/utils/logger';
 import { toast } from '@/stores';
@@ -506,8 +507,8 @@ function AddAIDialog({
 
       {/* Error Message */}
       {error && (
-        <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+        <div className="mt-4">
+          <ErrorInline message={error} />
         </div>
       )}
     </Modal>
@@ -1007,11 +1008,7 @@ function AddMemberDialog({
           </select>
         </div>
 
-        {error && (
-          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-            {error}
-          </div>
-        )}
+        {error && <ErrorInline message={error} />}
       </div>
     </Modal>
   );

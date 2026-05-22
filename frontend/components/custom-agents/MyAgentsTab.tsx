@@ -9,6 +9,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Plus, ChevronLeft, Bot, Hash } from 'lucide-react';
+import { ErrorState } from '@/components/ui/states/ErrorState';
 import { AssetCard } from '@/components/ui/cards/asset-card';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
@@ -123,9 +124,7 @@ export function MyAgentsTab() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
+        <ErrorState error={error} />
       ) : items.length === 0 ? (
         <EmptyState
           title="还没有自己的 agent"

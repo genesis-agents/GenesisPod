@@ -24,6 +24,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { formatDateSafe } from '@/lib/utils/date';
 import { logger } from '@/lib/utils/logger';
 import { OrganizeChatMode } from '@/components/library/OrganizeChatMode';
+import { Alert } from '@/components/ui/feedback/Alert';
 
 interface FeishuItem {
   id: string;
@@ -336,15 +337,14 @@ export default function FeishuDataSourcePanel() {
       </div>
 
       {/* Usage guide */}
-      <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
-        <h4 className="text-sm font-medium text-blue-900">如何使用</h4>
-        <ol className="mt-2 list-inside list-decimal space-y-1 text-sm text-blue-700">
+      <Alert tone="info" title="如何使用">
+        <ol className="mt-1 list-inside list-decimal space-y-1">
           <li>在飞书中向机器人发送文档链接或 Wiki 地址</li>
           <li>系统会自动同步内容到此处</li>
           <li>可以选择内容同步到 RAG 知识库进行 AI 检索</li>
           <li>也可以手动添加任意 URL 到数据源</li>
         </ol>
-      </div>
+      </Alert>
 
       {/* Synced content list */}
       <div>
