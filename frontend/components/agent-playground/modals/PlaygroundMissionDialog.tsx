@@ -294,7 +294,7 @@ export function PlaygroundMissionDialog({
       onSubmit={() => {
         void handleSubmit();
       }}
-      defaultAdvancedOpen={isCustomProfile}
+      defaultAdvancedOpen={false}
       error={error}
       footerLeftSlot={
         isCustomProfile ? (
