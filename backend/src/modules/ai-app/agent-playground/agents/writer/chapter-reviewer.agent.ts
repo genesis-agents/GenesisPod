@@ -16,6 +16,8 @@ import {
   coercedInt,
   coercedEnum,
 } from "@/common/utils/schema-coercion.utils";
+// ★ 2026-05-21 P2：引用下限走单一权威，避免与 EvidenceBudget 的公式漂移
+import { deriveCitationFloor } from "../../services/mission/workflow/evidence-budget";
 
 const Input = z.object({
   topic: z.string(),
@@ -29,6 +31,13 @@ const Input = z.object({
     wordCount: z.number().int(),
     targetWords: z.number().int(),
   }),
+  /**
+   * ★ 2026-05-21 P2 Evidence Contract：本章实际分到的唯一来源数。
+   * reviewer 的"引用充分"门槛由它派生（min(2, N)），而非硬性 ≥2 ——
+   * 治"采得少却要求每章 ≥2 引用 → 结构性不可满足 → 重写循环"。
+   * 缺省（旧调用方 / 测试）时按 ≥2 的标准行为。
+   */
+  availableSourceCount: z.number().int().min(0).optional(),
 });
 
 /** Iter 2d: critique 改结构化 issues 数组（替代大段叙述） */
@@ -105,6 +114,11 @@ export class ChapterReviewerAgent extends AgentSpec<
   typeof Output
 > {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
+    // ★ 2026-05-21 P2 Evidence Contract：引用门槛由本章实际来源数派生（min(2, N)），
+    //   缺省时按 ≥2 的标准行为。0 来源不要求引用。
+    const sourceCount = input.availableSourceCount;
+    const citationFloor =
+      sourceCount === undefined ? 2 : deriveCitationFloor(sourceCount);
     return [
       `You are a quality gate for chapter ${input.chapter.index} "${input.chapter.heading}" of dimension "${input.dimension}".`,
       `Language: ${input.language}.`,
@@ -117,8 +131,12 @@ export class ChapterReviewerAgent extends AgentSpec<
       `   ★ 全章必须 ≥ 1~2 个独立分析判断（"这意味着..."/"核心原因在于..."/"值得警惕的是..."），`,
       `      不能仅复述 finding`,
       `2. 证据具体 (25 分)：是否含具体数字 / 时间 / 实体 / 案例？是否对 finding 有真实分析？`,
-      `3. 引用充分 (20 分)：是否含 ≥ 2 处引用标记（可以是 \`[N]\` / \`[label](url)\` / 裸 URL 任一形式）？`,
-      `   ★ 引用格式 NOT 计入扣分项 —— 框架的 ReportAssembler 会把三种形式统一规范化为 \`[N]\`。`,
+      citationFloor === 0
+        ? `3. 引用充分 (20 分)：本章未分配到外部来源 —— **不因"缺引用标记"扣本项**；但本项不是免费分：若正文缺乏可追溯的具体事实 / 数字 / 实体，请改到"证据具体"维度扣分。`
+        : `3. 引用充分 (20 分)：本章共分到 ${sourceCount ?? "若干"} 个唯一来源，正文含 ≥ ${citationFloor} 处引用标记（\`[N]\` / \`[label](url)\` / 裸 URL 任一形式）即满分。`,
+      citationFloor === 0
+        ? `   ★ 0 来源时引用格式不扣分，但内容必须有具体分析与事实支撑，否则从"证据具体"维度扣分（不得仅因"无引用"就放行一篇空泛章节）。`
+        : `   ★ 不得要求超过 ${citationFloor} 处引用 —— 来源就这么多，强求更多是结构性错误。引用格式 NOT 计入扣分项（ReportAssembler 会统一规范化为 \`[N]\`）。`,
       `4. 去模板化 (20 分)：是否避免了固定八股？`,
       `   ★ 不允许每章首段都用 \`> **核心判断**：\` blockquote + 末段都用 \`**Implications**：\` 前缀`,
       `   ★ 不允许同一句式在所有章节复用（章节有自己的开头/收尾节奏）`,

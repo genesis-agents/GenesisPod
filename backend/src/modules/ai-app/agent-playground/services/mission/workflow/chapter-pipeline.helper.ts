@@ -376,6 +376,9 @@ export async function runChapterPipeline(
           wordCount: draft.wordCount,
           targetWords: targetWordsPerChapter,
         },
+        // ★ 2026-05-21 P2 Evidence Contract：本章实际分到的唯一来源数 →
+        //   reviewer 的引用门槛 = min(2, N)，治"采得少却要求 ≥2 引用"的结构性死区。
+        availableSourceCount: chapterSources.length,
       },
       {
         missionId,

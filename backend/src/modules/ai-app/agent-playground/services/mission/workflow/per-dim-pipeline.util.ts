@@ -26,6 +26,8 @@ import type { MissionBudgetPool } from "@/modules/ai-harness/facade";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { extractFailureMessage } from "@/modules/ai-harness/facade";
 import { narrate } from "./narrative.util";
+// ★ 2026-05-21 P2 Evidence Contract: 来源充分性的单一权威
+import { computeEvidenceBudget, deriveMaxChapters } from "./evidence-budget";
 import { loadPlaygroundRuntimeConfig } from "../../../playground-runtime.config";
 import { stripChartJsonFromContent } from "@/modules/ai-engine/facade";
 
@@ -133,9 +135,20 @@ export async function runPerDimPipeline(
   const idealChapters = depth === "quick" ? 2 : depth === "deep" ? 7 : 4;
   const naivePerChapter = Math.round(dimTargetWords / idealChapters);
   const targetWordsPerChapter = Math.max(400, Math.min(naivePerChapter, 8000));
-  const targetChapterCount = Math.max(
+  const wordBasedChapterCount = Math.max(
     3,
     Math.min(25, Math.round(dimTargetWords / targetWordsPerChapter)),
+  );
+  // ★ 2026-05-21 P2 Evidence Contract（单一权威）：按采集到的真实来源供给给章节数
+  //   封顶，保证每章能满足 reviewer 的引用下限 —— 治"采得少却开 N 章 → 审核结构性
+  //   不可满足 → 重写循环 → 超时失败"。供给充足时不缩水（取 wordBasedChapterCount）。
+  const evidenceBudget = computeEvidenceBudget(researcherOut.findings);
+  const targetChapterCount = Math.max(
+    1,
+    Math.min(
+      wordBasedChapterCount,
+      deriveMaxChapters(evidenceBudget, idealChapters),
+    ),
   );
   const dimAgentTag = `researcher#${dimensionIdx}`;
 
@@ -234,6 +247,19 @@ export async function runPerDimPipeline(
         summary: `${dimensionName} · researcher 未采集到 finding，跳过 chapter pipeline`,
       });
       return researcherOut;
+    }
+
+    // ★ 2026-05-21 P2 closed-loop（如实降级）：供给不足时如实告知"证据仅支撑 N 章"，
+    //   而不是硬开 N 章后全部兜底落地。
+    if (targetChapterCount < wordBasedChapterCount) {
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s3-researchers",
+        role: "reviewer",
+        tag: "warning",
+        text: `${dimensionName} · 证据供给有限（${evidenceBudget.uniqueSources} 个唯一来源 / ${evidenceBudget.uniqueDomains} 个域名），章节数由 ${wordBasedChapterCount} 降为 ${targetChapterCount}，以保证每章引用可满足`,
+        agentId: dimAgentTag,
+        dimension: dimensionName,
+      });
     }
 
     // ── Cache hit (P0-D 2026-05-06) ──

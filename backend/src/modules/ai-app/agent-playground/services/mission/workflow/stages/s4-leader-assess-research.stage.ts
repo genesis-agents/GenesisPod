@@ -34,6 +34,8 @@ import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { extractFailureMessage } from "@/modules/ai-harness/facade";
 import { narrate } from "../narrative.util";
 import { runPerDimPipeline } from "../per-dim-pipeline.util";
+// ★ 2026-05-21 P2 闭环：来源充分性单一权威（含域名多样性）
+import { computeEvidenceBudget } from "../evidence-budget";
 // ★ Phase 7 (2026-04-29): 用 ai-harness 沉淀的 DAGExecutor 替代 Promise.allSettled
 import { DAGExecutor, type DAGAdapter } from "@/modules/ai-harness/facade";
 
@@ -86,8 +88,14 @@ export async function runLeaderAssessResearchStage(
         .filter((s): s is string => typeof s === "string")
         .slice(0, 5);
       const failureCodeMatch = summary.match(/code=([A-Z_]+)/);
+      // ★ 2026-05-21 P2 闭环：来源充分性纳入"域名多样性"。findings 数达标但全部同域
+      //   （uniqueDomains < 2）视为覆盖不足 → 复用既有 leader 重采（retry-with-critique，
+      //   已有 max 1 轮 / max 2 dim 风暴护栏），让"采得多但全同源"也能触发回采。
+      const budget = computeEvidenceBudget(findings);
+      const singleDomainRisk = findings.length >= 2 && budget.uniqueDomains < 2;
       const meetsMinSources =
-        minSourcesRequired === 0 || findings.length >= minSourcesRequired;
+        (minSourcesRequired === 0 || findings.length >= minSourcesRequired) &&
+        !singleDomainRisk;
       const minSourcesDelta = Math.max(0, minSourcesRequired - findings.length);
       return {
         dimensionId: d.id,
@@ -101,6 +109,8 @@ export async function runLeaderAssessResearchStage(
         meetsMinSources,
         minSourcesRequired,
         minSourcesDelta, // 缺多少条；达标时 = 0
+        // ★ P2：域名多样性（信息性）；singleDomainRisk 已折进 meetsMinSources
+        uniqueDomains: budget.uniqueDomains,
       };
     });
     const m1Raw = await leader.assessResearchers(researcherOutcomes);

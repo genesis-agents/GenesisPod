@@ -392,7 +392,9 @@ describe("DimensionQualityJudgeAgent", () => {
       expect(outputSchema.safeParse(fullOutput).success).toBe(true);
     });
 
-    it("[B-regression] prompt includes sources_sufficiency scoring criteria (≥5 unique sources)", () => {
+    // ★ 2026-05-21 P2 Evidence Contract：sources_sufficiency 改为「相对评分」，
+    //   废除绝对 ≥5 悬崖（采得少但充分利用也可满分）。断言随之更新。
+    it("[B-regression] prompt includes sources_sufficiency as relative scoring (no absolute >=5 cliff)", () => {
       const id = {
         role: { id: "quality-judge", name: "Quality Judge" },
       } as never;
@@ -401,7 +403,9 @@ describe("DimensionQualityJudgeAgent", () => {
         identity: id,
       });
       expect(prompt).toContain("sources_sufficiency");
-      expect(prompt).toContain("≥ 5 个唯一 source");
+      expect(prompt).toContain("相对评分");
+      // 绝对 ≥5 悬崖必须已移除
+      expect(prompt).not.toContain("≥ 5 个唯一 source");
       expect(prompt).toContain("12%"); // weight in formula
     });
 
@@ -414,7 +418,7 @@ describe("DimensionQualityJudgeAgent", () => {
         identity: id,
       });
       // baseInput has 2 sources → prompt should mention the count
-      expect(prompt).toContain("当前 sources 数量: 2");
+      expect(prompt).toContain("当前已收集 sources 数量: 2");
     });
   });
 });

@@ -81,6 +81,8 @@ const ResearcherOutcome = z.object({
   meetsMinSources: z.boolean().optional(),
   minSourcesRequired: z.number().int().min(0).optional(),
   minSourcesDelta: z.number().int().min(0).optional(),
+  // ★ 2026-05-21 P2 闭环：唯一域名数（单域 dim 已折进 meetsMinSources=false 触发重采）
+  uniqueDomains: z.number().int().min(0).optional(),
 });
 
 const QualitySnapshot = z.object({
