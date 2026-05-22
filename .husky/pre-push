@@ -223,6 +223,22 @@ else
         exit 1
     fi
     rm -f "$UI_AUDIT_LOG"
+
+    # 模块识别色看护（T6 焊死，2026-05-22）：feature 不得硬编码模块渐变 from-/to-{hue}，
+    #   一律走 lib/design/module-themes（侧边栏/hero/详情头部）或 --primary（AppShell 注入）。
+    TOKENS_LOG=$(mktemp)
+    if npm run audit:ui-tokens > "$TOKENS_LOG" 2>&1; then
+        grep -E "T6-module|焊死" "$TOKENS_LOG" | head -3 | while read -r line; do echo "  $line"; done
+        echo "  模块识别色看护通过（T6 焊死）"
+    else
+        echo ""
+        echo "  ✘ 模块识别色看护违规（T6 焊死）— 拒推"
+        tail -20 "$TOKENS_LOG"
+        echo "  → 用 lib/design/module-themes 或 --primary，勿在 feature 写死 from-/to-{hue}-{n}"
+        rm -f "$TOKENS_LOG"
+        exit 1
+    fi
+    rm -f "$TOKENS_LOG"
 fi
 echo ""
 

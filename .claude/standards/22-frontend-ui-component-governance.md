@@ -130,6 +130,14 @@ social=rose · playground=violet。
 - 不得在 feature 内联模块识别色（`bg-rose-50`/`from-violet-500` 等）——一律走注册表。
 - 骨架色（中性灰阶、边框、surface）与语义色（done/failed/danger）不属于模块识别色，照旧用 `tokens.ts`。
 
+**看护机制（焊死，2026-05-22）**：
+
+- `audit:ui-tokens` 的 **T6-module-gradient-hardcoded** 规则扫描 feature 代码硬编码的模块识别渐变
+  （`from-/via-/to-{hue}-{400..700}`），排除 `components/ui/` canonical 层与 `module-themes` SSOT。
+- **T6 为焊死规则**：超基线即 `exit 1`（不依赖 `--strict`），已接入 pre-push `[4/6]`，新违规拒推。
+- 基线 = **800**（2026-05-22 存量，`docs/_archive/ui-tokens-baseline.json`）。这 800 处是「彻底整改」
+  的 burn-down 目标，逐步迁到 `module-themes`；基线只减不增，新增即拦。
+
 ## 3. 例外审批流程（MUST）
 
 ```
