@@ -12,8 +12,6 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-  Copy,
-  Check,
   Terminal,
   Code2,
   Minimize2,
@@ -23,6 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useSlidesStore } from '@/stores';
+import { CopyButton } from '@/components/ui/primitives/CopyButton';
 
 // ============================================
 // Types
@@ -290,7 +289,6 @@ export function CodePreview({
   className,
 }: CodePreviewProps) {
   const { pages, selectedPageIndex } = useSlidesStore();
-  const [copied, setCopied] = useState(false);
   const [formatted, setFormatted] = useState(true);
   const [wordWrap, setWordWrap] = useState(true);
   const [showLineNumbers, setShowLineNumbers] = useState(true);
@@ -310,14 +308,6 @@ export function CodePreview({
   }, [displayCode]);
 
   const lineCount = highlightedLines.length;
-
-  // Copy to clipboard
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(html).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [html]);
 
   // Download as file
   const handleDownload = useCallback(() => {
@@ -401,28 +391,13 @@ export function CodePreview({
             <Download className="h-4 w-4" />
           </button>
 
-          <button
-            onClick={handleCopy}
+          <CopyButton
+            value={html}
+            label="Copy"
+            copiedLabel="Copied"
             disabled={!html}
-            className={cn(
-              'flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm transition-colors',
-              copied
-                ? 'bg-green-600 text-white'
-                : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
-            )}
-          >
-            {copied ? (
-              <>
-                <Check className="h-3.5 w-3.5" />
-                <span>Copied</span>
-              </>
-            ) : (
-              <>
-                <Copy className="h-3.5 w-3.5" />
-                <span>Copy</span>
-              </>
-            )}
-          </button>
+            className="rounded border-0 bg-slate-700 px-2.5 py-1.5 text-slate-200 hover:bg-slate-600"
+          />
         </div>
       </div>
 

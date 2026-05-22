@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Copy, Check, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { X, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { CopyButton } from '@/components/ui/primitives/CopyButton';
 
 interface SecretValueModalProps {
   secretName: string;
@@ -19,7 +20,6 @@ export function SecretValueModal({
   const [value, setValue] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [autoHideTimer, setAutoHideTimer] = useState<number>(30);
 
@@ -70,18 +70,12 @@ export function SecretValueModal({
     }
   }, [revealed]);
 
-  const handleCopy = async () => {
-    if (!value) return;
-
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
-
-    // Auto-clear clipboard after 30 seconds
+  const handleAutoClearClipboard = (copiedValue: string) => {
+    // Auto-clear clipboard after 30 seconds for security
     setTimeout(async () => {
       try {
         const currentClipboard = await navigator.clipboard.readText();
-        if (currentClipboard === value) {
+        if (currentClipboard === copiedValue) {
           await navigator.clipboard.writeText('');
         }
       } catch {
@@ -164,22 +158,13 @@ export function SecretValueModal({
                   )}
                 </button>
 
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="h-4 w-4" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4" />
-                      Copy to Clipboard
-                    </>
-                  )}
-                </button>
+                <CopyButton
+                  value={value}
+                  label="Copy to Clipboard"
+                  copiedLabel="Copied!"
+                  onCopied={() => handleAutoClearClipboard(value)}
+                  className="rounded-lg border-0 bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                />
               </div>
 
               {/* Security notice */}
