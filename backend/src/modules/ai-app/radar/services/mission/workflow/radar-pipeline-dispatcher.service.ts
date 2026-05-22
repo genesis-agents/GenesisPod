@@ -22,6 +22,8 @@ import {
   DomainEventBus,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
+  MissionAbortReason,
+  mapAbortReasonToFailureCode,
   type MissionPipelineConfig,
   type ResolvedStageHooks,
 } from "@/modules/ai-harness/facade";
@@ -298,12 +300,22 @@ export class RadarPipelineDispatcher implements OnModuleInit {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : String(err ?? "unknown error");
-      const isAbort = message.includes("abort") || ctx.signal.aborted;
       const durationMs = Date.now() - t0;
       if (isDiscovery) {
         return { missionId, status: "failed", stageOutputs: {}, error: err };
       }
-      if (isAbort) {
+      // ★ MAJOR-3/C0:按 abort **reason** 分流,不再用 signal.aborted 一刀切成 cancelled。
+      //   只有真正的"取消意图"(用户取消 / rerun 替换 / 被取代)才落 cancelled;
+      //   budget/超时/孤儿等 abort 是**失败**,落 markFailed + canonical failureCode,
+      //   否则真因 budget_exhausted/wall_time_exceeded 会被错记成 cancelled(C0 要消灭的场景)。
+      const abortReason: MissionAbortReason | undefined = ctx.signal.aborted
+        ? (ctx.signal.reason as MissionAbortReason)
+        : undefined;
+      const isGenuineCancel =
+        abortReason === MissionAbortReason.user_cancelled ||
+        abortReason === MissionAbortReason.rerun_replacing_stale ||
+        abortReason === MissionAbortReason.superseded;
+      if (isGenuineCancel) {
         await this.store.markCancelled(missionId, message);
         await this.emitToBus({
           type: RADAR_EVENTS.RUN_CANCELLED,
@@ -312,7 +324,7 @@ export class RadarPipelineDispatcher implements OnModuleInit {
           payload: {
             runId: missionId,
             topicId,
-            reason: message,
+            reason: abortReason,
           },
         });
         return {
@@ -347,7 +359,12 @@ export class RadarPipelineDispatcher implements OnModuleInit {
           error: err,
         };
       }
-      await this.store.markFailed(missionId, message);
+      // budget/超时等失败型 abort:传 canonical failureCode(精确),否则 store 走 message 启发式。
+      const failureCode =
+        abortReason != null
+          ? mapAbortReasonToFailureCode(abortReason)
+          : undefined;
+      await this.store.markFailed(missionId, message, failureCode);
       await this.emitToBus({
         type: RADAR_EVENTS.RUN_FAILED,
         missionId,
@@ -356,6 +373,7 @@ export class RadarPipelineDispatcher implements OnModuleInit {
           runId: missionId,
           topicId,
           error: message,
+          failureCode,
           durationMs,
         },
       });
