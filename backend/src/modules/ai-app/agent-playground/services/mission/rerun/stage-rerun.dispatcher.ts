@@ -743,7 +743,7 @@ export class StageRerunDispatcher {
         },
         reportArtifactVersion: 2,
         finalScore: reportArtifact.quality?.overall ?? 70,
-        wallTimeMs: rerunWallTimeMs,
+        elapsedWallTimeMs: rerunWallTimeMs,
         themeSummary:
           typeof detail.themeSummary === "string"
             ? detail.themeSummary

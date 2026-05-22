@@ -9798,10 +9798,10 @@ model AgentPlaygroundMission {
   status      String    @db.VarChar(20) // running / completed / failed / rejected
   startedAt   DateTime  @default(now()) @map("started_at")
   completedAt DateTime? @map("completed_at")
-  /// ★ 实测耗时（mission 结束时 Date.now()-t0 写入），**不是配置的时长上限**。
-  ///   配置上限单一源在 userProfile.wallTimeMs（rerun cloneInputFromMission 读那里）。
-  ///   切勿把本列当作 wall-time cap 读（同名两义陷阱，2026-05-22 契约审计 ②I）。
-  wallTimeMs  Int?      @map("wall_time_ms")
+  /// ★ C4/G5：实测耗时（mission 结束时 Date.now()-t0 写入）。原名 wallTimeMs 与配置上限
+  ///   (userProfile.wallTimeMs / DEPTH_BUDGET_TIERS) 同名两义 → 改 elapsedWallTimeMs 消二义。
+  ///   配置上限仍在 input/userProfile（cap 概念，本列只读实测）。
+  elapsedWallTimeMs Int? @map("elapsed_wall_time_ms")
 
   /// 完成时填充
   finalScore       Int?    @map("final_score")

@@ -123,13 +123,13 @@ describe("runPersistStage (S11)", () => {
     expect(args.reportArtifactVersion).toBe(1);
   });
 
-  it("wallTimeMs = now - t0 approximately", async () => {
+  it("elapsedWallTimeMs = now - t0 approximately", async () => {
     const deps = makeDeps();
     const t0 = Date.now() - 10000;
     await runPersistStage(makeArgs({ t0 }), deps);
     const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
-    expect(args.wallTimeMs).toBeGreaterThan(9000);
-    expect(args.wallTimeMs).toBeLessThan(20000);
+    expect(args.elapsedWallTimeMs).toBeGreaterThan(9000);
+    expect(args.elapsedWallTimeMs).toBeLessThan(20000);
   });
 
   it("trajectoryStored included in markCompleted payload", async () => {

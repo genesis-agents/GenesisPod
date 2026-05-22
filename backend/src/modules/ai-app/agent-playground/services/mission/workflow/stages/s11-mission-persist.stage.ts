@@ -131,7 +131,7 @@ async function runPersistInner(
           errorMessage: `chapter_content_incomplete: nonEmpty=${nonEmptySections.length}/${substantiveSections.length} sections >= ${MIN_NON_EMPTY_SECTION_CHARS} chars, totalChars=${totalChars}`,
           tokensUsed: snap.poolTokensUsed,
           costUsd: snap.poolCostUsd,
-          wallTimeMs: Date.now() - t0,
+          elapsedWallTimeMs: Date.now() - t0,
         });
         await deps
           .emit({
@@ -162,7 +162,7 @@ async function runPersistInner(
           errorMessage: `chapter_content_below_threshold: coverage=${(coverage * 100).toFixed(1)}% (${sectionsWithContent.length}/${substantiveSections.length} sections >= ${MIN_CHAPTER_CHARS} chars), totalChars=${totalChars}`,
           tokensUsed: snap.poolTokensUsed,
           costUsd: snap.poolCostUsd,
-          wallTimeMs: Date.now() - t0,
+          elapsedWallTimeMs: Date.now() - t0,
         });
         await deps
           .emit({
@@ -194,7 +194,7 @@ async function runPersistInner(
           "leader_signoff_missing: report reached persist without final Leader signoff",
         tokensUsed: snap.poolTokensUsed,
         costUsd: snap.poolCostUsd,
-        wallTimeMs: Date.now() - t0,
+        elapsedWallTimeMs: Date.now() - t0,
         trajectoryStored: result.trajectoryStored,
         themeSummary: result.themeSummary,
         dimensions: result.dimensions as never,
@@ -214,7 +214,7 @@ async function runPersistInner(
           userId,
           payload: {
             reason: "leader_signoff_missing",
-            wallTimeMs: Date.now() - t0,
+            elapsedWallTimeMs: Date.now() - t0,
           },
         })
         // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
@@ -228,7 +228,7 @@ async function runPersistInner(
 
     if (!result.leaderSignOff.signed) {
       await deps.store.markFailed(missionId, {
-        wallTimeMs: Date.now() - t0,
+        elapsedWallTimeMs: Date.now() - t0,
         errorMessage: `Lead 拒绝签字: ${result.leaderSignOff.refusalReason ?? "未达 qualityBar / successCriteria 不全回答"}`,
         tokensUsed: snap.poolTokensUsed,
         costUsd: snap.poolCostUsd,
@@ -254,7 +254,7 @@ async function runPersistInner(
         tokensUsed: snap.poolTokensUsed,
         costUsd: snap.poolCostUsd,
         trajectoryStored: result.trajectoryStored,
-        wallTimeMs: Date.now() - t0,
+        elapsedWallTimeMs: Date.now() - t0,
         themeSummary: result.themeSummary,
         dimensions: result.dimensions as never,
         report: reportPayload as unknown as {
@@ -281,7 +281,7 @@ async function runPersistInner(
             costUsd: snap.poolCostUsd,
             tokensUsed: snap.poolTokensUsed,
             trajectoryStored: result.trajectoryStored,
-            wallTimeMs: Date.now() - t0,
+            elapsedWallTimeMs: Date.now() - t0,
             verifierVerdicts: result.verdicts,
             leaderSigned: result.leaderSignOff?.signed,
             leaderOverallScore: result.leaderSignOff?.leaderOverallScore,

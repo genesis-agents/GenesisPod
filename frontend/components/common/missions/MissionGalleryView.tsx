@@ -220,11 +220,11 @@ function MissionCard({
       ),
     });
   }
-  if (mission.wallTimeMs != null) {
+  if (mission.elapsedWallTimeMs != null) {
     stats.push({
       key: 'time',
       icon: <Activity className="h-3.5 w-3.5" />,
-      text: `${(mission.wallTimeMs / 1000).toFixed(1)}s`,
+      text: `${(mission.elapsedWallTimeMs / 1000).toFixed(1)}s`,
     });
   }
 
