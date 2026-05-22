@@ -10588,9 +10588,10 @@ model RadarRun {
   trigger     RadarRunTrigger
   startedAt   DateTime?       @map("started_at")
   completedAt DateTime?       @map("completed_at")
-  /// 总耗时 ms（mission level wall clock）
+  /// 总耗时 ms（mission level wall clock，实测耗时）
   durationMs  Int?            @map("duration_ms")
-  wallTimeMs  Int?            @map("wall_time_ms")
+  /// ★ C4/G5：wall-time 上限（配置态）。原名 wallTimeMs 二义(别处指实测)→改 wallTimeCapMs。
+  wallTimeCapMs Int?          @map("wall_time_cap_ms")
 
   /// Mission 输入快照（业务方决定 schema，runtime-shell.createMissionRow 写入）
   maxCredits Int   @default(50) @map("max_credits")
