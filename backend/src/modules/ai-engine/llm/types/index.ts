@@ -22,7 +22,6 @@ export {
   OUTPUT_LENGTH_TO_TOKENS,
   REASONING_MODEL_MIN_TOKENS,
   REASONING_DEPTH_TO_EFFORT,
-  FAST_TASK_KINDS,
   reasoningDepthToEffort,
   safeReasoningEffort,
   isMinimalEffortSupported,

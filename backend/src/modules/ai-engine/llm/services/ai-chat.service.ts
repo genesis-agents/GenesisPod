@@ -12,6 +12,11 @@ import { withUserContext } from "@/common/context/with-user-context";
 import { TaskProfile, ChatMessage } from "../types";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
+// ★ 2026-05-21 Capability Contract: modelType 选择的单一权威（quality-first 默认）
+import {
+  resolveEffectiveModelType,
+  normalizeDowngradePolicy,
+} from "../selection/model-policy";
 import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./ai-stream-handler.service";
 import { AIMetricsService } from "@/modules/ai-infra/facade";
@@ -1641,30 +1646,50 @@ export class AiChatService {
       }
     }
 
+    // ★ 2026-05-21 Capability Contract（单一权威 · Resolve）：把请求的 modelType
+    //   （用途）按 downgradePolicy 解析成"有效 modelType"。quality-first（默认）下
+    //   成本降级 tier（CHAT_FAST）回退到主模型（CHAT），根治"配了 grok-4 却用
+    //   grok-3-mini"。只作用于 modelType 路径；providedModel（显式模型）与 BYOK
+    //   直连路径不受影响。★ downgradePolicy 提到函数级，保证初选 + 失败 fallback 池
+    //   查询都用 effectiveModelType（否则 fallback 会退回 CHAT_FAST 池，重现 bug）。
+    const downgradePolicy = normalizeDowngradePolicy(
+      this.configService.get<string>("MODEL_DOWNGRADE_POLICY", ""),
+    );
+
     let userDefaultHit = false;
     if (providedModel) {
       model = providedModel;
       modelConfig = await this.getModelConfig(model);
     } else if (modelType) {
+      const effectiveModelType = resolveEffectiveModelType(
+        modelType,
+        downgradePolicy,
+      );
+      if (effectiveModelType !== modelType) {
+        this.logger.log(
+          `[model-policy] requested=${modelType} → effective=${effectiveModelType} (policy=${downgradePolicy})`,
+        );
+      }
+
       // ★ BYOK v3：如果用户有 UserModelConfig 里设为 default 的同类型模型，
       //   直接用用户的。跳过全局默认的 provider 过滤逻辑。
       if (effectiveUserIdForInitial && !isDirectBYOKPath) {
         const userDefault = await this.modelConfigService
-          .findUserDefaultByType(effectiveUserIdForInitial, modelType)
+          .findUserDefaultByType(effectiveUserIdForInitial, effectiveModelType)
           .catch(() => null);
         if (userDefault) {
           modelConfig = userDefault;
           model = userDefault.modelId;
           userDefaultHit = true;
           this.logger.log(
-            `[chat] Using user default for ${modelType}: ${model} (${userDefault.provider})`,
+            `[chat] Using user default for ${effectiveModelType}: ${model} (${userDefault.provider})`,
           );
         }
       }
 
       // 没有用户自定义默认 → 走全局默认，再用 availableProviders 过滤
       if (!modelConfig) {
-        modelConfig = await this.getDefaultModelByType(modelType);
+        modelConfig = await this.getDefaultModelByType(effectiveModelType);
         if (
           modelConfig &&
           userAvailableProviders &&
@@ -1672,14 +1697,16 @@ export class AiChatService {
           !userAvailableProviders.has(modelConfig.provider.toLowerCase())
         ) {
           const pool =
-            await this.modelConfigService.getAllEnabledModelsByType(modelType);
+            await this.modelConfigService.getAllEnabledModelsByType(
+              effectiveModelType,
+            );
           const filtered = pool.filter((m) =>
             userAvailableProviders.has(m.provider.toLowerCase()),
           );
           if (filtered.length > 0) {
             modelConfig = filtered[0];
             this.logger.log(
-              `[chat] Default ${modelType} model (${(await this.getDefaultModelByType(modelType))?.provider}) not in user availableProviders; using ${modelConfig.modelId} (${modelConfig.provider}) instead`,
+              `[chat] Default ${effectiveModelType} model (${(await this.getDefaultModelByType(effectiveModelType))?.provider}) not in user availableProviders; using ${modelConfig.modelId} (${modelConfig.provider}) instead`,
             );
           }
         }
@@ -1688,7 +1715,7 @@ export class AiChatService {
       if (modelConfig) {
         model = modelConfig.modelId;
         this.logger.debug(
-          `[chat] Using ${modelType} model from database: ${model}`,
+          `[chat] Using ${effectiveModelType} model from database: ${model}`,
         );
       } else {
         // No DB config for the requested modelType. DO NOT fall back to a
@@ -1701,13 +1728,13 @@ export class AiChatService {
         );
         if (!envDefault) {
           throw new AiServiceUnavailableError(
-            `AI 服务不可用：没有可用的 ${modelType} 模型。请在数据库中启用至少 1 个该用途的模型，或设置 DEFAULT_AI_MODEL 环境变量。`,
+            `AI 服务不可用：没有可用的 ${effectiveModelType} 模型。请在数据库中启用至少 1 个该用途的模型，或设置 DEFAULT_AI_MODEL 环境变量。`,
             "",
           );
         }
         model = envDefault;
         this.logger.warn(
-          `[chat] No ${modelType} model found, falling back to DEFAULT_AI_MODEL=${model}`,
+          `[chat] No ${effectiveModelType} model found, falling back to DEFAULT_AI_MODEL=${model}`,
         );
       }
     } else {
@@ -2066,10 +2093,16 @@ export class AiChatService {
       });
 
       // 获取其他可用的同类型模型
+      // ★ 2026-05-21 Capability Contract：fallback 池也必须用 effectiveModelType，
+      //   否则 quality-first 下主模型失败后会从 CHAT_FAST 池补 mini 模型，重现 bug。
       if (modelType) {
+        const effectiveModelType = resolveEffectiveModelType(
+          modelType,
+          downgradePolicy,
+        );
         const alternativeModels =
           await this.modelConfigService.getAllEnabledModelsByType(
-            modelType,
+            effectiveModelType,
             triedModelIds,
           );
 
@@ -2196,7 +2229,16 @@ export class AiChatService {
     // 解析模型
     let model = inputModel;
     if (!model && modelType) {
-      const modelConfig = await this.getDefaultModelByType(modelType);
+      // ★ 2026-05-21 Capability Contract：chatStream 与 chat() 一致，过策略闸，
+      //   避免流式路径绕过 downgradePolicy（quality-first 下 CHAT_FAST→CHAT）。
+      const downgradePolicy = normalizeDowngradePolicy(
+        this.configService.get<string>("MODEL_DOWNGRADE_POLICY", ""),
+      );
+      const effectiveModelType = resolveEffectiveModelType(
+        modelType,
+        downgradePolicy,
+      );
+      const modelConfig = await this.getDefaultModelByType(effectiveModelType);
       model = modelConfig?.modelId;
     }
     if (!model) {

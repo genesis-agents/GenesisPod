@@ -69,21 +69,13 @@ export type TaskType =
   | "reflection"; // 自我评估、元认知
 
 /**
- * TaskKind — 用于 L3-10 LLM 分级路由
+ * TaskKind — 任务语义标签（影响参数映射，如 outputLength / temperature）。
  *
- * FAST_TASK_KINDS（review / sanity-check / classify / summarize）在 outputLength <= "standard"
- * 时由 TaskProfileMapperService.pickModelType() 自动路由到 CHAT_FAST，
- * 减少 reviewer/sanity-check 类任务对 reasoning 模型的不必要占用。
- *
- * | kind         | 路由建议  | 场景                        |
- * |-------------|-----------|----------------------------|
- * | review       | CHAT_FAST | 报告评分、章节审查           |
- * | sanity-check | CHAT_FAST | 输出完整性校验、快速核验     |
- * | classify     | CHAT_FAST | 分类标签、意图识别           |
- * | summarize    | CHAT_FAST | 摘要、压缩                   |
- * | plan         | CHAT      | 规划（outputLength 决定 tier）|
- * | write        | CHAT      | 内容创作                     |
- * | research     | CHAT      | 深度研究、调研               |
+ * ★ 2026-05-21：历史上 TaskProfileMapperService.pickModelType() 曾按 taskKind 把
+ * review / sanity-check / classify / summarize 自动路由到 CHAT_FAST —— 该路由是
+ * **死代码（无任何生产调用方）已删除**。模型档位现由单一权威
+ * resolveEffectiveModelType（ai-engine/llm/selection/model-policy.ts）按
+ * downgradePolicy 统一裁决，taskKind 不再决定用哪个模型档。
  */
 export type TaskKind =
   | "review"
@@ -93,17 +85,6 @@ export type TaskKind =
   | "plan"
   | "write"
   | "research";
-
-/**
- * TaskKind 集合：这些 kind 应走 CHAT_FAST（mini 模型）
- * 路由条件：taskKind ∈ FAST_TASK_KINDS + outputLength <= "standard"
- */
-export const FAST_TASK_KINDS = new Set<TaskKind>([
-  "review",
-  "sanity-check",
-  "classify",
-  "summarize",
-]);
 
 /**
  * 输出格式 - 影响 temperature 调整（Phase 2 实现）
@@ -292,14 +273,12 @@ export interface TaskProfile {
   taskType?: TaskType;
 
   /**
-   * 任务种类 — 用于 L3-10 LLM 分级路由
+   * 任务种类 — 语义标签，影响参数映射（creativity / outputLength）。
    *
-   * 当 taskKind ∈ {review, sanity-check, classify, summarize} 且
-   * outputLength <= "standard" 时，TaskProfileMapperService.pickModelType()
-   * 返回 "CHAT_FAST"，自动路由到 mini 模型。
-   *
-   * 注意：若同时设置了 reasoningDepth（"moderate" | "deep"），
-   * reasoningDepth 优先，不会降级到 CHAT_FAST。
+   * ★ 2026-05-21：曾经 taskKind 经 TaskProfileMapperService.pickModelType() 自动
+   * 路由到 CHAT_FAST —— 该路由是死代码已删除。模型档位现由单一权威
+   * resolveEffectiveModelType（ai-engine/llm/selection/model-policy.ts）按
+   * downgradePolicy 统一裁决，taskKind 不再决定用哪个模型档。
    */
   taskKind?: TaskKind;
 
