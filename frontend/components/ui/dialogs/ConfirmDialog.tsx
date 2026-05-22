@@ -74,22 +74,32 @@ export function ConfirmDialog({
       onClose={onClose}
       size="sm"
       showCloseButton={false}
-      // 图标内联标题；按钮走 Modal 底部灰条（右对齐），与全站弹窗一致。
+      // 紧凑确认卡：窄一档(max-w-sm) + 去标题分隔线/去灰底页脚，收成一张干净白卡。
+      className="max-w-sm"
+      headerClassName="border-b-0 pb-1"
+      footerClassName="border-t-0 bg-transparent pt-3"
+      // 图标内联标题
       title={
         <span className="flex items-center gap-2.5">
           <Icon className={cn('h-5 w-5 shrink-0', iconColor)} />
           <span className="min-w-0 truncate">{title}</span>
         </span>
       }
-      // 无描述时收起内容区，避免标题与按钮之间留空白。
-      contentClassName={description ? undefined : 'hidden'}
+      // 无描述时收起内容区，避免标题与按钮之间留空白
+      contentClassName={description ? 'pb-1 pt-1' : 'hidden'}
       footer={
         <>
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={loading}
+          >
             {cancelText}
           </Button>
           <Button
             variant={confirmVariant}
+            size="sm"
             onClick={handleConfirm}
             disabled={loading}
           >

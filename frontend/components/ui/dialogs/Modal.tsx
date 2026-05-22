@@ -10,7 +10,9 @@ import { cn } from '@/lib/utils/common';
  * Modal 组件变体配置
  */
 const modalVariants = cva(
-  'flex max-h-[90vh] flex-col rounded-2xl bg-white shadow-2xl',
+  // 圆角对齐 design token 上限（radius.lg = rounded-xl=12px）；token 无 2xl，
+  // 之前的 rounded-2xl(16px) 超档导致弹层比卡片更圆、不匹配整体风格。
+  'flex max-h-[90vh] flex-col rounded-xl bg-white shadow-2xl',
   {
     variants: {
       size: {
