@@ -146,6 +146,8 @@ const EVENT_BASELINE: ReadonlyArray<string> = [
 type EndpointSpec = readonly [string, string];
 const ENDPOINT_BASELINE: ReadonlyArray<EndpointSpec> = [
   ["DELETE", "missions/:id"],
+  // ★ 2026-05-22 ③J/K：tier 配置单一源端点，前端 useBudgetTiers fetch（已同步 FE client）
+  ["GET", "budget-tiers"],
   ["GET", "missions"],
   ["GET", "missions/:id"],
   ["GET", "missions/:id/export"],

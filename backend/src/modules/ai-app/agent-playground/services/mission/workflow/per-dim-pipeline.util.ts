@@ -28,6 +28,13 @@ import { extractFailureMessage } from "@/modules/ai-harness/facade";
 import { narrate } from "./narrative.util";
 // ★ 2026-05-21 P2 Evidence Contract: 来源充分性的单一权威
 import { computeEvidenceBudget, deriveMaxChapters } from "./evidence-budget";
+// ★ 2026-05-22 契约单一源：章节数范围（与 outline agent schema 同源，杜绝漂移）
+import {
+  CHAPTER_COUNT_RANGE,
+  clampChapterCount,
+} from "../../../contracts/chapter-count.contract";
+// ★ 2026-05-22 ③L/M 单一源：报告总字数 = depthBase × lengthProfile 倍率
+import { resolveMissionTotalWords } from "../../../contracts/word-budget.contract";
 import { loadPlaygroundRuntimeConfig } from "../../../playground-runtime.config";
 import { stripChartJsonFromContent } from "@/modules/ai-engine/facade";
 
@@ -128,9 +135,10 @@ export async function runPerDimPipeline(
 
   const lp = args.lengthProfile;
   const dimCount = Math.max(1, args.dimensionCount ?? 5);
-  // depth-based word target:  quick=10K / standard=40K / deep=150K  total
-  const missionTarget =
-    depth === "quick" ? 10000 : depth === "deep" ? 150000 : 40000;
+  // ★ 2026-05-22 ③L/M 单一源：总字数 = depthBase × lengthProfile 密度倍率
+  //   （resolveMissionTotalWords）。lengthProfile 终于生效(往长调)；deep 仍大体量,
+  //   不会走马观花。替代原"按 depth 写死、无视 lengthProfile"的第二信源。
+  const missionTarget = resolveMissionTotalWords(depth, lp ?? "standard");
   const dimTargetWords = Math.round(missionTarget / dimCount);
   const idealChapters = depth === "quick" ? 2 : depth === "deep" ? 7 : 4;
   // ★ 2026-05-22 质量保底章节数：供给偏少时也不让维度塌成 1 章（受 uniqueSources 夹逼，
@@ -141,14 +149,18 @@ export async function runPerDimPipeline(
   const naiveWordsPerChapter = Math.max(400, Math.min(naivePerChapter, 8000));
   const wordBasedChapterCount = Math.max(
     3,
-    Math.min(25, Math.round(dimTargetWords / naiveWordsPerChapter)),
+    Math.min(
+      CHAPTER_COUNT_RANGE.max,
+      Math.round(dimTargetWords / naiveWordsPerChapter),
+    ),
   );
   // ★ 2026-05-21 P2 Evidence Contract（单一权威）：按采集到的真实来源供给给章节数
   //   封顶，保证每章能满足 reviewer 的引用下限 —— 治"采得少却开 N 章 → 审核结构性
   //   不可满足 → 重写循环 → 超时失败"。供给充足时不缩水（取 wordBasedChapterCount）。
   const evidenceBudget = computeEvidenceBudget(researcherOut.findings);
-  const targetChapterCount = Math.max(
-    1,
+  // ★ 2026-05-22 契约单一源：clamp 到 CHAPTER_COUNT_RANGE（与 outline agent schema 同源）。
+  //   不再手写 Math.max(1, Math.min(25,...)) 复写消费方边界。
+  const targetChapterCount = clampChapterCount(
     Math.min(
       wordBasedChapterCount,
       deriveMaxChapters(evidenceBudget, idealChapters, minChapters),

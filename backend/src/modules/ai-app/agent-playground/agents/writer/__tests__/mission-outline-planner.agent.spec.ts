@@ -11,6 +11,7 @@
 import { z } from "zod";
 import { readDefineAgentMeta } from "../../../../../ai-harness/agents/dev-tools";
 import { MissionOutlinePlannerAgent } from "../mission-outline-planner.agent";
+import { resolveMissionTotalWords } from "../../../contracts/word-budget.contract";
 
 const meta = readDefineAgentMeta(MissionOutlinePlannerAgent)!;
 const inputSchema = meta.inputSchema as z.ZodType;
@@ -27,6 +28,7 @@ const basePlan = {
 const baseInput = {
   topic: "AI in Finance",
   language: "zh-CN" as const,
+  depth: "deep" as const,
   audienceProfile: "executive" as const,
   styleProfile: "executive" as const,
   lengthProfile: "standard" as const,
@@ -295,54 +297,20 @@ describe("MissionOutlinePlannerAgent", () => {
       role: { id: "outline-planner", name: "Outline Planner" },
     } as never;
 
-    it("brief lengthProfile uses 3000 word target", () => {
-      const prompt = agent.buildSystemPrompt({
-        input: { ...baseInput, lengthProfile: "brief" },
-        identity,
-      });
-      expect(prompt).toContain("3000");
-    });
-
-    it("standard lengthProfile uses 8000 word target", () => {
-      const prompt = agent.buildSystemPrompt({
-        input: { ...baseInput, lengthProfile: "standard" },
-        identity,
-      });
-      expect(prompt).toContain("8000");
-    });
-
-    it("deep lengthProfile uses 15000 word target", () => {
-      const prompt = agent.buildSystemPrompt({
-        input: { ...baseInput, lengthProfile: "deep" },
-        identity,
-      });
-      expect(prompt).toContain("15000");
-    });
-
-    it("extended lengthProfile uses 25000 word target", () => {
-      const prompt = agent.buildSystemPrompt({
-        input: { ...baseInput, lengthProfile: "extended" },
-        identity,
-      });
-      // ★ round 4: target 仍 25000，但 perChapter cap 已降到 12000
-      expect(prompt).toContain("25000");
-    });
-
-    it("epic lengthProfile uses 80000 word target", () => {
-      const prompt = agent.buildSystemPrompt({
-        input: { ...baseInput, lengthProfile: "epic" },
-        identity,
-      });
-      expect(prompt).toContain("80000");
-    });
-
-    it("mega lengthProfile uses 200000 word target", () => {
-      const prompt = agent.buildSystemPrompt({
-        input: { ...baseInput, lengthProfile: "mega" },
-        identity,
-      });
-      expect(prompt).toContain("200000");
-    });
+    // ★ 2026-05-22 ③L/M：总字数改为 resolveMissionTotalWords(depth, lengthProfile)
+    //   单一源（depthBase × 密度倍率），不再是 lengthProfile 写死值。断言用契约函数
+    //   计算期望值（而非硬编码 3000/8000/...），契约改了测试自动跟随、不再漂移。
+    it.each(["brief", "standard", "deep", "extended", "epic", "mega"] as const)(
+      "%s lengthProfile uses resolveMissionTotalWords(depth, lp) target",
+      (lp) => {
+        const prompt = agent.buildSystemPrompt({
+          input: { ...baseInput, lengthProfile: lp },
+          identity,
+        });
+        const expected = resolveMissionTotalWords(baseInput.depth, lp);
+        expect(prompt).toContain(String(expected));
+      },
+    );
 
     it("contains topic in prompt", () => {
       const prompt = agent.buildSystemPrompt({ input: baseInput, identity });
@@ -385,9 +353,11 @@ describe("MissionOutlinePlannerAgent", () => {
       expect(prompt).toContain("超出单章");
     });
 
-    it("standard with 2 dimensions: perChapter 4000 <= cap, no warning", () => {
+    // ★ 2026-05-22 ③L/M：总字数 = depthBase × 倍率，体量随 depth 变大。要触发"无警告"
+    //   需小体量配置：quick(10K)×brief(0.7)=7K，分到 2 维度仍 ≤ 单章 cap 12000。
+    it("quick+brief small total: perChapter <= cap, no warning", () => {
       const prompt = agent.buildSystemPrompt({
-        input: { ...baseInput, lengthProfile: "standard" },
+        input: { ...baseInput, depth: "quick", lengthProfile: "brief" },
         identity,
       });
       expect(prompt).not.toContain("超出单章");

@@ -8,6 +8,7 @@
 
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
+import { CHAPTER_COUNT_RANGE } from "../../contracts/chapter-count.contract";
 
 const Input = z.object({
   topic: z.string(),
@@ -23,8 +24,15 @@ const Input = z.object({
       source: z.string(),
     }),
   ),
-  /** 期望章节数：3-7 由 depth 决定 */
-  targetChapterCount: z.number().int().min(3).max(25),
+  /**
+   * 期望章节数。范围是**不变量**，单一源自 CHAPTER_COUNT_RANGE（与管线 clamp 同源）。
+   * min=1：稀缺证据维度合法只开 1 章（Evidence Contract）——绝不再写 min(3) 复界。
+   */
+  targetChapterCount: z
+    .number()
+    .int()
+    .min(CHAPTER_COUNT_RANGE.min)
+    .max(CHAPTER_COUNT_RANGE.max),
 });
 
 const Output = z.object({

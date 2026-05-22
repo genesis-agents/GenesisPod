@@ -14,10 +14,13 @@
 
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
+import { resolveMissionTotalWords } from "../../contracts/word-budget.contract";
 
 const Input = z.object({
   topic: z.string(),
   language: z.enum(["zh-CN", "en-US"]),
+  // ★ 2026-05-22 ③L/M：总字数 = depthBase × lengthProfile 倍率，需 depth。
+  depth: z.enum(["quick", "standard", "deep"]),
   audienceProfile: z.enum(["executive", "domain-expert", "general-public"]),
   styleProfile: z.enum(["academic", "executive", "journalistic", "technical"]),
   lengthProfile: z.enum([
@@ -132,7 +135,7 @@ export class MissionOutlinePlannerAgent extends AgentSpec<
   typeof Output
 > {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
-    const target = lengthTarget(input.lengthProfile);
+    const target = resolveMissionTotalWords(input.depth, input.lengthProfile);
     // ★ P0-R4-5 (round 4): ChapterWriter budget.maxTokens=22000 + 中文 1:1 token，
     // 25K 字单章永远写不到 ≥85% 字数门槛 → epic 死循环。降到 12000 与 chapter-writer
     // schema 上限对齐；epic 200K → 17 章 × 12K 安全可达。
@@ -177,15 +180,5 @@ export class MissionOutlinePlannerAgent extends AgentSpec<
   }
 }
 
-function lengthTarget(
-  p: "brief" | "standard" | "deep" | "extended" | "epic" | "mega",
-): number {
-  return {
-    brief: 3000,
-    standard: 8000,
-    deep: 15000,
-    extended: 25000,
-    epic: 80000,
-    mega: 200000,
-  }[p];
-}
+// ★ 2026-05-22 ③L/M：原 lengthTarget(按 lengthProfile 写死、无视 depth 的第二信源)
+//   已删除。总字数统一走 resolveMissionTotalWords(depth, lengthProfile) 单一源。

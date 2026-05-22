@@ -18,6 +18,7 @@ import {
   Controller,
   Delete,
   ForbiddenException,
+  Get,
   Headers,
   Logger,
   Param,
@@ -38,6 +39,9 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
   RunMissionInputSchema,
   type RunMissionInput,
+  listBudgetTiers,
+  BUDGET_FIELD_LIMITS,
+  type BudgetTierView,
 } from "./dto/run-mission.dto";
 import {
   MissionElectionTracker,
@@ -65,6 +69,21 @@ export class AgentPlaygroundController extends BaseMissionController {
     private readonly pipelineDispatcher: PlaygroundPipelineDispatcher,
   ) {
     super(ownership, store);
+  }
+
+  /**
+   * GET /api/v1/agent-playground/budget-tiers
+   *
+   * ★ 2026-05-22 ③J/K 契约单一源：调研规模档位(label/成本/时长/维度提示/数值)+ 预算字段
+   * 上下限的**唯一真源**是后端 DEPTH_BUDGET_TIERS / BUDGET_FIELD_LIMITS。前端不再手写
+   * SCALE_TIERS 镜像,改 fetch 本端点渲染,杜绝"前后端各维护一份 → 漂移"。
+   */
+  @Get("budget-tiers")
+  getBudgetTiers(): {
+    tiers: BudgetTierView[];
+    limits: typeof BUDGET_FIELD_LIMITS;
+  } {
+    return { tiers: listBudgetTiers(), limits: BUDGET_FIELD_LIMITS };
   }
 
   private isDevTriggerAuthorized(presentedToken?: string): boolean {

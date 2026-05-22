@@ -9785,12 +9785,18 @@ model AgentPlaygroundMission {
   topic      String @db.VarChar(500)
   depth      String @db.VarChar(20) // quick / standard / deep
   language   String @db.VarChar(20)
-  maxCredits Int    @default(300) @map("max_credits")
+  /// ★ 2026-05-22 契约审计 ②G：移除 @default(300)（与 DEPTH_BUDGET_TIERS 漂移的第二信源，
+  ///   存量行用 300 会 $0.6 秒爆）。唯一写入点 createMissionRow 总是显式给 effectiveMaxCredits，
+  ///   故无默认也不会缺值；预算单一源 = DEPTH_BUDGET_TIERS（resolveMissionCredits）。
+  maxCredits Int    @map("max_credits")
 
   /// 状态
   status      String    @db.VarChar(20) // running / completed / failed / rejected
   startedAt   DateTime  @default(now()) @map("started_at")
   completedAt DateTime? @map("completed_at")
+  /// ★ 实测耗时（mission 结束时 Date.now()-t0 写入），**不是配置的时长上限**。
+  ///   配置上限单一源在 userProfile.wallTimeMs（rerun cloneInputFromMission 读那里）。
+  ///   切勿把本列当作 wall-time cap 读（同名两义陷阱，2026-05-22 契约审计 ②I）。
   wallTimeMs  Int?      @map("wall_time_ms")
 
   /// 完成时填充

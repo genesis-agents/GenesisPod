@@ -115,16 +115,80 @@ export type RunMissionInput = z.infer<typeof RunMissionInputSchema>;
  */
 export const DEPTH_BUDGET_TIERS: Record<
   RunMissionInput["depth"],
-  { maxCredits: number; budgetMultiplier: number; wallTimeMs: number }
+  {
+    maxCredits: number;
+    budgetMultiplier: number;
+    wallTimeMs: number;
+    /** 展示元数据(前端不再手写镜像,GET /budget-tiers 返回此处) */
+    label: string;
+    desc: string;
+    dimensionsHint: string;
+  }
 > = {
-  quick: { maxCredits: 3000, budgetMultiplier: 1.0, wallTimeMs: 20 * 60_000 },
+  quick: {
+    maxCredits: 3000,
+    budgetMultiplier: 1.0,
+    wallTimeMs: 20 * 60_000,
+    label: "快速",
+    desc: "快速概览 / 试探",
+    dimensionsHint: "~4 维度",
+  },
   standard: {
     maxCredits: 8000,
     budgetMultiplier: 2.0,
     wallTimeMs: 60 * 60_000,
+    label: "标准",
+    desc: "多数调研场景",
+    dimensionsHint: "~7 维度",
   },
-  deep: { maxCredits: 20000, budgetMultiplier: 4.0, wallTimeMs: 180 * 60_000 },
+  deep: {
+    maxCredits: 20000,
+    budgetMultiplier: 4.0,
+    wallTimeMs: 180 * 60_000,
+    label: "深度",
+    desc: "全面深度报告",
+    dimensionsHint: "~11 维度",
+  },
 };
+
+/** 预算字段的硬上下限（DTO clamp 单一源，GET /budget-tiers 一并返回给前端） */
+export const BUDGET_FIELD_LIMITS = {
+  maxCredits: { min: 10, max: 100_000 },
+  budgetMultiplier: { min: 0.3, max: 10 },
+  wallTimeMinutes: { min: 1, max: 180 },
+} as const;
+
+export interface BudgetTierView {
+  depth: RunMissionInput["depth"];
+  label: string;
+  desc: string;
+  dimensionsHint: string;
+  maxCredits: number;
+  budgetMultiplier: number;
+  wallTimeMinutes: number;
+  /** 成本上限 = maxCredits × 0.002 USD（与 MissionBudgetPool cap 同公式） */
+  capUsd: number;
+}
+
+/**
+ * ★ 2026-05-22 ③J/K 单一源：前端不再手写 SCALE_TIERS 镜像后端。
+ * 后端 GET /budget-tiers 返回此数组 + BUDGET_FIELD_LIMITS,前端 fetch 渲染。
+ */
+export function listBudgetTiers(): BudgetTierView[] {
+  return (["quick", "standard", "deep"] as const).map((depth) => {
+    const t = DEPTH_BUDGET_TIERS[depth];
+    return {
+      depth,
+      label: t.label,
+      desc: t.desc,
+      dimensionsHint: t.dimensionsHint,
+      maxCredits: t.maxCredits,
+      budgetMultiplier: t.budgetMultiplier,
+      wallTimeMinutes: Math.round(t.wallTimeMs / 60_000),
+      capUsd: Math.round(t.maxCredits * 0.002),
+    };
+  });
+}
 
 /**
  * ★ 2026-05-22 单一源：maxCredits 为可选覆盖，缺省按 depth 档位解析。
