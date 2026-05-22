@@ -33,10 +33,10 @@
 - **知识库**有/无/跑题:强制 ≥1 轮 web-search 兜底 + rag threshold≥0.6 + 跑题命中丢弃。✅
 - **全配置数据源**:逐个"定义一处、读取一处",无残留多源。✅
 
-## 5. 遗留 follow-up（非本轮契约缺陷,属硬化/卫生项）
+## 5. follow-up（已解决，2026-05-22 同日跟进）
 
-1. **8 个死 config 旋钮**(`playground-runtime.config.ts` loop-control 7 个 + `disableBudgetAbort`):定义+profile 覆盖+spec 测试齐全,但**生产代码零消费**(真实消费方读 `ai-harness/evaluation/thresholds.constants.ts` 硬编码常量)。`PLAYGROUND_TUNING_PROFILE` 设的迭代上限静默无效。建议:要么 wire 消费(需 agent 构造期读 config),要么删除死 config + spec,消除"定义即承诺生效"的误导。
-2. **`SingleShotWriterAgent.targetWordsPerChapter`(record value)无 schema 数值边界**:thorough+ 路径唯一"字数喂 agent 但无契约护栏"的链路。安全闭合方式 = 生产方(mission-outline OUTPUT)post-LLM clamp 到 ≤12000(而非 input 严格 reject,避免 LLM 输出超限触发重试churn)。
+1. ✅ **8 个死 config 旋钮已删除**(`playground-runtime.config.ts` loop-control 7 个 + `disableBudgetAbort`):确认全后端零消费后，从 DEFAULTS / Zod schema / env 解析 / profile 覆盖 / spec 全部移除。真实单一源回到 `thresholds.constants.ts`（已消费）。消除"定义即承诺生效"的腐朽误导。如需 loop 上限可调，另起 feature 让消费方读 config。
+2. ✅ **`targetWordsPerChapter` 已加生产方侧 clamp**:mission-outline OUTPUT schema 用 `z.number().transform()` 把每章字数夹到 `CHAPTER_WORDS_PER_CHAPTER_RANGE`[400,12000]（clamp 非 reject，无 LLM 超限 churn）；下游 single-shot-writer 拿到的永远在界内。同时 `PER_CHAPTER_HARD_CAP` 改引用契约常量（去掉写死 12000）。
 
 ## 6. 契约强制注册表扩展建议
 
