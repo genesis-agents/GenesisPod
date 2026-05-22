@@ -53,6 +53,29 @@ export function loadSkill(agentDir: string): ParsedSkill {
 
 export function clearSkillCache(): void {
   cache.clear();
+  formatCache.clear();
+}
+
+const formatCache = new Map<string, string>();
+
+/**
+ * 加载共享格式规范 `agents/_formats/<name>.md`（如微信公众号正文格式），
+ * 作为模板变量注入到 content-transformer / polish-reviewer 的 prompt（单一真源）。
+ * 文件缺失返回空串（调用方用 {{#if}} 兜底）。
+ */
+export function loadFormatSpec(name: string): string {
+  const cached = formatCache.get(name);
+  if (cached != null) return cached;
+  const filePath = path.resolve(
+    __dirname,
+    "..",
+    "agents",
+    "_formats",
+    `${name}.md`,
+  );
+  const raw = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
+  formatCache.set(name, raw);
+  return raw;
 }
 
 export function parseSkill(raw: string): ParsedSkill {

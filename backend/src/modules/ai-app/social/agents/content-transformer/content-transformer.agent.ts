@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
 import { buildPromptFromDuty } from "../../utils/duty-loader";
+import { loadFormatSpec } from "../../utils/skill-md-loader";
 
 const Input = z.object({
   platform: z.string(),
@@ -63,10 +64,16 @@ export class ContentTransformerAgent extends AgentSpec<
   typeof Output
 > {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
+    // 微信公众号正文格式从共享规范注入（单一真源，polish-reviewer 复用同一份）
+    const platformFormat =
+      input.platform === "WECHAT_MP" ? loadFormatSpec("wechat-mp") : "";
     return buildPromptFromDuty(
       "content-transformer",
       "transform-for-platform",
-      input as unknown as Record<string, unknown>,
+      {
+        ...(input as unknown as Record<string, unknown>),
+        platformFormat,
+      },
     );
   }
 }

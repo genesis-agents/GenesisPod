@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
 import { buildPromptFromDuty } from "../../utils/duty-loader";
+import { loadFormatSpec } from "../../utils/skill-md-loader";
 
 const Input = z.object({
   platform: z.string(),
@@ -60,10 +61,12 @@ export class PolishReviewerAgent extends AgentSpec<
   typeof Output
 > {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
-    return buildPromptFromDuty(
-      "polish-reviewer",
-      "polish-review",
-      input as unknown as Record<string, unknown>,
-    );
+    // 复审对照与 content-transformer 同一份《公众号格式规范》（单一真源，避免漂移）
+    const platformFormat =
+      input.platform === "WECHAT_MP" ? loadFormatSpec("wechat-mp") : "";
+    return buildPromptFromDuty("polish-reviewer", "polish-review", {
+      ...(input as unknown as Record<string, unknown>),
+      platformFormat,
+    });
   }
 }
