@@ -297,9 +297,23 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
 ### C6 `MissionInputRebuilder`（service）— P1
 
 - 现状：playground 自建 rerun 子系统；social 重拼 DTO；radar 业务重刷；**都不用 harness rerun primitive**。
-- 目标：`buildForFreshRun / buildForFullRerun(snapshot,patch?) / buildForIncrementalRerun(snapshot,checkpoint,patch?) / buildForLocalRerun(snapshot,targetStage,patch?)`，全部从 `MissionConfigSnapshot` 还原。
-- 落点：`ai-harness/lifecycle/mission-lifecycle/rerun/`（已有目录，扩 rebuilder）。
-- 红线：app 不得自己拼 budget/time/status 敏感字段。
+- 目标（★ G3 修订：`patch` 升为正式 canonical 类型契约，不是裸 `patch?` 宽口子）：
+  ```ts
+  // patch 是受白名单约束的 canonical 类型，不允许 app 自由扩展字段
+  interface MissionInputPatch {
+    budgetOverride?: Partial<Pick<ResolvedBudgetCaps, "maxCredits" | "budgetMultiplier">>;
+    runtimeLimitsOverride?: Partial<Pick<ResolvedRuntimeLimits, "wallTimeCapMs">>;
+    businessInputPatch?: AppBusinessInputPatch; // 受 app 声明的 patch schema 约束
+    // 不在白名单的字段 → 编译期/校验期红；status/failure 等终态敏感字段禁止 patch
+  }
+  buildForFreshRun(input): MissionConfigSnapshot
+  buildForFullRerun(snapshot, patch?: MissionInputPatch): MissionConfigSnapshot      // 产出新 versioned snapshot
+  buildForIncrementalRerun(snapshot, checkpoint, patch?: MissionInputPatch): ...
+  buildForLocalRerun(snapshot, targetStage, patch?: MissionInputPatch): ...
+  ```
+- **应用顺序钉死（G3）**：`snapshot → apply MissionInputPatch（白名单校验）→ policy re-resolve（budget/limits 重解析）→ 产出新 versioned snapshot（schemaVersion++/parentSnapshotId，G2）`。**不允许** "snapshot-resolved → patch-final" 的旁路就地改。
+- 落点：`ai-harness/lifecycle/mission-lifecycle/rerun/`（已有目录，扩 rebuilder + `MissionInputPatch` 类型）。
+- 红线：app 不得自己拼 budget/time/status 敏感字段；patch 只能走 canonical `MissionInputPatch` 白名单。
 
 ### C7 `CanonicalMissionState`（三层状态）— **拆波次**（G1：终态写权+最小值域 P0 前置 / presentation P2）
 
