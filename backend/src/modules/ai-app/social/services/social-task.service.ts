@@ -401,6 +401,15 @@ export class SocialTaskService {
         } | null;
       } | null;
       const raw = traj?.contentRaw ?? null;
+      // 参考源文：从任务的来源（含 title/url）+ 外链装配「参考资料」区，附到正文末尾
+      const taskRow = await this.prisma.socialContentTask.findUnique({
+        where: { id: taskId },
+        select: {
+          externalUrls: true,
+          sources: { select: { title: true, url: true } },
+        },
+      });
+      const referenceBlock = this.buildReferenceBlock(taskRow);
       for (const platform of platforms) {
         // 内容兜底链：编排后正文(s6) → 平台改写正文(s3) → 原文 —— 绝不让报告空。
         // 之前只取 composed.bodyHtml，s6 一失败 content="" 就被 skip，报告永空。
@@ -419,6 +428,11 @@ export class SocialTaskService {
         const coverMediaId = traj?.covers?.[platform]?.thumbMediaId ?? null;
         // 无正文不落库（避免写出 title="(未命名)" + 空正文的空报告，前端反而显示"生成中"）
         if (!content) continue;
+        // 正文末尾附「参考资料」（去重：正文已含「参考资料」则不重复加）
+        const finalContent =
+          referenceBlock && !content.includes("参考资料")
+            ? `${content}\n${referenceBlock}`
+            : content;
         // 发布状态 → 版本状态（之前硬编码 DRAFT_READY，看不出真实发布结果）
         const pubStatus = traj?.published?.[platform]?.status;
         const status =
@@ -433,7 +447,7 @@ export class SocialTaskService {
             taskId,
             platform,
             title: title || "(未命名)",
-            content,
+            content: finalContent,
             digest,
             coverImageUrl,
             coverMediaId,
@@ -442,7 +456,7 @@ export class SocialTaskService {
           },
           update: {
             title: title || "(未命名)",
-            content,
+            content: finalContent,
             digest,
             coverImageUrl,
             coverMediaId,
@@ -457,6 +471,43 @@ export class SocialTaskService {
         }`,
       );
     }
+  }
+
+  /** 从任务来源（title/url）+ 外链装配 HTML「参考资料」区；HTML 转义 + 仅放行 http/https */
+  private buildReferenceBlock(
+    task: {
+      externalUrls: string[];
+      sources: { title: string | null; url: string | null }[];
+    } | null,
+  ): string {
+    if (!task) return "";
+    const esc = (s: string): string =>
+      s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    const isHttp = (u: string | null): u is string =>
+      !!u && /^https?:\/\//i.test(u);
+    const items: string[] = [];
+    for (const s of task.sources) {
+      if (isHttp(s.url)) {
+        items.push(
+          `<li><a href="${esc(s.url)}" target="_blank" rel="noreferrer">${esc(s.title || s.url)}</a></li>`,
+        );
+      } else if (s.title) {
+        items.push(`<li>${esc(s.title)}</li>`);
+      }
+    }
+    for (const u of task.externalUrls) {
+      if (isHttp(u)) {
+        items.push(
+          `<li><a href="${esc(u)}" target="_blank" rel="noreferrer">${esc(u)}</a></li>`,
+        );
+      }
+    }
+    if (items.length === 0) return "";
+    return `<h2>参考资料</h2>\n<ul>\n${items.join("\n")}\n</ul>`;
   }
 
   private async recomputeTaskStatus(taskId: string): Promise<void> {
