@@ -47,12 +47,16 @@ export class ContentTransformerService {
     let chosen = first;
     let events: IAgentEvent[] = [...first.events];
 
-    // 公众号成稿「字数/结构」硬校验：不达标强制重试一次，取更优。
-    // 这是"要求"而非"建议"——短源也必须展开成 ≥800 字 + ≥3 小标题的长文。
+    // 公众号成稿「字数/结构」硬校验：不达标强制重试一次（注入扩写指令），取更优。
+    // 这是"要求"而非"建议"——短源也必须展开成 ≥2000 字 + ≥3 小标题的长文。
     if (this.belowWechatFloor(first.output, args.input.platform)) {
+      const priorChars = this.bodyChars(first.output);
       const retry = await this.invoker.invoke(
         ContentTransformerAgent,
-        args.input,
+        {
+          ...args.input,
+          expandDirective: `上一稿正文仅约 ${priorChars} 字、内容简陋。必须大幅扩写到 2000 字以上：把每个要点单独成节深入展开、用通俗类比解释每个概念、补背景与意义，绝不可几句带过；不得编造新事实 / 数据。`,
+        },
         args.ctx,
       );
       events = [...events, ...retry.events];
@@ -79,14 +83,14 @@ export class ContentTransformerService {
     };
   }
 
-  /** 微信公众号长文硬要求：正文 ≥ 800 字（去标签去空白）+ ≥ 3 个小标题 */
+  /** 微信公众号长文硬要求：正文 ≥ 1500 字（去标签去空白）+ ≥ 3 个小标题 */
   private belowWechatFloor(out: unknown, platform: string): boolean {
     if (platform !== "WECHAT_MP") return false;
     const body = (out as ContentTransformerOutput | undefined)?.body;
     if (!body) return false;
     const headings = (body.match(/(^|\n)\s*#{1,6}\s|<h[1-6][\s>]/gi) ?? [])
       .length;
-    return this.bodyChars(out) < 800 || headings < 3;
+    return this.bodyChars(out) < 1500 || headings < 3;
   }
 
   private bodyChars(out: unknown): number {

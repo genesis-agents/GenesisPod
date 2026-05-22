@@ -205,11 +205,11 @@ describe("ContentTransformerService", () => {
   describe("run — WeChat 字数/结构硬校验", () => {
     const longBody =
       "## 小标题一\n" +
-      "字".repeat(400) +
+      "字".repeat(700) +
       "\n## 小标题二\n" +
-      "字".repeat(400) +
+      "字".repeat(700) +
       "\n## 小标题三\n" +
-      "字".repeat(100);
+      "字".repeat(400);
 
     function res(state: string, platform: string, body: string, evt: string) {
       return {

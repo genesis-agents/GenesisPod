@@ -22,6 +22,8 @@ const Input = z.object({
     schemaVersion: z.string(),
   }),
   qualityBar: z.enum(["quick", "standard", "deep"]),
+  /** 重试扩写指令：上一稿过短时由 service 注入，要求大幅扩写（见 SKILL 自查段） */
+  expandDirective: z.string().optional(),
 });
 
 const Output = z.object({
