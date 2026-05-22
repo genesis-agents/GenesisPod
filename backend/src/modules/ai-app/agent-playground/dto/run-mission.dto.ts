@@ -4,6 +4,7 @@ import {
   SEARCH_TIME_RANGE_VALUES,
   type SearchTimeRange,
 } from "@/common/search/search-time-range";
+import { CREDITS_TO_USD } from "@/modules/ai-harness/facade";
 
 /**
  * 预算档位 —— 给前端 UI 选档用的语义标签。
@@ -185,7 +186,8 @@ export function listBudgetTiers(): BudgetTierView[] {
       maxCredits: t.maxCredits,
       budgetMultiplier: t.budgetMultiplier,
       wallTimeMinutes: Math.round(t.wallTimeMs / 60_000),
-      capUsd: Math.round(t.maxCredits * 0.002),
+      // ★ C3a/G4：换算走 canonical 常量(额度代理值,非真实成本),删散落 0.002 字面量。
+      capUsd: Math.round(t.maxCredits * CREDITS_TO_USD),
     };
   });
 }
