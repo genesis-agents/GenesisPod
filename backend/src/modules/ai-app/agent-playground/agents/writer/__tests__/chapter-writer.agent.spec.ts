@@ -14,6 +14,7 @@ import {
   assertNumberProducerWithinSchema,
 } from "../../../../../ai-harness/agents/dev-tools";
 import { ChapterWriterAgent } from "../chapter-writer.agent";
+import { CHAPTER_WORDS_PER_CHAPTER_RANGE } from "../../../contracts/word-budget.contract";
 
 const meta = readDefineAgentMeta(ChapterWriterAgent)!;
 const inputSchema = meta.inputSchema as z.ZodType;
@@ -66,8 +67,8 @@ describe("ChapterWriterAgent", () => {
       const r = assertNumberProducerWithinSchema({
         agent: ChapterWriterAgent,
         field: "targetWords",
-        producerMin: 400,
-        producerMax: 12000,
+        producerMin: CHAPTER_WORDS_PER_CHAPTER_RANGE.min,
+        producerMax: CHAPTER_WORDS_PER_CHAPTER_RANGE.max,
       });
       expect(r.ok ? "" : r.reason).toBe("");
       expect(r.ok).toBe(true);

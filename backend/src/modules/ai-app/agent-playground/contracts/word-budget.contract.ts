@@ -42,6 +42,18 @@ export const LENGTH_DENSITY_MULTIPLIER: Record<
 export const MISSION_TOTAL_WORDS_CAP = 400_000;
 
 /**
+ * 每章字数生产方范围（单一源）：覆盖两个生产方的并集——
+ *   - per-dim-pipeline targetWordsPerChapter: [400, 8000]
+ *   - s7 normalizeTargetWords: [500, 12000]
+ * 并集 = [400, 12000]，必须 ⊆ chapter-writer / single-shot-writer 的 targetWords schema。
+ * 契约注册表 + 生产方 clamp 都引用它，杜绝"测试字面量 vs 生产方字面量"软缝。
+ */
+export const CHAPTER_WORDS_PER_CHAPTER_RANGE = {
+  min: 400,
+  max: 12_000,
+} as const;
+
+/**
  * 报告总字数单一权威：depthBase × lengthProfile 倍率,夹到 sane 上限。
  * 全管线(per-dim / outline)+ 前端展示都从此函数取,不再各算各的。
  */
