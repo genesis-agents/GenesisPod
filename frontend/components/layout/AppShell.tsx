@@ -1,8 +1,11 @@
 'use client';
 
+import type { CSSProperties } from 'react';
+import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
 import { ByokOnboardingBanner } from '@/components/common/byok/ByokOnboardingBanner';
+import { MODULE_THEMES, moduleFromPath } from '@/lib/design/module-themes';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -28,6 +31,17 @@ export default function AppShell({
   className = '',
   hideSidebar = false,
 }: AppShellProps) {
+  // 按当前模块覆盖主内容区的 --primary / --ring CSS 变量：让该模块页面内所有
+  // bg-primary 主按钮 / focus ring 自动变成模块识别色（与菜单一致），无需改 Button。
+  // 仅作用于主内容，不含侧边栏（侧边栏每个菜单各自上色）。
+  const pathname = usePathname();
+  const moduleKey = moduleFromPath(pathname);
+  const themeStyle: CSSProperties | undefined = moduleKey
+    ? ({
+        '--primary': MODULE_THEMES[moduleKey].primaryHsl,
+        '--ring': MODULE_THEMES[moduleKey].primaryHsl,
+      } as CSSProperties)
+    : undefined;
   return (
     <>
       {/* Mobile Navigation - Only visible on small screens */}
@@ -40,7 +54,7 @@ export default function AppShell({
           {!hideSidebar && <Sidebar />}
 
           {/* Main Content */}
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col" style={themeStyle}>
             {/* BYOK 引导横幅（未配置 Key 时温和提示）—— empty:hidden 确保
                 banner 不显示时不占 padding 高度，避免主内容底部内容被裁切 */}
             <div className="px-4 pt-3 md:px-6 [&:empty]:hidden [&:has(>:empty)]:hidden">

@@ -103,6 +103,33 @@ mission 类功能的主页/详情另见 [21-agent-teams-presentation.md](21-agen
 
 ---
 
+## 2.6 模块识别色体系（SSOT，2026-05-22）
+
+> **原则**：骨架统一（圆角 ≤ rounded-xl / 弹框外壳 / 间距 / 组件复用 全站一致），
+> **识别色按模块区分**——每个菜单一个主色调。颜色唯一事实源是
+> `frontend/lib/design/module-themes.ts`，**禁止**在 feature 里散落硬编码
+> `bg-{hue}-50` / `from-x to-y` / 随机激活色。
+
+**色系分配（13 菜单）**：ask=blue · explore=sky · library=teal · radar=cyan ·
+insights=indigo · research=purple · discuss(ai-teams)=amber · planning=orange ·
+decision(ai-simulation)=red · report(ai-office)=emerald · writing=fuchsia ·
+social=rose · playground=violet。
+
+**接入方式（已落地，新代码照此）**：
+
+| 表面                | 怎么拿模块色                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| 侧边栏菜单激活态    | 读 `MODULE_THEMES[key].activeBg/text`（图标 `currentColor` 自动跟随）                |
+| 主页 hero           | `PageHeaderHero` 按 `moduleFromPath(pathname)` 自动上色（零页改动）                  |
+| 详情页头部          | `MissionDetailFrame` 同样按路由自动取 `gradient`                                     |
+| 主按钮 / focus ring | `AppShell` 按路由覆盖 `--primary`/`--ring` CSS 变量 → 全页 `bg-primary` 自动变模块色 |
+
+**MUST / MUST NOT**：
+
+- 新增模块 → 在 `module-themes.ts` 补一整行（含 `gradient` + `primaryHsl`）+ 在 `ROUTE_MODULE` 注册路由；不要在组件里写色。
+- 不得在 feature 内联模块识别色（`bg-rose-50`/`from-violet-500` 等）——一律走注册表。
+- 骨架色（中性灰阶、边框、surface）与语义色（done/failed/danger）不属于模块识别色，照旧用 `tokens.ts`。
+
 ## 3. 例外审批流程（MUST）
 
 ```

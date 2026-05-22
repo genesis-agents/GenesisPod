@@ -17,24 +17,11 @@ import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { MODULE_THEMES, type ModuleKey } from '@/lib/design/module-themes';
-
-/** 路由前缀 → 模块 key：主页 hero 自动按菜单色上色，无需每页手传 */
-const ROUTE_MODULE: { prefix: string; key: ModuleKey }[] = [
-  { prefix: '/ai-ask', key: 'ask' },
-  { prefix: '/explore', key: 'explore' },
-  { prefix: '/library', key: 'library' },
-  { prefix: '/ai-radar', key: 'radar' },
-  { prefix: '/ai-insights', key: 'insights' },
-  { prefix: '/ai-research', key: 'research' },
-  { prefix: '/ai-teams', key: 'discuss' },
-  { prefix: '/ai-planning', key: 'planning' },
-  { prefix: '/ai-simulation', key: 'decision' },
-  { prefix: '/ai-office', key: 'report' },
-  { prefix: '/ai-writing', key: 'writing' },
-  { prefix: '/ai-social', key: 'social' },
-  { prefix: '/agent-playground', key: 'playground' },
-];
+import {
+  MODULE_THEMES,
+  moduleFromPath,
+  type ModuleKey,
+} from '@/lib/design/module-themes';
 
 export interface PageHeaderHeroProps {
   /** 主标题（"AI 雷达" / "AI 洞察" / "Agent Playground"） */
@@ -91,10 +78,7 @@ export function PageHeaderHero({
 }: PageHeaderHeroProps) {
   const pathname = usePathname();
   // 优先级：显式 module > 路由匹配的模块 > 调用方 iconGradient（默认紫）
-  const routeKey = ROUTE_MODULE.find((r) =>
-    pathname?.startsWith(r.prefix)
-  )?.key;
-  const themeKey = module ?? routeKey;
+  const themeKey = module ?? moduleFromPath(pathname);
   const effectiveGradient = themeKey
     ? MODULE_THEMES[themeKey].gradient
     : iconGradient;
