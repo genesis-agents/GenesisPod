@@ -669,7 +669,7 @@ export default function ReaderView({
                 {/* 摘要 - 突出显示 */}
                 {article.excerpt && (
                   <p
-                    className={`mt-4 border-l-4 border-blue-500 pl-4 text-base italic leading-relaxed ${currentTheme.secondary}`}
+                    className={`mt-4 border-l-4 border-[hsl(var(--primary))] pl-4 text-base italic leading-relaxed ${currentTheme.secondary}`}
                   >
                     {article.excerpt}
                   </p>

@@ -860,7 +860,7 @@ export default function TextSelectionToolbar({
               </div>
 
               {/* Preview */}
-              <div className="mb-3 max-h-24 overflow-y-auto rounded-lg border-l-4 border-blue-400 bg-blue-50 p-2">
+              <div className="mb-3 max-h-24 overflow-y-auto rounded-lg border-l-4 border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.06)] p-2">
                 <p className="text-xs text-gray-700">{clipboardText}</p>
               </div>
 
