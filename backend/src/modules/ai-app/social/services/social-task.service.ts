@@ -10,6 +10,10 @@ import {
   SocialContentType,
   SocialPlatformType,
 } from "@prisma/client";
+import {
+  outcomeFromStatus,
+  type MissionTerminalOutcome,
+} from "@/modules/ai-harness/facade";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialDataSourceRegistry } from "../registry/social-data-source.registry";
 import { ContentFetcherService } from "./content-fetcher.service";
@@ -73,6 +77,10 @@ export class SocialTaskService {
   ): Promise<{
     missionId: string | null;
     status: string | null;
+    /** ★ C7:平台终态 outcome(status 投影,非终态为 null)。 */
+    terminalOutcome: MissionTerminalOutcome | null;
+    /** ★ C2:canonical failure code(失败时)。 */
+    failureCode: string | null;
     tokensUsed: number;
     costUsd: number;
     elapsedWallTimeMs: number | null;
@@ -88,6 +96,8 @@ export class SocialTaskService {
       return {
         missionId: null,
         status: null,
+        terminalOutcome: null,
+        failureCode: null,
         tokensUsed: 0,
         costUsd: 0,
         elapsedWallTimeMs: null,
@@ -99,6 +109,7 @@ export class SocialTaskService {
       where: { id: task.missionId, userId },
       select: {
         status: true,
+        failureCode: true,
         tokensUsed: true,
         costUsd: true,
         elapsedWallTimeMs: true,
@@ -109,6 +120,8 @@ export class SocialTaskService {
     return {
       missionId: task.missionId,
       status: m?.status ?? null,
+      terminalOutcome: outcomeFromStatus(m?.status),
+      failureCode: m?.failureCode ?? null,
       tokensUsed: m?.tokensUsed != null ? Number(m.tokensUsed) : 0,
       costUsd: m?.costUsd ?? 0,
       elapsedWallTimeMs: m?.elapsedWallTimeMs ?? null,

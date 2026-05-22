@@ -21,6 +21,8 @@ import { EmbeddingService } from "@/modules/ai-engine/facade";
 import {
   MissionAbortRegistry,
   MissionAbortReason,
+  outcomeFromStatus,
+  type MissionTerminalOutcome,
 } from "@/modules/ai-harness/facade";
 import { MissionLifecycleHelper } from "./mission-lifecycle.helper";
 import { MissionUpdateHelper } from "./mission-update.helper";
@@ -46,6 +48,10 @@ export interface MissionListItem {
 }
 
 export interface MissionDetail extends MissionListItem {
+  /** ★ C7:平台终态 outcome(status 投影,非终态 null)。 */
+  terminalOutcome: MissionTerminalOutcome | null;
+  /** ★ C2:canonical failure code(失败时)。 */
+  failureCode: string | null;
   maxCredits: number;
   themeSummary: string | null;
   dimensions: unknown;
@@ -515,6 +521,8 @@ export class MissionStore {
       reportTitle: row.reportTitle,
       reportSummary: row.reportSummary,
       errorMessage: row.errorMessage,
+      terminalOutcome: outcomeFromStatus(row.status),
+      failureCode: row.failureCode ?? null,
       maxCredits: row.maxCredits,
       themeSummary: row.themeSummary,
       dimensions: row.dimensions,
