@@ -418,7 +418,10 @@ export {
 // ★ 2026-05-01: MissionAbortRegistry / MissionOwnershipRegistry 从 ai-app/{app} 上提
 //   两个纯通用 in-memory registry primitive（abort signal 管理 / mission→user ownership LRU），
 //   跨 ai-app 复用（research / writing / teams 任何长任务编排都需要）
-export { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
+export {
+  MissionAbortRegistry,
+  MissionAbortReason,
+} from "../lifecycle/mission-lifecycle/abort-registry";
 export { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
 // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
 export { MissionRuntimeShellFramework } from "../teams/business-team/lifecycle/mission-runtime-shell.framework";

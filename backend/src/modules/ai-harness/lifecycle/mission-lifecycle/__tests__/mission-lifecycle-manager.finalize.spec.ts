@@ -11,7 +11,7 @@ import {
   type MissionTerminalArbiter,
   type MissionTerminalIntent,
 } from "../mission-lifecycle-manager";
-import { MissionAbortRegistry } from "../abort-registry";
+import { MissionAbortRegistry, MissionAbortReason } from "../abort-registry";
 
 /**
  * 内存版条件写 arbiter，模拟 `UPDATE ... WHERE status='running'` 的原子语义：
@@ -69,7 +69,10 @@ describe("MissionLifecycleManager.finalize (C0/G1)", () => {
     const onWon = jest.fn().mockResolvedValue(undefined);
     const res = await manager.finalize({
       missionId: "m1",
-      intent: { status: "cancelled", reason: "user_cancelled" },
+      intent: {
+        status: "cancelled",
+        reason: MissionAbortReason.user_cancelled,
+      },
       arbiter,
       onWon,
     });
@@ -85,8 +88,12 @@ describe("MissionLifecycleManager.finalize (C0/G1)", () => {
     // dispatcher budget_exhausted + controller user_cancelled + liveness fallback 几乎同时
     const intents: MissionTerminalIntent[] = [
       { status: "failed", failureCode: "budget_exhausted" },
-      { status: "cancelled", reason: "user_cancelled" },
-      { status: "failed", failureCode: "runtime_crashed", reason: "liveness" },
+      { status: "cancelled", reason: MissionAbortReason.user_cancelled },
+      {
+        status: "failed",
+        failureCode: "runtime_crashed",
+        reason: MissionAbortReason.orchestrator_shutdown,
+      },
     ];
     const results = await Promise.all(
       intents.map((intent) =>
@@ -107,7 +114,10 @@ describe("MissionLifecycleManager.finalize (C0/G1)", () => {
     const arbiter = new InMemoryArbiter();
     await m.finalize({
       missionId: "m2",
-      intent: { status: "cancelled", reason: "user_cancelled" },
+      intent: {
+        status: "cancelled",
+        reason: MissionAbortReason.user_cancelled,
+      },
       arbiter,
       abort: true,
     });

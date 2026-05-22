@@ -34,6 +34,7 @@ import type {
 } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
+import { MissionAbortReason } from "@/modules/ai-harness/facade";
 import {
   extractAgentFailureDiagnostic,
   extractFailureMessage,
@@ -191,7 +192,7 @@ export async function runResearcherDispatchStage(
     //   stage 内部的 await 立即看到 abort signal 失败。之前只 emit 不 abort，
     //   mission 会继续到 wall-time 4h 才超时，浪费时间 + token。
     // abort 不依赖 emit 成功，独立执行。
-    deps.abortRegistry.abort(missionId, "budget_exhausted");
+    deps.abortRegistry.abort(missionId, MissionAbortReason.budget_exhausted);
   }
 }
 
