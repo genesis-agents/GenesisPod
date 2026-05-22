@@ -40,6 +40,8 @@ export interface MarkFailedDetail {
   tokensUsed?: number;
   costUsd?: number;
   wallTimeMs?: number;
+  /** ★ C2/G3：canonical MissionFailureCode 值，落 DB failure_code 列。 */
+  failureCode?: string;
 }
 
 @Injectable()
@@ -123,6 +125,7 @@ export class SocialMissionStore {
           status: "failed",
           completedAt: new Date(),
           errorMessage: detail.errorMessage.slice(0, 4000),
+          failureCode: detail.failureCode ?? null,
           tokensUsed:
             detail.tokensUsed != null ? BigInt(detail.tokensUsed) : null,
           costUsd: detail.costUsd ?? null,

@@ -59,6 +59,7 @@ import {
   MissionOwnershipRegistry,
   FailureLearnerService,
   PostmortemClassifierService,
+  MissionFailureCode,
 } from "@/modules/ai-harness/facade";
 import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
 import type {
@@ -656,18 +657,20 @@ export class SocialPipelineDispatcher implements OnModuleInit {
     const message =
       err instanceof Error ? err.message : String(err ?? "unknown");
     const errName = err instanceof Error ? err.name : "Unknown";
-    let failureCode = "PROVIDER_API_ERROR";
+    // ★ C2/G3：canonical MissionFailureCode（取代 inline 4 码字符串「不落库」）。落 DB failure_code。
+    let failureCode: MissionFailureCode = MissionFailureCode.provider_error;
     if (errName === "StageAbortError" || /aborted|cancelled/i.test(message)) {
-      failureCode = "MISSION_ABORTED";
+      failureCode = MissionFailureCode.user_cancelled;
     } else if (/timeout|timed out/i.test(message)) {
-      failureCode = "RUNNER_WALL_TIME_EXCEEDED";
-    } else if (/rate.?limit|429/i.test(message)) {
-      failureCode = "PROVIDER_RATE_LIMIT";
+      failureCode = MissionFailureCode.wall_time_exceeded;
+    } else if (/budget|exhaust/i.test(message)) {
+      failureCode = MissionFailureCode.budget_exhausted;
     }
     await this.store
       .markFailed(missionId, {
         errorMessage: message,
         wallTimeMs: Date.now() - t0,
+        failureCode,
       })
       .catch(() => undefined);
     await this.eventBus
