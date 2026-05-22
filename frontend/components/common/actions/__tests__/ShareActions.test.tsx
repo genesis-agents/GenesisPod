@@ -31,7 +31,7 @@ describe('ShareActions', () => {
 
   it('calls clipboard.writeText when copy link is clicked', async () => {
     render(<ShareActions {...defaultProps} />);
-    const copyBtns = screen.getAllByLabelText('copy link');
+    const copyBtns = screen.getAllByLabelText('复制链接');
     fireEvent.click(copyBtns[0]);
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
       expect.stringContaining(defaultProps.title)
@@ -52,7 +52,7 @@ describe('ShareActions', () => {
   it('calls onCopySuccess after copy', async () => {
     const onCopySuccess = jest.fn();
     render(<ShareActions {...defaultProps} onCopySuccess={onCopySuccess} />);
-    const copyBtns = screen.getAllByLabelText('copy link');
+    const copyBtns = screen.getAllByLabelText('复制链接');
     fireEvent.click(copyBtns[0]);
     // wait microtask
     await Promise.resolve();
