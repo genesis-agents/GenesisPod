@@ -341,6 +341,19 @@ export class ReActLoop implements IAgentLoop {
     let consecutiveEmptyLLM = 0;
     let lastModelId: string | undefined;
 
+    // ★ 2026-05-22 P0：可恢复错误（rate-limit/429）的有界退避重试。
+    //   只对 recoveryHint.action==="retry" 生效；连续重试有上限（断路器，
+    //   对齐 Claude Code 反向洞察 #5 的 MAX_CONSECUTIVE_FAILURES=3），且每次
+    //   reason() 成功即清零（只数"连续"失败）。retry 走 continue 不触发 stop
+    //   hook，叠加 maxIterations 双重夹逼，杜绝反向洞察 #4 的 retry 死循环。
+    let consecutiveRecoverableRetries = 0;
+    const MAX_RECOVERABLE_RETRIES = parsePositiveIntEnv(
+      process.env.REACT_MAX_RECOVERABLE_RETRIES,
+      3,
+    );
+    const RECOVERABLE_RETRY_BASE_MS = 1000;
+    const RECOVERABLE_RETRY_CAP_MS = 10_000;
+
     // ─── Phase P0-2: 多重出口闸 ─────────────────────────────────
     /** Wall-time 监控（mission-pipeline-exit-policy.md D9）—— 默认 180s/stage */
     const wallTimeStart = Date.now();
@@ -680,6 +693,8 @@ export class ReActLoop implements IAgentLoop {
           decision = reasoned.decision;
           usage = reasoned.usage;
           if (usage.modelId) lastModelId = usage.modelId;
+          // reason() 成功返回 → 清零连续可恢复重试计数（只数"连续"失败）
+          consecutiveRecoverableRetries = 0;
           // ★ Claude Code P0-2: 保存原始 content + parse 状态，供后段终止判定使用
           lastIterRawContent = reasoned.rawContent;
           lastIterHadParseError = !!reasoned.parseError;
@@ -896,6 +911,43 @@ export class ReActLoop implements IAgentLoop {
           this.logger.error(
             `[${agentId}] iter=${iteration} ${loggedCode} — ${message}`,
           );
+
+          // ★ 2026-05-22 P0：可恢复错误（rate-limit/429）有界退避重试，而非直接终止。
+          //   单模型/单 key 部署下 429 几乎必现，以前这里直接 return 终态把整段 mission
+          //   判废。仅 action==="retry" 生效（quota→notify_user、model_not_found、
+          //   context_too_long 等仍走下面的终态）；连续重试上限 + 退避上限 + 仍有迭代
+          //   预算才重试；continue 不触发 finally 的 stop hook（区别于终态 return）。
+          if (
+            !aborted &&
+            recoveryHint?.action === "retry" &&
+            consecutiveRecoverableRetries < MAX_RECOVERABLE_RETRIES &&
+            iteration < criteria.maxIterations
+          ) {
+            consecutiveRecoverableRetries += 1;
+            const backoffMs = Math.min(
+              recoveryHint.retryAfterMs ??
+                RECOVERABLE_RETRY_BASE_MS *
+                  2 ** (consecutiveRecoverableRetries - 1),
+              RECOVERABLE_RETRY_CAP_MS,
+            );
+            this.logger.warn(
+              `[${agentId}] iter=${iteration} ${failureCode} — recoverable, ` +
+                `retry ${consecutiveRecoverableRetries}/${MAX_RECOVERABLE_RETRIES} after ${backoffMs}ms`,
+            );
+            yield this.makeEvent(agentId, "error", {
+              message,
+              recoverable: true,
+              failureCode,
+              diagnostic: {
+                modelId: lastModelId,
+                iteration,
+                retryAttempt: consecutiveRecoverableRetries,
+                backoffMs,
+              },
+            });
+            await new Promise((r) => setTimeout(r, backoffMs));
+            continue;
+          }
 
           yield this.makeEvent(agentId, "error", {
             message,

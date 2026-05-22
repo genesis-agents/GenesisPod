@@ -156,11 +156,14 @@ describe("ModelElectionService", () => {
       expect(res.elected.modelId).toBe("claude-sonnet-4-0");
     });
 
-    it("全过滤完抛 NoEligibleModelError，包含统计细节", async () => {
+    it("无 type 匹配候选时抛 NoEligibleModelError，包含统计细节", async () => {
+      // type 不匹配 → typeMatched=0 → 无 last-resort 可退 → 仍按统计细节硬抛
       try {
         await service.elect(
           baseRequest({
-            candidates: [cand({ modelId: "gpt-4o", healthy: "unhealthy" })],
+            candidates: [
+              cand({ modelId: "emb", modelType: AIModelType.EMBEDDING }),
+            ],
           }),
         );
         fail("should have thrown");
@@ -170,6 +173,42 @@ describe("ModelElectionService", () => {
         expect(e.message).toContain("pool=1");
         expect(e.message).toContain("healthy=0");
       }
+    });
+
+    it("唯一候选不健康时退回 last-resort 而非硬抛（单模型保命）", async () => {
+      // ★ 2026-05-22 单模型部署根因修复：唯一模型 errorRate≥0.5 / unhealthy 时
+      //   不再清空抛 NoEligibleModelError 把整个 mission 判废，而是退回该候选（降级），
+      //   交给上层 react-loop 退避重试。
+      modelConfigService.getModelConfig.mockResolvedValue(
+        makeConfig({ modelId: "grok-4-1-fast", provider: "xai" }),
+      );
+      const res = await service.elect(
+        baseRequest({
+          candidates: [
+            cand({
+              modelId: "grok-4-1-fast",
+              provider: "xai",
+              recentErrorRate: 0.9,
+            }),
+          ],
+        }),
+      );
+      expect(res.elected.modelId).toBe("grok-4-1-fast");
+    });
+
+    it("有健康候选时不触发 last-resort：跳过不健康只选健康", async () => {
+      modelConfigService.getModelConfig.mockImplementation((id: string) =>
+        Promise.resolve(makeConfig({ modelId: id })),
+      );
+      const res = await service.elect(
+        baseRequest({
+          candidates: [
+            cand({ modelId: "bad-m", recentErrorRate: 0.9 }),
+            cand({ modelId: "healthy-m", recentErrorRate: 0.0 }),
+          ],
+        }),
+      );
+      expect(res.elected.modelId).toBe("healthy-m");
     });
   });
 

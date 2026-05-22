@@ -133,11 +133,15 @@ export async function runPerDimPipeline(
     depth === "quick" ? 10000 : depth === "deep" ? 150000 : 40000;
   const dimTargetWords = Math.round(missionTarget / dimCount);
   const idealChapters = depth === "quick" ? 2 : depth === "deep" ? 7 : 4;
+  // ★ 2026-05-22 质量保底章节数：供给偏少时也不让维度塌成 1 章（受 uniqueSources 夹逼，
+  //   不会产生 0 来源空章；每章引用下限由 deriveCitationFloor 自适应）。
+  const minChapters = depth === "quick" ? 2 : depth === "deep" ? 4 : 3;
   const naivePerChapter = Math.round(dimTargetWords / idealChapters);
-  const targetWordsPerChapter = Math.max(400, Math.min(naivePerChapter, 8000));
+  // 仅用于推导"按字数算的章节数上限"——非最终给 writer 的每章字数（见 targetWordsPerChapter）。
+  const naiveWordsPerChapter = Math.max(400, Math.min(naivePerChapter, 8000));
   const wordBasedChapterCount = Math.max(
     3,
-    Math.min(25, Math.round(dimTargetWords / targetWordsPerChapter)),
+    Math.min(25, Math.round(dimTargetWords / naiveWordsPerChapter)),
   );
   // ★ 2026-05-21 P2 Evidence Contract（单一权威）：按采集到的真实来源供给给章节数
   //   封顶，保证每章能满足 reviewer 的引用下限 —— 治"采得少却开 N 章 → 审核结构性
@@ -147,8 +151,14 @@ export async function runPerDimPipeline(
     1,
     Math.min(
       wordBasedChapterCount,
-      deriveMaxChapters(evidenceBudget, idealChapters),
+      deriveMaxChapters(evidenceBudget, idealChapters, minChapters),
     ),
+  );
+  // ★ 2026-05-22：每章字数目标按"实际章节数"算，而非 idealChapters。章节被证据封顶
+  //   降到 N 章时，每章应分到 dimTargetWords/N 的字数,否则 writer 拿到偏小目标 → 全文偏薄。
+  const targetWordsPerChapter = Math.max(
+    400,
+    Math.min(8000, Math.round(dimTargetWords / targetChapterCount)),
   );
   const dimAgentTag = `researcher#${dimensionIdx}`;
 
