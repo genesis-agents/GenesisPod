@@ -882,6 +882,13 @@ export type {
 // Runtime: mission + budget + billing + kernel-api
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { MissionBudgetPool } from "../guardrails/budget/mission-budget-pool";
+// ★ 2026-05-22 C3a/G4: 预算额度 canonical 值对象（私有构造+工厂,唯一换算处）
+export {
+  ResolvedBudgetCaps,
+  CREDITS_TO_TOKENS,
+  CREDITS_TO_USD,
+} from "../guardrails/budget/resolved-budget-caps";
+export type { BudgetCapsSource } from "../guardrails/budget/resolved-budget-caps";
 export { BillingRuntimeEnvAdapter } from "../guardrails/billing/billing-adapter";
 export { MissionExecutorService } from "../lifecycle/manager/mission-executor.service";
 export type {
