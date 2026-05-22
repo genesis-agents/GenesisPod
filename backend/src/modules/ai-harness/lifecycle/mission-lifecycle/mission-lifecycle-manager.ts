@@ -23,7 +23,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { MissionAbortRegistry } from "./abort-registry";
+import { MissionAbortRegistry, MissionAbortReason } from "./abort-registry";
 
 /**
  * ★ C0 / G1（2026-05-22）：最小平台 mission 状态值域（single source of truth）。
@@ -47,7 +47,7 @@ export type MissionTerminalStatus = "completed" | "failed" | "cancelled";
  */
 export interface MissionTerminalIntent {
   readonly status: MissionTerminalStatus;
-  readonly reason?: string;
+  readonly reason?: MissionAbortReason;
   readonly failureCode?: string;
   readonly errorMessage?: string;
   readonly extra?: Readonly<Record<string, unknown>>;
@@ -117,7 +117,10 @@ export class MissionLifecycleManager {
 
     // 1. abort signal —— 让 in-flight LLM / tool call 立即中断（幂等，多次 abort 无害）
     if (abort) {
-      this.abortRegistry.abort(missionId, intent.reason ?? intent.status);
+      this.abortRegistry.abort(
+        missionId,
+        intent.reason ?? MissionAbortReason.user_cancelled,
+      );
     }
 
     // 2. 条件写仲裁（首写者赢）
@@ -167,7 +170,8 @@ export class MissionLifecycleManager {
   }): Promise<{ ok: true; status: "cancelled" }> {
     const { missionId, userId, reason, message, store, broadcaster } = args;
     // 1. abort signal — 让 in-flight LLM / tool call 立即中断
-    this.abortRegistry.abort(missionId, reason);
+    // @deprecated 路径：reason 仍是 string，cast 到 enum（合法 reason 值一致）；本方法待移除。
+    this.abortRegistry.abort(missionId, reason as MissionAbortReason);
 
     // 2. DB 状态切 cancelled
     await store.markCancelled(missionId);

@@ -49,7 +49,10 @@ import {
 } from "@/modules/ai-harness/facade";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
-import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
+import {
+  MissionAbortRegistry,
+  MissionAbortReason,
+} from "@/modules/ai-harness/facade";
 // ★ R2-C 单轨化（2026-05-04）：pipeline-v1 现在是唯一 mission 路径。
 import { PlaygroundPipelineDispatcher } from "./services/mission/workflow/playground-pipeline-dispatcher.service";
 import { BaseMissionController } from "./controllers/base-mission.controller";
@@ -234,7 +237,7 @@ export class AgentPlaygroundController extends BaseMissionController {
       );
     }
     // 真触发 abort signal，让正在跑的 LLM/tool call 立即中断
-    this.abortRegistry.abort(missionId, "user_cancelled");
+    this.abortRegistry.abort(missionId, MissionAbortReason.user_cancelled);
     await this.store.markCancelled(missionId);
     this.electionTracker.clear(missionId);
     await this.buffer.broadcast({

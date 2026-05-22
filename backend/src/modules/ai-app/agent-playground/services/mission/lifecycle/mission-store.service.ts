@@ -18,7 +18,10 @@ import {
 import type { ContentVisibility, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "@/modules/ai-engine/facade";
-import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
+import {
+  MissionAbortRegistry,
+  MissionAbortReason,
+} from "@/modules/ai-harness/facade";
 import { MissionLifecycleHelper } from "./mission-lifecycle.helper";
 import { MissionUpdateHelper } from "./mission-update.helper";
 import { MissionPostmortemHelper } from "./mission-postmortem.helper";
@@ -111,7 +114,10 @@ export class MissionStore {
       `[emergency-abort] mission=${missionId} reason="${reason}" — DB row 已蒸发，` +
         `主动 abort 在跑 orchestrator 防止 FK / heartbeat 错误风暴。`,
     );
-    this.abortRegistry?.abort(missionId, "mission_row_missing");
+    this.abortRegistry?.abort(
+      missionId,
+      MissionAbortReason.mission_row_missing,
+    );
   }
 
   private async clearCheckpointJsonbKey(missionId: string): Promise<void> {
