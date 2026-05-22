@@ -65,15 +65,31 @@ const refined = await critiqueRefineService.refine(
 
 发现 → LLM refine 替换为合规说法（"低价" / "高水平" / "广受好评"）。
 
-## 输出
+## 质量分（quality，0–100，最关键）
+
+对照《公众号格式规范·质量第一》打分：信息增量（不重复绕圈）、不灌水/不空话/不 AI 八股、可读连贯、忠于原文、有洞察。**quality < 75 视为不合格 → verdict=needs-refine。**
+
+## 输出 + refinedBody（让复审真正生效）
+
+**`verdict != pass` 时，`refinedBody` 必填**：返回**修订后的完整正文 HTML**——去灌水、补实质、修八股、修极限词/错别字，且仍满足《公众号格式规范》（≥2000 字 + 分节 + 质量第一）。
+**注意：是把问题改好后的"完整正文"，不是片段、不是删短变合规。** `verdict=pass` 时 `refinedBody=null`。
 
 ```json
 {
   "platform": "WECHAT_MP",
-  "verdict": "pass | needs-refine | reject",
-  "scores": { "compliance": 95, "seo": 85, "typo": 100, "style": 90 },
-  "fixes": [{ "field": "title", "before": "全网最低价", "after": "低价" }],
-  "warnings": ["XHS hashtag 12 个超出 10 个上限，已截"]
+  "verdict": "needs-refine",
+  "scores": {
+    "compliance": 95,
+    "seo": 85,
+    "typo": 100,
+    "style": 90,
+    "quality": 60
+  },
+  "fixes": [
+    { "field": "body", "before": "灌水段落…", "after": "改写为有实质的段落…" }
+  ],
+  "refinedBody": "<h2>1. …</h2><p>…去灌水补实质后的完整正文…</p>…",
+  "warnings": []
 }
 ```
 
