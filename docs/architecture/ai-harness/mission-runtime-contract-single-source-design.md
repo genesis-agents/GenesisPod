@@ -2,7 +2,7 @@
 
 **日期**: 2026-05-22
 **作者**: Claude Code（综合 Codex 平台层诊断 + 本会话运行时实证 + Radar/Social 跨 app 勘探）
-**状态**: 设计待评审（架构大决策；评审通过后分波次实施）
+**状态**: **✅ 已基线（baselined for implementation，2026-05-22）** —— 经 6 轮 Codex + 4 路内部 panel 评审收敛，作为重构的权威基线。后续按 §0.6 G1 波次实施；§0.5/§0.6 修订决议优先级最高。**实施期任何与本基线冲突的散落实现 = 待迁移技术债。**
 **适用范围**: 全部 mission 型 AI app — **agent-playground / AI Radar / AI Social**，以及未来任何跑在同一 harness 上的 mission app（writing / report / …）
 **定位**: 本文件是 **mission runtime 平台语义的单一真源（single source of truth）**。任何 mission app 涉及"配置 / 预算 / 时间 / 状态 / 失败 / abort / rerun / 存活"的实现，以本文件契约为准；与本文件冲突的散落实现一律视为待迁移的技术债。
 
@@ -82,7 +82,7 @@ v2 把 C7 放 P2，但 C2 failure / C8 liveness / C1 abort 的正确性都依赖
 
 **G2. Snapshot 写路径治理：任何影响 rerun 的配置改动都必须重写 versioned snapshot。**（Codex#2）
 v2 只管住"读路径"（run/rerun/resume/hydrate 读 snapshot），没管"写路径"。terminal 后 PATCH budget / 用户改 rerun 参数 / app retry patch / controller override 若只改 row/JSON 不改 snapshot → rebuilder 读到旧 snapshot。
-**决议**：立 **versioned mutation contract** —— snapshot 只能由 `openSession()` 与少数**显式声明的 mutation 入口**产出/更新；**任何改动 rerun 相关配置的路径必须生成新 versioned snapshot（schemaVersion++ / parentSnapshotId 链），禁止旁路改 row/JSON 而不改 snapshot**。看护：arch 断言"mission 配置字段的写入只允许发生在 snapshot 工厂内"。
+**决议**：立 **versioned mutation contract** —— snapshot 只能由 `openSession()` 与少数**显式声明的 mutation 入口**产出/更新；**任何改动 rerun 相关配置的路径必须生成新 versioned snapshot（snapshotRevision++ / parentSnapshotId 链；schemaVersion 仅结构升级时才动，见 C5 r6 决议），禁止旁路改 row/JSON 而不改 snapshot**。看护：arch 断言"mission 配置字段的写入只允许发生在 snapshot 工厂内"。
 
 **G3. Rebuilder `patch` 必须是 canonical patch schema，不得 app 自由扩展。**（Codex#3）
 v2 的 `buildForXxx(snapshot, patch?)` 没定义 patch 约束 → app 各自扩 patch 语义 → "平台 builder 一套 + 业务层再套一层" 双主脑。
@@ -232,7 +232,8 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
   }
   ```
 - 产出：终态写入口（C0 `MissionLifecycleManager`）写 canonical；`category` 由 `codeToCategory(code)` 派生，调用方只传 `code`（+可选 source 文本）。liveness 仅在 code 尚空时兜底（C0 单写+条件写保证不覆盖）。
-- 消费：DB 落 `failure_code`（+派生 `failure_category`）；前端**永远优先**按 code 出文案；告警/retry 按 category。**不再落 source 列**（如需调试归因走日志）。
+- 消费：DB 落 `failure_code`（权威事实源）；前端**永远优先**按 code 出文案；告警/retry 按 category。**不再落 source 列**（调试归因走日志）。
+- **★ Codex r6 决议：`failure_category` 只是投影列，绝不是第二事实源。** 原则三条：① 它仅为查询/索引优化（报表按 category 聚合）；② 任意读路径**必须以 `failure_code` 为准**，必要时**实时重算** `codeToCategory(code)`，不信任存量列；③ 映射 `codeToCategory` 变更后，旧 `failure_category` 列**视为脏**，要么回填要么读时重算——禁止"派生列养成事实列"。看护：契约测试断言"任意行 `failure_category === codeToCategory(failure_code)`，否则红"。
 - 落点：`ai-harness/lifecycle/mission-lifecycle/abstractions/mission-failure.ts`（新）；复用既有 agent 级 taxonomy 做映射。
 - 红线：app 不得用裸 message 表达失败类别；liveness 不得覆盖已有 code。
 
@@ -244,14 +245,17 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
   interface ResolvedBudgetCaps {
     maxCredits;
     maxTokens;
-    maxCostUsd;
+    // ★ Codex r6 决议：canonical 字段名统一为 creditBudgetProxyUsd（额度代理值，非真实成本）。
+    //   全文不再用 maxCostUsd 作 canonical 名——"maxCostUsd" 仅作 MissionBudgetPool 的 legacy
+    //   wire/构造名保留(迁移期),内部 canonical 一律 creditBudgetProxyUsd。真实成本走 ai-infra。
+    creditBudgetProxyUsd; // = maxCredits × CREDITS_TO_USD（粗略额度闸，非真实美元成本）
     budgetMultiplier;
     source: "default" | "override" | "inherited";
     resolvedAt: ISO;
   }
-  // 唯一换算常量 + 估算端口
+  // 唯一换算常量（仅平台额度语义；真实成本是逐模型 ModelPricingRegistry，不在此）
   const CREDITS_TO_TOKENS = 1000;
-  const CREDITS_TO_USD = 0.002;
+  const CREDITS_TO_USD = 0.002; // 仅用于算 creditBudgetProxyUsd 代理闸，禁当真实成本
   interface MissionCostEstimator {
     estimate(businessSignals): { credits: number };
   }
@@ -274,7 +278,10 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
 - 目标：
   ```ts
   interface MissionConfigSnapshot {
-    schemaVersion;
+    // ★ Codex r6 决议：拆两层——schemaVersion=结构契约版本(v1→v2 升级)；snapshotRevision=
+    //   同结构下的实例派生次数(rerun/patch 第 N 次)。绝不用 schemaVersion 表派生次数。
+    schemaVersion; // 结构契约版本（结构变了才 ++）
+    snapshotRevision; // 实例修订号（每次 rerun/patch 派生 ++；同结构内递增）
     // ★ Codex r5 决议：lineage 强化（事故审计——"为什么这次 rerun 用了这个预算"必须可追溯到
     //   是 full/local rerun / settings patch / save-as-new 派生）。仅 sourceMissionId 太弱。
     snapshotId; // 本快照唯一 id
@@ -311,7 +318,7 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
   buildForIncrementalRerun(snapshot, checkpoint, patch?: MissionInputPatch): ...
   buildForLocalRerun(snapshot, targetStage, patch?: MissionInputPatch): ...
   ```
-- **应用顺序钉死（G3）**：`snapshot → apply MissionInputPatch（白名单校验）→ policy re-resolve（budget/limits 重解析）→ 产出新 versioned snapshot（schemaVersion++/parentSnapshotId，G2）`。**不允许** "snapshot-resolved → patch-final" 的旁路就地改。
+- **应用顺序钉死（G3）**：`snapshot → apply MissionInputPatch（白名单校验）→ policy re-resolve（budget/limits 重解析）→ 产出新 versioned snapshot（snapshotRevision++/parentSnapshotId，G2；schemaVersion 不变）`。**不允许** "snapshot-resolved → patch-final" 的旁路就地改。
 - 落点：`ai-harness/lifecycle/mission-lifecycle/rerun/`（已有目录，扩 rebuilder + `MissionInputPatch` 类型）。
 - 红线：app 不得自己拼 budget/time/status 敏感字段；patch 只能走 canonical `MissionInputPatch` 白名单。
 
@@ -439,8 +446,8 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
 - **★ Codex r5 必测：双终态竞争（直接验证 C0"唯一写入口 + 首写者赢"不变量，否则 C0 仍是声明而非已验证不变量）**：
   - `budget_exhausted` 与 `user_cancelled` 几乎同时 → 断言**只落一个终态**（首写赢），另一个 no-op，无覆盖；
   - liveness-guard 与 dispatcher 几乎同时落终态 → 断言 DB 条件写仲裁生效（`WHERE status='running'` 只有一个成功）；
-  - provider error 后 controller 又触发 cancel → 断言不产生双写/状态翻转。
-    > **无 L5b（含双终态竞争）的接入视为未接入。** 新增 mission app 缺任一级 → 红，无法合并。这是"新 app 接入清单"的可执行版。
+  - **★ Codex r6 必测（最贴真实事故）：三方失败来源并发抢终态** —— dispatcher 提交 `budget_exhausted` + controller 同时提交 `user_cancelled` + liveness 稍后提交 fallback → 断言**最终只一个 terminal write 生效，且后两者不覆盖首个已落库原因**。这是 C0 单写裁决的核心打穿验证，不测则 C0 仍未被真正验证。
+    > **无 L5b（含双/三方终态竞争）的接入视为未接入。** 新增 mission app 缺任一级 → 红，无法合并。这是"新 app 接入清单"的可执行版。
 
 ### L6 pre-push + CI 二次执行
 
@@ -498,7 +505,7 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
 
 - **契约单测**：每 canonical（C0–C9）值对象不变量 + enum 全覆盖。
 - **conformance（L5，RB3/G4）**：harness 对**每个已注册项**（按自报 namespace，不硬列 app 名）跑 L5a wiring（静态）+ L5b behavioral（集成）。
-- **业务分支矩阵**（每 app）：fresh run / full rerun / incremental / local rerun / **cancel 发生在 S8 前 vs S8 中（RB6 半发布）** / budget-exhaust / wall-time-exceed / quality-reject / 孤儿回收 / 历史无 snapshot legacy 回退 / **liveness markFailed 与正常 markCompleted 的 TOCTOU 竞争**。
+- **业务分支矩阵**（每 app）：fresh run / full rerun / incremental / local rerun / **cancel 发生在 S8 前 vs S8 中（RB6 半发布）** / budget-exhaust / wall-time-exceed / quality-reject / 孤儿回收 / 历史无 snapshot legacy 回退 / **liveness markFailed 与正常 markCompleted 的 TOCTOU 竞争** / **★ Codex r6：多失败来源并发抢终态（dispatcher budget_exhausted + controller user_cancelled + liveness fallback 三方几乎同时）→ 只一个 terminal write 生效、首写原因不被覆盖**。
 - **架构守护（L3，RM1 降级）**：仅 budget 目录扫换算字面量 + 仅新增代码禁裸 wallTimeMs；主防线是 L1 类型（abort enum / caps 工厂私有构造）。
 - **回归基线**：`playground-no-regression` + 三 app `*-frontend-contract` byte-equal（含 REST DTO 字段，非仅 event）。
 
