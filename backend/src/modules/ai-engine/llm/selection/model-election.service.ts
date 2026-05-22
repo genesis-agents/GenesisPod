@@ -174,7 +174,8 @@ export class ModelElectionService {
     if (scored.length === 0) {
       throw new NoEligibleModelError(
         modelType,
-        `all ${byokFiltered.length} candidates missing DB config`,
+        `all ${byokFiltered.length} candidates missing DB config: ` +
+          `[${byokFiltered.map((c) => c.modelId).join(", ")}]`,
       );
     }
 

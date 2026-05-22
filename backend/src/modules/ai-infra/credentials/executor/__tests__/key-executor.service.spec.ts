@@ -248,6 +248,56 @@ describe("KeyExecutorService", () => {
     });
   });
 
+  describe("single-key cooldown relaxation (2026-05-22)", () => {
+    it("caps a long provider cooldown to 30s when chain has a single key", async () => {
+      const k1 = buildResolvedKey("only");
+      const chain = buildChain([k1]); // size === 1
+      (resolver.resolveKeyChain as jest.Mock).mockResolvedValue(chain);
+      // 502 → shouldStopChain, classified cooldown 5min; single-key → capped to 30s
+      const callFn = jest
+        .fn()
+        .mockRejectedValue({ status: 502, message: "Bad Gateway" });
+
+      await expect(
+        executor.execute("u1", "openai", callFn),
+      ).rejects.toMatchObject({ status: 502 });
+      expect(healthStore.setProviderCooldown).toHaveBeenCalledWith(
+        "openai",
+        30_000,
+      );
+    });
+  });
+
+  describe("per-provider concurrency throttle (2026-05-22)", () => {
+    it("caps concurrent in-flight calls per provider but completes all", async () => {
+      let inFlight = 0;
+      let peak = 0;
+      (resolver.resolveKeyChain as jest.Mock).mockImplementation(async () =>
+        buildChain([buildResolvedKey("k")]),
+      );
+      const callFn = jest.fn(async () => {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((r) => setTimeout(r, 20));
+        inFlight -= 1;
+        return "OK";
+      });
+
+      const results = await Promise.all(
+        Array.from({ length: 15 }, () =>
+          executor.execute("u1", "openai", callFn),
+        ),
+      );
+
+      expect(results).toHaveLength(15);
+      expect(results.every((r) => r === "OK")).toBe(true);
+      // default LLM_PROVIDER_MAX_CONCURRENCY = 6
+      expect(peak).toBeLessThanOrEqual(6);
+      // sanity: still actually concurrent, not serialized to 1
+      expect(peak).toBeGreaterThan(1);
+    });
+  });
+
   describe("AllKeysFailedError details", () => {
     it("AllKeysFailedError contains lastError reason + triedCount", async () => {
       const k1 = buildResolvedKey("a");
