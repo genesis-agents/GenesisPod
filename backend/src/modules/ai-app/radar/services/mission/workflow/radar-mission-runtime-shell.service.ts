@@ -110,7 +110,7 @@ export class RadarMissionRuntimeShell {
           workspaceId,
           trigger: mapTrigger(input.trigger),
           maxCredits: effectiveMaxCredits,
-          wallTimeMs: resolveRadarMissionWallTimeMs(),
+          wallTimeCapMs: resolveRadarMissionWallTimeMs(),
           payload: {
             topicName: input.topicName,
             description: input.description ?? null,

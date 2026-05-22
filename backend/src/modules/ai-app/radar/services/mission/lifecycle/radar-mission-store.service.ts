@@ -33,7 +33,7 @@ export interface RadarMissionCreateInput {
   readonly workspaceId?: string;
   readonly trigger: RadarRunTrigger;
   readonly maxCredits: number;
-  readonly wallTimeMs: number;
+  readonly wallTimeCapMs: number;
   readonly payload: Record<string, unknown>;
 }
 
@@ -69,7 +69,7 @@ export class RadarMissionStore {
           trigger: input.trigger,
           startedAt: new Date(),
           maxCredits: input.maxCredits,
-          wallTimeMs: input.wallTimeMs,
+          wallTimeCapMs: input.wallTimeCapMs,
           payload: input.payload as Prisma.InputJsonValue,
         },
       });
