@@ -653,7 +653,8 @@ describe("SocialPipelineDispatcher", () => {
         (c: unknown[]) =>
           (c[0] as { type: string }).type === "social.mission:failed",
       );
-      expect(failedEmit![0].payload.failureCode).toBe("PROVIDER_RATE_LIMIT");
+      // ★ C2/G3：rate-limit 归 canonical provider_error（无独立 rate_limit code）
+      expect(failedEmit![0].payload.failureCode).toBe("provider_error");
     });
 
     it("should classify timeout error correctly", async () => {
@@ -683,9 +684,7 @@ describe("SocialPipelineDispatcher", () => {
         (c: unknown[]) =>
           (c[0] as { type: string }).type === "social.mission:failed",
       );
-      expect(failedEmit![0].payload.failureCode).toBe(
-        "RUNNER_WALL_TIME_EXCEEDED",
-      );
+      expect(failedEmit![0].payload.failureCode).toBe("wall_time_exceeded");
     });
 
     it("should classify abort error correctly", async () => {
@@ -717,7 +716,7 @@ describe("SocialPipelineDispatcher", () => {
         (c: unknown[]) =>
           (c[0] as { type: string }).type === "social.mission:failed",
       );
-      expect(failedEmit![0].payload.failureCode).toBe("MISSION_ABORTED");
+      expect(failedEmit![0].payload.failureCode).toBe("user_cancelled");
     });
   });
 

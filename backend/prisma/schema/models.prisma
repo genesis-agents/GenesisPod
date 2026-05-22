@@ -8881,6 +8881,9 @@ model SocialMission {
   tokensUsed   BigInt? @map("tokens_used")
   costUsd      Float?  @map("cost_usd")
   errorMessage String? @map("error_message") @db.Text
+  /// ★ C2/G3：mission 级 canonical failure code（MissionFailureCode）。category 不落库——
+  /// 读路径由 codeToCategory(failureCode) 实时派生（投影非事实源）。历史行 NULL → 前端回退 errorMessage。
+  failureCode  String? @map("failure_code") @db.VarChar(40)
 
   /// trajectory（S11 持久化 stage outputs：probeResults / platformVersions /
   /// covers / composed / published / verified / leaderSignOff 等）。
@@ -9807,6 +9810,8 @@ model AgentPlaygroundMission {
   reportTitle      String? @map("report_title") @db.VarChar(500)
   reportSummary    String? @map("report_summary") @db.Text
   errorMessage     String? @map("error_message") @db.Text
+  /// ★ C2/G3：mission 级 canonical failure code（MissionFailureCode）。category 读时派生。
+  failureCode      String? @map("failure_code") @db.VarChar(40)
 
   /// 持久化的 blob（detail 页重新渲染用）
   themeSummary             String? @map("theme_summary") @db.Text
@@ -10600,6 +10605,8 @@ model RadarRun {
   metrics   Json?
   /// pipeline / orchestrator throw 时的 error message（mission 终态填充）
   error     String?  @db.Text
+  /// ★ C2/G3：mission 级 canonical failure code（MissionFailureCode）。category 读时派生。
+  failureCode String? @map("failure_code") @db.VarChar(40)
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([topicId, startedAt(sort: Desc)])
