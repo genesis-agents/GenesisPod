@@ -4,7 +4,8 @@
  * SocialPublishPanel — 发布 tab（PR-V7 唯一全新组件）
  *
  * 展示每个平台的发布状态，提供"发布到草稿箱"按钮。
- * 后端 publish endpoint 暂未实现，按钮调 stub 路径并优雅 catch 404。
+ * 后端 POST /tasks/:id/publish?platform=X 复用 PublishExecutorService 发到草稿箱；
+ * 读取返回的 PublishResult.success 反映真实结果（HTTP 200 不代表发布成功）。
  */
 
 import { useState } from 'react';
@@ -33,14 +34,14 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 function getVersionForPlatform(
   task: SocialContentTask,
-  platform: string,
+  platform: string
 ): SocialContentTaskVersion | undefined {
   return task.versions?.find((v) => v.platform === platform);
 }
 
 async function callPublishStub(
   taskId: string,
-  platform: string,
+  platform: string
 ): Promise<{ ok: boolean; message: string }> {
   const tokens = getAuthTokens();
   const headers: Record<string, string> = {
@@ -52,15 +53,28 @@ async function callPublishStub(
 
   const res = await fetch(
     `/api/v1/ai-social/tasks/${taskId}/publish?platform=${platform}`,
-    { method: 'POST', headers },
+    { method: 'POST', headers }
   );
 
   if (res.status === 404) {
-    return { ok: false, message: 'publish endpoint pending' };
+    return { ok: false, message: '发布接口未就绪' };
   }
   if (!res.ok) {
     const text = await res.text().catch(() => `HTTP ${res.status}`);
     return { ok: false, message: text || `HTTP ${res.status}` };
+  }
+  // 后端返回 PublishResult（经 ResponseTransformInterceptor 包成 {data}）；
+  // HTTP 200 不代表发布成功，要看 data.success
+  const body = (await res.json().catch(() => null)) as {
+    data?: { success?: boolean; errorMessage?: string; externalUrl?: string };
+    success?: boolean;
+    errorMessage?: string;
+  } | null;
+  const result = body?.data ?? body;
+  if (result && typeof result.success === 'boolean') {
+    return result.success
+      ? { ok: true, message: '已发布到草稿箱，请到公众号后台确认' }
+      : { ok: false, message: result.errorMessage || '发布失败' };
   }
   return { ok: true, message: '已提交发布请求' };
 }
@@ -70,7 +84,10 @@ interface PlatformState {
   toast: string | null;
 }
 
-export function SocialPublishPanel({ task, onAction }: SocialPublishPanelProps) {
+export function SocialPublishPanel({
+  task,
+  onAction,
+}: SocialPublishPanelProps) {
   const [platformStates, setPlatformStates] = useState<
     Record<string, PlatformState>
   >({});
@@ -87,9 +104,7 @@ export function SocialPublishPanel({ task, onAction }: SocialPublishPanelProps) 
           <p className="mt-1 text-sm text-gray-400">
             任务尚未完成生成，发布按钮在 DRAFT_READY 后可用
           </p>
-          <p className="mt-1 text-xs text-gray-400">
-            当前状态：{task.status}
-          </p>
+          <p className="mt-1 text-xs text-gray-400">当前状态：{task.status}</p>
         </div>
       </div>
     );

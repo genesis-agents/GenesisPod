@@ -29,7 +29,7 @@ global.fetch = mockFetch;
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 function makeTask(
-  overrides: Partial<SocialContentTask> = {},
+  overrides: Partial<SocialContentTask> = {}
 ): SocialContentTask {
   return {
     id: 'task-123',
@@ -94,11 +94,11 @@ describe('SocialPublishPanel', () => {
       'CANCELLED',
     ])('shows pending hint and no publish button when status=%s', (status) => {
       render(
-        <SocialPublishPanel task={makeTask({ status })} onAction={onAction} />,
+        <SocialPublishPanel task={makeTask({ status })} onAction={onAction} />
       );
 
       expect(
-        screen.getByText(/任务尚未完成生成，发布按钮在 DRAFT_READY 后可用/),
+        screen.getByText(/任务尚未完成生成，发布按钮在 DRAFT_READY 后可用/)
       ).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /发布到草稿箱/ })).toBeNull();
     });
@@ -110,7 +110,7 @@ describe('SocialPublishPanel', () => {
         <SocialPublishPanel
           task={makeTask({ status: 'DRAFT_READY' })}
           onAction={onAction}
-        />,
+        />
       );
 
       const buttons = screen.getAllByRole('button', { name: /发布到草稿箱/ });
@@ -122,7 +122,7 @@ describe('SocialPublishPanel', () => {
         <SocialPublishPanel
           task={makeTask({ status: 'DRAFT_READY' })}
           onAction={onAction}
-        />,
+        />
       );
 
       expect(screen.getByText('微信公众号')).toBeInTheDocument();
@@ -134,7 +134,7 @@ describe('SocialPublishPanel', () => {
         <SocialPublishPanel
           task={makeTask({ status: 'DRAFT_READY' })}
           onAction={onAction}
-        />,
+        />
       );
 
       const [firstButton] = screen.getAllByRole('button', {
@@ -157,30 +157,7 @@ describe('SocialPublishPanel', () => {
         <SocialPublishPanel
           task={makeTask({ status: 'DRAFT_READY' })}
           onAction={onAction}
-        />,
-      );
-
-      const [firstButton] = screen.getAllByRole('button', {
-        name: /发布到草稿箱/,
-      });
-      fireEvent.click(firstButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('已提交发布请求')).toBeInTheDocument();
-      });
-    });
-
-    it('shows "publish endpoint pending" toast on 404', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-      });
-
-      render(
-        <SocialPublishPanel
-          task={makeTask({ status: 'DRAFT_READY' })}
-          onAction={onAction}
-        />,
+        />
       );
 
       const [firstButton] = screen.getAllByRole('button', {
@@ -190,8 +167,55 @@ describe('SocialPublishPanel', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText('publish endpoint pending'),
+          screen.getByText('已发布到草稿箱，请到公众号后台确认')
         ).toBeInTheDocument();
+      });
+    });
+
+    it('shows publish-failed toast when result.success=false', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: false, errorMessage: '会话已失效' }),
+      });
+
+      render(
+        <SocialPublishPanel
+          task={makeTask({ status: 'DRAFT_READY' })}
+          onAction={onAction}
+        />
+      );
+
+      const [firstButton] = screen.getAllByRole('button', {
+        name: /发布到草稿箱/,
+      });
+      fireEvent.click(firstButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('会话已失效')).toBeInTheDocument();
+      });
+    });
+
+    it('shows "publish endpoint not ready" toast on 404', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      });
+
+      render(
+        <SocialPublishPanel
+          task={makeTask({ status: 'DRAFT_READY' })}
+          onAction={onAction}
+        />
+      );
+
+      const [firstButton] = screen.getAllByRole('button', {
+        name: /发布到草稿箱/,
+      });
+      fireEvent.click(firstButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('发布接口未就绪')).toBeInTheDocument();
       });
     });
 
@@ -200,7 +224,7 @@ describe('SocialPublishPanel', () => {
         <SocialPublishPanel
           task={makeTask({ status: 'DRAFT_READY' })}
           onAction={onAction}
-        />,
+        />
       );
 
       const [firstButton] = screen.getAllByRole('button', {
@@ -245,29 +269,26 @@ describe('SocialPublishPanel', () => {
 
     it('shows retry button for the failed platform', () => {
       render(
-        <SocialPublishPanel task={makePartialTask()} onAction={onAction} />,
+        <SocialPublishPanel task={makePartialTask()} onAction={onAction} />
       );
 
       expect(
-        screen.getByRole('button', { name: /仅重试此平台/ }),
+        screen.getByRole('button', { name: /仅重试此平台/ })
       ).toBeInTheDocument();
     });
 
     it('shows external link for the published platform', () => {
       render(
-        <SocialPublishPanel task={makePartialTask()} onAction={onAction} />,
+        <SocialPublishPanel task={makePartialTask()} onAction={onAction} />
       );
 
       const link = screen.getByRole('link', { name: /查看/ });
-      expect(link).toHaveAttribute(
-        'href',
-        'https://mp.weixin.qq.com/s/abc123',
-      );
+      expect(link).toHaveAttribute('href', 'https://mp.weixin.qq.com/s/abc123');
     });
 
     it('shows error message for failed platform', () => {
       render(
-        <SocialPublishPanel task={makePartialTask()} onAction={onAction} />,
+        <SocialPublishPanel task={makePartialTask()} onAction={onAction} />
       );
 
       expect(screen.getByText('账号未绑定')).toBeInTheDocument();
@@ -275,7 +296,7 @@ describe('SocialPublishPanel', () => {
 
     it('clicking retry calls fetch with correct platform param', async () => {
       render(
-        <SocialPublishPanel task={makePartialTask()} onAction={onAction} />,
+        <SocialPublishPanel task={makePartialTask()} onAction={onAction} />
       );
 
       const retryButton = screen.getByRole('button', { name: /仅重试此平台/ });

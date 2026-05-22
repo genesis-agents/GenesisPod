@@ -7,12 +7,19 @@ import {
 import {
   SocialContentTaskStatus,
   SocialContentVersionStatus,
+  SocialContentType,
+  SocialPlatformType,
 } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialDataSourceRegistry } from "../registry/social-data-source.registry";
 import { ContentFetcherService } from "./content-fetcher.service";
 import { SocialPipelineDispatcher } from "./mission/workflow/social-pipeline-dispatcher.service";
 import { SocialEventBuffer } from "./mission/lifecycle/social-event-buffer.service";
+import { ContentVersionService } from "./content-version.service";
+import {
+  PublishExecutorService,
+  type PublishResult,
+} from "./publish-executor.service";
 import { CreateSocialTaskDto } from "../dto/create-social-task.dto";
 import type {
   RawContentBag,
@@ -29,6 +36,8 @@ export class SocialTaskService {
     private readonly contentFetcher: ContentFetcherService,
     private readonly dispatcher: SocialPipelineDispatcher,
     private readonly buffer: SocialEventBuffer,
+    private readonly contentVersion: ContentVersionService,
+    private readonly publishExecutor: PublishExecutorService,
   ) {}
 
   /**
@@ -241,6 +250,86 @@ export class SocialTaskService {
       data: { title: title.trim().slice(0, 200) },
     });
     return { id: taskId };
+  }
+
+  /**
+   * 发布某平台草稿到平台草稿箱（卡片/详情「发布」按钮，修 POST /:id/publish 404）。
+   * 复用 PublishExecutorService（session 校验 + 连接兜底 + 草稿发布 + 日志）：
+   * 把任务该平台成稿同步进关联 SocialContent + 版本，再按平台执行；草稿可逆。
+   */
+  async publishTaskVersion(
+    taskId: string,
+    platform: string,
+    userId: string,
+  ): Promise<PublishResult> {
+    const task = await this.prisma.socialContentTask.findFirst({
+      where: { id: taskId, userId },
+      include: { versions: true },
+    });
+    if (!task) throw new NotFoundException(`Task ${taskId} not found`);
+    const version = task.versions.find((v) => v.platform === platform);
+    if (!version?.content) {
+      throw new BadRequestException("该平台暂无可发布草稿，请先生成内容");
+    }
+    if (!task.missionId) {
+      throw new BadRequestException("任务未关联内容，无法发布");
+    }
+    const mission = await this.prisma.socialMission.findUnique({
+      where: { id: task.missionId },
+      select: { contentId: true },
+    });
+    const contentId = mission?.contentId;
+    if (!contentId) {
+      throw new BadRequestException("任务未关联内容，无法发布");
+    }
+
+    const accountIds = (task.accountIds ?? {}) as Record<string, string>;
+    const connectionId = accountIds[platform];
+    const contentType =
+      platform === "WECHAT_MP"
+        ? SocialContentType.WECHAT_ARTICLE
+        : SocialContentType.XIAOHONGSHU_NOTE;
+
+    // 把任务该平台成稿同步进关联 SocialContent（让 executor 发布"对的平台 + 对的内容"）
+    await this.prisma.socialContent.update({
+      where: { id: contentId },
+      data: {
+        title: version.title || "(未命名)",
+        content: version.content,
+        digest: version.digest,
+        coverImageUrl: version.coverImageUrl,
+        contentType,
+        ...(connectionId ? { connectionId } : {}),
+      },
+    });
+    // executor 优先读 SocialContentVersion → 同步一份，确保发布成稿而非占位
+    await this.contentVersion.updateVersion(
+      contentId,
+      platform as SocialPlatformType,
+      {
+        title: version.title || "(未命名)",
+        content: version.content,
+        digest: version.digest,
+      },
+    );
+
+    const result = await this.publishExecutor.execute(contentId);
+
+    await this.prisma.socialContentTaskVersion.update({
+      where: { taskId_platform: { taskId, platform } },
+      data: {
+        status: result.success
+          ? SocialContentVersionStatus.PUBLISHED
+          : SocialContentVersionStatus.FAILED,
+        externalUrl: result.externalUrl ?? null,
+        errorMessage: result.success
+          ? null
+          : (result.errorMessage ?? "发布失败"),
+        publishedAt: result.success ? new Date() : null,
+      },
+    });
+    await this.recomputeTaskStatus(taskId);
+    return result;
   }
 
   private async dispatchTask(

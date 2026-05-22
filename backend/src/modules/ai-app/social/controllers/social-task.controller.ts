@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -90,6 +91,19 @@ export class SocialTaskController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException();
     return this.taskService.retryTask(id, userId);
+  }
+
+  /** POST /ai-social/tasks/:id/publish?platform=WECHAT_MP — 发布该平台草稿到草稿箱 */
+  @Post(":id/publish")
+  async publishTask(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Query("platform") platform?: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException();
+    if (!platform) throw new BadRequestException("platform query required");
+    return this.taskService.publishTaskVersion(id, platform, userId);
   }
 
   /** PATCH /ai-social/tasks/:id — 重命名任务（卡片「编辑」） */
