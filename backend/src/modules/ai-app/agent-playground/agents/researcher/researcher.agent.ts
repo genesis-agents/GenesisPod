@@ -272,9 +272,13 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       ``,
       `## Workflow (efficient, do NOT iterate beyond what's needed)`,
       `1. **如果 catalog 中有 rag-search 类**: 1 query 看内部知识够不够。`,
-      `2. **One specialized search round（必须含 web-search）**: emit ONE parallel_tool_call with 2-4 queries，`,
-      `   优先用 ★ recommended 的工具，但**这一轮必须至少包含 1 个 web-search query**（即使 rag/专用工具已命中）——`,
-      `   保证拿到真实、近期、切题的公开来源。只靠 rag/KB 出的 finding 会因证据/时效过低被评分器判失败。`,
+      `2. **One multi-tool search round（≥2 种不同工具类型）**: emit ONE parallel_tool_call with 4-6 queries，`,
+      `   **本轮必须横跨 ≥2 种不同工具类型**（不要 5 个 query 全是 web-search）——按本 dim 性质从 <available_tools>`,
+      `   里挑：研究/科研类 dim 必带 academic（arxiv / openalex / semantic-scholar / pubmed）；商业/市场/竞品/赛道 dim`,
+      `   必带 industry-report-search；政策/法规 dim 必带 policy 类；财经/估值 dim 必带 finance-api；**外加 ≥1 个`,
+      `   web-search 兜底**。★ recommended 的优先。`,
+      `   ★ 为什么：不同工具命中**不同的来源域名** → 唯一来源数翻倍 → 本维度章节更多、证据更足。只靠 web-search`,
+      `   一种工具，来源会挤在少数门户站、唯一来源数上不去（维度被结构性限制为 4 章）。`,
       input.withFigures
         ? `3. **★ 必须 1 轮 web-scraper extractImages=true**（withFigures=true）：从 search 结果里挑 1-2 个高价值图文 URL（如 stanford / mckinsey / brookings / 政府 / arxiv 报告），调用 web-scraper 时**必须带 extractImages=true**。工具会把合法 <img>（过滤图标/pixel）放进 output.images。再从 output.images 抽 1-3 张到 figureCandidates。**没调 web-scraper extractImages 视为不达标**。`
         : `3. **At most one scrape/parse round**: 高价值 URL 抓全文用 web-scraper / file-parser。摘要够用就跳过这步。`,
