@@ -51,13 +51,13 @@ export const RunMissionInputSchema = z
       .enum(SEARCH_TIME_RANGE_VALUES)
       .default(DEFAULT_SEARCH_TIME_RANGE),
     /**
-     * ★ P0-K (2026-05-06): mission 级 maxCredits 上限（必填，由用户侧决定）。
-     * 1 credit ≈ 1k tokens；前端按 budgetProfile / depth 给推荐值，但用户必须显式传。
-     * backend 不再有 fallback 默认值。
+     * ★ 2026-05-22 单一数据源：mission 级 maxCredits 上限改为**可选覆盖**。
+     * 缺省时由 depth（调研规模档位）经 DEPTH_BUDGET_TIERS 解析（见 resolveMissionCredits）；
+     * 仅当用户在「高级」里显式自定义时才传。1 credit ≈ 1k tokens。范围 10 - 100000。
      */
-    maxCredits: z.number().int().min(10).max(100_000),
+    maxCredits: z.number().int().min(10).max(100_000).optional(),
     /**
-     * 用户自定义 wall-time（毫秒）。不传则按 depth × audit × budget 矩阵推断（resolveMissionWallTimeMs）。
+     * 用户自定义 wall-time（毫秒）覆盖。不传则按 depth 档位（DEPTH_BUDGET_TIERS）解析。
      * 范围 60s ~ 3h。
      */
     wallTimeMs: z
@@ -67,11 +67,10 @@ export const RunMissionInputSchema = z
       .max(3 * 60 * 60 * 1000)
       .optional(),
     /**
-     * ★ P0-K (2026-05-06): agent budget 倍率（必填，scale agent 的 maxTokens / maxIterations）。
-     * 前端按 budgetProfile × depth 给推荐值，用户可改。范围 0.3 ~ 10。
-     * backend 不再有 BUDGET_PROFILE_MULTIPLIER × DEPTH_BUDGET_MULTIPLIER 内部硬编码组合。
+     * ★ 2026-05-22 单一数据源：agent budget 倍率改为**可选覆盖**（scale agent 的
+     * maxTokens / maxIterations）。缺省按 depth 档位解析。范围 0.3 ~ 10。
      */
-    budgetMultiplierOverride: z.number().min(0.3).max(10),
+    budgetMultiplierOverride: z.number().min(0.3).max(10).optional(),
     /**
      * 本地知识库 ID 列表 —— researcher 调 rag-search 时会限定在这些 KB 内做语义召回。
      * 不传 / 空数组 → researcher 跳过 rag-search 走纯 web-search。
@@ -103,71 +102,57 @@ export const RunMissionInputSchema = z
 export type RunMissionInput = z.infer<typeof RunMissionInputSchema>;
 
 /**
- * ★ P0-K (2026-05-06): 直接返回 input.maxCredits，不再 fallback 内部硬编码默认值。
- * DTO 已强制必填；resolveMissionCredits 仅作 thin getter 保留 API 兼容。
+ * ★ 2026-05-22 单一数据源：调研规模档位表（快速 / 标准 / 深度 = depth）。
+ *
+ * depth 即"调研规模"档位。一处定义 budget / 倍率 / 时长，前后端、首跑、重跑、
+ * Mission 设置全部从这里解析，消除"多处重复定义 + 配置/使用不同源"。
+ * 用户可在「高级」里显式覆盖 maxCredits / budgetMultiplierOverride / wallTimeMs，
+ * 覆盖值优先（resolveX 里 input.X ?? tier.X）。
+ *
+ * cap 标定：cap ≈ 典型花费 2–3×，留足余量。实测 11 维度深度典型 ~$15，
+ * 深度档 cap = 20000 credits ≈ $40（maxCredits×0.002），杜绝"$2 预算秒爆"。
+ * （1 credit ≈ 1k tokens；cost cap = maxCredits × 0.002 USD。）
+ */
+export const DEPTH_BUDGET_TIERS: Record<
+  RunMissionInput["depth"],
+  { maxCredits: number; budgetMultiplier: number; wallTimeMs: number }
+> = {
+  quick: { maxCredits: 3000, budgetMultiplier: 1.0, wallTimeMs: 20 * 60_000 },
+  standard: {
+    maxCredits: 8000,
+    budgetMultiplier: 2.0,
+    wallTimeMs: 60 * 60_000,
+  },
+  deep: { maxCredits: 20000, budgetMultiplier: 4.0, wallTimeMs: 180 * 60_000 },
+};
+
+/**
+ * ★ 2026-05-22 单一源：maxCredits 为可选覆盖，缺省按 depth 档位解析。
+ * 修复历史"重跑读不到列里 maxCredits → 兜底 1000 → $2 秒爆"：现在缺省也有
+ * 合理档位值兜底，且 cloneInputFromMission 改读权威列值。
  */
 export function resolveMissionCredits(input: RunMissionInput): number {
-  return input.maxCredits;
+  return input.maxCredits ?? DEPTH_BUDGET_TIERS[input.depth].maxCredits;
 }
 
 /**
- * ★ P0-K (2026-05-06): 直接返回 input.budgetMultiplierOverride，不再有内部
- * BUDGET_PROFILE_MULTIPLIER × DEPTH_BUDGET_MULTIPLIER 矩阵推导。
- * 前端按 budgetProfile × depth 计算推荐值（"用户侧"），后端只接收用户传入。
+ * ★ 2026-05-22 单一源：budgetMultiplier 为可选覆盖，缺省按 depth 档位解析。
  */
 export function resolveBudgetMultiplier(input: RunMissionInput): number {
-  return input.budgetMultiplierOverride;
+  return (
+    input.budgetMultiplierOverride ??
+    DEPTH_BUDGET_TIERS[input.depth].budgetMultiplier
+  );
 }
 
 /**
- * Mission 级 wall-time 上限（ms）—— 按 depth × auditLayers × budgetProfile 三维联动。
- *
- * ★ 2026-05-01 (PR-G iter11): standard 25min → 45min
- *   12-stage pipeline 实测耗时（mission 981c0d21 标准档）：4 dim × (researcher
- *   + 5 chapter writer + 5 chapter reviewer + integrator + grader) ≈ 25min；
- *   再叠 reconciler + analyst + writer + critic + leader (S8~S12) ≈ 10-15min；
- *   总计 35-45min，原 25min cap 必然在 S8 writer 阶段撞墙。新档位：
- *
- *   base depth: quick=15min / standard=45min / deep=90min
- *   × audit:    minimal=0.7 / default=1.0 / thorough=1.5 / paranoid=2.0
- *   × budget:   low=0.7 / medium=1.0 / high=1.4 / unlimited=2.0
- *   全局 cap:   3 小时
- *
- * 实际样例：
- *   quick + minimal + low                       ≈ 7 min
- *   standard + default + medium                 = 45 min  ← 默认档（覆盖 12-stage 实测耗时）
- *   deep + default + medium                     = 90 min
- *   deep + thorough + high                      ≈ 189 min → cap 180 min
- *   deep + paranoid + unlimited                 ≈ 360 min → cap 180 min
+ * Mission 级 wall-time 上限（ms）—— 单一源：缺省按 depth 档位，「高级」可覆盖。
+ * ★ 2026-05-22: 去掉原 depth×audit×budget 三维矩阵（多源 + 与前端预设冲突），
+ *   统一从 DEPTH_BUDGET_TIERS 取（DTO 已 cap 60s~3h）。
  */
 export function resolveMissionWallTimeMs(input: RunMissionInput): number {
-  if (input.wallTimeMs != null) {
-    // 用户显式覆盖（DTO 已 cap 到 60s ~ 3h）
-    return input.wallTimeMs;
-  }
-  const depthBase: Record<RunMissionInput["depth"], number> = {
-    quick: 15 * 60 * 1000,
-    standard: 45 * 60 * 1000,
-    deep: 90 * 60 * 1000,
-  };
-  const auditMul: Record<RunMissionInput["auditLayers"], number> = {
-    minimal: 0.7,
-    default: 1.0,
-    thorough: 1.5,
-    "thorough+": 2.0,
-  };
-  const budgetMul: Record<BudgetProfile, number> = {
-    low: 0.7,
-    medium: 1.0,
-    high: 1.4,
-    unlimited: 2.0,
-  };
-  const raw =
-    depthBase[input.depth] *
-    auditMul[input.auditLayers] *
-    budgetMul[input.budgetProfile];
-  const cap = 3 * 60 * 60 * 1000; // 3h hard ceiling
-  return Math.min(Math.round(raw), cap);
+  if (input.wallTimeMs != null) return input.wallTimeMs;
+  return DEPTH_BUDGET_TIERS[input.depth].wallTimeMs;
 }
 
 export const ResearchReportSchema = z.object({

@@ -96,10 +96,12 @@ export class MissionRuntimeShellService {
             concurrency: input.concurrency,
             viewMode: input.viewMode,
             searchTimeRange: input.searchTimeRange,
-            // ★ P4 (2026-05-06): maxCredits / budgetMultiplierOverride 已在 row 字段
-            //   存储，userProfile 不再双写（行字段是权威源）；wallTimeMs /
-            //   knowledgeBaseIds / inheritFromMissionId 仅存于此 JSON
-            wallTimeMs: input.wallTimeMs,
+            // ★ 2026-05-22 单一源 + 修"重跑预算丢失"：存**有效值**（缺省已按 depth 档位
+            //   解析），让 cloneInputFromMission 重跑时读得到。maxCredits 仍存权威列字段
+            //   （effectiveMaxCredits），multiplier / wallTime 无独立列故存此 JSON。
+            //   写路径（此处 + updateBudgetByUser）= 读路径（cloneInputFromMission）。
+            budgetMultiplierOverride: resolveBudgetMultiplier(input),
+            wallTimeMs: resolveMissionWallTimeMs(input),
             knowledgeBaseIds: input.knowledgeBaseIds,
             inheritFromMissionId: input.inheritFromMissionId,
           } as Record<string, unknown>,
