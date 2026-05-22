@@ -62,6 +62,7 @@ import { SOCIAL_EVENTS } from "./social.events";
 import {
   DomainEventBus,
   DomainEventRegistry,
+  MissionFailureCode,
   MissionLivenessGuard,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -203,9 +204,13 @@ export class AiSocialModule implements OnModuleInit, OnApplicationBootstrap {
       },
       getMostRecentEventTs: async () => new Map<string, number>(),
       markFailed: async (missionId, reason, errorMessage) => {
+        // ★ C2/MAJOR-4:liveness 回收落 canonical failureCode(超时→wall_time;失联→runtime_crashed)。
         await this.missionStore.markFailedByLiveness(
           missionId,
           `[liveness:${reason}] ${errorMessage}`,
+          reason === "wall-time-exceeded"
+            ? MissionFailureCode.wall_time_exceeded
+            : MissionFailureCode.runtime_crashed,
         );
         this.logger.warn(
           `[liveness] social mission ${missionId} reclaimed (${reason})`,

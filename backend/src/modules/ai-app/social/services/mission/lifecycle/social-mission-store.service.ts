@@ -170,6 +170,7 @@ export class SocialMissionStore {
   async markFailedByLiveness(
     missionId: string,
     errorMessage: string,
+    failureCode?: string,
   ): Promise<void> {
     await this.prisma.socialMission
       .updateMany({
@@ -178,6 +179,8 @@ export class SocialMissionStore {
           status: "failed",
           completedAt: new Date(),
           errorMessage: errorMessage.slice(0, 4000),
+          // ★ C2/MAJOR-4:liveness 回收落 canonical failureCode(此前为 NULL)。
+          failureCode: failureCode ?? null,
         },
       })
       .catch((err: unknown) => {

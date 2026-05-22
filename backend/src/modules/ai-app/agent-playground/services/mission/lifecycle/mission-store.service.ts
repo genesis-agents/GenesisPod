@@ -203,6 +203,8 @@ export class MissionStore {
         data: {
           status: "failed",
           completedAt: new Date(),
+          // ★ C2/MINOR-1:启动清理孤儿 running 行 = 进程崩溃,落 canonical runtime_crashed。
+          failureCode: "runtime_crashed",
           errorMessage:
             "Mission 在执行中遇到后端重启或异常退出（dispatcher 内存丢失）。" +
             "已自动标记为失败，建议使用顶部「重新运行」按钮重启相同主题。",

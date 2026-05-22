@@ -22,6 +22,7 @@ import * as path from "path";
 
 import {
   DomainEventRegistry,
+  MissionFailureCode,
   MissionLivenessGuard,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -234,9 +235,13 @@ export class RadarModule implements OnModuleInit {
       },
       getMostRecentEventTs: async () => new Map<string, number>(),
       markFailed: async (missionId, reason, errorMessage) => {
+        // ★ C2/MAJOR-4:liveness 回收落 canonical failureCode(超时→wall_time;失联/孤儿→runtime_crashed)。
         await this.missionStore.markFailed(
           missionId,
           `[liveness:${reason}] ${errorMessage}`,
+          reason === "wall-time-exceeded"
+            ? MissionFailureCode.wall_time_exceeded
+            : MissionFailureCode.runtime_crashed,
         );
         this.log.warn(
           `[liveness] radar mission ${missionId} reclaimed (${reason})`,

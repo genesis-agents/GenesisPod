@@ -149,6 +149,8 @@ export class MissionLifecycleHelper {
     id: string,
     data: {
       errorMessage?: string;
+      /** ★ C2/MAJOR-6:canonical MissionFailureCode 值,落 DB failure_code 列。 */
+      failureCode?: string;
       tokensUsed?: number;
       costUsd?: number;
       elapsedWallTimeMs?: number;
@@ -179,6 +181,10 @@ export class MissionLifecycleHelper {
       status: isLeadRefusal ? "quality-failed" : "failed",
       completedAt: new Date(),
       errorMessage: data.errorMessage?.slice(0, 2000) ?? null,
+      // ★ C2/MAJOR-6:落 canonical failure_code。Lead 拒签 → leader_signoff_rejected;
+      //   其余由 caller 传(handleMissionFailure 映射);都没有则 null(读路径回退 errorMessage)。
+      failureCode:
+        data.failureCode ?? (isLeadRefusal ? "leader_signoff_rejected" : null),
       tokensUsed: data.tokensUsed ?? null,
       costUsd: data.costUsd ?? null,
       elapsedWallTimeMs: data.elapsedWallTimeMs ?? null,

@@ -28,6 +28,7 @@ import {
   MissionElectionTracker,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
+  mapAgentFailureCode,
   type MissionPipelineConfig,
   type ResolvedStageHooks,
   type StageRunArgs,
@@ -815,6 +816,9 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     await this.store
       .markFailed(missionId, {
         errorMessage: displayMessage,
+        // ★ C2/MAJOR-6:把 inline 大写 code 映射成 canonical MissionFailureCode 落 DB
+        //   (此前只进事件 payload,不落库 → 失败原因在 DB 丢失)。
+        failureCode: mapAgentFailureCode(missionFailureCode),
         tokensUsed: snap.poolTokensUsed,
         costUsd: snap.poolCostUsd,
         elapsedWallTimeMs: Date.now() - t0,

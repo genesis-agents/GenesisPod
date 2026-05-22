@@ -115,10 +115,14 @@ const AGENT_CODE_TO_FAILURE_CODE: Readonly<Record<string, MissionFailureCode>> =
   {
     LOOP_BUDGET_EXHAUSTED: MissionFailureCode.budget_exhausted,
     BUDGET_EXHAUSTED: MissionFailureCode.budget_exhausted,
+    ORCH_CREDIT_INSUFFICIENT: MissionFailureCode.budget_exhausted,
     PROVIDER_API_ERROR: MissionFailureCode.provider_error,
     API_ERROR: MissionFailureCode.provider_error,
+    PROVIDER_RATE_LIMIT: MissionFailureCode.provider_error,
+    PROVIDER_BYOK_MODEL_NOT_FOUND: MissionFailureCode.provider_error,
     LOOP_EMPTY_RESPONSE_IMMEDIATE: MissionFailureCode.provider_error,
     RUNNER_WALL_TIME_EXCEEDED: MissionFailureCode.wall_time_exceeded,
+    RUNNER_INPUT_SCHEMA_MISMATCH: MissionFailureCode.runtime_crashed,
     MISSION_STALE: MissionFailureCode.runtime_crashed,
     MISSION_ABORTED: MissionFailureCode.user_cancelled,
   };

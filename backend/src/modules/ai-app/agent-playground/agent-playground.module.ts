@@ -81,6 +81,7 @@ import {
   DomainEventBus,
   DomainEventRegistry,
   MissionElectionTracker,
+  MissionFailureCode,
   MissionLivenessGuard,
 } from "@/modules/ai-harness/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
@@ -345,7 +346,14 @@ export class AgentPlaygroundModule
           return out;
         },
         markFailed: async (missionId, reason, errorMessage) => {
-          await this.store.markFailed(missionId, { errorMessage });
+          // ★ C2/MAJOR-4:liveness 回收落 canonical failureCode 到 DB(超时→wall_time;失联→runtime_crashed)。
+          await this.store.markFailed(missionId, {
+            errorMessage,
+            failureCode:
+              reason === "wall-time-exceeded"
+                ? MissionFailureCode.wall_time_exceeded
+                : MissionFailureCode.runtime_crashed,
+          });
           this.electionTracker.clear(missionId);
           await this.eventBus
             .emit({
