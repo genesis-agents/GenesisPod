@@ -19,6 +19,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { SettingsSectionCard } from '@/components/ui/cards/SettingsSectionCard';
+import { Alert } from '@/components/ui/feedback/Alert';
 import {
   AlertTriangle,
   Bell,
@@ -190,27 +191,21 @@ export function NotificationPreferencesView({
 
   if (!loading && error && !draft) {
     return (
-      <div
-        role="alert"
-        className="flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+      <Alert
+        tone="error"
+        title="加载通知偏好失败"
+        action={
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+          >
+            重试
+          </button>
+        }
       >
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
-        <div className="flex-1">
-          <div className="font-medium">加载通知偏好失败</div>
-          <div className="mt-0.5 text-xs text-red-600">
-            {error instanceof Error
-              ? error.message
-              : '网络异常，请检查连接后重试'}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => void refresh()}
-          className="shrink-0 rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
-        >
-          重试
-        </button>
-      </div>
+        {error instanceof Error ? error.message : '网络异常，请检查连接后重试'}
+      </Alert>
     );
   }
 
@@ -254,16 +249,9 @@ export function NotificationPreferencesView({
       )}
 
       {saveError && (
-        <div
-          role="alert"
-          className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-        >
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <div className="font-medium">保存失败</div>
-            <div className="text-xs">{saveError}</div>
-          </div>
-        </div>
+        <Alert tone="error" title="保存失败">
+          {saveError}
+        </Alert>
       )}
 
       {/* 基础（默认展开） */}
