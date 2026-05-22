@@ -46,7 +46,10 @@ import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { Tabs } from '@/components/ui/tabs';
 import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/panels/LeadJournalPanel';
-import { BudgetAndTimeLimitPanel } from '@/components/agent-playground/panels/BudgetAndTimeLimitPanel';
+import {
+  BudgetAndTimeLimitPanel,
+  SCALE_TIERS,
+} from '@/components/agent-playground/panels/BudgetAndTimeLimitPanel';
 import { isReportArtifact } from '@/lib/features/agent-playground/report-artifact.types';
 import { ensureRenderableArtifact } from '@/lib/features/agent-playground/synthesize-artifact';
 import { setCitationClickCallback } from '@/components/common/citations/citationNavigation';
@@ -1476,7 +1479,15 @@ function MissionSettingsModal({
           <FormField label="深度">
             <select
               value={depth}
-              onChange={(e) => setDepth(e.target.value as Depth)}
+              onChange={(e) => {
+                // 改深度即联动预算到对应档位，避免 depth 与预算脱节（重跑时一致）。
+                const d = e.target.value as Depth;
+                setDepth(d);
+                const tier = SCALE_TIERS[d];
+                setMaxCredits(tier.maxCredits);
+                setBudgetMultiplierOverride(tier.budgetMultiplier);
+                setWallTimeMinutes(tier.wallTimeMinutes);
+              }}
               className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
             >
               <option value="quick">quick · 快速</option>
@@ -1579,6 +1590,64 @@ function MissionSettingsModal({
             maxSelections={10}
           />
         </FormField>
+
+        {(() => {
+          const m = mission as {
+            status?: string;
+            errorMessage?: string | null;
+          };
+          if (m.status !== 'failed' || !m.errorMessage) return null;
+          return (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-900">
+              <p className="font-semibold">上次失败原因</p>
+              <p className="mt-0.5">{m.errorMessage}</p>
+              <p className="mt-1 text-amber-700">
+                如为预算耗尽，请提高下方「调研规模」档位或自定义 Credits
+                上限后重跑（修改后保存即生效）。
+              </p>
+            </div>
+          );
+        })()}
+
+        <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            调研规模（一键套用档位预算 · 修改后保存即在重跑生效）
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {(['quick', 'standard', 'deep'] as const).map((t) => {
+              const tier = SCALE_TIERS[t];
+              const active =
+                maxCredits === tier.maxCredits &&
+                wallTimeMinutes === tier.wallTimeMinutes &&
+                budgetMultiplierOverride === tier.budgetMultiplier;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    // 档位卡片 = 同时设深度 + 预算，与上方「深度」下拉保持同源一致。
+                    setDepth(t);
+                    setMaxCredits(tier.maxCredits);
+                    setBudgetMultiplierOverride(tier.budgetMultiplier);
+                    setWallTimeMinutes(tier.wallTimeMinutes);
+                  }}
+                  className={`rounded-xl border px-3 py-2 text-left transition-all ${
+                    active
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-blue-300'
+                  }`}
+                >
+                  <span className="block text-sm font-medium text-slate-900">
+                    {tier.label}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-slate-500">
+                    {tier.approxCost} · {tier.approxTime}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <BudgetAndTimeLimitPanel
           maxCredits={maxCredits}
