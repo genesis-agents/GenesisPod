@@ -106,6 +106,31 @@ v2 把 `quality_rejected` 放进 `MissionTerminalOutcome` 平台 enum,但有些 
 
 ---
 
+## 0.7 实施进度回填（live status，随实施更新）
+
+> 实施于 2026-05-22 起,无双写·真实切换,每组 tsc+测试+verify:arch 验证后合并主干。
+
+| 契约/组                                        | 状态 | PR                  | 说明                                                 |
+| ---------------------------------------------- | ---- | ------------------- | ---------------------------------------------------- |
+| 策略:无双写·真实切换                           | ✅   | #133                | 覆盖 RB7/G5 渐进策略(用户硬约束)                     |
+| **G0** radar/social liveness 注册              | ✅   | #134 #135           | 治孤儿 running 行永不回收(C8 注册部分)               |
+| **G0** social cancel 真停                      | ✅   | #136                | 治取消假停烧预算 + S8 gate-before-stage(RB6)         |
+| **C0** 终态写权(finalize 单写+条件写仲裁)      | ✅   | #137 #138           | 三方竞争测试 + 三 app 终态写条件化(首写赢)           |
+| **C1** MissionAbortReason enum                 | ✅   | #139                | abort-registry 改签名 + 全调用方切换                 |
+| **C2** MissionFailure 契约 + 三表 failure_code | ✅   | #140 #141 #142      | code/category 投影 + 删 social/radar 正则 + 落库     |
+| **C3a** ResolvedBudgetCaps + 换算收口          | ✅   | #143 #144           | 私有构造工厂 + 删散落 ×1000/×0.002                   |
+| **C4** wallTime 拆 cap/elapsed(三表)           | ✅   | #145 #146 #147 #148 | 类型契约 + radar cap/social+playground elapsed 改名  |
+| **C8** conformance 套件(L5a/L5b)               | ⏳   | —                   | G6,wiring+behavioral(含三方竞争集成)                 |
+| **C5** MissionConfigSnapshot + MissionRecord   | ⏳   | —                   | G7,显式 schema/lineage/版本 + DB config_snapshot     |
+| **C6** MissionInputPatch + InputRebuilder      | ⏳   | —                   | G8,canonical patch + 三 app rerun 切换               |
+| **C7** MissionTerminalOutcome + presentation   | ⏳   | —                   | G9,终态 outcome 去 quality_rejected(G6)              |
+| **G10** 看护落地(L1/L3 arch spec)              | ⏳   | —                   | budget 目录扫换算 + 新代码禁裸 wallTimeMs + 投影断言 |
+| **G11** 深度检视 + 回填                        | ⏳   | —                   | 全量验证 + 文档收尾                                  |
+
+**小尾(并入 G11)**:C2 playground 终态写新列 + 前端按 code 出文案;C3b 真实成本对账 ai-infra。
+
+---
+
 ## 1. 背景、定级、范围
 
 ### 1.1 这是一类系统级病（不是单点 bug）
