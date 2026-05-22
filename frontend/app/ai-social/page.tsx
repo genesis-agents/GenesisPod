@@ -139,8 +139,8 @@ export default function AISocialPage() {
           />
         </div>
 
-        {/* 主视图 = 任务列表（点 row 跳 /mission/[taskId]）*/}
-        <div className="p-8">
+        {/* 主视图 = 任务列表（卡片网格，点卡片跳 /mission/[taskId]）*/}
+        <div className="px-8 py-6">
           <TasksTab />
         </div>
       </div>

@@ -1,24 +1,21 @@
 'use client';
 
 /**
- * TasksTab — 意图驱动重设计 v1 列表（PR-V5）
+ * TasksTab — AI 社媒主页列表（卡片网格）
  *
- * 替代旧 ContentsTab（写内容 + 平台连接），改为：
- *   - 顶部 [+ 新建任务] → 弹出 NewTaskDialog
- *   - 行点击 → 跳转 /ai-social/mission/{taskId}
- *   - 每行显示 "Agent Team 状态" 列 + 按 status 显示操作按钮
+ * 2026-05-21 重构：废弃 spreadsheet 表格（内容/来源/平台/状态/操作 5 列"硬凑"，
+ * 与全站不一致），改用 canonical `AssetCard` 网格 + `Tabs(pill)` 筛选 + `StatusBadge`
+ * + `CreateCard` + 页面级 `LoadingState`/`EmptyState`，对齐 Research/Writing/Library/
+ * Playground 全站主页形态（mission 兄弟 Agent Playground 也是卡片网格）。
  *
- * 数据源：useSocialTasks（GET /ai-social/tasks 轮询 5s）
+ * 数据源：useSocialTasks（GET /ai-social/tasks 轮询 5s）；点卡片 → /ai-social/mission/{id}
  */
 
 import { useMemo, useState } from 'react';
-import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
-import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useRouter } from 'next/navigation';
 import {
   Plus,
   RefreshCw,
-  Trash2,
   Send,
   RotateCw,
   ExternalLink,
@@ -35,8 +32,19 @@ import {
   Lightbulb,
   Bot,
   Link2,
-  ChevronRight,
+  Trash2,
+  type LucideIcon,
 } from 'lucide-react';
+import {
+  AssetCard,
+  type AssetCardBadge,
+  type AssetCardAction,
+} from '@/components/ui/cards/asset-card';
+import { CreateCard } from '@/components/ui/cards/CreateCard';
+import { StatusBadge, type BadgeTone } from '@/components/ui/badges';
+import { Tabs } from '@/components/ui/tabs';
+import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui/states';
 import { useTranslation } from '@/lib/i18n';
 import {
   useSocialTasks,
@@ -49,81 +57,27 @@ import type {
 import { NewTaskDialog } from '../dialogs/NewTaskDialog';
 import { logger } from '@/lib/utils/logger';
 
-// Status pill style + label fallback
-const STATUS_STYLES: Record<
+// 任务状态 → canonical StatusBadge 的 tone / 图标 / 文案
+const STATUS_META: Record<
   SocialContentTaskStatus,
-  { bg: string; text: string; label: string; icon: typeof Loader2 }
+  { tone: BadgeTone; icon: LucideIcon; label: string; pulse?: boolean }
 > = {
-  PENDING: {
-    bg: 'bg-gray-100',
-    text: 'text-gray-700',
-    label: '待启动',
-    icon: Inbox,
-  },
-  GENERATING: {
-    bg: 'bg-blue-100',
-    text: 'text-blue-700',
-    label: '生成中',
-    icon: Loader2,
-  },
-  DRAFT_READY: {
-    bg: 'bg-emerald-100',
-    text: 'text-emerald-700',
-    label: '草稿就绪',
-    icon: CheckCircle2,
-  },
-  PUBLISHING: {
-    bg: 'bg-amber-100',
-    text: 'text-amber-700',
-    label: '发布中',
-    icon: Loader2,
-  },
-  PUBLISHED: {
-    bg: 'bg-emerald-100',
-    text: 'text-emerald-700',
-    label: '已发布',
-    icon: CheckCircle2,
-  },
+  PENDING: { tone: 'neutral', icon: Inbox, label: '待启动' },
+  GENERATING: { tone: 'running', icon: Loader2, label: '生成中', pulse: true },
+  DRAFT_READY: { tone: 'success', icon: CheckCircle2, label: '草稿就绪' },
+  PUBLISHING: { tone: 'warning', icon: Loader2, label: '发布中', pulse: true },
+  PUBLISHED: { tone: 'success', icon: CheckCircle2, label: '已发布' },
   PARTIAL_PUBLISHED: {
-    bg: 'bg-amber-100',
-    text: 'text-amber-700',
-    label: '部分发布',
+    tone: 'warning',
     icon: AlertTriangle,
+    label: '部分发布',
   },
-  FAILED: {
-    bg: 'bg-red-100',
-    text: 'text-red-700',
-    label: '失败',
-    icon: XCircle,
-  },
-  CANCELLED: {
-    bg: 'bg-gray-100',
-    text: 'text-gray-500',
-    label: '已取消',
-    icon: XCircle,
-  },
+  FAILED: { tone: 'danger', icon: XCircle, label: '失败' },
+  CANCELLED: { tone: 'neutral', icon: XCircle, label: '已取消' },
 };
 
-function StatusPill({ status }: { status: SocialContentTaskStatus }) {
-  const style = STATUS_STYLES[status];
-  const Icon = style.icon;
-  const spinning =
-    status === 'GENERATING' || status === 'PUBLISHING' ? 'animate-spin' : '';
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${style.bg} ${style.text}`}
-    >
-      <Icon className={`h-3 w-3 ${spinning}`} />
-      {style.label}
-    </span>
-  );
-}
-
-// 后端 7 个 data source 的 sourceType → 友好显示
-const SOURCE_TYPE_META: Record<
-  string,
-  { label: string; Icon: typeof BookMarked }
-> = {
+// 后端 data source 的 sourceType → 友好显示
+const SOURCE_TYPE_META: Record<string, { label: string; Icon: LucideIcon }> = {
   AI_LIBRARY: { label: '我的知识库', Icon: BookMarked },
   AI_EXPLORE: { label: 'AI 探索', Icon: Compass },
   AI_RESEARCH: { label: 'AI 研究', Icon: FlaskConical },
@@ -132,46 +86,47 @@ const SOURCE_TYPE_META: Record<
   AI_TOPIC_INSIGHTS: { label: '专题洞察', Icon: Lightbulb },
   AI_PLAYGROUND: { label: 'Agent 实验场', Icon: Bot },
 };
-
 function getSourceMeta(sourceType: string) {
   return SOURCE_TYPE_META[sourceType] ?? { label: sourceType, Icon: FileText };
 }
 
-function formatRelative(dateStr: string): string {
-  const d = new Date(dateStr);
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return '刚刚';
-  if (mins < 60) return `${mins} 分钟前`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} 小时前`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} 天前`;
-  return d.toLocaleDateString();
+// 卡片图标渐变（按 id hash 取色，与全站 getProjectGradient 同款，避免整页 rose 单色）
+const CARD_GRADIENTS = [
+  'from-rose-500 to-pink-600',
+  'from-violet-500 to-purple-600',
+  'from-blue-500 to-cyan-600',
+  'from-amber-500 to-orange-600',
+  'from-emerald-500 to-teal-600',
+  'from-fuchsia-500 to-pink-600',
+  'from-indigo-500 to-blue-600',
+  'from-sky-500 to-indigo-600',
+];
+function getCardGradient(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash << 5) - hash + id.charCodeAt(i);
+    hash |= 0;
+  }
+  return CARD_GRADIENTS[Math.abs(hash) % CARD_GRADIENTS.length];
 }
 
-function TaskRow({
-  task,
-  onClick,
-  onCancel,
-}: {
-  task: SocialContentTask;
-  onClick: () => void;
-  onCancel: () => void;
-}) {
-  const canCancel = task.status === 'PENDING' || task.status === 'GENERATING';
-  const canRetry =
-    task.status === 'FAILED' || task.status === 'PARTIAL_PUBLISHED';
-  const externalUrls = (task.versions ?? [])
-    .filter((v) => v.externalUrl)
-    .map((v) => ({ platform: v.platform, url: v.externalUrl! }));
+function platformLabelOf(task: SocialContentTask): string {
+  return task.platforms
+    .map((p) =>
+      p === 'WECHAT_MP' || p === 'WECHAT_ARTICLE'
+        ? '微信公众号'
+        : p === 'XIAOHONGSHU' || p === 'XIAOHONGSHU_NOTE'
+          ? '小红书'
+          : p
+    )
+    .join(' · ');
+}
 
-  // 标题优先级：task.title（创建时自动派生自所选源）> AI 生成标题 > 用户 prompt > 状态描述
-  // 旧任务 task.title=null，UI 自然 fallback。
+function taskTitleOf(task: SocialContentTask): string {
   const autoTitle = task.title?.trim();
   const generatedTitle = task.versions?.[0]?.title?.trim();
   const promptTitle = task.prompt?.trim().slice(0, 60);
-  const title =
+  return (
     autoTitle ||
     generatedTitle ||
     promptTitle ||
@@ -181,147 +136,18 @@ function TaskRow({
         ? '未生成（任务失败）'
         : task.status === 'CANCELLED'
           ? '已取消'
-          : '未命名任务');
-  const titleStyle =
-    autoTitle || generatedTitle
-      ? 'font-semibold text-gray-900'
-      : promptTitle
-        ? 'font-medium text-gray-800'
-        : 'text-sm text-gray-500 italic';
-
-  // 来源摘要：首个 sourceType 友好名 + "+N"；外链单独标
-  const sources = task.sources ?? [];
-  const urlCount = task.externalUrls.length;
-  const firstSource = sources[0];
-  const firstSourceMeta = firstSource
-    ? getSourceMeta(firstSource.sourceType)
-    : null;
-  const extraSourceCount = sources.length > 1 ? sources.length - 1 : 0;
-
-  // 兼容旧任务的 platforms 字段（旧表用 SocialContentType enum 值如 WECHAT_ARTICLE
-  // 填到 platforms 字段；新任务用 SocialPlatform enum WECHAT_MP）
-  const platformLabel = task.platforms
-    .map((p) =>
-      p === 'WECHAT_MP' || p === 'WECHAT_ARTICLE'
-        ? '微信公众号'
-        : p === 'XIAOHONGSHU' || p === 'XIAOHONGSHU_NOTE'
-          ? '小红书'
-          : p
-    )
-    .join(' · ');
-
-  return (
-    <Tr
-      className="group cursor-pointer border-b border-gray-100 transition-colors hover:bg-rose-50/40"
-      onClick={onClick}
-    >
-      <Td className="px-4 py-3.5">
-        <div className={`line-clamp-1 ${titleStyle}`} title={title}>
-          {title}
-        </div>
-        <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
-          <span>{formatRelative(task.createdAt)}</span>
-          {task.missionId && (
-            <span className="font-mono text-[10px] text-gray-400">
-              · {task.missionId.slice(0, 8)}
-            </span>
-          )}
-        </div>
-        {task.errorMessage && (
-          <div
-            className="mt-1 line-clamp-1 text-xs text-red-600"
-            title={task.errorMessage}
-          >
-            <AlertTriangle className="mr-1 inline h-3 w-3" />
-            {task.errorMessage}
-          </div>
-        )}
-      </Td>
-      <Td className="px-4 py-3.5">
-        {firstSourceMeta ? (
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
-              <firstSourceMeta.Icon className="h-3.5 w-3.5" />
-            </div>
-            <div className="min-w-0">
-              <div className="line-clamp-1 text-sm text-gray-700">
-                {firstSourceMeta.label}
-              </div>
-              {(extraSourceCount > 0 || urlCount > 0) && (
-                <div className="text-[11px] text-gray-400">
-                  {extraSourceCount > 0 && `+${extraSourceCount} 项`}
-                  {extraSourceCount > 0 && urlCount > 0 && ' · '}
-                  {urlCount > 0 && `${urlCount} 外链`}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : urlCount > 0 ? (
-          <div className="flex items-center gap-2 text-sm text-gray-700">
-            <Link2 className="h-3.5 w-3.5 text-gray-500" />
-            {urlCount} 外链
-          </div>
-        ) : (
-          <span className="text-sm text-gray-400">—</span>
-        )}
-      </Td>
-      <Td className="px-4 py-3.5 text-sm text-gray-700">{platformLabel}</Td>
-      <Td className="px-4 py-3.5">
-        <StatusPill status={task.status} />
-      </Td>
-      <Td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-end gap-1">
-          {/* 状态相关的快捷操作 */}
-          {task.status === 'DRAFT_READY' && (
-            <button
-              type="button"
-              onClick={onClick}
-              className="inline-flex items-center gap-1 rounded-lg bg-rose-500 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-rose-600"
-              title="发布到草稿箱"
-            >
-              <Send className="h-3.5 w-3.5" />
-              发布
-            </button>
-          )}
-          {canRetry && (
-            <button
-              type="button"
-              onClick={onClick}
-              className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"
-              title="进入详情重试"
-            >
-              <RotateCw className="h-3.5 w-3.5" />
-              重试
-            </button>
-          )}
-          {externalUrls.length > 0 && (
-            <a
-              href={externalUrls[0].url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="rounded-lg p-1.5 text-emerald-500 transition-colors hover:bg-emerald-100"
-              title="打开发布链接"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          )}
-          {/* 删除按钮：始终显示 — 后端按状态决定行为（运行中→标 CANCELLED；终态→真删 row） */}
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
-            title={canCancel ? '取消任务（保留记录）' : '删除任务（永久）'}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-          {/* 默认 hover 露出 → 进详情指示 */}
-          <ChevronRight className="ml-1 h-4 w-4 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100" />
-        </div>
-      </Td>
-    </Tr>
+          : '未命名任务')
   );
 }
+
+const FILTER_KEYS = [
+  'ALL',
+  'PENDING',
+  'GENERATING',
+  'DRAFT_READY',
+  'PUBLISHED',
+  'FAILED',
+] as const;
 
 export default function TasksTab() {
   const router = useRouter();
@@ -334,75 +160,147 @@ export default function TasksTab() {
     refreshIntervalMs: 5000,
   });
 
-  // group / counters for filter chips
   const counters = useMemo(() => {
     const c: Partial<Record<SocialContentTaskStatus | 'ALL', number>> = {
       ALL: tasks.length,
     };
-    for (const task of tasks) {
-      c[task.status] = (c[task.status] ?? 0) + 1;
-    }
+    for (const task of tasks) c[task.status] = (c[task.status] ?? 0) + 1;
     return c;
   }, [tasks]);
 
-  const handleRowClick = (task: SocialContentTask) => {
-    router.push(`/ai-social/mission/${task.id}`);
-  };
+  // 计数仅在「全部」视图准确（筛选时 tasks 只含该状态，其余 tab 计数会失实 → 不显示）
+  const filterItems = FILTER_KEYS.map((s) => ({
+    key: s,
+    label: s === 'ALL' ? t('aiSocial.tasks.filter.all') : STATUS_META[s].label,
+    count: filter === 'ALL' ? (counters[s] ?? 0) : undefined,
+  }));
 
   const handleCancel = (task: SocialContentTask) => {
-    cancelTaskAndRefresh(task.id, refresh).catch((err: unknown) => {
+    void cancelTaskAndRefresh(task.id, refresh).catch((err: unknown) => {
       logger.warn('[TasksTab] cancel failed:', err);
     });
   };
 
-  const handleCreated = (_taskId: string) => {
-    // ★ R1 P1-1 fix (2026-05-18): 方案 §3.3 用户原话 U5 — "用户操作完事，
-    //   列表行进入'生成中'，用户走人"。不立即跳详情页；列表 SWR 自动 revalidate
-    //   出新行 status=PENDING/GENERATING，用户自己点行才进 mission 详情。
-    setDialogOpen(false);
-    refresh();
+  const renderCard = (task: SocialContentTask) => {
+    const meta = STATUS_META[task.status];
+    const sources = task.sources ?? [];
+    const firstSource = sources[0];
+    const urlCount = task.externalUrls.length;
+
+    const badges: AssetCardBadge[] = [];
+    if (firstSource) {
+      const sm = getSourceMeta(firstSource.sourceType);
+      const extra = sources.length > 1 ? ` +${sources.length - 1}` : '';
+      badges.push({
+        key: 'source',
+        label: `${sm.label}${extra}`,
+        icon: <sm.Icon className="h-3 w-3" />,
+      });
+    }
+    if (urlCount > 0) {
+      badges.push({
+        key: 'url',
+        label: `${urlCount} 外链`,
+        icon: <Link2 className="h-3 w-3" />,
+      });
+    }
+    badges.push({
+      key: 'platform',
+      label: platformLabelOf(task),
+      className: 'bg-rose-50 text-rose-600',
+    });
+
+    const extraActions: AssetCardAction[] = [];
+    const externalUrl = (task.versions ?? []).find(
+      (v) => v.externalUrl
+    )?.externalUrl;
+    if (externalUrl) {
+      extraActions.push({
+        key: 'open',
+        title: '打开发布链接',
+        tone: 'success',
+        icon: <ExternalLink className="h-4 w-4" />,
+        onClick: () => window.open(externalUrl, '_blank', 'noopener'),
+      });
+    }
+    if (task.status === 'DRAFT_READY') {
+      extraActions.push({
+        key: 'publish',
+        title: '发布到草稿箱',
+        tone: 'info',
+        icon: <Send className="h-4 w-4" />,
+        onClick: () => router.push(`/ai-social/mission/${task.id}`),
+      });
+    }
+    if (task.status === 'FAILED' || task.status === 'PARTIAL_PUBLISHED') {
+      extraActions.push({
+        key: 'retry',
+        title: '进入详情重试',
+        tone: 'warning',
+        icon: <RotateCw className="h-4 w-4" />,
+        onClick: () => router.push(`/ai-social/mission/${task.id}`),
+      });
+    }
+    // 删除/取消（运营型操作，不走 isOwner 标准管理槽 —— 任务无"编辑"语义）
+    const canCancel = task.status === 'PENDING' || task.status === 'GENERATING';
+    extraActions.push({
+      key: 'delete',
+      title: canCancel ? '取消任务（保留记录）' : '删除任务',
+      tone: 'danger',
+      icon: <Trash2 className="h-4 w-4" />,
+      onClick: () => handleCancel(task),
+    });
+
+    return (
+      <AssetCard
+        key={task.id}
+        title={taskTitleOf(task)}
+        icon={<FileText className="h-6 w-6 text-white" />}
+        gradient={getCardGradient(task.id)}
+        badges={badges}
+        extraActions={extraActions}
+        onClick={() => router.push(`/ai-social/mission/${task.id}`)}
+        customSection={
+          <div className="space-y-1.5">
+            <StatusBadge
+              tone={meta.tone}
+              label={meta.label}
+              icon={meta.icon}
+              pulse={meta.pulse}
+            />
+            {task.errorMessage && (
+              <p
+                className="line-clamp-2 text-xs text-red-600"
+                title={task.errorMessage}
+              >
+                {task.errorMessage}
+              </p>
+            )}
+          </div>
+        }
+        timestamp={task.createdAt}
+      />
+    );
   };
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm">
-          {(
-            [
-              'ALL',
-              'PENDING',
-              'GENERATING',
-              'DRAFT_READY',
-              'PUBLISHED',
-              'FAILED',
-            ] as const
-          ).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setFilter(s)}
-              className={`rounded-full px-3 py-1 transition-colors ${
-                filter === s
-                  ? 'bg-rose-500 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {s === 'ALL'
-                ? t('aiSocial.tasks.filter.all')
-                : STATUS_STYLES[s].label}{' '}
-              {counters[s] != null && (
-                <span className="ml-1 opacity-70">({counters[s]})</span>
-              )}
-            </button>
-          ))}
-        </div>
+      {/* Toolbar：canonical Tabs(pill) 筛选 + 刷新 + 新建 */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Tabs
+          variant="pill"
+          size="sm"
+          value={filter}
+          onChange={(k) => setFilter(k as SocialContentTaskStatus | 'ALL')}
+          items={filterItems}
+        />
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => refresh()}
+            onClick={() => void refresh()}
             className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 transition-colors hover:bg-gray-50"
             title="刷新"
+            aria-label="刷新"
           >
             <RefreshCw
               className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
@@ -411,7 +309,7 @@ export default function TasksTab() {
           <button
             type="button"
             onClick={() => setDialogOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-rose-500/25 transition-all hover:shadow-lg hover:shadow-rose-500/30"
+            className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-700"
           >
             <Plus className="h-4 w-4" />
             {t('aiSocial.tasks.create')}
@@ -425,60 +323,34 @@ export default function TasksTab() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <Table className="w-full text-left">
-          <THead className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            <Tr>
-              <Th className="w-[40%] px-4 py-3">内容</Th>
-              <Th className="w-[20%] px-4 py-3">来源</Th>
-              <Th className="w-[15%] px-4 py-3">平台</Th>
-              <Th className="w-[12%] px-4 py-3">状态</Th>
-              <Th className="w-[13%] px-4 py-3 text-right">操作</Th>
-            </Tr>
-          </THead>
-          <TBody>
-            {isLoading && tasks.length === 0 && (
-              <Tr>
-                <Td
-                  colSpan={5}
-                  className="px-4 py-12 text-center text-gray-400"
-                >
-                  <Loader2 className="mx-auto h-6 w-6 animate-spin" />
-                </Td>
-              </Tr>
-            )}
-            {!isLoading && tasks.length === 0 && (
-              <Tr>
-                <Td colSpan={5}>
-                  <EmptyState
-                    size="sm"
-                    icon={<Inbox className="h-8 w-8" />}
-                    title={t('aiSocial.tasks.empty')}
-                    action={{
-                      label: t('aiSocial.tasks.create'),
-                      onClick: () => setDialogOpen(true),
-                    }}
-                  />
-                </Td>
-              </Tr>
-            )}
-            {tasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                onClick={() => handleRowClick(task)}
-                onCancel={() => handleCancel(task)}
-              />
-            ))}
-          </TBody>
-        </Table>
-      </div>
+      {isLoading && tasks.length === 0 ? (
+        <LoadingState text={t('aiSocial.loading')} />
+      ) : tasks.length === 0 ? (
+        <EmptyState
+          icon={<Inbox className="h-12 w-12" />}
+          title={t('aiSocial.tasks.empty')}
+          action={{
+            label: t('aiSocial.tasks.create'),
+            onClick: () => setDialogOpen(true),
+          }}
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {tasks.map(renderCard)}
+          <CreateCard
+            title={t('aiSocial.tasks.create')}
+            onClick={() => setDialogOpen(true)}
+          />
+        </div>
+      )}
 
       <NewTaskDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        onCreated={handleCreated}
+        onCreated={() => {
+          setDialogOpen(false);
+          refresh();
+        }}
       />
     </div>
   );

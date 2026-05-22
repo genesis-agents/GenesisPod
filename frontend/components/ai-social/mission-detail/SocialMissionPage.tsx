@@ -12,7 +12,7 @@
  * 如 prop 签名不兼容，用最小适配层（props 转换）而非改原组件。
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Activity,
@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Coins,
+  Copy,
   Crown,
   FileText,
   Image as ImageIcon,
@@ -34,10 +35,6 @@ import {
   Wand2,
   type LucideIcon,
 } from 'lucide-react';
-import {
-  ComputeUsagePanel,
-  MissionFlowView,
-} from '@/components/agent-playground';
 import {
   MissionDetailFrame,
   MissionActionGroup,
@@ -53,15 +50,28 @@ import {
   type TeamTopologyConnection,
   type TeamNodeStatus,
 } from '@/components/common/team-topology';
+import {
+  AgentInspector,
+  type AgentInspectorAgent,
+} from '@/components/common/agent-inspector';
 import { cn } from '@/lib/utils/common';
-import { deriveView } from '@/lib/features/agent-playground/derive';
-import { deriveTodoLedger } from '@/lib/features/agent-playground/todo-ledger';
 import {
   deriveSocialView,
+  socialAgentByRole,
+  socialRoleLabel,
+  latestThought,
+  agentTools,
   type SocialStageStatus,
   type SocialStageView,
   type SocialMissionView,
+  type SocialRoleStatus,
+  type SocialTraceItem,
 } from '@/lib/features/ai-social/derive-social';
+import { SocialComputePanel } from './SocialComputePanel';
+import { SocialFlowView } from './SocialFlowView';
+import { statusToken } from '@/lib/design/tokens';
+import { toast } from '@/stores';
+import { isSafeHttpUrl } from '@/lib/utils/url';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import DOMPurify from 'isomorphic-dompurify';
 import { useSocialMissionStream } from '@/hooks/features/useSocialMissionStream';
@@ -75,6 +85,8 @@ import { SocialPublishPanel } from './SocialPublishPanel';
 import { deriveSocialStages } from '@/lib/features/ai-social/derive-social-stages';
 import type { SocialContentTaskStatus } from '@/services/ai-social/task-types';
 import { LoadingSkeleton } from '@/components/ui/states/LoadingState';
+import { EmptyState } from '@/components/ui/states/EmptyState';
+import { ErrorState, ErrorInline } from '@/components/ui/states/ErrorState';
 import { Tabs } from '@/components/ui/tabs';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -203,13 +215,17 @@ const SOURCE_TYPE_LABEL: Record<string, string> = {
   EXTERNAL: '外部链接',
 };
 
+/** 毫秒 → 人类可读耗时 */
+function formatDurationMs(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.round(ms / 60000)}m`;
+}
+
 /** 阶段耗时（startedAt→completedAt）；进行中/未开始给占位 */
 function formatStageDuration(s: SocialStageView): string {
   if (s.startedAt != null && s.completedAt != null) {
-    const ms = s.completedAt - s.startedAt;
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${Math.round(ms / 60000)}m`;
+    return formatDurationMs(s.completedAt - s.startedAt);
   }
   return s.status === 'running' ? '进行中' : '—';
 }
@@ -239,6 +255,97 @@ function buildSocialTopology(view: SocialMissionView): {
     (m) => m.role !== 'Leader'
   ).map((m) => ({ from: 'Leader', to: m.role }));
   return { nodes, rows, connections };
+}
+
+/** colorKey → icon 容器配色（Tailwind 需字面量，故静态映射） */
+const SOCIAL_ICON_CLASS: Record<string, string> = {
+  purple: 'bg-violet-50 text-violet-600',
+  amber: 'bg-amber-50 text-amber-600',
+  blue: 'bg-sky-50 text-sky-600',
+  indigo: 'bg-indigo-50 text-indigo-600',
+  pink: 'bg-pink-50 text-pink-600',
+  green: 'bg-green-50 text-green-600',
+  rose: 'bg-rose-50 text-rose-600',
+  emerald: 'bg-emerald-50 text-emerald-600',
+};
+
+const SOCIAL_ROLE_STATUS_META: Record<
+  SocialRoleStatus,
+  { label: string; color: string }
+> = {
+  working: {
+    label: statusToken.running.label,
+    color: statusToken.running.text,
+  },
+  done: { label: statusToken.done.label, color: statusToken.done.text },
+  failed: { label: statusToken.failed.label, color: statusToken.failed.text },
+  idle: { label: statusToken.pending.label, color: statusToken.pending.text },
+};
+
+const TRACE_KIND_LABEL: Record<SocialTraceItem['kind'], string> = {
+  thought: '思考',
+  action: '行动',
+  observation: '观察',
+  reflection: '反思',
+  error: '错误',
+};
+
+/**
+ * social 角色节点 → 标准 AgentInspector 卡片数据。
+ * 真实派生数据：角色状态 + 负责阶段及耗时 + 该角色 agent 的真实模型/工具/迭代/最近思考。
+ * 高危角色（publish-executor/platform-probe）的 thought 已在 derive 层剥离，不会外泄凭证。
+ */
+function buildSocialInspectorPayload(
+  roleId: string,
+  view: SocialMissionView
+): AgentInspectorAgent {
+  const meta = SOCIAL_TEAM.find((m) => m.role === roleId);
+  const role = view.roles.find((r) => r.role === roleId);
+  const stages = view.stages.filter((s) => s.role === roleId);
+  const statusMeta = SOCIAL_ROLE_STATUS_META[role?.status ?? 'idle'];
+  const agent = socialAgentByRole(view, roleId);
+
+  const running = stages.filter((s) => s.status === 'running').length;
+  const completed = stages.filter((s) => s.status === 'done').length;
+  const failed = stages.filter((s) => s.status === 'failed').length;
+
+  const descs = Array.from(
+    new Set(stages.map((s) => s.desc).filter((d): d is string => !!d))
+  );
+
+  // 已完成/失败的阶段附真实耗时，进行中/未开始只给名字
+  const stageChips = stages.map((s) =>
+    s.status === 'done' || s.status === 'failed'
+      ? `${s.label} · ${formatStageDuration(s)}`
+      : s.label
+  );
+
+  const config: NonNullable<AgentInspectorAgent['config']> = [];
+  if (stageChips.length > 0)
+    config.push({ label: '负责阶段', chips: stageChips });
+  if (agent?.modelId) config.push({ label: '模型', value: agent.modelId });
+  const tools = agentTools(agent);
+  if (tools.length > 0) config.push({ label: '工具', chips: tools });
+  if (agent?.wallTimeMs != null)
+    config.push({ label: '耗时', value: formatDurationMs(agent.wallTimeMs) });
+
+  return {
+    name: meta?.name ?? role?.label ?? roleId,
+    description: descs.length > 0 ? descs.join('；') : undefined,
+    icon: meta?.icon ?? Sparkles,
+    iconClassName:
+      SOCIAL_ICON_CLASS[meta?.colorKey ?? ''] ?? 'bg-violet-50 text-violet-600',
+    statusLabel: statusMeta.label,
+    statusColorClass: statusMeta.color,
+    instanceCounts: {
+      running,
+      completed,
+      failed,
+      iterations: agent?.iterations,
+    },
+    config: config.length > 0 ? config : undefined,
+    recentThought: latestThought(agent),
+  };
 }
 
 function ReportTab({
@@ -285,22 +392,83 @@ function ReportTab({
             />
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setPublishOpen(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-rose-700"
-        >
-          <Send className="h-4 w-4" />
-          发布
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {version?.content && (
+            <button
+              type="button"
+              onClick={() => {
+                const text = version.content
+                  .replace(/<[^>]+>/g, '')
+                  .replace(/\n{3,}/g, '\n\n')
+                  .trim();
+                void navigator.clipboard.writeText(text).then(
+                  () => toast.success('正文已复制，可粘贴到公众号编辑器'),
+                  () => toast.error('复制失败')
+                );
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              <Copy className="h-4 w-4" />
+              复制正文
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setPublishOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+          >
+            <Send className="h-4 w-4" />
+            发布
+          </button>
+        </div>
       </div>
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto bg-gray-50">
         {version ? (
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold text-gray-900">{version.title}</h2>
-            {version.tags?.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {version.tags.map((tag) => (
+          <article className="mx-auto my-6 max-w-2xl space-y-5 rounded-2xl bg-white px-6 py-8 shadow-sm sm:px-10">
+            {version.coverImageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={version.coverImageUrl}
+                alt={version.title}
+                className="aspect-[16/9] w-full rounded-xl object-cover"
+              />
+            )}
+            <header className="space-y-2">
+              <h1 className="text-2xl font-bold leading-snug text-gray-900">
+                {version.title}
+              </h1>
+              {version.digest && (
+                <p className="text-sm leading-relaxed text-gray-500">
+                  {version.digest}
+                </p>
+              )}
+            </header>
+            {version.content && (
+              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                <span>
+                  正文{' '}
+                  {
+                    version.content.replace(/<[^>]+>/g, '').replace(/\s/g, '')
+                      .length
+                  }{' '}
+                  字
+                </span>
+                <span
+                  className={cn(version.title.length > 64 && 'text-amber-600')}
+                >
+                  标题 {version.title.length}/64
+                </span>
+                {version.coverImageUrl ? (
+                  <span className="text-emerald-600">封面已就绪</span>
+                ) : (
+                  <span className="text-amber-600">无封面</span>
+                )}
+              </div>
+            )}
+            {((version.tags && version.tags.length > 0) ||
+              version.externalUrl) && (
+              <div className="flex flex-wrap items-center gap-1.5 border-y border-gray-100 py-2.5">
+                {version.tags?.map((tag) => (
                   <span
                     key={tag}
                     className="rounded-full bg-rose-50 px-2 py-0.5 text-xs text-rose-700"
@@ -308,24 +476,43 @@ function ReportTab({
                     #{tag}
                   </span>
                 ))}
+                {isSafeHttpUrl(version.externalUrl) && (
+                  <a
+                    href={version.externalUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:underline"
+                  >
+                    查看已发布
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </a>
+                )}
               </div>
             )}
             {version.content ? (
               <div
-                className="prose prose-sm max-w-none rounded-xl bg-gray-50 p-4 text-sm leading-relaxed text-gray-700"
+                className="prose prose-sm max-w-none leading-relaxed text-gray-800 [&_img]:my-3 [&_img]:w-full [&_img]:rounded-lg"
                 dangerouslySetInnerHTML={{
                   __html: DOMPurify.sanitize(version.content),
                 }}
               />
             ) : (
-              <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-400">
-                内容生成中…
+              <div className="rounded-xl bg-gray-50 p-6 text-center text-sm text-gray-400">
+                {task.status === 'FAILED'
+                  ? '正文生成失败'
+                  : task.status === 'CANCELLED'
+                    ? '任务已取消，无正文'
+                    : '正文生成中…'}
               </div>
             )}
-          </div>
+          </article>
         ) : (
-          <div className="flex h-32 items-center justify-center text-sm text-gray-400">
-            {PLATFORM_LABELS[activePlatform] ?? activePlatform} 版本生成中…
+          <div className="flex h-full items-center justify-center p-8">
+            <EmptyState
+              icon={<FileText className="h-12 w-12" />}
+              title={`${PLATFORM_LABELS[activePlatform] ?? activePlatform} 版本生成中`}
+              description="任务完成后，这里会显示可直接发布到平台的文章——封面、标题、正文一应俱全。"
+            />
           </div>
         )}
       </div>
@@ -354,31 +541,29 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
   const missionId = task?.missionId ?? null;
 
   // Stream — only subscribes when missionId is available
-  const { events } = useSocialMissionStream(missionId);
+  const { events, connState } = useSocialMissionStream(missionId);
 
-  // Derive playground view from stream events
-  const view = useMemo(() => deriveView(events), [events]);
-
-  // social 自己的派生（13 阶段 + 角色 + 进度），喂左栏 roster + 任务列表（打样 P3/P4）
+  // social 自己的派生（13 阶段 + 角色 + agent 轨迹 + 成本），喂左栏/节点卡/协作动态/算力
   const socialView = useMemo(() => deriveSocialView(events), [events]);
 
-  const todoLedger = useMemo(
-    () =>
-      deriveTodoLedger({
-        events,
-        mission: view.mission,
-        agents: view.agents,
-        verdicts: view.verdicts,
-        dimensionPipelines: view.dimensionPipelines,
-      }),
-    [events, view.mission, view.agents, view.verdicts, view.dimensionPipelines]
-  );
+  // 运行中 header 实时秒表（"活着"的反馈，对标 playground「研究中·43s」）
+  const [nowTs, setNowTs] = useState(() => Date.now());
+  useEffect(() => {
+    if (socialView.status !== 'running') return;
+    const id = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [socialView.status]);
+  const elapsedMs = socialView.startedAt ? nowTs - socialView.startedAt : 0;
 
   const [activeTab, setActiveTab] = useState<TabKey>('tasks');
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const selectedStage =
     socialView.stages.find((s) => s.stepId === selectedStageId) ?? null;
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+  const selectedStageAgent = selectedStage?.role
+    ? socialAgentByRole(socialView, selectedStage.role)
+    : undefined;
   const [cancelling, setCancelling] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
@@ -407,8 +592,8 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
     try {
       await cancelSocialTask(task.id);
       refresh();
-    } catch {
-      // ignore — refresh will show updated state
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '取消失败，请重试');
     } finally {
       setCancelling(false);
     }
@@ -451,7 +636,6 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
   if (task?.status === 'FAILED') {
     actionButtons.push({
       variant: 'primary',
-      emoji: '↻',
       label: retrying ? '重新启动中…' : '重试任务',
       title: '重新启动 mission（保留原 sources / platforms）',
       disabled: retrying,
@@ -461,7 +645,6 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
   if (task?.status === 'DRAFT_READY') {
     actionButtons.push({
       variant: 'primary',
-      emoji: '📤',
       label: '发布到草稿箱',
       title: '到「输出报告」查看内容并发布',
       onClick: () => setActiveTab('report'),
@@ -470,7 +653,6 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
   if (canCancel) {
     actionButtons.push({
       variant: 'danger',
-      emoji: '⏹',
       label: '取消',
       title: '取消运行中的任务',
       disabled: cancelling,
@@ -520,13 +702,17 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
               className={cn('h-2 w-2 rounded-full', statusConfig.dotClass)}
             />
             <span className="text-xs font-medium">{statusConfig.label}</span>
+            {socialView.status === 'running' && socialView.startedAt && (
+              <span className="font-mono text-[11px] opacity-80">
+                {formatDurationMs(elapsedMs)}
+              </span>
+            )}
           </div>
         ) : null
       }
       tabs={TABS}
       activeTab={activeTab}
       onTabChange={setActiveTab}
-      tabActiveColor="border-rose-500 text-rose-600"
       leftCollapsed={leftCollapsed}
       onLeftCollapseToggle={() => setLeftCollapsed((v) => !v)}
       leftPanel={
@@ -553,6 +739,17 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                     <TeamTopologyCanvas
                       {...buildSocialTopology(socialView)}
                       heightClass="h-[220px]"
+                      renderDetail={(node, onClose) => (
+                        <AgentInspector
+                          open
+                          onClose={onClose}
+                          mode="modal"
+                          agent={buildSocialInspectorPayload(
+                            node.id,
+                            socialView
+                          )}
+                        />
+                      )}
                     />
                   ) : (
                     <p className="text-xs text-gray-400">
@@ -576,11 +773,26 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                     </p>
                     {socialView.roles.map((r) => {
                       const meta = SOCIAL_TEAM.find((m) => m.role === r.role);
+                      const roleStages = socialView.stages.filter(
+                        (s) => s.role === r.role
+                      );
+                      const doneStages = roleStages.filter(
+                        (s) => s.status === 'done'
+                      ).length;
+                      const agent = socialAgentByRole(socialView, r.role);
+                      const caption =
+                        latestThought(agent) ??
+                        roleStages.find((s) => s.status === 'running')?.desc ??
+                        undefined;
                       return (
                         <RoleCard
                           key={r.role}
                           label={r.label}
                           icon={meta?.icon ?? Sparkles}
+                          iconClass={
+                            SOCIAL_ICON_CLASS[meta?.colorKey ?? ''] ??
+                            'bg-gray-50 text-gray-600'
+                          }
                           status={
                             r.status === 'working'
                               ? 'running'
@@ -590,12 +802,17 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                                   ? 'failed'
                                   : 'idle'
                           }
+                          completedCount={doneStages}
+                          totalCount={roleStages.length}
+                          caption={caption}
+                          onClick={() => setSelectedRoleId(r.role)}
                         />
                       );
                     })}
                   </div>
                 )}
-                {(view.cost.tokensUsed > 0 || view.cost.costUsd > 0) && (
+                {(socialView.cost.tokensUsed > 0 ||
+                  socialView.cost.costUsd > 0) && (
                   <div className="p-4">
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
                       算力消耗
@@ -604,13 +821,13 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                       <div className="flex items-center justify-between">
                         <span>Tokens</span>
                         <span className="font-mono">
-                          {view.cost.tokensUsed.toLocaleString()}
+                          {socialView.cost.tokensUsed.toLocaleString()}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span>费用</span>
                         <span className="font-mono">
-                          ${view.cost.costUsd.toFixed(4)}
+                          ${socialView.cost.costUsd.toFixed(4)}
                         </span>
                       </div>
                     </div>
@@ -619,9 +836,12 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
               </div>
             </>
           ) : (
-            <div className="flex-1 p-4 text-center text-sm text-gray-400">
-              <p>任务尚未关联 Mission</p>
-              <p className="mt-1 text-xs">生成开始后团队信息将在此展示</p>
+            <div className="flex flex-1 items-center justify-center p-4">
+              <EmptyState
+                size="sm"
+                title="任务尚未关联 Mission"
+                description="生成开始后团队信息将在此展示"
+              />
             </div>
           )}
           {/* Action buttons - sticky 底部（playground 标杆位置） */}
@@ -630,48 +850,47 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
               <MissionActionGroup buttons={actionButtons} />
             </div>
           )}
+          {/* 关键角色点击 → 标准节点详情卡（与拓扑图点击同款） */}
+          {selectedRoleId && (
+            <AgentInspector
+              open
+              onClose={() => setSelectedRoleId(null)}
+              mode="modal"
+              agent={buildSocialInspectorPayload(selectedRoleId, socialView)}
+            />
+          )}
         </div>
       }
     >
+      {/* 实时连接降级提示（断流静默 → 用户误判卡死，对标 playground connState banner）*/}
+      {missionId &&
+        socialView.status === 'running' &&
+        (connState === 'polling' || connState === 'disconnected') && (
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            {connState === 'polling'
+              ? '实时连接已降级为轮询，进度更新可能有几秒延迟。'
+              : '实时连接已断开，正在重连…进度可能暂停更新。'}
+          </div>
+        )}
+
       {/* === Tab content === */}
       {activeTab === 'tasks' && (
         <>
           {task?.status === 'FAILED' ? (
-            <div className="flex h-full items-start justify-center overflow-auto p-8">
-              <div className="w-full max-w-2xl rounded-2xl border border-red-200 bg-white shadow-sm">
-                <div className="border-b border-red-100 bg-gradient-to-r from-red-50 to-rose-50 px-6 py-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
-                      <AlertTriangle className="h-5 w-5 text-red-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-base font-semibold text-red-900">
-                        任务执行失败
-                      </h3>
-                      <p className="mt-0.5 text-sm text-red-700">
-                        AI Teams 在生成过程中遇到错误，未能输出内容。
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4 px-6 py-5">
-                  <div>
-                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      错误原因
-                    </p>
-                    <div className="font-mono break-words rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-700">
-                      {task.errorMessage ?? '未提供具体错误信息'}
-                    </div>
-                  </div>
-                  {retryError && (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                      重试失败：{retryError}
-                    </div>
-                  )}
-                  <p className="pt-1 text-xs text-gray-500">
-                    操作按钮请点左侧团队面板底部「重试任务」
-                  </p>
-                </div>
+            <div className="flex h-full items-center justify-center p-8">
+              <div className="w-full max-w-md space-y-3">
+                <ErrorState
+                  title="任务执行失败"
+                  error={
+                    task.errorMessage ??
+                    'AI Teams 在生成过程中遇到错误，未能输出内容。'
+                  }
+                  onRetry={retrying ? undefined : () => void handleRetry()}
+                />
+                {retryError && (
+                  <ErrorInline message={`重试失败：${retryError}`} />
+                )}
               </div>
             </div>
           ) : missionId ? (
@@ -733,7 +952,7 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                       s.role ? (
                         <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
                           {SOCIAL_TEAM.find((m) => m.role === s.role)?.name ??
-                            s.role}
+                            socialRoleLabel(s.role)}
                         </span>
                       ) : (
                         <span className="text-gray-400">—</span>
@@ -757,17 +976,6 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                     className: 'w-20 text-gray-500',
                     render: (s) => formatStageDuration(s),
                   },
-                  {
-                    key: 'action',
-                    label: '操作',
-                    className: 'w-16 text-right',
-                    render: () => (
-                      <span className="inline-flex items-center gap-0.5 text-xs font-medium text-violet-600">
-                        详情
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </span>
-                    ),
-                  },
                 ]}
               />
               <SideDrawer
@@ -777,20 +985,135 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
               >
                 {selectedStage && (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="w-16 shrink-0 text-gray-500">角色</span>
-                      <span className="font-medium text-gray-900">
-                        {selectedStage.role ?? '—'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="w-16 shrink-0 text-gray-500">状态</span>
-                      <StatusBadge
-                        tone={SOCIAL_STATUS_TONE[selectedStage.status].tone}
-                        label={SOCIAL_STATUS_TONE[selectedStage.status].label}
-                        dot
-                      />
-                    </div>
+                    {selectedStage.desc && (
+                      <p className="text-sm leading-relaxed text-gray-600">
+                        {selectedStage.desc}
+                      </p>
+                    )}
+                    <dl className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <dt className="w-16 shrink-0 text-gray-500">角色</dt>
+                        <dd className="font-medium text-gray-900">
+                          {SOCIAL_TEAM.find(
+                            (m) => m.role === selectedStage.role
+                          )?.name ??
+                            selectedStage.role ??
+                            '—'}
+                        </dd>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <dt className="w-16 shrink-0 text-gray-500">状态</dt>
+                        <dd>
+                          <StatusBadge
+                            tone={SOCIAL_STATUS_TONE[selectedStage.status].tone}
+                            label={
+                              SOCIAL_STATUS_TONE[selectedStage.status].label
+                            }
+                            dot
+                          />
+                        </dd>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <dt className="w-16 shrink-0 text-gray-500">耗时</dt>
+                        <dd className="font-mono text-gray-700">
+                          {formatStageDuration(selectedStage)}
+                        </dd>
+                      </div>
+                      {selectedStageAgent?.modelId && (
+                        <div className="flex items-center gap-2">
+                          <dt className="w-16 shrink-0 text-gray-500">模型</dt>
+                          <dd className="font-mono text-gray-700">
+                            {selectedStageAgent.modelId}
+                          </dd>
+                        </div>
+                      )}
+                      {selectedStageAgent?.iterations != null && (
+                        <div className="flex items-center gap-2">
+                          <dt className="w-16 shrink-0 text-gray-500">迭代</dt>
+                          <dd className="font-mono text-gray-700">
+                            {selectedStageAgent.iterations}
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+
+                    {agentTools(selectedStageAgent).length > 0 && (
+                      <div>
+                        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          工具
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {agentTools(selectedStageAgent).map((t) => (
+                            <span
+                              key={t}
+                              className="font-mono rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-700"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {latestThought(selectedStageAgent) && (
+                      <div className="rounded-lg bg-amber-50/60 px-3 py-2">
+                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                          最近思考
+                        </p>
+                        <p className="break-words text-xs leading-relaxed text-amber-900">
+                          {latestThought(selectedStageAgent)}
+                        </p>
+                      </div>
+                    )}
+
+                    {selectedStageAgent &&
+                      selectedStageAgent.trace.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            执行轨迹
+                          </p>
+                          <ol className="space-y-1.5">
+                            {selectedStageAgent.trace.map((it, i) => (
+                              <li
+                                key={`${it.kind}-${it.ts}-${i}`}
+                                className="flex gap-2 text-xs"
+                              >
+                                <span
+                                  className={cn(
+                                    'mt-0.5 shrink-0 rounded px-1 py-0.5 text-[10px] font-medium',
+                                    it.kind === 'thought' &&
+                                      'bg-violet-50 text-violet-600',
+                                    it.kind === 'action' &&
+                                      'bg-sky-50 text-sky-600',
+                                    it.kind === 'observation' &&
+                                      'bg-emerald-50 text-emerald-600',
+                                    it.kind === 'reflection' &&
+                                      'bg-amber-50 text-amber-600',
+                                    it.kind === 'error' &&
+                                      'bg-red-50 text-red-600'
+                                  )}
+                                >
+                                  {TRACE_KIND_LABEL[it.kind]}
+                                </span>
+                                <span className="min-w-0 flex-1 break-words text-gray-600">
+                                  {it.text ??
+                                    it.toolId ??
+                                    it.error ??
+                                    (it.tokensUsed != null
+                                      ? `${it.tokensUsed} tokens`
+                                      : '—')}
+                                  {it.latencyMs != null && (
+                                    <span className="ml-1 text-gray-400">
+                                      · {formatDurationMs(it.latencyMs)}
+                                    </span>
+                                  )}
+                                </span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+
                     {selectedStage.error && (
                       <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                         {selectedStage.error}
@@ -802,19 +1125,11 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
             </>
           ) : (
             <div className="flex h-full items-center justify-center p-8">
-              <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center shadow-sm">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-100 to-pink-100">
-                  <ListChecks className="h-7 w-7 text-rose-500" />
-                </div>
-                <h3 className="text-base font-semibold text-gray-900">
-                  等 Leader 拆完进度
-                </h3>
-                <p className="mt-1.5 text-sm text-gray-500">
-                  任务刚被创建，AI Teams
-                  正在初始化协作管线。拆解完成后，进度会以 Todo
-                  卡片实时出现在此处。
-                </p>
-              </div>
+              <EmptyState
+                icon={<ListChecks className="h-12 w-12" />}
+                title="等 Leader 拆完进度"
+                description="任务刚被创建，协作管线正在初始化。拆解完成后，各阶段会实时出现在此处。"
+              />
             </div>
           )}
         </>
@@ -823,14 +1138,18 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
       {activeTab === 'collab' && (
         <>
           {missionId ? (
-            <MissionFlowView
-              view={view}
+            <SocialFlowView
+              view={socialView}
               events={events}
               stepperStages={deriveSocialStages(events)}
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-gray-400">
-              协作动态将在任务执行时实时展示
+            <div className="flex h-full items-center justify-center p-8">
+              <EmptyState
+                icon={<Activity className="h-12 w-12" />}
+                title="协作动态"
+                description="任务执行时，团队的思考、工具调用与阶段进展会实时编织成时间线。"
+              />
             </div>
           )}
         </>
@@ -841,46 +1160,67 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
       )}
 
       {activeTab === 'references' && (
-        <div className="p-6">
+        <div className="space-y-3 overflow-auto p-6">
           {task?.sources && task.sources.length > 0 ? (
-            <div className="space-y-3">
+            <>
               <p className="text-sm text-gray-600">
-                本内容基于 {task.sources.length} 个来源生成：
+                本内容基于 {task.sources.length} 个来源生成
               </p>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(
-                  task.sources.reduce<Record<string, number>>((acc, s) => {
-                    acc[s.sourceType] = (acc[s.sourceType] ?? 0) + 1;
-                    return acc;
-                  }, {})
-                ).map(([type, count]) => (
-                  <span
-                    key={type}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
+              <ul className="space-y-2">
+                {task.sources.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-3"
                   >
-                    {SOURCE_TYPE_LABEL[type] ?? type} ×{count}
-                  </span>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
+                      <FileText className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium text-gray-900">
+                        {s.title || s.sourceId}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-400">
+                        <span className="rounded-full bg-gray-100 px-1.5 py-0.5">
+                          {SOURCE_TYPE_LABEL[s.sourceType] ?? s.sourceType}
+                        </span>
+                        {isSafeHttpUrl(s.url) && (
+                          <a
+                            href={s.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-0.5 text-rose-600 hover:underline"
+                          >
+                            打开来源
+                            <ChevronRight className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </li>
                 ))}
-              </div>
-            </div>
+              </ul>
+            </>
           ) : (
-            <p className="text-sm text-gray-400">本任务未关联外部来源</p>
+            <EmptyState
+              size="sm"
+              icon={<FileText className="h-8 w-8" />}
+              title="本任务未关联外部来源"
+            />
           )}
         </div>
       )}
 
       {activeTab === 'cost' && missionId && (
-        <ComputeUsagePanel
-          cost={view.cost}
-          agents={view.agents}
-          todos={todoLedger}
-          dimensionPipelines={view.dimensionPipelines}
-        />
+        <SocialComputePanel view={socialView} />
       )}
 
       {activeTab === 'cost' && !missionId && (
-        <div className="flex h-full items-center justify-center text-sm text-gray-400">
-          算力消耗将在任务执行后展示
+        <div className="flex h-full items-center justify-center p-8">
+          <EmptyState
+            icon={<Coins className="h-12 w-12" />}
+            title="算力消耗"
+            description="任务执行后，token 消耗、模型与工具延迟会在此汇总。"
+          />
         </div>
       )}
     </MissionDetailFrame>

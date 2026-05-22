@@ -64,6 +64,10 @@ export interface SocialContentTaskSource {
   userId: string;
   sourceType: string;
   sourceId: string;
+  /** 来源标题（dispatch 时从 bundle 回写；参考文献 tab 明细） */
+  title?: string | null;
+  /** 来源链接（有则可点开；笔记类来源可能为 null） */
+  url?: string | null;
 }
 
 /** 平台版本 */
@@ -78,6 +82,8 @@ export interface SocialContentTaskVersion {
   digest?: string | null;
   tags: string[];
   coverMediaId?: string | null;
+  /** 可渲染的封面图 URL（输出报告 tab 文章预览用；来自 s5 cover-artist） */
+  coverImageUrl?: string | null;
   publishedAt?: string | null;
   externalUrl?: string | null;
   errorMessage?: string | null;
