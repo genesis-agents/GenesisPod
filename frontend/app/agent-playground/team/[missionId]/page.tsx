@@ -1243,6 +1243,9 @@ function MissionSettingsModal({
   const [budgetMultiplierOverride, setBudgetMultiplierOverride] =
     useState<number>(1.0);
   const [wallTimeMinutes, setWallTimeMinutes] = useState<number>(60);
+  // ★ 2026-05-22 #25：精简设置弹窗——3 滑块"精细预算"默认折叠（档位卡片即够用），
+  //   点开才显，避免"配置太复杂"。折叠不改保存逻辑（值照常随保存提交）。
+  const [showAdvancedBudget, setShowAdvancedBudget] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -1656,14 +1659,34 @@ function MissionSettingsModal({
           </div>
         </div>
 
-        <BudgetAndTimeLimitPanel
-          maxCredits={maxCredits}
-          setMaxCredits={setMaxCredits}
-          budgetMultiplierOverride={budgetMultiplierOverride}
-          setBudgetMultiplierOverride={setBudgetMultiplierOverride}
-          wallTimeMinutes={wallTimeMinutes}
-          setWallTimeMinutes={setWallTimeMinutes}
-        />
+        {/* ★ 2026-05-22 #25：精细预算（3 滑块）默认折叠，点开才显——档位卡片即够用，
+            避免"设置太复杂"。当前值在收起态用一行摘要呈现，信息不丢。 */}
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setShowAdvancedBudget((v) => !v)}
+            className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-left transition-colors hover:border-blue-300"
+          >
+            <span className="text-[13px] font-medium text-slate-700">
+              精细预算（Credits / 倍率 / 时长）
+            </span>
+            <span className="text-[11px] text-slate-500">
+              {showAdvancedBudget
+                ? '收起'
+                : `${maxCredits} cr · ${budgetMultiplierOverride}× · ${wallTimeMinutes}m · 展开`}
+            </span>
+          </button>
+          {showAdvancedBudget && (
+            <BudgetAndTimeLimitPanel
+              maxCredits={maxCredits}
+              setMaxCredits={setMaxCredits}
+              budgetMultiplierOverride={budgetMultiplierOverride}
+              setBudgetMultiplierOverride={setBudgetMultiplierOverride}
+              wallTimeMinutes={wallTimeMinutes}
+              setWallTimeMinutes={setWallTimeMinutes}
+            />
+          )}
+        </div>
 
         <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-[11px] leading-relaxed text-blue-900">
           <p className="font-semibold">

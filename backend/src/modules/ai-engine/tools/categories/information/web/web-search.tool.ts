@@ -174,8 +174,8 @@ export class WebSearchTool extends BaseTool<WebSearchInput, WebSearchOutput> {
       },
       numResults: {
         type: "number",
-        description: "返回结果数量，默认 5，最大 10",
-        default: 5,
+        description: "返回结果数量，默认 8，最大 12",
+        default: 8,
       },
       language: {
         type: "string",
@@ -270,7 +270,7 @@ export class WebSearchTool extends BaseTool<WebSearchInput, WebSearchOutput> {
     input: WebSearchInput,
     context: ToolContext,
   ): Promise<WebSearchOutput> {
-    const { query, numResults = 5 } = input;
+    const { query, numResults = 8 } = input;
     // 2026-05-13: LLM 漏传 timeRange 时不再退回 "all"，而是看 mission context
     // 注入的 searchTimeRange，否则用 DEFAULT_SEARCH_TIME_RANGE (365d) 兜底。
     const timeRange = resolveEffectiveTimeRange(
@@ -279,7 +279,7 @@ export class WebSearchTool extends BaseTool<WebSearchInput, WebSearchOutput> {
     );
 
     // 限制最大结果数
-    const maxResults = Math.min(numResults, 10);
+    const maxResults = Math.min(numResults, 12);
     const since = resolveSearchTimeRangeSince(timeRange);
 
     // 调用搜索服务

@@ -272,9 +272,13 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       ``,
       `## Workflow (efficient, do NOT iterate beyond what's needed)`,
       `1. **如果 catalog 中有 rag-search 类**: 1 query 看内部知识够不够。`,
-      `2. **One specialized search round（必须含 web-search）**: emit ONE parallel_tool_call with 2-4 queries，`,
-      `   优先用 ★ recommended 的工具，但**这一轮必须至少包含 1 个 web-search query**（即使 rag/专用工具已命中）——`,
-      `   保证拿到真实、近期、切题的公开来源。只靠 rag/KB 出的 finding 会因证据/时效过低被评分器判失败。`,
+      `2. **One multi-tool search round（≥2 种不同工具类型）**: emit ONE parallel_tool_call with 4-6 queries，`,
+      `   **本轮必须横跨 ≥2 种不同工具类型**（不要 5 个 query 全是 web-search）——按本 dim 性质从 <available_tools>`,
+      `   里挑：研究/科研类 dim 必带 academic（arxiv / openalex / semantic-scholar / pubmed）；商业/市场/竞品/赛道 dim`,
+      `   必带 industry-report-search；政策/法规 dim 必带 policy 类；财经/估值 dim 必带 finance-api；**外加 ≥1 个`,
+      `   web-search 兜底**。★ recommended 的优先。`,
+      `   ★ 为什么：不同工具命中**不同的来源域名** → 唯一来源数翻倍 → 本维度章节更多、证据更足。只靠 web-search`,
+      `   一种工具，来源会挤在少数门户站、唯一来源数上不去（维度被结构性限制为 4 章）。`,
       input.withFigures
         ? `3. **★ 必须 1 轮 web-scraper extractImages=true**（withFigures=true）：从 search 结果里挑 1-2 个高价值图文 URL（如 stanford / mckinsey / brookings / 政府 / arxiv 报告），调用 web-scraper 时**必须带 extractImages=true**。工具会把合法 <img>（过滤图标/pixel）放进 output.images。再从 output.images 抽 1-3 张到 figureCandidates。**没调 web-scraper extractImages 视为不达标**。`
         : `3. **At most one scrape/parse round**: 高价值 URL 抓全文用 web-scraper / file-parser。摘要够用就跳过这步。`,
@@ -285,6 +289,13 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `- ★ 2026-05-02 调整 (用户实证报告参考文献仅 17 条，对标 TI 几百条)：`,
       `  Target 12-18 findings per dim — 多 dim 拼接后才能达到 100+ 引用。`,
       `  每条 finding 仍是 1 short evidence quote 即可（不要为了凑数把每条写长）。`,
+      // ★ 2026-05-22 (来源多样性 — 决定本维度章节数)：下游按"唯一来源数"派生章节数
+      //   （每章需 ~2 个唯一来源）。findings 若挤在少数几个 URL 上 → 维度只能开 4 章、
+      //   报告偏薄、评审证据分上不去。
+      `- ★★ **来源多样性硬要求：本维度 findings 必须覆盖 ≥12 个不同的来源 URL/域名**（不是 12 条`,
+      `  finding 挤在 3-4 个站点上）。下游按唯一来源数派生章节数（每章 ~2 个唯一来源）：来源越`,
+      `  多样，本维度章节越丰富、证据越足、评审分越高。单轮多 query 时**有意覆盖不同站点 / 不同`,
+      `  角度 / 不同机构**（官方+研报+学术+新闻+财经各取一些），避免同源堆叠。`,
       `- Use search snippets directly when sufficient; scrape ONLY for missing critical numbers.`,
       `- 单轮 parallel_tool_call 一次性发 4-6 个 query 把 finding 凑齐，避免反复 iterate。`,
       ``,

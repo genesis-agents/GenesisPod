@@ -122,27 +122,31 @@ version: "1.0"
 
 ---
 
-## 工具推荐（toolHint）
+## 维度类型 facet（决定该用哪些工具）
 
-每个 dim 必须给一个 toolHint，告诉下游 researcher 优先用哪些工具：
+每个 dim 必须给一个 **facet**（维度业务类型）。系统按 facet **确定性映射**到该用的专用
+工具（FACET_TOOL_MATRIX，自动标 ★ recommended 给 researcher）——你只需**选对 facet**，
+**不用自己猜 tool id**（preferIds 由系统按矩阵自动填，你留空即可）。
+
+facet 取值（按本维度主题选最贴切的一个）：
+
+- `market` —— 市场 / 竞品 / 赛道 / 商业战略 / 行业趋势（→ 行业报告 + 财经 + web）
+- `scientific` —— 科研 / 学术 / 技术原理 / 论文（→ arxiv + openalex + semantic-scholar + web）
+- `policy` —— 政策 / 法规 / 监管 / 政府（→ federal-register + congress-gov + whitehouse + web）
+- `technical` —— 工程 / 开源 / 开发者生态 / 代码（→ github + hackernews + arxiv + web）
+- `financial` —— 财经 / 估值 / 宏观 / 财报数据（→ finance-api + 行业报告 + web）
+- `social` —— 舆情 / 人才 / 社媒（→ social-x + youtube + web）
+- `general` —— 通用 / 泛知识（→ web + 行业报告 + knowledge-graph）
 
 ```
 toolHint = {
-  "categories": ["..."],   // 1-3 个 category，必须从 <available_tools> block 看到的工具的 category 中选
-  "preferIds": ["..."]     // 0-3 个具体 tool id，可选
+  "categories": ["..."]   // 1-3 个粗类目，从 <available_tools> 的 category 中选
+  // preferIds 可留空——系统按 facet 用矩阵自动填正确的 ★ 推荐工具
 }
 ```
 
-决策启发（category + preferIds 都要根据维度类型主动选）：
-
-- 学术 / 科研性质 → category=academic，preferIds=[arxiv-search] 或 [semantic-scholar]
-- 政策 / 法规 / 监管 → category=policy / web，preferIds=[federal-register, congress-gov]（美国）或 [web-search]
-- 代码 / 开源 / 工程 → category=community / web，preferIds=[github-search, hackernews-search]
-- **商业 / 市场 / 竞品 / 行业趋势 / 战略分析 → category=web / data，preferIds=[industry-report-search]**（高质量行业报告源 SemiAnalysis / a16z / Gartner / Forrester / Stratechery 等 18 家，比通用 web-search 信噪比高 5-10 倍）
-- 财经 / 宏观 / 数据 → category=data，preferIds=[finance-api, industry-report-search]
-- 通用 / 泛知识 → category=web，preferIds=[] 即可
-
-> 不要硬编码"web-search 万能"——根据维度主题主动指定 preferIds，让 researcher 优先调用最相关的高质量数据源。`<available_tools>` block 列出了所有可用工具，按上述启发式从中挑。
+> 关键：选准 facet（如算力实验室清单=scientific、市场格局=market、监管=policy），
+> 系统就会让 researcher 优先用对应的高信噪比专用工具，而不是只会 web-search。
 
 ---
 
