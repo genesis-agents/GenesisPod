@@ -516,10 +516,14 @@ export function PlaygroundMissionDialog({
                 }}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                <option value="brief">brief · 3K</option>
-                <option value="standard">standard · 8K</option>
-                <option value="deep">deep · 15K</option>
-                <option value="extended">extended · 25K</option>
+                {/* ★ 2026-05-22 ③L/M：不再写死字数(总字数=depthBase×密度,随 depth 变);
+                    只表"密度档"。实际总字数后端单一源 resolveMissionTotalWords。 */}
+                <option value="brief">简洁</option>
+                <option value="standard">标准（推荐）</option>
+                <option value="deep">详细</option>
+                <option value="extended">详尽</option>
+                <option value="epic">超长</option>
+                <option value="mega">极长</option>
               </select>
             </Field>
             <Field label="主要受众">

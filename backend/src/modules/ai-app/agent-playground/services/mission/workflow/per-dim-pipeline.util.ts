@@ -33,6 +33,8 @@ import {
   CHAPTER_COUNT_RANGE,
   clampChapterCount,
 } from "../../../contracts/chapter-count.contract";
+// ★ 2026-05-22 ③L/M 单一源：报告总字数 = depthBase × lengthProfile 倍率
+import { resolveMissionTotalWords } from "../../../contracts/word-budget.contract";
 import { loadPlaygroundRuntimeConfig } from "../../../playground-runtime.config";
 import { stripChartJsonFromContent } from "@/modules/ai-engine/facade";
 
@@ -133,9 +135,10 @@ export async function runPerDimPipeline(
 
   const lp = args.lengthProfile;
   const dimCount = Math.max(1, args.dimensionCount ?? 5);
-  // depth-based word target:  quick=10K / standard=40K / deep=150K  total
-  const missionTarget =
-    depth === "quick" ? 10000 : depth === "deep" ? 150000 : 40000;
+  // ★ 2026-05-22 ③L/M 单一源：总字数 = depthBase × lengthProfile 密度倍率
+  //   （resolveMissionTotalWords）。lengthProfile 终于生效(往长调)；deep 仍大体量,
+  //   不会走马观花。替代原"按 depth 写死、无视 lengthProfile"的第二信源。
+  const missionTarget = resolveMissionTotalWords(depth, lp ?? "standard");
   const dimTargetWords = Math.round(missionTarget / dimCount);
   const idealChapters = depth === "quick" ? 2 : depth === "deep" ? 7 : 4;
   // ★ 2026-05-22 质量保底章节数：供给偏少时也不让维度塌成 1 章（受 uniqueSources 夹逼，
