@@ -104,6 +104,7 @@ import { LoadingSkeleton } from '@/components/ui/states/LoadingState';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { ErrorState, ErrorInline } from '@/components/ui/states/ErrorState';
 import { Tabs } from '@/components/ui/tabs';
+import { Alert } from '@/components/ui/feedback/Alert';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -998,12 +999,11 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
       {missionId &&
         socialView.status === 'running' &&
         (connState === 'polling' || connState === 'disconnected') && (
-          <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <Alert tone="warn" className="mx-4 mt-3">
             {connState === 'polling'
               ? '实时连接已降级为轮询，进度更新可能有几秒延迟。'
               : '实时连接已断开，正在重连…进度可能暂停更新。'}
-          </div>
+          </Alert>
         )}
 
       {/* === Tab content === */}

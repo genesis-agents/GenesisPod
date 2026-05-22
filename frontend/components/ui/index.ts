@@ -11,6 +11,7 @@ export * from './tabs';
 export * from './nav';
 export * from './form';
 export * from './pagination';
+export * from './tag';
 
 // Relocated UI components (now in categorized subdirs)
 export {
@@ -28,3 +29,5 @@ export { default as TableOfContents } from './content/TableOfContents';
 export { default as TextHighlighter } from './content/TextHighlighter';
 export { default as TextSelectionToolbar } from './content/TextSelectionToolbar';
 export { default as Toast } from './feedback/Toast';
+export { Alert } from './feedback/Alert';
+export type { AlertProps, AlertTone } from './feedback/Alert';

@@ -49,6 +49,7 @@ const UI_ALLOWED_DIRS = new Set<string>([
   'states',
   'table',
   'tabs',
+  'tag',
   'viewers',
 ]);
 
