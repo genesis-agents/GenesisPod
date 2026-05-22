@@ -79,7 +79,7 @@ export default function ResponsiveCard({
     interactive && 'cursor-pointer',
     interactive && hover && 'hover:scale-[1.02] active:scale-[0.98]',
     interactive &&
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
     className,
   ]
     .filter(Boolean)

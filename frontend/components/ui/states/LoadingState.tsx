@@ -38,7 +38,7 @@ export function LoadingState({
         className
       )}
     >
-      <Loader2 className={cn('animate-spin text-violet-600', config.icon)} />
+      <Loader2 className={cn('animate-spin text-primary', config.icon)} />
       {text && <p className={cn('text-gray-500', config.text)}>{text}</p>}
     </div>
   );

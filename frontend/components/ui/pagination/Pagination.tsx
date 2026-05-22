@@ -65,7 +65,7 @@ export function Pagination({
             className={cn(
               btn,
               it === page
-                ? 'bg-blue-600 text-white'
+                ? 'bg-primary text-primary-foreground'
                 : 'text-gray-700 hover:bg-gray-100'
             )}
           >

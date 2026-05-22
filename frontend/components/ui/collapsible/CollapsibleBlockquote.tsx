@@ -27,7 +27,7 @@ export const CollapsibleBlockquote = ({
     <div className="group relative my-4">
       <blockquote
         ref={contentRef}
-        className={`rounded-r border-l-4 border-blue-500 bg-blue-50 py-3 pl-4 pr-4 italic text-gray-700 transition-all duration-300 ${
+        className={`rounded-r border-l-4 border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.06)] py-3 pl-4 pr-4 italic text-gray-700 transition-all duration-300 ${
           !isExpanded && isOverflowing ? 'max-h-40 overflow-hidden' : ''
         }`}
         {...props}
@@ -37,13 +37,13 @@ export const CollapsibleBlockquote = ({
 
       {/* 展开按钮 - 仅在溢出且未展开时显示 */}
       {!isExpanded && isOverflowing && (
-        <div className="absolute bottom-0 left-0 right-0 flex items-end justify-center rounded-b bg-gradient-to-t from-blue-50 via-blue-50/90 to-transparent pb-2 pt-10">
+        <div className="absolute bottom-0 left-0 right-0 flex items-end justify-center rounded-b bg-gradient-to-t from-[hsl(var(--primary)/0.06)] via-[hsl(var(--primary)/0.05)] to-transparent pb-2 pt-10">
           <button
             onClick={(e) => {
               e.stopPropagation();
               setIsExpanded(true);
             }}
-            className="flex items-center gap-1 rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-blue-600 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-blue-700"
+            className="flex items-center gap-1 rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-primary shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:opacity-80"
           >
             <ChevronDown className="h-3 w-3" />
             展开引用

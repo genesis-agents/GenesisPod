@@ -15,7 +15,7 @@ export type ProgressTone =
   | 'neutral';
 
 const FILL: Record<ProgressTone, string> = {
-  primary: 'bg-violet-600',
+  primary: 'bg-primary',
   success: 'bg-emerald-500',
   warning: 'bg-amber-500',
   danger: 'bg-red-500',
