@@ -135,7 +135,11 @@ export class RadarMissionStore {
     });
   }
 
-  async markFailed(missionId: string, error: string): Promise<void> {
+  async markFailed(
+    missionId: string,
+    error: string,
+    failureCodeOverride?: MissionFailureCode,
+  ): Promise<void> {
     const now = new Date();
     const run = await this.prisma.radarRun.findUnique({
       where: { id: missionId },
@@ -143,12 +147,15 @@ export class RadarMissionStore {
     });
     const startedAt = run?.startedAt ?? now;
     const durationMs = now.getTime() - startedAt.getTime();
-    // ★ C2/G3：落 canonical failure_code（取代纯 message）。简单 message→code 启发式。
-    const failureCode = /budget|exhaust/i.test(error)
-      ? MissionFailureCode.budget_exhausted
-      : /timeout|timed out|wall.?time/i.test(error)
-        ? MissionFailureCode.wall_time_exceeded
-        : MissionFailureCode.provider_error;
+    // ★ C2/G3 + MAJOR-3/7：调用方知道 abort reason 时传 canonical code(精确);
+    //   否则退回 message→code 启发式。
+    const failureCode =
+      failureCodeOverride ??
+      (/budget|exhaust/i.test(error)
+        ? MissionFailureCode.budget_exhausted
+        : /timeout|timed out|wall.?time/i.test(error)
+          ? MissionFailureCode.wall_time_exceeded
+          : MissionFailureCode.provider_error);
     await this.prisma.radarRun.updateMany({
       where: { id: missionId, status: "running" },
       data: {
