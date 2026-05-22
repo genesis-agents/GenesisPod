@@ -15,7 +15,6 @@ import {
   runTeam,
   type AudienceProfile,
   type AuditLayers,
-  type BudgetProfile,
   type LengthProfile,
   type RunMissionInput,
   type SearchTimeRange,
@@ -28,6 +27,7 @@ import {
   MAX_CREDITS_LIMIT,
   MULTIPLIER_LIMIT,
   WALL_TIME_LIMIT_MINUTES,
+  SCALE_TIERS,
 } from '@/components/agent-playground/panels/BudgetAndTimeLimitPanel';
 
 interface PlaygroundMissionDialogProps {
@@ -37,25 +37,17 @@ interface PlaygroundMissionDialogProps {
   onCreated?: (missionId: string) => void;
 }
 
+// ★ 2026-05-22 调研规模档位卡片：hint 展示 估算成本 · 时间 · 维度（数值源自 SCALE_TIERS）。
+//   选档即设 depth；预算/时长由后端按 depth 解析（单一源），无需用户手填。
 const DEPTH_OPTIONS: Array<{
   value: RunMissionInput['depth'];
   label: string;
   hint: string;
-}> = [
-  { value: 'quick', label: '快速', hint: '3-5 维度' },
-  { value: 'standard', label: '标准', hint: '5-8 维度' },
-  { value: 'deep', label: '深度', hint: '10-12 维度' },
-];
-
-const BUDGET_OPTIONS: Array<{
-  value: BudgetProfile;
-  label: string;
-}> = [
-  { value: 'low', label: '低' },
-  { value: 'medium', label: '中' },
-  { value: 'high', label: '高' },
-  { value: 'unlimited', label: '不限' },
-];
+}> = (['quick', 'standard', 'deep'] as const).map((value) => ({
+  value,
+  label: SCALE_TIERS[value].label,
+  hint: `${SCALE_TIERS[value].approxCost} · ${SCALE_TIERS[value].approxTime} · ${SCALE_TIERS[value].scope}`,
+}));
 
 const TIME_RANGE_OPTIONS: Array<{
   value: SearchTimeRange;
@@ -90,55 +82,9 @@ function loadPref<T extends string>(key: string, fallback: T): T {
   return (localStorage.getItem(`playground:${key}`) as T | null) ?? fallback;
 }
 
-function loadPrefNum(key: string, fallback: number): number {
-  if (typeof window === 'undefined') return fallback;
-  const raw = localStorage.getItem(`playground:${key}`);
-  if (raw == null) return fallback;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
 function persistPref(key: string, value: string | number) {
   if (typeof window !== 'undefined') {
     localStorage.setItem(`playground:${key}`, String(value));
-  }
-}
-
-/**
- * budgetProfile 档位 → 3 个硬上限的"推荐默认值"。
- * 用户切换档位时自动填，但仍可在「预算与时限」面板里手动覆盖。
- */
-function budgetPresetFor(profile: BudgetProfile): {
-  maxCredits: number;
-  budgetMultiplierOverride: number;
-  wallTimeMinutes: number;
-} {
-  switch (profile) {
-    case 'low':
-      return {
-        maxCredits: 500,
-        budgetMultiplierOverride: 0.6,
-        wallTimeMinutes: 15,
-      };
-    case 'medium':
-      return {
-        maxCredits: 2000,
-        budgetMultiplierOverride: 1.0,
-        wallTimeMinutes: 30,
-      };
-    case 'high':
-      return {
-        maxCredits: 8000,
-        budgetMultiplierOverride: 2.0,
-        wallTimeMinutes: 60,
-      };
-    case 'unlimited':
-    default:
-      return {
-        maxCredits: 30000,
-        budgetMultiplierOverride: 4.0,
-        wallTimeMinutes: 180,
-      };
   }
 }
 
@@ -156,9 +102,6 @@ export function PlaygroundMissionDialog({
   );
   const [language, setLanguage] =
     useState<RunMissionInput['language']>('zh-CN');
-  const [budgetProfile, setBudgetProfile] = useState<BudgetProfile>(() =>
-    loadPref('budgetProfile', 'medium' as BudgetProfile)
-  );
   const [styleProfile, setStyleProfile] = useState<StyleProfile>(() =>
     loadPref('styleProfile', 'executive' as StyleProfile)
   );
@@ -191,42 +134,26 @@ export function PlaygroundMissionDialog({
       return [];
     }
   });
-  // 预算与时限：默认值来自 budgetProfile 档位映射（用户切档位自动重填，也可手动覆盖）
-  const initialPreset = budgetPresetFor(
-    loadPref('budgetProfile', 'medium' as BudgetProfile)
-  );
-  const [maxCredits, setMaxCredits] = useState<number>(() =>
-    loadPrefNum('maxCredits', initialPreset.maxCredits)
-  );
+  // ★ 2026-05-22 单一源：自定义预算字段初始值来自当前 depth 档位（SCALE_TIERS），
+  //   不再从各自独立的 localStorage（playground:maxCredits 等）读 —— 杜绝"显示档位 A
+  //   但带出旧持久化值 1000/1"的漂移。这些值只有在开启「自定义预算」覆盖时才发送。
+  const initialTier =
+    SCALE_TIERS[loadPref('depth', 'deep' as RunMissionInput['depth'])];
+  const [maxCredits, setMaxCredits] = useState<number>(initialTier.maxCredits);
   const [budgetMultiplierOverride, setBudgetMultiplierOverride] =
-    useState<number>(() =>
-      loadPrefNum(
-        'budgetMultiplierOverride',
-        initialPreset.budgetMultiplierOverride
-      )
-    );
-  const [wallTimeMinutes, setWallTimeMinutes] = useState<number>(() =>
-    loadPrefNum('wallTimeMinutes', initialPreset.wallTimeMinutes)
+    useState<number>(initialTier.budgetMultiplier);
+  const [wallTimeMinutes, setWallTimeMinutes] = useState<number>(
+    initialTier.wallTimeMinutes
   );
+  // 默认不覆盖预算 —— 仅传 depth，由后端按档位解析。
+  //   开启「自定义预算」时把当前档位值灌入作为起点（见 onChange），再发送为覆盖。
+  const [budgetOverrideEnabled, setBudgetOverrideEnabled] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  function applyBudgetProfile(profile: BudgetProfile) {
-    setBudgetProfile(profile);
-    persistPref('budgetProfile', profile);
-    const preset = budgetPresetFor(profile);
-    setMaxCredits(preset.maxCredits);
-    setBudgetMultiplierOverride(preset.budgetMultiplierOverride);
-    setWallTimeMinutes(preset.wallTimeMinutes);
-    persistPref('maxCredits', preset.maxCredits);
-    persistPref('budgetMultiplierOverride', preset.budgetMultiplierOverride);
-    persistPref('wallTimeMinutes', preset.wallTimeMinutes);
-  }
 
   const isCustomProfile = useMemo(
     () =>
       depth !== 'deep' ||
-      budgetProfile !== 'medium' ||
       styleProfile !== 'executive' ||
       lengthProfile !== 'standard' ||
       audienceProfile !== 'domain-expert' ||
@@ -235,7 +162,6 @@ export function PlaygroundMissionDialog({
       searchTimeRange !== '365d',
     [
       depth,
-      budgetProfile,
       styleProfile,
       lengthProfile,
       audienceProfile,
@@ -247,20 +173,21 @@ export function PlaygroundMissionDialog({
 
   function resetDefaults() {
     setDepth('deep');
-    setBudgetProfile('medium');
     setStyleProfile('executive');
     setLengthProfile('standard');
     setAudienceProfile('domain-expert');
     setWithFigures(true);
     setAuditLayers('default');
     setSearchTimeRange('365d');
-    const preset = budgetPresetFor('medium');
-    setMaxCredits(preset.maxCredits);
-    setBudgetMultiplierOverride(preset.budgetMultiplierOverride);
-    setWallTimeMinutes(preset.wallTimeMinutes);
+    // ★ 2026-05-22 单一源：关掉自定义预算覆盖 + 预算回到 deep 档位默认（不再回 medium=2000/1/30m）。
+    setBudgetOverrideEnabled(false);
+    setMaxCredits(SCALE_TIERS.deep.maxCredits);
+    setBudgetMultiplierOverride(SCALE_TIERS.deep.budgetMultiplier);
+    setWallTimeMinutes(SCALE_TIERS.deep.wallTimeMinutes);
     if (typeof window !== 'undefined') {
       [
         'depth',
+        // 清掉历史遗留的独立预算持久化键（已不再写入），防止旧值再被读出
         'budgetProfile',
         'styleProfile',
         'lengthProfile',
@@ -282,32 +209,35 @@ export function PlaygroundMissionDialog({
       setError('Topic 至少 4 个字符');
       return;
     }
-    if (
-      maxCredits < MAX_CREDITS_LIMIT.min ||
-      maxCredits > MAX_CREDITS_LIMIT.max
-    ) {
-      setError(
-        `Credits 上限必须在 ${MAX_CREDITS_LIMIT.min} - ${MAX_CREDITS_LIMIT.max} 之间`
-      );
-      return;
-    }
-    if (
-      budgetMultiplierOverride < MULTIPLIER_LIMIT.min ||
-      budgetMultiplierOverride > MULTIPLIER_LIMIT.max
-    ) {
-      setError(
-        `Agent 倍率必须在 ${MULTIPLIER_LIMIT.min} - ${MULTIPLIER_LIMIT.max} 之间`
-      );
-      return;
-    }
-    if (
-      wallTimeMinutes < WALL_TIME_LIMIT_MINUTES.min ||
-      wallTimeMinutes > WALL_TIME_LIMIT_MINUTES.max
-    ) {
-      setError(
-        `时长上限必须在 ${WALL_TIME_LIMIT_MINUTES.min} - ${WALL_TIME_LIMIT_MINUTES.max} 分钟之间`
-      );
-      return;
+    // 仅当用户开启「自定义预算」覆盖时才校验这三项；否则后端按 depth 档位解析。
+    if (budgetOverrideEnabled) {
+      if (
+        maxCredits < MAX_CREDITS_LIMIT.min ||
+        maxCredits > MAX_CREDITS_LIMIT.max
+      ) {
+        setError(
+          `Credits 上限必须在 ${MAX_CREDITS_LIMIT.min} - ${MAX_CREDITS_LIMIT.max} 之间`
+        );
+        return;
+      }
+      if (
+        budgetMultiplierOverride < MULTIPLIER_LIMIT.min ||
+        budgetMultiplierOverride > MULTIPLIER_LIMIT.max
+      ) {
+        setError(
+          `Agent 倍率必须在 ${MULTIPLIER_LIMIT.min} - ${MULTIPLIER_LIMIT.max} 之间`
+        );
+        return;
+      }
+      if (
+        wallTimeMinutes < WALL_TIME_LIMIT_MINUTES.min ||
+        wallTimeMinutes > WALL_TIME_LIMIT_MINUTES.max
+      ) {
+        setError(
+          `时长上限必须在 ${WALL_TIME_LIMIT_MINUTES.min} - ${WALL_TIME_LIMIT_MINUTES.max} 分钟之间`
+        );
+        return;
+      }
     }
     setError(null);
     setSubmitting(true);
@@ -319,16 +249,21 @@ export function PlaygroundMissionDialog({
           trimmedDescription.length > 0 ? trimmedDescription : undefined,
         depth,
         language,
-        budgetProfile,
         styleProfile,
         lengthProfile,
         audienceProfile,
         withFigures,
         auditLayers,
         searchTimeRange,
-        maxCredits,
-        budgetMultiplierOverride,
-        wallTimeMs: wallTimeMinutes * 60_000,
+        // ★ 2026-05-22 单一源：默认不传预算 → 后端按 depth 档位解析；
+        //   仅「高级·自定义预算」开启时作为覆盖发送。
+        ...(budgetOverrideEnabled
+          ? {
+              maxCredits,
+              budgetMultiplierOverride,
+              wallTimeMs: wallTimeMinutes * 60_000,
+            }
+          : {}),
         knowledgeBaseIds:
           knowledgeBaseIds.length > 0 ? knowledgeBaseIds : undefined,
       });
@@ -422,7 +357,10 @@ export function PlaygroundMissionDialog({
             />
           </Field>
 
-          <Field label="研究深度">
+          <Field
+            label="调研规模"
+            hintInline="预算 / 时长 / 维度数随档位自动匹配，无需手动设置"
+          >
             <div className="grid grid-cols-3 gap-2">
               {DEPTH_OPTIONS.map((opt) => (
                 <SelectableTile
@@ -439,59 +377,64 @@ export function PlaygroundMissionDialog({
             </div>
           </Field>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="输出语言">
-              <select
-                value={language}
-                onChange={(e) =>
-                  setLanguage(e.target.value as RunMissionInput['language'])
-                }
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="zh-CN">中文</option>
-                <option value="en-US">English</option>
-              </select>
-            </Field>
-            <Field label="预算档位（点击切换会重填下方 3 个上限）">
-              <div className="grid grid-cols-4 gap-1.5">
-                {BUDGET_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => applyBudgetProfile(opt.value)}
-                    className={`rounded-lg border px-2 py-2 text-xs font-medium transition-all ${
-                      budgetProfile === opt.value
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </Field>
-          </div>
+          <Field label="输出语言">
+            <select
+              value={language}
+              onChange={(e) =>
+                setLanguage(e.target.value as RunMissionInput['language'])
+              }
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="zh-CN">中文</option>
+              <option value="en-US">English</option>
+            </select>
+          </Field>
         </>
       }
       advanced={
         <>
-          <BudgetAndTimeLimitPanel
-            maxCredits={maxCredits}
-            setMaxCredits={(n) => {
-              setMaxCredits(n);
-              persistPref('maxCredits', n);
-            }}
-            budgetMultiplierOverride={budgetMultiplierOverride}
-            setBudgetMultiplierOverride={(n) => {
-              setBudgetMultiplierOverride(n);
-              persistPref('budgetMultiplierOverride', n);
-            }}
-            wallTimeMinutes={wallTimeMinutes}
-            setWallTimeMinutes={(n) => {
-              setWallTimeMinutes(n);
-              persistPref('wallTimeMinutes', n);
-            }}
-          />
+          <div className="space-y-3 rounded-2xl border border-gray-200 bg-gray-50/60 px-4 py-3">
+            <label className="flex cursor-pointer items-start justify-between gap-3">
+              <span>
+                <span className="text-sm font-medium text-gray-700">
+                  自定义预算上限
+                </span>
+                <span className="mt-0.5 block text-xs text-gray-400">
+                  默认按「{SCALE_TIERS[depth].label}」档位自动匹配（
+                  {SCALE_TIERS[depth].approxCost} ·{' '}
+                  {SCALE_TIERS[depth].approxTime}）。开启后可手动设定 Credits /
+                  倍率 / 时长。
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={budgetOverrideEnabled}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setBudgetOverrideEnabled(on);
+                  // ★ 开启时以当前 depth 档位值为起点（而非旧 localStorage 持久化值），
+                  //   杜绝"勾选自定义后带出陈旧 1000/1"的漂移。
+                  if (on) {
+                    const tier = SCALE_TIERS[depth];
+                    setMaxCredits(tier.maxCredits);
+                    setBudgetMultiplierOverride(tier.budgetMultiplier);
+                    setWallTimeMinutes(tier.wallTimeMinutes);
+                  }
+                }}
+                className="mt-0.5 h-4 w-4 flex-shrink-0 accent-blue-600"
+              />
+            </label>
+            {budgetOverrideEnabled && (
+              <BudgetAndTimeLimitPanel
+                maxCredits={maxCredits}
+                setMaxCredits={setMaxCredits}
+                budgetMultiplierOverride={budgetMultiplierOverride}
+                setBudgetMultiplierOverride={setBudgetMultiplierOverride}
+                wallTimeMinutes={wallTimeMinutes}
+                setWallTimeMinutes={setWallTimeMinutes}
+              />
+            )}
+          </div>
           <Field label="搜索时效">
             <div className="grid grid-cols-6 gap-1.5">
               {TIME_RANGE_OPTIONS.map((opt) => (

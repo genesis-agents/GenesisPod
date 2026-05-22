@@ -255,7 +255,7 @@ export class MissionRerunOrchestratorService {
     original: NonNullable<Awaited<ReturnType<MissionStore["getById"]>>>,
     overrides: {
       topic?: string;
-      /** undefined = 不传 maxCredits，让 resolveMissionCredits 按 budgetProfile 推导 */
+      /** undefined = 不传 maxCredits，让 resolveMissionCredits 按 depth 档位（DEPTH_BUDGET_TIERS）解析 */
       maxCreditsFallback?: number;
       inheritFromMissionId?: string;
     },
@@ -282,14 +282,15 @@ export class MissionRerunOrchestratorService {
       concurrency: originalProfile?.concurrency ?? 3,
       viewMode: originalProfile?.viewMode ?? "continuous",
       searchTimeRange: originalProfile?.searchTimeRange ?? "365d",
-      // ★ 2026-05-06 (P0-K): maxCredits 必填，rerun 直接沿用原 mission 用户传入值；
-      //   原 mission 缺失（旧数据）则用 fallback（caller 传 1000 等显式值，不再有
-      //   "BUDGET_PROFILE_CREDITS[unlimited]=10000" 类的内部硬编码默认）。
-      maxCredits:
-        originalProfile?.maxCredits ?? overrides.maxCreditsFallback ?? 1000,
-      // ★ P0-K: budgetMultiplierOverride 也必填，rerun 沿用原值或默认 1.0
-      budgetMultiplierOverride:
-        originalProfile?.budgetMultiplierOverride ?? 1.0,
+      // ★ 2026-05-22 修"Mission 设置不生效"根因：maxCredits 存在**权威列**
+      //   original.maxCredits（首跑 createMissionRow + 「Mission 设置」updateBudgetByUser
+      //   都写列），旧代码却从 userProfile 读（永远 undefined → 兜底硬编码 1000 → $2 秒爆）。
+      //   现在读列 → 用户在「Mission 设置」改的预算重跑真正生效。
+      maxCredits: original.maxCredits ?? overrides.maxCreditsFallback,
+      // multiplier / wallTime 存 userProfile（createMissionRow + updateBudgetByUser 写此处）；
+      //   缺省传 undefined → resolveBudgetMultiplier / resolveMissionWallTimeMs 按 depth 档位解析。
+      budgetMultiplierOverride: originalProfile?.budgetMultiplierOverride,
+      wallTimeMs: originalProfile?.wallTimeMs,
       inheritFromMissionId: overrides.inheritFromMissionId,
     };
   }

@@ -53,11 +53,15 @@ export interface RunMissionInput {
   viewMode?: ViewMode;
   /** 搜索资料时的时间范围约束 */
   searchTimeRange?: SearchTimeRange;
-  /** ★ P0-K (2026-05-06): mission 级 credits 上限（必填，由用户侧决定）。1 credit ≈ 1k tokens */
-  maxCredits: number;
-  /** ★ P0-K: agent budget 倍率（必填，前端按 budgetProfile × depth 推荐用户可改） */
-  budgetMultiplierOverride: number;
-  /** 用户自定义 mission 总时长上限（毫秒）。不传则按 depth × audit × budget 矩阵推。范围 60s ~ 3h。 */
+  /**
+   * ★ 2026-05-22 单一数据源：mission 级 credits 上限改为**可选覆盖**。
+   * 缺省时后端按 depth（调研规模档位）解析（DEPTH_BUDGET_TIERS）；仅「高级·自定义预算」时传。
+   * 1 credit ≈ 1k tokens。
+   */
+  maxCredits?: number;
+  /** ★ 2026-05-22 单一源：agent budget 倍率可选覆盖，缺省按 depth 档位解析。 */
+  budgetMultiplierOverride?: number;
+  /** 用户自定义 mission 总时长上限（毫秒）覆盖。不传则按 depth 档位解析。范围 60s ~ 3h。 */
   wallTimeMs?: number;
   /**
    * 本地知识库 ID 列表（最多 10 个）。

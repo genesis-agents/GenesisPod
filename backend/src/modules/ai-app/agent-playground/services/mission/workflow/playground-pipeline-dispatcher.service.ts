@@ -723,20 +723,43 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     })();
     const errName = err instanceof Error ? err.name : "Unknown";
     const snap = session.pool.snapshot();
-    const wasCancelled =
-      session.missionAbort.signal.aborted ||
-      result.status === "aborted" ||
-      /aborted|cancelled|user_cancelled/i.test(message);
-    if (wasCancelled) {
+
+    // ★ 2026-05-22 真治：abort 必须按 signal.reason 区分"用户主动取消"与"系统级中止"。
+    //   abort-registry.abort(missionId, reason) 已把 reason 透传进 signal.reason：
+    //     · "user_cancelled"             → controller.cancelMission 已 emit mission:cancelled，跳过 mission:failed
+    //     · "budget_exhausted"           → 预算耗尽，必须 emit mission:failed(failureCode=BUDGET_EXHAUSTED)
+    //     · "mission_wall_time_exceeded" → 墙钟超时，emit mission:failed(failureCode=RUNNER_WALL_TIME_EXCEEDED)
+    //   旧逻辑只看 signal.aborted（任何 abort 都为 true）→ 把 budget/超时也当成用户取消 →
+    //   skip mission:failed + 不 markFailed → DB 卡 running → liveness guard 15min 后才用
+    //   "pod 重启/失联" 误导文案兜底（撒谎错误 + 延迟 15min）。
+    const abortReason =
+      session.missionAbort.signal.aborted &&
+      typeof session.missionAbort.signal.reason === "string"
+        ? session.missionAbort.signal.reason
+        : "";
+    // controller.cancelMission 一定调 abortRegistry.abort(missionId, "user_cancelled")，
+    //   故 signal.reason 是用户取消的权威判据；不再用脆弱的 message 正则（误报会静默吞失败）。
+    const wasUserCancelled = abortReason === "user_cancelled";
+    if (wasUserCancelled) {
       // mission:cancelled 已由 controller.cancelMission emit；这里不补 mission:failed
       this.log.log(
-        `[pipeline-v1] mission ${missionId} cancelled (abort signal aborted) — skipping mission:failed`,
+        `[pipeline-v1] mission ${missionId} user-cancelled — skipping mission:failed (mission:cancelled 已 emit)`,
       );
       return;
     }
 
     let missionFailureCode = "UNKNOWN";
     if (
+      abortReason === "budget_exhausted" ||
+      /budget.?exhausted/i.test(message)
+    ) {
+      missionFailureCode = "BUDGET_EXHAUSTED";
+    } else if (
+      abortReason === "mission_wall_time_exceeded" ||
+      /timeout|timed out|wall.?time/i.test(message)
+    ) {
+      missionFailureCode = "RUNNER_WALL_TIME_EXCEEDED";
+    } else if (
       errName === "InsufficientCreditsException" ||
       /credit|余额不足|insufficient/i.test(message)
     ) {
@@ -748,13 +771,19 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       errName === "DefineAgentMissingError"
     ) {
       missionFailureCode = "RUNNER_INPUT_SCHEMA_MISMATCH";
-    } else if (/timeout|timed out/i.test(message)) {
-      missionFailureCode = "RUNNER_WALL_TIME_EXCEEDED";
     } else if (/rate.?limit|429/i.test(message)) {
       missionFailureCode = "PROVIDER_RATE_LIMIT";
     } else {
       missionFailureCode = "PROVIDER_API_ERROR";
     }
+
+    // ★ 预算/超时类失败给用户可操作的中文文案（替代裸 abort message "operation aborted"）
+    const displayMessage =
+      missionFailureCode === "BUDGET_EXHAUSTED"
+        ? `预算已耗尽（已用约 ${Math.round(snap.poolTokensUsed / 1000)}k tokens / $${snap.poolCostUsd.toFixed(2)}）。请在「Mission 设置」提高 Credits 上限后重跑。`
+        : missionFailureCode === "RUNNER_WALL_TIME_EXCEEDED"
+          ? "运行超过墙钟时限被中止。请在「Mission 设置」提高时间上限后重跑。"
+          : message;
 
     await this.invoker
       .emitEvent({
@@ -762,7 +791,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         missionId,
         userId,
         payload: {
-          message,
+          message: displayMessage,
           failureCode: missionFailureCode,
           errorName: errName,
           wallTimeMs: Date.now() - t0,
@@ -785,7 +814,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       entry?.crossState.lastReportArtifact ?? entry?.crossState.lastReport;
     await this.store
       .markFailed(missionId, {
-        errorMessage: message,
+        errorMessage: displayMessage,
         tokensUsed: snap.poolTokensUsed,
         costUsd: snap.poolCostUsd,
         wallTimeMs: Date.now() - t0,
