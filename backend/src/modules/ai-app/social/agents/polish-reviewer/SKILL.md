@@ -21,6 +21,7 @@ version: "1.0"
 2. **SEO**：WeChat 首段含主关键词 / XHS hashtag ≤10 个
 3. **错别字**：常见输入法误字（"惟一" → "唯一"）
 4. **风格一致**：标题 + 正文风格匹配
+5. **篇幅 / 结构**（WeChat 硬要求）：正文 ≥ 800 字 + ≥ 3 个 `##` 小标题（导语 + 小标题段 + 收束）；不足 → 给 field=body 的 fix，基于原文扩写补全，不编造
 
 ## 你的工具
 
@@ -37,12 +38,13 @@ version: "1.0"
 
 ## 4 维度评分（critique 阶段）
 
-| 维度   | 通过阈值                                     | 失败处理    |
-| ------ | -------------------------------------------- | ----------- |
-| 合规   | 无极限词 / 无敏感人物名 / 无政策违规         | refine 必做 |
-| SEO    | WeChat 首段含主关键词 / XHS hashtag ≤ 10     | refine 可选 |
-| 错别字 | 常见输入法误字数 = 0                         | refine 必做 |
-| 风格   | title 与 body 语气一致（formal/casual 匹配） | refine 可选 |
+| 维度      | 通过阈值                                     | 失败处理                                        |
+| --------- | -------------------------------------------- | ----------------------------------------------- |
+| 合规      | 无极限词 / 无敏感人物名 / 无政策违规         | refine 必做                                     |
+| SEO       | WeChat 首段含主关键词 / XHS hashtag ≤ 10     | refine 可选                                     |
+| 错别字    | 常见输入法误字数 = 0                         | refine 必做                                     |
+| 风格      | title 与 body 语气一致（formal/casual 匹配） | refine 可选                                     |
+| 篇幅/结构 | WeChat 正文 ≥ 800 字 + ≥ 3 个 `##` 小标题    | refine 必做（field=body，基于原文扩写，不编造） |
 
 ## refine 调用
 
@@ -77,5 +79,6 @@ const refined = await critiqueRefineService.refine(
 
 - 出现极限词且 LLM refine 仍未替换（重试 2 次）→ verdict=reject，升级 Leader
 - 内容相关性与原文 < 0.5（语义嵌入比对）→ verdict=reject，让 ContentTransformer 重生成
+- WeChat 正文 refine 后仍 < 800 字或缺小标题 → verdict=needs-refine，回 ContentTransformer 扩写（service 层已有字数/结构硬校验+重试兜底）
 
 <!-- duty:polish-review:end -->

@@ -184,7 +184,7 @@ describe("ContentTransformerService", () => {
   // -------------------------------------------------------------------------
 
   describe("run — events passthrough", () => {
-    it("should return events array unchanged from invoker", async () => {
+    it("should return events with same content from invoker (new array ref)", async () => {
       const events = [{ type: "step", content: "analyzing content" }];
       mockInvoker.invoke.mockResolvedValue({ ...makeInvokeResult(), events });
 
@@ -193,7 +193,73 @@ describe("ContentTransformerService", () => {
         ctx: makeCtx(),
       });
 
-      expect(result.events).toBe(events);
+      // 现在 events 是新数组（为拼接重试事件），断结构相等而非引用相等
+      expect(result.events).toEqual(events);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // WeChat 字数/结构硬校验（不达标强制重写一次，取更优）
+  // -------------------------------------------------------------------------
+
+  describe("run — WeChat 字数/结构硬校验", () => {
+    const longBody =
+      "## 小标题一\n" +
+      "字".repeat(400) +
+      "\n## 小标题二\n" +
+      "字".repeat(400) +
+      "\n## 小标题三\n" +
+      "字".repeat(100);
+
+    function res(state: string, platform: string, body: string, evt: string) {
+      return {
+        state,
+        output: { platform, title: "T", digest: "d", body },
+        events: [{ type: evt }],
+        iterations: 1,
+        wallTimeMs: 100,
+      };
+    }
+
+    it("re-invokes once and keeps the longer body when WeChat body too short/unstructured", async () => {
+      mockInvoker.invoke
+        .mockResolvedValueOnce(res("completed", "WECHAT_MP", "太短了", "u1"))
+        .mockResolvedValueOnce(res("completed", "WECHAT_MP", longBody, "u2"));
+
+      const result = await service.run({
+        input: { platform: "WECHAT_MP", title: "T", body: "B" },
+        ctx: makeCtx(),
+      });
+
+      expect(mockInvoker.invoke).toHaveBeenCalledTimes(2);
+      expect((result.output as { body: string }).body).toBe(longBody);
+      expect(result.events).toHaveLength(2); // 两次调用事件已拼接
+    });
+
+    it("does NOT re-invoke for non-WeChat platforms even if short", async () => {
+      mockInvoker.invoke.mockResolvedValue(
+        res("completed", "XIAOHONGSHU", "短", "u1"),
+      );
+
+      await service.run({
+        input: { platform: "XIAOHONGSHU", title: "T", body: "B" },
+        ctx: makeCtx(),
+      });
+
+      expect(mockInvoker.invoke).toHaveBeenCalledTimes(1);
+    });
+
+    it("does NOT re-invoke when WeChat body already meets floor", async () => {
+      mockInvoker.invoke.mockResolvedValue(
+        res("completed", "WECHAT_MP", longBody, "u1"),
+      );
+
+      await service.run({
+        input: { platform: "WECHAT_MP", title: "T", body: "B" },
+        ctx: makeCtx(),
+      });
+
+      expect(mockInvoker.invoke).toHaveBeenCalledTimes(1);
     });
   });
 });

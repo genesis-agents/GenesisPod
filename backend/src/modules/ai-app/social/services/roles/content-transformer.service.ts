@@ -39,26 +39,59 @@ export class ContentTransformerService {
     ctx: SocialInvocationContext;
     pool?: MissionBudgetPool;
   }): Promise<ContentTransformerInvocationResult> {
-    const r = await this.invoker.invoke(
+    const first = await this.invoker.invoke(
       ContentTransformerAgent,
       args.input,
       args.ctx,
     );
+    let chosen = first;
+    let events: IAgentEvent[] = [...first.events];
+
+    // 公众号成稿「字数/结构」硬校验：不达标强制重试一次，取更优。
+    // 这是"要求"而非"建议"——短源也必须展开成 ≥800 字 + ≥3 小标题的长文。
+    if (this.belowWechatFloor(first.output, args.input.platform)) {
+      const retry = await this.invoker.invoke(
+        ContentTransformerAgent,
+        args.input,
+        args.ctx,
+      );
+      events = [...events, ...retry.events];
+      if (this.bodyChars(retry.output) > this.bodyChars(first.output)) {
+        chosen = retry;
+      }
+    }
+
     if (args.pool) {
       await this.invoker.tickCost(
         args.ctx.missionId,
         args.ctx.userId,
         `content-transform-${args.input.platform}`,
         args.pool,
-        extractTokenSpend(r.events),
+        extractTokenSpend(events),
       );
     }
     return {
-      state: normalizeRunnerState(r.state),
-      output: r.output as ContentTransformerOutput | undefined,
-      events: r.events,
-      iterations: r.iterations,
-      wallTimeMs: r.wallTimeMs,
+      state: normalizeRunnerState(chosen.state),
+      output: chosen.output as ContentTransformerOutput | undefined,
+      events,
+      iterations: chosen.iterations,
+      wallTimeMs: chosen.wallTimeMs,
     };
+  }
+
+  /** 微信公众号长文硬要求：正文 ≥ 800 字（去标签去空白）+ ≥ 3 个小标题 */
+  private belowWechatFloor(out: unknown, platform: string): boolean {
+    if (platform !== "WECHAT_MP") return false;
+    const body = (out as ContentTransformerOutput | undefined)?.body;
+    if (!body) return false;
+    const headings = (body.match(/(^|\n)\s*#{1,6}\s|<h[1-6][\s>]/gi) ?? [])
+      .length;
+    return this.bodyChars(out) < 800 || headings < 3;
+  }
+
+  private bodyChars(out: unknown): number {
+    const body = (out as ContentTransformerOutput | undefined)?.body;
+    if (!body) return 0;
+    return body.replace(/<[^>]+>/g, "").replace(/\s/g, "").length;
   }
 }
