@@ -493,7 +493,7 @@ describe("SocialPipelineDispatcher", () => {
       expect(orchestrator.run).toHaveBeenCalled();
       expect(store.markCompleted).toHaveBeenCalledWith(
         MOCK_MISSION_ID,
-        expect.objectContaining({ wallTimeMs: expect.any(Number) }),
+        expect.objectContaining({ elapsedWallTimeMs: expect.any(Number) }),
       );
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({ type: "social.mission:completed" }),
@@ -1773,7 +1773,7 @@ describe("SocialPipelineDispatcher", () => {
       expect(orchestrator.run).toHaveBeenCalled();
       expect(store.markCompleted).toHaveBeenCalledWith(
         MOCK_MISSION_ID,
-        expect.objectContaining({ wallTimeMs: expect.any(Number) }),
+        expect.objectContaining({ elapsedWallTimeMs: expect.any(Number) }),
       );
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({ type: "social.mission:completed" }),

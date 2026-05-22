@@ -263,7 +263,7 @@ export class SocialPipelineDispatcher implements OnModuleInit {
 
         if (result.status === "completed") {
           await this.store
-            .markCompleted(missionId, { wallTimeMs: Date.now() - t0 })
+            .markCompleted(missionId, { elapsedWallTimeMs: Date.now() - t0 })
             .catch((err: unknown) => {
               this.log.warn(
                 `[${missionId}] markCompleted failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
@@ -669,7 +669,7 @@ export class SocialPipelineDispatcher implements OnModuleInit {
     await this.store
       .markFailed(missionId, {
         errorMessage: message,
-        wallTimeMs: Date.now() - t0,
+        elapsedWallTimeMs: Date.now() - t0,
         failureCode,
       })
       .catch(() => undefined);
