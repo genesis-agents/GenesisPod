@@ -638,6 +638,118 @@ describe("ReActLoop (Phase 2)", () => {
     expect(stopCalls).toContain("always-run");
   });
 
+  // ── P0 (2026-05-22): 可恢复错误有界退避重试 ──────────────────────────────
+  it("retries a recoverable rate-limit error (action=retry) then succeeds", async () => {
+    let calls = 0;
+    const chat = {
+      chat: jest.fn(async () => {
+        calls += 1;
+        if (calls === 1) throw new Error("rate limit exceeded (429)");
+        return {
+          content: JSON.stringify({
+            thinking: "ok now",
+            action: { kind: "finalize", output: "4" },
+          }),
+          model: "mock",
+          usage: { totalTokens: 10 },
+        };
+      }),
+    };
+    const reg = mkToolRegistry({});
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const runtimeEnv = {
+      suggestFallback: jest
+        .fn()
+        .mockResolvedValue({ action: "retry", retryAfterMs: 0 }),
+    };
+    const env = new ContextEnvelope({
+      system: "You are a helpful assistant.",
+      messages: [{ role: "user", content: "Solve 2+2.", timestamp: 0 }],
+      reminders: [],
+      tools: [],
+      memory: { sessionId: "s1", userId: "u1" },
+      budget: {
+        tokensUsed: 0,
+        tokensRemaining: 10_000,
+        iterationsUsed: 0,
+        iterationsRemaining: 10,
+        wallTimeStartMs: Date.now(),
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      runtimeEnv: runtimeEnv as any,
+    });
+
+    const events = await drain(loop.run(env, criteria, { agentId: "retry-ok" }));
+
+    // 重试了一次：chat 被调用 2 次
+    expect(chat.chat).toHaveBeenCalledTimes(2);
+    // 中途发出一个 recoverable error 事件（retryAttempt=1）
+    const recoverableErr = events.find(
+      (e) =>
+        e.type === "error" &&
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (e.payload as any)?.recoverable === true,
+    );
+    expect(recoverableErr).toBeDefined();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((recoverableErr!.payload as any).diagnostic?.retryAttempt).toBe(1);
+    // 最终正常 finalize，而不是终态 error
+    const terminated = events.find((e) => e.type === "terminated");
+    expect(terminated?.payload).toMatchObject({ reason: "completed" });
+  });
+
+  it("caps consecutive recoverable retries (circuit breaker) then terminates", async () => {
+    // chat 一直 429；应在 MAX_RECOVERABLE_RETRIES(默认 3) 次重试后终止
+    const chat = {
+      chat: jest.fn().mockRejectedValue(new Error("429 too many requests")),
+    };
+    const reg = mkToolRegistry({});
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const runtimeEnv = {
+      suggestFallback: jest
+        .fn()
+        .mockResolvedValue({ action: "retry", retryAfterMs: 0 }),
+    };
+    const env = new ContextEnvelope({
+      system: "You are a helpful assistant.",
+      messages: [{ role: "user", content: "Solve 2+2.", timestamp: 0 }],
+      reminders: [],
+      tools: [],
+      memory: { sessionId: "s1", userId: "u1" },
+      budget: {
+        tokensUsed: 0,
+        tokensRemaining: 10_000,
+        iterationsUsed: 0,
+        iterationsRemaining: 10,
+        wallTimeStartMs: Date.now(),
+      },
+      // maxIterations=10 远大于重试上限，确保是 breaker 而非 iteration 触顶
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      runtimeEnv: runtimeEnv as any,
+    });
+
+    const events = await drain(
+      loop.run(env, { maxIterations: 10, terminateOn: ["finalize"] }, {
+        agentId: "retry-cap",
+      }),
+    );
+
+    // 3 次重试 + 第 4 次不再重试 → chat 调用 4 次
+    expect(chat.chat).toHaveBeenCalledTimes(4);
+    const terminated = events.find((e) => e.type === "terminated");
+    expect(terminated?.payload).toMatchObject({ reason: "error" });
+  });
+
   // ── P0-2: hasUnexecutedToolUse — 防回归测试 ──────────────────────────────
   it("P0-2: continues loop when LLM returns stop_reason=end_turn but content contains tool_call intent (parse failed)", async () => {
     // Scenario: LLM first returns truncated/broken JSON with a tool_call inside
