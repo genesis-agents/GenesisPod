@@ -439,6 +439,24 @@ export type {
   ResolvedRuntimeLimits,
   MissionLifecycleMetrics,
 } from "../lifecycle/mission-lifecycle/abstractions/runtime-limits";
+// ★ 2026-05-22 C5/G7: mission 配置快照(显式 schema/lineage/版本)
+export { deriveChildSnapshot } from "../lifecycle/mission-lifecycle/abstractions/mission-config-snapshot";
+export type {
+  MissionConfigSnapshot,
+  MissionMutationReason,
+} from "../lifecycle/mission-lifecycle/abstractions/mission-config-snapshot";
+// ★ 2026-05-22 C6/G8: canonical input patch + rebuilder
+export { applyInputPatch } from "../lifecycle/mission-lifecycle/abstractions/mission-input-patch";
+export type {
+  MissionInputPatch,
+  MissionInputRebuilder,
+} from "../lifecycle/mission-lifecycle/abstractions/mission-input-patch";
+// ★ 2026-05-22 C7/G9: 终态 outcome(去 quality_rejected,G6)+ presentation 聚合
+export {
+  MissionTerminalOutcome,
+  toTerminalOutcome,
+} from "../lifecycle/mission-lifecycle/abstractions/mission-state";
+export type { MissionPresentationState } from "../lifecycle/mission-lifecycle/abstractions/mission-state";
 // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
 export { MissionRuntimeShellFramework } from "../teams/business-team/lifecycle/mission-runtime-shell.framework";
 export type {
