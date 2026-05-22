@@ -31,7 +31,8 @@ export interface CreateSocialMissionArgs {
 export interface MarkCompletedDetail {
   tokensUsed?: number;
   costUsd?: number;
-  wallTimeMs?: number;
+  /** ★ C4/G5：实测耗时(原 wallTimeMs,与配置上限二义→改名)。 */
+  elapsedWallTimeMs?: number;
   trajectory?: Prisma.InputJsonValue;
 }
 
@@ -39,7 +40,8 @@ export interface MarkFailedDetail {
   errorMessage: string;
   tokensUsed?: number;
   costUsd?: number;
-  wallTimeMs?: number;
+  /** ★ C4/G5：实测耗时(原 wallTimeMs)。 */
+  elapsedWallTimeMs?: number;
   /** ★ C2/G3：canonical MissionFailureCode 值，落 DB failure_code 列。 */
   failureCode?: string;
 }
@@ -104,7 +106,7 @@ export class SocialMissionStore {
           tokensUsed:
             detail?.tokensUsed != null ? BigInt(detail.tokensUsed) : null,
           costUsd: detail?.costUsd ?? null,
-          wallTimeMs: detail?.wallTimeMs ?? null,
+          elapsedWallTimeMs: detail?.elapsedWallTimeMs ?? null,
           trajectory: detail?.trajectory,
         },
       })
@@ -129,7 +131,7 @@ export class SocialMissionStore {
           tokensUsed:
             detail.tokensUsed != null ? BigInt(detail.tokensUsed) : null,
           costUsd: detail.costUsd ?? null,
-          wallTimeMs: detail.wallTimeMs ?? null,
+          elapsedWallTimeMs: detail.elapsedWallTimeMs ?? null,
         },
       })
       .catch((err: unknown) => {

@@ -213,7 +213,7 @@ describe("SocialMissionStore", () => {
       });
 
       await store.markCompleted(MOCK_MISSION_ID, {
-        wallTimeMs: 12000,
+        elapsedWallTimeMs: 12000,
         tokensUsed: 500,
         costUsd: 0.03,
       });
@@ -223,7 +223,7 @@ describe("SocialMissionStore", () => {
           where: { id: MOCK_MISSION_ID, status: "running" },
           data: expect.objectContaining({
             status: "completed",
-            wallTimeMs: 12000,
+            elapsedWallTimeMs: 12000,
             costUsd: 0.03,
           }),
         }),
@@ -278,7 +278,7 @@ describe("SocialMissionStore", () => {
 
       await store.markFailed(MOCK_MISSION_ID, {
         errorMessage: "Something went wrong",
-        wallTimeMs: 5000,
+        elapsedWallTimeMs: 5000,
       });
 
       expect(mockPrisma.socialMission.updateMany).toHaveBeenCalledWith(
@@ -286,7 +286,7 @@ describe("SocialMissionStore", () => {
           where: { id: MOCK_MISSION_ID, status: "running" },
           data: expect.objectContaining({
             status: "failed",
-            wallTimeMs: 5000,
+            elapsedWallTimeMs: 5000,
           }),
         }),
       );

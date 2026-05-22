@@ -75,7 +75,7 @@ export class SocialTaskService {
     status: string | null;
     tokensUsed: number;
     costUsd: number;
-    wallTimeMs: number | null;
+    elapsedWallTimeMs: number | null;
     completedAt: string | null;
     errorMessage: string | null;
   }> {
@@ -90,7 +90,7 @@ export class SocialTaskService {
         status: null,
         tokensUsed: 0,
         costUsd: 0,
-        wallTimeMs: null,
+        elapsedWallTimeMs: null,
         completedAt: null,
         errorMessage: null,
       };
@@ -101,7 +101,7 @@ export class SocialTaskService {
         status: true,
         tokensUsed: true,
         costUsd: true,
-        wallTimeMs: true,
+        elapsedWallTimeMs: true,
         completedAt: true,
         errorMessage: true,
       },
@@ -111,7 +111,7 @@ export class SocialTaskService {
       status: m?.status ?? null,
       tokensUsed: m?.tokensUsed != null ? Number(m.tokensUsed) : 0,
       costUsd: m?.costUsd ?? 0,
-      wallTimeMs: m?.wallTimeMs ?? null,
+      elapsedWallTimeMs: m?.elapsedWallTimeMs ?? null,
       completedAt: m?.completedAt ? m.completedAt.toISOString() : null,
       errorMessage: m?.errorMessage ?? null,
     };
