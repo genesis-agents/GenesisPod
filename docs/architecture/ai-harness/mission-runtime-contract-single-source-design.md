@@ -44,9 +44,9 @@ Codex#2：opaque blob 下 app 仍可漏字段/改名/在 rebuilder 暗自 fallba
 migration BLOCKER-3：`s8-publish-execute` 是唯一外部副作用 stage（微信草稿 API 无删除接口）；cancel 在 S8 进行中触发 → 半发布、平台后台残留。
 **修订**：abort 采 **gate-before-stage** —— S8 一旦进入即不可中途 abort（signal 在 S8 入口检查：未进入则拒绝进入，已进入则等其完成再落 cancelled）；§11 测试矩阵增"cancel 发生在 S8 前/中"两分支。
 
-**RB7. DB 弃旧两步 + 读优先 feature flag——否则回滚不可逆。**
-migration BLOCKER-4：`wallTimeMs` DROP COLUMN 不可逆 + 无 flag 切回旧读路径。
-**修订**：`canonical-read-priority` feature flag 控制读新/旧；弃旧拆 Step A（停写旧字段，可秒回滚）/ Step B（DROP，人工、备份后、≥30 天观察，绝不进自动迁移脚本）。
+**RB7. DB 迁移＝一次性回填 + 原地切换（★ 用户硬约束 2026-05-22：没有双写，也不接受双写）。**
+migration BLOCKER-4 原提议双写 + feature flag，**已被用户否决**。无双写=无并行值=无"读优先/回退"歧义，也更贴合"单一源杜绝漂移"。
+**修订（替代原双写方案）**：每个 DB 字段迁移在**一个迁移脚本内**完成「加新列 → 一次性回填存量 → 切换所有读写到新列 → 同脚本重命名/删旧列」，**不保留旧列、不写两份**。回滚靠 git revert + 反向迁移脚本（迁移前备份），不靠运行期 flag。代码与迁移**同一 PR 原子上线**，杜绝"接口已变、消费方未迁"窗口。
 
 ### R-MAJOR（采纳，调整设计）
 
@@ -92,9 +92,9 @@ v2 的 `buildForXxx(snapshot, patch?)` 没定义 patch 约束 → app 各自扩 
 v2 的 L5 只是"接线检查"（实现 adapter / 注册 liveness / 调了 abort / 写了 failure），挡不住"接了但语义错"（abort reason 乱传、rebuilder patch 越权、heartbeat 刷新点不对、failure category 瞎映射）。
 **决议**：L5 拆两级。**L5a wiring conformance（静态）**：注册存在性（治漏注册，保留）。**L5b behavioral conformance（集成测试套件）**：发真 mission → cancel → 断言 signal.aborted + budget 停增 + 终态=cancelled + reason 正确；rerun → 断言 patch 不越权 + 重解析正确；制造预算耗尽 → 断言 failureCode/category/source 映射正确；制造静默 → 断言 liveness 回收。**无 L5b 的接入视为未接入**。
 
-**G5. Rollout 隔离：per-app adapter version + canonical-read opt-in flag，否则"逐 app"是假隔离。**（Codex#5）
-v2 风险缓解只写"先 playground 再逐 app",但 C3/C4 改的是**平台级共享命名/单位**——harness 一旦切 canonical,其它 app 被动受影响,"逐 app"在代码层未必真隔离。
-**决议**：(a) **per-app adapter version**（harness 同时支持 legacy adapter 与 canonical adapter，app 按自己节奏切）；(b) **`canonical-read-priority` per-app feature flag**（读路径按 app 灰度切）；(c) harness canonical 与 legacy **并行供给一个完整波次**，最后一个 app 切完才移除 legacy。没有这三者，C3/C4 不得开工。
+**G5. Rollout 隔离：harness canonical 一次到位，三 app 在同一 PR 链内逐个真实切换（★ 用户硬约束：无双写、无 flag、无 legacy 并行）。**（Codex#5，按用户决议改写）
+v2 原提议"per-app adapter version + canonical-read flag + legacy 并行一波次"——**已被用户否决（不接受双写/并行）**。
+**决议（替代）**：(a) harness 只提供 canonical（**不留 legacy adapter**）；(b) **隔离靠 worktree + 测试**而非 flag——每 app 切换在独立提交、独立验证全量绿后再合；(c) C3/C4 这类平台级共享命名/单位的改动，harness 与三 app 的切换**在同一波次/同一 PR 链内连续完成**，不跨波次留半切状态。代价（无 flag 即时回滚）由 §11 测试矩阵 + G11 深度检视兜底。
 
 **G6. 平台 terminal outcome 只保 {success, failure, cancelled}——`quality_rejected` 移出平台 enum。**（Codex#6）
 v2 把 `quality_rejected` 放进 `MissionTerminalOutcome` 平台 enum,但有些 app 根本没有"质量拒绝"这个终态(或它是业务 gate/retry state 而非 terminal)。平台内建它 = 又把业务模型预设进平台。
@@ -464,42 +464,39 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
 
 > ★ 本表已按 §0.6 G1 重排（终态写权前置）。
 
-| 波次                                | 内容                                                                                                                          | 全 app 落地                                                                          |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **P0-now（独立 hotfix，不等重构）** | RS1：radar/social 注册 liveness adapter；social cancel 真停（各一行级，零迁移）                                               | radar / social 各一 PR                                                               |
-| **P0-0（平台前置）**                | **C0 终态写权（`MissionLifecycleManager` 唯一终态写入口）+ 最小 `MissionLifecycleStatus` 值域**（G1）                         | 三 app 终态写改走单入口                                                              |
-| **P0**                              | C1 AbortReason / C2 MissionFailure / C3a 换算 / C4 wall-time 拆 / C8 liveness 强制；**L1 类型为主防线** + L5a/L5b conformance | playground→radar→social 各一 PR（per-app adapter version + canonical-read flag，G5） |
-| **P1**                              | C5 ConfigSnapshot（显式 schema，G2 写治理）/ C6 InputRebuilder（canonical patch，G3）**与 C4/C5 同波次**（RM9）               | 各 app 接 rebuilder                                                                  |
-| **P2**                              | C7 presentation 聚合 / starting 占位平台化（终态写权部分已前移 P0-0）                                                         | controller/前端/store                                                                |
-| DONE                                | C9 stage 契约 primitive（harness）；registry 各 app 自持（RM3）                                                               | playground 已落；radar/social 各自登记                                               |
+| 波次                                | 内容                                                                                                                          | 全 app 落地                                                                      |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **P0-now（独立 hotfix，不等重构）** | RS1：radar/social 注册 liveness adapter；social cancel 真停（各一行级，零迁移）                                               | radar / social 各一 PR                                                           |
+| **P0-0（平台前置）**                | **C0 终态写权（`MissionLifecycleManager` 唯一终态写入口）+ 最小 `MissionLifecycleStatus` 值域**（G1）                         | 三 app 终态写改走单入口                                                          |
+| **P0**                              | C1 AbortReason / C2 MissionFailure / C3a 换算 / C4 wall-time 拆 / C8 liveness 强制；**L1 类型为主防线** + L5a/L5b conformance | playground→radar→social 各一 PR（**无双写·真实切换**，隔离靠 worktree+测试，G5） |
+| **P1**                              | C5 ConfigSnapshot（显式 schema，G2 写治理）/ C6 InputRebuilder（canonical patch，G3）**与 C4/C5 同波次**（RM9）               | 各 app 接 rebuilder                                                              |
+| **P2**                              | C7 presentation 聚合 / starting 占位平台化（终态写权部分已前移 P0-0）                                                         | controller/前端/store                                                            |
+| DONE                                | C9 stage 契约 primitive（harness）；registry 各 app 自持（RM3）                                                               | playground 已落；radar/social 各自登记                                           |
 
-**P0 内顺序（硬性，G1）**：C0 终态写权 → C1/C2（依赖终态语义）→ C3a/C4（带 G5 rollout 隔离）→ C8。**不再"C3+C4 先行"**；C6 Rebuilder 与 C4/C5 同波次以缩短双语义窗口（RM9）。
+**P0 内顺序（硬性，G1）**：C0 终态写权 → C1/C2（依赖终态语义）→ C3a/C4（无双写·真实切换）→ C8。**不再"C3+C4 先行"**；C6 Rebuilder 与 C4/C5 同波次以缩短切换窗口（RM9）。
 
 ---
 
 ## 9. 兼容策略
 
-- **双写过渡**：P0 期新 canonical 字段与旧并存，写两份、读优先 canonical，灰度 N 天后删旧。
-- **★ Codex r5 决议：双写期 legacy/canonical 冲突不得静默兜底。** 读取时若检测同一 mission 的 legacy 值与 canonical 值**关键字段不一致**：
-  - 一律打**结构化 mismatch 告警**（字段名 + 两值 + missionId），不静默选一个——静默会把真实数据问题埋掉。
-  - 对**预算 / 终态 / wallTimeCap 等敏感字段**：**优先拒绝该次 rerun（fail-closed）**而非兜底继续；非敏感字段可读 canonical + 告警。
-  - 灰度期把 mismatch 率作为"能否删旧字段"的放行指标（mismatch=0 持续 N 天才进 §RB7 弃旧 Step B）。
-- **in-flight / 历史 mission**：无 `config_snapshot` → rebuilder 回退 `legacy` 分支（旧 row+JSON 拼装，仅历史用）。
-- **DB 迁移**：手写 SQL（项目规范，禁 `prisma migrate dev`）；先加列→回填→切读→弃旧；三 app 各自迁移脚本。
-- **跨 app 节奏**：先 playground 验证 + adapter 边界稳定 → radar → social，每 app 一 PR；canonical 加 `schemaVersion`。
+- **★ 无双写 · 真实切换（用户硬约束 2026-05-22：没有双写，也不接受双写）。** 取代原"双写过渡 + 灰度切读"。每处迁移：加新列 → 一次性回填 → 切换全部读写到新列 → 同脚本删/重命名旧列；**不写两份、不留旧列、不读优先回退**。代码与迁移**同 PR 原子上线**。
+  - 因无并行值，原 Codex r5"双写期 mismatch 告警/fail-closed"**不再适用**（无两份值可比）；改为**迁移后一次性断言**：回填完成后断言"无行残留旧语义"（如无行 `failure_category ≠ codeToCategory(failure_code)`、无裸 `wall_time_ms` 残留列），不通过则迁移失败回滚。
+- **in-flight / 历史 mission**：无 `config_snapshot` 的历史行——迁移脚本**一次性回填** snapshot（从 row+JSON 重建一次并落库）；运行期 rebuilder **不做 legacy 拼装回退**（无双路径）。回填不了的历史行明确标记 `schemaVersion=legacy` 只读不可 rerun。
+- **DB 迁移**：手写 SQL（项目规范，禁 `prisma migrate dev`）；单脚本内 加列→回填→切换→删旧；三 app 各自迁移脚本；迁移前 DB 备份。
+- **跨 app 节奏**：harness canonical 一次到位（不留 legacy）；三 app 在同一波次/PR 链内逐个真实切换，每个切完全量绿再下一个；隔离靠 worktree + 测试，不靠 flag。
 - **event/前端协议改名**：走 `playground-frontend-contract.spec` byte-equal 基线（radar/social 补各自基线），改名同步基线 + 前端 client。
 - **prompt cache / 在跑任务**：合并节奏避开在跑任务；P0 不动 agent prompt。
 
 ## 10. 风险点
 
-| 风险                                                     | 缓解                                                                  |
-| -------------------------------------------------------- | --------------------------------------------------------------------- |
-| 跨 app blast radius（3+ app 同 harness）                 | 先 playground 验证；adapter 边界稳定后逐 app；canonical schemaVersion |
-| DB 迁移（wall-time/config_snapshot/failure_code × 3 表） | 手写迁移 + 双写 + 回填 + 灰度切读                                     |
-| in-flight / 历史无 snapshot                              | rebuilder legacy 回退分支                                             |
-| social 真停上线后行为变化（之前假停）                    | 灰度 + 明确 changelog；cancel 后 budget 立停是预期改进                |
-| event/前端协议改名                                       | byte-equal 基线 + 前端 client 同步 PR                                 |
-| 看护 L3/L4 误伤合法用法                                  | 白名单（如 `resolved-budget-caps.ts` 允许换算常量）                   |
+| 风险                                                     | 缓解                                                                                  |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 跨 app blast radius（3+ app 同 harness）                 | 先 playground 验证；adapter 边界稳定后逐 app；canonical schemaVersion                 |
+| DB 迁移（wall-time/config_snapshot/failure_code × 3 表） | 手写迁移单脚本内 加列→一次性回填→切换→删旧（**无双写**）+ 迁移前备份 + 迁移后残留断言 |
+| in-flight / 历史无 snapshot                              | rebuilder legacy 回退分支                                                             |
+| social 真停上线后行为变化（之前假停）                    | 灰度 + 明确 changelog；cancel 后 budget 立停是预期改进                                |
+| event/前端协议改名                                       | byte-equal 基线 + 前端 client 同步 PR                                                 |
+| 看护 L3/L4 误伤合法用法                                  | 白名单（如 `resolved-budget-caps.ts` 允许换算常量）                                   |
 
 ## 11. 测试矩阵（全 app × 全域 × 全分支）
 
@@ -535,7 +532,7 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
 
 1. **先做 RS1 两个独立 hotfix**（radar/social liveness 注册 + social cancel 真停，零迁移）——认可立即做、不等平台重构？
 2. **平台 P0 顺序（G1）**：C0 终态写权前置 → C1/C2 → C3a/C4（带 G5 rollout 隔离）→ C8；**不再 C3/C4 先行**。认可？
-3. 粒度：每 canonical × 每 app 一 PR（per-app adapter version + canonical-read flag，小步可回退）。认可？
+3. 粒度：每 canonical × 每 app 一 PR（**无双写·真实切换**，回退靠 git revert + 反向迁移，不靠 flag）。认可？
 4. social 真停（含 RB6 S8 gate-before-stage 防半发布）——确认是期望改进？
 5. 范围裁剪：是否先只做"地基四件"（C0 终态写权 + RB2 pricing 不固化 + C8 liveness + L1 类型看护），其余 C5/C6/C7 视效果再排？
 
