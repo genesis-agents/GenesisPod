@@ -83,6 +83,32 @@ export class RadarMissionStore {
     });
   }
 
+  /**
+   * Liveness 扫描用：列出所有 running mission 的存活字段。
+   * 供 RadarModule onModuleInit 注册的 MissionLivenessGuard adapter 调用——
+   * ★ 2026-05-22 C8：radar 之前漏注册 liveness adapter，heartbeatAt 写了没人扫 →
+   *   孤儿 running 行永不回收。本方法 + 注册补上这条扫描链。
+   */
+  async fetchRunningForLiveness(): Promise<
+    Array<{
+      id: string;
+      userId: string;
+      startedAt: Date;
+      heartbeatAt: Date | null;
+    }>
+  > {
+    const rows = await this.prisma.radarRun.findMany({
+      where: { status: "running" },
+      select: { id: true, userId: true, startedAt: true, heartbeatAt: true },
+      take: 200,
+    });
+    // startedAt 在 createAtomic 时必写，schema 列可空仅历史遗留 → 兜底 heartbeatAt/now
+    return rows.map((r) => ({
+      ...r,
+      startedAt: r.startedAt ?? r.heartbeatAt ?? new Date(),
+    }));
+  }
+
   async markCompleted(
     missionId: string,
     metrics: Record<string, unknown>,
