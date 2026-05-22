@@ -139,16 +139,64 @@ common/mission-detail/ Frame      MissionDetailFrame + StageStepper + MissionAct
 
 ---
 
+## 8.5 详情页左栏 + 历史 + 参考文献细则（MUST，2026-05-22 补充）
+
+> 来源：AI Social 详情页打磨。这三条是 mission 详情页的**呈现底线**，所有 agent teams
+> feature 必须遵守，canonical 实现见 `components/ai-social/mission-detail/SocialMissionPage.tsx`。
+
+### 8.5.1 左栏三段式布局（固定 / 滚动 / 常驻按钮）
+
+左栏（`MissionDetailFrame.leftPanel`）必须是 `flex h-full flex-col` 三段：
+
+```
+┌ 固定区 shrink-0 ─────────────┐  团队拓扑（≤ h-[176px]）+ 进度（done/total + 细进度条）
+├ 滚动区 flex-1 overflow-y-auto ┤  关键角色列表 / 算力等（内容多时只滚这里）
+└ 常驻按钮区 shrink-0 border-t ─┘  MissionActionGroup —— 任何状态都不为空
+```
+
+- **进度区压缩紧凑**：拓扑高度 ≤ 176px；进度用「`done/total` 文字 + 一条 `h-1.5` 进度条」，不占大块竖直空间。
+- **按钮区常驻**：用 `MissionActionGroup`，**任何 mission 状态下都至少有一个按钮**（终态给「运行」，运行中给「取消」），禁止终态出现空按钮区。
+
+### 8.5.2 按钮语义（运行 / 发布 / 取消）
+
+| 按钮 | variant   | 出现条件                     | 语义                                         |
+| ---- | --------- | ---------------------------- | -------------------------------------------- |
+| 运行 | primary   | 非运行中（任意终态）         | fresh 重跑：沿用原素材/平台从头生成          |
+| 发布 | secondary | 草稿就绪及之后（含已发布）   | 进发布流程；**已发布后仍可再发**（多轮发布） |
+| 取消 | danger    | 运行中（PENDING/GENERATING） | 终止当前 mission                             |
+
+- 「运行」对应后端**任意终态可 fresh 重跑**（非仅 FAILED）。
+- 多轮发布：终态保留发布入口，后端发布接口须幂等可重复调用。
+
+### 8.5.3 历史兜底（DB 快照，MUST）
+
+实时事件 buffer 有 TTL（social 内存 1h），**mission 结束后 `events` 会变空**。详情页**禁止**因此显示「暂无数据 / 待启动」。必须：
+
+- 后端提供持久化快照接口（算力 + 终态），如 `GET /ai-social/tasks/:id/mission-snapshot` 读 `SocialMission` 表的 `tokensUsed/costUsd/wallTimeMs/status/completedAt`。
+- 派生层接受快照兜底：`deriveXxxView(events, persisted?)`，`events` 空时用快照合成**算力 + 阶段骨架**（completed → 阶段全 done）。逐条 thought/action 时间线无法还原可接受，但**算力与阶段状态必须可见**。
+- 对标 `agent-playground` page 的 `persisted` 兜底分支。
+
+### 8.5.4 参考文献必须可点（内链或外链）
+
+参考文献/来源条目**每条都要能点开**：
+
+- 站内来源（`AI_EXPLORE`/`AI_TOPIC_INSIGHTS`/`AI_RESEARCH`/`AI_WRITING`/`AGENT_PLAYGROUND`…）→ 拼站内详情路由（集中维护在 `lib/features/{feature}/source-links.ts`，禁止散落硬编码路径）。
+- 外部来源 → `source.url` 外链（`isSafeHttpUrl` 校验，`target=_blank rel=noreferrer`）。
+- 类型标签走中文映射，**禁止露出大写枚举**（如 `AI_EXPLORE`）。
+
 ## 8. Canonical 参考实现（文件锚点）
 
-| 层               | 文件                                                                             |
-| ---------------- | -------------------------------------------------------------------------------- |
-| 实时通道         | `frontend/hooks/features/useAgentPlaygroundStream.ts`（待泛化 useMissionStream） |
-| 纯派生           | `frontend/lib/features/agent-playground/derive.ts` · `todo-ledger.ts`            |
-| 派生测试         | `frontend/lib/features/agent-playground/__tests__/`（fixtures + 回归）           |
-| 共享框架         | `frontend/components/common/mission-detail/`                                     |
-| 列表层           | `frontend/components/common/{page-header-hero,asset-card,missions}/`             |
-| 域 step-map 范例 | `frontend/lib/features/ai-social/derive-social-stages.ts`                        |
+| 层                 | 文件                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| 实时通道           | `frontend/hooks/features/useAgentPlaygroundStream.ts`（待泛化 useMissionStream）                |
+| 纯派生             | `frontend/lib/features/agent-playground/derive.ts` · `todo-ledger.ts`                           |
+| 派生测试           | `frontend/lib/features/agent-playground/__tests__/`（fixtures + 回归）                          |
+| 共享框架           | `frontend/components/common/mission-detail/`                                                    |
+| 列表层             | `frontend/components/common/{page-header-hero,asset-card,missions}/`                            |
+| 域 step-map 范例   | `frontend/lib/features/ai-social/derive-social-stages.ts`                                       |
+| 左栏三段+按钮+进度 | `frontend/components/ai-social/mission-detail/SocialMissionPage.tsx`                            |
+| 历史兜底（快照）   | 后端 `social-task.service.ts#getMissionSnapshot` · 前端 `derive-social.ts#mergeSocialPersisted` |
+| 参考文献链接映射   | `frontend/lib/features/ai-social/source-links.ts`                                               |
 
 ---
 

@@ -71,6 +71,17 @@ export class SocialTaskController {
     );
   }
 
+  /** GET /ai-social/tasks/:id/mission-snapshot — mission 持久化快照（算力+终态），事件 buffer 过期后回显历史 */
+  @Get(":id/mission-snapshot")
+  async getMissionSnapshot(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException();
+    return this.taskService.getMissionSnapshot(id, userId);
+  }
+
   @Get(":id")
   async getTask(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     const userId = req.user?.id;

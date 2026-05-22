@@ -19,6 +19,7 @@ import type {
   SocialContentTask,
   SocialContentTaskListResult,
   SocialDataSourceDescriptor,
+  SocialMissionSnapshot,
   SourceListResult,
 } from './task-types';
 
@@ -127,6 +128,15 @@ export function retrySocialTask(id: string): Promise<{ id: string }> {
   return fetchJson<{ id: string }>(`/api/v1/ai-social/tasks/${id}/retry`, {
     method: 'POST',
   });
+}
+
+/** mission 持久化快照（算力 + 终态）——事件 buffer 过期后回显历史 */
+export function getSocialMissionSnapshot(
+  id: string
+): Promise<SocialMissionSnapshot> {
+  return fetchJson<SocialMissionSnapshot>(
+    `/api/v1/ai-social/tasks/${id}/mission-snapshot`
+  );
 }
 
 /** 重命名任务（卡片「编辑」按钮）*/

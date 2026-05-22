@@ -14,6 +14,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Activity,
   AlertTriangle,
@@ -24,6 +25,7 @@ import {
   Copy,
   Crown,
   Download,
+  ExternalLink,
   FileText,
   Monitor,
   Smartphone,
@@ -70,6 +72,10 @@ import {
   type SocialRoleStatus,
   type SocialTraceItem,
 } from '@/lib/features/ai-social/derive-social';
+import {
+  sourceTypeLabel,
+  internalSourceRoute,
+} from '@/lib/features/ai-social/source-links';
 import { SocialComputePanel } from './SocialComputePanel';
 import { SocialFlowView } from './SocialFlowView';
 import { statusToken } from '@/lib/design/tokens';
@@ -82,11 +88,18 @@ import { useSocialTask } from '@/hooks/domain/useSocialTasks';
 import {
   cancelSocialTask,
   retrySocialTask,
+  getSocialMissionSnapshot,
 } from '@/services/ai-social/task-api';
 import { RefreshCw } from 'lucide-react';
 import { SocialPublishPanel } from './SocialPublishPanel';
-import { deriveSocialStages } from '@/lib/features/ai-social/derive-social-stages';
-import type { SocialContentTaskStatus } from '@/services/ai-social/task-types';
+import {
+  deriveSocialStages,
+  deriveSocialStagesFromView,
+} from '@/lib/features/ai-social/derive-social-stages';
+import type {
+  SocialContentTaskStatus,
+  SocialMissionSnapshot,
+} from '@/services/ai-social/task-types';
 import { LoadingSkeleton } from '@/components/ui/states/LoadingState';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { ErrorState, ErrorInline } from '@/components/ui/states/ErrorState';
@@ -205,17 +218,6 @@ const SOCIAL_ROLE_NODE_STATUS: Record<string, TeamNodeStatus> = {
   working: 'working',
   done: 'completed',
   failed: 'failed',
-};
-
-/** 来源类型 → 中文标签（参考文献按类型聚合展示，不露 UUID）*/
-const SOURCE_TYPE_LABEL: Record<string, string> = {
-  BOOKMARK: '书签',
-  NOTE: '笔记',
-  RESOURCE: '资源',
-  WECHAT_ARTICLE: '微信文章',
-  YOUTUBE: 'YouTube',
-  URL: '外部链接',
-  EXTERNAL: '外部链接',
 };
 
 /** 毫秒 → 人类可读耗时 */
@@ -607,8 +609,45 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
   // Stream — only subscribes when missionId is available
   const { events, connState } = useSocialMissionStream(missionId);
 
+  // 历史兜底：mission 结束、内存事件 buffer 过期（1h TTL）后实时 events 为空，
+  // 拉持久化快照（算力 + 终态）回填，让结束后仍能看到算力/阶段历史（对标 playground persisted）。
+  const [snapshot, setSnapshot] = useState<SocialMissionSnapshot | null>(null);
+  useEffect(() => {
+    const status = task?.status;
+    if (!missionId || !status) {
+      setSnapshot(null);
+      return;
+    }
+    const terminal: SocialContentTaskStatus[] = [
+      'DRAFT_READY',
+      'PUBLISHED',
+      'PARTIAL_PUBLISHED',
+      'FAILED',
+      'CANCELLED',
+    ];
+    if (!terminal.includes(status)) {
+      // 运行中（含 rerun 回到 PENDING/GENERATING）→ 清掉旧快照，避免上一轮算力残留
+      setSnapshot(null);
+      return;
+    }
+    let cancelled = false;
+    getSocialMissionSnapshot(taskId)
+      .then((s) => {
+        if (!cancelled) setSnapshot(s);
+      })
+      .catch(() => {
+        /* 快照非关键：失败则退回纯实时视图 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [missionId, task?.status, taskId]);
+
   // social 自己的派生（13 阶段 + 角色 + agent 轨迹 + 成本），喂左栏/节点卡/协作动态/算力
-  const socialView = useMemo(() => deriveSocialView(events), [events]);
+  const socialView = useMemo(
+    () => deriveSocialView(events, snapshot),
+    [events, snapshot]
+  );
 
   // 运行中 header 实时秒表（"活着"的反馈，对标 playground「研究中·43s」）
   const [nowTs, setNowTs] = useState(() => Date.now());
@@ -695,29 +734,40 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
     );
   }
 
-  // ── 左 panel 底部按钮组（playground 标杆：按状态决定显示哪些） ──
+  // ── 左 panel 底部按钮组（agent teams 规范：运行 / 发布 / 取消 常驻） ──
+  // 运行中（PENDING/GENERATING/PUBLISHING）= 只给「取消」；终态 = 给「运行」(fresh 重跑) +
+  // 草稿就绪/已发布再给「发布」入口（同号可反复发）。按钮区在任何状态都不为空。
+  const isRunning =
+    task?.status === 'PENDING' ||
+    task?.status === 'GENERATING' ||
+    task?.status === 'PUBLISHING';
+  const canPublish =
+    task?.status === 'DRAFT_READY' ||
+    task?.status === 'PUBLISHED' ||
+    task?.status === 'PARTIAL_PUBLISHED';
+
   const actionButtons: MissionActionButtonSpec[] = [];
-  if (task?.status === 'FAILED') {
+  if (task && !isRunning) {
     actionButtons.push({
       variant: 'primary',
-      label: retrying ? '重新启动中…' : '重试任务',
-      title: '重新启动 mission（保留原 sources / platforms）',
+      label: retrying ? '启动中…' : '运行',
+      title: 'fresh 重跑：沿用原素材 / 平台从头生成（覆盖旧草稿）',
       disabled: retrying,
       onClick: () => void handleRetry(),
     });
   }
-  if (task?.status === 'DRAFT_READY') {
+  if (canPublish) {
     actionButtons.push({
-      variant: 'primary',
-      label: '发布到草稿箱',
-      title: '到「输出报告」查看内容并发布',
+      variant: 'secondary',
+      label: task?.status === 'DRAFT_READY' ? '发布' : '再次发布',
+      title: '到「输出报告」预览并发布到公众号（可对同一公众号多轮发布）',
       onClick: () => setActiveTab('report'),
     });
   }
   if (canCancel) {
     actionButtons.push({
       variant: 'danger',
-      label: '取消',
+      label: cancelling ? '取消中…' : '取消',
       title: '取消运行中的任务',
       disabled: cancelling,
       onClick: () => void handleCancel(),
@@ -802,7 +852,7 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                   {socialView.roles.length > 0 ? (
                     <TeamTopologyCanvas
                       {...buildSocialTopology(socialView)}
-                      heightClass="h-[220px]"
+                      heightClass="h-[176px]"
                       renderDetail={(node, onClose) => (
                         <AgentInspector
                           open
@@ -820,11 +870,29 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                       团队将在任务启动后展示
                     </p>
                   )}
-                  <div className="flex items-center justify-between pt-1 text-xs text-gray-500">
-                    <span>进度</span>
-                    <span className="font-mono">
-                      {socialView.progress.done}/{socialView.progress.total}
-                    </span>
+                  <div className="space-y-1 pt-0.5">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>进度</span>
+                      <span className="font-mono">
+                        {socialView.progress.done}/{socialView.progress.total}
+                      </span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-rose-400 to-pink-500 transition-all"
+                        style={{
+                          width: `${
+                            socialView.progress.total > 0
+                              ? Math.round(
+                                  (socialView.progress.done /
+                                    socialView.progress.total) *
+                                    100
+                                )
+                              : 0
+                          }%`,
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1255,7 +1323,11 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
             <SocialFlowView
               view={socialView}
               events={events}
-              stepperStages={deriveSocialStages(events)}
+              stepperStages={
+                events.length > 0
+                  ? deriveSocialStages(events)
+                  : deriveSocialStagesFromView(socialView.stages)
+              }
             />
           ) : (
             <div className="flex h-full items-center justify-center p-8">
@@ -1281,37 +1353,75 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                 本内容基于 {task.sources.length} 个来源生成
               </p>
               <ul className="space-y-2">
-                {task.sources.map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-3"
-                  >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
-                      <FileText className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-gray-900">
-                        {s.title || s.sourceId}
-                      </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-400">
-                        <span className="rounded-full bg-gray-100 px-1.5 py-0.5">
-                          {SOURCE_TYPE_LABEL[s.sourceType] ?? s.sourceType}
-                        </span>
-                        {isSafeHttpUrl(s.url) && (
+                {task.sources.map((s) => {
+                  const internalHref = internalSourceRoute(
+                    s.sourceType,
+                    s.sourceId
+                  );
+                  const externalHref = isSafeHttpUrl(s.url) ? s.url : null;
+                  return (
+                    <li
+                      key={s.id}
+                      className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-3 transition-colors hover:border-gray-300"
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
+                        <FileText className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        {/* 标题本身即链接：内链优先（站内详情），否则外链 */}
+                        {internalHref ? (
+                          <Link
+                            href={internalHref}
+                            className="block truncate text-sm font-medium text-gray-900 hover:text-rose-600 hover:underline"
+                          >
+                            {s.title || s.sourceId}
+                          </Link>
+                        ) : externalHref ? (
                           <a
-                            href={s.url}
+                            href={externalHref}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-0.5 text-rose-600 hover:underline"
+                            className="block truncate text-sm font-medium text-gray-900 hover:text-rose-600 hover:underline"
                           >
-                            打开来源
-                            <ChevronRight className="h-3 w-3" />
+                            {s.title || s.sourceId}
                           </a>
+                        ) : (
+                          <div className="truncate text-sm font-medium text-gray-900">
+                            {s.title || s.sourceId}
+                          </div>
                         )}
+                        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-400">
+                          <span className="rounded-full bg-gray-100 px-1.5 py-0.5">
+                            {sourceTypeLabel(s.sourceType)}
+                          </span>
+                          {internalHref && (
+                            <Link
+                              href={internalHref}
+                              className="inline-flex items-center gap-0.5 text-rose-600 hover:underline"
+                            >
+                              查看来源
+                              <ChevronRight className="h-3 w-3" />
+                            </Link>
+                          )}
+                          {externalHref && (
+                            <a
+                              href={externalHref}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-0.5 text-rose-600 hover:underline"
+                            >
+                              原文
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                          {!internalHref && !externalHref && (
+                            <span className="text-gray-300">无可用链接</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </>
           ) : (
