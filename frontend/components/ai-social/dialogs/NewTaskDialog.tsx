@@ -23,6 +23,7 @@ import type {
 import { SourceItemPicker } from '../pickers/SourceItemPicker';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { ErrorState, ErrorInline } from '@/components/ui/states/ErrorState';
 
 const MAX_TOTAL_ITEMS = 20;
 const MAX_EXTERNAL_URLS = 3;
@@ -274,23 +275,15 @@ export function NewTaskDialog({
               <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
             </div>
           ) : sourcesError ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <div className="mb-1 font-medium">数据源加载失败</div>
-              <div className="mb-2 break-all text-xs text-red-600">
-                {String(
-                  sourcesError instanceof Error
-                    ? sourcesError.message
-                    : sourcesError
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => refreshSources()}
-                className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
-              >
-                重试
-              </button>
-            </div>
+            <ErrorState
+              error={
+                sourcesError instanceof Error
+                  ? sourcesError
+                  : String(sourcesError)
+              }
+              title="数据源加载失败"
+              onRetry={() => refreshSources()}
+            />
           ) : sources.length === 0 ? (
             <EmptyState
               title="暂无可用数据源"
@@ -426,7 +419,7 @@ export function NewTaskDialog({
                   添加
                 </button>
               </div>
-              {urlError && <p className="text-xs text-red-500">{urlError}</p>}
+              {urlError && <ErrorInline message={urlError} />}
               {externalUrls.length > 0 && (
                 <ul className="space-y-1">
                   {externalUrls.map((url) => (
@@ -534,11 +527,7 @@ export function NewTaskDialog({
         </section>
 
         {/* Validation errors */}
-        {submitError && (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-            {submitError}
-          </div>
-        )}
+        {submitError && <ErrorInline message={submitError} />}
       </Modal>
 
       {/* Sub-picker dialog */}

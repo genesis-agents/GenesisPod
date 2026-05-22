@@ -38,6 +38,7 @@ import { CreateCard } from '@/components/ui/cards/CreateCard';
 import type { BadgeTone } from '@/components/ui/badges';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui/states';
+import { ErrorInline } from '@/components/ui/states/ErrorState';
 import { useTranslation } from '@/lib/i18n';
 import {
   useSocialTasks,
@@ -290,9 +291,9 @@ export default function TasksTab({
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {String(error instanceof Error ? error.message : error)}
-        </div>
+        <ErrorInline
+          message={String(error instanceof Error ? error.message : error)}
+        />
       )}
 
       {isLoading && tasks.length === 0 ? (
