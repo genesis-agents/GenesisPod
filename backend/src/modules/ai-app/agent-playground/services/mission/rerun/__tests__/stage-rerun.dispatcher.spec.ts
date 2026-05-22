@@ -516,7 +516,7 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
         "m-1",
         expect.objectContaining({
           reportArtifactVersion: 2,
-          wallTimeMs: expect.any(Number),
+          elapsedWallTimeMs: expect.any(Number),
           report: expect.objectContaining({
             title: expect.any(String),
           }),

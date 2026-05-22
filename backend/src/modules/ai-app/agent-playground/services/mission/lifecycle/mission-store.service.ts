@@ -35,7 +35,7 @@ export interface MissionListItem {
   status: string;
   startedAt: Date;
   completedAt: Date | null;
-  wallTimeMs: number | null;
+  elapsedWallTimeMs: number | null;
   finalScore: number | null;
   tokensUsed: number | null;
   costUsd: number | null;
@@ -442,7 +442,7 @@ export class MissionStore {
         status: true,
         startedAt: true,
         completedAt: true,
-        wallTimeMs: true,
+        elapsedWallTimeMs: true,
         finalScore: true,
         tokensUsed: true,
         costUsd: true,
@@ -473,7 +473,7 @@ export class MissionStore {
         status: true,
         startedAt: true,
         completedAt: true,
-        wallTimeMs: true,
+        elapsedWallTimeMs: true,
         finalScore: true,
         tokensUsed: true,
         costUsd: true,
@@ -506,7 +506,7 @@ export class MissionStore {
       status: row.status,
       startedAt: row.startedAt,
       completedAt: row.completedAt,
-      wallTimeMs: row.wallTimeMs,
+      elapsedWallTimeMs: row.elapsedWallTimeMs,
       finalScore: row.finalScore,
       tokensUsed: row.tokensUsed != null ? Number(row.tokensUsed) : null,
       costUsd: row.costUsd,

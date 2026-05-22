@@ -672,7 +672,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           errorMessage: `execution_aborted: ${message.slice(0, 500)}`,
           tokensUsed: snap.poolTokensUsed,
           costUsd: snap.poolCostUsd,
-          wallTimeMs: Date.now() - t0,
+          elapsedWallTimeMs: Date.now() - t0,
         })
         .catch((dbErr: unknown) => {
           this.log.warn(
@@ -817,7 +817,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         errorMessage: displayMessage,
         tokensUsed: snap.poolTokensUsed,
         costUsd: snap.poolCostUsd,
-        wallTimeMs: Date.now() - t0,
+        elapsedWallTimeMs: Date.now() - t0,
         themeSummary: entry?.crossState.lastPlan?.themeSummary,
         dimensions: entry?.crossState.lastPlan?.dimensions as
           | unknown[]

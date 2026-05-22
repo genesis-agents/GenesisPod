@@ -35,7 +35,7 @@ export class MissionLifecycleHelper {
       tokensUsed?: number;
       costUsd?: number;
       trajectoryStored?: number;
-      wallTimeMs?: number;
+      elapsedWallTimeMs?: number;
       themeSummary?: string;
       dimensions?: unknown;
       report?: { title?: string; summary?: string; [k: string]: unknown };
@@ -90,7 +90,7 @@ export class MissionLifecycleHelper {
       tokensUsed: data.tokensUsed ?? null,
       costUsd: data.costUsd ?? null,
       trajectoryStored: data.trajectoryStored ?? null,
-      wallTimeMs: data.wallTimeMs ?? null,
+      elapsedWallTimeMs: data.elapsedWallTimeMs ?? null,
       themeSummary: data.themeSummary ?? null,
       dimensions: (data.dimensions ?? null) as Prisma.InputJsonValue,
       reportFull: (data.report ?? null) as Prisma.InputJsonValue,
@@ -151,7 +151,7 @@ export class MissionLifecycleHelper {
       errorMessage?: string;
       tokensUsed?: number;
       costUsd?: number;
-      wallTimeMs?: number;
+      elapsedWallTimeMs?: number;
       trajectoryStored?: number;
       themeSummary?: string;
       dimensions?: unknown;
@@ -181,7 +181,7 @@ export class MissionLifecycleHelper {
       errorMessage: data.errorMessage?.slice(0, 2000) ?? null,
       tokensUsed: data.tokensUsed ?? null,
       costUsd: data.costUsd ?? null,
-      wallTimeMs: data.wallTimeMs ?? null,
+      elapsedWallTimeMs: data.elapsedWallTimeMs ?? null,
     };
     if (data.trajectoryStored != null)
       update.trajectoryStored = data.trajectoryStored;

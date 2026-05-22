@@ -593,7 +593,7 @@ describe("Rerun integration (PR-R8)", () => {
             title: expect.any(String),
           }),
           reportArtifactVersion: 2,
-          wallTimeMs: expect.any(Number),
+          elapsedWallTimeMs: expect.any(Number),
           // c195035f 没真签 → fallback verdict
           leaderVerdict: "auto-rerun-recovered",
         }),

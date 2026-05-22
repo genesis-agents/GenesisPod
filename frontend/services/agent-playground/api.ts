@@ -143,7 +143,8 @@ export interface MissionListItem {
   status: string;
   startedAt: string;
   completedAt: string | null;
-  wallTimeMs: number | null;
+  // ★ C4/G5：实测耗时(原 wallTimeMs,与配置上限二义→改名,对齐后端 MissionListItem)。
+  elapsedWallTimeMs: number | null;
   finalScore: number | null;
   tokensUsed: number | null;
   costUsd: number | null;
