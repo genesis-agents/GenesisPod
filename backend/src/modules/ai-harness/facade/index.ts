@@ -433,6 +433,12 @@ export {
   mapAgentFailureCode,
 } from "../lifecycle/mission-lifecycle/abstractions/mission-failure";
 export type { MissionFailure } from "../lifecycle/mission-lifecycle/abstractions/mission-failure";
+// ★ 2026-05-22 C4/G5: wallTime 拆 cap/elapsed（类型层消二义）
+export { buildLifecycleMetrics } from "../lifecycle/mission-lifecycle/abstractions/runtime-limits";
+export type {
+  ResolvedRuntimeLimits,
+  MissionLifecycleMetrics,
+} from "../lifecycle/mission-lifecycle/abstractions/runtime-limits";
 // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
 export { MissionRuntimeShellFramework } from "../teams/business-team/lifecycle/mission-runtime-shell.framework";
 export type {
