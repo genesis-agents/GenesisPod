@@ -378,7 +378,8 @@ describe("Rerun integration (PR-R8)", () => {
       ).rejects.toMatchObject({ status: 429 });
     });
 
-    it("cost_usd >= max_credits → throw（防累积超支）", async () => {
+    it("cost_usd >= 额度代理上限(maxCredits×0.002) → throw（防累积超支）", async () => {
+      // ★ C3a/G11:cost guard 阈值改为同单位的额度代理 USD(creditBudgetProxyUsd)。
       const h = buildIntegratedHarness({
         missionStatus: "completed",
         costUsd: 1.5,
@@ -396,7 +397,7 @@ describe("Rerun integration (PR-R8)", () => {
           },
           noopEmit,
         ),
-      ).rejects.toThrow(/累积 cost.*已达 maxCredits/);
+      ).rejects.toThrow(/累积 cost.*已达额度代理上限/);
     });
 
     // ★ 2026-05-07 rerun-overhaul v1.1：原"running + heartbeat < 60s → 拒"测试改为

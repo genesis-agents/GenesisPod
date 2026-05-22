@@ -133,9 +133,9 @@ describe("SocialRuntimeShellService", () => {
       ).rejects.toThrow("session open failed");
     });
 
-    // --- adapter.resolveWallTimeMs ---
-    it("adapter.resolveWallTimeMs returns 15min for quick depth", async () => {
-      let capturedAdapter: { resolveWallTimeMs: (input: unknown) => number };
+    // --- adapter.resolveWallTimeCapMs ---
+    it("adapter.resolveWallTimeCapMs returns 15min for quick depth", async () => {
+      let capturedAdapter: { resolveWallTimeCapMs: (input: unknown) => number };
       (mockFramework.openSession as jest.Mock).mockImplementation(
         (args: { adapter: typeof capturedAdapter }) => {
           capturedAdapter = args.adapter;
@@ -147,13 +147,13 @@ describe("SocialRuntimeShellService", () => {
         input: makeInput("quick", "standard"),
         userId: MOCK_USER_ID,
       });
-      expect(capturedAdapter!.resolveWallTimeMs(makeInput("quick"))).toBe(
+      expect(capturedAdapter!.resolveWallTimeCapMs(makeInput("quick"))).toBe(
         15 * 60_000,
       );
     });
 
-    it("adapter.resolveWallTimeMs returns 30min for standard depth", async () => {
-      let capturedAdapter: { resolveWallTimeMs: (input: unknown) => number };
+    it("adapter.resolveWallTimeCapMs returns 30min for standard depth", async () => {
+      let capturedAdapter: { resolveWallTimeCapMs: (input: unknown) => number };
       (mockFramework.openSession as jest.Mock).mockImplementation(
         (args: { adapter: typeof capturedAdapter }) => {
           capturedAdapter = args.adapter;
@@ -165,13 +165,13 @@ describe("SocialRuntimeShellService", () => {
         input: makeInput("standard", "standard"),
         userId: MOCK_USER_ID,
       });
-      expect(capturedAdapter!.resolveWallTimeMs(makeInput("standard"))).toBe(
+      expect(capturedAdapter!.resolveWallTimeCapMs(makeInput("standard"))).toBe(
         30 * 60_000,
       );
     });
 
-    it("adapter.resolveWallTimeMs returns 60min for deep depth", async () => {
-      let capturedAdapter: { resolveWallTimeMs: (input: unknown) => number };
+    it("adapter.resolveWallTimeCapMs returns 60min for deep depth", async () => {
+      let capturedAdapter: { resolveWallTimeCapMs: (input: unknown) => number };
       (mockFramework.openSession as jest.Mock).mockImplementation(
         (args: { adapter: typeof capturedAdapter }) => {
           capturedAdapter = args.adapter;
@@ -183,7 +183,7 @@ describe("SocialRuntimeShellService", () => {
         input: makeInput("deep", "standard"),
         userId: MOCK_USER_ID,
       });
-      expect(capturedAdapter!.resolveWallTimeMs(makeInput("deep"))).toBe(
+      expect(capturedAdapter!.resolveWallTimeCapMs(makeInput("deep"))).toBe(
         60 * 60_000,
       );
     });

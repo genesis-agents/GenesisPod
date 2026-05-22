@@ -34,21 +34,25 @@ export interface MissionInputPatch<TBusinessPatch = unknown> {
  * rerun 重建入口(app 实现 fresh,平台提供 patch 重建)。
  * 应用顺序见文件头;buildFor* 一律产出新 versioned snapshot,不就地改。
  */
-export interface MissionInputRebuilder<TInput, TBusiness> {
+export interface MissionInputRebuilder<
+  TInput,
+  TBusiness,
+  TBusinessPatch = Partial<TBusiness>,
+> {
   buildForFreshRun(input: TInput): MissionConfigSnapshot<TBusiness>;
   buildForFullRerun(
     snapshot: MissionConfigSnapshot<TBusiness>,
-    patch?: MissionInputPatch,
+    patch?: MissionInputPatch<TBusinessPatch>,
   ): MissionConfigSnapshot<TBusiness>;
   buildForIncrementalRerun(
     snapshot: MissionConfigSnapshot<TBusiness>,
     checkpointStepId: string,
-    patch?: MissionInputPatch,
+    patch?: MissionInputPatch<TBusinessPatch>,
   ): MissionConfigSnapshot<TBusiness>;
   buildForLocalRerun(
     snapshot: MissionConfigSnapshot<TBusiness>,
     targetStage: string,
-    patch?: MissionInputPatch,
+    patch?: MissionInputPatch<TBusinessPatch>,
   ): MissionConfigSnapshot<TBusiness>;
 }
 
@@ -56,16 +60,16 @@ export interface MissionInputRebuilder<TInput, TBusiness> {
  * canonical patch 应用(纯函数):snapshot → 白名单 patch → re-resolve budget(走唯一工厂)→
  * 派生新 versioned snapshot。businessInputPatch 由 app merge 函数处理(平台不懂业务字段)。
  */
-export function applyInputPatch<TBusiness>(
+export function applyInputPatch<TBusiness, TBusinessPatch = Partial<TBusiness>>(
   snapshot: MissionConfigSnapshot<TBusiness>,
-  patch: MissionInputPatch | undefined,
+  patch: MissionInputPatch<TBusinessPatch> | undefined,
   args: {
     snapshotId: string;
     mutationReason: MissionMutationReason;
-    /** app 提供:把 businessInputPatch merge 进 businessInput(平台不懂业务字段)。 */
+    /** app 提供:把 businessInputPatch merge 进 businessInput(typed,平台不懂业务字段语义但保留类型)。 */
     mergeBusinessInput?: (
       current: TBusiness,
-      businessInputPatch: unknown,
+      businessInputPatch: TBusinessPatch,
     ) => TBusiness;
   },
 ): MissionConfigSnapshot<TBusiness> {

@@ -24,7 +24,9 @@ ALTER TABLE "radar_runs" ADD COLUMN IF NOT EXISTS "workspace_id" TEXT;
 ALTER TABLE "radar_runs" ADD COLUMN IF NOT EXISTS "heartbeat_at" TIMESTAMP(3);
 ALTER TABLE "radar_runs" ADD COLUMN IF NOT EXISTS "pod_id" VARCHAR(64);
 ALTER TABLE "radar_runs" ADD COLUMN IF NOT EXISTS "last_completed_stage" INTEGER;
-ALTER TABLE "radar_runs" ADD COLUMN IF NOT EXISTS "wall_time_ms" INTEGER;
+-- C4/G5 修正(2026-05-22):此列原名 wall_time_ms,C4 已改名 wall_time_cap_ms(配置上限)。
+-- fresh replay 顺序重放时本迁移先于消费方,直接 ensure 新列名,杜绝重新制造旧语义列。
+ALTER TABLE "radar_runs" ADD COLUMN IF NOT EXISTS "wall_time_cap_ms" INTEGER;
 ALTER TABLE "radar_runs" ADD COLUMN IF NOT EXISTS "max_credits" INTEGER NOT NULL DEFAULT 50;
 ALTER TABLE "radar_runs" ADD COLUMN IF NOT EXISTS "payload" JSONB;
 
