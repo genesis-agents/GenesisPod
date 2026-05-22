@@ -14,6 +14,64 @@
 
 ---
 
+## 0.5 五路集体评审共识与 v2 修订决议（2026-05-22）
+
+> 设计阶段经 5 路并行评审（architect / migration-reviewer / red-team / harness-fact-check / Codex）。结论一致：**方向对（这是 harness contract 缺口，不是 playground 局部 bug），但 v1 有若干"换皮保留多源 / 固化错误 / 看护可绕"的硬伤，不补则落地后 canonical 体系仍能被 app 绕开。** 以下为采纳的修订决议，**优先级高于下文 v1 正文与之冲突处**。
+
+### R-BLOCKER（必须先解决，否则不实施）
+
+**RB1. 先收口"终态写权限"（单一 terminal-transition owner）——提为 P0 前置项。**
+v1 致命缺陷（Codex#1 + red-team M4 + architect）：MissionFailure 由 dispatcher 写、liveness-guard 兜底写、AbortReason 由 controller/stage/framework 多处产生，而"谁有权把 mission 从 running 推到 terminal"直到 C7/P2 才提 lifecycle-manager。→ P0 上线后只是把"多源 message"升级成"多源 canonical code"，**核心承诺不成立**。
+**修订**：P0 第一步 = `MissionLifecycleManager` 成为**唯一终态写入口**；所有 dispatcher/liveness/abort 只能**提交终态意图**给它，由它用 **DB 条件写**（`UPDATE … WHERE status='running' AND failure_code IS NULL`）做原子仲裁（首个写入者赢，后续 no-op）。先有单写 owner，再谈 canonical enum，否则枚举也照样竞争。
+
+**RB2. 不要把 `CREDITS_TO_USD=0.002` 当"单一真源"——它是已被代码证明错误的假设。**
+red-team B1 + architect M1：真实成本是逐模型的 `ai-engine/llm/pricing/model-pricing.registry.ts`（从 DB 逐模型单价），而 cap 用平的 `×0.002`；跑 Opus vs Haiku 同 credits 真实 USD 差 10×。v1 要把 0.002 封进 harness 唯一常量 + L3 grep 禁任何其它换算 = **用看护机制锁死错误并禁止修正**（SoT 最危险失败模式）。
+**修订**：(a) `maxCostUsd` cap 明确改名/标注为 **`creditBudgetProxyUsd`（额度代理值，非真实成本）**，文档与字段注释都写明"这是 credits 的粗略闸，真实成本以 `ModelPricingRegistry`/`BudgetAccountant` 为准"；(b) **不 grep 禁 pricing 路径**；(c) C3 拆成 C3a 平台换算（credits→tokens，平台额度语义）+ C3b 真实成本（复用 ai-infra pricing 单一源，与既有 `no-hardcoded-pricing.spec.ts` 对账，不另立）。
+
+**RB3. conformance 必须"harness 不认识 app 名"——否则撞既有红线 R0-A5。**
+architect B1：`layer-boundaries.spec.ts:600-712` 禁 harness 文件（含注释）出现 `playground/social/radar` 等业务名。v1 的 `assertMissionAppConformance(appModule)` 若让 harness 枚举每个 app → 立即红。
+**修订**：app **自报 namespace 字符串**注册；harness 启动期只断言"已注册集合非空 + 每个注册项满足接口/注册了 liveness/cancel 接线"，**不硬列 app 名**。conformance 是"对任意注册项的不变量",非"对具体 app 的清单"。
+
+**RB4. 裁决 harness 内已存在的第二套 heartbeat/ownership——否则是"又加一层"非"消除多源"。**
+architect B2 + fact-check：harness 已有 (a) `MissionLivenessGuard`+DB 心跳（per-app 注册）与 (b) `MissionRuntimeStateStore` Redis 心跳（`podId/startedAt`/TTL90s）两套；`MissionOwnershipRegistry` 也已是一等公民却不在 v1 契约集。
+**修订**：契约集**增 ownership 域**；明确裁决 DB 心跳 vs Redis 心跳谁权威谁退场（建议 Redis 作活性探测、DB 作回收依据，二选一写死职责），写进 §4。
+
+**RB5. `MissionConfigSnapshot.businessInput` 不能是 opaque blob——否则 row+JSON 多源换成 snapshot 内部多源。**
+Codex#2：opaque blob 下 app 仍可漏字段/改名/在 rebuilder 暗自 fallback，平台无法做 completeness 校验与 schema 迁移守护。
+**修订**：snapshot 的序列化/反序列化升为 **adapter 显式 schema 契约**（app 声明 `businessInputSchema`(zod) + serialize/deserialize），harness 据此做完整性校验 + 版本迁移；businessInput 不再是无类型 blob。
+
+**RB6. social 真停必须解决 S8 半发布原子性——否则产生不可撤销外部副作用。**
+migration BLOCKER-3：`s8-publish-execute` 是唯一外部副作用 stage（微信草稿 API 无删除接口）；cancel 在 S8 进行中触发 → 半发布、平台后台残留。
+**修订**：abort 采 **gate-before-stage** —— S8 一旦进入即不可中途 abort（signal 在 S8 入口检查：未进入则拒绝进入，已进入则等其完成再落 cancelled）；§11 测试矩阵增"cancel 发生在 S8 前/中"两分支。
+
+**RB7. DB 弃旧两步 + 读优先 feature flag——否则回滚不可逆。**
+migration BLOCKER-4：`wallTimeMs` DROP COLUMN 不可逆 + 无 flag 切回旧读路径。
+**修订**：`canonical-read-priority` feature flag 控制读新/旧；弃旧拆 Step A（停写旧字段，可秒回滚）/ Step B（DROP，人工、备份后、≥30 天观察，绝不进自动迁移脚本）。
+
+### R-MAJOR（采纳，调整设计）
+
+- **RM1 看护重心从 grep 移到类型（make illegal states unrepresentable）。** red-team M2/M5 + Codex#4：grep 禁字面量可被等价改写平凡绕过（`const r=0.002`、`x*2/1000`、别名 enum），且 `wallTimeMs` 全仓 297 处/40 文件含 harness 自身 → 全仓禁令必逼出大量白名单 → 守护失效。**修订**：L1 为主——`ResolvedBudgetCaps` 私有构造+只能由工厂产出+readonly（别处拿不到原料散落）；abort 签名收 enum（传字符串 tsc 红）；snapshot 工厂。L3 grep **降级**为"仅扫 budget 目录 + 白名单 + 仅对新增代码 + 带 deadline"，不全仓即时封死。L4 ESLint 全仓 rule 取消（误伤大）。
+- **RM2 conformance 分"静态可验" vs "需集成测试"。** red-team M3 + migration MINOR-2：静态只能查存在性（且 social 假停恰是"abort 出现在错的地方"→ 静态会误判合格）。**修订**：liveness 注册=静态可验（保留）；cancel 真停 / 失败写 canonical = **集成测试**（发 mission→cancel→断言 budget 停增/signal.aborted），写进 §11。
+- **RM3 C9 落点纠正（保持 app 层）。** architect B3：`STAGE_NUMBER_CONTRACTS` registry 在 app 层是**正确**的（哪个 stage 约束哪个值是 app 业务，上提违反 R0-A5）；只有 primitive `assertNumberProducerWithinSchema` 在 harness。**修订**：§4.9/§5 改为"primitive 在 harness、registry 各 app 自持"，删"radar/social 登记进 harness 注册表"的错误表述。
+- **RM4 ConfigSnapshot patch 语义裁决。** red-team M6："冻结+只读"与 rerun `patch?` 冲突。**修订**：rerun 带 patch → **生成新 snapshot（schemaVersion/parentSnapshotId 链）**，不就地改；run/rerun 各自只读"自己那次"的 snapshot。
+- **RM5 C2 必须含 agent-level→mission-level 映射表 + 穷尽测试。** architect M3：已有 `failure-extraction.utils.ts` 大写 string code；C2 小写 enum。**修订**：映射表作为 C2 一部分 + "任何新增 agentCode 未映射即红"测试；`FailureCategory/Source` 若无消费场景则砍到 `code+message`。
+- **RM6 C7 牵动 `IMissionStore` 端口（completed≠succeeded），blast radius 重估。** architect M5 + fact-check：**修订**：不改 `status` 字面量（保 `completed`），只**新增 `terminalOutcome` 层**，降风险。
+- **RM7 social 缺 heartbeat 列。** fact-check A3：social_missions 无 `heartbeatAt` 列。**修订**：C8 对 social 需"先加列再注册 adapter"。
+- **RM8 config_snapshot 依赖统一 `MissionRecord<T>`。** fact-check A6 + migration MAJOR-2：三 app store 现返回各自 Prisma 类型。**修订**：C5 前置"统一 MissionRecord 契约"，否则 snapshot 无处安放。
+- **RM9 迁移期"双语义窗口"风险（Codex#3）。** v1 先改 C3/C4 字段+协议、P1 才上 Rebuilder，却让 legacy rebuilder 跨整个波次存活读新字段。**修订**：C6 Rebuilder（统一重建入口）**与 C4/C5 同波次或先行**，避免旧重建逻辑读新字段 fallback 错误；缩短双语义并存窗口。
+- **RM10 补平台语义路线图：** idempotency（启动/rerun 幂等键防 double-spend）、mission lifecycle **event payload canonical schema**（现 `payload: unknown`）、`rerun-lock` 并发契约归位（architect M6）——至少进 P2/P3 路线图。BYOK/计费明确"归 ai-infra，不另立"。
+
+### R-战略（最重要的一条，决定要不要现在做这件大事）
+
+**RS1. 把"真缺陷修复"从"平台契约收口"里拆出来，前者立即做、后者评审后分波次。**
+red-team B2 + Codex 简评一致：整套 9 契约 + 七层看护 + 3 app + DB 迁移，与本会话**真正让你抓狂的"报告质量差(minFindings/章节)"完全正交**（§12 明确划在范围外）。而真正高价值且**立即可做、零新抽象、零 DB 迁移**的只有两个现成缺陷修复：
+
+1. **radar/social 注册 liveness adapter**（各加 ~1 处 `registerAdapter`，guard 现成）——治"孤儿 running 行永不回收"。
+2. **social cancel 真停**（`cancelTask` 加 `abortRegistry.abort(id)` + dispatcher `abortMission`，registry 现成）——治"取消后继续烧预算"。
+   **决议**：这两项作为**独立 hotfix（P0-now）立即修**，不等平台重构；C2–C7 的契约/枚举/值对象/迁移作为**平台收口（P0-platform 起）**评审通过后分波次。避免用宏大重构挤占并拖延两个一行级真修复。
+
+---
+
 ## 1. 背景、定级、范围
 
 ### 1.1 这是一类系统级病（不是单点 bug）
