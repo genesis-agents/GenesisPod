@@ -65,3 +65,11 @@ export class CreateSocialTaskDto {
   @IsIn(["quick", "standard", "deep"])
   depth?: "quick" | "standard" | "deep";
 }
+
+/** 重命名任务（卡片「编辑」按钮）*/
+export class RenameSocialTaskDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  title!: string;
+}

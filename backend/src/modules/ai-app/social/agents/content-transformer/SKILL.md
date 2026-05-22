@@ -23,7 +23,7 @@ version: "1.0"
 
 - 压缩标题保留**核心信息**，不能为字数砍掉关键词
 - digest 是搜索结果首句，必须吸睛但不夸张
-- 不修改 body 内容（compose 阶段才会改 HTML schema）
+- **把 body 改写成该平台风格的成稿**：保留原文全部事实/数据/结论，重组为可直接发布的文章；**绝不编造、不夸大、不丢关键信息**。compose 阶段只注入 HTML schema，不再改写文字
 
 <!-- soul:end -->
 
@@ -45,13 +45,13 @@ version: "1.0"
 
 - title ≤ 30 字（中英文都按 1 字算）。超长走 LLM 压缩 prompt（保留主关键词）；LLM 失败 fallback 到 `Array.from(title).slice(0, 28).join("") + "…"`
 - digest 必填，≤ 200 字。原文 < 200 字时取整个原文前 200 字符；> 200 字时 LLM 生成
-- body 不动（compose 阶段才注入 schema）
+- **body 改写成微信公众号成稿**：导语 + 若干带小标题的段落 + 收束；口语化但专业、逻辑清晰；**保留原文全部事实与数据、不编造**；目标 800–2000 字（原文更短则不强行注水）。compose 阶段才注入 HTML schema
 
 ### XIAOHONGSHU
 
 - title ≤ 20 字。空格不算字符
 - 无 digest 字段
-- body 段落 ≤ 500 字符切分；超长段落必须二分
+- **body 改写成小红书口吻成稿**：开头有钩子、分点短段、有记忆点；保留原文事实、不编造。段落 ≤ 500 字符切分；超长段落必须二分
 - hashtag 数 ≤ 10
 
 ### TWITTER（如启用）
@@ -66,7 +66,7 @@ version: "1.0"
   "platform": "WECHAT_MP",
   "title": "AI 公司估值狂飙 7 关键变化",
   "digest": "近期 OpenAI / Anthropic ...",
-  "body": "<已 markdown 转 HTML 但未注入平台 schema>",
+  "body": "<改写为平台成稿的正文（markdown/HTML），未注入平台 schema>",
   "lengthMetrics": { "titleChars": 18, "digestChars": 195, "bodyChars": 8240 },
   "transformNotes": ["title 压缩 38→18 保留 估值/AI/关键变化 三个主关键词"]
 }

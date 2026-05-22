@@ -49,10 +49,12 @@ export type ContentTransformerOutput = z.infer<typeof Output>;
   },
   loop: "react",
   toolCategories: [],
-  taskProfile: { creativity: "medium", outputLength: "medium" },
+  // body 现在做整篇改写（非仅标题压缩）：long 单次输出（~8k tokens，足够 800–2000 字成稿）
+  // + loop 总预算 16k（含 react 多轮）。
+  taskProfile: { creativity: "medium", outputLength: "long" },
   inputSchema: Input,
   outputSchema: Output,
-  budget: { maxTokens: 6_000, maxIterations: 2 },
+  budget: { maxTokens: 16_000, maxIterations: 2 },
 })
 export class ContentTransformerAgent extends AgentSpec<
   typeof Input,

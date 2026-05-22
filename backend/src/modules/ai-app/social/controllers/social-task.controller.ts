@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -12,7 +13,10 @@ import {
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { SocialTaskService } from "../services/social-task.service";
-import { CreateSocialTaskDto } from "../dto/create-social-task.dto";
+import {
+  CreateSocialTaskDto,
+  RenameSocialTaskDto,
+} from "../dto/create-social-task.dto";
 
 interface AuthenticatedRequest {
   user?: { id?: string };
@@ -86,5 +90,17 @@ export class SocialTaskController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException();
     return this.taskService.retryTask(id, userId);
+  }
+
+  /** PATCH /ai-social/tasks/:id — 重命名任务（卡片「编辑」） */
+  @Patch(":id")
+  async renameTask(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() dto: RenameSocialTaskDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException();
+    return this.taskService.renameTask(id, userId, dto.title);
   }
 }
