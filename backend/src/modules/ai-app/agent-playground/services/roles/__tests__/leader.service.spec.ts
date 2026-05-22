@@ -43,8 +43,23 @@ function makePlanOutput(minCoverage = 70) {
     phase: "plan" as const,
     themeSummary: "AI is transforming everything",
     dimensions: [
-      { id: "d1", name: "Technology", rationale: "core", minFindings: 5 },
-      { id: "d2", name: "Economy", rationale: "impact", minFindings: 5 },
+      // ★ 2026-05-22 矩阵配置：dim 含 facet + toolHint（与 Leader 输出 schema 一致）
+      {
+        id: "d1",
+        name: "Technology",
+        rationale: "core",
+        minFindings: 5,
+        facet: "scientific" as const,
+        toolHint: { categories: ["academic"] },
+      },
+      {
+        id: "d2",
+        name: "Economy",
+        rationale: "impact",
+        minFindings: 5,
+        facet: "market" as const,
+        toolHint: { categories: ["web"] },
+      },
     ],
     goals: {
       qualityBar: {

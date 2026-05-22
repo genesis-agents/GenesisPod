@@ -24,6 +24,7 @@
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 import { buildPromptFromDuty } from "../../utils/duty-loader";
+import { DIMENSION_FACETS } from "../../contracts/dimension-tool-matrix";
 
 // ── 共享子 schema ──
 const Goals = z.object({
@@ -54,6 +55,9 @@ const Dimension = z.object({
     .max(200)
     .regex(/^[^\r\n]+$/, "dim.name 不得含换行（防 H2 章节注入）"),
   rationale: z.string(),
+  // ★ 2026-05-22 矩阵配置：维度业务类型。Leader 只做这一个分类，工具集由
+  //   FACET_TOOL_MATRIX 确定性派生（见 dimension-tool-matrix.ts）。缺省 general 兜底。
+  facet: z.enum(DIMENSION_FACETS).default("general"),
   toolHint: z.object({
     categories: z.array(z.string()).min(1),
     preferIds: z.array(z.string()).optional(),
