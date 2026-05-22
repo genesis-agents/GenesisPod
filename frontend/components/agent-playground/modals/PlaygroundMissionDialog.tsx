@@ -122,18 +122,10 @@ export function PlaygroundMissionDialog({
   const [searchTimeRange, setSearchTimeRange] = useState<SearchTimeRange>(() =>
     loadPref('searchTimeRange', '365d' as SearchTimeRange)
   );
-  const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const raw = localStorage.getItem('playground:knowledgeBaseIds');
-      const parsed: unknown = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed)
-        ? parsed.filter((x): x is string => typeof x === 'string')
-        : [];
-    } catch {
-      return [];
-    }
-  });
+  // ★ 2026-05-22 修知识库污染：不再从 localStorage 读取上次选择 —— 每次新建默认不挂任何
+  //   知识库。历史 bug：旧选择（如跑题的「Security」库）被静默带进新主题 → researcher
+  //   rag-search 命中跑题内容 → 维度质量崩。知识源必须每次有意识地选。
+  const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<string[]>([]);
   // ★ 2026-05-22 单一源：自定义预算字段初始值来自当前 depth 档位（SCALE_TIERS），
   //   不再从各自独立的 localStorage（playground:maxCredits 等）读 —— 杜绝"显示档位 A
   //   但带出旧持久化值 1000/1"的漂移。这些值只有在开启「自定义预算」覆盖时才发送。
@@ -389,6 +381,14 @@ export function PlaygroundMissionDialog({
               <option value="en-US">English</option>
             </select>
           </Field>
+
+          {knowledgeBaseIds.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              已挂载 {knowledgeBaseIds.length} 个知识源（在「高级设置 ·
+              知识源」管理）。仅当与本主题相关时才保留 ——
+              不相关的知识库会污染检索、拉低质量。
+            </div>
+          )}
         </>
       }
       advanced={
@@ -563,15 +563,7 @@ export function PlaygroundMissionDialog({
           >
             <KnowledgeBaseSelector
               selectedIds={knowledgeBaseIds}
-              onSelectionChange={(ids) => {
-                setKnowledgeBaseIds(ids);
-                if (typeof window !== 'undefined') {
-                  localStorage.setItem(
-                    'playground:knowledgeBaseIds',
-                    JSON.stringify(ids)
-                  );
-                }
-              }}
+              onSelectionChange={(ids) => setKnowledgeBaseIds(ids)}
               multiple
               maxSelections={10}
               filterType="ALL"
