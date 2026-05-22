@@ -42,8 +42,15 @@ import {
  */
 const DEFAULTS = {
   // — researcher floor (used by researcher.agent.ts + s3 stage) —
-  /** Minimum #findings a researcher must surface; below this triggers retry/abort. */
-  minFindingsThreshold: 4,
+  /**
+   * Minimum #findings a researcher must surface; below this triggers retry.
+   * ★ 2026-05-22 (4→10)：实测 researcher 已用上 arxiv/industry-report 等多源工具，
+   *   单 dim 拿到 20+ 条原始结果，却只蒸馏 4-5 条 finding 就停（LLM 只做到旧成功线 4）。
+   *   章节数按"唯一来源/2"派生 → 4 findings = 永远 4 章。提高成功线，强制从充足的多源
+   *   结果里抽更多 finding（→ 唯一来源↑ → 章节解除 4 封顶 → 证据/广度/评审分↑）。
+   *   现已可满足（工具供给充足）；local 模型仍由 profile 降到 5（采集力弱）。
+   */
+  minFindingsThreshold: 10,
 
   // — chapter integrity (used by per-dim-pipeline.util.ts) —
   /**

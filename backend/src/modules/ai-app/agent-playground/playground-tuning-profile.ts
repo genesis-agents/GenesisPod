@@ -62,13 +62,13 @@ const PROFILE_OVERRIDES: Record<
   //   生产代码零消费(详见 playground-runtime.config.ts 注释),profile 设了也无效。
   //   现存覆盖只保留真正生效的:findings 下限 / 章节容忍 / liveness 阈值。
   "local-quantized": {
-    minFindingsThreshold: 3, // local researchers find fewer per pass
+    minFindingsThreshold: 5, // local 采集力弱，低于 frontier 的 10，但仍高于旧 3
     chapterToleranceRatio: 0.4, // 40% missing tolerated (vs 30% frontier)
     staleThresholdMin: 30,
     softWarnThresholdMin: 40,
   },
   "local-reasoning": {
-    minFindingsThreshold: 3,
+    minFindingsThreshold: 5,
     chapterToleranceRatio: 0.4,
     staleThresholdMin: 60,
     softWarnThresholdMin: 75,

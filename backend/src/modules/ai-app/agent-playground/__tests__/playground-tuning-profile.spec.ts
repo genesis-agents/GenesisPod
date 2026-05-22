@@ -51,14 +51,14 @@ describe("playground-tuning-profile", () => {
 
     it("returns the documented local-quantized overrides", () => {
       const o = getProfileOverrides("local-quantized");
-      expect(o.minFindingsThreshold).toBe(3);
+      expect(o.minFindingsThreshold).toBe(5);
       expect(o.chapterToleranceRatio).toBe(0.4);
       expect(o.staleThresholdMin).toBe(30);
     });
 
     it("returns the documented local-reasoning overrides (longer liveness windows)", () => {
       const o = getProfileOverrides("local-reasoning");
-      expect(o.minFindingsThreshold).toBe(3);
+      expect(o.minFindingsThreshold).toBe(5);
       expect(o.staleThresholdMin).toBe(60);
       expect(o.softWarnThresholdMin).toBe(75);
     });
@@ -69,7 +69,7 @@ describe("playground-tuning-profile", () => {
       const cfg = loadPlaygroundRuntimeConfig({
         PLAYGROUND_TUNING_PROFILE: "frontier",
       } as NodeJS.ProcessEnv);
-      expect(cfg.minFindingsThreshold).toBe(4); // DEFAULT
+      expect(cfg.minFindingsThreshold).toBe(10); // DEFAULT
       expect(cfg.chapterToleranceRatio).toBe(0.3); // DEFAULT
       expect(cfg.staleThresholdMin).toBe(15); // DEFAULT
     });
@@ -78,7 +78,7 @@ describe("playground-tuning-profile", () => {
       const cfg = loadPlaygroundRuntimeConfig({
         PLAYGROUND_TUNING_PROFILE: "local-quantized",
       } as NodeJS.ProcessEnv);
-      expect(cfg.minFindingsThreshold).toBe(3); // profile
+      expect(cfg.minFindingsThreshold).toBe(5); // profile
       expect(cfg.chapterToleranceRatio).toBe(0.4); // profile
       expect(cfg.staleThresholdMin).toBe(30); // profile
       expect(cfg.softWarnThresholdMin).toBe(40); // profile
@@ -88,7 +88,7 @@ describe("playground-tuning-profile", () => {
       const cfg = loadPlaygroundRuntimeConfig({
         PLAYGROUND_TUNING_PROFILE: "local-reasoning",
       } as NodeJS.ProcessEnv);
-      expect(cfg.minFindingsThreshold).toBe(3); // profile
+      expect(cfg.minFindingsThreshold).toBe(5); // profile
       expect(cfg.staleThresholdMin).toBe(60); // profile
       expect(cfg.softWarnThresholdMin).toBe(75); // profile
     });
@@ -113,7 +113,7 @@ describe("playground-tuning-profile", () => {
         PLAYGROUND_TUNING_PROFILE: "what-even-is-this",
       } as NodeJS.ProcessEnv);
       // Defaults restored
-      expect(cfg.minFindingsThreshold).toBe(4);
+      expect(cfg.minFindingsThreshold).toBe(10);
       expect(cfg.chapterToleranceRatio).toBe(0.3);
     });
   });
