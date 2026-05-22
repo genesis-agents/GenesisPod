@@ -22,6 +22,7 @@ import * as path from "path";
 
 import {
   DomainEventRegistry,
+  MissionLivenessGuard,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
 } from "@/modules/ai-harness/facade";
@@ -194,6 +195,8 @@ export class RadarModule implements OnModuleInit {
   constructor(
     private readonly eventRegistry: DomainEventRegistry,
     private readonly skillLoader: SkillLoaderService,
+    private readonly livenessGuard: MissionLivenessGuard,
+    private readonly missionStore: RadarMissionStore,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -211,6 +214,37 @@ export class RadarModule implements OnModuleInit {
     });
     this.log.log(
       "RadarModule: SKILL.md directory registered (5 agents under ai-radar/agents/)",
+    );
+
+    // 3. ★ 2026-05-22 C8：注册 MissionLivenessGuard adapter。
+    //    radar_runs 早有 heartbeatAt/podId + [status,heartbeatAt] 索引，但此前从未注册
+    //    adapter——心跳写了没人扫，pod 重启/卡死的孤儿 running 行永不回收。本注册补上
+    //    扫描链：guard 周期扫 running 行，心跳停滞超阈值即 markFailed 回收。
+    //    radar 无 mission-event 表，故 getMostRecentEventTs 返回空，liveness 仅按 heartbeatAt 判活。
+    this.livenessGuard.registerAdapter("ai-radar", {
+      fetchRunningMissions: async () => {
+        try {
+          return await this.missionStore.fetchRunningForLiveness();
+        } catch (err: unknown) {
+          this.log.warn(
+            `[liveness] fetchRunningForLiveness failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          return [];
+        }
+      },
+      getMostRecentEventTs: async () => new Map<string, number>(),
+      markFailed: async (missionId, reason, errorMessage) => {
+        await this.missionStore.markFailed(
+          missionId,
+          `[liveness:${reason}] ${errorMessage}`,
+        );
+        this.log.warn(
+          `[liveness] radar mission ${missionId} reclaimed (${reason})`,
+        );
+      },
+    });
+    this.log.log(
+      "RadarModule: MissionLivenessGuard adapter registered (ai-radar)",
     );
   }
 }
