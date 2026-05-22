@@ -20,7 +20,10 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { MissionBudgetPool } from "@/modules/ai-harness/facade";
+import {
+  MissionBudgetPool,
+  ResolvedBudgetCaps,
+} from "@/modules/ai-harness/facade";
 import {
   MissionAbortRegistry,
   MissionAbortReason,
@@ -98,10 +101,13 @@ export class RerunMissionRuntimeBuilder {
     );
     const effectiveMaxCredits = resolveMissionCredits(input);
     const budgetMultiplier = resolveBudgetMultiplier(input);
-    const pool = new MissionBudgetPool({
-      maxTokens: effectiveMaxCredits * 1000,
-      maxCostUsd: effectiveMaxCredits * 0.002,
-    });
+    // ★ C3a/G4：换算收口到 ResolvedBudgetCaps.resolve()（唯一换算处），删散落 ×1000/×0.002。
+    const pool = new MissionBudgetPool(
+      ResolvedBudgetCaps.resolve({
+        maxCredits: effectiveMaxCredits,
+        budgetMultiplier,
+      }).toTokenBudget(),
+    );
 
     const leader = this.leaderService.create(
       missionId,

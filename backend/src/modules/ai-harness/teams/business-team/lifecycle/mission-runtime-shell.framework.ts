@@ -22,6 +22,7 @@ import { CreditsService } from "@/modules/ai-infra/credits/credits.service";
 //   NestJS DI 无法解析 ctor 参数 [1] → 启动崩溃。直接从 source 导入打破循环。
 import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/guardrails/billing/billing-adapter";
 import { MissionBudgetPool } from "@/modules/ai-harness/guardrails/budget/mission-budget-pool";
+import { ResolvedBudgetCaps } from "@/modules/ai-harness/guardrails/budget/resolved-budget-caps";
 import { MissionAbortRegistry } from "../../../lifecycle/mission-lifecycle/abort-registry";
 import { RuntimeEnvironmentService } from "../../../guardrails/runtime/runtime-environment.service";
 import type {
@@ -62,10 +63,13 @@ export class MissionRuntimeShellFramework {
     );
     const effectiveMaxCredits = adapter.resolveMaxCredits(input);
     const budgetMultiplier = adapter.resolveBudgetMultiplier(input);
-    const pool = new MissionBudgetPool({
-      maxTokens: effectiveMaxCredits * 1000,
-      maxCostUsd: effectiveMaxCredits * 0.002,
-    });
+    // ★ C3a/G4：换算收口到 ResolvedBudgetCaps.resolve()（唯一换算处），删散落 ×1000/×0.002。
+    const pool = new MissionBudgetPool(
+      ResolvedBudgetCaps.resolve({
+        maxCredits: effectiveMaxCredits,
+        budgetMultiplier,
+      }).toTokenBudget(),
+    );
 
     const wallTimer = setTimeout(() => {
       // ★ P0-1 (audit 2026-05-06): try-finally 保证 abortRegistry.abort 一定执行
