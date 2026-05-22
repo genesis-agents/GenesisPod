@@ -9,7 +9,10 @@
  */
 
 import { z } from "zod";
-import { readDefineAgentMeta } from "../../../../../ai-harness/agents/dev-tools";
+import {
+  readDefineAgentMeta,
+  assertNumberProducerWithinSchema,
+} from "../../../../../ai-harness/agents/dev-tools";
 import { ChapterWriterAgent } from "../chapter-writer.agent";
 
 const meta = readDefineAgentMeta(ChapterWriterAgent)!;
@@ -51,6 +54,24 @@ describe("ChapterWriterAgent", () => {
 
   beforeAll(() => {
     agent = new ChapterWriterAgent();
+  });
+
+  // ★ 2026-05-22 契约单一源守护：生产方喂给 chapter-writer 的 targetWords 取值范围
+  //   必须 ⊆ 本 agent inputSchema。生产方有两处 clamp：
+  //     - per-dim-pipeline targetWordsPerChapter: Math.max(400, Math.min(8000, ...))
+  //     - s7 normalizeTargetWords: [500, 12000]
+  //   并集 = [400, 12000]。任一边漂移（如收紧 schema max）此测试即红。
+  describe("contract: producer range ⊆ schema", () => {
+    it("targetWords: pipeline producer range is within agent schema bounds", () => {
+      const r = assertNumberProducerWithinSchema({
+        agent: ChapterWriterAgent,
+        field: "targetWords",
+        producerMin: 400,
+        producerMax: 12000,
+      });
+      expect(r.ok ? "" : r.reason).toBe("");
+      expect(r.ok).toBe(true);
+    });
   });
 
   // ─────────────────────────────────────────────
