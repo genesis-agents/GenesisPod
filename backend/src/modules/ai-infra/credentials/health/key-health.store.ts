@@ -313,16 +313,37 @@ export class KeyHealthStore {
     return v !== undefined && v !== null;
   }
 
+  /**
+   * 距 provider cooldown 解除的剩余毫秒数（0 = 无 cooldown）。
+   * value 存绝对到期时间戳，免去 Redis TTL 反查。兼容旧 "1" 值（按默认时长处理）。
+   */
+  async getProviderCooldownMs(provider: string): Promise<number> {
+    if (!this.cache) return 0;
+    const v = await this.cache.get<string>(this.providerCooldownKey(provider));
+    if (v === undefined || v === null) return 0;
+    const expiryMs = Number(v);
+    if (!Number.isFinite(expiryMs)) {
+      // 旧格式 "1"：无到期时间戳，保守按默认 cooldown 时长返回。
+      return PROVIDER_COOLDOWN_DEFAULT_SECONDS * 1000;
+    }
+    return Math.max(0, expiryMs - Date.now());
+  }
+
   async setProviderCooldown(
     provider: string,
     cooldownMs: number,
   ): Promise<void> {
     if (!this.cache) return;
-    const ttl =
+    const effectiveMs =
       cooldownMs > 0 && Number.isFinite(cooldownMs)
-        ? Math.ceil(cooldownMs / 1000)
-        : PROVIDER_COOLDOWN_DEFAULT_SECONDS;
-    await this.cache.set(this.providerCooldownKey(provider), "1", ttl);
+        ? cooldownMs
+        : PROVIDER_COOLDOWN_DEFAULT_SECONDS * 1000;
+    const ttl = Math.max(1, Math.ceil(effectiveMs / 1000));
+    await this.cache.set(
+      this.providerCooldownKey(provider),
+      String(Date.now() + effectiveMs),
+      ttl,
+    );
   }
 
   async clearProviderCooldown(provider: string): Promise<void> {

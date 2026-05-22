@@ -2317,6 +2317,14 @@ export class AiChatService {
       | { ttftMs: number; ttltMs: number; streamStartTime: number }
       | undefined;
 
+    // ★ 2026-05-22：流式路径不走 keyExecutor.execute()，手动占用 per-(user+provider)
+    //   并发槽，与非流式共用同一桶，防止流式调用绕过节流自我 429。
+    const slotRelease = this.failoverCaller
+      ? await this.failoverCaller.acquireProviderSlot(
+          options.userId ?? "",
+          modelConfig.provider,
+        )
+      : null;
     try {
       // 根据 apiFormat 选择流式处理器
       let streamGenerator: AsyncGenerator<
@@ -2536,6 +2544,8 @@ export class AiChatService {
 
       yield { content: "", done: true, error: errorMsg };
     } finally {
+      // ★ 释放 per-(user+provider) 并发槽（幂等）
+      slotRelease?.();
       // ★ Circuit Breaker: Always release load when stream ends
       if (this.circuitBreaker) {
         this.circuitBreaker.decrementLoad(model);

@@ -9,13 +9,12 @@ import {
   AllKeysFailedError,
   ProviderCooldownError,
 } from "./key-executor.errors";
-import { createConcurrencyLimiter } from "@/common/utils/concurrency.utils";
 
 /**
- * ★ 2026-05-22 per-provider 并发上限（治 429 源头）：单 key/单 provider 部署下，
- *   一个 mission 的并行任务（concurrency × 维度 × 章节）会同时打同一个 key → 自己把
- *   自己打到 429 → cooldown 级联。这里给"每个 provider 同时在飞的调用数"封顶，把
- *   超出的请求排队而非并发轰炸。默认 6，env 可调；设得足够高不影响正常吞吐。
+ * ★ 2026-05-22 per-(user+provider) 并发上限（治 429 源头）：一个 mission 的并行任务
+ *   （concurrency × 维度 × 章节）会同时打同一个 key → 自己把自己打到 429 → cooldown
+ *   级联。这里给"每个 (user,provider) 同时在飞的调用数"封顶，超出排队而非并发轰炸。
+ *   按 user 隔离，避免一个重 mission 饿死别的用户。默认 6，env 可调。
  */
 const PROVIDER_MAX_CONCURRENCY = (() => {
   const n = Number.parseInt(
@@ -60,21 +59,56 @@ export class KeyExecutorService {
     private readonly healthStore: KeyHealthStore,
   ) {}
 
-  /** 每个 provider 一个并发限制器（pod 内单例），抑制单 key 自我 429。 */
-  private readonly providerLimiters = new Map<
+  /**
+   * per-(user+provider) 并发槽（pod 内单例）。execute() 与流式路径共用同一桶，
+   * 保证两条路径对同一 (user,provider) 的在飞调用合并计数。
+   */
+  private readonly slots = new Map<
     string,
-    ReturnType<typeof createConcurrencyLimiter>
+    { active: number; queue: Array<() => void> }
   >();
 
-  private getProviderLimiter(
-    provider: string,
-  ): ReturnType<typeof createConcurrencyLimiter> {
-    let limiter = this.providerLimiters.get(provider);
-    if (!limiter) {
-      limiter = createConcurrencyLimiter(PROVIDER_MAX_CONCURRENCY);
-      this.providerLimiters.set(provider, limiter);
+  private slotKey(userId: string, provider: string): string {
+    return `${userId || "anon"}:${provider.toLowerCase()}`;
+  }
+
+  /** 占用一个并发槽，返回 release 函数（幂等，重复调用无副作用）。 */
+  private acquireSlot(key: string): Promise<() => void> {
+    let slot = this.slots.get(key);
+    if (!slot) {
+      slot = { active: 0, queue: [] };
+      this.slots.set(key, slot);
     }
-    return limiter;
+    const s = slot;
+    let released = false;
+    const release = (): void => {
+      if (released) return;
+      released = true;
+      s.active -= 1;
+      const next = s.queue.shift();
+      if (next) next();
+    };
+    if (s.active < PROVIDER_MAX_CONCURRENCY) {
+      s.active += 1;
+      return Promise.resolve(release);
+    }
+    return new Promise<() => void>((resolve) => {
+      s.queue.push(() => {
+        s.active += 1;
+        resolve(release);
+      });
+    });
+  }
+
+  /**
+   * 供无法走 execute() 的调用方（流式响应等）手动占用/释放 per-(user+provider) 并发槽。
+   * 用法：const release = await acquireProviderSlot(...); try { ...stream... } finally { release(); }
+   */
+  async acquireProviderSlot(
+    userId: string,
+    provider: string,
+  ): Promise<() => void> {
+    return this.acquireSlot(this.slotKey(userId, provider));
   }
 
   async execute<T>(
@@ -85,16 +119,24 @@ export class KeyExecutorService {
     const normalizedProvider = provider.toLowerCase();
 
     // 1. provider-级 cooldown 短路（在并发闸之外，快速失败不占用配额槽）
-    if (await this.healthStore.isProviderCooldown(normalizedProvider)) {
+    const cooldownRemainingMs =
+      await this.healthStore.getProviderCooldownMs(normalizedProvider);
+    if (cooldownRemainingMs > 0) {
       this.logger.debug(
-        `[KeyExecutor] provider cooldown active for ${normalizedProvider}, short-circuit`,
+        `[KeyExecutor] provider cooldown active for ${normalizedProvider} (${cooldownRemainingMs}ms left), short-circuit`,
       );
-      throw new ProviderCooldownError(normalizedProvider);
+      throw new ProviderCooldownError(normalizedProvider, cooldownRemainingMs);
     }
 
-    // ★ per-provider 并发闸：把同一 provider 同时在飞的调用数封顶，治 429 源头。
-    const limit = this.getProviderLimiter(normalizedProvider);
-    return limit(() => this.executeChain(userId, normalizedProvider, callFn));
+    // ★ per-(user+provider) 并发闸：把同一 (user,provider) 在飞调用数封顶，治 429 源头。
+    const release = await this.acquireSlot(
+      this.slotKey(userId, normalizedProvider),
+    );
+    try {
+      return await this.executeChain(userId, normalizedProvider, callFn);
+    } finally {
+      release();
+    }
   }
 
   /** chain 解析 + 遍历 failover（被 per-provider 并发闸包裹）。 */

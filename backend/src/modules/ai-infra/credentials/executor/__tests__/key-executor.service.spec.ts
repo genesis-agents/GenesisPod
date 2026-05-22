@@ -61,6 +61,7 @@ describe("KeyExecutorService", () => {
     };
     healthStore = {
       isProviderCooldown: jest.fn().mockResolvedValue(false),
+      getProviderCooldownMs: jest.fn().mockResolvedValue(0),
       setProviderCooldown: jest.fn().mockResolvedValue(undefined),
     };
     const module: TestingModule = await Test.createTestingModule({
@@ -92,10 +93,13 @@ describe("KeyExecutorService", () => {
   });
 
   describe("provider cooldown short-circuit", () => {
-    it("throws ProviderCooldownError when isProviderCooldown true; never calls callFn", async () => {
-      (healthStore.isProviderCooldown as jest.Mock).mockResolvedValue(true);
+    it("throws ProviderCooldownError (with remainingMs) when in cooldown; never calls callFn", async () => {
+      (healthStore.getProviderCooldownMs as jest.Mock).mockResolvedValue(60_000);
       const callFn = jest.fn();
 
+      await expect(
+        executor.execute("u1", "openai", callFn),
+      ).rejects.toMatchObject({ remainingMs: 60_000 });
       await expect(executor.execute("u1", "openai", callFn)).rejects.toThrow(
         ProviderCooldownError,
       );

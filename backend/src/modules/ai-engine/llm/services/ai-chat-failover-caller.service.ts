@@ -53,6 +53,18 @@ export class AiChatFailoverCallerService {
   }
 
   /**
+   * 为流式路径（chatStream 不走 execute()）占用 per-(user+provider) 并发槽。
+   * 返回 release 函数；keyExecutor 不可用时返回 null（调用方跳过节流）。
+   */
+  async acquireProviderSlot(
+    userId: string,
+    provider: string,
+  ): Promise<(() => void) | null> {
+    if (!this.keyExecutor) return null;
+    return this.keyExecutor.acquireProviderSlot(userId, provider);
+  }
+
+  /**
    * 流式调用完成后记账：标记 key HEALTHY + 更新 LastGood（粘性）
    * AiChatService.chatStream 在流末尾 yield done:true 后调用
    */

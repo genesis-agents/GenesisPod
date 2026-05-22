@@ -750,6 +750,98 @@ describe("ReActLoop (Phase 2)", () => {
     expect(terminated?.payload).toMatchObject({ reason: "error" });
   });
 
+  // ── P0 (2026-05-22): provider cooldown 按 remainingMs 退避重试 ──────────────
+  function makeRetryEnv(): ContextEnvelope {
+    const runtimeEnv = {
+      suggestFallback: jest
+        .fn()
+        .mockResolvedValue({ action: "retry", retryAfterMs: 0 }),
+    };
+    return new ContextEnvelope({
+      system: "You are a helpful assistant.",
+      messages: [{ role: "user", content: "Solve 2+2.", timestamp: 0 }],
+      reminders: [],
+      tools: [],
+      memory: { sessionId: "s1", userId: "u1" },
+      budget: {
+        tokensUsed: 0,
+        tokensRemaining: 10_000,
+        iterationsUsed: 0,
+        iterationsRemaining: 10,
+        wallTimeStartMs: Date.now(),
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      runtimeEnv: runtimeEnv as any,
+    });
+  }
+
+  it("retries a provider cooldown error (short remainingMs) then succeeds", async () => {
+    let calls = 0;
+    const chat = {
+      chat: jest.fn(async () => {
+        calls += 1;
+        if (calls === 1) {
+          throw Object.assign(
+            new Error(
+              'Provider "openai" is temporarily unavailable (cooldown). Please try again later.',
+            ),
+            { remainingMs: 5 },
+          );
+        }
+        return {
+          content: JSON.stringify({
+            thinking: "ok now",
+            action: { kind: "finalize", output: "4" },
+          }),
+          model: "mock",
+          usage: { totalTokens: 10 },
+        };
+      }),
+    };
+    const reg = mkToolRegistry({});
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const events = await drain(
+      loop.run(makeRetryEnv(), criteria, { agentId: "cooldown-retry" }),
+    );
+
+    expect(chat.chat).toHaveBeenCalledTimes(2);
+    const terminated = events.find((e) => e.type === "terminated");
+    expect(terminated?.payload).toMatchObject({ reason: "completed" });
+  });
+
+  it("does NOT retry a cooldown longer than the in-loop wait cap; terminates", async () => {
+    const chat = {
+      chat: jest.fn().mockRejectedValue(
+        Object.assign(
+          new Error(
+            'Provider "openai" is temporarily unavailable (cooldown).',
+          ),
+          { remainingMs: 300_000 },
+        ),
+      ),
+    };
+    const reg = mkToolRegistry({});
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const events = await drain(
+      loop.run(makeRetryEnv(), criteria, { agentId: "cooldown-long" }),
+    );
+
+    // remainingMs 300s > 30s 上限 → 不在循环内死等 → 只调用一次后终止
+    expect(chat.chat).toHaveBeenCalledTimes(1);
+    const terminated = events.find((e) => e.type === "terminated");
+    expect(terminated?.payload).toMatchObject({ reason: "error" });
+  });
+
   // ── P0-2: hasUnexecutedToolUse — 防回归测试 ──────────────────────────────
   it("P0-2: continues loop when LLM returns stop_reason=end_turn but content contains tool_call intent (parse failed)", async () => {
     // Scenario: LLM first returns truncated/broken JSON with a tool_call inside

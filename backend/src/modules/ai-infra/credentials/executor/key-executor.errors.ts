@@ -51,7 +51,10 @@ export class AllKeysFailedError extends BYOKError {
  * 业务可在前端展示 "Service temporarily unavailable, please retry in N minutes"。
  */
 export class ProviderCooldownError extends BYOKError {
-  constructor(provider: string) {
+  /** 距 cooldown 解除的剩余毫秒数，供上层（react-loop）按实际时长退避等待。 */
+  readonly remainingMs?: number;
+
+  constructor(provider: string, remainingMs?: number) {
     super(
       BYOK_ERROR_CODES.NO_AVAILABLE_KEY,
       `Provider "${provider}" is temporarily unavailable (cooldown). Please try again later.`,
@@ -65,5 +68,6 @@ export class ProviderCooldownError extends BYOKError {
       writable: false,
       enumerable: true,
     });
+    this.remainingMs = remainingMs;
   }
 }

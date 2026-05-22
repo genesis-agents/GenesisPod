@@ -353,6 +353,11 @@ export class ReActLoop implements IAgentLoop {
     );
     const RECOVERABLE_RETRY_BASE_MS = 1000;
     const RECOVERABLE_RETRY_CAP_MS = 10_000;
+    // ★ 2026-05-22：provider cooldown 类错误按"实际剩余 cooldown 时长"退避等待，
+    //   而非固定 retryAfterMs（否则 2s 退避撑不过 30s cooldown，重试必然再撞）。
+    //   超过此上限的 cooldown（如多 key 的 5min）不在循环内死等，直接走终态。
+    const COOLDOWN_MAX_WAIT_MS = 30_000;
+    const COOLDOWN_RETRY_JITTER_MS = 250;
 
     // ─── Phase P0-2: 多重出口闸 ─────────────────────────────────
     /** Wall-time 监控（mission-pipeline-exit-policy.md D9）—— 默认 180s/stage */
@@ -836,6 +841,15 @@ export class ReActLoop implements IAgentLoop {
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           const aborted = /aborted/i.test(message);
+          // ★ provider cooldown 错误携带剩余时长（ProviderCooldownError.remainingMs），
+          //   用于按实际 cooldown 退避等待。duck-type 读取，避免 ai-harness 反向依赖 ai-infra。
+          const cooldownRemainingMs =
+            err &&
+            typeof err === "object" &&
+            "remainingMs" in err &&
+            typeof (err as { remainingMs?: unknown }).remainingMs === "number"
+              ? (err as { remainingMs: number }).remainingMs
+              : undefined;
 
           // ★ 失败码归类：从异常消息推断 provider 错误类型
           let failureCode: HarnessFailureCode = "PROVIDER_API_ERROR";
@@ -860,6 +874,13 @@ export class ReActLoop implements IAgentLoop {
             //   批 KeyAssignment（也属 BYOK）。
             fallbackReason = "byok_quota_exceeded";
           } else if (/rate.?limit|429|too many requests/i.test(message)) {
+            failureCode = "PROVIDER_RATE_LIMIT";
+            fallbackReason = "rate_limit";
+          } else if (
+            // ★ 2026-05-22：provider cooldown 短路（ProviderCooldownError）是瞬态，
+            //   归为 rate_limit 让 suggestFallback 返回 retry → 走有界退避重试。
+            /cooldown|temporarily unavailable/i.test(message)
+          ) {
             failureCode = "PROVIDER_RATE_LIMIT";
             fallbackReason = "rate_limit";
           } else if (
@@ -921,15 +942,26 @@ export class ReActLoop implements IAgentLoop {
             !aborted &&
             recoveryHint?.action === "retry" &&
             consecutiveRecoverableRetries < MAX_RECOVERABLE_RETRIES &&
-            iteration < criteria.maxIterations
+            iteration < criteria.maxIterations &&
+            // cooldown 超过上限（如多 key 5min）不在循环内死等 → 走终态
+            (cooldownRemainingMs == null ||
+              cooldownRemainingMs <= COOLDOWN_MAX_WAIT_MS)
           ) {
             consecutiveRecoverableRetries += 1;
-            const backoffMs = Math.min(
-              recoveryHint.retryAfterMs ??
-                RECOVERABLE_RETRY_BASE_MS *
-                  2 ** (consecutiveRecoverableRetries - 1),
-              RECOVERABLE_RETRY_CAP_MS,
-            );
+            // cooldown 类：按实际剩余时长 + 抖动退避（撑过 cooldown 再重试）；
+            // 其余 rate-limit 类：用 hint.retryAfterMs 或指数退避。
+            const backoffMs =
+              cooldownRemainingMs != null
+                ? Math.min(
+                    cooldownRemainingMs + COOLDOWN_RETRY_JITTER_MS,
+                    COOLDOWN_MAX_WAIT_MS,
+                  )
+                : Math.min(
+                    recoveryHint.retryAfterMs ??
+                      RECOVERABLE_RETRY_BASE_MS *
+                        2 ** (consecutiveRecoverableRetries - 1),
+                    RECOVERABLE_RETRY_CAP_MS,
+                  );
             this.logger.warn(
               `[${agentId}] iter=${iteration} ${failureCode} — recoverable, ` +
                 `retry ${consecutiveRecoverableRetries}/${MAX_RECOVERABLE_RETRIES} after ${backoffMs}ms`,
