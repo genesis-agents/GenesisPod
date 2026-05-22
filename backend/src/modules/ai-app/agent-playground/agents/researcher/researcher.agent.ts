@@ -241,8 +241,12 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
             `## ★ 本地知识库（用户选的）`,
             `用户在 mission launch 时选了 ${kbIds.length} 个本地 KB（id: ${kbIds.join(", ")}）。`,
             `调 rag-search 时**必须把这些 id 作为 knowledgeBaseIds 参数传入**，否则不会启用本地召回。`,
-            `示例 tool call: { "tool": "rag-search", "input": { "query": "...", "knowledgeBaseIds": ${JSON.stringify(kbIds)}, "topK": 5 } }`,
-            `先调 1 轮 rag-search 看本地知识够不够；不够再走 web-search。`,
+            `示例 tool call: { "tool": "rag-search", "input": { "query": "...", "knowledgeBaseIds": ${JSON.stringify(kbIds)}, "topK": 5, "threshold": 0.6 } }`,
+            `（threshold 必须 ≥ 0.6 提高相关度门槛，过滤掉跑题命中；KB 与本 dim 不符时宁可空手而归、改走 web-search）`,
+            // ★ 2026-05-22 修知识库污染：KB 可能与本 dim 不相关（用户可能挂了跑题的库）。
+            //   rag 仅作补充，web-search 强制兜底，且跑题 rag 命中必须丢弃。
+            `⚠️ rag-search 仅作本地补充：**无论 rag 结果如何，本 dim 必须额外做 ≥1 轮 web-search** 获取真实、近期、切题的外部证据——绝不能只靠 KB 出 finding。`,
+            `⚠️ 若 rag 命中内容与维度「${input.dimension}」明显不相关（跑题/换主题），**直接忽略这些命中**，不要据此写 finding，以 web-search / 专用搜索结果为准。`,
           ].join("\n")
         : ``;
 
@@ -268,8 +272,9 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       ``,
       `## Workflow (efficient, do NOT iterate beyond what's needed)`,
       `1. **如果 catalog 中有 rag-search 类**: 1 query 看内部知识够不够。`,
-      `2. **One specialized search round**: emit ONE parallel_tool_call with 2-4 queries，`,
-      `   优先用 ★ recommended 的工具，混合 web-search 兜底。`,
+      `2. **One specialized search round（必须含 web-search）**: emit ONE parallel_tool_call with 2-4 queries，`,
+      `   优先用 ★ recommended 的工具，但**这一轮必须至少包含 1 个 web-search query**（即使 rag/专用工具已命中）——`,
+      `   保证拿到真实、近期、切题的公开来源。只靠 rag/KB 出的 finding 会因证据/时效过低被评分器判失败。`,
       input.withFigures
         ? `3. **★ 必须 1 轮 web-scraper extractImages=true**（withFigures=true）：从 search 结果里挑 1-2 个高价值图文 URL（如 stanford / mckinsey / brookings / 政府 / arxiv 报告），调用 web-scraper 时**必须带 extractImages=true**。工具会把合法 <img>（过滤图标/pixel）放进 output.images。再从 output.images 抽 1-3 张到 figureCandidates。**没调 web-scraper extractImages 视为不达标**。`
         : `3. **At most one scrape/parse round**: 高价值 URL 抓全文用 web-scraper / file-parser。摘要够用就跳过这步。`,
