@@ -221,22 +221,18 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
     provider,
     unknown,
   }
-  enum FailureSource {
-    runtime,
-    liveness,
-    business_gate,
-    persistence,
-    provider,
-  }
   interface MissionFailure {
     code: MissionFailureCode;
-    category: FailureCategory;
-    source: FailureSource;
-    message: string; /*human*/
+    // ★ Codex r5 决议：category 不是第二真源——由 code 经【单一映射 codeToCategory】派生（投影，非独立写）。
+    //   具体消费方（回答了"谁消费、做什么决策"，故保留）：① 告警路由（budget/infra/provider 走不同
+    //   告警通道与 SLO）② retry-eligibility（infra/provider→可自动重试；budget/quality/cancellation→不自动重试）。
+    category: FailureCategory; // = codeToCategory(code)，禁独立赋值
+    message: string; // human-readable，调试用
+    source?: string; // ★ 决议：原 FailureSource enum 砍掉——无具名决策消费方。降级为可选自由文本(调试归因)，非契约枚举。
   }
   ```
-- 产出：dispatcher 写 canonical；liveness-guard **仅在 failureCode 尚空时**兜底（不得覆盖已有 code）。
-- 消费：DB 落 `failure_code/category/source`（三 app 表都加列）；前端**永远优先**按 code 出文案。
+- 产出：终态写入口（C0 `MissionLifecycleManager`）写 canonical；`category` 由 `codeToCategory(code)` 派生，调用方只传 `code`（+可选 source 文本）。liveness 仅在 code 尚空时兜底（C0 单写+条件写保证不覆盖）。
+- 消费：DB 落 `failure_code`（+派生 `failure_category`）；前端**永远优先**按 code 出文案；告警/retry 按 category。**不再落 source 列**（如需调试归因走日志）。
 - 落点：`ai-harness/lifecycle/mission-lifecycle/abstractions/mission-failure.ts`（新）；复用既有 agent 级 taxonomy 做映射。
 - 红线：app 不得用裸 message 表达失败类别；liveness 不得覆盖已有 code。
 
@@ -279,15 +275,19 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
   ```ts
   interface MissionConfigSnapshot {
     schemaVersion;
+    // ★ Codex r5 决议：lineage 强化（事故审计——"为什么这次 rerun 用了这个预算"必须可追溯到
+    //   是 full/local rerun / settings patch / save-as-new 派生）。仅 sourceMissionId 太弱。
+    snapshotId; // 本快照唯一 id
+    parentSnapshotId?; // 派生自哪个快照（rerun/patch 链）
+    derivedFromMissionId?; // 派生自哪个 mission（继承链）
+    mutationReason?; // 'fresh' | 'full_rerun' | 'incremental_rerun' | 'local_rerun' | 'settings_patch' | 'save_as_new'
     resolvedAt;
     topic;
     language;
-    // ★ RB5 修订：不是 opaque blob。app 声明 businessInputSchema(zod) + serialize/
-    //   deserialize 显式契约，harness 据此做完整性校验 + 版本迁移。
+    // ★ RB5：不是 opaque blob。app 声明 businessInputSchema(zod) + serialize/deserialize 显式契约。
     businessInput: AppBusinessInput; // 受 app 声明的 schema 约束，非无类型 blob
     budget: ResolvedBudgetCaps;
     runtimeLimits: ResolvedRuntimeLimits;
-    sourceMissionId?;
   }
   ```
 - 产出：`openSession()` 解析一次 + 持久化（三 app 行加 `config_snapshot` JSONB + version）。
@@ -434,9 +434,13 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
 
 - 发真 mission → cancel → 断言 `signal.aborted` + budget 停增 + 终态=cancelled + reason 正确（治 social 假停——静态会误判它合格，因为它"出现过 abort 调用"只是在错的地方）；
 - rerun → 断言 patch 不越权 + policy 重解析正确；
-- 制造预算耗尽 → 断言 failureCode/category/source 映射正确；
+- 制造预算耗尽 → 断言 failureCode/category 映射正确；
 - 制造静默 → 断言 liveness 回收。
-  > **无 L5b 的接入视为未接入。** 新增 mission app 缺任一级 → 红，无法合并。这是"新 app 接入清单"的可执行版。
+- **★ Codex r5 必测：双终态竞争（直接验证 C0"唯一写入口 + 首写者赢"不变量，否则 C0 仍是声明而非已验证不变量）**：
+  - `budget_exhausted` 与 `user_cancelled` 几乎同时 → 断言**只落一个终态**（首写赢），另一个 no-op，无覆盖；
+  - liveness-guard 与 dispatcher 几乎同时落终态 → 断言 DB 条件写仲裁生效（`WHERE status='running'` 只有一个成功）；
+  - provider error 后 controller 又触发 cancel → 断言不产生双写/状态翻转。
+    > **无 L5b（含双终态竞争）的接入视为未接入。** 新增 mission app 缺任一级 → 红，无法合并。这是"新 app 接入清单"的可执行版。
 
 ### L6 pre-push + CI 二次执行
 
@@ -469,6 +473,10 @@ ai-app 业务层（每 app 自己的业务语义；不上提）
 ## 9. 兼容策略
 
 - **双写过渡**：P0 期新 canonical 字段与旧并存，写两份、读优先 canonical，灰度 N 天后删旧。
+- **★ Codex r5 决议：双写期 legacy/canonical 冲突不得静默兜底。** 读取时若检测同一 mission 的 legacy 值与 canonical 值**关键字段不一致**：
+  - 一律打**结构化 mismatch 告警**（字段名 + 两值 + missionId），不静默选一个——静默会把真实数据问题埋掉。
+  - 对**预算 / 终态 / wallTimeCap 等敏感字段**：**优先拒绝该次 rerun（fail-closed）**而非兜底继续；非敏感字段可读 canonical + 告警。
+  - 灰度期把 mismatch 率作为"能否删旧字段"的放行指标（mismatch=0 持续 N 天才进 §RB7 弃旧 Step B）。
 - **in-flight / 历史 mission**：无 `config_snapshot` → rebuilder 回退 `legacy` 分支（旧 row+JSON 拼装，仅历史用）。
 - **DB 迁移**：手写 SQL（项目规范，禁 `prisma migrate dev`）；先加列→回填→切读→弃旧；三 app 各自迁移脚本。
 - **跨 app 节奏**：先 playground 验证 + adapter 边界稳定 → radar → social，每 app 一 PR；canonical 加 `schemaVersion`。
