@@ -230,12 +230,18 @@ describe("P0-C/G/K — maxCredits required, no fallback hardcoding", () => {
     expect(fnBody).not.toMatch(/\?\?\s*\d+/);
   });
 
-  it("resolveBudgetMultiplier returns input.budgetMultiplierOverride directly", () => {
+  it("resolveBudgetMultiplier falls back to depth tier, never a hardcoded number", () => {
+    // ★ 2026-05-22 单一源更新：原断言期望"直接 return input.budgetMultiplierOverride"，
+    //   但预算单一源重构后缺省回退到 DEPTH_BUDGET_TIERS（档位真源）而非任何写死数字。
+    //   regression 意图不变（杜绝硬编码数字兜底），断言改为匹配 ?? 档位回退。
     const src = read(dtoFile);
     expect(src).toContain("resolveBudgetMultiplier");
-    expect(src).toContain("return input.budgetMultiplierOverride");
-    const fnIdx = src.indexOf("resolveBudgetMultiplier");
-    const fnBody = src.slice(fnIdx, fnIdx + 200);
+    expect(src).toContain("input.budgetMultiplierOverride");
+    const fnIdx = src.indexOf("export function resolveBudgetMultiplier");
+    const fnBody = src.slice(fnIdx, fnIdx + 260);
+    // 缺省回退到档位单一源（不是写死数字）
+    expect(fnBody).toContain("DEPTH_BUDGET_TIERS");
+    // 仍禁止 ?? <number> 形式的硬编码数字兜底
     expect(fnBody).not.toMatch(/\?\?\s*[\d.]+/);
   });
 
