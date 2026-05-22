@@ -57,22 +57,57 @@ export class SocialAgentInvoker {
     ctx: SocialInvocationContext,
   ): Promise<Awaited<ReturnType<AgentRunner["run"]>>> {
     const signal = this.abortRegistry.getSignal(ctx.missionId);
-    return this.runner.run(Spec, input, {
-      userId: ctx.userId,
-      environment: ctx.envAdapter,
-      budgetMultiplier: ctx.budgetMultiplier,
-      toolRecallHint: ctx.toolRecallHint,
-      loopOverride: ctx.loopOverride,
-      signal,
-      billingMeta: {
-        moduleType: "ai-social",
-        operationType: ctx.role,
-        referenceId: ctx.missionId,
-      },
-      onEvent: async (event: IAgentEvent) => {
-        await this.relay.relayAgentEvents([event], ctx);
-      },
-    });
+    const startedAt = Date.now();
+    // per-agent lifecycle —— social 此前从不发 agent:lifecycle，前端拿不到精确
+    // agent 状态/wallTime（只能按 stage 兜底）。在唯一 invoke 出口统一发，覆盖 9 个角色。
+    // started 用 fire-and-forget（emit 慢/挂不阻塞主流水线；CLAUDE.md 反向洞察 #4）。
+    void this.relay.emitLifecycle(
+      ctx.missionId,
+      ctx.userId,
+      ctx.agentId,
+      ctx.role,
+      "started",
+    );
+    try {
+      const result = await this.runner.run(Spec, input, {
+        userId: ctx.userId,
+        environment: ctx.envAdapter,
+        budgetMultiplier: ctx.budgetMultiplier,
+        toolRecallHint: ctx.toolRecallHint,
+        loopOverride: ctx.loopOverride,
+        signal,
+        billingMeta: {
+          moduleType: "ai-social",
+          operationType: ctx.role,
+          referenceId: ctx.missionId,
+        },
+        onEvent: async (event: IAgentEvent) => {
+          await this.relay.relayAgentEvents([event], ctx);
+        },
+      });
+      await this.relay.emitLifecycle(
+        ctx.missionId,
+        ctx.userId,
+        ctx.agentId,
+        ctx.role,
+        result.state === "failed" ? "failed" : "completed",
+        { wallTimeMs: Date.now() - startedAt, iterations: result.iterations },
+      );
+      return result;
+    } catch (err) {
+      await this.relay.emitLifecycle(
+        ctx.missionId,
+        ctx.userId,
+        ctx.agentId,
+        ctx.role,
+        "failed",
+        {
+          wallTimeMs: Date.now() - startedAt,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      );
+      throw err;
+    }
   }
 
   async emitLifecycle(

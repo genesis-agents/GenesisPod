@@ -10762,6 +10762,8 @@ model SocialContentTaskSource {
   userId     String
   sourceType String
   sourceId   String
+  title      String?
+  url        String?
   createdAt  DateTime @default(now())
 
   task SocialContentTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -10781,6 +10783,7 @@ model SocialContentTaskVersion {
   digest       String?
   tags         String[]                   @default([])
   coverMediaId String?
+  coverImageUrl String?
   publishedAt  DateTime?
   externalUrl  String?
   errorMessage String?

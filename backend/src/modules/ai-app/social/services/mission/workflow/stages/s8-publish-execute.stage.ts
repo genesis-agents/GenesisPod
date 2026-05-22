@@ -80,6 +80,27 @@ export async function runPublishExecuteStage(
         const cropMultiList = cover?.cropMultiList ?? [];
 
         if (!isFastPath && (!version || !composedOut || !cover)) return;
+
+        // 未连接公众号/登录过期 → 不把空 connectionId 丢给适配器（只会撞模糊错误），
+        // 明确告知「已生成草稿、未发布、请先连接」。草稿内容仍由 persistTaskVersions 落库。
+        const connectionId = input.connectionIds[platform] ?? "";
+        if (!connectionId) {
+          await narrate(deps.emit, missionId, userId, {
+            stage: "s8-publish-execute",
+            role: "publish-executor",
+            tag: "warning",
+            text: `平台 ${platform} 未连接，已生成草稿但未发布——请到「连接管理」登录后在详情页发布`,
+          });
+          await deps.store.recordPublishLog({
+            contentId: input.contentId,
+            action: "PUBLISH",
+            status: "FAILED",
+            details: { missionId, platform, reason: "no-connection" },
+            errorMessage: "平台未连接或登录已过期",
+          });
+          return;
+        }
+
         const r = await deps.publishExecutor.run({
           input: {
             platform,
@@ -93,7 +114,7 @@ export async function runPublishExecuteStage(
               thumbMediaId,
               cropMultiList,
             },
-            connectionId: input.connectionIds[platform] ?? "",
+            connectionId,
           },
           ctx: {
             missionId,

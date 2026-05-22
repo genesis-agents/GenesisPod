@@ -236,7 +236,7 @@ export class SocialTaskService {
         data: { status: SocialContentTaskStatus.GENERATING },
       });
 
-      const aggregated = await this.aggregateContent(dto, userId);
+      const aggregated = await this.aggregateContent(dto, userId, taskId);
 
       // ★ 2026-05-19 fix: SocialMission.contentId has FK → SocialContent.id.
       //   V4 task-mode doesn't naturally produce a SocialContent row, but the
@@ -368,15 +368,47 @@ export class SocialTaskService {
         composed?: Record<string, { bodyHtml?: string }>;
         platformVersions?: Record<
           string,
-          { title?: string; digest?: string | null }
+          { title?: string; digest?: string | null; body?: string }
         >;
+        covers?: Record<
+          string,
+          { coverUrl?: string; thumbMediaId?: string | null }
+        >;
+        published?: Record<string, { status?: string }>;
+        contentRaw?: {
+          title?: string;
+          body?: string;
+          digest?: string | null;
+          coverImageUrl?: string | null;
+        } | null;
       } | null;
-      if (!traj) return;
+      const raw = traj?.contentRaw ?? null;
       for (const platform of platforms) {
-        const content = traj.composed?.[platform]?.bodyHtml ?? "";
-        const title = traj.platformVersions?.[platform]?.title ?? "";
-        const digest = traj.platformVersions?.[platform]?.digest ?? null;
-        if (!content && !title) continue;
+        // 内容兜底链：编排后正文(s6) → 平台改写正文(s3) → 原文 —— 绝不让报告空。
+        // 之前只取 composed.bodyHtml，s6 一失败 content="" 就被 skip，报告永空。
+        const content =
+          traj?.composed?.[platform]?.bodyHtml ||
+          traj?.platformVersions?.[platform]?.body ||
+          raw?.body ||
+          "";
+        const title =
+          traj?.platformVersions?.[platform]?.title || raw?.title || "";
+        const digest =
+          traj?.platformVersions?.[platform]?.digest ?? raw?.digest ?? null;
+        // 封面：s5 真实生成 URL → 用户自带封面（之前完全没落库 → 报告无图）
+        const coverImageUrl =
+          traj?.covers?.[platform]?.coverUrl || raw?.coverImageUrl || null;
+        const coverMediaId = traj?.covers?.[platform]?.thumbMediaId ?? null;
+        // 无正文不落库（避免写出 title="(未命名)" + 空正文的空报告，前端反而显示"生成中"）
+        if (!content) continue;
+        // 发布状态 → 版本状态（之前硬编码 DRAFT_READY，看不出真实发布结果）
+        const pubStatus = traj?.published?.[platform]?.status;
+        const status =
+          pubStatus === "PUBLISHED"
+            ? SocialContentVersionStatus.PUBLISHED
+            : pubStatus === "FAILED"
+              ? SocialContentVersionStatus.FAILED
+              : SocialContentVersionStatus.DRAFT_READY;
         await this.prisma.socialContentTaskVersion.upsert({
           where: { taskId_platform: { taskId, platform } },
           create: {
@@ -385,14 +417,18 @@ export class SocialTaskService {
             title: title || "(未命名)",
             content,
             digest,
+            coverImageUrl,
+            coverMediaId,
             bodyMime: "text/html",
-            status: SocialContentVersionStatus.DRAFT_READY,
+            status,
           },
           update: {
             title: title || "(未命名)",
             content,
             digest,
-            status: SocialContentVersionStatus.DRAFT_READY,
+            coverImageUrl,
+            coverMediaId,
+            status,
           },
         });
       }
@@ -431,8 +467,11 @@ export class SocialTaskService {
         nextStatus = SocialContentTaskStatus.FAILED;
       } else if (published > 0 && failed > 0) {
         nextStatus = SocialContentTaskStatus.PARTIAL_PUBLISHED;
+      } else if (failed > 0) {
+        // 有失败但无成功（其余仍草稿）→ 标部分失败，别掩盖成 DRAFT_READY
+        nextStatus = SocialContentTaskStatus.PARTIAL_PUBLISHED;
       } else {
-        // 混合 DRAFT_READY/GENERATING/未发布 状态，按 DRAFT_READY 处理
+        // 纯 DRAFT_READY/GENERATING/未发布 状态，按 DRAFT_READY 处理
         nextStatus = SocialContentTaskStatus.DRAFT_READY;
       }
     }
@@ -449,6 +488,7 @@ export class SocialTaskService {
   private async aggregateContent(
     dto: CreateSocialTaskDto,
     userId: string,
+    taskId: string,
   ): Promise<RawContentBag> {
     // Group sources by sourceType
     const byType = new Map<string, string[]>();
@@ -487,11 +527,42 @@ export class SocialTaskService {
         : s;
 
     const bundles: { title: string; body: string }[] = [];
+    // 来源元数据（title/url）—— 参考文献 tab 展示明细，从已抓的 bundle 顺带取，无额外请求
+    const sourceMeta: {
+      sourceType: string;
+      sourceId: string;
+      title: string;
+      url: string | null;
+    }[] = [];
+    const pickUrl = (b: {
+      displayMetadata?: Record<string, unknown>;
+      sourceMetadata?: Record<string, unknown>;
+    }): string | null => {
+      const d = b.displayMetadata?.url;
+      const s = b.sourceMetadata?.url;
+      const raw =
+        typeof d === "string" && d ? d : typeof s === "string" && s ? s : null;
+      if (!raw) return null;
+      // 仅存 http/https —— 前端会渲染成 <a href>，挡 javascript:/data: 伪协议 XSS
+      try {
+        const proto = new URL(raw).protocol;
+        if (proto !== "http:" && proto !== "https:") return null;
+      } catch {
+        return null;
+      }
+      return raw;
+    };
 
     for (const r of bundleResults) {
       if (r.status === "fulfilled") {
         for (const b of r.value) {
           bundles.push({ title: b.title, body: truncate(b.body) });
+          sourceMeta.push({
+            sourceType: b.sourceType,
+            sourceId: b.sourceId,
+            title: b.title,
+            url: pickUrl(b),
+          });
         }
       } else {
         this.logger.warn(
@@ -529,6 +600,24 @@ export class SocialTaskService {
       bodyParts.push(`# ${b.title}\n\n${b.body}`);
     }
     const body = bodyParts.join("\n\n---\n\n");
+
+    // 回写来源 title/url 到 SocialContentTaskSource（参考文献 tab 明细）；非致命
+    if (sourceMeta.length > 0) {
+      try {
+        await Promise.all(
+          sourceMeta.map((m) =>
+            this.prisma.socialContentTaskSource.updateMany({
+              where: { taskId, sourceType: m.sourceType, sourceId: m.sourceId },
+              data: { title: m.title, url: m.url },
+            }),
+          ),
+        );
+      } catch (err) {
+        this.logger.warn(
+          `[${taskId}] persist source metadata failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
 
     return {
       title: firstTitle,

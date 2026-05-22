@@ -55,6 +55,7 @@ export async function runMissionPersistStage(
     composed,
     polished,
     leaderForeword,
+    contentRaw,
   } = ctx;
 
   const finishedAt = Date.now();
@@ -91,6 +92,8 @@ export async function runMissionPersistStage(
     verified: verified ?? null,
     leaderForeword: leaderForeword ?? null,
     leaderSignOff: leaderSignOff ?? null,
+    // 原文快照 —— persistTaskVersions 的内容/封面兜底源（s3/s6 失败时报告不空）
+    contentRaw: contentRaw ?? null,
   };
 
   try {

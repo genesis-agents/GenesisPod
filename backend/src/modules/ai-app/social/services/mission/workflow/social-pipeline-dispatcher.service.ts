@@ -44,6 +44,7 @@ import {
   PublishExecutorAgentService,
   PublishVerifierService,
 } from "../../roles";
+import { redactSocialEvent } from "../../roles/social-event-relay";
 import { SocialRuntimeShellService } from "./social-runtime-shell.service";
 import { SocialBusinessOrchestrator } from "./social-business-orchestrator.service";
 import { SocialMissionStore } from "../lifecycle/social-mission-store.service";
@@ -478,11 +479,15 @@ export class SocialPipelineDispatcher implements OnModuleInit {
       eventBus,
       log,
       emit: async (args) => {
+        // 走与 SocialEventRelay 同一脱敏出口：narrative 等经 deps.emit 的旁路
+        // 事件也受护（当前 narrative 是安全模板；此为结构性防未来误带凭证）。
+        const redacted = redactSocialEvent(args.type, args.payload);
+        if (redacted.drop) return;
         await eventBus
           .emit({
             type: args.type,
             scope: { missionId: args.missionId, userId: args.userId },
-            payload: args.payload,
+            payload: redacted.payload,
             agentId: args.agentId,
             traceId: args.traceId,
             timestamp: Date.now(),
