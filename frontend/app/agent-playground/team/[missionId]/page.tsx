@@ -46,10 +46,8 @@ import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { Tabs } from '@/components/ui/tabs';
 import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/panels/LeadJournalPanel';
-import {
-  BudgetAndTimeLimitPanel,
-  SCALE_TIERS,
-} from '@/components/agent-playground/panels/BudgetAndTimeLimitPanel';
+import { BudgetAndTimeLimitPanel } from '@/components/agent-playground/panels/BudgetAndTimeLimitPanel';
+import { useBudgetTiers, pickTier } from '@/hooks/features/useBudgetTiers';
 import { isReportArtifact } from '@/lib/features/agent-playground/report-artifact.types';
 import { ensureRenderableArtifact } from '@/lib/features/agent-playground/synthesize-artifact';
 import { setCitationClickCallback } from '@/components/common/citations/citationNavigation';
@@ -1228,6 +1226,8 @@ function MissionSettingsModal({
   type STR = '30d' | '90d' | '180d' | '365d' | '730d' | 'all';
 
   const router = useRouter();
+  // ★ 2026-05-22 ③J/K 单一源：档位数值来自后端，前端无镜像。
+  const { data: budgetTierData } = useBudgetTiers();
   const [topic, setTopic] = useState('');
   const [depth, setDepth] = useState<Depth>('deep');
   const [language, setLanguage] = useState<Lang>('zh-CN');
@@ -1480,13 +1480,15 @@ function MissionSettingsModal({
             <select
               value={depth}
               onChange={(e) => {
-                // 改深度即联动预算到对应档位，避免 depth 与预算脱节（重跑时一致）。
+                // 改深度即联动预算到对应档位（来自后端单一源），避免 depth 与预算脱节。
                 const d = e.target.value as Depth;
                 setDepth(d);
-                const tier = SCALE_TIERS[d];
-                setMaxCredits(tier.maxCredits);
-                setBudgetMultiplierOverride(tier.budgetMultiplier);
-                setWallTimeMinutes(tier.wallTimeMinutes);
+                const tier = pickTier(budgetTierData, d);
+                if (tier) {
+                  setMaxCredits(tier.maxCredits);
+                  setBudgetMultiplierOverride(tier.budgetMultiplier);
+                  setWallTimeMinutes(tier.wallTimeMinutes);
+                }
               }}
               className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
             >
@@ -1615,8 +1617,9 @@ function MissionSettingsModal({
           </p>
           <div className="grid grid-cols-3 gap-2">
             {(['quick', 'standard', 'deep'] as const).map((t) => {
-              const tier = SCALE_TIERS[t];
+              const tier = pickTier(budgetTierData, t);
               const active =
+                !!tier &&
                 maxCredits === tier.maxCredits &&
                 wallTimeMinutes === tier.wallTimeMinutes &&
                 budgetMultiplierOverride === tier.budgetMultiplier;
@@ -1624,8 +1627,10 @@ function MissionSettingsModal({
                 <button
                   key={t}
                   type="button"
+                  disabled={!tier}
                   onClick={() => {
-                    // 档位卡片 = 同时设深度 + 预算，与上方「深度」下拉保持同源一致。
+                    // 档位卡片 = 同时设深度 + 预算（来自后端单一源），与「深度」下拉一致。
+                    if (!tier) return;
                     setDepth(t);
                     setMaxCredits(tier.maxCredits);
                     setBudgetMultiplierOverride(tier.budgetMultiplier);
@@ -1638,10 +1643,12 @@ function MissionSettingsModal({
                   }`}
                 >
                   <span className="block text-sm font-medium text-slate-900">
-                    {tier.label}
+                    {tier?.label ?? t}
                   </span>
                   <span className="mt-0.5 block text-[11px] text-slate-500">
-                    {tier.approxCost} · {tier.approxTime}
+                    {tier
+                      ? `约 $${tier.capUsd} · ~${tier.wallTimeMinutes} 分钟`
+                      : '加载中…'}
                   </span>
                 </button>
               );

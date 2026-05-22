@@ -27,8 +27,8 @@ import {
   MAX_CREDITS_LIMIT,
   MULTIPLIER_LIMIT,
   WALL_TIME_LIMIT_MINUTES,
-  SCALE_TIERS,
 } from '@/components/agent-playground/panels/BudgetAndTimeLimitPanel';
+import { useBudgetTiers, pickTier } from '@/hooks/features/useBudgetTiers';
 
 interface PlaygroundMissionDialogProps {
   isOpen: boolean;
@@ -37,17 +37,12 @@ interface PlaygroundMissionDialogProps {
   onCreated?: (missionId: string) => void;
 }
 
-// ★ 2026-05-22 调研规模档位卡片：hint 展示 估算成本 · 时间 · 维度（数值源自 SCALE_TIERS）。
-//   选档即设 depth；预算/时长由后端按 depth 解析（单一源），无需用户手填。
-const DEPTH_OPTIONS: Array<{
-  value: RunMissionInput['depth'];
-  label: string;
-  hint: string;
-}> = (['quick', 'standard', 'deep'] as const).map((value) => ({
-  value,
-  label: SCALE_TIERS[value].label,
-  hint: `${SCALE_TIERS[value].approxCost} · ${SCALE_TIERS[value].approxTime} · ${SCALE_TIERS[value].scope}`,
-}));
+// 静态兜底标签(仅 fetch 未就绪时用;数值不在此,全部来自 useBudgetTiers)
+const DEPTH_LABEL_FALLBACK: Record<RunMissionInput['depth'], string> = {
+  quick: '快速',
+  standard: '标准',
+  deep: '深度',
+};
 
 const TIME_RANGE_OPTIONS: Array<{
   value: SearchTimeRange;
@@ -126,22 +121,35 @@ export function PlaygroundMissionDialog({
   //   知识库。历史 bug：旧选择（如跑题的「Security」库）被静默带进新主题 → researcher
   //   rag-search 命中跑题内容 → 维度质量崩。知识源必须每次有意识地选。
   const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<string[]>([]);
-  // ★ 2026-05-22 单一源：自定义预算字段初始值来自当前 depth 档位（SCALE_TIERS），
-  //   不再从各自独立的 localStorage（playground:maxCredits 等）读 —— 杜绝"显示档位 A
-  //   但带出旧持久化值 1000/1"的漂移。这些值只有在开启「自定义预算」覆盖时才发送。
-  const initialTier =
-    SCALE_TIERS[loadPref('depth', 'deep' as RunMissionInput['depth'])];
-  const [maxCredits, setMaxCredits] = useState<number>(initialTier.maxCredits);
+  // ★ 2026-05-22 ③J/K 单一源：档位数值全部来自后端（useBudgetTiers），前端无镜像。
+  //   自定义预算字段仅在「自定义预算」覆盖开启时使用 + 发送；初始 0，开启时按当前档位灌入。
+  const { data: budgetTierData } = useBudgetTiers();
+  const [maxCredits, setMaxCredits] = useState<number>(0);
   const [budgetMultiplierOverride, setBudgetMultiplierOverride] =
-    useState<number>(initialTier.budgetMultiplier);
-  const [wallTimeMinutes, setWallTimeMinutes] = useState<number>(
-    initialTier.wallTimeMinutes
-  );
+    useState<number>(0);
+  const [wallTimeMinutes, setWallTimeMinutes] = useState<number>(0);
   // 默认不覆盖预算 —— 仅传 depth，由后端按档位解析。
   //   开启「自定义预算」时把当前档位值灌入作为起点（见 onChange），再发送为覆盖。
   const [budgetOverrideEnabled, setBudgetOverrideEnabled] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ★ 调研规模档位卡片：label/成本/时长/维度全部来自后端 useBudgetTiers（单一源）。
+  //   fetch 未就绪时用 DEPTH_LABEL_FALLBACK 标签 + "加载中…"占位。
+  const depthOptions = useMemo(
+    () =>
+      (['quick', 'standard', 'deep'] as const).map((value) => {
+        const t = pickTier(budgetTierData, value);
+        return {
+          value,
+          label: t?.label ?? DEPTH_LABEL_FALLBACK[value],
+          hint: t
+            ? `约 $${t.capUsd} · ~${t.wallTimeMinutes} 分钟 · ${t.dimensionsHint}`
+            : '加载中…',
+        };
+      }),
+    [budgetTierData]
+  );
 
   const isCustomProfile = useMemo(
     () =>
@@ -171,11 +179,11 @@ export function PlaygroundMissionDialog({
     setWithFigures(true);
     setAuditLayers('default');
     setSearchTimeRange('365d');
-    // ★ 2026-05-22 单一源：关掉自定义预算覆盖 + 预算回到 deep 档位默认（不再回 medium=2000/1/30m）。
+    // ★ 2026-05-22 单一源：关掉自定义预算覆盖；预算字段清 0（仅覆盖开启时才用，按档位灌入）。
     setBudgetOverrideEnabled(false);
-    setMaxCredits(SCALE_TIERS.deep.maxCredits);
-    setBudgetMultiplierOverride(SCALE_TIERS.deep.budgetMultiplier);
-    setWallTimeMinutes(SCALE_TIERS.deep.wallTimeMinutes);
+    setMaxCredits(0);
+    setBudgetMultiplierOverride(0);
+    setWallTimeMinutes(0);
     if (typeof window !== 'undefined') {
       [
         'depth',
@@ -354,7 +362,7 @@ export function PlaygroundMissionDialog({
             hintInline="预算 / 时长 / 维度数随档位自动匹配，无需手动设置"
           >
             <div className="grid grid-cols-3 gap-2">
-              {DEPTH_OPTIONS.map((opt) => (
+              {depthOptions.map((opt) => (
                 <SelectableTile
                   key={opt.value}
                   active={depth === opt.value}
@@ -400,22 +408,24 @@ export function PlaygroundMissionDialog({
                   自定义预算上限
                 </span>
                 <span className="mt-0.5 block text-xs text-gray-400">
-                  默认按「{SCALE_TIERS[depth].label}」档位自动匹配（
-                  {SCALE_TIERS[depth].approxCost} ·{' '}
-                  {SCALE_TIERS[depth].approxTime}）。开启后可手动设定 Credits /
-                  倍率 / 时长。
+                  {(() => {
+                    const t = pickTier(budgetTierData, depth);
+                    return t
+                      ? `默认按「${t.label}」档位自动匹配（约 $${t.capUsd} · ~${t.wallTimeMinutes} 分钟）。开启后可手动设定 Credits / 倍率 / 时长。`
+                      : '默认按当前调研规模档位自动匹配。开启后可手动设定 Credits / 倍率 / 时长。';
+                  })()}
                 </span>
               </span>
               <input
                 type="checkbox"
                 checked={budgetOverrideEnabled}
+                disabled={!budgetTierData}
                 onChange={(e) => {
                   const on = e.target.checked;
                   setBudgetOverrideEnabled(on);
-                  // ★ 开启时以当前 depth 档位值为起点（而非旧 localStorage 持久化值），
-                  //   杜绝"勾选自定义后带出陈旧 1000/1"的漂移。
-                  if (on) {
-                    const tier = SCALE_TIERS[depth];
+                  // ★ 开启时以当前 depth 档位值（来自后端单一源）为起点，杜绝旧持久化漂移。
+                  const tier = pickTier(budgetTierData, depth);
+                  if (on && tier) {
                     setMaxCredits(tier.maxCredits);
                     setBudgetMultiplierOverride(tier.budgetMultiplier);
                     setWallTimeMinutes(tier.wallTimeMinutes);

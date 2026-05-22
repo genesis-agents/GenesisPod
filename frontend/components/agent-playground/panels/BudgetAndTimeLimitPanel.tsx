@@ -25,61 +25,9 @@ export const MAX_CREDITS_LIMIT = { min: 10, max: 100_000 } as const;
 export const MULTIPLIER_LIMIT = { min: 0.3, max: 10 } as const;
 export const WALL_TIME_LIMIT_MINUTES = { min: 1, max: 180 } as const;
 
-/**
- * ★ 2026-05-22 单一数据源（前端展示镜像）：调研规模档位 = depth。
- *
- * 数值与后端 backend `run-mission.dto.ts` 的 DEPTH_BUDGET_TIERS 一一对应：
- * 这里只用于"卡片展示 + 高级覆盖的默认填充"；实际预算永远由后端按 depth 解析，
- * 前端不再独立计算/持久化 maxCredits（消除"显示不限实际 1000"的漂移）。
- *
- * approxCost = 典型花费（非上限），上限 cap = maxCredits × 0.002（$6/$16/$40）。
- */
-export const SCALE_TIERS = {
-  quick: {
-    label: '快速',
-    desc: '快速概览 / 试探',
-    approxCost: '约 $2',
-    approxTime: '~5 分钟',
-    scope: '~4 维度',
-    maxCredits: 3000,
-    budgetMultiplier: 1.0,
-    wallTimeMinutes: 20,
-  },
-  standard: {
-    label: '标准',
-    desc: '多数调研场景',
-    approxCost: '约 $6',
-    approxTime: '~30 分钟',
-    scope: '~7 维度',
-    maxCredits: 8000,
-    budgetMultiplier: 2.0,
-    wallTimeMinutes: 60,
-  },
-  deep: {
-    label: '深度',
-    desc: '全面深度报告',
-    approxCost: '约 $15',
-    approxTime: '~90 分钟',
-    scope: '~11 维度',
-    maxCredits: 20000,
-    budgetMultiplier: 4.0,
-    wallTimeMinutes: 180,
-  },
-} as const satisfies Record<
-  'quick' | 'standard' | 'deep',
-  {
-    label: string;
-    desc: string;
-    approxCost: string;
-    approxTime: string;
-    scope: string;
-    maxCredits: number;
-    budgetMultiplier: number;
-    wallTimeMinutes: number;
-  }
->;
-
-export type ScaleTier = keyof typeof SCALE_TIERS;
+// ★ 2026-05-22 ③J/K 契约单一源：原 SCALE_TIERS 前端镜像已删除。调研规模档位的
+//   数值/展示全部来自后端 GET /agent-playground/budget-tiers（useBudgetTiers），
+//   前端不再维护任何 tier 数值副本（杜绝"前后端各一份 → 漂移"）。
 
 export interface BudgetAndTimeLimitPanelProps {
   maxCredits: number;

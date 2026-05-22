@@ -233,6 +233,35 @@ export async function listMissions(): Promise<MissionListItem[]> {
   return data.items ?? [];
 }
 
+// ★ 2026-05-22 ③J/K 契约单一源：调研规模档位 + 预算字段上下限的唯一真源在后端
+//   DEPTH_BUDGET_TIERS / BUDGET_FIELD_LIMITS。前端不再手写 SCALE_TIERS 镜像,改 fetch。
+export interface BudgetTier {
+  depth: 'quick' | 'standard' | 'deep';
+  label: string;
+  desc: string;
+  dimensionsHint: string;
+  maxCredits: number;
+  budgetMultiplier: number;
+  wallTimeMinutes: number;
+  capUsd: number;
+}
+export interface BudgetTiersResponse {
+  tiers: BudgetTier[];
+  limits: {
+    maxCredits: { min: number; max: number };
+    budgetMultiplier: { min: number; max: number };
+    wallTimeMinutes: { min: number; max: number };
+  };
+}
+export async function fetchBudgetTiers(): Promise<BudgetTiersResponse> {
+  const res = await fetch(`${API_BASE}/budget-tiers`, {
+    headers: { ...getAuthHeader() },
+  });
+  if (!res.ok) throw new Error(`Failed to fetch budget tiers: ${res.status}`);
+  const raw: unknown = await res.json();
+  return unwrapStandard<BudgetTiersResponse>(raw);
+}
+
 /**
  * Phase 5 checkpoint：列出"上次中断、可从 checkpoint 增量续跑"的 mission。
  * 数据源：mission row 持久化的 leaderJournal.__checkpoint JSONB key。
