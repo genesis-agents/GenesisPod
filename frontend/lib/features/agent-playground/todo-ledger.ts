@@ -127,6 +127,11 @@ export interface MissionTodo {
   pipelineKey?: string;
   /** retry 原始 strategy，仅 leader-assess-retry/replace/extend origin 设置 */
   retryStrategy?: 'fresh-collect' | 'reuse-recompute';
+  /**
+   * dimension:degraded 的 state（如 'chapter-pipeline-failed' / 'exception'）。
+   * 用于让失败标签区分"采集失败"与"撰写失败"，避免误导。
+   */
+  failedStage?: string;
 }
 
 export interface DeriveTodoArgs {
@@ -1482,6 +1487,13 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
     } else if (t === 'dimension:degraded') {
       const dim = p.dimension as string | undefined;
       const innerCode = p.innerFailureCode as string | undefined;
+      const failureCode = p.failureCode as string | undefined;
+      const degradedState = p.state as string | undefined;
+      const innerMessage = p.innerMessage as string | undefined;
+      // ★ 失败码优先级：innerFailureCode（子 agent 真实码）> failureCode（编排层码）。
+      //   两者都缺时才显示"未知失败码"——避免把已知的 ORCH_* 码也吞成"未知"。
+      const code = innerCode ?? failureCode ?? '未知失败码';
+      const reason = innerMessage ? `：${innerMessage.trim().slice(0, 120)}` : '';
       const target = order
         .map((id) => todos.get(id)!)
         .reverse()
@@ -1490,11 +1502,12 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         if (target.status !== 'done') {
           target.status = 'failed';
           target.endedAt = ev.timestamp;
+          target.failedStage = degradedState;
         }
         addNarrative(
           target.id,
           ev.timestamp,
-          `维度降级（${innerCode ?? '未知失败码'}），下游 Analyst 走退化路径`,
+          `维度降级（${code}${reason}），下游 Analyst 走退化路径`,
           'warn'
         );
       }

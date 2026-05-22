@@ -106,7 +106,9 @@ function deriveDimSubStatus(
   }
   if (td.status === 'failed')
     return {
-      label: '采集失败',
+      // ★ 区分失败阶段：章节 pipeline 失败 ≠ 采集失败（采集其实成功了）
+      label:
+        td.failedStage === 'chapter-pipeline-failed' ? '撰写失败' : '采集失败',
       tone: 'bg-red-100 text-red-700 ring-red-200',
     };
   if (td.status === 'cancelled')

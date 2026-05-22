@@ -288,6 +288,7 @@ async function runChapterPhase(
           dimension: dim.name,
           state: "chapter-pipeline-failed",
           failureCode: "ORCH_CHAPTER_PIPELINE_FAILED",
+          innerFailureCode: "ORCH_CHAPTER_PIPELINE_FAILED",
           innerMessage: message,
           diagnostic: {
             stage: "per-dim-chapter-pipeline",
@@ -822,6 +823,7 @@ async function runOneDim(
             dimension: dim.name,
             state: "chapter-pipeline-failed",
             failureCode: "ORCH_CHAPTER_PIPELINE_FAILED",
+            innerFailureCode: "ORCH_CHAPTER_PIPELINE_FAILED",
             innerMessage: message,
             diagnostic: {
               stage: "per-dim-chapter-pipeline",
