@@ -285,6 +285,13 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `- ★ 2026-05-02 调整 (用户实证报告参考文献仅 17 条，对标 TI 几百条)：`,
       `  Target 12-18 findings per dim — 多 dim 拼接后才能达到 100+ 引用。`,
       `  每条 finding 仍是 1 short evidence quote 即可（不要为了凑数把每条写长）。`,
+      // ★ 2026-05-22 (来源多样性 — 决定本维度章节数)：下游按"唯一来源数"派生章节数
+      //   （每章需 ~2 个唯一来源）。findings 若挤在少数几个 URL 上 → 维度只能开 4 章、
+      //   报告偏薄、评审证据分上不去。
+      `- ★★ **来源多样性硬要求：本维度 findings 必须覆盖 ≥12 个不同的来源 URL/域名**（不是 12 条`,
+      `  finding 挤在 3-4 个站点上）。下游按唯一来源数派生章节数（每章 ~2 个唯一来源）：来源越`,
+      `  多样，本维度章节越丰富、证据越足、评审分越高。单轮多 query 时**有意覆盖不同站点 / 不同`,
+      `  角度 / 不同机构**（官方+研报+学术+新闻+财经各取一些），避免同源堆叠。`,
       `- Use search snippets directly when sufficient; scrape ONLY for missing critical numbers.`,
       `- 单轮 parallel_tool_call 一次性发 4-6 个 query 把 finding 凑齐，避免反复 iterate。`,
       ``,
