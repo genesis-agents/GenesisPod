@@ -35,6 +35,7 @@ import type {
   RunMissionInput,
   ResearchReport,
 } from "../../../dto/run-mission.dto";
+import { DEPTH_BUDGET_TIERS } from "../../../dto/run-mission.dto";
 import {
   parseReportArtifact,
   type ReportArtifact,
@@ -90,12 +91,14 @@ export class CtxHydratorService {
     const userProfile =
       (detail.userProfile as Partial<RunMissionInput> | null) ?? {};
 
+    const depth = (userProfile.depth ??
+      (["quick", "standard", "deep"].includes(detail.depth)
+        ? detail.depth
+        : "deep")) as RunMissionInput["depth"];
+
     const input: RunMissionInput = {
       topic: detail.topic,
-      depth: (userProfile.depth ??
-        (["quick", "standard", "deep"].includes(detail.depth)
-          ? detail.depth
-          : "deep")) as RunMissionInput["depth"],
+      depth,
       language: (userProfile.language ??
         (detail.language === "en-US"
           ? "en-US"
@@ -110,7 +113,11 @@ export class CtxHydratorService {
       viewMode: userProfile.viewMode ?? "continuous",
       searchTimeRange: userProfile.searchTimeRange ?? "365d",
       maxCredits: detail.maxCredits,
-      budgetMultiplierOverride: userProfile.budgetMultiplierOverride ?? 1.0,
+      // ★ 2026-05-22 契约单一源：缺失时按 depth 档位解析（DEPTH_BUDGET_TIERS），
+      //   不再硬编码 1.0（旧值会让 deep 重跑用 1.0 而非 4.0，4× 欠配）。
+      budgetMultiplierOverride:
+        userProfile.budgetMultiplierOverride ??
+        DEPTH_BUDGET_TIERS[depth].budgetMultiplier,
     };
 
     // v1.2 类别 A1+E1+E5：reportArtifact 必从 mission.report_full 读 + zod 校验

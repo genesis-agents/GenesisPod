@@ -28,6 +28,11 @@ import { extractFailureMessage } from "@/modules/ai-harness/facade";
 import { narrate } from "./narrative.util";
 // ★ 2026-05-21 P2 Evidence Contract: 来源充分性的单一权威
 import { computeEvidenceBudget, deriveMaxChapters } from "./evidence-budget";
+// ★ 2026-05-22 契约单一源：章节数范围（与 outline agent schema 同源，杜绝漂移）
+import {
+  CHAPTER_COUNT_RANGE,
+  clampChapterCount,
+} from "../../../contracts/chapter-count.contract";
 import { loadPlaygroundRuntimeConfig } from "../../../playground-runtime.config";
 import { stripChartJsonFromContent } from "@/modules/ai-engine/facade";
 
@@ -141,14 +146,18 @@ export async function runPerDimPipeline(
   const naiveWordsPerChapter = Math.max(400, Math.min(naivePerChapter, 8000));
   const wordBasedChapterCount = Math.max(
     3,
-    Math.min(25, Math.round(dimTargetWords / naiveWordsPerChapter)),
+    Math.min(
+      CHAPTER_COUNT_RANGE.max,
+      Math.round(dimTargetWords / naiveWordsPerChapter),
+    ),
   );
   // ★ 2026-05-21 P2 Evidence Contract（单一权威）：按采集到的真实来源供给给章节数
   //   封顶，保证每章能满足 reviewer 的引用下限 —— 治"采得少却开 N 章 → 审核结构性
   //   不可满足 → 重写循环 → 超时失败"。供给充足时不缩水（取 wordBasedChapterCount）。
   const evidenceBudget = computeEvidenceBudget(researcherOut.findings);
-  const targetChapterCount = Math.max(
-    1,
+  // ★ 2026-05-22 契约单一源：clamp 到 CHAPTER_COUNT_RANGE（与 outline agent schema 同源）。
+  //   不再手写 Math.max(1, Math.min(25,...)) 复写消费方边界。
+  const targetChapterCount = clampChapterCount(
     Math.min(
       wordBasedChapterCount,
       deriveMaxChapters(evidenceBudget, idealChapters, minChapters),

@@ -102,7 +102,9 @@ export async function runAnalystStage(
     researcherResults,
     reconciliationReport,
   } = ctx;
-  if (!researcherResults) {
+  // ★ 2026-05-22 契约对齐：analyst.agent inputSchema 要求 researcherResults.min(1)，
+  //   故空数组也不合法（旧守护只查 null → 空数组会穿到 agent 触发 schema 校验失败）。
+  if (!researcherResults?.length) {
     throw new Error("Analyst stage requires researcherResults to be populated");
   }
 
