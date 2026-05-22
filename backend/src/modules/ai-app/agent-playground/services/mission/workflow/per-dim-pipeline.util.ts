@@ -133,6 +133,9 @@ export async function runPerDimPipeline(
     depth === "quick" ? 10000 : depth === "deep" ? 150000 : 40000;
   const dimTargetWords = Math.round(missionTarget / dimCount);
   const idealChapters = depth === "quick" ? 2 : depth === "deep" ? 7 : 4;
+  // ★ 2026-05-22 质量保底章节数：供给偏少时也不让维度塌成 1 章（受 uniqueSources 夹逼，
+  //   不会产生 0 来源空章；每章引用下限由 deriveCitationFloor 自适应）。
+  const minChapters = depth === "quick" ? 2 : depth === "deep" ? 4 : 3;
   const naivePerChapter = Math.round(dimTargetWords / idealChapters);
   const targetWordsPerChapter = Math.max(400, Math.min(naivePerChapter, 8000));
   const wordBasedChapterCount = Math.max(
@@ -147,7 +150,7 @@ export async function runPerDimPipeline(
     1,
     Math.min(
       wordBasedChapterCount,
-      deriveMaxChapters(evidenceBudget, idealChapters),
+      deriveMaxChapters(evidenceBudget, idealChapters, minChapters),
     ),
   );
   const dimAgentTag = `researcher#${dimensionIdx}`;

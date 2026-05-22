@@ -62,14 +62,28 @@ export function computeEvidenceBudget(
 
 /**
  * 由来源供给推导章节数上限：每章尽量分到 ≥2 个唯一来源。
- * 5 个唯一来源 → 最多 2 章（而非硬开 7 章），≥1。供给充足时不缩水（取 idealChapters）。
+ * 5 个唯一来源 → 最多 2 章（而非硬开 7 章）。供给充足时不缩水（取 idealChapters）。
+ *
+ * ★ 2026-05-22 minChapters 质量保底：供给偏少时仍保留一个最低章节数，避免报告塌成
+ *   1 章导致结构性偏薄。保底受两侧夹逼，绝不破坏"引用可满足"不变量：
+ *     - 不超过 idealChapters（不无中生有）
+ *     - 不超过 uniqueSources（不产生 0 来源的空章；每章至少 1 个唯一来源）
+ *   每章引用下限由 deriveCitationFloor 按本章实际来源数自适应，故抬高章节数不会
+ *   重新打开"采得少却要得多"的死区。minChapters 默认 1（保持旧行为）。
  */
 export function deriveMaxChapters(
   budget: EvidenceBudget,
   idealChapters: number,
+  minChapters = 1,
 ): number {
   const bySources = Math.floor(budget.uniqueSources / 2);
-  return Math.max(1, Math.min(idealChapters, bySources));
+  const natural = Math.max(1, Math.min(idealChapters, bySources));
+  const floor = Math.min(
+    Math.max(1, minChapters),
+    idealChapters,
+    Math.max(1, budget.uniqueSources),
+  );
+  return Math.max(natural, floor);
 }
 
 /**

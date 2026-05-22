@@ -97,6 +97,35 @@ describe("evidence-budget", () => {
       };
       expect(deriveMaxChapters(budget, 7)).toBe(7);
     });
+
+    it("minChapters defaults to 1 (backward compatible)", () => {
+      const budget = computeEvidenceBudget(
+        Array.from({ length: 5 }, (_, i) => ({ source: `https://x.com/${i}` })),
+      );
+      expect(deriveMaxChapters(budget, 7)).toBe(2);
+    });
+
+    it("honors a quality floor when supply allows: 4 sources, min 4 → 4 (not 2)", () => {
+      const budget = computeEvidenceBudget(
+        Array.from({ length: 4 }, (_, i) => ({ source: `https://x.com/${i}` })),
+      );
+      expect(deriveMaxChapters(budget, 7, 4)).toBe(4);
+    });
+
+    it("never lets the floor create 0-source chapters: 2 sources, min 4 → 2", () => {
+      const budget = { uniqueSources: 2, uniqueDomains: 2, totalFindings: 2 };
+      expect(deriveMaxChapters(budget, 7, 4)).toBe(2);
+    });
+
+    it("floor never exceeds ideal: ideal 2, min 4, rich supply → 2", () => {
+      const budget = { uniqueSources: 40, uniqueDomains: 20, totalFindings: 50 };
+      expect(deriveMaxChapters(budget, 2, 4)).toBe(2);
+    });
+
+    it("still returns 1 with zero supply even when a floor is set", () => {
+      const budget = { uniqueSources: 0, uniqueDomains: 0, totalFindings: 0 };
+      expect(deriveMaxChapters(budget, 7, 4)).toBe(1);
+    });
   });
 
   describe("deriveCitationFloor", () => {

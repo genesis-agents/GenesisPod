@@ -83,14 +83,29 @@ export class ModelElectionService {
     const healthy = typeMatched.filter(
       (c) => c.healthy !== "unhealthy" && (c.recentErrorRate ?? 0) < 0.5,
     );
-    const notBlacklisted = healthy.filter((c) => !excluded.has(c.modelId));
+    let notBlacklisted = healthy.filter((c) => !excluded.has(c.modelId));
 
     if (notBlacklisted.length === 0) {
-      throw new NoEligibleModelError(
-        modelType,
-        `pool=${pool.length} typeMatched=${typeMatched.length} ` +
-          `healthy=${healthy.length} afterBlacklist=${notBlacklisted.length}`,
+      // ★ 2026-05-22 单模型 / 全降级部署的最后一道保命：与其因"0 健康候选"硬抛
+      //   NoEligibleModelError 把整个 mission 判废（根因：平台只启用 1 个模型且无
+      //   fallback 档，该模型 recentErrorRate≥0.5 或被标 unhealthy 时此处必空），不如
+      //   退回到 type-matched 里"最不坏"的候选，交给上层 react-loop 的退避/重试。
+      //   仅在本来必抛错时触发；多模型健康部署永不进入此分支，对正常路径零影响。
+      const lastResort = this.pickLastResort(typeMatched, excluded);
+      if (lastResort.length === 0) {
+        throw new NoEligibleModelError(
+          modelType,
+          `pool=${pool.length} typeMatched=${typeMatched.length} ` +
+            `healthy=${healthy.length} afterBlacklist=0`,
+        );
+      }
+      this.logger.warn(
+        `[elect] no healthy candidate for modelType=${modelType} role=${role}; ` +
+          `falling back to last-resort [${lastResort
+            .map((c) => c.modelId)
+            .join(", ")}] (degraded — health/errorRate may be poor)`,
       );
+      notBlacklisted = lastResort;
     }
 
     // ============ Step 3 · BYOK 过滤 ============
@@ -191,6 +206,24 @@ export class ModelElectionService {
       scores: scored.map((s) => s.score),
       reason,
     };
+  }
+
+  /**
+   * 最后保命候选——仅当 health/blacklist 过滤把池子清空、但仍有 type-matched 候选时调用。
+   * 取舍优先级：未被本轮黑名单 > 黑名单；非 unhealthy > unhealthy；recentErrorRate 最低。
+   * 返回"最不坏"的同分子集（可能 >1 个），交给后续打分 / tie-break 最终定夺。
+   */
+  private pickLastResort(
+    typeMatched: ElectionCandidate[],
+    excluded: Set<string>,
+  ): ElectionCandidate[] {
+    if (typeMatched.length === 0) return [];
+    const notExcluded = typeMatched.filter((c) => !excluded.has(c.modelId));
+    const base = notExcluded.length > 0 ? notExcluded : typeMatched;
+    const notDead = base.filter((c) => c.healthy !== "unhealthy");
+    const finalPool = notDead.length > 0 ? notDead : base;
+    const minErr = Math.min(...finalPool.map((c) => c.recentErrorRate ?? 0));
+    return finalPool.filter((c) => (c.recentErrorRate ?? 0) === minErr);
   }
 
   // ============================================================
