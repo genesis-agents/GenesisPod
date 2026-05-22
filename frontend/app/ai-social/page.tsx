@@ -13,7 +13,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogIn, Share2, Link2, ShieldAlert } from 'lucide-react';
+import { LogIn, Share2, Link2, ShieldAlert, Search, Plus } from 'lucide-react';
+import { NewTaskDialog } from '@/components/ai-social/dialogs/NewTaskDialog';
 import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { useTranslation } from '@/lib/i18n';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -36,6 +37,9 @@ export default function AISocialPage() {
   const [connections, setConnections] = useState<SocialPlatformConnection[]>(
     []
   );
+  // 主页搜索 + 新建（放 hero，对齐 playground MissionGalleryView）
+  const [search, setSearch] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -126,24 +130,51 @@ export default function AISocialPage() {
             iconGradient="from-rose-500 to-pink-600"
             iconShadowClass="shadow-rose-500/25"
             actions={
-              <button
-                type="button"
-                onClick={() => router.push('/ai-social/connections')}
-                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-              >
-                <Link2 className="h-4 w-4" />
-                {t('aiSocial.connectionsLink')} (
-                {connections.filter((c) => c.isActive).length})
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push('/ai-social/connections')}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  <Link2 className="h-4 w-4" />
+                  {t('aiSocial.connectionsLink')} (
+                  {connections.filter((c) => c.isActive).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-700"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('aiSocial.tasks.create')}
+                </button>
+              </div>
             }
-          />
+          >
+            {/* hero 内搜索框（对齐 playground）*/}
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="搜索任务标题或内容…"
+                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-rose-400 focus:ring-2 focus:ring-rose-500/15"
+              />
+            </div>
+          </PageHeaderHero>
         </div>
 
         {/* 主视图 = 任务列表（卡片网格，点卡片跳 /mission/[taskId]）*/}
         <div className="px-8 py-6">
-          <TasksTab />
+          <TasksTab search={search} onCreate={() => setCreateOpen(true)} />
         </div>
       </div>
+      <NewTaskDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => setCreateOpen(false)}
+      />
     </ErrorBoundary>
   );
 }

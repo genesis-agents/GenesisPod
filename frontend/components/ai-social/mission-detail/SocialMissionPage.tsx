@@ -23,7 +23,10 @@ import {
   Coins,
   Copy,
   Crown,
+  Download,
   FileText,
+  Monitor,
+  Smartphone,
   Image as ImageIcon,
   Layers,
   ListChecks,
@@ -364,6 +367,7 @@ function ReportTab({
   };
 
   const [publishOpen, setPublishOpen] = useState(false);
+  const [previewMode, setPreviewMode] = useState<'phone' | 'wide'>('phone');
   const version = task.versions?.find((v) => v.platform === activePlatform);
 
   if (platforms.length === 0) {
@@ -378,7 +382,7 @@ function ReportTab({
     <div className="flex h-full flex-col">
       {/* header：平台子 tab（左）+ 发布按钮（右，参考 playground 导出位置）*/}
       <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-2">
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-3">
           {platforms.length > 1 && (
             <Tabs
               variant="pill"
@@ -391,6 +395,35 @@ function ReportTab({
               }))}
             />
           )}
+          {/* 手机真机 / 宽屏 预览切换 */}
+          <div className="flex shrink-0 items-center gap-0.5 rounded-lg bg-gray-100 p-0.5">
+            <button
+              type="button"
+              onClick={() => setPreviewMode('phone')}
+              className={cn(
+                'inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors',
+                previewMode === 'phone'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              )}
+            >
+              <Smartphone className="h-3.5 w-3.5" />
+              手机
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewMode('wide')}
+              className={cn(
+                'inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors',
+                previewMode === 'wide'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              )}
+            >
+              <Monitor className="h-3.5 w-3.5" />
+              宽屏
+            </button>
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {version?.content && (
@@ -412,6 +445,30 @@ function ReportTab({
               复制正文
             </button>
           )}
+          {version?.content && (
+            <button
+              type="button"
+              onClick={() => {
+                const safeTitle = version.title
+                  .replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;');
+                const html = `<!doctype html><html><head><meta charset="utf-8"><title>${safeTitle}</title></head><body>${DOMPurify.sanitize(version.content)}</body></html>`;
+                const blob = new Blob([html], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${(version.title || 'article').slice(0, 50)}.html`;
+                a.click();
+                URL.revokeObjectURL(url);
+                toast.success('已下载文章 HTML');
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              <Download className="h-4 w-4" />
+              下载
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setPublishOpen(true)}
@@ -424,7 +481,14 @@ function ReportTab({
       </div>
       <div className="flex-1 overflow-auto bg-gray-50">
         {version ? (
-          <article className="mx-auto my-6 max-w-2xl space-y-5 rounded-2xl bg-white px-6 py-8 shadow-sm sm:px-10">
+          <article
+            className={cn(
+              'mx-auto my-6 space-y-5 overflow-hidden bg-white',
+              previewMode === 'phone'
+                ? 'w-[400px] max-w-full rounded-[2rem] border-[6px] border-gray-900 px-4 py-6 shadow-2xl'
+                : 'max-w-2xl rounded-2xl px-6 py-8 shadow-sm sm:px-10'
+            )}
+          >
             {version.coverImageUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -957,6 +1021,56 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                       ) : (
                         <span className="text-gray-400">—</span>
                       ),
+                  },
+                  {
+                    key: 'model',
+                    label: '模型',
+                    className: 'w-36',
+                    render: (s) => {
+                      const a = s.role
+                        ? socialAgentByRole(socialView, s.role)
+                        : undefined;
+                      return a?.modelId ? (
+                        <span className="font-mono block truncate text-xs text-gray-600">
+                          {a.modelId}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      );
+                    },
+                  },
+                  {
+                    key: 'tools',
+                    label: '工具',
+                    className: 'w-16 text-gray-500',
+                    render: (s) => {
+                      const a = s.role
+                        ? socialAgentByRole(socialView, s.role)
+                        : undefined;
+                      const n = agentTools(a).length;
+                      return n > 0 ? (
+                        <span className="text-xs">{n} 个</span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      );
+                    },
+                  },
+                  {
+                    key: 'iters',
+                    label: '迭代',
+                    className: 'w-14 text-right text-gray-500',
+                    render: (s) => {
+                      const a = s.role
+                        ? socialAgentByRole(socialView, s.role)
+                        : undefined;
+                      return a?.iterations != null ? (
+                        <span className="font-mono text-xs">
+                          {a.iterations}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      );
+                    },
                   },
                   {
                     key: 'status',

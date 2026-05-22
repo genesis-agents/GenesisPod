@@ -129,6 +129,17 @@ export function retrySocialTask(id: string): Promise<{ id: string }> {
   });
 }
 
+/** 重命名任务（卡片「编辑」按钮）*/
+export function renameSocialTask(
+  id: string,
+  title: string
+): Promise<{ id: string }> {
+  return fetchJson<{ id: string }>(`/api/v1/ai-social/tasks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  });
+}
+
 // ============== Data source endpoints ==============
 
 export function listSocialDataSources(): Promise<{

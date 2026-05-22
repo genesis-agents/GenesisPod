@@ -1,24 +1,18 @@
 'use client';
 
 /**
- * TasksTab — AI 社媒主页列表（卡片网格）
+ * TasksTab — AI 社媒主页列表（canonical AssetCard 卡片网格）
  *
- * 2026-05-21 重构：废弃 spreadsheet 表格（内容/来源/平台/状态/操作 5 列"硬凑"，
- * 与全站不一致），改用 canonical `AssetCard` 网格 + `Tabs(pill)` 筛选 + `StatusBadge`
- * + `CreateCard` + 页面级 `LoadingState`/`EmptyState`，对齐 Research/Writing/Library/
- * Playground 全站主页形态（mission 兄弟 Agent Playground 也是卡片网格）。
+ * 对齐全站主页（Research/Writing/Library/Playground）：搜索框（无过滤 chip）+
+ * AssetCard 标准模板（icon 渐变 + badges 含状态 + 描述 + stats + 时间戳 + hover 操作）
+ * + dashed CreateCard。卡片配置与 playground MissionGallery View 的 MissionCard 同构。
  *
  * 数据源：useSocialTasks（GET /ai-social/tasks 轮询 5s）；点卡片 → /ai-social/mission/{id}
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Plus,
-  RefreshCw,
-  Send,
-  RotateCw,
-  ExternalLink,
   Loader2,
   CheckCircle2,
   XCircle,
@@ -32,17 +26,16 @@ import {
   Lightbulb,
   Bot,
   Link2,
-  Trash2,
+  Layers,
   type LucideIcon,
 } from 'lucide-react';
 import {
   AssetCard,
   type AssetCardBadge,
-  type AssetCardAction,
+  type AssetCardStat,
 } from '@/components/ui/cards/asset-card';
 import { CreateCard } from '@/components/ui/cards/CreateCard';
-import { StatusBadge, type BadgeTone } from '@/components/ui/badges';
-import { Tabs } from '@/components/ui/tabs';
+import type { BadgeTone } from '@/components/ui/badges';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui/states';
 import { useTranslation } from '@/lib/i18n';
@@ -50,22 +43,23 @@ import {
   useSocialTasks,
   cancelTaskAndRefresh,
 } from '@/hooks/domain/useSocialTasks';
+import { renameSocialTask } from '@/services/ai-social/task-api';
 import type {
   SocialContentTask,
   SocialContentTaskStatus,
 } from '@/services/ai-social/task-types';
-import { NewTaskDialog } from '../dialogs/NewTaskDialog';
 import { logger } from '@/lib/utils/logger';
+import { confirm } from '@/stores';
 
-// 任务状态 → canonical StatusBadge 的 tone / 图标 / 文案
+// 任务状态 → 状态徽章（icon/文案/色调）
 const STATUS_META: Record<
   SocialContentTaskStatus,
-  { tone: BadgeTone; icon: LucideIcon; label: string; pulse?: boolean }
+  { tone: BadgeTone; icon: LucideIcon; label: string; spin?: boolean }
 > = {
   PENDING: { tone: 'neutral', icon: Inbox, label: '待启动' },
-  GENERATING: { tone: 'running', icon: Loader2, label: '生成中', pulse: true },
+  GENERATING: { tone: 'running', icon: Loader2, label: '生成中', spin: true },
   DRAFT_READY: { tone: 'success', icon: CheckCircle2, label: '草稿就绪' },
-  PUBLISHING: { tone: 'warning', icon: Loader2, label: '发布中', pulse: true },
+  PUBLISHING: { tone: 'warning', icon: Loader2, label: '发布中', spin: true },
   PUBLISHED: { tone: 'success', icon: CheckCircle2, label: '已发布' },
   PARTIAL_PUBLISHED: {
     tone: 'warning',
@@ -74,6 +68,16 @@ const STATUS_META: Record<
   },
   FAILED: { tone: 'danger', icon: XCircle, label: '失败' },
   CANCELLED: { tone: 'neutral', icon: XCircle, label: '已取消' },
+};
+
+// 状态色调 → AssetCardBadge className（与 playground MissionGalleryView 同款，走 badge API）
+const TONE_BADGE: Record<BadgeTone, string> = {
+  success: 'bg-emerald-50 text-emerald-700',
+  running: 'bg-blue-50 text-blue-700',
+  danger: 'bg-red-50 text-red-700',
+  warning: 'bg-amber-50 text-amber-700',
+  info: 'bg-violet-50 text-violet-700',
+  neutral: 'bg-gray-100 text-gray-600',
 };
 
 // 后端 data source 的 sourceType → 友好显示
@@ -140,144 +144,134 @@ function taskTitleOf(task: SocialContentTask): string {
   );
 }
 
-const FILTER_KEYS = [
-  'ALL',
-  'PENDING',
-  'GENERATING',
-  'DRAFT_READY',
-  'PUBLISHED',
-  'FAILED',
-] as const;
+function taskDescriptionOf(task: SocialContentTask): string {
+  const digest = task.versions?.[0]?.digest?.trim();
+  return (
+    task.errorMessage?.trim() ||
+    digest ||
+    task.prompt?.trim() ||
+    (task.status === 'GENERATING' || task.status === 'PENDING'
+      ? '内容生成中…'
+      : '暂无摘要')
+  );
+}
 
-export default function TasksTab() {
+export default function TasksTab({
+  search,
+  onCreate,
+}: {
+  search: string;
+  onCreate: () => void;
+}) {
   const router = useRouter();
   const { t } = useTranslation();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [filter, setFilter] = useState<SocialContentTaskStatus | 'ALL'>('ALL');
 
   const { tasks, isLoading, error, refresh } = useSocialTasks({
-    status: filter === 'ALL' ? undefined : filter,
     refreshIntervalMs: 5000,
   });
 
-  const counters = useMemo(() => {
-    const c: Partial<Record<SocialContentTaskStatus | 'ALL', number>> = {
-      ALL: tasks.length,
-    };
-    for (const task of tasks) c[task.status] = (c[task.status] ?? 0) + 1;
-    return c;
-  }, [tasks]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return tasks;
+    return tasks.filter(
+      (tk) =>
+        taskTitleOf(tk).toLowerCase().includes(q) ||
+        taskDescriptionOf(tk).toLowerCase().includes(q)
+    );
+  }, [tasks, search]);
 
-  // 计数仅在「全部」视图准确（筛选时 tasks 只含该状态，其余 tab 计数会失实 → 不显示）
-  const filterItems = FILTER_KEYS.map((s) => ({
-    key: s,
-    label: s === 'ALL' ? t('aiSocial.tasks.filter.all') : STATUS_META[s].label,
-    count: filter === 'ALL' ? (counters[s] ?? 0) : undefined,
-  }));
-
-  const handleCancel = (task: SocialContentTask) => {
+  const handleCancel = async (task: SocialContentTask) => {
+    const canCancel = task.status === 'PENDING' || task.status === 'GENERATING';
+    const ok = await confirm({
+      title: canCancel
+        ? `取消任务「${taskTitleOf(task)}」？`
+        : `删除任务「${taskTitleOf(task)}」？`,
+      description: canCancel ? '任务将停止，记录保留。' : '此操作不可恢复。',
+      type: 'danger',
+    });
+    if (!ok) return;
     void cancelTaskAndRefresh(task.id, refresh).catch((err: unknown) => {
       logger.warn('[TasksTab] cancel failed:', err);
     });
   };
 
+  const handleRename = async (task: SocialContentTask) => {
+    // eslint-disable-next-line no-alert
+    const next = window.prompt('重命名任务：', taskTitleOf(task));
+    const trimmed = next?.trim();
+    if (!trimmed || trimmed === taskTitleOf(task)) return;
+    try {
+      await renameSocialTask(task.id, trimmed);
+      refresh();
+    } catch (err) {
+      logger.warn('[TasksTab] rename failed:', err);
+    }
+  };
+
   const renderCard = (task: SocialContentTask) => {
     const meta = STATUS_META[task.status];
     const sources = task.sources ?? [];
-    const firstSource = sources[0];
     const urlCount = task.externalUrls.length;
 
-    const badges: AssetCardBadge[] = [];
-    if (firstSource) {
-      const sm = getSourceMeta(firstSource.sourceType);
-      const extra = sources.length > 1 ? ` +${sources.length - 1}` : '';
-      badges.push({
-        key: 'source',
-        label: `${sm.label}${extra}`,
-        icon: <sm.Icon className="h-3 w-3" />,
+    // badges：平台 + 状态（状态作为标准 badge，与 playground MissionCard 一致）
+    const badges: AssetCardBadge[] = [
+      {
+        key: 'platform',
+        label: platformLabelOf(task),
+        className: 'bg-gray-100 text-gray-600',
+      },
+      {
+        key: 'status',
+        label: meta.label,
+        className: TONE_BADGE[meta.tone],
+        icon: (
+          <meta.icon className={`h-3 w-3 ${meta.spin ? 'animate-spin' : ''}`} />
+        ),
+      },
+    ];
+
+    // stats：来源 / 外链 / 版本（带图标，与标准卡 stats 行一致）
+    const stats: AssetCardStat[] = [];
+    if (sources.length > 0) {
+      const sm = getSourceMeta(sources[0].sourceType);
+      stats.push({
+        key: 'src',
+        icon: <sm.Icon className="h-3.5 w-3.5" />,
+        text:
+          sources.length > 1 ? `${sm.label} +${sources.length - 1}` : sm.label,
       });
     }
     if (urlCount > 0) {
-      badges.push({
+      stats.push({
         key: 'url',
-        label: `${urlCount} 外链`,
-        icon: <Link2 className="h-3 w-3" />,
+        icon: <Link2 className="h-3.5 w-3.5" />,
+        text: `${urlCount} 外链`,
       });
     }
-    badges.push({
-      key: 'platform',
-      label: platformLabelOf(task),
-      className: 'bg-rose-50 text-rose-600',
-    });
+    if (task.versions && task.versions.length > 0) {
+      stats.push({
+        key: 'ver',
+        icon: <Layers className="h-3.5 w-3.5" />,
+        text: `${task.versions.length} 版本`,
+      });
+    }
 
-    const extraActions: AssetCardAction[] = [];
-    const externalUrl = (task.versions ?? []).find(
-      (v) => v.externalUrl
-    )?.externalUrl;
-    if (externalUrl) {
-      extraActions.push({
-        key: 'open',
-        title: '打开发布链接',
-        tone: 'success',
-        icon: <ExternalLink className="h-4 w-4" />,
-        onClick: () => window.open(externalUrl, '_blank', 'noopener'),
-      });
-    }
-    if (task.status === 'DRAFT_READY') {
-      extraActions.push({
-        key: 'publish',
-        title: '发布到草稿箱',
-        tone: 'info',
-        icon: <Send className="h-4 w-4" />,
-        onClick: () => router.push(`/ai-social/mission/${task.id}`),
-      });
-    }
-    if (task.status === 'FAILED' || task.status === 'PARTIAL_PUBLISHED') {
-      extraActions.push({
-        key: 'retry',
-        title: '进入详情重试',
-        tone: 'warning',
-        icon: <RotateCw className="h-4 w-4" />,
-        onClick: () => router.push(`/ai-social/mission/${task.id}`),
-      });
-    }
-    // 删除/取消（运营型操作，不走 isOwner 标准管理槽 —— 任务无"编辑"语义）
     const canCancel = task.status === 'PENDING' || task.status === 'GENERATING';
-    extraActions.push({
-      key: 'delete',
-      title: canCancel ? '取消任务（保留记录）' : '删除任务',
-      tone: 'danger',
-      icon: <Trash2 className="h-4 w-4" />,
-      onClick: () => handleCancel(task),
-    });
 
     return (
       <AssetCard
         key={task.id}
         title={taskTitleOf(task)}
+        description={taskDescriptionOf(task)}
         icon={<FileText className="h-6 w-6 text-white" />}
         gradient={getCardGradient(task.id)}
         badges={badges}
-        extraActions={extraActions}
+        isOwner
+        onEdit={() => void handleRename(task)}
+        onDelete={() => void handleCancel(task)}
+        labels={{ edit: '重命名', delete: canCancel ? '取消任务' : '删除任务' }}
         onClick={() => router.push(`/ai-social/mission/${task.id}`)}
-        customSection={
-          <div className="space-y-1.5">
-            <StatusBadge
-              tone={meta.tone}
-              label={meta.label}
-              icon={meta.icon}
-              pulse={meta.pulse}
-            />
-            {task.errorMessage && (
-              <p
-                className="line-clamp-2 text-xs text-red-600"
-                title={task.errorMessage}
-              >
-                {task.errorMessage}
-              </p>
-            )}
-          </div>
-        }
+        stats={stats}
         timestamp={task.createdAt}
       />
     );
@@ -285,37 +279,15 @@ export default function TasksTab() {
 
   return (
     <div className="space-y-4">
-      {/* Toolbar：canonical Tabs(pill) 筛选 + 刷新 + 新建 */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Tabs
-          variant="pill"
-          size="sm"
-          value={filter}
-          onChange={(k) => setFilter(k as SocialContentTaskStatus | 'ALL')}
-          items={filterItems}
-        />
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 transition-colors hover:bg-gray-50"
-            title="刷新"
-            aria-label="刷新"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
-            />
-          </button>
-          <button
-            type="button"
-            onClick={() => setDialogOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-700"
-          >
-            <Plus className="h-4 w-4" />
-            {t('aiSocial.tasks.create')}
-          </button>
+      {/* 计数行（对齐 playground MissionGalleryView）*/}
+      {!isLoading && tasks.length > 0 && (
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-base font-semibold text-gray-900">
+            {search ? '搜索结果' : '我的任务'}
+          </h2>
+          <span className="text-xs text-gray-500">共 {filtered.length} 个</span>
         </div>
-      </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -331,27 +303,21 @@ export default function TasksTab() {
           title={t('aiSocial.tasks.empty')}
           action={{
             label: t('aiSocial.tasks.create'),
-            onClick: () => setDialogOpen(true),
+            onClick: onCreate,
           }}
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          type="search"
+          title="没有匹配的任务"
+          description="换个关键词试试"
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {tasks.map(renderCard)}
-          <CreateCard
-            title={t('aiSocial.tasks.create')}
-            onClick={() => setDialogOpen(true)}
-          />
+          {filtered.map(renderCard)}
+          <CreateCard title={t('aiSocial.tasks.create')} onClick={onCreate} />
         </div>
       )}
-
-      <NewTaskDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        onCreated={() => {
-          setDialogOpen(false);
-          refresh();
-        }}
-      />
     </div>
   );
 }
