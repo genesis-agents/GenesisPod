@@ -648,18 +648,11 @@ const response = await this.chatFacade.chatWithSkills({
 
 ## P1-2: 严格结构化输出（Strict Structured Output） `[平台级]`
 
-### 当前状态
+### 当前状态（已实现，R2-#35）
 
-`chatStructured()` 方法（`chat.facade.ts:668`）的 JSON 解析流程：
+Harness 循环（`simple-loop` 和 `react-loop` 非 function-calling 分支）现在通过 `structuredOutputStrategy: "json_schema"` + `outputJsonSchema` 参数调用 `AiChatService.chat()`，由 `StructuredOutputRouter` 按 provider 选择原生 JSON Schema 约束（OpenAI `json_schema` / Anthropic `tool_use` / Gemini `response_schema` 等），不再依赖 prompt 嵌入 schema + 5 层文本解析回退。
 
-1. 将 schema 嵌入 system prompt 作为文本指令
-2. LLM 输出文本
-3. 尝试 JSON.parse
-4. 失败 → 正则提取 \`\`\`json 代码块
-5. 失败 → 截断到最后一个 `}` 重试
-6. 失败 → 返回 null 或抛错
-
-这套 5 层恢复逻辑本身说明输出格式经常不合规。
+> 注：`chat.facade.ts` 的 `chatStructured()` 辅助方法（prompt-injection 路径）仍存在，供非 harness 的直调场景使用，但 harness 管控的结构化输出已走原生路径。
 
 ### Anthropic 最佳实践
 

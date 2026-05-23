@@ -173,6 +173,33 @@ describe("StructuredOutputRouter — 未配置默认推断", () => {
     expect(chain).toEqual(["prompt"]);
   });
 
+  it("Mistral 未配置 → json_mode → prompt", () => {
+    const chain = router.resolveChain({
+      provider: "Mistral",
+      modelId: "mistral-large",
+      structuredOutputStrategy: null,
+    });
+    expect(chain).toEqual(["json_mode", "prompt"]);
+  });
+
+  it("Qwen 未配置 → json_mode → prompt", () => {
+    const chain = router.resolveChain({
+      provider: "qwen",
+      modelId: "qwen-max",
+      structuredOutputStrategy: null,
+    });
+    expect(chain).toEqual(["json_mode", "prompt"]);
+  });
+
+  it("Moonshot 未配置 → json_mode → prompt", () => {
+    const chain = router.resolveChain({
+      provider: "moonshot",
+      modelId: "moonshot-v1-8k",
+      structuredOutputStrategy: null,
+    });
+    expect(chain).toEqual(["json_mode", "prompt"]);
+  });
+
   it("完全未知 provider → 仅 prompt 兜底（带 warn）", () => {
     const chain = router.resolveChain({
       provider: "WeirdProvider",

@@ -112,6 +112,21 @@ const PROVIDER_DEFAULT_CHAINS: ReadonlyArray<{
     match: (p) => /openrouter/.test(p),
     chain: ["json_schema", "json_mode", "prompt"],
   },
+  // Mistral（json_object 模式；无 json_schema strict 支持）
+  {
+    match: (p) => /mistral/.test(p),
+    chain: ["json_mode", "prompt"],
+  },
+  // Qwen / Alibaba DashScope（OpenAI-compatible json_object）
+  {
+    match: (p) => /qwen|dashscope|alibaba/.test(p),
+    chain: ["json_mode", "prompt"],
+  },
+  // Moonshot / Kimi（OpenAI-compatible json_object）
+  {
+    match: (p) => /moonshot|kimi/.test(p),
+    chain: ["json_mode", "prompt"],
+  },
   // Cohere（generate API 不支持 json_schema，纯 prompt）
   {
     match: (p) => /cohere/.test(p),
