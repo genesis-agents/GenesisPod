@@ -40,7 +40,7 @@ export class MissionUpdateHelper {
     userId: string,
     patch: {
       maxCredits?: number;
-      wallTimeMs?: number;
+      wallTimeCapMs?: number;
       budgetMultiplierOverride?: number;
     },
   ): Promise<{ ok: boolean; reason?: string }> {
@@ -76,8 +76,8 @@ export class MissionUpdateHelper {
             }
           : undefined;
       const runtimeLimitsOverride =
-        typeof patch.wallTimeMs === "number"
-          ? { wallTimeCapMs: patch.wallTimeMs }
+        typeof patch.wallTimeCapMs === "number"
+          ? { wallTimeCapMs: patch.wallTimeCapMs }
           : undefined;
       const next = applyInputPatch(
         snap,

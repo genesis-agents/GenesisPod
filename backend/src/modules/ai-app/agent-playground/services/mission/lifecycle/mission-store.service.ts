@@ -55,7 +55,7 @@ function projectUserProfileView(
     inheritFromMissionId: b.inheritFromMissionId,
     maxCredits: snap.budget.maxCredits,
     budgetMultiplierOverride: snap.budget.budgetMultiplier,
-    wallTimeMs: snap.runtimeLimits.wallTimeCapMs,
+    wallTimeCapMs: snap.runtimeLimits.wallTimeCapMs,
   };
 }
 import { MissionUpdateHelper } from "./mission-update.helper";

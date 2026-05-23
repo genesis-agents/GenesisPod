@@ -18,7 +18,7 @@
  *   Budget-Soft — budget estimate affordable=false, suggestion=warn → continues
  *   Stage-Degraded — S3 all dims fail → markStageDegraded narrative emitted
  *   MaxCredits — resolveMissionCredits returns input.maxCredits 或按 depth 档位解析
- *   WallTime — resolveMissionWallTimeMs 按 depth 档位（DEPTH_BUDGET_TIERS）解析; wallTimeMs override 优先
+ *   WallTime — resolveMissionWallTimeMs 按 depth 档位（DEPTH_BUDGET_TIERS）解析; wallTimeCapMs override 优先
  *   MaxIterations — RESEARCHER_MAX_ITERATIONS_HARD_CAP constant exists and is finite
  *   BudgetExhausted — dispatcher calls abortRegistry.abort on pool.isExhausted()
  *   LivenessConfig — playground registers staleThresholdMs >= 15min
@@ -401,13 +401,13 @@ describe("resolveBudgetMultiplier — pure function contracts", () => {
 });
 
 describe("resolveMissionWallTimeMs — pure function contracts", () => {
-  it("returns user-supplied wallTimeMs when set", () => {
-    const input = validInput({ wallTimeMs: 300_000 });
+  it("returns user-supplied wallTimeCapMs when set", () => {
+    const input = validInput({ wallTimeCapMs: 300_000 });
     expect(resolveMissionWallTimeMs(input)).toBe(300_000);
   });
 
   it("never exceeds 3 hours hard ceiling (10800000 ms)", () => {
-    // 最大档位 deep = 180min = 3h（与 DTO wallTimeMs.max 对齐），不超过硬顶
+    // 最大档位 deep = 180min = 3h（与 DTO wallTimeCapMs.max 对齐），不超过硬顶
     const input = validInput({ depth: "deep" });
     expect(resolveMissionWallTimeMs(input)).toBeLessThanOrEqual(
       3 * 60 * 60 * 1000,

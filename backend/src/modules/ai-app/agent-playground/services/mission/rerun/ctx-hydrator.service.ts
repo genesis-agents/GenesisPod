@@ -115,7 +115,7 @@ export class CtxHydratorService {
       // budget/runtimeLimits 来自 snapshot 顶层(已 ResolvedBudgetCaps 解析,无需再算)。
       maxCredits: snap.budget.maxCredits,
       budgetMultiplierOverride: snap.budget.budgetMultiplier,
-      wallTimeMs: snap.runtimeLimits.wallTimeCapMs,
+      wallTimeCapMs: snap.runtimeLimits.wallTimeCapMs,
     };
 
     // v1.2 类别 A1+E1+E5：reportArtifact 必从 mission.report_full 读 + zod 校验

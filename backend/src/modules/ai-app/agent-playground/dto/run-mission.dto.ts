@@ -58,10 +58,10 @@ export const RunMissionInputSchema = z
      */
     maxCredits: z.number().int().min(10).max(100_000).optional(),
     /**
-     * 用户自定义 wall-time（毫秒）覆盖。不传则按 depth 档位（DEPTH_BUDGET_TIERS）解析。
+     * 用户自定义 wall-time cap（毫秒）覆盖。不传则按 depth 档位（DEPTH_BUDGET_TIERS）解析。
      * 范围 60s ~ 3h。
      */
-    wallTimeMs: z
+    wallTimeCapMs: z
       .number()
       .int()
       .min(60_000)
@@ -107,7 +107,7 @@ export type RunMissionInput = z.infer<typeof RunMissionInputSchema>;
  *
  * depth 即"调研规模"档位。一处定义 budget / 倍率 / 时长，前后端、首跑、重跑、
  * Mission 设置全部从这里解析，消除"多处重复定义 + 配置/使用不同源"。
- * 用户可在「高级」里显式覆盖 maxCredits / budgetMultiplierOverride / wallTimeMs，
+ * 用户可在「高级」里显式覆盖 maxCredits / budgetMultiplierOverride / wallTimeCapMs，
  * 覆盖值优先（resolveX 里 input.X ?? tier.X）。
  *
  * cap 标定：cap ≈ 典型花费 2–3×，留足余量。实测 11 维度深度典型 ~$15，
@@ -119,7 +119,7 @@ export const DEPTH_BUDGET_TIERS: Record<
   {
     maxCredits: number;
     budgetMultiplier: number;
-    wallTimeMs: number;
+    wallTimeCapMs: number;
     /** 展示元数据(前端不再手写镜像,GET /budget-tiers 返回此处) */
     label: string;
     desc: string;
@@ -129,7 +129,7 @@ export const DEPTH_BUDGET_TIERS: Record<
   quick: {
     maxCredits: 3000,
     budgetMultiplier: 1.0,
-    wallTimeMs: 20 * 60_000,
+    wallTimeCapMs: 20 * 60_000,
     label: "快速",
     desc: "快速概览 / 试探",
     dimensionsHint: "~4 维度",
@@ -137,7 +137,7 @@ export const DEPTH_BUDGET_TIERS: Record<
   standard: {
     maxCredits: 8000,
     budgetMultiplier: 2.0,
-    wallTimeMs: 60 * 60_000,
+    wallTimeCapMs: 60 * 60_000,
     label: "标准",
     desc: "多数调研场景",
     dimensionsHint: "~7 维度",
@@ -145,7 +145,7 @@ export const DEPTH_BUDGET_TIERS: Record<
   deep: {
     maxCredits: 20000,
     budgetMultiplier: 4.0,
-    wallTimeMs: 180 * 60_000,
+    wallTimeCapMs: 180 * 60_000,
     label: "深度",
     desc: "全面深度报告",
     dimensionsHint: "~11 维度",
@@ -185,7 +185,7 @@ export function listBudgetTiers(): BudgetTierView[] {
       dimensionsHint: t.dimensionsHint,
       maxCredits: t.maxCredits,
       budgetMultiplier: t.budgetMultiplier,
-      wallTimeMinutes: Math.round(t.wallTimeMs / 60_000),
+      wallTimeMinutes: Math.round(t.wallTimeCapMs / 60_000),
       // ★ C3a/G4：换算走 canonical 常量(额度代理值,非真实成本),删散落 0.002 字面量。
       capUsd: Math.round(t.maxCredits * CREDITS_TO_USD),
     };
@@ -217,8 +217,8 @@ export function resolveBudgetMultiplier(input: RunMissionInput): number {
  *   统一从 DEPTH_BUDGET_TIERS 取（DTO 已 cap 60s~3h）。
  */
 export function resolveMissionWallTimeMs(input: RunMissionInput): number {
-  if (input.wallTimeMs != null) return input.wallTimeMs;
-  return DEPTH_BUDGET_TIERS[input.depth].wallTimeMs;
+  if (input.wallTimeCapMs != null) return input.wallTimeCapMs;
+  return DEPTH_BUDGET_TIERS[input.depth].wallTimeCapMs;
 }
 
 export const ResearchReportSchema = z.object({

@@ -104,7 +104,7 @@ export class MissionRuntimeShellService {
             //   （effectiveMaxCredits），multiplier / wallTime 无独立列故存此 JSON。
             //   写路径（此处 + updateBudgetByUser）= 读路径（cloneInputFromMission）。
             budgetMultiplierOverride: resolveBudgetMultiplier(input),
-            wallTimeMs: resolveMissionWallTimeMs(input),
+            wallTimeCapMs: resolveMissionWallTimeMs(input),
             knowledgeBaseIds: input.knowledgeBaseIds,
             inheritFromMissionId: input.inheritFromMissionId,
           } as Record<string, unknown>,
