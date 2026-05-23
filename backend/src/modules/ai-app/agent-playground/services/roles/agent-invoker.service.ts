@@ -7,7 +7,7 @@
  * 3. 现有 role services / stages 调用面先保持不变，避免重构扩散。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import {
   AgentRunner,
   DomainEventBus,
@@ -23,6 +23,7 @@ import type { IAgentEvent } from "@/modules/ai-harness/facade";
 import { AgentExecutionSupport } from "./agent-execution-support";
 import { AgentInvocationPolicy } from "./agent-invocation-policy";
 import { AgentPlaygroundEventRelay } from "./agent-playground-event-relay";
+import { PlaygroundMissionSpanService } from "../mission/workflow/playground-mission-span.service";
 
 /** Maximum number of additional attempts after the first failure (total = 1 + MAX_ROLE_RETRIES) */
 const MAX_ROLE_RETRIES = 2;
@@ -56,6 +57,7 @@ export class AgentInvoker {
     eventBus: DomainEventBus,
     abortRegistry: MissionAbortRegistry,
     failureLearner: FailureLearnerService,
+    @Optional() private readonly spanService?: PlaygroundMissionSpanService,
   ) {
     this.abortRegistry = abortRegistry;
     this.execution = new AgentExecutionSupport(runner, abortRegistry);
@@ -75,78 +77,109 @@ export class AgentInvoker {
    *   - After all retries are exhausted, emits "agent-playground.stage:degraded" so the UI
    *     can surface partial failure without crashing the whole mission.
    *   - AbortSignal abort bypasses retry immediately.
+   *
+   * R3-#38 (agent-level span nesting): wraps the entire retry loop in a single
+   * agent span parented to the currently active stage span (via PlaygroundMissionSpanService).
+   * The span covers all retry attempts; the final status reflects the outcome.
+   *
+   * Deferred: iteration/tool-level nesting requires threading RunOptions.parentSpan
+   * through AgentRunner.run() → loop → AgentTracer.startSpan, which touches
+   * ai-harness/harness.module DI (outside R3-#38 whitelist). The seam is
+   * RunOptions.parentSpan (already documented in AgentRunner.run JSDoc).
    */
   async invoke<TSpec extends Parameters<AgentRunner["run"]>[0]>(
     Spec: TSpec,
     input: Parameters<AgentRunner["run"]>[1],
     ctx: InvocationContext,
   ): Promise<Awaited<ReturnType<AgentRunner["run"]>>> {
+    // R3-#38: open agent-level span parented to the active stage span.
+    // Span is tracked internally by the service; callers only need startAgentSpan/endAgentSpan.
+    this.spanService?.startAgentSpan(ctx.missionId, ctx.agentId);
+
     const onEvent = async (event: IAgentEvent) => {
       await this.relay.relayAgentEvents([event], ctx);
     };
 
     let lastError: Error = new Error("unknown role invocation error");
-    for (let attempt = 0; attempt <= MAX_ROLE_RETRIES; attempt++) {
-      try {
-        return await this.execution.invoke(Spec, input, ctx, onEvent);
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
+    try {
+      for (let attempt = 0; attempt <= MAX_ROLE_RETRIES; attempt++) {
+        try {
+          const result = await this.execution.invoke(Spec, input, ctx, onEvent);
+          this.spanService?.endAgentSpan(
+            ctx.missionId,
+            ctx.agentId,
+            "completed",
+          );
+          return result;
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
 
-        // Never retry on abort signal
-        if (ctx.missionId) {
-          const signal = this.abortRegistry.getSignal(ctx.missionId);
-          if (signal?.aborted) {
+          // Never retry on abort signal
+          if (ctx.missionId) {
+            const signal = this.abortRegistry.getSignal(ctx.missionId);
+            if (signal?.aborted) {
+              throw lastError;
+            }
+          }
+
+          const isTransient = isRetryableError(lastError.message);
+          if (attempt < MAX_ROLE_RETRIES && isTransient) {
+            const delayMs = calculateBackoffDelay(attempt);
+            this.log.warn(
+              `[AgentInvoker] role=${ctx.role} mission=${ctx.missionId} attempt=${attempt + 1}/${MAX_ROLE_RETRIES + 1} transient error — retrying in ${delayMs}ms: ${lastError.message}`,
+            );
+            await sleep(delayMs);
+          } else {
+            // Permanent error or exhausted retries — emit degraded event then re-throw
+            const isDegraded = attempt >= MAX_ROLE_RETRIES && isTransient;
+            if (isDegraded) {
+              this.log.error(
+                `[AgentInvoker] role=${ctx.role} mission=${ctx.missionId} degraded after ${MAX_ROLE_RETRIES + 1} attempts: ${lastError.message}`,
+              );
+            }
+            // R2-#46: emit degraded event so UI can surface partial failure.
+            // Uses the registered "stage:degraded" type (passthrough schema accepts
+            // all fields); a dedicated role-level degraded type would need an
+            // events-file change outside this service whitelist, so stage:degraded
+            // is the seam for now.
+            await this.relay
+              .emitEvent({
+                type: "agent-playground.stage:degraded",
+                missionId: ctx.missionId,
+                userId: ctx.userId,
+                agentId: ctx.agentId,
+                payload: {
+                  stage: ctx.role,
+                  reason: `role degraded after ${attempt + 1} attempt(s): ${lastError.message.slice(0, 300)}`,
+                  role: ctx.role,
+                  agentId: ctx.agentId,
+                  attempts: attempt + 1,
+                  error: lastError.message.slice(0, 500),
+                  transient: isTransient,
+                },
+              })
+              .catch((emitErr: unknown) => {
+                this.log.warn(
+                  `[AgentInvoker] degraded-event emit failed (non-fatal): ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+                );
+              });
             throw lastError;
           }
         }
-
-        const isTransient = isRetryableError(lastError.message);
-        if (attempt < MAX_ROLE_RETRIES && isTransient) {
-          const delayMs = calculateBackoffDelay(attempt);
-          this.log.warn(
-            `[AgentInvoker] role=${ctx.role} mission=${ctx.missionId} attempt=${attempt + 1}/${MAX_ROLE_RETRIES + 1} transient error — retrying in ${delayMs}ms: ${lastError.message}`,
-          );
-          await sleep(delayMs);
-        } else {
-          // Permanent error or exhausted retries — emit degraded event then re-throw
-          const isDegraded = attempt >= MAX_ROLE_RETRIES && isTransient;
-          if (isDegraded) {
-            this.log.error(
-              `[AgentInvoker] role=${ctx.role} mission=${ctx.missionId} degraded after ${MAX_ROLE_RETRIES + 1} attempts: ${lastError.message}`,
-            );
-          }
-          // R2-#46: emit degraded event so UI can surface partial failure.
-          // Uses the registered "stage:degraded" type (passthrough schema accepts
-          // all fields); a dedicated role-level degraded type would need an
-          // events-file change outside this service whitelist, so stage:degraded
-          // is the seam for now.
-          await this.relay
-            .emitEvent({
-              type: "agent-playground.stage:degraded",
-              missionId: ctx.missionId,
-              userId: ctx.userId,
-              agentId: ctx.agentId,
-              payload: {
-                stage: ctx.role,
-                reason: `role degraded after ${attempt + 1} attempt(s): ${lastError.message.slice(0, 300)}`,
-                role: ctx.role,
-                agentId: ctx.agentId,
-                attempts: attempt + 1,
-                error: lastError.message.slice(0, 500),
-                transient: isTransient,
-              },
-            })
-            .catch((emitErr: unknown) => {
-              this.log.warn(
-                `[AgentInvoker] degraded-event emit failed (non-fatal): ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
-              );
-            });
-          throw lastError;
-        }
       }
+      // Unreachable — TypeScript flow guard
+      throw lastError;
+    } catch (err) {
+      // R3-#38: end agent span with failed status on any thrown error path.
+      const thrownErr = err instanceof Error ? err : new Error(String(err));
+      this.spanService?.endAgentSpan(
+        ctx.missionId,
+        ctx.agentId,
+        "failed",
+        thrownErr,
+      );
+      throw thrownErr;
     }
-    // Unreachable — TypeScript flow guard
-    throw lastError;
   }
 
   async preDisableKnownFailingModels(

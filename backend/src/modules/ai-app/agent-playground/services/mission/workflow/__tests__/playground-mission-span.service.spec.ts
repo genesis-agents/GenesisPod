@@ -145,6 +145,93 @@ describe("PlaygroundMissionSpanService", () => {
     });
   });
 
+  describe("startAgentSpan / endAgentSpan", () => {
+    it("agent span parent is the active stage span (R3-#38 parent linkage)", () => {
+      const { tracer } = makeTracer();
+      const mSpan = makeSpan();
+      const sSpan = makeSpan();
+      const aSpan = makeSpan();
+      tracer.startSpan
+        .mockReturnValueOnce(mSpan) // mission
+        .mockReturnValueOnce(sSpan) // stage
+        .mockReturnValueOnce(aSpan); // agent
+      const svc = new PlaygroundMissionSpanService(tracer);
+      svc.startMissionSpan("m1", "topic");
+      svc.startStageSpan("m1", "s3-researcher-collect", "research");
+      const returned = svc.startAgentSpan("m1", "researcher-agent-1");
+      // startSpan called with parent = sSpan (stage span)
+      expect(tracer.startSpan).toHaveBeenNthCalledWith(
+        3,
+        "playground.agent",
+        expect.objectContaining({ parent: sSpan }),
+      );
+      expect(returned).toBe(aSpan);
+    });
+
+    it("endAgentSpan ends agent span with completed status", () => {
+      const { tracer } = makeTracer();
+      const mSpan = makeSpan();
+      const sSpan = makeSpan();
+      const aSpan = makeSpan();
+      tracer.startSpan
+        .mockReturnValueOnce(mSpan)
+        .mockReturnValueOnce(sSpan)
+        .mockReturnValueOnce(aSpan);
+      const svc = new PlaygroundMissionSpanService(tracer);
+      svc.startMissionSpan("m1", "topic");
+      svc.startStageSpan("m1", "s3", "research");
+      svc.startAgentSpan("m1", "agent-a");
+      svc.endAgentSpan("m1", "agent-a", "completed");
+      expect(aSpan.end).toHaveBeenCalledWith({ status: "completed" });
+    });
+
+    it("endAgentSpan records exception on failed status", () => {
+      const { tracer } = makeTracer();
+      const mSpan = makeSpan();
+      const sSpan = makeSpan();
+      const aSpan = makeSpan();
+      tracer.startSpan
+        .mockReturnValueOnce(mSpan)
+        .mockReturnValueOnce(sSpan)
+        .mockReturnValueOnce(aSpan);
+      const svc = new PlaygroundMissionSpanService(tracer);
+      svc.startMissionSpan("m1", "topic");
+      svc.startStageSpan("m1", "s3", "research");
+      svc.startAgentSpan("m1", "agent-b");
+      const err = new Error("agent failed");
+      svc.endAgentSpan("m1", "agent-b", "failed", err);
+      expect(aSpan.recordException).toHaveBeenCalledWith(err);
+      expect(aSpan.end).toHaveBeenCalledWith({ status: "failed" });
+    });
+
+    it("startAgentSpan returns undefined when no active stage span exists", () => {
+      const { tracer } = makeTracer();
+      const mSpan = makeSpan();
+      tracer.startSpan.mockReturnValueOnce(mSpan);
+      const svc = new PlaygroundMissionSpanService(tracer);
+      svc.startMissionSpan("m1", "topic");
+      // No startStageSpan called — should return undefined
+      const result = svc.startAgentSpan("m1", "agent-x");
+      expect(result).toBeUndefined();
+      // startSpan only called once (for mission), not for agent
+      expect(tracer.startSpan).toHaveBeenCalledTimes(1);
+    });
+
+    it("endStageSpan clears currentStepId so subsequent startAgentSpan returns undefined", () => {
+      const { tracer } = makeTracer();
+      const mSpan = makeSpan();
+      const sSpan = makeSpan();
+      tracer.startSpan.mockReturnValueOnce(mSpan).mockReturnValueOnce(sSpan);
+      const svc = new PlaygroundMissionSpanService(tracer);
+      svc.startMissionSpan("m1", "topic");
+      svc.startStageSpan("m1", "s3", "research");
+      svc.endStageSpan("m1", "s3", "completed");
+      // Stage span ended — currentStepId cleared
+      const result = svc.startAgentSpan("m1", "agent-x");
+      expect(result).toBeUndefined();
+    });
+  });
+
   describe("without tracer (Optional not provided)", () => {
     it("all methods are no-ops when tracer is absent", () => {
       const svc = new PlaygroundMissionSpanService(undefined);
@@ -156,6 +243,12 @@ describe("PlaygroundMissionSpanService", () => {
         svc.endStageSpan("m1", "s1-budget", "completed"),
       ).not.toThrow();
       expect(() => svc.endMissionSpan("m1", "completed")).not.toThrow();
+      // R3-#38: agent-level methods must also be no-ops
+      expect(() => svc.startAgentSpan("m1", "agent-x")).not.toThrow();
+      expect(svc.startAgentSpan("m1", "agent-x")).toBeUndefined();
+      expect(() =>
+        svc.endAgentSpan("m1", "agent-x", "completed"),
+      ).not.toThrow();
     });
   });
 });
