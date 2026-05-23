@@ -7,6 +7,7 @@
  */
 
 import { randomUUID } from "crypto";
+import { z } from "zod";
 import {
   ResolvedBudgetCaps,
   type MissionConfigSnapshot,
@@ -14,14 +15,17 @@ import {
 
 export const SOCIAL_SNAPSHOT_SCHEMA_VERSION = 1;
 
+/** RB5: social businessInput 运行期 zod schema(单一真源)。 */
+export const socialBusinessInputSchema = z.object({
+  contentId: z.string().min(1),
+  platforms: z.array(z.string()).readonly(),
+  connectionIds: z.record(z.string(), z.string()),
+  depth: z.string().min(1),
+  budgetProfile: z.string().min(1),
+});
+
 /** social 业务输入子集(平台不解释)。topic(=contentId)/language/budget/runtimeLimits 在顶层。 */
-export interface SocialBusinessInput {
-  readonly contentId: string;
-  readonly platforms: readonly string[];
-  readonly connectionIds: Readonly<Record<string, string>>;
-  readonly depth: string;
-  readonly budgetProfile: string;
-}
+export type SocialBusinessInput = z.infer<typeof socialBusinessInputSchema>;
 
 export type SocialConfigSnapshot = MissionConfigSnapshot<SocialBusinessInput>;
 
@@ -33,15 +37,17 @@ export function buildSocialConfigSnapshot(args: {
   budgetMultiplier: number;
   wallTimeCapMs: number;
 }): SocialConfigSnapshot {
+  // RB5: 冻结时对 businessInput 做运行期 zod 校验(从 JSONB 读回时非法即抛)。
+  const validatedInput = socialBusinessInputSchema.parse(args.businessInput);
   return {
     schemaVersion: SOCIAL_SNAPSHOT_SCHEMA_VERSION,
     snapshotRevision: 0,
     snapshotId: randomUUID(),
     mutationReason: "fresh",
     resolvedAt: new Date().toISOString(),
-    topic: args.businessInput.contentId,
+    topic: validatedInput.contentId,
     language: args.language,
-    businessInput: args.businessInput,
+    businessInput: validatedInput,
     budget: ResolvedBudgetCaps.resolve({
       maxCredits: args.maxCredits,
       budgetMultiplier: args.budgetMultiplier,
