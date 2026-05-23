@@ -285,13 +285,33 @@ export class SocialPipelineDispatcher implements OnModuleInit {
           const abortReason = sessionRef.missionAbort.signal.aborted
             ? (sessionRef.missionAbort.signal.reason as MissionAbortReason)
             : undefined;
-          await this.handleMissionFailure(
-            missionId,
-            userId,
-            t0,
-            result,
-            abortReason,
-          );
+          // ★ 评审 code-MAJOR-1:真正"取消意图"落 cancelled(而非 failed),前端 outcome 才显示
+          //   "已取消"。budget/超时等失败型 abort 仍走 handleMissionFailure。
+          const isGenuineCancel =
+            abortReason === MissionAbortReason.user_cancelled ||
+            abortReason === MissionAbortReason.rerun_replacing_stale ||
+            abortReason === MissionAbortReason.superseded;
+          if (isGenuineCancel) {
+            await this.store
+              .markCancelled(missionId, `aborted: ${abortReason}`)
+              .catch(() => undefined);
+            await this.eventBus
+              .emit({
+                type: "social.mission:cancelled",
+                scope: { missionId, userId },
+                payload: { reason: abortReason },
+                timestamp: Date.now(),
+              })
+              .catch(() => undefined);
+          } else {
+            await this.handleMissionFailure(
+              missionId,
+              userId,
+              t0,
+              result,
+              abortReason,
+            );
+          }
         }
         // S12 postlude fire-and-forget（成功 / 失败都跑）
         this.fireSelfEvolutionPostlude(missionId, userId);
