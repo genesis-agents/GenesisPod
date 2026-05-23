@@ -16,6 +16,13 @@
  *      fetchRunningMissions + getMostRecentEventTs + markFailed callbacks
  *   6. **多 namespace**：同 timer scan 多消费方，节省 60s scan 开销
  *
+ * ★ 回收依据唯一性契约（RB4）：
+ *   - **唯一回收依据 = DB heartbeatAt**（通过 adapter.fetchRunningMissions 取得）。
+ *   - Redis runtime heartbeat（MissionRuntimeStateStore.claimOrBeat）是活性探测，
+ *     不参与回收判定。本 Guard 的 runOnce 只读 MissionLivenessRow.heartbeatAt
+ *     （DB 字段），不调用 MissionRuntimeStateStore 的任何方法。
+ *   - 契约由 liveness-reclaim-contract.spec.ts 守护，禁止绕过。
+ *
  * 替代关系（一并删除/迁出）：
  *   - 旧 in-app health scheduler（已 disabled）
  *   - 旧 in-app store.recoverPodCrashedRunning + recoverOrphanedRunning（移到 adapter callback 内）
