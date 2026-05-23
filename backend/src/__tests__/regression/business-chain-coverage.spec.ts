@@ -11,9 +11,9 @@
  *
  * Covered branches:
  *   Happy    — RunMissionInputSchema parses a fully-valid input
- *   Failed   — markFailed with errorMessage sets status='failed'
- *   Cancelled— markCancelled guard: only running→cancelled is valid
- *   Quality  — markFailed with leaderSigned=false sets status='quality-failed'
+ *   Failed   — writeFailed with errorMessage sets status='failed'
+ *   Cancelled— writeCancelled guard: only running→cancelled is valid
+ *   Quality  — writeFailed with leaderSigned=false sets status='quality-failed'
  *   Budget-Hard — budget estimate affordable=false, suggestion=abort → throws
  *   Budget-Soft — budget estimate affordable=false, suggestion=warn → continues
  *   Stage-Degraded — S3 all dims fail → markStageDegraded narrative emitted
@@ -144,15 +144,15 @@ describe("Branch: happy-path — RunMissionInputSchema full parse", () => {
 // Branch 2: Failed path — errorMessage propagation
 // ---------------------------------------------------------------------------
 
-describe("Branch: failed path — MissionStore.markFailed signature", () => {
-  it("markFailed method exists in MissionStore", () => {
+describe("Branch: failed path — MissionStore.writeFailed signature", () => {
+  it("writeFailed method exists in MissionStore", () => {
     const src = readSrc(
       "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
-    expect(src).toContain("async markFailed(");
+    expect(src).toContain("async writeFailed(");
   });
 
-  it("markFailed sets status to 'failed' when leaderSigned is not false", () => {
+  it("writeFailed sets status to 'failed' when leaderSigned is not false", () => {
     // Static check: the status logic in the method
     const src = readSrc(
       "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
@@ -163,7 +163,7 @@ describe("Branch: failed path — MissionStore.markFailed signature", () => {
     expect(src).toContain("isLeadRefusal");
   });
 
-  it("markFailed with leaderSigned=false sets 'quality-failed' status", () => {
+  it("writeFailed with leaderSigned=false sets 'quality-failed' status", () => {
     const src = readSrc(
       "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
@@ -173,7 +173,7 @@ describe("Branch: failed path — MissionStore.markFailed signature", () => {
     expect(src).toContain("quality-failed");
   });
 
-  it("errorMessage is sliced to 2000 chars in markFailed (no OOM)", () => {
+  it("errorMessage is sliced to 2000 chars in writeFailed (no OOM)", () => {
     const src = readSrc(
       "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
@@ -185,24 +185,24 @@ describe("Branch: failed path — MissionStore.markFailed signature", () => {
 // Branch 3: Cancelled path
 // ---------------------------------------------------------------------------
 
-describe("Branch: cancelled path — markCancelled guard", () => {
-  it("markCancelled only transitions from status='running' (race guard)", () => {
+describe("Branch: cancelled path — writeCancelled guard", () => {
+  it("writeCancelled only transitions from status='running' (race guard)", () => {
     const src = readSrc(
       "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     // Must have updateMany with status='running' guard on cancel
-    const cancelIdx = src.indexOf("async markCancelled(");
+    const cancelIdx = src.indexOf("async writeCancelled(");
     expect(cancelIdx).toBeGreaterThan(-1);
     const cancelFn = src.slice(cancelIdx, cancelIdx + 600);
     expect(cancelFn).toContain('status: "running"');
     expect(cancelFn).toContain("cancelled");
   });
 
-  it("markCancelled clears checkpoint (listResumable guard)", () => {
+  it("writeCancelled clears checkpoint (listResumable guard)", () => {
     const src = readSrc(
       "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
-    const cancelIdx = src.indexOf("async markCancelled(");
+    const cancelIdx = src.indexOf("async writeCancelled(");
     const cancelFn = src.slice(cancelIdx, cancelIdx + 700);
     expect(cancelFn).toContain("clearCheckpointJsonbKey");
   });
@@ -221,7 +221,7 @@ describe("Branch: cancelled path — markCancelled guard", () => {
 // ---------------------------------------------------------------------------
 
 describe("Branch: quality-failed path — leader sign-off refusal", () => {
-  it("markFailed persists report artifacts even when leaderSigned=false (2026-04-30 fix)", () => {
+  it("writeFailed persists report artifacts even when leaderSigned=false (2026-04-30 fix)", () => {
     const src = readSrc(
       "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
