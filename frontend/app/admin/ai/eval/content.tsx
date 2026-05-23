@@ -26,6 +26,7 @@ import {
 import { AdminPageLayout } from '@/components/admin/layout';
 import { apiClient } from '@/lib/api/client';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { TruncatedCell } from '@/components/common/tables';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -507,13 +508,16 @@ export default function EvalDashboardPageContent({
                 {evalRuns.map((run) => (
                   <Tr key={run.id}>
                     <Td className="py-2 pr-4">
-                      <div className="font-medium text-gray-900">
+                      <TruncatedCell
+                        className="max-w-[200px] font-medium text-gray-900"
+                        tooltip={`${run.datasetId}${run.datasetVersion ? `:${run.datasetVersion}` : ''}`}
+                      >
                         {run.datasetName}
-                      </div>
-                      <div className="font-mono text-xs text-gray-400">
+                      </TruncatedCell>
+                      <TruncatedCell className="font-mono max-w-[200px] text-xs text-gray-400">
                         {run.datasetId}
                         {run.datasetVersion ? `:${run.datasetVersion}` : ''}
-                      </div>
+                      </TruncatedCell>
                     </Td>
                     <Td className="py-2 pr-4">
                       <span

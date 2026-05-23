@@ -2,6 +2,7 @@
 
 import { Database } from 'lucide-react';
 import { ProgressBar } from '@/components/ui/progress';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface TableStat {
   table: string;
@@ -74,7 +75,9 @@ export default function StorageDatabaseGrid({
                     className="transition-colors hover:bg-gray-50"
                   >
                     <td className="font-mono px-4 py-3 text-sm font-medium text-gray-900">
-                      {row.table}
+                      <TruncatedCell className="font-mono max-w-[240px] text-sm font-medium text-gray-900">
+                        {row.table}
+                      </TruncatedCell>
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-gray-600">
                       {row.rows.toLocaleString()}

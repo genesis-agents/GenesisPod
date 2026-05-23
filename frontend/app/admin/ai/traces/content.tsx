@@ -9,6 +9,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { AdminPageLayout } from '@/components/admin/layout';
 import ClientDate from '@/components/common/ClientDate';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface TraceSummary {
   id: string;
@@ -131,9 +132,9 @@ function TraceRow({ trace, apiUrl }: { trace: TraceSummary; apiUrl: string }) {
           )}
         </Td>
         <Td className="px-4 py-3">
-          <span className="text-sm font-medium text-gray-900">
+          <TruncatedCell className="max-w-[220px] text-sm font-medium text-gray-900">
             {trace.name}
-          </span>
+          </TruncatedCell>
         </Td>
         <Td className="px-4 py-3">
           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
@@ -190,8 +191,10 @@ function TraceRow({ trace, apiUrl }: { trace: TraceSummary; apiUrl: string }) {
                       <TBody className="divide-y">
                         {detail.spans.map((span) => (
                           <Tr key={span.id} className="hover:bg-gray-50">
-                            <Td className="px-3 py-2 font-medium text-gray-800">
-                              {span.name}
+                            <Td className="px-3 py-2">
+                              <TruncatedCell className="max-w-[160px] font-medium text-gray-800">
+                                {span.name}
+                              </TruncatedCell>
                             </Td>
                             <Td className="px-3 py-2 text-gray-500">
                               {span.type}
@@ -206,15 +209,20 @@ function TraceRow({ trace, apiUrl }: { trace: TraceSummary; apiUrl: string }) {
                             <Td className="px-3 py-2 text-gray-500">
                               {formatDuration(span.duration)}
                             </Td>
-                            <Td className="max-w-xs truncate px-3 py-2 text-gray-500">
+                            <Td className="px-3 py-2">
                               {span.error ? (
-                                <span className="text-red-600">
+                                <TruncatedCell className="max-w-[200px] text-red-600">
                                   {span.error}
-                                </span>
+                                </TruncatedCell>
                               ) : span.output ? (
-                                JSON.stringify(span.output).slice(0, 100)
+                                <TruncatedCell
+                                  className="max-w-[200px] text-gray-500"
+                                  tooltip={JSON.stringify(span.output)}
+                                >
+                                  {JSON.stringify(span.output)}
+                                </TruncatedCell>
                               ) : (
-                                '-'
+                                <span className="text-gray-500">-</span>
                               )}
                             </Td>
                           </Tr>

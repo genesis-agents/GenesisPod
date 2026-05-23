@@ -1,6 +1,7 @@
 'use client';
 
 import { Cloud } from 'lucide-react';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface CatalogRow {
   prefix: string;
@@ -88,7 +89,9 @@ export default function StorageCatalogGrid({
                   className="transition-colors hover:bg-gray-50"
                 >
                   <td className="font-mono px-4 py-3 text-sm font-medium text-gray-900">
-                    {row.prefix}
+                    <TruncatedCell className="font-mono max-w-[240px] text-sm font-medium text-gray-900">
+                      {row.prefix}
+                    </TruncatedCell>
                   </td>
                   <td className="px-4 py-3">
                     <span
