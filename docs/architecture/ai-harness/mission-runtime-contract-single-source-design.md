@@ -110,22 +110,23 @@ v2 把 `quality_rejected` 放进 `MissionTerminalOutcome` 平台 enum,但有些 
 
 > 实施于 2026-05-22 起,无双写·真实切换,每组 tsc+测试+verify:arch 验证后合并主干。
 
-| 契约/组                                        | 状态      | PR                  | 说明                                                                                  |
-| ---------------------------------------------- | --------- | ------------------- | ------------------------------------------------------------------------------------- |
-| 策略:无双写·真实切换                           | ✅        | #133                | 覆盖 RB7/G5 渐进策略(用户硬约束)                                                      |
-| **G0** radar/social liveness 注册              | ✅        | #134 #135           | 治孤儿 running 行永不回收(C8 注册部分)                                                |
-| **G0** social cancel 真停                      | ✅        | #136                | 治取消假停烧预算 + S8 gate-before-stage(RB6)                                          |
-| **C0** 终态写权(finalize 单写+条件写仲裁)      | ✅        | #137 #138           | 三方竞争测试 + 三 app 终态写条件化(首写赢)                                            |
-| **C1** MissionAbortReason enum                 | ✅        | #139                | abort-registry 改签名 + 全调用方切换                                                  |
-| **C2** MissionFailure 契约 + 三表 failure_code | ✅        | #140 #141 #142      | code/category 投影 + 删 social/radar 正则 + 落库                                      |
-| **C3a** ResolvedBudgetCaps + 换算收口          | ✅        | #143 #144           | 私有构造工厂 + 删散落 ×1000/×0.002                                                    |
-| **C4** wallTime 拆 cap/elapsed(三表)           | ✅        | #145 #146 #147 #148 | 类型契约 + radar cap/social+playground elapsed 改名                                   |
-| **C8** conformance 套件(L5a/L5b)               | ⏳        | —                   | G6,wiring+behavioral(含三方竞争集成)                                                  |
-| **C5** MissionConfigSnapshot                   | ◐ harness | #150                | 契约+lineage+版本+deriveChildSnapshot 已合;app 接入(DB config_snapshot+三 app 读)待做 |
-| **C6** MissionInputPatch + InputRebuilder      | ◐ harness | #150                | 白名单 patch+applyInputPatch 已合;三 app rerun 切换待做                               |
-| **C7** MissionTerminalOutcome + presentation   | ◐ harness | #150                | outcome(去 quality_rejected)+ toTerminalOutcome 已合;controller/前端接入待做          |
-| **G10** 看护落地(L1/L3 arch spec)              | ◐         | #151                | budget 目录扫换算 + category 投影断言已合(进 verify:arch);新代码禁裸 wallTimeMs 待做  |
-| **G11** 深度检视 + 推理验证                    | ◐         | #152                | 全量 5349 测试零回归;修 6 处真实切换缺口(见下);文档收尾中                             |
+| 契约/组                                        | 状态          | PR                  | 说明                                                                                                                                                 |
+| ---------------------------------------------- | ------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 策略:无双写·真实切换                           | ✅            | #133                | 覆盖 RB7/G5 渐进策略(用户硬约束)                                                                                                                     |
+| **G0** radar/social liveness 注册              | ✅            | #134 #135           | 治孤儿 running 行永不回收(C8 注册部分)                                                                                                               |
+| **G0** social cancel 真停                      | ✅            | #136                | 治取消假停烧预算 + S8 gate-before-stage(RB6)                                                                                                         |
+| **C0** 终态写权(finalize 单写+条件写仲裁)      | ✅            | #137 #138           | 三方竞争测试 + 三 app 终态写条件化(首写赢)                                                                                                           |
+| **C1** MissionAbortReason enum                 | ✅            | #139                | abort-registry 改签名 + 全调用方切换                                                                                                                 |
+| **C2** MissionFailure 契约 + 三表 failure_code | ✅            | #140 #141 #142      | code/category 投影 + 删 social/radar 正则 + 落库                                                                                                     |
+| **C3a** ResolvedBudgetCaps + 换算收口          | ✅            | #143 #144           | 私有构造工厂 + 删散落 ×1000/×0.002                                                                                                                   |
+| **C4** wallTime 拆 cap/elapsed(三表)           | ✅            | #145 #146 #147 #148 | 类型契约 + radar cap/social+playground elapsed 改名                                                                                                  |
+| **C8** conformance 套件(L5a/L5b)               | ⏳            | —                   | G6,wiring+behavioral(含三方竞争集成)                                                                                                                 |
+| **C5** MissionConfigSnapshot                   | ✅ playground | #150 #160-162       | harness 契约 + playground 闭环(openSession 冻结/rerun 只读/改预算派生 G2/legacy 拒跑无 fallback);radar/social 待接入(共识低优先)+ S4b userProfile 删 |
+| **C6** MissionInputPatch + InputRebuilder      | ✅ playground | #150 #160-162       | harness 契约 + PlaygroundMissionInputRebuilder(full/incremental/local/settings_patch 经 applyInputPatch 派生);radar/social 待接入                    |
+| **C5/C6 接入看护**                             | ✅            | (本 PR)             | c5-c6-snapshot-contract spec:rerun 读 snapshot 不读 userProfile + 改预算必派生(防回退)                                                               |
+| **C7** MissionTerminalOutcome + presentation   | ◐ harness     | #150                | outcome(去 quality_rejected)+ toTerminalOutcome 已合;controller/前端接入待做                                                                         |
+| **G10** 看护落地(L1/L3 arch spec)              | ◐             | #151                | budget 目录扫换算 + category 投影断言已合(进 verify:arch);新代码禁裸 wallTimeMs 待做                                                                 |
+| **G11** 深度检视 + 推理验证                    | ◐             | #152                | 全量 5349 测试零回归;修 6 处真实切换缺口(见下);文档收尾中                                                                                            |
 
 **G11 检视已修(#152,用户两轮实测 + 3 路审查)**:① radar+social 迁移顺序 BLOCKER(C4 改名脚本字典序早于建表/补列脚本,fresh replay 裸 RENAME 必失败 + 重造旧列)→ guarded rename + 建表只产新列;② C4 未切入核心 runtime 接口(MissionRuntimeSession/adapter/framework payload 仍传 wallTimeMs)→ 全切 wallTimeCapMs;③ MissionInputPatch 业务 patch 被擦成 unknown → 补 TBusinessPatch 泛型;④ local-rerun cost guard credits↔USD 单位错配 → 走 ResolvedBudgetCaps 同单位比;⑤ framework abort 裸字符串 → MissionAbortReason enum。
 
