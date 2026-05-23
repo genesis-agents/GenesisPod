@@ -29,9 +29,11 @@ import { AIModelType } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   AiChatService,
+  AiModelConfigService,
   BuiltinSkillCatalog,
   DomainEventBus,
   ReflectionMissionScheduler,
+  executeWithModelFailover,
   type DomainEvent,
 } from "@/modules/ai-harness/facade";
 import { MissionStore } from "../mission/lifecycle/mission-store.service";
@@ -96,6 +98,10 @@ export class LeaderChatService {
     // @Optional() 让 spec 不传也能跑（无 rule 时 snippet=空 → 与原 behavior 等价）。
     @Optional()
     private readonly dreaming?: ReflectionMissionScheduler,
+    // 模型级 failover：BYOK 默认模型 provider 报错时换用户的下一个 CHAT 模型。
+    // @Optional() 缺失时退化为无 failover（行为同修复前）。
+    @Optional()
+    private readonly modelConfig?: AiModelConfigService,
   ) {}
 
   async list(missionId: string): Promise<LeaderChatMessage[]> {
@@ -195,13 +201,47 @@ export class LeaderChatService {
     let decision: LeaderDecision | null = null;
     let usedTokens: number | undefined;
     try {
-      const result = await this.chat.chat({
-        systemPrompt,
-        messages,
-        modelType: AIModelType.CHAT,
-        userId,
-        taskProfile: { creativity: "low", outputLength: "medium" },
-        operationName: "agent-playground.leader-chat",
+      // 模型级 failover：BYOK 默认模型 provider 报错（含 NO_AVAILABLE_KEY /
+      // QUOTA_EXCEEDED / 5xx）时，换用户配置的下一个 CHAT 模型重试，而非直接
+      // 给"Leader 暂时无法回复"。modelConfig 缺失时 provider=undefined → 单次调用。
+      const modelConfig = this.modelConfig;
+      const failoverProvider = modelConfig
+        ? async (
+            excludeModelIds: ReadonlyArray<string>,
+          ): Promise<string | null> => {
+            try {
+              const models = await modelConfig.listUserEnabledModelsByType(
+                userId,
+                AIModelType.CHAT,
+                excludeModelIds,
+              );
+              return models[0]?.modelId ?? null;
+            } catch {
+              return null;
+            }
+          }
+        : undefined;
+
+      const result = await executeWithModelFailover({
+        agentId: "leader-chat",
+        logger: this.log,
+        provider: failoverProvider,
+        attempt: (modelOverride) =>
+          this.chat.chat({
+            systemPrompt,
+            messages,
+            model: modelOverride,
+            modelType: modelOverride ? undefined : AIModelType.CHAT,
+            userId,
+            taskProfile: { creativity: "low", outputLength: "medium" },
+            operationName: "agent-playground.leader-chat",
+          }),
+        // 非 strict 路径下 provider 错会以 isError 返回，也要触发换模型。
+        inspectResult: (res) => ({
+          failoverable: (res as { isError?: boolean }).isError === true,
+          modelId: res.model,
+          message: res.content ?? "",
+        }),
       });
       const raw = result.content?.trim() || "";
       usedTokens = result.usage?.totalTokens;

@@ -1066,9 +1066,17 @@ export { SKILL_PROVIDERS } from "../agents/abstractions/skill.interface";
 
 // Engine LLM service classes (PR-X14: harness facade 转发常用 engine 服务)
 export { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+export { AiModelConfigService } from "../../ai-engine/llm/services/ai-model-config.service";
 export { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallback.service";
 export type { ModelFallbackOptions } from "../../ai-engine/llm/selection/model-fallback.service";
 export type { AIModelConfig } from "../../ai-engine/llm/services/ai-model-config.service";
+
+// 模型级 failover 共享 helper（ai-app 的非 loop 直调 chat 也能容错，如 leader-chat）
+export {
+  executeWithModelFailover,
+  type ExecuteWithModelFailoverOptions,
+  type ModelFailoverResultProbe,
+} from "../runner/loop/model-failover.util";
 
 // Engine content/fetch helpers used by ai-app/social
 export {
