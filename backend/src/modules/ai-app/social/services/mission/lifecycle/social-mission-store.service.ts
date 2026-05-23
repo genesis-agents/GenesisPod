@@ -19,6 +19,7 @@ import {
   type MissionTerminalArbiter,
   type MissionTerminalIntent,
 } from "@/modules/ai-harness/facade";
+import type { SocialConfigSnapshot } from "./social-mission-config-snapshot";
 
 export interface CreateSocialMissionArgs {
   id: string;
@@ -32,7 +33,7 @@ export interface CreateSocialMissionArgs {
   language: string;
   maxCredits: number;
   /** ★ C5/G7（三 app 统一）：typed MissionConfigSnapshot(canonical 配置记录)。 */
-  configSnapshot?: unknown;
+  configSnapshot?: SocialConfigSnapshot;
 }
 
 export interface MarkCompletedDetail {

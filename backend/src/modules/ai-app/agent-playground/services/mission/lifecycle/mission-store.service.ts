@@ -239,7 +239,7 @@ export class MissionStore implements MissionTerminalArbiter<PlaygroundTerminalEx
     maxCredits: number;
     userProfile?: Record<string, unknown>;
     /** ★ C5/G7：typed MissionConfigSnapshot(单一 config 真源,openSession 冻结)。 */
-    configSnapshot?: unknown;
+    configSnapshot?: PlaygroundConfigSnapshot;
   }): Promise<void> {
     await this.prisma.agentPlaygroundMission.create({
       data: {
