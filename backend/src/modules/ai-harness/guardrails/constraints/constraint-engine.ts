@@ -51,13 +51,17 @@ const PREFERENCE_TO_TIER: Record<ModelPreference, ModelTier> = {
 };
 
 /**
- * 当 ModelPricingRegistry 没注入 / 该 tier 还没注册任何模型时使用的兜底估算
- * （USD per 1K tokens）。这些数字仅用于"mission 大概多少钱"的事前 ROI 估算，
- * 不影响真实记账（真实记账走 ModelPricingRegistry → DB ai_models 表）。
+ * ONLY used when the admin DB has zero registered models; NOT a substitute for
+ * live ModelPricingRegistry pricing.
  *
- * 当 admin 在后台为某 tier 配置了至少一个模型 + price，这里的值不再被使用。
+ * 触发条件：ModelPricingRegistry 未注入，或该 tier 下 `pickModelForTier()` 返回
+ * null（即 admin 后台尚未为该 tier 配置任何模型）。
+ *
+ * 这些数字仅用于"mission 大概多少钱"的事前 ROI 估算（USD per 1K tokens），
+ * 不影响真实记账（真实记账走 ModelPricingRegistry → DB ai_models 表）。
+ * 一旦 admin 为某 tier 配置了至少一个模型 + price，此表不再被使用。
  */
-const FALLBACK_TIER_COSTS: Record<
+const EMERGENCY_TIER_COSTS_NO_MODELS: Record<
   ModelPreference,
   { input: number; output: number }
 > = {
@@ -100,11 +104,15 @@ export class ConstraintEngine implements IConstraintEngine {
    * 取该 ModelPreference 对应的 (input, output) per-1K USD 价格。
    * 优先：ModelPricingRegistry → 该 tier 注册的代表模型 (pickModelForTier) →
    *       priceInputPerM/1000、priceOutputPerM/1000
-   * 降级：FALLBACK_TIER_COSTS（仅 admin 没配置任何模型时）
+   * 降级：EMERGENCY_TIER_COSTS_NO_MODELS（仅 admin 没配置任何模型时）
+   *
+   * isFallback=true 表示走了兜底表（admin 零模型 edge case），
+   * isFallback=false 表示来自 ModelPricingRegistry 的真实价格。
    */
   private getCostPerKTokens(pref: ModelPreference): {
     input: number;
     output: number;
+    isFallback: boolean;
   } {
     if (this.pricingRegistry) {
       const tier = PREFERENCE_TO_TIER[pref];
@@ -115,11 +123,12 @@ export class ConstraintEngine implements IConstraintEngine {
           return {
             input: p.inputPricePerM / 1000,
             output: p.outputPricePerM / 1000,
+            isFallback: false,
           };
         }
       }
     }
-    return FALLBACK_TIER_COSTS[pref];
+    return { ...EMERGENCY_TIER_COSTS_NO_MODELS[pref], isFallback: true };
   }
 
   /**
@@ -401,14 +410,14 @@ export class ConstraintEngine implements IConstraintEngine {
     constraints: ConstraintProfile,
   ): CostEstimate {
     const modelTier = constraints.cost.modelPreference;
-    const costs = this.getCostPerKTokens(modelTier);
+    const { input, output, isFallback } = this.getCostPerKTokens(modelTier);
 
     // 假设输入输出 token 比例为 3:1
     const inputTokens = requirements.estimatedTokens * 0.75;
     const outputTokens = requirements.estimatedTokens * 0.25;
 
-    const inputCost = (inputTokens / 1000) * costs.input;
-    const outputCost = (outputTokens / 1000) * costs.output;
+    const inputCost = (inputTokens / 1000) * input;
+    const outputCost = (outputTokens / 1000) * output;
     const baseCost = inputCost + outputCost;
 
     // 如果需要审核，增加额外成本
@@ -464,6 +473,7 @@ export class ConstraintEngine implements IConstraintEngine {
         totalCost > constraints.cost.budget
           ? totalCost - constraints.cost.budget
           : undefined,
+      pricingSource: isFallback ? "fallback" : "registry",
     };
   }
 
@@ -810,20 +820,18 @@ export class ConstraintEngine implements IConstraintEngine {
    * 计算指定模型的成本
    */
   private estimateCostForModel(tokens: number, tier: ModelPreference): number {
-    const costs = this.getCostPerKTokens(tier);
+    const { input, output } = this.getCostPerKTokens(tier);
     const inputTokens = tokens * 0.75;
     const outputTokens = tokens * 0.25;
-    return (
-      (inputTokens / 1000) * costs.input + (outputTokens / 1000) * costs.output
-    );
+    return (inputTokens / 1000) * input + (outputTokens / 1000) * output;
   }
 
   /**
    * 计算最大 Token 数
    */
   private calculateMaxTokens(budget: number, tier: ModelPreference): number {
-    const costs = this.getCostPerKTokens(tier);
-    const avgCostPer1K = costs.input * 0.75 + costs.output * 0.25;
+    const { input, output } = this.getCostPerKTokens(tier);
+    const avgCostPer1K = input * 0.75 + output * 0.25;
     return Math.floor((budget / avgCostPer1K) * 1000);
   }
 

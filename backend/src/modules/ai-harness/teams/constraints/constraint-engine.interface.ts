@@ -371,6 +371,13 @@ export interface CostEstimate {
 
   /** 超出预算金额（如果超出） */
   overBudgetAmount?: number;
+
+  /**
+   * 本次预估使用的价格来源。
+   * 'registry' = 来自 ModelPricingRegistry（admin 已配置模型 + 价格）；
+   * 'fallback' = 来自 EMERGENCY_TIER_COSTS_NO_MODELS（admin 尚未注册任何模型的兜底）。
+   */
+  pricingSource?: "registry" | "fallback";
 }
 
 /**

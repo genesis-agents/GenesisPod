@@ -652,6 +652,66 @@ describe("ConstraintEngine", () => {
       const estimate = engine.estimateCost(req, profile);
       expect(estimate.estimatedDuration).toBe(99999);
     });
+
+    it("pricingRegistry returns no model for tier -> getCostPerKTokens isFallback=true and price === EMERGENCY_TIER_COSTS_NO_MODELS[tier]", () => {
+      // Inject a pricingRegistry stub where pickModelForTier always returns null
+      // (simulates admin DB having zero registered models).
+      const emptyRegistry = {
+        pickModelForTier: jest.fn().mockReturnValue(null),
+        get: jest.fn(),
+      };
+      const engineWithEmptyRegistry = new (ConstraintEngine as any)(
+        undefined,
+        emptyRegistry,
+      );
+
+      // For each preference tier, the estimate must use EMERGENCY_TIER_COSTS values.
+      // We verify by comparing against a no-registry engine (which also falls back).
+      const engineNoRegistry = new (ConstraintEngine as any)(undefined);
+      const profile = createConstraintProfile("balanced"); // modelPreference = "balanced"
+      const req = makeRequirement({
+        estimatedTokens: 10000,
+        estimatedDuration: 60000,
+      });
+
+      const estimateWithEmpty = engineWithEmptyRegistry.estimateCost(
+        req,
+        profile,
+      );
+      const estimateNoRegistry = engineNoRegistry.estimateCost(req, profile);
+
+      expect(estimateWithEmpty.pricingSource).toBe("fallback");
+      expect(estimateNoRegistry.pricingSource).toBe("fallback");
+      // Both should produce identical costs since both use EMERGENCY_TIER_COSTS_NO_MODELS.
+      expect(estimateWithEmpty.totalCost).toBe(estimateNoRegistry.totalCost);
+      // pickModelForTier was called with "standard" (the tier mapped from "balanced").
+      expect(emptyRegistry.pickModelForTier).toHaveBeenCalledWith("standard");
+    });
+
+    it("pricingRegistry returns a model -> pricingSource is 'registry'", () => {
+      const filledRegistry = {
+        pickModelForTier: jest.fn().mockReturnValue("gpt-4o-mini"),
+        get: jest.fn().mockReturnValue({
+          modelId: "gpt-4o-mini",
+          tier: "standard",
+          inputPricePerM: 150, // $0.15 per 1M → $0.00015 per 1K
+          outputPricePerM: 600, // $0.60 per 1M → $0.0006 per 1K
+        }),
+      };
+      const engineWithRegistry = new (ConstraintEngine as any)(
+        undefined,
+        filledRegistry,
+      );
+
+      const profile = createConstraintProfile("balanced");
+      const req = makeRequirement({
+        estimatedTokens: 10000,
+        estimatedDuration: 60000,
+      });
+      const estimate = engineWithRegistry.estimateCost(req, profile);
+
+      expect(estimate.pricingSource).toBe("registry");
+    });
   });
 
   // ==================== suggestDegradation ====================
