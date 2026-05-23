@@ -32,10 +32,31 @@ import { AIModelType } from "@prisma/client";
 // ============ Model-level failover ============
 
 /**
+ * BYOK error codes (raised by ai-infra key-resolver as `BYOKError.code`) that
+ * mean ALL keys for a model's provider failed — or none is configured. Each is
+ * a PER-PROVIDER key problem, so the right recovery is switching to a DIFFERENT
+ * model (a provider the user has a working key for), not terminating.
+ *
+ * Duck-typed by `.code` so llm-executor does not import BYOKError across layers.
+ * NO_MODEL_CONFIGURED is intentionally excluded: the account has no models of
+ * this type at all, so failover cannot help (user must configure one first).
+ */
+const BYOK_FAILOVER_CODES: ReadonlySet<string> = new Set([
+  "NO_AVAILABLE_KEY",
+  "INVALID_API_KEY",
+  "QUOTA_EXCEEDED",
+  "KEY_EXPIRED",
+  "NO_SYSTEM_KEY",
+]);
+
+/**
  * Classify whether a thrown error should trigger model-level failover
  * (i.e. re-elect a different model) vs. being propagated as-is.
  *
  * Failover on:
+ *   - BYOK key exhaustion (NO_AVAILABLE_KEY / INVALID_API_KEY / QUOTA_EXCEEDED /
+ *     KEY_EXPIRED / NO_SYSTEM_KEY) — all keys for THIS model's provider failed,
+ *     so a different model (different provider) may still work
  *   - PROVIDER_API_ERROR (5xx, generic provider failure)
  *   - model-not-found / unsupported (404, INVALID_MODEL)
  *   - request timeout
@@ -43,7 +64,8 @@ import { AIModelType } from "@prisma/client";
  *
  * Do NOT failover on:
  *   - AbortError / user cancellation
- *   - budget / credit exhausted (user needs to top up)
+ *   - account-level budget / credit exhausted (user needs to top up)
+ *   - NO_MODEL_CONFIGURED (no models of this type → nothing to fail over to)
  *   - schema / input validation errors (wrong input, not a provider issue)
  */
 export function isModelLevelFailoverError(err: unknown): boolean {
@@ -54,6 +76,26 @@ export function isModelLevelFailoverError(err: unknown): boolean {
   // Match "aborted" only as a standalone word / phrase typical of signal abort,
   // NOT "ECONNABORTED" (that's a connection timeout, not a user abort).
   if (/\baborted\b/i.test(msg) && !/ECONNABORTED/i.test(msg)) return false;
+
+  // ── BYOK key-exhaustion → model-level failover ──────────────────────────
+  // Checked BEFORE the budget-message guard below: QuotaExceededError's message
+  // ("Quota exceeded for provider X") would otherwise be misread as account-
+  // level budget exhaustion and wrongly suppress failover. The `.code` is the
+  // authoritative signal — a per-provider key problem, not an account problem.
+  const byokCode = (err as { code?: unknown })?.code;
+  if (typeof byokCode === "string" && BYOK_FAILOVER_CODES.has(byokCode)) {
+    return true;
+  }
+  // Message-level safety net for BYOK key problems whose wording does NOT
+  // collide with the account-budget guard below (no-key / invalid / revoked /
+  // expired). Covers paths where the original BYOKError got re-wrapped and lost
+  // its `.code`. QuotaExceededError is deliberately left to the `.code` path —
+  // its message ("Quota exceeded ...") is indistinguishable from account budget.
+  if (
+    /no api key available|api key .*\b(invalid|revoked|expired)\b/i.test(msg)
+  ) {
+    return true;
+  }
 
   // Never failover on budget / billing exhaustion (user must act)
   if (

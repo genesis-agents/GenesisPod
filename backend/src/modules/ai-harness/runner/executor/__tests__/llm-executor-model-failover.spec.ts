@@ -95,6 +95,91 @@ describe("isModelLevelFailoverError()", () => {
       ),
     ).toBe(false);
   });
+
+  // ─── BYOK key-exhaustion: all keys for THIS model's provider failed ───────
+  // These must trigger model failover (switch to a model whose provider has a
+  // working key). The `.code` is authoritative — checked BEFORE the budget guard
+  // so QuotaExceededError ("Quota exceeded for provider X") is NOT swallowed.
+  const byok = (code: string, message: string): Error => {
+    const e = new Error(message) as Error & { code: string };
+    e.code = code;
+    return e;
+  };
+
+  it("returns true for BYOK NO_AVAILABLE_KEY (the live mission failure)", () => {
+    expect(
+      isModelLevelFailoverError(
+        byok(
+          "NO_AVAILABLE_KEY",
+          'No API Key available for provider "deepseek"',
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it("returns true for BYOK QUOTA_EXCEEDED — .code beats the budget guard", () => {
+    // message alone ("Quota exceeded ...") matches the account-budget regex,
+    // but the per-provider .code must win → failover to a different provider.
+    expect(
+      isModelLevelFailoverError(
+        byok("QUOTA_EXCEEDED", 'Quota exceeded for provider "openai"'),
+      ),
+    ).toBe(true);
+  });
+
+  it("returns true for BYOK INVALID_API_KEY / KEY_EXPIRED / NO_SYSTEM_KEY", () => {
+    expect(
+      isModelLevelFailoverError(
+        byok(
+          "INVALID_API_KEY",
+          'API Key for provider "x" is invalid or revoked',
+        ),
+      ),
+    ).toBe(true);
+    expect(isModelLevelFailoverError(byok("KEY_EXPIRED", "key expired"))).toBe(
+      true,
+    );
+    expect(
+      isModelLevelFailoverError(
+        byok("NO_SYSTEM_KEY", "System API Key not configured"),
+      ),
+    ).toBe(true);
+  });
+
+  it("returns FALSE for BYOK NO_MODEL_CONFIGURED — nothing to fail over to", () => {
+    expect(
+      isModelLevelFailoverError(
+        byok(
+          "NO_MODEL_CONFIGURED",
+          "No CHAT model configured for your account",
+        ),
+      ),
+    ).toBe(false);
+  });
+
+  it("message-level net catches BYOK key problems even without .code", () => {
+    expect(
+      isModelLevelFailoverError(
+        new Error('No API Key available for provider "deepseek"'),
+      ),
+    ).toBe(true);
+    expect(
+      isModelLevelFailoverError(
+        new Error('API Key for provider "x" is invalid or revoked'),
+      ),
+    ).toBe(true);
+    expect(isModelLevelFailoverError(new Error("API Key has expired"))).toBe(
+      true,
+    );
+  });
+
+  it("returns false for content-safety guardrail refusals", () => {
+    expect(
+      isModelLevelFailoverError(
+        new Error("Request blocked by content safety guardrail: ..."),
+      ),
+    ).toBe(false);
+  });
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────

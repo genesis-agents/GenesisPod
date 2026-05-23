@@ -404,61 +404,73 @@ export class AgentFactory {
       finalizeOutputJsonSchema: spec.outputJsonSchema
         ? { ...spec.outputJsonSchema }
         : undefined,
-      // Model-level failover for the ReActLoop path (researcher, etc.).
-      // Mirrors SpecBasedAgent.executeSpec — same two-path closure:
-      //   BYOK (userId set) → listUserEnabledModelsByType(userId, CHAT, exclude)
-      //   admin/cron (no userId) → re-elect via ModelElectionService
-      modelFailoverProvider: (() => {
-        const effectiveUserId = spec.userId;
-        if (effectiveUserId) {
-          const modelConfigService = this.modelConfigService;
-          if (!modelConfigService) return undefined;
-          return async (
-            excludeModelIds: ReadonlyArray<string>,
-          ): Promise<string | null> => {
-            try {
-              const models =
-                await modelConfigService.listUserEnabledModelsByType(
-                  effectiveUserId,
-                  AIModelType.CHAT,
-                  excludeModelIds,
-                );
-              return models[0]?.modelId ?? null;
-            } catch {
-              return null;
-            }
-          };
-        }
-        if (!this.electionService) return undefined;
-        const taskProfile = spec.taskProfile;
-        const roleId = identity.role.id;
-        const runtimeEnv = spec.runtimeEnv;
-        return async (
-          excludeModelIds: ReadonlyArray<string>,
-        ): Promise<string | null> => {
-          try {
-            // Attempt to get a fresh env snapshot for candidate list.
-            // Falls back to empty candidates if not available.
-            const envSnapshot = runtimeEnv?.getEnvironmentSnapshot
-              ? await runtimeEnv.getEnvironmentSnapshot().catch(() => undefined)
-              : undefined;
-            const candidates = this.buildElectionCandidates(envSnapshot);
-            const role = this.resolveElectionRoleHint(roleId);
-            const result = await this.electionService!.elect({
-              modelType: AIModelType.CHAT,
-              candidates,
-              taskProfile,
-              role,
-              userId: undefined,
-              excludeModelIds: [...excludeModelIds],
-            });
-            return result.elected.modelId ?? null;
-          } catch {
-            return null;
-          }
-        };
-      })(),
+      // Model-level failover (BYOK → user's other models; admin → re-election).
+      // Shared with createWithEnvelope via buildModelFailoverProvider so both
+      // construction paths behave identically.
+      modelFailoverProvider: this.buildModelFailoverProvider(spec, identity),
     });
+  }
+
+  /**
+   * 构造模型级 failover provider 闭包（create + createWithEnvelope 共用，保证两条
+   * 构造路径一致；之前 createWithEnvelope 漏接导致 subagent / checkpoint resume 的
+   * agent 无 failover）。两路：
+   *   BYOK (spec.userId) → listUserEnabledModelsByType(userId, CHAT, exclude)
+   *   admin/cron (无 userId) → ModelElectionService.elect(excludeModelIds)
+   * 依赖（@Optional）缺失时返回 undefined —— failover 关闭，行为同修复前，不崩。
+   */
+  private buildModelFailoverProvider(
+    spec: IAgentSpec,
+    identity: AgentIdentity,
+  ):
+    | ((excludeModelIds: ReadonlyArray<string>) => Promise<string | null>)
+    | undefined {
+    const effectiveUserId = spec.userId;
+    if (effectiveUserId) {
+      const modelConfigService = this.modelConfigService;
+      if (!modelConfigService) return undefined;
+      return async (
+        excludeModelIds: ReadonlyArray<string>,
+      ): Promise<string | null> => {
+        try {
+          const models = await modelConfigService.listUserEnabledModelsByType(
+            effectiveUserId,
+            AIModelType.CHAT,
+            excludeModelIds,
+          );
+          return models[0]?.modelId ?? null;
+        } catch {
+          return null;
+        }
+      };
+    }
+    if (!this.electionService) return undefined;
+    const taskProfile = spec.taskProfile;
+    const roleId = identity.role.id;
+    const runtimeEnv = spec.runtimeEnv;
+    return async (
+      excludeModelIds: ReadonlyArray<string>,
+    ): Promise<string | null> => {
+      try {
+        // Fresh env snapshot for candidate list; empty candidates if absent.
+        const envSnapshot = runtimeEnv?.getEnvironmentSnapshot
+          ? await runtimeEnv.getEnvironmentSnapshot().catch(() => undefined)
+          : undefined;
+        const candidates = this.buildElectionCandidates(envSnapshot);
+        const role = this.resolveElectionRoleHint(roleId);
+        const result = await this.electionService!.elect({
+          modelType: AIModelType.CHAT,
+          candidates,
+          taskProfile,
+          role,
+          userId: undefined,
+          excludeModelIds: [...excludeModelIds],
+        });
+        return result.elected.modelId ?? null;
+      } catch {
+        return null;
+      }
+    };
   }
 
   /**
@@ -502,6 +514,8 @@ export class AgentFactory {
       //   finalize-rejection critique.
       outputSchemaDescription:
         describeOutputSchemaForLlm(spec.outputSchema) ?? undefined,
+      // 模型级 failover：subagent / checkpoint resume 重建的 agent 也要容错。
+      modelFailoverProvider: this.buildModelFailoverProvider(spec, identity),
     });
   }
 

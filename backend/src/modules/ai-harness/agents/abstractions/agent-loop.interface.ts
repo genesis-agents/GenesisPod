@@ -45,6 +45,18 @@ export interface ILoopRunOptions {
   readonly allowedTools?: readonly string[];
   /** v2 access matrix：禁止的 tool id（优先级高于 allowedTools） */
   readonly forbiddenTools?: readonly string[];
+  /**
+   * 模型级 failover provider（可选）。当 chat()/reason() 抛出（或返回）provider 级
+   * 错误且 isModelLevelFailoverError 为真时，loop 调用本回调换一个模型重试，而非
+   * 直接终止。入参是已失败的 modelId 列表（供排除），返回下一个候选 modelId 或
+   * null（无更多候选 → loop 落回原有 error/terminated 路径）。
+   *
+   * AgentFactory 按 BYOK / admin 注入对应闭包；react-loop 自带 #66 实现，
+   * simple-loop / plan-act 经 executeWithModelFailover 共享 helper 使用本字段。
+   */
+  readonly modelFailoverProvider?: (
+    excludeModelIds: ReadonlyArray<string>,
+  ) => Promise<string | null | undefined>;
 }
 
 /** AgentLoop 接口 */
