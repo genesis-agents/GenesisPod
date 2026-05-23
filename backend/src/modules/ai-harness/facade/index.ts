@@ -534,9 +534,11 @@ export {
 } from "../protocols/ipc/stage-instrumentation.helper";
 
 // ★ 2026-05-01 (PR-X-N): 让 ai-app 走 facade，不需穿透 harness 内部路径
+// ★ R2-#36: extractRealCostUsd added — reads per-model costUsd from thinking events
 export {
   extractTokenSpend,
   estimateUsdFromTokens,
+  extractRealCostUsd,
 } from "../tracing/observability/token-spend.utils";
 // ★ 2026-05-16: AgentRunner state normalizer 上提（多 ai-app 双源 copy →
 //   harness facade 单源；feedback_no_dual_sources）

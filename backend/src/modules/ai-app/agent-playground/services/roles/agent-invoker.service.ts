@@ -16,6 +16,7 @@ import {
 import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import { FailureLearnerService } from "@/modules/ai-harness/facade";
+import type { IAgentEvent } from "@/modules/ai-harness/facade";
 import { AgentExecutionSupport } from "./agent-execution-support";
 import { AgentInvocationPolicy } from "./agent-invocation-policy";
 import { AgentPlaygroundEventRelay } from "./agent-playground-event-relay";
@@ -129,8 +130,17 @@ export class AgentInvoker {
     stage: string,
     pool: MissionBudgetPool,
     deltaTokens: number,
+    /** R2-#36: pass raw agent events so tickCost can read real per-model costUsd */
+    agentEvents?: readonly IAgentEvent[],
   ): Promise<void> {
-    await this.relay.tickCost(missionId, userId, stage, pool, deltaTokens);
+    await this.relay.tickCost(
+      missionId,
+      userId,
+      stage,
+      pool,
+      deltaTokens,
+      agentEvents,
+    );
   }
 
   /**

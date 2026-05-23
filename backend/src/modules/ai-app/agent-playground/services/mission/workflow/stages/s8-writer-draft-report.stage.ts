@@ -225,6 +225,7 @@ export async function runWriterStage(
       "writer",
       pool,
       extractTokenSpend(writerRes.events),
+      writerRes.events,
     );
     // ★ degraded 算成功：reflexion verifier 评分略低于阈值但 outputSchema 合法
     const writerUsable =

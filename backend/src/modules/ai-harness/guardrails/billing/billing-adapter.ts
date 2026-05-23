@@ -23,6 +23,7 @@ import type {
   IQuotaSnapshot,
   IRuntimeEnvironment,
 } from "../../agents/abstractions";
+import { CREDITS_TO_TOKENS } from "../budget/resolved-budget-caps";
 import type { CreditsService } from "../../../ai-infra/credits/credits.service";
 import type { RuntimeEnvironmentService } from "../../../ai-harness/guardrails/runtime/runtime-environment.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
@@ -269,8 +270,12 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     currentBalance: number;
   }> {
     const acct = await this.getCachedBalance();
-    // 粗估：1000 tokens ≈ 1 credit（依模型层不同会有差异）
-    const estimatedCredits = Math.ceil((budget.maxTokens ?? 0) / 1000);
+    // ★ R2-#45: route through CREDITS_TO_TOKENS (single source in ResolvedBudgetCaps).
+    //   Eliminates the divergent inline /1000 literal so this matches the pre-flight
+    //   gate in s1-mission-estimate-budget.stage.ts exactly.
+    const estimatedCredits = Math.ceil(
+      (budget.maxTokens ?? 0) / CREDITS_TO_TOKENS,
+    );
     if (acct.balance >= estimatedCredits) {
       return {
         affordable: true,

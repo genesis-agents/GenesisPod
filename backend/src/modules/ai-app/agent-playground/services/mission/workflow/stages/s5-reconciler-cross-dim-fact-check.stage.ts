@@ -115,6 +115,7 @@ export async function runReconcilerStage(
       "reconciler",
       pool,
       extractTokenSpend(reconRes.events),
+      reconRes.events,
     );
     if (reconRes.state === "completed" && reconRes.output) {
       ctx.reconciliationReport =

@@ -249,6 +249,7 @@ export async function runChapterPipeline(
       "researchers",
       pool,
       extractTokenSpend(writerRes.events),
+      writerRes.events,
     );
     // ★ degraded also counts as usable — body is intact, just verifier score is low
     const writerUsable =
@@ -396,6 +397,7 @@ export async function runChapterPipeline(
       "researchers",
       pool,
       extractTokenSpend(reviewerRes.events),
+      reviewerRes.events,
     );
     const verdict =
       reviewerRes.state === "completed" && reviewerRes.output

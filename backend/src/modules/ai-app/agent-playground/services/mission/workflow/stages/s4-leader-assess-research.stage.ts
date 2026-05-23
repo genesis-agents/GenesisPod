@@ -764,6 +764,7 @@ async function runResearcherWithCritique(
     "researchers",
     pool,
     extractTokenSpend(r.events),
+    r.events,
   );
   await deps.lifecycle(
     missionId,

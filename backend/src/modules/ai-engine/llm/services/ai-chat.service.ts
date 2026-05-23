@@ -38,6 +38,7 @@ import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
 import { KernelContext } from "@/common/context/kernel-context";
+import { BillingContext } from "@/modules/ai-infra/credits/billing-context.store";
 import { ModelPricingRegistry } from "../pricing/model-pricing.registry";
 import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 import { AiChatFailoverCallerService } from "./ai-chat-failover-caller.service";
@@ -1952,9 +1953,19 @@ export class AiChatService {
           });
         }
         if (processId) {
+          // ★ R2-#36 ATTRIBUTION (additive): populate moduleType/referenceId/agentId
+          // from BillingContext and KernelContext when available.
+          // Falls back to "ai-engine" to preserve existing behaviour for callers
+          // that don't wrap in a BillingContext (e.g. direct Ask/Social calls).
+          const billingCtx = BillingContext.get();
+          const kernelCtx = KernelContext.get();
           this.emitCostRecord({
             userId: userId ?? "",
-            moduleType: "ai-engine",
+            moduleType: billingCtx?.moduleType ?? "ai-engine",
+            operationType:
+              billingCtx?.operationType ?? options.operationName ?? "llm_call",
+            referenceId: billingCtx?.referenceId ?? kernelCtx?.missionId,
+            agentId: kernelCtx?.agentId,
             model: currentModel,
             provider: currentModelConfig?.provider ?? "",
             inputTokens: 0,

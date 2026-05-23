@@ -16,6 +16,9 @@ import type { IAgentEvent } from "@/modules/ai-harness/facade";
  */
 const MAX_TOKENS_PER_CALL = 5_000_000;
 
+/** Upper bound for a single LLM call's USD cost — rejects accidental overflow values. */
+const MAX_COST_PER_CALL_USD = 1_000; // $1 000 per call is already far beyond reality
+
 function safeNumber(v: unknown): number | null {
   let n: number | null = null;
   if (typeof v === "number" && !isNaN(v) && isFinite(v)) n = v;
@@ -61,10 +64,47 @@ export function extractTokenSpend(events: readonly IAgentEvent[]): number {
 }
 
 /**
- * 粗略 USD 估算 —— demo 用，避免 Cost meter 永远 $0。
+ * 粗略 USD 估算 —— 仅在无法从 thinking 事件取得真实 costUsd 时作为 fallback。
  * 真实账单走 CreditsService.consumeCredits（按模型分级算积分）。
  * Sonnet/4o 量级混合估算：~$3 / 1M tokens。
  */
 export function estimateUsdFromTokens(tokens: number): number {
   return tokens * 0.000003;
+}
+
+/**
+ * ★ R2-#36: Extract real per-agent costUsd from "thinking" events emitted by
+ * ReActLoop. Each "thinking" event carries `costUsd` computed by LlmExecutor
+ * via ModelPricingRegistry.estimateCost (per-model pricing, not flat heuristic).
+ *
+ * Returns the sum of non-null costUsd values across all "thinking" events, or
+ * 0 if no attributed cost was found (caller should fall back to estimateUsdFromTokens).
+ *
+ * Safety: values are validated — negatives, Infinity, NaN, and implausibly large
+ * amounts (>$1 000 per call) are rejected with a console.warn.
+ */
+export function extractRealCostUsd(events: readonly IAgentEvent[]): number {
+  let total = 0;
+  for (const ev of events) {
+    if (ev.type !== "thinking") continue;
+    const p = ev.payload as { costUsd?: unknown } | null;
+    const raw = p?.costUsd;
+    if (raw == null) continue;
+    let n: number | null = null;
+    if (typeof raw === "number" && isFinite(raw) && !isNaN(raw)) n = raw;
+    else if (typeof raw === "string") {
+      const parsed = Number(raw);
+      if (isFinite(parsed) && !isNaN(parsed)) n = parsed;
+    }
+    if (n == null) continue;
+    if (n < 0 || n > MAX_COST_PER_CALL_USD) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[token-spend] rejected out-of-range costUsd=${n} from thinking event (max=${MAX_COST_PER_CALL_USD})`,
+      );
+      continue;
+    }
+    total += n;
+  }
+  return total;
 }

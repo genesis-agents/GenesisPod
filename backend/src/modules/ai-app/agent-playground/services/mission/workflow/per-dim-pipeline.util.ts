@@ -402,6 +402,7 @@ export async function runPerDimPipeline(
       "researchers",
       pool,
       extractTokenSpend(outlineRes.events),
+      outlineRes.events,
     );
     await deps.lifecycle(
       missionId,
@@ -546,6 +547,7 @@ export async function runPerDimPipeline(
         }),
       deps,
       { missionId, dimensionName },
+      pool,
     );
 
     const producedChapters: WrittenChapter[] = settledResults
@@ -647,6 +649,7 @@ export async function runPerDimPipeline(
       "researchers",
       pool,
       extractTokenSpend(integrateRes.events),
+      integrateRes.events,
     );
 
     // ★ 2026-05-02: fullMarkdown is deterministically stitched from chapter bodies;
@@ -763,6 +766,7 @@ export async function runPerDimPipeline(
         "researchers",
         pool,
         extractTokenSpend(gradeRes.events),
+        gradeRes.events,
       );
       if (gradeRes.state === "completed" && gradeRes.output) {
         const g = gradeRes.output as NonNullable<PerDimPipelineResult["grade"]>;

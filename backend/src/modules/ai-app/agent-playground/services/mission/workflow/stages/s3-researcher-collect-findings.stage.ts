@@ -638,6 +638,7 @@ async function runOneDim(
       "researchers",
       pool,
       extractTokenSpend(r.events),
+      r.events,
     );
     await deps.lifecycle(
       missionId,
