@@ -473,6 +473,33 @@ describe("runResearcherDispatchStage (S3)", () => {
     expect(ctx.researcherResults![0].findings).toEqual([]);
   });
 
+  it("#1a salvage: findings with empty/blank evidence are rejected → degrade", async () => {
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        depth: "quick",
+        auditLayers: "minimal",
+      } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "degraded",
+      output: {
+        dimension: "Tech",
+        // claim+source non-empty but evidence is blank → must NOT be salvaged
+        findings: [{ claim: "C1", evidence: "   ", source: "http://a.com" }],
+        summary: "S",
+      },
+      events: [],
+      wallTimeMs: 1000,
+      iterations: 3,
+      agent: null,
+    });
+    await runResearcherDispatchStage(ctx, deps);
+    expect(ctx.researcherResults![0].findings).toEqual([]);
+  });
+
   it("exception in dim handler → degrades gracefully", async () => {
     const ctx = makeCtx({ plan: { ...makeCtx().plan!, dimensions: [DIM_A] } });
     const deps = makeDeps();

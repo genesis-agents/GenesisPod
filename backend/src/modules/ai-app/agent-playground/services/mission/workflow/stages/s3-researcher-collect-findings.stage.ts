@@ -106,7 +106,11 @@ function salvageResearcherFindings(res: {
       typeof (f as { evidence?: unknown }).evidence === "string" &&
       typeof (f as { source?: unknown }).source === "string" &&
       (f as { claim: string }).claim.trim().length > 0 &&
-      (f as { source: string }).source.trim().length > 0,
+      (f as { source: string }).source.trim().length > 0 &&
+      // ★ 2026-05-23 review-fix #1a：evidence 也必须非空，与 researcher
+      //   validateBusinessRules 的 evidence 门槛对齐——salvage 不得放进比 loop 自身
+      //   gate 更弱的 finding（防止 evidence 空白的"伪 finding"进入写作）。
+      (f as { evidence: string }).evidence.trim().length > 0,
   );
 }
 
@@ -597,17 +601,34 @@ async function runOneDim(
       salvagedOutput && typeof salvagedOutput.summary === "string"
         ? salvagedOutput.summary
         : "";
-    const salvagedFigureCandidates = Array.isArray(
-      salvagedOutput?.figureCandidates,
-    )
-      ? (salvagedOutput?.figureCandidates as {
-          sourceUrl: string;
-          imageUrl?: string;
-          caption: string;
-          sourcePageOrSection?: string;
-          relevanceHint?: "high" | "medium" | "low";
-        }[])
-      : undefined;
+    // ★ 2026-05-23 review-fix #1b：salvage 的 figureCandidates 也要过 zod 同等校验
+    //   （sourceUrl 必须是 http(s)、caption 非空），不能 raw cast 直接放行。
+    const salvagedFigureCandidates = (
+      Array.isArray(salvagedOutput?.figureCandidates)
+        ? (salvagedOutput?.figureCandidates as {
+            sourceUrl?: unknown;
+            imageUrl?: unknown;
+            caption?: unknown;
+            sourcePageOrSection?: unknown;
+            relevanceHint?: unknown;
+          }[])
+        : []
+    ).filter(
+      (
+        c,
+      ): c is {
+        sourceUrl: string;
+        imageUrl?: string;
+        caption: string;
+        sourcePageOrSection?: string;
+        relevanceHint?: "high" | "medium" | "low";
+      } =>
+        !!c &&
+        typeof c.sourceUrl === "string" &&
+        /^https?:\/\//i.test(c.sourceUrl) &&
+        typeof c.caption === "string" &&
+        c.caption.trim().length > 0,
+    );
     const collectionUsable =
       r.state !== "cancelled" && salvagedFindings.length > 0;
 

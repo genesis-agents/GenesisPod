@@ -1297,17 +1297,8 @@ export function TodoDetailDrawer({
                               <span>{c.wordCount} 字</span>
                             )}
                             {c.score != null && (
-                              <span
-                                className={cn(
-                                  'font-mono font-semibold',
-                                  c.score >= 80
-                                    ? 'text-emerald-600'
-                                    : c.score >= 60
-                                      ? 'text-amber-600'
-                                      : 'text-red-600'
-                                )}
-                              >
-                                {c.score}/100
+                              <span className="font-mono text-gray-400">
+                                复审 {c.score}/100
                               </span>
                             )}
                             {c.attempts > 1 && (
@@ -1336,7 +1327,7 @@ export function TodoDetailDrawer({
 
                 {pipeline.grade && (
                   <Section
-                    title="维度评分"
+                    title="维度总评（5 轴综合）"
                     count={`${pipeline.grade.overall}/100 · ${
                       pipeline.grade.grade === 'excellent'
                         ? '优秀'
@@ -1348,6 +1339,10 @@ export function TodoDetailDrawer({
                     }`}
                   >
                     <div className="p-3">
+                      <p className="mb-2 text-[10px] text-gray-400">
+                        评估维度整体质量（广度 / 深度 / 证据 / 连贯性 /
+                        时效性），独立于各章节复审分。
+                      </p>
                       <ul className="space-y-1.5">
                         {(
                           [

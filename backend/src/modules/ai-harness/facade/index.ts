@@ -98,6 +98,7 @@ export { inferIsReasoning } from "../../ai-engine/llm/types/model.utils";
 // ★ 2026-05-01 (PR-G iter8 + iter9): 集中所有 review pass/attempt 阈值 + agent budget cap
 export {
   REVIEW_PASS_THRESHOLD,
+  REVIEW_REWRITE_FLOOR,
   CHAPTER_MAX_REVISION_ATTEMPTS,
   MISSION_WRITER_MAX_ATTEMPTS,
   MAX_CONSECUTIVE_REVIEWER_FAILURES,

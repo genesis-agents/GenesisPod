@@ -17,6 +17,7 @@ import type { MissionBudgetPool } from "@/modules/ai-harness/facade";
 import {
   extractTokenSpend,
   REVIEW_PASS_THRESHOLD,
+  REVIEW_REWRITE_FLOOR,
   CHAPTER_MAX_REVISION_ATTEMPTS,
   jaccardSimilarity,
   restoreGlobalIndices,
@@ -486,7 +487,10 @@ export async function runChapterPipeline(
       attempt < MAX_REVISION_ATTEMPTS;
     // ★ L1-2: reviewer threshold decay — each attempt drops 10, floor 40
     //   attempt=1→60, attempt=2→50, attempt=3→40
-    const dynamicThreshold = Math.max(40, PASS_THRESHOLD - (attempt - 1) * 10);
+    const dynamicThreshold = Math.max(
+      REVIEW_REWRITE_FLOOR,
+      PASS_THRESHOLD - (attempt - 1) * 10,
+    );
     // ★ L1-1: consecutive stuck-revision guard
     const isStuckRevision = stuckCount >= MAX_STUCK_COUNT;
 

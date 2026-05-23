@@ -765,6 +765,37 @@ export async function runPerDimPipeline(
       );
       if (gradeRes.state === "completed" && gradeRes.output) {
         const g = gradeRes.output as NonNullable<PerDimPipelineResult["grade"]>;
+        // ★ 2026-05-23 review-fix #3：评分接地 + overall 服务端重算（防 LLM 凭空高分）。
+        //   (a) sources_sufficiency（来源数量轴）按真实 uniqueSources 平滑封顶：
+        //       1 来源→20 / 4→80 / 5→100。单来源维度拿不到高分，杜绝靠 prose 自评 80；
+        //       这是平滑梯度不是旧的"≥5 URL 才及格"硬悬崖，正常多源维度基本不受影响。
+        //   (b) overall 不再取 LLM verbatim，改由各轴均值重算 → 与展示的各轴一致
+        //       （消除"轴都低但 overall=80"），grade 枚举随 overall 一致派生。
+        const axesRec = g.axes as Record<
+          string,
+          { score: number; comment: string }
+        >;
+        const supplyCeil = Math.min(100, evidenceBudget.uniqueSources * 20);
+        if (axesRec["sources_sufficiency"]) {
+          axesRec["sources_sufficiency"].score = Math.min(
+            axesRec["sources_sufficiency"].score,
+            supplyCeil,
+          );
+        }
+        const axisVals = Object.values(axesRec).map((a) => a.score);
+        if (axisVals.length > 0) {
+          g.overall = Math.round(
+            axisVals.reduce((a, b) => a + b, 0) / axisVals.length,
+          );
+          g.grade =
+            g.overall >= 80
+              ? "excellent"
+              : g.overall >= 65
+                ? "good"
+                : g.overall >= 50
+                  ? "fair"
+                  : "poor";
+        }
         grade = g;
         await emitGraded({ ok: true, g });
         // ★ sources_sufficiency warning (2026-05-06)
