@@ -159,7 +159,7 @@ export interface LlmExecutorInput<TOutput> {
 }
 
 /** Maximum number of distinct models to try before giving up. */
-const MAX_MODEL_FAILOVERS = 3;
+export const MAX_MODEL_FAILOVERS = 3;
 
 export interface LlmExecutorResult<TOutput> {
   readonly output: TOutput;

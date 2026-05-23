@@ -104,6 +104,23 @@ export interface HarnessedAgentInit {
    * shape on final iterations (approachingLimit=true), non-FC branch only.
    */
   finalizeOutputJsonSchema?: Record<string, unknown>;
+  /**
+   * Model-level failover provider (optional) — mirrors SpecBasedAgent / LlmExecutor.
+   *
+   * When provided, ReActLoop calls this closure instead of terminating when
+   * reason() throws a provider-level error (5xx / model-not-found / timeout /
+   * AllKeysFailed / rate-limit) and isModelLevelFailoverError returns true.
+   * The closure receives the set of already-failed modelIds and returns the
+   * next modelId to try, or null if no further candidates are available.
+   *
+   * BYOK path (userId set): query AiModelConfigService.listUserEnabledModelsByType.
+   * Admin/cron path (no userId): re-run ModelElectionService.elect with excludes.
+   * AgentFactory wires the appropriate closure; callers outside AgentFactory can
+   * also supply one directly.
+   */
+  modelFailoverProvider?: (
+    excludeModelIds: ReadonlyArray<string>,
+  ) => Promise<string | null | undefined>;
 }
 
 export class HarnessedAgent implements IAgent {
@@ -131,6 +148,7 @@ export class HarnessedAgent implements IAgent {
   private readonly validateBusinessRules?: HarnessedAgentInit["validateBusinessRules"];
   private readonly outputSchemaDescription?: string;
   private readonly finalizeOutputJsonSchema?: Record<string, unknown>;
+  private readonly modelFailoverProvider?: HarnessedAgentInit["modelFailoverProvider"];
   /** Persistent AbortController — lives from construction. cancel() before execute() still aborts. */
   private readonly abortController = new AbortController();
 
@@ -162,6 +180,7 @@ export class HarnessedAgent implements IAgent {
     this.validateBusinessRules = init.validateBusinessRules;
     this.outputSchemaDescription = init.outputSchemaDescription;
     this.finalizeOutputJsonSchema = init.finalizeOutputJsonSchema;
+    this.modelFailoverProvider = init.modelFailoverProvider;
     this.state = "idle";
   }
 
@@ -281,6 +300,9 @@ export class HarnessedAgent implements IAgent {
             ) => string | null | undefined;
             outputSchemaDescription?: string;
             finalizeOutputJsonSchema?: Record<string, unknown>;
+            modelFailoverProvider?: (
+              excludeModelIds: ReadonlyArray<string>,
+            ) => Promise<string | null | undefined>;
           },
         ) => AsyncIterable<IAgentEvent>;
 
@@ -320,6 +342,7 @@ export class HarnessedAgent implements IAgent {
             : undefined,
           outputSchemaDescription: this.outputSchemaDescription,
           finalizeOutputJsonSchema: this.finalizeOutputJsonSchema,
+          modelFailoverProvider: this.modelFailoverProvider,
         })) {
           yield ev;
           eventCount += 1;

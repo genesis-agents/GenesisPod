@@ -404,6 +404,60 @@ export class AgentFactory {
       finalizeOutputJsonSchema: spec.outputJsonSchema
         ? { ...spec.outputJsonSchema }
         : undefined,
+      // Model-level failover for the ReActLoop path (researcher, etc.).
+      // Mirrors SpecBasedAgent.executeSpec — same two-path closure:
+      //   BYOK (userId set) → listUserEnabledModelsByType(userId, CHAT, exclude)
+      //   admin/cron (no userId) → re-elect via ModelElectionService
+      modelFailoverProvider: (() => {
+        const effectiveUserId = spec.userId;
+        if (effectiveUserId) {
+          const modelConfigService = this.modelConfigService;
+          if (!modelConfigService) return undefined;
+          return async (
+            excludeModelIds: ReadonlyArray<string>,
+          ): Promise<string | null> => {
+            try {
+              const models =
+                await modelConfigService.listUserEnabledModelsByType(
+                  effectiveUserId,
+                  AIModelType.CHAT,
+                  excludeModelIds,
+                );
+              return models[0]?.modelId ?? null;
+            } catch {
+              return null;
+            }
+          };
+        }
+        if (!this.electionService) return undefined;
+        const taskProfile = spec.taskProfile;
+        const roleId = identity.role.id;
+        const runtimeEnv = spec.runtimeEnv;
+        return async (
+          excludeModelIds: ReadonlyArray<string>,
+        ): Promise<string | null> => {
+          try {
+            // Attempt to get a fresh env snapshot for candidate list.
+            // Falls back to empty candidates if not available.
+            const envSnapshot = runtimeEnv?.getEnvironmentSnapshot
+              ? await runtimeEnv.getEnvironmentSnapshot().catch(() => undefined)
+              : undefined;
+            const candidates = this.buildElectionCandidates(envSnapshot);
+            const role = this.resolveElectionRoleHint(roleId);
+            const result = await this.electionService!.elect({
+              modelType: AIModelType.CHAT,
+              candidates,
+              taskProfile,
+              role,
+              userId: undefined,
+              excludeModelIds: [...excludeModelIds],
+            });
+            return result.elected.modelId ?? null;
+          } catch {
+            return null;
+          }
+        };
+      })(),
     });
   }
 

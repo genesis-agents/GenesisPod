@@ -61,6 +61,10 @@ import {
   envelopeHasUnexecutedToolUse,
 } from "./utils/follow-up-detector";
 import { REACT_LOOP_DECISION_JSON_SCHEMA } from "./loop-output-schemas";
+import {
+  isModelLevelFailoverError,
+  MAX_MODEL_FAILOVERS,
+} from "../executor/llm-executor";
 
 /**
  * #35 — Build a decision-wrapper schema that embeds the strict business-agent
@@ -361,6 +365,26 @@ export class ReActLoop implements IAgentLoop {
        * over-constrained.
        */
       finalizeOutputJsonSchema?: Record<string, unknown>;
+      /**
+       * Model-level failover provider (optional).
+       *
+       * Mirrors LlmExecutor.modelFailoverProvider: when reason() throws a
+       * provider-level error (5xx / model-not-found / timeout / AllKeysFailed /
+       * rate-limit) and isModelLevelFailoverError returns true, the loop calls
+       * this callback instead of terminating immediately.  The callback receives
+       * the set of modelIds that have already failed so it can exclude them and
+       * return a different model.  Returns null/undefined when no further
+       * candidates are available (in which case the loop falls through to its
+       * existing error/terminated path).
+       *
+       * BYOK path: caller supplies a closure over AiModelConfigService that
+       * queries the user's same-modelType UserModelConfig rows, excluding
+       * already-failed models.
+       * Admin/cron path: caller supplies a closure over ModelElectionService.
+       */
+      modelFailoverProvider?: (
+        excludeModelIds: ReadonlyArray<string>,
+      ) => Promise<string | null | undefined>;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "unknown-agent";
@@ -372,6 +396,13 @@ export class ReActLoop implements IAgentLoop {
     const validateBusinessRules = options?.validateBusinessRules;
     const outputSchemaDescription = options?.outputSchemaDescription;
     const finalizeOutputJsonSchema = options?.finalizeOutputJsonSchema;
+    const modelFailoverProvider = options?.modelFailoverProvider;
+    // Model-level failover state: tracks models that failed with a
+    // provider-level error so they can be excluded from re-election.
+    const failedModelIds: string[] = [];
+    // When failover succeeds, the elected model is kept here so the next
+    // reason() call uses it instead of re-computing from budget tier / BYOK.
+    let failoverModelId: string | undefined;
     let currentEnvelope = envelope;
     let iteration = 0;
     let budgetWarned = false;
@@ -657,6 +688,9 @@ export class ReActLoop implements IAgentLoop {
           cacheReadTokens: number;
           modelId?: string;
         };
+        // Track the model we attempt this iteration so failover can exclude it
+        // even when reason() throws before usage.modelId is available.
+        let attemptedModelId: string | undefined;
         try {
           // 2026-05-12 BYOK fix: 有 userId 上下文时跳过 admin pricing tier 选型——
           // tier pick 是 admin BudgetAccountant 的 cost downgrade 机制，预设池 = 管
@@ -676,6 +710,9 @@ export class ReActLoop implements IAgentLoop {
           // options.preferredModelId 显式压制本逻辑（caller 已做 election，应尊重）。
           const byokUserId = currentEnvelope.memory.userId;
           let tierModelId =
+            // Model-level failover: if a previous round failed and we elected
+            // a replacement model, use it instead of the original selection.
+            failoverModelId ??
             options?.preferredModelId ??
             (byokUserId
               ? null
@@ -731,6 +768,9 @@ export class ReActLoop implements IAgentLoop {
           }
           // PR-Q: 自动 prompt-cache 规划 —— 重复 prefix 享受 1/10 价
           const cachePrefix = this.cachePlanner?.plan(currentEnvelope) ?? null;
+          // Track the model we are about to call so failover can exclude it even
+          // when reason() throws before usage.modelId is available.
+          attemptedModelId = tierModelId ?? undefined;
           const reasoned = await this.reason(
             messages,
             currentEnvelope.system,
@@ -971,6 +1011,45 @@ export class ReActLoop implements IAgentLoop {
           this.logger.error(
             `[${agentId}] iter=${iteration} ${loggedCode} — ${message}`,
           );
+
+          // Model-level failover: on provider-API errors (5xx, model-not-found,
+          // timeout, AllKeysFailed, rate-limit) try to elect a different model
+          // instead of terminating immediately.  AbortError and budget/credit
+          // exhaustion are NOT failover candidates (isModelLevelFailoverError
+          // returns false for those).  Cap at MAX_MODEL_FAILOVERS distinct models.
+          if (
+            !aborted &&
+            modelFailoverProvider &&
+            isModelLevelFailoverError(err) &&
+            failedModelIds.length < MAX_MODEL_FAILOVERS
+          ) {
+            // Use the model we actually attempted this iteration.
+            // lastModelId is only updated after a successful reason() call, so on
+            // the first failure it may still be undefined.
+            const failedId = attemptedModelId ?? lastModelId ?? "";
+            if (failedId && !failedModelIds.includes(failedId)) {
+              failedModelIds.push(failedId);
+            }
+            try {
+              const nextModelId = await modelFailoverProvider(failedModelIds);
+              if (nextModelId) {
+                this.logger.warn(
+                  `[${agentId}] iter=${iteration} model-failover: ` +
+                    `${failedId || "(default)"} → ${nextModelId} ` +
+                    `(failed=${failedModelIds.length}/${MAX_MODEL_FAILOVERS}, reason: ${message.slice(0, 120)})`,
+                );
+                failoverModelId = nextModelId;
+                lastModelId = nextModelId;
+                consecutiveRecoverableRetries = 0;
+                continue;
+              }
+            } catch (electionErr) {
+              this.logger.warn(
+                `[${agentId}] iter=${iteration} model-failover election threw: ` +
+                  `${electionErr instanceof Error ? electionErr.message : String(electionErr)}`,
+              );
+            }
+          }
 
           // ★ 2026-05-22 P0：可恢复错误（rate-limit/429）有界退避重试，而非直接终止。
           //   单模型/单 key 部署下 429 几乎必现，以前这里直接 return 终态把整段 mission
