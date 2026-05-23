@@ -227,9 +227,7 @@ describe("HierarchicalMemoryCascadeService", () => {
     const deleted = svc.delete("session", "s1", "toDelete");
     expect(deleted).toBe(true);
     expect(svc.resolve({ sessionId: "s1", key: "toDelete" })).toBeNull();
-    expect(svc.resolve({ sessionId: "s1", key: "toKeep" })?.value).toBe(
-      "stay",
-    );
+    expect(svc.resolve({ sessionId: "s1", key: "toKeep" })?.value).toBe("stay");
   });
 
   it("delete() returns false for unknown scope or key", () => {

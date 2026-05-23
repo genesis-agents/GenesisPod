@@ -300,13 +300,7 @@ describe("AgentStepCheckpointService", () => {
   it("all CheckpointReason values are accepted by snapshot()", async () => {
     const reasons: Array<
       "auto-interval" | "key-event" | "manual" | "pre-cancel" | "pre-terminate"
-    > = [
-      "auto-interval",
-      "key-event",
-      "manual",
-      "pre-cancel",
-      "pre-terminate",
-    ];
+    > = ["auto-interval", "key-event", "manual", "pre-cancel", "pre-terminate"];
     for (const reason of reasons) {
       await expect(
         svc.snapshot({

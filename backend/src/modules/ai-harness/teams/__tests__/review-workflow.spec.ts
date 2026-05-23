@@ -132,20 +132,20 @@ describe("ReviewWorkflowService (model-unavailable path)", () => {
   });
 
   it("startReview() throws NotFoundException when model is unavailable", async () => {
-    await expect(
-      svc.startReview("review-1", "reviewer-1"),
-    ).rejects.toThrow(NotFoundException);
+    await expect(svc.startReview("review-1", "reviewer-1")).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it("cancelReview() throws NotFoundException when model is unavailable", async () => {
-    await expect(
-      svc.cancelReview("review-1", "admin"),
-    ).rejects.toThrow(NotFoundException);
+    await expect(svc.cancelReview("review-1", "admin")).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it("reopenReview() throws NotFoundException when model is unavailable", async () => {
-    await expect(
-      svc.reopenReview("review-1", "admin"),
-    ).rejects.toThrow(NotFoundException);
+    await expect(svc.reopenReview("review-1", "admin")).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });

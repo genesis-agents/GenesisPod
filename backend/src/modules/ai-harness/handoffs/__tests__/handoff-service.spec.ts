@@ -13,7 +13,10 @@
 
 import { AgentRegistry } from "../agent-registry";
 import { HandoffService } from "../handoff.service";
-import type { IAgent, IContextEnvelope } from "@/modules/ai-harness/agents/abstractions";
+import type {
+  IAgent,
+  IContextEnvelope,
+} from "@/modules/ai-harness/agents/abstractions";
 import type { HandoffContext, IHandoffPolicy } from "../handoff.types";
 
 // Silence Logger in tests
@@ -55,9 +58,7 @@ function makeAgent(agentId: string, envelope?: IContextEnvelope): IAgent {
   } as unknown as IAgent;
 }
 
-function makeContext(
-  overrides: Partial<HandoffContext> = {},
-): HandoffContext {
+function makeContext(overrides: Partial<HandoffContext> = {}): HandoffContext {
   return {
     fromAgentId: "agent-from",
     toAgentId: "agent-to",
@@ -102,7 +103,10 @@ describe("HandoffService", () => {
   it("returns accepted:false when from and to are the same agent (default policy)", async () => {
     const agent = makeAgent("agent-self");
     registry.register(agent);
-    const ctx = makeContext({ fromAgentId: "agent-self", toAgentId: "agent-self" });
+    const ctx = makeContext({
+      fromAgentId: "agent-self",
+      toAgentId: "agent-self",
+    });
 
     const result = await service.handoff(agent, ctx);
 
@@ -205,7 +209,10 @@ describe("HandoffService", () => {
     const toAgent = makeAgent("t");
     registry.register(toAgent);
 
-    const result = await service.handoff(fromAgent, makeContext({ fromAgentId: "f", toAgentId: "t" }));
+    const result = await service.handoff(
+      fromAgent,
+      makeContext({ fromAgentId: "f", toAgentId: "t" }),
+    );
 
     expect(result).toHaveProperty("toAgentId");
     expect(result).toHaveProperty("accepted");
