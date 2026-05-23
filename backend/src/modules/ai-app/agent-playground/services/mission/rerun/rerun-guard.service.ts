@@ -208,8 +208,8 @@ export class RerunGuardService {
    *   1. 先 store.getById(missionId, userId)：跨用户 missionId 返回 null → 跳过 cleanup
    *      （防 R2 medium：markFailed userId optional 时 affectedRows=0 但 clearHeartbeat 仍跑）
    *   2. status 已非 running（race 间已变 final）→ 跳过 cleanup
-   *   3. 走 store.markFailed(userId) + store.clearHeartbeat(userId)，唯一写源不裸 UPDATE
-   *      （feedback_no_dual_sources）
+   *   3. 终态写经 lifecycleManager.finalize（arbiter=store 条件写首写赢）+
+   *      store.clearHeartbeat(userId)，唯一写源不裸 UPDATE（feedback_no_dual_sources）
    *   4. errorMessage="zombie-heartbeat-cleanup" 标识与 cascade-aborted 区分（审计追踪）
    */
   private async zombieCleanup(
