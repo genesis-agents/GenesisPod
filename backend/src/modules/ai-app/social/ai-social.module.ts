@@ -63,6 +63,7 @@ import {
   DomainEventBus,
   DomainEventRegistry,
   MissionFailureCode,
+  MissionLifecycleManager,
   MissionLivenessGuard,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -158,6 +159,8 @@ export class AiSocialModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly promptSkillBridge: PromptSkillRegistrationService,
     private readonly livenessGuard: MissionLivenessGuard,
     private readonly missionStore: SocialMissionStore,
+    // ★ C0/G1：liveness 回收也经唯一终态写入口仲裁，不直写 store。
+    private readonly lifecycleManager: MissionLifecycleManager,
   ) {}
 
   onModuleInit(): void {
@@ -204,14 +207,31 @@ export class AiSocialModule implements OnModuleInit, OnApplicationBootstrap {
       },
       getMostRecentEventTs: async () => new Map<string, number>(),
       markFailed: async (missionId, reason, errorMessage) => {
-        // ★ C2/MAJOR-4:liveness 回收落 canonical failureCode(超时→wall_time;失联→runtime_crashed)。
-        await this.missionStore.markFailedByLiveness(
+        // ★ C0/C2/MAJOR-4:liveness 回收经 finalize 仲裁(条件写首写赢,不覆盖已终态),
+        //   落 canonical failureCode(超时→wall_time;失联→runtime_crashed)。
+        const error = `[liveness:${reason}] ${errorMessage}`;
+        await this.lifecycleManager.finalize({
           missionId,
-          `[liveness:${reason}] ${errorMessage}`,
-          reason === "wall-time-exceeded"
-            ? MissionFailureCode.wall_time_exceeded
-            : MissionFailureCode.runtime_crashed,
-        );
+          intent: {
+            status: "failed",
+            failureCode:
+              reason === "wall-time-exceeded"
+                ? MissionFailureCode.wall_time_exceeded
+                : MissionFailureCode.runtime_crashed,
+            errorMessage: error,
+            extra: {
+              kind: "failed",
+              detail: {
+                errorMessage: error,
+                failureCode:
+                  reason === "wall-time-exceeded"
+                    ? MissionFailureCode.wall_time_exceeded
+                    : MissionFailureCode.runtime_crashed,
+              },
+            },
+          },
+          arbiter: this.missionStore,
+        });
         this.logger.warn(
           `[liveness] social mission ${missionId} reclaimed (${reason})`,
         );

@@ -30,6 +30,40 @@ const MOCK_MISSION_ID = "mission-abc-123";
 const MOCK_USER_ID = "user-xyz-456";
 const MOCK_POD_ID = "pod-001";
 
+/** C0/G1: 经 arbiter 唯一入口提交终态 intent(替代旧直调 store.markX)。 */
+function applyCompleted(
+  store: SocialMissionStore,
+  detail?: {
+    elapsedWallTimeMs?: number;
+    tokensUsed?: number;
+    costUsd?: number;
+  },
+) {
+  return store.applyTerminalIfRunning(MOCK_MISSION_ID, {
+    status: "completed",
+    extra: { kind: "completed", detail },
+  });
+}
+function applyFailed(
+  store: SocialMissionStore,
+  detail: {
+    errorMessage: string;
+    elapsedWallTimeMs?: number;
+    tokensUsed?: number;
+  },
+) {
+  return store.applyTerminalIfRunning(MOCK_MISSION_ID, {
+    status: "failed",
+    extra: { kind: "failed", detail },
+  });
+}
+function applyCancelled(store: SocialMissionStore, reason?: string) {
+  return store.applyTerminalIfRunning(MOCK_MISSION_ID, {
+    status: "cancelled",
+    extra: { kind: "cancelled", reason },
+  });
+}
+
 function makeCreateArgs(overrides = {}) {
   return {
     id: MOCK_MISSION_ID,
@@ -203,21 +237,22 @@ describe("SocialMissionStore", () => {
   });
 
   // =========================================================================
-  // markCompleted
+  // applyTerminalIfRunning — completed (C0/G1 唯一终态写入口)
   // =========================================================================
 
-  describe("markCompleted", () => {
-    it("should call prisma.updateMany with status=completed (条件写 WHERE running)", async () => {
+  describe("applyTerminalIfRunning — completed", () => {
+    it("should conditional-write status=completed (WHERE running) and return won=true", async () => {
       (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
         count: 1,
       });
 
-      await store.markCompleted(MOCK_MISSION_ID, {
+      const won = await applyCompleted(store, {
         elapsedWallTimeMs: 12000,
         tokensUsed: 500,
         costUsd: 0.03,
       });
 
+      expect(won).toBe(true);
       expect(mockPrisma.socialMission.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: MOCK_MISSION_ID, status: "running" },
@@ -230,12 +265,20 @@ describe("SocialMissionStore", () => {
       );
     });
 
+    it("should return won=false when no running row matched (race lost, no-op)", async () => {
+      (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
+        count: 0,
+      });
+
+      await expect(applyCompleted(store)).resolves.toBe(false);
+    });
+
     it("should convert tokensUsed to BigInt", async () => {
       (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
         count: 1,
       });
 
-      await store.markCompleted(MOCK_MISSION_ID, { tokensUsed: 1234 });
+      await applyCompleted(store, { tokensUsed: 1234 });
 
       const updateArg = (mockPrisma.socialMission.updateMany as jest.Mock).mock
         .calls[0][0];
@@ -247,7 +290,7 @@ describe("SocialMissionStore", () => {
         count: 1,
       });
 
-      await store.markCompleted(MOCK_MISSION_ID);
+      await applyCompleted(store);
 
       const updateArg = (mockPrisma.socialMission.updateMany as jest.Mock).mock
         .calls[0][0];
@@ -259,24 +302,22 @@ describe("SocialMissionStore", () => {
         new Error("update failed"),
       );
 
-      await expect(
-        store.markCompleted(MOCK_MISSION_ID),
-      ).resolves.toBeUndefined();
+      await expect(applyCompleted(store)).resolves.toBe(false);
       expect(loggerWarnSpy).toHaveBeenCalled();
     });
   });
 
   // =========================================================================
-  // markFailed
+  // applyTerminalIfRunning — failed (C0/G1 唯一终态写入口)
   // =========================================================================
 
-  describe("markFailed", () => {
+  describe("applyTerminalIfRunning — failed", () => {
     it("should call prisma.updateMany with status=failed (条件写 WHERE running)", async () => {
       (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
         count: 1,
       });
 
-      await store.markFailed(MOCK_MISSION_ID, {
+      await applyFailed(store, {
         errorMessage: "Something went wrong",
         elapsedWallTimeMs: 5000,
       });
@@ -298,7 +339,7 @@ describe("SocialMissionStore", () => {
       });
       const longMessage = "E".repeat(5000);
 
-      await store.markFailed(MOCK_MISSION_ID, { errorMessage: longMessage });
+      await applyFailed(store, { errorMessage: longMessage });
 
       const updateArg = (mockPrisma.socialMission.updateMany as jest.Mock).mock
         .calls[0][0];
@@ -310,7 +351,7 @@ describe("SocialMissionStore", () => {
         count: 1,
       });
 
-      await store.markFailed(MOCK_MISSION_ID, {
+      await applyFailed(store, {
         errorMessage: "err",
         tokensUsed: 888,
       });
@@ -325,7 +366,7 @@ describe("SocialMissionStore", () => {
         count: 1,
       });
 
-      await store.markFailed(MOCK_MISSION_ID, { errorMessage: "err" });
+      await applyFailed(store, { errorMessage: "err" });
 
       const updateArg = (mockPrisma.socialMission.updateMany as jest.Mock).mock
         .calls[0][0];
@@ -337,10 +378,40 @@ describe("SocialMissionStore", () => {
         new Error("DB gone"),
       );
 
-      await expect(
-        store.markFailed(MOCK_MISSION_ID, { errorMessage: "x" }),
-      ).resolves.toBeUndefined();
+      await expect(applyFailed(store, { errorMessage: "x" })).resolves.toBe(
+        false,
+      );
       expect(loggerWarnSpy).toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // applyTerminalIfRunning — cancelled (C0/G1 唯一终态写入口)
+  // =========================================================================
+
+  describe("applyTerminalIfRunning — cancelled", () => {
+    it("should conditional-write status=cancelled + failureCode=user_cancelled (WHERE running)", async () => {
+      (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+
+      const won = await applyCancelled(store, "aborted: user_cancelled");
+
+      expect(won).toBe(true);
+      expect(mockPrisma.socialMission.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: MOCK_MISSION_ID, status: "running" },
+          data: expect.objectContaining({ status: "cancelled" }),
+        }),
+      );
+    });
+
+    it("should return won=false when no running row matched (race lost, no-op)", async () => {
+      (mockPrisma.socialMission.updateMany as jest.Mock).mockResolvedValue({
+        count: 0,
+      });
+
+      await expect(applyCancelled(store)).resolves.toBe(false);
     });
   });
 
