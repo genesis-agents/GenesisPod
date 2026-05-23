@@ -6,7 +6,7 @@
  *
  * Five assertions from the "hardcoded pricing zero-out" protection:
  *   1. COST_PER_1K_TOKENS does NOT appear in any production (non-spec) .ts file
- *   2. MODEL_COSTS in constraint-engine.ts is the ONLY survivor (no other files)
+ *   2. FALLBACK_TIER_COSTS in constraint-engine.ts is the ONLY survivor (no other files)
  *   3. ai-engine/planning/budget/cost.calculator.ts has been deleted
  *   4. ai-observability.service.ts has no `static estimateCost`
  *   5. ai-metrics.service.ts (ai-infra) has no `private estimateCost`
@@ -75,19 +75,20 @@ describe("Hardcoded Pricing Zero-Out — Protection Net", () => {
   });
 
   // --------------------------------------------------------------------------
-  // 2. MODEL_COSTS — constraint-engine.ts is a known survivor (guardrails tier
+  // 2. FALLBACK_TIER_COSTS — constraint-engine.ts is a known survivor (guardrails tier
   //    uses semantic ModelPreference tiers, NOT real model IDs).
-  //    Assert that NO OTHER file uses MODEL_COSTS.
+  //    Assert that NO OTHER file uses FALLBACK_TIER_COSTS.
   // --------------------------------------------------------------------------
 
-  describe("2. MODEL_COSTS", () => {
+  describe("2. FALLBACK_TIER_COSTS", () => {
     it("is confined to constraint-engine.ts only (known survivor in guardrails)", () => {
-      const violating = filesContaining("MODEL_COSTS", PROD_TS_FILES).filter(
-        (f) => !f.includes("constraint-engine.ts"),
-      );
+      const violating = filesContaining(
+        "FALLBACK_TIER_COSTS",
+        PROD_TS_FILES,
+      ).filter((f) => !f.includes("constraint-engine.ts"));
       if (violating.length > 0) {
         console.error(
-          "MODEL_COSTS found outside constraint-engine.ts:",
+          "FALLBACK_TIER_COSTS found outside constraint-engine.ts:",
           violating,
         );
       }
@@ -96,11 +97,11 @@ describe("Hardcoded Pricing Zero-Out — Protection Net", () => {
 
     /**
      * NEGATIVE TEST (documents known survivor):
-     * constraint-engine.ts DOES contain MODEL_COSTS using semantic tier keys
+     * constraint-engine.ts DOES contain FALLBACK_TIER_COSTS using semantic tier keys
      * (cheap/balanced/premium), not real model IDs. This is a known survivor
      * that should eventually be migrated to ModelPricingRegistry injection.
      */
-    it("[KNOWN ISSUE] constraint-engine.ts uses semantic-tier MODEL_COSTS (not real model IDs) — documents known survivor", () => {
+    it("[KNOWN ISSUE] constraint-engine.ts uses semantic-tier FALLBACK_TIER_COSTS (not real model IDs) — documents known survivor", () => {
       const file = path.join(
         BACKEND_SRC,
         "modules/ai-harness/guardrails/constraints/constraint-engine.ts",
@@ -110,7 +111,7 @@ describe("Hardcoded Pricing Zero-Out — Protection Net", () => {
         return;
       }
       const content = fs.readFileSync(file, "utf8");
-      const hasModelCosts = content.includes("MODEL_COSTS");
+      const hasModelCosts = content.includes("FALLBACK_TIER_COSTS");
 
       if (hasModelCosts) {
         // Document that it uses semantic tier keys (cheap/balanced/premium),
@@ -120,11 +121,11 @@ describe("Hardcoded Pricing Zero-Out — Protection Net", () => {
         expect(content).toContain("balanced");
         expect(content).toContain("premium");
         // The model IDs that DO appear are only in comment strings explaining
-        // the mapping, not in the MODEL_COSTS value definition itself.
+        // the mapping, not in the FALLBACK_TIER_COSTS value definition itself.
         // The const declaration itself only uses number literals (0.1, 0.5, 2.0, etc.).
         expect(content).toMatch(/cheap:\s*\{\s*input:\s*[\d.]+/);
         console.warn(
-          "[KNOWN ISSUE] constraint-engine.ts has semantic MODEL_COSTS (cheap/balanced/premium). " +
+          "[KNOWN ISSUE] constraint-engine.ts has semantic FALLBACK_TIER_COSTS (cheap/balanced/premium). " +
             "Should migrate to ModelPricingRegistry.estimateCostForTier() injection.",
         );
       }
