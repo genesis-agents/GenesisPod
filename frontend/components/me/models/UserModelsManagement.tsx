@@ -9,6 +9,7 @@ import { getProviderBrand } from '@/lib/constants/ai-provider-logos';
 import {
   Brain,
   Check,
+  ChevronDown,
   Clock,
   Edit,
   Loader2,
@@ -177,6 +178,7 @@ export function UserModelsManagement() {
   );
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [cancellingRequest, setCancellingRequest] = useState(false);
+  const [overviewCollapsed, setOverviewCollapsed] = useState(true);
 
   const handleCancelPending = async () => {
     if (!pendingRequest) return;
@@ -335,31 +337,48 @@ export function UserModelsManagement() {
         title="模型需求概览"
         description="不同功能（AI 问答 / Topic Insights / 知识库 RAG）依赖不同类型的模型； 建议至少配置标记为「必需」的类型。"
         action={
-          missingRequired.length > 0 ? (
-            <div className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-              缺 {missingRequired.length} 类必需模型
-            </div>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {missingRequired.length > 0 && (
+              <div className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+                缺 {missingRequired.length} 类必需模型
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setOverviewCollapsed((v) => !v)}
+              aria-expanded={!overviewCollapsed}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100"
+            >
+              {overviewCollapsed ? '展开' : '收起'}
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${
+                  overviewCollapsed ? '' : 'rotate-180'
+                }`}
+              />
+            </button>
+          </div>
         }
       >
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
-          {USER_MODEL_TYPE_OPTIONS.map((opt) => {
-            const c = coverage.get(opt.value)!;
-            return (
-              <CoverageCard
-                key={opt.value}
-                label={opt.label}
-                description={opt.description}
-                usedBy={opt.usedBy}
-                importance={opt.importance}
-                count={c.count}
-                hasEnabled={c.hasEnabled}
-                hasDefault={c.hasDefault}
-                onAdd={() => setShowAdd(true)}
-              />
-            );
-          })}
-        </div>
+        {!overviewCollapsed && (
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+            {USER_MODEL_TYPE_OPTIONS.map((opt) => {
+              const c = coverage.get(opt.value)!;
+              return (
+                <CoverageCard
+                  key={opt.value}
+                  label={opt.label}
+                  description={opt.description}
+                  usedBy={opt.usedBy}
+                  importance={opt.importance}
+                  count={c.count}
+                  hasEnabled={c.hasEnabled}
+                  hasDefault={c.hasDefault}
+                  onAdd={() => setShowAdd(true)}
+                />
+              );
+            })}
+          </div>
+        )}
       </SettingsSectionCard>
 
       {/* Search + Filter — 对齐管理员 */}
