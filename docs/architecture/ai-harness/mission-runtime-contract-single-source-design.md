@@ -134,6 +134,15 @@ v2 把 `quality_rejected` 放进 `MissionTerminalOutcome` 平台 enum,但有些 
 
 **小尾(并入收尾)**:C3b 真实成本对账 ai-infra。
 
+> **✅ 实施收口(2026-05-22,#133–165 共 37 PR,main 全程绿)**:全契约 C0–C8 + 治理 G0–G11 落地;
+> C0–C4/C7 三 app 真消费;**C5/C6 playground 完整闭环**(config_snapshot openSession 冻结 / rerun
+> 只读 / 改预算派生 G2 / **userProfile 双写消除·读时投影** / legacy 拒跑无 fallback);看护三件
+> (G10 budget+category / c5-c6-snapshot-contract / mission-app-conformance)进 verify:arch。
+> **radar/social C5/C6 经核实不做(YAGNI)**:radar rerun=限次重新触发、social retry=从 SocialContent
+> 重派生,**均无"从冻结 snapshot 重建输入"消费方**,加之即 write-only 死列(违反反过度抽象红线)。
+> C5/C6 只对有 rerun-from-snapshot 语义的 app 有意义;radar/social 已正确消费适用的 C0–C4/C7。
+> 未来若长出"从历史 mission 配置重跑"需求,以 playground 为模板接入(契约+rebuilder 现成)。
+
 > **已校正(2026-05-22,app 侧 review fix)**:radar `signal.aborted` 误判 cancelled(MAJOR-3,#154)、playground/liveness/孤儿 failureCode 未落库(MAJOR-4/6/MINOR-1,#155)、social StageAbortError 误判(MINOR-2,#156)、social 无 markCancelled 致取消显示失败 + failureCode 类型收紧(#158)——全部修复。
 
 ---
