@@ -131,6 +131,8 @@ v2 把 `quality_rejected` 放进 `MissionTerminalOutcome` 平台 enum,但有些 
 **G11 检视已修(#152,用户两轮实测 + 3 路审查)**:① radar+social 迁移顺序 BLOCKER(C4 改名脚本字典序早于建表/补列脚本,fresh replay 裸 RENAME 必失败 + 重造旧列)→ guarded rename + 建表只产新列;② C4 未切入核心 runtime 接口(MissionRuntimeSession/adapter/framework payload 仍传 wallTimeMs)→ 全切 wallTimeCapMs;③ MissionInputPatch 业务 patch 被擦成 unknown → 补 TBusinessPatch 泛型;④ local-rerun cost guard credits↔USD 单位错配 → 走 ResolvedBudgetCaps 同单位比;⑤ framework abort 裸字符串 → MissionAbortReason enum。
 
 > **⚠️ 诚实落地缺口(G11 结论,勿当"已完成")**:**C5/C6/C7 目前是「契约类型 + 单测」,业务代码尚未消费**——`MissionConfigSnapshot`/`MissionInputRebuilder`/`applyInputPatch`/`MissionTerminalOutcome` 在 `ai-app` 主链路(run/rerun/resume/hydrate/terminal presentation)零消费点。平台收口在 harness 层成立,但**未真实切入主业务流**,违反"真实切换无多路"要求,记为 **#29 app 接入波次**(下一大块)。C8 conformance(#23)同理待做。
+>
+> **↑ 已部分超越(2026-05-22/23，见 §0.7「✅ 实施收口」+ §0.9)**:C5/C6 playground 已完整闭环消费、radar/social 已 openSession 冻结 snapshot；**C0 finalize 漏斗已全 app 真消费 + 看护焊死（§0.9）**。**仍待**:C7 `MissionTerminalOutcome` 的 controller/前端 presentation 接入（仍 ◐）；CI 盲区（test:quick 漏 ai-social/guardrails 路径，§0.8）。
 
 **小尾(并入收尾)**:C3b 真实成本对账 ai-infra。
 
@@ -156,7 +158,7 @@ v2 把 `quality_rejected` 放进 `MissionTerminalOutcome` 平台 enum,但有些 
 - ✅ 已修:见上"已校正"。
 - ⏳ **C4-BLOCKER-1(C5 前置)**:C4 改名未切进 DTO 层——`RunMissionInput.wallTimeMs` / `DEPTH_BUDGET_TIERS.wallTimeMs` / `resolveMissionWallTimeMs` / `mission-rerun-orchestrator` 写回 / `event-schemas` 仍旧名。C5 前必须把业务入口层 cap 字段对齐 `wallTimeCapMs`,否则 rebuilder 要内化一层 `wallTimeMs→wallTimeCapMs` 适配=改名被适配器化。
 - ⏳ **RM8(C5 前置)**:`MissionRecord` 接口无 `configSnapshot` 槽位,C5 无处安放到平台契约。
-- ⏳ **C0 finalize 漏斗**:`MissionLifecycleManager.finalize`/arbiter 定义了但 app 仍直调 store 终态(条件写已在各 store,首写赢成立;但中央漏斗未真用)——评审定级 MAJOR,列入收尾。
+- ✅ **C0 finalize 漏斗收口(2026-05-22/23 完成，原 MAJOR 已闭合)**:social + playground（含 s11-persist）+ radar 终态写**全部**经 `MissionLifecycleManager.finalize → arbiter.applyTerminalIfRunning` 单入口（条件写首写赢）；调用图核实 app 已无任何直调 store 终态写（markCompleted/markFailed/markCancelled/markFailedByLiveness）或直调 arbiter 的旁路点。social dispatcher 外层 catch（原只 emit 留 running）亦经 finalize 写终态（failureCode=runtime_crashed，取代 ad-hoc DISPATCHER_THREW）。机制看护：`mission-contract-guards.spec` 的「C0 终态写收口看护」（禁旧路径 + finalize 真用 × 3 app，baseline=0 焊死，进 verify:arch）。详见 §0.9。
 - ⏳ **CI 盲区**:`backend test:quick` 的 `testPathIgnorePatterns` 含 `guardrails`+`ai-social` → C3a 换算不变量 spec、social 契约 spec 在 PR 闸不执行。需拉进 CI(`verify:arch` 已存在但 test:quick 漏了这些路径)。
 
 ### C5/C6 接入设计共识(4 路敲定)
@@ -167,6 +169,24 @@ v2 把 `quality_rejected` 放进 `MissionTerminalOutcome` 平台 enum,但有些 
 4. **C6 = 新建 pure `PlaygroundMissionInputRebuilder implements MissionInputRebuilder`**(只依赖 budget 解析,复用 harness `applyInputPatch`);**不重写** `rerun-runtime-builder`,但改其 budget 来源从"解析 RunMissionInput"→"读 `snapshot.budget`"。`ctx-hydrator` / `cloneInputFromMission` 切读 snapshot 后**删旧 userProfile 重拼**(不留双路径)。
 5. **拆 4 步 PR(每步独立强成功标准)**:S1 schema 迁移+回填(残留断言=0)→ S2 openSession 写 snapshot(影子写,旧字段仍唯一真源)→ S3 run/rerun/resume/hydrate 切读 snapshot → S4 删旧重拼路径(grep 旧函数 0 调用方)。S2 影子写若用户不接受则 S2+S3 原子合。
 6. **补看护**:`c5-c6-app-contract.spec`(rerun 必经 `deriveChildSnapshot`、禁 `snapshot||userProfile` 双读)+ 回填脚本零硬编码换算 spec + 把 C3a/social 契约 spec 拉进 CI 闸。
+
+---
+
+## 0.9 C0 finalize 漏斗收口（2026-05-22/23，闭合 §0.8 MAJOR）
+
+> 背景：§0.8 评审定级 MAJOR——`finalize`/arbiter 已定义，但 app 仍**直调 store 终态写**（条件写已在各 store、首写赢成立，但中央漏斗 `finalize` 未真用）。本轮把三 app 终态写**全部**收口经 finalize，并加机制看护焊死。**这是「真切换」非「抽象建好」——以调用图为证，非测试绿。**
+
+**真实切换（调用图核实：app 生产代码 0 个 `.markX(` / `.applyTerminalIfRunning(` 旁路点）：**
+
+| App              | 终态来源 → 全部经 `finalize → arbiter.applyTerminalIfRunning`                                                                                                                       | 备注                                                                                                                                                                                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| social           | dispatcher 完成/取消/orchestrator-失败 + **dispatcher 外层 catch（抛错）** + liveness 回收                                                                                          | `markFailedByLiveness` 删除并入 arbiter；外层 catch 由「只 emit 留 running」改为 finalize 写终态（`runtime_crashed`）                                                                                                     |
+| agent-playground | dispatcher `handleMissionFailure` + controller cancel + rerun-guard zombie + local-rerun cascade-abort + stage-rerun s11 handler + **s11-mission-persist（5 终态分支）** + liveness | `markCompleted/markFailed/markCancelled` public delegate 删除→helper 私有 `writeX`（返回 boolean）；s11 经 `lifecycleManager`（plumb 进 `CommonDeps`）；同步删 `userProfile` 列写回（S4，列已 read-never，保留列不 drop） |
+| AI Radar         | 此前已切（终态写经 finalize 单入口仲裁）                                                                                                                                            | 本轮纳入看护覆盖                                                                                                                                                                                                          |
+
+**机制看护（防回潮，进 `verify:arch`）**：`backend/src/__tests__/architecture/mission-contract-guards.spec.ts`「C0 终态写收口看护」对 playground/social/radar 各断言三条（grep 级、跳注释行）：① 禁直调 store 旧终态写；② 禁直调 arbiter `applyTerminalIfRunning`（须经 finalize）；③ `finalize` 中央漏斗真被使用（防整体退回旧路径而前两条仍为 0）。**baseline=0 焊死**，新增旁路即红、合不进主干。
+
+**仍待（不埋）**：C7 `MissionTerminalOutcome` 的 controller/前端 presentation 接入仍 ◐；CI 盲区（`test:quick` 的 `testPathIgnorePatterns` 漏 `ai-social`/`guardrails`，§0.8）未解。
 
 ---
 

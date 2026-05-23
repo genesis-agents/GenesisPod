@@ -51,6 +51,7 @@ import type { FigureExtractorService } from "@/modules/ai-engine/facade";
 import type { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import type { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 import type { PostmortemClassifierService } from "@/modules/ai-harness/facade";
+import type { MissionLifecycleManager } from "@/modules/ai-harness/facade";
 
 /** 通用 emit 签名 — 2026-05-01 上提到 ai-harness/protocols/ipc/stage-emit.utils */
 import type { EmitFn } from "@/modules/ai-harness/facade";
@@ -69,6 +70,9 @@ export type LifecycleFn = (
 export interface CommonDeps {
   readonly invoker: AgentInvoker;
   readonly store: MissionStore;
+  // ★ C0/G1：终态写唯一入口。stage（如 s11-persist）经 finalize 提交终态意图，
+  //   由 arbiter=store 单点条件写仲裁，不直调 store 终态写。
+  readonly lifecycleManager: MissionLifecycleManager;
   readonly missionState: HandoffCompactorService;
   readonly abortRegistry: MissionAbortRegistry;
   readonly runner: AgentRunner;

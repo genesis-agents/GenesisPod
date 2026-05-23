@@ -70,11 +70,19 @@ interface Mocks {
   hydrator: { hydrate: jest.Mock };
   lock: { acquire: jest.Mock; release: jest.Mock };
   dispatcher: { dispatch: jest.Mock; runFromStageWithCascade: jest.Mock };
-  store: { getById: jest.Mock; markReopened: jest.Mock };
+  store: {
+    getById: jest.Mock;
+    markReopened: jest.Mock;
+    markFailed: jest.Mock;
+    // ★ C0/G1：终态写经 finalize → arbiter.applyTerminalIfRunning。
+    applyTerminalIfRunning: jest.Mock;
+  };
   // ★ 2026-05-07 rerun-overhaul v1.1: RerunGuardService 注入
   rerunGuard: { ensureRerunable: jest.Mock; checkInFlight: jest.Mock };
   prisma: MockPrisma;
   emit: jest.Mock;
+  // ★ C0/G1：终态写唯一入口。finalize mock 复刻真实语义（调 arbiter + 赢了跑 onWon）。
+  lifecycleManager: { finalize: jest.Mock };
 }
 
 function makeMocks(missionRow: Record<string, unknown> | null = null): Mocks {
@@ -98,6 +106,7 @@ function makeMocks(missionRow: Record<string, unknown> | null = null): Mocks {
       getById: jest.fn().mockResolvedValue({ status: "failed" }),
       markReopened: jest.fn().mockResolvedValue(undefined),
       markFailed: jest.fn().mockResolvedValue(undefined),
+      applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
     },
     rerunGuard: {
       // 缺省：放过（不 in-flight、无 zombie）
@@ -112,6 +121,35 @@ function makeMocks(missionRow: Record<string, unknown> | null = null): Mocks {
     },
     prisma: makePrisma(missionRow),
     emit: jest.fn().mockResolvedValue(undefined),
+    lifecycleManager: {
+      // finalize 复刻真实语义：调 arbiter.applyTerminalIfRunning，赢了跑 onWon（吞异常）。
+      finalize: jest.fn(
+        async (args: {
+          missionId: string;
+          intent: unknown;
+          arbiter: {
+            applyTerminalIfRunning: (
+              id: string,
+              intent: unknown,
+            ) => Promise<boolean>;
+          };
+          onWon?: () => Promise<void>;
+        }) => {
+          const won = await args.arbiter.applyTerminalIfRunning(
+            args.missionId,
+            args.intent,
+          );
+          if (won && args.onWon) {
+            try {
+              await args.onWon();
+            } catch {
+              // swallow（与真实 finalize 一致）
+            }
+          }
+          return { won };
+        },
+      ),
+    },
   };
 }
 
@@ -124,6 +162,8 @@ function makeService(m: Mocks): LocalRerunService {
     m.store as unknown as MissionStore,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     m.rerunGuard as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    m.lifecycleManager as any,
   );
 }
 
@@ -440,12 +480,24 @@ describe("LocalRerunService.run (PR-R6)", () => {
     });
     const svc = makeService(m);
     await svc.run({ ...baseInput, stepId: "s8-writer" }, noopEmit);
-    expect(m.store.markFailed).toHaveBeenCalledWith(
-      "m1",
+    // ★ C0/G1：终态写经 finalize 单入口（arbiter=store），intent 携 userId 走严格隔离。
+    expect(m.lifecycleManager.finalize).toHaveBeenCalledWith(
       expect.objectContaining({
-        errorMessage: expect.stringContaining("cascade_aborted_at_s9-critic"),
+        missionId: "m1",
+        arbiter: m.store,
+        intent: expect.objectContaining({
+          status: "failed",
+          extra: expect.objectContaining({
+            kind: "failed",
+            userId: "u1",
+            detail: expect.objectContaining({
+              errorMessage: expect.stringContaining(
+                "cascade_aborted_at_s9-critic",
+              ),
+            }),
+          }),
+        }),
       }),
-      "u1", // ★ 收尾评审第三轮 P0-S: 严格 userId 隔离
     );
   });
 
@@ -466,14 +518,22 @@ describe("LocalRerunService.run (PR-R6)", () => {
     });
     const svc = makeService(m);
     await svc.run({ ...baseInput, stepId: "s8-writer" }, noopEmit);
-    expect(m.store.markFailed).toHaveBeenCalledWith(
-      "m1",
+    // ★ C0/G1：终态写经 finalize 单入口；errorMessage=undefined 兜底 "unknown"。
+    expect(m.lifecycleManager.finalize).toHaveBeenCalledWith(
       expect.objectContaining({
-        errorMessage: expect.stringMatching(
-          /cascade_aborted_at_s9-critic: unknown/,
-        ),
+        intent: expect.objectContaining({
+          status: "failed",
+          extra: expect.objectContaining({
+            kind: "failed",
+            userId: "u1",
+            detail: expect.objectContaining({
+              errorMessage: expect.stringMatching(
+                /cascade_aborted_at_s9-critic: unknown/,
+              ),
+            }),
+          }),
+        }),
       }),
-      "u1", // ★ 收尾评审第三轮 P0-S: 严格 userId 隔离
     );
   });
 
@@ -497,8 +557,8 @@ describe("LocalRerunService.run (PR-R6)", () => {
     // 但 markFailed 仍应在 reachesTerminal 路径触发 — 这是单元测试边界）
     const svc = makeService(m);
     await svc.run({ ...baseInput, stepId: "s11-persist" }, noopEmit);
-    // s11 cascade 含 s11 自身 → 触发 markFailed
-    expect(m.store.markFailed).toHaveBeenCalled();
+    // s11 cascade 含 s11 自身 → 触发终态写（经 finalize 单入口）
+    expect(m.lifecycleManager.finalize).toHaveBeenCalled();
   });
 
   it("并发锁 acquire 失败 → throw BadRequest", async () => {

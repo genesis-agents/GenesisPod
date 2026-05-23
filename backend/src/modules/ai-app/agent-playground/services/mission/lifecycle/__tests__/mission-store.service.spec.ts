@@ -96,9 +96,12 @@ describe("MissionStore", () => {
   //   playground module 通过 livenessGuard.registerAdapter('agent-playground', ...) 接入
   //   原 spec 全部迁到 harness 层（mission-liveness-guard.service.spec.ts）
 
-  // markCompleted
-  it("markCompleted: calls updateMany with status=completed guard", async () => {
-    await store.markCompleted("m1", { finalScore: 85 });
+  // applyTerminalIfRunning — completed path
+  it("applyTerminalIfRunning(completed): calls updateMany with status=completed guard", async () => {
+    await store.applyTerminalIfRunning("m1", {
+      status: "completed",
+      extra: { kind: "completed", detail: { finalScore: 85 } },
+    });
     expect(prisma.agentPlaygroundMission.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "m1", status: "running" },
@@ -107,16 +110,17 @@ describe("MissionStore", () => {
     );
   });
 
-  it("markCompleted: truncates fullMarkdown if report > 5MB", async () => {
-    // 5MB threshold = 5 * 1024 * 1024 = 5242880 bytes
-    // Need JSON of the whole report object to be > 5MB AND fullMarkdown > 100_000 chars
+  it("applyTerminalIfRunning(completed): truncates fullMarkdown if report > 5MB", async () => {
     const bigMd = "x".repeat(6_000_000); // 6M chars → JSON will be >5MB
     const report = {
       title: "Big",
       summary: "s",
       content: { fullMarkdown: bigMd, fullReportSize: bigMd.length },
     };
-    await store.markCompleted("m1", { report });
+    await store.applyTerminalIfRunning("m1", {
+      status: "completed",
+      extra: { kind: "completed", detail: { report } },
+    });
     const updateArg =
       prisma.agentPlaygroundMission.updateMany.mock.calls[0][0].data;
     const reportFull = updateArg.reportFull as {
@@ -126,16 +130,23 @@ describe("MissionStore", () => {
     expect(reportFull.content.fullMarkdown.length).toBeLessThanOrEqual(100_100);
   });
 
-  it("markCompleted: swallows prisma error", async () => {
+  it("applyTerminalIfRunning(completed): returns false on prisma error (swallows)", async () => {
     prisma.agentPlaygroundMission.updateMany.mockRejectedValue(
       new Error("DB error"),
     );
-    await expect(store.markCompleted("m1", {})).resolves.toBeUndefined();
+    const won = await store.applyTerminalIfRunning("m1", {
+      status: "completed",
+      extra: { kind: "completed", detail: {} },
+    });
+    expect(won).toBe(false);
   });
 
-  // markFailed
-  it("markFailed: calls prisma.updateMany with status=failed", async () => {
-    await store.markFailed("m1", { errorMessage: "Network error" });
+  // applyTerminalIfRunning — failed path
+  it("applyTerminalIfRunning(failed): calls prisma.updateMany with status=failed", async () => {
+    await store.applyTerminalIfRunning("m1", {
+      status: "failed",
+      extra: { kind: "failed", detail: { errorMessage: "Network error" } },
+    });
     expect(prisma.agentPlaygroundMission.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: "failed" }),
@@ -143,19 +154,26 @@ describe("MissionStore", () => {
     );
   });
 
-  it("markFailed: uses quality-failed status when leaderSigned=false", async () => {
-    await store.markFailed("m1", {
-      leaderSigned: false,
-      leaderOverallScore: 35,
+  it("applyTerminalIfRunning(failed): uses quality-failed status when leaderSigned=false", async () => {
+    await store.applyTerminalIfRunning("m1", {
+      status: "failed",
+      extra: {
+        kind: "failed",
+        detail: { leaderSigned: false, leaderOverallScore: 35 },
+      },
     });
     const updateArg =
       prisma.agentPlaygroundMission.updateMany.mock.calls[0][0].data;
     expect(updateArg.status).toBe("quality-failed");
   });
 
-  it("markFailed: swallows prisma error", async () => {
+  it("applyTerminalIfRunning(failed): returns false on prisma error (swallows)", async () => {
     prisma.agentPlaygroundMission.updateMany.mockRejectedValue(new Error("DB"));
-    await expect(store.markFailed("m1", {})).resolves.toBeUndefined();
+    const won = await store.applyTerminalIfRunning("m1", {
+      status: "failed",
+      extra: { kind: "failed", detail: {} },
+    });
+    expect(won).toBe(false);
   });
 
   // appendLeaderJournal
@@ -332,9 +350,12 @@ describe("MissionStore", () => {
     ).resolves.toBeUndefined();
   });
 
-  // markCancelled —— ★ P0-1: 改为 updateMany 带 status='running' guard
-  it("markCancelled: sets status=cancelled with running guard", async () => {
-    await store.markCancelled("m1");
+  // applyTerminalIfRunning — cancelled path
+  it("applyTerminalIfRunning(cancelled): sets status=cancelled with running guard", async () => {
+    await store.applyTerminalIfRunning("m1", {
+      status: "cancelled",
+      extra: { kind: "cancelled" },
+    });
     expect(prisma.agentPlaygroundMission.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "m1", status: "running" },
@@ -343,9 +364,13 @@ describe("MissionStore", () => {
     );
   });
 
-  it("markCancelled: swallows prisma error", async () => {
+  it("applyTerminalIfRunning(cancelled): returns false on prisma error (swallows)", async () => {
     prisma.agentPlaygroundMission.updateMany.mockRejectedValue(new Error("DB"));
-    await expect(store.markCancelled("m1")).resolves.toBeUndefined();
+    const won = await store.applyTerminalIfRunning("m1", {
+      status: "cancelled",
+      extra: { kind: "cancelled" },
+    });
+    expect(won).toBe(false);
   });
 
   // appendLeaderJournal error
@@ -470,17 +495,23 @@ describe("MissionStore", () => {
     expect(result!.leaderSigned).toBe(true);
   });
 
-  // markFailed: lead-refusal conditional fields —— ★ P0-1: 改为 updateMany 带 running guard
-  it("markFailed: when leaderSigned=false, persists report and dimensions with running guard", async () => {
+  // applyTerminalIfRunning(failed): lead-refusal conditional fields —— ★ P0-1: 改为 updateMany 带 running guard
+  it("applyTerminalIfRunning(failed): when leaderSigned=false, persists report and dimensions with running guard", async () => {
     const report = { title: "Report", summary: "Sum" };
-    await store.markFailed("m1", {
-      leaderSigned: false,
-      leaderOverallScore: 35,
-      leaderVerdict: "quality-failed",
-      report,
-      dimensions: [{ id: "d1", name: "Market" }],
-      themeSummary: "AI",
-      trajectoryStored: 2,
+    await store.applyTerminalIfRunning("m1", {
+      status: "failed",
+      extra: {
+        kind: "failed",
+        detail: {
+          leaderSigned: false,
+          leaderOverallScore: 35,
+          leaderVerdict: "quality-failed",
+          report,
+          dimensions: [{ id: "d1", name: "Market" }],
+          themeSummary: "AI",
+          trajectoryStored: 2,
+        },
+      },
     });
     const call = prisma.agentPlaygroundMission.updateMany.mock.calls[0][0];
     expect(call.where).toEqual({ id: "m1", status: "running" });

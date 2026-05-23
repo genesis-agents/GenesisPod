@@ -29,6 +29,8 @@ import type {
   MissionAbortRegistry,
   FailureLearnerService,
   PostmortemClassifierService,
+  MissionLifecycleManager,
+  MissionTerminalIntent,
 } from "@/modules/ai-harness/facade";
 import type { SocialRuntimeShellService } from "../social-runtime-shell.service";
 import type { SocialBusinessOrchestrator } from "../social-business-orchestrator.service";
@@ -105,11 +107,48 @@ function createMockBusinessOrch() {
 function createMockStore() {
   return {
     create: jest.fn().mockResolvedValue(undefined),
-    markCompleted: jest.fn().mockResolvedValue(undefined),
-    markFailed: jest.fn().mockResolvedValue(undefined),
+    // ★ C0/G1：终态写经 arbiter 单入口（finalize → applyTerminalIfRunning）。
+    //   默认返回 true=本次赢得仲裁（条件写命中 running 行）。
+    applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
     refreshHeartbeat: jest.fn().mockResolvedValue(undefined),
     saveTrajectory: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<SocialMissionStore>;
+}
+
+/**
+ * ★ C0/G1：MissionLifecycleManager.finalize 唯一终态写入口。mock 复刻真实语义——
+ * 调 arbiter.applyTerminalIfRunning 做条件写仲裁，赢了才跑 onWon 副作用（事件广播），
+ * 且吞掉 onWon 异常（与真实 finalize 一致，广播失败不影响终态）。
+ */
+function createMockLifecycleManager() {
+  const finalize = jest.fn(
+    async (args: {
+      missionId: string;
+      intent: MissionTerminalIntent<unknown>;
+      arbiter: {
+        applyTerminalIfRunning: (
+          id: string,
+          intent: MissionTerminalIntent<unknown>,
+        ) => Promise<boolean>;
+      };
+      abort?: boolean;
+      onWon?: () => Promise<void>;
+    }) => {
+      const won = await args.arbiter.applyTerminalIfRunning(
+        args.missionId,
+        args.intent,
+      );
+      if (won && args.onWon) {
+        try {
+          await args.onWon();
+        } catch {
+          // 与真实 finalize 一致：onWon 副作用异常非致命，吞掉
+        }
+      }
+      return { won };
+    },
+  );
+  return { finalize } as unknown as jest.Mocked<MissionLifecycleManager>;
 }
 
 function createMockInvoker() {
@@ -184,6 +223,7 @@ function createDispatcher(
     invoker?: jest.Mocked<SocialAgentInvoker>;
     eventBus?: jest.Mocked<DomainEventBus>;
     prisma?: jest.Mocked<PrismaService>;
+    lifecycleManager?: jest.Mocked<MissionLifecycleManager>;
   } = {},
 ) {
   const registry = overrides.registry ?? createMockRegistry();
@@ -193,6 +233,8 @@ function createDispatcher(
   const store = overrides.store ?? createMockStore();
   const invoker = overrides.invoker ?? createMockInvoker();
   const eventBus = overrides.eventBus ?? createMockEventBus();
+  const lifecycleManager =
+    overrides.lifecycleManager ?? createMockLifecycleManager();
   const abortRegistry = createMockAbortRegistry();
   const ownershipRegistry = {
     assign: jest.fn(),
@@ -227,6 +269,7 @@ function createDispatcher(
     makeRoleStub<PublishExecutorAgentService>() as unknown as PublishExecutorAgentService,
     makeRoleStub<PublishVerifierService>() as unknown as PublishVerifierService,
     prisma as unknown as PrismaService,
+    lifecycleManager as unknown as MissionLifecycleManager,
   );
 
   return {
@@ -239,6 +282,7 @@ function createDispatcher(
     invoker,
     eventBus,
     prisma,
+    lifecycleManager,
   };
 }
 
@@ -462,7 +506,7 @@ describe("SocialPipelineDispatcher", () => {
   // =========================================================================
 
   describe("runMission — completed", () => {
-    it("should call openSession and orchestrator.run then markCompleted", async () => {
+    it("should call openSession and orchestrator.run then finalize completed", async () => {
       const orchestrator = createMockOrchestrator();
       const store = createMockStore();
       orchestrator.run = jest.fn().mockResolvedValue({ status: "completed" });
@@ -475,11 +519,12 @@ describe("SocialPipelineDispatcher", () => {
         coverImageUrl: null,
       });
 
-      const { dispatcher, runtimeShell, eventBus } = createDispatcher({
-        orchestrator,
-        store,
-        prisma,
-      });
+      const { dispatcher, runtimeShell, eventBus, lifecycleManager } =
+        createDispatcher({
+          orchestrator,
+          store,
+          prisma,
+        });
 
       const result = await dispatcher.runMission(
         MOCK_MISSION_ID,
@@ -491,9 +536,21 @@ describe("SocialPipelineDispatcher", () => {
         expect.objectContaining({ missionId: MOCK_MISSION_ID }),
       );
       expect(orchestrator.run).toHaveBeenCalled();
-      expect(store.markCompleted).toHaveBeenCalledWith(
-        MOCK_MISSION_ID,
-        expect.objectContaining({ elapsedWallTimeMs: expect.any(Number) }),
+      // ★ C0/G1：终态写经 finalize 单入口（arbiter=store），不再直调 store.markCompleted。
+      expect(lifecycleManager.finalize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          missionId: MOCK_MISSION_ID,
+          arbiter: store,
+          intent: expect.objectContaining({
+            status: "completed",
+            extra: expect.objectContaining({
+              kind: "completed",
+              detail: expect.objectContaining({
+                elapsedWallTimeMs: expect.any(Number),
+              }),
+            }),
+          }),
+        }),
       );
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({ type: "social.mission:completed" }),
@@ -583,7 +640,7 @@ describe("SocialPipelineDispatcher", () => {
   // =========================================================================
 
   describe("runMission — failed (orchestrator result)", () => {
-    it("should call markFailed and emit social.mission:failed event", async () => {
+    it("should finalize failed and emit social.mission:failed event", async () => {
       const orchestrator = createMockOrchestrator();
       orchestrator.run = jest.fn().mockResolvedValue({
         status: "failed",
@@ -600,7 +657,7 @@ describe("SocialPipelineDispatcher", () => {
         coverImageUrl: null,
       });
 
-      const { dispatcher } = createDispatcher({
+      const { dispatcher, lifecycleManager } = createDispatcher({
         orchestrator,
         store,
         eventBus,
@@ -613,9 +670,21 @@ describe("SocialPipelineDispatcher", () => {
         MOCK_USER_ID,
       );
 
-      expect(store.markFailed).toHaveBeenCalledWith(
-        MOCK_MISSION_ID,
-        expect.objectContaining({ errorMessage: "stage timeout" }),
+      // ★ C0/G1：失败终态经 finalize 单入口（arbiter=store），不再直调 store.markFailed。
+      expect(lifecycleManager.finalize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          missionId: MOCK_MISSION_ID,
+          arbiter: store,
+          intent: expect.objectContaining({
+            status: "failed",
+            extra: expect.objectContaining({
+              kind: "failed",
+              detail: expect.objectContaining({
+                errorMessage: "stage timeout",
+              }),
+            }),
+          }),
+        }),
       );
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({ type: "social.mission:failed" }),
@@ -742,20 +811,35 @@ describe("SocialPipelineDispatcher", () => {
       expect(result.error).toBeDefined();
     });
 
-    it("should emit social.mission:failed with DISPATCHER_THREW code", async () => {
+    it("should finalize failed (runtime_crashed) + emit on dispatcher throw", async () => {
       const prisma = createMockPrisma();
       (prisma.socialContent.findFirst as jest.Mock).mockResolvedValue(null);
 
       const eventBus = createMockEventBus();
-      const { dispatcher } = createDispatcher({ eventBus, prisma });
+      const { dispatcher, lifecycleManager, store } = createDispatcher({
+        eventBus,
+        prisma,
+      });
 
       await dispatcher.runMission(MOCK_MISSION_ID, makeInput(), MOCK_USER_ID);
 
+      // ★ C0/G1：外层 catch 也经 finalize 写 DB 终态（不再只 emit、行留 running）。
+      expect(lifecycleManager.finalize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          missionId: MOCK_MISSION_ID,
+          arbiter: store,
+          intent: expect.objectContaining({
+            status: "failed",
+            failureCode: "runtime_crashed",
+          }),
+        }),
+      );
       const failedEmit = (eventBus.emit as jest.Mock).mock.calls.find(
         (c: unknown[]) =>
           (c[0] as { type: string }).type === "social.mission:failed",
       );
-      expect(failedEmit![0].payload.failureCode).toBe("DISPATCHER_THREW");
+      // canonical code 取代 ad-hoc "DISPATCHER_THREW"（对齐 C2）。
+      expect(failedEmit![0].payload.failureCode).toBe("runtime_crashed");
     });
 
     it("should call session.cleanup even when orchestrator throws", async () => {
@@ -1212,18 +1296,19 @@ describe("SocialPipelineDispatcher", () => {
   });
 
   // =========================================================================
-  // runMission — markCompleted non-fatal error (warn log)
+  // runMission — completed finalize 输掉仲裁（已终态，不重复广播）
   // =========================================================================
-
-  describe("runMission — markCompleted non-fatal error", () => {
-    it("should log warn and continue when markCompleted rejects", async () => {
+  // ★ C0/G1：终态写非致命容错已下沉到 store.writeCompleted（catch→warn→返回 false，
+  //   见 social-mission-store.service.spec）。dispatcher 层对应不变量改为验证"首写赢"：
+  //   finalize 输掉竞争(won=false)时 mission 仍返回 completed，但不重复广播 completed。
+  describe("runMission — completed finalize lost race", () => {
+    it("should still return completed but skip broadcast when finalize loses the race", async () => {
       const orchestrator = createMockOrchestrator();
       orchestrator.run = jest.fn().mockResolvedValue({ status: "completed" });
 
+      // arbiter 条件写未命中 running 行（已被 cancel/liveness 终结）→ finalize won=false
       const store = createMockStore();
-      (store.markCompleted as jest.Mock).mockRejectedValue(
-        new Error("db write failed"),
-      );
+      (store.applyTerminalIfRunning as jest.Mock).mockResolvedValue(false);
 
       const prisma = createMockPrisma();
       (prisma.socialContent.findFirst as jest.Mock).mockResolvedValue({
@@ -1233,7 +1318,7 @@ describe("SocialPipelineDispatcher", () => {
         coverImageUrl: null,
       });
 
-      const { dispatcher } = createDispatcher({
+      const { dispatcher, eventBus } = createDispatcher({
         orchestrator,
         store,
         prisma,
@@ -1245,11 +1330,13 @@ describe("SocialPipelineDispatcher", () => {
         MOCK_USER_ID,
       );
 
-      // Mission should still return completed despite markCompleted failure
+      // orchestrator 说 completed → runMission 仍返回 completed；输了仲裁不重复广播。
       expect(result.status).toBe("completed");
-      expect(loggerWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("markCompleted failed"),
+      const completedEmit = (eventBus.emit as jest.Mock).mock.calls.find(
+        (c: unknown[]) =>
+          (c[0] as { type: string }).type === "social.mission:completed",
       );
+      expect(completedEmit).toBeUndefined();
     });
   });
 
@@ -1293,10 +1380,10 @@ describe("SocialPipelineDispatcher", () => {
   });
 
   // =========================================================================
-  // runMission — DISPATCHER_THREW path eventBus.emit rejects (non-fatal)
+  // runMission — dispatcher throw catch: eventBus.emit rejects (non-fatal)
   // =========================================================================
 
-  describe("runMission — DISPATCHER_THREW eventBus.emit non-fatal error", () => {
+  describe("runMission — dispatcher throw catch eventBus.emit non-fatal", () => {
     it("should return failed even when eventBus.emit rejects in catch branch", async () => {
       // hydrateContentRaw returns null → throws → dispatcher catch block
       const prisma = createMockPrisma();
@@ -1744,7 +1831,7 @@ describe("SocialPipelineDispatcher", () => {
         coverImageUrl: null,
       });
 
-      const { dispatcher, eventBus } = createDispatcher({
+      const { dispatcher, eventBus, lifecycleManager } = createDispatcher({
         orchestrator,
         store,
         prisma,
@@ -1756,7 +1843,7 @@ describe("SocialPipelineDispatcher", () => {
         MOCK_USER_ID,
       );
 
-      return { result, orchestrator, store, eventBus };
+      return { result, orchestrator, store, eventBus, lifecycleManager };
     }
 
     it("persona A (Solo founder): quick + lean + WECHAT only → completes", async () => {
@@ -1767,13 +1854,25 @@ describe("SocialPipelineDispatcher", () => {
         connectionIds: { wechat: "conn-A-wechat" },
       });
 
-      const { result, orchestrator, store, eventBus } = await runPersona(input);
+      const { result, orchestrator, store, eventBus, lifecycleManager } =
+        await runPersona(input);
 
       expect(result.status).toBe("completed");
       expect(orchestrator.run).toHaveBeenCalled();
-      expect(store.markCompleted).toHaveBeenCalledWith(
-        MOCK_MISSION_ID,
-        expect.objectContaining({ elapsedWallTimeMs: expect.any(Number) }),
+      expect(lifecycleManager.finalize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          missionId: MOCK_MISSION_ID,
+          arbiter: store,
+          intent: expect.objectContaining({
+            status: "completed",
+            extra: expect.objectContaining({
+              kind: "completed",
+              detail: expect.objectContaining({
+                elapsedWallTimeMs: expect.any(Number),
+              }),
+            }),
+          }),
+        }),
       );
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({ type: "social.mission:completed" }),
@@ -1791,11 +1890,12 @@ describe("SocialPipelineDispatcher", () => {
         },
       });
 
-      const { result, orchestrator, store } = await runPersona(input);
+      const { result, orchestrator, lifecycleManager } =
+        await runPersona(input);
 
       expect(result.status).toBe("completed");
       expect(orchestrator.run).toHaveBeenCalled();
-      expect(store.markCompleted).toHaveBeenCalled();
+      expect(lifecycleManager.finalize).toHaveBeenCalled();
     });
 
     it("persona C (Power user): deep + rich + 2 platforms → completes", async () => {
@@ -1809,11 +1909,12 @@ describe("SocialPipelineDispatcher", () => {
         },
       });
 
-      const { result, orchestrator, store } = await runPersona(input);
+      const { result, orchestrator, lifecycleManager } =
+        await runPersona(input);
 
       expect(result.status).toBe("completed");
       expect(orchestrator.run).toHaveBeenCalled();
-      expect(store.markCompleted).toHaveBeenCalled();
+      expect(lifecycleManager.finalize).toHaveBeenCalled();
     });
   });
 });

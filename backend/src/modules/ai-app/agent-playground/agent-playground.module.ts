@@ -84,8 +84,10 @@ import {
   DomainEventRegistry,
   MissionElectionTracker,
   MissionFailureCode,
+  MissionLifecycleManager,
   MissionLivenessGuard,
 } from "@/modules/ai-harness/facade";
+import type { PlaygroundTerminalExtra } from "./services/mission/lifecycle/mission-store.service";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 // ★ Rev 5 / S1-5 (2026-05-09): mission platform contract tokens — 让 custom-agents
@@ -220,6 +222,8 @@ export class AgentPlaygroundModule
     // ★ Round 4 (2026-05-11): liveness-guard markFailed 路径必须清 election state，
     //   否则 mission_election_states 行在 heartbeat / wall-time 杀死 mission 后永久残留。
     private readonly electionTracker: MissionElectionTracker,
+    // ★ C0/G1：liveness 回收也经唯一终态写入口仲裁，不直写 store。
+    private readonly lifecycleManager: MissionLifecycleManager,
     // R0-A3 (2026-05-04): 注册 playground skills 目录到 engine SkillLoader
     //   17 个 SKILL.md (mece-mission-planning / leader-* / dimension-research / web-research 等)
     //   下推到 ai-app/agent-playground/skills/，需要在这里 register 到 SkillRegistry
@@ -349,34 +353,53 @@ export class AgentPlaygroundModule
           return out;
         },
         markFailed: async (missionId, reason, errorMessage) => {
-          // ★ C2/MAJOR-4:liveness 回收落 canonical failureCode 到 DB(超时→wall_time;失联→runtime_crashed)。
-          await this.store.markFailed(missionId, {
-            errorMessage,
-            failureCode:
-              reason === "wall-time-exceeded"
-                ? MissionFailureCode.wall_time_exceeded
-                : MissionFailureCode.runtime_crashed,
-          });
-          this.electionTracker.clear(missionId);
-          await this.eventBus
-            .emit({
-              type: "agent-playground.mission:failed",
-              scope: { missionId, userId: "" },
-              payload: {
-                message: errorMessage,
-                failureCode:
-                  reason === "wall-time-exceeded"
-                    ? "RUNNER_WALL_TIME_EXCEEDED"
-                    : "MISSION_STALE",
-                source: "liveness-guard",
+          // ★ C0/C2/MAJOR-4:liveness 回收经 finalize 仲裁(条件写首写赢,不覆盖已终态),
+          //   落 canonical failureCode(超时→wall_time;失联→runtime_crashed)。
+          const failureCode =
+            reason === "wall-time-exceeded"
+              ? MissionFailureCode.wall_time_exceeded
+              : MissionFailureCode.runtime_crashed;
+          await this.lifecycleManager.finalize<PlaygroundTerminalExtra>({
+            missionId,
+            intent: {
+              status: "failed",
+              failureCode,
+              errorMessage,
+              extra: {
+                kind: "failed",
+                detail: {
+                  errorMessage,
+                  failureCode,
+                },
               },
-              timestamp: Date.now(),
-            })
-            .catch((err: unknown) => {
-              this.playgroundLogger.warn(
-                `[liveness] emit mission:failed failed: ${err instanceof Error ? err.message : String(err)}`,
-              );
-            });
+            },
+            arbiter: this.store,
+            onWon: async () => {
+              this.electionTracker.clear(missionId);
+              await this.eventBus
+                .emit({
+                  type: "agent-playground.mission:failed",
+                  scope: { missionId, userId: "" },
+                  payload: {
+                    message: errorMessage,
+                    failureCode:
+                      reason === "wall-time-exceeded"
+                        ? "RUNNER_WALL_TIME_EXCEEDED"
+                        : "MISSION_STALE",
+                    source: "liveness-guard",
+                  },
+                  timestamp: Date.now(),
+                })
+                .catch((err: unknown) => {
+                  this.playgroundLogger.warn(
+                    `[liveness] emit mission:failed failed: ${err instanceof Error ? err.message : String(err)}`,
+                  );
+                });
+            },
+          });
+          this.playgroundLogger.warn(
+            `[liveness] playground mission ${missionId} reclaimed (${reason})`,
+          );
         },
         emitWarning: async (missionId, userId, payload) => {
           await this.eventBus

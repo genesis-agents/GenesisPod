@@ -26,6 +26,7 @@ import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import {
   DomainEventBus,
   MissionElectionTracker,
+  MissionLifecycleManager,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
   mapAgentFailureCode,
@@ -33,6 +34,7 @@ import {
   type ResolvedStageHooks,
   type StageRunArgs,
 } from "@/modules/ai-harness/facade";
+import type { PlaygroundTerminalExtra } from "../lifecycle/mission-store.service";
 import {
   MissionRuntimeShellService,
   type MissionRuntimeSession,
@@ -122,6 +124,8 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     //   11 个 build*Hooks)已抽到独立 service。dispatcher 在 onModuleInit bind sessionLookup
     //   后,buildBaseHooksForStep 改为 delegate 到此 service。
     private readonly businessOrch: PlaygroundBusinessOrchestrator,
+    // ★ C0/G1：唯一终态写入口。dispatcher 不再直写 store.markX，统一经 finalize 仲裁。
+    private readonly lifecycleManager: MissionLifecycleManager,
   ) {}
 
   /**
@@ -668,16 +672,26 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
             process.env.RAILWAY_REPLICA_ID ?? process.env.HOSTNAME ?? "local",
         },
       });
-      await this.store
-        .markFailed(missionId, {
-          errorMessage: `execution_aborted: ${message.slice(0, 500)}`,
-          tokensUsed: snap.poolTokensUsed,
-          costUsd: snap.poolCostUsd,
-          elapsedWallTimeMs: Date.now() - t0,
+      await this.lifecycleManager
+        .finalize<PlaygroundTerminalExtra>({
+          missionId,
+          intent: {
+            status: "failed",
+            extra: {
+              kind: "failed",
+              detail: {
+                errorMessage: `execution_aborted: ${message.slice(0, 500)}`,
+                tokensUsed: snap.poolTokensUsed,
+                costUsd: snap.poolCostUsd,
+                elapsedWallTimeMs: Date.now() - t0,
+              },
+            },
+          },
+          arbiter: this.store,
         })
         .catch((dbErr: unknown) => {
           this.log.warn(
-            `[A-8 ${missionId}] markFailed after execution-aborted failed: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`,
+            `[A-8 ${missionId}] finalize after execution-aborted failed: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`,
           );
         });
       return true;
@@ -810,41 +824,53 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       });
 
     // 写 partial 产物到 DB —— 与 legacy team.mission.ts:317-339 一致
+    // ★ C0/G1：终态写经 finalize 单入口仲裁（条件写 WHERE status='running' 首写赢）
     const entry = this.sessions.get(missionId);
     const reportPayload =
       entry?.crossState.lastReportArtifact ?? entry?.crossState.lastReport;
-    await this.store
-      .markFailed(missionId, {
-        errorMessage: displayMessage,
-        // ★ C2/MAJOR-6:把 inline 大写 code 映射成 canonical MissionFailureCode 落 DB
-        //   (此前只进事件 payload,不落库 → 失败原因在 DB 丢失)。
-        failureCode: mapAgentFailureCode(missionFailureCode),
-        tokensUsed: snap.poolTokensUsed,
-        costUsd: snap.poolCostUsd,
-        elapsedWallTimeMs: Date.now() - t0,
-        themeSummary: entry?.crossState.lastPlan?.themeSummary,
-        dimensions: entry?.crossState.lastPlan?.dimensions as
-          | unknown[]
-          | undefined,
-        report: reportPayload as
-          | { title?: string; summary?: string }
-          | undefined,
-        reportArtifactVersion: entry?.crossState.lastReportArtifact
-          ? 2
-          : entry?.crossState.lastReport
-            ? 1
-            : undefined,
-        userProfile: entry?.input,
-        reconciliationReport: entry?.crossState.lastReconciliationReport,
-        verdicts: entry?.crossState.lastVerifierVerdicts,
-        leaderOverallScore:
-          entry?.crossState.lastLeaderSignOff?.leaderOverallScore,
-        leaderSigned: entry?.crossState.lastLeaderSignOff?.signed,
-        leaderVerdict: entry?.crossState.lastLeaderSignOff?.leaderVerdict,
+    await this.lifecycleManager
+      .finalize<PlaygroundTerminalExtra>({
+        missionId,
+        intent: {
+          status: "failed",
+          failureCode: mapAgentFailureCode(missionFailureCode),
+          errorMessage: displayMessage,
+          extra: {
+            kind: "failed",
+            detail: {
+              errorMessage: displayMessage,
+              // ★ C2/MAJOR-6:把 inline 大写 code 映射成 canonical MissionFailureCode 落 DB
+              failureCode: mapAgentFailureCode(missionFailureCode),
+              tokensUsed: snap.poolTokensUsed,
+              costUsd: snap.poolCostUsd,
+              elapsedWallTimeMs: Date.now() - t0,
+              themeSummary: entry?.crossState.lastPlan?.themeSummary,
+              dimensions: entry?.crossState.lastPlan?.dimensions as
+                | unknown[]
+                | undefined,
+              report: reportPayload as
+                | { title?: string; summary?: string }
+                | undefined,
+              reportArtifactVersion: entry?.crossState.lastReportArtifact
+                ? 2
+                : entry?.crossState.lastReport
+                  ? 1
+                  : undefined,
+              // ★ S4b/B-部分：userProfile 停写，不再传 entry.input
+              reconciliationReport: entry?.crossState.lastReconciliationReport,
+              verdicts: entry?.crossState.lastVerifierVerdicts,
+              leaderOverallScore:
+                entry?.crossState.lastLeaderSignOff?.leaderOverallScore,
+              leaderSigned: entry?.crossState.lastLeaderSignOff?.signed,
+              leaderVerdict: entry?.crossState.lastLeaderSignOff?.leaderVerdict,
+            },
+          },
+        },
+        arbiter: this.store,
       })
       .catch((dbErr) => {
         this.log.error(
-          `[pipeline-v1] markFailed for mission ${missionId} failed: ${
+          `[pipeline-v1] finalize(failed) for mission ${missionId} failed: ${
             dbErr instanceof Error ? dbErr.message : String(dbErr)
           }`,
         );

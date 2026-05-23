@@ -61,6 +61,7 @@ import {
   PostmortemClassifierService,
   MissionFailureCode,
   MissionAbortReason,
+  MissionLifecycleManager,
   mapAbortReasonToFailureCode,
 } from "@/modules/ai-harness/facade";
 import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
@@ -128,6 +129,8 @@ export class SocialPipelineDispatcher implements OnModuleInit {
     private readonly publishVerifier: PublishVerifierService,
     // ★ round-2-followup: 在 mission 启动时查 SocialContent + Connections 装配 ctx
     private readonly prisma: PrismaService,
+    // ★ C0/G1：唯一终态写入口。dispatcher 不再直写 store.markX，统一经 finalize 仲裁。
+    private readonly lifecycleManager: MissionLifecycleManager,
   ) {}
 
   onModuleInit(): void {
@@ -264,21 +267,28 @@ export class SocialPipelineDispatcher implements OnModuleInit {
         });
 
         if (result.status === "completed") {
-          await this.store
-            .markCompleted(missionId, { elapsedWallTimeMs: Date.now() - t0 })
-            .catch((err: unknown) => {
-              this.log.warn(
-                `[${missionId}] markCompleted failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-              );
-            });
-          await this.eventBus
-            .emit({
-              type: "social.mission:completed",
-              scope: { missionId, userId },
-              payload: { wallTimeMs: Date.now() - t0 },
-              timestamp: Date.now(),
-            })
-            .catch(() => undefined);
+          // 只有赢得仲裁（本次首写 completed）才广播，避免与 abort/liveness 抢写后误发。
+          await this.lifecycleManager.finalize({
+            missionId,
+            intent: {
+              status: "completed",
+              extra: {
+                kind: "completed",
+                detail: { elapsedWallTimeMs: Date.now() - t0 },
+              },
+            },
+            arbiter: this.store,
+            onWon: async () => {
+              await this.eventBus
+                .emit({
+                  type: "social.mission:completed",
+                  scope: { missionId, userId },
+                  payload: { wallTimeMs: Date.now() - t0 },
+                  timestamp: Date.now(),
+                })
+                .catch(() => undefined);
+            },
+          });
         } else {
           // ★ MINOR-2:把 abort reason(framework 传 enum)透传给失败分类,避免 budget/超时
           //   abort 被误记 user_cancelled。
@@ -292,17 +302,27 @@ export class SocialPipelineDispatcher implements OnModuleInit {
             abortReason === MissionAbortReason.rerun_replacing_stale ||
             abortReason === MissionAbortReason.superseded;
           if (isGenuineCancel) {
-            await this.store
-              .markCancelled(missionId, `aborted: ${abortReason}`)
-              .catch(() => undefined);
-            await this.eventBus
-              .emit({
-                type: "social.mission:cancelled",
-                scope: { missionId, userId },
-                payload: { reason: abortReason },
-                timestamp: Date.now(),
-              })
-              .catch(() => undefined);
+            // abort signal 已在取消源触发（故走到此分支），finalize 不再重复 abort。
+            await this.lifecycleManager.finalize({
+              missionId,
+              intent: {
+                status: "cancelled",
+                reason: abortReason,
+                failureCode: MissionFailureCode.user_cancelled,
+                extra: { kind: "cancelled", reason: `aborted: ${abortReason}` },
+              },
+              arbiter: this.store,
+              onWon: async () => {
+                await this.eventBus
+                  .emit({
+                    type: "social.mission:cancelled",
+                    scope: { missionId, userId },
+                    payload: { reason: abortReason },
+                    timestamp: Date.now(),
+                  })
+                  .catch(() => undefined);
+              },
+            });
           } else {
             await this.handleMissionFailure(
               missionId,
@@ -324,21 +344,42 @@ export class SocialPipelineDispatcher implements OnModuleInit {
         };
       });
     } catch (err) {
-      this.log.error(
-        `[${missionId}] mission threw: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      await this.eventBus
-        .emit({
-          type: "social.mission:failed",
-          scope: { missionId, userId },
-          payload: {
-            message: err instanceof Error ? err.message : String(err),
-            failureCode: "DISPATCHER_THREW",
-            wallTimeMs: Date.now() - t0,
+      const message = err instanceof Error ? err.message : String(err);
+      this.log.error(`[${missionId}] mission threw: ${message}`);
+      // ★ C0/G1：dispatcher 抛错也经 finalize 单入口写终态。此前只 emit 不写 DB，
+      //   行留 running 靠 liveness 回收（延迟数分钟）；现条件写首写赢，立即标 failed。
+      //   canonical failureCode=runtime_crashed（取代 ad-hoc "DISPATCHER_THREW"，对齐 C2）。
+      await this.lifecycleManager.finalize({
+        missionId,
+        intent: {
+          status: "failed",
+          failureCode: MissionFailureCode.runtime_crashed,
+          errorMessage: message,
+          extra: {
+            kind: "failed",
+            detail: {
+              errorMessage: message,
+              elapsedWallTimeMs: Date.now() - t0,
+              failureCode: MissionFailureCode.runtime_crashed,
+            },
           },
-          timestamp: Date.now(),
-        })
-        .catch(() => undefined);
+        },
+        arbiter: this.store,
+        onWon: async () => {
+          await this.eventBus
+            .emit({
+              type: "social.mission:failed",
+              scope: { missionId, userId },
+              payload: {
+                message,
+                failureCode: MissionFailureCode.runtime_crashed,
+                wallTimeMs: Date.now() - t0,
+              },
+              timestamp: Date.now(),
+            })
+            .catch(() => undefined);
+        },
+      });
       return { missionId, status: "failed", error: err };
     } finally {
       if (session) {
@@ -709,26 +750,39 @@ export class SocialPipelineDispatcher implements OnModuleInit {
     } else {
       failureCode = MissionFailureCode.provider_error;
     }
-    await this.store
-      .markFailed(missionId, {
-        errorMessage: message,
-        elapsedWallTimeMs: Date.now() - t0,
+    await this.lifecycleManager.finalize({
+      missionId,
+      intent: {
+        status: "failed",
+        reason: abortReason,
         failureCode,
-      })
-      .catch(() => undefined);
-    await this.eventBus
-      .emit({
-        type: "social.mission:failed",
-        scope: { missionId, userId },
-        payload: {
-          message,
-          failureCode,
-          errorName: errName,
-          wallTimeMs: Date.now() - t0,
+        errorMessage: message,
+        extra: {
+          kind: "failed",
+          detail: {
+            errorMessage: message,
+            elapsedWallTimeMs: Date.now() - t0,
+            failureCode,
+          },
         },
-        timestamp: Date.now(),
-      })
-      .catch(() => undefined);
+      },
+      arbiter: this.store,
+      onWon: async () => {
+        await this.eventBus
+          .emit({
+            type: "social.mission:failed",
+            scope: { missionId, userId },
+            payload: {
+              message,
+              failureCode,
+              errorName: errName,
+              wallTimeMs: Date.now() - t0,
+            },
+            timestamp: Date.now(),
+          })
+          .catch(() => undefined);
+      },
+    });
   }
 
   /**

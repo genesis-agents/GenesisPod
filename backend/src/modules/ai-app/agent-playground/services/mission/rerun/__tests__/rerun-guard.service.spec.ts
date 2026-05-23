@@ -58,6 +58,8 @@ function mkStore(opts: { missions: MissionRow[] }) {
       return m ?? null;
     }),
     markFailed: jest.fn(async () => undefined),
+    // ★ C0/G1：终态写经 finalize → arbiter.applyTerminalIfRunning（首写赢，默认 true）。
+    applyTerminalIfRunning: jest.fn(async () => true),
     clearHeartbeat: jest.fn(async () => undefined),
   };
 }
@@ -70,9 +72,61 @@ afterAll(() => {
   jest.useRealTimers();
 });
 
-function makeGuard(prisma: unknown, store: unknown): RerunGuardService {
+/**
+ * Minimal lifecycleManager mock — finalize calls arbiter.applyTerminalIfRunning,
+ * runs onWon if won=true (swallows onWon errors).
+ */
+function makeLifecycleManagerMock() {
+  return {
+    finalize: jest.fn(
+      async <TExtra>(args: {
+        missionId: string;
+        intent: { status: string; extra?: TExtra };
+        arbiter: {
+          applyTerminalIfRunning: (
+            id: string,
+            intent: unknown,
+          ) => Promise<boolean>;
+        };
+        abort?: () => void;
+        onWon?: () => Promise<void>;
+      }) => {
+        const won = await args.arbiter.applyTerminalIfRunning(
+          args.missionId,
+          args.intent,
+        );
+        if (won && args.onWon) {
+          try {
+            await args.onWon();
+          } catch {
+            // swallow
+          }
+        }
+        return { won };
+      },
+    ),
+  };
+}
+
+function makeGuardWithLifecycle(
+  prisma: unknown,
+  store: unknown,
+): {
+  guard: RerunGuardService;
+  lifecycleManager: ReturnType<typeof makeLifecycleManagerMock>;
+} {
+  const lifecycleManager = makeLifecycleManagerMock();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return new RerunGuardService(prisma as any, store as any);
+  const guard = new RerunGuardService(
+    prisma as any,
+    store as any,
+    lifecycleManager as any,
+  );
+  return { guard, lifecycleManager };
+}
+
+function makeGuard(prisma: unknown, store: unknown): RerunGuardService {
+  return makeGuardWithLifecycle(prisma, store).guard;
 }
 
 describe("RerunGuardService", () => {
@@ -219,7 +273,7 @@ describe("RerunGuardService", () => {
   // RV-6: checkInFlight 纯读不变量
   // ─────────────────────────────────────────────────────────────
   describe("checkInFlight — RV-6 纯读不变量", () => {
-    it("连续 100 次 → store.markFailed / clearHeartbeat / event.create 0 调用", async () => {
+    it("连续 100 次 → lifecycleManager.finalize / clearHeartbeat / event.create 0 调用", async () => {
       const missions = [
         {
           id: "m1",
@@ -230,13 +284,13 @@ describe("RerunGuardService", () => {
       ];
       const prisma = mkPrisma({ missions, latestBusinessTs: NOW - 1000 });
       const store = mkStore({ missions });
-      const guard = makeGuard(prisma, store);
+      const { guard, lifecycleManager } = makeGuardWithLifecycle(prisma, store);
 
       for (let i = 0; i < 100; i++) {
         await guard.checkInFlight("m1", "u1");
       }
 
-      expect(store.markFailed).not.toHaveBeenCalled();
+      expect(lifecycleManager.finalize).not.toHaveBeenCalled();
       expect(store.clearHeartbeat).not.toHaveBeenCalled();
       expect(prisma.agentPlaygroundMissionEvent.create).not.toHaveBeenCalled();
     });
@@ -246,7 +300,7 @@ describe("RerunGuardService", () => {
   // ensureRerunable + zombieCleanup（R1 reviewer P0-2 + R2 security）
   // ─────────────────────────────────────────────────────────────
   describe("ensureRerunable — zombieCleanup 行为", () => {
-    it("zombieDetected=true → markFailed(userId) + clearHeartbeat(userId) + emit zombie-cleanup 事件", async () => {
+    it("zombieDetected=true → lifecycleManager.finalize(failed) + clearHeartbeat(userId) + emit zombie-cleanup 事件", async () => {
       const missions = [
         {
           id: "m1",
@@ -260,17 +314,31 @@ describe("RerunGuardService", () => {
         latestBusinessTs: NOW - 10 * 60_000,
       });
       const store = mkStore({ missions });
-      const guard = makeGuard(prisma, store);
+      const { guard, lifecycleManager } = makeGuardWithLifecycle(prisma, store);
 
       await guard.ensureRerunable("m1", "u1");
 
-      // 走 store.markFailed（不裸 prisma.update）—— RV-4 + R1 reviewer P0-2
-      expect(store.markFailed).toHaveBeenCalledTimes(1);
-      expect(store.markFailed).toHaveBeenCalledWith(
-        "m1",
-        { errorMessage: "zombie-heartbeat-cleanup" },
-        "u1",
+      // ★ C0/G1：终态写经 finalize 单入口仲裁（不直接调 store.markFailed）
+      expect(lifecycleManager.finalize).toHaveBeenCalledTimes(1);
+      const finalizeArgs = lifecycleManager.finalize.mock.calls[0][0] as {
+        missionId: string;
+        intent: {
+          status: string;
+          extra: {
+            kind: string;
+            detail: { errorMessage: string };
+            userId: string;
+          };
+        };
+        arbiter: unknown;
+      };
+      expect(finalizeArgs.missionId).toBe("m1");
+      expect(finalizeArgs.intent.status).toBe("failed");
+      expect(finalizeArgs.intent.extra.kind).toBe("failed");
+      expect(finalizeArgs.intent.extra.detail.errorMessage).toBe(
+        "zombie-heartbeat-cleanup",
       );
+      expect(finalizeArgs.intent.extra.userId).toBe("u1");
       // store.clearHeartbeat 同样走唯一写源
       expect(store.clearHeartbeat).toHaveBeenCalledTimes(1);
       expect(store.clearHeartbeat).toHaveBeenCalledWith("m1", "u1");
@@ -283,7 +351,7 @@ describe("RerunGuardService", () => {
       expect(evt.type).toBe("agent-playground.mission:zombie-cleanup");
     });
 
-    it("RV-4: zombieCleanup 后业务字段保留 —— store.markFailed 调用参数只含 errorMessage（不含 dimensions/outline_plan/report_full）", async () => {
+    it("RV-4: zombieCleanup 后业务字段保留 —— finalize intent 只含 errorMessage（不含 dimensions/outline_plan/report_full）", async () => {
       const missions = [
         {
           id: "m1",
@@ -297,22 +365,24 @@ describe("RerunGuardService", () => {
         latestBusinessTs: NOW - 10 * 60_000,
       });
       const store = mkStore({ missions });
-      const guard = makeGuard(prisma, store);
+      const { guard, lifecycleManager } = makeGuardWithLifecycle(prisma, store);
 
       await guard.ensureRerunable("m1", "u1");
 
-      const callArgs = store.markFailed.mock.calls[0];
-      const data = callArgs[1] as Record<string, unknown>;
-      // 关键：业务字段必须不在 markFailed payload 里
-      expect(data).not.toHaveProperty("dimensions");
-      expect(data).not.toHaveProperty("outlinePlan");
-      expect(data).not.toHaveProperty("report");
-      expect(data).not.toHaveProperty("themeSummary");
-      expect(data).not.toHaveProperty("reconciliationReport");
-      expect(data).toEqual({ errorMessage: "zombie-heartbeat-cleanup" });
+      const finalizeArgs = lifecycleManager.finalize.mock.calls[0][0] as {
+        intent: { extra: { detail: Record<string, unknown> } };
+      };
+      const detail = finalizeArgs.intent.extra.detail;
+      // 关键：业务字段必须不在 intent.extra.detail 里
+      expect(detail).not.toHaveProperty("dimensions");
+      expect(detail).not.toHaveProperty("outlinePlan");
+      expect(detail).not.toHaveProperty("report");
+      expect(detail).not.toHaveProperty("themeSummary");
+      expect(detail).not.toHaveProperty("reconciliationReport");
+      expect(detail).toEqual({ errorMessage: "zombie-heartbeat-cleanup" });
     });
 
-    it("R2 security medium: 跨用户 missionId 触发 zombie 时 cleanup skip（不调 markFailed）", async () => {
+    it("R2 security medium: 跨用户 missionId 触发 zombie 时 cleanup skip（不调 finalize）", async () => {
       // 故意：u-other 调 missionId=m1，但 m1 属于 u1
       const missions = [
         {
@@ -327,13 +397,13 @@ describe("RerunGuardService", () => {
         latestBusinessTs: NOW - 10 * 60_000,
       });
       const store = mkStore({ missions });
-      const guard = makeGuard(prisma, store);
+      const { guard, lifecycleManager } = makeGuardWithLifecycle(prisma, store);
 
       await guard.ensureRerunable("m1", "u-other");
 
       // store.getById(missionId, userId='u-other') → null → checkInFlight 短路 status=failed
       // → zombieDetected=false → ensureRerunable 不进入 zombieCleanup 路径
-      expect(store.markFailed).not.toHaveBeenCalled();
+      expect(lifecycleManager.finalize).not.toHaveBeenCalled();
       expect(store.clearHeartbeat).not.toHaveBeenCalled();
     });
 
@@ -360,11 +430,11 @@ describe("RerunGuardService", () => {
         if (callCount === 1) return initialMissions[0]; // checkInFlight 看到 running
         return { ...initialMissions[0], status: "failed" }; // zombieCleanup 看到 failed
       });
-      const guard = makeGuard(prisma, store);
+      const { guard, lifecycleManager } = makeGuardWithLifecycle(prisma, store);
 
       await guard.ensureRerunable("m1", "u1");
 
-      expect(store.markFailed).not.toHaveBeenCalled();
+      expect(lifecycleManager.finalize).not.toHaveBeenCalled();
       expect(store.clearHeartbeat).not.toHaveBeenCalled();
     });
 
@@ -379,12 +449,12 @@ describe("RerunGuardService", () => {
       ];
       const prisma = mkPrisma({ missions, latestBusinessTs: NOW - 10_000 }); // BUSINESS event 10s ago
       const store = mkStore({ missions });
-      const guard = makeGuard(prisma, store);
+      const { guard, lifecycleManager } = makeGuardWithLifecycle(prisma, store);
 
       await expect(guard.ensureRerunable("m1", "u1")).rejects.toThrow(
         BadRequestException,
       );
-      expect(store.markFailed).not.toHaveBeenCalled();
+      expect(lifecycleManager.finalize).not.toHaveBeenCalled();
     });
   });
 
@@ -403,12 +473,12 @@ describe("RerunGuardService", () => {
       ];
       const prisma = mkPrisma({ missions, queryThrows: true });
       const store = mkStore({ missions });
-      const guard = makeGuard(prisma, store);
+      const { guard, lifecycleManager } = makeGuardWithLifecycle(prisma, store);
 
       await expect(guard.ensureRerunable("m1", "u1")).rejects.toThrow(
         /rerun guard 服务异常/,
       );
-      expect(store.markFailed).not.toHaveBeenCalled();
+      expect(lifecycleManager.finalize).not.toHaveBeenCalled();
     });
   });
 });

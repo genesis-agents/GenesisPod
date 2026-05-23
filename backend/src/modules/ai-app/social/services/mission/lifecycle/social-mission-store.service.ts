@@ -14,7 +14,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import type { Prisma } from "@prisma/client";
-import { MissionFailureCode } from "@/modules/ai-harness/facade";
+import {
+  MissionFailureCode,
+  type MissionTerminalArbiter,
+  type MissionTerminalIntent,
+} from "@/modules/ai-harness/facade";
 
 export interface CreateSocialMissionArgs {
   id: string;
@@ -49,11 +53,42 @@ export interface MarkFailedDetail {
   failureCode?: MissionFailureCode;
 }
 
+/**
+ * ★ C0/G1：social 终态 arbiter 富载荷（判别式）。dispatcher 完成/取消/失败、liveness 回收
+ * 经 MissionLifecycleManager.finalize 提交 intent，arbiter 据 kind 落终态。social 仅平台
+ * 3 终态（无 radar 的 rejected 业务态）；liveness 回收用 failed kind（detail 无 metrics）。
+ */
+export type SocialTerminalExtra =
+  | { readonly kind: "completed"; readonly detail?: MarkCompletedDetail }
+  | { readonly kind: "failed"; readonly detail: MarkFailedDetail }
+  | { readonly kind: "cancelled"; readonly reason?: string };
+
 @Injectable()
-export class SocialMissionStore {
+export class SocialMissionStore implements MissionTerminalArbiter<SocialTerminalExtra> {
   private readonly log = new Logger(SocialMissionStore.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * ★ C0/G1：唯一终态写仲裁口。所有终态来源（dispatcher 完成/取消/失败、liveness 回收）
+   * 经 MissionLifecycleManager.finalize 提交 intent，由此单点条件写（WHERE status='running'）
+   * 首写者赢。返回 true=本次赢、false=已终态 no-op。
+   */
+  async applyTerminalIfRunning(
+    missionId: string,
+    intent: MissionTerminalIntent<SocialTerminalExtra>,
+  ): Promise<boolean> {
+    const extra = intent.extra;
+    if (!extra) return false; // 防御：social 终态必须带 extra（理论不可达）
+    switch (extra.kind) {
+      case "completed":
+        return this.writeCompleted(missionId, extra.detail);
+      case "failed":
+        return this.writeFailed(missionId, extra.detail);
+      case "cancelled":
+        return this.writeCancelled(missionId, extra.reason);
+    }
+  }
 
   async create(args: CreateSocialMissionArgs): Promise<void> {
     const podId =
@@ -97,13 +132,14 @@ export class SocialMissionStore {
       });
   }
 
-  async markCompleted(
+  // ★ C0/G1：以下 3 个 writeX 是 arbiter 私有落库实现，仅 applyTerminalIfRunning 调用。
+  //   外部一律经 finalize → applyTerminalIfRunning，禁止直写终态（conformance 看护）。
+  //   均为条件写 WHERE status='running'（首写赢），返回 count>0=本次赢。
+  private async writeCompleted(
     missionId: string,
     detail?: MarkCompletedDetail,
-  ): Promise<void> {
-    // ★ C0/T16：条件写 WHERE status='running'(原 update by id 无条件,会 clobber 已被
-    //   cancel/liveness 终结的 mission)。首写赢:已终态则本次 no-op,不覆盖首写原因。
-    await this.prisma.socialMission
+  ): Promise<boolean> {
+    const res = await this.prisma.socialMission
       .updateMany({
         where: { id: missionId, status: "running" },
         data: {
@@ -118,15 +154,18 @@ export class SocialMissionStore {
       })
       .catch((err: unknown) => {
         this.log.warn(
-          `[markCompleted] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+          `[writeCompleted] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
         );
+        return { count: 0 };
       });
+    return res.count > 0;
   }
 
-  async markFailed(missionId: string, detail: MarkFailedDetail): Promise<void> {
-    // ★ C0/T16：条件写 WHERE status='running'(原 update by id 无条件,有 TOCTOU——
-    //   会覆盖刚 markCompleted/markCancelled 的 mission)。首写赢:已终态则 no-op。
-    await this.prisma.socialMission
+  private async writeFailed(
+    missionId: string,
+    detail: MarkFailedDetail,
+  ): Promise<boolean> {
+    const res = await this.prisma.socialMission
       .updateMany({
         where: { id: missionId, status: "running" },
         data: {
@@ -142,19 +181,23 @@ export class SocialMissionStore {
       })
       .catch((err: unknown) => {
         this.log.warn(
-          `[markFailed] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+          `[writeFailed] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
         );
+        return { count: 0 };
       });
+    return res.count > 0;
   }
 
   /**
-   * 用户取消落终态(条件写,首写赢)。★ 评审 code-MAJOR-1:此前 social 无 markCancelled,
-   * 取消走 markFailed → status=failed,前端 outcomeFromStatus 投影成 failure(显示"失败"非
-   * "已取消")。本方法落 status=cancelled + failureCode=user_cancelled,outcomeFromStatus
-   * → cancelled。
+   * 用户取消落终态。★ 评审 code-MAJOR-1:此前 social 无 cancelled 路径,取消走 failed →
+   * 前端 outcomeFromStatus 投影成 failure(显示"失败"非"已取消")。本路径落 status=cancelled
+   * + failureCode=user_cancelled,outcomeFromStatus → cancelled。
    */
-  async markCancelled(missionId: string, reason?: string): Promise<void> {
-    await this.prisma.socialMission
+  private async writeCancelled(
+    missionId: string,
+    reason?: string,
+  ): Promise<boolean> {
+    const res = await this.prisma.socialMission
       .updateMany({
         where: { id: missionId, status: "running" },
         data: {
@@ -166,9 +209,11 @@ export class SocialMissionStore {
       })
       .catch((err: unknown) => {
         this.log.warn(
-          `[markCancelled] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+          `[writeCancelled] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
         );
+        return { count: 0 };
       });
+    return res.count > 0;
   }
 
   /**
@@ -192,35 +237,10 @@ export class SocialMissionStore {
     });
   }
 
-  /**
-   * Liveness 回收专用 markFailed —— 用 updateMany + WHERE status='running' 条件写，
-   * 避免与刚 markCompleted 的 mission 抢写（既有 markFailed 是无条件 update by id，
-   * 有 TOCTOU；C0/G1 会把终态写统一收口到 MissionLifecycleManager 单入口仲裁）。
-   */
-  async markFailedByLiveness(
-    missionId: string,
-    errorMessage: string,
-    failureCode?: MissionFailureCode,
-  ): Promise<void> {
-    await this.prisma.socialMission
-      .updateMany({
-        where: { id: missionId, status: "running" },
-        data: {
-          status: "failed",
-          completedAt: new Date(),
-          errorMessage: errorMessage.slice(0, 4000),
-          // ★ C2/MAJOR-4:liveness 回收落 canonical failureCode(此前为 NULL)。
-          failureCode: failureCode ?? null,
-        },
-      })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[markFailedByLiveness] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-  }
+  // ★ C0/G1：原 markFailedByLiveness 已折叠进 arbiter 的 failed kind——liveness 回收
+  //   经 finalize → applyTerminalIfRunning({extra:{kind:'failed',detail:{errorMessage,failureCode}}})。
 
-  /** 写 S11 trajectory；与 markCompleted 解耦，让 S11 失败也能保留 partial trajectory */
+  /** 写 S11 trajectory；与终态写解耦，让 S11 失败也能保留 partial trajectory */
   async saveTrajectory(
     missionId: string,
     trajectory: Prisma.InputJsonValue,

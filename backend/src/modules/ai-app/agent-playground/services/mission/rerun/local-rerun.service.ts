@@ -35,9 +35,11 @@ import {
 import { CtxHydratorService } from "./ctx-hydrator.service";
 import { RerunGuardService } from "./rerun-guard.service";
 import {
+  MissionLifecycleManager,
   RerunLockRegistry,
   ResolvedBudgetCaps,
 } from "@/modules/ai-harness/facade";
+import type { PlaygroundTerminalExtra } from "../lifecycle/mission-store.service";
 import { StageRerunDispatcher } from "./stage-rerun.dispatcher";
 import type { EmitFn } from "../workflow/mission-deps";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
@@ -108,6 +110,8 @@ export class LocalRerunService {
     private readonly store: MissionStore,
     // ★ 2026-05-07 rerun-overhaul v1.1：唯一 in-flight 判定单元（替代 line 206 的旧检查）
     private readonly rerunGuard: RerunGuardService,
+    // ★ C0/G1：cascade-aborted 终态写经 finalize 单入口仲裁。
+    private readonly lifecycleManager: MissionLifecycleManager,
   ) {}
 
   /**
@@ -312,28 +316,36 @@ export class LocalRerunService {
           );
           // ★ 收尾评审 P0-T2 (2026-05-07): cascade aborted 时 mission status 必须回写 failed。
           //   原实现只 log.warn 后正常 return → mission 卡 running 直到 LivenessGuard
-          //   超时清理（5-15min），用户体验极差。现在显式 markFailed 让 status 同步。
+          //   超时清理（5-15min），用户体验极差。现在显式 writeFailed 让 status 同步。
           //   仅当 maybeReopen 真改过 status 时才回写（cascadeChain 含 s11 的路径）。
           const reachesTerminal =
             !!eligibility.cascadeChain &&
             eligibility.cascadeChain.includes(TERMINAL_STEP_ID);
           if (reachesTerminal) {
+            // ★ C0/G1：终态写经 finalize 单入口仲裁（条件写 WHERE status='running' 首写赢）
             // ★ 收尾评审第三轮 P0-S (2026-05-07): 传 userId 走严格隔离路径
-            await this.store
-              .markFailed(
+            await this.lifecycleManager
+              .finalize<PlaygroundTerminalExtra>({
                 missionId,
-                {
-                  errorMessage:
-                    `cascade_aborted_at_${result.abortedAt}: ${result.errorMessage ?? "unknown"}`.slice(
-                      0,
-                      500,
-                    ),
+                intent: {
+                  status: "failed",
+                  extra: {
+                    kind: "failed",
+                    detail: {
+                      errorMessage:
+                        `cascade_aborted_at_${result.abortedAt}: ${result.errorMessage ?? "unknown"}`.slice(
+                          0,
+                          500,
+                        ),
+                    },
+                    userId,
+                  },
                 },
-                userId,
-              )
+                arbiter: this.store,
+              })
               .catch((err: unknown) => {
                 this.log.warn(
-                  `[local-rerun ${missionId}] markFailed after cascade abort failed: ${err instanceof Error ? err.message : String(err)}`,
+                  `[local-rerun ${missionId}] finalize after cascade abort failed: ${err instanceof Error ? err.message : String(err)}`,
                 );
               });
           }

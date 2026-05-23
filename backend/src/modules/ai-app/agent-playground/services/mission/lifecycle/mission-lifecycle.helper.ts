@@ -1,8 +1,13 @@
 /**
- * MissionLifecycleHelper — mission 终态转换（markCompleted / markCancelled /
- * markFailed / markReopened / appendLeaderJournal）。
+ * MissionLifecycleHelper — mission 终态转换（writeCompleted / writeCancelled /
+ * writeFailed / markReopened / appendLeaderJournal）。
  *
  * 普通 class（非 @Injectable），由 MissionStore 在 constructor 内 new。
+ *
+ * ★ C0/G1：writeCompleted / writeCancelled / writeFailed 是 arbiter 私有落库实现，
+ *   仅 MissionStore.applyTerminalIfRunning 调用。外部一律经
+ *   MissionLifecycleManager.finalize → applyTerminalIfRunning，禁止直写终态。
+ *   均为条件写 WHERE status='running'（首写赢），返回 count>0=本次赢。
  */
 
 import {
@@ -29,7 +34,7 @@ export class MissionLifecycleHelper {
     ) => Promise<void>,
   ) {}
 
-  async markCompleted(
+  async writeCompleted(
     id: string,
     data: {
       finalScore?: number;
@@ -42,7 +47,6 @@ export class MissionLifecycleHelper {
       report?: { title?: string; summary?: string; [k: string]: unknown };
       verdicts?: unknown;
       reportArtifactVersion?: number;
-      userProfile?: unknown;
       reconciliationReport?: unknown;
       leaderJournal?: unknown;
       leaderOverallScore?: number;
@@ -50,7 +54,7 @@ export class MissionLifecycleHelper {
       leaderVerdict?: string;
     },
     userId?: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const MAX_REPORT_BYTES = 5 * 1024 * 1024;
     const HARD_LIMIT_BYTES = 10 * 1024 * 1024;
     if (data.report && typeof data.report === "object") {
@@ -62,7 +66,7 @@ export class MissionLifecycleHelper {
       }
       if (size > MAX_REPORT_BYTES) {
         this.log.warn(
-          `[markCompleted ${id}] report size ${size} > ${MAX_REPORT_BYTES} bytes — truncating`,
+          `[writeCompleted ${id}] report size ${size} > ${MAX_REPORT_BYTES} bytes — truncating`,
         );
         const r = data.report as {
           content?: {
@@ -99,7 +103,7 @@ export class MissionLifecycleHelper {
       reportTitle: data.report?.title?.slice(0, 500) ?? null,
       reportSummary: data.report?.summary ?? null,
       reportArtifactVersion: data.reportArtifactVersion ?? null,
-      userProfile: (data.userProfile ?? null) as Prisma.InputJsonValue,
+      // ★ S4b/B-部分：userProfile 列已停写（configSnapshot 单一真源；读时投影回 shape）。
       reconciliationReport: (data.reconciliationReport ??
         null) as Prisma.InputJsonValue,
       leaderJournal:
@@ -115,23 +119,25 @@ export class MissionLifecycleHelper {
       status: "running",
       ...(userId ? { userId } : {}),
     };
-    await this.prisma.agentPlaygroundMission
+    const res = await this.prisma.agentPlaygroundMission
       .updateMany({
         where: completeWhere,
         data: update,
       })
       .catch((err: unknown) => {
         this.log.warn(
-          `[markCompleted ${id}] guarded update failed: ${err instanceof Error ? err.message : String(err)}`,
+          `[writeCompleted ${id}] guarded update failed: ${err instanceof Error ? err.message : String(err)}`,
         );
+        return { count: 0 };
       });
     await this.clearCheckpointJsonbKey(id);
+    return res.count > 0;
   }
 
-  async markCancelled(id: string): Promise<void> {
-    await this.prisma.agentPlaygroundMission
+  async writeCancelled(id: string, userId?: string): Promise<boolean> {
+    const res = await this.prisma.agentPlaygroundMission
       .updateMany({
-        where: { id, status: "running" },
+        where: { id, status: "running", ...(userId ? { userId } : {}) },
         data: {
           status: "cancelled",
           completedAt: new Date(),
@@ -140,13 +146,15 @@ export class MissionLifecycleHelper {
       })
       .catch((err: unknown) => {
         this.log.warn(
-          `[markCancelled ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+          `[writeCancelled ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
         );
+        return { count: 0 };
       });
     await this.clearCheckpointJsonbKey(id);
+    return res.count > 0;
   }
 
-  async markFailed(
+  async writeFailed(
     id: string,
     data: {
       errorMessage?: string;
@@ -161,7 +169,7 @@ export class MissionLifecycleHelper {
       report?: { title?: string; summary?: string; [k: string]: unknown };
       verdicts?: unknown;
       reportArtifactVersion?: number;
-      userProfile?: unknown;
+      // ★ S4b/B-部分：userProfile 字段已从类型签名删除，停写 DB 列。
       reconciliationReport?: unknown;
       leaderJournal?: unknown;
       leaderOverallScore?: number;
@@ -169,7 +177,7 @@ export class MissionLifecycleHelper {
       leaderVerdict?: string;
     },
     userId?: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (data.report && typeof data.report === "object") {
       const failSize = Buffer.byteLength(JSON.stringify(data.report), "utf8");
       if (failSize > 10 * 1024 * 1024) {
@@ -205,8 +213,7 @@ export class MissionLifecycleHelper {
       update.verdicts = (data.verdicts ?? null) as Prisma.InputJsonValue;
     if (data.reportArtifactVersion != null)
       update.reportArtifactVersion = data.reportArtifactVersion;
-    if (data.userProfile !== undefined)
-      update.userProfile = (data.userProfile ?? null) as Prisma.InputJsonValue;
+    // ★ S4b/B-部分：userProfile 写路径已删除。不再 update.userProfile = ...
     if (data.reconciliationReport !== undefined)
       update.reconciliationReport = (data.reconciliationReport ??
         null) as Prisma.InputJsonValue;
@@ -224,14 +231,16 @@ export class MissionLifecycleHelper {
       status: "running",
       ...(userId ? { userId } : {}),
     };
-    await this.prisma.agentPlaygroundMission
+    const res = await this.prisma.agentPlaygroundMission
       .updateMany({ where: failWhere, data: update })
       .catch((err: unknown) => {
         this.log.warn(
-          `[markFailed ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+          `[writeFailed ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
         );
+        return { count: 0 };
       });
     await this.clearCheckpointJsonbKey(id);
+    return res.count > 0;
   }
 
   async markReopened(missionId: string, userId: string): Promise<void> {

@@ -160,11 +160,11 @@ function buildIntegratedHarness(opts: {
       costUsd: 0,
     }),
     markReopened: jest.fn().mockResolvedValue(undefined),
-    markFailed: jest.fn().mockResolvedValue(undefined),
+    // ★ C0/G1：applyTerminalIfRunning 替代 markFailed / markCompleted（条件写，首写赢，返回 boolean）
+    applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
     markIntermediateState: jest.fn().mockResolvedValue(undefined),
     resetFields: jest.fn().mockResolvedValue(undefined),
     markRerunPatch: jest.fn().mockResolvedValue(undefined),
-    markCompleted: jest.fn().mockResolvedValue(undefined),
     // ★ PR-R5b 评审 P0-A (2026-05-07): 报告版本化写入 mock
     saveReportVersion: jest.fn().mockResolvedValue(1),
   };
@@ -220,12 +220,44 @@ function buildIntegratedHarness(opts: {
     buildDeps: jest.fn().mockReturnValue({}),
     buildCtx: jest.fn(),
   };
+  // ★ C0/G1：lifecycleManager mock —— finalize 复刻真实语义（调 arbiter.applyTerminalIfRunning，
+  //   won=true 时跑 onWon 且吞 onWon 异常）。集成测试需要真实 onWon 路径跑 emit。
+  const lifecycleManagerMock = {
+    finalize: jest.fn(
+      async <TExtra>(args: {
+        missionId: string;
+        intent: { status: string; extra?: TExtra };
+        arbiter: {
+          applyTerminalIfRunning: (
+            id: string,
+            intent: unknown,
+          ) => Promise<boolean>;
+        };
+        abort?: () => void;
+        onWon?: () => Promise<void>;
+      }) => {
+        const won = await args.arbiter.applyTerminalIfRunning(
+          args.missionId,
+          args.intent,
+        );
+        if (won && args.onWon) {
+          try {
+            await args.onWon();
+          } catch {
+            // swallow
+          }
+        }
+        return { won };
+      },
+    ),
+  };
   const dispatcher = new StageRerunDispatcher(
     storeMock as unknown as MissionStore,
     reportEvalMock as unknown as ReportEvaluationService,
     prismaMock as unknown as PrismaService,
     runtimeBuilderMock as never,
     bindingsMock as never,
+    lifecycleManagerMock as never,
   );
 
   // ★ 2026-05-07 rerun-overhaul v1.1: RerunGuard 注入（缺省放过）
@@ -248,6 +280,7 @@ function buildIntegratedHarness(opts: {
     storeMock as unknown as MissionStore,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rerunGuardMock as any,
+    lifecycleManagerMock as never,
   );
 
   return {
@@ -259,6 +292,7 @@ function buildIntegratedHarness(opts: {
     hydratorMock,
     lockRegMock,
     rerunGuardMock,
+    lifecycleManagerMock,
   };
 }
 
@@ -584,24 +618,37 @@ describe("Rerun integration (PR-R8)", () => {
         "c195035f-d6fd-4dae-a9a0-d5176048e4e6",
         "u1",
       );
-      // 3) markCompleted 写库（不是 markFailed）
-      //    ★ PR-R5b 评审 P0-B (2026-05-07): 第三参 userId 走严格隔离
+      // 3) ★ C0/G1：终态写经 lifecycleManager.finalize 仲裁（kind=completed，不直写 markCompleted）
+      //    ★ PR-R5b 评审 P0-B (2026-05-07): userId 在 extra.userId 走严格隔离
       //    ★ R2 共识 P1 (architect P1-5): wallTimeMs 必传
-      expect(h.storeMock.markCompleted).toHaveBeenCalledWith(
-        "c195035f-d6fd-4dae-a9a0-d5176048e4e6",
+      expect(h.lifecycleManagerMock.finalize).toHaveBeenCalledWith(
         expect.objectContaining({
-          report: expect.objectContaining({
-            title: expect.any(String),
+          missionId: "c195035f-d6fd-4dae-a9a0-d5176048e4e6",
+          intent: expect.objectContaining({
+            status: "completed",
+            extra: expect.objectContaining({
+              kind: "completed",
+              detail: expect.objectContaining({
+                report: expect.objectContaining({ title: expect.any(String) }),
+                reportArtifactVersion: 2,
+                elapsedWallTimeMs: expect.any(Number),
+                // c195035f 没真签 → fallback verdict
+                leaderVerdict: "auto-rerun-recovered",
+              }),
+              userId: "u1",
+            }),
           }),
-          reportArtifactVersion: 2,
-          elapsedWallTimeMs: expect.any(Number),
-          // c195035f 没真签 → fallback verdict
-          leaderVerdict: "auto-rerun-recovered",
+          arbiter: h.storeMock,
         }),
-        "u1",
       );
-      // 4) 不 markFailed（cascade 全成功）
-      expect(h.storeMock.markFailed).not.toHaveBeenCalled();
+      // 4) 没有 failed intent（cascade 全成功）
+      const failedCalls = (
+        h.lifecycleManagerMock.finalize as jest.Mock
+      ).mock.calls.filter(
+        (c: unknown[]) =>
+          (c[0] as { intent: { status: string } }).intent.status === "failed",
+      );
+      expect(failedCalls).toHaveLength(0);
       // 5b) ★ PR-R5b P0-A: saveReportVersion 也被调用（todo-rerun triggerType）
       expect(h.storeMock.saveReportVersion).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -676,7 +723,12 @@ describe("Rerun integration (PR-R8)", () => {
       );
 
       expect(result.cascade?.completed).toEqual(["s11-persist"]);
-      expect(h.storeMock.markCompleted).toHaveBeenCalled();
+      // ★ C0/G1：termination via lifecycleManager.finalize with kind=completed
+      expect(h.lifecycleManagerMock.finalize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          intent: expect.objectContaining({ status: "completed" }),
+        }),
+      );
       const completedEmit = (emit as jest.Mock).mock.calls.find(
         (c) => c[0].type === "agent-playground.mission:completed",
       );

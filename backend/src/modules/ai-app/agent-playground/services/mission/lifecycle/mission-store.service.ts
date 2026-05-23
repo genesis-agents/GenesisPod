@@ -23,6 +23,8 @@ import {
   MissionAbortReason,
   outcomeFromStatus,
   type MissionTerminalOutcome,
+  type MissionTerminalArbiter,
+  type MissionTerminalIntent,
 } from "@/modules/ai-harness/facade";
 import type { PlaygroundConfigSnapshot } from "../rerun/playground-mission-input-rebuilder.service";
 import { MissionLifecycleHelper } from "./mission-lifecycle.helper";
@@ -107,8 +109,28 @@ export interface MissionDetail extends MissionListItem {
 // Re-export for existing importers that depend on this symbol from this module path.
 export { PayloadTooLargeException };
 
+/**
+ * ★ C0/G1：playground 终态 arbiter 富载荷（判别式）。所有终态来源（S11、dispatcher
+ * handleMissionFailure、rerun 路径、liveness 回收、controller cancel）经
+ * MissionLifecycleManager.finalize 提交 intent，arbiter 据 kind 落终态。
+ *
+ * userId 透传给 writeX 的 ownership WHERE（WHERE status='running' AND userId=userId）。
+ */
+export type PlaygroundTerminalExtra =
+  | {
+      readonly kind: "completed";
+      readonly detail: Parameters<MissionLifecycleHelper["writeCompleted"]>[1];
+      readonly userId?: string;
+    }
+  | {
+      readonly kind: "failed";
+      readonly detail: Parameters<MissionLifecycleHelper["writeFailed"]>[1];
+      readonly userId?: string;
+    }
+  | { readonly kind: "cancelled"; readonly userId?: string };
+
 @Injectable()
-export class MissionStore {
+export class MissionStore implements MissionTerminalArbiter<PlaygroundTerminalExtra> {
   private readonly log = new Logger(MissionStore.name);
   /** Per-instance set: prevent duplicate emergency-abort signals for the same mission. */
   private readonly emergencyAborted = new Set<string>();
@@ -171,6 +193,37 @@ export class MissionStore {
       );
       return 0;
     });
+  }
+
+  // ── Arbiter (C0/G1 唯一终态写入口) ───────────────────────────────────────
+
+  /**
+   * ★ C0/G1：唯一终态写仲裁口。所有终态来源经 MissionLifecycleManager.finalize
+   * 提交 intent，由此单点条件写（WHERE status='running'）首写者赢。
+   * 返回 true=本次赢、false=已终态 no-op。
+   */
+  async applyTerminalIfRunning(
+    missionId: string,
+    intent: MissionTerminalIntent<PlaygroundTerminalExtra>,
+  ): Promise<boolean> {
+    const extra = intent.extra;
+    if (!extra) return false; // 防御：playground 终态必须带 extra（理论不可达）
+    switch (extra.kind) {
+      case "completed":
+        return this.lifecycle.writeCompleted(
+          missionId,
+          extra.detail,
+          extra.userId,
+        );
+      case "failed":
+        return this.lifecycle.writeFailed(
+          missionId,
+          extra.detail,
+          extra.userId,
+        );
+      case "cancelled":
+        return this.lifecycle.writeCancelled(missionId, extra.userId);
+    }
   }
 
   // ── Core CRUD ─────────────────────────────────────────────────────────────
@@ -286,22 +339,9 @@ export class MissionStore {
   }
 
   // ── Lifecycle delegates ───────────────────────────────────────────────────
+  // ★ C0/G1：markCompleted / markCancelled / markFailed 已折叠进 arbiter 的
+  //   applyTerminalIfRunning——外部经 finalize → applyTerminalIfRunning 提交终态。
 
-  markCompleted(
-    ...args: Parameters<MissionLifecycleHelper["markCompleted"]>
-  ): ReturnType<MissionLifecycleHelper["markCompleted"]> {
-    return this.lifecycle.markCompleted(...args);
-  }
-  markCancelled(
-    ...args: Parameters<MissionLifecycleHelper["markCancelled"]>
-  ): ReturnType<MissionLifecycleHelper["markCancelled"]> {
-    return this.lifecycle.markCancelled(...args);
-  }
-  markFailed(
-    ...args: Parameters<MissionLifecycleHelper["markFailed"]>
-  ): ReturnType<MissionLifecycleHelper["markFailed"]> {
-    return this.lifecycle.markFailed(...args);
-  }
   markReopened(
     ...args: Parameters<MissionLifecycleHelper["markReopened"]>
   ): ReturnType<MissionLifecycleHelper["markReopened"]> {
