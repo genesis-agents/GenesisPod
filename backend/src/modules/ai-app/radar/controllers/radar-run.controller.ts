@@ -34,6 +34,11 @@ import {
 } from "../../../../common/guards/rate-limit.guard";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 import { CacheService } from "@/common/cache/cache.service";
+import {
+  MissionAbortReason,
+  MissionFailureCode,
+  MissionLifecycleManager,
+} from "@/modules/ai-harness/facade";
 import { TriggerRefreshDto } from "../dto";
 import { RadarTopicService } from "../services/topic/radar-topic.service";
 import { RadarMissionStore } from "../services/mission/lifecycle/radar-mission-store.service";
@@ -56,6 +61,8 @@ export class RadarRunController {
     private readonly cache: CacheService,
     private readonly dailyGenerator: DailyBriefingGeneratorService,
     private readonly eventBuffer: RadarMissionEventBuffer,
+    // ★ C0/G1：no-session 取消也经唯一终态写入口仲裁，不直写 store。
+    private readonly lifecycleManager: MissionLifecycleManager,
   ) {}
 
   @Get("topics/:topicId/runs")
@@ -254,8 +261,17 @@ export class RadarRunController {
     // 早断 → dispatcher finally cleanup + markCancelled
     const ok = this.dispatcher.abortMission(runId, "user_cancelled");
     if (!ok) {
-      // mission 不在内存（pod restart 后）：直接 mark cancelled
-      await this.store.markCancelled(runId, "user_cancelled_no_session");
+      // mission 不在内存（pod restart 后）：无 in-flight session，经 finalize 仲裁落终态
+      await this.lifecycleManager.finalize({
+        missionId: runId,
+        intent: {
+          status: "cancelled",
+          reason: MissionAbortReason.user_cancelled,
+          failureCode: MissionFailureCode.user_cancelled,
+          extra: { kind: "cancelled", reason: "user_cancelled_no_session" },
+        },
+        arbiter: this.store,
+      });
     }
     return { runId, cancelled: true };
   }

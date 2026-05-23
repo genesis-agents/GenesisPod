@@ -1,9 +1,10 @@
 /**
- * RadarMissionStore.markRejected 单元测试
+ * RadarMissionStore rejected 终态单元测试（C0/G1 后经 applyTerminalIfRunning arbiter）
  *
- * 2026-05-17 R3 评审 P0：JSDoc 第 13 行声明 markRejected 但方法缺失，让
- * framework 真的 reject mission 时无对应方法可调，DB 行卡 running 不可恢复。
- * 本 spec 锁定 markRejected：
+ * 2026-05-17 R3 评审 P0：markRejected 方法缺失让 framework reject 的 mission 卡 running。
+ * 2026-05-22 C0/G1：markRejected 降为私有 writeRejected，统一经 finalize → arbiter
+ * （intent.extra.kind='rejected'，平台 status='failed'/outcome=failure G6，DB 落 'rejected'）。
+ * 本 spec 锁定 rejected 落库：
  *   - 仅作用于 status='running' 的 mission（updateMany where 守）
  *   - 写入 status='rejected' + completedAt + durationMs + error (≤4000)
  *   - 不消耗用户额度（不写 metrics）
@@ -15,7 +16,15 @@ import { Test } from "@nestjs/testing";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { RadarMissionStore } from "../radar-mission-store.service";
 
-describe("RadarMissionStore.markRejected", () => {
+/** 经唯一终态写入口 arbiter 提交 rejected intent（替代旧 store.markRejected 直调）。 */
+function reject(store: RadarMissionStore, id: string, reason: string) {
+  return store.applyTerminalIfRunning(id, {
+    status: "failed",
+    extra: { kind: "rejected", reason },
+  });
+}
+
+describe("RadarMissionStore rejected (arbiter)", () => {
   let store: RadarMissionStore;
   let prisma: {
     radarRun: {
@@ -45,7 +54,7 @@ describe("RadarMissionStore.markRejected", () => {
     prisma.radarRun.findUnique.mockResolvedValueOnce({ startedAt });
     prisma.radarRun.updateMany.mockResolvedValueOnce({ count: 1 });
 
-    await store.markRejected("mid-1", "budget exceeded");
+    await reject(store, "mid-1", "budget exceeded");
 
     expect(prisma.radarRun.updateMany).toHaveBeenCalledTimes(1);
     const arg = prisma.radarRun.updateMany.mock.calls[0]?.[0];
@@ -61,7 +70,7 @@ describe("RadarMissionStore.markRejected", () => {
     prisma.radarRun.updateMany.mockResolvedValueOnce({ count: 1 });
 
     const longReason = "x".repeat(5000);
-    await store.markRejected("mid-1", longReason);
+    await reject(store, "mid-1", longReason);
 
     const arg = prisma.radarRun.updateMany.mock.calls[0]?.[0];
     expect((arg.data.error as string).length).toBe(4000);
@@ -71,7 +80,7 @@ describe("RadarMissionStore.markRejected", () => {
     prisma.radarRun.findUnique.mockResolvedValueOnce(null);
     prisma.radarRun.updateMany.mockResolvedValueOnce({ count: 0 });
 
-    await store.markRejected("missing-id", "framework rejected");
+    await reject(store, "missing-id", "framework rejected");
 
     const arg = prisma.radarRun.updateMany.mock.calls[0]?.[0];
     expect(arg.data.durationMs).toBeGreaterThanOrEqual(0);
@@ -82,7 +91,7 @@ describe("RadarMissionStore.markRejected", () => {
     prisma.radarRun.findUnique.mockResolvedValueOnce({ startedAt: new Date() });
     prisma.radarRun.updateMany.mockResolvedValueOnce({ count: 0 });
 
-    await store.markRejected("mid-1", "test");
+    await reject(store, "mid-1", "test");
 
     expect(prisma.radarRun.updateMany.mock.calls[0]?.[0].where.status).toBe(
       "running",
@@ -93,7 +102,7 @@ describe("RadarMissionStore.markRejected", () => {
     prisma.radarRun.findUnique.mockResolvedValueOnce({ startedAt: new Date() });
     prisma.radarRun.updateMany.mockResolvedValueOnce({ count: 1 });
 
-    await store.markRejected("mid-1", "test");
+    await reject(store, "mid-1", "test");
 
     const data = prisma.radarRun.updateMany.mock.calls[0]?.[0].data;
     expect(data.metrics).toBeUndefined();
