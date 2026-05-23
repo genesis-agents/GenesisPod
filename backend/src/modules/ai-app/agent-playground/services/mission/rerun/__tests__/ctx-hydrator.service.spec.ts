@@ -84,7 +84,7 @@ function buildValidArtifact() {
 }
 
 function buildDetail(overrides: Partial<MissionDetail> = {}): MissionDetail {
-  return {
+  const base = {
     id: "m1",
     topic: "T",
     depth: "deep",
@@ -117,7 +117,42 @@ function buildDetail(overrides: Partial<MissionDetail> = {}): MissionDetail {
     analystOutput: null,
     heartbeatAt: null,
     ...overrides,
-  };
+  } as MissionDetail;
+  // ★ C5/G7:rerun 现读 configSnapshot;给 mock 配一个由 base 派生的 snapshot(可被 overrides 覆盖,
+  //   含传 configSnapshot:null 测 legacy 拒绝)。
+  if (!("configSnapshot" in overrides)) {
+    base.configSnapshot = {
+      schemaVersion: 1,
+      snapshotRevision: 0,
+      snapshotId: `snap-${base.id}`,
+      mutationReason: "fresh",
+      resolvedAt: new Date().toISOString(),
+      topic: base.topic,
+      language: base.language,
+      businessInput: {
+        depth: base.depth,
+        budgetProfile: "medium",
+        styleProfile: "executive",
+        lengthProfile: "standard",
+        audienceProfile: "domain-expert",
+        withFigures: true,
+        auditLayers: "default",
+        concurrency: 3,
+        viewMode: "continuous",
+        searchTimeRange: "365d",
+      },
+      budget: {
+        maxCredits: base.maxCredits,
+        maxTokens: base.maxCredits * 1000,
+        creditBudgetProxyUsd: base.maxCredits * 0.002,
+        budgetMultiplier: 4,
+        source: "default",
+        resolvedAt: new Date().toISOString(),
+      },
+      runtimeLimits: { wallTimeCapMs: 3_600_000 },
+    };
+  }
+  return base;
 }
 
 function makeMockStore(detail: MissionDetail | null) {

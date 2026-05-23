@@ -29,6 +29,7 @@ import {
   MissionOwnershipRegistry,
 } from "@/modules/ai-harness/facade";
 import { type RunMissionInput } from "../../../dto/run-mission.dto";
+import type { PlaygroundConfigSnapshot } from "./playground-mission-input-rebuilder.service";
 import { RerunGuardService } from "./rerun-guard.service";
 
 interface RerunResult {
@@ -260,37 +261,34 @@ export class MissionRerunOrchestratorService {
       inheritFromMissionId?: string;
     },
   ): RunMissionInput {
-    const originalProfile = (original as { userProfile?: unknown })
-      .userProfile as Partial<RunMissionInput> | null | undefined;
+    // ★ C5/G7 S3:rerun 输入只从 typed config snapshot 重建(单一真源),不读 userProfile。
+    //   历史行无 snapshot=legacy → 拒绝重跑(数据可弃,不做 fallback)。
+    const snap = (original as { configSnapshot?: unknown })
+      .configSnapshot as PlaygroundConfigSnapshot | null;
+    if (snap?.schemaVersion == null) {
+      throw new BadRequestException(
+        `mission ${original.id} 早于 config snapshot 上线(legacy),不支持重跑。`,
+      );
+    }
+    const b = snap.businessInput;
     return {
-      topic: overrides.topic ?? original.topic,
-      depth: (["quick", "standard", "deep"].includes(
-        originalProfile?.depth ?? original.depth,
-      )
-        ? (originalProfile?.depth ?? original.depth)
-        : "deep") as RunMissionInput["depth"],
-      language: (originalProfile?.language ??
-        (original.language === "en-US"
-          ? "en-US"
-          : "zh-CN")) as RunMissionInput["language"],
-      budgetProfile: originalProfile?.budgetProfile ?? "medium",
-      styleProfile: originalProfile?.styleProfile ?? "executive",
-      lengthProfile: originalProfile?.lengthProfile ?? "standard",
-      audienceProfile: originalProfile?.audienceProfile ?? "domain-expert",
-      withFigures: originalProfile?.withFigures ?? true,
-      auditLayers: originalProfile?.auditLayers ?? "default",
-      concurrency: originalProfile?.concurrency ?? 3,
-      viewMode: originalProfile?.viewMode ?? "continuous",
-      searchTimeRange: originalProfile?.searchTimeRange ?? "365d",
-      // ★ 2026-05-22 修"Mission 设置不生效"根因：maxCredits 存在**权威列**
-      //   original.maxCredits（首跑 createMissionRow + 「Mission 设置」updateBudgetByUser
-      //   都写列），旧代码却从 userProfile 读（永远 undefined → 兜底硬编码 1000 → $2 秒爆）。
-      //   现在读列 → 用户在「Mission 设置」改的预算重跑真正生效。
-      maxCredits: original.maxCredits ?? overrides.maxCreditsFallback,
-      // multiplier / wallTime 存 userProfile（createMissionRow + updateBudgetByUser 写此处）；
-      //   缺省传 undefined → resolveBudgetMultiplier / resolveMissionWallTimeMs 按 depth 档位解析。
-      budgetMultiplierOverride: originalProfile?.budgetMultiplierOverride,
-      wallTimeMs: originalProfile?.wallTimeMs,
+      topic: overrides.topic ?? snap.topic,
+      depth: b.depth,
+      language: snap.language as RunMissionInput["language"],
+      budgetProfile: b.budgetProfile,
+      styleProfile: b.styleProfile,
+      lengthProfile: b.lengthProfile,
+      audienceProfile: b.audienceProfile,
+      withFigures: b.withFigures,
+      auditLayers: b.auditLayers,
+      concurrency: b.concurrency,
+      viewMode: b.viewMode,
+      searchTimeRange: b.searchTimeRange,
+      knowledgeBaseIds: b.knowledgeBaseIds,
+      // budget/runtimeLimits 来自 snapshot 顶层(已 ResolvedBudgetCaps 解析)。
+      maxCredits: snap.budget.maxCredits ?? overrides.maxCreditsFallback,
+      budgetMultiplierOverride: snap.budget.budgetMultiplier,
+      wallTimeMs: snap.runtimeLimits.wallTimeCapMs,
       inheritFromMissionId: overrides.inheritFromMissionId,
     };
   }

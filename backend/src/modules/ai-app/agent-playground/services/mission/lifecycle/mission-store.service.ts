@@ -52,6 +52,8 @@ export interface MissionDetail extends MissionListItem {
   terminalOutcome: MissionTerminalOutcome | null;
   /** ★ C2:canonical failure code(失败时)。 */
   failureCode: string | null;
+  /** ★ C5/G7:typed MissionConfigSnapshot(单一 config 真源;rerun/hydrate 读它)。NULL=legacy。 */
+  configSnapshot: unknown;
   maxCredits: number;
   themeSummary: string | null;
   dimensions: unknown;
@@ -528,6 +530,7 @@ export class MissionStore {
       errorMessage: row.errorMessage,
       terminalOutcome: outcomeFromStatus(row.status),
       failureCode: row.failureCode ?? null,
+      configSnapshot: row.configSnapshot ?? null,
       maxCredits: row.maxCredits,
       themeSummary: row.themeSummary,
       dimensions: row.dimensions,
