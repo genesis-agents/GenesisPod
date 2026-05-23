@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { TruncatedCell } from '@/components/common/tables';
 import { useRouter } from 'next/navigation';
 import { safeString } from '@/lib/utils/common';
 import {
@@ -696,7 +697,9 @@ function ComparisonContent({ data }: { data: ComparisonData }) {
               <Th className="border p-3 text-left">Dimension</Th>
               {subjects.map((s, i) => (
                 <Th key={i} className="border p-3 text-left font-semibold">
-                  {s}
+                  <TruncatedCell className="max-w-[180px] font-semibold">
+                    {s}
+                  </TruncatedCell>
                 </Th>
               ))}
             </Tr>
@@ -705,15 +708,24 @@ function ComparisonContent({ data }: { data: ComparisonData }) {
             {data.dimensions.map((dim, i) => (
               <Tr key={i}>
                 <Td className="border bg-gray-50 p-3 font-medium">
-                  {dim.name}
+                  <TruncatedCell className="max-w-[160px] font-medium">
+                    {dim.name}
+                  </TruncatedCell>
                 </Td>
                 {subjects.map((s, j) => (
                   <Td key={j} className="border p-3">
-                    <div className="font-medium">
+                    <TruncatedCell
+                      className="max-w-[200px] font-medium"
+                      tooltip={
+                        dim.values?.[s]?.notes
+                          ? `${dim.values?.[s]?.value || '-'} — ${dim.values[s].notes}`
+                          : dim.values?.[s]?.value || '-'
+                      }
+                    >
                       {dim.values?.[s]?.value || '-'}
-                    </div>
+                    </TruncatedCell>
                     {dim.values?.[s]?.notes && (
-                      <div className="mt-1 text-xs text-gray-500">
+                      <div className="mt-1 line-clamp-2 text-xs text-gray-500">
                         {dim.values[s].notes}
                       </div>
                     )}

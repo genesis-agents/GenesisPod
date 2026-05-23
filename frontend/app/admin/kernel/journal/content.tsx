@@ -9,6 +9,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { AdminPageLayout } from '@/components/admin/layout';
 import ClientDate from '@/components/common/ClientDate';
+import { TruncatedCell } from '@/components/common/tables';
 
 // ============================
 // Types
@@ -26,20 +27,6 @@ interface JournalEntry {
 interface JournalResponse {
   entries: JournalEntry[];
   total: number;
-}
-
-// ============================
-// Helpers
-// ============================
-
-function truncateId(id: string, length = 8): string {
-  return id.length > length ? `${id.slice(0, length)}…` : id;
-}
-
-function truncatePayload(payload: unknown, maxLength = 80): string {
-  if (payload === null || payload === undefined) return '-';
-  const str = JSON.stringify(payload);
-  return str.length > maxLength ? `${str.slice(0, maxLength)}…` : str;
 }
 
 // ============================
@@ -216,12 +203,9 @@ export default function KernelJournalPageContent({
                     </Td>
                     {/* Process ID */}
                     <Td className="px-4 py-3">
-                      <span
-                        className="font-mono text-xs text-gray-700"
-                        title={entry.processId}
-                      >
-                        {truncateId(entry.processId)}
-                      </span>
+                      <TruncatedCell className="font-mono max-w-[160px] text-xs text-gray-700">
+                        {entry.processId}
+                      </TruncatedCell>
                     </Td>
                     {/* Sequence */}
                     <Td className="px-4 py-3 text-xs text-gray-600">
@@ -235,16 +219,18 @@ export default function KernelJournalPageContent({
                     </Td>
                     {/* Payload */}
                     <Td className="px-4 py-3">
-                      <span
-                        className="font-mono max-w-xs truncate text-xs text-gray-500"
-                        title={
+                      <TruncatedCell
+                        className="font-mono max-w-[280px] text-xs text-gray-500"
+                        tooltip={
                           entry.payload !== null && entry.payload !== undefined
                             ? JSON.stringify(entry.payload)
                             : '-'
                         }
                       >
-                        {truncatePayload(entry.payload)}
-                      </span>
+                        {entry.payload !== null && entry.payload !== undefined
+                          ? JSON.stringify(entry.payload)
+                          : '-'}
+                      </TruncatedCell>
                     </Td>
                   </Tr>
                 ))}

@@ -27,6 +27,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { TruncatedCell } from '@/components/common/tables';
 
 // ==================== Types ====================
 
@@ -807,7 +808,9 @@ export default function MonitoringPageContent({
                     {dashboard.errors.topErrors.map((err, i) => (
                       <Tr key={i} className="hover:bg-gray-50">
                         <Td className="font-mono px-4 py-3 text-sm text-gray-900">
-                          {err.errorCode}
+                          <TruncatedCell className="max-w-[160px] text-gray-900">
+                            {err.errorCode}
+                          </TruncatedCell>
                         </Td>
                         <Td className="px-4 py-3 font-bold text-red-600">
                           {err.count}
@@ -820,10 +823,14 @@ export default function MonitoringPageContent({
                           </span>
                         </Td>
                         <Td className="px-4 py-3 text-gray-600">
-                          {err.component || '-'}
+                          <TruncatedCell className="max-w-[140px] text-gray-600">
+                            {err.component || '-'}
+                          </TruncatedCell>
                         </Td>
-                        <Td className="max-w-xs truncate px-4 py-3 text-gray-500">
-                          {err.latestMessage}
+                        <Td className="px-4 py-3 text-gray-500">
+                          <TruncatedCell className="max-w-[360px] text-gray-500">
+                            {err.latestMessage}
+                          </TruncatedCell>
                         </Td>
                       </Tr>
                     ))}
@@ -979,7 +986,9 @@ export default function MonitoringPageContent({
                     {dashboard.aiMetrics.modelUsage.map((model, i) => (
                       <Tr key={i} className="hover:bg-gray-50">
                         <Td className="font-mono px-4 py-3 text-sm text-gray-900">
-                          {model.modelId}
+                          <TruncatedCell className="max-w-[220px] text-gray-900">
+                            {model.modelId}
+                          </TruncatedCell>
                         </Td>
                         <Td className="px-4 py-3 text-blue-600">
                           {formatNumber(model.totalCalls)}

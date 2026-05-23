@@ -15,6 +15,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { TruncatedCell } from '@/components/common/tables';
 
 // ============================
 // Types
@@ -62,10 +63,6 @@ interface ResetResponse {
 // ============================
 // Helpers
 // ============================
-
-function truncateId(id: string, length = 20): string {
-  return id.length > length ? `${id.slice(0, length)}…` : id;
-}
 
 function formatAge(ms: number | null): string {
   if (ms === null) return '-';
@@ -144,12 +141,9 @@ function CircuitBreakerRow({
     <Tr className="hover:bg-gray-50">
       {/* Entity ID */}
       <Td className="px-4 py-3">
-        <span
-          className="font-mono text-xs text-gray-700"
-          title={breaker.entityId}
-        >
-          {truncateId(breaker.entityId)}
-        </span>
+        <TruncatedCell className="font-mono max-w-[240px] text-xs text-gray-700">
+          {breaker.entityId}
+        </TruncatedCell>
       </Td>
 
       {/* State */}

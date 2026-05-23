@@ -18,6 +18,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { TruncatedCell } from '@/components/common/tables';
 
 // ============================
 // Types
@@ -174,10 +175,6 @@ function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function truncateId(id: string, length = 12): string {
-  return id.length > length ? `${id.slice(0, length)}…` : id;
-}
-
 function formatTimestamp(ts: string): string {
   try {
     return new Date(ts).toLocaleString();
@@ -323,7 +320,9 @@ function MetricsTab({ data, loading }: MetricsTabProps) {
     {
       header: 'Model',
       render: (row) => (
-        <span className="font-mono text-xs text-gray-800">{row.model}</span>
+        <TruncatedCell className="font-mono max-w-[200px] text-xs text-gray-800">
+          {row.model}
+        </TruncatedCell>
       ),
     },
     {
@@ -396,9 +395,9 @@ function MetricsTab({ data, loading }: MetricsTabProps) {
     {
       header: 'Top Models',
       render: (row) => (
-        <span className="text-xs text-gray-500">
+        <TruncatedCell className="max-w-[180px] text-xs text-gray-500">
           {row.topModels.slice(0, 2).join(', ') || '-'}
-        </span>
+        </TruncatedCell>
       ),
     },
   ];
@@ -540,9 +539,9 @@ function CostsTab({ data, loading }: CostsTabProps) {
     {
       header: 'User ID',
       render: (row) => (
-        <span className="font-mono text-xs text-gray-700" title={row.userId}>
-          {truncateId(row.userId)}
-        </span>
+        <TruncatedCell className="font-mono max-w-[160px] text-xs text-gray-700">
+          {row.userId}
+        </TruncatedCell>
       ),
     },
     {
@@ -568,15 +567,17 @@ function CostsTab({ data, loading }: CostsTabProps) {
     {
       header: 'Top Module',
       render: (row) => (
-        <span className="text-xs text-gray-500">{row.topModule || '-'}</span>
+        <TruncatedCell className="max-w-[140px] text-xs text-gray-500">
+          {row.topModule || '-'}
+        </TruncatedCell>
       ),
     },
     {
       header: 'Top Model',
       render: (row) => (
-        <span className="font-mono text-xs text-gray-500">
+        <TruncatedCell className="font-mono max-w-[160px] text-xs text-gray-500">
           {row.topModel || '-'}
-        </span>
+        </TruncatedCell>
       ),
     },
   ];
@@ -620,7 +621,9 @@ function CostsTab({ data, loading }: CostsTabProps) {
     {
       header: 'Model',
       render: (row) => (
-        <span className="font-mono text-xs text-gray-800">{row.model}</span>
+        <TruncatedCell className="font-mono max-w-[200px] text-xs text-gray-800">
+          {row.model}
+        </TruncatedCell>
       ),
     },
     {

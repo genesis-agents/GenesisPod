@@ -19,6 +19,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { TruncatedCell } from '@/components/common/tables';
 import { Tabs } from '@/components/ui/tabs';
 import { LoadingState } from '@/components/ui/states';
 import { useParams, useRouter } from 'next/navigation';
@@ -815,26 +816,24 @@ function StageTaskBoard({
                     {idx + 1}
                   </Td>
                   <Td className="px-3 py-2.5">
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-center gap-2">
                       {st === 'completed' ? (
-                        <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
+                        <Check className="h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
                       ) : st === 'running' ? (
-                        <Loader2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 animate-spin text-violet-500" />
+                        <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-violet-500" />
                       ) : st === 'failed' ? (
-                        <X className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-red-500" />
+                        <X className="h-3.5 w-3.5 flex-shrink-0 text-red-500" />
                       ) : st === 'cancelled' ? (
-                        <XCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+                        <XCircle className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
                       ) : (
-                        <span className="mt-0.5 inline-block h-3.5 w-3.5 flex-shrink-0 rounded-full bg-gray-100 ring-1 ring-gray-300" />
+                        <span className="inline-block h-3.5 w-3.5 flex-shrink-0 rounded-full bg-gray-100 ring-1 ring-gray-300" />
                       )}
-                      <div className="min-w-0 flex-1">
-                        <div className="line-clamp-1 text-sm font-medium text-gray-900">
-                          {g.label}
-                        </div>
-                        <p className="font-mono line-clamp-1 text-[10.5px] text-gray-400">
-                          {g.stages.join(' → ')}
-                        </p>
-                      </div>
+                      <TruncatedCell
+                        className="max-w-[200px] text-sm font-medium text-gray-900"
+                        tooltip={`${g.label} — ${g.stages.join(' → ')}`}
+                      >
+                        {g.label}
+                      </TruncatedCell>
                     </div>
                   </Td>
                   <Td className="px-2 py-2.5">

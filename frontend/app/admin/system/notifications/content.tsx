@@ -17,6 +17,7 @@ import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import ClientDate from '@/components/common/ClientDate';
 import { toast } from '@/stores';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface NotificationStats {
   totalCount: number;
@@ -407,11 +408,15 @@ export default function NotificationsPageContent({
                             {item.type}
                           </span>
                         </Td>
-                        <Td className="max-w-[200px] truncate px-4 py-2 font-medium">
-                          {item.title}
+                        <Td className="px-4 py-2 font-medium">
+                          <TruncatedCell className="max-w-[200px] font-medium">
+                            {item.title}
+                          </TruncatedCell>
                         </Td>
                         <Td className="px-4 py-2 text-gray-500">
-                          {item.userEmail}
+                          <TruncatedCell className="max-w-[180px] text-gray-500">
+                            {item.userEmail}
+                          </TruncatedCell>
                         </Td>
                         <Td className="px-4 py-2 text-gray-500">
                           <ClientDate date={item.createdAt} />

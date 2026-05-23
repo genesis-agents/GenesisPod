@@ -25,6 +25,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { AdminPageLayout } from '@/components/admin/layout';
 import ClientDate from '@/components/common/ClientDate';
+import { TruncatedCell } from '@/components/common/tables';
 
 // ============================
 // Types
@@ -122,10 +123,6 @@ const STATE_BADGE_CLASSES: Record<ProcessState, string> = {
 // ============================
 // Helpers
 // ============================
-
-function truncateId(id: string, length = 8): string {
-  return id.length > length ? `${id.slice(0, length)}…` : id;
-}
 
 function formatCost(value: number): string {
   return `$${value.toFixed(4)}`;
@@ -550,9 +547,12 @@ function ProcessDetailPanel({ process, apiUrl }: ProcessDetailPanelProps) {
                       <ClientDate date={entry.createdAt} format="datetime" />
                     </div>
                     {entry.payload !== null && entry.payload !== undefined && (
-                      <div className="font-mono mt-0.5 max-w-xs truncate text-xs text-gray-500">
-                        {JSON.stringify(entry.payload).slice(0, 80)}
-                      </div>
+                      <TruncatedCell
+                        className="font-mono max-w-[240px] text-xs text-gray-500"
+                        tooltip={JSON.stringify(entry.payload)}
+                      >
+                        {JSON.stringify(entry.payload)}
+                      </TruncatedCell>
                     )}
                   </div>
                 </div>
@@ -599,25 +599,22 @@ function ProcessRow({ process, apiUrl, onUpdate }: ProcessRowProps) {
         </Td>
         {/* Process ID */}
         <Td className="px-4 py-3">
-          <span className="font-mono text-xs text-gray-700" title={process.id}>
-            {truncateId(process.id)}
-          </span>
+          <TruncatedCell className="font-mono max-w-[120px] text-xs text-gray-700">
+            {process.id}
+          </TruncatedCell>
         </Td>
         {/* Agent ID */}
         <Td className="px-4 py-3">
-          <span className="max-w-[12rem] truncate text-sm text-gray-700">
+          <TruncatedCell className="max-w-[180px] text-sm text-gray-700">
             {process.agentId}
-          </span>
+          </TruncatedCell>
         </Td>
         {/* Team Session */}
         <Td className="px-4 py-3">
           {process.teamSessionId ? (
-            <span
-              className="font-mono text-xs text-gray-500"
-              title={process.teamSessionId}
-            >
-              {truncateId(process.teamSessionId)}
-            </span>
+            <TruncatedCell className="font-mono max-w-[120px] text-xs text-gray-500">
+              {process.teamSessionId}
+            </TruncatedCell>
           ) : (
             <span className="text-xs text-gray-300">-</span>
           )}

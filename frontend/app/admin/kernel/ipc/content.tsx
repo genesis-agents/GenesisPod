@@ -16,6 +16,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { AdminPageLayout } from '@/components/admin/layout';
 import ClientDate from '@/components/common/ClientDate';
+import { TruncatedCell } from '@/components/common/tables';
 
 // ============================
 // Types
@@ -70,15 +71,6 @@ const TASK_STATUS_BADGE: Record<string, string> = {
 // ============================
 // Helpers
 // ============================
-
-function truncateId(id: string, length = 8): string {
-  return id.length > length ? `${id.slice(0, length)}…` : id;
-}
-
-function truncatePayload(payload: unknown, maxLen = 80): string {
-  const str = JSON.stringify(payload);
-  return str.length > maxLen ? `${str.slice(0, maxLen)}…` : str;
-}
 
 function getStatusBadgeClass(status: string): string {
   return TASK_STATUS_BADGE[status.toLowerCase()] ?? 'bg-gray-100 text-gray-600';
@@ -294,12 +286,9 @@ export default function KernelIpcPageContent({
                   {tasks.map((task) => (
                     <Tr key={task.id} className="hover:bg-gray-50">
                       <Td className="px-4 py-3">
-                        <span
-                          className="font-mono text-xs text-gray-700"
-                          title={task.id}
-                        >
-                          {truncateId(task.id)}
-                        </span>
+                        <TruncatedCell className="font-mono max-w-[120px] text-xs text-gray-700">
+                          {task.id}
+                        </TruncatedCell>
                       </Td>
                       <Td className="px-4 py-3">
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
@@ -307,12 +296,9 @@ export default function KernelIpcPageContent({
                         </span>
                       </Td>
                       <Td className="px-4 py-3">
-                        <span
-                          className="max-w-[14rem] truncate text-sm text-gray-800"
-                          title={task.name}
-                        >
+                        <TruncatedCell className="max-w-[220px] text-sm text-gray-800">
                           {task.name}
-                        </span>
+                        </TruncatedCell>
                       </Td>
                       <Td className="px-4 py-3">
                         <span
@@ -324,9 +310,13 @@ export default function KernelIpcPageContent({
                       <Td className="px-4 py-3">
                         <ProgressBar value={task.progress} />
                       </Td>
-                      <Td className="px-4 py-3 text-xs text-gray-500">
-                        {task.currentPhase ?? (
-                          <span className="text-gray-300">-</span>
+                      <Td className="px-4 py-3">
+                        {task.currentPhase ? (
+                          <TruncatedCell className="max-w-[160px] text-xs text-gray-500">
+                            {task.currentPhase}
+                          </TruncatedCell>
+                        ) : (
+                          <span className="text-xs text-gray-300">-</span>
                         )}
                       </Td>
                     </Tr>
@@ -411,21 +401,15 @@ export default function KernelIpcPageContent({
                           <ClientDate date={msg.timestamp} format="datetime" />
                         </Td>
                         <Td className="px-4 py-3">
-                          <span
-                            className="font-mono text-xs text-gray-700"
-                            title={msg.fromAgentId}
-                          >
-                            {truncateId(msg.fromAgentId, 12)}
-                          </span>
+                          <TruncatedCell className="font-mono max-w-[160px] text-xs text-gray-700">
+                            {msg.fromAgentId}
+                          </TruncatedCell>
                         </Td>
                         <Td className="px-4 py-3">
                           {msg.toAgentId ? (
-                            <span
-                              className="font-mono text-xs text-gray-700"
-                              title={msg.toAgentId}
-                            >
-                              {truncateId(msg.toAgentId, 12)}
-                            </span>
+                            <TruncatedCell className="font-mono max-w-[160px] text-xs text-gray-700">
+                              {msg.toAgentId}
+                            </TruncatedCell>
                           ) : (
                             <span className="text-xs text-gray-300">
                               broadcast
@@ -437,13 +421,13 @@ export default function KernelIpcPageContent({
                             {msg.type}
                           </span>
                         </Td>
-                        <Td className="max-w-xs px-4 py-3">
-                          <span
-                            className="font-mono truncate text-xs text-gray-500"
-                            title={JSON.stringify(msg.payload)}
+                        <Td className="px-4 py-3">
+                          <TruncatedCell
+                            className="font-mono max-w-[280px] text-xs text-gray-500"
+                            tooltip={JSON.stringify(msg.payload)}
                           >
-                            {truncatePayload(msg.payload)}
-                          </span>
+                            {JSON.stringify(msg.payload)}
+                          </TruncatedCell>
                         </Td>
                       </Tr>
                     ))}
