@@ -49,7 +49,6 @@ export class MissionUpdateHelper {
       select: {
         id: true,
         status: true,
-        userProfile: true,
         configSnapshot: true,
       },
     });
@@ -61,21 +60,8 @@ export class MissionUpdateHelper {
     const data: Record<string, unknown> = {};
     if (typeof patch.maxCredits === "number")
       data.maxCredits = patch.maxCredits;
-    const wantsUserProfile =
-      typeof patch.wallTimeMs === "number" ||
-      typeof patch.budgetMultiplierOverride === "number";
-    if (wantsUserProfile) {
-      const existing =
-        (row.userProfile as Record<string, unknown> | null) ?? {};
-      const merged: Record<string, unknown> = { ...existing };
-      if (typeof patch.wallTimeMs === "number") {
-        merged.wallTimeMs = patch.wallTimeMs;
-      }
-      if (typeof patch.budgetMultiplierOverride === "number") {
-        merged.budgetMultiplierOverride = patch.budgetMultiplierOverride;
-      }
-      data.userProfile = merged as Prisma.InputJsonValue;
-    }
+    // ★ S4b:不再写 userProfile(configSnapshot 单一真源)。预算改动只更 maxCredits 列(权威显示)
+    //   + 派生新 snapshot(下面)。userProfile 由 getById 读时从 snapshot 投影。
     // ★ C5/G7 S4 + G2 治理:预算改动**必须重写 versioned snapshot**,否则 rerun 读旧 snapshot
     //   预算(S3 切读 snapshot 后,只更 userProfile/列 → rerun 用不到改后预算)。走 applyInputPatch
     //   派生 settings_patch 新版本(budget 经 ResolvedBudgetCaps re-resolve,不硬编码换算)。
