@@ -1096,18 +1096,18 @@ export default function AIModelSettings({
           {/* 固定列宽：table-fixed + w-full 钉死表宽=容器宽，杜绝横滚；
               窄内容列(Type/Status)给窄，身份列吃挤压截断，操作列留足恒可见 */}
           <colgroup>
-            <col className="w-[22%]" />
-            <col className="w-[15%]" />
+            <col className="w-[14%]" />
+            <col className="w-[20%]" />
             <col className="w-[10%]" />
             <col className="w-[13%]" />
             <col className="w-[8%]" />
-            <col className="w-[14%]" />
-            <col className="w-[18%]" />
+            <col className="w-[16%]" />
+            <col className="w-[19%]" />
           </colgroup>
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Model
+                Provider
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Model ID
@@ -1179,9 +1179,9 @@ export default function AIModelSettings({
                       <div className="flex min-w-0 items-center gap-2">
                         <TruncatedCell
                           className="max-w-[180px] font-medium text-gray-900"
-                          tooltip={`${model.displayName} · ${model.provider}`}
+                          tooltip={model.displayName}
                         >
-                          {model.displayName}
+                          {model.provider}
                         </TruncatedCell>
                         {model.isDefault && (
                           <span className="flex-shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
