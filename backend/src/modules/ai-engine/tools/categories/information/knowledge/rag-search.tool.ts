@@ -287,10 +287,13 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
         );
         raw = augmentorResults.filter((r) => r.score >= threshold);
       } else {
+        // Enable HyDE only for elaborated natural-language queries (>40 chars /
+        // ~8+ tokens). Short keyword queries gain little from the extra LLM call.
+        const useHyde = query.trim().length > 40;
         const pipelineResponse = await this.ragPipeline.query({
           query,
           knowledgeBaseIds,
-          options: { topK },
+          options: { topK, useHyde },
         });
         // Full pipeline already did minScore + rerank + topK; skip cosine threshold here.
         raw = pipelineResponse.searchResults;

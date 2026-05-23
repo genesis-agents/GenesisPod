@@ -28,7 +28,7 @@ type MockRAGPipeline = {
     (req: {
       query: string;
       knowledgeBaseIds: string[];
-      options?: { topK?: number };
+      options?: { topK?: number; useHyde?: boolean };
     }) => Promise<{ searchResults: SearchResult[] }>
   >;
 };
@@ -191,7 +191,7 @@ describe("RAGSearchTool", () => {
       expect(mockPipeline.query).toHaveBeenCalledWith({
         query: "RAG",
         knowledgeBaseIds: ["kb-1", "kb-2"],
-        options: { topK: 3 },
+        options: { topK: 3, useHyde: false },
       });
       expect(mockPipeline.simpleQuery).not.toHaveBeenCalled();
       expect(result.success).toBe(true);
@@ -245,8 +245,38 @@ describe("RAGSearchTool", () => {
       expect(mockPipeline.query).toHaveBeenCalledWith({
         query: "x",
         knowledgeBaseIds: ["kb-1"],
-        options: { topK: 5 },
+        options: { topK: 5, useHyde: false },
       });
+    });
+
+    it("passes useHyde:false for a short keyword query (<= 40 chars)", async () => {
+      mockPipeline.query.mockResolvedValue({ searchResults: [] });
+      // "neural network" is 14 chars — well under the 40-char threshold
+      await tool.execute(
+        { query: "neural network", knowledgeBaseIds: ["kb-1"] },
+        buildContext(),
+      );
+      expect(mockPipeline.query).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({ useHyde: false }),
+        }),
+      );
+    });
+
+    it("passes useHyde:true for an elaborate natural-language question (> 40 chars)", async () => {
+      mockPipeline.query.mockResolvedValue({ searchResults: [] });
+      // This question is well over 40 chars
+      const longQuery =
+        "What are the main differences between transformer and LSTM architectures for NLP tasks?";
+      await tool.execute(
+        { query: longQuery, knowledgeBaseIds: ["kb-1"] },
+        buildContext(),
+      );
+      expect(mockPipeline.query).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({ useHyde: true }),
+        }),
+      );
     });
 
     it("full pipeline path: returns results regardless of low scores (no threshold re-filter)", async () => {
