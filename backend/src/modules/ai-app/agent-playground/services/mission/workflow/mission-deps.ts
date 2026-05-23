@@ -91,6 +91,17 @@ export interface CommonDeps {
     stepId: string,
     reason: string,
   ) => Promise<void>;
+  /**
+   * ★ #37 (2026-05-23): S3 迭代级 checkpoint 钩子。
+   * 每个维度完成后由 S3 调用，将该维度结果持久化进 crossState + checkpoint。
+   * fire-and-forget：保存失败不阻塞 mission（best-effort 幂等性）。
+   * 由 dispatcher 注入，在 MissionDeps 为 optional 以保持向后兼容（spec/test 无需提供）。
+   */
+  readonly checkpointDimension?: (
+    missionId: string,
+    dimId: string,
+    dimResult: unknown,
+  ) => Promise<void>;
 }
 
 // ─── Phase 1: Plan（s1/s2）──────────────────────────────────────────

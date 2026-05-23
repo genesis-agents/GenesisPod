@@ -147,6 +147,15 @@ export class PlaygroundCrossStageState {
     this.inner.set("s4PatchFailures", value);
   }
 
+  // ── #37 S3 迭代级 checkpoint(2026-05-23) ──────────────────────────────
+  // dim → ResearcherDimResult；resume 时用来跳过已完成维度。
+  get s3PartialResults(): Record<string, unknown> | undefined {
+    return this.inner.get<Record<string, unknown>>("s3PartialResults");
+  }
+  set s3PartialResults(value: Record<string, unknown> | undefined) {
+    this.inner.set("s3PartialResults", value);
+  }
+
   // ── trajectory rerun cache(P0-D 完整版,2026-05-06) ────────────────────
 
   get inheritedResearchResults(): InheritedResearchResult[] | undefined {

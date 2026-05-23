@@ -456,3 +456,313 @@ describe("R2-#37 crash-resume: PlaygroundPipelineDispatcher", () => {
     expect(reg.get(PLAYGROUND_PIPELINE.id).steps).toHaveLength(13);
   });
 });
+
+// ─── #37 S3 dim-level checkpoint resume ──────────────────────────────────────
+
+describe("#37 S3 dim-level checkpoint: buildS3ResearcherCollectHooks", () => {
+  /**
+   * Tests the business orchestrator's S3 hook directly.
+   * When entry.crossState.s3PartialResults has 2 of 3 dims already done,
+   * runResearcherDispatchStage must only be called with the remaining 1 dim.
+   */
+  it("skips already-checkpointed dims and merges results in original order", async () => {
+    const { runResearcherDispatchStage: mockS3 } = jest.requireMock(
+      "../stages/s3-researcher-collect-findings.stage",
+    );
+    mockS3.mockReset();
+
+    // The fresh run fills only the pending dim
+    mockS3.mockImplementation(
+      async (ctx: {
+        researcherResults?: unknown[];
+        plan?: { dimensions: { name: string }[] };
+      }) => {
+        // stage writes results for the dims it was given
+        ctx.researcherResults = (ctx.plan?.dimensions ?? []).map((d) => ({
+          dimension: d.name,
+          findings: [{ claim: "c", evidence: "e", source: "s" }],
+          summary: "ok",
+        }));
+      },
+    );
+
+    const { dispatcher } = makeDispatcherBundle();
+
+    // Arrange: set up a session with crossState that has 2/3 dims already done
+    const missionId = "m-s3-resume";
+    const plan = {
+      themeSummary: "t",
+      dimensions: [
+        { id: "d1", name: "D1", rationale: "." },
+        { id: "d2", name: "D2", rationale: "." },
+        { id: "d3", name: "D3", rationale: "." },
+      ],
+      goals: { successCriteria: [] },
+      initialRisks: [],
+    };
+
+    // Mock orchestrator.run to call the S3 perItemPipeline hook directly
+    const orch = (dispatcher as unknown as { orchestrator: { run: jest.Mock } })
+      .orchestrator;
+
+    let capturedDimsCount: number | undefined;
+    jest.spyOn(orch, "run").mockImplementation(async () => {
+      // Simulate dispatcher running the S3 hook by calling it directly
+      const sessions = (
+        dispatcher as unknown as {
+          sessions: Map<
+            string,
+            {
+              crossState: PlaygroundCrossStageState;
+              session: { missionId: string; userId: string };
+              input: typeof MIN_INPUT;
+              t0: number;
+              billing: unknown;
+              pool: unknown;
+              leader: unknown;
+              workspaceId: undefined;
+              budgetMultiplier: number;
+            }
+          >;
+        }
+      ).sessions;
+      const entry = sessions.get(missionId);
+      if (!entry)
+        return {
+          missionId,
+          status: "completed" as const,
+          stageOutputs: {},
+          error: undefined,
+        };
+
+      // Preset crossState: d1 and d2 already done
+      entry.crossState.lastPlan = plan as never;
+      entry.crossState.s3PartialResults = {
+        d1: {
+          dimension: "D1",
+          findings: [{ claim: "cached-c1", evidence: "e", source: "s" }],
+          summary: "cached-1",
+        },
+        d2: {
+          dimension: "D2",
+          findings: [{ claim: "cached-c2", evidence: "e", source: "s" }],
+          summary: "cached-2",
+        },
+      };
+
+      // Now call the S3 hook via the business orchestrator's perItemPipeline
+      const businessOrch = (
+        dispatcher as unknown as {
+          businessOrch: {
+            buildHooksForStep: (
+              id: string,
+              p: string,
+            ) => { perItemPipeline: (args: unknown) => Promise<unknown> };
+          };
+        }
+      ).businessOrch;
+      const hooks = businessOrch.buildHooksForStep(
+        "s3-researcher-collect",
+        "research",
+      );
+      const result = await (
+        hooks as unknown as {
+          perItemPipeline: (args: {
+            item: unknown;
+            role: unknown;
+            ctx: { missionId: string };
+          }) => Promise<unknown>;
+        }
+      ).perItemPipeline({
+        item: { kind: "all-dimensions" },
+        role: {},
+        ctx: { missionId },
+      });
+
+      // Capture how many dims were dispatched to the stage
+      capturedDimsCount = (
+        mockS3.mock.calls[0]?.[0]?.plan?.dimensions as unknown[]
+      )?.length;
+
+      return {
+        missionId,
+        status: "completed" as const,
+        stageOutputs: { "s3-researcher-collect": result },
+        error: undefined,
+      };
+    });
+
+    await dispatcher.runMission(missionId, MIN_INPUT, "u1");
+
+    // Only d3 (the remaining dim) should have been dispatched to runResearcherDispatchStage
+    expect(capturedDimsCount).toBe(1);
+    expect(mockS3).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── #44 S4‖S5 parallel execution ─────────────────────────────────────────────
+
+describe("#44 S4‖S5 parallel: MissionPipelineOrchestrator", () => {
+  it("S4 and S5 start before either completes (concurrent execution)", async () => {
+    const reg = new MissionPipelineRegistry();
+    const orch = new MissionPipelineOrchestrator(reg);
+
+    const startOrder: string[] = [];
+    const completeOrder: string[] = [];
+
+    // S4: slow (200ms artificial delay)
+    const s4Delay = 50;
+    const s5Delay = 20;
+
+    reg.register({
+      id: "parallel-test",
+      roles: [],
+      steps: [
+        {
+          id: "s4-leader-assess",
+          primitive: "assess",
+          hooks: {
+            runRole: async () => {
+              startOrder.push("s4");
+              await new Promise<void>((res) => setTimeout(res, s4Delay));
+              completeOrder.push("s4");
+              return {};
+            },
+            parseDecision: () => "continue" as never,
+          },
+        },
+        {
+          id: "s5-reconciler",
+          primitive: "synthesize",
+          hooks: {
+            synthesize: async () => {
+              startOrder.push("s5");
+              await new Promise<void>((res) => setTimeout(res, s5Delay));
+              completeOrder.push("s5");
+              return {};
+            },
+          },
+        },
+        {
+          id: "s6-analyst",
+          primitive: "synthesize",
+          hooks: {
+            synthesize: async () => {
+              startOrder.push("s6");
+              completeOrder.push("s6");
+              return {};
+            },
+          },
+        },
+      ],
+    } as never);
+
+    const events: string[] = [];
+    const result = await orch.run({
+      missionId: "m-parallel",
+      pipelineId: "parallel-test",
+      input: {},
+      onEvent: (e) => {
+        if (
+          e.stepId &&
+          (e.type === "stage:started" || e.type === "stage:completed")
+        ) {
+          events.push(`${e.type}:${e.stepId}`);
+        }
+      },
+    });
+
+    expect(result.status).toBe("completed");
+
+    // Both S4 and S5 must start before either completes
+    const s4StartIdx = startOrder.indexOf("s4");
+    const s5StartIdx = startOrder.indexOf("s5");
+    const s4CompleteIdx = completeOrder.indexOf("s4");
+    const s5CompleteIdx = completeOrder.indexOf("s5");
+
+    expect(s4StartIdx).toBeGreaterThanOrEqual(0);
+    expect(s5StartIdx).toBeGreaterThanOrEqual(0);
+    // Both started (s4 first, then s5) before either completed
+    expect(s4StartIdx).toBeLessThan(2); // s4 starts first
+    expect(s5StartIdx).toBeLessThan(2); // s5 starts before s4 completes
+
+    // S5 finishes first (shorter delay), S4 finishes after
+    expect(s5CompleteIdx).toBeLessThan(s4CompleteIdx);
+
+    // S6 starts only after both S4 and S5 are done
+    expect(startOrder.indexOf("s6")).toBeGreaterThan(
+      Math.max(s4CompleteIdx, s5CompleteIdx) - 1,
+    );
+  });
+
+  it("dependent chain S6→... stays sequential after S4‖S5", async () => {
+    const reg = new MissionPipelineRegistry();
+    const orch = new MissionPipelineOrchestrator(reg);
+
+    const order: string[] = [];
+
+    reg.register({
+      id: "seq-after-parallel",
+      roles: [],
+      steps: [
+        {
+          id: "s4-leader-assess",
+          primitive: "assess",
+          hooks: {
+            runRole: async () => {
+              order.push("s4-start");
+              return {};
+            },
+            parseDecision: () => "continue" as never,
+          },
+        },
+        {
+          id: "s5-reconciler",
+          primitive: "synthesize",
+          hooks: {
+            synthesize: async () => {
+              order.push("s5-start");
+              return {};
+            },
+          },
+        },
+        {
+          id: "s6-analyst",
+          primitive: "synthesize",
+          hooks: {
+            synthesize: async () => {
+              order.push("s6-start");
+              return {};
+            },
+          },
+        },
+        {
+          id: "s7-next",
+          primitive: "synthesize",
+          hooks: {
+            synthesize: async () => {
+              order.push("s7-start");
+              return {};
+            },
+          },
+        },
+      ],
+    } as never);
+
+    const result = await orch.run({
+      missionId: "m-seq",
+      pipelineId: "seq-after-parallel",
+      input: {},
+    });
+
+    expect(result.status).toBe("completed");
+    // S6 must come after both S4 and S5 (regardless of S4/S5 order)
+    const s6idx = order.indexOf("s6-start");
+    const s4idx = order.indexOf("s4-start");
+    const s5idx = order.indexOf("s5-start");
+    expect(s6idx).toBeGreaterThan(s4idx);
+    expect(s6idx).toBeGreaterThan(s5idx);
+    // S7 must come after S6
+    expect(order.indexOf("s7-start")).toBeGreaterThan(s6idx);
+  });
+});

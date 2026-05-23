@@ -157,12 +157,34 @@ export async function runResearcherDispatchStage(
     Math.min(plan.dimensions.length, 6),
   );
 
+  // ★ #37 (2026-05-23): fire-and-forget per-dim checkpoint helper.
+  // Saves a single dim's result into crossState.s3PartialResults + persists
+  // a checkpoint so pod crashes don't force the entire S3 re-run.
+  // Best-effort: checkpoint failure must never block the mission.
+  function fireDimCheckpoint(
+    dim: NonNullable<MissionContext["plan"]>["dimensions"][number],
+    result: ResearcherDimResult,
+  ): void {
+    if (!deps.checkpointDimension) return;
+    void deps
+      .checkpointDimension(missionId, dim.id, result)
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[s3 dim-checkpoint ${missionId}] dim "${dim.name}" checkpoint failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
   let researcherResults: ResearcherDimResult[];
   if (hasDependencies) {
     researcherResults = await deps.invoker.runDagConcurrency(
       plan.dimensions,
       chapterPipelineConcurrency,
-      async (dim, idx) => runOneDim(ctx, deps, dim, idx),
+      async (dim, idx) => {
+        const result = await runOneDim(ctx, deps, dim, idx);
+        fireDimCheckpoint(dim, result);
+        return result;
+      },
     );
   } else {
     // Phase A: research only（高并发）
@@ -176,6 +198,11 @@ export async function runResearcherDispatchStage(
     const skipChapterPipeline =
       input.auditLayers === "minimal" || input.depth === "quick";
     if (skipChapterPipeline) {
+      // In skip-chapter mode, Phase A result IS the final result per dim.
+      // Fire checkpoint now that each dim is fully done.
+      for (let i = 0; i < researchOnly.length; i++) {
+        fireDimCheckpoint(plan.dimensions[i], researchOnly[i]);
+      }
       researcherResults = researchOnly;
     } else {
       // ★ P0-5a (audit 2026-05-06): Promise.allSettled 防 1 dim 同步 throw 拖累全部。
@@ -192,13 +219,22 @@ export async function runResearcherDispatchStage(
         ),
       );
       researcherResults = settled.map((s, idx) => {
-        if (s.status === "fulfilled") return s.value;
-        const reason =
-          s.reason instanceof Error ? s.reason.message : String(s.reason);
-        deps.log.warn(
-          `[s3 phase B] dim "${plan.dimensions[idx].name}" rejected: ${reason} — fallback to phase-A research result`,
-        );
-        return researchOnly[idx];
+        const finalResult =
+          s.status === "fulfilled"
+            ? s.value
+            : (() => {
+                const reason =
+                  s.reason instanceof Error
+                    ? s.reason.message
+                    : String(s.reason);
+                deps.log.warn(
+                  `[s3 phase B] dim "${plan.dimensions[idx].name}" rejected: ${reason} — fallback to phase-A research result`,
+                );
+                return researchOnly[idx];
+              })();
+        // ★ #37: fire per-dim checkpoint after Phase A+B both done for this dim
+        fireDimCheckpoint(plan.dimensions[idx], finalResult);
+        return finalResult;
       });
     }
   }
