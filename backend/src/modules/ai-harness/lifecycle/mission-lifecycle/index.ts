@@ -1,9 +1,6 @@
 export { MissionAbortRegistry } from "./abort-registry";
-// ★ 2026-05-05 [task #23] mission cancel 三连统一接口（abort + markCancelled + broadcast）
 export {
   MissionLifecycleManager,
-  type MissionLifecycleStore,
-  type MissionLifecycleBroadcaster,
   // ★ C0/G1：唯一终态写入口的契约类型（app 实现 arbiter + 提交 intent）。
   type MissionTerminalIntent,
   type MissionTerminalArbiter,
