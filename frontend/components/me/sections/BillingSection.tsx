@@ -33,8 +33,8 @@ interface UserStats {
 
 /**
  * 账单 /me/billing — 一镜到底重设计（2026-05-23）：
- *   焦点 = 积分余额 + 签到（渐变 hero 放大）；累计/消耗/今日等副指标压进 hero 底栏；
- *   每日签到 / 交易记录 / 用量统计 走轻量 section（小标题 + 紧凑内容，无厚卡盒），连续流。
+ *   焦点 = 积分余额 + 签到（渐变 hero 放大）；累计/消耗/今日等副指标压进 hero 底栏。
+ *   签到 / 交易记录 / 用量统计 收进单一内容白卡（小标题分隔的连续流，非多卡堆叠）。
  */
 export function BillingSection() {
   const { t } = useTranslation();
@@ -101,9 +101,9 @@ export function BillingSection() {
   ).toLocaleString();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* 焦点：余额 + 签到（渐变 hero，副指标压底栏） */}
-      <div className="overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 p-5 text-white shadow-sm">
+      <div className="overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 p-5 text-white shadow-sm md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-xs font-medium uppercase tracking-wider opacity-75">
@@ -152,122 +152,125 @@ export function BillingSection() {
         </div>
       </div>
 
-      {/* 每日签到 — 紧凑 */}
-      <section>
-        <SectionLabel>{t('credits.dailyCheckin')}</SectionLabel>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex gap-1.5">
-            {safeCheckinHistory.map((day, idx) => (
-              <div
-                key={idx}
-                className="flex h-9 w-9 flex-col items-center justify-center rounded-md bg-green-50 text-green-700 ring-1 ring-green-100"
-              >
-                <Gift className="h-3.5 w-3.5" />
-                <span className="text-[10px] font-medium leading-none">
-                  {day.streakDays}
-                </span>
-              </div>
-            ))}
-            {Array.from({
-              length: Math.max(0, 7 - safeCheckinHistory.length),
-            }).map((_, idx) => (
-              <div
-                key={`empty-${idx}`}
-                className="flex h-9 w-9 items-center justify-center rounded-md bg-gray-50 text-gray-300 ring-1 ring-gray-100"
-              >
-                <Gift className="h-3.5 w-3.5" />
-              </div>
-            ))}
-          </div>
-          <p className="text-sm text-gray-500">
-            {checkinStatus?.hasCheckedInToday
-              ? t('credits.streakDays', { days: checkinStatus.streakDays })
-              : checkinStatus?.message ||
-                t('credits.dailyCheckinDesc', { credits: 50 })}
-          </p>
-        </div>
-      </section>
-
-      {/* 交易记录 — 紧凑列表 */}
-      <section>
-        <SectionLabel>{t('credits.transactions')}</SectionLabel>
-        {safeTransactions.length > 0 ? (
-          <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
-            {safeTransactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between gap-4 px-3 py-2 hover:bg-gray-50"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-gray-700">
-                    {tx.description}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    <ClientDate date={tx.createdAt} format="datetime" />
-                  </p>
-                </div>
-                <span
-                  className={`flex-shrink-0 text-sm font-semibold tabular-nums ${
-                    tx.amount > 0 ? 'text-green-600' : 'text-gray-600'
-                  }`}
+      {/* 内容白卡：签到 / 交易 / 用量 收进单一连续面 */}
+      <div className="space-y-6 rounded-xl border border-gray-200 bg-white p-5 md:p-6">
+        {/* 每日签到 — 紧凑 */}
+        <section>
+          <SectionLabel>{t('credits.dailyCheckin')}</SectionLabel>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex gap-1.5">
+              {safeCheckinHistory.map((day, idx) => (
+                <div
+                  key={idx}
+                  className="flex h-9 w-9 flex-col items-center justify-center rounded-md bg-green-50 text-green-700 ring-1 ring-green-100"
                 >
-                  {tx.amount > 0 ? '+' : ''}
-                  {tx.amount.toLocaleString()}
-                </span>
-              </div>
-            ))}
+                  <Gift className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-medium leading-none">
+                    {day.streakDays}
+                  </span>
+                </div>
+              ))}
+              {Array.from({
+                length: Math.max(0, 7 - safeCheckinHistory.length),
+              }).map((_, idx) => (
+                <div
+                  key={`empty-${idx}`}
+                  className="flex h-9 w-9 items-center justify-center rounded-md bg-gray-50 text-gray-300 ring-1 ring-gray-100"
+                >
+                  <Gift className="h-3.5 w-3.5" />
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-gray-500">
+              {checkinStatus?.hasCheckedInToday
+                ? t('credits.streakDays', { days: checkinStatus.streakDays })
+                : checkinStatus?.message ||
+                  t('credits.dailyCheckinDesc', { credits: 50 })}
+            </p>
           </div>
-        ) : (
-          <p className="rounded-lg border border-gray-200 py-6 text-center text-sm text-gray-500">
-            {t('credits.noTransactions')}
-          </p>
-        )}
-      </section>
+        </section>
 
-      {/* 用量统计 — 压一行 */}
-      <section>
-        <SectionLabel>{t('me.billing.usage')}</SectionLabel>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-gray-200 px-4 py-3">
-          <UsageInline
-            icon={<Bookmark className="h-4 w-4 text-violet-600" />}
-            label={t('profile.stats.bookmarked')}
-            value={userStats?.stats.bookmarked ?? 0}
-          />
-          <UsageInline
-            icon={<Eye className="h-4 w-4 text-blue-600" />}
-            label={t('profile.stats.resourcesViewed')}
-            value={userStats?.stats.viewed ?? 0}
-          />
-          <UsageInline
-            icon={<MessageSquare className="h-4 w-4 text-green-600" />}
-            label={t('profile.stats.comments')}
-            value={userStats?.stats.comments ?? 0}
-          />
-          <UsageInline
-            icon={<TrendingUp className="h-4 w-4 text-amber-600" />}
-            label={t('profile.stats.aiChats')}
-            value={userStats?.stats.chatSessions ?? 0}
-          />
-          <span className="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
-            <Calendar className="h-3.5 w-3.5" />
-            {t('profile.stats.memberSince')}:{' '}
-            {userStats?.memberSince ? (
-              <ClientDate
-                date={userStats.memberSince}
-                format="date"
-                dateOptions={{ year: 'numeric', month: 'long' }}
-              />
-            ) : (
-              'N/A'
-            )}
-          </span>
-        </div>
-      </section>
+        {/* 交易记录 — 紧凑列表（卡内，无嵌套边框） */}
+        <section>
+          <SectionLabel>{t('credits.transactions')}</SectionLabel>
+          {safeTransactions.length > 0 ? (
+            <div className="divide-y divide-gray-100">
+              {safeTransactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between gap-4 py-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-gray-700">
+                      {tx.description}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      <ClientDate date={tx.createdAt} format="datetime" />
+                    </p>
+                  </div>
+                  <span
+                    className={`flex-shrink-0 text-sm font-semibold tabular-nums ${
+                      tx.amount > 0 ? 'text-green-600' : 'text-gray-600'
+                    }`}
+                  >
+                    {tx.amount > 0 ? '+' : ''}
+                    {tx.amount.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-gray-500">
+              {t('credits.noTransactions')}
+            </p>
+          )}
+        </section>
+
+        {/* 用量统计 — 压一行（卡内） */}
+        <section>
+          <SectionLabel>{t('me.billing.usage')}</SectionLabel>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <UsageInline
+              icon={<Bookmark className="h-4 w-4 text-violet-600" />}
+              label={t('profile.stats.bookmarked')}
+              value={userStats?.stats.bookmarked ?? 0}
+            />
+            <UsageInline
+              icon={<Eye className="h-4 w-4 text-blue-600" />}
+              label={t('profile.stats.resourcesViewed')}
+              value={userStats?.stats.viewed ?? 0}
+            />
+            <UsageInline
+              icon={<MessageSquare className="h-4 w-4 text-green-600" />}
+              label={t('profile.stats.comments')}
+              value={userStats?.stats.comments ?? 0}
+            />
+            <UsageInline
+              icon={<TrendingUp className="h-4 w-4 text-amber-600" />}
+              label={t('profile.stats.aiChats')}
+              value={userStats?.stats.chatSessions ?? 0}
+            />
+            <span className="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
+              <Calendar className="h-3.5 w-3.5" />
+              {t('profile.stats.memberSince')}:{' '}
+              {userStats?.memberSince ? (
+                <ClientDate
+                  date={userStats.memberSince}
+                  format="date"
+                  dateOptions={{ year: 'numeric', month: 'long' }}
+                />
+              ) : (
+                'N/A'
+              )}
+            </span>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
 
-/** 轻量 section 小标题（一镜到底：替代厚卡盒标题） */
+/** 轻量 section 小标题（卡内连续流分隔） */
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">

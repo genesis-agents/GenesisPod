@@ -23,7 +23,7 @@ export function GeneralSection() {
   const setAppearance = useThemeStore((s) => s.setAppearance);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 rounded-xl border border-gray-200 bg-white p-5 md:p-6">
       <section>
         <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
           {t('me.general.appearance')}
