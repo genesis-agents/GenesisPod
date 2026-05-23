@@ -1,16 +1,19 @@
 /**
- * RAGSearchTool — 单测（2026-04-30 重写）
+ * RAGSearchTool — 单测（2026-04-30 重写；R2-#41 改走完整管线）
  *
- * 旧实现走 chunks/embeddings 表 + EmbeddingService（pgvector 路径，已废）。
- * 新实现委托 RAGPipelineService.simpleQuery，本测试覆盖：
+ * 行为：
+ *   - 有 KB augmentor（wiki）→ 走其 simpleQuery（wiki-first，augmentor 内部决策）
+ *   - 无 augmentor（playground 默认）→ 走 RAGPipelineService.query() 完整管线
+ *     （HyDE→hybrid→rerank→parent），取代原 test-grade simpleQuery
+ * 覆盖：
  *   1. 工具元数据（id/category/tags/name/description）
  *   2. validateInput 边界
  *   3. doExecute:
  *      - 未传 knowledgeBaseIds → success:true + results:[] + note
  *      - 空数组 → 同上
- *      - 正常召回 → 委托 simpleQuery + 映射 SimilarityResult → RAGSearchResultItem
+ *      - 正常召回 → 委托 query()/augmentor + 映射 SearchResult → RAGSearchResultItem
  *      - 阈值过滤
- *      - simpleQuery 抛 → success:false + error message
+ *      - 检索抛错 → success:false + error message
  */
 
 import { RAGSearchTool, RAGSearchInput } from "../rag-search.tool";
@@ -20,6 +23,13 @@ import type { SearchResult } from "@/modules/ai-engine/rag/pipeline/rag-pipeline
 type MockRAGPipeline = {
   simpleQuery: jest.MockedFunction<
     (query: string, kbIds: string[], topK?: number) => Promise<SearchResult[]>
+  >;
+  query: jest.MockedFunction<
+    (req: {
+      query: string;
+      knowledgeBaseIds: string[];
+      options?: { topK?: number };
+    }) => Promise<{ searchResults: SearchResult[] }>
   >;
 };
 
@@ -56,6 +66,7 @@ describe("RAGSearchTool", () => {
   beforeEach(() => {
     mockPipeline = {
       simpleQuery: jest.fn(),
+      query: jest.fn(),
     };
     tool = new RAGSearchTool(mockPipeline as never);
   });
@@ -150,6 +161,7 @@ describe("RAGSearchTool", () => {
       expect(data.results).toEqual([]);
       expect(data.totalResults).toBe(0);
       expect(data.note).toContain("no knowledgeBaseIds");
+      expect(mockPipeline.query).not.toHaveBeenCalled();
       expect(mockPipeline.simpleQuery).not.toHaveBeenCalled();
     });
 
@@ -161,27 +173,27 @@ describe("RAGSearchTool", () => {
       expect(result.success).toBe(true);
       expect(result.data!.results).toEqual([]);
       expect(result.data!.note).toContain("no knowledgeBaseIds");
-      expect(mockPipeline.simpleQuery).not.toHaveBeenCalled();
+      expect(mockPipeline.query).not.toHaveBeenCalled();
     });
   });
 
-  describe("doExecute — RAGPipeline delegation", () => {
-    it("delegates to simpleQuery and maps results", async () => {
-      mockPipeline.simpleQuery.mockResolvedValue([
-        makeResult("a", 0.9),
-        makeResult("b", 0.7),
-      ]);
+  describe("doExecute — full RAG pipeline delegation (no augmentor)", () => {
+    it("delegates to full pipeline query() and maps results", async () => {
+      mockPipeline.query.mockResolvedValue({
+        searchResults: [makeResult("a", 0.9), makeResult("b", 0.7)],
+      });
 
       const result = await tool.execute(
         { query: "RAG", knowledgeBaseIds: ["kb-1", "kb-2"], topK: 3 },
         buildContext(),
       );
 
-      expect(mockPipeline.simpleQuery).toHaveBeenCalledWith(
-        "RAG",
-        ["kb-1", "kb-2"],
-        3,
-      );
+      expect(mockPipeline.query).toHaveBeenCalledWith({
+        query: "RAG",
+        knowledgeBaseIds: ["kb-1", "kb-2"],
+        options: { topK: 3 },
+      });
+      expect(mockPipeline.simpleQuery).not.toHaveBeenCalled();
       expect(result.success).toBe(true);
       const data = result.data!;
       expect(data.success).toBe(true);
@@ -201,11 +213,13 @@ describe("RAGSearchTool", () => {
     });
 
     it("filters results below threshold", async () => {
-      mockPipeline.simpleQuery.mockResolvedValue([
-        makeResult("a", 0.9),
-        makeResult("b", 0.4),
-        makeResult("c", 0.55),
-      ]);
+      mockPipeline.query.mockResolvedValue({
+        searchResults: [
+          makeResult("a", 0.9),
+          makeResult("b", 0.4),
+          makeResult("c", 0.55),
+        ],
+      });
 
       const result = await tool.execute(
         {
@@ -224,19 +238,22 @@ describe("RAGSearchTool", () => {
     });
 
     it("uses default topK=5 when omitted", async () => {
-      mockPipeline.simpleQuery.mockResolvedValue([]);
+      mockPipeline.query.mockResolvedValue({ searchResults: [] });
       await tool.execute(
         { query: "x", knowledgeBaseIds: ["kb-1"] },
         buildContext(),
       );
-      expect(mockPipeline.simpleQuery).toHaveBeenCalledWith("x", ["kb-1"], 5);
+      expect(mockPipeline.query).toHaveBeenCalledWith({
+        query: "x",
+        knowledgeBaseIds: ["kb-1"],
+        options: { topK: 5 },
+      });
     });
 
     it("uses default threshold=0.5 when omitted", async () => {
-      mockPipeline.simpleQuery.mockResolvedValue([
-        makeResult("a", 0.6),
-        makeResult("b", 0.49),
-      ]);
+      mockPipeline.query.mockResolvedValue({
+        searchResults: [makeResult("a", 0.6), makeResult("b", 0.49)],
+      });
       const result = await tool.execute(
         { query: "x", knowledgeBaseIds: ["kb-1"] },
         buildContext(),
@@ -245,8 +262,8 @@ describe("RAGSearchTool", () => {
       expect(result.data!.results[0].chunkId).toBe("child-a");
     });
 
-    it("returns success:false with error when simpleQuery throws Error", async () => {
-      mockPipeline.simpleQuery.mockRejectedValue(new Error("boom"));
+    it("returns success:false with error when query() throws Error", async () => {
+      mockPipeline.query.mockRejectedValue(new Error("boom"));
       const result = await tool.execute(
         { query: "x", knowledgeBaseIds: ["kb-1"] },
         buildContext(),
@@ -257,8 +274,8 @@ describe("RAGSearchTool", () => {
       expect(result.data!.results).toEqual([]);
     });
 
-    it("returns success:false with stringified error when simpleQuery throws non-Error", async () => {
-      mockPipeline.simpleQuery.mockRejectedValue("opaque");
+    it("returns success:false with stringified error when query() throws non-Error", async () => {
+      mockPipeline.query.mockRejectedValue("opaque");
       const result = await tool.execute(
         { query: "x", knowledgeBaseIds: ["kb-1"] },
         buildContext(),
@@ -303,6 +320,7 @@ describe("RAGSearchTool", () => {
         3,
       );
       expect(mockPipeline.simpleQuery).not.toHaveBeenCalled();
+      expect(mockPipeline.query).not.toHaveBeenCalled();
       expect(result.data!.results).toHaveLength(1);
       expect(result.data!.results[0]).toMatchObject({
         chunkId: "wiki-page:p1",
@@ -312,8 +330,10 @@ describe("RAGSearchTool", () => {
       });
     });
 
-    it("uses ragPipeline when augmentor is undefined (legacy chunk-only path)", async () => {
-      mockPipeline.simpleQuery.mockResolvedValue([makeResult("a", 0.9)]);
+    it("uses ragPipeline full query() when augmentor is undefined", async () => {
+      mockPipeline.query.mockResolvedValue({
+        searchResults: [makeResult("a", 0.9)],
+      });
       const toolNoAug = new RAGSearchTool(mockPipeline as never, undefined);
 
       const result = await toolNoAug.execute(
@@ -321,7 +341,7 @@ describe("RAGSearchTool", () => {
         buildContext(),
       );
 
-      expect(mockPipeline.simpleQuery).toHaveBeenCalled();
+      expect(mockPipeline.query).toHaveBeenCalled();
       expect(result.data!.results).toHaveLength(1);
       expect(result.data!.results[0].chunkId).toBe("child-a");
     });
