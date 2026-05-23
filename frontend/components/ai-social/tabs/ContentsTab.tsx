@@ -50,6 +50,7 @@ import { motion } from 'framer-motion';
 import { FadeIn } from '@/components/ui/animations';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { ClientDate } from '@/components/common/ClientDate';
+import { TruncatedCell } from '@/components/common/tables';
 
 // Types matching backend
 type ContentStatus = SocialContentStatus;
@@ -751,7 +752,7 @@ export default function ContentsTab({
                     </Td>
                     <Td className="whitespace-nowrap px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5 text-gray-400" />
+                        <FileText className="h-5 w-5 flex-shrink-0 text-gray-400" />
                         <button
                           onClick={() => {
                             // PR-4: 父组件传 onSelectContent 时打开统一 drawer；
@@ -762,10 +763,12 @@ export default function ContentsTab({
                               router.push(`/ai-social/edit/${content.id}`);
                             }
                           }}
-                          className="font-medium text-gray-900 hover:text-rose-600 hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                          className="min-w-0 font-medium text-gray-900 hover:text-rose-600 hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                           aria-label={`${t('aiSocial.contents.preview')} ${content.title}`}
                         >
-                          {content.title}
+                          <TruncatedCell className="max-w-[240px] text-gray-900">
+                            {content.title}
+                          </TruncatedCell>
                         </button>
                       </div>
                     </Td>

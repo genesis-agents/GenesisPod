@@ -17,6 +17,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { TruncatedCell } from '@/components/common/tables';
 import type { IterationRound } from '@/hooks/features/useIterativeResearch';
 
 // ==================== Types ====================
@@ -140,11 +141,12 @@ function DataLayerCard({ research, isExpanded }: DataLayerCardProps) {
           {displayQueries.map((q, i) => (
             <p
               key={i}
-              className="flex items-center gap-1 truncate rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-800"
-              title={q}
+              className="flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-800"
             >
               <AlertCircle className="h-3 w-3 flex-shrink-0 text-blue-500" />
-              {q}
+              <TruncatedCell className="max-w-[260px] text-blue-800">
+                {q}
+              </TruncatedCell>
             </p>
           ))}
           {hasMore && (
@@ -219,11 +221,12 @@ function CognitiveLayerCard({
           {visibleItems.map((item, i) => (
             <p
               key={i}
-              className="flex items-center gap-1 truncate rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-800"
-              title={item.title}
+              className="flex items-center gap-1 rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-800"
             >
               <Lightbulb className="h-3 w-3 flex-shrink-0 text-purple-500" />
-              {item.title}
+              <TruncatedCell className="max-w-[260px] text-purple-800">
+                {item.title}
+              </TruncatedCell>
             </p>
           ))}
           {hasMore && (
@@ -296,21 +299,23 @@ function ProductLayerCard({ round, isExpanded }: ProductLayerCardProps) {
           {gaps.dataGaps.slice(0, previewDataCount).map((g, i) => (
             <p
               key={`d-${i}`}
-              className="flex items-center gap-1 truncate rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
-              title={g}
+              className="flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
             >
               <AlertCircle className="h-3 w-3 flex-shrink-0 text-amber-600" />
-              {g}
+              <TruncatedCell className="max-w-[260px] text-amber-800">
+                {g}
+              </TruncatedCell>
             </p>
           ))}
           {gaps.ideaGaps.slice(0, previewIdeaCount).map((g, i) => (
             <p
               key={`i-${i}`}
-              className="flex items-center gap-1 truncate rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
-              title={g}
+              className="flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
             >
               <Lightbulb className="h-3 w-3 flex-shrink-0 text-amber-600" />
-              {g}
+              <TruncatedCell className="max-w-[260px] text-amber-800">
+                {g}
+              </TruncatedCell>
             </p>
           ))}
           {hasMore && (
@@ -752,9 +757,14 @@ function FeedbackCountdownCard({
                 </p>
                 <ul className="space-y-0.5">
                   {awaitingFeedback.gaps.dataGaps.slice(0, 3).map((gap, i) => (
-                    <li key={i} className="truncate text-xs text-gray-700">
-                      <span className="mr-1 text-blue-500">-</span>
-                      {gap}
+                    <li
+                      key={i}
+                      className="flex items-center text-xs text-gray-700"
+                    >
+                      <span className="mr-1 shrink-0 text-blue-500">-</span>
+                      <TruncatedCell className="max-w-[200px] text-gray-700">
+                        {gap}
+                      </TruncatedCell>
                     </li>
                   ))}
                 </ul>
@@ -767,9 +777,14 @@ function FeedbackCountdownCard({
                 </p>
                 <ul className="space-y-0.5">
                   {awaitingFeedback.gaps.ideaGaps.slice(0, 3).map((gap, i) => (
-                    <li key={i} className="truncate text-xs text-gray-700">
-                      <span className="mr-1 text-indigo-500">-</span>
-                      {gap}
+                    <li
+                      key={i}
+                      className="flex items-center text-xs text-gray-700"
+                    >
+                      <span className="mr-1 shrink-0 text-indigo-500">-</span>
+                      <TruncatedCell className="max-w-[200px] text-gray-700">
+                        {gap}
+                      </TruncatedCell>
                     </li>
                   ))}
                 </ul>

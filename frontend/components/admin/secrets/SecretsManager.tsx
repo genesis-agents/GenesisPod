@@ -12,6 +12,7 @@ import {
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
+import { TruncatedCell } from '@/components/common/tables';
 import {
   useAdminSecrets,
   Secret,
@@ -307,20 +308,18 @@ export function SecretsManager({
             ) : (
               filteredSecrets.map((secret) => (
                 <tr key={secret.id} className="hover:bg-gray-50 ">
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-2.5">
                     <div className="flex items-center gap-3">
-                      <Key className="h-5 w-5 text-gray-400" />
-                      <div>
-                        <div className="font-medium text-gray-900 ">
-                          {secret.displayName}
-                        </div>
-                        <div className="text-sm text-gray-500 ">
-                          {secret.name}
-                        </div>
-                      </div>
+                      <Key className="h-5 w-5 flex-shrink-0 text-gray-400" />
+                      <TruncatedCell
+                        className="max-w-[220px] font-medium text-gray-900"
+                        tooltip={`${secret.displayName} · ${secret.name}`}
+                      >
+                        {secret.displayName}
+                      </TruncatedCell>
                     </div>
                   </td>
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-2.5">
                     {getCategoryBadge(secret.category)}
                     {secret.provider && (
                       <span className="ml-2 text-sm text-gray-500">
@@ -328,7 +327,7 @@ export function SecretsManager({
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <code className="font-mono rounded bg-gray-100 px-2 py-1 text-sm ">
                         {secret.maskedValue}
@@ -347,16 +346,16 @@ export function SecretsManager({
                       </button>
                     </div>
                   </td>
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-2.5">
                     <SecretStatusCell secret={secret} t={t} />
                   </td>
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-2.5">
                     <SecretUsageCell secret={secret} t={t} />
                   </td>
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-2.5">
                     <SecretExpiresCell secret={secret} t={t} />
                   </td>
-                  <td className="px-4 py-4 text-right">
+                  <td className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => setShowVersionsFor(secret.name)}

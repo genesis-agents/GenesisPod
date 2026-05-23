@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowRight, Cloud, Database, Info } from 'lucide-react';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface OffloadFieldStat {
   table: string;
@@ -162,47 +163,50 @@ export default function StoragePipelineGrid({
                       className="transition-colors hover:bg-gray-50"
                     >
                       {/* Field */}
-                      <td className="px-4 py-3">
-                        <div className="font-mono text-sm font-medium text-gray-900">
+                      <td className="px-4 py-2.5">
+                        <TruncatedCell
+                          className="font-mono max-w-[240px] text-sm font-medium text-gray-900"
+                          tooltip={`${row.table}.${row.field} (uri: ${row.uriField})`}
+                        >
                           {row.table}.{row.field}
-                        </div>
-                        <div className="font-mono mt-0.5 text-xs text-gray-400">
+                        </TruncatedCell>
+                        <TruncatedCell className="font-mono mt-0.5 max-w-[240px] text-xs text-gray-400">
                           {row.uriField}
-                        </div>
+                        </TruncatedCell>
                       </td>
 
                       {/* R2 Route */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2 text-xs text-gray-600">
-                          <span className="font-mono rounded bg-gray-100 px-2 py-0.5 text-gray-700">
+                          <TruncatedCell className="font-mono max-w-[100px] rounded bg-gray-100 px-2 py-0.5 text-gray-700">
                             {row.field}
-                          </span>
-                          <ArrowRight className="h-3 w-3 text-gray-400" />
-                          <span className="font-mono rounded bg-blue-50 px-2 py-0.5 text-blue-700">
+                          </TruncatedCell>
+                          <ArrowRight className="h-3 w-3 flex-shrink-0 text-gray-400" />
+                          <TruncatedCell className="font-mono max-w-[140px] rounded bg-blue-50 px-2 py-0.5 text-blue-700">
                             {row.r2Prefix}
-                          </span>
+                          </TruncatedCell>
                         </div>
                       </td>
 
                       {/* Total Rows */}
-                      <td className="px-4 py-3 text-right text-sm text-gray-600">
+                      <td className="px-4 py-2.5 text-right text-sm text-gray-600">
                         {row.totalRows.toLocaleString()}
                       </td>
 
                       {/* Migrated */}
-                      <td className="px-4 py-3 text-right text-sm font-medium text-emerald-700">
+                      <td className="px-4 py-2.5 text-right text-sm font-medium text-emerald-700">
                         {row.rowsWithUri.toLocaleString()}
                       </td>
 
                       {/* Remaining */}
-                      <td className="px-4 py-3 text-right text-sm text-amber-600">
+                      <td className="px-4 py-2.5 text-right text-sm text-amber-600">
                         {row.rowsWithDbContent > 0
                           ? row.rowsWithDbContent.toLocaleString()
                           : '-'}
                       </td>
 
                       {/* Coverage */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
                           <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
                             <div
@@ -224,7 +228,7 @@ export default function StoragePipelineGrid({
                       </td>
 
                       {/* Status */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2.5">
                         <span
                           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATE_COLORS[state]}`}
                         >
@@ -233,7 +237,7 @@ export default function StoragePipelineGrid({
                       </td>
 
                       {/* Actions */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2.5">
                         {onShowR2Detail && (
                           <button
                             type="button"

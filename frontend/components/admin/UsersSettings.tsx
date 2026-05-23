@@ -40,6 +40,7 @@ import {
 import { useTranslation } from '@/lib/i18n';
 import { LoadingState, ErrorState, useConfirm } from '@/components/ui';
 import ClientDate from '@/components/common/ClientDate';
+import { TruncatedCell } from '@/components/common/tables';
 
 // ─── Page-level action buttons (used by page.tsx via AdminPageLayout.actions) ─
 
@@ -578,29 +579,32 @@ export default function UsersSettings({
             ) : (
               filteredUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-6 py-4">
+                  <td className="px-6 py-2.5">
                     <div className="flex items-center">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
                         <span className="text-sm font-medium text-blue-600">
                           {(user.name || user.username || user.email || '?')
                             .charAt(0)
                             .toUpperCase()}
                         </span>
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
+                      <div className="ml-4 min-w-0">
+                        <TruncatedCell
+                          className="max-w-[200px] text-sm font-medium text-gray-900"
+                          tooltip={`${user.name || user.username || user.email || t('admin.users.unknownUser')} · ${user.email || ''}`}
+                        >
                           {user.name ||
                             user.username ||
                             user.email ||
                             t('admin.users.unknownUser')}
-                        </div>
-                        <div className="text-sm text-gray-500">
+                        </TruncatedCell>
+                        <TruncatedCell className="max-w-[200px] text-sm text-gray-500">
                           {user.email || '-'}
-                        </div>
+                        </TruncatedCell>
                       </div>
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4">
+                  <td className="whitespace-nowrap px-6 py-2.5">
                     <span
                       className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${
                         (user.role || '').toLowerCase() === 'admin'
@@ -611,7 +615,7 @@ export default function UsersSettings({
                       {user.role?.toLowerCase() || 'user'}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4">
+                  <td className="whitespace-nowrap px-6 py-2.5">
                     <span
                       className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${
                         user.status === 'active'
@@ -624,7 +628,7 @@ export default function UsersSettings({
                       {user.status || 'active'}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4">
+                  <td className="whitespace-nowrap px-6 py-2.5">
                     {user.credits ? (
                       <div className="flex items-center gap-2">
                         <div>
@@ -643,7 +647,7 @@ export default function UsersSettings({
                       <span className="text-sm text-gray-400">-</span>
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4">
+                  <td className="whitespace-nowrap px-6 py-2.5">
                     <button
                       onClick={() => handleViewLoginHistory(user)}
                       className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50"
@@ -652,7 +656,7 @@ export default function UsersSettings({
                       <span>{t('admin.users.viewHistory')}</span>
                     </button>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                  <td className="whitespace-nowrap px-6 py-2.5 text-right text-sm">
                     {/*
                       Wave 4 (2026-05-11): 行内 5 命名按钮 + Delete 兜底
                       - 详情 = UserDetailDrawer (综合身份视图)

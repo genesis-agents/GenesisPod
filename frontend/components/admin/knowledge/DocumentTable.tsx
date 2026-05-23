@@ -28,6 +28,7 @@ import {
   fmtTime,
   statusBadgeClass,
 } from '../_shared/admin-tables';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface DocRow {
   id: string;
@@ -225,22 +226,25 @@ export function DocumentTable() {
                   onClick={() => setSelectedId(d.id)}
                   className="cursor-pointer hover:bg-gray-50"
                 >
-                  <td
-                    className="max-w-[300px] truncate whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900"
-                    title={d.title}
-                  >
-                    {d.title}
-                    {d.hasError && (
-                      <span className="ml-2 inline-flex rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
-                        ERR
-                      </span>
-                    )}
+                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium">
+                    <div className="flex items-center gap-2">
+                      <TruncatedCell className="max-w-[280px] font-medium text-gray-900">
+                        {d.title}
+                      </TruncatedCell>
+                      {d.hasError && (
+                        <span className="inline-flex flex-shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
+                          ERR
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td
-                    className="max-w-[200px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
-                    title={d.knowledgeBaseName ?? d.knowledgeBaseId}
-                  >
-                    {d.knowledgeBaseName ?? d.knowledgeBaseId.slice(0, 8)}
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">
+                    <TruncatedCell
+                      className="max-w-[180px] text-gray-600"
+                      tooltip={d.knowledgeBaseName ?? d.knowledgeBaseId}
+                    >
+                      {d.knowledgeBaseName ?? d.knowledgeBaseId.slice(0, 8)}
+                    </TruncatedCell>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">
                     {d.sourceType}

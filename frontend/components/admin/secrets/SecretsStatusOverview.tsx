@@ -13,6 +13,7 @@ import {
   useAdminSecrets,
   type SecretCategory,
 } from '@/hooks/domain/useAdminSecrets';
+import { TruncatedCell } from '@/components/common/tables';
 
 /**
  * 状态总览 TAB（设计文档 §4.5.0/§4.5.0b/§4.5.0c）
@@ -255,12 +256,12 @@ export function SecretsStatusOverview() {
                   />
                 </td>
                 <td className="px-3 py-2">
-                  <div className="font-medium text-gray-900">
+                  <TruncatedCell
+                    className="max-w-[240px] font-medium text-gray-900"
+                    tooltip={`${s.displayName} · ${s.name}`}
+                  >
                     {s.displayName}
-                  </div>
-                  <div className="font-mono text-xs text-gray-500">
-                    {s.name}
-                  </div>
+                  </TruncatedCell>
                 </td>
                 <td className="px-3 py-2 text-gray-700">
                   {CATEGORY_LABEL[s.category] ?? s.category}
