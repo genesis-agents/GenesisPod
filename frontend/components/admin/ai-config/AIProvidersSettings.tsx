@@ -286,7 +286,16 @@ export function AIProvidersSettings() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col className="w-[13%]" />
+            <col className="w-[14%]" />
+            <col className="w-[26%]" />
+            <col className="w-[11%]" />
+            <col className="w-[20%]" />
+            <col className="w-[8%]" />
+            <col className="w-[8%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">

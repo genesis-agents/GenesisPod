@@ -312,7 +312,16 @@ function AgentInstanceTable({ agents }: { agents: AgentLiveState[] }) {
           </span>
         </div>
       </div>
-      <Table className="w-full text-[12px]">
+      <Table className="w-full table-fixed text-[12px]">
+        <colgroup>
+          <col className="w-[12%]" />
+          <col className="w-[24%]" />
+          <col className="w-[18%]" />
+          <col className="w-[18%]" />
+          <col className="w-[10%]" />
+          <col className="w-[10%]" />
+          <col className="w-[8%]" />
+        </colgroup>
         <THead className="bg-gray-50/80">
           <Tr>
             <Th className="w-[12%] px-3 py-2 text-left font-medium text-gray-600">
@@ -453,7 +462,15 @@ function ToolLatencyTable({ rows }: { rows: ToolRow[] }) {
           </span>
         </div>
       </div>
-      <Table className="w-full text-[12px]">
+      <Table className="w-full table-fixed text-[12px]">
+        <colgroup>
+          <col className="w-[34%]" />
+          <col className="w-[12%]" />
+          <col className="w-[14%]" />
+          <col className="w-[12%]" />
+          <col className="w-[12%]" />
+          <col className="w-[16%]" />
+        </colgroup>
         <THead className="bg-gray-50/80">
           <Tr>
             <Th className="w-[34%] px-3 py-2 text-left font-medium text-gray-600">

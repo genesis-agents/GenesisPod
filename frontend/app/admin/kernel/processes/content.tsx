@@ -800,7 +800,19 @@ export default function KernelProcessesPageContent({
           />
         ) : (
           <div className="overflow-x-auto">
-            <Table className="w-full text-left text-sm">
+            <Table className="w-full table-fixed text-left text-sm">
+              <colgroup>
+                <col className="w-[4%]" />
+                <col className="w-[9%]" />
+                <col className="w-[12%]" />
+                <col className="w-[14%]" />
+                <col className="w-[12%]" />
+                <col className="w-[7%]" />
+                <col className="w-[12%]" />
+                <col className="w-[10%]" />
+                <col className="w-[14%]" />
+                <col className="w-[6%]" />
+              </colgroup>
               <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
                 <Tr>
                   <Th className="w-8 px-4 py-3" />

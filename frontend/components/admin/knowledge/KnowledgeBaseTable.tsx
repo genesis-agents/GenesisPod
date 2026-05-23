@@ -199,7 +199,17 @@ export function KnowledgeBaseTable() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col className="w-[22%]" />
+            <col className="w-[18%]" />
+            <col className="w-[10%]" />
+            <col className="w-[12%]" />
+            <col className="w-[7%]" />
+            <col className="w-[7%]" />
+            <col className="w-[8%]" />
+            <col className="w-[16%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               <Th>名称</Th>

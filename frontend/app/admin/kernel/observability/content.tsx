@@ -239,6 +239,7 @@ interface DataTableProps<T> {
   rows: T[];
   keyFn: (row: T) => string;
   emptyMessage?: string;
+  colWidths?: string[];
 }
 
 function DataTable<T>({
@@ -246,6 +247,7 @@ function DataTable<T>({
   rows,
   keyFn,
   emptyMessage = 'No data',
+  colWidths,
 }: DataTableProps<T>) {
   if (rows.length === 0) {
     return (
@@ -257,7 +259,14 @@ function DataTable<T>({
 
   return (
     <div className="overflow-x-auto rounded-lg bg-white shadow">
-      <Table className="w-full text-left text-sm">
+      <Table className="w-full table-fixed text-left text-sm">
+        {colWidths && (
+          <colgroup>
+            {colWidths.map((w, i) => (
+              <col key={i} className={w} />
+            ))}
+          </colgroup>
+        )}
         <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
           <Tr>
             {columns.map((col) => (
@@ -462,6 +471,14 @@ function MetricsTab({ data, loading }: MetricsTabProps) {
           rows={data.byModel}
           keyFn={(row) => row.model}
           emptyMessage="No model data in this period"
+          colWidths={[
+            'w-[28%]',
+            'w-[12%]',
+            'w-[14%]',
+            'w-[14%]',
+            'w-[16%]',
+            'w-[16%]',
+          ]}
         />
       </div>
 
@@ -699,6 +716,14 @@ function CostsTab({ data, loading }: CostsTabProps) {
           rows={data.byUser}
           keyFn={(row) => row.userId}
           emptyMessage="No user data in this period"
+          colWidths={[
+            'w-[20%]',
+            'w-[12%]',
+            'w-[14%]',
+            'w-[12%]',
+            'w-[20%]',
+            'w-[22%]',
+          ]}
         />
       </div>
 
@@ -721,6 +746,14 @@ function CostsTab({ data, loading }: CostsTabProps) {
           rows={data.byModel}
           keyFn={(row) => row.model}
           emptyMessage="No model data in this period"
+          colWidths={[
+            'w-[24%]',
+            'w-[12%]',
+            'w-[14%]',
+            'w-[14%]',
+            'w-[12%]',
+            'w-[24%]',
+          ]}
         />
       </div>
     </div>

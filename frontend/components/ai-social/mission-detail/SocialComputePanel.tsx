@@ -207,7 +207,15 @@ export function SocialComputePanel({ view }: { view: SocialMissionView }) {
             <Cpu className="h-4 w-4 text-gray-400" />
             角色实例
           </h3>
-          <Table>
+          <Table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[20%]" />
+              <col className="w-[12%]" />
+              <col className="w-[28%]" />
+              <col className="w-[10%]" />
+              <col className="w-[14%]" />
+              <col className="w-[16%]" />
+            </colgroup>
             <THead>
               <Tr>
                 <Th>角色</Th>

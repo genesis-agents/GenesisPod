@@ -250,7 +250,15 @@ export function ModelRecommendationsManagement() {
 
       {/* Table */}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-        <table className="w-full">
+        <table className="w-full table-fixed">
+          <colgroup>
+            <col className="w-[18%]" />
+            <col className="w-[14%]" />
+            <col className="w-[34%]" />
+            <col className="w-[8%]" />
+            <col className="w-[10%]" />
+            <col className="w-[16%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">

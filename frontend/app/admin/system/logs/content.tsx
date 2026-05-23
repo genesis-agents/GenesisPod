@@ -296,7 +296,15 @@ export default function LogsPageContent({
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <Table className="w-full text-left text-sm">
+                  <Table className="w-full table-fixed text-left text-sm">
+                    <colgroup>
+                      <col className="w-[24%]" />
+                      <col className="w-[18%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[16%]" />
+                      <col className="w-[16%]" />
+                      <col className="w-[12%]" />
+                    </colgroup>
                     <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
                       <Tr>
                         <Th className="px-4 py-3">

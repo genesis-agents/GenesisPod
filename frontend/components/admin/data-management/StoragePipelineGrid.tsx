@@ -107,7 +107,17 @@ export default function StoragePipelineGrid({
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="w-full table-fixed divide-y divide-gray-200">
+            <colgroup>
+              <col className="w-[20%]" />
+              <col className="w-[18%]" />
+              <col className="w-[9%]" />
+              <col className="w-[9%]" />
+              <col className="w-[8%]" />
+              <col className="w-[14%]" />
+              <col className="w-[8%]" />
+              <col className="w-[14%]" />
+            </colgroup>
             <thead className="bg-gray-50">
               <tr>
                 {columns.map((col) => (

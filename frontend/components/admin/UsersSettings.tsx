@@ -542,7 +542,15 @@ export default function UsersSettings({
 
       {/* Users Table */}
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col className="w-[28%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[14%]" />
+            <col className="w-[14%]" />
+            <col className="w-[24%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">

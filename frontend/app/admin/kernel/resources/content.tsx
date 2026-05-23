@@ -408,7 +408,16 @@ export default function KernelResourcesPageContent({
             />
           ) : (
             <div className="overflow-x-auto">
-              <Table className="w-full text-left text-sm">
+              <Table className="w-full table-fixed text-left text-sm">
+                <colgroup>
+                  <col className="w-[28%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[14%]" />
+                </colgroup>
                 <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
                   <Tr>
                     <Th className="px-4 py-3">Entity ID</Th>

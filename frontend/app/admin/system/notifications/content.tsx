@@ -372,7 +372,15 @@ export default function NotificationsPageContent({
           ) : (
             <>
               <div className="overflow-x-auto">
-                <Table className="w-full text-sm">
+                <Table className="w-full table-fixed text-sm">
+                  <colgroup>
+                    <col className="w-[14%]" />
+                    <col className="w-[26%]" />
+                    <col className="w-[22%]" />
+                    <col className="w-[16%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[14%]" />
+                  </colgroup>
                   <THead>
                     <Tr className="border-b bg-gray-50 text-left text-gray-500">
                       <Th className="px-4 py-2">

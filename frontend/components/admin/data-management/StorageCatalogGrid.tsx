@@ -47,7 +47,16 @@ export default function StorageCatalogGrid({
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col className="w-[26%]" />
+            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+            <col className="w-[14%]" />
+            <col className="w-[16%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               {columns.map((col) => (

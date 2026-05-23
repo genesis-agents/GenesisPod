@@ -680,7 +680,16 @@ export default function ContentsTab({
       ) : filteredContents.length > 0 ? (
         /* Content List */
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-          <Table className="min-w-full divide-y divide-gray-200">
+          <Table className="w-full table-fixed divide-y divide-gray-200">
+            <colgroup>
+              <col className="w-[5%]" />
+              <col className="w-[30%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+              <col className="w-[12%]" />
+              <col className="w-[11%]" />
+              <col className="w-[14%]" />
+            </colgroup>
             <THead className="bg-gray-50">
               <Tr>
                 <Th className="px-6 py-3">

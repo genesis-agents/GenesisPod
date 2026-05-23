@@ -493,7 +493,15 @@ export default function EvalDashboardPageContent({
             </span>
           </div>
           <div className="overflow-x-auto">
-            <Table className="w-full text-left text-sm">
+            <Table className="w-full table-fixed text-left text-sm">
+              <colgroup>
+                <col className="w-[30%]" />
+                <col className="w-[12%]" />
+                <col className="w-[10%]" />
+                <col className="w-[12%]" />
+                <col className="w-[16%]" />
+                <col className="w-[20%]" />
+              </colgroup>
               <THead className="border-b text-xs uppercase text-gray-400">
                 <Tr>
                   <Th className="py-2 pr-4">Dataset</Th>

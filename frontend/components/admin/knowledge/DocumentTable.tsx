@@ -197,7 +197,16 @@ export function DocumentTable() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col className="w-[28%]" />
+            <col className="w-[18%]" />
+            <col className="w-[12%]" />
+            <col className="w-[13%]" />
+            <col className="w-[8%]" />
+            <col className="w-[9%]" />
+            <col className="w-[12%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               <Th>标题</Th>

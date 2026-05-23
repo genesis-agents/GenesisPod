@@ -270,7 +270,16 @@ export function SecretsManager({
 
       {/* 密钥列表 */}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white ">
-        <table className="w-full">
+        <table className="w-full table-fixed">
+          <colgroup>
+            <col className="w-[20%]" />
+            <col className="w-[16%]" />
+            <col className="w-[16%]" />
+            <col className="w-[12%]" />
+            <col className="w-[14%]" />
+            <col className="w-[7%]" />
+            <col className="w-[15%]" />
+          </colgroup>
           <thead className="bg-gray-50 ">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">

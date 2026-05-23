@@ -225,7 +225,15 @@ export default function ResearchTemplatesPage() {
               {category.replace(/_/g, ' ')}
             </h3>
             <div className="overflow-hidden rounded-lg border border-zinc-700/50 bg-zinc-800/50">
-              <Table className="w-full text-sm">
+              <Table className="w-full table-fixed text-sm">
+                <colgroup>
+                  <col className="w-[26%]" />
+                  <col className="w-[26%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[16%]" />
+                </colgroup>
                 <THead>
                   <Tr className="border-b border-zinc-700/50 text-left text-zinc-400">
                     <Th className="px-4 py-3 font-medium">Name</Th>

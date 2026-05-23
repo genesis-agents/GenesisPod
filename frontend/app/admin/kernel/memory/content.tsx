@@ -561,7 +561,15 @@ export default function KernelMemoryPageContent({
           />
         ) : (
           <div className="overflow-x-auto">
-            <Table className="w-full text-left text-sm">
+            <Table className="w-full table-fixed text-left text-sm">
+              <colgroup>
+                <col className="w-[5%]" />
+                <col className="w-[22%]" />
+                <col className="w-[10%]" />
+                <col className="w-[18%]" />
+                <col className="w-[29%]" />
+                <col className="w-[16%]" />
+              </colgroup>
               <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
                 <Tr>
                   <Th className="w-8 px-4 py-3" />
