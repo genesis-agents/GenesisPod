@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { TruncatedCell } from '@/components/common/tables';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   Database,
@@ -226,30 +227,30 @@ export function FactTablePanel({ factTable, citations }: Props) {
                           : ''
                   }`}
                 >
-                  <Td
-                    className="max-w-[180px] truncate py-1.5 pr-3 font-medium text-gray-900"
-                    title={`${f.id}\n${f.entity}`}
-                  >
-                    {f.entity}
+                  <Td className="py-1.5 pr-3 font-medium text-gray-900">
+                    <TruncatedCell
+                      className="max-w-[180px]"
+                      tooltip={`${f.id} · ${f.entity}`}
+                    >
+                      {f.entity}
+                    </TruncatedCell>
                   </Td>
-                  <Td
-                    className="max-w-[140px] truncate py-1.5 pr-3 text-gray-700"
-                    title={f.attribute}
-                  >
-                    {f.attribute}
+                  <Td className="py-1.5 pr-3 text-gray-700">
+                    <TruncatedCell className="max-w-[140px]">
+                      {f.attribute}
+                    </TruncatedCell>
                   </Td>
-                  <Td
-                    className="max-w-[300px] truncate py-1.5 pr-3 text-gray-700"
-                    title={f.value}
-                  >
+                  <Td className="py-1.5 pr-3 text-gray-700">
                     {/* Phase P39-2: 数字 / 百分比加粗 */}
-                    {/^[\d.,$%]+/.test(f.value) ? (
-                      <span className="font-semibold text-gray-900">
-                        {f.value}
-                      </span>
-                    ) : (
-                      f.value
-                    )}
+                    <TruncatedCell className="max-w-[300px]" tooltip={f.value}>
+                      {/^[\d.,$%]+/.test(f.value) ? (
+                        <span className="font-semibold text-gray-900">
+                          {f.value}
+                        </span>
+                      ) : (
+                        f.value
+                      )}
+                    </TruncatedCell>
                   </Td>
                   <Td className="py-1.5 pr-3">
                     <div className="flex flex-wrap gap-1">
