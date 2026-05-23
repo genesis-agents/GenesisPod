@@ -1339,7 +1339,7 @@ export function TodoDetailDrawer({
                     }`}
                   >
                     <div className="p-3">
-                      <p className="mb-2 text-[10px] text-gray-400">
+                      <p className="mb-2 text-xs text-gray-400">
                         评估维度整体质量（广度 / 深度 / 证据 / 连贯性 /
                         时效性），独立于各章节复审分。
                       </p>
