@@ -35,7 +35,7 @@ import type {
   RunMissionInput,
   ResearchReport,
 } from "../../../dto/run-mission.dto";
-import { DEPTH_BUDGET_TIERS } from "../../../dto/run-mission.dto";
+import type { PlaygroundConfigSnapshot } from "./playground-mission-input-rebuilder.service";
 import {
   parseReportArtifact,
   type ReportArtifact,
@@ -88,36 +88,34 @@ export class CtxHydratorService {
     // 由 LocalRerunService.run 入口调 RerunGuardService.ensureRerunable 单点判定。
     // hydrate 仅做产物重建，不再做活性检查（解耦 + 单一职责）。
 
-    const userProfile =
-      (detail.userProfile as Partial<RunMissionInput> | null) ?? {};
-
-    const depth = (userProfile.depth ??
-      (["quick", "standard", "deep"].includes(detail.depth)
-        ? detail.depth
-        : "deep")) as RunMissionInput["depth"];
-
+    // ★ C5/G7 S3:rerun 输入**只**从 typed config snapshot 重建(单一真源),不再读 userProfile。
+    //   历史行无 snapshot=legacy → 拒绝重跑(数据可弃,不做 userProfile fallback 双读)。
+    const snap = detail.configSnapshot as PlaygroundConfigSnapshot | null;
+    if (snap?.schemaVersion == null) {
+      throw new BadRequestException(
+        `mission ${missionId} 早于 config snapshot 上线(legacy),不支持重跑。请重新发起新任务。`,
+      );
+    }
+    const b = snap.businessInput;
     const input: RunMissionInput = {
-      topic: detail.topic,
-      depth,
-      language: (userProfile.language ??
-        (detail.language === "en-US"
-          ? "en-US"
-          : "zh-CN")) as RunMissionInput["language"],
-      budgetProfile: userProfile.budgetProfile ?? "medium",
-      styleProfile: userProfile.styleProfile ?? "executive",
-      lengthProfile: userProfile.lengthProfile ?? "standard",
-      audienceProfile: userProfile.audienceProfile ?? "domain-expert",
-      withFigures: userProfile.withFigures ?? true,
-      auditLayers: userProfile.auditLayers ?? "default",
-      concurrency: userProfile.concurrency ?? 3,
-      viewMode: userProfile.viewMode ?? "continuous",
-      searchTimeRange: userProfile.searchTimeRange ?? "365d",
-      maxCredits: detail.maxCredits,
-      // ★ 2026-05-22 契约单一源：缺失时按 depth 档位解析（DEPTH_BUDGET_TIERS），
-      //   不再硬编码 1.0（旧值会让 deep 重跑用 1.0 而非 4.0，4× 欠配）。
-      budgetMultiplierOverride:
-        userProfile.budgetMultiplierOverride ??
-        DEPTH_BUDGET_TIERS[depth].budgetMultiplier,
+      topic: snap.topic,
+      depth: b.depth,
+      language: snap.language as RunMissionInput["language"],
+      budgetProfile: b.budgetProfile,
+      styleProfile: b.styleProfile,
+      lengthProfile: b.lengthProfile,
+      audienceProfile: b.audienceProfile,
+      withFigures: b.withFigures,
+      auditLayers: b.auditLayers,
+      concurrency: b.concurrency,
+      viewMode: b.viewMode,
+      searchTimeRange: b.searchTimeRange,
+      knowledgeBaseIds: b.knowledgeBaseIds,
+      inheritFromMissionId: b.inheritFromMissionId,
+      // budget/runtimeLimits 来自 snapshot 顶层(已 ResolvedBudgetCaps 解析,无需再算)。
+      maxCredits: snap.budget.maxCredits,
+      budgetMultiplierOverride: snap.budget.budgetMultiplier,
+      wallTimeMs: snap.runtimeLimits.wallTimeCapMs,
     };
 
     // v1.2 类别 A1+E1+E5：reportArtifact 必从 mission.report_full 读 + zod 校验
