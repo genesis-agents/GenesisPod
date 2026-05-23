@@ -344,21 +344,42 @@ export class SocialPipelineDispatcher implements OnModuleInit {
         };
       });
     } catch (err) {
-      this.log.error(
-        `[${missionId}] mission threw: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      await this.eventBus
-        .emit({
-          type: "social.mission:failed",
-          scope: { missionId, userId },
-          payload: {
-            message: err instanceof Error ? err.message : String(err),
-            failureCode: "DISPATCHER_THREW",
-            wallTimeMs: Date.now() - t0,
+      const message = err instanceof Error ? err.message : String(err);
+      this.log.error(`[${missionId}] mission threw: ${message}`);
+      // ★ C0/G1：dispatcher 抛错也经 finalize 单入口写终态。此前只 emit 不写 DB，
+      //   行留 running 靠 liveness 回收（延迟数分钟）；现条件写首写赢，立即标 failed。
+      //   canonical failureCode=runtime_crashed（取代 ad-hoc "DISPATCHER_THREW"，对齐 C2）。
+      await this.lifecycleManager.finalize({
+        missionId,
+        intent: {
+          status: "failed",
+          failureCode: MissionFailureCode.runtime_crashed,
+          errorMessage: message,
+          extra: {
+            kind: "failed",
+            detail: {
+              errorMessage: message,
+              elapsedWallTimeMs: Date.now() - t0,
+              failureCode: MissionFailureCode.runtime_crashed,
+            },
           },
-          timestamp: Date.now(),
-        })
-        .catch(() => undefined);
+        },
+        arbiter: this.store,
+        onWon: async () => {
+          await this.eventBus
+            .emit({
+              type: "social.mission:failed",
+              scope: { missionId, userId },
+              payload: {
+                message,
+                failureCode: MissionFailureCode.runtime_crashed,
+                wallTimeMs: Date.now() - t0,
+              },
+              timestamp: Date.now(),
+            })
+            .catch(() => undefined);
+        },
+      });
       return { missionId, status: "failed", error: err };
     } finally {
       if (session) {

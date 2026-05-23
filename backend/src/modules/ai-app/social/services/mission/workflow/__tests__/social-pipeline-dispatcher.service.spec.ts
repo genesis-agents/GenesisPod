@@ -811,20 +811,35 @@ describe("SocialPipelineDispatcher", () => {
       expect(result.error).toBeDefined();
     });
 
-    it("should emit social.mission:failed with DISPATCHER_THREW code", async () => {
+    it("should finalize failed (runtime_crashed) + emit on dispatcher throw", async () => {
       const prisma = createMockPrisma();
       (prisma.socialContent.findFirst as jest.Mock).mockResolvedValue(null);
 
       const eventBus = createMockEventBus();
-      const { dispatcher } = createDispatcher({ eventBus, prisma });
+      const { dispatcher, lifecycleManager, store } = createDispatcher({
+        eventBus,
+        prisma,
+      });
 
       await dispatcher.runMission(MOCK_MISSION_ID, makeInput(), MOCK_USER_ID);
 
+      // ★ C0/G1：外层 catch 也经 finalize 写 DB 终态（不再只 emit、行留 running）。
+      expect(lifecycleManager.finalize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          missionId: MOCK_MISSION_ID,
+          arbiter: store,
+          intent: expect.objectContaining({
+            status: "failed",
+            failureCode: "runtime_crashed",
+          }),
+        }),
+      );
       const failedEmit = (eventBus.emit as jest.Mock).mock.calls.find(
         (c: unknown[]) =>
           (c[0] as { type: string }).type === "social.mission:failed",
       );
-      expect(failedEmit![0].payload.failureCode).toBe("DISPATCHER_THREW");
+      // canonical code 取代 ad-hoc "DISPATCHER_THREW"（对齐 C2）。
+      expect(failedEmit![0].payload.failureCode).toBe("runtime_crashed");
     });
 
     it("should call session.cleanup even when orchestrator throws", async () => {
@@ -1365,10 +1380,10 @@ describe("SocialPipelineDispatcher", () => {
   });
 
   // =========================================================================
-  // runMission — DISPATCHER_THREW path eventBus.emit rejects (non-fatal)
+  // runMission — dispatcher throw catch: eventBus.emit rejects (non-fatal)
   // =========================================================================
 
-  describe("runMission — DISPATCHER_THREW eventBus.emit non-fatal error", () => {
+  describe("runMission — dispatcher throw catch eventBus.emit non-fatal", () => {
     it("should return failed even when eventBus.emit rejects in catch branch", async () => {
       // hydrateContentRaw returns null → throws → dispatcher catch block
       const prisma = createMockPrisma();
