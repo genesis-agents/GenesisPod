@@ -168,7 +168,11 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       `- keyPoints: ${input.chapter.keyPoints.map((p, i) => `${i + 1}) ${p}`).join("；")}`,
       // ★ 2026-05-07 字数软化（用户对齐）：从"必须 ≥ 0.85 才合格"改为"建议范围（牵引）"
       //   低于 800 字也接受不打回；超出范围也接受。retry 触发条件迁出字数（见 reviewer）。
-      `- **建议字数: ${input.targetWords} 字（这是目标牵引，不是硬约束）**${profileRange ? `\n- 档位范围参考: ${profileRange[0]}-${profileRange[1]} 字` : ""}`,
+      // ★ 2026-05-23 P2-728：给"区间"而非单一刚性数字。生产方对每个 dim 算出的
+      //   targetWordsPerChapter 在常见配置下被夹逼成定值(dimTargetWords/章节数)，LLM
+      //   把单一数字当硬锚 → 大量章节恒为同一字数(实测 728)。给 0.7–1.4× 区间让
+      //   LLM 按话题密度自然浮动。
+      `- **建议字数: ${Math.round(input.targetWords * 0.7)}–${Math.round(input.targetWords * 1.4)} 字（目标牵引区间，按本章话题密度自行决定，不是硬约束）**${profileRange ? `\n- 档位范围参考: ${profileRange[0]}-${profileRange[1]} 字` : ""}`,
       `- 字数语义：**该章话题密度高就多写，密度低就少写**。低于 800 字也可以接受，不会因为字数不足被打回。`,
       `- **不要为凑字数而堆砌**。1500 字的扎实分析 > 4000 字的注水稀释。`,
       input.targetWords >= 3000

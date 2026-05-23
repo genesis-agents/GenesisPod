@@ -238,9 +238,11 @@ describe("ChapterWriterAgent", () => {
       expect(prompt).toContain("Market Overview");
     });
 
-    it("contains targetWords in prompt", () => {
+    it("contains targetWords range in prompt (P2-728: 区间而非单一数字)", () => {
       const prompt = agent.buildSystemPrompt({ input: baseInput, identity });
-      expect(prompt).toContain("1000");
+      // targetWords=1000 → 区间 700–1400（避免 LLM 硬锚单一数字 → 章节恒为同字数）
+      expect(prompt).toContain("700");
+      expect(prompt).toContain("1400");
     });
 
     it("emits soft word-count guidance instead of hard threshold (2026-05-07)", () => {
