@@ -151,6 +151,8 @@ export class MissionStore {
     language: string;
     maxCredits: number;
     userProfile?: Record<string, unknown>;
+    /** ★ C5/G7：typed MissionConfigSnapshot(单一 config 真源,openSession 冻结)。 */
+    configSnapshot?: unknown;
   }): Promise<void> {
     await this.prisma.agentPlaygroundMission.create({
       data: {
@@ -163,6 +165,9 @@ export class MissionStore {
         maxCredits: input.maxCredits,
         status: "running",
         userProfile: (input.userProfile ?? null) as Prisma.InputJsonValue,
+        configSnapshot: input.configSnapshot as
+          | Prisma.InputJsonValue
+          | undefined,
       },
     });
   }
