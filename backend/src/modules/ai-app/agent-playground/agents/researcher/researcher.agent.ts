@@ -180,7 +180,10 @@ const Output = z.object({
   skills: ["dimension-research", "web-research"],
   taskProfile: {
     creativity: "low",
-    outputLength: "long",
+    // ★ 2026-05-23 (long→extended)：finalize 要吐多条带 URL/quote 的 finding，
+    //   long=8000 maxTokens 对中文 JSON 常被截断(finish_reason=length) → repair 削薄/
+    //   失败 → 维度降级。extended=16000 给 finalize JSON 留足头寸(与 chapter-writer 同策)。
+    outputLength: "extended",
     reasoningDepth: "moderate",
   },
   inputSchema: Input,

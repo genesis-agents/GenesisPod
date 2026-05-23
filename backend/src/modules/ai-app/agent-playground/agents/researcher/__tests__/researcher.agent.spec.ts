@@ -287,9 +287,13 @@ describe("ResearcherAgent — validateBusinessRules", () => {
     expect(() => agent.validateBusinessRules(validOutput(12))).not.toThrow();
   });
 
-  it("fails when findings count < 10 (★ 2026-05-22 成功线 4→10)", () => {
-    expect(() => agent.validateBusinessRules(validOutput(9))).toThrow(
-      /findings\.length=9/,
+  it("passes at the floor of 5 findings (★ 2026-05-23 成功线 10→5)", () => {
+    expect(() => agent.validateBusinessRules(validOutput(5))).not.toThrow();
+  });
+
+  it("fails when findings count < 5 (★ 2026-05-23 成功线 10→5)", () => {
+    expect(() => agent.validateBusinessRules(validOutput(4))).toThrow(
+      /findings\.length=4/,
     );
   });
 

@@ -69,7 +69,7 @@ describe("playground-tuning-profile", () => {
       const cfg = loadPlaygroundRuntimeConfig({
         PLAYGROUND_TUNING_PROFILE: "frontier",
       } as NodeJS.ProcessEnv);
-      expect(cfg.minFindingsThreshold).toBe(10); // DEFAULT
+      expect(cfg.minFindingsThreshold).toBe(5); // DEFAULT
       expect(cfg.chapterToleranceRatio).toBe(0.3); // DEFAULT
       expect(cfg.staleThresholdMin).toBe(15); // DEFAULT
     });
@@ -113,7 +113,7 @@ describe("playground-tuning-profile", () => {
         PLAYGROUND_TUNING_PROFILE: "what-even-is-this",
       } as NodeJS.ProcessEnv);
       // Defaults restored
-      expect(cfg.minFindingsThreshold).toBe(10);
+      expect(cfg.minFindingsThreshold).toBe(5);
       expect(cfg.chapterToleranceRatio).toBe(0.3);
     });
   });
