@@ -448,6 +448,7 @@ export {
   type SanitizeResult,
   wrapExternalContent,
   wrapExternalContentBatch,
+  getExternalContentNotice,
   type WrapExternalContentOptions,
 } from "../safety/security/llm-injection";
 

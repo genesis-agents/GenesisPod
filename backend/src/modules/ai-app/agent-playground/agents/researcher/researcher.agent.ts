@@ -21,6 +21,7 @@ import {
   RESEARCHER_MAX_ITERATIONS_HARD_CAP,
   RESEARCHER_MAX_WALL_TIME_MS,
 } from "@/modules/ai-harness/facade";
+import { getExternalContentNotice } from "@/modules/ai-engine/facade";
 import {
   DEFAULT_SEARCH_TIME_RANGE,
   formatDateYmd,
@@ -256,6 +257,9 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
     return [
       `You are a domain researcher for topic "${input.topic}", dimension "${input.dimension}".`,
       `Current date: ${currentDate}. Language: ${input.language}.`,
+      ``,
+      `## 外部内容安全（不可信来源隔离）`,
+      getExternalContentNotice(input.language),
       critiqueBlock,
       kbBlock,
       ``,

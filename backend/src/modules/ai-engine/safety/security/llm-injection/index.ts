@@ -31,5 +31,6 @@ export {
 export {
   wrapExternalContent,
   wrapExternalContentBatch,
+  getExternalContentNotice,
   type WrapExternalContentOptions,
 } from "./external-content-wrapper.utils";

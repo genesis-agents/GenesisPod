@@ -54,6 +54,7 @@ import { CacheControlPlanner } from "../context/cache-control-planner";
 import { HookRegistry } from "../../agents/core/hook-registry";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
+import { wrapToolObservation } from "./external-observation.util";
 import type { IAgent, ISubagentSpawner } from "../../agents/abstractions";
 import {
   rawContentHasUnexecutedToolIntent,
@@ -2051,7 +2052,11 @@ export class ReActLoop implements IAgentLoop {
     if (result.action.kind === "tool_call") {
       observations.push({
         role: "tool",
-        content: this.stringifyObservation(result),
+        // R2-#42: 外部不可信工具输出做 <external_source> 隔离 + sanitize（间接注入防御）
+        content: wrapToolObservation(
+          this.stringifyObservation(result),
+          result.action.toolId,
+        ),
         name: result.action.toolId,
         // PR-1 native-FC P1#2: 透传 callId（来自 LLM tool_use_id）让 IContextMessage 不丢；
         // buildMessages 当前会把 role:"tool" 降级成 user（ChatMessage 不支持 tool role），
@@ -2065,7 +2070,11 @@ export class ReActLoop implements IAgentLoop {
         if (sub.action.kind === "tool_call") {
           observations.push({
             role: "tool",
-            content: this.stringifyObservation(sub),
+            // R2-#42: 同上 —— 子结果也走外部内容隔离
+            content: wrapToolObservation(
+              this.stringifyObservation(sub),
+              sub.action.toolId,
+            ),
             name: sub.action.toolId,
             // 同上 — 透传 callId，每个 sub 的 callId 独立（parallel_tool_call.calls[i].callId）
             toolCallId: sub.action.callId,
