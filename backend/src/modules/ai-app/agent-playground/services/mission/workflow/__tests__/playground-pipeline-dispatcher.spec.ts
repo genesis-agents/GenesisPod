@@ -334,6 +334,13 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     const fakeCheckpoint = {
       clear: jest.fn().mockResolvedValue(undefined),
       save: jest.fn().mockResolvedValue(undefined),
+      // R2-#37: crash-resume — default no prior checkpoint
+      canResume: jest.fn().mockResolvedValue({
+        canResume: false,
+        reason: "no-checkpoint",
+        snapshot: null,
+        completedKeys: new Set(),
+      }),
     };
     const fakeEventBuffer = {
       read: jest.fn().mockReturnValue([]),
@@ -781,6 +788,13 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       const fakeCheckpoint = {
         clear: jest.fn().mockResolvedValue(undefined),
         save: jest.fn().mockResolvedValue(undefined),
+        // R2-#37: crash-resume — default no prior checkpoint
+        canResume: jest.fn().mockResolvedValue({
+          canResume: false,
+          reason: "no-checkpoint",
+          snapshot: null,
+          completedKeys: new Set(),
+        }),
       };
       const fakeEventBuffer = {
         read: jest.fn().mockReturnValue([]),

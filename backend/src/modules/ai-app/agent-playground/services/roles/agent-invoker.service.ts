@@ -7,11 +7,14 @@
  * 3. 现有 role services / stages 调用面先保持不变，避免重构扩散。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import {
   AgentRunner,
   DomainEventBus,
   MissionBudgetPool,
+  isRetryableError,
+  calculateBackoffDelay,
+  sleep,
 } from "@/modules/ai-harness/facade";
 import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
@@ -20,6 +23,9 @@ import type { IAgentEvent } from "@/modules/ai-harness/facade";
 import { AgentExecutionSupport } from "./agent-execution-support";
 import { AgentInvocationPolicy } from "./agent-invocation-policy";
 import { AgentPlaygroundEventRelay } from "./agent-playground-event-relay";
+
+/** Maximum number of additional attempts after the first failure (total = 1 + MAX_ROLE_RETRIES) */
+const MAX_ROLE_RETRIES = 2;
 
 /** 每次 invoke 时给到 invoker 的 context，统一所有 role service 入参 shape */
 export interface InvocationContext {
@@ -39,9 +45,11 @@ export interface InvocationContext {
 
 @Injectable()
 export class AgentInvoker {
+  private readonly log = new Logger(AgentInvoker.name);
   private readonly execution: AgentExecutionSupport;
   private readonly relay: AgentPlaygroundEventRelay;
   private readonly policy: AgentInvocationPolicy;
+  private readonly abortRegistry: MissionAbortRegistry;
 
   constructor(
     runner: AgentRunner,
@@ -49,6 +57,7 @@ export class AgentInvoker {
     abortRegistry: MissionAbortRegistry,
     failureLearner: FailureLearnerService,
   ) {
+    this.abortRegistry = abortRegistry;
     this.execution = new AgentExecutionSupport(runner, abortRegistry);
     this.relay = new AgentPlaygroundEventRelay(eventBus);
     // ★ 业务链修2 (2026-05-06): 把 abortRegistry 注入 relay，让 tickCost 在 budget
@@ -57,14 +66,87 @@ export class AgentInvoker {
     this.policy = new AgentInvocationPolicy(failureLearner);
   }
 
+  /**
+   * Invoke a role agent with transient-error retry (up to MAX_ROLE_RETRIES extra attempts).
+   *
+   * R2-#46: role-level retry + degradation reporting.
+   *   - Retries ONLY on transient errors (network/5xx/rate-limit) detected by isRetryableError.
+   *   - Non-transient errors (context overflow, auth, 4xx) surface immediately.
+   *   - After all retries are exhausted, emits "agent-playground.stage:degraded" so the UI
+   *     can surface partial failure without crashing the whole mission.
+   *   - AbortSignal abort bypasses retry immediately.
+   */
   async invoke<TSpec extends Parameters<AgentRunner["run"]>[0]>(
     Spec: TSpec,
     input: Parameters<AgentRunner["run"]>[1],
     ctx: InvocationContext,
   ): Promise<Awaited<ReturnType<AgentRunner["run"]>>> {
-    return this.execution.invoke(Spec, input, ctx, async (event) => {
+    const onEvent = async (event: IAgentEvent) => {
       await this.relay.relayAgentEvents([event], ctx);
-    });
+    };
+
+    let lastError: Error = new Error("unknown role invocation error");
+    for (let attempt = 0; attempt <= MAX_ROLE_RETRIES; attempt++) {
+      try {
+        return await this.execution.invoke(Spec, input, ctx, onEvent);
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+
+        // Never retry on abort signal
+        if (ctx.missionId) {
+          const signal = this.abortRegistry.getSignal(ctx.missionId);
+          if (signal?.aborted) {
+            throw lastError;
+          }
+        }
+
+        const isTransient = isRetryableError(lastError.message);
+        if (attempt < MAX_ROLE_RETRIES && isTransient) {
+          const delayMs = calculateBackoffDelay(attempt);
+          this.log.warn(
+            `[AgentInvoker] role=${ctx.role} mission=${ctx.missionId} attempt=${attempt + 1}/${MAX_ROLE_RETRIES + 1} transient error — retrying in ${delayMs}ms: ${lastError.message}`,
+          );
+          await sleep(delayMs);
+        } else {
+          // Permanent error or exhausted retries — emit degraded event then re-throw
+          const isDegraded = attempt >= MAX_ROLE_RETRIES && isTransient;
+          if (isDegraded) {
+            this.log.error(
+              `[AgentInvoker] role=${ctx.role} mission=${ctx.missionId} degraded after ${MAX_ROLE_RETRIES + 1} attempts: ${lastError.message}`,
+            );
+          }
+          // R2-#46: emit degraded event so UI can surface partial failure.
+          // Uses the registered "stage:degraded" type (passthrough schema accepts
+          // all fields); a dedicated role-level degraded type would need an
+          // events-file change outside this service whitelist, so stage:degraded
+          // is the seam for now.
+          await this.relay
+            .emitEvent({
+              type: "agent-playground.stage:degraded",
+              missionId: ctx.missionId,
+              userId: ctx.userId,
+              agentId: ctx.agentId,
+              payload: {
+                stage: ctx.role,
+                reason: `role degraded after ${attempt + 1} attempt(s): ${lastError.message.slice(0, 300)}`,
+                role: ctx.role,
+                agentId: ctx.agentId,
+                attempts: attempt + 1,
+                error: lastError.message.slice(0, 500),
+                transient: isTransient,
+              },
+            })
+            .catch((emitErr: unknown) => {
+              this.log.warn(
+                `[AgentInvoker] degraded-event emit failed (non-fatal): ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+              );
+            });
+          throw lastError;
+        }
+      }
+    }
+    // Unreachable — TypeScript flow guard
+    throw lastError;
   }
 
   async preDisableKnownFailingModels(

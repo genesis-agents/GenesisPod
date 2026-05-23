@@ -209,12 +209,15 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           ).filter(
             (k) => this.businessOrch.STAGE_NUMBER[k] <= (stageNumber ?? 0),
           );
+          // ★ R2-#37 (2026-05-23): include crossState snapshot so crash-resume
+          //   can restore inter-stage data without re-running earlier stages.
           await this.missionCheckpoint
             .save(
               missionId,
               {
                 lastStage: checkpointTag,
                 topic: entry.input.topic,
+                crossState: entry.crossState.toJSON(),
               },
               completedKeys,
               "running",
@@ -370,6 +373,52 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         );
       }
     }
+    // ★ R2-#37 (2026-05-23): crash-resume — if a checkpoint exists for this
+    //   missionId (e.g. prior pod restart mid-run), restore crossState and
+    //   resume from the last completed step instead of restarting from scratch.
+    let resumeFromStepId: string | undefined;
+    let initialCrossStageState: Readonly<Record<string, unknown>> | undefined;
+    try {
+      const resumeDecision = await this.missionCheckpoint.canResume(missionId);
+      if (resumeDecision.canResume && resumeDecision.snapshot) {
+        const snap = resumeDecision.snapshot;
+        // completedKeys is an array of step IDs already finished; restore
+        // crossState payload so downstream stages get their inputs back.
+        const payload = snap.payload as {
+          lastStage?: string;
+          crossState?: Record<string, unknown>;
+        };
+        if (payload.crossState) {
+          const entry = this.sessions.get(missionId);
+          if (entry) {
+            const restored = PlaygroundCrossStageState.fromJSON(
+              payload.crossState,
+            );
+            // Replace the in-memory crossState on the session entry
+            (entry as { crossState: PlaygroundCrossStageState }).crossState =
+              restored;
+            initialCrossStageState = payload.crossState;
+          }
+        }
+        // The last completed step is the highest-stageNumber key in completedKeys
+        if (snap.completedKeys.length > 0) {
+          const stageNumber = this.businessOrch.STAGE_NUMBER;
+          const sorted = [...snap.completedKeys].sort(
+            (a, b) => (stageNumber[a] ?? 0) - (stageNumber[b] ?? 0),
+          );
+          resumeFromStepId = sorted[sorted.length - 1];
+        }
+        this.log.log(
+          `[R2-#37 crash-resume] mission ${missionId} resuming from stepId="${resumeFromStepId}" (${snap.completedKeys.length} completed steps)`,
+        );
+      }
+    } catch (resumeErr) {
+      // Non-fatal: if resume load fails just start fresh
+      this.log.warn(
+        `[R2-#37 crash-resume] mission ${missionId} checkpoint load failed (will start fresh): ${resumeErr instanceof Error ? resumeErr.message : String(resumeErr)}`,
+      );
+    }
+
     // ★ 2026-05-05 增量更新："更新"按钮 → input.inheritFromMissionId 携带源 mission；
     //   从源 mission DB row hydrate plan（dimensions+themeSummary）到 entry.crossState.lastPlan，
     //   下游 S2 hook 检测到 lastPlan 已就绪即跳过 LLM 调用并 emit synthetic plan event。
@@ -406,6 +455,10 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           userId,
           tenantId: workspaceId,
           signal: session.missionAbort.signal,
+          // ★ R2-#37 (2026-05-23): crash-resume — pass resume context when
+          //   a prior checkpoint was found and restored above.
+          resumeFromStepId,
+          initialCrossStageState,
           // ★ 2026-05-06 (A 架构优化): orchestrator 已内置 stage:started/completed/failed
           //   事件机制，但之前 dispatcher 没传 onEvent → 全部丢弃，导致 stage 文件
           //   被迫各自手写 emit stage:started/completed（5 个文件还漏发）。

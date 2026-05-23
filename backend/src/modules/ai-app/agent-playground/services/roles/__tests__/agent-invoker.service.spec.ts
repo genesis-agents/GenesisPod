@@ -999,6 +999,129 @@ describe("AgentInvoker relay via invoke.onEvent", () => {
   });
 });
 
+// ─── R2-#46: invoke retry + degradation ──────────────────────────────────────
+
+describe("AgentInvoker.invoke — R2-#46 retry + degradation", () => {
+  it("retries on transient error and succeeds on second attempt", async () => {
+    const runner = makeRunner();
+    const eventBus = makeEventBus();
+    const abortRegistry = makeAbortRegistry();
+    const failureLearner = makeFailureLearner();
+    const svc = new AgentInvoker(
+      runner as never,
+      eventBus as never,
+      abortRegistry as never,
+      failureLearner as never,
+    );
+
+    // First call throws a transient error (network failure), second succeeds
+    runner.run
+      .mockRejectedValueOnce(new Error("network timeout — ECONNRESET"))
+      .mockResolvedValueOnce({
+        state: "completed",
+        output: { result: "ok" },
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      });
+
+    const result = await svc.invoke({} as never, {}, baseCtx);
+    expect(result.state).toBe("completed");
+    expect(runner.run).toHaveBeenCalledTimes(2);
+    // no degraded event emitted (succeeded before exhausting retries)
+    const degradedCall = eventBus.emit.mock.calls.find(
+      (c) => c[0].type === "agent-playground.stage:degraded",
+    );
+    expect(degradedCall).toBeUndefined();
+  });
+
+  it("permanently-failing role: exhausts retries, emits degraded event, then throws", async () => {
+    const runner = makeRunner();
+    const eventBus = makeEventBus();
+    const abortRegistry = makeAbortRegistry();
+    const failureLearner = makeFailureLearner();
+    const svc = new AgentInvoker(
+      runner as never,
+      eventBus as never,
+      abortRegistry as never,
+      failureLearner as never,
+    );
+
+    // All 3 attempts (1 + 2 retries) throw a transient error → degraded after exhausting
+    const transientErr = new Error("503 Service Unavailable");
+    runner.run.mockRejectedValue(transientErr);
+
+    await expect(svc.invoke({} as never, {}, baseCtx)).rejects.toThrow(
+      transientErr,
+    );
+    // 1 original + 2 retries = 3 total
+    expect(runner.run).toHaveBeenCalledTimes(3);
+    // degraded event must be emitted
+    const degradedCall = eventBus.emit.mock.calls.find(
+      (c) => c[0].type === "agent-playground.stage:degraded",
+    );
+    expect(degradedCall).toBeDefined();
+    expect(degradedCall![0].payload.transient).toBe(true);
+    expect(degradedCall![0].payload.attempts).toBe(3);
+    expect(degradedCall![0].payload.role).toBe("researcher");
+  });
+
+  it("permanent (non-transient) error: does not retry, emits degraded immediately, then throws", async () => {
+    const runner = makeRunner();
+    const eventBus = makeEventBus();
+    const abortRegistry = makeAbortRegistry();
+    const failureLearner = makeFailureLearner();
+    const svc = new AgentInvoker(
+      runner as never,
+      eventBus as never,
+      abortRegistry as never,
+      failureLearner as never,
+    );
+
+    // context_length_exceeded is a non-retryable error
+    const permanentErr = new Error("context_length_exceeded: token limit hit");
+    runner.run.mockRejectedValue(permanentErr);
+
+    await expect(svc.invoke({} as never, {}, baseCtx)).rejects.toThrow(
+      permanentErr,
+    );
+    // Non-transient: only 1 attempt, no retry
+    expect(runner.run).toHaveBeenCalledTimes(1);
+    // degraded event still emitted (non-transient=false)
+    const degradedCall = eventBus.emit.mock.calls.find(
+      (c) => c[0].type === "agent-playground.stage:degraded",
+    );
+    expect(degradedCall).toBeDefined();
+    expect(degradedCall![0].payload.transient).toBe(false);
+    expect(degradedCall![0].payload.attempts).toBe(1);
+  });
+
+  it("aborted signal skips retry immediately", async () => {
+    const controller = new AbortController();
+    const runner = makeRunner();
+    const eventBus = makeEventBus();
+    const abortRegistry = makeAbortRegistry(controller.signal);
+    const failureLearner = makeFailureLearner();
+    const svc = new AgentInvoker(
+      runner as never,
+      eventBus as never,
+      abortRegistry as never,
+      failureLearner as never,
+    );
+
+    // Abort before the invocation throws
+    controller.abort();
+    const transientErr = new Error("network timeout — ECONNRESET");
+    runner.run.mockRejectedValue(transientErr);
+
+    await expect(svc.invoke({} as never, {}, baseCtx)).rejects.toThrow(
+      transientErr,
+    );
+    // Aborted: only 1 attempt despite transient error
+    expect(runner.run).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ─── clearMissionRelayState ───────────────────────────────────────────────────
 
 describe("AgentInvoker.clearMissionRelayState", () => {
