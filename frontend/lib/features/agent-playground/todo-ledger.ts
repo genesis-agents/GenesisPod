@@ -1493,7 +1493,9 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       // ★ 失败码优先级：innerFailureCode（子 agent 真实码）> failureCode（编排层码）。
       //   两者都缺时才显示"未知失败码"——避免把已知的 ORCH_* 码也吞成"未知"。
       const code = innerCode ?? failureCode ?? '未知失败码';
-      const reason = innerMessage ? `：${innerMessage.trim().slice(0, 120)}` : '';
+      const reason = innerMessage
+        ? `：${innerMessage.trim().slice(0, 120)}`
+        : '';
       const target = order
         .map((id) => todos.get(id)!)
         .reverse()
@@ -1899,6 +1901,11 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
   }
 
   // 用 agents.phase 反向覆盖 dim todos 的 in_progress / done 状态
+  // ★ 2026-05-23 P2-fe single-source: agent.phase 只作为 in_progress / done 的粗粒度信号。
+  //   "failed" 覆盖仅在 dim 没有任何下游 chapter pipeline 时才生效（真正的采集失败）。
+  //   若 dim 已进入 chapter pipeline（chapters.length > 0），pipeline 校准循环（下方）
+  //   是唯一 status 权威来源 —— 由它负责 failed / done / in_progress 判定，
+  //   杜绝"researcher interim phase=failed → 顶层显示采集失败，detail 显示通过章节"的矛盾。
   const dimTodos = order
     .map((id) => todos.get(id)!)
     .filter((td) => td.scope === 'dimension');
@@ -1918,17 +1925,27 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       td.startedAt = td.startedAt ?? matching.startedAt ?? td.createdAt;
       td.endedAt = matching.endedAt ?? td.endedAt;
     } else if (matching.phase === 'failed' && td.status !== 'cancelled') {
-      td.status = 'failed';
-      td.startedAt = td.startedAt ?? matching.startedAt ?? td.createdAt;
-      td.endedAt = matching.endedAt ?? td.endedAt;
+      // ★ 2026-05-23 P2-fe single-source: agent.phase==='failed' is an interim signal
+      //   from agent:lifecycle. If the dimension already has chapters in the pipeline,
+      //   the downstream chapter pipeline is authoritative (the calibration loop below
+      //   will set failed/done correctly). Only apply the 'failed' override when there
+      //   is NO chapter pipeline — i.e. collection truly failed before any chapter was
+      //   ever started (no-findings path).
+      const pipelineKey = td.pipelineKey ?? td.dimensionRef;
+      const pipeline = dimensionPipelines.get(pipelineKey);
+      const hasChapters = pipeline && pipeline.chapters.length > 0;
+      if (!hasChapters) {
+        td.status = 'failed';
+        td.startedAt = td.startedAt ?? matching.startedAt ?? td.createdAt;
+        td.endedAt = matching.endedAt ?? td.endedAt;
+      }
+      // If hasChapters: leave status as-is; pipeline calibration loop is authoritative.
     } else if (matching.phase === 'running' && td.status === 'pending') {
       td.status = 'in_progress';
       td.startedAt = matching.startedAt ?? td.createdAt;
     }
-    if (matching.phase === 'failed' && td.status !== 'cancelled') {
-      td.status = 'failed';
-      td.endedAt = matching.endedAt;
-    }
+    // NOTE: the duplicate hard-set of failed that was here (lines ~1928-1931) has been
+    // removed — it was redundant with the branch above and caused the contradiction bug.
   }
 
   // 用 dimensionPipelines 给 dim todos 补 chapter 产出 + 校准真实完成状态
@@ -1990,7 +2007,13 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
     }
 
     // 状态校准：必须 chapters 全过 + grade 出炉
-    if (td.status !== 'failed' && td.status !== 'cancelled') {
+    // ★ 2026-05-23 P2-fe single-source: pipeline calibration is authoritative once
+    //   chapters exist. We drop the old `td.status !== 'failed'` guard that prevented
+    //   correction of an interim 'failed' set by dimension:degraded or agent.phase.
+    //   The only truly final status we must not override is 'cancelled' (Leader abort).
+    //   Result: if chapters passed and grade arrived, status = done regardless of any
+    //   prior 'failed' set by degraded/lifecycle events.
+    if (td.status !== 'cancelled') {
       if (failed > 0) {
         td.status = 'failed';
       } else if (passed === total && pipeline.grade) {
