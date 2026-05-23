@@ -393,8 +393,8 @@ export function UserModelsManagement() {
           {/* 固定列宽：table-fixed + w-full 钉死表宽=容器宽，杜绝横向滚动；
               身份列(MODEL/MODEL ID)吃挤压并截断，徽章/操作列留足够宽度恒可见 */}
           <colgroup>
-            <col className="w-[18%]" />
-            <col className="w-[11%]" />
+            <col className="w-[12%]" />
+            <col className="w-[17%]" />
             <col className="w-[9%]" />
             <col className="w-[12%]" />
             <col className="w-[12%]" />
@@ -405,7 +405,7 @@ export function UserModelsManagement() {
           <THead className="bg-gray-50">
             <Tr>
               <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Model
+                Provider
               </Th>
               <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Model ID
@@ -481,7 +481,7 @@ export function UserModelsManagement() {
                   key={m.rowKey}
                   className={`hover:bg-gray-50 ${!m.isEnabled ? 'opacity-60' : ''}`}
                 >
-                  {/* MODEL */}
+                  {/* PROVIDER */}
                   <Td className="px-4 py-2.5">
                     <div className="flex items-center gap-3">
                       <div
@@ -491,14 +491,14 @@ export function UserModelsManagement() {
                             : 'bg-gradient-to-br from-blue-500 to-purple-600'
                         }`}
                       >
-                        {m.displayName.slice(0, 1).toUpperCase()}
+                        {m.provider.slice(0, 1).toUpperCase()}
                       </div>
                       <div className="flex min-w-0 items-center gap-2">
                         <TruncatedCell
                           className="min-w-0 font-medium text-gray-900"
-                          tooltip={`${m.displayName} · ${m.provider}`}
+                          tooltip={m.displayName}
                         >
-                          {m.displayName}
+                          {m.provider}
                         </TruncatedCell>
                         {m.isDefault && (
                           <StatusBadge
