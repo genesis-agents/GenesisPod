@@ -159,7 +159,7 @@ v2 把 `quality_rejected` 放进 `MissionTerminalOutcome` 平台 enum,但有些 
 - ⏳ **C4-BLOCKER-1(C5 前置)**:C4 改名未切进 DTO 层——`RunMissionInput.wallTimeMs` / `DEPTH_BUDGET_TIERS.wallTimeMs` / `resolveMissionWallTimeMs` / `mission-rerun-orchestrator` 写回 / `event-schemas` 仍旧名。C5 前必须把业务入口层 cap 字段对齐 `wallTimeCapMs`,否则 rebuilder 要内化一层 `wallTimeMs→wallTimeCapMs` 适配=改名被适配器化。
 - ⏳ **RM8(C5 前置)**:`MissionRecord` 接口无 `configSnapshot` 槽位,C5 无处安放到平台契约。
 - ✅ **C0 finalize 漏斗收口(2026-05-22/23 完成，原 MAJOR 已闭合)**:social + playground（含 s11-persist）+ radar 终态写**全部**经 `MissionLifecycleManager.finalize → arbiter.applyTerminalIfRunning` 单入口（条件写首写赢）；调用图核实 app 已无任何直调 store 终态写（markCompleted/markFailed/markCancelled/markFailedByLiveness）或直调 arbiter 的旁路点。social dispatcher 外层 catch（原只 emit 留 running）亦经 finalize 写终态（failureCode=runtime_crashed，取代 ad-hoc DISPATCHER_THREW）。机制看护：`mission-contract-guards.spec` 的「C0 终态写收口看护」（禁旧路径 + finalize 真用 × 3 app，baseline=0 焊死，进 verify:arch）。详见 §0.9。
-- ⏳ **CI 盲区**:`backend test:quick` 的 `testPathIgnorePatterns` 含 `guardrails`+`ai-social` → C3a 换算不变量 spec、social 契约 spec 在 PR 闸不执行。需拉进 CI(`verify:arch` 已存在但 test:quick 漏了这些路径)。
+- ✅ **CI 盲区(已澄清，2026-05-23)**:复核确认实际**已被覆盖**——CI(`.github/workflows/ci.yml`)有两步:`test:quick`(快速预检，排除 guardrails/ai-social 等慢/重测试)**与** `test:ci --coverage`(= `backend npm test` = **完整 jest 无 ignore**)。guardrails/C3a 换算不变量 spec、ai-social 契约 spec 在**全量 `test:ci` 步真跑**;C0 收口看护/预算换算守护/conformance 也在 `verify:arch`(pre-push)。`test:quick` 的排除只影响"快速预检"那一步，全量步兜底。结论:不动 `test:quick`(盲目移除排除项会让快速预检变慢/引入 wechat/browser 类 flaky)，原 ⏳ 担忧基本过期。
 
 ### C5/C6 接入设计共识(4 路敲定)
 
