@@ -121,7 +121,7 @@ export class EventRelayFramework {
    * P1 leak fix (2026-05-06 origin): exhaustedMissions Map 加 60min 过期清理防内存泄漏。
    *
    * ★ R2-#36 (ACCURATE COST): caller may pass the raw IAgentEvent[] from the
-   * RunResult so we can read per-model costUsd from "thinking" events
+   * RunResult so we can read per-model costUsd from thinking-type events
    * (computed by ReActLoop via ModelPricingRegistry.estimateCost).
    * When realCost > 0 we use it; otherwise we fall back to the flat
    * $3/1M-token heuristic (estimateUsdFromTokens).  The fallback is still

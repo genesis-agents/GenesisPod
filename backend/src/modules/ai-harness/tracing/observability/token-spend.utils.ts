@@ -73,7 +73,7 @@ export function estimateUsdFromTokens(tokens: number): number {
 }
 
 /**
- * ★ R2-#36: Extract real per-agent costUsd from "thinking" events emitted by
+ * ★ R2-#36: Extract real per-agent costUsd from thinking-type events emitted by
  * ReActLoop. Each "thinking" event carries `costUsd` computed by LlmExecutor
  * via ModelPricingRegistry.estimateCost (per-model pricing, not flat heuristic).
  *
