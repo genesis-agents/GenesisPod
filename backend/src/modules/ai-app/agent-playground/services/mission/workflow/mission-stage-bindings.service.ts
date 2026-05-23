@@ -41,6 +41,8 @@ import {
 import { FigureExtractorService } from "@/modules/ai-engine/facade";
 import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import { PostmortemClassifierService } from "@/modules/ai-harness/facade";
+// ★ DI 注入 → runtime import（非 import type），见上文 emitDecoratorMetadata 说明。
+import { MissionLifecycleManager } from "@/modules/ai-harness/facade";
 
 export interface MissionStageCtxArgs {
   missionId: string;
@@ -94,6 +96,8 @@ export class MissionStageBindingsService {
     private readonly reportEvaluation: ReportEvaluationService,
     private readonly qualityTraceCompute: QualityTraceComputeService,
     private readonly postmortemClassifier: PostmortemClassifierService,
+    // ★ C0/G1：终态写唯一入口，透进 CommonDeps 让 s11-persist 经 finalize 仲裁。
+    private readonly lifecycleManager: MissionLifecycleManager,
   ) {}
 
   buildCtx(args: MissionStageCtxArgs): MissionContext {
@@ -128,6 +132,7 @@ export class MissionStageBindingsService {
       steward: this.stewardService,
       invoker: this.invoker,
       store: this.store,
+      lifecycleManager: this.lifecycleManager,
       missionState: this.missionState,
       abortRegistry: this.abortRegistry,
       runner: this.runner,

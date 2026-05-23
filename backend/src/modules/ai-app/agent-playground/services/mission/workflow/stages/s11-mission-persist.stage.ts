@@ -142,30 +142,32 @@ async function runPersistInner(
             },
           },
         };
-        const won = await deps.store.applyTerminalIfRunning(
+        // ★ C0/G1：终态写经 finalize 单入口（arbiter=store 条件写首写赢），赢了才广播。
+        await deps.lifecycleManager.finalize<PlaygroundTerminalExtra>({
           missionId,
-          failIntent,
-        );
-        if (won) {
-          await deps
-            .emit({
-              type: "agent-playground.mission:failed",
-              missionId,
-              userId,
-              payload: {
-                reason: "chapter_content_incomplete",
-                nonEmptySections: nonEmptySections.length,
-                chapters: substantiveSections.length,
-                totalChars,
-              },
-            })
-            // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
-            .catch((emitErr: unknown) => {
-              deps.log.warn(
-                `[s11 ${missionId}] emit mission:failed (chapter_content_incomplete) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
-              );
-            });
-        }
+          intent: failIntent,
+          arbiter: deps.store,
+          onWon: async () => {
+            await deps
+              .emit({
+                type: "agent-playground.mission:failed",
+                missionId,
+                userId,
+                payload: {
+                  reason: "chapter_content_incomplete",
+                  nonEmptySections: nonEmptySections.length,
+                  chapters: substantiveSections.length,
+                  totalChars,
+                },
+              })
+              // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+              .catch((emitErr: unknown) => {
+                deps.log.warn(
+                  `[s11 ${missionId}] emit mission:failed (chapter_content_incomplete) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+                );
+              });
+          },
+        });
         return;
       }
 
@@ -185,29 +187,31 @@ async function runPersistInner(
             },
           },
         };
-        const won = await deps.store.applyTerminalIfRunning(
+        // ★ C0/G1：终态写经 finalize 单入口（arbiter=store 条件写首写赢），赢了才广播。
+        await deps.lifecycleManager.finalize<PlaygroundTerminalExtra>({
           missionId,
-          failIntent,
-        );
-        if (won) {
-          await deps
-            .emit({
-              type: "agent-playground.mission:failed",
-              missionId,
-              userId,
-              payload: {
-                reason: "chapter_content_below_threshold",
-                chapterCoverage: coverage,
-                totalChars,
-              },
-            })
-            // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
-            .catch((emitErr: unknown) => {
-              deps.log.warn(
-                `[s11 ${missionId}] emit mission:failed (chapter_content_below_threshold) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
-              );
-            });
-        }
+          intent: failIntent,
+          arbiter: deps.store,
+          onWon: async () => {
+            await deps
+              .emit({
+                type: "agent-playground.mission:failed",
+                missionId,
+                userId,
+                payload: {
+                  reason: "chapter_content_below_threshold",
+                  chapterCoverage: coverage,
+                  totalChars,
+                },
+              })
+              // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+              .catch((emitErr: unknown) => {
+                deps.log.warn(
+                  `[s11 ${missionId}] emit mission:failed (chapter_content_below_threshold) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+                );
+              });
+          },
+        });
         return;
       }
     }
@@ -241,28 +245,30 @@ async function runPersistInner(
           },
         },
       };
-      const won = await deps.store.applyTerminalIfRunning(
+      // ★ C0/G1：终态写经 finalize 单入口（arbiter=store 条件写首写赢），赢了才广播。
+      await deps.lifecycleManager.finalize<PlaygroundTerminalExtra>({
         missionId,
-        failIntent,
-      );
-      if (won) {
-        await deps
-          .emit({
-            type: "agent-playground.mission:failed",
-            missionId,
-            userId,
-            payload: {
-              reason: "leader_signoff_missing",
-              elapsedWallTimeMs: Date.now() - t0,
-            },
-          })
-          // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
-          .catch((emitErr: unknown) => {
-            deps.log.warn(
-              `[s11 ${missionId}] emit mission:failed (leader_signoff_missing) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
-            );
-          });
-      }
+        intent: failIntent,
+        arbiter: deps.store,
+        onWon: async () => {
+          await deps
+            .emit({
+              type: "agent-playground.mission:failed",
+              missionId,
+              userId,
+              payload: {
+                reason: "leader_signoff_missing",
+                elapsedWallTimeMs: Date.now() - t0,
+              },
+            })
+            // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+            .catch((emitErr: unknown) => {
+              deps.log.warn(
+                `[s11 ${missionId}] emit mission:failed (leader_signoff_missing) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+              );
+            });
+        },
+      });
       return;
     }
 
@@ -295,8 +301,12 @@ async function runPersistInner(
           },
         },
       };
-      // 写终态（条件写首写赢）。Lead 拒签没有广播 —— 与原 markFailed 行为一致。
-      await deps.store.applyTerminalIfRunning(missionId, failIntent);
+      // ★ C0/G1：终态写经 finalize 单入口。Lead 拒签无广播（与原 markFailed 行为一致）。
+      await deps.lifecycleManager.finalize<PlaygroundTerminalExtra>({
+        missionId,
+        intent: failIntent,
+        arbiter: deps.store,
+      });
     } else {
       const completedIntent: MissionTerminalIntent<PlaygroundTerminalExtra> = {
         status: "completed",
@@ -325,37 +335,38 @@ async function runPersistInner(
           },
         },
       };
-      // ★ C0/G1：唯一终态写入口。赢了才广播（防重复广播）。
-      const won = await deps.store.applyTerminalIfRunning(
+      // ★ C0/G1：唯一终态写入口（arbiter=store 条件写首写赢）。赢了才广播（防重复广播）。
+      await deps.lifecycleManager.finalize<PlaygroundTerminalExtra>({
         missionId,
-        completedIntent,
-      );
-      if (won) {
-        // ★ 2026-04-30: 真正的 mission:completed —— 在写库成功后 emit。
-        //   之前 S8 提前 emit 导致前端"假成功"且 DB 行还是 running。
-        await deps
-          .emit({
-            type: "agent-playground.mission:completed",
-            missionId,
-            userId,
-            payload: {
-              reviewScore: result.reviewScore,
-              costUsd: snap.poolCostUsd,
-              tokensUsed: snap.poolTokensUsed,
-              trajectoryStored: result.trajectoryStored,
-              elapsedWallTimeMs: Date.now() - t0,
-              verifierVerdicts: result.verdicts,
-              leaderSigned: result.leaderSignOff?.signed,
-              leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
-            },
-          })
-          // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
-          .catch((emitErr: unknown) => {
-            deps.log.warn(
-              `[s11 ${missionId}] emit mission:completed failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
-            );
-          });
-      }
+        intent: completedIntent,
+        arbiter: deps.store,
+        onWon: async () => {
+          // ★ 2026-04-30: 真正的 mission:completed —— 在写库成功后 emit。
+          //   之前 S8 提前 emit 导致前端"假成功"且 DB 行还是 running。
+          await deps
+            .emit({
+              type: "agent-playground.mission:completed",
+              missionId,
+              userId,
+              payload: {
+                reviewScore: result.reviewScore,
+                costUsd: snap.poolCostUsd,
+                tokensUsed: snap.poolTokensUsed,
+                trajectoryStored: result.trajectoryStored,
+                elapsedWallTimeMs: Date.now() - t0,
+                verifierVerdicts: result.verdicts,
+                leaderSigned: result.leaderSignOff?.signed,
+                leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
+              },
+            })
+            // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+            .catch((emitErr: unknown) => {
+              deps.log.warn(
+                `[s11 ${missionId}] emit mission:completed failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+              );
+            });
+        },
+      });
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

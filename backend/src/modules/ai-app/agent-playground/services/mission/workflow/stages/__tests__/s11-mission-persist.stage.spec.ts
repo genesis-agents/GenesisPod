@@ -23,6 +23,36 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
       // ★ C0/G1: applyTerminalIfRunning 替代 markCompleted / markFailed（条件写，首写赢）
       applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
     },
+    // ★ C0/G1: s11 终态写经 finalize 单入口；mock 复刻真实语义——委托 arbiter
+    //   (=deps.store) 的 applyTerminalIfRunning，故既有 applyTerminalIfRunning 断言仍成立。
+    lifecycleManager: {
+      finalize: jest.fn(
+        async (a: {
+          missionId: string;
+          intent: unknown;
+          arbiter: {
+            applyTerminalIfRunning: (
+              id: string,
+              intent: unknown,
+            ) => Promise<boolean>;
+          };
+          onWon?: () => Promise<void>;
+        }) => {
+          const won = await a.arbiter.applyTerminalIfRunning(
+            a.missionId,
+            a.intent,
+          );
+          if (won && a.onWon) {
+            try {
+              await a.onWon();
+            } catch {
+              // swallow（与真实 finalize 一致）
+            }
+          }
+          return { won };
+        },
+      ),
+    },
     ...overrides,
   } as unknown as MissionDeps;
 }
