@@ -507,20 +507,20 @@ export function UserModelsManagement() {
                     {(() => {
                       const brand = getProviderBrand(m.provider);
                       return (
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2">
                           {brand.logo ? (
                             <img
                               src={brand.logo}
                               alt={brand.name}
-                              className="h-6 w-6 shrink-0"
+                              className="h-5 w-5 shrink-0"
                             />
                           ) : (
-                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-gray-100 text-xs font-semibold text-gray-500">
+                            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-gray-100 text-[10px] font-semibold text-gray-500">
                               {m.provider.slice(0, 1).toUpperCase()}
                             </div>
                           )}
                           <TruncatedCell
-                            className="min-w-0 font-medium text-gray-900"
+                            className="min-w-0 text-sm font-medium text-gray-900"
                             tooltip={m.displayName}
                           >
                             {brand.name}

@@ -1180,7 +1180,7 @@ export default function AIModelSettings({
                       </div>
                       <div className="flex min-w-0 items-center gap-2">
                         <TruncatedCell
-                          className="max-w-[180px] font-medium text-gray-900"
+                          className="max-w-[180px] text-sm font-medium text-gray-900"
                           tooltip={model.displayName}
                         >
                           {getProviderBrand(model.provider).name}
