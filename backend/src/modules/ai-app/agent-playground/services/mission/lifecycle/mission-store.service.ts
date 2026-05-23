@@ -24,7 +24,38 @@ import {
   outcomeFromStatus,
   type MissionTerminalOutcome,
 } from "@/modules/ai-harness/facade";
+import type { PlaygroundConfigSnapshot } from "../rerun/playground-mission-input-rebuilder.service";
 import { MissionLifecycleHelper } from "./mission-lifecycle.helper";
+
+/**
+ * ★ C5/G7 S4b:userProfile 退化为 configSnapshot 的**读时投影**(单一真源=snapshot,
+ * 不再独立写 userProfile)。前端 Mission 设置弹窗读此 shape 不变;legacy 无 snapshot → null。
+ */
+function projectUserProfileView(
+  configSnapshot: unknown,
+): Record<string, unknown> | null {
+  const snap = configSnapshot as PlaygroundConfigSnapshot | null;
+  if (snap?.schemaVersion == null) return null;
+  const b = snap.businessInput;
+  return {
+    depth: b.depth,
+    language: snap.language,
+    budgetProfile: b.budgetProfile,
+    styleProfile: b.styleProfile,
+    lengthProfile: b.lengthProfile,
+    audienceProfile: b.audienceProfile,
+    withFigures: b.withFigures,
+    auditLayers: b.auditLayers,
+    concurrency: b.concurrency,
+    viewMode: b.viewMode,
+    searchTimeRange: b.searchTimeRange,
+    knowledgeBaseIds: b.knowledgeBaseIds,
+    inheritFromMissionId: b.inheritFromMissionId,
+    maxCredits: snap.budget.maxCredits,
+    budgetMultiplierOverride: snap.budget.budgetMultiplier,
+    wallTimeMs: snap.runtimeLimits.wallTimeCapMs,
+  };
+}
 import { MissionUpdateHelper } from "./mission-update.helper";
 import { MissionPostmortemHelper } from "./mission-postmortem.helper";
 import { MissionReportHelper } from "./mission-report.helper";
@@ -166,7 +197,7 @@ export class MissionStore {
         language: input.language,
         maxCredits: input.maxCredits,
         status: "running",
-        userProfile: (input.userProfile ?? null) as Prisma.InputJsonValue,
+        // ★ S4b:不再写 userProfile(configSnapshot 单一真源;读时投影回 userProfile shape)。
         configSnapshot: input.configSnapshot as
           | Prisma.InputJsonValue
           | undefined,
@@ -538,7 +569,8 @@ export class MissionStore {
       verdicts: row.verdicts,
       trajectoryStored: row.trajectoryStored,
       reportArtifactVersion: row.reportArtifactVersion,
-      userProfile: row.userProfile,
+      // ★ S4b:userProfile 是 configSnapshot 的读时投影(单一真源,不再独立存)。
+      userProfile: projectUserProfileView(row.configSnapshot),
       reconciliationReport: row.reconciliationReport,
       leaderJournal: row.leaderJournal,
       leaderOverallScore: row.leaderOverallScore,
