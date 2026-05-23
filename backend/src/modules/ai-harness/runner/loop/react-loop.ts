@@ -1525,6 +1525,8 @@ export class ReActLoop implements IAgentLoop {
     const completionTokens = response.usage?.outputTokens ?? 0;
     // PR-I 修复 #5: cacheReadTokens 由 LLM 提供商返回（Anthropic / OpenAI 都支持）
     const cacheReadTokens = response.usage?.cacheReadTokens ?? 0;
+    // PR-R3 P0: cacheCreationTokens (Anthropic prompt-cache WRITE fee) must be costed
+    const cacheWriteTokens = response.usage?.cacheCreationTokens ?? 0;
     // estimateCost 未注册 modelId 返回 null —— 不假装 0（会让 BudgetAccountant 假账）
     // null 透给 caller，BudgetAccountant.accountLLM 内部决定如何处理（仍计 token，cost 不增）
     const costUsd =
@@ -1533,6 +1535,7 @@ export class ReActLoop implements IAgentLoop {
         promptTokens,
         completionTokens,
         cacheReadTokens,
+        cacheWriteTokens,
       ) ?? null;
     // ★ 诊断关键：把 LLM 原始 content 一并返回，让上层在所有 error / empty 路径
     // 都能把 "LLM 实际吐了啥" 带进 event payload 和日志，避免再靠代码反推。

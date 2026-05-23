@@ -212,12 +212,14 @@ describe("RAGSearchTool", () => {
       });
     });
 
-    it("filters results below threshold", async () => {
+    it("full pipeline path: returns all results as-is (no cosine-threshold re-filter on rerank scores)", async () => {
+      // After Cohere rerank, scores are relevance_score (~0.3 median) not cosine.
+      // The tool must NOT re-apply the cosine-calibrated threshold on the full pipeline path.
       mockPipeline.query.mockResolvedValue({
         searchResults: [
           makeResult("a", 0.9),
-          makeResult("b", 0.4),
-          makeResult("c", 0.55),
+          makeResult("b", 0.4), // would be filtered if cosine threshold 0.5 applied
+          makeResult("c", 0.25), // would be filtered too
         ],
       });
 
@@ -225,16 +227,13 @@ describe("RAGSearchTool", () => {
         {
           query: "test",
           knowledgeBaseIds: ["kb-1"],
-          threshold: 0.5,
+          threshold: 0.5, // caller threshold should NOT be applied to rerank scores
         },
         buildContext(),
       );
 
-      expect(result.data!.results).toHaveLength(2);
-      expect(result.data!.results.map((r) => r.chunkId)).toEqual([
-        "child-a",
-        "child-c",
-      ]);
+      // All 3 results returned — pipeline already handled minScore + topK internally
+      expect(result.data!.results).toHaveLength(3);
     });
 
     it("uses default topK=5 when omitted", async () => {
@@ -250,16 +249,17 @@ describe("RAGSearchTool", () => {
       });
     });
 
-    it("uses default threshold=0.5 when omitted", async () => {
+    it("full pipeline path: returns results regardless of low scores (no threshold re-filter)", async () => {
+      // Verifies that even scores below 0.5 are passed through for the full pipeline path
       mockPipeline.query.mockResolvedValue({
-        searchResults: [makeResult("a", 0.6), makeResult("b", 0.49)],
+        searchResults: [makeResult("a", 0.6), makeResult("b", 0.15)],
       });
       const result = await tool.execute(
         { query: "x", knowledgeBaseIds: ["kb-1"] },
         buildContext(),
       );
-      expect(result.data!.results).toHaveLength(1);
-      expect(result.data!.results[0].chunkId).toBe("child-a");
+      // Both results pass through — pipeline manages its own filtering
+      expect(result.data!.results).toHaveLength(2);
     });
 
     it("returns success:false with error when query() throws Error", async () => {
@@ -328,6 +328,27 @@ describe("RAGSearchTool", () => {
         score: 0.95,
         metadata: expect.objectContaining({ source: "wiki", slug: "x" }),
       });
+    });
+
+    it("augmentor path: applies threshold to cosine scores", async () => {
+      const augmentor = {
+        simpleQuery: jest.fn().mockResolvedValue([
+          makeResult("high", 0.9),
+          makeResult("low", 0.3), // below threshold=0.5 → filtered
+        ]),
+      };
+      const toolWithAug = new RAGSearchTool(
+        mockPipeline as never,
+        augmentor as never,
+      );
+
+      const result = await toolWithAug.execute(
+        { query: "test", knowledgeBaseIds: ["kb-1"], threshold: 0.5 },
+        buildContext(),
+      );
+
+      expect(result.data!.results).toHaveLength(1);
+      expect(result.data!.results[0].chunkId).toBe("child-high");
     });
 
     it("uses ragPipeline full query() when augmentor is undefined", async () => {

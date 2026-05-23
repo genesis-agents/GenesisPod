@@ -5,8 +5,8 @@
  * Verifies that mission and stage spans are correctly started/ended via AgentTracer.
  */
 
-import { PlaygroundMissionSpanService } from "../../../ai-app/agent-playground/services/mission/workflow/playground-mission-span.service";
-import { AgentTracer } from "../../tracer/otel-tracer";
+import { PlaygroundMissionSpanService } from "../playground-mission-span.service";
+import { AgentTracer } from "@/modules/ai-harness/facade";
 
 function makeSpan() {
   return {
@@ -123,6 +123,25 @@ describe("PlaygroundMissionSpanService", () => {
       const { tracer } = makeTracer();
       const svc = new PlaygroundMissionSpanService(tracer);
       expect(() => svc.endMissionSpan("unknown", "completed")).not.toThrow();
+    });
+
+    it("startStageSpan: ends orphaned span (status aborted) before overwriting on re-entry", () => {
+      const { tracer } = makeTracer();
+      const mSpan = makeSpan();
+      const stageSpan1 = makeSpan();
+      const stageSpan2 = makeSpan();
+      tracer.startSpan
+        .mockReturnValueOnce(mSpan)
+        .mockReturnValueOnce(stageSpan1)
+        .mockReturnValueOnce(stageSpan2);
+      const svc = new PlaygroundMissionSpanService(tracer);
+      svc.startMissionSpan("m1", "topic");
+      svc.startStageSpan("m1", "s2-leader-plan", "plan");
+      // Re-enter the same stage (e.g. crash-resume) — orphaned span should be aborted
+      svc.startStageSpan("m1", "s2-leader-plan", "plan");
+      expect(stageSpan1.end).toHaveBeenCalledWith({ status: "aborted" });
+      // New span started for the re-entry
+      expect(tracer.startSpan).toHaveBeenCalledTimes(3);
     });
   });
 

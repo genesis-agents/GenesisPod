@@ -19,8 +19,7 @@
  * required, which is better than relying on responseFormat:"json" alone.
  */
 export const SIMPLE_LOOP_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
-  type: "object",
-  additionalProperties: true,
+  oneOf: [{ type: "object", additionalProperties: true }, { type: "array" }],
 };
 
 /**

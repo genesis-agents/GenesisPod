@@ -217,11 +217,18 @@ describe("ReActLoop — native structured output non-FC branch (R2-#35)", () => 
 // ── Schema shape smoke-tests ──────────────────────────────────────────────────
 
 describe("loop-output-schemas shape", () => {
-  it("SIMPLE_LOOP_OUTPUT_JSON_SCHEMA is a permissive object schema", () => {
-    expect(SIMPLE_LOOP_OUTPUT_JSON_SCHEMA).toMatchObject({
+  it("SIMPLE_LOOP_OUTPUT_JSON_SCHEMA is a permissive schema (object or array)", () => {
+    // P2 fix: removed top-level type:"object" constraint so arrays are not rejected
+    // by strict providers before the manual fallback can handle them.
+    expect(SIMPLE_LOOP_OUTPUT_JSON_SCHEMA).not.toHaveProperty("type");
+    expect(SIMPLE_LOOP_OUTPUT_JSON_SCHEMA).toHaveProperty("oneOf");
+    const oneOf = (SIMPLE_LOOP_OUTPUT_JSON_SCHEMA as { oneOf: unknown[] })
+      .oneOf;
+    expect(oneOf).toContainEqual({
       type: "object",
       additionalProperties: true,
     });
+    expect(oneOf).toContainEqual({ type: "array" });
   });
 
   it("REACT_LOOP_DECISION_JSON_SCHEMA covers thinking + action.kind", () => {

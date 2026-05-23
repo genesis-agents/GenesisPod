@@ -88,6 +88,7 @@ export class ModelPricingRegistry implements OnApplicationBootstrap {
           priceInputPerMillion: true,
           priceOutputPerMillion: true,
           priceCacheReadPerMillion: true,
+          priceCacheWritePerMillion: true,
         },
       });
 
@@ -117,6 +118,9 @@ export class ModelPricingRegistry implements OnApplicationBootstrap {
             : 0,
           cacheReadPricePerM: row.priceCacheReadPerMillion
             ? Number(row.priceCacheReadPerMillion)
+            : undefined,
+          cacheWritePricePerM: row.priceCacheWritePerMillion
+            ? Number(row.priceCacheWritePerMillion)
             : undefined,
         });
         registered += 1;
@@ -161,6 +165,7 @@ export class ModelPricingRegistry implements OnApplicationBootstrap {
     promptTokens: number,
     completionTokens: number,
     cacheReadTokens = 0,
+    cacheWriteTokens = 0,
   ): number | null {
     const p = this.byId.get(modelId);
     if (!p) {
@@ -180,11 +185,15 @@ export class ModelPricingRegistry implements OnApplicationBootstrap {
     const inputCost = (netInputTokens / 1e6) * p.inputPricePerM;
     const outputCost =
       (Math.max(0, completionTokens) / 1e6) * p.outputPricePerM;
-    const cacheCost =
+    const cacheReadCost =
       cacheReadTokens > 0 && p.cacheReadPricePerM != null
         ? (cacheReadTokens / 1e6) * p.cacheReadPricePerM
         : 0;
-    return inputCost + outputCost + cacheCost;
+    const cacheWriteCost =
+      cacheWriteTokens > 0 && p.cacheWritePricePerM != null
+        ? (cacheWriteTokens / 1e6) * p.cacheWritePricePerM
+        : 0;
+    return inputCost + outputCost + cacheReadCost + cacheWriteCost;
   }
 
   /**

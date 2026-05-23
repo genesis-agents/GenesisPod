@@ -38,7 +38,7 @@ import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
 import { KernelContext } from "@/common/context/kernel-context";
-import { BillingContext } from "@/modules/ai-infra/credits/billing-context.store";
+import { BillingContext } from "@/modules/ai-infra/facade";
 import { ModelPricingRegistry } from "../pricing/model-pricing.registry";
 import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 import { AiChatFailoverCallerService } from "./ai-chat-failover-caller.service";
@@ -293,10 +293,17 @@ export class AiChatService {
     model: string,
     inputTokens: number,
     outputTokens: number,
+    cacheReadTokens = 0,
+    cacheWriteTokens = 0,
   ): number | null {
     return (
-      this.pricingRegistry?.estimateCost(model, inputTokens, outputTokens) ??
-      null
+      this.pricingRegistry?.estimateCost(
+        model,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+      ) ?? null
     );
   }
 
@@ -1968,10 +1975,18 @@ export class AiChatService {
             agentId: kernelCtx?.agentId,
             model: currentModel,
             provider: currentModelConfig?.provider ?? "",
-            inputTokens: 0,
-            outputTokens: result.tokensUsed,
+            inputTokens: result.inputTokens ?? 0,
+            outputTokens: result.outputTokens ?? result.tokensUsed,
+            cacheReadTokens: result.cacheReadTokens ?? 0,
+            cacheWriteTokens: result.cacheCreationTokens ?? 0,
             estimatedCost:
-              this.costFor(currentModel, 0, result.tokensUsed) ?? 0,
+              this.costFor(
+                currentModel,
+                result.inputTokens ?? 0,
+                result.outputTokens ?? result.tokensUsed,
+                result.cacheReadTokens ?? 0,
+                result.cacheCreationTokens ?? 0,
+              ) ?? 0,
           });
         }
         this.emitMetrics({
@@ -1981,11 +1996,18 @@ export class AiChatService {
           module: "ai-engine",
           operation: "chat",
           userId,
-          inputTokens: 0,
-          outputTokens: result.tokensUsed,
+          inputTokens: result.inputTokens ?? 0,
+          outputTokens: result.outputTokens ?? result.tokensUsed,
           totalTokens: result.tokensUsed,
           latencyMs: duration,
-          estimatedCost: this.costFor(currentModel, 0, result.tokensUsed) ?? 0,
+          estimatedCost:
+            this.costFor(
+              currentModel,
+              result.inputTokens ?? 0,
+              result.outputTokens ?? result.tokensUsed,
+              result.cacheReadTokens ?? 0,
+              result.cacheCreationTokens ?? 0,
+            ) ?? 0,
           success: true,
           fallbackUsed: attempt > 0,
           retryCount: attempt,

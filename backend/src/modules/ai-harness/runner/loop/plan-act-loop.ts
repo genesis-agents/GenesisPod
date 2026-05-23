@@ -29,6 +29,7 @@ import type {
 import { ContextEnvelope } from "../../agents/core/context-envelope";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import type { ChatMessage } from "../../../ai-engine/llm/types";
+import { wrapExternalContent } from "@/modules/ai-engine/facade";
 import { ReActLoop } from "./react-loop";
 import { AIModelType } from "@prisma/client";
 import type { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
@@ -331,10 +332,18 @@ export class PlanActLoop implements IAgentLoop {
     results: ReadonlyMap<string, string>,
     specTaskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile,
   ): Promise<string> {
+    // Wrap each raw step result to prevent indirect prompt injection in the synthesis
+    // call — a step could have fetched and stored malicious web content that would
+    // otherwise be injected into the LLM context unguarded (2nd injection surface).
     const summaryBlock = plan.steps
-      .map(
-        (s) => `## ${s.title} (${s.id})\n${results.get(s.id) ?? "(no result)"}`,
-      )
+      .map((s) => {
+        const raw = results.get(s.id) ?? "(no result)";
+        const wrapped = wrapExternalContent(raw, {
+          source: "step-output",
+          maxLength: 8000,
+        });
+        return `## ${s.title} (${s.id})\n${wrapped}`;
+      })
       .join("\n\n");
 
     const res = await this.chatService.chat({

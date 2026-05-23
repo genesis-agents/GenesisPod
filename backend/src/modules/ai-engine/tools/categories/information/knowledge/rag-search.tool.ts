@@ -270,17 +270,32 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
       // only) that production was wired to. simpleQuery under-retrieves → starves
       // grounding → review scores stay low. Rerank degrades gracefully without a
       // Cohere key (falls back to hybrid scores), so no hard new dependency.
-      const raw = this.kbAugmentor
-        ? await this.kbAugmentor.simpleQuery(query, knowledgeBaseIds, topK)
-        : (
-            await this.ragPipeline.query({
-              query,
-              knowledgeBaseIds,
-              options: { topK },
-            })
-          ).searchResults;
-      const filtered = raw.filter((r) => r.score >= threshold);
-      const results: RAGSearchResultItem[] = filtered.map((r) => ({
+      // When using the KB augmentor (wiki-first path), results come from a cosine-space
+      // scorer and the caller threshold (default 0.5) is meaningful — apply it.
+      //
+      // When using the full RAG pipeline (HyDE → hybrid RRF → Cohere rerank → parent),
+      // do NOT re-apply the cosine-calibrated threshold: after Cohere rerank the score is
+      // relevance_score (~0.3 median, different distribution). Re-filtering here defeats
+      // the pipeline entirely — the pipeline already applied minScore + topK internally.
+      // Return its searchResults as-is (already relevance-ordered).
+      let raw: import("@/modules/ai-engine/rag/pipeline/rag-pipeline.interface").SearchResult[];
+      if (this.kbAugmentor) {
+        const augmentorResults = await this.kbAugmentor.simpleQuery(
+          query,
+          knowledgeBaseIds,
+          topK,
+        );
+        raw = augmentorResults.filter((r) => r.score >= threshold);
+      } else {
+        const pipelineResponse = await this.ragPipeline.query({
+          query,
+          knowledgeBaseIds,
+          options: { topK },
+        });
+        // Full pipeline already did minScore + rerank + topK; skip cosine threshold here.
+        raw = pipelineResponse.searchResults;
+      }
+      const results: RAGSearchResultItem[] = raw.map((r) => ({
         chunkId: r.childChunkId,
         documentId: r.documentId,
         content: r.content,
@@ -291,9 +306,7 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
           ...(r.metadata ?? {}),
         },
       }));
-      this.logger.log(
-        `RAG search returned ${results.length}/${raw.length} (threshold=${threshold})`,
-      );
+      this.logger.log(`RAG search returned ${results.length} results`);
       return {
         results,
         success: true,

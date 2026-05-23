@@ -114,6 +114,8 @@ export class RAGPipelineService {
     let rerankTime: number | undefined;
     let rankedResults = searchResults;
 
+    // Track whether rerank was actually applied (affects quality signal)
+    let rerankApplied = false;
     if (options.useRerank && searchResults.length > 0) {
       const rerankStart = Date.now();
       try {
@@ -123,6 +125,7 @@ export class RAGPipelineService {
           options.topK,
         );
         rerankTime = Date.now() - rerankStart;
+        rerankApplied = true;
         this.logger.debug(`Reranking completed in ${rerankTime}ms`);
       } catch (error) {
         this.logger.warn(`Reranking failed, using search scores: ${error}`);
@@ -148,6 +151,18 @@ export class RAGPipelineService {
       `RAG pipeline completed in ${totalTime}ms (hyde: ${hydeTime || 0}ms, search: ${searchTime}ms, rerank: ${rerankTime || 0}ms)`,
     );
 
+    // ★ P2 fix: when rerank was skipped (no key / failover failed / disabled), quality
+    // is "degraded" regardless of the hybrid-search quality. Rerank is the primary
+    // quality differentiator of the full pipeline; without it results are hybrid-only.
+    const finalQuality: RAGQuality =
+      searchQuality === "degraded" || !rerankApplied ? "degraded" : "full";
+    const finalDegradedReason =
+      searchQuality === "degraded"
+        ? degradedReason
+        : !rerankApplied
+          ? "rerank not applied (no key or disabled)"
+          : undefined;
+
     return {
       context,
       hydeQuery,
@@ -158,9 +173,8 @@ export class RAGPipelineService {
         rerank: rerankTime,
         total: totalTime,
       },
-      // ★ 全覆盖审计修 (2026-05-06): 透传 vector search 降级信号给调用方
-      quality: searchQuality,
-      degradedReason,
+      quality: finalQuality,
+      degradedReason: finalDegradedReason,
     };
   }
 

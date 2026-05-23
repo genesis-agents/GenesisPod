@@ -400,9 +400,8 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
             const restored = PlaygroundCrossStageState.fromJSON(
               payload.crossState,
             );
-            // Replace the in-memory crossState on the session entry
-            (entry as { crossState: PlaygroundCrossStageState }).crossState =
-              restored;
+            // Replace the in-memory crossState on the session entry (immutable update)
+            this.sessions.set(missionId, { ...entry, crossState: restored });
             initialCrossStageState = payload.crossState;
           }
         }

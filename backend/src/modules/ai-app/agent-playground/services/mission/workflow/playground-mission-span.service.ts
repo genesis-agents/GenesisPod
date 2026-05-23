@@ -40,12 +40,20 @@ export class PlaygroundMissionSpanService {
   /** Start a child stage span under the mission root span. */
   startStageSpan(missionId: string, stepId: string, primitive: string): void {
     if (!this.tracer) return;
+    const key = `${missionId}:${stepId}`;
+    // Guard: if a span for this key already exists (stage re-entry on crash-resume),
+    // end it as aborted before overwriting — prevents orphaned spans in the exporter.
+    const existing = this.stageSpans.get(key);
+    if (existing) {
+      existing.end({ status: "aborted" });
+      this.stageSpans.delete(key);
+    }
     const parent = this.missionSpans.get(missionId);
     const span = this.tracer.startSpan(`playground.stage.${stepId}`, {
       parent,
       attributes: { missionId, stepId, primitive },
     });
-    this.stageSpans.set(`${missionId}:${stepId}`, span);
+    this.stageSpans.set(key, span);
   }
 
   /** End a stage span, recording failure if provided. */
