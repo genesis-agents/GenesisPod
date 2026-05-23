@@ -12,6 +12,7 @@ import {
   type MissionTerminalIntent,
 } from "../mission-lifecycle-manager";
 import { MissionAbortRegistry, MissionAbortReason } from "../abort-registry";
+import { MissionFailureCode } from "../abstractions/mission-failure";
 
 /**
  * 内存版条件写 arbiter，模拟 `UPDATE ... WHERE status='running'` 的原子语义：
@@ -63,7 +64,10 @@ describe("MissionLifecycleManager.finalize (C0/G1)", () => {
     const arbiter = new InMemoryArbiter();
     await manager.finalize({
       missionId: "m1",
-      intent: { status: "failed", failureCode: "budget_exhausted" },
+      intent: {
+        status: "failed",
+        failureCode: MissionFailureCode.budget_exhausted,
+      },
       arbiter,
     });
     const onWon = jest.fn().mockResolvedValue(undefined);
@@ -80,18 +84,20 @@ describe("MissionLifecycleManager.finalize (C0/G1)", () => {
     expect(onWon).not.toHaveBeenCalled();
     // 终态仍是首写的 failed/budget_exhausted，未被 cancelled 覆盖
     expect(arbiter.finalIntent?.status).toBe("failed");
-    expect(arbiter.finalIntent?.failureCode).toBe("budget_exhausted");
+    expect(arbiter.finalIntent?.failureCode).toBe(
+      MissionFailureCode.budget_exhausted,
+    );
   });
 
   it("★ 三方失败来源并发抢终态 → 只一个赢、首写原因不被覆盖（C0 核心打穿验证）", async () => {
     const arbiter = new InMemoryArbiter();
     // dispatcher budget_exhausted + controller user_cancelled + liveness fallback 几乎同时
     const intents: MissionTerminalIntent[] = [
-      { status: "failed", failureCode: "budget_exhausted" },
+      { status: "failed", failureCode: MissionFailureCode.budget_exhausted },
       { status: "cancelled", reason: MissionAbortReason.user_cancelled },
       {
         status: "failed",
-        failureCode: "runtime_crashed",
+        failureCode: MissionFailureCode.runtime_crashed,
         reason: MissionAbortReason.orchestrator_shutdown,
       },
     ];

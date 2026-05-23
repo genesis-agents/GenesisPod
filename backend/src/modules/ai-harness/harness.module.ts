@@ -125,6 +125,7 @@ import { AiEngineToolsModule } from "../ai-engine/tools/tools.module";
 // ai-harness/memory（RuntimeMemoryModule @Global），无需在此 forwardRef。
 import { CreditsModule } from "../ai-infra/credits/credits.module";
 import { MissionAbortRegistry } from "./lifecycle/mission-lifecycle/abort-registry";
+import { MissionLifecycleManager } from "./lifecycle/mission-lifecycle/mission-lifecycle-manager";
 
 // PR-X18: Engine 端 DI tokens — harness 提供这 9 个 token 的 useExisting 绑定
 import {
@@ -182,6 +183,8 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架 + abort registry 上提为 @Global
     MissionRuntimeShellFramework,
     MissionAbortRegistry,
+    // ★ 2026-05-22 C0/G1: mission 唯一终态写入口（finalize 仲裁），@Global 供三 app 注入
+    MissionLifecycleManager,
 
     // ai-harness/guardrails (RuntimeResourceModule) 通过 DI token 拿 harness 能力探针，避免反向 import
     {
@@ -377,6 +380,8 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架 + abort registry @Global
     MissionRuntimeShellFramework,
     MissionAbortRegistry,
+    // ★ 2026-05-22 C0/G1: mission 唯一终态写入口 @Global
+    MissionLifecycleManager,
     AgentFactory,
     SpecAgentRegistry,
     LlmExecutor,

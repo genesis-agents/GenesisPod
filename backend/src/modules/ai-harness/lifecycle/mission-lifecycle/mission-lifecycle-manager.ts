@@ -24,6 +24,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { MissionAbortRegistry, MissionAbortReason } from "./abort-registry";
+import { MissionFailureCode } from "./abstractions/mission-failure";
 
 /**
  * ★ C0 / G1（2026-05-22）：最小平台 mission 状态值域（single source of truth）。
@@ -43,14 +44,19 @@ export type MissionTerminalStatus = "completed" | "failed" | "cancelled";
 /**
  * 终态意图——所有想把 mission 推到终态的来源（dispatcher / liveness / abort / controller）
  * 都提交这个意图给 MissionLifecycleManager.finalize，由它单点仲裁，而非各自直写 DB。
- * failureCode 暂为 string（C2 会升为 canonical enum）；extra 透传 app 的 metrics/tokens/cost。
+ *
+ * TExtra：app 专属富载荷（report / verdicts / metrics / tokens / cost 等）。平台不解释，
+ * 由该 app 的 MissionTerminalArbiter 落库。泛型保类型安全（不退化成 any 字典）。
+ * failureCode 已升为 canonical MissionFailureCode（C2，不再裸 string）；完成态留空。
  */
-export interface MissionTerminalIntent {
+export interface MissionTerminalIntent<
+  TExtra = Readonly<Record<string, unknown>>,
+> {
   readonly status: MissionTerminalStatus;
   readonly reason?: MissionAbortReason;
-  readonly failureCode?: string;
+  readonly failureCode?: MissionFailureCode;
   readonly errorMessage?: string;
-  readonly extra?: Readonly<Record<string, unknown>>;
+  readonly extra?: TExtra;
 }
 
 /**
@@ -60,10 +66,12 @@ export interface MissionTerminalIntent {
  *   - 返回 false = 本次写输了（行已被别的来源推到终态，本次 no-op，不得覆盖）
  * 这是 C0"先有单写 owner + 首写赢"承诺的落地点：杜绝 budget→cancelled→失联 这类层层改写。
  */
-export interface MissionTerminalArbiter {
+export interface MissionTerminalArbiter<
+  TExtra = Readonly<Record<string, unknown>>,
+> {
   applyTerminalIfRunning(
     missionId: string,
-    intent: MissionTerminalIntent,
+    intent: MissionTerminalIntent<TExtra>,
   ): Promise<boolean>;
 }
 
@@ -104,10 +112,10 @@ export class MissionLifecycleManager {
    *
    * @returns won=true 本次赢得终态写；won=false 已被别的来源终结（本次 no-op）。
    */
-  async finalize(args: {
+  async finalize<TExtra = Readonly<Record<string, unknown>>>(args: {
     missionId: string;
-    intent: MissionTerminalIntent;
-    arbiter: MissionTerminalArbiter;
+    intent: MissionTerminalIntent<TExtra>;
+    arbiter: MissionTerminalArbiter<TExtra>;
     /** 是否同时触发 abort signal（user cancel / budget / wall-time 场景置 true）。幂等。 */
     abort?: boolean;
     /** 仅在赢得仲裁后执行的副作用（事件广播 / 清理）。输了不执行。异常被吞（非致命）。 */

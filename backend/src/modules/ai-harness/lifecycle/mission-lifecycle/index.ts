@@ -4,6 +4,11 @@ export {
   MissionLifecycleManager,
   type MissionLifecycleStore,
   type MissionLifecycleBroadcaster,
+  // ★ C0/G1：唯一终态写入口的契约类型（app 实现 arbiter + 提交 intent）。
+  type MissionTerminalIntent,
+  type MissionTerminalArbiter,
+  type MissionLifecycleStatus,
+  type MissionTerminalStatus,
 } from "./mission-lifecycle-manager";
 export {
   MissionHealthMonitor,
