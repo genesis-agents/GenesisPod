@@ -24,6 +24,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import type {
+  AgentEventPayload,
   AgentLoopKind,
   HarnessFailureCode,
   IAgentEvent,
@@ -2113,7 +2114,7 @@ export class ReActLoop implements IAgentLoop {
   private makeEvent(
     agentId: string,
     type: IAgentEvent["type"],
-    payload: unknown,
+    payload: AgentEventPayload,
   ): IAgentEvent {
     return { type, agentId, timestamp: Date.now(), payload };
   }

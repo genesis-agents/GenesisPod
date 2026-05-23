@@ -15,6 +15,7 @@
 
 import { Injectable, Optional } from "@nestjs/common";
 import type {
+  AgentEventPayload,
   AgentLoopKind,
   IAgentEvent,
   IAgentLoop,
@@ -334,9 +335,8 @@ export class ReflexionLoop implements IAgentLoop {
   private event(
     agentId: string,
     type: IAgentEvent["type"],
-    payload: unknown,
+    payload: AgentEventPayload,
   ): IAgentEvent {
     return { type, agentId, timestamp: Date.now(), payload };
   }
 }
-

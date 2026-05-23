@@ -18,6 +18,7 @@
 
 import { Injectable } from "@nestjs/common";
 import type {
+  AgentEventPayload,
   AgentLoopKind,
   IAgentEvent,
   IAgentLoop,
@@ -373,9 +374,8 @@ export class PlanActLoop implements IAgentLoop {
   private event(
     agentId: string,
     type: IAgentEvent["type"],
-    payload: unknown,
+    payload: AgentEventPayload,
   ): IAgentEvent {
     return { type, agentId, timestamp: Date.now(), payload };
   }
 }
-

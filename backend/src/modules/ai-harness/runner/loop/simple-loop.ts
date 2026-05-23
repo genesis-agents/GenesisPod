@@ -25,6 +25,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import type {
+  AgentEventPayload,
   AgentLoopKind,
   IAgentEvent,
   IAgentLoop,
@@ -320,7 +321,7 @@ export class SimpleLoop implements IAgentLoop {
   private makeEvent(
     agentId: string,
     type: IAgentEvent["type"],
-    payload: unknown,
+    payload: AgentEventPayload,
   ): IAgentEvent {
     return { type, agentId, timestamp: Date.now(), payload };
   }

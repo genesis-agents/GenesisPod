@@ -23,6 +23,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import type {
+  AgentEventPayload,
   AgentLoopKind,
   IAgent,
   IAgentEvent,
@@ -419,7 +420,7 @@ export class LeaderWorkerLoop implements IAgentLoop {
   private event(
     agentId: string,
     type: IAgentEvent["type"],
-    payload: unknown,
+    payload: AgentEventPayload,
   ): IAgentEvent {
     return { type, agentId, timestamp: Date.now(), payload };
   }
