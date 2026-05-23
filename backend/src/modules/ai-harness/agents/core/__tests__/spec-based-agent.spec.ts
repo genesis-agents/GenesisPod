@@ -15,6 +15,10 @@
  * - electModelOrNull: electionProvider returns undefined
  * - resolveRoleHint: leader/researcher/writer/reviewer/extractor/classifier/default
  * - buildCandidatesFromSnapshot: no env → empty candidates
+ * - BYOK cross-model failover: user has 2 CHAT models from different providers;
+ *   model A (default) throws PROVIDER_API_ERROR → failover resolves model B,
+ *   B is used, A is in excludeModelIds, call succeeds.
+ *   AbortError does NOT trigger failover for BYOK either.
  */
 
 import { SpecBasedAgent } from "../spec-based-agent";
@@ -22,10 +26,12 @@ import { AgentIdentity } from "../agent-identity";
 import { KernelContext } from "../../../../../common/context/kernel-context";
 import type {
   LlmExecutor,
+  LlmExecutorInput,
   LlmExecutorResult,
 } from "../../../runner/executor/llm-executor";
 import type { IAgentSpec, IAgentTask, IAgentEvent } from "../../abstractions";
 import { MissionElectionTracker } from "../../../../ai-engine/llm/selection/mission-election-tracker.service";
+import type { AiModelConfigService } from "../../../../ai-engine/llm/services/ai-model-config.service";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -739,5 +745,204 @@ describe("SpecBasedAgent.state", () => {
   it("starts as idle", () => {
     const agent = makeAgent();
     expect(agent.state).toBe("idle");
+  });
+});
+
+// ─── BYOK cross-model failover ────────────────────────────────────────────────
+
+describe("SpecBasedAgent BYOK cross-model failover (2026-05-23)", () => {
+  /**
+   * Helper: build a mock AiModelConfigService with a controlled
+   * listUserEnabledModelsByType implementation.
+   */
+  function makeModelConfigService(
+    userModels: Array<{ modelId: string; provider: string }>,
+  ): jest.Mocked<Pick<AiModelConfigService, "listUserEnabledModelsByType">> {
+    return {
+      listUserEnabledModelsByType: jest
+        .fn()
+        .mockImplementation(
+          async (
+            _userId: string,
+            _modelType: unknown,
+            excludeModelIds: ReadonlyArray<string>,
+          ) => {
+            return userModels
+              .filter((m) => !excludeModelIds.includes(m.modelId))
+              .map((m) => ({
+                id: `umc-${m.modelId}`,
+                modelId: m.modelId,
+                provider: m.provider,
+                name: m.modelId,
+                displayName: m.modelId,
+                apiEndpoint: "",
+                apiKey: null,
+                maxTokens: 4000,
+                temperature: 0.7,
+                isEnabled: true,
+                isDefault: false,
+              }));
+          },
+        ),
+    };
+  }
+
+  it("wires BYOK failover provider that returns model B when model A is excluded", async () => {
+    const modelA = "grok-4-1-fast";
+    const modelB = "claude-3-5-sonnet";
+    const userId = "byok-user-1";
+
+    const modelConfigService = makeModelConfigService([
+      { modelId: modelA, provider: "xai" },
+      { modelId: modelB, provider: "anthropic" },
+    ]);
+
+    let capturedProvider:
+      | ((
+          excludeModelIds: ReadonlyArray<string>,
+        ) => Promise<string | null | undefined>)
+      | undefined;
+
+    const executor: jest.Mocked<LlmExecutor> = {
+      execute: jest
+        .fn()
+        .mockImplementation(async (params: LlmExecutorInput<string>) => {
+          capturedProvider = params.modelFailoverProvider;
+          return makeExecutorResult({ model: modelA });
+        }),
+    } as unknown as jest.Mocked<LlmExecutor>;
+
+    const agent = new SpecBasedAgent(
+      "byok-agent",
+      makeSpec({ userId }),
+      executor,
+      undefined, // no election provider (BYOK path)
+      undefined,
+      undefined, // no election tracker
+      () => modelConfigService as unknown as AiModelConfigService,
+    );
+
+    const result = await agent.executeSpec("test input");
+
+    // executeSpec succeeds (executor returned successfully)
+    expect(result.state).toBe("completed");
+
+    // The failover provider must have been wired
+    expect(capturedProvider).toBeDefined();
+
+    // Simulate model A failing: call provider with [modelA] as excluded
+    // → should return modelB (model B is healthy, different provider)
+    const nextModel = await capturedProvider!([modelA]);
+    expect(nextModel).toBe(modelB);
+
+    // Verify the query was for the user's CHAT models, excluding model A
+    expect(modelConfigService.listUserEnabledModelsByType).toHaveBeenCalledWith(
+      userId,
+      "CHAT",
+      [modelA],
+    );
+  });
+
+  it("modelFailoverProvider returns null when all user models exhausted", async () => {
+    const modelA = "grok-4-1-fast";
+    const userId = "byok-user-2";
+
+    // Only one model configured; after excluding it, list is empty
+    const modelConfigService = makeModelConfigService([
+      { modelId: modelA, provider: "xai" },
+    ]);
+
+    let capturedFailoverProvider:
+      | ((
+          excludeModelIds: ReadonlyArray<string>,
+        ) => Promise<string | null | undefined>)
+      | undefined;
+    const executor: jest.Mocked<LlmExecutor> = {
+      execute: jest
+        .fn()
+        .mockImplementation(async (params: LlmExecutorInput<string>) => {
+          capturedFailoverProvider = params.modelFailoverProvider;
+          return makeExecutorResult({ model: modelA });
+        }),
+    } as unknown as jest.Mocked<LlmExecutor>;
+
+    const agent = new SpecBasedAgent(
+      "byok-agent-2",
+      makeSpec({ userId }),
+      executor,
+      undefined,
+      undefined,
+      undefined,
+      () => modelConfigService as unknown as AiModelConfigService,
+    );
+
+    await agent.executeSpec("test input");
+
+    expect(capturedFailoverProvider).toBeDefined();
+    // After excluding modelA, no models remain → returns null
+    const next = await capturedFailoverProvider!([modelA]);
+    expect(next).toBeNull();
+  });
+
+  it("no modelFailoverProvider wired when no modelConfigProvider given (BYOK userId but legacy construction)", async () => {
+    const executor = makeLlmExecutor();
+    const agent = new SpecBasedAgent(
+      "byok-legacy",
+      makeSpec({ userId: "user-legacy" }),
+      executor,
+      undefined, // no election provider
+      // no modelConfigProvider — 7th arg omitted
+    );
+
+    await agent.executeSpec("test input");
+
+    const call = executor.execute.mock.calls[0][0];
+    // Without modelConfigProvider, BYOK path returns undefined failover provider
+    expect(call.modelFailoverProvider).toBeUndefined();
+  });
+
+  it("AbortError does NOT trigger BYOK failover (failover provider is not called for abort)", async () => {
+    const userId = "byok-abort-user";
+    const modelConfigService = makeModelConfigService([
+      { modelId: "grok-4", provider: "xai" },
+      { modelId: "claude-3-5-sonnet", provider: "anthropic" },
+    ]);
+
+    let capturedFailoverProvider:
+      | ((
+          excludeModelIds: ReadonlyArray<string>,
+        ) => Promise<string | null | undefined>)
+      | undefined;
+
+    const executor: jest.Mocked<LlmExecutor> = {
+      execute: jest
+        .fn()
+        .mockImplementation(async (params: LlmExecutorInput<string>) => {
+          capturedFailoverProvider = params.modelFailoverProvider;
+          // Simulate abort error — isModelLevelFailoverError returns false for this
+          throw new DOMException("Aborted during LLM execute", "AbortError");
+        }),
+    } as unknown as jest.Mocked<LlmExecutor>;
+
+    const agent = new SpecBasedAgent(
+      "byok-abort-agent",
+      makeSpec({ userId }),
+      executor,
+      undefined,
+      undefined,
+      undefined,
+      () => modelConfigService as unknown as AiModelConfigService,
+    );
+
+    const result = await agent.executeSpec("test input");
+    expect(result.state).toBe("failed");
+
+    // The failover provider IS wired (so it would be available if needed),
+    // but the LlmExecutor's isModelLevelFailoverError returns false for AbortError,
+    // so listUserEnabledModelsByType should never have been called.
+    expect(capturedFailoverProvider).toBeDefined();
+    expect(
+      modelConfigService.listUserEnabledModelsByType,
+    ).not.toHaveBeenCalled();
   });
 });

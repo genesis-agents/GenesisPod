@@ -33,6 +33,7 @@ import {
   type ElectionCandidate,
   type ElectionRoleHint,
 } from "../../../ai-engine/llm/selection";
+import type { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import type {
   IAgent,
@@ -105,6 +106,16 @@ export class SpecBasedAgent<
      */
     private readonly electionTrackerProvider?: () =>
       | MissionElectionTracker
+      | undefined,
+    /**
+     * 2026-05-23 BYOK cross-model failover：
+     * AiModelConfigService 的 lazy accessor，同 electionProvider 模式。
+     * 仅在 BYOK 路径（userId 存在）下使用：当用户的默认模型 provider 报
+     * PROVIDER_API_ERROR 时，从用户的同 modelType 配置中选下一个模型重试，
+     * 而非直接失败。不影响 election 路径（无 userId 的 admin/cron 路径）。
+     */
+    private readonly modelConfigProvider?: () =>
+      | AiModelConfigService
       | undefined,
   ) {
     this.logger = new Logger(`SpecBasedAgent:${id}`);
@@ -195,28 +206,58 @@ export class SpecBasedAgent<
         operationName: this.id,
         stubFn: this.spec.stubFn ? () => this.spec.stubFn!(ctx) : undefined,
         // ── Model-level failover provider ─────────────────────────────────
-        // Supply re-election callback so LlmExecutor can switch to a
-        // different model on provider-level errors (5xx / model-not-found /
-        // timeout / AllKeysFailed).  Only wired when electionProvider is
-        // available (i.e. this agent was created by AgentFactory with a
-        // full election setup).  BYOK path (userId present) returns {} from
-        // electModelOrNull and would also return {} here — the
-        // modelFailoverProvider closure safely returns null in that case.
-        modelFailoverProvider: this.electionProvider
-          ? async (excludeModelIds) => {
+        // Two paths depending on whether this is a BYOK user or admin/cron:
+        //
+        // BYOK path (effectiveUserId set): election is skipped (see
+        //   electModelOrNull line ~335: `if (userId) return {}`), so the
+        //   election-based closure would always return null.  Instead, wire a
+        //   BYOK-aware closure that queries the user's UserModelConfig rows
+        //   for the same modelType, ordered by isDefault/priority, excluding
+        //   already-failed models.  This gives cross-model failover WITHIN the
+        //   user's own same-type models — respecting BYOK intent (no cross-type
+        //   election, no admin models leaked).
+        //
+        // Admin/cron path (no effectiveUserId): use the existing re-election
+        //   closure via electModelOrNull (which runs ModelElectionService).
+        modelFailoverProvider: (() => {
+          if (effectiveUserId) {
+            // BYOK failover: try next user model of the same modelType.
+            const modelConfigService = this.modelConfigProvider?.();
+            if (!modelConfigService) return undefined;
+            return async (
+              excludeModelIds: ReadonlyArray<string>,
+            ): Promise<string | null> => {
               try {
-                const res = await this.electModelOrNull(
-                  taskProfile,
-                  effectiveUserId,
-                  effectiveEnv,
-                  excludeModelIds,
-                );
-                return res.modelId ?? null;
+                const models =
+                  await modelConfigService.listUserEnabledModelsByType(
+                    effectiveUserId,
+                    AIModelType.CHAT,
+                    excludeModelIds,
+                  );
+                return models[0]?.modelId ?? null;
               } catch {
                 return null;
               }
+            };
+          }
+          // Admin/cron path: re-election via ModelElectionService.
+          if (!this.electionProvider) return undefined;
+          return async (
+            excludeModelIds: ReadonlyArray<string>,
+          ): Promise<string | null> => {
+            try {
+              const res = await this.electModelOrNull(
+                taskProfile,
+                effectiveUserId,
+                effectiveEnv,
+                excludeModelIds,
+              );
+              return res.modelId ?? null;
+            } catch {
+              return null;
             }
-          : undefined,
+          };
+        })(),
       });
       if (election.reservation) {
         await this.electionTrackerProvider?.()?.commitReservation(

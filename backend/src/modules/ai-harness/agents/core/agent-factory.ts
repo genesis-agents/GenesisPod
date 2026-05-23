@@ -17,6 +17,7 @@ import type {
   MissionElectionReservation,
   MissionElectionTracker,
 } from "../../../ai-engine/llm/selection";
+import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import { AIModelType } from "@prisma/client";
@@ -84,6 +85,14 @@ export class AgentFactory {
      * PR-R: AgentRegistry — agent 实例中央目录，handoff 必需。
      */
     @Optional() private readonly agentRegistry?: AgentRegistry,
+    /**
+     * 2026-05-23 BYOK cross-model failover：
+     * AiModelConfigService 用于在 BYOK 路径下列举用户的同 modelType 候选模型，
+     * 供 SpecBasedAgent 在 provider 报错时切换到下一个用户配置的模型。
+     * 与 AiEngineLLMModule 同属一个 DI 图（HarnessModule imports AiEngineLLMModule），
+     * 用 @Optional() 避免非完整 DI 环境（unit test 等）崩溃。
+     */
+    @Optional() private readonly modelConfigService?: AiModelConfigService,
   ) {
     this.defaultLoop = reactLoop;
   }
@@ -223,6 +232,7 @@ export class AgentFactory {
       () => this.electionService,
       envSnapshot,
       () => this.electionTracker,
+      () => this.modelConfigService,
     );
   }
 

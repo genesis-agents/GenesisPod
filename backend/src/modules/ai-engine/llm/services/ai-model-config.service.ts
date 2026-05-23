@@ -958,6 +958,46 @@ export class AiModelConfigService {
   }
 
   /**
+   * BYOK cross-model failover helper — explicit userId variant of
+   * getAllEnabledModelsByType.
+   *
+   * Unlike getAllEnabledModelsByType (which reads userId from RequestContext),
+   * this method accepts userId as a parameter so it can be called from async
+   * closures that may not have a request context (e.g. model-failover callback
+   * in LlmExecutor).  Returns the user's enabled models of the given modelType,
+   * ordered by isDefault desc, priority desc, with excludeModelIds filtered out.
+   * Strict BYOK: returns empty array if the user has no UserModelConfig for the
+   * type (never falls back to admin AIModel rows).
+   */
+  async listUserEnabledModelsByType(
+    userId: string,
+    modelType: AIModelType,
+    excludeModelIds: ReadonlyArray<string> = [],
+  ): Promise<AIModelConfig[]> {
+    try {
+      const rows = await this.prisma.userModelConfig.findMany({
+        where: {
+          userId,
+          modelType,
+          isEnabled: true,
+          ...(excludeModelIds.length > 0 && {
+            modelId: { notIn: [...excludeModelIds] },
+          }),
+        },
+        orderBy: [{ isDefault: "desc" }, { priority: "desc" }],
+      });
+      return Promise.all(
+        rows.map((r) => this.toAIModelConfigFromUserConfig(r)),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[listUserEnabledModelsByType] Failed for user=${userId} type=${modelType}: ${(error as Error).message}`,
+      );
+      return [];
+    }
+  }
+
+  /**
    * 获取推理模型配置
    * 优先返回数据库配置的推理模型，否则根据名称推断
    */
