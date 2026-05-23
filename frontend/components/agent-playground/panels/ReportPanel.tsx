@@ -11,6 +11,7 @@ import {
   History,
 } from 'lucide-react';
 import type { ReportDraft } from '@/lib/features/agent-playground/derive';
+import { scoreColor } from '@/lib/features/agent-playground/formatters';
 import { Card } from '@/components/agent-playground/ui';
 
 const MD_COMPONENTS = {
@@ -82,12 +83,6 @@ interface Props {
   finalReport: ReportDraft['report'] | null;
   reports: ReportDraft[];
   finalScore?: number;
-}
-
-function scoreColor(s: number): string {
-  if (s >= 80) return 'text-emerald-600';
-  if (s >= 60) return 'text-amber-600';
-  return 'text-red-600';
 }
 
 /**

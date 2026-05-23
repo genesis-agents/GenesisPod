@@ -3,6 +3,10 @@
 import { Gavel, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import type { VerifierVerdict } from '@/lib/features/agent-playground/derive';
+import {
+  scoreColor,
+  scoreBgColor,
+} from '@/lib/features/agent-playground/formatters';
 import { Card, ExpandableText } from '@/components/agent-playground/ui';
 
 const VERIFIER_META: Record<
@@ -21,23 +25,11 @@ const TONE_BG: Record<string, string> = {
   default: 'bg-gray-50 text-gray-700 ring-gray-200',
 };
 
-function scoreColor(s: number): string {
-  if (s >= 80) return 'text-emerald-600';
-  if (s >= 60) return 'text-amber-600';
-  return 'text-red-600';
-}
-
 function ScoreBar({ score }: { score: number }) {
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
       <div
-        className={`h-full rounded-full ${
-          score >= 80
-            ? 'bg-emerald-400'
-            : score >= 60
-              ? 'bg-amber-400'
-              : 'bg-red-400'
-        }`}
+        className={`h-full rounded-full ${scoreBgColor(score)}`}
         style={{ width: `${Math.max(0, Math.min(100, score))}%` }}
       />
     </div>

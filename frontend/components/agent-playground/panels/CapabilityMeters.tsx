@@ -4,29 +4,15 @@ import type { ReactNode } from 'react';
 import { Coins, Trophy, Timer, Database } from 'lucide-react';
 import { StatCard } from '@/components/ui/cards';
 import type { DerivedView } from '@/lib/features/agent-playground/derive';
+import {
+  fmtUsd,
+  fmtTokens,
+  fmtWallTime,
+} from '@/lib/features/agent-playground/formatters';
 
 interface Props {
   view: DerivedView;
   wallTimeMs: number;
-}
-
-function formatUsd(n: number): string {
-  if (n === 0) return '$0.00';
-  if (n < 0.01) return `$${n.toFixed(4)}`;
-  if (n < 1) return `$${n.toFixed(3)}`;
-  return `$${n.toFixed(2)}`;
-}
-
-function formatTime(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.floor(ms / 60_000)}m ${Math.floor((ms % 60_000) / 1000)}s`;
-}
-
-function formatTokens(n: number): string {
-  if (n < 1000) return String(n);
-  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
 }
 
 type ToneKey = 'amber' | 'violet' | 'blue' | 'emerald';
@@ -48,8 +34,8 @@ export function CapabilityMeters({ view, wallTimeMs }: Props) {
     {
       icon: <Coins className="h-5 w-5" />,
       label: '消耗',
-      value: formatUsd(cost.costUsd),
-      sub: `${formatTokens(cost.tokensUsed)} tokens`,
+      value: fmtUsd(cost.costUsd),
+      sub: `${fmtTokens(cost.tokensUsed)} tokens`,
       tone: 'amber',
     },
     {
@@ -63,7 +49,7 @@ export function CapabilityMeters({ view, wallTimeMs }: Props) {
     {
       icon: <Timer className="h-5 w-5" />,
       label: '总耗时',
-      value: formatTime(wallTimeMs),
+      value: fmtWallTime(wallTimeMs),
       sub:
         view.mission.completedAt && view.mission.startedAt
           ? '已完成'

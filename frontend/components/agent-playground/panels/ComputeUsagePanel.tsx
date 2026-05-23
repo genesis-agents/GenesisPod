@@ -33,6 +33,13 @@ import type {
   DimensionPipelineState,
 } from '@/lib/features/agent-playground/derive';
 import type { MissionTodo } from '@/lib/features/agent-playground/todo-ledger';
+import {
+  fmtUsd,
+  fmtTokens,
+  fmtLatency,
+  STAGE_LABEL,
+  ROLE_LABEL,
+} from '@/lib/features/agent-playground/formatters';
 import { Card } from '@/components/agent-playground/ui';
 import { StatCard } from '@/components/ui/cards';
 
@@ -41,43 +48,6 @@ interface Props {
   agents: AgentLiveState[];
   todos: MissionTodo[];
   dimensionPipelines: Map<string, DimensionPipelineState>;
-}
-
-const STAGE_LABEL: Record<string, string> = {
-  leader: 'Leader',
-  researchers: 'Researchers',
-  reconciler: 'Reconciler',
-  analyst: 'Analyst',
-  writer: 'Writer',
-  reviewer: 'Reviewer',
-  critic: 'Critic',
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  leader: 'Leader',
-  researcher: 'Researcher',
-  analyst: 'Analyst',
-  writer: 'Writer',
-  reviewer: 'Reviewer',
-  critic: 'Critic',
-};
-
-function fmtUsd(n: number): string {
-  if (n === 0) return '$0';
-  if (n < 0.001) return `$${n.toFixed(5)}`;
-  if (n < 0.01) return `$${n.toFixed(4)}`;
-  return `$${n.toFixed(3)}`;
-}
-function fmtTokens(n: number): string {
-  if (n < 1000) return String(n);
-  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
-}
-function fmtLatency(ms: number): string {
-  if (!ms || ms <= 0) return '—';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
 }
 
 // ─── Section A · 总览 ────────────────────────────────
