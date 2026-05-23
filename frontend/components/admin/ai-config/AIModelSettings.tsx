@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Bot,
+  Brain,
   Eye,
   EyeOff,
   Search,
@@ -19,6 +20,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
 import { TruncatedCell } from '@/components/common/tables';
+import { getProviderBrand } from '@/lib/constants/ai-provider-logos';
 
 import { logger } from '@/lib/utils/logger';
 import { ClientDate } from '@/components/common/ClientDate';
@@ -1181,32 +1183,34 @@ export default function AIModelSettings({
                           className="max-w-[180px] font-medium text-gray-900"
                           tooltip={model.displayName}
                         >
-                          {model.provider}
+                          {getProviderBrand(model.provider).name}
                         </TruncatedCell>
-                        {model.isDefault && (
-                          <span className="flex-shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                            Default
-                          </span>
-                        )}
-                        {model.isReasoning && (
-                          <span className="flex-shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                            Reasoning
-                          </span>
-                        )}
                       </div>
                     </div>
                   </td>
 
-                  {/* Model ID — long IDs truncate + tooltip */}
+                  {/* Model ID + 默认(★)/推理 符号挂在模型上 */}
                   <td className="px-4 py-2.5">
-                    <code className="font-mono inline-flex items-center rounded bg-gray-100 px-2 py-1 text-xs">
-                      <TruncatedCell
-                        className="max-w-[200px] text-gray-700"
-                        tooltip={model.modelId}
-                      >
-                        {model.modelId}
-                      </TruncatedCell>
-                    </code>
+                    <div className="flex items-center gap-1.5">
+                      <code className="font-mono inline-flex min-w-0 items-center rounded bg-gray-100 px-2 py-1 text-xs">
+                        <TruncatedCell
+                          className="max-w-[200px] text-gray-700"
+                          tooltip={model.modelId}
+                        >
+                          {model.modelId}
+                        </TruncatedCell>
+                      </code>
+                      {model.isDefault && (
+                        <span title="默认模型" className="flex-shrink-0">
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                        </span>
+                      )}
+                      {model.isReasoning && (
+                        <span title="推理模型" className="flex-shrink-0">
+                          <Brain className="h-3.5 w-3.5 text-violet-500" />
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Type Badge */}

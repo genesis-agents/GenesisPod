@@ -5,7 +5,9 @@ import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { TruncatedCell } from '@/components/common/tables';
 import { StatusBadge } from '@/components/ui/badges';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { getProviderBrand } from '@/lib/constants/ai-provider-logos';
 import {
+  Brain,
   Check,
   Clock,
   Edit,
@@ -481,51 +483,54 @@ export function UserModelsManagement() {
                   key={m.rowKey}
                   className={`hover:bg-gray-50 ${!m.isEnabled ? 'opacity-60' : ''}`}
                 >
-                  {/* PROVIDER */}
+                  {/* PROVIDER —— 真实 provider：官方 logo + 正式名 */}
                   <Td className="px-4 py-2.5">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base font-semibold text-white shadow-sm ${
-                          isSystem
-                            ? 'bg-gradient-to-br from-emerald-500 to-teal-600'
-                            : 'bg-gradient-to-br from-blue-500 to-purple-600'
-                        }`}
-                      >
-                        {m.provider.slice(0, 1).toUpperCase()}
-                      </div>
-                      <div className="flex min-w-0 items-center gap-2">
-                        <TruncatedCell
-                          className="min-w-0 font-medium text-gray-900"
-                          tooltip={m.displayName}
-                        >
-                          {m.provider}
-                        </TruncatedCell>
-                        {m.isDefault && (
-                          <StatusBadge
-                            tone="info"
-                            label="Default"
-                            className="shrink-0"
-                          />
-                        )}
-                        {m.isReasoning && (
-                          <StatusBadge
-                            tone="warning"
-                            label="Reasoning"
-                            className="shrink-0"
-                          />
-                        )}
-                      </div>
-                    </div>
+                    {(() => {
+                      const brand = getProviderBrand(m.provider);
+                      return (
+                        <div className="flex items-center gap-2.5">
+                          {brand.logo ? (
+                            <img
+                              src={brand.logo}
+                              alt={brand.name}
+                              className="h-6 w-6 shrink-0"
+                            />
+                          ) : (
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-gray-100 text-xs font-semibold text-gray-500">
+                              {m.provider.slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                          <TruncatedCell
+                            className="min-w-0 font-medium text-gray-900"
+                            tooltip={m.displayName}
+                          >
+                            {brand.name}
+                          </TruncatedCell>
+                        </div>
+                      );
+                    })()}
                   </Td>
 
-                  {/* MODEL ID */}
+                  {/* MODEL ID —— 模型标识 + 默认(★)/推理 符号挂在模型上 */}
                   <Td className="px-4 py-2.5">
-                    <code
-                      className="font-mono inline-block max-w-[180px] truncate rounded bg-gray-100 px-2 py-1 align-middle text-xs"
-                      title={m.modelId}
-                    >
-                      {m.modelId}
-                    </code>
+                    <div className="flex items-center gap-1.5">
+                      <code
+                        className="font-mono min-w-0 truncate rounded bg-gray-100 px-2 py-1 text-xs"
+                        title={m.modelId}
+                      >
+                        {m.modelId}
+                      </code>
+                      {m.isDefault && (
+                        <span title="默认模型" className="shrink-0">
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                        </span>
+                      )}
+                      {m.isReasoning && (
+                        <span title="推理模型" className="shrink-0">
+                          <Brain className="h-3.5 w-3.5 text-violet-500" />
+                        </span>
+                      )}
+                    </div>
                   </Td>
 
                   {/* TYPE */}
