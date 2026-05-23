@@ -28,7 +28,10 @@ import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream'
 const FIXTURES = path.join(__dirname, '__fixtures__');
 
 describe('stage:lifecycle 单轨化无回归', () => {
-  it('mapStepIdToStageId 覆盖 13 个 backend stepId', () => {
+  it('mapStepIdToStageId 覆盖 backend playground.config.ts 真实 stepId（13 个 pipeline steps + s12 postlude）', () => {
+    // Source of truth: backend/src/modules/ai-app/agent-playground/playground.config.ts
+    // These are the REAL ids emitted in stage:lifecycle payloads.
+    // If any of these branches are deleted from mapStepIdToStageId, this test turns red.
     expect(mapStepIdToStageId('s1-budget')).toBe('leader');
     expect(mapStepIdToStageId('s2-leader-plan')).toBe('leader');
     expect(mapStepIdToStageId('s3-researcher-collect')).toBe('researchers');
@@ -36,15 +39,42 @@ describe('stage:lifecycle 单轨化无回归', () => {
     expect(mapStepIdToStageId('s5-reconciler')).toBe('analyst');
     expect(mapStepIdToStageId('s6-analyst')).toBe('analyst');
     expect(mapStepIdToStageId('s7-writer-outline')).toBe('writer');
-    expect(mapStepIdToStageId('s8-writer-draft')).toBe('writer');
-    expect(mapStepIdToStageId('s8b-section-quality-enhancement')).toBe(
-      'writer'
-    );
+    // s8-writer is the real emitted id (not s8-writer-draft)
+    expect(mapStepIdToStageId('s8-writer')).toBe('writer');
+    // s8b-quality-enhancement is the real emitted id (not s8b-section-quality-enhancement)
+    expect(mapStepIdToStageId('s8b-quality-enhancement')).toBe('writer');
     expect(mapStepIdToStageId('s9-critic')).toBe('reviewer');
-    expect(mapStepIdToStageId('s9b-objective-evaluation')).toBe('reviewer');
+    // s9b-objective-eval is the real emitted id (not s9b-objective-evaluation)
+    expect(mapStepIdToStageId('s9b-objective-eval')).toBe('reviewer');
     expect(mapStepIdToStageId('s10-leader-foreword-signoff')).toBe('leader');
     expect(mapStepIdToStageId('s11-persist')).toBe('leader');
+    // s12-self-evolution: fire-and-forget postlude (not in pipeline.steps but still mapped)
     expect(mapStepIdToStageId('s12-self-evolution')).toBe('leader');
+  });
+
+  it('mapStepIdToStageId returns non-null for every real config step id', () => {
+    // Exhaustive non-null guard: adding a new step to playground.config.ts without
+    // updating mapStepIdToStageId will NOT be caught here, but REMOVING a real-id
+    // branch in mapStepIdToStageId WILL turn this test red.
+    const realStepIds = [
+      's1-budget',
+      's2-leader-plan',
+      's3-researcher-collect',
+      's4-leader-assess',
+      's5-reconciler',
+      's6-analyst',
+      's7-writer-outline',
+      's8-writer',
+      's8b-quality-enhancement',
+      's9-critic',
+      's9b-objective-eval',
+      's10-leader-foreword-signoff',
+      's11-persist',
+      's12-self-evolution',
+    ] as const;
+    for (const id of realStepIds) {
+      expect(mapStepIdToStageId(id)).not.toBeNull();
+    }
   });
 
   it('mapStepIdToStageId 兼容旧 StageId 直传', () => {

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { MissionContext } from "./mission-context";
 import type { MissionDeps } from "./mission-deps";
+import { mapStepIdToFrontendStageId } from "../../../contracts/step-id-mapping.contract";
 import type { RunMissionInput } from "../../../dto/run-mission.dto";
 import type { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import type { MissionBudgetPool } from "@/modules/ai-harness/facade";
@@ -168,7 +169,7 @@ export class MissionStageBindingsService {
           missionId,
           userId,
           payload: {
-            stage: STEP_ID_TO_FRONTEND_STAGE_ID[stepId] ?? stepId,
+            stage: mapStepIdToFrontendStageId(stepId),
             stepId,
             reason: reason.slice(0, 500),
           },
@@ -177,21 +178,3 @@ export class MissionStageBindingsService {
     };
   }
 }
-
-/** dispatcher 同款映射（保持 source-of-truth 单一）—— 见 dispatcher 文件末尾 */
-const STEP_ID_TO_FRONTEND_STAGE_ID: Record<string, string> = {
-  "s1-budget": "s1-budget",
-  "s2-leader-plan": "s2-leader-plan",
-  "s3-researcher-collect": "s3-researchers",
-  "s4-leader-assess": "s4-leader-assess",
-  "s5-reconciler": "s5-reconciler",
-  "s6-analyst": "s6-analyst",
-  "s7-writer-outline": "s7-writer-outline",
-  "s8-writer": "s8-writer-draft",
-  "s8b-quality-enhancement": "s8b-quality-enhancement",
-  "s9-critic": "s9-critic-l4",
-  "s9b-objective-eval": "s9b-objective-evaluation",
-  "s10-leader-foreword-signoff": "s10-leader-signoff",
-  "s11-persist": "s11-persist",
-  "s12-self-evolution": "s12-self-evolution",
-};

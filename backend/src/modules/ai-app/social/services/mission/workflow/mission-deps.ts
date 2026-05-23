@@ -29,16 +29,8 @@ import type {
 } from "../../roles";
 import type { SocialMissionStore } from "../lifecycle/social-mission-store.service";
 
-export type { EmitFn };
-
-export type LifecycleFn = (
-  missionId: string,
-  userId: string,
-  agentId: string,
-  role: string,
-  phase: "started" | "completed" | "failed",
-  detail?: Record<string, unknown>,
-) => Promise<void>;
+import type { LifecycleFn } from "@/modules/ai-harness/facade";
+export type { EmitFn, LifecycleFn };
 
 /**
  * CommonDeps —— social mission 所有 stage 都用的依赖（PR-3c 合并版，未来 PR

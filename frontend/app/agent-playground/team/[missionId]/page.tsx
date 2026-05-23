@@ -176,6 +176,10 @@ export default function MissionDetailPage() {
         'agent-playground.mission:cancelled',
         // ★ 2026-04-30 (B 路线): 局部重跑完成也要 re-fetch persisted —— stage 产物已 patch
         'agent-playground.mission:rerun-completed',
+        // ★ 2026-05-23 #48: rerun 失败 / cascade-abort 也要 re-fetch —— 否则页面停留在
+        //   stale 状态（用户看到旧产物），错误信息无法显示。
+        'agent-playground.mission:rerun-failed',
+        'agent-playground.rerun:cascade-aborted',
         // ★ 2026-05-06 #83: mission:postlude:completed 表示 S12 自我进化 fire-and-forget
         //   也跑完，此时 mission row tokens_used / cost_usd / report_full 已最终落库，
         //   再 re-fetch 一次确保前端拿到最终数字（不只是 S11 完成时刻的快照）。

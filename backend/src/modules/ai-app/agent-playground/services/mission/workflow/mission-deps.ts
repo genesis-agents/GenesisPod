@@ -53,18 +53,9 @@ import type { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 import type { PostmortemClassifierService } from "@/modules/ai-harness/facade";
 import type { MissionLifecycleManager } from "@/modules/ai-harness/facade";
 
-/** 通用 emit 签名 — 2026-05-01 上提到 ai-harness/protocols/ipc/stage-emit.utils */
-import type { EmitFn } from "@/modules/ai-harness/facade";
-export type { EmitFn };
-
-export type LifecycleFn = (
-  missionId: string,
-  userId: string,
-  agentId: string,
-  role: string,
-  phase: "started" | "completed" | "failed",
-  detail?: Record<string, unknown>,
-) => Promise<void>;
+/** 通用 emit / lifecycle 签名 — 上提到 ai-harness/protocols/ipc/stage-emit.utils */
+import type { EmitFn, LifecycleFn } from "@/modules/ai-harness/facade";
+export type { EmitFn, LifecycleFn };
 
 // ─── Phase 0: CommonDeps（每个 stage 都注入）─────────────────────────
 export interface CommonDeps {

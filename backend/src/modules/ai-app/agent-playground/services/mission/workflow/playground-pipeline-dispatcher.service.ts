@@ -59,6 +59,7 @@ import { LeaderInvocationFactory } from "../leader-invocation.factory";
 import { PlaygroundBusinessOrchestrator } from "./playground-business-orchestrator.service";
 // ★ Stage 1 / S1-2 (2026-05-09,closes T3): cross-stage cache 改用 Z5 CrossStageState 容器
 import { PlaygroundCrossStageState } from "./playground-cross-stage-state";
+import { mapStepIdToFrontendStageId } from "../../../contracts/step-id-mapping.contract";
 
 export interface PipelineMissionSummary {
   readonly missionId: string;
@@ -1124,35 +1125,3 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
 }
 
 export type PipelineHookCtx = StageRunArgs["ctx"];
-
-/**
- * ★ 2026-05-06 (A 架构优化): step.id (PLAYGROUND_PIPELINE.steps) 与前端 todo-ledger
- * SystemStageId 不完全一致；orchestrator → frontend 桥接时做映射。
- *
- * 5 处不一致历史原因：
- *   - s3-researcher-collect → s3-researchers (前端按 group 命名)
- *   - s8-writer → s8-writer-draft (区分 outline 阶段)
- *   - s9-critic → s9-critic-l4 (L4 = layer-4)
- *   - s9b-objective-eval → s9b-objective-evaluation (前端全名)
- *   - s10-leader-foreword-signoff → s10-leader-signoff (前端简称)
- */
-const STEP_ID_TO_FRONTEND_STAGE_ID: Record<string, string> = {
-  "s1-budget": "s1-budget",
-  "s2-leader-plan": "s2-leader-plan",
-  "s3-researcher-collect": "s3-researchers",
-  "s4-leader-assess": "s4-leader-assess",
-  "s5-reconciler": "s5-reconciler",
-  "s6-analyst": "s6-analyst",
-  "s7-writer-outline": "s7-writer-outline",
-  "s8-writer": "s8-writer-draft",
-  "s8b-quality-enhancement": "s8b-quality-enhancement",
-  "s9-critic": "s9-critic-l4",
-  "s9b-objective-eval": "s9b-objective-evaluation",
-  "s10-leader-foreword-signoff": "s10-leader-signoff",
-  "s11-persist": "s11-persist",
-  "s12-self-evolution": "s12-self-evolution",
-};
-
-function mapStepIdToFrontendStageId(stepId: string): string {
-  return STEP_ID_TO_FRONTEND_STAGE_ID[stepId] ?? stepId;
-}

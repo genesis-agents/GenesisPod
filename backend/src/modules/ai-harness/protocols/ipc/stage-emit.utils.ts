@@ -29,6 +29,16 @@ export type EmitFn = (args: {
   payload: unknown;
 }) => Promise<void>;
 
+/** Agent lifecycle callback — any ai-app mission orchestrator lifecycle hook */
+export type LifecycleFn = (
+  missionId: string,
+  userId: string,
+  agentId: string,
+  role: string,
+  phase: "started" | "completed" | "failed",
+  detail?: Record<string, unknown>,
+) => Promise<void>;
+
 export interface StageTimerEmitOptions {
   /** 完整事件 type，由 ai-app 决定（如 "{app}.stage:completed"）*/
   eventType: string;

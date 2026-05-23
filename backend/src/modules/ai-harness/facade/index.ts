@@ -521,6 +521,7 @@ export {
   type StageTimer,
   type StageTimerEmitOptions,
   type EmitFn,
+  type LifecycleFn,
 } from "../protocols/ipc/stage-emit.utils";
 
 // 通用 stage instrumentation wrapper（消除 ai-app stage 文件的 50% boilerplate）
