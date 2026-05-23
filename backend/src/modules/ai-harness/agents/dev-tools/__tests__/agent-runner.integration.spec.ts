@@ -441,6 +441,84 @@ describe("AgentRunner.computeRunMetrics() — exitReason branches", () => {
     const { partialOutput } = priv.computeRunMetrics(events, "completed", true);
     expect(partialOutput).toBeUndefined();
   });
+
+  // ── partialOutput preference for budget/max-iter exits (2026-05-23) ──────────
+
+  it("LOOP_MAX_ITERATIONS: partialOutput = parsed finalize candidate from validation_failed, output stays undefined", () => {
+    // Arrange: a max-iter run where the last finalize parsed but failed business
+    // rules (e.g. too few findings). The validation_failed event carries the
+    // parsed object. No output event is emitted (max-iter path never emits one).
+    const priv = getPrivate();
+    const parsedFinalize = {
+      findings: [{ claim: "c1", evidence: "e1", source: "s1" }],
+    };
+    const events = [
+      buildEvent("validation_failed", { candidateOutput: parsedFinalize }),
+      buildEvent("error", { failureCode: "LOOP_MAX_ITERATIONS" }),
+      buildEvent("terminated", { reason: "error" }),
+    ];
+
+    const { partialOutput, exitReason, state } = priv.computeRunMetrics(
+      events,
+      "failed",
+      false,
+    );
+
+    // partialOutput holds the parsed finalize object, not undefined
+    expect(partialOutput).toEqual(parsedFinalize);
+    // state and exitReason remain failure-mode (not regressed)
+    expect(exitReason).toBe("max_iterations");
+    expect(state).toBe("failed");
+  });
+
+  it("LOOP_BUDGET_EXHAUSTED: parsed validation candidate preferred over raw output string", () => {
+    // Arrange: budget-exhausted run. The loop emits output{rawAssistantMessage}
+    // (a raw string, not structured) AND earlier emitted validation_failed with
+    // a parsed finalize object. The parsed object must win.
+    const priv = getPrivate();
+    const parsedFinalize = {
+      findings: [
+        { claim: "c1", evidence: "e1", source: "s1" },
+        { claim: "c2", evidence: "e2", source: "s2" },
+      ],
+    };
+    const events = [
+      buildEvent("validation_failed", { candidateOutput: parsedFinalize }),
+      buildEvent("error", { failureCode: "LOOP_BUDGET_EXHAUSTED" }),
+      // Simulates the raw output the budget-exhausted path still emits
+      buildEvent("output", { output: "Here is my analysis so far..." }),
+      buildEvent("terminated", { reason: "budget" }),
+    ];
+
+    const { partialOutput, exitReason } = priv.computeRunMetrics(
+      events,
+      "failed",
+      false,
+    );
+
+    // Must be the structured parsed finalize, not the raw string
+    expect(partialOutput).toEqual(parsedFinalize);
+    expect(exitReason).toBe("budget_exhausted");
+  });
+
+  it("non-budget/max-iter exits: bestPartialOutput keeps priority (no regression)", () => {
+    // For non-budget exits (e.g. TOOL_RUNTIME_ERROR), bestPartialOutput still
+    // takes priority over lastValidationCandidate (original behavior preserved).
+    const priv = getPrivate();
+    const parsedFinalize = { findings: [] };
+    const rawOutput = { result: "partial result from earlier output event" };
+    const events = [
+      buildEvent("validation_failed", { candidateOutput: parsedFinalize }),
+      buildEvent("output", { output: rawOutput }),
+      buildEvent("error", { failureCode: "TOOL_RUNTIME_ERROR" }),
+      buildEvent("terminated", { reason: "error" }),
+    ];
+
+    const { partialOutput } = priv.computeRunMetrics(events, "failed", false);
+
+    // bestPartialOutput (from output event) still wins for non-budget paths
+    expect(partialOutput).toEqual(rawOutput);
+  });
 });
 
 // ─── performToolRecall ───────────────────────────────────────────────────────

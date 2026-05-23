@@ -649,7 +649,13 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
             }
           : undefined,
         model: response.model as string | undefined,
-        finishReason: "stop",
+        finishReason:
+          (response.finishReason as
+            | "stop"
+            | "length"
+            | "function_call"
+            | "tool_calls"
+            | undefined) ?? "stop",
       };
     }
 
@@ -738,7 +744,17 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
           }
         : undefined,
       model: response.model as string | undefined,
-      finishReason: response.stop_reason === "tool_use" ? "tool_calls" : "stop",
+      finishReason:
+        response.stop_reason === "tool_use"
+          ? "tool_calls"
+          : response.stop_reason === "max_tokens"
+            ? "length"
+            : ((response.finishReason as
+                | "stop"
+                | "length"
+                | "function_call"
+                | "tool_calls"
+                | undefined) ?? "stop"),
     };
   }
 
@@ -770,7 +786,13 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
             }
           : undefined,
         model: response.model as string | undefined,
-        finishReason: "stop",
+        finishReason:
+          (response.finishReason as
+            | "stop"
+            | "length"
+            | "function_call"
+            | "tool_calls"
+            | undefined) ?? "stop",
       };
     }
 

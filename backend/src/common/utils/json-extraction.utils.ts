@@ -282,6 +282,37 @@ function deduplicateConsecutiveLines(content: string): string {
 }
 
 /**
+ * Result of a truncated-JSON repair attempt.
+ * `json` is the (possibly repaired) string; `repaired` is true when
+ * the function had to add closing brackets or truncate partial values.
+ */
+export interface TryRepairTruncatedJsonResult {
+  json: string;
+  repaired: boolean;
+}
+
+/**
+ * Like tryRepairTruncatedJson, but surfaces whether repair actually occurred.
+ *
+ * Returns `{ json, repaired: true }` when the input was truncated and had to
+ * be patched (downstream can use `repaired` to signal partial data).
+ * Returns `{ json: content, repaired: false }` when the JSON was already
+ * balanced (no repair needed / not repairable).
+ *
+ * Existing callers of tryRepairTruncatedJson are NOT affected — they continue
+ * to receive `string | null` from the original private wrapper below.
+ */
+export function tryRepairTruncatedJsonWithMeta(
+  content: string,
+): TryRepairTruncatedJsonResult {
+  const repaired = tryRepairTruncatedJson(content);
+  if (repaired !== null) {
+    return { json: repaired, repaired: true };
+  }
+  return { json: content, repaired: false };
+}
+
+/**
  * Try to repair truncated JSON by adding missing closing brackets
  * Handles cases where JSON is truncated mid-string or mid-value
  */

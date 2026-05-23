@@ -847,8 +847,19 @@ export class AgentRunner {
       // state 不改成 degraded（避免假装"成功"）
     }
 
+    // ★ When the loop exits via max-iterations or budget-exhausted, prefer
+    //   lastValidationCandidate (a PARSED finalize object rejected by business
+    //   rules) over bestPartialOutput.  For budget-exhausted the loop emits
+    //   output{rawAssistantMessage} which would otherwise shadow the candidate.
+    //   CRITICAL: do NOT change the priority for any other exit (completed /
+    //   wall_time / tool_fail) where bestPartialOutput may be meaningful output.
+    const budgetOrMaxIterExit =
+      failureCode === "LOOP_BUDGET_EXHAUSTED" ||
+      failureCode === "LOOP_MAX_ITERATIONS";
     const partialOutput = !hasOutput
-      ? (bestPartialOutput ?? lastValidationCandidate ?? undefined)
+      ? budgetOrMaxIterExit
+        ? (lastValidationCandidate ?? bestPartialOutput ?? undefined)
+        : (bestPartialOutput ?? lastValidationCandidate ?? undefined)
       : undefined;
 
     const toolsUsed = Array.from(toolsAcc.entries()).map(([toolId, v]) => ({
