@@ -389,7 +389,19 @@ export function UserModelsManagement() {
       {/* 表格 — MODEL / MODEL ID / TYPE / SOURCE / API KEY / STATUS / CAPABILITIES / ACTIONS
           SOURCE 列让用户能区分自配 vs 系统授权；SYSTEM 行编辑/启停/删除按钮 disable */}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-        <Table className="w-full">
+        <Table className="w-full table-fixed">
+          {/* 固定列宽：table-fixed + w-full 钉死表宽=容器宽，杜绝横向滚动；
+              身份列(MODEL/MODEL ID)吃挤压并截断，徽章/操作列留足够宽度恒可见 */}
+          <colgroup>
+            <col className="w-[18%]" />
+            <col className="w-[11%]" />
+            <col className="w-[9%]" />
+            <col className="w-[12%]" />
+            <col className="w-[12%]" />
+            <col className="w-[6%]" />
+            <col className="w-[13%]" />
+            <col className="w-[19%]" />
+          </colgroup>
           <THead className="bg-gray-50">
             <Tr>
               <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
