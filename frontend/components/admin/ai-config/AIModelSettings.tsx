@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Bot,
   Brain,
   Eye,
   EyeOff,
@@ -1146,47 +1145,33 @@ export default function AIModelSettings({
                   key={model.id}
                   className={`hover:bg-gray-50 ${!model.isEnabled ? 'opacity-60' : ''}`}
                 >
-                  {/* Model Name + Icon + Provider */}
+                  {/* PROVIDER —— 真实 provider：官方 logo(按 provider 解析) + 正式名 */}
                   <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br ${model.color} text-lg text-white shadow-sm`}
-                      >
-                        {(() => {
-                          const iconUrl = getModelIconUrl(model.name);
-                          if (iconUrl) {
-                            return (
-                              <img
-                                src={iconUrl}
-                                alt={model.displayName}
-                                className="h-6 w-6"
-                              />
-                            );
-                          }
-                          if (model.icon && model.icon.startsWith('/')) {
-                            return (
-                              <img
-                                src={model.icon}
-                                alt={model.displayName}
-                                className="h-6 w-6"
-                              />
-                            );
-                          }
-                          if (model.icon) {
-                            return model.icon;
-                          }
-                          return <Bot className="h-5 w-5 text-gray-400" />;
-                        })()}
-                      </div>
-                      <div className="flex min-w-0 items-center gap-2">
-                        <TruncatedCell
-                          className="max-w-[180px] text-sm font-medium text-gray-900"
-                          tooltip={model.displayName}
-                        >
-                          {getProviderBrand(model.provider).name}
-                        </TruncatedCell>
-                      </div>
-                    </div>
+                    {(() => {
+                      const brand = getProviderBrand(model.provider);
+                      const logo = brand.logo || getModelIconUrl(model.name);
+                      return (
+                        <div className="flex items-center gap-2">
+                          {logo ? (
+                            <img
+                              src={logo}
+                              alt={brand.name}
+                              className="h-5 w-5 flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-[10px] font-semibold text-gray-500">
+                              {model.provider.slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                          <TruncatedCell
+                            className="max-w-[180px] text-sm font-medium text-gray-900"
+                            tooltip={model.displayName}
+                          >
+                            {brand.name}
+                          </TruncatedCell>
+                        </div>
+                      );
+                    })()}
                   </td>
 
                   {/* Model ID + 默认(★)/推理 符号挂在模型上 */}
