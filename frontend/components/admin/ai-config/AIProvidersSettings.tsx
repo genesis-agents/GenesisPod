@@ -17,6 +17,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { confirm } from '@/stores';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface AIProvider {
   id: string;
@@ -330,25 +331,33 @@ export function AIProvidersSettings() {
               return (
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="font-mono whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                    {p.slug}
+                    <TruncatedCell className="max-w-[120px] text-gray-900">
+                      {p.slug}
+                    </TruncatedCell>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                    {p.name}
+                    <TruncatedCell className="max-w-[160px] text-gray-900">
+                      {p.name}
+                    </TruncatedCell>
                   </td>
-                  <td
-                    className="font-mono max-w-[240px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
-                    title={p.endpoint}
-                  >
-                    {p.endpoint}
+                  <td className="font-mono whitespace-nowrap px-4 py-3 text-xs text-gray-600">
+                    <TruncatedCell
+                      className="max-w-[240px] text-gray-600"
+                      tooltip={p.endpoint}
+                    >
+                      {p.endpoint}
+                    </TruncatedCell>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
                     {p.apiFormat}
                   </td>
-                  <td
-                    className="max-w-[220px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
-                    title={caps}
-                  >
-                    {caps}
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">
+                    <TruncatedCell
+                      className="max-w-[220px] text-gray-600"
+                      tooltip={caps}
+                    >
+                      {caps}
+                    </TruncatedCell>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm">
                     {p.isEnabled ? (

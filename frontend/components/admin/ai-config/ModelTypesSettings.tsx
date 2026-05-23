@@ -16,6 +16,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { confirm } from '@/stores';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface ModelType {
   id: string;
@@ -265,10 +266,14 @@ export function ModelTypesSettings() {
             {items.map((t) => (
               <tr key={t.id} className="hover:bg-gray-50">
                 <td className="font-mono whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                  {t.slug}
+                  <TruncatedCell className="max-w-[160px] text-gray-900">
+                    {t.slug}
+                  </TruncatedCell>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                  {t.name}
+                  <TruncatedCell className="max-w-[160px] text-gray-900">
+                    {t.name}
+                  </TruncatedCell>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
                   {t.category}

@@ -16,6 +16,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { confirm } from '@/stores';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface ApiFormat {
   id: string;
@@ -259,19 +260,25 @@ export function ApiFormatsSettings() {
             {items.map((f) => (
               <tr key={f.id} className="hover:bg-gray-50">
                 <td className="font-mono whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                  {f.slug}
+                  <TruncatedCell className="max-w-[120px] text-gray-900">
+                    {f.slug}
+                  </TruncatedCell>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                  {f.name}
+                  <TruncatedCell className="max-w-[180px] text-gray-900">
+                    {f.name}
+                  </TruncatedCell>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
                   {f.authStyle}
                 </td>
-                <td
-                  className="font-mono max-w-[220px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
-                  title={f.customHeaderName ?? ''}
-                >
-                  {f.customHeaderName ?? '—'}
+                <td className="font-mono whitespace-nowrap px-4 py-3 text-xs text-gray-600">
+                  <TruncatedCell
+                    className="max-w-[220px] text-gray-600"
+                    tooltip={f.customHeaderName ?? undefined}
+                  >
+                    {f.customHeaderName ?? '—'}
+                  </TruncatedCell>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm">
                   {f.isBuiltin ? (

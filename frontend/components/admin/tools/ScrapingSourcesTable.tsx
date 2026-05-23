@@ -17,6 +17,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { DrawerShell, PaginationBar, Th } from '../_shared/admin-tables';
+import { TruncatedCell } from '@/components/common/tables';
 import { confirm } from '@/stores';
 
 interface ToolRow {
@@ -288,17 +289,15 @@ export function ScrapingSourcesTable() {
                   onClick={() => setSelectedId(s.id)}
                   className="cursor-pointer hover:bg-gray-50"
                 >
-                  <td
-                    className="max-w-[220px] truncate whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900"
-                    title={s.name}
-                  >
-                    {s.name}
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                    <TruncatedCell className="max-w-[220px]">
+                      {s.name}
+                    </TruncatedCell>
                   </td>
-                  <td
-                    className="font-mono max-w-[220px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
-                    title={s.domain}
-                  >
-                    {s.domain}
+                  <td className="font-mono px-4 py-3 text-xs text-gray-600">
+                    <TruncatedCell className="max-w-[220px]">
+                      {s.domain}
+                    </TruncatedCell>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">
                     {s.category}
@@ -306,11 +305,15 @@ export function ScrapingSourcesTable() {
                   <td className="whitespace-nowrap px-4 py-3 text-right text-xs tabular-nums text-gray-700">
                     {s.credibilityScore.toFixed(2)}
                   </td>
-                  <td
-                    className="max-w-[220px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-500"
-                    title={s.topicTypes.join(', ')}
-                  >
-                    {s.topicTypes.length === 0 ? '—' : s.topicTypes.join(', ')}
+                  <td className="px-4 py-3 text-xs text-gray-500">
+                    <TruncatedCell
+                      className="max-w-[220px]"
+                      tooltip={s.topicTypes.join(', ')}
+                    >
+                      {s.topicTypes.length === 0
+                        ? '—'
+                        : s.topicTypes.join(', ')}
+                    </TruncatedCell>
                   </td>
                   <td
                     className="whitespace-nowrap px-4 py-3 text-xs"

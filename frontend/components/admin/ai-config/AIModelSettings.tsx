@@ -18,6 +18,7 @@ import {
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
+import { TruncatedCell } from '@/components/common/tables';
 
 import { logger } from '@/lib/utils/logger';
 import { ClientDate } from '@/components/common/ClientDate';
@@ -1133,7 +1134,7 @@ export default function AIModelSettings({
                   className={`hover:bg-gray-50 ${!model.isEnabled ? 'opacity-60' : ''}`}
                 >
                   {/* Model Name + Icon + Provider */}
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-2.5">
                     <div className="flex items-center gap-3">
                       <div
                         className={`flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br ${model.color} text-lg text-white shadow-sm`}
@@ -1164,41 +1165,41 @@ export default function AIModelSettings({
                           return <Bot className="h-5 w-5 text-gray-400" />;
                         })()}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">
-                            {model.displayName}
+                      <div className="flex min-w-0 items-center gap-2">
+                        <TruncatedCell
+                          className="max-w-[180px] font-medium text-gray-900"
+                          tooltip={`${model.displayName} · ${model.provider}`}
+                        >
+                          {model.displayName}
+                        </TruncatedCell>
+                        {model.isDefault && (
+                          <span className="flex-shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                            Default
                           </span>
-                          {model.isDefault && (
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                              Default
-                            </span>
-                          )}
-                          {model.isReasoning && (
-                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                              Reasoning
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {model.provider}
-                        </div>
+                        )}
+                        {model.isReasoning && (
+                          <span className="flex-shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                            Reasoning
+                          </span>
+                        )}
                       </div>
                     </div>
                   </td>
 
-                  {/* Model ID — long IDs truncate + title tooltip on hover */}
-                  <td className="px-4 py-4">
-                    <code
-                      className="font-mono inline-block max-w-[200px] truncate rounded bg-gray-100 px-2 py-1 align-middle text-xs"
-                      title={model.modelId}
-                    >
-                      {model.modelId}
+                  {/* Model ID — long IDs truncate + tooltip */}
+                  <td className="px-4 py-2.5">
+                    <code className="font-mono inline-flex items-center rounded bg-gray-100 px-2 py-1 text-xs">
+                      <TruncatedCell
+                        className="max-w-[200px] text-gray-700"
+                        tooltip={model.modelId}
+                      >
+                        {model.modelId}
+                      </TruncatedCell>
                     </code>
                   </td>
 
                   {/* Type Badge */}
-                  <td className="whitespace-nowrap px-4 py-4">
+                  <td className="whitespace-nowrap px-4 py-2.5">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         model.modelType === 'CHAT'
@@ -1226,29 +1227,31 @@ export default function AIModelSettings({
                   </td>
 
                   {/* API Key Status — Lucide 图标替代 ✓/✗ 字符 */}
-                  <td className="whitespace-nowrap px-4 py-4">
-                    <span
-                      className={`inline-flex items-center gap-1 text-sm font-medium ${model.hasApiKey ? 'text-green-600' : 'text-red-500'}`}
-                    >
-                      {model.hasApiKey ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : (
-                        <XCircle className="h-4 w-4" />
-                      )}
-                      {model.hasApiKey ? '已配置' : '未配置'}
-                    </span>
-                    {model.secretKey && (
-                      <div
-                        className="mt-0.5 max-w-[160px] truncate text-xs text-gray-400"
-                        title={model.secretKey}
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`inline-flex flex-shrink-0 items-center gap-1 text-sm font-medium ${model.hasApiKey ? 'text-green-600' : 'text-red-500'}`}
                       >
-                        via {model.secretKey}
-                      </div>
-                    )}
+                        {model.hasApiKey ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <XCircle className="h-4 w-4" />
+                        )}
+                        {model.hasApiKey ? '已配置' : '未配置'}
+                      </span>
+                      {model.secretKey && (
+                        <TruncatedCell
+                          className="max-w-[120px] text-xs text-gray-400"
+                          tooltip={`via ${model.secretKey}`}
+                        >
+                          via {model.secretKey}
+                        </TruncatedCell>
+                      )}
+                    </div>
                   </td>
 
                   {/* Status Toggle */}
-                  <td className="px-4 py-4 text-center">
+                  <td className="px-4 py-2.5 text-center">
                     <button
                       onClick={() => handleToggleEnabled(model)}
                       className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${
@@ -1264,7 +1267,7 @@ export default function AIModelSettings({
                   </td>
 
                   {/* Capabilities */}
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-2.5">
                     <div className="flex flex-wrap gap-1">
                       {model.supportsTemperature !== false && (
                         <span
@@ -1317,7 +1320,7 @@ export default function AIModelSettings({
                   </td>
 
                   {/* Actions */}
-                  <td className="whitespace-nowrap px-4 py-4 text-right">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-right">
                     {/* 2026-05-11: 4 个 inline SVG → Lucide（Zap/Star/Pencil/Trash2 + Loader2） */}
                     <div className="inline-flex items-center justify-end gap-1">
                       <button

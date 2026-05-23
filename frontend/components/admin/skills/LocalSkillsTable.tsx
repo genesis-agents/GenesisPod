@@ -20,6 +20,7 @@ import {
   Th,
   fmtTime,
 } from '../_shared/admin-tables';
+import { TruncatedCell } from '@/components/common/tables';
 import { EditSkillModal } from './EditSkillModal';
 import { SKILL_LAYERS, type SkillLayer } from './skill-layers';
 import { useTranslation } from '@/lib/i18n';
@@ -333,25 +334,27 @@ function SkillTableBody({
                 onClick={() => onSelect(s.skillId)}
                 className="cursor-pointer hover:bg-gray-50"
               >
-                <td
-                  className="max-w-[260px] truncate whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900"
-                  title={s.displayName || s.name}
-                >
-                  {s.displayName || s.name}
+                <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                  <TruncatedCell className="max-w-[260px]">
+                    {s.displayName || s.name}
+                  </TruncatedCell>
                 </td>
-                <td
-                  className="font-mono max-w-[200px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
-                  title={s.skillId}
-                >
-                  {s.skillId}
+                <td className="font-mono px-4 py-3 text-xs text-gray-600">
+                  <TruncatedCell className="max-w-[200px]">
+                    {s.skillId}
+                  </TruncatedCell>
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">
-                  <span
-                    className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${layerDef?.badge ?? 'bg-purple-50 text-purple-700'}`}
-                  >
-                    {layerLabel}
-                  </span>
-                  <span className="ml-1.5 text-gray-500">/ {s.domain}</span>
+                <td className="px-4 py-3 text-xs text-gray-600">
+                  <div className="flex items-center gap-1">
+                    <span
+                      className={`inline-flex flex-shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${layerDef?.badge ?? 'bg-purple-50 text-purple-700'}`}
+                    >
+                      {layerLabel}
+                    </span>
+                    <TruncatedCell className="max-w-[120px] text-gray-500">
+                      / {s.domain}
+                    </TruncatedCell>
+                  </div>
                 </td>
                 <td className="font-mono whitespace-nowrap px-4 py-3 text-xs text-gray-600">
                   {s.version ?? '—'}
