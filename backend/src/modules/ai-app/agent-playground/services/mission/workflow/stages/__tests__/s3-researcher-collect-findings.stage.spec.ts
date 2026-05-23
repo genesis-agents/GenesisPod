@@ -308,7 +308,7 @@ describe("runResearcherDispatchStage (S3)", () => {
       events: [
         {
           type: "error",
-          payload: { failureCode: "RUNNER_LOOP_LIMIT", message: "loop" },
+          payload: { failureCode: "LOOP_MAX_ITERATIONS", message: "loop" },
         },
       ],
       wallTimeMs: 1000,
@@ -323,8 +323,8 @@ describe("runResearcherDispatchStage (S3)", () => {
     });
     // Override extractAgentFailureDiagnostic behavior by seeding events with failureCode
     await runResearcherDispatchStage(ctx, deps);
-    // At least 2 invocations expected for self-heal
-    expect(invokeCalls).toBeGreaterThanOrEqual(1);
+    // P0-2: LOOP_MAX_ITERATIONS 现已在 RECOVERABLE_FAILURES 中 → 自愈重试真正触发
+    expect(invokeCalls).toBeGreaterThanOrEqual(2);
   });
 
   it("failureLearner.lookup is called per dim", async () => {
@@ -392,6 +392,85 @@ describe("runResearcherDispatchStage (S3)", () => {
     await runResearcherDispatchStage(ctx, deps);
     // Should complete without error
     expect(ctx.researcherResults).toBeDefined();
+  });
+
+  it("P0-1 salvage: degraded run with valid findings is NOT discarded", async () => {
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        depth: "quick",
+        auditLayers: "minimal",
+      } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "degraded",
+      output: {
+        dimension: "Tech",
+        findings: [
+          { claim: "C1", evidence: "E1", source: "http://a.com" },
+          { claim: "C2", evidence: "E2", source: "http://b.com" },
+        ],
+        summary: "S",
+      },
+      events: [],
+      wallTimeMs: 1000,
+      iterations: 3,
+      agent: null,
+    });
+    await runResearcherDispatchStage(ctx, deps);
+    expect(ctx.researcherResults![0].findings).toHaveLength(2);
+  });
+
+  it("P0-1 salvage: valid findings recovered from partialOutput when output is null (max-iter)", async () => {
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        depth: "quick",
+        auditLayers: "minimal",
+      } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "failed",
+      output: null,
+      partialOutput: {
+        dimension: "Tech",
+        findings: [{ claim: "C1", evidence: "E1", source: "http://a.com" }],
+        summary: "partial",
+      },
+      events: [],
+      wallTimeMs: 1000,
+      iterations: 5,
+      agent: null,
+    });
+    await runResearcherDispatchStage(ctx, deps);
+    expect(ctx.researcherResults![0].findings).toHaveLength(1);
+  });
+
+  it("P0-1 salvage: garbage partialOutput (no well-formed findings) still degrades to empty (no 2026-04-30 regression)", async () => {
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        depth: "quick",
+        auditLayers: "minimal",
+      } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "failed",
+      output: null,
+      partialOutput: { action: "parallel_tool_call", args: { q: "x" } },
+      events: [],
+      wallTimeMs: 1000,
+      iterations: 5,
+      agent: null,
+    });
+    await runResearcherDispatchStage(ctx, deps);
+    expect(ctx.researcherResults![0].findings).toEqual([]);
   });
 
   it("exception in dim handler → degrades gracefully", async () => {

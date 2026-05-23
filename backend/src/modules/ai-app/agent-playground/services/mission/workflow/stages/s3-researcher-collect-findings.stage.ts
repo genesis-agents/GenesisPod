@@ -68,7 +68,11 @@ interface ResearcherDimResult {
 const RECOVERABLE_FAILURES = new Set([
   "RUNNER_OUTPUT_SCHEMA_MISMATCH",
   "RUNNER_WALL_TIME_EXCEEDED",
-  "RUNNER_LOOP_LIMIT",
+  // ★ 2026-05-23 fix：harness 从不 emit "RUNNER_LOOP_LIMIT"（仅旧注释残留）。
+  //   两个最常见的非 completed 退出码是 LOOP_MAX_ITERATIONS / LOOP_BUDGET_EXHAUSTED
+  //   （react-loop.ts:1341 / :553）。原来挂在死码上 → +50% 预算自愈重试对它们永不触发。
+  "LOOP_MAX_ITERATIONS",
+  "LOOP_BUDGET_EXHAUSTED",
   "LOOP_EMPTY_RESPONSE_IMMEDIATE",
   "LOOP_REASONING_COT_EXHAUSTION",
   "PARSE_MALFORMED_JSON",
@@ -76,6 +80,35 @@ const RECOVERABLE_FAILURES = new Set([
   "PARSE_UNKNOWN_ACTION_KIND",
   "PARSE_EMPTY_ACTIONS_ARRAY",
 ]);
+
+/**
+ * ★ 2026-05-23 P0-1 抢救：从 run 结果里抠出 well-formed finding。
+ * 非 completed ≠ 无数据：
+ *   - degraded（finalize 被 force-accept：schema 通过、仅业务规则未达标）→ r.output 已是合法 findings
+ *   - failed/max-iter → r.output=undefined，但 r.partialOutput 可能携带 schema 合法的部分 findings
+ * 只接受 claim/evidence/source 均为非空字符串的条目，raw decision JSON 等垃圾被过滤掉
+ * → 不回归 2026-04-30「不把垃圾当 finding」的本意。
+ */
+function salvageResearcherFindings(res: {
+  output?: unknown;
+  partialOutput?: unknown;
+}): { claim: string; evidence: string; source: string }[] {
+  const out = (res.output ?? res.partialOutput) as
+    | { findings?: unknown }
+    | undefined;
+  const raw: unknown[] = Array.isArray(out?.findings)
+    ? (out?.findings as unknown[])
+    : [];
+  return raw.filter(
+    (f): f is { claim: string; evidence: string; source: string } =>
+      !!f &&
+      typeof (f as { claim?: unknown }).claim === "string" &&
+      typeof (f as { evidence?: unknown }).evidence === "string" &&
+      typeof (f as { source?: unknown }).source === "string" &&
+      (f as { claim: string }).claim.trim().length > 0 &&
+      (f as { source: string }).source.trim().length > 0,
+  );
+}
 
 export async function runResearcherDispatchStage(
   ctx: MissionInvariants & PlanPhaseCtx & ResearchPhaseCtx,
@@ -430,7 +463,7 @@ async function runOneDim(
     let r = await runResearcher(0, budgetMultiplier);
 
     // ── L1: self-heal RECOVERABLE failureCode → +50% budget 重跑 ──
-    if (r.state !== "completed" || !r.output) {
+    if (salvageResearcherFindings(r).length === 0) {
       const innerFail0 = extractAgentFailureDiagnostic(r.events);
       const code0 = innerFail0?.failureCode;
       if (code0 && RECOVERABLE_FAILURES.has(code0)) {
@@ -551,6 +584,33 @@ async function runOneDim(
       }
     }
 
+    // ★ 2026-05-23 P0-1 抢救：state≠completed 不等于无数据；抢到 well-formed finding 就用。
+    const salvagedFindings = salvageResearcherFindings(r);
+    const salvagedOutput = (r.output ?? r.partialOutput) as
+      | { dimension?: unknown; summary?: unknown; figureCandidates?: unknown }
+      | undefined;
+    const salvagedDimension =
+      salvagedOutput && typeof salvagedOutput.dimension === "string"
+        ? salvagedOutput.dimension
+        : dim.name;
+    const salvagedSummary =
+      salvagedOutput && typeof salvagedOutput.summary === "string"
+        ? salvagedOutput.summary
+        : "";
+    const salvagedFigureCandidates = Array.isArray(
+      salvagedOutput?.figureCandidates,
+    )
+      ? (salvagedOutput?.figureCandidates as {
+          sourceUrl: string;
+          imageUrl?: string;
+          caption: string;
+          sourcePageOrSection?: string;
+          relevanceHint?: "high" | "medium" | "low";
+        }[])
+      : undefined;
+    const collectionUsable =
+      r.state !== "cancelled" && salvagedFindings.length > 0;
+
     await deps.invoker.tickCost(
       missionId,
       userId,
@@ -563,7 +623,7 @@ async function runOneDim(
       userId,
       agentId,
       "researcher",
-      r.state === "completed" ? "completed" : "failed",
+      collectionUsable ? "completed" : "failed",
       {
         wallTimeMs: r.wallTimeMs,
         iterations: r.iterations,
@@ -574,10 +634,7 @@ async function runOneDim(
         }),
       },
     );
-    const finalFindingsCount =
-      r.state === "completed" && r.output
-        ? ((r.output as { findings?: unknown[] }).findings ?? []).length
-        : 0;
+    const finalFindingsCount = salvagedFindings.length;
     // ── per-dim research:completed（与 researcher:completed 并存，携带明确 dimensionRef）──
     await deps
       .emit({
@@ -587,7 +644,7 @@ async function runOneDim(
         agentId,
         payload: {
           dimension: dim.name,
-          state: r.state,
+          state: collectionUsable ? "completed" : r.state,
           findingsCount: finalFindingsCount,
         },
       })
@@ -604,13 +661,10 @@ async function runOneDim(
         agentId,
         payload: {
           dimension: dim.name,
-          state: r.state,
+          state: collectionUsable ? "completed" : r.state,
           iterations: r.iterations,
           wallTimeMs: r.wallTimeMs,
-          summary:
-            r.state === "completed" && r.output
-              ? (r.output as { summary?: string }).summary
-              : undefined,
+          summary: salvagedSummary || undefined,
           findingsCount: finalFindingsCount,
         },
       })
@@ -622,16 +676,15 @@ async function runOneDim(
     await narrate(deps.emit, missionId, userId, {
       stage: "s3-researchers",
       role: "researcher",
-      tag: r.state === "completed" ? "success" : "warning",
-      text:
-        r.state === "completed"
-          ? `维度「${dim.name}」采集完成 · ${finalFindingsCount} 条 finding · ${r.iterations} 轮思考`
-          : `维度「${dim.name}」未完成（${r.state}），下游走退化路径`,
+      tag: collectionUsable ? "success" : "warning",
+      text: collectionUsable
+        ? `维度「${dim.name}」采集完成 · ${finalFindingsCount} 条 finding · ${r.iterations} 轮思考`
+        : `维度「${dim.name}」未完成（${r.state}），下游走退化路径`,
       dimension: dim.name,
       agentId,
     });
 
-    if (r.state !== "completed" || !r.output) {
+    if (!collectionUsable) {
       // ── L3: dim 降级（mission 仍继续）+ 入库 failure pattern ──
       const innerFailure = extractAgentFailureDiagnostic(r.events);
       await deps
@@ -688,7 +741,7 @@ async function runOneDim(
       };
     }
 
-    const researcherOut = r.output as {
+    const researcherOut: {
       dimension: string;
       findings: { claim: string; evidence: string; source: string }[];
       summary: string;
@@ -699,6 +752,11 @@ async function runOneDim(
         sourcePageOrSection?: string;
         relevanceHint?: "high" | "medium" | "low";
       }[];
+    } = {
+      dimension: salvagedDimension,
+      findings: salvagedFindings,
+      summary: salvagedSummary,
+      figureCandidates: salvagedFigureCandidates,
     };
 
     // ── 沉淀（2026-04-29）: figure pipeline 自动抽图 ─────────────────
