@@ -7,8 +7,11 @@
  */
 
 import { Logger } from "@nestjs/common";
+import { randomUUID } from "crypto";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import { applyInputPatch } from "@/modules/ai-harness/facade";
+import type { PlaygroundConfigSnapshot } from "../rerun/playground-mission-input-rebuilder.service";
 
 export class MissionUpdateHelper {
   private readonly log = new Logger(MissionUpdateHelper.name);
@@ -43,7 +46,12 @@ export class MissionUpdateHelper {
   ): Promise<{ ok: boolean; reason?: string }> {
     const row = await this.prisma.agentPlaygroundMission.findFirst({
       where: { id, userId },
-      select: { id: true, status: true, userProfile: true },
+      select: {
+        id: true,
+        status: true,
+        userProfile: true,
+        configSnapshot: true,
+      },
     });
     if (!row) return { ok: false, reason: "not_found" };
     const NON_TERMINAL = new Set(["running", "queued", "pending"]);
@@ -67,6 +75,30 @@ export class MissionUpdateHelper {
         merged.budgetMultiplierOverride = patch.budgetMultiplierOverride;
       }
       data.userProfile = merged as Prisma.InputJsonValue;
+    }
+    // ★ C5/G7 S4 + G2 治理:预算改动**必须重写 versioned snapshot**,否则 rerun 读旧 snapshot
+    //   预算(S3 切读 snapshot 后,只更 userProfile/列 → rerun 用不到改后预算)。走 applyInputPatch
+    //   派生 settings_patch 新版本(budget 经 ResolvedBudgetCaps re-resolve,不硬编码换算)。
+    const snap = row.configSnapshot as PlaygroundConfigSnapshot | null;
+    if (snap?.schemaVersion != null) {
+      const budgetOverride =
+        typeof patch.maxCredits === "number" ||
+        typeof patch.budgetMultiplierOverride === "number"
+          ? {
+              maxCredits: patch.maxCredits,
+              budgetMultiplier: patch.budgetMultiplierOverride,
+            }
+          : undefined;
+      const runtimeLimitsOverride =
+        typeof patch.wallTimeMs === "number"
+          ? { wallTimeCapMs: patch.wallTimeMs }
+          : undefined;
+      const next = applyInputPatch(
+        snap,
+        { budgetOverride, runtimeLimitsOverride },
+        { snapshotId: randomUUID(), mutationReason: "settings_patch" },
+      );
+      data.configSnapshot = next as unknown as Prisma.InputJsonValue;
     }
     if (Object.keys(data).length === 0) {
       return { ok: false, reason: "empty_patch" };
