@@ -131,7 +131,32 @@ v2 把 `quality_rejected` 放进 `MissionTerminalOutcome` 平台 enum,但有些 
 
 > **⚠️ 诚实落地缺口(G11 结论,勿当"已完成")**:**C5/C6/C7 目前是「契约类型 + 单测」,业务代码尚未消费**——`MissionConfigSnapshot`/`MissionInputRebuilder`/`applyInputPatch`/`MissionTerminalOutcome` 在 `ai-app` 主链路(run/rerun/resume/hydrate/terminal presentation)零消费点。平台收口在 harness 层成立,但**未真实切入主业务流**,违反"真实切换无多路"要求,记为 **#29 app 接入波次**(下一大块)。C8 conformance(#23)同理待做。
 
-**小尾(并入收尾)**:C2 playground 终态写新列 + 前端按 code;C3b 真实成本对账 ai-infra;agent 审查发现的 radar dispatcher `signal.aborted` 把 budget/timeout 误判 cancelled(MAJOR-3)、playground/liveness failureCode 未落库(MAJOR-4/6)——并入 #29 app 接入波次一并校正。
+**小尾(并入收尾)**:C3b 真实成本对账 ai-infra。
+
+> **已校正(2026-05-22,app 侧 review fix)**:radar `signal.aborted` 误判 cancelled(MAJOR-3,#154)、playground/liveness/孤儿 failureCode 未落库(MAJOR-4/6/MINOR-1,#155)、social StageAbortError 误判(MINOR-2,#156)、social 无 markCancelled 致取消显示失败 + failureCode 类型收紧(#158)——全部修复。
+
+---
+
+## 0.8 多路评审共识与 C5/C6 落地决议(2026-05-22,实现验收阶段)
+
+> 28 PR(C0–C4/C7 + G10 + 全部 app 侧 review fix)落地后,经 **4 路并行评审(架构 / 代码 / 工程看护 / 流程)** 对"已落地是否扎实 + C5/C6 怎么接入主链路"形成共识。结论:**harness 契约层扎实(L1 防线有效)**,问题集中在 app 侧接入与 CI 盲区。以下决议是 C5/C6 落地的权威依据。
+
+### 评审发现(已修 / 待办)
+
+- ✅ 已修:见上"已校正"。
+- ⏳ **C4-BLOCKER-1(C5 前置)**:C4 改名未切进 DTO 层——`RunMissionInput.wallTimeMs` / `DEPTH_BUDGET_TIERS.wallTimeMs` / `resolveMissionWallTimeMs` / `mission-rerun-orchestrator` 写回 / `event-schemas` 仍旧名。C5 前必须把业务入口层 cap 字段对齐 `wallTimeCapMs`,否则 rebuilder 要内化一层 `wallTimeMs→wallTimeCapMs` 适配=改名被适配器化。
+- ⏳ **RM8(C5 前置)**:`MissionRecord` 接口无 `configSnapshot` 槽位,C5 无处安放到平台契约。
+- ⏳ **C0 finalize 漏斗**:`MissionLifecycleManager.finalize`/arbiter 定义了但 app 仍直调 store 终态(条件写已在各 store,首写赢成立;但中央漏斗未真用)——评审定级 MAJOR,列入收尾。
+- ⏳ **CI 盲区**:`backend test:quick` 的 `testPathIgnorePatterns` 含 `guardrails`+`ai-social` → C3a 换算不变量 spec、social 契约 spec 在 PR 闸不执行。需拉进 CI(`verify:arch` 已存在但 test:quick 漏了这些路径)。
+
+### C5/C6 接入设计共识(4 路敲定)
+
+1. **snapshot.businessInput = 业务子集**(`depth`/style/length/audience/figures/auditLayers/concurrency 等);`topic`/`language`/`budget: ResolvedBudgetCaps`/`runtimeLimits` 放 snapshot 顶层。**禁**把整个 `RunMissionInput` 塞进 businessInput(否则 maxCredits/wallTimeMs 双份 = RB5 内部多源)。
+2. **存量回填 = 一次性代码脚本走 `ResolvedBudgetCaps.resolve()`**(ts-node migration helper,非 Nest 启动批量);**SQL 内零硬编码换算**(禁 `×1000`/`×0.002`,违反 C3a)。重建不了的历史行标 `schemaVersion=legacy` **只读不可 rerun,不做 fallback 双读**。迁移后断言 `config_snapshot IS NULL AND schemaVersion!='legacy'` 计数 = 0。
+3. **节奏**:**playground 单 app 先闭环跑稳**(验证契约够用)→ 再以模板推 radar / social。C5/C6 无跨 app 共享列,**不受 G5 三 app 同波次约束**(C3a/C4 那种平台级共享命名才受)。
+4. **C6 = 新建 pure `PlaygroundMissionInputRebuilder implements MissionInputRebuilder`**(只依赖 budget 解析,复用 harness `applyInputPatch`);**不重写** `rerun-runtime-builder`,但改其 budget 来源从"解析 RunMissionInput"→"读 `snapshot.budget`"。`ctx-hydrator` / `cloneInputFromMission` 切读 snapshot 后**删旧 userProfile 重拼**(不留双路径)。
+5. **拆 4 步 PR(每步独立强成功标准)**:S1 schema 迁移+回填(残留断言=0)→ S2 openSession 写 snapshot(影子写,旧字段仍唯一真源)→ S3 run/rerun/resume/hydrate 切读 snapshot → S4 删旧重拼路径(grep 旧函数 0 调用方)。S2 影子写若用户不接受则 S2+S3 原子合。
+6. **补看护**:`c5-c6-app-contract.spec`(rerun 必经 `deriveChildSnapshot`、禁 `snapshot||userProfile` 双读)+ 回填脚本零硬编码换算 spec + 把 C3a/social 契约 spec 拉进 CI 闸。
 
 ---
 
