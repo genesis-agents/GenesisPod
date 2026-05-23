@@ -98,6 +98,12 @@ export interface HarnessedAgentInit {
    * reasoning models converge on the right shape after a schema mismatch.
    */
   outputSchemaDescription?: string;
+  /**
+   * #35 — Strict JSON schema for the business finalize output payload.
+   * Passed to the loop to enable provider-level enforcement of the payload
+   * shape on final iterations (approachingLimit=true), non-FC branch only.
+   */
+  finalizeOutputJsonSchema?: Record<string, unknown>;
 }
 
 export class HarnessedAgent implements IAgent {
@@ -124,6 +130,7 @@ export class HarnessedAgent implements IAgent {
   private readonly outputSchemaValidator?: HarnessedAgentInit["outputSchemaValidator"];
   private readonly validateBusinessRules?: HarnessedAgentInit["validateBusinessRules"];
   private readonly outputSchemaDescription?: string;
+  private readonly finalizeOutputJsonSchema?: Record<string, unknown>;
   /** Persistent AbortController — lives from construction. cancel() before execute() still aborts. */
   private readonly abortController = new AbortController();
 
@@ -154,6 +161,7 @@ export class HarnessedAgent implements IAgent {
     this.outputSchemaValidator = init.outputSchemaValidator;
     this.validateBusinessRules = init.validateBusinessRules;
     this.outputSchemaDescription = init.outputSchemaDescription;
+    this.finalizeOutputJsonSchema = init.finalizeOutputJsonSchema;
     this.state = "idle";
   }
 
@@ -272,6 +280,7 @@ export class HarnessedAgent implements IAgent {
               output: unknown,
             ) => string | null | undefined;
             outputSchemaDescription?: string;
+            finalizeOutputJsonSchema?: Record<string, unknown>;
           },
         ) => AsyncIterable<IAgentEvent>;
 
@@ -310,6 +319,7 @@ export class HarnessedAgent implements IAgent {
                 this.validateBusinessRules!(output, task.input)
             : undefined,
           outputSchemaDescription: this.outputSchemaDescription,
+          finalizeOutputJsonSchema: this.finalizeOutputJsonSchema,
         })) {
           yield ev;
           eventCount += 1;

@@ -62,6 +62,45 @@ import {
 } from "./utils/follow-up-detector";
 import { REACT_LOOP_DECISION_JSON_SCHEMA } from "./loop-output-schemas";
 
+/**
+ * #35 — Build a decision-wrapper schema that embeds the strict business-agent
+ * finalize output schema inside the `action.output` field.
+ *
+ * Used on final iterations (approachingLimit=true) when the LLM is directed
+ * to emit `finalize`. Wrapping the business schema inside the decision keeps
+ * `thinking` + `action.kind` visible to the provider while enforcing the
+ * payload shape under `action.output`.
+ *
+ * The outer wrapper stays permissive (additionalProperties:true) so dialect
+ * variants (e.g. top-level `actions` shorthand) are never rejected.
+ * Only `action.output` is strict (additionalProperties:false on its inner
+ * object as declared in the business schema).
+ *
+ * Returns null if finalizeOutputJsonSchema is not provided (caller uses the
+ * permissive REACT_LOOP_DECISION_JSON_SCHEMA as before).
+ */
+function buildFinalizeDecisionSchema(
+  finalizeOutputJsonSchema: Record<string, unknown> | undefined,
+): Record<string, unknown> | null {
+  if (!finalizeOutputJsonSchema) return null;
+  return {
+    type: "object",
+    properties: {
+      thinking: { type: "string" },
+      action: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["finalize"] },
+          output: finalizeOutputJsonSchema,
+        },
+        required: ["kind", "output"],
+        additionalProperties: false,
+      },
+    },
+    additionalProperties: true,
+  };
+}
+
 interface ParsedDecision {
   thinking: string;
   action: IAction;
@@ -309,6 +348,19 @@ export class ReActLoop implements IAgentLoop {
        * post-<think> output mechanism often "forgets" the exact field set).
        */
       outputSchemaDescription?: string;
+      /**
+       * #35 — Strict JSON schema for the business-agent finalize output payload
+       * (e.g. ResearcherAgent findings/summary shape). When set, the loop
+       * switches to a tighter decision schema on final iterations
+       * (approachingLimit=true), embedding this schema under action.output so
+       * strict providers enforce the payload shape at the provider level.
+       *
+       * Only used on the non-FC branch (native function-calling already has
+       * explicit tool schemas). The permissive REACT_LOOP_DECISION_JSON_SCHEMA
+       * is used for all other iterations so normal tool-call turns are not
+       * over-constrained.
+       */
+      finalizeOutputJsonSchema?: Record<string, unknown>;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "unknown-agent";
@@ -319,6 +371,7 @@ export class ReActLoop implements IAgentLoop {
     const outputSchemaValidator = options?.outputSchemaValidator;
     const validateBusinessRules = options?.validateBusinessRules;
     const outputSchemaDescription = options?.outputSchemaDescription;
+    const finalizeOutputJsonSchema = options?.finalizeOutputJsonSchema;
     let currentEnvelope = envelope;
     let iteration = 0;
     let budgetWarned = false;
@@ -692,6 +745,10 @@ export class ReActLoop implements IAgentLoop {
             // PR-1 native-FC: envelope.tools 是上游 performToolRecall 召回的工具 id
             // 列表，传下去让 reason() 在 flag-on 时构造 FunctionDefinition[]。
             currentEnvelope.tools,
+            // #35: on final iterations switch to the strict finalize schema so
+            // strict providers enforce the business payload shape.
+            approachingLimit,
+            finalizeOutputJsonSchema,
           );
           decision = reasoned.decision;
           usage = reasoned.usage;
@@ -1429,6 +1486,17 @@ export class ReActLoop implements IAgentLoop {
     specTaskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile,
     /** PR-1 native-FC: 当前 envelope 召回的工具 id 列表（envelope.tools） */
     recalledToolIds?: readonly string[],
+    /**
+     * #35: true when ≤2 iterations remain — triggers strict finalize schema
+     * on non-FC branch so the provider enforces the business payload shape.
+     */
+    approachingLimit?: boolean,
+    /**
+     * #35: strict JSON schema for the business finalize output (e.g.
+     * RESEARCHER_FINALIZE_OUTPUT_JSON_SCHEMA). Only used when approachingLimit
+     * is true and the FC branch is not active.
+     */
+    finalizeOutputJsonSchema?: Record<string, unknown>,
   ): Promise<{
     decision: ParsedDecision;
     /** ★ LLM 实际吐回的 raw content（response.content），诊断关键 */
@@ -1500,11 +1568,22 @@ export class ReActLoop implements IAgentLoop {
       // the adapter would inject response_format on top of tools, breaking
       // providers that disallow both simultaneously.
       // parseDecision remains the fallback for providers that ignore json_schema.
+      //
+      // #35 strict finalize: on final iterations (approachingLimit=true) use the
+      // strict decision-wrapper schema that embeds the business agent's finalize
+      // output schema under action.output. This lets strict providers (json_schema
+      // strict mode) enforce the payload shape at the provider level.
+      // Falls back to permissive REACT_LOOP_DECISION_JSON_SCHEMA when not on
+      // final iterations or when no business schema was provided.
       ...(useNativeFCThisCall
         ? {}
         : {
             structuredOutputStrategy: "json_schema" as const,
-            outputJsonSchema: REACT_LOOP_DECISION_JSON_SCHEMA,
+            outputJsonSchema:
+              approachingLimit && finalizeOutputJsonSchema
+                ? (buildFinalizeDecisionSchema(finalizeOutputJsonSchema) ??
+                  REACT_LOOP_DECISION_JSON_SCHEMA)
+                : REACT_LOOP_DECISION_JSON_SCHEMA,
           }),
       // ★ Harness 内部 agent-to-agent 编排，不是用户原始输入；guardrails
       // 对内部系统 prompt 进行内容审查会误杀（特别是含 BUILTIN_TOOL 描述、

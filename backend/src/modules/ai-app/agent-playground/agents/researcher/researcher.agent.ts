@@ -17,6 +17,7 @@ import { z } from "zod";
 import {
   AgentSpec,
   DefineAgent,
+  RESEARCHER_FINALIZE_OUTPUT_JSON_SCHEMA,
   RESEARCHER_MAX_ITERATIONS,
   RESEARCHER_MAX_ITERATIONS_HARD_CAP,
   RESEARCHER_MAX_WALL_TIME_MS,
@@ -189,6 +190,11 @@ const Output = z.object({
   },
   inputSchema: Input,
   outputSchema: Output,
+  // #35: strict JSON schema derived from Output zod — enables provider-level
+  // enforcement of the finalize payload shape on final iterations (approachingLimit=true).
+  // Derived following the 6-rule spec: optional→not required, .default()→not required,
+  // .refine() dropped, .min() dropped, additionalProperties:false at every object.
+  outputJsonSchema: RESEARCHER_FINALIZE_OUTPUT_JSON_SCHEMA,
   // ★ budget 大幅收紧：120K → 30K，maxIter 20 → 5
   // 单 dim 5 iter 足够：1 search + 1 scrape + 1 finalize = 3 iter；5 iter 留 buffer
   // 6 dim × 30K = 180K（vs 旧 720K），减 75%

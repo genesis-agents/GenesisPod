@@ -389,6 +389,11 @@ export class AgentFactory {
       //   giving local / reasoning models a concrete shape to copy.
       outputSchemaDescription:
         describeOutputSchemaForLlm(spec.outputSchema) ?? undefined,
+      // #35: strict finalize JSON schema for provider-level enforcement on final
+      // iterations. undefined when not set — loop falls back to permissive schema.
+      finalizeOutputJsonSchema: spec.outputJsonSchema
+        ? { ...spec.outputJsonSchema }
+        : undefined,
     });
   }
 

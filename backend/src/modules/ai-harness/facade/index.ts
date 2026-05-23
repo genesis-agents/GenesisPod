@@ -108,6 +108,8 @@ export {
   RESEARCHER_MAX_ITERATIONS_HARD_CAP,
   RESEARCHER_MAX_WALL_TIME_MS,
 } from "../evaluation/thresholds.constants";
+// #35: strict finalize output schemas (business-agent level)
+export { RESEARCHER_FINALIZE_OUTPUT_JSON_SCHEMA } from "../runner/loop/loop-output-schemas";
 export { ModelResolverService } from "./model-resolver.service";
 export {
   FACADE_FEATURE_PROVIDERS,

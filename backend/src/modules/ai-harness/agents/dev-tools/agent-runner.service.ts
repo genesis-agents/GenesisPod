@@ -1457,6 +1457,7 @@ export class AgentRunner {
       ),
       taskProfile: meta.taskProfile,
       outputSchema: meta.outputSchema,
+      outputJsonSchema: meta.outputJsonSchema,
       validateBusinessRules: validateFn,
       stubFn,
       buildSystemPrompt: buildSystemPromptFn,

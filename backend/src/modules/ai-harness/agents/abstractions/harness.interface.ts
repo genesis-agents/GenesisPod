@@ -101,6 +101,19 @@ export interface IAgentSpec<TInput = unknown, TOutput = unknown> {
    * 典型字段：searchTimeRange, language, missionId, dimensionId 等。
    */
   readonly metadata?: Readonly<Record<string, unknown>>;
+
+  /**
+   * #35 — Strict JSON schema for the business finalize output payload
+   * (e.g. ResearcherAgent findings/summary shape), derived from outputSchema.
+   *
+   * When set, the ReActLoop switches to a tighter provider-enforced decision
+   * schema on final iterations (approachingLimit=true), non-FC branch only.
+   * The permissive REACT_LOOP_DECISION_JSON_SCHEMA is used for all other turns.
+   *
+   * Must exactly mirror outputSchema's shape (additionalProperties:false, all
+   * optional fields absent from required[]). A mismatch rejects valid output.
+   */
+  readonly outputJsonSchema?: Readonly<Record<string, unknown>>;
 }
 
 /** Context 操作接口（只读 envelope 上的变换器） */
