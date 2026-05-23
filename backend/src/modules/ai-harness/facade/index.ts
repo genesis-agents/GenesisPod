@@ -423,6 +423,16 @@ export {
   MissionAbortReason,
 } from "../lifecycle/mission-lifecycle/abort-registry";
 export { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
+// ★ 2026-05-22 C0/G1: mission 唯一终态写入口（finalize + 条件写仲裁 arbiter）。
+//   app 层实现 MissionTerminalArbiter（条件写 WHERE status='running'），所有终态来源
+//   （dispatcher 完成/失败 / liveness / abort / controller 取消）统一经 finalize 提交 intent。
+export {
+  MissionLifecycleManager,
+  type MissionTerminalIntent,
+  type MissionTerminalArbiter,
+  type MissionLifecycleStatus,
+  type MissionTerminalStatus,
+} from "../lifecycle/mission-lifecycle/mission-lifecycle-manager";
 // ★ 2026-05-22 C2/G3: mission 级失败 canonical 契约（code/category 投影/abort+agent 映射）
 export {
   MissionFailureCode,
