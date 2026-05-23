@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { TruncatedCell } from '@/components/common/tables';
+import { StatusBadge } from '@/components/ui/badges';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   Check,
@@ -468,10 +470,10 @@ export function UserModelsManagement() {
                   className={`hover:bg-gray-50 ${!m.isEnabled ? 'opacity-60' : ''}`}
                 >
                   {/* MODEL */}
-                  <Td className="px-4 py-4">
+                  <Td className="px-4 py-2.5">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg font-semibold text-white shadow-sm ${
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base font-semibold text-white shadow-sm ${
                           isSystem
                             ? 'bg-gradient-to-br from-emerald-500 to-teal-600'
                             : 'bg-gradient-to-br from-blue-500 to-purple-600'
@@ -479,112 +481,101 @@ export function UserModelsManagement() {
                       >
                         {m.displayName.slice(0, 1).toUpperCase()}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">
-                            {m.displayName}
-                          </span>
-                          {m.isDefault && (
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                              Default
-                            </span>
-                          )}
-                          {m.isReasoning && (
-                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                              Reasoning
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {m.provider}
-                        </div>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <TruncatedCell
+                          className="min-w-0 font-medium text-gray-900"
+                          tooltip={`${m.displayName} · ${m.provider}`}
+                        >
+                          {m.displayName}
+                        </TruncatedCell>
+                        {m.isDefault && (
+                          <StatusBadge
+                            tone="info"
+                            label="Default"
+                            className="shrink-0"
+                          />
+                        )}
+                        {m.isReasoning && (
+                          <StatusBadge
+                            tone="warning"
+                            label="Reasoning"
+                            className="shrink-0"
+                          />
+                        )}
                       </div>
                     </div>
                   </Td>
 
                   {/* MODEL ID */}
-                  <Td className="px-4 py-4">
-                    <code className="font-mono rounded bg-gray-100 px-2 py-1 text-xs">
+                  <Td className="px-4 py-2.5">
+                    <code
+                      className="font-mono inline-block max-w-[180px] truncate rounded bg-gray-100 px-2 py-1 align-middle text-xs"
+                      title={m.modelId}
+                    >
                       {m.modelId}
                     </code>
                   </Td>
 
                   {/* TYPE */}
-                  <Td className="whitespace-nowrap px-4 py-4">
+                  <Td className="whitespace-nowrap px-4 py-2.5">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      title={!isSystem ? `API 格式：${m.apiFormat}` : undefined}
+                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                         TYPE_BADGE_CLASS[m.modelType] ??
                         'bg-gray-100 text-gray-700'
                       }`}
                     >
                       {typeLabel(m.modelType)}
                     </span>
-                    {!isSystem && (
-                      <div className="mt-1 text-xs text-gray-400">
-                        {m.apiFormat}
-                      </div>
-                    )}
                   </Td>
 
                   {/* SOURCE */}
-                  <Td className="whitespace-nowrap px-4 py-4">
+                  <Td className="whitespace-nowrap px-4 py-2.5">
                     {isSystem ? (
                       <span
-                        className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800"
-                        title="管理员授权（KeyAssignment）"
+                        title={
+                          usedDollars
+                            ? quotaDollars
+                              ? `管理员授权 · 已用 $${usedDollars} / $${quotaDollars}`
+                              : `管理员授权 · 已用 $${usedDollars} · 无上限`
+                            : '管理员授权（KeyAssignment）'
+                        }
                       >
-                        <Shield className="h-3 w-3" />
-                        系统授权
+                        <StatusBadge
+                          tone="success"
+                          icon={Shield}
+                          label="系统授权"
+                        />
                       </span>
                     ) : (
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800"
-                        title="你自己配置的模型"
-                      >
-                        <Edit className="h-3 w-3" />
-                        个人
+                      <span title="你自己配置的模型">
+                        <StatusBadge tone="info" icon={Edit} label="个人" />
                       </span>
-                    )}
-                    {a && (
-                      <div className="mt-1 text-xs text-gray-500">
-                        {usedDollars && quotaDollars
-                          ? `$${usedDollars} / $${quotaDollars}`
-                          : usedDollars
-                            ? `$${usedDollars} · unlimited`
-                            : null}
-                      </div>
                     )}
                   </Td>
 
                   {/* API KEY */}
-                  <Td className="px-4 py-4">
+                  <Td className="whitespace-nowrap px-4 py-2.5">
                     {isSystem ? (
-                      <>
-                        <span className="text-sm font-medium text-emerald-600">
-                          ✓ Granted
-                        </span>
-                        <div className="mt-0.5 text-xs text-gray-400">
-                          managed by admin
-                        </div>
-                      </>
+                      <span title="managed by admin">
+                        <StatusBadge
+                          tone="success"
+                          icon={Check}
+                          label="Granted"
+                        />
+                      </span>
                     ) : (
-                      <>
-                        <span
-                          className={`text-sm font-medium ${
-                            hasKey ? 'text-green-600' : 'text-red-500'
-                          }`}
-                        >
-                          {hasKey ? '✓ Configured' : '✗ Missing'}
-                        </span>
-                        <div className="mt-0.5 text-xs text-gray-400">
-                          via your {m.provider} key
-                        </div>
-                      </>
+                      <span title={`via your ${m.provider} key`}>
+                        <StatusBadge
+                          tone={hasKey ? 'success' : 'danger'}
+                          label={hasKey ? 'Configured' : 'Missing'}
+                        />
+                      </span>
                     )}
                   </Td>
 
                   {/* STATUS toggle / state */}
-                  <Td className="px-4 py-4 text-center">
+                  <Td className="px-4 py-2.5 text-center">
                     {isSystem ? (
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -622,8 +613,15 @@ export function UserModelsManagement() {
                   </Td>
 
                   {/* CAPABILITIES */}
-                  <Td className="px-4 py-4">
-                    <div className="flex flex-wrap gap-1">
+                  <Td className="px-4 py-2.5">
+                    <div
+                      className="flex items-center gap-1"
+                      title={
+                        isSystem
+                          ? `${m.maxTokens} tokens`
+                          : `优先级 ${m.priority} · 温度 ${m.temperature} · ${m.maxTokens} tokens`
+                      }
+                    >
                       {m.supportsTemperature && (
                         <span
                           title="支持 temperature"
@@ -657,20 +655,10 @@ export function UserModelsManagement() {
                         </span>
                       )}
                     </div>
-                    {!isSystem && (
-                      <div className="mt-1 text-xs text-gray-400">
-                        P:{m.priority} | T:{m.temperature} | {m.maxTokens}tok
-                      </div>
-                    )}
-                    {isSystem && (
-                      <div className="mt-1 text-xs text-gray-400">
-                        {m.maxTokens}tok
-                      </div>
-                    )}
                   </Td>
 
                   {/* ACTIONS */}
-                  <Td className="px-4 py-4 text-right">
+                  <Td className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       {isSystem ? (
                         <span

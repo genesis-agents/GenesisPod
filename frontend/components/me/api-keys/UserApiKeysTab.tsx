@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { confirm } from '@/stores';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { TruncatedCell } from '@/components/common/tables';
+import { StatusBadge } from '@/components/ui/badges';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import {
@@ -332,10 +334,11 @@ function ProviderRow({
 
   return (
     <Tr className="hover:bg-gray-50">
-      <Td className="px-4 py-4">
+      {/* Name —— 单行：图标 + 名称(截断),slug 收进 tooltip */}
+      <Td className="px-4 py-2.5">
         <div className="flex items-center gap-3">
           <div
-            className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${iconInfo.color}`}
+            className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${iconInfo.color}`}
           >
             {iconInfo.icon ? (
               <img
@@ -347,56 +350,60 @@ function ProviderRow({
               <Key className="h-4 w-4" />
             )}
           </div>
-          <div className="min-w-0">
-            <div className="font-medium text-gray-900">{provider.name}</div>
-            <div className="font-mono truncate text-xs text-gray-500">
-              {provider.id}
-            </div>
-          </div>
+          <TruncatedCell
+            className="max-w-[200px] font-medium text-gray-900"
+            tooltip={`${provider.name} · ${provider.id}`}
+          >
+            {provider.name}
+          </TruncatedCell>
         </div>
       </Td>
-      <Td className="px-4 py-4">
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-            isBuiltin
-              ? 'bg-blue-100 text-blue-800'
-              : 'bg-purple-100 text-purple-800'
-          }`}
-        >
-          {isBuiltin ? 'AI Model' : 'Custom Provider'}
-        </span>
-        {providerKeys.length > 1 && (
-          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-            {providerKeys.length} keys
-          </span>
-        )}
+      {/* Category —— StatusBadge tone 统一配色 */}
+      <Td className="px-4 py-2.5">
+        <div className="flex items-center gap-1.5">
+          <StatusBadge
+            tone={isBuiltin ? 'info' : 'neutral'}
+            label={isBuiltin ? 'AI Model' : 'Custom Provider'}
+          />
+          {providerKeys.length > 1 && (
+            <StatusBadge tone="warning" label={`${providerKeys.length} keys`} />
+          )}
+        </div>
       </Td>
-      <Td className="px-4 py-4">
-        <code className="font-mono rounded bg-gray-100 px-2 py-1 text-sm text-gray-700">
+      {/* Value —— 掩码 keyHint,过长截断 + 原生 tooltip */}
+      <Td className="px-4 py-2.5">
+        <code
+          className="font-mono inline-block max-w-[180px] truncate rounded bg-gray-100 px-2 py-1 align-middle text-sm text-gray-700"
+          title={keyHint}
+        >
           {keyHint}
         </code>
       </Td>
-      <Td className="px-4 py-4">
+      {/* Status */}
+      <Td className="px-4 py-2.5">
         {existingKey ? (
           existingKey.mode === 'donated' ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-pink-100 px-2 py-1 text-xs font-medium text-pink-800">
+            // donated（捐赠）是项目专属语义,StatusBadge 无 pink tone,保留专色但对齐形状
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-pink-50 px-2 py-0.5 text-[11px] font-medium text-pink-700 ring-1 ring-pink-200">
               <Heart className="h-3 w-3" />
               {t('profile.apiKeys.statusDonated')}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
-              <Lock className="h-3 w-3" />
-              {t('profile.apiKeys.statusPersonal')}
-            </span>
+            <StatusBadge
+              tone="success"
+              icon={Lock}
+              label={t('profile.apiKeys.statusPersonal')}
+            />
           )
         ) : (
-          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-            {t('profile.apiKeys.statusNotConfigured')}
-          </span>
+          <StatusBadge
+            tone="neutral"
+            label={t('profile.apiKeys.statusNotConfigured')}
+          />
         )}
       </Td>
-      <Td className="px-4 py-4 text-sm text-gray-500">{totalUsage}</Td>
-      <Td className="px-4 py-4 text-right">
+      <Td className="px-4 py-2.5 text-sm text-gray-500">{totalUsage}</Td>
+      <Td className="px-4 py-2.5 text-right">
         <div className="flex items-center justify-end gap-2">
           {existingKey ? (
             <>
