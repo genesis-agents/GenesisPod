@@ -41,6 +41,7 @@ import { AIModelType } from "@prisma/client";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
+import { SIMPLE_LOOP_OUTPUT_JSON_SCHEMA } from "./loop-output-schemas";
 
 export interface SimpleLoopRunOptions extends ILoopRunOptions {
   /** Spec 声明的 TaskProfile（透传给 chat()） */
@@ -107,6 +108,11 @@ export class SimpleLoop implements IAgentLoop {
         },
         strictMode: true,
         responseFormat: "json",
+        // R2-#35: native structured output — router auto-degrades per provider.
+        // responseFormat:"json" is kept as the secondary safety net so providers
+        // that do not support json_schema still get a JSON hint.
+        structuredOutputStrategy: "json_schema",
+        outputJsonSchema: SIMPLE_LOOP_OUTPUT_JSON_SCHEMA,
         skipGuardrails: true,
         operationName: "harness:simple-loop:chat",
         userId: options?.userId,

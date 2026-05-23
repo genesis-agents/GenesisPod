@@ -60,6 +60,7 @@ import {
   rawContentHasUnexecutedToolIntent,
   envelopeHasUnexecutedToolUse,
 } from "./utils/follow-up-detector";
+import { REACT_LOOP_DECISION_JSON_SCHEMA } from "./loop-output-schemas";
 
 interface ParsedDecision {
   thinking: string;
@@ -1494,6 +1495,17 @@ export class ReActLoop implements IAgentLoop {
       // 强制 JSON 会让 vLLM tool parser 失效（content 必须是 JSON），fallback 路径
       // 反而拿不到自然 tool_calls。
       responseFormat: useNativeFCThisCall ? undefined : "json",
+      // R2-#35: native structured output for non-FC branch only.
+      // FC branch must NOT receive structuredOutputStrategy/outputJsonSchema —
+      // the adapter would inject response_format on top of tools, breaking
+      // providers that disallow both simultaneously.
+      // parseDecision remains the fallback for providers that ignore json_schema.
+      ...(useNativeFCThisCall
+        ? {}
+        : {
+            structuredOutputStrategy: "json_schema" as const,
+            outputJsonSchema: REACT_LOOP_DECISION_JSON_SCHEMA,
+          }),
       // ★ Harness 内部 agent-to-agent 编排，不是用户原始输入；guardrails
       // 对内部系统 prompt 进行内容审查会误杀（特别是含 BUILTIN_TOOL 描述、
       // 评审 prompt 等可能触发敏感词检测的合法系统内容）。
