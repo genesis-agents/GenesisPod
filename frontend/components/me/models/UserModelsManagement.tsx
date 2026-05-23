@@ -287,7 +287,7 @@ export function UserModelsManagement() {
             运行，不受系统默认模型 tier 限制
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           <UserModelsAutoConfigureButton
             disabled={apiKeys.length === 0}
             onDone={() => void refresh()}
