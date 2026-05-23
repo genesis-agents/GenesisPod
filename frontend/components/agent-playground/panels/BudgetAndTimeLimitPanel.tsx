@@ -25,6 +25,10 @@ export const MAX_CREDITS_LIMIT = { min: 10, max: 100_000 } as const;
 export const MULTIPLIER_LIMIT = { min: 0.3, max: 10 } as const;
 export const WALL_TIME_LIMIT_MINUTES = { min: 1, max: 180 } as const;
 
+// ★ 2026-05-22 ③J/K 契约单一源：原 SCALE_TIERS 前端镜像已删除。调研规模档位的
+//   数值/展示全部来自后端 GET /agent-playground/budget-tiers（useBudgetTiers），
+//   前端不再维护任何 tier 数值副本（杜绝"前后端各一份 → 漂移"）。
+
 export interface BudgetAndTimeLimitPanelProps {
   maxCredits: number;
   setMaxCredits: (n: number) => void;

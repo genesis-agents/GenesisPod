@@ -23,6 +23,7 @@ import { CardGrid } from '@/components/ui/cards/CardGrid';
 import SectionTitle from '../_design/SectionTitle';
 
 import { logger } from '@/lib/utils/logger';
+import { ErrorState } from '@/components/ui/states/ErrorState';
 
 interface PersonalKnowledgeBaseTabProps {
   searchQuery?: string;
@@ -119,17 +120,10 @@ export default function PersonalKnowledgeBaseTab({
       );
     }
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
-        <p className="text-red-600">加载知识库失败: {error.message}</p>
-        <button
-          onClick={() => {
-            void refreshList();
-          }}
-          className="mt-3 text-sm font-medium text-red-700 hover:underline"
-        >
-          重试
-        </button>
-      </div>
+      <ErrorState
+        error={`加载知识库失败: ${error.message}`}
+        onRetry={() => void refreshList()}
+      />
     );
   }
 

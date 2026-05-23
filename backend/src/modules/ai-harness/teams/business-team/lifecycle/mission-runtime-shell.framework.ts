@@ -22,7 +22,11 @@ import { CreditsService } from "@/modules/ai-infra/credits/credits.service";
 //   NestJS DI 无法解析 ctor 参数 [1] → 启动崩溃。直接从 source 导入打破循环。
 import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/guardrails/billing/billing-adapter";
 import { MissionBudgetPool } from "@/modules/ai-harness/guardrails/budget/mission-budget-pool";
-import { MissionAbortRegistry } from "../../../lifecycle/mission-lifecycle/abort-registry";
+import { ResolvedBudgetCaps } from "@/modules/ai-harness/guardrails/budget/resolved-budget-caps";
+import {
+  MissionAbortRegistry,
+  MissionAbortReason,
+} from "../../../lifecycle/mission-lifecycle/abort-registry";
 import { RuntimeEnvironmentService } from "../../../guardrails/runtime/runtime-environment.service";
 import type {
   IMissionRuntimeAdapter,
@@ -48,9 +52,9 @@ export class MissionRuntimeShellFramework {
   }): Promise<MissionRuntimeSession> {
     const { missionId, input, userId, workspaceId, adapter } = args;
     const missionAbort = this.abortRegistry.register(missionId);
-    const wallTimeMs = adapter.resolveWallTimeMs(input);
+    const wallTimeCapMs = adapter.resolveWallTimeCapMs(input);
     this.log.log(
-      `[${missionId}] mission wall-time = ${Math.round(wallTimeMs / 60000)}min ` +
+      `[${missionId}] mission wall-time = ${Math.round(wallTimeCapMs / 60000)}min ` +
         `(namespace=${adapter.eventNamespace})`,
     );
 
@@ -62,16 +66,19 @@ export class MissionRuntimeShellFramework {
     );
     const effectiveMaxCredits = adapter.resolveMaxCredits(input);
     const budgetMultiplier = adapter.resolveBudgetMultiplier(input);
-    const pool = new MissionBudgetPool({
-      maxTokens: effectiveMaxCredits * 1000,
-      maxCostUsd: effectiveMaxCredits * 0.002,
-    });
+    // ★ C3a/G4：换算收口到 ResolvedBudgetCaps.resolve()（唯一换算处），删散落 ×1000/×0.002。
+    const pool = new MissionBudgetPool(
+      ResolvedBudgetCaps.resolve({
+        maxCredits: effectiveMaxCredits,
+        budgetMultiplier,
+      }).toTokenBudget(),
+    );
 
     const wallTimer = setTimeout(() => {
       // ★ P0-1 (audit 2026-05-06): try-finally 保证 abortRegistry.abort 一定执行
       try {
         this.log.warn(
-          `[${missionId}] mission wall-time exceeded (${wallTimeMs}ms) - auto abort`,
+          `[${missionId}] mission wall-time exceeded (${wallTimeCapMs}ms) - auto abort`,
         );
         void adapter
           .emitMissionEvent({
@@ -80,7 +87,7 @@ export class MissionRuntimeShellFramework {
             userId,
             payload: {
               reason: "wall_time_exceeded",
-              wallTimeMs,
+              wallTimeCapMs,
             },
           })
           .catch((err) => {
@@ -90,14 +97,14 @@ export class MissionRuntimeShellFramework {
           });
       } finally {
         try {
-          missionAbort.abort("mission_wall_time_exceeded");
+          missionAbort.abort(MissionAbortReason.mission_wall_time_exceeded);
         } catch (err) {
           this.log.error(
             `[${missionId}] wall-timer abort failed: ${err instanceof Error ? err.message : String(err)}`,
           );
         }
       }
-    }, wallTimeMs);
+    }, wallTimeCapMs);
     wallTimer.unref?.();
 
     let heartbeatTimer: NodeJS.Timeout | null = null;
@@ -140,7 +147,7 @@ export class MissionRuntimeShellFramework {
         pool,
         budgetMultiplier,
         missionAbort,
-        wallTimeMs,
+        wallTimeCapMs,
         cleanup,
       };
     } catch (err) {

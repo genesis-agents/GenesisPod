@@ -21,3 +21,6 @@ export {
 } from './dropdown-menu';
 
 export { Switch } from './switch';
+
+export { CopyButton } from './CopyButton';
+export type { CopyButtonProps } from './CopyButton';

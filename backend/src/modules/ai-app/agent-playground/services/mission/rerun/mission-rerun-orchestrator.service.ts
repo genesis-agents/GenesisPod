@@ -29,6 +29,7 @@ import {
   MissionOwnershipRegistry,
 } from "@/modules/ai-harness/facade";
 import { type RunMissionInput } from "../../../dto/run-mission.dto";
+import type { PlaygroundConfigSnapshot } from "./playground-mission-input-rebuilder.service";
 import { RerunGuardService } from "./rerun-guard.service";
 
 interface RerunResult {
@@ -255,41 +256,39 @@ export class MissionRerunOrchestratorService {
     original: NonNullable<Awaited<ReturnType<MissionStore["getById"]>>>,
     overrides: {
       topic?: string;
-      /** undefined = 不传 maxCredits，让 resolveMissionCredits 按 budgetProfile 推导 */
+      /** undefined = 不传 maxCredits，让 resolveMissionCredits 按 depth 档位（DEPTH_BUDGET_TIERS）解析 */
       maxCreditsFallback?: number;
       inheritFromMissionId?: string;
     },
   ): RunMissionInput {
-    const originalProfile = (original as { userProfile?: unknown })
-      .userProfile as Partial<RunMissionInput> | null | undefined;
+    // ★ C5/G7 S3:rerun 输入只从 typed config snapshot 重建(单一真源),不读 userProfile。
+    //   历史行无 snapshot=legacy → 拒绝重跑(数据可弃,不做 fallback)。
+    const snap = (original as { configSnapshot?: unknown })
+      .configSnapshot as PlaygroundConfigSnapshot | null;
+    if (snap?.schemaVersion == null) {
+      throw new BadRequestException(
+        `mission ${original.id} 早于 config snapshot 上线(legacy),不支持重跑。`,
+      );
+    }
+    const b = snap.businessInput;
     return {
-      topic: overrides.topic ?? original.topic,
-      depth: (["quick", "standard", "deep"].includes(
-        originalProfile?.depth ?? original.depth,
-      )
-        ? (originalProfile?.depth ?? original.depth)
-        : "deep") as RunMissionInput["depth"],
-      language: (originalProfile?.language ??
-        (original.language === "en-US"
-          ? "en-US"
-          : "zh-CN")) as RunMissionInput["language"],
-      budgetProfile: originalProfile?.budgetProfile ?? "medium",
-      styleProfile: originalProfile?.styleProfile ?? "executive",
-      lengthProfile: originalProfile?.lengthProfile ?? "standard",
-      audienceProfile: originalProfile?.audienceProfile ?? "domain-expert",
-      withFigures: originalProfile?.withFigures ?? true,
-      auditLayers: originalProfile?.auditLayers ?? "default",
-      concurrency: originalProfile?.concurrency ?? 3,
-      viewMode: originalProfile?.viewMode ?? "continuous",
-      searchTimeRange: originalProfile?.searchTimeRange ?? "365d",
-      // ★ 2026-05-06 (P0-K): maxCredits 必填，rerun 直接沿用原 mission 用户传入值；
-      //   原 mission 缺失（旧数据）则用 fallback（caller 传 1000 等显式值，不再有
-      //   "BUDGET_PROFILE_CREDITS[unlimited]=10000" 类的内部硬编码默认）。
-      maxCredits:
-        originalProfile?.maxCredits ?? overrides.maxCreditsFallback ?? 1000,
-      // ★ P0-K: budgetMultiplierOverride 也必填，rerun 沿用原值或默认 1.0
-      budgetMultiplierOverride:
-        originalProfile?.budgetMultiplierOverride ?? 1.0,
+      topic: overrides.topic ?? snap.topic,
+      depth: b.depth,
+      language: snap.language as RunMissionInput["language"],
+      budgetProfile: b.budgetProfile,
+      styleProfile: b.styleProfile,
+      lengthProfile: b.lengthProfile,
+      audienceProfile: b.audienceProfile,
+      withFigures: b.withFigures,
+      auditLayers: b.auditLayers,
+      concurrency: b.concurrency,
+      viewMode: b.viewMode,
+      searchTimeRange: b.searchTimeRange,
+      knowledgeBaseIds: b.knowledgeBaseIds,
+      // budget/runtimeLimits 来自 snapshot 顶层(已 ResolvedBudgetCaps 解析)。
+      maxCredits: snap.budget.maxCredits ?? overrides.maxCreditsFallback,
+      budgetMultiplierOverride: snap.budget.budgetMultiplier,
+      wallTimeMs: snap.runtimeLimits.wallTimeCapMs,
       inheritFromMissionId: overrides.inheritFromMissionId,
     };
   }

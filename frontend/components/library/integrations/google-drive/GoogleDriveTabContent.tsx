@@ -22,6 +22,7 @@ import { formatDateSafe } from '@/lib/utils/date';
 import { LoadingState } from '@/components/ui/states';
 
 import { logger } from '@/lib/utils/logger';
+import { Alert } from '@/components/ui/feedback/Alert';
 import { confirm } from '@/stores';
 /**
  * Google Drive TAB 主内容组件
@@ -262,27 +263,20 @@ export default function GoogleDriveTabContent() {
     <div className="space-y-6">
       {/* 状态提示 */}
       {importStatus.show && (
-        <div
-          className={`rounded-lg border px-4 py-3 ${
+        <Alert
+          tone={
             importStatus.type === 'success'
-              ? 'border-green-200 bg-green-50 text-green-700'
+              ? 'success'
               : importStatus.type === 'error'
-                ? 'border-red-200 bg-red-50 text-red-700'
-                : 'border-blue-200 bg-blue-50 text-blue-700'
-          }`}
+                ? 'error'
+                : 'info'
+          }
+          onClose={() =>
+            setImportStatus({ show: false, message: '', type: 'info' })
+          }
         >
-          <div className="flex items-center justify-between">
-            <span className="text-sm">{importStatus.message}</span>
-            <button
-              onClick={() =>
-                setImportStatus({ show: false, message: '', type: 'info' })
-              }
-              className="text-current hover:opacity-70"
-            >
-              ×
-            </button>
-          </div>
-        </div>
+          {importStatus.message}
+        </Alert>
       )}
 
       {/* 连接信息头部 */}

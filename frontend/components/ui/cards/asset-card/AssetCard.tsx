@@ -151,7 +151,7 @@ export function AssetCard(props: AssetCardProps) {
     title,
     description,
     icon,
-    gradient = 'from-violet-500 to-fuchsia-600',
+    gradient = 'from-[hsl(var(--primary))] to-[hsl(var(--primary)/0.7)]',
     media,
     badges = [],
     visibility,
@@ -313,7 +313,7 @@ export function AssetCard(props: AssetCardProps) {
     <div
       onClick={onClick}
       className={cn(
-        'group relative flex h-full flex-col rounded-xl border border-gray-200 bg-white transition-all hover:border-violet-300 hover:shadow-lg',
+        'group relative flex h-full flex-col rounded-xl border border-gray-200 bg-white transition-all hover:border-[hsl(var(--primary)/0.45)] hover:shadow-lg',
         onClick && 'cursor-pointer',
         hasMedia ? 'overflow-hidden' : 'p-5',
         className

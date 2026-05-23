@@ -9,6 +9,7 @@ import { useTranslation } from '@/lib/i18n';
 import { CURRENT_VERSION } from '@/lib/utils/changelog';
 import { BrandLogo } from '@/components/common/brand/BrandLogo';
 import { config } from '@/lib/utils/config';
+import { MODULE_THEMES } from '@/lib/design/module-themes';
 import { useUnreadNotificationCount } from '@/hooks/domain/useNotifications';
 import { useNotificationSocket } from '@/hooks/domain/useNotificationSocket';
 import { usePublishedCustomAgents } from '@/components/custom-agents/usePublishedCustomAgents';
@@ -297,7 +298,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             }}
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               isActive('/ai-ask') || pathname?.startsWith('/ai-ask')
-                ? 'bg-violet-50 text-gray-900'
+                ? `${MODULE_THEMES.ask.activeBg} ${MODULE_THEMES.ask.text}`
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.aiAsk')}
@@ -339,7 +340,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             }}
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               isActive('/explore')
-                ? 'bg-pink-50 text-gray-900'
+                ? `${MODULE_THEMES.explore.activeBg} ${MODULE_THEMES.explore.text}`
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.aiExplore')}
@@ -370,7 +371,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             }}
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               isActive('/library')
-                ? 'bg-indigo-50 text-gray-900'
+                ? `${MODULE_THEMES.library.activeBg} ${MODULE_THEMES.library.text}`
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.myLibrary')}
@@ -406,7 +407,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             href="/ai-radar"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/ai-radar')
-                ? 'bg-cyan-50 text-gray-900'
+                ? `${MODULE_THEMES.radar.activeBg} ${MODULE_THEMES.radar.text}`
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.aiRadar')}
@@ -429,7 +430,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             href="/ai-insights"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/ai-insights')
-                ? 'bg-purple-50 text-gray-900'
+                ? `${MODULE_THEMES.insights.activeBg} ${MODULE_THEMES.insights.text}`
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.aiInsights')}
@@ -461,7 +462,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             href="/ai-research"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/ai-research')
-                ? 'bg-indigo-50 text-gray-900'
+                ? `${MODULE_THEMES.research.activeBg} ${MODULE_THEMES.research.text}`
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.aiResearch')}
@@ -496,7 +497,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             href="/ai-teams"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/ai-teams')
-                ? 'bg-green-50 text-gray-900'
+                ? `${MODULE_THEMES.discuss.activeBg} ${MODULE_THEMES.discuss.text}`
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.myTeams')}
@@ -521,7 +522,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             href="/ai-planning"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/ai-planning')
-                ? 'bg-amber-50 text-gray-900'
+                ? `${MODULE_THEMES.planning.activeBg} ${MODULE_THEMES.planning.text}`
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.aiPlanning')}
@@ -546,7 +547,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             href="/ai-simulation"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/ai-simulation')
-                ? 'bg-indigo-50 text-gray-900'
+                ? `${MODULE_THEMES.decision.activeBg} ${MODULE_THEMES.decision.text}`
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.aiSimulation')}
@@ -566,7 +567,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 strokeWidth={1.5}
                 fill={
                   pathname?.startsWith('/ai-simulation')
-                    ? 'rgba(99, 102, 241, 0.15)'
+                    ? 'rgba(239, 68, 68, 0.13)'
                     : 'none'
                 }
               />
@@ -595,7 +596,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 strokeWidth={1.5}
                 fill={
                   pathname?.startsWith('/ai-simulation')
-                    ? 'rgba(99, 102, 241, 0.15)'
+                    ? 'rgba(239, 68, 68, 0.13)'
                     : 'none'
                 }
               />
@@ -631,7 +632,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             }}
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} relative rounded-lg px-3 py-1.5 text-sm font-medium ${
               isActive('/ai-office') || pathname?.startsWith('/ai-office')
-                ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-gray-900 shadow-sm'
+                ? `${MODULE_THEMES.report.activeBg} ${MODULE_THEMES.report.text}`
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.aiReports')}
@@ -662,7 +663,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             href="/ai-writing"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/ai-writing')
-                ? 'bg-amber-50 text-gray-900'
+                ? `${MODULE_THEMES.writing.activeBg} ${MODULE_THEMES.writing.text}`
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.aiWriting')}
@@ -689,7 +690,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
               href="/ai-social"
               className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
                 pathname?.startsWith('/ai-social')
-                  ? 'bg-rose-50 text-rose-700'
+                  ? `${MODULE_THEMES.social.activeBg} ${MODULE_THEMES.social.text}`
                   : 'text-gray-700 hover:bg-gray-50'
               }`}
               title={t('nav.aiSocial')}
@@ -725,7 +726,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             href="/agent-playground"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/agent-playground')
-                ? 'bg-purple-50 text-purple-700'
+                ? `${MODULE_THEMES.playground.activeBg} ${MODULE_THEMES.playground.text}`
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.playground')}

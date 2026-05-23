@@ -20,8 +20,14 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { MissionBudgetPool } from "@/modules/ai-harness/facade";
-import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
+import {
+  MissionBudgetPool,
+  ResolvedBudgetCaps,
+} from "@/modules/ai-harness/facade";
+import {
+  MissionAbortRegistry,
+  MissionAbortReason,
+} from "@/modules/ai-harness/facade";
 import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
@@ -78,7 +84,10 @@ export class RerunMissionRuntimeBuilder {
       this.log.warn(
         `[rerun-runtime ${missionId}] stale AbortController detected — aborting before register (orphan-prevention)`,
       );
-      this.abortRegistry.abort(missionId, "rerun_replacing_stale");
+      this.abortRegistry.abort(
+        missionId,
+        MissionAbortReason.rerun_replacing_stale,
+      );
       // unregister 让 register 重新分配（防 register 静默覆盖时旧 controller 引用断）
       this.abortRegistry.unregister(missionId);
     }
@@ -92,10 +101,13 @@ export class RerunMissionRuntimeBuilder {
     );
     const effectiveMaxCredits = resolveMissionCredits(input);
     const budgetMultiplier = resolveBudgetMultiplier(input);
-    const pool = new MissionBudgetPool({
-      maxTokens: effectiveMaxCredits * 1000,
-      maxCostUsd: effectiveMaxCredits * 0.002,
-    });
+    // ★ C3a/G4：换算收口到 ResolvedBudgetCaps.resolve()（唯一换算处），删散落 ×1000/×0.002。
+    const pool = new MissionBudgetPool(
+      ResolvedBudgetCaps.resolve({
+        maxCredits: effectiveMaxCredits,
+        budgetMultiplier,
+      }).toTokenBudget(),
+    );
 
     const leader = this.leaderService.create(
       missionId,

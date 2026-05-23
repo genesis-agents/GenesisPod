@@ -57,7 +57,7 @@ export const CollapsibleMessage = ({
               e.stopPropagation();
               setIsExpanded(true);
             }}
-            className="group flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-1.5 text-xs font-medium text-blue-600 shadow-sm ring-1 ring-blue-100 backdrop-blur-sm transition-all hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200"
+            className="group flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-1.5 text-xs font-medium text-primary shadow-sm ring-1 ring-[hsl(var(--primary)/0.2)] backdrop-blur-sm transition-all hover:bg-[hsl(var(--primary)/0.06)] hover:opacity-90"
           >
             <ChevronDown className="h-3.5 w-3.5 transition-transform group-hover:translate-y-0.5" />
             <span>展开全文</span>

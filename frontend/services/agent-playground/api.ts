@@ -53,11 +53,15 @@ export interface RunMissionInput {
   viewMode?: ViewMode;
   /** 搜索资料时的时间范围约束 */
   searchTimeRange?: SearchTimeRange;
-  /** ★ P0-K (2026-05-06): mission 级 credits 上限（必填，由用户侧决定）。1 credit ≈ 1k tokens */
-  maxCredits: number;
-  /** ★ P0-K: agent budget 倍率（必填，前端按 budgetProfile × depth 推荐用户可改） */
-  budgetMultiplierOverride: number;
-  /** 用户自定义 mission 总时长上限（毫秒）。不传则按 depth × audit × budget 矩阵推。范围 60s ~ 3h。 */
+  /**
+   * ★ 2026-05-22 单一数据源：mission 级 credits 上限改为**可选覆盖**。
+   * 缺省时后端按 depth（调研规模档位）解析（DEPTH_BUDGET_TIERS）；仅「高级·自定义预算」时传。
+   * 1 credit ≈ 1k tokens。
+   */
+  maxCredits?: number;
+  /** ★ 2026-05-22 单一源：agent budget 倍率可选覆盖，缺省按 depth 档位解析。 */
+  budgetMultiplierOverride?: number;
+  /** 用户自定义 mission 总时长上限（毫秒）覆盖。不传则按 depth 档位解析。范围 60s ~ 3h。 */
   wallTimeMs?: number;
   /**
    * 本地知识库 ID 列表（最多 10 个）。
@@ -139,7 +143,8 @@ export interface MissionListItem {
   status: string;
   startedAt: string;
   completedAt: string | null;
-  wallTimeMs: number | null;
+  // ★ C4/G5：实测耗时(原 wallTimeMs,与配置上限二义→改名,对齐后端 MissionListItem)。
+  elapsedWallTimeMs: number | null;
   finalScore: number | null;
   tokensUsed: number | null;
   costUsd: number | null;
@@ -227,6 +232,35 @@ export async function listMissions(): Promise<MissionListItem[]> {
   const raw = await res.json();
   const data = unwrapStandard<{ items?: MissionListItem[] }>(raw);
   return data.items ?? [];
+}
+
+// ★ 2026-05-22 ③J/K 契约单一源：调研规模档位 + 预算字段上下限的唯一真源在后端
+//   DEPTH_BUDGET_TIERS / BUDGET_FIELD_LIMITS。前端不再手写 SCALE_TIERS 镜像,改 fetch。
+export interface BudgetTier {
+  depth: 'quick' | 'standard' | 'deep';
+  label: string;
+  desc: string;
+  dimensionsHint: string;
+  maxCredits: number;
+  budgetMultiplier: number;
+  wallTimeMinutes: number;
+  capUsd: number;
+}
+export interface BudgetTiersResponse {
+  tiers: BudgetTier[];
+  limits: {
+    maxCredits: { min: number; max: number };
+    budgetMultiplier: { min: number; max: number };
+    wallTimeMinutes: { min: number; max: number };
+  };
+}
+export async function fetchBudgetTiers(): Promise<BudgetTiersResponse> {
+  const res = await fetch(`${API_BASE}/budget-tiers`, {
+    headers: { ...getAuthHeader() },
+  });
+  if (!res.ok) throw new Error(`Failed to fetch budget tiers: ${res.status}`);
+  const raw: unknown = await res.json();
+  return unwrapStandard<BudgetTiersResponse>(raw);
 }
 
 /**

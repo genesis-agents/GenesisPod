@@ -29,6 +29,8 @@ import {
 } from "../../agents/leader/leader.agent";
 import { MissionStore } from "../mission/lifecycle/mission-store.service";
 import { describeLeaderFailure } from "./leader-failure-diagnostic.utils";
+// ★ 2026-05-22 矩阵配置：维度 facet → 推荐工具集 确定性派生
+import { resolveFacetPreferredTools } from "../../contracts/dimension-tool-matrix";
 
 // ── Public types ──
 
@@ -226,6 +228,16 @@ export class SupervisedMission {
         });
       }
     }
+    // ★ 2026-05-22 矩阵配置（机制非 prompt）：用 FACET_TOOL_MATRIX 按维度 facet
+    //   确定性派生 toolHint.preferIds（→ researcher <available_tools> 里标 ★ recommended），
+    //   覆盖 LLM 自猜的 preferIds —— "选哪些专用工具"由矩阵说了算，不靠 LLM 心情。
+    res.output.dimensions = res.output.dimensions.map((d) => ({
+      ...d,
+      toolHint: {
+        categories: d.toolHint.categories,
+        preferIds: [...resolveFacetPreferredTools(d.facet)],
+      },
+    }));
     this.context.plan = res.output;
     this.context.decisions.push({
       phase: "plan",

@@ -14,10 +14,16 @@
 
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
+import {
+  resolveMissionTotalWords,
+  CHAPTER_WORDS_PER_CHAPTER_RANGE,
+} from "../../contracts/word-budget.contract";
 
 const Input = z.object({
   topic: z.string(),
   language: z.enum(["zh-CN", "en-US"]),
+  // ★ 2026-05-22 ③L/M：总字数 = depthBase × lengthProfile 倍率，需 depth。
+  depth: z.enum(["quick", "standard", "deep"]),
   audienceProfile: z.enum(["executive", "domain-expert", "general-public"]),
   styleProfile: z.enum(["academic", "executive", "journalistic", "technical"]),
   lengthProfile: z.enum([
@@ -71,7 +77,20 @@ const Output = z
         keyPointsToCover: z.array(z.string()).min(1),
       }),
     ),
-    targetWordsPerChapter: z.record(z.string(), z.number()),
+    // ★ 2026-05-22 follow-up：生产方侧 clamp（非 reject）—— LLM 产出的每章字数夹到
+    //   CHAPTER_WORDS_PER_CHAPTER_RANGE[400,12000]，下游 single-shot-writer 拿到的
+    //   永远在界内（消费方无需严格 reject，避免 LLM 超限触发重试 churn）。
+    targetWordsPerChapter: z.record(
+      z.string(),
+      z
+        .number()
+        .transform((v) =>
+          Math.min(
+            CHAPTER_WORDS_PER_CHAPTER_RANGE.max,
+            Math.max(CHAPTER_WORDS_PER_CHAPTER_RANGE.min, Math.round(v)),
+          ),
+        ),
+    ),
     factAllocation: z.record(z.string(), z.array(z.string())).default({}),
     figurePlan: z.record(z.string(), z.array(z.string())).default({}),
   })
@@ -132,11 +151,13 @@ export class MissionOutlinePlannerAgent extends AgentSpec<
   typeof Output
 > {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
-    const target = lengthTarget(input.lengthProfile);
+    const target = resolveMissionTotalWords(input.depth, input.lengthProfile);
     // ★ P0-R4-5 (round 4): ChapterWriter budget.maxTokens=22000 + 中文 1:1 token，
     // 25K 字单章永远写不到 ≥85% 字数门槛 → epic 死循环。降到 12000 与 chapter-writer
     // schema 上限对齐；epic 200K → 17 章 × 12K 安全可达。
-    const PER_CHAPTER_HARD_CAP = 12000;
+    // ★ 2026-05-22 单一源：单章硬上限 = CHAPTER_WORDS_PER_CHAPTER_RANGE.max（与输出
+    //   clamp + chapter-writer schema 同源），不再写死 12000。
+    const PER_CHAPTER_HARD_CAP = CHAPTER_WORDS_PER_CHAPTER_RANGE.max;
     const naivePerChapter = Math.round(target / input.plan.dimensions.length);
     const perChapter = Math.min(naivePerChapter, PER_CHAPTER_HARD_CAP);
     const requiresMoreChaptersForCap = naivePerChapter > PER_CHAPTER_HARD_CAP;
@@ -177,15 +198,5 @@ export class MissionOutlinePlannerAgent extends AgentSpec<
   }
 }
 
-function lengthTarget(
-  p: "brief" | "standard" | "deep" | "extended" | "epic" | "mega",
-): number {
-  return {
-    brief: 3000,
-    standard: 8000,
-    deep: 15000,
-    extended: 25000,
-    epic: 80000,
-    mega: 200000,
-  }[p];
-}
+// ★ 2026-05-22 ③L/M：原 lengthTarget(按 lengthProfile 写死、无视 depth 的第二信源)
+//   已删除。总字数统一走 resolveMissionTotalWords(depth, lengthProfile) 单一源。

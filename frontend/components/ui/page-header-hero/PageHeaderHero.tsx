@@ -14,8 +14,14 @@
  */
 
 import type { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import {
+  MODULE_THEMES,
+  moduleFromPath,
+  type ModuleKey,
+} from '@/lib/design/module-themes';
 
 export interface PageHeaderHeroProps {
   /** 主标题（"AI 雷达" / "AI 洞察" / "Agent Playground"） */
@@ -37,6 +43,11 @@ export interface PageHeaderHeroProps {
    * 默认跟随 violet 主题。
    */
   iconShadowClass?: string;
+  /**
+   * 模块识别色：传入则按 module-themes 注册表上色（与侧边栏菜单一致）。
+   * 不传时按当前路由自动匹配模块；都匹配不到才回退 iconGradient。
+   */
+  module?: ModuleKey;
   /** 右侧 actions slot（"新建"按钮 / Skills 按钮等） */
   actions?: ReactNode;
   /**
@@ -58,12 +69,20 @@ export function PageHeaderHero({
   icon,
   iconGradient = 'from-violet-500 to-purple-600',
   iconShadowClass = 'shadow-violet-500/25',
+  module,
   actions,
   onBack,
   backLabel = '返回',
   className,
   children,
 }: PageHeaderHeroProps) {
+  const pathname = usePathname();
+  // 优先级：显式 module > 路由匹配的模块 > 调用方 iconGradient（默认紫）
+  const themeKey = module ?? moduleFromPath(pathname);
+  const effectiveGradient = themeKey
+    ? MODULE_THEMES[themeKey].gradient
+    : iconGradient;
+  const effectiveShadow = themeKey ? 'shadow-gray-900/5' : iconShadowClass;
   return (
     <div className={cn('px-8 py-6', className)}>
       <div className="flex items-center justify-between gap-4">
@@ -81,9 +100,9 @@ export function PageHeaderHero({
           {icon && (
             <div
               className={cn(
-                'flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg',
-                iconGradient,
-                iconShadowClass
+                'flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br shadow-lg',
+                effectiveGradient,
+                effectiveShadow
               )}
             >
               {icon}

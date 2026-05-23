@@ -61,6 +61,13 @@ export async function runPolishReviewStage(
         });
         if (r.state !== "failed" && r.output) {
           polished[platform] = r.output;
+          // 质量审查真正生效：refine 后的完整正文回写 composed →
+          // s8 发布 / s11 持久化都用修订版（此前 polished 只存不用 = 空转）。
+          const refined = (r.output as { refinedBody?: string | null })
+            .refinedBody;
+          if (refined && refined.trim().length > 0) {
+            composed[platform] = { ...composedOut, bodyHtml: refined };
+          }
         } else {
           await deps.markStageDegraded(
             missionId,

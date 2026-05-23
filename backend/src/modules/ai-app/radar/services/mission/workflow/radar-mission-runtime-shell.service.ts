@@ -14,6 +14,7 @@ import {
   type MissionRuntimeSession,
 } from "@/modules/ai-harness/facade";
 import { RadarMissionStore } from "../lifecycle/radar-mission-store.service";
+import { buildRadarConfigSnapshot } from "../lifecycle/radar-mission-config-snapshot";
 import {
   RunRadarDiscoveryMissionInput,
   RunRadarRefreshMissionInput,
@@ -85,7 +86,7 @@ export class RadarMissionRuntimeShell {
     return {
       eventNamespace: RADAR_EVENT_NAMESPACE,
       billingModuleType: RADAR_BILLING_MODULE_TYPE,
-      resolveWallTimeMs: (input) =>
+      resolveWallTimeCapMs: (input) =>
         isDiscoveryInput(input)
           ? resolveRadarDiscoveryWallTimeMs()
           : resolveRadarMissionWallTimeMs(),
@@ -103,6 +104,15 @@ export class RadarMissionRuntimeShell {
       }) => {
         // Discovery mission 是无 audit row 短查询，不写 radar_runs 表
         if (isDiscoveryInput(input)) return;
+        const businessInput = {
+          topicId: input.topicId,
+          topicName: input.topicName,
+          description: input.description ?? null,
+          keywords: input.keywords,
+          entityType: input.entityType ?? null,
+          refreshCron: input.refreshCron,
+          trigger: input.trigger,
+        };
         await store.createAtomic({
           id: missionId,
           topicId: input.topicId,
@@ -110,15 +120,15 @@ export class RadarMissionRuntimeShell {
           workspaceId,
           trigger: mapTrigger(input.trigger),
           maxCredits: effectiveMaxCredits,
-          wallTimeMs: resolveRadarMissionWallTimeMs(),
-          payload: {
-            topicName: input.topicName,
-            description: input.description ?? null,
-            keywords: input.keywords,
-            entityType: input.entityType ?? null,
-            refreshCron: input.refreshCron,
-            trigger: input.trigger,
-          },
+          wallTimeCapMs: resolveRadarMissionWallTimeMs(),
+          payload: businessInput,
+          // ★ C5/G7（三 app 统一）：冻结 canonical config snapshot。
+          configSnapshot: buildRadarConfigSnapshot({
+            businessInput,
+            maxCredits: effectiveMaxCredits,
+            budgetMultiplier: resolveRadarBudgetMultiplier(),
+            wallTimeCapMs: resolveRadarMissionWallTimeMs(),
+          }),
         });
       },
       refreshHeartbeat: async (missionId, podId) => {

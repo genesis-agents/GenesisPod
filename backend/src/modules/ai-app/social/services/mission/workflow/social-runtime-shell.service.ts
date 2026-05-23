@@ -26,6 +26,7 @@ import {
   type MissionRuntimeSession,
 } from "@/modules/ai-harness/facade";
 import { SocialMissionStore } from "../lifecycle/social-mission-store.service";
+import { buildSocialConfigSnapshot } from "../lifecycle/social-mission-config-snapshot";
 import type { RunSocialMissionInput } from "./mission-context";
 
 export type { MissionRuntimeSession };
@@ -104,7 +105,7 @@ export class SocialRuntimeShellService {
     return {
       eventNamespace: "social",
       billingModuleType: "ai-social",
-      resolveWallTimeMs: (input) =>
+      resolveWallTimeCapMs: (input) =>
         WALL_TIME_BY_DEPTH[input.depth] ?? 30 * 60_000,
       resolveMaxCredits: (input) =>
         MAX_CREDITS_BY_PROFILE[input.budgetProfile] ?? 20,
@@ -117,6 +118,13 @@ export class SocialRuntimeShellService {
         input,
         effectiveMaxCredits,
       }) => {
+        const businessInput = {
+          contentId: input.contentId,
+          platforms: input.platforms,
+          connectionIds: input.connectionIds,
+          depth: input.depth,
+          budgetProfile: input.budgetProfile,
+        };
         await store.create({
           id: missionId,
           userId,
@@ -128,6 +136,15 @@ export class SocialRuntimeShellService {
           budgetProfile: input.budgetProfile,
           language: input.language,
           maxCredits: effectiveMaxCredits,
+          // ★ C5/G7（三 app 统一）：冻结 canonical config snapshot。
+          configSnapshot: buildSocialConfigSnapshot({
+            businessInput,
+            language: input.language,
+            maxCredits: effectiveMaxCredits,
+            budgetMultiplier:
+              BUDGET_MULTIPLIER_BY_PROFILE[input.budgetProfile] ?? 1.0,
+            wallTimeCapMs: WALL_TIME_BY_DEPTH[input.depth] ?? 30 * 60_000,
+          }),
         });
       },
       refreshHeartbeat: async (missionId, podId) => {

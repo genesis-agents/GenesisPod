@@ -87,21 +87,59 @@ mission 类功能的主页/详情另见 [21-agent-teams-presentation.md](21-agen
 
 ### 2.5 各类组件（states / 弹层 / 控件）
 
-| Archetype    | canonical                        | 路径                                         | audit |
-| ------------ | -------------------------------- | -------------------------------------------- | ----- |
-| 空态         | `EmptyState`                     | `components/ui/states/`                      | R3    |
-| 错误态       | `ErrorState`                     | `components/ui/states/`                      | R4    |
-| 加载/骨架    | `LoadingState`/`LoadingSkeleton` | `components/ui/states/`                      | R5    |
-| 弹窗         | `Modal`/`ConfirmDialog`          | `components/ui/dialogs/`                     | R6    |
-| 抽屉         | `SideDrawer`                     | `components/common/drawers/`                 | R6    |
-| mission 弹层 | `MissionDialogShell`             | `components/common/dialogs/`                 | R6    |
-| 按钮         | `Button`(variants)               | `components/ui/primitives/button.tsx`        | —     |
-| 下拉/菜单    | `DropdownMenu`                   | `components/ui/primitives/dropdown-menu.tsx` | —     |
-| 开关         | `Switch`                         | `components/ui/primitives/switch.tsx`        | —     |
-| 提示         | `Tooltip` / `Toast`              | `components/ui/`                             | —     |
-| 徽章         | `ModelBadge`/`TierBadge`         | `components/common/badges/`                  | —     |
+| Archetype     | canonical                        | 路径                                         | audit |
+| ------------- | -------------------------------- | -------------------------------------------- | ----- |
+| 空态          | `EmptyState`                     | `components/ui/states/`                      | R3    |
+| 错误态        | `ErrorState`                     | `components/ui/states/`                      | R4    |
+| 加载/骨架     | `LoadingState`/`LoadingSkeleton` | `components/ui/states/`                      | R5    |
+| 弹窗          | `Modal`/`ConfirmDialog`          | `components/ui/dialogs/`                     | R6    |
+| 抽屉          | `SideDrawer`                     | `components/common/drawers/`                 | R6    |
+| mission 弹层  | `MissionDialogShell`             | `components/common/dialogs/`                 | R6    |
+| 按钮          | `Button`(variants)               | `components/ui/primitives/button.tsx`        | —     |
+| 下拉/菜单     | `DropdownMenu`                   | `components/ui/primitives/dropdown-menu.tsx` | —     |
+| 开关          | `Switch`                         | `components/ui/primitives/switch.tsx`        | —     |
+| 提示          | `Tooltip` / `Toast`              | `components/ui/`                             | —     |
+| 徽章          | `ModelBadge`/`TierBadge`         | `components/common/badges/`                  | —     |
+| 提示条/banner | `Alert`(tone)                    | `components/ui/feedback/Alert.tsx`           | —     |
+| 关键词标签    | `Tag`                            | `components/ui/tag/`                         | —     |
+| 复制按钮      | `CopyButton`                     | `components/ui/primitives/CopyButton.tsx`    | —     |
 
 ---
+
+## 2.6 模块识别色体系（SSOT，2026-05-22）
+
+> **原则**：骨架统一（圆角 ≤ rounded-xl / 弹框外壳 / 间距 / 组件复用 全站一致），
+> **识别色按模块区分**——每个菜单一个主色调。颜色唯一事实源是
+> `frontend/lib/design/module-themes.ts`，**禁止**在 feature 里散落硬编码
+> `bg-{hue}-50` / `from-x to-y` / 随机激活色。
+
+**色系分配（13 菜单）**：ask=blue · explore=sky · library=teal · radar=cyan ·
+insights=indigo · research=purple · discuss(ai-teams)=amber · planning=orange ·
+decision(ai-simulation)=red · report(ai-office)=emerald · writing=fuchsia ·
+social=rose · playground=violet。
+
+**接入方式（已落地，新代码照此）**：
+
+| 表面                | 怎么拿模块色                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| 侧边栏菜单激活态    | 读 `MODULE_THEMES[key].activeBg/text`（图标 `currentColor` 自动跟随）                |
+| 主页 hero           | `PageHeaderHero` 按 `moduleFromPath(pathname)` 自动上色（零页改动）                  |
+| 详情页头部          | `MissionDetailFrame` 同样按路由自动取 `gradient`                                     |
+| 主按钮 / focus ring | `AppShell` 按路由覆盖 `--primary`/`--ring` CSS 变量 → 全页 `bg-primary` 自动变模块色 |
+
+**MUST / MUST NOT**：
+
+- 新增模块 → 在 `module-themes.ts` 补一整行（含 `gradient` + `primaryHsl`）+ 在 `ROUTE_MODULE` 注册路由；不要在组件里写色。
+- 不得在 feature 内联模块识别色（`bg-rose-50`/`from-violet-500` 等）——一律走注册表。
+- 骨架色（中性灰阶、边框、surface）与语义色（done/failed/danger）不属于模块识别色，照旧用 `tokens.ts`。
+
+**看护机制（焊死，2026-05-22）**：
+
+- `audit:ui-tokens` 的 **T6-module-gradient-hardcoded** 规则扫描 feature 代码硬编码的模块识别渐变
+  （`from-/via-/to-{hue}-{400..700}`），排除 `components/ui/` canonical 层与 `module-themes` SSOT。
+- **T6 为焊死规则**：超基线即 `exit 1`（不依赖 `--strict`），已接入 pre-push `[4/6]`，新违规拒推。
+- 基线 = **800**（2026-05-22 存量，`docs/_archive/ui-tokens-baseline.json`）。这 800 处是「彻底整改」
+  的 burn-down 目标，逐步迁到 `module-themes`；基线只减不增，新增即拦。
 
 ## 3. 例外审批流程（MUST）
 
@@ -133,17 +171,17 @@ mission 类功能的主页/详情另见 [21-agent-teams-presentation.md](21-agen
 
 > **抽取原则（Karpathy 防过度抽象）**：先 scope 再抽。Tag/Avatar 数大但噪声大，必须先界定收哪类用途，别把状态点 / 图标圆圈 / 圆角按钮全塞进来。
 
-| 优先  | Archetype             | 实证                                                                        | 去向                                                  |
-| ----- | --------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------- |
-| 🔴 P0 | **Alert / Banner**    | 31 文件内联 `bg-{c}-50 + border`                                            | `ui/Alert`（success/warn/error/info）；纯展示原语     |
-| 🔴 P0 | **Tag / Chip / Pill** | 204 文件 `rounded-full px-2/3` 标签                                         | `ui/Tag`（**仅收关键词/标签**，状态片归 StatusBadge） |
-| 🟡 P1 | CopyButton            | 27 文件 `navigator.clipboard`                                               | `ui/CopyButton`（复制 + 已复制反馈）                  |
-| 🟡 P1 | SearchBar             | `explore/SearchBar` 成品，admin 用裸 input                                  | 上提 `ui/SearchBar`                                   |
-| 🟡 P1 | SectionHeader         | `library/_design/SectionTitle` + `agent-playground/ui/Section`              | `ui/SectionHeader`                                    |
-| 🟡 P1 | Skeleton 原语         | `AdminLoadingSkeleton`/`RadarBriefingSkeleton`/`ai-social/skeletons/*` 各造 | 把 `LoadingSkeleton` 做成可组合原语                   |
-| 🟡 P1 | FileUploader          | `ai-research/FileUploader` + import 弹窗各写                                | `common/FileUploader`                                 |
-| 🟡 P2 | Avatar                | `rounded-full` 357（噪声大）                                                | `ui/Avatar`（**仅收真头像**，先 scope）               |
-| 🟡 P2 | ExpandableText        | `agent-playground/ui/ExpandableText`                                        | `ui/ExpandableText`                                   |
+| 优先    | Archetype             | 实证                                                                        | 去向                                                             |
+| ------- | --------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| ✅ done | **Alert / Banner**    | 31 文件内联 `bg-{c}-50 + border` → 已建 canonical（2026-05-22）             | `components/ui/feedback/Alert.tsx`（toneToken 语义色）；存量待迁 |
+| ✅ done | **Tag / Chip / Pill** | 204 文件 `rounded-full px-2/3` → 已建 canonical（仅收关键词标签）           | `components/ui/tag/Tag.tsx`（状态片仍归 StatusBadge）；存量待迁  |
+| ✅ done | CopyButton            | 27 文件 `navigator.clipboard` → 已建 canonical（2026-05-22）                | `components/ui/primitives/CopyButton.tsx`；存量待迁              |
+| 🟡 P1   | SearchBar             | `explore/SearchBar` 成品，admin 用裸 input                                  | 上提 `ui/SearchBar`                                              |
+| 🟡 P1   | SectionHeader         | `library/_design/SectionTitle` + `agent-playground/ui/Section`              | `ui/SectionHeader`                                               |
+| 🟡 P1   | Skeleton 原语         | `AdminLoadingSkeleton`/`RadarBriefingSkeleton`/`ai-social/skeletons/*` 各造 | 把 `LoadingSkeleton` 做成可组合原语                              |
+| 🟡 P1   | FileUploader          | `ai-research/FileUploader` + import 弹窗各写                                | `common/FileUploader`                                            |
+| 🟡 P2   | Avatar                | `rounded-full` 357（噪声大）                                                | `ui/Avatar`（**仅收真头像**，先 scope）                          |
+| 🟡 P2   | ExpandableText        | `agent-playground/ui/ExpandableText`                                        | `ui/ExpandableText`                                              |
 
 ### 4.3 三套迷你设计系统抽取映射（agent-playground/ui · admin/shared · library/\_design）
 

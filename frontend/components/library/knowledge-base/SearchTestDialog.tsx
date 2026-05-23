@@ -1,19 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Search,
-  Loader2,
-  FileText,
-  Zap,
-  Copy,
-  CheckCircle,
-  AlertCircle,
-} from 'lucide-react';
+import { Search, Loader2, FileText, Zap, AlertCircle } from 'lucide-react';
+import { CopyButton } from '@/components/ui/primitives/CopyButton';
 import { apiClient } from '@/lib/api/client';
 import { Modal } from '@/components/ui/dialogs/Modal';
 
-import { logger } from '@/lib/utils/logger';
 interface SearchResult {
   id: string;
   content: string;
@@ -40,7 +32,6 @@ export default function SearchTestDialog({
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [topK, setTopK] = useState(5);
 
   const handleSearch = async () => {
@@ -64,16 +55,6 @@ export default function SearchTestDialog({
       setError((err as { message?: string })?.message || '搜索出错');
     } finally {
       setSearching(false);
-    }
-  };
-
-  const handleCopyContent = async (id: string, content: string) => {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
-      logger.error('Copy failed:', err);
     }
   };
 
@@ -210,19 +191,12 @@ export default function SearchTestDialog({
                     >
                       相关度: {(result.score * 100).toFixed(1)}%
                     </span>
-                    <button
-                      onClick={() =>
-                        handleCopyContent(result.id, result.content)
-                      }
-                      className="rounded p-1 text-gray-400 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100"
+                    <CopyButton
+                      value={result.content}
                       title="复制内容"
-                    >
-                      {copiedId === result.id ? (
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </button>
+                      size="sm"
+                      className="opacity-0 transition-all group-hover:opacity-100"
+                    />
                   </div>
                 </div>
 

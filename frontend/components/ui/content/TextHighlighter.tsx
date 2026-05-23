@@ -261,7 +261,7 @@ export default function TextHighlighter({
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 placeholder="添加笔记（可选）..."
-                className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 onKeyPress={(e) => {
                   if (e.key === 'Enter' && colors[0]) {
                     addHighlight(colors[0].value);

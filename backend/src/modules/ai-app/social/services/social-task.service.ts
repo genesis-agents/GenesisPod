@@ -10,6 +10,10 @@ import {
   SocialContentType,
   SocialPlatformType,
 } from "@prisma/client";
+import {
+  outcomeFromStatus,
+  type MissionTerminalOutcome,
+} from "@/modules/ai-harness/facade";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialDataSourceRegistry } from "../registry/social-data-source.registry";
 import { ContentFetcherService } from "./content-fetcher.service";
@@ -59,6 +63,71 @@ export class SocialTaskService {
     }
     const events = this.buffer.read(missionId, sinceTs);
     return { events, serverNow: Date.now() };
+  }
+
+  /**
+   * 拉取该 task 关联 mission 的「持久化快照」（算力 + 终态），供 mission 结束、
+   * 内存事件 buffer 过期（1h TTL）后前端回显历史用。对标 agent-playground 的
+   * persisted 兜底：实时事件流没了，仍能从 social_missions 表读到真实 token/费用/耗时。
+   * 阶段骨架由前端按 task.status 推断（completed→全 done，failed→失败），故此处只回算力 + 终态。
+   */
+  async getMissionSnapshot(
+    taskId: string,
+    userId: string,
+  ): Promise<{
+    missionId: string | null;
+    status: string | null;
+    /** ★ C7:平台终态 outcome(status 投影,非终态为 null)。 */
+    terminalOutcome: MissionTerminalOutcome | null;
+    /** ★ C2:canonical failure code(失败时)。 */
+    failureCode: string | null;
+    tokensUsed: number;
+    costUsd: number;
+    elapsedWallTimeMs: number | null;
+    completedAt: string | null;
+    errorMessage: string | null;
+  }> {
+    const task = await this.prisma.socialContentTask.findFirst({
+      where: { id: taskId, userId },
+      select: { missionId: true },
+    });
+    if (!task) throw new NotFoundException(`Task not found: ${taskId}`);
+    if (!task.missionId) {
+      return {
+        missionId: null,
+        status: null,
+        terminalOutcome: null,
+        failureCode: null,
+        tokensUsed: 0,
+        costUsd: 0,
+        elapsedWallTimeMs: null,
+        completedAt: null,
+        errorMessage: null,
+      };
+    }
+    const m = await this.prisma.socialMission.findFirst({
+      where: { id: task.missionId, userId },
+      select: {
+        status: true,
+        failureCode: true,
+        tokensUsed: true,
+        costUsd: true,
+        elapsedWallTimeMs: true,
+        completedAt: true,
+        errorMessage: true,
+      },
+    });
+    return {
+      missionId: task.missionId,
+      status: m?.status ?? null,
+      terminalOutcome: outcomeFromStatus(m?.status),
+      failureCode: m?.failureCode ?? null,
+      tokensUsed: m?.tokensUsed != null ? Number(m.tokensUsed) : 0,
+      costUsd: m?.costUsd ?? 0,
+      elapsedWallTimeMs: m?.elapsedWallTimeMs ?? null,
+      completedAt: m?.completedAt ? m.completedAt.toISOString() : null,
+      errorMessage: m?.errorMessage ?? null,
+    };
   }
 
   async createTask(
@@ -169,7 +238,7 @@ export class SocialTaskService {
   ): Promise<{ mode: "cancelled" | "deleted" }> {
     const task = await this.prisma.socialContentTask.findFirst({
       where: { id: taskId, userId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, missionId: true },
     });
 
     if (!task) {
@@ -182,6 +251,19 @@ export class SocialTaskService {
     ];
 
     if (cancellable.includes(task.status)) {
+      // ★ 2026-05-22 C1/G0：真停。此前只改 task 表 status，正在跑的 mission 不被中断，
+      //   继续烧预算。现触发 dispatcher.abortMission：mission 在下一个 stage 边界收到 abort
+      //   抛 StageAbortError，pipeline 自行落终态、停止计费。无 in-flight session（pod 重启/
+      //   已结束）返回 false，仅改 task 表即可。
+      if (task.missionId) {
+        const aborted = this.dispatcher.abortMission(
+          task.missionId,
+          "user_cancelled",
+        );
+        this.logger.log(
+          `[cancelTask] task=${taskId} mission=${task.missionId} abort ${aborted ? "triggered" : "no-op(no in-flight session)"}`,
+        );
+      }
       await this.prisma.socialContentTask.update({
         where: { id: taskId },
         data: { status: SocialContentTaskStatus.CANCELLED },
@@ -196,7 +278,10 @@ export class SocialTaskService {
   }
 
   /**
-   * Retry a FAILED task: reset error state and re-dispatch with original sources/platforms.
+   * Re-run a task fresh: reset state and re-dispatch with original sources/platforms.
+   * 任意「终态」均可重跑（FAILED / CANCELLED / DRAFT_READY / PUBLISHED / PARTIAL_PUBLISHED）；
+   * 仅「运行中」(PENDING/GENERATING/PUBLISHING) 拒绝——请先取消再重跑。
+   * 重跑沿用原 sources / platforms / accountIds，新 mission 的 versions 会 upsert 覆盖旧稿。
    */
   async retryTask(taskId: string, userId: string): Promise<{ id: string }> {
     const task = await this.prisma.socialContentTask.findFirst({
@@ -204,9 +289,14 @@ export class SocialTaskService {
       include: { sources: true },
     });
     if (!task) throw new NotFoundException(`Task not found: ${taskId}`);
-    if (task.status !== SocialContentTaskStatus.FAILED) {
+    const running: SocialContentTaskStatus[] = [
+      SocialContentTaskStatus.PENDING,
+      SocialContentTaskStatus.GENERATING,
+      SocialContentTaskStatus.PUBLISHING,
+    ];
+    if (running.includes(task.status)) {
       throw new BadRequestException(
-        `Only FAILED tasks can be retried (current: ${task.status})`,
+        `任务运行中，无法重跑（当前：${task.status}），请先取消再重跑`,
       );
     }
 

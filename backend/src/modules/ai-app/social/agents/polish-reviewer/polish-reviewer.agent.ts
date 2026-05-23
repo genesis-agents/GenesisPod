@@ -25,6 +25,8 @@ const Output = z.object({
     seo: z.number().int().min(0).max(100),
     typo: z.number().int().min(0).max(100),
     style: z.number().int().min(0).max(100),
+    /** 质量分（信息增量/不灌水/可读/准确/洞察）；< 75 视为不合格，须 refine */
+    quality: z.number().int().min(0).max(100),
   }),
   fixes: z
     .array(
@@ -35,6 +37,12 @@ const Output = z.object({
       }),
     )
     .default([]),
+  /**
+   * verdict != pass 时必填：修订后的**完整正文 HTML**（已去灌水/补实质/修八股、
+   * 满足《公众号格式规范》≥2000字+分节）。s7 会用它回写 composed.bodyHtml 真正生效。
+   * verdict=pass 时为 null。
+   */
+  refinedBody: z.string().nullable().default(null),
   warnings: z.array(z.string()).default([]),
 });
 

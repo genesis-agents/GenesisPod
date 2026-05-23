@@ -2,14 +2,19 @@
  * DimensionOutlinePlannerAgent — unit tests
  *
  * 覆盖：
- *   - inputSchema: targetChapterCount min(3)/max(25)
+ *   - inputSchema: targetChapterCount min(1)/max(25)（CHAPTER_COUNT_RANGE 单一源）
  *   - outputSchema: chapters array min(1), nested fields
  *   - buildSystemPrompt: finding list, targetChapterCount in prompt
+ *   - 契约: 管线产出范围 ⊆ schema（assertNumberProducerWithinSchema）
  */
 
 import { z } from "zod";
-import { readDefineAgentMeta } from "../../../../../ai-harness/agents/dev-tools";
+import {
+  readDefineAgentMeta,
+  assertNumberProducerWithinSchema,
+} from "../../../../../ai-harness/agents/dev-tools";
 import { DimensionOutlinePlannerAgent } from "../dimension-outline-planner.agent";
+import { CHAPTER_COUNT_RANGE } from "../../../contracts/chapter-count.contract";
 
 const meta = readDefineAgentMeta(DimensionOutlinePlannerAgent)!;
 const inputSchema = meta.inputSchema as z.ZodType;
@@ -55,20 +60,38 @@ describe("DimensionOutlinePlannerAgent", () => {
   // inputSchema
   // ─────────────────────────────────────────────
 
+  // ★ 2026-05-22 契约单一源守护：管线 per-dim-pipeline 产出的 targetChapterCount
+  //   范围（CHAPTER_COUNT_RANGE）必须 ⊆ 本 agent inputSchema 接受范围。任一边漂移
+  //   此测试即红，漂移合不进主干（治 ORCH_CHAPTER_PIPELINE_FAILED 这类系统性 bug）。
+  describe("contract: producer range ⊆ schema", () => {
+    it("targetChapterCount: pipeline range is within agent schema bounds", () => {
+      const r = assertNumberProducerWithinSchema({
+        agent: DimensionOutlinePlannerAgent,
+        field: "targetChapterCount",
+        producerMin: CHAPTER_COUNT_RANGE.min,
+        producerMax: CHAPTER_COUNT_RANGE.max,
+      });
+      expect(r.ok ? "" : r.reason).toBe("");
+      expect(r.ok).toBe(true);
+    });
+  });
+
   describe("inputSchema", () => {
     it("accepts valid input", () => {
       expect(inputSchema.safeParse(baseInput).success).toBe(true);
     });
 
-    it("accepts targetChapterCount at min boundary 3", () => {
+    // ★ 2026-05-22 契约单一源：min 由 3 改为 1（CHAPTER_COUNT_RANGE.min）。
+    //   稀缺证据维度合法只开 1 章；旧 min(3) 与管线 [1,25] 漂移 → ORCH_CHAPTER_PIPELINE_FAILED。
+    it("accepts targetChapterCount at min boundary 1", () => {
       expect(
-        inputSchema.safeParse({ ...baseInput, targetChapterCount: 3 }).success,
+        inputSchema.safeParse({ ...baseInput, targetChapterCount: 1 }).success,
       ).toBe(true);
     });
 
-    it("rejects targetChapterCount below 3", () => {
+    it("rejects targetChapterCount below 1 (0)", () => {
       expect(
-        inputSchema.safeParse({ ...baseInput, targetChapterCount: 2 }).success,
+        inputSchema.safeParse({ ...baseInput, targetChapterCount: 0 }).success,
       ).toBe(false);
     });
 

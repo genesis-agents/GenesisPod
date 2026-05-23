@@ -11,6 +11,7 @@ import {
   NotFoundException,
   PayloadTooLargeException,
 } from "@nestjs/common";
+import { MissionFailureCode } from "@/modules/ai-harness/facade";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 
@@ -35,7 +36,7 @@ export class MissionLifecycleHelper {
       tokensUsed?: number;
       costUsd?: number;
       trajectoryStored?: number;
-      wallTimeMs?: number;
+      elapsedWallTimeMs?: number;
       themeSummary?: string;
       dimensions?: unknown;
       report?: { title?: string; summary?: string; [k: string]: unknown };
@@ -90,7 +91,7 @@ export class MissionLifecycleHelper {
       tokensUsed: data.tokensUsed ?? null,
       costUsd: data.costUsd ?? null,
       trajectoryStored: data.trajectoryStored ?? null,
-      wallTimeMs: data.wallTimeMs ?? null,
+      elapsedWallTimeMs: data.elapsedWallTimeMs ?? null,
       themeSummary: data.themeSummary ?? null,
       dimensions: (data.dimensions ?? null) as Prisma.InputJsonValue,
       reportFull: (data.report ?? null) as Prisma.InputJsonValue,
@@ -149,9 +150,11 @@ export class MissionLifecycleHelper {
     id: string,
     data: {
       errorMessage?: string;
+      /** ★ C2/MAJOR-6:canonical MissionFailureCode（L1 类型,禁裸字符串）。落 DB failure_code 列。 */
+      failureCode?: MissionFailureCode;
       tokensUsed?: number;
       costUsd?: number;
-      wallTimeMs?: number;
+      elapsedWallTimeMs?: number;
       trajectoryStored?: number;
       themeSummary?: string;
       dimensions?: unknown;
@@ -179,9 +182,14 @@ export class MissionLifecycleHelper {
       status: isLeadRefusal ? "quality-failed" : "failed",
       completedAt: new Date(),
       errorMessage: data.errorMessage?.slice(0, 2000) ?? null,
+      // ★ C2/MAJOR-6:落 canonical failure_code。Lead 拒签 → leader_signoff_rejected;
+      //   其余由 caller 传(handleMissionFailure 映射);都没有则 null(读路径回退 errorMessage)。
+      failureCode:
+        data.failureCode ??
+        (isLeadRefusal ? MissionFailureCode.leader_signoff_rejected : null),
       tokensUsed: data.tokensUsed ?? null,
       costUsd: data.costUsd ?? null,
-      wallTimeMs: data.wallTimeMs ?? null,
+      elapsedWallTimeMs: data.elapsedWallTimeMs ?? null,
     };
     if (data.trajectoryStored != null)
       update.trajectoryStored = data.trajectoryStored;

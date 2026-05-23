@@ -59,6 +59,9 @@ import {
   MissionOwnershipRegistry,
   FailureLearnerService,
   PostmortemClassifierService,
+  MissionFailureCode,
+  MissionAbortReason,
+  mapAbortReasonToFailureCode,
 } from "@/modules/ai-harness/facade";
 import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
 import type {
@@ -262,7 +265,7 @@ export class SocialPipelineDispatcher implements OnModuleInit {
 
         if (result.status === "completed") {
           await this.store
-            .markCompleted(missionId, { wallTimeMs: Date.now() - t0 })
+            .markCompleted(missionId, { elapsedWallTimeMs: Date.now() - t0 })
             .catch((err: unknown) => {
               this.log.warn(
                 `[${missionId}] markCompleted failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
@@ -277,7 +280,38 @@ export class SocialPipelineDispatcher implements OnModuleInit {
             })
             .catch(() => undefined);
         } else {
-          await this.handleMissionFailure(missionId, userId, t0, result);
+          // ★ MINOR-2:把 abort reason(framework 传 enum)透传给失败分类,避免 budget/超时
+          //   abort 被误记 user_cancelled。
+          const abortReason = sessionRef.missionAbort.signal.aborted
+            ? (sessionRef.missionAbort.signal.reason as MissionAbortReason)
+            : undefined;
+          // ★ 评审 code-MAJOR-1:真正"取消意图"落 cancelled(而非 failed),前端 outcome 才显示
+          //   "已取消"。budget/超时等失败型 abort 仍走 handleMissionFailure。
+          const isGenuineCancel =
+            abortReason === MissionAbortReason.user_cancelled ||
+            abortReason === MissionAbortReason.rerun_replacing_stale ||
+            abortReason === MissionAbortReason.superseded;
+          if (isGenuineCancel) {
+            await this.store
+              .markCancelled(missionId, `aborted: ${abortReason}`)
+              .catch(() => undefined);
+            await this.eventBus
+              .emit({
+                type: "social.mission:cancelled",
+                scope: { missionId, userId },
+                payload: { reason: abortReason },
+                timestamp: Date.now(),
+              })
+              .catch(() => undefined);
+          } else {
+            await this.handleMissionFailure(
+              missionId,
+              userId,
+              t0,
+              result,
+              abortReason,
+            );
+          }
         }
         // S12 postlude fire-and-forget（成功 / 失败都跑）
         this.fireSelfEvolutionPostlude(missionId, userId);
@@ -333,6 +367,25 @@ export class SocialPipelineDispatcher implements OnModuleInit {
       );
     }
     return entry;
+  }
+
+  /**
+   * 真停一个正在跑的 mission（★ 2026-05-22 C1/G0：治"取消假停继续烧预算"）。
+   * 此前 SocialTaskService.cancelTask 只改 task 表 status，从不真停 mission——取消后
+   * mission 继续跑、继续烧预算。本方法触发 missionAbort signal：正在跑的 stage 在下一个
+   * stage 边界收到 abort → 抛 StageAbortError → handleMissionFailure 落终态。
+   *
+   * S8（publish-execute，唯一外部副作用 stage）内部不查 signal，故发布原子完成、不产生
+   * 半发布——abort 只在 S8 完成后的 stage 边界生效（RB6 gate-before-stage 由构造保证）。
+   *
+   * @returns true=已触发 abort；false=无 in-flight session（pod 重启/已结束，调用方走 DB 兜底）
+   */
+  abortMission(missionId: string, reason = "user_cancelled"): boolean {
+    const entry = this.sessions.get(missionId);
+    if (!entry) return false;
+    entry.session.missionAbort.abort(reason);
+    this.log.log(`[${missionId}] abort requested (reason=${reason})`);
+    return true;
   }
 
   /**
@@ -632,23 +685,35 @@ export class SocialPipelineDispatcher implements OnModuleInit {
     userId: string,
     t0: number,
     result: { status: string; error?: unknown },
+    abortReason?: MissionAbortReason,
   ): Promise<void> {
     const err = result.error;
     const message =
       err instanceof Error ? err.message : String(err ?? "unknown");
     const errName = err instanceof Error ? err.name : "Unknown";
-    let failureCode = "PROVIDER_API_ERROR";
-    if (errName === "StageAbortError" || /aborted|cancelled/i.test(message)) {
-      failureCode = "MISSION_ABORTED";
+    // ★ C2/G3 + MINOR-2:优先按 abort **reason** 定 code,不再"StageAbortError 一律 user_cancelled"
+    //   (budget/超时 abort 也抛 StageAbortError → 原逻辑会把真因误记成 user_cancelled)。
+    //   有 reason 走 canonical 映射;无 reason 才退回 message 启发式。
+    let failureCode: MissionFailureCode;
+    if (abortReason != null) {
+      failureCode = mapAbortReasonToFailureCode(abortReason);
     } else if (/timeout|timed out/i.test(message)) {
-      failureCode = "RUNNER_WALL_TIME_EXCEEDED";
-    } else if (/rate.?limit|429/i.test(message)) {
-      failureCode = "PROVIDER_RATE_LIMIT";
+      failureCode = MissionFailureCode.wall_time_exceeded;
+    } else if (/budget|exhaust/i.test(message)) {
+      failureCode = MissionFailureCode.budget_exhausted;
+    } else if (
+      errName === "StageAbortError" ||
+      /aborted|cancelled/i.test(message)
+    ) {
+      failureCode = MissionFailureCode.user_cancelled;
+    } else {
+      failureCode = MissionFailureCode.provider_error;
     }
     await this.store
       .markFailed(missionId, {
         errorMessage: message,
-        wallTimeMs: Date.now() - t0,
+        elapsedWallTimeMs: Date.now() - t0,
+        failureCode,
       })
       .catch(() => undefined);
     await this.eventBus

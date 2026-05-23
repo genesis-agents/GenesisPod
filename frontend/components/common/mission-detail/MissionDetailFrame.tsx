@@ -21,8 +21,10 @@
  */
 
 import { ChevronRight, type LucideIcon } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/common';
 import { Tabs } from '@/components/ui/tabs';
+import { MODULE_THEMES, moduleFromPath } from '@/lib/design/module-themes';
 
 const ArrowLeftIcon = ({ className }: { className?: string }) => (
   <svg
@@ -116,6 +118,12 @@ export function MissionDetailFrame<TTab extends string = string>({
   tabBarTrailing,
   className,
 }: MissionDetailFrameProps<TTab>) {
+  const pathname = usePathname();
+  // 详情页头部图标渐变：按路由自动匹配模块色（与菜单一致），匹配不到才用调用方 brandGradient
+  const routeKey = moduleFromPath(pathname);
+  const effectiveGradient = routeKey
+    ? MODULE_THEMES[routeKey].gradient
+    : brandGradient;
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col bg-gray-50', className)}>
       {/* ── Header ──────────────────────────────────────────────── */}
@@ -135,7 +143,7 @@ export function MissionDetailFrame<TTab extends string = string>({
             <div
               className={cn(
                 'flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br shadow-md',
-                brandGradient
+                effectiveGradient
               )}
             >
               <HeaderIcon className="h-5 w-5 text-white" />

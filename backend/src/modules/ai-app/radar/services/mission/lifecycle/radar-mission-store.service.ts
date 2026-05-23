@@ -17,6 +17,11 @@
 import { ConflictException, Injectable } from "@nestjs/common";
 import { Prisma, RadarRun, RadarRunTrigger } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import {
+  MissionFailureCode,
+  type MissionTerminalArbiter,
+  type MissionTerminalIntent,
+} from "@/modules/ai-harness/facade";
 
 export type RadarMissionStatus =
   | "running"
@@ -25,6 +30,18 @@ export type RadarMissionStatus =
   | "cancelled"
   | "rejected";
 
+/**
+ * ★ C0/G1：radar 终态 arbiter 富载荷（判别式）。dispatcher/controller/liveness 经
+ * MissionLifecycleManager.finalize 提交 intent，arbiter 据 kind 落 radar 业务终态。
+ * 平台 3 终态(completed/failed/cancelled)外 radar 多一个业务态 `rejected`（budget 预检拒绝），
+ * 平台层映射为 status='failed'(outcome=failure，G6)，DB 落 'rejected' 保业务细分。
+ */
+export type RadarTerminalExtra =
+  | { readonly kind: "completed"; readonly metrics: Record<string, unknown> }
+  | { readonly kind: "failed"; readonly error: string }
+  | { readonly kind: "cancelled"; readonly reason?: string }
+  | { readonly kind: "rejected"; readonly reason: string };
+
 export interface RadarMissionCreateInput {
   readonly id: string;
   readonly topicId: string;
@@ -32,13 +49,38 @@ export interface RadarMissionCreateInput {
   readonly workspaceId?: string;
   readonly trigger: RadarRunTrigger;
   readonly maxCredits: number;
-  readonly wallTimeMs: number;
+  readonly wallTimeCapMs: number;
   readonly payload: Record<string, unknown>;
+  /** ★ C5/G7（三 app 统一）：typed MissionConfigSnapshot(canonical 配置记录)。 */
+  readonly configSnapshot?: unknown;
 }
 
 @Injectable()
-export class RadarMissionStore {
+export class RadarMissionStore implements MissionTerminalArbiter<RadarTerminalExtra> {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * ★ C0/G1：唯一终态写仲裁口。所有终态来源（dispatcher 完成/失败/取消/拒绝、
+   * controller 取消、liveness 回收）经 MissionLifecycleManager.finalize 提交 intent，
+   * 由此单点条件写（WHERE status='running'）首写者赢。返回 true=本次赢、false=已终态 no-op。
+   */
+  async applyTerminalIfRunning(
+    missionId: string,
+    intent: MissionTerminalIntent<RadarTerminalExtra>,
+  ): Promise<boolean> {
+    const extra = intent.extra;
+    if (!extra) return false; // 防御：radar 终态必须带 extra（理论不可达）
+    switch (extra.kind) {
+      case "completed":
+        return this.writeCompleted(missionId, extra.metrics);
+      case "failed":
+        return this.writeFailed(missionId, extra.error, intent.failureCode);
+      case "cancelled":
+        return this.writeCancelled(missionId, extra.reason);
+      case "rejected":
+        return this.writeRejected(missionId, extra.reason);
+    }
+  }
 
   /**
    * Atomic acquire run slot：同 topic 只能有 1 个 status='running' 的 mission。
@@ -68,8 +110,11 @@ export class RadarMissionStore {
           trigger: input.trigger,
           startedAt: new Date(),
           maxCredits: input.maxCredits,
-          wallTimeMs: input.wallTimeMs,
+          wallTimeCapMs: input.wallTimeCapMs,
           payload: input.payload as Prisma.InputJsonValue,
+          configSnapshot: input.configSnapshot as
+            | Prisma.InputJsonValue
+            | undefined,
         },
       });
     });
@@ -83,10 +128,39 @@ export class RadarMissionStore {
     });
   }
 
-  async markCompleted(
+  /**
+   * Liveness 扫描用：列出所有 running mission 的存活字段。
+   * 供 RadarModule onModuleInit 注册的 MissionLivenessGuard adapter 调用——
+   * ★ 2026-05-22 C8：radar 之前漏注册 liveness adapter，heartbeatAt 写了没人扫 →
+   *   孤儿 running 行永不回收。本方法 + 注册补上这条扫描链。
+   */
+  async fetchRunningForLiveness(): Promise<
+    Array<{
+      id: string;
+      userId: string;
+      startedAt: Date;
+      heartbeatAt: Date | null;
+    }>
+  > {
+    const rows = await this.prisma.radarRun.findMany({
+      where: { status: "running" },
+      select: { id: true, userId: true, startedAt: true, heartbeatAt: true },
+      take: 200,
+    });
+    // startedAt 在 createAtomic 时必写，schema 列可空仅历史遗留 → 兜底 heartbeatAt/now
+    return rows.map((r) => ({
+      ...r,
+      startedAt: r.startedAt ?? r.heartbeatAt ?? new Date(),
+    }));
+  }
+
+  // ★ C0/G1：以下 4 个 writeX 是 arbiter 私有落库实现，仅 applyTerminalIfRunning 调用。
+  //   外部一律经 finalize → applyTerminalIfRunning，禁止直写终态（conformance 看护）。
+  //   均为条件写 WHERE status='running'（首写赢），返回 count>0=本次赢。
+  private async writeCompleted(
     missionId: string,
     metrics: Record<string, unknown>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const now = new Date();
     const run = await this.prisma.radarRun.findUnique({
       where: { id: missionId },
@@ -94,8 +168,8 @@ export class RadarMissionStore {
     });
     const startedAt = run?.startedAt ?? now;
     const durationMs = now.getTime() - startedAt.getTime();
-    await this.prisma.radarRun.update({
-      where: { id: missionId },
+    const res = await this.prisma.radarRun.updateMany({
+      where: { id: missionId, status: "running" },
       data: {
         status: "completed",
         completedAt: now,
@@ -104,9 +178,14 @@ export class RadarMissionStore {
         error: null,
       },
     });
+    return res.count > 0;
   }
 
-  async markFailed(missionId: string, error: string): Promise<void> {
+  private async writeFailed(
+    missionId: string,
+    error: string,
+    failureCodeOverride?: MissionFailureCode,
+  ): Promise<boolean> {
     const now = new Date();
     const run = await this.prisma.radarRun.findUnique({
       where: { id: missionId },
@@ -114,18 +193,32 @@ export class RadarMissionStore {
     });
     const startedAt = run?.startedAt ?? now;
     const durationMs = now.getTime() - startedAt.getTime();
-    await this.prisma.radarRun.updateMany({
+    // ★ C2/G3 + MAJOR-3/7：调用方知道 abort reason 时传 canonical code(精确);
+    //   否则退回 message→code 启发式。
+    const failureCode =
+      failureCodeOverride ??
+      (/budget|exhaust/i.test(error)
+        ? MissionFailureCode.budget_exhausted
+        : /timeout|timed out|wall.?time/i.test(error)
+          ? MissionFailureCode.wall_time_exceeded
+          : MissionFailureCode.provider_error);
+    const res = await this.prisma.radarRun.updateMany({
       where: { id: missionId, status: "running" },
       data: {
         status: "failed",
         completedAt: now,
         durationMs,
         error: error.slice(0, 4000),
+        failureCode,
       },
     });
+    return res.count > 0;
   }
 
-  async markCancelled(missionId: string, reason?: string): Promise<void> {
+  private async writeCancelled(
+    missionId: string,
+    reason?: string,
+  ): Promise<boolean> {
     const now = new Date();
     const run = await this.prisma.radarRun.findUnique({
       where: { id: missionId },
@@ -133,26 +226,28 @@ export class RadarMissionStore {
     });
     const startedAt = run?.startedAt ?? now;
     const durationMs = now.getTime() - startedAt.getTime();
-    await this.prisma.radarRun.updateMany({
+    const res = await this.prisma.radarRun.updateMany({
       where: { id: missionId, status: "running" },
       data: {
         status: "cancelled",
         completedAt: now,
         durationMs,
         error: reason?.slice(0, 4000) ?? null,
+        failureCode: MissionFailureCode.user_cancelled,
       },
     });
+    return res.count > 0;
   }
 
   /**
-   * Mark mission rejected — budget 预检拒绝 / 入口限额 / framework 层 reject。
-   *
-   * 2026-05-17 R3 评审 P0：JSDoc 第 13 行声明该方法存在，但实现缺失，导致
-   * framework 真的 reject 时 dispatcher 无对应 store 方法可调，mission 行
-   * 永远卡 status='running'，只能等 liveness guard 强制 fail。
-   * markRejected 不消耗用户额度（已 reject = 没真跑），故 metrics/error 简记。
+   * mission rejected — budget 预检拒绝 / 入口限额 / framework 层 reject。
+   * 不消耗用户额度（已 reject = 没真跑），故 metrics/error 简记。
+   * 平台层 outcome=failure（G6），DB 落 'rejected' 保业务细分；与 RUN_FAILED 区分供运维/前端。
    */
-  async markRejected(missionId: string, reason: string): Promise<void> {
+  private async writeRejected(
+    missionId: string,
+    reason: string,
+  ): Promise<boolean> {
     const now = new Date();
     const run = await this.prisma.radarRun.findUnique({
       where: { id: missionId },
@@ -160,15 +255,18 @@ export class RadarMissionStore {
     });
     const startedAt = run?.startedAt ?? now;
     const durationMs = now.getTime() - startedAt.getTime();
-    await this.prisma.radarRun.updateMany({
+    const res = await this.prisma.radarRun.updateMany({
       where: { id: missionId, status: "running" },
       data: {
         status: "rejected",
         completedAt: now,
         durationMs,
         error: reason.slice(0, 4000),
+        // reject = budget 预检/限额拒绝 → canonical budget_exhausted
+        failureCode: MissionFailureCode.budget_exhausted,
       },
     });
+    return res.count > 0;
   }
 
   async getById(missionId: string, userId: string): Promise<RadarRun | null> {

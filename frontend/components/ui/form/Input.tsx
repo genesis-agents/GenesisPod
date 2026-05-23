@@ -28,7 +28,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         pad,
         error
           ? 'border-red-400 focus:ring-red-400'
-          : 'border-gray-300 focus:border-violet-500 focus:ring-violet-500',
+          : 'border-gray-300 focus:border-primary focus:ring-primary',
         className
       )}
       {...props}

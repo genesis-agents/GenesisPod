@@ -23,29 +23,29 @@ interface ConfirmDialogProps {
 const typeConfig: Record<
   ConfirmType,
   {
-    icon: React.ReactNode;
-    iconBg: string;
+    Icon: typeof XCircle;
+    iconColor: string;
     confirmVariant: 'default' | 'destructive' | 'outline';
   }
 > = {
   danger: {
-    icon: <XCircle className="h-6 w-6 text-red-600" />,
-    iconBg: 'bg-red-100',
+    Icon: XCircle,
+    iconColor: 'text-red-500',
     confirmVariant: 'destructive',
   },
   warning: {
-    icon: <AlertTriangle className="h-6 w-6 text-amber-600" />,
-    iconBg: 'bg-amber-100',
+    Icon: AlertTriangle,
+    iconColor: 'text-amber-500',
     confirmVariant: 'default',
   },
   info: {
-    icon: <Info className="h-6 w-6 text-blue-600" />,
-    iconBg: 'bg-blue-100',
+    Icon: Info,
+    iconColor: 'text-blue-500',
     confirmVariant: 'default',
   },
   success: {
-    icon: <CheckCircle className="h-6 w-6 text-green-600" />,
-    iconBg: 'bg-green-100',
+    Icon: CheckCircle,
+    iconColor: 'text-emerald-500',
     confirmVariant: 'default',
   },
 };
@@ -61,7 +61,7 @@ export function ConfirmDialog({
   cancelText = '取消',
   loading = false,
 }: ConfirmDialogProps) {
-  const config = typeConfig[type];
+  const { Icon, iconColor, confirmVariant } = typeConfig[type];
 
   const handleConfirm = async () => {
     await onConfirm();
@@ -73,40 +73,44 @@ export function ConfirmDialog({
       open={open}
       onClose={onClose}
       size="sm"
-      title={title}
       showCloseButton={false}
-    >
-      <div className="flex flex-col items-center gap-4 text-center">
-        <div
-          className={cn(
-            'flex h-12 w-12 items-center justify-center rounded-full',
-            config.iconBg
-          )}
-        >
-          {config.icon}
-        </div>
-
-        {description && <p className="text-sm text-gray-500">{description}</p>}
-
-        <div className="flex w-full gap-3 pt-2">
+      // 紧凑确认卡：窄一档(max-w-sm) + 去标题分隔线/去灰底页脚，收成一张干净白卡。
+      className="max-w-sm"
+      headerClassName="border-b-0 pb-1"
+      footerClassName="border-t-0 bg-transparent pt-3"
+      // 图标内联标题
+      title={
+        <span className="flex items-center gap-2.5">
+          <Icon className={cn('h-5 w-5 shrink-0', iconColor)} />
+          <span className="min-w-0 truncate">{title}</span>
+        </span>
+      }
+      // 无描述时收起内容区，避免标题与按钮之间留空白
+      contentClassName={description ? 'pb-1 pt-1' : 'hidden'}
+      footer={
+        <>
           <Button
             variant="outline"
-            className="flex-1"
+            size="sm"
             onClick={onClose}
             disabled={loading}
           >
             {cancelText}
           </Button>
           <Button
-            variant={config.confirmVariant}
-            className="flex-1"
+            variant={confirmVariant}
+            size="sm"
             onClick={handleConfirm}
             disabled={loading}
           >
-            {loading ? '处理中...' : confirmText}
+            {loading ? '处理中…' : confirmText}
           </Button>
-        </div>
-      </div>
+        </>
+      }
+    >
+      {description ? (
+        <p className="text-sm leading-relaxed text-gray-600">{description}</p>
+      ) : null}
     </Modal>
   );
 }

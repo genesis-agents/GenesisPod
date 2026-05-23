@@ -225,6 +225,38 @@ const VALID_INPUT = {
   budgetMultiplierOverride: 1.4,
 };
 
+// ★ C5/G7:rerun 现读 configSnapshot;mock 统一带一个 valid snapshot(legacy 测试单独传 null)。
+const SNAP = {
+  schemaVersion: 1,
+  snapshotRevision: 0,
+  snapshotId: "snap-test",
+  mutationReason: "fresh",
+  resolvedAt: new Date().toISOString(),
+  topic: "test",
+  language: "zh-CN",
+  businessInput: {
+    depth: "standard",
+    budgetProfile: "medium",
+    styleProfile: "executive",
+    lengthProfile: "standard",
+    audienceProfile: "domain-expert",
+    withFigures: true,
+    auditLayers: "default",
+    concurrency: 3,
+    viewMode: "continuous",
+    searchTimeRange: "365d",
+  },
+  budget: {
+    maxCredits: 1000,
+    maxTokens: 1000000,
+    creditBudgetProxyUsd: 2,
+    budgetMultiplier: 1,
+    source: "default",
+    resolvedAt: new Date().toISOString(),
+  },
+  runtimeLimits: { wallTimeCapMs: 3600000 },
+} as unknown as Record<string, unknown>;
+
 describe("AgentPlaygroundController", () => {
   describe("listMissions", () => {
     it("throws ForbiddenException when no userId", async () => {
@@ -293,6 +325,7 @@ describe("AgentPlaygroundController", () => {
     it("exports csv-facts with correct MIME type", async () => {
       const { controller, store } = buildController();
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "AI",
         reportFull: {
@@ -315,6 +348,7 @@ describe("AgentPlaygroundController", () => {
     it("exports csv-citations with correct MIME type", async () => {
       const { controller, store } = buildController();
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "AI",
         reportFull: {
@@ -344,6 +378,7 @@ describe("AgentPlaygroundController", () => {
     it("exports markdown format", async () => {
       const { controller, store } = buildController();
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "AI test",
         reportFull: {
@@ -365,6 +400,7 @@ describe("AgentPlaygroundController", () => {
     it("exports json format", async () => {
       const { controller, store } = buildController();
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "AI",
         reportFull: { metadata: {}, content: {} },
@@ -381,6 +417,7 @@ describe("AgentPlaygroundController", () => {
     it("throws BadRequestException for unsupported format", async () => {
       const { controller, store } = buildController();
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         reportFull: { metadata: {} },
       });
@@ -392,6 +429,7 @@ describe("AgentPlaygroundController", () => {
     it("includes L4 warnings section in markdown when l4- warnings present", async () => {
       const { controller, store } = buildController();
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "AI",
         reportFull: {
@@ -551,6 +589,7 @@ describe("AgentPlaygroundController", () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test",
         depth: "deep",
@@ -572,6 +611,7 @@ describe("AgentPlaygroundController", () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test",
         depth: "deep",
@@ -591,6 +631,7 @@ describe("AgentPlaygroundController", () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test",
         depth: "deep",
@@ -610,6 +651,7 @@ describe("AgentPlaygroundController", () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test",
         depth: "deep",
@@ -632,6 +674,7 @@ describe("AgentPlaygroundController", () => {
       ownership.getOwner.mockReturnValue("user-1");
       // assertOwnership 路径 + rerunFullMission 路径都用同一 mock
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test",
         depth: "deep",
@@ -658,6 +701,7 @@ describe("AgentPlaygroundController", () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test",
         depth: "deep",
@@ -674,6 +718,7 @@ describe("AgentPlaygroundController", () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test",
         depth: "deep",
@@ -695,6 +740,7 @@ describe("AgentPlaygroundController", () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test",
         depth: "deep",
@@ -716,6 +762,7 @@ describe("AgentPlaygroundController", () => {
       const { controller, ownership, store, buffer } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test topic",
         depth: "deep",
@@ -756,6 +803,7 @@ describe("AgentPlaygroundController", () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test",
         status: "completed",
@@ -776,6 +824,7 @@ describe("AgentPlaygroundController", () => {
       } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test",
         status: "running",
@@ -810,6 +859,7 @@ describe("AgentPlaygroundController", () => {
         buildController();
       // 终态（如 completed）允许直接删
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test",
         status: "completed",
@@ -827,6 +877,7 @@ describe("AgentPlaygroundController", () => {
     it("rejects DELETE when mission is still running (FK constraint protection)", async () => {
       const { controller, store } = buildController();
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test",
         status: "running",
@@ -878,7 +929,11 @@ describe("AgentPlaygroundController", () => {
 
     it("updates topic successfully", async () => {
       const { controller, store } = buildController();
-      store.getById.mockResolvedValue({ id: "m-1", topic: "old" });
+      store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
+        id: "m-1",
+        topic: "old",
+      });
       const result = await controller.updateMission(
         "m-1",
         { topic: "new topic" },
@@ -1001,6 +1056,7 @@ describe("AgentPlaygroundController", () => {
     it("includes leaderForeword with whatWeAnswered in markdown export", async () => {
       const { controller, store } = buildController();
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "AI",
         reportFull: {
@@ -1049,6 +1105,7 @@ describe("AgentPlaygroundController", () => {
     it("includes citations with sourceType and credibilityScore in markdown", async () => {
       const { controller, store } = buildController();
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "AI",
         reportFull: {
@@ -1080,6 +1137,7 @@ describe("AgentPlaygroundController", () => {
     it("includes reconciliation report in markdown export", async () => {
       const { controller, store } = buildController();
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "AI",
         reportFull: {
@@ -1112,6 +1170,7 @@ describe("AgentPlaygroundController", () => {
     it("markdown export with no metadata does not include frontmatter", async () => {
       const { controller, store } = buildController();
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "AI",
         reportFull: {
@@ -1143,6 +1202,7 @@ describe("AgentPlaygroundController", () => {
           language: "zh-CN",
           status: "completed",
           userProfile: null,
+          configSnapshot: SNAP,
         }); // rerunMission body
       const result = await controller.rerunMission(
         "m-1",
@@ -1160,6 +1220,7 @@ describe("AgentPlaygroundController", () => {
       const { controller, ownership, store, buffer } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
+        configSnapshot: SNAP,
         id: "m-1",
         topic: "test topic",
         depth: "deep",
@@ -1257,7 +1318,7 @@ describe("AgentPlaygroundController", () => {
 
     it("returns mapped version list with ISO timestamps", async () => {
       const { controller, store } = buildController();
-      store.getById.mockResolvedValue({ id: "m-1" });
+      store.getById.mockResolvedValue({ configSnapshot: SNAP, id: "m-1" });
       const generatedAt = new Date("2026-05-06T10:00:00Z");
       store.listReportVersions.mockResolvedValue([
         {
@@ -1311,7 +1372,7 @@ describe("AgentPlaygroundController", () => {
 
     it("throws BadRequestException when version is not a positive integer", async () => {
       const { controller, store } = buildController();
-      store.getById.mockResolvedValue({ id: "m-1" });
+      store.getById.mockResolvedValue({ configSnapshot: SNAP, id: "m-1" });
       await expect(
         controller.getMissionReportVersion("m-1", "abc", makeReq("user-1")),
       ).rejects.toThrow(BadRequestException);
@@ -1333,7 +1394,7 @@ describe("AgentPlaygroundController", () => {
 
     it("throws BadRequestException when version row not found", async () => {
       const { controller, store } = buildController();
-      store.getById.mockResolvedValue({ id: "m-1" });
+      store.getById.mockResolvedValue({ configSnapshot: SNAP, id: "m-1" });
       store.getReportVersion.mockResolvedValue(null);
       await expect(
         controller.getMissionReportVersion("m-1", "99", makeReq("user-1")),
@@ -1342,7 +1403,7 @@ describe("AgentPlaygroundController", () => {
 
     it("returns full reportFull + meta for the requested version", async () => {
       const { controller, store } = buildController();
-      store.getById.mockResolvedValue({ id: "m-1" });
+      store.getById.mockResolvedValue({ configSnapshot: SNAP, id: "m-1" });
       const generatedAt = new Date("2026-05-06T10:00:00Z");
       store.getReportVersion.mockResolvedValue({
         id: "row-1",

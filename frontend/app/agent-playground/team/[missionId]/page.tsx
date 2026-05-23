@@ -47,6 +47,7 @@ import { Tabs } from '@/components/ui/tabs';
 import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/panels/LeadJournalPanel';
 import { BudgetAndTimeLimitPanel } from '@/components/agent-playground/panels/BudgetAndTimeLimitPanel';
+import { useBudgetTiers, pickTier } from '@/hooks/features/useBudgetTiers';
 import { isReportArtifact } from '@/lib/features/agent-playground/report-artifact.types';
 import { ensureRenderableArtifact } from '@/lib/features/agent-playground/synthesize-artifact';
 import { setCitationClickCallback } from '@/components/common/citations/citationNavigation';
@@ -1225,6 +1226,8 @@ function MissionSettingsModal({
   type STR = '30d' | '90d' | '180d' | '365d' | '730d' | 'all';
 
   const router = useRouter();
+  // ★ 2026-05-22 ③J/K 单一源：档位数值来自后端，前端无镜像。
+  const { data: budgetTierData } = useBudgetTiers();
   const [topic, setTopic] = useState('');
   const [depth, setDepth] = useState<Depth>('deep');
   const [language, setLanguage] = useState<Lang>('zh-CN');
@@ -1240,6 +1243,9 @@ function MissionSettingsModal({
   const [budgetMultiplierOverride, setBudgetMultiplierOverride] =
     useState<number>(1.0);
   const [wallTimeMinutes, setWallTimeMinutes] = useState<number>(60);
+  // ★ 2026-05-22 #25：精简设置弹窗——3 滑块"精细预算"默认折叠（档位卡片即够用），
+  //   点开才显，避免"配置太复杂"。折叠不改保存逻辑（值照常随保存提交）。
+  const [showAdvancedBudget, setShowAdvancedBudget] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -1476,7 +1482,17 @@ function MissionSettingsModal({
           <FormField label="深度">
             <select
               value={depth}
-              onChange={(e) => setDepth(e.target.value as Depth)}
+              onChange={(e) => {
+                // 改深度即联动预算到对应档位（来自后端单一源），避免 depth 与预算脱节。
+                const d = e.target.value as Depth;
+                setDepth(d);
+                const tier = pickTier(budgetTierData, d);
+                if (tier) {
+                  setMaxCredits(tier.maxCredits);
+                  setBudgetMultiplierOverride(tier.budgetMultiplier);
+                  setWallTimeMinutes(tier.wallTimeMinutes);
+                }
+              }}
               className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
             >
               <option value="quick">quick · 快速</option>
@@ -1580,14 +1596,97 @@ function MissionSettingsModal({
           />
         </FormField>
 
-        <BudgetAndTimeLimitPanel
-          maxCredits={maxCredits}
-          setMaxCredits={setMaxCredits}
-          budgetMultiplierOverride={budgetMultiplierOverride}
-          setBudgetMultiplierOverride={setBudgetMultiplierOverride}
-          wallTimeMinutes={wallTimeMinutes}
-          setWallTimeMinutes={setWallTimeMinutes}
-        />
+        {(() => {
+          const m = mission as {
+            status?: string;
+            errorMessage?: string | null;
+          };
+          if (m.status !== 'failed' || !m.errorMessage) return null;
+          return (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-900">
+              <p className="font-semibold">上次失败原因</p>
+              <p className="mt-0.5">{m.errorMessage}</p>
+              <p className="mt-1 text-amber-700">
+                如为预算耗尽，请提高下方「调研规模」档位或自定义 Credits
+                上限后重跑（修改后保存即生效）。
+              </p>
+            </div>
+          );
+        })()}
+
+        <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            调研规模（一键套用档位预算 · 修改后保存即在重跑生效）
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {(['quick', 'standard', 'deep'] as const).map((t) => {
+              const tier = pickTier(budgetTierData, t);
+              const active =
+                !!tier &&
+                maxCredits === tier.maxCredits &&
+                wallTimeMinutes === tier.wallTimeMinutes &&
+                budgetMultiplierOverride === tier.budgetMultiplier;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  disabled={!tier}
+                  onClick={() => {
+                    // 档位卡片 = 同时设深度 + 预算（来自后端单一源），与「深度」下拉一致。
+                    if (!tier) return;
+                    setDepth(t);
+                    setMaxCredits(tier.maxCredits);
+                    setBudgetMultiplierOverride(tier.budgetMultiplier);
+                    setWallTimeMinutes(tier.wallTimeMinutes);
+                  }}
+                  className={`rounded-xl border px-3 py-2 text-left transition-all ${
+                    active
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-blue-300'
+                  }`}
+                >
+                  <span className="block text-sm font-medium text-slate-900">
+                    {tier?.label ?? t}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-slate-500">
+                    {tier
+                      ? `约 $${tier.capUsd} · ~${tier.wallTimeMinutes} 分钟`
+                      : '加载中…'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ★ 2026-05-22 #25：精细预算（3 滑块）默认折叠，点开才显——档位卡片即够用，
+            避免"设置太复杂"。当前值在收起态用一行摘要呈现，信息不丢。 */}
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setShowAdvancedBudget((v) => !v)}
+            className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-left transition-colors hover:border-blue-300"
+          >
+            <span className="text-[13px] font-medium text-slate-700">
+              精细预算（Credits / 倍率 / 时长）
+            </span>
+            <span className="text-[11px] text-slate-500">
+              {showAdvancedBudget
+                ? '收起'
+                : `${maxCredits} cr · ${budgetMultiplierOverride}× · ${wallTimeMinutes}m · 展开`}
+            </span>
+          </button>
+          {showAdvancedBudget && (
+            <BudgetAndTimeLimitPanel
+              maxCredits={maxCredits}
+              setMaxCredits={setMaxCredits}
+              budgetMultiplierOverride={budgetMultiplierOverride}
+              setBudgetMultiplierOverride={setBudgetMultiplierOverride}
+              wallTimeMinutes={wallTimeMinutes}
+              setWallTimeMinutes={setWallTimeMinutes}
+            />
+          )}
+        </div>
 
         <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-[11px] leading-relaxed text-blue-900">
           <p className="font-semibold">

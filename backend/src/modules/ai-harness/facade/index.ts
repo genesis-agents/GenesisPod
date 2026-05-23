@@ -418,8 +418,56 @@ export {
 // ★ 2026-05-01: MissionAbortRegistry / MissionOwnershipRegistry 从 ai-app/{app} 上提
 //   两个纯通用 in-memory registry primitive（abort signal 管理 / mission→user ownership LRU），
 //   跨 ai-app 复用（research / writing / teams 任何长任务编排都需要）
-export { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
+export {
+  MissionAbortRegistry,
+  MissionAbortReason,
+} from "../lifecycle/mission-lifecycle/abort-registry";
 export { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
+// ★ 2026-05-22 C0/G1: mission 唯一终态写入口（finalize + 条件写仲裁 arbiter）。
+//   app 层实现 MissionTerminalArbiter（条件写 WHERE status='running'），所有终态来源
+//   （dispatcher 完成/失败 / liveness / abort / controller 取消）统一经 finalize 提交 intent。
+export {
+  MissionLifecycleManager,
+  type MissionTerminalIntent,
+  type MissionTerminalArbiter,
+  type MissionLifecycleStatus,
+  type MissionTerminalStatus,
+} from "../lifecycle/mission-lifecycle/mission-lifecycle-manager";
+// ★ 2026-05-22 C2/G3: mission 级失败 canonical 契约（code/category 投影/abort+agent 映射）
+export {
+  MissionFailureCode,
+  FailureCategory,
+  codeToCategory,
+  buildMissionFailure,
+  mapAbortReasonToFailureCode,
+  mapAgentFailureCode,
+} from "../lifecycle/mission-lifecycle/abstractions/mission-failure";
+export type { MissionFailure } from "../lifecycle/mission-lifecycle/abstractions/mission-failure";
+// ★ 2026-05-22 C4/G5: wallTime 拆 cap/elapsed（类型层消二义）
+export { buildLifecycleMetrics } from "../lifecycle/mission-lifecycle/abstractions/runtime-limits";
+export type {
+  ResolvedRuntimeLimits,
+  MissionLifecycleMetrics,
+} from "../lifecycle/mission-lifecycle/abstractions/runtime-limits";
+// ★ 2026-05-22 C5/G7: mission 配置快照(显式 schema/lineage/版本)
+export { deriveChildSnapshot } from "../lifecycle/mission-lifecycle/abstractions/mission-config-snapshot";
+export type {
+  MissionConfigSnapshot,
+  MissionMutationReason,
+} from "../lifecycle/mission-lifecycle/abstractions/mission-config-snapshot";
+// ★ 2026-05-22 C6/G8: canonical input patch + rebuilder
+export { applyInputPatch } from "../lifecycle/mission-lifecycle/abstractions/mission-input-patch";
+export type {
+  MissionInputPatch,
+  MissionInputRebuilder,
+} from "../lifecycle/mission-lifecycle/abstractions/mission-input-patch";
+// ★ 2026-05-22 C7/G9: 终态 outcome(去 quality_rejected,G6)+ presentation 聚合
+export {
+  MissionTerminalOutcome,
+  toTerminalOutcome,
+  outcomeFromStatus,
+} from "../lifecycle/mission-lifecycle/abstractions/mission-state";
+export type { MissionPresentationState } from "../lifecycle/mission-lifecycle/abstractions/mission-state";
 // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
 export { MissionRuntimeShellFramework } from "../teams/business-team/lifecycle/mission-runtime-shell.framework";
 export type {
@@ -869,6 +917,13 @@ export type {
 // Runtime: mission + budget + billing + kernel-api
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { MissionBudgetPool } from "../guardrails/budget/mission-budget-pool";
+// ★ 2026-05-22 C3a/G4: 预算额度 canonical 值对象（私有构造+工厂,唯一换算处）
+export {
+  ResolvedBudgetCaps,
+  CREDITS_TO_TOKENS,
+  CREDITS_TO_USD,
+} from "../guardrails/budget/resolved-budget-caps";
+export type { BudgetCapsSource } from "../guardrails/budget/resolved-budget-caps";
 export { BillingRuntimeEnvAdapter } from "../guardrails/billing/billing-adapter";
 export { MissionExecutorService } from "../lifecycle/manager/mission-executor.service";
 export type {

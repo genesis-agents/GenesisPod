@@ -56,7 +56,7 @@ export function Tabs({
                 'inline-flex items-center gap-1.5 rounded-full font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
                 pad,
                 active
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-primary text-primary-foreground'
                   : 'text-gray-600 hover:bg-gray-100'
               )}
             >
@@ -99,7 +99,7 @@ export function Tabs({
               'inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
               pad,
               active
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             )}
           >

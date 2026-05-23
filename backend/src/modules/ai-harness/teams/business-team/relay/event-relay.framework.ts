@@ -21,7 +21,10 @@ import { Logger } from "@nestjs/common";
 // ★ 不走 facade barrel：facade/index.ts 也 re-export 本 framework，
 //   构成循环加载（详见 mission-runtime-shell.framework.ts 注释）。
 import { DomainEventBus } from "@/modules/ai-harness/protocols/events/domain-event-bus";
-import { MissionAbortRegistry } from "@/modules/ai-harness/lifecycle/mission-lifecycle/abort-registry";
+import {
+  MissionAbortRegistry,
+  MissionAbortReason,
+} from "@/modules/ai-harness/lifecycle/mission-lifecycle/abort-registry";
 import { MissionBudgetPool } from "@/modules/ai-harness/guardrails/budget/mission-budget-pool";
 import { estimateUsdFromTokens } from "@/modules/ai-harness/tracing/observability/token-spend.utils";
 import type { DomainEvent } from "@/modules/ai-harness/protocols/events/domain-event.types";
@@ -178,7 +181,10 @@ export class EventRelayFramework {
         payload: snap,
       });
       if (this.abortRegistry) {
-        this.abortRegistry.abort(missionId, "budget_exhausted");
+        this.abortRegistry.abort(
+          missionId,
+          MissionAbortReason.budget_exhausted,
+        );
       }
     }
   }

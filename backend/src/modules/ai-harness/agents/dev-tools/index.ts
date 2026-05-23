@@ -21,4 +21,12 @@ export {
 
 export { FixtureStore, type RecordedRun } from "./fixture-store";
 
+// ★ 2026-05-22 契约单一源机制：CI 断言"生产方范围 ⊆ 消费方 agent schema"
+export {
+  assertNumberProducerWithinSchema,
+  getNumberFieldBounds,
+  type NumberFieldBounds,
+  type ContractAssertResult,
+} from "./contract-assertions";
+
 // HarnessInspectorController moved to open-api/admin/harness-inspector.controller.ts (PR-X17)

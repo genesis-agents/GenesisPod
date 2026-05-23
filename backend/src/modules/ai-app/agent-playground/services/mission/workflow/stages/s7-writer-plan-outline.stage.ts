@@ -61,6 +61,7 @@ export async function runWriterOutlineStage(
       {
         topic: input.topic,
         language: input.language,
+        depth: input.depth,
         audienceProfile: input.audienceProfile,
         styleProfile: input.styleProfile,
         lengthProfile: input.lengthProfile,

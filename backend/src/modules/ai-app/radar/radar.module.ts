@@ -22,6 +22,9 @@ import * as path from "path";
 
 import {
   DomainEventRegistry,
+  MissionFailureCode,
+  MissionLifecycleManager,
+  MissionLivenessGuard,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
 } from "@/modules/ai-harness/facade";
@@ -194,6 +197,10 @@ export class RadarModule implements OnModuleInit {
   constructor(
     private readonly eventRegistry: DomainEventRegistry,
     private readonly skillLoader: SkillLoaderService,
+    private readonly livenessGuard: MissionLivenessGuard,
+    private readonly missionStore: RadarMissionStore,
+    // ★ C0/G1：liveness 回收也经唯一终态写入口仲裁，不直写 store。
+    private readonly lifecycleManager: MissionLifecycleManager,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -211,6 +218,49 @@ export class RadarModule implements OnModuleInit {
     });
     this.log.log(
       "RadarModule: SKILL.md directory registered (5 agents under ai-radar/agents/)",
+    );
+
+    // 3. ★ 2026-05-22 C8：注册 MissionLivenessGuard adapter。
+    //    radar_runs 早有 heartbeatAt/podId + [status,heartbeatAt] 索引，但此前从未注册
+    //    adapter——心跳写了没人扫，pod 重启/卡死的孤儿 running 行永不回收。本注册补上
+    //    扫描链：guard 周期扫 running 行，心跳停滞超阈值即 markFailed 回收。
+    //    radar 无 mission-event 表，故 getMostRecentEventTs 返回空，liveness 仅按 heartbeatAt 判活。
+    this.livenessGuard.registerAdapter("ai-radar", {
+      fetchRunningMissions: async () => {
+        try {
+          return await this.missionStore.fetchRunningForLiveness();
+        } catch (err: unknown) {
+          this.log.warn(
+            `[liveness] fetchRunningForLiveness failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          return [];
+        }
+      },
+      getMostRecentEventTs: async () => new Map<string, number>(),
+      markFailed: async (missionId, reason, errorMessage) => {
+        // ★ C0/C2/MAJOR-4:liveness 回收经 finalize 仲裁(条件写首写赢,不覆盖已终态),
+        //   落 canonical failureCode(超时→wall_time;失联/孤儿→runtime_crashed)。
+        const error = `[liveness:${reason}] ${errorMessage}`;
+        await this.lifecycleManager.finalize({
+          missionId,
+          intent: {
+            status: "failed",
+            failureCode:
+              reason === "wall-time-exceeded"
+                ? MissionFailureCode.wall_time_exceeded
+                : MissionFailureCode.runtime_crashed,
+            errorMessage: error,
+            extra: { kind: "failed", error },
+          },
+          arbiter: this.missionStore,
+        });
+        this.log.warn(
+          `[liveness] radar mission ${missionId} reclaimed (${reason})`,
+        );
+      },
+    });
+    this.log.log(
+      "RadarModule: MissionLivenessGuard adapter registered (ai-radar)",
     );
   }
 }

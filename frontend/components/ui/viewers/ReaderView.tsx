@@ -374,7 +374,7 @@ export default function ReaderView({
       {article && !loading && (
         <div className="absolute left-0 right-0 top-0 z-20 h-1 bg-gray-200">
           <div
-            className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-150 ease-out"
+            className="h-full bg-gradient-to-r from-[hsl(var(--primary)/0.8)] to-[hsl(var(--primary))] transition-all duration-150 ease-out"
             style={{ width: `${readingProgress}%` }}
           />
         </div>
@@ -438,19 +438,19 @@ export default function ReaderView({
                   <div className="flex gap-1">
                     <button
                       onClick={() => setTheme('light')}
-                      className={`flex-1 rounded px-2 py-1 text-xs ${theme === 'light' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                      className={`flex-1 rounded px-2 py-1 text-xs ${theme === 'light' ? 'bg-primary text-primary-foreground' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                     >
                       浅色
                     </button>
                     <button
                       onClick={() => setTheme('sepia')}
-                      className={`flex-1 rounded px-2 py-1 text-xs ${theme === 'sepia' ? 'bg-blue-500 text-white' : 'bg-[#F5EFE6] text-[#5C4B37] hover:bg-[#E8DFD0]'}`}
+                      className={`flex-1 rounded px-2 py-1 text-xs ${theme === 'sepia' ? 'bg-primary text-primary-foreground' : 'bg-[#F5EFE6] text-[#5C4B37] hover:bg-[#E8DFD0]'}`}
                     >
                       护眼
                     </button>
                     <button
                       onClick={() => setTheme('dark')}
-                      className={`flex-1 rounded px-2 py-1 text-xs ${theme === 'dark' ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-200 hover:bg-gray-700'}`}
+                      className={`flex-1 rounded px-2 py-1 text-xs ${theme === 'dark' ? 'bg-primary text-primary-foreground' : 'bg-gray-800 text-gray-200 hover:bg-gray-700'}`}
                     >
                       深色
                     </button>
@@ -467,19 +467,19 @@ export default function ReaderView({
                   <div className="flex gap-1">
                     <button
                       onClick={() => setFontSize('small')}
-                      className={`flex-1 rounded px-2 py-1 text-xs ${fontSize === 'small' ? 'bg-blue-500 text-white' : theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                      className={`flex-1 rounded px-2 py-1 text-xs ${fontSize === 'small' ? 'bg-primary text-primary-foreground' : theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                     >
                       小
                     </button>
                     <button
                       onClick={() => setFontSize('medium')}
-                      className={`flex-1 rounded px-2 py-1 text-xs ${fontSize === 'medium' ? 'bg-blue-500 text-white' : theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                      className={`flex-1 rounded px-2 py-1 text-xs ${fontSize === 'medium' ? 'bg-primary text-primary-foreground' : theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                     >
                       中
                     </button>
                     <button
                       onClick={() => setFontSize('large')}
-                      className={`flex-1 rounded px-2 py-1 text-xs ${fontSize === 'large' ? 'bg-blue-500 text-white' : theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                      className={`flex-1 rounded px-2 py-1 text-xs ${fontSize === 'large' ? 'bg-primary text-primary-foreground' : theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                     >
                       大
                     </button>
@@ -511,7 +511,7 @@ export default function ReaderView({
 
           <button
             onClick={handleOpenInNewTab}
-            className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90"
             title="在新标签页打开原始页面"
           >
             <svg
@@ -544,7 +544,7 @@ export default function ReaderView({
             className={`absolute inset-0 z-10 flex items-center justify-center ${currentTheme.bg}`}
           >
             <div className="text-center">
-              <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600"></div>
+              <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-primary"></div>
               <p className="mt-4 text-sm text-gray-600">正在提取内容...</p>
               <p className="mt-2 text-xs text-gray-500">
                 使用 Reader Mode 解析网页
@@ -585,7 +585,7 @@ export default function ReaderView({
               <div className="mt-6 flex justify-center gap-3">
                 <button
                   onClick={handleRetry}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
                 >
                   <svg
                     className="h-4 w-4"
@@ -669,7 +669,7 @@ export default function ReaderView({
                 {/* 摘要 - 突出显示 */}
                 {article.excerpt && (
                   <p
-                    className={`mt-4 border-l-4 border-blue-500 pl-4 text-base italic leading-relaxed ${currentTheme.secondary}`}
+                    className={`mt-4 border-l-4 border-[hsl(var(--primary))] pl-4 text-base italic leading-relaxed ${currentTheme.secondary}`}
                   >
                     {article.excerpt}
                   </p>

@@ -18,6 +18,7 @@ import {
   Controller,
   Delete,
   ForbiddenException,
+  Get,
   Headers,
   Logger,
   Param,
@@ -38,6 +39,9 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
   RunMissionInputSchema,
   type RunMissionInput,
+  listBudgetTiers,
+  BUDGET_FIELD_LIMITS,
+  type BudgetTierView,
 } from "./dto/run-mission.dto";
 import {
   MissionElectionTracker,
@@ -45,7 +49,10 @@ import {
 } from "@/modules/ai-harness/facade";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
-import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
+import {
+  MissionAbortRegistry,
+  MissionAbortReason,
+} from "@/modules/ai-harness/facade";
 // ★ R2-C 单轨化（2026-05-04）：pipeline-v1 现在是唯一 mission 路径。
 import { PlaygroundPipelineDispatcher } from "./services/mission/workflow/playground-pipeline-dispatcher.service";
 import { BaseMissionController } from "./controllers/base-mission.controller";
@@ -65,6 +72,21 @@ export class AgentPlaygroundController extends BaseMissionController {
     private readonly pipelineDispatcher: PlaygroundPipelineDispatcher,
   ) {
     super(ownership, store);
+  }
+
+  /**
+   * GET /api/v1/agent-playground/budget-tiers
+   *
+   * ★ 2026-05-22 ③J/K 契约单一源：调研规模档位(label/成本/时长/维度提示/数值)+ 预算字段
+   * 上下限的**唯一真源**是后端 DEPTH_BUDGET_TIERS / BUDGET_FIELD_LIMITS。前端不再手写
+   * SCALE_TIERS 镜像,改 fetch 本端点渲染,杜绝"前后端各维护一份 → 漂移"。
+   */
+  @Get("budget-tiers")
+  getBudgetTiers(): {
+    tiers: BudgetTierView[];
+    limits: typeof BUDGET_FIELD_LIMITS;
+  } {
+    return { tiers: listBudgetTiers(), limits: BUDGET_FIELD_LIMITS };
   }
 
   private isDevTriggerAuthorized(presentedToken?: string): boolean {
@@ -215,7 +237,7 @@ export class AgentPlaygroundController extends BaseMissionController {
       );
     }
     // 真触发 abort signal，让正在跑的 LLM/tool call 立即中断
-    this.abortRegistry.abort(missionId, "user_cancelled");
+    this.abortRegistry.abort(missionId, MissionAbortReason.user_cancelled);
     await this.store.markCancelled(missionId);
     this.electionTracker.clear(missionId);
     await this.buffer.broadcast({

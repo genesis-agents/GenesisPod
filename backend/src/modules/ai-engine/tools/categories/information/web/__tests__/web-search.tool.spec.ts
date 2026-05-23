@@ -176,7 +176,7 @@ describe("WebSearchTool", () => {
     // 2026-05-13: 这 4 个用例只关心 numResults 的 cap/default 语义，timeRange 必须显式
     // 传 "all" 以拿到 since=undefined。否则 resolveEffectiveTimeRange 会兜到
     // DEFAULT_SEARCH_TIME_RANGE=365d → resolveSearchTimeRangeSince 返回 Date 实例。
-    it("should call SearchService with numResults = 5 when not specified", async () => {
+    it("should call SearchService with numResults = 8 when not specified", async () => {
       mockSearchService.search.mockResolvedValue(makeSearchResponse([]));
 
       const input: WebSearchInput = {
@@ -187,7 +187,7 @@ describe("WebSearchTool", () => {
 
       expect(mockSearchService.search).toHaveBeenCalledWith(
         "quantum computing",
-        5,
+        8,
         undefined,
       );
     });
@@ -209,7 +209,7 @@ describe("WebSearchTool", () => {
       );
     });
 
-    it("should cap numResults at 10 when value exceeds the maximum", async () => {
+    it("should cap numResults at 12 when value exceeds the maximum", async () => {
       mockSearchService.search.mockResolvedValue(makeSearchResponse([]));
 
       const input: WebSearchInput = {
@@ -219,10 +219,10 @@ describe("WebSearchTool", () => {
       };
       await tool.execute(input, makeContext());
 
-      // BaseTool calls doExecute which caps at Math.min(numResults, 10)
+      // BaseTool calls doExecute which caps at Math.min(numResults, 12)
       expect(mockSearchService.search).toHaveBeenCalledWith(
         "deep learning",
-        10,
+        12,
         undefined,
       );
     });
@@ -254,7 +254,7 @@ describe("WebSearchTool", () => {
       const [queryArg, numResultsArg, sinceArg] =
         mockSearchService.search.mock.calls[0];
       expect(queryArg).toBe("fallback default");
-      expect(numResultsArg).toBe(5);
+      expect(numResultsArg).toBe(8);
       expect(sinceArg).toBeInstanceOf(Date);
       const yearMs = 365 * 24 * 60 * 60 * 1000;
       const sinceMs = (sinceArg as Date).getTime();
@@ -280,7 +280,7 @@ describe("WebSearchTool", () => {
       const [queryArg, numResultsArg, sinceArg] =
         mockSearchService.search.mock.calls[0];
       expect(queryArg).toBe("agent framework");
-      expect(numResultsArg).toBe(5);
+      expect(numResultsArg).toBe(8);
       expect(sinceArg).toBeInstanceOf(Date);
       const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
       const sinceMs = (sinceArg as Date).getTime();

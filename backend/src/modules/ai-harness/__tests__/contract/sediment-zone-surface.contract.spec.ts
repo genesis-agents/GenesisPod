@@ -205,7 +205,7 @@ describe("Sediment Zone Surface Contract (Rev 5 / S0-5)", () => {
   describe("Z3 IMissionRuntimeAdapter (业务方注入面)", () => {
     it("[type] declares resolve* / persist / event-emit / namespace surface", () => {
       type RequiredAdapter = {
-        resolveWallTimeMs(input: unknown): number;
+        resolveWallTimeCapMs(input: unknown): number;
         resolveMaxCredits(input: unknown): number;
         resolveBudgetMultiplier(input: unknown): number;
         createMissionRow(args: {

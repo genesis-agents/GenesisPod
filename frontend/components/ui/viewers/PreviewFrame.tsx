@@ -74,7 +74,7 @@ export default function PreviewFrame({
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
           <div className="text-center">
-            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600"></div>
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-primary"></div>
             <p className="mt-4 text-sm text-gray-600">
               Loading {type.toUpperCase()}...
             </p>
@@ -109,7 +109,7 @@ export default function PreviewFrame({
             <div className="mt-6 flex justify-center gap-3">
               <button
                 onClick={handleRetry}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
               >
                 <svg
                   className="h-4 w-4"

@@ -22,6 +22,10 @@ import {
   DomainEventBus,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
+  MissionAbortReason,
+  MissionFailureCode,
+  MissionLifecycleManager,
+  mapAbortReasonToFailureCode,
   type MissionPipelineConfig,
   type ResolvedStageHooks,
 } from "@/modules/ai-harness/facade";
@@ -114,6 +118,8 @@ export class RadarPipelineDispatcher implements OnModuleInit {
     private readonly businessOrch: RadarBusinessOrchestrator,
     private readonly eventBus: DomainEventBus,
     private readonly store: RadarMissionStore,
+    // ★ C0/G1：唯一终态写入口。dispatcher 不再直写 store.markX，统一经 finalize 仲裁。
+    private readonly lifecycleManager: MissionLifecycleManager,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -272,22 +278,32 @@ export class RadarPipelineDispatcher implements OnModuleInit {
         };
       }
 
-      await this.store.markCompleted(missionId, {
-        ...ctx.state.metrics,
-        durationMs,
-      });
-      await this.emitToBus({
-        type: RADAR_EVENTS.RUN_COMPLETED,
+      await this.lifecycleManager.finalize({
         missionId,
-        userId,
-        payload: {
-          runId: missionId,
-          topicId,
-          // 2026-05-17 R4-B：小写对齐 DB VarChar(20) + 前端 RadarRunStatus
-          // 类型枚举，原 "COMPLETED" 大写让前端 if (status==='completed') 恒 false
+        intent: {
           status: "completed",
-          durationMs,
-          metrics: ctx.state.metrics,
+          extra: {
+            kind: "completed",
+            metrics: { ...ctx.state.metrics, durationMs },
+          },
+        },
+        arbiter: this.store,
+        // 只有赢得仲裁（本次首写 completed）才广播，避免与 abort/liveness 抢写后误发
+        onWon: async () => {
+          await this.emitToBus({
+            type: RADAR_EVENTS.RUN_COMPLETED,
+            missionId,
+            userId,
+            payload: {
+              runId: missionId,
+              topicId,
+              // 2026-05-17 R4-B：小写对齐 DB VarChar(20) + 前端 RadarRunStatus
+              // 类型枚举，原 "COMPLETED" 大写让前端 if (status==='completed') 恒 false
+              status: "completed",
+              durationMs,
+              metrics: ctx.state.metrics,
+            },
+          });
         },
       });
       return {
@@ -298,21 +314,43 @@ export class RadarPipelineDispatcher implements OnModuleInit {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : String(err ?? "unknown error");
-      const isAbort = message.includes("abort") || ctx.signal.aborted;
       const durationMs = Date.now() - t0;
       if (isDiscovery) {
         return { missionId, status: "failed", stageOutputs: {}, error: err };
       }
-      if (isAbort) {
-        await this.store.markCancelled(missionId, message);
-        await this.emitToBus({
-          type: RADAR_EVENTS.RUN_CANCELLED,
+      // ★ MAJOR-3/C0:按 abort **reason** 分流,不再用 signal.aborted 一刀切成 cancelled。
+      //   只有真正的"取消意图"(用户取消 / rerun 替换 / 被取代)才落 cancelled;
+      //   budget/超时/孤儿等 abort 是**失败**,落 markFailed + canonical failureCode,
+      //   否则真因 budget_exhausted/wall_time_exceeded 会被错记成 cancelled(C0 要消灭的场景)。
+      const abortReason: MissionAbortReason | undefined = ctx.signal.aborted
+        ? (ctx.signal.reason as MissionAbortReason)
+        : undefined;
+      const isGenuineCancel =
+        abortReason === MissionAbortReason.user_cancelled ||
+        abortReason === MissionAbortReason.rerun_replacing_stale ||
+        abortReason === MissionAbortReason.superseded;
+      if (isGenuineCancel) {
+        // abort signal 已在取消源触发（故走到此 catch），finalize 不再重复 abort。
+        await this.lifecycleManager.finalize({
           missionId,
-          userId,
-          payload: {
-            runId: missionId,
-            topicId,
-            reason: message,
+          intent: {
+            status: "cancelled",
+            reason: abortReason,
+            failureCode: MissionFailureCode.user_cancelled,
+            extra: { kind: "cancelled", reason: message },
+          },
+          arbiter: this.store,
+          onWon: async () => {
+            await this.emitToBus({
+              type: RADAR_EVENTS.RUN_CANCELLED,
+              missionId,
+              userId,
+              payload: {
+                runId: missionId,
+                topicId,
+                reason: abortReason,
+              },
+            });
           },
         });
         return {
@@ -329,15 +367,27 @@ export class RadarPipelineDispatcher implements OnModuleInit {
       // 自造异常类（ai-harness 边界契约稳定后可换 instanceof 判断）。
       const isRejected = isLikelyRejection(message);
       if (isRejected) {
-        await this.store.markRejected(missionId, message);
-        await this.emitToBus({
-          type: RADAR_EVENTS.RUN_REJECTED,
+        // reject = budget 预检/限额拒绝：平台 outcome=failure(G6)，DB 落 'rejected' 保业务细分。
+        await this.lifecycleManager.finalize({
           missionId,
-          userId,
-          payload: {
-            runId: missionId,
-            topicId,
-            reason: message,
+          intent: {
+            status: "failed",
+            failureCode: MissionFailureCode.budget_exhausted,
+            errorMessage: message,
+            extra: { kind: "rejected", reason: message },
+          },
+          arbiter: this.store,
+          onWon: async () => {
+            await this.emitToBus({
+              type: RADAR_EVENTS.RUN_REJECTED,
+              missionId,
+              userId,
+              payload: {
+                runId: missionId,
+                topicId,
+                reason: message,
+              },
+            });
           },
         });
         return {
@@ -347,16 +397,34 @@ export class RadarPipelineDispatcher implements OnModuleInit {
           error: err,
         };
       }
-      await this.store.markFailed(missionId, message);
-      await this.emitToBus({
-        type: RADAR_EVENTS.RUN_FAILED,
+      // budget/超时等失败型 abort:传 canonical failureCode(精确),否则 store 走 message 启发式。
+      const failureCode =
+        abortReason != null
+          ? mapAbortReasonToFailureCode(abortReason)
+          : undefined;
+      await this.lifecycleManager.finalize({
         missionId,
-        userId,
-        payload: {
-          runId: missionId,
-          topicId,
-          error: message,
-          durationMs,
+        intent: {
+          status: "failed",
+          reason: abortReason,
+          failureCode,
+          errorMessage: message,
+          extra: { kind: "failed", error: message },
+        },
+        arbiter: this.store,
+        onWon: async () => {
+          await this.emitToBus({
+            type: RADAR_EVENTS.RUN_FAILED,
+            missionId,
+            userId,
+            payload: {
+              runId: missionId,
+              topicId,
+              error: message,
+              failureCode,
+              durationMs,
+            },
+          });
         },
       });
       return { missionId, status: "failed", stageOutputs: {}, error: err };

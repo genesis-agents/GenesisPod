@@ -58,32 +58,20 @@ const PROFILE_OVERRIDES: Record<
   frontier: {
     // No overrides — frontier is the baseline.
   },
+  // ★ 2026-05-22 follow-up：原 loop-control / disableBudgetAbort 覆盖已删——这些 key
+  //   生产代码零消费(详见 playground-runtime.config.ts 注释),profile 设了也无效。
+  //   现存覆盖只保留真正生效的:findings 下限 / 章节容忍 / liveness 阈值。
   "local-quantized": {
-    minFindingsThreshold: 3, // local researchers find fewer per pass
+    minFindingsThreshold: 5, // local 采集力弱，低于 frontier 的 10，但仍高于旧 3
     chapterToleranceRatio: 0.4, // 40% missing tolerated (vs 30% frontier)
-    researcherMaxIterations: 10,
-    researcherMaxIterationsHardCap: 20,
-    researcherMaxWallTimeMs: 1_200_000, // 20 min per researcher
-    chapterWriterInternalMaxIterations: 2,
-    chapterMaxRevisionAttempts: 2,
-    missionWriterMaxAttempts: 3,
-    reactMaxFinalizeRejects: 8,
     staleThresholdMin: 30,
     softWarnThresholdMin: 40,
   },
   "local-reasoning": {
-    minFindingsThreshold: 3,
+    minFindingsThreshold: 5,
     chapterToleranceRatio: 0.4,
-    researcherMaxIterations: 15,
-    researcherMaxIterationsHardCap: 30,
-    researcherMaxWallTimeMs: 1_800_000, // 30 min per researcher
-    chapterWriterInternalMaxIterations: 3,
-    chapterMaxRevisionAttempts: 3,
-    missionWriterMaxAttempts: 3,
-    reactMaxFinalizeRejects: 10,
     staleThresholdMin: 60,
     softWarnThresholdMin: 75,
-    disableBudgetAbort: true, // critical: <think>…</think> bursts shouldn't trigger cascade abort
   },
 };
 

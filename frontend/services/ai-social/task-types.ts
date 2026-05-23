@@ -114,6 +114,21 @@ export interface SocialContentTaskListResult {
   nextCursor?: string;
 }
 
+/**
+ * Mission 持久化快照 — GET /ai-social/tasks/:id/mission-snapshot 返回。
+ * mission 结束、内存事件 buffer 过期（1h TTL）后，前端用它回显历史算力 + 终态。
+ * status 为后端 SocialMission.status（小写：'completed' | 'failed' | 'running'…）。
+ */
+export interface SocialMissionSnapshot {
+  missionId: string | null;
+  status: string | null;
+  tokensUsed: number;
+  costUsd: number;
+  wallTimeMs: number | null;
+  completedAt: string | null;
+  errorMessage: string | null;
+}
+
 /** 创建任务请求 */
 export interface CreateSocialTaskInput {
   sources: { sourceType: string; sourceId: string }[];

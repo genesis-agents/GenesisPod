@@ -55,7 +55,7 @@ export class ContentTransformerService {
         ContentTransformerAgent,
         {
           ...args.input,
-          expandDirective: `上一稿正文仅约 ${priorChars} 字、内容简陋。必须大幅扩写到 2000 字以上：把每个要点单独成节深入展开、用通俗类比解释每个概念、补背景与意义，绝不可几句带过；不得编造新事实 / 数据。`,
+          expandDirective: `上一稿正文仅约 ${priorChars} 字、太简陋（多半只搭了小标题骨架、每节一两句）。必须大幅扩写到 2000 字以上：**每个 ## 小标题下至少 300 字**（拆 3–5 个短段：论点 + 通俗解释 + 例子/类比 + 为什么重要），绝不可一节只写一两句；不得编造新事实 / 数据。`,
         },
         args.ctx,
       );

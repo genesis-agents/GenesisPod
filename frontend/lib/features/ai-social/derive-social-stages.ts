@@ -29,6 +29,7 @@ import type {
   StageStepperStatus,
 } from '@/components/common/mission-detail/StageStepper';
 import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
+import type { SocialStageView } from './derive-social';
 
 const SOCIAL_STAGE_META: { id: string; short: string; Icon: LucideIcon }[] = [
   { id: 's1-mission-budget-eval', short: '预算闸门', Icon: PiggyBank },
@@ -83,5 +84,27 @@ export function deriveSocialStages(
     short: meta.short,
     Icon: meta.Icon,
     status: statusByStep.get(meta.id) ?? 'pending',
+  }));
+}
+
+/**
+ * 从已派生的 SocialMissionView.stages 生成 stepper —— 实时事件 buffer 过期后（历史回看）
+ * events 为空，改用 view.stages（已含持久化快照合成的阶段骨架）喂 stepper。
+ */
+export function deriveSocialStagesFromView(
+  stages: SocialStageView[]
+): StageStepperItem[] {
+  const statusByStep = new Map(stages.map((s) => [s.stepId, s.status]));
+  const toStepper: Record<SocialStageView['status'], StageStepperStatus> = {
+    pending: 'pending',
+    running: 'in_progress',
+    done: 'done',
+    failed: 'failed',
+  };
+  return SOCIAL_STAGE_META.map((meta) => ({
+    id: meta.id,
+    short: meta.short,
+    Icon: meta.Icon,
+    status: toStepper[statusByStep.get(meta.id) ?? 'pending'] ?? 'pending',
   }));
 }

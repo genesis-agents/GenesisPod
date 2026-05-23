@@ -222,7 +222,7 @@ export default function PDFViewerClient({
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
             <div className="text-center">
-              <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600"></div>
+              <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-primary"></div>
               <p className="mt-4 text-sm text-gray-600">Loading PDF...</p>
               <p className="mt-2 text-xs text-gray-500">
                 This may take a few seconds

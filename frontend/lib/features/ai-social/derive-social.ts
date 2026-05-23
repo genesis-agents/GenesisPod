@@ -25,6 +25,7 @@
  */
 
 import type { MissionEvent } from '@/hooks/features/useMissionStream';
+import type { SocialMissionSnapshot } from '@/services/ai-social/task-types';
 
 export type SocialStageStatus = 'pending' | 'running' | 'done' | 'failed';
 export type SocialMissionStatus =
@@ -187,7 +188,10 @@ function roleStatusFromPhase(
   return undefined;
 }
 
-export function deriveSocialView(events: MissionEvent[]): SocialMissionView {
+export function deriveSocialView(
+  events: MissionEvent[],
+  persisted?: SocialMissionSnapshot | null
+): SocialMissionView {
   const stageMap = new Map<string, SocialStageView>();
 
   // 预置全部阶段（pending）——任务列表一开始就是完整列表（而非只有已发事件的几行）；
@@ -475,7 +479,7 @@ export function deriveSocialView(events: MissionEvent[]): SocialMissionView {
       rv.status = 'working';
   }
 
-  return {
+  const view: SocialMissionView = {
     status,
     startedAt,
     completedAt,
@@ -495,6 +499,70 @@ export function deriveSocialView(events: MissionEvent[]): SocialMissionView {
         costUsd: v.costUsd,
       })),
     },
+  };
+
+  return persisted ? mergeSocialPersisted(view, persisted) : view;
+}
+
+/**
+ * 历史兜底：mission 结束、实时事件 buffer 过期后，用持久化快照回填算力 + 终态 + 阶段骨架。
+ * - 实时视图仍有数据（status !== 'idle'）：只把算力取较大值补上，状态以实时为准（实时优先）。
+ * - 实时视图空（events 已过期）：用快照合成终态；completed 时把预置阶段/角色标为 done，
+ *   让结束后的「任务列表 / 算力 / 协作动态」仍能看到历史骨架。
+ * 注：逐条 thought/action 时间线无法还原（仅内存 1h），故只到阶段级骨架。
+ */
+function mergeSocialPersisted(
+  view: SocialMissionView,
+  snap: SocialMissionSnapshot
+): SocialMissionView {
+  const completedTs = snap.completedAt
+    ? new Date(snap.completedAt).getTime()
+    : undefined;
+
+  // 算力取较大值（防快照旧于实时双计）
+  const cost: SocialCostView = {
+    ...view.cost,
+    tokensUsed: Math.max(view.cost.tokensUsed, snap.tokensUsed),
+    costUsd: Math.max(view.cost.costUsd, snap.costUsd),
+  };
+
+  // 实时视图有内容 → 只补算力，其余以实时为准
+  if (view.status !== 'idle') {
+    return { ...view, cost };
+  }
+
+  const isCompleted = snap.status === 'completed';
+  const isFailed = snap.status === 'failed';
+  const isCancelled = snap.status === 'cancelled' || snap.status === 'aborted';
+
+  // completed 历史：预置阶段/角色全部标记 done（mission 已成功收尾）
+  const stages = isCompleted
+    ? view.stages.map((s) => ({ ...s, status: 'done' as const }))
+    : view.stages;
+  const roles = isCompleted
+    ? view.roles.map((r) => ({ ...r, status: 'done' as const }))
+    : view.roles;
+  const done = stages.filter((s) => s.status === 'done').length;
+
+  return {
+    ...view,
+    status: isCompleted
+      ? 'completed'
+      : isFailed
+        ? 'failed'
+        : isCancelled
+          ? 'cancelled'
+          : view.status,
+    completedAt: isCompleted ? completedTs : view.completedAt,
+    failedAt: isFailed ? completedTs : view.failedAt,
+    failedMessage: isFailed
+      ? (snap.errorMessage ?? view.failedMessage)
+      : view.failedMessage,
+    cancelledAt: isCancelled ? completedTs : view.cancelledAt,
+    progress: { done, total: stages.length },
+    stages,
+    roles,
+    cost,
   };
 }
 

@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { confirm } from '@/stores';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Alert } from '@/components/ui/feedback/Alert';
 import PDFThumbnail from '@/components/ui/viewers/PDFThumbnail';
 import PDFViewer from '@/components/ui/viewers/PDFViewer';
 import HTMLViewer from '@/components/ui/viewers/HTMLViewer';
@@ -3444,11 +3445,9 @@ function HomeContent() {
                     </button>
                   </div>
 
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <p className="text-xs text-amber-800">
-                      💡 功能开发中，即将支持DALL-E、Stable Diffusion等模型
-                    </p>
-                  </div>
+                  <Alert tone="warn">
+                    功能开发中，即将支持DALL-E、Stable Diffusion等模型
+                  </Alert>
                 </div>
               )
             ) : (

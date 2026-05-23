@@ -129,6 +129,22 @@ const T4_RE = /\b(rgb|rgba|hsl|hsla)\(\s*\d/g;
 // 注：p-5/p-7/p-9 是 Tailwind 标准刻度（非 4 倍数但合法），不算违规
 const T5_RE = /\b(?:p|m|gap)[xytrlb]?-(?:0\.5|1\.5|2\.5|3\.5)\b/g;
 
+// T6: feature 代码硬编码「模块识别色渐变」（from-/via-/to-{hue}-{400..700}）。
+//     模块识别色必须走 lib/design/module-themes（侧边栏/hero/详情头部）或 --primary，
+//     不得在 feature 里写死，否则切模块色系全得手改、必然漂移。
+//     范围排除 canonical 层（components/ui/，允许定义色板）与 SSOT（module-themes.ts）。
+//     ★ 焊死规则：超基线即拒推（不需 --strict），守住 2026-05-22 模块色系成果。
+const T6_RE =
+  /\b(?:from|via|to)-(?:violet|purple|fuchsia|rose|pink|indigo|blue|sky|cyan|teal|emerald|green|lime|amber|orange|red|yellow)-(?:400|500|600|700)\b/g;
+function isModuleColorCanonicalLayer(file: string): boolean {
+  const norm = file.split(sep).join("/");
+  return (
+    norm.includes("/components/ui/") ||
+    norm.includes("/lib/design/module-themes") ||
+    norm.includes("/lib/design/tokens")
+  );
+}
+
 async function main() {
   console.log("[audit:ui-tokens] 扫描 frontend/ 设计 token 纪律违规...");
 
@@ -141,6 +157,7 @@ async function main() {
     "T3-inline-style-static": { count: 0, samples: [] },
     "T4-color-hardcoded": { count: 0, samples: [] },
     "T5-spacing-off-rhythm": { count: 0, samples: [] },
+    "T6-module-gradient-hardcoded": { count: 0, samples: [] },
   };
 
   for (const file of files) {
@@ -156,6 +173,9 @@ async function main() {
     const t3 = scan(src, file, T3_RE, T3_isStaticLiteral);
     const t4 = scan(src, file, T4_RE);
     const t5 = scan(src, file, T5_RE);
+    const t6 = isModuleColorCanonicalLayer(file)
+      ? []
+      : scan(src, file, T6_RE);
 
     results["T1-text-arbitrary"].count += t1.length;
     results["T1-text-arbitrary"].samples.push(...t1);
@@ -167,6 +187,8 @@ async function main() {
     results["T4-color-hardcoded"].samples.push(...t4);
     results["T5-spacing-off-rhythm"].count += t5.length;
     results["T5-spacing-off-rhythm"].samples.push(...t5);
+    results["T6-module-gradient-hardcoded"].count += t6.length;
+    results["T6-module-gradient-hardcoded"].samples.push(...t6);
   }
 
   console.log("");
@@ -249,13 +271,36 @@ async function main() {
     console.log(`✓ 基线已更新：${BASELINE_PATH}`);
   }
 
+  // ★ T6 焊死：模块识别色渐变只能走 module-themes / --primary，feature 新增即拒推
+  //   （不依赖 --strict；--update-baseline 时不拦，那是有意接收当前存量）。
+  const t6Base = baseline?.["T6-module-gradient-hardcoded"] ?? 0;
+  const t6Cur = summary["T6-module-gradient-hardcoded"] ?? 0;
+  if (
+    !ARGS.has("--update-baseline") &&
+    baseline != null &&
+    t6Cur > t6Base
+  ) {
+    console.error(
+      `✗ T6 模块识别色渐变回归（焊死规则）：${t6Base} → ${t6Cur} (+${t6Cur - t6Base})`,
+    );
+    console.error(
+      "  feature 代码不得硬编码 from-/to-{hue}-{400..700} 渐变；",
+    );
+    console.error(
+      "  走 lib/design/module-themes（侧边栏/hero/详情头部）或 --primary（AppShell 按路由注入）。",
+    );
+    process.exit(1);
+  }
+
   if (STRICT && regressions.length > 0) {
     console.error("✗ UI tokens 回归（strict 模式）：");
     for (const r of regressions) console.error(`  ${r}`);
     process.exit(1);
   }
 
-  console.log(STRICT ? "✓ 无回归" : "(warn-only 模式，未阻断)");
+  console.log(
+    STRICT ? "✓ 无回归" : "(T1–T5 warn-only；T6 模块识别色焊死)",
+  );
 }
 
 main().catch((err) => {

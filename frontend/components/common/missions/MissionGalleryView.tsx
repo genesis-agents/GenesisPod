@@ -27,6 +27,7 @@ import {
   Users,
   XCircle,
 } from 'lucide-react';
+import { ErrorState } from '@/components/ui/states/ErrorState';
 import {
   AssetCard,
   type AssetCardBadge,
@@ -219,11 +220,11 @@ function MissionCard({
       ),
     });
   }
-  if (mission.wallTimeMs != null) {
+  if (mission.elapsedWallTimeMs != null) {
     stats.push({
       key: 'time',
       icon: <Activity className="h-3.5 w-3.5" />,
-      text: `${(mission.wallTimeMs / 1000).toFixed(1)}s`,
+      text: `${(mission.elapsedWallTimeMs / 1000).toFixed(1)}s`,
     });
   }
 
@@ -408,9 +409,7 @@ export function MissionGalleryView({
             <p className="text-sm text-gray-500">加载 mission 历史…</p>
           </div>
         ) : error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            加载失败：{error}
-          </div>
+          <ErrorState error={error} title="加载失败" onRetry={triggerReload} />
         ) : filtered.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-200 bg-white p-12 text-center">
             <Sparkles className="mx-auto mb-3 h-10 w-10 text-violet-300" />

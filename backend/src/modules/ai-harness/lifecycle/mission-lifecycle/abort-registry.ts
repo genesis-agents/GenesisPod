@@ -12,6 +12,22 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 
+/**
+ * ★ C1 / G2（2026-05-22）：mission abort 原因 canonical enum（single source of truth）。
+ * 取代此前 `abort(id, reason?: string)` 的裸字符串——传字符串现在 tsc 即红（L1 类型主防线）。
+ * string enum，值 === 既有字符串字面量 → 零行为变化，仅加类型约束。
+ * AbortReason 是 MissionFailureCode 的真子集（C2 映射恒等 + source=runtime）。
+ */
+export enum MissionAbortReason {
+  user_cancelled = "user_cancelled",
+  budget_exhausted = "budget_exhausted",
+  mission_wall_time_exceeded = "mission_wall_time_exceeded",
+  mission_row_missing = "mission_row_missing",
+  rerun_replacing_stale = "rerun_replacing_stale",
+  superseded = "superseded",
+  orchestrator_shutdown = "orchestrator_shutdown",
+}
+
 @Injectable()
 export class MissionAbortRegistry {
   private readonly log = new Logger(MissionAbortRegistry.name);
@@ -23,14 +39,14 @@ export class MissionAbortRegistry {
     return c;
   }
 
-  abort(missionId: string, reason?: string): boolean {
+  abort(missionId: string, reason: MissionAbortReason): boolean {
     const c = this.map.get(missionId);
     if (!c) return false;
     // ★ P2-2 (2026-04-29): abort 是幂等的，二次调用 signal 已 aborted；跳过重复日志
     if (c.signal.aborted) return false;
     try {
-      c.abort(reason ?? "user_cancelled");
-      this.log.log(`[abort] mission=${missionId} reason=${reason ?? "user"}`);
+      c.abort(reason);
+      this.log.log(`[abort] mission=${missionId} reason=${reason}`);
       return true;
     } catch (err) {
       this.log.warn(

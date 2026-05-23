@@ -59,6 +59,8 @@ import { RerunGuardService } from "./services/mission/rerun/rerun-guard.service"
 import { StageRerunDispatcher } from "./services/mission/rerun/stage-rerun.dispatcher";
 // ★ PR-R5b-FULL (2026-05-07): rerun runtime builder（billing/pool/leader 装配 stub）
 import { RerunMissionRuntimeBuilder } from "./services/mission/rerun/rerun-runtime-builder.service";
+// ★ C5/C6 (2026-05-22): MissionInputRebuilder 实现(config snapshot 冻结/派生)
+import { PlaygroundMissionInputRebuilder } from "./services/mission/rerun/playground-mission-input-rebuilder.service";
 // ★ 单源 LeaderRunFn 工厂（dispatcher + rerun 共用，去 buildLeaderInvocation 双源）
 import { LeaderInvocationFactory } from "./services/mission/leader-invocation.factory";
 import { MissionRerunOrchestratorService } from "./services/mission/rerun/mission-rerun-orchestrator.service";
@@ -81,6 +83,7 @@ import {
   DomainEventBus,
   DomainEventRegistry,
   MissionElectionTracker,
+  MissionFailureCode,
   MissionLivenessGuard,
 } from "@/modules/ai-harness/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
@@ -158,6 +161,7 @@ import {
     StageRerunDispatcher,
     // ★ PR-R5b-FULL (2026-05-07): RerunRuntimeBuilder — dispatcher 8 stage handler 必读
     RerunMissionRuntimeBuilder,
+    PlaygroundMissionInputRebuilder,
     MissionRerunOrchestratorService,
     // ── 导出装配（CSV / Markdown / JSON）──
     MissionExportService,
@@ -345,7 +349,14 @@ export class AgentPlaygroundModule
           return out;
         },
         markFailed: async (missionId, reason, errorMessage) => {
-          await this.store.markFailed(missionId, { errorMessage });
+          // ★ C2/MAJOR-4:liveness 回收落 canonical failureCode 到 DB(超时→wall_time;失联→runtime_crashed)。
+          await this.store.markFailed(missionId, {
+            errorMessage,
+            failureCode:
+              reason === "wall-time-exceeded"
+                ? MissionFailureCode.wall_time_exceeded
+                : MissionFailureCode.runtime_crashed,
+          });
           this.electionTracker.clear(missionId);
           await this.eventBus
             .emit({

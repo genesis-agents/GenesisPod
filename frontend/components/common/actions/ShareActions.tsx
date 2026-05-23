@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Star, StarOff, Mail, Link2, MoreHorizontal } from 'lucide-react';
+import { CopyButton } from '@/components/ui/primitives/CopyButton';
 
 interface ShareActionsProps {
   title: string;
@@ -78,14 +79,11 @@ export function ShareActions({
           <Mail className="h-4 w-4" />
           转发邮件
         </button>
-        <button
-          onClick={() => void handleCopyLink()}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
-          aria-label="copy link"
-        >
-          <Link2 className="h-4 w-4" />
-          复制链接
-        </button>
+        <CopyButton
+          value={`${title}\n\n${summary}\n\n${detailUrl}`}
+          label="复制链接"
+          onCopied={onCopySuccess}
+        />
       </div>
 
       {/* sm: collapsed dropdown */}

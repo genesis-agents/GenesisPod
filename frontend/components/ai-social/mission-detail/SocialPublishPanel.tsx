@@ -17,6 +17,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { getAuthTokens } from '@/lib/utils/auth';
+import { Alert } from '@/components/ui/feedback/Alert';
 import type {
   SocialContentTask,
   SocialContentTaskVersion,
@@ -244,8 +245,8 @@ export function SocialPublishPanel({
             </div>
 
             {state.toast && (
-              <div className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
-                {state.toast}
+              <div className="mt-3">
+                <Alert tone="info">{state.toast}</Alert>
               </div>
             )}
           </div>

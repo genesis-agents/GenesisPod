@@ -28,7 +28,6 @@ import { z } from "zod";
 import {
   parseNonNegativeIntEnv,
   parsePositiveIntEnv,
-  parseBooleanEnv,
 } from "@/common/utils/schema-coercion.utils";
 import {
   getProfileOverrides,
@@ -43,8 +42,15 @@ import {
  */
 const DEFAULTS = {
   // — researcher floor (used by researcher.agent.ts + s3 stage) —
-  /** Minimum #findings a researcher must surface; below this triggers retry/abort. */
-  minFindingsThreshold: 4,
+  /**
+   * Minimum #findings a researcher must surface; below this triggers retry.
+   * ★ 2026-05-22 (4→10)：实测 researcher 已用上 arxiv/industry-report 等多源工具，
+   *   单 dim 拿到 20+ 条原始结果，却只蒸馏 4-5 条 finding 就停（LLM 只做到旧成功线 4）。
+   *   章节数按"唯一来源/2"派生 → 4 findings = 永远 4 章。提高成功线，强制从充足的多源
+   *   结果里抽更多 finding（→ 唯一来源↑ → 章节解除 4 封顶 → 证据/广度/评审分↑）。
+   *   现已可满足（工具供给充足）；local 模型仍由 profile 降到 5（采集力弱）。
+   */
+  minFindingsThreshold: 10,
 
   // — chapter integrity (used by per-dim-pipeline.util.ts) —
   /**
@@ -53,25 +59,12 @@ const DEFAULTS = {
    */
   chapterToleranceRatio: 0.3,
 
-  // — researcher loop control (used by researcher.agent.ts) —
-  /** Soft max iterations for the researcher react loop. */
-  researcherMaxIterations: 5,
-  /** Hard cap on researcher iterations; never exceeded. */
-  researcherMaxIterationsHardCap: 10,
-  /** Wall-time cap (ms) for a single researcher invocation. */
-  researcherMaxWallTimeMs: 600_000,
-
-  // — chapter writer / reviewer loop control —
-  /** Internal iterations for a single chapter-writer agent run. */
-  chapterWriterInternalMaxIterations: 1,
-  /** Max revision attempts before accepting a degraded chapter. */
-  chapterMaxRevisionAttempts: 1,
-  /** Total attempts before mission-writer gives up. */
-  missionWriterMaxAttempts: 2,
-
-  // — react-loop finalize control —
-  /** Max times the leader can reject a finalize call before forcing through. */
-  reactMaxFinalizeRejects: 4,
+  // ★ 2026-05-22 follow-up：原 7 个 loop-control 旋钮(researcherMaxIterations /
+  //   HardCap / WallTimeMs / chapterWriterInternalMaxIterations /
+  //   chapterMaxRevisionAttempts / missionWriterMaxAttempts / reactMaxFinalizeRejects)
+  //   已删除——config 定义了但**生产代码零消费**(真实消费方读 thresholds.constants.ts
+  //   硬编码常量),profile 设了也静默无效。删除消除"定义即承诺生效"的腐朽误导。
+  //   如需让 loop 上限可调,应改 thresholds 消费方读 config(单独 feature,非本轮)。
 
   // — liveness guard (used by agent-playground.module.ts) —
   /**
@@ -92,14 +85,8 @@ const DEFAULTS = {
    */
   wallTimeCapMs: 4 * 60 * 60 * 1000,
 
-  // — budget pool toggles —
-  /**
-   * When true, suppress the cascading `abortRegistry.abort()` calls
-   * triggered by budget exhaustion. Lets a slow/quantized model finish
-   * outstanding sub-agent calls even after the soft budget is exceeded.
-   * Default false (production-safe: budget abort enabled).
-   */
-  disableBudgetAbort: false,
+  // ★ 2026-05-22 follow-up：原 disableBudgetAbort 已删除——同样 config 定义但零消费
+  //   (生产代码从不读),profile 设 true 也无效,"防级联 abort"保护实际不存在。删除止误导。
 } as const;
 
 /**
@@ -109,17 +96,9 @@ const DEFAULTS = {
 export const PlaygroundRuntimeConfigSchema = z.object({
   minFindingsThreshold: z.number().int().min(0),
   chapterToleranceRatio: z.number().min(0).max(1),
-  researcherMaxIterations: z.number().int().min(1),
-  researcherMaxIterationsHardCap: z.number().int().min(1),
-  researcherMaxWallTimeMs: z.number().int().min(1_000),
-  chapterWriterInternalMaxIterations: z.number().int().min(1),
-  chapterMaxRevisionAttempts: z.number().int().min(0),
-  missionWriterMaxAttempts: z.number().int().min(1),
-  reactMaxFinalizeRejects: z.number().int().min(0),
   staleThresholdMin: z.number().int().min(1),
   softWarnThresholdMin: z.number().int().min(1),
   wallTimeCapMs: z.number().int().min(0),
-  disableBudgetAbort: z.boolean(),
 });
 
 export type PlaygroundRuntimeConfig = z.infer<
@@ -172,34 +151,6 @@ export function loadPlaygroundRuntimeConfig(
       env.CHAPTER_TOLERANCE_RATIO,
       baseline.chapterToleranceRatio,
     ),
-    researcherMaxIterations: parsePositiveIntEnv(
-      env.RESEARCHER_MAX_ITERATIONS,
-      baseline.researcherMaxIterations,
-    ),
-    researcherMaxIterationsHardCap: parsePositiveIntEnv(
-      env.RESEARCHER_MAX_ITERATIONS_HARD_CAP,
-      baseline.researcherMaxIterationsHardCap,
-    ),
-    researcherMaxWallTimeMs: parsePositiveIntEnv(
-      env.RESEARCHER_MAX_WALL_TIME_MS,
-      baseline.researcherMaxWallTimeMs,
-    ),
-    chapterWriterInternalMaxIterations: parsePositiveIntEnv(
-      env.CHAPTER_WRITER_INTERNAL_MAX_ITERATIONS,
-      baseline.chapterWriterInternalMaxIterations,
-    ),
-    chapterMaxRevisionAttempts: parseNonNegativeIntEnv(
-      env.CHAPTER_MAX_REVISION_ATTEMPTS,
-      baseline.chapterMaxRevisionAttempts,
-    ),
-    missionWriterMaxAttempts: parsePositiveIntEnv(
-      env.MISSION_WRITER_MAX_ATTEMPTS,
-      baseline.missionWriterMaxAttempts,
-    ),
-    reactMaxFinalizeRejects: parseNonNegativeIntEnv(
-      env.REACT_MAX_FINALIZE_REJECTS,
-      baseline.reactMaxFinalizeRejects,
-    ),
     staleThresholdMin: parsePositiveIntEnv(
       env.PLAYGROUND_STALE_THRESHOLD_MIN,
       baseline.staleThresholdMin,
@@ -212,16 +163,9 @@ export function loadPlaygroundRuntimeConfig(
       env.PLAYGROUND_WALL_TIME_CAP_MS,
       baseline.wallTimeCapMs,
     ),
-    disableBudgetAbort:
-      env.PLAYGROUND_DISABLE_BUDGET_ABORT === undefined
-        ? baseline.disableBudgetAbort
-        : parseBooleanEnv(env.PLAYGROUND_DISABLE_BUDGET_ABORT),
   };
 
   // Cross-field invariants
-  if (raw.researcherMaxIterationsHardCap < raw.researcherMaxIterations) {
-    raw.researcherMaxIterationsHardCap = raw.researcherMaxIterations;
-  }
   if (raw.softWarnThresholdMin < raw.staleThresholdMin) {
     raw.softWarnThresholdMin = raw.staleThresholdMin;
   }

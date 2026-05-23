@@ -279,17 +279,17 @@ describe("ResearcherAgent — outputSchema", () => {
 describe("ResearcherAgent — validateBusinessRules", () => {
   const agent = new ResearcherAgent();
 
-  it("passes with 4 valid findings and good summary", () => {
-    expect(() => agent.validateBusinessRules(validOutput(4))).not.toThrow();
+  it("passes with 10 valid findings and good summary", () => {
+    expect(() => agent.validateBusinessRules(validOutput(10))).not.toThrow();
   });
 
-  it("passes with 5 findings", () => {
-    expect(() => agent.validateBusinessRules(validOutput(5))).not.toThrow();
+  it("passes with 12 findings", () => {
+    expect(() => agent.validateBusinessRules(validOutput(12))).not.toThrow();
   });
 
-  it("fails when findings count < 4", () => {
-    expect(() => agent.validateBusinessRules(validOutput(3))).toThrow(
-      /findings\.length=3/,
+  it("fails when findings count < 10 (★ 2026-05-22 成功线 4→10)", () => {
+    expect(() => agent.validateBusinessRules(validOutput(9))).toThrow(
+      /findings\.length=9/,
     );
   });
 
@@ -357,7 +357,7 @@ describe("ResearcherAgent — validateBusinessRules", () => {
       ...validOutput(4),
       findings: [
         validFinding({ source: "doi:10.1234/journal.abc.2025" }),
-        ...validOutput(3).findings.slice(0, 3),
+        ...validOutput(9).findings,
       ],
     };
     expect(() => agent.validateBusinessRules(output)).not.toThrow();
@@ -368,7 +368,7 @@ describe("ResearcherAgent — validateBusinessRules", () => {
       ...validOutput(4),
       findings: [
         validFinding({ source: "arxiv:2401.12345" }),
-        ...validOutput(3).findings.slice(0, 3),
+        ...validOutput(9).findings,
       ],
     };
     expect(() => agent.validateBusinessRules(output)).not.toThrow();
@@ -379,7 +379,7 @@ describe("ResearcherAgent — validateBusinessRules", () => {
       ...validOutput(4),
       findings: [
         validFinding({ source: "nytimes.com/article/ai-2025" }),
-        ...validOutput(3).findings.slice(0, 3),
+        ...validOutput(9).findings,
       ],
     };
     expect(() => agent.validateBusinessRules(output)).not.toThrow();

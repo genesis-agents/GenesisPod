@@ -18,8 +18,44 @@ import {
 import type { ContentVisibility, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "@/modules/ai-engine/facade";
-import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
+import {
+  MissionAbortRegistry,
+  MissionAbortReason,
+  outcomeFromStatus,
+  type MissionTerminalOutcome,
+} from "@/modules/ai-harness/facade";
+import type { PlaygroundConfigSnapshot } from "../rerun/playground-mission-input-rebuilder.service";
 import { MissionLifecycleHelper } from "./mission-lifecycle.helper";
+
+/**
+ * ★ C5/G7 S4b:userProfile 退化为 configSnapshot 的**读时投影**(单一真源=snapshot,
+ * 不再独立写 userProfile)。前端 Mission 设置弹窗读此 shape 不变;legacy 无 snapshot → null。
+ */
+function projectUserProfileView(
+  configSnapshot: unknown,
+): Record<string, unknown> | null {
+  const snap = configSnapshot as PlaygroundConfigSnapshot | null;
+  if (snap?.schemaVersion == null) return null;
+  const b = snap.businessInput;
+  return {
+    depth: b.depth,
+    language: snap.language,
+    budgetProfile: b.budgetProfile,
+    styleProfile: b.styleProfile,
+    lengthProfile: b.lengthProfile,
+    audienceProfile: b.audienceProfile,
+    withFigures: b.withFigures,
+    auditLayers: b.auditLayers,
+    concurrency: b.concurrency,
+    viewMode: b.viewMode,
+    searchTimeRange: b.searchTimeRange,
+    knowledgeBaseIds: b.knowledgeBaseIds,
+    inheritFromMissionId: b.inheritFromMissionId,
+    maxCredits: snap.budget.maxCredits,
+    budgetMultiplierOverride: snap.budget.budgetMultiplier,
+    wallTimeMs: snap.runtimeLimits.wallTimeCapMs,
+  };
+}
 import { MissionUpdateHelper } from "./mission-update.helper";
 import { MissionPostmortemHelper } from "./mission-postmortem.helper";
 import { MissionReportHelper } from "./mission-report.helper";
@@ -32,7 +68,7 @@ export interface MissionListItem {
   status: string;
   startedAt: Date;
   completedAt: Date | null;
-  wallTimeMs: number | null;
+  elapsedWallTimeMs: number | null;
   finalScore: number | null;
   tokensUsed: number | null;
   costUsd: number | null;
@@ -43,6 +79,12 @@ export interface MissionListItem {
 }
 
 export interface MissionDetail extends MissionListItem {
+  /** ★ C7:平台终态 outcome(status 投影,非终态 null)。 */
+  terminalOutcome: MissionTerminalOutcome | null;
+  /** ★ C2:canonical failure code(失败时)。 */
+  failureCode: string | null;
+  /** ★ C5/G7:typed MissionConfigSnapshot(单一 config 真源;rerun/hydrate 读它)。NULL=legacy。 */
+  configSnapshot: unknown;
   maxCredits: number;
   themeSummary: string | null;
   dimensions: unknown;
@@ -111,7 +153,10 @@ export class MissionStore {
       `[emergency-abort] mission=${missionId} reason="${reason}" — DB row 已蒸发，` +
         `主动 abort 在跑 orchestrator 防止 FK / heartbeat 错误风暴。`,
     );
-    this.abortRegistry?.abort(missionId, "mission_row_missing");
+    this.abortRegistry?.abort(
+      missionId,
+      MissionAbortReason.mission_row_missing,
+    );
   }
 
   private async clearCheckpointJsonbKey(missionId: string): Promise<void> {
@@ -139,6 +184,8 @@ export class MissionStore {
     language: string;
     maxCredits: number;
     userProfile?: Record<string, unknown>;
+    /** ★ C5/G7：typed MissionConfigSnapshot(单一 config 真源,openSession 冻结)。 */
+    configSnapshot?: unknown;
   }): Promise<void> {
     await this.prisma.agentPlaygroundMission.create({
       data: {
@@ -150,7 +197,10 @@ export class MissionStore {
         language: input.language,
         maxCredits: input.maxCredits,
         status: "running",
-        userProfile: (input.userProfile ?? null) as Prisma.InputJsonValue,
+        // ★ S4b:不再写 userProfile(configSnapshot 单一真源;读时投影回 userProfile shape)。
+        configSnapshot: input.configSnapshot as
+          | Prisma.InputJsonValue
+          | undefined,
       },
     });
   }
@@ -197,6 +247,8 @@ export class MissionStore {
         data: {
           status: "failed",
           completedAt: new Date(),
+          // ★ C2/MINOR-1:启动清理孤儿 running 行 = 进程崩溃,落 canonical runtime_crashed。
+          failureCode: "runtime_crashed",
           errorMessage:
             "Mission 在执行中遇到后端重启或异常退出（dispatcher 内存丢失）。" +
             "已自动标记为失败，建议使用顶部「重新运行」按钮重启相同主题。",
@@ -436,7 +488,7 @@ export class MissionStore {
         status: true,
         startedAt: true,
         completedAt: true,
-        wallTimeMs: true,
+        elapsedWallTimeMs: true,
         finalScore: true,
         tokensUsed: true,
         costUsd: true,
@@ -467,7 +519,7 @@ export class MissionStore {
         status: true,
         startedAt: true,
         completedAt: true,
-        wallTimeMs: true,
+        elapsedWallTimeMs: true,
         finalScore: true,
         tokensUsed: true,
         costUsd: true,
@@ -500,13 +552,16 @@ export class MissionStore {
       status: row.status,
       startedAt: row.startedAt,
       completedAt: row.completedAt,
-      wallTimeMs: row.wallTimeMs,
+      elapsedWallTimeMs: row.elapsedWallTimeMs,
       finalScore: row.finalScore,
       tokensUsed: row.tokensUsed != null ? Number(row.tokensUsed) : null,
       costUsd: row.costUsd,
       reportTitle: row.reportTitle,
       reportSummary: row.reportSummary,
       errorMessage: row.errorMessage,
+      terminalOutcome: outcomeFromStatus(row.status),
+      failureCode: row.failureCode ?? null,
+      configSnapshot: row.configSnapshot ?? null,
       maxCredits: row.maxCredits,
       themeSummary: row.themeSummary,
       dimensions: row.dimensions,
@@ -514,7 +569,8 @@ export class MissionStore {
       verdicts: row.verdicts,
       trajectoryStored: row.trajectoryStored,
       reportArtifactVersion: row.reportArtifactVersion,
-      userProfile: row.userProfile,
+      // ★ S4b:userProfile 是 configSnapshot 的读时投影(单一真源,不再独立存)。
+      userProfile: projectUserProfileView(row.configSnapshot),
       reconciliationReport: row.reconciliationReport,
       leaderJournal: row.leaderJournal,
       leaderOverallScore: row.leaderOverallScore,
