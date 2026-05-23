@@ -35,6 +35,8 @@ export interface RadarMissionCreateInput {
   readonly maxCredits: number;
   readonly wallTimeCapMs: number;
   readonly payload: Record<string, unknown>;
+  /** ★ C5/G7（三 app 统一）：typed MissionConfigSnapshot(canonical 配置记录)。 */
+  readonly configSnapshot?: unknown;
 }
 
 @Injectable()
@@ -71,6 +73,9 @@ export class RadarMissionStore {
           maxCredits: input.maxCredits,
           wallTimeCapMs: input.wallTimeCapMs,
           payload: input.payload as Prisma.InputJsonValue,
+          configSnapshot: input.configSnapshot as
+            | Prisma.InputJsonValue
+            | undefined,
         },
       });
     });

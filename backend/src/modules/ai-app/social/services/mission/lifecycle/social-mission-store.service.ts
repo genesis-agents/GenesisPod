@@ -27,6 +27,8 @@ export interface CreateSocialMissionArgs {
   budgetProfile: string;
   language: string;
   maxCredits: number;
+  /** ★ C5/G7（三 app 统一）：typed MissionConfigSnapshot(canonical 配置记录)。 */
+  configSnapshot?: unknown;
 }
 
 export interface MarkCompletedDetail {
@@ -71,6 +73,9 @@ export class SocialMissionStore {
         status: "running",
         podId,
         heartbeatAt: new Date(),
+        configSnapshot: args.configSnapshot as
+          | Prisma.InputJsonValue
+          | undefined,
       },
     });
     this.log.log(

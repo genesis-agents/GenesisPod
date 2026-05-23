@@ -38,4 +38,29 @@ describe("Mission app conformance — C8/L5a 静态", () => {
   it("登记的 mission app 集合非空(conformance 是对注册项的不变量)", () => {
     expect(MISSION_APP_MODULES.length).toBeGreaterThan(0);
   });
+
+  // ★ C5/G7(三 app 统一):每个 mission app 的 runtime-shell 都必须在 openSession 冻结
+  //   typed config snapshot(canonical 配置记录单一真源)。新 app 缺则红。
+  const MISSION_APP_SHELLS: Array<[string, RegExp]> = [
+    [
+      "agent-playground/services/mission/workflow/mission-runtime-shell.service.ts",
+      /buildForFreshRun|configSnapshot/,
+    ],
+    [
+      "radar/services/mission/workflow/radar-mission-runtime-shell.service.ts",
+      /buildRadarConfigSnapshot|configSnapshot/,
+    ],
+    [
+      "social/services/mission/workflow/social-runtime-shell.service.ts",
+      /buildSocialConfigSnapshot|configSnapshot/,
+    ],
+  ];
+
+  it.each(MISSION_APP_SHELLS)(
+    "%s 必须在 openSession 冻结 config snapshot(三 app 统一)",
+    (rel, pattern) => {
+      const src = readFileSync(join(APP_ROOT, rel), "utf8");
+      expect(src).toMatch(pattern);
+    },
+  );
 });

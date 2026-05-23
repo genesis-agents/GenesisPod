@@ -8885,6 +8885,8 @@ model SocialMission {
   /// ★ C2/G3：mission 级 canonical failure code（MissionFailureCode）。category 不落库——
   /// 读路径由 codeToCategory(failureCode) 实时派生（投影非事实源）。历史行 NULL → 前端回退 errorMessage。
   failureCode  String? @map("failure_code") @db.VarChar(40)
+  /// ★ C5/G7（三 app 统一）：typed MissionConfigSnapshot,openSession 冻结的 canonical 配置记录。
+  configSnapshot Json? @map("config_snapshot")
 
   /// trajectory（S11 持久化 stage outputs：probeResults / platformVersions /
   /// covers / composed / published / verified / leaderSignOff 等）。
@@ -10613,6 +10615,8 @@ model RadarRun {
   error     String?  @db.Text
   /// ★ C2/G3：mission 级 canonical failure code（MissionFailureCode）。category 读时派生。
   failureCode String? @map("failure_code") @db.VarChar(40)
+  /// ★ C5/G7（三 app 统一）：typed MissionConfigSnapshot,openSession 冻结的 canonical 配置记录。
+  configSnapshot Json? @map("config_snapshot")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([topicId, startedAt(sort: Desc)])
