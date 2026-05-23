@@ -11,6 +11,7 @@ import {
   NotFoundException,
   PayloadTooLargeException,
 } from "@nestjs/common";
+import { MissionFailureCode } from "@/modules/ai-harness/facade";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 
@@ -149,8 +150,8 @@ export class MissionLifecycleHelper {
     id: string,
     data: {
       errorMessage?: string;
-      /** ★ C2/MAJOR-6:canonical MissionFailureCode 值,落 DB failure_code 列。 */
-      failureCode?: string;
+      /** ★ C2/MAJOR-6:canonical MissionFailureCode（L1 类型,禁裸字符串）。落 DB failure_code 列。 */
+      failureCode?: MissionFailureCode;
       tokensUsed?: number;
       costUsd?: number;
       elapsedWallTimeMs?: number;
@@ -184,7 +185,8 @@ export class MissionLifecycleHelper {
       // ★ C2/MAJOR-6:落 canonical failure_code。Lead 拒签 → leader_signoff_rejected;
       //   其余由 caller 传(handleMissionFailure 映射);都没有则 null(读路径回退 errorMessage)。
       failureCode:
-        data.failureCode ?? (isLeadRefusal ? "leader_signoff_rejected" : null),
+        data.failureCode ??
+        (isLeadRefusal ? MissionFailureCode.leader_signoff_rejected : null),
       tokensUsed: data.tokensUsed ?? null,
       costUsd: data.costUsd ?? null,
       elapsedWallTimeMs: data.elapsedWallTimeMs ?? null,

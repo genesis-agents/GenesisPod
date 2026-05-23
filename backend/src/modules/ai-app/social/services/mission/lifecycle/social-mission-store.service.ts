@@ -14,6 +14,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import type { Prisma } from "@prisma/client";
+import { MissionFailureCode } from "@/modules/ai-harness/facade";
 
 export interface CreateSocialMissionArgs {
   id: string;
@@ -42,8 +43,8 @@ export interface MarkFailedDetail {
   costUsd?: number;
   /** ★ C4/G5：实测耗时(原 wallTimeMs)。 */
   elapsedWallTimeMs?: number;
-  /** ★ C2/G3：canonical MissionFailureCode 值，落 DB failure_code 列。 */
-  failureCode?: string;
+  /** ★ C2/G3：canonical MissionFailureCode（L1 类型,禁裸字符串）。落 DB failure_code 列。 */
+  failureCode?: MissionFailureCode;
 }
 
 @Injectable()
@@ -142,6 +143,30 @@ export class SocialMissionStore {
   }
 
   /**
+   * 用户取消落终态(条件写,首写赢)。★ 评审 code-MAJOR-1:此前 social 无 markCancelled,
+   * 取消走 markFailed → status=failed,前端 outcomeFromStatus 投影成 failure(显示"失败"非
+   * "已取消")。本方法落 status=cancelled + failureCode=user_cancelled,outcomeFromStatus
+   * → cancelled。
+   */
+  async markCancelled(missionId: string, reason?: string): Promise<void> {
+    await this.prisma.socialMission
+      .updateMany({
+        where: { id: missionId, status: "running" },
+        data: {
+          status: "cancelled",
+          completedAt: new Date(),
+          errorMessage: reason?.slice(0, 4000) ?? null,
+          failureCode: MissionFailureCode.user_cancelled,
+        },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[markCancelled] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  /**
    * Liveness 扫描用：列出所有 running mission 的存活字段。
    * 供 AiSocialModule onModuleInit 注册的 MissionLivenessGuard adapter 调用——
    * ★ 2026-05-22 C8：social_missions 早有 heartbeatAt/podId + [status,heartbeatAt] 索引，
@@ -170,7 +195,7 @@ export class SocialMissionStore {
   async markFailedByLiveness(
     missionId: string,
     errorMessage: string,
-    failureCode?: string,
+    failureCode?: MissionFailureCode,
   ): Promise<void> {
     await this.prisma.socialMission
       .updateMany({
