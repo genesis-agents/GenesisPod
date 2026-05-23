@@ -7,6 +7,14 @@
  *   - 14 step 的 dag 字段填齐（除 s12 postlude 不在 steps）
  *   - validateStageDag 通过（successors 引用合法 + 无环 + rerunableReason）
  *   - computeCascadeChain 关键 mission 路径正确（c195035f 的 S11 单跑 + S2 全跑等）
+ *
+ * IMPORTANT — DAG honesty note (R2-#44):
+ *   The `dag.successors` field is a RERUN CASCADE declaration, not a parallel-execution
+ *   dependency graph. MissionPipelineOrchestrator runs stages in strict sequential order
+ *   (for-loop over steps array). Stages are inherently sequential because each stage
+ *   consumes the previous stage's output (S3 needs S2's plan, S5 needs S3's results,
+ *   etc.). The only real parallelism is the per-dimension researcher fan-out INSIDE S3
+ *   (via runDagConcurrency), which is already genuine parallel and is not changed here.
  */
 
 import { PLAYGROUND_PIPELINE } from "../playground.config";
@@ -104,6 +112,32 @@ describe("PLAYGROUND_PIPELINE DAG 自洽", () => {
     expect(dbW.has("completed_at")).toBe(true);
     expect(dbW.has("final_score")).toBe(true);
     expect(dbW.has("report_full")).toBe(true);
+  });
+
+  /**
+   * R2-#44 DAG honesty: assert the pipeline is strictly sequential.
+   * dag.successors is a rerun-cascade declaration — it names which downstream stages
+   * to reset/re-run when a given stage is re-run. It is NOT a parallel-execution
+   * dependency graph. Steps execute in the order they appear in PLAYGROUND_PIPELINE.steps.
+   *
+   * This test verifies that every successor of step[i] appears strictly AFTER step[i]
+   * in the steps array (no back-edges, which would imply loops; no same-index, which
+   * would imply self-referential). This property is also checked by validateStageDag,
+   * but we make the sequential-execution contract explicit here.
+   */
+  it("R2-#44: DAG successors all point strictly forward — pipeline executes sequentially", () => {
+    const ids = PLAYGROUND_PIPELINE.steps.map((s) => s.id);
+    const idxOf = new Map(ids.map((id, i) => [id, i]));
+    for (const step of PLAYGROUND_PIPELINE.steps) {
+      const myIdx = idxOf.get(step.id)!;
+      for (const succ of step.dag?.successors ?? []) {
+        const succIdx = idxOf.get(succ);
+        expect(succIdx).toBeDefined();
+        // Successor must appear strictly after the current step in the pipeline array.
+        // This is the structural guarantee that the pipeline is sequential and acyclic.
+        expect(succIdx).toBeGreaterThan(myIdx);
+      }
+    }
   });
 
   it("所有 stage 的 resetFields 都在合法 MissionColumnKey union 内（编译期校验已守，本 spec 兜底防漂移）", () => {

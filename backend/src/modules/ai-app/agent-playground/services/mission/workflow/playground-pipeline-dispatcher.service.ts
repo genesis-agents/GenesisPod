@@ -57,6 +57,8 @@ import {
 import { LeaderInvocationFactory } from "../leader-invocation.factory";
 // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到独立 service —— dispatcher inject + delegate
 import { PlaygroundBusinessOrchestrator } from "./playground-business-orchestrator.service";
+// ★ R2-#38: OTel span emission (mission root + stage child spans via AgentTracer)
+import { PlaygroundMissionSpanService } from "./playground-mission-span.service";
 // ★ Stage 1 / S1-2 (2026-05-09,closes T3): cross-stage cache 改用 Z5 CrossStageState 容器
 import { PlaygroundCrossStageState } from "./playground-cross-stage-state";
 import { mapStepIdToFrontendStageId } from "../../../contracts/step-id-mapping.contract";
@@ -127,6 +129,8 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     private readonly businessOrch: PlaygroundBusinessOrchestrator,
     // ★ C0/G1：唯一终态写入口。dispatcher 不再直写 store.markX，统一经 finalize 仲裁。
     private readonly lifecycleManager: MissionLifecycleManager,
+    // ★ R2-#38: OTel span service (optional — gracefully absent if tracer not configured)
+    private readonly missionSpan: PlaygroundMissionSpanService,
   ) {}
 
   /**
@@ -350,6 +354,8 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       },
       this.leaderInvocationFactory.build(missionId, userId, session.billing),
     );
+    // ★ R2-#38: start root OTel span for this mission
+    this.missionSpan.startMissionSpan(missionId, input.topic);
     // ★ Stage 1 / S1-2 (2026-05-09): 初始化 PlaygroundCrossStageState 容器
     //   (替代 14 个 ad-hoc lastXxx / s4PatchFailures / inheritedX fields)
     this.sessions.set(missionId, {
@@ -478,6 +484,23 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
               event.type === "stage:completed" ||
               event.type === "stage:failed"
             ) {
+              // ★ R2-#38: emit OTel stage spans
+              if (event.stepId) {
+                if (event.type === "stage:started") {
+                  this.missionSpan.startStageSpan(
+                    missionId,
+                    event.stepId,
+                    event.primitive ?? "unknown",
+                  );
+                } else {
+                  this.missionSpan.endStageSpan(
+                    missionId,
+                    event.stepId,
+                    event.type === "stage:completed" ? "completed" : "failed",
+                    event.error instanceof Error ? event.error : undefined,
+                  );
+                }
+              }
               const status =
                 event.type === "stage:started"
                   ? "started"
@@ -552,6 +575,12 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         //   （pipeline-v1 hook 内部抛错经 orchestrator 包成 stage:failed event +
         //    result.status="failed"，但 mission DB row + 前端事件流缺收尾兜底）
         if (result.status !== "completed") {
+          // ★ R2-#38: end root OTel span with failure status
+          this.missionSpan.endMissionSpan(
+            missionId,
+            result.status as "failed" | "aborted",
+            result.error instanceof Error ? result.error : undefined,
+          );
           await this.handleMissionFailure(
             missionId,
             userId,
@@ -560,6 +589,8 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
             session,
           );
         } else {
+          // ★ R2-#38: end root OTel span with success
+          this.missionSpan.endMissionSpan(missionId, "completed");
           // ★ R2-A.13.1 成功路径：清 checkpoint（mission 已完整落库）
           await this.missionCheckpoint
             .clear(missionId)
@@ -582,6 +613,12 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       });
     } catch (err) {
       // ★ A-8: orchestrator/runtimeShell 抛出未被 handleMissionFailure 接住的异常
+      // ★ R2-#38: end root OTel span on unexpected throw
+      this.missionSpan.endMissionSpan(
+        missionId,
+        "failed",
+        err instanceof Error ? err : undefined,
+      );
       reachedTerminal = await this.tryHandleAbort(
         missionId,
         userId,

@@ -415,6 +415,12 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
         },
       ),
     };
+    const fakeMissionSpan = {
+      startMissionSpan: jest.fn(),
+      endMissionSpan: jest.fn(),
+      startStageSpan: jest.fn(),
+      endStageSpan: jest.fn(),
+    };
     dispatcher = new PlaygroundPipelineDispatcher(
       registry,
       orchestrator,
@@ -430,6 +436,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       fakeEventBus as never,
       businessOrch,
       fakeLifecycleManager as never,
+      fakeMissionSpan as never,
     );
     dispatcher.onModuleInit();
   });
@@ -880,6 +887,12 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
         lifecycle: jest.fn(),
       } as never);
 
+      const noopMissionSpan = {
+        startMissionSpan: jest.fn(),
+        endMissionSpan: jest.fn(),
+        startStageSpan: jest.fn(),
+        endStageSpan: jest.fn(),
+      };
       const d = new PlaygroundPipelineDispatcher(
         reg,
         orch,
@@ -895,6 +908,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
         localEventBus as never,
         businessOrch,
         fakeLifecycleManager as never,
+        noopMissionSpan as never,
       );
       d.onModuleInit();
       return { dispatcher: d, invoker: localInvoker };

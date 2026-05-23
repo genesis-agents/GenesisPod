@@ -34,6 +34,7 @@ import { PlaygroundPipelineDispatcher } from "./services/mission/workflow/playgr
 // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到独立 service(STAGE_NUMBER / CHECKPOINT_AT
 //   字面量 + 11 个 build*Hooks),dispatcher inject + delegate
 import { PlaygroundBusinessOrchestrator } from "./services/mission/workflow/playground-business-orchestrator.service";
+import { PlaygroundMissionSpanService } from "./services/mission/workflow/playground-mission-span.service";
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -178,6 +179,8 @@ import {
     // ★ Stage 1 / S1-1 (2026-05-09): business-orch 必须在 dispatcher 之前 register,
     //   保证 dispatcher.onModuleInit 调 businessOrch.bindSessionLookup 时 instance 已存在
     PlaygroundBusinessOrchestrator,
+    // ★ R2-#38: OTel span emission for mission + stage lifecycle
+    PlaygroundMissionSpanService,
     PlaygroundPipelineDispatcher,
     // ── S12 postmortem 失败模式分类（已上提到 @Global HarnessModule）──
     // ★ Rev 5 / S1-5 (2026-05-09): mission-platform contract token bindings —

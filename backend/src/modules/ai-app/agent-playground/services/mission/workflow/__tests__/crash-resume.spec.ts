@@ -216,6 +216,12 @@ function makeDispatcherBundle(
     ),
   };
 
+  const fakeMissionSpan = {
+    startMissionSpan: jest.fn(),
+    endMissionSpan: jest.fn(),
+    startStageSpan: jest.fn(),
+    endStageSpan: jest.fn(),
+  };
   const dispatcher = new PlaygroundPipelineDispatcher(
     reg,
     orch,
@@ -231,6 +237,7 @@ function makeDispatcherBundle(
     fakeEventBus as never,
     businessOrch,
     fakeLifecycleManager as never,
+    fakeMissionSpan as never,
   );
   dispatcher.onModuleInit();
 

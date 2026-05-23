@@ -328,7 +328,7 @@ export type {
 } from "../teams/orchestrator/workflow-orchestrator.interface";
 
 // ★ 2026-04-30: OutputReviewerService 从 ai-engine/planning 搬来（跨层迁移）
-// â˜… 2026-05-02 (#1 MECE): runtime/quality → evaluation/critique æ”¶æ•›
+// â˜… 2026-05-02 (#1 MECE): runtime/quality → evaluation/critique æ"¶æ•›
 export { OutputReviewerService } from "../evaluation/critique/output-reviewer.service";
 
 // ★ 2026-05-01: ReportArtifactAssembler 从 ai-app/{app} 上提（跨 app 复用）
@@ -620,7 +620,7 @@ export {
   type DAGExecutionResult,
 } from "../runner/dag";
 
-// â”€â”€ Resource â”€â”€
+// â"€â"€ Resource â"€â"€
 export { ResourceManagerService } from "../guardrails/resources/resource-manager.service";
 // PR-X15: 通过 engine/facade barrel 转发，不穿透 engine 私有路径
 export {
@@ -665,7 +665,10 @@ export type {
   RuntimeUserKeyState,
 } from "../guardrails/runtime/runtime-environment.types";
 
-// â”€â”€ Observability â”€â”€
+// ── Observability ──
+// AgentTracer: emit OTel spans for missions/stages/roles. Already provided by HarnessModule.
+export { AgentTracer } from "../tracing/tracer/otel-tracer";
+export type { Span, StartSpanOptions } from "../tracing/tracer/otel-tracer";
 export { TraceCollectorService } from "../tracing/observability/trace-collector.service";
 export { AiObservabilityService } from "../tracing/observability/ai-observability.service";
 export { CostAttributionService } from "../tracing/observability/cost-attribution.service";
@@ -732,7 +735,7 @@ export type {
   ListSessionsFilter,
 } from "../tracing/latency/session-latency.types";
 
-// â”€â”€ Security â”€â”€
+// â"€â"€ Security â"€â"€
 // PR-X15: 通过 engine/facade barrel，不穿透 engine 私有路径
 export { CapabilityGuardService } from "../../ai-engine/facade";
 export type { CapabilityCheckResult } from "../../ai-engine/facade";
@@ -750,8 +753,11 @@ export type {
   IBroadcastAdapter,
   DomainEventTypeSpec,
 } from "../protocols/events";
+// R2-#50: generic narrate factory + narrative types (extracted to harness)
+export { narrate } from "../protocols/events/narrate";
+export type { NarrativeEvent, NarrativeTag } from "../protocols/events/narrate";
 
-// â”€â”€ IPC â”€â”€
+// ── IPC ──
 export { EventBusService } from "../protocols/ipc/event-bus.service";
 export { EventBusService as EngineEventEmitterService } from "../protocols/ipc/event-bus.service";
 export { ProgressTrackerService } from "../protocols/ipc/progress-tracker.service";
@@ -770,7 +776,7 @@ export type {
   TaskNotificationPayload,
 } from "../protocols/ipc/agent-lifecycle-protocol.service";
 
-// â”€â”€ Journal â”€â”€
+// â"€â"€ Journal â"€â"€
 export { EventJournalService } from "../protocols/journal/event-journal.service";
 export {
   CheckpointManager,
@@ -781,7 +787,7 @@ export type {
   CheckpointManagerConfig,
 } from "../protocols/journal/checkpoint-manager";
 
-// â”€â”€ Realtime â”€â”€
+// â"€â"€ Realtime â"€â"€
 export type {
   RoomConfig,
   EngineEvent,
@@ -809,7 +815,7 @@ export {
 } from "../memory/checkpoint";
 export type { ICheckpoint, AgentEventRecord } from "../memory/checkpoint";
 
-// â”€â”€ Working memory â”€â”€
+// â"€â"€ Working memory â"€â"€
 export { ProcessMemoryManagerService } from "../memory/working/process-memory-manager.service";
 export { HierarchicalMemoryCascadeService } from "../memory/working/hierarchical-memory-cascade.service";
 export type {

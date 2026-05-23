@@ -56,6 +56,8 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   REVIEW_PASS_THRESHOLD: 60,
   CHAPTER_MAX_REVISION_ATTEMPTS: 1,
   jaccardSimilarity: jest.fn((a: string, b: string) => (a === b ? 1 : 0)),
+  // R2-#50: narrate moved to harness facade
+  narrate: jest.fn().mockResolvedValue(undefined),
 }));
 
 // ★ 模拟 stripChartJsonFromContent 让 spec 可独立验证"被调用"而不依赖真实 strip 逻辑

@@ -78,7 +78,8 @@ services/
 ```
 Mission（业务剧本）        ← playground.config.ts + dispatcher + 14 stage
    │
-   ├─ 决定调用顺序、分支、交接（pipeline DAG declarative）
+   ├─ 决定调用顺序（pipeline 严格顺序执行，stages 之间无并行）
+   │    dag.successors = rerun cascade 声明（重跑哪步时自动带跑下游），不是并行执行图
    ├─ 持有 MissionContext（跨 stage 状态）
    └─ 通过 MissionDeps 注入下层依赖
         ↓
