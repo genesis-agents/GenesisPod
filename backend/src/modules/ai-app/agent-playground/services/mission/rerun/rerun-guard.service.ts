@@ -28,7 +28,10 @@
 
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { MissionStore } from "../lifecycle/mission-store.service";
+import {
+  MissionStore,
+  type PlaygroundTerminalExtra,
+} from "../lifecycle/mission-store.service";
 // ★ 2026-05-08 PR-C1: 从 event-categories 单一源 import BUSINESS_PREFIXES，
 //   动态拼 SQL LIKE clause —— 替代之前字面复制 5 行 LIKE 字符串（消除字面双源）。
 import { EVENT_CATEGORY } from "../lifecycle/event-categories";
@@ -38,6 +41,7 @@ import {
   decideMissionInFlight,
   HEARTBEAT_FRESH_THRESHOLD_MS_DEFAULT,
   BUSINESS_EVENT_FRESH_THRESHOLD_MS_DEFAULT,
+  MissionLifecycleManager,
 } from "@/modules/ai-harness/facade";
 
 const HEARTBEAT_FRESH_THRESHOLD_MS = HEARTBEAT_FRESH_THRESHOLD_MS_DEFAULT;
@@ -73,6 +77,8 @@ export class RerunGuardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly store: MissionStore,
+    // ★ C0/G1：zombie cleanup 终态写经 finalize 单入口仲裁。
+    private readonly lifecycleManager: MissionLifecycleManager,
   ) {}
 
   /**
@@ -226,11 +232,19 @@ export class RerunGuardService {
       return;
     }
 
-    await this.store.markFailed(
+    // ★ C0/G1：终态写经 finalize 单入口仲裁（条件写 WHERE status='running' 首写赢）
+    await this.lifecycleManager.finalize<PlaygroundTerminalExtra>({
       missionId,
-      { errorMessage: "zombie-heartbeat-cleanup" },
-      userId,
-    );
+      intent: {
+        status: "failed",
+        extra: {
+          kind: "failed",
+          detail: { errorMessage: "zombie-heartbeat-cleanup" },
+          userId,
+        },
+      },
+      arbiter: this.store,
+    });
     await this.store.clearHeartbeat(missionId, userId).catch((err: unknown) => {
       // best-effort：clearHeartbeat 失败不影响主流程，记 warn 由 prod 观察
       this.log.warn(

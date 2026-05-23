@@ -43,7 +43,8 @@ function makeStore() {
   return {
     listByUser: jest.fn().mockResolvedValue([]),
     getById: jest.fn().mockResolvedValue(null),
-    markCancelled: jest.fn().mockResolvedValue(undefined),
+    // ★ C0/G1：applyTerminalIfRunning 替代 markCancelled（条件写，首写赢，返回 boolean）
+    applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
     deleteByUser: jest.fn().mockResolvedValue(undefined),
     updateTopicByUser: jest.fn().mockResolvedValue(undefined),
     create: jest.fn().mockResolvedValue(undefined),
@@ -149,6 +150,36 @@ function buildController() {
     MissionRerunController,
   } = require("../controllers/mission-rerun.controller");
 
+  // ★ C0/G1：lifecycleManager mock —— finalize 复刻真实语义（条件写 + onWon 吞异常）
+  const lifecycleManager = {
+    finalize: jest.fn(
+      async <TExtra>(args: {
+        missionId: string;
+        intent: { status: string; extra?: TExtra };
+        arbiter: {
+          applyTerminalIfRunning: (
+            id: string,
+            intent: unknown,
+          ) => Promise<boolean>;
+        };
+        abort?: () => void;
+        onWon?: () => Promise<void>;
+      }) => {
+        const won = await args.arbiter.applyTerminalIfRunning(
+          args.missionId,
+          args.intent,
+        );
+        if (won && args.onWon) {
+          try {
+            await args.onWon();
+          } catch {
+            // swallow
+          }
+        }
+        return { won };
+      },
+    ),
+  };
   const mainCtrl = new AgentPlaygroundController(
     ownership as never,
     store as never,
@@ -157,6 +188,7 @@ function buildController() {
     prisma as never,
     electionTracker as never,
     pipelineDispatcher as never,
+    lifecycleManager as never,
   );
   const readCtrl = new MissionReadController(
     ownership as never,
@@ -212,6 +244,7 @@ function buildController() {
     prisma,
     pipelineDispatcher,
     electionTracker,
+    lifecycleManager,
   };
 }
 
@@ -821,6 +854,7 @@ describe("AgentPlaygroundController", () => {
         abortRegistry,
         buffer,
         electionTracker,
+        lifecycleManager,
       } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
@@ -832,7 +866,17 @@ describe("AgentPlaygroundController", () => {
       const result = await controller.cancelMission("m-1", makeReq("user-1"));
       expect(result).toEqual({ ok: true, status: "cancelled" });
       expect(abortRegistry.abort).toHaveBeenCalledWith("m-1", "user_cancelled");
-      expect(store.markCancelled).toHaveBeenCalledWith("m-1");
+      // ★ C0/G1：取消终态经 lifecycleManager.finalize 仲裁（不再直写 store.markCancelled）
+      expect(lifecycleManager.finalize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          missionId: "m-1",
+          intent: expect.objectContaining({
+            status: "cancelled",
+            extra: expect.objectContaining({ kind: "cancelled" }),
+          }),
+          arbiter: store,
+        }),
+      );
       expect(electionTracker.clear).toHaveBeenCalledWith("m-1");
       expect(buffer.broadcast).toHaveBeenCalled();
     });

@@ -20,8 +20,8 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
     },
     lifecycle: jest.fn().mockResolvedValue(undefined),
     store: {
-      markCompleted: jest.fn().mockResolvedValue(undefined),
-      markFailed: jest.fn().mockResolvedValue(undefined),
+      // ★ C0/G1: applyTerminalIfRunning 替代 markCompleted / markFailed（条件写，首写赢）
+      applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
     },
     ...overrides,
   } as unknown as MissionDeps;
@@ -58,15 +58,29 @@ function makeArgs(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * Helper to extract the intent passed to applyTerminalIfRunning.
+ */
+function getApplyIntent(deps: MissionDeps, callIndex = 0) {
+  return (deps.store.applyTerminalIfRunning as jest.Mock).mock.calls[
+    callIndex
+  ][1] as {
+    status: string;
+    extra: { kind: string; detail?: Record<string, unknown>; userId?: string };
+  };
+}
+
 describe("runPersistStage (S11)", () => {
-  it("signed=true → calls markCompleted", async () => {
+  it("signed=true → calls applyTerminalIfRunning with kind=completed", async () => {
     const deps = makeDeps();
     await runPersistStage(makeArgs(), deps);
-    expect(deps.store.markCompleted).toHaveBeenCalled();
-    expect(deps.store.markFailed).not.toHaveBeenCalled();
+    expect(deps.store.applyTerminalIfRunning).toHaveBeenCalled();
+    const intent = getApplyIntent(deps);
+    expect(intent.status).toBe("completed");
+    expect(intent.extra.kind).toBe("completed");
   });
 
-  it("signed=false → calls markFailed with leader refusal message", async () => {
+  it("signed=false → calls applyTerminalIfRunning with kind=failed and refusal message", async () => {
     const deps = makeDeps();
     const result = {
       ...BASE_RESULT,
@@ -78,23 +92,25 @@ describe("runPersistStage (S11)", () => {
       },
     };
     await runPersistStage(makeArgs({ result }), deps);
-    expect(deps.store.markFailed).toHaveBeenCalled();
-    expect(deps.store.markCompleted).not.toHaveBeenCalled();
-    const failArgs = (deps.store.markFailed as jest.Mock).mock.calls[0][1];
-    expect(failArgs.errorMessage).toContain("Coverage too low");
+    const intent = getApplyIntent(deps);
+    expect(intent.status).toBe("failed");
+    expect(intent.extra.kind).toBe("failed");
+    expect(intent.extra.detail?.errorMessage).toContain("Coverage too low");
   });
 
-  it("no leaderSignOff → calls markFailed to avoid unsigned fake completion", async () => {
+  it("no leaderSignOff → calls applyTerminalIfRunning with kind=failed (leader_signoff_missing)", async () => {
     const deps = makeDeps();
     const result = { ...BASE_RESULT, leaderSignOff: undefined };
     await runPersistStage(makeArgs({ result }), deps);
-    expect(deps.store.markFailed).toHaveBeenCalled();
-    expect(deps.store.markCompleted).not.toHaveBeenCalled();
-    const failArgs = (deps.store.markFailed as jest.Mock).mock.calls[0][1];
-    expect(failArgs.errorMessage).toContain("leader_signoff_missing");
+    const intent = getApplyIntent(deps);
+    expect(intent.status).toBe("failed");
+    expect(intent.extra.kind).toBe("failed");
+    expect(intent.extra.detail?.errorMessage).toContain(
+      "leader_signoff_missing",
+    );
   });
 
-  it("markCompleted called with finalScore and tokensUsed", async () => {
+  it("completed intent includes finalScore and tokensUsed", async () => {
     const deps = makeDeps();
     await runPersistStage(
       makeArgs({
@@ -102,53 +118,54 @@ describe("runPersistStage (S11)", () => {
       }),
       deps,
     );
-    const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
-    expect(args.finalScore).toBe(82);
-    expect(args.tokensUsed).toBe(15000);
-    expect(args.costUsd).toBe(0.8);
+    const intent = getApplyIntent(deps);
+    expect(intent.extra.detail?.finalScore).toBe(82);
+    expect(intent.extra.detail?.tokensUsed).toBe(15000);
+    expect(intent.extra.detail?.costUsd).toBe(0.8);
   });
 
-  it("reportArtifact v2 → reportArtifactVersion=2 in markCompleted", async () => {
+  it("reportArtifact v2 → reportArtifactVersion=2 in completed intent", async () => {
     const deps = makeDeps();
     await runPersistStage(makeArgs(), deps);
-    const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
-    expect(args.reportArtifactVersion).toBe(2);
+    const intent = getApplyIntent(deps);
+    expect(intent.extra.detail?.reportArtifactVersion).toBe(2);
   });
 
   it("no reportArtifact → reportArtifactVersion=1, uses v1 report", async () => {
     const deps = makeDeps();
     const result = { ...BASE_RESULT, reportArtifact: undefined };
     await runPersistStage(makeArgs({ result }), deps);
-    const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
-    expect(args.reportArtifactVersion).toBe(1);
+    const intent = getApplyIntent(deps);
+    expect(intent.extra.detail?.reportArtifactVersion).toBe(1);
   });
 
   it("elapsedWallTimeMs = now - t0 approximately", async () => {
     const deps = makeDeps();
     const t0 = Date.now() - 10000;
     await runPersistStage(makeArgs({ t0 }), deps);
-    const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
-    expect(args.elapsedWallTimeMs).toBeGreaterThan(9000);
-    expect(args.elapsedWallTimeMs).toBeLessThan(20000);
+    const intent = getApplyIntent(deps);
+    const elapsed = intent.extra.detail?.elapsedWallTimeMs as number;
+    expect(elapsed).toBeGreaterThan(9000);
+    expect(elapsed).toBeLessThan(20000);
   });
 
-  it("trajectoryStored included in markCompleted payload", async () => {
+  it("trajectoryStored included in completed intent", async () => {
     const deps = makeDeps();
     await runPersistStage(makeArgs(), deps);
-    const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
-    expect(args.trajectoryStored).toBe(42);
+    const intent = getApplyIntent(deps);
+    expect(intent.extra.detail?.trajectoryStored).toBe(42);
   });
 
-  it("leaderSignOff data passed to markCompleted", async () => {
+  it("leaderSignOff data passed in completed intent", async () => {
     const deps = makeDeps();
     await runPersistStage(makeArgs(), deps);
-    const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
-    expect(args.leaderOverallScore).toBe(82);
-    expect(args.leaderSigned).toBe(true);
-    expect(args.leaderVerdict).toBe("good");
+    const intent = getApplyIntent(deps);
+    expect(intent.extra.detail?.leaderOverallScore).toBe(82);
+    expect(intent.extra.detail?.leaderSigned).toBe(true);
+    expect(intent.extra.detail?.leaderVerdict).toBe("good");
   });
 
-  it("markFailed includes leaderOverallScore and leaderVerdict when signed=false", async () => {
+  it("failed intent includes leaderOverallScore and leaderVerdict when signed=false", async () => {
     const deps = makeDeps();
     const result = {
       ...BASE_RESULT,
@@ -160,23 +177,23 @@ describe("runPersistStage (S11)", () => {
       },
     };
     await runPersistStage(makeArgs({ result }), deps);
-    const args = (deps.store.markFailed as jest.Mock).mock.calls[0][1];
-    expect(args.leaderOverallScore).toBe(45);
-    expect(args.leaderSigned).toBe(false);
-    expect(args.leaderVerdict).toBe("failed");
+    const intent = getApplyIntent(deps);
+    expect(intent.extra.detail?.leaderOverallScore).toBe(45);
+    expect(intent.extra.detail?.leaderSigned).toBe(false);
+    expect(intent.extra.detail?.leaderVerdict).toBe("failed");
   });
 
-  it("missionId is passed as first arg to store methods", async () => {
+  it("missionId is passed as first arg to applyTerminalIfRunning", async () => {
     const deps = makeDeps();
     await runPersistStage(makeArgs({ missionId: "mission-42" }), deps);
-    expect((deps.store.markCompleted as jest.Mock).mock.calls[0][0]).toBe(
-      "mission-42",
-    );
+    expect(
+      (deps.store.applyTerminalIfRunning as jest.Mock).mock.calls[0][0],
+    ).toBe("mission-42");
   });
 
   it("persist failure → logs error, emits persist-failed, rethrows", async () => {
     const deps = makeDeps();
-    (deps.store.markCompleted as jest.Mock).mockRejectedValue(
+    (deps.store.applyTerminalIfRunning as jest.Mock).mockRejectedValue(
       new Error("DB write failed"),
     );
     await expect(runPersistStage(makeArgs(), deps)).rejects.toThrow(
@@ -193,7 +210,9 @@ describe("runPersistStage (S11)", () => {
 
   it("persist failure with non-Error thrown → String(err) used in log", async () => {
     const deps = makeDeps();
-    (deps.store.markCompleted as jest.Mock).mockRejectedValue("string error");
+    (deps.store.applyTerminalIfRunning as jest.Mock).mockRejectedValue(
+      "string error",
+    );
     await expect(runPersistStage(makeArgs(), deps)).rejects.toBe(
       "string error",
     );
@@ -241,7 +260,7 @@ describe("runPersistStage (S11)", () => {
       };
     }
 
-    it("all sections >= 500 chars → markCompleted called normally", async () => {
+    it("all sections >= 500 chars → applyTerminalIfRunning with kind=completed", async () => {
       const deps = makeDeps();
       const reportArtifact = makeArtifactWithSections([600, 600, 600, 600]);
       await runPersistStage(
@@ -250,11 +269,11 @@ describe("runPersistStage (S11)", () => {
         }),
         deps,
       );
-      expect(deps.store.markCompleted).toHaveBeenCalled();
-      expect(deps.store.markFailed).not.toHaveBeenCalled();
+      const intent = getApplyIntent(deps);
+      expect(intent.extra.kind).toBe("completed");
     });
 
-    it("< 50% sections have content → markFailed with chapter_content_below_threshold", async () => {
+    it("< 50% sections have content → applyTerminalIfRunning with kind=failed (chapter_content_below_threshold)", async () => {
       const deps = makeDeps();
       const reportArtifact = makeArtifactWithSections([600, 100, 100, 100]);
       await runPersistStage(
@@ -263,15 +282,14 @@ describe("runPersistStage (S11)", () => {
         }),
         deps,
       );
-      expect(deps.store.markFailed).toHaveBeenCalled();
-      expect(deps.store.markCompleted).not.toHaveBeenCalled();
-      const failArgs = (deps.store.markFailed as jest.Mock).mock.calls[0][1];
-      expect(failArgs.errorMessage).toContain(
+      const intent = getApplyIntent(deps);
+      expect(intent.extra.kind).toBe("failed");
+      expect(intent.extra.detail?.errorMessage).toContain(
         "chapter_content_below_threshold",
       );
     });
 
-    it("0 sections (no-chapter mode) → skips guard, markCompleted called normally", async () => {
+    it("0 sections (no-chapter mode) → skips guard, applyTerminalIfRunning with kind=completed", async () => {
       const deps = makeDeps();
       const reportArtifact = {
         ...BASE_RESULT.reportArtifact,
@@ -288,11 +306,11 @@ describe("runPersistStage (S11)", () => {
         }),
         deps,
       );
-      expect(deps.store.markCompleted).toHaveBeenCalled();
-      expect(deps.store.markFailed).not.toHaveBeenCalled();
+      const intent = getApplyIntent(deps);
+      expect(intent.extra.kind).toBe("completed");
     });
 
-    it("coverage exactly 50% → markCompleted (boundary: >= MIN_COVERAGE passes)", async () => {
+    it("coverage exactly 50% → applyTerminalIfRunning with kind=completed (boundary: >= MIN_COVERAGE passes)", async () => {
       const deps = makeDeps();
       const reportArtifact = makeArtifactWithSections([600, 100]);
       await runPersistStage(
@@ -301,8 +319,8 @@ describe("runPersistStage (S11)", () => {
         }),
         deps,
       );
-      expect(deps.store.markCompleted).toHaveBeenCalled();
-      expect(deps.store.markFailed).not.toHaveBeenCalled();
+      const intent = getApplyIntent(deps);
+      expect(intent.extra.kind).toBe("completed");
     });
 
     it("heading-only chapters fail even if the raw span is long", async () => {
@@ -334,9 +352,11 @@ describe("runPersistStage (S11)", () => {
         }),
         deps,
       );
-      expect(deps.store.markFailed).toHaveBeenCalled();
-      const failArgs = (deps.store.markFailed as jest.Mock).mock.calls[0][1];
-      expect(failArgs.errorMessage).toContain("chapter_content_incomplete");
+      const intent = getApplyIntent(deps);
+      expect(intent.extra.kind).toBe("failed");
+      expect(intent.extra.detail?.errorMessage).toContain(
+        "chapter_content_incomplete",
+      );
     });
   });
 });

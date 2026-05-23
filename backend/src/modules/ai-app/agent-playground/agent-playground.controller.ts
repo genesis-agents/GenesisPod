@@ -52,7 +52,9 @@ import { MissionStore } from "./services/mission/lifecycle/mission-store.service
 import {
   MissionAbortRegistry,
   MissionAbortReason,
+  MissionLifecycleManager,
 } from "@/modules/ai-harness/facade";
+import type { PlaygroundTerminalExtra } from "./services/mission/lifecycle/mission-store.service";
 // ★ R2-C 单轨化（2026-05-04）：pipeline-v1 现在是唯一 mission 路径。
 import { PlaygroundPipelineDispatcher } from "./services/mission/workflow/playground-pipeline-dispatcher.service";
 import { BaseMissionController } from "./controllers/base-mission.controller";
@@ -70,6 +72,8 @@ export class AgentPlaygroundController extends BaseMissionController {
     private readonly prisma: PrismaService,
     private readonly electionTracker: MissionElectionTracker,
     private readonly pipelineDispatcher: PlaygroundPipelineDispatcher,
+    // ★ C0/G1：取消终态写经 finalize 单入口仲裁，不再直写 store.markCancelled。
+    private readonly lifecycleManager: MissionLifecycleManager,
   ) {
     super(ownership, store);
   }
@@ -238,13 +242,24 @@ export class AgentPlaygroundController extends BaseMissionController {
     }
     // 真触发 abort signal，让正在跑的 LLM/tool call 立即中断
     this.abortRegistry.abort(missionId, MissionAbortReason.user_cancelled);
-    await this.store.markCancelled(missionId);
-    this.electionTracker.clear(missionId);
-    await this.buffer.broadcast({
-      type: "agent-playground.mission:cancelled",
-      scope: { missionId, userId },
-      payload: { reason: "user_cancelled", message: "用户取消" },
-      timestamp: Date.now(),
+    // ★ C0/G1：终态写经 finalize 单入口仲裁（条件写 WHERE status='running' 首写赢）
+    await this.lifecycleManager.finalize<PlaygroundTerminalExtra>({
+      missionId,
+      intent: {
+        status: "cancelled",
+        reason: MissionAbortReason.user_cancelled,
+        extra: { kind: "cancelled" },
+      },
+      arbiter: this.store,
+      onWon: async () => {
+        this.electionTracker.clear(missionId);
+        await this.buffer.broadcast({
+          type: "agent-playground.mission:cancelled",
+          scope: { missionId, userId },
+          payload: { reason: "user_cancelled", message: "用户取消" },
+          timestamp: Date.now(),
+        });
+      },
     });
     return { ok: true, status: "cancelled" };
   }

@@ -205,8 +205,8 @@ function makeFakeStageBindings() {
         saveChapterDraft: jest.fn().mockResolvedValue(undefined),
         saveReportVersion: jest.fn().mockResolvedValue(1),
         markStageComplete: jest.fn().mockResolvedValue(undefined),
-        markFailed: jest.fn().mockResolvedValue(undefined),
-        markCompleted: jest.fn().mockResolvedValue(undefined),
+        // ★ C0/G1：applyTerminalIfRunning 替代 markFailed / markCompleted
+        applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
       } as Record<string, jest.Mock>,
       {
         get(target, prop: string) {
@@ -343,7 +343,8 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     };
     const fakeStore = {
       markStageComplete: jest.fn().mockResolvedValue(undefined),
-      markFailed: jest.fn().mockResolvedValue(undefined),
+      // ★ C0/G1：applyTerminalIfRunning 替代 markFailed（条件写，首写赢，返回 boolean）
+      applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
       // ★ P0-D 完整版 (2026-05-06): trajectory 持久化 mock
       saveResearchResult: jest.fn().mockResolvedValue(undefined),
       saveChapterDraft: jest.fn().mockResolvedValue(undefined),
@@ -376,6 +377,37 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       fakeCheckpoint as never,
       fakeStore as never,
     );
+    // ★ C0/G1：lifecycleManager mock —— finalize 复刻真实语义：调 arbiter.applyTerminalIfRunning，
+    //   won=true 时跑 onWon 且吞 onWon 异常。
+    const fakeLifecycleManager = {
+      finalize: jest.fn(
+        async <TExtra>(args: {
+          missionId: string;
+          intent: { status: string; extra?: TExtra };
+          arbiter: {
+            applyTerminalIfRunning: (
+              id: string,
+              intent: unknown,
+            ) => Promise<boolean>;
+          };
+          abort?: () => void;
+          onWon?: () => Promise<void>;
+        }) => {
+          const won = await args.arbiter.applyTerminalIfRunning(
+            args.missionId,
+            args.intent,
+          );
+          if (won && args.onWon) {
+            try {
+              await args.onWon();
+            } catch {
+              // swallow
+            }
+          }
+          return { won };
+        },
+      ),
+    };
     dispatcher = new PlaygroundPipelineDispatcher(
       registry,
       orchestrator,
@@ -390,6 +422,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       fakeElectionTracker as never,
       fakeEventBus as never,
       businessOrch,
+      fakeLifecycleManager as never,
     );
     dispatcher.onModuleInit();
   });

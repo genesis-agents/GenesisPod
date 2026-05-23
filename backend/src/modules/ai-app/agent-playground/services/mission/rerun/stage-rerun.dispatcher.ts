@@ -24,8 +24,14 @@
 
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { KernelContext } from "@/common/context/kernel-context";
-import { MissionStore } from "../lifecycle/mission-store.service";
-import { ReportEvaluationService } from "@/modules/ai-harness/facade";
+import {
+  MissionStore,
+  type PlaygroundTerminalExtra,
+} from "../lifecycle/mission-store.service";
+import {
+  MissionLifecycleManager,
+  ReportEvaluationService,
+} from "@/modules/ai-harness/facade";
 import { normalizeMarkdownSlug } from "@/modules/ai-engine/facade";
 import type { ChapterInput } from "@/modules/ai-harness/facade";
 import type { LocalRerunInput } from "./local-rerun.service";
@@ -83,6 +89,8 @@ export interface StageRerunStubs {
   readonly runtimeBuilder?: RerunMissionRuntimeBuilder;
   readonly bindings?: MissionStageBindingsService;
   readonly session?: RerunRuntimeSession;
+  // ★ C0/G1：s11-rerun 终态写经 finalize 单入口仲裁。
+  readonly lifecycleManager: MissionLifecycleManager;
 }
 
 /**
@@ -126,6 +134,8 @@ export class StageRerunDispatcher {
     // ★ PR-R5b-FULL (2026-05-07): 8 stage real handler 必须的 runtime 装配 + ctx 拼装
     private readonly runtimeBuilder: RerunMissionRuntimeBuilder,
     private readonly bindings: MissionStageBindingsService,
+    // ★ C0/G1：s11-rerun 终态写经 finalize 单入口仲裁。
+    private readonly lifecycleManager: MissionLifecycleManager,
   ) {
     // ── v1.1 C1: 构造期注册（避免 switch 漂移）──
     this.handlers.set("s9b-objective-eval", this.handleS9bObjectiveEval);
@@ -198,6 +208,7 @@ export class StageRerunDispatcher {
         store: this.store,
         reportEvaluation: this.reportEvaluation,
         log: this.log,
+        lifecycleManager: this.lifecycleManager,
       };
       const handler = this.handlers.get("s9b-objective-eval");
       if (!handler) {
@@ -294,6 +305,7 @@ export class StageRerunDispatcher {
       runtimeBuilder: this.runtimeBuilder,
       bindings: this.bindings,
       session,
+      lifecycleManager: this.lifecycleManager,
     };
 
     try {
@@ -733,47 +745,55 @@ export class StageRerunDispatcher {
     //   （where { id, userId, status:'running' } 防 cross-user mission 写穿越）。
     // ★ R2 共识 P1 (architect P1-5, 2026-05-07): 传 wallTimeMs（rerun 自身耗时）—
     //   不传会让 mission 列表的耗时统计被覆盖成 null。
+    // ★ C0/G1：终态写经 finalize 单入口仲裁（条件写 WHERE status='running' 首写赢）。
     const rerunWallTimeMs = Math.max(0, Date.now() - (ctx.t0 ?? Date.now()));
-    await stubs.store.markCompleted(
-      ctx.missionId,
-      {
-        report: reportPayload as unknown as {
-          title?: string;
-          summary?: string;
+    await stubs.lifecycleManager.finalize<PlaygroundTerminalExtra>({
+      missionId: ctx.missionId,
+      intent: {
+        status: "completed",
+        extra: {
+          kind: "completed",
+          detail: {
+            report: reportPayload as unknown as {
+              title?: string;
+              summary?: string;
+            },
+            reportArtifactVersion: 2,
+            finalScore: reportArtifact.quality?.overall ?? 70,
+            elapsedWallTimeMs: rerunWallTimeMs,
+            themeSummary:
+              typeof detail.themeSummary === "string"
+                ? detail.themeSummary
+                : undefined,
+            dimensions: detail.dimensions as never,
+            verdicts: detail.verdicts as never,
+            reconciliationReport: detail.reconciliationReport as never,
+            // ★ S4b/B-部分：userProfile 停写，不再传 detail.userProfile
+            leaderJournal: detail.leaderJournal as never,
+            leaderOverallScore:
+              typeof detail.leaderOverallScore === "number"
+                ? detail.leaderOverallScore
+                : undefined,
+            leaderSigned:
+              typeof detail.leaderSigned === "boolean"
+                ? detail.leaderSigned
+                : undefined,
+            leaderVerdict,
+            // ★ R2 共识 P2 (security follow-up, 2026-05-07): 当前从 detail 回读旧
+            //   tokensUsed/costUsd 是合理保留 —— c195035f 类用例（s11 重跑 chain=1）
+            //   不调 LLM 不增 token，写回上次累计值 = 不重复也不丢。但更上游 cascade
+            //   起点（s2/s4 重跑 chain=10+ 全链跑 LLM）当前 session 的增量 token 没
+            //   单独累加，会让 billing 偏低/偏高。本次不在 scope 内修，独立 PR
+            //   配合各 stage markIntermediateState 全量化时一并改成"session 增量累加"语义。
+            tokensUsed:
+              typeof detail.tokensUsed === "number" ? detail.tokensUsed : 0,
+            costUsd: typeof detail.costUsd === "number" ? detail.costUsd : 0,
+          },
+          userId: ctx.userId,
         },
-        reportArtifactVersion: 2,
-        finalScore: reportArtifact.quality?.overall ?? 70,
-        elapsedWallTimeMs: rerunWallTimeMs,
-        themeSummary:
-          typeof detail.themeSummary === "string"
-            ? detail.themeSummary
-            : undefined,
-        dimensions: detail.dimensions as never,
-        verdicts: detail.verdicts as never,
-        reconciliationReport: detail.reconciliationReport as never,
-        userProfile: detail.userProfile as never,
-        leaderJournal: detail.leaderJournal as never,
-        leaderOverallScore:
-          typeof detail.leaderOverallScore === "number"
-            ? detail.leaderOverallScore
-            : undefined,
-        leaderSigned:
-          typeof detail.leaderSigned === "boolean"
-            ? detail.leaderSigned
-            : undefined,
-        leaderVerdict,
-        // ★ R2 共识 P2 (security follow-up, 2026-05-07): 当前从 detail 回读旧
-        //   tokensUsed/costUsd 是合理保留 —— c195035f 类用例（s11 重跑 chain=1）
-        //   不调 LLM 不增 token，写回上次累计值 = 不重复也不丢。但更上游 cascade
-        //   起点（s2/s4 重跑 chain=10+ 全链跑 LLM）当前 session 的增量 token 没
-        //   单独累加，会让 billing 偏低/偏高。本次不在 scope 内修，独立 PR
-        //   配合各 stage markIntermediateState 全量化时一并改成"session 增量累加"语义。
-        tokensUsed:
-          typeof detail.tokensUsed === "number" ? detail.tokensUsed : 0,
-        costUsd: typeof detail.costUsd === "number" ? detail.costUsd : 0,
       },
-      ctx.userId,
-    );
+      arbiter: stubs.store,
+    });
 
     // ★ PR-R5b 评审 P0-A (2026-05-07): 与 mission 跑期 s11-persist /
     //   handleMissionFailure 一致，rerun 入库后写一条 mission_report_versions 行
@@ -814,7 +834,7 @@ export class StageRerunDispatcher {
     });
 
     stubs.log.log(
-      `[s11-rerun ${ctx.missionId}] markCompleted ok (recovered=${recovered}, sections=${reportArtifact.sections?.length ?? 0})`,
+      `[s11-rerun ${ctx.missionId}] finalize(completed) ok (recovered=${recovered}, sections=${reportArtifact.sections?.length ?? 0})`,
     );
   };
 

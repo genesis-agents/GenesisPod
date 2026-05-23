@@ -2,25 +2,27 @@
  * Stage S11 — Persist (final)
  *
  * Mission 成功路径的终态写库：把 reportArtifact + leaderSignOff + verdicts +
- * userProfile + reconciliationReport 等一次性落到 agent_playground_missions 行，
- * 并按签字结果分流到 markCompleted / markFailed。
+ * reconciliationReport 等一次性落到 agent_playground_missions 行，
+ * 并按签字结果分流到 writeCompleted / writeFailed（经 arbiter 单入口）。
  *
  *   reads  ctx: missionId, t0, pool, runMissionBody 全部 result 字段
  *   writes ctx: (none — 终态)
- *   deps:       store.markCompleted / store.markFailed
+ *   deps:       store.applyTerminalIfRunning（C0/G1 唯一终态写仲裁口）
  *
  * 分流逻辑：
- *   leaderSignOff.signed === false  → markFailed（Lead 拒签 → "quality-failed"）
- *   leaderSignOff.signed === true   → markCompleted + 写 leaderVerdict/Score
- *   未跑到 M7 / 无 signoff       → markFailed（避免无负责人签收的假成功）
- *   chapter content guard 未过      → markFailed（"chapter_content_below_threshold"）
+ *   leaderSignOff.signed === false  → writeFailed（Lead 拒签 → "quality-failed"）
+ *   leaderSignOff.signed === true   → writeCompleted + 写 leaderVerdict/Score
+ *   未跑到 M7 / 无 signoff       → writeFailed（避免无负责人签收的假成功）
+ *   chapter content guard 未过      → writeFailed（"chapter_content_below_threshold"）
  *
- * 注：异常路径（catch handler 里的 markFailed）不在本 stage —— 它需要 errorMessage /
+ * 注：异常路径（catch handler 里的 writeFailed）不在本 stage —— 它需要 errorMessage /
  *     failureCode 等异常元数据，归 runMission 入口的 try/catch 处理。
  */
 
 import type { MissionDeps } from "../mission-deps";
 import { extractSubstantiveSectionText } from "../report-artifact-sections.util";
+import type { MissionTerminalIntent } from "@/modules/ai-harness/facade";
+import type { PlaygroundTerminalExtra } from "../../lifecycle/mission-store.service";
 
 // ★ 假完成防御：chapter content guard 阈值常量
 const MIN_CHAPTER_CHARS = 500; // 单章最小内容长度（字符数）
@@ -94,7 +96,7 @@ async function runPersistInner(
 
   // ★ P1-H (2026-04-29): persist DB 写入失败时，必须发事件让前端知道（否则前端永远 polling running）
   try {
-    // ★ 假完成防御 (2026-04-30): 在 markCompleted/markFailed 之前先校验 chapter content 覆盖率
+    // ★ 假完成防御 (2026-04-30): 在终态写之前先校验 chapter content 覆盖率
     //   reportArtifact.sections + content.fullMarkdown 是章节内容的权威来源；
     //   leader signoff 只看打分不看字数，所以需要在 S11 独立守门。
     if (
@@ -125,62 +127,87 @@ async function runPersistInner(
 
       if (nonEmptySections.length < substantiveSections.length) {
         deps.log.warn(
-          `[s11 ${missionId}] chapter content guard failed: non-empty=${nonEmptySections.length}/${substantiveSections.length} totalChars=${totalChars} → markFailed instead of markCompleted`,
+          `[s11 ${missionId}] chapter content guard failed: non-empty=${nonEmptySections.length}/${substantiveSections.length} totalChars=${totalChars} → writeFailed instead of writeCompleted`,
         );
-        await deps.store.markFailed(missionId, {
-          errorMessage: `chapter_content_incomplete: nonEmpty=${nonEmptySections.length}/${substantiveSections.length} sections >= ${MIN_NON_EMPTY_SECTION_CHARS} chars, totalChars=${totalChars}`,
-          tokensUsed: snap.poolTokensUsed,
-          costUsd: snap.poolCostUsd,
-          elapsedWallTimeMs: Date.now() - t0,
-        });
-        await deps
-          .emit({
-            type: "agent-playground.mission:failed",
-            missionId,
-            userId,
-            payload: {
-              reason: "chapter_content_incomplete",
-              nonEmptySections: nonEmptySections.length,
-              chapters: substantiveSections.length,
-              totalChars,
+        // ★ C0/G1：经 arbiter 单入口写终态（条件写 WHERE status='running' 首写赢）
+        const failIntent: MissionTerminalIntent<PlaygroundTerminalExtra> = {
+          status: "failed",
+          extra: {
+            kind: "failed",
+            detail: {
+              errorMessage: `chapter_content_incomplete: nonEmpty=${nonEmptySections.length}/${substantiveSections.length} sections >= ${MIN_NON_EMPTY_SECTION_CHARS} chars, totalChars=${totalChars}`,
+              tokensUsed: snap.poolTokensUsed,
+              costUsd: snap.poolCostUsd,
+              elapsedWallTimeMs: Date.now() - t0,
             },
-          })
-          // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
-          .catch((emitErr: unknown) => {
-            deps.log.warn(
-              `[s11 ${missionId}] emit mission:failed (chapter_content_incomplete) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
-            );
-          });
+          },
+        };
+        const won = await deps.store.applyTerminalIfRunning(
+          missionId,
+          failIntent,
+        );
+        if (won) {
+          await deps
+            .emit({
+              type: "agent-playground.mission:failed",
+              missionId,
+              userId,
+              payload: {
+                reason: "chapter_content_incomplete",
+                nonEmptySections: nonEmptySections.length,
+                chapters: substantiveSections.length,
+                totalChars,
+              },
+            })
+            // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+            .catch((emitErr: unknown) => {
+              deps.log.warn(
+                `[s11 ${missionId}] emit mission:failed (chapter_content_incomplete) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+              );
+            });
+        }
         return;
       }
 
       if (coverage < MIN_COVERAGE) {
         deps.log.warn(
-          `[s11 ${missionId}] chapter content guard failed: coverage=${(coverage * 100).toFixed(1)}% (${sectionsWithContent.length}/${substantiveSections.length}) totalChars=${totalChars} → markFailed instead of markCompleted`,
+          `[s11 ${missionId}] chapter content guard failed: coverage=${(coverage * 100).toFixed(1)}% (${sectionsWithContent.length}/${substantiveSections.length}) totalChars=${totalChars} → writeFailed instead of writeCompleted`,
         );
-        await deps.store.markFailed(missionId, {
-          errorMessage: `chapter_content_below_threshold: coverage=${(coverage * 100).toFixed(1)}% (${sectionsWithContent.length}/${substantiveSections.length} sections >= ${MIN_CHAPTER_CHARS} chars), totalChars=${totalChars}`,
-          tokensUsed: snap.poolTokensUsed,
-          costUsd: snap.poolCostUsd,
-          elapsedWallTimeMs: Date.now() - t0,
-        });
-        await deps
-          .emit({
-            type: "agent-playground.mission:failed",
-            missionId,
-            userId,
-            payload: {
-              reason: "chapter_content_below_threshold",
-              chapterCoverage: coverage,
-              totalChars,
+        const failIntent: MissionTerminalIntent<PlaygroundTerminalExtra> = {
+          status: "failed",
+          extra: {
+            kind: "failed",
+            detail: {
+              errorMessage: `chapter_content_below_threshold: coverage=${(coverage * 100).toFixed(1)}% (${sectionsWithContent.length}/${substantiveSections.length} sections >= ${MIN_CHAPTER_CHARS} chars), totalChars=${totalChars}`,
+              tokensUsed: snap.poolTokensUsed,
+              costUsd: snap.poolCostUsd,
+              elapsedWallTimeMs: Date.now() - t0,
             },
-          })
-          // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
-          .catch((emitErr: unknown) => {
-            deps.log.warn(
-              `[s11 ${missionId}] emit mission:failed (chapter_content_below_threshold) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
-            );
-          });
+          },
+        };
+        const won = await deps.store.applyTerminalIfRunning(
+          missionId,
+          failIntent,
+        );
+        if (won) {
+          await deps
+            .emit({
+              type: "agent-playground.mission:failed",
+              missionId,
+              userId,
+              payload: {
+                reason: "chapter_content_below_threshold",
+                chapterCoverage: coverage,
+                totalChars,
+              },
+            })
+            // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+            .catch((emitErr: unknown) => {
+              deps.log.warn(
+                `[s11 ${missionId}] emit mission:failed (chapter_content_below_threshold) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+              );
+            });
+        }
         return;
       }
     }
@@ -189,110 +216,146 @@ async function runPersistInner(
       // ★ P0-10 (audit 2026-05-06): leader sign-off 缺失（mission 中途异常没走完）
       //   不该误标为 quality-failed（那是"leader 已拒签"的语义）。删 leaderSigned/
       //   leaderVerdict 字段让 store 走 status='failed' 路径。
-      await deps.store.markFailed(missionId, {
-        errorMessage:
-          "leader_signoff_missing: report reached persist without final Leader signoff",
-        tokensUsed: snap.poolTokensUsed,
-        costUsd: snap.poolCostUsd,
-        elapsedWallTimeMs: Date.now() - t0,
-        trajectoryStored: result.trajectoryStored,
-        themeSummary: result.themeSummary,
-        dimensions: result.dimensions as never,
-        report: reportPayload as unknown as {
-          title?: string;
-          summary?: string;
-        },
-        reportArtifactVersion: result.reportArtifact ? 2 : 1,
-        userProfile: (result.userProfile ?? null) as never,
-        reconciliationReport: (result.reconciliationReport ?? null) as never,
-        verdicts: result.verdicts as never,
-      });
-      await deps
-        .emit({
-          type: "agent-playground.mission:failed",
-          missionId,
-          userId,
-          payload: {
-            reason: "leader_signoff_missing",
+      const failIntent: MissionTerminalIntent<PlaygroundTerminalExtra> = {
+        status: "failed",
+        extra: {
+          kind: "failed",
+          detail: {
+            errorMessage:
+              "leader_signoff_missing: report reached persist without final Leader signoff",
+            tokensUsed: snap.poolTokensUsed,
+            costUsd: snap.poolCostUsd,
             elapsedWallTimeMs: Date.now() - t0,
+            trajectoryStored: result.trajectoryStored,
+            themeSummary: result.themeSummary,
+            dimensions: result.dimensions as never,
+            report: reportPayload as unknown as {
+              title?: string;
+              summary?: string;
+            },
+            reportArtifactVersion: result.reportArtifact ? 2 : 1,
+            // ★ S4b/B-部分：userProfile 停写，不再传 result.userProfile
+            reconciliationReport: (result.reconciliationReport ??
+              null) as never,
+            verdicts: result.verdicts as never,
           },
-        })
-        // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
-        .catch((emitErr: unknown) => {
-          deps.log.warn(
-            `[s11 ${missionId}] emit mission:failed (leader_signoff_missing) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
-          );
-        });
+        },
+      };
+      const won = await deps.store.applyTerminalIfRunning(
+        missionId,
+        failIntent,
+      );
+      if (won) {
+        await deps
+          .emit({
+            type: "agent-playground.mission:failed",
+            missionId,
+            userId,
+            payload: {
+              reason: "leader_signoff_missing",
+              elapsedWallTimeMs: Date.now() - t0,
+            },
+          })
+          // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+          .catch((emitErr: unknown) => {
+            deps.log.warn(
+              `[s11 ${missionId}] emit mission:failed (leader_signoff_missing) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+            );
+          });
+      }
       return;
     }
 
     if (!result.leaderSignOff.signed) {
-      await deps.store.markFailed(missionId, {
-        elapsedWallTimeMs: Date.now() - t0,
-        errorMessage: `Lead 拒绝签字: ${result.leaderSignOff.refusalReason ?? "未达 qualityBar / successCriteria 不全回答"}`,
-        tokensUsed: snap.poolTokensUsed,
-        costUsd: snap.poolCostUsd,
-        trajectoryStored: result.trajectoryStored,
-        themeSummary: result.themeSummary,
-        dimensions: result.dimensions as never,
-        report: reportPayload as unknown as {
-          title?: string;
-          summary?: string;
-        },
-        reportArtifactVersion: result.reportArtifact ? 2 : 1,
-        userProfile: (result.userProfile ?? null) as never,
-        reconciliationReport: (result.reconciliationReport ?? null) as never,
-        verdicts: result.verdicts as never,
-        leaderJournal: undefined,
-        leaderOverallScore: result.leaderSignOff.leaderOverallScore,
-        leaderSigned: false,
-        leaderVerdict: result.leaderSignOff.leaderVerdict,
-      });
-    } else {
-      await deps.store.markCompleted(missionId, {
-        finalScore: result.reviewScore,
-        tokensUsed: snap.poolTokensUsed,
-        costUsd: snap.poolCostUsd,
-        trajectoryStored: result.trajectoryStored,
-        elapsedWallTimeMs: Date.now() - t0,
-        themeSummary: result.themeSummary,
-        dimensions: result.dimensions as never,
-        report: reportPayload as unknown as {
-          title?: string;
-          summary?: string;
-        },
-        reportArtifactVersion: result.reportArtifact ? 2 : 1,
-        userProfile: (result.userProfile ?? null) as never,
-        reconciliationReport: (result.reconciliationReport ?? null) as never,
-        verdicts: result.verdicts as never,
-        leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
-        leaderSigned: result.leaderSignOff?.signed,
-        leaderVerdict: result.leaderSignOff?.leaderVerdict,
-      });
-      // ★ 2026-04-30: 真正的 mission:completed —— 在 markCompleted 写库成功后 emit。
-      //   之前 S8 提前 emit 导致前端"假成功"且 DB 行还是 running。
-      await deps
-        .emit({
-          type: "agent-playground.mission:completed",
-          missionId,
-          userId,
-          payload: {
-            reviewScore: result.reviewScore,
-            costUsd: snap.poolCostUsd,
+      const failIntent: MissionTerminalIntent<PlaygroundTerminalExtra> = {
+        status: "failed",
+        extra: {
+          kind: "failed",
+          detail: {
+            elapsedWallTimeMs: Date.now() - t0,
+            errorMessage: `Lead 拒绝签字: ${result.leaderSignOff.refusalReason ?? "未达 qualityBar / successCriteria 不全回答"}`,
             tokensUsed: snap.poolTokensUsed,
+            costUsd: snap.poolCostUsd,
+            trajectoryStored: result.trajectoryStored,
+            themeSummary: result.themeSummary,
+            dimensions: result.dimensions as never,
+            report: reportPayload as unknown as {
+              title?: string;
+              summary?: string;
+            },
+            reportArtifactVersion: result.reportArtifact ? 2 : 1,
+            // ★ S4b/B-部分：userProfile 停写，不再传 result.userProfile
+            reconciliationReport: (result.reconciliationReport ??
+              null) as never,
+            verdicts: result.verdicts as never,
+            leaderJournal: undefined,
+            leaderOverallScore: result.leaderSignOff.leaderOverallScore,
+            leaderSigned: false,
+            leaderVerdict: result.leaderSignOff.leaderVerdict,
+          },
+        },
+      };
+      // 写终态（条件写首写赢）。Lead 拒签没有广播 —— 与原 markFailed 行为一致。
+      await deps.store.applyTerminalIfRunning(missionId, failIntent);
+    } else {
+      const completedIntent: MissionTerminalIntent<PlaygroundTerminalExtra> = {
+        status: "completed",
+        extra: {
+          kind: "completed",
+          detail: {
+            finalScore: result.reviewScore,
+            tokensUsed: snap.poolTokensUsed,
+            costUsd: snap.poolCostUsd,
             trajectoryStored: result.trajectoryStored,
             elapsedWallTimeMs: Date.now() - t0,
-            verifierVerdicts: result.verdicts,
-            leaderSigned: result.leaderSignOff?.signed,
+            themeSummary: result.themeSummary,
+            dimensions: result.dimensions as never,
+            report: reportPayload as unknown as {
+              title?: string;
+              summary?: string;
+            },
+            reportArtifactVersion: result.reportArtifact ? 2 : 1,
+            // ★ S4b/B-部分：userProfile 停写，不再传 result.userProfile
+            reconciliationReport: (result.reconciliationReport ??
+              null) as never,
+            verdicts: result.verdicts as never,
             leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
+            leaderSigned: result.leaderSignOff?.signed,
+            leaderVerdict: result.leaderSignOff?.leaderVerdict,
           },
-        })
-        // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
-        .catch((emitErr: unknown) => {
-          deps.log.warn(
-            `[s11 ${missionId}] emit mission:completed failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
-          );
-        });
+        },
+      };
+      // ★ C0/G1：唯一终态写入口。赢了才广播（防重复广播）。
+      const won = await deps.store.applyTerminalIfRunning(
+        missionId,
+        completedIntent,
+      );
+      if (won) {
+        // ★ 2026-04-30: 真正的 mission:completed —— 在写库成功后 emit。
+        //   之前 S8 提前 emit 导致前端"假成功"且 DB 行还是 running。
+        await deps
+          .emit({
+            type: "agent-playground.mission:completed",
+            missionId,
+            userId,
+            payload: {
+              reviewScore: result.reviewScore,
+              costUsd: snap.poolCostUsd,
+              tokensUsed: snap.poolTokensUsed,
+              trajectoryStored: result.trajectoryStored,
+              elapsedWallTimeMs: Date.now() - t0,
+              verifierVerdicts: result.verdicts,
+              leaderSigned: result.leaderSignOff?.signed,
+              leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
+            },
+          })
+          // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+          .catch((emitErr: unknown) => {
+            deps.log.warn(
+              `[s11 ${missionId}] emit mission:completed failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+            );
+          });
+      }
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

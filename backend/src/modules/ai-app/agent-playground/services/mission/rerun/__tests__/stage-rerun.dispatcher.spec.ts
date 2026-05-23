@@ -25,6 +25,7 @@ import type { HydratedMissionContext } from "../ctx-hydrator.service";
 import type { EmitFn } from "../../workflow/mission-deps";
 import type { MissionStore } from "../../lifecycle/mission-store.service";
 import type { ReportEvaluationService } from "@/modules/ai-harness/facade";
+import type { MissionLifecycleManager } from "@/modules/ai-harness/facade";
 import type { ReportArtifact } from "@/modules/ai-harness/facade";
 import type { PrismaService } from "../../../../../../../common/prisma/prisma.service";
 import type { RerunMissionRuntimeBuilder } from "../rerun-runtime-builder.service";
@@ -42,6 +43,8 @@ interface MockStore {
   markIntermediateState: jest.Mock;
   resetFields: jest.Mock;
   markCompleted: jest.Mock;
+  // ★ C0/G1：终态写经 finalize → arbiter.applyTerminalIfRunning（首写赢）。
+  applyTerminalIfRunning: jest.Mock;
   getById: jest.Mock;
   saveReportVersion: jest.Mock;
 }
@@ -52,6 +55,7 @@ function makeMockStore(): MockStore {
     markIntermediateState: jest.fn().mockResolvedValue(undefined),
     resetFields: jest.fn().mockResolvedValue(undefined),
     markCompleted: jest.fn().mockResolvedValue(undefined),
+    applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
     // ★ PR-R5b 评审 P0-A (2026-05-07): 报告版本化写入 mock
     saveReportVersion: jest.fn().mockResolvedValue(1),
     getById: jest.fn().mockResolvedValue({
@@ -216,11 +220,62 @@ function makeMockBindings(): { buildDeps: jest.Mock; buildCtx: jest.Mock } {
   };
 }
 
+interface MockLifecycleManager {
+  finalize: jest.Mock;
+}
+
+/**
+ * ★ C0/G1：finalize 唯一终态写入口 mock。复刻真实语义——调 arbiter.applyTerminalIfRunning
+ * 做条件写仲裁，赢了跑 onWon（吞异常）。
+ */
+function makeMockLifecycleManager(): MockLifecycleManager {
+  return {
+    finalize: jest.fn(
+      async (a: {
+        missionId: string;
+        intent: unknown;
+        arbiter: {
+          applyTerminalIfRunning: (
+            id: string,
+            intent: unknown,
+          ) => Promise<boolean>;
+        };
+        onWon?: () => Promise<void>;
+      }) => {
+        const won = await a.arbiter.applyTerminalIfRunning(
+          a.missionId,
+          a.intent,
+        );
+        if (won && a.onWon) {
+          try {
+            await a.onWon();
+          } catch {
+            // swallow（与真实 finalize 一致）
+          }
+        }
+        return { won };
+      },
+    ),
+  };
+}
+
+/** 取本次 finalize 提交的 completed/failed detail（替代旧 store.markCompleted.calls[0][1]）。 */
+function finalizeDetail(
+  lm: MockLifecycleManager,
+  call = 0,
+): Record<string, unknown> {
+  const arg = lm.finalize.mock.calls[call][0] as {
+    intent: { extra: { detail: Record<string, unknown> } };
+  };
+  return arg.intent.extra.detail;
+}
+
 function makeDispatcher(
   args: {
     store?: MockStore;
     reportEval?: MockReportEval;
     prisma?: MockPrisma;
+    lifecycleManager?: MockLifecycleManager;
   } = {},
 ) {
   const store = args.store ?? makeMockStore();
@@ -228,14 +283,24 @@ function makeDispatcher(
   const prisma = args.prisma ?? makeMockPrisma();
   const runtimeBuilder = makeMockRuntimeBuilder();
   const bindings = makeMockBindings();
+  const lifecycleManager = args.lifecycleManager ?? makeMockLifecycleManager();
   const dispatcher = new StageRerunDispatcher(
     store as unknown as MissionStore,
     reportEval as unknown as ReportEvaluationService,
     prisma as unknown as PrismaService,
     runtimeBuilder as unknown as RerunMissionRuntimeBuilder,
     bindings as unknown as MissionStageBindingsService,
+    lifecycleManager as unknown as MissionLifecycleManager,
   );
-  return { dispatcher, store, reportEval, prisma, runtimeBuilder, bindings };
+  return {
+    dispatcher,
+    store,
+    reportEval,
+    prisma,
+    runtimeBuilder,
+    bindings,
+    lifecycleManager,
+  };
 }
 
 const noopEmit: EmitFn = jest.fn().mockResolvedValue(undefined) as EmitFn;
@@ -500,7 +565,7 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
   // ★ PR-R5b 切片 (2026-05-07): s11-persist 真 handler 反向证据
   describe("s11-persist 真 handler (PR-R5b 切片)", () => {
     it("ctx.reportArtifact 存在 → 直接 markCompleted（不 fallback 到 chapter_drafts）", async () => {
-      const { dispatcher, store, prisma } = makeDispatcher();
+      const { dispatcher, prisma, store, lifecycleManager } = makeDispatcher();
       const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
       // s11-persist cascade chain = [s11-persist] 仅 1 步
       const result = await dispatcher.runFromStageWithCascade({
@@ -510,18 +575,27 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
       });
       expect(result.completed).toEqual(["s11-persist"]);
       expect(result.abortedAt).toBeUndefined();
-      // ★ PR-R5b 评审 P0-B (2026-05-07): markCompleted 第三参 userId 走严格隔离
-      // ★ R2 共识 P1 (architect P1-5): wallTimeMs 必传（rerun 自身耗时）
-      expect(store.markCompleted).toHaveBeenCalledWith(
-        "m-1",
+      // ★ C0/G1：终态写经 finalize 单入口（arbiter=store）；intent.extra.userId 走严格隔离，
+      //   detail 携 wallTimeMs（rerun 自身耗时）。
+      expect(lifecycleManager.finalize).toHaveBeenCalledWith(
         expect.objectContaining({
-          reportArtifactVersion: 2,
-          elapsedWallTimeMs: expect.any(Number),
-          report: expect.objectContaining({
-            title: expect.any(String),
+          missionId: "m-1",
+          arbiter: store,
+          intent: expect.objectContaining({
+            status: "completed",
+            extra: expect.objectContaining({
+              kind: "completed",
+              userId: "u-1",
+              detail: expect.objectContaining({
+                reportArtifactVersion: 2,
+                elapsedWallTimeMs: expect.any(Number),
+                report: expect.objectContaining({
+                  title: expect.any(String),
+                }),
+              }),
+            }),
           }),
         }),
-        "u-1",
       );
       // ctx.reportArtifact 已有 → 不读 chapter_drafts
       expect(
@@ -571,7 +645,13 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
           updatedAt: new Date(),
         },
       ]);
-      const { dispatcher, store } = makeDispatcher({ prisma });
+      const {
+        dispatcher,
+        prisma: p2,
+        lifecycleManager,
+      } = makeDispatcher({
+        prisma,
+      });
       const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
       const result = await dispatcher.runFromStageWithCascade({
         ctx: makeCtx({ reportArtifact: undefined }),
@@ -579,9 +659,9 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
         emit,
       });
       expect(result.completed).toEqual(["s11-persist"]);
-      expect(prisma.agentPlaygroundChapterDraft.findMany).toHaveBeenCalled();
-      expect(store.markCompleted).toHaveBeenCalled();
-      const markArg = store.markCompleted.mock.calls[0][1];
+      expect(p2.agentPlaygroundChapterDraft.findMany).toHaveBeenCalled();
+      expect(lifecycleManager.finalize).toHaveBeenCalled();
+      const markArg = finalizeDetail(lifecycleManager);
       // 重建产物：finalScore=65（降级标记）
       expect(markArg.finalScore).toBe(65);
       const completedEmit = (emit as jest.Mock).mock.calls.find(
@@ -607,7 +687,7 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
     });
 
     it("leader 没真签时 → leaderVerdict=auto-rerun-recovered（前端可识别）", async () => {
-      const { dispatcher, store } = makeDispatcher();
+      const { dispatcher, lifecycleManager } = makeDispatcher();
       // store.getById mock 默认 leaderVerdict=null
       const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
       await dispatcher.runFromStageWithCascade({
@@ -615,7 +695,7 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
         fromStepId: "s11-persist",
         emit,
       });
-      const markArg = store.markCompleted.mock.calls[0][1];
+      const markArg = finalizeDetail(lifecycleManager);
       expect(markArg.leaderVerdict).toBe("auto-rerun-recovered");
     });
 
@@ -631,14 +711,14 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
         tokensUsed: 1000,
         costUsd: 0.5,
       });
-      const { dispatcher } = makeDispatcher({ store });
+      const { dispatcher, lifecycleManager } = makeDispatcher({ store });
       const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
       await dispatcher.runFromStageWithCascade({
         ctx: makeCtx(),
         fromStepId: "s11-persist",
         emit,
       });
-      const markArg = store.markCompleted.mock.calls[0][1];
+      const markArg = finalizeDetail(lifecycleManager);
       expect(markArg.leaderVerdict).toBe("good");
       expect(markArg.leaderSigned).toBe(true);
       expect(markArg.leaderOverallScore).toBe(85);
@@ -678,7 +758,7 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
     it("saveReportVersion 抛错 → markCompleted 仍成功（fire-and-forget catch）", async () => {
       const store = makeMockStore();
       store.saveReportVersion.mockRejectedValue(new Error("DB transient"));
-      const { dispatcher } = makeDispatcher({ store });
+      const { dispatcher, lifecycleManager } = makeDispatcher({ store });
       const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
       const result = await dispatcher.runFromStageWithCascade({
         ctx: makeCtx(),
@@ -687,7 +767,7 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
       });
       expect(result.completed).toEqual(["s11-persist"]);
       expect(result.abortedAt).toBeUndefined();
-      expect(store.markCompleted).toHaveBeenCalled();
+      expect(lifecycleManager.finalize).toHaveBeenCalled();
     });
 
     // ★ PR-R5b 评审 P0-C (2026-05-07): rebuildArtifactFromDrafts 包含 'failed-finalized'
@@ -719,7 +799,7 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
           ];
         },
       );
-      const { dispatcher, store } = makeDispatcher({ prisma });
+      const { dispatcher, lifecycleManager } = makeDispatcher({ prisma });
       const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
       const result = await dispatcher.runFromStageWithCascade({
         ctx: makeCtx({ reportArtifact: undefined }),
@@ -727,7 +807,7 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
         emit,
       });
       expect(result.completed).toEqual(["s11-persist"]);
-      expect(store.markCompleted).toHaveBeenCalled();
+      expect(lifecycleManager.finalize).toHaveBeenCalled();
       // findMany 第一参 where.status.in 必须含 'failed-finalized'
       const findCall = prisma.agentPlaygroundChapterDraft.findMany.mock
         .calls[0][0] as { where: { status: { in: string[] } } };
@@ -739,14 +819,14 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
     // ★ PR-R5b 评审 P1 (2026-05-07): 常量 export 反向证据
     it("LEADER_VERDICT_AUTO_RERUN_RECOVERED 常量与 dispatcher 写入值一致（防漂移）", async () => {
       expect(LEADER_VERDICT_AUTO_RERUN_RECOVERED).toBe("auto-rerun-recovered");
-      const { dispatcher, store } = makeDispatcher();
+      const { dispatcher, lifecycleManager } = makeDispatcher();
       const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
       await dispatcher.runFromStageWithCascade({
         ctx: makeCtx(),
         fromStepId: "s11-persist",
         emit,
       });
-      const markArg = store.markCompleted.mock.calls[0][1];
+      const markArg = finalizeDetail(lifecycleManager);
       expect(markArg.leaderVerdict).toBe(LEADER_VERDICT_AUTO_RERUN_RECOVERED);
     });
 
@@ -781,16 +861,19 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
           wordCount: 500,
         },
       ]);
-      const { dispatcher, store } = makeDispatcher({ prisma });
+      const { dispatcher, lifecycleManager } = makeDispatcher({ prisma });
       const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
       await dispatcher.runFromStageWithCascade({
         ctx: makeCtx({ reportArtifact: undefined }),
         fromStepId: "s11-persist",
         emit,
       });
-      // markCompleted 收到的 report payload 含 recovery flags
-      const markArg = store.markCompleted.mock.calls[0][1];
-      const report = markArg.report;
+      // finalize intent 携带的 report payload 含 recovery flags
+      const markArg = finalizeDetail(lifecycleManager);
+      const report = markArg.report as {
+        quality: { recoveryDegraded: boolean };
+        metadata: { recoveryMode: string };
+      };
       expect(report.quality.recoveryDegraded).toBe(true);
       expect(report.metadata.recoveryMode).toBe("chapter_drafts_rebuild");
     });
