@@ -194,6 +194,29 @@ export class SpecBasedAgent<
         userId: effectiveUserId,
         operationName: this.id,
         stubFn: this.spec.stubFn ? () => this.spec.stubFn!(ctx) : undefined,
+        // ── Model-level failover provider ─────────────────────────────────
+        // Supply re-election callback so LlmExecutor can switch to a
+        // different model on provider-level errors (5xx / model-not-found /
+        // timeout / AllKeysFailed).  Only wired when electionProvider is
+        // available (i.e. this agent was created by AgentFactory with a
+        // full election setup).  BYOK path (userId present) returns {} from
+        // electModelOrNull and would also return {} here — the
+        // modelFailoverProvider closure safely returns null in that case.
+        modelFailoverProvider: this.electionProvider
+          ? async (excludeModelIds) => {
+              try {
+                const res = await this.electModelOrNull(
+                  taskProfile,
+                  effectiveUserId,
+                  effectiveEnv,
+                  excludeModelIds,
+                );
+                return res.modelId ?? null;
+              } catch {
+                return null;
+              }
+            }
+          : undefined,
       });
       if (election.reservation) {
         await this.electionTrackerProvider?.()?.commitReservation(
@@ -287,11 +310,15 @@ export class SpecBasedAgent<
    * 执行环境感知选举。失败时返回 undefined（让下游 LlmExecutor 走 AiChatService
    * 的旧兜底链路，保持向后兼容）。抛 NoEligibleModelError 时 upstream 要看到
    * 清晰报错，所以这里直接 throw，让 executeSpec 的 catch 接住。
+   *
+   * @param excludeModelIds  Models to exclude from election (used for model-level
+   *   failover: models that have already produced a provider error in this execution).
    */
   private async electModelOrNull(
     taskProfile: IAgentSpec<TInput, TOutput>["taskProfile"],
     userId: string | undefined,
     env: EnvironmentSnapshot | undefined,
+    excludeModelIds?: ReadonlyArray<string>,
   ): Promise<ElectedModelSelection> {
     // Lazy resolve — 此时 OnApplicationBootstrap 已跑过，factory.electionService 已 wire
     const electionService = this.electionProvider?.();
@@ -329,6 +356,8 @@ export class SpecBasedAgent<
           role,
           userId,
           previouslyElected,
+          // Pass model-failover exclusions so re-election skips already-failed models.
+          excludeModelIds: excludeModelIds ? [...excludeModelIds] : [],
         });
         return {
           result: res,
