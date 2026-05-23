@@ -2,7 +2,7 @@
  * Sediment Zone Surface Contract Tests (Rev 5 / S0-5,2026-05-09)
  *
  * 目的:在 Stage 1 / Stage 2 重构动 dispatcher / mission-store / framework 之前,
- *       锁定 6 个 sediment zone(详见 docs/architecture/ai-harness/sediment-topology.md)
+ *       锁定 6 个 sediment zone(详见 docs/architecture/ai-harness/facade/sediment-topology.md)
  *       canonical 表面的方法签名 + 关键 property,任何 breaking change 编译失败。
  *
  * R7(test isolation)合规:
@@ -17,7 +17,7 @@
  *
  * 详见:
  *   - docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md §7 S0-5 / §8 acceptance
- *   - docs/architecture/ai-harness/sediment-topology.md
+ *   - docs/architecture/ai-harness/facade/sediment-topology.md
  */
 
 import {

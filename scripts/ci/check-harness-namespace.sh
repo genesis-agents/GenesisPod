@@ -29,7 +29,7 @@
 #
 # 详见:
 #   - docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md §6.4 / §6.5 / §7 S0-6
-#   - docs/architecture/ai-harness/sediment-topology.md §4
+#   - docs/architecture/ai-harness/facade/sediment-topology.md §4
 
 set -uo pipefail
 

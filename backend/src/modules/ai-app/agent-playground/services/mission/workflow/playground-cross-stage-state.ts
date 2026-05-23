@@ -17,7 +17,7 @@
  * 详见:
  *   - docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md
  *     §7 S1-2 + §2.5 T3
- *   - docs/architecture/ai-harness/sediment-topology.md §5 T3
+ *   - docs/architecture/ai-harness/facade/sediment-topology.md §5 T3
  */
 
 import { CrossStageState } from "@/modules/ai-harness/facade";

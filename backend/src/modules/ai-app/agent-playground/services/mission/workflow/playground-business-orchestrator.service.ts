@@ -19,7 +19,7 @@
  *
  * 详见:
  *   - docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md §7 S1-1
- *   - docs/architecture/ai-harness/sediment-topology.md §4
+ *   - docs/architecture/ai-harness/facade/sediment-topology.md §4
  */
 
 import { Injectable, Logger } from "@nestjs/common";

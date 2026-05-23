@@ -38,7 +38,7 @@
  * S2-7 计划在 Stage 2 阶段用类型层 `IMissionStore<TBusiness> & IBusinessTeamMissionStore`
  * intersection 固化"同一 store 的两个视角"(非 Pick<> 子集 — 两接口 method 名互补不重叠)。
  *
- * 详见 `docs/architecture/ai-harness/sediment-topology.md` §5 T1 与对应业务边界审计记录。 @migrated-from
+ * 详见 `docs/architecture/ai-harness/facade/sediment-topology.md` §5 T1 与对应业务边界审计记录。 @migrated-from
  */
 
 /**

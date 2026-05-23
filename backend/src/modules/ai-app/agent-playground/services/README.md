@@ -93,7 +93,7 @@ Harness（执行底座）         ← ai-harness sediment topology
    ├─ Z4 MissionPipelineOrchestrator（stage 编排）
    ├─ Z1 lifecycle primitives（store / abort / liveness / ownership）
    ├─ Z2 checkpoint store / Z5 stage primitives
-   └─ 业务无关，benchmark consumer 同时 import 5 个 zone（详见 docs/architecture/ai-harness/sediment-topology.md）
+   └─ 业务无关，benchmark consumer 同时 import 5 个 zone（详见 docs/architecture/ai-harness/facade/sediment-topology.md）
 ```
 
 ## Stage 命名规则
