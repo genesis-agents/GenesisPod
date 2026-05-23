@@ -23,6 +23,7 @@ import * as path from "path";
 import {
   DomainEventRegistry,
   MissionFailureCode,
+  MissionLifecycleManager,
   MissionLivenessGuard,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -198,6 +199,8 @@ export class RadarModule implements OnModuleInit {
     private readonly skillLoader: SkillLoaderService,
     private readonly livenessGuard: MissionLivenessGuard,
     private readonly missionStore: RadarMissionStore,
+    // ★ C0/G1：liveness 回收也经唯一终态写入口仲裁，不直写 store。
+    private readonly lifecycleManager: MissionLifecycleManager,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -235,14 +238,22 @@ export class RadarModule implements OnModuleInit {
       },
       getMostRecentEventTs: async () => new Map<string, number>(),
       markFailed: async (missionId, reason, errorMessage) => {
-        // ★ C2/MAJOR-4:liveness 回收落 canonical failureCode(超时→wall_time;失联/孤儿→runtime_crashed)。
-        await this.missionStore.markFailed(
+        // ★ C0/C2/MAJOR-4:liveness 回收经 finalize 仲裁(条件写首写赢,不覆盖已终态),
+        //   落 canonical failureCode(超时→wall_time;失联/孤儿→runtime_crashed)。
+        const error = `[liveness:${reason}] ${errorMessage}`;
+        await this.lifecycleManager.finalize({
           missionId,
-          `[liveness:${reason}] ${errorMessage}`,
-          reason === "wall-time-exceeded"
-            ? MissionFailureCode.wall_time_exceeded
-            : MissionFailureCode.runtime_crashed,
-        );
+          intent: {
+            status: "failed",
+            failureCode:
+              reason === "wall-time-exceeded"
+                ? MissionFailureCode.wall_time_exceeded
+                : MissionFailureCode.runtime_crashed,
+            errorMessage: error,
+            extra: { kind: "failed", error },
+          },
+          arbiter: this.missionStore,
+        });
         this.log.warn(
           `[liveness] radar mission ${missionId} reclaimed (${reason})`,
         );
