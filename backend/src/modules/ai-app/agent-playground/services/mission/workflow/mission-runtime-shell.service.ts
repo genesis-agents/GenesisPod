@@ -21,6 +21,7 @@ import {
 } from "../../../dto/run-mission.dto";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { AgentInvoker } from "../../roles";
+import { PlaygroundMissionInputRebuilder } from "../rerun/playground-mission-input-rebuilder.service";
 
 export type { MissionRuntimeSession };
 
@@ -30,6 +31,7 @@ export class MissionRuntimeShellService {
     private readonly framework: MissionRuntimeShellFramework,
     private readonly invoker: AgentInvoker,
     private readonly store: MissionStore,
+    private readonly rebuilder: PlaygroundMissionInputRebuilder,
   ) {}
 
   async openSession(args: {
@@ -63,6 +65,7 @@ export class MissionRuntimeShellService {
   private buildAdapter(): IMissionRuntimeAdapter<RunMissionInput> {
     const store = this.store;
     const invoker = this.invoker;
+    const rebuilder = this.rebuilder;
     return {
       eventNamespace: "agent-playground",
       billingModuleType: "agent-playground",
@@ -105,6 +108,9 @@ export class MissionRuntimeShellService {
             knowledgeBaseIds: input.knowledgeBaseIds,
             inheritFromMissionId: input.inheritFromMissionId,
           } as Record<string, unknown>,
+          // ★ C5/G7：冻结 typed config snapshot(单一真源,rerun/hydrate 将只读它)。
+          //   与 userProfile 并写属"expand 阶段"(读路径未切,无双读);S3 切读后 S4 删 userProfile。
+          configSnapshot: rebuilder.buildForFreshRun(input),
         });
       },
       refreshHeartbeat: async (missionId, podId) => {

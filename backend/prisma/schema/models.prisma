@@ -9828,7 +9828,11 @@ model AgentPlaygroundMission {
   verdicts                 Json? // [{verifierId, score, critique, attempt}]
   /// ★ 用户档位（mission-pipeline-user-profiles.md §11 / D20）
   /// merged after defaults applied + auto-rules applied
+  /// ⚠️ C5/G7 迁移中:userProfile 是旧的事实 config 源,正被 configSnapshot 取代(S3 切读后删)。
   userProfile              Json?   @map("user_profile")
+  /// ★ C5/G7：typed MissionConfigSnapshot(schema/lineage/版本 + budget/runtimeLimits/businessInput)。
+  /// openSession 冻结写入,rerun/hydrate 只读它(单一真源)。历史行 NULL=legacy 不可 rerun(数据可弃)。
+  configSnapshot           Json?   @map("config_snapshot")
   /// ★ Reconciler [3.5] 节点产物（factTable / conflicts / overlaps / gaps / figureCandidates）
   reconciliationReport     Json?   @map("reconciliation_report") @db.JsonB
   reconciliationReportUri  String? @map("reconciliation_report_uri")
