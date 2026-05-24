@@ -66,8 +66,8 @@ import { AgentPlaygroundModule } from "./modules/ai-app/agent-playground/module/
 import { RadarModule } from "./modules/ai-app/radar/radar.module";
 import { NotificationsBridgeModule } from "./modules/ai-app/notifications-bridge/notifications-bridge.module";
 import { CustomAgentsModule } from "./modules/ai-app/custom-agents/custom-agents.module";
-import { AiSocialModule } from "./modules/ai-app/social/ai-social.module";
-import { SocialEngineBridgeModule } from "./modules/ai-app/social/engine-bridge/social-engine-bridge.module";
+import { AiSocialModule } from "./modules/ai-app/social/module/ai-social.module";
+import { SocialEngineBridgeModule } from "./modules/ai-app/social/runtime/social-engine-bridge.module";
 // Explore modules (content discovery)
 import { ExploreModule } from "./modules/ai-app/explore/explore.module";
 import { ResourcesModule } from "./modules/ai-app/explore/resources/resources.module";

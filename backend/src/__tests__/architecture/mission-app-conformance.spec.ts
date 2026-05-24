@@ -23,7 +23,7 @@ const APP_ROOT = join(__dirname, "../../modules/ai-app");
 const MISSION_APP_MODULES = [
   "agent-playground/module/agent-playground.module.ts",
   "radar/radar.module.ts",
-  "social/ai-social.module.ts",
+  "social/module/ai-social.module.ts",
 ];
 
 describe("Mission app conformance — C8/L5a 静态", () => {
@@ -51,7 +51,7 @@ describe("Mission app conformance — C8/L5a 静态", () => {
       /buildRadarConfigSnapshot|configSnapshot/,
     ],
     [
-      "social/services/mission/workflow/social-runtime-shell.service.ts",
+      "social/mission/pipeline/social-runtime-shell.service.ts",
       /buildSocialConfigSnapshot|configSnapshot/,
     ],
   ];
