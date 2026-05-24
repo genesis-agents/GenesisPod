@@ -546,6 +546,66 @@ export type {
 //   YAGNI: 真 BusinessAgentTeamFactory 类等 2nd consumer (research / writing / TI 反向迁移)
 //   出现时再抽。当前阶段 NestJS DI 完成装配，业务模块只需实现本规约的 4 个字段。
 export type { BusinessAgentTeamSpec } from "../teams/business-team/abstractions/business-team-spec.interface";
+// ★ 2026-05-24 P6 Wave 1: BusinessAgentTeam lifecycle framework 7 件套
+//   抽自 ai-app/agent-playground/services/mission/lifecycle/ @migrated-from
+//   (mission-store / lifecycle-transitions / update-helper / postmortem-helper /
+//    event-buffer / checkpoint-store / event-categories / report-helper)
+//   未来 social/radar 接入 mission-pipeline 时直接继承 framework + 注入业务 hook。
+export { BusinessTeamCheckpointStoreFramework } from "../teams/business-team/lifecycle/business-team-checkpoint-store.framework";
+export {
+  DEFAULT_CHECKPOINT_KEY,
+  DEFAULT_DEGRADED_THRESHOLD,
+  type CheckpointStoreHooks,
+  type PersistedCheckpoint,
+} from "../teams/business-team/lifecycle/abstractions/checkpoint-store.contract";
+export { BusinessTeamEventBufferFramework } from "../teams/business-team/lifecycle/business-team-event-buffer.framework";
+export {
+  DEFAULT_MAX_PER_MISSION,
+  DEFAULT_TTL_MS,
+  DEFAULT_GC_INTERVAL_MS,
+  type BufferedEvent,
+  type EventBufferHooks,
+} from "../teams/business-team/lifecycle/abstractions/event-buffer.contract";
+export { BusinessTeamLifecycleTransitionsFramework } from "../teams/business-team/lifecycle/business-team-lifecycle-transitions.framework";
+export {
+  DEFAULT_REOPENABLE_STATUSES,
+  REPORT_HARD_LIMIT_BYTES,
+  REPORT_SOFT_LIMIT_BYTES,
+  ERROR_MESSAGE_MAX,
+  type LifecycleTransitionHooks,
+  type UpdateData,
+} from "../teams/business-team/lifecycle/abstractions/lifecycle-state-transitions.contract";
+export { BusinessTeamMissionStoreFramework } from "../teams/business-team/lifecycle/business-team-mission-store.framework";
+export type {
+  MissionCreateBaseInput,
+  MissionHeartbeatRow,
+  MissionStoreHooks,
+} from "../teams/business-team/lifecycle/abstractions/mission-store.contract";
+export { BusinessTeamUpdateHelperFramework } from "../teams/business-team/lifecycle/business-team-update-helper.framework";
+export type {
+  FieldNameMap,
+  UpdateHelperHooks,
+  UpdateInputData,
+} from "../teams/business-team/lifecycle/abstractions/update-helper.contract";
+export { BusinessTeamPostmortemHelperFramework } from "../teams/business-team/lifecycle/business-team-postmortem-helper.framework";
+export type {
+  PostmortemHelperHooks,
+  PostmortemListBase,
+  PostmortemRecordBase,
+  PostmortemEmbeddingPort,
+} from "../teams/business-team/lifecycle/abstractions/postmortem-helper.contract";
+export { BusinessTeamReportHelperFramework } from "../teams/business-team/lifecycle/business-team-report-helper.framework";
+export type {
+  ReportHelperHooks,
+  ReportVersionListItem,
+} from "../teams/business-team/lifecycle/abstractions/report-helper.contract";
+export {
+  categorizeEvent as categorizeBusinessEvent,
+  isBusinessEventType as isBusinessTeamEventType,
+  isLifecycleEventType as isLifecycleTeamEventType,
+  type EventCategory,
+  type EventCategoryRules,
+} from "../teams/business-team/lifecycle/business-team-event-categories";
 // ★ 2026-05-24 P4: BusinessAgentTeam Tier 1 剩余能力下沉（dispatcher / span / state / bindings / dag-concurrency）
 //   span 框架（OTel root/stage/agent 三级嵌套）—— @migrated-from playground-mission-span.service
 export {

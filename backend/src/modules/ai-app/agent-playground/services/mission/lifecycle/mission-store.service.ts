@@ -19,9 +19,11 @@ import type { ContentVisibility, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "@/modules/ai-engine/facade";
 import {
+  BusinessTeamMissionStoreFramework,
   MissionAbortRegistry,
   MissionAbortReason,
   outcomeFromStatus,
+  type MissionStoreHooks,
   type MissionTerminalOutcome,
   type MissionTerminalArbiter,
   type MissionTerminalIntent,
@@ -130,11 +132,25 @@ export type PlaygroundTerminalExtra =
     }
   | { readonly kind: "cancelled"; readonly userId?: string };
 
+/** Mission create input shape（playground 业务字段）。 */
+interface PlaygroundMissionCreateInput {
+  readonly id: string;
+  readonly userId: string;
+  readonly workspaceId?: string;
+  readonly topic: string;
+  readonly depth: string;
+  readonly language: string;
+  readonly maxCredits: number;
+  readonly userProfile?: Record<string, unknown>;
+  readonly configSnapshot?: PlaygroundConfigSnapshot;
+}
+
 @Injectable()
-export class MissionStore implements MissionTerminalArbiter<PlaygroundTerminalExtra> {
-  private readonly log = new Logger(MissionStore.name);
-  /** Per-instance set: prevent duplicate emergency-abort signals for the same mission. */
-  private readonly emergencyAborted = new Set<string>();
+export class MissionStore
+  extends BusinessTeamMissionStoreFramework<PlaygroundMissionCreateInput>
+  implements MissionTerminalArbiter<PlaygroundTerminalExtra>
+{
+  private readonly storeLog = new Logger(MissionStore.name);
 
   private readonly lifecycle: MissionLifecycleHelper;
   private readonly update: MissionUpdateHelper;
@@ -144,41 +160,98 @@ export class MissionStore implements MissionTerminalArbiter<PlaygroundTerminalEx
   constructor(
     private readonly prisma: PrismaService,
     @Optional() embeddingService?: EmbeddingService,
-    @Optional() private readonly abortRegistry?: MissionAbortRegistry,
+    @Optional() abortRegistry?: MissionAbortRegistry,
   ) {
+    // Forward references — defined methods on class instance; safe at hook-call time.
+    const isMissionRowMissing = (err: unknown): boolean => {
+      if (!err || typeof err !== "object") return false;
+      const code = (err as { code?: string }).code;
+      return code === "P2003" || code === "P2025";
+    };
+    const emergencyAbort = (missionId: string): void => {
+      abortRegistry?.abort(missionId, MissionAbortReason.mission_row_missing);
+    };
+    const hooks: MissionStoreHooks<PlaygroundMissionCreateInput> = {
+      loggerNamespace: MissionStore.name,
+      isMissionRowMissing,
+      emergencyAbort,
+      createMission: async (input) => {
+        await prisma.agentPlaygroundMission.create({
+          data: {
+            id: input.id,
+            userId: input.userId,
+            workspaceId: input.workspaceId,
+            topic: input.topic.slice(0, 500),
+            depth: input.depth,
+            language: input.language,
+            maxCredits: input.maxCredits,
+            status: "running",
+            // ★ S4b:不再写 userProfile(configSnapshot 单一真源;读时投影回 userProfile shape)。
+            configSnapshot: input.configSnapshot as
+              | Prisma.InputJsonValue
+              | undefined,
+          },
+        });
+      },
+      writeHeartbeat: async (missionId, podId) => {
+        await prisma.agentPlaygroundMission.update({
+          where: { id: missionId },
+          data: { heartbeatAt: new Date(), podId },
+        });
+      },
+      resetHeartbeat: async (missionId, userId) => {
+        await prisma.agentPlaygroundMission.updateMany({
+          where: { id: missionId, userId },
+          data: { heartbeatAt: null },
+        });
+      },
+      findOrphanRunning: async (cutoff, limit) => {
+        const orphans = await prisma.agentPlaygroundMission.findMany({
+          where: { status: "running", heartbeatAt: { lt: cutoff } },
+          select: { id: true, userId: true },
+          take: limit,
+        });
+        return orphans;
+      },
+      markOrphanFailed: async (missionIds) => {
+        await prisma.agentPlaygroundMission.updateMany({
+          where: { id: { in: [...missionIds] }, status: "running" },
+          data: {
+            status: "failed",
+            completedAt: new Date(),
+            // ★ C2/MINOR-1:启动清理孤儿 running 行 = 进程崩溃,落 canonical runtime_crashed。
+            failureCode: "runtime_crashed",
+            errorMessage:
+              "Mission 在执行中遇到后端重启或异常退出（dispatcher 内存丢失）。" +
+              "已自动标记为失败，建议使用顶部「重新运行」按钮重启相同主题。",
+          },
+        });
+      },
+      writeStageProgress: async (missionId, stageNumber) => {
+        await prisma.agentPlaygroundMission.updateMany({
+          where: { id: missionId, status: "running" },
+          data: { lastCompletedStage: stageNumber, heartbeatAt: new Date() },
+        });
+      },
+      countRunning: async (userId) =>
+        prisma.agentPlaygroundMission.count({
+          where: { userId, status: "running" },
+        }),
+    };
+    super(hooks);
+
     this.lifecycle = new MissionLifecycleHelper(
       prisma,
-      this.isMissionRowMissing.bind(this),
-      this.emergencyAbortOnMissingRow.bind(this),
+      isMissionRowMissing,
+      (missionId, reason) => this.triggerEmergencyAbort(missionId, reason),
       this.clearCheckpointJsonbKey.bind(this),
     );
     this.update = new MissionUpdateHelper(prisma);
     this.postmortem = new MissionPostmortemHelper(prisma, embeddingService);
     this.report = new MissionReportHelper(
       prisma,
-      this.isMissionRowMissing.bind(this),
-      this.emergencyAbortOnMissingRow.bind(this),
-    );
-  }
-
-  // ── Private helpers (used by helpers via .bind) ───────────────────────────
-
-  private isMissionRowMissing(err: unknown): boolean {
-    if (!err || typeof err !== "object") return false;
-    const code = (err as { code?: string }).code;
-    return code === "P2003" || code === "P2025";
-  }
-
-  private emergencyAbortOnMissingRow(missionId: string, reason: string): void {
-    if (this.emergencyAborted.has(missionId)) return;
-    this.emergencyAborted.add(missionId);
-    this.log.error(
-      `[emergency-abort] mission=${missionId} reason="${reason}" — DB row 已蒸发，` +
-        `主动 abort 在跑 orchestrator 防止 FK / heartbeat 错误风暴。`,
-    );
-    this.abortRegistry?.abort(
-      missionId,
-      MissionAbortReason.mission_row_missing,
+      isMissionRowMissing,
+      (missionId, reason) => this.triggerEmergencyAbort(missionId, reason),
     );
   }
 
@@ -189,7 +262,7 @@ export class MissionStore implements MissionTerminalArbiter<PlaygroundTerminalEx
         WHERE id = ${missionId}
           AND leader_journal ? ${CHECKPOINT_KEY}
       `.catch((err: unknown) => {
-      this.log.error(
+      this.storeLog.error(
         `[clearCheckpoint ${missionId}] update failed: ${err instanceof Error ? err.message : String(err)}`,
       );
       return 0;
@@ -227,117 +300,10 @@ export class MissionStore implements MissionTerminalArbiter<PlaygroundTerminalEx
     }
   }
 
-  // ── Core CRUD ─────────────────────────────────────────────────────────────
-
-  async create(input: {
-    id: string;
-    userId: string;
-    workspaceId?: string;
-    topic: string;
-    depth: string;
-    language: string;
-    maxCredits: number;
-    userProfile?: Record<string, unknown>;
-    /** ★ C5/G7：typed MissionConfigSnapshot(单一 config 真源,openSession 冻结)。 */
-    configSnapshot?: PlaygroundConfigSnapshot;
-  }): Promise<void> {
-    await this.prisma.agentPlaygroundMission.create({
-      data: {
-        id: input.id,
-        userId: input.userId,
-        workspaceId: input.workspaceId,
-        topic: input.topic.slice(0, 500),
-        depth: input.depth,
-        language: input.language,
-        maxCredits: input.maxCredits,
-        status: "running",
-        // ★ S4b:不再写 userProfile(configSnapshot 单一真源;读时投影回 userProfile shape)。
-        configSnapshot: input.configSnapshot as
-          | Prisma.InputJsonValue
-          | undefined,
-      },
-    });
-  }
-
-  // ── Heartbeat ─────────────────────────────────────────────────────────────
-
-  async refreshHeartbeat(id: string, podId: string): Promise<void> {
-    await this.prisma.agentPlaygroundMission
-      .update({ where: { id }, data: { heartbeatAt: new Date(), podId } })
-      .catch((err: unknown) => {
-        if (this.isMissionRowMissing(err)) {
-          this.emergencyAbortOnMissingRow(id, "heartbeat row missing");
-          return;
-        }
-        this.log.error(
-          `[heartbeat ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-  }
-
-  async clearHeartbeat(id: string, userId: string): Promise<void> {
-    await this.prisma.agentPlaygroundMission
-      .updateMany({ where: { id, userId }, data: { heartbeatAt: null } })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[clearHeartbeat ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-  }
-
-  async cleanupOrphanRunningMissions(
-    thresholdMs: number,
-  ): Promise<{ id: string; userId: string }[]> {
-    try {
-      const cutoff = new Date(Date.now() - thresholdMs);
-      const orphans = await this.prisma.agentPlaygroundMission.findMany({
-        where: { status: "running", heartbeatAt: { lt: cutoff } },
-        select: { id: true, userId: true },
-        take: 200,
-      });
-      if (orphans.length === 0) return [];
-      await this.prisma.agentPlaygroundMission.updateMany({
-        where: { id: { in: orphans.map((o) => o.id) }, status: "running" },
-        data: {
-          status: "failed",
-          completedAt: new Date(),
-          // ★ C2/MINOR-1:启动清理孤儿 running 行 = 进程崩溃,落 canonical runtime_crashed。
-          failureCode: "runtime_crashed",
-          errorMessage:
-            "Mission 在执行中遇到后端重启或异常退出（dispatcher 内存丢失）。" +
-            "已自动标记为失败，建议使用顶部「重新运行」按钮重启相同主题。",
-        },
-      });
-      return orphans;
-    } catch (err) {
-      this.log.error(
-        `[#88 cleanupOrphanRunningMissions] failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      return [];
-    }
-  }
-
-  // ── Stage progress ────────────────────────────────────────────────────────
-
-  async markStageComplete(id: string, stageNumber: number): Promise<void> {
-    await this.prisma.agentPlaygroundMission
-      .updateMany({
-        where: { id, status: "running" },
-        data: { lastCompletedStage: stageNumber, heartbeatAt: new Date() },
-      })
-      .catch((err: unknown) => {
-        if (this.isMissionRowMissing(err)) {
-          this.emergencyAbortOnMissingRow(
-            id,
-            `markStageComplete s${stageNumber}`,
-          );
-          return;
-        }
-        this.log.error(
-          `[markStageComplete ${id} s${stageNumber}] failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-  }
+  // ── CRUD / heartbeat / stage / orphan: framework 已提供
+  //    refreshHeartbeat / clearHeartbeat / markStageComplete /
+  //    cleanupOrphanRunningMissions / countRunningByUser / create
+  // ──────────────────────────────────────────────────────────────────────────
 
   // ── Lifecycle delegates ───────────────────────────────────────────────────
   // ★ C0/G1：markCompleted / markCancelled / markFailed 已折叠进 arbiter 的
@@ -434,18 +400,13 @@ export class MissionStore implements MissionTerminalArbiter<PlaygroundTerminalEx
   }
 
   // ── Query ─────────────────────────────────────────────────────────────────
-
-  async countRunningByUser(userId: string): Promise<number> {
-    return this.prisma.agentPlaygroundMission.count({
-      where: { userId, status: "running" },
-    });
-  }
+  // countRunningByUser: framework 已提供
 
   async deleteByUser(id: string, userId: string): Promise<void> {
     await this.prisma.agentPlaygroundMission
       .deleteMany({ where: { id, userId } })
       .catch((err: unknown) => {
-        this.log.warn(
+        this.storeLog.warn(
           `[deleteByUser ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
@@ -463,7 +424,7 @@ export class MissionStore implements MissionTerminalArbiter<PlaygroundTerminalEx
           select: { status: true, dimensions: true },
         });
         if (!row || row.status !== "running") {
-          this.log.warn(
+          this.storeLog.warn(
             `[appendDimensions ${missionId}] mission status=${row?.status ?? "missing"} — refusing append`,
           );
           return [];

@@ -1,42 +1,33 @@
 /**
- * Mission events 表 type 字符串前缀分类。
+ * Mission events 表 type 字符串前缀分类（playground 业务规则）。
  *
- * 设计来源：rerun-overhaul-design-v1.md §3.3
+ * ★ 2026-05-24 P6 Wave 1：framework 化下沉到
+ *   `ai-harness/teams/business-team/lifecycle/business-team-event-categories.ts`。
+ *   本文件保留 playground 专属规则集 + 经 facade re-export framework helpers。
  *
- * 用途：RerunGuard.getLatestBusinessEventTs 区分"业务真活迹"vs"用户行为/状态机/cleanup"，
+ * 用途：RerunGuard.getLatestBusinessEventTs 区分"业务真活迹" vs "用户行为/状态机/cleanup"，
  * 防止 c195035f 类因果倒置（用户 emit 的 lifecycle 事件被自己当 mission 活迹读 → 拒绝用户）。
  *
- * ★ 2026-05-08 PR-C1 决策：暂不上提到 ai-harness/lifecycle。
- *   audit 推荐 P1 上提（让 research/topic-insights/writing rerun guard 复用），但目
- *   前唯一消费方是 playground RerunGuard，按 YAGNI 原则等第二个 ai-app 真有 rerun
- *   guard 需求时再上提（届时把 BUSINESS_PREFIXES / LIFECYCLE_TYPES 改成"业务方注入
- *   配置 + harness 提供 categorizeEvent 框架"模式）。
- *   本次同步消除：rerun-guard.service.ts 的 SQL LIKE 字面量改为动态 from BUSINESS_PREFIXES，
- *   单一源约束已锁定。
- *
- * ★ SQL 安全守护（review round 1, 2026-05-08 architect MEDIUM）：
- *   BUSINESS_PREFIXES 必须保持 `as const` 编译期常量。rerun-guard 的
- *   `$queryRawUnsafe` 通过 `prefixes.map((_, i) => 'type LIKE \$\${i+2}')` 动态
- *   拼接占位符，参数走 spread params 参数化（注入安全的前提是 prefix 值非用户
- *   可控）。**禁止把 BUSINESS_PREFIXES 改成从 DB / 环境变量 / 用户输入读取**，
- *   否则 SQL LIKE clause 仍是字面量但 params 引入用户可控字符串可能触发
- *   wildcard 滥用（用户传 % 把 LIKE 撑爆）。新增 prefix 直接在本数组追加 const
- *   字符串。
+ * ★ SQL 安全守护：BUSINESS_PREFIXES 必须保持 `as const` 编译期常量。**禁止从 DB /
+ * 环境变量 / 用户输入读取**，否则参数化 SQL LIKE 的 prefix 端引入用户可控字符串
+ * 可能触发 wildcard 滥用。新增 prefix 直接在本数组追加 const 字符串。
  *
  * 决策（4 路 R1+R2 共识）：
- *   - BUSINESS：全限定前缀 + startsWith 匹配（不能用 includes，防 type="mission:lifecycle-note-dimension:fake" 子串攻击）
+ *   - BUSINESS：全限定前缀 + startsWith 匹配（防 type="mission:lifecycle-note-dimension:fake" 子串攻击）
  *   - LIFECYCLE：精确字符串集合（Set.has，不会误伤）
- *   - UNKNOWN（既不是 BUSINESS 前缀也不在 LIFECYCLE 列表）→ fail-open 当 BUSINESS：
- *     宁可误算活迹放行用户（用户重试 1 次即可），也不误判 zombie 把跑着的 mission 杀掉
- *     （数据可能不可恢复，对齐 feedback_destructive_op_must_have_rollback）。
- *     UNKNOWN 命中时调用方有责任 Logger.warn（让 prod 观测后续补分类）。
- *
- * PR review checklist：新增 emit 点必须 grep 此文件确认归类（不在 BUSINESS_PREFIXES /
- * LIFECYCLE_TYPES 任一时 categorizeEvent 返回 UNKNOWN —— 不静默落空）。
+ *   - UNKNOWN（既不是 BUSINESS 前缀也不在 LIFECYCLE 列表）→ fail-open 当 BUSINESS
  */
 
+import {
+  categorizeBusinessEvent,
+  isBusinessTeamEventType,
+  isLifecycleTeamEventType,
+  type EventCategory,
+  type EventCategoryRules,
+} from "@/modules/ai-harness/facade";
+
+/** Playground 专属规则集。 */
 export const EVENT_CATEGORY = {
-  /** 业务进展真活迹（命名空间全限定前缀，startsWith 匹配） */
   BUSINESS_PREFIXES: [
     "agent-playground.dimension:",
     "agent-playground.chapter:",
@@ -44,7 +35,6 @@ export const EVENT_CATEGORY = {
     "agent-playground.agent:narrative",
     "agent-playground.tool:",
   ] as const,
-  /** 状态机 / 用户行为 / 失败 / 完成标记 / cleanup（精确字符串匹配） */
   LIFECYCLE_TYPES: new Set<string>([
     "agent-playground.mission:rerun-started",
     "agent-playground.mission:rerun-completed",
@@ -61,29 +51,28 @@ export const EVENT_CATEGORY = {
   ]),
 } as const;
 
-export type EventCategory = "BUSINESS" | "LIFECYCLE" | "UNKNOWN";
+/** Playground 规则适配器（注入到 framework helpers）。 */
+const PLAYGROUND_RULES: EventCategoryRules = {
+  businessPrefixes: EVENT_CATEGORY.BUSINESS_PREFIXES,
+  lifecycleTypes: EVENT_CATEGORY.LIFECYCLE_TYPES,
+};
+
+export type { EventCategory };
 
 export function categorizeEvent(
   eventType: string | null | undefined,
 ): EventCategory {
-  if (typeof eventType !== "string" || eventType.length === 0) return "UNKNOWN";
-  if (EVENT_CATEGORY.LIFECYCLE_TYPES.has(eventType)) return "LIFECYCLE";
-  if (EVENT_CATEGORY.BUSINESS_PREFIXES.some((p) => eventType.startsWith(p))) {
-    return "BUSINESS";
-  }
-  return "UNKNOWN";
+  return categorizeBusinessEvent(eventType, PLAYGROUND_RULES);
 }
 
 export function isBusinessEventType(
   eventType: string | null | undefined,
 ): boolean {
-  // UNKNOWN = fail-open 当 BUSINESS（宁可误算活迹放行用户）
-  const cat = categorizeEvent(eventType);
-  return cat === "BUSINESS" || cat === "UNKNOWN";
+  return isBusinessTeamEventType(eventType, PLAYGROUND_RULES);
 }
 
 export function isLifecycleEventType(
   eventType: string | null | undefined,
 ): boolean {
-  return categorizeEvent(eventType) === "LIFECYCLE";
+  return isLifecycleTeamEventType(eventType, PLAYGROUND_RULES);
 }

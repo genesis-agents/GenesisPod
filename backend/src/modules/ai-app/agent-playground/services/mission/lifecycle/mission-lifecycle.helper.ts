@@ -1,295 +1,226 @@
 /**
- * MissionLifecycleHelper — mission 终态转换（writeCompleted / writeCancelled /
- * writeFailed / markReopened / appendLeaderJournal）。
+ * MissionLifecycleHelper — mission 终态转换
  *
- * 普通 class（非 @Injectable），由 MissionStore 在 constructor 内 new。
+ * ★ 2026-05-24 P6 Wave 1：framework 化下沉到
+ *   `ai-harness/teams/business-team/lifecycle/business-team-lifecycle-transitions.framework.ts`。
+ *   本文件仅注入 playground 专属：业务字段映射 (writeCompleted / writeFailed update shape) +
+ *   Prisma agentPlaygroundMission delegate。
  *
  * ★ C0/G1：writeCompleted / writeCancelled / writeFailed 是 arbiter 私有落库实现，
- *   仅 MissionStore.applyTerminalIfRunning 调用。外部一律经
- *   MissionLifecycleManager.finalize → applyTerminalIfRunning，禁止直写终态。
- *   均为条件写 WHERE status='running'（首写赢），返回 count>0=本次赢。
+ *   仅 MissionStore.applyTerminalIfRunning 调用。
  */
 
-import {
-  BadRequestException,
-  Logger,
-  NotFoundException,
-  PayloadTooLargeException,
-} from "@nestjs/common";
+import { Logger } from "@nestjs/common";
 import { MissionFailureCode } from "@/modules/ai-harness/facade";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import {
+  BusinessTeamLifecycleTransitionsFramework,
+  type LifecycleTransitionHooks,
+} from "@/modules/ai-harness/facade";
 
-export class MissionLifecycleHelper {
-  private readonly log = new Logger(MissionLifecycleHelper.name);
+export interface PlaygroundCompletedDetail {
+  finalScore?: number;
+  tokensUsed?: number;
+  costUsd?: number;
+  trajectoryStored?: number;
+  elapsedWallTimeMs?: number;
+  themeSummary?: string;
+  dimensions?: unknown;
+  report?: { title?: string; summary?: string; [k: string]: unknown };
+  verdicts?: unknown;
+  reportArtifactVersion?: number;
+  reconciliationReport?: unknown;
+  leaderJournal?: unknown;
+  leaderOverallScore?: number;
+  leaderSigned?: boolean;
+  leaderVerdict?: string;
+}
+
+export interface PlaygroundFailedDetail {
+  errorMessage?: string;
+  failureCode?: MissionFailureCode;
+  tokensUsed?: number;
+  costUsd?: number;
+  elapsedWallTimeMs?: number;
+  trajectoryStored?: number;
+  themeSummary?: string;
+  dimensions?: unknown;
+  report?: { title?: string; summary?: string; [k: string]: unknown };
+  verdicts?: unknown;
+  reportArtifactVersion?: number;
+  reconciliationReport?: unknown;
+  leaderJournal?: unknown;
+  leaderOverallScore?: number;
+  leaderSigned?: boolean;
+  leaderVerdict?: string;
+}
+
+export class MissionLifecycleHelper extends BusinessTeamLifecycleTransitionsFramework<
+  PlaygroundCompletedDetail,
+  PlaygroundFailedDetail
+> {
+  // Note: legacy private logger kept for back-compat warn channels (e.g. appendLeaderJournal).
+  private readonly playgroundLog = new Logger(MissionLifecycleHelper.name);
 
   constructor(
     private readonly prisma: PrismaService,
     // isMissionRowMissing / emergencyAbortOnMissingRow reserved for future use
-    // (currently only needed by MissionReportHelper for FK storm circuit-breaker)
     _isMissionRowMissing: (err: unknown) => boolean,
     _emergencyAbortOnMissingRow: (missionId: string, reason: string) => void,
-    private readonly clearCheckpointJsonbKey: (
-      missionId: string,
-    ) => Promise<void>,
-  ) {}
-
-  async writeCompleted(
-    id: string,
-    data: {
-      finalScore?: number;
-      tokensUsed?: number;
-      costUsd?: number;
-      trajectoryStored?: number;
-      elapsedWallTimeMs?: number;
-      themeSummary?: string;
-      dimensions?: unknown;
-      report?: { title?: string; summary?: string; [k: string]: unknown };
-      verdicts?: unknown;
-      reportArtifactVersion?: number;
-      reconciliationReport?: unknown;
-      leaderJournal?: unknown;
-      leaderOverallScore?: number;
-      leaderSigned?: boolean;
-      leaderVerdict?: string;
-    },
-    userId?: string,
-  ): Promise<boolean> {
-    const MAX_REPORT_BYTES = 5 * 1024 * 1024;
-    const HARD_LIMIT_BYTES = 10 * 1024 * 1024;
-    if (data.report && typeof data.report === "object") {
-      const size = Buffer.byteLength(JSON.stringify(data.report), "utf8");
-      if (size > HARD_LIMIT_BYTES) {
-        throw new PayloadTooLargeException(
-          `report_too_large: ${size} bytes exceeds ${HARD_LIMIT_BYTES} byte hard limit`,
-        );
-      }
-      if (size > MAX_REPORT_BYTES) {
-        this.log.warn(
-          `[writeCompleted ${id}] report size ${size} > ${MAX_REPORT_BYTES} bytes — truncating`,
-        );
-        const r = data.report as {
-          content?: {
-            fullMarkdown?: string;
-            fullReportSize?: number;
-            truncated?: boolean;
-            originalBytes?: number;
-          };
-        };
-        if (
-          r.content?.fullMarkdown &&
-          r.content.fullMarkdown.length > 100_000
-        ) {
-          r.content.fullMarkdown =
-            r.content.fullMarkdown.slice(0, 100_000) +
-            `\n\n... (truncated, ${size} bytes total)`;
-          r.content.truncated = true;
-          r.content.originalBytes = size;
-        }
-      }
-    }
-    const update: Prisma.AgentPlaygroundMissionUpdateInput = {
-      status: "completed",
-      completedAt: new Date(),
-      finalScore: data.finalScore ?? null,
-      tokensUsed: data.tokensUsed ?? null,
-      costUsd: data.costUsd ?? null,
-      trajectoryStored: data.trajectoryStored ?? null,
-      elapsedWallTimeMs: data.elapsedWallTimeMs ?? null,
-      themeSummary: data.themeSummary ?? null,
-      dimensions: (data.dimensions ?? null) as Prisma.InputJsonValue,
-      reportFull: (data.report ?? null) as Prisma.InputJsonValue,
-      verdicts: (data.verdicts ?? null) as Prisma.InputJsonValue,
-      reportTitle: data.report?.title?.slice(0, 500) ?? null,
-      reportSummary: data.report?.summary ?? null,
-      reportArtifactVersion: data.reportArtifactVersion ?? null,
-      // ★ S4b/B-部分：userProfile 列已停写（configSnapshot 单一真源；读时投影回 shape）。
-      reconciliationReport: (data.reconciliationReport ??
-        null) as Prisma.InputJsonValue,
-      leaderJournal:
-        data.leaderJournal !== undefined
-          ? ((data.leaderJournal ?? null) as Prisma.InputJsonValue)
-          : undefined,
-      leaderOverallScore: data.leaderOverallScore ?? null,
-      leaderSigned: data.leaderSigned ?? null,
-      leaderVerdict: data.leaderVerdict ?? null,
-    };
-    const completeWhere: Prisma.AgentPlaygroundMissionWhereInput = {
-      id,
-      status: "running",
-      ...(userId ? { userId } : {}),
-    };
-    const res = await this.prisma.agentPlaygroundMission
-      .updateMany({
-        where: completeWhere,
-        data: update,
-      })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[writeCompleted ${id}] guarded update failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        return { count: 0 };
-      });
-    await this.clearCheckpointJsonbKey(id);
-    return res.count > 0;
-  }
-
-  async writeCancelled(id: string, userId?: string): Promise<boolean> {
-    const res = await this.prisma.agentPlaygroundMission
-      .updateMany({
-        where: { id, status: "running", ...(userId ? { userId } : {}) },
-        data: {
-          status: "cancelled",
+    clearCheckpointJsonbKey: (missionId: string) => Promise<void>,
+  ) {
+    const hooks: LifecycleTransitionHooks<
+      PlaygroundCompletedDetail,
+      PlaygroundFailedDetail
+    > = {
+      buildCompletedUpdate: (d) => {
+        const update: Prisma.AgentPlaygroundMissionUpdateInput = {
+          status: "completed",
           completedAt: new Date(),
-          errorMessage: "Mission cancelled by user.",
-        },
-      })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[writeCancelled ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        return { count: 0 };
-      });
-    await this.clearCheckpointJsonbKey(id);
-    return res.count > 0;
-  }
-
-  async writeFailed(
-    id: string,
-    data: {
-      errorMessage?: string;
-      /** ★ C2/MAJOR-6:canonical MissionFailureCode（L1 类型,禁裸字符串）。落 DB failure_code 列。 */
-      failureCode?: MissionFailureCode;
-      tokensUsed?: number;
-      costUsd?: number;
-      elapsedWallTimeMs?: number;
-      trajectoryStored?: number;
-      themeSummary?: string;
-      dimensions?: unknown;
-      report?: { title?: string; summary?: string; [k: string]: unknown };
-      verdicts?: unknown;
-      reportArtifactVersion?: number;
-      // ★ S4b/B-部分：userProfile 字段已从类型签名删除，停写 DB 列。
-      reconciliationReport?: unknown;
-      leaderJournal?: unknown;
-      leaderOverallScore?: number;
-      leaderSigned?: boolean;
-      leaderVerdict?: string;
-    },
-    userId?: string,
-  ): Promise<boolean> {
-    if (data.report && typeof data.report === "object") {
-      const failSize = Buffer.byteLength(JSON.stringify(data.report), "utf8");
-      if (failSize > 10 * 1024 * 1024) {
-        data.errorMessage = "report_too_large";
-        data.report = undefined;
-      }
-    }
-    const isLeadRefusal = data.leaderSigned === false;
-    const update: Prisma.AgentPlaygroundMissionUpdateInput = {
-      status: isLeadRefusal ? "quality-failed" : "failed",
-      completedAt: new Date(),
-      errorMessage: data.errorMessage?.slice(0, 2000) ?? null,
-      // ★ C2/MAJOR-6:落 canonical failure_code。Lead 拒签 → leader_signoff_rejected;
-      //   其余由 caller 传(handleMissionFailure 映射);都没有则 null(读路径回退 errorMessage)。
-      failureCode:
-        data.failureCode ??
-        (isLeadRefusal ? MissionFailureCode.leader_signoff_rejected : null),
-      tokensUsed: data.tokensUsed ?? null,
-      costUsd: data.costUsd ?? null,
-      elapsedWallTimeMs: data.elapsedWallTimeMs ?? null,
-    };
-    if (data.trajectoryStored != null)
-      update.trajectoryStored = data.trajectoryStored;
-    if (data.themeSummary != null) update.themeSummary = data.themeSummary;
-    if (data.dimensions !== undefined)
-      update.dimensions = (data.dimensions ?? null) as Prisma.InputJsonValue;
-    if (data.report !== undefined) {
-      update.reportFull = (data.report ?? null) as Prisma.InputJsonValue;
-      update.reportTitle = data.report?.title?.slice(0, 500) ?? null;
-      update.reportSummary = data.report?.summary ?? null;
-    }
-    if (data.verdicts !== undefined)
-      update.verdicts = (data.verdicts ?? null) as Prisma.InputJsonValue;
-    if (data.reportArtifactVersion != null)
-      update.reportArtifactVersion = data.reportArtifactVersion;
-    // ★ S4b/B-部分：userProfile 写路径已删除。不再 update.userProfile = ...
-    if (data.reconciliationReport !== undefined)
-      update.reconciliationReport = (data.reconciliationReport ??
-        null) as Prisma.InputJsonValue;
-    if (data.leaderOverallScore !== undefined)
-      update.leaderOverallScore = data.leaderOverallScore ?? null;
-    if (data.leaderSigned !== undefined)
-      update.leaderSigned = data.leaderSigned ?? null;
-    if (data.leaderVerdict !== undefined)
-      update.leaderVerdict = data.leaderVerdict ?? null;
-    if (data.leaderJournal !== undefined)
-      update.leaderJournal = (data.leaderJournal ??
-        null) as Prisma.InputJsonValue;
-    const failWhere: Prisma.AgentPlaygroundMissionWhereInput = {
-      id,
-      status: "running",
-      ...(userId ? { userId } : {}),
-    };
-    const res = await this.prisma.agentPlaygroundMission
-      .updateMany({ where: failWhere, data: update })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[writeFailed ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        return { count: 0 };
-      });
-    await this.clearCheckpointJsonbKey(id);
-    return res.count > 0;
-  }
-
-  async markReopened(missionId: string, userId: string): Promise<void> {
-    const allowedFromStatuses = ["failed", "quality-failed"] as const;
-    await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.agentPlaygroundMission.updateMany({
-        where: {
-          id: missionId,
-          userId,
-          status: { in: [...allowedFromStatuses] },
-        },
-        data: {
-          status: "running",
-          errorMessage: null,
-          completedAt: null,
-          finalScore: null,
-          leaderSigned: null,
-          leaderOverallScore: null,
-          leaderVerdict: null,
-        },
-      });
-      if (updated.count === 0) {
-        const probe = await tx.agentPlaygroundMission.findFirst({
-          where: { id: missionId, userId },
-          select: { status: true },
-        });
-        if (!probe) {
-          throw new NotFoundException(
-            `mission ${missionId} not found or not owned by ${userId}`,
-          );
+          finalScore: d.finalScore ?? null,
+          tokensUsed: d.tokensUsed ?? null,
+          costUsd: d.costUsd ?? null,
+          trajectoryStored: d.trajectoryStored ?? null,
+          elapsedWallTimeMs: d.elapsedWallTimeMs ?? null,
+          themeSummary: d.themeSummary ?? null,
+          dimensions: (d.dimensions ?? null) as Prisma.InputJsonValue,
+          reportFull: (d.report ?? null) as Prisma.InputJsonValue,
+          verdicts: (d.verdicts ?? null) as Prisma.InputJsonValue,
+          reportTitle: d.report?.title?.slice(0, 500) ?? null,
+          reportSummary: d.report?.summary ?? null,
+          reportArtifactVersion: d.reportArtifactVersion ?? null,
+          reconciliationReport: (d.reconciliationReport ??
+            null) as Prisma.InputJsonValue,
+          leaderJournal:
+            d.leaderJournal !== undefined
+              ? ((d.leaderJournal ?? null) as Prisma.InputJsonValue)
+              : undefined,
+          leaderOverallScore: d.leaderOverallScore ?? null,
+          leaderSigned: d.leaderSigned ?? null,
+          leaderVerdict: d.leaderVerdict ?? null,
+        };
+        return update as Record<string, unknown>;
+      },
+      buildFailedUpdate: (d) => {
+        if (d.report && typeof d.report === "object") {
+          const failSize = Buffer.byteLength(JSON.stringify(d.report), "utf8");
+          if (failSize > 10 * 1024 * 1024) {
+            d.errorMessage = "report_too_large";
+            d.report = undefined;
+          }
         }
-        throw new BadRequestException(
-          `cannot reopen mission in status=${probe.status} (allowed: ${allowedFromStatuses.join("|")})`,
-        );
-      }
-      await tx.agentPlaygroundMissionEvent.create({
-        data: {
-          missionId,
-          type: "agent-playground.mission:reopened",
-          payload: {
-            triggeredBy: userId,
-            ts: Date.now(),
-          } as Prisma.InputJsonValue,
-          ts: BigInt(Date.now()),
-        },
-      });
-    });
+        const isLeadRefusal = d.leaderSigned === false;
+        const update: Prisma.AgentPlaygroundMissionUpdateInput = {
+          status: isLeadRefusal ? "quality-failed" : "failed",
+          completedAt: new Date(),
+          errorMessage: d.errorMessage?.slice(0, 2000) ?? null,
+          failureCode:
+            d.failureCode ??
+            (isLeadRefusal ? MissionFailureCode.leader_signoff_rejected : null),
+          tokensUsed: d.tokensUsed ?? null,
+          costUsd: d.costUsd ?? null,
+          elapsedWallTimeMs: d.elapsedWallTimeMs ?? null,
+        };
+        if (d.trajectoryStored != null)
+          update.trajectoryStored = d.trajectoryStored;
+        if (d.themeSummary != null) update.themeSummary = d.themeSummary;
+        if (d.dimensions !== undefined)
+          update.dimensions = (d.dimensions ?? null) as Prisma.InputJsonValue;
+        if (d.report !== undefined) {
+          update.reportFull = (d.report ?? null) as Prisma.InputJsonValue;
+          update.reportTitle = d.report?.title?.slice(0, 500) ?? null;
+          update.reportSummary = d.report?.summary ?? null;
+        }
+        if (d.verdicts !== undefined)
+          update.verdicts = (d.verdicts ?? null) as Prisma.InputJsonValue;
+        if (d.reportArtifactVersion != null)
+          update.reportArtifactVersion = d.reportArtifactVersion;
+        if (d.reconciliationReport !== undefined)
+          update.reconciliationReport = (d.reconciliationReport ??
+            null) as Prisma.InputJsonValue;
+        if (d.leaderOverallScore !== undefined)
+          update.leaderOverallScore = d.leaderOverallScore ?? null;
+        if (d.leaderSigned !== undefined)
+          update.leaderSigned = d.leaderSigned ?? null;
+        if (d.leaderVerdict !== undefined)
+          update.leaderVerdict = d.leaderVerdict ?? null;
+        if (d.leaderJournal !== undefined)
+          update.leaderJournal = (d.leaderJournal ??
+            null) as Prisma.InputJsonValue;
+        return {
+          update: update as Record<string, unknown>,
+          isLeadRefusal,
+          effectiveFailureCode:
+            d.failureCode ??
+            (isLeadRefusal ? MissionFailureCode.leader_signoff_rejected : null),
+        };
+      },
+      buildCancelledUpdate: () => ({
+        status: "cancelled",
+        completedAt: new Date(),
+        errorMessage: "Mission cancelled by user.",
+      }),
+      conditionalUpdate: async (missionId, where, data) => {
+        const res = await prisma.agentPlaygroundMission.updateMany({
+          where: {
+            id: missionId,
+            status: "running",
+            ...(where.userId ? { userId: where.userId } : {}),
+          },
+          data: data as Prisma.AgentPlaygroundMissionUpdateManyMutationInput,
+        });
+        return res.count;
+      },
+      clearCheckpoint: clearCheckpointJsonbKey,
+      reopenTransaction: async (missionId, userId, allowedFromStatuses) => {
+        return prisma.$transaction(async (tx) => {
+          const updated = await tx.agentPlaygroundMission.updateMany({
+            where: {
+              id: missionId,
+              userId,
+              status: { in: [...allowedFromStatuses] },
+            },
+            data: {
+              status: "running",
+              errorMessage: null,
+              completedAt: null,
+              finalScore: null,
+              leaderSigned: null,
+              leaderOverallScore: null,
+              leaderVerdict: null,
+            },
+          });
+          if (updated.count === 0) {
+            const probe = await tx.agentPlaygroundMission.findFirst({
+              where: { id: missionId, userId },
+              select: { status: true },
+            });
+            return {
+              affected: 0,
+              currentStatus: probe?.status ?? null,
+            };
+          }
+          await tx.agentPlaygroundMissionEvent.create({
+            data: {
+              missionId,
+              type: "agent-playground.mission:reopened",
+              payload: {
+                triggeredBy: userId,
+                ts: Date.now(),
+              } as Prisma.InputJsonValue,
+              ts: BigInt(Date.now()),
+            },
+          });
+          return { affected: updated.count, currentStatus: "running" };
+        });
+      },
+      reopenResetData: {},
+    };
+    super(hooks, "MissionLifecycleHelper");
   }
 
+  /** Append patch to leaderJournal JSON column (playground-only). */
   async appendLeaderJournal(
     id: string,
     patch: Record<string, unknown>,
@@ -321,7 +252,7 @@ export class MissionLifecycleHelper {
         { isolationLevel: "Serializable" },
       );
     } catch (err) {
-      this.log.warn(
+      this.playgroundLog.warn(
         `[appendLeaderJournal ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     }

@@ -1,18 +1,32 @@
 /**
  * MissionReportHelper — 报告版本化与 trajectory 持久化
- * （saveReportVersion / listReportVersions / getReportVersion /
- *  saveResearchResult / loadBaselineResearchResults /
- *  saveChapterDraft / loadQualifiedChapterDrafts）。
  *
- * 普通 class（非 @Injectable），由 MissionStore 在 constructor 内 new。
+ * ★ 2026-05-24 P6 Wave 1：report version 部分 framework 化下沉到
+ *   `ai-harness/teams/business-team/lifecycle/business-team-report-helper.framework.ts`。
+ *   research-result / chapter-draft 留 playground 专属（业务表 + schema）。
  */
 
 import { Logger } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import {
+  BusinessTeamReportHelperFramework,
+  type ReportHelperHooks,
+  type ReportVersionListItem,
+} from "@/modules/ai-harness/facade";
 
-export class MissionReportHelper {
-  private readonly log = new Logger(MissionReportHelper.name);
+export interface PlaygroundReportVersionRow extends ReportVersionListItem {
+  readonly finalScore: number | null;
+  readonly leaderSigned: boolean | null;
+}
+
+export interface PlaygroundReportVersionDetail extends PlaygroundReportVersionRow {
+  readonly reportFull: unknown;
+  readonly changesFromPrev: unknown;
+}
+
+export class MissionReportHelper extends BusinessTeamReportHelperFramework<PlaygroundReportVersionRow> {
+  private readonly playgroundLog = new Logger(MissionReportHelper.name);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -21,8 +35,81 @@ export class MissionReportHelper {
       missionId: string,
       reason: string,
     ) => void,
-  ) {}
+  ) {
+    const hooks: ReportHelperHooks<PlaygroundReportVersionRow> = {
+      loggerNamespace: "MissionReportHelper",
+      runSerializable: async (fn) =>
+        prisma.$transaction(async (tx) => fn(tx), {
+          isolationLevel: "Serializable",
+        }),
+      aggregateMaxVersion: async (missionId, tx) => {
+        const agg = await (
+          tx as Prisma.TransactionClient
+        ).missionReportVersion.aggregate({
+          where: { missionId },
+          _max: { version: true },
+        });
+        return agg._max.version ?? 0;
+      },
+      createVersion: async (args, tx) => {
+        await (tx as Prisma.TransactionClient).missionReportVersion.create({
+          data: {
+            missionId: args.missionId,
+            version: args.version,
+            versionLabel: args.versionLabel,
+            reportFull: (args.reportFull ?? null) as Prisma.InputJsonValue,
+            reportTitle: args.reportTitle,
+            reportSummary: args.reportSummary,
+            triggerType: args.triggerType,
+            finalScore: (args.extra?.finalScore as number | undefined) ?? null,
+            leaderSigned:
+              (args.extra?.leaderSigned as boolean | undefined) ?? null,
+          },
+        });
+      },
+      listVersions: async (missionId) => {
+        const rows = await prisma.missionReportVersion.findMany({
+          where: { missionId },
+          orderBy: { generatedAt: "desc" },
+          select: {
+            id: true,
+            version: true,
+            versionLabel: true,
+            reportTitle: true,
+            reportSummary: true,
+            finalScore: true,
+            leaderSigned: true,
+            triggerType: true,
+            generatedAt: true,
+          },
+        });
+        return rows;
+      },
+      findVersion: async (missionId, version) => {
+        const row = await prisma.missionReportVersion.findUnique({
+          where: { missionId_version: { missionId, version } },
+        });
+        if (!row) return null;
+        return {
+          id: row.id,
+          version: row.version,
+          versionLabel: row.versionLabel,
+          reportTitle: row.reportTitle,
+          reportSummary: row.reportSummary,
+          finalScore: row.finalScore,
+          leaderSigned: row.leaderSigned,
+          triggerType: row.triggerType,
+          generatedAt: row.generatedAt,
+        };
+      },
+    };
+    super(hooks);
+  }
 
+  /**
+   * 写新 report version。Back-compat shim 包 framework saveReportVersion，
+   * 让 caller 继续传 finalScore / leaderSigned 顶层字段。
+   */
   async saveReportVersion(args: {
     missionId: string;
     triggerType: string;
@@ -31,105 +118,29 @@ export class MissionReportHelper {
     leaderSigned?: boolean;
     versionLabel?: string;
   }): Promise<number> {
-    try {
-      return await this.prisma.$transaction(
-        async (tx) => {
-          const agg = await tx.missionReportVersion.aggregate({
-            where: { missionId: args.missionId },
-            _max: { version: true },
-          });
-          const nextVersion = (agg._max.version ?? 0) + 1;
-
-          const reportTitle = args.report?.title?.slice(0, 500) ?? null;
-          const reportSummary = args.report?.summary ?? null;
-
-          await tx.missionReportVersion.create({
-            data: {
-              missionId: args.missionId,
-              version: nextVersion,
-              versionLabel:
-                args.versionLabel ??
-                `${args.triggerType}-${new Date().toISOString().slice(0, 10)}`,
-              reportFull: (args.report ?? null) as Prisma.InputJsonValue,
-              reportTitle,
-              reportSummary,
-              finalScore: args.finalScore ?? null,
-              leaderSigned: args.leaderSigned ?? null,
-              triggerType: args.triggerType.slice(0, 40),
-            },
-          });
-          return nextVersion;
-        },
-        { isolationLevel: "Serializable" },
-      );
-    } catch (err) {
-      this.log.warn(
-        `[saveReportVersion ${args.missionId}] failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      return 0;
-    }
+    return super.saveReportVersion({
+      missionId: args.missionId,
+      triggerType: args.triggerType,
+      report: args.report,
+      versionLabel: args.versionLabel,
+      extra: {
+        finalScore: args.finalScore ?? null,
+        leaderSigned: args.leaderSigned ?? null,
+      },
+    });
   }
 
-  async listReportVersions(missionId: string): Promise<
-    Array<{
-      id: string;
-      version: number;
-      versionLabel: string | null;
-      reportTitle: string | null;
-      reportSummary: string | null;
-      finalScore: number | null;
-      leaderSigned: boolean | null;
-      triggerType: string;
-      generatedAt: Date;
-    }>
-  > {
-    const rows = await this.prisma.missionReportVersion
-      .findMany({
-        where: { missionId },
-        orderBy: { generatedAt: "desc" },
-        select: {
-          id: true,
-          version: true,
-          versionLabel: true,
-          reportTitle: true,
-          reportSummary: true,
-          finalScore: true,
-          leaderSigned: true,
-          triggerType: true,
-          generatedAt: true,
-        },
-      })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[listReportVersions ${missionId}] failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        return [];
-      });
-    return rows;
-  }
-
+  /** Find 单 version 含 reportFull / changesFromPrev（framework 投影没带）。 */
   async getReportVersion(
     missionId: string,
     version: number,
-  ): Promise<{
-    id: string;
-    version: number;
-    versionLabel: string | null;
-    reportFull: unknown;
-    reportTitle: string | null;
-    reportSummary: string | null;
-    finalScore: number | null;
-    leaderSigned: boolean | null;
-    triggerType: string;
-    changesFromPrev: unknown;
-    generatedAt: Date;
-  } | null> {
+  ): Promise<PlaygroundReportVersionDetail | null> {
     const row = await this.prisma.missionReportVersion
       .findUnique({
         where: { missionId_version: { missionId, version } },
       })
       .catch((err: unknown) => {
-        this.log.warn(
+        this.playgroundLog.warn(
           `[getReportVersion ${missionId} v${version}] failed: ${err instanceof Error ? err.message : String(err)}`,
         );
         return null;
@@ -195,7 +206,7 @@ export class MissionReportHelper {
           );
           return;
         }
-        this.log.warn(
+        this.playgroundLog.warn(
           `[saveResearchResult] mission=${args.missionId} dim=${args.dimension} failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
@@ -209,11 +220,9 @@ export class MissionReportHelper {
     }>
   > {
     const rows = await this.prisma.agentPlaygroundResearchResult
-      .findMany({
-        where: { missionId, retryLabel: "" },
-      })
+      .findMany({ where: { missionId, retryLabel: "" } })
       .catch((err: unknown) => {
-        this.log.warn(
+        this.playgroundLog.warn(
           `[mission-report] loadResearchResults for ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
         );
         return [];
@@ -291,7 +300,7 @@ export class MissionReportHelper {
           );
           return;
         }
-        this.log.warn(
+        this.playgroundLog.warn(
           `[saveChapterDraft] mission=${args.missionId} dim=${args.dimension} ch=${args.chapterIndex} failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
@@ -311,14 +320,11 @@ export class MissionReportHelper {
   > {
     const rows = await this.prisma.agentPlaygroundChapterDraft
       .findMany({
-        where: {
-          missionId,
-          status: { in: ["passed", "done"] },
-        },
+        where: { missionId, status: { in: ["passed", "done"] } },
         orderBy: [{ dimension: "asc" }, { chapterIndex: "asc" }],
       })
       .catch((err: unknown) => {
-        this.log.warn(
+        this.playgroundLog.warn(
           `[mission-report] loadQualifiedChapterDrafts for ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
         );
         return [];

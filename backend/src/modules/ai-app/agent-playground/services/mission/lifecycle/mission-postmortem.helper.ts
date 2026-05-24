@@ -1,23 +1,136 @@
 /**
  * MissionPostmortemHelper — mission 复盘记录
- * （recordMissionPostmortem / listRecentPostmortems）。
  *
- * 普通 class（非 @Injectable），由 MissionStore 在 constructor 内 new。
- * embeddingService 为 Optional，缺失时降级 tag-only 召回。
+ * ★ 2026-05-24 P6 Wave 1：framework 化下沉到
+ *   `ai-harness/teams/business-team/lifecycle/business-team-postmortem-helper.framework.ts`。
+ *   本文件仅注入 playground 专属：embedding 服务 / vector memory schema /
+ *   recent mission 查询（agent_playground_missions 表）。
  */
 
-import { Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "@/modules/ai-engine/facade";
+import {
+  BusinessTeamPostmortemHelperFramework,
+  type PostmortemHelperHooks,
+  type PostmortemListBase,
+  type PostmortemRecordBase,
+} from "@/modules/ai-harness/facade";
 
-export class MissionPostmortemHelper {
-  private readonly log = new Logger(MissionPostmortemHelper.name);
+export interface PlaygroundPostmortemRecord extends PostmortemRecordBase {
+  readonly recommendations: string[];
+  readonly qualityScore: number | null;
+  readonly tokensUsed: number;
+  readonly costUsd: number;
+  readonly failureClassification?: {
+    readonly mode: string;
+    readonly signals: string[];
+    readonly confidence: number;
+  };
+}
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly embeddingService?: EmbeddingService,
-  ) {}
+export interface PlaygroundPostmortemListItem extends PostmortemListBase {
+  readonly recommendations: string[];
+  readonly qualityScore: number | null;
+}
 
+export class MissionPostmortemHelper extends BusinessTeamPostmortemHelperFramework<
+  PlaygroundPostmortemRecord,
+  PlaygroundPostmortemListItem
+> {
+  constructor(prisma: PrismaService, embeddingService?: EmbeddingService) {
+    const hooks: PostmortemHelperHooks<
+      PlaygroundPostmortemRecord,
+      PlaygroundPostmortemListItem
+    > = {
+      loggerNamespace: "MissionPostmortemHelper",
+      embeddingPort: embeddingService
+        ? {
+            generateEmbedding: (text) =>
+              embeddingService
+                .generateEmbedding(text)
+                .then((r) =>
+                  Array.isArray(r?.embedding)
+                    ? { embedding: r.embedding }
+                    : null,
+                ),
+          }
+        : undefined,
+      createVectorMemory: async ({ input, embedding }) => {
+        await prisma.harnessVectorMemory.create({
+          data: {
+            namespace: input.userId,
+            source: "agent-playground:mission",
+            entryKey: `mission-postmortem:${input.missionId}`,
+            content: input.summary.slice(0, 2000),
+            embedding,
+            confidence: 1.0,
+            tags: [
+              "agent-playground",
+              "mission-postmortem",
+              input.leaderSigned === true ? "signed" : "unsigned",
+            ],
+            metadata: {
+              missionId: input.missionId,
+              topic: input.topic,
+              recommendations: input.recommendations,
+              qualityScore: input.qualityScore,
+              tokensUsed: input.tokensUsed,
+              costUsd: input.costUsd,
+              ...(input.failureClassification
+                ? { failureClassification: input.failureClassification }
+                : {}),
+            },
+          },
+        });
+      },
+      findRecentMissionId: async (userId) => {
+        const row = await prisma.agentPlaygroundMission.findFirst({
+          where: {
+            userId,
+            status: { in: ["completed", "quality-failed"] },
+            completedAt: { gte: new Date(Date.now() - 5 * 60_000) },
+          },
+          select: { id: true, completedAt: true },
+          orderBy: { completedAt: "desc" },
+        });
+        return row?.id ?? null;
+      },
+      listVectorMemories: async (userId, limit) => {
+        const rows = await prisma.harnessVectorMemory.findMany({
+          where: {
+            namespace: userId,
+            tags: { has: "mission-postmortem" },
+          },
+          orderBy: { createdAt: "desc" },
+          take: limit,
+        });
+        return rows.map((r) => {
+          const meta = (r.metadata ?? {}) as Record<string, unknown>;
+          return {
+            missionId: String(meta.missionId ?? ""),
+            topic: String(meta.topic ?? ""),
+            summary: r.content,
+            recommendations: Array.isArray(meta.recommendations)
+              ? (meta.recommendations as string[])
+              : [],
+            leaderSigned: r.tags.includes("signed")
+              ? true
+              : r.tags.includes("unsigned")
+                ? false
+                : null,
+            qualityScore:
+              typeof meta.qualityScore === "number" ? meta.qualityScore : null,
+            createdAt: r.createdAt,
+          };
+        });
+      },
+    };
+    super(hooks);
+  }
+
+  /**
+   * Back-compat shim — caller 传 plain object，转 framework input shape。
+   */
   async recordMissionPostmortem(input: {
     missionId: string;
     userId: string;
@@ -34,152 +147,6 @@ export class MissionPostmortemHelper {
       confidence: number;
     };
   }): Promise<void> {
-    let embedding: number[] = [];
-    if (this.embeddingService) {
-      try {
-        const text = `${input.topic}\n\n${input.summary}`.slice(0, 2000);
-        const result = await this.embeddingService.generateEmbedding(text);
-        if (Array.isArray(result?.embedding)) {
-          embedding = result.embedding;
-        }
-      } catch (err) {
-        this.log.warn(
-          `[recordMissionPostmortem userId=${input.userId}] embedding failed (degrade to tag-only recall): ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-      }
-    }
-
-    try {
-      await this.prisma.harnessVectorMemory.create({
-        data: {
-          namespace: input.userId,
-          source: "agent-playground:mission",
-          entryKey: `mission-postmortem:${input.missionId}`,
-          content: input.summary.slice(0, 2000),
-          embedding,
-          confidence: 1.0,
-          tags: [
-            "agent-playground",
-            "mission-postmortem",
-            input.leaderSigned === true ? "signed" : "unsigned",
-          ],
-          metadata: {
-            missionId: input.missionId,
-            topic: input.topic,
-            recommendations: input.recommendations,
-            qualityScore: input.qualityScore,
-            tokensUsed: input.tokensUsed,
-            costUsd: input.costUsd,
-            ...(input.failureClassification
-              ? { failureClassification: input.failureClassification }
-              : {}),
-          },
-        },
-      });
-    } catch (err) {
-      this.log.warn(
-        `recordMissionPostmortem failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
-
-  async listRecentPostmortems(
-    userId: string,
-    limit = 3,
-  ): Promise<
-    {
-      missionId: string;
-      topic: string;
-      summary: string;
-      recommendations: string[];
-      leaderSigned: boolean | null;
-      qualityScore: number | null;
-      createdAt: Date;
-    }[]
-  > {
-    const recentMissionExists = await this.prisma.agentPlaygroundMission
-      .findFirst({
-        where: {
-          userId,
-          status: { in: ["completed", "quality-failed"] },
-          completedAt: { gte: new Date(Date.now() - 5 * 60_000) },
-        },
-        select: { id: true, completedAt: true },
-        orderBy: { completedAt: "desc" },
-      })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[listRecentPostmortems userId=${userId}] findFirst recent mission failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        return null;
-      });
-
-    const fetchPostmortems = async () =>
-      this.prisma.harnessVectorMemory
-        .findMany({
-          where: {
-            namespace: userId,
-            tags: { has: "mission-postmortem" },
-          },
-          orderBy: { createdAt: "desc" },
-          take: Math.min(Math.max(limit, 1), 10),
-        })
-        .catch((err: unknown) => {
-          this.log.warn(
-            `[listRecentPostmortems userId=${userId}] findMany postmortems failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
-          return [];
-        });
-
-    let rows = await fetchPostmortems();
-
-    if (recentMissionExists) {
-      const recentMissionId = recentMissionExists.id;
-      const hasRecent = rows.some(
-        (r) =>
-          ((r.metadata as Record<string, unknown> | null)?.missionId ??
-            null) === recentMissionId,
-      );
-      if (!hasRecent) {
-        const deadline = Date.now() + 3000;
-        while (Date.now() < deadline) {
-          await new Promise((r) => setTimeout(r, 300));
-          rows = await fetchPostmortems();
-          if (
-            rows.some(
-              (r) =>
-                ((r.metadata as Record<string, unknown> | null)?.missionId ??
-                  null) === recentMissionId,
-            )
-          ) {
-            this.log.debug(
-              `[listRecentPostmortems ${userId}] S12 caught up for mission ${recentMissionId}`,
-            );
-            break;
-          }
-        }
-      }
-    }
-    return rows.map((r) => {
-      const meta = (r.metadata ?? {}) as Record<string, unknown>;
-      return {
-        missionId: String(meta.missionId ?? ""),
-        topic: String(meta.topic ?? ""),
-        summary: r.content,
-        recommendations: Array.isArray(meta.recommendations)
-          ? (meta.recommendations as string[])
-          : [],
-        leaderSigned: r.tags.includes("signed")
-          ? true
-          : r.tags.includes("unsigned")
-            ? false
-            : null,
-        qualityScore:
-          typeof meta.qualityScore === "number" ? meta.qualityScore : null,
-        createdAt: r.createdAt,
-      };
-    });
+    await super.recordMissionPostmortem(input);
   }
 }
