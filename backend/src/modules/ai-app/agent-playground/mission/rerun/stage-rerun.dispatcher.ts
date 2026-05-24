@@ -40,7 +40,7 @@ import type { EmitFn } from "../context/mission-deps";
 import { PLAYGROUND_PIPELINE } from "../../playground.config";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import type { ReportArtifact } from "@/modules/ai-harness/facade";
-import { LEADER_VERDICT_AUTO_RERUN_RECOVERED } from "../../types/leader-verdict.types";
+import { LEADER_VERDICT_AUTO_RERUN_RECOVERED } from "../types/leader-verdict.types";
 import {
   RerunMissionRuntimeBuilder,
   type RerunRuntimeSession,

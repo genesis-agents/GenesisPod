@@ -16,12 +16,12 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { SingleShotWriterAgent } from "../../agents/writer/single-shot-writer.agent";
-import { MissionOutlinePlannerAgent } from "../../agents/writer/mission-outline-planner.agent";
-import { DimensionOutlinePlannerAgent } from "../../agents/writer/dimension-outline-planner.agent";
-import { ChapterWriterAgent } from "../../agents/writer/chapter-writer.agent";
-import { ChapterReviewerAgent } from "../../agents/writer/chapter-reviewer.agent";
-import { DimensionIntegratorAgent } from "../../agents/writer/dimension-integrator.agent";
+import { SingleShotWriterAgent } from "../agents/writer/single-shot-writer.agent";
+import { MissionOutlinePlannerAgent } from "../agents/writer/mission-outline-planner.agent";
+import { DimensionOutlinePlannerAgent } from "../agents/writer/dimension-outline-planner.agent";
+import { ChapterWriterAgent } from "../agents/writer/chapter-writer.agent";
+import { ChapterReviewerAgent } from "../agents/writer/chapter-reviewer.agent";
+import { DimensionIntegratorAgent } from "../agents/writer/dimension-integrator.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import type { IAgentEvent } from "@/modules/ai-harness/facade";
 import { normalizeRunnerState } from "./runner-state.util";

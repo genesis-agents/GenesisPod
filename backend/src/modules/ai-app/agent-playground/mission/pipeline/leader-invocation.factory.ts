@@ -9,7 +9,7 @@
 import { Injectable } from "@nestjs/common";
 import { AgentInvoker } from "../roles";
 import type { LeaderRunFn } from "../roles/leader.service";
-import type { LeaderAgent } from "../../agents/leader/leader.agent";
+import type { LeaderAgent } from "../agents/leader/leader.agent";
 
 @Injectable()
 export class LeaderInvocationFactory {

@@ -7,7 +7,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { VerifierAgent } from "../../agents/verifier/verifier.agent";
+import { VerifierAgent } from "../agents/verifier/verifier.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import type { IAgentEvent } from "@/modules/ai-harness/facade";
 import { normalizeRunnerState } from "./runner-state.util";

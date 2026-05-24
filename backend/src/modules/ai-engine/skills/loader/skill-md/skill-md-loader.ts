@@ -7,8 +7,9 @@
  *       <!-- soul:start --> ... <!-- soul:end -->
  *       <!-- duty:<name>:start --> ... <!-- duty:<name>:end -->
  *
- * 2026-05-15 PR-E 单源化后是 agent-playground 唯一 prompt 数据源。
+ * 2026-05-15 PR-E 单源化后是首个 ai-app(@migrated-from agent-playground)的 prompt 数据源。
  * duty-loader.ts 委托本模块 loadSkill。legacy soul.md / duties/*.md 已物理删除。
+ * P9c (2026-05-24) 上提到 ai-engine,通用化:caller 传 agentsRootDir。
  */
 import * as fs from "fs";
 import * as path from "path";

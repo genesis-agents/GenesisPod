@@ -57,7 +57,7 @@ describe("Capability Contract · evidence budget guard", () => {
     const reviewer = fs.readFileSync(
       path.resolve(
         __dirname,
-        "../../modules/ai-app/agent-playground/agents/writer/chapter-reviewer.agent.ts",
+        "../../modules/ai-app/agent-playground/mission/agents/writer/chapter-reviewer.agent.ts",
       ),
       "utf-8",
     );

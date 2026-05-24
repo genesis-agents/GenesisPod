@@ -493,14 +493,14 @@ describe("RunMissionInputSchema refine — quick depth + epic/mega forbidden", (
 describe("RESEARCHER_MAX_ITERATIONS_HARD_CAP — P1 runaway fix", () => {
   it("constant is defined in researcher agent", () => {
     const src = readSrc(
-      "ai-app/agent-playground/agents/researcher/researcher.agent.ts",
+      "ai-app/agent-playground/mission/agents/researcher/researcher.agent.ts",
     );
     expect(src).toContain("RESEARCHER_MAX_ITERATIONS_HARD_CAP");
   });
 
   it("maxIterationsHardCap is wired into agent config", () => {
     const src = readSrc(
-      "ai-app/agent-playground/agents/researcher/researcher.agent.ts",
+      "ai-app/agent-playground/mission/agents/researcher/researcher.agent.ts",
     );
     expect(src).toContain("maxIterationsHardCap");
   });

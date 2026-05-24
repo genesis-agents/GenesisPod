@@ -21,13 +21,13 @@ jest.mock("p-limit", () => {
   return { __esModule: true, default: plimit };
 });
 
-jest.mock("../../../agents/writer/chapter-writer.agent", () => ({
+jest.mock("../../agents/writer/chapter-writer.agent", () => ({
   ChapterWriterAgent: class ChapterWriterAgent {},
 }));
-jest.mock("../../../agents/writer/chapter-reviewer.agent", () => ({
+jest.mock("../../agents/writer/chapter-reviewer.agent", () => ({
   ChapterReviewerAgent: class ChapterReviewerAgent {},
 }));
-jest.mock("../../../agents/writer/dimension-integrator.agent", () => ({
+jest.mock("../../agents/writer/dimension-integrator.agent", () => ({
   DimensionIntegratorAgent: class DimensionIntegratorAgent {},
 }));
 
@@ -267,13 +267,13 @@ describe("G 三道清理管线 — chapter body sanitize", () => {
     ].join("\n");
 
     const { ChapterWriterAgent } = jest.requireMock(
-      "../../../agents/writer/chapter-writer.agent",
+      "../../agents/writer/chapter-writer.agent",
     );
     const { ChapterReviewerAgent } = jest.requireMock(
-      "../../../agents/writer/chapter-reviewer.agent",
+      "../../agents/writer/chapter-reviewer.agent",
     );
     const { DimensionIntegratorAgent } = jest.requireMock(
-      "../../../agents/writer/dimension-integrator.agent",
+      "../../agents/writer/dimension-integrator.agent",
     );
 
     const invoker = {
@@ -347,13 +347,13 @@ describe("G 三道清理管线 — chapter body sanitize", () => {
       '\n```chartjs\n{"type":"line"}\n```\nConclusion follows from the evidence above.';
 
     const { ChapterWriterAgent } = jest.requireMock(
-      "../../../agents/writer/chapter-writer.agent",
+      "../../agents/writer/chapter-writer.agent",
     );
     const { ChapterReviewerAgent } = jest.requireMock(
-      "../../../agents/writer/chapter-reviewer.agent",
+      "../../agents/writer/chapter-reviewer.agent",
     );
     const { DimensionIntegratorAgent } = jest.requireMock(
-      "../../../agents/writer/dimension-integrator.agent",
+      "../../agents/writer/dimension-integrator.agent",
     );
 
     const invoker = {

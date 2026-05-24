@@ -36,7 +36,7 @@ import type {
   LeaderForewordOutput,
   LeaderPlanOutput,
   LeaderSignoffOutput,
-} from "../../agents/leader/leader.agent";
+} from "../agents/leader/leader.agent";
 import type { MissionBudgetPool } from "@/modules/ai-harness/facade";
 import type { ReportArtifact } from "@/modules/ai-harness/facade";
 import type {

@@ -39,8 +39,8 @@ import {
 } from "@/modules/ai-harness/facade";
 import { MissionEventBuffer } from "../../mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "../../mission/lifecycle/mission-store.service";
-import { LeaderChatService } from "../../services/chat/leader-chat.service";
-import { MissionExportService } from "../../services/export/mission-export.service";
+import { LeaderChatService } from "../../mission/chat/leader-chat.service";
+import { MissionExportService } from "../../mission/export/mission-export.service";
 import { BaseMissionController } from "./base-mission.controller";
 
 @Controller("agent-playground")

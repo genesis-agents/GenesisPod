@@ -416,7 +416,7 @@ export {
 } from "../llm/selection";
 export { SearchService } from "../knowledge/search/search.service";
 export { SkillLoaderService } from "../skills/loader/loading/skill-loader.service";
-// P9c (2026-05-24): SKILL.md loader 上提自 ai-app/agent-playground/utils/,通用 Anthropic skill 标准格式 loader + duty 模板渲染。
+// P9c (2026-05-24): SKILL.md loader 上提自首个 ai-app(@migrated-from utils/),通用 Anthropic skill 标准格式 loader + duty 模板渲染。
 // 各 app 通过自身 shim 注入 agentsRootDir(各 app __dirname 推算),保持 callers 二元 API 不变。
 export {
   loadSkill,

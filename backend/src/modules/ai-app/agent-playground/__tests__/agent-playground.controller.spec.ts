@@ -98,7 +98,7 @@ function buildController() {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const {
     MissionExportService,
-  } = require("../services/export/mission-export.service");
+  } = require("../mission/export/mission-export.service");
   const exportService = new MissionExportService(store as never);
   const localRerun = {
     execute: jest.fn(),

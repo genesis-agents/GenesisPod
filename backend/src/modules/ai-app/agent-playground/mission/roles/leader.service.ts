@@ -26,7 +26,7 @@ import {
   type LeaderForewordOutput,
   type LeaderPlanOutput,
   type LeaderSignoffOutput,
-} from "../../agents/leader/leader.agent";
+} from "../agents/leader/leader.agent";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { describeLeaderFailure } from "./leader-failure-diagnostic.utils";
 // ★ 2026-05-22 矩阵配置：维度 facet → 推荐工具集 确定性派生

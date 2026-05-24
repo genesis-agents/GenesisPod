@@ -31,7 +31,7 @@ import type { RequestWithUser } from "../../../../../common/types/express-reques
 import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
 import { MissionEventBuffer } from "../../mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "../../mission/lifecycle/mission-store.service";
-import { LeaderChatService } from "../../services/chat/leader-chat.service";
+import { LeaderChatService } from "../../mission/chat/leader-chat.service";
 import { LocalRerunService } from "../../mission/rerun/local-rerun.service";
 import { MissionRerunOrchestratorService } from "../../mission/rerun/mission-rerun-orchestrator.service";
 import { BaseMissionController } from "./base-mission.controller";

@@ -25,7 +25,7 @@
  */
 
 import pLimit from "p-limit";
-import { ResearcherAgent } from "../../../agents/researcher/researcher.agent";
+import { ResearcherAgent } from "../../agents/researcher/researcher.agent";
 import type {
   MissionContext,
   MissionInvariants,
@@ -42,7 +42,7 @@ import {
 import { runPerDimPipeline } from "../helpers/per-dim-pipeline.util";
 import { narrate } from "../../artifacts/narrative.util";
 // ★ 2026-05-13: route min-findings retry threshold through typed runtime config
-import { loadPlaygroundRuntimeConfig } from "../../../playground-runtime.config";
+import { loadPlaygroundRuntimeConfig } from "../../../runtime/playground-runtime.config";
 
 interface ResearcherDimResult {
   dimension: string;

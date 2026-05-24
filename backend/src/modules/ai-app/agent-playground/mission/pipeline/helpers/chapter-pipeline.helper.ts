@@ -9,8 +9,8 @@
  * independently testable.
  */
 
-import { ChapterWriterAgent } from "../../../agents/writer/chapter-writer.agent";
-import { ChapterReviewerAgent } from "../../../agents/writer/chapter-reviewer.agent";
+import { ChapterWriterAgent } from "../../agents/writer/chapter-writer.agent";
+import { ChapterReviewerAgent } from "../../agents/writer/chapter-reviewer.agent";
 import type { MissionDeps } from "../../context/mission-deps";
 import type { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import type { MissionBudgetPool } from "@/modules/ai-harness/facade";

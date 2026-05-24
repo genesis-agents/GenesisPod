@@ -29,7 +29,7 @@
  *                其它子步骤失败均就地降级（memory/assembler 不阻塞）
  */
 
-import { SingleShotWriterAgent } from "../../../agents/writer/single-shot-writer.agent";
+import { SingleShotWriterAgent } from "../../agents/writer/single-shot-writer.agent";
 import type {
   MissionInvariants,
   PlanPhaseCtx,

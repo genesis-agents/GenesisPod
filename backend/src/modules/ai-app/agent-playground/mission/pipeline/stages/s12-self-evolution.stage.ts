@@ -27,7 +27,7 @@
  */
 
 import type { MissionDeps } from "../../context/mission-deps";
-import { PLAYGROUND_POSTMORTEM_PATTERNS } from "../../../services/postmortem/playground-postmortem-patterns";
+import { PLAYGROUND_POSTMORTEM_PATTERNS } from "../../lifecycle/playground-postmortem-patterns";
 
 interface SelfEvolutionInput {
   missionId: string;

@@ -13,8 +13,8 @@
  * 生产方范围一律引用 contracts/*.contract.ts 的单一源常量，禁止写字面量。
  */
 
-import { DimensionOutlinePlannerAgent } from "../../agents/writer/dimension-outline-planner.agent";
-import { ChapterWriterAgent } from "../../agents/writer/chapter-writer.agent";
+import { DimensionOutlinePlannerAgent } from "../../mission/agents/writer/dimension-outline-planner.agent";
+import { ChapterWriterAgent } from "../../mission/agents/writer/chapter-writer.agent";
 import { CHAPTER_COUNT_RANGE } from "./chapter-count.contract";
 import { CHAPTER_WORDS_PER_CHAPTER_RANGE } from "./word-budget.contract";
 

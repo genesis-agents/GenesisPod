@@ -13,7 +13,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { ResearcherAgent } from "../../agents/researcher/researcher.agent";
+import { ResearcherAgent } from "../agents/researcher/researcher.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import {
   MissionBudgetPool,

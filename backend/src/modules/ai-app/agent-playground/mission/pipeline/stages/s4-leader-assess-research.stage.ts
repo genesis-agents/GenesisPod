@@ -22,7 +22,7 @@
  *                Leader 主动 abort → rethrow（mission 终止）
  */
 
-import { ResearcherAgent } from "../../../agents/researcher/researcher.agent";
+import { ResearcherAgent } from "../../agents/researcher/researcher.agent";
 import type {
   MissionContext,
   MissionInvariants,

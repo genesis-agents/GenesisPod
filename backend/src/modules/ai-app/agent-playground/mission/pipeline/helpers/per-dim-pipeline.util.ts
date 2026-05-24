@@ -19,7 +19,7 @@
  *   chapter-integrity.validator.ts   — validateWrittenChapters + text utilities
  */
 
-import { DimensionIntegratorAgent } from "../../../agents/writer/dimension-integrator.agent";
+import { DimensionIntegratorAgent } from "../../agents/writer/dimension-integrator.agent";
 import type { MissionDeps } from "../../context/mission-deps";
 import { groundDimensionGrade } from "../../artifacts/grade-grounding.util";
 import type { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
@@ -39,7 +39,7 @@ import {
 } from "../../../api/contracts/chapter-count.contract";
 // ★ 2026-05-22 ③L/M 单一源：报告总字数 = depthBase × lengthProfile 倍率
 import { resolveMissionTotalWords } from "../../../api/contracts/word-budget.contract";
-import { loadPlaygroundRuntimeConfig } from "../../../playground-runtime.config";
+import { loadPlaygroundRuntimeConfig } from "../../../runtime/playground-runtime.config";
 import { stripChartJsonFromContent } from "@/modules/ai-engine/facade";
 
 import {
