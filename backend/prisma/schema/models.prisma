@@ -10830,3 +10830,40 @@ model SocialContentTaskVersion {
   @@unique([taskId, platform])
   @@index([taskId])
 }
+
+// ============================================================================
+// v3.1 B.3 · capability_overrides 写入审计日志（D2 + §4.5 同事务）
+// ============================================================================
+
+/// 任何对 AIModel.capability_overrides / UserModelConfig.capability_overrides
+/// 的写入（admin override / BYOK 用户 override / self-heal 系统降级）都必须
+/// 在同一个 prisma.$transaction 内向本表 INSERT 一行。
+///
+/// 业务 commit 失败时审计同步回滚（强一致），避免"业务成功 audit 失败"
+/// 或"audit 写了业务回滚"的不一致状态。
+///
+/// 查询模式：
+///   - cooling-off 守护：WHERE scope_key + field + source='admin-override'
+///     AND created_at >= NOW() - INTERVAL '24h'
+///   - actor 审计：WHERE actor_id ORDER BY created_at DESC
+model CapabilityOverrideAuditLog {
+  id                String   @id @default(cuid())
+  actorId           String   @map("actor_id")
+  actorRole         String   @map("actor_role") // 'user' | 'admin' | 'system'
+  scope             String // 'PERSONAL' | 'ADMIN' | 'SYSTEM' (v3.1 D2 修订矩阵)
+  scopeKey          String   @map("scope_key") // 'admin:ai_models:<id>' | 'user:<userId>:user_model_config:<id>'
+  aiModelId         String?  @map("ai_model_id") // 引用 AIModel.id（admin 写时填）
+  userModelConfigId String?  @map("user_model_config_id") // 引用 UserModelConfig.id（BYOK / self-heal 写时填）
+  field             String // 改的字段路径或 '<root>' 表整 patch
+  beforeValue       Json?    @map("before_value")
+  afterValue        Json?    @map("after_value")
+  source            String // 'admin-override' | 'self-heal-user' | 'reverse-probe'
+  reason            String // ≥30 字符（DTO @MinLength(30) + service assert 双校）
+  ipAddress         String?  @map("ip_address")
+  userAgent         String?  @map("user_agent")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([scopeKey, field, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@map("capability_override_audit_logs")
+}

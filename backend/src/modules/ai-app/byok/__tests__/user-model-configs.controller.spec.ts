@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { UserModelConfigsController } from "../user-model-configs.controller";
 import { UserModelConfigsService } from "@/modules/ai-harness/facade";
+import { CapabilityOverridesWriterService } from "@/modules/ai-engine/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };
@@ -33,7 +34,13 @@ describe("UserModelConfigsController", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserModelConfigsController],
-      providers: [{ provide: UserModelConfigsService, useValue: service }],
+      providers: [
+        { provide: UserModelConfigsService, useValue: service },
+        {
+          provide: CapabilityOverridesWriterService,
+          useValue: { applyOverrideTransactional: jest.fn() },
+        },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue(mockGuard)

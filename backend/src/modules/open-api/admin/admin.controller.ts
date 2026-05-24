@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   Body,
+  Req,
   UseGuards,
   Logger,
   BadRequestException,
@@ -17,7 +18,12 @@ import { AdminService } from "./admin.service";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { ChatFacade } from "../../ai-harness/facade";
-import { normalizeMarkdownSlug } from "../../ai-engine/facade";
+import {
+  normalizeMarkdownSlug,
+  CapabilityOverridesWriterService,
+  ApplyCapabilityOverridesDto,
+  DeleteCapabilityOverridesDto,
+} from "../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { SecretsService } from "../../ai-infra/secrets/secrets.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
@@ -25,6 +31,12 @@ import { CreateUserDto } from "./dto/create-user.dto";
 import { StorageInventoryService } from "../../ai-infra/storage/governance/storage-inventory.service";
 import { StorageOffloadService } from "../../ai-infra/storage/governance/storage-offload.service";
 import { SystemModelInventoryService } from "../../ai-engine/llm/services/system-model-inventory.service";
+
+interface AuthenticatedRequest {
+  user?: { id: string };
+  ip?: string;
+  headers?: { "user-agent"?: string };
+}
 
 /**
  * Perplexity API key 验证用的模型名。
@@ -50,6 +62,8 @@ export class AdminController {
     private storageInventoryService: StorageInventoryService,
     private storageOffloadService: StorageOffloadService,
     private systemModelInventoryService: SystemModelInventoryService,
+    // v3.1 阶段 B 子片 2：capability_overrides 写入面 SSOT（admin override 路径）
+    private capabilityOverridesWriter: CapabilityOverridesWriterService,
   ) {}
 
   /**
@@ -500,6 +514,66 @@ export class AdminController {
   async deleteAIModel(@Param("id") id: string) {
     this.logger.log(`Admin: Deleting AI model ${id}`);
     return this.adminService.deleteAIModel(id);
+  }
+
+  /**
+   * v3.1 §B.3 admin override 路径 —— PATCH /api/v1/admin/ai-models/:id/capability-overrides
+   *
+   * 写入 AIModel.capability_overrides JSONB。所有校验/写入/AuditLog 在
+   * CapabilityOverridesWriterService.applyOverrideTransactional 同事务完成
+   * （patch shape strict-zod + reason ≥30 chars + scope=ADMIN 矩阵）。
+   *
+   * 守护：JwtAuthGuard + AdminGuard（@Controller 级），任何 actor.role!='admin' 拒。
+   */
+  @Patch("ai-models/:id/capability-overrides")
+  async applyAIModelCapabilityOverrides(
+    @Param("id") id: string,
+    @Body() dto: ApplyCapabilityOverridesDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const actorId = req.user?.id ?? "unknown-admin";
+    this.logger.log(
+      `Admin: applying capability_overrides to ai_model=${id} (actor=${actorId})`,
+    );
+    return this.capabilityOverridesWriter.applyOverrideTransactional({
+      target: { kind: "ai_model", id },
+      scope: "ADMIN",
+      actor: { id: actorId, role: "admin" },
+      patch: dto.patch,
+      source: "admin-override",
+      reason: dto.reason,
+      ipAddress: req.ip,
+      userAgent: req.headers?.["user-agent"],
+    });
+  }
+
+  /**
+   * v3.1 §B.3 admin override 重置 —— DELETE /api/v1/admin/ai-models/:id/capability-overrides
+   *
+   * 用 patch={} + 内部把整列 reset 为 null 处理；当前实现是写入空对象（不彻底 null）
+   * —— B+ 增强：service 加 clearOverrideTransactional 把列置 null（drop 整 overlay）。
+   * 本片为简洁先做"清空到 {}（无字段覆盖）" 语义，仍记 AuditLog。
+   */
+  @Delete("ai-models/:id/capability-overrides")
+  async clearAIModelCapabilityOverrides(
+    @Param("id") id: string,
+    @Body() dto: DeleteCapabilityOverridesDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const actorId = req.user?.id ?? "unknown-admin";
+    this.logger.log(
+      `Admin: clearing capability_overrides on ai_model=${id} (actor=${actorId})`,
+    );
+    return this.capabilityOverridesWriter.applyOverrideTransactional({
+      target: { kind: "ai_model", id },
+      scope: "ADMIN",
+      actor: { id: actorId, role: "admin" },
+      patch: {}, // 空 patch + 与现有 deep-merge → 等价于"不覆盖任何字段"
+      source: "admin-override",
+      reason: dto.reason,
+      ipAddress: req.ip,
+      userAgent: req.headers?.["user-agent"],
+    });
   }
 
   /**

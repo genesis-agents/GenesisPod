@@ -21,6 +21,7 @@ import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import { StorageInventoryService } from "../../../ai-infra/storage/governance/storage-inventory.service";
 import { StorageOffloadService } from "../../../ai-infra/storage/governance/storage-offload.service";
 import { SystemModelInventoryService } from "../../../ai-engine/llm/services/system-model-inventory.service";
+import { CapabilityOverridesWriterService } from "../../../ai-engine/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 
@@ -177,6 +178,10 @@ describe("AdminController (supplemental2)", () => {
         {
           provide: SystemModelInventoryService,
           useValue: { getInventory: jest.fn() },
+        },
+        {
+          provide: CapabilityOverridesWriterService,
+          useValue: { applyOverrideTransactional: jest.fn() },
         },
       ],
     })
@@ -665,4 +670,3 @@ describe("AdminController (supplemental2)", () => {
     });
   });
 });
-

@@ -7,6 +7,7 @@ import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import { StorageInventoryService } from "../../../ai-infra/storage/governance/storage-inventory.service";
 import { StorageOffloadService } from "../../../ai-infra/storage/governance/storage-offload.service";
 import { SystemModelInventoryService } from "../../../ai-engine/llm/services/system-model-inventory.service";
+import { CapabilityOverridesWriterService } from "../../../ai-engine/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 
@@ -98,6 +99,11 @@ const mockSystemModelInventoryService = {
   getInventory: jest.fn(),
 };
 
+// v3.1 阶段 B 子片 2：capability_overrides 写入面 mock（admin.controller 注入要）
+const mockCapabilityOverridesWriter = {
+  applyOverrideTransactional: jest.fn(),
+};
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -124,6 +130,10 @@ describe("AdminController", () => {
         {
           provide: SystemModelInventoryService,
           useValue: mockSystemModelInventoryService,
+        },
+        {
+          provide: CapabilityOverridesWriterService,
+          useValue: mockCapabilityOverridesWriter,
         },
       ],
     })
@@ -510,9 +520,7 @@ describe("AdminController", () => {
         success: false,
         message: "API key is not configured for this model",
       });
-      expect(
-        mockAIFacade.testModelConnectionWithKey,
-      ).not.toHaveBeenCalled();
+      expect(mockAIFacade.testModelConnectionWithKey).not.toHaveBeenCalled();
     });
 
     it("should call facade.testModelConnectionWithKey when api key exists", async () => {
@@ -534,9 +542,7 @@ describe("AdminController", () => {
 
       const result = await controller.testAIModelConnection("m-1");
 
-      expect(
-        mockAIFacade.testModelConnectionWithKey,
-      ).toHaveBeenCalledWith(
+      expect(mockAIFacade.testModelConnectionWithKey).toHaveBeenCalledWith(
         "openai",
         "gpt-4",
         "sk-test-key",
@@ -1064,4 +1070,3 @@ describe("AdminController", () => {
     });
   });
 });
-
