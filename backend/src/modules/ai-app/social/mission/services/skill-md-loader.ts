@@ -35,10 +35,10 @@ const cache = new Map<string, ParsedSkill>();
 export function loadSkill(agentDir: string): ParsedSkill {
   const cached = cache.get(agentDir);
   if (cached) return cached;
+  // P10 (2026-05-24): skill-md-loader 已挪 mission/services/,agents 在 mission/agents/,从 mission/services/ 到 mission/agents/ 是 ../agents/
   const filePath = path.resolve(
     __dirname,
     "..",
-    "mission",
     "agents",
     agentDir,
     "SKILL.md",
@@ -70,7 +70,6 @@ export function loadFormatSpec(name: string): string {
   const filePath = path.resolve(
     __dirname,
     "..",
-    "mission",
     "agents",
     "_formats",
     `${name}.md`,

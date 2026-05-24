@@ -7,7 +7,7 @@ import {
   getPlatformLimits,
   checkContentLimits,
 } from "../platform-limits.config";
-import { SocialPlatformType } from "../../types";
+import { SocialPlatformType } from "../../mission/types";
 
 describe("platform-limits.config", () => {
   describe("PLATFORM_LIMITS", () => {

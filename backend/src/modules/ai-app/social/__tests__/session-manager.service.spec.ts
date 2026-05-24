@@ -3,12 +3,12 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { SessionManagerService } from "../core/session-manager.service";
+import { SessionManagerService } from "../runtime/session-manager.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SocialPlatformType } from "../types";
+import { SocialPlatformType } from "../mission/types";
 
 // Mock session-crypto to avoid env var dependency
-jest.mock("../utils/session-crypto", () => ({
+jest.mock("../mission/services/session-crypto", () => ({
   encryptSession: jest.fn((data) =>
     JSON.stringify({ encrypted: true, data: JSON.stringify(data) }),
   ),
@@ -170,7 +170,7 @@ describe("SessionManagerService", () => {
     });
 
     it("should return null when decryption fails", async () => {
-      const { decryptSession } = require("../utils/session-crypto");
+      const { decryptSession } = require("../mission/services/session-crypto");
       decryptSession.mockImplementationOnce(() => {
         throw new Error("Decryption failed");
       });

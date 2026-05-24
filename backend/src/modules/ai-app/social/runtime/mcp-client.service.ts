@@ -12,8 +12,8 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { execSync } from "child_process";
-import { MCPToolResult } from "../types/platform.types";
-import { MCP_SERVER_CONFIGS } from "../config/platforms.config";
+import { MCPToolResult } from "../mission/types/platform.types";
+import { MCP_SERVER_CONFIGS } from "../runtime/platforms.config";
 import { ToolFacade } from "@/modules/ai-harness/facade";
 import type {
   MCPServerConfig as UnifiedMCPServerConfig,

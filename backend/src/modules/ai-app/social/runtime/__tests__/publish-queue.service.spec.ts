@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { PublishQueueService } from "../publish-queue.service";
-import { SocialPlatformType } from "../../types";
-import { PublishOptions } from "../../types/platform.types";
+import { SocialPlatformType } from "../../mission/types";
+import { PublishOptions } from "../../mission/types/platform.types";
 
 describe("PublishQueueService", () => {
   let service: PublishQueueService;

@@ -36,7 +36,7 @@ import {
 // ---------------------------------------------------------------------------
 // Mock session-crypto
 // ---------------------------------------------------------------------------
-jest.mock("../../utils/session-crypto", () => ({
+jest.mock("../../mission/services/session-crypto", () => ({
   decryptSession: jest.fn(),
   encryptSession: jest.fn((data: unknown) => JSON.stringify(data)),
   isEncrypted: jest.fn(() => false),

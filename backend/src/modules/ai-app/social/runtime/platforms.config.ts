@@ -2,8 +2,11 @@
  * 平台配置
  */
 
-import { SocialPlatformType } from "../types";
-import { RateLimitConfig, MCPServerConfig } from "../types/platform.types";
+import { SocialPlatformType } from "../mission/types";
+import {
+  RateLimitConfig,
+  MCPServerConfig,
+} from "../mission/types/platform.types";
 
 // ==================== 平台基础配置 ====================
 

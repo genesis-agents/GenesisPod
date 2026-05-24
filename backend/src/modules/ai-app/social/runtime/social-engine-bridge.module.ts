@@ -15,7 +15,7 @@
 
 import { forwardRef, Global, Module } from "@nestjs/common";
 import { SOCIAL_PUBLISH_PORT } from "@/modules/ai-engine/facade";
-import { AiSocialModule } from "../ai-social.module";
+import { AiSocialModule } from "../module/ai-social.module";
 import { SocialPublishAdapter } from "./social-publish.adapter";
 
 @Global()

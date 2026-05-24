@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { RateLimiterService } from "../rate-limiter.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SocialPlatformType } from "../../types";
+import { SocialPlatformType } from "../../mission/types";
 
 describe("RateLimiterService", () => {
   let service: RateLimiterService;

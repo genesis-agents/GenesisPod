@@ -11,14 +11,14 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from "@nestjs/common";
-import { SocialPlatformType } from "../types";
+import { SocialPlatformType } from "../mission/types";
 import {
   PublishJobData,
   PublishOptions,
   JobStatus,
   JobStatusInfo,
-} from "../types/platform.types";
-import { RETRY_CONFIG } from "../config/platforms.config";
+} from "../mission/types/platform.types";
+import { RETRY_CONFIG } from "../runtime/platforms.config";
 
 interface QueuedJob {
   id: string;

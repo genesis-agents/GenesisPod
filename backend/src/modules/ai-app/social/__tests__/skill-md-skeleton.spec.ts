@@ -10,7 +10,10 @@
  *   - all duties listed in frontmatter have matching duty:NAME:start/end blocks
  *   - duties array is non-empty (PR-2 filled them all)
  */
-import { loadSkill, clearSkillCache } from "../utils/skill-md-loader";
+import {
+  loadSkill,
+  clearSkillCache,
+} from "../mission/services/skill-md-loader";
 
 const ROLES = [
   "leader",

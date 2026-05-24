@@ -24,7 +24,7 @@ import {
   DomainEventBus,
   SocketBroadcastAdapter,
 } from "@/modules/ai-harness/facade";
-import { SocialMissionStore } from "./services/mission/lifecycle/social-mission-store.service";
+import { SocialMissionStore } from "../mission/lifecycle/social-mission-store.service";
 import { wsCorsOrigin } from "@/common/config/ws-cors";
 
 interface JwtPayload {

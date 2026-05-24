@@ -11,7 +11,7 @@ import {
   runSaveDraftAttempts,
   type SaveDraftApiParams,
   type SaveDraftApiResult,
-} from "../wechat-save-draft.helper";
+} from "../wechat/wechat-save-draft.helper";
 
 // ---------------------------------------------------------------------------
 // Browser-global polyfills (scoped to this test file)

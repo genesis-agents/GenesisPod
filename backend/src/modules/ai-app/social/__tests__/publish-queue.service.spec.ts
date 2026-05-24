@@ -3,8 +3,8 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { PublishQueueService } from "../core/publish-queue.service";
-import { SocialPlatformType } from "../types";
+import { PublishQueueService } from "../runtime/publish-queue.service";
+import { SocialPlatformType } from "../mission/types";
 
 describe("PublishQueueService", () => {
   let service: PublishQueueService;

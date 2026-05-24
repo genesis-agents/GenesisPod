@@ -3,13 +3,13 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { PublishExecutorService } from "../services/publish-executor.service";
-import { SocialBrowserService } from "../services/social-browser.service";
-import { ContentVersionService } from "../services/content-version.service";
-import { WechatAdapter } from "../adapters/wechat.adapter";
-import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
+import { PublishExecutorService } from "../mission/services/publish-executor.service";
+import { SocialBrowserService } from "../mission/services/social-browser.service";
+import { ContentVersionService } from "../mission/services/content-version.service";
+import { WechatAdapter } from "../integrations/wechat/wechat.adapter";
+import { XhsMcpAdapter } from "../integrations/xiaohongshu/xiaohongshu.adapter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SocialContentStatus, SocialPlatformType } from "../types";
+import { SocialContentStatus, SocialPlatformType } from "../mission/types";
 
 // ==================== Mocks ====================
 

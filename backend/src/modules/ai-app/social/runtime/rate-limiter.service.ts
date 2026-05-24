@@ -6,9 +6,12 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SocialPlatformType } from "../types";
-import { RateLimitResult, RateLimitConfig } from "../types/platform.types";
-import { RATE_LIMIT_CONFIGS } from "../config/platforms.config";
+import { SocialPlatformType } from "../mission/types";
+import {
+  RateLimitResult,
+  RateLimitConfig,
+} from "../mission/types/platform.types";
+import { RATE_LIMIT_CONFIGS } from "../runtime/platforms.config";
 
 @Injectable()
 export class RateLimiterService {

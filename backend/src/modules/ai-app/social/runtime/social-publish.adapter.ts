@@ -27,7 +27,7 @@ import {
   type XhsPublishInput,
 } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { PublishExecutorService } from "../services/publish-executor.service";
+import { PublishExecutorService } from "../mission/services/publish-executor.service";
 import {
   SocialContentStatus,
   SocialContentType,

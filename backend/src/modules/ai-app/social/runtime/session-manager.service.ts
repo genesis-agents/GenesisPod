@@ -6,10 +6,16 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SocialPlatformType } from "../types";
-import { SessionData, SessionValidationResult } from "../types/platform.types";
-import { WECHAT_REQUIRED_COOKIES } from "../config/platforms.config";
-import { encryptSession, decryptSession } from "../utils/session-crypto";
+import { SocialPlatformType } from "../mission/types";
+import {
+  SessionData,
+  SessionValidationResult,
+} from "../mission/types/platform.types";
+import { WECHAT_REQUIRED_COOKIES } from "../runtime/platforms.config";
+import {
+  encryptSession,
+  decryptSession,
+} from "../mission/services/session-crypto";
 
 @Injectable()
 export class SessionManagerService {

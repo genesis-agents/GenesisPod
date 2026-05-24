@@ -9,7 +9,7 @@ import {
   TIMEOUT_CONFIG,
   RETRY_CONFIG,
 } from "../platforms.config";
-import { SocialPlatformType } from "../../types";
+import { SocialPlatformType } from "../../mission/types";
 
 describe("platforms.config", () => {
   describe("PLATFORM_CONFIGS", () => {

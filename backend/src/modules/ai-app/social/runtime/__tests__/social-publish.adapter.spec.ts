@@ -1,7 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { SocialPublishAdapter } from "../social-publish.adapter";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { PublishExecutorService } from "../../services/publish-executor.service";
+import { PublishExecutorService } from "../../mission/services/publish-executor.service";
 import {
   SocialContentStatus,
   SocialContentType,

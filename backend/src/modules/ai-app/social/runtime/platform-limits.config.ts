@@ -5,7 +5,7 @@
  * 用于内容版本生成时的适配
  */
 
-import { SocialPlatformType } from "../types";
+import { SocialPlatformType } from "../mission/types";
 
 export interface PlatformLimits {
   maxTitle: number; // 标题最大字数

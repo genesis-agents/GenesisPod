@@ -4,9 +4,9 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
-import { ReviewService } from "../services/review.service";
+import { ReviewService } from "../mission/services/review.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SocialReviewStatus, SocialContentStatus } from "../types";
+import { SocialReviewStatus, SocialContentStatus } from "../mission/types";
 
 describe("ReviewService", () => {
   let service: ReviewService;

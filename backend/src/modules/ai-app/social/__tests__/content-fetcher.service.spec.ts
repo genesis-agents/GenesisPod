@@ -3,7 +3,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { ContentFetcherService } from "../services/content-fetcher.service";
+import { ContentFetcherService } from "../mission/services/content-fetcher.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { RAGFacade } from "@/modules/ai-harness/facade";
 import { SocialContentSourceType } from "@prisma/client";

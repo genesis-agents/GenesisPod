@@ -1,11 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { SessionManagerService } from "../session-manager.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SocialPlatformType } from "../../types";
-import { SessionData } from "../../types/platform.types";
+import { SocialPlatformType } from "../../mission/types";
+import { SessionData } from "../../mission/types/platform.types";
 
 // Mock the session-crypto module
-jest.mock("../../utils/session-crypto", () => ({
+jest.mock("../../mission/services/session-crypto", () => ({
   encryptSession: jest.fn((data: unknown) => JSON.stringify(data)),
   decryptSession: jest.fn((str: string) => JSON.parse(str)),
 }));
@@ -145,7 +145,9 @@ describe("SessionManagerService", () => {
   });
 
   it("should return null and log error when session decryption fails", async () => {
-    const { decryptSession } = jest.requireMock("../../utils/session-crypto");
+    const { decryptSession } = jest.requireMock(
+      "../../mission/services/session-crypto",
+    );
     decryptSession.mockImplementationOnce(() => {
       throw new Error("Decryption failed");
     });
@@ -218,7 +220,9 @@ describe("SessionManagerService", () => {
   });
 
   it("should call encryptSession with the session data", async () => {
-    const { encryptSession } = jest.requireMock("../../utils/session-crypto");
+    const { encryptSession } = jest.requireMock(
+      "../../mission/services/session-crypto",
+    );
     mockPrisma.socialPlatformConnection.upsert.mockResolvedValue({
       id: "conn-1",
     });

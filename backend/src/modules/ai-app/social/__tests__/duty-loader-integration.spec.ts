@@ -2,7 +2,10 @@
  * W4 PR-3a verification: duty-loader successfully builds prompts from
  * each agent's SKILL.md, integrating frontmatter duties[] with body anchors.
  */
-import { buildPromptFromDuty, clearDutyCache } from "../utils/duty-loader";
+import {
+  buildPromptFromDuty,
+  clearDutyCache,
+} from "../mission/services/duty-loader";
 
 interface RoleDuty {
   agentDir: string;

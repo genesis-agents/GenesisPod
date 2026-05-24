@@ -25,8 +25,8 @@ import { PublishExecutorService } from "../mission/services/publish-executor.ser
 import { SocialBrowserService } from "../mission/services/social-browser.service";
 import { SessionHealthCheckScheduler } from "../mission/services/session-health-check.scheduler";
 import { PublishSchedulerService } from "../mission/services/publish-scheduler.service";
-import { WechatAdapter } from "../integrations/wechat.adapter";
-import { XhsMcpAdapter } from "../integrations/xiaohongshu.adapter";
+import { WechatAdapter } from "../integrations/wechat/wechat.adapter";
+import { XhsMcpAdapter } from "../integrations/xiaohongshu/xiaohongshu.adapter";
 import { MCPClientService } from "../runtime/mcp-client.service";
 import { WechatArticleFormatterService } from "../mission/services/wechat-article-formatter.service";
 import { WechatImageUploaderService } from "../mission/services/wechat-image-uploader.service";

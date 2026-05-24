@@ -19,7 +19,7 @@ describe("session-crypto", () => {
       const {
         encryptSessionData,
         decryptSessionData,
-      } = require("../utils/session-crypto");
+      } = require("../mission/services/session-crypto");
 
       const original = "Hello, World!";
       const encrypted = encryptSessionData(original);
@@ -39,7 +39,9 @@ describe("session-crypto", () => {
     });
 
     it("should produce different ciphertext for the same input (random IV)", () => {
-      const { encryptSessionData } = require("../utils/session-crypto");
+      const {
+        encryptSessionData,
+      } = require("../mission/services/session-crypto");
 
       const data = "same input";
       const enc1 = encryptSessionData(data);
@@ -50,7 +52,9 @@ describe("session-crypto", () => {
     });
 
     it("should throw on unsupported version", () => {
-      const { decryptSessionData } = require("../utils/session-crypto");
+      const {
+        decryptSessionData,
+      } = require("../mission/services/session-crypto");
 
       const fakeEncrypted = JSON.stringify({
         iv: "0".repeat(32),
@@ -66,7 +70,7 @@ describe("session-crypto", () => {
       const {
         encryptSessionData,
         decryptSessionData,
-      } = require("../utils/session-crypto");
+      } = require("../mission/services/session-crypto");
 
       const complexData = JSON.stringify({
         cookies: [{ name: "session", value: "abc" }],
@@ -81,7 +85,7 @@ describe("session-crypto", () => {
       const {
         encryptSessionData,
         decryptSessionData,
-      } = require("../utils/session-crypto");
+      } = require("../mission/services/session-crypto");
 
       const unicode = "中文内容 🎉 日本語";
       const encrypted = encryptSessionData(unicode);
@@ -95,27 +99,27 @@ describe("session-crypto", () => {
       const {
         encryptSessionData,
         isEncrypted,
-      } = require("../utils/session-crypto");
+      } = require("../mission/services/session-crypto");
 
       const encrypted = encryptSessionData("test");
       expect(isEncrypted(encrypted)).toBe(true);
     });
 
     it("should return false for plain JSON string", () => {
-      const { isEncrypted } = require("../utils/session-crypto");
+      const { isEncrypted } = require("../mission/services/session-crypto");
 
       const plain = JSON.stringify({ name: "John" });
       expect(isEncrypted(plain)).toBe(false);
     });
 
     it("should return false for non-JSON string", () => {
-      const { isEncrypted } = require("../utils/session-crypto");
+      const { isEncrypted } = require("../mission/services/session-crypto");
 
       expect(isEncrypted("not json at all")).toBe(false);
     });
 
     it("should return false for partial encrypted structure (missing tag)", () => {
-      const { isEncrypted } = require("../utils/session-crypto");
+      const { isEncrypted } = require("../mission/services/session-crypto");
 
       // Missing 'tag' field
       const partial = JSON.stringify({ iv: "abc", data: "def", version: 1 });
@@ -123,14 +127,14 @@ describe("session-crypto", () => {
     });
 
     it("should return false for partial encrypted structure (missing version)", () => {
-      const { isEncrypted } = require("../utils/session-crypto");
+      const { isEncrypted } = require("../mission/services/session-crypto");
 
       const partial = JSON.stringify({ iv: "abc", data: "def", tag: "ghi" });
       expect(isEncrypted(partial)).toBe(false);
     });
 
     it("should return false for null JSON", () => {
-      const { isEncrypted } = require("../utils/session-crypto");
+      const { isEncrypted } = require("../mission/services/session-crypto");
       expect(isEncrypted("null")).toBe(false);
     });
   });
@@ -140,7 +144,7 @@ describe("session-crypto", () => {
       const {
         encryptSession,
         decryptSession,
-      } = require("../utils/session-crypto");
+      } = require("../mission/services/session-crypto");
 
       const sessionData = { cookies: [{ name: "session", value: "abc123" }] };
       const encrypted = encryptSession(sessionData);
@@ -151,7 +155,7 @@ describe("session-crypto", () => {
     });
 
     it("should handle legacy unencrypted data in decryptSession", () => {
-      const { decryptSession } = require("../utils/session-crypto");
+      const { decryptSession } = require("../mission/services/session-crypto");
 
       const legacy = JSON.stringify({ cookies: [], token: "old-format" });
       const result = decryptSession<{ cookies: unknown[]; token: string }>(
@@ -165,7 +169,7 @@ describe("session-crypto", () => {
       const {
         encryptSession,
         decryptSession,
-      } = require("../utils/session-crypto");
+      } = require("../mission/services/session-crypto");
 
       const data = {
         cookies: [
@@ -194,7 +198,7 @@ describe("session-crypto", () => {
 
   describe("generateKey", () => {
     it("should generate a 64 character hex key", () => {
-      const { generateKey } = require("../utils/session-crypto");
+      const { generateKey } = require("../mission/services/session-crypto");
 
       const key = generateKey();
       expect(key).toHaveLength(64);
@@ -202,7 +206,7 @@ describe("session-crypto", () => {
     });
 
     it("should generate unique keys each time", () => {
-      const { generateKey } = require("../utils/session-crypto");
+      const { generateKey } = require("../mission/services/session-crypto");
 
       const key1 = generateKey();
       const key2 = generateKey();
@@ -214,14 +218,18 @@ describe("session-crypto", () => {
     it("should throw when key is not 64 hex chars (too short)", () => {
       process.env.SESSION_ENCRYPTION_KEY = "tooshort";
       // Need to force re-evaluation of the env var - directly test getEncryptionKey behavior
-      const { encryptSessionData } = require("../utils/session-crypto");
+      const {
+        encryptSessionData,
+      } = require("../mission/services/session-crypto");
       // The module-level key is evaluated per call to getEncryptionKey() which reads env each time
       expect(() => encryptSessionData("data")).toThrow();
     });
 
     it("should throw when key contains non-hex characters", () => {
       process.env.SESSION_ENCRYPTION_KEY = "z".repeat(64); // z is not valid hex
-      const { encryptSessionData } = require("../utils/session-crypto");
+      const {
+        encryptSessionData,
+      } = require("../mission/services/session-crypto");
       expect(() => encryptSessionData("data")).toThrow();
     });
   });

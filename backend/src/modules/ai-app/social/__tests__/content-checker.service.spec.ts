@@ -3,7 +3,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { ContentCheckerService } from "../services/content-checker.service";
+import { ContentCheckerService } from "../mission/services/content-checker.service";
 
 describe("ContentCheckerService", () => {
   let service: ContentCheckerService;

@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
-import { ContentVersionService } from "../services/content-version.service";
+import { ContentVersionService } from "../mission/services/content-version.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { SocialPlatformType } from "@prisma/client";
