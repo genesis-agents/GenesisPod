@@ -347,19 +347,21 @@ describe("KnowledgeGraphTool (extended coverage)", () => {
   });
 
   // =========================================================================
-  // Lines 473-477: error re-thrown from doExecute catch
-  // (unsupported queryType triggers throw which is caught and re-thrown)
+  // Lines 473-477: unsupported queryType returns graceful empty graph
+  // (changed by commit 0481e2bcf: LLM-hallucinated queryType aliases are
+  // normalized + genuinely-unknown types return empty result instead of throw)
   // =========================================================================
 
-  describe("doExecute error re-throw (lines 473-477)", () => {
-    it("re-throws error for unsupported queryType", async () => {
+  describe("doExecute graceful unknown queryType handling", () => {
+    it("returns success with empty graph for unsupported queryType (no throw)", async () => {
       const result = await tool.execute(
         { queryType: "unsupported_type" as "find_entity" },
         makeContext(),
       );
 
-      // The error should propagate, resulting in success:false
-      expect(result.success).toBe(false);
+      // 0481e2bcf: graceful empty graph instead of throw → success:true, nodes:[]
+      expect(result.success).toBe(true);
+      expect(result.data?.nodes).toEqual([]);
     });
   });
 });
