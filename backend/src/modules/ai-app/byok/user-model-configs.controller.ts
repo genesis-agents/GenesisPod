@@ -152,11 +152,12 @@ export class UserModelConfigsController {
     @Body() dto: DeleteCapabilityOverridesDto,
   ) {
     await this.assertOwnership(req.user.id, id);
-    return this.capabilityOverridesWriter.applyOverrideTransactional({
+    // v3.1 §B+.4: 改调 clearOverrideTransactional 真清 overlay 列（SET NULL），
+    // 而非旧 patch={} + deep-merge"不覆盖任何字段"的等价 noop。
+    return this.capabilityOverridesWriter.clearOverrideTransactional({
       target: { kind: "user_model_config", id },
       scope: "PERSONAL",
       actor: { id: req.user.id, role: "user" },
-      patch: {},
       // BYOK DELETE 与 admin DELETE 共享 source='admin-override'：reset 也是"人类显式选择"，
       // cooling-off 守护语义一致（见 PATCH 同位置注释）。
       source: "admin-override",

@@ -439,6 +439,8 @@ export class AiApiCallerService {
      * 缺省 = "" → 保留 response_format（向后兼容旧调用方）。
      */
     provider: string = "",
+    /** v3.1 §B+.3：BYOK userModelConfigId，catch 触发 self-heal；缺省 = 不触发。 */
+    userModelConfigId?: string,
   ): Promise<ChatCompletionResult> {
     // 2026-05-10 §2/§4：单源归一化（base URL → /chat/completions），与
     // streamOpenAICompatible / connection-test 共用 ensureChatCompletionsPath。
@@ -680,15 +682,21 @@ export class AiApiCallerService {
         `tokens=${maxTokens}, temp=${temperature}, msgs=${messages.length}, ~${Math.ceil(estimatedChars / CHARS_TO_TOKENS_RATIO)} input tokens`,
     );
 
-    const response = await firstValueFrom(
-      this.httpService.post(effectiveEndpoint, requestBody, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        timeout,
-      }),
-    );
+    let response;
+    try {
+      response = await firstValueFrom(
+        this.httpService.post(effectiveEndpoint, requestBody, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          timeout,
+        }),
+      );
+    } catch (err) {
+      this.triggerSelfHealAsync(err, modelId, userModelConfigId); // v3.1 §B+.3 fire-and-forget
+      throw err;
+    }
 
     const data = response.data;
     const messageObj = data.choices?.[0]?.message;
@@ -777,6 +785,8 @@ export class AiApiCallerService {
     structuredOutputStrategy?: StructuredOutputStrategy,
     outputJsonSchema?: Record<string, unknown>,
     schemaName?: string,
+    /** v3.1 §B+.3：BYOK userModelConfigId，catch 触发 self-heal；缺省 = 不触发。 */
+    userModelConfigId?: string,
   ): Promise<ChatCompletionResult> {
     if (responseFormat === "json") {
       this.logger.warn(
@@ -880,16 +890,22 @@ export class AiApiCallerService {
       `[callAnthropicAPI] model=${modelId}, maxTokens=${maxTokens}`,
     );
 
-    const response = await firstValueFrom(
-      this.httpService.post(effectiveEndpoint, requestBody, {
-        headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
-        },
-        timeout,
-      }),
-    );
+    let response;
+    try {
+      response = await firstValueFrom(
+        this.httpService.post(effectiveEndpoint, requestBody, {
+          headers: {
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          timeout,
+        }),
+      );
+    } catch (err) {
+      this.triggerSelfHealAsync(err, modelId, userModelConfigId); // v3.1 §B+.3 fire-and-forget
+      throw err;
+    }
 
     const data = response.data;
     const anthropicUsage = data.usage || {};
@@ -944,6 +960,8 @@ export class AiApiCallerService {
     structuredOutputStrategy?: StructuredOutputStrategy,
     outputJsonSchema?: Record<string, unknown>,
     schemaName?: string,
+    /** v3.1 §B+.3：BYOK userModelConfigId，catch 触发 self-heal；缺省 = 不触发。 */
+    userModelConfigId?: string,
   ): Promise<ChatCompletionResult> {
     // 直接使用数据库配置的模型 ID，不做额外验证
     const effectiveModelId = modelId;
@@ -1035,14 +1053,20 @@ export class AiApiCallerService {
       `[callGoogleAPI] model=${modelId}, maxTokens=${maxTokens}`,
     );
 
-    const response = await firstValueFrom(
-      this.httpService.post(apiUrl, requestBody, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        timeout,
-      }),
-    );
+    let response;
+    try {
+      response = await firstValueFrom(
+        this.httpService.post(apiUrl, requestBody, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          timeout,
+        }),
+      );
+    } catch (err) {
+      this.triggerSelfHealAsync(err, modelId, userModelConfigId); // v3.1 §B+.3 fire-and-forget
+      throw err;
+    }
 
     const data = response.data;
 

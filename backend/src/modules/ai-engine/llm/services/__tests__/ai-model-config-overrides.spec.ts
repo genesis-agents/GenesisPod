@@ -380,4 +380,25 @@ describe("AiModelConfigService — capability_overrides (v3.1 B.2)", () => {
       parseSpy.mockRestore();
     });
   });
+
+  // ─────────── v3.1 §B+.2 apiFormat backfill ───────────
+  describe("apiFormat backfill (v3.1 §B+.2)", () => {
+    it("admin path: AIModel.apiFormat='openai' 流入 AIModelConfig.apiFormat", async () => {
+      const cfg = (await buildAdminConfig(null)) as {
+        apiFormat?: string;
+      } | null;
+      expect(cfg).not.toBeNull();
+      // makeAIModelRow 默认 apiFormat='openai'；buildModelConfig 经 resolveApiFormat 透传
+      expect(cfg?.apiFormat).toBe("openai");
+    });
+
+    it("BYOK path: UserModelConfig.apiFormat='openai' 流入 AIModelConfig.apiFormat", async () => {
+      const cfg = (await buildUserConfig(null)) as {
+        apiFormat?: string;
+      } | null;
+      expect(cfg).not.toBeNull();
+      // makeUserModelConfigRow 默认 apiFormat='openai'；toAIModelConfigFromUserConfig 透传
+      expect(cfg?.apiFormat).toBe("openai");
+    });
+  });
 });

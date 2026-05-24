@@ -21,7 +21,10 @@ const mockGuard = { canActivate: () => true };
 describe("UserModelConfigsController — capability_overrides (v3.1 §B.3)", () => {
   let controller: UserModelConfigsController;
   let service: { findById: jest.Mock };
-  let writer: { applyOverrideTransactional: jest.Mock };
+  let writer: {
+    applyOverrideTransactional: jest.Mock;
+    clearOverrideTransactional: jest.Mock;
+  };
 
   beforeEach(async () => {
     service = {
@@ -33,6 +36,10 @@ describe("UserModelConfigsController — capability_overrides (v3.1 §B.3)", () 
       applyOverrideTransactional: jest
         .fn()
         .mockResolvedValue({ before: null, after: {} }),
+      // v3.1 B+.4: DELETE 改调 clearOverrideTransactional 真清整列
+      clearOverrideTransactional: jest
+        .fn()
+        .mockResolvedValue({ before: null, after: null }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -83,15 +90,19 @@ describe("UserModelConfigsController — capability_overrides (v3.1 §B.3)", () 
 
   // ─────────── DELETE happy ───────────
 
-  it("DELETE passes empty patch + reason", async () => {
+  it("DELETE calls clearOverrideTransactional with scope=PERSONAL + actor + reason (v3.1 B+.4)", async () => {
     const dto = {
       reason:
         "Reset capability_overrides after switching to a different upstream provider",
     } as never;
     await controller.clearCapabilityOverrides(reqUser, "config-1", dto);
-    expect(writer.applyOverrideTransactional.mock.calls[0][0].patch).toEqual(
-      {},
-    );
+    // B+.4: DELETE 真清整列(SET NULL)而非旧 patch={}
+    expect(writer.clearOverrideTransactional).toHaveBeenCalledTimes(1);
+    expect(writer.applyOverrideTransactional).not.toHaveBeenCalled();
+    const call = writer.clearOverrideTransactional.mock.calls[0][0];
+    expect(call.scope).toBe("PERSONAL");
+    expect(call.target).toEqual({ kind: "user_model_config", id: "config-1" });
+    expect(call.actor).toMatchObject({ id: "user-1", role: "user" });
   });
 
   // ─────────── ownership guard ───────────
@@ -118,6 +129,9 @@ describe("UserModelConfigsController — capability_overrides (v3.1 §B.3)", () 
     await expect(
       controller.clearCapabilityOverrides(reqUser, "config-other", dto),
     ).rejects.toThrow(ForbiddenException);
+    // B+.4: ownership 拒后不应触发任何写入
+    expect(writer.clearOverrideTransactional).not.toHaveBeenCalled();
+    expect(writer.applyOverrideTransactional).not.toHaveBeenCalled();
   });
 
   // ─────────── ownership query 调用 ───────────

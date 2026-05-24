@@ -406,4 +406,55 @@ describe("CapabilityOverridesWriterService — v3.1 §B.3", () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  // ─────────── v3.1 §B+.4 clearOverrideTransactional ───────────
+
+  describe("clearOverrideTransactional (v3.1 §B+.4 真清整列)", () => {
+    it("ADMIN: clears AIModel.capabilityOverrides (SET NULL) + audit afterValue=null", async () => {
+      // 起始有现有 overlay
+      state.aiModel = {
+        id: "model-1",
+        capabilityOverrides: { structuredOutput: { nativeMode: "json_mode" } },
+      };
+      const result = await svc.clearOverrideTransactional({
+        target: { kind: "ai_model", id: "model-1" },
+        scope: "ADMIN",
+        actor: { id: "admin-1", role: "admin" },
+        source: "admin-override",
+        reason:
+          "Admin clears stale overlay after upstream catalog upgrade — 2026-05-24",
+      });
+      expect(result.before).toEqual({
+        structuredOutput: { nativeMode: "json_mode" },
+      });
+      expect(result.after).toBeNull();
+      // AIModel.capabilityOverrides 被 SET NULL（mock 写 Prisma.DbNull symbol）
+      expect(state.aiModel?.capabilityOverrides).toBeDefined();
+      // AuditLog 同事务写入；afterValue 是 Prisma.DbNull symbol
+      expect(state.auditLogs).toHaveLength(1);
+      const audit = state.auditLogs[0];
+      expect(audit.actorRole).toBe("admin");
+      expect(audit.scope).toBe("ADMIN");
+      expect(audit.scopeKey).toBe("admin:ai_models:model-1");
+      expect(audit.aiModelId).toBe("model-1");
+      expect(audit.userModelConfigId).toBeNull();
+      expect(audit.beforeValue).toEqual({
+        structuredOutput: { nativeMode: "json_mode" },
+      });
+      // afterValue 为 Prisma.DbNull（不是 JS null）
+      expect(audit.afterValue).toBeDefined();
+    });
+
+    it("still enforces guards (reason length)", async () => {
+      await expect(
+        svc.clearOverrideTransactional({
+          target: { kind: "ai_model", id: "model-1" },
+          scope: "ADMIN",
+          actor: { id: "admin-1", role: "admin" },
+          source: "admin-override",
+          reason: "too short",
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 });

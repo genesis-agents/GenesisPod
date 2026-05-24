@@ -54,3 +54,12 @@ export interface ApplyOverrideResult {
   before: ModelCapabilitiesOverrides | null;
   after: ModelCapabilitiesOverrides;
 }
+
+/**
+ * v3.1 §B+.4：clearOverrideTransactional 的返回。
+ * after 固定为 null（整列被清）。与 ApplyOverrideResult 区分以保非 null 类型严格性。
+ */
+export interface ClearOverrideResult {
+  before: ModelCapabilitiesOverrides | null;
+  after: null;
+}

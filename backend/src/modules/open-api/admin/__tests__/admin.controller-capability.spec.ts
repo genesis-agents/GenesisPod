@@ -50,16 +50,21 @@ const mockGuard = { canActivate: () => true };
 
 describe("AdminController — capability_overrides endpoints (v3.1 §B.3)", () => {
   let controller: AdminController;
-  let writer: { applyOverrideTransactional: jest.Mock };
+  let writer: {
+    applyOverrideTransactional: jest.Mock;
+    clearOverrideTransactional: jest.Mock;
+  };
 
   beforeEach(async () => {
     writer = {
-      applyOverrideTransactional: jest
+      applyOverrideTransactional: jest.fn().mockResolvedValue({
+        before: null,
+        after: { structuredOutput: { nativeMode: "none" } },
+      }),
+      // v3.1 B+.4: DELETE 改调 clearOverrideTransactional 真清整列
+      clearOverrideTransactional: jest
         .fn()
-        .mockResolvedValue({
-          before: null,
-          after: { structuredOutput: { nativeMode: "none" } },
-        }),
+        .mockResolvedValue({ before: null, after: null }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -123,7 +128,7 @@ describe("AdminController — capability_overrides endpoints (v3.1 §B.3)", () =
 
   // ─────────── DELETE happy ───────────
 
-  it("DELETE passes empty patch + reason to writer", async () => {
+  it("DELETE calls clearOverrideTransactional with scope=ADMIN + actor + reason (v3.1 B+.4)", async () => {
     const req = {
       user: { id: "admin-1" },
       ip: "10.0.0.1",
@@ -136,9 +141,14 @@ describe("AdminController — capability_overrides endpoints (v3.1 §B.3)", () =
 
     await controller.clearAIModelCapabilityOverrides("model-x", dto, req);
 
-    const call = writer.applyOverrideTransactional.mock.calls[0][0];
-    expect(call.patch).toEqual({});
+    // B+.4: DELETE 真清整列(SET NULL)而非旧 patch={}
+    expect(writer.clearOverrideTransactional).toHaveBeenCalledTimes(1);
+    expect(writer.applyOverrideTransactional).not.toHaveBeenCalled();
+    const call = writer.clearOverrideTransactional.mock.calls[0][0];
     expect(call.scope).toBe("ADMIN");
+    expect(call.target).toEqual({ kind: "ai_model", id: "model-x" });
+    expect(call.actor).toMatchObject({ id: "admin-1", role: "admin" });
+    expect(call.reason.length).toBeGreaterThanOrEqual(30);
   });
 
   // ─────────── unknown-admin fallback ───────────

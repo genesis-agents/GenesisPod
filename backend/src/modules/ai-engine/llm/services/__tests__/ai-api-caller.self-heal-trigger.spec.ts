@@ -188,6 +188,115 @@ describe("AiApiCallerService — v3.1 §B.5.2 self-heal trigger in catch", () =>
     ).rejects.toThrow(); // 仅原 throw
   });
 
+  // ─────────── B+.3：其它 provider catch 接入 self-heal ───────────
+
+  describe("v3.1 §B+.3 — OpenAI / Anthropic / Google providers also trigger self-heal", () => {
+    it("OpenAI callOpenAICompatibleAPI catch triggers maybeSelfHeal", async () => {
+      const err = makeAxiosError(400, {
+        error: {
+          code: "invalid_request_error",
+          message: "Invalid response_format",
+        },
+      });
+      httpService.post.mockReturnValue(throwError(() => err));
+      await expect(
+        svc.callOpenAICompatibleAPI(
+          "https://api.openai.com/v1",
+          "key",
+          "gpt-4o",
+          [{ role: "user", content: "hi" }],
+          100,
+          0.7,
+          30000,
+          "max_tokens",
+          "json",
+          undefined,
+          undefined,
+          undefined,
+          false,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          "openai", // provider
+          "config-byok-2", // userModelConfigId
+        ),
+      ).rejects.toThrow();
+      await new Promise((r) => setImmediate(r));
+      expect(selfHeal.maybeSelfHeal).toHaveBeenCalledTimes(1);
+      const call = selfHeal.maybeSelfHeal.mock.calls[0][0];
+      expect(call.target).toEqual({
+        kind: "user_model_config",
+        id: "config-byok-2",
+      });
+      expect(call.errorSignal.httpStatus).toBe(400);
+    });
+
+    it("Anthropic callAnthropicAPI catch triggers maybeSelfHeal", async () => {
+      const err = makeAxiosError(400, {
+        error: {
+          type: "invalid_request_error",
+          message: "tools.required not supported",
+        },
+      });
+      httpService.post.mockReturnValue(throwError(() => err));
+      await expect(
+        svc.callAnthropicAPI(
+          "https://api.anthropic.com/v1",
+          "key",
+          "claude-3.5-sonnet",
+          [{ role: "user", content: "hi" }],
+          100,
+          0.7,
+          30000,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          "config-byok-anthro",
+        ),
+      ).rejects.toThrow();
+      await new Promise((r) => setImmediate(r));
+      expect(selfHeal.maybeSelfHeal).toHaveBeenCalledTimes(1);
+      const call = selfHeal.maybeSelfHeal.mock.calls[0][0];
+      expect(call.target.id).toBe("config-byok-anthro");
+    });
+
+    it("Google callGoogleAPI catch triggers maybeSelfHeal", async () => {
+      const err = makeAxiosError(400, {
+        error: {
+          code: 400,
+          status: "INVALID_ARGUMENT",
+          message: "responseSchema invalid",
+        },
+      });
+      httpService.post.mockReturnValue(throwError(() => err));
+      await expect(
+        svc.callGoogleAPI(
+          "https://generativelanguage.googleapis.com",
+          "key",
+          "gemini-2.5-pro",
+          [{ role: "user", content: "hi" }],
+          100,
+          0.7,
+          30000,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          "config-byok-gem",
+        ),
+      ).rejects.toThrow();
+      await new Promise((r) => setImmediate(r));
+      expect(selfHeal.maybeSelfHeal).toHaveBeenCalledTimes(1);
+      const call = selfHeal.maybeSelfHeal.mock.calls[0][0];
+      expect(call.target.id).toBe("config-byok-gem");
+    });
+  });
+
   // ─────────── self-heal 异步抛错不阻断主 throw ───────────
 
   it("propagates the original error even if maybeSelfHeal rejects (fire-and-forget)", async () => {

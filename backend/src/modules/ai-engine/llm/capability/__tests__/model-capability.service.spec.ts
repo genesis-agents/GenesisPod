@@ -513,6 +513,60 @@ describe("ModelCapabilityService — deriveStructuredOutputChain", () => {
   });
 });
 
+// ─────────── B+.1 apiFormat-priority dual-pass catalog 匹配 ───────────
+describe("ModelCapabilityService — apiFormat-priority dual-pass (v3.1 §B+.1)", () => {
+  let svc: ModelCapabilityService;
+  beforeEach(() => {
+    svc = new ModelCapabilityService();
+  });
+
+  it("BYOK provider='custom' + apiFormat='openai' + modelId='deepseek-reasoner' → 命中 deepseek-reasoner catalog（apiFormat+modelPattern）", () => {
+    // Pass 1 命中：apiFormat='openai' + modelPattern=/reasoner/ 同时匹配 deepseek-reasoner 条目
+    // 没这个 Pass 1：provider='custom' 在 catalog 无任何条目 → SAFE_DEFAULTS
+    const caps = svc.resolveCapabilities(
+      baseConfig({
+        provider: "custom",
+        apiFormat: "openai",
+        modelId: "deepseek-reasoner",
+      }),
+    );
+    expect(caps.structuredOutput.nativeMode).toBe("none");
+    expect(caps.reasoning.exposeContent).toBe("reasoning_field");
+  });
+
+  it("BYOK provider='custom' + apiFormat='openai' + modelId='gpt-4o' → 不命中任何 apiFormat-priority 条目（无 /gpt-4o/ modelPattern）→ SAFE_DEFAULTS", () => {
+    // 关键：apiFormat 粗匹必须有 modelPattern 收窄；catalog 里 openai 通用条目无 modelPattern
+    // → Pass 1 跳过；Pass 2 provider='custom' 也不命中 → SAFE_DEFAULTS
+    const caps = svc.resolveCapabilities(
+      baseConfig({
+        provider: "custom",
+        apiFormat: "openai",
+        modelId: "gpt-4o",
+      }),
+    );
+    expect(caps.structuredOutput.nativeMode).toBe("none"); // SAFE_DEFAULTS
+  });
+
+  it("provider='deepseek' + 不传 apiFormat → 原 provider-priority 路径（BC）", () => {
+    // 原 21 条 entry 行为不变：不传 apiFormat 时 Pass 1 直接跳过
+    const caps = svc.resolveCapabilities(
+      baseConfig({ provider: "deepseek", modelId: "deepseek-v4-pro" }),
+    );
+    expect(caps.structuredOutput.nativeMode).toBe("json_mode");
+  });
+
+  it("apiFormat 大小写不敏感（OpenAI 等值匹配 openai）", () => {
+    const caps = svc.resolveCapabilities(
+      baseConfig({
+        provider: "custom",
+        apiFormat: "OpenAI",
+        modelId: "deepseek-v4-pro",
+      }),
+    );
+    expect(caps.structuredOutput.nativeMode).toBe("json_mode");
+  });
+});
+
 // ─────────── Fix-5 (arch-auditor P3 review 2026-05-24) ───────────
 // mergeInto 接受 Partial<ModelCapabilities> ∪ ModelCapabilitiesOverrides 联合，
 // 两者在 runtime 等价（spread + truthy guard 都安全处理 undefined / 空对象）。

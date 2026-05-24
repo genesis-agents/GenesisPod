@@ -564,11 +564,12 @@ export class AdminController {
     this.logger.log(
       `Admin: clearing capability_overrides on ai_model=${id} (actor=${actorId})`,
     );
-    return this.capabilityOverridesWriter.applyOverrideTransactional({
+    // v3.1 §B+.4: 改调 clearOverrideTransactional 真清 overlay 列（SET NULL），
+    // 而非旧 patch={} + deep-merge"不覆盖任何字段"的等价 noop。
+    return this.capabilityOverridesWriter.clearOverrideTransactional({
       target: { kind: "ai_model", id },
       scope: "ADMIN",
       actor: { id: actorId, role: "admin" },
-      patch: {}, // 空 patch + 与现有 deep-merge → 等价于"不覆盖任何字段"
       source: "admin-override",
       reason: dto.reason,
       ipAddress: req.ip,

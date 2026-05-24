@@ -38,11 +38,17 @@ import type { ModelCapabilities } from "./model-capability.types";
  * - `provider` 必填（小写比较），与 `AIModelConfig.provider` 同语义
  * - `modelPattern` 选填（小写 .test()），用于在同 provider 下区分子模型
  *   （如 deepseek-reasoner 与 deepseek-chat）
+ * - `apiFormat` 选填（小写比较，v3.1 §B+.1 加）。当 AIModelConfig.apiFormat
+ *   存在时（admin / BYOK 填了 ai_models.apiFormat），matchCatalog 优先做
+ *   apiFormat-priority pass —— 但**仅当 entry 同时带 modelPattern** 才参与
+ *   apiFormat-priority 匹配，否则降到 provider-priority 路径。这样
+ *   `apiFormat='openai'` 这种粗匹配字段不会让任意 modelId 误命中第一条 openai-compat 规则。
  * - `capabilities` 是 Partial：未填字段由上层 service 用 SAFE_DEFAULTS 兜底
  */
 export interface ProviderCapabilityRule {
   readonly provider: string;
   readonly modelPattern?: RegExp;
+  readonly apiFormat?: string;
   readonly capabilities: Partial<ModelCapabilities>;
   readonly rationale: string;
   readonly addedBy: string;
@@ -148,6 +154,7 @@ export const PROVIDER_CAPABILITY_DEFAULTS: readonly ProviderCapabilityRule[] = [
   {
     provider: "deepseek",
     modelPattern: /reasoner/,
+    apiFormat: "openai",
     capabilities: {
       structuredOutput: { nativeMode: "none", fallbackChain: [] },
       toolUse: { mode: "none", parallelCalls: false },
@@ -170,6 +177,7 @@ export const PROVIDER_CAPABILITY_DEFAULTS: readonly ProviderCapabilityRule[] = [
   {
     provider: "deepseek",
     modelPattern: /v4[-_]?pro/,
+    apiFormat: "openai",
     capabilities: {
       structuredOutput: { nativeMode: "json_mode", fallbackChain: [] },
       toolUse: { mode: "openai_functions", parallelCalls: false },

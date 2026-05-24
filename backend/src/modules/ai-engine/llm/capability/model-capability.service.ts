@@ -61,8 +61,15 @@ export class ModelCapabilityService {
     // 5 级合并（低优先级先铺底，高优先级覆盖）
     const merged: ModelCapabilities = this.cloneCapabilities(SAFE_DEFAULTS);
 
-    // Level 4: catalog（first-match-wins）
-    const catalogRule = this.findCatalogRule(config.provider, config.modelId);
+    // Level 4: catalog（first-match-wins，dual-pass §B+.1）
+    //   Pass 1: apiFormat + modelPattern 优先匹配（仅当 entry 同时带 modelPattern；
+    //           粗匹 apiFormat='openai' 字段不让任意 modelId 误命中通用 openai-compat 规则）
+    //   Pass 2: 退回 provider + (modelPattern? | provider-only) 原匹配
+    const catalogRule = this.findCatalogRule(
+      config.provider,
+      config.modelId,
+      config.apiFormat,
+    );
     if (catalogRule) {
       this.mergeInto(merged, catalogRule.capabilities);
     }
@@ -124,18 +131,43 @@ export class ModelCapabilityService {
   // ─────────── 内部 helpers ───────────
 
   /**
-   * Catalog first-match-wins 查找：
-   *   1. provider 小写等值（与 AIModelConfig.provider 一致）
-   *   2. modelPattern 存在时 modelId 小写 .test() 必须命中
-   *   3. modelPattern 不存在时仅 provider 匹配即可
+   * Catalog first-match-wins 查找（v3.1 §B+.1 dual-pass）：
+   *
+   * Pass 1 — apiFormat-priority（仅当 config.apiFormat 存在且 entry 同时带
+   *   modelPattern 时启用）：
+   *     - entry.apiFormat === config.apiFormat（小写等值）
+   *     - entry.modelPattern.test(modelId)（防止 apiFormat='openai' 这种粗匹
+   *       字段让任意 modelId 误命中第一条 openai-compat 规则；apiFormat-only
+   *       匹配天然不安全，必须靠 modelPattern 收窄）
+   *   命中场景：BYOK provider='custom' + apiFormat='openai' + modelId='deepseek-reasoner'
+   *   → 命中 deepseek-reasoner 条目（apiFormat='openai' + /reasoner/ 同时匹配），
+   *     而非走 SAFE_DEFAULTS。
+   *
+   * Pass 2 — provider-priority（原行为）：
+   *     - rule.provider === config.provider
+   *     - rule.modelPattern? 命中 OR 无 modelPattern
+   *
+   * BC：原 21 条 entry 都没 apiFormat 时 Pass 1 直接跳过，行为与重构前一致。
    */
   private findCatalogRule(
     provider: string | undefined,
     modelId: string | undefined,
+    apiFormat: string | undefined,
   ): ProviderCapabilityRule | undefined {
+    const m = (modelId ?? "").toLowerCase();
+    // Pass 1: apiFormat + modelPattern（高优先级；apiFormat 粗匹必须有 modelPattern 收窄）
+    if (apiFormat) {
+      const af = apiFormat.toLowerCase().trim();
+      for (const rule of PROVIDER_CAPABILITY_DEFAULTS) {
+        if (!rule.apiFormat || !rule.modelPattern) continue;
+        if (rule.apiFormat.toLowerCase() !== af) continue;
+        if (!rule.modelPattern.test(m)) continue;
+        return rule;
+      }
+    }
+    // Pass 2: provider + modelPattern?（原行为）
     if (!provider) return undefined;
     const p = provider.toLowerCase().trim();
-    const m = (modelId ?? "").toLowerCase();
     for (const rule of PROVIDER_CAPABILITY_DEFAULTS) {
       if (rule.provider !== p) continue;
       if (rule.modelPattern && !rule.modelPattern.test(m)) continue;

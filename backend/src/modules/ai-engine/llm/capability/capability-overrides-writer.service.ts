@@ -46,6 +46,7 @@ import type {
   ApplyOverrideOptions,
   ApplyOverrideResult,
   CapabilityOverrideTarget,
+  ClearOverrideResult,
 } from "./capability-overrides-writer.types";
 
 /** 顶层字段以外的 JSON value 视作 plain object 时合并；其它（数组 / 标量 / null）整体覆盖。 */
@@ -133,6 +134,38 @@ export class CapabilityOverridesWriterService {
     this.guardPatchShape(opts.patch);
 
     return this._doApplyOverride(tx, opts);
+  }
+
+  /**
+   * v3.1 §B+.4：admin/BYOK DELETE 真清 overlay（SET capabilityOverrides=NULL）。
+   *
+   * 与 applyOverrideTransactional 的区别：
+   *   - apply:  deep-merge patch 进现有 overlay（保留其它路径），patch=`{}` 等价 noop
+   *   - clear:  整列 UPDATE 为 SQL NULL（不再 deep-merge），audit afterValue=null
+   *
+   * 旧 admin DELETE 路径用 `patch={}` + applyOverrideTransactional 等价"不覆盖任何
+   * 字段" —— 与用户期望的"清空整 overlay"语义不一致；本方法修正。
+   *
+   * 事务边界：自带 $transaction，同 tx 内 SELECT-before → UPDATE → INSERT audit。
+   */
+  async clearOverrideTransactional(
+    opts: Omit<ApplyOverrideOptions, "patch">,
+  ): Promise<ClearOverrideResult> {
+    if (this.flags) {
+      const enabled = await this.flags.isOverridesWriteEnabled();
+      if (!enabled) {
+        throw new ForbiddenException(
+          "capability overrides write is disabled by feature flag",
+        );
+      }
+    }
+    // 复用 scope / reason guards；patch shape guard 不适用（无 patch）
+    this.guardScope({ ...opts, patch: {} } as ApplyOverrideOptions);
+    this.guardReason(opts.reason);
+
+    return this.prisma.$transaction(async (tx) => {
+      return this._doClearOverride(tx, opts);
+    });
   }
 
   /**
@@ -270,6 +303,57 @@ export class CapabilityOverridesWriterService {
     });
 
     return { before, after };
+  }
+
+  private async _doClearOverride(
+    tx: Prisma.TransactionClient,
+    opts: Omit<ApplyOverrideOptions, "patch">,
+  ): Promise<ClearOverrideResult> {
+    // 1. 读当前行 capability_overrides + 必要元信息
+    const { beforeRaw, ownerUserId } = await this.loadCurrent(tx, opts.target);
+
+    // 2. parse before（fail-open）— after 固定为 null（真清）
+    const before =
+      parseCapabilityOverrides(beforeRaw, {
+        kind: opts.target.kind === "ai_model" ? "admin" : "user",
+        modelId: opts.target.id,
+        logger: this.logger,
+      }) ?? null;
+
+    // 3. UPDATE 整列为 SQL NULL（Prisma.DbNull）
+    const data = { capabilityOverrides: Prisma.DbNull };
+    if (opts.target.kind === "ai_model") {
+      await tx.aIModel.update({ where: { id: opts.target.id }, data });
+    } else {
+      await tx.userModelConfig.update({ where: { id: opts.target.id }, data });
+    }
+
+    // 4. INSERT AuditLog（同事务；afterValue=null 表示整列被清）
+    const scopeKey = this.buildScopeKeyResolved(
+      opts as ApplyOverrideOptions,
+      ownerUserId,
+    );
+    await tx.capabilityOverrideAuditLog.create({
+      data: {
+        actorId: opts.actor.id,
+        actorRole: opts.actor.role,
+        scope: opts.scope,
+        scopeKey,
+        aiModelId: opts.target.kind === "ai_model" ? opts.target.id : null,
+        userModelConfigId:
+          opts.target.kind === "user_model_config" ? opts.target.id : null,
+        field: "<root>",
+        beforeValue: before as unknown as Prisma.InputJsonValue,
+        afterValue: Prisma.DbNull,
+        source: opts.source,
+        reason: opts.reason,
+        ipAddress: opts.ipAddress ?? null,
+        userAgent: opts.userAgent ?? null,
+      },
+    });
+
+    // after = null（与 applyOverrideTransactional 不同：apply 返非 null after，clear 返 null）
+    return { before, after: null };
   }
 
   private async loadCurrent(
