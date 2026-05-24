@@ -204,8 +204,18 @@ export interface LlmExecutorInput<TOutput> {
   ) => Promise<string | null | undefined>;
 }
 
-/** Maximum number of distinct models to try before giving up. */
-export const MAX_MODEL_FAILOVERS = 3;
+/**
+ * Maximum number of distinct models to try before giving up.
+ *
+ * Sized for "many models, few usable" BYOK rosters: a user may have 10+ models
+ * configured but only ONE with credits/a working key, and it may sit late in the
+ * priority order. The real terminator is the failover provider returning null
+ * (all candidates exhausted) — this cap is only an anti-runaway ceiling. With
+ * provider-level exclusion (a failed provider skips ALL its models in one hop)
+ * and failover NOT consuming the agent's iteration budget, a generous ceiling is
+ * safe: each hop is a fast-failing call (per-key retry already exhausted).
+ */
+export const MAX_MODEL_FAILOVERS = 12;
 
 export interface LlmExecutorResult<TOutput> {
   readonly output: TOutput;
