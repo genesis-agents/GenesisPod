@@ -690,6 +690,7 @@ describe("AiChatService", () => {
         undefined, // outputJsonSchema
         undefined, // schemaName
         undefined, // tools
+        expect.any(String), // v3.1 §A: provider
       );
     });
 
@@ -725,6 +726,7 @@ describe("AiChatService", () => {
         undefined, // outputJsonSchema
         undefined, // schemaName
         undefined, // tools
+        expect.any(String), // v3.1 §A: provider
       );
     });
 
@@ -756,6 +758,7 @@ describe("AiChatService", () => {
         undefined, // outputJsonSchema
         undefined, // schemaName
         undefined, // tools
+        expect.any(String), // v3.1 §A: provider
       );
     });
 
@@ -1788,6 +1791,7 @@ describe("AiChatService", () => {
         undefined, // outputJsonSchema
         undefined, // schemaName
         undefined, // tools
+        expect.any(String), // v3.1 §A: provider
       );
     });
 
@@ -1822,6 +1826,7 @@ describe("AiChatService", () => {
         undefined, // outputJsonSchema
         undefined, // schemaName
         undefined, // tools
+        expect.any(String), // v3.1 §A: provider
       );
     });
 
@@ -1926,6 +1931,7 @@ describe("AiChatService", () => {
         undefined, // outputJsonSchema
         undefined, // schemaName
         undefined, // tools
+        expect.any(String), // v3.1 §A: provider
       );
     });
   });

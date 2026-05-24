@@ -905,6 +905,7 @@ export class AiChatService {
               outputJsonSchema,
               schemaName,
               tools,
+              provider, // v3.1 §A: ModelCapabilityService 判 nativeMode==='none'
             );
 
           case "anthropic":
@@ -980,6 +981,7 @@ export class AiChatService {
               outputJsonSchema,
               schemaName,
               tools,
+              provider, // v3.1 §A: ModelCapabilityService 判 nativeMode==='none'
             );
         }
       };

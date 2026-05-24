@@ -1,18 +1,28 @@
 /**
- * StructuredOutputRouter — 模型 → adapter 路由器
+ * StructuredOutputRouter — 派生视图（v3.1 阶段 A 收敛）
  *
- * 核心承诺：**未在 admin 配置 capability 字段的模型也能跑**，按 provider slug
- * 自动推断默认 strategy + fallback 链。管理员配置 = 覆盖；未配置 = 自动推断。
+ * v3.1 之前：本文件内 module-level 常量 `PROVIDER_DEFAULT_CHAINS`（17 条 `match: (p,m)=>regex`）
+ *   + `FINAL_FALLBACK` 决定每个 (provider, model) 的 structured-output strategy 链。
  *
- * 路由优先级：
+ * v3.1 阶段 A 后：**删除 PROVIDER_DEFAULT_CHAINS + FINAL_FALLBACK**，本服务降级为
+ *   `ModelCapabilityService` 的派生视图。strategy 链派生迁到
+ *   `capability/model-capability.service.ts:deriveStructuredOutputChain()`。
+ *
+ * 路由优先级（保留语义，实现下沉）：
  *   1. model.structuredOutputStrategy（admin UI 显式配置）
- *   2. provider 默认推断（PROVIDER_DEFAULT_CHAINS）
- *   3. 最终兜底：['prompt']（任何 provider 都能跑 prompt + post-parse）
+ *      ← 由 ModelCapabilityService.deriveFromConfig 在 Level 3 注入
+ *   2. catalog PROVIDER_CAPABILITY_DEFAULTS（数据驱动，原 17 条 1:1 收编）
+ *      ← 由 ModelCapabilityService Level 4 注入
+ *   3. SAFE_DEFAULTS + 最终兜底 'prompt'
+ *      ← deriveStructuredOutputChain 末尾追加
  *
- * fallback 行为：
- *   - 由 caller 接管：首选 strategy 失败（schema mismatch / 400 / parse 失败）
- *     按 chain 顺序尝试下一个 strategy，直到成功或链耗尽
- *   - chain 上限保护：最多尝试 4 个 strategy（避免无限循环）
+ * 本服务还剩两个职责：
+ *   - resolveChain(model) → derived chain（薄壳：调 capability service）
+ *   - getAdapter(strategy) → adapter 实例（adapter 注册表的薄壳）
+ *
+ * 删除 PROVIDER_DEFAULT_CHAINS 的副作用：
+ *   - api-caller 的 `isDeepseekReasoner` 反模式同步删（A 阶段第 5 步）
+ *   - contract spec `provider-default-chains-shape.contract.spec.ts` 同步演进
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -28,113 +38,24 @@ import {
 } from "./adapters";
 import type { IStructuredOutputAdapter } from "./structured-output-strategy.types";
 import {
-  isStructuredOutputStrategy,
   STRUCTURED_OUTPUT_STRATEGIES,
   type StructuredOutputStrategy,
 } from "./structured-output-strategy.types";
+import { ModelCapabilityService } from "../capability/model-capability.service";
+import type { AIModelConfig } from "../types/model-config.types";
 
 /**
- * 按 provider slug 推断默认 strategy + fallback chain。
- * provider slug 大小写不敏感，覆盖商用 + 本地主流 provider。
+ * Router 调用方传入的"模型描述"——本服务把它转换成 AIModelConfig 子集
+ * 喂给 ModelCapabilityService（capability service 输入的是 AIModelConfig）。
  *
- * 选择依据见 sub-agent 调研报告（2026-05-06）：
- *   - OpenAI / Grok / DeepSeek-chat：strict json_schema
- *   - Anthropic：tool_use（无 native json_schema）
- *   - Gemini：responseSchema
- *   - DeepSeek-reasoner：仅 prompt（reasoner 不支持 response_format）
- *   - 本地 / 开源（Ollama / vLLM / Llama.cpp / TGI / LM Studio）：GBNF + prompt
- *   - 其他未知 provider：openai-compatible json_schema → json_mode → prompt
+ * 注意：admin 仅配 structuredOutputStrategy 时也走 capability derive 流程。
  */
-const PROVIDER_DEFAULT_CHAINS: ReadonlyArray<{
-  match: (provider: string, modelId: string) => boolean;
-  chain: readonly StructuredOutputStrategy[];
-}> = [
-  // Anthropic
-  {
-    match: (p) => /anthropic|claude/.test(p),
-    chain: ["tool_use", "prompt"],
-  },
-  // Google Gemini
-  {
-    match: (p) => /google|gemini/.test(p),
-    chain: ["gemini_response_schema", "json_mode", "prompt"],
-  },
-  // DeepSeek-reasoner（特殊：不支持 response_format）
-  {
-    match: (p, m) => /deepseek/.test(p) && /reasoner/.test(m),
-    chain: ["prompt"],
-  },
-  // DeepSeek-chat
-  {
-    match: (p) => /deepseek/.test(p),
-    chain: ["json_schema", "json_mode", "prompt"],
-  },
-  // OpenAI 系（含 GPT-4o / o1 / o3）
-  {
-    match: (p) => /^openai$/.test(p),
-    chain: ["json_schema_strict", "json_schema", "json_mode", "prompt"],
-  },
-  // xAI Grok
-  {
-    match: (p) => /^x\.?ai$|^grok$/.test(p),
-    chain: ["json_schema_strict", "json_schema", "json_mode", "prompt"],
-  },
-  // 本地 / 开源
-  {
-    match: (p) => /ollama|vllm|tgi|llamacpp|llama\.cpp|lmstudio|local/.test(p),
-    chain: ["gbnf_grammar", "prompt"],
-  },
-  // ByteDance Doubao / 火山方舟
-  {
-    match: (p) => /bytedance|doubao|volc/.test(p),
-    chain: ["json_mode", "prompt"],
-  },
-  // Zhipu GLM
-  {
-    match: (p) => /zhipu|glm/.test(p),
-    chain: ["json_mode", "prompt"],
-  },
-  // Groq（OpenAI compat hosted Llama / Mixtral）
-  {
-    match: (p) => /^groq$/.test(p),
-    chain: ["json_mode", "prompt"],
-  },
-  // OpenRouter（聚合，按 modelId 二级判断）
-  {
-    match: (p, m) => /openrouter/.test(p) && /claude|anthropic/.test(m),
-    chain: ["tool_use", "prompt"],
-  },
-  {
-    match: (p, m) => /openrouter/.test(p) && /gemini/.test(m),
-    chain: ["gemini_response_schema", "json_mode", "prompt"],
-  },
-  {
-    match: (p) => /openrouter/.test(p),
-    chain: ["json_schema", "json_mode", "prompt"],
-  },
-  // Mistral（json_object 模式；无 json_schema strict 支持）
-  {
-    match: (p) => /mistral/.test(p),
-    chain: ["json_mode", "prompt"],
-  },
-  // Qwen / Alibaba DashScope（OpenAI-compatible json_object）
-  {
-    match: (p) => /qwen|dashscope|alibaba/.test(p),
-    chain: ["json_mode", "prompt"],
-  },
-  // Moonshot / Kimi（OpenAI-compatible json_object）
-  {
-    match: (p) => /moonshot|kimi/.test(p),
-    chain: ["json_mode", "prompt"],
-  },
-  // Cohere（generate API 不支持 json_schema，纯 prompt）
-  {
-    match: (p) => /cohere/.test(p),
-    chain: ["prompt"],
-  },
-];
-
-const FINAL_FALLBACK: readonly StructuredOutputStrategy[] = ["prompt"];
+export interface RouterResolveInput {
+  provider: string;
+  modelId: string;
+  structuredOutputStrategy?: string | null;
+  fallbackStrategies?: string[] | null;
+}
 
 @Injectable()
 export class StructuredOutputRouter {
@@ -144,7 +65,7 @@ export class StructuredOutputRouter {
     IStructuredOutputAdapter
   >;
 
-  constructor() {
+  constructor(private readonly capabilityService: ModelCapabilityService) {
     const list: IStructuredOutputAdapter[] = [
       new JsonSchemaStrictAdapter(),
       new JsonSchemaAdapter(),
@@ -165,58 +86,43 @@ export class StructuredOutputRouter {
   }
 
   /**
-   * 解析模型应使用的 strategy chain。
+   * 解析模型应使用的 strategy chain（派生视图）。
    *
-   * @param model AIModel 行（含可选 structuredOutputStrategy / fallbackStrategies）
+   * 实现：把 model 转成最小 AIModelConfig 子集 → ModelCapabilityService
+   *      → deriveStructuredOutputChain → readonly Strategy[]
+   *
+   * @param model AIModel 行片段（provider + modelId + 可选 admin 配置）
    * @returns 按尝试顺序的 strategy 列表（首选 → fallback... → 兜底 prompt）
    */
-  resolveChain(model: {
-    provider: string;
-    modelId: string;
-    structuredOutputStrategy?: string | null;
-    fallbackStrategies?: string[] | null;
-  }): readonly StructuredOutputStrategy[] {
-    const out: StructuredOutputStrategy[] = [];
-    const seen = new Set<StructuredOutputStrategy>();
+  resolveChain(model: RouterResolveInput): readonly StructuredOutputStrategy[] {
+    // 把 RouterResolveInput 投影成 AIModelConfig 最小子集
+    // （其它字段 capability service 在 deriveFromConfig 内只读未填则跳过）
+    const projection = {
+      id: "",
+      name: "",
+      displayName: "",
+      provider: model.provider ?? "",
+      modelId: model.modelId ?? "",
+      apiEndpoint: "",
+      apiKey: null,
+      maxTokens: 0,
+      temperature: 0,
+      isEnabled: true,
+      isDefault: false,
+      structuredOutputStrategy: model.structuredOutputStrategy ?? null,
+      fallbackStrategies: model.fallbackStrategies ?? [],
+    } satisfies AIModelConfig;
 
-    const push = (s: string | null | undefined): void => {
-      if (!s || !isStructuredOutputStrategy(s) || seen.has(s)) return;
-      out.push(s);
-      seen.add(s);
-    };
+    const caps = this.capabilityService.resolveCapabilities(projection);
+    const chain = this.capabilityService.deriveStructuredOutputChain(caps);
 
-    // 1. admin 配置的首选
-    push(model.structuredOutputStrategy);
-
-    // 2. admin 配置的 fallback
-    for (const s of model.fallbackStrategies ?? []) push(s);
-
-    // 3. provider 默认推断（如果 admin 未配置，这就是主链路；如果 admin 配置过
-    //    但 fallback 不全，这填充剩余）
-    if (out.length === 0) {
-      const provider = (model.provider ?? "").toLowerCase();
-      const modelId = (model.modelId ?? "").toLowerCase();
-      const matched = PROVIDER_DEFAULT_CHAINS.find((rule) =>
-        rule.match(provider, modelId),
+    if (chain.length === 1 && chain[0] === "prompt") {
+      this.logger.debug(
+        `[resolveChain] model="${model.modelId}" provider="${model.provider}" derived chain=['prompt'] ` +
+          `(no catalog match + no admin config)`,
       );
-      if (matched) {
-        for (const s of matched.chain) push(s);
-        this.logger.debug(
-          `[resolveChain] model="${model.modelId}" provider="${model.provider}" admin not configured, ` +
-            `inferred chain=${matched.chain.join("→")}`,
-        );
-      } else {
-        this.logger.warn(
-          `[resolveChain] model="${model.modelId}" provider="${model.provider}" not in PROVIDER_DEFAULT_CHAINS, ` +
-            `falling back to ['prompt']. Add this provider to PROVIDER_DEFAULT_CHAINS or configure model in admin UI.`,
-        );
-      }
     }
-
-    // 4. 最终兜底
-    for (const s of FINAL_FALLBACK) push(s);
-
-    return out;
+    return chain;
   }
 
   /** 拿 strategy 对应 adapter 实例 */

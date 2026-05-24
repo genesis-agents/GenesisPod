@@ -17,7 +17,8 @@
  *   不进入本基线。
  *
  * **structuredOutputStrategy 读者基线（运行时代码，非 .spec / .test 文件）**：
- *   - structured-output-router.service.ts ：架构合法读者（router 是唯一架构消费方）
+ *   - structured-output-router.service.ts ：派生视图（v3.1 §A 后变成薄壳，
+ *                                            透传给 ModelCapabilityService）
  *   - ai-model-config.service.ts          ：buildModelConfig 把 raw Prisma row 字段
  *                                            映射到 AIModelConfig（纯转译）
  *   - llm-executor.ts                     ：把 AIModelConfig 上的两字段透传给
@@ -29,9 +30,14 @@
  *                                            （纯透传，无业务决策）—— 2026-05-23
  *                                            element-access + 解构扫描新发现的
  *                                            读者，纳入基线
+ *   - capability/model-capability.service.ts: v3.1 §A 新增——deriveFromConfig
+ *                                            从 AIModelConfig 派生 capability，
+ *                                            admin 显式 structuredOutputStrategy
+ *                                            覆盖 catalog 默认 nativeMode
  *
- * **fallbackStrategies 读者基线**：同上 4 个文件（不含 ai-chat.service.ts，因为
- *   chat() 入口当前不透传该字段，只读 structuredOutputStrategy）
+ * **fallbackStrategies 读者基线**：与 structuredOutputStrategy 同上读者集，且
+ *   capability service 也读（admin 配置 fallback chain 走派生路径）；
+ *   ai-chat.service.ts 当前不透传该字段，只读 structuredOutputStrategy。
  *
  * **supports_json_schema_strict / supports_json_schema / supports_tool_use /
  *   supports_json_mode / supports_gbnf_grammar 读者基线**：
@@ -168,8 +174,10 @@ beforeAll(() => {
 });
 
 describe("Capability Contract · structured-output field readers baseline (v3.1 §6.D6)", () => {
-  // 4 个"原始"读者：router / model-config / executor / admin 透传写流。
+  // 5 个"原始"读者（v3.1 §A 后）：
+  //   router(派生薄壳) / model-config / executor / admin(写流) / capability-service(派生器)
   const EXPECTED_STRATEGY_READERS_BASE = [
+    "modules/ai-engine/llm/capability/model-capability.service.ts",
     "modules/ai-engine/llm/services/ai-model-config.service.ts",
     "modules/ai-engine/llm/structured-output/structured-output-router.service.ts",
     "modules/ai-harness/runner/executor/llm-executor.ts",
@@ -183,13 +191,13 @@ describe("Capability Contract · structured-output field readers baseline (v3.1 
     "modules/ai-engine/llm/services/ai-chat.service.ts",
   ];
 
-  it("`.structuredOutputStrategy` is read only by the 5 documented files (PropertyAccess + element-access + destructuring 三路合集)", () => {
+  it("`.structuredOutputStrategy` is read only by the documented files (PropertyAccess + element-access + destructuring 三路合集)", () => {
     expect(READER_INDEX.structuredOutputStrategy).toEqual(
       [...EXPECTED_STRATEGY_READERS].sort(),
     );
   });
 
-  it("`.fallbackStrategies` is read only by the 4 base documented files (PropertyAccess + element-access + destructuring 三路合集; ai-chat.service.ts 不透传此字段)", () => {
+  it("`.fallbackStrategies` is read only by the base documented files (PropertyAccess + element-access + destructuring 三路合集; ai-chat.service.ts 不透传此字段)", () => {
     // Note: ai-app/explore/.../ai-prompts.config.ts declares a `fallbackStrategies`
     // property on a UNRELATED prompt-best-practices config object; but it's an
     // assignment, not a PropertyAccessExpression read, so it doesn't appear here.

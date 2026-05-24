@@ -16,6 +16,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
 import { of } from "rxjs";
 import { AiApiCallerService } from "../ai-api-caller.service";
+import { ModelCapabilityService } from "../../capability/model-capability.service";
 import type { ChatMessage } from "../../types/task-profile.types";
 
 function makeHttpResponse(data: unknown) {
@@ -49,6 +50,8 @@ describe("AiApiCallerService (extended coverage)", () => {
       providers: [
         AiApiCallerService,
         { provide: HttpService, useValue: mockHttpService },
+        // v3.1 §A: 让 rejectsResponseFormat 走 catalog 真实判定（替代 isDeepseekReasoner）
+        ModelCapabilityService,
       ],
     }).compile();
 
@@ -227,6 +230,15 @@ describe("AiApiCallerService (extended coverage)", () => {
         120000,
         "max_tokens",
         "json", // responseFormat = "json"
+        undefined, // reasoningDepth
+        undefined, // outputSchema
+        undefined, // schemaStrict
+        false, // isReasoning
+        undefined, // structuredOutputStrategy
+        undefined, // outputJsonSchema
+        undefined, // schemaName
+        undefined, // tools
+        "deepseek", // v3.1 §A: provider → catalog rule matches deepseek-reasoner
       );
 
       const requestBody = mockHttpService.post.mock.calls[0][1] as Record<
@@ -261,6 +273,15 @@ describe("AiApiCallerService (extended coverage)", () => {
         120000,
         "max_tokens",
         "json",
+        undefined, // reasoningDepth
+        undefined, // outputSchema
+        undefined, // schemaStrict
+        false, // isReasoning
+        undefined, // structuredOutputStrategy
+        undefined, // outputJsonSchema
+        undefined, // schemaName
+        undefined, // tools
+        "deepseek", // v3.1 §A: provider → catalog rule matches deepseek-reasoner
       );
 
       const requestBody = mockHttpService.post.mock.calls[0][1] as Record<
@@ -483,4 +504,3 @@ describe("AiApiCallerService (extended coverage)", () => {
     });
   });
 });
-

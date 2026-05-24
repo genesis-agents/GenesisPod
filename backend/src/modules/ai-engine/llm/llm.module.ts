@@ -65,6 +65,9 @@ import { ModelPricingRegistry } from "./pricing/model-pricing.registry";
 // Provider-aware structured output adapter router (covers商用 + 本地全部主流 provider)
 import { StructuredOutputRouter } from "./structured-output/structured-output-router.service";
 
+// v3.1 阶段 A：capability 只读链（SSOT，替代 router 内 PROVIDER_DEFAULT_CHAINS）
+import { ModelCapabilityService } from "./capability/model-capability.service";
+
 @Module({
   imports: [
     HttpModule.register({
@@ -139,8 +142,11 @@ import { StructuredOutputRouter } from "./structured-output/structured-output-ro
     // Pricing single source of truth (replaces 3 hardcoded tables)
     ModelPricingRegistry,
 
-    // Structured output router（管理员可配置首选 strategy + fallback；未配置走
-    // PROVIDER_DEFAULT_CHAINS 自动推断；最终兜底 prompt）
+    // v3.1 阶段 A：capability 只读链（SSOT，catalog 数据驱动）
+    ModelCapabilityService,
+
+    // Structured output router（管理员可配置首选 strategy + fallback；未配置由
+    // ModelCapabilityService.deriveStructuredOutputChain 派生；最终兜底 prompt）
     StructuredOutputRouter,
   ],
   exports: [
@@ -168,6 +174,7 @@ import { StructuredOutputRouter } from "./structured-output/structured-output-ro
     MissionElectionTracker,
     AutoConfigureService,
     ModelPricingRegistry,
+    ModelCapabilityService,
     StructuredOutputRouter,
   ],
 })

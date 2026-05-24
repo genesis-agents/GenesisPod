@@ -156,6 +156,7 @@ export class AiChatFailoverCallerService {
                   outputJsonSchema,
                   schemaName,
                   tools,
+                  provider, // v3.1 §A: 让 ModelCapabilityService 判 nativeMode==='none'
                 );
               case "anthropic":
                 return await this.apiCallerService.callAnthropicAPI(
@@ -227,6 +228,7 @@ export class AiChatFailoverCallerService {
                   outputJsonSchema,
                   schemaName,
                   tools,
+                  provider, // v3.1 §A: 让 ModelCapabilityService 判 nativeMode==='none'
                 );
             }
           };
