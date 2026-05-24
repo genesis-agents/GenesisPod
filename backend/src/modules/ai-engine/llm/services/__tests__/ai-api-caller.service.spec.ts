@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
 import { of } from "rxjs";
 import { AiApiCallerService } from "../ai-api-caller.service";
+import { ModelCapabilityService } from "../../capability/model-capability.service";
 import {
   safeReasoningEffort,
   isMinimalEffortSupported,
@@ -103,6 +104,11 @@ describe("AiApiCallerService", () => {
       providers: [
         AiApiCallerService,
         { provide: HttpService, useValue: mockHttpService },
+        // v3.1 §A review (2026-05-24)：注入真实 ModelCapabilityService，让
+        // rejectsResponseFormat 走 catalog 真实判定（消除"假绿"——
+        // 未注入时全部 fail-open 退回 false，测不到 deepseek-v4-pro/-reasoner
+        // 等 catalog nativeMode='none' 的 gate 行为）。
+        ModelCapabilityService,
       ],
     }).compile();
 

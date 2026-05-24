@@ -166,4 +166,55 @@ describe("Capability Contract · model-capability-catalog shape (v3.1 §A 投毒
     const arr: readonly ProviderCapabilityRule[] = PROVIDER_CAPABILITY_DEFAULTS;
     expect(Array.isArray(arr)).toBe(true);
   });
+
+  // v3.1 阶段 A review (2026-05-24)：specific-before-general 顺序锁
+  // 防回归：同 provider 带 modelPattern 的条目必须在不带 modelPattern 的之前
+  // （first-match-wins 语义下 generic 兜底不能挡掉具体规则）
+  it("同 provider 带 modelPattern 的条目必须在不带 modelPattern 的之前（specific-before-general）", () => {
+    const violations: Array<{
+      provider: string;
+      specificIdx: number;
+      genericIdx: number;
+    }> = [];
+    // 按 provider 分组，记录每 provider 第一个无 modelPattern 条目的 index
+    const firstGenericIdx = new Map<string, number>();
+    PROVIDER_CAPABILITY_DEFAULTS.forEach((rule, idx) => {
+      if (!rule.modelPattern && !firstGenericIdx.has(rule.provider)) {
+        firstGenericIdx.set(rule.provider, idx);
+      }
+    });
+    // 检查每条带 modelPattern 的条目：是否在该 provider 的 generic 之前
+    PROVIDER_CAPABILITY_DEFAULTS.forEach((rule, idx) => {
+      if (!rule.modelPattern) return;
+      const genericIdx = firstGenericIdx.get(rule.provider);
+      if (genericIdx !== undefined && idx > genericIdx) {
+        violations.push({
+          provider: rule.provider,
+          specificIdx: idx,
+          genericIdx,
+        });
+      }
+    });
+    expect(violations).toEqual([]);
+  });
+
+  // v3.1 阶段 A review (2026-05-24)：deepseek-v4-pro 命中规则锁
+  // 2026-05-24 线上事故根因：v4-pro 不含 'reasoner' → 误判 false → 发 json_schema → API 400
+  // 防回归：必须命中 modelPattern /v4[-_]?pro/，且 nativeMode === 'json_mode'
+  it("deepseek-v4-pro 命中规则的 nativeMode === 'json_mode'（2026-05-24 事故防回归）", () => {
+    // 模拟 ModelCapabilityService.findCatalogRule 的 first-match-wins 查找
+    const provider = "deepseek";
+    const modelId = "deepseek-v4-pro";
+    const matched = PROVIDER_CAPABILITY_DEFAULTS.find((rule) => {
+      if (rule.provider !== provider) return false;
+      if (rule.modelPattern && !rule.modelPattern.test(modelId)) return false;
+      return true;
+    });
+    expect(matched).toBeDefined();
+    expect(matched?.modelPattern).toBeDefined();
+    expect(matched?.modelPattern?.test(modelId)).toBe(true);
+    expect(matched?.capabilities.structuredOutput?.nativeMode).toBe(
+      "json_mode",
+    );
+  });
 });

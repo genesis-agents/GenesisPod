@@ -69,11 +69,18 @@ export class ModelCapabilityService {
     // Level 3: AIModel 19 既有列 + AiChat-derived
     this.mergeInto(merged, this.deriveFromConfig(config));
 
-    // Level 2: AIModel.capability_overrides —— A 阶段 stub（无 overrides 字段）
-    // B 阶段：this.mergeInto(merged, config.aiModelOverrides ?? {});
+    // Level 2: AIModel.capability_overrides
+    //
+    // v3.1 阶段 A review (2026-05-24)：取消注释，启用真 mergeInto 调用。
+    // A 阶段 AiModelConfigService.buildModelConfig 不填 aiModelOverrides，
+    // 字段永远 undefined → ?? {} → mergeInto 无操作，行为与 stub 期一致。
+    // B 阶段只需在 buildModelConfig 内写入 JSONB 列即可启用，无需改本服务。
+    this.mergeInto(merged, config.aiModelOverrides ?? {});
 
-    // Level 1: UserModelConfig.capability_overrides —— A 阶段 stub
-    // B 阶段：this.mergeInto(merged, config.userOverrides ?? {});
+    // Level 1: UserModelConfig.capability_overrides
+    //
+    // v3.1 阶段 A review (2026-05-24)：取消注释，启用真 mergeInto 调用（同上）。
+    this.mergeInto(merged, config.userOverrides ?? {});
 
     return merged;
   }
@@ -157,18 +164,32 @@ export class ModelCapabilityService {
     const out: Partial<ModelCapabilities> = {};
 
     // structuredOutput：admin 显式配置 override catalog 默认
+    //
+    // v3.1 阶段 A review (2026-05-24) fallbackChain 语义：
+    //   - undefined（admin 没配 fallbackStrategies） → 用 catalog 默认 fallback
+    //   - []（admin 显式配空数组） → 强制无 fallback（只剩 prompt 兜底）
+    //   - [...]（admin 显式配链） → 覆盖 catalog
+    //
+    // 关键：fallbackValid 仅在 admin 实际有配 fallbackStrategies 时才非 undefined。
+    // 这样 mergeInto 里的 `next.fallbackChain !== undefined ? ... : target...` 才
+    // 能正确区分"没配"和"配了空"。
     const primaryValid = config.structuredOutputStrategy
       ? this.filterValidStrategies([config.structuredOutputStrategy])
       : [];
-    const fallbackValid = this.filterValidStrategies(
-      config.fallbackStrategies ?? [],
-    );
+    const fallbackValid: readonly NativeStructuredOutputMode[] | undefined =
+      config.fallbackStrategies !== undefined
+        ? this.filterValidStrategies(config.fallbackStrategies)
+        : undefined;
     if (primaryValid.length > 0) {
+      // 注意：fallbackChain 故意可为 undefined（admin 没配时），mergeInto 内
+      // `next.fallbackChain !== undefined` 检查能正确保留 catalog 默认。
+      // 类型上 Partial<ModelCapabilities> 要求子对象字段必填，运行时 undefined
+      // 由 mergeInto 检查保护——这里用结构性 cast 透传 undefined。
       out.structuredOutput = {
         nativeMode: primaryValid[0],
-        fallbackChain: fallbackValid,
+        fallbackChain: fallbackValid as readonly NativeStructuredOutputMode[],
       };
-    } else if (fallbackValid.length > 0) {
+    } else if (fallbackValid !== undefined && fallbackValid.length > 0) {
       // admin 仅配 fallback 没首选（或首选 invalid 被过滤） → 仅覆盖 fallback，
       // 保留 catalog nativeMode
       out.structuredOutput = {
@@ -176,7 +197,8 @@ export class ModelCapabilityService {
         fallbackChain: fallbackValid,
       };
     }
-    // 全 invalid → out.structuredOutput 不设 → 完全用 catalog 默认
+    // 全 invalid（structuredOutputStrategy/fallbackStrategies 都未配或全无效）
+    //   → out.structuredOutput 不设 → 完全用 catalog 默认
 
     // reasoning：isReasoning=true 时映射 kind；具体 kind 区分由 catalog 决定
     // 本派生仅在 catalog 没指定时给最保守的 'opaque'

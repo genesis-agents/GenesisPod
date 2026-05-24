@@ -169,7 +169,7 @@ export const PROVIDER_CAPABILITY_DEFAULTS: readonly ProviderCapabilityRule[] = [
   // ─────────── 6. DeepSeek V4-Pro（json_object only；API 现状不支持 json_schema） ───────────
   {
     provider: "deepseek",
-    modelPattern: /v4[-_]?pro|v4pro/,
+    modelPattern: /v4[-_]?pro/,
     capabilities: {
       structuredOutput: { nativeMode: "json_mode", fallbackChain: [] },
       toolUse: { mode: "openai_functions", parallelCalls: false },
@@ -535,7 +535,12 @@ export const PROVIDER_CAPABILITY_DEFAULTS: readonly ProviderCapabilityRule[] = [
  * SAFE_DEFAULTS —— 优先级链最后一级兜底（v3.1 §3.4 #5）。
  *
  * 当某 capability 字段在 19 列、catalog、override 都没值时用本默认。
- * 设计原则：**全部保守**——'none' / false / 安全数值——绝不撒谎说支持。
+ *
+ * 设计原则（v3.1 阶段 A review 2026-05-24 注释纠正）：
+ *   - **结构化输出/工具/视觉/缓存/推理维度全保守（'none'）** —— 绝不撒谎说支持，
+ *     遇到未知模型走 prompt + post-parse 兜底，永远不会发送 provider 不识别的字段
+ *   - **功能性维度（温度/流式）默认乐观** —— LLM API 普遍支持 temperature 参数
+ *     和 SSE 流式（不支持的是极少数特例），保守关掉反而误伤大多数正常模型
  *
  * 关键：`structuredOutput.nativeMode = 'none'` —— 派生 chain 时只剩兜底 'prompt'，
  * 不会发任何 response_format 字段，安全可调任意未知模型。

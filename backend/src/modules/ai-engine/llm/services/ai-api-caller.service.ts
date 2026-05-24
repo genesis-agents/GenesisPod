@@ -148,6 +148,13 @@ const STACK_CONTEXT_LINES = 5;
 export class AiApiCallerService {
   private readonly logger = new Logger(AiApiCallerService.name);
 
+  /**
+   * v3.1 §A review (2026-05-24)：fail-open 观测信号去重 Set。
+   * 同 (provider, modelId, reason) 仅 warn 一次，防日志风暴。
+   * key 格式：`${reason}|${provider}|${modelId}`
+   */
+  private readonly _capabilityFailOpenWarned = new Set<string>();
+
   constructor(
     private readonly httpService: HttpService,
     // v3.1 §A: 替代原 isDeepseekReasoner 反模式；caps.structuredOutput.nativeMode
@@ -169,9 +176,29 @@ export class AiApiCallerService {
    *     与重构前行为一致；不会因 catalog SAFE_DEFAULTS 误判全平台关 response_format）
    *   - capability service 未注入（旧单测） → 同样退回 false
    *   - provider 已知 + catalog 明确 nativeMode='none' → 返回 true（跳 response_format）
+   *
+   * v3.1 §A review (2026-05-24) fail-open 观测：
+   *   - 当 capability gate 被绕过（service 缺 / provider 空）时记一次 warn，
+   *     让运维能在日志里追到"为什么这条没走 catalog"。
+   *   - 同 (reason, provider, modelId) 只 warn 一次（_capabilityFailOpenWarned 去重），
+   *     防止热路径日志风暴。
    */
   private rejectsResponseFormat(provider: string, modelId: string): boolean {
-    if (!this.capabilityService || !provider?.trim()) return false;
+    if (!this.capabilityService || !provider?.trim()) {
+      const reason = !this.capabilityService
+        ? "missing-service"
+        : "empty-provider";
+      const dedupeKey = `${reason}|${provider}|${modelId}`;
+      if (!this._capabilityFailOpenWarned.has(dedupeKey)) {
+        this._capabilityFailOpenWarned.add(dedupeKey);
+        this.logger.warn(
+          `[capability-gate] bypassed, fail-open: reason=${reason}, ` +
+            `provider="${provider}", modelId="${modelId}" ` +
+            `(response_format 将按重构前行为保留；后续重复同源不再 warn)`,
+        );
+      }
+      return false;
+    }
     const projection: AIModelConfig = {
       id: "",
       name: "",

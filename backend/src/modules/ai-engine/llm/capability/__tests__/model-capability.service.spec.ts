@@ -180,6 +180,43 @@ describe("ModelCapabilityService — resolveCapabilities (v3.1 §A)", () => {
       expect(caps.structuredOutput.fallbackChain).toEqual(["json_schema"]);
     });
 
+    // v3.1 阶段 A review (2026-05-24)：fallbackChain undefined vs [] 语义锁
+    it("admin 配 nativeMode='json_schema' + 不配 fallback → catalog 默认 fallback 生效", () => {
+      const caps = svc.resolveCapabilities(
+        baseConfig({
+          provider: "openai",
+          modelId: "gpt-4o",
+          structuredOutputStrategy: "json_schema",
+          // fallbackStrategies 未设（undefined） → 保留 catalog 默认
+        }),
+      );
+      // catalog openai fallback 默认是 ["json_schema", "json_mode"]
+      // admin override nativeMode 但没动 fallback，应保留 catalog 默认
+      expect(caps.structuredOutput.nativeMode).toBe("json_schema");
+      expect(caps.structuredOutput.fallbackChain).toEqual([
+        "json_schema",
+        "json_mode",
+      ]);
+    });
+
+    it("admin 配 nativeMode='json_schema' + fallback=[] → 强制无 fallback（只剩 prompt 兜底）", () => {
+      const caps = svc.resolveCapabilities(
+        baseConfig({
+          provider: "openai",
+          modelId: "gpt-4o",
+          structuredOutputStrategy: "json_schema",
+          fallbackStrategies: [], // 显式空 → 覆盖 catalog 为空
+        }),
+      );
+      expect(caps.structuredOutput.nativeMode).toBe("json_schema");
+      expect(caps.structuredOutput.fallbackChain).toEqual([]);
+      // 派生链：只有 nativeMode + 兜底 prompt
+      expect(svc.deriveStructuredOutputChain(caps)).toEqual([
+        "json_schema",
+        "prompt",
+      ]);
+    });
+
     it("admin 配置全 invalid → 完全用 catalog 默认（不污染）", () => {
       const caps = svc.resolveCapabilities(
         baseConfig({
@@ -303,6 +340,26 @@ describe("ModelCapabilityService — resolveCapabilities (v3.1 §A)", () => {
         baseConfig({ provider: "anthropic", modelId: "any-future-model" }),
       );
       expect(caps.structuredOutput.nativeMode).toBe("tool_use");
+    });
+
+    // v3.1 阶段 A review (2026-05-24)：边界 provider / modelId
+    it("provider='' + modelId='deepseek-reasoner' → catalog 不命中（无 provider）→ SAFE_DEFAULTS", () => {
+      const caps = svc.resolveCapabilities(
+        baseConfig({ provider: "", modelId: "deepseek-reasoner" }),
+      );
+      // 空 provider 直接跳过 catalog → SAFE_DEFAULTS（nativeMode='none' + 'prompt' 兜底）
+      expect(caps.structuredOutput.nativeMode).toBe("none");
+      expect(caps.toolUse.mode).toBe("none");
+    });
+
+    it("provider='deepseek' + modelId='' → 落到 deepseek 通用第 7 条（non-reasoner / 非 v4-pro）", () => {
+      // modelPattern /reasoner/ 不命中空串；/v4[-_]?pro/ 也不命中；
+      // 落到无 modelPattern 的第 7 条 deepseek 兜底 → json_schema
+      const caps = svc.resolveCapabilities(
+        baseConfig({ provider: "deepseek", modelId: "" }),
+      );
+      expect(caps.structuredOutput.nativeMode).toBe("json_schema");
+      expect(caps.structuredOutput.fallbackChain).toEqual(["json_mode"]);
     });
   });
 });

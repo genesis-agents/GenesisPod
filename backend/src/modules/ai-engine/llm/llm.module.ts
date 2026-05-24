@@ -174,7 +174,9 @@ import { ModelCapabilityService } from "./capability/model-capability.service";
     MissionElectionTracker,
     AutoConfigureService,
     ModelPricingRegistry,
-    ModelCapabilityService,
+    // v3.1 阶段 A review (2026-05-24)：ModelCapabilityService 故意**不** export。
+    // 它只在 llm.module 内部供 StructuredOutputRouter + AiApiCallerService 注入，
+    // 不对外暴露（防 ai-app 直读 caps 后散点 if 判断；v3 §3.6 SSOT 守护）。
     StructuredOutputRouter,
   ],
 })

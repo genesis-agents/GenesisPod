@@ -155,71 +155,100 @@ export interface ModelCapabilities {
 
 // ─────────────── zod schema（B 阶段 capability_overrides 写入侧用） ───────────────
 
-const nativeModeSchema = z.enum(
+// v3.1 阶段 A review (2026-05-24)：每个 enum schema 通过 z.ZodType<ConcreteEnum>
+// 保留字面量联合（不是 string），让顶层 schema 能 satisfies z.ZodType<ModelCapabilities>
+// 严校（拼错字段名 TS 不编译）。
+
+const nativeModeSchema: z.ZodType<NativeStructuredOutputMode> = z.enum(
   NATIVE_STRUCTURED_OUTPUT_MODES as readonly [string, ...string[]],
-);
-const toolUseModeSchema = z.enum(
+) as z.ZodType<NativeStructuredOutputMode>;
+const toolUseModeSchema: z.ZodType<ToolUseMode> = z.enum(
   TOOL_USE_MODES as readonly [string, ...string[]],
-);
-const reasoningKindSchema = z.enum(
+) as z.ZodType<ToolUseMode>;
+const reasoningKindSchema: z.ZodType<ReasoningKind> = z.enum(
   REASONING_KINDS as readonly [string, ...string[]],
-);
-const reasoningExposeSchema = z.enum(
+) as z.ZodType<ReasoningKind>;
+const reasoningExposeSchema: z.ZodType<ReasoningExposeContent> = z.enum(
   REASONING_EXPOSE_CONTENTS as readonly [string, ...string[]],
-);
-const temperatureSupportSchema = z.enum(
+) as z.ZodType<ReasoningExposeContent>;
+const temperatureSupportSchema: z.ZodType<TemperatureSupport> = z.enum(
   TEMPERATURE_SUPPORTS as readonly [string, ...string[]],
-);
-const tokenParamSchema = z.enum(
+) as z.ZodType<TemperatureSupport>;
+const tokenParamSchema: z.ZodType<TokenParamName> = z.enum(
   TOKEN_PARAM_NAMES as readonly [string, ...string[]],
-);
-const visionSupportSchema = z.enum(
+) as z.ZodType<TokenParamName>;
+const visionSupportSchema: z.ZodType<VisionSupport> = z.enum(
   VISION_SUPPORTS as readonly [string, ...string[]],
-);
-const systemPromptPlacementSchema = z.enum(
+) as z.ZodType<VisionSupport>;
+const systemPromptPlacementSchema: z.ZodType<SystemPromptPlacement> = z.enum(
   SYSTEM_PROMPT_PLACEMENTS as readonly [string, ...string[]],
-);
-const promptCacheSupportSchema = z.enum(
+) as z.ZodType<SystemPromptPlacement>;
+const promptCacheSupportSchema: z.ZodType<PromptCacheSupport> = z.enum(
   PROMPT_CACHE_SUPPORTS as readonly [string, ...string[]],
-);
+) as z.ZodType<PromptCacheSupport>;
 
 /**
  * 完整 ModelCapabilities zod schema —— catalog 静态数据 + B 阶段 override 强校验。
+ *
+ * v3.1 阶段 A review (2026-05-24)：
+ *   - 顶层 + 每个子对象 `.strict()`：拼错字段名 zod parse 直接报错（不静默漏）
+ *   - 用 `satisfies z.ZodType<ModelCapabilities>` 替代 `as z.ZodType<>` cast，
+ *     让 TS 严校 schema 与 interface 同步（拼错字段 TS 不编译）
  */
-export const ModelCapabilitiesSchema: z.ZodType<ModelCapabilities> = z.object({
-  structuredOutput: z.object({
-    nativeMode: nativeModeSchema,
-    fallbackChain: z.array(nativeModeSchema).readonly(),
-  }),
-  toolUse: z.object({
-    mode: toolUseModeSchema,
-    parallelCalls: z.boolean(),
-  }),
-  reasoning: z.object({
-    kind: reasoningKindSchema,
-    exposeContent: reasoningExposeSchema,
-  }),
-  temperature: z.object({
-    support: temperatureSupportSchema,
-  }),
-  tokenParam: tokenParamSchema,
-  vision: z.object({
-    support: visionSupportSchema,
-  }),
-  streaming: z.object({
-    support: z.boolean(),
-  }),
-  context: z.object({
-    maxInputTokens: z.number().int().nonnegative(),
-    maxOutputTokens: z.number().int().nonnegative(),
-  }),
-  systemPrompt: z.object({
-    placement: systemPromptPlacementSchema,
-  }),
-  promptCache: z.object({
-    support: promptCacheSupportSchema,
-  }),
-}) as z.ZodType<ModelCapabilities>;
+export const ModelCapabilitiesSchema = z
+  .object({
+    structuredOutput: z
+      .object({
+        nativeMode: nativeModeSchema,
+        fallbackChain: z.array(nativeModeSchema).readonly(),
+      })
+      .strict(),
+    toolUse: z
+      .object({
+        mode: toolUseModeSchema,
+        parallelCalls: z.boolean(),
+      })
+      .strict(),
+    reasoning: z
+      .object({
+        kind: reasoningKindSchema,
+        exposeContent: reasoningExposeSchema,
+      })
+      .strict(),
+    temperature: z
+      .object({
+        support: temperatureSupportSchema,
+      })
+      .strict(),
+    tokenParam: tokenParamSchema,
+    vision: z
+      .object({
+        support: visionSupportSchema,
+      })
+      .strict(),
+    streaming: z
+      .object({
+        support: z.boolean(),
+      })
+      .strict(),
+    context: z
+      .object({
+        maxInputTokens: z.number().int().nonnegative(),
+        maxOutputTokens: z.number().int().nonnegative(),
+      })
+      .strict(),
+    systemPrompt: z
+      .object({
+        placement: systemPromptPlacementSchema,
+      })
+      .strict(),
+    promptCache: z
+      .object({
+        support: promptCacheSupportSchema,
+      })
+      .strict(),
+  })
+  .strict() satisfies z.ZodType<ModelCapabilities>;
 
 /**
  * v3.1 阶段 B 用：`capability_overrides JSONB` 列 zod schema（partial / deep）。
