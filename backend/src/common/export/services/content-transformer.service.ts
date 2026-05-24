@@ -958,7 +958,9 @@ export class ContentTransformerService {
     // Load figure references from dimension analyses for chart image resolution
     const dimensionAnalyses = await this.prisma.dimensionAnalysis.findMany({
       where: { reportId: report.id },
-      select: { dataPoints: true },
+      // dataPointsUri 必须一起 select：dataPoints 若已 off-load 到 R2,
+      // hydrate 中间件靠 uri 取回;漏选则 off-loaded 内容为空 → 导出丢图表。
+      select: { dataPoints: true, dataPointsUri: true },
     });
     const figureMap = new Map<
       string,

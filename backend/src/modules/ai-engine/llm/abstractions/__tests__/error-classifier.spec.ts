@@ -45,6 +45,29 @@ describe("AIErrorClassifier", () => {
       expect(result.isRetryable()).toBe(false);
     });
 
+    it("should classify 403 billing/credits exhaustion as QUOTA_EXCEEDED (non-retryable)", () => {
+      // Live xai wording: "spending limit" contains "limit" — must NOT be misread
+      // as a retryable rate-limit and burn 3 retries on a dead-credits key.
+      const axiosError = createAxiosError(
+        403,
+        "Your team has either used all available credits or reached its monthly spending limit. To continue making API requests, please purchase more credits or raise your spending limit.",
+      );
+
+      const result = classifier.classify(axiosError);
+
+      expect(result.type).toBe(AIErrorType.QUOTA_EXCEEDED);
+      expect(result.isRetryable()).toBe(false);
+    });
+
+    it("should classify 403 rate-limit (no billing words) as RATE_LIMIT", () => {
+      const axiosError = createAxiosError(403, "rate limit exceeded");
+
+      const result = classifier.classify(axiosError);
+
+      expect(result.type).toBe(AIErrorType.RATE_LIMIT);
+      expect(result.isRetryable()).toBe(true);
+    });
+
     it("should classify 401 as INVALID_API_KEY", () => {
       const axiosError = createAxiosError(401, "Invalid API key");
 
