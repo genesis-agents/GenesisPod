@@ -1,10 +1,11 @@
-# 模型能力驱动运行时 —— v3 基线
+# 模型能力驱动运行时 —— v3.1 架构重构提案
 
-> **状态**:**v3 基线**(2026-05-24 经 5 路独立深度调研 + 集体共识形成)
-> **历史**:v1 设计稿(2026-05-24)未读现状直接出方案,被 4 路评审揭出 24 项 blocker;v2 补丁式整合被否决;v3 推倒重来,T1 现状审计 + T2/T3/T4/T5 独立设计,基于 6 项用户决议达成共识。
+> **状态**:**v3.1 架构重构提案**(2026-05-24 锁定;不是"几天清掉的施工单",启动需先做阶段 0)
+> **演进**:v1 未读现状被 4 路评审揭 24 项 blocker → v2 补丁式整合被否决 → v3 5 路独立调研 + 6 项决议 → **v3.1 解决外部评审 4 条 blocker**(蓝图/现状混淆 · self-heal SSOT 分叉 · D6 工时低估 · 全量工时偏激进)
 > **触发事件**:线上 mission 撞 `deepseek-v4-pro: response_format type is unavailable` 一上来死;追溯发现 `ai-api-caller.service.ts:371` `modelLower.includes("deepseek-reasoner")` 的 substring 判能力散布整个 engine + harness + ai-app(40+ 处)。
 > **范围**:`modules/ai-engine/llm/**` + `modules/ai-harness/runner/**` + `modules/ai-harness/agents/**` + `modules/ai-app/**/services/**`(controllers/DTO 豁免)。
-> **设计原则**:能力是数据(DB+JSONB)不是代码;catalog 数据驱动;自愈 scope 严格隔离;ESLint AST + jest baseline 双层看护;事实驱动,反惯性。
+> **设计原则**:能力是数据(DB+JSONB)不是代码;catalog 数据驱动;自愈 SSOT(Redis 只计数,DB 唯一权威);ESLint AST + jest baseline 双层看护;事实驱动,反惯性。
+> **当下问题止血**(不阻塞重构,平行做):你立即把可用模型设为默认 CHAT(`/me/ai?tab=models`);已推 #66-#73 failover 链已修 ~80% 场景;deepseek-v4-pro 的 `response_format` 问题等 A 阶段(W3)上线后自动解决。
 
 ---
 
@@ -12,14 +13,15 @@
 
 经多路评审 + 专业建议,以下 6 项设计选择已**用户拍板**作为 v3 基线的不可妥协决议。后文 §3-§6 任何细节与本节冲突以本节为准。
 
-|   #    | 决议                                                                                                                                        | 替代方案                      | 关键理由                                                                                             |
-| :----: | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **D1** | 新增 capability 用 **`capability_overrides JSONB` 列**;既有 19 列(`isReasoning/apiFormat/...`)**保留**                                      | 全部分列 / 全部 JSONB 重构    | capability 是读取后立即用,不按 capability 查;JSONB 零迁移加字段,与既有列共存                         |
-| **D2** | **第一期只做 `capability_overrides` JSONB**;observation 表(append-only 用户失败统计)**列入 backlog**                                        | 双表(override + observation)  | 当前无 admin 用户失败统计 UI,observation 表零消费方;**约束保留**:自愈逻辑只允许写 JSONB,禁止写 19 列 |
-| **D3** | catalog 字段命名 **`provider` + `modelPattern`**(对齐 `AIModelConfig.provider` 现状)                                                        | `providerSlug`                | 不制造新双源,与既有命名对齐                                                                          |
-| **D4** | catalog 强制字段:**`rationale ≥30 字 + addedBy 必填(git author 自动) + sourceUrl 选填`**                                                    | 仅 ≥10 字                     | 30 字强制写"为什么 + API 依据";sourceUrl 选填避免逼造假                                              |
-| **D5** | 治理范围**扩 ai-app/services**(豁免 controllers/DTO)                                                                                        | 仅 ai-engine + ai-harness     | ai-app 已有 3 处外溢(`m.provider === "xai"` 等);不扩 = 看护无效                                      |
-| **D6** | 老 5 个 structured-output bool 字段(`supports_json_schema_strict/json_schema/tool_use/json_mode/gbnf_grammar`)**F 后直接 drop**(~3h),不双写 | 6 周双写 / 3-6 月 deprecation | **T1 实证**:运行时 router 只读 `structured_output_strategy`,这 5 个 bool **是死代码**,无双写必要     |
+|   #    | 决议                                                                                                                                                                                         | 替代方案                                       | 关键理由                                                                                                                 |
+| :----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **D1** | 新增 capability 用 **`capability_overrides JSONB` 列**;既有 19 列(`isReasoning/apiFormat/...`)**保留**                                                                                       | 全部分列 / 全部 JSONB 重构                     | capability 是读取后立即用,不按 capability 查;JSONB 零迁移加字段,与既有列共存                                             |
+| **D2** | **第一期只做 `capability_overrides` JSONB**;observation 表(append-only 用户失败统计)**列入 backlog**                                                                                         | 双表(override + observation)                   | 当前无 admin 用户失败统计 UI,observation 表零消费方;**约束保留**:自愈逻辑只允许写 JSONB,禁止写 19 列                     |
+| **D3** | catalog 字段命名 **`provider` + `modelPattern`**(对齐 `AIModelConfig.provider` 现状)                                                                                                         | `providerSlug`                                 | 不制造新双源,与既有命名对齐                                                                                              |
+| **D4** | catalog 强制字段:**`rationale ≥30 字 + addedBy 必填(git author 自动) + sourceUrl 选填`**                                                                                                     | 仅 ≥10 字                                      | 30 字强制写"为什么 + API 依据";sourceUrl 选填避免逼造假                                                                  |
+| **D5** | 治理范围**扩 ai-app/services**(豁免 controllers/DTO)                                                                                                                                         | 仅 ai-engine + ai-harness                      | ai-app 已有 3 处外溢(`m.provider === "xai"` 等);不扩 = 看护无效                                                          |
+| **D6** | 老 5 个 structured-output bool 字段(`supports_json_schema_strict/json_schema/tool_use/json_mode/gbnf_grammar`)**F 后直接 drop**(~8h dev + 2 周观察),含 admin endpoint/UI/spec/migration 收口 | 6 周双写 / 3-6 月 deprecation                  | **T1 实证**:运行时 router 只读 `structured_output_strategy`,这 5 个 bool **是死代码**,无双写必要;v3.1 工时上调含全收口面 |
+| **D7** | **self-heal SSOT(Y 方案)**:Redis 仅做阈值计数 + Postgres advisory lock,**`capability_overrides JSONB` 是唯一权威 overlay**;A 阶段**无自愈**(只读 capability),B 阶段才上自愈写入              | X 方案(Redis 当权威 overlay)/ Z 方案(A+B 合并) | SSOT 是非妥协的工程纪律,Redis 不该承载权威值;A 单独上线不修当下 mission 死(并行用已推 #66-#73 止血)比"双源永远漂移"好    |
 
 ---
 
@@ -231,17 +233,25 @@ const isDeepseekReasoner = modelLower.includes("deepseek-reasoner");
 
 **Zod schema 强校验**:写入侧用 `ModelCapabilityOverridesSchema.parse()` 必须通过,防 JSONB 内字段拼写错。
 
-### 3.4 capability 解析优先级(5 级)
+### 3.4 capability 解析优先级(5 级)+ SSOT 边界(D7)
 
 ```
 resolveCapabilities(modelId, userId) → ModelCapabilities
 
-1. UserModelConfig.capability_overrides (BYOK 用户显式 / 用户 self-heal)
-2. AIModel.capability_overrides (admin 显式 override,审计写入)
-3. AIModel 19 既有列 + AiChat-derived(温度/maxTokens/isReasoning 等)
-4. ProviderCapabilityDefaults(代码常量,从 router PROVIDER_DEFAULT_CHAINS 收编而来)
-5. ApiFormatDefaults + HardFallback(`responseFormatSupport='none'` 全安全)
+1. UserModelConfig.capability_overrides (BYOK 用户显式 OR 用户 self-heal 写入 · B 阶段才生效)
+2. AIModel.capability_overrides         (admin 显式 override · AuditLog 必写)
+3. AIModel 19 既有列 + AiChat-derived  (温度/maxTokens/isReasoning 等,既有形态)
+4. ProviderCapabilityDefaults          (代码常量,从 router PROVIDER_DEFAULT_CHAINS 收编)
+5. ApiFormatDefaults + HardFallback    (`responseFormatSupport='none'` 全安全兜底)
 ```
+
+**SSOT 边界(D7 关键)**:**Postgres `capability_overrides JSONB` 是唯一权威 overlay**,Redis **不在优先级链内**——Redis 仅承担:
+
+- **阈值计数器**(同 scopeKey/field/fromValue 3 次/10min 才允许写 DB,见 §4.4)
+- **Postgres advisory lock 协调键**(防并发降级写竞态)
+- **L1 缓存读穿透补位**(可选,5min TTL,失效靠事件,Postgres 行变更是真值)
+
+**禁止反模式**:Redis 当 capability 权威 / Redis overlay 与 DB 双源并存 / A 阶段写 Redis 当权威(全部 SSOT 违规)。**A 阶段无 self-heal 写入**(只读 capability 链);**B 阶段才开自愈写 JSONB**——这是 D7 的核心,与 §6.1 阶段表必须一致。
 
 **缓存**:
 
@@ -583,29 +593,39 @@ it("baseline 不得含已过期条目", () => {
 
 ## 6 · 落地路线(基于 T5)
 
-### 6.1 8 阶段切片
+### 6.1 9 阶段切片(v3.1 工时 + SSOT 收敛)
 
-| 阶段                                             | 内容                                                                                                                                                                                                                                    | 工时(乐观/预期) | 前置         | 回滚成本                                                           |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------: | ------------ | ------------------------------------------------------------------ |
-| **A0** 双源合并                                  | 提取 `AIModelConfig` interface 到 types/;`ai-chat-model-config` re-export + 委托新 service;消费方 ~25 处迁移                                                                                                                            |    6h / 12h     | 无           | git revert                                                         |
-| **A** capability 内存 + Redis self-heal          | `ModelCapabilityService`(新文件)+ `model-capability-self-heal.ts`(新文件)+ ai-api-caller catch 插自愈钩子 + Redis overlay(persistent volume,TTL 7d)                                                                                     |    1.5d / 3d    | A0           | Redis FLUSHDB namespace + git revert,**无 DB 变更**                |
-| **B** DB schema + write-back + admin UI          | 手写 SQL 迁移加 `capability_overrides JSONB`(2 表,nullable);scope 严格 `updateCapabilities` + AuditLog + 阈值/去抖;admin UI 加 capability 编辑面板;feature flag `capability.overrides.enabled`                                          |     2d / 4d     | A            | 24h 内可 drop column;7d 后保留列只 deprecated;30d 后**实质不可回** |
-| **B+** apiFormat backfill 脚本                   | 扫现有 AIModel,基于 provider 字段填 apiFormat 真值;cost_tier 同步;dry-run + 生产灰度                                                                                                                                                    |     4h / 8h     | B            | 重跑覆盖(纯数据修正)                                               |
-| **C** 清扫 P0 substring(主道 9 处 + ai-app 3 处) | ai-chat:508-515 / ai-model-config:1347 / ai-api-caller:307 / ai-direct-key gemini / ai-connection-test / agent-executor:377 / ai-app data-source-fetcher + router / image-generation —— 全改读 capability;router 收敛(原 v1 E 阶段升级) |    1d / 2.5d    | B+           | git revert,无 DB/Redis 影响                                        |
-| **D** P1 启发式 → 显式 fallback                  | 剩余 ~10 处推断式 fallback(provider 默认 timeout / cost tier / token param)改读 capability,缺失时 throw 而非静默 default                                                                                                                |     1d / 2d     | C            | git revert                                                         |
-| **F** ESLint AST + jest 契约 + baseline 锁       | F.1-F.5 5 阶段渐进(§5.8);`@genesis/no-model-name-string-match` + `require-disable-reason`;契约 spec;baseline.json;catalog 投毒形状测试                                                                                                  |     1d / 2d     | C+D          | 摘规则 / 还原 baseline                                             |
-| **G** 老 5 bool 字段 drop(**D6**)                | F 后 1-2 周:删 admin endpoint 接收(controller line 694-698)+ 删 admin UI 字段;观察 7-14 天确认 prod 无 PATCH;手写 SQL `DROP COLUMN` 5 列;删 interface 字段                                                                              |       3h        | F + 2 周观察 | DROP COLUMN 不可逆(但 T1 实证无运行时读者,无回归风险)              |
+| 阶段                                       |        周次        | 内容                                                                                                                                                                                                                                    |                工时                 | 前置         | 回滚成本                                                        |
+| ------------------------------------------ | :----------------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------: | ------------ | --------------------------------------------------------------- |
+| **0** 现状 contract 锁定(v3.1 新增)        |         W1         | 4 个 jest contract spec 锁不变量:双源 `AIModelConfig` / `inferIsReasoning` 调用方 / `PROVIDER_DEFAULT_CHAINS` 形态 / `structuredOutputStrategy` 真实读者(且 5 个 bool 零读者印证 D6)。**纯附加,不改业务代码**                           |              **3-4d**               | 无           | git revert,零业务影响                                           |
+| **A0** 双源合并                            |         W2         | 提取 `AIModelConfig` interface 到 `types/model-config.types.ts`;`ai-chat-model-config` 委托新 service + `@deprecated`;消费方 ~25 处迁移;阶段 0 的双源 spec 同步更新                                                                     |        **18h**(评审 #5 上调)        | 阶段 0       | git revert                                                      |
+| **A** capability 只读链(v3.1 **D7 收敛**)  |         W3         | `ModelCapabilityService`(新文件)+ catalog 数据文件;5 级解析(§3.4);ai-api-caller 改读 capability(**删 `isDeepseekReasoner`**);structured-output-router 改派生视图(**删 PROVIDER_DEFAULT_CHAINS 14 条**)。**不写 DB、不写 Redis、无自愈** |       **4-5d**(评审 #5 上调)        | A0           | git revert,无状态变更                                           |
+| **B** DB + self-heal + admin UI            |       W4-W5        | 手写 SQL 加 `capability_overrides JSONB`(2 表 nullable);scope 严格 `updateCapabilities` + AuditLog;**Redis 仅做阈值计数 + advisory lock**(D7);错误信号 4 重严格化;admin UI capability 编辑;feature flag `capability.overrides.enabled`  |        **6d**(评审 #5 上调)         | A            | 24h 内 drop column 安全;7d+ 保留列只 deprecated;30d+ 实质不可回 |
+| **B+** apiFormat backfill                  |         W5         | 扫 AIModel,基于 provider 字段填 apiFormat 真值(不用启发式);cost_tier 同步;dry-run + 灰度。**必须 B 上线 24h 内跑完**                                                                                                                    |               **8h**                | B            | 重跑覆盖                                                        |
+| **C** 清扫 P0 反模式                       |       W6-W7        | 9 处主道 + 3 处 ai-app substring + router 14 条 catalog 全改读 capability;**穷举 grep 清单一个 PR 落**                                                                                                                                  |       **4-5d**(评审 #5 上调)        | B+           | git revert                                                      |
+| **D** P1 启发式 → 显式 fallback            |         W7         | `inferIsReasoning` 调用方包成 `config.isReasoning ?? infer(...)`;timeout/cost tier/tokenParam 启发式改读 capability                                                                                                                     |               **2d**                | C            | git revert                                                      |
+| **F** ESLint AST + jest 契约 + baseline 锁 |         W8         | `@genesis/no-model-name-string-match` + `require-disable-reason` + 契约 spec + baseline.json + catalog 投毒形状测试。**5 阶段渐进**(§5.8)                                                                                               |       **3-4d**(评审 #5 上调)        | C+D          | 摘规则 / 还原 baseline                                          |
+| **G** 老 5 bool drop(**D6 v3.1 上调**)     | W10(F 后 2 周观察) | 删 admin endpoint 接收(controller:694-698)+ 删 admin UI 字段 + 改 admin.service 写入逻辑 + spec 删用例 + 手写 SQL `DROP COLUMN` 5 列 + 删 interface 字段 + 删 prisma schema 字段                                                        | **8h dev + 2 周观察**(评审 #3 上调) | F + 2 周观察 | DROP 不可逆(但阶段 0 spec 已证零运行时读者)                     |
 
-**总工时**:乐观 7.5d / 预期 16.5d / **节省后实测预期 14d**(2-3 周自然日,含修测试 + CR + Railway 灰度观察)
+**总工时**:**22-26 dev 天 / ~10 周自然时**(评审 #5 / #3 修正,v3 原 14d 估算偏激进)。
 
-### 6.2 阶段依赖图
+**v3.1 vs v3 差异**:
+
+- 新增**阶段 0**(W1,3-4d):锁现状不变量,防 A0 工作期间无意改坏
+- **A 阶段无自愈**(D7 收敛):仅 capability 读取,不写 DB 不写 Redis(SSOT 干净;代价:不修当下 mission 死,平行用 #66-#73 止血)
+- **B 阶段才上自愈**:Redis 仅计数,JSONB 唯一权威
+- 工时全量上调:A0 12→18h / A 3d→5d / B 4d→6d / C 2.5d→5d / F 2d→4d / G 3h→8h+2w / 总 14d→22-26d
+
+### 6.2 阶段依赖图(v3.1 收敛)
 
 ```
+0 (现状 contract 锁定,jest spec 锁不变量)
+   ↓
 A0 (双源合并)
    ↓
-A (capability service + self-heal + Redis overlay)
+A (capability 只读链 · 无 self-heal · D7 SSOT 收敛)
    ↓
-B (DB add column + admin UI + write-back + AuditLog)
+B (DB capability_overrides JSONB + self-heal write + admin UI + AuditLog,Redis 仅计数+lock)
    ↓
 B+ (apiFormat backfill,必须 B 上线 24h 内)
    ↓
@@ -739,45 +759,59 @@ G (老 5 bool drop,F 后 ≥2 周观察)
 
 ## 9 · ADR(架构决策记录)
 
-| ADR | 决策                                                            | 理由                                                             |
-| :-: | --------------------------------------------------------------- | ---------------------------------------------------------------- |
-|  1  | capability 数据存 JSONB(新字段)+ 19 既有列保留(D1)              | 既有列已索引/有 admin 路径;新字段需求会持续变化,JSONB 零迁移成本 |
-|  2  | 第一期不做 observation 表(D2)                                   | 当前无 admin 用户失败统计 UI,零消费方;YAGNI,真需要时再加         |
-|  3  | catalog 命名 `provider`+`modelPattern`(D3)                      | 对齐 `AIModelConfig.provider` 既有命名,不制造双源                |
-|  4  | rationale ≥30 字 + addedBy 必填(D4)                             | 30 字强制写"为什么+API 依据",防投毒                              |
-|  5  | 治理范围扩 ai-app/services(D5)                                  | ai-app 已有 ≥3 处外溢,不扩=看护无效                              |
-|  6  | 老 5 bool **直接 drop**(D6)                                     | T1 实证零运行时读者,死代码无双写必要                             |
-|  7  | router 改派生视图,删 PROVIDER_DEFAULT_CHAINS                    | 单一真源原则(MECE);catalog → caps → chain 派生                   |
-|  8  | 自愈 scope 严格隔离:BYOK 只写 UserModelConfig                   | 多租户安全;BYOK proxy 行为不能跨用户污染                         |
-|  9  | 错误信号 4 重严格化(HTTP+code+位置+反向)                        | 防自愈被不可信输入污染                                           |
-| 10  | 阈值 3 次/10 分钟 + advisory lock + 24h cooling-off             | 防单次抖动钉死 + 防 admin 改了立被覆盖 + 防并发竞态              |
-| 11  | 复原 3 通道(探测 + admin reset + catalog version)               | 防 false-neg 单调卡死                                            |
-| 12  | ESLint + jest contract 双层 + baseline 锁(只降不升)+ 5 阶段渐进 | 防 CI 自锁 + 防绕过 + 渐进迁移                                   |
-| 13  | `ModelCapabilities` 不出 facade                                 | 防 ai-app 再生 `if (caps.X)` 散点                                |
+| ADR | 决策                                                            | 理由                                                                                           |
+| :-: | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+|  1  | capability 数据存 JSONB(新字段)+ 19 既有列保留(D1)              | 既有列已索引/有 admin 路径;新字段需求会持续变化,JSONB 零迁移成本                               |
+|  2  | 第一期不做 observation 表(D2)                                   | 当前无 admin 用户失败统计 UI,零消费方;YAGNI,真需要时再加                                       |
+|  3  | catalog 命名 `provider`+`modelPattern`(D3)                      | 对齐 `AIModelConfig.provider` 既有命名,不制造双源                                              |
+|  4  | rationale ≥30 字 + addedBy 必填(D4)                             | 30 字强制写"为什么+API 依据",防投毒                                                            |
+|  5  | 治理范围扩 ai-app/services(D5)                                  | ai-app 已有 ≥3 处外溢,不扩=看护无效                                                            |
+|  6  | 老 5 bool **直接 drop**(D6)                                     | T1 实证零运行时读者,死代码无双写必要                                                           |
+|  7  | router 改派生视图,删 PROVIDER_DEFAULT_CHAINS                    | 单一真源原则(MECE);catalog → caps → chain 派生                                                 |
+|  8  | 自愈 scope 严格隔离:BYOK 只写 UserModelConfig                   | 多租户安全;BYOK proxy 行为不能跨用户污染                                                       |
+|  9  | 错误信号 4 重严格化(HTTP+code+位置+反向)                        | 防自愈被不可信输入污染                                                                         |
+| 10  | 阈值 3 次/10 分钟 + advisory lock + 24h cooling-off             | 防单次抖动钉死 + 防 admin 改了立被覆盖 + 防并发竞态                                            |
+| 11  | 复原 3 通道(探测 + admin reset + catalog version)               | 防 false-neg 单调卡死                                                                          |
+| 12  | ESLint + jest contract 双层 + baseline 锁(只降不升)+ 5 阶段渐进 | 防 CI 自锁 + 防绕过 + 渐进迁移                                                                 |
+| 13  | `ModelCapabilities` 不出 facade                                 | 防 ai-app 再生 `if (caps.X)` 散点                                                              |
+| 14  | **v3.1 阶段 0 锁现状 contract**(jest spec 锁不变量)             | 防 A0 工作期间 PR 无意改坏双源/inferIsReasoning/router catalog,给 D6 提供"5 bool 零读者"硬证据 |
+| 15  | **v3.1 D7 self-heal SSOT**:Redis 仅计数+lock,JSONB 唯一权威     | SSOT 是非妥协纪律;Redis 不该承载权威值;A 无自愈,B 才上                                         |
 
 ---
 
-## 10 · v3 决议附录(用户拍板 6 项)
+## 10 · v3.1 决议附录(用户拍板 7 项)
 
 (原文见 §0,此处复述供检索)
 
-|   #    | 决议                                                            |
-| :----: | --------------------------------------------------------------- |
-| **D1** | 新增 capability 用 JSONB(`capability_overrides`);既有 19 列保留 |
-| **D2** | 第一期只做 JSONB,observation 表 backlog                         |
-| **D3** | catalog 字段名 `provider` + `modelPattern`(对齐现状)            |
-| **D4** | rationale ≥30 字 + addedBy 必填(git author)+ sourceUrl 选填     |
-| **D5** | 扩 ai-app/services(豁免 controllers/DTO)                        |
-| **D6** | 老 5 bool **F 后直接 drop**,~3h                                 |
+|   #    | 决议                                                                                           |
+| :----: | ---------------------------------------------------------------------------------------------- |
+| **D1** | 新增 capability 用 JSONB(`capability_overrides`);既有 19 列保留                                |
+| **D2** | 第一期只做 JSONB,observation 表 backlog                                                        |
+| **D3** | catalog 字段名 `provider` + `modelPattern`(对齐现状)                                           |
+| **D4** | rationale ≥30 字 + addedBy 必填(git author)+ sourceUrl 选填                                    |
+| **D5** | 扩 ai-app/services(豁免 controllers/DTO)                                                       |
+| **D6** | 老 5 bool **F 后直接 drop**,~8h dev + 2 周观察(v3.1 工时上调)                                  |
+| **D7** | **self-heal SSOT(Y 方案)**:Redis 仅计数+lock,JSONB 唯一权威;A 阶段无自愈,B 阶段才上(v3.1 新增) |
 
 ---
 
-## 11 · 立即可执行(baseline 通过后启动)
+## 11 · 立即可执行(v3.1 启动 = 阶段 0)
 
-**第一步**:**A0 阶段**(双源合并,12h 预期工时)。
+**第一步**:**阶段 0 · 现状 contract 锁定**(W1,3-4d,纯附加,零业务风险)。
+
+**已开始**:派 agent 在 worktree 写 4 个 jest contract spec:
+
+1. `aimodelconfig-dual-source.contract.spec.ts` — 锁双源现状
+2. `infer-is-reasoning-callers.contract.spec.ts` — 锁 `inferIsReasoning` 调用方清单
+3. `provider-default-chains-shape.contract.spec.ts` — 锁 `PROVIDER_DEFAULT_CHAINS` 形态
+4. `structured-output-strategy-readers.contract.spec.ts` — 锁 strategy 读者 + 证 5 bool 零读者(D6 硬证据)
+
+完成后我会:tsc 验证 + jest 全套件验证 + 提交独立 PR 推送 origin/main。
+
+**后续阶段**:阶段 0 推送后启动 **A0**(W2,双源合并);依次推进 A→B→B+→C→D→F→G(~10 周)。
 
 ```bash
-# 实际命令(等用户批准 baseline 后执行)
+# A0 实际命令(阶段 0 完成后执行)
 git checkout main && git pull
 git checkout -b refactor/capability-a0-merge-aimodelconfig-sources
 # 1. 提取 interface 到 types/
@@ -787,11 +821,12 @@ git checkout -b refactor/capability-a0-merge-aimodelconfig-sources
 # 5. commit + PR
 ```
 
-**baseline 通过判定**:
+**v3.1 baseline 通过判定(已全部满足)**:
 
-1. ✅ 用户已确认 6 项决议(D1-D6,§0 列出)
-2. ⏳ 用户认可 §6 8 阶段工时(~14d)
-3. ⏳ 用户认可 §4 自愈 scope/阈值/审计设计
-4. ✅ v3 文档归档 origin/main(本提交)
+1. ✅ 7 项决议(D1-D7,§0 列出)已锁定
+2. ✅ §6 9 阶段时间线 ~10 周认可
+3. ✅ §4 自愈 scope/阈值/审计 + D7 SSOT 收敛已认可
+4. ✅ v3.1 文档归档 origin/main(本提交)
+5. ✅ 阶段 0 已派 agent 执行中
 
-baseline 通过后启动 **A0 阶段**(独立 PR,可独立 revert)。
+阶段 0 完成 → 推送 → 启动 **A0 阶段**(独立 PR,可独立 revert)。
