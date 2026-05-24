@@ -1661,6 +1661,9 @@ export default function AskPage() {
             // 注：suggestedActions / IntentRouter 链路 2026-04-30 已删（backend
             // ai-ask.service.ts:46-48 注释），前端这里也不再消费。
           } else {
+            if (result.byok) {
+              return;
+            }
             // 2026-05-10 §4 流式失败：保留 user 气泡，把 thinking 占位替换为
             // **inline 错误气泡**。原"silent filter 双气泡"路径会让用户看见
             // "thinking..." 几秒后整个会话突然变空 → 误以为被登出（screenshot 19）。

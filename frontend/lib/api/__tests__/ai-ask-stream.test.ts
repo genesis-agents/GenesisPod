@@ -5,6 +5,10 @@ const { mockError, mockWarn } = vi.hoisted(() => ({
   mockWarn: vi.fn(),
 }));
 
+const { mockPublishByokError } = vi.hoisted(() => ({
+  mockPublishByokError: vi.fn(),
+}));
+
 vi.mock('@/lib/utils/config', () => ({
   config: {
     apiUrl: 'http://localhost:4000/api/v1',
@@ -18,6 +22,10 @@ vi.mock('@/lib/utils/logger', () => ({
     debug: vi.fn(),
     info: vi.fn(),
   },
+}));
+
+vi.mock('@/lib/byok/event-bus', () => ({
+  publishByokError: mockPublishByokError,
 }));
 
 import { streamAskMessage } from '../ai-ask-stream';
@@ -112,6 +120,35 @@ describe('streamAskMessage', () => {
 
     expect(result.ok).toBe(true);
     expect(statuses).toEqual(['rag', 'generating']);
+  });
+
+  it('publishes BYOK guidance when stream fails with quota error before done', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      makeStreamResponse([
+        'data: {"type":"error","message":"所选模型 Provider 余额或配额已耗尽，请检查 BYOK 配置、充值或切换到可用模型后重试。","code":"QUOTA_EXCEEDED","meta":{"status":402,"providerMessage":"Request failed with status code 402"}}\n\n',
+      ])
+    );
+
+    const result = await streamAskMessage('session-1', 'token-1', {
+      content: 'Question',
+      webSearch: false,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.byok).toBe(true);
+    expect(result.status).toBe(402);
+    expect(mockPublishByokError).toHaveBeenCalledWith({
+      code: 'QUOTA_EXCEEDED',
+      message:
+        '所选模型 Provider 余额或配额已耗尽，请检查 BYOK 配置、充值或切换到可用模型后重试。',
+      details: {
+        meta: {
+          status: 402,
+          providerMessage: 'Request failed with status code 402',
+        },
+      },
+    });
   });
 
   it('fails closed when stream cut AND reconcile finds no persisted reply', async () => {

@@ -74,6 +74,7 @@ export interface AskStreamFailure {
   /** 失败前已经累积的部分内容（如果有），可作为 inline 错误气泡的 prefix。 */
   partialContent?: string;
   status?: number;
+  byok?: boolean;
 }
 
 export type AskStreamResult = AskStreamSuccess | AskStreamFailure;
@@ -122,9 +123,14 @@ interface DoneEvent extends SseEventBase {
   };
 }
 
-interface ErrorEvent extends SseEventBase {
+interface StreamErrorEvent extends SseEventBase {
   type: 'error';
   message: string;
+  code?: string;
+  meta?: {
+    status?: number;
+    providerMessage?: string;
+  };
 }
 
 type SseEvent =
@@ -132,7 +138,7 @@ type SseEvent =
   | SourcesEvent
   | ChunkEvent
   | DoneEvent
-  | ErrorEvent;
+  | StreamErrorEvent;
 
 const networkErrorMessage = (status: number, raw: unknown): string => {
   const data = (raw ?? {}) as Record<string, unknown>;
@@ -149,6 +155,36 @@ const networkErrorMessage = (status: number, raw: unknown): string => {
     return '没有权限调用此模型，请检查 BYOK 配置或管理员授权。';
   if (status === 404) return '会话不存在或已被删除。';
   return `调用失败 (HTTP ${status})。请稍后重试或更换模型。`;
+};
+
+const inferByokCode = (
+  code: string | undefined,
+  message: string | null
+): string | null => {
+  if (
+    code &&
+    [
+      'NO_AVAILABLE_KEY',
+      'NO_SYSTEM_KEY',
+      'QUOTA_EXCEEDED',
+      'INVALID_API_KEY',
+      'KEY_EXPIRED',
+    ].includes(code)
+  ) {
+    return code;
+  }
+  const text = (message ?? '').toLowerCase();
+  if (
+    /status code 402|payment required|insufficient quota|insufficient credit|out of credits|billing/.test(
+      text
+    )
+  ) {
+    return 'QUOTA_EXCEEDED';
+  }
+  if (/invalid api key|incorrect api key|api key.*expired|key expired/.test(text)) {
+    return 'INVALID_API_KEY';
+  }
+  return null;
 };
 
 interface PersistedAskMessage {
@@ -328,7 +364,7 @@ export async function streamAskMessage(
     let accumulatedContent = '';
     let ragSources: AskRagSource[] | undefined;
     let donePayload: DoneEvent | null = null;
-    let errorMsg: string | null = null;
+    let errorEvent: StreamErrorEvent | null = null;
     let sawDone = false;
 
     const handleEvent = (event: SseEvent): void => {
@@ -344,7 +380,7 @@ export async function streamAskMessage(
         donePayload = event;
         if (event.fullContent) accumulatedContent = event.fullContent;
       } else if (event.type === 'error') {
-        errorMsg = event.message;
+        errorEvent = event;
       }
     };
 
@@ -377,12 +413,26 @@ export async function streamAskMessage(
       consumeBufferedEvents(events);
     }
 
-    if (errorMsg && (!sawDone || !donePayload)) {
-      logger.error('[AiAsk] Stream error:', errorMsg);
+    const streamError = errorEvent as StreamErrorEvent | null;
+    if (streamError && (!sawDone || !donePayload)) {
+      const byokCode = inferByokCode(streamError.code, streamError.message);
+      if (byokCode) {
+        const { publishByokError } = await import('@/lib/byok/event-bus');
+        publishByokError({
+          code: byokCode,
+          message: streamError.message,
+          details: {
+            meta: streamError.meta ?? {},
+          },
+        });
+      }
+      logger.error('[AiAsk] Stream error:', streamError.message);
       return {
         ok: false,
-        error: errorMsg,
+        error: streamError.message,
         partialContent: accumulatedContent || undefined,
+        status: streamError.meta?.status,
+        byok: Boolean(byokCode),
       };
     }
 

@@ -97,6 +97,48 @@ export class AiAskService {
     return this.toolFacade.isToolExecutionAvailable();
   }
 
+  private formatStreamError(error: unknown): {
+    message: string;
+    code?: string;
+    meta?: { status?: number; providerMessage?: string };
+  } {
+    const raw = error instanceof Error ? error.message : String(error);
+    const normalized = raw.trim();
+
+    if (
+      /status code 402|payment required|insufficient quota|insufficient credit|out of credits|billing/i.test(
+        normalized,
+      )
+    ) {
+      return {
+        message:
+          "所选模型 Provider 余额或配额已耗尽，请检查 BYOK 配置、充值或切换到可用模型后重试。",
+        code: "QUOTA_EXCEEDED",
+        meta: {
+          status: 402,
+          providerMessage: normalized,
+        },
+      };
+    }
+
+    if (
+      /invalid api key|incorrect api key|api key.*expired|key expired/i.test(
+        normalized,
+      )
+    ) {
+      return {
+        message:
+          "当前模型使用的 API Key 无效或已过期，请检查 BYOK 配置后重试。",
+        code: "INVALID_API_KEY",
+        meta: {
+          providerMessage: normalized,
+        },
+      };
+    }
+
+    return { message: normalized };
+  }
+
   /**
    * 获取可用工具列表
    */
@@ -839,7 +881,13 @@ export class AiAskService {
         billing: { userId, moduleType: "ai-ask", operationType },
       })) {
         if (chunk.error) {
-          yield { type: "error", message: chunk.error };
+          const formatted = this.formatStreamError(chunk.error);
+          yield {
+            type: "error",
+            message: formatted.message,
+            code: formatted.code,
+            meta: formatted.meta,
+          };
           return;
         }
         if (chunk.content) {
@@ -859,13 +907,22 @@ export class AiAskService {
             ? error.message
             : "Failed to get response. Please try again."
           : "Failed to get response. Please try again.";
-      yield { type: "error", message: msg };
+      const formatted =
+        msg === "Failed to get response. Please try again."
+          ? this.formatStreamError(error)
+          : { message: msg };
+      yield {
+        type: "error",
+        message: formatted.message,
+        code: formatted.code,
+        meta: formatted.meta,
+      };
 
       const errorMessage = await this.prisma.askMessage.create({
         data: {
           sessionId,
           role: "assistant",
-          content: `Error: ${msg}`,
+          content: `Error: ${formatted.message}`,
           modelId: modelConfig.id,
           modelName: modelConfig.name,
         },
@@ -875,7 +932,7 @@ export class AiAskService {
         userMessageId: userMessage.id,
         assistantMessageId: errorMessage.id,
         tokensUsed: 0,
-        fullContent: `Error: ${msg}`,
+        fullContent: `Error: ${formatted.message}`,
         userMessage: {
           id: userMessage.id,
           content: userMessage.content,
