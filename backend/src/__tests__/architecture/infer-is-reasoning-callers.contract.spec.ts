@@ -47,7 +47,9 @@ const EXPECTED_CALLERS: ReadonlyArray<readonly [string, number]> = [
     "modules/ai-app/topic-insights/services/dimension/section-writer.service.ts",
     2,
   ],
-  ["modules/ai-engine/llm/services/ai-chat-model-config.service.ts", 2],
+  // v3.1 A0：ai-chat-model-config.service.ts 已 thin-wrapper 化，
+  // 原 2 处 `inferIsReasoning(...)` 调用随 buildModelConfig / isReasoningModel
+  // 委托给 canonical AiModelConfigService 而被消除。
   ["modules/ai-engine/llm/services/ai-connection-test.service.ts", 1],
   ["modules/ai-engine/llm/services/ai-model-config.service.ts", 3],
   ["modules/ai-harness/tracing/observability/ai-observability.service.ts", 1],

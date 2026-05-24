@@ -9,6 +9,16 @@ import { UserModelConfigsService } from "@/modules/ai-infra/credentials/user-mod
 import { RequestContext } from "@/common/context/request-context";
 import { AIModelType, UserModelConfig } from "@prisma/client";
 import { inferIsReasoning } from "../types";
+// v3.1 A0：AIModelConfig 单一源已迁出至 types/model-config.types.ts；
+// 本文件 import 后再 re-export，向后兼容旧 `from "./ai-model-config.service"`
+// 路径上的下游消费方。
+import type {
+  AIModelConfig,
+  ApiKeySource,
+  ResolvedApiKey,
+} from "../types/model-config.types";
+
+export type { AIModelConfig, ApiKeySource, ResolvedApiKey };
 
 /**
  * 图像生成模型 modelId 命名启发式 —— 用于把被误标为 CHAT 的图像模型
@@ -17,30 +27,6 @@ import { inferIsReasoning } from "../types";
 const IMAGE_MODEL_ID_PATTERN =
   /(image|imagine|dall-?e|flux|stable-?diffusion|sd-?xl|midjourney|ideogram)/i;
 
-/**
- * API Key 来源标识
- * personal: 用户自用 Key（不扣积分）
- * donated: 共享池捐赠 Key（扣积分）
- * system: 系统管理员配置 Key（扣积分）
- */
-export type ApiKeySource = "personal" | "donated" | "system";
-
-export interface ResolvedApiKey {
-  apiKey: string;
-  source: ApiKeySource;
-  apiEndpoint?: string | null;
-  /**
-   * PR-4 (2026-05-05) BYOK failover：KeyHealth 命名空间下的统一标识。
-   * 调用方应在 callFn 调用前后做 markFailure / markSuccess。
-   * SYSTEM key 路径（无 userId）不返回此字段。
-   */
-  healthKeyId?: string;
-}
-
-/**
- * 数据库中的 AI 模型配置
- * ★ 所有模型行为完全由数据库配置驱动，消除硬编码
- */
 /**
  * 2026-05-12 严格 BYOK 升级（用户政策："所有 AI 调用统一 BYOK，绝不用 admin"）：
  * 不再有"基础功能必需"的软回退例外。**所有 modelType 一律严格**：
@@ -51,45 +37,6 @@ export interface ResolvedApiKey {
  */
 // 2026-05-12 严格 BYOK：原 BYOK_OPTIONAL_TYPES 区分已废弃，所有 modelType 一律严格。
 // 保留 import AIModelType 引用（其他方法签名需要）。
-
-export interface AIModelConfig {
-  id: string;
-  name: string;
-  displayName: string;
-  provider: string;
-  modelId: string;
-  apiEndpoint: string;
-  apiKey: string | null;
-  secretKey?: string | null; // 引用 Secret Manager 中的密钥名称
-  maxTokens: number;
-  temperature: number;
-  isEnabled: boolean;
-  isDefault: boolean;
-
-  // ★ 模型能力配置 - 完全由数据库驱动
-  isReasoning?: boolean; // 是否为推理模型
-  apiFormat?: string; // API 格式: openai, anthropic, google, xai
-  supportsTemperature?: boolean; // 是否支持 temperature 参数
-  supportsStreaming?: boolean; // 是否支持流式输出
-  supportsFunctionCalling?: boolean; // 是否支持函数调用
-  supportsVision?: boolean; // 是否支持视觉输入
-  tokenParamName?: string; // token 参数名: max_tokens 或 max_completion_tokens
-  defaultTimeoutMs?: number; // 默认超时时间
-  priceInputPerMillion?: number; // 输入价格
-  priceOutputPerMillion?: number; // 输出价格
-  priority?: number; // 模型优先级
-
-  // ★ 2026-05-06 Structured Output capability matrix
-  // 由 StructuredOutputRouter.resolveChain(model) 消费，未配置时按 provider slug
-  // 自动推断默认链。详见 ai-engine/llm/structured-output/。
-  structuredOutputStrategy?: string | null;
-  fallbackStrategies?: string[];
-  supportsJsonSchemaStrict?: boolean;
-  supportsJsonSchema?: boolean;
-  supportsToolUse?: boolean;
-  supportsJsonMode?: boolean;
-  supportsGbnfGrammar?: boolean;
-}
 
 /**
  * AI 模型配置管理服务
@@ -348,6 +295,46 @@ export class AiModelConfigService {
     } catch (error) {
       this.logger.error(`[refreshModelConfigCache] Failed: ${error}`);
     }
+  }
+
+  /**
+   * 检查 Temperature 参数是否支持（同步，从缓存读取）。
+   *
+   * v3.1 A0：合并自原 `AiChatModelConfigService.isTemperatureSupported`，
+   * 走 canonical 单缓存。
+   *
+   * 优先级：
+   *   1. DB 缓存的 supportsTemperature 字段（操作员显式声明）
+   *   2. 回落 isReasoningModel() 的统一判断（推理模型不支持 temperature）
+   *   3. 默认 true（普通模型支持）
+   */
+  isTemperatureSupported(modelId: string): boolean {
+    // 1. DB 配置优先（精确匹配）
+    const config = this.modelConfigCache.get(modelId);
+    if (config?.supportsTemperature !== undefined) {
+      return config.supportsTemperature;
+    }
+
+    // 2. 不区分大小写匹配
+    const modelLower = modelId.toLowerCase();
+    for (const [key, cfg] of this.modelConfigCache.entries()) {
+      if (
+        key.toLowerCase() === modelLower &&
+        cfg.supportsTemperature !== undefined
+      ) {
+        return cfg.supportsTemperature;
+      }
+    }
+
+    // 3. 推理模型不支持 temperature
+    if (this.isReasoningModel(modelId)) {
+      this.logger.debug(
+        `[isTemperatureSupported] Model "${modelId}" is reasoning, temperature not supported`,
+      );
+      return false;
+    }
+
+    return true;
   }
 
   /**

@@ -1,27 +1,32 @@
 /**
- * 阶段 0 contract / v3.1 文档 §0.5 / 演进策略说明
+ * v3.1 A0 已完成 contract / 单一源 baseline
  *
- * 锁定"现状 AIModelConfig 双源"的不变量：
- *   - ai-engine/llm/services/ai-chat-model-config.service.ts 仍存在并 export
- *     interface AIModelConfig（旧/精简版 ~23 字段）
- *   - ai-engine/llm/services/ai-model-config.service.ts 同样 export interface
- *     AIModelConfig（完整版，是前者的字段超集，含 5 个 structured-output bool +
- *     structuredOutputStrategy / fallbackStrategies 共 7 个 §3.x 新字段）
+ * 历史背景（A0 之前）：
+ *   - `ai-engine/llm/services/ai-chat-model-config.service.ts` export
+ *     interface AIModelConfig（旧/精简版 12 字段）
+ *   - `ai-engine/llm/services/ai-model-config.service.ts` export interface
+ *     AIModelConfig（canonical 超集 19 字段，含 7 个 §3.x structured-output 字段）
+ *   - 双源并存。任何"哪边添字段"决策都需 reviewer 人工把关，易漂移。
  *
- * 用 TypeScript Compiler API 解析两份 interface，断言：
- *   (a) 两个文件都存在且都 export AIModelConfig
- *   (b) ai-model-config.service.ts 的字段集 ⊇ ai-chat-model-config.service.ts
- *   (c) **全 backend/src 树**只有这 2 处 `export interface AIModelConfig`
- *       （防止新增第三处定义偷偷把"双源"扩成"三源"）
+ * v3.1 A0（已完成）：interface AIModelConfig **合并为单一源** ——
+ *   `modules/ai-engine/llm/types/model-config.types.ts`
+ *
+ * 锁定不变量（防止退化回双源）：
+ *   (a) 单一源文件存在且 export interface AIModelConfig
+ *   (b) ai-chat-model-config.service.ts 不再 export interface（已 thin wrapper
+ *       化，仅 re-export type alias，不在 TS 顶层 `export interface` 声明）
+ *   (c) ai-model-config.service.ts 同样不再 export interface（也是 re-export）
+ *   (d) **全 backend/src 树**只有 1 处 `export interface AIModelConfig` 声明
+ *       —— 即 types/model-config.types.ts
+ *   (e) canonical interface 仍带 7 个 §3.x structured-output 字段（D6 删除 5 个
+ *       bool 时此断言要同步更新）
  *
  * **范围声明**：仅 `backend/src` 运行时（排除 .spec/.test/.d.ts/node_modules/
- *   dist/coverage/__tests__）。前端 admin UI / Prisma schema / 测试 fixture 中
- *   即便另有同名声明也不进入本基线（前端用自己的 type 定义，与后端解耦）。
+ *   dist/coverage/__tests__）。
  *
  * 演进策略：
- *   阶段 A0（双源合并）开始时，此 spec 必须同步更新或删除。任何在 A0 之前
- *   无意修改这两份 interface 字段集的 PR 会让本 spec 红，强制 reviewer 确认
- *   "是否真的要在 A0 之前动 contract"。
+ *   - 阶段 D6 删除 5 个 supports_json_* bool → 同步更新 §(e) 期望字段集
+ *   - 阶段 G（A0 收尾后期）评估是否删整 spec（如全树已 0 处声明残留）
  */
 
 import * as fs from "fs";
@@ -30,11 +35,15 @@ import * as ts from "typescript";
 
 const SRC_ROOT = path.resolve(__dirname, "../..");
 
-const FILE_OLD = path.join(
+const FILE_SINGLE_SOURCE = path.join(
+  SRC_ROOT,
+  "modules/ai-engine/llm/types/model-config.types.ts",
+);
+const FILE_OLD_WRAPPER = path.join(
   SRC_ROOT,
   "modules/ai-engine/llm/services/ai-chat-model-config.service.ts",
 );
-const FILE_NEW = path.join(
+const FILE_CANONICAL_SERVICE = path.join(
   SRC_ROOT,
   "modules/ai-engine/llm/services/ai-model-config.service.ts",
 );
@@ -70,6 +79,9 @@ function listTsFiles(dir: string, acc: string[] = []): string[] {
 /**
  * 全树扫描：返回所有 `export interface AIModelConfig` 声明所在的相对路径
  * （用 TS Compiler API，不用 grep，避免字符串误命中）。
+ *
+ * 注意：本扫描仅识别 `export interface AIModelConfig { ... }` 顶层声明形态，
+ * **不**会把 `export type { AIModelConfig } from "..."` re-export 误判为新源。
  */
 function findAllAIModelConfigDefinitions(): string[] {
   const found: string[] = [];
@@ -126,44 +138,39 @@ function extractInterfaceFields(filePath: string): Set<string> | null {
   return result;
 }
 
-describe("Capability Contract · AIModelConfig dual-source baseline (v3.1 §0.5)", () => {
-  it("ai-chat-model-config.service.ts still exists and exports interface AIModelConfig (legacy source)", () => {
-    expect(fs.existsSync(FILE_OLD)).toBe(true);
-    const fields = extractInterfaceFields(FILE_OLD);
+describe("Capability Contract · AIModelConfig single-source baseline (v3.1 A0 完成)", () => {
+  it("types/model-config.types.ts is the single source of truth and exports interface AIModelConfig", () => {
+    expect(fs.existsSync(FILE_SINGLE_SOURCE)).toBe(true);
+    const fields = extractInterfaceFields(FILE_SINGLE_SOURCE);
     expect(fields).not.toBeNull();
     expect(fields!.size).toBeGreaterThan(0);
   });
 
-  it("ai-model-config.service.ts still exists and exports interface AIModelConfig (canonical source)", () => {
-    expect(fs.existsSync(FILE_NEW)).toBe(true);
-    const fields = extractInterfaceFields(FILE_NEW);
-    expect(fields).not.toBeNull();
-    expect(fields!.size).toBeGreaterThan(0);
+  it("ai-chat-model-config.service.ts no longer declares `export interface AIModelConfig` (thin-wrapper 化，只 re-export)", () => {
+    // 老文件仍存在（thin wrapper class），但顶层不能再有 `export interface
+    // AIModelConfig`——type 通过 `export type { AIModelConfig }` re-export 走。
+    expect(fs.existsSync(FILE_OLD_WRAPPER)).toBe(true);
+    const fields = extractInterfaceFields(FILE_OLD_WRAPPER);
+    expect(fields).toBeNull();
   });
 
-  it("canonical AIModelConfig is a strict superset of legacy AIModelConfig (field set ⊇)", () => {
-    const oldFields = extractInterfaceFields(FILE_OLD);
-    const newFields = extractInterfaceFields(FILE_NEW);
-    expect(oldFields).not.toBeNull();
-    expect(newFields).not.toBeNull();
-    const missingInNew = [...oldFields!].filter((f) => !newFields!.has(f));
-    expect(missingInNew).toEqual([]);
+  it("ai-model-config.service.ts no longer declares `export interface AIModelConfig` (re-export from types)", () => {
+    expect(fs.existsSync(FILE_CANONICAL_SERVICE)).toBe(true);
+    const fields = extractInterfaceFields(FILE_CANONICAL_SERVICE);
+    expect(fields).toBeNull();
   });
 
-  it("backend/src tree has exactly 2 `export interface AIModelConfig` declarations (dual-source uniqueness)", () => {
-    // 防新增第三处定义——任何 PR 把双源扩成三源（或更多）会让本断言红，强制
-    // reviewer 确认"是否真的要在 A0 之前引入新的 AIModelConfig 源头"。
+  it("backend/src tree has exactly 1 `export interface AIModelConfig` declaration (single-source uniqueness)", () => {
+    // 防止退化：任何 PR 新增第 2 处 interface 声明 → 本断言红，强制 reviewer
+    // 确认"是否真的要退回双源"或"是否要正确从 types/model-config.types 引用"。
     const all = findAllAIModelConfigDefinitions();
-    expect(all).toEqual([
-      "modules/ai-engine/llm/services/ai-chat-model-config.service.ts",
-      "modules/ai-engine/llm/services/ai-model-config.service.ts",
-    ]);
+    expect(all).toEqual(["modules/ai-engine/llm/types/model-config.types.ts"]);
   });
 
-  it("canonical AIModelConfig still carries the v3.x structured-output extension fields (deletion gate for阶段 D6)", () => {
-    // 这 7 个字段是双源差集（canonical 超集 - legacy）。D6 计划要删除 5 个 bool
+  it("single-source AIModelConfig still carries the v3.x structured-output extension fields (deletion gate for阶段 D6)", () => {
+    // 这 7 个字段是合并前的 canonical 超集独有。D6 计划要删除 5 个 bool
     // 字段（supports_json_*）—— 删除时本断言必须同步更新。
-    const newFields = extractInterfaceFields(FILE_NEW);
+    const newFields = extractInterfaceFields(FILE_SINGLE_SOURCE);
     expect(newFields).not.toBeNull();
     const v3xExtensionFields = [
       "structuredOutputStrategy",

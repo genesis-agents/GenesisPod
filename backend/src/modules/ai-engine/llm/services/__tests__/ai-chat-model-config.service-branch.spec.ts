@@ -14,8 +14,11 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { AiChatModelConfigService } from "../ai-chat-model-config.service";
+// v3.1 A0：wrapper 现委托给 canonical AiModelConfigService。
+import { AiModelConfigService } from "../ai-model-config.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
+import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
 
 function createMockDbModel(overrides: Record<string, unknown> = {}) {
   return {
@@ -60,11 +63,18 @@ async function buildService(
   const mockSecrets = {
     getValueInternal: jest.fn().mockResolvedValue("test-api-key"),
   };
+  const mockUserApiKeysService = {
+    getAvailableProviders: jest.fn().mockResolvedValue([]),
+    getPersonalKey: jest.fn().mockResolvedValue(null),
+    resolveProviderDefaults: jest.fn().mockResolvedValue(null),
+  };
   const module: TestingModule = await Test.createTestingModule({
     providers: [
       AiChatModelConfigService,
+      AiModelConfigService,
       { provide: PrismaService, useValue: mockPrisma },
       { provide: SecretsService, useValue: mockSecrets },
+      { provide: UserApiKeysService, useValue: mockUserApiKeysService },
     ],
   }).compile();
   return {
@@ -133,10 +143,11 @@ describe("AiChatModelConfigService (branch supplement)", () => {
       await service.getModelConfig("gpt-4o");
       const callCount = mockPrisma.aIModel.findMany.mock.calls.length;
 
-      // Force TTL expiry by manipulating private field
-      (service as any).modelConfigCacheTime = Date.now() - 10 * 60 * 1000;
+      // v3.1 A0：wrapper 已委托给 canonical service，cache 字段在 delegate 上
+      (service as any).delegate.modelConfigCacheTime =
+        Date.now() - 10 * 60 * 1000;
 
-      // Second call should trigger refresh (line 219-220)
+      // Second call should trigger refresh
       await service.getModelConfig("gpt-4o");
       expect(mockPrisma.aIModel.findMany.mock.calls.length).toBeGreaterThan(
         callCount,
@@ -156,10 +167,11 @@ describe("AiChatModelConfigService (branch supplement)", () => {
       await service.getAllEnabledModelsByType("CHAT" as any);
       const callCount = mockPrisma.aIModel.findMany.mock.calls.length;
 
-      // Force TTL expiry
-      (service as any).modelConfigCacheTime = Date.now() - 10 * 60 * 1000;
+      // v3.1 A0：cache 在 delegate 上
+      (service as any).delegate.modelConfigCacheTime =
+        Date.now() - 10 * 60 * 1000;
 
-      // Should refresh (line 280)
+      // Should refresh
       await service.getAllEnabledModelsByType("CHAT" as any);
       expect(mockPrisma.aIModel.findMany.mock.calls.length).toBeGreaterThan(
         callCount,
@@ -168,25 +180,19 @@ describe("AiChatModelConfigService (branch supplement)", () => {
   });
 
   // ─────────────────────────────────────────────────────────────────
-  // getDefaultModelByType — cache TTL expiry refresh
+  // getDefaultModelByType — DB-driven (canonical不走 modelConfigCache)
   // ─────────────────────────────────────────────────────────────────
-  describe("getDefaultModelByType — cache TTL expiry", () => {
-    it("refreshes the cache when TTL has expired", async () => {
+  describe("getDefaultModelByType — DB query", () => {
+    it("queries DB on each call (canonical 不读 modelConfigCache)", async () => {
+      // v3.1 A0：原测试假设 getDefaultModelByType 走 TTL refresh 路径，但
+      // canonical AiModelConfigService.getDefaultModelByType 直接 findFirst，
+      // 不读 modelConfigCache。改为直接验证 DB 被查询。
       const model = createMockDbModel({ isDefault: true, modelType: "CHAT" });
-      const { service, mockPrisma } = await buildService([model]);
+      const { service, mockPrisma } = await buildService([model], model);
 
-      // Prime cache
-      await service.getDefaultModelByType("CHAT" as any);
-      const callCount = mockPrisma.aIModel.findMany.mock.calls.length;
-
-      // Force TTL expiry
-      (service as any).modelConfigCacheTime = Date.now() - 10 * 60 * 1000;
-
-      // Should refresh (line 325)
-      await service.getDefaultModelByType("CHAT" as any);
-      expect(mockPrisma.aIModel.findMany.mock.calls.length).toBeGreaterThan(
-        callCount,
-      );
+      const result = await service.getDefaultModelByType("CHAT" as any);
+      expect(result).toBeDefined();
+      expect(mockPrisma.aIModel.findFirst).toHaveBeenCalled();
     });
   });
 
@@ -250,14 +256,22 @@ describe("AiChatModelConfigService (branch supplement)", () => {
         getValueInternal: jest.fn().mockResolvedValue(null),
       };
 
-      // Module compilation triggers constructor which calls refreshModelConfigCache
-      // The catch handler on line 57-59 should log a warning (not throw)
+      const mockUserApiKeysService = {
+        getAvailableProviders: jest.fn().mockResolvedValue([]),
+        getPersonalKey: jest.fn().mockResolvedValue(null),
+        resolveProviderDefaults: jest.fn().mockResolvedValue(null),
+      };
+      // v3.1 A0：wrapper 自身不再 refresh cache（已委托 canonical），但
+      // canonical AiModelConfigService 仍在构造时 refresh —— 失败时其 catch
+      // 处理也不应抛出。
       await expect(
         Test.createTestingModule({
           providers: [
             AiChatModelConfigService,
+            AiModelConfigService,
             { provide: PrismaService, useValue: failingPrisma },
             { provide: SecretsService, useValue: mockSecrets },
+            { provide: UserApiKeysService, useValue: mockUserApiKeysService },
           ],
         }).compile(),
       ).resolves.toBeDefined();

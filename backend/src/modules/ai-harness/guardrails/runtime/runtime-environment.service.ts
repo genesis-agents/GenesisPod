@@ -20,7 +20,8 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { AgentRegistry } from "@/modules/ai-harness/agents/registry/plan-based-agent-registry";
 import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool.registry";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill.registry";
-import { AiChatModelConfigService } from "@/modules/ai-engine/llm/services/ai-chat-model-config.service";
+// v3.1 A0：AiChatModelConfigService 弃用，迁至 canonical AiModelConfigService
+import { AiModelConfigService } from "@/modules/ai-engine/llm/services/ai-model-config.service";
 import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 import {
@@ -59,7 +60,7 @@ export class RuntimeEnvironmentService {
     @Inject(SPEC_AGENT_REGISTRY_PROBE)
     private readonly specAgentRegistry?: ISpecAgentRegistryProbe,
     @Optional()
-    private readonly modelConfigService?: AiChatModelConfigService,
+    private readonly modelConfigService?: AiModelConfigService,
     @Optional() private readonly keyResolver?: KeyResolverService,
     @Optional() private readonly secrets?: SecretsService,
     @Optional()
@@ -320,7 +321,7 @@ export class RuntimeEnvironmentService {
         //
         // Resolution: the DB `isReasoning` boolean is the operator-declared
         // truth. When absent, fall back to the shared
-        // AiChatModelConfigService.isReasoningModel() which already knows
+        // AiModelConfigService.isReasoningModel() which already knows
         // the o1/o3/gpt-5/deepseek-r1/gemini-2.5/*-thinking families.
         // Mirror the capability into the REASONING bucket additively — the
         // CHAT bucket entry stays so chat callers see the same model.

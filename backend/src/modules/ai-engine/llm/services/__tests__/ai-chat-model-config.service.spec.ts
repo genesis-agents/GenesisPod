@@ -1,7 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AiChatModelConfigService } from "../ai-chat-model-config.service";
+// v3.1 A0：wrapper 现委托给 canonical AiModelConfigService，测试通过 DI 容器
+// 同时提供两者，验证 wrapper API surface 与底层等价行为。
+import { AiModelConfigService } from "../ai-model-config.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
+import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
 import { AIModelType } from "@prisma/client";
 
 function createMockDbModel(overrides: Record<string, unknown> = {}) {
@@ -51,11 +55,19 @@ describe("AiChatModelConfigService", () => {
       getValueInternal: jest.fn().mockResolvedValue(null),
     };
 
+    const mockUserApiKeysService = {
+      getAvailableProviders: jest.fn().mockResolvedValue([]),
+      getPersonalKey: jest.fn().mockResolvedValue(null),
+      resolveProviderDefaults: jest.fn().mockResolvedValue(null),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiChatModelConfigService,
+        AiModelConfigService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SecretsService, useValue: mockSecretsService },
+        { provide: UserApiKeysService, useValue: mockUserApiKeysService },
       ],
     }).compile();
 
@@ -410,9 +422,13 @@ describe("AiChatModelConfigService", () => {
   // ==================== getDefaultModelConfig ====================
 
   describe("getDefaultModelConfig", () => {
-    it("should return default model from cache", async () => {
+    it("should return default model (DB-driven via canonical service)", async () => {
+      // v3.1 A0：canonical AiModelConfigService.getDefaultModelConfig 直接走
+      // findFirst({ where: isDefault: true })，不读 modelConfigCache。Mock 须
+      // 同时提供 findFirst 数据（旧 wrapper 走 cache 短路；现在统一走 DB）。
       const mockModel = createMockDbModel({ isDefault: true });
       mockPrisma.aIModel.findMany.mockResolvedValue([mockModel]);
+      mockPrisma.aIModel.findFirst.mockResolvedValue(mockModel);
       await service.refreshModelConfigCache();
 
       const config = await service.getDefaultModelConfig();
