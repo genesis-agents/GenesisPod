@@ -127,8 +127,11 @@ export class UserModelConfigsController {
       scope: "PERSONAL",
       actor: { id: req.user.id, role: "user" },
       patch: dto.patch,
-      source: "admin-override", // 用户显式 PATCH 也算"显式 override"，与 self-heal-user 区分；
-      // 与 admin 共享语义键防 cooling-off 漏触发（自愈 24h 内不覆盖用户显式选择）
+      // BYOK 用户显式 override 与 admin override 共享 source='admin-override'，
+      // 因为两者都是"人类显式选择"：cooling-off 查询 source='admin-override' 时
+      // 也要覆盖用户显式选择（防自愈 24h 内覆盖用户意图）。
+      // 若未来需区分 admin/user 显式语义，扩 cooling-off 查询 WHERE source IN (...)
+      source: "admin-override",
       reason: dto.reason,
       ipAddress: req.ip,
       userAgent: req.headers?.["user-agent"],
@@ -154,6 +157,8 @@ export class UserModelConfigsController {
       scope: "PERSONAL",
       actor: { id: req.user.id, role: "user" },
       patch: {},
+      // BYOK DELETE 与 admin DELETE 共享 source='admin-override'：reset 也是"人类显式选择"，
+      // cooling-off 守护语义一致（见 PATCH 同位置注释）。
       source: "admin-override",
       reason: dto.reason,
       ipAddress: req.ip,

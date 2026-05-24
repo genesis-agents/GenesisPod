@@ -132,10 +132,8 @@ describe("v3.1 §B end-to-end — write override → read → resolveCapabilitie
   it("admin writes nativeMode='tool_use' → resolveCapabilities reflects 'tool_use' (overrides catalog 'json_mode')", async () => {
     // STEP 1: admin 写入 override（用 'tool_use'，与 deepseek catalog 默认 'json_mode' 不同）
     //
-    // 注意：v3.1 A 阶段 mergeInto 当前对 nativeMode='none' 有"占位"语义保护
-    // （'none' 不覆盖现有非 'none' 值），所以本 e2e 用 'tool_use' / 'json_mode'
-    // 验证字段流入。'none' 写入语义是 B+ / C 阶段 review 范畴，
-    // 本片不修 ModelCapabilityService（越权 A 阶段代码）。
+    // v3.1 §B 子片 2 review-fix (2026-05-24)：'none' 占位语义已移除，
+    // 显式 nativeMode='none' override 现在会真覆盖 catalog（见下面 self-heal e2e）。
     const writeOpts: ApplyOverrideOptions = {
       target: { kind: "ai_model", id: "model-1" },
       scope: "ADMIN",
@@ -202,13 +200,12 @@ describe("v3.1 §B end-to-end — write override → read → resolveCapabilitie
     expect(caps.structuredOutput.nativeMode).toBe("json_schema");
   });
 
-  it("self-heal patch 写入 + audit + 列存储完整（nativeMode='none' 落 DB 字段流入语义见 A 阶段 mergeInto）", async () => {
+  it("self-heal patch 写入 + audit + 列存储完整（nativeMode='none' 显式 override 真覆盖 catalog）", async () => {
     // 模拟 self-heal 产生的 patch（CapabilitySelfHealService.buildSelfHealPatch 形态）
     //
-    // 注意：v3.1 A 阶段 mergeInto 当前对 nativeMode='none' 当占位语义保护，
-    // resolveCapabilities 不会真把 nativeMode 改成 'none'（保留 catalog 默认）。
-    // 这是 B+/C 待修语义（本片不动 A 代码越权），但 self-heal 仍正确写 DB +
-    // 记 audit（写入侧契约不依赖 resolveCapabilities 行为）。
+    // v3.1 §B 子片 2 review-fix (2026-05-24)：'none' 占位语义已移除，
+    // nativeMode='none' 现在是显式 override 语义，resolveCapabilities 真会把
+    // nativeMode 派生为 'none'（self-heal 显式降级生效）。
     await writer.applyOverrideTransactional({
       target: { kind: "user_model_config", id: "config-1" },
       scope: "SYSTEM",
@@ -253,5 +250,17 @@ describe("v3.1 §B end-to-end — write override → read → resolveCapabilitie
 
     // AuditLog.afterValue 与 DB 列同步（事务一致性）
     expect(state.auditLogs[0].afterValue).toEqual(stored);
+
+    // v3.1 §B 子片 2 review-fix：验证 'none' 显式 override 真覆盖 catalog
+    // （deepseek-v4-pro catalog 默认 nativeMode='json_mode'，self-heal 显式降级到 'none'）
+    const config = buildAIModelConfig({
+      userOverrides: stored as never,
+    });
+    const caps = capabilityService.resolveCapabilities(config);
+    expect(caps.structuredOutput.nativeMode).toBe("none");
+    // 派生链 → 仅 'prompt' 兜底（nativeMode='none' 被 deriveStructuredOutputChain 跳过）
+    expect(capabilityService.deriveStructuredOutputChain(caps)).toEqual([
+      "prompt",
+    ]);
   });
 });

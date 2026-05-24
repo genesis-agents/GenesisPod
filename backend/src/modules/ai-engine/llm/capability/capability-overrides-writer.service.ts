@@ -118,13 +118,18 @@ export class CapabilityOverridesWriterService {
   }
 
   /**
-   * scopeKey 算法：
+   * scopeKey 算法（**仅 hint，非权威**）：
    *   admin (ai_model)        → 'admin:ai_models:<id>'
    *   user / system (BYOK)    → 'user:<userId>:user_model_config:<id>'
    *
    * 用于 AuditLog 索引 + self-heal cooling-off 守护查询 key。
+   *
+   * @deprecated 仅作 cooling-off 查询前的 hint 估算，**不是权威 scopeKey**。
+   *   user_model_config 路径下，actor.id='system' (self-heal) 时该字段不可用作
+   *   userId；最终权威 scopeKey 由 `_doApplyOverride` → `buildScopeKeyResolved`
+   *   在事务内读 user_model_config.userId 重算。外部消费方请勿直接依赖本方法。
    */
-  static buildScopeKey(opts: ApplyOverrideOptions): string {
+  static buildScopeKeyHint(opts: ApplyOverrideOptions): string {
     if (opts.target.kind === "ai_model") {
       return `admin:ai_models:${opts.target.id}`;
     }

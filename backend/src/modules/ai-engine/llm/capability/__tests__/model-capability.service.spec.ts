@@ -313,6 +313,98 @@ describe("ModelCapabilityService — resolveCapabilities (v3.1 §A)", () => {
     });
   });
 
+  // ─────────── v3.1 §B 子片 2 review-fix (2026-05-24) ───────────
+  // 移除 deriveFromConfig 的 nativeMode='none' 占位语义 + mergeInto 'none' 特判。
+  // 'none' 现在是显式 override 语义（admin/user/self-heal 显式降级），
+  // 真会覆盖 catalog 的 nativeMode。
+  describe("nativeMode='none' explicit override (B 子片 2 review-fix)", () => {
+    it("回归: catalog 'json_mode' + 无 override → 保留 'json_mode'", () => {
+      const caps = svc.resolveCapabilities(
+        baseConfig({ provider: "deepseek", modelId: "deepseek-v4-pro" }),
+      );
+      // catalog deepseek-v4-pro nativeMode='json_mode' 不被任何派生污染
+      expect(caps.structuredOutput.nativeMode).toBe("json_mode");
+    });
+
+    it("回归: admin 仅配 fallback 没首选 → catalog nativeMode 保留 + fallback 覆盖", () => {
+      // 与原"占位"路径同入口：fallback 有效但 structuredOutputStrategy=null
+      // 修复前：deriveFromConfig 写 nativeMode='none' 占位 → mergeInto 特判保留 catalog
+      // 修复后：deriveFromConfig 不写 nativeMode → mergeInto 走 ?? 分支保留 catalog
+      const caps = svc.resolveCapabilities(
+        baseConfig({
+          provider: "openai",
+          modelId: "gpt-4o",
+          structuredOutputStrategy: null,
+          fallbackStrategies: ["json_schema"],
+        }),
+      );
+      expect(caps.structuredOutput.nativeMode).toBe("json_schema_strict");
+      expect(caps.structuredOutput.fallbackChain).toEqual(["json_schema"]);
+    });
+
+    it("新功能: admin override 显式 nativeMode='none' → 覆盖 catalog 'json_schema_strict'", () => {
+      // 模拟 admin 通过 capability_overrides JSONB 显式降级
+      const caps = svc.resolveCapabilities(
+        baseConfig({
+          provider: "openai",
+          modelId: "gpt-4o",
+          aiModelOverrides: { structuredOutput: { nativeMode: "none" } },
+        }),
+      );
+      // 修复前: mergeInto 特判 'none' !== 'none' 失效 → 保留 catalog
+      // 修复后: 'none' 真覆盖 → nativeMode='none'
+      expect(caps.structuredOutput.nativeMode).toBe("none");
+      // catalog fallback 保留（admin 没动 fallback）
+      expect(caps.structuredOutput.fallbackChain).toEqual([
+        "json_schema",
+        "json_mode",
+      ]);
+    });
+
+    it("新功能: user override 显式 nativeMode='none' → 覆盖 catalog 'tool_use'（Anthropic）", () => {
+      // 模拟 BYOK 用户显式降级 Anthropic 到无 native structured output
+      const caps = svc.resolveCapabilities(
+        baseConfig({
+          provider: "anthropic",
+          modelId: "claude-3.5-sonnet",
+          userOverrides: { structuredOutput: { nativeMode: "none" } },
+        }),
+      );
+      expect(caps.structuredOutput.nativeMode).toBe("none");
+    });
+
+    it("新功能: nativeMode='none' override + fallbackChain=[] → 派生链仅 ['prompt']", () => {
+      // 显式降级语义验证：彻底降级需同时清 fallback；
+      // 仅改 nativeMode 不动 fallback 时，catalog 的 fallback 仍生效（合理：admin/user 没显式说放弃 fallback）
+      const caps = svc.resolveCapabilities(
+        baseConfig({
+          provider: "openai",
+          modelId: "gpt-4o",
+          userOverrides: {
+            structuredOutput: { nativeMode: "none", fallbackChain: [] },
+          },
+        }),
+      );
+      expect(svc.deriveStructuredOutputChain(caps)).toEqual(["prompt"]);
+    });
+
+    it("self-heal 写 'none' + fallbackChain=[] → 双双显式覆盖", () => {
+      // self-heal 完整 patch 形态：nativeMode='none' + 清空 fallback
+      const caps = svc.resolveCapabilities(
+        baseConfig({
+          provider: "deepseek",
+          modelId: "deepseek-v4-pro",
+          userOverrides: {
+            structuredOutput: { nativeMode: "none", fallbackChain: [] },
+          },
+        }),
+      );
+      expect(caps.structuredOutput.nativeMode).toBe("none");
+      expect(caps.structuredOutput.fallbackChain).toEqual([]);
+      expect(svc.deriveStructuredOutputChain(caps)).toEqual(["prompt"]);
+    });
+  });
+
   // ─────────── Level 5 SAFE_DEFAULTS ───────────
 
   describe("Level 5: SAFE_DEFAULTS 兜底", () => {

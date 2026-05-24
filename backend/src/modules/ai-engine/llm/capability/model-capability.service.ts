@@ -160,20 +160,23 @@ export class ModelCapabilityService {
    *   - vision.support ← config.supportsVision
    *   - streaming.support ← config.supportsStreaming
    *   - context.maxOutputTokens ← config.maxTokens
+   *
+   * 返回 ModelCapabilitiesOverrides（deep-partial）允许 structuredOutput 子对象
+   * 只设 fallbackChain 不设 nativeMode（消除原 `nativeMode: 'none'` 占位二义性）。
    */
-  private deriveFromConfig(config: AIModelConfig): Partial<ModelCapabilities> {
-    const out: Partial<ModelCapabilities> = {};
+  private deriveFromConfig(config: AIModelConfig): ModelCapabilitiesOverrides {
+    const out: ModelCapabilitiesOverrides = {};
 
     // structuredOutput：admin 显式配置 override catalog 默认
     //
-    // v3.1 阶段 A review (2026-05-24) fallbackChain 语义：
+    // v3.1 §B 子片 2 review-fix (2026-05-24)：消除 'none' 占位二义性
     //   - undefined（admin 没配 fallbackStrategies） → 用 catalog 默认 fallback
     //   - []（admin 显式配空数组） → 强制无 fallback（只剩 prompt 兜底）
     //   - [...]（admin 显式配链） → 覆盖 catalog
     //
-    // 关键：fallbackValid 仅在 admin 实际有配 fallbackStrategies 时才非 undefined。
-    // 这样 mergeInto 里的 `next.fallbackChain !== undefined ? ... : target...` 才
-    // 能正确区分"没配"和"配了空"。
+    // 关键：当 admin 仅配 fallback 没首选时，子对象只设 fallbackChain 不设
+    // nativeMode（deep-partial 允许）。'none' 现在是显式 override 语义
+    // （admin/user/self-heal 显式降级），不再有占位含义。
     const primaryValid = config.structuredOutputStrategy
       ? this.filterValidStrategies([config.structuredOutputStrategy])
       : [];
@@ -182,19 +185,16 @@ export class ModelCapabilityService {
         ? this.filterValidStrategies(config.fallbackStrategies)
         : undefined;
     if (primaryValid.length > 0) {
-      // 注意：fallbackChain 故意可为 undefined（admin 没配时），mergeInto 内
-      // `next.fallbackChain !== undefined` 检查能正确保留 catalog 默认。
-      // 类型上 Partial<ModelCapabilities> 要求子对象字段必填，运行时 undefined
-      // 由 mergeInto 检查保护——这里用结构性 cast 透传 undefined。
+      // admin 配了首选 → 设 nativeMode；fallbackChain 仅在 admin 实际配过时设
+      // （deep-partial 允许 fallbackChain 缺失 → mergeInto 保留 catalog 默认）
       out.structuredOutput = {
         nativeMode: primaryValid[0],
-        fallbackChain: fallbackValid as readonly NativeStructuredOutputMode[],
+        ...(fallbackValid !== undefined && { fallbackChain: fallbackValid }),
       };
     } else if (fallbackValid !== undefined && fallbackValid.length > 0) {
-      // admin 仅配 fallback 没首选（或首选 invalid 被过滤） → 仅覆盖 fallback，
-      // 保留 catalog nativeMode
+      // admin 仅配 fallback 没首选（或首选 invalid 被过滤） → 只覆盖 fallback，
+      // 不设 nativeMode（mergeInto 保留 catalog 的 nativeMode）
       out.structuredOutput = {
-        nativeMode: "none" as NativeStructuredOutputMode, // 占位（mergeInto 不覆盖现有非 'none' 值）
         fallbackChain: fallbackValid,
       };
     }
@@ -277,13 +277,18 @@ export class ModelCapabilityService {
 
   /**
    * Deep merge `patch` 进 `target`（仅覆盖 patch 提供的字段；嵌套对象按字段
-   * 级合并；'none' 占位的 nativeMode 不覆盖现有非 'none' 值）。
+   * 级合并；`undefined` 子字段保留现有 target 值）。
    *
    * patch 接受两种形状：
-   *   - `Partial<ModelCapabilities>`：catalog rule + deriveFromConfig 用（顶层 optional，子对象字段必填）
-   *   - `ModelCapabilitiesOverrides`：B.2 起 admin/user JSONB override 用（deep partial）
+   *   - `Partial<ModelCapabilities>`：catalog rule 用（顶层 optional，子对象字段必填）
+   *   - `ModelCapabilitiesOverrides`：deriveFromConfig + B.2 admin/user JSONB override 用（deep partial）
    * 两者在 runtime 等价（spread + truthy guard 都安全处理 undefined 子字段）；
    * 类型上用联合统一接受。
+   *
+   * v3.1 §B 子片 2 review-fix (2026-05-24)：移除 'none' 占位特判。
+   *   `nativeMode='none'` 现在是显式 override 语义（admin/user/self-heal 显式降级），
+   *   会真正覆盖 target.nativeMode。"不动 nativeMode" 由调用方不设字段表达
+   *   （deriveFromConfig 仅配 fallback 时不再写 nativeMode）。
    */
   private mergeInto(
     target: ModelCapabilities,
@@ -291,13 +296,11 @@ export class ModelCapabilityService {
   ): void {
     if (patch.structuredOutput) {
       const next = patch.structuredOutput;
-      // 'none' 占位（来自 deriveFromConfig 仅配 fallback 时）不覆盖 catalog nativeMode
-      const nativeMode =
-        next.nativeMode && next.nativeMode !== "none"
-          ? next.nativeMode
-          : target.structuredOutput.nativeMode;
       target.structuredOutput = {
-        nativeMode,
+        nativeMode:
+          next.nativeMode !== undefined
+            ? next.nativeMode
+            : target.structuredOutput.nativeMode,
         fallbackChain:
           next.fallbackChain !== undefined
             ? next.fallbackChain
