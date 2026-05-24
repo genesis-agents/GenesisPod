@@ -348,19 +348,29 @@ describe("Branch: dim-retry — leader-assess retry signals", () => {
 // ---------------------------------------------------------------------------
 
 describe("Branch: liveness-stalled — orchestrator emits stage:stalled event", () => {
-  it("dispatcher handles stage:stalled event from orchestrator", () => {
+  // 2026-05-24 P2 重构:stage:stalled 桥接逻辑下沉到
+  // ai-harness/teams/business-team/dispatcher/business-team-mission-dispatcher.framework.ts
+  // dispatcher 现仅通过 super.bridgeOrchestratorStageEvent(event, {...}) 调用 framework,
+  // 并在配置中提供 stageStalledEvent="agent-playground.stage:stalled" 命名空间。
+  it("dispatcher delegates stage:stalled bridging to framework with playground namespace", () => {
     const src = readSrc(
       "ai-app/agent-playground/services/mission/workflow/playground-pipeline-dispatcher.service.ts",
     );
-    expect(src).toContain('event.type === "stage:stalled"');
+    expect(src).toContain("bridgeOrchestratorStageEvent");
     expect(src).toContain("agent-playground.stage:stalled");
   });
 
-  it("stage:stalled payload includes elapsedMs", () => {
+  it("framework handles stage:stalled event from orchestrator", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/workflow/playground-pipeline-dispatcher.service.ts",
+      "ai-harness/teams/business-team/dispatcher/business-team-mission-dispatcher.framework.ts",
     );
-    // Search for all occurrences of stage:stalled and check any has elapsedMs nearby
+    expect(src).toContain('event.type === "stage:stalled"');
+  });
+
+  it("stage:stalled payload includes elapsedMs (framework source)", () => {
+    const src = readSrc(
+      "ai-harness/teams/business-team/dispatcher/business-team-mission-dispatcher.framework.ts",
+    );
     let idx = 0;
     let found = false;
     while ((idx = src.indexOf("stage:stalled", idx)) !== -1) {

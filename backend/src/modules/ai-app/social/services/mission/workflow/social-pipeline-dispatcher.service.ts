@@ -24,10 +24,11 @@
  *   - P0-9 in-flight dedup window
  */
 
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Injectable, OnModuleInit } from "@nestjs/common";
 import { createHash, randomUUID } from "crypto";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
+  BusinessTeamMissionDispatcherFramework,
   DomainEventBus,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -97,8 +98,10 @@ export interface SessionEntry {
 const DEDUP_WINDOW_MS = 5_000;
 
 @Injectable()
-export class SocialPipelineDispatcher implements OnModuleInit {
-  private readonly log = new Logger(SocialPipelineDispatcher.name);
+export class SocialPipelineDispatcher
+  extends BusinessTeamMissionDispatcherFramework
+  implements OnModuleInit
+{
   private readonly sessions = new Map<string, SessionEntry>();
   private readonly inFlight = new Map<
     string,
@@ -113,7 +116,7 @@ export class SocialPipelineDispatcher implements OnModuleInit {
     private readonly store: SocialMissionStore,
     private readonly invoker: SocialAgentInvoker,
     private readonly runner: AgentRunner,
-    private readonly eventBus: DomainEventBus,
+    eventBus: DomainEventBus,
     private readonly abortRegistry: MissionAbortRegistry,
     private readonly ownershipRegistry: MissionOwnershipRegistry,
     private readonly failureLearner: FailureLearnerService,
@@ -131,7 +134,17 @@ export class SocialPipelineDispatcher implements OnModuleInit {
     private readonly prisma: PrismaService,
     // ★ C0/G1：唯一终态写入口。dispatcher 不再直写 store.markX，统一经 finalize 仲裁。
     private readonly lifecycleManager: MissionLifecycleManager,
-  ) {}
+  ) {
+    // 2026-05-24 P4: framework 提供 emitToBus + bridgeOrchestratorStageEvent
+    //   通用 mechanism；本 dispatcher 仅注入 social 专属事件 type 字符串。
+    super(eventBus, {
+      namespace: "social",
+      stageLifecycleEvent: "social.stage:lifecycle",
+      stageStalledEvent: "social.stage:stalled",
+      stageDegradedEvent: "social.stage:degraded",
+      // social 不做 stepId → frontend stage 映射，直接用 stepId
+    });
+  }
 
   onModuleInit(): void {
     this.businessOrch.bindSessionLookup((missionId) =>
@@ -617,9 +630,12 @@ export class SocialPipelineDispatcher implements OnModuleInit {
   }
 
   /**
-   * 把 orchestrator 内置 mission:started / stage:started / stage:completed /
-   * stage:failed / stage:degraded / stage:stalled 桥接到 DomainEventBus
-   * 用 social. 前缀（前端 socket 订阅 social: room）。
+   * 把 orchestrator 内置 stage 级事件 + social 专属 mission:aborted 桥接到
+   * DomainEventBus（前端 socket 订阅 social: room）。
+   *
+   * 2026-05-24 P4: stage:* 走 framework 通用 bridgeOrchestratorStageEvent；
+   * mission:aborted 是 social 专属语义（携带 wallTimeMs from sessions Map），
+   * 由本方法承担。
    *
    * mission:completed 由 dispatcher 在主路径单独 emit（携带 wallTimeMs），
    * 这里只透传 stage 级和异常 mission 级事件。
@@ -638,86 +654,23 @@ export class SocialPipelineDispatcher implements OnModuleInit {
       timestamp: number;
     },
   ): Promise<void> {
-    if (!event.stepId && event.type !== "mission:aborted") return;
-    // stage lifecycle (单轨)
-    if (
-      event.type === "stage:started" ||
-      event.type === "stage:completed" ||
-      event.type === "stage:failed"
-    ) {
-      const status =
-        event.type === "stage:started"
-          ? "started"
-          : event.type === "stage:completed"
-            ? "completed"
-            : "failed";
-      const output = event.output as Record<string, unknown> | undefined;
-      await this.eventBus
-        .emit({
-          type: "social.stage:lifecycle",
-          scope: { missionId, userId },
-          payload: {
-            stage: event.stepId ?? "unknown",
-            stepId: event.stepId ?? "unknown",
-            primitive: event.primitive,
-            status,
-            ...(output ? { output } : {}),
-            ...(status === "failed"
-              ? {
-                  error:
-                    event.error instanceof Error
-                      ? event.error.message
-                      : String(event.error ?? ""),
-                }
-              : {}),
-          },
-          timestamp: event.timestamp,
-        })
-        .catch(() => undefined);
-      return;
-    }
-    if (event.type === "stage:stalled") {
-      await this.eventBus
-        .emit({
-          type: "social.stage:stalled",
-          scope: { missionId, userId },
-          payload: {
-            stepId: event.stepId,
-            elapsedMs: event.elapsedMs,
-            reason: event.reason,
-          },
-          timestamp: event.timestamp,
-        })
-        .catch(() => undefined);
-      return;
-    }
-    if (event.type === "stage:degraded") {
-      await this.eventBus
-        .emit({
-          type: "social.stage:degraded",
-          scope: { missionId, userId },
-          payload: {
-            stepId: event.stepId,
-            reason: event.reason,
-          },
-          timestamp: event.timestamp,
-        })
-        .catch(() => undefined);
+    // framework handles stage:started/completed/failed/stalled/degraded
+    if (event.stepId) {
+      await this.bridgeOrchestratorStageEvent(event, { missionId, userId });
       return;
     }
     if (event.type === "mission:aborted") {
-      await this.eventBus
-        .emit({
-          type: "social.mission:aborted",
-          scope: { missionId, userId },
-          payload: {
-            reason: event.reason,
-            wallTimeMs:
-              Date.now() - (this.sessions.get(missionId)?.t0 ?? Date.now()),
-          },
-          timestamp: event.timestamp,
-        })
-        .catch(() => undefined);
+      await this.emitToBus({
+        type: "social.mission:aborted",
+        missionId,
+        userId,
+        payload: {
+          reason: event.reason,
+          wallTimeMs:
+            Date.now() - (this.sessions.get(missionId)?.t0 ?? Date.now()),
+        },
+        timestamp: event.timestamp,
+      });
     }
   }
 

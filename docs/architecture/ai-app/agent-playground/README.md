@@ -10,10 +10,11 @@
 
 ### 主文档
 
-| 文档                                                                                     | 内容                                                                                         |
-| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| [mission-pipeline-baseline.md](./mission-pipeline-baseline.md)                           | **主基线**：边界契约 + 8 节点主干 + Q1~Q17 锁定 + 用户档位 + 决策清单 + 路线图               |
-| [mission-pipeline-sota-audit-2026-04-29.md](./mission-pipeline-sota-audit-2026-04-29.md) | **SOTA 系统对标**：12 stage 全量审计 + 整体架构 vs 业界 SOTA + 综合评分 7.6/10 + P0 改动清单 |
+| 文档                                                                                                                                               | 内容                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [mission-pipeline-baseline.md](./mission-pipeline-baseline.md)                                                                                     | **主基线**：边界契约 + 8 节点主干 + Q1~Q17 锁定 + 用户档位 + 决策清单 + 路线图               |
+| [mission-pipeline-sota-audit-2026-04-29.md](./mission-pipeline-sota-audit-2026-04-29.md)                                                           | **SOTA 系统对标**：12 stage 全量审计 + 整体架构 vs 业界 SOTA + 综合评分 7.6/10 + P0 改动清单 |
+| [agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md](./agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md) | **目标边界与目录蓝图**：明确哪些留在 app、哪些继续下沉到 harness、以及未来新 team 的推荐目录 |
 
 ### 子文档（按 P0 / P1 优先级）
 

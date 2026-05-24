@@ -22,8 +22,9 @@
  *                         runBudgetEstimateStage（其余 13 step 仍 NotYetWired）
  *   - R2-A.4 ~ R2-A.13: s2-s12 hook 逐 stage 实装
  */
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Injectable, OnModuleInit } from "@nestjs/common";
 import {
+  BusinessTeamMissionDispatcherFramework,
   DomainEventBus,
   MissionElectionTracker,
   MissionLifecycleManager,
@@ -99,8 +100,10 @@ export interface SessionEntry {
 }
 
 @Injectable()
-export class PlaygroundPipelineDispatcher implements OnModuleInit {
-  private readonly log = new Logger(PlaygroundPipelineDispatcher.name);
+export class PlaygroundPipelineDispatcher
+  extends BusinessTeamMissionDispatcherFramework
+  implements OnModuleInit
+{
   private readonly sessions = new Map<string, SessionEntry>();
 
   constructor(
@@ -122,7 +125,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     //   / stage:degraded / mission:execution-aborted / mission:postlude:* 全部不实时。
     //   现在统一走 eventBus.emit() —— buffer 仍作为 adapter 接收（agent-playground.module.ts:165
     //   注册），同时 socket adapter 也分发 → 前端实时刷新。
-    private readonly eventBus: DomainEventBus,
+    eventBus: DomainEventBus,
     // ★ Stage 1 / S1-1 (2026-05-09): 业务编排(STAGE_NUMBER / CHECKPOINT_AT 字面量 +
     //   11 个 build*Hooks)已抽到独立 service。dispatcher 在 onModuleInit bind sessionLookup
     //   后,buildBaseHooksForStep 改为 delegate 到此 service。
@@ -131,35 +134,20 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     private readonly lifecycleManager: MissionLifecycleManager,
     // ★ R2-#38: OTel span service (optional — gracefully absent if tracer not configured)
     private readonly missionSpan: PlaygroundMissionSpanService,
-  ) {}
-
-  /**
-   * ★ 2026-05-06: 统一事件出口 —— 所有从 dispatcher 直接 emit 的事件都走 eventBus
-   * 而不是 buffer.broadcast()，确保同时分发给 buffer + socket。
-   *
-   * payload schema 校验失败 / throttle / dedupe drop 时 eventBus 自己 log，本方法
-   * 仍 resolve（保留旧 .catch 兜底语义）。
-   */
-  private async emitToBus(event: {
-    type: string;
-    missionId: string;
-    userId: string;
-    payload: unknown;
-    timestamp?: number;
-  }): Promise<void> {
-    await this.eventBus
-      .emit({
-        type: event.type,
-        scope: { missionId: event.missionId, userId: event.userId },
-        payload: event.payload,
-        timestamp: event.timestamp ?? Date.now(),
-      })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[dispatcher] emitEvent ${event.type} for ${event.missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
+  ) {
+    // 2026-05-24 P4: framework 提供 emitToBus + bridgeOrchestratorStageEvent
+    //   通用 mechanism；本 dispatcher 仅注入 playground 专属事件 type 字符串。
+    super(eventBus, {
+      namespace: "agent-playground",
+      stageLifecycleEvent: "agent-playground.stage:lifecycle",
+      stageStalledEvent: "agent-playground.stage:stalled",
+      stageDegradedEvent: "agent-playground.stage:degraded",
+      mapStepId: mapStepIdToFrontendStageId,
+    });
   }
+
+  // 2026-05-24 P4: emitToBus 已上提到 BusinessTeamMissionDispatcherFramework，
+  //   本 dispatcher 通过继承直接复用（this.emitToBus(...)），不再本地定义。
 
   // ── Stage 1 / S1-1 (2026-05-09): STAGE_NUMBER / CHECKPOINT_AT / PRIMARY_HOOK_BY_PRIMITIVE
   //   已移到 PlaygroundBusinessOrchestrator(business 字面量)。withProgressTracking 通过
@@ -472,101 +460,33 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           //   workflow 控制权回归 harness/orchestrator，漏 emit 物理上不可能。
           onEvent: async (event) => {
             if (!event.stepId) return;
-            const stage = mapStepIdToFrontendStageId(event.stepId);
-
-            // ── lifecycle 事件：status transition + 业务 output 单一来源 ──
+            // ── R2-#38: emit OTel stage spans (playground 业务专属，必须在桥接前) ──
             // ★ 2026-05-06 单轨化彻底版: orchestrator stage:completed 携带 hook 返回的
-            //   output（业务产物）。dispatcher 把 output 拍平到 lifecycle payload，
+            //   output（业务产物），dispatcher 把 output 拍平到 lifecycle payload；
             //   stage 文件不再 emit stage:metrics（双轨彻底删除）。前端只看 lifecycle。
-            if (
-              event.type === "stage:started" ||
+            if (event.type === "stage:started") {
+              this.missionSpan.startStageSpan(
+                missionId,
+                event.stepId,
+                event.primitive ?? "unknown",
+              );
+            } else if (
               event.type === "stage:completed" ||
               event.type === "stage:failed"
             ) {
-              // ★ R2-#38: emit OTel stage spans
-              if (event.stepId) {
-                if (event.type === "stage:started") {
-                  this.missionSpan.startStageSpan(
-                    missionId,
-                    event.stepId,
-                    event.primitive ?? "unknown",
-                  );
-                } else {
-                  this.missionSpan.endStageSpan(
-                    missionId,
-                    event.stepId,
-                    event.type === "stage:completed" ? "completed" : "failed",
-                    event.error instanceof Error ? event.error : undefined,
-                  );
-                }
-              }
-              const status =
-                event.type === "stage:started"
-                  ? "started"
-                  : event.type === "stage:completed"
-                    ? "completed"
-                    : "failed";
-              const output = event.output as
-                | Record<string, unknown>
-                | undefined;
-              await this.emitToBus({
-                type: "agent-playground.stage:lifecycle",
+              this.missionSpan.endStageSpan(
                 missionId,
-                userId,
-                payload: {
-                  stage,
-                  stepId: event.stepId,
-                  primitive: event.primitive,
-                  status,
-                  // hook 业务返回值（dimensions / themeSummary / results /
-                  // finalScore 等 artifact 来源）整体挂 output 字段
-                  ...(output ? { output } : {}),
-                  ...(status === "failed"
-                    ? {
-                        error:
-                          event.error instanceof Error
-                            ? event.error.message
-                            : String(event.error ?? ""),
-                      }
-                    : {}),
-                },
-                timestamp: event.timestamp,
-              });
-              return;
+                event.stepId,
+                event.type === "stage:completed" ? "completed" : "failed",
+                event.error instanceof Error ? event.error : undefined,
+              );
             }
-
-            // ── A-9: watchdog 卡顿警告（不阻断，仅可见性）──
-            if (event.type === "stage:stalled") {
-              await this.emitToBus({
-                type: "agent-playground.stage:stalled",
-                missionId,
-                userId,
-                payload: {
-                  stage,
-                  stepId: event.stepId,
-                  elapsedMs: event.elapsedMs,
-                  reason: event.reason,
-                },
-                timestamp: event.timestamp,
-              });
-              return;
-            }
-
-            // ── A-6: stage 软失败信号（不阻断，但要可见）──
-            if (event.type === "stage:degraded") {
-              await this.emitToBus({
-                type: "agent-playground.stage:degraded",
-                missionId,
-                userId,
-                payload: {
-                  stage,
-                  stepId: event.stepId,
-                  reason: event.reason,
-                },
-                timestamp: event.timestamp,
-              });
-              return;
-            }
+            // 2026-05-24 P4: stage:lifecycle / stage:stalled / stage:degraded 桥接
+            //   走 framework 通用 mechanism；framework return true 表示已接管。
+            await this.bridgeOrchestratorStageEvent(event, {
+              missionId,
+              userId,
+            });
           },
         });
         // ★ R2-A.13.1 失败兜底：orchestrator 返 status=failed/aborted 时，

@@ -26,7 +26,7 @@ const LIB_ROOT = path.resolve(__dirname, '../../lib');
 const MIGRATION_DONE = true;
 
 // lib/ 根白名单
-const PLATFORM_GLOBAL = ['api', 'utils', 'constants', 'types']; // ①
+const PLATFORM_GLOBAL = ['api', 'utils', 'constants', 'types', 'missions']; // ①（missions 见蓝图 §9.5,共享 mission view 派生)
 const PLATFORM_TECH = [
   'markdown',
   'annotation',

@@ -62,6 +62,8 @@
     "audit:ui-baseline": "tsx scripts/utils/audit-ui-discipline.ts --update-baseline && tsx scripts/utils/audit-ui-tokens.ts --update-baseline",
     "audit:ui-ratchet": "tsx scripts/utils/audit-ui-discipline.ts --ratchet",
     "audit:ui-strict": "tsx scripts/utils/audit-ui-discipline.ts --strict && tsx scripts/utils/audit-ui-tokens.ts --strict",
+    "audit:mission-detail": "tsx scripts/utils/audit-mission-detail-discipline.ts",
+    "audit:mission-detail-baseline": "tsx scripts/utils/audit-mission-detail-discipline.ts --update-baseline",
     "release": "standard-version",
     "release:minor": "standard-version --release-as minor",
     "release:major": "standard-version --release-as major",

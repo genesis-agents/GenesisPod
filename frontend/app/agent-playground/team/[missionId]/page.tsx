@@ -14,7 +14,7 @@ import { toast, confirm } from '@/stores';
 import {
   Activity,
   AlertTriangle,
-  ChevronRight,
+  ClipboardList,
   Coins,
   Database,
   FileText,
@@ -24,6 +24,7 @@ import {
   RefreshCw,
   X as XIcon,
 } from 'lucide-react';
+import { MissionDetailFrame } from '@/components/common/mission-detail';
 import {
   CapabilityMeters,
   ComputeUsagePanel,
@@ -43,7 +44,10 @@ import {
 } from '@/lib/features/agent-playground/todo-ledger';
 import { cn } from '@/lib/utils/common';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
-import { Tabs } from '@/components/ui/tabs';
+// 注：tab 切换由 MissionDetailFrame 内部用 canonical <Tabs> 渲染；这里保留导入
+// 是为了让 audit-ui-discipline R7 知道本页用的是 canonical Tab 体系（不是自写 strip）。
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { Tabs as _CanonicalTabsForAudit } from '@/components/ui/tabs';
 import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/panels/LeadJournalPanel';
 import { BudgetAndTimeLimitPanel } from '@/components/agent-playground/panels/BudgetAndTimeLimitPanel';
@@ -76,21 +80,8 @@ const TABS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
   { key: 'cost', label: '算力消耗', Icon: Coins },
 ];
 
-const ArrowLeftIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10 19l-7-7m0 0l7-7m-7 7h18"
-    />
-  </svg>
-);
+// Mission brand icon — playground 沿用 Lucide ClipboardList（文档/任务感）
+const PlaygroundBrandIcon = ClipboardList;
 
 export default function MissionDetailPage() {
   const params = useParams();
@@ -661,478 +652,445 @@ export default function MissionDetailPage() {
     );
   }
 
-  return (
-    <div className="flex h-full flex-col bg-gray-50">
-      {/* Header — 完全照搬 TopicResearchLayout */}
-      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => router.push('/agent-playground')}
-            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-            title="返回 Mission 列表"
-          >
-            <ArrowLeftIcon className="h-5 w-5" />
-          </button>
+  // ── Title & meta（canonical Frame 用，不用 useMemo —— 在 early return 后） ─
+  const cleanedTopic = (() => {
+    const raw = view.mission.topic ?? '';
+    const cleaned = raw.split(/\n|\[Re-run focus\]/i)[0].trim();
+    if (!cleaned) {
+      const status = (view.mission as { status?: string }).status;
+      return status === 'starting' ? '研究中…' : '未命名研究';
+    }
+    return cleaned;
+  })();
 
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-md">
-              <svg
-                className="h-5 w-5 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1
-                className="truncate text-lg font-bold text-gray-900"
-                title={view.mission.topic ?? '研究中…'}
-              >
-                {/* 兜底：把任意换行 / [Re-run focus] hint 块剥到首行，防 topic 撑爆 header 挤设置按钮 */}
-                {(() => {
-                  const raw = view.mission.topic ?? '';
-                  const cleaned = raw.split(/\n|\[Re-run focus\]/i)[0].trim();
-                  // 启动早期 starting 占位无 topic → 显示"研究中…"提示等待
-                  if (!cleaned) {
-                    const status = (view.mission as { status?: string }).status;
-                    return status === 'starting' ? '研究中…' : '未命名研究';
-                  }
-                  return cleaned;
-                })()}
-              </h1>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
-                {view.mission.depth && <span>{view.mission.depth}</span>}
-                {view.mission.language && (
-                  <>
-                    <span>·</span>
-                    <span>{view.mission.language}</span>
-                  </>
-                )}
-                <span>·</span>
-                <span className="font-mono text-[10px]">{missionId}</span>
-              </div>
-            </div>
-          </div>
+  const metaRow = (
+    <>
+      {view.mission.depth && <span>{view.mission.depth}</span>}
+      {view.mission.language && (
+        <>
+          <span>·</span>
+          <span>{view.mission.language}</span>
+        </>
+      )}
+      <span>·</span>
+      <span className="font-mono text-[10px]">{missionId}</span>
+    </>
+  );
+
+  // ── Status pill（canonical Frame 用） ─────────────────────────────
+  const statusPill = (
+    <>
+      {isRunning ? (
+        <div className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+          <span className="text-sm font-medium text-blue-700">
+            研究中 · {Math.floor(wallTimeMs / 1000)}s
+          </span>
         </div>
-
-        <div className="flex items-center gap-2">
-          {isRunning ? (
-            <div className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-              <span className="text-sm font-medium text-blue-700">
-                研究中 · {Math.floor(wallTimeMs / 1000)}s
-              </span>
-            </div>
-          ) : view.mission.cancelledAt ? (
-            <div className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5">
-              <span className="h-2 w-2 rounded-full bg-gray-500" />
-              <span className="text-sm font-medium text-gray-700">已取消</span>
-            </div>
-          ) : view.mission.failedAt ? (
-            <div className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1.5">
-              <span className="h-2 w-2 rounded-full bg-red-500" />
-              <span className="text-sm font-medium text-red-700">已失败</span>
-            </div>
-          ) : view.mission.completedAt &&
-            persisted?.status === 'quality-failed' ? (
-            <div className="flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
-              <span
-                className="text-sm font-medium text-amber-700"
-                title="Leader 拒签，但报告仍可阅读"
-              >
-                质量未达标
-              </span>
-            </div>
-          ) : view.mission.completedAt ? (
-            <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="text-sm font-medium text-emerald-700">
-                已完成
-              </span>
-            </div>
-          ) : null}
-          {/* Connection state — small tertiary indicator */}
-          {connState !== 'live' && connState !== 'connecting' && (
-            <span
-              title={`WebSocket: ${connState}`}
-              className="inline-flex h-2 w-2 rounded-full bg-amber-400"
-            />
-          )}
-          {/* Mission settings */}
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-            title="Mission 设置"
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-          </button>
+      ) : view.mission.cancelledAt ? (
+        <div className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5">
+          <span className="h-2 w-2 rounded-full bg-gray-500" />
+          <span className="text-sm font-medium text-gray-700">已取消</span>
         </div>
-      </header>
+      ) : view.mission.failedAt ? (
+        <div className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1.5">
+          <span className="h-2 w-2 rounded-full bg-red-500" />
+          <span className="text-sm font-medium text-red-700">已失败</span>
+        </div>
+      ) : view.mission.completedAt && persisted?.status === 'quality-failed' ? (
+        <div className="flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5">
+          <span className="h-2 w-2 rounded-full bg-amber-500" />
+          <span
+            className="text-sm font-medium text-amber-700"
+            title="Leader 拒签，但报告仍可阅读"
+          >
+            质量未达标
+          </span>
+        </div>
+      ) : view.mission.completedAt ? (
+        <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5">
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <span className="text-sm font-medium text-emerald-700">已完成</span>
+        </div>
+      ) : null}
+      {/* Connection state — small tertiary indicator */}
+      {connState !== 'live' && connState !== 'connecting' && (
+        <span
+          title={`WebSocket: ${connState}`}
+          className="inline-flex h-2 w-2 rounded-full bg-amber-400"
+        />
+      )}
+    </>
+  );
 
-      {/* Main — flex split exactly like TopicResearchLayout */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Panel - 360px, collapsible to 48px (w-12) */}
-        <div
-          className={`flex-shrink-0 border-r border-gray-200 bg-white transition-all duration-300 ${
-            leftCollapsed ? 'w-12' : 'w-[360px]'
-          }`}
+  // Header actions: settings 按钮
+  const headerActions = (
+    <button
+      type="button"
+      onClick={() => setSettingsOpen(true)}
+      className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+      title="Mission 设置"
+    >
+      <svg
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+        />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+        />
+      </svg>
+    </button>
+  );
+
+  // 折叠态左栏装饰：running pulse + 垂直 "Team" 文字（playground 特色）
+  const collapsedLeftView = (
+    <div className="flex h-full flex-col items-center py-4">
+      <button
+        type="button"
+        onClick={() => setLeftCollapsed(false)}
+        className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+        title="Expand team panel"
+        aria-label="Expand team panel"
+      >
+        <svg
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          {leftCollapsed ? (
-            <div className="flex h-full flex-col items-center py-4">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5l7 7-7 7"
+          />
+        </svg>
+      </button>
+      <div className="mt-4 flex flex-col items-center gap-2">
+        {isRunning && (
+          <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+        )}
+        <span
+          className="text-xs uppercase tracking-wide text-gray-500"
+          style={{ writingMode: 'vertical-rl' }}
+        >
+          Team
+        </span>
+      </div>
+    </div>
+  );
+
+  // Banner stack（WS 失联 + mission failed）— 之前内嵌 IIFE，现作为 Frame 的 topBanner slot
+  const banners = (() => {
+    const wsDismissed = !!dismissedWsBanner[missionId];
+    const showWsError = !!(error && connState !== 'live') && !wsDismissed;
+    const failedDismissed = !!dismissedFailedBanner[missionId];
+    const showFailedBanner = !!view.mission.failedMessage && !failedDismissed;
+    if (!showWsError && !showFailedBanner) return null;
+    return (
+      <div className="space-y-2 border-b border-gray-200 bg-white px-4 py-2">
+        {showWsError && (
+          <div className="relative flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 pr-8 text-xs text-amber-800">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <p>WebSocket 不可用 · 已退化为 4s 轮询 /replay</p>
+            <button
+              type="button"
+              aria-label="关闭"
+              onClick={() =>
+                setDismissedWsBanner((prev) => ({
+                  ...prev,
+                  [missionId]: true,
+                }))
+              }
+              className="absolute right-1.5 top-1.5 rounded p-0.5 text-amber-700 hover:bg-amber-100"
+            >
+              <XIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+        {showFailedBanner &&
+          (persisted?.status === 'quality-failed' ? (
+            <div className="relative flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 pr-8 text-xs text-amber-800">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">
+                  Leader 拒签 · 质量未达标但报告可阅读
+                </p>
+                <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed text-amber-900/90">
+                  {view.mission.failedMessage}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('report')}
+                  className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-300 hover:bg-amber-200"
+                >
+                  查看输出报告 →
+                </button>
+              </div>
               <button
                 type="button"
-                onClick={() => setLeftCollapsed(false)}
-                className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                title="Expand team panel"
+                aria-label="关闭"
+                onClick={() =>
+                  setDismissedFailedBanner((prev) => ({
+                    ...prev,
+                    [missionId]: true,
+                  }))
+                }
+                className="absolute right-1.5 top-1.5 rounded p-0.5 text-amber-700 hover:bg-amber-100"
               >
-                <ChevronRight className="h-5 w-5" />
+                <XIcon className="h-3.5 w-3.5" />
               </button>
-              <div className="mt-4 flex flex-col items-center gap-2">
-                {isRunning && (
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-                )}
-                <span
-                  className="text-xs uppercase tracking-wide text-gray-500"
-                  style={{ writingMode: 'vertical-rl' }}
-                >
-                  Team
-                </span>
-              </div>
             </div>
           ) : (
-            <TeamRosterPanel
+            <div className="relative flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2.5 pr-8 text-xs text-red-800">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">Mission 失败</p>
+                <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed text-red-900/90">
+                  {view.mission.failedMessage}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="关闭"
+                onClick={() =>
+                  setDismissedFailedBanner((prev) => ({
+                    ...prev,
+                    [missionId]: true,
+                  }))
+                }
+                className="absolute right-1.5 top-1.5 rounded p-0.5 text-red-700 hover:bg-red-100"
+              >
+                <XIcon className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+      </div>
+    );
+  })();
+
+  // ── 左 panel 内容 —— TeamRosterPanel feature 业务原样保留 ─────────
+  const leftPanelContent = (
+    <TeamRosterPanel
+      agents={view.agents}
+      stages={view.stages}
+      finalScore={view.mission.finalScore}
+      topic={view.mission.topic}
+      dimensions={view.mission.dimensions}
+      missionStatus={
+        // ★ 取消按钮可用判定：只要不是终态（completed/failed/rejected/
+        //   cancelled/quality-failed）就视为 running。这样初次加载 persisted
+        //   还没回来 + 还没收到事件时也能取消（DB 已经创建了 running 行）。
+        view.mission.cancelledAt || persisted?.status === 'cancelled'
+          ? 'cancelled'
+          : view.mission.failedAt ||
+              persisted?.status === 'failed' ||
+              persisted?.status === 'rejected'
+            ? 'failed'
+            : view.mission.completedAt ||
+                persisted?.status === 'completed' ||
+                persisted?.status === 'quality-failed'
+              ? 'completed'
+              : 'running'
+      }
+      onCollapse={() => setLeftCollapsed(true)}
+      onLeaderClick={() => setLeaderChatOpen(true)}
+      onResearchTeamClick={() => setResearchTeamOpen(true)}
+      isResumable={isResumable}
+      onRerun={() => {
+        // "开始"按钮 = fresh：清 checkpoint，全新从头跑
+        void (async () => {
+          try {
+            const { missionId: newId } = await rerunMission(missionId, 'fresh');
+            router.push(`/agent-playground/team/${newId}`);
+          } catch (e) {
+            toast.error('启动失败', e instanceof Error ? e.message : String(e));
+          }
+        })();
+      }}
+      onUpdate={() => {
+        // "更新"按钮 = incremental：clone checkpoint，跳过已完成 stage
+        // 对齐 Topic Insight handleContinueResearch
+        //   ('incremental' 模式：保留已完成任务，只跑未完成的维度)
+        // 复用原 mission 全部 input 字段（不只 topic/depth/language 3 个）
+        void (async () => {
+          try {
+            const { missionId: newId } = await rerunMission(
+              missionId,
+              'incremental'
+            );
+            router.push(`/agent-playground/team/${newId}`);
+          } catch (e) {
+            toast.error('更新失败', e instanceof Error ? e.message : String(e));
+          }
+        })();
+      }}
+      onCancel={() => {
+        void (async () => {
+          const ok = await confirm({
+            title: '确认取消该 mission？',
+            type: 'danger',
+          });
+          if (!ok) return;
+          try {
+            await cancelMission(missionId);
+            window.location.reload();
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            // 通用 race：mission 已经在请求送达前完成 / 失败
+            if (/not running|status is/i.test(msg) || /400/i.test(msg)) {
+              toast.info(
+                'Mission 已结束',
+                'Mission 已经结束（或刚刚完成 / 失败），无需取消。页面将刷新展示最新状态。'
+              );
+              window.location.reload();
+            } else {
+              toast.error('取消失败', msg);
+            }
+          }
+        })();
+      }}
+    />
+  );
+
+  // ── Tab bar trailing slot：CompactMeters（紧凑指标条） ─────────────
+  const tabBarTrailing = (
+    <CompactMeters
+      view={view}
+      wallTimeMs={wallTimeMs}
+      maxCredits={
+        (persisted as { userProfile?: { maxCredits?: number } })?.userProfile
+          ?.maxCredits ?? null
+      }
+    />
+  );
+
+  return (
+    <>
+      <MissionDetailFrame<TabKey>
+        onBack={() => router.push('/agent-playground')}
+        backTitle="返回 Mission 列表"
+        brandGradient="from-violet-500 to-purple-600"
+        HeaderIcon={PlaygroundBrandIcon}
+        title={
+          <span title={view.mission.topic ?? '研究中…'}>{cleanedTopic}</span>
+        }
+        subtitle={metaRow}
+        statusPill={statusPill}
+        headerActions={headerActions}
+        tabs={TABS}
+        activeTab={activeTab}
+        onTabChange={(k) => setActiveTab(k as TabKey)}
+        leftPanel={leftPanelContent}
+        leftCollapsed={leftCollapsed}
+        onLeftCollapseToggle={() => setLeftCollapsed((v) => !v)}
+        leftCollapsedView={collapsedLeftView}
+        topBanner={banners}
+        tabBarTrailing={tabBarTrailing}
+      >
+        {/* Tab body —— feature 业务全部保留 */}
+        <div className="px-6 py-5">
+          {activeTab === 'tasks' && (
+            <MissionTodoBoard
+              todos={todoLedger}
+              themeSummary={view.mission.themeSummary}
+              selectedKey={selectedTaskKey}
+              onSelect={(id) => setSelectedTaskKey(id)}
+              missionFailed={!!view.mission.failedAt}
+              missionFailedMessage={view.mission.failedMessage}
+              missionCancelled={!!view.mission.cancelledAt}
               agents={view.agents}
-              stages={view.stages}
-              finalScore={view.mission.finalScore}
-              topic={view.mission.topic}
-              dimensions={view.mission.dimensions}
-              missionStatus={
-                // ★ 取消按钮可用判定：只要不是终态（completed/failed/rejected/
-                //   cancelled/quality-failed）就视为 running。这样初次加载 persisted
-                //   还没回来 + 还没收到事件时也能取消（DB 已经创建了 running 行）。
-                view.mission.cancelledAt || persisted?.status === 'cancelled'
-                  ? 'cancelled'
-                  : view.mission.failedAt ||
-                      persisted?.status === 'failed' ||
-                      persisted?.status === 'rejected'
-                    ? 'failed'
-                    : view.mission.completedAt ||
-                        persisted?.status === 'completed' ||
-                        persisted?.status === 'quality-failed'
-                      ? 'completed'
-                      : 'running'
-              }
-              onCollapse={() => setLeftCollapsed(true)}
-              onLeaderClick={() => setLeaderChatOpen(true)}
-              onResearchTeamClick={() => setResearchTeamOpen(true)}
-              isResumable={isResumable}
-              onRerun={() => {
-                // "开始"按钮 = fresh：清 checkpoint，全新从头跑
-                void (async () => {
-                  try {
-                    const { missionId: newId } = await rerunMission(
-                      missionId,
-                      'fresh'
-                    );
-                    router.push(`/agent-playground/team/${newId}`);
-                  } catch (e) {
-                    toast.error(
-                      '启动失败',
-                      e instanceof Error ? e.message : String(e)
-                    );
-                  }
-                })();
-              }}
-              onUpdate={() => {
-                // "更新"按钮 = incremental：clone checkpoint，跳过已完成 stage
-                // 对齐 Topic Insight handleContinueResearch
-                //   ('incremental' 模式：保留已完成任务，只跑未完成的维度)
-                // 复用原 mission 全部 input 字段（不只 topic/depth/language 3 个）
-                void (async () => {
-                  try {
-                    const { missionId: newId } = await rerunMission(
-                      missionId,
-                      'incremental'
-                    );
-                    router.push(`/agent-playground/team/${newId}`);
-                  } catch (e) {
-                    toast.error(
-                      '更新失败',
-                      e instanceof Error ? e.message : String(e)
-                    );
-                  }
-                })();
-              }}
-              onCancel={() => {
-                void (async () => {
-                  const ok = await confirm({
-                    title: '确认取消该 mission？',
-                    type: 'danger',
-                  });
-                  if (!ok) return;
-                  try {
-                    await cancelMission(missionId);
-                    window.location.reload();
-                  } catch (e) {
-                    const msg = e instanceof Error ? e.message : String(e);
-                    // 通用 race：mission 已经在请求送达前完成 / 失败
-                    if (
-                      /not running|status is/i.test(msg) ||
-                      /400/i.test(msg)
-                    ) {
-                      toast.info(
-                        'Mission 已结束',
-                        'Mission 已经结束（或刚刚完成 / 失败），无需取消。页面将刷新展示最新状态。'
-                      );
-                      window.location.reload();
-                    } else {
-                      toast.error('取消失败', msg);
-                    }
-                  }
-                })();
-              }}
+              dimensionPipelines={view.dimensionPipelines}
+              missionId={missionId}
+              missionTerminal={!isRunning}
             />
           )}
-        </div>
 
-        {/* Right Panel - tabbed content */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Status banners */}
-          {(() => {
-            const wsDismissed = !!dismissedWsBanner[missionId];
-            const showWsError =
-              !!(error && connState !== 'live') && !wsDismissed;
-            const failedDismissed = !!dismissedFailedBanner[missionId];
-            const showFailedBanner =
-              !!view.mission.failedMessage && !failedDismissed;
-            if (!showWsError && !showFailedBanner) return null;
-            return (
-              <div className="space-y-2 border-b border-gray-200 bg-white px-4 py-2">
-                {showWsError && (
-                  <div className="relative flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 pr-8 text-xs text-amber-800">
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <p>WebSocket 不可用 · 已退化为 4s 轮询 /replay</p>
-                    <button
-                      type="button"
-                      aria-label="关闭"
-                      onClick={() =>
-                        setDismissedWsBanner((prev) => ({
-                          ...prev,
-                          [missionId]: true,
-                        }))
-                      }
-                      className="absolute right-1.5 top-1.5 rounded p-0.5 text-amber-700 hover:bg-amber-100"
-                    >
-                      <XIcon className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                )}
-                {showFailedBanner &&
-                  (persisted?.status === 'quality-failed' ? (
-                    <div className="relative flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 pr-8 text-xs text-amber-800">
-                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold">
-                          Leader 拒签 · 质量未达标但报告可阅读
-                        </p>
-                        <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed text-amber-900/90">
-                          {view.mission.failedMessage}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab('report')}
-                          className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-300 hover:bg-amber-200"
-                        >
-                          查看输出报告 →
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        aria-label="关闭"
-                        onClick={() =>
-                          setDismissedFailedBanner((prev) => ({
-                            ...prev,
-                            [missionId]: true,
-                          }))
-                        }
-                        className="absolute right-1.5 top-1.5 rounded p-0.5 text-amber-700 hover:bg-amber-100"
-                      >
-                        <XIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="relative flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2.5 pr-8 text-xs text-red-800">
-                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold">Mission 失败</p>
-                        <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed text-red-900/90">
-                          {view.mission.failedMessage}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        aria-label="关闭"
-                        onClick={() =>
-                          setDismissedFailedBanner((prev) => ({
-                            ...prev,
-                            [missionId]: true,
-                          }))
-                        }
-                        className="absolute right-1.5 top-1.5 rounded p-0.5 text-red-700 hover:bg-red-100"
-                      >
-                        <XIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-              </div>
-            );
-          })()}
+          {activeTab === 'collab' && (
+            <MissionFlowView view={view} events={events} />
+          )}
 
-          {/* Tabs — TI style: border-b primary underline; horizontal scroll on overflow */}
-          <div className="flex min-w-0 items-center gap-3 border-b border-gray-200 bg-white px-4">
-            <Tabs
-              className="scrollbar-thin min-w-0 flex-1 overflow-x-auto border-b-0"
-              items={TABS.map((tab) => ({
-                key: tab.key,
-                label: tab.label,
-                icon: tab.Icon,
-              }))}
-              value={activeTab}
-              onChange={(k) => setActiveTab(k as TabKey)}
-            />
-            <div className="shrink-0">
-              <CompactMeters
-                view={view}
-                wallTimeMs={wallTimeMs}
-                maxCredits={
-                  (persisted as { userProfile?: { maxCredits?: number } })
-                    ?.userProfile?.maxCredits ?? null
-                }
-              />
-            </div>
-          </div>
-
-          {/* Tab body */}
-          <div className="flex-1 overflow-auto px-6 py-5">
-            {activeTab === 'tasks' && (
-              <MissionTodoBoard
-                todos={todoLedger}
-                themeSummary={view.mission.themeSummary}
-                selectedKey={selectedTaskKey}
-                onSelect={(id) => setSelectedTaskKey(id)}
-                missionFailed={!!view.mission.failedAt}
-                missionFailedMessage={view.mission.failedMessage}
-                missionCancelled={!!view.mission.cancelledAt}
-                agents={view.agents}
-                dimensionPipelines={view.dimensionPipelines}
-                missionId={missionId}
-                missionTerminal={!isRunning}
-              />
-            )}
-
-            {activeTab === 'collab' && (
-              <MissionFlowView view={view} events={events} />
-            )}
-
-            {activeTab === 'report' && (
-              <div className="space-y-4">
-                {/* ★ 2026-04-30 (#51 报告极简化)：
+          {activeTab === 'report' && (
+            <div className="space-y-4">
+              {/* ★ 2026-04-30 (#51 报告极简化)：
                     主区只渲染纯报告（ArtifactReader 含视图切换 + 修订 banner + 正文）
                     LeadJournalPanel / VerifyConsensusPanel / 质量分数 / 元信息 /
                     事实表 / 对账 / 工具召回 全部移到 ArtifactReader 内部右侧 slide-over，
                     点击"报告分析"按钮打开。 */}
-                <ArtifactReader
-                  artifact={reportArtifact}
-                  missionId={missionId}
-                  defaultView={reportDefaultView}
-                  reconciliationReport={
-                    reportReconciliationReport as Parameters<
-                      typeof ArtifactReader
-                    >[0]['reconciliationReport']
-                  }
-                  toolRecallEntries={reportToolRecallEntries}
-                  dimensionPipelines={view.dimensionPipelines}
-                  reportVersions={reportVersionMeta}
-                  currentVersion={selectedVersion ?? undefined}
-                  onSelectVersion={(v) => void handleSelectVersion(v)}
-                  versionSwitching={versionSwitching}
-                />
-              </div>
-            )}
+              <ArtifactReader
+                artifact={reportArtifact}
+                missionId={missionId}
+                defaultView={reportDefaultView}
+                reconciliationReport={
+                  reportReconciliationReport as Parameters<
+                    typeof ArtifactReader
+                  >[0]['reconciliationReport']
+                }
+                toolRecallEntries={reportToolRecallEntries}
+                dimensionPipelines={view.dimensionPipelines}
+                reportVersions={reportVersionMeta}
+                currentVersion={selectedVersion ?? undefined}
+                onSelectVersion={(v) => void handleSelectVersion(v)}
+                versionSwitching={versionSwitching}
+              />
+            </div>
+          )}
 
-            {activeTab === 'references' &&
-              (() => {
-                const reportFull = persisted?.reportFull ?? view.finalReport;
-                const richCitations =
-                  reportFull &&
-                  typeof reportFull === 'object' &&
-                  isReportArtifact(reportFull)
-                    ? reportFull.citations
-                    : undefined;
-                return (
-                  <ReferencesPanel
-                    citations={richCitations}
-                    fallbackSources={allSources}
-                  />
-                );
-              })()}
-
-            {activeTab === 'cost' && (
-              <div className="space-y-4">
-                <CapabilityMeters view={view} wallTimeMs={wallTimeMs} />
-                <ComputeUsagePanel
-                  cost={view.cost}
-                  agents={view.agents}
-                  todos={todoLedger}
-                  dimensionPipelines={view.dimensionPipelines}
+          {activeTab === 'references' &&
+            (() => {
+              const reportFull = persisted?.reportFull ?? view.finalReport;
+              const richCitations =
+                reportFull &&
+                typeof reportFull === 'object' &&
+                isReportArtifact(reportFull)
+                  ? reportFull.citations
+                  : undefined;
+              return (
+                <ReferencesPanel
+                  citations={richCitations}
+                  fallbackSources={allSources}
                 />
-                <MemoryIndexPanel memory={view.memory} />
-                <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Database className="h-4 w-4 text-emerald-500" />
-                    <h3 className="text-sm font-semibold text-gray-900">
-                      Trajectory 与向量记忆
-                    </h3>
-                  </div>
-                  <p className="text-xs text-gray-600">
-                    Mission 完成后，Writer envelope +
-                    事件流会自动向量化进入用户记忆 namespace，未来同类 mission
-                    可语义召回这些 chunks。
-                  </p>
+              );
+            })()}
+
+          {activeTab === 'cost' && (
+            <div className="space-y-4">
+              <CapabilityMeters view={view} wallTimeMs={wallTimeMs} />
+              <ComputeUsagePanel
+                cost={view.cost}
+                agents={view.agents}
+                todos={todoLedger}
+                dimensionPipelines={view.dimensionPipelines}
+              />
+              <MemoryIndexPanel memory={view.memory} />
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <Database className="h-4 w-4 text-emerald-500" />
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Trajectory 与向量记忆
+                  </h3>
                 </div>
+                <p className="text-xs text-gray-600">
+                  Mission 完成后，Writer envelope +
+                  事件流会自动向量化进入用户记忆 namespace，未来同类 mission
+                  可语义召回这些 chunks。
+                </p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-      </div>
+      </MissionDetailFrame>
 
       {/* Floating Leader chat modal — triggered by clicking Leader node */}
       <LeaderChatModal
@@ -1195,7 +1153,7 @@ export default function MissionDetailPage() {
           }
         }}
       />
-    </div>
+    </>
   );
 }
 

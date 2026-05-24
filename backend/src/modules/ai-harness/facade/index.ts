@@ -511,6 +511,34 @@ export type { IBusinessRerunGuard } from "../teams/business-team/abstractions/re
 //   YAGNI: 真 BusinessAgentTeamFactory 类等 2nd consumer (research / writing / TI 反向迁移)
 //   出现时再抽。当前阶段 NestJS DI 完成装配，业务模块只需实现本规约的 4 个字段。
 export type { BusinessAgentTeamSpec } from "../teams/business-team/abstractions/business-team-spec.interface";
+// ★ 2026-05-24 P4: BusinessAgentTeam Tier 1 剩余能力下沉（dispatcher / span / state / bindings / dag-concurrency）
+//   span 框架（OTel root/stage/agent 三级嵌套）—— @migrated-from playground-mission-span.service
+export {
+  BusinessTeamMissionSpanFramework,
+  type BusinessTeamSpanStatus,
+} from "../teams/business-team/span/business-team-mission-span.framework";
+// cross-stage state 框架（typed wrapper base on CrossStageState）—— @migrated-from playground-cross-stage-state
+export { BusinessTeamCrossStageStateFramework } from "../teams/business-team/state/business-team-cross-stage-state.framework";
+// stage bindings 框架（薄骨架，subclass 实现 buildCtx / buildDeps）—— @migrated-from mission-stage-bindings.service
+export { BusinessTeamStageBindingsFramework } from "../teams/business-team/bindings/business-team-stage-bindings.framework";
+export type {
+  BusinessTeamStageBindings,
+  MarkStageDegradedFn,
+} from "../teams/business-team/bindings/abstractions/business-team-stage-bindings.interface";
+// mission dispatcher 框架（emitToBus + bridgeOrchestratorStageEvent 通用 runtime-glue）
+//   —— @migrated-from playground/social/radar pipeline-dispatcher.service 三家公共部分
+export {
+  BusinessTeamMissionDispatcherFramework,
+  type BusinessTeamMissionDispatcherConfig,
+  type BridgeContext as BusinessTeamDispatcherBridgeContext,
+} from "../teams/business-team/dispatcher/business-team-mission-dispatcher.framework";
+export type {
+  OrchestratorStageEventLike,
+  BusinessTeamMissionBusEvent,
+  MapStepIdHook,
+} from "../teams/business-team/dispatcher/abstractions/business-team-mission-dispatcher.interface";
+// In-memory DAG concurrency scheduler —— @migrated-from agent-execution-support.runDagConcurrency
+export { runDagConcurrency } from "../teams/business-team/invocation/business-team-dag-concurrency";
 // ★ 2026-05-04 (PR-3 standardize consumer)
 export { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.registry";
 

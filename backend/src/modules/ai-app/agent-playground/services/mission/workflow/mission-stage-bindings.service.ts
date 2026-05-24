@@ -1,10 +1,13 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import type { MissionContext } from "./mission-context";
 import type { MissionDeps } from "./mission-deps";
 import { mapStepIdToFrontendStageId } from "../../../contracts/step-id-mapping.contract";
 import type { RunMissionInput } from "../../../dto/run-mission.dto";
-import type { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
-import type { MissionBudgetPool } from "@/modules/ai-harness/facade";
+import {
+  BusinessTeamStageBindingsFramework,
+  type BillingRuntimeEnvAdapter,
+  type MissionBudgetPool,
+} from "@/modules/ai-harness/facade";
 import {
   LeaderService,
   ReconcilerService,
@@ -67,9 +70,11 @@ export interface MissionStageCtxArgs {
 }
 
 @Injectable()
-export class MissionStageBindingsService {
-  private readonly log = new Logger(MissionStageBindingsService.name);
-
+export class MissionStageBindingsService extends BusinessTeamStageBindingsFramework<
+  MissionStageCtxArgs,
+  MissionContext,
+  MissionDeps
+> {
   constructor(
     private readonly leaderService: LeaderService,
     private readonly reconcilerService: ReconcilerService,
@@ -99,7 +104,9 @@ export class MissionStageBindingsService {
     private readonly postmortemClassifier: PostmortemClassifierService,
     // ★ C0/G1：终态写唯一入口，透进 CommonDeps 让 s11-persist 经 finalize 仲裁。
     private readonly lifecycleManager: MissionLifecycleManager,
-  ) {}
+  ) {
+    super(MissionStageBindingsService.name);
+  }
 
   buildCtx(args: MissionStageCtxArgs): MissionContext {
     return {

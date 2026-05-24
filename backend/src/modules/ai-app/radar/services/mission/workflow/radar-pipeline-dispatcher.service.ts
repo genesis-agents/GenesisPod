@@ -16,9 +16,10 @@
  *   - Discovery mission 也走完整 runtimeShell.openSession（含 abortRegistry / wallTimer
  *     / heartbeat / billing），adapter 自己识别 discovery input 跳过 createMissionRow。
  */
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Injectable, OnModuleInit } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import {
+  BusinessTeamMissionDispatcherFramework,
   DomainEventBus,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -107,8 +108,10 @@ export function isLikelyRejection(message: string): boolean {
 }
 
 @Injectable()
-export class RadarPipelineDispatcher implements OnModuleInit {
-  private readonly log = new Logger(RadarPipelineDispatcher.name);
+export class RadarPipelineDispatcher
+  extends BusinessTeamMissionDispatcherFramework
+  implements OnModuleInit
+{
   private readonly sessions = new Map<string, SessionEntry>();
 
   constructor(
@@ -116,11 +119,25 @@ export class RadarPipelineDispatcher implements OnModuleInit {
     private readonly orchestrator: MissionPipelineOrchestrator,
     private readonly runtimeShell: RadarMissionRuntimeShell,
     private readonly businessOrch: RadarBusinessOrchestrator,
-    private readonly eventBus: DomainEventBus,
+    eventBus: DomainEventBus,
     private readonly store: RadarMissionStore,
     // ★ C0/G1：唯一终态写入口。dispatcher 不再直写 store.markX，统一经 finalize 仲裁。
     private readonly lifecycleManager: MissionLifecycleManager,
-  ) {}
+  ) {
+    // 2026-05-24 P4: framework 提供 emitToBus + bridgeOrchestratorStageEvent
+    //   通用 mechanism；本 dispatcher 仅注入 radar 专属事件 type 字符串。
+    //   注意：radar 业务侧 stage 事件用 RADAR_EVENTS.RUN_STAGE 单一类型（非
+    //   `stage:lifecycle / stage:stalled / stage:degraded` 三分），故 framework
+    //   bridge 不能直接用——radar 用自己的 handleOrchestratorEvent。
+    //   但 emitToBus 通用 helper 仍受益继承。配置中 stage* 字段仅占位，
+    //   framework bridgeOrchestratorStageEvent 不会在 radar 路径被调用。
+    super(eventBus, {
+      namespace: "radar",
+      stageLifecycleEvent: "radar.stage:lifecycle",
+      stageStalledEvent: "radar.stage:stalled",
+      stageDegradedEvent: "radar.stage:degraded",
+    });
+  }
 
   async onModuleInit(): Promise<void> {
     this.businessOrch.bindSessionLookup((missionId) => {
@@ -487,26 +504,8 @@ export class RadarPipelineDispatcher implements OnModuleInit {
     });
   }
 
-  private async emitToBus(event: {
-    type: string;
-    missionId: string;
-    userId: string;
-    payload: unknown;
-    timestamp?: number;
-  }): Promise<void> {
-    await this.eventBus
-      .emit({
-        type: event.type,
-        scope: { missionId: event.missionId, userId: event.userId },
-        payload: event.payload,
-        timestamp: event.timestamp ?? Date.now(),
-      })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[radar-pipeline] emit ${event.type} for ${event.missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-  }
+  // 2026-05-24 P4: emitToBus 已上提到 BusinessTeamMissionDispatcherFramework，
+  //   本 dispatcher 通过继承直接复用（this.emitToBus(...)），不再本地定义。
 
   /**
    * 取消 mission（controller 调）：触发 abortRegistry.abort → orchestrator
