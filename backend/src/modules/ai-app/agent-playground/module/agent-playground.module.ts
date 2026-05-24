@@ -50,7 +50,7 @@ import {
   MissionCheckpointService,
   type MissionCheckpointStore,
 } from "@/modules/ai-harness/facade";
-import { LeaderChatService } from "../services/chat/leader-chat.service";
+import { LeaderChatService } from "../mission/chat/leader-chat.service";
 // MissionStateService 已上提到 harness/memory/working/handoff-compactor.service.ts（@Global RuntimeMemoryModule）
 // ── 2026-04-30 (B 路线): 单 stage 局部重跑 ──
 import { LocalRerunService } from "../mission/rerun/local-rerun.service";
@@ -65,7 +65,7 @@ import { PlaygroundMissionInputRebuilder } from "../runtime/agent-playground.inp
 // ★ 单源 LeaderRunFn 工厂（dispatcher + rerun 共用，去 buildLeaderInvocation 双源）
 import { LeaderInvocationFactory } from "../mission/pipeline/leader-invocation.factory";
 import { MissionRerunOrchestratorService } from "../mission/rerun/mission-rerun-orchestrator.service";
-import { MissionExportService } from "../services/export/mission-export.service";
+import { MissionExportService } from "../mission/export/mission-export.service";
 import { AgentPlaygroundContentSourceProvider } from "../integrations/agent-playground-content-source.provider";
 // PostmortemClassifierService 已上提到 @Global HarnessModule（PR-2 standardize playground）
 import {
@@ -105,7 +105,7 @@ import {
 import {
   playgroundRuntimeConfig,
   loadPlaygroundRuntimeConfig,
-} from "../playground-runtime.config";
+} from "../runtime/playground-runtime.config";
 
 @Module({
   imports: [
@@ -243,12 +243,10 @@ export class AgentPlaygroundModule
   async onModuleInit(): Promise<void> {
     // R0-A3: 注册 agent-playground skill 目录
     const path = await import("path");
-    // 2026-05-24: module 文件已迁到 ai-app/agent-playground/module/，
-    // 但 skills 目录仍位于 ai-app/agent-playground/skills/。
-    // 生产构建里 __dirname = .../dist/modules/ai-app/agent-playground/module，
-    // 直接 resolve(__dirname, "skills") 会错误指向 .../module/skills。
+    // 2026-05-24 P9b: skills/ 已挪到 mission/skills/(蓝图 §8.2 Agent App 基线)。
+    // module 在 module/,skills 在 mission/skills/,从 module/ 到目标:../mission/skills
     await this.skillLoader.addSkillDirectory({
-      path: path.resolve(__dirname, "..", "skills"),
+      path: path.resolve(__dirname, "..", "mission", "skills"),
       domain: "agent-playground",
       recursive: false,
     });
