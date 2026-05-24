@@ -1,527 +1,797 @@
-# 模型能力驱动运行时 —— 零 provider 名硬编码彻底整改方案
+# 模型能力驱动运行时 —— v3 基线
 
-> **状态**:设计稿(2026-05-24,等执行)
-> **作者**:Claude(沿用本仓库 CLAUDE.md "禁止 provider-specific 硬编码"红线)
-> **替代**:`includes("deepseek"|"gpt"|"claude"|"gemini"|"grok"|...)` 散点反模式
-> **触发事件**:线上 mission 撞 `deepseek-v4-pro: response_format type is unavailable` 一上来死;追溯发现 `ai-api-caller.service.ts:371` 形如 `modelLower.includes("deepseek-reasoner")` 的 substring 判能力散布整个 engine。
-> **范围**:`modules/ai-engine/llm/**` + `modules/ai-harness/runner/**` + `modules/ai-harness/agents/**`。
-> **不在范围**:UI 图标映射、admin tier 优先级表(有意的能力分级)、测试 fixture。
-
----
-
-## 1 · 问题陈述
-
-### 1.1 反模式实例
-
-代码靠 `modelId.includes("某关键词")` 推断模型能力,而非读 model config 上的能力字段:
-
-```ts
-// ai-api-caller.service.ts:371 —— 触发本轮事件的精确反模式
-const isDeepseekReasoner = modelLower.includes("deepseek-reasoner");
-if (...!isDeepseekReasoner) {
-  requestBody["response_format"] = { type: "json_schema", ... };  // ← 任何"也不支持 json_schema 的非 reasoner"全挂
-}
-
-// ai-chat.service.ts:509-520
-if (modelLower.includes("grok")) ... else if (modelLower.includes("claude")) ...
-
-// function-calling-llm.adapter.ts:555-582
-if (lower.includes("xai") || lower.includes("grok")) ...
-if (lower.includes("openai") || lower.includes("gpt")) ...
-
-// model.utils.ts:22-34
-const isReasoning =
-  modelLower.includes("gpt-5") ||
-  modelLower.includes("deepseek-r1") ||
-  modelLower.includes("claude-4") || ...
-```
-
-### 1.2 危害矩阵
-
-| #   | 危害                                        | 实证                                                                                 |
-| --- | ------------------------------------------- | ------------------------------------------------------------------------------------ |
-| 1   | **能力假设错配 → 一上来就 INVALID_REQUEST** | 2026-05-24 实跑:deepseek-v4-pro(非 reasoner)发 json_schema 被拒,leader S2 一上来判废 |
-| 2   | **新模型/新版本静默漏判**                   | 注释自承:"硬编码漏 o4 系列问题";新 gemini-3 / claude-5 等加入时同一处又要补          |
-| 3   | **改一个能力要 grep 全仓**                  | "deepseek 不支持 X" 这事得改 N 处 includes                                           |
-| 4   | **能力定义没有单一权威**                    | router 维护一张表、api-caller 维护另一张、tier types 维护第三张,各自漂移             |
-| 5   | **看护机制缺失**                            | 谁都能在新代码里写 `includes("xai")`,无 lint/test 拦                                 |
-
-### 1.3 全量审计(范围内)
-
-按危害分级,排除测试 / UI / 适配器路由:
-
-| 等级                                | 数量  | 代表位置                                                                                                                                     |               必改               |
-| ----------------------------------- | :---: | -------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------: |
-| 🔴 P0 业务主流程靠 substring 判能力 | 6 处  | `ai-api-caller:371`、`ai-chat:509-520`、`function-calling-adapter:555-582`、`ai-direct-key:677/778`、`ai-connection-test:338`、`ai-chat:573` |                ✅                |
-| 🟡 P1 启发式名表(有兜底意义)        | 2 处  | `model.utils.ts:22-34 inferIsReasoning`、`user-models-auto-configure:428-538`                                                                | ✅(降级为 fallback,不在主流程读) |
-| 🟢 P2 合理(保留 + 加注释)           | ~6 处 | UI 图标、tier 正则、adapter 路由 fallback、selection priority                                                                                |                ❌                |
+> **状态**:**v3 基线**(2026-05-24 经 5 路独立深度调研 + 集体共识形成)
+> **历史**:v1 设计稿(2026-05-24)未读现状直接出方案,被 4 路评审揭出 24 项 blocker;v2 补丁式整合被否决;v3 推倒重来,T1 现状审计 + T2/T3/T4/T5 独立设计,基于 6 项用户决议达成共识。
+> **触发事件**:线上 mission 撞 `deepseek-v4-pro: response_format type is unavailable` 一上来死;追溯发现 `ai-api-caller.service.ts:371` `modelLower.includes("deepseek-reasoner")` 的 substring 判能力散布整个 engine + harness + ai-app(40+ 处)。
+> **范围**:`modules/ai-engine/llm/**` + `modules/ai-harness/runner/**` + `modules/ai-harness/agents/**` + `modules/ai-app/**/services/**`(controllers/DTO 豁免)。
+> **设计原则**:能力是数据(DB+JSONB)不是代码;catalog 数据驱动;自愈 scope 严格隔离;ESLint AST + jest baseline 双层看护;事实驱动,反惯性。
 
 ---
 
-### 1.4 案例研究:`deepseek-v4-pro` —— 三条能力正交的活样本
+## 0 · v3 决议记录(用户确认)
 
-2026-05-24 用户实跑 `deepseek-v4-pro` 一上来死。事后查证 DeepSeek 官方信息:
+经多路评审 + 专业建议,以下 6 项设计选择已**用户拍板**作为 v3 基线的不可妥协决议。后文 §3-§6 任何细节与本节冲突以本节为准。
 
-| 模型                                  | `isReasoning`(吃 reasoning tokens) | `thinkingMode` |                   `responseFormatSupport`                   |
-| ------------------------------------- | :--------------------------------: | :------------: | :---------------------------------------------------------: |
-| `deepseek-chat` (= V4-Flash 非思考)   |                 ❌                 |      none      |                        `json_object`                        |
-| `deepseek-reasoner` (= V4-Flash 思考) |                 ✅                 |     always     |       **none**(thinking mode 不接受 response_format)        |
-| `deepseek-v4-pro`                     |                 ✅                 |    optional    | **json_object**(API 现状不支持 json_schema,即使非 thinking) |
-| `deepseek-v4-flash`                   |               视模式               |    optional    |                        `json_object`                        |
+|   #    | 决议                                                                                                                                        | 替代方案                      | 关键理由                                                                                             |
+| :----: | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **D1** | 新增 capability 用 **`capability_overrides JSONB` 列**;既有 19 列(`isReasoning/apiFormat/...`)**保留**                                      | 全部分列 / 全部 JSONB 重构    | capability 是读取后立即用,不按 capability 查;JSONB 零迁移加字段,与既有列共存                         |
+| **D2** | **第一期只做 `capability_overrides` JSONB**;observation 表(append-only 用户失败统计)**列入 backlog**                                        | 双表(override + observation)  | 当前无 admin 用户失败统计 UI,observation 表零消费方;**约束保留**:自愈逻辑只允许写 JSONB,禁止写 19 列 |
+| **D3** | catalog 字段命名 **`provider` + `modelPattern`**(对齐 `AIModelConfig.provider` 现状)                                                        | `providerSlug`                | 不制造新双源,与既有命名对齐                                                                          |
+| **D4** | catalog 强制字段:**`rationale ≥30 字 + addedBy 必填(git author 自动) + sourceUrl 选填`**                                                    | 仅 ≥10 字                     | 30 字强制写"为什么 + API 依据";sourceUrl 选填避免逼造假                                              |
+| **D5** | 治理范围**扩 ai-app/services**(豁免 controllers/DTO)                                                                                        | 仅 ai-engine + ai-harness     | ai-app 已有 3 处外溢(`m.provider === "xai"` 等);不扩 = 看护无效                                      |
+| **D6** | 老 5 个 structured-output bool 字段(`supports_json_schema_strict/json_schema/tool_use/json_mode/gbnf_grammar`)**F 后直接 drop**(~3h),不双写 | 6 周双写 / 3-6 月 deprecation | **T1 实证**:运行时 router 只读 `structured_output_strategy`,这 5 个 bool **是死代码**,无双写必要     |
+
+---
+
+## 1 · 现状审计(事实底座 · T1 完整输出)
+
+### 1.1 `AIModelConfig` 双源
+
+| 定义     | 文件:行                                 | 字段范围                                                                                                                                                                            |
+| -------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #1(子集) | `ai-chat-model-config.service.ts:11-37` | 12 个基础字段,**缺**全部 structured-output 字段                                                                                                                                     |
+| #2(超集) | `ai-model-config.service.ts:55-92`      | #1 字段 + **`structuredOutputStrategy / fallbackStrategies / supportsJsonSchemaStrict / supportsJsonSchema / supportsToolUse / supportsJsonMode / supportsGbnfGrammar`** 7 个新字段 |
+
+**两 service 各持一份 ModelConfigCache**;`token_param_name` 的 VARCHAR 长度也已漂移(30 vs 50)。
+
+### 1.2 19 现有 capability 字段全集(读写映射)
+
+| 字段                       | DB 列                         | 写入端                                                               | 读取端(关键)                                                                                                                  |
+| -------------------------- | ----------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `isReasoning`              | `is_reasoning`                | admin.service.ts:632,738 / user-models-auto-configure.service.ts:547 | model-fallback / model-resolver / runtime-environment / writing-_ / leader-_ / observability / task-profile-mapper(15+ files) |
+| `apiFormat`                | `api_format`                  | admin / auto-configure                                               | ai-api-caller / key-resolver / connection-test                                                                                |
+| `supportsTemperature`      | `supports_temperature`        | admin / auto-configure                                               | task-profile-mapper / ai-api-caller                                                                                           |
+| `supportsStreaming`        | `supports_streaming`          | admin / auto-configure                                               | ai-chat.service(chatStream 路径)                                                                                              |
+| `supportsFunctionCalling`  | `supports_function_calling`   | admin / auto-configure                                               | tool-routing / agent-executor                                                                                                 |
+| `supportsVision`           | `supports_vision`             | admin / auto-configure                                               | runtime-environment                                                                                                           |
+| `tokenParamName`           | `token_param_name`            | admin / auto-configure                                               | ai-api-caller                                                                                                                 |
+| `defaultTimeoutMs`         | `default_timeout_ms`          | admin                                                                | ai-chat-failover-caller                                                                                                       |
+| `priority`                 | `priority`                    | admin                                                                | model-fallback / election                                                                                                     |
+| `costTier`                 | `cost_tier`                   | seed(无 admin endpoint)                                              | billing-adapter / runtime-environment                                                                                         |
+| `rpmLimit`                 | `rpm_limit`                   | admin / user-model-configs                                           | rate-limiting                                                                                                                 |
+| `tpmLimit`                 | `tpm_limit`                   | admin / user-model-configs                                           | rate-limiting                                                                                                                 |
+| `structuredOutputStrategy` | `structured_output_strategy`  | admin.service.ts:692                                                 | structured-output-router.service.ts:189                                                                                       |
+| `fallbackStrategies`       | `fallback_strategies`         | admin.service.ts:693                                                 | structured-output-router.service.ts:192                                                                                       |
+| `supportsJsonSchemaStrict` | `supports_json_schema_strict` | admin.service.ts:694                                                 | **🔴 无运行时读者**(D6 死代码证据)                                                                                            |
+| `supportsJsonSchema`       | `supports_json_schema`        | admin.service.ts:695                                                 | **🔴 同上**                                                                                                                   |
+| `supportsToolUse`          | `supports_tool_use`           | admin.service.ts:696                                                 | **🔴 同上**                                                                                                                   |
+| `supportsJsonMode`         | `supports_json_mode`          | admin.service.ts:697                                                 | **🔴 同上**                                                                                                                   |
+| `supportsGbnfGrammar`      | `supports_gbnf_grammar`       | admin.service.ts:698                                                 | **🔴 同上**                                                                                                                   |
+
+**UserModelConfig 表缺**:`structuredOutputStrategy/fallbackStrategies/supportsJsonSchema*/supportsToolUse/supportsJsonMode/supportsGbnfGrammar` + `costTier`(7 字段)。BYOK 用户无能力配 structured output。
+
+### 1.3 ~29 处伪 catalog 全集(决定行为)
+
+| 文件:行                                                                                                        | 数据结构                                                                                | 决定什么                         |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------- | --------------------------- | ------------------ |
+| `structured-output/structured-output-router.service.ts:48-135`                                                 | `PROVIDER_DEFAULT_CHAINS` 14 条 `match:(p,m)=>regex`                                    | structured-output strategy chain |
+| `selection/model-fallback.service.ts:123-141`                                                                  | `DEFAULT_REASONING_MODEL_PRIORITY` 11 条 RegExp                                         | reasoning fallback 优先级        |
+| `selection/model-fallback.service.ts:146-152`                                                                  | `DEFAULT_FAST_MODEL_PRIORITY` 5 条 RegExp                                               | fast fallback 优先级             |
+| `selection/default-recommendations.config.ts:57-`                                                              | `PROVIDER_PREFERENCE_BY_TYPE` / `EXCLUDED_MODEL_SUBSTRINGS` / `DEFAULT_RECOMMENDATIONS` | auto-configure 推荐表            |
+| `types/model.utils.ts:14-40`                                                                                   | `inferIsReasoning` 函数 17 行 includes 链                                               | isReasoning 兜底推断             |
+| `types/task-profile.types.ts`                                                                                  | `MODEL_KNOWN_LIMITS`                                                                    | maxTokens 已知上限               |
+| `services/ai-model-discovery.service.ts:35-77`                                                                 | `formatModelDisplayName / getEnvVarNameForProvider`                                     | display 名 + env var 名          |
+| `services/ai-direct-key.service.ts:507-524`                                                                    | `getRequiredApiKeyName` @deprecated                                                     | env var(死代码未删)              |
+| `services/ai-chat.service.ts:493-501`                                                                          | `getApiFormatForProvider` 4 段 `provider===`                                            | api format 推断                  |
+| `services/ai-model-config.service.ts:1339-1383`                                                                | `getIconUrl` 9 段 `lowerName.includes`                                                  | icon URL + **种子 capability**   |
+| `services/ai-api-caller.service.ts:552-586`                                                                    | `getDefaultEndpoint / inferProvider`                                                    | endpoint + provider 推断         |
+| `adapters/function-calling-llm.adapter.ts:552-616`                                                             | 3 个 `lower.includes` 函数                                                              | 同 ai-api-caller(**双源**)       |
+| `adapters/universal-llm.adapter.ts:243-256`                                                                    | `supportsModel`                                                                         | 是否支持该模型(准入)             |
+| `user-config/user-models-auto-configure.service.ts:425-549`                                                    | `inferMaxTokens / inferCapabilities / inferProviderDefaults`                            | BYOK 加模型时启发式默认          |
+| `services/ai-connection-test.service.ts:141-167+338`                                                           | switch + includes                                                                       | 连接测试路由                     |
+| `ai-app/image/generation/image-generation.service.ts:300,372,397,902`                                          | `provider.includes("gemini")                                                            |                                  | modelId.includes("imagen")` | 图像 provider 路由 |
+| `ai-harness/runner/executor/agent-executor.service.ts:377-382`                                                 | `isLargeModel` inline                                                                   | defaultMaxTokens                 |
+| `ai-app/teams/services/ai/ai-response.service.ts:1222-1225`                                                    | `isLargeModel` inline                                                                   | outputLength                     |
+| `ai-app/topic-insights/services/data/data-source-fetcher.service.ts:829`、`data-source-router.service.ts:2038` | `m.provider === "xai"`                                                                  | 数据源过滤                       |
+| `open-api/admin/quota/quota.service.ts:221-231`                                                                | 11 段 `lower.includes`                                                                  | provider 名归一                  |
+
+### 1.4 5 处函数双源(完全相同代码各自维护)
+
+1. **`inferProvider`**:`ai-api-caller.service.ts:574-586` ⇔ `function-calling-llm.adapter.ts:574-586`(完全同步)
+2. **`getDefaultEndpoint`**:同两文件
+3. **`getRequiredApiKeyName / getEnvVarNameForProvider`**:`ai-chat.service.ts:507` @deprecated + `ai-direct-key.service.ts:507` @deprecated + `ai-model-discovery.service.ts:63` active —— **3 份**
+4. **`MODEL_KNOWN_LIMITS` 与 `inferMaxTokens`**:两套独立 max tokens 推断
+5. **`formatModelDisplayName` 与 `buildDisplayName`**:两份独立 provider→display 映射
+
+### 1.5 现有 self-heal 机制(0 个涉及 capability)
+
+| 机制                 | 位置                                                        | 范围                       |
+| -------------------- | ----------------------------------------------------------- | -------------------------- |
+| per-key failover     | `ai-chat-failover-caller.service.ts`                        | 401/429/quota 换 key       |
+| 同 key 重试          | `ai-chat-retry.service.ts`(MAX_RETRIES=3)                   | 5xx 指数退避               |
+| 模型级 failover      | `ai-harness/runner/loop/model-failover.util.ts` + 3 个 loop | 换 modelId                 |
+| modelType 降级       | `selection/model-policy.ts:53-89`                           | quality-first / cost-first |
+| 模型黑名单           | `selection/model-fallback.service.ts:166`                   | 临时拉黑                   |
+| structured-output 链 | `router.service.ts:178-220`                                 | strategy chain 降级        |
+| circuit breaker      | `model-resolver.service.ts:154-170`                         | 按健康度选                 |
+
+**"capability 自愈"现成机制 = 无**。capability 失配(标志说支持但实际不)无任何机制重学习。本 v3 整套自愈子系统是**从零建**。
+
+### 1.6 BYOK / admin 物理边界(已干净)
+
+`prisma.aIModel.create/update/delete` 全部 8 处都在 `open-api/admin/admin.service.ts`(596/615/742/825/830/861/2225/2231),controller 在 `admin.controller.ts`(`@Post/@Patch/@Delete ai-models...`)。**BYOK 用户无端点写 AIModel**——物理隔离已存在。
+
+### 1.7 现有看护机制(0 个覆盖 modelId 反模式)
+
+- ESLint(`backend/.eslintrc.js`):no-restricted-imports 多处(facade 边界),**无 modelId substring 反模式规则**
+- 14 个 `__tests__/architecture/*.spec.ts` contract spec:layer-boundaries / model-policy-funnel / 等,**无 modelId substring 覆盖**
+- `.husky/pre-push` 279 行:god-class size guard + 架构边界 jest + 类型检查 + 变更测试 + UI/i18n,**无模型反模式专项**
+
+### 1.8 反模式命中总数
+
+- `model.includes(provider/family)` 决定运行时:**~22 处**(engine 18 + harness 2 + ai-app 4)
+- `provider === "X"` 决定行为:**~10 处**(engine 7 + ai-app 3)
+- @deprecated 但未删:**3 处**(`getRequiredApiKeyName` 2 份 + 同名第 3 份 active)
+- **合计 ~35 处 P0 + 5 处 P1 + ~10 处 P2**(P2 = UI 装饰 / tier 正则保留)
+
+---
+
+## 2 · 问题陈述与案例研究
+
+### 2.1 案例 · `deepseek-v4-pro` 三维正交活样本
+
+2026-05-24 用户实跑 `deepseek-v4-pro` 一上来死。DeepSeek 官方信息:
+
+| 模型                                 | `isReasoning`(吃 reasoning tokens) | `thinkingMode` |           `responseFormatSupport`           |
+| ------------------------------------ | :--------------------------------: | :------------: | :-----------------------------------------: |
+| `deepseek-chat`(= V4-Flash 非思考)   |                 ❌                 |      none      |                `json_object`                |
+| `deepseek-reasoner`(= V4-Flash 思考) |                 ✅                 |     always     |    **none**(thinking 拒 response_format)    |
+| `deepseek-v4-pro`                    |                 ✅                 |    optional    | **json_object**(API 现状不支持 json_schema) |
+| `deepseek-v4-flash`                  |               视模式               |    optional    |                `json_object`                |
 
 **对老代码的否定**:
 
 ```ts
 const isDeepseekReasoner = modelLower.includes("deepseek-reasoner");
-// ↑ 三重错误:
-//   1. `v4-pro` 不含 "reasoner",老逻辑判 false → 发 json_schema → 撞拒
-//   2. `v4-pro` 实际上**是推理模型**(isReasoning=true),老逻辑漏判 reasoning_tokens 预算
-//   3. `v4-pro` 即使非 thinking 模式也不支持 json_schema(deepseek API 整体未支持)
+//   1. v4-pro 不含 reasoner → 判 false → 发 json_schema → 撞拒
+//   2. v4-pro 实际是推理模型(isReasoning=true)→ 老逻辑漏判 reasoning_tokens 预算
+//   3. v4-pro 即使非 thinking 也不支持 json_schema → API 整体未支持
 ```
 
-**这三条结论里没有任何一条能从模型名"猜"出来**。证明:
+**三条结论里没有任何一条能从模型名"猜"出来**——能力是模型 + provider API 的复合属性,**完全正交**,不能用一个布尔 substring 判。
 
-- 能力是**模型 + provider API 现状**的复合属性,只有模型方/admin 能定义
-- 三条能力(`isReasoning` / `thinkingMode` / `responseFormatSupport`)**完全正交**,不能用一个布尔 substring 判
-- 每加一种 capability(thinking mode、tool_use parallel、cache control...),靠名字 grep 都会再炸一次
+### 2.2 5 项危害(危害矩阵)
 
-**方案对应**:
-
-- 三条能力分别独立成 `AIModelConfig` 字段(§3.1)
-- Catalog 数据明确分开列举(§3.2)
-- 自愈兜底网在用户实际配错/catalog 漏配时自动学习(§3.4)
-
----
-
-## 2 · 目标 / 非目标
-
-### 2.1 目标
-
-1. **零 provider 名硬编码**:`ai-engine/llm/services/**`、`ai-engine/llm/adapters/**`、`ai-harness/runner/**` 主流程禁止 `modelId.includes("X")` / `provider === "X"` 之类。所有能力判定走 `AIModelConfig` 字段。
-2. **能力是数据,不是代码**:每条能力是 DB 上的字段;新 provider 加进来只需填字段,**零代码变更**。
-3. **自愈兜底**:即使字段没填,运行时撞到 provider 拒绝 → 自动降级 + 把降级结果**写回 DB**,下次自动用对的路径。
-4. **看护拦截**:ESLint 自定义 + jest 契约测试,任何回潮的 substring-on-modelId 反模式 CI 红。
-5. **不破坏现有调用**:迁移期 fallback 链保留;每片单独可回滚。
-
-### 2.2 非目标
-
-- 不重构 admin tier 系统(model-tier.types / model-fallback 的正则表是有意的运维能力分级,与运行时能力是两件事)。
-- 不动 UI 图标/显示名映射(纯装饰)。
-- 不要求一次性完成;按 6 阶段切片,每阶段单独 PR 单独可验证。
+|  #  | 危害                                      | 实证                                                      |
+| :-: | ----------------------------------------- | --------------------------------------------------------- |
+|  1  | 能力假设错配 → INVALID_REQUEST 一上来判废 | 2026-05-24 实跑:deepseek-v4-pro 发 json_schema 被拒       |
+|  2  | 新模型/新版本静默漏判                     | 代码自承"硬编码漏 o4 系列问题";gemini-3 / claude-5 又得补 |
+|  3  | 改一个能力要 grep 全仓                    | "deepseek 不支持 X" 改 N 处 includes                      |
+|  4  | 能力定义没有单一权威                      | router / api-caller / tier types 三份漂移(T1 §1.4 实证)   |
+|  5  | 看护机制缺失                              | 谁都能写 `includes("xai")`,无 lint/test 拦(T1 §1.7)       |
 
 ---
 
-## 3 · 系统设计
+## 3 · 数据模型设计
 
-### 3.1 数据模型:`ModelCapabilities`
+### 3.1 双源消灭(A0 阶段)
 
-挂在 `AIModelConfig` 上的能力字段集合(DB schema 同步加列;UserModelConfig 同步):
+**目标态**:`AIModelConfig` 单一来源 + 单一缓存。
 
-| 字段                     | 类型   | 取值                                                                | 决定                                                                                                                                              |
-| ------------------------ | ------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `responseFormatSupport`  | enum   | `none` / `json_object` / `json_schema_loose` / `json_schema_strict` | API caller 用哪一档 response_format                                                                                                               |
-| `nativeStructuredOutput` | enum   | `none` / `json_schema` / `tool_use` / `gbnf`                        | structured-output router 选 strategy 链头                                                                                                         |
-| `toolUseSupport`         | enum   | `none` / `single` / `parallel`                                      | function calling 模式                                                                                                                             |
-| `cacheControlSupport`    | bool   | —                                                                   | anthropic prompt cache 等                                                                                                                         |
-| `thinkingMode`           | enum   | `none` / `optional` / `always`                                      | 是否支持/强制 thinking 模式(deepseek-v4 系列 / claude extended thinking / gemini-2.5 等)。`optional` 时由 request hint 切换                       |
-| `isReasoning`            | bool   | —                                                                   | **已存在**,保留。**与 thinkingMode 正交**:推理模型可能本质上吃 reasoning_tokens(影响 maxTokens 预算),但是否进入 thinking 输出由 thinkingMode 决定 |
-| `supportsTemperature`    | bool   | —                                                                   | **已存在**,保留                                                                                                                                   |
-| `tokenParamName`         | string | `max_tokens` / `max_completion_tokens`                              | **已存在**,保留                                                                                                                                   |
-| `apiFormat`              | enum   | `openai` / `anthropic` / `google` / `xai`                           | **已存在**,作为 adapter 路由                                                                                                                      |
-| `provider`               | string | —                                                                   | **已存在**,作为目录归属(允许在 UI/icons 显示;**禁止在主流程做能力判断**)                                                                          |
+**步骤**:
 
-> **关键设计原则**:`provider` 字段是**目录归属**(影响 key 怎么解析、API endpoint),**不是能力描述**。能力一律走上面的能力字段。
+1. 提取 `interface AIModelConfig` 到 `ai-engine/llm/types/model-config.types.ts`,**唯一来源**
+2. `ai-model-config.service.ts` 改 `import { AIModelConfig } from "../types/model-config.types"`
+3. `ai-chat-model-config.service.ts` 整文件标 `@deprecated`,内部 re-export 兼容防 import 断
+4. ripgrep `from.*ai-chat-model-config` 找消费方(~25 处)逐一改成 `AiModelConfigService`
+5. 兼容期 1 sprint:让老 service **委托新 service**,不自维护缓存
+6. 删空壳文件
 
-### 3.2 解析层:`ModelCapabilityRegistry`
+**工时**:接口提取 + import 改写 4-6h;消费方迁移 6-10h;**总 12h**。
 
-新建 `modules/ai-engine/llm/capability/model-capability-registry.service.ts`,**单一权威解析**:
+**回滚**:每步独立 PR,可单步 revert。
 
-```ts
-@Injectable()
-export class ModelCapabilityRegistry {
-  // 三级优先级解析,前面有就返回
-  resolve(config: AIModelConfig): ModelCapabilities {
-    // 1) DB 字段(admin/user 显式配)
-    const fromConfig = this.fromConfig(config);
-    if (this.isComplete(fromConfig)) return fromConfig;
+### 3.2 capability 字段集(enum 主导)
 
-    // 2) Catalog 模板(curated 数据文件,按 provider+family 命中)
-    const fromCatalog = this.catalog.lookup(config.modelId, config.provider);
+**核心原则**:enum 优先,bool 仅用于真二态。
 
-    // 3) 保守默认(unknown provider 也能跑)
-    return merge(fromConfig, fromCatalog, SAFE_DEFAULTS);
+**v3 字段表**:
+
+| 字段名(JSONB 内嵌套路径)         | 类型                                                                                                                              | 决定                                                              | 替代                                                                                                               |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `structuredOutput.nativeMode`    | enum `'json_schema_strict' \| 'json_schema' \| 'json_mode' \| 'gemini_response_schema' \| 'tool_use' \| 'gbnf_grammar' \| 'none'` | request 体里写哪种 response_format                                | **替代死代码 5 bool**(D6)                                                                                          |
+| `structuredOutput.fallbackChain` | enum[]                                                                                                                            | 首选失败按序降级                                                  | 替 `fallbackStrategies`                                                                                            |
+| `toolUse.mode`                   | enum `'openai_functions' \| 'anthropic_tools' \| 'gemini_function_calling' \| 'none'`                                             | 工具调用 protocol(三家协议不同)                                   | 替 `supportsFunctionCalling`(老 bool 不区分协议)                                                                   |
+| `toolUse.parallelCalls`          | bool                                                                                                                              | 单回合多 tool_call 并发                                           | 新增                                                                                                               |
+| `reasoning.kind`                 | enum `'none' \| 'reasoning_effort' \| 'thinking_budget' \| 'extended_thinking' \| 'opaque'`                                       | 是否注 reasoning_effort / thinking.budget_tokens / thinkingConfig | 与既有 `isReasoning` 列**正交**(D1 保留既有列);本字段决定"如何注",isReasoning 仍决定"是否吃 reasoning_tokens 预算" |
+| `temperature.support`            | enum `'full' \| 'fixed_1.0' \| 'none'`                                                                                            | full / fixed_1.0(o1 行为) / none                                  | 替既有 `supportsTemperature` bool(老 bool 无法表达 fixed_1.0)                                                      |
+| `tokenParam`                     | enum `'max_tokens' \| 'max_completion_tokens' \| 'max_output_tokens' \| 'maxOutputTokens'`                                        | request body token 上限 key 名                                    | 替既有 `tokenParamName` string(防笔误,gemini camelCase 易写错)                                                     |
+| `vision.support`                 | enum `'none' \| 'image_url' \| 'base64_only' \| 'native_multimodal'`                                                              | 图片接受方式                                                      | 替既有 `supportsVision` bool                                                                                       |
+| `streaming.support`              | bool                                                                                                                              | SSE 流支持                                                        | 保留既有 `supportsStreaming`                                                                                       |
+| `context.maxInputTokens`         | int                                                                                                                               | prompt 上限                                                       | 扩展既有 `maxInputTokens`                                                                                          |
+| `context.maxOutputTokens`        | int                                                                                                                               | completion 上限                                                   | 复用 `maxTokens`                                                                                                   |
+| `systemPrompt.placement`         | enum `'messages_array' \| 'top_level_system_field' \| 'first_user_concat'`                                                        | system 放哪儿                                                     | 新增(消除散落在 caller 的 if-else)                                                                                 |
+| `promptCache.support`            | enum `'none' \| 'anthropic_cache_control' \| 'openai_prompt_cache' \| 'gemini_cached_content'`                                    | prompt cache 协议                                                 | 新增(nice-to-have)                                                                                                 |
+| `reasoning.exposeContent`        | enum `'none' \| 'thinking_block' \| 'reasoning_field'`                                                                            | 响应是否暴露推理过程                                              | 新增(UI 透出)                                                                                                      |
+
+**显式 drop**(D6):`supportsJsonSchemaStrict / supportsJsonSchema / supportsJsonMode / supportsToolUse / supportsGbnfGrammar` 5 个 bool —— T1 实证零运行时读者,直接删,不双写。
+
+### 3.3 `capability_overrides` JSONB 列(D1)
+
+**Schema**:
+
+```typescript
+// AIModel.capability_overrides JSONB (nullable, default null)
+// UserModelConfig.capability_overrides JSONB (nullable, default null)
+{
+  // 任何上面 3.2 表的字段都可在这里覆盖
+  structuredOutput?: { nativeMode?: ..., fallbackChain?: [...] },
+  toolUse?: { mode?: ..., parallelCalls?: ... },
+  reasoning?: { kind?: ..., exposeContent?: ... },
+  temperature?: { support?: ... },
+  // ...
+  // 自愈写入额外字段:
+  __meta?: {
+    autoDowngraded: boolean,
+    selfHealedAt: timestamp,
+    selfHealedReason: string,  // short code, 非 raw msg
   }
 }
 ```
 
-**Catalog 模板**:新建 `modules/ai-engine/llm/capability/model-capability-catalog.ts`——**纯数据文件**,集中维护已知 provider+model 家族的能力默认值:
+**Zod schema 强校验**:写入侧用 `ModelCapabilityOverridesSchema.parse()` 必须通过,防 JSONB 内字段拼写错。
 
-```ts
-// 仅作 model discovery / 首次 BYOK 加模型时的 default 填充,运行时不查询。
-// 新 provider 加进来只在这里加一条数据,零业务代码改动。
-//
-// match 命中顺序:更具体的 modelPattern 优先(deepseek-reasoner 比 deepseek* 先匹配)。
-// 任何条目的字段不全没关系——SAFE_DEFAULTS 兜底,自愈网在线学习。
-export const CAPABILITY_CATALOG: ReadonlyArray<CapabilityCatalogEntry> = [
-  // DeepSeek 系列(参 §1.4 案例研究)
-  {
-    match: { provider: "deepseek", modelPattern: /reasoner|thinking/i },
-    capabilities: {
-      isReasoning: true,
-      thinkingMode: "always",
-      responseFormatSupport: "none", // thinking 模式拒 response_format
-      nativeStructuredOutput: "none",
-    },
-  },
-  {
-    match: { provider: "deepseek", modelPattern: /v4-pro/i },
-    capabilities: {
-      isReasoning: true, // 推理模型,吃 reasoning tokens
-      thinkingMode: "optional", // 可由 request hint 切换
-      responseFormatSupport: "json_object", // 现 API 不支持 json_schema
-      nativeStructuredOutput: "none",
-    },
-  },
-  {
-    match: { provider: "deepseek" }, // chat / v4-flash 等
-    capabilities: {
-      isReasoning: false,
-      thinkingMode: "none",
-      responseFormatSupport: "json_object",
-      nativeStructuredOutput: "none",
-    },
-  },
-  // OpenAI / Anthropic / Google / xAI / Qwen / Moonshot / ... 按已知行为分别列
-];
+### 3.4 capability 解析优先级(5 级)
+
+```
+resolveCapabilities(modelId, userId) → ModelCapabilities
+
+1. UserModelConfig.capability_overrides (BYOK 用户显式 / 用户 self-heal)
+2. AIModel.capability_overrides (admin 显式 override,审计写入)
+3. AIModel 19 既有列 + AiChat-derived(温度/maxTokens/isReasoning 等)
+4. ProviderCapabilityDefaults(代码常量,从 router PROVIDER_DEFAULT_CHAINS 收编而来)
+5. ApiFormatDefaults + HardFallback(`responseFormatSupport='none'` 全安全)
 ```
 
-> **这是设计上唯一允许的 "provider 名字符串"出现地**——因为它**就是数据**(catalog),不在业务路径,等同 `cities.json`。读它的代码全程零 `if (provider === "X")`。
+**缓存**:
 
-**保守默认**(catalog 没命中的未知 provider):
+- L1 内存 Map `<scopeKey, ModelCapabilities>` TTL 5min(复用既有 `MODEL_CONFIG_CACHE_TTL`)
+- `scopeKey = sha256(provider | modelId | normalize(endpoint))`(T3 设计,跨租户不串)
+- 用户层 key `<userId:scopeKey>` 防 PERSONAL/ASSIGNED 串读
 
-```ts
-const SAFE_DEFAULTS: ModelCapabilities = {
-  responseFormatSupport: "json_object", // 几乎所有 OpenAI-compatible 都支持
-  nativeStructuredOutput: "none", // 退化到 prompt 注入
-  toolUseSupport: "none",
-  cacheControlSupport: false,
-  isReasoning: false,
-  supportsTemperature: true,
-};
-```
+**失效**:
 
-### 3.3 主流程改造:caller 只读 capabilities
+- admin 编辑 → `model.capability.changed` 事件 → 各 instance 清本地 key
+- 用户编辑 → 同上(只清该 user)
+- 5min TTL 自然失效兜底
 
-**`ai-api-caller.service.ts`(核心改造)**:
+### 3.5 与 StructuredOutputRouter 收敛(单源)
 
-```ts
-// 删 isDeepseekReasoner 这种 substring 判断,改成:
-const caps = this.capabilityRegistry.resolve(config);
+**选 A:router 改派生视图**,删 router 内 `PROVIDER_DEFAULT_CHAINS` 14 条。
 
-switch (caps.responseFormatSupport) {
-  case "json_schema_strict":
-    requestBody.response_format = { type: "json_schema", json_schema: { ..., strict: true } };
-    break;
-  case "json_schema_loose":
-    requestBody.response_format = { type: "json_schema", json_schema: { ..., strict: false } };
-    break;
-  case "json_object":
-    requestBody.response_format = { type: "json_object" };
-    // schema 注入 system prompt 做软约束
-    injectJsonHintToSystemPrompt(messages, outputJsonSchema);
-    break;
-  case "none":
-    // 不发 response_format,纯 system-prompt 约束
-    injectJsonHintToSystemPrompt(messages, outputJsonSchema);
-    break;
+```typescript
+class StructuredOutputRouter {
+  // 删 resolveChain(model) —— 不再做策略推断
+  getAdaptersForChain(chain: readonly Strategy[]): IStructuredOutputAdapter[];
+  getAdapter(strategy: Strategy): IStructuredOutputAdapter;
+}
+
+class ModelCapabilityService {
+  resolveCapabilities(modelId, userId?): Promise<ModelCapabilities>;
+  deriveStructuredOutputChain(caps): readonly Strategy[]
+    = [caps.structuredOutput.nativeMode, ...caps.structuredOutput.fallbackChain, 'prompt'];
 }
 ```
 
-**`structured-output-router.service.ts`**:把 `match: (p) => /deepseek/.test(p)` 这种条目去掉,改成读 `caps.nativeStructuredOutput`,把 strategy 链生成逻辑搬到 `CAPABILITY_CATALOG`(数据)。
+**provider 启发式**:14 条 `PROVIDER_DEFAULT_CHAINS` 搬到 `ModelCapabilityService` 内的 `ProviderCapabilityDefaults`(作为 §3.4 优先级 #4 的代码常量兜底),**不删能力,换归属**。
 
-**`ai-chat.service.ts:509-520` / `function-calling-llm.adapter.ts:555-582`** 推 provider 的 substring 判断 → 直接用 `config.apiFormat` 路由(字段已存在,零新增)。
+### 3.6 `ModelCapabilities` 不出 facade
 
-### 3.4 自愈兜底:运行时学习
+边界声明:`ModelCapabilities` 类型仅在 `ai-engine/llm/capability/**` + `ai-engine/llm/services/**` 可见。**不**经 `ai-harness/facade` 导出。ai-app 调 `AiChatService.chat()` 是黑盒,不读 caps。若需"推荐 model",在 engine 内增决策接口而非暴露 caps —— 防 ai-app 再生 `if (caps.toolUse.mode === 'parallel')` 散点。
 
-即使 catalog 漏配/admin 没填,撞到 provider 拒绝时**自动降级 + 持久化**:
+---
 
-```ts
-// ai-api-caller.service.ts 包装层
-async callWithCapabilityHealing(config, request, caps) {
-  try {
-    return await this.callRaw(config, request);
-  } catch (err) {
-    const downgrade = detectCapabilityDowngrade(err, caps);
-    // 例:err.message 含 "response_format ... unavailable/unsupported"
-    //   → downgrade = { responseFormatSupport: "none" }
-    if (!downgrade) throw err;
+## 4 · 安全架构(基于 T3)
 
-    this.logger.warn(`[capability-self-heal] ${config.modelId} ${JSON.stringify(downgrade)}`);
-    // 1) 同请求按降级后能力重试(同模型,不换)
-    const newCaps = { ...caps, ...downgrade };
-    const result = await this.callRaw(config, this.rebuild(request, newCaps));
-    // 2) 持久化:把降级写回 DB,下次自动用对的
-    await this.modelConfigService.updateCapabilities(config.modelId, downgrade);
-    return result;
-  }
+### 4.1 10 项威胁模型
+
+|  #  | 攻击者                               | 攻击路径                                                                                | 影响                       | v3 防御                   |
+| :-: | ------------------------------------ | --------------------------------------------------------------------------------------- | -------------------------- | ------------------------- |
+|  1  | 恶意 BYOK proxy(自建 LiteLLM/Ollama) | err body 写 "unsupported" → 自愈降级 → 钉死全平台                                       | 跨租户全平台退化           | §4.2 scope 隔离           |
+|  2  | 普通用户调 admin 端点                | curl `PATCH /admin/ai/models/:id/capabilities` 漏 RolesGuard                            | 任意用户改全局             | §4.5 鉴权                 |
+|  3  | 自愈级联跑飞                         | 偶发 5xx → 误判 capability → 一路降到 none → 无复原                                     | 模型变 plain text 永不回复 | §4.6 复原通道             |
+|  4  | 200 OK deprecation 误判              | 响应里 "may be deprecated" warning → 关键字匹配吃掉                                     | 正常调用就降级             | §4.3 错误信号严格化       |
+|  5  | catalog 投毒 PR                      | `match: {provider: ".*"}` 兜底 → 全平台同时丢能力                                       | 全平台单点失能             | §4.7 投毒防御             |
+|  6  | err.message 日志泄露                 | provider 把 prompt/key 尾回填进 error → 日志聚合 → 反推隐私                             | PII / key 泄露             | §4.8 脱敏                 |
+|  7  | 并发降级写竞态                       | 同 modelId 5 并发 4xx → 各 worker "读-比较-写" → audit 5 条重复                         | 状态错乱                   | §4.4 advisory lock        |
+|  8  | admin override 秒覆盖                | admin 改 `true` → 5 秒内自愈降回 `false`                                                | admin 失去话语权           | §4.4 24h cooling-off      |
+|  9  | 凭据/endpoint 变更后旧 caps 残留     | 用户换 key,老降级仍生效                                                                 | "换 key 没用"              | §4.6 反向探测             |
+| 10  | 跨 provider 误降级                   | 用户走 OpenRouter 的 gpt-4o 失败 → 降级写到 system gpt-4o 行 → 影响走官方 OpenAI 的用户 | 跨 endpoint 污染           | §4.2 scopeKey 含 endpoint |
+
+### 4.2 Scope 隔离矩阵
+
+**核心原则**:写入 scope **严格等于** (userId, endpoint, model) 三元组;**永不向上越级**。
+
+| 触发源(resolved.source)                                             | 允许写入                                                         | 禁止写入                     | 理由                                                                                              |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| **PERSONAL**(UserModelConfig + 用户 endpoint)                       | `UserModelConfig.capability_overrides`(D2 JSONB 字段,**仅本行**) | `AIModel.*` / 其它 user 行   | 用户自配 proxy 的行为只能影响自己                                                                 |
+| **PERSONAL** + system AIModel(用户用 personal key 跑 admin modelId) | `UserModelConfig.capability_overrides`(创建 BYOK 行)             | `AIModel.*` 任何全局表       | endpoint 是用户的,不能改全局                                                                      |
+| **ASSIGNED** / **SYSTEM**(admin endpoint)                           | **不允许自愈写入**(D2 第一期不做 observation 表)                 | `AIModel.supports*`          | admin endpoint 失败 = admin 排查,自愈不擅自改全局;**未来加 observation 表后**:只 INSERT 不 UPDATE |
+| **admin override 路径**                                             | `AIModel.capability_overrides`(D2 唯一可改全局表路径)            | `UserModelConfig` 任何用户行 | admin 不跨进用户私有配置                                                                          |
+
+**实现**:
+
+- `scopeKey = sha256(provider | modelId | normalize(endpoint))`
+- `updateCapabilities(scope: 'admin-override' \| 'self-heal-user', ...)` 参数化;scope='admin-override' 需 admin guard;scope='self-heal-user' 拒绝跨用户写
+- 自愈逻辑的 service 入口物理上**只能**写 JSONB 字段,**不能**触及 19 列(代码 + lint 双重禁)
+
+### 4.3 错误信号 4 重严格化(必须全满足才触发降级)
+
+1. **HTTP status 白名单**:仅 400/422。**绝不**:429/5xx/401/403(quota/服务端/鉴权)
+2. **error code 白名单**(按 apiFormat 分):
+   - openai: `invalid_request_error` + `param ∈ {response_format, tools, tool_choice, functions}`
+   - anthropic: `invalid_request_error` + path 含 `response_format` 或 `tool_use`
+   - google: `INVALID_ARGUMENT` + `field_violations` 指向 `responseSchema` / `tools`
+3. **响应位置严格**:**仅** 4xx 响应体 error 对象。**禁止**扫描:
+   - 200 OK 响应里的 warning/notice
+   - error.message 自由文本里的 substring(防关键字钓鱼)
+4. **反向校验(request-response 一致)**:request **实际发了** `response_format:{type:"json_schema"}`,err 才能映射到 `nativeMode='json_schema'→json_object`。如果只发了 `json_object`,err 最多映射到 `none`,**绝不**反推上层能力。
+
+**降级阶梯固化**(单调):`json_schema_strict → json_schema → json_object → tool_use → none`。禁止跨级跳。
+
+### 4.4 阈值 + 去抖 + 锁
+
+- **单次抖动绝不落 DB**:同 `(scopeKey, field, fromValue)` 三元组 **失败信号 N=3 次 / M=10 分钟** 内才提交
+- **计数器**:Redis `INCR` + `EXPIRE M`,key = `cap-downgrade:{scopeKey}:{field}:{fromValue}`
+- **Redis 不可用**:降级为只记日志,**绝不写 DB**(fail-closed)
+- **并发竞态**:Postgres `pg_try_advisory_xact_lock(hash(scopeKey, field))` 防双写;拿不到锁等下次累计
+- **admin 冷静期(cooling-off)**:任何 capability 字段被 admin 显式 PATCH 后,**24h** 内同 (scopeKey, field) 自愈写入**强制禁用**(继续计数但不提交);实现:override 表加 `overrideAt`,自愈写前 `SELECT WHERE overrideAt > NOW() - 24h` 命中即跳过 + 记 `cap.heal.skipped_by_cooling_off`
+
+### 4.5 鉴权 + AuditLog
+
+| 路径                                       | Guard 链                                                                             | 允许 actor                           | 写入                                           | AuditLog 字段                                                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------ | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `PATCH /admin/ai-models/:id/capabilities`  | `JwtAuthGuard + RolesGuard + @Roles('admin')`                                        | admin                                | `AIModel.capability_overrides`                 | `(id, actor, actorRole, scope='global', targetId, field, before, after, reason必填, ipAddress, userAgent, at)` |
+| `PATCH /me/model-configs/:id/capabilities` | `JwtAuthGuard + @CurrentUser` + ownership 校验(`existing.userId === currentUser.id`) | user 本人                            | `UserModelConfig.capability_overrides`(仅本行) | `(actor=user.id, scope='user-config', ...)`                                                                    |
+| 自愈写回(user scope)                       | 内部 service,无 HTTP                                                                 | `actor='system'`,附 `triggerEventId` | `UserModelConfig.capability_overrides.__meta`  | `(actor='system', triggerRequestId, scopeKey, field, before, after, reason='auto-heal', observationCount, at)` |
+| 自愈写回(admin scope)                      | **D2 第一期禁止**                                                                    | —                                    | —                                              | —                                                                                                              |
+| admin 批量 reset                           | `JwtAuthGuard + RolesGuard + @Roles('admin')`                                        | admin                                | DELETE 命中行                                  | 每行单独 audit                                                                                                 |
+
+所有 audit 用既有 `AuditLogService`,与业务**同事务**(避免业务成功 audit 失败的不一致)。audit 行不可删不可改(DB trigger 拒 UPDATE/DELETE)。
+
+### 4.6 复原 3 通道(防 false-neg 卡死)
+
+1. **后台反向探测**(probe daemon)
+   - 周期:每条 `capability_overrides.__meta.autoDowngraded=true` 行每 6h 探测一次;首次 = `triggeredAt + 6h`
+   - 探测形态:最小有效 payload(如 json_schema 探测 `{"type":"object","properties":{"ok":{"type":"boolean"}}}` + system="reply {ok:true}",max_tokens=10)
+   - 成功 → 删除 override 字段 + audit `actor=system-probe, action=reset, reason=probe-recovered`
+   - 失败 → 推迟下次到 `now + min(2^attempts × 6h, 7d)`,避免对坏 endpoint 持续打扰
+   - 探测**不计入** failure 阈值(标记 `isProbe=true`)
+
+2. **admin 一键 reset**
+   - `POST /admin/ai/capability-overrides/reset` 支持 `{scope:'all'|'user', userId?, modelId?}`
+
+3. **catalog 升级触发批量 reset**
+   - capability catalog 文件有 `version` 字段
+   - 启动时检测 version 增长,自动 migration:DELETE 所有 `__meta.actor='self-heal'` 的 override(保留 admin 显式 override)
+
+**闭环**:复原后需重新走阈值才会再降级 → 单次 false-positive 永不卡死。
+
+### 4.7 catalog 投毒防御(D4 强制)
+
+- **CODEOWNERS**:`backend/src/modules/ai-engine/llm/capability/catalog/* @architect-team @ai-platform-leads` ≥2 reviewer required
+- **jest 形状测试**(`capability-catalog.spec.ts`):
+  - 禁止过宽:`expect(rule.match.provider).not.toBeOneOf(['', null, '*', '.*'])`、`expect(Object.keys(rule.match).length).toBeGreaterThanOrEqual(2)` 单条件不允许
+  - `modelPattern` 长度 ≥3(防 `/a/i` 这种)
+  - **强制字段**(D4):`rationale.length ≥ 30` + `addedBy` 必填(git author email)+ `addedAt` ISO date 必填 + `sourceUrl` 选填
+  - 单条 rule 影响面 ≤ 20 个 AIModel 行(启动时用 DB count 模拟)
+- **lint 禁动态 import**:catalog 数据只允许静态 `import`,禁 `require()`
+- CI 阶段:catalog diff 触发 `review-required` label,无法 self-merge
+
+### 4.8 脱敏 + 可观测
+
+**错误消息脱敏**(classifier 入口集中实现一次):
+
+- 正则剥离 `sk-* / ya29.* / 任何 ≥20 长度 base64-like` → `[REDACTED-KEY]`
+- 剥离 email / IPv4 / phone → `[REDACTED-PII]`
+- 剥离引号包裹 prompt 片段(`"..."` 长度 > 50) → `[REDACTED-PROMPT]`
+- 截断 max 200 字符
+- **`originalMessage` 不存 DB**,只 in-memory 决策用;DB 落 `sanitizedReason`
+
+**Prometheus 指标**:
+
+- `cap_heal_trigger_total{provider, model, scope, field, fromValue, toValue}`
+- `cap_heal_skipped_by_cooling_off_total{scope, field}`
+- `cap_heal_probe_total{result=recovered|failed, scope, field}`
+- `cap_admin_override_total{actor, scope, field}`
+- `cap_signal_classified_total{httpStatus, providerErrorCode, accepted=true|false}` ← 4 重严格化漏斗
+
+**告警**:
+
+- `cap_heal_trigger_total` 1h 突增 >50 → oncall page(可能 provider 集体故障或 catalog 投毒)
+- `cap_admin_override_total` 1h >10 → admin 与自愈打架,排查
+- 单 scopeKey 30 天降级 >3 次 → 邮件提示用户检查 endpoint
+
+### 4.9 失败模式 + 防御
+
+| 失败模式                                                              | 防御                                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Redis 挂** → 计数器失效                                             | classifier 检测 Redis 不可达**fail-closed**:跳过所有自愈写入,只写 audit `(action=heal-skipped, reason=counter-unavailable)`,业务请求继续走原 capability                                                                              |
+| **probe daemon 崩** → override 永不复原                               | (1) K8s liveness 探测;(2) override 行有 `nextProbeAt` 字段,admin GET 列表时显示"距下次探测 X 小时",超 24h 未探测高亮警告;(3) 用户自助:UI 点"重置我的 capability 缓存",立即删自己 scope 下所有 `__meta.actor='self-heal'` 的 override |
+| **classifier 升级引入误判** → false-positive 大量 override → 体验退化 | (1) 改动必须带回归测试集(real provider error fixture 库);(2) 灰度开关 `feature.capability_heal.write_enabled = true \| false \| shadow`,shadow 只记指标不写 DB,新版必须先 shadow 跑 7d 指标稳定再切真写                              |
+
+---
+
+## 5 · 看护机制(基于 T4)
+
+### 5.1 ESLint 自定义规则:`@genesis/no-model-name-string-match`
+
+**位置**:`backend/eslint-rules/no-model-name-string-match.js`(本地 plugin)。
+
+**12 项 AST 触发模式**:
+
+|  #  | 反模式                                                        | AST selector                                                                                                                                    |
+| :-: | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+|  1  | `x.includes("deepseek")` / startsWith/endsWith/indexOf/search | `CallExpression[callee.type='MemberExpression'][callee.property.name=/^(includes\|startsWith\|endsWith\|indexOf\|search)$/]` arg = Literal 命中 |
+|  2  | `x.match(/deepseek/i)` / `.test()`                            | arg 是 RegExpLiteral / Literal 命中                                                                                                             |
+|  3  | `/deepseek/.test(x)`                                          | `CallExpression[callee.object.type='Literal'][callee.property.name='test']`                                                                     |
+|  4  | `new RegExp("deep" + "seek")`                                 | `NewExpression[callee.name='RegExp']` arg 静态求值后命中(§5.2)                                                                                  |
+|  5  | `x === "deepseek"` / `==`                                     | `BinaryExpression[operator=/^(===\|==\|!==\|!=)$/]` 任一侧 Literal 命中                                                                         |
+|  6  | 反向 includes:`"openai-gpt-4".includes(x)`                    | `callee.object` 是 Literal/ArrayExpression,任一 string 命中                                                                                     |
+|  7  | switch-case:`switch(x){case "deepseek":...}`                  | `SwitchCase > Literal.test` 命中                                                                                                                |
+|  8  | Map 路由:`{deepseek:..., openai:...}[modelId]`                | `MemberExpression[computed=true] > ObjectExpression.object > Property.key.Literal` 命中,Property ≥2                                             |
+|  9  | TemplateLiteral:`` `is ${id} deepseek` === x ``               | TemplateLiteral.quasi.raw 命中                                                                                                                  |
+| 10  | 字符串拼接:`"deep"+"seek"` / `["dee","pseek"].join("")`       | §5.2 静态求值                                                                                                                                   |
+| 11  | atob/decodeURIComponent/Buffer.from 反编码                    | 静态评估解码结果命中                                                                                                                            |
+| 12  | Reflect.get / 索引访问:`obj["deepseek"]`                      | `MemberExpression[computed=true][property.type='Literal']` 命中                                                                                 |
+
+### 5.2 共享静态求值器(ESLint + jest 同份代码)
+
+`backend/eslint-rules/_helpers/static-string-eval.ts`:
+
+```typescript
+function tryEvalStaticString(node): string | null {
+  // Literal → 直接返回
+  // TemplateLiteral(无 expression 或可求值)→ 拼接
+  // BinaryExpression[op='+'] 两侧可求值 → 拼接
+  // CallExpression:Array.join / Array.concat / String.fromCharCode / atob(literal) / Buffer.from(literal,'base64').toString()
+  // 否则 null
 }
 ```
 
-**误差信号 → 降级映射**(完全数据驱动,在 capability/error-signals.ts):
+求值结果 normalize:`s.toLowerCase().replace(/[-_.\s]/g, "")` → 防 `Gpt_4O` / `gpt.4-o` / `Deep Seek` 等变形绕过。
 
-```ts
-// 通用正则,匹配多家 provider 的错误措辞,不写任何 provider 名
-const ERROR_DOWNGRADE_RULES: Array<{
-  match: RegExp;
-  downgrade: Partial<ModelCapabilities>;
-  rationale: string;
-}> = [
-  {
-    match:
-      /response_format.*(?:unavailable|unsupported|not\s+supported|invalid)/i,
-    downgrade: { responseFormatSupport: "none" },
-    rationale: "Provider rejected response_format → drop it, use prompt hint",
-  },
-  {
-    match: /json_schema.*(?:unsupported|not\s+supported|invalid_type)/i,
-    downgrade: { responseFormatSupport: "json_object" },
-    rationale: "Provider supports json_object but not json_schema",
-  },
-  {
-    match: /tool_use.*unsupported|tools.*not\s+supported/i,
-    downgrade: { toolUseSupport: "none" },
-    rationale: "Provider rejected tool_use → fallback to prompt",
-  },
-  // ... 仍然不写 deepseek / openai 等 provider 名
-];
-```
+**承认局限**:跨函数变量传递(`const a="deep"; const b="seek"; foo(a+b)`)拦不住——列已知盲区,靠 CODEOWNERS + review。`eval()` / `new Function(string)` 走独立 `no-eval` 规则。
 
-**意义**:
+### 5.3 配套规则:`@genesis/require-disable-reason`
 
-1. **完全数据驱动**——上面整条链零 provider 名硬编码
-2. **自我增强**——线上新 provider 没填 catalog 也能跑,且自动学
-3. **可观测**——self-heal log + DB capability 更新审计
+`eslint-disable-next-line @genesis/no-model-name-string-match` 必须配 `// reason: <≥10 字>` 注释,无 reason → 第二条 meta rule 报错。
 
-### 3.5 看护机制(防回潮)
-
-**ESLint 自定义规则** `eslint-rules/no-model-name-string-match.js`:
+### 5.4 白名单(AST 路径级,非文件级)
 
 ```js
-// 禁止在指定路径下用 modelId/provider 名做 substring/正则
 {
-  meta: { schema: [{ properties: { allowedPaths: { ... } } }] },
-  create(context) {
-    return {
-      CallExpression(node) {
-        // 1. xxx.includes("deepseek"|"gpt"|"claude"|"gemini"|"grok"|"xai"|...)
-        // 2. /deepseek|gpt|claude|.../.test(xxx)
-        // 3. xxx === "deepseek" | "openai" | ...
-        if (matchesForbiddenPattern(node)) {
-          context.report({
-            node,
-            message:
-              "禁止用 modelId/provider 名做 substring/正则判定。" +
-              "改用 ModelCapabilities 字段(参 model-capability-driven-runtime.md)。",
-          });
-        }
-      },
-    };
-  },
+  forbiddenNames: require('./eslint-rules/forbidden-model-names.json'),
+  allowedASTContexts: [
+    // ① catalog:仅允许 Property[key.name=provider|modelPattern|modelId|modelFamily] 的 Literal value
+    { whenAncestor: 'Property', whenAncestorKey: ['provider', 'modelPattern', 'modelId', 'modelFamily'], onlyAsValue: true },
+    // ② 路由 fallback util:函数名匹配 inferXxxFromName / matchProviderFromId / detectModelFamily
+    { whenAncestor: 'FunctionDeclaration|FunctionExpression|ArrowFunctionExpression',
+      whenAncestorIdMatches: /^(infer|detect|match|resolve)[A-Z]\w*(FromName|FromId|Provider|Family)$/ },
+    // ③ icon 路径:Literal 是 "/icons/(ai|providers)/X.svg"
+    { whenSiblingPattern: /^\/icons\/(ai|providers)\// },
+  ],
 }
 ```
 
-**白名单路径**(在 `.eslintrc.js`):
+**测试目录整体豁免**:`**/__tests__/**`、`*.spec.ts`、`*.test.ts`、`**/fixtures/**`(ESLint overrides 关闭规则)。
 
-- `modules/ai-engine/llm/capability/model-capability-catalog.ts`(catalog 数据文件,允许)
-- `**/icons/**` / display name 路径(UI 装饰,允许)
-- `__tests__/**`(测试 fixture,允许)
-- adapter 路由 fallback(`config.apiFormat` 缺失时的兜底,带 `// eslint-disable-next-line ... reason: fallback-only` 标记)
+**关键**:catalog 文件**不**整文件白名单——同一 catalog 文件内若出现 `if (modelId.includes("deepseek"))`,依然报错。
 
-**Jest 契约测试** `__tests__/architecture/no-model-name-hardcode.contract.spec.ts`:
+### 5.5 `FORBIDDEN_NAMES` 全集(60+ 项)
 
-```ts
-// 静态扫描禁区文件,确保没有 provider 名 substring
-const FORBIDDEN_PATHS = [
-  "src/modules/ai-engine/llm/services/**/*.ts",
-  "src/modules/ai-engine/llm/adapters/**/*.ts",
-  "src/modules/ai-harness/runner/**/*.ts",
-];
-const FORBIDDEN_NAMES = [
-  "deepseek", "openai", "gpt-", "claude", "anthropic",
-  "gemini", "grok", "xai", "qwen", "kimi", "moonshot", ...
-];
+```
+openai, open-ai, openAi, anthropic, claude, claude-3, claude-sonnet, claude-opus, claude-haiku,
+gpt, gpt-3, gpt-3.5, gpt-4, gpt-4o, gpt-4-turbo, gpt-5, o1, o3, o4,
+deepseek, deep-seek, deepseek-r1, deepseek-v3, deepseek-v4,
+grok, xai, x-ai, grok-2, grok-3, grok-4,
+gemini, gemini-pro, gemini-1.5, gemini-2, gemini-3, google-ai, palm, bard,
+llama, llama-2, llama-3, meta-llama, mistral, mixtral, mistral-large,
+qwen, qwen2, tongyi, dashscope, doubao, ark, volcengine,
+moonshot, kimi, kimi-k2, zhipu, glm, glm-4, chatglm,
+minimax, abab, yi, 01-ai, yi-large, baichuan,
+cohere, command-r, perplexity, sonar, groq,
+together, together-ai, fireworks, fireworks-ai, replicate, huggingface, hf,
+litellm, openrouter, azure-openai, bedrock, vertex,
+imagen, dall-e, flux, midjourney, ideogram
+```
 
-it("禁区文件不得包含 provider 名 substring(白名单除外)", () => {
-  for (const file of glob(FORBIDDEN_PATHS)) {
-    if (isWhitelisted(file)) continue;
-    const src = fs.readFileSync(file, "utf8");
-    for (const name of FORBIDDEN_NAMES) {
-      const hits = findStringLiteralOccurrences(src, name);
-      expect(hits).toEqual([]);
-    }
-  }
+匹配前 normalize:`s.toLowerCase().replace(/[-_.\s]/g, "")`。
+
+### 5.6 jest 契约测试
+
+**位置**:`backend/src/__tests__/architecture/no-hardcoded-model-name.spec.ts`
+
+**实现**:用 TypeScript Compiler API(**不**用 grep)——AST 天然不含注释,根治 FP=0。与 ESLint 共享 `tryEvalStaticString`。
+
+**核心断言**:
+
+```typescript
+it("hardcoded model-name hits ≤ baseline", () => {
+  const baseline = readBaseline();
+  const currentHits = scanAll();
+  const baselineKeys = new Set(
+    baseline.hits.map((h) => `${h.file}:${h.snippet}`),
+  );
+  const currentKeys = new Set(currentHits.map((h) => `${h.file}:${h.snippet}`));
+  // 新增违规硬断言 0
+  const added = [...currentKeys].filter((k) => !baselineKeys.has(k));
+  expect(added).toEqual([]);
+  // 数量只能降:旧违规修一个,baseline 也要减一
+  expect(currentHits.length).toBeLessThanOrEqual(baseline.hits.length);
+});
+
+it("baseline 不得含已过期条目", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const expired = baseline.hits.filter(
+    (h) => h.expiresAt && h.expiresAt < today,
+  );
+  expect(expired).toEqual([]);
 });
 ```
 
----
+### 5.7 Baseline 锁(只降不升 + 过期约束)
 
-## 4 · 6 阶段迁移计划
+**Baseline 文件**:`backend/src/__tests__/architecture/hardcoded-model-name.baseline.json`
 
-每片 = 独立 PR + 独立 verify + 单独可回滚。
+```json
+{
+  "version": 1,
+  "lastUpdated": "2026-XX-XX",
+  "hits": [
+    {
+      "file": "modules/ai-engine/llm/services/...",
+      "line": 142,
+      "snippet": "...",
+      "reason": "C 阶段清扫遗留,W4 清零",
+      "ownedBy": "@junjie",
+      "expiresAt": "2026-07-01"
+    }
+  ]
+}
+```
 
-### 阶段 A:**自愈兜底网 + capability 最小集** ⏱ 即时止血
+**CR 补 baseline 流程**:
 
-**问题**:你今天的 mission 一上来就死。
+1. `reason` + `ownedBy` + `expiresAt`(≤8 周后)必填
+2. baseline 文件 CODEOWNERS = `@architect-team` 强制 review
+3. 任何 PR 修改 baseline +1 architect review
 
-**改动**:
+**防 merge conflict 误"解决"**:测试加 `addedAt > 30 天前的条目不许在 PR 新出现` 校验,防被复活成"新增"。
 
-1. 加 `ModelCapabilities` 类型(`capability/model-capabilities.types.ts`)
-2. 加 `ModelCapabilityRegistry` + `CAPABILITY_CATALOG` 最小集(只填 `responseFormatSupport`)
-3. `ai-api-caller.service.ts` 把 `isDeepseekReasoner` 删掉,改读 `caps.responseFormatSupport`
-4. 包 `callWithCapabilityHealing`:`response_format unavailable/unsupported` → 同模型降级重试 + log(暂不写回 DB,下一阶段加)
-5. Catalog 数据:`provider:"deepseek"` 默认 `responseFormatSupport: "json_object"`;`deepseek-reasoner` `"none"`;其它 provider 按照已知行为填
+### 5.8 上线顺序(5 阶段防 CI 自锁)
 
-**Verify**:
+```
+①  阶段 F.1:jest baseline 锁先上 — baseline = 当前全集(约 N 处),
+            断言"只降不升"。此刻所有人能推。
+②  C 阶段并行:按业务域批量清扫,每批同步删 baseline.json 条目
+③  阶段 F.2:baseline 清零后(hits.length===0),断言改 toEqual([]),删 baseline.json
+④  阶段 F.3:ESLint 规则上线 warn 一周(IDE 显红但不阻塞)
+⑤  阶段 F.4:warn→error,pre-commit/pre-push 强拦
+⑥  阶段 F.5:pre-push 加 `npm run verify:no-hardcoded-model-name` 二次保险
+```
 
-- 单测:capability resolve 三级优先级 + catalog 命中
-- 集成:mock 一次 `INVALID_REQUEST: response_format unavailable` → 自愈降级 → 第二次成功
-- 删除 `isDeepseekReasoner` 后,deepseek-v4-pro mock 走 json_object 路径,不报错
+**渐进过渡工具**:`npm run audit:model-names -- --baseline-diff` 输出"距清零还剩 X 条 / 各业务域分布"。
 
-**风险**:中(改 API caller 核心),自愈兜底让风险可控。
+### 5.9 失败模式
 
-**预估**:~6 小时(含测试)。
-
-### 阶段 B:**capability 持久化 + DB schema**
-
-**改动**:
-
-1. Prisma 迁移:`AIModel` + `UserModelConfig` 加 `responseFormatSupport` 等列(nullable,迁移 default null)
-2. `AiModelConfigService` 读 DB 字段填充 `AIModelConfig`
-3. `ModelCapabilityRegistry.resolve()` 优先级生效:DB → Catalog → Default
-4. 自愈降级**写回 DB**(`updateCapabilities`),下次自动用对的
-
-**Verify**:迁移可逆;无字段时退化到 catalog;写回后下次读 DB 值生效
-
-**风险**:低(纯附加列)
-
-**预估**:~4 小时
-
-### 阶段 C:**全 P0 反模式清扫**
-
-**改动**:
-
-1. `ai-chat.service.ts:509-520` `includes("grok"/"claude"/"gemini")` → `config.apiFormat` 路由
-2. `function-calling-llm.adapter.ts:555-582` → 同上,用 `config.apiFormat` / `config.provider`
-3. `ai-direct-key.service.ts:677/778` gemini 硬判 → `config.apiFormat === "google"`
-4. `ai-connection-test.service.ts:338` gemini-2.0-flash-exp 硬判 → 通过 capability 字段
-5. `ai-chat.service.ts:573` 推理模型 maxTokens 注释相关 → 读 `caps.isReasoning`
-
-**Verify**:对应集成测试(连接测试、function calling、direct key)无回归
-
-**风险**:中(改路由),`config.apiFormat` 已是既有字段降低风险
-
-**预估**:~6 小时
-
-### 阶段 D:**P1 启发式降为 fallback + 注释强化**
-
-**改动**:
-
-1. `model.utils.ts:inferIsReasoning` 改名 `inferIsReasoningFromName`,顶部大注释:**仅作 DB 字段为空时的本地启发,主流程必读 `config.isReasoning`**
-2. `user-models-auto-configure.service.ts` 启发式字段:仅用于**首次创建模型时填默认值**,运行时不再调用。注释强标。
-
-**Verify**:`inferIsReasoningFromName` 在主流程的调用全部走 `config.isReasoning ?? inferIsReasoningFromName(...)` 的兜底链
-
-**风险**:极低
-
-**预估**:~2 小时
-
-### 阶段 E:**`nativeStructuredOutput` + router 配置化**(可选,看情况)
-
-把 `structured-output-router.service.ts` 里 `match: (p) => /deepseek/.test(p)` 这种条目从 router 代码搬到 catalog,router 只读 `caps.nativeStructuredOutput`。
-
-**预估**:~4 小时
-
-### 阶段 F:**看护机制**
-
-1. ESLint 自定义规则 + `.eslintrc.js` 接入 + 白名单
-2. Jest 契约测试静态扫描
-3. CI 集成
-
-**Verify**:故意在禁区写 `modelLower.includes("deepseek")` → ESLint 红 + 测试红 + CI 红
-
-**风险**:极低(纯护栏)
-
-**预估**:~3 小时
-
-### 总工作量
-
-约 **25 小时**净开发(不算 review/部署),核心(A+B+C+F)≈ **19 小时**。
+1. **白名单 too lenient**:`whenAncestor:'Property'` + `whenAncestorKey:'provider'` 可能被 ShorthandProperty 绕过(`const provider="deepseek"; foo({provider})`)→ 补 `onlyAsValue: true` + 严格判 ShorthandProperty
+2. **静态求值器过激进**:`atob` 是项目自定义 mock 同名时误判 → 只信任 `globalThis.atob` / `Buffer.from`,参数链路全静态可证
+3. **baseline 被 merge conflict 误"解决"为放宽**:rebase 时两边各加 1 → merge tool 合并 → 校验 `addedAt > 30 天前条目不许新出现`(§5.6 已防)
 
 ---
 
-## 5 · 验收标准
+## 6 · 落地路线(基于 T5)
 
-| #   | 标准                                                                                                    | 验证方式              |
-| --- | ------------------------------------------------------------------------------------------------------- | --------------------- |
-| 1   | `ai-engine/llm/services/**` 和 `ai-harness/runner/**` 0 处 `includes("deepseek"\|"gpt"\|"claude"\|...)` | 契约测试              |
-| 2   | 新 provider 加进来,**仅需在 catalog 加一行数据**,业务代码 0 改动                                        | 加 mock provider 走通 |
-| 3   | provider 报 `response_format unavailable` → 自动降级 + 重试 + DB 写回 + 下次直走对的路径                | 集成测试 + log 审计   |
-| 4   | 删 `isDeepseekReasoner` 后,deepseek-v4-pro / deepseek-reasoner 全跑通                                   | 集成测试覆盖两种      |
-| 5   | ESLint 红 + Jest 红 + CI 红 在故意写 `modelLower.includes("deepseek")` 时全部生效                       | 故意失败用例          |
-| 6   | 无回归:`ai-chat` 全量测试、failover 全量测试、架构边界 132 测试全绿                                     | 现有套件              |
+### 6.1 8 阶段切片
+
+| 阶段                                             | 内容                                                                                                                                                                                                                                    | 工时(乐观/预期) | 前置         | 回滚成本                                                           |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------: | ------------ | ------------------------------------------------------------------ |
+| **A0** 双源合并                                  | 提取 `AIModelConfig` interface 到 types/;`ai-chat-model-config` re-export + 委托新 service;消费方 ~25 处迁移                                                                                                                            |    6h / 12h     | 无           | git revert                                                         |
+| **A** capability 内存 + Redis self-heal          | `ModelCapabilityService`(新文件)+ `model-capability-self-heal.ts`(新文件)+ ai-api-caller catch 插自愈钩子 + Redis overlay(persistent volume,TTL 7d)                                                                                     |    1.5d / 3d    | A0           | Redis FLUSHDB namespace + git revert,**无 DB 变更**                |
+| **B** DB schema + write-back + admin UI          | 手写 SQL 迁移加 `capability_overrides JSONB`(2 表,nullable);scope 严格 `updateCapabilities` + AuditLog + 阈值/去抖;admin UI 加 capability 编辑面板;feature flag `capability.overrides.enabled`                                          |     2d / 4d     | A            | 24h 内可 drop column;7d 后保留列只 deprecated;30d 后**实质不可回** |
+| **B+** apiFormat backfill 脚本                   | 扫现有 AIModel,基于 provider 字段填 apiFormat 真值;cost_tier 同步;dry-run + 生产灰度                                                                                                                                                    |     4h / 8h     | B            | 重跑覆盖(纯数据修正)                                               |
+| **C** 清扫 P0 substring(主道 9 处 + ai-app 3 处) | ai-chat:508-515 / ai-model-config:1347 / ai-api-caller:307 / ai-direct-key gemini / ai-connection-test / agent-executor:377 / ai-app data-source-fetcher + router / image-generation —— 全改读 capability;router 收敛(原 v1 E 阶段升级) |    1d / 2.5d    | B+           | git revert,无 DB/Redis 影响                                        |
+| **D** P1 启发式 → 显式 fallback                  | 剩余 ~10 处推断式 fallback(provider 默认 timeout / cost tier / token param)改读 capability,缺失时 throw 而非静默 default                                                                                                                |     1d / 2d     | C            | git revert                                                         |
+| **F** ESLint AST + jest 契约 + baseline 锁       | F.1-F.5 5 阶段渐进(§5.8);`@genesis/no-model-name-string-match` + `require-disable-reason`;契约 spec;baseline.json;catalog 投毒形状测试                                                                                                  |     1d / 2d     | C+D          | 摘规则 / 还原 baseline                                             |
+| **G** 老 5 bool 字段 drop(**D6**)                | F 后 1-2 周:删 admin endpoint 接收(controller line 694-698)+ 删 admin UI 字段;观察 7-14 天确认 prod 无 PATCH;手写 SQL `DROP COLUMN` 5 列;删 interface 字段                                                                              |       3h        | F + 2 周观察 | DROP COLUMN 不可逆(但 T1 实证无运行时读者,无回归风险)              |
+
+**总工时**:乐观 7.5d / 预期 16.5d / **节省后实测预期 14d**(2-3 周自然日,含修测试 + CR + Railway 灰度观察)
+
+### 6.2 阶段依赖图
+
+```
+A0 (双源合并)
+   ↓
+A (capability service + self-heal + Redis overlay)
+   ↓
+B (DB add column + admin UI + write-back + AuditLog)
+   ↓
+B+ (apiFormat backfill,必须 B 上线 24h 内)
+   ↓
+C (清扫 9 处 P0 主道 + 3 处 ai-app)
+   ↓
+D (P1 启发式 → 显式 fallback)
+   ↓
+F (ESLint AST + jest 契约 + baseline,5 步渐进)
+   ↓
+G (老 5 bool drop,F 后 ≥2 周观察)
+```
+
+**可并行**:F 的 ESLint 规则脚手架可与 C 并行(各自独立文件);admin UI(B 一部分)前后端可并行,协议先冻结。
+
+### 6.3 窗口期 4 类风险 + 缓解
+
+| 窗口                   | 风险                                                                                                     | 缓解                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| A 上线 → B 上线        | Redis self-heal 命中但 deploy 清零 Redis(Railway 重启 / 主从切换)→ 用户每次冷启撞 400 一次后才修复       | **A 上线即开埋点统计 self-heal 触发率**;Redis 用 **persistent volume** 而非 ephemeral;TTL 7d 而非默认 1h |
+| B 上线 → backfill 跑完 | DB 已加列但 apiFormat 旧值仍是启发式残留 → C 删启发式让旧行炸                                            | backfill 必须**同一窗口** 24h 内跑完;禁止 B 单独上线超过 24h                                             |
+| C 上线 → D 上线        | C 删了 substring 但 D 还没改 timeout fallback → 部分模型 timeout 用错(例 o1 用了 default 120s 而非 180s) | C 和 D **同一 PR 或同一天**上线,不允许跨 sprint                                                          |
+| F 上线前               | 无 ESLint guard 期间新代码可能引入新 substring → 修完又回来                                              | C 阶段同期 ESLint 规则放 **warn**(非 error),等 D 完才升 error                                            |
+
+### 6.4 5 项硬约束(不可再分)
+
+1. **A0 双源合并必一次性**:两文件 import 替换 ~25 处,半途状态下读哪源都不对
+2. **B + B+ backfill 必须 24h 窗口内**:加了列没 backfill = admin UI 显示 null 但 runtime 仍跑启发式,薛定谔
+3. **C 清扫 12 处必一个 PR**:删一半留一半让 spec 50% 失败 50% 通过,无法判断回归
+4. **self-heal 写 Redis + 读 Redis overlay 必同 PR**:只写不读=浪费;只读不写=永远空
+5. **god-class 净增上限 50 行**(pre-push guard 焊死)→ A、C 阶段所有新代码强制走独立文件
+
+### 6.5 工时矩阵(关键文件真实复杂度)
+
+| 文件                               | 现 LOC              | 改动                                            | 测试基线                        | 修测试估算  |
+| ---------------------------------- | ------------------- | ----------------------------------------------- | ------------------------------- | ----------- |
+| `ai-api-caller.service.ts`         | 1325                | 改 ~15 行 + self-heal 包装抽**独立文件** ~80 行 | 82 spec                         | ~10 个 spec |
+| `ai-chat.service.ts`               | 2757                | 净负 ~10 行(删启发式)                           | 129 spec                        | ~12 个 spec |
+| `ai-model-config.service.ts`       | 1620                | 改 ~20 行 + 新加 capability getter ~40 行       | 102 spec                        | ~8 个 spec  |
+| `ai-chat-model-config.service.ts`  | 418                 | A0 合并后整体删 / 缩到 ~100 行                  | 58 spec                         | 全部重写    |
+| 新 `model-capability.service.ts`   | 0 → ~200            | 全新                                            | 0 → ~15 spec                    | 新写        |
+| 新 `model-capability-self-heal.ts` | 0 → ~120            | 全新                                            | 0 → ~10 spec                    | 新写        |
+| Prisma 迁移 SQL                    | —                   | 2 表 add column nullable + drop 5 列(G)         | 0                               | —           |
+| backfill 脚本                      | 0 → ~150            | 新写 + dry-run                                  | 0 → 5 spec                      | 新写        |
+| ESLint custom rule                 | 0 → ~100 + fixtures | 新写                                            | 0 → ~12 spec(§5.9 5 FP + 10 FN) | 新写        |
+
+### 6.6 回滚真实矩阵
+
+| 阶段 | 24h                        | 7d                | 30d                       | 不可回原因                                          |
+| ---- | -------------------------- | ----------------- | ------------------------- | --------------------------------------------------- |
+| A0   | git revert                 | git revert        | 中等(调用方已用新 import) | —                                                   |
+| A    | git revert + Redis FLUSHDB | 同左              | 同左                      | Redis 无持久价值数据                                |
+| B    | drop column 安全           | 保留列 deprecated | **实质不可回**            | admin 已编辑 `capability_overrides`,drop = 配置丢失 |
+| B+   | 重跑覆盖                   | 同左              | 不需回                    | 纯数据修正                                          |
+| C    | git revert                 | git revert        | git revert                | 无状态变更                                          |
+| D    | git revert                 | git revert        | git revert                | —                                                   |
+| F    | 摘规则 / 还原 baseline     | 同左              | 同左                      | 仅静态检查                                          |
+| G    | DROP COLUMN 不可逆         | 同左              | 同左                      | **T1 实证零运行时读者,无回归风险**                  |
+
+**缓解**:
+
+- B 的 `capability_overrides` 列**全程 nullable** + 默认 null
+- B 上线后加 `feature flag` **`capability.overrides.enabled`**,关 flag 等同回滚不走 override 路径
+- 30d 后若要回 B → 改 deprecation 路径(保列、停写、停读)而非 drop
+
+### 6.7 最易超时/回归 + 缓解
+
+**最易超时:A**
+
+- 理由:ai-api-caller 82 spec mock HTTP error 形状严格匹配各家 provider(OpenAI `error.code` / Anthropic `error.type` / Gemini `error.status`),一处 mock 写错 8 个 spec 同时红;加 god-class guard 强制新文件,边写边来回挪
+- 缓解:A 开工前先列**全部 8 个 spec 期望** mock 形状,固化为 fixture 文件;self-heal 包装纯函数化(in: error → out: capability patch),不绑 service 类成员
+
+**最易引入回归:C**
+
+- 理由:12 处 substring 横跨 ai-chat / ai-model-config / 注释残留,每处 fallback 不同(timeout 默认 / tokenParamName / isReasoning);改一个忘另一个,prod 小众模型(deepseek-r1 / qwq-32b)走错分支
+- 缓解:C 开工前用 `grep -rnE "model.*toLowerCase|\.includes\(['\"](gpt|claude|o1|o3|gemini)"` 列穷尽 12 处清单,每处单独 commit,逐一过 spec;契约测试 baseline(F)先以 warn 模式上线观察 3d,确认 0 退化再升 error
 
 ---
 
-## 6 · 风险与回滚
+## 7 · 验收标准(18 条)
 
-| 风险                                               | 缓解                                                                                                                        |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| capability 字段填错(误标 strict→provider 返回 4xx) | 自愈降级网兜底 + 写回 DB 自动纠错                                                                                           |
-| catalog 数据缺失新 provider                        | 保守 default(`json_object` + `none` strategy) + 自愈学习                                                                    |
-| 阶段 C 改路由有回归                                | `config.apiFormat` 已是既有字段;迁移期保留 modelLower 作 fallback(`config.apiFormat ?? inferApiFormatFromName(modelLower)`) |
-| 迁移期 DB 字段为 null 的旧行                       | resolve() fallback 链:DB → catalog → safe default,null 字段不影响行为                                                       |
+### 7.1 数据模型(4 条)
 
-**回滚**:每阶段单独 commit + 独立可 revert;capability 字段为 nullable,字段为 null 时退化到 pre-A 行为。
+1. `AIModelConfig` interface 仅在 `ai-engine/llm/types/model-config.types.ts` 单源定义,`ai-chat-model-config.service.ts` 删除或委托
+2. `ai-engine/llm/services/**` 和 `ai-harness/runner/**` + `ai-app/**/services/**` 0 处 `includes("deepseek"|"gpt"|"claude"|...)`(controllers/DTO/测试豁免)
+3. `capability_overrides JSONB` 字段写入侧用 Zod schema 强校验,拼错 TS 不编译
+4. 新加任意 capability 字段:**仅需** catalog 加一条数据 + DB JSONB 字段加 nested key,业务代码 0 改动
 
----
+### 7.2 安全(4 条)
 
-## 7 · 与已有规范的对照
+5. BYOK 用户路径的自愈**仅**写 `UserModelConfig.capability_overrides`,**绝不**写 `AIModel.*`(代码 + lint 双重禁)
+6. admin override 端点 `PATCH /admin/ai-models/:id/capabilities` 必须 `@Roles('admin')` + AuditLog 写入
+7. 错误信号 4 重严格化全满足:HTTP 400/422 + error code 白名单 + 仅 4xx body + request-response 反向校验
+8. 自愈降级需 3 次/10 分钟阈值才落 DB;admin override 后 24h cooling-off 强制禁自愈
 
-- ✅ 完全符合 `CLAUDE.md` "**禁止 provider-specific 硬编码**"红线
-- ✅ 完全符合 "**走 TaskProfile,不硬编码模型/温度**"原则
-- ✅ 与 `model-failover.classifier.ts`(BYOK code 驱动)同思想:**机制驱动,不字面匹配**
-- ✅ 与 `runChatWithModelFailover` 一致:**抽离独立 util,god-class 不膨胀**
+### 7.3 看护(4 条)
 
----
+9. ESLint `@genesis/no-model-name-string-match` 12 项 AST 触发模式全部生效;FN 测试 10 项全过(字符串拼接 / 反向 includes / RegExp / atob / TemplateLiteral / switch / computed access / normalize 后命中)
+10. FP 测试 5 项全过(catalog literal / icon 引用 / 测试 fixture / 注释 / inferXxxFromName util)
+11. baseline.json 文件 CODEOWNERS = architect-team;baseline 条目必填 `reason / ownedBy / expiresAt`(≤8 周)
+12. catalog 形状测试:`rationale ≥30 字` + `addedBy 必填` + 禁止过宽 match(单条件 / `.*` / 长度<3 modelPattern)
 
-## 8 · 不动的部分(明确边界)
+### 7.4 反模式清除(3 条)
 
-- `ai-engine/llm/types/model-tier.types.ts` 正则表 → admin 运维能力**分级**,与运行时能力**正交**,保留
-- `selection/model-fallback.service.ts` 优先级正则 → admin 选模型时用,**非运行时调用路径**,保留
-- `services/ai-model-config.service.ts:1343+` 图标路径 → 纯 UI 装饰,保留
-- `services/ai-model-discovery.service.ts` display name → 列表显示,保留
+13. T1 §1.8 列出 ~35 处 P0 反模式,C+D 阶段后清扫至 ≤baseline,F 后 baseline 归 0
+14. 删 `isDeepseekReasoner` 后,deepseek-v4-pro / deepseek-reasoner / deepseek-chat 全跑通(集成测试覆盖三种)
+15. 故意写 `modelLower.includes("deepseek")` → ESLint 红 + Jest 红 + pre-push 红 全部生效
 
-这些位置统一加注释:`// 非运行时能力判断;运维/装饰用途。运行时能力判断必须走 ModelCapabilityRegistry。`
+### 7.5 自愈链路(3 条)
 
----
-
-## 9 · 决策记录(ADR)
-
-| 决策                | 选项                               | 选             | 理由                                                             |
-| ------------------- | ---------------------------------- | -------------- | ---------------------------------------------------------------- |
-| 能力数据放哪        | a) DB 字段 b) 配置文件 c) 代码常量 | **a + b 互补** | DB 让 admin/user 可覆盖;catalog 配置文件让新 provider 加入零代码 |
-| 自愈写回 DB         | a) 写 b) 只 log                    | **a**          | 自学闭环,运营成本最低                                            |
-| 看护机制            | a) ESLint b) 测试 c) 都做          | **c**          | ESLint IDE 实时阻断 + 测试 CI 强拦,双层防漏                      |
-| `provider` 字段定位 | a) 能力 b) 目录                    | **b**          | 能力一律走能力字段;provider 仅作 key 解析/UI 标签                |
+16. provider 报 `response_format unavailable` → 自动降级 + 重试 + DB 写回 + 下次直走对的路径(端到端集成测试)
+17. provider 返回 `"response_format field validated"`(含 validated)→ **不**触发降级(误匹配防御测试)
+18. 同 modelId 5 并发请求一起撞 400 → `updateCapabilities` 只调一次(advisory lock 防并发竞态)
 
 ---
 
-## 10 · 落地后状态(目标态)
+## 8 · 风险与回滚
 
-打开任意 `ai-engine/llm/services/*.ts`、搜 `includes("deepseek"|"gpt"|"claude"|"gemini"|"grok"|"xai")`,**返回 0 结果**(除 catalog 数据文件)。新 provider 加入步骤:
+### 8.1 关键风险
 
-1. `model-capability-catalog.ts` 加一条数据
-2. (可选)admin 在 `/admin/ai/models` UI 微调
-3. 完工
+- **B 阶段实质不可逆**:`capability_overrides` JSONB 写入后 drop = 数据丢失。**缓解**:nullable 全程 + feature flag 总开关 + 30d 后改 deprecation 路径
+- **Redis 挂导致 fail-closed**:计数器失效时**只 log 不写 DB**,业务请求继续走原 capability(T3 §4.9)
+- **G 阶段 DROP COLUMN 不可逆**:T1 实证零运行时读者,无回归(否则 F 阶段可观测会暴露)
+- **catalog 投毒**:CODEOWNERS + jest 形状测试 + 强制字段(D4)三重防(§4.7)
 
-无需改 `ai-chat.service`、无需改 `ai-api-caller`、无需改 router、无需改 adapter。
+### 8.2 Feature Flag 边界
+
+- `capability.overrides.enabled`(总开关):关 = 等同回滚 B,不走 override 路径
+- `capability.self_heal.write_enabled = true | false | shadow`:shadow 模式只记指标不写 DB,新版 classifier 必须先 shadow 跑 7d 指标稳定再切真写
+
+---
+
+## 9 · ADR(架构决策记录)
+
+| ADR | 决策                                                            | 理由                                                             |
+| :-: | --------------------------------------------------------------- | ---------------------------------------------------------------- |
+|  1  | capability 数据存 JSONB(新字段)+ 19 既有列保留(D1)              | 既有列已索引/有 admin 路径;新字段需求会持续变化,JSONB 零迁移成本 |
+|  2  | 第一期不做 observation 表(D2)                                   | 当前无 admin 用户失败统计 UI,零消费方;YAGNI,真需要时再加         |
+|  3  | catalog 命名 `provider`+`modelPattern`(D3)                      | 对齐 `AIModelConfig.provider` 既有命名,不制造双源                |
+|  4  | rationale ≥30 字 + addedBy 必填(D4)                             | 30 字强制写"为什么+API 依据",防投毒                              |
+|  5  | 治理范围扩 ai-app/services(D5)                                  | ai-app 已有 ≥3 处外溢,不扩=看护无效                              |
+|  6  | 老 5 bool **直接 drop**(D6)                                     | T1 实证零运行时读者,死代码无双写必要                             |
+|  7  | router 改派生视图,删 PROVIDER_DEFAULT_CHAINS                    | 单一真源原则(MECE);catalog → caps → chain 派生                   |
+|  8  | 自愈 scope 严格隔离:BYOK 只写 UserModelConfig                   | 多租户安全;BYOK proxy 行为不能跨用户污染                         |
+|  9  | 错误信号 4 重严格化(HTTP+code+位置+反向)                        | 防自愈被不可信输入污染                                           |
+| 10  | 阈值 3 次/10 分钟 + advisory lock + 24h cooling-off             | 防单次抖动钉死 + 防 admin 改了立被覆盖 + 防并发竞态              |
+| 11  | 复原 3 通道(探测 + admin reset + catalog version)               | 防 false-neg 单调卡死                                            |
+| 12  | ESLint + jest contract 双层 + baseline 锁(只降不升)+ 5 阶段渐进 | 防 CI 自锁 + 防绕过 + 渐进迁移                                   |
+| 13  | `ModelCapabilities` 不出 facade                                 | 防 ai-app 再生 `if (caps.X)` 散点                                |
+
+---
+
+## 10 · v3 决议附录(用户拍板 6 项)
+
+(原文见 §0,此处复述供检索)
+
+|   #    | 决议                                                            |
+| :----: | --------------------------------------------------------------- |
+| **D1** | 新增 capability 用 JSONB(`capability_overrides`);既有 19 列保留 |
+| **D2** | 第一期只做 JSONB,observation 表 backlog                         |
+| **D3** | catalog 字段名 `provider` + `modelPattern`(对齐现状)            |
+| **D4** | rationale ≥30 字 + addedBy 必填(git author)+ sourceUrl 选填     |
+| **D5** | 扩 ai-app/services(豁免 controllers/DTO)                        |
+| **D6** | 老 5 bool **F 后直接 drop**,~3h                                 |
+
+---
+
+## 11 · 立即可执行(baseline 通过后启动)
+
+**第一步**:**A0 阶段**(双源合并,12h 预期工时)。
+
+```bash
+# 实际命令(等用户批准 baseline 后执行)
+git checkout main && git pull
+git checkout -b refactor/capability-a0-merge-aimodelconfig-sources
+# 1. 提取 interface 到 types/
+# 2. 改两个 service 的 import
+# 3. ripgrep 消费方逐一迁移
+# 4. tsc + 全量 spec + 架构边界 + pre-push
+# 5. commit + PR
+```
+
+**baseline 通过判定**:
+
+1. ✅ 用户已确认 6 项决议(D1-D6,§0 列出)
+2. ⏳ 用户认可 §6 8 阶段工时(~14d)
+3. ⏳ 用户认可 §4 自愈 scope/阈值/审计设计
+4. ✅ v3 文档归档 origin/main(本提交)
+
+baseline 通过后启动 **A0 阶段**(独立 PR,可独立 revert)。
