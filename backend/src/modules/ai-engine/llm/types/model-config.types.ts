@@ -1,4 +1,4 @@
-import type { ModelCapabilities } from "../capability/model-capability.types";
+import type { ModelCapabilitiesOverrides } from "../capability/model-capability.types";
 
 /**
  * AI Model Config —— v3.1 A0 阶段：AIModelConfig **单一源**。
@@ -86,12 +86,16 @@ export interface AIModelConfig {
   supportsGbnfGrammar?: boolean;
 
   // ★ v3.1 §3.4 优先级 #2：admin 显式 override（B 阶段 admin UI 写入
-  //   ai_models.capability_overrides JSONB 列）。A 阶段永远 undefined。
-  //   ModelCapabilityService.resolveCapabilities 已为此预留 mergeInto 调用，
-  //   未填字段走优先级链下一级回退。
-  aiModelOverrides?: Partial<ModelCapabilities>;
+  //   ai_models.capability_overrides JSONB 列）。
+  //   B.2 起：由 buildModelConfig 经 ModelCapabilitiesOverridesSchema.safeParse
+  //   严校后填入；null/无效 → undefined（ModelCapabilityService 走下一级回退）。
+  //   类型用 ModelCapabilitiesOverrides（zod deep-partial），结构上是 ModelCapabilities
+  //   的深部分子集，比 Partial<ModelCapabilities>（只浅层 optional）更准确表达覆盖语义。
+  aiModelOverrides?: ModelCapabilitiesOverrides;
 
   // ★ v3.1 §3.4 优先级 #1：BYOK 用户 override（B 阶段 user UI 写入
-  //   user_model_configs.capability_overrides JSONB 列）。A 阶段永远 undefined。
-  userOverrides?: Partial<ModelCapabilities>;
+  //   user_model_configs.capability_overrides JSONB 列）。
+  //   B.2 起：由 toAIModelConfigFromUserConfig 经 ModelCapabilitiesOverridesSchema.safeParse
+  //   严校后填入；null/无效 → undefined（走 admin → catalog 回退）。
+  userOverrides?: ModelCapabilitiesOverrides;
 }

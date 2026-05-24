@@ -32,6 +32,7 @@ import {
 } from "./model-capability-catalog";
 import type {
   ModelCapabilities,
+  ModelCapabilitiesOverrides,
   NativeStructuredOutputMode,
   ReasoningKind,
   TemperatureSupport,
@@ -277,10 +278,16 @@ export class ModelCapabilityService {
   /**
    * Deep merge `patch` 进 `target`（仅覆盖 patch 提供的字段；嵌套对象按字段
    * 级合并；'none' 占位的 nativeMode 不覆盖现有非 'none' 值）。
+   *
+   * patch 接受两种形状：
+   *   - `Partial<ModelCapabilities>`：catalog rule + deriveFromConfig 用（顶层 optional，子对象字段必填）
+   *   - `ModelCapabilitiesOverrides`：B.2 起 admin/user JSONB override 用（deep partial）
+   * 两者在 runtime 等价（spread + truthy guard 都安全处理 undefined 子字段）；
+   * 类型上用联合统一接受。
    */
   private mergeInto(
     target: ModelCapabilities,
-    patch: Partial<ModelCapabilities>,
+    patch: Partial<ModelCapabilities> | ModelCapabilitiesOverrides,
   ): void {
     if (patch.structuredOutput) {
       const next = patch.structuredOutput;
