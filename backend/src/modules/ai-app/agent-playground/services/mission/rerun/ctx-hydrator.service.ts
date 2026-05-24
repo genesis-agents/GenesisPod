@@ -1,33 +1,22 @@
 /**
- * CtxHydratorService —— 从 DB 重建 MissionContext 给单 stage 局部重跑用
+ * CtxHydratorService —— playground 业务子类(继承 BusinessTeamCtxHydratorFramework)
  *
  * 上游：docs/architecture/ai-harness/runner/per-task-rerun-with-cascade.md v1.2 §3.2
  *
- * v1.2 修订（vs v1.0）：
- *   - 类别 A：单一信源 — researcherResults / reportArtifact / outlinePlan / analystOutput 全
- *     从 mission 行字段 + 子表读，不再读 event payload（v1.0 BLOCKER 修）
- *   - 类别 D1+D2：retry_label 取 latest（DISTINCT ON dimension ORDER BY created_at DESC）+ dim
- *     字符串作 chapter ↔ research join key（不用数组 index 漂移）
- *   - 类别 D3：补全 5 字段 ctx 重建（researcherResults / reportArtifact / outlinePlan /
- *     analystOutput / verifierVerdicts）
- *   - 类别 E1：reportArtifact 必须 zod parse；失败 throw BadRequest
- *   - 类别 E5：mission.report_full payload 大小硬上限（与 zod 一致 2MB）
- *   - 类别 B2：hydrate guard 原有 heartbeat 时间窗判定已删
- *     （2026-05-07 rerun-overhaul v1.1 §4 归一到 RerunGuardService.checkInFlight，
- *     ctx-hydrator 不再做 in-flight 判定，仅做产物重建）
+ * 2026-05-24 P5 (Wave 1)：fetch detail / NotFound / size guard / snapshot 校验骨架
+ * 已上提到 ai-harness/teams/business-team/rerun/business-team-ctx-hydrator.framework。
+ * 本类只剩业务 hook：
+ *   - 主行 schema (PlaygroundMissionDetail)
+ *   - 业务子表 join (agent_playground_research_results / agentPlaygroundChapterDraft)
+ *   - report payload zod parse (parseReportArtifact)
+ *   - businessInput rebuild (configSnapshot → RunMissionInput)
  *
  * 限制：
  *   - 装配阶段的 leader / billing / pool / abortRegistry / budgetMultiplier 不能从 DB 重建
  *   - 调用方需要自己 supply 这些 ctx 字段（通常是 minimal stub 或 mission 子集）
- *   - userProfile 必须存在（mission create 时就写了），用于重建 input
  */
 
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import type { MissionContext } from "../workflow/mission-context";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
@@ -37,18 +26,12 @@ import type {
 } from "../../../dto/run-mission.dto";
 import type { PlaygroundConfigSnapshot } from "./playground-mission-input-rebuilder.service";
 import {
+  BusinessTeamCtxHydratorFramework,
   parseReportArtifact,
+  type CtxHydratorDetailMinimal,
+  type CtxHydratorSchemaProvider,
   type ReportArtifact,
 } from "@/modules/ai-harness/facade";
-
-/** v1.2 类别 E5：mission.report_full 反序列化后大小硬上限（与 zod schema 一致） */
-const MAX_REPORT_FULL_BYTES = 2_000_000;
-
-// ★ 2026-05-07 rerun-overhaul v1.1 §4：in-flight 判定全部归一到 RerunGuardService。
-//   原 HEARTBEAT_INFLIGHT_THRESHOLD_MS / EVENT_INFLIGHT_THRESHOLD_MS 常量删除（搬到
-//   rerun-guard.service.ts 的 HEARTBEAT_FRESH_THRESHOLD_MS / BUSINESS_EVENT_FRESH_THRESHOLD_MS）。
-//   原 hydrate 阶段 in-flight 检查删除，由调用方（local-rerun）入口已调 RerunGuard。
-//   理由：双重判定 + 不区分 lifecycle / business 事件 = 因果倒置真因（c195035f mission）。
 
 /**
  * Hydrated ctx 提供给 stage 函数 —— 缺装配期纯 runtime 字段（leader/billing/pool 等），
@@ -64,38 +47,54 @@ export type HydratedMissionContext = Omit<
   readonly __hydrated: true;
 };
 
+/** playground detail 投影满足 framework 主行约束（含 reportFull / configSnapshot） */
+type PlaygroundHydratorDetail = NonNullable<
+  Awaited<ReturnType<MissionStore["getById"]>>
+> &
+  CtxHydratorDetailMinimal;
+
 @Injectable()
-export class CtxHydratorService {
-  private readonly log = new Logger(CtxHydratorService.name);
-
+export class CtxHydratorService extends BusinessTeamCtxHydratorFramework<
+  PlaygroundHydratorDetail,
+  HydratedMissionContext
+> {
   constructor(
-    private readonly store: MissionStore,
+    store: MissionStore,
     private readonly prisma: PrismaService,
-  ) {}
+  ) {
+    const schemaProvider: CtxHydratorSchemaProvider<
+      PlaygroundHydratorDetail,
+      HydratedMissionContext
+    > = {
+      fetchDetail: async (missionId, userId) => {
+        const detail = await store.getById(missionId, userId);
+        return (detail as PlaygroundHydratorDetail | null) ?? null;
+      },
+      assertSnapshotSupported: (detail) => {
+        const snap = detail.configSnapshot as PlaygroundConfigSnapshot | null;
+        if (snap?.schemaVersion == null) {
+          return {
+            ok: false,
+            reason:
+              "早于 config snapshot 上线(legacy),不支持重跑。请重新发起新任务。",
+          };
+        }
+        return { ok: true };
+      },
+      buildHydrated: async ({ detail, missionId, userId }) =>
+        this.buildHydrated(detail, missionId, userId),
+      // 默认 2MB（与 v1.2 类别 E5 一致）
+    };
+    super(schemaProvider, "agent-playground");
+  }
 
-  async hydrate(
+  private async buildHydrated(
+    detail: PlaygroundHydratorDetail,
     missionId: string,
     userId: string,
   ): Promise<HydratedMissionContext> {
-    const detail = await this.store.getById(missionId, userId);
-    if (!detail) {
-      throw new NotFoundException(
-        `mission ${missionId} not found or not owned by ${userId}`,
-      );
-    }
-
-    // ★ 2026-05-07 rerun-overhaul v1.1 §4：in-flight 检查从此处删除。
-    // 由 LocalRerunService.run 入口调 RerunGuardService.ensureRerunable 单点判定。
-    // hydrate 仅做产物重建，不再做活性检查（解耦 + 单一职责）。
-
-    // ★ C5/G7 S3:rerun 输入**只**从 typed config snapshot 重建(单一真源),不再读 userProfile。
-    //   历史行无 snapshot=legacy → 拒绝重跑(数据可弃,不做 userProfile fallback 双读)。
-    const snap = detail.configSnapshot as PlaygroundConfigSnapshot | null;
-    if (snap?.schemaVersion == null) {
-      throw new BadRequestException(
-        `mission ${missionId} 早于 config snapshot 上线(legacy),不支持重跑。请重新发起新任务。`,
-      );
-    }
+    // 业务输入重建（C5/G7 S3：仅 typed snapshot 单一真源）
+    const snap = detail.configSnapshot as PlaygroundConfigSnapshot;
     const b = snap.businessInput;
     const input: RunMissionInput = {
       topic: snap.topic,
@@ -112,23 +111,15 @@ export class CtxHydratorService {
       searchTimeRange: b.searchTimeRange,
       knowledgeBaseIds: b.knowledgeBaseIds,
       inheritFromMissionId: b.inheritFromMissionId,
-      // budget/runtimeLimits 来自 snapshot 顶层(已 ResolvedBudgetCaps 解析,无需再算)。
       maxCredits: snap.budget.maxCredits,
       budgetMultiplierOverride: snap.budget.budgetMultiplier,
       wallTimeCapMs: snap.runtimeLimits.wallTimeCapMs,
     };
 
-    // v1.2 类别 A1+E1+E5：reportArtifact 必从 mission.report_full 读 + zod 校验
+    // reportArtifact 反序列化（zod 校验已由 parseReportArtifact 内部做）
     let reportArtifact: ReportArtifact | undefined;
     let report: ResearchReport | undefined;
     if (detail.reportFull) {
-      // size guard（防 OOM）
-      const serialized = JSON.stringify(detail.reportFull);
-      if (serialized.length > MAX_REPORT_FULL_BYTES) {
-        throw new BadRequestException(
-          `mission ${missionId} report_full size ${serialized.length} > ${MAX_REPORT_FULL_BYTES} (DoS 防护)`,
-        );
-      }
       if (detail.reportArtifactVersion === 2) {
         const parsed = parseReportArtifact(detail.reportFull);
         if (!parsed.ok) {
@@ -152,10 +143,9 @@ export class CtxHydratorService {
     const leaderVerdict =
       (detail.leaderVerdict as LeaderVerdict | null) ?? null;
 
-    // v1.2 类别 D1+D2：从子表重建 researcherResults
     const researcherResults = await this.hydrateResearcherResults(missionId);
 
-    const ctx: HydratedMissionContext = {
+    return {
       __hydrated: true,
       missionId,
       userId,
@@ -164,7 +154,6 @@ export class CtxHydratorService {
       plan: {
         themeSummary,
         dimensions,
-        // 局部重跑不需要重新规划 goals/risks —— cast undefined（plan 仅给 stage 看 dim/themeSummary）
         goals: undefined as unknown as NonNullable<
           MissionContext["plan"]
         >["goals"],
@@ -175,7 +164,6 @@ export class CtxHydratorService {
       researcherResults,
       reconciliationReport:
         detail.reconciliationReport as MissionContext["reconciliationReport"],
-      // v1.2 类别 D3：从 mission 行字段读（PR-R0 加的列）
       outlinePlan: detail.outlinePlan as MissionContext["outlinePlan"],
       analystOutput: detail.analystOutput,
       report,
@@ -195,24 +183,9 @@ export class CtxHydratorService {
           : undefined,
       trajectoryStored: detail.trajectoryStored ?? undefined,
     };
-
-    this.log.log(
-      `[hydrate ${missionId}] artifactVersion=${detail.reportArtifactVersion} sections=${reportArtifact?.sections.length ?? 0} dimensions=${dimensions.length} researchResults=${researcherResults?.length ?? 0} verdicts=${(detail.verdicts as unknown[] | null)?.length ?? 0} outlinePlan=${detail.outlinePlan ? "yes" : "no"} analystOutput=${detail.analystOutput ? "yes" : "no"}`,
-    );
-    return ctx;
   }
 
-  // ★ 2026-05-07 rerun-overhaul v1.1：getLatestEventTs 删除。in-flight 判定全归 RerunGuard。
-  //   原方法不区分 lifecycle / business 事件，是因果倒置真因。新版在 rerun-guard.service.ts
-  //   的 getLatestBusinessEventTs，SQL LIKE 全限定前缀过滤业务事件。
-
-  /**
-   * v1.2 类别 D1+D2：从子表重建 researcherResults
-   *
-   * - DISTINCT ON (dimension) ORDER BY dimension, created_at DESC：取每个 dim 的 latest
-   *   retry_label（leader-assess-retry 产生多行时只用最后一轮）
-   * - cdByDim Map<string, ...>：用 dim 字符串作 join key（不依赖数组 index 漂移）
-   */
+  /** v1.2 类别 D1+D2：从子表重建 researcherResults */
   private async hydrateResearcherResults(
     missionId: string,
   ): Promise<MissionContext["researcherResults"]> {
@@ -255,7 +228,6 @@ export class CtxHydratorService {
         dimension: rr.dimension,
         findings,
         summary: rr.summary ?? "",
-        // 扩展字段（per-dim chapter pipeline 产物）
         ...(fullMarkdown ? { fullMarkdown } : {}),
         ...(chapters.length > 0
           ? {

@@ -1,52 +1,27 @@
 /**
- * RerunGuardService —— 唯一 in-flight 判定单元
+ * RerunGuardService —— playground 业务子类(继承 BusinessTeamRerunGuardFramework)
  *
  * 设计来源：rerun-overhaul-design-v1.md §3.1 / §3.2 / §3.7
  *
- * 2026-05-08 PR-E3：9-cell 决策矩阵已上提到
- * `ai-harness/teams/business-team/rerun/heartbeat-decision.ts` 作为纯函数框架。
- * 本类是 reference 实现，satisfies harness `IBusinessRerunGuard` 接口（structural
- * typing），其他 BusinessAgentTeam 反向迁移时只需调用 `decideMissionInFlight`
- * + 自己的 latest-business-event-ts 查询即得相同语义。
- *
- * 触发事件：mission c195035f 用户连点重跑被拒，错误"is in-flight (heartbeat 1s ago,
- * event 1s ago)"，但 DB status=failed。真因 = 因果倒置（用户行为 emit 的 lifecycle
- * 事件被自己当 mission 活迹读 → 拒绝用户）。
- *
- * 核心机制：
- *   1. checkInFlight：纯读判定，9-cell 决策矩阵（heartbeat 三态 × event 三态 × status）
- *   2. ensureRerunable：入站强校验。in-flight 抛 BadRequest；zombie 主动 cleanup 后放行
- *   3. 业务事件 vs lifecycle 二分（见 event-categories.ts），lifecycle 不算活迹
- *   4. zombieCleanup 走 store.markFailed + store.clearHeartbeat（唯一写源，不裸 UPDATE）
- *
- * 4 路 R1+R2 共识（design v1.1 §11）：
- *   - architect 9.0/10 / reviewer 9/10 / tester 9.2/10 / security YES (medium 残留)
- *   - P0-3: markReopened 不写 heartbeat_at（PR-2 修），保 RerunGuard heartbeat null/stale 永不 inFlight
- *   - P0-4: zombieCleanup 必传 userId，三元 WHERE 防跨用户穿透
- *   - 反向证据 RV-1~RV-9 spec 锚定
+ * 2026-05-24 P5 (Wave 1)：framework 9-cell 决策 + ensureRerunable + zombieCleanup
+ * 骨架已上提到 ai-harness/teams/business-team/rerun/business-team-rerun-guard.framework。
+ * 本类只剩业务 hook：playground 事件表 schema / SQL LIKE BUSINESS_PREFIXES 查询 /
+ * 终态 extra payload shape / event type 字符串。
  */
 
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import {
   MissionStore,
   type PlaygroundTerminalExtra,
 } from "../lifecycle/mission-store.service";
-// ★ 2026-05-08 PR-C1: 从 event-categories 单一源 import BUSINESS_PREFIXES，
-//   动态拼 SQL LIKE clause —— 替代之前字面复制 5 行 LIKE 字符串（消除字面双源）。
 import { EVENT_CATEGORY } from "../lifecycle/event-categories";
-// ★ 2026-05-08 PR-E3: 9-cell 决策矩阵上提到 harness（pure function 框架），
-//   playground 引用，避免与未来 research / TI rerun guard 重复实现。
 import {
-  decideMissionInFlight,
-  HEARTBEAT_FRESH_THRESHOLD_MS_DEFAULT,
-  BUSINESS_EVENT_FRESH_THRESHOLD_MS_DEFAULT,
+  BusinessTeamRerunGuardFramework,
   MissionLifecycleManager,
+  type BusinessRerunGuardDetailMinimal,
+  type BusinessTeamRerunGuardHooks,
 } from "@/modules/ai-harness/facade";
-
-const HEARTBEAT_FRESH_THRESHOLD_MS = HEARTBEAT_FRESH_THRESHOLD_MS_DEFAULT;
-const BUSINESS_EVENT_FRESH_THRESHOLD_MS =
-  BUSINESS_EVENT_FRESH_THRESHOLD_MS_DEFAULT;
 
 export type MissionStatus =
   | "running"
@@ -55,238 +30,78 @@ export type MissionStatus =
   | "quality-failed"
   | "cancelled";
 
-export interface RerunGuardResult {
-  /** mission 当前是否真在跑（语义：拒重跑） */
-  inFlight: boolean;
-  /** 检测到 zombie（heartbeat 新但 BUSINESS 事件 STALE） */
-  zombieDetected: boolean;
-  /** mission 当前 status */
-  status: MissionStatus;
-  /** heartbeat 距今 ms（null = heartbeat_at IS NULL） */
-  heartbeatAgeMs: number | null;
-  /** 最近 BUSINESS 事件距今 ms（null = 0 业务事件，刚创建/刚 reopen） */
-  latestBusinessEventAgeMs: number | null;
-  /** 给前端展示的 reason（仅 inFlight=true 时填） */
-  reason?: string;
+/** playground detail 投影给 framework guard（必含 status / heartbeatAt） */
+interface PlaygroundGuardDetail extends BusinessRerunGuardDetailMinimal {
+  readonly id: string;
+  readonly status: string;
+  readonly heartbeatAt: Date | null;
 }
 
 @Injectable()
-export class RerunGuardService {
-  private readonly log = new Logger(RerunGuardService.name);
-
+export class RerunGuardService extends BusinessTeamRerunGuardFramework<
+  PlaygroundGuardDetail,
+  PlaygroundTerminalExtra
+> {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly store: MissionStore,
-    // ★ C0/G1：zombie cleanup 终态写经 finalize 单入口仲裁。
-    private readonly lifecycleManager: MissionLifecycleManager,
-  ) {}
-
-  /**
-   * 唯一 in-flight 判定（**纯读，无副作用** —— RV-6 不变量）。
-   *
-   * 直接调 checkInFlight 的调用方只能用于观测 / 决策，不能假设它会修复任何状态。
-   * 写操作只在 ensureRerunable 中（zombieCleanup）。
-   */
-  async checkInFlight(
-    missionId: string,
-    userId: string,
-  ): Promise<RerunGuardResult> {
-    const detail = await this.store.getById(missionId, userId);
-    if (!detail) {
-      // userId 隔离：不存在 / 非本人 mission 视为可放行（外层会再 NotFoundException）
-      return {
-        inFlight: false,
-        zombieDetected: false,
-        status: "failed",
-        heartbeatAgeMs: null,
-        latestBusinessEventAgeMs: null,
-      };
-    }
-
-    const status = detail.status as MissionStatus;
-    // status 短路：终态直接放过（与 heartbeat / event 无关）
-    if (status !== "running") {
-      return {
-        inFlight: false,
-        zombieDetected: false,
-        status,
-        heartbeatAgeMs: null,
-        latestBusinessEventAgeMs: null,
-      };
-    }
-
-    const now = Date.now();
-    const hbAt = detail.heartbeatAt;
-    const heartbeatAgeMs = hbAt ? now - hbAt.getTime() : null;
-    const latestBusinessTs = await this.getLatestBusinessEventTs(missionId);
-    const latestBusinessEventAgeMs =
-      latestBusinessTs != null ? now - latestBusinessTs : null;
-
-    // ★ 2026-05-08 PR-E3: 9-cell 决策矩阵走 harness 纯函数（business 侧只读 status /
-    //   heartbeat / latest-business-event-ts，不持有判定逻辑）。
-    const decision = decideMissionInFlight({
-      status,
-      heartbeatAgeMs,
-      latestBusinessEventAgeMs,
-      heartbeatFreshThresholdMs: HEARTBEAT_FRESH_THRESHOLD_MS,
-      businessEventFreshThresholdMs: BUSINESS_EVENT_FRESH_THRESHOLD_MS,
-    });
-
-    return {
-      inFlight: decision.inFlight,
-      zombieDetected: decision.zombieDetected,
-      status,
-      heartbeatAgeMs,
-      latestBusinessEventAgeMs,
-      ...(decision.reason ? { reason: decision.reason } : {}),
-    };
-  }
-
-  /**
-   * 入站强校验。所有 rerun entrypoint 调此处。
-   *
-   * - inFlight=true → 抛 BadRequest，调用方拒绝用户操作
-   * - zombieDetected=true → 主动 cleanup（markFailed + clearHeartbeat），用户行为优先
-   * - 其余 → 正常返回
-   *
-   * DB 异常 fail-closed（design §3.1.1 R11）：抛 BadRequest "rerun guard 服务异常"。
-   */
-  async ensureRerunable(missionId: string, userId: string): Promise<void> {
-    let guard: RerunGuardResult;
-    try {
-      guard = await this.checkInFlight(missionId, userId);
-    } catch (err) {
-      this.log.warn(
-        `[rerun-guard ${missionId}] checkInFlight threw, fail-closed: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-      throw new BadRequestException("rerun guard 服务异常，请稍后重试");
-    }
-
-    if (guard.inFlight) {
-      throw new BadRequestException(
-        `mission ${missionId} is in-flight (${guard.reason ?? "running"})`,
-      );
-    }
-
-    if (guard.zombieDetected) {
-      await this.zombieCleanup(missionId, userId);
-    }
-  }
-
-  /**
-   * 取 mission 最近一条 BUSINESS 事件的 ts（毫秒）。
-   *
-   * SQL LIKE clause 由 event-categories.ts BUSINESS_PREFIXES 动态生成 —— 单一源。
-   * 索引：(mission_id, ts) 已存在，2238 行最大 mission EXPLAIN 0.056ms，足够。
-   */
-  private async getLatestBusinessEventTs(
-    missionId: string,
-  ): Promise<number | null> {
-    // BUSINESS_PREFIXES → "type LIKE $2 OR type LIKE $3 ..." + 对应 params
-    const prefixes = EVENT_CATEGORY.BUSINESS_PREFIXES;
-    const likeClause = prefixes
-      .map((_, i) => `type LIKE $${i + 2}`)
-      .join(" OR ");
-    const params: unknown[] = [missionId, ...prefixes.map((p) => `${p}%`)];
-    const rows = await this.prisma.$queryRawUnsafe<{ ts: bigint }[]>(
-      `SELECT ts FROM agent_playground_mission_events
-       WHERE mission_id = $1 AND (${likeClause})
-       ORDER BY ts DESC LIMIT 1`,
-      ...params,
-    );
-    if (rows.length === 0) return null;
-    const tsMs = Number(rows[0].ts);
-    return Number.isFinite(tsMs) ? tsMs : null;
-  }
-
-  /**
-   * 主动清理 zombie mission（design §3.2）。
-   *
-   * 安全要点（R1 security P0 + R2 medium）：
-   *   1. 先 store.getById(missionId, userId)：跨用户 missionId 返回 null → 跳过 cleanup
-   *      （防 R2 medium：markFailed userId optional 时 affectedRows=0 但 clearHeartbeat 仍跑）
-   *   2. status 已非 running（race 间已变 final）→ 跳过 cleanup
-   *   3. 终态写经 lifecycleManager.finalize（arbiter=store 条件写首写赢）+
-   *      store.clearHeartbeat(userId)，唯一写源不裸 UPDATE（feedback_no_dual_sources）
-   *   4. errorMessage="zombie-heartbeat-cleanup" 标识与 cascade-aborted 区分（审计追踪）
-   */
-  private async zombieCleanup(
-    missionId: string,
-    userId: string,
-  ): Promise<void> {
-    const detail = await this.store.getById(missionId, userId);
-    if (!detail) {
-      // 跨用户 missionId / 不存在 → cleanup skip（深度防御）
-      this.log.warn(
-        `[rerun-guard ${missionId}] zombieCleanup skip: mission not owned by user ${userId}`,
-      );
-      return;
-    }
-    if (detail.status !== "running") {
-      // race 间已变 final → cleanup skip
-      this.log.warn(
-        `[rerun-guard ${missionId}] zombieCleanup skip: status=${detail.status} (race resolved)`,
-      );
-      return;
-    }
-
-    // ★ C0/G1：终态写经 finalize 单入口仲裁（条件写 WHERE status='running' 首写赢）
-    await this.lifecycleManager.finalize<PlaygroundTerminalExtra>({
-      missionId,
-      intent: {
-        status: "failed",
-        extra: {
-          kind: "failed",
-          detail: { errorMessage: "zombie-heartbeat-cleanup" },
-          userId,
-        },
+    prisma: PrismaService,
+    store: MissionStore,
+    lifecycleManager: MissionLifecycleManager,
+  ) {
+    const hooks: BusinessTeamRerunGuardHooks<
+      PlaygroundGuardDetail,
+      PlaygroundTerminalExtra
+    > = {
+      namespace: "agent-playground",
+      detailReader: async (missionId, userId) => {
+        const detail = await store.getById(missionId, userId);
+        if (!detail) return null;
+        return {
+          id: detail.id,
+          status: detail.status,
+          heartbeatAt: detail.heartbeatAt ?? null,
+        };
       },
-      arbiter: this.store,
-    });
-    await this.store.clearHeartbeat(missionId, userId).catch((err: unknown) => {
-      // best-effort：clearHeartbeat 失败不影响主流程，记 warn 由 prod 观察
-      this.log.warn(
-        `[rerun-guard ${missionId}] clearHeartbeat threw (best-effort): ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    });
-    await this.prisma.agentPlaygroundMissionEvent
-      .create({
-        data: {
-          missionId,
-          type: "agent-playground.mission:zombie-cleanup",
-          payload: {
-            triggeredBy: userId,
-            ts: Date.now(),
-            reason: "heartbeat fresh but no BUSINESS event ≥ 5min",
-          },
-          ts: BigInt(Date.now()),
-        },
-      })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[rerun-guard ${missionId}] emit zombie-cleanup event threw: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
+      latestBusinessEventTsReader: async (missionId) => {
+        // SQL LIKE BUSINESS_PREFIXES（playground 业务事件表 schema）
+        const prefixes = EVENT_CATEGORY.BUSINESS_PREFIXES;
+        const likeClause = prefixes
+          .map((_, i) => `type LIKE $${i + 2}`)
+          .join(" OR ");
+        const params: unknown[] = [missionId, ...prefixes.map((p) => `${p}%`)];
+        const rows = await prisma.$queryRawUnsafe<{ ts: bigint }[]>(
+          `SELECT ts FROM agent_playground_mission_events
+           WHERE mission_id = $1 AND (${likeClause})
+           ORDER BY ts DESC LIMIT 1`,
+          ...params,
         );
-      });
-    this.log.warn(
-      `[rerun-guard ${missionId}] zombie cleanup performed (user ${userId})`,
-    );
+        if (rows.length === 0) return null;
+        const tsMs = Number(rows[0].ts);
+        return Number.isFinite(tsMs) ? tsMs : null;
+      },
+      clearHeartbeat: (missionId, userId) =>
+        store.clearHeartbeat(missionId, userId),
+      emitZombieCleanup: async ({ missionId, payload }) => {
+        await prisma.agentPlaygroundMissionEvent.create({
+          data: {
+            missionId,
+            type: "agent-playground.mission:zombie-cleanup",
+            payload: payload as never, // Prisma JsonInput
+            ts: BigInt(Date.now()),
+          },
+        });
+      },
+      terminalArbiter: store,
+      buildZombieTerminalExtra: ({ userId }) => ({
+        kind: "failed",
+        detail: { errorMessage: "zombie-heartbeat-cleanup" },
+        userId,
+      }),
+      eventTypes: {
+        zombieCleanup: "agent-playground.mission:zombie-cleanup",
+      },
+    };
+    super(lifecycleManager, hooks);
   }
-
-  /**
-   * 测试钩子：暴露常量给 spec 用（不在生产路径调用）。
-   */
-  static readonly THRESHOLDS = {
-    HEARTBEAT_FRESH_MS: HEARTBEAT_FRESH_THRESHOLD_MS,
-    BUSINESS_EVENT_FRESH_MS: BUSINESS_EVENT_FRESH_THRESHOLD_MS,
-  };
-
-  /** 测试钩子：注入测试也不需穿层 prisma —— 但 spec 走 mock prisma 即可 */
 }
 
 /** 类型导出，给上游调用方用（不用 import 类） */

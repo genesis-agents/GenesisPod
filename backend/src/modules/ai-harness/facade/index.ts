@@ -498,7 +498,6 @@ export type {
 //   （后者是 harness/teams/abstractions 下的 generic InMemoryMissionStore 契约）
 export type { IBusinessTeamMissionStore } from "../teams/business-team/abstractions/mission-store.interface";
 // ★ 2026-05-08 PR-E3: BusinessAgentTeam rerun guard 9-cell 决策矩阵纯函数框架
-//   ctx-hydrator / stage-rerun-dispatcher 接口暂不上提（YAGNI，等第二个业务方来）
 export {
   decideMissionInFlight,
   HEARTBEAT_FRESH_THRESHOLD_MS_DEFAULT,
@@ -507,6 +506,42 @@ export {
   type HeartbeatDecision,
 } from "../teams/business-team/rerun/heartbeat-decision";
 export type { IBusinessRerunGuard } from "../teams/business-team/abstractions/rerun-guard.interface";
+// ★ 2026-05-24 P5 Wave 1: BusinessAgentTeam rerun framework 5 件套
+//   抽自 ai-app/agent-playground/services/mission/rerun/ @migrated-from
+//   未来 social/radar 接入 rerun 时直接继承 framework + 提供 business hook 即可。
+export {
+  BusinessTeamRerunGuardFramework,
+  type BusinessRerunGuardDetailMinimal,
+  type BusinessTeamRerunGuardHooks,
+  type BusinessRerunGuardResult,
+} from "../teams/business-team/rerun/business-team-rerun-guard.framework";
+export { BusinessTeamStageRerunDispatcherFramework } from "../teams/business-team/rerun/business-team-stage-rerun-dispatcher.framework";
+export type {
+  StageRerunHandler,
+  CascadeRunInput,
+  CascadeRunResult,
+  CascadeRunHooks,
+  CascadeStageStartedPayload,
+  CascadeAbortedPayload,
+} from "../teams/business-team/rerun/abstractions/stage-rerun-handler.contract";
+export { BusinessTeamCtxHydratorFramework } from "../teams/business-team/rerun/business-team-ctx-hydrator.framework";
+export type {
+  CtxHydratorDetailMinimal,
+  CtxHydratorSchemaProvider,
+  HydrationErrorContext,
+} from "../teams/business-team/rerun/abstractions/ctx-hydrator-schema.contract";
+export { BusinessTeamRerunRuntimeBuilderFramework } from "../teams/business-team/rerun/business-team-rerun-runtime-builder.framework";
+export type {
+  BusinessTeamRerunRuntimeSession,
+  RerunRuntimeComposerHooks,
+} from "../teams/business-team/rerun/abstractions/rerun-runtime-builder.contract";
+export { BusinessTeamRerunOrchestratorFramework } from "../teams/business-team/rerun/business-team-rerun-orchestrator.framework";
+export { RERUN_TOPIC_LIMIT_DEFAULT } from "../teams/business-team/rerun/abstractions/rerun-orchestrator.contract";
+export type {
+  MissionRerunOrchestratorHooks,
+  MissionRerunRequest,
+  MissionRerunResult,
+} from "../teams/business-team/rerun/abstractions/rerun-orchestrator.contract";
 // ★ 2026-05-08 PR-E4: BusinessAgentTeam 一站装配规约（聚合 E0/E1/E2/E3 4 个 adapter）
 //   YAGNI: 真 BusinessAgentTeamFactory 类等 2nd consumer (research / writing / TI 反向迁移)
 //   出现时再抽。当前阶段 NestJS DI 完成装配，业务模块只需实现本规约的 4 个字段。
