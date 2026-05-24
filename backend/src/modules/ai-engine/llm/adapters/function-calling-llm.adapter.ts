@@ -649,7 +649,13 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
             }
           : undefined,
         model: response.model as string | undefined,
-        finishReason: "stop",
+        finishReason:
+          (response.finishReason as
+            | "stop"
+            | "length"
+            | "function_call"
+            | "tool_calls"
+            | undefined) ?? "stop",
       };
     }
 
@@ -738,7 +744,17 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
           }
         : undefined,
       model: response.model as string | undefined,
-      finishReason: response.stop_reason === "tool_use" ? "tool_calls" : "stop",
+      finishReason:
+        response.stop_reason === "tool_use"
+          ? "tool_calls"
+          : response.stop_reason === "max_tokens"
+            ? "length"
+            : ((response.finishReason as
+                | "stop"
+                | "length"
+                | "function_call"
+                | "tool_calls"
+                | undefined) ?? "stop"),
     };
   }
 
@@ -770,7 +786,13 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
             }
           : undefined,
         model: response.model as string | undefined,
-        finishReason: "stop",
+        finishReason:
+          (response.finishReason as
+            | "stop"
+            | "length"
+            | "function_call"
+            | "tool_calls"
+            | undefined) ?? "stop",
       };
     }
 
@@ -804,7 +826,13 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
           }
         : undefined,
       model: response.model as string | undefined,
-      finishReason: "stop",
+      // ★ 2026-05-23 review-fix #4：原始 Gemini API 也要传播真实 finishReason
+      //   （candidate.finishReason="MAX_TOKENS" → "length"），否则截断在裸 Gemini
+      //   路径上仍然隐形（P1-engine 只修了 AiChatService 包装路径）。
+      finishReason:
+        (candidate?.finishReason as string | undefined) === "MAX_TOKENS"
+          ? "length"
+          : "stop",
     };
   }
 }

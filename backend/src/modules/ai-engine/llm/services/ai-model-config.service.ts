@@ -9,31 +9,27 @@ import { UserModelConfigsService } from "@/modules/ai-infra/credentials/user-mod
 import { RequestContext } from "@/common/context/request-context";
 import { AIModelType, UserModelConfig } from "@prisma/client";
 import { inferIsReasoning } from "../types";
+// v3.1 A0：AIModelConfig 单一源已迁出至 types/model-config.types.ts；
+// 本文件 import 后再 re-export，向后兼容旧 `from "./ai-model-config.service"`
+// 路径上的下游消费方。
+import type {
+  AIModelConfig,
+  ApiKeySource,
+  ResolvedApiKey,
+} from "../types/model-config.types";
+// v3.1 B.2: capability_overrides JSONB 严校（safeParse 失败仅 warn 跳过）
+// 解析逻辑独立在 capability-overrides-parser（review 2026-05-24 Fix-3 防 god-class）
+import { parseCapabilityOverrides } from "../capability/capability-overrides-parser";
+
+export type { AIModelConfig, ApiKeySource, ResolvedApiKey };
 
 /**
- * API Key 来源标识
- * personal: 用户自用 Key（不扣积分）
- * donated: 共享池捐赠 Key（扣积分）
- * system: 系统管理员配置 Key（扣积分）
+ * 图像生成模型 modelId 命名启发式 —— 用于把被误标为 CHAT 的图像模型
+ * （如 grok-imagine-image）排出文本/对话 failover 候选。仅对非 IMAGE 类型查询生效。
  */
-export type ApiKeySource = "personal" | "donated" | "system";
+const IMAGE_MODEL_ID_PATTERN =
+  /(image|imagine|dall-?e|flux|stable-?diffusion|sd-?xl|midjourney|ideogram)/i;
 
-export interface ResolvedApiKey {
-  apiKey: string;
-  source: ApiKeySource;
-  apiEndpoint?: string | null;
-  /**
-   * PR-4 (2026-05-05) BYOK failover：KeyHealth 命名空间下的统一标识。
-   * 调用方应在 callFn 调用前后做 markFailure / markSuccess。
-   * SYSTEM key 路径（无 userId）不返回此字段。
-   */
-  healthKeyId?: string;
-}
-
-/**
- * 数据库中的 AI 模型配置
- * ★ 所有模型行为完全由数据库配置驱动，消除硬编码
- */
 /**
  * 2026-05-12 严格 BYOK 升级（用户政策："所有 AI 调用统一 BYOK，绝不用 admin"）：
  * 不再有"基础功能必需"的软回退例外。**所有 modelType 一律严格**：
@@ -44,45 +40,6 @@ export interface ResolvedApiKey {
  */
 // 2026-05-12 严格 BYOK：原 BYOK_OPTIONAL_TYPES 区分已废弃，所有 modelType 一律严格。
 // 保留 import AIModelType 引用（其他方法签名需要）。
-
-export interface AIModelConfig {
-  id: string;
-  name: string;
-  displayName: string;
-  provider: string;
-  modelId: string;
-  apiEndpoint: string;
-  apiKey: string | null;
-  secretKey?: string | null; // 引用 Secret Manager 中的密钥名称
-  maxTokens: number;
-  temperature: number;
-  isEnabled: boolean;
-  isDefault: boolean;
-
-  // ★ 模型能力配置 - 完全由数据库驱动
-  isReasoning?: boolean; // 是否为推理模型
-  apiFormat?: string; // API 格式: openai, anthropic, google, xai
-  supportsTemperature?: boolean; // 是否支持 temperature 参数
-  supportsStreaming?: boolean; // 是否支持流式输出
-  supportsFunctionCalling?: boolean; // 是否支持函数调用
-  supportsVision?: boolean; // 是否支持视觉输入
-  tokenParamName?: string; // token 参数名: max_tokens 或 max_completion_tokens
-  defaultTimeoutMs?: number; // 默认超时时间
-  priceInputPerMillion?: number; // 输入价格
-  priceOutputPerMillion?: number; // 输出价格
-  priority?: number; // 模型优先级
-
-  // ★ 2026-05-06 Structured Output capability matrix
-  // 由 StructuredOutputRouter.resolveChain(model) 消费，未配置时按 provider slug
-  // 自动推断默认链。详见 ai-engine/llm/structured-output/。
-  structuredOutputStrategy?: string | null;
-  fallbackStrategies?: string[];
-  supportsJsonSchemaStrict?: boolean;
-  supportsJsonSchema?: boolean;
-  supportsToolUse?: boolean;
-  supportsJsonMode?: boolean;
-  supportsGbnfGrammar?: boolean;
-}
 
 /**
  * AI 模型配置管理服务
@@ -306,6 +263,13 @@ export class AiModelConfigService {
         (model.supportsJsonMode as boolean | undefined) ?? false,
       supportsGbnfGrammar:
         (model.supportsGbnfGrammar as boolean | undefined) ?? false,
+
+      // v3.1 §3.4 优先级 #2：admin capability_overrides（JSONB，nullable）
+      aiModelOverrides: parseCapabilityOverrides(model.capabilityOverrides, {
+        kind: "admin",
+        modelId: (model.modelId as string) ?? "<unknown>",
+        logger: this.logger,
+      }),
     };
   }
 
@@ -341,6 +305,46 @@ export class AiModelConfigService {
     } catch (error) {
       this.logger.error(`[refreshModelConfigCache] Failed: ${error}`);
     }
+  }
+
+  /**
+   * 检查 Temperature 参数是否支持（同步，从缓存读取）。
+   *
+   * v3.1 A0：合并自原 `AiChatModelConfigService.isTemperatureSupported`，
+   * 走 canonical 单缓存。
+   *
+   * 优先级：
+   *   1. DB 缓存的 supportsTemperature 字段（操作员显式声明）
+   *   2. 回落 isReasoningModel() 的统一判断（推理模型不支持 temperature）
+   *   3. 默认 true（普通模型支持）
+   */
+  isTemperatureSupported(modelId: string): boolean {
+    // 1. DB 配置优先（精确匹配）
+    const config = this.modelConfigCache.get(modelId);
+    if (config?.supportsTemperature !== undefined) {
+      return config.supportsTemperature;
+    }
+
+    // 2. 不区分大小写匹配
+    const modelLower = modelId.toLowerCase();
+    for (const [key, cfg] of this.modelConfigCache.entries()) {
+      if (
+        key.toLowerCase() === modelLower &&
+        cfg.supportsTemperature !== undefined
+      ) {
+        return cfg.supportsTemperature;
+      }
+    }
+
+    // 3. 推理模型不支持 temperature
+    if (this.isReasoningModel(modelId)) {
+      this.logger.debug(
+        `[isTemperatureSupported] Model "${modelId}" is reasoning, temperature not supported`,
+      );
+      return false;
+    }
+
+    return true;
   }
 
   /**
@@ -543,6 +547,13 @@ export class AiModelConfigService {
         ? Number(cfg.priceOutputPerMillion)
         : undefined,
       priority: cfg.priority,
+
+      // v3.1 §3.4 优先级 #1：BYOK user capability_overrides（JSONB，nullable）
+      userOverrides: parseCapabilityOverrides(cfg.capabilityOverrides, {
+        kind: "user",
+        modelId: cfg.modelId ?? "<unknown>",
+        logger: this.logger,
+      }),
     };
   }
 
@@ -953,6 +964,59 @@ export class AiModelConfigService {
       return models.map((m) => this.buildModelConfig(m));
     } catch (error) {
       this.logger.error(`[getAllEnabledModelsByType] Failed: ${error}`);
+      return [];
+    }
+  }
+
+  /**
+   * BYOK cross-model failover helper — explicit userId variant of
+   * getAllEnabledModelsByType.
+   *
+   * Unlike getAllEnabledModelsByType (which reads userId from RequestContext),
+   * this method accepts userId as a parameter so it can be called from async
+   * closures that may not have a request context (e.g. model-failover callback
+   * in LlmExecutor).  Returns the user's enabled models of the given modelType,
+   * ordered by isDefault desc, priority desc, with excludeModelIds filtered out.
+   * Strict BYOK: returns empty array if the user has no UserModelConfig for the
+   * type (never falls back to admin AIModel rows).
+   */
+  async listUserEnabledModelsByType(
+    userId: string,
+    modelType: AIModelType,
+    excludeModelIds: ReadonlyArray<string> = [],
+    excludeProviders: ReadonlyArray<string> = [],
+  ): Promise<AIModelConfig[]> {
+    try {
+      const rows = await this.prisma.userModelConfig.findMany({
+        where: {
+          userId,
+          modelType,
+          isEnabled: true,
+          ...(excludeModelIds.length > 0 && {
+            modelId: { notIn: [...excludeModelIds] },
+          }),
+          // failover：跳过已失败 provider 的全部模型（out of credits / no key）。
+          ...(excludeProviders.length > 0 && {
+            provider: {
+              notIn: excludeProviders.map((p) => p.toLowerCase()),
+            },
+          }),
+        },
+        orderBy: [{ isDefault: "desc" }, { priority: "desc" }],
+      });
+      const configs = await Promise.all(
+        rows.map((r) => this.toAIModelConfigFromUserConfig(r)),
+      );
+      // 防御：排除被误标为 CHAT 的图像生成模型（如 grok-imagine-image）——它们
+      // 不能对话，不应进入 CHAT failover 候选。按 modelId 命名启发式识别。
+      // IMAGE 类型查询本身不过滤（那里图像模型才是合法目标）。
+      return String(modelType) === "IMAGE"
+        ? configs
+        : configs.filter((c) => !IMAGE_MODEL_ID_PATTERN.test(c.modelId));
+    } catch (error) {
+      this.logger.warn(
+        `[listUserEnabledModelsByType] Failed for user=${userId} type=${modelType}: ${(error as Error).message}`,
+      );
       return [];
     }
   }

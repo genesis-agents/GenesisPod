@@ -16,6 +16,7 @@
 
 import React from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { TruncatedCell } from '@/components/common/tables';
 import {
   Coins,
   Layers,
@@ -32,6 +33,13 @@ import type {
   DimensionPipelineState,
 } from '@/lib/features/agent-playground/derive';
 import type { MissionTodo } from '@/lib/features/agent-playground/todo-ledger';
+import {
+  fmtUsd,
+  fmtTokens,
+  fmtLatency,
+  STAGE_LABEL,
+  ROLE_LABEL,
+} from '@/lib/features/agent-playground/formatters';
 import { Card } from '@/components/agent-playground/ui';
 import { StatCard } from '@/components/ui/cards';
 
@@ -40,43 +48,6 @@ interface Props {
   agents: AgentLiveState[];
   todos: MissionTodo[];
   dimensionPipelines: Map<string, DimensionPipelineState>;
-}
-
-const STAGE_LABEL: Record<string, string> = {
-  leader: 'Leader',
-  researchers: 'Researchers',
-  reconciler: 'Reconciler',
-  analyst: 'Analyst',
-  writer: 'Writer',
-  reviewer: 'Reviewer',
-  critic: 'Critic',
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  leader: 'Leader',
-  researcher: 'Researcher',
-  analyst: 'Analyst',
-  writer: 'Writer',
-  reviewer: 'Reviewer',
-  critic: 'Critic',
-};
-
-function fmtUsd(n: number): string {
-  if (n === 0) return '$0';
-  if (n < 0.001) return `$${n.toFixed(5)}`;
-  if (n < 0.01) return `$${n.toFixed(4)}`;
-  return `$${n.toFixed(3)}`;
-}
-function fmtTokens(n: number): string {
-  if (n < 1000) return String(n);
-  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
-}
-function fmtLatency(ms: number): string {
-  if (!ms || ms <= 0) return '—';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
 }
 
 // ─── Section A · 总览 ────────────────────────────────
@@ -225,12 +196,9 @@ function ModelDistributionTable({ rows }: { rows: ModelRow[] }) {
           {rows.map((r) => (
             <Tr key={r.modelId} className="hover:bg-violet-50/30">
               <Td className="px-3 py-2">
-                <span
-                  className="font-mono block truncate text-[11px] text-gray-700"
-                  title={r.modelId}
-                >
+                <TruncatedCell className="font-mono max-w-[200px] text-[11px] text-gray-700">
                   {r.modelId}
-                </span>
+                </TruncatedCell>
               </Td>
               <Td className="px-2 py-2 text-right tabular-nums text-gray-700">
                 {r.agentCount}
@@ -344,7 +312,16 @@ function AgentInstanceTable({ agents }: { agents: AgentLiveState[] }) {
           </span>
         </div>
       </div>
-      <Table className="w-full text-[12px]">
+      <Table className="w-full table-fixed text-[12px]">
+        <colgroup>
+          <col className="w-[12%]" />
+          <col className="w-[24%]" />
+          <col className="w-[18%]" />
+          <col className="w-[18%]" />
+          <col className="w-[10%]" />
+          <col className="w-[10%]" />
+          <col className="w-[8%]" />
+        </colgroup>
         <THead className="bg-gray-50/80">
           <Tr>
             <Th className="w-[12%] px-3 py-2 text-left font-medium text-gray-600">
@@ -378,23 +355,20 @@ function AgentInstanceTable({ agents }: { agents: AgentLiveState[] }) {
                   {ROLE_LABEL[a.role] ?? a.role}
                 </span>
               </Td>
-              <Td
-                className="font-mono truncate px-2 py-2 text-[11px] text-gray-700"
-                title={a.agentId}
-              >
-                {a.agentId}
+              <Td className="px-2 py-2">
+                <TruncatedCell className="font-mono max-w-[160px] text-[11px] text-gray-700">
+                  {a.agentId}
+                </TruncatedCell>
               </Td>
-              <Td
-                className="truncate px-2 py-2 text-[11px] text-gray-600"
-                title={a.dimension ?? ''}
-              >
-                {a.dimension ?? '—'}
+              <Td className="px-2 py-2">
+                <TruncatedCell className="max-w-[140px] text-[11px] text-gray-600">
+                  {a.dimension ?? '—'}
+                </TruncatedCell>
               </Td>
-              <Td
-                className="font-mono truncate px-2 py-2 text-[10.5px] text-gray-500"
-                title={a.modelId ?? ''}
-              >
-                {a.modelId ?? '—'}
+              <Td className="px-2 py-2">
+                <TruncatedCell className="font-mono max-w-[140px] text-[10.5px] text-gray-500">
+                  {a.modelId ?? '—'}
+                </TruncatedCell>
               </Td>
               <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
                 {a.iterations ?? 0}
@@ -488,7 +462,15 @@ function ToolLatencyTable({ rows }: { rows: ToolRow[] }) {
           </span>
         </div>
       </div>
-      <Table className="w-full text-[12px]">
+      <Table className="w-full table-fixed text-[12px]">
+        <colgroup>
+          <col className="w-[34%]" />
+          <col className="w-[12%]" />
+          <col className="w-[14%]" />
+          <col className="w-[12%]" />
+          <col className="w-[12%]" />
+          <col className="w-[16%]" />
+        </colgroup>
         <THead className="bg-gray-50/80">
           <Tr>
             <Th className="w-[34%] px-3 py-2 text-left font-medium text-gray-600">
@@ -517,11 +499,10 @@ function ToolLatencyTable({ rows }: { rows: ToolRow[] }) {
               r.callCount > 0 ? (1 - r.errorCount / r.callCount) * 100 : 0;
             return (
               <Tr key={r.toolId} className="hover:bg-emerald-50/30">
-                <Td
-                  className="font-mono truncate px-3 py-2 text-[11px] text-gray-700"
-                  title={r.toolId}
-                >
-                  {r.toolId}
+                <Td className="px-3 py-2">
+                  <TruncatedCell className="font-mono max-w-[200px] text-[11px] text-gray-700">
+                    {r.toolId}
+                  </TruncatedCell>
                 </Td>
                 <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
                   {r.callCount}
@@ -629,11 +610,10 @@ function SkillUsageTable({ agents }: { agents: AgentLiveState[] }) {
               <Td className="px-3 py-2 text-[11px] text-gray-700">
                 {r.agentRole}
               </Td>
-              <Td
-                className="font-mono truncate px-2 py-2 text-[11px] text-gray-700"
-                title={r.agentId}
-              >
-                {r.agentId}
+              <Td className="px-2 py-2">
+                <TruncatedCell className="font-mono max-w-[180px] text-[11px] text-gray-700">
+                  {r.agentId}
+                </TruncatedCell>
               </Td>
               <Td className="px-2 py-2 text-[11px] text-gray-700">
                 <div className="flex flex-wrap gap-1">

@@ -15,7 +15,7 @@
  * - 任何用户或系统无法预先审查的外部文本
  */
 
-import { sanitize } from "./prompt-sanitizer";
+import { sanitizeExternalContent } from "./prompt-sanitizer";
 
 export interface WrapExternalContentOptions {
   /** 来源 URL（可选，拼入标签属性） */
@@ -31,7 +31,10 @@ export interface WrapExternalContentOptions {
 /**
  * 用 `<external_source>` 标签包裹外部内容。
  *
- * - sanitize 过滤 prompt injection 模式 + 隐藏 Unicode + 截断
+ * - sanitizeExternalContent: normalization + strip control chars + truncation
+ *   (NO injection-pattern filtering — XML isolation + the system notice are the
+ *   defense; pattern-filtering corrupts research text such as papers titled
+ *   "Jailbreaking LLMs")
  * - 内容中若含有 `</external_source>` 等闭合标签，会被 HTML 实体转义防止越狱
  * - 属性值中的引号 / 尖括号会被转义
  */
@@ -45,7 +48,7 @@ export function wrapExternalContent(
     return "";
   }
 
-  const sanitized = sanitize(content, maxLength);
+  const sanitized = sanitizeExternalContent(content, maxLength);
 
   // 防止内容突破标签边界：把任何 <external_source 或 </external_source 转成实体
   const escaped = sanitized

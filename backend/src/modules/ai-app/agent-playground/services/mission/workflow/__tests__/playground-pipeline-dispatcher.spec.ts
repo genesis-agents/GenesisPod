@@ -334,6 +334,13 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     const fakeCheckpoint = {
       clear: jest.fn().mockResolvedValue(undefined),
       save: jest.fn().mockResolvedValue(undefined),
+      // R2-#37: crash-resume — default no prior checkpoint
+      canResume: jest.fn().mockResolvedValue({
+        canResume: false,
+        reason: "no-checkpoint",
+        snapshot: null,
+        completedKeys: new Set(),
+      }),
     };
     const fakeEventBuffer = {
       read: jest.fn().mockReturnValue([]),
@@ -408,6 +415,12 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
         },
       ),
     };
+    const fakeMissionSpan = {
+      startMissionSpan: jest.fn(),
+      endMissionSpan: jest.fn(),
+      startStageSpan: jest.fn(),
+      endStageSpan: jest.fn(),
+    };
     dispatcher = new PlaygroundPipelineDispatcher(
       registry,
       orchestrator,
@@ -423,6 +436,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       fakeEventBus as never,
       businessOrch,
       fakeLifecycleManager as never,
+      fakeMissionSpan as never,
     );
     dispatcher.onModuleInit();
   });
@@ -694,5 +708,287 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     expect(() => fn("s99-future-stage", "synthesize")).toThrow(
       /must have an explicit branch above/,
     );
+  });
+
+  // ─── #48-failure: handleMissionFailure abort signal.reason 分类 ─────────────
+  //
+  // 2026-05-22 真治: abort 必须按 signal.reason 区分 user_cancelled / budget_exhausted /
+  //   mission_wall_time_exceeded，不再让全部 abort 走 user-cancelled 静默路径。
+  //
+  // 测试策略：
+  //   · fakeLeaderPlan 抛错 → orchestrator 包成 result.status="failed"
+  //   · openSession mock 注入预 abort 的 AbortController（带对应 reason）
+  //   · 断言 invoker.emitEvent 的入参 failureCode
+
+  describe("#48-failure handleMissionFailure abort signal.reason classification", () => {
+    /** Re-create dispatcher with a shell whose openSession returns a session
+     *  with a pre-aborted AbortController of the given reason. */
+    function makeDispatcherWithAbortedSession(abortReason: string) {
+      // Build new registry / orchestrator so we don't share state
+      const reg = new MissionPipelineRegistry();
+      const orch = new MissionPipelineOrchestrator(reg);
+
+      const ac = new AbortController();
+      ac.abort(abortReason);
+
+      const fakeSessionWithAbort = {
+        missionId: "m-abort-test",
+        userId: "u1",
+        workspaceId: undefined,
+        billing: {
+          estimateAffordable: jest.fn().mockResolvedValue({
+            affordable: true,
+            estimatedCredits: 100,
+            currentBalance: 1000,
+          }),
+        },
+        pool: {
+          snapshot: () => ({ poolTokensUsed: 500, poolCostUsd: 0.05 }),
+        } as never,
+        budgetMultiplier: 1,
+        missionAbort: ac,
+        wallTimeMs: 60_000,
+        cleanup: jest.fn(),
+      } as unknown as MissionRuntimeSession;
+
+      const customShell = {
+        sessions: new Map<string, MissionRuntimeSession>(),
+        async openSession(args: {
+          missionId: string;
+          userId: string;
+          input: unknown;
+          workspaceId?: string;
+        }) {
+          customShell.sessions.set(args.missionId, fakeSessionWithAbort);
+          return fakeSessionWithAbort;
+        },
+        async runWithinContext<T>(
+          _session: MissionRuntimeSession,
+          fn: () => Promise<T>,
+        ) {
+          return fn();
+        },
+      } as unknown as MissionRuntimeShellService;
+
+      const localStageBindings = makeFakeStageBindings();
+
+      // fakeLeaderPlan throws so mission fails and handleMissionFailure is called
+      const throwingLeaderPlan = jest
+        .fn()
+        .mockRejectedValue(new Error("LLM fail"));
+      const fakeLeaderSvc = {
+        create: jest
+          .fn()
+          .mockReturnValue({ plan: throwingLeaderPlan } as never),
+      } as unknown as LeaderService;
+
+      const localInvoker = {
+        invoke: jest
+          .fn()
+          .mockResolvedValue({ state: "completed", output: {}, events: [] }),
+        emitEvent: jest.fn().mockResolvedValue(undefined),
+        emitLifecycle: jest.fn().mockResolvedValue(undefined),
+        clearMissionRelayState: jest.fn(),
+      } as unknown as AgentInvoker;
+
+      // Re-use the same misc deps pattern from beforeEach
+      const fakeCheckpoint = {
+        clear: jest.fn().mockResolvedValue(undefined),
+        save: jest.fn().mockResolvedValue(undefined),
+        // R2-#37: crash-resume — default no prior checkpoint
+        canResume: jest.fn().mockResolvedValue({
+          canResume: false,
+          reason: "no-checkpoint",
+          snapshot: null,
+          completedKeys: new Set(),
+        }),
+      };
+      const fakeEventBuffer = {
+        read: jest.fn().mockReturnValue([]),
+        broadcast: jest.fn().mockResolvedValue(undefined),
+      };
+      const fakeStore = {
+        markStageComplete: jest.fn().mockResolvedValue(undefined),
+        applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+        saveResearchResult: jest.fn().mockResolvedValue(undefined),
+        saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+        loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+        loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+        saveReportVersion: jest.fn().mockResolvedValue(1),
+        markIntermediateState: jest.fn().mockResolvedValue(undefined),
+        listRecentPostmortems: jest.fn().mockResolvedValue([]),
+      };
+      const localEventBus = {
+        emit: jest.fn().mockResolvedValue(true),
+        registerAdapter: jest.fn(),
+        unregisterAdapter: jest.fn(),
+      };
+      const localElectionTracker = { clear: jest.fn() };
+      const fakeLeaderInvocationFactory = {
+        build: jest.fn().mockReturnValue(jest.fn()),
+      };
+      const businessOrch = new PlaygroundBusinessOrchestrator(
+        localStageBindings as unknown as MissionStageBindingsService,
+        fakeCheckpoint as never,
+        fakeStore as never,
+      );
+      const fakeLifecycleManager = {
+        finalize: jest.fn(
+          async <TExtra>(args: {
+            missionId: string;
+            intent: { status: string; extra?: TExtra };
+            arbiter: {
+              applyTerminalIfRunning: (
+                id: string,
+                intent: unknown,
+              ) => Promise<boolean>;
+            };
+            abort?: () => void;
+            onWon?: () => Promise<void>;
+          }) => {
+            const won = await args.arbiter.applyTerminalIfRunning(
+              args.missionId,
+              args.intent,
+            );
+            if (won && args.onWon) {
+              try {
+                await args.onWon();
+              } catch {
+                /* swallow */
+              }
+            }
+            return { won };
+          },
+        ),
+      };
+
+      (
+        localStageBindings as unknown as { buildDeps: jest.Mock }
+      ).buildDeps.mockReturnValue({
+        invoker: {} as never,
+        store: {
+          markIntermediateState: jest.fn().mockResolvedValue(undefined),
+          listRecentPostmortems: jest.fn().mockResolvedValue([]),
+          loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+          loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+          saveResearchResult: jest.fn().mockResolvedValue(undefined),
+          saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+          saveReportVersion: jest.fn().mockResolvedValue(1),
+          markStageComplete: jest.fn().mockResolvedValue(undefined),
+          applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+        },
+        log: {
+          log: jest.fn(),
+          warn: jest.fn(),
+          error: jest.fn(),
+          debug: jest.fn(),
+        },
+        emit: jest.fn().mockResolvedValue(undefined),
+        lifecycle: jest.fn(),
+      } as never);
+
+      const noopMissionSpan = {
+        startMissionSpan: jest.fn(),
+        endMissionSpan: jest.fn(),
+        startStageSpan: jest.fn(),
+        endStageSpan: jest.fn(),
+      };
+      const d = new PlaygroundPipelineDispatcher(
+        reg,
+        orch,
+        customShell as unknown as MissionRuntimeShellService,
+        localStageBindings as unknown as MissionStageBindingsService,
+        fakeLeaderSvc,
+        localInvoker,
+        fakeLeaderInvocationFactory as never,
+        fakeCheckpoint as never,
+        fakeEventBuffer as never,
+        fakeStore as never,
+        localElectionTracker as never,
+        localEventBus as never,
+        businessOrch,
+        fakeLifecycleManager as never,
+        noopMissionSpan as never,
+      );
+      d.onModuleInit();
+      return { dispatcher: d, invoker: localInvoker };
+    }
+
+    const RUN_INPUT = {
+      topic: "abort test",
+      depth: "quick",
+      language: "zh-CN",
+      budgetProfile: "low",
+      styleProfile: "executive",
+      lengthProfile: "brief",
+      audienceProfile: "domain-expert",
+      withFigures: false,
+      auditLayers: "default",
+      concurrency: 1,
+      viewMode: "continuous",
+      maxCredits: 50,
+    } as never;
+
+    it("abort reason=user_cancelled → handleMissionFailure returns early, mission:failed NOT emitted", async () => {
+      // Arrange
+      const { dispatcher: d, invoker: inv } =
+        makeDispatcherWithAbortedSession("user_cancelled");
+
+      // Act
+      const result = await d.runMission("m-abort-test", RUN_INPUT, "u1");
+
+      // Assert — user_cancelled exits early (status may be "failed" or "aborted" depending on
+      // how the orchestrator wraps the abort; what matters is no mission:failed emit).
+      expect(["failed", "aborted"]).toContain(result.status);
+      const emitCalls = (inv.emitEvent as jest.Mock).mock.calls;
+      const failedEmit = emitCalls.find(
+        (c) =>
+          (c[0] as { type: string }).type === "agent-playground.mission:failed",
+      );
+      expect(failedEmit).toBeUndefined();
+    });
+
+    it("abort reason=budget_exhausted → failureCode===BUDGET_EXHAUSTED and mission:failed IS emitted", async () => {
+      // Arrange
+      const { dispatcher: d, invoker: inv } =
+        makeDispatcherWithAbortedSession("budget_exhausted");
+
+      // Act
+      await d.runMission("m-abort-test", RUN_INPUT, "u1");
+
+      // Assert
+      const emitCalls = (inv.emitEvent as jest.Mock).mock.calls;
+      const failedEmit = emitCalls.find(
+        (c) =>
+          (c[0] as { type: string }).type === "agent-playground.mission:failed",
+      );
+      expect(failedEmit).toBeDefined();
+      expect(
+        (failedEmit![0] as { payload: { failureCode: string } }).payload
+          .failureCode,
+      ).toBe("BUDGET_EXHAUSTED");
+    });
+
+    it("abort reason=mission_wall_time_exceeded → failureCode===RUNNER_WALL_TIME_EXCEEDED and mission:failed IS emitted", async () => {
+      // Arrange
+      const { dispatcher: d, invoker: inv } = makeDispatcherWithAbortedSession(
+        "mission_wall_time_exceeded",
+      );
+
+      // Act
+      await d.runMission("m-abort-test", RUN_INPUT, "u1");
+
+      // Assert
+      const emitCalls = (inv.emitEvent as jest.Mock).mock.calls;
+      const failedEmit = emitCalls.find(
+        (c) =>
+          (c[0] as { type: string }).type === "agent-playground.mission:failed",
+      );
+      expect(failedEmit).toBeDefined();
+      expect(
+        (failedEmit![0] as { payload: { failureCode: string } }).payload
+          .failureCode,
+      ).toBe("RUNNER_WALL_TIME_EXCEEDED");
+    });
   });
 });

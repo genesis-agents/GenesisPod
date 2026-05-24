@@ -9,6 +9,15 @@
  *
  * 失败容忍：所有写入失败仅记 warn，不抛异常 —— mission 主流程不能因为 cache
  * 抖动而被打断。读取失败返回 undefined 由调用方决定降级（通常回退到 in-memory）。
+ *
+ * ★ 职责边界（RB4 双心跳契约）：
+ *   - Redis heartbeat（claimOrBeat / getHeartbeat）= **活性探测**（in-flight presence）：
+ *     标识"哪个 pod 正在跑该 mission"，供跨 pod 接管用，TTL 90s 快速判活。
+ *   - **不作孤儿回收依据**：回收（markFailed）只由 MissionLivenessGuard 基于
+ *     DB heartbeatAt 触发，Redis 心跳的存在/缺失不触发任何回收逻辑。
+ *   - 如未来有人想让 Redis 参与回收判定，必须先更新 MissionLivenessGuard 的
+ *     回收契约测试（src/modules/ai-harness/lifecycle/mission-lifecycle/__tests__/
+ *     liveness-reclaim-contract.spec.ts），否则测试会失败阻止合入。
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";

@@ -157,6 +157,7 @@ export async function runAnalystStage(
     "analyst",
     pool,
     extractTokenSpend(analystRes.events),
+    analystRes.events,
   );
 
   // ★ 第一轮 null / 失败 → 简化提示重试一次（不放弃质量，只是给 LLM 一次机会修正格式）
@@ -204,6 +205,7 @@ export async function runAnalystStage(
       "analyst",
       pool,
       extractTokenSpend(analystRes.events),
+      analystRes.events,
     );
   }
 

@@ -18,6 +18,7 @@ import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import {
   MissionBudgetPool,
   type IAgentEvent,
+  extractTokenSpend,
 } from "@/modules/ai-harness/facade";
 import { normalizeRunnerState } from "./runner-state.util";
 
@@ -86,6 +87,7 @@ export class ResearcherService {
         "researchers",
         args.pool,
         extractTokenSpend(r.events),
+        r.events,
       );
     }
     return {
@@ -96,24 +98,4 @@ export class ResearcherService {
       wallTimeMs: r.wallTimeMs,
     };
   }
-}
-
-/** 局部复制 —— orchestrator 同名工具函数；后续 invoker 可吸纳 */
-function extractTokenSpend(
-  events: readonly { type: string; payload: unknown }[],
-): number {
-  let total = 0;
-  let lastBudgetTokens = 0;
-  for (const ev of events) {
-    if (ev.type === "action_executed") {
-      const p = ev.payload as { tokensUsed?: number } | null;
-      if (p && typeof p.tokensUsed === "number") total += p.tokensUsed;
-    } else if (ev.type === "budget_warning") {
-      const p = ev.payload as { tokensUsed?: number } | null;
-      if (p && typeof p.tokensUsed === "number") {
-        lastBudgetTokens = Math.max(lastBudgetTokens, p.tokensUsed);
-      }
-    }
-  }
-  return Math.max(total, lastBudgetTokens);
 }

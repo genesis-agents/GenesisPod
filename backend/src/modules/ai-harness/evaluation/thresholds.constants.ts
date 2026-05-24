@@ -31,6 +31,12 @@
 export const REVIEW_PASS_THRESHOLD = 60;
 
 /**
+ * 章节重写循环的分数衰减下限：随重试轮次降低通过线，但不低于此值。
+ * 单一源（取代 chapter-pipeline 内联的魔法数字 40）。
+ */
+export const REVIEW_REWRITE_FLOOR = 40;
+
+/**
  * 章节级 writer/reviewer 修订循环最大重试次数。
  * - 1 = 每章最多 2 attempts（1 初稿 + 1 修订）
  *

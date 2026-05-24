@@ -2,6 +2,9 @@
 
 > 用户协作偏好 + 项目反复踩到的反模式。每条 ≤200 字符，详情看链接文件。
 
+- [feedback_parallel_agent_integration_2026_05_23.md](feedback_parallel_agent_integration_2026_05_23.md) — 并行后台 agent + 共享分支集成血泪(R2 #35-52)：真并行用 run_in_background(前台阻塞=串行)；集成按 `git -C wt diff --name-only`(agent 散文报告漏文件→测试全红)；cp 共享文件后 grep marker 防回退；lint-staged 大文件 ESLint OOM→`NODE_OPTIONS=8192 git commit`；注释别留 `from "x"`/event 字面量(守护误判)；别在主分支与 worktree agent 并发 commit(auto-merge 会重置 HEAD)；git/ls 一律从仓库根跑(否则根相对路径误解析)
+- [feedback_verify_subagent_output_independently.md](feedback_verify_subagent_output_independently.md) — 委托 sub-agent 重构后主 agent 必须独立重跑 tsc+全测+调用图核验再信/再提交；2026-05-22 playground C0 切换的 sub-agent 报告丢失且实际留 15 个失败测试 + s11 绕过 finalize 中央方法(直调 arbiter)。它说"全绿"不算数，自己跑过+grep 旧API无消费方才算
+- [feedback_overclaim_cutover_verify_by_callgraph.md](feedback_overclaim_cutover_verify_by_callgraph.md) — 声称"切换/单入口/无双写"前必须 grep 真实生产消费方+证明旧路径无调用点(拿调用图当证据,不是测试绿)；2026-05-22 借 Codex 抓到我把 finalize() 报成已切换实则生产零调用、userProfile 终态写仍双写。deprecation/TODO-切换注释=未完成红旗,收尾必须显式列出
 - [feedback_dont_double_down_on_theory_when_user_pushes_back.md](feedback_dont_double_down_on_theory_when_user_pushes_back.md) — 用户带证据反驳时从头重查根因别打补丁辩护；2026-05-21 AI Ask 房间我死磕 xAI 402 三轮被连续打脸，真因是用户第一句说的"代理看不到输出"。反驳一次=可能错，两次=推倒重来；优先采信用户第一手现象
 - [feedback_commit_directly_to_main.md](feedback_commit_directly_to_main.md) — 本项目直接提交推送 main，不开 feature 分支/PR（靠 pre-push 闸门保质量）；2026-05-21 我为修复擅自建 fix 分支推该分支→用户「为什么不到主干？？？」。"提交推送"=commit 到 main + push origin main
 - [feedback_guard_placement_not_just_document.md](feedback_guard_placement_not_just_document.md) — 目录/组件归属约定必须有 audit 守护，光写文档没用（文档会不自洽 + agent 会漂移）；卡片散落 ui/cards+common/cards+common/asset-card 三处无人拦→震怒。落地：全收口 ui/cards + 标准22改写 + audit R15(目录级扫描，绕过 file-walk 排除项)+造违规验证拒推。canonical 放 ui/还是 common/ 是用户决策，别擅自 mv（2026-05-21）

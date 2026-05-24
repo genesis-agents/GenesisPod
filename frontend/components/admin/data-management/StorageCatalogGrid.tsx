@@ -1,6 +1,7 @@
 'use client';
 
 import { Cloud } from 'lucide-react';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface CatalogRow {
   prefix: string;
@@ -46,7 +47,16 @@ export default function StorageCatalogGrid({
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col className="w-[26%]" />
+            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+            <col className="w-[14%]" />
+            <col className="w-[16%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               {columns.map((col) => (
@@ -88,7 +98,9 @@ export default function StorageCatalogGrid({
                   className="transition-colors hover:bg-gray-50"
                 >
                   <td className="font-mono px-4 py-3 text-sm font-medium text-gray-900">
-                    {row.prefix}
+                    <TruncatedCell className="font-mono max-w-[240px] text-sm font-medium text-gray-900">
+                      {row.prefix}
+                    </TruncatedCell>
                   </td>
                   <td className="px-4 py-3">
                     <span

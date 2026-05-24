@@ -25,6 +25,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import type {
+  AgentEventPayload,
   AgentLoopKind,
   IAgentEvent,
   IAgentLoop,
@@ -40,6 +41,8 @@ import { AIModelType } from "@prisma/client";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
+import { SIMPLE_LOOP_OUTPUT_JSON_SCHEMA } from "./loop-output-schemas";
+import { executeWithModelFailover } from "./model-failover.util";
 
 export interface SimpleLoopRunOptions extends ILoopRunOptions {
   /** Spec 声明的 TaskProfile（透传给 chat()） */
@@ -94,22 +97,51 @@ export class SimpleLoop implements IAgentLoop {
     let response: Awaited<ReturnType<AiChatService["chat"]>>;
     const startMs = Date.now();
     try {
-      response = await this.chatService.chat({
-        messages,
-        systemPrompt,
-        model: options?.modelOverride,
-        modelType: options?.modelOverride ? undefined : AIModelType.CHAT,
-        cachePolicy: "auto",
-        taskProfile: options?.taskProfile ?? {
-          creativity: "low",
-          outputLength: "medium",
+      // ★ 模型级 failover：chat 抛 provider 错（或返回 isError）时换用户/选举的
+      //   下一个模型重试，而非直接判废。逻辑收口在 executeWithModelFailover。
+      response = await executeWithModelFailover({
+        agentId,
+        logger: this.logger,
+        provider: options?.modelFailoverProvider,
+        attempt: (modelOverride) => {
+          const effModel = modelOverride ?? options?.modelOverride;
+          return this.chatService.chat({
+            messages,
+            systemPrompt,
+            model: effModel,
+            modelType: effModel ? undefined : AIModelType.CHAT,
+            cachePolicy: "auto",
+            taskProfile: options?.taskProfile ?? {
+              creativity: "low",
+              outputLength: "medium",
+            },
+            strictMode: true,
+            responseFormat: "json",
+            // R2-#35: native structured output — router auto-degrades per provider.
+            // responseFormat:"json" is kept as the secondary safety net so providers
+            // that do not support json_schema still get a JSON hint.
+            structuredOutputStrategy: "json_schema",
+            outputJsonSchema: SIMPLE_LOOP_OUTPUT_JSON_SCHEMA,
+            skipGuardrails: true,
+            operationName: "harness:simple-loop:chat",
+            userId: options?.userId,
+            signal,
+          });
         },
-        strictMode: true,
-        responseFormat: "json",
-        skipGuardrails: true,
-        operationName: "harness:simple-loop:chat",
-        userId: options?.userId,
-        signal,
+        // isError-RETURN 路径：provider 错以返回值形式（非抛错）回来也要触发
+        // failover；分类器仍会拒掉 guardrail/安全拒答（不浪费换模型）。
+        inspectResult: (res) => ({
+          failoverable:
+            (res as { isError?: boolean }).isError === true ||
+            /^Request blocked by content safety guardrail/i.test(
+              res.content ?? "",
+            ) ||
+            /^Response filtered by content safety guardrail/i.test(
+              res.content ?? "",
+            ),
+          modelId: res.model,
+          message: res.content ?? "",
+        }),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -320,7 +352,7 @@ export class SimpleLoop implements IAgentLoop {
   private makeEvent(
     agentId: string,
     type: IAgentEvent["type"],
-    payload: unknown,
+    payload: AgentEventPayload,
   ): IAgentEvent {
     return { type, agentId, timestamp: Date.now(), payload };
   }

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import type { ChatMessage } from "../types/task-profile.types";
@@ -25,6 +25,8 @@ import {
   PromptOnlyAdapter,
 } from "../structured-output/adapters";
 import type { StructuredOutputStrategy } from "../structured-output/structured-output-strategy.types";
+import { ModelCapabilityService } from "../capability/model-capability.service";
+import type { AIModelConfig } from "../types/model-config.types";
 
 /**
  * 解析 ChatMessage 的有效内容：优先使用 contentParts（多模态），回退到 content（纯文本）
@@ -146,7 +148,73 @@ const STACK_CONTEXT_LINES = 5;
 export class AiApiCallerService {
   private readonly logger = new Logger(AiApiCallerService.name);
 
-  constructor(private readonly httpService: HttpService) {}
+  /**
+   * v3.1 §A review (2026-05-24)：fail-open 观测信号去重 Set。
+   * 同 (provider, modelId, reason) 仅 warn 一次，防日志风暴。
+   * key 格式：`${reason}|${provider}|${modelId}`
+   */
+  private readonly _capabilityFailOpenWarned = new Set<string>();
+
+  constructor(
+    private readonly httpService: HttpService,
+    // v3.1 §A: 替代原 isDeepseekReasoner 反模式；caps.structuredOutput.nativeMode
+    // === 'none' 决定是否注入 response_format。Optional 保留 BC（旧单测可不注入）。
+    @Optional()
+    private readonly capabilityService?: ModelCapabilityService,
+  ) {}
+
+  /**
+   * v3.1 §A：判断指定 (provider, modelId) 的模型是否拒绝 response_format 字段。
+   *
+   * 实现：调用 ModelCapabilityService.resolveCapabilities() 后看
+   *      caps.structuredOutput.nativeMode === 'none'。
+   *
+   * 替代删除的 `modelLower.includes("deepseek-reasoner")` 反模式。
+   *
+   * 安全设计：
+   *   - provider 缺失（旧调用方未传） → 退回 false（**保留 response_format 字段**，
+   *     与重构前行为一致；不会因 catalog SAFE_DEFAULTS 误判全平台关 response_format）
+   *   - capability service 未注入（旧单测） → 同样退回 false
+   *   - provider 已知 + catalog 明确 nativeMode='none' → 返回 true（跳 response_format）
+   *
+   * v3.1 §A review (2026-05-24) fail-open 观测：
+   *   - 当 capability gate 被绕过（service 缺 / provider 空）时记一次 warn，
+   *     让运维能在日志里追到"为什么这条没走 catalog"。
+   *   - 同 (reason, provider, modelId) 只 warn 一次（_capabilityFailOpenWarned 去重），
+   *     防止热路径日志风暴。
+   */
+  private rejectsResponseFormat(provider: string, modelId: string): boolean {
+    if (!this.capabilityService || !provider?.trim()) {
+      const reason = !this.capabilityService
+        ? "missing-service"
+        : "empty-provider";
+      const dedupeKey = `${reason}|${provider}|${modelId}`;
+      if (!this._capabilityFailOpenWarned.has(dedupeKey)) {
+        this._capabilityFailOpenWarned.add(dedupeKey);
+        this.logger.warn(
+          `[capability-gate] bypassed, fail-open: reason=${reason}, ` +
+            `provider="${provider}", modelId="${modelId}" ` +
+            `(response_format 将按重构前行为保留；后续重复同源不再 warn)`,
+        );
+      }
+      return false;
+    }
+    const projection: AIModelConfig = {
+      id: "",
+      name: "",
+      displayName: "",
+      provider,
+      modelId,
+      apiEndpoint: "",
+      apiKey: null,
+      maxTokens: 0,
+      temperature: 0,
+      isEnabled: true,
+      isDefault: false,
+    };
+    const caps = this.capabilityService.resolveCapabilities(projection);
+    return caps.structuredOutput.nativeMode === "none";
+  }
 
   /**
    * OpenAI-compatible providers only accept role:"tool" when paired with a
@@ -293,6 +361,13 @@ export class AiApiCallerService {
     outputJsonSchema?: Record<string, unknown>,
     schemaName?: string,
     tools?: FunctionDefinition[],
+    /**
+     * v3.1 §A：provider slug（与 AIModelConfig.provider 同语义）。
+     * 用于通过 ModelCapabilityService.resolveCapabilities 判定模型是否拒绝
+     * response_format（替代删除的 isDeepseekReasoner substring 反模式）。
+     * 缺省 = "" → 保留 response_format（向后兼容旧调用方）。
+     */
+    provider: string = "",
   ): Promise<ChatCompletionResult> {
     // 2026-05-10 §2/§4：单源归一化（base URL → /chat/completions），与
     // streamOpenAICompatible / connection-test 共用 ensureChatCompletionsPath。
@@ -306,7 +381,6 @@ export class AiApiCallerService {
     // ★ 数据库驱动：是否传 reasoning_effort 由 AIModelConfig.isReasoning 决定
     // 不再用模型名 startsWith 字符串匹配（模型每月新增，硬编码必然过时）
     // 新接 BYOK 的推理模型（gpt-5/6/o5/...），管理员在 DB 把 isReasoning 设为 true 即可
-    const modelLower = modelId.toLowerCase();
     let reasoningParam: { reasoning_effort?: string } = {};
     if (isReasoning) {
       const effort = safeReasoningEffort(reasoningDepth, modelId);
@@ -366,15 +440,17 @@ export class AiApiCallerService {
       requestBody.temperature = temperature;
     }
 
-    // ★ deepseek-reasoner does NOT support response_format (INVALID_REQUEST error)
-    // Instead of response_format, inject a JSON constraint into the system prompt
-    const isDeepseekReasoner = modelLower.includes("deepseek-reasoner");
+    // v3.1 §A：models that reject response_format（DeepSeek-reasoner / Cohere /
+    // 任何 catalog nativeMode==='none' 的模型）—— 由 ModelCapabilityService 数据驱动
+    // 判定，替代 `modelLower.includes("deepseek-reasoner")` 反模式。
+    // 缺省 provider="" → 保留 response_format（与重构前未知模型行为一致）。
+    const noResponseFormat = this.rejectsResponseFormat(provider, modelId);
 
     // ★ 2026-05-06 native structured output path: prefer StructuredOutputRouter adapter
     // over the legacy ad-hoc outputSchema path. When structuredOutputStrategy +
     // outputJsonSchema are provided, apply the adapter's requestBodyPatch and
     // any systemPromptAddon — replacing the old manual response_format wiring.
-    if (structuredOutputStrategy && outputJsonSchema && !isDeepseekReasoner) {
+    if (structuredOutputStrategy && outputJsonSchema && !noResponseFormat) {
       const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
       const adaptOut = adapter.adapt({
         jsonSchema: outputJsonSchema,
@@ -397,7 +473,7 @@ export class AiApiCallerService {
           });
         }
       }
-    } else if (!isDeepseekReasoner && outputSchema) {
+    } else if (!noResponseFormat && outputSchema) {
       // ★ Legacy ad-hoc path (fallback when new fields not provided)
       requestBody["response_format"] = {
         type: "json_schema",
@@ -407,14 +483,14 @@ export class AiApiCallerService {
           strict: schemaStrict ?? false,
         },
       };
-    } else if (!isDeepseekReasoner && responseFormat === "json") {
+    } else if (!noResponseFormat && responseFormat === "json") {
       requestBody["response_format"] = { type: "json_object" };
     } else if (
-      isDeepseekReasoner &&
+      noResponseFormat &&
       (outputSchema || responseFormat === "json" || outputJsonSchema)
     ) {
-      // ★ deepseek-reasoner: 用 system prompt 替代 response_format 约束 JSON 输出
-      // 在第一条 system message 末尾追加 JSON 约束指令
+      // 模型拒绝 response_format（DeepSeek-reasoner / Cohere / 任意 catalog
+      // nativeMode==='none'）：在 system message 注入 JSON 约束作为替代约束。
       const jsonConstraint =
         "\n\n[CRITICAL OUTPUT FORMAT] You MUST output ONLY a valid JSON object. " +
         "Do NOT wrap it in ```json code blocks. Do NOT add any text before or after the JSON. " +

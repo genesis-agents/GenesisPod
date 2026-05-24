@@ -58,11 +58,14 @@ export class MissionBudgetPool {
   }
 
   isExhausted(): boolean {
-    // ★ 全覆盖审计修 (2026-05-06): 改 >= 为 >，让最后一个 token/cent 也允许
-    //   执行，与 allocate() 中 Math.max(0, cap-used) 的语义对齐（P1 修复）。
+    // ★ R2-#36 comparator unification: use >= (at-cap means exhausted), matching
+    //   BudgetAccountant.exhausted() which also uses >=. The previous comment
+    //   ("allow last token") was stale; MissionAwareBudgetAccountant.exhausted()
+    //   delegates here, so the two must agree to avoid one saying exhausted while
+    //   the other says not.
     return (
-      this.poolTokensUsed > this.cap.maxTokens ||
-      this.poolCostUsd > this.cap.maxCostUsd
+      this.poolTokensUsed >= this.cap.maxTokens ||
+      this.poolCostUsd >= this.cap.maxCostUsd
     );
   }
 

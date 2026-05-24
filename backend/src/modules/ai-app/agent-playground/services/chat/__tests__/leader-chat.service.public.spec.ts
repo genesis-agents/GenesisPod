@@ -92,6 +92,101 @@ function buildService() {
   return { service, prisma, chat, store, eventBus, skillCatalog };
 }
 
+describe("LeaderChatService.send — model-level failover", () => {
+  function mkPrisma() {
+    return {
+      agentPlaygroundLeaderChat: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest
+          .fn()
+          .mockImplementation((args: { data: Record<string, unknown> }) =>
+            Promise.resolve({
+              id: `created-${args.data.role}`,
+              role: args.data.role,
+              content: args.data.content,
+              tokensUsed: args.data.tokensUsed ?? null,
+              createdAt: new Date(),
+              decision: args.data.decision ?? null,
+              missionId: args.data.missionId,
+              userId: args.data.userId,
+            }),
+          ),
+      },
+    };
+  }
+
+  it("BYOK provider error on default model → fails over to user's next model", async () => {
+    const chat = {
+      chat: jest.fn(async (opts: { model?: string }) => {
+        if (!opts.model) {
+          const e = new Error(
+            'No API Key available for provider "deepseek"',
+          ) as Error & { code: string };
+          e.code = "NO_AVAILABLE_KEY";
+          throw e;
+        }
+        return {
+          content: '{"decisionType":"DIRECT_ANSWER","response":"OK"}',
+          usage: { totalTokens: 10 },
+        };
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission()),
+      appendDimensions: jest.fn().mockResolvedValue([]),
+    };
+    const modelConfig = {
+      listUserEnabledModelsByType: jest
+        .fn()
+        .mockResolvedValue([{ modelId: "grok-4" }]),
+    };
+    const service = new LeaderChatService(
+      mkPrisma() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+      undefined,
+      modelConfig as never,
+    );
+
+    await service.send("m-1", "u-1", "hi");
+
+    // failover provider consulted (excluding nothing/failed) → second chat used grok-4
+    expect(modelConfig.listUserEnabledModelsByType).toHaveBeenCalledWith(
+      "u-1",
+      AIModelType.CHAT,
+      expect.any(Array),
+    );
+    expect(chat.chat).toHaveBeenCalledTimes(2);
+    expect(chat.chat.mock.calls[1][0].model).toBe("grok-4");
+  });
+
+  it("no modelConfig (failover disabled) → single attempt, legacy fallback message", async () => {
+    const chat = {
+      chat: jest.fn(async () => {
+        throw new Error("503 service unavailable");
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission()),
+      appendDimensions: jest.fn().mockResolvedValue([]),
+    };
+    const service = new LeaderChatService(
+      mkPrisma() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+    );
+
+    const res = await service.send("m-1", "u-1", "hi");
+    expect(chat.chat).toHaveBeenCalledTimes(1);
+    // degrades to the user-facing retry message (unchanged legacy behavior)
+    expect(JSON.stringify(res)).toMatch(/暂时无法回复|reply/i);
+  });
+});
+
 describe("LeaderChatService.list", () => {
   it("returns empty array when no messages", async () => {
     const { service } = buildService();

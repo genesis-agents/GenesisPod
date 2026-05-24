@@ -22,6 +22,7 @@ import {
   type MissionTerminalArbiter,
   type MissionTerminalIntent,
 } from "@/modules/ai-harness/facade";
+import type { RadarConfigSnapshot } from "./radar-mission-config-snapshot";
 
 export type RadarMissionStatus =
   | "running"
@@ -52,7 +53,7 @@ export interface RadarMissionCreateInput {
   readonly wallTimeCapMs: number;
   readonly payload: Record<string, unknown>;
   /** ★ C5/G7（三 app 统一）：typed MissionConfigSnapshot(canonical 配置记录)。 */
-  readonly configSnapshot?: unknown;
+  readonly configSnapshot?: RadarConfigSnapshot;
 }
 
 @Injectable()

@@ -1,3 +1,40 @@
+// Mock the ai-harness/facade module to prevent module initialization errors
+// from the deep import chain (ai-infra/credentials → IsEnum(AIModelType) when
+// AIModelType is undefined at load time in the test environment).
+jest.mock("@/modules/ai-harness/facade", () => ({
+  ChatFacade: jest.fn(),
+}));
+
+// Mock @prisma/client enums since the generated client in this worktree
+// does not include the social module enums (out-of-sync schema).
+jest.mock("@prisma/client", () => ({
+  ...jest.requireActual("@prisma/client"),
+  SocialContentType: {
+    WECHAT_ARTICLE: "WECHAT_ARTICLE",
+    XIAOHONGSHU: "XIAOHONGSHU",
+    WEIBO: "WEIBO",
+  },
+  SocialContentStatus: {
+    DRAFT: "DRAFT",
+    PUBLISHED: "PUBLISHED",
+    FAILED: "FAILED",
+  },
+  SocialContentSourceType: {
+    EXTERNAL_URL: "EXTERNAL_URL",
+    RESEARCH: "RESEARCH",
+    AI_RESEARCH: "AI_RESEARCH",
+    AI_TOPIC_INSIGHTS: "AI_TOPIC_INSIGHTS",
+  },
+  SocialReviewStatus: {
+    PENDING: "PENDING",
+    APPROVED: "APPROVED",
+    REJECTED: "REJECTED",
+  },
+  Prisma: {
+    ...jest.requireActual("@prisma/client").Prisma,
+  },
+}));
+
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { SocialLeaderService } from "../social-leader.service";
 import type { PrismaService } from "../../../../../common/prisma/prisma.service";
@@ -6,6 +43,7 @@ import type { ContentFetcherService } from "../content-fetcher.service";
 import type { ContentTransformerService } from "../content-transformer.service";
 import type { ContentCheckerService } from "../content-checker.service";
 import type { ContentVersionService } from "../content-version.service";
+import type { WechatArticleFormatterService } from "../wechat-article-formatter.service";
 import {
   SocialContentStatus,
   SocialContentSourceType,
@@ -21,7 +59,16 @@ function createMockPrisma() {
       findFirst: jest.fn(),
     },
     $queryRaw: jest.fn(),
+    $transaction: jest.fn(),
   } as unknown as jest.Mocked<PrismaService>;
+}
+
+function createMockWechatFormatter() {
+  return {
+    splitMarkdownIntoSections: jest.fn(),
+    formatForWechat: jest.fn(),
+    generateDigest: jest.fn(),
+  } as unknown as jest.Mocked<WechatArticleFormatterService>;
 }
 
 function createMockChatFacade() {
@@ -113,6 +160,7 @@ describe("SocialLeaderService", () => {
   let mockTransformer: ReturnType<typeof createMockTransformer>;
   let mockChecker: ReturnType<typeof createMockChecker>;
   let mockVersionService: ReturnType<typeof createMockVersionService>;
+  let mockWechatFormatter: ReturnType<typeof createMockWechatFormatter>;
 
   beforeEach(() => {
     mockPrisma = createMockPrisma();
@@ -121,6 +169,7 @@ describe("SocialLeaderService", () => {
     mockTransformer = createMockTransformer();
     mockChecker = createMockChecker();
     mockVersionService = createMockVersionService();
+    mockWechatFormatter = createMockWechatFormatter();
 
     service = new SocialLeaderService(
       mockPrisma as unknown as PrismaService,
@@ -129,6 +178,7 @@ describe("SocialLeaderService", () => {
       mockTransformer as unknown as ContentTransformerService,
       mockChecker as unknown as ContentCheckerService,
       mockVersionService as unknown as ContentVersionService,
+      mockWechatFormatter as unknown as WechatArticleFormatterService,
     );
   });
 
@@ -383,6 +433,134 @@ describe("SocialLeaderService", () => {
       await expect(
         service.processSource(MOCK_USER_ID, mockDto),
       ).rejects.toThrow("DB protocol error");
+    });
+  });
+
+  describe("processKeepFormatSource (via processSource keepFormat) atomicity", () => {
+    const mockDto = {
+      sourceType: SocialContentSourceType.AI_TOPIC_INSIGHTS,
+      sourceId: "topic-uuid-111",
+      targetType: SocialContentType.WECHAT_ARTICLE,
+    };
+
+    const makeSection = (heading: string) => ({
+      heading,
+      markdown: `## ${heading}\n\nSome content here.`,
+    });
+
+    const makeInsertRow = (id: string, title: string) => ({
+      id,
+      user_id: MOCK_USER_ID,
+      content_type: "WECHAT_ARTICLE",
+      source_type: "AI_TOPIC_INSIGHTS",
+      source_id: "topic-uuid-111",
+      title,
+      content: "<p>html</p>",
+      digest: null,
+      series_id: "series-abc",
+      series_order: 1,
+      status: "DRAFT",
+      created_at: new Date(),
+    });
+
+    beforeEach(() => {
+      mockFetcher.fetchFromSource.mockResolvedValue({
+        title: "Big Report",
+        content:
+          "## Part 1\n\nContent 1\n\n## Part 2\n\nContent 2\n\n## Part 3\n\nContent 3",
+        images: [],
+        coverImage: null,
+        url: null,
+        originalContent: undefined,
+        translatedContent: undefined,
+        isBilingual: false,
+      });
+      mockChecker.check.mockResolvedValue({
+        passed: true,
+        issues: [],
+        suggestions: [],
+      });
+      mockVersionService.generateAllVersions.mockResolvedValue([]);
+
+      mockWechatFormatter.splitMarkdownIntoSections.mockReturnValue([
+        makeSection("Part 1"),
+        makeSection("Part 2"),
+        makeSection("Part 3"),
+      ]);
+      mockWechatFormatter.formatForWechat.mockReturnValue("<p>html</p>");
+      mockWechatFormatter.generateDigest.mockReturnValue("short digest");
+    });
+
+    it("insert fails at section 2/3 → transaction rolls back and 0 rows are persisted", async () => {
+      // Arrange: $transaction executes the callback using a tx mock whose
+      // $queryRaw succeeds on call 1 (section 1) and throws on call 2 (section 2).
+      // The real Prisma $transaction would roll back all rows; here we verify
+      // the outer call rejects (which is the signal that rollback happened).
+      let txQueryRawCallCount = 0;
+      const txMock = {
+        $queryRaw: jest.fn().mockImplementation(() => {
+          txQueryRawCallCount++;
+          if (txQueryRawCallCount === 2) {
+            return Promise.reject(new Error("DB insert error on section 2"));
+          }
+          return Promise.resolve([
+            makeInsertRow(
+              `row-${txQueryRawCallCount}`,
+              `Part ${txQueryRawCallCount}`,
+            ),
+          ]);
+        }),
+      };
+
+      (mockPrisma.$transaction as jest.Mock).mockImplementation(
+        async (callback: (tx: typeof txMock) => Promise<unknown>) => {
+          return callback(txMock);
+        },
+      );
+
+      // Act + Assert: the whole processSource call rejects
+      await expect(
+        service.processSource(MOCK_USER_ID, mockDto),
+      ).rejects.toThrow("DB insert error on section 2");
+
+      // The AI compliance check (section 1 only) ran exactly once — outside tx
+      expect(mockChecker.check).toHaveBeenCalledTimes(1);
+
+      // The tx.$queryRaw was called twice before failing (section 1 ok, section 2 throws)
+      expect(txMock.$queryRaw).toHaveBeenCalledTimes(2);
+
+      // $transaction was called exactly once (all-or-nothing)
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it("all 3 sections succeed → $transaction called once, 3 rows returned", async () => {
+      let txQueryRawCallCount = 0;
+      const txMock = {
+        $queryRaw: jest.fn().mockImplementation(() => {
+          txQueryRawCallCount++;
+          return Promise.resolve([
+            makeInsertRow(
+              `row-${txQueryRawCallCount}`,
+              `Part ${txQueryRawCallCount}`,
+            ),
+          ]);
+        }),
+      };
+
+      (mockPrisma.$transaction as jest.Mock).mockImplementation(
+        async (callback: (tx: typeof txMock) => Promise<unknown>) => {
+          return callback(txMock);
+        },
+      );
+
+      const result = await service.processSource(MOCK_USER_ID, mockDto);
+
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(txMock.$queryRaw).toHaveBeenCalledTimes(3);
+      // AI compliance check called once (first section only), before the transaction
+      expect(mockChecker.check).toHaveBeenCalledTimes(1);
+      expect(result.seriesId).toBeDefined();
+      expect(result.seriesContents).toHaveLength(3);
     });
   });
 

@@ -9,6 +9,7 @@
  */
 
 import pLimit from "p-limit";
+import type { MissionBudgetPool } from "@/modules/ai-harness/facade";
 import type { MissionDeps } from "./mission-deps";
 
 /**
@@ -29,6 +30,8 @@ export interface BatchChapterSpec {
  * @param onChapterThrow    - Called when runOne throws (for emitting terminal events before returning null).
  * @param deps              - Mission-level dependencies (used for error logging).
  * @param ctx               - Context values needed for error logging/events.
+ * @param pool              - Shared mission budget pool; if exhausted before a chapter slot fires,
+ *                            the chapter is skipped (no LLM call) and a terminal event is emitted.
  */
 export async function executeChapterBatch<
   TChapter extends BatchChapterSpec,
@@ -44,11 +47,26 @@ export async function executeChapterBatch<
   onChapterThrow: (chapter: TChapter, err: unknown) => Promise<void>,
   deps: Pick<MissionDeps, "log">,
   ctx: { missionId: string; dimensionName: string },
+  pool?: MissionBudgetPool,
 ): Promise<PromiseSettledResult<TWritten | null>[]> {
   const limit = pLimit(concurrency);
   return Promise.allSettled(
     outline.map((chapter) =>
       limit(async () => {
+        // ★ R2-#45 pre-dispatch budget gate: if the pool is exhausted before this
+        //   slot fires, skip the chapter entirely — no new LLM call starts after the
+        //   cap trips. Emit the same terminal chapter:done(failed-finalized) so the
+        //   frontend state machine closes cleanly.
+        if (pool?.isExhausted?.()) {
+          deps.log.warn(
+            `[${ctx.missionId}] budget pool exhausted; skipping chapter §${chapter.index} (${ctx.dimensionName})`,
+          );
+          await onChapterThrow(
+            chapter,
+            new Error("budget-pool-exhausted: skipped before LLM call"),
+          );
+          return null;
+        }
         // ★ 2026-05-12: runChapterPipeline internal LLM/network throws are caught here.
         //   allSettled would otherwise silently filter the rejection so the frontend
         //   never receives a terminal event → chapter stuck in 'reviewing'.

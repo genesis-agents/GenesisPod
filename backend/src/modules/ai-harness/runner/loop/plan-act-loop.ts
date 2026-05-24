@@ -18,6 +18,7 @@
 
 import { Injectable } from "@nestjs/common";
 import type {
+  AgentEventPayload,
   AgentLoopKind,
   IAgentEvent,
   IAgentLoop,
@@ -28,9 +29,17 @@ import type {
 import { ContextEnvelope } from "../../agents/core/context-envelope";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import type { ChatMessage } from "../../../ai-engine/llm/types";
+import { wrapExternalContent } from "@/modules/ai-engine/facade";
 import { ReActLoop } from "./react-loop";
 import { AIModelType } from "@prisma/client";
 import type { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
+import { executeWithModelFailover } from "./model-failover.util";
+
+/** 模型级 failover provider 闭包（与 ILoopRunOptions.modelFailoverProvider 同型）。 */
+type ModelFailoverProvider = (
+  excludeModelIds: ReadonlyArray<string>,
+  excludeProviders?: ReadonlyArray<string>,
+) => Promise<string | null | undefined>;
 
 interface PlanStep {
   readonly id: string;
@@ -90,10 +99,13 @@ export class PlanActLoop implements IAgentLoop {
       budget?: BudgetAccountant;
       /** Spec.taskProfile —— plan/synthesize 用 agent 真实意图，不再硬编码 */
       taskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile;
+      /** 模型级 failover：plan/synthesize 直调 chat 时换模型重试。 */
+      modelFailoverProvider?: ModelFailoverProvider;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "plan-act-agent";
     const specTaskProfile = options?.taskProfile;
+    const failover = options?.modelFailoverProvider;
 
     // === Phase 1: PLAN ===
     let plan: Plan;
@@ -102,6 +114,8 @@ export class PlanActLoop implements IAgentLoop {
         envelope,
         options?.signal,
         specTaskProfile,
+        failover,
+        agentId,
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -203,6 +217,8 @@ export class PlanActLoop implements IAgentLoop {
       plan,
       stepResults,
       specTaskProfile,
+      failover,
+      agentId,
     );
     yield this.event(agentId, "output", { output: final });
     yield this.event(agentId, "terminated", { reason: "completed" });
@@ -212,26 +228,36 @@ export class PlanActLoop implements IAgentLoop {
     envelope: IContextEnvelope,
     signal?: AbortSignal,
     specTaskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile,
+    failover?: ModelFailoverProvider,
+    agentId = "plan-act-agent",
   ): Promise<Plan> {
     const messages: ChatMessage[] = envelope.messages.map((m) => ({
       role: m.role === "tool" ? "user" : m.role,
       content: m.content,
     }));
-    const res = await this.chatService.chat({
-      messages,
-      systemPrompt: envelope.system + PLAN_PROMPT_SUFFIX,
-      // 优先 spec.taskProfile —— agent 真实意图；缺省给 medium 防 reasoning 卡死
-      taskProfile: specTaskProfile ?? {
-        creativity: "low",
-        outputLength: "medium",
-      },
-      responseFormat: "json",
-      // Harness 调用必须 strict —— LLM 出错就抛，让上游 catch 后发 error 事件
-      strictMode: true,
-      // 系统配置感知 + BYOK：modelType 走 DB 默认，userId 命中用户偏好
-      modelType: AIModelType.CHAT,
-      userId: envelope.memory.userId,
-      signal,
+    // ★ 模型级 failover：plan 阶段 chat 抛 provider 错时换模型重试。
+    const res = await executeWithModelFailover({
+      agentId,
+      provider: failover,
+      attempt: (modelOverride) =>
+        this.chatService.chat({
+          messages,
+          systemPrompt: envelope.system + PLAN_PROMPT_SUFFIX,
+          // 优先 spec.taskProfile —— agent 真实意图；缺省给 medium 防 reasoning 卡死
+          taskProfile: specTaskProfile ?? {
+            creativity: "low",
+            outputLength: "medium",
+          },
+          responseFormat: "json",
+          // Harness 调用必须 strict —— LLM 出错就抛，让上游 catch 后发 error 事件
+          strictMode: true,
+          // 系统配置感知 + BYOK：modelType 走 DB 默认，userId 命中用户偏好；
+          // failover 选出模型时用显式 model 覆盖。
+          model: modelOverride,
+          modelType: modelOverride ? undefined : AIModelType.CHAT,
+          userId: envelope.memory.userId,
+          signal,
+        }),
     });
     const raw = JSON.parse(this.stripFences(res.content));
     // 建议修：strict shape 验证（防 LLM 返回 {steps:[{id:null}]} 等异常）
@@ -329,35 +355,52 @@ export class PlanActLoop implements IAgentLoop {
     plan: Plan,
     results: ReadonlyMap<string, string>,
     specTaskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile,
+    failover?: ModelFailoverProvider,
+    agentId = "plan-act-agent",
   ): Promise<string> {
+    // Wrap each raw step result to prevent indirect prompt injection in the synthesis
+    // call — a step could have fetched and stored malicious web content that would
+    // otherwise be injected into the LLM context unguarded (2nd injection surface).
     const summaryBlock = plan.steps
-      .map(
-        (s) => `## ${s.title} (${s.id})\n${results.get(s.id) ?? "(no result)"}`,
-      )
+      .map((s) => {
+        const raw = results.get(s.id) ?? "(no result)";
+        const wrapped = wrapExternalContent(raw, {
+          source: "step-output",
+          maxLength: 8000,
+        });
+        return `## ${s.title} (${s.id})\n${wrapped}`;
+      })
       .join("\n\n");
 
-    const res = await this.chatService.chat({
-      systemPrompt:
-        envelope.system +
-        "\n\nYou are now in SYNTHESIZE mode. Combine the step outputs below into a single coherent answer for the original task.",
-      messages: [
-        ...envelope.messages.map((m) => ({
-          role:
-            m.role === "tool"
-              ? ("user" as const)
-              : (m.role as ChatMessage["role"]),
-          content: m.content,
-        })),
-        { role: "user", content: `# Plan results\n\n${summaryBlock}` },
-      ],
-      // 优先 spec.taskProfile —— synthesize 阶段需要长输出整合多步骤结果
-      taskProfile: specTaskProfile ?? {
-        creativity: "low",
-        outputLength: "long",
-      },
-      // 系统配置感知 + BYOK
-      modelType: AIModelType.CHAT,
-      userId: envelope.memory.userId,
+    // ★ 模型级 failover：synthesize 阶段 chat 抛 provider 错时换模型重试。
+    const res = await executeWithModelFailover({
+      agentId,
+      provider: failover,
+      attempt: (modelOverride) =>
+        this.chatService.chat({
+          systemPrompt:
+            envelope.system +
+            "\n\nYou are now in SYNTHESIZE mode. Combine the step outputs below into a single coherent answer for the original task.",
+          messages: [
+            ...envelope.messages.map((m) => ({
+              role:
+                m.role === "tool"
+                  ? ("user" as const)
+                  : (m.role as ChatMessage["role"]),
+              content: m.content,
+            })),
+            { role: "user", content: `# Plan results\n\n${summaryBlock}` },
+          ],
+          // 优先 spec.taskProfile —— synthesize 阶段需要长输出整合多步骤结果
+          taskProfile: specTaskProfile ?? {
+            creativity: "low",
+            outputLength: "long",
+          },
+          // 系统配置感知 + BYOK；failover 选出模型时显式覆盖。
+          model: modelOverride,
+          modelType: modelOverride ? undefined : AIModelType.CHAT,
+          userId: envelope.memory.userId,
+        }),
     });
     return res.content;
   }
@@ -373,9 +416,8 @@ export class PlanActLoop implements IAgentLoop {
   private event(
     agentId: string,
     type: IAgentEvent["type"],
-    payload: unknown,
+    payload: AgentEventPayload,
   ): IAgentEvent {
     return { type, agentId, timestamp: Date.now(), payload };
   }
 }
-

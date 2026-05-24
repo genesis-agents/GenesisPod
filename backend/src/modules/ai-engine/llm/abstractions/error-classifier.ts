@@ -262,7 +262,26 @@ export class AIErrorClassifier {
             data,
           );
         }
-        // 速率限制（xAI 等 provider 用 403 而非 429 表示限流）
+        // 账单/额度耗尽（xAI 等用 403 表示欠费 / 超月度上限）—— 不可重试。
+        // 必须排在下面的限流判定**之前**：欠费消息含 "spending limit" 会误命中
+        // "limit" → 被当限流重试 3 次空转 ~16s。识别 credit/spending/billing/
+        // purchase/insufficient/payment/quota → QUOTA_EXCEEDED（isRetryable=false），
+        // 立即失败让上层换模型。
+        if (
+          /credit|spending\s+limit|billing|purchase\s+more|insufficient|payment/i.test(
+            String(errorMessage),
+          )
+        ) {
+          return new AIError(
+            AIErrorType.QUOTA_EXCEEDED,
+            String(errorMessage),
+            status,
+            error,
+            provider,
+            data,
+          );
+        }
+        // 速率限制（xAI 等 provider 用 403 而非 429 表示限流；含软配额限流 "quota"）
         if (
           String(errorMessage).includes("rate") ||
           String(errorMessage).includes("limit") ||

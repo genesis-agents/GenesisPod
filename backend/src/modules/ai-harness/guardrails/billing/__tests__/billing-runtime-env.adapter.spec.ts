@@ -1,4 +1,5 @@
 import { BillingRuntimeEnvAdapter } from "../billing-adapter";
+import { CREDITS_TO_TOKENS } from "../../budget/resolved-budget-caps";
 import type { CacheService } from "../../../../../common/cache/cache.service";
 
 function makeCredits(balance = 1000, todaySpent = 100) {
@@ -443,6 +444,23 @@ describe("BillingRuntimeEnvAdapter", () => {
       );
       const result = await adapter.estimateAffordable({ maxTokens: 0 });
       expect(result.suggestion).toBe("proceed");
+    });
+
+    it("R2-#45: estimatedCredits uses CREDITS_TO_TOKENS constant (not raw /1000 literal)", async () => {
+      // CREDITS_TO_TOKENS = 1000 currently, but the invariant we protect is that
+      // estimatedCredits = ceil(maxTokens / CREDITS_TO_TOKENS) — if the constant
+      // ever changes the arithmetic must stay consistent.
+      const balance = 5;
+      const maxTokens = 3 * CREDITS_TO_TOKENS; // exactly 3 credits
+      const adapter = new BillingRuntimeEnvAdapter(
+        "u1",
+        undefined,
+        makeCredits(balance) as never,
+        makeRuntimeEnv() as never,
+      );
+      const result = await adapter.estimateAffordable({ maxTokens });
+      expect(result.estimatedCredits).toBe(3);
+      expect(result.affordable).toBe(true); // balance 5 >= 3
     });
   });
 

@@ -26,6 +26,7 @@ import {
   Th,
   fmtTime,
 } from '../_shared/admin-tables';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface WikiRow {
   id: string;
@@ -200,7 +201,15 @@ export function WikiPageTable() {
       )}
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col className="w-[28%]" />
+            <col className="w-[18%]" />
+            <col className="w-[18%]" />
+            <col className="w-[14%]" />
+            <col className="w-[10%]" />
+            <col className="w-[12%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               <Th>标题</Th>
@@ -228,23 +237,23 @@ export function WikiPageTable() {
                   onClick={() => setSelectedId(p.id)}
                   className="cursor-pointer hover:bg-gray-50"
                 >
-                  <td
-                    className="max-w-[280px] truncate whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900"
-                    title={p.title}
-                  >
-                    {p.title}
+                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                    <TruncatedCell className="max-w-[260px] font-medium text-gray-900">
+                      {p.title}
+                    </TruncatedCell>
                   </td>
-                  <td
-                    className="font-mono max-w-[180px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
-                    title={p.slug}
-                  >
-                    {p.slug}
+                  <td className="font-mono whitespace-nowrap px-4 py-3 text-xs text-gray-600">
+                    <TruncatedCell className="font-mono max-w-[160px] text-gray-600">
+                      {p.slug}
+                    </TruncatedCell>
                   </td>
-                  <td
-                    className="max-w-[180px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
-                    title={p.knowledgeBaseName ?? p.knowledgeBaseId}
-                  >
-                    {p.knowledgeBaseName ?? p.knowledgeBaseId.slice(0, 8)}
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">
+                    <TruncatedCell
+                      className="max-w-[160px] text-gray-600"
+                      tooltip={p.knowledgeBaseName ?? p.knowledgeBaseId}
+                    >
+                      {p.knowledgeBaseName ?? p.knowledgeBaseId.slice(0, 8)}
+                    </TruncatedCell>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-xs">
                     <span className="inline-flex whitespace-nowrap rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">

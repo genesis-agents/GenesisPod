@@ -1,6 +1,11 @@
 import { runBudgetEstimateStage } from "../s1-mission-estimate-budget.stage";
 import type { MissionContext } from "../../mission-context";
 import type { MissionDeps } from "../../mission-deps";
+import {
+  DEPTH_BUDGET_TIERS,
+  resolveMissionCredits,
+} from "../../../../../dto/run-mission.dto";
+import { CREDITS_TO_TOKENS } from "@/modules/ai-harness/facade";
 
 function makeCtx(overrides: Partial<MissionContext> = {}): MissionContext {
   return {
@@ -142,13 +147,21 @@ describe("runBudgetEstimateStage (S1)", () => {
     expect(startedCall[0].payload.workspaceId).toBe("ws-42");
   });
 
-  it("budget estimate is computed from budgetMultiplier", async () => {
+  it("budget estimate is computed from resolveMissionCredits × CREDITS_TO_TOKENS × budgetMultiplier", async () => {
+    // R2-#45: estimate now uses the REAL resolved cap, not hardcoded 400_000 baseline.
     const ctx = makeCtx({ budgetMultiplier: 2.0 });
     const deps = makeDeps();
     await runBudgetEstimateStage(ctx, deps);
     const estimateCall = (ctx.billing.estimateAffordable as jest.Mock).mock
       .calls[0][0];
-    expect(estimateCall.maxTokens).toBe(800_000); // 400_000 * 2
+    // depth=deep → resolveMissionCredits=20000, ×1000 ×2 = 40_000_000
+    const expectedTokens = Math.round(
+      resolveMissionCredits(ctx.input) * CREDITS_TO_TOKENS * 2.0,
+    );
+    expect(estimateCall.maxTokens).toBe(expectedTokens);
+    expect(estimateCall.maxTokens).toBe(
+      DEPTH_BUDGET_TIERS.deep.maxCredits * CREDITS_TO_TOKENS * 2,
+    );
   });
 
   it("budgetMultiplier < 0.1 is clamped to 0.1", async () => {
@@ -157,8 +170,11 @@ describe("runBudgetEstimateStage (S1)", () => {
     await runBudgetEstimateStage(ctx, deps);
     const estimateCall = (ctx.billing.estimateAffordable as jest.Mock).mock
       .calls[0][0];
-    // Math.max(0.1, 0.01) = 0.1 → 400_000 * 0.1 = 40_000
-    expect(estimateCall.maxTokens).toBe(40_000);
+    // Math.max(0.1, 0.01) = 0.1 → resolveMissionCredits(deep)=20000 × 1000 × 0.1 = 2_000_000
+    const expectedTokens = Math.round(
+      resolveMissionCredits(ctx.input) * CREDITS_TO_TOKENS * 0.1,
+    );
+    expect(estimateCall.maxTokens).toBe(expectedTokens);
   });
 
   it("narrate is called with stage s1-budget info tag", async () => {

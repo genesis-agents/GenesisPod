@@ -19,7 +19,7 @@
  *
  * 详见:
  *   - docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md §7 S1-1
- *   - docs/architecture/ai-harness/sediment-topology.md §4
+ *   - docs/architecture/ai-harness/facade/sediment-topology.md §4
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -419,6 +419,27 @@ export class PlaygroundBusinessOrchestrator {
         }
 
         // ── 正常 fresh 路径 ──
+        // ★ #37 (2026-05-23): check for s3PartialResults (dim-level crash-resume).
+        //   If prior dims are already checkpointed, filter them out so only
+        //   remaining dims are re-dispatched; merge partial results back afterwards.
+        const partialResults = entry.crossState.s3PartialResults ?? {};
+        const partialDimIds = new Set(Object.keys(partialResults));
+        const pendingDims =
+          partialDimIds.size > 0
+            ? cachedPlan.dimensions.filter((d) => !partialDimIds.has(d.id))
+            : cachedPlan.dimensions;
+
+        if (partialDimIds.size > 0) {
+          this.log.log(
+            `[s3-researcher-collect] #37 dim-resume: skipping ${partialDimIds.size}/${cachedPlan.dimensions.length} already-done dims`,
+          );
+        }
+
+        const effectivePlan =
+          pendingDims.length < cachedPlan.dimensions.length
+            ? { ...cachedPlan, dimensions: pendingDims }
+            : cachedPlan;
+
         const stageCtx = this.stageBindings.buildCtx({
           missionId: entry.session.missionId,
           userId: entry.session.userId,
@@ -428,13 +449,58 @@ export class PlaygroundBusinessOrchestrator {
           pool: entry.session.pool,
           leader: entry.leader,
           budgetMultiplier: entry.session.budgetMultiplier,
-          plan: cachedPlan,
+          plan: effectivePlan,
         });
-        await runResearcherDispatchStage(
-          stageCtx,
-          this.stageBindings.buildDeps(),
-        );
-        entry.crossState.lastResearcherResults = stageCtx.researcherResults;
+
+        // ★ #37 (2026-05-23): build checkpointDimension — persists each dim result
+        //   into crossState.s3PartialResults + saves a checkpoint for crash-resume.
+        //   Fire-and-forget: save failure must never block the mission.
+        const checkpointDimension = async (
+          _cbMissionId: string,
+          dimId: string,
+          dimResult: unknown,
+        ): Promise<void> => {
+          const currentEntry = this.sessionLookup?.(_cbMissionId);
+          if (!currentEntry) return;
+          const existing = currentEntry.crossState.s3PartialResults ?? {};
+          currentEntry.crossState.s3PartialResults = {
+            ...existing,
+            [dimId]: dimResult,
+          };
+          await this.missionCheckpoint.save(
+            _cbMissionId,
+            {
+              lastStage: "s3-researcher-collect",
+              topic: currentEntry.input.topic,
+              crossState: currentEntry.crossState.toJSON(),
+            },
+            Object.keys(this.STAGE_NUMBER).filter(
+              (k) => (this.STAGE_NUMBER[k] ?? 0) < 3,
+            ),
+            "running",
+          );
+        };
+
+        const freshDeps = {
+          ...this.stageBindings.buildDeps(),
+          checkpointDimension,
+        };
+        await runResearcherDispatchStage(stageCtx, freshDeps as never);
+
+        // ★ #37 (2026-05-23): merge cached partial results back in original dim order.
+        //   freshResults are for pendingDims only; partialResults hold already-done dims.
+        if (partialDimIds.size > 0) {
+          const freshResults = stageCtx.researcherResults ?? [];
+          const freshByDim = new Map(freshResults.map((r) => [r.dimension, r]));
+          const merged = cachedPlan.dimensions.map((d) => {
+            const cached = partialResults[d.id];
+            if (cached) return cached as (typeof freshResults)[number];
+            return freshByDim.get(d.name) ?? freshResults[0];
+          });
+          entry.crossState.lastResearcherResults = merged;
+        } else {
+          entry.crossState.lastResearcherResults = stageCtx.researcherResults;
+        }
         if (stageCtx.s4PatchFailures && stageCtx.s4PatchFailures.length > 0) {
           entry.crossState.s4PatchFailures = stageCtx.s4PatchFailures;
         }
@@ -471,10 +537,11 @@ export class PlaygroundBusinessOrchestrator {
               });
           }
         }
-        // ★ P1-修1 (2026-05-06): S3 软失败上报
-        const allResults = stageCtx.researcherResults ?? [];
+        // ★ P1-修1 (2026-05-06): S3 软失败上报 — evaluate against merged results
+        //   (includes resumed dims) so the failure threshold reflects full mission.
+        const allResults = entry.crossState.lastResearcherResults ?? [];
         const failedCount = allResults.filter(
-          (r) => r.findings.length === 0,
+          (r) => (r as { findings?: unknown[] }).findings?.length === 0,
         ).length;
         const totalCount = allResults.length;
         if (totalCount > 0 && failedCount === totalCount) {
@@ -497,7 +564,7 @@ export class PlaygroundBusinessOrchestrator {
               );
             });
         }
-        return stageCtx.researcherResults;
+        return entry.crossState.lastResearcherResults;
       },
     };
     return hooks as unknown as ResolvedStageHooks;

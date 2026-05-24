@@ -19,7 +19,7 @@
 
 ## 2. Canonical Import Surface(必读)
 
-新 team 与 `ai-harness` 的所有接触都通过 `@/modules/ai-harness/facade`。详见 [`docs/architecture/ai-harness/sediment-topology.md`](../ai-harness/sediment-topology.md) 的 6 sediment zones。
+新 team 与 `ai-harness` 的所有接触都通过 `@/modules/ai-harness/facade`。详见 [`docs/architecture/ai-harness/facade/sediment-topology.md`](../ai-harness/facade/sediment-topology.md) 的 6 sediment zones。
 
 **新 team 实际 import 的 zone 公开符号(经 facade re-export)**:
 

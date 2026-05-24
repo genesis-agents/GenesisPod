@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Bot,
+  Brain,
   Eye,
   EyeOff,
   Search,
@@ -18,6 +18,8 @@ import {
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
+import { TruncatedCell } from '@/components/common/tables';
+import { getProviderBrand } from '@/lib/constants/ai-provider-logos';
 
 import { logger } from '@/lib/utils/logger';
 import { ClientDate } from '@/components/common/ClientDate';
@@ -1091,11 +1093,22 @@ export default function AIModelSettings({
 
       {/* Models Table */}
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="w-full">
+        <table className="w-full table-fixed">
+          {/* 固定列宽：table-fixed + w-full 钉死表宽=容器宽，杜绝横滚；
+              窄内容列(Type/Status)给窄，身份列吃挤压截断，操作列留足恒可见 */}
+          <colgroup>
+            <col className="w-[14%]" />
+            <col className="w-[20%]" />
+            <col className="w-[10%]" />
+            <col className="w-[13%]" />
+            <col className="w-[8%]" />
+            <col className="w-[16%]" />
+            <col className="w-[19%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Model
+                Provider
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Model ID
@@ -1132,73 +1145,61 @@ export default function AIModelSettings({
                   key={model.id}
                   className={`hover:bg-gray-50 ${!model.isEnabled ? 'opacity-60' : ''}`}
                 >
-                  {/* Model Name + Icon + Provider */}
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br ${model.color} text-lg text-white shadow-sm`}
-                      >
-                        {(() => {
-                          const iconUrl = getModelIconUrl(model.name);
-                          if (iconUrl) {
-                            return (
-                              <img
-                                src={iconUrl}
-                                alt={model.displayName}
-                                className="h-6 w-6"
-                              />
-                            );
-                          }
-                          if (model.icon && model.icon.startsWith('/')) {
-                            return (
-                              <img
-                                src={model.icon}
-                                alt={model.displayName}
-                                className="h-6 w-6"
-                              />
-                            );
-                          }
-                          if (model.icon) {
-                            return model.icon;
-                          }
-                          return <Bot className="h-5 w-5 text-gray-400" />;
-                        })()}
-                      </div>
-                      <div>
+                  {/* PROVIDER —— 真实 provider：官方 logo(按 provider 解析) + 正式名 */}
+                  <td className="px-4 py-2.5">
+                    {(() => {
+                      const brand = getProviderBrand(model.provider);
+                      const logo = brand.logo || getModelIconUrl(model.name);
+                      return (
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">
-                            {model.displayName}
-                          </span>
-                          {model.isDefault && (
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                              Default
-                            </span>
+                          {logo ? (
+                            <img
+                              src={logo}
+                              alt={brand.name}
+                              className="h-5 w-5 flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-[10px] font-semibold text-gray-500">
+                              {model.provider.slice(0, 1).toUpperCase()}
+                            </div>
                           )}
-                          {model.isReasoning && (
-                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                              Reasoning
-                            </span>
-                          )}
+                          <TruncatedCell
+                            className="max-w-[180px] text-sm font-medium text-gray-900"
+                            tooltip={model.displayName}
+                          >
+                            {brand.name}
+                          </TruncatedCell>
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {model.provider}
-                        </div>
-                      </div>
+                      );
+                    })()}
+                  </td>
+
+                  {/* Model ID + 默认(★)/推理 符号挂在模型上 */}
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <code className="font-mono inline-flex min-w-0 items-center rounded bg-gray-100 px-2 py-1 text-xs">
+                        <TruncatedCell
+                          className="max-w-[200px] text-gray-700"
+                          tooltip={model.modelId}
+                        >
+                          {model.modelId}
+                        </TruncatedCell>
+                      </code>
+                      {model.isDefault && (
+                        <span title="默认模型" className="flex-shrink-0">
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                        </span>
+                      )}
+                      {model.isReasoning && (
+                        <span title="推理模型" className="flex-shrink-0">
+                          <Brain className="h-3.5 w-3.5 text-violet-500" />
+                        </span>
+                      )}
                     </div>
                   </td>
 
-                  {/* Model ID — long IDs truncate + title tooltip on hover */}
-                  <td className="px-4 py-4">
-                    <code
-                      className="font-mono inline-block max-w-[200px] truncate rounded bg-gray-100 px-2 py-1 align-middle text-xs"
-                      title={model.modelId}
-                    >
-                      {model.modelId}
-                    </code>
-                  </td>
-
                   {/* Type Badge */}
-                  <td className="whitespace-nowrap px-4 py-4">
+                  <td className="whitespace-nowrap px-4 py-2.5">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         model.modelType === 'CHAT'
@@ -1226,29 +1227,31 @@ export default function AIModelSettings({
                   </td>
 
                   {/* API Key Status — Lucide 图标替代 ✓/✗ 字符 */}
-                  <td className="whitespace-nowrap px-4 py-4">
-                    <span
-                      className={`inline-flex items-center gap-1 text-sm font-medium ${model.hasApiKey ? 'text-green-600' : 'text-red-500'}`}
-                    >
-                      {model.hasApiKey ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : (
-                        <XCircle className="h-4 w-4" />
-                      )}
-                      {model.hasApiKey ? '已配置' : '未配置'}
-                    </span>
-                    {model.secretKey && (
-                      <div
-                        className="mt-0.5 max-w-[160px] truncate text-xs text-gray-400"
-                        title={model.secretKey}
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`inline-flex flex-shrink-0 items-center gap-1 text-sm font-medium ${model.hasApiKey ? 'text-green-600' : 'text-red-500'}`}
                       >
-                        via {model.secretKey}
-                      </div>
-                    )}
+                        {model.hasApiKey ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <XCircle className="h-4 w-4" />
+                        )}
+                        {model.hasApiKey ? '已配置' : '未配置'}
+                      </span>
+                      {model.secretKey && (
+                        <TruncatedCell
+                          className="max-w-[120px] text-xs text-gray-400"
+                          tooltip={`via ${model.secretKey}`}
+                        >
+                          via {model.secretKey}
+                        </TruncatedCell>
+                      )}
+                    </div>
                   </td>
 
                   {/* Status Toggle */}
-                  <td className="px-4 py-4 text-center">
+                  <td className="px-4 py-2.5 text-center">
                     <button
                       onClick={() => handleToggleEnabled(model)}
                       className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${
@@ -1264,7 +1267,7 @@ export default function AIModelSettings({
                   </td>
 
                   {/* Capabilities */}
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-2.5">
                     <div className="flex flex-wrap gap-1">
                       {model.supportsTemperature !== false && (
                         <span
@@ -1317,7 +1320,7 @@ export default function AIModelSettings({
                   </td>
 
                   {/* Actions */}
-                  <td className="whitespace-nowrap px-4 py-4 text-right">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-right">
                     {/* 2026-05-11: 4 个 inline SVG → Lucide（Zap/Star/Pencil/Trash2 + Loader2） */}
                     <div className="inline-flex items-center justify-end gap-1">
                       <button

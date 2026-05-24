@@ -308,7 +308,7 @@ describe("runResearcherDispatchStage (S3)", () => {
       events: [
         {
           type: "error",
-          payload: { failureCode: "RUNNER_LOOP_LIMIT", message: "loop" },
+          payload: { failureCode: "LOOP_MAX_ITERATIONS", message: "loop" },
         },
       ],
       wallTimeMs: 1000,
@@ -323,8 +323,8 @@ describe("runResearcherDispatchStage (S3)", () => {
     });
     // Override extractAgentFailureDiagnostic behavior by seeding events with failureCode
     await runResearcherDispatchStage(ctx, deps);
-    // At least 2 invocations expected for self-heal
-    expect(invokeCalls).toBeGreaterThanOrEqual(1);
+    // P0-2: LOOP_MAX_ITERATIONS 现已在 RECOVERABLE_FAILURES 中 → 自愈重试真正触发
+    expect(invokeCalls).toBeGreaterThanOrEqual(2);
   });
 
   it("failureLearner.lookup is called per dim", async () => {
@@ -392,6 +392,215 @@ describe("runResearcherDispatchStage (S3)", () => {
     await runResearcherDispatchStage(ctx, deps);
     // Should complete without error
     expect(ctx.researcherResults).toBeDefined();
+  });
+
+  it("P0-1 salvage: degraded run with valid findings is NOT discarded", async () => {
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        depth: "quick",
+        auditLayers: "minimal",
+      } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "degraded",
+      output: {
+        dimension: "Tech",
+        findings: [
+          { claim: "C1", evidence: "E1", source: "http://a.com" },
+          { claim: "C2", evidence: "E2", source: "http://b.com" },
+        ],
+        summary: "S",
+      },
+      events: [],
+      wallTimeMs: 1000,
+      iterations: 3,
+      agent: null,
+    });
+    await runResearcherDispatchStage(ctx, deps);
+    expect(ctx.researcherResults![0].findings).toHaveLength(2);
+  });
+
+  it("P0-1 salvage: valid findings recovered from partialOutput when output is null (max-iter)", async () => {
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        depth: "quick",
+        auditLayers: "minimal",
+      } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "failed",
+      output: null,
+      partialOutput: {
+        dimension: "Tech",
+        findings: [{ claim: "C1", evidence: "E1", source: "http://a.com" }],
+        summary: "partial",
+      },
+      events: [],
+      wallTimeMs: 1000,
+      iterations: 5,
+      agent: null,
+    });
+    await runResearcherDispatchStage(ctx, deps);
+    expect(ctx.researcherResults![0].findings).toHaveLength(1);
+  });
+
+  it("P0-1 salvage: garbage partialOutput (no well-formed findings) still degrades to empty (no 2026-04-30 regression)", async () => {
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        depth: "quick",
+        auditLayers: "minimal",
+      } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "failed",
+      output: null,
+      partialOutput: { action: "parallel_tool_call", args: { q: "x" } },
+      events: [],
+      wallTimeMs: 1000,
+      iterations: 5,
+      agent: null,
+    });
+    await runResearcherDispatchStage(ctx, deps);
+    expect(ctx.researcherResults![0].findings).toEqual([]);
+  });
+
+  it("#1a salvage: findings with empty/blank evidence are rejected → degrade", async () => {
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        depth: "quick",
+        auditLayers: "minimal",
+      } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "degraded",
+      output: {
+        dimension: "Tech",
+        // claim+source non-empty but evidence is blank → must NOT be salvaged
+        findings: [{ claim: "C1", evidence: "   ", source: "http://a.com" }],
+        summary: "S",
+      },
+      events: [],
+      wallTimeMs: 1000,
+      iterations: 3,
+      agent: null,
+    });
+    await runResearcherDispatchStage(ctx, deps);
+    expect(ctx.researcherResults![0].findings).toEqual([]);
+  });
+
+  // ─── #1b figureCandidates zod gate ────────────────────────────────────────
+  //
+  // review-fix #1b (2026-05-23): salvaged figureCandidates must pass the same
+  // filter as zod-validated ones:
+  //   - sourceUrl must match /^https?:\/\//i
+  //   - caption must be a non-blank string
+  // Invalid entries are silently dropped; valid entries survive.
+
+  it("#1b figureCandidates gate: non-http sourceUrl is filtered out, valid entry survives", async () => {
+    // Arrange: depth=quick + auditLayers=minimal → skip chapter pipeline,
+    // return researcher output directly so we can inspect figureCandidates on ctx.
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        depth: "quick",
+        auditLayers: "minimal",
+      } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "degraded",
+      output: {
+        dimension: DIM_A.name,
+        findings: [{ claim: "C1", evidence: "E1", source: "http://a.com" }],
+        summary: "S",
+        figureCandidates: [
+          // invalid: sourceUrl does not start with http(s)
+          {
+            sourceUrl: "ftp://bad-protocol.com/img.png",
+            caption: "valid caption",
+          },
+          // valid: https + non-blank caption
+          {
+            sourceUrl: "https://example.com/figure.png",
+            caption: "Real caption",
+          },
+        ],
+      },
+      events: [],
+      wallTimeMs: 1000,
+      iterations: 3,
+      agent: null,
+    });
+
+    // Act
+    await runResearcherDispatchStage(ctx, deps);
+
+    // Assert
+    const result = ctx.researcherResults![0];
+    expect(result).toBeDefined();
+    // Only the https:// entry should survive
+    expect(result.figureCandidates).toHaveLength(1);
+    expect(result.figureCandidates![0].sourceUrl).toBe(
+      "https://example.com/figure.png",
+    );
+  });
+
+  it("#1b figureCandidates gate: blank caption is filtered out, non-blank caption survives", async () => {
+    // Arrange
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        depth: "quick",
+        auditLayers: "minimal",
+      } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "degraded",
+      output: {
+        dimension: DIM_A.name,
+        findings: [{ claim: "C1", evidence: "E1", source: "http://a.com" }],
+        summary: "S",
+        figureCandidates: [
+          // invalid: caption is blank (whitespace only)
+          { sourceUrl: "https://example.com/img1.png", caption: "   " },
+          // valid
+          {
+            sourceUrl: "https://example.com/img2.png",
+            caption: "Non-blank caption",
+          },
+        ],
+      },
+      events: [],
+      wallTimeMs: 1000,
+      iterations: 3,
+      agent: null,
+    });
+
+    // Act
+    await runResearcherDispatchStage(ctx, deps);
+
+    // Assert
+    const result = ctx.researcherResults![0];
+    expect(result.figureCandidates).toHaveLength(1);
+    expect(result.figureCandidates![0].sourceUrl).toBe(
+      "https://example.com/img2.png",
+    );
+    expect(result.figureCandidates![0].caption).toBe("Non-blank caption");
   });
 
   it("exception in dim handler → degrades gracefully", async () => {

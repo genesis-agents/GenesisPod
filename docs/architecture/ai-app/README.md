@@ -31,7 +31,7 @@
 - [benchmark-agent-team-template.md](benchmark-agent-team-template.md) — how-to-copy guide(目录骨架 + 拷贝步骤 + 验收清单)
 - [benchmark-agent-team-invariants.md](benchmark-agent-team-invariants.md) — what-must-hold(R6/R7/R8 / sediment topology / stage hook 模式 / idempotent 重构守门 / grep gate suite)
 - [agent-playground/agent-team-boundary-audit-2026-05-08.md](agent-playground/agent-team-boundary-audit-2026-05-08.md) — 边界审计 Rev 5 设计共识 + Rev 6 Stage 0/1/3 实施回写
-- [../ai-harness/sediment-topology.md](../ai-harness/sediment-topology.md) — `ai-harness` 6 个 sediment zones(canonical / foundational / parallel)+ grep-verified 依赖边
+- [../ai-harness/facade/sediment-topology.md](../ai-harness/facade/sediment-topology.md) — `ai-harness` 6 个 sediment zones(canonical / foundational / parallel)+ grep-verified 依赖边
 
 ## 边界规则
 

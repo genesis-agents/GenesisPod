@@ -18,7 +18,7 @@ import type {
 } from "@/modules/ai-harness/facade";
 
 /** leaderJournal 中的保留 key */
-const CHECKPOINT_KEY = "__checkpoint";
+export const CHECKPOINT_KEY = "__checkpoint";
 
 interface PersistedCheckpoint<TPayload> {
   savedAt: string; // ISO

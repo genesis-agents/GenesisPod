@@ -17,7 +17,7 @@
  * 详见:
  *   - docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md
  *     §7 S1-2 + §2.5 T3
- *   - docs/architecture/ai-harness/sediment-topology.md §5 T3
+ *   - docs/architecture/ai-harness/facade/sediment-topology.md §5 T3
  */
 
 import { CrossStageState } from "@/modules/ai-harness/facade";
@@ -145,6 +145,15 @@ export class PlaygroundCrossStageState {
   }
   set s4PatchFailures(value: S4PatchFailures | undefined) {
     this.inner.set("s4PatchFailures", value);
+  }
+
+  // ── #37 S3 迭代级 checkpoint(2026-05-23) ──────────────────────────────
+  // dim → ResearcherDimResult；resume 时用来跳过已完成维度。
+  get s3PartialResults(): Record<string, unknown> | undefined {
+    return this.inner.get<Record<string, unknown>>("s3PartialResults");
+  }
+  set s3PartialResults(value: Record<string, unknown> | undefined) {
+    this.inner.set("s3PartialResults", value);
   }
 
   // ── trajectory rerun cache(P0-D 完整版,2026-05-06) ────────────────────

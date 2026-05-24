@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { TruncatedCell } from '@/components/common/tables';
 import {
   Shield,
   BookOpen,
@@ -251,12 +252,12 @@ function ChapterScoreCard({ chapter }: { chapter: ChapterEvaluation }) {
           >
             {chapter.grade}
           </span>
-          <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+          <TruncatedCell className="max-w-[220px] text-sm font-medium text-gray-900 dark:text-gray-100">
             {chapter.chapterTitle}
-          </span>
-          <span className="font-mono shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+          </TruncatedCell>
+          <TruncatedCell className="font-mono max-w-[120px] shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400">
             {chapter.writerModel}
-          </span>
+          </TruncatedCell>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span
@@ -947,7 +948,9 @@ export function CredibilityPanel({
                           className="border-b border-gray-50 dark:border-gray-800"
                         >
                           <Td className="font-mono px-3 py-2 text-xs">
-                            {m.modelId}
+                            <TruncatedCell className="font-mono max-w-[180px] text-xs">
+                              {m.modelId}
+                            </TruncatedCell>
                           </Td>
                           <Td className="px-3 py-2">{m.chapterCount}</Td>
                           <Td
@@ -959,10 +962,14 @@ export function CredibilityPanel({
                             {m.avgScore}
                           </Td>
                           <Td className="hidden px-3 py-2 text-xs text-gray-500 sm:table-cell">
-                            {m.bestDimension}
+                            <TruncatedCell className="max-w-[140px] text-xs text-gray-500">
+                              {m.bestDimension}
+                            </TruncatedCell>
                           </Td>
                           <Td className="hidden px-3 py-2 text-xs text-gray-500 sm:table-cell">
-                            {m.weakestDimension}
+                            <TruncatedCell className="max-w-[140px] text-xs text-gray-500">
+                              {m.weakestDimension}
+                            </TruncatedCell>
                           </Td>
                         </Tr>
                       ))}

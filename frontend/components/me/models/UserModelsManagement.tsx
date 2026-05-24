@@ -2,9 +2,14 @@
 
 import { useMemo, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { TruncatedCell } from '@/components/common/tables';
+import { StatusBadge } from '@/components/ui/badges';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { getProviderBrand } from '@/lib/constants/ai-provider-logos';
 import {
+  Brain,
   Check,
+  ChevronDown,
   Clock,
   Edit,
   Loader2,
@@ -173,6 +178,7 @@ export function UserModelsManagement() {
   );
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [cancellingRequest, setCancellingRequest] = useState(false);
+  const [overviewCollapsed, setOverviewCollapsed] = useState(true);
 
   const handleCancelPending = async () => {
     if (!pendingRequest) return;
@@ -285,7 +291,7 @@ export function UserModelsManagement() {
             运行，不受系统默认模型 tier 限制
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           <UserModelsAutoConfigureButton
             disabled={apiKeys.length === 0}
             onDone={() => void refresh()}
@@ -331,31 +337,48 @@ export function UserModelsManagement() {
         title="模型需求概览"
         description="不同功能（AI 问答 / Topic Insights / 知识库 RAG）依赖不同类型的模型； 建议至少配置标记为「必需」的类型。"
         action={
-          missingRequired.length > 0 ? (
-            <div className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-              缺 {missingRequired.length} 类必需模型
-            </div>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {missingRequired.length > 0 && (
+              <div className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+                缺 {missingRequired.length} 类必需模型
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setOverviewCollapsed((v) => !v)}
+              aria-expanded={!overviewCollapsed}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100"
+            >
+              {overviewCollapsed ? '展开' : '收起'}
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${
+                  overviewCollapsed ? '' : 'rotate-180'
+                }`}
+              />
+            </button>
+          </div>
         }
       >
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
-          {USER_MODEL_TYPE_OPTIONS.map((opt) => {
-            const c = coverage.get(opt.value)!;
-            return (
-              <CoverageCard
-                key={opt.value}
-                label={opt.label}
-                description={opt.description}
-                usedBy={opt.usedBy}
-                importance={opt.importance}
-                count={c.count}
-                hasEnabled={c.hasEnabled}
-                hasDefault={c.hasDefault}
-                onAdd={() => setShowAdd(true)}
-              />
-            );
-          })}
-        </div>
+        {!overviewCollapsed && (
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+            {USER_MODEL_TYPE_OPTIONS.map((opt) => {
+              const c = coverage.get(opt.value)!;
+              return (
+                <CoverageCard
+                  key={opt.value}
+                  label={opt.label}
+                  description={opt.description}
+                  usedBy={opt.usedBy}
+                  importance={opt.importance}
+                  count={c.count}
+                  hasEnabled={c.hasEnabled}
+                  hasDefault={c.hasDefault}
+                  onAdd={() => setShowAdd(true)}
+                />
+              );
+            })}
+          </div>
+        )}
       </SettingsSectionCard>
 
       {/* Search + Filter — 对齐管理员 */}
@@ -387,11 +410,23 @@ export function UserModelsManagement() {
       {/* 表格 — MODEL / MODEL ID / TYPE / SOURCE / API KEY / STATUS / CAPABILITIES / ACTIONS
           SOURCE 列让用户能区分自配 vs 系统授权；SYSTEM 行编辑/启停/删除按钮 disable */}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-        <Table className="w-full">
+        <Table className="w-full table-fixed">
+          {/* 固定列宽：table-fixed + w-full 钉死表宽=容器宽，杜绝横向滚动；
+              身份列(MODEL/MODEL ID)吃挤压并截断，徽章/操作列留足够宽度恒可见 */}
+          <colgroup>
+            <col className="w-[12%]" />
+            <col className="w-[17%]" />
+            <col className="w-[9%]" />
+            <col className="w-[12%]" />
+            <col className="w-[12%]" />
+            <col className="w-[6%]" />
+            <col className="w-[13%]" />
+            <col className="w-[19%]" />
+          </colgroup>
           <THead className="bg-gray-50">
             <Tr>
               <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Model
+                Provider
               </Th>
               <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Model ID
@@ -467,124 +502,116 @@ export function UserModelsManagement() {
                   key={m.rowKey}
                   className={`hover:bg-gray-50 ${!m.isEnabled ? 'opacity-60' : ''}`}
                 >
-                  {/* MODEL */}
-                  <Td className="px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg font-semibold text-white shadow-sm ${
-                          isSystem
-                            ? 'bg-gradient-to-br from-emerald-500 to-teal-600'
-                            : 'bg-gradient-to-br from-blue-500 to-purple-600'
-                        }`}
-                      >
-                        {m.displayName.slice(0, 1).toUpperCase()}
-                      </div>
-                      <div>
+                  {/* PROVIDER —— 真实 provider：官方 logo + 正式名 */}
+                  <Td className="px-4 py-2.5">
+                    {(() => {
+                      const brand = getProviderBrand(m.provider);
+                      return (
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">
-                            {m.displayName}
-                          </span>
-                          {m.isDefault && (
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                              Default
-                            </span>
+                          {brand.logo ? (
+                            <img
+                              src={brand.logo}
+                              alt={brand.name}
+                              className="h-5 w-5 shrink-0"
+                            />
+                          ) : (
+                            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-gray-100 text-[10px] font-semibold text-gray-500">
+                              {m.provider.slice(0, 1).toUpperCase()}
+                            </div>
                           )}
-                          {m.isReasoning && (
-                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                              Reasoning
-                            </span>
-                          )}
+                          <TruncatedCell
+                            className="min-w-0 text-sm font-medium text-gray-900"
+                            tooltip={m.displayName}
+                          >
+                            {brand.name}
+                          </TruncatedCell>
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {m.provider}
-                        </div>
-                      </div>
+                      );
+                    })()}
+                  </Td>
+
+                  {/* MODEL ID —— 模型标识 + 默认(★)/推理 符号挂在模型上 */}
+                  <Td className="px-4 py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <code
+                        className="font-mono min-w-0 truncate rounded bg-gray-100 px-2 py-1 text-xs"
+                        title={m.modelId}
+                      >
+                        {m.modelId}
+                      </code>
+                      {m.isDefault && (
+                        <span title="默认模型" className="shrink-0">
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                        </span>
+                      )}
+                      {m.isReasoning && (
+                        <span title="推理模型" className="shrink-0">
+                          <Brain className="h-3.5 w-3.5 text-violet-500" />
+                        </span>
+                      )}
                     </div>
                   </Td>
 
-                  {/* MODEL ID */}
-                  <Td className="px-4 py-4">
-                    <code className="font-mono rounded bg-gray-100 px-2 py-1 text-xs">
-                      {m.modelId}
-                    </code>
-                  </Td>
-
                   {/* TYPE */}
-                  <Td className="whitespace-nowrap px-4 py-4">
+                  <Td className="whitespace-nowrap px-4 py-2.5">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      title={!isSystem ? `API 格式：${m.apiFormat}` : undefined}
+                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                         TYPE_BADGE_CLASS[m.modelType] ??
                         'bg-gray-100 text-gray-700'
                       }`}
                     >
                       {typeLabel(m.modelType)}
                     </span>
-                    {!isSystem && (
-                      <div className="mt-1 text-xs text-gray-400">
-                        {m.apiFormat}
-                      </div>
-                    )}
                   </Td>
 
                   {/* SOURCE */}
-                  <Td className="whitespace-nowrap px-4 py-4">
+                  <Td className="whitespace-nowrap px-4 py-2.5">
                     {isSystem ? (
                       <span
-                        className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800"
-                        title="管理员授权（KeyAssignment）"
+                        title={
+                          usedDollars
+                            ? quotaDollars
+                              ? `管理员授权 · 已用 $${usedDollars} / $${quotaDollars}`
+                              : `管理员授权 · 已用 $${usedDollars} · 无上限`
+                            : '管理员授权（KeyAssignment）'
+                        }
                       >
-                        <Shield className="h-3 w-3" />
-                        系统授权
+                        <StatusBadge
+                          tone="success"
+                          icon={Shield}
+                          label="系统授权"
+                        />
                       </span>
                     ) : (
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800"
-                        title="你自己配置的模型"
-                      >
-                        <Edit className="h-3 w-3" />
-                        个人
+                      <span title="你自己配置的模型">
+                        <StatusBadge tone="info" icon={Edit} label="个人" />
                       </span>
-                    )}
-                    {a && (
-                      <div className="mt-1 text-xs text-gray-500">
-                        {usedDollars && quotaDollars
-                          ? `$${usedDollars} / $${quotaDollars}`
-                          : usedDollars
-                            ? `$${usedDollars} · unlimited`
-                            : null}
-                      </div>
                     )}
                   </Td>
 
                   {/* API KEY */}
-                  <Td className="px-4 py-4">
+                  <Td className="whitespace-nowrap px-4 py-2.5">
                     {isSystem ? (
-                      <>
-                        <span className="text-sm font-medium text-emerald-600">
-                          ✓ Granted
-                        </span>
-                        <div className="mt-0.5 text-xs text-gray-400">
-                          managed by admin
-                        </div>
-                      </>
+                      <span title="managed by admin">
+                        <StatusBadge
+                          tone="success"
+                          icon={Check}
+                          label="Granted"
+                        />
+                      </span>
                     ) : (
-                      <>
-                        <span
-                          className={`text-sm font-medium ${
-                            hasKey ? 'text-green-600' : 'text-red-500'
-                          }`}
-                        >
-                          {hasKey ? '✓ Configured' : '✗ Missing'}
-                        </span>
-                        <div className="mt-0.5 text-xs text-gray-400">
-                          via your {m.provider} key
-                        </div>
-                      </>
+                      <span title={`via your ${m.provider} key`}>
+                        <StatusBadge
+                          tone={hasKey ? 'success' : 'danger'}
+                          label={hasKey ? 'Configured' : 'Missing'}
+                        />
+                      </span>
                     )}
                   </Td>
 
                   {/* STATUS toggle / state */}
-                  <Td className="px-4 py-4 text-center">
+                  <Td className="px-4 py-2.5 text-center">
                     {isSystem ? (
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -622,8 +649,15 @@ export function UserModelsManagement() {
                   </Td>
 
                   {/* CAPABILITIES */}
-                  <Td className="px-4 py-4">
-                    <div className="flex flex-wrap gap-1">
+                  <Td className="px-4 py-2.5">
+                    <div
+                      className="flex items-center gap-1"
+                      title={
+                        isSystem
+                          ? `${m.maxTokens} tokens`
+                          : `优先级 ${m.priority} · 温度 ${m.temperature} · ${m.maxTokens} tokens`
+                      }
+                    >
                       {m.supportsTemperature && (
                         <span
                           title="支持 temperature"
@@ -657,20 +691,10 @@ export function UserModelsManagement() {
                         </span>
                       )}
                     </div>
-                    {!isSystem && (
-                      <div className="mt-1 text-xs text-gray-400">
-                        P:{m.priority} | T:{m.temperature} | {m.maxTokens}tok
-                      </div>
-                    )}
-                    {isSystem && (
-                      <div className="mt-1 text-xs text-gray-400">
-                        {m.maxTokens}tok
-                      </div>
-                    )}
                   </Td>
 
                   {/* ACTIONS */}
-                  <Td className="px-4 py-4 text-right">
+                  <Td className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       {isSystem ? (
                         <span

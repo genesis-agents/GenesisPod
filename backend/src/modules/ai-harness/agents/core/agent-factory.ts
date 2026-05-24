@@ -17,6 +17,7 @@ import type {
   MissionElectionReservation,
   MissionElectionTracker,
 } from "../../../ai-engine/llm/selection";
+import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import { AIModelType } from "@prisma/client";
@@ -84,6 +85,14 @@ export class AgentFactory {
      * PR-R: AgentRegistry — agent 实例中央目录，handoff 必需。
      */
     @Optional() private readonly agentRegistry?: AgentRegistry,
+    /**
+     * 2026-05-23 BYOK cross-model failover：
+     * AiModelConfigService 用于在 BYOK 路径下列举用户的同 modelType 候选模型，
+     * 供 SpecBasedAgent 在 provider 报错时切换到下一个用户配置的模型。
+     * 与 AiEngineLLMModule 同属一个 DI 图（HarnessModule imports AiEngineLLMModule），
+     * 用 @Optional() 避免非完整 DI 环境（unit test 等）崩溃。
+     */
+    @Optional() private readonly modelConfigService?: AiModelConfigService,
   ) {
     this.defaultLoop = reactLoop;
   }
@@ -223,6 +232,7 @@ export class AgentFactory {
       () => this.electionService,
       envSnapshot,
       () => this.electionTracker,
+      () => this.modelConfigService,
     );
   }
 
@@ -389,7 +399,83 @@ export class AgentFactory {
       //   giving local / reasoning models a concrete shape to copy.
       outputSchemaDescription:
         describeOutputSchemaForLlm(spec.outputSchema) ?? undefined,
+      // #35: strict finalize JSON schema for provider-level enforcement on final
+      // iterations. undefined when not set — loop falls back to permissive schema.
+      finalizeOutputJsonSchema: spec.outputJsonSchema
+        ? { ...spec.outputJsonSchema }
+        : undefined,
+      // Model-level failover (BYOK → user's other models; admin → re-election).
+      // Shared with createWithEnvelope via buildModelFailoverProvider so both
+      // construction paths behave identically.
+      modelFailoverProvider: this.buildModelFailoverProvider(spec, identity),
     });
+  }
+
+  /**
+   * 构造模型级 failover provider 闭包（create + createWithEnvelope 共用，保证两条
+   * 构造路径一致；之前 createWithEnvelope 漏接导致 subagent / checkpoint resume 的
+   * agent 无 failover）。两路：
+   *   BYOK (spec.userId) → listUserEnabledModelsByType(userId, CHAT, exclude)
+   *   admin/cron (无 userId) → ModelElectionService.elect(excludeModelIds)
+   * 依赖（@Optional）缺失时返回 undefined —— failover 关闭，行为同修复前，不崩。
+   */
+  private buildModelFailoverProvider(
+    spec: IAgentSpec,
+    identity: AgentIdentity,
+  ):
+    | ((
+        excludeModelIds: ReadonlyArray<string>,
+        excludeProviders?: ReadonlyArray<string>,
+      ) => Promise<string | null>)
+    | undefined {
+    const effectiveUserId = spec.userId;
+    if (effectiveUserId) {
+      const modelConfigService = this.modelConfigService;
+      if (!modelConfigService) return undefined;
+      return async (
+        excludeModelIds: ReadonlyArray<string>,
+        excludeProviders?: ReadonlyArray<string>,
+      ): Promise<string | null> => {
+        try {
+          const models = await modelConfigService.listUserEnabledModelsByType(
+            effectiveUserId,
+            AIModelType.CHAT,
+            excludeModelIds,
+            excludeProviders ?? [],
+          );
+          return models[0]?.modelId ?? null;
+        } catch {
+          return null;
+        }
+      };
+    }
+    if (!this.electionService) return undefined;
+    const taskProfile = spec.taskProfile;
+    const roleId = identity.role.id;
+    const runtimeEnv = spec.runtimeEnv;
+    return async (
+      excludeModelIds: ReadonlyArray<string>,
+    ): Promise<string | null> => {
+      try {
+        // Fresh env snapshot for candidate list; empty candidates if absent.
+        const envSnapshot = runtimeEnv?.getEnvironmentSnapshot
+          ? await runtimeEnv.getEnvironmentSnapshot().catch(() => undefined)
+          : undefined;
+        const candidates = this.buildElectionCandidates(envSnapshot);
+        const role = this.resolveElectionRoleHint(roleId);
+        const result = await this.electionService!.elect({
+          modelType: AIModelType.CHAT,
+          candidates,
+          taskProfile,
+          role,
+          userId: undefined,
+          excludeModelIds: [...excludeModelIds],
+        });
+        return result.elected.modelId ?? null;
+      } catch {
+        return null;
+      }
+    };
   }
 
   /**
@@ -433,6 +519,8 @@ export class AgentFactory {
       //   finalize-rejection critique.
       outputSchemaDescription:
         describeOutputSchemaForLlm(spec.outputSchema) ?? undefined,
+      // 模型级 failover：subagent / checkpoint resume 重建的 agent 也要容错。
+      modelFailoverProvider: this.buildModelFailoverProvider(spec, identity),
     });
   }
 

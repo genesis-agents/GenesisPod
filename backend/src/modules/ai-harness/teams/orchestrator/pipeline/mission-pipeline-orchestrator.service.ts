@@ -146,7 +146,53 @@ export class MissionPipelineOrchestrator {
           );
         }
 
+        // ★ #44 (2026-05-23): S4‖S5 narrow parallel execution.
+        //
+        //   Guard (verified against caller-provided DAG metadata):
+        //     S4 ctxWrites: []                    S5 ctxWrites: ["reconciliationReport"]
+        //     S4 ctxReads:  ["plan","researcherResults"]
+        //     S5 ctxReads:  ["researcherResults"]
+        //   → ctxWrites disjoint; S4 does not read S5's writes
+        //   → Both read crossState values synchronously before their first await
+        //     (Node.js single-threaded async) → no race condition on reads
+        //   → dbWrites: S4=["leader_journal"], S5=["reconciliation_report"] — different cols
+        //
+        //   Event ordering: emit stage:started for BOTH before either stage:completed.
+        //   Resume: if resumeFromStepId targets S4 or S5, startIndex resolves to idx+1
+        //   of whichever was the last completed; if S4 was last we skip to S5's idx
+        //   (which means we skip past i=S4's idx and start at i=S5's idx, handled by
+        //   the standard resume startIndex logic — the parallel block only fires when
+        //   i is at S4's index and S5 is immediately next).
         const resolved = resolvedSteps[i];
+        const nextResolved = resolvedSteps[i + 1];
+        const isS4S5Pair =
+          resolved.step.id === "s4-leader-assess" &&
+          nextResolved?.step.id === "s5-reconciler";
+
+        if (isS4S5Pair) {
+          // Both start before either finishes — emit stage:started for both first
+          const [out4, out5] = await Promise.all([
+            this.runStep(
+              resolved,
+              ctx,
+              crossStageState,
+              stageOutputs,
+              args.onEvent,
+            ),
+            this.runStep(
+              nextResolved,
+              ctx,
+              crossStageState,
+              stageOutputs,
+              args.onEvent,
+            ),
+          ]);
+          stageOutputs[resolved.step.id] = out4;
+          stageOutputs[nextResolved.step.id] = out5;
+          i += 1; // skip S5 in next iteration
+          continue;
+        }
+
         const output = await this.runStep(
           resolved,
           ctx,

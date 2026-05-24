@@ -28,6 +28,7 @@ import {
 } from "@/modules/ai-harness/facade";
 import type { PlaygroundConfigSnapshot } from "../rerun/playground-mission-input-rebuilder.service";
 import { MissionLifecycleHelper } from "./mission-lifecycle.helper";
+import { CHECKPOINT_KEY } from "./prisma-mission-checkpoint.store";
 
 /**
  * ★ C5/G7 S4b:userProfile 退化为 configSnapshot 的**读时投影**(单一真源=snapshot,
@@ -55,7 +56,7 @@ function projectUserProfileView(
     inheritFromMissionId: b.inheritFromMissionId,
     maxCredits: snap.budget.maxCredits,
     budgetMultiplierOverride: snap.budget.budgetMultiplier,
-    wallTimeMs: snap.runtimeLimits.wallTimeCapMs,
+    wallTimeCapMs: snap.runtimeLimits.wallTimeCapMs,
   };
 }
 import { MissionUpdateHelper } from "./mission-update.helper";
@@ -184,9 +185,9 @@ export class MissionStore implements MissionTerminalArbiter<PlaygroundTerminalEx
   private async clearCheckpointJsonbKey(missionId: string): Promise<void> {
     await this.prisma.$executeRaw`
         UPDATE agent_playground_missions
-        SET leader_journal = COALESCE(leader_journal, '{}'::jsonb) - '__checkpoint'
+        SET leader_journal = COALESCE(leader_journal, '{}'::jsonb) - ${CHECKPOINT_KEY}
         WHERE id = ${missionId}
-          AND leader_journal ? '__checkpoint'
+          AND leader_journal ? ${CHECKPOINT_KEY}
       `.catch((err: unknown) => {
       this.log.error(
         `[clearCheckpoint ${missionId}] update failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -238,7 +239,7 @@ export class MissionStore implements MissionTerminalArbiter<PlaygroundTerminalEx
     maxCredits: number;
     userProfile?: Record<string, unknown>;
     /** ★ C5/G7：typed MissionConfigSnapshot(单一 config 真源,openSession 冻结)。 */
-    configSnapshot?: unknown;
+    configSnapshot?: PlaygroundConfigSnapshot;
   }): Promise<void> {
     await this.prisma.agentPlaygroundMission.create({
       data: {

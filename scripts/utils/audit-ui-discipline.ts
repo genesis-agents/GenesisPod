@@ -19,6 +19,7 @@
  *   R11 owner 资产卡基线操作 onEdit + onDelete 必须接齐（运营型卡仅 extraActions 者不在此列）
  *   R12 自写引用/来源「行卡」必须用 CitationListItem（common/citations）
  *   R13 对话流消息卡（message-cards/ 目录）必须用 MessageCardShell（统一外壳 + tone 配色）
+ *   R16 数据行表的单元格文本截断必须用 TruncatedCell（common/tables），禁手写 .slice/.substring + 省略号
  *
  * 报告模式：全部规则已焊死（HARD_ZERO，2026-05-20）——任一规则违规即 exit 1 拒推（已退出 warn-only 灰度）。
  *
@@ -54,6 +55,7 @@ const HARD_ZERO_RULES = new Set<string>([
   "R13-MessageCardShell-Required",
   "R14-PageHeaderHero-Required",
   "R15-CardHome-Required",
+  "R16-TruncatedCell-Required",
 ]);
 
 // 棘轮规则：不进 hard-zero 的「不劣化」规则（cur ≤ baseline）。
@@ -588,6 +590,44 @@ function checkR9Spinner(file: string, src: string): Violation[] {
   ];
 }
 
+// R16: 数据行表的单元格文本截断必须用 TruncatedCell（标准 22 表格归一，2026-05-23）。
+// 背景：数据行表把长内容硬截断（`.slice(0,N)+'…'`）或多行撑高行；统一用
+//   common/tables/TruncatedCell（单行截断 + 仅溢出时挂 Tooltip，列宽变化自动重判）。
+// 仅作用于「数据行表文件」——import 了 ui/table 原语 / 用 <DataTable> / MissionTaskList
+//   渲染数据行的文件——避免误伤预览 / 日志 / payload 的 substring 截断（非 UI 单元格）。
+const TABLE_FILE_SIGNAL =
+  /from\s+['"]@\/components\/ui\/table['"]|<DataTable\b|\bMissionTaskList\b/;
+const MANUAL_TRUNCATE_G =
+  /\.(?:slice|substring|substr)\([^)]*\)\s*\+\s*[`'"](?:…|\.\.\.)/g;
+// 单元格上下文信号：手写截断只有出现在「表格单元格渲染」附近才算违规——
+//   <Td>/<td>（ui/table 手写表）或 render:/cell:（DataTable/MissionTaskList 列渲染函数）。
+//   这样可避开同文件里图表轴标签 / 数据预处理 / toast / payload 的 substring 截断（非 UI 单元格）。
+const CELL_CONTEXT = /<[Tt]d\b|[\s,{(]render\s*:|[\s,{(]cell\s*:/;
+// R16 例外名单（标准 22 §3 留痕）：单元格上下文里命中手写截断但确不适配 TruncatedCell 的真例外。
+const R16_BESPOKE_OK: string[] = [];
+
+function checkR16TruncatedCell(file: string, src: string): Violation[] {
+  if (!TABLE_FILE_SIGNAL.test(src)) return [];
+  const norm = file.split(sep).join("/");
+  if (R16_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
+  for (const m of src.matchAll(MANUAL_TRUNCATE_G)) {
+    const idx = m.index ?? 0;
+    // 仅当该手写截断位于单元格渲染上下文内（前 ~240 字符出现 <Td / render: / cell:）才计违规。
+    const before = src.slice(Math.max(0, idx - 240), idx);
+    if (!CELL_CONTEXT.test(before)) continue;
+    const line = src.slice(0, idx).split("\n").length;
+    return [
+      {
+        rule: "R16-TruncatedCell-Required",
+        file: relative(process.cwd(), file),
+        line,
+        snippet: snippet(src, line),
+      },
+    ];
+  }
+  return [];
+}
+
 // TODO(R10): ProgressBar 强制规则待补——需更精准的检测器避免误报
 //   R10 进度条：`overflow-hidden rounded-full bg-gray-200` + width 填充需区分于头像/胶囊
 
@@ -801,6 +841,7 @@ async function main() {
     allViolations.push(...checkR12CitationRow(file, src));
     allViolations.push(...checkR13MessageShell(file, src));
     allViolations.push(...checkR14PageHeaderHero(file, src));
+    allViolations.push(...checkR16TruncatedCell(file, src));
   }
   // R15 结构检查：独立于 file-walk 的目录扫描（卡片目录归属）
   allViolations.push(...(await scanCardDirHomes()));

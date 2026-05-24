@@ -263,18 +263,42 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
     );
 
     try {
-      // Prefer the KB augmentor (wiki-first) when bound; fall through to
-      // the chunk-only pipeline otherwise. The augmentor itself decides
-      // when to short-circuit to wiki vs delegate back to chunk RAG, so
-      // this code path stays wiki-agnostic.
-      const searchService = this.kbAugmentor ?? this.ragPipeline;
-      const raw = await searchService.simpleQuery(
-        query,
-        knowledgeBaseIds,
-        topK,
-      );
-      const filtered = raw.filter((r) => r.score >= threshold);
-      const results: RAGSearchResultItem[] = filtered.map((r) => ({
+      // Prefer the KB augmentor (wiki-first) when bound — it decides wiki vs
+      // chunk RAG itself. Without an augmentor, run the FULL RAG pipeline
+      // (R2-#41): HyDE → hybrid(vector+keyword RRF) → Cohere rerank → parent
+      // retrieval — instead of the test-grade simpleQuery (embedding+vectorSearch
+      // only) that production was wired to. simpleQuery under-retrieves → starves
+      // grounding → review scores stay low. Rerank degrades gracefully without a
+      // Cohere key (falls back to hybrid scores), so no hard new dependency.
+      // When using the KB augmentor (wiki-first path), results come from a cosine-space
+      // scorer and the caller threshold (default 0.5) is meaningful — apply it.
+      //
+      // When using the full RAG pipeline (HyDE → hybrid RRF → Cohere rerank → parent),
+      // do NOT re-apply the cosine-calibrated threshold: after Cohere rerank the score is
+      // relevance_score (~0.3 median, different distribution). Re-filtering here defeats
+      // the pipeline entirely — the pipeline already applied minScore + topK internally.
+      // Return its searchResults as-is (already relevance-ordered).
+      let raw: import("@/modules/ai-engine/rag/pipeline/rag-pipeline.interface").SearchResult[];
+      if (this.kbAugmentor) {
+        const augmentorResults = await this.kbAugmentor.simpleQuery(
+          query,
+          knowledgeBaseIds,
+          topK,
+        );
+        raw = augmentorResults.filter((r) => r.score >= threshold);
+      } else {
+        // Enable HyDE only for elaborated natural-language queries (>40 chars /
+        // ~8+ tokens). Short keyword queries gain little from the extra LLM call.
+        const useHyde = query.trim().length > 40;
+        const pipelineResponse = await this.ragPipeline.query({
+          query,
+          knowledgeBaseIds,
+          options: { topK, useHyde },
+        });
+        // Full pipeline already did minScore + rerank + topK; skip cosine threshold here.
+        raw = pipelineResponse.searchResults;
+      }
+      const results: RAGSearchResultItem[] = raw.map((r) => ({
         chunkId: r.childChunkId,
         documentId: r.documentId,
         content: r.content,
@@ -285,9 +309,7 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
           ...(r.metadata ?? {}),
         },
       }));
-      this.logger.log(
-        `RAG search returned ${results.length}/${raw.length} (threshold=${threshold})`,
-      );
+      this.logger.log(`RAG search returned ${results.length} results`);
       return {
         results,
         success: true,

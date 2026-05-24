@@ -60,7 +60,7 @@ ai-harness/
 新 MissionPipeline 派 team(`agent-playground` / `writing-team` / 未来 `debate-team`
 / `planning-team` 等)拷贝时的 canonical reference:
 
-- 架构文档:[`docs/architecture/ai-harness/sediment-topology.md`](../../../../docs/architecture/ai-harness/sediment-topology.md)
+- 架构文档:[`docs/architecture/ai-harness/facade/sediment-topology.md`](../../../../docs/architecture/ai-harness/facade/sediment-topology.md)
 - 6 个共存 sediment zone(Z1 mission-lifecycle / Z2 mission-checkpoint / Z3 business-team
   framework / Z4 mission-pipeline-orchestrator / Z5 stage primitives / Z6 待裁定 mission
   executor)与 grep-verified 依赖边

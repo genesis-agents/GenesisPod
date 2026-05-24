@@ -222,6 +222,46 @@ describe("SocialBusinessOrchestrator", () => {
   });
 
   // =========================================================================
+  // RB6 — S8(publish-execute)半发布原子性：cancel 在 S8 前 vs S8 中
+  //   gate-before-stage：abort 只在 stage 边界生效；S8 内部不查 signal，故一旦进入
+  //   即原子完成发布。cancel 落"S8 前"=零发布；落"S8 中"=发布原子完成、于下一边界
+  //   (S9)才被截停 → 无半发布（微信草稿 API 无删除接口，半发布不可撤销）。
+  // =========================================================================
+  describe("RB6 — S8 半发布原子性 (cancel 在 S8 前/中)", () => {
+    it("cancel 在 S8 前 → s8 边界 hook 抛 StageAbortError，S8 不执行(零发布)", async () => {
+      const entry = makeSessionEntry();
+      orch.bindSessionLookup(jest.fn().mockReturnValue(entry));
+
+      const hooks = orch.buildHooksForStep("s8-publish-execute", "persist");
+      const abortedArgs = makeHookArgs(MOCK_MISSION_ID, true);
+
+      await expect(hooks.persist!(abortedArgs)).rejects.toThrow(
+        /aborted|cancelled|abort/i,
+      );
+      // 关键：cancel-before 分支 S8 发布 stage 根本没跑 → 无外部副作用
+      expect(runPublishExecuteStage).not.toHaveBeenCalled();
+    });
+
+    it("cancel 在 S8 中 → S8 原子发布完成(未被中断)，abort 在下一边界 s9 才生效(无半发布)", async () => {
+      const entry = makeSessionEntry();
+      orch.bindSessionLookup(jest.fn().mockReturnValue(entry));
+
+      // S8 边界 signal 未 abort → S8 正常进入并原子完成发布
+      const s8Hooks = orch.buildHooksForStep("s8-publish-execute", "persist");
+      await s8Hooks.persist!(makeHookArgs(MOCK_MISSION_ID, false));
+      expect(runPublishExecuteStage).toHaveBeenCalledTimes(1);
+
+      // "发布进行中"触发的 cancel 直到下一 stage 边界(S9)才被截停 → 发布已原子完成
+      const s9Hooks = orch.buildHooksForStep("s9-publish-verify", "persist");
+      await expect(
+        s9Hooks.persist!(makeHookArgs(MOCK_MISSION_ID, true)),
+      ).rejects.toThrow(/aborted|cancelled|abort/i);
+      // S8 仍只发布过 1 次（cancel 未导致重发/半发）
+      expect(runPublishExecuteStage).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // =========================================================================
   // buildHooksForStep — sessionLookup not bound guard
   // =========================================================================
 

@@ -79,6 +79,42 @@ describe("ModelPricingRegistry", () => {
       expect(cost).toBeCloseTo(expected);
     });
 
+    it("calculates with cacheWrite tokens", () => {
+      const reg = make();
+      reg.register({
+        modelId: "claude-3-5",
+        tier: "strong",
+        inputPricePerM: 3,
+        outputPricePerM: 15,
+        cacheReadPricePerM: 0.3,
+        cacheWritePricePerM: 3.75,
+      });
+      // 1000 prompt, 200 cache-read, 100 cache-write, 500 completion
+      const cost = reg.estimateCost("claude-3-5", 1000, 500, 200, 100);
+      // netInput = 1000 - 200 = 800
+      const expected =
+        (800 / 1e6) * 3 +
+        (500 / 1e6) * 15 +
+        (200 / 1e6) * 0.3 +
+        (100 / 1e6) * 3.75;
+      expect(cost).toBeCloseTo(expected);
+    });
+
+    it("excludes cacheWrite cost when cacheWritePricePerM is not set", () => {
+      const reg = make();
+      reg.register({
+        modelId: "gpt-4o-no-write",
+        tier: "strong",
+        inputPricePerM: 5,
+        outputPricePerM: 15,
+      });
+      // 1000 prompt, 0 cache-read, 100 cache-write — no write price configured
+      const cost = reg.estimateCost("gpt-4o-no-write", 1000, 500, 0, 100);
+      // cacheWriteTokens > 0 but no cacheWritePricePerM → write cost is 0
+      const expected = (1000 / 1e6) * 5 + (500 / 1e6) * 15;
+      expect(cost).toBeCloseTo(expected);
+    });
+
     it("only warns once per unknown modelId", () => {
       const reg = make();
       reg.estimateCost("ghost", 100, 50);
@@ -171,6 +207,7 @@ describe("ModelPricingRegistry", () => {
               priceInputPerMillion: "5",
               priceOutputPerMillion: "15",
               priceCacheReadPerMillion: null,
+              priceCacheWritePerMillion: null,
             },
             {
               modelId: "gpt-3.5",
@@ -178,6 +215,7 @@ describe("ModelPricingRegistry", () => {
               priceInputPerMillion: "0.5",
               priceOutputPerMillion: "1",
               priceCacheReadPerMillion: null,
+              priceCacheWritePerMillion: null,
             },
             {
               modelId: "bad-tier",
@@ -185,6 +223,7 @@ describe("ModelPricingRegistry", () => {
               priceInputPerMillion: "1",
               priceOutputPerMillion: "2",
               priceCacheReadPerMillion: null,
+              priceCacheWritePerMillion: null,
             },
           ]),
         },
@@ -196,6 +235,35 @@ describe("ModelPricingRegistry", () => {
       expect(reg.get("gpt-3.5")).toBeNull();
       // invalid tier is skipped
       expect(reg.get("bad-tier")).toBeNull();
+    });
+
+    it("hydrates cacheWrite price from db when set", async () => {
+      const mockPrisma = {
+        aIModel: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              modelId: "claude-3-opus",
+              costTier: "strong",
+              priceInputPerMillion: "15",
+              priceOutputPerMillion: "75",
+              priceCacheReadPerMillion: "1.5",
+              priceCacheWritePerMillion: "18.75",
+            },
+          ]),
+        },
+      };
+      const reg = new ModelPricingRegistry(mockPrisma as never);
+      await reg.onApplicationBootstrap();
+      const entry = reg.get("claude-3-opus");
+      expect(entry).not.toBeNull();
+      expect(entry!.cacheWritePricePerM).toBeCloseTo(18.75);
+      // 100 cache-write tokens should be costed
+      const cost = reg.estimateCost("claude-3-opus", 1000, 500, 0, 100);
+      expect(cost).not.toBeNull();
+      expect(cost!).toBeGreaterThan(0);
+      const expected =
+        (1000 / 1e6) * 15 + (500 / 1e6) * 75 + (100 / 1e6) * 18.75;
+      expect(cost).toBeCloseTo(expected);
     });
 
     it("handles db error gracefully", async () => {
@@ -210,4 +278,3 @@ describe("ModelPricingRegistry", () => {
     });
   });
 });
-

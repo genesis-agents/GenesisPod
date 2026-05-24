@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -19,16 +20,46 @@ import {
   CreateUserModelConfigDto,
   UpdateUserModelConfigDto,
 } from "@/modules/ai-harness/facade";
+import {
+  CapabilityOverridesWriterService,
+  ApplyCapabilityOverridesDto,
+  DeleteCapabilityOverridesDto,
+} from "@/modules/ai-engine/facade";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };
+  ip?: string;
+  headers?: { "user-agent"?: string };
 }
 
 @ApiTags("User - Model Configs")
 @Controller("user/model-configs")
 @UseGuards(JwtAuthGuard)
 export class UserModelConfigsController {
-  constructor(private readonly service: UserModelConfigsService) {}
+  constructor(
+    private readonly service: UserModelConfigsService,
+    // v3.1 阶段 B 子片 2：capability_overrides 写入面 SSOT（BYOK 用户路径）
+    private readonly capabilityOverridesWriter: CapabilityOverridesWriterService,
+  ) {}
+
+  /**
+   * 守护：被改的 user_model_config 行必须属于当前用户。
+   * 用 service.findById（已带 ownership 校验）—— null 抛 NotFound，否则 throw Forbidden
+   * （Forbidden 比 NotFound 更准确表达"非本人资源"，但与 service.update 同语义保持一致）。
+   */
+  private async assertOwnership(
+    userId: string,
+    configId: string,
+  ): Promise<void> {
+    const row = await this.service.findById(userId, configId);
+    if (!row) {
+      // findById 在 userId 不匹配时返回 null（service 内部校验），
+      // 用 ForbiddenException 让前端清楚是权限问题而非资源不存在
+      throw new ForbiddenException(
+        "Model config does not belong to current user",
+      );
+    }
+  }
 
   @Get()
   async list(
@@ -74,5 +105,59 @@ export class UserModelConfigsController {
   @Delete(":id")
   async remove(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return this.service.delete(req.user.id, id);
+  }
+
+  /**
+   * v3.1 §B.3 BYOK 用户 override 路径 ——
+   * PATCH /api/user/model-configs/:id/capability-overrides
+   *
+   * 写入 UserModelConfig.capability_overrides JSONB（仅本人）。所有校验/写入/AuditLog 在
+   * CapabilityOverridesWriterService.applyOverrideTransactional 同事务完成
+   * （patch shape strict-zod + reason ≥30 chars + scope=PERSONAL 矩阵）。
+   */
+  @Patch(":id/capability-overrides")
+  async applyCapabilityOverrides(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() dto: ApplyCapabilityOverridesDto,
+  ) {
+    await this.assertOwnership(req.user.id, id);
+    return this.capabilityOverridesWriter.applyOverrideTransactional({
+      target: { kind: "user_model_config", id },
+      scope: "PERSONAL",
+      actor: { id: req.user.id, role: "user" },
+      patch: dto.patch,
+      source: "admin-override", // 用户显式 PATCH 也算"显式 override"，与 self-heal-user 区分；
+      // 与 admin 共享语义键防 cooling-off 漏触发（自愈 24h 内不覆盖用户显式选择）
+      reason: dto.reason,
+      ipAddress: req.ip,
+      userAgent: req.headers?.["user-agent"],
+    });
+  }
+
+  /**
+   * v3.1 §B.3 BYOK 用户 override 重置 ——
+   * DELETE /api/user/model-configs/:id/capability-overrides
+   *
+   * 同 admin DELETE 的简洁实现：写入空 patch（不覆盖任何字段）+ 记 AuditLog；
+   * B+ 增强 service.clearOverride 把整列置 null。
+   */
+  @Delete(":id/capability-overrides")
+  async clearCapabilityOverrides(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() dto: DeleteCapabilityOverridesDto,
+  ) {
+    await this.assertOwnership(req.user.id, id);
+    return this.capabilityOverridesWriter.applyOverrideTransactional({
+      target: { kind: "user_model_config", id },
+      scope: "PERSONAL",
+      actor: { id: req.user.id, role: "user" },
+      patch: {},
+      source: "admin-override",
+      reason: dto.reason,
+      ipAddress: req.ip,
+      userAgent: req.headers?.["user-agent"],
+    });
   }
 }

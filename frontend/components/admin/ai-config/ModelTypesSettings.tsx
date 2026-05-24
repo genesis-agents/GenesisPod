@@ -16,6 +16,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { confirm } from '@/stores';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface ModelType {
   id: string;
@@ -237,7 +238,15 @@ export function ModelTypesSettings() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col className="w-[20%]" />
+            <col className="w-[20%]" />
+            <col className="w-[12%]" />
+            <col className="w-[18%]" />
+            <col className="w-[16%]" />
+            <col className="w-[14%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -265,10 +274,14 @@ export function ModelTypesSettings() {
             {items.map((t) => (
               <tr key={t.id} className="hover:bg-gray-50">
                 <td className="font-mono whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                  {t.slug}
+                  <TruncatedCell className="max-w-[160px] text-gray-900">
+                    {t.slug}
+                  </TruncatedCell>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                  {t.name}
+                  <TruncatedCell className="max-w-[160px] text-gray-900">
+                    {t.name}
+                  </TruncatedCell>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
                   {t.category}

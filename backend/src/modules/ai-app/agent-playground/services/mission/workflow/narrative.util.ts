@@ -1,32 +1,23 @@
 /**
- * NarrativeEmitter —— 人话叙事事件辅助
+ * NarrativeEmitter — playground-specific thin binding over ai-harness narrate factory
  *
- * 用法：在 stage 函数里 narrate(deps, missionId, userId, { stage, role, tag, text }).
+ * R2-#50: The generic narrate() function and NarrativeEvent/NarrativeTag types now
+ * live in ai-harness (protocols/events/narrate.ts) and are exported via the harness
+ * facade. This file is a binding shim that:
+ *   - Re-exports the types so stage files keep the same import path
+ *   - Binds the playground-specific event type string "agent-playground.agent:narrative"
+ *     so all 15 call sites remain unchanged (no extra argument needed)
  *
- * 设计原则：
- *   - text 必须是给人看的自然语言，禁止 JSON 字符串拼接
- *   - 模板化 + 关键参数填空（不调 LLM，避免成本和不稳定）
- *   - tag 决定前端图标 / 颜色（thinking / searching / analyzing / writing / reviewing / signing）
- *   - stage 一定要给（前端按 stage 把 narrative 归到对应的 todo）
- *   - 失败 emit 不抛错（best-effort）
+ * Call sites continue to use:  narrate(emit, missionId, userId, { stage, role, tag, text })
  */
 
+import { narrate as harnessNarrate } from "@/modules/ai-harness/facade";
+import type { NarrativeEvent } from "@/modules/ai-harness/facade";
 import type { EmitFn } from "./mission-deps";
 
-export type NarrativeTag =
-  | "thinking"
-  | "planning"
-  | "searching"
-  | "scraping"
-  | "analyzing"
-  | "writing"
-  | "reviewing"
-  | "judging"
-  | "signing"
-  | "warning"
-  | "success"
-  | "info";
+export type { NarrativeEvent, NarrativeTag } from "@/modules/ai-harness/facade";
 
+/** NarrativeStage enum kept here — it is playground-domain-specific (not harness concern). */
 export type NarrativeStage =
   | "s1-budget"
   | "s2-leader-plan"
@@ -42,26 +33,7 @@ export type NarrativeStage =
   | "s10-leader-signoff"
   | "s11-persist";
 
-export interface NarrativeEvent {
-  stage: NarrativeStage;
-  role:
-    | "leader"
-    | "researcher"
-    | "analyst"
-    | "writer"
-    | "reviewer"
-    | "reconciler"
-    | "critic"
-    | "mission";
-  tag: NarrativeTag;
-  text: string;
-  /** dimension name（researcher / chapter 相关 narrative 必带） */
-  dimension?: string;
-  /** chapter index（章节级 narrative 必带） */
-  chapterIndex?: number;
-  /** 关联 agentId（让前端能把 narrative 归到具体 agent 的 todo） */
-  agentId?: string;
-}
+const PLAYGROUND_NARRATIVE_EVENT_TYPE = "agent-playground.agent:narrative";
 
 export async function narrate(
   emit: EmitFn,
@@ -69,23 +41,11 @@ export async function narrate(
   userId: string,
   ev: NarrativeEvent,
 ): Promise<void> {
-  await emit({
-    type: "agent-playground.agent:narrative",
+  return harnessNarrate(
+    emit,
     missionId,
     userId,
-    agentId: ev.agentId,
-    payload: {
-      stage: ev.stage,
-      role: ev.role,
-      tag: ev.tag,
-      text: ev.text,
-      dimension: ev.dimension,
-      chapterIndex: ev.chapterIndex,
-      // ★ P1-NEW-F (round 2): payload 内补 agentId —— 前端订阅者按 payload.agentId
-      // 取读才能正确关联到具体 agent 行（顶层 agentId 不一定被前端解析）
-      agentId: ev.agentId,
-    },
-  }).catch(() => {
-    /* narrative best-effort */
-  });
+    PLAYGROUND_NARRATIVE_EVENT_TYPE,
+    ev,
+  );
 }

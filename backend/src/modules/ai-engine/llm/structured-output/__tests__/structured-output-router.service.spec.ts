@@ -1,9 +1,17 @@
 import { StructuredOutputRouter } from "../structured-output-router.service";
+import { ModelCapabilityService } from "../../capability/model-capability.service";
 
-describe("StructuredOutputRouter — 未配置默认推断", () => {
+/**
+ * v3.1 §A：本 spec 保留全部既有用例（行为契约不变）；router 内部派生
+ * 实现已迁到 ModelCapabilityService.deriveStructuredOutputChain。
+ *
+ * 既有 PROVIDER_DEFAULT_CHAINS 17 条 → catalog `PROVIDER_CAPABILITY_DEFAULTS` 1:1
+ * 收编 + 别名条目（claude/gemini/grok）；语义不变，spec 期望不变。
+ */
+describe("StructuredOutputRouter — 派生视图（v3.1 §A 收敛后）", () => {
   let router: StructuredOutputRouter;
   beforeEach(() => {
-    router = new StructuredOutputRouter();
+    router = new StructuredOutputRouter(new ModelCapabilityService());
   });
 
   it("admin 配置 strategy 时优先使用", () => {
@@ -69,6 +77,17 @@ describe("StructuredOutputRouter — 未配置默认推断", () => {
     expect(chain).toEqual(["json_schema", "json_mode", "prompt"]);
   });
 
+  it("DeepSeek-v4-pro 未配置 → json_mode → prompt (2026-05-24 事故根因修复)", () => {
+    // v3.1 §1.4 案例研究矩阵：deepseek-v4-pro API 现状仅支持 json_object，
+    // 发 json_schema 直接 400；catalog 把它分到独立条目（match: /v4[-_]?pro/）。
+    const chain = router.resolveChain({
+      provider: "DeepSeek",
+      modelId: "deepseek-v4-pro",
+      structuredOutputStrategy: null,
+    });
+    expect(chain).toEqual(["json_mode", "prompt"]);
+  });
+
   it("xAI Grok 未配置 → strict → fallback chain", () => {
     const chain = router.resolveChain({
       provider: "xAI",
@@ -96,15 +115,6 @@ describe("StructuredOutputRouter — 未配置默认推断", () => {
     const chain = router.resolveChain({
       provider: "vllm",
       modelId: "deepseek-r1-distill-32b",
-      structuredOutputStrategy: null,
-    });
-    expect(chain).toEqual(["gbnf_grammar", "prompt"]);
-  });
-
-  it("Llama.cpp 本地模型未配置 → GBNF → prompt", () => {
-    const chain = router.resolveChain({
-      provider: "llamacpp",
-      modelId: "qwen2.5-7b-q5",
       structuredOutputStrategy: null,
     });
     expect(chain).toEqual(["gbnf_grammar", "prompt"]);
@@ -173,7 +183,34 @@ describe("StructuredOutputRouter — 未配置默认推断", () => {
     expect(chain).toEqual(["prompt"]);
   });
 
-  it("完全未知 provider → 仅 prompt 兜底（带 warn）", () => {
+  it("Mistral 未配置 → json_mode → prompt", () => {
+    const chain = router.resolveChain({
+      provider: "Mistral",
+      modelId: "mistral-large",
+      structuredOutputStrategy: null,
+    });
+    expect(chain).toEqual(["json_mode", "prompt"]);
+  });
+
+  it("Qwen 未配置 → json_mode → prompt", () => {
+    const chain = router.resolveChain({
+      provider: "qwen",
+      modelId: "qwen-max",
+      structuredOutputStrategy: null,
+    });
+    expect(chain).toEqual(["json_mode", "prompt"]);
+  });
+
+  it("Moonshot 未配置 → json_mode → prompt", () => {
+    const chain = router.resolveChain({
+      provider: "moonshot",
+      modelId: "moonshot-v1-8k",
+      structuredOutputStrategy: null,
+    });
+    expect(chain).toEqual(["json_mode", "prompt"]);
+  });
+
+  it("完全未知 provider → 仅 prompt 兜底（SAFE_DEFAULTS）", () => {
     const chain = router.resolveChain({
       provider: "WeirdProvider",
       modelId: "weird-model-1",
@@ -184,8 +221,7 @@ describe("StructuredOutputRouter — 未配置默认推断", () => {
 
   it("admin 部分配置（仅 strategy 无 fallback）→ 自动接 provider 默认链", () => {
     // admin 显式选 json_mode，但没填 fallback
-    // → out.length>0 → 不再用 PROVIDER_DEFAULT_CHAINS（用户意图是显式只用这个）
-    // → 兜底加 prompt
+    // → derived chain: ['json_mode', 'prompt']（catalog OpenAI nativeMode 被 admin 覆盖）
     const chain = router.resolveChain({
       provider: "OpenAI",
       modelId: "gpt-4o",
@@ -202,7 +238,7 @@ describe("StructuredOutputRouter — 未配置默认推断", () => {
       structuredOutputStrategy: "garbage-strategy",
       fallbackStrategies: ["also_invalid"],
     });
-    // 全部 invalid → 等同未配置 → 走 OpenAI 默认链
+    // 全部 invalid → 等同未配置 → 走 OpenAI catalog 默认链
     expect(chain).toEqual([
       "json_schema_strict",
       "json_schema",

@@ -176,6 +176,10 @@ export default function MissionDetailPage() {
         'agent-playground.mission:cancelled',
         // ★ 2026-04-30 (B 路线): 局部重跑完成也要 re-fetch persisted —— stage 产物已 patch
         'agent-playground.mission:rerun-completed',
+        // ★ 2026-05-23 #48: rerun 失败 / cascade-abort 也要 re-fetch —— 否则页面停留在
+        //   stale 状态（用户看到旧产物），错误信息无法显示。
+        'agent-playground.mission:rerun-failed',
+        'agent-playground.rerun:cascade-aborted',
         // ★ 2026-05-06 #83: mission:postlude:completed 表示 S12 自我进化 fire-and-forget
         //   也跑完，此时 mission row tokens_used / cost_usd / report_full 已最终落库，
         //   再 re-fetch 一次确保前端拿到最终数字（不只是 S11 完成时刻的快照）。
@@ -286,7 +290,7 @@ export default function MissionDetailPage() {
           finalScore: persisted.finalScore ?? undefined,
           // 2026-05-13 #66: row.maxCredits 是用户设的 cap，可透传；row.wallTimeMs 是
           // 已经过的执行时长（markCompleted 写入），不是 cap —— 弹窗 cap 读
-          // userProfile.wallTimeMs（runtime-shell 写入 JSON）。
+          // userProfile.wallTimeCapMs（runtime-shell 写入 JSON）。
           maxCredits: persisted.maxCredits ?? undefined,
           status: persisted.status,
         },
@@ -311,7 +315,7 @@ export default function MissionDetailPage() {
       // merge 分支，否则 Mission 设置弹窗读 view.mission.maxCredits === undefined
       // → 退回 2000 硬编码，用户看不到真实预算配置。
       // wallTimeMs row 字段是已经过的执行时长（markCompleted 时写入），不是用户
-      // 设的 cap；cap 在 userProfile.wallTimeMs JSON 里，弹窗自己读 userProfile。
+      // 设的 cap；cap 在 userProfile.wallTimeCapMs JSON 里，弹窗自己读 userProfile。
       const persistedBudget = {
         maxCredits: persisted.maxCredits ?? undefined,
         status: persisted.status,
@@ -1266,7 +1270,7 @@ function MissionSettingsModal({
     setKnowledgeBaseIds(Array.isArray(kbIds) ? kbIds : []);
     // 2026-05-13 #66 (修 c046213bd 半成品):
     //   - maxCredits 读 row 字段（runtime-shell 写入 row.maxCredits 是 cap）
-    //   - wallTimeMs 读 userProfile JSON（runtime-shell 写到 userProfile.wallTimeMs，
+    //   - wallTimeCapMs 读 userProfile JSON（runtime-shell 写到 userProfile.wallTimeCapMs，
     //     row.wallTimeMs 是 markCompleted 时记的执行时长，不是 cap，不能用！）
     //   - budgetMultiplierOverride 仍只在 userProfile JSON（无 row 字段）。
     const rowMax = (mission as { maxCredits?: number }).maxCredits;
@@ -1276,7 +1280,7 @@ function MissionSettingsModal({
       ((userProfile as { budgetMultiplierOverride?: number })
         ?.budgetMultiplierOverride as number) ?? 1.0
     );
-    const profWall = (userProfile as { wallTimeMs?: number })?.wallTimeMs;
+    const profWall = (userProfile as { wallTimeCapMs?: number })?.wallTimeCapMs;
     setWallTimeMinutes(
       profWall && profWall > 0 ? Math.round(profWall / 60_000) : 60
     );
@@ -1322,7 +1326,7 @@ function MissionSettingsModal({
         searchTimeRange,
         maxCredits,
         budgetMultiplierOverride,
-        wallTimeMs: wallTimeMinutes * 60_000,
+        wallTimeCapMs: wallTimeMinutes * 60_000,
         knowledgeBaseIds:
           knowledgeBaseIds.length > 0 ? knowledgeBaseIds : undefined,
       });
@@ -1357,7 +1361,7 @@ function MissionSettingsModal({
       await updateMission(missionId, {
         maxCredits,
         budgetMultiplierOverride,
-        wallTimeMs: wallTimeMinutes * 60_000,
+        wallTimeCapMs: wallTimeMinutes * 60_000,
       });
       // 2026-05-13 #66: trigger parent refetch so next open sees new values
       if (onSaved) await onSaved();

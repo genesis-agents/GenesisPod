@@ -12,6 +12,7 @@ import {
   ResearchTemplateConfig,
 } from '@/hooks/domain/useAdminResearchTemplates';
 import { confirm } from '@/stores';
+import { TruncatedCell } from '@/components/common/tables';
 
 export default function ResearchTemplatesPage() {
   const { t } = useTranslation();
@@ -224,7 +225,15 @@ export default function ResearchTemplatesPage() {
               {category.replace(/_/g, ' ')}
             </h3>
             <div className="overflow-hidden rounded-lg border border-zinc-700/50 bg-zinc-800/50">
-              <Table className="w-full text-sm">
+              <Table className="w-full table-fixed text-sm">
+                <colgroup>
+                  <col className="w-[26%]" />
+                  <col className="w-[26%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[16%]" />
+                </colgroup>
                 <THead>
                   <Tr className="border-b border-zinc-700/50 text-left text-zinc-400">
                     <Th className="px-4 py-3 font-medium">Name</Th>
@@ -244,17 +253,17 @@ export default function ResearchTemplatesPage() {
                       className="border-b border-zinc-700/30 last:border-0 hover:bg-zinc-700/20"
                     >
                       <Td className="px-4 py-3">
-                        <div className="font-medium text-zinc-200">
+                        <TruncatedCell
+                          className="max-w-[200px] font-medium text-zinc-200"
+                          tooltip={template.description || template.name}
+                        >
                           {template.name}
-                        </div>
-                        {template.description && (
-                          <div className="mt-0.5 max-w-xs truncate text-xs text-zinc-500">
-                            {template.description}
-                          </div>
-                        )}
+                        </TruncatedCell>
                       </Td>
                       <Td className="font-mono px-4 py-3 text-xs text-zinc-400">
-                        {template.templateId}
+                        <TruncatedCell className="font-mono max-w-[180px] text-xs text-zinc-400">
+                          {template.templateId}
+                        </TruncatedCell>
                       </Td>
                       <Td className="px-4 py-3 text-zinc-400">
                         {template.iterationCount}

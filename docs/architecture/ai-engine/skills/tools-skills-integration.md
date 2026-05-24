@@ -1148,22 +1148,22 @@ ORDER BY failure_rate DESC;
 
 ### A. Capability to Tool Mapping
 
-| AICapability Enum | Tool ID          | Description                   |
-| ----------------- | ---------------- | ----------------------------- |
-| WEB_SEARCH        | web-search       | Web search via search engines |
-| WEB_SCRAPER       | web-scraper      | Web page content extraction   |
-| DATA_FETCH        | data-fetch       | External API data fetching    |
-| RAG_SEARCH        | rag-search       | Vector database search        |
-| DATABASE_QUERY    | database-query   | SQL query execution           |
-| KNOWLEDGE_GRAPH   | knowledge-graph  | Graph database queries        |
-| TEXT_GENERATION   | text-generation  | LLM text generation           |
-| IMAGE_GENERATION  | image-generation | Image generation              |
-| CODE_GENERATION   | code-generation  | Code generation               |
-| DATA_ANALYSIS     | data-analysis    | Data analysis tools           |
-| FILE_PARSER       | file-parser      | Document parsing              |
-| EXPORT_PPTX       | export-pptx      | PowerPoint export             |
-| EXPORT_DOCX       | export-docx      | Word export                   |
-| EXPORT_PDF        | export-pdf       | PDF export                    |
+| AICapability Enum | Tool ID          | Description                                                                            |
+| ----------------- | ---------------- | -------------------------------------------------------------------------------------- |
+| WEB_SEARCH        | web-search       | Web search via search engines                                                          |
+| WEB_SCRAPER       | web-scraper      | Web page content extraction                                                            |
+| DATA_FETCH        | data-fetch       | External API data fetching                                                             |
+| RAG_SEARCH        | rag-search       | Full RAG pipeline: HyDE → hybrid vector+keyword RRF → Cohere rerank → parent retrieval |
+| DATABASE_QUERY    | database-query   | SQL query execution                                                                    |
+| KNOWLEDGE_GRAPH   | knowledge-graph  | Graph database queries                                                                 |
+| TEXT_GENERATION   | text-generation  | LLM text generation                                                                    |
+| IMAGE_GENERATION  | image-generation | Image generation                                                                       |
+| CODE_GENERATION   | code-generation  | Code generation                                                                        |
+| DATA_ANALYSIS     | data-analysis    | Data analysis tools                                                                    |
+| FILE_PARSER       | file-parser      | Document parsing                                                                       |
+| EXPORT_PPTX       | export-pptx      | PowerPoint export                                                                      |
+| EXPORT_DOCX       | export-docx      | Word export                                                                            |
+| EXPORT_PDF        | export-pdf       | PDF export                                                                             |
 
 ### B. Skill Domain Mapping
 

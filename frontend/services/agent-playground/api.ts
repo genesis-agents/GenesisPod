@@ -61,8 +61,8 @@ export interface RunMissionInput {
   maxCredits?: number;
   /** ★ 2026-05-22 单一源：agent budget 倍率可选覆盖，缺省按 depth 档位解析。 */
   budgetMultiplierOverride?: number;
-  /** 用户自定义 mission 总时长上限（毫秒）覆盖。不传则按 depth 档位解析。范围 60s ~ 3h。 */
-  wallTimeMs?: number;
+  /** 用户自定义 mission 总时长 cap（毫秒）覆盖。不传则按 depth 档位解析。范围 60s ~ 3h。 */
+  wallTimeCapMs?: number;
   /**
    * 本地知识库 ID 列表（最多 10 个）。
    * researcher 调 rag-search 时会限定在这些 KB 内做语义召回。
@@ -475,7 +475,7 @@ export async function updateMission(
     topic?: string;
     maxCredits?: number;
     budgetMultiplierOverride?: number;
-    wallTimeMs?: number;
+    wallTimeCapMs?: number;
   }
 ): Promise<{ ok: true }> {
   const res = await fetch(

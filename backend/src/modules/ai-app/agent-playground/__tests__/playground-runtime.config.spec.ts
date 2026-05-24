@@ -20,7 +20,7 @@ describe("playground-runtime.config", () => {
 
     it("loads frontier-model-safe defaults when no env vars are set", () => {
       expect(cfg).toEqual({
-        minFindingsThreshold: 10,
+        minFindingsThreshold: 5,
         chapterToleranceRatio: 0.3,
         staleThresholdMin: 15,
         softWarnThresholdMin: 20,
@@ -66,7 +66,7 @@ describe("playground-runtime.config", () => {
       const cfg = loadPlaygroundRuntimeConfig({
         MIN_FINDINGS_THRESHOLD: "-5",
       } as NodeJS.ProcessEnv);
-      expect(cfg.minFindingsThreshold).toBe(10); // default
+      expect(cfg.minFindingsThreshold).toBe(5); // default
     });
 
     it("ignores non-numeric junk", () => {

@@ -89,10 +89,7 @@ import {
   AdaptiveReplannerService,
   type StepExecutionResult as ReplanStepExecutionResult,
 } from "./adaptive-replanner.service";
-import {
-  MissionRuntimeStateStore,
-  HEARTBEAT_INTERVAL_MS,
-} from "../../lifecycle/mission-lifecycle/runtime-state-store";
+import { MissionRuntimeStateStore } from "../../lifecycle/mission-lifecycle/runtime-state-store";
 
 /**
  * 步骤执行结果（内部使用）
@@ -293,32 +290,21 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       );
   }
 
-  /** 启动 mission 时调用 —— claim 心跳 + 起 30s 续期定时器 */
-  private startHeartbeat(missionId: string): void {
-    if (!this.runtimeStore) return;
-    // 立即 claim 一次
-    void this.runtimeStore
-      .claimOrBeat(missionId)
-      .catch((err) =>
-        this.logger.debug(
-          `[runtimeStore] claimOrBeat(${missionId}) failed: ${err instanceof Error ? err.message : String(err)}`,
-        ),
-      );
-    // 起定时器（清掉旧的防泄漏）
-    const old = this.heartbeatTimers.get(missionId);
-    if (old) clearInterval(old);
-    const timer = setInterval(() => {
-      void this.runtimeStore?.claimOrBeat(missionId).catch(() => {
-        /* swallow — 心跳失败不阻塞执行 */
-      });
-    }, HEARTBEAT_INTERVAL_MS);
-    // Node 进程退出时不阻塞
-    if (typeof timer.unref === "function") timer.unref();
-    this.heartbeatTimers.set(missionId, timer);
+  /**
+   * 启动 mission 时调用 —— 原先写 Redis 心跳（claimOrBeat），已移除。
+   * Redis heartbeat 无活消费方（getHeartbeat 从未被路由/接管逻辑读取），
+   * 回收权威 = DB heartbeatAt（MissionLivenessGuard），两者职责隔离。
+   * 此方法保留占位，未来若要接入跨 pod 路由须先更新 liveness-reclaim-contract.spec.ts。
+   */
+  private startHeartbeat(_missionId: string): void {
+    // No-op: Redis heartbeat removed (vestigial, zero routing consumers).
+    // DB-only reclaim contract enforced by liveness-reclaim-contract.spec.ts.
   }
 
-  /** mission 终态时调用 —— 停心跳 + 清 store key */
+  /** mission 终态时调用 —— 清 runtime store 全部 key（含状态、输入、trace、kernel） */
   private stopHeartbeat(missionId: string): void {
+    // Clear the heartbeatTimers entry (no timer is set since startHeartbeat is no-op,
+    // but guard against any leftover from a prior code path)
     const timer = this.heartbeatTimers.get(missionId);
     if (timer) {
       clearInterval(timer);

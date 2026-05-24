@@ -89,7 +89,9 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
           dataPointsUri: null,
           NOT: { dataPoints: { equals: Prisma.DbNull } },
         },
-        select: { id: true, dataPoints: true },
+        // dataPointsUri 一起 select 消除 hydrate 警告（本扫描限定 uri=null,
+        // 行未 off-load,hydrate 对其 no-op,读到的仍是原始 JSON）。
+        select: { id: true, dataPoints: true, dataPointsUri: true },
         take,
       });
       return rows

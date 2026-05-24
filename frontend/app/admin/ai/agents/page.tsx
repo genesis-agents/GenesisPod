@@ -19,6 +19,7 @@ import { useAdminAgents, AgentConfig } from '@/hooks/domain/useAdminAgents';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { confirm } from '@/stores';
+import { TruncatedCell } from '@/components/common/tables';
 
 export default function AgentManagementPage() {
   const { t } = useTranslation();
@@ -320,17 +321,17 @@ export default function AgentManagementPage() {
                       className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
                     >
                       <Td className="px-4 py-3">
-                        <div className="font-medium text-gray-900">
+                        <TruncatedCell
+                          className="max-w-[200px] font-medium text-gray-900"
+                          tooltip={agent.description || agent.name}
+                        >
                           {agent.name}
-                        </div>
-                        {agent.description && (
-                          <div className="mt-0.5 max-w-xs truncate text-xs text-gray-500">
-                            {agent.description}
-                          </div>
-                        )}
+                        </TruncatedCell>
                       </Td>
                       <Td className="font-mono px-4 py-3 text-xs text-gray-500">
-                        {agent.agentId}
+                        <TruncatedCell className="font-mono max-w-[180px] text-xs text-gray-500">
+                          {agent.agentId}
+                        </TruncatedCell>
                       </Td>
                       <Td className="px-4 py-3">
                         <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">

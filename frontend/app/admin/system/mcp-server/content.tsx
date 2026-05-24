@@ -39,6 +39,7 @@ import {
   MCPExternalTool,
 } from '@/hooks/domain/useAdminMCPExternal';
 import { confirm } from '@/stores';
+import { TruncatedCell } from '@/components/common/tables';
 
 // ==================== Types ====================
 
@@ -419,7 +420,9 @@ export default function MCPServerPageContent({
                   {metrics.recentErrors.map((err, i) => (
                     <Tr key={i} className="hover:bg-gray-50">
                       <Td className="font-mono px-4 py-3 text-sm text-gray-900">
-                        {err.toolName}
+                        <TruncatedCell className="max-w-[200px] text-gray-900">
+                          {err.toolName}
+                        </TruncatedCell>
                       </Td>
                       <Td className="px-4 py-3">
                         <span className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
@@ -427,7 +430,9 @@ export default function MCPServerPageContent({
                         </span>
                       </Td>
                       <Td className="px-4 py-3 text-gray-500">
-                        {formatDate(err.timestamp)}
+                        <TruncatedCell className="max-w-[180px] text-gray-500">
+                          {formatDate(err.timestamp)}
+                        </TruncatedCell>
                       </Td>
                     </Tr>
                   ))}
@@ -566,7 +571,9 @@ export default function MCPServerPageContent({
                         ([toolName, stats]) => (
                           <Tr key={toolName} className="hover:bg-gray-50">
                             <Td className="font-mono px-4 py-3 text-sm text-gray-900">
-                              {toolName}
+                              <TruncatedCell className="max-w-[220px] text-gray-900">
+                                {toolName}
+                              </TruncatedCell>
                             </Td>
                             <Td className="px-4 py-3 font-bold text-blue-600">
                               {stats.calls}
@@ -617,15 +624,19 @@ export default function MCPServerPageContent({
                           <Tr key={apiKey} className="hover:bg-gray-50">
                             <Td className="font-mono px-4 py-3 text-sm text-gray-900">
                               <div className="flex items-center gap-2">
-                                <Key className="h-4 w-4 text-gray-400" />
-                                {apiKey}
+                                <Key className="h-4 w-4 shrink-0 text-gray-400" />
+                                <TruncatedCell className="max-w-[200px] text-gray-900">
+                                  {apiKey}
+                                </TruncatedCell>
                               </div>
                             </Td>
                             <Td className="px-4 py-3 font-bold text-blue-600">
                               {stats.calls}
                             </Td>
                             <Td className="px-4 py-3 text-gray-500">
-                              {formatDate(stats.lastUsed)}
+                              <TruncatedCell className="max-w-[180px] text-gray-500">
+                                {formatDate(stats.lastUsed)}
+                              </TruncatedCell>
                             </Td>
                           </Tr>
                         )
@@ -663,7 +674,9 @@ export default function MCPServerPageContent({
                       {metrics.recentErrors.map((err, i) => (
                         <Tr key={i} className="hover:bg-gray-50">
                           <Td className="font-mono px-4 py-3 text-sm text-gray-900">
-                            {err.toolName}
+                            <TruncatedCell className="max-w-[200px] text-gray-900">
+                              {err.toolName}
+                            </TruncatedCell>
                           </Td>
                           <Td className="px-4 py-3">
                             <span className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
@@ -671,7 +684,9 @@ export default function MCPServerPageContent({
                             </span>
                           </Td>
                           <Td className="px-4 py-3 text-gray-500">
-                            {formatDate(err.timestamp)}
+                            <TruncatedCell className="max-w-[180px] text-gray-500">
+                              {formatDate(err.timestamp)}
+                            </TruncatedCell>
                           </Td>
                         </Tr>
                       ))}
@@ -714,16 +729,18 @@ export default function MCPServerPageContent({
                 {sessions.map((session) => (
                   <Tr key={session.sessionId} className="hover:bg-gray-50">
                     <Td className="font-mono px-4 py-3 text-xs text-gray-900">
-                      {session.sessionId}
+                      <TruncatedCell className="max-w-[220px] text-gray-900">
+                        {session.sessionId}
+                      </TruncatedCell>
                     </Td>
                     <Td className="px-4 py-3">
                       {session.clientInfo ? (
                         <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-gray-400" />
-                          <span className="text-gray-900">
+                          <Users className="h-4 w-4 shrink-0 text-gray-400" />
+                          <TruncatedCell className="max-w-[160px] text-gray-900">
                             {session.clientInfo.name}
-                          </span>
-                          <span className="text-xs text-gray-400">
+                          </TruncatedCell>
+                          <span className="shrink-0 text-xs text-gray-400">
                             v{session.clientInfo.version}
                           </span>
                         </div>
@@ -732,7 +749,9 @@ export default function MCPServerPageContent({
                       )}
                     </Td>
                     <Td className="px-4 py-3 text-gray-500">
-                      {formatDate(session.createdAt)}
+                      <TruncatedCell className="max-w-[180px] text-gray-500">
+                        {formatDate(session.createdAt)}
+                      </TruncatedCell>
                     </Td>
                   </Tr>
                 ))}
@@ -866,7 +885,15 @@ export default function MCPServerPageContent({
       {mcpApiKeys.length > 0 ? (
         <div className="mb-6 rounded-lg bg-white shadow">
           <div className="overflow-x-auto">
-            <Table className="w-full text-left text-sm">
+            <Table className="w-full table-fixed text-left text-sm">
+              <colgroup>
+                <col className="w-[20%]" />
+                <col className="w-[28%]" />
+                <col className="w-[10%]" />
+                <col className="w-[10%]" />
+                <col className="w-[18%]" />
+                <col className="w-[14%]" />
+              </colgroup>
               <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
                 <Tr>
                   <Th className="px-4 py-3">
@@ -896,10 +923,10 @@ export default function MCPServerPageContent({
                     <Tr key={secret.id} className="hover:bg-gray-50">
                       <Td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <Key className="h-4 w-4 text-gray-400" />
-                          <span className="font-medium text-gray-900">
+                          <Key className="h-4 w-4 shrink-0 text-gray-400" />
+                          <TruncatedCell className="max-w-[160px] font-medium text-gray-900">
                             {secret.displayName}
-                          </span>
+                          </TruncatedCell>
                         </div>
                       </Td>
                       <Td className="px-4 py-3">

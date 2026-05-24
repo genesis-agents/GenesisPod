@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { TruncatedCell } from '@/components/common/tables';
 import {
   Zap,
   Clock,
@@ -297,13 +298,10 @@ function StepActionTree({ steps }: { steps: LatencyStepWithActions[] }) {
               className="border-t border-gray-50 hover:bg-blue-50/30"
             >
               <Td className="py-1 pr-2 text-gray-600">{action.name || '—'}</Td>
-              <Td
-                className="max-w-[120px] truncate py-1 pr-2 text-gray-400"
-                title={action.model}
-              >
-                {action.model.length > 18
-                  ? action.model.slice(0, 18) + '…'
-                  : action.model}
+              <Td className="py-1 pr-2 text-gray-400">
+                <TruncatedCell className="max-w-[120px] text-gray-400">
+                  {action.model}
+                </TruncatedCell>
               </Td>
               <Td className="py-1 pr-2 text-right tabular-nums text-gray-400">
                 {action.ttftMs != null

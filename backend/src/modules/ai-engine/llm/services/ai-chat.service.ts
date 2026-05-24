@@ -12,6 +12,8 @@ import { withUserContext } from "@/common/context/with-user-context";
 import { TaskProfile, ChatMessage } from "../types";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
+// 模型级 failover：chat() 的 BYOK 换模型逻辑抽到独立 util（god-class 不膨胀）。
+import { runChatWithModelFailover } from "../chat-model-failover.util";
 // ★ 2026-05-21 Capability Contract: modelType 选择的单一权威（quality-first 默认）
 import {
   resolveEffectiveModelType,
@@ -38,6 +40,7 @@ import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
 import { KernelContext } from "@/common/context/kernel-context";
+import { BillingContext } from "@/modules/ai-infra/facade";
 import { ModelPricingRegistry } from "../pricing/model-pricing.registry";
 import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 import { AiChatFailoverCallerService } from "./ai-chat-failover-caller.service";
@@ -292,10 +295,17 @@ export class AiChatService {
     model: string,
     inputTokens: number,
     outputTokens: number,
+    cacheReadTokens = 0,
+    cacheWriteTokens = 0,
   ): number | null {
     return (
-      this.pricingRegistry?.estimateCost(model, inputTokens, outputTokens) ??
-      null
+      this.pricingRegistry?.estimateCost(
+        model,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+      ) ?? null
     );
   }
 
@@ -895,6 +905,7 @@ export class AiChatService {
               outputJsonSchema,
               schemaName,
               tools,
+              provider, // v3.1 §A: ModelCapabilityService 判 nativeMode==='none'
             );
 
           case "anthropic":
@@ -970,6 +981,7 @@ export class AiChatService {
               outputJsonSchema,
               schemaName,
               tools,
+              provider, // v3.1 §A: ModelCapabilityService 判 nativeMode==='none'
             );
         }
       };
@@ -1217,7 +1229,37 @@ export class AiChatService {
   // ==================== 统一入口 ====================
 
   /**
-   * ★ 统一 chat 入口
+   * ★ 统一 chat 入口（公共）— BYOK 模型级 failover 总闸。
+   *
+   * 所有直调 chat() 的服务（wiki-ingest / leader-chat / 未来任何服务）走的
+   * 单一入口：当 caller **没有显式指定 model**（即走 modelType → 用户默认模型
+   * 的路径）且有 userId 时，若默认模型所属 provider 失败（无 key / key 失效 /
+   * quota 用尽 / 5xx / 超时 / 模型不存在 …），自动改用用户的下一个可用模型重试。
+   *
+   * 行为保持原样的两条短路：
+   * 1. caller 显式传了 `model`（自己控制模型，如 ReAct loop 已在做 failover）
+   *    → 直接走 `chatOnce`，本层不做 failover（避免与 loop 层重复 failover）。
+   * 2. 无 userId（拿不到 BYOK 候选）→ 直接走 `chatOnce` 单次。
+   *
+   * 真正的执行逻辑全部在 `chatOnce`（原 `chat`，方法体未改）。
+   */
+  async chat(options: ChatOptions): Promise<ChatResult> {
+    const userId = options.userId ?? RequestContext.getUserId();
+    // 短路：显式指定模型（caller 自管 failover，如 ReAct loop）或无 userId →
+    // 保持原行为，单次 chatOnce，不在本层做 failover（避免与 loop 层重复）。
+    if (options.model || !userId) {
+      return this.chatOnce(options);
+    }
+    // BYOK + 走 modelType→默认模型路径 → 模型级 failover（逻辑见
+    // chat-model-failover.util，避免 god-class 膨胀）。
+    return runChatWithModelFailover(options, userId, {
+      chatOnce: (o) => this.chatOnce(o),
+      modelConfigService: this.modelConfigService,
+    });
+  }
+
+  /**
+   * ★ 单次 chat 执行（原 `chat`，方法体未改，仅改名 + 私有化）。
    * AI App 可以通过两种方式指定模型：
    * 1. model: 直接指定模型 ID
    * 2. modelType: 指定模型类型，由 AI Engine 选择具体模型（推荐）
@@ -1225,7 +1267,7 @@ export class AiChatService {
    * 本方法是 thin wrapper：委托 `chatInner` 执行，并在 `finally` 调用观察者。
    * Observer 故障不影响主流程返回。
    */
-  async chat(options: ChatOptions): Promise<ChatResult> {
+  private async chatOnce(options: ChatOptions): Promise<ChatResult> {
     // ★ 2026-05-11 [BYOK ctx propagation] 显式 options.userId 必须在异步链路
     //   全程可见。chatLegacy 已合并 options.userId + RequestContext.getUserId()，
     //   但下游 getModelConfig → findUserModelConfigByModelId / synthesizeConfigForUserModel
@@ -1952,15 +1994,33 @@ export class AiChatService {
           });
         }
         if (processId) {
+          // ★ R2-#36 ATTRIBUTION (additive): populate moduleType/referenceId/agentId
+          // from BillingContext and KernelContext when available.
+          // Falls back to "ai-engine" to preserve existing behaviour for callers
+          // that don't wrap in a BillingContext (e.g. direct Ask/Social calls).
+          const billingCtx = BillingContext.get();
+          const kernelCtx = KernelContext.get();
           this.emitCostRecord({
             userId: userId ?? "",
-            moduleType: "ai-engine",
+            moduleType: billingCtx?.moduleType ?? "ai-engine",
+            operationType:
+              billingCtx?.operationType ?? options.operationName ?? "llm_call",
+            referenceId: billingCtx?.referenceId ?? kernelCtx?.missionId,
+            agentId: kernelCtx?.agentId,
             model: currentModel,
             provider: currentModelConfig?.provider ?? "",
-            inputTokens: 0,
-            outputTokens: result.tokensUsed,
+            inputTokens: result.inputTokens ?? 0,
+            outputTokens: result.outputTokens ?? result.tokensUsed,
+            cacheReadTokens: result.cacheReadTokens ?? 0,
+            cacheWriteTokens: result.cacheCreationTokens ?? 0,
             estimatedCost:
-              this.costFor(currentModel, 0, result.tokensUsed) ?? 0,
+              this.costFor(
+                currentModel,
+                result.inputTokens ?? 0,
+                result.outputTokens ?? result.tokensUsed,
+                result.cacheReadTokens ?? 0,
+                result.cacheCreationTokens ?? 0,
+              ) ?? 0,
           });
         }
         this.emitMetrics({
@@ -1970,11 +2030,18 @@ export class AiChatService {
           module: "ai-engine",
           operation: "chat",
           userId,
-          inputTokens: 0,
-          outputTokens: result.tokensUsed,
+          inputTokens: result.inputTokens ?? 0,
+          outputTokens: result.outputTokens ?? result.tokensUsed,
           totalTokens: result.tokensUsed,
           latencyMs: duration,
-          estimatedCost: this.costFor(currentModel, 0, result.tokensUsed) ?? 0,
+          estimatedCost:
+            this.costFor(
+              currentModel,
+              result.inputTokens ?? 0,
+              result.outputTokens ?? result.tokensUsed,
+              result.cacheReadTokens ?? 0,
+              result.cacheCreationTokens ?? 0,
+            ) ?? 0,
           success: true,
           fallbackUsed: attempt > 0,
           retryCount: attempt,

@@ -16,6 +16,7 @@
 import { Coins, Cpu, Activity, Gauge, Layers, Wrench } from 'lucide-react';
 import { StatCard } from '@/components/ui/cards';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { TruncatedCell } from '@/components/common/tables';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { cn } from '@/lib/utils/common';
 import {
@@ -206,7 +207,15 @@ export function SocialComputePanel({ view }: { view: SocialMissionView }) {
             <Cpu className="h-4 w-4 text-gray-400" />
             角色实例
           </h3>
-          <Table>
+          <Table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[20%]" />
+              <col className="w-[12%]" />
+              <col className="w-[28%]" />
+              <col className="w-[10%]" />
+              <col className="w-[14%]" />
+              <col className="w-[16%]" />
+            </colgroup>
             <THead>
               <Tr>
                 <Th>角色</Th>
@@ -228,7 +237,9 @@ export function SocialComputePanel({ view }: { view: SocialMissionView }) {
                 return (
                   <Tr key={a.agentId}>
                     <Td className="font-medium text-gray-900">
-                      {socialRoleLabel(a.role)}
+                      <TruncatedCell className="max-w-[160px] font-medium text-gray-900">
+                        {socialRoleLabel(a.role)}
+                      </TruncatedCell>
                     </Td>
                     <Td>
                       <span
@@ -241,7 +252,9 @@ export function SocialComputePanel({ view }: { view: SocialMissionView }) {
                       </span>
                     </Td>
                     <Td className="font-mono text-xs text-gray-600">
-                      {a.modelId ?? '—'}
+                      <TruncatedCell className="font-mono max-w-[180px] text-xs text-gray-600">
+                        {a.modelId ?? '—'}
+                      </TruncatedCell>
                     </Td>
                     <Td className="font-mono text-right text-gray-600">
                       {a.iterations ?? '—'}
@@ -279,7 +292,9 @@ export function SocialComputePanel({ view }: { view: SocialMissionView }) {
               {toolRows.map((t) => (
                 <Tr key={t.toolId}>
                   <Td className="font-mono text-xs text-gray-700">
-                    {t.toolId}
+                    <TruncatedCell className="font-mono max-w-[200px] text-xs text-gray-700">
+                      {t.toolId}
+                    </TruncatedCell>
                   </Td>
                   <Td className="font-mono text-right text-gray-600">
                     {t.count}

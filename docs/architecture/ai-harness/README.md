@@ -28,7 +28,7 @@
 
 ## benchmark Agent Team 沉淀拓扑
 
-详见 [sediment-topology.md](sediment-topology.md) — `ai-harness` 内部存在 6 个共存
+详见 [sediment-topology.md](facade/sediment-topology.md) — `ai-harness` 内部存在 6 个共存
 sediment zone(Z1 mission-lifecycle / Z2 mission-checkpoint / Z3 business-team
 framework / Z4 mission-pipeline-orchestrator / Z5 stage primitives / Z6 待裁定
 mission executor)。新 benchmark Agent Team(MissionPipeline 派)拷贝时,**仍通过

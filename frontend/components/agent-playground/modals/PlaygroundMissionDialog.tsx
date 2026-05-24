@@ -261,7 +261,7 @@ export function PlaygroundMissionDialog({
           ? {
               maxCredits,
               budgetMultiplierOverride,
-              wallTimeMs: wallTimeMinutes * 60_000,
+              wallTimeCapMs: wallTimeMinutes * 60_000,
             }
           : {}),
         knowledgeBaseIds:

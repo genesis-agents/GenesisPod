@@ -288,7 +288,7 @@ export class MissionRerunOrchestratorService {
       // budget/runtimeLimits 来自 snapshot 顶层(已 ResolvedBudgetCaps 解析)。
       maxCredits: snap.budget.maxCredits ?? overrides.maxCreditsFallback,
       budgetMultiplierOverride: snap.budget.budgetMultiplier,
-      wallTimeMs: snap.runtimeLimits.wallTimeCapMs,
+      wallTimeCapMs: snap.runtimeLimits.wallTimeCapMs,
       inheritFromMissionId: overrides.inheritFromMissionId,
     };
   }

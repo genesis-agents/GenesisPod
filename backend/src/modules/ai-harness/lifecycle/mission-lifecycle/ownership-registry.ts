@@ -1,5 +1,5 @@
 /**
- * MissionOwnershipRegistry — 必修 #4
+ * MissionOwnershipRegistry — 单一 ownership 接口
  *
  * controller 启动 mission 时 assign(missionId, userId)；
  * gateway/replay/cost 查 ownership 防止越权访问他人 mission。
@@ -20,6 +20,9 @@
  * 因此本 Registry 的 in-memory LRU 是**性能 cache**（避免每次 DB 查），跨 pod 一致性
  * 由各业务模块的 mission 表（userId 字段）作为单一权威源 + caller 层 fallback 保证。
  * 无需迁 Redis（YAGNI），无 fail-open 风险。
+ *
+ * ★ 职责边界（RB4）：本 Registry 是 ownership 查询的唯一接口（内存 LRU + DB fallback）。
+ *   不参与 mission 活性判定，不参与孤儿回收，不依赖也不影响心跳系统。
  */
 
 import { Injectable, Logger } from "@nestjs/common";

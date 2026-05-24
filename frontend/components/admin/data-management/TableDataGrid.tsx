@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import type { TableInfo, TableListQuery } from '@/hooks/domain';
+import { TruncatedCell } from '@/components/common/tables';
 
 // Category colors
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -145,7 +146,16 @@ export default function TableDataGrid({
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col className="w-[22%]" />
+            <col className="w-[14%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[12%]" />
+            <col className="w-[22%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               {columns.map((col) => (
@@ -201,22 +211,25 @@ export default function TableDataGrid({
                     className="transition-colors hover:bg-gray-50"
                   >
                     {/* Name */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <button
                         onClick={() => onViewDetail(table.name)}
-                        className="group flex items-center gap-2"
+                        className="group flex min-w-0 items-center gap-2"
                       >
-                        <span className="font-medium text-gray-900 group-hover:text-emerald-600">
+                        <TruncatedCell
+                          className="max-w-[160px] font-medium text-gray-900 group-hover:text-emerald-600"
+                          tooltip={`${table.displayName} (${table.name})`}
+                        >
                           {table.displayName}
-                        </span>
+                        </TruncatedCell>
                       </button>
-                      <span className="font-mono block text-xs text-gray-400">
+                      <TruncatedCell className="font-mono max-w-[160px] text-xs text-gray-400">
                         {table.name}
-                      </span>
+                      </TruncatedCell>
                     </td>
 
                     {/* Category */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <span
                         className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${categoryColor.bg} ${categoryColor.text}`}
                       >
@@ -225,17 +238,17 @@ export default function TableDataGrid({
                     </td>
 
                     {/* Rows */}
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-4 py-2.5 text-sm text-gray-600">
                       {table.rowCount.toLocaleString()}
                     </td>
 
                     {/* Size */}
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                    <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
                       {table.sizeFormatted}
                     </td>
 
                     {/* Cleanable */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       {table.cleanableBytes > 0 ? (
                         <span className="text-sm text-amber-600">
                           {formatBytes(table.cleanableBytes)}
@@ -246,7 +259,7 @@ export default function TableDataGrid({
                     </td>
 
                     {/* Status */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <div className="flex items-center gap-1.5">
                         <span className={`rounded-full p-1 ${healthStatus.bg}`}>
                           <HealthIcon
@@ -262,7 +275,7 @@ export default function TableDataGrid({
                     </td>
 
                     {/* Actions */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => onViewDetail(table.name)}

@@ -57,8 +57,11 @@ import {
 import { LeaderInvocationFactory } from "../leader-invocation.factory";
 // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到独立 service —— dispatcher inject + delegate
 import { PlaygroundBusinessOrchestrator } from "./playground-business-orchestrator.service";
+// ★ R2-#38: OTel span emission (mission root + stage child spans via AgentTracer)
+import { PlaygroundMissionSpanService } from "./playground-mission-span.service";
 // ★ Stage 1 / S1-2 (2026-05-09,closes T3): cross-stage cache 改用 Z5 CrossStageState 容器
 import { PlaygroundCrossStageState } from "./playground-cross-stage-state";
+import { mapStepIdToFrontendStageId } from "../../../contracts/step-id-mapping.contract";
 
 export interface PipelineMissionSummary {
   readonly missionId: string;
@@ -126,6 +129,8 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     private readonly businessOrch: PlaygroundBusinessOrchestrator,
     // ★ C0/G1：唯一终态写入口。dispatcher 不再直写 store.markX，统一经 finalize 仲裁。
     private readonly lifecycleManager: MissionLifecycleManager,
+    // ★ R2-#38: OTel span service (optional — gracefully absent if tracer not configured)
+    private readonly missionSpan: PlaygroundMissionSpanService,
   ) {}
 
   /**
@@ -208,12 +213,15 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           ).filter(
             (k) => this.businessOrch.STAGE_NUMBER[k] <= (stageNumber ?? 0),
           );
+          // ★ R2-#37 (2026-05-23): include crossState snapshot so crash-resume
+          //   can restore inter-stage data without re-running earlier stages.
           await this.missionCheckpoint
             .save(
               missionId,
               {
                 lastStage: checkpointTag,
                 topic: entry.input.topic,
+                crossState: entry.crossState.toJSON(),
               },
               completedKeys,
               "running",
@@ -346,6 +354,8 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       },
       this.leaderInvocationFactory.build(missionId, userId, session.billing),
     );
+    // ★ R2-#38: start root OTel span for this mission
+    this.missionSpan.startMissionSpan(missionId, input.topic);
     // ★ Stage 1 / S1-2 (2026-05-09): 初始化 PlaygroundCrossStageState 容器
     //   (替代 14 个 ad-hoc lastXxx / s4PatchFailures / inheritedX fields)
     this.sessions.set(missionId, {
@@ -369,6 +379,51 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         );
       }
     }
+    // ★ R2-#37 (2026-05-23): crash-resume — if a checkpoint exists for this
+    //   missionId (e.g. prior pod restart mid-run), restore crossState and
+    //   resume from the last completed step instead of restarting from scratch.
+    let resumeFromStepId: string | undefined;
+    let initialCrossStageState: Readonly<Record<string, unknown>> | undefined;
+    try {
+      const resumeDecision = await this.missionCheckpoint.canResume(missionId);
+      if (resumeDecision.canResume && resumeDecision.snapshot) {
+        const snap = resumeDecision.snapshot;
+        // completedKeys is an array of step IDs already finished; restore
+        // crossState payload so downstream stages get their inputs back.
+        const payload = snap.payload as {
+          lastStage?: string;
+          crossState?: Record<string, unknown>;
+        };
+        if (payload.crossState) {
+          const entry = this.sessions.get(missionId);
+          if (entry) {
+            const restored = PlaygroundCrossStageState.fromJSON(
+              payload.crossState,
+            );
+            // Replace the in-memory crossState on the session entry (immutable update)
+            this.sessions.set(missionId, { ...entry, crossState: restored });
+            initialCrossStageState = payload.crossState;
+          }
+        }
+        // The last completed step is the highest-stageNumber key in completedKeys
+        if (snap.completedKeys.length > 0) {
+          const stageNumber = this.businessOrch.STAGE_NUMBER;
+          const sorted = [...snap.completedKeys].sort(
+            (a, b) => (stageNumber[a] ?? 0) - (stageNumber[b] ?? 0),
+          );
+          resumeFromStepId = sorted[sorted.length - 1];
+        }
+        this.log.log(
+          `[R2-#37 crash-resume] mission ${missionId} resuming from stepId="${resumeFromStepId}" (${snap.completedKeys.length} completed steps)`,
+        );
+      }
+    } catch (resumeErr) {
+      // Non-fatal: if resume load fails just start fresh
+      this.log.warn(
+        `[R2-#37 crash-resume] mission ${missionId} checkpoint load failed (will start fresh): ${resumeErr instanceof Error ? resumeErr.message : String(resumeErr)}`,
+      );
+    }
+
     // ★ 2026-05-05 增量更新："更新"按钮 → input.inheritFromMissionId 携带源 mission；
     //   从源 mission DB row hydrate plan（dimensions+themeSummary）到 entry.crossState.lastPlan，
     //   下游 S2 hook 检测到 lastPlan 已就绪即跳过 LLM 调用并 emit synthetic plan event。
@@ -405,6 +460,10 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           userId,
           tenantId: workspaceId,
           signal: session.missionAbort.signal,
+          // ★ R2-#37 (2026-05-23): crash-resume — pass resume context when
+          //   a prior checkpoint was found and restored above.
+          resumeFromStepId,
+          initialCrossStageState,
           // ★ 2026-05-06 (A 架构优化): orchestrator 已内置 stage:started/completed/failed
           //   事件机制，但之前 dispatcher 没传 onEvent → 全部丢弃，导致 stage 文件
           //   被迫各自手写 emit stage:started/completed（5 个文件还漏发）。
@@ -424,6 +483,23 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
               event.type === "stage:completed" ||
               event.type === "stage:failed"
             ) {
+              // ★ R2-#38: emit OTel stage spans
+              if (event.stepId) {
+                if (event.type === "stage:started") {
+                  this.missionSpan.startStageSpan(
+                    missionId,
+                    event.stepId,
+                    event.primitive ?? "unknown",
+                  );
+                } else {
+                  this.missionSpan.endStageSpan(
+                    missionId,
+                    event.stepId,
+                    event.type === "stage:completed" ? "completed" : "failed",
+                    event.error instanceof Error ? event.error : undefined,
+                  );
+                }
+              }
               const status =
                 event.type === "stage:started"
                   ? "started"
@@ -498,6 +574,12 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         //   （pipeline-v1 hook 内部抛错经 orchestrator 包成 stage:failed event +
         //    result.status="failed"，但 mission DB row + 前端事件流缺收尾兜底）
         if (result.status !== "completed") {
+          // ★ R2-#38: end root OTel span with failure status
+          this.missionSpan.endMissionSpan(
+            missionId,
+            result.status as "failed" | "aborted",
+            result.error instanceof Error ? result.error : undefined,
+          );
           await this.handleMissionFailure(
             missionId,
             userId,
@@ -506,6 +588,8 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
             session,
           );
         } else {
+          // ★ R2-#38: end root OTel span with success
+          this.missionSpan.endMissionSpan(missionId, "completed");
           // ★ R2-A.13.1 成功路径：清 checkpoint（mission 已完整落库）
           await this.missionCheckpoint
             .clear(missionId)
@@ -528,6 +612,12 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       });
     } catch (err) {
       // ★ A-8: orchestrator/runtimeShell 抛出未被 handleMissionFailure 接住的异常
+      // ★ R2-#38: end root OTel span on unexpected throw
+      this.missionSpan.endMissionSpan(
+        missionId,
+        "failed",
+        err instanceof Error ? err : undefined,
+      );
       reachedTerminal = await this.tryHandleAbort(
         missionId,
         userId,
@@ -1124,35 +1214,3 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
 }
 
 export type PipelineHookCtx = StageRunArgs["ctx"];
-
-/**
- * ★ 2026-05-06 (A 架构优化): step.id (PLAYGROUND_PIPELINE.steps) 与前端 todo-ledger
- * SystemStageId 不完全一致；orchestrator → frontend 桥接时做映射。
- *
- * 5 处不一致历史原因：
- *   - s3-researcher-collect → s3-researchers (前端按 group 命名)
- *   - s8-writer → s8-writer-draft (区分 outline 阶段)
- *   - s9-critic → s9-critic-l4 (L4 = layer-4)
- *   - s9b-objective-eval → s9b-objective-evaluation (前端全名)
- *   - s10-leader-foreword-signoff → s10-leader-signoff (前端简称)
- */
-const STEP_ID_TO_FRONTEND_STAGE_ID: Record<string, string> = {
-  "s1-budget": "s1-budget",
-  "s2-leader-plan": "s2-leader-plan",
-  "s3-researcher-collect": "s3-researchers",
-  "s4-leader-assess": "s4-leader-assess",
-  "s5-reconciler": "s5-reconciler",
-  "s6-analyst": "s6-analyst",
-  "s7-writer-outline": "s7-writer-outline",
-  "s8-writer": "s8-writer-draft",
-  "s8b-quality-enhancement": "s8b-quality-enhancement",
-  "s9-critic": "s9-critic-l4",
-  "s9b-objective-eval": "s9b-objective-evaluation",
-  "s10-leader-foreword-signoff": "s10-leader-signoff",
-  "s11-persist": "s11-persist",
-  "s12-self-evolution": "s12-self-evolution",
-};
-
-function mapStepIdToFrontendStageId(stepId: string): string {
-  return STEP_ID_TO_FRONTEND_STAGE_ID[stepId] ?? stepId;
-}

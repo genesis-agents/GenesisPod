@@ -28,6 +28,18 @@ import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 import { AIModelType } from "@prisma/client";
+// 分类器源头已下沉到 L2 ai-engine（model-failover.classifier.ts），让 L2
+// AiChatService.chat() 与 L2.5 runner 共用同一份判定逻辑。本文件内部仍使用这两个
+// 符号，故 import 进来；同时 re-export 保持既有 `from "../executor/llm-executor"`
+// 的 import 不破坏（react-loop.ts / runner/loop/model-failover.util.ts / 测试 等）。
+import {
+  isModelLevelFailoverError,
+  MAX_MODEL_FAILOVERS,
+} from "../../../ai-engine/llm/model-failover.classifier";
+
+// ============ Model-level failover ============
+
+export { isModelLevelFailoverError, MAX_MODEL_FAILOVERS };
 
 // ============ 契约 ============
 
@@ -72,6 +84,26 @@ export interface LlmExecutorInput<TOutput> {
    * 用途：测试环境零 LLM 成本跑完整 pipeline；CI 不 flaky。
    */
   readonly stubFn?: () => Promise<TOutput>;
+
+  /**
+   * Model-level failover provider (optional).
+   *
+   * When provided, a provider-API error (5xx / model-not-found / timeout /
+   * AllKeysFailed) triggers re-election via this callback instead of
+   * propagating the error immediately.  The callback receives the set of
+   * modelIds that have already failed so the election service can exclude them
+   * and pick a different model.  Returns the new modelId, or null/undefined
+   * if no further candidates are available (in which case the last error is
+   * re-thrown).
+   *
+   * SpecBasedAgent supplies this closure when it has an electionProvider wired.
+   * When absent (tests, legacy callers) the behaviour is unchanged: provider
+   * errors propagate as before.
+   */
+  readonly modelFailoverProvider?: (
+    excludeModelIds: ReadonlyArray<string>,
+    excludeProviders?: ReadonlyArray<string>,
+  ) => Promise<string | null | undefined>;
 }
 
 export interface LlmExecutorResult<TOutput> {
@@ -398,9 +430,20 @@ export class LlmExecutor {
     let totalCost = 0;
     let lastModel = "";
 
+    // ── Model-level failover state ──────────────────────────────────────────
+    // Tracks models that have already produced a provider-level error so they
+    // are excluded from re-election.  The active model may change across the
+    // schema-retry loop when a provider error is encountered.
+    const failedModelIds: string[] = [];
+    // Providers whose key/credits failed — failover excludes ALL their models.
+    const failedProviders: string[] = [];
+    // The currently elected model (may be updated after failover).
+    let activeModel: string | undefined = input.model;
+
     // ★ 2026-05-06 接入 StructuredOutputRouter：按 model capability 拿 strategy
     //   chain；每次 retry 切下一个 strategy，注入对应 system-prompt hint。
-    const strategyChain = await this.resolveOutputStrategyChain(input.model);
+    //   Re-resolve when the active model changes after a failover.
+    let strategyChain = await this.resolveOutputStrategyChain(activeModel);
 
     // ★ 2026-05-06 native structured output: convert Zod schema → JSON Schema once
     const outputJsonSchema: Record<string, unknown> | undefined =
@@ -439,10 +482,11 @@ export class LlmExecutor {
           systemPrompt: input.systemPrompt + strategyAddon,
           messages: [{ role: "user", content: userPrompt }],
           // Election 选出的 modelId（SpecBasedAgent 已完成环境感知选举）
-          model: input.model,
+          // activeModel may differ from input.model after a model-level failover.
+          model: activeModel,
           // 没有 elected model 时 fallback 走系统配置的默认 CHAT 模型
           // （AiChatService 优先用 model，model 空时走 modelType → DB 默认）
-          modelType: input.model ? undefined : AIModelType.CHAT,
+          modelType: activeModel ? undefined : AIModelType.CHAT,
           taskProfile: input.taskProfile,
           responseFormat: "json",
           userId,
@@ -459,9 +503,57 @@ export class LlmExecutor {
           schemaName: input.agentId,
         });
       } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
         this.logger.warn(
-          `[${input.agentId}] attempt ${attempt + 1}/${maxRetries + 1} chat failed: ${err instanceof Error ? err.message : String(err)}`,
+          `[${input.agentId}] attempt ${attempt + 1}/${maxRetries + 1} chat failed: ${errMsg}`,
         );
+
+        // ── Model-level failover ───────────────────────────────────────────
+        // On provider-level errors (5xx, model-not-found, timeout,
+        // AllKeysFailed, rate-limit) try to re-elect a different model
+        // rather than propagating the error immediately.
+        // AbortError and budget/credit exhaustion are NOT failover candidates
+        // (isModelLevelFailoverError returns false for those).
+        if (
+          input.modelFailoverProvider &&
+          isModelLevelFailoverError(err) &&
+          failedModelIds.length < MAX_MODEL_FAILOVERS
+        ) {
+          const failedModelId = activeModel ?? "";
+          if (failedModelId) failedModelIds.push(failedModelId);
+          // Skip the whole failed provider (out of credits / no key), not just
+          // one model, so failover jumps to a different provider.
+          const provMatch = /provider\s+"?([a-z0-9_-]+)"?/i.exec(errMsg);
+          if (provMatch?.[1] && !failedProviders.includes(provMatch[1])) {
+            failedProviders.push(provMatch[1]);
+          }
+
+          try {
+            const nextModelId = await input.modelFailoverProvider(
+              failedModelIds,
+              failedProviders,
+            );
+            if (nextModelId) {
+              this.logger.warn(
+                `[${input.agentId}] model-failover: ${failedModelId || "(default)"} → ${nextModelId} ` +
+                  `(failed=${failedModelIds.length}/${MAX_MODEL_FAILOVERS}, reason: ${errMsg.slice(0, 120)})`,
+              );
+              activeModel = nextModelId;
+              // Re-resolve strategy chain for the new model
+              strategyChain =
+                await this.resolveOutputStrategyChain(activeModel);
+              // Reset attempt counter so the new model gets full schema-retry budget
+              attempt = -1; // will be incremented to 0 by the for-loop
+              lastError = undefined;
+              continue;
+            }
+          } catch (electionErr) {
+            this.logger.warn(
+              `[${input.agentId}] model-failover election failed: ${electionErr instanceof Error ? electionErr.message : String(electionErr)}`,
+            );
+          }
+        }
+
         throw err;
       }
 

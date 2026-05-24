@@ -41,7 +41,7 @@ Sunk components MUST be unit-testable using harness-only fixtures, without booti
 
 ---
 
-## 3. Topology 不变式(reference: [`sediment-topology.md`](../ai-harness/sediment-topology.md))
+## 3. Topology 不变式(reference: [`sediment-topology.md`](../ai-harness/facade/sediment-topology.md))
 
 ### T-1 facade-only consumption
 

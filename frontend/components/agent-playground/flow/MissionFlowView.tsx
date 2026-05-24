@@ -47,6 +47,11 @@ import {
 } from '@/lib/features/agent-playground/todo-ledger';
 import type { DerivedView } from '@/lib/features/agent-playground/derive';
 import {
+  fmtTimestamp,
+  fmtRelative,
+  ROLE_LABEL,
+} from '@/lib/features/agent-playground/formatters';
+import {
   StageStepper,
   type StageStepperItem,
 } from '@/components/common/mission-detail/StageStepper';
@@ -107,21 +112,6 @@ interface FlowEvent {
   text: string;
   /** optional metadata */
   meta?: string;
-}
-
-function fmtTime(ts: number): string {
-  const d = new Date(ts);
-  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
-}
-
-function fmtRelative(ts: number, anchor: number): string {
-  const ms = ts - anchor;
-  if (ms < 0) return fmtTime(ts);
-  if (ms < 1000) return `+${ms}ms`;
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `+${s}s`;
-  const m = Math.floor(s / 60);
-  return `+${m}m ${s % 60}s`;
 }
 
 function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
@@ -247,17 +237,6 @@ function ROLE_ICON(role?: string): LucideIcon {
       return Activity;
   }
 }
-
-const ROLE_LABEL: Record<string, string> = {
-  leader: 'Leader',
-  researcher: 'Researcher',
-  analyst: 'Analyst',
-  writer: 'Writer',
-  reviewer: 'Reviewer',
-  critic: 'Critic',
-  reconciler: 'Reconciler',
-  mission: 'Mission',
-};
 
 function ROLE_TONE_CLASS(role?: string): {
   bg: string;
@@ -552,7 +531,7 @@ export function MissionFlowView({ view, events, stepperStages }: Props) {
                           {fmtRelative(f.ts, anchor)}
                         </span>
                         <span className="font-mono text-[9px] text-gray-400">
-                          {fmtTime(f.ts)}
+                          {fmtTimestamp(f.ts)}
                         </span>
                       </span>
                     </div>

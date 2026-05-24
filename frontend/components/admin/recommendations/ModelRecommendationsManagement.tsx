@@ -16,6 +16,7 @@ import {
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { apiClient } from '@/lib/api/client';
 import { toast } from '@/stores';
+import { TruncatedCell } from '@/components/common/tables';
 
 type ModelType =
   | 'CHAT'
@@ -249,7 +250,15 @@ export function ModelRecommendationsManagement() {
 
       {/* Table */}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-        <table className="w-full">
+        <table className="w-full table-fixed">
+          <colgroup>
+            <col className="w-[18%]" />
+            <col className="w-[14%]" />
+            <col className="w-[34%]" />
+            <col className="w-[8%]" />
+            <col className="w-[10%]" />
+            <col className="w-[16%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -298,33 +307,30 @@ export function ModelRecommendationsManagement() {
                 key={`${r.provider}:${r.modelType}:${i}`}
                 className="hover:bg-gray-50"
               >
-                <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                  {r.provider}
+                <td className="px-4 py-2.5">
+                  <TruncatedCell className="max-w-[160px] text-sm font-medium text-gray-900">
+                    {r.provider}
+                  </TruncatedCell>
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-2.5">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_BADGE[r.modelType]}`}
                   >
                     {r.modelType}
                   </span>
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    {r.patterns.map((p, idx) => (
-                      <code
-                        key={idx}
-                        className="font-mono rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[11px] text-gray-700"
-                        title={`匹配顺序: ${idx + 1}`}
-                      >
-                        {p}
-                      </code>
-                    ))}
-                  </div>
+                <td className="px-4 py-2.5">
+                  <TruncatedCell
+                    className="font-mono max-w-[280px] text-xs text-gray-700"
+                    tooltip={r.patterns.join(' · ')}
+                  >
+                    {r.patterns.join(' · ')}
+                  </TruncatedCell>
                 </td>
-                <td className="px-4 py-3 text-center text-sm text-gray-600">
+                <td className="px-4 py-2.5 text-center text-sm text-gray-600">
                   {r.priority}
                 </td>
-                <td className="px-4 py-3 text-center text-xs">
+                <td className="px-4 py-2.5 text-center text-xs">
                   {r.source === 'db' ? (
                     <span className="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-700">
                       DB
@@ -338,7 +344,7 @@ export function ModelRecommendationsManagement() {
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <button
                       onClick={() => setEditing(r)}

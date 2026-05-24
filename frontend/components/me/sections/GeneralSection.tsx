@@ -3,13 +3,13 @@
 import { Sun, Moon, Monitor, type LucideIcon } from 'lucide-react';
 import { useThemeStore, type Appearance } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
-import { SettingsSectionCard } from '@/components/ui/cards/SettingsSectionCard';
 import { PersonalizationSection } from './PersonalizationSection';
 
 /**
- * 通用 /me/general — 外观主题 + 聊天样式 + 兴趣标签（个性化已合并进来）。
+ * 通用 /me/general — 一镜到底重设计（2026-05-23）：
+ *   焦点 = 外观主题 + 聊天消息样式（用户在本页要做的选择）；
+ *   去厚卡盒，改轻量 section（小标题 + 紧凑内容）连续流。个性化（聊天样式 + 兴趣）合并续接。
  * 外观主题写 themeStore.appearance，由 ThemeApplier 落到 <html class="dark">，即时生效并持久化。
- * 语言切换不在此处（见头像菜单），与设计 §3.1 / §9.1 一致。
  */
 const OPTIONS: { value: Appearance; labelKey: string; icon: LucideIcon }[] = [
   { value: 'light', labelKey: 'me.general.light', icon: Sun },
@@ -23,12 +23,15 @@ export function GeneralSection() {
   const setAppearance = useThemeStore((s) => s.setAppearance);
 
   return (
-    <div className="space-y-6">
-      <SettingsSectionCard
-        title={t('me.general.appearance')}
-        description={t('me.general.appearanceDesc')}
-      >
-        <div className="grid gap-3 sm:grid-cols-3">
+    <div className="space-y-6 rounded-xl border border-gray-200 bg-white p-5 md:p-6">
+      <section>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+          {t('me.general.appearance')}
+        </h3>
+        <p className="mb-3 mt-1 text-xs text-gray-400">
+          {t('me.general.appearanceDesc')}
+        </p>
+        <div className="grid gap-2 sm:grid-cols-3">
           {OPTIONS.map((opt) => {
             const Icon = opt.icon;
             const selected = appearance === opt.value;
@@ -36,17 +39,17 @@ export function GeneralSection() {
               <button
                 key={opt.value}
                 onClick={() => setAppearance(opt.value)}
-                className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
+                className={`flex items-center gap-2.5 rounded-lg border p-3 text-left text-sm transition-colors ${
                   selected
                     ? 'border-violet-500 bg-violet-50 ring-1 ring-violet-500'
                     : 'border-gray-200 hover:bg-gray-50'
                 }`}
               >
                 <Icon
-                  className={`h-5 w-5 ${selected ? 'text-violet-600' : 'text-gray-500'}`}
+                  className={`h-4 w-4 ${selected ? 'text-violet-600' : 'text-gray-500'}`}
                 />
                 <span
-                  className={`text-sm font-medium ${
+                  className={`font-medium ${
                     selected ? 'text-violet-700' : 'text-gray-700'
                   }`}
                 >
@@ -56,9 +59,9 @@ export function GeneralSection() {
             );
           })}
         </div>
-      </SettingsSectionCard>
+      </section>
 
-      {/* 个性化已合并进通用：聊天样式 + 兴趣标签 */}
+      {/* 个性化续接：聊天样式 + 兴趣标签（同一镜到底流内） */}
       <PersonalizationSection />
     </div>
   );

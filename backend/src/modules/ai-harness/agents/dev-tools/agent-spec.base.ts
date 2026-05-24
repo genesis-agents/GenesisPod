@@ -123,6 +123,19 @@ export interface DefineAgentOptions<
   };
   /** 默认 system prompt（如果 buildSystemPrompt 不重写，用此） */
   readonly systemPrompt?: string;
+  /**
+   * #35 — Strict JSON schema for the business finalize output payload,
+   * derived from outputSchema (additionalProperties:false, all optional
+   * fields absent from required[]).
+   *
+   * When set, the ReActLoop uses this as the provider-enforced decision
+   * schema on final iterations (approachingLimit=true), non-FC branch only.
+   * Must exactly match outputSchema's shape to avoid rejecting valid output.
+   *
+   * Pattern: define as a module-level const (e.g. RESEARCHER_FINALIZE_OUTPUT_JSON_SCHEMA)
+   * and reference it here. Do NOT inline ad-hoc objects.
+   */
+  readonly outputJsonSchema?: Readonly<Record<string, unknown>>;
 }
 
 const META_KEY = Symbol.for("genesis.harness.dx.AgentSpecMeta");
@@ -197,4 +210,3 @@ export abstract class AgentSpec<
     identity: IAgentIdentity;
   }): Promise<z.infer<TOutputSchema>>;
 }
-

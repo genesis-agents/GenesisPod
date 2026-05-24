@@ -49,8 +49,13 @@ const DEFAULTS = {
    *   章节数按"唯一来源/2"派生 → 4 findings = 永远 4 章。提高成功线，强制从充足的多源
    *   结果里抽更多 finding（→ 唯一来源↑ → 章节解除 4 封顶 → 证据/广度/评审分↑）。
    *   现已可满足（工具供给充足）；local 模型仍由 profile 降到 5（采集力弱）。
+   * ★ 2026-05-23 (10→5)：10 作为**硬门槛**(reject finalize + 强制 +50% 预算重试) 时，
+   *   LLM 蒸馏 plateau 在 4-8 → 反复 reject → 重试风暴 → max-iter 失败 → 维度降级
+   *   (用户实测「持续低分 + 频繁兜底 + 推进极慢」)。"更多 finding → 更多章节 → 更高分"
+   *   的目标改由 P2(解证据预算对章节数的夹逼) + P1-grade(evidence/breadth 轴改相对)正面
+   *   达成，不再靠抬高这个脆弱硬门槛硬逼。floor=5 = 真·采集不足才 reject/retry。
    */
-  minFindingsThreshold: 10,
+  minFindingsThreshold: 5,
 
   // — chapter integrity (used by per-dim-pipeline.util.ts) —
   /**

@@ -13,6 +13,7 @@
 
 import { Injectable } from "@nestjs/common";
 import { randomUUID } from "crypto";
+import { z } from "zod";
 import {
   ResolvedBudgetCaps,
   applyInputPatch,
@@ -21,6 +22,8 @@ import {
   type MissionInputRebuilder,
 } from "@/modules/ai-harness/facade";
 import {
+  BUDGET_PROFILE,
+  SEARCH_TIME_RANGE_VALUES,
   resolveMissionCredits,
   resolveBudgetMultiplier,
   resolveMissionWallTimeMs,
@@ -31,23 +34,38 @@ import {
 export const PLAYGROUND_SNAPSHOT_SCHEMA_VERSION = 1;
 
 /**
+ * RB5: playground businessInput 运行期 zod schema(单一真源)。
+ * 字段与 RunMissionInputSchema 业务子集同步；顶层字段(topic/language/budget/runtimeLimits)不在此。
+ */
+export const playgroundBusinessInputSchema = z.object({
+  depth: z.enum(["quick", "standard", "deep"]),
+  budgetProfile: z.enum(BUDGET_PROFILE),
+  styleProfile: z.enum(["academic", "executive", "journalistic", "technical"]),
+  lengthProfile: z.enum([
+    "brief",
+    "standard",
+    "deep",
+    "extended",
+    "epic",
+    "mega",
+  ]),
+  audienceProfile: z.enum(["executive", "domain-expert", "general-public"]),
+  withFigures: z.boolean(),
+  auditLayers: z.enum(["minimal", "default", "thorough", "thorough+"]),
+  concurrency: z.number().int().min(1).max(10),
+  viewMode: z.enum(["continuous", "chapter", "quick"]),
+  searchTimeRange: z.enum(SEARCH_TIME_RANGE_VALUES),
+  knowledgeBaseIds: z.array(z.string().uuid()).max(10).optional(),
+  inheritFromMissionId: z.string().uuid().optional(),
+});
+
+/**
  * playground 业务输入子集(平台不解释)。**不含** topic/language(顶层)、
  * maxCredits/wallTimeMs/budgetMultiplierOverride(归 budget/runtimeLimits 顶层)。
  */
-export interface PlaygroundBusinessInput {
-  readonly depth: RunMissionInput["depth"];
-  readonly budgetProfile: RunMissionInput["budgetProfile"];
-  readonly styleProfile: RunMissionInput["styleProfile"];
-  readonly lengthProfile: RunMissionInput["lengthProfile"];
-  readonly audienceProfile: RunMissionInput["audienceProfile"];
-  readonly withFigures: RunMissionInput["withFigures"];
-  readonly auditLayers: RunMissionInput["auditLayers"];
-  readonly concurrency: RunMissionInput["concurrency"];
-  readonly viewMode: RunMissionInput["viewMode"];
-  readonly searchTimeRange: RunMissionInput["searchTimeRange"];
-  readonly knowledgeBaseIds?: RunMissionInput["knowledgeBaseIds"];
-  readonly inheritFromMissionId?: RunMissionInput["inheritFromMissionId"];
-}
+export type PlaygroundBusinessInput = z.infer<
+  typeof playgroundBusinessInputSchema
+>;
 
 export type PlaygroundConfigSnapshot =
   MissionConfigSnapshot<PlaygroundBusinessInput>;
@@ -80,6 +98,10 @@ export class PlaygroundMissionInputRebuilder implements MissionInputRebuilder<
 > {
   /** openSession 首跑:从 RunMissionInput 冻结出 snapshot v0。 */
   buildForFreshRun(input: RunMissionInput): PlaygroundConfigSnapshot {
+    // RB5: 冻结时对 businessInput 做运行期 zod 校验(从 JSONB 读回时非法即抛)。
+    const validatedBusinessInput = playgroundBusinessInputSchema.parse(
+      extractBusinessInput(input),
+    );
     return {
       schemaVersion: PLAYGROUND_SNAPSHOT_SCHEMA_VERSION,
       snapshotRevision: 0,
@@ -88,7 +110,7 @@ export class PlaygroundMissionInputRebuilder implements MissionInputRebuilder<
       resolvedAt: new Date().toISOString(),
       topic: input.topic,
       language: input.language,
-      businessInput: extractBusinessInput(input),
+      businessInput: validatedBusinessInput,
       // ★ 换算唯一处:credits→caps 走 ResolvedBudgetCaps;cap 时长走 resolveMissionWallTimeMs。
       budget: ResolvedBudgetCaps.resolve({
         maxCredits: resolveMissionCredits(input),

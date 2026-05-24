@@ -17,6 +17,8 @@
 import type { MissionInvariants } from "../mission-context";
 import type { CommonDeps } from "../mission-deps";
 import { narrate } from "../narrative.util";
+import { resolveMissionCredits } from "../../../../dto/run-mission.dto";
+import { CREDITS_TO_TOKENS } from "@/modules/ai-harness/facade";
 
 export async function runBudgetEstimateStage(
   ctx: MissionInvariants,
@@ -45,9 +47,15 @@ export async function runBudgetEstimateStage(
     text: `Mission 已启动 · 主题「${input.topic}」 · 深度 ${input.depth} · 预算档位 ${input.budgetProfile}`,
   });
 
-  const baseEstimate = 400_000; // deep+medium 基线
+  // ★ R2-#45: estimate against the REAL resolved cap — resolveMissionCredits
+  //   reads input.maxCredits or falls back to the DEPTH_BUDGET_TIERS default,
+  //   then multiplies by CREDITS_TO_TOKENS (single constant from ResolvedBudgetCaps)
+  //   so credit↔token conversion is uniform across billing + pre-flight gate.
+  //   budgetMultiplier is applied as a scale on top to reflect the actual per-agent
+  //   allocation headroom.
+  const resolvedCredits = resolveMissionCredits(input);
   const estimateBudget = Math.round(
-    baseEstimate * Math.max(0.1, budgetMultiplier),
+    resolvedCredits * CREDITS_TO_TOKENS * Math.max(0.1, budgetMultiplier),
   );
   let estimate: Awaited<ReturnType<typeof billing.estimateAffordable>>;
   try {

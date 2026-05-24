@@ -24,6 +24,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import type {
+  AgentEventPayload,
   AgentLoopKind,
   HarnessFailureCode,
   IAgentEvent,
@@ -53,11 +54,56 @@ import { CacheControlPlanner } from "../context/cache-control-planner";
 import { HookRegistry } from "../../agents/core/hook-registry";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
+import { wrapToolObservation } from "./external-observation.util";
 import type { IAgent, ISubagentSpawner } from "../../agents/abstractions";
 import {
   rawContentHasUnexecutedToolIntent,
   envelopeHasUnexecutedToolUse,
 } from "./utils/follow-up-detector";
+import { REACT_LOOP_DECISION_JSON_SCHEMA } from "./loop-output-schemas";
+import {
+  isModelLevelFailoverError,
+  MAX_MODEL_FAILOVERS,
+} from "../executor/llm-executor";
+
+/**
+ * #35 — Build a decision-wrapper schema that embeds the strict business-agent
+ * finalize output schema inside the `action.output` field.
+ *
+ * Used on final iterations (approachingLimit=true) when the LLM is directed
+ * to emit `finalize`. Wrapping the business schema inside the decision keeps
+ * `thinking` + `action.kind` visible to the provider while enforcing the
+ * payload shape under `action.output`.
+ *
+ * The outer wrapper stays permissive (additionalProperties:true) so dialect
+ * variants (e.g. top-level `actions` shorthand) are never rejected.
+ * Only `action.output` is strict (additionalProperties:false on its inner
+ * object as declared in the business schema).
+ *
+ * Returns null if finalizeOutputJsonSchema is not provided (caller uses the
+ * permissive REACT_LOOP_DECISION_JSON_SCHEMA as before).
+ */
+function buildFinalizeDecisionSchema(
+  finalizeOutputJsonSchema: Record<string, unknown> | undefined,
+): Record<string, unknown> | null {
+  if (!finalizeOutputJsonSchema) return null;
+  return {
+    type: "object",
+    properties: {
+      thinking: { type: "string" },
+      action: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["finalize"] },
+          output: finalizeOutputJsonSchema,
+        },
+        required: ["kind", "output"],
+        additionalProperties: false,
+      },
+    },
+    additionalProperties: true,
+  };
+}
 
 interface ParsedDecision {
   thinking: string;
@@ -306,6 +352,40 @@ export class ReActLoop implements IAgentLoop {
        * post-<think> output mechanism often "forgets" the exact field set).
        */
       outputSchemaDescription?: string;
+      /**
+       * #35 — Strict JSON schema for the business-agent finalize output payload
+       * (e.g. ResearcherAgent findings/summary shape). When set, the loop
+       * switches to a tighter decision schema on final iterations
+       * (approachingLimit=true), embedding this schema under action.output so
+       * strict providers enforce the payload shape at the provider level.
+       *
+       * Only used on the non-FC branch (native function-calling already has
+       * explicit tool schemas). The permissive REACT_LOOP_DECISION_JSON_SCHEMA
+       * is used for all other iterations so normal tool-call turns are not
+       * over-constrained.
+       */
+      finalizeOutputJsonSchema?: Record<string, unknown>;
+      /**
+       * Model-level failover provider (optional).
+       *
+       * Mirrors LlmExecutor.modelFailoverProvider: when reason() throws a
+       * provider-level error (5xx / model-not-found / timeout / AllKeysFailed /
+       * rate-limit) and isModelLevelFailoverError returns true, the loop calls
+       * this callback instead of terminating immediately.  The callback receives
+       * the set of modelIds that have already failed so it can exclude them and
+       * return a different model.  Returns null/undefined when no further
+       * candidates are available (in which case the loop falls through to its
+       * existing error/terminated path).
+       *
+       * BYOK path: caller supplies a closure over AiModelConfigService that
+       * queries the user's same-modelType UserModelConfig rows, excluding
+       * already-failed models.
+       * Admin/cron path: caller supplies a closure over ModelElectionService.
+       */
+      modelFailoverProvider?: (
+        excludeModelIds: ReadonlyArray<string>,
+        excludeProviders?: ReadonlyArray<string>,
+      ) => Promise<string | null | undefined>;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "unknown-agent";
@@ -316,6 +396,18 @@ export class ReActLoop implements IAgentLoop {
     const outputSchemaValidator = options?.outputSchemaValidator;
     const validateBusinessRules = options?.validateBusinessRules;
     const outputSchemaDescription = options?.outputSchemaDescription;
+    const finalizeOutputJsonSchema = options?.finalizeOutputJsonSchema;
+    const modelFailoverProvider = options?.modelFailoverProvider;
+    // Model-level failover state: tracks models that failed with a
+    // provider-level error so they can be excluded from re-election.
+    const failedModelIds: string[] = [];
+    // Providers whose key/credits failed — once a provider fails (out of credits
+    // / no key), ALL its models are excluded so failover jumps to a DIFFERENT
+    // provider instead of burning the cap on sibling dead-provider models.
+    const failedProviders: string[] = [];
+    // When failover succeeds, the elected model is kept here so the next
+    // reason() call uses it instead of re-computing from budget tier / BYOK.
+    let failoverModelId: string | undefined;
     let currentEnvelope = envelope;
     let iteration = 0;
     let budgetWarned = false;
@@ -606,6 +698,9 @@ export class ReActLoop implements IAgentLoop {
           cacheReadTokens: number;
           modelId?: string;
         };
+        // Track the model we attempt this iteration so failover can exclude it
+        // even when reason() throws before usage.modelId is available.
+        let attemptedModelId: string | undefined;
         try {
           // 2026-05-12 BYOK fix: 有 userId 上下文时跳过 admin pricing tier 选型——
           // tier pick 是 admin BudgetAccountant 的 cost downgrade 机制，预设池 = 管
@@ -625,6 +720,9 @@ export class ReActLoop implements IAgentLoop {
           // options.preferredModelId 显式压制本逻辑（caller 已做 election，应尊重）。
           const byokUserId = currentEnvelope.memory.userId;
           let tierModelId =
+            // Model-level failover: if a previous round failed and we elected
+            // a replacement model, use it instead of the original selection.
+            failoverModelId ??
             options?.preferredModelId ??
             (byokUserId
               ? null
@@ -680,6 +778,9 @@ export class ReActLoop implements IAgentLoop {
           }
           // PR-Q: 自动 prompt-cache 规划 —— 重复 prefix 享受 1/10 价
           const cachePrefix = this.cachePlanner?.plan(currentEnvelope) ?? null;
+          // Track the model we are about to call so failover can exclude it even
+          // when reason() throws before usage.modelId is available.
+          attemptedModelId = tierModelId ?? undefined;
           const reasoned = await this.reason(
             messages,
             currentEnvelope.system,
@@ -694,6 +795,10 @@ export class ReActLoop implements IAgentLoop {
             // PR-1 native-FC: envelope.tools 是上游 performToolRecall 召回的工具 id
             // 列表，传下去让 reason() 在 flag-on 时构造 FunctionDefinition[]。
             currentEnvelope.tools,
+            // #35: on final iterations switch to the strict finalize schema so
+            // strict providers enforce the business payload shape.
+            approachingLimit,
+            finalizeOutputJsonSchema,
           );
           decision = reasoned.decision;
           usage = reasoned.usage;
@@ -932,6 +1037,59 @@ export class ReActLoop implements IAgentLoop {
           this.logger.error(
             `[${agentId}] iter=${iteration} ${loggedCode} — ${message}`,
           );
+
+          // Model-level failover: on provider-API errors (5xx, model-not-found,
+          // timeout, AllKeysFailed, rate-limit) try to elect a different model
+          // instead of terminating immediately.  AbortError and budget/credit
+          // exhaustion are NOT failover candidates (isModelLevelFailoverError
+          // returns false for those).  Cap at MAX_MODEL_FAILOVERS distinct models.
+          if (
+            !aborted &&
+            modelFailoverProvider &&
+            isModelLevelFailoverError(err) &&
+            failedModelIds.length < MAX_MODEL_FAILOVERS
+          ) {
+            // Use the model we actually attempted this iteration.
+            // lastModelId is only updated after a successful reason() call, so on
+            // the first failure it may still be undefined.
+            const failedId = attemptedModelId ?? lastModelId ?? "";
+            if (failedId && !failedModelIds.includes(failedId)) {
+              failedModelIds.push(failedId);
+            }
+            // Extract the failed provider from the error so the whole provider
+            // (out of credits / no key) is skipped, not just one model.
+            const provMatch = /provider\s+"?([a-z0-9_-]+)"?/i.exec(message);
+            if (provMatch?.[1] && !failedProviders.includes(provMatch[1])) {
+              failedProviders.push(provMatch[1]);
+            }
+            try {
+              const nextModelId = await modelFailoverProvider(
+                failedModelIds,
+                failedProviders,
+              );
+              if (nextModelId) {
+                this.logger.warn(
+                  `[${agentId}] iter=${iteration} model-failover: ` +
+                    `${failedId || "(default)"} → ${nextModelId} ` +
+                    `(failed=${failedModelIds.length}/${MAX_MODEL_FAILOVERS}, reason: ${message.slice(0, 120)})`,
+                );
+                failoverModelId = nextModelId;
+                lastModelId = nextModelId;
+                consecutiveRecoverableRetries = 0;
+                // ★ Model switch is NOT a reasoning iteration — give the new
+                //   model the agent's full iteration budget (decrement cancels
+                //   the `iteration += 1` at the top of the loop). Bounded by the
+                //   failover cap so it cannot loop forever.
+                iteration -= 1;
+                continue;
+              }
+            } catch (electionErr) {
+              this.logger.warn(
+                `[${agentId}] iter=${iteration} model-failover election threw: ` +
+                  `${electionErr instanceof Error ? electionErr.message : String(electionErr)}`,
+              );
+            }
+          }
 
           // ★ 2026-05-22 P0：可恢复错误（rate-limit/429）有界退避重试，而非直接终止。
           //   单模型/单 key 部署下 429 几乎必现，以前这里直接 return 终态把整段 mission
@@ -1458,6 +1616,17 @@ export class ReActLoop implements IAgentLoop {
     specTaskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile,
     /** PR-1 native-FC: 当前 envelope 召回的工具 id 列表（envelope.tools） */
     recalledToolIds?: readonly string[],
+    /**
+     * #35: true when ≤2 iterations remain — triggers strict finalize schema
+     * on non-FC branch so the provider enforces the business payload shape.
+     */
+    approachingLimit?: boolean,
+    /**
+     * #35: strict JSON schema for the business finalize output (e.g.
+     * RESEARCHER_FINALIZE_OUTPUT_JSON_SCHEMA). Only used when approachingLimit
+     * is true and the FC branch is not active.
+     */
+    finalizeOutputJsonSchema?: Record<string, unknown>,
   ): Promise<{
     decision: ParsedDecision;
     /** ★ LLM 实际吐回的 raw content（response.content），诊断关键 */
@@ -1524,6 +1693,28 @@ export class ReActLoop implements IAgentLoop {
       // 强制 JSON 会让 vLLM tool parser 失效（content 必须是 JSON），fallback 路径
       // 反而拿不到自然 tool_calls。
       responseFormat: useNativeFCThisCall ? undefined : "json",
+      // R2-#35: native structured output for non-FC branch only.
+      // FC branch must NOT receive structuredOutputStrategy/outputJsonSchema —
+      // the adapter would inject response_format on top of tools, breaking
+      // providers that disallow both simultaneously.
+      // parseDecision remains the fallback for providers that ignore json_schema.
+      //
+      // #35 strict finalize: on final iterations (approachingLimit=true) use the
+      // strict decision-wrapper schema that embeds the business agent's finalize
+      // output schema under action.output. This lets strict providers (json_schema
+      // strict mode) enforce the payload shape at the provider level.
+      // Falls back to permissive REACT_LOOP_DECISION_JSON_SCHEMA when not on
+      // final iterations or when no business schema was provided.
+      ...(useNativeFCThisCall
+        ? {}
+        : {
+            structuredOutputStrategy: "json_schema" as const,
+            outputJsonSchema:
+              approachingLimit && finalizeOutputJsonSchema
+                ? (buildFinalizeDecisionSchema(finalizeOutputJsonSchema) ??
+                  REACT_LOOP_DECISION_JSON_SCHEMA)
+                : REACT_LOOP_DECISION_JSON_SCHEMA,
+          }),
       // ★ Harness 内部 agent-to-agent 编排，不是用户原始输入；guardrails
       // 对内部系统 prompt 进行内容审查会误杀（特别是含 BUILTIN_TOOL 描述、
       // 评审 prompt 等可能触发敏感词检测的合法系统内容）。
@@ -1543,6 +1734,8 @@ export class ReActLoop implements IAgentLoop {
     const completionTokens = response.usage?.outputTokens ?? 0;
     // PR-I 修复 #5: cacheReadTokens 由 LLM 提供商返回（Anthropic / OpenAI 都支持）
     const cacheReadTokens = response.usage?.cacheReadTokens ?? 0;
+    // PR-R3 P0: cacheCreationTokens (Anthropic prompt-cache WRITE fee) must be costed
+    const cacheWriteTokens = response.usage?.cacheCreationTokens ?? 0;
     // estimateCost 未注册 modelId 返回 null —— 不假装 0（会让 BudgetAccountant 假账）
     // null 透给 caller，BudgetAccountant.accountLLM 内部决定如何处理（仍计 token，cost 不增）
     const costUsd =
@@ -1551,6 +1744,7 @@ export class ReActLoop implements IAgentLoop {
         promptTokens,
         completionTokens,
         cacheReadTokens,
+        cacheWriteTokens,
       ) ?? null;
     // ★ 诊断关键：把 LLM 原始 content 一并返回，让上层在所有 error / empty 路径
     // 都能把 "LLM 实际吐了啥" 带进 event payload 和日志，避免再靠代码反推。
@@ -2082,7 +2276,11 @@ export class ReActLoop implements IAgentLoop {
     if (result.action.kind === "tool_call") {
       observations.push({
         role: "tool",
-        content: this.stringifyObservation(result),
+        // R2-#42: 外部不可信工具输出做 <external_source> 隔离 + sanitize（间接注入防御）
+        content: wrapToolObservation(
+          this.stringifyObservation(result),
+          result.action.toolId,
+        ),
         name: result.action.toolId,
         // PR-1 native-FC P1#2: 透传 callId（来自 LLM tool_use_id）让 IContextMessage 不丢；
         // buildMessages 当前会把 role:"tool" 降级成 user（ChatMessage 不支持 tool role），
@@ -2096,7 +2294,11 @@ export class ReActLoop implements IAgentLoop {
         if (sub.action.kind === "tool_call") {
           observations.push({
             role: "tool",
-            content: this.stringifyObservation(sub),
+            // R2-#42: 同上 —— 子结果也走外部内容隔离
+            content: wrapToolObservation(
+              this.stringifyObservation(sub),
+              sub.action.toolId,
+            ),
             name: sub.action.toolId,
             // 同上 — 透传 callId，每个 sub 的 callId 独立（parallel_tool_call.calls[i].callId）
             toolCallId: sub.action.callId,
@@ -2145,7 +2347,7 @@ export class ReActLoop implements IAgentLoop {
   private makeEvent(
     agentId: string,
     type: IAgentEvent["type"],
-    payload: unknown,
+    payload: AgentEventPayload,
   ): IAgentEvent {
     return { type, agentId, timestamp: Date.now(), payload };
   }

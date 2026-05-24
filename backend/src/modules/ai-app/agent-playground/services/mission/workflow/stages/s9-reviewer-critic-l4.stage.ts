@@ -118,6 +118,7 @@ export async function runCriticStage(
       "reviewer",
       pool,
       extractTokenSpend(criticRes.events),
+      criticRes.events,
     );
     // ★ degraded 也算成功——L4 critic 即使 verifier 评分微低也仍输出有效 verdict
     if (

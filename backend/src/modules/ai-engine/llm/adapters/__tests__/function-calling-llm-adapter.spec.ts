@@ -419,12 +419,76 @@ describe("FunctionCallingLLMAdapter", () => {
       expect(result.usage?.totalTokens).toBe(200);
     });
 
-    it("should return stop as finishReason", async () => {
+    it("should return stop as finishReason when service returns no finishReason", async () => {
+      // Default mockAiChatService returns { content, usage } with no finishReason
       const result = await adapter.chat({
         messages: [{ role: "user", content: "Hi" }],
       });
 
       expect(result.finishReason).toBe("stop");
+    });
+
+    it("should propagate finishReason=length from service (truncation signal)", async () => {
+      // Arrange: simulate AiChatService returning finish_reason=length
+      mockAiChatService.chat.mockResolvedValue({
+        content: '{"partial":true,"items":[1,2',
+        usage: { totalTokens: 4096 },
+        finishReason: "length",
+      });
+
+      // Act
+      const result = await adapter.chat({
+        messages: [{ role: "user", content: "List many items" }],
+      });
+
+      // Assert: the adapter must NOT silently convert "length" → "stop"
+      expect(result.finishReason).toBe("length");
+    });
+
+    it("should propagate finishReason=length for anthropic provider", async () => {
+      // Arrange: configure anthropic provider
+      adapter.setConfig({
+        modelId: "claude-3-5-sonnet-20241022",
+        provider: "anthropic",
+        apiKey: "claude-key",
+      });
+      mockAiChatService.chat.mockResolvedValue({
+        content: "partial response",
+        usage: { totalTokens: 8192 },
+        finishReason: "length",
+        model: "claude-3-5-sonnet-20241022",
+      });
+
+      // Act
+      const result = await adapter.chat({
+        messages: [{ role: "user", content: "Write a long essay" }],
+      });
+
+      // Assert
+      expect(result.finishReason).toBe("length");
+    });
+
+    it("should propagate finishReason=length for google provider", async () => {
+      // Arrange: configure google/gemini provider
+      adapter.setConfig({
+        modelId: "gemini-2.0-flash",
+        provider: "google",
+        apiKey: "gemini-key",
+      });
+      mockAiChatService.chat.mockResolvedValue({
+        content: "truncated output",
+        usage: { totalTokens: 8192 },
+        finishReason: "length",
+        model: "gemini-2.0-flash",
+      });
+
+      // Act
+      const result = await adapter.chat({
+        messages: [{ role: "user", content: "Write a long document" }],
+      });
+
+      // Assert
+      expect(result.finishReason).toBe("length");
     });
   });
 

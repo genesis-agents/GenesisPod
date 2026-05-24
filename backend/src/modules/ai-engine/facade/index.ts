@@ -448,6 +448,7 @@ export {
   type SanitizeResult,
   wrapExternalContent,
   wrapExternalContentBatch,
+  getExternalContentNotice,
   type WrapExternalContentOptions,
 } from "../safety/security/llm-injection";
 
@@ -722,3 +723,30 @@ export {
 export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/services/ai-model-discovery.service";
 export { AiConnectionTestService } from "@/modules/ai-engine/llm/services/ai-connection-test.service";
 export { AutoConfigureService } from "@/modules/ai-engine/llm/user-config/user-models-auto-configure.service";
+
+// ════════════════════════════════════════════════════════════════════
+// v3.1 阶段 B 子片 2 — capability_overrides 写入面（admin / BYOK / self-heal）
+//
+// admin（open-api/admin）与 BYOK（ai-app/byok）控制器通过 facade 注入
+// CapabilityOverridesWriterService 调 applyOverrideTransactional；
+// self-heal 服务由 ai-engine/llm/services 内部自用，**不** export
+// （它是写入决策器而非写入入口，外部不应直接触发）。
+//
+// 仅写入入口 + 必要类型对外暴露：parser / model-capability types 不出 facade
+// （v3.1 §3.6 SSOT：ai-app 永不读 caps）。
+// ════════════════════════════════════════════════════════════════════
+export { CapabilityOverridesWriterService } from "@/modules/ai-engine/llm/capability/capability-overrides-writer.service";
+export type {
+  ApplyOverrideOptions as CapabilityApplyOverrideOptions,
+  ApplyOverrideResult as CapabilityApplyOverrideResult,
+  CapabilityOverrideScope,
+  CapabilityOverrideSource,
+  CapabilityOverrideActor,
+  CapabilityOverrideTarget,
+} from "@/modules/ai-engine/llm/capability/capability-overrides-writer.types";
+export type { ModelCapabilitiesOverrides } from "@/modules/ai-engine/llm/capability/model-capability.types";
+// DTOs for admin (open-api/admin) + BYOK (ai-app/byok) controllers
+export {
+  ApplyCapabilityOverridesDto,
+  DeleteCapabilityOverridesDto,
+} from "@/modules/ai-engine/llm/capability/dto/apply-capability-overrides.dto";

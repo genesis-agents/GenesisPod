@@ -26,7 +26,10 @@ import {
   MissionAbortReason,
 } from "@/modules/ai-harness/lifecycle/mission-lifecycle/abort-registry";
 import { MissionBudgetPool } from "@/modules/ai-harness/guardrails/budget/mission-budget-pool";
-import { estimateUsdFromTokens } from "@/modules/ai-harness/tracing/observability/token-spend.utils";
+import {
+  estimateUsdFromTokens,
+  extractRealCostUsd,
+} from "@/modules/ai-harness/tracing/observability/token-spend.utils";
 import type { DomainEvent } from "@/modules/ai-harness/protocols/events/domain-event.types";
 import type { IAgentEvent } from "@/modules/ai-harness/agents/abstractions/agent-event.interface";
 
@@ -116,6 +119,13 @@ export class EventRelayFramework {
    * stage / chapter writer tickCost 路径）。之前只在 S3 末尾检查一次，S5+ 阶段
    * budget 用尽要 wall-time 4h 才被发现。
    * P1 leak fix (2026-05-06 origin): exhaustedMissions Map 加 60min 过期清理防内存泄漏。
+   *
+   * ★ R2-#36 (ACCURATE COST): caller may pass the raw IAgentEvent[] from the
+   * RunResult so we can read per-model costUsd from thinking-type events
+   * (computed by ReActLoop via ModelPricingRegistry.estimateCost).
+   * When realCost > 0 we use it; otherwise we fall back to the flat
+   * $3/1M-token heuristic (estimateUsdFromTokens).  The fallback is still
+   * needed for agents that run in environments without ModelPricingRegistry.
    */
   async tickCost(
     missionId: string,
@@ -123,8 +133,12 @@ export class EventRelayFramework {
     stage: string,
     pool: MissionBudgetPool,
     deltaTokens: number,
+    /** Optional: raw agent events from RunResult — used to extract real costUsd */
+    agentEvents?: readonly import("@/modules/ai-harness/agents/abstractions/agent-event.interface").IAgentEvent[],
   ): Promise<void> {
-    const deltaCostUsd = estimateUsdFromTokens(deltaTokens);
+    const realCost = agentEvents ? extractRealCostUsd(agentEvents) : 0;
+    const deltaCostUsd =
+      realCost > 0 ? realCost : estimateUsdFromTokens(deltaTokens);
     pool.recordSpend(deltaTokens, 0, deltaCostUsd);
     const snap = pool.snapshot();
     await this.emitEvent({

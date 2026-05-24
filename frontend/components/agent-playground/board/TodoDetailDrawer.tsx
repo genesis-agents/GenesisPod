@@ -57,6 +57,11 @@ import {
   type RoleKey,
 } from '@/lib/design/tokens';
 import { friendlyError } from '@/lib/features/agent-playground/friendly-error.util';
+import {
+  fmtTimestamp,
+  fmtRelative,
+  fmtDuration,
+} from '@/lib/features/agent-playground/formatters';
 
 interface Props {
   todo: MissionTodo | undefined;
@@ -239,33 +244,6 @@ function cascadeChainFor(stepId: string): string[] {
   const successors = STEP_SUCCESSORS[stepId];
   if (!successors) return [stepId];
   return [stepId, ...successors];
-}
-
-// ─── Time helpers ─────────────────────────────────────
-function fmtTime(ts: number): string {
-  const d = new Date(ts);
-  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
-}
-
-function fmtRelative(ts: number, anchor: number): string {
-  const ms = ts - anchor;
-  if (ms < 0) return fmtTime(ts);
-  if (ms < 1000) return `+${ms}ms`;
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `+${s}s`;
-  const m = Math.floor(s / 60);
-  const rs = s % 60;
-  return `+${m}m ${rs}s`;
-}
-
-function fmtDuration(startedAt?: number, endedAt?: number): string {
-  if (!startedAt) return '—';
-  const end = endedAt ?? Date.now();
-  const ms = end - startedAt;
-  if (ms < 0) return '—';
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
 // ─── Status mapping ───────────────────────────────────
@@ -1297,17 +1275,8 @@ export function TodoDetailDrawer({
                               <span>{c.wordCount} 字</span>
                             )}
                             {c.score != null && (
-                              <span
-                                className={cn(
-                                  'font-mono font-semibold',
-                                  c.score >= 80
-                                    ? 'text-emerald-600'
-                                    : c.score >= 60
-                                      ? 'text-amber-600'
-                                      : 'text-red-600'
-                                )}
-                              >
-                                {c.score}/100
+                              <span className="font-mono text-gray-400">
+                                复审 {c.score}/100
                               </span>
                             )}
                             {c.attempts > 1 && (
@@ -1336,7 +1305,7 @@ export function TodoDetailDrawer({
 
                 {pipeline.grade && (
                   <Section
-                    title="维度评分"
+                    title="维度总评（5 轴综合）"
                     count={`${pipeline.grade.overall}/100 · ${
                       pipeline.grade.grade === 'excellent'
                         ? '优秀'
@@ -1348,6 +1317,10 @@ export function TodoDetailDrawer({
                     }`}
                   >
                     <div className="p-3">
+                      <p className="mb-2 text-xs text-gray-400">
+                        评估维度整体质量（广度 / 深度 / 证据 / 连贯性 /
+                        时效性），独立于各章节复审分。
+                      </p>
                       <ul className="space-y-1.5">
                         {(
                           [
@@ -1469,7 +1442,7 @@ function TimelineEntryView({
               {fmtRelative(entry.ts, anchor)}
             </span>
             <span className="font-mono text-[9px] text-gray-400">
-              {fmtTime(entry.ts)}
+              {fmtTimestamp(entry.ts)}
             </span>
           </span>
         }

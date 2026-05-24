@@ -102,6 +102,7 @@ export async function runWriterOutlineStage(
       "writer",
       pool,
       extractTokenSpend(outlineRes.events),
+      outlineRes.events,
     );
     if (outlineRes.state === "completed" && outlineRes.output) {
       const outlinePlan = outlineRes.output as {

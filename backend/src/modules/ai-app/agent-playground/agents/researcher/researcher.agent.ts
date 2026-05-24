@@ -17,10 +17,12 @@ import { z } from "zod";
 import {
   AgentSpec,
   DefineAgent,
+  RESEARCHER_FINALIZE_OUTPUT_JSON_SCHEMA,
   RESEARCHER_MAX_ITERATIONS,
   RESEARCHER_MAX_ITERATIONS_HARD_CAP,
   RESEARCHER_MAX_WALL_TIME_MS,
 } from "@/modules/ai-harness/facade";
+import { getExternalContentNotice } from "@/modules/ai-engine/facade";
 import {
   DEFAULT_SEARCH_TIME_RANGE,
   formatDateYmd,
@@ -180,11 +182,19 @@ const Output = z.object({
   skills: ["dimension-research", "web-research"],
   taskProfile: {
     creativity: "low",
-    outputLength: "long",
+    // ★ 2026-05-23 (long→extended)：finalize 要吐多条带 URL/quote 的 finding，
+    //   long=8000 maxTokens 对中文 JSON 常被截断(finish_reason=length) → repair 削薄/
+    //   失败 → 维度降级。extended=16000 给 finalize JSON 留足头寸(与 chapter-writer 同策)。
+    outputLength: "extended",
     reasoningDepth: "moderate",
   },
   inputSchema: Input,
   outputSchema: Output,
+  // #35: strict JSON schema derived from Output zod — enables provider-level
+  // enforcement of the finalize payload shape on final iterations (approachingLimit=true).
+  // Derived following the 6-rule spec: optional→not required, .default()→not required,
+  // .refine() dropped, .min() dropped, additionalProperties:false at every object.
+  outputJsonSchema: RESEARCHER_FINALIZE_OUTPUT_JSON_SCHEMA,
   // ★ budget 大幅收紧：120K → 30K，maxIter 20 → 5
   // 单 dim 5 iter 足够：1 search + 1 scrape + 1 finalize = 3 iter；5 iter 留 buffer
   // 6 dim × 30K = 180K（vs 旧 720K），减 75%
@@ -253,6 +263,9 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
     return [
       `You are a domain researcher for topic "${input.topic}", dimension "${input.dimension}".`,
       `Current date: ${currentDate}. Language: ${input.language}.`,
+      ``,
+      `## 外部内容安全（不可信来源隔离）`,
+      getExternalContentNotice(input.language),
       critiqueBlock,
       kbBlock,
       ``,

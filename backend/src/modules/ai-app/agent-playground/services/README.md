@@ -78,7 +78,8 @@ services/
 ```
 Mission（业务剧本）        ← playground.config.ts + dispatcher + 14 stage
    │
-   ├─ 决定调用顺序、分支、交接（pipeline DAG declarative）
+   ├─ 决定调用顺序（pipeline 严格顺序执行，stages 之间无并行）
+   │    dag.successors = rerun cascade 声明（重跑哪步时自动带跑下游），不是并行执行图
    ├─ 持有 MissionContext（跨 stage 状态）
    └─ 通过 MissionDeps 注入下层依赖
         ↓
@@ -93,7 +94,7 @@ Harness（执行底座）         ← ai-harness sediment topology
    ├─ Z4 MissionPipelineOrchestrator（stage 编排）
    ├─ Z1 lifecycle primitives（store / abort / liveness / ownership）
    ├─ Z2 checkpoint store / Z5 stage primitives
-   └─ 业务无关，benchmark consumer 同时 import 5 个 zone（详见 docs/architecture/ai-harness/sediment-topology.md）
+   └─ 业务无关，benchmark consumer 同时 import 5 个 zone（详见 docs/architecture/ai-harness/facade/sediment-topology.md）
 ```
 
 ## Stage 命名规则

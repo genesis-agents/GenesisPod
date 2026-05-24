@@ -8,6 +8,7 @@
 import {
   extractJsonFromAIResponse,
   stripReasoningBlocks,
+  tryRepairTruncatedJsonWithMeta,
 } from "../json-extraction.utils";
 
 describe("JSON Extraction Utilities", () => {
@@ -19,15 +20,15 @@ describe("JSON Extraction Utilities", () => {
     });
 
     it("strips closed <thinking> blocks (Anthropic-style)", () => {
-      expect(
-        stripReasoningBlocks("<thinking>reason</thinking>{\"x\":1}"),
-      ).toBe('{"x":1}');
+      expect(stripReasoningBlocks('<thinking>reason</thinking>{"x":1}')).toBe(
+        '{"x":1}',
+      );
     });
 
     it("strips closed <reasoning> blocks", () => {
-      expect(
-        stripReasoningBlocks("<reasoning>note</reasoning>{\"x\":1}"),
-      ).toBe('{"x":1}');
+      expect(stripReasoningBlocks('<reasoning>note</reasoning>{"x":1}')).toBe(
+        '{"x":1}',
+      );
     });
 
     it("is case-insensitive on tags", () => {
@@ -42,7 +43,7 @@ describe("JSON Extraction Utilities", () => {
     });
 
     it("strips unclosed leading <think> blocks (truncated)", () => {
-      const input = "<think>some reasoning... </think>{\"final\":1}";
+      const input = '<think>some reasoning... </think>{"final":1}';
       expect(stripReasoningBlocks(input)).toBe('{"final":1}');
     });
 
@@ -66,8 +67,7 @@ describe("JSON Extraction Utilities", () => {
       });
 
       it("parses JSON inside ```json after a <think> block", () => {
-        const content =
-          '<think>let me think...</think>\n```json\n{"a":1}\n```';
+        const content = '<think>let me think...</think>\n```json\n{"a":1}\n```';
         const result = extractJsonFromAIResponse(content);
         expect(result.success).toBe(true);
         expect(result.data).toEqual({ a: 1 });
@@ -681,6 +681,71 @@ This contains the requested information.`;
           v: 1,
         });
       });
+    });
+  });
+
+  // ==================== tryRepairTruncatedJsonWithMeta ====================
+
+  describe("tryRepairTruncatedJsonWithMeta", () => {
+    it("returns repaired=false for already-complete JSON", () => {
+      // Arrange
+      const input = '{"name":"Alice","age":30}';
+
+      // Act
+      const result = tryRepairTruncatedJsonWithMeta(input);
+
+      // Assert: no repair was needed
+      expect(result.repaired).toBe(false);
+      expect(result.json).toBe(input);
+    });
+
+    it("returns repaired=true when JSON is truncated mid-value", () => {
+      // Arrange: LLM response cut off in the middle of a number
+      const input = '{"name":"Alice","score":9';
+
+      // Act
+      const result = tryRepairTruncatedJsonWithMeta(input);
+
+      // Assert: repair happened, result is parseable
+      expect(result.repaired).toBe(true);
+      expect(() => JSON.parse(result.json)).not.toThrow();
+    });
+
+    it("returns repaired=true when closing braces are missing", () => {
+      // Arrange
+      const input = '{"user":{"name":"Bob","roles":["admin","user"]';
+
+      // Act
+      const result = tryRepairTruncatedJsonWithMeta(input);
+
+      // Assert
+      expect(result.repaired).toBe(true);
+      const parsed = JSON.parse(result.json) as { user: { name: string } };
+      expect(parsed.user.name).toBe("Bob");
+    });
+
+    it("returns repaired=false and original string when input has no JSON start", () => {
+      // Arrange: no '{' found — tryRepairTruncatedJson returns null
+      const input = "no json here at all";
+
+      // Act
+      const result = tryRepairTruncatedJsonWithMeta(input);
+
+      // Assert
+      expect(result.repaired).toBe(false);
+      expect(result.json).toBe(input);
+    });
+
+    it("original tryRepairTruncatedJson callers (via extractJsonFromAIResponse) are unaffected", () => {
+      // Arrange: truncated JSON that triggers the 'repaired' method in extractJsonFromAIResponse
+      const content = '{"status":"ok","items":[1,2,3';
+
+      // Act
+      const extracted = extractJsonFromAIResponse(content);
+
+      // Assert: extraction still succeeds (backward-compatible)
+      expect(extracted.success).toBe(true);
+      expect(extracted.data).toHaveProperty("status", "ok");
     });
   });
 });

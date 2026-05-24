@@ -2,26 +2,12 @@
 
 import { Coins } from 'lucide-react';
 import type { CostState } from '@/lib/features/agent-playground/derive';
+import {
+  fmtUsd,
+  fmtTokens,
+  STAGE_LABEL,
+} from '@/lib/features/agent-playground/formatters';
 import { Card } from '@/components/agent-playground/ui';
-
-const STAGE_LABEL: Record<string, string> = {
-  leader: 'Leader',
-  researchers: 'Researchers',
-  analyst: 'Analyst',
-  writer: 'Writer',
-  reviewer: 'Reviewer',
-};
-
-function fmtUsd(n: number): string {
-  if (n === 0) return '$0.0000';
-  if (n < 0.01) return `$${n.toFixed(4)}`;
-  return `$${n.toFixed(3)}`;
-}
-function fmtTokens(n: number): string {
-  if (n < 1000) return String(n);
-  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
-}
 
 export function CostBreakdownPanel({ cost }: { cost: CostState }) {
   const ordered = [

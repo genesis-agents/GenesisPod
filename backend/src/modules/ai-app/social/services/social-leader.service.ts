@@ -623,6 +623,93 @@ export class SocialLeaderService {
       `[processKeepFormatSource] ${isSeries ? `Series mode: ${sections.length} parts, seriesId=${seriesId}` : "Single article mode"}`,
     );
 
+    // Pre-compute all AI-dependent and pure-CPU values OUTSIDE the transaction.
+    // The AI compliance check (contentChecker.check) is a network call and must
+    // never hold a DB connection; compute it here before opening the transaction.
+    type SectionInsertParams = {
+      safeContent: string;
+      safeTitle: string;
+      safeDigest: string | null;
+      safeSourceUrl: string | null;
+      safeCoverImageUrl: string | null;
+      safeImages: string[];
+      safeTags: string[];
+      safeComplianceCheck: unknown;
+      seriesOrder: number | null;
+    };
+
+    let firstCheckResult: {
+      passed: boolean;
+      issues: unknown[];
+      suggestions: unknown[];
+    } = {
+      passed: true,
+      issues: [],
+      suggestions: [],
+    };
+
+    const sectionParams: SectionInsertParams[] = [];
+    const safeSourceUrl = sanitizeString(sourceContent.url) || null;
+    const safeImages = ensureJsonArray(sourceContent.images);
+
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i];
+
+      // 第一篇包含 Executive Summary
+      const executiveSummary =
+        i === 0
+          ? (sourceContent.metadata?.executiveSummary as string | undefined)
+          : undefined;
+
+      // 将 section Markdown 转为微信 HTML（pure CPU）
+      const wechatHtml = this.wechatFormatter.formatForWechat(
+        section.markdown,
+        {
+          executiveSummary,
+          charts: sourceContent.metadata?.charts as unknown[] | undefined,
+          title: section.heading,
+        },
+      );
+
+      // 生成标题（系列模式带序号，pure CPU）
+      const sectionTitle = isSeries
+        ? `${sourceContent.title}（${i + 1}/${sections.length}）${section.heading}`
+        : sourceContent.title;
+
+      // 生成摘要（pure CPU）
+      const digest = this.wechatFormatter.generateDigest(section.markdown);
+
+      // 内容合规检测（AI/network call）——只检测第一篇，避免重复消耗
+      // This is a network call and MUST stay outside the transaction.
+      const checkResult =
+        i === 0
+          ? await this.contentChecker.check(wechatHtml)
+          : { passed: true, issues: [], suggestions: [] };
+
+      if (i === 0) {
+        firstCheckResult = checkResult;
+      }
+
+      sectionParams.push({
+        safeContent: sanitizeString(wechatHtml),
+        safeTitle: truncateString(sectionTitle, 200),
+        safeDigest: truncateString(digest, 200) || null,
+        safeSourceUrl,
+        safeCoverImageUrl: i === 0 ? pickCoverImage(sourceContent) : null,
+        safeImages,
+        safeTags: [],
+        safeComplianceCheck: safeJsonSerialize(checkResult, {
+          passed: false,
+          score: 0,
+          issues: [],
+          suggestions: ["Compliance check data was invalid"],
+        }),
+        seriesOrder: isSeries ? i + 1 : null,
+      });
+    }
+
+    // All AI work is done. Open a single transaction containing ONLY pure DB INSERTs.
+    // If any insert fails the whole transaction rolls back — no orphan DRAFT rows.
     const allContents: Array<{
       id: string;
       userId: string;
@@ -636,149 +723,86 @@ export class SocialLeaderService {
       seriesOrder: number | null;
       status: string;
       createdAt: Date;
-    }> = [];
+    }> = await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const rows: typeof allContents = [];
+        for (let i = 0; i < sectionParams.length; i++) {
+          const p = sectionParams[i];
+          const results = await tx.$queryRaw<
+            Array<{
+              id: string;
+              user_id: string;
+              content_type: string;
+              source_type: string;
+              source_id: string;
+              title: string;
+              content: string;
+              digest: string | null;
+              series_id: string | null;
+              series_order: number | null;
+              status: string;
+              created_at: Date;
+            }>
+          >`
+            INSERT INTO "social_contents" (
+              "id", "user_id", "content_type", "source_type", "source_id",
+              "title", "content", "digest", "source_url", "cover_image_url",
+              "images", "tags", "compliance_check", "status", "review_status",
+              "series_id", "series_order",
+              "created_at", "updated_at"
+            ) VALUES (
+              gen_random_uuid(),
+              ${userId}::uuid,
+              ${dto.targetType}::"SocialContentType",
+              ${dto.sourceType}::"SocialContentSourceType",
+              ${dto.sourceId},
+              ${p.safeTitle},
+              ${p.safeContent},
+              ${p.safeDigest},
+              ${p.safeSourceUrl},
+              ${p.safeCoverImageUrl},
+              ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(p.safeImages)}::jsonb)),
+              ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(p.safeTags)}::jsonb)),
+              ${JSON.stringify(p.safeComplianceCheck)}::jsonb,
+              'DRAFT'::"SocialContentStatus",
+              'PENDING'::"SocialReviewStatus",
+              ${seriesId},
+              ${p.seriesOrder}::integer,
+              NOW(),
+              NOW()
+            )
+            RETURNING id, user_id, content_type, source_type, source_id,
+                      title, content, digest, series_id, series_order, status, created_at
+          `;
 
-    let firstCheckResult: {
-      passed: boolean;
-      issues: unknown[];
-      suggestions: unknown[];
-    } = {
-      passed: true,
-      issues: [],
-      suggestions: [],
-    };
+          const row = results[0];
+          if (!row) {
+            throw new Error("Insert succeeded but no data returned");
+          }
 
-    // TODO: wrap in $transaction for atomicity (MVP: partial inserts are acceptable as DRAFT)
-    for (let i = 0; i < sections.length; i++) {
-      const section = sections[i];
+          this.logger.log(
+            `[processKeepFormatSource] Created ${isSeries ? `part ${i + 1}/${sectionParams.length}` : "content"}: ${row.id}`,
+          );
 
-      // 第一篇包含 Executive Summary
-      const executiveSummary =
-        i === 0
-          ? (sourceContent.metadata?.executiveSummary as string | undefined)
-          : undefined;
-
-      // 将 section Markdown 转为微信 HTML
-      const wechatHtml = this.wechatFormatter.formatForWechat(
-        section.markdown,
-        {
-          executiveSummary,
-          charts: sourceContent.metadata?.charts as unknown[] | undefined,
-          title: section.heading,
-        },
-      );
-
-      // 生成标题（系列模式带序号）
-      const sectionTitle = isSeries
-        ? `${sourceContent.title}（${i + 1}/${sections.length}）${section.heading}`
-        : sourceContent.title;
-
-      // 生成摘要
-      const digest = this.wechatFormatter.generateDigest(section.markdown);
-
-      // 内容合规检测（只检测第一篇，避免重复消耗）
-      const checkResult =
-        i === 0
-          ? await this.contentChecker.check(wechatHtml)
-          : { passed: true, issues: [], suggestions: [] };
-
-      if (i === 0) {
-        firstCheckResult = checkResult;
-      }
-
-      const safeImages = ensureJsonArray(sourceContent.images);
-      const safeTags: string[] = [];
-      const safeComplianceCheck = safeJsonSerialize(checkResult, {
-        passed: false,
-        score: 0,
-        issues: [],
-        suggestions: ["Compliance check data was invalid"],
-      });
-
-      const safeContent = sanitizeString(wechatHtml);
-      const safeTitle = truncateString(sectionTitle, 200);
-      const safeDigest = truncateString(digest, 200) || null;
-      const safeSourceUrl = sanitizeString(sourceContent.url) || null;
-      const safeCoverImageUrl = i === 0 ? pickCoverImage(sourceContent) : null;
-
-      try {
-        const results = await this.prisma.$queryRaw<
-          Array<{
-            id: string;
-            user_id: string;
-            content_type: string;
-            source_type: string;
-            source_id: string;
-            title: string;
-            content: string;
-            digest: string | null;
-            series_id: string | null;
-            series_order: number | null;
-            status: string;
-            created_at: Date;
-          }>
-        >`
-          INSERT INTO "social_contents" (
-            "id", "user_id", "content_type", "source_type", "source_id",
-            "title", "content", "digest", "source_url", "cover_image_url",
-            "images", "tags", "compliance_check", "status", "review_status",
-            "series_id", "series_order",
-            "created_at", "updated_at"
-          ) VALUES (
-            gen_random_uuid(),
-            ${userId}::uuid,
-            ${dto.targetType}::"SocialContentType",
-            ${dto.sourceType}::"SocialContentSourceType",
-            ${dto.sourceId},
-            ${safeTitle},
-            ${safeContent},
-            ${safeDigest},
-            ${safeSourceUrl},
-            ${safeCoverImageUrl},
-            ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(safeImages)}::jsonb)),
-            ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(safeTags)}::jsonb)),
-            ${JSON.stringify(safeComplianceCheck)}::jsonb,
-            'DRAFT'::"SocialContentStatus",
-            'PENDING'::"SocialReviewStatus",
-            ${seriesId},
-            ${isSeries ? i + 1 : null}::integer,
-            NOW(),
-            NOW()
-          )
-          RETURNING id, user_id, content_type, source_type, source_id,
-                    title, content, digest, series_id, series_order, status, created_at
-        `;
-
-        const row = results[0];
-        if (!row) {
-          throw new Error("Insert succeeded but no data returned");
+          rows.push({
+            id: row.id,
+            userId: row.user_id,
+            contentType: row.content_type,
+            sourceType: row.source_type,
+            sourceId: row.source_id,
+            title: row.title,
+            content: row.content,
+            digest: row.digest,
+            seriesId: row.series_id,
+            seriesOrder: row.series_order,
+            status: row.status,
+            createdAt: row.created_at,
+          });
         }
-
-        this.logger.log(
-          `[processKeepFormatSource] Created ${isSeries ? `part ${i + 1}/${sections.length}` : "content"}: ${row.id}`,
-        );
-
-        allContents.push({
-          id: row.id,
-          userId: row.user_id,
-          contentType: row.content_type,
-          sourceType: row.source_type,
-          sourceId: row.source_id,
-          title: row.title,
-          content: row.content,
-          digest: row.digest,
-          seriesId: row.series_id,
-          seriesOrder: row.series_order,
-          status: row.status,
-          createdAt: row.created_at,
-        });
-      } catch (error) {
-        this.logger.error(
-          `[processKeepFormatSource] Insert failed for part ${i + 1}: ${error}`,
-        );
-        throw error;
-      }
-    }
+        return rows;
+      },
+      { timeout: 30000 },
+    );
 
     // Build response (first content for backward compatibility)
     const firstRow = allContents[0];

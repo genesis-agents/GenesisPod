@@ -21,6 +21,7 @@
 
 import { DimensionIntegratorAgent } from "../../../agents/writer/dimension-integrator.agent";
 import type { MissionDeps } from "./mission-deps";
+import { groundDimensionGrade } from "./grade-grounding.util";
 import type { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import type { MissionBudgetPool } from "@/modules/ai-harness/facade";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
@@ -401,6 +402,7 @@ export async function runPerDimPipeline(
       "researchers",
       pool,
       extractTokenSpend(outlineRes.events),
+      outlineRes.events,
     );
     await deps.lifecycle(
       missionId,
@@ -545,6 +547,7 @@ export async function runPerDimPipeline(
         }),
       deps,
       { missionId, dimensionName },
+      pool,
     );
 
     const producedChapters: WrittenChapter[] = settledResults
@@ -646,6 +649,7 @@ export async function runPerDimPipeline(
       "researchers",
       pool,
       extractTokenSpend(integrateRes.events),
+      integrateRes.events,
     );
 
     // ★ 2026-05-02: fullMarkdown is deterministically stitched from chapter bodies;
@@ -762,9 +766,12 @@ export async function runPerDimPipeline(
         "researchers",
         pool,
         extractTokenSpend(gradeRes.events),
+        gradeRes.events,
       );
       if (gradeRes.state === "completed" && gradeRes.output) {
         const g = gradeRes.output as NonNullable<PerDimPipelineResult["grade"]>;
+        // ★ 2026-05-23 review-fix #3：评分接地 + overall 重算（纯函数，见 grade-grounding.util）
+        groundDimensionGrade(g, evidenceBudget.uniqueSources);
         grade = g;
         await emitGraded({ ok: true, g });
         // ★ sources_sufficiency warning (2026-05-06)

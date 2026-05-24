@@ -245,6 +245,25 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       expect(violations).toEqual([]);
     });
 
+    // v3.1 阶段 A review (2026-05-24)：ModelCapabilityService 边界守护
+    // 该服务仅供 llm.module 内部 StructuredOutputRouter + AiApiCallerService 注入，
+    // 故意不在 llm.module exports —— 防 ai-app 直接读 caps 再生散点 if 判断
+    // （v3 §3.6 SSOT 守护）。本断言锁定此边界，违规一目了然。
+    it("ai-app 不得 import capability/model-capability.service（仅 llm.module 内部）", () => {
+      const violations: string[] = [];
+      for (const file of ALL_FILES) {
+        if (fileLayer(file) !== "ai-app") continue;
+        const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
+        for (const target of extractImportTargets(file)) {
+          // 命中 ai-engine/llm/capability/model-capability.service（任意相对/绝对路径形态）
+          if (/capability\/model-capability\.service/.test(target)) {
+            violations.push(`${rel} → ${target}`);
+          }
+        }
+      }
+      expect(violations).toEqual([]);
+    });
+
     it("ai-app 不得穿透 ai-harness 内部（除 facade）", () => {
       const violations: string[] = [];
       for (const file of ALL_FILES) {

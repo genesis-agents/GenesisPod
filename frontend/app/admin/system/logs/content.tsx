@@ -10,6 +10,7 @@ import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import ClientDate from '@/components/common/ClientDate';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface LogsStats {
   totalLogins: number;
@@ -295,7 +296,15 @@ export default function LogsPageContent({
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <Table className="w-full text-left text-sm">
+                  <Table className="w-full table-fixed text-left text-sm">
+                    <colgroup>
+                      <col className="w-[24%]" />
+                      <col className="w-[18%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[16%]" />
+                      <col className="w-[16%]" />
+                      <col className="w-[12%]" />
+                    </colgroup>
                     <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
                       <Tr>
                         <Th className="px-4 py-3">
@@ -322,7 +331,9 @@ export default function LogsPageContent({
                       {loginData.items.map((record) => (
                         <Tr key={record.id} className="hover:bg-gray-50">
                           <Td className="px-4 py-3 font-medium text-gray-900">
-                            {record.userEmail}
+                            <TruncatedCell className="max-w-[200px] font-medium text-gray-900">
+                              {record.userEmail}
+                            </TruncatedCell>
                           </Td>
                           <Td className="px-4 py-3 text-gray-600">
                             <ClientDate
@@ -334,13 +345,19 @@ export default function LogsPageContent({
                             {record.ipAddress || '-'}
                           </Td>
                           <Td className="px-4 py-3 text-gray-600">
-                            {record.device || '-'}
+                            <TruncatedCell className="max-w-[160px] text-gray-600">
+                              {record.device || '-'}
+                            </TruncatedCell>
                           </Td>
                           <Td className="px-4 py-3 text-gray-600">
-                            {record.browser || '-'}
+                            <TruncatedCell className="max-w-[160px] text-gray-600">
+                              {record.browser || '-'}
+                            </TruncatedCell>
                           </Td>
                           <Td className="px-4 py-3 text-gray-600">
-                            {record.location || '-'}
+                            <TruncatedCell className="max-w-[160px] text-gray-600">
+                              {record.location || '-'}
+                            </TruncatedCell>
                           </Td>
                         </Tr>
                       ))}
@@ -422,10 +439,14 @@ export default function LogsPageContent({
                       {taskData.items.map((task) => (
                         <Tr key={task.id} className="hover:bg-gray-50">
                           <Td className="px-4 py-3 font-medium text-gray-900">
-                            {task.name}
+                            <TruncatedCell className="max-w-[220px] font-medium text-gray-900">
+                              {task.name}
+                            </TruncatedCell>
                           </Td>
                           <Td className="px-4 py-3 text-gray-600">
-                            {task.sourceName}
+                            <TruncatedCell className="max-w-[180px] text-gray-600">
+                              {task.sourceName}
+                            </TruncatedCell>
                           </Td>
                           <Td className="px-4 py-3">
                             <span

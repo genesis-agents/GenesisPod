@@ -45,6 +45,7 @@ import {
 } from '@/lib/features/admin/tool-categories';
 import { useToolSecretSuggestions } from '@/lib/features/admin/tool-secrets';
 import { DrawerShell, Row, Section, Th } from '../_shared/admin-tables';
+import { TruncatedCell } from '@/components/common/tables';
 import { SecretComboBox } from './_shared/SecretComboBox';
 
 interface ToolRow {
@@ -363,23 +364,20 @@ export function APIServicesTable() {
                           onClick={() => setSelectedId(t.toolId)}
                           className="cursor-pointer hover:bg-gray-50"
                         >
-                          <td
-                            className="max-w-[260px] truncate whitespace-nowrap px-4 py-2.5 text-sm font-medium text-gray-900"
-                            title={t.displayName || t.name}
-                          >
-                            {t.displayName || t.name}
+                          <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
+                            <TruncatedCell className="max-w-[260px]">
+                              {t.displayName || t.name}
+                            </TruncatedCell>
                           </td>
-                          <td
-                            className="font-mono max-w-[180px] truncate whitespace-nowrap px-4 py-2.5 text-xs text-gray-600"
-                            title={t.toolId}
-                          >
-                            {t.toolId}
+                          <td className="font-mono px-4 py-2.5 text-xs text-gray-600">
+                            <TruncatedCell className="max-w-[180px]">
+                              {t.toolId}
+                            </TruncatedCell>
                           </td>
-                          <td
-                            className="font-mono max-w-[160px] truncate whitespace-nowrap px-4 py-2.5 text-[11px] text-gray-500"
-                            title={t.category}
-                          >
-                            {t.category || '—'}
+                          <td className="font-mono px-4 py-2.5 text-[11px] text-gray-500">
+                            <TruncatedCell className="max-w-[160px]">
+                              {t.category || '—'}
+                            </TruncatedCell>
                           </td>
                           <td className="whitespace-nowrap px-4 py-2.5 text-xs">
                             {configured ? (

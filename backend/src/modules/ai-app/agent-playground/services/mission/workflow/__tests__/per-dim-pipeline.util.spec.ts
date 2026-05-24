@@ -100,6 +100,8 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   // ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity 已下沉 engine/content，
   //   通过 harness facade 转发；spec 此处需补 mock 让 stuck-revision 检测路径可走通。
   jaccardSimilarity: jest.fn((a: string, b: string) => (a === b ? 1 : 0)),
+  // R2-#50: narrate moved to harness facade
+  narrate: jest.fn().mockResolvedValue(undefined),
 }));
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

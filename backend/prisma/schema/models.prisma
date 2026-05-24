@@ -2618,10 +2618,18 @@ model AIModel {
   supportsJsonMode         Boolean  @default(false) @map("supports_json_mode")
   supportsGbnfGrammar      Boolean  @default(false) @map("supports_gbnf_grammar")
 
+  // v3.1 §3.3 优先级 #2：admin 显式 capability override（JSONB，nullable）。
+  // 写入侧由 ModelCapabilitiesOverridesSchema (zod .strict()) 严校；读取侧
+  // 由 ai-model-config.service buildModelConfig 经 safeParse 填入
+  // AIModelConfig.aiModelOverrides，未填字段走优先级链下一级回退。
+  // SSOT：覆盖逻辑在 ai-engine/llm/capability/model-capability.service。
+  capabilityOverrides Json? @map("capability_overrides")
+
   // 价格配置（每百万 token）
-  priceInputPerMillion     Decimal? @map("price_input_per_million") @db.Decimal(10, 4)
-  priceOutputPerMillion    Decimal? @map("price_output_per_million") @db.Decimal(10, 4)
-  priceCacheReadPerMillion Decimal? @map("price_cache_read_per_million") @db.Decimal(10, 4)
+  priceInputPerMillion      Decimal? @map("price_input_per_million") @db.Decimal(10, 4)
+  priceOutputPerMillion     Decimal? @map("price_output_per_million") @db.Decimal(10, 4)
+  priceCacheReadPerMillion  Decimal? @map("price_cache_read_per_million") @db.Decimal(10, 4)
+  priceCacheWritePerMillion Decimal? @map("price_cache_write_per_million") @db.Decimal(10, 4)
 
   // 成本档位（Harness BudgetAccountant downgrade 路径用）
   // basic = 便宜（mini/nano/haiku 类）；standard = 主力对话；strong = 旗舰推理（opus/o1/gpt-5）
@@ -9565,6 +9573,12 @@ model UserModelConfig {
   // gemini-embedding-001 free tier 真实卡点：30K TPM
   tpmLimit Int? @map("tpm_limit")
 
+  // v3.1 §3.3 优先级 #1：BYOK 用户 capability override（JSONB，nullable）。
+  // 写入侧由 ModelCapabilitiesOverridesSchema (zod .strict()) 严校；读取侧
+  // 由 ai-model-config.service toAIModelConfigFromUserConfig 经 safeParse 填入
+  // AIModelConfig.userOverrides，未填字段走优先级链下一级回退（admin → catalog）。
+  capabilityOverrides Json? @map("capability_overrides")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -10815,4 +10829,41 @@ model SocialContentTaskVersion {
 
   @@unique([taskId, platform])
   @@index([taskId])
+}
+
+// ============================================================================
+// v3.1 B.3 · capability_overrides 写入审计日志（D2 + §4.5 同事务）
+// ============================================================================
+
+/// 任何对 AIModel.capability_overrides / UserModelConfig.capability_overrides
+/// 的写入（admin override / BYOK 用户 override / self-heal 系统降级）都必须
+/// 在同一个 prisma.$transaction 内向本表 INSERT 一行。
+///
+/// 业务 commit 失败时审计同步回滚（强一致），避免"业务成功 audit 失败"
+/// 或"audit 写了业务回滚"的不一致状态。
+///
+/// 查询模式：
+///   - cooling-off 守护：WHERE scope_key + field + source='admin-override'
+///     AND created_at >= NOW() - INTERVAL '24h'
+///   - actor 审计：WHERE actor_id ORDER BY created_at DESC
+model CapabilityOverrideAuditLog {
+  id                String   @id @default(cuid())
+  actorId           String   @map("actor_id")
+  actorRole         String   @map("actor_role") // 'user' | 'admin' | 'system'
+  scope             String // 'PERSONAL' | 'ADMIN' | 'SYSTEM' (v3.1 D2 修订矩阵)
+  scopeKey          String   @map("scope_key") // 'admin:ai_models:<id>' | 'user:<userId>:user_model_config:<id>'
+  aiModelId         String?  @map("ai_model_id") // 引用 AIModel.id（admin 写时填）
+  userModelConfigId String?  @map("user_model_config_id") // 引用 UserModelConfig.id（BYOK / self-heal 写时填）
+  field             String // 改的字段路径或 '<root>' 表整 patch
+  beforeValue       Json?    @map("before_value")
+  afterValue        Json?    @map("after_value")
+  source            String // 'admin-override' | 'self-heal-user' | 'reverse-probe'
+  reason            String // ≥30 字符（DTO @MinLength(30) + service assert 双校）
+  ipAddress         String?  @map("ip_address")
+  userAgent         String?  @map("user_agent")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([scopeKey, field, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@map("capability_override_audit_logs")
 }

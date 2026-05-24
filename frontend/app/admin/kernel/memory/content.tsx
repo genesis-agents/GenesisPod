@@ -16,6 +16,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { AdminPageLayout } from '@/components/admin/layout';
 import { AdminDrawer } from '@/components/admin/shared';
+import { TruncatedCell } from '@/components/common/tables';
 
 // ============================
 // Types
@@ -102,11 +103,6 @@ function formatValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function truncateValue(value: unknown, maxLen = 120): string {
-  const str = formatValue(value);
-  return str.length > maxLen ? `${str.slice(0, maxLen)}…` : str;
-}
-
 function formatExpiresAt(expiresAt?: string): string {
   if (!expiresAt) return 'Never';
   const date = new Date(expiresAt);
@@ -166,9 +162,9 @@ function MemoryEntryRow({ entry }: MemoryEntryRowProps) {
         </Td>
         {/* Process ID */}
         <Td className="px-4 py-3">
-          <span className="font-mono text-xs text-gray-700">
+          <TruncatedCell className="font-mono max-w-[180px] text-xs text-gray-700">
             {entry.processId}
-          </span>
+          </TruncatedCell>
         </Td>
         {/* Layer */}
         <Td className="px-4 py-3">
@@ -176,15 +172,22 @@ function MemoryEntryRow({ entry }: MemoryEntryRowProps) {
         </Td>
         {/* Key */}
         <Td className="px-4 py-3">
-          <span className="font-mono text-xs font-medium text-gray-800">
+          <TruncatedCell className="font-mono max-w-[160px] text-xs font-medium text-gray-800">
             {entry.key}
-          </span>
+          </TruncatedCell>
         </Td>
         {/* Value */}
-        <Td className="max-w-xs px-4 py-3">
-          <span className="font-mono text-xs text-gray-600">
-            {expanded ? fullValue : truncateValue(entry.value)}
-          </span>
+        <Td className="px-4 py-3">
+          {expanded ? (
+            <span className="font-mono text-xs text-gray-600">{fullValue}</span>
+          ) : (
+            <TruncatedCell
+              className="font-mono max-w-[240px] text-xs text-gray-600"
+              tooltip={fullValue}
+            >
+              {fullValue}
+            </TruncatedCell>
+          )}
         </Td>
         {/* Expires At */}
         <Td className="px-4 py-3 text-xs text-gray-500">
@@ -409,12 +412,14 @@ export default function KernelMemoryPageContent({
                       </span>
                     </Td>
                     <Td className="px-4 py-2.5">
-                      <span className="font-mono text-xs text-gray-700">
+                      <TruncatedCell className="font-mono max-w-[200px] text-xs text-gray-700">
                         {p.id}
-                      </span>
+                      </TruncatedCell>
                     </Td>
-                    <Td className="px-4 py-2.5 text-xs text-gray-600">
-                      {p.agentId || '-'}
+                    <Td className="px-4 py-2.5">
+                      <TruncatedCell className="max-w-[160px] text-xs text-gray-600">
+                        {p.agentId || '-'}
+                      </TruncatedCell>
                     </Td>
                     <Td className="px-4 py-2.5 text-xs text-gray-500">
                       {new Date(p.createdAt).toLocaleString()}
@@ -556,7 +561,15 @@ export default function KernelMemoryPageContent({
           />
         ) : (
           <div className="overflow-x-auto">
-            <Table className="w-full text-left text-sm">
+            <Table className="w-full table-fixed text-left text-sm">
+              <colgroup>
+                <col className="w-[5%]" />
+                <col className="w-[22%]" />
+                <col className="w-[10%]" />
+                <col className="w-[18%]" />
+                <col className="w-[29%]" />
+                <col className="w-[16%]" />
+              </colgroup>
               <THead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
                 <Tr>
                   <Th className="w-8 px-4 py-3" />
@@ -678,14 +691,17 @@ export default function KernelMemoryPageContent({
                             <LayerBadge layer={e.layer} />
                           </Td>
                           <Td className="px-3 py-2">
-                            <span className="font-mono text-[11px] text-gray-700">
+                            <TruncatedCell className="font-mono max-w-[140px] text-[11px] text-gray-700">
                               {e.key}
-                            </span>
+                            </TruncatedCell>
                           </Td>
-                          <Td className="max-w-[220px] px-3 py-2">
-                            <span className="font-mono block truncate text-[11px] text-gray-500">
-                              {truncateValue(e.value, 80)}
-                            </span>
+                          <Td className="px-3 py-2">
+                            <TruncatedCell
+                              className="font-mono max-w-[220px] text-[11px] text-gray-500"
+                              tooltip={formatValue(e.value)}
+                            >
+                              {formatValue(e.value)}
+                            </TruncatedCell>
                           </Td>
                           <Td className="px-3 py-2 text-[10px] text-gray-400">
                             {formatExpiresAt(e.expiresAt)}

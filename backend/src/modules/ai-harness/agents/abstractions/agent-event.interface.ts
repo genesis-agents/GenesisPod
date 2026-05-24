@@ -19,11 +19,80 @@ export type AgentEventType =
   | "budget_warning" // 预算即将耗尽
   | "terminated"; // 终止
 
+/**
+ * IReflectionEvent — Reflexion Loop 每轮 verifier 打分记录。
+ */
+export interface IReflectionEvent extends IAgentEvent {
+  type: "reflection";
+  payload: {
+    revision: number;
+    score: number | null;
+    verdicts: ReadonlyArray<{
+      judgeId: string;
+      score: number;
+      critique?: string;
+    }>;
+    note?: string;
+    abstainCount?: number;
+  };
+}
+
+/**
+ * ITerminatedEvent — Agent 运行结束（completed / budget / error / cancelled）。
+ */
+export interface ITerminatedEvent extends IAgentEvent {
+  type: "terminated";
+  payload: {
+    reason: "completed" | "budget" | "error" | "cancelled";
+    note?: string;
+  };
+}
+
+/**
+ * IBudgetWarningEvent — 预算告警（token / cost 逼近上限时 emit）。
+ *
+ * severity 语义：
+ *   - "pressure"   — 达到 downgrade 阈值（70%），降级 tier 但未终止
+ *   - "soft"       — 逼近上限（90% 软告警），UI 橙色提示
+ *   - "exhausted"  — budget 耗尽，即将终止
+ */
+export interface IBudgetWarningEvent extends IAgentEvent {
+  type: "budget_warning";
+  payload: {
+    severity?: "pressure" | "soft" | "exhausted";
+    tokensUsed?: number;
+    tokensLimit?: number;
+    costUsd?: number | null;
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * AgentEventPayload — IAgentEvent.payload 的 canonical 联合类型。
+ *
+ * 设计：
+ *   - 涵盖 AgentEventType 全部 11 个 event type 的 payload 形状
+ *   - 新增 event type 时，先在此处补 payload 类型，再加 AgentEventType 枚举值
+ *   - 使用者可通过 discriminated union（按 event.type）收窄到具体接口
+ */
+export type AgentEventPayload =
+  | IThinkingEvent["payload"]
+  | IActionPlannedEvent["payload"]
+  | IActionExecutedEvent["payload"]
+  | IReflectionEvent["payload"]
+  | IOutputEvent["payload"]
+  | IToolsRecalledEvent["payload"]
+  | IIterationProgressEvent["payload"]
+  | IValidationFailedEvent["payload"]
+  | IErrorEvent["payload"]
+  | ITerminatedEvent["payload"]
+  | IBudgetWarningEvent["payload"];
+
 export interface IAgentEvent {
   readonly type: AgentEventType;
   readonly agentId: string;
   readonly timestamp: number;
-  readonly payload: unknown;
+  readonly payload: AgentEventPayload;
 }
 
 export interface IThinkingEvent extends IAgentEvent {

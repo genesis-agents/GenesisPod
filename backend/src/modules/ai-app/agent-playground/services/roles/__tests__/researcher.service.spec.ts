@@ -146,6 +146,7 @@ describe("ResearcherService", () => {
       "researchers",
       pool,
       expect.any(Number),
+      expect.any(Array), // R2-#36: real events passed for costUsd extraction
     );
   });
 

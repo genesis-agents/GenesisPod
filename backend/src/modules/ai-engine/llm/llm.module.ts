@@ -65,6 +65,12 @@ import { ModelPricingRegistry } from "./pricing/model-pricing.registry";
 // Provider-aware structured output adapter router (covers商用 + 本地全部主流 provider)
 import { StructuredOutputRouter } from "./structured-output/structured-output-router.service";
 
+// v3.1 阶段 A：capability 只读链（SSOT，替代 router 内 PROVIDER_DEFAULT_CHAINS）
+import { ModelCapabilityService } from "./capability/model-capability.service";
+// v3.1 阶段 B 子片 2：capability_overrides 写入面 + self-heal（D2 + §4.5 同事务 + §4.4 阈值/lock/cooling-off）
+import { CapabilityOverridesWriterService } from "./capability/capability-overrides-writer.service";
+import { CapabilitySelfHealService } from "./capability/capability-self-heal.service";
+
 @Module({
   imports: [
     HttpModule.register({
@@ -139,8 +145,16 @@ import { StructuredOutputRouter } from "./structured-output/structured-output-ro
     // Pricing single source of truth (replaces 3 hardcoded tables)
     ModelPricingRegistry,
 
-    // Structured output router（管理员可配置首选 strategy + fallback；未配置走
-    // PROVIDER_DEFAULT_CHAINS 自动推断；最终兜底 prompt）
+    // v3.1 阶段 A：capability 只读链（SSOT，catalog 数据驱动）
+    ModelCapabilityService,
+
+    // v3.1 阶段 B 子片 2：capability_overrides 写入面 SSOT（admin / BYOK / self-heal 全部经此）
+    CapabilityOverridesWriterService,
+    // v3.1 阶段 B 子片 2：self-heal 决策栈（feature flag + 信号校验 + cooling-off + 阈值 + advisory lock）
+    CapabilitySelfHealService,
+
+    // Structured output router（管理员可配置首选 strategy + fallback；未配置由
+    // ModelCapabilityService.deriveStructuredOutputChain 派生；最终兜底 prompt）
     StructuredOutputRouter,
   ],
   exports: [
@@ -168,6 +182,15 @@ import { StructuredOutputRouter } from "./structured-output/structured-output-ro
     MissionElectionTracker,
     AutoConfigureService,
     ModelPricingRegistry,
+    // v3.1 阶段 A review (2026-05-24)：ModelCapabilityService 故意**不** export。
+    // 它只在 llm.module 内部供 StructuredOutputRouter + AiApiCallerService 注入，
+    // 不对外暴露（防 ai-app 直读 caps 后散点 if 判断；v3 §3.6 SSOT 守护）。
+    // v3.1 阶段 B 子片 2：writer / self-heal 必须 export 给 admin/BYOK controllers
+    // 调用（admin 在 open-api/admin，BYOK 在 ai-app/byok，都通过 AiEngineLLMModule
+    // 拿到 service 实例；ModelCapabilityService 不 export 是因为它被 ai-app 直读会
+    // 破坏 SSOT，这两个 service 是写入入口而非读取面，必须暴露）。
+    CapabilityOverridesWriterService,
+    CapabilitySelfHealService,
     StructuredOutputRouter,
   ],
 })

@@ -301,7 +301,7 @@ export class AgentPlaygroundController extends BaseMissionController {
    * 预算字段：
    *   - maxCredits：1 credit ≈ 1k tokens（10 - 100000）
    *   - budgetMultiplierOverride：每个 sub-agent token/iter 缩放（0.3 - 10）
-   *   - wallTimeMs：mission 总时长上限毫秒（60000 - 10800000，即 1min-180min）
+   *   - wallTimeCapMs：mission 总时长上限毫秒（60000 - 10800000，即 1min-180min）
    * status 必须为 terminal（completed/cancelled/failed/quality-failed/rejected）；
    * 下一次「重跑」会读到新值生效。
    */
@@ -313,7 +313,7 @@ export class AgentPlaygroundController extends BaseMissionController {
       topic?: string;
       maxCredits?: number;
       budgetMultiplierOverride?: number;
-      wallTimeMs?: number;
+      wallTimeCapMs?: number;
     },
     @Request() req: RequestWithUser,
   ): Promise<{ ok: true }> {
@@ -341,7 +341,7 @@ export class AgentPlaygroundController extends BaseMissionController {
     const hasBudget =
       typeof body.maxCredits === "number" ||
       typeof body.budgetMultiplierOverride === "number" ||
-      typeof body.wallTimeMs === "number";
+      typeof body.wallTimeCapMs === "number";
     if (hasBudget) {
       if (
         typeof body.maxCredits === "number" &&
@@ -359,16 +359,16 @@ export class AgentPlaygroundController extends BaseMissionController {
         );
       }
       if (
-        typeof body.wallTimeMs === "number" &&
-        (body.wallTimeMs < 60_000 || body.wallTimeMs > 180 * 60_000)
+        typeof body.wallTimeCapMs === "number" &&
+        (body.wallTimeCapMs < 60_000 || body.wallTimeCapMs > 180 * 60_000)
       ) {
         throw new BadRequestException(
-          "wallTimeMs must be 60000..10800000 (1-180min)",
+          "wallTimeCapMs must be 60000..10800000 (1-180min)",
         );
       }
       const res = await this.store.updateBudgetByUser(missionId, userId, {
         maxCredits: body.maxCredits,
-        wallTimeMs: body.wallTimeMs,
+        wallTimeCapMs: body.wallTimeCapMs,
         budgetMultiplierOverride: body.budgetMultiplierOverride,
       });
       if (!res.ok) {

@@ -9,6 +9,11 @@ import {
   Info,
 } from 'lucide-react';
 import type { ArtifactQualityVerdicts } from '@/lib/features/agent-playground/report-artifact.types';
+import {
+  scoreColor,
+  scoreBgColor,
+  scoreBgLight,
+} from '@/lib/features/agent-playground/formatters';
 
 interface Props {
   quality: ArtifactQualityVerdicts;
@@ -29,17 +34,6 @@ const DIM_LABELS: Record<keyof ArtifactQualityVerdicts['dimensions'], string> =
     lengthAccuracy: '长度准确',
     chapterBalance: '章节平衡',
   };
-
-function colorFor(score: number): string {
-  if (score >= 80) return 'text-emerald-600';
-  if (score >= 60) return 'text-amber-600';
-  return 'text-red-600';
-}
-function bgFor(score: number): string {
-  if (score >= 80) return 'bg-emerald-100';
-  if (score >= 60) return 'bg-amber-100';
-  return 'bg-red-100';
-}
 
 /**
  * 10 维质量评分 + L4 critic 警告展示
@@ -68,14 +62,14 @@ export function QualityBadge({ quality, defaultOpen }: Props) {
       >
         <div className="flex items-center gap-3">
           <span
-            className={`flex h-9 w-9 items-center justify-center rounded-xl ${bgFor(quality.overall)}`}
+            className={`flex h-9 w-9 items-center justify-center rounded-xl ${scoreBgLight(quality.overall)}`}
           >
-            <Icon className={`h-4 w-4 ${colorFor(quality.overall)}`} />
+            <Icon className={`h-4 w-4 ${scoreColor(quality.overall)}`} />
           </span>
           <div className="flex-1">
             <p className="text-sm font-bold text-gray-900">
               质量评分{' '}
-              <span className={colorFor(quality.overall)}>
+              <span className={scoreColor(quality.overall)}>
                 {quality.overall}/100
               </span>
               {quality.finalVerdict && (
@@ -158,7 +152,7 @@ export function QualityBadge({ quality, defaultOpen }: Props) {
                       ]
                     }
                   </p>
-                  <p className={`text-lg font-bold ${colorFor(v)}`}>{v}</p>
+                  <p className={`text-lg font-bold ${scoreColor(v)}`}>{v}</p>
                   <div className="mt-0.5 h-0.5 w-full overflow-hidden rounded-full bg-gray-200">
                     <div
                       className={`h-full transition-all ${

@@ -12,6 +12,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MissionTaskList } from '@/components/common/mission-detail';
+import { TruncatedCell } from '@/components/common/tables';
 import { toast, confirm } from '@/stores';
 import {
   ListChecks,
@@ -919,25 +920,15 @@ export function MissionTodoBoard({
                   </span>
                   <Icon className="mt-1 h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
                   <div className="min-w-0 flex-1">
-                    <div
-                      className="line-clamp-1 text-sm font-medium text-gray-900"
-                      title={td.title}
-                    >
+                    <TruncatedCell className="text-sm font-medium text-gray-900">
                       {td.title}
-                    </div>
+                    </TruncatedCell>
                     {td.reasonText && (
-                      <p
-                        className="line-clamp-1 text-[11px] text-gray-500"
-                        title={
-                          td.origin === 'self-heal-retry'
-                            ? friendlyError(td.reasonText)
-                            : td.reasonText
-                        }
-                      >
+                      <TruncatedCell className="text-[11px] text-gray-500">
                         {td.origin === 'self-heal-retry'
                           ? friendlyError(td.reasonText)
                           : td.reasonText}
-                      </p>
+                      </TruncatedCell>
                     )}
                   </div>
                 </div>
@@ -973,11 +964,10 @@ export function MissionTodoBoard({
             render: (td) => {
               const modelId = agents ? resolveModel(td, agents) : undefined;
               return modelId ? (
-                <span
-                  title={modelId}
-                  className="font-mono inline-flex items-center gap-1 rounded bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 ring-1 ring-gray-200"
-                >
-                  {modelId.length > 14 ? modelId.slice(0, 14) + '…' : modelId}
+                <span className="font-mono inline-flex max-w-full items-center gap-1 rounded bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 ring-1 ring-gray-200">
+                  <TruncatedCell className="max-w-[96px] text-[10px]">
+                    {modelId}
+                  </TruncatedCell>
                 </span>
               ) : (
                 <span className="text-[10px] text-gray-300">—</span>

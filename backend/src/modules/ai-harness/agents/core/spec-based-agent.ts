@@ -33,6 +33,7 @@ import {
   type ElectionCandidate,
   type ElectionRoleHint,
 } from "../../../ai-engine/llm/selection";
+import type { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import type {
   IAgent,
@@ -105,6 +106,16 @@ export class SpecBasedAgent<
      */
     private readonly electionTrackerProvider?: () =>
       | MissionElectionTracker
+      | undefined,
+    /**
+     * 2026-05-23 BYOK cross-model failover：
+     * AiModelConfigService 的 lazy accessor，同 electionProvider 模式。
+     * 仅在 BYOK 路径（userId 存在）下使用：当用户的默认模型 provider 报
+     * PROVIDER_API_ERROR 时，从用户的同 modelType 配置中选下一个模型重试，
+     * 而非直接失败。不影响 election 路径（无 userId 的 admin/cron 路径）。
+     */
+    private readonly modelConfigProvider?: () =>
+      | AiModelConfigService
       | undefined,
   ) {
     this.logger = new Logger(`SpecBasedAgent:${id}`);
@@ -194,6 +205,61 @@ export class SpecBasedAgent<
         userId: effectiveUserId,
         operationName: this.id,
         stubFn: this.spec.stubFn ? () => this.spec.stubFn!(ctx) : undefined,
+        // ── Model-level failover provider ─────────────────────────────────
+        // Two paths depending on whether this is a BYOK user or admin/cron:
+        //
+        // BYOK path (effectiveUserId set): election is skipped (see
+        //   electModelOrNull line ~335: `if (userId) return {}`), so the
+        //   election-based closure would always return null.  Instead, wire a
+        //   BYOK-aware closure that queries the user's UserModelConfig rows
+        //   for the same modelType, ordered by isDefault/priority, excluding
+        //   already-failed models.  This gives cross-model failover WITHIN the
+        //   user's own same-type models — respecting BYOK intent (no cross-type
+        //   election, no admin models leaked).
+        //
+        // Admin/cron path (no effectiveUserId): use the existing re-election
+        //   closure via electModelOrNull (which runs ModelElectionService).
+        modelFailoverProvider: (() => {
+          if (effectiveUserId) {
+            // BYOK failover: try next user model of the same modelType.
+            const modelConfigService = this.modelConfigProvider?.();
+            if (!modelConfigService) return undefined;
+            return async (
+              excludeModelIds: ReadonlyArray<string>,
+              excludeProviders?: ReadonlyArray<string>,
+            ): Promise<string | null> => {
+              try {
+                const models =
+                  await modelConfigService.listUserEnabledModelsByType(
+                    effectiveUserId,
+                    AIModelType.CHAT,
+                    excludeModelIds,
+                    excludeProviders ?? [],
+                  );
+                return models[0]?.modelId ?? null;
+              } catch {
+                return null;
+              }
+            };
+          }
+          // Admin/cron path: re-election via ModelElectionService.
+          if (!this.electionProvider) return undefined;
+          return async (
+            excludeModelIds: ReadonlyArray<string>,
+          ): Promise<string | null> => {
+            try {
+              const res = await this.electModelOrNull(
+                taskProfile,
+                effectiveUserId,
+                effectiveEnv,
+                excludeModelIds,
+              );
+              return res.modelId ?? null;
+            } catch {
+              return null;
+            }
+          };
+        })(),
       });
       if (election.reservation) {
         await this.electionTrackerProvider?.()?.commitReservation(
@@ -287,11 +353,15 @@ export class SpecBasedAgent<
    * 执行环境感知选举。失败时返回 undefined（让下游 LlmExecutor 走 AiChatService
    * 的旧兜底链路，保持向后兼容）。抛 NoEligibleModelError 时 upstream 要看到
    * 清晰报错，所以这里直接 throw，让 executeSpec 的 catch 接住。
+   *
+   * @param excludeModelIds  Models to exclude from election (used for model-level
+   *   failover: models that have already produced a provider error in this execution).
    */
   private async electModelOrNull(
     taskProfile: IAgentSpec<TInput, TOutput>["taskProfile"],
     userId: string | undefined,
     env: EnvironmentSnapshot | undefined,
+    excludeModelIds?: ReadonlyArray<string>,
   ): Promise<ElectedModelSelection> {
     // Lazy resolve — 此时 OnApplicationBootstrap 已跑过，factory.electionService 已 wire
     const electionService = this.electionProvider?.();
@@ -329,6 +399,8 @@ export class SpecBasedAgent<
           role,
           userId,
           previouslyElected,
+          // Pass model-failover exclusions so re-election skips already-failed models.
+          excludeModelIds: excludeModelIds ? [...excludeModelIds] : [],
         });
         return {
           result: res,

@@ -27,6 +27,7 @@ import {
   fmtTime,
   statusBadgeClass,
 } from '../_shared/admin-tables';
+import { TruncatedCell } from '@/components/common/tables';
 
 interface KBRow {
   id: string;
@@ -198,7 +199,17 @@ export function KnowledgeBaseTable() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col className="w-[22%]" />
+            <col className="w-[18%]" />
+            <col className="w-[10%]" />
+            <col className="w-[12%]" />
+            <col className="w-[7%]" />
+            <col className="w-[7%]" />
+            <col className="w-[8%]" />
+            <col className="w-[16%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               <Th>名称</Th>
@@ -228,17 +239,18 @@ export function KnowledgeBaseTable() {
                   onClick={() => setSelectedId(kb.id)}
                   className="cursor-pointer hover:bg-gray-50"
                 >
-                  <td
-                    className="max-w-[280px] truncate whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900"
-                    title={kb.name}
-                  >
-                    {kb.name}
+                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                    <TruncatedCell className="max-w-[260px] font-medium text-gray-900">
+                      {kb.name}
+                    </TruncatedCell>
                   </td>
-                  <td
-                    className="max-w-[200px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
-                    title={kb.ownerEmail ?? kb.ownerUserId}
-                  >
-                    {kb.ownerEmail ?? kb.ownerUserId.slice(0, 8)}
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">
+                    <TruncatedCell
+                      className="max-w-[180px] text-gray-600"
+                      tooltip={kb.ownerEmail ?? kb.ownerUserId}
+                    >
+                      {kb.ownerEmail ?? kb.ownerUserId.slice(0, 8)}
+                    </TruncatedCell>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">
                     {kb.type}
@@ -467,11 +479,13 @@ function KnowledgeBaseDrawer({
                   <tbody className="divide-y divide-gray-100">
                     {detail.members.map((m) => (
                       <tr key={m.userId}>
-                        <td
-                          className="max-w-[200px] truncate whitespace-nowrap px-3 py-1.5 text-gray-700"
-                          title={m.email ?? m.userId}
-                        >
-                          {m.email ?? m.userId.slice(0, 8)}
+                        <td className="whitespace-nowrap px-3 py-1.5 text-gray-700">
+                          <TruncatedCell
+                            className="max-w-[180px] text-gray-700"
+                            tooltip={m.email ?? m.userId}
+                          >
+                            {m.email ?? m.userId.slice(0, 8)}
+                          </TruncatedCell>
                         </td>
                         <td className="whitespace-nowrap px-3 py-1.5 text-gray-700">
                           {m.role}
