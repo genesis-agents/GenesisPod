@@ -488,7 +488,14 @@ export class AiChatService {
   }
 
   /**
-   * 根据 provider 确定 API 格式类型
+   * 根据 provider 确定 API 格式类型（启发式 fallback；最后兜底）。
+   *
+   * **v3.1 §D.2.3 (2026-05-24) 显式 fallback 警告**：
+   *   - 调用方手里有 `AIModelConfig`（DB 来源）时，**必须**优先读 DB 字段：
+   *     `const apiFormat = modelConfig.apiFormat ?? this.getApiFormatForProvider(modelConfig.provider);`
+   *   - 不允许仅靠本启发式覆盖管理员在 DB 配的 apiFormat 真值（B+ apiFormat
+   *     backfill 已把可知 provider 的 apiFormat 灌进 DB，新代码请直读）。
+   *   - 仅在 `modelConfig.apiFormat` 为空 / undefined 时落到本启发式作 fallback。
    */
   private getApiFormatForProvider(
     provider: string,
@@ -501,8 +508,17 @@ export class AiChatService {
   }
 
   /**
-   * 获取指定模型所需的 API 密钥环境变量名
-   * @deprecated 优先使用数据库配置
+   * 获取指定模型所需的 API 密钥环境变量名（启发式 fallback）。
+   *
+   * **v3.1 §D.2.3 (2026-05-24) 显式 fallback 警告**：
+   *   - AIModelConfig 暂未定义 `requiredApiKey` 字段，本启发式作为
+   *     env var 名解析的最后兜底保留。
+   *   - 长期目标：把 env var 名也 DB 化（admin 配 `requiredApiKey`），
+   *     调用方按 `config.requiredApiKey ?? getRequiredApiKeyName(model)` 显式 fallback。
+   *   - 在此之前，新代码遇到本函数请考虑是否真的需要 env var 名（多数 BYOK
+   *     路径走 KeyResolver SSOT，不需要 env var 名）。
+   *
+   * @deprecated 优先使用 KeyResolver + 数据库配置（apiKey / secretKey）
    */
   getRequiredApiKeyName(model: string): string {
     const modelLower = model.toLowerCase();
@@ -2365,8 +2381,17 @@ export class AiChatService {
     }
     fullMessages.push(...messages);
 
-    // 根据 provider 选择流式调用方法
-    const apiFormat = this.getApiFormatForProvider(modelConfig.provider);
+    // v3.1 §D.2.3：显式 fallback —— 优先 DB `apiFormat`，缺失才走 provider 启发式。
+    // B+ apiFormat backfill 后,系统模型 DB 已经存 apiFormat 真值; BYOK 个人模型
+    // 仍可能 undefined,此时落到启发式（与重构前行为一致）。
+    const dbApiFormat = modelConfig.apiFormat;
+    const apiFormat: "openai" | "anthropic" | "google" | "xai" =
+      dbApiFormat === "openai" ||
+      dbApiFormat === "anthropic" ||
+      dbApiFormat === "google" ||
+      dbApiFormat === "xai"
+        ? dbApiFormat
+        : this.getApiFormatForProvider(modelConfig.provider);
 
     // ★ Circuit Breaker: Track load for streaming calls
     if (this.circuitBreaker) {

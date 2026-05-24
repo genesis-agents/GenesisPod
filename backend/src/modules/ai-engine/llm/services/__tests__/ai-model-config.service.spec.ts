@@ -439,6 +439,42 @@ describe("AiModelConfigService", () => {
       // Assert
       expect(isReasoning).toBe(true);
     });
+
+    // v3.1 §D.2.1: 显式 fallback 语义 — DB 字段优先于启发式
+    it("should honor DB isReasoning=false even when modelId name matches reasoning heuristic", async () => {
+      // Arrange: DB 设定 o1-mini 为 isReasoning=false（虚拟管理员覆盖）
+      const dbOverride = {
+        ...mockChatModel,
+        modelId: "o1-mini",
+        name: "o1-mini",
+        isReasoning: false,
+      };
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        dbOverride,
+      ]);
+      await service.refreshModelConfigCache();
+
+      // Act: 走 DB 缓存路径
+      const isReasoning = service.isReasoningModel("o1-mini");
+
+      // Assert: 即使启发式会判 true，DB 值 false 必须优先
+      expect(isReasoning).toBe(false);
+    });
+
+    it("should fall back to heuristic when DB cache has no match for modelId", async () => {
+      // Arrange: 缓存里没有 'o1-mini'，但启发式可识别
+      const unrelated = { ...mockChatModel, modelId: "gpt-4o", name: "gpt-4o" };
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        unrelated,
+      ]);
+      await service.refreshModelConfigCache();
+
+      // Act: o1-mini 不在 DB 缓存里 → 落到启发式
+      const isReasoning = service.isReasoningModel("o1-mini");
+
+      // Assert: 启发式 fallback 生效
+      expect(isReasoning).toBe(true);
+    });
   });
 
   describe("getModelById", () => {

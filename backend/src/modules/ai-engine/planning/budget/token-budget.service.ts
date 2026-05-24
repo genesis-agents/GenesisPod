@@ -133,6 +133,25 @@ const MODEL_MAX_OUTPUT: Record<string, number> = {
   default: 4096,
 };
 
+/**
+ * v3.1 §D.2.2 (2026-05-24)：modelId → provider 启发式（启发式 fallback；最后兜底）。
+ *
+ * **显式 fallback 警告**：
+ *   - 调用方若手里有 `AIModelConfig.provider`（DB 来源），必须先传入：
+ *     `tokenBudget.getModelConfig(modelId, config.provider)`
+ *   - 直接调本启发式仅限于：调用方只有 modelId 字符串、无 DB 上下文的场景。
+ *
+ * o-series 用正则覆盖未来型号（o4/o5/...）。未匹配返回空串（caller 看作 unknown）。
+ */
+export function inferProviderFromModelId(modelId: string): string {
+  if (modelId.startsWith("gpt") || /^o\d/.test(modelId)) return "openai";
+  if (modelId.startsWith("claude")) return "anthropic";
+  if (modelId.startsWith("gemini")) return "google";
+  if (modelId.startsWith("grok")) return "xai";
+  if (modelId.startsWith("deepseek")) return "deepseek";
+  return "";
+}
+
 @Injectable()
 export class TokenBudgetService {
   private readonly logger = new Logger(TokenBudgetService.name);
@@ -165,8 +184,17 @@ export class TokenBudgetService {
 
   /**
    * 获取模型配置
+   *
+   * @param modelId 模型 id（用于查 context window / max output 静态表）
+   * @param providerHint 调用方手里有 DB AIModelConfig.provider 时显式传入
+   *                     （v3.1 §D.2.2 显式 fallback：DB ?? 启发式）。
+   *                     缺失时落到 modelId 启发式（兜底语义不变）。
+   *
+   * **不要在新代码里只传 modelId**：当上游已经从 DB 取到了 AIModelConfig，
+   * 必须把 `config.provider` 透传过来，避免本服务的 startsWith 启发式
+   * 覆盖管理员在 DB 设的 provider 真值（例如多 endpoint 同名模型）。
    */
-  getModelConfig(modelId: string): ModelConfig {
+  getModelConfig(modelId: string, providerHint?: string): ModelConfig {
     const contextWindow =
       MODEL_CONTEXT_WINDOWS[modelId] ||
       MODEL_CONTEXT_WINDOWS["gpt-4o-mini"] ||
@@ -175,19 +203,11 @@ export class TokenBudgetService {
     const maxOutputTokens =
       MODEL_MAX_OUTPUT[modelId] || MODEL_MAX_OUTPUT["default"];
 
-    // 推断 provider — o-series 用正则覆盖未来型号 (o4/o5/...)
-    let provider = "unknown";
-    if (modelId.startsWith("gpt") || /^o\d/.test(modelId)) {
-      provider = "openai";
-    } else if (modelId.startsWith("claude")) {
-      provider = "anthropic";
-    } else if (modelId.startsWith("gemini")) {
-      provider = "google";
-    } else if (modelId.startsWith("grok")) {
-      provider = "xai";
-    } else if (modelId.startsWith("deepseek")) {
-      provider = "deepseek";
-    }
+    // v3.1 §D.2.2 显式 fallback：DB provider 优先；缺失才走 modelId 启发式
+    const provider =
+      (providerHint && providerHint.trim().length > 0
+        ? providerHint
+        : inferProviderFromModelId(modelId)) || "unknown";
 
     return {
       modelId,

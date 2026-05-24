@@ -32,6 +32,8 @@ import { TaskProfileMapperService } from "./services/task-profile-mapper.service
 import { AiChatService } from "./services/ai-chat.service";
 import { AiModelConfigService } from "./services/ai-model-config.service";
 import { AiApiCallerService } from "./services/ai-api-caller.service";
+// v3.1 阶段 D.1 (2026-05-24)：从 AiApiCallerService god-class 抽出的 self-heal 触发器
+import { ApiCallerSelfHealTriggerService } from "./services/api-caller-self-heal-trigger.service";
 import { AiStreamHandlerService } from "./services/ai-stream-handler.service";
 import { AiChatPromptService } from "./services/ai-chat-prompt.service";
 import { AiChatRetryService } from "./services/ai-chat-retry.service";
@@ -116,6 +118,8 @@ import { CapabilityProbeService } from "./capability/capability-probe.service";
     TaskProfileMapperService,
     AiModelConfigService,
     AiApiCallerService,
+    // v3.1 阶段 D.1：self-heal 触发器（god-class 拆分）
+    ApiCallerSelfHealTriggerService,
     AiStreamHandlerService,
     AiChatPromptService,
     AiChatRetryService,

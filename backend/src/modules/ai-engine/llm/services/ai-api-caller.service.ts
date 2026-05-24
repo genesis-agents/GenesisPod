@@ -27,7 +27,7 @@ import {
 import type { StructuredOutputStrategy } from "../structured-output/structured-output-strategy.types";
 import { ModelCapabilityService } from "../capability/model-capability.service";
 import { CapabilitySelfHealService } from "../capability/capability-self-heal.service";
-import { extractErrorSignal } from "../capability/error-signal.types";
+import { ApiCallerSelfHealTriggerService } from "./api-caller-self-heal-trigger.service";
 import type { AIModelConfig } from "../types/model-config.types";
 
 /**
@@ -157,39 +157,32 @@ export class AiApiCallerService {
    */
   private readonly _capabilityFailOpenWarned = new Set<string>();
 
+  /**
+   * v3.1 §D.1 (2026-05-24)：BC 适配字段——旧测试用第 3 构造位注入
+   * `CapabilitySelfHealService` 时本字段被自动 wrap 为 selfHealTrigger。
+   * 新代码请用第 4 构造位的 ApiCallerSelfHealTriggerService。
+   */
+  private selfHealTrigger?: ApiCallerSelfHealTriggerService;
+
   constructor(
     private readonly httpService: HttpService,
     // v3.1 §A: 替代原 isDeepseekReasoner 反模式；caps.structuredOutput.nativeMode
     // === 'none' 决定是否注入 response_format。Optional 保留 BC（旧单测可不注入）。
     @Optional()
     private readonly capabilityService?: ModelCapabilityService,
-    // v3.1 §B.5：catch 触发 self-heal（fire-and-forget；@Optional BC）。
+    // v3.1 §B.5 / D.1 (2026-05-24)：catch 触发 self-heal 已抽到
+    // ApiCallerSelfHealTriggerService。第 3 位保留 @Optional CapabilitySelfHealService
+    // 旧测试 BC——构造里包装为 selfHealTrigger；新代码请用第 4 位直接注入 trigger。
     @Optional()
-    private readonly capabilitySelfHealService?: CapabilitySelfHealService,
-  ) {}
-
-  // v3.1 §B.5：catch 触发 self-heal（fire-and-forget；不阻断 throw）。
-  private triggerSelfHealAsync(
-    err: unknown,
-    modelId: string,
-    userModelConfigId?: string,
-  ): void {
-    if (!userModelConfigId || !this.capabilitySelfHealService) return;
-    const signal = extractErrorSignal(err);
-    if (signal === null) return;
-    void this.capabilitySelfHealService
-      .maybeSelfHeal({
-        target: { kind: "user_model_config", id: userModelConfigId },
-        field: "structuredOutput.nativeMode",
-        fromValue: "json_schema",
-        toValue: "none",
-        errorSignal: signal,
-      })
-      .catch((e: unknown) =>
-        this.logger.warn(
-          `[self-heal-trigger] modelId=${modelId}: ${String(e).slice(0, 200)}`,
-        ),
-      );
+    legacySelfHealService?: CapabilitySelfHealService,
+    @Optional()
+    selfHealTrigger?: ApiCallerSelfHealTriggerService,
+  ) {
+    this.selfHealTrigger =
+      selfHealTrigger ??
+      (legacySelfHealService
+        ? new ApiCallerSelfHealTriggerService(legacySelfHealService)
+        : undefined);
   }
 
   /**
@@ -694,7 +687,11 @@ export class AiApiCallerService {
         }),
       );
     } catch (err) {
-      this.triggerSelfHealAsync(err, modelId, userModelConfigId); // v3.1 §B+.3 fire-and-forget
+      // v3.1 §B+.3 / D.1: fire-and-forget self-heal trigger
+      this.selfHealTrigger?.triggerSelfHealAsync(err, {
+        modelId,
+        userModelConfigId,
+      });
       throw err;
     }
 
@@ -903,7 +900,11 @@ export class AiApiCallerService {
         }),
       );
     } catch (err) {
-      this.triggerSelfHealAsync(err, modelId, userModelConfigId); // v3.1 §B+.3 fire-and-forget
+      // v3.1 §B+.3 / D.1: fire-and-forget self-heal trigger
+      this.selfHealTrigger?.triggerSelfHealAsync(err, {
+        modelId,
+        userModelConfigId,
+      });
       throw err;
     }
 
@@ -1064,7 +1065,11 @@ export class AiApiCallerService {
         }),
       );
     } catch (err) {
-      this.triggerSelfHealAsync(err, modelId, userModelConfigId); // v3.1 §B+.3 fire-and-forget
+      // v3.1 §B+.3 / D.1: fire-and-forget self-heal trigger
+      this.selfHealTrigger?.triggerSelfHealAsync(err, {
+        modelId,
+        userModelConfigId,
+      });
       throw err;
     }
 
@@ -1346,8 +1351,11 @@ export class AiApiCallerService {
             `msgs=${messages.length} body=${bodyPreview}`,
         );
       }
-      // v3.1 §B.5：异步触发 self-heal（fire-and-forget，不阻断 throw）
-      this.triggerSelfHealAsync(err, modelId, userModelConfigId);
+      // v3.1 §B.5 / D.1：异步触发 self-heal（fire-and-forget，不阻断 throw）
+      this.selfHealTrigger?.triggerSelfHealAsync(err, {
+        modelId,
+        userModelConfigId,
+      });
       throw err;
     }
 

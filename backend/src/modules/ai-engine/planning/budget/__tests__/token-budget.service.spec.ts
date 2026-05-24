@@ -117,6 +117,37 @@ describe("TokenBudgetService", () => {
       const config = service.getModelConfig("o3-mini");
       expect(config.provider).toBe("openai");
     });
+
+    // v3.1 §D.2.2 显式 fallback：DB providerHint 优先于启发式
+    it("honors providerHint over modelId startsWith heuristic", () => {
+      // modelId 启发式会判 'openai'，但 DB 说是自托管 'custom-azure-clone'
+      const config = service.getModelConfig("gpt-4o", "azure");
+      expect(config.provider).toBe("azure");
+    });
+
+    it("honors providerHint for unknown modelId (DB-known custom model)", () => {
+      const config = service.getModelConfig("my-custom-llm", "custom-llamacpp");
+      expect(config.provider).toBe("custom-llamacpp");
+    });
+
+    it("falls back to heuristic when providerHint is empty string", () => {
+      const config = service.getModelConfig("gpt-4o", "");
+      expect(config.provider).toBe("openai");
+    });
+
+    it("falls back to heuristic when providerHint is whitespace only", () => {
+      const config = service.getModelConfig(
+        "claude-3-5-sonnet-20241022",
+        "   ",
+      );
+      expect(config.provider).toBe("anthropic");
+    });
+
+    it("falls back to heuristic when providerHint omitted (BC)", () => {
+      // 旧调用方未传 providerHint → 启发式生效（与重构前一致）
+      const config = service.getModelConfig("gemini-1.5-pro");
+      expect(config.provider).toBe("google");
+    });
   });
 
   // ─── calculateBudget ─────────────────────────────────────────────────────────
