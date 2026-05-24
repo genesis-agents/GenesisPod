@@ -5,13 +5,15 @@ import {
   OnModuleInit,
 } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { DiscoveryModule } from "@nestjs/core";
+// DiscoveryModule removed (P17a 2026-05-24): no longer needed — ContentSourceRegistry
+// lives in engine and brings its own DiscoveryModule. ai-social is now a pure consumer.
 import { JwtModule } from "@nestjs/jwt";
 import { AiSocialController } from "./ai-social.controller";
 import { SocialDataSourceController } from "./controllers/social-data-source.controller";
 import { SocialTaskController } from "./controllers/social-task.controller";
 import { SocialTaskService } from "./services/social-task.service";
-import { SocialDataSourceRegistry } from "./registry/social-data-source.registry";
+// P17a (2026-05-24): SocialDataSourceRegistry → engine ContentSourceRegistry
+//   (provided by @Global AiEngineModule; auto-injected, no registration needed)
 import { AiSocialService } from "./ai-social.service";
 import { SocialLeaderService } from "./services/social-leader.service";
 import { ContentFetcherService } from "./services/content-fetcher.service";
@@ -72,7 +74,6 @@ import { PromptSkillRegistrationService } from "@/modules/ai-engine/facade";
 
 @Module({
   imports: [
-    DiscoveryModule,
     PrismaModule,
     CacheModule,
     BrowserModule,
@@ -138,7 +139,8 @@ import { PromptSkillRegistrationService } from "@/modules/ai-engine/facade";
     SocialBusinessOrchestrator,
     SocialPipelineDispatcher,
     SocialGateway,
-    SocialDataSourceRegistry,
+    // P17a (2026-05-24): SocialDataSourceRegistry removed — ai-social is now
+    //   a pure consumer of engine ContentSourceRegistry (auto-injected via @Global)
     SocialTaskService,
   ],
   exports: [

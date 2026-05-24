@@ -7,30 +7,37 @@ import {
   Req,
   UnauthorizedException,
   UseGuards,
-} from '@nestjs/common';
-import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
-import { SocialDataSourceRegistry } from '../registry/social-data-source.registry';
+} from "@nestjs/common";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { ContentSourceRegistry } from "@/modules/ai-engine/facade";
 
 interface AuthenticatedRequest {
   user?: { id?: string };
 }
 
-@Controller('ai-social/data-sources')
+/**
+ * SocialDataSourceController
+ *
+ * 2026-05-24 P17a: now a thin consumer of engine `ContentSourceRegistry`
+ * (renamed conceptually — generic content sources, no longer social-specific).
+ * URL path '/ai-social/data-sources' is kept for frontend backward compatibility.
+ */
+@Controller("ai-social/data-sources")
 @UseGuards(JwtAuthGuard)
 export class SocialDataSourceController {
-  constructor(private readonly registry: SocialDataSourceRegistry) {}
+  constructor(private readonly registry: ContentSourceRegistry) {}
 
   @Get()
   list() {
     return { items: this.registry.listDescriptors() };
   }
 
-  @Get(':id/items')
+  @Get(":id/items")
   async listItems(
-    @Param('id') id: string,
-    @Query('search') search?: string,
-    @Query('cursor') cursor?: string,
-    @Query('limit') limit?: string,
+    @Param("id") id: string,
+    @Query("search") search?: string,
+    @Query("cursor") cursor?: string,
+    @Query("limit") limit?: string,
     @Req() req?: AuthenticatedRequest,
   ) {
     const source = this.registry.get(id);

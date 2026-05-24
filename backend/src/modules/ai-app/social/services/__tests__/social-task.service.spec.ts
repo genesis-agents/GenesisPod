@@ -3,7 +3,7 @@ import { SocialContentTaskStatus } from "@prisma/client";
 import { SocialTaskService } from "../social-task.service";
 import type { CreateSocialTaskDto } from "../../dto/create-social-task.dto";
 import type {
-  SocialDataSource,
+  ContentSource,
   SourceContentBundle,
 } from "../../../../contracts/social-data-source";
 
@@ -24,10 +24,7 @@ function makeBundle(
   };
 }
 
-function makeSource(
-  id: string,
-  bundles: SourceContentBundle[],
-): SocialDataSource {
+function makeSource(id: string, bundles: SourceContentBundle[]): ContentSource {
   return {
     id,
     displayName: { "zh-CN": "测试", "en-US": "Test" },
@@ -58,7 +55,7 @@ function makePrisma() {
   };
 }
 
-function makeRegistry(sources: SocialDataSource[] = []) {
+function makeRegistry(sources: ContentSource[] = []) {
   return {
     get: jest.fn((id: string) => sources.find((s) => s.id === id)),
     list: jest.fn(() => sources),

@@ -15,7 +15,7 @@ import {
   type MissionTerminalOutcome,
 } from "@/modules/ai-harness/facade";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SocialDataSourceRegistry } from "../registry/social-data-source.registry";
+import { ContentSourceRegistry } from "@/modules/ai-engine/facade";
 import { ContentFetcherService } from "./content-fetcher.service";
 import { SocialPipelineDispatcher } from "./mission/workflow/social-pipeline-dispatcher.service";
 import { SocialEventBuffer } from "./mission/lifecycle/social-event-buffer.service";
@@ -36,7 +36,7 @@ export class SocialTaskService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly registry: SocialDataSourceRegistry,
+    private readonly registry: ContentSourceRegistry,
     private readonly contentFetcher: ContentFetcherService,
     private readonly dispatcher: SocialPipelineDispatcher,
     private readonly buffer: SocialEventBuffer,
