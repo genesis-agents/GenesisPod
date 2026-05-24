@@ -1,193 +1,163 @@
-# Agent App Mass Migration Roadmap
+# Agent App Mass Migration Roadmap (v2)
 
-**Status:** Active execution starting 2026-05-24, driven by user directive "彻底简化 Agent,能力复用到 harness 和 engine"
-**Owner:** Main agent (this session) + sub-agents per phase
+**Status:** **Paused on user instruction 2026-05-24 evening** — after P1/P2/P25 landed, awaiting next direction.
+**Driver:** User directive "彻底简化 Agent,能力复用到 harness 和 engine"
 **Source-of-truth doc:** [`agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md`](./agent-playground/agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md)
 
 ---
 
-## 1. Mass Migration Decision
+## 1. What Changed In v2
 
-The agent-playground target-boundary blueprint is **not "future target,"** it is **the current need**.
+| Topic                                                                             | v1 (original)                                                        | v2 (revised on user instruction)                                    |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Scope                                                                             | All 9 mission-pipeline modules (3 complete + 5 half-set + 1 special) | **Only 3 complete-range teams**: playground / social / radar        |
+| Wave 2 (P12-P16: writing / topic-insights / office / research / planning / teams) | Active                                                               | **Removed — user explicit "先不要做"**                              |
+| Wave 3 (P17-P20 engine共享能力上提)                                               | Active                                                               | **Deferred** — pending decision on whether to act                   |
+| Wave 4 (P21-P24 守护)                                                             | Active                                                               | **Pending** — to revisit once 3-team migration is complete          |
+| Wave 5 (P25-P29 frontend canonical)                                               | Active                                                               | **P25/P26/P27 done; P28/P29 deferred (5 other teams not migrated)** |
+| Wave 6 (P30-P32 closeout review)                                                  | Active                                                               | **Pending** — at end of Wave 1                                      |
 
-Real grep on 2026-05-24:
+The reduced scope means **the project becomes**:
 
-| Module               | files | mission-pipeline flags | Status                                  |
-| -------------------- | ----- | ---------------------- | --------------------------------------- |
-| **agent-playground** | 113   | M / P / D / O / I / R  | Complete benchmark                      |
-| **social**           | 112   | M / P / D / O / I / R  | Copy of playground                      |
-| **radar**            | 64    | M / P / D / O / R      | Copy of playground (no invoker)         |
-| **writing**          | 144   | M / P / O              | Half-set                                |
-| **topic-insights**   | 200   | M / O                  | Half-set (largest module)               |
-| **office**           | 109   | P / O                  | Half-set (no mission)                   |
-| **research**         | 75    | O                      | Minimal                                 |
-| **planning**         | 12    | O                      | Minimal                                 |
-| **teams**            | 78    | M                      | Special (ai-engine/teams registry user) |
-
-Flag legend: **M**ission dir / **P**ipeline / **D**ispatcher / **O**rchestrator / **I**nvoker / **R**untime-shell
-
-`social/services/mission/workflow/narrative.util.ts` exists in `agent-playground/.../workflow/narrative.util.ts` too — identical utility, copy-pasted.
-
-**Conclusion:** the BusinessTeam framework extraction is **paying for active multi-team usage**, not speculative. Mass migration starts now.
+- Sink everything reusable from playground into `ai-harness/teams/business-team/`.
+- Migrate playground (canonical / benchmark) and social + radar (already copies) to consume the framework.
+- Frontend canonical mission-detail shell is in place; playground already wires it.
+- **No other teams touched.** Their migration is a separate future decision.
 
 ---
 
-## 2. Migration Goals
+## 2. Completed (Pushed to origin/main)
 
-### 2.1 Backend
+| Phase                 | Commit      | What landed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Test delta    |
+| --------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| **P1** invoker        | `0bde09898` | `BusinessTeamAgentInvoker.framework` (155 + 83 interface + 194 spec) sunk to `ai-harness/teams/business-team/invocation/`. playground invoker 280→241 (-39); social invoker 153→183 (+30 closure tracking). 8 framework spec cases.                                                                                                                                                                                                                                                                                                                                                                                    | 9755 tests ✅ |
+| **P2 + P25** combined | `e13d4740c` | **Backend P2**: dispatcher / bindings / cross-stage-state / mission-span / dag-concurrency / event-relay framework all sunk to `ai-harness/teams/business-team/{dispatcher,bindings,state,span,invocation}/`. 5 specs / 36 cases. playground dispatcher 1216→1136 (-80); social dispatcher 839→792 (-47); playground mission-span 150→**29** (-121); execution-support 159→**72** (-87). **Frontend P25/P26/P27**: canonical `MissionDetailFrame` / `DrawerShell` / `ModalShell` / `StageStepper` / `MissionActionGroup` + 3 derive functions + audit script. playground page.tsx wires the canonical shell (-28 LOC). | 9980 tests ✅ |
 
-- All mission-pipeline glue lives in `ai-harness/teams/business-team/` framework
-- Each `ai-app/<team>/` shrinks to: business input + pipeline graph + stage handlers + role services + app adapter + report semantics
-- Reusable LLM-with-prompt patterns sink to `ai-engine/skills` or `ai-harness/agents/domain`
-- Cross-cutting concerns (budget / tracing / evidence) sink to `ai-harness/guardrails` and `ai-harness/tracing`
+Both commits passed:
 
-### 2.2 Frontend
+- tsc 0 error
+- jest pre-push (changedSince + full architecture suite)
+- frontend type-check / lint / UI-discipline (TOTAL=0) / mission-detail audit baseline
+- regression spec updated to grep harness framework as the new source of truth for stage:stalled bridging logic
 
-- Canonical mission-detail shell (`MissionDetailFrame` / `DrawerShell` / `StageStepper` / `MissionActionGroup`) lives in `components/common/mission-detail/`
-- Each feature mission page fills the shell with feature content, no bespoke page structure
-- Shared mission view derivation lives in `lib/missions/derive/`
+### Capability sink summary
 
-### 2.3 Guardrails
+| Capability          | Before (playground LOC) | After (playground LOC) | Sunk to harness LOC                   |
+| ------------------- | ----------------------- | ---------------------- | ------------------------------------- |
+| agent-invoker       | 280                     | 241                    | 155 (framework) + 83 (interface)      |
+| pipeline-dispatcher | 1216                    | 1136                   | 192 (framework) + 38 (interface)      |
+| stage-bindings      | 180                     | 187 (thin subclass)    | 46 (framework) + 46 (interface)       |
+| cross-stage-state   | 186                     | 177                    | 81 (framework)                        |
+| mission-span        | 150                     | **29**                 | 178 (framework)                       |
+| execution-support   | 159                     | **72**                 | (dag-concurrency 140)                 |
+| event-relay         | 25 (shim)               | unchanged              | sunk in event-relay-base shim pattern |
 
-- ESLint `no-restricted-syntax` blocks new `*dispatcher* / *invoker* / *runtime-shell* / *stage-bindings*` files in `ai-app/`
-- jest contract spec asserts `ai-app/*/services/` only consumes harness framework via facade
-- audit baseline locks current state of `ai-app/<team>/services/mission/workflow/` directories
-
----
-
-## 3. Roadmap (6 Waves / 23 Phases)
-
-Notation: ✅ done · 🔄 running · ⏳ queued · ⏸ paused (decision pending)
-
-### Wave 1 — Harness BusinessTeam Framework Extraction (driven by 3 complete-range teams: playground / social / radar)
-
-**Revised 2026-05-24 evening**: per user directive "下沉 playground 的能力,推送给 radar 和 social", scope expands beyond the original 4 frameworks to **all reusable mechanism layers** in playground. Estimate: ~6500+ LOC sinks to harness; playground shrinks from 113 → ~30 files (~70% reduction); radar/social lose their copy-paste shells entirely.
-
-#### Playground capability inventory (target sink tiers)
-
-| Tier                               | Capability                                                                                                                                                                                            | Files (playground) | Sink target                                                                                    |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
-| **T1 pure mechanism**              | invoker / dispatcher / bindings / runtime-shell / span / cross-stage-state / execution-support / runner-state-util / event-relay base                                                                 | 9 files, ~2400 LOC | `ai-harness/teams/business-team/{invocation,dispatcher,bindings,lifecycle,span,state,events}/` |
-| **T2 generic helper** (策略参数化) | chapter-pipeline-helper / per-dim-pipeline / batch-executor / evidence-budget / narrative-util / word-count-normalizer / grade-grounding / segment-extractors                                         | 8 files, ~2150 LOC | `ai-harness/teams/business-team/helpers/`                                                      |
-| **T3 rerun mechanism**             | stage-rerun-dispatcher / local-rerun / rerun-orchestrator / rerun-guard / ctx-hydrator / rerun-runtime-builder + input-rebuilder abstraction                                                          | 7 files, ~2600 LOC | `ai-harness/teams/business-team/rerun/`                                                        |
-| **T4 lifecycle mechanism**         | mission-store / lifecycle-helper / update-helper / postmortem-helper / event-buffer / checkpoint-store / event-categories + report-helper abstract                                                    | 8 files, ~2050 LOC | `ai-harness/teams/business-team/lifecycle/` (extend existing)                                  |
-| **T5 stay in app**                 | role services (4) / leader-chat / mission-export / chapter-integrity / report-artifact-sections / mission-context+deps (business fields) / business-orchestrator (business assembly) / pipeline graph | 13 files           | `ai-app/agent-playground/` only                                                                |
-
-#### Phase schedule (revised)
-
-| Phase  | Scope                                                                                                                                               | Targets migrated                                                           | Status                         |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------ |
-| **P1** | T1.1 `BusinessTeamAgentInvoker.framework` + execution-support + runner-state-util                                                                   | playground + social (radar has no invoker)                                 | 🔄 `ae00151b66465ad91` running |
-| **P2** | T1.2 `BusinessTeamMissionDispatcher.framework` + T1.3 `BusinessTeamStageBindings.framework` (bundled — they are tightly coupled)                    | playground + social + radar                                                | ⏳                             |
-| **P3** | T1.4 cross-stage-state + T1.5 mission-span + T1.6 event-relay base                                                                                  | playground + social + radar                                                | ⏳                             |
-| **P4** | T2 helpers (chapter-pipeline / per-dim-pipeline / batch-executor / evidence-budget / narrative / word-count / grade-grounding / segment-extractors) | playground + social + radar where applicable                               | ⏳                             |
-| **P5** | T3 rerun framework (all 6 services + input-rebuilder abstraction)                                                                                   | playground first; social + radar may not need rerun yet — verify with grep | ⏳                             |
-| **P6** | T4 lifecycle (mission-store / helpers / event-buffer / checkpoint-store / event-categories / report-helper abstraction)                             | playground + social + radar                                                | ⏳                             |
-| **P7** | `BusinessTeamOrchestrator.framework` (skeleton only; business event emit + report semantics stay app)                                               | playground + social + radar                                                | ⏳                             |
-
-Exit criteria for Wave 1: playground services/ dir contains only T5 files (~30 files, down from 113); social and radar likewise consume harness frameworks and have no `*-dispatcher* / *-invoker* / *-bindings* / *-runtime-shell* / *-cross-stage-state* / *-span* / *-helper* / *-rerun*` files of their own.
-
-### Wave 1b — Directory Reorganization (per blueprint §8.1 / §8.2)
-
-Once T1-T4 sink phases land, the resulting file placements need to match blueprint §8.1 (harness side) and §8.2 (app side). Doing this _as a separate phase_ avoids mixing semantic-extraction conflicts with rename/import-update churn.
-
-| Phase   | Scope                                                           | Action                                                                                                                                                                                                                        |
-| ------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **P8**  | `ai-harness/teams/business-team/` reorganization to §8.1 layout | Group extracted framework files under `abstractions/`, `lifecycle/`, `dispatcher/`, `invocation/`, `bindings/`, `rerun/`, `events/`; update all imports + facade re-exports                                                   |
-| **P9**  | `ai-app/agent-playground/` reorganization to §8.2 layout        | Promote out of `services/` subtree: `module/` `api/` `runtime/` `mission/{pipeline,context,roles,artifacts,lifecycle}/` `events/` `__tests__/` are the new top-level dirs. Old `services/mission/workflow/` etc. are deleted. |
-| **P10** | `ai-app/social/` same reorganization                            | Mirror §8.2 layout; same dir scheme as playground                                                                                                                                                                             |
-| **P11** | `ai-app/radar/` same reorganization                             | Mirror §8.2 layout; same dir scheme as playground                                                                                                                                                                             |
-
-Rename-heavy work uses `git mv` to preserve blame; per-file import-path updates must happen atomically with the move (no stale paths between phases). Each P8-P11 phase ends with full tsc + jest green, no commit half-way.
-
-### Wave 2 — Half-Set Teams Migration + Reorganization
-
-Wave 2 phases include both **framework consumption** (each team now uses harness frameworks) and **§8.2 directory reorganization** (each team adopts the canonical layout).
-
-| Phase   | Module                                    | Current flags | Action                                                                                                                      |
-| ------- | ----------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **P12** | writing (144 files)                       | M / P / O     | Inject all 7 frameworks; reorganize to §8.2                                                                                 |
-| **P13** | topic-insights (200 files, **largest**)   | M / O         | Decompose into pre-tasks first: catalog all mission-\* files; phased migration in 2-3 sub-phases; final §8.2 reorganization |
-| **P14** | office (109 files)                        | P / O         | Add mission/ dir; migrate to framework; §8.2 reorganization                                                                 |
-| **P15** | research (75 files) + planning (12 files) | O             | Evaluate whether to promote to mission-pipeline or keep simpler `BusinessTeamSimpleOrchestrator` track                      |
-| **P16** | teams (78 files)                          | M only        | Boundary check: clarify boundary with `ai-engine/teams/` registry                                                           |
-
-### Wave 3 — Engine-Level Shared Capability Lifting
-
-| Phase   | Scope                                                                                                                                              | Driver                                                                        |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| **P17** | Prompt templates: grep all `prompts/` dirs across ai-app modules, lift reusable ones to `ai-engine/skills/` or `ai-harness/agents/domain/prompts/` | Stop duplicate prompt growth                                                  |
-| **P18** | Tool invocation: grep direct external-API calls in services, route through `ai-engine/tools/`                                                      | Single tools registry                                                         |
-| **P19** | Budget / tracing / evidence: lift cross-cutting to `ai-harness/guardrails/` and `ai-harness/tracing/`                                              | Single observability layer                                                    |
-| **P20** | Event relay: lift common `BusinessTeamEventRelay.base`                                                                                             | Already in Wave 1 P3; this phase finalizes per-team namespace adapter pattern |
-
-### Wave 4 — Guardrails (enforce, prevent regression)
-
-| Phase   | Scope                                                                                                                                                                                                                                |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **P21** | ESLint `no-restricted-syntax` + filename rules: `ai-app/*/` may not contain `*-dispatcher*` / `*-invoker*` / `*-runtime-shell*` / `*-stage-bindings*` / `*-cross-stage-state*` / `*-mission-span*` / `*-rerun-dispatcher*` filenames |
-| **P22** | jest contract spec (AST-level): `ai-app/*` mission-pipeline files only consume `ai-harness/teams/business-team/*` via facade                                                                                                         |
-| **P23** | audit baseline lock: snapshot of `ai-app/*/mission/` directories per §8.2 layout; new files outside white list → audit:fail                                                                                                          |
-| **P24** | pre-push hook integrates `audit:agent-team-discipline`                                                                                                                                                                               |
-
-### Wave 5 — Frontend Canonical Mission Shell
-
-| Phase   | Scope                                                                                                                                                         |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **P25** | Extract `MissionDetailFrame` / `DrawerShell` / `ModalShell` / `StageStepper` / `MissionActionGroup` to `components/common/mission-detail/` per blueprint §9.5 |
-| **P26** | Extract shared derive primitives to `lib/missions/derive/` (`deriveMissionView` / `deriveStageView` / `deriveAgentView` per §9.5)                             |
-| **P27** | agent-playground page wires canonical shell (validates shell completeness)                                                                                    |
-| **P28** | 5 remaining teams (social / radar / writing / topic-insights / office) mission pages migrate to canonical shell                                               |
-| **P29** | `audit:mission-detail-discipline` script: new feature mission pages must use `<MissionDetailFrame>`                                                           |
-
-### Wave 6 — Closeout
-
-| Phase   | Scope                                                                                                                                             |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **P30** | Update `agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md` with actual extracted framework paths + completion status         |
-| **P31** | New `standards/23-business-team-framework-usage.md` — SOP for creating a new team via the framework                                               |
-| **P32** | Final 4-way collective review (architect / arch-auditor / reviewer / security-auditor); audit baseline confirmed; three-layer guardrail confirmed |
+Playground services LOC reduction (T1 only): from ~2400 → ~1900 (-500 in 5 files; large reductions in mission-span and execution-support).
 
 ---
 
-## 4. Execution Rules
+## 3. Remaining Phases (Awaiting Direction)
 
-1. **Phases run strictly serial:** P1 → P2 → P3 → ... — no parallel phases, because each phase depends on the previous framework being in place.
-2. **Each phase:** sub-agent in worktree → main agent copies → tsc + jest verify → commit → push → next phase.
-3. **No per-phase review** (per user batch-review-at-end preference). Reviews happen at P24.
-4. **Three-team batch principle in Wave 1:** playground + social + radar migrate in **one phase**, not three; halting at 1-of-3 leaves dual-source.
-5. **god-class budget for `ai-api-caller.service.ts` is closed:** Wave 1 extracts cleanly, ai-api-caller untouched.
-6. **Stuck on real ambiguity:** main agent decides per `feedback_grep_before_yagni_judgment` (grep first, then choose), unless user-visible architectural decision (e.g. P8 simple-orchestrator track vs upgrade) — then halt and ask.
+### Wave 1 (continues) — Tier 2-4 capabilities + orchestrator framework
+
+These are the **playground capability tiers** still to sink, per blueprint §6.2 and the original Tier inventory. All three teams (playground / social / radar) still benefit.
+
+| Phase  | Scope                                                                                                                                                                                                        | Rough size                           |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| **P4** | T2 generic helpers: chapter-pipeline-helper (826) / per-dim-pipeline (840) / batch-executor (87) / evidence-budget (95) / narrative-util / word-count-normalizer / grade-grounding / segment-extractors      | ~2150 LOC down + parameterized hooks |
+| **P5** | T3 rerun framework: stage-rerun-dispatcher (983) / local-rerun (489) / rerun-orchestrator (295) / rerun-guard (293) / ctx-hydrator (273) / rerun-runtime-builder (220) + input-rebuilder abstraction         | ~2600 LOC down                       |
+| **P6** | T4 lifecycle: mission-store (627) / lifecycle-helper (329) / update-helper (294) / postmortem-helper (185) / event-buffer (143) / checkpoint-store (225) / event-categories (89) + report-helper abstraction | ~2050 LOC down                       |
+| **P7** | `BusinessTeamOrchestrator.framework` skeleton (playground 941 / social 179 / radar 164)                                                                                                                      | ~1300 LOC skeleton + business hooks  |
+
+### Wave 1b — Directory reorganization (blueprint §8.1 / §8.2)
+
+| Phase   | Scope                                                                                                                                                                                          |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P8**  | `ai-harness/teams/business-team/` reorganize into §8.1 layout — most files already in right subdir from P2; this phase formalizes the `abstractions/` placement + cleans up cross-team imports |
+| **P9**  | `ai-app/agent-playground/` flatten `services/` subtree to top-level §8.2 layout (`module/api/runtime/mission/{pipeline,context,roles,artifacts,lifecycle}/events/`)                            |
+| **P10** | `ai-app/social/` same reorg                                                                                                                                                                    |
+| **P11** | `ai-app/radar/` same reorg                                                                                                                                                                     |
+
+### Wave 4 — Guardrails (defer until Wave 1 + 1b done)
+
+| Phase   | Scope                                                                                           |
+| ------- | ----------------------------------------------------------------------------------------------- |
+| **P21** | ESLint `no-restricted-syntax` + filename rules in `ai-app/*/`                                   |
+| **P22** | jest contract spec (AST): `ai-app/*` mission-pipeline only consume harness framework via facade |
+| **P23** | audit baseline lock on `ai-app/*/mission/` §8.2 layout                                          |
+| **P24** | pre-push hook integrates `audit:agent-team-discipline`                                          |
+
+### Wave 6 — Closeout (defer until Wave 1 + 1b + 4 done)
+
+| Phase   | Scope                                                                            |
+| ------- | -------------------------------------------------------------------------------- |
+| **P30** | Update blueprint doc with final framework paths + status                         |
+| **P31** | New `standards/23-business-team-framework-usage.md` SOP                          |
+| **P32** | 4-way collective review (architect / arch-auditor / reviewer / security-auditor) |
 
 ---
 
-## 5. Worktree And Failure Recovery
+## 4. Removed From Scope (Per User 2026-05-24 Evening)
 
-- Each phase uses `isolation: "worktree"`. Worktree path: `.claude/worktrees/agent-<id>/`.
-- If a phase worktree dies: re-extract from agent report's `git diff` summary using main worktree, replay; do **not** `git checkout -- .` (per `feedback_no_global_revert_even_single_file`).
-- If a phase blocks on git push (lint-staged ESLint OOM): `NODE_OPTIONS=--max-old-space-size=12288 git commit ...` (per `feedback_parallel_agent_integration_2026_05_23`).
-- If pre-push hook trips on someone else's commit regression: fix it inline as a carrier commit (per `feedback_push_must_fix_gates_not_wait`); do not skip the gate.
+These phases were planned in v1 but **explicitly removed by user**:
 
----
+| Phase   | Module                              | Original size estimate                     | Status           |
+| ------- | ----------------------------------- | ------------------------------------------ | ---------------- |
+| **P12** | writing (144 files, M/P/O)          | Inject framework + reorganize              | ❌ **Not doing** |
+| **P13** | topic-insights (200 files, largest) | 2-3 sub-phases + reorganize                | ❌ **Not doing** |
+| **P14** | office (109 files, P/O)             | Add mission/ + framework + reorganize      | ❌ **Not doing** |
+| **P15** | research + planning                 | Evaluate lite track                        | ❌ **Not doing** |
+| **P16** | teams                               | Boundary check vs ai-engine/teams registry | ❌ **Not doing** |
 
-## 6. Status Tracker (updated as phases land)
-
-| Phase           | Commit    | Test count delta | Notes                        |
-| --------------- | --------- | ---------------- | ---------------------------- |
-| P1 (invoker)    | _running_ | _TBD_            | Worktree `ae00151b66465ad91` |
-| P2 (dispatcher) | _queued_  |                  |                              |
-| P3 (bindings)   | _queued_  |                  |                              |
-| ...             |           |                  |                              |
+Reasoning: user decision to focus the migration on the 3 teams (playground / social / radar) that already share the same mission-pipeline range. Migrating the 5 half-set teams is a separate future project.
 
 ---
 
-## 7. Decision Points That Require User Input
+## 5. Frontend Phases (Partially Done)
 
-These are the **only places** I will halt and ask for direction; everything else I decide per `feedback_grep_before_yagni_judgment`:
+| Phase                                                                           | Status                                                                                                         |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **P25** Extract canonical mission shells                                        | ✅ Landed in `e13d4740c` (5 shells already in `frontend/components/common/mission-detail/`, page wires them)   |
+| **P26** Extract `lib/missions/derive/`                                          | ✅ Landed in `e13d4740c` (3 derive functions + index, wired into `PLATFORM_GLOBAL` whitelist)                  |
+| **P27** playground page wires canonical shell                                   | ✅ Landed in `e13d4740c` (page.tsx 1832→1804, bespoke `<header>`/tabs/banners gone)                            |
+| **P28** social / radar / writing / topic-insights / office migrate to canonical | ⏸ **Deferred** — Wave 2 removed; 5 violations recorded as baseline for future migration                        |
+| **P29** `audit:mission-detail-discipline` lock                                  | ✅ Script + baseline already landed in `e13d4740c`; `audit:mission-detail-baseline` available for ratchet-down |
 
-- **P6 topic-insights phasing decision** (200 files; do we accept "1 mega phase" or split into 2-3 sub-phases by sub-domain?)
-- **P8 research/planning track decision** (upgrade to mission-pipeline range OR introduce `BusinessTeamSimpleOrchestrator` lite track?)
-- **P9 teams boundary decision** (ai-app/teams business code: which parts stay app, which sink to ai-engine/teams registry?)
-- **P10/P11 prompt + tool lifting scope** (one mega lift OR per-team lift; depends on what grep reveals about overlap)
+---
 
-When each of those phases arrives I will produce a grep-backed evidence package and present 2-3 options. Until then, full speed ahead.
+## 6. Current Pause Status (2026-05-24 evening)
+
+**Paused on user instruction. No new sub-agents dispatched. Two completed agents' worktrees pending GC.**
+
+Next actions require user direction. Options:
+
+1. **Continue Wave 1 (P4-P7)** — sink Tier 2/3/4 helpers + orchestrator framework; further shrinks playground/social/radar
+2. **Skip to Wave 1b (P8-P11)** — directory reorganization first, helper sinking later
+3. **Jump to Wave 4 (P21-P24)** — lock in current achievement with guardrails, defer Tier 2/3/4 sinks
+4. **Jump to Wave 6 (P30-P32)** — closeout review + SOP doc + 4-way audit on what's already done
+5. **Stop here** — current state (P1/P2/P25 landed) is a complete commit, accept it
+
+Document the choice in the next user message and the roadmap is updated accordingly.
+
+---
+
+## 7. Execution Rules (Unchanged From v1)
+
+1. **Phases run strictly serial** within a wave (P4 → P5 → P6 → P7), but P25-P27 frontend was run in parallel with P2 backend since file sets don't overlap.
+2. **Each phase**: sub-agent in worktree → main agent copies → tsc + jest verify → commit → push → next phase.
+3. **No per-phase review** (per user batch-review-at-end preference). Reviews happen at P32.
+4. **Three-team batch principle**: playground + social + radar migrate in **one phase** per capability, never 1-of-3.
+5. **god-class budget for `ai-api-caller.service.ts`** is closed; Wave 1 extraction did not regress it.
+6. **lint-staged ESLint OOM**: use `NODE_OPTIONS=--max-old-space-size=12288 git commit ...`.
+7. **Commit subject line**: lowercase type, must not start with English uppercase (use Chinese-first sentence form).
+8. **Pre-push hook trips on unrelated regression**: fix it inline as a carrier commit.
+
+---
+
+## 8. Worktree Inventory (Current)
+
+| Phase   | Worktree branch                    | Status                                     |
+| ------- | ---------------------------------- | ------------------------------------------ |
+| P1      | `worktree-agent-ae00151b66465ad91` | Completed, ready for `git worktree remove` |
+| P2      | `worktree-agent-adf078d5ee0dbe149` | Already auto-cleaned by harness            |
+| P25-P27 | `worktree-agent-a774bca44b69b621f` | Completed, ready for `git worktree remove` |
