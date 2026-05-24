@@ -707,5 +707,97 @@ module.exports = {
         ],
       },
     },
+    //
+    // ============================================================================
+    // v3.1 F · Capability anti-pattern guard（D5 反模式 ESLint AST 拦截）
+    // ============================================================================
+    //
+    // 背景（v3.1 §0 D5 + §6.1 F）：
+    //   线上 mission 撞 deepseek-v4-pro response_format 死，溯源到 substring 判
+    //   能力（modelLower.includes("deepseek-reasoner") 等）。C 阶段（commit
+    //   325afdeef）+ D 阶段（commit 4e95fdba5）已把 3 个真 P0 决策路径清零，
+    //   本规则是 F 阶段的 ESLint AST 守护：IDE 实时 + pre-commit 拦截，与 jest
+    //   契约 spec（capability-provider-string-match.contract.spec.ts）+ audit
+    //   baseline 脚本（audit:capability）三层互补。
+    //
+    // 范围（强禁的"能力决策路径"）：
+    //   - ai-engine/llm/services/ai-api-caller.service.ts（C.A 已清）
+    //   - ai-engine/llm/structured-output/**（response_format 决策入口）
+    //   - ai-harness/runner/executor/**（runner 执行器，C.A 已清）
+    //   - ai-app/teams/services/ai/ai-response.service.ts（C.A 已清）
+    //
+    // 显式豁免（TYPE B 路由 / TYPE C 装饰，v3.1 §0 D5 注释清单）：
+    //   - function-calling-llm.adapter.ts          —— getDefaultEndpoint / inferProvider / parser
+    //   - universal-llm.adapter.ts                 —— supportsModel 准入
+    //   - ai-direct-key.service.ts                 —— Gemini 多模态/图像 routing
+    //   - ai-chat.service.ts                       —— getApiFormatForProvider / getRequiredApiKeyName / getDefaultModelId
+    //   - ai-api-caller.service.ts 内 getDefaultEndpoint/inferProvider —— C 已清能力决策，路由保留
+    //     （路由仍在文件内，但本规则不扫该文件 —— 由 contract spec 锁能力决策 AST）
+    //   - ai-model-config.service.ts               —— getIconUrl / formatModelDisplayName（TYPE C 装饰）
+    //   - ai-model-discovery.service.ts            —— display name + env var name
+    //   - ai-connection-test.service.ts            —— Gemini 实验模型 endpoint workaround
+    //   - planning/budget/token-budget.service.ts  —— inferProvider attribution 派生
+    //   - llm/types/model.utils.ts                 —— inferIsReasoning DB fallback
+    //   - llm/user-config/user-models-auto-configure.service.ts —— BYOK 启发式默认
+    //   - llm/capability/error-signal.types.ts     —— TYPE C provider URL 反解
+    //   - llm/selection/model-fallback.service.ts  —— TYPE B fallback 选择
+    //   - llm/services/ai-model-config.service.ts  —— TYPE C getIconUrl
+    //   - rag/embedding/embedding.service.ts       —— TYPE B provider 路由
+    //   - ai-app/image/generation/                 —— TYPE B 图像 provider 路由
+    //   - ai-app/topic-insights/services/data/     —— TYPE B 数据源 provider 过滤
+    //   - ai-app/research/project/research-project-tts.service.ts —— TYPE B TTS routing
+    //   - ai-app/topic-insights/services/report/credibility-report.service.ts —— TYPE C domain 评分
+    //   - ai-app/writing/services/mission/         —— TYPE B model manager
+    //   - ai-engine/content/image/adapters/        —— TYPE B image adapter
+    //   - ai-harness/tracing/                      —— TYPE C OTEL attribution
+    //
+    // 怎么加白名单：若新文件确属 TYPE B/C，把路径加到下面 excludedFiles。如果属
+    // 能力决策，应该改用 ModelCapabilityService.resolveCapabilities(config)
+    // 读结构化字段（v3.1 §3.2/§3.4）。
+    //
+    {
+      // 强禁文件清单（这几个文件 C/D 阶段已把能力决策路径清掉，无遗留 TYPE B
+      // 路由/装饰，新代码引入 substring 启发式 = 立即拒推）。
+      //
+      // 不列入 ai-app/teams/services/ai/ai-response.service.ts:
+      //   该文件 C 阶段清掉 1217-1233 能力决策段，但同文件 1921 getDefaultModelId
+      //   仍有 6 处 shorthand→modelId 探测（TYPE B 路由）。ESLint 文件级粒度无法
+      //   区分函数级范围 —— 由 jest contract spec（capability-provider-string-match
+      //   .contract.spec.ts）AST 锁能力决策路径，把 TYPE B 路由 helper 函数
+      //   排除掉。
+      files: [
+        "**/modules/ai-engine/llm/services/ai-api-caller.service.ts",
+        "**/modules/ai-engine/llm/structured-output/**/*.ts",
+        "**/modules/ai-harness/runner/executor/**/*.ts",
+      ],
+      excludedFiles: ["**/*.spec.ts", "**/*.test.ts", "**/__tests__/**/*.ts"],
+      rules: {
+        "no-restricted-syntax": [
+          "error",
+          {
+            // 反模式 1: x.includes / .startsWith / .endsWith / .indexOf / .search /
+            //          .match 的参数是 provider/model family 名字面量。
+            selector:
+              "CallExpression[callee.type='MemberExpression'][callee.property.name=/^(includes|startsWith|endsWith|indexOf|search|match)$/] > Literal[value=/^(openai|anthropic|google|xai|deepseek|gpt|claude|gemini|grok|o1|o3|o4|qwen|llama|imagen|deepseek-reasoner|deepseek-chat)/i]",
+            message:
+              "v3.1 §0 D5 反模式：禁止 modelId/provider.{includes|startsWith|...}('gpt'/'claude'/...) 决定 LLM 能力（response_format / maxTokens / isReasoning 等）。" +
+              "改用 ModelCapabilityService.resolveCapabilities(config) 读结构化字段（v3.1 §3.2/§3.4）。" +
+              "若属 TYPE B 路由 / TYPE C 装饰，需在 .eslintrc.js F 段 excludedFiles 加白名单 + PR 描述说明。",
+          },
+          {
+            // 反模式 2: BinaryExpression `provider === '<name>'` / `!== '<name>'`
+            //          直接 provider 名字面量判定能力。
+            //          注：选择器只覆盖右侧字面量；左侧字面量（`'openai' === provider`）
+            //          为反向写法，audit:capability 全仓扫兜底覆盖。
+            selector:
+              "BinaryExpression[operator=/^(===|==|!==|!=)$/][right.type='Literal'][right.value=/^(openai|anthropic|google|xai|deepseek|gpt|claude|gemini|grok|deepseek-reasoner|deepseek-chat)$/i]",
+            message:
+              "v3.1 §0 D5 反模式：禁止 provider === '<name>' 决定 LLM 能力。" +
+              "改用 ModelCapabilityService.resolveCapabilities(config)（v3.1 §3.2/§3.4）。" +
+              "若属 TYPE B 路由 / TYPE C 装饰，需在 .eslintrc.js F 段 excludedFiles 加白名单。",
+          },
+        ],
+      },
+    },
   ],
 };

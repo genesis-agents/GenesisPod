@@ -1,0 +1,1324 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-24T15:26:42.028Z",
+  "count": 188,
+  "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
+  "hits": [
+    {
+      "file": "modules/ai-app/image/generation/image-generation.service.ts",
+      "line": 299,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "provider.includes(\"google\")"
+    },
+    {
+      "file": "modules/ai-app/image/generation/image-generation.service.ts",
+      "line": 300,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "provider.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-app/image/generation/image-generation.service.ts",
+      "line": 301,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelId.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-app/image/generation/image-generation.service.ts",
+      "line": 302,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelId.includes(\"imagen\")"
+    },
+    {
+      "file": "modules/ai-app/image/generation/image-generation.service.ts",
+      "line": 310,
+      "column": 16,
+      "kind": "method-call",
+      "snippet": "provider.includes(\"openai\")"
+    },
+    {
+      "file": "modules/ai-app/image/generation/image-generation.service.ts",
+      "line": 371,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "provider.includes(\"google\")"
+    },
+    {
+      "file": "modules/ai-app/image/generation/image-generation.service.ts",
+      "line": 372,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "provider.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-app/image/generation/image-generation.service.ts",
+      "line": 373,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelConfig.modelId.toLowerCase().includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-app/image/generation/image-generation.service.ts",
+      "line": 397,
+      "column": 19,
+      "kind": "method-call",
+      "snippet": "modelId.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-app/image/generation/image-generation.service.ts",
+      "line": 470,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"imagen\")"
+    },
+    {
+      "file": "modules/ai-app/research/project/research-project-tts.service.ts",
+      "line": 76,
+      "column": 18,
+      "kind": "binary-eq",
+      "snippet": "provider === \"google\""
+    },
+    {
+      "file": "modules/ai-app/teams/services/ai/ai-response.service.ts",
+      "line": 1927,
+      "column": 8,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"grok\")"
+    },
+    {
+      "file": "modules/ai-app/teams/services/ai/ai-response.service.ts",
+      "line": 1928,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gpt\")"
+    },
+    {
+      "file": "modules/ai-app/teams/services/ai/ai-response.service.ts",
+      "line": 1929,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"claude\")"
+    },
+    {
+      "file": "modules/ai-app/teams/services/ai/ai-response.service.ts",
+      "line": 1930,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-app/teams/services/ai/ai-response.service.ts",
+      "line": 1931,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.startsWith(\"o1\")"
+    },
+    {
+      "file": "modules/ai-app/teams/services/ai/ai-response.service.ts",
+      "line": 1932,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.startsWith(\"o3\")"
+    },
+    {
+      "file": "modules/ai-app/topic-insights/services/data/data-source-fetcher.service.ts",
+      "line": 829,
+      "column": 48,
+      "kind": "binary-eq",
+      "snippet": "m.provider === \"xai\""
+    },
+    {
+      "file": "modules/ai-app/topic-insights/services/data/data-source-router.service.ts",
+      "line": 2038,
+      "column": 48,
+      "kind": "binary-eq",
+      "snippet": "m.provider === \"xai\""
+    },
+    {
+      "file": "modules/ai-app/topic-insights/services/report/credibility-report.service.ts",
+      "line": 568,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "domainLower.includes(\"google\")"
+    },
+    {
+      "file": "modules/ai-app/topic-insights/services/report/credibility-report.service.ts",
+      "line": 572,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "domainLower.includes(\"openai\")"
+    },
+    {
+      "file": "modules/ai-app/topic-insights/services/report/credibility-report.service.ts",
+      "line": 573,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "domainLower.includes(\"anthropic\")"
+    },
+    {
+      "file": "modules/ai-app/writing/services/mission/writing-agent-coordinator.service.ts",
+      "line": 93,
+      "column": 24,
+      "kind": "binary-eq",
+      "snippet": "m.provider !== \"xAI\""
+    },
+    {
+      "file": "modules/ai-app/writing/services/mission/writing-mission-lifecycle.service.ts",
+      "line": 696,
+      "column": 24,
+      "kind": "binary-eq",
+      "snippet": "m.provider !== \"xAI\""
+    },
+    {
+      "file": "modules/ai-app/writing/services/mission/writing-model-manager.service.ts",
+      "line": 68,
+      "column": 24,
+      "kind": "binary-eq",
+      "snippet": "m.provider !== \"xAI\""
+    },
+    {
+      "file": "modules/ai-engine/content/image/adapters/gemini-image.adapter.ts",
+      "line": 88,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "model.includes(\"imagen\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 555,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"xai\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 555,
+      "column": 34,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"grok\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 558,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"openai\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 558,
+      "column": 37,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gpt\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 561,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"anthropic\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 561,
+      "column": 40,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"claude\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 564,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"google\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 564,
+      "column": 37,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 579,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"grok\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 580,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"claude\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 581,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 582,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"deepseek\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 583,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gpt\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 611,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"anthropic\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 611,
+      "column": 40,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"claude\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 615,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"google\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
+      "line": 615,
+      "column": 37,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/universal-llm.adapter.ts",
+      "line": 248,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gpt\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/universal-llm.adapter.ts",
+      "line": 250,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/universal-llm.adapter.ts",
+      "line": 251,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"claude\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/universal-llm.adapter.ts",
+      "line": 252,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"grok\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/adapters/universal-llm.adapter.ts",
+      "line": 253,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"deepseek\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
+      "line": 73,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "url.includes(\"anthropic\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
+      "line": 76,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "url.includes(\"x.ai\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
+      "line": 76,
+      "column": 31,
+      "kind": "method-call",
+      "snippet": "url.includes(\"xai\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
+      "line": 77,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "url.includes(\"openai\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
+      "line": 126,
+      "column": 7,
+      "kind": "binary-eq",
+      "snippet": "provider === \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
+      "line": 126,
+      "column": 32,
+      "kind": "binary-eq",
+      "snippet": "provider === \"xai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
+      "line": 131,
+      "column": 7,
+      "kind": "binary-eq",
+      "snippet": "provider === \"anthropic\""
+    },
+    {
+      "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
+      "line": 135,
+      "column": 7,
+      "kind": "binary-eq",
+      "snippet": "provider === \"google\""
+    },
+    {
+      "file": "modules/ai-engine/llm/selection/model-fallback.service.ts",
+      "line": 767,
+      "column": 27,
+      "kind": "binary-eq",
+      "snippet": "model.apiFormat === \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/selection/model-fallback.service.ts",
+      "line": 810,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "lower === \"anthropic\""
+    },
+    {
+      "file": "modules/ai-engine/llm/selection/model-fallback.service.ts",
+      "line": 810,
+      "column": 34,
+      "kind": "binary-eq",
+      "snippet": "lower === \"claude\""
+    },
+    {
+      "file": "modules/ai-engine/llm/selection/model-fallback.service.ts",
+      "line": 811,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "lower === \"google\""
+    },
+    {
+      "file": "modules/ai-engine/llm/selection/model-fallback.service.ts",
+      "line": 811,
+      "column": 31,
+      "kind": "binary-eq",
+      "snippet": "lower === \"gemini\""
+    },
+    {
+      "file": "modules/ai-engine/llm/selection/model-fallback.service.ts",
+      "line": 812,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "lower === \"xai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/selection/model-fallback.service.ts",
+      "line": 812,
+      "column": 28,
+      "kind": "binary-eq",
+      "snippet": "lower === \"grok\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 504,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "p === \"anthropic\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 504,
+      "column": 30,
+      "kind": "binary-eq",
+      "snippet": "p === \"claude\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 505,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "p === \"google\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 505,
+      "column": 27,
+      "kind": "binary-eq",
+      "snippet": "p === \"gemini\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 506,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "p === \"xai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 506,
+      "column": 24,
+      "kind": "binary-eq",
+      "snippet": "p === \"grok\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 525,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "modelLower === \"grok\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 525,
+      "column": 34,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"grok\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 528,
+      "column": 7,
+      "kind": "binary-eq",
+      "snippet": "modelLower === \"gpt-4\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 529,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"gpt\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 530,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelLower.startsWith(\"o1\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 531,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelLower.startsWith(\"o3\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 534,
+      "column": 16,
+      "kind": "binary-eq",
+      "snippet": "modelLower === \"claude\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 534,
+      "column": 43,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"claude\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 536,
+      "column": 16,
+      "kind": "binary-eq",
+      "snippet": "modelLower === \"gemini\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 536,
+      "column": 43,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 2389,
+      "column": 7,
+      "kind": "binary-eq",
+      "snippet": "dbApiFormat === \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 2390,
+      "column": 7,
+      "kind": "binary-eq",
+      "snippet": "dbApiFormat === \"anthropic\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 2391,
+      "column": 7,
+      "kind": "binary-eq",
+      "snippet": "dbApiFormat === \"google\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 2392,
+      "column": 7,
+      "kind": "binary-eq",
+      "snippet": "dbApiFormat === \"xai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 2441,
+      "column": 11,
+      "kind": "binary-eq",
+      "snippet": "apiFormat === \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
+      "line": 2456,
+      "column": 18,
+      "kind": "binary-eq",
+      "snippet": "apiFormat === \"anthropic\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 143,
+      "column": 10,
+      "kind": "binary-eq",
+      "snippet": "provider.toLowerCase() === \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 256,
+      "column": 33,
+      "kind": "method-call",
+      "snippet": "modelId?.toLowerCase().includes(\"imagen\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 338,
+      "column": 15,
+      "kind": "method-call",
+      "snippet": "modelId?.includes(\"gemini-2.0-flash-exp\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 502,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "provider.toLowerCase() === \"anthropic\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 503,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "provider.toLowerCase() === \"claude\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 507,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "provider.toLowerCase() === \"google\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 508,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "provider.toLowerCase() === \"gemini\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 1076,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "providerLower === \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 1130,
+      "column": 11,
+      "kind": "binary-eq",
+      "snippet": "providerLower === \"google\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 1130,
+      "column": 41,
+      "kind": "binary-eq",
+      "snippet": "providerLower === \"gemini\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 1193,
+      "column": 11,
+      "kind": "binary-eq",
+      "snippet": "p === \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 1193,
+      "column": 29,
+      "kind": "binary-eq",
+      "snippet": "p === \"gpt\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 1236,
+      "column": 11,
+      "kind": "binary-eq",
+      "snippet": "p === \"google\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
+      "line": 1236,
+      "column": 29,
+      "kind": "binary-eq",
+      "snippet": "p === \"gemini\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-direct-key.service.ts",
+      "line": 674,
+      "column": 27,
+      "kind": "method-call",
+      "snippet": "modelIdLower.startsWith(\"imagen\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-direct-key.service.ts",
+      "line": 677,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelIdLower.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-direct-key.service.ts",
+      "line": 743,
+      "column": 41,
+      "kind": "method-call",
+      "snippet": "modelIdLower.startsWith(\"imagen\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-direct-key.service.ts",
+      "line": 778,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "effectiveModelId.includes(\"gemini-3\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-image-generation.service.ts",
+      "line": 176,
+      "column": 25,
+      "kind": "method-call",
+      "snippet": "modelId.includes(\"imagen-4\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 152,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "lower === \"anthropic\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 152,
+      "column": 34,
+      "kind": "binary-eq",
+      "snippet": "lower === \"claude\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 153,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "lower === \"google\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 153,
+      "column": 31,
+      "kind": "binary-eq",
+      "snippet": "lower === \"gemini\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 154,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "lower === \"xai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 154,
+      "column": 28,
+      "kind": "binary-eq",
+      "snippet": "lower === \"grok\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 175,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "dbApiFormat === \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 175,
+      "column": 37,
+      "kind": "binary-eq",
+      "snippet": "inferred !== \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 183,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "dbApiFormat !== \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 183,
+      "column": 37,
+      "kind": "binary-eq",
+      "snippet": "inferred === \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 1382,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lowerName.includes(\"grok\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 1382,
+      "column": 39,
+      "kind": "binary-eq",
+      "snippet": "lowerProvider === \"xai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 1386,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lowerName.includes(\"gpt\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 1388,
+      "column": 7,
+      "kind": "binary-eq",
+      "snippet": "lowerProvider === \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 1392,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lowerName.includes(\"claude\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 1392,
+      "column": 41,
+      "kind": "binary-eq",
+      "snippet": "lowerProvider === \"anthropic\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 1395,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lowerName.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 1395,
+      "column": 41,
+      "kind": "binary-eq",
+      "snippet": "lowerProvider === \"google\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 1405,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "lowerName.includes(\"deepseek\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 1405,
+      "column": 43,
+      "kind": "binary-eq",
+      "snippet": "lowerProvider === \"deepseek\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
+      "line": 1409,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lowerName.includes(\"qwen\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 38,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 41,
+      "column": 11,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"imagen\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 44,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"grok\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 45,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"gpt-4\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 46,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"gpt-5\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 47,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "modelLower.startsWith(\"o1\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 48,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "modelLower.startsWith(\"o3\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 49,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"claude\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 68,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "providerLower === \"xai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 68,
+      "column": 36,
+      "kind": "binary-eq",
+      "snippet": "providerLower === \"grok\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 70,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "providerLower === \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 70,
+      "column": 39,
+      "kind": "binary-eq",
+      "snippet": "providerLower === \"gpt\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 72,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "providerLower === \"anthropic\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 72,
+      "column": 42,
+      "kind": "binary-eq",
+      "snippet": "providerLower === \"claude\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 74,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "providerLower === \"google\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 74,
+      "column": 39,
+      "kind": "binary-eq",
+      "snippet": "providerLower === \"gemini\""
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 281,
+      "column": 11,
+      "kind": "method-call",
+      "snippet": "m.id.includes(\"grok\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 341,
+      "column": 11,
+      "kind": "method-call",
+      "snippet": "m.id.startsWith(\"gpt-\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 398,
+      "column": 16,
+      "kind": "method-call",
+      "snippet": "name.includes(\"imagen\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 405,
+      "column": 13,
+      "kind": "method-call",
+      "snippet": "name.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
+      "line": 415,
+      "column": 13,
+      "kind": "method-call",
+      "snippet": "name.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/types/model.utils.ts",
+      "line": 32,
+      "column": 5,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"o1\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/types/model.utils.ts",
+      "line": 33,
+      "column": 5,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"o3\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/types/model.utils.ts",
+      "line": 34,
+      "column": 5,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"o4\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/types/model.utils.ts",
+      "line": 35,
+      "column": 5,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"gpt-5\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/types/model.utils.ts",
+      "line": 36,
+      "column": 5,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"gpt5\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/types/model.utils.ts",
+      "line": 38,
+      "column": 5,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"gemini-2.0-flash-thinking\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/types/model.utils.ts",
+      "line": 39,
+      "column": 5,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"gemini-2.5\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/types/model.utils.ts",
+      "line": 40,
+      "column": 5,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"gemini-3\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/types/model.utils.ts",
+      "line": 44,
+      "column": 5,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"deepseek-reasoner\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/types/model.utils.ts",
+      "line": 46,
+      "column": 5,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"claude-3.5-opus\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/types/model.utils.ts",
+      "line": 47,
+      "column": 5,
+      "kind": "method-call",
+      "snippet": "modelLower.includes(\"claude-4\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 429,
+      "column": 35,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gpt-5\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 444,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"claude\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 445,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 466,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "lower === \"anthropic\""
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 466,
+      "column": 34,
+      "kind": "binary-eq",
+      "snippet": "lower === \"claude\""
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 472,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "lower === \"google\""
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 472,
+      "column": 31,
+      "kind": "binary-eq",
+      "snippet": "lower === \"gemini\""
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 478,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "lower === \"xai\""
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 478,
+      "column": 28,
+      "kind": "binary-eq",
+      "snippet": "lower === \"grok\""
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 490,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "lower === \"deepseek\""
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 522,
+      "column": 33,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gpt-5\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 528,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"claude-3-5-sonnet\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 530,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"claude-3-opus\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 532,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gemini-1.5-pro\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 533,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gemini-2.0-pro\")"
+    },
+    {
+      "file": "modules/ai-engine/llm/user-config/user-models-auto-configure.service.ts",
+      "line": 534,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "lower.includes(\"gemini-2.5-pro\")"
+    },
+    {
+      "file": "modules/ai-engine/planning/budget/token-budget.service.ts",
+      "line": 147,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelId.startsWith(\"gpt\")"
+    },
+    {
+      "file": "modules/ai-engine/planning/budget/token-budget.service.ts",
+      "line": 148,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelId.startsWith(\"claude\")"
+    },
+    {
+      "file": "modules/ai-engine/planning/budget/token-budget.service.ts",
+      "line": 149,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelId.startsWith(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-engine/planning/budget/token-budget.service.ts",
+      "line": 150,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelId.startsWith(\"grok\")"
+    },
+    {
+      "file": "modules/ai-engine/planning/budget/token-budget.service.ts",
+      "line": 151,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelId.startsWith(\"deepseek\")"
+    },
+    {
+      "file": "modules/ai-engine/rag/embedding/embedding.service.ts",
+      "line": 325,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "dbApiFormat === \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/rag/embedding/embedding.service.ts",
+      "line": 325,
+      "column": 37,
+      "kind": "binary-eq",
+      "snippet": "inferred !== \"openai\""
+    },
+    {
+      "file": "modules/ai-engine/rag/embedding/embedding.service.ts",
+      "line": 336,
+      "column": 9,
+      "kind": "binary-eq",
+      "snippet": "lower === \"google\""
+    },
+    {
+      "file": "modules/ai-engine/rag/embedding/embedding.service.ts",
+      "line": 336,
+      "column": 31,
+      "kind": "binary-eq",
+      "snippet": "lower === \"gemini\""
+    },
+    {
+      "file": "modules/ai-harness/runner/context/token-estimator.ts",
+      "line": 62,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "m.startsWith(\"gpt-4o\")"
+    },
+    {
+      "file": "modules/ai-harness/tracing/tracer/otel-semantic-conventions.ts",
+      "line": 53,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "m.startsWith(\"claude\")"
+    },
+    {
+      "file": "modules/ai-harness/tracing/tracer/otel-semantic-conventions.ts",
+      "line": 55,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "m.startsWith(\"gpt\")"
+    },
+    {
+      "file": "modules/ai-harness/tracing/tracer/otel-semantic-conventions.ts",
+      "line": 56,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "m.startsWith(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-harness/tracing/tracer/otel-semantic-conventions.ts",
+      "line": 57,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "m.startsWith(\"grok\")"
+    },
+    {
+      "file": "modules/ai-harness/tracing/tracer/otel-semantic-conventions.ts",
+      "line": 59,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "m.startsWith(\"llama\")"
+    }
+  ]
+}
