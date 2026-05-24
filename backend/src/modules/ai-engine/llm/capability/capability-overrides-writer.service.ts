@@ -30,11 +30,13 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  Optional,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
+import { CapabilityFeatureFlagsService } from "./capability-feature-flags.service";
 import { parseCapabilityOverrides } from "./capability-overrides-parser";
 import {
   ModelCapabilitiesOverridesSchema,
@@ -85,7 +87,14 @@ function deepMerge(
 export class CapabilityOverridesWriterService {
   private readonly logger = new Logger(CapabilityOverridesWriterService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // v3.1 §B.7 (2026-05-24)：feature flag 服务（Optional 保留 BC）。
+    // 仅 applyOverrideTransactional 入口校验（admin/BYOK 路径），
+    // applyOverrideInTx 不校验（self-heal 已通过 self-heal 服务的 flag 拦截）。
+    @Optional()
+    private readonly flags?: CapabilityFeatureFlagsService,
+  ) {}
 
   /**
    * 公开 API —— admin / BYOK controller 直接调；自带 $transaction。
@@ -93,6 +102,15 @@ export class CapabilityOverridesWriterService {
   async applyOverrideTransactional(
     opts: ApplyOverrideOptions,
   ): Promise<ApplyOverrideResult> {
+    // v3.1 §B.7：feature flag 全局禁用写入面（紧急 kill switch）
+    if (this.flags) {
+      const enabled = await this.flags.isOverridesWriteEnabled();
+      if (!enabled) {
+        throw new ForbiddenException(
+          "capability overrides write is disabled by feature flag",
+        );
+      }
+    }
     this.guardScope(opts);
     this.guardReason(opts.reason);
     this.guardPatchShape(opts.patch);

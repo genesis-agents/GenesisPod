@@ -14,7 +14,9 @@
  */
 
 import { CapabilityOverridesWriterService } from "../capability-overrides-writer.service";
+import { CapabilitySelfHealService } from "../capability-self-heal.service";
 import { ModelCapabilityService } from "../model-capability.service";
+import { extractErrorSignal } from "../error-signal.types";
 import type { ApplyOverrideOptions } from "../capability-overrides-writer.types";
 import type { AIModelConfig } from "../../types/model-config.types";
 
@@ -262,5 +264,112 @@ describe("v3.1 §B end-to-end — write override → read → resolveCapabilitie
     expect(capabilityService.deriveStructuredOutputChain(caps)).toEqual([
       "prompt",
     ]);
+  });
+
+  // ──────────── v3.1 §B.9 完整端到端：错误注入 → extractErrorSignal → maybeSelfHeal → writer → AuditLog → resolveCapabilities 反映降级 ────────────
+
+  it("full chain: OpenAI 400 error → extractErrorSignal → 3× threshold → self-heal writes 'none' → resolveCapabilities reflects降级", async () => {
+    // 准备 self-heal 服务（用真 writer，但 mock cache 模拟阈值累计）
+    const cacheCounter: Record<string, number> = {};
+    const cache = {
+      incrby: jest.fn(async (key: string, delta: number) => {
+        cacheCounter[key] = (cacheCounter[key] ?? 0) + delta;
+        return cacheCounter[key];
+      }),
+      expire: jest.fn().mockResolvedValue(undefined),
+      del: jest.fn(async (key: string) => {
+        delete cacheCounter[key];
+      }),
+    };
+
+    // prisma：tx 内的 advisory lock + 查 audit + 读 userModelConfig
+    const prismaWithTx = {
+      ...mockPrisma.prisma,
+      userModelConfig: mockPrisma.tx.userModelConfig,
+      capabilityOverrideAuditLog: mockPrisma.tx.capabilityOverrideAuditLog,
+      $transaction: jest.fn(async (cb: (tx: unknown) => unknown) => {
+        const txInside = {
+          ...mockPrisma.tx,
+          $queryRaw: jest.fn().mockResolvedValue([{ lock: null }]),
+        };
+        return cb(txInside);
+      }),
+    };
+    // mock self-heal 的 audit lookup 返回 null（无 admin override，未 cooling-off）
+    (
+      prismaWithTx as unknown as {
+        capabilityOverrideAuditLog: { findFirst: jest.Mock };
+      }
+    ).capabilityOverrideAuditLog.findFirst = jest.fn().mockResolvedValue(null);
+
+    const selfHealSvc = new CapabilitySelfHealService(
+      cache as never,
+      prismaWithTx as never,
+      writer,
+    );
+
+    // STEP 1: 注入 OpenAI 400 错误（real axios shape）
+    const axiosErr = {
+      status: 400,
+      response: {
+        status: 400,
+        data: {
+          error: {
+            code: "unsupported_response_format",
+            type: "invalid_request_error",
+            message:
+              "the model does not support json_schema response_format, use json_mode instead",
+          },
+        },
+      },
+      config: { url: "https://api.openai.com/v1/chat/completions" },
+    };
+    const signal = extractErrorSignal(axiosErr);
+    expect(signal).not.toBeNull();
+    expect(signal?.httpStatus).toBe(400);
+    expect(signal?.errorCode).toBe("unsupported_response_format");
+    expect(signal?.provider).toBe("openai");
+
+    // STEP 2-3: 累计 3 次 → 阈值触发 self-heal
+    const callSelfHeal = () =>
+      selfHealSvc.maybeSelfHeal({
+        target: { kind: "user_model_config", id: "config-1" },
+        field: "structuredOutput.nativeMode",
+        fromValue: "json_schema",
+        toValue: "none",
+        errorSignal: signal!,
+      });
+    const r1 = await callSelfHeal();
+    expect(r1.healed).toBe(false);
+    expect(r1.reason).toContain("threshold_not_reached(1/3)");
+    const r2 = await callSelfHeal();
+    expect(r2.reason).toContain("threshold_not_reached(2/3)");
+    const r3 = await callSelfHeal();
+    expect(r3.healed).toBe(true);
+
+    // STEP 4: AuditLog 有一条 source='self-heal-user'
+    const selfHealAudits = state.auditLogs.filter(
+      (a) => a.source === "self-heal-user",
+    );
+    expect(selfHealAudits).toHaveLength(1);
+
+    // STEP 5: resolveCapabilities 反映降级 (nativeMode: json_mode → none)
+    // deepseek-v4-pro catalog 默认 json_mode；self-heal 写 nativeMode='none'
+    const stored = state.userModelConfig?.capabilityOverrides as Record<
+      string,
+      unknown
+    >;
+    const config = buildAIModelConfig({
+      userOverrides: stored as never,
+    });
+    const caps = capabilityService.resolveCapabilities(config);
+    expect(caps.structuredOutput.nativeMode).toBe("none");
+    // 派生 chain 只剩 prompt 兜底
+    expect(capabilityService.deriveStructuredOutputChain(caps)).toEqual([
+      "prompt",
+    ]);
+
+    // STEP 6: Redis counter 已清零（self-heal 成功后清）
+    expect(cache.del).toHaveBeenCalled();
   });
 });

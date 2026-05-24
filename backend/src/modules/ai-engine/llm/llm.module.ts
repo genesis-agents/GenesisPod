@@ -70,6 +70,9 @@ import { ModelCapabilityService } from "./capability/model-capability.service";
 // v3.1 阶段 B 子片 2：capability_overrides 写入面 + self-heal（D2 + §4.5 同事务 + §4.4 阈值/lock/cooling-off）
 import { CapabilityOverridesWriterService } from "./capability/capability-overrides-writer.service";
 import { CapabilitySelfHealService } from "./capability/capability-self-heal.service";
+// v3.1 阶段 B 子片 3 (2026-05-24)：feature flag 体系 + probe daemon（@Cron 6h + 分布式锁 + catalog version bump 复原）
+import { CapabilityFeatureFlagsService } from "./capability/capability-feature-flags.service";
+import { CapabilityProbeService } from "./capability/capability-probe.service";
 
 @Module({
   imports: [
@@ -152,6 +155,10 @@ import { CapabilitySelfHealService } from "./capability/capability-self-heal.ser
     CapabilityOverridesWriterService,
     // v3.1 阶段 B 子片 2：self-heal 决策栈（feature flag + 信号校验 + cooling-off + 阈值 + advisory lock）
     CapabilitySelfHealService,
+    // v3.1 阶段 B 子片 3：feature flag 体系（env + Redis 热切换）
+    CapabilityFeatureFlagsService,
+    // v3.1 阶段 B 子片 3：probe daemon（@Cron 6h + 分布式锁 + catalog version bump 反向复原）
+    CapabilityProbeService,
 
     // Structured output router（管理员可配置首选 strategy + fallback；未配置由
     // ModelCapabilityService.deriveStructuredOutputChain 派生；最终兜底 prompt）
@@ -191,6 +198,9 @@ import { CapabilitySelfHealService } from "./capability/capability-self-heal.ser
     // 破坏 SSOT，这两个 service 是写入入口而非读取面，必须暴露）。
     CapabilityOverridesWriterService,
     CapabilitySelfHealService,
+    // v3.1 阶段 B 子片 3：flag service export 供 admin 路径写 Redis 热切换；
+    // probe service 不 export（@Cron 自驱动，无消费方）
+    CapabilityFeatureFlagsService,
     StructuredOutputRouter,
   ],
 })

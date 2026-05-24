@@ -18,11 +18,12 @@
  *   不抛错（self-heal 是后台路径，不能因自愈失败让业务请求挂）。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 
 import { CacheService } from "../../../../common/cache/cache.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
+import { CapabilityFeatureFlagsService } from "./capability-feature-flags.service";
 import { CapabilityOverridesWriterService } from "./capability-overrides-writer.service";
 import type {
   ApplyOverrideOptions,
@@ -63,18 +64,25 @@ export class CapabilitySelfHealService {
     private readonly cache: CacheService,
     private readonly prisma: PrismaService,
     private readonly writer: CapabilityOverridesWriterService,
+    // v3.1 §B.7 (2026-05-24)：feature flag 服务（Optional 保留 BC；
+    // 注入后用 isSelfHealEnabled() 替代原 process.env 直读）。
+    @Optional()
+    private readonly flags?: CapabilityFeatureFlagsService,
   ) {}
 
   async maybeSelfHeal(
     opts: MaybeSelfHealOptions,
   ): Promise<MaybeSelfHealResult> {
     try {
-      // 1. feature flag（默认开；可通过环境变量关）
-      if (process.env.ENABLE_CAPABILITY_SELF_HEAL === "false") {
-        return {
-          healed: false,
-          reason: "feature_flag_disabled",
-        };
+      // 1. feature flag（v3.1 §B.7：flags service 优先，env 作为 fallback；都不命中默认开）
+      if (this.flags) {
+        const enabled = await this.flags.isSelfHealEnabled();
+        if (!enabled) {
+          return { healed: false, reason: "feature_flag_disabled" };
+        }
+      } else if (process.env.ENABLE_CAPABILITY_SELF_HEAL === "false") {
+        // 未注入 flags（旧 spec 路径）→ 退回 env 直读，保留 BC
+        return { healed: false, reason: "feature_flag_disabled" };
       }
 
       // 2. target 限定：self-heal 永不触及 admin 全局表（§4.2 D2）

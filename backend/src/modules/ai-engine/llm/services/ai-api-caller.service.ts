@@ -26,6 +26,8 @@ import {
 } from "../structured-output/adapters";
 import type { StructuredOutputStrategy } from "../structured-output/structured-output-strategy.types";
 import { ModelCapabilityService } from "../capability/model-capability.service";
+import { CapabilitySelfHealService } from "../capability/capability-self-heal.service";
+import { extractErrorSignal } from "../capability/error-signal.types";
 import type { AIModelConfig } from "../types/model-config.types";
 
 /**
@@ -161,7 +163,34 @@ export class AiApiCallerService {
     // === 'none' 决定是否注入 response_format。Optional 保留 BC（旧单测可不注入）。
     @Optional()
     private readonly capabilityService?: ModelCapabilityService,
+    // v3.1 §B.5：catch 触发 self-heal（fire-and-forget；@Optional BC）。
+    @Optional()
+    private readonly capabilitySelfHealService?: CapabilitySelfHealService,
   ) {}
+
+  // v3.1 §B.5：catch 触发 self-heal（fire-and-forget；不阻断 throw）。
+  private triggerSelfHealAsync(
+    err: unknown,
+    modelId: string,
+    userModelConfigId?: string,
+  ): void {
+    if (!userModelConfigId || !this.capabilitySelfHealService) return;
+    const signal = extractErrorSignal(err);
+    if (signal === null) return;
+    void this.capabilitySelfHealService
+      .maybeSelfHeal({
+        target: { kind: "user_model_config", id: userModelConfigId },
+        field: "structuredOutput.nativeMode",
+        fromValue: "json_schema",
+        toValue: "none",
+        errorSignal: signal,
+      })
+      .catch((e: unknown) =>
+        this.logger.warn(
+          `[self-heal-trigger] modelId=${modelId}: ${String(e).slice(0, 200)}`,
+        ),
+      );
+  }
 
   /**
    * v3.1 §A：判断指定 (provider, modelId) 的模型是否拒绝 response_format 字段。
@@ -235,7 +264,9 @@ export class AiApiCallerService {
   private resolveEffectiveNativeMode(
     provider: string,
     modelId: string,
-  ): import("../capability/model-capability.types").NativeStructuredOutputMode | null {
+  ):
+    | import("../capability/model-capability.types").NativeStructuredOutputMode
+    | null {
     if (!this.capabilityService || !provider?.trim()) {
       return null; // fail-open: preserve caller-driven behavior
     }
@@ -491,7 +522,10 @@ export class AiApiCallerService {
     //   json_schema_strict→ json_schema with strict: true
     //   tool_use / gemini_response_schema / gbnf_grammar
     //                     → per-provider adapter path (not raw OpenAI response_format)
-    const effectiveNativeMode = this.resolveEffectiveNativeMode(provider, modelId);
+    const effectiveNativeMode = this.resolveEffectiveNativeMode(
+      provider,
+      modelId,
+    );
     // Derived convenience flags (backward-compat aliases for the original binary gate)
     const noResponseFormat =
       effectiveNativeMode === "none" ||
@@ -543,7 +577,9 @@ export class AiApiCallerService {
         const isStrict = effectiveNativeMode === "json_schema_strict";
         if (structuredOutputStrategy && outputJsonSchema) {
           // New adapter path: use the adapter (may emit json_schema or json_schema_strict).
-          const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
+          const adapter = this.getStructuredOutputAdapter(
+            structuredOutputStrategy,
+          );
           const adaptOut = adapter.adapt({
             jsonSchema: outputJsonSchema,
             schemaName: schemaName ?? "structured_output",
@@ -593,7 +629,9 @@ export class AiApiCallerService {
       // outputJsonSchema are provided, apply the adapter's requestBodyPatch and
       // any systemPromptAddon — replacing the old manual response_format wiring.
       if (structuredOutputStrategy && outputJsonSchema && !noResponseFormat) {
-        const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
+        const adapter = this.getStructuredOutputAdapter(
+          structuredOutputStrategy,
+        );
         const adaptOut = adapter.adapt({
           jsonSchema: outputJsonSchema,
           schemaName: schemaName ?? "structured_output",
@@ -1048,6 +1086,8 @@ export class AiApiCallerService {
     outputJsonSchema?: Record<string, unknown>,
     schemaName?: string,
     tools?: FunctionDefinition[],
+    /** v3.1 §B.5：BYOK 路径传 user_model_config.id；catch 触发 self-heal。缺省 → 不触发。 */
+    userModelConfigId?: string,
   ): Promise<ChatCompletionResult> {
     // 2026-05-10 §2/§4：单源归一化。
     const effectiveEndpoint =
@@ -1110,7 +1150,10 @@ export class AiApiCallerService {
     // json_schema_strict in the catalog, so the legacy path below is preserved as the
     // effective branch for all current xAI models.  If a future xAI model gets a
     // different nativeMode the catalog enforces it automatically.
-    const xaiEffectiveNativeMode = this.resolveEffectiveNativeMode("xai", modelId);
+    const xaiEffectiveNativeMode = this.resolveEffectiveNativeMode(
+      "xai",
+      modelId,
+    );
     const injectXaiJsonConstraint = () => {
       const jsonConstraint =
         "\n\n[CRITICAL OUTPUT FORMAT] You MUST output ONLY a valid JSON object. " +
@@ -1136,7 +1179,10 @@ export class AiApiCallerService {
     ) {
       const wantsJson =
         outputSchema || responseFormat === "json" || outputJsonSchema;
-      if (xaiEffectiveNativeMode === "none" || xaiEffectiveNativeMode === "prompt") {
+      if (
+        xaiEffectiveNativeMode === "none" ||
+        xaiEffectiveNativeMode === "prompt"
+      ) {
         if (wantsJson) injectXaiJsonConstraint();
       } else if (xaiEffectiveNativeMode === "json_mode") {
         if (wantsJson) requestBody["response_format"] = { type: "json_object" };
@@ -1146,7 +1192,9 @@ export class AiApiCallerService {
       ) {
         const isStrict = xaiEffectiveNativeMode === "json_schema_strict";
         if (structuredOutputStrategy && outputJsonSchema) {
-          const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
+          const adapter = this.getStructuredOutputAdapter(
+            structuredOutputStrategy,
+          );
           const adaptOut = adapter.adapt({
             jsonSchema: outputJsonSchema,
             schemaName: schemaName ?? "structured_output",
@@ -1184,7 +1232,9 @@ export class AiApiCallerService {
     } else {
       // ★ 2026-05-06 native structured output path for xAI (same OpenAI compat)
       if (structuredOutputStrategy && outputJsonSchema) {
-        const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
+        const adapter = this.getStructuredOutputAdapter(
+          structuredOutputStrategy,
+        );
         const adaptOut = adapter.adapt({
           jsonSchema: outputJsonSchema,
           schemaName: schemaName ?? "structured_output",
@@ -1272,6 +1322,8 @@ export class AiApiCallerService {
             `msgs=${messages.length} body=${bodyPreview}`,
         );
       }
+      // v3.1 §B.5：异步触发 self-heal（fire-and-forget，不阻断 throw）
+      this.triggerSelfHealAsync(err, modelId, userModelConfigId);
       throw err;
     }
 

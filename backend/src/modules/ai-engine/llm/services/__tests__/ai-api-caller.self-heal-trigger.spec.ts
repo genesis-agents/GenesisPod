@@ -1,0 +1,227 @@
+/**
+ * AiApiCallerService catch 块 self-heal 触发 spec — v3.1 §B.5.2
+ *
+ * 覆盖矩阵：
+ *   - 命中 4xx + 能识别的 errorCode + 提供 userModelConfigId → 异步触发 maybeSelfHeal（且不阻断原 throw）
+ *   - 命中 4xx 但 userModelConfigId 缺失 → 不触发（self-heal 只动 BYOK）
+ *   - 命中 4xx 但 self-heal 服务未注入（@Optional）→ 不触发，不抛错
+ *   - 网络错（无 response.status）→ extractErrorSignal 返 null → 不触发
+ *   - self-heal 异步抛错 → 主 throw 不受影响（fire-and-forget）
+ */
+
+import { HttpService } from "@nestjs/axios";
+import { throwError } from "rxjs";
+import { AiApiCallerService } from "../ai-api-caller.service";
+import type { CapabilitySelfHealService } from "../../capability/capability-self-heal.service";
+
+describe("AiApiCallerService — v3.1 §B.5.2 self-heal trigger in catch", () => {
+  let httpService: { post: jest.Mock };
+  let selfHeal: { maybeSelfHeal: jest.Mock };
+  let svc: AiApiCallerService;
+
+  beforeEach(() => {
+    httpService = { post: jest.fn() };
+    selfHeal = {
+      maybeSelfHeal: jest
+        .fn()
+        .mockResolvedValue({ healed: false, reason: "noop" }),
+    };
+    svc = new AiApiCallerService(
+      httpService as unknown as HttpService,
+      undefined,
+      selfHeal as unknown as CapabilitySelfHealService,
+    );
+  });
+
+  function makeAxiosError(status: number, data: unknown) {
+    const err = new Error(
+      `Request failed with status code ${status}`,
+    ) as Error & {
+      response?: { status: number; statusText?: string; data?: unknown };
+      config?: { url?: string };
+    };
+    err.response = { status, statusText: "Bad Request", data };
+    err.config = { url: "https://api.x.ai/v1/chat/completions" };
+    return err;
+  }
+
+  // ─────────── 命中：4xx + errorCode + userModelConfigId → 触发 ───────────
+
+  it("triggers maybeSelfHeal asynchronously when 4xx error + userModelConfigId provided", async () => {
+    const err = makeAxiosError(400, {
+      error: {
+        code: "invalid_request_error",
+        type: "invalid_request_error",
+        message: "unsupported response_format",
+      },
+    });
+    httpService.post.mockReturnValue(throwError(() => err));
+
+    await expect(
+      svc.callXAIAPI(
+        "https://api.x.ai/v1",
+        "key",
+        "grok-3",
+        [{ role: "user", content: "hi" }],
+        100,
+        0.7,
+        30000,
+        "max_tokens",
+        "json",
+        undefined,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        "config-byok-1", // userModelConfigId
+      ),
+    ).rejects.toThrow(); // 原 throw 必须保留
+
+    // 异步触发后需等一拍（fire-and-forget Promise）
+    await new Promise((r) => setImmediate(r));
+    expect(selfHeal.maybeSelfHeal).toHaveBeenCalledTimes(1);
+    const call = selfHeal.maybeSelfHeal.mock.calls[0][0];
+    expect(call.target).toEqual({
+      kind: "user_model_config",
+      id: "config-byok-1",
+    });
+    expect(call.errorSignal.httpStatus).toBe(400);
+    expect(call.errorSignal.errorCode).toBe("invalid_request_error");
+  });
+
+  // ─────────── 不触发：userModelConfigId 缺失 ───────────
+
+  it("does NOT trigger self-heal when userModelConfigId missing (non-BYOK path)", async () => {
+    const err = makeAxiosError(400, {
+      error: { code: "invalid_request_error", message: "x" },
+    });
+    httpService.post.mockReturnValue(throwError(() => err));
+
+    await expect(
+      svc.callXAIAPI(
+        "https://api.x.ai/v1",
+        "key",
+        "grok-3",
+        [{ role: "user", content: "hi" }],
+        100,
+        0.7,
+        30000,
+        // userModelConfigId 缺省
+      ),
+    ).rejects.toThrow();
+
+    await new Promise((r) => setImmediate(r));
+    expect(selfHeal.maybeSelfHeal).not.toHaveBeenCalled();
+  });
+
+  // ─────────── 不触发：网络错（无 status）───────────
+
+  it("does NOT trigger when extractErrorSignal returns null (no response.status)", async () => {
+    const err = new Error("ECONNREFUSED") as Error & { code?: string };
+    err.code = "ECONNREFUSED";
+    httpService.post.mockReturnValue(throwError(() => err));
+
+    await expect(
+      svc.callXAIAPI(
+        "https://api.x.ai/v1",
+        "key",
+        "grok-3",
+        [{ role: "user", content: "hi" }],
+        100,
+        0.7,
+        30000,
+        "max_tokens",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        "config-byok-1",
+      ),
+    ).rejects.toThrow();
+
+    await new Promise((r) => setImmediate(r));
+    expect(selfHeal.maybeSelfHeal).not.toHaveBeenCalled();
+  });
+
+  // ─────────── 不触发：service 未注入（BC 旧单测路径）───────────
+
+  it("does NOT throw when self-heal service not injected (Optional BC)", async () => {
+    const svc2 = new AiApiCallerService(
+      httpService as unknown as HttpService,
+      undefined,
+      undefined, // no self-heal service
+    );
+    const err = makeAxiosError(400, {
+      error: { code: "invalid_request_error", message: "x" },
+    });
+    httpService.post.mockReturnValue(throwError(() => err));
+
+    await expect(
+      svc2.callXAIAPI(
+        "https://api.x.ai/v1",
+        "key",
+        "grok-3",
+        [{ role: "user", content: "hi" }],
+        100,
+        0.7,
+        30000,
+        "max_tokens",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        "config-byok-1",
+      ),
+    ).rejects.toThrow(); // 仅原 throw
+  });
+
+  // ─────────── self-heal 异步抛错不阻断主 throw ───────────
+
+  it("propagates the original error even if maybeSelfHeal rejects (fire-and-forget)", async () => {
+    selfHeal.maybeSelfHeal.mockRejectedValue(new Error("self-heal blew up"));
+    const err = makeAxiosError(400, {
+      error: { code: "invalid_request_error", message: "x" },
+    });
+    httpService.post.mockReturnValue(throwError(() => err));
+
+    await expect(
+      svc.callXAIAPI(
+        "https://api.x.ai/v1",
+        "key",
+        "grok-3",
+        [{ role: "user", content: "hi" }],
+        100,
+        0.7,
+        30000,
+        "max_tokens",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        "config-byok-1",
+      ),
+    ).rejects.toThrow(/status code 400/);
+
+    // 等异步 .catch 跑完，无 unhandled rejection
+    await new Promise((r) => setImmediate(r));
+    expect(selfHeal.maybeSelfHeal).toHaveBeenCalled();
+  });
+});

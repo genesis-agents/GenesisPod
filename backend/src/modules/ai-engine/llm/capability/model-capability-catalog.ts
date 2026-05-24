@@ -557,3 +557,19 @@ export const SAFE_DEFAULTS: ModelCapabilities = {
   systemPrompt: { placement: "messages_array" },
   promptCache: { support: "none" },
 };
+
+/**
+ * Catalog 版本号（v3.1 §B.6 / §4.7 反向探测复原通道之一）。
+ *
+ * 用途：probe daemon 周期内比对代码常量与 Redis 'capability:catalog:version'，
+ * 检测到代码版本 > Redis 版本时执行批量 reset —— 清掉所有
+ * `__meta.autoDowngraded=true` 的 self-heal capability_overrides，让升级后的
+ * catalog 重新接管能力裁决（"复原通道 #3"）。
+ *
+ * 规则：
+ *   - 每次修改 PROVIDER_CAPABILITY_DEFAULTS（含新增/删除/调整 nativeMode 等关键字段）
+ *     或 SAFE_DEFAULTS 时 +1
+ *   - 仅整型单调递增，不跳号
+ *   - probe daemon 首次见到 Redis 缺失时初始化为当前代码版本（不触发批量 reset）
+ */
+export const CATALOG_VERSION = 1;

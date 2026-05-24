@@ -47,6 +47,12 @@ const CAPABILITY_SERVICE_FILE = path.join(
   SRC_ROOT,
   "modules/ai-engine/llm/capability/model-capability.service.ts",
 );
+// v3.1 §B.6（2026-05-24）：probe daemon 合法导入 CATALOG_VERSION 用于版本检测。
+// 这是 catalog 数据驱动设计的另一个允许消费方（catalog 升版 → 批量 reset self-heal）。
+const CAPABILITY_PROBE_FILE = path.join(
+  SRC_ROOT,
+  "modules/ai-engine/llm/capability/capability-probe.service.ts",
+);
 
 /**
  * 在 .ts 文件 AST 中找顶层 VariableDeclaration name = identifierName 的
@@ -211,12 +217,16 @@ describe("Capability Contract · PROVIDER_DEFAULT_CHAINS 收编完成 (v3.1 §A)
     expect(n!).toBeGreaterThanOrEqual(MIN_CATALOG_ENTRIES);
   });
 
-  it("catalog 仅由 ModelCapabilityService 引用（运行时业务边界）", () => {
+  it("catalog 仅由 ModelCapabilityService + CapabilityProbeService 引用（运行时业务边界）", () => {
     // 防 catalog 数据被业务文件直接 import 派散点判断（v3 §3.6 边界守护）
+    // 允许 importer 白名单：
+    //   1. ModelCapabilityService —— 读 PROVIDER_CAPABILITY_DEFAULTS / SAFE_DEFAULTS
+    //   2. CapabilityProbeService —— 读 CATALOG_VERSION（v3.1 §B.6 catalog 版本检测）
     const importers = findCatalogImporters();
     const expected = [
+      path.relative(SRC_ROOT, CAPABILITY_PROBE_FILE).replace(/\\/g, "/"),
       path.relative(SRC_ROOT, CAPABILITY_SERVICE_FILE).replace(/\\/g, "/"),
-    ];
+    ].sort((a, b) => a.localeCompare(b));
     expect(importers).toEqual(expected);
   });
 });
