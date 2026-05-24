@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContentFetcherService } from "../content-fetcher.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { RAGFacade } from "@/modules/ai-harness/facade";
 import { SocialContentSourceType } from "@prisma/client";
 

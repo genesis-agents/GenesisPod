@@ -1,16 +1,16 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { SocialBrowserService } from "./social-browser.service";
 import { ContentVersionService } from "./content-version.service";
-import { WechatAdapter } from "../adapters/wechat.adapter";
-import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
+import { WechatAdapter } from "../../integrations/wechat/wechat.adapter";
+import { XhsMcpAdapter } from "../../integrations/xiaohongshu/xiaohongshu.adapter";
 import {
   SocialContentStatus,
   SocialPlatformType,
   SocialContent,
   SocialPlatformConnection,
 } from "../types";
-import { decryptSession } from "../utils/session-crypto";
+import { decryptSession } from "../services/session-crypto";
 import { SessionData } from "../types/platform.types";
 
 export interface PublishResult {

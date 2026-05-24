@@ -7,10 +7,10 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { SessionData } from "../types/platform.types";
 import { Page } from "puppeteer";
-import { BrowserService } from "../../../../common/browser/browser.service";
+import { BrowserService } from "../../../../../common/browser/browser.service";
 
 // Re-export SessionData for backward compatibility
-export { SessionData };
+export type { SessionData };
 
 // Re-export Puppeteer Page type for adapters
 export type { Page };

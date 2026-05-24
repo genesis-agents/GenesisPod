@@ -4,15 +4,15 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { ContentFetcherService } from "./content-fetcher.service";
 import { ContentTransformerService } from "./content-transformer.service";
 import { ContentCheckerService } from "./content-checker.service";
 import { ContentVersionService } from "./content-version.service";
 import { WechatArticleFormatterService } from "./wechat-article-formatter.service";
-import { ProcessUrlDto } from "../dto/process-url.dto";
-import { ProcessSourceDto } from "../dto/process-source.dto";
+import { ProcessUrlDto } from "../../api/dto/process-url.dto";
+import { ProcessSourceDto } from "../../api/dto/process-source.dto";
 import {
   Prisma,
   SocialContentStatus,

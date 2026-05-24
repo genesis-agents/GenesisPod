@@ -5,15 +5,15 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   NotificationService,
   NotificationTypeDto,
-} from "../../../ai-infra/facade";
+} from "../../../../ai-infra/facade";
 import { SocialBrowserService } from "./social-browser.service";
-import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
+import { XhsMcpAdapter } from "../../integrations/xiaohongshu/xiaohongshu.adapter";
 import { SocialPlatformType } from "../types";
-import { decryptSession } from "../utils/session-crypto";
+import { decryptSession } from "../services/session-crypto";
 import { SessionData } from "../types/platform.types";
 
 /**

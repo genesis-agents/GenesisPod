@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { SocialContentSourceType } from "@prisma/client";
 import { RAGFacade } from "@/modules/ai-harness/facade";
 import { sanitizeForDb, sanitizeJson } from "@/modules/ai-harness/facade";

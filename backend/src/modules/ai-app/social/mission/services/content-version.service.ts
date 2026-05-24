@@ -1,16 +1,16 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIModelType, Prisma, SocialPlatformType } from "@prisma/client";
 import {
   PLATFORM_LIMITS,
   getPlatformLimits,
   PlatformLimits,
-} from "../config/platform-limits.config";
+} from "../../runtime/platform-limits.config";
 import {
   WECHAT_ADAPTATION_SYSTEM_PROMPT,
   XIAOHONGSHU_ADAPTATION_SYSTEM_PROMPT,
-} from "../prompts/social-version.prompt";
+} from "../skills/social-version.prompt";
 
 export interface ContentVersionData {
   title: string;

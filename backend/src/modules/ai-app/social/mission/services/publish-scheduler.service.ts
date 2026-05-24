@@ -5,8 +5,8 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SocialPipelineDispatcher } from "./mission/workflow/social-pipeline-dispatcher.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { SocialPipelineDispatcher } from "../pipeline/social-pipeline-dispatcher.service";
 import { SocialContentStatus } from "../types";
 
 /**

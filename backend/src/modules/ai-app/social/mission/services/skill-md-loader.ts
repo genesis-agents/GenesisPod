@@ -38,6 +38,7 @@ export function loadSkill(agentDir: string): ParsedSkill {
   const filePath = path.resolve(
     __dirname,
     "..",
+    "mission",
     "agents",
     agentDir,
     "SKILL.md",
@@ -69,6 +70,7 @@ export function loadFormatSpec(name: string): string {
   const filePath = path.resolve(
     __dirname,
     "..",
+    "mission",
     "agents",
     "_formats",
     `${name}.md`,

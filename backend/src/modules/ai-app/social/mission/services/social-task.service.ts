@@ -14,21 +14,21 @@ import {
   outcomeFromStatus,
   type MissionTerminalOutcome,
 } from "@/modules/ai-harness/facade";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ContentSourceRegistry } from "@/modules/ai-engine/facade";
 import { ContentFetcherService } from "./content-fetcher.service";
-import { SocialPipelineDispatcher } from "./mission/workflow/social-pipeline-dispatcher.service";
-import { SocialEventBuffer } from "./mission/lifecycle/social-event-buffer.service";
+import { SocialPipelineDispatcher } from "../pipeline/social-pipeline-dispatcher.service";
+import { SocialEventBuffer } from "../lifecycle/social-event-buffer.service";
 import { ContentVersionService } from "./content-version.service";
 import {
   PublishExecutorService,
   type PublishResult,
 } from "./publish-executor.service";
-import { CreateSocialTaskDto } from "../dto/create-social-task.dto";
+import { CreateSocialTaskDto } from "../../api/dto/create-social-task.dto";
 import type {
   RawContentBag,
   RunSocialMissionInput,
-} from "./mission/workflow/mission-context";
+} from "../context/mission-context";
 
 @Injectable()
 export class SocialTaskService {

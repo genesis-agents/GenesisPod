@@ -5,23 +5,23 @@
  */
 
 // Mock session-crypto before the service import resolves it
-jest.mock("../../utils/session-crypto", () => ({
+jest.mock("../session-crypto", () => ({
   decryptSession: jest.fn(),
 }));
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { PublishExecutorService } from "../publish-executor.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { SocialBrowserService } from "../social-browser.service";
 import { ContentVersionService } from "../content-version.service";
-import { WechatAdapter } from "../../adapters/wechat.adapter";
-import { XhsMcpAdapter } from "../../adapters/xiaohongshu.adapter";
+import { WechatAdapter } from "../../../integrations/wechat/wechat.adapter";
+import { XhsMcpAdapter } from "../../../integrations/xiaohongshu/xiaohongshu.adapter";
 import {
   SocialContentStatus,
   SocialPlatformType,
   SocialContentType,
 } from "../../types";
-import { decryptSession } from "../../utils/session-crypto";
+import { decryptSession } from "../session-crypto";
 
 const mockDecryptSession = decryptSession as jest.MockedFunction<
   typeof decryptSession

@@ -1,13 +1,13 @@
 import { SessionHealthCheckScheduler } from "../session-health-check.scheduler";
 import type { ConfigService } from "@nestjs/config";
-import type { PrismaService } from "../../../../../common/prisma/prisma.service";
+import type { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import type { NotificationService } from "../../../../ai-infra/notifications/notification.service";
 import type { SocialBrowserService } from "../social-browser.service";
-import type { XhsMcpAdapter } from "../../adapters/xiaohongshu.adapter";
+import type { XhsMcpAdapter } from "../../../integrations/xiaohongshu/xiaohongshu.adapter";
 import { SocialPlatformType } from "../../types";
 
 // Mock session-crypto to avoid encryption issues in tests
-jest.mock("../../utils/session-crypto", () => ({
+jest.mock("../session-crypto", () => ({
   decryptSession: jest.fn().mockReturnValue({
     cookies: [],
     localStorage: {},

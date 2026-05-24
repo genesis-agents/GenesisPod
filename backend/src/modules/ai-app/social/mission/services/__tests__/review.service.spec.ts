@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { ReviewService } from "../review.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { SocialReviewStatus, SocialContentStatus } from "../../types";
 
 describe("ReviewService", () => {

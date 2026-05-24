@@ -1,7 +1,7 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { SocialContentTaskStatus } from "@prisma/client";
 import { SocialTaskService } from "../social-task.service";
-import type { CreateSocialTaskDto } from "../../dto/create-social-task.dto";
+import type { CreateSocialTaskDto } from "../../api/dto/create-social-task.dto";
 import type {
   ContentSource,
   SourceContentBundle,

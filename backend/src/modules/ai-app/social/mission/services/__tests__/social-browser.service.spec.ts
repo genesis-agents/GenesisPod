@@ -6,7 +6,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SocialBrowserService } from "../social-browser.service";
-import { BrowserService } from "../../../../../common/browser/browser.service";
+import { BrowserService } from "../../../../../../common/browser/browser.service";
 
 // ---------------------------------------------------------------------------
 // Helpers — reusable mock factories

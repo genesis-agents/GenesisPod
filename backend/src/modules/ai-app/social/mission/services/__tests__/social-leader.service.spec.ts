@@ -37,7 +37,7 @@ jest.mock("@prisma/client", () => ({
 
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { SocialLeaderService } from "../social-leader.service";
-import type { PrismaService } from "../../../../../common/prisma/prisma.service";
+import type { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import type { ChatFacade } from "@/modules/ai-harness/facade";
 import type { ContentFetcherService } from "../content-fetcher.service";
 import type { ContentTransformerService } from "../content-transformer.service";

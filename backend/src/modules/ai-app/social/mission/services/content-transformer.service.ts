@@ -6,7 +6,7 @@ import {
   WECHAT_ARTICLE_SYSTEM_PROMPT,
   XIAOHONGSHU_NOTE_SYSTEM_PROMPT,
   XIAOHONGSHU_NOTE_BILINGUAL_ADDENDUM,
-} from "../prompts/social-transformer.prompt";
+} from "../skills/social-transformer.prompt";
 
 export interface TransformInput {
   sourceContent: string;
