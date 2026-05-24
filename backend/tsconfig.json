@@ -13,6 +13,7 @@
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
+    "isolatedModules": true,
 
     /* Strict Type-Checking Options */
     "strict": true,

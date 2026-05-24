@@ -8,12 +8,9 @@ module.exports = {
   roots: ["<rootDir>", "<rootDir>/../tests/integration"],
   testRegex: ".*\\.spec\\.ts$",
   transform: {
-    "^.+\\.(t|j)s$": [
-      "ts-jest",
-      {
-        isolatedModules: true, // 跳过类型检查，只做转译，大幅提升速度
-      },
-    ],
+    // P36 (2026-05-24): isolatedModules 从 ts-jest config 迁到 tsconfig.json
+    // (ts-jest v29 起此选项 deprecated;新地址见 tsconfig.json compilerOptions.isolatedModules)
+    "^.+\\.(t|j)s$": ["ts-jest", {}],
   },
   collectCoverageFrom: [
     "**/*.(t|j)s",
