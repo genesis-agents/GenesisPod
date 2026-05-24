@@ -15,7 +15,7 @@ import {
   type MissionPipelineConfig,
   type ResolvedRole,
 } from "@/modules/ai-harness/facade";
-import { loadSkill } from "./utils/skill-md-loader";
+import { loadSkill } from "@/modules/ai-engine/facade";
 import type { ZodType } from "zod";
 
 /**
@@ -23,12 +23,16 @@ import type { ZodType } from "zod";
  * outputSchema 暂用 always-pass z.unknown() 占位（真实 SkillSpecBuilder 集成
  * 留给 R2-A.1 第一个 stage 迁移时补）。
  */
+// P9c (2026-05-24): SKILL.md loader 上提到 ai-engine,callers 传 agentsRootDir。
+// playground 根目录 __dirname → mission/agents/ 绝对路径
+const AGENTS_ROOT_DIR = path.resolve(__dirname, "mission", "agents");
+
 function buildSkillSpecFromMd(agentDir: string): ResolvedRole["skillSpec"] {
-  const skillPath = path.resolve(__dirname, "agents", agentDir, "SKILL.md");
+  const skillPath = path.resolve(AGENTS_ROOT_DIR, agentDir, "SKILL.md");
   if (!fs.existsSync(skillPath)) {
     throw new Error(`[playground.config] missing SKILL.md: ${skillPath}`);
   }
-  const skill = loadSkill(agentDir);
+  const skill = loadSkill(agentDir, AGENTS_ROOT_DIR);
   // systemPrompt = soul + 全部 duties 拼接；duty-loader 在真实 stage 内会按 phase
   // 选具体 duty 渲染；R2-A.0 阶段 systemPrompt 给完整 body 做占位。
   const sections: string[] = [];
