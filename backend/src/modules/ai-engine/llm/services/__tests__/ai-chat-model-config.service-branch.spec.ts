@@ -144,6 +144,10 @@ describe("AiChatModelConfigService (branch supplement)", () => {
       const callCount = mockPrisma.aIModel.findMany.mock.calls.length;
 
       // v3.1 A0：wrapper 已委托给 canonical service，cache 字段在 delegate 上
+      // FIXME(v3.1-F): wrapper 整文件删除时同步删本测试块；
+      //   `(service as any).delegate.modelConfigCacheTime` 是过渡期类型逃逸，
+      //   依赖 delegate 私有字段，不应长期存在。F 阶段删 wrapper 后此 spec 一并清。
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (service as any).delegate.modelConfigCacheTime =
         Date.now() - 10 * 60 * 1000;
 
@@ -168,6 +172,8 @@ describe("AiChatModelConfigService (branch supplement)", () => {
       const callCount = mockPrisma.aIModel.findMany.mock.calls.length;
 
       // v3.1 A0：cache 在 delegate 上
+      // FIXME(v3.1-F): 同上块；F 阶段删 wrapper 时一并清除本 `as any` 类型逃逸。
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (service as any).delegate.modelConfigCacheTime =
         Date.now() - 10 * 60 * 1000;
 

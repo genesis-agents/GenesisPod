@@ -16,6 +16,20 @@
  *   - 旧：`constructor(private readonly cfg: AiChatModelConfigService) {}`
  *   - 新：`constructor(private readonly cfg: AiModelConfigService) {}`
  *   方法名/签名保持一致，无需改调用处。
+ *
+ * ⚠️ A0 行为漂移声明（A0 review reviewer 发现，与 A0 前 self-managed 实现相比）：
+ *   1. `refreshModelConfigCache()`：**delegate 现加载全部 modelType**
+ *      （EMBEDDING/IMAGE/CHAT/…），而非旧 wrapper 的 `modelType:"CHAT"` 单类型。
+ *      生产无 wrapper 消费方，影响仅限本 wrapper 测试 mock 矩阵。
+ *   2. `getDefaultModelConfig()`：**始终走 DB findFirst，不读 cache**（原 wrapper
+ *      先 scan cache 找 isDefault 再 fallback DB）。每次调用增加 1 次 DB 查询，
+ *      但对调用方等价（都返回 default CHAT 模型）。
+ *   3. `getDefaultModelByType()` / `getAllEnabledModelsByType()`：`RequestContext`
+ *      含 userId 时**走严格 BYOK 路径**（2026-05-12 政策），无 UserModelConfig
+ *      则返回 null/[]，不再回退 admin AIModel。原 wrapper 始终走 admin 兜底。
+ *      **影响**：wrapper 现无生产消费方；若未来误用者依赖 admin 兜底，语义会变。
+ *
+ * 上述漂移符合 v3.1 D7 / 严格 BYOK 政策方向，不视为 A0 回归；F 阶段删 wrapper 时一并消失。
  */
 
 import { Injectable } from "@nestjs/common";
