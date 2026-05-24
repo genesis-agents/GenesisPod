@@ -751,7 +751,15 @@ export class AiAskService {
           tokens: number;
         };
       }
-    | { type: "error"; message: string },
+    | {
+        type: "error";
+        message: string;
+        code?: string;
+        meta?: {
+          status?: number;
+          providerMessage?: string;
+        };
+      },
     void,
     unknown
   > {
