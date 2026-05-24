@@ -118,10 +118,13 @@ const isRateLimitError = (errorCode: number): boolean => errorCode === 429;
 /**
  * 判断是否为月配额真正耗尽（需要 24h 长冷却）。
  * - 402 Payment Required：明确表示余额不足
+ * - 432：Tavily 计划用量上限（plan usage limit）。非瞬时错误，等同配额耗尽；
+ *   否则每次搜索都会把全部 key 重试一遍（5min 短冷却），刷屏且浪费请求。
  * 当前未对 429 做 quota header 嗅探（多数 API 不在 status code 上区分），按
  * 短冷却处理；若真月配额耗尽，30min 后再次 429 → 自动续 30min，效果等价。
  */
-const isQuotaExhaustedError = (errorCode: number): boolean => errorCode === 402;
+const isQuotaExhaustedError = (errorCode: number): boolean =>
+  errorCode === 402 || errorCode === 432;
 
 /**
  * 2026-05-12: 客户端请求错误（query 本身的问题，不是 key 失效）。

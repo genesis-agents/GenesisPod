@@ -247,6 +247,57 @@ export class KnowledgeGraphTool extends BaseTool<
   readonly description =
     "查询知识图谱中的实体和关系。支持实体查找、关系查询、路径查找、邻居节点获取等功能。适用于知识推理、关系分析、影响力分析等场景。返回图节点和边的结构化数据。";
 
+  private static readonly VALID_QUERY_TYPES: QueryType[] = [
+    "find_entity",
+    "find_relationships",
+    "find_path",
+    "get_neighbors",
+    "traverse",
+  ];
+
+  /**
+   * LLM 常把 queryType 叫错（如 entity_search→find_entity）。归一化常见同义词，
+   * 避免本来只是叫法不同就抛 "Unsupported query type" 硬报错。
+   */
+  private static readonly QUERY_TYPE_ALIASES: Record<string, QueryType> = {
+    entity_search: "find_entity",
+    entity_lookup: "find_entity",
+    lookup_entity: "find_entity",
+    search_entity: "find_entity",
+    search_entities: "find_entity",
+    find_entities: "find_entity",
+    node_search: "find_entity",
+    entity: "find_entity",
+    entities: "find_entity",
+    relationship_search: "find_relationships",
+    find_relationship: "find_relationships",
+    find_relations: "find_relationships",
+    relationships: "find_relationships",
+    relations: "find_relationships",
+    path: "find_path",
+    shortest_path: "find_path",
+    find_shortest_path: "find_path",
+    neighbor: "get_neighbors",
+    neighbors: "get_neighbors",
+    neighbours: "get_neighbors",
+    get_neighbours: "get_neighbors",
+    traversal: "traverse",
+    walk: "traverse",
+    bfs: "traverse",
+    dfs: "traverse",
+  };
+
+  /** 归一化 queryType：合法值原样返回，已知别名映射，未知返回 null。 */
+  private normalizeQueryType(raw: unknown): QueryType | null {
+    const v = String(raw ?? "")
+      .trim()
+      .toLowerCase();
+    if ((KnowledgeGraphTool.VALID_QUERY_TYPES as string[]).includes(v)) {
+      return v as QueryType;
+    }
+    return KnowledgeGraphTool.QUERY_TYPE_ALIASES[v] ?? null;
+  }
+
   readonly inputSchema: JSONSchema = {
     type: "object",
     properties: {
@@ -454,6 +505,29 @@ export class KnowledgeGraphTool extends BaseTool<
     input: KnowledgeGraphInput,
     context: ToolContext,
   ): Promise<KnowledgeGraphOutput> {
+    // 别名容错：把 LLM 叫错的 queryType 归一化（entity_search→find_entity 等）。
+    const normalized = this.normalizeQueryType(input.queryType);
+    if (!normalized) {
+      // 真正未知的类型：优雅返回空图，不抛错（避免在 trace 里显示为硬异常）。
+      this.logger.warn(
+        `Unknown knowledge-graph queryType "${String(input.queryType)}"; returning empty graph (graceful)`,
+      );
+      return {
+        success: false,
+        nodes: [],
+        edges: [],
+        nodeCount: 0,
+        edgeCount: 0,
+        queryType: input.queryType,
+      };
+    }
+    if (normalized !== input.queryType) {
+      this.logger.log(
+        `Normalized knowledge-graph queryType "${String(input.queryType)}" → "${normalized}"`,
+      );
+      input = { ...input, queryType: normalized };
+    }
+
     this.logger.log(`Knowledge graph query: ${input.queryType}`);
 
     try {
