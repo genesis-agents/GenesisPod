@@ -244,7 +244,7 @@ export class AgentPlaygroundModule
     // R0-A3: 注册 agent-playground skill 目录
     const path = await import("path");
     await this.skillLoader.addSkillDirectory({
-      path: path.resolve(__dirname, "skills"),
+      path: path.resolve(__dirname, "..", "skills"),
       domain: "agent-playground",
       recursive: false,
     });
