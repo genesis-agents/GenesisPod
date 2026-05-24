@@ -120,6 +120,10 @@ export class SimpleLoop implements IAgentLoop {
             // R2-#35: native structured output — router auto-degrades per provider.
             // responseFormat:"json" is kept as the secondary safety net so providers
             // that do not support json_schema still get a JSON hint.
+            // FIX 3: "json_schema" is the *requested* strategy; the ACTUAL response_format
+            // put on the wire is reconciled by ModelCapabilityService at ai-api-caller
+            // (e.g. deepseek-v4-pro gets downgraded to json_object, reasoner gets prompt
+            // constraint only). No caller can bypass the capability gate.
             structuredOutputStrategy: "json_schema",
             outputJsonSchema: SIMPLE_LOOP_OUTPUT_JSON_SCHEMA,
             skipGuardrails: true,

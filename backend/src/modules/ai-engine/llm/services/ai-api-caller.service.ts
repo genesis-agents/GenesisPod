@@ -217,6 +217,46 @@ export class AiApiCallerService {
   }
 
   /**
+   * FIX 1: Resolve the EFFECTIVE native structured-output mode for (provider, modelId)
+   * from the capability catalog. Returns null when the catalog cannot be consulted
+   * (service missing or provider empty) — in that case callers preserve existing
+   * behavior (fail-open BC).
+   *
+   * nativeMode → wire response_format contract (enforced at the HTTP choke point):
+   *   none              → NO response_format; inject JSON system-prompt constraint
+   *   json_mode         → { type: "json_object" }  (downgrade json_schema requests)
+   *   json_schema       → { type: "json_schema", json_schema: { ..., strict: false } }
+   *   json_schema_strict→ { type: "json_schema", json_schema: { ..., strict: true } }
+   *   tool_use /
+   *   gemini_response_schema /
+   *   gbnf_grammar      → handled by per-provider adapter path (not raw response_format)
+   *   null (unknown)    → existing caller-driven behavior unchanged
+   */
+  private resolveEffectiveNativeMode(
+    provider: string,
+    modelId: string,
+  ): import("../capability/model-capability.types").NativeStructuredOutputMode | null {
+    if (!this.capabilityService || !provider?.trim()) {
+      return null; // fail-open: preserve caller-driven behavior
+    }
+    const projection: AIModelConfig = {
+      id: "",
+      name: "",
+      displayName: "",
+      provider,
+      modelId,
+      apiEndpoint: "",
+      apiKey: null,
+      maxTokens: 0,
+      temperature: 0,
+      isEnabled: true,
+      isDefault: false,
+    };
+    const caps = this.capabilityService.resolveCapabilities(projection);
+    return caps.structuredOutput.nativeMode;
+  }
+
+  /**
    * OpenAI-compatible providers only accept role:"tool" when paired with a
    * native tool_call_id. Prompt-driven ReAct observations do not have that id,
    * so they must be downgraded to plain user messages instead of emitting an
@@ -440,57 +480,26 @@ export class AiApiCallerService {
       requestBody.temperature = temperature;
     }
 
-    // v3.1 §A：models that reject response_format（DeepSeek-reasoner / Cohere /
-    // 任何 catalog nativeMode==='none' 的模型）—— 由 ModelCapabilityService 数据驱动
-    // 判定，替代 `modelLower.includes("deepseek-reasoner")` 反模式。
-    // 缺省 provider="" → 保留 response_format（与重构前未知模型行为一致）。
-    const noResponseFormat = this.rejectsResponseFormat(provider, modelId);
+    // FIX 1: Resolve the effective nativeMode from capability catalog (provider + modelId).
+    // When known, the ACTUAL response_format put on the wire is derived from nativeMode,
+    // overriding whatever strategy/outputSchema the caller passed — so no caller can put
+    // an unsupported response_format on the wire.
+    //   null (unknown)    → existing caller-driven behavior (fail-open BC)
+    //   none              → NO response_format; inject JSON system-prompt constraint
+    //   json_mode         → { type: "json_object" }  (downgrade json_schema requests)
+    //   json_schema       → { type: "json_schema", json_schema: { ..., strict: false } }
+    //   json_schema_strict→ json_schema with strict: true
+    //   tool_use / gemini_response_schema / gbnf_grammar
+    //                     → per-provider adapter path (not raw OpenAI response_format)
+    const effectiveNativeMode = this.resolveEffectiveNativeMode(provider, modelId);
+    // Derived convenience flags (backward-compat aliases for the original binary gate)
+    const noResponseFormat =
+      effectiveNativeMode === "none" ||
+      (!effectiveNativeMode && this.rejectsResponseFormat(provider, modelId));
 
-    // ★ 2026-05-06 native structured output path: prefer StructuredOutputRouter adapter
-    // over the legacy ad-hoc outputSchema path. When structuredOutputStrategy +
-    // outputJsonSchema are provided, apply the adapter's requestBodyPatch and
-    // any systemPromptAddon — replacing the old manual response_format wiring.
-    if (structuredOutputStrategy && outputJsonSchema && !noResponseFormat) {
-      const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
-      const adaptOut = adapter.adapt({
-        jsonSchema: outputJsonSchema,
-        schemaName: schemaName ?? "structured_output",
-        modelId,
-      });
-      Object.assign(requestBody, adaptOut.requestBodyPatch);
-      if (adaptOut.systemPromptAddon) {
-        const msgs = requestBody["messages"] as Array<{
-          role: string;
-          content: unknown;
-        }>;
-        const systemMsg = msgs.find((m) => m.role === "system");
-        if (systemMsg && typeof systemMsg.content === "string") {
-          systemMsg.content += adaptOut.systemPromptAddon;
-        } else {
-          msgs.unshift({
-            role: "system",
-            content: adaptOut.systemPromptAddon.trim(),
-          });
-        }
-      }
-    } else if (!noResponseFormat && outputSchema) {
-      // ★ Legacy ad-hoc path (fallback when new fields not provided)
-      requestBody["response_format"] = {
-        type: "json_schema",
-        json_schema: {
-          name: "structured_output",
-          schema: outputSchema.schema,
-          strict: schemaStrict ?? false,
-        },
-      };
-    } else if (!noResponseFormat && responseFormat === "json") {
-      requestBody["response_format"] = { type: "json_object" };
-    } else if (
-      noResponseFormat &&
-      (outputSchema || responseFormat === "json" || outputJsonSchema)
-    ) {
-      // 模型拒绝 response_format（DeepSeek-reasoner / Cohere / 任意 catalog
-      // nativeMode==='none'）：在 system message 注入 JSON 约束作为替代约束。
+    // JSON system-prompt constraint injector — shared between nativeMode==='none' and
+    // the legacy rejectsResponseFormat path.
+    const injectJsonConstraint = () => {
       const jsonConstraint =
         "\n\n[CRITICAL OUTPUT FORMAT] You MUST output ONLY a valid JSON object. " +
         "Do NOT wrap it in ```json code blocks. Do NOT add any text before or after the JSON. " +
@@ -503,8 +512,128 @@ export class AiApiCallerService {
       if (systemMsg && typeof systemMsg.content === "string") {
         systemMsg.content += jsonConstraint;
       } else {
-        // No system message or multimodal contentParts — inject as new system message
         msgs.unshift({ role: "system", content: jsonConstraint.trim() });
+      }
+    };
+
+    if (
+      effectiveNativeMode !== null &&
+      effectiveNativeMode !== "tool_use" &&
+      effectiveNativeMode !== "gemini_response_schema" &&
+      effectiveNativeMode !== "gbnf_grammar"
+    ) {
+      // Capability-driven branch: nativeMode is known → enforce on the wire.
+      const wantsJson =
+        outputSchema || responseFormat === "json" || outputJsonSchema;
+
+      if (effectiveNativeMode === "none") {
+        // nativeMode=none: never send response_format; inject prompt constraint instead.
+        if (wantsJson) {
+          injectJsonConstraint();
+        }
+      } else if (effectiveNativeMode === "json_mode") {
+        // json_mode: downgrade any json_schema request to json_object.
+        if (wantsJson) {
+          requestBody["response_format"] = { type: "json_object" };
+        }
+      } else if (
+        effectiveNativeMode === "json_schema" ||
+        effectiveNativeMode === "json_schema_strict"
+      ) {
+        const isStrict = effectiveNativeMode === "json_schema_strict";
+        if (structuredOutputStrategy && outputJsonSchema) {
+          // New adapter path: use the adapter (may emit json_schema or json_schema_strict).
+          const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
+          const adaptOut = adapter.adapt({
+            jsonSchema: outputJsonSchema,
+            schemaName: schemaName ?? "structured_output",
+            modelId,
+          });
+          Object.assign(requestBody, adaptOut.requestBodyPatch);
+          if (adaptOut.systemPromptAddon) {
+            const msgs = requestBody["messages"] as Array<{
+              role: string;
+              content: unknown;
+            }>;
+            const systemMsg = msgs.find((m) => m.role === "system");
+            if (systemMsg && typeof systemMsg.content === "string") {
+              systemMsg.content += adaptOut.systemPromptAddon;
+            } else {
+              msgs.unshift({
+                role: "system",
+                content: adaptOut.systemPromptAddon.trim(),
+              });
+            }
+          }
+        } else if (outputSchema) {
+          // Legacy ad-hoc path: build response_format from nativeMode.
+          requestBody["response_format"] = {
+            type: "json_schema",
+            json_schema: {
+              name: "structured_output",
+              schema: outputSchema.schema,
+              strict: isStrict ? true : (schemaStrict ?? false),
+            },
+          };
+        } else if (responseFormat === "json") {
+          requestBody["response_format"] = { type: "json_object" };
+        }
+      } else if (effectiveNativeMode === "prompt") {
+        // prompt-only: inject system constraint, never send response_format.
+        if (wantsJson) {
+          injectJsonConstraint();
+        }
+      }
+      // other known modes (e.g. future extensions) → no response_format set
+    } else {
+      // effectiveNativeMode is null (unknown) OR is a per-provider adapter mode
+      // (tool_use / gemini_response_schema / gbnf_grammar) → preserve existing behavior.
+      // ★ 2026-05-06 native structured output path: prefer StructuredOutputRouter adapter
+      // over the legacy ad-hoc outputSchema path. When structuredOutputStrategy +
+      // outputJsonSchema are provided, apply the adapter's requestBodyPatch and
+      // any systemPromptAddon — replacing the old manual response_format wiring.
+      if (structuredOutputStrategy && outputJsonSchema && !noResponseFormat) {
+        const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
+        const adaptOut = adapter.adapt({
+          jsonSchema: outputJsonSchema,
+          schemaName: schemaName ?? "structured_output",
+          modelId,
+        });
+        Object.assign(requestBody, adaptOut.requestBodyPatch);
+        if (adaptOut.systemPromptAddon) {
+          const msgs = requestBody["messages"] as Array<{
+            role: string;
+            content: unknown;
+          }>;
+          const systemMsg = msgs.find((m) => m.role === "system");
+          if (systemMsg && typeof systemMsg.content === "string") {
+            systemMsg.content += adaptOut.systemPromptAddon;
+          } else {
+            msgs.unshift({
+              role: "system",
+              content: adaptOut.systemPromptAddon.trim(),
+            });
+          }
+        }
+      } else if (!noResponseFormat && outputSchema) {
+        // ★ Legacy ad-hoc path (fallback when new fields not provided)
+        requestBody["response_format"] = {
+          type: "json_schema",
+          json_schema: {
+            name: "structured_output",
+            schema: outputSchema.schema,
+            strict: schemaStrict ?? false,
+          },
+        };
+      } else if (!noResponseFormat && responseFormat === "json") {
+        requestBody["response_format"] = { type: "json_object" };
+      } else if (
+        noResponseFormat &&
+        (outputSchema || responseFormat === "json" || outputJsonSchema)
+      ) {
+        // 模型拒绝 response_format（DeepSeek-reasoner / Cohere / 任意 catalog
+        // nativeMode==='none'）：在 system message 注入 JSON 约束作为替代约束。
+        injectJsonConstraint();
       }
     }
 
@@ -976,44 +1105,122 @@ export class AiApiCallerService {
       requestBody.temperature = temperature;
     }
 
-    // ★ 2026-05-06 native structured output path for xAI (same OpenAI compat)
-    if (structuredOutputStrategy && outputJsonSchema) {
-      const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
-      const adaptOut = adapter.adapt({
-        jsonSchema: outputJsonSchema,
-        schemaName: schemaName ?? "structured_output",
-        modelId,
-      });
-      Object.assign(requestBody, adaptOut.requestBodyPatch);
-      if (adaptOut.systemPromptAddon) {
-        const msgs = requestBody["messages"] as Array<{
-          role: string;
-          content: unknown;
-        }>;
-        const systemMsg = msgs.find((m) => m.role === "system");
-        if (systemMsg && typeof systemMsg.content === "string") {
-          systemMsg.content += adaptOut.systemPromptAddon;
-        } else {
-          msgs.unshift({
-            role: "system",
-            content: adaptOut.systemPromptAddon.trim(),
+    // FIX 1 (xAI path): same capability-driven response_format reconciliation as
+    // callOpenAICompatibleAPI.  xAI always has provider="xai" which maps to
+    // json_schema_strict in the catalog, so the legacy path below is preserved as the
+    // effective branch for all current xAI models.  If a future xAI model gets a
+    // different nativeMode the catalog enforces it automatically.
+    const xaiEffectiveNativeMode = this.resolveEffectiveNativeMode("xai", modelId);
+    const injectXaiJsonConstraint = () => {
+      const jsonConstraint =
+        "\n\n[CRITICAL OUTPUT FORMAT] You MUST output ONLY a valid JSON object. " +
+        "Do NOT wrap it in ```json code blocks. Do NOT add any text before or after the JSON. " +
+        "The response must start with { and end with }. No markdown, no explanations.";
+      const msgs = requestBody["messages"] as Array<{
+        role: string;
+        content: unknown;
+      }>;
+      const systemMsg = msgs.find((m) => m.role === "system");
+      if (systemMsg && typeof systemMsg.content === "string") {
+        systemMsg.content += jsonConstraint;
+      } else {
+        msgs.unshift({ role: "system", content: jsonConstraint.trim() });
+      }
+    };
+
+    if (
+      xaiEffectiveNativeMode !== null &&
+      xaiEffectiveNativeMode !== "tool_use" &&
+      xaiEffectiveNativeMode !== "gemini_response_schema" &&
+      xaiEffectiveNativeMode !== "gbnf_grammar"
+    ) {
+      const wantsJson =
+        outputSchema || responseFormat === "json" || outputJsonSchema;
+      if (xaiEffectiveNativeMode === "none" || xaiEffectiveNativeMode === "prompt") {
+        if (wantsJson) injectXaiJsonConstraint();
+      } else if (xaiEffectiveNativeMode === "json_mode") {
+        if (wantsJson) requestBody["response_format"] = { type: "json_object" };
+      } else if (
+        xaiEffectiveNativeMode === "json_schema" ||
+        xaiEffectiveNativeMode === "json_schema_strict"
+      ) {
+        const isStrict = xaiEffectiveNativeMode === "json_schema_strict";
+        if (structuredOutputStrategy && outputJsonSchema) {
+          const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
+          const adaptOut = adapter.adapt({
+            jsonSchema: outputJsonSchema,
+            schemaName: schemaName ?? "structured_output",
+            modelId,
           });
+          Object.assign(requestBody, adaptOut.requestBodyPatch);
+          if (adaptOut.systemPromptAddon) {
+            const msgs = requestBody["messages"] as Array<{
+              role: string;
+              content: unknown;
+            }>;
+            const systemMsg = msgs.find((m) => m.role === "system");
+            if (systemMsg && typeof systemMsg.content === "string") {
+              systemMsg.content += adaptOut.systemPromptAddon;
+            } else {
+              msgs.unshift({
+                role: "system",
+                content: adaptOut.systemPromptAddon.trim(),
+              });
+            }
+          }
+        } else if (outputSchema) {
+          requestBody["response_format"] = {
+            type: "json_schema",
+            json_schema: {
+              name: "structured_output",
+              schema: outputSchema.schema,
+              strict: isStrict ? true : (schemaStrict ?? false),
+            },
+          };
+        } else if (responseFormat === "json") {
+          requestBody["response_format"] = { type: "json_object" };
         }
       }
-    } else if (outputSchema) {
-      // ★ Legacy ad-hoc path
-      // xAI reasoning models DO support response_format (unlike temperature)
-      // Without it, reasoning models produce interleaved/malformed JSON output
-      requestBody["response_format"] = {
-        type: "json_schema",
-        json_schema: {
-          name: "structured_output",
-          schema: outputSchema.schema,
-          strict: schemaStrict ?? false,
-        },
-      };
-    } else if (responseFormat === "json") {
-      requestBody["response_format"] = { type: "json_object" };
+    } else {
+      // ★ 2026-05-06 native structured output path for xAI (same OpenAI compat)
+      if (structuredOutputStrategy && outputJsonSchema) {
+        const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
+        const adaptOut = adapter.adapt({
+          jsonSchema: outputJsonSchema,
+          schemaName: schemaName ?? "structured_output",
+          modelId,
+        });
+        Object.assign(requestBody, adaptOut.requestBodyPatch);
+        if (adaptOut.systemPromptAddon) {
+          const msgs = requestBody["messages"] as Array<{
+            role: string;
+            content: unknown;
+          }>;
+          const systemMsg = msgs.find((m) => m.role === "system");
+          if (systemMsg && typeof systemMsg.content === "string") {
+            systemMsg.content += adaptOut.systemPromptAddon;
+          } else {
+            msgs.unshift({
+              role: "system",
+              content: adaptOut.systemPromptAddon.trim(),
+            });
+          }
+        }
+      } else if (outputSchema) {
+        // ★ Legacy ad-hoc path
+        // xAI reasoning models DO support response_format (unlike temperature)
+        // Without it, reasoning models produce interleaved/malformed JSON output
+        requestBody["response_format"] = {
+          type: "json_schema",
+          json_schema: {
+            name: "structured_output",
+            schema: outputSchema.schema,
+            strict: schemaStrict ?? false,
+          },
+        };
+      } else if (responseFormat === "json") {
+        requestBody["response_format"] = { type: "json_object" };
+      }
     }
 
     this.logger.log(

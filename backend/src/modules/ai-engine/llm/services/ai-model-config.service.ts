@@ -20,6 +20,10 @@ import type {
 // v3.1 B.2: capability_overrides JSONB 严校（safeParse 失败仅 warn 跳过）
 // 解析逻辑独立在 capability-overrides-parser（review 2026-05-24 Fix-3 防 god-class）
 import { parseCapabilityOverrides } from "../capability/capability-overrides-parser";
+import {
+  isNonTextGenerationModelId,
+  TEXT_MODEL_TYPES,
+} from "../selection/default-recommendations.config";
 
 export type { AIModelConfig, ApiKeySource, ResolvedApiKey };
 
@@ -915,12 +919,28 @@ export class AiModelConfigService {
             orderBy: [{ isDefault: "desc" }, { priority: "desc" }],
           });
           if (userRows.length > 0) {
-            this.logger.debug(
-              `[getAllEnabledModelsByType] Using ${userRows.length} UserModelConfig rows for user=${userId}, type=${modelType}`,
-            );
-            return Promise.all(
-              userRows.map((r) => this.toAIModelConfigFromUserConfig(r)),
-            );
+            // FIX 2: Exclude image/audio/video models mis-tagged as a text modelType.
+            const isTextQuery = TEXT_MODEL_TYPES.has(String(modelType));
+            const filteredRows = isTextQuery
+              ? userRows.filter((r) => {
+                  if (isNonTextGenerationModelId(r.modelId)) {
+                    this.logger.warn(
+                      `[getAllEnabledModelsByType] Excluding non-text model "${r.modelId}" ` +
+                        `from user ${userId} ${modelType} pool (mis-tagged modelType guard)`,
+                    );
+                    return false;
+                  }
+                  return true;
+                })
+              : userRows;
+            if (filteredRows.length > 0) {
+              this.logger.debug(
+                `[getAllEnabledModelsByType] Using ${filteredRows.length} UserModelConfig rows for user=${userId}, type=${modelType}`,
+              );
+              return Promise.all(
+                filteredRows.map((r) => this.toAIModelConfigFromUserConfig(r)),
+              );
+            }
           }
 
           // ★ 严格 BYOK 隔离：用户有 UserModelConfig 但都被排除（本次失败重试链耗尽）→
@@ -961,7 +981,22 @@ export class AiModelConfigService {
         },
       });
 
-      return models.map((m) => this.buildModelConfig(m));
+      // FIX 2: Exclude image/audio/video models mis-tagged as a text modelType.
+      const isTextQuery = TEXT_MODEL_TYPES.has(String(modelType));
+      const filtered = isTextQuery
+        ? models.filter((m) => {
+            if (isNonTextGenerationModelId(m.modelId)) {
+              this.logger.warn(
+                `[getAllEnabledModelsByType] Excluding non-text model "${m.modelId}" ` +
+                  `from ${modelType} candidate pool (mis-tagged modelType guard)`,
+              );
+              return false;
+            }
+            return true;
+          })
+        : models;
+
+      return filtered.map((m) => this.buildModelConfig(m));
     } catch (error) {
       this.logger.error(`[getAllEnabledModelsByType] Failed: ${error}`);
       return [];

@@ -102,6 +102,38 @@ export const EXCLUDED_MODEL_SUBSTRINGS = [
   "-image-", // gpt-image-*（除非明确在 IMAGE_GENERATION 里）
 ];
 
+/**
+ * FIX 2: Non-text-generation model ID guard.
+ *
+ * Returns true when the modelId looks like an image/audio/video generation
+ * model that should NEVER appear in chat/text candidate pools, even if its
+ * UserModelConfig.modelType was mis-stored as CHAT.
+ *
+ * Patterns covered:
+ *   - imagine / dall-e / dall_e / imagen  (image generation families)
+ *   - midjourney / stable-diffusion / flux / sora / veo / ideogram
+ *   - -tts / -audio / whisper             (audio / TTS models)
+ *   - -image- / -image$                   (existing EXCLUDED_MODEL_SUBSTRINGS + end anchor)
+ *
+ * NOT applied when the query itself is for IMAGE_GENERATION / IMAGE_EDITING
+ * / EMBEDDING / RERANK — those queries legitimately want these models.
+ */
+export function isNonTextGenerationModelId(modelId: string): boolean {
+  const lower = modelId.toLowerCase();
+  return /imagine|dall[-_]e|imagen|midjourney|stable[-_]?diffusion|sdxl|flux|sora|veo|ideogram|-tts|-audio|whisper|-image-|-image$/.test(
+    lower,
+  );
+}
+
+/** Model types that are TEXT-oriented; non-text models should be excluded from their pools. */
+export const TEXT_MODEL_TYPES: ReadonlySet<string> = new Set([
+  "CHAT",
+  "CHAT_FAST",
+  "CODE",
+  "MULTIMODAL",
+  "EVALUATOR",
+]);
+
 export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
   // ============ OpenAI ============
   // 代际通配：`^gpt-[4-9]` / `^o[1-9]` 覆盖任意代际（gpt-4/5/6/...、o1/o3/o4/...）
