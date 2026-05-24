@@ -36,7 +36,7 @@ import {
   executeWithModelFailover,
   type DomainEvent,
 } from "@/modules/ai-harness/facade";
-import { MissionStore } from "../mission/lifecycle/mission-store.service";
+import { MissionStore } from "../../mission/lifecycle/mission-store.service";
 import { buildLeaderChatPrompt } from "./leader-chat-prompt";
 import {
   parseLeaderDecisionResponse,

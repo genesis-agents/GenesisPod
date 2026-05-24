@@ -7,7 +7,7 @@
 
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
-import { ResearchReportSchema } from "../../dto/run-mission.dto";
+import { ResearchReportSchema } from "../../api/dto/run-mission.dto";
 // ★ 2026-04-30 (PR-F): 注入 TI report-writing-standards.constants (EN 版)，与
 //   topic-insights/prompts/dimension-research.prompt.ts 同源。
 import {
@@ -251,4 +251,3 @@ export class SingleShotWriterAgent extends AgentSpec<
     return lines.join("\n");
   }
 }
-

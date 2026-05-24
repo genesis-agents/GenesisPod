@@ -14,7 +14,7 @@
  * 输出：LLM system prompt
  */
 
-import type { MissionStore } from "../mission/lifecycle/mission-store.service";
+import type { MissionStore } from "../../mission/lifecycle/mission-store.service";
 
 type MissionDetail = Awaited<ReturnType<MissionStore["getById"]>>;
 

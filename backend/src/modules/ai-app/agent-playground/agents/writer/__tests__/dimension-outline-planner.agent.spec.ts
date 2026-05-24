@@ -14,7 +14,7 @@ import {
   assertNumberProducerWithinSchema,
 } from "../../../../../ai-harness/agents/dev-tools";
 import { DimensionOutlinePlannerAgent } from "../dimension-outline-planner.agent";
-import { CHAPTER_COUNT_RANGE } from "../../../contracts/chapter-count.contract";
+import { CHAPTER_COUNT_RANGE } from "../../../api/contracts/chapter-count.contract";
 
 const meta = readDefineAgentMeta(DimensionOutlinePlannerAgent)!;
 const inputSchema = meta.inputSchema as z.ZodType;

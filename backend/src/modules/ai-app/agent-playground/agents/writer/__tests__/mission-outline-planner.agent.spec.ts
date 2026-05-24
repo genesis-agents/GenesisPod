@@ -11,7 +11,7 @@
 import { z } from "zod";
 import { readDefineAgentMeta } from "../../../../../ai-harness/agents/dev-tools";
 import { MissionOutlinePlannerAgent } from "../mission-outline-planner.agent";
-import { resolveMissionTotalWords } from "../../../contracts/word-budget.contract";
+import { resolveMissionTotalWords } from "../../../api/contracts/word-budget.contract";
 
 const meta = readDefineAgentMeta(MissionOutlinePlannerAgent)!;
 const inputSchema = meta.inputSchema as z.ZodType;

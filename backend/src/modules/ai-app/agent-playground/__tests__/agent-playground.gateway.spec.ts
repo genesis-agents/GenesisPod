@@ -5,7 +5,7 @@
  */
 
 import { UnauthorizedException } from "@nestjs/common";
-import { AgentPlaygroundGateway } from "../agent-playground.gateway";
+import { AgentPlaygroundGateway } from "../api/controller/agent-playground.gateway";
 import { SocketBroadcastAdapter } from "@/modules/ai-harness/protocols/realtime/socket-broadcast.adapter";
 
 jest.mock("@/modules/ai-harness/protocols/realtime/socket-broadcast.adapter");

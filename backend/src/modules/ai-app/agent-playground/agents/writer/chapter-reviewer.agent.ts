@@ -17,7 +17,7 @@ import {
   coercedEnum,
 } from "@/common/utils/schema-coercion.utils";
 // ★ 2026-05-21 P2：引用下限走单一权威，避免与 EvidenceBudget 的公式漂移
-import { deriveCitationFloor } from "../../services/mission/workflow/evidence-budget";
+import { deriveCitationFloor } from "../../mission/artifacts/evidence-budget";
 
 const Input = z.object({
   topic: z.string(),

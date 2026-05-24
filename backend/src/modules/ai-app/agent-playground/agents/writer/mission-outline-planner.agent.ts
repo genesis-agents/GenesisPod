@@ -17,7 +17,7 @@ import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
 import {
   resolveMissionTotalWords,
   CHAPTER_WORDS_PER_CHAPTER_RANGE,
-} from "../../contracts/word-budget.contract";
+} from "../../api/contracts/word-budget.contract";
 
 const Input = z.object({
   topic: z.string(),

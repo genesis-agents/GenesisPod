@@ -1,5 +1,5 @@
-import { AGENT_PLAYGROUND_EVENTS } from "../agent-playground.events";
-import { AgentReflectionSchema } from "../agent-playground.event-schemas";
+import { AGENT_PLAYGROUND_EVENTS } from "../events/agent-playground.events";
+import { AgentReflectionSchema } from "../events/agent-playground.event-schemas";
 
 describe("AGENT_PLAYGROUND_EVENTS", () => {
   it("registers production events consumed by the playground UI", () => {

@@ -14,7 +14,7 @@ import {
   assertNumberProducerWithinSchema,
 } from "../../../../../ai-harness/agents/dev-tools";
 import { ChapterWriterAgent } from "../chapter-writer.agent";
-import { CHAPTER_WORDS_PER_CHAPTER_RANGE } from "../../../contracts/word-budget.contract";
+import { CHAPTER_WORDS_PER_CHAPTER_RANGE } from "../../../api/contracts/word-budget.contract";
 
 const meta = readDefineAgentMeta(ChapterWriterAgent)!;
 const inputSchema = meta.inputSchema as z.ZodType;

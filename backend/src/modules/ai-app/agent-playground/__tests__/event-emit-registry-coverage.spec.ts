@@ -16,7 +16,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { AGENT_PLAYGROUND_EVENTS } from "../agent-playground.events";
+import { AGENT_PLAYGROUND_EVENTS } from "../events/agent-playground.events";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

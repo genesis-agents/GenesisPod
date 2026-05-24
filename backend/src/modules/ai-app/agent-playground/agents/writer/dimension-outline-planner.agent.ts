@@ -8,7 +8,7 @@
 
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
-import { CHAPTER_COUNT_RANGE } from "../../contracts/chapter-count.contract";
+import { CHAPTER_COUNT_RANGE } from "../../api/contracts/chapter-count.contract";
 
 const Input = z.object({
   topic: z.string(),

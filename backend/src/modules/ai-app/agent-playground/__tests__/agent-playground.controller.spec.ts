@@ -7,7 +7,7 @@
  */
 
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
-import { AgentPlaygroundController } from "../agent-playground.controller";
+import { AgentPlaygroundController } from "../api/controller/agent-playground.controller";
 
 function makeReq(userId?: string) {
   return { user: userId !== undefined ? { id: userId } : undefined } as never;
@@ -110,7 +110,7 @@ function buildController() {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const {
     MissionRerunOrchestratorService,
-  } = require("../services/mission/rerun/mission-rerun-orchestrator.service");
+  } = require("../mission/rerun/mission-rerun-orchestrator.service");
   // ★ 2026-05-07 rerun-overhaul v1.1: RerunGuardService 注入（缺省放过）
   const rerunGuardMock = {
     ensureRerunable: jest.fn().mockResolvedValue(undefined),
@@ -144,11 +144,11 @@ function buildController() {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const {
     MissionReadController,
-  } = require("../controllers/mission-read.controller");
+  } = require("../api/controller/mission-read.controller");
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const {
     MissionRerunController,
-  } = require("../controllers/mission-rerun.controller");
+  } = require("../api/controller/mission-rerun.controller");
 
   // ★ C0/G1：lifecycleManager mock —— finalize 复刻真实语义（条件写 + onWon 吞异常）
   const lifecycleManager = {

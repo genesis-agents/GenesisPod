@@ -19,7 +19,7 @@ import {
   ForbiddenException,
   Injectable,
 } from "@nestjs/common";
-import { MissionStore } from "../mission/lifecycle/mission-store.service";
+import { MissionStore } from "../../mission/lifecycle/mission-store.service";
 
 interface ExportedMission {
   filename: string;

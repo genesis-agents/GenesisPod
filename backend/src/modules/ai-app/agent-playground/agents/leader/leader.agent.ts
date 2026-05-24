@@ -24,7 +24,7 @@
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
 import { buildPromptFromDuty } from "../../utils/duty-loader";
-import { DIMENSION_FACETS } from "../../contracts/dimension-tool-matrix";
+import { DIMENSION_FACETS } from "../../api/contracts/dimension-tool-matrix";
 
 // ── 共享子 schema ──
 const Goals = z.object({
