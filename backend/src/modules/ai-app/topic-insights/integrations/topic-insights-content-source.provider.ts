@@ -1,44 +1,53 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../common/prisma/prisma.service';
-import { SocialDataSourceProvider } from '../../contracts/social-data-source';
+import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { ContentSourceProvider } from "@/modules/ai-engine/facade";
 import type {
-  SocialDataSource,
+  ContentSource,
   SourceItem,
   SourceListFilter,
   SourceListResult,
   SourceContentBundle,
-} from '../../contracts/social-data-source';
+} from "@/modules/ai-engine/facade";
 
+/**
+ * TopicInsightsContentSourceProvider
+ *
+ * 2026-05-24 P17a: renamed from TopicInsightsSocialSourceProvider; implements
+ * generic engine `ContentSource`. id "AI_TOPIC_INSIGHTS" preserved.
+ */
 @Injectable()
-@SocialDataSourceProvider()
-export class TopicInsightsSocialSourceProvider implements SocialDataSource {
-  private readonly logger = new Logger(TopicInsightsSocialSourceProvider.name);
+@ContentSourceProvider()
+export class TopicInsightsContentSourceProvider implements ContentSource {
+  private readonly logger = new Logger(TopicInsightsContentSourceProvider.name);
 
-  readonly id = 'AI_TOPIC_INSIGHTS';
-  readonly displayName = { 'zh-CN': 'AI 洞察', 'en-US': 'AI Topic Insights' };
-  readonly icon = 'Lightbulb';
+  readonly id = "AI_TOPIC_INSIGHTS";
+  readonly displayName = { "zh-CN": "AI 洞察", "en-US": "AI Topic Insights" };
+  readonly icon = "Lightbulb";
   readonly description = {
-    'zh-CN': '从我的话题洞察中选择',
-    'en-US': 'Pick from my topic insights',
+    "zh-CN": "从我的话题洞察中选择",
+    "en-US": "Pick from my topic insights",
   };
-  readonly contentKinds = ['note'] as const;
+  readonly contentKinds = ["note"] as const;
   readonly maxItemsPerTask = 10;
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async listItems(userId: string, filter: SourceListFilter): Promise<SourceListResult> {
+  async listItems(
+    userId: string,
+    filter: SourceListFilter,
+  ): Promise<SourceListResult> {
     const limit = Math.min(filter.limit ?? 20, 50);
 
     const where: Record<string, unknown> = {
       userId,
       // soft-deleted / archived topics are excluded
-      status: { not: 'ARCHIVED' },
+      status: { not: "ARCHIVED" },
     };
 
     if (filter.search) {
       where.OR = [
-        { name: { contains: filter.search, mode: 'insensitive' } },
-        { description: { contains: filter.search, mode: 'insensitive' } },
+        { name: { contains: filter.search, mode: "insensitive" } },
+        { description: { contains: filter.search, mode: "insensitive" } },
       ];
     }
 
@@ -51,7 +60,7 @@ export class TopicInsightsSocialSourceProvider implements SocialDataSource {
 
     const baseArgs = {
       where,
-      orderBy: { updatedAt: 'desc' as const },
+      orderBy: { updatedAt: "desc" as const },
       take: limit + 1, // fetch one extra to determine if there is a next page
       select: {
         id: true,
@@ -60,7 +69,7 @@ export class TopicInsightsSocialSourceProvider implements SocialDataSource {
         createdAt: true,
         // Pick only the latest report's executiveSummary for the preview
         reports: {
-          orderBy: { version: 'desc' as const },
+          orderBy: { version: "desc" as const },
           take: 1,
           select: { executiveSummary: true, totalSources: true },
         },
@@ -88,7 +97,7 @@ export class TopicInsightsSocialSourceProvider implements SocialDataSource {
         id: t.id,
         title: t.name,
         preview,
-        contentKind: 'note',
+        contentKind: "note",
         wordCount: latestReport?.executiveSummary
           ? Math.round(latestReport.executiveSummary.length / 5)
           : undefined,
@@ -102,7 +111,10 @@ export class TopicInsightsSocialSourceProvider implements SocialDataSource {
     };
   }
 
-  async fetchBundle(itemIds: string[], userId: string): Promise<SourceContentBundle[]> {
+  async fetchBundle(
+    itemIds: string[],
+    userId: string,
+  ): Promise<SourceContentBundle[]> {
     if (itemIds.length === 0) return [];
 
     const topics = await this.prisma.researchTopic.findMany({
@@ -119,7 +131,7 @@ export class TopicInsightsSocialSourceProvider implements SocialDataSource {
         createdAt: true,
         updatedAt: true,
         reports: {
-          orderBy: { version: 'desc' },
+          orderBy: { version: "desc" },
           take: 1,
           select: {
             version: true,
@@ -141,11 +153,11 @@ export class TopicInsightsSocialSourceProvider implements SocialDataSource {
       const body = buildMarkdownBody(t.name, t.description, report);
 
       return {
-        sourceType: 'AI_TOPIC_INSIGHTS',
+        sourceType: "AI_TOPIC_INSIGHTS",
         sourceId: t.id,
         title: t.name,
         body,
-        bodyMime: 'text/markdown',
+        bodyMime: "text/markdown",
         sourceMetadata: {
           topicType: t.type,
           topicConfig: t.topicConfig,
@@ -154,8 +166,8 @@ export class TopicInsightsSocialSourceProvider implements SocialDataSource {
           totalSources: report?.totalSources ?? 0,
         },
         displayMetadata: {
-          icon: 'Lightbulb',
-          sourceLabel: 'AI Topic Insights',
+          icon: "Lightbulb",
+          sourceLabel: "AI Topic Insights",
           topicName: t.name,
           hasReport: report != null,
         },
@@ -186,27 +198,27 @@ function buildMarkdownBody(
   lines.push(`# ${name}`);
 
   if (description) {
-    lines.push('');
+    lines.push("");
     lines.push(description);
   }
 
   if (!report) {
-    return lines.join('\n');
+    return lines.join("\n");
   }
 
   if (report.executiveSummary) {
-    lines.push('');
-    lines.push('## Executive Summary');
-    lines.push('');
+    lines.push("");
+    lines.push("## Executive Summary");
+    lines.push("");
     lines.push(report.executiveSummary);
   }
 
   if (report.fullReport) {
-    lines.push('');
-    lines.push('## Full Report');
-    lines.push('');
+    lines.push("");
+    lines.push("## Full Report");
+    lines.push("");
     lines.push(report.fullReport);
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }

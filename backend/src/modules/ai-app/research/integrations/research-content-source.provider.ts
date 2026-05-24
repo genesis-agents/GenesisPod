@@ -1,13 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SocialDataSourceProvider } from "../../contracts/social-data-source";
+import { ContentSourceProvider } from "@/modules/ai-engine/facade";
 import type {
-  SocialDataSource,
+  ContentSource,
   SourceItem,
   SourceListFilter,
   SourceListResult,
   SourceContentBundle,
-} from "../../contracts/social-data-source";
+} from "@/modules/ai-engine/facade";
 
 // ---------------------------------------------------------------------------
 // Local shapes returned by Prisma select queries
@@ -35,18 +35,21 @@ interface ProjectBundleRow {
 }
 
 /**
- * ResearchSocialSourceProvider
+ * ResearchContentSourceProvider
+ *
+ * 2026-05-24 P17a: renamed from ResearchSocialSourceProvider; implements
+ * generic engine `ContentSource`. id "AI_RESEARCH" preserved.
  *
  * Exposes the current user's AI Research projects (and their generated
- * outputs / DeepResearch session reports) as a SocialDataSource so that
- * the Social module can pick from them when composing content.
+ * outputs / DeepResearch session reports) as a generic ContentSource so
+ * any consumer (ai-app/social, future apps) can pull via the registry.
  *
  * Isolation guarantee: every query is scoped to the caller's userId —
  * cross-user access is structurally impossible.
  */
 @Injectable()
-@SocialDataSourceProvider()
-export class ResearchSocialSourceProvider implements SocialDataSource {
+@ContentSourceProvider()
+export class ResearchContentSourceProvider implements ContentSource {
   readonly id = "AI_RESEARCH";
   readonly displayName = {
     "zh-CN": "AI 研究",
@@ -57,7 +60,7 @@ export class ResearchSocialSourceProvider implements SocialDataSource {
     "zh-CN": "从我的 AI 研究报告中选择",
     "en-US": "Pick from my AI Research reports",
   } as const;
-  // Widened to satisfy SocialDataSource['contentKinds']: SourceItem['contentKind'][]
+  // Widened to satisfy ContentSource['contentKinds']: SourceItem['contentKind'][]
   readonly contentKinds: SourceItem["contentKind"][] = ["report"];
   readonly maxItemsPerTask = 10;
 
@@ -219,10 +222,7 @@ export class ResearchSocialSourceProvider implements SocialDataSource {
     }
 
     // 3. Fallback: project metadata summary
-    return [
-      `# ${project.name}`,
-      project.description ?? "",
-    ]
+    return [`# ${project.name}`, project.description ?? ""]
       .filter(Boolean)
       .join("\n\n");
   }

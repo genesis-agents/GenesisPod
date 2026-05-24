@@ -1,13 +1,13 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../common/prisma/prisma.service';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
-  SocialDataSource,
-  SocialDataSourceProvider,
+  ContentSource,
+  ContentSourceProvider,
   SourceListFilter,
   SourceListResult,
   SourceContentBundle,
   SourceItem,
-} from '../../contracts/social-data-source';
+} from "@/modules/ai-engine/facade";
 
 type ChapterRow = {
   id: string;
@@ -22,17 +22,23 @@ type ChapterBundleRow = ChapterRow & {
   volume: { title: string; project: { name: string } };
 };
 
+/**
+ * WritingContentSourceProvider
+ *
+ * 2026-05-24 P17a: renamed from WritingSocialSourceProvider; implements
+ * generic engine `ContentSource`. id "AI_WRITING" preserved.
+ */
 @Injectable()
-@SocialDataSourceProvider()
-export class WritingSocialSourceProvider implements SocialDataSource {
-  readonly id = 'AI_WRITING';
-  readonly displayName = { 'zh-CN': 'AI 写作', 'en-US': 'AI Writing' };
-  readonly icon = 'PenLine';
+@ContentSourceProvider()
+export class WritingContentSourceProvider implements ContentSource {
+  readonly id = "AI_WRITING";
+  readonly displayName = { "zh-CN": "AI 写作", "en-US": "AI Writing" };
+  readonly icon = "PenLine";
   readonly description = {
-    'zh-CN': '从我的 AI 写作文章中选择',
-    'en-US': 'Pick from my AI Writing articles',
+    "zh-CN": "从我的 AI 写作文章中选择",
+    "en-US": "Pick from my AI Writing articles",
   };
-  readonly contentKinds: SourceItem['contentKind'][] = ['article'];
+  readonly contentKinds: SourceItem["contentKind"][] = ["article"];
   readonly maxItemsPerTask = 10;
 
   constructor(private readonly prisma: PrismaService) {}
@@ -51,7 +57,7 @@ export class WritingSocialSourceProvider implements SocialDataSource {
           },
         },
         ...(filter.search
-          ? { title: { contains: filter.search, mode: 'insensitive' } }
+          ? { title: { contains: filter.search, mode: "insensitive" } }
           : {}),
         ...(filter.cursor ? { id: { gt: filter.cursor } } : {}),
       },
@@ -62,7 +68,7 @@ export class WritingSocialSourceProvider implements SocialDataSource {
         wordCount: true,
         createdAt: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: limit + 1,
     });
 
@@ -73,7 +79,7 @@ export class WritingSocialSourceProvider implements SocialDataSource {
       id: ch.id,
       title: ch.title,
       preview: ch.content ? ch.content.slice(0, 200) : undefined,
-      contentKind: 'article' as const,
+      contentKind: "article" as const,
       wordCount: ch.wordCount,
       createdAt: ch.createdAt.toISOString(),
     }));
@@ -124,8 +130,8 @@ export class WritingSocialSourceProvider implements SocialDataSource {
       sourceType: this.id,
       sourceId: ch.id,
       title: ch.title,
-      body: ch.content ?? '',
-      bodyMime: 'text/plain' as const,
+      body: ch.content ?? "",
+      bodyMime: "text/plain" as const,
       sourceMetadata: {
         wordCount: ch.wordCount,
         chapterNumber: ch.chapterNumber,

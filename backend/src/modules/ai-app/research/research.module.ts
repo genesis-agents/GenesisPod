@@ -45,7 +45,7 @@ import {
 import { ResearchMemoryService } from "./memory/research-memory.service";
 import { StrategyLoaderService } from "./memory/strategy-loader.service";
 import { DiscussionController } from "./discussion/discussion.controller";
-import { ResearchSocialSourceProvider } from "./social-data-source/research-social-source.provider";
+import { ResearchContentSourceProvider } from "./integrations/research-content-source.provider";
 
 @Module({
   imports: [DiscussionModule, ResearchProjectModule],
@@ -75,8 +75,8 @@ import { ResearchSocialSourceProvider } from "./social-data-source/research-soci
     IterativeResearchService,
     ResearchMemoryService,
     StrategyLoaderService,
-    // Social data source — auto-discovered via DiscoveryService
-    ResearchSocialSourceProvider,
+    // Generic ContentSource — auto-discovered by engine ContentSourceRegistry
+    ResearchContentSourceProvider,
   ],
   exports: [
     DiscussionModule,

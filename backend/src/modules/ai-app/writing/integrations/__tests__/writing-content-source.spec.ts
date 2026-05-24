@@ -1,13 +1,13 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { WritingSocialSourceProvider } from '../writing-social-source.provider';
-import { PrismaService } from '../../../../../common/prisma/prisma.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { WritingContentSourceProvider } from "../writing-content-source.provider";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 // ---------------------------------------------------------------------------
 // Shared test fixtures
 // ---------------------------------------------------------------------------
 
-const USER_A = 'user-a';
-const USER_B = 'user-b';
+const USER_A = "user-a";
+const USER_B = "user-b";
 
 const makeChapter = (
   overrides: Partial<{
@@ -20,13 +20,13 @@ const makeChapter = (
     volume: { title: string; project: { name: string } };
   }> = {},
 ) => ({
-  id: 'ch-1',
-  title: 'Chapter One',
-  content: 'Once upon a time in a land far away',
+  id: "ch-1",
+  title: "Chapter One",
+  content: "Once upon a time in a land far away",
   wordCount: 8,
-  createdAt: new Date('2024-01-01T00:00:00Z'),
+  createdAt: new Date("2024-01-01T00:00:00Z"),
   chapterNumber: 1,
-  volume: { title: 'Volume I', project: { name: 'My Novel' } },
+  volume: { title: "Volume I", project: { name: "My Novel" } },
   ...overrides,
 });
 
@@ -49,30 +49,30 @@ const buildPrisma = () => {
 // Test suite
 // ---------------------------------------------------------------------------
 
-describe('WritingSocialSourceProvider', () => {
-  let provider: WritingSocialSourceProvider;
+describe("WritingContentSourceProvider", () => {
+  let provider: WritingContentSourceProvider;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        WritingSocialSourceProvider,
+        WritingContentSourceProvider,
         { provide: PrismaService, useValue: buildPrisma() },
       ],
     }).compile();
 
-    provider = module.get(WritingSocialSourceProvider);
+    provider = module.get(WritingContentSourceProvider);
   });
 
   // -------------------------------------------------------------------------
   // Descriptor fields
   // -------------------------------------------------------------------------
 
-  it('should expose correct descriptor fields', () => {
-    expect(provider.id).toBe('AI_WRITING');
-    expect(provider.displayName['zh-CN']).toBe('AI 写作');
-    expect(provider.displayName['en-US']).toBe('AI Writing');
-    expect(provider.icon).toBe('PenLine');
-    expect(provider.contentKinds).toContain('article');
+  it("should expose correct descriptor fields", () => {
+    expect(provider.id).toBe("AI_WRITING");
+    expect(provider.displayName["zh-CN"]).toBe("AI 写作");
+    expect(provider.displayName["en-US"]).toBe("AI Writing");
+    expect(provider.icon).toBe("PenLine");
+    expect(provider.contentKinds).toContain("article");
     expect(provider.maxItemsPerTask).toBe(10);
   });
 
@@ -80,26 +80,26 @@ describe('WritingSocialSourceProvider', () => {
   // listItems — basic field mapping
   // -------------------------------------------------------------------------
 
-  it('listItems: returns correctly mapped SourceItem fields', async () => {
+  it("listItems: returns correctly mapped SourceItem fields", async () => {
     mockFindMany.mockResolvedValueOnce([makeChapter()]);
 
     const result = await provider.listItems(USER_A, {});
 
     expect(result.items).toHaveLength(1);
     const item = result.items[0];
-    expect(item.id).toBe('ch-1');
-    expect(item.title).toBe('Chapter One');
-    expect(item.contentKind).toBe('article');
+    expect(item.id).toBe("ch-1");
+    expect(item.title).toBe("Chapter One");
+    expect(item.contentKind).toBe("article");
     expect(item.wordCount).toBe(8);
-    expect(item.createdAt).toBe('2024-01-01T00:00:00.000Z');
-    expect(item.preview).toBe('Once upon a time in a land far away');
+    expect(item.createdAt).toBe("2024-01-01T00:00:00.000Z");
+    expect(item.preview).toBe("Once upon a time in a land far away");
   });
 
   // -------------------------------------------------------------------------
   // listItems — userId isolation
   // -------------------------------------------------------------------------
 
-  it('listItems: passes ownerId filter so user B sees no data from user A', async () => {
+  it("listItems: passes ownerId filter so user B sees no data from user A", async () => {
     // User A has data; user B query returns empty (prisma enforces userId filter)
     mockFindMany.mockResolvedValueOnce([]);
 
@@ -116,19 +116,21 @@ describe('WritingSocialSourceProvider', () => {
   // listItems — search by title
   // -------------------------------------------------------------------------
 
-  it('listItems: applies title contains filter when search is provided', async () => {
-    mockFindMany.mockResolvedValueOnce([makeChapter({ title: 'The Dragon Chapter' })]);
+  it("listItems: applies title contains filter when search is provided", async () => {
+    mockFindMany.mockResolvedValueOnce([
+      makeChapter({ title: "The Dragon Chapter" }),
+    ]);
 
-    await provider.listItems(USER_A, { search: 'Dragon' });
+    await provider.listItems(USER_A, { search: "Dragon" });
 
     const callArgs = mockFindMany.mock.calls[0][0];
     expect(callArgs.where.title).toEqual({
-      contains: 'Dragon',
-      mode: 'insensitive',
+      contains: "Dragon",
+      mode: "insensitive",
     });
   });
 
-  it('listItems: omits title filter when search is not provided', async () => {
+  it("listItems: omits title filter when search is not provided", async () => {
     mockFindMany.mockResolvedValueOnce([]);
 
     await provider.listItems(USER_A, {});
@@ -141,22 +143,22 @@ describe('WritingSocialSourceProvider', () => {
   // listItems — cursor pagination
   // -------------------------------------------------------------------------
 
-  it('listItems: returns nextCursor when more items exist', async () => {
+  it("listItems: returns nextCursor when more items exist", async () => {
     // limit=2, return 3 items → hasMore
     const chapters = [
-      makeChapter({ id: 'ch-1' }),
-      makeChapter({ id: 'ch-2', title: 'Chapter Two' }),
-      makeChapter({ id: 'ch-3', title: 'Chapter Three' }),
+      makeChapter({ id: "ch-1" }),
+      makeChapter({ id: "ch-2", title: "Chapter Two" }),
+      makeChapter({ id: "ch-3", title: "Chapter Three" }),
     ];
     mockFindMany.mockResolvedValueOnce(chapters);
 
     const result = await provider.listItems(USER_A, { limit: 2 });
 
     expect(result.items).toHaveLength(2);
-    expect(result.nextCursor).toBe('ch-2');
+    expect(result.nextCursor).toBe("ch-2");
   });
 
-  it('listItems: nextCursor is undefined when no more items', async () => {
+  it("listItems: nextCursor is undefined when no more items", async () => {
     mockFindMany.mockResolvedValueOnce([makeChapter()]);
 
     const result = await provider.listItems(USER_A, { limit: 5 });
@@ -164,40 +166,40 @@ describe('WritingSocialSourceProvider', () => {
     expect(result.nextCursor).toBeUndefined();
   });
 
-  it('listItems: passes cursor to where clause when provided', async () => {
+  it("listItems: passes cursor to where clause when provided", async () => {
     mockFindMany.mockResolvedValueOnce([]);
 
-    await provider.listItems(USER_A, { cursor: 'ch-99' });
+    await provider.listItems(USER_A, { cursor: "ch-99" });
 
     const callArgs = mockFindMany.mock.calls[0][0];
-    expect(callArgs.where.id).toEqual({ gt: 'ch-99' });
+    expect(callArgs.where.id).toEqual({ gt: "ch-99" });
   });
 
   // -------------------------------------------------------------------------
   // fetchBundle — field mapping
   // -------------------------------------------------------------------------
 
-  it('fetchBundle: returns correctly mapped SourceContentBundle', async () => {
+  it("fetchBundle: returns correctly mapped SourceContentBundle", async () => {
     mockFindMany.mockResolvedValueOnce([makeChapter()]);
 
-    const bundles = await provider.fetchBundle(['ch-1'], USER_A);
+    const bundles = await provider.fetchBundle(["ch-1"], USER_A);
 
     expect(bundles).toHaveLength(1);
     const b = bundles[0];
-    expect(b.sourceType).toBe('AI_WRITING');
-    expect(b.sourceId).toBe('ch-1');
-    expect(b.title).toBe('Chapter One');
-    expect(b.body).toBe('Once upon a time in a land far away');
-    expect(b.bodyMime).toBe('text/plain');
+    expect(b.sourceType).toBe("AI_WRITING");
+    expect(b.sourceId).toBe("ch-1");
+    expect(b.title).toBe("Chapter One");
+    expect(b.body).toBe("Once upon a time in a land far away");
+    expect(b.bodyMime).toBe("text/plain");
     expect(b.sourceMetadata).toMatchObject({
       wordCount: 8,
       chapterNumber: 1,
-      volumeTitle: 'Volume I',
-      projectName: 'My Novel',
+      volumeTitle: "Volume I",
+      projectName: "My Novel",
     });
     expect(b.displayMetadata).toMatchObject({
-      projectName: 'My Novel',
-      volumeTitle: 'Volume I',
+      projectName: "My Novel",
+      volumeTitle: "Volume I",
       chapterNumber: 1,
     });
   });
@@ -206,28 +208,28 @@ describe('WritingSocialSourceProvider', () => {
   // fetchBundle — cross-user isolation (P1-2 hard requirement)
   // -------------------------------------------------------------------------
 
-  it('fetchBundle: cross-user isolation — user B gets empty array for user A items', async () => {
+  it("fetchBundle: cross-user isolation — user B gets empty array for user A items", async () => {
     // Prisma returns empty because ownerId filter excludes user A's data
     mockFindMany.mockResolvedValueOnce([]);
 
-    const bundles = await provider.fetchBundle(['ch-1'], USER_B);
+    const bundles = await provider.fetchBundle(["ch-1"], USER_B);
 
     expect(bundles).toHaveLength(0);
 
     // Verify userId isolation in the where clause
     const callArgs = mockFindMany.mock.calls[0][0];
     expect(callArgs.where.volume.project.ownerId).toBe(USER_B);
-    expect(callArgs.where.id).toEqual({ in: ['ch-1'] });
+    expect(callArgs.where.id).toEqual({ in: ["ch-1"] });
   });
 
   // -------------------------------------------------------------------------
   // fetchBundle — non-existent ids are silently skipped
   // -------------------------------------------------------------------------
 
-  it('fetchBundle: non-existent ids are skipped without error', async () => {
+  it("fetchBundle: non-existent ids are skipped without error", async () => {
     mockFindMany.mockResolvedValueOnce([]);
 
-    const bundles = await provider.fetchBundle(['does-not-exist'], USER_A);
+    const bundles = await provider.fetchBundle(["does-not-exist"], USER_A);
 
     expect(bundles).toHaveLength(0);
   });
@@ -236,7 +238,7 @@ describe('WritingSocialSourceProvider', () => {
   // fetchBundle — empty itemIds short-circuits
   // -------------------------------------------------------------------------
 
-  it('fetchBundle: returns empty array immediately when itemIds is empty', async () => {
+  it("fetchBundle: returns empty array immediately when itemIds is empty", async () => {
     const bundles = await provider.fetchBundle([], USER_A);
 
     expect(bundles).toHaveLength(0);
@@ -247,11 +249,11 @@ describe('WritingSocialSourceProvider', () => {
   // fetchBundle — null content handled gracefully
   // -------------------------------------------------------------------------
 
-  it('fetchBundle: null content maps to empty string body', async () => {
+  it("fetchBundle: null content maps to empty string body", async () => {
     mockFindMany.mockResolvedValueOnce([makeChapter({ content: null })]);
 
-    const bundles = await provider.fetchBundle(['ch-1'], USER_A);
+    const bundles = await provider.fetchBundle(["ch-1"], USER_A);
 
-    expect(bundles[0].body).toBe('');
+    expect(bundles[0].body).toBe("");
   });
 });

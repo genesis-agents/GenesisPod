@@ -1,5 +1,5 @@
 /**
- * Unit tests for ResearchSocialSourceProvider
+ * Unit tests for ResearchContentSourceProvider
  *
  * Key scenarios:
  *  1. listItems — basic listing with userId isolation
@@ -16,7 +16,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { ResearchSocialSourceProvider } from "../research-social-source.provider";
+import { ResearchContentSourceProvider } from "../research-content-source.provider";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 // ---------------------------------------------------------------------------
@@ -61,21 +61,21 @@ const mockPrisma = {
 // Test suite
 // ---------------------------------------------------------------------------
 
-describe("ResearchSocialSourceProvider", () => {
-  let provider: ResearchSocialSourceProvider;
+describe("ResearchContentSourceProvider", () => {
+  let provider: ResearchContentSourceProvider;
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ResearchSocialSourceProvider,
+        ResearchContentSourceProvider,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
-    provider = module.get<ResearchSocialSourceProvider>(
-      ResearchSocialSourceProvider,
+    provider = module.get<ResearchContentSourceProvider>(
+      ResearchContentSourceProvider,
     );
   });
 
@@ -235,7 +235,12 @@ describe("ResearchSocialSourceProvider", () => {
 
     it("uses output content when a COMPLETED REPORT output exists", async () => {
       const project = makeProjectWithRelations({
-        outputs: [{ content: "# Report Content\n\nDetails here.", createdAt: new Date() }],
+        outputs: [
+          {
+            content: "# Report Content\n\nDetails here.",
+            createdAt: new Date(),
+          },
+        ],
         deepResearchSessions: [],
       });
       mockPrisma.researchProject.findMany.mockResolvedValue([project]);
@@ -287,7 +292,10 @@ describe("ResearchSocialSourceProvider", () => {
       const project = makeProjectWithRelations({ id: "proj-1" });
       mockPrisma.researchProject.findMany.mockResolvedValue([project]);
 
-      const result = await provider.fetchBundle(["proj-1", "proj-99"], "user-A");
+      const result = await provider.fetchBundle(
+        ["proj-1", "proj-99"],
+        "user-A",
+      );
 
       // Only 1 bundle returned (proj-99 filtered out by userId constraint)
       expect(result).toHaveLength(1);
