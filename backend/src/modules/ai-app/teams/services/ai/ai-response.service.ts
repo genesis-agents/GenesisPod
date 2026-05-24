@@ -1214,15 +1214,21 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
 
           try {
             // Determine output length based on model capabilities
-            // ★ 使用 AIFacade 返回的 isReasoning 字段，不再硬编码模型名称
+            // ★ v3.1 C 阶段（2026-05-24）：删 isLargeModel 启发式，改 DB 驱动。
+            //   AIModelConfig.maxTokens 是 capability 单源；阈值 >= 6000 等价
+            //   原启发式（gpt-4 / claude / gemini 系列 admin 配置普遍 ≥6000）。
+            //   替代删除的 `modelId.includes("gpt-4"|"claude"|"gemini")` 反模式
+            //   （C.A.2）。
+            const LARGE_MODEL_TOKEN_THRESHOLD = 6000;
             const modelId =
               aiModelConfig?.modelId ||
               (await this.getDefaultModelId(aiMember.aiModel));
             const isReasoningModel = aiModelConfig?.isReasoning ?? false;
-            const isLargeModel =
-              modelId.includes("gpt-4") ||
-              modelId.includes("claude") ||
-              modelId.includes("gemini");
+            const configMaxTokens =
+              typeof aiModelConfig?.maxTokens === "number"
+                ? aiModelConfig.maxTokens
+                : 0;
+            const isLargeModel = configMaxTokens >= LARGE_MODEL_TOKEN_THRESHOLD;
 
             // 【长文支持】根据模型能力确定输出长度
             // - Reasoning models: "extended" (复杂多步骤任务、长文创作)

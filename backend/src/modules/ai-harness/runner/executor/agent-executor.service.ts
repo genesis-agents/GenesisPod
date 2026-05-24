@@ -369,18 +369,24 @@ export class AgentExecutorService implements IAgentExecutorService {
       taskProfile?: ExecutionConfig["taskProfile"];
       missionId?: string;
     },
-    _modelConfig?: Awaited<ReturnType<typeof this.getModelConfig>>,
+    modelConfig?: Awaited<ReturnType<typeof this.getModelConfig>>,
   ): Promise<{ content: string; tokensUsed: number }> {
-    // ★ "isLargeModel" 启发式 → defaultMaxTokens 高/低；DB 驱动是更好的方向
-    //   （AIModel.maxTokens / costTier 已经能精确表达），但这条路径还在用 aiModel
-    //   字符串。先把模型名启发式收敛：o-series 一律 /^o\d/，gpt 系列 /^gpt-/。
-    const lowerModel = aiModel.toLowerCase();
-    const isLargeModel =
-      /^gpt-/.test(lowerModel) || // gpt-4 / gpt-5 / gpt-6...
-      /^o\d/.test(lowerModel) || // o1 / o3 / o4 / o5...
-      lowerModel.includes("claude") ||
-      lowerModel.includes("gemini");
-    const defaultMaxTokens = isLargeModel ? 6000 : 4000;
+    // ★ v3.1 C 阶段（2026-05-24）：删启发式 isLargeModel，改 DB 驱动。
+    //   AIModel.maxTokens 由 admin 配置，是 capability 单源；阈值
+    //   `>= LARGE_MODEL_TOKEN_THRESHOLD`（与原启发式映射的 6000 等价语义）
+    //   决定 default。无配置时退回 4000（与原 "非 large" 分支一致）。
+    //   替代删除的 `/^gpt-/.test + /^o\d/.test + includes("claude"|"gemini")`
+    //   反模式（C.A.1）。
+    const LARGE_MODEL_TOKEN_THRESHOLD = 6000;
+    const SMALL_MODEL_DEFAULT_MAX_TOKENS = 4000;
+    const configMaxTokens =
+      typeof modelConfig?.maxTokens === "number" && modelConfig.maxTokens > 0
+        ? modelConfig.maxTokens
+        : null;
+    const defaultMaxTokens =
+      configMaxTokens !== null && configMaxTokens >= LARGE_MODEL_TOKEN_THRESHOLD
+        ? LARGE_MODEL_TOKEN_THRESHOLD
+        : SMALL_MODEL_DEFAULT_MAX_TOKENS;
 
     // 统一走 generateChatCompletion，由下游通过 Secret Manager 解析 API Key
     const result = await this.aiChatService.generateChatCompletion({
@@ -497,6 +503,3 @@ export class AgentExecutorService implements IAgentExecutorService {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
-
-
-

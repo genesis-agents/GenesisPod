@@ -1437,7 +1437,9 @@ describe("AiResponseService", () => {
       expect(chatCall.taskProfile.outputLength).toBe("extended");
     });
 
-    it("handles large model (gpt-4) with long output length", async () => {
+    it("handles large model (maxTokens >= 6000) with long output length", async () => {
+      // v3.1 C 阶段 (2026-05-24)：isLargeModel 不再判 modelId 子串，改读
+      // aiModelConfig.maxTokens >= 6000；GPT-4 系列 admin 配置普遍 8000 满足。
       mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(
         makeAIMember({ aiModel: "gpt-4-turbo" }),
       );
@@ -1446,6 +1448,7 @@ describe("AiResponseService", () => {
         name: "GPT-4 Turbo",
         provider: "openai",
         isReasoning: false,
+        maxTokens: 8000,
       });
       mockAiFacade.chat.mockResolvedValueOnce({
         content: "GPT-4 response",
@@ -1458,7 +1461,7 @@ describe("AiResponseService", () => {
       expect(chatCall.taskProfile.outputLength).toBe("long");
     });
 
-    it("handles medium output length for non-large models", async () => {
+    it("handles medium output length for non-large models (maxTokens < 6000)", async () => {
       mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(
         makeAIMember({ aiModel: "llama-3" }),
       );
@@ -1467,6 +1470,7 @@ describe("AiResponseService", () => {
         name: "Llama 3",
         provider: "meta",
         isReasoning: false,
+        maxTokens: 4096,
       });
       mockAiFacade.chat.mockResolvedValueOnce({
         content: "Llama response",
@@ -1477,6 +1481,54 @@ describe("AiResponseService", () => {
 
       const chatCall = mockAiFacade.chat.mock.calls[0][0];
       expect(chatCall.taskProfile.outputLength).toBe("medium");
+    });
+
+    // v3.1 C 阶段（2026-05-24）：守护 capability 数据驱动 — modelId 含 "gpt-4"
+    // 但 maxTokens 未配置（< 6000）时，必须降级 medium（旧启发式会误判 long）。
+    it("guards capability-driven: modelId looks 'large' but maxTokens < 6000 → medium", async () => {
+      mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(
+        makeAIMember({ aiModel: "gpt-4-nano-byok" }),
+      );
+      mockAiFacade.getModelById.mockResolvedValueOnce({
+        modelId: "gpt-4-nano-byok",
+        name: "GPT-4 nano BYOK",
+        provider: "openai",
+        isReasoning: false,
+        maxTokens: 2048, // 小型 BYOK，启发式会误判 long
+      });
+      mockAiFacade.chat.mockResolvedValueOnce({
+        content: "nano response",
+        tokensUsed: 50,
+      });
+
+      await service.generateAIResponse("topic-1", "user-1", "ai-1", []);
+
+      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      expect(chatCall.taskProfile.outputLength).toBe("medium");
+    });
+
+    // v3.1 C 阶段（2026-05-24）：守护 capability 数据驱动 — modelId 不含 "gpt-4"
+    // 但 maxTokens >= 6000（大型 BYOK 或新 provider）时，必须升级 long。
+    it("guards capability-driven: modelId looks 'small' but maxTokens >= 6000 → long", async () => {
+      mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(
+        makeAIMember({ aiModel: "qwen-max" }),
+      );
+      mockAiFacade.getModelById.mockResolvedValueOnce({
+        modelId: "qwen-max",
+        name: "Qwen Max",
+        provider: "alibaba",
+        isReasoning: false,
+        maxTokens: 8000,
+      });
+      mockAiFacade.chat.mockResolvedValueOnce({
+        content: "Qwen response",
+        tokensUsed: 200,
+      });
+
+      await service.generateAIResponse("topic-1", "user-1", "ai-1", []);
+
+      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      expect(chatCall.taskProfile.outputLength).toBe("long");
     });
 
     it("handles REFERENCE_RECENT context strategy from contextRouter", async () => {
