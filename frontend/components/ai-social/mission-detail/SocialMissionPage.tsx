@@ -43,6 +43,7 @@ import {
 import {
   MissionDetailFrame,
   MissionActionGroup,
+  MissionControlCard,
   MissionTaskList,
   RoleCard,
   type MissionActionButtonSpec,
@@ -978,6 +979,63 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
             </div>
           )}
           {/* Action buttons - sticky 底部（playground 标杆位置） */}
+          {task && (
+            <MissionControlCard
+              title="任务配置"
+              statusLabel={statusConfig.label}
+              statusTone={
+                task.status === 'FAILED'
+                  ? 'red'
+                  : task.status === 'CANCELLED'
+                    ? 'gray'
+                    : task.status === 'PUBLISHED' ||
+                        task.status === 'PARTIAL_PUBLISHED'
+                      ? 'green'
+                      : socialView.status === 'running'
+                        ? 'blue'
+                        : 'violet'
+              }
+              className="mx-4 mb-4 mt-0"
+            >
+              <div className="space-y-3">
+                {task.platforms && task.platforms.length > 0 && (
+                  <div>
+                    <div className="mb-1 text-xs font-medium text-gray-500">
+                      发布平台
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {task.platforms.map((platform) => (
+                        <span
+                          key={platform}
+                          className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700"
+                        >
+                          {platform === 'WECHAT_MP'
+                            ? '微信公众号'
+                            : platform === 'XIAOHONGSHU'
+                              ? '小红书'
+                              : platform}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-1 text-[11px] text-gray-600">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-700">来源数</span>
+                    <span className="font-mono text-gray-500">
+                      {task.sources?.length ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-700">版本数</span>
+                    <span className="font-mono text-gray-500">
+                      {task.versions?.length ?? 0}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </MissionControlCard>
+          )}
           {actionButtons.length > 0 && (
             <div className="border-t border-gray-100 p-4">
               <MissionActionGroup buttons={actionButtons} />

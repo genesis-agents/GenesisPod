@@ -9,6 +9,8 @@ export type {
   MissionActionButtonSpec,
   MissionActionVariant,
 } from './MissionActionGroup';
+export { MissionControlCard } from './MissionControlCard';
+export type { MissionControlCardProps } from './MissionControlCard';
 
 export { DrawerShell } from './DrawerShell';
 export type { DrawerShellProps } from './DrawerShell';

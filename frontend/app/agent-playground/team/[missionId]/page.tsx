@@ -904,6 +904,9 @@ export default function MissionDetailPage() {
               ? 'completed'
               : 'running'
       }
+      depth={view.mission.depth}
+      language={view.mission.language}
+      maxCredits={view.mission.maxCredits}
       onCollapse={() => setLeftCollapsed(true)}
       onLeaderClick={() => setLeaderChatOpen(true)}
       onResearchTeamClick={() => setResearchTeamOpen(true)}

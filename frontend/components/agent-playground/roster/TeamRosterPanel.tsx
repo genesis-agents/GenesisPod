@@ -31,6 +31,8 @@ import {
   AgentInspector,
   type AgentInspectorAgent,
 } from '@/components/common/agent-inspector';
+import { MissionControlCard } from '@/components/common/mission-detail';
+import { cn } from '@/lib/utils/common';
 import type {
   AgentLiveState,
   AgentRole,
@@ -113,6 +115,9 @@ interface Props {
   dimensions?: { id?: string; name: string; rationale?: string }[];
   /** mission 当前状态 — 决定按钮显示 */
   missionStatus?: 'running' | 'completed' | 'failed' | 'cancelled' | 'idle';
+  depth?: 'quick' | 'standard' | 'deep' | string;
+  language?: string;
+  maxCredits?: number;
   onCollapse?: () => void;
   /** 点击 Leader 节点时触发（详情页用来打开 LeaderChatModal） */
   onLeaderClick?: () => void;
@@ -138,6 +143,9 @@ export function TeamRosterPanel({
   finalScore,
   dimensions,
   missionStatus = 'idle',
+  depth,
+  language,
+  maxCredits,
   onCollapse,
   onLeaderClick,
   onResearchTeamClick,
@@ -645,6 +653,83 @@ export function TeamRosterPanel({
         )}
 
         {/* 操作按钮：开始 / 更新 / 取消 —— 完全照搬 TI TopicTeamPanel 尺寸 + 样式 */}
+        {(depth || language || maxCredits != null) && (
+          <MissionControlCard
+            title="运行配置"
+            statusLabel={
+              missionStatus === 'running'
+                ? '进行中'
+                : missionStatus === 'completed'
+                  ? '已完成'
+                  : missionStatus === 'failed'
+                    ? '已失败'
+                    : missionStatus === 'cancelled'
+                      ? '已取消'
+                      : '待启动'
+            }
+            statusTone={
+              missionStatus === 'running'
+                ? 'blue'
+                : missionStatus === 'completed'
+                  ? 'green'
+                  : missionStatus === 'failed'
+                    ? 'red'
+                    : 'gray'
+            }
+          >
+            {depth && (
+              <div className="mb-3">
+                <div className="mb-1 text-xs font-medium text-gray-500">
+                  研究深度
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {[
+                    { key: 'quick', label: '快速', desc: '基础搜索' },
+                    { key: 'standard', label: '标准', desc: '平衡覆盖' },
+                    { key: 'deep', label: '深度', desc: '完整链路' },
+                  ].map((option) => {
+                    const selected = depth === option.key;
+                    return (
+                      <div
+                        key={option.key}
+                        className={cn(
+                          'rounded-md px-2 py-1.5 text-center text-xs',
+                          selected
+                            ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
+                            : 'bg-gray-50 text-gray-500'
+                        )}
+                      >
+                        <div className="font-medium">{option.label}</div>
+                        <div className="mt-0.5 whitespace-nowrap text-[10px] opacity-70">
+                          {option.desc}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {(language || maxCredits != null) && (
+              <div className="space-y-1 text-[11px] text-gray-600">
+                {language && (
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-700">语言</span>
+                    <span className="font-mono text-gray-500">{language}</span>
+                  </div>
+                )}
+                {maxCredits != null && (
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-700">预算</span>
+                    <span className="font-mono text-gray-500">
+                      {maxCredits.toLocaleString()} credits
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </MissionControlCard>
+        )}
+
         {(onRerun || onUpdate || onCancel) && (
           <div className="mt-3 grid grid-cols-3 gap-2">
             {onRerun && (

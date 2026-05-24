@@ -173,7 +173,9 @@ export function MissionDetailFrame<TTab extends string = string>({
             展开态 leftPanel（收起键在业务面板内，经 onLeftCollapseToggle 回调）；无外挂 w-5 切换条 */}
         <aside
           className={cn(
-            'flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-white transition-all duration-300',
+            // Keep scrolling ownership inside the injected left panel.
+            // If the frame also scrolls, bottom action bars get pushed out of view.
+            'flex min-h-0 flex-shrink-0 overflow-hidden border-r border-gray-200 bg-white transition-all duration-300',
             leftCollapsed ? 'w-12' : leftWidth
           )}
         >
@@ -194,7 +196,7 @@ export function MissionDetailFrame<TTab extends string = string>({
         </aside>
 
         {/* Right panel — banners + tabs + content */}
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {/* topBanner slot — playground 用作 WS 失联 / 失败警告 banner */}
           {topBanner}
 
@@ -215,7 +217,7 @@ export function MissionDetailFrame<TTab extends string = string>({
           </div>
 
           {/* Tab content slot */}
-          <div className="flex-1 overflow-auto">{children}</div>
+          <div className="min-h-0 flex-1 overflow-auto">{children}</div>
         </div>
       </div>
     </div>
