@@ -635,6 +635,23 @@ export type {
 // In-memory DAG concurrency scheduler —— @migrated-from agent-execution-support.runDagConcurrency
 export { runDagConcurrency } from "../teams/business-team/invocation/business-team-dag-concurrency";
 
+// ★ 2026-05-24 (Wave-1 P7): BusinessAgentTeam orchestrator skeleton 框架
+//   ——@migrated-from playground/social/radar business-orchestrator.service 三家公共 skeleton:
+//     bindSessionLookup / getEntry / buildHooksForStep dispatch / primitive→hook key adapter /
+//     abort signal 保护 / stageNumber lookup
+//   不下沉 Tier 5 业务编排（具体 stage hook 实现 / business event payload / report assembly）
+export { BusinessTeamOrchestratorFramework } from "../teams/business-team/orchestrator/business-team-orchestrator.framework";
+export type {
+  BusinessTeamOrchestratorConfig,
+  SessionLookupFn as BusinessTeamSessionLookupFn,
+  StageRunner as BusinessTeamStageRunner,
+  StageRunnerArgs as BusinessTeamStageRunnerArgs,
+} from "../teams/business-team/orchestrator/abstractions/business-team-orchestrator.contract";
+export {
+  DEFAULT_PRIMARY_HOOK_BY_PRIMITIVE,
+  resolvePrimaryHookKey,
+} from "../teams/business-team/orchestrator/abstractions/stage-iteration.contract";
+
 // ── P4 generic helpers ────────────────────────────────────────────────────
 // Wave-1 P4 (2026-05-24): mechanism-only helpers extracted from ai-app
 // service/mission/workflow/. Business apps adapt via thin shims.

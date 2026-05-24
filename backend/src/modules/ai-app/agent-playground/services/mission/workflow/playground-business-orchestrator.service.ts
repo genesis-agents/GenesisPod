@@ -25,6 +25,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import {
   runWithStageInstrumentation,
+  BusinessTeamOrchestratorFramework,
+  type BusinessTeamStageRunner,
   type ResolvedStageHooks,
   type StageRunArgs,
 } from "@/modules/ai-harness/facade";
@@ -48,46 +50,39 @@ import { MissionStore } from "../lifecycle/mission-store.service";
 import type { MissionInvariants } from "./mission-context";
 import type { SessionEntry } from "./playground-pipeline-dispatcher.service";
 
-type SessionLookup = (missionId: string) => SessionEntry;
+// stepId → DB stageNumber(与 legacy team.mission.ts 对齐)
+// 用于 markStageComplete + missionCheckpoint.save 的进度索引
+const STAGE_NUMBER: Record<string, number> = {
+  "s1-budget": 1,
+  "s2-leader-plan": 2,
+  "s3-researcher-collect": 3,
+  "s4-leader-assess": 4,
+  "s5-reconciler": 5,
+  "s6-analyst": 6,
+  "s7-writer-outline": 7,
+  "s8-writer": 8,
+  "s8b-quality-enhancement": 8, // 同 s8(quality 增强)
+  "s9-critic": 9,
+  "s9b-objective-eval": 9,
+  "s10-leader-foreword-signoff": 10,
+  "s11-persist": 11,
+  // s12 在 legacy 不入 stage 计数(fire-and-forget)
+};
 
 @Injectable()
-export class PlaygroundBusinessOrchestrator {
-  private readonly log = new Logger(PlaygroundBusinessOrchestrator.name);
-  private sessionLookup?: SessionLookup;
+export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFramework<SessionEntry> {
+  protected readonly log = new Logger(PlaygroundBusinessOrchestrator.name);
+
+  // 暴露给 dispatcher 兼容旧 import（dispatcher 直接读 this.STAGE_NUMBER）
+  readonly STAGE_NUMBER = STAGE_NUMBER;
 
   constructor(
     private readonly stageBindings: MissionStageBindingsService,
     private readonly missionCheckpoint: MissionCheckpointService,
     private readonly store: MissionStore,
-  ) {}
-
-  /**
-   * dispatcher.onModuleInit 调一次,把 sessions Map lookup 函数注入。
-   * stage hook closures 在执行时通过 this.lookupEntry(missionId) 访问 SessionEntry,
-   * 避免 business-orchestrator 直接持有 sessions Map(那是 runtime-glue 职责)。
-   */
-  bindSessionLookup(lookup: SessionLookup): void {
-    this.sessionLookup = lookup;
+  ) {
+    super({ namespace: "playground", stageNumber: STAGE_NUMBER });
   }
-
-  // ── stepId → DB stageNumber(与 legacy team.mission.ts 对齐)──
-  // 用于 markStageComplete + missionCheckpoint.save 的进度索引
-  readonly STAGE_NUMBER: Record<string, number> = {
-    "s1-budget": 1,
-    "s2-leader-plan": 2,
-    "s3-researcher-collect": 3,
-    "s4-leader-assess": 4,
-    "s5-reconciler": 5,
-    "s6-analyst": 6,
-    "s7-writer-outline": 7,
-    "s8-writer": 8,
-    "s8b-quality-enhancement": 8, // 同 s8(quality 增强)
-    "s9-critic": 9,
-    "s9b-objective-eval": 9,
-    "s10-leader-foreword-signoff": 10,
-    "s11-persist": 11,
-    // s12 在 legacy 不入 stage 计数(fire-and-forget)
-  };
 
   /** S3/S8 milestone 后 save checkpoint,让 pod 崩溃可 resume */
   readonly CHECKPOINT_AT: Record<string, string> = {
@@ -115,6 +110,10 @@ export class PlaygroundBusinessOrchestrator {
 
   /**
    * 主入口:为 stepId 构建 stage hooks(由 dispatcher.buildBaseHooksForStep 调用)。
+   *
+   * Override framework default —— playground 11 个 stage 各有定制 hook builder
+   * （多 hook 模式:s2 同时 runRole+extractPlanFields, s3 同时 fanOut+perItemPipeline,
+   *  s4 同时 runRole+parseDecision），不走 framework 的 single-runner adapter。
    */
   buildHooksForStep(stepId: string, _primitive: string): ResolvedStageHooks {
     if (stepId === "s1-budget") return this.buildS1BudgetHooks();
@@ -142,23 +141,21 @@ export class PlaygroundBusinessOrchestrator {
     );
   }
 
+  /**
+   * Framework 要求实现 resolveStageRunner（抽象方法）；playground 走自己的
+   * buildHooksForStep 多 hook 模式，本方法在 playground 不会被 framework 默认
+   * adapter 调用。返回 null 保持 framework "no runner" 语义自洽（万一 fallback
+   * 到 default adapter 也能抛清晰错误）。
+   */
+  protected resolveStageRunner(
+    _stepId: string,
+  ): BusinessTeamStageRunner<SessionEntry> | null {
+    return null;
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // Helpers
   // ──────────────────────────────────────────────────────────────────────────
-
-  /**
-   * 通过 dispatcher 注入的 sessionLookup 拿 SessionEntry。
-   * 未 bind 时抛错 —— bindSessionLookup 必须在 onModuleInit 阶段被调用。
-   */
-  private getEntry(missionId: string): SessionEntry {
-    if (!this.sessionLookup) {
-      throw new Error(
-        `[playground-business-orch] sessionLookup not bound; ` +
-          `dispatcher must call bindSessionLookup() in onModuleInit`,
-      );
-    }
-    return this.sessionLookup(missionId);
-  }
 
   /**
    * 构造单 stage 用的 MissionContext invariants(每 stage 独立 ctx)。
@@ -460,7 +457,7 @@ export class PlaygroundBusinessOrchestrator {
           dimId: string,
           dimResult: unknown,
         ): Promise<void> => {
-          const currentEntry = this.sessionLookup?.(_cbMissionId);
+          const currentEntry = this.tryGetEntry(_cbMissionId);
           if (!currentEntry) return;
           const existing = currentEntry.crossState.s3PartialResults ?? {};
           currentEntry.crossState.s3PartialResults = {

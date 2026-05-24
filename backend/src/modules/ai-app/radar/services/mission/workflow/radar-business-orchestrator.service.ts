@@ -1,5 +1,5 @@
 /**
- * RadarBusinessOrchestrator —— stage hook 闭包工厂
+ * RadarBusinessOrchestrator —— stage runner 表 + skill prompt 预加载
  *
  * 9 个 step 全部走 persist primitive（hook name=persist，返回 void）。业务输出
  * 副作用写到 SessionEntry.ctx.state；dispatcher 在 mission 结束时从 ctx.state
@@ -8,11 +8,18 @@
  * SystemPrompt 加载：通过 SkillLoaderService.getSkillById('ai-radar.xxx') 拿
  * SKILL.md content（systemPrompt）。在 dispatcher.onModuleInit 时预加载 + cache
  * 到 stepId→prompt map。
+ *
+ * 2026-05-24 (Wave-1 P7) 继承 BusinessTeamOrchestratorFramework：把
+ * bindSessionLookup / getEntry / hooks dispatch / abort 保护下沉到 framework；
+ * 业务侧只填 resolveStageRunner switch + override adaptRunnerToHooks 注入
+ * systemPrompt（radar 特有的 hook payload）。
  */
 import { Injectable, Logger } from "@nestjs/common";
-import type {
-  ResolvedStageHooks,
-  StageRunArgs,
+import {
+  BusinessTeamOrchestratorFramework,
+  type BusinessTeamStageRunner,
+  type ResolvedStageHooks,
+  type StageRunArgs,
 } from "@/modules/ai-harness/facade";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import type {
@@ -45,9 +52,8 @@ const STEP_TO_SKILL_ID: Record<string, string | null> = {
 };
 
 @Injectable()
-export class RadarBusinessOrchestrator {
-  private readonly log = new Logger(RadarBusinessOrchestrator.name);
-  private sessionLookup: SessionLookup | null = null;
+export class RadarBusinessOrchestrator extends BusinessTeamOrchestratorFramework<RadarMissionContext> {
+  protected readonly log = new Logger(RadarBusinessOrchestrator.name);
   private readonly promptCache = new Map<string, string>();
 
   constructor(
@@ -61,10 +67,8 @@ export class RadarBusinessOrchestrator {
     private readonly s7: RadarS7InsightStage,
     private readonly s8: RadarS8PersistStage,
     private readonly discovery: RadarDiscoveryStage,
-  ) {}
-
-  bindSessionLookup(lookup: SessionLookup): void {
-    this.sessionLookup = lookup;
+  ) {
+    super({ namespace: "radar" });
   }
 
   /**
@@ -90,53 +94,52 @@ export class RadarBusinessOrchestrator {
   }
 
   /**
-   * 给 stepId 构造 ResolvedStageHooks（persist primitive 期望 hooks.persist）。
-   * 业务 output 副作用写到 ctx.state；hook return Promise<void>。
+   * radar 9 个 stage 全 persist primitive；business runner 直接调 stage class。
+   * 找不到 runner 时返回 null（与历史 behaviour 一致：framework 抛 "no runner"）。
    */
-  /**
-   * 给 stepId 构造 ResolvedStageHooks（persist primitive 期望 hooks.persist 返回
-   * Promise<void>）。ResolvedStageHooks 实际类型是 index signature
-   * `[hookName: string]: StageHookFn | undefined`（见 ai-harness/.../stage-primitive.interface.ts:97），
-   * 直接 satisfies 即可，无需 `as unknown as` lying assertion。
-   */
-  buildHooksForStep(stepId: string): ResolvedStageHooks {
-    const runner = this.resolveStageRunner(stepId);
-    if (!runner) {
-      const hooks: ResolvedStageHooks = {
-        persist: async (): Promise<void> => undefined,
+  protected resolveStageRunner(
+    stepId: string,
+  ): BusinessTeamStageRunner<RadarMissionContext> | null {
+    const stage = this.resolveStageClass(stepId);
+    if (!stage) return null;
+    return async (ctx, args) => {
+      const systemPrompt = this.promptCache.get(stepId) ?? "";
+      const stageArgs = args as {
+        ctx: StageRunArgs["ctx"];
+        previousOutputs: StageRunArgs["previousOutputs"];
+        crossStageState: StageRunArgs["crossStageState"];
       };
-      return hooks;
-    }
-    const systemPrompt = this.promptCache.get(stepId) ?? "";
-    const lookup = this.sessionLookup;
-    const hooks: ResolvedStageHooks = {
-      persist: async (args): Promise<void> => {
-        if (!lookup) {
-          throw new Error(
-            "RadarBusinessOrchestrator.sessionLookup not bound (dispatcher onModuleInit 顺序错)",
-          );
-        }
-        const stageArgs = args as {
-          ctx: StageRunArgs["ctx"];
-          previousOutputs: StageRunArgs["previousOutputs"];
-          crossStageState: StageRunArgs["crossStageState"];
-        };
-        const ctx = lookup(stageArgs.ctx.missionId);
-        await runner.run(
-          {
-            ctx: stageArgs.ctx,
-            previousOutputs: stageArgs.previousOutputs,
-            crossStageState: stageArgs.crossStageState,
-            systemPrompt,
-          },
-          ctx,
-        );
-      },
+      await stage.run(
+        {
+          ctx: stageArgs.ctx,
+          previousOutputs: stageArgs.previousOutputs,
+          crossStageState: stageArgs.crossStageState,
+          systemPrompt,
+        },
+        ctx,
+      );
+      return undefined;
     };
-    return hooks;
   }
 
-  private resolveStageRunner(stepId: string): RadarStageRunner | null {
+  /**
+   * Override default adapter —— radar 历史行为：未注册的 stepId 返回 no-op
+   * hooks（persist 直接 return undefined），不像 framework 默认抛 "no runner"。
+   * 保留此向后兼容，避免破坏 pipeline registry 已注册但 runner 未实装的 step。
+   */
+  buildHooksForStep(stepId: string, primitive = "persist"): ResolvedStageHooks {
+    const runner = this.resolveStageRunner(stepId);
+    if (!runner) {
+      const noop: ResolvedStageHooks = {
+        persist: async (): Promise<void> => undefined,
+      };
+      this.log.warn(`No stage runner for step "${stepId}"`);
+      return noop;
+    }
+    return this.adaptRunnerToHooks(runner, stepId, primitive);
+  }
+
+  private resolveStageClass(stepId: string): RadarStageRunner | null {
     switch (stepId) {
       case "s1-source-resolve":
         return this.s1;
@@ -157,7 +160,6 @@ export class RadarBusinessOrchestrator {
       case "s1-discover":
         return this.discovery;
       default:
-        this.log.warn(`No stage runner for step "${stepId}"`);
         return null;
     }
   }

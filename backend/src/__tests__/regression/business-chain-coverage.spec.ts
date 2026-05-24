@@ -145,15 +145,18 @@ describe("Branch: happy-path — RunMissionInputSchema full parse", () => {
 // ---------------------------------------------------------------------------
 
 describe("Branch: failed path — MissionStore.writeFailed signature", () => {
-  it("writeFailed method exists in MissionStore", () => {
+  // 2026-05-24 P6 重构:writeFailed 方法本体下沉到
+  // ai-harness/teams/business-team/lifecycle/business-team-lifecycle-transitions.framework.ts;
+  // playground 通过 buildFailedUpdate hook 提供业务字段映射(leaderSigned/quality-failed/...)
+  it("writeFailed method exists in harness lifecycle transitions framework", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
+      "ai-harness/teams/business-team/lifecycle/business-team-lifecycle-transitions.framework.ts",
     );
     expect(src).toContain("async writeFailed(");
   });
 
-  it("writeFailed sets status to 'failed' when leaderSigned is not false", () => {
-    // Static check: the status logic in the method
+  it("playground buildFailedUpdate sets status 'failed' / 'quality-failed' via isLeadRefusal", () => {
+    // Static check: the status logic in playground hook
     const src = readSrc(
       "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
@@ -186,25 +189,32 @@ describe("Branch: failed path — MissionStore.writeFailed signature", () => {
 // ---------------------------------------------------------------------------
 
 describe("Branch: cancelled path — writeCancelled guard", () => {
+  // 2026-05-24 P6 重构:writeCancelled 本体下沉到 framework;
+  // playground buildCancelledUpdate hook 提供业务 update shape;
+  // race guard (status='running') 在 framework 的 conditionalUpdate hook 实现侧。
   it("writeCancelled only transitions from status='running' (race guard)", () => {
-    const src = readSrc(
+    // framework 持有 writeCancelled 方法本体
+    const fwSrc = readSrc(
+      "ai-harness/teams/business-team/lifecycle/business-team-lifecycle-transitions.framework.ts",
+    );
+    expect(fwSrc).toContain("async writeCancelled(");
+    // playground hook 用 status: 'running' 条件 + cancelled 字段
+    const playgroundSrc = readSrc(
       "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
-    // Must have updateMany with status='running' guard on cancel
-    const cancelIdx = src.indexOf("async writeCancelled(");
-    expect(cancelIdx).toBeGreaterThan(-1);
-    const cancelFn = src.slice(cancelIdx, cancelIdx + 600);
-    expect(cancelFn).toContain('status: "running"');
-    expect(cancelFn).toContain("cancelled");
+    expect(playgroundSrc).toContain('status: "running"');
+    expect(playgroundSrc).toContain("cancelled");
   });
 
-  it("writeCancelled clears checkpoint (listResumable guard)", () => {
-    const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
+  it("writeCancelled clears checkpoint via hook (listResumable guard)", () => {
+    // framework 调 hooks.clearCheckpoint;playground 实现 clearCheckpointJsonbKey
+    const fwSrc = readSrc(
+      "ai-harness/teams/business-team/lifecycle/business-team-lifecycle-transitions.framework.ts",
     );
-    const cancelIdx = src.indexOf("async writeCancelled(");
-    const cancelFn = src.slice(cancelIdx, cancelIdx + 700);
-    expect(cancelFn).toContain("clearCheckpointJsonbKey");
+    const cancelIdx = fwSrc.indexOf("async writeCancelled(");
+    expect(cancelIdx).toBeGreaterThan(-1);
+    const cancelFn = fwSrc.slice(cancelIdx, cancelIdx + 800);
+    expect(cancelFn).toContain("clearCheckpoint");
   });
 
   it("cancelled errorMessage is user-visible text", () => {
@@ -221,22 +231,22 @@ describe("Branch: cancelled path — writeCancelled guard", () => {
 // ---------------------------------------------------------------------------
 
 describe("Branch: quality-failed path — leader sign-off refusal", () => {
-  it("writeFailed persists report artifacts even when leaderSigned=false (2026-04-30 fix)", () => {
+  it("playground buildFailedUpdate persists report artifacts even when leaderSigned=false (2026-04-30 fix)", () => {
+    // 2026-05-24 P6: buildFailedUpdate hook 在 playground helper,参数名为 `d`,
+    // 用 `d.field !== undefined` 守护 partial update
     const src = readSrc(
       "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
-    // The 2026-04-30 fix decoupled artifact persistence from isLeadRefusal
-    // by checking !== undefined instead of != null for each field
-    expect(src).toContain("data.report !== undefined");
-    expect(src).toContain("data.dimensions !== undefined");
+    expect(src).toContain("d.report !== undefined");
+    expect(src).toContain("d.dimensions !== undefined");
   });
 
-  it("leaderSigned=false writes to DB (fix for leaderSigned falsy-skip bug)", () => {
+  it("leaderSigned=false writes to DB via buildFailedUpdate hook (falsy-skip bug fix)", () => {
+    // 2026-05-24 P6: 同上,playground hook 用 `d.leaderSigned !== undefined`
     const src = readSrc(
       "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
-    // The fix changed != null to !== undefined for leaderSigned
-    expect(src).toContain("data.leaderSigned !== undefined");
+    expect(src).toContain("d.leaderSigned !== undefined");
   });
 
   it("S10 stage emits signoff even on early-return paths", () => {
