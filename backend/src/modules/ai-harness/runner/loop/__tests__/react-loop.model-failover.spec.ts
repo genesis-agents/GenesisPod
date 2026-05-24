@@ -110,8 +110,10 @@ describe("ReActLoop — model-level failover", () => {
 
     // failoverProvider must have been called once (model-a failed)
     expect(failoverProvider).toHaveBeenCalledTimes(1);
+    // Called with (excludeModelIds, excludeProviders) — model-a in the excludes.
     expect(failoverProvider).toHaveBeenCalledWith(
       expect.arrayContaining(["model-a"]),
+      expect.anything(),
     );
 
     // The second chat call must use model-b
@@ -124,6 +126,45 @@ describe("ReActLoop — model-level failover", () => {
 
     const output = events.find((e) => e.type === "output");
     expect(output?.payload).toMatchObject({ output: "ok" });
+  });
+
+  it("extracts failed provider from error → passes excludeProviders (live xai-out-of-credits case)", async () => {
+    // Reproduces the live failure: default model on xai fails ("provider xai"),
+    // failover must skip ALL xai models and jump to a different provider.
+    const loop = makeLoopWithChat(async (args) => {
+      const model = args.model as string | undefined;
+      if (model === "gemini-2.5-flash") {
+        return {
+          content: finalizeResponse,
+          model,
+          usage: { totalTokens: 10, inputTokens: 5, outputTokens: 5 },
+        };
+      }
+      throw new Error('All 1 API key(s) for provider "xai" failed');
+    });
+
+    const failoverProvider = jest.fn(
+      async (
+        _excludeModelIds: ReadonlyArray<string>,
+        excludeProviders?: ReadonlyArray<string>,
+      ): Promise<string | null> =>
+        excludeProviders?.includes("xai") ? "gemini-2.5-flash" : "grok-other",
+    );
+
+    const events = await drain(
+      loop.run(makeEnvelope("user-1"), criteria, {
+        agentId: "test-agent",
+        modelFailoverProvider: failoverProvider,
+      }),
+    );
+
+    // provider "xai" extracted from the error and passed as excludeProviders
+    expect(failoverProvider).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.arrayContaining(["xai"]),
+    );
+    const terminated = events.find((e) => e.type === "terminated");
+    expect(terminated?.payload).toMatchObject({ reason: "completed" });
   });
 
   it("does NOT trigger failover on AbortError", async () => {

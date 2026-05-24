@@ -384,6 +384,7 @@ export class ReActLoop implements IAgentLoop {
        */
       modelFailoverProvider?: (
         excludeModelIds: ReadonlyArray<string>,
+        excludeProviders?: ReadonlyArray<string>,
       ) => Promise<string | null | undefined>;
     },
   ): AsyncIterable<IAgentEvent> {
@@ -400,6 +401,10 @@ export class ReActLoop implements IAgentLoop {
     // Model-level failover state: tracks models that failed with a
     // provider-level error so they can be excluded from re-election.
     const failedModelIds: string[] = [];
+    // Providers whose key/credits failed — once a provider fails (out of credits
+    // / no key), ALL its models are excluded so failover jumps to a DIFFERENT
+    // provider instead of burning the cap on sibling dead-provider models.
+    const failedProviders: string[] = [];
     // When failover succeeds, the elected model is kept here so the next
     // reason() call uses it instead of re-computing from budget tier / BYOK.
     let failoverModelId: string | undefined;
@@ -1030,8 +1035,17 @@ export class ReActLoop implements IAgentLoop {
             if (failedId && !failedModelIds.includes(failedId)) {
               failedModelIds.push(failedId);
             }
+            // Extract the failed provider from the error so the whole provider
+            // (out of credits / no key) is skipped, not just one model.
+            const provMatch = /provider\s+"?([a-z0-9_-]+)"?/i.exec(message);
+            if (provMatch?.[1] && !failedProviders.includes(provMatch[1])) {
+              failedProviders.push(provMatch[1]);
+            }
             try {
-              const nextModelId = await modelFailoverProvider(failedModelIds);
+              const nextModelId = await modelFailoverProvider(
+                failedModelIds,
+                failedProviders,
+              );
               if (nextModelId) {
                 this.logger.warn(
                   `[${agentId}] iter=${iteration} model-failover: ` +
@@ -1041,6 +1055,11 @@ export class ReActLoop implements IAgentLoop {
                 failoverModelId = nextModelId;
                 lastModelId = nextModelId;
                 consecutiveRecoverableRetries = 0;
+                // ★ Model switch is NOT a reasoning iteration — give the new
+                //   model the agent's full iteration budget (decrement cancels
+                //   the `iteration += 1` at the top of the loop). Bounded by the
+                //   failover cap so it cannot loop forever.
+                iteration -= 1;
                 continue;
               }
             } catch (electionErr) {

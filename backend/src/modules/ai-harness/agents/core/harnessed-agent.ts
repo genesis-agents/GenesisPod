@@ -120,6 +120,7 @@ export interface HarnessedAgentInit {
    */
   modelFailoverProvider?: (
     excludeModelIds: ReadonlyArray<string>,
+    excludeProviders?: ReadonlyArray<string>,
   ) => Promise<string | null | undefined>;
 }
 
@@ -302,6 +303,7 @@ export class HarnessedAgent implements IAgent {
             finalizeOutputJsonSchema?: Record<string, unknown>;
             modelFailoverProvider?: (
               excludeModelIds: ReadonlyArray<string>,
+              excludeProviders?: ReadonlyArray<string>,
             ) => Promise<string | null | undefined>;
           },
         ) => AsyncIterable<IAgentEvent>;

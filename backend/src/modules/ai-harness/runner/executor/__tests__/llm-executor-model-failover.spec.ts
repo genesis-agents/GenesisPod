@@ -58,6 +58,12 @@ describe("isModelLevelFailoverError()", () => {
     expect(
       isModelLevelFailoverError(new Error("AllKeysFailed: no valid key")),
     ).toBe(true);
+    // Real KeyExecutor wording (live xai-out-of-credits case), no "Last error".
+    expect(
+      isModelLevelFailoverError(
+        new Error('All 1 API key(s) for provider "xai" failed'),
+      ),
+    ).toBe(true);
   });
 
   it("returns true for rate-limit / 429", () => {

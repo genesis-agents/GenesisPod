@@ -226,6 +226,7 @@ export class SpecBasedAgent<
             if (!modelConfigService) return undefined;
             return async (
               excludeModelIds: ReadonlyArray<string>,
+              excludeProviders?: ReadonlyArray<string>,
             ): Promise<string | null> => {
               try {
                 const models =
@@ -233,6 +234,7 @@ export class SpecBasedAgent<
                     effectiveUserId,
                     AIModelType.CHAT,
                     excludeModelIds,
+                    excludeProviders ?? [],
                   );
                 return models[0]?.modelId ?? null;
               } catch {

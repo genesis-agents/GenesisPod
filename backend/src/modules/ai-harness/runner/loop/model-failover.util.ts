@@ -34,9 +34,14 @@ export interface ModelFailoverResultProbe {
 export interface ExecuteWithModelFailoverOptions<T> {
   /** 用给定 model 覆盖执行一次 chat（undefined = caller 默认模型）。 */
   readonly attempt: (modelOverride: string | undefined) => Promise<T>;
-  /** failover provider；缺省 → 不 failover（单次执行）。 */
+  /**
+   * failover provider；缺省 → 不 failover（单次执行）。
+   * excludeProviders：已失败的 provider（out of credits / no key）——provider 应
+   * 排除其全部模型，让 failover 跳到不同 provider，而非在死 provider 上耗尽 cap。
+   */
   readonly provider?: (
     excludeModelIds: ReadonlyArray<string>,
+    excludeProviders?: ReadonlyArray<string>,
   ) => Promise<string | null | undefined>;
   /** 探测 RETURNED 结果的 isError 路径；缺省视为永不 failover。 */
   readonly inspectResult?: (result: T) => ModelFailoverResultProbe;
@@ -57,17 +62,23 @@ export async function executeWithModelFailover<T>(
   const cap = opts.maxFailovers ?? MAX_MODEL_FAILOVERS;
   const agentId = opts.agentId ?? "agent";
   const failed: string[] = [];
+  const failedProviders: string[] = [];
   let currentModel: string | undefined; // 首次 = caller 默认
   let attempts = 0;
 
   const pushFailed = (id: string | undefined) => {
     if (id && !failed.includes(id)) failed.push(id);
   };
+  // 从错误消息抽 provider（如 `provider "xai"`）→ 跳过其全部模型。
+  const pushProvider = (message: string) => {
+    const m = /provider\s+"?([a-z0-9_-]+)"?/i.exec(message);
+    if (m?.[1] && !failedProviders.includes(m[1])) failedProviders.push(m[1]);
+  };
   const nextModel = async (reason: string): Promise<string | null> => {
     if (!opts.provider) return null;
     let next: string | null | undefined;
     try {
-      next = await opts.provider(failed);
+      next = await opts.provider(failed, failedProviders);
     } catch (e) {
       opts.logger?.warn(
         `[${agentId}] model-failover provider threw: ${
@@ -95,10 +106,10 @@ export async function executeWithModelFailover<T>(
       result = await opts.attempt(currentModel);
     } catch (err) {
       if (canFailover && isModelLevelFailoverError(err)) {
+        const errMsg = err instanceof Error ? err.message : String(err);
         pushFailed(currentModel);
-        const next = await nextModel(
-          err instanceof Error ? err.message : String(err),
-        );
+        pushProvider(errMsg);
+        const next = await nextModel(errMsg);
         if (next) {
           currentModel = next;
           continue;
@@ -115,6 +126,7 @@ export async function executeWithModelFailover<T>(
       isModelLevelFailoverError(probe.message ?? "")
     ) {
       pushFailed(probe.modelId ?? currentModel);
+      pushProvider(probe.message ?? "");
       const next = await nextModel(probe.message ?? "isError result");
       if (next) {
         currentModel = next;

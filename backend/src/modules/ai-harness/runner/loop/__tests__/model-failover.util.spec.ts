@@ -143,6 +143,32 @@ describe("executeWithModelFailover", () => {
     expect(attempt).toHaveBeenCalledTimes(2);
   });
 
+  it("extracts failed provider from error → passes excludeProviders (skip whole dead provider)", async () => {
+    const attempt = jest.fn(async (model: string | undefined) => {
+      if (model === "gemini-2.5-flash") return ok(model);
+      // xai out of credits / no key
+      throw new Error('No API Key available for provider "xai"');
+    });
+    const provider = jest.fn(
+      async (
+        _excl: ReadonlyArray<string>,
+        exclProviders?: ReadonlyArray<string>,
+      ) => (exclProviders?.includes("xai") ? "gemini-2.5-flash" : "grok-2"),
+    );
+
+    const res = await executeWithModelFailover<FakeResult>({
+      attempt,
+      provider,
+    });
+
+    expect(res.model).toBe("gemini-2.5-flash");
+    // provider received "xai" in excludeProviders → jumped straight off xai
+    expect(provider).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.arrayContaining(["xai"]),
+    );
+  });
+
   it("provider throwing is swallowed → original error rethrown", async () => {
     const attempt = jest.fn(async () => {
       throw new Error("PROVIDER_API_ERROR: down");

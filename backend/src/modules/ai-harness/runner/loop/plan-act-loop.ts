@@ -38,6 +38,7 @@ import { executeWithModelFailover } from "./model-failover.util";
 /** 模型级 failover provider 闭包（与 ILoopRunOptions.modelFailoverProvider 同型）。 */
 type ModelFailoverProvider = (
   excludeModelIds: ReadonlyArray<string>,
+  excludeProviders?: ReadonlyArray<string>,
 ) => Promise<string | null | undefined>;
 
 interface PlanStep {

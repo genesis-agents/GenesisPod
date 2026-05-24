@@ -11,6 +11,13 @@ import { AIModelType, UserModelConfig } from "@prisma/client";
 import { inferIsReasoning } from "../types";
 
 /**
+ * 图像生成模型 modelId 命名启发式 —— 用于把被误标为 CHAT 的图像模型
+ * （如 grok-imagine-image）排出文本/对话 failover 候选。仅对非 IMAGE 类型查询生效。
+ */
+const IMAGE_MODEL_ID_PATTERN =
+  /(image|imagine|dall-?e|flux|stable-?diffusion|sd-?xl|midjourney|ideogram)/i;
+
+/**
  * API Key 来源标识
  * personal: 用户自用 Key（不扣积分）
  * donated: 共享池捐赠 Key（扣积分）
@@ -973,6 +980,7 @@ export class AiModelConfigService {
     userId: string,
     modelType: AIModelType,
     excludeModelIds: ReadonlyArray<string> = [],
+    excludeProviders: ReadonlyArray<string> = [],
   ): Promise<AIModelConfig[]> {
     try {
       const rows = await this.prisma.userModelConfig.findMany({
@@ -983,12 +991,24 @@ export class AiModelConfigService {
           ...(excludeModelIds.length > 0 && {
             modelId: { notIn: [...excludeModelIds] },
           }),
+          // failover：跳过已失败 provider 的全部模型（out of credits / no key）。
+          ...(excludeProviders.length > 0 && {
+            provider: {
+              notIn: excludeProviders.map((p) => p.toLowerCase()),
+            },
+          }),
         },
         orderBy: [{ isDefault: "desc" }, { priority: "desc" }],
       });
-      return Promise.all(
+      const configs = await Promise.all(
         rows.map((r) => this.toAIModelConfigFromUserConfig(r)),
       );
+      // 防御：排除被误标为 CHAT 的图像生成模型（如 grok-imagine-image）——它们
+      // 不能对话，不应进入 CHAT failover 候选。按 modelId 命名启发式识别。
+      // IMAGE 类型查询本身不过滤（那里图像模型才是合法目标）。
+      return String(modelType) === "IMAGE"
+        ? configs
+        : configs.filter((c) => !IMAGE_MODEL_ID_PATTERN.test(c.modelId));
     } catch (error) {
       this.logger.warn(
         `[listUserEnabledModelsByType] Failed for user=${userId} type=${modelType}: ${(error as Error).message}`,

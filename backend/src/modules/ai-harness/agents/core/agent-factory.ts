@@ -423,7 +423,10 @@ export class AgentFactory {
     spec: IAgentSpec,
     identity: AgentIdentity,
   ):
-    | ((excludeModelIds: ReadonlyArray<string>) => Promise<string | null>)
+    | ((
+        excludeModelIds: ReadonlyArray<string>,
+        excludeProviders?: ReadonlyArray<string>,
+      ) => Promise<string | null>)
     | undefined {
     const effectiveUserId = spec.userId;
     if (effectiveUserId) {
@@ -431,12 +434,14 @@ export class AgentFactory {
       if (!modelConfigService) return undefined;
       return async (
         excludeModelIds: ReadonlyArray<string>,
+        excludeProviders?: ReadonlyArray<string>,
       ): Promise<string | null> => {
         try {
           const models = await modelConfigService.listUserEnabledModelsByType(
             effectiveUserId,
             AIModelType.CHAT,
             excludeModelIds,
+            excludeProviders ?? [],
           );
           return models[0]?.modelId ?? null;
         } catch {

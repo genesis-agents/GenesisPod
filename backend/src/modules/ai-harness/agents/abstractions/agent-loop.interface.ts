@@ -56,6 +56,7 @@ export interface ILoopRunOptions {
    */
   readonly modelFailoverProvider?: (
     excludeModelIds: ReadonlyArray<string>,
+    excludeProviders?: ReadonlyArray<string>,
   ) => Promise<string | null | undefined>;
 }
 

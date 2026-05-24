@@ -124,8 +124,11 @@ export function isModelLevelFailoverError(err: unknown): boolean {
   // Do failover on: request timeout
   if (/timeout|timed?\s*out|ECONNABORTED/i.test(msg)) return true;
 
-  // Do failover on: all keys for THIS provider exhausted (key-level failover already tried all keys)
-  if (/AllKeysFailed|all\s+keys\s+failed/i.test(msg)) return true;
+  // Do failover on: all keys for THIS provider exhausted (key-level failover
+  // already tried all keys). Covers both the synthesized "AllKeysFailed" and the
+  // real KeyExecutor wording "All N API key(s) for provider \"x\" failed".
+  if (/AllKeysFailed|all\s+keys\s+failed|all\s+\d+\s+api\s+key/i.test(msg))
+    return true;
 
   // Do failover on: rate limit / 429 (same-model key exhaustion)
   if (/rate.?limit|429|too many requests/i.test(msg)) return true;
@@ -197,6 +200,7 @@ export interface LlmExecutorInput<TOutput> {
    */
   readonly modelFailoverProvider?: (
     excludeModelIds: ReadonlyArray<string>,
+    excludeProviders?: ReadonlyArray<string>,
   ) => Promise<string | null | undefined>;
 }
 
@@ -532,6 +536,8 @@ export class LlmExecutor {
     // are excluded from re-election.  The active model may change across the
     // schema-retry loop when a provider error is encountered.
     const failedModelIds: string[] = [];
+    // Providers whose key/credits failed — failover excludes ALL their models.
+    const failedProviders: string[] = [];
     // The currently elected model (may be updated after failover).
     let activeModel: string | undefined = input.model;
 
@@ -616,10 +622,18 @@ export class LlmExecutor {
         ) {
           const failedModelId = activeModel ?? "";
           if (failedModelId) failedModelIds.push(failedModelId);
+          // Skip the whole failed provider (out of credits / no key), not just
+          // one model, so failover jumps to a different provider.
+          const provMatch = /provider\s+"?([a-z0-9_-]+)"?/i.exec(errMsg);
+          if (provMatch?.[1] && !failedProviders.includes(provMatch[1])) {
+            failedProviders.push(provMatch[1]);
+          }
 
           try {
-            const nextModelId =
-              await input.modelFailoverProvider(failedModelIds);
+            const nextModelId = await input.modelFailoverProvider(
+              failedModelIds,
+              failedProviders,
+            );
             if (nextModelId) {
               this.logger.warn(
                 `[${input.agentId}] model-failover: ${failedModelId || "(default)"} → ${nextModelId} ` +

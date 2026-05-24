@@ -836,10 +836,12 @@ describe("SpecBasedAgent BYOK cross-model failover (2026-05-23)", () => {
     expect(nextModel).toBe(modelB);
 
     // Verify the query was for the user's CHAT models, excluding model A
+    // (4th arg = excludeProviders, empty when no provider has failed yet).
     expect(modelConfigService.listUserEnabledModelsByType).toHaveBeenCalledWith(
       userId,
       "CHAT",
       [modelA],
+      [],
     );
   });
 
