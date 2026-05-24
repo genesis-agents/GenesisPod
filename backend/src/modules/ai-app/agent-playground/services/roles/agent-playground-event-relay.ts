@@ -2,7 +2,7 @@
  * AgentPlaygroundEventRelay — playground 业务 event relay (thin extends)
  *
  * 2026-05-08 PR-E1：原 ~360 行 emit + tickCost + IAgentEvent 翻译已上提到
- * `ai-harness/teams/business-team/relay/event-relay.framework.ts`。本类仅作为
+ * `ai-harness/teams/business-team/events/event-relay.framework.ts`。本类仅作为
  * playground 业务专属 namespace 实例，extends framework 注入 "agent-playground"
  * 前缀，向后兼容现有 import 路径与构造函数签名。
  */

@@ -1,4 +1,4 @@
-import { EventRelayFramework } from "./event-relay.framework";
+import { EventRelayFramework } from "../event-relay.framework";
 import { MissionBudgetPool } from "@/modules/ai-harness/guardrails/budget/mission-budget-pool";
 import type { DomainEventBus } from "@/modules/ai-harness/protocols/events/domain-event-bus";
 import type { MissionAbortRegistry } from "@/modules/ai-harness/facade";

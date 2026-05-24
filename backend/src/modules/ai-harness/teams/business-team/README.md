@@ -4,23 +4,29 @@
 > 支撑 `ai-app/agent-playground` 这类 SOTA 多 stage Agent 团队。
 > 反向迁移目标：`ai-app/research`、`ai-app/writing`、`ai-app/topic-insights` 等。
 
-## 文件结构
+## 文件结构（蓝图 §8.1，2026-05-24 P8 整理后）
 
 ```
 business-team/
-├── abstractions/
-│   ├── mission-runtime-shell.interface.ts   E0  IMissionRuntimeAdapter / MissionRuntimeSession
-│   ├── mission-store.interface.ts           E2  IBusinessTeamMissionStore
-│   ├── rerun-guard.interface.ts             E3  IBusinessRerunGuard
-│   └── business-team-spec.interface.ts      E4  BusinessAgentTeamSpec（聚合 4 adapter）
-├── lifecycle/
-│   └── mission-runtime-shell.framework.ts   E0  MissionRuntimeShellFramework
-├── relay/
-│   └── event-relay.framework.ts             E1  EventRelayFramework
-├── rerun/
-│   └── heartbeat-decision.ts                E3  decideMissionInFlight 纯函数
-└── README.md（本文件）
+├── abstractions/                       跨子目录共享契约
+│   ├── business-team-spec.interface.ts          E4  BusinessAgentTeamSpec
+│   ├── mission-runtime-shell.interface.ts       E0  IMissionRuntimeAdapter
+│   ├── mission-store.interface.ts               E2  IBusinessTeamMissionStore
+│   └── rerun-guard.interface.ts                 E3  IBusinessRerunGuard
+├── lifecycle/{abstractions,__tests__}/  E0 + P6 (mission runtime shell + 7 件 lifecycle framework)
+├── events/{__tests__}/                  E1     (event relay framework，旧名 relay/，P8 改名)
+├── invocation/{abstractions,__tests__}/ P1     (agent invoker framework + DAG concurrency)
+├── dispatcher/{abstractions,__tests__}/ P2     (mission dispatcher runtime-glue)
+├── bindings/{abstractions,__tests__}/   P2     (stage bindings 薄骨架)
+├── state/{__tests__}/                   P2     (cross-stage state typed wrapper)
+├── span/{__tests__}/                    P2     (OTel mission span 三级嵌套)
+├── rerun/{abstractions,__tests__}/      E3 + P5 (heartbeat-decision 纯函数 + 5 件 rerun framework)
+├── orchestrator/{abstractions,__tests__}/ P7    (业务侧 orchestrator skeleton)
+├── helpers/{__tests__}/                 P4     (batch-executor / supply-budget / axis-grade-grounding)
+└── README.md（本文件 + 每子目录有自己的 README）
 ```
+
+每个子目录的 README 描述本目录含哪些 framework / contract、业务侧应如何继承、历史演进；本文件保留装配模板与全局设计原则。
 
 ## 装配模板（playground 是 reference 实现）
 

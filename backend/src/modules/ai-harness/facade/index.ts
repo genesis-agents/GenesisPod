@@ -471,81 +471,46 @@ export {
   outcomeFromStatus,
 } from "../lifecycle/mission-lifecycle/abstractions/mission-state";
 export type { MissionPresentationState } from "../lifecycle/mission-lifecycle/abstractions/mission-state";
-// ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
-export { MissionRuntimeShellFramework } from "../teams/business-team/lifecycle/mission-runtime-shell.framework";
+// ═══════════════════════════════════════════════════════════════════════════
+// BusinessAgentTeam framework facade（按 §8.1 子目录分段，2026-05-24 P8 整理）
+//
+//   business-team/                  ai-harness/teams/business-team/
+//   ├── abstractions/               跨子目录共享契约（spec / runtime-shell / store / rerun-guard）
+//   ├── lifecycle/                  P0/E0 + P6（runtime shell / mission store / event buffer / ...）
+//   ├── events/                     P1/E1（namespace-aware event relay framework，旧名 relay/）
+//   ├── invocation/                 P1（agent invoker + DAG concurrency scheduler）
+//   ├── dispatcher/                 P2（mission dispatcher runtime-glue）
+//   ├── bindings/                   P2（stage bindings 薄骨架）
+//   ├── state/                      P2（cross-stage state typed wrapper）
+//   ├── span/                       P2（OTel mission span 三级嵌套）
+//   ├── rerun/                      P3/E3 + P5（9-cell guard + rerun framework 5 件套）
+//   ├── orchestrator/               P7（三业务侧公共 skeleton @migrated-from）
+//   └── helpers/                    P4（batch-executor / supply-budget / axis-grade-grounding）
+//
+// 业务模块（ai-app/* 三家业务侧 @migrated-from）只通过本 facade 引用 framework，
+// 禁止穿透 business-team 内部路径。
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── abstractions ─────────────────────────────────────────────────────────
+// ★ 2026-05-08 PR-E0: mission runtime shell adapter contract
 export type {
   IMissionRuntimeAdapter,
   MissionRuntimeSession,
 } from "../teams/business-team/abstractions/mission-runtime-shell.interface";
-// ★ 2026-05-08 PR-E1: BusinessAgentTeam event relay 框架（namespace-aware）
-export {
-  EventRelayFramework,
-  type EventRelayContext,
-} from "../teams/business-team/relay/event-relay.framework";
-// ★ 2026-05-24: BusinessAgentTeam agent invoker 框架（retry / abort / backoff / span lifecycle）
-//   抽自双源 ai-app 业务侧 invoker（@migrated-from 旧 invoker 通用骨架）
-export {
-  BusinessTeamAgentInvokerFramework,
-  makeAgentEventForwarder,
-} from "../teams/business-team/invocation/business-team-agent-invoker.framework";
-export type {
-  BusinessTeamAgentInvokerConfig,
-  BusinessTeamAgentInvokerHooks,
-  BusinessTeamInvocationContext,
-} from "../teams/business-team/invocation/abstractions/business-team-agent-invoker.interface";
 // ★ 2026-05-08 PR-E2: BusinessAgentTeam mission store 抽象接口
 //   注意：rename 为 IBusinessTeamMissionStore 避免与 line 1103 已有 IMissionStore 冲突
 //   （后者是 harness/teams/abstractions 下的 generic InMemoryMissionStore 契约）
 export type { IBusinessTeamMissionStore } from "../teams/business-team/abstractions/mission-store.interface";
-// ★ 2026-05-08 PR-E3: BusinessAgentTeam rerun guard 9-cell 决策矩阵纯函数框架
-export {
-  decideMissionInFlight,
-  HEARTBEAT_FRESH_THRESHOLD_MS_DEFAULT,
-  BUSINESS_EVENT_FRESH_THRESHOLD_MS_DEFAULT,
-  type HeartbeatDecisionInput,
-  type HeartbeatDecision,
-} from "../teams/business-team/rerun/heartbeat-decision";
+// ★ 2026-05-08 PR-E3: BusinessAgentTeam rerun guard contract
 export type { IBusinessRerunGuard } from "../teams/business-team/abstractions/rerun-guard.interface";
-// ★ 2026-05-24 P5 Wave 1: BusinessAgentTeam rerun framework 5 件套
-//   抽自 ai-app/agent-playground/services/mission/rerun/ @migrated-from
-//   未来 social/radar 接入 rerun 时直接继承 framework + 提供 business hook 即可。
-export {
-  BusinessTeamRerunGuardFramework,
-  type BusinessRerunGuardDetailMinimal,
-  type BusinessTeamRerunGuardHooks,
-  type BusinessRerunGuardResult,
-} from "../teams/business-team/rerun/business-team-rerun-guard.framework";
-export { BusinessTeamStageRerunDispatcherFramework } from "../teams/business-team/rerun/business-team-stage-rerun-dispatcher.framework";
-export type {
-  StageRerunHandler,
-  CascadeRunInput,
-  CascadeRunResult,
-  CascadeRunHooks,
-  CascadeStageStartedPayload,
-  CascadeAbortedPayload,
-} from "../teams/business-team/rerun/abstractions/stage-rerun-handler.contract";
-export { BusinessTeamCtxHydratorFramework } from "../teams/business-team/rerun/business-team-ctx-hydrator.framework";
-export type {
-  CtxHydratorDetailMinimal,
-  CtxHydratorSchemaProvider,
-  HydrationErrorContext,
-} from "../teams/business-team/rerun/abstractions/ctx-hydrator-schema.contract";
-export { BusinessTeamRerunRuntimeBuilderFramework } from "../teams/business-team/rerun/business-team-rerun-runtime-builder.framework";
-export type {
-  BusinessTeamRerunRuntimeSession,
-  RerunRuntimeComposerHooks,
-} from "../teams/business-team/rerun/abstractions/rerun-runtime-builder.contract";
-export { BusinessTeamRerunOrchestratorFramework } from "../teams/business-team/rerun/business-team-rerun-orchestrator.framework";
-export { RERUN_TOPIC_LIMIT_DEFAULT } from "../teams/business-team/rerun/abstractions/rerun-orchestrator.contract";
-export type {
-  MissionRerunOrchestratorHooks,
-  MissionRerunRequest,
-  MissionRerunResult,
-} from "../teams/business-team/rerun/abstractions/rerun-orchestrator.contract";
 // ★ 2026-05-08 PR-E4: BusinessAgentTeam 一站装配规约（聚合 E0/E1/E2/E3 4 个 adapter）
 //   YAGNI: 真 BusinessAgentTeamFactory 类等 2nd consumer (research / writing / TI 反向迁移)
 //   出现时再抽。当前阶段 NestJS DI 完成装配，业务模块只需实现本规约的 4 个字段。
 export type { BusinessAgentTeamSpec } from "../teams/business-team/abstractions/business-team-spec.interface";
+
+// ── lifecycle ────────────────────────────────────────────────────────────
+// ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
+export { MissionRuntimeShellFramework } from "../teams/business-team/lifecycle/mission-runtime-shell.framework";
 // ★ 2026-05-24 P6 Wave 1: BusinessAgentTeam lifecycle framework 7 件套
 //   抽自 ai-app/agent-playground/services/mission/lifecycle/ @migrated-from
 //   (mission-store / lifecycle-transitions / update-helper / postmortem-helper /
@@ -606,21 +571,32 @@ export {
   type EventCategory,
   type EventCategoryRules,
 } from "../teams/business-team/lifecycle/business-team-event-categories";
-// ★ 2026-05-24 P4: BusinessAgentTeam Tier 1 剩余能力下沉（dispatcher / span / state / bindings / dag-concurrency）
-//   span 框架（OTel root/stage/agent 三级嵌套）—— @migrated-from playground-mission-span.service
+
+// ── events ───────────────────────────────────────────────────────────────
+// ★ 2026-05-08 PR-E1: BusinessAgentTeam event relay 框架（namespace-aware）
+//   P8 (2026-05-24): 旧名 relay/ → events/ 对齐 §8.1 命名
 export {
-  BusinessTeamMissionSpanFramework,
-  type BusinessTeamSpanStatus,
-} from "../teams/business-team/span/business-team-mission-span.framework";
-// cross-stage state 框架（typed wrapper base on CrossStageState）—— @migrated-from playground-cross-stage-state
-export { BusinessTeamCrossStageStateFramework } from "../teams/business-team/state/business-team-cross-stage-state.framework";
-// stage bindings 框架（薄骨架，subclass 实现 buildCtx / buildDeps）—— @migrated-from mission-stage-bindings.service
-export { BusinessTeamStageBindingsFramework } from "../teams/business-team/bindings/business-team-stage-bindings.framework";
+  EventRelayFramework,
+  type EventRelayContext,
+} from "../teams/business-team/events/event-relay.framework";
+
+// ── invocation ───────────────────────────────────────────────────────────
+// ★ 2026-05-24 P1: BusinessAgentTeam agent invoker 框架（retry / abort / backoff / span lifecycle）
+//   抽自双源 ai-app 业务侧 invoker（@migrated-from 旧 invoker 通用骨架）
+export {
+  BusinessTeamAgentInvokerFramework,
+  makeAgentEventForwarder,
+} from "../teams/business-team/invocation/business-team-agent-invoker.framework";
 export type {
-  BusinessTeamStageBindings,
-  MarkStageDegradedFn,
-} from "../teams/business-team/bindings/abstractions/business-team-stage-bindings.interface";
-// mission dispatcher 框架（emitToBus + bridgeOrchestratorStageEvent 通用 runtime-glue）
+  BusinessTeamAgentInvokerConfig,
+  BusinessTeamAgentInvokerHooks,
+  BusinessTeamInvocationContext,
+} from "../teams/business-team/invocation/abstractions/business-team-agent-invoker.interface";
+// In-memory DAG concurrency scheduler —— @migrated-from agent-execution-support.runDagConcurrency
+export { runDagConcurrency } from "../teams/business-team/invocation/business-team-dag-concurrency";
+
+// ── dispatcher ───────────────────────────────────────────────────────────
+// ★ 2026-05-24 P2: mission dispatcher 框架（emitToBus + bridgeOrchestratorStageEvent 通用 runtime-glue）
 //   —— @migrated-from playground/social/radar pipeline-dispatcher.service 三家公共部分
 export {
   BusinessTeamMissionDispatcherFramework,
@@ -632,10 +608,77 @@ export type {
   BusinessTeamMissionBusEvent,
   MapStepIdHook,
 } from "../teams/business-team/dispatcher/abstractions/business-team-mission-dispatcher.interface";
-// In-memory DAG concurrency scheduler —— @migrated-from agent-execution-support.runDagConcurrency
-export { runDagConcurrency } from "../teams/business-team/invocation/business-team-dag-concurrency";
 
-// ★ 2026-05-24 (Wave-1 P7): BusinessAgentTeam orchestrator skeleton 框架
+// ── bindings ─────────────────────────────────────────────────────────────
+// ★ 2026-05-24 P2: stage bindings 框架（薄骨架，subclass 实现 buildCtx / buildDeps）
+//   —— @migrated-from mission-stage-bindings.service
+export { BusinessTeamStageBindingsFramework } from "../teams/business-team/bindings/business-team-stage-bindings.framework";
+export type {
+  BusinessTeamStageBindings,
+  MarkStageDegradedFn,
+} from "../teams/business-team/bindings/abstractions/business-team-stage-bindings.interface";
+
+// ── state ────────────────────────────────────────────────────────────────
+// ★ 2026-05-24 P2: cross-stage state 框架（typed wrapper base on CrossStageState）
+//   —— @migrated-from playground-cross-stage-state
+export { BusinessTeamCrossStageStateFramework } from "../teams/business-team/state/business-team-cross-stage-state.framework";
+
+// ── span ─────────────────────────────────────────────────────────────────
+// ★ 2026-05-24 P2: span 框架（OTel root/stage/agent 三级嵌套）
+//   —— @migrated-from playground-mission-span.service
+export {
+  BusinessTeamMissionSpanFramework,
+  type BusinessTeamSpanStatus,
+} from "../teams/business-team/span/business-team-mission-span.framework";
+
+// ── rerun ────────────────────────────────────────────────────────────────
+// ★ 2026-05-08 PR-E3: BusinessAgentTeam rerun guard 9-cell 决策矩阵纯函数框架
+export {
+  decideMissionInFlight,
+  HEARTBEAT_FRESH_THRESHOLD_MS_DEFAULT,
+  BUSINESS_EVENT_FRESH_THRESHOLD_MS_DEFAULT,
+  type HeartbeatDecisionInput,
+  type HeartbeatDecision,
+} from "../teams/business-team/rerun/heartbeat-decision";
+// ★ 2026-05-24 P5 Wave 1: BusinessAgentTeam rerun framework 5 件套
+//   抽自 ai-app/agent-playground/services/mission/rerun/ @migrated-from
+//   未来 social/radar 接入 rerun 时直接继承 framework + 提供 business hook 即可。
+export {
+  BusinessTeamRerunGuardFramework,
+  type BusinessRerunGuardDetailMinimal,
+  type BusinessTeamRerunGuardHooks,
+  type BusinessRerunGuardResult,
+} from "../teams/business-team/rerun/business-team-rerun-guard.framework";
+export { BusinessTeamStageRerunDispatcherFramework } from "../teams/business-team/rerun/business-team-stage-rerun-dispatcher.framework";
+export type {
+  StageRerunHandler,
+  CascadeRunInput,
+  CascadeRunResult,
+  CascadeRunHooks,
+  CascadeStageStartedPayload,
+  CascadeAbortedPayload,
+} from "../teams/business-team/rerun/abstractions/stage-rerun-handler.contract";
+export { BusinessTeamCtxHydratorFramework } from "../teams/business-team/rerun/business-team-ctx-hydrator.framework";
+export type {
+  CtxHydratorDetailMinimal,
+  CtxHydratorSchemaProvider,
+  HydrationErrorContext,
+} from "../teams/business-team/rerun/abstractions/ctx-hydrator-schema.contract";
+export { BusinessTeamRerunRuntimeBuilderFramework } from "../teams/business-team/rerun/business-team-rerun-runtime-builder.framework";
+export type {
+  BusinessTeamRerunRuntimeSession,
+  RerunRuntimeComposerHooks,
+} from "../teams/business-team/rerun/abstractions/rerun-runtime-builder.contract";
+export { BusinessTeamRerunOrchestratorFramework } from "../teams/business-team/rerun/business-team-rerun-orchestrator.framework";
+export { RERUN_TOPIC_LIMIT_DEFAULT } from "../teams/business-team/rerun/abstractions/rerun-orchestrator.contract";
+export type {
+  MissionRerunOrchestratorHooks,
+  MissionRerunRequest,
+  MissionRerunResult,
+} from "../teams/business-team/rerun/abstractions/rerun-orchestrator.contract";
+
+// ── orchestrator ─────────────────────────────────────────────────────────
+// ★ 2026-05-24 P7 (Wave-1): BusinessAgentTeam orchestrator skeleton 框架
 //   ——@migrated-from playground/social/radar business-orchestrator.service 三家公共 skeleton:
 //     bindSessionLookup / getEntry / buildHooksForStep dispatch / primitive→hook key adapter /
 //     abort signal 保护 / stageNumber lookup
@@ -652,7 +695,7 @@ export {
   resolvePrimaryHookKey,
 } from "../teams/business-team/orchestrator/abstractions/stage-iteration.contract";
 
-// ── P4 generic helpers ────────────────────────────────────────────────────
+// ── helpers ──────────────────────────────────────────────────────────────
 // Wave-1 P4 (2026-05-24): mechanism-only helpers extracted from ai-app
 // service/mission/workflow/. Business apps adapt via thin shims.
 //   batch-executor       — concurrent per-item execution + pre-dispatch budget gate

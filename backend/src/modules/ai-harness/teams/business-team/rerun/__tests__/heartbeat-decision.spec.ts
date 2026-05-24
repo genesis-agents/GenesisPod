@@ -2,7 +2,7 @@ import {
   decideMissionInFlight,
   HEARTBEAT_FRESH_THRESHOLD_MS_DEFAULT,
   BUSINESS_EVENT_FRESH_THRESHOLD_MS_DEFAULT,
-} from "./heartbeat-decision";
+} from "../heartbeat-decision";
 
 const HB = HEARTBEAT_FRESH_THRESHOLD_MS_DEFAULT; // 60_000
 const BE = BUSINESS_EVENT_FRESH_THRESHOLD_MS_DEFAULT; // 300_000

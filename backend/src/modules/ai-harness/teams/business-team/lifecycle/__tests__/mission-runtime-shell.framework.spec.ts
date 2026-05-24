@@ -1,5 +1,5 @@
-import { MissionRuntimeShellFramework } from "./mission-runtime-shell.framework";
-import type { IMissionRuntimeAdapter } from "../abstractions/mission-runtime-shell.interface";
+import { MissionRuntimeShellFramework } from "../mission-runtime-shell.framework";
+import type { IMissionRuntimeAdapter } from "../../abstractions/mission-runtime-shell.interface";
 
 // Mock BillingRuntimeEnvAdapter so we can control listAvailableModels + getCreditState
 jest.mock("@/modules/ai-harness/guardrails/billing/billing-adapter", () => {

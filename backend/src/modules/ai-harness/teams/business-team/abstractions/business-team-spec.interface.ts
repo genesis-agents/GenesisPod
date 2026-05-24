@@ -20,7 +20,7 @@
 import type { IMissionRuntimeAdapter } from "./mission-runtime-shell.interface";
 import type { IBusinessTeamMissionStore } from "./mission-store.interface";
 import type { IBusinessRerunGuard } from "./rerun-guard.interface";
-import type { EventRelayFramework } from "../relay/event-relay.framework";
+import type { EventRelayFramework } from "../events/event-relay.framework";
 
 /**
  * BusinessAgentTeam 装配规约。
