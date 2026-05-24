@@ -2,6 +2,7 @@
 
 > 用户协作偏好 + 项目反复踩到的反模式。每条 ≤200 字符，详情看链接文件。
 
+- [feedback_batch_review_at_end.md](feedback_batch_review_at_end.md) — 大型 epic(v3.1 这种 ~10 阶段)用"全部跑完统一审视",不每阶段 review;早期高风险阶段(0/A0/A)单片 review 合理,进入定型阶段(B+/C/D/F)子片 review 信号已收敛+撞 sub-agent 配额,改"实施→commit→push→直接下一片",末尾统一派 4 路集中评审(范围覆盖全部 commits)
 - [feedback_parallel_agent_integration_2026_05_23.md](feedback_parallel_agent_integration_2026_05_23.md) — 并行后台 agent + 共享分支集成血泪(R2 #35-52)：真并行用 run_in_background(前台阻塞=串行)；集成按 `git -C wt diff --name-only`(agent 散文报告漏文件→测试全红)；cp 共享文件后 grep marker 防回退；lint-staged 大文件 ESLint OOM→`NODE_OPTIONS=8192 git commit`；注释别留 `from "x"`/event 字面量(守护误判)；别在主分支与 worktree agent 并发 commit(auto-merge 会重置 HEAD)；git/ls 一律从仓库根跑(否则根相对路径误解析)
 - [feedback_verify_subagent_output_independently.md](feedback_verify_subagent_output_independently.md) — 委托 sub-agent 重构后主 agent 必须独立重跑 tsc+全测+调用图核验再信/再提交；2026-05-22 playground C0 切换的 sub-agent 报告丢失且实际留 15 个失败测试 + s11 绕过 finalize 中央方法(直调 arbiter)。它说"全绿"不算数，自己跑过+grep 旧API无消费方才算
 - [feedback_overclaim_cutover_verify_by_callgraph.md](feedback_overclaim_cutover_verify_by_callgraph.md) — 声称"切换/单入口/无双写"前必须 grep 真实生产消费方+证明旧路径无调用点(拿调用图当证据,不是测试绿)；2026-05-22 借 Codex 抓到我把 finalize() 报成已切换实则生产零调用、userProfile 终态写仍双写。deprecation/TODO-切换注释=未完成红旗,收尾必须显式列出
