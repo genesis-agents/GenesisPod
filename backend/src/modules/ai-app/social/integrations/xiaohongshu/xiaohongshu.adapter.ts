@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { MCPClientService } from "../core/mcp-client.service";
-import { MCPToolResult } from "../types/platform.types";
+import { MCPClientService } from "../../runtime/mcp-client.service";
+import { MCPToolResult } from "../../mission/types/platform.types";
 
 // ==================== XHS MCP 类型 ====================
 

@@ -6,9 +6,9 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { WechatAdapter } from "../wechat.adapter";
-import { SocialBrowserService } from "../../services/social-browser.service";
-import { WechatImageUploaderService } from "../../services/wechat-image-uploader.service";
+import { WechatAdapter } from "../wechat/wechat.adapter";
+import { SocialBrowserService } from "../../mission/services/social-browser.service";
+import { WechatImageUploaderService } from "../../mission/services/wechat-image-uploader.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { ToolRegistry } from "@/modules/ai-engine/facade";
 import {
@@ -18,7 +18,7 @@ import {
   SocialContentType,
   SocialContentStatus,
   SocialContentSourceType,
-} from "../../types";
+} from "../../mission/types";
 
 // ---------------------------------------------------------------------------
 // Mock session-crypto — return predictable plain objects
@@ -29,7 +29,7 @@ jest.mock("../../utils/session-crypto", () => ({
   isEncrypted: jest.fn(() => false),
 }));
 
-import { decryptSession } from "../../utils/session-crypto";
+import { decryptSession } from "../../mission/services/session-crypto";
 const mockDecryptSession = decryptSession as jest.MockedFunction<
   typeof decryptSession
 >;

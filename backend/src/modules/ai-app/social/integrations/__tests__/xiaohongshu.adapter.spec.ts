@@ -3,8 +3,8 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { XhsMcpAdapter } from "../xiaohongshu.adapter";
-import { MCPClientService } from "../../core/mcp-client.service";
+import { XhsMcpAdapter } from "../xiaohongshu/xiaohongshu.adapter";
+import { MCPClientService } from "../../runtime/mcp-client.service";
 
 // ==================== Mock ====================
 

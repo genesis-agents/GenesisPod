@@ -3,9 +3,9 @@ import type { MCPClientService } from "../../../core/mcp-client.service";
 import type {
   SessionData,
   PublishOptions,
-} from "../../../types/platform.types";
-import type { SocialContent } from "../../../types";
-import { SocialPlatformType } from "../../../types";
+} from "../../../mission/types/platform.types";
+import type { SocialContent } from "../../../mission/types";
+import { SocialPlatformType } from "../../../mission/types";
 
 function createMockMCPClient() {
   return {

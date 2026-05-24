@@ -6,7 +6,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { MCPClientService } from "../../core/mcp-client.service";
+import { MCPClientService } from "../../runtime/mcp-client.service";
 import {
   SessionData,
   PublishResult,
@@ -17,8 +17,8 @@ import {
   SessionValidationResult,
   DraftResult,
   AnalyticsData,
-} from "../../types/platform.types";
-import { SocialContent, SocialPlatformType } from "../../types";
+} from "../../mission/types/platform.types";
+import { SocialContent, SocialPlatformType } from "../../mission/types";
 
 // xhs-toolkit MCP 工具名称
 const XHS_TOOLS = {
