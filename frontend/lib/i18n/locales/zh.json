@@ -5133,7 +5133,9 @@
       "quote": "引用",
       "regenerate": "重新生成",
       "thinking": "思考中...",
-      "webSearching": "联网搜索中..."
+      "webSearching": "联网搜索中...",
+      "knowledgeSearching": "知识库检索中...",
+      "generating": "生成中..."
     },
     "login": {
       "title": "登录以开始对话",

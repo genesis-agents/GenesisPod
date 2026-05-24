@@ -5133,7 +5133,9 @@
       "quote": "Quote",
       "regenerate": "Regenerate",
       "thinking": "Thinking...",
-      "webSearching": "Searching the web..."
+      "webSearching": "Searching the web...",
+      "knowledgeSearching": "Searching knowledge base...",
+      "generating": "Generating..."
     },
     "login": {
       "title": "Sign in to start chatting",

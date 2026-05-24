@@ -300,19 +300,21 @@ export class AiAskService {
 
     // ★ AI Kernel: 创建进程记录（仅首条消息）
     if (this.missionExecutor && !this.sessionProcessIds.has(sessionId)) {
-      try {
-        const kernelResult = await this.missionExecutor.execute({
+      void this.missionExecutor
+        .execute({
           userId,
           agentId: "ai-ask",
           teamSessionId: sessionId,
           input: { title: session.title },
+        })
+        .then((kernelResult) => {
+          this.sessionProcessIds.set(sessionId, kernelResult.processId);
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `[Kernel] Failed to spawn process: ${err instanceof Error ? err.message : String(err)}`,
+          );
         });
-        this.sessionProcessIds.set(sessionId, kernelResult.processId);
-      } catch (err) {
-        this.logger.warn(
-          `[Kernel] Failed to spawn process: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
     }
 
     // 获取模型配置
@@ -734,27 +736,24 @@ export class AiAskService {
       }
     }
 
-    const modelId = dto.modelId || session.modelId;
-    const modelConfig = await this.getModelConfig(modelId);
-
     const isRagQuery = dto.knowledgeBaseIds && dto.knowledgeBaseIds.length > 0;
     const operationType = isRagQuery ? "rag-chat" : "chat";
     const estimatedCredits = isRagQuery ? 15 : 10;
+    const modelId = dto.modelId || session.modelId;
+    const [modelConfig, balanceCheck, contextMessages] = await Promise.all([
+      this.getModelConfig(modelId),
+      this.creditsService
+        ? this.creditsService.checkBalance(userId, estimatedCredits)
+        : Promise.resolve(null),
+      this.buildContext(sessionId),
+    ]);
 
-    if (this.creditsService) {
-      const balanceCheck = await this.creditsService.checkBalance(
-        userId,
+    if (balanceCheck && !balanceCheck.sufficient) {
+      throw new InsufficientCreditsException(
         estimatedCredits,
+        balanceCheck.balance,
       );
-      if (!balanceCheck.sufficient) {
-        throw new InsufficientCreditsException(
-          estimatedCredits,
-          balanceCheck.balance,
-        );
-      }
     }
-
-    const contextMessages = await this.buildContext(sessionId);
 
     const userMessage = await this.prisma.askMessage.create({
       data: {
@@ -913,12 +912,18 @@ export class AiAskService {
       },
     });
 
-    await this.prisma.askSession.update({
-      where: { id: sessionId },
-      data: { updatedAt: new Date() },
-    });
+    void this.prisma.askSession
+      .update({
+        where: { id: sessionId },
+        data: { updatedAt: new Date() },
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `[sendMessageStream] Failed to update session timestamp: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
 
-    await this.updateConversationMemory(
+    void this.updateConversationMemory(
       sessionId,
       { role: "user", content: this.sanitizeMessageContent(dto.content) },
       {
@@ -927,13 +932,22 @@ export class AiAskService {
       },
     );
 
-    const messageCount = await this.prisma.askMessage.count({
-      where: { sessionId },
-    });
-    if (messageCount === 2 && session.title === "New Chat") {
-      void this.generateSessionTitle(sessionId, dto.content).catch((err) => {
-        this.logger.warn(`Failed to generate session title: ${err.message}`);
-      });
+    if (session.title === "New Chat") {
+      void this.prisma.askMessage
+        .count({
+          where: { sessionId },
+        })
+        .then((messageCount) => {
+          if (messageCount === 2) {
+            return this.generateSessionTitle(sessionId, dto.content);
+          }
+          return undefined;
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `[sendMessageStream] Failed to update derived session metadata: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
 
     yield {

@@ -82,6 +82,8 @@ export type AskOnChunk = (
   accumulated: string,
   sources?: AskRagSource[]
 ) => void;
+export type AskStreamStage = 'rag' | 'generating';
+export type AskOnStatus = (stage: AskStreamStage) => void;
 
 interface SseEventBase {
   type: string;
@@ -285,8 +287,15 @@ export async function streamAskMessage(
   token: string,
   body: AskStreamRequestBody,
   onChunk?: AskOnChunk,
+  onStatusOrReconcile?: AskOnStatus | ReconcileOptions,
   reconcileOptions?: ReconcileOptions
 ): Promise<AskStreamResult> {
+  const onStatus =
+    typeof onStatusOrReconcile === 'function' ? onStatusOrReconcile : undefined;
+  const effectiveReconcileOptions =
+    typeof onStatusOrReconcile === 'function'
+      ? reconcileOptions
+      : onStatusOrReconcile;
   try {
     const response = await fetch(
       `${config.apiUrl}/ask/sessions/${sessionId}/messages/stream`,
@@ -323,7 +332,9 @@ export async function streamAskMessage(
     let sawDone = false;
 
     const handleEvent = (event: SseEvent): void => {
-      if (event.type === 'sources') {
+      if (event.type === 'status') {
+        onStatus?.(event.stage);
+      } else if (event.type === 'sources') {
         ragSources = event.sources;
       } else if (event.type === 'chunk') {
         accumulatedContent += event.content;
@@ -382,7 +393,7 @@ export async function streamAskMessage(
         sessionId,
         token,
         body.content,
-        reconcileOptions
+        effectiveReconcileOptions
       );
       if (reconciled) return reconciled;
       return {

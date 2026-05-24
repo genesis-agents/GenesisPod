@@ -91,6 +91,29 @@ describe('streamAskMessage', () => {
     expect(result.ragSources).toHaveLength(1);
   });
 
+  it('notifies caller about stream status phases before chunks arrive', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      makeStreamResponse([
+        'data: {"type":"status","stage":"rag"}\n\n',
+        'data: {"type":"status","stage":"generating"}\n\n',
+        'data: {"type":"chunk","content":"Hello"}\n\n',
+        'data: {"type":"done","userMessageId":"u1","assistantMessageId":"a1","tokensUsed":1,"fullContent":"Hello","userMessage":{"id":"u1","content":"Question","createdAt":"2026-05-10T10:00:00.000Z"},"assistantMessage":{"id":"a1","content":"Hello","createdAt":"2026-05-10T10:00:01.000Z","tokens":1}}\n\n',
+      ])
+    );
+
+    const statuses: string[] = [];
+    const result = await streamAskMessage(
+      'session-1',
+      'token-1',
+      { content: 'Question', webSearch: false },
+      undefined,
+      (stage) => statuses.push(stage)
+    );
+
+    expect(result.ok).toBe(true);
+    expect(statuses).toEqual(['rag', 'generating']);
+  });
+
   it('fails closed when stream cut AND reconcile finds no persisted reply', async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(

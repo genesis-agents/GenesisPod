@@ -25,6 +25,7 @@ import { CreateSessionDto, UpdateSessionDto, SendMessageDto } from "./dto";
 @UseGuards(JwtAuthGuard)
 export class AiAskController {
   private readonly logger = new Logger(AiAskController.name);
+  private static readonly SSE_HEARTBEAT_MS = 15000;
 
   constructor(private readonly aiAskService: AiAskService) {}
 
@@ -187,9 +188,30 @@ export class AiAskController {
     res.setHeader("X-Accel-Buffering", "no"); // nginx 关闭 buffer
     res.flushHeaders();
 
+    let connectionOpen = true;
+    res.on("close", () => {
+      connectionOpen = false;
+    });
+
     const writeEvent = (event: unknown) => {
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
+      if (!connectionOpen) return false;
+      try {
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+        return true;
+      } catch {
+        connectionOpen = false;
+        return false;
+      }
     };
+
+    const heartbeat = setInterval(() => {
+      if (!connectionOpen) return;
+      try {
+        res.write(":heartbeat\n\n");
+      } catch {
+        connectionOpen = false;
+      }
+    }, AiAskController.SSE_HEARTBEAT_MS);
 
     try {
       for await (const event of this.aiAskService.sendMessageStream(
@@ -197,7 +219,7 @@ export class AiAskController {
         req.user.id,
         dto,
       )) {
-        writeEvent(event);
+        if (!writeEvent(event)) break;
         if (event.type === "done" || event.type === "error") {
           break;
         }
@@ -207,6 +229,7 @@ export class AiAskController {
       this.logger.error(`[streamMessage] Stream failed: ${msg}`);
       writeEvent({ type: "error", message: msg });
     } finally {
+      clearInterval(heartbeat);
       res.end();
     }
   }

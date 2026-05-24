@@ -823,6 +823,7 @@ interface Message {
   modelName?: string;
   createdAt: string;
   ragSources?: RagSource[];
+  streamStatus?: 'thinking' | 'rag' | 'generating';
 }
 
 interface MixtureResponse {
@@ -935,6 +936,9 @@ export default function AskPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [streamStage, setStreamStage] = useState<
+    'thinking' | 'rag' | 'generating' | null
+  >(null);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
@@ -1191,7 +1195,8 @@ export default function AskPage() {
           excerpt: string;
           score: number;
         }>
-      ) => void
+      ) => void,
+      onStatus?: (stage: 'rag' | 'generating') => void
     ) => {
       if (!token) {
         logger.warn('Cannot send message: no auth token');
@@ -1227,7 +1232,7 @@ export default function AskPage() {
 
       // 2026-05-10 §4：SSE 解析 + result 构造拆到 lib/api/ai-ask-stream.ts
       // 避免本文件突破 god-class +50 行 pre-push 阈值
-      return streamAskMessage(sessionId, token, requestBody, onChunk);
+      return streamAskMessage(sessionId, token, requestBody, onChunk, onStatus);
     },
     [token, selectedModel, webSearchEnabled, selectedKnowledgeBases]
   );
@@ -1473,6 +1478,7 @@ export default function AskPage() {
     setAttachedFiles([]);
     setQuotedMessage(null);
     setIsLoading(true);
+    setStreamStage(webSearchEnabled ? 'rag' : 'thinking');
     setMixtureResponses([]);
 
     // Create abort controller for this request
@@ -1577,6 +1583,7 @@ export default function AskPage() {
             userContent,
             undefined,
             (accumulated, sources) => {
+              setStreamStage(null);
               if (tempAssistantId === null) {
                 // 第一个 chunk：lazy 注入 assistant bubble
                 tempAssistantId = 'temp-assistant-' + Date.now();
@@ -1601,7 +1608,8 @@ export default function AskPage() {
                   )
                 );
               }
-            }
+            },
+            (stage) => setStreamStage(stage)
           );
 
           if (result.ok) {
@@ -1738,6 +1746,7 @@ export default function AskPage() {
     } finally {
       abortControllerRef.current = null;
       setIsLoading(false);
+      setStreamStage(null);
     }
   };
 
@@ -1766,6 +1775,7 @@ export default function AskPage() {
       abortControllerRef.current = null;
     }
     setIsLoading(false);
+    setStreamStage(null);
   };
 
   const getGreeting = () => {
@@ -2401,7 +2411,13 @@ export default function AskPage() {
                             />
                           </div>
                           <span className="text-sm text-gray-500">
-                            {selectedModelInfo?.name || 'AI'} is thinking...
+                            {streamStage === 'rag'
+                              ? webSearchEnabled
+                                ? t('aiAsk.messages.webSearching')
+                                : t('aiAsk.messages.knowledgeSearching')
+                              : streamStage === 'generating'
+                                ? t('aiAsk.messages.generating')
+                                : t('aiAsk.messages.thinking')}
                           </span>
                         </div>
                       </div>
