@@ -5,10 +5,14 @@
  *   - 当前在 structured-output-router.service.ts 内的 module-level const
  *     PROVIDER_DEFAULT_CHAINS 是 readonly array<{ match, chain }>
  *   - 长度、每条 entry 的字段（match + chain）、chain 内值是合法 Strategy
+ *   - 每条 entry 的 chain 数组长度 ≤ MAX_CHAIN_LENGTH（防止配出无限 fallback）
  *
  * 该常量是 module-private（未 export），无法直接 import；用 TypeScript Compiler
  * API 解析源文件 AST，从 VariableDeclaration 抓取 ArrayLiteralExpression 元素，
  * 校验每条 entry 形态。
+ *
+ * **范围声明**：仅 `backend/src` 运行时（router 服务文件）。前端 / Prisma /
+ *   测试 fixture 内若另有同名常量也不进入本基线。
  *
  * 演进策略：
  *   阶段 C 计划删除 PROVIDER_DEFAULT_CHAINS（推断逻辑下沉到 strategy 选择器 /
@@ -142,6 +146,11 @@ function readProviderChains(): ProviderChainEntry[] | null {
 // 必须同步更新这里 + 阶段 C 拆除时同步删 spec。
 const EXPECTED_ENTRY_COUNT = 17;
 
+// chain 长度上限：当前最长的 fallback 是 4 步（json_schema_strict → json_schema
+// → json_mode → prompt）。超过 4 通常意味着误配（无限 fallback / 重复策略）。
+// 提高上限请同步更新 router 旁的 comment 与本常量。
+const MAX_CHAIN_LENGTH = 4;
+
 describe("Capability Contract · PROVIDER_DEFAULT_CHAINS shape baseline (v3.1 §6.C)", () => {
   it("structured-output-router.service.ts still declares the const PROVIDER_DEFAULT_CHAINS", () => {
     const entries = readProviderChains();
@@ -160,6 +169,17 @@ describe("Capability Contract · PROVIDER_DEFAULT_CHAINS shape baseline (v3.1 §
       if (!e.hasMatch || e.chain.length === 0) malformed.push(idx);
     });
     expect(malformed).toEqual([]);
+  });
+
+  it(`every chain has length ≤ ${MAX_CHAIN_LENGTH} (prevents misconfigured infinite fallback)`, () => {
+    const entries = readProviderChains()!;
+    const overLong: Array<{ idx: number; length: number }> = [];
+    entries.forEach((e, idx) => {
+      if (e.chain.length > MAX_CHAIN_LENGTH) {
+        overLong.push({ idx, length: e.chain.length });
+      }
+    });
+    expect(overLong).toEqual([]);
   });
 
   it("every chain entry value is a known StructuredOutputStrategy", () => {

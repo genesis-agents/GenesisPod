@@ -4,12 +4,19 @@
  * 锁住"现状只有有限几处读 `.structuredOutputStrategy / .fallbackStrategies`"
  * 的不变量；同时锁住"5 个 supports_* bool 字段零业务读者"。
  *
- * 用 TypeScript Compiler API 扫所有 .ts 源文件的 PropertyAccessExpression：
- *   - PropertyAccessExpression(name == fieldName) → 真正的读取（不会误命中
- *     `{ fieldName: ... }` 这种 PropertyAssignment 的 Identifier key）
+ * 用 TypeScript Compiler API 扫所有 .ts 源文件，**三路合并**统计读者：
+ *   - PropertyAccessExpression：`cfg.structuredOutputStrategy`
+ *   - ElementAccessExpression（字符串字面量索引）：`cfg["structuredOutputStrategy"]`
+ *   - ObjectBindingPattern 解构：`const { structuredOutputStrategy } = cfg`
  *
- * **structuredOutputStrategy / fallbackStrategies 读者基线（运行时代码，
- *   非 .spec / .test 文件）**：
+ * 这三种是 TS 中读取对象字段的合法形式。任何一种都计入"读者"，防止用字符串
+ * 索引或解构绕过 PropertyAccess 扫描。
+ *
+ * **范围声明**：仅 `backend/src` 运行时（排除 .spec/.test/.d.ts/node_modules/
+ *   dist/coverage/__tests__）。前端 admin UI、Prisma schema、测试 fixture 另计，
+ *   不进入本基线。
+ *
+ * **structuredOutputStrategy 读者基线（运行时代码，非 .spec / .test 文件）**：
  *   - structured-output-router.service.ts ：架构合法读者（router 是唯一架构消费方）
  *   - ai-model-config.service.ts          ：buildModelConfig 把 raw Prisma row 字段
  *                                            映射到 AIModelConfig（纯转译）
@@ -17,6 +24,14 @@
  *                                            router.resolveChain（不做决策）
  *   - admin.service.ts                    ：admin 写入路径，把请求 DTO 透传给
  *                                            prisma update（写流，非读决策）
+ *   - ai-chat.service.ts                  ：chat() 入口对 options 做解构透传，
+ *                                            下沉给 provider routes / executor
+ *                                            （纯透传，无业务决策）—— 2026-05-23
+ *                                            element-access + 解构扫描新发现的
+ *                                            读者，纳入基线
+ *
+ * **fallbackStrategies 读者基线**：同上 4 个文件（不含 ai-chat.service.ts，因为
+ *   chat() 入口当前不透传该字段，只读 structuredOutputStrategy）
  *
  * **supports_json_schema_strict / supports_json_schema / supports_tool_use /
  *   supports_json_mode / supports_gbnf_grammar 读者基线**：
@@ -27,6 +42,9 @@
  * 演进策略：
  *   D6 阶段删除 5 个 supports_* bool 字段时本 spec 必须红 → 同步更新或删除。
  *   D 阶段把 fallback / strategy 读取下沉时 structured-output 部分也同步更新。
+ *
+ * 性能：listTsFiles + AST 解析在 beforeAll 中完成一次性预扫描，缓存所有字段名
+ *   的读者集合；各 `it` 仅从缓存读取，单文件耗时从 ~14s 降到 ~3s。
  */
 
 import * as fs from "fs";
@@ -60,15 +78,30 @@ function listTsFiles(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
+/** 我们关心的全部字段名（一次解析、多字段并行统计，避免重复 AST 遍历）。 */
+const TARGET_FIELDS = [
+  "structuredOutputStrategy",
+  "fallbackStrategies",
+  "supportsJsonSchemaStrict",
+  "supportsJsonSchema",
+  "supportsToolUse",
+  "supportsJsonMode",
+  "supportsGbnfGrammar",
+] as const;
+type TargetField = (typeof TARGET_FIELDS)[number];
+
+const TARGET_SET: ReadonlySet<string> = new Set(TARGET_FIELDS);
+
 /**
- * 收集文件中所有 PropertyAccessExpression 其 name == fieldName 的位置。
- * 关键：只收 PropertyAccessExpression（如 `cfg.structuredOutputStrategy`），
- * 不收 PropertyAssignment 的 name（如 `{ structuredOutputStrategy: ... }` 的 key）。
+ * 收集单文件中三类读取形式的命中字段：
+ *   - PropertyAccessExpression(name.text ∈ TARGET_SET)
+ *   - ElementAccessExpression（argument 是 StringLiteral，且 text ∈ TARGET_SET）
+ *   - ObjectBindingPattern 元素的 propertyName/name（标识符 ∈ TARGET_SET）
+ *
+ * 关键：不收 PropertyAssignment（{ structuredOutputStrategy: ... }）的 key——
+ * 那是写入/声明，不是读取。
  */
-function findPropertyAccessReads(
-  filePath: string,
-  fieldName: string,
-): number[] {
+function collectReadsInFile(filePath: string): Set<TargetField> {
   const sf = ts.createSourceFile(
     filePath,
     fs.readFileSync(filePath, "utf-8"),
@@ -76,70 +109,107 @@ function findPropertyAccessReads(
     /* setParentNodes */ true,
     ts.ScriptKind.TS,
   );
-  const lines: number[] = [];
+  const found = new Set<TargetField>();
   function visit(node: ts.Node): void {
+    // 1) cfg.structuredOutputStrategy
     if (ts.isPropertyAccessExpression(node)) {
-      if (node.name.text === fieldName) {
-        const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
-        lines.push(line + 1);
+      const name = node.name.text;
+      if (TARGET_SET.has(name)) found.add(name as TargetField);
+    }
+    // 2) cfg["structuredOutputStrategy"]
+    else if (ts.isElementAccessExpression(node)) {
+      const arg = node.argumentExpression;
+      if (arg && ts.isStringLiteral(arg) && TARGET_SET.has(arg.text)) {
+        found.add(arg.text as TargetField);
+      }
+    }
+    // 3) const { structuredOutputStrategy } = cfg
+    //    const { structuredOutputStrategy: x } = cfg  → propertyName 是源字段
+    else if (ts.isObjectBindingPattern(node)) {
+      for (const el of node.elements) {
+        // propertyName 存在意味着重命名解构（{ src: dst }）；不存在时 name 即源字段
+        const sourceName = el.propertyName ?? el.name;
+        if (ts.isIdentifier(sourceName) && TARGET_SET.has(sourceName.text)) {
+          found.add(sourceName.text as TargetField);
+        }
       }
     }
     ts.forEachChild(node, visit);
   }
   visit(sf);
-  return lines;
+  return found;
 }
 
-/** 扫遍 src 目录，返回所有读了 fieldName 的文件相对路径（去重）。 */
-function filesReading(fieldName: string): string[] {
-  const set = new Set<string>();
+/** 预扫描结果：fieldName → 排序后的 src 相对路径列表。 */
+type ReaderIndex = Record<TargetField, string[]>;
+
+let READER_INDEX: ReaderIndex;
+
+beforeAll(() => {
+  const buckets: Record<TargetField, Set<string>> = {
+    structuredOutputStrategy: new Set(),
+    fallbackStrategies: new Set(),
+    supportsJsonSchemaStrict: new Set(),
+    supportsJsonSchema: new Set(),
+    supportsToolUse: new Set(),
+    supportsJsonMode: new Set(),
+    supportsGbnfGrammar: new Set(),
+  };
   for (const file of listTsFiles(SRC_ROOT)) {
-    const reads = findPropertyAccessReads(file, fieldName);
-    if (reads.length > 0) {
-      set.add(path.relative(SRC_ROOT, file).replace(/\\/g, "/"));
-    }
+    const hits = collectReadsInFile(file);
+    if (hits.size === 0) continue;
+    const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
+    for (const field of hits) buckets[field].add(rel);
   }
-  return [...set].sort((a, b) => a.localeCompare(b));
-}
+  READER_INDEX = TARGET_FIELDS.reduce((acc, f) => {
+    acc[f] = [...buckets[f]].sort((a, b) => a.localeCompare(b));
+    return acc;
+  }, {} as ReaderIndex);
+});
 
 describe("Capability Contract · structured-output field readers baseline (v3.1 §6.D6)", () => {
-  const EXPECTED_STRATEGY_READERS = [
+  // 4 个"原始"读者：router / model-config / executor / admin 透传写流。
+  const EXPECTED_STRATEGY_READERS_BASE = [
     "modules/ai-engine/llm/services/ai-model-config.service.ts",
     "modules/ai-engine/llm/structured-output/structured-output-router.service.ts",
     "modules/ai-harness/runner/executor/llm-executor.ts",
     "modules/open-api/admin/admin.service.ts",
   ];
 
-  it("`.structuredOutputStrategy` is read only by the 4 documented files", () => {
-    const actual = filesReading("structuredOutputStrategy");
-    expect(actual).toEqual([...EXPECTED_STRATEGY_READERS].sort());
+  // ai-chat.service.ts 在 chat() 入口对 options 做解构透传（无业务决策）。
+  // 仅 structuredOutputStrategy 透传，不透传 fallbackStrategies。
+  const EXPECTED_STRATEGY_READERS = [
+    ...EXPECTED_STRATEGY_READERS_BASE,
+    "modules/ai-engine/llm/services/ai-chat.service.ts",
+  ];
+
+  it("`.structuredOutputStrategy` is read only by the 5 documented files (PropertyAccess + element-access + destructuring 三路合集)", () => {
+    expect(READER_INDEX.structuredOutputStrategy).toEqual(
+      [...EXPECTED_STRATEGY_READERS].sort(),
+    );
   });
 
-  it("`.fallbackStrategies` is read only by the same 4 documented files", () => {
+  it("`.fallbackStrategies` is read only by the 4 base documented files (PropertyAccess + element-access + destructuring 三路合集; ai-chat.service.ts 不透传此字段)", () => {
     // Note: ai-app/explore/.../ai-prompts.config.ts declares a `fallbackStrategies`
     // property on a UNRELATED prompt-best-practices config object; but it's an
     // assignment, not a PropertyAccessExpression read, so it doesn't appear here.
-    const actual = filesReading("fallbackStrategies");
-    // 排除非 AIModelConfig 命名空间下的同名 PropertyAccess（如 prompt 配置的
-    // PromptBestPractices.fallbackStrategies）。当前业务侧用 PropertyAccess
-    // 形式访问该名的，除以下 4 个 AIModelConfig 路径外，仅有 explore prompt
-    // 配置文件常量读取，不会进入运行时业务决策。
-    const allowedNonModelConfigReaders = [
+    const allowedNonModelConfigReaders: string[] = [
       // 当前实际数据：业务侧 PropertyAccess 唯一同名读者
       // （prompt config 内部的 fallbackStrategies 字段，与 AIModelConfig 同名巧合）
     ];
     const expected = [
-      ...EXPECTED_STRATEGY_READERS,
+      ...EXPECTED_STRATEGY_READERS_BASE,
       ...allowedNonModelConfigReaders,
     ].sort();
-    expect(actual).toEqual(expected);
+    expect(READER_INDEX.fallbackStrategies).toEqual(expected);
   });
 
   // ★★★ D6 决议关键依据：5 个 supports_* bool 字段的读者仅限 ai-model-config.service.ts
   // 内 buildModelConfig 的 raw row → AIModelConfig 字段机械映射。**没有任何业务
-  // 决策代码读这 5 个字段**。任何 PR 引入新读者必须重审 D6 删除计划。
+  // 决策代码读这 5 个字段**（PropertyAccess / element-access / destructuring 三路皆零）。
+  // 任何 PR 引入新读者必须重审 D6 删除计划。
 
-  const SUPPORTS_BOOL_FIELDS = [
+  const SUPPORTS_BOOL_FIELDS: TargetField[] = [
     "supportsJsonSchemaStrict",
     "supportsJsonSchema",
     "supportsToolUse",
@@ -148,9 +218,8 @@ describe("Capability Contract · structured-output field readers baseline (v3.1 
   ];
 
   it.each(SUPPORTS_BOOL_FIELDS)(
-    "`.%s` has zero business runtime readers (only mechanical mapping + admin write API)",
+    "`.%s` has zero business runtime readers (only mechanical mapping + admin write API; 三路合集)",
     (field) => {
-      const actual = filesReading(field);
       // 两个允许的"读者"都是机械透传，不是业务决策：
       //   - ai-model-config.service.ts：buildModelConfig 把 raw Prisma row 字段
       //     映射到 AIModelConfig（纯转译）
@@ -158,7 +227,7 @@ describe("Capability Contract · structured-output field readers baseline (v3.1 
       //     prisma update（写流，不是业务读决策）
       // **没有任何 LLM 调用 / structured output 决策代码读这 5 个字段** —— D6 决议
       // 的关键事实依据。任何 PR 引入新读者必须重审 D6 删除计划。
-      expect(actual).toEqual([
+      expect(READER_INDEX[field]).toEqual([
         "modules/ai-engine/llm/services/ai-model-config.service.ts",
         "modules/open-api/admin/admin.service.ts",
       ]);
