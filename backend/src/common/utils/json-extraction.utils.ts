@@ -210,6 +210,55 @@ export function extractJsonFromAIResponse<T = unknown>(
     }
   }
 
+  // Method 8: JSON5-tolerant normalize — quote unquoted object keys, convert
+  // single-quoted strings to double-quoted, strip trailing commas.
+  // DeepSeek thinking models in json_object mode emit this dialect, e.g.
+  //   {kind:"parallel_tool_call",calls:[{kind:"tool_call",toolId:"web-search"}]}
+  // which every JSON.parse-based method above rejects (unquoted keys).
+  // Only used as a last resort; the result is still JSON.parse + requiredKey
+  // validated, so a wrong normalization simply fails to parse (no false positive).
+  {
+    const json5Candidates: string[] = [];
+    const rawTrim = content.trim();
+    if (rawTrim.startsWith("{") || rawTrim.startsWith("[")) {
+      const bracedRaw = extractJsonByBraceCounting(rawTrim);
+      if (bracedRaw) json5Candidates.push(bracedRaw);
+    }
+    const normalizedFull = normalizeJson5(content);
+    const normTrim = normalizedFull.trim();
+    if (normTrim.startsWith("{") || normTrim.startsWith("[")) {
+      const bracedNorm = extractJsonByBraceCounting(normTrim);
+      if (bracedNorm) json5Candidates.push(bracedNorm);
+    }
+    const normAny = normalizedFull.match(/[{[][\s\S]*[}\]]/);
+    if (normAny) json5Candidates.push(normAny[0]);
+    json5Candidates.push(normalizedFull);
+
+    for (const cand of json5Candidates) {
+      const normalized = normalizeJson5(cand);
+      try {
+        const parsed = JSON.parse(normalized) as T;
+        if (!requiredKey || hasKey(parsed, requiredKey)) {
+          return { success: true, data: parsed, method: "json5" };
+        }
+      } catch {
+        // try repair below / next candidate
+      }
+      // JSON5 + truncation combo
+      const repaired = tryRepairTruncatedJson(normalized);
+      if (repaired) {
+        try {
+          const parsed = JSON.parse(repaired) as T;
+          if (!requiredKey || hasKey(parsed, requiredKey)) {
+            return { success: true, data: parsed, method: "json5Repaired" };
+          }
+        } catch {
+          // try next candidate
+        }
+      }
+    }
+  }
+
   // All methods failed
   const preview = content.substring(0, errorPreviewLength);
   return {
@@ -224,6 +273,110 @@ export function extractJsonFromAIResponse<T = unknown>(
  */
 function hasKey(obj: unknown, key: string): boolean {
   return typeof obj === "object" && obj !== null && key in obj;
+}
+
+/**
+ * Normalize a JSON5-ish string into strict JSON parseable by `JSON.parse`.
+ *
+ * Some models — notably DeepSeek thinking models in `json_object` mode (which is
+ * best-effort prompt guidance, NOT a grammar constraint) — emit a JS-object-literal
+ * dialect that `JSON.parse` rejects:
+ *   - unquoted object keys:     {kind:"x"}        → {"kind":"x"}
+ *   - single-quoted strings:    {'k':'v'}         → {"k":"v"}
+ *   - trailing commas:          [1,2,]  / {"a":1,} → [1,2] / {"a":1}
+ *
+ * The scan is quote-aware: only structural tokens are rewritten; string *contents*
+ * (URLs, colons, commas, braces inside values) are preserved verbatim. Unquoted
+ * identifiers are only quoted when in key position (immediately after `{` or `,`
+ * and immediately followed by `:`), so value literals like `true`/`false`/`null`
+ * and numbers are never touched.
+ *
+ * Exported for direct use + unit testing. Idempotent on already-strict JSON.
+ */
+export function normalizeJson5(input: string): string {
+  let out = "";
+  let inString: '"' | "'" | null = null;
+  let escaped = false;
+  let prevSignificant = ""; // last non-whitespace char emitted outside strings
+
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+
+    if (inString) {
+      if (escaped) {
+        out += ch;
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        out += ch;
+        escaped = true;
+        continue;
+      }
+      if (ch === inString) {
+        out += '"'; // always close with a double quote
+        inString = null;
+        prevSignificant = '"';
+        continue;
+      }
+      if (ch === '"' && inString === "'") {
+        out += '\\"'; // escape a literal double quote inside a single-quoted string
+        continue;
+      }
+      out += ch;
+      continue;
+    }
+
+    // ── not inside a string ──
+    if (ch === '"' || ch === "'") {
+      out += '"';
+      inString = ch as '"' | "'";
+      continue;
+    }
+
+    // strip trailing commas: a comma whose next non-ws char closes an object/array
+    if (ch === ",") {
+      let k = i + 1;
+      while (k < input.length && /\s/.test(input[k])) k++;
+      if (input[k] === "}" || input[k] === "]") {
+        continue; // drop the comma
+      }
+      out += ch;
+      prevSignificant = ",";
+      continue;
+    }
+
+    // unquoted key in key position → quote it
+    if (
+      /[A-Za-z_$]/.test(ch) &&
+      (prevSignificant === "{" || prevSignificant === "," || prevSignificant === "")
+    ) {
+      let j = i;
+      let ident = "";
+      while (j < input.length && /[A-Za-z0-9_$.\-]/.test(input[j])) {
+        ident += input[j];
+        j++;
+      }
+      let k = j;
+      while (k < input.length && /\s/.test(input[k])) k++;
+      if (input[k] === ":") {
+        out += `"${ident}"`;
+        prevSignificant = ident.charAt(ident.length - 1);
+        i = j - 1;
+        continue;
+      }
+      // not a key (e.g. true/false/null value) → emit verbatim
+      out += ident;
+      prevSignificant = ident.charAt(ident.length - 1);
+      i = j - 1;
+      continue;
+    }
+
+    out += ch;
+    if (!/\s/.test(ch)) prevSignificant = ch;
+  }
+
+  return out;
 }
 
 /**

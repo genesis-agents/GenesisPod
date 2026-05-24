@@ -7,6 +7,7 @@
 
 import {
   extractJsonFromAIResponse,
+  normalizeJson5,
   stripReasoningBlocks,
   tryRepairTruncatedJsonWithMeta,
 } from "../json-extraction.utils";
@@ -746,6 +747,100 @@ This contains the requested information.`;
       // Assert: extraction still succeeds (backward-compatible)
       expect(extracted.success).toBe(true);
       expect(extracted.data).toHaveProperty("status", "ok");
+    });
+  });
+
+  describe("normalizeJson5", () => {
+    it("quotes unquoted object keys", () => {
+      expect(normalizeJson5('{kind:"x"}')).toBe('{"kind":"x"}');
+    });
+
+    it("converts single-quoted strings to double-quoted", () => {
+      expect(normalizeJson5("{'k':'v'}")).toBe('{"k":"v"}');
+    });
+
+    it("strips trailing commas in objects and arrays", () => {
+      expect(normalizeJson5('{"a":1,}')).toBe('{"a":1}');
+      expect(normalizeJson5("[1,2,3,]")).toBe("[1,2,3]");
+    });
+
+    it("does NOT quote true/false/null/number values", () => {
+      const out = normalizeJson5("{flag:true,n:8,nil:null}");
+      expect(JSON.parse(out)).toEqual({ flag: true, n: 8, nil: null });
+    });
+
+    it("preserves string contents (colons, commas, braces, URLs)", () => {
+      const out = normalizeJson5('{url:"https://x.io/a?b=1&c={2}"}');
+      expect(JSON.parse(out)).toEqual({ url: "https://x.io/a?b=1&c={2}" });
+    });
+
+    it("escapes a double quote inside a single-quoted string", () => {
+      const out = normalizeJson5(`{k:'say "hi"'}`);
+      expect(JSON.parse(out)).toEqual({ k: 'say "hi"' });
+    });
+
+    it("is idempotent on already-strict JSON", () => {
+      const strict = '{"a":1,"b":["x","y"],"c":{"d":true}}';
+      expect(normalizeJson5(strict)).toBe(strict);
+    });
+
+    it("handles nested objects and arrays with unquoted keys", () => {
+      const out = normalizeJson5(
+        '{a:{b:[{c:"d"}]},e:"f"}',
+      );
+      expect(JSON.parse(out)).toEqual({ a: { b: [{ c: "d" }] }, e: "f" });
+    });
+  });
+
+  describe("extractJsonFromAIResponse — DeepSeek JSON5 dialect (Method 8)", () => {
+    it("parses the real production parallel_tool_call output with unquoted keys", () => {
+      // Arrange: verbatim shape from the 2026-05-24 playground logs — DeepSeek
+      // v4-pro json_object mode emits unquoted keys, which JSON.parse rejects.
+      const content =
+        '{kind:"parallel_tool_call",calls:[{kind:"tool_call",toolId:"web-search",input:{query:"Oak Ridge National Laboratory",timeRange:"365d",numResults:8,language:"en"}},{kind:"tool_call",toolId:"arxiv-search",input:{query:"exascale supercomputing",maxResults:8,sortBy:"relevance"}}]}';
+
+      // Act
+      const result = extractJsonFromAIResponse<{
+        kind: string;
+        calls: Array<{ kind: string; toolId: string }>;
+      }>(content, { requiredKey: "kind" });
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.data?.kind).toBe("parallel_tool_call");
+      expect(result.data?.calls).toHaveLength(2);
+      expect(result.data?.calls[0].toolId).toBe("web-search");
+    });
+
+    it("parses unquoted-key JSON wrapped in a markdown fence", () => {
+      const content = '```json\n{action:"finalize",output:{summary:"done"}}\n```';
+      const result = extractJsonFromAIResponse<{ action: string }>(content, {
+        requiredKey: "action",
+      });
+      expect(result.success).toBe(true);
+      expect(result.data?.action).toBe("finalize");
+    });
+
+    it("parses unquoted keys + trailing prose after the object", () => {
+      const content =
+        'Here is my decision:\n{kind:"tool_call",toolId:"web-search"}\nThat is all.';
+      const result = extractJsonFromAIResponse<{ toolId: string }>(content, {
+        requiredKey: "toolId",
+      });
+      expect(result.success).toBe(true);
+      expect(result.data?.toolId).toBe("web-search");
+    });
+
+    it("parses unquoted keys + truncated tail (json5 + repair combo)", () => {
+      // Flat object truncated mid-tail: json5 normalize + truncation repair.
+      // (Nested array-of-objects truncation is a separate pre-existing repair
+      // limitation — bracket close-order — unrelated to the json5 dialect fix.)
+      const content = '{kind:"tool_call",toolId:"web-search",numResults:8';
+      const result = extractJsonFromAIResponse<{ kind: string }>(content, {
+        requiredKey: "kind",
+      });
+      expect(result.success).toBe(true);
+      expect(result.data?.kind).toBe("tool_call");
     });
   });
 });
