@@ -15,6 +15,7 @@
  */
 
 import { Module, Global, OnModuleInit, Logger, Inject } from "@nestjs/common";
+import { DiscoveryModule } from "@nestjs/core";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { SecretsModule } from "../ai-infra/secrets/secrets.module";
@@ -69,6 +70,8 @@ import { SanitizerMetricsService } from "./content/markdown/sanitizer-metrics.se
 //   位置严格遵守"rerank 是 RAG 第二阶段（knowledge 子领域）"+"单向依赖"两条原则：
 //   放 ai-engine/knowledge/rerank/ + 用 AiChatService（ai-engine 内层 LLM 调用）
 import { LlmRerankerAdapter } from "./knowledge/rerank";
+// ★ P17a (2026-05-24): 通用 ContentSourceRegistry（上提自 ai-app/social/registry）
+import { ContentSourceRegistry } from "./content/sources/content-source-registry.service";
 // ★ TeamsModule 已迁移到 ai-harness/teams（PR-X4），由 HarnessApiModule 统一装配
 // ★ Phase 3: LongContentModule moved to ai-app/writing/content-engine/
 import { PromptsModule } from "./llm/prompts/prompts.module";
@@ -105,6 +108,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 @Global()
 @Module({
   imports: [
+    DiscoveryModule, // ★ P17a: ContentSourceRegistry 用 DiscoveryService 扫 @ContentSourceProvider()
     PrismaModule,
     SecretsModule,
 
@@ -162,6 +166,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     LlmRerankerAdapter,
     // ★ PR-A8 (2026-05-07): sanitizer metrics 聚合器
     SanitizerMetricsService,
+    // ★ P17a (2026-05-24): 通用 ContentSourceRegistry — 任何 ai-app 可注册内容源
+    ContentSourceRegistry,
   ],
   exports: [
     // ★ 重新导出子模块
@@ -211,6 +217,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     LlmRerankerAdapter,
     // ★ PR-A8 (2026-05-07): sanitizer metrics 顶层 export，admin / observability 拉 snapshot
     SanitizerMetricsService,
+    // ★ P17a (2026-05-24): ContentSourceRegistry — ai-app/social 等 consumer 注入用
+    ContentSourceRegistry,
   ],
 })
 export class AiEngineModule implements OnModuleInit {

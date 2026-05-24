@@ -151,6 +151,23 @@ export type {
 export { ToolRegistry } from "../tools/registry/tool.registry";
 export { SkillRegistry } from "../skills/registry/skill.registry";
 
+// ★ P17a (2026-05-24): 通用 ContentSource 契约 + Registry
+//   任何 ai-app 暴露内容源都实现 ContentSource、注册到 ContentSourceRegistry。
+//   consumer (ai-app/social / 未来其他 app) 注入 ContentSourceRegistry，
+//   不直接 import 兄弟 ai-app 模块。
+export {
+  ContentSourceRegistry,
+  ContentSourceProvider,
+  CONTENT_SOURCE_TOKEN,
+  CONTENT_SOURCE_METADATA,
+  type ContentSource,
+  type ContentSourceDescriptor,
+  type SourceItem,
+  type SourceListFilter,
+  type SourceListResult,
+  type SourceContentBundle,
+} from "../content/sources";
+
 // ★ Social publish port — ai-app/social 实现端口的反转入口
 //   ai-engine 不依赖任何 social 实现；token + 接口在此暴露，
 //   ai-app/social/engine-bridge 提供绑定。详见 abstractions/social-publish.port.ts
