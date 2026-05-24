@@ -420,3 +420,48 @@ describe("ModelCapabilityService — deriveStructuredOutputChain", () => {
     ]);
   });
 });
+
+// ─────────── Fix-5 (arch-auditor P3 review 2026-05-24) ───────────
+// mergeInto 接受 Partial<ModelCapabilities> ∪ ModelCapabilitiesOverrides 联合，
+// 两者在 runtime 等价（spread + truthy guard 都安全处理 undefined / 空对象）。
+// 守护：空 sub-object patch 不动 target（否则会破坏 deep-partial 语义）。
+describe("ModelCapabilityService — mergeInto deep-partial 等价性 (Fix-5)", () => {
+  let svc: ModelCapabilityService;
+  beforeEach(() => {
+    svc = new ModelCapabilityService();
+  });
+
+  it("mergeInto 空子对象 patch 不应改 target（deep-partial 等价性）", () => {
+    // 通过 resolveCapabilities 拿到完整 target（包含 catalog 派生的所有字段）
+    const target = svc.resolveCapabilities(
+      baseConfig({ provider: "openai", modelId: "gpt-4o" }),
+    );
+    const before = JSON.stringify(target);
+
+    // 用 bracket access 拿 private mergeInto（测试场景允许）
+    const mergeInto = (
+      svc as unknown as {
+        mergeInto: (
+          target: typeof target,
+          patch: Record<string, unknown>,
+        ) => void;
+      }
+    ).mergeInto.bind(svc);
+
+    // patch 全是空子对象 —— deep-partial 合法形状
+    mergeInto(target, {
+      structuredOutput: {},
+      toolUse: {},
+      reasoning: {},
+      temperature: {},
+      vision: {},
+      streaming: {},
+      context: {},
+      systemPrompt: {},
+      promptCache: {},
+    });
+
+    // 关键断言：target 字节级未变（空子对象不应触发 spread 覆盖）
+    expect(JSON.stringify(target)).toBe(before);
+  });
+});

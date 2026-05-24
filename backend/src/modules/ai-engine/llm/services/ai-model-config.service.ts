@@ -18,10 +18,8 @@ import type {
   ResolvedApiKey,
 } from "../types/model-config.types";
 // v3.1 B.2: capability_overrides JSONB 严校（safeParse 失败仅 warn 跳过）
-import {
-  ModelCapabilitiesOverridesSchema,
-  type ModelCapabilitiesOverrides,
-} from "../capability/model-capability.types";
+// 解析逻辑独立在 capability-overrides-parser（review 2026-05-24 Fix-3 防 god-class）
+import { parseCapabilityOverrides } from "../capability/capability-overrides-parser";
 
 export type { AIModelConfig, ApiKeySource, ResolvedApiKey };
 
@@ -198,22 +196,6 @@ export class AiModelConfigService {
     return inferIsReasoning(modelId);
   }
 
-  /** v3.1 B.2: capability_overrides JSONB → ModelCapabilitiesOverrides; null/非法 → undefined + warn */
-  private parseCapabilityOverrides(
-    raw: unknown,
-    kind: "admin" | "user",
-    modelId: string,
-  ): ModelCapabilitiesOverrides | undefined {
-    if (raw === null || raw === undefined) return undefined;
-    const result = ModelCapabilitiesOverridesSchema.safeParse(raw);
-    if (result.success) return result.data;
-    this.logger.warn(
-      `[parseCapabilityOverrides] ${kind} override rejected for modelId=${modelId}; ` +
-        `issues=${JSON.stringify(result.error.issues).slice(0, 200)}`,
-    );
-    return undefined;
-  }
-
   /**
    * 从数据库模型构建 AIModelConfig
    * ★ 统一处理所有字段，兼容新旧数据库
@@ -283,11 +265,11 @@ export class AiModelConfigService {
         (model.supportsGbnfGrammar as boolean | undefined) ?? false,
 
       // v3.1 §3.4 优先级 #2：admin capability_overrides（JSONB，nullable）
-      aiModelOverrides: this.parseCapabilityOverrides(
-        model.capabilityOverrides,
-        "admin",
-        (model.modelId as string) ?? "<unknown>",
-      ),
+      aiModelOverrides: parseCapabilityOverrides(model.capabilityOverrides, {
+        kind: "admin",
+        modelId: (model.modelId as string) ?? "<unknown>",
+        logger: this.logger,
+      }),
     };
   }
 
@@ -567,11 +549,11 @@ export class AiModelConfigService {
       priority: cfg.priority,
 
       // v3.1 §3.4 优先级 #1：BYOK user capability_overrides（JSONB，nullable）
-      userOverrides: this.parseCapabilityOverrides(
-        cfg.capabilityOverrides,
-        "user",
-        cfg.modelId,
-      ),
+      userOverrides: parseCapabilityOverrides(cfg.capabilityOverrides, {
+        kind: "user",
+        modelId: cfg.modelId ?? "<unknown>",
+        logger: this.logger,
+      }),
     };
   }
 

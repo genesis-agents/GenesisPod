@@ -237,6 +237,56 @@ describe("AiModelConfigService — capability_overrides (v3.1 B.2)", () => {
       expect(warnSpy).toHaveBeenCalledTimes(1);
       expect(warnSpy.mock.calls[0][0]).toContain("admin");
     });
+
+    // ── Fix-1 (review 2026-05-24)：sub-object 也必须 strict，否则静默漏 ──
+    it("sub-object 未知字段 (sub-strict 拒) → logger.warn + undefined，不静默漏", async () => {
+      // 修前：reasoning 子对象只 .partial() 没 .strict()
+      //   → effort 被默默丢，生成 { reasoning: {} }
+      //   → mergeInto 看到空对象 patch 进 target 不改任何字段（等价 noop）
+      //   → 比拒掉更糟：没 warn，admin 以为生效了但其实没
+      // 修后：sub-strict 直接拒整个 override，warn + undefined，回退链生效
+      const cfg = await buildAdminConfig({
+        reasoning: { effort: "low" }, // ← effort 不在 reasoning sub-schema 字段表
+      });
+      expect(cfg).not.toBeNull();
+      expect(cfg?.aiModelOverrides).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0][0]).toContain("admin");
+    });
+
+    // ── Fix-2 (review 2026-05-24)：__meta 必须入 schema，B.4 self-heal 写入需要 ──
+    it("__meta（B.4 self-heal 写入字段）合法 → 接受", async () => {
+      const cfg = await buildAdminConfig({
+        __meta: {
+          autoDowngraded: true,
+          source: "self-heal-user",
+          selfHealedAt: "2026-05-24T00:00:00Z",
+          selfHealedReason: "json_schema_400",
+          probeFailCount: 0,
+        },
+      });
+      expect(cfg).not.toBeNull();
+      expect(cfg?.aiModelOverrides).toEqual({
+        __meta: {
+          autoDowngraded: true,
+          source: "self-heal-user",
+          selfHealedAt: "2026-05-24T00:00:00Z",
+          selfHealedReason: "json_schema_400",
+          probeFailCount: 0,
+        },
+      });
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it("__meta 未知字段 (__meta 自己 strict 拒) → logger.warn + undefined", async () => {
+      const cfg = await buildAdminConfig({
+        __meta: { unknownMetaKey: "x" },
+      });
+      expect(cfg).not.toBeNull();
+      expect(cfg?.aiModelOverrides).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0][0]).toContain("admin");
+    });
   });
 
   describe("BYOK user path (toAIModelConfigFromUserConfig)", () => {
@@ -276,6 +326,17 @@ describe("AiModelConfigService — capability_overrides (v3.1 B.2)", () => {
       expect(warnSpy).toHaveBeenCalledTimes(1);
       expect(warnSpy.mock.calls[0][0]).toContain("user");
     });
+
+    // ── Fix-1 BYOK 侧 sub-strict 守护（review 2026-05-24） ──
+    it("BYOK sub-object 未知字段 (sub-strict 拒) → warn + undefined，不静默漏", async () => {
+      const cfg = await buildUserConfig({
+        toolUse: { extraToolField: true }, // ← 不在 toolUse sub-schema 字段表
+      });
+      expect(cfg).not.toBeNull();
+      expect(cfg?.userOverrides).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0][0]).toContain("user");
+    });
   });
 
   describe("zod 使用安全性", () => {
@@ -294,6 +355,28 @@ describe("AiModelConfigService — capability_overrides (v3.1 B.2)", () => {
       expect(parseSpy).not.toHaveBeenCalled();
 
       safeParseSpy.mockRestore();
+      parseSpy.mockRestore();
+    });
+
+    // ── Fix-4 (arch-auditor P2 review 2026-05-24)：mockImplementation throw 直接证 ──
+    // 上面 spy 验证调用计数，但 spy 不一定覆盖 service 内 import 的引用
+    // （取决于 zod schema 是否被冻结/拷贝）。改用 throw 直接证 fail-open 生效：
+    // 如果 service 里误写成 parse 而不是 safeParse，throw 会冒泡到 buildModelConfig，
+    // 触发 cache 刷新挂掉，测试会崩。fail-open 行为正确则被 warn + undefined 兜住。
+    it("falls back open if parse throws (proves safeParse path is wired)", async () => {
+      const parseSpy = jest
+        .spyOn(ModelCapabilitiesOverridesSchema, "parse")
+        .mockImplementation(() => {
+          throw new Error("parse should never be called");
+        });
+
+      // 触发解析（合法 override，但 parse spy 一旦被调就 throw）
+      const cfg = await buildAdminConfig({ streaming: { support: false } });
+
+      // 验证：buildModelConfig 没崩 + aiModelOverrides 是合法数据（safeParse 正常返）
+      expect(cfg).not.toBeNull();
+      expect(cfg?.aiModelOverrides).toEqual({ streaming: { support: false } });
+
       parseSpy.mockRestore();
     });
   });

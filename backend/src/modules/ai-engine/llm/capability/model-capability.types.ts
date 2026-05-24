@@ -251,10 +251,43 @@ export const ModelCapabilitiesSchema = z
   .strict() satisfies z.ZodType<ModelCapabilities>;
 
 /**
+ * v3.1 §3.3 `capability_overrides.__meta` 子对象 schema —— B.4 self-heal +
+ * B.6 reverse-probe 写入；export 供 B.4 写入侧复用（不在外部重定义）。
+ *
+ * `.strict()`：拒未知 meta 字段，防 typo 静默漏（如 `selfHealedAtt`）。
+ */
+export const ModelCapabilitiesOverridesMetaSchema = z
+  .object({
+    autoDowngraded: z.boolean().optional(),
+    selfHealedAt: z.string().optional(), // ISO 字符串
+    selfHealedReason: z.string().optional(), // 短码（如 "json_schema_400"）
+    lastProbeAt: z.string().optional(),
+    nextProbeAt: z.string().optional(),
+    probeFailCount: z.number().int().nonnegative().optional(),
+    source: z
+      .enum(["self-heal-user", "admin-override", "reverse-probe"])
+      .optional(),
+  })
+  .strict();
+
+export type ModelCapabilitiesOverridesMeta = z.infer<
+  typeof ModelCapabilitiesOverridesMetaSchema
+>;
+
+/**
  * v3.1 阶段 B 用：`capability_overrides JSONB` 列 zod schema（partial / deep）。
  *
  * 任何字段都可被 override；未填字段走优先级链下一级回退。
- * 阶段 A 不消费此 schema（无 override 写入路径），仅暴露 export 给 B 阶段。
+ *
+ * **严校三层**（review 2026-05-24 加固）：
+ *   1. root `.strict()` —— 拒未知顶层字段（除 `__meta`）
+ *   2. 每个 sub-object `.strict().partial()` —— 拒未知子字段（不静默漏 typo）
+ *      顺序很重要：先 strict 再 partial，partial 不会撤掉 strict
+ *   3. `__meta` 自己 `.strict()` —— 拒未知 meta 字段
+ *
+ * 静默漏修复（reviewer 实测发现）：
+ *   - 修前：`{ reasoning: { effort: "low" } }` → 接受为 `{reasoning: {}}`（effort 被默默丢）
+ *   - 修后：sub-strict 直接拒整个 override，调用方 warn + 回退（defeat L4→L3→L2 链）
  */
 export const ModelCapabilitiesOverridesSchema = z
   .object({
@@ -263,6 +296,7 @@ export const ModelCapabilitiesOverridesSchema = z
         nativeMode: nativeModeSchema.optional(),
         fallbackChain: z.array(nativeModeSchema).readonly().optional(),
       })
+      .strict()
       .partial()
       .optional(),
     toolUse: z
@@ -270,6 +304,7 @@ export const ModelCapabilitiesOverridesSchema = z
         mode: toolUseModeSchema.optional(),
         parallelCalls: z.boolean().optional(),
       })
+      .strict()
       .partial()
       .optional(),
     reasoning: z
@@ -277,12 +312,14 @@ export const ModelCapabilitiesOverridesSchema = z
         kind: reasoningKindSchema.optional(),
         exposeContent: reasoningExposeSchema.optional(),
       })
+      .strict()
       .partial()
       .optional(),
     temperature: z
       .object({
         support: temperatureSupportSchema.optional(),
       })
+      .strict()
       .partial()
       .optional(),
     tokenParam: tokenParamSchema.optional(),
@@ -290,12 +327,14 @@ export const ModelCapabilitiesOverridesSchema = z
       .object({
         support: visionSupportSchema.optional(),
       })
+      .strict()
       .partial()
       .optional(),
     streaming: z
       .object({
         support: z.boolean().optional(),
       })
+      .strict()
       .partial()
       .optional(),
     context: z
@@ -303,20 +342,27 @@ export const ModelCapabilitiesOverridesSchema = z
         maxInputTokens: z.number().int().nonnegative().optional(),
         maxOutputTokens: z.number().int().nonnegative().optional(),
       })
+      .strict()
       .partial()
       .optional(),
     systemPrompt: z
       .object({
         placement: systemPromptPlacementSchema.optional(),
       })
+      .strict()
       .partial()
       .optional(),
     promptCache: z
       .object({
         support: promptCacheSupportSchema.optional(),
       })
+      .strict()
       .partial()
       .optional(),
+    // v3.1 §3.3 capability_overrides JSONB `__meta` 子字段。
+    // B.4 self-heal + B.6 reverse-probe 写入；root strict 会拒所以必须显式入 schema。
+    // 子对象自己 strict，拒未知 meta 字段。
+    __meta: ModelCapabilitiesOverridesMetaSchema.optional(),
   })
   .strict();
 
