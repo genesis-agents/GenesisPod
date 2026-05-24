@@ -1,32 +1,25 @@
 /**
- * NarrativeEmitter for social SocialPublishMission.
+ * NarrativeEmitter — social-specific thin binding over ai-harness narrate factory
  *
- * 在 stage 函数里 narrate(deps.emit, missionId, userId, { stage, role, tag, text }).
+ * Wave-1 P4 (2026-05-24, mirroring playground R2-#50): The generic narrate()
+ * function and NarrativeEvent/NarrativeTag types live in ai-harness
+ * (protocols/events/narrate.ts) and are exported via the harness facade. This
+ * file is a binding shim that:
+ *   - Re-exports the types so stage files keep the same import path
+ *   - Binds the social-specific event type string "social.agent:narrative"
+ *     so all 14 call sites in stages/ remain unchanged (no extra argument
+ *     needed)
  *
- * 设计原则（mirror playground narrative.util）：
- *   - text 必须是给人看的自然语言，禁止 JSON 字符串拼接
- *   - 模板化 + 关键参数填空（不调 LLM，避免成本和不稳定）
- *   - tag 决定前端图标 / 颜色
- *   - stage 一定要给（前端按 stage 把 narrative 归到对应 stepper）
- *   - 失败 emit 不抛错（best-effort）
+ * Call sites continue to use:  narrate(emit, missionId, userId, { stage, role, tag, text })
  */
 
+import { narrate as harnessNarrate } from "@/modules/ai-harness/facade";
+import type { NarrativeEvent } from "@/modules/ai-harness/facade";
 import type { EmitFn } from "./mission-deps";
 
-export type NarrativeTag =
-  | "thinking"
-  | "planning"
-  | "searching"
-  | "analyzing"
-  | "writing"
-  | "reviewing"
-  | "publishing"
-  | "verifying"
-  | "signing"
-  | "warning"
-  | "success"
-  | "info";
+export type { NarrativeEvent, NarrativeTag } from "@/modules/ai-harness/facade";
 
+/** NarrativeStage enum kept here — it is social-domain-specific (not harness concern). */
 export type NarrativeStage =
   | "s1-budget-eval"
   | "s2-platform-probe"
@@ -42,6 +35,7 @@ export type NarrativeStage =
   | "s11-mission-persist"
   | "s12-self-evolution";
 
+/** NarrativeRole enum kept here — it is social-domain-specific (not harness concern). */
 export type NarrativeRole =
   | "leader"
   | "steward"
@@ -54,16 +48,7 @@ export type NarrativeRole =
   | "publish-verifier"
   | "mission";
 
-export interface NarrativeEvent {
-  stage: NarrativeStage;
-  role: NarrativeRole;
-  tag: NarrativeTag;
-  text: string;
-  /** 平台名（多平台 mission 时定位单平台子事件） */
-  platform?: string;
-  /** 关联 agentId（让前端把 narrative 归到具体 agent 行） */
-  agentId?: string;
-}
+const SOCIAL_NARRATIVE_EVENT_TYPE = "social.agent:narrative";
 
 export async function narrate(
   emit: EmitFn,
@@ -71,20 +56,11 @@ export async function narrate(
   userId: string,
   ev: NarrativeEvent,
 ): Promise<void> {
-  await emit({
-    type: "social.agent:narrative",
+  return harnessNarrate(
+    emit,
     missionId,
     userId,
-    agentId: ev.agentId,
-    payload: {
-      stage: ev.stage,
-      role: ev.role,
-      tag: ev.tag,
-      text: ev.text,
-      platform: ev.platform,
-      agentId: ev.agentId,
-    },
-  }).catch(() => {
-    /* narrative best-effort */
-  });
+    SOCIAL_NARRATIVE_EVENT_TYPE,
+    ev,
+  );
 }

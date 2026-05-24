@@ -539,6 +539,36 @@ export type {
 } from "../teams/business-team/dispatcher/abstractions/business-team-mission-dispatcher.interface";
 // In-memory DAG concurrency scheduler —— @migrated-from agent-execution-support.runDagConcurrency
 export { runDagConcurrency } from "../teams/business-team/invocation/business-team-dag-concurrency";
+
+// ── P4 generic helpers ────────────────────────────────────────────────────
+// Wave-1 P4 (2026-05-24): mechanism-only helpers extracted from ai-app
+// service/mission/workflow/. Business apps adapt via thin shims.
+//   batch-executor       — concurrent per-item execution + pre-dispatch budget gate
+//                          @migrated-from chapter-batch-executor.helper.ts
+//   supply-budget        — supply→demand slot derivation (anti-deadlock)
+//                          @migrated-from evidence-budget.ts
+//   axis-grade-grounding — multi-axis grade recompute + supply-axis ceiling
+//                          @migrated-from grade-grounding.util.ts
+export {
+  executeBusinessTeamBatch,
+  type BusinessTeamBatchItem,
+  type BusinessTeamBatchLogger,
+  type BusinessTeamBatchContext,
+} from "../teams/business-team/helpers/business-team-batch-executor.helper";
+export {
+  computeSupplyBudget,
+  deriveMaxDemandSlots,
+  deriveMinPerSlot,
+  extractGroupFromUrlOrText,
+  type BusinessTeamSupplyBudget,
+} from "../teams/business-team/helpers/business-team-supply-budget.helper";
+export {
+  groundMultiAxisGrade,
+  type BusinessTeamGradeShape,
+  type BusinessTeamGradeAxis,
+  type BusinessTeamGradeGroundingOptions,
+} from "../teams/business-team/helpers/business-team-axis-grade-grounding.helper";
+
 // ★ 2026-05-04 (PR-3 standardize consumer)
 export { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.registry";
 

@@ -79,18 +79,25 @@ describe("narrate()", () => {
       expect(payload.text.length).toBeGreaterThan(0);
     });
 
-    it("should forward optional platform field", async () => {
+    // P4 (2026-05-24): `platform` field on NarrativeEvent was dead code (0
+    // production call-sites ever passed it). Migrating to the harness-shared
+    // narrate() factory drops the dead transport. If platform-aware narrative
+    // becomes a real need, add a dedicated event type or pass it via the
+    // top-level domain event payload — do not re-introduce dead fields.
+    it("does not transport unused optional `platform` field (harness contract)", async () => {
       const emit = jest
         .fn()
         .mockResolvedValue(undefined) as jest.MockedFunction<EmitFn>;
-      const ev = makeEvent({ platform: "XIAOHONGSHU" });
+      const ev = makeEvent({
+        platform: "XIAOHONGSHU",
+      } as Partial<NarrativeEvent>);
 
       await narrate(emit, "m-2", "u-2", ev);
 
       const { payload } = emit.mock.calls[0][0] as {
         payload: Record<string, unknown>;
       };
-      expect(payload.platform).toBe("XIAOHONGSHU");
+      expect(payload.platform).toBeUndefined();
     });
 
     it("should forward optional agentId at top level and in payload", async () => {

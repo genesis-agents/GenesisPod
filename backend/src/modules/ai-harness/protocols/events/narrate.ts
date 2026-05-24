@@ -28,6 +28,8 @@ export type NarrativeTag =
   | "writing"
   | "reviewing"
   | "judging"
+  | "publishing" // P4 (2026-05-24): social publish stages emit this
+  | "verifying" // P4 (2026-05-24): social publish-verify stage emits this
   | "signing"
   | "warning"
   | "success"

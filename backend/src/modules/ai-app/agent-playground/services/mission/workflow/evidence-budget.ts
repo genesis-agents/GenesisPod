@@ -1,95 +1,91 @@
 /**
- * evidence-budget.ts — 来源充分性的单一权威（Capability Contract · "Resolve")
+ * evidence-budget.ts — playground binding shim over harness supply-budget framework
  *
- * 背景（2026-05-21 根因）：质量闸的来源要求（chapter-reviewer 每章≥2 引用、
- * dimension-quality-judge 每章≥2 域名 / 维度≥5 唯一 URL）与采集端的供给下限
- * （minFindingsThreshold=4，无域名多样性约束）各写各的常量，留出"采得少却要得多"
- * 的不可满足死区 → 章节被结构性打回 → 重写循环 → 超时失败。
+ * Wave-1 P4 (2026-05-24): The supply-budget mechanism (supply-key count →
+ * demand-slot cap, with per-slot minimum-item floor) was generic enough to be
+ * extracted to ai-harness. The playground-specific terminology ("evidence
+ * findings", "unique sources", "chapters", "citation floor") maps onto the
+ * framework's neutral terms ("supply items", "uniqueKeys", "demand slots",
+ * "minPerSlot") via this shim:
  *
- * 本模块把"来源供给"算成一份契约：采集后算一次，下游的章节数 / 每章引用阈值都
- * 由它**派生**，而不是各自断言固定值。供给多则不缩水，供给少则少开章、降阈值，
- * 让审核**永远可满足**。
+ *   findings.source       → keyOf(item)
+ *   domain hostname       → groupOf(item) via extractGroupFromUrlOrText
+ *   uniqueSources         → uniqueKeys
+ *   uniqueDomains         → uniqueGroups (informational only)
+ *   maxChapters           → maxDemandSlots
+ *   citationFloor         → minPerSlot
  *
- * 纯函数，0 DI，0 LLM 调用 —— 易测、易守护。
+ * Public surface unchanged so all 4 callers (per-dim-pipeline, s4-leader-assess,
+ * s7-writer-plan-outline, s8-writer-draft-report) keep working.
  */
 
+import {
+  computeSupplyBudget,
+  deriveMaxDemandSlots,
+  deriveMinPerSlot,
+  extractGroupFromUrlOrText,
+  type BusinessTeamSupplyBudget,
+} from "@/modules/ai-harness/facade";
+
+/** Evidence supply contract — typed view onto harness BusinessTeamSupplyBudget. */
 export interface EvidenceBudget {
-  /** 去重后的唯一来源数（按 source 字符串）—— 章节封顶 deriveMaxChapters 的依据 */
+  /** De-duplicated unique source-string count — chapter cap derives from this. */
   uniqueSources: number;
   /**
-   * 去重后的唯一域名数（URL 取 hostname，非 URL 取来源串本身）。
-   * ★ 信息性字段：仅用于日志 / 降级叙述；章节封顶用 uniqueSources，不用本字段。
+   * De-duplicated unique-domain count (URL hostname; non-URL → fallback string).
+   * ★ Informational only: used for logs / degraded-mode narrative; chapter cap
+   *   uses uniqueSources, NOT this field.
    */
   uniqueDomains: number;
-  /** finding 总数（含重复来源） */
+  /** Raw finding count (including duplicates). */
   totalFindings: number;
 }
 
-/** 从 source 串提取域名：URL 取 hostname（去 www.），非 URL 退化为来源串本身。 */
+/** URL → hostname (strip www., lowercase); non-URL → lowercased text fallback. */
 export function extractDomain(source: string): string {
-  const s = (source ?? "").trim();
-  if (!s) return "";
-  try {
-    const u = new URL(/^https?:\/\//i.test(s) ? s : `https://${s}`);
-    const host = u.hostname.replace(/^www\./i, "").toLowerCase();
-    // `https://非URL文本` 会被解析成 hostname=非url文本片段 —— 仅当含点号才当作真实域名
-    if (host.includes(".")) return host;
-  } catch {
-    /* 非 URL，退化 */
-  }
-  return s.toLowerCase().slice(0, 80);
+  return extractGroupFromUrlOrText(source);
 }
 
-/** 采集结束后算一次来源契约。 */
+/** Compute the evidence supply contract once per dimension after collection. */
 export function computeEvidenceBudget(
   findings: ReadonlyArray<{ source: string }>,
 ): EvidenceBudget {
-  const sources = new Set<string>();
-  const domains = new Set<string>();
-  for (const f of findings) {
-    const s = (f?.source ?? "").trim();
-    if (!s) continue;
-    sources.add(s.toLowerCase());
-    const d = extractDomain(s);
-    if (d) domains.add(d);
-  }
+  const b: BusinessTeamSupplyBudget = computeSupplyBudget(
+    findings,
+    (f) => f.source,
+    (f) => extractGroupFromUrlOrText(f.source),
+  );
   return {
-    uniqueSources: sources.size,
-    uniqueDomains: domains.size,
-    totalFindings: findings.length,
+    uniqueSources: b.uniqueKeys,
+    uniqueDomains: b.uniqueGroups,
+    totalFindings: b.totalItems,
   };
 }
 
 /**
- * 由来源供给推导章节数上限：每章尽量分到 ≥2 个唯一来源。
- * 5 个唯一来源 → 最多 2 章（而非硬开 7 章）。供给充足时不缩水（取 idealChapters）。
- *
- * ★ 2026-05-22 minChapters 质量保底：供给偏少时仍保留一个最低章节数，避免报告塌成
- *   1 章导致结构性偏薄。保底受两侧夹逼，绝不破坏"引用可满足"不变量：
- *     - 不超过 idealChapters（不无中生有）
- *     - 不超过 uniqueSources（不产生 0 来源的空章；每章至少 1 个唯一来源）
- *   每章引用下限由 deriveCitationFloor 按本章实际来源数自适应，故抬高章节数不会
- *   重新打开"采得少却要得多"的死区。minChapters 默认 1（保持旧行为）。
+ * Derive chapter-count cap from supply: each chapter targets ≥2 unique sources.
+ * Forwards to {@link deriveMaxDemandSlots} with playground term remapping.
  */
 export function deriveMaxChapters(
   budget: EvidenceBudget,
   idealChapters: number,
   minChapters = 1,
 ): number {
-  const bySources = Math.floor(budget.uniqueSources / 2);
-  const natural = Math.max(1, Math.min(idealChapters, bySources));
-  const floor = Math.min(
-    Math.max(1, minChapters),
+  return deriveMaxDemandSlots(
+    {
+      uniqueKeys: budget.uniqueSources,
+      uniqueGroups: budget.uniqueDomains,
+      totalItems: budget.totalFindings,
+    },
     idealChapters,
-    Math.max(1, budget.uniqueSources),
+    minChapters,
   );
-  return Math.max(natural, floor);
 }
 
 /**
- * 由本章实际分到的来源数推导"引用下限"。
- * 标准 ≥2；本章来源不足 2 时降到实际数；0 来源不要求引用（无源可引）。
+ * Derive per-chapter citation floor (≥2 sources → 2, 1 → 1, 0 → 0).
+ * Forwards to {@link deriveMinPerSlot}.
  */
 export function deriveCitationFloor(sourcesInChapter: number): number {
-  return Math.min(2, Math.max(0, Math.floor(sourcesInChapter)));
+  return deriveMinPerSlot(sourcesInChapter);
 }

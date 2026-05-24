@@ -6,6 +6,38 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   ConcurrencyLimiter: jest.fn().mockImplementation(() => ({
     run: jest.fn().mockImplementation((fn: () => Promise<unknown>) => fn()),
   })),
+  // P4 (2026-05-24): social narrative.util now delegates to harness narrate.
+  // Real-shape passthrough so existing tests that inspect deps.emit() payload.tag
+  // keep working.
+  narrate: jest.fn(
+    async (
+      emit: (e: unknown) => Promise<void>,
+      missionId: string,
+      userId: string,
+      eventType: string,
+      ev: {
+        stage: string;
+        role: string;
+        tag: string;
+        text: string;
+        agentId?: string;
+      },
+    ) => {
+      await emit({
+        type: eventType,
+        missionId,
+        userId,
+        agentId: ev.agentId,
+        payload: {
+          stage: ev.stage,
+          role: ev.role,
+          tag: ev.tag,
+          text: ev.text,
+          agentId: ev.agentId,
+        },
+      }).catch(() => undefined);
+    },
+  ),
 }));
 
 import { runPolishReviewStage } from "../s7-polish-review.stage";

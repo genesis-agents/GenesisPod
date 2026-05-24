@@ -102,6 +102,10 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   jaccardSimilarity: jest.fn((a: string, b: string) => (a === b ? 1 : 0)),
   // R2-#50: narrate moved to harness facade
   narrate: jest.fn().mockResolvedValue(undefined),
+  // P4 (2026-05-24): evidence-budget / batch-executor / grade-grounding shims
+  // 实现抽到 __fixtures__/p4-facade-mocks.ts(god-class guard 减压)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  ...require("./__fixtures__/p4-facade-mocks").createP4FacadeMocks(),
 }));
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
