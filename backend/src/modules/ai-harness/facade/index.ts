@@ -482,6 +482,17 @@ export {
   EventRelayFramework,
   type EventRelayContext,
 } from "../teams/business-team/relay/event-relay.framework";
+// ★ 2026-05-24: BusinessAgentTeam agent invoker 框架（retry / abort / backoff / span lifecycle）
+//   抽自双源 ai-app 业务侧 invoker（@migrated-from 旧 invoker 通用骨架）
+export {
+  BusinessTeamAgentInvokerFramework,
+  makeAgentEventForwarder,
+} from "../teams/business-team/invocation/business-team-agent-invoker.framework";
+export type {
+  BusinessTeamAgentInvokerConfig,
+  BusinessTeamAgentInvokerHooks,
+  BusinessTeamInvocationContext,
+} from "../teams/business-team/invocation/abstractions/business-team-agent-invoker.interface";
 // ★ 2026-05-08 PR-E2: BusinessAgentTeam mission store 抽象接口
 //   注意：rename 为 IBusinessTeamMissionStore 避免与 line 1103 已有 IMissionStore 冲突
 //   （后者是 harness/teams/abstractions 下的 generic InMemoryMissionStore 契约）
