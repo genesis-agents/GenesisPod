@@ -10,7 +10,7 @@
  *   3. 边界 case：mega + unlimited + deep 最大组合，brief + low + quick 最小组合
  */
 import { recommendLaunchBudget } from "../custom-agents.service";
-import { RunMissionInputSchema } from "../../agent-playground/dto/run-mission.dto";
+import { RunMissionInputSchema } from "../../agent-playground/api/dto/run-mission.dto";
 
 const DEPTHS = ["quick", "standard", "deep"] as const;
 const LENGTHS = [

@@ -15,7 +15,7 @@ const read = (rel: string): string => readFileSync(join(APP, rel), "utf8");
 
 describe("C5/C6 config-snapshot 接入看护 (§0.8)", () => {
   it("ctx-hydrator 从 configSnapshot 重建 input,不再用 userProfile 拼 RunMissionInput", () => {
-    const src = read("services/mission/rerun/ctx-hydrator.service.ts");
+    const src = read("mission/rerun/ctx-hydrator.service.ts");
     expect(src).toMatch(/configSnapshot|PlaygroundConfigSnapshot/);
     expect(src).toContain("snap.businessInput");
     // 旧的 userProfile→input 重建 cast 必须已删(否则双源重建)
@@ -23,23 +23,19 @@ describe("C5/C6 config-snapshot 接入看护 (§0.8)", () => {
   });
 
   it("mission-rerun-orchestrator.cloneInputFromMission 读 configSnapshot 而非 userProfile", () => {
-    const src = read(
-      "services/mission/rerun/mission-rerun-orchestrator.service.ts",
-    );
+    const src = read("mission/rerun/mission-rerun-orchestrator.service.ts");
     expect(src).toMatch(/configSnapshot|PlaygroundConfigSnapshot/);
     expect(src).not.toMatch(/userProfile as Partial<RunMissionInput>/);
   });
 
   it("改预算 updateBudgetByUser 经 applyInputPatch 派生新 snapshot(G2)", () => {
-    const src = read("services/mission/lifecycle/mission-update.helper.ts");
+    const src = read("mission/lifecycle/mission-update.helper.ts");
     expect(src).toContain("applyInputPatch");
     expect(src).toContain("configSnapshot");
   });
 
   it("rebuilder 用 harness applyInputPatch 派生(不手赋 snapshotId 断谱系)", () => {
-    const src = read(
-      "services/mission/rerun/playground-mission-input-rebuilder.service.ts",
-    );
+    const src = read("runtime/agent-playground.input-rebuilder.ts");
     expect(src).toContain("applyInputPatch");
     expect(src).toContain("buildForFreshRun");
   });

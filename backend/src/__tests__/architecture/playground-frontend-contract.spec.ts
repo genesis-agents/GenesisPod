@@ -22,26 +22,26 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import { AGENT_PLAYGROUND_EVENTS } from "../../modules/ai-app/agent-playground/agent-playground.events";
+import { AGENT_PLAYGROUND_EVENTS } from "../../modules/ai-app/agent-playground/events/agent-playground.events";
 
 // PR-D god class split (2026-05-15): agent-playground 路由从单一 controller 拆到
 // agent-playground.controller.ts + controllers/{base-mission,mission-read,mission-rerun}.controller.ts
 const CONTROLLER_FILES: string[] = [
   path.resolve(
     __dirname,
-    "../../modules/ai-app/agent-playground/agent-playground.controller.ts",
+    "../../modules/ai-app/agent-playground/api/controller/agent-playground.controller.ts",
   ),
   path.resolve(
     __dirname,
-    "../../modules/ai-app/agent-playground/controllers/base-mission.controller.ts",
+    "../../modules/ai-app/agent-playground/api/controller/base-mission.controller.ts",
   ),
   path.resolve(
     __dirname,
-    "../../modules/ai-app/agent-playground/controllers/mission-read.controller.ts",
+    "../../modules/ai-app/agent-playground/api/controller/mission-read.controller.ts",
   ),
   path.resolve(
     __dirname,
-    "../../modules/ai-app/agent-playground/controllers/mission-rerun.controller.ts",
+    "../../modules/ai-app/agent-playground/api/controller/mission-rerun.controller.ts",
   ),
 ];
 

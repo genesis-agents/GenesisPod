@@ -29,7 +29,7 @@ const PLAYGROUND_PREFIX = "agent-playground.";
 function readBackendRegisteredEvents(): Set<string> {
   const eventsFile = path.join(
     BACKEND_SRC,
-    "modules/ai-app/agent-playground/agent-playground.events.ts",
+    "modules/ai-app/agent-playground/events/agent-playground.events.ts",
   );
   const src = fs.readFileSync(eventsFile, "utf8");
   // T("xxx:yyy") or S("xxx:yyy", schema) → "agent-playground.xxx:yyy"

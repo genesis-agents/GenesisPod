@@ -15,11 +15,19 @@ import * as path from "path";
 
 const WORKFLOW = path.resolve(
   __dirname,
-  "../../modules/ai-app/agent-playground/services/mission/workflow",
+  "../../modules/ai-app/agent-playground/mission/pipeline/helpers",
+);
+const ARTIFACTS = path.resolve(
+  __dirname,
+  "../../modules/ai-app/agent-playground/mission/artifacts",
 );
 
 function read(rel: string): string {
   return fs.readFileSync(path.join(WORKFLOW, rel), "utf-8");
+}
+
+function readArtifact(rel: string): string {
+  return fs.readFileSync(path.join(ARTIFACTS, rel), "utf-8");
 }
 
 function stripComments(src: string): string {
@@ -28,7 +36,7 @@ function stripComments(src: string): string {
 
 describe("Capability Contract · evidence budget guard", () => {
   it("the evidence-budget single authority exists and exports the contract", () => {
-    const src = read("evidence-budget.ts");
+    const src = readArtifact("evidence-budget.ts");
     expect(src).toMatch(/export function computeEvidenceBudget\s*\(/);
     expect(src).toMatch(/export function deriveMaxChapters\s*\(/);
     expect(src).toMatch(/export function deriveCitationFloor\s*\(/);

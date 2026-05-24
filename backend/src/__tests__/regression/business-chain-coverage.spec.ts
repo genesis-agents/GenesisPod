@@ -39,7 +39,7 @@ import {
   resolveBudgetMultiplier,
   resolveMissionWallTimeMs,
   type RunMissionInput,
-} from "../../modules/ai-app/agent-playground/dto/run-mission.dto";
+} from "../../modules/ai-app/agent-playground/api/dto/run-mission.dto";
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -158,7 +158,7 @@ describe("Branch: failed path — MissionStore.writeFailed signature", () => {
   it("playground buildFailedUpdate sets status 'failed' / 'quality-failed' via isLeadRefusal", () => {
     // Static check: the status logic in playground hook
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
+      "ai-app/agent-playground/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     // isLeadRefusal condition determines 'quality-failed' vs 'failed'
     expect(src).toContain("quality-failed");
@@ -168,7 +168,7 @@ describe("Branch: failed path — MissionStore.writeFailed signature", () => {
 
   it("writeFailed with leaderSigned=false sets 'quality-failed' status", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
+      "ai-app/agent-playground/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     // isLeadRefusal check must reference leaderSigned === false
     expect(src).toContain("leaderSigned === false");
@@ -178,7 +178,7 @@ describe("Branch: failed path — MissionStore.writeFailed signature", () => {
 
   it("errorMessage is sliced to 2000 chars in writeFailed (no OOM)", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
+      "ai-app/agent-playground/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     expect(src).toContain("errorMessage?.slice(0, 2000)");
   });
@@ -200,7 +200,7 @@ describe("Branch: cancelled path — writeCancelled guard", () => {
     expect(fwSrc).toContain("async writeCancelled(");
     // playground hook 用 status: 'running' 条件 + cancelled 字段
     const playgroundSrc = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
+      "ai-app/agent-playground/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     expect(playgroundSrc).toContain('status: "running"');
     expect(playgroundSrc).toContain("cancelled");
@@ -219,7 +219,7 @@ describe("Branch: cancelled path — writeCancelled guard", () => {
 
   it("cancelled errorMessage is user-visible text", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
+      "ai-app/agent-playground/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     // The hardcoded cancel reason string
     expect(src).toContain("Mission cancelled by user");
@@ -235,7 +235,7 @@ describe("Branch: quality-failed path — leader sign-off refusal", () => {
     // 2026-05-24 P6: buildFailedUpdate hook 在 playground helper,参数名为 `d`,
     // 用 `d.field !== undefined` 守护 partial update
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
+      "ai-app/agent-playground/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     expect(src).toContain("d.report !== undefined");
     expect(src).toContain("d.dimensions !== undefined");
@@ -244,14 +244,14 @@ describe("Branch: quality-failed path — leader sign-off refusal", () => {
   it("leaderSigned=false writes to DB via buildFailedUpdate hook (falsy-skip bug fix)", () => {
     // 2026-05-24 P6: 同上,playground hook 用 `d.leaderSigned !== undefined`
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
+      "ai-app/agent-playground/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     expect(src).toContain("d.leaderSigned !== undefined");
   });
 
   it("S10 stage emits signoff even on early-return paths", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/workflow/stages/s10-leader-foreword-and-signoff.stage.ts",
+      "ai-app/agent-playground/mission/pipeline/stages/s10-leader-foreword-and-signoff.stage.ts",
     );
     // The P0-A fix added comment about covering early return paths
     expect(src).toContain("P0-A");
@@ -265,7 +265,7 @@ describe("Branch: quality-failed path — leader sign-off refusal", () => {
 describe("Branch: budget-exhausted — abort signal is sent", () => {
   it("S3 stage emits budget:exhausted event when pool exhausted", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/workflow/stages/s3-researcher-collect-findings.stage.ts",
+      "ai-app/agent-playground/mission/pipeline/stages/s3-researcher-collect-findings.stage.ts",
     );
     expect(src).toContain("agent-playground.budget:exhausted");
     expect(src).toContain("pool.isExhausted()");
@@ -273,14 +273,15 @@ describe("Branch: budget-exhausted — abort signal is sent", () => {
 
   it("S3 stage calls abortRegistry.abort on budget exhaustion (P1-fix2)", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/workflow/stages/s3-researcher-collect-findings.stage.ts",
+      "ai-app/agent-playground/mission/pipeline/stages/s3-researcher-collect-findings.stage.ts",
     );
     expect(src).toContain("abortRegistry.abort");
     expect(src).toContain("budget_exhausted");
   });
 
   it("budget:exhausted event type is registered in event schemas", () => {
-    const eventsFile = "ai-app/agent-playground/agent-playground.events.ts";
+    const eventsFile =
+      "ai-app/agent-playground/events/agent-playground.events.ts";
     const src = readSrc(eventsFile);
     expect(src).toContain("budget:exhausted");
   });
@@ -293,21 +294,21 @@ describe("Branch: budget-exhausted — abort signal is sent", () => {
 describe("Branch: stage-degraded — markStageDegraded emits narrative", () => {
   it("markStageDegraded is defined in CommonDeps", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/workflow/mission-deps.ts",
+      "ai-app/agent-playground/mission/context/mission-deps.ts",
     );
     expect(src).toContain("markStageDegraded");
   });
 
   it("S3 calls markStageDegraded when all dims fail (P1-fix1)", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/workflow/playground-pipeline-dispatcher.service.ts",
+      "ai-app/agent-playground/mission/pipeline/playground.pipeline.ts",
     );
     expect(src).toContain("markStageDegraded");
   });
 
   it("S4 calls markStageDegraded instead of swallowing error (2026-05-06 A-6 fix)", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/workflow/stages/s4-leader-assess-research.stage.ts",
+      "ai-app/agent-playground/mission/pipeline/stages/s4-leader-assess-research.stage.ts",
     );
     expect(src).toContain("markStageDegraded");
     // The fix comment
@@ -316,7 +317,7 @@ describe("Branch: stage-degraded — markStageDegraded emits narrative", () => {
 
   it("S9 calls markStageDegraded on reviewer error (A-6 fix)", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/workflow/stages/s9-reviewer-critic-l4.stage.ts",
+      "ai-app/agent-playground/mission/pipeline/stages/s9-reviewer-critic-l4.stage.ts",
     );
     expect(src).toContain("markStageDegraded");
   });
@@ -328,7 +329,8 @@ describe("Branch: stage-degraded — markStageDegraded emits narrative", () => {
 
 describe("Branch: chapter-revision — chapter:revision event handling", () => {
   it("chapter:revision event type exists in event enums", () => {
-    const eventsFile = "ai-app/agent-playground/agent-playground.events.ts";
+    const eventsFile =
+      "ai-app/agent-playground/events/agent-playground.events.ts";
     const src = readSrc(eventsFile);
     expect(src).toContain("chapter:revision");
   });
@@ -340,14 +342,15 @@ describe("Branch: chapter-revision — chapter:revision event handling", () => {
 
 describe("Branch: dim-retry — leader-assess retry signals", () => {
   it("dimension:retrying event type exists", () => {
-    const eventsFile = "ai-app/agent-playground/agent-playground.events.ts";
+    const eventsFile =
+      "ai-app/agent-playground/events/agent-playground.events.ts";
     const src = readSrc(eventsFile);
     expect(src).toContain("retrying");
   });
 
   it("S4 dispatches retry when leader decides fresh-collect", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/workflow/stages/s4-leader-assess-research.stage.ts",
+      "ai-app/agent-playground/mission/pipeline/stages/s4-leader-assess-research.stage.ts",
     );
     expect(src).toContain("fresh-collect");
   });
@@ -364,7 +367,7 @@ describe("Branch: liveness-stalled — orchestrator emits stage:stalled event", 
   // 并在配置中提供 stageStalledEvent="agent-playground.stage:stalled" 命名空间。
   it("dispatcher delegates stage:stalled bridging to framework with playground namespace", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/workflow/playground-pipeline-dispatcher.service.ts",
+      "ai-app/agent-playground/mission/pipeline/playground.pipeline.ts",
     );
     expect(src).toContain("bridgeOrchestratorStageEvent");
     expect(src).toContain("agent-playground.stage:stalled");
@@ -510,14 +513,14 @@ describe("RESEARCHER_MAX_ITERATIONS_HARD_CAP — P1 runaway fix", () => {
 describe("recordMissionPostmortem — S12 closure interface", () => {
   it("method exists in MissionPostmortemHelper", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-postmortem.helper.ts",
+      "ai-app/agent-playground/mission/lifecycle/mission-postmortem.helper.ts",
     );
     expect(src).toContain("async recordMissionPostmortem(");
   });
 
   it("method signature includes missionId, userId, topic, summary", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-postmortem.helper.ts",
+      "ai-app/agent-playground/mission/lifecycle/mission-postmortem.helper.ts",
     );
     const fnIdx = src.indexOf("async recordMissionPostmortem(");
     const sig = src.slice(fnIdx, fnIdx + 500);
@@ -529,7 +532,7 @@ describe("recordMissionPostmortem — S12 closure interface", () => {
 
   it("writes to harnessVectorMemory with tag mission-postmortem (C4 embedding closure)", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-postmortem.helper.ts",
+      "ai-app/agent-playground/mission/lifecycle/mission-postmortem.helper.ts",
     );
     expect(src).toContain("harnessVectorMemory");
     expect(src).toContain("mission-postmortem");

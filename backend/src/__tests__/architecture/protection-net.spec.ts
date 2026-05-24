@@ -240,7 +240,7 @@ describe("Protection Net — ErrorBoundary + error-report endpoint", () => {
     // 拆到 controllers/mission-read.controller.ts，spec readSrc 跟着迁。
     const controllerFile = path.resolve(
       __dirname,
-      "../../modules/ai-app/agent-playground/controllers/mission-read.controller.ts",
+      "../../modules/ai-app/agent-playground/api/controller/mission-read.controller.ts",
     );
 
     it("controller file exists", () => {

@@ -34,7 +34,7 @@ import {
   type IMissionListReader,
   type MissionListItem,
 } from "@/modules/ai-app/contracts/mission-platform.contract";
-import { RunMissionInputSchema } from "@/modules/ai-app/agent-playground/dto/run-mission.dto";
+import { RunMissionInputSchema } from "@/modules/ai-app/agent-playground/api/dto/run-mission.dto";
 import {
   CUSTOM_AGENT_PRIMITIVES,
   validateCustomAgentCompleteness,

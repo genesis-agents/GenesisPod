@@ -11,7 +11,7 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { PrismaModule } from "@/common/prisma/prisma.module";
 import { AiEngineModule } from "@/modules/ai-engine/ai-engine.module";
-import { AgentPlaygroundModule } from "@/modules/ai-app/agent-playground/agent-playground.module";
+import { AgentPlaygroundModule } from "@/modules/ai-app/agent-playground/module/agent-playground.module";
 import { CustomAgentsController } from "./custom-agents.controller";
 import { CustomAgentsService } from "./custom-agents.service";
 import { CustomAgentLaunchesService } from "./custom-agent-launches.service";

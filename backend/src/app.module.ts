@@ -62,7 +62,7 @@ import { RAGModule } from "./modules/ai-app/library/rag/rag.module";
 import { AiWritingModule } from "./modules/ai-app/writing/ai-writing.module";
 import { ResearchModule } from "./modules/ai-app/research";
 import { TopicInsightsModule } from "./modules/ai-app/topic-insights";
-import { AgentPlaygroundModule } from "./modules/ai-app/agent-playground/agent-playground.module";
+import { AgentPlaygroundModule } from "./modules/ai-app/agent-playground/module/agent-playground.module";
 import { RadarModule } from "./modules/ai-app/radar/radar.module";
 import { NotificationsBridgeModule } from "./modules/ai-app/notifications-bridge/notifications-bridge.module";
 import { CustomAgentsModule } from "./modules/ai-app/custom-agents/custom-agents.module";
