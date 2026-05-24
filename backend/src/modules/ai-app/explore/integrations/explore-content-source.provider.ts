@@ -3,13 +3,13 @@ import { ResourceType } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { RAGFacade } from "@/modules/ai-harness/facade";
 import {
-  SocialDataSource,
-  SocialDataSourceProvider,
+  ContentSource,
+  ContentSourceProvider,
   SourceContentBundle,
   SourceItem,
   SourceListFilter,
   SourceListResult,
-} from "../../contracts/social-data-source";
+} from "@/modules/ai-engine/facade";
 
 /** ResourceType values that represent video content */
 const VIDEO_TYPES = new Set<ResourceType>([ResourceType.YOUTUBE_VIDEO]);
@@ -19,9 +19,12 @@ function toContentKind(type: ResourceType): SourceItem["contentKind"] {
 }
 
 /**
- * ExploreSocialSourceProvider
+ * ExploreContentSourceProvider
  *
- * Exposes the current user's curated Explore resources as a SocialDataSource.
+ * 2026-05-24 P17a: renamed from ExploreSocialSourceProvider; implements the
+ * generic engine `ContentSource`. id "AI_EXPLORE" preserved.
+ *
+ * Exposes the current user's curated Explore resources as a generic ContentSource.
  *
  * Resource itself has no userId — it is a public catalog. A resource counts as
  * "the user's" only when it appears in at least one of the user's collections
@@ -29,8 +32,8 @@ function toContentKind(type: ResourceType): SourceItem["contentKind"] {
  * structurally via the `collectionItems.some.collection.userId` filter.
  */
 @Injectable()
-@SocialDataSourceProvider()
-export class ExploreSocialSourceProvider implements SocialDataSource {
+@ContentSourceProvider()
+export class ExploreContentSourceProvider implements ContentSource {
   readonly id = "AI_EXPLORE";
   readonly displayName = { "zh-CN": "AI 探索", "en-US": "AI Explore" };
   readonly icon = "Compass";
@@ -41,7 +44,7 @@ export class ExploreSocialSourceProvider implements SocialDataSource {
   readonly contentKinds = ["article", "video"] as const;
   readonly maxItemsPerTask = 10;
 
-  private readonly logger = new Logger(ExploreSocialSourceProvider.name);
+  private readonly logger = new Logger(ExploreContentSourceProvider.name);
 
   constructor(
     private readonly prisma: PrismaService,

@@ -66,7 +66,7 @@ import { PlaygroundMissionInputRebuilder } from "../runtime/agent-playground.inp
 import { LeaderInvocationFactory } from "../mission/pipeline/leader-invocation.factory";
 import { MissionRerunOrchestratorService } from "../mission/rerun/mission-rerun-orchestrator.service";
 import { MissionExportService } from "../services/export/mission-export.service";
-import { PlaygroundSocialSourceProvider } from "../social-data-source/playground-social-source.provider";
+import { AgentPlaygroundContentSourceProvider } from "../integrations/agent-playground-content-source.provider";
 // PostmortemClassifierService 已上提到 @Global HarnessModule（PR-2 standardize playground）
 import {
   AgentInvoker,
@@ -170,7 +170,7 @@ import {
     MissionExportService,
     // ── Social data source (PR-V2g: Playground as social content source) ──
     //   Auto-discovered via DiscoveryService at runtime
-    PlaygroundSocialSourceProvider,
+    AgentPlaygroundContentSourceProvider,
     // ★ R2-C 单轨化 (2026-05-04)：pipeline-v1 是唯一 mission 入口
     //   dispatcher.onModuleInit 注册 PLAYGROUND_PIPELINE 到 registry
     //   legacy TeamMission 已删除，PlaygroundRuntimeFlagService 已删除
@@ -243,6 +243,10 @@ export class AgentPlaygroundModule
   async onModuleInit(): Promise<void> {
     // R0-A3: 注册 agent-playground skill 目录
     const path = await import("path");
+    // 2026-05-24: module 文件已迁到 ai-app/agent-playground/module/，
+    // 但 skills 目录仍位于 ai-app/agent-playground/skills/。
+    // 生产构建里 __dirname = .../dist/modules/ai-app/agent-playground/module，
+    // 直接 resolve(__dirname, "skills") 会错误指向 .../module/skills。
     await this.skillLoader.addSkillDirectory({
       path: path.resolve(__dirname, "..", "skills"),
       domain: "agent-playground",

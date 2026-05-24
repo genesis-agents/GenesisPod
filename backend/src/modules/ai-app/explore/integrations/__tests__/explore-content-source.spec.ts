@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResourceType } from "@prisma/client";
-import { ExploreSocialSourceProvider } from "../explore-social-source.provider";
+import { ExploreContentSourceProvider } from "../explore-content-source.provider";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { RAGFacade } from "@/modules/ai-harness/facade";
 
@@ -82,19 +82,19 @@ const buildRagFacade = () => {
 // Test suite
 // ---------------------------------------------------------------------------
 
-describe("ExploreSocialSourceProvider", () => {
-  let provider: ExploreSocialSourceProvider;
+describe("ExploreContentSourceProvider", () => {
+  let provider: ExploreContentSourceProvider;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ExploreSocialSourceProvider,
+        ExploreContentSourceProvider,
         { provide: PrismaService, useValue: buildPrisma() },
         { provide: RAGFacade, useValue: buildRagFacade() },
       ],
     }).compile();
 
-    provider = module.get(ExploreSocialSourceProvider);
+    provider = module.get(ExploreContentSourceProvider);
   });
 
   // -------------------------------------------------------------------------

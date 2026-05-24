@@ -1,15 +1,15 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../common/prisma/prisma.service';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
-  SocialDataSource,
-  SocialDataSourceProvider,
+  ContentSource,
+  ContentSourceProvider,
   SourceListFilter,
   SourceListResult,
   SourceContentBundle,
   SourceItem,
-} from '../../contracts/social-data-source';
+} from "@/modules/ai-engine/facade";
 
-type ContentKind = SourceItem['contentKind'];
+type ContentKind = SourceItem["contentKind"];
 
 interface ListRow {
   id: string;
@@ -27,13 +27,13 @@ interface BundleRow extends ListRow {
 /** Map OfficeDocumentType → contentKind */
 function toContentKind(type: string): ContentKind {
   switch (type) {
-    case 'ARTICLE':
-    case 'REPORT':
-    case 'RESEARCH':
-    case 'PROPOSAL':
-      return 'article';
+    case "ARTICLE":
+    case "REPORT":
+    case "RESEARCH":
+    case "PROPOSAL":
+      return "article";
     default:
-      return 'other';
+      return "other";
   }
 }
 
@@ -46,15 +46,12 @@ function toContentKind(type: string): ContentKind {
  *     the tree and collect every string-valued `text`/`content`/`body`
  *     property, joining them with newlines.
  */
-function extractBody(
-  markdown: string | null,
-  content: unknown,
-): string {
+function extractBody(markdown: string | null, content: unknown): string {
   if (markdown) return markdown;
 
   const parts: string[] = [];
   function walk(node: unknown): void {
-    if (typeof node === 'string') {
+    if (typeof node === "string") {
       const trimmed = node.trim();
       if (trimmed) parts.push(trimmed);
       return;
@@ -63,36 +60,49 @@ function extractBody(
       for (const child of node) walk(child);
       return;
     }
-    if (node !== null && typeof node === 'object') {
+    if (node !== null && typeof node === "object") {
       const obj = node as Record<string, unknown>;
       // Prefer explicit text-bearing keys over iterating all values
-      for (const key of ['text', 'content', 'body', 'title', 'description']) {
-        if (typeof obj[key] === 'string') {
-          const trimmed = (obj[key] as string).trim();
+      for (const key of ["text", "content", "body", "title", "description"]) {
+        if (typeof obj[key] === "string") {
+          const trimmed = obj[key].trim();
           if (trimmed) parts.push(trimmed);
         }
       }
       // Recurse into child arrays (e.g. slides → elements)
-      for (const key of ['slides', 'sections', 'elements', 'items', 'children', 'pages']) {
+      for (const key of [
+        "slides",
+        "sections",
+        "elements",
+        "items",
+        "children",
+        "pages",
+      ]) {
         if (obj[key] !== undefined) walk(obj[key]);
       }
     }
   }
   walk(content);
-  return parts.join('\n');
+  return parts.join("\n");
 }
 
+/**
+ * OfficeContentSourceProvider
+ *
+ * 2026-05-24 P17a: renamed from OfficeSocialSourceProvider; implements generic
+ * engine `ContentSource`. id "AI_OFFICE" preserved.
+ */
 @Injectable()
-@SocialDataSourceProvider()
-export class OfficeSocialSourceProvider implements SocialDataSource {
-  readonly id = 'AI_OFFICE';
-  readonly displayName = { 'zh-CN': 'AI Office', 'en-US': 'AI Office' };
-  readonly icon = 'FileText';
+@ContentSourceProvider()
+export class OfficeContentSourceProvider implements ContentSource {
+  readonly id = "AI_OFFICE";
+  readonly displayName = { "zh-CN": "AI Office", "en-US": "AI Office" };
+  readonly icon = "FileText";
   readonly description = {
-    'zh-CN': '从我的 AI Office 文档中选择',
-    'en-US': 'Pick from my AI Office documents',
+    "zh-CN": "从我的 AI Office 文档中选择",
+    "en-US": "Pick from my AI Office documents",
   };
-  readonly contentKinds: SourceItem['contentKind'][] = ['article', 'other'];
+  readonly contentKinds: SourceItem["contentKind"][] = ["article", "other"];
   readonly maxItemsPerTask = 10;
 
   constructor(private readonly prisma: PrismaService) {}
@@ -107,7 +117,7 @@ export class OfficeSocialSourceProvider implements SocialDataSource {
       where: {
         userId,
         ...(filter.search
-          ? { title: { contains: filter.search, mode: 'insensitive' } }
+          ? { title: { contains: filter.search, mode: "insensitive" } }
           : {}),
         ...(filter.cursor ? { id: { gt: filter.cursor } } : {}),
       },
@@ -119,7 +129,7 @@ export class OfficeSocialSourceProvider implements SocialDataSource {
         metadata: true,
         createdAt: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: limit + 1,
     });
 
@@ -128,12 +138,14 @@ export class OfficeSocialSourceProvider implements SocialDataSource {
 
     const result: SourceItem[] = (items as ListRow[]).map((doc) => {
       const meta =
-        doc.metadata !== null && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
+        doc.metadata !== null &&
+        typeof doc.metadata === "object" &&
+        !Array.isArray(doc.metadata)
           ? (doc.metadata as Record<string, unknown>)
           : {};
 
       const wordCount =
-        typeof meta['wordCount'] === 'number' ? meta['wordCount'] : undefined;
+        typeof meta["wordCount"] === "number" ? meta["wordCount"] : undefined;
 
       const preview = doc.markdown ? doc.markdown.slice(0, 200) : undefined;
 
@@ -177,12 +189,14 @@ export class OfficeSocialSourceProvider implements SocialDataSource {
 
     return (docs as BundleRow[]).map((doc) => {
       const body = extractBody(doc.markdown, doc.content);
-      const bodyMime: SourceContentBundle['bodyMime'] = doc.markdown
-        ? 'text/markdown'
-        : 'text/plain';
+      const bodyMime: SourceContentBundle["bodyMime"] = doc.markdown
+        ? "text/markdown"
+        : "text/plain";
 
       const meta =
-        doc.metadata !== null && typeof doc.metadata === 'object' && !Array.isArray(doc.metadata)
+        doc.metadata !== null &&
+        typeof doc.metadata === "object" &&
+        !Array.isArray(doc.metadata)
           ? (doc.metadata as Record<string, unknown>)
           : {};
 
@@ -194,7 +208,7 @@ export class OfficeSocialSourceProvider implements SocialDataSource {
         bodyMime,
         sourceMetadata: {
           type: doc.type,
-          wordCount: meta['wordCount'],
+          wordCount: meta["wordCount"],
           createdAt: doc.createdAt.toISOString(),
         },
         displayMetadata: {

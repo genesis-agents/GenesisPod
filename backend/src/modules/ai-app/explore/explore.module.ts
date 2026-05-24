@@ -9,7 +9,7 @@ import { YoutubeAiChatService } from "./youtube-ai-chat/youtube-ai-chat.service"
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { BrowserModule } from "../../../common/browser/browser.module";
 import { SystemSettingModule } from "../../../common/settings/system-setting.module";
-import { ExploreSocialSourceProvider } from "./social-data-source/explore-social-source.provider";
+import { ExploreContentSourceProvider } from "./integrations/explore-content-source.provider";
 
 /**
  * Explore Module
@@ -27,15 +27,15 @@ import { ExploreSocialSourceProvider } from "./social-data-source/explore-social
     PdfGeneratorService,
     YoutubeVideosService,
     YoutubeAiChatService,
-    // Social data source — auto-discovered via DiscoveryService
-    ExploreSocialSourceProvider,
+    // Generic ContentSource — auto-discovered by engine ContentSourceRegistry
+    ExploreContentSourceProvider,
   ],
   exports: [
     YoutubeService,
     PdfGeneratorService,
     YoutubeVideosService,
     YoutubeAiChatService,
-    ExploreSocialSourceProvider,
+    ExploreContentSourceProvider,
   ],
 })
 export class ExploreModule {}

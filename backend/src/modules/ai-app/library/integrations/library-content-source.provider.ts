@@ -1,18 +1,21 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SocialDataSourceProvider } from "../../contracts/social-data-source";
+import { ContentSourceProvider } from "@/modules/ai-engine/facade";
 import type {
-  SocialDataSource,
+  ContentSource,
   SourceItem,
   SourceListFilter,
   SourceListResult,
   SourceContentBundle,
-} from "../../contracts/social-data-source";
+} from "@/modules/ai-engine/facade";
 
 /**
- * LibrarySocialSourceProvider
+ * LibraryContentSourceProvider
  *
- * Exposes user-authored Library content as a SocialDataSource:
+ * 2026-05-24 P17a: renamed from LibrarySocialSourceProvider; implements
+ * generic engine `ContentSource`. id "AI_LIBRARY" preserved.
+ *
+ * Exposes user-authored Library content as a generic ContentSource:
  *   - Note (table: notes)              → contentKind 'note'
  *   - KnowledgeBaseDocument            → contentKind 'article' (pdf/document) or 'other'
  *
@@ -30,8 +33,8 @@ import type {
  * cross-user access is structurally impossible.
  */
 @Injectable()
-@SocialDataSourceProvider()
-export class LibrarySocialSourceProvider implements SocialDataSource {
+@ContentSourceProvider()
+export class LibraryContentSourceProvider implements ContentSource {
   readonly id = "AI_LIBRARY";
   readonly displayName = {
     "zh-CN": "我的知识库",

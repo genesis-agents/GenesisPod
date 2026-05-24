@@ -1,5 +1,5 @@
 /**
- * Unit tests for PlaygroundSocialSourceProvider
+ * Unit tests for AgentPlaygroundContentSourceProvider
  *
  * Key scenarios:
  *  1. Static descriptor fields are correct
@@ -23,7 +23,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { PlaygroundSocialSourceProvider } from "../playground-social-source.provider";
+import { AgentPlaygroundContentSourceProvider } from "../agent-playground-content-source.provider";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 // ---------------------------------------------------------------------------
@@ -83,21 +83,21 @@ const mockPrisma = {
 // Test suite
 // ---------------------------------------------------------------------------
 
-describe("PlaygroundSocialSourceProvider", () => {
-  let provider: PlaygroundSocialSourceProvider;
+describe("AgentPlaygroundContentSourceProvider", () => {
+  let provider: AgentPlaygroundContentSourceProvider;
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        PlaygroundSocialSourceProvider,
+        AgentPlaygroundContentSourceProvider,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
-    provider = module.get<PlaygroundSocialSourceProvider>(
-      PlaygroundSocialSourceProvider,
+    provider = module.get<AgentPlaygroundContentSourceProvider>(
+      AgentPlaygroundContentSourceProvider,
     );
   });
 
@@ -324,9 +324,7 @@ describe("PlaygroundSocialSourceProvider", () => {
 
       const [bundle] = await provider.fetchBundle(["mission-1"], "user-A");
 
-      expect(bundle.body).toBe(
-        "# AI Trends Report\n\nFull content here.",
-      );
+      expect(bundle.body).toBe("# AI Trends Report\n\nFull content here.");
       expect(bundle.bodyMime).toBe("text/markdown");
     });
 

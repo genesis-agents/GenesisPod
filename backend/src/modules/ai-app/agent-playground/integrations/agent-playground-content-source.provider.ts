@@ -1,20 +1,24 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SocialDataSourceProvider } from "../../contracts/social-data-source";
+import { ContentSourceProvider } from "@/modules/ai-engine/facade";
 import type {
-  SocialDataSource,
+  ContentSource,
   SourceItem,
   SourceListFilter,
   SourceListResult,
   SourceContentBundle,
-} from "../../contracts/social-data-source";
+} from "@/modules/ai-engine/facade";
 
 /**
- * PlaygroundSocialSourceProvider
+ * AgentPlaygroundContentSourceProvider
  *
- * Exposes the current user's completed Agent Playground mission artifacts
- * as a SocialDataSource so the Social module can pick from them when
- * composing content.
+ * 2026-05-24 P17a: renamed from PlaygroundSocialSourceProvider; now implements
+ * the generic engine `ContentSource` (no longer social-specific). The runtime
+ * id "AI_PLAYGROUND" is preserved for DB / frontend compatibility.
+ *
+ * Exposes the current user's completed Agent Playground mission artifacts as
+ * a generic ContentSource. Any consumer (ai-app/social, future apps) can pull
+ * via ContentSourceRegistry without importing this class directly.
  *
  * Only missions with status = 'completed' and a non-null reportFull are
  * surfaced. Running / failed / rejected missions are structurally excluded.
@@ -23,8 +27,8 @@ import type {
  * cross-user access is structurally impossible.
  */
 @Injectable()
-@SocialDataSourceProvider()
-export class PlaygroundSocialSourceProvider implements SocialDataSource {
+@ContentSourceProvider()
+export class AgentPlaygroundContentSourceProvider implements ContentSource {
   readonly id = "AI_PLAYGROUND";
   readonly displayName = {
     "zh-CN": "Agent Playground",

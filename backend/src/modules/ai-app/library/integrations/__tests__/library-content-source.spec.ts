@@ -1,5 +1,5 @@
 /**
- * Unit tests for LibrarySocialSourceProvider
+ * Unit tests for LibraryContentSourceProvider
  *
  * Covered scenarios:
  *  1.  Static descriptor fields are correct
@@ -22,7 +22,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { LibrarySocialSourceProvider } from "../library-social-source.provider";
+import { LibraryContentSourceProvider } from "../library-content-source.provider";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 // ---------------------------------------------------------------------------
@@ -97,8 +97,8 @@ const mockPrisma = {
 // Test suite
 // ---------------------------------------------------------------------------
 
-describe("LibrarySocialSourceProvider", () => {
-  let provider: LibrarySocialSourceProvider;
+describe("LibraryContentSourceProvider", () => {
+  let provider: LibraryContentSourceProvider;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -109,13 +109,13 @@ describe("LibrarySocialSourceProvider", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        LibrarySocialSourceProvider,
+        LibraryContentSourceProvider,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
-    provider = module.get<LibrarySocialSourceProvider>(
-      LibrarySocialSourceProvider,
+    provider = module.get<LibraryContentSourceProvider>(
+      LibraryContentSourceProvider,
     );
   });
 
