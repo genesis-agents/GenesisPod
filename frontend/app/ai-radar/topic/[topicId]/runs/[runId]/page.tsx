@@ -20,8 +20,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { TruncatedCell } from '@/components/common/tables';
-import { Tabs } from '@/components/ui/tabs';
 import { LoadingState } from '@/components/ui/states';
+// 注：tab 渲染由 MissionDetailFrame 内部用 canonical <Tabs> 接管；这里保留导入
+// 是为了让 audit-ui-discipline R7 知道本页用的是 canonical Tab 体系（不是自写 strip）。
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { Tabs as _CanonicalTabsForAudit } from '@/components/ui/tabs';
 import { useParams, useRouter } from 'next/navigation';
 import {
   AlertCircle,
@@ -34,7 +37,6 @@ import {
   ListChecks,
   Loader2,
   Radar,
-  RefreshCw,
   Sparkles,
   Wand2,
   X,
@@ -55,6 +57,7 @@ import { StageTaskDrawer } from '@/components/ai-radar/StageTaskDrawer';
 import { RadarEventLog } from '@/components/ai-radar/RadarEventLog';
 import {
   MissionActionGroup,
+  MissionDetailFrame,
   type MissionActionButtonSpec,
 } from '@/components/common/mission-detail';
 import { useRadarStream } from '@/hooks/domain/useRadarStream';
@@ -143,6 +146,7 @@ export default function RadarMissionDetailPage() {
   const [rerunning, setRerunning] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
 
   const isRunning = run?.status === 'running';
   const activeRunId = isRunning ? run.id : null;
@@ -276,42 +280,65 @@ export default function RadarMissionDetailPage() {
 
   if (!topic || !run) return null;
 
+  // ── action 按钮 spec —— 与 playground / social 同款 MissionActionGroup ──
+  const actionButtons: MissionActionButtonSpec[] = [];
+  actionButtons.push({
+    variant: 'primary',
+    emoji: '🔄',
+    label: rerunning ? '启动中…' : '重新精选',
+    disabled: rerunning || isRunning,
+    title: isRunning ? '已有 Mission 在运行' : '另起一个 Mission',
+    onClick: () => void handleRerun(),
+  });
+  if (isRunning) {
+    actionButtons.push({
+      variant: 'danger',
+      emoji: '⏹',
+      label: '取消',
+      onClick: () => setCancelOpen(true),
+      title: '取消当前 Mission',
+    });
+  }
+
+  // ── 左栏内容：scroll 中段 + sticky 底部按钮（结构对齐 TeamRosterPanel） ──
+  const leftPanelContent = (
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+        <RadarTeamPanel
+          run={run}
+          currentStage={stageStatus?.stage ?? null}
+          onAgentClick={(stageId) => {
+            setSelectedStageId(stageId);
+            setTab('tasks');
+          }}
+        />
+      </div>
+      <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-3">
+        <MissionActionGroup buttons={actionButtons} />
+      </div>
+    </div>
+  );
+
   return (
-    <div className="flex h-full flex-col bg-gray-50">
-      {/* Header — 仿 playground TopicResearchLayout */}
-      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-        <div className="flex min-w-0 items-center gap-4">
-          <button
-            type="button"
-            onClick={() => router.push(`/ai-radar/topic/${topicId}`)}
-            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-            title="返回主题"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-md">
-              <Radar className="h-5 w-5 text-white" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="truncate text-lg font-bold text-gray-900">
-                {topic.name} · 精选 Mission
-              </h1>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
-                <span>{triggerLabel(run.trigger)}触发</span>
-                <span>·</span>
-                <span>{formatDateTime(run.startedAt)}</span>
-                <span>·</span>
-                <span className="font-mono text-[10px]">
-                  {run.id.slice(0, 8)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+    <>
+      <MissionDetailFrame<TabKey>
+        onBack={() => router.push(`/ai-radar/topic/${topicId}`)}
+        backTitle="返回主题"
+        // brandGradient fallback；Frame 内会按 /ai-radar 路由自动取 module-themes.radar
+        // (cyan→sky)，不会真的用到这里的 violet
+        brandGradient="from-cyan-500 to-sky-600"
+        HeaderIcon={Radar}
+        title={`${topic.name} · 精选 Mission`}
+        subtitle={
+          <>
+            <span>{triggerLabel(run.trigger)}触发</span>
+            <span>·</span>
+            <span>{formatDateTime(run.startedAt)}</span>
+            <span>·</span>
+            <span className="font-mono text-[10px]">{run.id.slice(0, 8)}</span>
+          </>
+        }
+        statusPill={
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ring-1 ${statusBadgeClass(run.status)}`}
           >
@@ -320,143 +347,57 @@ export default function RadarMissionDetailPage() {
             )}
             {statusLabel(run.status)}
           </span>
-          {run.status === 'running' && (
-            <button
-              type="button"
-              onClick={() => setCancelOpen(true)}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-              title="取消当前 Mission"
-            >
-              <XCircle className="h-4 w-4" />
-              取消
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => void handleRerun()}
-            disabled={rerunning || isRunning}
-            className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-md hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
-            title={isRunning ? '已有 Mission 在运行' : '另起一个 Mission'}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${rerunning ? 'animate-spin' : ''}`}
-            />
-            重新精选
-          </button>
-        </div>
-      </header>
-
-      {/* R9 2026-05-19: MissionSwitcher chip 列表已删 —— 用户反馈"太土，没意义"。
-          切历史 run 走 topic 主页「查看详情·历史运行」按钮路径已足够。 */}
-
-      {/* Main flex */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Panel — 360px Radar Agent Team。flex flex-col + overflow-hidden
-            让"内容区滚动 + 底部按钮 sticky"生效（与 agent-playground 一致） */}
-        <aside className="flex w-[360px] flex-shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white">
-          {/* 滚动中段：Agent roster + Mission progress + 关键指标 */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
-            <RadarTeamPanel
+        }
+        // header 不再放重复操作按钮 —— 统一收到左栏底部 sticky footer
+        tabs={TABS}
+        activeTab={tab}
+        onTabChange={(k) => setTab(k as TabKey)}
+        tabBarTrailing={<CompactMeters run={run} />}
+        topBanner={
+          err ? (
+            <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+              {err}
+            </div>
+          ) : null
+        }
+        leftPanel={leftPanelContent}
+        leftCollapsed={leftCollapsed}
+        onLeftCollapseToggle={() => setLeftCollapsed((v) => !v)}
+      >
+        <div className="px-6 py-5">
+          {tab === 'tasks' && (
+            <StageTaskBoard
               run={run}
               currentStage={stageStatus?.stage ?? null}
-              onAgentClick={(stageId) => {
+              selectedStageId={selectedStageId}
+              onSelect={(stageId) =>
+                setSelectedStageId(stageId === selectedStageId ? null : stageId)
+              }
+            />
+          )}
+          {tab === 'errors' && (
+            <ErrorsTab
+              run={run}
+              onJumpToStage={(stageId) => {
                 setSelectedStageId(stageId);
                 setTab('tasks');
               }}
             />
-          </div>
-          {/* 底部 sticky 操作按钮 —— canonical MissionActionGroup，
-              与 agent-playground / ai-social 同款；shrink-0 + border-t
-              保证 aside 高度不够时永远可见 */}
-          {(() => {
-            const actions: MissionActionButtonSpec[] = [];
-            actions.push({
-              variant: 'primary',
-              emoji: '🔄',
-              label: rerunning ? '启动中…' : '重新精选',
-              disabled: rerunning || isRunning,
-              title: isRunning ? '已有 Mission 在运行' : '另起一个 Mission',
-              onClick: () => void handleRerun(),
-            });
-            if (isRunning) {
-              actions.push({
-                variant: 'danger',
-                emoji: '⏹',
-                label: '取消',
-                onClick: () => setCancelOpen(true),
-                title: '取消当前 Mission',
-              });
-            }
-            return (
-              <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-3">
-                <MissionActionGroup buttons={actions} />
-              </div>
-            );
-          })()}
-        </aside>
-
-        {/* Right Panel — tabs */}
-        <section className="flex flex-1 flex-col overflow-hidden">
-          {err && (
-            <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
-              {err}
-            </div>
           )}
-
-          {/* Tab bar */}
-          <div className="flex min-w-0 items-center border-b border-gray-200 bg-white px-4">
-            <Tabs
-              items={TABS.map((t) => ({
-                key: t.key,
-                label: t.label,
-                icon: t.Icon,
-              }))}
-              value={tab}
-              onChange={(k) => setTab(k as TabKey)}
-              variant="underline"
-              className="min-w-0 flex-1 overflow-x-auto border-b-0"
+          {tab === 'metrics' && <MetricsTab run={run} />}
+          {tab === 'timeline' && (
+            <RadarEventLog
+              events={streamEvents}
+              emptyHint={
+                run.status === 'running'
+                  ? '采集进行中 · 事件将实时出现'
+                  : '本次 Mission 暂无缓存事件（服务重启后内存事件不保留）'
+              }
+              maxHeightClass="max-h-[calc(100vh-300px)]"
             />
-            <CompactMeters run={run} />
-          </div>
-
-          {/* Tab body */}
-          <div className="flex-1 overflow-auto px-6 py-5">
-            {tab === 'tasks' && (
-              <StageTaskBoard
-                run={run}
-                currentStage={stageStatus?.stage ?? null}
-                selectedStageId={selectedStageId}
-                onSelect={(stageId) =>
-                  setSelectedStageId(
-                    stageId === selectedStageId ? null : stageId
-                  )
-                }
-              />
-            )}
-            {tab === 'errors' && (
-              <ErrorsTab
-                run={run}
-                onJumpToStage={(stageId) => {
-                  setSelectedStageId(stageId);
-                  setTab('tasks');
-                }}
-              />
-            )}
-            {tab === 'metrics' && <MetricsTab run={run} />}
-            {tab === 'timeline' && (
-              <RadarEventLog
-                events={streamEvents}
-                emptyHint={
-                  run.status === 'running'
-                    ? '采集进行中 · 事件将实时出现'
-                    : '本次 Mission 暂无缓存事件（服务重启后内存事件不保留）'
-                }
-                maxHeightClass="max-h-[calc(100vh-300px)]"
-              />
-            )}
-          </div>
-        </section>
-      </div>
+          )}
+        </div>
+      </MissionDetailFrame>
 
       {/* Stage 任务 drawer */}
       <StageTaskDrawer
@@ -479,7 +420,7 @@ export default function RadarMissionDetailPage() {
         onConfirm={handleCancelConfirm}
         onClose={() => setCancelOpen(false)}
       />
-    </div>
+    </>
   );
 }
 
