@@ -343,12 +343,22 @@ export function ChapterReader({
     ).trimEnd();
   }, [selectedSection, artifact.content.fullMarkdown]);
 
-  // 当前章对应的 citations 子集（章末参考文献）
+  // 当前章对应的 citations 子集（章末参考文献 + 正文 [N] 角标解析）
+  // ★ 2026-05-25 修：从本章 slice 里实际出现的 [N] 反推引用集合，对齐 continuous
+  //   视图所用的全局编号。原先按 selectedSection.citations(可能是装配前的旧编号)
+  //   过滤 —— 报告装配把 fullMarkdown 的 [N] 重排成全局编号后，slice 里的全局 [N]
+  //   与旧编号子集对不上 → 正文角标灰显"引用元数据缺失"。改用 slice 实际 [N] ∩
+  //   artifact.citations，章节视图与连续视图行为一致。
   const sectionCitations = useMemo(() => {
     if (!selectedSection) return [];
-    const ids = new Set(selectedSection.citations);
-    return artifact.citations.filter((c) => ids.has(c.index));
-  }, [selectedSection, artifact.citations]);
+    const cited = new Set<number>();
+    const re = /\[(\d+)\]/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(sectionMarkdown)) !== null) {
+      cited.add(parseInt(m[1], 10));
+    }
+    return artifact.citations.filter((c) => cited.has(c.index));
+  }, [selectedSection, sectionMarkdown, artifact.citations]);
 
   const sectionFigures = useMemo(() => {
     if (!selectedSection) return [];
