@@ -126,19 +126,23 @@ export function FactTablePanel({ factTable, citations }: Props) {
               </div>
             );
           })()}
-          <div className="mb-3 flex items-center gap-2">
-            <div className="flex flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5">
-              <Search className="h-3 w-3 text-gray-400" />
+          {/* ★ 2026-05-25：工具栏防挤压换行。窄抽屉里各控件原先无 shrink-0，
+              文字被挤成竖排（"仅冲突"→仅/冲突、"复制"→复/制）。给搜索框设最小宽 +
+              其余控件 shrink-0 + whitespace-nowrap；整行 flex-wrap，放不下时整块
+              控件换到下一行而非把文字拆断。 */}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="flex min-w-[140px] flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5">
+              <Search className="h-3 w-3 shrink-0 text-gray-400" />
               <input
                 type="text"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="搜实体 / 属性 / 值"
-                className="flex-1 bg-transparent text-xs outline-none focus-visible:ring-1 focus-visible:ring-violet-300"
+                className="w-full flex-1 bg-transparent text-xs outline-none focus-visible:ring-1 focus-visible:ring-violet-300"
                 aria-label="搜索事实表"
               />
             </div>
-            <label className="flex items-center gap-1 text-xs text-gray-700">
+            <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-gray-700">
               <input
                 type="checkbox"
                 checked={showOnlyConflicts}
@@ -152,7 +156,7 @@ export function FactTablePanel({ factTable, citations }: Props) {
               onChange={(e) =>
                 setSortBy(e.target.value as 'default' | 'sources' | 'conflict')
               }
-              className="rounded border border-gray-200 bg-white px-2 py-1 text-xs"
+              className="shrink-0 rounded border border-gray-200 bg-white px-2 py-1 text-xs"
             >
               <option value="default">默认</option>
               <option value="sources">来源数</option>
@@ -170,10 +174,10 @@ export function FactTablePanel({ factTable, citations }: Props) {
                   .join('\n');
                 void navigator.clipboard?.writeText(tsv);
               }}
-              className="inline-flex items-center gap-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
               title="复制为 TSV"
             >
-              <Copy className="h-3 w-3" />
+              <Copy className="h-3 w-3 shrink-0" />
               复制
             </button>
           </div>
