@@ -543,15 +543,9 @@ export function TeamRosterPanel({
         />
       </div>
 
-      {/* Scrollable middle: roster body + progress + control card。
-          ❗只用 min-h-0 + overflow-y-auto，不加 flex-1：
-            - 内容能放下时（zoom-out / 折叠卡片）：wrapper 取自然高度，按钮
-              紧贴内容下方，不会出现"中间一大块空白"。
-            - 内容放不下时（默认 zoom）：flex shrink 触发，min-h-0 允许缩到
-              0 之外，overflow-y-auto 出滚动条，按钮停在 aside 底部。
-          这要求 aside 自身有受约束的高度——layout.tsx <main> 必须是
-          flex flex-col，否则整条链断、aside 撑到自然高度，按钮被推出 viewport。*/}
-      <div className="min-h-0 overflow-y-auto">
+      {/* 只让"4 个角色列表"自己滚 —— 滚动条只覆盖角色区，Mission progress
+          / 运行配置 / 按钮 都固定在 aside 底部，不进滚动域。*/}
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {/* Roster body — list of role rows with last-thought */}
         <div className="space-y-1.5 p-3">
           {ROLE_ROW.map(({ role, stage, label }) => {
@@ -629,172 +623,168 @@ export function TeamRosterPanel({
             );
           })}
         </div>
-
-        {/* Progress + 运行配置（buttons 已迁出到 sticky footer） */}
-        <div className="border-t border-gray-100 bg-gray-50/50 px-3 py-2.5">
-          <div className="mb-1.5 flex items-center justify-between text-[11px]">
-            <span className="font-medium text-gray-700">Mission progress</span>
-            <span className="flex items-center gap-1.5">
-              {missionStatus === 'cancelled' && (
-                <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-700">
-                  已取消
-                </span>
-              )}
-              {missionStatus === 'failed' && (
-                <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-                  已失败
-                </span>
-              )}
-              {missionStatus === 'completed' && (
-                <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                  已完成
-                </span>
-              )}
-              {missionStatus === 'running' && (
-                <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">
-                  进行中
-                </span>
-              )}
-              <span className="font-mono text-gray-500">
-                {completedStages} / {totalStages}
-              </span>
-            </span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-600 transition-all"
-              style={{ width: `${overallPct}%` }}
-            />
-          </div>
-          {finalScore != null && (
-            <div className="mt-2 flex items-center justify-between text-[11px]">
-              <span className="font-medium text-gray-700">
-                Consensus quality
-              </span>
-              <span
-                className={`font-mono font-semibold ${
-                  finalScore >= 80
-                    ? 'text-emerald-600'
-                    : finalScore >= 60
-                      ? 'text-amber-600'
-                      : 'text-red-600'
-                }`}
-              >
-                {finalScore} / 100
-              </span>
-            </div>
-          )}
-
-          {/* 显示当前 mission 关联的 dimensions 数 */}
-          {dimensions && dimensions.length > 0 && (
-            <div className="mt-2 flex items-center justify-between text-[11px]">
-              <span className="font-medium text-gray-700">研究维度</span>
-              <span className="font-mono text-gray-500">
-                {dimensions.length} 个
-              </span>
-            </div>
-          )}
-
-          {/* 2026-05-13 #67: 可续跑提示 —— 替代 homepage banner，让"继续上次"入口
-            出现在用户真正按按钮的地方 */}
-          {isResumable && missionStatus !== 'running' && (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-900">
-              <span className="mt-0.5 text-violet-600">↻</span>
-              <span>
-                <span className="font-medium">上次运行中断</span>
-                ，点「
-                <span className="font-medium">继续上次</span>
-                」从 checkpoint 续跑（跳过已完成
-                stage）；点「开始」会重新从头跑。
-              </span>
-            </div>
-          )}
-
-          {/* 操作按钮：开始 / 更新 / 取消 —— 完全照搬 TI TopicTeamPanel 尺寸 + 样式 */}
-          {(depth || language || maxCredits != null) && (
-            <MissionControlCard
-              title="运行配置"
-              statusLabel={
-                missionStatus === 'running'
-                  ? '进行中'
-                  : missionStatus === 'completed'
-                    ? '已完成'
-                    : missionStatus === 'failed'
-                      ? '已失败'
-                      : missionStatus === 'cancelled'
-                        ? '已取消'
-                        : '待启动'
-              }
-              statusTone={
-                missionStatus === 'running'
-                  ? 'blue'
-                  : missionStatus === 'completed'
-                    ? 'green'
-                    : missionStatus === 'failed'
-                      ? 'red'
-                      : 'gray'
-              }
-            >
-              {depth && (
-                <div className="mb-3">
-                  <div className="mb-1 text-xs font-medium text-gray-500">
-                    研究深度
-                  </div>
-                  <div className="grid grid-cols-3 gap-1">
-                    {[
-                      { key: 'quick', label: '快速', desc: '基础搜索' },
-                      { key: 'standard', label: '标准', desc: '平衡覆盖' },
-                      { key: 'deep', label: '深度', desc: '完整链路' },
-                    ].map((option) => {
-                      const selected = depth === option.key;
-                      return (
-                        <div
-                          key={option.key}
-                          className={cn(
-                            'rounded-md px-2 py-1.5 text-center text-xs',
-                            selected
-                              ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
-                              : 'bg-gray-50 text-gray-500'
-                          )}
-                        >
-                          <div className="font-medium">{option.label}</div>
-                          <div className="mt-0.5 whitespace-nowrap text-[10px] opacity-70">
-                            {option.desc}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {(language || maxCredits != null) && (
-                <div className="space-y-1 text-[11px] text-gray-600">
-                  {language && (
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-700">语言</span>
-                      <span className="font-mono text-gray-500">
-                        {language}
-                      </span>
-                    </div>
-                  )}
-                  {maxCredits != null && (
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-700">预算</span>
-                      <span className="font-mono text-gray-500">
-                        {maxCredits.toLocaleString()} credits
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </MissionControlCard>
-          )}
-        </div>
       </div>
 
-      {/* Sticky 底部操作按钮 — 与 SocialMissionPage 一致，使用 canonical
-          MissionActionGroup；shrink-0 + 独立 border-t 保证永远可见，不会被
-          上方 progress / 配置卡片或右侧任务列表挤出视口。 */}
+      {/* Progress + 运行配置 — shrink-0 固定，不随角色列表滚动；与下面
+          MissionActionGroup 一起组成 aside 底部"操作区" */}
+      <div className="shrink-0 border-t border-gray-100 bg-gray-50/50 px-3 py-2.5">
+        <div className="mb-1.5 flex items-center justify-between text-[11px]">
+          <span className="font-medium text-gray-700">Mission progress</span>
+          <span className="flex items-center gap-1.5">
+            {missionStatus === 'cancelled' && (
+              <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-700">
+                已取消
+              </span>
+            )}
+            {missionStatus === 'failed' && (
+              <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                已失败
+              </span>
+            )}
+            {missionStatus === 'completed' && (
+              <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                已完成
+              </span>
+            )}
+            {missionStatus === 'running' && (
+              <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">
+                进行中
+              </span>
+            )}
+            <span className="font-mono text-gray-500">
+              {completedStages} / {totalStages}
+            </span>
+          </span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-600 transition-all"
+            style={{ width: `${overallPct}%` }}
+          />
+        </div>
+        {finalScore != null && (
+          <div className="mt-2 flex items-center justify-between text-[11px]">
+            <span className="font-medium text-gray-700">Consensus quality</span>
+            <span
+              className={`font-mono font-semibold ${
+                finalScore >= 80
+                  ? 'text-emerald-600'
+                  : finalScore >= 60
+                    ? 'text-amber-600'
+                    : 'text-red-600'
+              }`}
+            >
+              {finalScore} / 100
+            </span>
+          </div>
+        )}
+
+        {/* 显示当前 mission 关联的 dimensions 数 */}
+        {dimensions && dimensions.length > 0 && (
+          <div className="mt-2 flex items-center justify-between text-[11px]">
+            <span className="font-medium text-gray-700">研究维度</span>
+            <span className="font-mono text-gray-500">
+              {dimensions.length} 个
+            </span>
+          </div>
+        )}
+
+        {/* 2026-05-13 #67: 可续跑提示 —— 替代 homepage banner，让"继续上次"入口
+            出现在用户真正按按钮的地方 */}
+        {isResumable && missionStatus !== 'running' && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-900">
+            <span className="mt-0.5 text-violet-600">↻</span>
+            <span>
+              <span className="font-medium">上次运行中断</span>
+              ，点「
+              <span className="font-medium">继续上次</span>
+              」从 checkpoint 续跑（跳过已完成 stage）；点「开始」会重新从头跑。
+            </span>
+          </div>
+        )}
+
+        {/* 操作按钮：开始 / 更新 / 取消 —— 完全照搬 TI TopicTeamPanel 尺寸 + 样式 */}
+        {(depth || language || maxCredits != null) && (
+          <MissionControlCard
+            title="运行配置"
+            statusLabel={
+              missionStatus === 'running'
+                ? '进行中'
+                : missionStatus === 'completed'
+                  ? '已完成'
+                  : missionStatus === 'failed'
+                    ? '已失败'
+                    : missionStatus === 'cancelled'
+                      ? '已取消'
+                      : '待启动'
+            }
+            statusTone={
+              missionStatus === 'running'
+                ? 'blue'
+                : missionStatus === 'completed'
+                  ? 'green'
+                  : missionStatus === 'failed'
+                    ? 'red'
+                    : 'gray'
+            }
+          >
+            {depth && (
+              <div className="mb-3">
+                <div className="mb-1 text-xs font-medium text-gray-500">
+                  研究深度
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {[
+                    { key: 'quick', label: '快速', desc: '基础搜索' },
+                    { key: 'standard', label: '标准', desc: '平衡覆盖' },
+                    { key: 'deep', label: '深度', desc: '完整链路' },
+                  ].map((option) => {
+                    const selected = depth === option.key;
+                    return (
+                      <div
+                        key={option.key}
+                        className={cn(
+                          'rounded-md px-2 py-1.5 text-center text-xs',
+                          selected
+                            ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
+                            : 'bg-gray-50 text-gray-500'
+                        )}
+                      >
+                        <div className="font-medium">{option.label}</div>
+                        <div className="mt-0.5 whitespace-nowrap text-[10px] opacity-70">
+                          {option.desc}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {(language || maxCredits != null) && (
+              <div className="space-y-1 text-[11px] text-gray-600">
+                {language && (
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-700">语言</span>
+                    <span className="font-mono text-gray-500">{language}</span>
+                  </div>
+                )}
+                {maxCredits != null && (
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-700">预算</span>
+                    <span className="font-mono text-gray-500">
+                      {maxCredits.toLocaleString()} credits
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </MissionControlCard>
+        )}
+      </div>
+
+      {/* 底部操作按钮 — 与 SocialMissionPage 一致，使用 canonical
+          MissionActionGroup；shrink-0 + 独立 border-t，与上方 progress
+          区一起常驻 aside 底部。 */}
       {actionButtons.length > 0 && (
         <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-3">
           <MissionActionGroup buttons={actionButtons} />
