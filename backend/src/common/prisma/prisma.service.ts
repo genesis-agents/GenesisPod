@@ -1,7 +1,7 @@
 import {
   Injectable,
   OnModuleInit,
-  OnModuleDestroy,
+  OnApplicationShutdown,
   Logger,
 } from "@nestjs/common";
 import { Prisma, PrismaClient } from "@prisma/client";
@@ -106,7 +106,7 @@ function getLogConfig(): Prisma.LogDefinition[] {
 @Injectable()
 export class PrismaService
   extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
+  implements OnModuleInit, OnApplicationShutdown
 {
   private readonly logger = new Logger(PrismaService.name);
 
@@ -588,7 +588,13 @@ export class PrismaService
 
   // ──────────────────────────────────────────────────────────────────────────────
 
-  async onModuleDestroy() {
+  // ★ 2026-05-25 机制级修：在 onApplicationShutdown（生命周期最后一阶段）断开，
+  //   而非 onModuleDestroy。NestJS 顺序为 onModuleDestroy → beforeApplicationShutdown
+  //   → onApplicationShutdown，前一阶段对所有 provider 跑完才进下一阶段。这样所有
+  //   服务在 onModuleDestroy 里的关停 DB 收尾（健康检查存 checkpoint、StorageOffload
+  //   解锁、scheduler 收尾等）执行时 Prisma 仍连接，杜绝关停期 "Engine is not yet
+  //   connected" / "Response from the Engine was empty" 批量报错。
+  async onApplicationShutdown(_signal?: string) {
     await this.$disconnect();
   }
 
