@@ -1405,9 +1405,19 @@ export class AiApiCallerService {
         );
       }
       // v3.1 §B.5 / D.1：异步触发 self-heal（fire-and-forget，不阻断 throw）
+      // F4 (2026-05-25): xAI 也走 chain-aware 降级（json_schema_strict→json_schema
+      //   →json_mode→none），替代旧一刀切。xaiEffectiveNativeMode 是当前真实上线值。
+      const degrade = this.computeSelfHealDegrade(
+        "xai",
+        modelId,
+        xaiEffectiveNativeMode,
+      );
       this.selfHealTrigger?.triggerSelfHealAsync(err, {
         modelId,
         userModelConfigId,
+        ...(degrade
+          ? { fromValue: degrade.fromValue, toValue: degrade.toValue }
+          : {}),
       });
       throw err;
     }

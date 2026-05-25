@@ -401,4 +401,37 @@ describe("AiApiCallerService – self-heal chain-aware degrade (R1)", () => {
     expect(opts.fromValue).toBe("json_schema");
     expect(opts.toValue).toBe("json_mode");
   });
+
+  it("F4: xAI (nativeMode=json_schema_strict) 被拒 → trigger 收到 json_schema_strict→json_schema", async () => {
+    httpMock.post.mockReturnValueOnce(make400ResponseFormatError());
+
+    await expect(
+      service.callXAIAPI(
+        "https://api.x.ai/v1/chat/completions",
+        "xai-key",
+        "grok-3",
+        MESSAGES,
+        4000,
+        undefined,
+        120000,
+        "max_tokens",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        "json_schema_strict",
+        JSON_SCHEMA,
+        "my_schema",
+        undefined,
+        "user-cfg-xai", // userModelConfigId
+      ),
+    ).rejects.toBeDefined();
+
+    expect(triggerMock.triggerSelfHealAsync).toHaveBeenCalledTimes(1);
+    const opts = triggerMock.triggerSelfHealAsync.mock.calls[0][1];
+    // chain-aware：json_schema_strict 的下一档是 json_schema（不是一刀切 none）
+    expect(opts.fromValue).toBe("json_schema_strict");
+    expect(opts.toValue).toBe("json_schema");
+  });
 });
