@@ -9,7 +9,12 @@ export default function AgentPlaygroundLayout({
 }) {
   return (
     <AppShell>
-      <main className="flex-1 overflow-hidden">{children}</main>
+      {/* flex flex-col + min-h-0：让 MissionDetailFrame 的 flex-1 真正生效
+          （与 app/ai-social/layout.tsx 对齐，否则 aside 会撑到自然高度
+          把底部按钮挤出 viewport）*/}
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {children}
+      </main>
     </AppShell>
   );
 }

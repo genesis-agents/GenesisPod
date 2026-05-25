@@ -543,9 +543,15 @@ export function TeamRosterPanel({
         />
       </div>
 
-      {/* Scrollable middle: roster body + progress + control card
-          （action 按钮放在最底部 sticky footer，永不被裁切） */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {/* Scrollable middle: roster body + progress + control card。
+          ❗只用 min-h-0 + overflow-y-auto，不加 flex-1：
+            - 内容能放下时（zoom-out / 折叠卡片）：wrapper 取自然高度，按钮
+              紧贴内容下方，不会出现"中间一大块空白"。
+            - 内容放不下时（默认 zoom）：flex shrink 触发，min-h-0 允许缩到
+              0 之外，overflow-y-auto 出滚动条，按钮停在 aside 底部。
+          这要求 aside 自身有受约束的高度——layout.tsx <main> 必须是
+          flex flex-col，否则整条链断、aside 撑到自然高度，按钮被推出 viewport。*/}
+      <div className="min-h-0 overflow-y-auto">
         {/* Roster body — list of role rows with last-thought */}
         <div className="space-y-1.5 p-3">
           {ROLE_ROW.map(({ role, stage, label }) => {
