@@ -46,7 +46,7 @@ describe("ModelCapabilityService — resolveCapabilities (v3.1 §A)", () => {
       expect(caps.systemPrompt.placement).toBe("messages_array");
     });
 
-    it("provider=anthropic → catalog tool_use + top_level_system_field", () => {
+    it("provider=anthropic 旧模型(claude-3.5) → catalog tool_use + top_level_system_field", () => {
       const caps = svc.resolveCapabilities(
         baseConfig({ provider: "anthropic", modelId: "claude-3.5-sonnet" }),
       );
@@ -54,6 +54,35 @@ describe("ModelCapabilityService — resolveCapabilities (v3.1 §A)", () => {
       expect(caps.systemPrompt.placement).toBe("top_level_system_field");
       expect(caps.promptCache.support).toBe("anthropic_cache_control");
       expect(caps.reasoning.kind).toBe("extended_thinking");
+    });
+
+    it("F7: provider=anthropic Claude 4.5+(opus-4-7) → native anthropic_output_config + tool_use 降级链", () => {
+      const caps = svc.resolveCapabilities(
+        baseConfig({ provider: "anthropic", modelId: "claude-opus-4-7" }),
+      );
+      expect(caps.structuredOutput.nativeMode).toBe("anthropic_output_config");
+      expect(caps.structuredOutput.fallbackChain).toEqual(["tool_use"]);
+      // 派生链：native → tool_use → 兜底 prompt
+      expect(svc.deriveStructuredOutputChain(caps)).toEqual([
+        "anthropic_output_config",
+        "tool_use",
+        "prompt",
+      ]);
+      expect(caps.systemPrompt.placement).toBe("top_level_system_field");
+    });
+
+    it("F7: provider=claude 别名 4.5+(sonnet-4-6) → native anthropic_output_config", () => {
+      const caps = svc.resolveCapabilities(
+        baseConfig({ provider: "claude", modelId: "claude-sonnet-4-6" }),
+      );
+      expect(caps.structuredOutput.nativeMode).toBe("anthropic_output_config");
+    });
+
+    it("F7: 防回归 — Claude 4.0(opus-4-0) 不匹配 native 模式 → 仍 tool_use", () => {
+      const caps = svc.resolveCapabilities(
+        baseConfig({ provider: "anthropic", modelId: "claude-opus-4-0" }),
+      );
+      expect(caps.structuredOutput.nativeMode).toBe("tool_use");
     });
 
     it("provider=claude alias → 同 anthropic 行为（别名条目命中）", () => {

@@ -27,6 +27,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import {
+  AnthropicOutputConfigAdapter,
   AnthropicToolUseAdapter,
   GbnfGrammarAdapter,
   GeminiResponseSchemaAdapter,
@@ -70,6 +71,7 @@ export class StructuredOutputRouter {
       new JsonSchemaStrictAdapter(),
       new JsonSchemaAdapter(),
       new AnthropicToolUseAdapter(),
+      new AnthropicOutputConfigAdapter(),
       new JsonModeAdapter(),
       new GeminiResponseSchemaAdapter(),
       new GbnfGrammarAdapter(),

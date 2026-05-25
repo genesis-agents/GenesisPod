@@ -555,6 +555,67 @@ describe("AiApiCallerService – self-heal chain-aware degrade (R1)", () => {
     expect(retryBody["tools"]).toBeUndefined();
   });
 
+  it("F7: Anthropic native output_config 被拒 → 当次降 tool_use 重试成功 + trigger 链式", async () => {
+    // claude-opus-4-7 catalog 链 = [anthropic_output_config, tool_use, prompt]。
+    // 第 1 次 native(output_config) 被 400 拒；第 2 次降级 tool_use 成功。
+    httpMock.post
+      .mockReturnValueOnce(make400ResponseFormatError())
+      .mockReturnValueOnce(
+        of({
+          data: {
+            content: [
+              {
+                type: "tool_use",
+                name: "my_schema",
+                input: { answer: "recovered-via-tooluse" },
+              },
+            ],
+            usage: { input_tokens: 5, output_tokens: 5 },
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as Record<string, unknown>,
+        } as never),
+      );
+
+    const result = await service.callAnthropicAPI(
+      "https://api.anthropic.com/v1/messages",
+      "ak",
+      "claude-opus-4-7",
+      MESSAGES,
+      4000,
+      undefined,
+      120000,
+      "json",
+      undefined,
+      undefined,
+      "anthropic_output_config",
+      JSON_SCHEMA,
+      "my_schema",
+      "user-cfg-anthropic",
+    );
+
+    // 当次重试成功（tool_use）→ 不抛
+    expect(JSON.parse(result.content)).toEqual({
+      answer: "recovered-via-tooluse",
+    });
+    expect(httpMock.post).toHaveBeenCalledTimes(2);
+    // 重试 body：撤掉 output_config，换成 tool_use 的 tools + tool_choice
+    const retryBody = httpMock.post.mock.calls[1][1] as Record<string, unknown>;
+    expect(retryBody["output_config"]).toBeUndefined();
+    expect(Array.isArray(retryBody["tools"])).toBe(true);
+    expect(retryBody["tool_choice"]).toMatchObject({
+      type: "tool",
+      name: "my_schema",
+    });
+    // chain-aware trigger：anthropic_output_config 的下一档是 tool_use
+    expect(triggerMock.triggerSelfHealAsync).toHaveBeenCalledTimes(1);
+    const opts = triggerMock.triggerSelfHealAsync.mock.calls[0][1];
+    expect(opts.fromValue).toBe("anthropic_output_config");
+    expect(opts.toValue).toBe("tool_use");
+  });
+
   it("A: Gemini responseSchema 被拒 → 当次降 json_mode 重试成功", async () => {
     httpMock.post
       .mockReturnValueOnce(make400ResponseFormatError())

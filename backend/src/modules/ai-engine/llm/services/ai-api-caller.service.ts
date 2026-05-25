@@ -20,6 +20,7 @@ import {
   JsonSchemaAdapter,
   JsonModeAdapter,
   AnthropicToolUseAdapter,
+  AnthropicOutputConfigAdapter,
   GeminiResponseSchemaAdapter,
   GbnfGrammarAdapter,
   PromptOnlyAdapter,
@@ -966,8 +967,28 @@ export class AiApiCallerService {
       requestBody.temperature = temperature;
     }
 
-    // ★ 2026-05-06 native structured output path for Anthropic (tool_use strategy)
-    // adapter.adapt() sets requestBody.tools + requestBody.tool_choice
+    // 把 structured-output 的 systemPromptAddon 追加到 Anthropic system 字段
+    // （兼容 string / cache_control 数组 / 未设三种形态）。初次 adapt + 降级共用。
+    const appendAnthropicSystem = (addon: string): void => {
+      if (typeof requestBody.system === "string") {
+        requestBody.system = requestBody.system + addon;
+      } else if (
+        Array.isArray(requestBody.system) &&
+        requestBody.system.length > 0
+      ) {
+        const sys = requestBody.system as Array<{
+          type: string;
+          text: string;
+          cache_control?: unknown;
+        }>;
+        sys[sys.length - 1].text += addon;
+      } else {
+        requestBody.system = addon.trim();
+      }
+    };
+
+    // ★ 2026-05-06 native structured output path for Anthropic.
+    // anthropic_output_config → output_config.format（native GA）；tool_use → tools/tool_choice。
     let anthropicStructuredStrategy: StructuredOutputStrategy | undefined;
     if (structuredOutputStrategy && outputJsonSchema) {
       const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
@@ -978,23 +999,7 @@ export class AiApiCallerService {
       });
       Object.assign(requestBody, adaptOut.requestBodyPatch);
       if (adaptOut.systemPromptAddon) {
-        // Append to system if present, or add a new system field
-        if (typeof requestBody.system === "string") {
-          requestBody.system = requestBody.system + adaptOut.systemPromptAddon;
-        } else if (
-          Array.isArray(requestBody.system) &&
-          requestBody.system.length > 0
-        ) {
-          // cache_control format — append to last text block
-          const sys = requestBody.system as Array<{
-            type: string;
-            text: string;
-            cache_control?: unknown;
-          }>;
-          sys[sys.length - 1].text += adaptOut.systemPromptAddon;
-        } else {
-          requestBody.system = adaptOut.systemPromptAddon.trim();
-        }
+        appendAnthropicSystem(adaptOut.systemPromptAddon);
       }
       anthropicStructuredStrategy = structuredOutputStrategy;
     }
@@ -1016,21 +1021,60 @@ export class AiApiCallerService {
         }),
       );
     } catch (err) {
-      // v3.1 §B+.3 / D.1: fire-and-forget self-heal trigger
+      // v3.1 §B+.3 / D.1 + R1(2026-05-25): chain-aware self-heal trigger。
+      //   anthropic 链 = [anthropic_output_config, tool_use, prompt]，effective
+      //   native mode 即当前 anthropicStructuredStrategy，多步降级天然成立。
+      const anthropicDegrade = this.computeSelfHealDegrade(
+        "anthropic",
+        modelId,
+        anthropicStructuredStrategy ?? null,
+      );
       this.selfHealTrigger?.triggerSelfHealAsync(err, {
         modelId,
         userModelConfigId,
+        ...(anthropicDegrade
+          ? {
+              fromValue: anthropicDegrade.fromValue,
+              toValue: anthropicDegrade.toValue,
+            }
+          : {}),
       });
-      // ★ A (2026-05-25): in-request 降级 (Anthropic) —— 仅错误路径。tool_use 结构化
-      //   输出被拒(catalog 误配 / 未来 output_format beta 问题)→ 删 tools/tool_choice
-      //   退到 prompt;JSON 约束已在 system(adaptOut.systemPromptAddon),当次重试一次。
+      // ★ A+F7 (2026-05-25): in-request 当次降级 (Anthropic) —— 仅错误路径。结构化
+      //   输出被拒(catalog 漂移 / native output_config 不被某模型支持)→ 沿链降一档
+      //   重试：native→tool_use（带 schema，质量高）；tool_use→prompt（schema 注入
+      //   system，避免裸文本无指引）。解决"首个 mission 直接崩"（self-heal 只救下次）。
       if (
         anthropicStructuredStrategy &&
         this.isStructuredOutputRejection(err)
       ) {
+        // 撤掉当前 strategy 写入的所有结构化字段
+        delete requestBody["output_config"];
         delete requestBody["tools"];
         delete requestBody["tool_choice"];
-        anthropicStructuredStrategy = undefined; // 改走 plain-text 解析
+        const nextMode = anthropicDegrade?.toValue;
+        let degradeLabel: string;
+        if (nextMode === "tool_use" && outputJsonSchema) {
+          const toolPatch = this.getStructuredOutputAdapter("tool_use").adapt({
+            jsonSchema: outputJsonSchema,
+            schemaName: schemaName ?? "structured_output",
+            modelId,
+          }).requestBodyPatch;
+          Object.assign(requestBody, toolPatch);
+          anthropicStructuredStrategy = "tool_use";
+          degradeLabel = "→tool_use";
+        } else {
+          // 降到 prompt：注入 schema 约束到 system，再走 plain-text 解析
+          if (outputJsonSchema) {
+            const addon = this.getStructuredOutputAdapter("prompt").adapt({
+              jsonSchema: outputJsonSchema,
+              schemaName: schemaName ?? "structured_output",
+              modelId,
+            }).systemPromptAddon;
+            if (addon) appendAnthropicSystem(addon);
+          }
+          anthropicStructuredStrategy = undefined;
+          degradeLabel = "→prompt";
+        }
         try {
           response = await firstValueFrom(
             this.httpService.post(effectiveEndpoint, requestBody, {
@@ -1043,7 +1087,7 @@ export class AiApiCallerService {
             }),
           );
           this.logger.warn(
-            `[in-request-degrade] ${modelId}: anthropic tool_use→prompt 重试成功(首次结构化被拒)`,
+            `[in-request-degrade] ${modelId}: anthropic ${anthropicDegrade?.fromValue ?? "structured"}${degradeLabel} 重试成功(首次结构化被拒)`,
           );
         } catch {
           throw err;
@@ -1605,6 +1649,7 @@ export class AiApiCallerService {
     ["json_schema", new JsonSchemaAdapter()],
     ["json_mode", new JsonModeAdapter()],
     ["tool_use", new AnthropicToolUseAdapter()],
+    ["anthropic_output_config", new AnthropicOutputConfigAdapter()],
     ["gemini_response_schema", new GeminiResponseSchemaAdapter()],
     ["gbnf_grammar", new GbnfGrammarAdapter()],
     ["prompt", new PromptOnlyAdapter()],

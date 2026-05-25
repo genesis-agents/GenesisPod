@@ -64,7 +64,32 @@ export interface ProviderCapabilityRule {
  * openrouter generic 之前。
  */
 export const PROVIDER_CAPABILITY_DEFAULTS: readonly ProviderCapabilityRule[] = [
-  // ─────────── 1. Anthropic Claude ───────────
+  // ─────────── 1. Anthropic Claude 4.5+（native structured outputs，GA 2026） ───────────
+  {
+    provider: "anthropic",
+    modelPattern: /(?:opus|sonnet|haiku)-4-[5-9]/,
+    capabilities: {
+      structuredOutput: {
+        nativeMode: "anthropic_output_config",
+        fallbackChain: ["tool_use"],
+      },
+      toolUse: { mode: "anthropic_tools", parallelCalls: true },
+      reasoning: { kind: "extended_thinking", exposeContent: "thinking_block" },
+      temperature: { support: "full" },
+      tokenParam: "max_tokens",
+      vision: { support: "image_url" },
+      streaming: { support: true },
+      systemPrompt: { placement: "top_level_system_field" },
+      promptCache: { support: "anthropic_cache_control" },
+    },
+    rationale:
+      "Claude 4.5+（Opus 4.5/4.6/4.7、Sonnet 4.5/4.6、Haiku 4.5）2026-05 起 GA 支持 native structured outputs：output_config.format={type:'json_schema',schema}，schema 编译成 grammar 约束 token 生成，首次即保证合规，比 tool_use 模拟更可靠；不需 beta header（anthropic-version:2023-06-01）。降级链 native→tool_use→prompt，配合 in-request 当次降级(A)，catalog 漂移或个别模型不支持也不会崩。",
+    addedBy: "hello.junjie.duan@gmail.com",
+    addedAt: "2026-05-25",
+    sourceUrl:
+      "https://platform.claude.com/docs/en/build-with-claude/structured-outputs",
+  },
+  // ─────────── 2. Anthropic Claude（旧模型兜底：3.x / 4.0-4.4 走 tool_use） ───────────
   {
     provider: "anthropic",
     capabilities: {
@@ -84,7 +109,32 @@ export const PROVIDER_CAPABILITY_DEFAULTS: readonly ProviderCapabilityRule[] = [
     addedAt: "2026-05-23",
     sourceUrl: "https://docs.anthropic.com/en/api/messages",
   },
-  // ─────────── 2. Claude（同 Anthropic 的别名 provider 值） ───────────
+  // ─────────── 3. Claude 别名 + 4.5+（native structured outputs） ───────────
+  {
+    provider: "claude",
+    modelPattern: /(?:opus|sonnet|haiku)-4-[5-9]/,
+    capabilities: {
+      structuredOutput: {
+        nativeMode: "anthropic_output_config",
+        fallbackChain: ["tool_use"],
+      },
+      toolUse: { mode: "anthropic_tools", parallelCalls: true },
+      reasoning: { kind: "extended_thinking", exposeContent: "thinking_block" },
+      temperature: { support: "full" },
+      tokenParam: "max_tokens",
+      vision: { support: "image_url" },
+      streaming: { support: true },
+      systemPrompt: { placement: "top_level_system_field" },
+      promptCache: { support: "anthropic_cache_control" },
+    },
+    rationale:
+      "Provider 字段写作 'claude' 的 Claude 4.5+ 模型与 anthropic 同 API 同能力——native structured outputs(output_config.format) GA；与上面 anthropic 4.5+ 条目保持一致，避免别名路径回落到旧 tool_use。降级链 native→tool_use→prompt。",
+    addedBy: "hello.junjie.duan@gmail.com",
+    addedAt: "2026-05-25",
+    sourceUrl:
+      "https://platform.claude.com/docs/en/build-with-claude/structured-outputs",
+  },
+  // ─────────── 4. Claude 别名（旧模型兜底：3.x / 4.0-4.4 走 tool_use） ───────────
   {
     provider: "claude",
     capabilities: {
@@ -586,4 +636,4 @@ export const SAFE_DEFAULTS: ModelCapabilities = {
  *   - 仅整型单调递增，不跳号
  *   - probe daemon 首次见到 Redis 缺失时初始化为当前代码版本（不触发批量 reset）
  */
-export const CATALOG_VERSION = 1;
+export const CATALOG_VERSION = 2;

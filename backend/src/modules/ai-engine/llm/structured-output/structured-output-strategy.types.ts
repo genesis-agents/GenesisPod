@@ -15,6 +15,7 @@ export const STRUCTURED_OUTPUT_STRATEGIES = [
   "json_schema_strict", // OpenAI strict mode / Grok strict
   "json_schema", // OpenAI/Grok json_schema 但非 strict / DeepSeek-chat
   "tool_use", // Anthropic Tools API（function_calling 约束）
+  "anthropic_output_config", // Anthropic native structured outputs（output_config.format，GA 2026）
   "json_mode", // response_format: { type: "json_object" }
   "gemini_response_schema", // Gemini generationConfig.responseSchema + responseMimeType
   "gbnf_grammar", // Llama.cpp / vLLM GBNF（开源本地模型）

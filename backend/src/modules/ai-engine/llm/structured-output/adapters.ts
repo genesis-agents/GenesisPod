@@ -1,5 +1,5 @@
 /**
- * 8 个 Structured Output Strategy 的 adapter 实现
+ * 9 个 Structured Output Strategy 的 adapter 实现
  *
  * 每个 adapter 实现 IStructuredOutputAdapter，按 strategy 分支构造 LLM 请求 +
  * 解析响应。所有 adapter 都是纯函数（无 DI），由 StructuredOutputRouter 选用。
@@ -142,6 +142,33 @@ export class AnthropicToolUseAdapter implements IStructuredOutputAdapter {
       return { json: toolUseBlock.input };
     }
     // 否则尝试从 rawContent 兜底（caller 把 tool_use 序列化成 string 传过来）
+    const json = extractJson(rawContent);
+    return json == null ? null : { json };
+  }
+}
+
+// ============================================================================
+// Anthropic Claude: native structured outputs（output_config.format，GA 2026-05）
+// schema 编译成 grammar 约束 token 生成，保证首次即合规；JSON 直出在 text block。
+// ============================================================================
+export class AnthropicOutputConfigAdapter implements IStructuredOutputAdapter {
+  readonly strategy: StructuredOutputStrategy = "anthropic_output_config";
+
+  adapt(input: AdaptInput): AdaptOutput {
+    return {
+      requestBodyPatch: {
+        output_config: {
+          format: {
+            type: "json_schema",
+            schema: input.jsonSchema,
+          },
+        },
+      },
+    };
+  }
+
+  postParse({ rawContent }: PostParseInput): PostParseOutput | null {
+    // native 模式 JSON 直出在普通 text block，extractJson 兜底 markdown 包裹。
     const json = extractJson(rawContent);
     return json == null ? null : { json };
   }

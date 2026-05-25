@@ -10,6 +10,7 @@
  */
 
 import {
+  AnthropicOutputConfigAdapter,
   AnthropicToolUseAdapter,
   GbnfGrammarAdapter,
   GeminiResponseSchemaAdapter,
@@ -118,6 +119,46 @@ describe("AnthropicToolUseAdapter", () => {
   it("postParse falls back to rawContent JSON when no tool_use block", () => {
     const out = adapter.postParse({ rawContent: VALID_RESPONSE });
     expect(out?.json).toEqual({ title: "hello", score: 0.9 });
+  });
+});
+
+describe("AnthropicOutputConfigAdapter (native structured outputs, GA 2026)", () => {
+  const adapter = new AnthropicOutputConfigAdapter();
+
+  it("adapt() emits output_config.format with type=json_schema + schema", () => {
+    const out = adapter.adapt({
+      jsonSchema: SAMPLE_SCHEMA,
+      schemaName: "result",
+      modelId: "claude-opus-4-7",
+    });
+    expect(out.requestBodyPatch).toEqual({
+      output_config: {
+        format: {
+          type: "json_schema",
+          schema: SAMPLE_SCHEMA,
+        },
+      },
+    });
+    // native 模式不靠 system prompt 哄
+    expect(out.systemPromptAddon).toBeUndefined();
+  });
+
+  it("postParse extracts JSON from text block (native JSON 直出)", () => {
+    expect(adapter.postParse({ rawContent: VALID_RESPONSE })?.json).toEqual({
+      title: "hello",
+      score: 0.9,
+    });
+  });
+
+  it("postParse strips markdown wrapper", () => {
+    expect(adapter.postParse({ rawContent: MARKDOWN_WRAPPED })?.json).toEqual({
+      title: "hello",
+      score: 0.9,
+    });
+  });
+
+  it("postParse returns null on garbage", () => {
+    expect(adapter.postParse({ rawContent: "not json" })).toBeNull();
   });
 });
 
@@ -318,6 +359,44 @@ describe("AiApiCallerService — Anthropic tool_use via router", () => {
       name: "extract_result",
     });
     // postParse: content should be the tool_use input serialised as JSON
+    expect(JSON.parse(result.content)).toEqual({ title: "hi", score: 1 });
+  });
+});
+
+describe("AiApiCallerService — Anthropic native output_config via router", () => {
+  it("callAnthropicAPI sends output_config.format + parses JSON from text block", async () => {
+    const mockPost = jest.fn().mockReturnValue(
+      of({
+        data: {
+          content: [{ type: "text", text: '{"title":"hi","score":1}' }],
+          usage: { input_tokens: 5, output_tokens: 5 },
+          stop_reason: "end_turn",
+        },
+      }),
+    );
+    const caller = new AiApiCallerService(makeHttpService(mockPost));
+    const result = await caller.callAnthropicAPI(
+      "https://api.anthropic.com/v1/messages",
+      "sk-ant-test",
+      "claude-opus-4-7",
+      BASE_MESSAGES,
+      1000,
+      0.0,
+      30000,
+      undefined,
+      undefined,
+      undefined,
+      "anthropic_output_config",
+      SAMPLE_SCHEMA,
+      "result",
+    );
+    const body = mockPost.mock.calls[0][1] as Record<string, unknown>;
+    expect(body.output_config).toEqual({
+      format: { type: "json_schema", schema: SAMPLE_SCHEMA },
+    });
+    // native 不写 tools/tool_choice
+    expect(body.tools).toBeUndefined();
+    // postParse: JSON 直出在 text block
     expect(JSON.parse(result.content)).toEqual({ title: "hi", score: 1 });
   });
 });
