@@ -57,6 +57,7 @@ import {
   MissionAbortRegistry,
   MissionAbortReason,
   MissionLifecycleManager,
+  DomainEventBus,
 } from "@/modules/ai-harness/facade";
 import type { PlaygroundTerminalExtra } from "../../mission/lifecycle/mission-store.service";
 // ★ R2-C 单轨化（2026-05-04）：pipeline-v1 现在是唯一 mission 路径。
@@ -78,6 +79,8 @@ export class AgentPlaygroundController extends BaseMissionController {
     private readonly pipelineDispatcher: PlaygroundPipelineDispatcher,
     // ★ C0/G1：取消终态写经 finalize 单入口仲裁，不再直写 store.markCancelled。
     private readonly lifecycleManager: MissionLifecycleManager,
+    // ★ E32 (2026-05-25): runMission 建行前早爆时补发终态事件，防前端死轮询。
+    private readonly eventBus: DomainEventBus,
   ) {
     super(ownership, store);
   }
@@ -215,9 +218,24 @@ export class AgentPlaygroundController extends BaseMissionController {
     void this.pipelineDispatcher
       .runMission(missionId, input, userId)
       .catch((err: unknown) => {
-        this.log.error(
-          `mission ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        const msg = err instanceof Error ? err.message : String(err);
+        this.log.error(`mission ${missionId} failed: ${msg}`);
+        // ★ E32 (2026-05-25): runMission 在建行前/建行时抛（并发上限拒绝、
+        //   openSession 早爆、createMission 失败）时 DB 可能无 row，前端会对
+        //   missionId 永久轮询。补发 mission:failed 终态事件让前端解卡。dispatcher
+        //   已自行处理的常见路径会重复一发，但终态事件幂等无害。
+        void this.eventBus
+          .emit({
+            type: "agent-playground.mission:failed",
+            scope: { missionId, userId },
+            payload: {
+              message: msg,
+              failureCode: "MISSION_START_FAILED",
+              source: "controller",
+            },
+            timestamp: Date.now(),
+          })
+          .catch(() => {});
       });
 
     return { missionId, streamNamespace: "agent-playground" };
