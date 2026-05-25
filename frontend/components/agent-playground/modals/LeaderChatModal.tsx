@@ -26,6 +26,7 @@ import {
   LeaderChatDock,
   type LeaderChatMessage,
 } from '@/components/common/leader-chat';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Props {
   missionId: string;
@@ -59,6 +60,9 @@ export function LeaderChatModal({
   onClose,
   onDimensionsAppended,
 }: Props) {
+  const { user } = useAuth();
+  // 用户消息标签显示真实用户名（与侧边栏一致：fullName → username → 兜底 'User'）
+  const userName = user?.fullName || user?.username || 'User';
   const [messages, setMessages] = useState<LeaderChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -256,6 +260,7 @@ export function LeaderChatModal({
       title="与 Leader 对话"
       subtitle={topic ?? 'Research mission'}
       accentColor="violet"
+      userName={userName}
       renderAssistantHeaderExtra={renderHeaderExtra}
       renderAssistantBodyPrefix={renderBodyPrefix}
       renderAssistantBodyExtra={renderBodyExtra}

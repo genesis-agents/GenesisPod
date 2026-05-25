@@ -351,14 +351,21 @@ describe("LeaderChatService.send", () => {
     expect(eventBus.emit).toHaveBeenCalled();
   });
 
-  // ★ 全覆盖审计修 (2026-05-06): send() 现在在状态检查阶段就拒绝非 running/starting
-  //   原测试"not running 时不追加 dim"改为验证 BadRequestException
-  it("throws BadRequestException when mission is not running (e.g. completed)", async () => {
-    const { service, store } = buildService();
+  // ★ 2026-05-25：completed mission 现在允许对话（跑完后追问报告）；CREATE_TODO 类
+  //   决策由下游优雅降级（不追加 + 提示），不再在状态检查阶段硬拒 400。
+  it("allows chat on completed mission and gracefully declines todo append", async () => {
+    const { service, prisma, chat, store } = buildService();
+    prisma.agentPlaygroundLeaderChat.findMany.mockResolvedValue([]);
     store.getById.mockResolvedValue(makeMission({ status: "completed" }));
-    await expect(service.send("m-1", "u-1", "add a dimension")).rejects.toThrow(
-      "mission not in running state",
-    );
+    chat.chat.mockResolvedValue({
+      content:
+        '{"decisionType":"CREATE_TODO","response":"Added dim","todo":[{"name":"NewDim","rationale":"why"}]}',
+      usage: { totalTokens: 100 },
+    });
+    const result = await service.send("m-1", "u-1", "add a dimension");
+    expect(store.appendDimensions).not.toHaveBeenCalled();
+    expect(result.appendedDimensionIds).toBeUndefined();
+    expect(result.assistant.content).toContain("不会自动并入本次运行");
   });
 
   it("does NOT append dimensions after S3 has already dispatched research", async () => {

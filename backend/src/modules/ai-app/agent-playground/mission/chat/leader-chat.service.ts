@@ -140,18 +140,13 @@ export class LeaderChatService {
       throw new Error("Message content cannot be empty");
     }
 
-    // ★ 全覆盖审计修 (2026-05-06): 先 fetch mission，拒绝非运行中的 chat（防止向已完成/失败的 mission 发消息）
+    // ★ 2026-05-25：允许与任意已存在 mission 的 Leader 对话（含已完成/失败/取消）。
+    //   用户常在 mission 跑完后追问报告——原先硬限 running/starting 会让完成后对话 400。
+    //   仅"追加研究方向(CREATE_TODO)"需要 running，已由下游 canAppendToCurrentRun 优雅
+    //   降级提示（"mission 已不在运行中…不会自动并入本次运行"），不在此处硬拒。
     const missionCheck = await this.store.getById(missionId, userId);
     if (!missionCheck) {
       throw new BadRequestException(`mission ${missionId} not found`);
-    }
-    if (
-      missionCheck.status !== "running" &&
-      missionCheck.status !== "starting"
-    ) {
-      throw new BadRequestException(
-        `mission not in running state (current: ${missionCheck.status})`,
-      );
     }
 
     // 1) 持久化用户消息
