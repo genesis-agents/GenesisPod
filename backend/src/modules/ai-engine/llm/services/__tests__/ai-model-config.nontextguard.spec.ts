@@ -14,6 +14,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
 import { UserModelConfigsService } from "@/modules/ai-infra/credentials/user-model-configs/user-model-configs.service";
+import { RequestContext } from "@/common/context/request-context";
 import { AIModelType } from "@prisma/client";
 
 // ─── shared helper ───────────────────────────────────────────────────────────
@@ -70,7 +71,10 @@ function makeAdminModel(overrides: Partial<Record<string, unknown>> = {}) {
 describe("AiModelConfigService – non-text-model guard (FIX 2)", () => {
   let service: AiModelConfigService;
   let prisma: jest.Mocked<
-    Pick<PrismaService, "aIModel" | "userModelConfig" | "userApiKey" | "keyAssignment">
+    Pick<
+      PrismaService,
+      "aIModel" | "userModelConfig" | "userApiKey" | "keyAssignment"
+    >
   >;
   let userApiKeysService: jest.Mocked<UserApiKeysService>;
 
@@ -122,11 +126,22 @@ describe("AiModelConfigService – non-text-model guard (FIX 2)", () => {
     service = module.get<AiModelConfigService>(AiModelConfigService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+  });
 
-  // ─── no userId context (admin path) ────────────────────────────────────────
+  // ─── BYOK user path (with userId) ──────────────────────────────────────────
+  // 2026-05-25 严格 BYOK 收口后，无 userId 的 admin 兜底路径已删（返回 []）。
+  // FIX 2 非文本模型守卫现仅作用于 with-userId 的 UserModelConfig 选择路径，
+  // 这里相应改为带 userId 上下文验证守卫仍生效。
+  describe("BYOK user path (with userId)", () => {
+    const USER_ID = "user-byok-1";
 
-  describe("admin path (no userId context)", () => {
+    beforeEach(() => {
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue(USER_ID);
+    });
+
     it("excludes grok-imagine-image from CHAT results even when modelType=CHAT in DB", async () => {
       const imagineModel = makeAdminModel({
         id: "img-model",
@@ -137,14 +152,11 @@ describe("AiModelConfigService – non-text-model guard (FIX 2)", () => {
       });
       const chatModel = makeAdminModel({ id: "chat-model" });
 
-      (prisma.aIModel.findMany as jest.Mock).mockResolvedValueOnce([
+      (prisma.userModelConfig.count as jest.Mock).mockResolvedValue(2);
+      (prisma.userModelConfig.findMany as jest.Mock).mockResolvedValue([
         chatModel,
         imagineModel,
       ]);
-      // No userId → userModelConfig.count not called in this path
-      (prisma.userModelConfig as unknown as { count: jest.Mock }).count = jest
-        .fn()
-        .mockResolvedValue(0);
 
       const results = await service.getAllEnabledModelsByType(AIModelType.CHAT);
 
@@ -162,7 +174,8 @@ describe("AiModelConfigService – non-text-model guard (FIX 2)", () => {
         modelType: "IMAGE_GENERATION" as AIModelType,
       });
 
-      (prisma.aIModel.findMany as jest.Mock).mockResolvedValueOnce([
+      (prisma.userModelConfig.count as jest.Mock).mockResolvedValue(1);
+      (prisma.userModelConfig.findMany as jest.Mock).mockResolvedValue([
         imagineModel,
       ]);
 
@@ -191,7 +204,8 @@ describe("AiModelConfigService – non-text-model guard (FIX 2)", () => {
       });
       const realChat = makeAdminModel({ id: "chat-1" });
 
-      (prisma.aIModel.findMany as jest.Mock).mockResolvedValueOnce([
+      (prisma.userModelConfig.count as jest.Mock).mockResolvedValue(3);
+      (prisma.userModelConfig.findMany as jest.Mock).mockResolvedValue([
         realChat,
         dalleModel,
         fluxModel,
@@ -202,6 +216,17 @@ describe("AiModelConfigService – non-text-model guard (FIX 2)", () => {
       expect(ids).toContain("gpt-4o");
       expect(ids).not.toContain("dall-e-3");
       expect(ids).not.toContain("flux-schnell");
+    });
+
+    it("returns [] with no userId — strict BYOK, NO admin fallback", async () => {
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
+      (prisma.aIModel.findMany as jest.Mock).mockResolvedValue([
+        makeAdminModel({ id: "chat-model" }),
+      ]);
+
+      const results = await service.getAllEnabledModelsByType(AIModelType.CHAT);
+
+      expect(results).toHaveLength(0);
     });
   });
 });
