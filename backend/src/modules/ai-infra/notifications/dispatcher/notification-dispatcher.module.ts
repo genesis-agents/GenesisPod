@@ -12,6 +12,7 @@ import { NotificationPreferenceService } from "./preferences/notification-prefer
 import { RadarMissionCompletePreset } from "./presets/radar-mission-complete.preset";
 import { FeedbackStatusUpdatePreset } from "./presets/feedback-status-update.preset";
 import { MissionCompletionPreset } from "./presets/mission-completion.preset";
+import { MissionFailedPreset } from "./presets/mission-failed.preset";
 import { RadarDailyBriefingEmailPreset } from "./presets/radar-daily-briefing-email.preset";
 import { RadarWeeklyBriefingEmailPreset } from "./presets/radar-weekly-briefing-email.preset";
 import { UnsubscribeTokenService } from "./preferences/unsubscribe-token.service";
@@ -63,6 +64,7 @@ import { UnsubscribeController } from "./unsubscribe.controller";
     RadarMissionCompletePreset,
     FeedbackStatusUpdatePreset,
     MissionCompletionPreset,
+    MissionFailedPreset,
     RadarDailyBriefingEmailPreset,
     RadarWeeklyBriefingEmailPreset,
   ],
@@ -73,6 +75,7 @@ import { UnsubscribeController } from "./unsubscribe.controller";
     RadarMissionCompletePreset,
     FeedbackStatusUpdatePreset,
     MissionCompletionPreset,
+    MissionFailedPreset,
     RadarDailyBriefingEmailPreset,
     RadarWeeklyBriefingEmailPreset,
   ],

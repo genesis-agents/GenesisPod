@@ -64,6 +64,7 @@ export {
 export { RadarMissionCompletePreset } from "../notifications/dispatcher/presets/radar-mission-complete.preset";
 export { FeedbackStatusUpdatePreset } from "../notifications/dispatcher/presets/feedback-status-update.preset";
 export { MissionCompletionPreset } from "../notifications/dispatcher/presets/mission-completion.preset";
+export { MissionFailedPreset } from "../notifications/dispatcher/presets/mission-failed.preset";
 
 // ─── Settings ───
 export { SettingsService } from "../settings/settings.service";

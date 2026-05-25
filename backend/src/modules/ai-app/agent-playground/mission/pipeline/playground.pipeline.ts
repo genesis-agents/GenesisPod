@@ -22,7 +22,7 @@
  *                         runBudgetEstimateStage（其余 13 step 仍 NotYetWired）
  *   - R2-A.4 ~ R2-A.13: s2-s12 hook 逐 stage 实装
  */
-import { Injectable, OnModuleInit } from "@nestjs/common";
+import { Injectable, OnModuleInit, Optional } from "@nestjs/common";
 import {
   BusinessTeamMissionDispatcherFramework,
   DomainEventBus,
@@ -48,6 +48,7 @@ import { type RunMissionInput } from "../../api/dto/run-mission.dto";
 //   只保留 runtime-glue 必要的 runSelfEvolutionStage (S12 fire-and-forget postlude)。
 import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
 import { MissionCheckpointService } from "@/modules/ai-harness/facade";
+import { MissionFailedPreset } from "@/modules/ai-infra/facade";
 import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { AgentInvoker, LeaderService, type SupervisedMission } from "../roles";
@@ -130,6 +131,9 @@ export class PlaygroundPipelineDispatcher
     private readonly lifecycleManager: MissionLifecycleManager,
     // ★ R2-#38: OTel span service (optional — gracefully absent if tracer not configured)
     private readonly missionSpan: PlaygroundMissionSpanService,
+    // ★ e2e P0-#5: mission 失败通知（email + site）。@Optional — NotificationDispatcherModule
+    //   未装配时优雅缺省（不发通知，不影响 mission 失败处理）。
+    @Optional() private readonly missionFailedPreset?: MissionFailedPreset,
   ) {
     // 2026-05-24 P4: framework 提供 emitToBus + bridgeOrchestratorStageEvent
     //   通用 mechanism；本 dispatcher 仅注入 playground 专属事件 type 字符串。
@@ -873,6 +877,25 @@ export class PlaygroundPipelineDispatcher
           },
         },
         arbiter: this.store,
+        // ★ e2e P0-#5: 仅在本 finalize 真正赢得终态写(running→failed)时发失败通知,
+        //   保证恰好一次(已被 liveness/cancel 抢先终态则不重发)。user_cancelled 在
+        //   上方 wasUserCancelled 已 return,不会走到这里。fire-and-forget。
+        onWon: async () => {
+          await this.missionFailedPreset
+            ?.notify({
+              userId,
+              missionId,
+              missionTitle: entry?.input.topic ?? "Mission",
+              missionUrl: `/agent-playground/team/${missionId}`,
+              reason: displayMessage,
+              failureCode: missionFailureCode,
+            })
+            .catch((notifyErr: unknown) => {
+              this.log.warn(
+                `[handleMissionFailure ${missionId}] mission-failed notify failed (non-fatal): ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`,
+              );
+            });
+        },
       })
       .catch((dbErr) => {
         this.log.error(

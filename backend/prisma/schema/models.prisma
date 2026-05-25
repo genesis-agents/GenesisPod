@@ -8416,6 +8416,7 @@ enum NotificationType {
   // 研究/任务通知
   RESEARCH_COMPLETED // 研究任务完成（topic-insights / Deep Research）
   MISSION_COMPLETED // Agent Playground mission 完成
+  MISSION_FAILED // Agent Playground mission 失败（e2e P0-#5：UI 关了也能收到失败通知）
   WRITING_COMPLETED // AI Writing 章节/全文完成
   OFFICE_COMPLETED // AI Office (Slides/Doc) 生成完成
   TASK_ASSIGNED // 任务分配

@@ -80,6 +80,8 @@ import {
   StewardService,
 } from "../mission/roles";
 import { CreditsModule } from "../../../ai-infra/credits/credits.module";
+// e2e P0-#5: 提供 MissionFailedPreset（mission 失败通知，dispatcher @Optional 注入）
+import { NotificationDispatcherModule } from "../../../ai-infra/notifications/dispatcher/notification-dispatcher.module";
 import {
   DomainEventBus,
   DomainEventRegistry,
@@ -111,6 +113,7 @@ import {
 @Module({
   imports: [
     CreditsModule,
+    NotificationDispatcherModule,
     ConfigModule.forFeature(playgroundRuntimeConfig),
     JwtModule.registerAsync({
       imports: [ConfigModule],

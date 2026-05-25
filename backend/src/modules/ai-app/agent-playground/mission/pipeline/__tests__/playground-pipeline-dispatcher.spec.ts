@@ -893,6 +893,10 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
         startStageSpan: jest.fn(),
         endStageSpan: jest.fn(),
       };
+      // ★ e2e P0-#5: mission 失败通知 preset（@Optional 第 16 参）
+      const localFailedPreset = {
+        notify: jest.fn().mockResolvedValue(undefined),
+      };
       const d = new PlaygroundPipelineDispatcher(
         reg,
         orch,
@@ -909,9 +913,14 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
         businessOrch,
         fakeLifecycleManager as never,
         noopMissionSpan as never,
+        localFailedPreset as never,
       );
       d.onModuleInit();
-      return { dispatcher: d, invoker: localInvoker };
+      return {
+        dispatcher: d,
+        invoker: localInvoker,
+        failedPreset: localFailedPreset,
+      };
     }
 
     const RUN_INPUT = {
@@ -931,8 +940,11 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
 
     it("abort reason=user_cancelled → handleMissionFailure returns early, mission:failed NOT emitted", async () => {
       // Arrange
-      const { dispatcher: d, invoker: inv } =
-        makeDispatcherWithAbortedSession("user_cancelled");
+      const {
+        dispatcher: d,
+        invoker: inv,
+        failedPreset,
+      } = makeDispatcherWithAbortedSession("user_cancelled");
 
       // Act
       const result = await d.runMission("m-abort-test", RUN_INPUT, "u1");
@@ -946,12 +958,17 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
           (c[0] as { type: string }).type === "agent-playground.mission:failed",
       );
       expect(failedEmit).toBeUndefined();
+      // ★ e2e P0-#5: 用户主动取消不应发"失败"通知（他自己取消的）
+      expect(failedPreset.notify).not.toHaveBeenCalled();
     });
 
     it("abort reason=budget_exhausted → failureCode===BUDGET_EXHAUSTED and mission:failed IS emitted", async () => {
       // Arrange
-      const { dispatcher: d, invoker: inv } =
-        makeDispatcherWithAbortedSession("budget_exhausted");
+      const {
+        dispatcher: d,
+        invoker: inv,
+        failedPreset,
+      } = makeDispatcherWithAbortedSession("budget_exhausted");
 
       // Act
       await d.runMission("m-abort-test", RUN_INPUT, "u1");
@@ -967,6 +984,15 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
         (failedEmit![0] as { payload: { failureCode: string } }).payload
           .failureCode,
       ).toBe("BUDGET_EXHAUSTED");
+      // ★ e2e P0-#5: 非用户取消的失败 → finalize onWon 发 MISSION_FAILED 通知（恰好一次）
+      expect(failedPreset.notify).toHaveBeenCalledTimes(1);
+      expect(failedPreset.notify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "u1",
+          missionId: "m-abort-test",
+          failureCode: "BUDGET_EXHAUSTED",
+        }),
+      );
     });
 
     it("abort reason=mission_wall_time_exceeded → failureCode===RUNNER_WALL_TIME_EXCEEDED and mission:failed IS emitted", async () => {
