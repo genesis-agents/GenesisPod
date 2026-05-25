@@ -174,7 +174,7 @@ describe("P0-B — MissionLivenessGuard staleThresholdMs >= 15 min in playground
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const {
       loadPlaygroundRuntimeConfig,
-    } = require("../../modules/ai-app/agent-playground/playground-runtime.config");
+    } = require("../../modules/ai-app/agent-playground/runtime/playground-runtime.config");
     const cfg = loadPlaygroundRuntimeConfig({}) as {
       staleThresholdMin: number;
     };
@@ -194,7 +194,7 @@ describe("P0-B — MissionLivenessGuard staleThresholdMs >= 15 min in playground
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const {
       loadPlaygroundRuntimeConfig,
-    } = require("../../modules/ai-app/agent-playground/playground-runtime.config");
+    } = require("../../modules/ai-app/agent-playground/runtime/playground-runtime.config");
     const cfg = loadPlaygroundRuntimeConfig({}) as {
       staleThresholdMin: number;
       softWarnThresholdMin: number;

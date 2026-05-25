@@ -12,7 +12,7 @@
 import {
   loadPlaygroundRuntimeConfig,
   PlaygroundRuntimeConfigSchema,
-} from "../playground-runtime.config";
+} from "../runtime/playground-runtime.config";
 
 describe("playground-runtime.config", () => {
   describe("defaults", () => {

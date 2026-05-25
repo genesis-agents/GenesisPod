@@ -8,12 +8,12 @@
 import {
   loadPlaygroundRuntimeConfig,
   loadPlaygroundRuntimeConfigWithProfile,
-} from "../playground-runtime.config";
+} from "../runtime/playground-runtime.config";
 import {
   parsePlaygroundTuningProfile,
   PLAYGROUND_TUNING_PROFILES,
   getProfileOverrides,
-} from "../playground-tuning-profile";
+} from "../runtime/playground-tuning-profile";
 
 describe("playground-tuning-profile", () => {
   describe("parsePlaygroundTuningProfile", () => {
