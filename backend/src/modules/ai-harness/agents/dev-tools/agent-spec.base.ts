@@ -136,6 +136,17 @@ export interface DefineAgentOptions<
    * and reference it here. Do NOT inline ad-hoc objects.
    */
   readonly outputJsonSchema?: Readonly<Record<string, unknown>>;
+
+  /**
+   * P1a/P1b (2026-05-25) — delimited finalize transport hints (env-gated by
+   * ENABLE_DELIMITED_FINALIZE). `finalizeProseFields`: finalize-output fields
+   * holding LONG free-text (e.g. ["body"] / ["summary"]); `finalizeNdjsonArrayField`:
+   * an array field to emit one-object-per-line (e.g. "findings"). When enabled,
+   * the loop tells best-effort models (DeepSeek json_object etc.) to emit those
+   * OUTSIDE the JSON envelope so unescaped quotes / long prose can't break finalize.
+   */
+  readonly finalizeProseFields?: readonly string[];
+  readonly finalizeNdjsonArrayField?: string;
 }
 
 const META_KEY = Symbol.for("genesis.harness.dx.AgentSpecMeta");

@@ -1458,6 +1458,9 @@ export class AgentRunner {
       taskProfile: meta.taskProfile,
       outputSchema: meta.outputSchema,
       outputJsonSchema: meta.outputJsonSchema,
+      // P1a/P1b: delimited finalize transport hints (env-gated).
+      finalizeProseFields: meta.finalizeProseFields,
+      finalizeNdjsonArrayField: meta.finalizeNdjsonArrayField,
       validateBusinessRules: validateFn,
       stubFn,
       buildSystemPrompt: buildSystemPromptFn,
