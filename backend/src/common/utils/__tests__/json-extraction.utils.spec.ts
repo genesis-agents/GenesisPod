@@ -8,6 +8,7 @@
 import {
   extractJsonFromAIResponse,
   normalizeJson5,
+  repairUnescapedQuotesInStrings,
   stripReasoningBlocks,
   tryRepairTruncatedJsonWithMeta,
 } from "../json-extraction.utils";
@@ -785,9 +786,7 @@ This contains the requested information.`;
     });
 
     it("handles nested objects and arrays with unquoted keys", () => {
-      const out = normalizeJson5(
-        '{a:{b:[{c:"d"}]},e:"f"}',
-      );
+      const out = normalizeJson5('{a:{b:[{c:"d"}]},e:"f"}');
       expect(JSON.parse(out)).toEqual({ a: { b: [{ c: "d" }] }, e: "f" });
     });
   });
@@ -813,7 +812,8 @@ This contains the requested information.`;
     });
 
     it("parses unquoted-key JSON wrapped in a markdown fence", () => {
-      const content = '```json\n{action:"finalize",output:{summary:"done"}}\n```';
+      const content =
+        '```json\n{action:"finalize",output:{summary:"done"}}\n```';
       const result = extractJsonFromAIResponse<{ action: string }>(content, {
         requiredKey: "action",
       });
@@ -841,6 +841,70 @@ This contains the requested information.`;
       });
       expect(result.success).toBe(true);
       expect(result.data?.kind).toBe("tool_call");
+    });
+  });
+
+  // ★ 2026-05-25: unescaped inner double-quotes in long prose `body` (deepseek
+  //   thinking models write ASCII quotes for emphasis without escaping).
+  describe("repairUnescapedQuotesInStrings", () => {
+    it("escapes stray inner quotes in a value (Chinese emphasis quotes)", () => {
+      const broken =
+        '{"body":"不再只是"跑得快"的引擎，更需成为"可信任"的基座"}';
+      const repaired = repairUnescapedQuotesInStrings(broken);
+      const parsed = JSON.parse(repaired) as { body: string };
+      expect(parsed.body).toContain('"跑得快"');
+      expect(parsed.body).toContain('"可信任"');
+    });
+
+    it("keeps genuine structural quotes (followed by , } ] :)", () => {
+      const ok = '{"a":"x","b":"y"}';
+      expect(repairUnescapedQuotesInStrings(ok)).toBe(ok);
+      expect(JSON.parse(repairUnescapedQuotesInStrings(ok))).toEqual({
+        a: "x",
+        b: "y",
+      });
+    });
+
+    it("preserves already-escaped quotes", () => {
+      const ok = '{"body":"he said \\"hi\\" loudly"}';
+      const parsed = JSON.parse(repairUnescapedQuotesInStrings(ok)) as {
+        body: string;
+      };
+      expect(parsed.body).toBe('he said "hi" loudly');
+    });
+
+    it("drops trailing chatter after the top-level object", () => {
+      const withJunk = '{"a":"b"} 这是模型多嘴的解释';
+      expect(repairUnescapedQuotesInStrings(withJunk)).toBe('{"a":"b"}');
+    });
+  });
+
+  describe("extractJsonFromAIResponse — unescaped-quote recovery (Method 9)", () => {
+    it("recovers a finalize envelope whose body has stray inner quotes", () => {
+      const content =
+        '{"thinking":"分析","action":{"kind":"finalize","output":' +
+        '{"index":4,"heading":"未来","body":"不再只是"跑得快"的引擎[1]。"}}}';
+      const result = extractJsonFromAIResponse<{
+        action: { kind: string; output: { body: string } };
+      }>(content);
+      expect(result.success).toBe(true);
+      expect(result.method).toContain("quoteRepair");
+      expect(result.data?.action.kind).toBe("finalize");
+      expect(result.data?.action.output.body).toContain("跑得快");
+    });
+
+    it("recovers the envelope when body has stray quotes AND is truncated mid-string", () => {
+      // closing of body/output/action/root all missing + inner stray quotes
+      const content =
+        '{"thinking":"x","action":{"kind":"finalize","output":' +
+        '{"index":5,"body":"集中在"硅谷"、"纽约"，知识转移高效，但内容被截断';
+      const result = extractJsonFromAIResponse<{
+        action: { kind: string };
+      }>(content);
+      // recovered by whatever repair path wins (truncation and/or quote repair) —
+      // the point is the envelope is salvaged instead of a hard parse failure.
+      expect(result.success).toBe(true);
+      expect(result.data?.action.kind).toBe("finalize");
     });
   });
 });

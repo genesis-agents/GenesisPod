@@ -259,6 +259,39 @@ export function extractJsonFromAIResponse<T = unknown>(
     }
   }
 
+  // Method 9: repair unescaped inner double-quotes in string values.
+  // Dominant LLM failure for long prose `body` fields (e.g. 不再只是"跑得快"的引擎).
+  // Last resort — only reached when every structural method above already failed.
+  {
+    const quoteRepaired = repairUnescapedQuotesInStrings(content);
+    if (quoteRepaired && quoteRepaired !== content) {
+      // direct parse
+      try {
+        const parsed = JSON.parse(quoteRepaired) as T;
+        if (!requiredKey || hasKey(parsed, requiredKey)) {
+          return { success: true, data: parsed, method: "quoteRepair" };
+        }
+      } catch {
+        // combine with truncation repair (body cut off mid-string)
+        const repaired = tryRepairTruncatedJson(quoteRepaired);
+        if (repaired) {
+          try {
+            const parsed = JSON.parse(repaired) as T;
+            if (!requiredKey || hasKey(parsed, requiredKey)) {
+              return {
+                success: true,
+                data: parsed,
+                method: "quoteRepair+truncation",
+              };
+            }
+          } catch {
+            // fall through to failure
+          }
+        }
+      }
+    }
+  }
+
   // All methods failed
   const preview = content.substring(0, errorPreviewLength);
   return {
@@ -349,7 +382,9 @@ export function normalizeJson5(input: string): string {
     // unquoted key in key position → quote it
     if (
       /[A-Za-z_$]/.test(ch) &&
-      (prevSignificant === "{" || prevSignificant === "," || prevSignificant === "")
+      (prevSignificant === "{" ||
+        prevSignificant === "," ||
+        prevSignificant === "")
     ) {
       let j = i;
       let ident = "";
@@ -609,6 +644,83 @@ function tryRepairTruncatedJson(content: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Repair unescaped double-quotes that appear INSIDE JSON string values.
+ *
+ * LLMs (esp. reasoning models writing long prose into a `body` field) routinely
+ * emit ASCII `"` for emphasis / quoted phrases inside a string value without
+ * escaping them, e.g. `{"body":"不再只是"跑得快"的引擎"}` — which breaks
+ * `JSON.parse` (the inner `"` prematurely closes the string). Every other method
+ * in {@link extractJsonFromAIResponse} fails on this because the input IS valid-
+ * looking JSON apart from the stray quotes.
+ *
+ * Heuristic (quote-aware single pass from the first `{`):
+ *   - Track in-string state + brace/bracket depth (outside strings).
+ *   - A `"` while in a string is treated as the CLOSING quote only if the next
+ *     non-whitespace char is a structural token (`,` `}` `]` `:`) or EOF;
+ *     otherwise it is an unescaped inner quote → escaped to `\"`.
+ *   - Stops at the matching close of the top-level object (drops trailing chatter).
+ *   - Already-escaped `\"` pairs are passed through verbatim.
+ *
+ * Returns the repaired substring (from the first `{`). Truncated input (string
+ * never closes) is returned as-is so {@link tryRepairTruncatedJson} can finish it.
+ * Exported for unit testing.
+ */
+export function repairUnescapedQuotesInStrings(content: string): string {
+  const start = content.indexOf("{");
+  if (start < 0) return content;
+  const s = content.slice(start);
+  const STRUCTURAL = new Set([",", "}", "]", ":"]);
+  let out = "";
+  let inString = false;
+  let depth = 0;
+
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+
+    if (!inString) {
+      out += ch;
+      if (ch === '"') {
+        inString = true;
+      } else if (ch === "{" || ch === "[") {
+        depth++;
+      } else if (ch === "}" || ch === "]") {
+        depth--;
+        if (depth === 0) break; // top-level object closed → drop trailing junk
+      }
+      continue;
+    }
+
+    // inside a string
+    if (ch === "\\") {
+      // escaped pair (\" \\ \n ...): emit both verbatim
+      out += ch;
+      if (i + 1 < s.length) {
+        out += s[i + 1];
+        i++;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      let j = i + 1;
+      while (j < s.length && /\s/.test(s[j])) j++;
+      const next = j < s.length ? s[j] : undefined;
+      if (next === undefined || STRUCTURAL.has(next)) {
+        out += '"'; // genuine closing quote
+        inString = false;
+      } else {
+        out += '\\"'; // stray inner quote → escape it
+      }
+      continue;
+    }
+
+    out += ch;
+  }
+
+  return out;
 }
 
 /**
