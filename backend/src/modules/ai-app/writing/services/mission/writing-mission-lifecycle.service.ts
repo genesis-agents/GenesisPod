@@ -20,12 +20,7 @@ import {
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import {
-  ChatFacade,
-  TeamFacade,
-  TeamRegistry,
-  RoleRegistry,
-} from "@/modules/ai-harness/facade";
+import { ChatFacade, TeamFacade } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
   KernelContext,
@@ -40,14 +35,6 @@ import type {
 } from "./writing-mission.types";
 import type { RoleModelAssignment } from "../task-executors/task-executor.interface";
 import { MISSION_TYPE_DB_MAP, WRITING_DEFAULTS } from "../config";
-
-import {
-  StoryArchitectAgent,
-  BibleKeeperAgent,
-  WriterAgent,
-  ConsistencyCheckerAgent,
-  EditorAgent,
-} from "../../agents";
 
 // Forward reference to avoid circular dependency
 import type { WritingMissionExecutionService } from "./writing-mission-execution.service";
@@ -75,19 +62,14 @@ export class WritingMissionLifecycleService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly teamRegistry: TeamRegistry,
-    private readonly roleRegistry: RoleRegistry,
     private readonly chatFacade: ChatFacade,
     private readonly teamFacade: TeamFacade,
-    private readonly storyArchitect: StoryArchitectAgent,
-    private readonly bibleKeeper: BibleKeeperAgent,
-    private readonly writer: WriterAgent,
-    private readonly consistencyChecker: ConsistencyCheckerAgent,
-    private readonly editor: EditorAgent,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {
-    this.registerWritingRoles();
-    this.registerWritingTeamConfig();
+    // Writing roles + team config 由 WritingAgentCoordinator 统一注册（它先于本
+    // 服务 init、按角色逐个注册）。本服务不再重复注册，因此也无需注入
+    // Role/TeamRegistry 与 5 个 writing agent（原 registerWritingRoles /
+    // registerWritingTeamConfig 已随之删除）。
   }
 
   // Injected after construction to break circular dependency
@@ -859,207 +841,5 @@ export class WritingMissionLifecycleService {
         ),
       );
     this.kernelProcessIds.delete(missionId);
-  }
-
-  // ─── Role/Team Registration ───
-
-  private registerWritingRoles(): void {
-    const mkWork = (
-      depth: "deep" | "standard",
-      out: "detailed" | "balanced",
-      collab: "directive" | "cooperative",
-      risk: "conservative" | "moderate",
-    ) => ({
-      thinkingDepth: depth,
-      outputStyle: out,
-      collaborationStyle: collab,
-      riskTolerance: risk,
-    });
-
-    const roles = [
-      {
-        id: "story-architect",
-        name: "Story Architect",
-        desc: "故事架构师，负责整体规划和协调",
-        type: "leader" as const,
-        skills: ["story-planning", "outline-generation"],
-        tools: ["text-generation"],
-        optTools: ["task-delegation"],
-        resp: ["整体规划", "任务分配", "质量审核"],
-        work: mkWork("deep", "detailed", "directive", "conservative"),
-        prompt: this.storyArchitect.description,
-      },
-      {
-        id: "bible-keeper",
-        name: "Bible Keeper",
-        desc: "Story Bible 守护者，维护设定一致性",
-        type: "member" as const,
-        skills: ["setting-validation", "fact-extraction"],
-        tools: ["rag-search"],
-        optTools: ["knowledge-graph"],
-        resp: ["设定查询", "一致性验证", "事实提取"],
-        work: mkWork("standard", "balanced", "cooperative", "moderate"),
-        prompt: this.bibleKeeper.description,
-      },
-      {
-        id: "writer",
-        name: "Writer",
-        desc: "专业写作 Agent，执行章节创作",
-        type: "member" as const,
-        skills: ["creative-writing", "dialogue-writing"],
-        tools: ["text-generation"],
-        optTools: [] as string[],
-        resp: ["章节写作", "对话创作", "场景描写"],
-        work: mkWork("standard", "detailed", "cooperative", "moderate"),
-        prompt: this.writer.description,
-      },
-      {
-        id: "consistency-checker",
-        name: "Consistency Checker",
-        desc: "一致性检查专家",
-        type: "member" as const,
-        skills: ["consistency-check", "fact-verification"],
-        tools: ["data-analysis"],
-        optTools: [] as string[],
-        resp: ["一致性检查", "事实验证", "问题报告"],
-        work: mkWork("deep", "balanced", "cooperative", "conservative"),
-        prompt: this.consistencyChecker.description,
-      },
-      {
-        id: "editor",
-        name: "Editor",
-        desc: "专业编辑，负责修订和润色",
-        type: "member" as const,
-        skills: ["editing", "polishing"],
-        tools: ["text-generation"],
-        optTools: [] as string[],
-        resp: ["文字润色", "问题修复", "风格统一"],
-        work: mkWork("standard", "detailed", "cooperative", "moderate"),
-        prompt: this.editor.description,
-      },
-    ];
-
-    for (const r of roles) {
-      this.roleRegistry.registerFromConfig({
-        id: r.id,
-        name: r.name,
-        description: r.desc,
-        type: r.type,
-        coreSkills: r.skills,
-        optionalSkills: [],
-        coreTools: r.tools,
-        optionalTools: r.optTools,
-        responsibilities: r.resp,
-        limitations: [],
-        defaultWorkStyle: r.work,
-        systemPromptTemplate: r.prompt,
-      });
-    }
-    this.logger.log("Registered 5 Writing roles");
-  }
-
-  private registerWritingTeamConfig(): void {
-    this.teamRegistry.registerConfig({
-      id: "ai-writing-team",
-      name: "AI Writing Team",
-      description: "专业的 AI 写作团队，由 5 个专职 Agent 组成",
-      type: "predefined",
-      leaderRoleId: "story-architect",
-      memberRoles: [
-        { roleId: "bible-keeper", minCount: 1, maxCount: 1, required: true },
-        { roleId: "writer", minCount: 1, maxCount: 3, required: true },
-        {
-          roleId: "consistency-checker",
-          minCount: 1,
-          maxCount: 2,
-          required: true,
-        },
-        { roleId: "editor", minCount: 1, maxCount: 1, required: true },
-      ],
-      workflow: {
-        id: "writing-workflow",
-        name: "写作工作流",
-        type: "sequential",
-        steps: [
-          {
-            id: "plan",
-            name: "规划",
-            description: "分析任务",
-            type: "task",
-            executorRoles: ["story-architect"],
-            dependsOn: [],
-          },
-          {
-            id: "context-injection",
-            name: "上下文注入",
-            description: "Story Bible 设定",
-            type: "task",
-            executorRoles: ["bible-keeper"],
-            dependsOn: ["plan"],
-          },
-          {
-            id: "write",
-            name: "写作",
-            description: "章节写作",
-            type: "task",
-            executorRoles: ["writer"],
-            dependsOn: ["context-injection"],
-          },
-          {
-            id: "check",
-            name: "检查",
-            description: "一致性检查",
-            type: "task",
-            executorRoles: ["consistency-checker"],
-            dependsOn: ["write"],
-          },
-          {
-            id: "edit",
-            name: "编辑",
-            description: "润色修复",
-            type: "task",
-            executorRoles: ["editor"],
-            dependsOn: ["check"],
-          },
-          {
-            id: "review",
-            name: "审核",
-            description: "最终审核",
-            type: "review",
-            executorRoles: ["story-architect"],
-            dependsOn: ["edit"],
-          },
-        ],
-      },
-      availableSkills: ["creative-writing", "consistency-check"],
-      availableTools: ["text-generation", "rag-search"],
-      constraintProfile: {
-        cost: {
-          budget: 1000,
-          modelPreference: "balanced",
-          allowOverBudget: false,
-          warningThreshold: 0.8,
-        },
-        quality: {
-          depth: "comprehensive",
-          accuracy: "prefer_evidence",
-          reviewRequired: true,
-          minReviewScore: 7,
-          maxReworks: 2,
-        },
-        efficiency: {
-          maxDuration: 3600000,
-          priority: "normal",
-          allowParallel: true,
-          maxParallelism: 3,
-        },
-      },
-      deliverableTypes: ["markdown", "chapter-content"],
-      metadata: {
-        tags: ["writing", "creative", "fiction"],
-        category: "content-creation",
-      },
-    });
-    this.logger.log("Registered Writing Team configuration");
   }
 }

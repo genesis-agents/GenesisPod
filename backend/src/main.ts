@@ -3,6 +3,7 @@ import {
   ValidationPipe,
   LogLevel,
   Logger,
+  ConsoleLogger,
   RequestMethod,
 } from "@nestjs/common";
 import helmet from "helmet";
@@ -14,6 +15,33 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { isWorkspaceAiV2Enabled } from "./common/utils/feature-flags";
 import { setupSwagger } from "./common/config/swagger.config";
 import { APP_CONFIG } from "./common/config/app.config";
+
+/**
+ * 启动期 NestJS 内置 RouterExplorer / RoutesResolver / InstanceLoader /
+ * WebSocketsController 会按"每条路由 / 每个依赖 / 每个订阅"打 log 级日志（数百行），
+ * 在 Railway 上瞬时冲爆 500 logs/sec 限速、把真正的业务日志一起丢掉
+ * （"Railway rate limit … Messages dropped"）。这里在 log 级别静默这些框架 context，
+ * warn/error 仍保留，业务自身日志（带各自 context）不受影响。
+ */
+class FrameworkQuietLogger extends ConsoleLogger {
+  private static readonly NOISY_CONTEXTS = new Set([
+    "RouterExplorer",
+    "RoutesResolver",
+    "InstanceLoader",
+    "WebSocketsController",
+  ]);
+
+  log(message: unknown, ...rest: unknown[]): void {
+    const context = rest.length > 0 ? rest[rest.length - 1] : undefined;
+    if (
+      typeof context === "string" &&
+      FrameworkQuietLogger.NOISY_CONTEXTS.has(context)
+    ) {
+      return;
+    }
+    super.log(message as string, ...(rest as [string]));
+  }
+}
 
 /**
  * 验证必需的环境变量
@@ -73,12 +101,14 @@ async function bootstrap() {
     ? ["error", "warn", "log"]
     : ["error", "warn", "log", "debug", "verbose"];
 
-  // ★ 2026-05-05: 启动期 NestJS 内置 RouterExplorer / RoutesResolver /
-  //   InstanceLoader 会按"每条路由 / 每个 Controller / 每个依赖"打 log 级日志，
-  //   prod 里淹没真正的业务日志（数千行噪声）。做法：bootstrap 时关 logger，
-  //   NestFactory.create 跑完后再 useLogger 切回正常级别。
+  // ★ 2026-05-05 / 2026-05-25: 启动期 NestJS 内置 RouterExplorer / RoutesResolver /
+  //   InstanceLoader / WebSocketsController 按"每条路由 / 每个依赖 / 每个订阅"打
+  //   log 级日志（数百行），prod 里淹没业务日志且冲爆 Railway 500 logs/sec 限速丢日志。
+  //   用 FrameworkQuietLogger 在 log 级静默这些框架 context（warn/error 仍保留）。
+  const appLogger = new FrameworkQuietLogger();
+  appLogger.setLogLevels(logLevels);
   const app = await NestFactory.create(AppModule, {
-    logger: logLevels,
+    logger: appLogger,
   });
 
   // ★ E17 (2026-05-25) graceful shutdown：监听 SIGTERM/SIGINT，触发各 provider 的

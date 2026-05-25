@@ -37,8 +37,13 @@ export class MissionOwnershipRegistry {
   private readonly capacity = 5000;
 
   assign(missionId: string, userId: string): void {
-    if (this.byId.has(missionId)) {
-      this.log.warn(`mission ${missionId} already assigned — overwriting`);
+    const existing = this.byId.get(missionId);
+    // 仅在 owner 真正变更时告警（潜在冲突）；同 owner 重复 assign
+    // （如 replay 反复查看同一 mission）是正常路径，不刷 WARN。
+    if (existing && existing.userId !== userId) {
+      this.log.warn(
+        `mission ${missionId} reassigned to a different owner (${existing.userId} → ${userId})`,
+      );
     }
     this.byId.set(missionId, { userId, createdAt: Date.now() });
     this.evictIfNeeded();

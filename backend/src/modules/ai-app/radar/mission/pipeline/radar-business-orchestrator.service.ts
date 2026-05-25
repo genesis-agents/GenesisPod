@@ -55,6 +55,8 @@ const STEP_TO_SKILL_ID: Record<string, string | null> = {
 export class RadarBusinessOrchestrator extends BusinessTeamOrchestratorFramework<RadarMissionContext> {
   protected readonly log = new Logger(RadarBusinessOrchestrator.name);
   private readonly promptCache = new Map<string, string>();
+  /** 已告警过缺失的 skillId，避免每次 mission 重复刷 WARN */
+  private readonly warnedMissingSkill = new Set<string>();
 
   constructor(
     private readonly skillLoader: SkillLoaderService,
@@ -80,17 +82,39 @@ export class RadarBusinessOrchestrator extends BusinessTeamOrchestratorFramework
     for (const [stepId, skillId] of Object.entries(STEP_TO_SKILL_ID)) {
       if (!skillId) continue;
       const skill = await this.skillLoader.getSkillById(skillId);
-      if (!skill) {
-        this.log.warn(
-          `[radar-business-orch] skill "${skillId}" not loaded (stepId=${stepId})`,
-        );
-        continue;
-      }
-      this.promptCache.set(stepId, skill.content);
+      // best-effort 预热：dispatcher 在 onModuleInit 调本方法，而 SkillLoaderService
+      // 是 OnApplicationBootstrap（晚于 module init），启动早期可能尚未加载完。
+      // 此处不告警——运行时 getSystemPrompt 会懒加载兜底，仅在 mission 真正运行
+      // 且 skill 仍缺失时告警一次。
+      if (skill) this.promptCache.set(stepId, skill.content);
     }
     this.log.log(
-      `[radar-business-orch] preloaded ${this.promptCache.size} skill prompts`,
+      `[radar-business-orch] preloaded ${this.promptCache.size} skill prompts (lazy fallback active)`,
     );
+  }
+
+  /**
+   * 运行时取 step 的 systemPrompt：优先缓存，未命中则懒加载并缓存。
+   * 修复启动顺序坑——preload 若在 SkillLoader bootstrap 之前跑会得到空缓存，
+   * 没有这层兜底就会让 radar 的 LLM stage 拿空 prompt 运行（静默劣化）。
+   */
+  private async getSystemPrompt(stepId: string): Promise<string> {
+    const cached = this.promptCache.get(stepId);
+    if (cached !== undefined) return cached;
+    const skillId = STEP_TO_SKILL_ID[stepId];
+    if (!skillId) return ""; // 非 LLM step
+    const skill = await this.skillLoader.getSkillById(skillId);
+    if (!skill) {
+      if (!this.warnedMissingSkill.has(skillId)) {
+        this.warnedMissingSkill.add(skillId);
+        this.log.warn(
+          `[radar-business-orch] skill "${skillId}" still missing at run time (stepId=${stepId})`,
+        );
+      }
+      return "";
+    }
+    this.promptCache.set(stepId, skill.content);
+    return skill.content;
   }
 
   /**
@@ -103,7 +127,7 @@ export class RadarBusinessOrchestrator extends BusinessTeamOrchestratorFramework
     const stage = this.resolveStageClass(stepId);
     if (!stage) return null;
     return async (ctx, args) => {
-      const systemPrompt = this.promptCache.get(stepId) ?? "";
+      const systemPrompt = await this.getSystemPrompt(stepId);
       const stageArgs = args as {
         ctx: StageRunArgs["ctx"];
         previousOutputs: StageRunArgs["previousOutputs"];
