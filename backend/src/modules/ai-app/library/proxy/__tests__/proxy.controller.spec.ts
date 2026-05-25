@@ -333,10 +333,16 @@ describe("ProxyController - PDF Proxy", () => {
   });
 
   describe("proxyImage", () => {
-    const mockResponse = () => ({
-      setHeader: jest.fn(),
-      send: jest.fn(),
-    });
+    const mockResponse = () => {
+      const res = {
+        setHeader: jest.fn(),
+        send: jest.fn(),
+        status: jest.fn(),
+        headersSent: false,
+      };
+      res.status.mockReturnValue(res); // chainable: res.status(200).send(...)
+      return res;
+    };
 
     it("should throw BAD_REQUEST when url is missing", async () => {
       const res = mockResponse();
@@ -406,7 +412,8 @@ describe("ProxyController - PDF Proxy", () => {
       expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/jpeg");
     });
 
-    it("should throw BAD_GATEWAY when direct fetch fails with 403 and FlareSolverr unavailable", async () => {
+    // ★ 2026-05-25: 外部图拉取失败改为返回透明占位图(200)，不再抛 5xx(避免误报告警)。
+    it("serves a transparent placeholder when direct fetch fails with 403 and FlareSolverr unavailable", async () => {
       const fetchError = {
         isAxiosError: true,
         response: { status: 403 },
@@ -416,21 +423,26 @@ describe("ProxyController - PDF Proxy", () => {
       (axios as unknown as Record<string, unknown>).isAxiosError = () => true;
 
       const res = mockResponse();
-      await expect(
-        controller.proxyImage(
-          "https://example.com/protected-image.png",
-          res as never,
-        ),
-      ).rejects.toThrow(HttpException);
+      await controller.proxyImage(
+        "https://example.com/protected-image.png",
+        res as never,
+      );
+      expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/png");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.send).toHaveBeenCalled();
     });
 
-    it("should throw INTERNAL_SERVER_ERROR for non-axios errors", async () => {
+    it("serves a transparent placeholder for non-axios errors (no 5xx)", async () => {
       mockedAxios.get.mockRejectedValueOnce(new Error("Generic network error"));
 
       const res = mockResponse();
-      await expect(
-        controller.proxyImage("https://example.com/image.png", res as never),
-      ).rejects.toThrow(HttpException);
+      await controller.proxyImage(
+        "https://example.com/image.png",
+        res as never,
+      );
+      expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/png");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.send).toHaveBeenCalled();
     });
   });
 

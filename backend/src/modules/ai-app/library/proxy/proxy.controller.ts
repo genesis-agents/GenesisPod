@@ -1251,25 +1251,42 @@ export class ProxyController {
           }
         }
 
-        // 如果所有方法都失败，返回 502
-        this.logger.warn(`Failed to proxy image: ${url}`);
-        throw new HttpException(
-          "Failed to fetch image",
-          HttpStatus.BAD_GATEWAY,
-        );
+        // ★ 2026-05-25 机制级修：外部图拉取失败是常态(403/404/超时)，不应抛 5xx
+        //   —— 5xx 会被 AllExceptionsFilter 升级为 Critical/[MONITORING] 告警刷屏。
+        //   改为返回透明占位图(200)，<img> 自然空白，无破图、无错误告警。
+        this.logger.warn(`Failed to proxy image (placeholder served): ${url}`);
+        this.sendTransparentPixel(res);
+        return;
       }
     } catch (error) {
+      // 显式拒绝(如 SSRF 阻断)保留原 HttpException 语义。
       if (error instanceof HttpException) {
         throw error;
       }
-
+      // 其余(网络/超时等外部失败)同样降级为占位图，避免误报严重错误。
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
-      this.logger.error(`Image proxy error: ${errorMessage}`);
-      throw new HttpException(
-        "Failed to proxy image",
-        HttpStatus.INTERNAL_SERVER_ERROR,
+      this.logger.warn(
+        `Image proxy failed (placeholder served): ${errorMessage}`,
       );
+      this.sendTransparentPixel(res);
     }
+  }
+
+  /**
+   * 返回 1×1 透明 PNG 占位图（200）。外部图代理失败时用，避免 5xx 误报严重错误，
+   * 前端 <img> 显示为空白而非破图。
+   */
+  private sendTransparentPixel(res: Response): void {
+    if (res.headersSent) return;
+    const pixel = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.status(HttpStatus.OK).send(pixel);
   }
 }
