@@ -193,6 +193,23 @@ describe("FederalRegisterTool", () => {
       );
     });
 
+    it("should pass fields as an ARRAY param (fields[]), not a comma-joined string", async () => {
+      // ★ 2026-05-25: FR API 强制 fields 数组参数；逗号 join 会被拒 HTTP 400。
+      mockPolicyDataService.httpGet.mockResolvedValue(makeFrApiResponse(0));
+
+      await tool.execute({ query: "x" }, makeContext());
+
+      const calledParams = mockPolicyDataService.httpGet.mock.calls[0][1] as {
+        "fields[]"?: unknown;
+        fields?: unknown;
+      };
+      expect(Array.isArray(calledParams["fields[]"])).toBe(true);
+      expect(calledParams["fields[]"]).toContain("title");
+      expect(calledParams["fields[]"]).toContain("publication_date");
+      // old broken single comma-joined `fields` must be gone
+      expect(calledParams.fields).toBeUndefined();
+    });
+
     it("should pass documentType as array parameter", async () => {
       mockPolicyDataService.httpGet.mockResolvedValue(makeFrApiResponse(0));
 
@@ -275,9 +292,10 @@ describe("FederalRegisterTool", () => {
       await tool.execute({ documentType: ["RULE", "NOTICE"] }, makeContext());
 
       const calledParams = mockPolicyDataService.httpGet.mock
-        .calls[0][1] as Record<string, string>;
-      // 2026-05-13 #46: 多值用 conditions[type][]，逗号 join
-      expect(calledParams?.["conditions[type][]"]).toBe("RULE,NOTICE");
+        .calls[0][1] as Record<string, unknown>;
+      // ★ 2026-05-25: 多值用重复 key 数组（逗号 join 会被 FR API 当单个无效 type
+      //   → 静默 count:0）。serializer 把数组展开为 conditions[type][]=RULE&...=NOTICE。
+      expect(calledParams["conditions[type][]"]).toEqual(["RULE", "NOTICE"]);
     });
   });
 

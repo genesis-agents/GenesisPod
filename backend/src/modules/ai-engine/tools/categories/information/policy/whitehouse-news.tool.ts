@@ -340,11 +340,13 @@ export class WhiteHouseNewsTool extends BaseTool<
 
     try {
       const baseUrl = "https://www.federalregister.gov/api/v1/documents.json";
-      const params: Record<string, string | number> = {
+      // ★ 2026-05-25 修：fields 必须是数组参数（fields[]=a&fields[]=b），逗号 join
+      //   会被 FR API 拒 HTTP 400。见 federal-register.tool.ts 同步修复。
+      const params: Record<string, string | number | string[]> = {
         per_page: limit,
         order: "newest",
         "conditions[type][]": "PRESDOC",
-        fields: [
+        "fields[]": [
           "document_number",
           "title",
           "abstract",
@@ -352,7 +354,7 @@ export class WhiteHouseNewsTool extends BaseTool<
           "html_url",
           "subtype",
           "executive_order_number",
-        ].join(","),
+        ],
       };
 
       if (query) {

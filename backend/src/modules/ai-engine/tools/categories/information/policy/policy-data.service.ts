@@ -351,16 +351,20 @@ export class PolicyDataService {
    */
   async httpGet<T>(
     url: string,
-    params?: Record<string, string | number | boolean | undefined>,
+    params?: Record<string, string | number | boolean | string[] | undefined>,
     headers?: Record<string, string>,
   ): Promise<T> {
-    // 过滤掉 undefined 值
-    const cleanParams: Record<string, string> = {};
+    // 过滤掉 undefined 值；数组值保留为数组，交给下方 paramsSerializer 展开为
+    // 重复 key（key[]=a&key[]=b）—— 某些 API（如 Federal Register）强制要求数组
+    // 参数用重复 key 形式，逗号 join 成单值会被拒（HTTP 400 "must be provided as
+    // an array parameter"）。
+    const cleanParams: Record<string, string | string[]> = {};
     if (params) {
       for (const [key, value] of Object.entries(params)) {
-        if (value !== undefined && value !== null) {
-          cleanParams[key] = String(value);
-        }
+        if (value === undefined || value === null) continue;
+        cleanParams[key] = Array.isArray(value)
+          ? value.map((v) => String(v))
+          : String(value);
       }
     }
 
@@ -386,6 +390,19 @@ export class PolicyDataService {
       const response = await firstValueFrom(
         this.httpService.get<T>(url, {
           params: cleanParams,
+          // 数组值展开为重复 key（fields[]=a&fields[]=b），非数组照常单值。
+          // URLSearchParams 负责 URL 编码（含 [] → %5B%5D，API 端可识别）。
+          paramsSerializer: (p: Record<string, string | string[]>) => {
+            const sp = new URLSearchParams();
+            for (const [k, v] of Object.entries(p)) {
+              if (Array.isArray(v)) {
+                for (const item of v) sp.append(k, item);
+              } else {
+                sp.append(k, v);
+              }
+            }
+            return sp.toString();
+          },
           headers: {
             "User-Agent": APP_CONFIG.brand.userAgent,
             ...headers,

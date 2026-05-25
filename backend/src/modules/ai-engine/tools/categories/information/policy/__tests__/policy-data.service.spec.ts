@@ -477,6 +477,32 @@ describe("PolicyDataService", () => {
       };
       expect(callArgs.timeout).toBe(30000);
     });
+
+    // ★ 2026-05-25: 数组参数必须展开为重复 key（fields[]=a&fields[]=b），
+    //   某些 API（Federal Register）强制要求；逗号 join 单值会被拒 HTTP 400。
+    it("serializes array params as repeated keys (key[]=a&key[]=b)", async () => {
+      mockHttpService.get.mockReturnValue(of(makeAxiosResponse({})));
+
+      await service.httpGet("https://api.example.com/data", {
+        "fields[]": ["title", "type"],
+        "conditions[term]": "AI export",
+        per_page: 10,
+      });
+
+      const callArgs = mockHttpService.get.mock.calls[0][1] as {
+        params: Record<string, unknown>;
+        paramsSerializer: (p: Record<string, unknown>) => string;
+      };
+      // array preserved into params (not comma-joined)
+      expect(callArgs.params["fields[]"]).toEqual(["title", "type"]);
+      // serializer expands arrays to repeated keys + url-encodes the rest
+      const qs = callArgs.paramsSerializer(callArgs.params);
+      expect(qs).toContain("fields%5B%5D=title");
+      expect(qs).toContain("fields%5B%5D=type");
+      expect(qs).toContain("per_page=10");
+      // term url-encoded (space → +)
+      expect(qs).toMatch(/conditions%5Bterm%5D=AI(\+|%20)export/);
+    });
   });
 
   // ==================== httpPost ====================

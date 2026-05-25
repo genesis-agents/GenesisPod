@@ -235,10 +235,17 @@ export class FederalRegisterTool extends BaseTool<
     try {
       // 构建 API URL 和参数
       const baseUrl = "https://www.federalregister.gov/api/v1/documents.json";
-      const params: Record<string, string | number | boolean | undefined> = {
+      // ★ 2026-05-25 修：FR API 强制 fields 用数组参数（fields[]=a&fields[]=b），
+      //   逗号 join 成单值 fields=a,b,c 会被拒 HTTP 400「fields must be provided
+      //   as an array parameter」。改为数组，由 PolicyDataService.httpGet 的
+      //   paramsSerializer 展开为重复 key。
+      const params: Record<
+        string,
+        string | number | boolean | string[] | undefined
+      > = {
         per_page: Math.min(maxResults, 100),
         order: sortByRelevance ? "relevance" : "newest",
-        fields: [
+        "fields[]": [
           "document_number",
           "title",
           "abstract",
@@ -250,7 +257,7 @@ export class FederalRegisterTool extends BaseTool<
           "subtype",
           "executive_order_number",
           "signing_date",
-        ].join(","),
+        ],
       };
 
       // 添加搜索条件
@@ -258,12 +265,12 @@ export class FederalRegisterTool extends BaseTool<
         params["conditions[term]"] = query;
       }
 
-      // 2026-05-13 #46 修：FR API 文档明确说明
-      //   - 单值用 conditions[FIELD]=V（不要 brackets）
-      //   - 多值用 conditions[FIELD][]=V1&conditions[FIELD][]=V2
-      // 之前用 conditions[FIELD][0]=V / [1]=V 形式实测 prod 返回 HTTP 400。
-      // axios 默认 params serializer 不支持同名 key 重复，故多值用逗号 fallback
-      // （FR API 实测兼容 "RULE,PRESDOC" 形式）。
+      // FR API 数组参数规范：
+      //   - 单值用 conditions[FIELD]=V（不带 brackets）
+      //   - 多值用重复 key conditions[FIELD][]=V1&conditions[FIELD][]=V2
+      // ★ 2026-05-25 修：上次 #46 用逗号 join（conditions[type][]=RULE,NOTICE）
+      //   实测 FR API 静默返回 count:0（把 "RULE,NOTICE" 当单个无效 type）。改为
+      //   传数组，由 PolicyDataService.httpGet 的 paramsSerializer 展开为重复 key。
       if (documentType) {
         const types = Array.isArray(documentType)
           ? documentType
@@ -271,7 +278,7 @@ export class FederalRegisterTool extends BaseTool<
         if (types.length === 1) {
           params["conditions[type]"] = types[0];
         } else if (types.length > 1) {
-          params["conditions[type][]"] = types.join(",");
+          params["conditions[type][]"] = types;
         }
       }
 
