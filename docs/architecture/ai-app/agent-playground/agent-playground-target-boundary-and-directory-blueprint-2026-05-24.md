@@ -1,6 +1,6 @@
 # Agent Playground Target Boundary And Directory Blueprint
 
-**Status:** **Wave 1b + Wave 4 完成 (2026-05-24 night)**。3 个 agent team app (playground/social/radar) 已统一到 §8.2 顶层布局；§8.1 business-team framework 6 个能力切片 (invoker / dispatcher / bindings / state / span / event-relay) 已沉到 `ai-harness/teams/business-team/`；3 层看护栏 (ESLint + jest spec + pre-push) 全部锁定。
+**Status:** **Wave 1b + Wave 4 + Wave 6 P30/P31/P32 完成 (2026-05-24 night)**。3 个 agent team app (playground/social/radar) 已统一到 §8.2 顶层布局；§8.1 business-team framework 10 个能力切片 (invoker / dispatcher / bindings / state / span / events / helpers / rerun / lifecycle / orchestrator) 已沉到 `ai-harness/teams/business-team/`,其中 invoker/dispatcher/state/span/events/orchestrator 为多消费方,bindings/helpers/rerun + 7 lifecycle helper 仍是 playground 单消费方(已知债务,见下);3 层看护栏 (ESLint + jest spec + pre-push) 全部锁定;4 路审计 (architect/arch-auditor/reviewer/security-auditor) 综合 8.2/10。
 **Scope:** `backend/src/modules/ai-app/agent-playground/**`, its intended seam with `backend/src/modules/ai-harness/**`, and the corresponding frontend mission-detail structure.
 **Audience:** Engineers evolving `agent-playground` into the benchmark Agent Team app, and engineers creating future MissionPipeline-based teams.
 
@@ -28,16 +28,18 @@ ai-app/{playground,social,radar}/
 
 **已沉降的 §8.1 framework (`ai-harness/teams/business-team/`)**：
 
-| 切片            | Framework class                           | LOC  | 消费方                  |
-| --------------- | ----------------------------------------- | ---- | ----------------------- |
-| `invocation/`   | `BusinessTeamAgentInvoker.framework`      | 155  | playground/social       |
-| `dispatcher/`   | `BusinessTeamMissionDispatcher.framework` | 192  | playground/social       |
-| `bindings/`     | `BusinessTeamStageBindings.framework`     | 46   | playground/social       |
-| `state/`        | cross-stage-state base                    | 81   | playground/social/radar |
-| `span/`         | mission-span tracking                     | 178  | playground/social       |
-| `events/`       | event-relay-base                          | shim | playground/social/radar |
-| `lifecycle/`    | `MissionRuntimeShellFramework`            | -    | 全 3 个                 |
-| `orchestrator/` | (P7 待评估,不在 Wave 1b 范围)             | -    | -                       |
+| 切片            | Framework                                                   | LOC | 消费方                          | 备注                                       |
+| --------------- | ----------------------------------------------------------- | --- | ------------------------------- | ------------------------------------------ |
+| `invocation/`   | `BusinessTeamAgentInvoker.framework` (P1)                   | 155 | playground/social               | ✅ 多消费方                                |
+| `dispatcher/`   | `BusinessTeamMissionDispatcher.framework` (P2)              | 192 | playground/social               | ✅ 多消费方                                |
+| `bindings/`     | `BusinessTeamStageBindings.framework` (P2)                  | 46  | playground                      | ⚠️ P32 P0-2: 单消费方薄骨架,应转 interface |
+| `state/`        | cross-stage-state base (P2)                                 | 81  | playground/social/radar         | ✅                                         |
+| `span/`         | mission-span tracking (P2)                                  | 178 | playground/social               | ✅                                         |
+| `events/`       | event-relay-base shim (P2)                                  | -   | playground/social/radar         | ✅                                         |
+| `helpers/`      | T2 generic helpers (P4, `54b4152d0`)                        | -   | playground                      | ⚠️ 单消费方,见 roadmap §6 评估             |
+| `rerun/`        | 5 framework + 2 helper (P5, `2e4b4d851`)                    | -   | playground                      | ⚠️ 单消费方,见 roadmap §6 评估             |
+| `lifecycle/`    | `MissionRuntimeShellFramework` + 7 helper (P6, `8947b1e3b`) | -   | shell 全 3 个 / 其余 playground | ⚠️ 7 个 helper 单消费方                    |
+| `orchestrator/` | `BusinessTeamOrchestrator.framework` (P7, `5853ad6d1`)      | -   | playground/social/radar         | ✅ 三家继承                                |
 
 **三层看护栏 (2026-05-24 night Wave 4)**：
 
@@ -49,10 +51,12 @@ ai-app/{playground,social,radar}/
    - `mission-app-conformance.spec.ts` — liveness adapter + config snapshot 必备
 3. **pre-push hook** (`.husky/pre-push` [0/6])：跑全 `src/__tests__/architecture/` 24 suites/228 tests，违规拒推
 
-**未做 / 推迟项 (per Roadmap §6)**：
+**Framework 单消费方债务 (per Roadmap §6 修订)**:
 
-- **Wave 1 P4-P7 (T2/T3/T4 helpers + orchestrator framework)** — grep 显示 P4 列出的 8 个 helper 只存在于 playground，社/radar 没有等价物，**违反 "3 处使用再考虑抽象" 原则**，推迟到真有第二消费方时再做
-- **Wave 6 P32 (4-way collective review by architect / arch-auditor / reviewer / security-auditor)** — 需要用户授权（spawn 4 个 sub-agent 成本可观）
+- **P4 helpers / P5 rerun / P6 lifecycle helpers** 已落地 main (`54b4152d0` / `2e4b4d851` / `8947b1e3b`), 但 grep extends 显示 consumer 只有 playground 一家。违反 Karpathy "3 处再抽象" 原则。Damage 已成,**不回滚**(回滚成本 > 留下成本),等 social/radar 后续添加这些能力时直接复用现成 framework
+- **P7 orchestrator** (`5853ad6d1`) 三家都继承,合理
+
+**Wave 6 P32 (4-way collective review by architect / arch-auditor / reviewer / security-auditor)** — ✅ 已完成,4 报告归档到 [`wave-4-review-2026-05-24/`](wave-4-review-2026-05-24/),综合分 8.2/10
 
 ### 2026-05-24 (evening) — Reviewed and revised
 

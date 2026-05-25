@@ -134,17 +134,47 @@ Reasoning: user decision to focus the migration on the 3 teams (playground / soc
 
 **Wave 1b 全部完成 (P9b + P10 + P11)。Worktree 已清理：22 → 4（保留 2 个 unmerged 功能分支 + main + gat-contract-wt）。66 个 orphan worktree-\* 分支删除，17 个 unmerged 保留待用户决策。**
 
-### Wave 1 P4 重新评估 (2026-05-24 night)
+### Wave 1 P4-P7 重新评估 (2026-05-24 night, 经 P32 architect 审计纠错)
 
-实地 grep 显示 P4 列出的 8 个 T2 helpers (chapter-pipeline-helper / per-dim-pipeline / chapter-batch-executor / evidence-budget / narrative-util / word-count-normalizer / grade-grounding / segment-extractors) **仅存在于 playground 一家**，social / radar 没有等价物。把它们下沉到 harness 等于 **为单一消费方做框架**，违反 Karpathy "3 处使用再考虑抽象" 原则。
+**❌ 早先评估错误**：本节早先版本写 "P4-P7 deferred 等第二消费方"。事实是 P4/P5/P6/P7 **已经落地 main**:
 
-**结论**：Wave 1 P4-P7 不是"3 teams 共同瘦身"，而是"playground 单家提取"。等真有第二家需要时再做。**改去 Wave 4** 先锁定 §8.2 + framework 边界，避免 P11 layout 被未来回归冲掉。
+- `54b4152d0` P4 (T2 helpers) — `business-team/helpers/` 3 文件 (batch-executor / supply-budget / grade-grounding)
+- `2e4b4d851` P5 (T3 rerun) — `business-team/rerun/` 5 framework + 2 helper
+- `8947b1e3b` P6 (T4 lifecycle) — `business-team/lifecycle/` 7 framework
+- `5853ad6d1` P7 (orchestrator skeleton) — `business-team/orchestrator/` 1 framework
+
+**消费方现状（grep extends 验证）**:
+
+| Framework 切片       | Consumer 数                     | 单消费方？ |
+| -------------------- | ------------------------------- | ---------- |
+| `helpers/` (P4)      | 1 (playground)                  | ⚠️ 是      |
+| `rerun/` (P5)        | 1 (playground)                  | ⚠️ 是      |
+| `lifecycle/` (P6)    | 1 (playground)                  | ⚠️ 是      |
+| `orchestrator/` (P7) | **3 (playground/social/radar)** | ✅ 否      |
+
+**结论**：P7 orchestrator 合理（3 个 app 都继承）。P4/P5/P6 **是 "为单消费方做框架"，违反 Karpathy "3 处再抽象" 原则**——但 damage 已成，回滚成本 > 留下成本。
+
+**不回滚的理由**：
+
+- 已经有完整 abstractions/ + spec / fixtures
+- 反正 social/radar 加入这些能力（rerun / lifecycle helpers）时不需要再做框架提取
+- 等价于"提前付了未来的抽象成本"
+
+**新的看护**（避免再发生）：
+
+- Wave 4 守护栏只锁结构，没锁"必须 N+ consumer 才能进 framework"
+- 后续如新增 `business-team/<新切片>/` 必须验证已有或承诺 ≥ 2 app subclass
 
 ### 下一步执行顺序（修订后）
 
-1. **Wave 4 (P21-P24)** — 立即开始 ← 自驱处理
-2. **Wave 6 (P30-P32)** — 守护栏锁好后做 closeout review + SOP 文档
-3. Wave 1 P4-P7 deferred — 等真有第二消费方再做
+1. ✅ **Wave 4 (P21-P24)** — 已完成 (38f083248)
+2. ✅ **Wave 6 P30/P31** — 已完成 (4d81a8002)
+3. ✅ **Wave 6 P32 4-way review** — 已完成 (4 报告归档到 `agent-playground/wave-4-review-2026-05-24/`)
+4. **P32 后续修法** — 4 路审计共暴 4 P0 + 5 P1 + 6 P2, 综合分 8.2/10。优先修：
+   - 本文档不一致 ← 本提交
+   - `mission-runtime-shell.interface.ts` PR-E0 违规 (P1-1)
+   - `agent-team-facade-contract.spec.ts` 漏扫 rerun + lifecycle 空断言 + regex 漏洞 (P1-2/3/4)
+   - framework hook 多态匹配 + bindings 单消费方薄骨架 (P0-2, P0-4, P1-5) — 留下迭代
 
 ---
 
