@@ -14,7 +14,14 @@
  * 本层不承载 agent / mission / team 运行时语义。
  */
 
-import { Module, Global, OnModuleInit, Logger, Inject } from "@nestjs/common";
+import {
+  Module,
+  Global,
+  OnModuleInit,
+  OnApplicationBootstrap,
+  Logger,
+  Inject,
+} from "@nestjs/common";
 import { DiscoveryModule } from "@nestjs/core";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { PrismaService } from "../../common/prisma/prisma.service";
@@ -221,7 +228,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     ContentSourceRegistry,
   ],
 })
-export class AiEngineModule implements OnModuleInit {
+export class AiEngineModule implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(AiEngineModule.name);
 
   constructor(
@@ -234,7 +241,7 @@ export class AiEngineModule implements OnModuleInit {
     @Inject(ALL_TOOLS_TOKEN) private readonly allTools: ITool[],
   ) {}
 
-  async onModuleInit() {
+  onModuleInit(): void {
     // 注册 LLM 适配器到工厂
     this.llmFactory.registerAdapter(this.universalLLMAdapter);
 
@@ -252,7 +259,16 @@ export class AiEngineModule implements OnModuleInit {
     this.logger.log(
       `  LLM Adapters: ${this.llmFactory.getAllAdapters().length}`,
     );
+  }
 
+  /**
+   * ★ T4 审计放在 onApplicationBootstrap（而非 onModuleInit）：本钩子在所有模块的
+   * onModuleInit 完成之后才触发。memory 工具（ai-harness MemoryToolProviderService）
+   * 与 organize 书签工具（ai-app/organize-chat）都在各自 onModuleInit 注册进同一个
+   * @Global ToolRegistry，但晚于 AiEngineModule.onModuleInit。放到 bootstrap 阶段
+   * 才校验，避免把"尚未注册就点名"的工具误报为孤儿（跨注册表感知的本质=等全员注册完）。
+   */
+  async onApplicationBootstrap(): Promise<void> {
     // ★ T4: 验证 ToolConfig 与 ToolRegistry 同步
     await this.validateToolConfigSync();
   }
