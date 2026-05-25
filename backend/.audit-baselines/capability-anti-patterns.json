@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-25T17:47:59.774Z",
+  "generatedAt": "2026-05-25T18:52:15.822Z",
   "count": 188,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -342,56 +342,56 @@
     },
     {
       "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
-      "line": 73,
+      "line": 98,
       "column": 7,
       "kind": "method-call",
       "snippet": "url.includes(\"anthropic\")"
     },
     {
       "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
-      "line": 76,
+      "line": 101,
       "column": 7,
       "kind": "method-call",
       "snippet": "url.includes(\"x.ai\")"
     },
     {
       "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
-      "line": 76,
+      "line": 101,
       "column": 31,
       "kind": "method-call",
       "snippet": "url.includes(\"xai\")"
     },
     {
       "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
-      "line": 77,
+      "line": 102,
       "column": 7,
       "kind": "method-call",
       "snippet": "url.includes(\"openai\")"
     },
     {
       "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
-      "line": 126,
+      "line": 151,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "provider === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
-      "line": 126,
+      "line": 151,
       "column": 32,
       "kind": "binary-eq",
       "snippet": "provider === \"xai\""
     },
     {
       "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
-      "line": 131,
+      "line": 156,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "provider === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/capability/error-signal.types.ts",
-      "line": 135,
+      "line": 160,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "provider === \"google\""
