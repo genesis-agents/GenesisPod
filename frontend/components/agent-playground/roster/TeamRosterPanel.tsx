@@ -19,7 +19,6 @@ import {
   Gavel,
   CheckCircle2,
   Loader2,
-  Lightbulb,
 } from 'lucide-react';
 import {
   TeamTopologyCanvas,
@@ -597,17 +596,6 @@ export function TeamRosterPanel({
               const Icon = ROLE_ICON[role];
               const st = stageMap.get(stage);
               const roleAgents = agents.filter((a) => a.role === role);
-              const lastThought = (() => {
-                for (let i = roleAgents.length - 1; i >= 0; i--) {
-                  const trace = roleAgents[i].trace;
-                  for (let j = trace.length - 1; j >= 0; j--) {
-                    if (trace[j].kind === 'thought' && trace[j].text) {
-                      return trace[j].text;
-                    }
-                  }
-                }
-                return null;
-              })();
               const isActive = st?.status === 'running';
               const isDone = st?.status === 'done';
 
@@ -650,19 +638,11 @@ export function TeamRosterPanel({
                         </span>
                       )}
                     </div>
-                    {lastThought ? (
-                      <p
-                        className="mt-0.5 line-clamp-2 text-[11px] text-gray-600"
-                        title={lastThought}
-                      >
-                        <Lightbulb className="mr-0.5 inline h-2.5 w-2.5 text-amber-500" />
-                        {lastThought}
-                      </p>
-                    ) : (
-                      <p className="mt-0.5 text-[11px] italic text-gray-400">
-                        {st?.detail ?? (isDone ? '已完成' : '待启动')}
-                      </p>
-                    )}
+                    {/* ★ 2026-05-25: 移除角色卡里被截断、看不清的 thought 建议文字，
+                        只保留简洁状态标签。 */}
+                    <p className="mt-0.5 text-[11px] italic text-gray-400">
+                      {st?.detail ?? (isDone ? '已完成' : '待启动')}
+                    </p>
                   </div>
                 </button>
               );
