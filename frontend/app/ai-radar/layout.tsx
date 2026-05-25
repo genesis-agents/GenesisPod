@@ -17,7 +17,12 @@ export default function RadarLayout({
 }) {
   return (
     <AppShell>
-      <main className="flex-1 overflow-hidden">{children}</main>
+      {/* flex flex-col + min-h-0：让子页面的 flex-1 高度链真正生效
+          （对齐 ai-social/layout，与 agent-playground 修复同因——否则
+          aside 撑到自然高度，底部按钮被推出 viewport） */}
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {children}
+      </main>
     </AppShell>
   );
 }

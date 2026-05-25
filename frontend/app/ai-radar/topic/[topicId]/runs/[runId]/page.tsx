@@ -53,6 +53,10 @@ import { useRadarSocket } from '@/hooks/domain/useRadarSocket';
 import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 import { StageTaskDrawer } from '@/components/ai-radar/StageTaskDrawer';
 import { RadarEventLog } from '@/components/ai-radar/RadarEventLog';
+import {
+  MissionActionGroup,
+  type MissionActionButtonSpec,
+} from '@/components/common/mission-detail';
 import { useRadarStream } from '@/hooks/domain/useRadarStream';
 import {
   STAGE_GROUPS,
@@ -347,16 +351,48 @@ export default function RadarMissionDetailPage() {
 
       {/* Main flex */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Panel — 360px Radar Agent Team */}
-        <aside className="w-[360px] flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-white px-4 py-5">
-          <RadarTeamPanel
-            run={run}
-            currentStage={stageStatus?.stage ?? null}
-            onAgentClick={(stageId) => {
-              setSelectedStageId(stageId);
-              setTab('tasks');
-            }}
-          />
+        {/* Left Panel — 360px Radar Agent Team。flex flex-col + overflow-hidden
+            让"内容区滚动 + 底部按钮 sticky"生效（与 agent-playground 一致） */}
+        <aside className="flex w-[360px] flex-shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white">
+          {/* 滚动中段：Agent roster + Mission progress + 关键指标 */}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+            <RadarTeamPanel
+              run={run}
+              currentStage={stageStatus?.stage ?? null}
+              onAgentClick={(stageId) => {
+                setSelectedStageId(stageId);
+                setTab('tasks');
+              }}
+            />
+          </div>
+          {/* 底部 sticky 操作按钮 —— canonical MissionActionGroup，
+              与 agent-playground / ai-social 同款；shrink-0 + border-t
+              保证 aside 高度不够时永远可见 */}
+          {(() => {
+            const actions: MissionActionButtonSpec[] = [];
+            actions.push({
+              variant: 'primary',
+              emoji: '🔄',
+              label: rerunning ? '启动中…' : '重新精选',
+              disabled: rerunning || isRunning,
+              title: isRunning ? '已有 Mission 在运行' : '另起一个 Mission',
+              onClick: () => void handleRerun(),
+            });
+            if (isRunning) {
+              actions.push({
+                variant: 'danger',
+                emoji: '⏹',
+                label: '取消',
+                onClick: () => setCancelOpen(true),
+                title: '取消当前 Mission',
+              });
+            }
+            return (
+              <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-3">
+                <MissionActionGroup buttons={actions} />
+              </div>
+            );
+          })()}
         </aside>
 
         {/* Right Panel — tabs */}
