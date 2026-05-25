@@ -113,6 +113,10 @@ const Output = z.object({
   taskProfile: { creativity: "medium", outputLength: "extended" },
   inputSchema: Input,
   outputSchema: Output,
+  // P1a (2026-05-25, env-gated ENABLE_DELIMITED_FINALIZE)：章节 body 是长篇散文，
+  //   best-effort 模型(DeepSeek json_object)塞 JSON 时未转义引号会崩整轮 finalize。
+  //   声明 body 为 prose 字段 → 走分隔纯文本块，长文不进 JSON，免转义。
+  finalizeProseFields: ["body"],
   // ★ 2026-05-01 (PR-G iter9): maxIterations 走集中常量。原 4 内嵌 reflexion ×
   //   外部 4 attempt = 16 calls/章节产生指数爆炸。1 = 内部不再 self-critique，
   //   外部 chapter-reviewer 评分是唯一权威 gate。

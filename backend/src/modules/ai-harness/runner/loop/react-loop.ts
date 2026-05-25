@@ -44,6 +44,12 @@ import {
 } from "../../../../common/utils/json-extraction.utils";
 import { parsePositiveIntEnv } from "../../../../common/utils/schema-coercion.utils";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import {
+  type DelimitedFinalizeShape,
+  buildDelimitedFinalizeInstructions,
+  hasDelimitedFinalizeMarkers,
+  parseDelimitedFinalize,
+} from "../../../ai-engine/llm/structured-output/delimited-finalize.transport";
 import type { ChatMessage } from "../../../ai-engine/llm/types";
 import { AIModelType } from "@prisma/client";
 import { ToolInvoker } from "../tool-invoker/tool-invoker";
@@ -366,6 +372,20 @@ export class ReActLoop implements IAgentLoop {
        */
       finalizeOutputJsonSchema?: Record<string, unknown>;
       /**
+       * P1a/P1b (2026-05-25) — delimited finalize transport hints.
+       *
+       * Names of finalize-output fields that hold LONG free-text (e.g. ["body"]
+       * / ["summary"]) and an optional array field to emit as NDJSON (e.g.
+       * "findings"). When `ENABLE_DELIMITED_FINALIZE=true` AND these are set, the
+       * loop instructs the model to emit those fields OUTSIDE the JSON envelope
+       * (delimited blocks / one-object-per-line) so unescaped quotes / long prose
+       * cannot break the whole finalize. Best-effort models (DeepSeek json_object
+       * etc.) benefit most; the env gate keeps it opt-in until validated.
+       * Declared by the agent spec; threaded via agent-factory / harnessed-agent.
+       */
+      finalizeProseFields?: string[];
+      finalizeNdjsonArrayField?: string;
+      /**
        * Model-level failover provider (optional).
        *
        * Mirrors LlmExecutor.modelFailoverProvider: when reason() throws a
@@ -397,6 +417,16 @@ export class ReActLoop implements IAgentLoop {
     const validateBusinessRules = options?.validateBusinessRules;
     const outputSchemaDescription = options?.outputSchemaDescription;
     const finalizeOutputJsonSchema = options?.finalizeOutputJsonSchema;
+    // P1a/P1b: delimited finalize transport shape (env-gated, opt-in).
+    const delimitedFinalizeShape: DelimitedFinalizeShape | undefined =
+      process.env.ENABLE_DELIMITED_FINALIZE === "true" &&
+      ((options?.finalizeProseFields?.length ?? 0) > 0 ||
+        !!options?.finalizeNdjsonArrayField)
+        ? {
+            proseFields: options?.finalizeProseFields,
+            ndjsonArrayField: options?.finalizeNdjsonArrayField,
+          }
+        : undefined;
     const modelFailoverProvider = options?.modelFailoverProvider;
     // Model-level failover state: tracks models that failed with a
     // provider-level error so they can be excluded from re-election.
@@ -799,6 +829,7 @@ export class ReActLoop implements IAgentLoop {
             // strict providers enforce the business payload shape.
             approachingLimit,
             finalizeOutputJsonSchema,
+            delimitedFinalizeShape,
           );
           decision = reasoned.decision;
           usage = reasoned.usage;
@@ -1631,6 +1662,12 @@ export class ReActLoop implements IAgentLoop {
      * is true and the FC branch is not active.
      */
     finalizeOutputJsonSchema?: Record<string, unknown>,
+    /**
+     * P1a/P1b: delimited finalize transport shape (undefined = disabled). When
+     * set, reason() appends delimited-emit instructions to the system prompt and
+     * parses delimited finalize output back into the decision.
+     */
+    delimitedFinalizeShape?: DelimitedFinalizeShape,
   ): Promise<{
     decision: ParsedDecision;
     /** ★ LLM 实际吐回的 raw content（response.content），诊断关键 */
@@ -1660,9 +1697,17 @@ export class ReActLoop implements IAgentLoop {
     // 当前是它的别名，字节字面一致 —— 保 cache 命中 + 双层网第二层 parseDecision
     // 真有 envelope JSON 可解。详见 DECISION_FC_SUFFIX 定义处的"vLLM parser 失效"
     // 历史踩坑注释。
-    const systemPrompt = useNativeFCThisCall
-      ? baseSystem + DECISION_FC_SUFFIX
-      : baseSystem + DECISION_SYSTEM_SUFFIX;
+    // P1a/P1b: only meaningful on the prompt-driven (non-FC) branch — native FC
+    // emits structured tool_calls, not a finalize JSON envelope.
+    const useDelimitedFinalize =
+      !useNativeFCThisCall && !!delimitedFinalizeShape;
+    const systemPrompt =
+      (useNativeFCThisCall
+        ? baseSystem + DECISION_FC_SUFFIX
+        : baseSystem + DECISION_SYSTEM_SUFFIX) +
+      (useDelimitedFinalize
+        ? buildDelimitedFinalizeInstructions(delimitedFinalizeShape)
+        : "");
     const response = await this.chatService.chat({
       messages,
       systemPrompt,
@@ -1792,6 +1837,44 @@ export class ReActLoop implements IAgentLoop {
           action: { kind: "finalize", output: rawContent },
         };
         parseError = { name: errName, message: errMsg, subCode };
+      }
+    } else if (
+      useDelimitedFinalize &&
+      hasDelimitedFinalizeMarkers(rawContent, delimitedFinalizeShape)
+    ) {
+      // P1a/P1b: model emitted finalize via the delimited transport (long prose /
+      // NDJSON outside the JSON envelope). Reconstruct the finalize output from
+      // the blocks — immune to unescaped inner quotes that would break JSON.
+      // Defensive: any failure falls back to the normal parseDecision path.
+      try {
+        const reconstructed = parseDelimitedFinalize(
+          rawContent,
+          delimitedFinalizeShape,
+        );
+        if (reconstructed) {
+          decision = {
+            thinking: reconstructed.thinking ?? "",
+            action: { kind: "finalize", output: reconstructed.output },
+          };
+          parseError = undefined;
+          this.logger.debug(
+            `[react-loop:delimited-finalize] reconstructed finalize output ` +
+              `(prose=${(delimitedFinalizeShape.proseFields ?? []).join(",") || "-"}, ` +
+              `ndjson=${delimitedFinalizeShape.ndjsonArrayField ?? "-"})`,
+          );
+        } else {
+          const parsed = this.parseDecision(rawContent);
+          decision = parsed.decision;
+          parseError = parsed.parseError;
+        }
+      } catch (err) {
+        this.logger.warn(
+          `[react-loop:delimited-finalize] parse failed, falling back: ` +
+            `${err instanceof Error ? err.message : String(err)}`,
+        );
+        const parsed = this.parseDecision(rawContent);
+        decision = parsed.decision;
+        parseError = parsed.parseError;
       }
     } else {
       // parseDecision 内部 try/catch 自己处理不抛；返回 decision + 可选 parseError

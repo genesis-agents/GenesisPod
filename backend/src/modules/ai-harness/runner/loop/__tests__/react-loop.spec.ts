@@ -684,7 +684,9 @@ describe("ReActLoop (Phase 2)", () => {
       runtimeEnv: runtimeEnv as any,
     });
 
-    const events = await drain(loop.run(env, criteria, { agentId: "retry-ok" }));
+    const events = await drain(
+      loop.run(env, criteria, { agentId: "retry-ok" }),
+    );
 
     // 重试了一次：chat 被调用 2 次
     expect(chat.chat).toHaveBeenCalledTimes(2);
@@ -739,9 +741,13 @@ describe("ReActLoop (Phase 2)", () => {
     });
 
     const events = await drain(
-      loop.run(env, { maxIterations: 10, terminateOn: ["finalize"] }, {
-        agentId: "retry-cap",
-      }),
+      loop.run(
+        env,
+        { maxIterations: 10, terminateOn: ["finalize"] },
+        {
+          agentId: "retry-cap",
+        },
+      ),
     );
 
     // 3 次重试 + 第 4 次不再重试 → chat 调用 4 次
@@ -816,14 +822,16 @@ describe("ReActLoop (Phase 2)", () => {
 
   it("does NOT retry a cooldown longer than the in-loop wait cap; terminates", async () => {
     const chat = {
-      chat: jest.fn().mockRejectedValue(
-        Object.assign(
-          new Error(
-            'Provider "openai" is temporarily unavailable (cooldown).',
+      chat: jest
+        .fn()
+        .mockRejectedValue(
+          Object.assign(
+            new Error(
+              'Provider "openai" is temporarily unavailable (cooldown).',
+            ),
+            { remainingMs: 300_000 },
           ),
-          { remainingMs: 300_000 },
         ),
-      ),
     };
     const reg = mkToolRegistry({});
     const hooks = new HookRegistry();
@@ -1007,5 +1015,74 @@ describe("ReActLoop (Phase 2)", () => {
         expect(terminated).toBeDefined();
       });
     }
+  });
+
+  // ★ P1a/P1b (2026-05-25): delimited finalize transport (env-gated).
+  describe("delimited finalize transport (ENABLE_DELIMITED_FINALIZE)", () => {
+    const prev = process.env.ENABLE_DELIMITED_FINALIZE;
+    afterEach(() => {
+      if (prev === undefined) delete process.env.ENABLE_DELIMITED_FINALIZE;
+      else process.env.ENABLE_DELIMITED_FINALIZE = prev;
+    });
+
+    it("reconstructs finalize body from delimited blocks (immune to unescaped quotes)", async () => {
+      process.env.ENABLE_DELIMITED_FINALIZE = "true";
+      // model emits short envelope + a <<<FIELD:body>>> block whose prose contains
+      // unescaped ASCII quotes that would have broken a single JSON object.
+      const chat = mkChat([
+        [
+          '{"thinking":"done","action":{"kind":"finalize","output":{"index":4,"heading":"未来"}}}',
+          "<<<FIELD:body>>>",
+          '不再只是"跑得快"的引擎，更需成为"可信任"的基座[1]。',
+          "<<<END:body>>>",
+        ].join("\n"),
+      ]);
+      const reg = mkToolRegistry({});
+      const hooks = new HookRegistry();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const invoker = new ToolInvoker(reg as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const loop = new ReActLoop(chat as any, invoker, hooks);
+
+      const events = await drain(
+        loop.run(makeEnvelope([]), criteria, {
+          agentId: "writer",
+          finalizeProseFields: ["body"],
+        }),
+      );
+
+      const output = events.find((e) => e.type === "output");
+      const payload = output?.payload as { output: { body: string } };
+      expect(payload.output.body).toContain('"跑得快"');
+      expect(payload.output.body).toContain('"可信任"');
+      // appended delimited instructions reached the model prompt
+      const sys = (chat.chat as jest.Mock).mock.calls[0][0].systemPrompt;
+      expect(sys).toContain("<<<FIELD:body>>>");
+    });
+
+    it("is OFF by default: delimited markers NOT instructed, normal JSON path used", async () => {
+      delete process.env.ENABLE_DELIMITED_FINALIZE;
+      const chat = mkChat([
+        JSON.stringify({
+          thinking: "done",
+          action: { kind: "finalize", output: { body: "plain" } },
+        }),
+      ]);
+      const reg = mkToolRegistry({});
+      const hooks = new HookRegistry();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const invoker = new ToolInvoker(reg as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const loop = new ReActLoop(chat as any, invoker, hooks);
+
+      await drain(
+        loop.run(makeEnvelope([]), criteria, {
+          agentId: "writer",
+          finalizeProseFields: ["body"],
+        }),
+      );
+      const sys = (chat.chat as jest.Mock).mock.calls[0][0].systemPrompt;
+      expect(sys).not.toContain("<<<FIELD:body>>>");
+    });
   });
 });

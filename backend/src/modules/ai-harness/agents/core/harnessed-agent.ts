@@ -105,6 +105,13 @@ export interface HarnessedAgentInit {
    */
   finalizeOutputJsonSchema?: Record<string, unknown>;
   /**
+   * P1a/P1b — delimited finalize transport hints (env-gated ENABLE_DELIMITED_FINALIZE).
+   * Long free-text finalize fields + an optional NDJSON array field, emitted
+   * outside the JSON envelope so unescaped quotes / long prose can't break it.
+   */
+  finalizeProseFields?: string[];
+  finalizeNdjsonArrayField?: string;
+  /**
    * Model-level failover provider (optional) — mirrors SpecBasedAgent / LlmExecutor.
    *
    * When provided, ReActLoop calls this closure instead of terminating when
@@ -149,6 +156,8 @@ export class HarnessedAgent implements IAgent {
   private readonly validateBusinessRules?: HarnessedAgentInit["validateBusinessRules"];
   private readonly outputSchemaDescription?: string;
   private readonly finalizeOutputJsonSchema?: Record<string, unknown>;
+  private readonly finalizeProseFields?: string[];
+  private readonly finalizeNdjsonArrayField?: string;
   private readonly modelFailoverProvider?: HarnessedAgentInit["modelFailoverProvider"];
   /** Persistent AbortController — lives from construction. cancel() before execute() still aborts. */
   private readonly abortController = new AbortController();
@@ -181,6 +190,8 @@ export class HarnessedAgent implements IAgent {
     this.validateBusinessRules = init.validateBusinessRules;
     this.outputSchemaDescription = init.outputSchemaDescription;
     this.finalizeOutputJsonSchema = init.finalizeOutputJsonSchema;
+    this.finalizeProseFields = init.finalizeProseFields;
+    this.finalizeNdjsonArrayField = init.finalizeNdjsonArrayField;
     this.modelFailoverProvider = init.modelFailoverProvider;
     this.state = "idle";
   }
@@ -301,6 +312,8 @@ export class HarnessedAgent implements IAgent {
             ) => string | null | undefined;
             outputSchemaDescription?: string;
             finalizeOutputJsonSchema?: Record<string, unknown>;
+            finalizeProseFields?: string[];
+            finalizeNdjsonArrayField?: string;
             modelFailoverProvider?: (
               excludeModelIds: ReadonlyArray<string>,
               excludeProviders?: ReadonlyArray<string>,
@@ -344,6 +357,8 @@ export class HarnessedAgent implements IAgent {
             : undefined,
           outputSchemaDescription: this.outputSchemaDescription,
           finalizeOutputJsonSchema: this.finalizeOutputJsonSchema,
+          finalizeProseFields: this.finalizeProseFields,
+          finalizeNdjsonArrayField: this.finalizeNdjsonArrayField,
           modelFailoverProvider: this.modelFailoverProvider,
         })) {
           yield ev;

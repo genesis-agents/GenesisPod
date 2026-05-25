@@ -114,6 +114,18 @@ export interface IAgentSpec<TInput = unknown, TOutput = unknown> {
    * optional fields absent from required[]). A mismatch rejects valid output.
    */
   readonly outputJsonSchema?: Readonly<Record<string, unknown>>;
+
+  /**
+   * P1a/P1b (2026-05-25) — delimited finalize transport hints (env-gated by
+   * ENABLE_DELIMITED_FINALIZE). Names of finalize-output fields holding LONG
+   * free-text (`finalizeProseFields`, e.g. ["body"] / ["summary"]) and an
+   * optional array field to emit as NDJSON (`finalizeNdjsonArrayField`, e.g.
+   * "findings"). When enabled, the loop tells the model to emit those OUTSIDE
+   * the JSON envelope so unescaped quotes / long prose can't break finalize.
+   * Best-effort models (DeepSeek json_object etc.) benefit most.
+   */
+  readonly finalizeProseFields?: readonly string[];
+  readonly finalizeNdjsonArrayField?: string;
 }
 
 /** Context 操作接口（只读 envelope 上的变换器） */

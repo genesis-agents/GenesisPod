@@ -195,6 +195,12 @@ const Output = z.object({
   // Derived following the 6-rule spec: optional→not required, .default()→not required,
   // .refine() dropped, .min() dropped, additionalProperties:false at every object.
   outputJsonSchema: RESEARCHER_FINALIZE_OUTPUT_JSON_SCHEMA,
+  // P1a/P1b (2026-05-25, env-gated ENABLE_DELIMITED_FINALIZE)：finalize 时把
+  //   长文 summary 走纯文本块、findings 数组走 NDJSON（一行一条）——best-effort
+  //   模型(DeepSeek json_object)长文塞 JSON 会因未转义引号崩整轮；分隔载体下
+  //   一条坏只丢一条，直接提升 findings 留存率（对 minSources≥15 是质变）。
+  finalizeProseFields: ["summary"],
+  finalizeNdjsonArrayField: "findings",
   // ★ budget 大幅收紧：120K → 30K，maxIter 20 → 5
   // 单 dim 5 iter 足够：1 search + 1 scrape + 1 finalize = 3 iter；5 iter 留 buffer
   // 6 dim × 30K = 180K（vs 旧 720K），减 75%

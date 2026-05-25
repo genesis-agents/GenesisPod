@@ -404,6 +404,12 @@ export class AgentFactory {
       finalizeOutputJsonSchema: spec.outputJsonSchema
         ? { ...spec.outputJsonSchema }
         : undefined,
+      // P1a/P1b: delimited finalize transport hints (env-gated). Long prose /
+      // NDJSON array fields emitted outside the JSON envelope.
+      finalizeProseFields: spec.finalizeProseFields
+        ? [...spec.finalizeProseFields]
+        : undefined,
+      finalizeNdjsonArrayField: spec.finalizeNdjsonArrayField,
       // Model-level failover (BYOK → user's other models; admin → re-election).
       // Shared with createWithEnvelope via buildModelFailoverProvider so both
       // construction paths behave identically.
