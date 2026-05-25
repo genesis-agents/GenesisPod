@@ -49,7 +49,10 @@ import {
   MissionOwnershipRegistry,
 } from "@/modules/ai-harness/facade";
 import { MissionEventBuffer } from "../../mission/lifecycle/mission-event-buffer.service";
-import { MissionStore } from "../../mission/lifecycle/mission-store.service";
+import {
+  MissionStore,
+  MAX_CONCURRENT_RUNNING_MISSIONS,
+} from "../../mission/lifecycle/mission-store.service";
 import {
   MissionAbortRegistry,
   MissionAbortReason,
@@ -185,12 +188,13 @@ export class AgentPlaygroundController extends BaseMissionController {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
 
-    // ★ P0 并发限制：每 user 最多 3 个并发 running mission，防止单用户打爆 pod。
-    const MAX_CONCURRENT_MISSIONS = 3;
+    // ★ P0 并发限制：每 user 最多 N 个并发 running mission，防止单用户打爆 pod。
+    //   这里是「快速失败 UX 预检」；真正堵 TOCTOU race 的原子兜底在
+    //   MissionStore.createMission（advisory-lock + count + insert 同事务）。
     const running = await this.store.countRunningByUser(userId);
-    if (running >= MAX_CONCURRENT_MISSIONS) {
+    if (running >= MAX_CONCURRENT_RUNNING_MISSIONS) {
       throw new BadRequestException(
-        `已有 ${running} 个 mission 正在运行，最多同时运行 ${MAX_CONCURRENT_MISSIONS} 个，请等待完成后再启动`,
+        `已有 ${running} 个 mission 正在运行，最多同时运行 ${MAX_CONCURRENT_RUNNING_MISSIONS} 个，请等待完成后再启动`,
       );
     }
 

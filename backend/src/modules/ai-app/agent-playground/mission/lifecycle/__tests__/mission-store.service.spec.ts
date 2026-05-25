@@ -1,4 +1,7 @@
-import { MissionStore } from "../mission-store.service";
+import {
+  MissionStore,
+  MissionConcurrencyLimitError,
+} from "../mission-store.service";
 
 function makePrisma() {
   const agentPlaygroundMission = {
@@ -24,11 +27,12 @@ function makePrisma() {
     // ★ P0-R5-1: terminal-state methods 调 $executeRaw 清 checkpoint JSONB key
     $executeRaw: jest.fn().mockResolvedValue(0),
     // ★ P0/P1 并发安全 (2026-05-06): appendLeaderJournal + appendDimensions 用 $transaction
-    // 透传 tx 为同 agentPlaygroundMission mock，让现有断言不变
+    // ★ H4/E9 (2026-05-25): createMission 也走 $transaction（advisory lock + count + insert）
+    // 透传 tx 含 agentPlaygroundMission + $executeRaw（advisory_xact_lock），让断言不变
     $transaction: jest
       .fn()
       .mockImplementation((cb: (tx: unknown) => Promise<unknown>) =>
-        cb({ agentPlaygroundMission }),
+        cb({ agentPlaygroundMission, $executeRaw: jest.fn() }),
       ),
   };
   return prisma;
@@ -89,6 +93,37 @@ describe("MissionStore", () => {
         maxCredits: 100,
       }),
     ).rejects.toThrow("DB down");
+  });
+
+  // ★ H4/E9 (2026-05-25): advisory-lock 事务内复核并发上限，堵 controller 预检的 race
+  it("create: throws MissionConcurrencyLimitError + skips insert when at limit", async () => {
+    prisma.agentPlaygroundMission.count.mockResolvedValueOnce(3); // 已达上限
+    await expect(
+      store.create({
+        id: "m1",
+        userId: "u1",
+        topic: "t",
+        depth: "d",
+        language: "zh-CN",
+        maxCredits: 100,
+      }),
+    ).rejects.toThrow(MissionConcurrencyLimitError);
+    expect(prisma.agentPlaygroundMission.create).not.toHaveBeenCalled();
+  });
+
+  it("create: takes per-user advisory lock before counting", async () => {
+    const tx = { $executeRaw: jest.fn(), count: jest.fn() };
+    void tx;
+    await store.create({
+      id: "m1",
+      userId: "u1",
+      topic: "AI",
+      depth: "deep",
+      language: "zh-CN",
+      maxCredits: 1000,
+    });
+    // advisory_xact_lock 通过 tx.$executeRaw 发出（每用户串行化建行）
+    expect(prisma.$transaction).toHaveBeenCalled();
   });
 
   // ★ 2026-05-05: recoverOrphanedRunning + recoverPodCrashedRunning 已下线

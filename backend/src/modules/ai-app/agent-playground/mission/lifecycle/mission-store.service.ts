@@ -33,6 +33,26 @@ import { MissionLifecycleHelper } from "./mission-lifecycle.helper";
 import { CHECKPOINT_KEY } from "./prisma-mission-checkpoint.store";
 
 /**
+ * 每用户最多并发 running mission 数。
+ * 单一源：controller 预检（快速 400 UX）+ createMission 原子兜底（堵 TOCTOU race）共用。
+ */
+export const MAX_CONCURRENT_RUNNING_MISSIONS = 3;
+
+/**
+ * createMission 在 advisory-lock 事务内复核仍超并发上限时抛此错误。
+ * H4/E9 (2026-05-25)：controller 的 count→create 隔着 async 边界有 TOCTOU race，
+ * 两个并发请求可双双过预检 → 绕过限制。此错误是 DB 层原子兜底命中的信号。
+ */
+export class MissionConcurrencyLimitError extends Error {
+  constructor(public readonly running: number) {
+    super(
+      `已有 ${running} 个 mission 正在运行，最多同时运行 ${MAX_CONCURRENT_RUNNING_MISSIONS} 个`,
+    );
+    this.name = "MissionConcurrencyLimitError";
+  }
+}
+
+/**
  * ★ C5/G7 S4b:userProfile 退化为 configSnapshot 的**读时投影**(单一真源=snapshot,
  * 不再独立写 userProfile)。前端 Mission 设置弹窗读此 shape 不变;legacy 无 snapshot → null。
  */
@@ -176,21 +196,35 @@ export class MissionStore
       isMissionRowMissing,
       emergencyAbort,
       createMission: async (input) => {
-        await prisma.agentPlaygroundMission.create({
-          data: {
-            id: input.id,
-            userId: input.userId,
-            workspaceId: input.workspaceId,
-            topic: input.topic.slice(0, 500),
-            depth: input.depth,
-            language: input.language,
-            maxCredits: input.maxCredits,
-            status: "running",
-            // ★ S4b:不再写 userProfile(configSnapshot 单一真源;读时投影回 userProfile shape)。
-            configSnapshot: input.configSnapshot as
-              | Prisma.InputJsonValue
-              | undefined,
-          },
+        // ★ H4/E9 (2026-05-25): count + insert 必须原子，否则两个并发请求都过
+        //   controller 预检 → 双双建行 → 绕过 <3 限制。用 per-user Postgres
+        //   advisory xact lock 串行化同一用户建行：拿锁 → tx 内 count（看得到
+        //   已提交行）→ 超限抛 MissionConcurrencyLimitError → 否则 insert。
+        //   advisory_xact_lock 随事务结束自动释放；不同用户 hash key 不同不互阻。
+        await prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`apmission:${input.userId}`}))`;
+          const running = await tx.agentPlaygroundMission.count({
+            where: { userId: input.userId, status: "running" },
+          });
+          if (running >= MAX_CONCURRENT_RUNNING_MISSIONS) {
+            throw new MissionConcurrencyLimitError(running);
+          }
+          await tx.agentPlaygroundMission.create({
+            data: {
+              id: input.id,
+              userId: input.userId,
+              workspaceId: input.workspaceId,
+              topic: input.topic.slice(0, 500),
+              depth: input.depth,
+              language: input.language,
+              maxCredits: input.maxCredits,
+              status: "running",
+              // ★ S4b:不再写 userProfile(configSnapshot 单一真源;读时投影回 userProfile shape)。
+              configSnapshot: input.configSnapshot as
+                | Prisma.InputJsonValue
+                | undefined,
+            },
+          });
         });
       },
       writeHeartbeat: async (missionId, podId) => {
@@ -584,5 +618,20 @@ export class MissionStore
       heartbeatAt: row.heartbeatAt,
       visibility: row.visibility,
     };
+  }
+
+  /**
+   * 仅取 mission 的 notify 元信息（userId + topic），按 id 查（无需 userId）。
+   * 用于 liveness 回收路径发 MISSION_FAILED 通知 —— 那里只有 missionId，
+   * mission:failed 事件的 userId 是空串，需从 DB 反查真实 owner。
+   */
+  async getMetaForNotify(
+    missionId: string,
+  ): Promise<{ userId: string; topic: string } | null> {
+    const row = await this.prisma.agentPlaygroundMission.findUnique({
+      where: { id: missionId },
+      select: { userId: true, topic: true },
+    });
+    return row ? { userId: row.userId, topic: row.topic } : null;
   }
 }
