@@ -154,6 +154,20 @@ import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 
 **红线**：任一项缺失，jest 自动看护会红，pre-push 拒推。
 
+### 5.1 安全控制（MUST，2026-05-24 P32 security 审计补）
+
+新 agent team app 的 HTTP / WS / 外部抓取边界**必须**实现以下安全控制（现有 3 个 app 已遵守，新 app 缺则视为安全回归）：
+
+1. **controller 类级别 `@UseGuards(JwtAuthGuard)`** —— 默认所有端点认证，无显式公开理由不得省略。需公开端点用 `@Public()` 显式标注 + PR 说明
+2. **写操作配 `@UseGuards(JwtAuthGuard, RateLimitGuard)`** —— POST / PATCH / DELETE 必须限流。⚠️ 当前 `RateLimitGuard` 是单 pod in-memory（多 pod 实际限额翻倍），跨 pod 强限额用 `DistributedRateLimitGuard`
+3. **ownership 校验在 service 层** —— 用户资源（mission / topic / run）的归属校验必须在 service 内完成（`getOwnedById(id, userId)` 模式），不能只靠 controller 传 userId
+4. **UUID 路径参数走 `ParseUUIDPipe`** —— `@Param("xxxId", new ParseUUIDPipe({ version: "4" }))`，防非法格式无谓触及 DB
+5. **外部 URL 抓取必过 SSRF 校验** —— 调 `assertSafeHttpUrl(url)` 后再 fetch。⚠️ 已知局限：仅 host-string 黑名单，不防 DNS rebinding / redirect-follow（生产应在出站层加 IP 解析校验 + 逐跳重定向校验，见 radar `ssrf-util.ts` 注释）
+6. **WebSocket 鉴权要查 blocklist** —— gateway 不能只 `JwtService.verify`（不查 Redis 禁用名单），被禁用户旧 socket 会持续收事件直到 token 过期。需校验 token 是否在 blocklist
+7. **禁硬编码 secret / model 名** —— 走 `APP_CONFIG` / TaskProfile（见 CLAUDE.md 行为红线）
+
+**自动看护现状**：上述第 1/2/4 项可静态扫（controller decorator），但目前 `agent-team-layout.spec` 只锁目录结构，**未锁安全 decorator**。新 app 评审时人工核对本清单。后续如加 security decorator AST spec，更新此节。
+
 ---
 
 ## 6. 修改 `ai-harness/teams/business-team/` framework 的红线

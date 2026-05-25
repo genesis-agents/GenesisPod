@@ -107,6 +107,16 @@ function listDirEntries(dir: string): { dirs: string[]; files: string[] } {
 }
 
 describe("Agent Team App Layout — §8.2 强制规范", () => {
+  // P32 P2-2: 锁白名单大小，防止有人"悄悄往 ALLOWED_TOP_DIRS 加一个新目录"
+  // 绕过审批扩大白名单。改白名单 = 改 §8.2 规范 = 必须同步 blueprint + 本断言。
+  it("ALLOWED_TOP_DIRS 白名单大小锁定（改动需同步 blueprint §8.2）", () => {
+    expect(ALLOWED_TOP_DIRS.size).toBe(7);
+  });
+
+  it("ALLOWED_HARNESS_BUSINESS_TEAM_DIRS 白名单大小锁定（改动需同步 §8.1）", () => {
+    expect(ALLOWED_HARNESS_BUSINESS_TEAM_DIRS.size).toBe(12);
+  });
+
   it.each(AGENT_TEAM_APPS)(
     "%s 顶层目录全部命中 §8.2 白名单（module/api/runtime/mission/events）",
     (app) => {

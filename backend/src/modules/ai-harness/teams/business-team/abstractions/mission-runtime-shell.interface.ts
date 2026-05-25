@@ -12,10 +12,11 @@
  * 2026-05-08 PR-E0
  */
 
-import type {
-  BillingRuntimeEnvAdapter,
-  MissionBudgetPool,
-} from "@/modules/ai-harness/facade";
+// PR-E0 守护 (P32 P1-1 修): harness 内部成员禁止 import 自身 facade barrel
+// （facade 也 re-export 本文件，构成循环加载，emit-decorator-metadata 会把
+// ctor token 写成 undefined）。直接从依赖的 source 文件导入。
+import type { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/guardrails/billing/billing-adapter";
+import type { MissionBudgetPool } from "@/modules/ai-harness/guardrails/budget/mission-budget-pool";
 
 /** Mission session 运行时句柄 — 跨 stage 传递 */
 export interface MissionRuntimeSession {
