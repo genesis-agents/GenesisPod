@@ -181,15 +181,18 @@ export function FactTablePanel({ factTable, citations }: Props) {
               复制
             </button>
           </div>
-          <Table className="w-full text-xs">
+          {/* ★ 2026-05-25：table-fixed + 列宽百分比，让 5 列在窄抽屉(480px)内自适应
+              填满而非把表撑宽出横向滚动；单元格用 TruncatedCell(w-full) 截断 + 悬浮看
+              全文。这是 TruncatedCell 文档约定的 canonical 用法（w-full + 父 table-fixed）。 */}
+          <Table className="w-full table-fixed text-xs">
             <THead className="border-b border-gray-200 text-left text-[10px] uppercase tracking-wider text-gray-500">
               <Tr>
-                <Th className="pb-2 pr-3">实体</Th>
-                <Th className="pb-2 pr-3">属性</Th>
-                <Th className="pb-2 pr-3">值</Th>
+                <Th className="w-[22%] pb-2 pr-3">实体</Th>
+                <Th className="w-[16%] pb-2 pr-3">属性</Th>
+                <Th className="w-[30%] pb-2 pr-3">值</Th>
                 {/* P111-1: 表头点击切换 sort */}
                 <Th
-                  className="cursor-pointer select-none pb-2 pr-3 hover:text-violet-600"
+                  className="w-[18%] cursor-pointer select-none pb-2 pr-3 hover:text-violet-600"
                   onClick={() =>
                     setSortBy(sortBy === 'sources' ? 'default' : 'sources')
                   }
@@ -198,7 +201,7 @@ export function FactTablePanel({ factTable, citations }: Props) {
                   来源{sortBy === 'sources' && ' ▼'}
                 </Th>
                 <Th
-                  className="cursor-pointer select-none pb-2 hover:text-violet-600"
+                  className="w-[14%] cursor-pointer select-none pb-2 hover:text-violet-600"
                   onClick={() =>
                     setSortBy(sortBy === 'conflict' ? 'default' : 'conflict')
                   }
@@ -233,20 +236,20 @@ export function FactTablePanel({ factTable, citations }: Props) {
                 >
                   <Td className="py-1.5 pr-3 font-medium text-gray-900">
                     <TruncatedCell
-                      className="max-w-[180px]"
+                      className="w-full"
                       tooltip={`${f.id} · ${f.entity}`}
                     >
                       {f.entity}
                     </TruncatedCell>
                   </Td>
                   <Td className="py-1.5 pr-3 text-gray-700">
-                    <TruncatedCell className="max-w-[140px]">
+                    <TruncatedCell className="w-full">
                       {f.attribute}
                     </TruncatedCell>
                   </Td>
                   <Td className="py-1.5 pr-3 text-gray-700">
                     {/* Phase P39-2: 数字 / 百分比加粗 */}
-                    <TruncatedCell className="max-w-[300px]" tooltip={f.value}>
+                    <TruncatedCell className="w-full" tooltip={f.value}>
                       {/^[\d.,$%]+/.test(f.value) ? (
                         <span className="font-semibold text-gray-900">
                           {f.value}
@@ -287,7 +290,7 @@ export function FactTablePanel({ factTable, citations }: Props) {
                   <Td className="py-1.5">
                     {f.conflict && (
                       <span
-                        className={`cursor-help rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                        className={`inline-block max-w-full cursor-help truncate rounded px-1.5 py-0.5 align-middle text-[10px] font-medium ${
                           f.conflict.resolutionType === 'preferred-one'
                             ? 'bg-emerald-100 text-emerald-700'
                             : f.conflict.resolutionType === 'kept-both'
@@ -296,7 +299,11 @@ export function FactTablePanel({ factTable, citations }: Props) {
                         }`}
                         title={`${f.conflict.resolutionType}\n\n${f.conflict.rationale}`}
                       >
-                        {f.conflict.resolutionType}
+                        {f.conflict.resolutionType === 'preferred-one'
+                          ? '择一'
+                          : f.conflict.resolutionType === 'kept-both'
+                            ? '两存'
+                            : '未决'}
                       </span>
                     )}
                   </Td>
