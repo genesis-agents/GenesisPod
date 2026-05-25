@@ -4,8 +4,8 @@
  */
 
 export { PromptsModule } from "./prompts.module";
-export {
-  PromptTemplateService,
+export { PromptTemplateService } from "./prompt-template.service";
+export type {
   PromptTemplateData,
   CreatePromptTemplateDto,
 } from "./prompt-template.service";

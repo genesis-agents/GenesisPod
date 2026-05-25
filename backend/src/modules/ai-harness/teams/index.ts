@@ -22,7 +22,8 @@ export * from "./orchestrator";
 // See: ai-app/research, ai-app/office, ai-app/teams
 
 // Services (exclude MissionStatus to avoid conflict with abstractions)
-export { TeamsService, CreateMissionDto, TeamInfo } from "./services";
+export { TeamsService } from "./services";
+export type { CreateMissionDto, TeamInfo } from "./services";
 
 // Module
 export { TeamsModule } from "./teams.module";

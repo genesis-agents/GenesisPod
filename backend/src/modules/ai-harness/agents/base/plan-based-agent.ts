@@ -207,7 +207,7 @@ export abstract class PlanBasedAgent implements IPlanBasedAgent {
 }
 
 // 重导出常用类型
-export {
+export type {
   AgentId,
   ToolId,
   AgentInput,

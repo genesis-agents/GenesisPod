@@ -4,7 +4,7 @@
  * 导出所有 LLM 相关的类型定义
  */
 
-export {
+export type {
   // 核心类型
   TaskProfile,
   CreativityLevel,
@@ -17,6 +17,8 @@ export {
   ContentPart,
   TextContentPart,
   ImageUrlContentPart,
+} from "./task-profile.types";
+export {
   // 映射常量
   CREATIVITY_TO_TEMPERATURE,
   OUTPUT_LENGTH_TO_TOKENS,

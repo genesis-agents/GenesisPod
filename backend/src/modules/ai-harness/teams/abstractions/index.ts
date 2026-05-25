@@ -4,7 +4,7 @@
  */
 
 // Team (v3 R0-A1-c: BUILTIN_TEAMS / BuiltinTeamId 已下推到各 ai-app)
-export {
+export type {
   TeamId,
   TeamType,
   TeamConfig,
@@ -16,21 +16,23 @@ export {
 } from "./team.interface";
 
 // Role
-export {
+export type {
   RoleId,
-  BUILTIN_ROLES,
   BuiltinRoleId,
   RoleType,
   WorkStyle,
   IRole,
   RoleConfig,
+} from "./role.interface";
+export {
+  BUILTIN_ROLES,
   DEFAULT_WORK_STYLE,
   LEADER_WORK_STYLE,
   ROLE_DESCRIPTIONS,
 } from "./role.interface";
 
 // Member
-export {
+export type {
   TeamMemberId,
   MemberStatus,
   ITeamMember,
@@ -48,7 +50,7 @@ export {
 } from "./member.interface";
 
 // Workflow
-export {
+export type {
   WorkflowType,
   WorkflowStepType,
   WorkflowStepStatus,
@@ -69,7 +71,7 @@ export {
 } from "./workflow.interface";
 
 // Mission Context Package
-export {
+export type {
   HardConstraint,
   CoreEntity,
   Prohibition,
@@ -77,6 +79,8 @@ export {
   EstablishedFact,
   TaskUnderstanding,
   MissionContextPackage,
+} from "./mission-context.interface";
+export {
   createEmptyContextPackage,
   validateContextPackage,
   mergeContextPackages,

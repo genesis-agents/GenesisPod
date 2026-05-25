@@ -38,7 +38,7 @@ import {
 } from "../core/image.types";
 
 // Re-export types for external modules
-export { GeneratedImageResult } from "../core/image.types";
+export type { GeneratedImageResult } from "../core/image.types";
 import {
   InfographicTemplateService,
   InfographicContent,

@@ -7,20 +7,12 @@
 export { Role, createRole } from "./role";
 
 // Member
-export {
-  TeamMember,
-  Leader,
-  LeaderConfig,
-  createMember,
-  createLeader,
-} from "./member";
+export { TeamMember, Leader, createMember, createLeader } from "./member";
+export type { LeaderConfig } from "./member";
 
 // Leader LLM Adapter
-export {
-  ILeaderLLMAdapter,
-  LeaderLLMAdapter,
-  createLeaderLLMAdapter,
-} from "./leader-llm-adapter";
+export { LeaderLLMAdapter, createLeaderLLMAdapter } from "./leader-llm-adapter";
+export type { ILeaderLLMAdapter } from "./leader-llm-adapter";
 
 // Team
 export { Team, TeamBuilder, createTeamBuilder } from "./team";

@@ -4,4 +4,5 @@
  */
 
 export { RoleRegistry } from "./role-registry";
-export { TeamRegistry, TeamRegistrySummary } from "./team-registry";
+export { TeamRegistry } from "./team-registry";
+export type { TeamRegistrySummary } from "./team-registry";

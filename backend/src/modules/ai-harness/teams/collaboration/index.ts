@@ -15,7 +15,7 @@ export * from "./abstractions";
 export * from "./patterns";
 
 // Review Workflow (使用显式导出避免命名冲突)
-export {
+export type {
   IReviewWorkflow,
   Review,
   ReviewRequest as ReviewWorkflowRequest,

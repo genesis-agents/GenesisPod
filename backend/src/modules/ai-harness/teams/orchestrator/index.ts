@@ -4,7 +4,7 @@
  */
 
 // Interfaces
-export {
+export type {
   IMissionOrchestrator,
   IIntentParser,
   IExecutionPlanner,
@@ -16,9 +16,9 @@ export {
   StepReviewResult,
   OrchestratorPhase,
   OrchestratorConfig,
-  DEFAULT_ORCHESTRATOR_CONFIG,
   ReviewCriteria,
 } from "./orchestrator.interface";
+export { DEFAULT_ORCHESTRATOR_CONFIG } from "./orchestrator.interface";
 
 // Implementation
 export { TeamsMissionOrchestrator as MissionOrchestrator } from "./teams-mission-orchestrator";

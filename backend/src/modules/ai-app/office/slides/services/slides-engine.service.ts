@@ -97,7 +97,7 @@ export interface SlidesGenerateInput {
 }
 
 // Re-export StreamEvent for convenience
-export { StreamEvent };
+export type { StreamEvent };
 
 /**
  * 导出选项

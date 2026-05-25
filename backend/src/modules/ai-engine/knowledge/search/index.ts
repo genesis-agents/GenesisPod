@@ -1,5 +1,5 @@
-export {
-  SearchService,
+export { SearchService } from "./search.service";
+export type {
   SearchResult,
   SearchResponse,
   KeyHealthStatus,

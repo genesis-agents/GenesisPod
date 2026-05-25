@@ -32,7 +32,7 @@
  */
 
 // 重新导出核心类型（选择性导出，避免冲突）
-export {
+export type {
   // Types
   JsonValue,
   JsonObject,
@@ -50,13 +50,15 @@ export {
   MaybePromise,
   // Context
   BaseContext,
-  EngineExecutionMode,
   // Interfaces
   IExecutable,
   IRegistry,
   IRegisterable,
-  BaseRegistry,
   RegistryStats,
+} from "./facade/index";
+export {
+  EngineExecutionMode,
+  BaseRegistry,
   // Errors
   EngineError,
   ToolError,
@@ -128,12 +130,11 @@ export { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
 // Image 模块核心服务
 export { ImageFactory } from "./content/image/factory";
 export { ImageModule } from "./content/image/image.module";
-export {
+export type {
   IImageAdapter,
   ImageGenerationOptions,
   ImageGenerationResult,
   GeneratedImage,
   ImageProvider,
-  IMAGE_PROVIDERS,
-  IMAGE_MODELS,
 } from "./content/image/abstractions";
+export { IMAGE_PROVIDERS, IMAGE_MODELS } from "./content/image/abstractions";

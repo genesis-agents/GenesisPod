@@ -10,19 +10,19 @@ export * from "./rag.module";
 // 从 AI Engine Facade 重新导出核心能力 (向后兼容)
 export {
   EmbeddingService,
+  VectorService,
+  DocumentChunker,
+  DEFAULT_CHUNKING_CONFIG,
+} from "@/modules/ai-harness/facade";
+export type {
   EmbeddingResult,
   EmbeddingBatch,
-  VectorService,
   SimilaritySearchOptions,
   SimilarityResult,
   VectorSearchResult,
-  DocumentChunker,
-  DEFAULT_CHUNKING_CONFIG,
   ChildChunkData,
   ParentChunkData,
   ChunkedDocument,
-} from "@/modules/ai-harness/facade";
-export type {
   EmbeddingModelConfig,
   ChunkingConfig,
 } from "@/modules/ai-harness/facade";

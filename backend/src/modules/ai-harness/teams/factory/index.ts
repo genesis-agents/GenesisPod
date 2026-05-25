@@ -2,4 +2,5 @@
  * AI Engine - Teams Factory Exports
  */
 
-export { TeamFactory, TeamInstantiationOptions } from "./team-factory";
+export { TeamFactory } from "./team-factory";
+export type { TeamInstantiationOptions } from "./team-factory";

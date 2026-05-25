@@ -6,8 +6,8 @@
  */
 
 // 从 common 模块导入并重新导出 URL Parser 服务和类型
-export {
-  UrlParserService,
+export { UrlParserService } from "../../../../common/content-processing";
+export type {
   ParsedUrlType,
   ParseStatus,
   LinkPreview,
@@ -19,8 +19,8 @@ export {
 // 从 common 模块导入并重新导出 Web Content Extraction 服务和类型
 // 注意：服务类名从 ContentExtractionService 改为 WebContentExtractionService
 // 为保持向后兼容，这里创建别名
-export {
-  WebContentExtractionService as ContentExtractionService,
+export { WebContentExtractionService as ContentExtractionService } from "../../../../common/content-processing";
+export type {
   WebExtractedContent as JinaExtractedContent,
   DeepResearchResult,
 } from "../../../../common/content-processing";

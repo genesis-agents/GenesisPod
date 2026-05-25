@@ -31,16 +31,16 @@ export {
   MissionAICallerService,
   TeamMessageService,
   TeamMemberService,
+} from "./mission";
+export type {
   // MissionPromptService 中的非冲突类型
   TaskBreakdown,
   TeamMemberInfo,
 } from "./mission";
 
 // Context 服务（排除冲突的类型）
-export {
-  ConstraintEnforcementService,
-  TokenBudgetService,
-  // 使用别名避免冲突
+export { ConstraintEnforcementService, TokenBudgetService } from "./context";
+export type {
   ConstraintSeverity,
   ExtractedConstraint,
   OutputValidationResult,

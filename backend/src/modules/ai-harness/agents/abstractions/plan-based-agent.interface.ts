@@ -22,7 +22,7 @@ import {
 // 与 ai-app/contracts/agent-catalog.ts（PlatformAgentId）
 
 // ==================== 重导出核心类型 ====================
-export { AgentId, ToolId, SkillId, AgentInput, UploadedFile, Artifact };
+export type { AgentId, ToolId, SkillId, AgentInput, UploadedFile, Artifact };
 
 // ==================== Agent 上下文 ====================
 

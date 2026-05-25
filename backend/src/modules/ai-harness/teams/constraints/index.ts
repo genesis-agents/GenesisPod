@@ -4,7 +4,7 @@
  */
 
 // Constraint Profile
-export {
+export type {
   CostConstraint,
   ModelPreference,
   QualityConstraint,
@@ -14,6 +14,8 @@ export {
   Priority,
   ConstraintProfile,
   ConstraintPreset,
+} from "./constraint-profile";
+export {
   CONSTRAINT_PRESETS,
   createConstraintProfile,
   getDefaultConstraintProfile,
@@ -21,7 +23,7 @@ export {
 } from "./constraint-profile";
 
 // Constraint Engine Interface
-export {
+export type {
   IConstraintEngine,
   ConstraintEvaluation,
   CostEvaluation,

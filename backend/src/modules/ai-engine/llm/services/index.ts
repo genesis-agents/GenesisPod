@@ -4,8 +4,8 @@
  */
 
 // 主服务
-export {
-  AiChatService,
+export { AiChatService } from "./ai-chat.service";
+export type {
   AIModelConfig,
   ChatMessage,
   ChatCompletionOptions,

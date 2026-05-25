@@ -7,5 +7,7 @@
  * @deprecated Use SpecAgentRegistry for new-style agents.
  */
 
-export { AgentRegistry, AgentRegistryStats } from "./plan-based-agent-registry";
-export { AgentOrchestrator, AgentStatusReport } from "./agent-orchestrator";
+export { AgentRegistry } from "./plan-based-agent-registry";
+export type { AgentRegistryStats } from "./plan-based-agent-registry";
+export { AgentOrchestrator } from "./agent-orchestrator";
+export type { AgentStatusReport } from "./agent-orchestrator";
