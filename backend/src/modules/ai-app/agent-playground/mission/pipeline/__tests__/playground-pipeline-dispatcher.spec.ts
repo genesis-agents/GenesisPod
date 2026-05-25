@@ -129,7 +129,7 @@ import { PlaygroundPipelineDispatcher } from "../playground.pipeline";
 //   spec 实例化 real PlaygroundBusinessOrchestrator(用 stub deps),保持外部行为
 //   完全等价(idempotent refactor):同样的 stage hooks, 同样的事件流, 同样的 DB 写。
 import { PlaygroundBusinessOrchestrator } from "../playground-business-orchestrator.service";
-import { PLAYGROUND_PIPELINE } from "../../../playground.config";
+import { PLAYGROUND_PIPELINE } from "../../../runtime/playground.config";
 import type { MissionRuntimeShellService } from "../mission-runtime-shell.service";
 import type { MissionRuntimeSession } from "../mission-runtime-shell.service";
 import type { MissionStageBindingsService } from "../mission-stage-bindings.service";

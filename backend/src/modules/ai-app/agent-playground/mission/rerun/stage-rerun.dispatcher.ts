@@ -37,7 +37,7 @@ import type { ChapterInput } from "@/modules/ai-harness/facade";
 import type { LocalRerunInput } from "./local-rerun.service";
 import type { HydratedMissionContext } from "./ctx-hydrator.service";
 import type { EmitFn } from "../context/mission-deps";
-import { PLAYGROUND_PIPELINE } from "../../playground.config";
+import { PLAYGROUND_PIPELINE } from "../../runtime/playground.config";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import type { ReportArtifact } from "@/modules/ai-harness/facade";
 import { LEADER_VERDICT_AUTO_RERUN_RECOVERED } from "../types/leader-verdict.types";

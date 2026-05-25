@@ -44,7 +44,7 @@ import { StageRerunDispatcher } from "./stage-rerun.dispatcher";
 import type { EmitFn } from "../context/mission-deps";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MissionStore } from "../lifecycle/mission-store.service";
-import { PLAYGROUND_PIPELINE } from "../../playground.config";
+import { PLAYGROUND_PIPELINE } from "../../runtime/playground.config";
 
 /** v1.2 §3.4: 黑名单 — 只拦"语义上不应重跑"的 stage（其它按 dag.rerunable 判断）。 */
 const STAGE_RERUN_BLACKLIST = new Set<string>([

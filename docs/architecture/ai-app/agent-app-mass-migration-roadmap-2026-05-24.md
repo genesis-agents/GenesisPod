@@ -28,10 +28,15 @@ The reduced scope means **the project becomes**:
 
 ## 2. Completed (Pushed to origin/main)
 
-| Phase                 | Commit      | What landed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Test delta    |
-| --------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| **P1** invoker        | `0bde09898` | `BusinessTeamAgentInvoker.framework` (155 + 83 interface + 194 spec) sunk to `ai-harness/teams/business-team/invocation/`. playground invoker 280→241 (-39); social invoker 153→183 (+30 closure tracking). 8 framework spec cases.                                                                                                                                                                                                                                                                                                                                                                                    | 9755 tests ✅ |
-| **P2 + P25** combined | `e13d4740c` | **Backend P2**: dispatcher / bindings / cross-stage-state / mission-span / dag-concurrency / event-relay framework all sunk to `ai-harness/teams/business-team/{dispatcher,bindings,state,span,invocation}/`. 5 specs / 36 cases. playground dispatcher 1216→1136 (-80); social dispatcher 839→792 (-47); playground mission-span 150→**29** (-121); execution-support 159→**72** (-87). **Frontend P25/P26/P27**: canonical `MissionDetailFrame` / `DrawerShell` / `ModalShell` / `StageStepper` / `MissionActionGroup` + 3 derive functions + audit script. playground page.tsx wires the canonical shell (-28 LOC). | 9980 tests ✅ |
+| Phase                       | Commit                               | What landed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Test delta                              |
+| --------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **P1** invoker              | `0bde09898`                          | `BusinessTeamAgentInvoker.framework` (155 + 83 interface + 194 spec) sunk to `ai-harness/teams/business-team/invocation/`. playground invoker 280→241 (-39); social invoker 153→183 (+30 closure tracking). 8 framework spec cases.                                                                                                                                                                                                                                                                                                                                                                                    | 9755 tests ✅                           |
+| **P2 + P25** combined       | `e13d4740c`                          | **Backend P2**: dispatcher / bindings / cross-stage-state / mission-span / dag-concurrency / event-relay framework all sunk to `ai-harness/teams/business-team/{dispatcher,bindings,state,span,invocation}/`. 5 specs / 36 cases. playground dispatcher 1216→1136 (-80); social dispatcher 839→792 (-47); playground mission-span 150→**29** (-121); execution-support 159→**72** (-87). **Frontend P25/P26/P27**: canonical `MissionDetailFrame` / `DrawerShell` / `ModalShell` / `StageStepper` / `MissionActionGroup` + 3 derive functions + audit script. playground page.tsx wires the canonical shell (-28 LOC). | 9980 tests ✅                           |
+| **P9b** playground reorg    | `429d28c3c` 等                       | `ai-app/agent-playground/` 按 §8.2 flat → `module/api/runtime/mission/{pipeline,context,roles,artifacts,lifecycle}/events/`。skills 移到 `mission/skills/`。playground-runtime.config 移到 `runtime/`。                                                                                                                                                                                                                                                                                                                                                                                                                | passing ✅                              |
+| **P10** social reorg        | `e62b77f29`～`603505d08` (9 batches) | `ai-app/social/` 同上 §8.2 reorg。services → mission/services, agents → mission/agents, integrations 平台子目录化 (wechat/xhs)。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | passing ✅                              |
+| **P11** radar reorg         | `4424d17f3`                          | `ai-app/radar/` 同上 §8.2 reorg。controllers → api/controller, dto → api/dto, agents → mission/agents, services/mission/{lifecycle,workflow,stages} → mission/{lifecycle,pipeline,pipeline/stages}, services/{briefing,collectors,scheduler,source,topic} → mission/services/\*, radar.events → events/, radar.module → module/, radar.config/constants/gateway → runtime/. 95 文件 rename, app.module.ts + 1 integration spec import 更新, 3 spec depth+1。                                                                                                                                                           | radar 23 suites/222 passed/2 skipped ✅ |
+| **fix(ts)** isolatedModules | `4adf17a9b`                          | 24 文件 `export { Type }` → `export type { Type }` 修 Docker build TS1205。tsconfig.json `isolatedModules: true` 保持开启（不再回滚）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | tsc 0 error / build green ✅            |
+| **fix(tests)** P9b/P9c spec | `80822389c`                          | 4 个 spec 路径跟上 P9b/P9c：playground-runtime.config.spec.ts + playground-tuning-profile.spec.ts + playground-no-regression.spec.ts + skill-loader.spec.ts。                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 4 suites / 64 tests passed ✅           |
 
 Both commits passed:
 
@@ -69,23 +74,23 @@ These are the **playground capability tiers** still to sink, per blueprint §6.2
 | **P6** | T4 lifecycle: mission-store (627) / lifecycle-helper (329) / update-helper (294) / postmortem-helper (185) / event-buffer (143) / checkpoint-store (225) / event-categories (89) + report-helper abstraction | ~2050 LOC down                       |
 | **P7** | `BusinessTeamOrchestrator.framework` skeleton (playground 941 / social 179 / radar 164)                                                                                                                      | ~1300 LOC skeleton + business hooks  |
 
-### Wave 1b — Directory reorganization (blueprint §8.1 / §8.2)
+### Wave 1b — Directory reorganization (blueprint §8.1 / §8.2) ✅ **DONE**
 
-| Phase   | Scope                                                                                                                                                                                          |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **P8**  | `ai-harness/teams/business-team/` reorganize into §8.1 layout — most files already in right subdir from P2; this phase formalizes the `abstractions/` placement + cleans up cross-team imports |
-| **P9**  | `ai-app/agent-playground/` flatten `services/` subtree to top-level §8.2 layout (`module/api/runtime/mission/{pipeline,context,roles,artifacts,lifecycle}/events/`)                            |
-| **P10** | `ai-app/social/` same reorg                                                                                                                                                                    |
-| **P11** | `ai-app/radar/` same reorg                                                                                                                                                                     |
+| Phase   | Scope                                                                                                                                                                                          | Status             |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| **P8**  | `ai-harness/teams/business-team/` reorganize into §8.1 layout — most files already in right subdir from P2; this phase formalizes the `abstractions/` placement + cleans up cross-team imports | 已随 P2 完成       |
+| **P9**  | `ai-app/agent-playground/` flatten `services/` subtree to top-level §8.2 layout (`module/api/runtime/mission/{pipeline,context,roles,artifacts,lifecycle}/events/`)                            | ✅ P9b `429d28c3c` |
+| **P10** | `ai-app/social/` same reorg                                                                                                                                                                    | ✅ batches 1-9     |
+| **P11** | `ai-app/radar/` same reorg                                                                                                                                                                     | ✅ `4424d17f3`     |
 
-### Wave 4 — Guardrails (defer until Wave 1 + 1b done)
+### Wave 4 — Guardrails ✅ **DONE** (2026-05-24 night)
 
-| Phase   | Scope                                                                                           |
-| ------- | ----------------------------------------------------------------------------------------------- |
-| **P21** | ESLint `no-restricted-syntax` + filename rules in `ai-app/*/`                                   |
-| **P22** | jest contract spec (AST): `ai-app/*` mission-pipeline only consume harness framework via facade |
-| **P23** | audit baseline lock on `ai-app/*/mission/` §8.2 layout                                          |
-| **P24** | pre-push hook integrates `audit:agent-team-discipline`                                          |
+| Phase   | Scope                                                                                           | Status                                                                                                                   |
+| ------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **P21** | ESLint `no-restricted-syntax` + filename rules in `ai-app/*/`                                   | ✅ ESLint SECTION 10 已覆盖 ai-app→harness facade-only；额外移 `playground.config.ts` 到 `runtime/` 与 social/radar 统一 |
+| **P22** | jest contract spec (AST): `ai-app/*` mission-pipeline only consume harness framework via facade | ✅ `agent-team-facade-contract.spec.ts`（12 tests）锁 mission/{pipeline,lifecycle} 只能走 facade                         |
+| **P23** | audit baseline lock on `ai-app/*/mission/` §8.2 layout                                          | ✅ `agent-team-layout.spec.ts`（43 tests）锁 §8.2 顶层目录白名单 + §8.1 business-team 子目录白名单                       |
+| **P24** | pre-push hook integrates `audit:agent-team-discipline`                                          | ✅ 自动随 pre-push `[0/6]` 步跑全 `src/__tests__/architecture/`，2 个新 spec 已 in-place                                 |
 
 ### Wave 6 — Closeout (defer until Wave 1 + 1b + 4 done)
 
@@ -125,19 +130,21 @@ Reasoning: user decision to focus the migration on the 3 teams (playground / soc
 
 ---
 
-## 6. Current Pause Status (2026-05-24 evening)
+## 6. Current Status (2026-05-24 night, post-cleanup)
 
-**Paused on user instruction. No new sub-agents dispatched. Two completed agents' worktrees pending GC.**
+**Wave 1b 全部完成 (P9b + P10 + P11)。Worktree 已清理：22 → 4（保留 2 个 unmerged 功能分支 + main + gat-contract-wt）。66 个 orphan worktree-\* 分支删除，17 个 unmerged 保留待用户决策。**
 
-Next actions require user direction. Options:
+### Wave 1 P4 重新评估 (2026-05-24 night)
 
-1. **Continue Wave 1 (P4-P7)** — sink Tier 2/3/4 helpers + orchestrator framework; further shrinks playground/social/radar
-2. **Skip to Wave 1b (P8-P11)** — directory reorganization first, helper sinking later
-3. **Jump to Wave 4 (P21-P24)** — lock in current achievement with guardrails, defer Tier 2/3/4 sinks
-4. **Jump to Wave 6 (P30-P32)** — closeout review + SOP doc + 4-way audit on what's already done
-5. **Stop here** — current state (P1/P2/P25 landed) is a complete commit, accept it
+实地 grep 显示 P4 列出的 8 个 T2 helpers (chapter-pipeline-helper / per-dim-pipeline / chapter-batch-executor / evidence-budget / narrative-util / word-count-normalizer / grade-grounding / segment-extractors) **仅存在于 playground 一家**，social / radar 没有等价物。把它们下沉到 harness 等于 **为单一消费方做框架**，违反 Karpathy "3 处使用再考虑抽象" 原则。
 
-Document the choice in the next user message and the roadmap is updated accordingly.
+**结论**：Wave 1 P4-P7 不是"3 teams 共同瘦身"，而是"playground 单家提取"。等真有第二家需要时再做。**改去 Wave 4** 先锁定 §8.2 + framework 边界，避免 P11 layout 被未来回归冲掉。
+
+### 下一步执行顺序（修订后）
+
+1. **Wave 4 (P21-P24)** — 立即开始 ← 自驱处理
+2. **Wave 6 (P30-P32)** — 守护栏锁好后做 closeout review + SOP 文档
+3. Wave 1 P4-P7 deferred — 等真有第二消费方再做
 
 ---
 
@@ -154,7 +161,16 @@ Document the choice in the next user message and the roadmap is updated accordin
 
 ---
 
-## 8. Worktree Inventory (Current)
+## 8. Worktree Inventory (After 2026-05-24 Night Cleanup)
+
+**Active**：仅 `main` + `gat-contract-wt`（独立仓库）+ 2 个 unmerged 功能分支：
+
+- `fix-wechat-fingerprint-sniff` → `fix/wechat-cover-crop-multi` (1 commit unmerged)
+- `radar-collect-items` → `worktree-radar-collect-items` (1 commit unmerged)
+
+**Removed**：22 → 4，66 个已合并 orphan 分支删除。
+
+### 历史 (供溯源)
 
 | Phase   | Worktree branch                    | Status                                     |
 | ------- | ---------------------------------- | ------------------------------------------ |

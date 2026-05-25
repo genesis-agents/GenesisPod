@@ -10,7 +10,7 @@
  * pipeline-v1 是唯一路径。
  */
 import { MissionPipelineRegistry } from "@/modules/ai-harness/facade";
-import { PLAYGROUND_PIPELINE } from "../playground.config";
+import { PLAYGROUND_PIPELINE } from "../runtime/playground.config";
 
 describe("PLAYGROUND_PIPELINE (v5.1 R2-A.0)", () => {
   it("pipeline id == agent-playground", () => {

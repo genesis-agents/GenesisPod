@@ -55,7 +55,7 @@ import {
 import { PlaygroundPipelineDispatcher } from "../playground.pipeline";
 import { PlaygroundBusinessOrchestrator } from "../playground-business-orchestrator.service";
 import { PlaygroundCrossStageState } from "../playground-cross-stage-state";
-import { PLAYGROUND_PIPELINE } from "../../../playground.config";
+import { PLAYGROUND_PIPELINE } from "../../../runtime/playground.config";
 import type { MissionRuntimeShellService } from "../mission-runtime-shell.service";
 import type { MissionRuntimeSession } from "../mission-runtime-shell.service";
 import type { MissionStageBindingsService } from "../mission-stage-bindings.service";

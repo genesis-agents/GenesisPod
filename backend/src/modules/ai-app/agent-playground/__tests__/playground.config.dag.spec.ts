@@ -17,7 +17,7 @@
  *   (via runDagConcurrency), which is already genuine parallel and is not changed here.
  */
 
-import { PLAYGROUND_PIPELINE } from "../playground.config";
+import { PLAYGROUND_PIPELINE } from "../runtime/playground.config";
 import {
   validateStageDag,
   computeCascadeChain,

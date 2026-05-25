@@ -24,8 +24,9 @@ import type { ZodType } from "zod";
  * 留给 R2-A.1 第一个 stage 迁移时补）。
  */
 // P9c (2026-05-24): SKILL.md loader 上提到 ai-engine,callers 传 agentsRootDir。
-// playground 根目录 __dirname → mission/agents/ 绝对路径
-const AGENTS_ROOT_DIR = path.resolve(__dirname, "mission", "agents");
+// 2026-05-24 night (P21): playground.config.ts 从 root 移到 runtime/,__dirname 深一层。
+// runtime/ → ../mission/agents/ 绝对路径
+const AGENTS_ROOT_DIR = path.resolve(__dirname, "..", "mission", "agents");
 
 function buildSkillSpecFromMd(agentDir: string): ResolvedRole["skillSpec"] {
   const skillPath = path.resolve(AGENTS_ROOT_DIR, agentDir, "SKILL.md");

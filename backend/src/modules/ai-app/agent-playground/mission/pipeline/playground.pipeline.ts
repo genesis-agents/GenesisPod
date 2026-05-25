@@ -41,7 +41,7 @@ import {
   type MissionRuntimeSession,
 } from "./mission-runtime-shell.service";
 import { MissionStageBindingsService } from "./mission-stage-bindings.service";
-import { PLAYGROUND_PIPELINE } from "../../playground.config";
+import { PLAYGROUND_PIPELINE } from "../../runtime/playground.config";
 import { type RunMissionInput } from "../../api/dto/run-mission.dto";
 // ★ Stage 1 / S1-1 (2026-05-09): 11 个 stage 函数 + narrate / runWithStageInstrumentation
 //   + MissionInvariants 已随 stage hooks 移到 PlaygroundBusinessOrchestrator;dispatcher
