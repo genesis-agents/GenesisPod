@@ -430,10 +430,12 @@ export function TeamRosterPanel({
       {/* Section header */}
       <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Research Team
+          研究团队
         </span>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">{agents.length} agents</span>
+          <span className="text-xs text-gray-400">
+            {agents.length} 个 Agent
+          </span>
           {onCollapse && (
             <button
               type="button"
@@ -655,7 +657,7 @@ export function TeamRosterPanel({
           MissionActionGroup 一起组成 aside 底部"操作区" */}
       <div className="shrink-0 border-t border-gray-100 bg-gray-50/50 px-3 py-2.5">
         <div className="mb-1.5 flex items-center justify-between text-[11px]">
-          <span className="font-medium text-gray-700">Mission progress</span>
+          <span className="font-medium text-gray-700">任务进度</span>
           <span className="flex items-center gap-1.5">
             {missionStatus === 'cancelled' && (
               <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-700">
@@ -690,7 +692,7 @@ export function TeamRosterPanel({
         </div>
         {finalScore != null && (
           <div className="mt-2 flex items-center justify-between text-[11px]">
-            <span className="font-medium text-gray-700">Consensus quality</span>
+            <span className="font-medium text-gray-700">共识质量</span>
             <span
               className={`font-mono font-semibold ${
                 finalScore >= 80
