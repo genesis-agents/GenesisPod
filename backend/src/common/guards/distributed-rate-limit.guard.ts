@@ -85,17 +85,30 @@ export class DistributedRateLimitGuard implements CanActivate {
           context.switchToHttp().getResponse(),
         );
       } catch (error) {
-        this.logger.warn(
-          `[DistributedRateLimit] Redis error, falling back to memory: ${error instanceof Error ? error.message : "Unknown error"}`,
+        // ★ 修：命中限流抛的 429 HttpException 不是 Redis 故障，必须原样上抛，
+        //   否则被当成"Redis error"吞掉 → 降级内存重判 → 限流被绕过。
+        if (error instanceof HttpException) {
+          throw error;
+        }
+        // ★ E34 (2026-05-25): Redis 真故障 → fail-open 降级内存，但不能静默。
+        //   用 error 级 + 稳定告警码（日志告警规则可抓 REDIS_RATELIMIT_FAILOVER），
+        //   避免"分布式限流静默失效、多 pod 被打爆却无人知"。
+        this.logger.error(
+          `[ALERT][REDIS_RATELIMIT_FAILOVER] Redis 不可用，限流降级为单 pod 内存（多 pod 保护已弱化）：${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
         );
         this.redisAvailable = false;
         // 5 分钟后重试 Redis
         setTimeout(
           () => {
             this.redisAvailable = true;
+            this.logger.warn(
+              "[REDIS_RATELIMIT_FAILOVER] 冷却结束，下次请求重试 Redis 限流",
+            );
           },
           5 * 60 * 1000,
-        );
+        ).unref();
       }
     }
 

@@ -16,7 +16,7 @@
  *   - 调用方需要自己 supply 这些 ctx 字段（通常是 minimal stub 或 mission 子集）
  */
 
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import type { MissionContext } from "../context/mission-context";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
@@ -123,11 +123,17 @@ export class CtxHydratorService extends BusinessTeamCtxHydratorFramework<
       if (detail.reportArtifactVersion === 2) {
         const parsed = parseReportArtifact(detail.reportFull);
         if (!parsed.ok) {
-          throw new BadRequestException(
-            `mission ${missionId} report_full validation failed: ${parsed.errorMessage}`,
+          // ★ E49 (2026-05-25): checkpoint 报告损坏不再裸抛 BadRequest（导致 rerun
+          //   整体折返、用户卡死）。降级为"无既有报告"→ writer stage 会重新生成，
+          //   其余 dimensions/input/themeSummary 仍复用。损坏 snapshot 自动回退到
+          //   重跑报告，而非硬失败。
+          this.log.warn(
+            `[rerun] mission ${missionId} report_full 校验失败，降级重生成报告：${parsed.errorMessage}`,
           );
+          reportArtifact = undefined;
+        } else {
+          reportArtifact = parsed.data as unknown as ReportArtifact;
         }
-        reportArtifact = parsed.data as unknown as ReportArtifact;
       } else {
         report = detail.reportFull as unknown as ResearchReport;
       }

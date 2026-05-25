@@ -12,7 +12,7 @@
  *   - 不存在 mission → NotFound
  */
 
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { NotFoundException } from "@nestjs/common";
 import { CtxHydratorService } from "../ctx-hydrator.service";
 import type {
   MissionStore,
@@ -242,16 +242,19 @@ describe("CtxHydratorService.hydrate", () => {
   });
 
   describe("zod 校验（v1.2 类别 E1）", () => {
-    it("reportFull 缺 metadata.topic → throw BadRequest", async () => {
+    // ★ E49 (2026-05-25): 报告 zod 校验失败不再裸抛，降级为重生成（reportArtifact
+    //   undefined）→ rerun 不被损坏 snapshot 整体折返。
+    it("reportFull 缺 metadata.topic → 降级重生成（不抛，reportArtifact undefined）", async () => {
       const broken = buildValidArtifact();
       delete (broken.metadata as { topic?: string }).topic;
       const detail = buildDetail({ reportFull: broken });
       const store = makeMockStore(detail);
       const prisma = makeMockPrisma();
       const hydrator = new CtxHydratorService(store, prisma);
-      await expect(hydrator.hydrate("m1", "u1")).rejects.toThrow(
-        BadRequestException,
-      );
+      const ctx = await hydrator.hydrate("m1", "u1");
+      expect(ctx.reportArtifact).toBeUndefined();
+      // 其余字段仍正常复用（input 来自 configSnapshot）
+      expect(ctx.input).toBeDefined();
     });
 
     it("reportFull > 2MB → throw BadRequest（size guard）", async () => {
