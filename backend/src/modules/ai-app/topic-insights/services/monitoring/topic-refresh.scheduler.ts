@@ -5,7 +5,11 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { RefreshFrequency, ResearchTopicStatus } from "@prisma/client";
+import {
+  RefreshFrequency,
+  ResearchMissionStatus,
+  ResearchTopicStatus,
+} from "@prisma/client";
 import { TopicTeamOrchestratorService } from "../core/topic/topic-team-orchestrator.service";
 // ★ P1-CTX-BYOK (2026-04-30): cron 触发的刷新链路必须显式注入 RequestContext.userId,
 //   否则下游 AiChatService 走不到 BYOK key resolver — BYOK-only 用户全 fail。
@@ -33,7 +37,23 @@ export class TopicRefreshScheduler implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
-    this.logger.log("Topic Refresh Scheduler initialized");
+    // ════════════════════════════════════════════════════════════════════════
+    // ★ 2026-05-25「背后默默烧钱」总开关 —— 默认 OFF。
+    //   定时刷新会在后台无人值守地反复触发全量研究报告(deepseek 等),BYOK 用户
+    //   烧的是自己 provider 的真金白银,且平台 credit 闸对 BYOK 不生效。这种"静默
+    //   后台消耗"必须显式 opt-in,绝不默认开。运维要启用须显式设
+    //   ENABLE_TOPIC_AUTO_REFRESH=true。未开启则连定时器都不装,彻底不跑。
+    // ════════════════════════════════════════════════════════════════════════
+    if (process.env.ENABLE_TOPIC_AUTO_REFRESH !== "true") {
+      this.logger.warn(
+        "[TopicRefreshScheduler] DISABLED — background topic auto-refresh will NOT run. " +
+          "Set ENABLE_TOPIC_AUTO_REFRESH=true to opt in. " +
+          "（默认关闭:杜绝后台静默烧 token/BYOK 账单）",
+      );
+      return;
+    }
+
+    this.logger.log("Topic Refresh Scheduler initialized (opt-in ENABLED)");
 
     // 启动时更新所有专题的下次刷新时间
     // 使用 try-catch 优雅处理表不存在的情况（数据库迁移未完成）
@@ -139,6 +159,59 @@ export class TopicRefreshScheduler implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // ★ 2026-05-25 失控事故修复(必读) —— 防止"同一专题被每小时反复并发刷新"。
+    //
+    //   旧实现把 nextRefreshAt 只在 executeRefresh **完成后**才更新,且无任何并发
+    //   保护。但一次刷新常耗时 >1h,远超本调度器 1h 的检查间隔 → 每个 tick 都把同一个
+    //   还没跑完、nextRefreshAt 仍到期的专题再选出来、再起一个并发 executeRefresh。
+    //   同名维度刷出 3-4 份、队列堆到 80、BYOK 用户的 provider 账单被无限叠加(平台
+    //   credit 闸对 BYOK 不生效)。orchestrator 把旧 mission 标 FAILED 也救不了 ——
+    //   in-flight 的 LLM 循环不读 DB 状态,照烧不误。唯一根治是**不让重叠刷新启动**。
+    //
+    //   两道闸:
+    //     闸①  该专题已有进行中的 mission → 直接跳过,绝不并发再起一个。
+    //     闸②  原子 claim:仅当"当前仍到期"才把 nextRefreshAt 先推到下一周期再跑。
+    //          updateMany 在 DB 层原子,并发 tick / 多 pod 只有一个 count=1 抢到;
+    //          执行前就推进,下一 tick 不会再选中本专题;失败也不立刻重试(无 retry
+    //          storm),等下一周期。
+    // ════════════════════════════════════════════════════════════════════════
+
+    // 闸①：已有进行中的刷新 mission → 跳过
+    const inFlight = await this.prisma.researchMission.findFirst({
+      where: {
+        topicId,
+        status: {
+          in: [
+            ResearchMissionStatus.PLANNING,
+            ResearchMissionStatus.PLAN_READY,
+            ResearchMissionStatus.EXECUTING,
+            ResearchMissionStatus.REVIEWING,
+          ],
+        },
+      },
+      select: { id: true },
+    });
+    if (inFlight) {
+      this.logger.warn(
+        `[refreshTopic] topic "${topic.name}" already has in-flight mission ${inFlight.id}; skip scheduled refresh (anti-runaway)`,
+      );
+      return;
+    }
+
+    // 闸②：原子 claim —— 执行前就把 nextRefreshAt 推到下一周期
+    const nextRefreshAt = this.calculateNextRefreshTime(topic.refreshFrequency);
+    const claim = await this.prisma.researchTopic.updateMany({
+      where: { id: topicId, nextRefreshAt: { lte: new Date() } },
+      data: { nextRefreshAt, lastRefreshAt: new Date() },
+    });
+    if (claim.count === 0) {
+      this.logger.debug(
+        `[refreshTopic] topic ${topicId} already claimed by another tick/pod; skip`,
+      );
+      return;
+    }
+
     this.logger.log(
       `Starting scheduled refresh for topic: ${topic.name} (user=${topic.userId})`,
     );
@@ -147,27 +220,16 @@ export class TopicRefreshScheduler implements OnModuleInit, OnModuleDestroy {
     //   BYOK key resolver 能拿到 topic.userId; 之前 BYOK-only 用户的定时刷新全 fail。
     try {
       await withUserContext(topic.userId, async () => {
-        // 执行增量刷新
-        await this.orchestrator.executeRefresh(topic, {
-          incremental: true,
-        });
-
-        // 更新下次刷新时间
-        const nextRefreshAt = this.calculateNextRefreshTime(
-          topic.refreshFrequency,
-        );
-        await this.prisma.researchTopic.update({
-          where: { id: topicId },
-          data: { nextRefreshAt },
-        });
+        await this.orchestrator.executeRefresh(topic, { incremental: true });
       });
       this.logger.log(`Completed scheduled refresh for topic: ${topic.name}`);
     } catch (error) {
+      // nextRefreshAt 已在闸②提前推进 → 本周期不会再被重选(无 retry storm),
+      // 下一周期自然重试。这里只记录,不再 rethrow。
       this.logger.error(
-        `Scheduled refresh failed for topic ${topic.name}`,
+        `Scheduled refresh failed for topic ${topic.name} (will retry next cycle)`,
         error,
       );
-      throw error;
     }
   }
 

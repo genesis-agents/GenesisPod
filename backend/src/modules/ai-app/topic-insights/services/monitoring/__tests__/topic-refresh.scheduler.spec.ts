@@ -45,6 +45,12 @@ function buildPrismaMock() {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      // ★ 2026-05-25 anti-runaway: 原子 claim 用 updateMany
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    researchMission: {
+      // ★ 2026-05-25 anti-runaway: 闸① 查"是否已有进行中 mission"，默认无
+      findFirst: jest.fn().mockResolvedValue(null),
     },
     topicSchedule: {
       findFirst: jest.fn(),
@@ -91,6 +97,7 @@ describe("TopicRefreshScheduler", () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
+    delete process.env.ENABLE_TOPIC_AUTO_REFRESH;
   });
 
   // ==========================================================================
@@ -98,6 +105,24 @@ describe("TopicRefreshScheduler", () => {
   // ==========================================================================
 
   describe("onModuleInit()", () => {
+    // ★ 2026-05-25: 默认关闭，opt-in 的测试需显式开启
+    beforeEach(() => {
+      process.env.ENABLE_TOPIC_AUTO_REFRESH = "true";
+    });
+
+    it("is DISABLED by default (no env flag) — does not arm interval or scan topics", async () => {
+      delete process.env.ENABLE_TOPIC_AUTO_REFRESH;
+      const updateSpy = jest
+        .spyOn(scheduler, "updateNextRefreshTimes")
+        .mockResolvedValue();
+      const setIntervalSpy = jest.spyOn(global, "setInterval");
+
+      await scheduler.onModuleInit();
+
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(setIntervalSpy).not.toHaveBeenCalled();
+    });
+
     it("should call updateNextRefreshTimes and set up an interval", async () => {
       const updateSpy = jest
         .spyOn(scheduler, "updateNextRefreshTimes")
@@ -133,6 +158,7 @@ describe("TopicRefreshScheduler", () => {
 
   describe("onModuleDestroy()", () => {
     it("should clear the interval when destroying the module", async () => {
+      process.env.ENABLE_TOPIC_AUTO_REFRESH = "true"; // opt-in 才会装定时器
       const clearIntervalSpy = jest.spyOn(global, "clearInterval");
       jest.spyOn(scheduler, "updateNextRefreshTimes").mockResolvedValue();
 
@@ -170,12 +196,12 @@ describe("TopicRefreshScheduler", () => {
       prisma.researchTopic.findUnique
         .mockResolvedValueOnce(topics[0])
         .mockResolvedValueOnce(topics[1]);
-      prisma.researchTopic.update.mockResolvedValue({});
 
       await scheduler.checkAndRefreshTopics();
 
       expect(orchestrator.executeRefresh).toHaveBeenCalledTimes(2);
-      expect(prisma.researchTopic.update).toHaveBeenCalledTimes(2);
+      // ★ claim 改用 updateMany(执行前推进 next_refresh_at),不再用 update(完成后)
+      expect(prisma.researchTopic.updateMany).toHaveBeenCalledTimes(2);
     });
 
     it("should handle P2021 error gracefully (table does not exist)", async () => {
@@ -225,6 +251,77 @@ describe("TopicRefreshScheduler", () => {
       await scheduler.checkAndRefreshTopics();
 
       expect(orchestrator.executeRefresh).not.toHaveBeenCalled();
+    });
+  });
+
+  // ==========================================================================
+  // anti-runaway guards (2026-05-25 失控事故回归)
+  // ==========================================================================
+
+  describe("refreshTopic anti-runaway guards", () => {
+    it("闸①: skips refresh when an in-flight mission already exists for the topic", async () => {
+      const topic = makeTopic();
+      prisma.researchTopic.findMany.mockResolvedValue([topic]);
+      prisma.researchTopic.findUnique.mockResolvedValue(topic);
+      // 已有进行中的 mission
+      prisma.researchMission.findFirst.mockResolvedValue({
+        id: "mission-live",
+      });
+
+      await scheduler.checkAndRefreshTopics();
+
+      expect(orchestrator.executeRefresh).not.toHaveBeenCalled();
+      // 不抢 claim，也不推进 next_refresh_at
+      expect(prisma.researchTopic.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("闸②: atomically claims (advances next_refresh_at) BEFORE executeRefresh", async () => {
+      const topic = makeTopic();
+      prisma.researchTopic.findMany.mockResolvedValue([topic]);
+      prisma.researchTopic.findUnique.mockResolvedValue(topic);
+
+      const order: string[] = [];
+      prisma.researchTopic.updateMany.mockImplementation(async () => {
+        order.push("claim");
+        return { count: 1 };
+      });
+      orchestrator.executeRefresh.mockImplementation(async () => {
+        order.push("execute");
+      });
+
+      await scheduler.checkAndRefreshTopics();
+
+      // claim 必须在 execute 之前
+      expect(order).toEqual(["claim", "execute"]);
+      const claimArg = prisma.researchTopic.updateMany.mock.calls[0][0];
+      expect(claimArg.where).toMatchObject({ id: "topic-1" });
+      expect(claimArg.where.nextRefreshAt).toBeDefined(); // 仅当仍到期才抢到
+      expect(claimArg.data.nextRefreshAt).toBeInstanceOf(Date);
+    });
+
+    it("闸②: skips executeRefresh when the claim loses the race (count=0)", async () => {
+      const topic = makeTopic();
+      prisma.researchTopic.findMany.mockResolvedValue([topic]);
+      prisma.researchTopic.findUnique.mockResolvedValue(topic);
+      prisma.researchMission.findFirst.mockResolvedValue(null);
+      prisma.researchTopic.updateMany.mockResolvedValue({ count: 0 }); // 别的 tick/pod 抢走了
+
+      await scheduler.checkAndRefreshTopics();
+
+      expect(orchestrator.executeRefresh).not.toHaveBeenCalled();
+    });
+
+    it("on executeRefresh failure: does NOT rethrow and does NOT re-storm (next_refresh_at already advanced)", async () => {
+      const topic = makeTopic();
+      prisma.researchTopic.findMany.mockResolvedValue([topic]);
+      prisma.researchTopic.findUnique.mockResolvedValue(topic);
+      orchestrator.executeRefresh.mockRejectedValue(new Error("boom"));
+
+      await expect(scheduler.checkAndRefreshTopics()).resolves.toBeUndefined();
+
+      // claim 已提前推进过 next_refresh_at；失败后不应再有"完成后回写"的 update
+      expect(prisma.researchTopic.updateMany).toHaveBeenCalledTimes(1);
+      expect(prisma.researchTopic.update).not.toHaveBeenCalled();
     });
   });
 
