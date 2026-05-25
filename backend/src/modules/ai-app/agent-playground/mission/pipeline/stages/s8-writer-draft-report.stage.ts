@@ -55,6 +55,7 @@ import { narrate } from "../../artifacts/narrative.util";
 import { clampScore, scaleScore } from "@/modules/ai-harness/facade";
 import { defaultStructuralReportAssembler } from "@/modules/ai-harness/facade";
 import { extractReportSegments } from "../../artifacts/util/segment-extractors.util";
+import { redactCreditCards } from "../../artifacts/util/pii-redactor.util";
 
 // ★ 2026-05-01 (PR-G iter8): 走 ai-harness 集中阈值（quality-thresholds.constants.ts）
 const MAX_WRITER_ATTEMPTS = MISSION_WRITER_MAX_ATTEMPTS;
@@ -806,6 +807,25 @@ export async function runWriterStage(
         `[${missionId}] structural assembler failed (non-fatal, fallback to legacy): ${
           err instanceof Error ? err.message : String(err)
         }`,
+      );
+    }
+  }
+
+  // ── E46 (2026-05-25): 报告输出侧脱敏高置信 PII ──
+  // 仅脱敏过 Luhn 校验的信用卡号（等长替换，不破坏 section/角标 offset）。
+  // 研究报告里 email / 长数字 ID 是合法正文，不动（见 pii-redactor.util 注释）。
+  // 放在 ctx 写回 + markIntermediateState 持久化之前，覆盖 持久化 + 前端展示。
+  if (reportArtifact?.content?.fullMarkdown) {
+    const { text: redacted, redactedCount } = redactCreditCards(
+      reportArtifact.content.fullMarkdown,
+    );
+    if (redactedCount > 0) {
+      reportArtifact = {
+        ...reportArtifact,
+        content: { ...reportArtifact.content, fullMarkdown: redacted },
+      };
+      deps.log.warn(
+        `[${missionId}] E46: redacted ${redactedCount} credit-card-like sequence(s) from report output`,
       );
     }
   }
