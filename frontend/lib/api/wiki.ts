@@ -192,6 +192,11 @@ export interface WikiIngestProgress {
 
 export interface WikiKbConfig {
   knowledgeBaseId: string;
+  /**
+   * Master on/off for the per-KB wiki auto-ingest cron. When false the
+   * scheduler skips this KB (no LLM spend). Default true.
+   */
+  autoIngestEnabled: boolean;
   inlinePageCount: number;
   inlineTokenBudget: number;
   ingestMaxTokens: number;
@@ -226,6 +231,7 @@ export interface WikiKbConfig {
 export type WikiKbConfigPatch = Partial<
   Pick<
     WikiKbConfig,
+    | 'autoIngestEnabled'
     | 'inlinePageCount'
     | 'inlineTokenBudget'
     | 'ingestMaxTokens'

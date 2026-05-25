@@ -322,6 +322,10 @@ export class WikiController {
     // Light-weight typed pass-through: service layer clamps each numeric
     // field and ignores unknown keys, so a plain object DTO is enough.
     const patch = {
+      autoIngestEnabled:
+        typeof body.autoIngestEnabled === "boolean"
+          ? body.autoIngestEnabled
+          : undefined,
       inlinePageCount:
         typeof body.inlinePageCount === "number"
           ? body.inlinePageCount

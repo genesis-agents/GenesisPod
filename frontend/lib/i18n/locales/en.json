@@ -453,6 +453,8 @@
         "ingestMaxTokensLabel": "Ingest max tokens (1,000 - 500,000)",
         "cronLintDailyBudgetLabel": "Auto-lint daily call cap (0-5000)",
         "cronLintEnabled": "Enable daily auto-lint",
+        "autoIngestEnabled": "Enable auto-ingest (auto-build wiki)",
+        "autoIngestEnabledDesc": "When on, the scheduler auto-builds wiki pages from new KB documents every 5 minutes, consuming LLM quota (billed to the consumer's BYOK). Turn off to stop auto-building; manual Ingest still works.",
         "enabledLocales": {
           "title": "Enabled languages",
           "description": "Single-locale KBs only produce pages in the chosen language; bilingual KBs run a cross-language translation pass linked by translationGroupId.",

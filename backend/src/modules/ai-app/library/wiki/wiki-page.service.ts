@@ -449,6 +449,7 @@ export class WikiPageService {
     return (
       config ?? {
         knowledgeBaseId,
+        autoIngestEnabled: true,
         inlinePageCount: 200,
         inlineTokenBudget: 500_000,
         ingestMaxTokens: 80_000,
@@ -470,6 +471,9 @@ export class WikiPageService {
     userId: string,
     knowledgeBaseId: string,
     patch: {
+      /** Master on/off for the per-KB wiki auto-ingest cron. When false the
+       *  scheduler skips this KB entirely (no LLM spend). Default true. */
+      autoIngestEnabled?: boolean;
       inlinePageCount?: number;
       inlineTokenBudget?: number;
       ingestMaxTokens?: number;
@@ -525,6 +529,10 @@ export class WikiPageService {
     if (imt !== undefined) {
       update.ingestMaxTokens = imt;
       create.ingestMaxTokens = imt;
+    }
+    if (patch.autoIngestEnabled !== undefined) {
+      update.autoIngestEnabled = patch.autoIngestEnabled;
+      create.autoIngestEnabled = patch.autoIngestEnabled;
     }
     if (patch.cronLintEnabled !== undefined) {
       update.cronLintEnabled = patch.cronLintEnabled;

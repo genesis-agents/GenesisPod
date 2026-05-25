@@ -453,6 +453,8 @@
         "ingestMaxTokensLabel": "Ingest 最大 token（1,000 - 500,000）",
         "cronLintDailyBudgetLabel": "自动 Lint 每日调用上限（0-5000）",
         "cronLintEnabled": "启用每日自动 Lint",
+        "autoIngestEnabled": "启用自动 Ingest（自动构建 Wiki）",
+        "autoIngestEnabledDesc": "开启后系统每 5 分钟自动把知识库的新文档构建成 Wiki 页面，会消耗 LLM 配额（按消费者 BYOK 计费）。关闭后停止自动构建，手动点击 Ingest 不受影响。",
         "enabledLocales": {
           "title": "启用语种",
           "description": "单语 KB 仅在选定语种生成页面；双语 KB 会跨语种生成翻译页（同 translationGroupId 关联）。",

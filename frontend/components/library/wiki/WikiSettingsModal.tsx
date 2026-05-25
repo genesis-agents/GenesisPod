@@ -69,6 +69,7 @@ export default function WikiSettingsModal({
     setError(null);
     try {
       const result = await wikiApi.updateConfig(kbId, {
+        autoIngestEnabled: config.autoIngestEnabled,
         inlinePageCount: config.inlinePageCount,
         inlineTokenBudget: config.inlineTokenBudget,
         ingestMaxTokens: config.ingestMaxTokens,
@@ -222,6 +223,29 @@ export default function WikiSettingsModal({
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
               />
             </ConfigCard>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <label className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-slate-900">
+                  {t('library.wiki.settings.autoIngestEnabled')}
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  {t('library.wiki.settings.autoIngestEnabledDesc')}
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={config.autoIngestEnabled}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    autoIngestEnabled: e.target.checked,
+                  })
+                }
+                className="h-4 w-4"
+              />
+            </label>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <label className="flex items-center justify-between gap-4">
