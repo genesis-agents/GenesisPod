@@ -10,7 +10,31 @@
  *   - fail-open：null / undefined / 异常对象 → null
  */
 
-import { extractErrorSignal } from "../error-signal.types";
+import {
+  buildDegenerateOutputSignal,
+  DEGENERATE_OUTPUT_ERROR_CODE,
+  extractErrorSignal,
+} from "../error-signal.types";
+
+describe("buildDegenerateOutputSignal", () => {
+  it("builds a synthetic 200 + degenerate_output signal", () => {
+    const sig = buildDegenerateOutputSignal(
+      "degenerate_output finish_reason=stop nativeMode=json_mode",
+    );
+    expect(sig.httpStatus).toBe(200);
+    expect(sig.errorCode).toBe(DEGENERATE_OUTPUT_ERROR_CODE);
+    expect(sig.bodySnippet).toContain("nativeMode=json_mode");
+    expect(sig.provider).toBe("unknown");
+  });
+
+  it("sanitizes + truncates the bodySnippet", () => {
+    const sig = buildDegenerateOutputSignal(
+      `nativeMode=json_mode api_key: "sk-secret1234567890abc" ${"x".repeat(300)}`,
+    );
+    expect(sig.bodySnippet).not.toContain("sk-secret1234567890abc");
+    expect(sig.bodySnippet.length).toBeLessThanOrEqual(200);
+  });
+});
 
 describe("extractErrorSignal — v3.1 §B.5 严格化", () => {
   // ─────────── httpStatus 严格 ───────────

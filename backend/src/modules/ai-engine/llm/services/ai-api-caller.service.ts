@@ -734,9 +734,11 @@ export class AiApiCallerService {
         `tokens=${maxTokens}, temp=${temperature}, msgs=${messages.length}, ~${Math.ceil(estimatedChars / CHARS_TO_TOKENS_RATIO)} input tokens`,
     );
 
-    let response;
-    try {
-      response = await firstValueFrom(
+    // ── Shared request + in-request degrade helpers ──────────────────────────
+    // Both "4xx format rejection" and "200 OK but degenerate output" use the
+    // SAME downgrade mechanics (drop / step-down response_format, re-POST once).
+    const doPost = () =>
+      firstValueFrom(
         this.httpService.post(effectiveEndpoint, requestBody, {
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -745,6 +747,38 @@ export class AiApiCallerService {
           timeout,
         }),
       );
+    const wantsJson =
+      !!outputSchema || responseFormat === "json" || !!outputJsonSchema;
+    // Apply a degraded structured-output mode onto requestBody in place
+    // (json_schema(_strict) → json_mode → none/prompt).
+    const applyDegradeToBody = (mode: string) => {
+      delete requestBody["response_format"];
+      if (mode === "json_mode") {
+        requestBody["response_format"] = { type: "json_object" };
+      } else if (
+        (mode === "json_schema" || mode === "json_schema_strict") &&
+        outputJsonSchema
+      ) {
+        requestBody["response_format"] = {
+          type: "json_schema",
+          json_schema: {
+            name: schemaName ?? "output",
+            schema: outputJsonSchema,
+            strict: mode === "json_schema_strict",
+          },
+        };
+      } else {
+        // none / prompt：撤掉 response_format + 注入 JSON 约束到 system msg
+        injectJsonConstraint();
+      }
+    };
+    // Single in-request degrade attempt budget — a 4xx-degrade and a
+    // degenerate-output-degrade must not double-retry.
+    let degradeUsed = false;
+
+    let response;
+    try {
+      response = await doPost();
     } catch (err) {
       // v3.1 §B+.3 / D.1: fire-and-forget self-heal trigger
       // R1 (2026-05-25): chain-aware 降级目标（json_schema→json_mode→none），
@@ -767,41 +801,18 @@ export class AiApiCallerService {
       //   结构化输出被拒(4xx 格式错) + 有下一档 strategy + 调用方确实要 JSON →
       //   当次用降级后的 response_format 重试一次（json_schema→json_mode→none）。
       //   解决"catalog 漂移导致首个 mission 直接崩"（self-heal 只救下次）。
-      const wantsJson =
-        !!outputSchema || responseFormat === "json" || !!outputJsonSchema;
-      if (degrade && wantsJson && this.isStructuredOutputRejection(err)) {
-        const mode = degrade.toValue;
-        delete requestBody["response_format"];
-        if (mode === "json_mode") {
-          requestBody["response_format"] = { type: "json_object" };
-        } else if (
-          (mode === "json_schema" || mode === "json_schema_strict") &&
-          outputJsonSchema
-        ) {
-          requestBody["response_format"] = {
-            type: "json_schema",
-            json_schema: {
-              name: schemaName ?? "output",
-              schema: outputJsonSchema,
-              strict: mode === "json_schema_strict",
-            },
-          };
-        } else {
-          // none / prompt：撤掉 response_format + 注入 JSON 约束到 system msg
-          injectJsonConstraint();
-        }
+      if (
+        degrade &&
+        wantsJson &&
+        !degradeUsed &&
+        this.isStructuredOutputRejection(err)
+      ) {
+        degradeUsed = true;
+        applyDegradeToBody(degrade.toValue);
         try {
-          response = await firstValueFrom(
-            this.httpService.post(effectiveEndpoint, requestBody, {
-              headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-              },
-              timeout,
-            }),
-          );
+          response = await doPost();
           this.logger.warn(
-            `[in-request-degrade] ${modelId}: ${degrade.fromValue}→${mode} 重试成功（首次格式被拒）`,
+            `[in-request-degrade] ${modelId}: ${degrade.fromValue}→${degrade.toValue} 重试成功（首次格式被拒）`,
           );
           // 成功 → 不抛，落到下方解析
         } catch {
@@ -850,19 +861,87 @@ export class AiApiCallerService {
       const isReasoningModelExhausted =
         reasoningTokens > 0 && reasoningTokens >= completionTokens * 0.9;
 
-      if (finishReason === "length") {
-        if (isReasoningModelExhausted) {
-          // ★ 推理模型需要更多 tokens - 内部推理通常占 80-90%
-          throw new Error(
-            `AI 推理模型的 token 全部用于内部思考，没有空间输出结果。` +
-              `当前 max_tokens=${maxTokens}，建议增加到 25000+ 以确保有足够空间输出内容。` +
-              `（推理模型会使用大部分 tokens 进行 Chain of Thought）`,
+      // ★ 2026-05-25 degenerate-success in-request degrade（机制级，无模型硬编码）：
+      //   200 OK 但 content 空（且非纯 tool_call）—— 某些模型（如推理模型在被强制
+      //   json_object 时）会"接受 response_format 却吐空/畸形输出"，4xx 降级网兜不到。
+      //   当确实要 JSON + capability chain 还有下一档 + 本次未降级过 → 用 chain 派生的
+      //   下一档（response_format 降级 / 撤销）重试一次；同时 fire 退化信号 self-heal
+      //   把这一档持久化（下次直接用低档，不再空转）。整条路径由 capability 链驱动，
+      //   不含任何 provider/modelId 字符串判断。
+      if (wantsJson && !degradeUsed) {
+        const degrade = this.computeSelfHealDegrade(
+          provider,
+          modelId,
+          effectiveNativeMode,
+        );
+        if (degrade) {
+          degradeUsed = true;
+          this.selfHealTrigger?.triggerDegenerateSelfHealAsync?.({
+            modelId,
+            userModelConfigId,
+            fromValue: degrade.fromValue,
+            toValue: degrade.toValue,
+            bodySnippet:
+              `degenerate_output finish_reason=${finishReason ?? "?"} ` +
+              `reasoning_tokens=${reasoningTokens} nativeMode=${degrade.fromValue}`,
+          });
+          applyDegradeToBody(degrade.toValue);
+          this.logger.warn(
+            `[in-request-degrade] ${modelId}: degenerate 200(empty,finish=${finishReason ?? "?"}) ` +
+              `${degrade.fromValue}→${degrade.toValue} 重试`,
           );
-        } else {
-          throw new Error(
-            `AI 响应被完全截断（上下文可能过大）。prompt_tokens=${usage.prompt_tokens || "?"}`,
-          );
+          try {
+            const retryResp = await doPost();
+            const retryData = retryResp.data;
+            const retryMsg = retryData.choices?.[0]?.message;
+            const retryToolCalls =
+              this.extractOpenAICompatibleToolCalls(retryMsg);
+            const retryContent =
+              retryMsg?.content ||
+              retryMsg?.text ||
+              retryMsg?.output ||
+              (typeof retryMsg === "string" ? retryMsg : null);
+            if (retryContent || (retryToolCalls && retryToolCalls.length > 0)) {
+              this.logger.warn(
+                `[in-request-degrade] ${modelId}: degenerate 重试成功`,
+              );
+              const ru = retryData.usage || {};
+              return {
+                content: retryContent || "",
+                model: modelId,
+                tokensUsed: ru.total_tokens || 0,
+                inputTokens: ru.prompt_tokens || 0,
+                outputTokens: ru.completion_tokens || 0,
+                cacheReadTokens: ru.prompt_tokens_details?.cached_tokens || 0,
+                finishReason:
+                  retryData.choices?.[0]?.finish_reason || undefined,
+                toolCalls: retryToolCalls,
+              };
+            }
+            // 重试仍退化 → 落到下方抛错（交给 model-failover 切模型）
+          } catch {
+            // 降级重试失败 → 落到下方抛错
+          }
         }
+      }
+
+      // ★ 推理模型把 token 全花在思考、没有可见输出 —— finish_reason 既可能是
+      //   length（截断）也可能是 stop（DeepSeek thinking 等返回 stop）。两种都按
+      //   "推理耗尽"处理，抛出可被 model-failover 识别的错误。
+      if (
+        isReasoningModelExhausted &&
+        (finishReason === "length" || finishReason === "stop")
+      ) {
+        throw new Error(
+          `AI 推理模型的 token 全部用于内部思考，没有空间输出结果。` +
+            `当前 max_tokens=${maxTokens}，建议增加到 25000+ 以确保有足够空间输出内容。` +
+            `（推理模型会使用大部分 tokens 进行 Chain of Thought）`,
+        );
+      }
+      if (finishReason === "length") {
+        throw new Error(
+          `AI 响应被完全截断（上下文可能过大）。prompt_tokens=${usage.prompt_tokens || "?"}`,
+        );
       }
 
       throw new Error(`AI 返回空响应 (原因: ${finishReason || "unknown"})`);

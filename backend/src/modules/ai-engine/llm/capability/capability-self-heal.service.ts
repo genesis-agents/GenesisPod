@@ -29,6 +29,7 @@ import type {
   ApplyOverrideOptions,
   CapabilityOverrideTarget,
 } from "./capability-overrides-writer.types";
+import { DEGENERATE_OUTPUT_ERROR_CODE } from "./error-signal.types";
 import type { ErrorSignal } from "./error-signal.types";
 import type { ModelCapabilitiesOverrides } from "./model-capability.types";
 
@@ -36,11 +37,14 @@ const SELF_HEAL_THRESHOLD = 3;
 const SELF_HEAL_WINDOW_SECONDS = 600;
 const COOLING_OFF_HOURS = 24;
 
-const ALLOWED_HTTP_STATUSES = new Set([400, 422]);
+// 200 仅在与合成 degenerate-output errorCode 配对时被接受（真实 provider 响应
+// 永不产生该 code）—— 让"接受 response_format 却吐退化输出"的模型也能自愈降档。
+const ALLOWED_HTTP_STATUSES = new Set([200, 400, 422]);
 const ALLOWED_ERROR_CODES = new Set([
   "unsupported_response_format",
   "invalid_request_error",
   "feature_not_supported",
+  DEGENERATE_OUTPUT_ERROR_CODE,
 ]);
 
 export interface MaybeSelfHealOptions {
@@ -183,6 +187,14 @@ export class CapabilitySelfHealService {
     // 1. HTTP status 白名单
     if (!ALLOWED_HTTP_STATUSES.has(sig.httpStatus)) {
       return { ok: false, reason: "http_status_not_whitelisted" };
+    }
+    // 1b. 200 仅允许与合成 degenerate-output 配对（防止任何非退化的 200 信号
+    //     绕过；真实 provider 错误恒为 4xx/5xx）。
+    if (
+      sig.httpStatus === 200 &&
+      sig.errorCode !== DEGENERATE_OUTPUT_ERROR_CODE
+    ) {
+      return { ok: false, reason: "http_200_requires_degenerate_code" };
     }
     // 2. error code 白名单
     if (!ALLOWED_ERROR_CODES.has(sig.errorCode)) {

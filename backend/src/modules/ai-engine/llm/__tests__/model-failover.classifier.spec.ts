@@ -36,6 +36,48 @@ describe("isModelLevelFailoverError", () => {
     });
   });
 
+  describe("空响应 / 退化输出 (应 failover — 换模型)", () => {
+    it("'AI 返回空响应 (原因: stop)' → true", () => {
+      expect(
+        isModelLevelFailoverError(new Error("AI 返回空响应 (原因: stop)")),
+      ).toBe(true);
+    });
+
+    it("推理模型 token 全用于思考 → true", () => {
+      expect(
+        isModelLevelFailoverError(
+          new Error(
+            "AI 推理模型的 token 全部用于内部思考，没有空间输出结果。当前 max_tokens=25000",
+          ),
+        ),
+      ).toBe(true);
+    });
+
+    it("'响应被完全截断' → true", () => {
+      expect(
+        isModelLevelFailoverError(
+          new Error("AI 响应被完全截断（上下文可能过大）。prompt_tokens=20091"),
+        ),
+      ).toBe(true);
+    });
+
+    it("'empty response' (英文) → true", () => {
+      expect(
+        isModelLevelFailoverError(
+          new Error("provider returned empty response"),
+        ),
+      ).toBe(true);
+    });
+
+    it("PROVIDER_API_ERROR 包装的空响应 → true", () => {
+      expect(
+        isModelLevelFailoverError(
+          new Error("PROVIDER_API_ERROR — AI 返回空响应 (原因: stop)"),
+        ),
+      ).toBe(true);
+    });
+  });
+
   describe("真·quota / billing 耗尽 (不 failover — 让用户充值)", () => {
     it("'insufficient_quota' → false", () => {
       expect(

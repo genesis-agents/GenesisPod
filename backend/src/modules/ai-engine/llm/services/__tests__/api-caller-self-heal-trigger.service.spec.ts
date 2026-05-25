@@ -123,6 +123,47 @@ describe("ApiCallerSelfHealTriggerService — v3.1 §D.1", () => {
     expect(selfHeal.maybeSelfHeal).not.toHaveBeenCalled();
   });
 
+  // ★ 2026-05-25: 退化输出（200 OK 空/畸形）触发入口
+  describe("triggerDegenerateSelfHealAsync", () => {
+    it("triggers maybeSelfHeal with synthetic 200 degenerate_output signal", async () => {
+      trigger.triggerDegenerateSelfHealAsync({
+        modelId: "deepseek-v4-flash",
+        userModelConfigId: "cfg-1",
+        fromValue: "json_mode",
+        toValue: "none",
+        bodySnippet: "degenerate_output nativeMode=json_mode",
+      });
+
+      await new Promise((r) => setImmediate(r));
+      expect(selfHeal.maybeSelfHeal).toHaveBeenCalledTimes(1);
+      const call = selfHeal.maybeSelfHeal.mock.calls[0][0];
+      expect(call.target).toEqual({ kind: "user_model_config", id: "cfg-1" });
+      expect(call.fromValue).toBe("json_mode");
+      expect(call.toValue).toBe("none");
+      expect(call.errorSignal.httpStatus).toBe(200);
+      expect(call.errorSignal.errorCode).toBe("degenerate_output");
+    });
+
+    it("does NOT trigger when fromValue/toValue missing (no degrade target)", async () => {
+      trigger.triggerDegenerateSelfHealAsync({
+        modelId: "deepseek-v4-flash",
+        userModelConfigId: "cfg-1",
+      });
+      await new Promise((r) => setImmediate(r));
+      expect(selfHeal.maybeSelfHeal).not.toHaveBeenCalled();
+    });
+
+    it("does NOT trigger when userModelConfigId missing", async () => {
+      trigger.triggerDegenerateSelfHealAsync({
+        modelId: "deepseek-v4-flash",
+        fromValue: "json_mode",
+        toValue: "none",
+      });
+      await new Promise((r) => setImmediate(r));
+      expect(selfHeal.maybeSelfHeal).not.toHaveBeenCalled();
+    });
+  });
+
   it("swallows maybeSelfHeal async rejection (fire-and-forget; no unhandled)", async () => {
     selfHeal.maybeSelfHeal.mockRejectedValue(new Error("self-heal blew up"));
     const err = makeAxiosError(400, {

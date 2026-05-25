@@ -31,6 +31,31 @@ export interface ErrorSignal {
   provider?: SignalProvider;
 }
 
+/**
+ * 退化输出（degenerate-success）合成信号常量。
+ *
+ * 部分模型对被强制的 response_format **接受**（HTTP 200）却吐空/畸形输出，
+ * 没有 4xx 可供 {@link extractErrorSignal} 解析。此时 caller 用本常量构造一个
+ * 合成 ErrorSignal 走同一条 self-heal 路径 —— httpStatus=200 + 这个独有 errorCode
+ * 是"退化输出"的唯一标记（真实 provider 响应永不产生该 code），self-heal 据此
+ * 把 nativeMode 持久化降档。
+ */
+export const DEGENERATE_OUTPUT_ERROR_CODE = "degenerate_output";
+
+/**
+ * 构造"退化输出"合成 ErrorSignal（供 self-heal 持久化能力降档）。
+ * bodySnippet 由 caller 提供（应含 fromValue / 'nativeMode' 以通过 self-heal 的
+ * body 证据校验），此处统一脱敏 + 截断。
+ */
+export function buildDegenerateOutputSignal(bodySnippet: string): ErrorSignal {
+  return {
+    httpStatus: 200,
+    errorCode: DEGENERATE_OUTPUT_ERROR_CODE,
+    bodySnippet: sanitizeBody(bodySnippet ?? "").slice(0, 200),
+    provider: "unknown",
+  };
+}
+
 // ──────────── 脱敏工具 ────────────
 
 /**

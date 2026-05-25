@@ -92,6 +92,20 @@ export function isModelLevelFailoverError(err: unknown): boolean {
   )
     return true;
 
+  // Empty / degenerate model output: 200 OK but no usable content, or a
+  // reasoning model that burned its whole budget on internal thinking and left
+  // an empty content channel. The in-request degrade (ai-api-caller) already
+  // tried dropping/stepping-down response_format; reaching here means the
+  // current model+params reliably produce nothing usable, so switching to a
+  // DIFFERENT model is the correct recovery. Checked BEFORE the budget guard so
+  // these messages are never mistaken for billing exhaustion.
+  if (
+    /返回空响应|返回了空响应|empty\s+response|推理模型的\s*token\s*全部用于内部思考|响应被完全截断|degenerate[_\s]?output/i.test(
+      msg,
+    )
+  )
+    return true;
+
   // Never failover on budget / billing exhaustion (user must act)
   if (
     /(insufficient[_\s-]?quota|exceeded[_\s\w]*quota|quota[_\s\w]*exceed|billing[_\s\w]*details|insufficient[_\s\w]*credit|insufficient[_\s\w]*balance|payment\s+required)/i.test(

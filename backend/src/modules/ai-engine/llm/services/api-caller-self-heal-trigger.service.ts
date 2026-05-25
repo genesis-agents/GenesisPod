@@ -21,7 +21,10 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { CapabilitySelfHealService } from "../capability/capability-self-heal.service";
-import { extractErrorSignal } from "../capability/error-signal.types";
+import {
+  buildDegenerateOutputSignal,
+  extractErrorSignal,
+} from "../capability/error-signal.types";
 
 export interface SelfHealTriggerOptions {
   /** 模型 id（仅用于日志，不参与决策） */
@@ -77,6 +80,40 @@ export class ApiCallerSelfHealTriggerService {
       .catch((e: unknown) =>
         this.logger.warn(
           `[self-heal-trigger] modelId=${modelId}: ${String(e).slice(0, 200)}`,
+        ),
+      );
+  }
+
+  /**
+   * 退化输出（200 OK 但 content 空/畸形）触发入口。
+   *
+   * 与 {@link triggerSelfHealAsync} 同样 fire-and-forget，但信号是合成的
+   * degenerate-output（httpStatus=200 + errorCode='degenerate_output'），用于
+   * 那些"接受 response_format 却吐退化输出"、没有 4xx 可解析的模型。命中阈值后
+   * self-heal 把 structuredOutput.nativeMode 持久化降到 chain 下一档。
+   *
+   * bodySnippet 应含 fromValue / 'nativeMode' 以通过 self-heal 的 body 证据校验。
+   */
+  triggerDegenerateSelfHealAsync(
+    opts: SelfHealTriggerOptions & { bodySnippet?: string },
+  ): void {
+    const { modelId, userModelConfigId } = opts;
+    if (!userModelConfigId || !this.capabilitySelfHealService) return;
+    if (!opts.fromValue || !opts.toValue) return; // 无降档目标 → 不触发
+    const signal = buildDegenerateOutputSignal(
+      opts.bodySnippet ?? `degenerate_output nativeMode=${opts.fromValue}`,
+    );
+    void this.capabilitySelfHealService
+      .maybeSelfHeal({
+        target: { kind: "user_model_config", id: userModelConfigId },
+        field: "structuredOutput.nativeMode",
+        fromValue: opts.fromValue,
+        toValue: opts.toValue,
+        errorSignal: signal,
+      })
+      .catch((e: unknown) =>
+        this.logger.warn(
+          `[self-heal-trigger:degenerate] modelId=${modelId}: ${String(e).slice(0, 200)}`,
         ),
       );
   }

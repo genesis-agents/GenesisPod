@@ -415,6 +415,104 @@ describe("AiApiCallerService", () => {
       ).rejects.toThrow("AI 返回空响应");
     });
 
+    // ★ 2026-05-25: degenerate-success in-request degrade（机制级，无模型硬编码）。
+    //   deepseek-v4-flash 思考模式 + 强制 json_object → 200 OK 但 content 空。
+    //   应自动撤掉 response_format 重试一次（chain: json_mode→none），用户拿到结果。
+    it("degenerate 200 (empty content) → drops response_format and retries once", async () => {
+      const emptyResp = {
+        choices: [
+          {
+            message: { content: "", reasoning_content: "still thinking..." },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          total_tokens: 700,
+          prompt_tokens: 60,
+          completion_tokens: 641,
+          completion_tokens_details: { reasoning_tokens: 641 },
+        },
+      };
+      const goodResp = {
+        choices: [
+          { message: { content: "real answer" }, finish_reason: "stop" },
+        ],
+        usage: { total_tokens: 120 },
+      };
+      // requestBody is mutated in place by the degrade (delete response_format),
+      // and the mock records it by reference — so snapshot response_format per call.
+      const sentFormats: unknown[] = [];
+      (mockHttpService.post as jest.Mock).mockImplementation(
+        (_url: string, body: Record<string, unknown>) => {
+          sentFormats.push(body.response_format);
+          return of(
+            makeHttpResponse(sentFormats.length === 1 ? emptyResp : goodResp),
+          ) as any;
+        },
+      );
+
+      const result = await service.callOpenAICompatibleAPI(
+        "https://api.deepseek.com/v1/chat/completions",
+        "test-key",
+        "deepseek-v4-flash",
+        messages,
+        25000,
+        undefined, // temperature
+        120000, // timeout
+        "max_tokens", // tokenParamName
+        "json", // responseFormat → wantsJson
+        undefined, // reasoningDepth
+        undefined, // outputSchema
+        undefined, // schemaStrict
+        true, // isReasoning
+        undefined, // structuredOutputStrategy
+        undefined, // outputJsonSchema
+        undefined, // schemaName
+        undefined, // tools
+        "deepseek", // provider → catalog json_mode → degrade chain json_mode→none
+      );
+
+      expect(result.content).toBe("real answer");
+      expect(mockHttpService.post).toHaveBeenCalledTimes(2);
+      // 1st call: forced json_object (catalog nativeMode=json_mode)
+      expect(sentFormats[0]).toEqual({ type: "json_object" });
+      // 2nd (degraded) call: response_format dropped entirely
+      expect(sentFormats[1]).toBeUndefined();
+    });
+
+    it("degenerate 200 with NO wantsJson → no degrade, throws (unchanged)", async () => {
+      const emptyResp = {
+        choices: [{ message: { content: "" }, finish_reason: "stop" }],
+        usage: { total_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(emptyResp)) as any,
+      );
+      await expect(
+        service.callOpenAICompatibleAPI(
+          "https://api.deepseek.com/v1/chat/completions",
+          "test-key",
+          "deepseek-v4-flash",
+          messages,
+          25000,
+          undefined,
+          120000,
+          "max_tokens",
+          undefined, // responseFormat NOT json → wantsJson false
+          undefined,
+          undefined,
+          undefined,
+          true,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          "deepseek",
+        ),
+      ).rejects.toThrow("AI 返回空响应");
+      expect(mockHttpService.post).toHaveBeenCalledTimes(1); // no degrade retry
+    });
+
     it("should use custom tokenParamName", async () => {
       const apiResponse = {
         choices: [{ message: { content: "OK" } }],

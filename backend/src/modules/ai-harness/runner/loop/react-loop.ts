@@ -812,9 +812,13 @@ export class ReActLoop implements IAgentLoop {
           // ★ 诊断：解析层兜底抛错（正常情况 parseDecision 会 catch JSON.parse /
           // InvalidActionError 自己包装。如果走到这条说明 catch 之外的异常）
           if (reasoned.parseError) {
+            // parseError.message 自带 "… Preview: <raw 前缀>"；下方已单独打印
+            // rawContent，去掉内嵌 Preview 避免同一段内容被打印两遍（误判"重复"）。
+            const reasonNoPreview =
+              reasoned.parseError.message.split(" Preview:")[0];
             this.logger.error(
               `[${agentId}] iter=${iteration} parseDecision threw: ` +
-                `${reasoned.parseError.name}: ${reasoned.parseError.message}; ` +
+                `${reasoned.parseError.name}: ${reasonNoPreview}; ` +
                 `rawContent=${reasoned.rawContent.slice(0, 500)}`,
             );
           }
@@ -1856,10 +1860,13 @@ export class ReActLoop implements IAgentLoop {
     if (!extracted.success || !extracted.data) {
       const errName = "JsonExtractFailed";
       const errMsg = extracted.error ?? "no JSON found in response";
+      // extracted.error 自带 "… Preview: <raw 前缀>"；下方已单独打印 raw(first 1000)，
+      // 去掉内嵌 Preview 避免同一段内容被打印两遍（误判"重复"）。
+      const errMsgNoPreview = errMsg.split(" Preview:")[0];
       this.logger.warn(
-        `Failed to extract JSON from LLM decision (${errName}: ${errMsg}); ` +
+        `Failed to extract JSON from LLM decision (${errName}: ${errMsgNoPreview}); ` +
           `falling back to finalize-raw. ` +
-          `text(first 1000)=${JSON.stringify(raw.slice(0, 1000))}`,
+          `raw(first 1000)=${JSON.stringify(raw.slice(0, 1000))}`,
       );
       return {
         decision: {

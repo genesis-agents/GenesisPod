@@ -167,6 +167,40 @@ describe("CapabilitySelfHealService — v3.1 §B.4", () => {
       });
       expect(result.healed).toBe(true);
     });
+
+    // ★ 2026-05-25: 退化输出（200 OK 但空/畸形）合成信号也能自愈降档。
+    it("accepts synthetic degenerate-output signal (200 + degenerate_output)", async () => {
+      cache.incrby.mockResolvedValue(3);
+      const result = await svc.maybeSelfHeal({
+        target: { kind: "user_model_config", id: "config-1" },
+        field: "structuredOutput.nativeMode",
+        fromValue: "json_mode",
+        toValue: "none",
+        errorSignal: {
+          httpStatus: 200,
+          errorCode: "degenerate_output",
+          bodySnippet: "degenerate_output nativeMode=json_mode",
+        },
+      });
+      expect(result.healed).toBe(true);
+    });
+
+    it("rejects 200 when errorCode is NOT degenerate_output (防绕过)", async () => {
+      cache.incrby.mockResolvedValue(3);
+      const result = await svc.maybeSelfHeal({
+        target: { kind: "user_model_config", id: "config-1" },
+        field: "structuredOutput.nativeMode",
+        fromValue: "json_mode",
+        toValue: "none",
+        errorSignal: {
+          httpStatus: 200,
+          errorCode: "unsupported_response_format",
+          bodySnippet: "nativeMode json_mode",
+        },
+      });
+      expect(result.healed).toBe(false);
+      expect(result.reason).toBe("http_200_requires_degenerate_code");
+    });
   });
 
   // ─────────── cooling-off ───────────
