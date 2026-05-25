@@ -78,6 +78,53 @@ describe("WikiAutoIngestScheduler", () => {
     ingest = makeIngestMock();
     keyResolver = makeKeyResolverMock();
     scheduler = new WikiAutoIngestScheduler(prisma, ingest, keyResolver);
+    // Enable by default so existing tests exercise real scheduler logic.
+    // The env-gate tests manage the flag themselves.
+    process.env.ENABLE_WIKI_AUTO_INGEST = "true";
+  });
+
+  afterEach(() => {
+    delete process.env.ENABLE_WIKI_AUTO_INGEST;
+  });
+
+  // ===== default-OFF guard (ENABLE_WIKI_AUTO_INGEST) =====
+
+  describe("ENABLE_WIKI_AUTO_INGEST env gate", () => {
+    it("does not call ingestAsCron when flag is unset (default OFF)", async () => {
+      delete process.env.ENABLE_WIKI_AUTO_INGEST; // remove the beforeEach value
+      prisma.knowledgeBase.findMany.mockResolvedValue([KB_DEFAULT]);
+
+      await scheduler.tick();
+
+      expect(ingest.ingestAsCron).not.toHaveBeenCalled();
+      expect(prisma.knowledgeBase.findMany).not.toHaveBeenCalled();
+    });
+
+    it("does not call ingestAsCron when flag is explicitly 'false'", async () => {
+      process.env.ENABLE_WIKI_AUTO_INGEST = "false";
+      prisma.knowledgeBase.findMany.mockResolvedValue([KB_DEFAULT]);
+
+      await scheduler.tick();
+
+      expect(ingest.ingestAsCron).not.toHaveBeenCalled();
+    });
+
+    it("proceeds with ingest when flag is 'true'", async () => {
+      process.env.ENABLE_WIKI_AUTO_INGEST = "true";
+      prisma.knowledgeBase.findMany.mockResolvedValue([KB_DEFAULT]);
+      setupNoBlockers(prisma);
+      prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
+        { id: "doc-1", metadata: {}, rawContentUri: null },
+      ]);
+
+      await scheduler.tick();
+
+      expect(ingest.ingestAsCron).toHaveBeenCalledWith(
+        "kb-1",
+        ["doc-1"],
+        CONSUMER_USER_ID,
+      );
+    });
   });
 
   it("skips KBs whose autoIngestEnabled is explicitly false", async () => {

@@ -126,8 +126,29 @@ describe("SessionHealthCheckScheduler", () => {
       // After init, config should have been queried for the enabled flag
       expect(mockConfig.get).toHaveBeenCalledWith(
         "SESSION_HEALTH_CHECK_ENABLED",
-        true,
+        false, // default is now false (opt-in)
       );
+    });
+
+    it("default is OFF — scheduler does not start when SESSION_HEALTH_CHECK_ENABLED is not set", () => {
+      jest.useFakeTimers();
+      // Simulate ConfigService returning the default value (false)
+      mockConfig.get.mockImplementation((key: string, def: unknown) => def);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
+
+      const setIntSpy = jest.spyOn(global, "setInterval");
+
+      scheduler.onModuleInit();
+
+      // No interval should be armed when the default (false) is used
+      expect(setIntSpy).not.toHaveBeenCalled();
+      setIntSpy.mockRestore();
     });
   });
 

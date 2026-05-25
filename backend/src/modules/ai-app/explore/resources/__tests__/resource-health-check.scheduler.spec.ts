@@ -50,9 +50,9 @@ describe("ResourceHealthCheckScheduler", () => {
   });
 
   describe("onModuleInit", () => {
-    it("starts scheduler when RESOURCE_HEALTH_CHECK_ENABLED is true (default)", () => {
-      configService.get.mockImplementation(
-        (_k: string, def: unknown) => def, // default returns true for enabled
+    it("starts scheduler when RESOURCE_HEALTH_CHECK_ENABLED is explicitly true", () => {
+      configService.get.mockImplementation((key: string, def: unknown) =>
+        key === "RESOURCE_HEALTH_CHECK_ENABLED" ? true : def,
       );
       const setIntSpy = jest
         .spyOn(global, "setInterval")
@@ -78,6 +78,19 @@ describe("ResourceHealthCheckScheduler", () => {
 
       scheduler.onModuleInit();
 
+      expect(setIntSpy).not.toHaveBeenCalled();
+
+      setIntSpy.mockRestore();
+    });
+
+    it("default is OFF — skips scheduler when RESOURCE_HEALTH_CHECK_ENABLED is not set", () => {
+      // ConfigService returns default value (false) when env var is unset
+      configService.get.mockImplementation((_k: string, def: unknown) => def);
+      const setIntSpy = jest.spyOn(global, "setInterval");
+
+      scheduler.onModuleInit();
+
+      // default is false → scheduler must NOT start
       expect(setIntSpy).not.toHaveBeenCalled();
 
       setIntSpy.mockRestore();

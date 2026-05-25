@@ -32,6 +32,12 @@ export class WikiLintScheduler {
 
   @Cron("0 3 * * *", { name: "wiki.lint-daily", timeZone: "UTC" })
   async runDailyLint(): Promise<void> {
+    if (process.env.ENABLE_WIKI_LINT_CRON !== "true") {
+      this.logger.debug(
+        "[cron:wiki.lint] DISABLED (default) — set ENABLE_WIKI_LINT_CRON=true to opt in",
+      );
+      return;
+    }
     try {
       const candidates = await this.prisma.knowledgeBase.findMany({
         where: { wikiEnabled: true },

@@ -71,7 +71,7 @@ export class ResourceHealthCheckScheduler
   onModuleInit() {
     const enabled = this.configService.get<boolean>(
       "RESOURCE_HEALTH_CHECK_ENABLED",
-      true,
+      false,
     );
 
     if (enabled) {

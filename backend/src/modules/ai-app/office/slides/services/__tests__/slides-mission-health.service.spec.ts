@@ -105,6 +105,7 @@ describe("SlidesMissionHealthService", () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
+    delete process.env.ENABLE_SLIDES_MISSION_AUTORECOVERY;
   });
 
   // --------------------------------------------------------------------------
@@ -627,6 +628,47 @@ describe("SlidesMissionHealthService", () => {
             status: SlidesTaskStatus.PENDING,
             startedAt: null,
           }),
+        }),
+      );
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // ENABLE_SLIDES_MISSION_AUTORECOVERY env gate
+  // --------------------------------------------------------------------------
+
+  describe("ENABLE_SLIDES_MISSION_AUTORECOVERY env gate", () => {
+    it("does NOT arm the recovery setTimeout when flag is unset (default OFF)", () => {
+      // health check loop still starts; only the recovery delay must be suppressed
+      prisma.slidesMission.findMany.mockResolvedValue([]);
+
+      service.onModuleInit();
+
+      // The health-check loop may run, but the guard early-returns before
+      // scheduling recoverInterruptedMissions, which is the only path that
+      // queries EXECUTING missions for auto-resume. So that query must not fire.
+      expect(prisma.slidesMission.findMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { status: SlidesMissionStatus.EXECUTING },
+        }),
+      );
+    });
+
+    it("calls recoverInterruptedMissions when flag is 'true' (opt-in)", async () => {
+      process.env.ENABLE_SLIDES_MISSION_AUTORECOVERY = "true";
+      // findMany returns [] for both health check and recovery
+      prisma.slidesMission.findMany.mockResolvedValue([]);
+
+      service.onModuleInit();
+
+      // Advance fake timer to trigger the recovery setTimeout (10s delay)
+      await jest.advanceTimersByTimeAsync(10_000);
+      await Promise.resolve();
+
+      // recoverInterruptedMissions queries EXECUTING missions
+      expect(prisma.slidesMission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { status: SlidesMissionStatus.EXECUTING },
         }),
       );
     });

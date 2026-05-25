@@ -166,7 +166,22 @@ export class SlidesMissionHealthService
       `Health check service started with ${HEALTH_CHECK_CONFIG.checkIntervalMs / 1000}s interval`,
     );
 
-    // Delayed auto-recovery (wait for other services)
+    // ════════════════════════════════════════════════════════════════════════
+    // ★ 2026-05-25 默认关闭「启动自动恢复」。
+    //   recoverInterruptedMissions() 会把所有 EXECUTING slides mission 在重启后
+    //   自动重新拉起、跑全量 LLM（BYOK 烧真金白银）。
+    //   Set ENABLE_SLIDES_MISSION_AUTORECOVERY=true to opt in.
+    // ════════════════════════════════════════════════════════════════════════
+    if (process.env.ENABLE_SLIDES_MISSION_AUTORECOVERY !== "true") {
+      this.logger.warn(
+        "[SlidesMissionHealth] startup auto-recovery DISABLED (default) — " +
+          "interrupted EXECUTING missions will NOT be auto-resumed on boot. " +
+          "Set ENABLE_SLIDES_MISSION_AUTORECOVERY=true to opt in.",
+      );
+      return;
+    }
+
+    // opt-in: Delayed auto-recovery (wait for other services)
     setTimeout(() => {
       this.recoverInterruptedMissions().catch((err) => {
         this.logger.error(`Auto-recovery failed: ${err.message}`);
@@ -174,7 +189,7 @@ export class SlidesMissionHealthService
     }, RECOVERY_CONFIG.recoveryDelayMs).unref();
 
     this.logger.log(
-      `Auto-recovery scheduled in ${RECOVERY_CONFIG.recoveryDelayMs / 1000}s`,
+      `Auto-recovery scheduled in ${RECOVERY_CONFIG.recoveryDelayMs / 1000}s (opt-in ENABLED)`,
     );
   }
 

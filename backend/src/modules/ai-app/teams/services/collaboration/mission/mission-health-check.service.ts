@@ -275,6 +275,20 @@ export class MissionHealthCheckService
     // 增加恢复计数
     this.recoveryAttempts.set(missionId, recoveryAttempts + 1);
 
+    // ════════════════════════════════════════════════════════════════════════
+    // ★ 2026-05-25 默认关闭自动 re-run。
+    //   auto-recovery 会重新触发 Agent LLM 调用（BYOK 烧真金白银）。
+    //   只有 ENABLE_TEAM_MISSION_AUTORECOVERY=true 时才执行；
+    //   "发现 stuck" 本身的日志记录保留，方便运维排查。
+    // ════════════════════════════════════════════════════════════════════════
+    if (process.env.ENABLE_TEAM_MISSION_AUTORECOVERY !== "true") {
+      this.logger.warn(
+        `[MissionHealthCheck] Mission "${title}" (${missionId}) is stuck — auto-recovery DISABLED (default). ` +
+          `Set ENABLE_TEAM_MISSION_AUTORECOVERY=true to opt in.`,
+      );
+      return;
+    }
+
     this.logger.warn(
       `[MissionHealthCheck] Attempting recovery for mission "${title}" (${missionId}): ` +
         `pending=${pendingTasks}, revision_needed=${revisionNeededTasks}, attempt=${recoveryAttempts + 1}`,

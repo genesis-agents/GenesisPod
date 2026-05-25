@@ -47,6 +47,51 @@ describe("WikiLintScheduler", () => {
     prisma = makePrismaMock();
     lint = makeLintMock();
     scheduler = new WikiLintScheduler(prisma, lint);
+    // Enable by default so existing tests exercise real scheduler logic.
+    process.env.ENABLE_WIKI_LINT_CRON = "true";
+  });
+
+  afterEach(() => {
+    delete process.env.ENABLE_WIKI_LINT_CRON;
+  });
+
+  // ===== default-OFF guard (ENABLE_WIKI_LINT_CRON) =====
+
+  describe("ENABLE_WIKI_LINT_CRON env gate", () => {
+    it("does not run lint when flag is unset (default OFF)", async () => {
+      delete process.env.ENABLE_WIKI_LINT_CRON;
+      prisma.knowledgeBase.findMany.mockResolvedValue([
+        { id: "kb-a", wikiConfig: { cronLintEnabled: true } },
+      ]);
+
+      await scheduler.runDailyLint();
+
+      expect(lint.runFullLintAsCron).not.toHaveBeenCalled();
+      expect(prisma.knowledgeBase.findMany).not.toHaveBeenCalled();
+    });
+
+    it("does not run lint when flag is explicitly 'false'", async () => {
+      process.env.ENABLE_WIKI_LINT_CRON = "false";
+      prisma.knowledgeBase.findMany.mockResolvedValue([
+        { id: "kb-a", wikiConfig: { cronLintEnabled: true } },
+      ]);
+
+      await scheduler.runDailyLint();
+
+      expect(lint.runFullLintAsCron).not.toHaveBeenCalled();
+    });
+
+    it("proceeds with lint when flag is 'true'", async () => {
+      // flag already set to 'true' by beforeEach
+      prisma.knowledgeBase.findMany.mockResolvedValue([
+        { id: "kb-a", wikiConfig: { cronLintEnabled: true } },
+      ]);
+      prisma.wikiLintFinding.findFirst.mockResolvedValue(null);
+
+      await scheduler.runDailyLint();
+
+      expect(lint.runFullLintAsCron).toHaveBeenCalledWith("kb-a");
+    });
   });
 
   it("scans only wikiEnabled KBs and runs lint when no recent finding exists", async () => {

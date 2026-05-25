@@ -87,6 +87,9 @@ describe("FeedbackEventListener", () => {
   let githubIssueService: jest.Mocked<GitHubIssueService>;
 
   beforeEach(async () => {
+    // Enable auto-triage by default so existing tests exercise the triage path.
+    process.env.ENABLE_FEEDBACK_AUTO_TRIAGE = "true";
+
     prisma = {
       $executeRaw: jest.fn().mockResolvedValue(1),
       $queryRaw: jest.fn().mockResolvedValue([]),
@@ -365,6 +368,47 @@ describe("FeedbackEventListener", () => {
       await expect(
         listener.handleTriageCompleted(payload),
       ).resolves.toBeUndefined();
+    });
+  });
+
+  afterEach(() => {
+    delete process.env.ENABLE_FEEDBACK_AUTO_TRIAGE;
+  });
+
+  // =========================================================
+  // ENABLE_FEEDBACK_AUTO_TRIAGE env gate
+  // =========================================================
+
+  describe("ENABLE_FEEDBACK_AUTO_TRIAGE env gate", () => {
+    it("does NOT call triageAgent.triage when flag is unset (default OFF)", async () => {
+      delete process.env.ENABLE_FEEDBACK_AUTO_TRIAGE;
+      const payload = buildFeedbackCreatedPayload();
+
+      await listener.handleFeedbackCreated(payload);
+
+      expect(triageAgent.triage).not.toHaveBeenCalled();
+    });
+
+    it("does NOT emit TRIAGE_STARTED when flag is unset (default OFF)", async () => {
+      delete process.env.ENABLE_FEEDBACK_AUTO_TRIAGE;
+      const payload = buildFeedbackCreatedPayload();
+
+      await listener.handleFeedbackCreated(payload);
+
+      const emittedEvents = (eventEmitter.emit as jest.Mock).mock.calls.map(
+        ([event]) => event,
+      );
+      expect(emittedEvents).not.toContain(FeedbackEvent.TRIAGE_STARTED);
+    });
+
+    it("calls triageAgent.triage when flag is 'true' (opt-in)", async () => {
+      // flag already set to 'true' by beforeEach
+      const payload = buildFeedbackCreatedPayload();
+      triageAgent.triage.mockResolvedValue(buildTriageDecision());
+
+      await listener.handleFeedbackCreated(payload);
+
+      expect(triageAgent.triage).toHaveBeenCalled();
     });
   });
 

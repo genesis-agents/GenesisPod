@@ -45,6 +45,12 @@ export class FeedbackEventListener {
    */
   @OnEvent(FeedbackEvent.CREATED)
   async handleFeedbackCreated(payload: FeedbackCreatedPayload): Promise<void> {
+    if (process.env.ENABLE_FEEDBACK_AUTO_TRIAGE !== "true") {
+      this.logger.debug(
+        `[handleFeedbackCreated] auto-triage DISABLED (default) — feedback ${payload.feedbackId} queued for manual review. Set ENABLE_FEEDBACK_AUTO_TRIAGE=true to opt in.`,
+      );
+      return;
+    }
     this.logger.log(
       `[handleFeedbackCreated] Feedback created: ${payload.feedbackId}`,
     );

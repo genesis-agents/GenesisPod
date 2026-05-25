@@ -46,6 +46,12 @@ export class WikiAutoIngestScheduler {
 
   @Cron(CronExpression.EVERY_5_MINUTES, { name: "wiki.auto-ingest" })
   async tick(): Promise<void> {
+    if (process.env.ENABLE_WIKI_AUTO_INGEST !== "true") {
+      this.logger.debug(
+        "[cron:wiki.auto-ingest] DISABLED (default) — set ENABLE_WIKI_AUTO_INGEST=true to opt in",
+      );
+      return;
+    }
     try {
       // ★ 2026-05-11 BYOK consumer model：cron 跟 KB.userId（creator）完全
       //   解耦。creator 只是把 KB 创建出来，未必使用 wiki。"消费者 = 使用者"

@@ -54,11 +54,14 @@ describe("MissionHealthCheckService", () => {
     }).compile();
 
     service = module.get<MissionHealthCheckService>(MissionHealthCheckService);
+    // Enable auto-recovery by default so existing tests cover the recovery path.
+    process.env.ENABLE_TEAM_MISSION_AUTORECOVERY = "true";
   });
 
   afterEach(() => {
     jest.clearAllMocks();
     jest.useRealTimers();
+    delete process.env.ENABLE_TEAM_MISSION_AUTORECOVERY;
   });
 
   // ── lifecycle ───────────────────────────────────────────────────────────────
@@ -430,6 +433,83 @@ describe("MissionHealthCheckService", () => {
     it("should report trackedMissions count", () => {
       const status = service.getHealthStatus();
       expect(typeof status.trackedMissions).toBe("number");
+    });
+  });
+
+  // ── ENABLE_TEAM_MISSION_AUTORECOVERY env gate ────────────────────────────────
+
+  describe("ENABLE_TEAM_MISSION_AUTORECOVERY env gate", () => {
+    it("does NOT invoke execute callback when flag is unset (default OFF)", async () => {
+      delete process.env.ENABLE_TEAM_MISSION_AUTORECOVERY;
+      const executeFn = jest.fn().mockResolvedValue(undefined);
+      service.registerExecuteCallback(executeFn);
+
+      const mission = buildMission({
+        id: "stuck-gated",
+        tasks: [
+          {
+            id: "t-1",
+            status: AgentTaskStatus.PENDING,
+            updatedAt: oldTimestamp(),
+          },
+        ],
+      });
+      (mockPrisma.teamMission.findMany as jest.Mock).mockResolvedValue([
+        mission,
+      ]);
+
+      await service.performHealthCheck();
+
+      // Recovery callback must NOT fire — auto-recovery is disabled
+      expect(executeFn).not.toHaveBeenCalled();
+    });
+
+    it("does NOT invoke revision callback when flag is unset (default OFF)", async () => {
+      delete process.env.ENABLE_TEAM_MISSION_AUTORECOVERY;
+      const revisionFn = jest.fn().mockResolvedValue(undefined);
+      service.registerRevisionCallback(revisionFn);
+
+      const mission = buildMission({
+        id: "stuck-revision-gated",
+        tasks: [
+          {
+            id: "t-1",
+            status: AgentTaskStatus.REVISION_NEEDED,
+            updatedAt: oldTimestamp(),
+          },
+        ],
+      });
+      (mockPrisma.teamMission.findMany as jest.Mock).mockResolvedValue([
+        mission,
+      ]);
+
+      await service.performHealthCheck();
+
+      expect(revisionFn).not.toHaveBeenCalled();
+    });
+
+    it("invokes execute callback when flag is 'true' (opt-in)", async () => {
+      // flag already set to 'true' by beforeEach
+      const executeFn = jest.fn().mockResolvedValue(undefined);
+      service.registerExecuteCallback(executeFn);
+
+      const mission = buildMission({
+        id: "stuck-opt-in",
+        tasks: [
+          {
+            id: "t-1",
+            status: AgentTaskStatus.PENDING,
+            updatedAt: oldTimestamp(),
+          },
+        ],
+      });
+      (mockPrisma.teamMission.findMany as jest.Mock).mockResolvedValue([
+        mission,
+      ]);
+
+      await service.performHealthCheck();
+
+      expect(executeFn).toHaveBeenCalledWith("stuck-opt-in");
     });
   });
 });

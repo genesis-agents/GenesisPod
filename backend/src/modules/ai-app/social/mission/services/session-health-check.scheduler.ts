@@ -42,7 +42,7 @@ export class SessionHealthCheckScheduler
   onModuleInit() {
     const enabled = this.configService.get<boolean>(
       "SESSION_HEALTH_CHECK_ENABLED",
-      true,
+      false,
     );
 
     if (enabled) {
