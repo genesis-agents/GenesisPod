@@ -22,32 +22,32 @@ import { EventEmitterModule } from "@nestjs/event-emitter";
 import { NotificationType } from "@prisma/client";
 
 // Scheduler under test
-import { RadarRefreshScheduler } from "../../src/modules/ai-app/radar/services/scheduler/radar-refresh.scheduler";
+import { RadarRefreshScheduler } from "../../src/modules/ai-app/radar/mission/services/scheduler/radar-refresh.scheduler";
 
 // Services used by scheduler — must use class tokens for NestJS DI
 import { PrismaService } from "../../src/common/prisma/prisma.service";
 import { CacheService } from "../../src/common/cache/cache.service";
 import { EmailService } from "../../src/modules/ai-infra/email/email.service";
 
-import { RadarDailyBriefingRepo } from "../../src/modules/ai-app/radar/services/briefing/radar-daily-briefing.repo";
-import { RadarWeeklyBriefingService } from "../../src/modules/ai-app/radar/services/briefing/radar-weekly-briefing.service";
-import { RadarBriefingQueueService } from "../../src/modules/ai-app/radar/services/scheduler/radar-briefing-queue.service";
+import { RadarDailyBriefingRepo } from "../../src/modules/ai-app/radar/mission/services/briefing/radar-daily-briefing.repo";
+import { RadarWeeklyBriefingService } from "../../src/modules/ai-app/radar/mission/services/briefing/radar-weekly-briefing.service";
+import { RadarBriefingQueueService } from "../../src/modules/ai-app/radar/mission/services/scheduler/radar-briefing-queue.service";
 import { NotificationDispatcher } from "../../src/modules/ai-infra/notifications/dispatcher/notification-dispatcher.service";
 import { NotificationPreferenceService } from "../../src/modules/ai-infra/notifications/dispatcher/preferences/notification-preference.service";
 import { ChannelResolver } from "../../src/modules/ai-infra/notifications/dispatcher/preferences/channel-resolver";
 import { EmailChannel } from "../../src/modules/ai-infra/notifications/dispatcher/channels/email-channel.adapter";
-import { RadarPipelineDispatcher } from "../../src/modules/ai-app/radar/services/mission/workflow/radar-pipeline-dispatcher.service";
+import { RadarPipelineDispatcher } from "../../src/modules/ai-app/radar/mission/pipeline/radar-pipeline-dispatcher.service";
 import { RadarDailyBriefingEmailPreset } from "../../src/modules/ai-infra/notifications/dispatcher/presets/radar-daily-briefing-email.preset";
 import { RadarWeeklyBriefingEmailPreset } from "../../src/modules/ai-infra/notifications/dispatcher/presets/radar-weekly-briefing-email.preset";
-import { NarrativeService } from "../../src/modules/ai-app/radar/services/briefing/narrative.service";
+import { NarrativeService } from "../../src/modules/ai-app/radar/mission/services/briefing/narrative.service";
 import { AIMetricsService } from "../../src/modules/ai-infra/monitoring/metrics/ai-metrics.service";
 
 // Event contract
 import {
   RADAR_BRIEFING_SIGNAL_CREATED_EVENT,
   type RadarBriefingSignalCreatedEvent,
-} from "../../src/modules/ai-app/radar/services/mission/stages/s9-daily-top-n.stage";
-import type { DailySignal } from "../../src/modules/ai-app/radar/services/briefing/radar-daily-briefing.repo";
+} from "../../src/modules/ai-app/radar/mission/pipeline/stages/s9-daily-top-n.stage";
+import type { DailySignal } from "../../src/modules/ai-app/radar/mission/services/briefing/radar-daily-briefing.repo";
 import type {
   DispatchPayload,
   DispatchOptions,
