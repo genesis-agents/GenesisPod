@@ -36,6 +36,8 @@ import {
   MissionControlCard,
   type MissionActionButtonSpec,
 } from '@/components/common/mission-detail';
+import { useBudgetTiers, pickTier } from '@/hooks/features/useBudgetTiers';
+import type { BudgetTier } from '@/services/agent-playground/api';
 import { cn } from '@/lib/utils/common';
 import type {
   AgentLiveState,
@@ -134,6 +136,13 @@ interface Props {
   /** 取消运行中的 mission（暂未实现 → undefined） */
   onCancel?: () => void;
   /**
+   * 用户在面板里切换研究深度时上抛 —— 父层把它存起来，下次点「开始」时
+   * 用此 depth + 对应 tier 预设（maxCredits / wallTimeMinutes / budgetMultiplier
+   * 等）通过 runTeam 起新 mission（而不是 rerunMission 沿用原 depth）。
+   * 不传 = 卡片仍可点切高亮，但只是本地预览，"开始/更新"按钮维持原行为。
+   */
+  onDepthChange?: (depth: 'quick' | 'standard' | 'deep') => void;
+  /**
    * 2026-05-13 #67: 当前 mission 是否有 checkpoint 可续跑（后台重启 / 早爆 /
    * 用户取消保留断点 → 都会进入 resumable）。true 时「更新」按钮 label 变
    * "继续上次" + tooltip 提示 + 上方加 hint banner。
@@ -156,6 +165,7 @@ export function TeamRosterPanel({
   onRerun,
   onUpdate,
   onCancel,
+  onDepthChange,
   isResumable = false,
 }: Props) {
   const stageMap = useMemo(
@@ -165,12 +175,22 @@ export function TeamRosterPanel({
   const [selectedRole, setSelectedRole] = useState<AgentRole | null>(null);
   // 默认展开 Research Team group → 让用户能看到每个 Researcher#N 节点
   const [groupExpanded, setGroupExpanded] = useState(true);
-  // 研究深度选择 — 纯本地 UI state，不联动 API / 弹窗 / 重跑。
-  // 点击 3 张卡片只切换高亮，由用户接下来手动点「更新」/「开始」时由
-  // 父层决定是否使用（当前两个按钮仍走 rerunMission 沿用原 depth）。
+  // 研究深度选择 — 本地 UI state。点 3 张卡片：
+  //  1) 立刻把"预算 / 维度提示 / 时长上限"等显示项联动到该 tier 的预设值
+  //  2) 通过 onDepthChange 上抛父层，"开始"按钮可用新 tier 起新 mission
   // depth prop 变化（切换到不同 mission）时同步本地选择。
-  const [selectedDepth, setSelectedDepth] = useState<string | undefined>(depth);
-  useEffect(() => setSelectedDepth(depth), [depth]);
+  const [selectedDepth, setSelectedDepth] = useState<
+    BudgetTier['depth'] | undefined
+  >(depth as BudgetTier['depth'] | undefined);
+  useEffect(
+    () => setSelectedDepth(depth as BudgetTier['depth'] | undefined),
+    [depth]
+  );
+  // 拉后端单一源的 tier 表（quick/standard/deep 三档）；模块级缓存只请求一次
+  const { data: tierData } = useBudgetTiers();
+  const currentTier = pickTier(tierData, selectedDepth ?? 'standard');
+  // 与原 mission depth 不一致时，提示"开始"会以新 tier 重新跑
+  const depthChanged = !!selectedDepth && !!depth && selectedDepth !== depth;
 
   const { nodes, connections, rows, viewBoxHeight, rowYPositions } =
     useMemo(() => {
@@ -752,7 +772,10 @@ export function TeamRosterPanel({
                       <button
                         key={option.key}
                         type="button"
-                        onClick={() => setSelectedDepth(option.key)}
+                        onClick={() => {
+                          setSelectedDepth(option.key);
+                          onDepthChange?.(option.key);
+                        }}
                         className={cn(
                           'rounded-md px-2 py-1.5 text-center text-xs transition-colors',
                           selected
@@ -770,7 +793,7 @@ export function TeamRosterPanel({
                 </div>
               </div>
             )}
-            {(language || maxCredits != null) && (
+            {(language || maxCredits != null || currentTier) && (
               <div className="space-y-1 text-[11px] text-gray-600">
                 {language && (
                   <div className="flex items-center justify-between">
@@ -778,13 +801,58 @@ export function TeamRosterPanel({
                     <span className="font-mono text-gray-500">{language}</span>
                   </div>
                 )}
-                {maxCredits != null && (
+                {/* 维度提示 — 来自该 tier 的 dimensionsHint（如"3-4 维度"） */}
+                {currentTier?.dimensionsHint && (
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-700">预算</span>
-                    <span className="font-mono text-gray-500">
-                      {maxCredits.toLocaleString()} credits
+                    <span className="font-medium text-gray-700">研究维度</span>
+                    <span
+                      className={cn(
+                        'font-mono',
+                        depthChanged ? 'text-blue-600' : 'text-gray-500'
+                      )}
+                    >
+                      {currentTier.dimensionsHint}
                     </span>
                   </div>
+                )}
+                {/* 预算 — 改 depth 时跟随 tier.maxCredits；未改时仍读 mission 的实际预算 */}
+                {(currentTier?.maxCredits != null || maxCredits != null) && (
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-700">预算</span>
+                    <span
+                      className={cn(
+                        'font-mono',
+                        depthChanged ? 'text-blue-600' : 'text-gray-500'
+                      )}
+                    >
+                      {(depthChanged
+                        ? currentTier?.maxCredits
+                        : (maxCredits ?? currentTier?.maxCredits)
+                      )?.toLocaleString()}{' '}
+                      credits
+                    </span>
+                  </div>
+                )}
+                {/* 时长上限 — 一并展示 tier 预设，方便用户判断 */}
+                {currentTier?.wallTimeMinutes != null && (
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-700">时长上限</span>
+                    <span
+                      className={cn(
+                        'font-mono',
+                        depthChanged ? 'text-blue-600' : 'text-gray-500'
+                      )}
+                    >
+                      {currentTier.wallTimeMinutes} 分钟
+                    </span>
+                  </div>
+                )}
+                {depthChanged && (
+                  <p className="mt-1 rounded-md bg-blue-50 px-2 py-1 text-[10px] leading-snug text-blue-700">
+                    已选「{currentTier?.label ?? selectedDepth}
+                    」档位 — 点「开始」会以新档位的预算 / 维度 / 时长起一个新
+                    mission。
+                  </p>
                 )}
               </div>
             )}

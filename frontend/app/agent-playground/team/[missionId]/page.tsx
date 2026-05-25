@@ -64,6 +64,8 @@ import {
   listReportVersions,
   listResumableMissions,
   rerunMission,
+  runTeam,
+  type BudgetTier,
   type MissionDetail,
   type ReportVersionListItem,
 } from '@/services/agent-playground/api';
@@ -414,6 +416,16 @@ export default function MissionDetailPage() {
   const [researchTeamOpen, setResearchTeamOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTaskKey, setSelectedTaskKey] = useState<string | null>(null);
+  // 用户在左栏切换的"待生效"研究深度。点「开始」时若与原 mission depth
+  // 不同 → 走 runTeam 用新 tier 起一个新 mission；相同 → 维持 rerunMission。
+  const [pendingDepth, setPendingDepth] = useState<
+    BudgetTier['depth'] | undefined
+  >(undefined);
+  useEffect(() => {
+    setPendingDepth(view.mission.depth as BudgetTier['depth'] | undefined);
+  }, [view.mission.depth]);
+  // 后端 tier 表（runTeam 时按选中 depth 取预设 maxCredits/wallTimeMs 等）
+  const { data: tierData } = useBudgetTiers();
   // ★ P1-UI-DISMISS-BANNER (2026-04-30): mission failed banner 支持手动关闭，
   //   按 missionId 分桶，避免不同 mission 共用同一个状态。
   const [dismissedFailedBanner, setDismissedFailedBanner] = useState<
@@ -912,16 +924,86 @@ export default function MissionDetailPage() {
       onResearchTeamClick={() => setResearchTeamOpen(true)}
       isResumable={isResumable}
       onRerun={() => {
-        // "开始"按钮 = fresh：清 checkpoint，全新从头跑
+        // "开始"按钮：
+        //  - pendingDepth === 原 mission depth → fresh rerun（复用原 mission 配置）
+        //  - pendingDepth 已被用户改动 → 以"原 mission topic/language/style 等
+        //    全套 + 新 depth 的 tier 预设(maxCredits/wallTimeMs/dimensions)"
+        //    通过 runTeam 起一个新 mission，让档位切换真实生效
         void (async () => {
+          const sameDepth =
+            !pendingDepth || pendingDepth === view.mission.depth;
           try {
-            const { missionId: newId } = await rerunMission(missionId, 'fresh');
+            if (sameDepth) {
+              const { missionId: newId } = await rerunMission(
+                missionId,
+                'fresh'
+              );
+              router.push(`/agent-playground/team/${newId}`);
+              return;
+            }
+            // 取新 depth 对应 tier 预设；同时把 userProfile 里的其它字段
+            // (lengthProfile/styleProfile/... 等) 一并继承
+            const tier = pickTier(tierData, pendingDepth);
+            const up =
+              (persisted as { userProfile?: Record<string, unknown> } | null)
+                ?.userProfile ?? {};
+            const { missionId: newId } = await runTeam({
+              topic: view.mission.topic ?? '',
+              depth: pendingDepth,
+              language: (view.mission.language as 'zh-CN' | 'en-US') ?? 'zh-CN',
+              lengthProfile:
+                (up.lengthProfile as
+                  | 'brief'
+                  | 'standard'
+                  | 'deep'
+                  | 'extended'
+                  | 'epic'
+                  | 'mega') ?? 'standard',
+              styleProfile:
+                (up.styleProfile as
+                  | 'academic'
+                  | 'executive'
+                  | 'journalistic'
+                  | 'technical') ?? 'executive',
+              audienceProfile:
+                (up.audienceProfile as
+                  | 'executive'
+                  | 'domain-expert'
+                  | 'general-public') ?? 'domain-expert',
+              auditLayers:
+                (up.auditLayers as
+                  | 'minimal'
+                  | 'default'
+                  | 'thorough'
+                  | 'thorough+') ?? 'default',
+              withFigures: (up.withFigures as boolean) ?? true,
+              concurrency: (up.concurrency as number) ?? 3,
+              searchTimeRange:
+                (up.searchTimeRange as
+                  | '30d'
+                  | '90d'
+                  | '180d'
+                  | '365d'
+                  | '730d'
+                  | 'all') ?? '365d',
+              // tier 预设优先于 mission 原值（用户切档位的核心目的）
+              maxCredits: tier?.maxCredits ?? view.mission.maxCredits ?? 2000,
+              budgetMultiplierOverride:
+                tier?.budgetMultiplier ??
+                (up.budgetMultiplierOverride as number) ??
+                1.0,
+              wallTimeCapMs: (tier?.wallTimeMinutes ?? 60) * 60_000,
+              knowledgeBaseIds: Array.isArray(up.knowledgeBaseIds)
+                ? (up.knowledgeBaseIds as string[])
+                : undefined,
+            });
             router.push(`/agent-playground/team/${newId}`);
           } catch (e) {
             toast.error('启动失败', e instanceof Error ? e.message : String(e));
           }
         })();
       }}
+      onDepthChange={setPendingDepth}
       onUpdate={() => {
         // "更新"按钮 = incremental：clone checkpoint，跳过已完成 stage
         // 对齐 Topic Insight handleContinueResearch
