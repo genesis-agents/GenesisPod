@@ -690,43 +690,16 @@ export class AiModelConfigService {
         return null;
       }
 
-      // 无 userId（background cron / 系统任务）：admin AIModel 兜底
-      const model = await this.prisma.aIModel.findFirst({
-        where: {
-          modelType,
-          isEnabled: true,
-          isDefault: true,
-        },
-        orderBy: {
-          priority: "desc",
-        },
-      });
-
-      if (model) {
-        this.logger.debug(
-          `[getDefaultModelByType] (background) default ${modelType}: ${model.modelId}`,
-        );
-        return this.buildModelConfig(model);
-      }
-
-      const fallback = await this.prisma.aIModel.findFirst({
-        where: {
-          modelType,
-          isEnabled: true,
-        },
-        orderBy: {
-          priority: "desc",
-        },
-      });
-
-      if (fallback) {
-        this.logger.debug(
-          `[getDefaultModelByType] (background) no isDefault, using priority top: ${fallback.modelId}`,
-        );
-        return this.buildModelConfig(fallback);
-      }
-
-      this.logger.warn(`[getDefaultModelByType] No ${modelType} model found`);
+      // 2026-05-25 严格 BYOK 收口（用户政策「BYOK 不要到 admin，除非授权」）：
+      //   无 userId（background cron / 系统任务）**不再回退 admin AIModel**。
+      //   "授权" = 用户向系统申请的 ASSIGNED（KeyAssignment）路径，必须带 userId；
+      //   无 userId = 无法授权 → 返回 null，让后台任务优雅失败/跳过，
+      //   绝不静默用 admin key 烧平台的钱。需要后台跑 AI 的任务必须在带授权
+      //   用户上下文（PERSONAL / ASSIGNED）下运行。
+      this.logger.warn(
+        `[getDefaultModelByType] No userId context for ${modelType} — strict BYOK: NOT falling back to admin. ` +
+          `Background tasks must run under an authorized user (PERSONAL / ASSIGNED).`,
+      );
       return null;
     } catch (error) {
       this.logger.error(`[getDefaultModelByType] Failed: ${error}`);
@@ -857,33 +830,15 @@ export class AiModelConfigService {
       return null;
     }
 
-    // 无 userId（background cron / 系统任务）→ admin AIModel 兜底
-    const m = await this.prisma.aIModel.findFirst({
-      where: { modelType, isEnabled: true },
-      orderBy: [{ isDefault: "desc" }, { priority: "desc" }],
-    });
-    if (!m) return null;
-    return {
-      source: "system",
-      modelId: m.modelId,
-      provider: m.provider,
-      apiEndpoint: m.apiEndpoint,
-      apiFormat: m.apiFormat,
-      embeddingDimensions: m.embeddingDimensions,
-      maxInputTokens: m.maxInputTokens,
-      maxTokens: m.maxTokens,
-      temperature: m.temperature,
-      isReasoning: m.isReasoning,
-      supportsTemperature: m.supportsTemperature,
-      supportsStreaming: m.supportsStreaming,
-      supportsFunctionCalling: m.supportsFunctionCalling,
-      supportsVision: m.supportsVision,
-      tokenParamName: m.tokenParamName,
-      defaultTimeoutMs: m.defaultTimeoutMs,
-      secretKey: m.secretKey,
-      rpmLimit: m.rpmLimit,
-      tpmLimit: m.tpmLimit,
-    };
+    // 2026-05-25 严格 BYOK 收口（用户政策「BYOK 不要到 admin，除非授权」）：
+    //   无 userId（background cron / 系统任务）**不再回退 admin AIModel**。
+    //   授权走 ASSIGNED（KeyAssignment，需 userId）；无 userId 无法授权 → null。
+    //   调用方（如 embedding.service）应在无 userId 时走自己的显式 env key 兜底，
+    //   而不是静默用 admin DB 里配置的 provider key。
+    this.logger.warn(
+      `[pickBYOKModelForUser] No userId context for ${modelType} — strict BYOK: NOT falling back to admin.`,
+    );
+    return null;
   }
 
   /**
@@ -952,8 +907,9 @@ export class AiModelConfigService {
             return [];
           }
         } catch (error) {
+          // 注意：加载用户配置失败也**不回退 admin**（严格 BYOK）。下方直接返回空。
           this.logger.warn(
-            `[getAllEnabledModelsByType] Failed to load UserModelConfig for ${userId}: ${(error as Error).message}; will consider admin fallback`,
+            `[getAllEnabledModelsByType] Failed to load UserModelConfig for ${userId}: ${(error as Error).message}; returning empty (strict BYOK, NOT falling back to admin)`,
           );
         }
 
@@ -967,36 +923,14 @@ export class AiModelConfigService {
         return [];
       }
 
-      // 无 userId 上下文（background cron / health check / 系统任务）：admin AIModel 兜底
-      const models = await this.prisma.aIModel.findMany({
-        where: {
-          modelType,
-          isEnabled: true,
-          ...(excludeModelIds.length > 0 && {
-            modelId: { notIn: excludeModelIds },
-          }),
-        },
-        orderBy: {
-          priority: "desc",
-        },
-      });
-
-      // FIX 2: Exclude image/audio/video models mis-tagged as a text modelType.
-      const isTextQuery = TEXT_MODEL_TYPES.has(String(modelType));
-      const filtered = isTextQuery
-        ? models.filter((m) => {
-            if (isNonTextGenerationModelId(m.modelId)) {
-              this.logger.warn(
-                `[getAllEnabledModelsByType] Excluding non-text model "${m.modelId}" ` +
-                  `from ${modelType} candidate pool (mis-tagged modelType guard)`,
-              );
-              return false;
-            }
-            return true;
-          })
-        : models;
-
-      return filtered.map((m) => this.buildModelConfig(m));
+      // 2026-05-25 严格 BYOK 收口（用户政策「BYOK 不要到 admin，除非授权」）：
+      //   无 userId（background cron / health check / 系统任务）**不再回退
+      //   admin AIModel**。返回空让调用方优雅失败/跳过，绝不静默烧 admin key。
+      //   "授权" = 用户向系统申请的 ASSIGNED 路径（需 userId）。
+      this.logger.warn(
+        `[getAllEnabledModelsByType] No userId context for ${modelType} — strict BYOK: NOT falling back to admin, returning empty.`,
+      );
+      return [];
     } catch (error) {
       this.logger.error(`[getAllEnabledModelsByType] Failed: ${error}`);
       return [];

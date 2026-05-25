@@ -574,43 +574,33 @@ describe("AiModelConfigService", () => {
   });
 
   describe("getDefaultModelByType", () => {
-    it("should return default model for specified type", async () => {
-      // Arrange
+    // 2026-05-25 严格 BYOK 收口（「BYOK 不要到 admin，除非授权」）：
+    //   无 userId / 用户没配 BYOK → 返回 null，**绝不**回退 admin AIModel。
+    it("returns null with no userId context — strict BYOK, NO admin fallback", async () => {
       const fullModel = { ...mockChatModel, modelType: AIModelType.CHAT };
       (prismaService.aIModel.findFirst as jest.Mock).mockResolvedValue(
         fullModel,
       );
 
-      // Act
       const config = await service.getDefaultModelByType(AIModelType.CHAT);
 
-      // Assert
-      expect(prismaService.aIModel.findFirst).toHaveBeenCalledWith({
-        where: {
-          modelType: AIModelType.CHAT,
-          isEnabled: true,
-          isDefault: true,
-        },
-        orderBy: {
-          priority: "desc",
-        },
-      });
-      // The service builds config from model, so modelType is from the returned db model
-      expect(config).not.toBeNull();
-      expect(config?.isDefault).toBe(true);
+      expect(config).toBeNull();
+      // must NOT query the admin AIModel table for a no-userId call
+      expect(prismaService.aIModel.findFirst).not.toHaveBeenCalled();
     });
 
-    it("should fallback to highest priority model if no default", async () => {
-      // Arrange
-      (prismaService.aIModel.findFirst as jest.Mock)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(mockReasoningModel);
-
-      // Act
+    it("returns null for a userId with no BYOK config — NO admin fallback", async () => {
+      const { RequestContext } =
+        await import("../../../../../common/context/request-context");
+      const spy = jest
+        .spyOn(RequestContext, "getUserId")
+        .mockReturnValue("user-no-byok");
+      // user has no UserModelConfig rows (mock default findMany → [])
       const config = await service.getDefaultModelByType(AIModelType.CHAT);
 
-      // Assert
-      expect(config).not.toBeNull();
+      expect(config).toBeNull();
+      expect(prismaService.aIModel.findFirst).not.toHaveBeenCalled();
+      spy.mockRestore();
     });
   });
 

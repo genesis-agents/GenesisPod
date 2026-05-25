@@ -162,43 +162,37 @@ describe("AiChatModelConfigService (branch supplement)", () => {
   // ─────────────────────────────────────────────────────────────────
   // getAllEnabledModelsByType — cache TTL expiry refresh
   // ─────────────────────────────────────────────────────────────────
-  describe("getAllEnabledModelsByType — cache TTL expiry", () => {
-    it("refreshes the cache when TTL has expired", async () => {
+  // 2026-05-25 严格 BYOK 收口（「BYOK 不要到 admin，除非授权」）：无 userId 上下文
+  // 下 getAllEnabledModelsByType / getDefaultModelByType **不再回退 admin AIModel**，
+  // 也不查 admin 表。原 no-userId admin DB 缓存/查询路径已删，相应测试改为验证新契约。
+  describe("getAllEnabledModelsByType — no userId (strict BYOK)", () => {
+    it("returns [] and does NOT query the admin AIModel pool", async () => {
       const model = createMockDbModel({ modelType: "CHAT" });
       const { service, mockPrisma } = await buildService([model]);
 
-      // Prime cache
-      await service.getAllEnabledModelsByType("CHAT" as any);
-      const callCount = mockPrisma.aIModel.findMany.mock.calls.length;
-
-      // v3.1 A0：cache 在 delegate 上
-      // FIXME(v3.1-F): 同上块；F 阶段删 wrapper 时一并清除本 `as any` 类型逃逸。
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (service as any).delegate.modelConfigCacheTime =
-        Date.now() - 10 * 60 * 1000;
-
-      // Should refresh
-      await service.getAllEnabledModelsByType("CHAT" as any);
-      expect(mockPrisma.aIModel.findMany.mock.calls.length).toBeGreaterThan(
-        callCount,
+      const result = await service.getAllEnabledModelsByType("CHAT" as any);
+      expect(result).toHaveLength(0);
+      const queriedAdminPool = mockPrisma.aIModel.findMany.mock.calls.some(
+        (c: any[]) => c[0]?.where?.modelType === "CHAT",
       );
+      expect(queriedAdminPool).toBe(false);
     });
   });
 
   // ─────────────────────────────────────────────────────────────────
-  // getDefaultModelByType — DB-driven (canonical不走 modelConfigCache)
+  // getDefaultModelByType — no userId (strict BYOK)
   // ─────────────────────────────────────────────────────────────────
-  describe("getDefaultModelByType — DB query", () => {
-    it("queries DB on each call (canonical 不读 modelConfigCache)", async () => {
-      // v3.1 A0：原测试假设 getDefaultModelByType 走 TTL refresh 路径，但
-      // canonical AiModelConfigService.getDefaultModelByType 直接 findFirst，
-      // 不读 modelConfigCache。改为直接验证 DB 被查询。
+  describe("getDefaultModelByType — no userId (strict BYOK)", () => {
+    it("returns null and does NOT fall back to admin AIModel", async () => {
       const model = createMockDbModel({ isDefault: true, modelType: "CHAT" });
       const { service, mockPrisma } = await buildService([model], model);
 
       const result = await service.getDefaultModelByType("CHAT" as any);
-      expect(result).toBeDefined();
-      expect(mockPrisma.aIModel.findFirst).toHaveBeenCalled();
+      expect(result).toBeNull();
+      const queriedAdminDefault = mockPrisma.aIModel.findFirst.mock.calls.some(
+        (c: any[]) => c[0]?.where?.modelType === "CHAT",
+      );
+      expect(queriedAdminDefault).toBe(false);
     });
   });
 

@@ -497,7 +497,9 @@ describe("AiChatModelConfigService", () => {
   // ==================== getAllEnabledModelsByType ====================
 
   describe("getAllEnabledModelsByType", () => {
-    it("should return all enabled models of type", async () => {
+    // 2026-05-25 严格 BYOK 收口（「BYOK 不要到 admin，除非授权」）：
+    //   无 userId 上下文 → 返回 []，**绝不**回退 admin AIModel，也不查 admin 表。
+    it("returns [] with no userId — strict BYOK, NO admin fallback", async () => {
       const models = [
         createMockDbModel(),
         createMockDbModel({ modelId: "gpt-4o-mini" }),
@@ -505,24 +507,24 @@ describe("AiChatModelConfigService", () => {
       mockPrisma.aIModel.findMany.mockResolvedValue(models);
 
       const configs = await service.getAllEnabledModelsByType(AIModelType.CHAT);
-      expect(configs).toHaveLength(2);
+      expect(configs).toHaveLength(0);
+      // must NOT query the admin AIModel pool for a no-userId call
+      const queriedAdminPool = mockPrisma.aIModel.findMany.mock.calls.some(
+        (call: any[]) => call[0]?.where?.modelType === AIModelType.CHAT,
+      );
+      expect(queriedAdminPool).toBe(false);
     });
 
-    it("should exclude specified model IDs", async () => {
-      mockPrisma.aIModel.findMany.mockResolvedValue([]);
-
+    it("returns [] for no userId even with excludeModelIds (no admin fallback)", async () => {
       const configs = await service.getAllEnabledModelsByType(
         AIModelType.CHAT,
         ["gpt-4o"],
       );
       expect(configs).toHaveLength(0);
-      // findMany is called twice: once in constructor's refreshModelConfigCache (empty), once here
-      const allCalls = mockPrisma.aIModel.findMany.mock.calls;
-      const callWithExclude = allCalls.find(
+      const queriedWithExclude = mockPrisma.aIModel.findMany.mock.calls.some(
         (call: any[]) => call[0]?.where?.modelId?.notIn !== undefined,
       );
-      expect(callWithExclude).toBeDefined();
-      expect(callWithExclude[0].where.modelId.notIn).toContain("gpt-4o");
+      expect(queriedWithExclude).toBe(false);
     });
   });
 });
