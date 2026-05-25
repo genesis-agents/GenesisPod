@@ -32,6 +32,9 @@ function makeAbortRegistry(signal?: AbortSignal) {
 function makeFailureLearner() {
   return {
     lookup: jest.fn().mockResolvedValue([]),
+    // E57: 权威阈值判定由 FailureLearnerService 自身 spec 覆盖；此处 mock 默认
+    //   false（这些用例 lookup 返空，从不调用），具体场景在各自用例显式覆写。
+    shouldAutoDisable: jest.fn().mockReturnValue(false),
   };
 }
 
@@ -311,6 +314,7 @@ describe("AgentInvoker.preDisableKnownFailingModels", () => {
           lastSeenAt: new Date(),
         },
       ]),
+      shouldAutoDisable: jest.fn().mockReturnValue(true),
     };
     const svc = new AgentInvoker(
       runner as never,
@@ -348,6 +352,7 @@ describe("AgentInvoker.preDisableKnownFailingModels", () => {
           resolved: false,
         },
       ]),
+      shouldAutoDisable: jest.fn().mockReturnValue(false),
     };
     const svc = new AgentInvoker(
       runner as never,
@@ -378,6 +383,7 @@ describe("AgentInvoker.preDisableKnownFailingModels", () => {
           resolved: false,
         },
       ]),
+      shouldAutoDisable: jest.fn().mockReturnValue(true),
     };
     const svc = new AgentInvoker(
       runner as never,
