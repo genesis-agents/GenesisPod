@@ -4,8 +4,12 @@ import { ExtractJwt, Strategy } from "passport-jwt";
 import { ConfigService } from "@nestjs/config";
 import { CacheService } from "../../../../common/cache/cache.service";
 
-/** Redis key prefix for the JWT blocklist */
-const BLOCKLIST_PREFIX = "blocklist:user:";
+/**
+ * Redis key prefix for the JWT blocklist.
+ * Exported so non-HTTP auth boundaries (e.g. WebSocket gateways) reuse the
+ * exact same key instead of re-hardcoding it — single source of truth.
+ */
+export const BLOCKLIST_PREFIX = "blocklist:user:";
 
 /** TTL for blocklist entries: 30 days in seconds */
 const BLOCKLIST_TTL_SECONDS = 86400 * 30;

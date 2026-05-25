@@ -24,6 +24,8 @@ import {
 import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
 import { MissionStore } from "../../mission/lifecycle/mission-store.service";
 import { wsCorsOrigin } from "@/common/config/ws-cors";
+import { CacheService } from "@/common/cache/cache.service";
+import { BLOCKLIST_PREFIX } from "@/modules/ai-infra/auth/strategies/jwt.strategy";
 
 interface JwtPayload {
   sub?: string;
@@ -44,6 +46,7 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
     private readonly ownership: MissionOwnershipRegistry,
     private readonly jwt: JwtService,
     private readonly store: MissionStore,
+    private readonly cache: CacheService,
   ) {}
 
   afterInit(): void {
@@ -73,7 +76,7 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
     if (!payload?.missionId) return { ok: false, error: "missionId required" };
     let userId: string;
     try {
-      userId = this.extractUserId(client);
+      userId = await this.extractUserId(client);
     } catch (err) {
       return {
         ok: false,
@@ -141,7 +144,7 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
     return { ok: true };
   }
 
-  private extractUserId(client: Socket): string {
+  private async extractUserId(client: Socket): Promise<string> {
     const auth = client.handshake.auth as {
       token?: string;
       Authorization?: string;
@@ -157,6 +160,13 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
     }
     const userId = payload.sub ?? payload.id ?? payload.userId;
     if (!userId) throw new UnauthorizedException("no user in token");
+    // ★ P32 安全修 (e2e P0-#6): WS 鉴权除验签外必须查 Redis blocklist —— 否则被
+    //   禁用/删除的用户旧 socket 仍能 join + 收 mission 流，直到 token 自然过期。
+    //   与 HTTP JwtStrategy.validate 同源（同一 blocklist:user: key）。
+    const isBlocked = await this.cache.get<string>(
+      `${BLOCKLIST_PREFIX}${userId}`,
+    );
+    if (isBlocked) throw new UnauthorizedException("User account is disabled");
     return userId;
   }
 }

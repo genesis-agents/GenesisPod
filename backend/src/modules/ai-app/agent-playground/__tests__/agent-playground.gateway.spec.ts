@@ -42,6 +42,13 @@ function makeMockJwt(
   };
 }
 
+function makeMockCache() {
+  return {
+    // default: not blocked (get returns undefined)
+    get: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
 function makeMockSocket(
   auth: Record<string, unknown> = { token: "valid-token" },
 ) {
@@ -59,6 +66,7 @@ describe("AgentPlaygroundGateway", () => {
   let ownership: ReturnType<typeof makeMockOwnership>;
   let jwt: ReturnType<typeof makeMockJwt>;
   let store: ReturnType<typeof makeMockStore>;
+  let cache: ReturnType<typeof makeMockCache>;
   let mockIo: { to: jest.Mock };
 
   beforeEach(() => {
@@ -66,11 +74,13 @@ describe("AgentPlaygroundGateway", () => {
     ownership = makeMockOwnership();
     jwt = makeMockJwt();
     store = makeMockStore();
+    cache = makeMockCache();
     gateway = new AgentPlaygroundGateway(
       eventBus as never,
       ownership as never,
       jwt as never,
       store as never,
+      cache as never,
     );
     mockIo = { to: jest.fn().mockReturnValue({ emit: jest.fn() }) };
     // inject io server
@@ -213,6 +223,34 @@ describe("AgentPlaygroundGateway", () => {
       });
       expect(result.ok).toBe(false);
       expect(result.error).toContain("no user");
+    });
+
+    // ★ P32 安全修 (e2e P0-#6): WS 鉴权查 Redis blocklist
+    it("rejects join when user is in Redis blocklist (disabled user)", async () => {
+      jwt.verify.mockReturnValue({ sub: "banned-user" });
+      cache.get.mockResolvedValue("true"); // blocklist:user:banned-user 命中
+      const socket = makeMockSocket({ token: "valid-but-banned" });
+      const result = await gateway.handleJoin(socket as never, {
+        missionId: "m-1",
+      });
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("disabled");
+      // 验证查的是 blocklist:user:<userId>
+      expect(cache.get).toHaveBeenCalledWith("blocklist:user:banned-user");
+      // 被禁用户不应进 ownership / join 流程
+      expect(socket.join).not.toHaveBeenCalled();
+    });
+
+    it("checks blocklist before ownership resolution (not blocked → proceeds)", async () => {
+      ownership.getOwner.mockReturnValue("user-1");
+      jwt.verify.mockReturnValue({ sub: "user-1" });
+      cache.get.mockResolvedValue(undefined); // 未禁用
+      const socket = makeMockSocket({ token: "valid" });
+      const result = await gateway.handleJoin(socket as never, {
+        missionId: "m-ok",
+      });
+      expect(result.ok).toBe(true);
+      expect(cache.get).toHaveBeenCalledWith("blocklist:user:user-1");
     });
   });
 
