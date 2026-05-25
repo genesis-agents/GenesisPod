@@ -33,6 +33,7 @@ import {
   RateLimit,
   RateLimitGuard,
 } from "../../../../../common/guards/rate-limit.guard";
+import { DistributedRateLimitGuard } from "../../../../../common/guards/distributed-rate-limit.guard";
 import { Public } from "../../../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../../../common/types/express-request.types";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
@@ -168,7 +169,10 @@ export class AgentPlaygroundController extends BaseMissionController {
    * 同时 /replay 端点提供 polling fallback。
    */
   @Post("team/run")
-  @UseGuards(RateLimitGuard)
+  // ★ E4 修 (2026-05-25): 用 Redis 分布式限流（多 pod 共享窗口），替代内存版
+  //   RateLimitGuard（每 pod 独立 → N×30/min 可绕）。Redis 不可用时该 guard
+  //   自动降级内存，行为不退化。decorator/metadata 与内存版完全一致。
+  @UseGuards(DistributedRateLimitGuard)
   @RateLimit({
     maxRequests: 30,
     windowSeconds: 60,
