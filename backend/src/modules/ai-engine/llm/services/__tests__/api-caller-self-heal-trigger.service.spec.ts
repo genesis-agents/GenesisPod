@@ -65,6 +65,24 @@ describe("ApiCallerSelfHealTriggerService — v3.1 §D.1", () => {
     expect(call.errorSignal.errorCode).toBe("invalid_request_error");
   });
 
+  it("R1: forwards chain-aware fromValue/toValue when caller provides them", async () => {
+    const err = makeAxiosError(400, {
+      error: { code: "invalid_request_error", message: "unsupported" },
+    });
+
+    trigger.triggerSelfHealAsync(err, {
+      modelId: "deepseek-v4-flash",
+      userModelConfigId: "cfg-1",
+      fromValue: "json_schema",
+      toValue: "json_mode", // chain-aware: 降到 json_mode 而非一刀切 none
+    });
+
+    await new Promise((r) => setImmediate(r));
+    const call = selfHeal.maybeSelfHeal.mock.calls[0][0];
+    expect(call.fromValue).toBe("json_schema");
+    expect(call.toValue).toBe("json_mode");
+  });
+
   it("does NOT trigger when userModelConfigId missing (non-BYOK path)", async () => {
     const err = makeAxiosError(400, {
       error: { code: "invalid_request_error", message: "x" },

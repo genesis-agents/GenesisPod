@@ -31,6 +31,13 @@ export interface SelfHealTriggerOptions {
    * 缺失（系统级模型 / 旧调用方）→ 不触发。
    */
   userModelConfigId?: string;
+  /**
+   * R1 (2026-05-25): chain-aware 降级 from/to（caller 用 effectiveNativeMode
+   * + deriveStructuredOutputChain 算出，见 ai-api-caller.computeSelfHealDegrade）。
+   * 缺省 = 旧一刀切 json_schema → none（保留 BC：未传的 caller / Anthropic 路径）。
+   */
+  fromValue?: string;
+  toValue?: string;
 }
 
 @Injectable()
@@ -62,8 +69,9 @@ export class ApiCallerSelfHealTriggerService {
       .maybeSelfHeal({
         target: { kind: "user_model_config", id: userModelConfigId },
         field: "structuredOutput.nativeMode",
-        fromValue: "json_schema",
-        toValue: "none",
+        // R1: chain-aware 降级（caller 传）；缺省回退旧 json_schema → none
+        fromValue: opts.fromValue ?? "json_schema",
+        toValue: opts.toValue ?? "none",
         errorSignal: signal,
       })
       .catch((e: unknown) =>

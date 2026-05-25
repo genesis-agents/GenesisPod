@@ -281,6 +281,48 @@ export class AiApiCallerService {
   }
 
   /**
+   * 2026-05-25 (R1 自适应降级): 计算 self-heal 应把 nativeMode 降到哪一档。
+   *
+   * 旧 self-heal 把 json_schema **一刀切降到 none**（直接 prompt），浪费了多数
+   * provider 支持的 json_mode。本 helper 改成**沿派生链走下一档**：
+   *   json_schema_strict → json_schema → json_mode → prompt(映射为 none)
+   * `current` 传 effectiveNativeMode（当前真实上线值，可能已被上次 self-heal
+   * override 改过）→ 多步降级天然成立：下次失败时 current 已是 json_mode，
+   * 再降到 prompt→none。
+   *
+   * @returns { fromValue, toValue } 给 trigger；无法判定（未知模型 / 已到链尾）返 null
+   */
+  private computeSelfHealDegrade(
+    provider: string,
+    modelId: string,
+    current:
+      | import("../capability/model-capability.types").NativeStructuredOutputMode
+      | null,
+  ): { fromValue: string; toValue: string } | null {
+    if (!this.capabilityService || !provider?.trim() || !current) return null;
+    const projection: AIModelConfig = {
+      id: "",
+      name: "",
+      displayName: "",
+      provider,
+      modelId,
+      apiEndpoint: "",
+      apiKey: null,
+      maxTokens: 0,
+      temperature: 0,
+      isEnabled: true,
+      isDefault: false,
+    };
+    const caps = this.capabilityService.resolveCapabilities(projection);
+    const chain = this.capabilityService.deriveStructuredOutputChain(caps);
+    const idx = chain.indexOf(current);
+    if (idx < 0 || idx >= chain.length - 1) return null; // 未知 / 已到链尾
+    const next = chain[idx + 1];
+    // 链尾 prompt 不是合法 nativeMode → 映射为 none（同义：不发 response_format）
+    return { fromValue: current, toValue: next === "prompt" ? "none" : next };
+  }
+
+  /**
    * OpenAI-compatible providers only accept role:"tool" when paired with a
    * native tool_call_id. Prompt-driven ReAct observations do not have that id,
    * so they must be downgraded to plain user messages instead of emitting an
@@ -688,9 +730,20 @@ export class AiApiCallerService {
       );
     } catch (err) {
       // v3.1 §B+.3 / D.1: fire-and-forget self-heal trigger
+      // R1 (2026-05-25): chain-aware 降级目标（json_schema→json_mode→none），
+      //   替代旧一刀切 json_schema→none。effectiveNativeMode 是当前真实上线值，
+      //   故多步降级天然成立（override 回写后下次再降下一档）。
+      const degrade = this.computeSelfHealDegrade(
+        provider,
+        modelId,
+        effectiveNativeMode,
+      );
       this.selfHealTrigger?.triggerSelfHealAsync(err, {
         modelId,
         userModelConfigId,
+        ...(degrade
+          ? { fromValue: degrade.fromValue, toValue: degrade.toValue }
+          : {}),
       });
       throw err;
     }
