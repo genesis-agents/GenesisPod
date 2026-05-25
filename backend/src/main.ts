@@ -81,6 +81,11 @@ async function bootstrap() {
     logger: logLevels,
   });
 
+  // ★ E17 (2026-05-25) graceful shutdown：监听 SIGTERM/SIGINT，触发各 provider 的
+  //   onApplicationShutdown（如 MissionAbortRegistry 会 abort 所有在跑 mission，
+  //   滚动部署时立即止血而非等 liveness 5min 回收）。
+  app.enableShutdownHooks();
+
   // 增加请求体大小限制，支持大型字幕数据
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));

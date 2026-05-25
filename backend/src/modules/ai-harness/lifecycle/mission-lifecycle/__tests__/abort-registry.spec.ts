@@ -1,4 +1,4 @@
-import { MissionAbortRegistry } from "../abort-registry";
+import { MissionAbortRegistry, MissionAbortReason } from "../abort-registry";
 
 describe("MissionAbortRegistry", () => {
   let registry: MissionAbortRegistry;
@@ -96,5 +96,39 @@ describe("MissionAbortRegistry", () => {
     expect(signal.aborted).toBe(false);
     registry.abort("m1");
     expect(signal.aborted).toBe(true);
+  });
+
+  // ── E17 graceful shutdown (2026-05-25) ──
+  describe("onApplicationShutdown", () => {
+    it("aborts all in-flight missions with orchestrator_shutdown", async () => {
+      const c1 = registry.register("m1");
+      const c2 = registry.register("m2");
+      // 模拟 pipeline finally：abort 后立即 unregister，让 drain 循环退出
+      c1.signal.addEventListener("abort", () => registry.unregister("m1"));
+      c2.signal.addEventListener("abort", () => registry.unregister("m2"));
+
+      await registry.onApplicationShutdown("SIGTERM");
+
+      expect(c1.signal.aborted).toBe(true);
+      expect(c2.signal.aborted).toBe(true);
+      expect(c1.signal.reason).toBe(MissionAbortReason.orchestrator_shutdown);
+      expect(registry.size()).toBe(0);
+    });
+
+    it("no active missions → fast no-op (skips drain window)", async () => {
+      const start = Date.now();
+      await registry.onApplicationShutdown("SIGTERM");
+      expect(Date.now() - start).toBeLessThan(100);
+    });
+
+    it("bounded drain — returns within ~3s even if missions never finalize", async () => {
+      registry.register("stuck"); // 永不 unregister
+      const start = Date.now();
+      await registry.onApplicationShutdown("SIGTERM");
+      const elapsed = Date.now() - start;
+      expect(elapsed).toBeGreaterThanOrEqual(2900);
+      expect(elapsed).toBeLessThan(4000);
+      expect(registry.isAborted("stuck")).toBe(true);
+    });
   });
 });

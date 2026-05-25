@@ -10,7 +10,7 @@
  *   - orchestrator 把 controller.signal 透传给 AgentRunner.run({ signal })
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnApplicationShutdown } from "@nestjs/common";
 
 /**
  * ★ C1 / G2（2026-05-22）：mission abort 原因 canonical enum（single source of truth）。
@@ -29,7 +29,7 @@ export enum MissionAbortReason {
 }
 
 @Injectable()
-export class MissionAbortRegistry {
+export class MissionAbortRegistry implements OnApplicationShutdown {
   private readonly log = new Logger(MissionAbortRegistry.name);
   private readonly map = new Map<string, AbortController>();
 
@@ -76,5 +76,38 @@ export class MissionAbortRegistry {
   /** dev-only：列出当前活跃的 mission（debug） */
   listActive(): string[] {
     return Array.from(this.map.keys());
+  }
+
+  /**
+   * ★ E17 (2026-05-25) graceful shutdown —— pod 收到 SIGTERM（滚动部署 / 缩容）时
+   * NestJS 触发本钩子（需 main.ts app.enableShutdownHooks()）。
+   *
+   * 行为：把本 pod 所有在跑 mission 立即 abort(orchestrator_shutdown) → orchestrator
+   * loop 顶 check 命中 → in-flight LLM / tool 立刻停，避免 drain 窗口继续烧钱；pipeline
+   * finally 走 finalize 标失败（unregister 后 map.size 递减）。随后给一个有限 drain
+   * 窗口（≤3s）让 finalize 落库；窗口内没落完的由 liveness-guard 兜底回收。
+   *
+   * 取代此前"无 graceful、靠 liveness ≥5min stale 回收"（审计 E17 / P0-#3，
+   * orchestrator_shutdown 此前 0 调用者）。
+   */
+  async onApplicationShutdown(signal?: string): Promise<void> {
+    const active = this.listActive();
+    if (active.length === 0) return;
+    this.log.warn(
+      `[shutdown] signal=${signal ?? "?"} aborting ${active.length} in-flight mission(s) (orchestrator_shutdown)`,
+    );
+    for (const missionId of active) {
+      this.abort(missionId, MissionAbortReason.orchestrator_shutdown);
+    }
+    // 有限 drain：等 pipeline finally → finalize → unregister 把 map 清空，最多 ~3s
+    const deadlineMs = Date.now() + 3000;
+    while (this.map.size > 0 && Date.now() < deadlineMs) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    if (this.map.size > 0) {
+      this.log.warn(
+        `[shutdown] ${this.map.size} mission(s) 未在 grace 窗口内 finalize；交由 liveness-guard 回收`,
+      );
+    }
   }
 }
