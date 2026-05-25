@@ -31,6 +31,31 @@ import {
 } from "../../prompts/dimension-research.prompt";
 import type { AICapabilityContext } from "@/modules/ai-harness/facade";
 
+// ==================== 查询卫语句 ====================
+
+/**
+ * 判断一条字符串是不是「假查询」——即 provider/工具的错误或限流通知，
+ * 而非真实搜索词。
+ *
+ * 背景（2026-05-25 生产事故）：deepseek key 缺失时，generateSearchQueries 的
+ * LLM 调用软失败，response.content 被填成限流文案（如 "Rate limit exceeded.
+ * Please try again in 6 seconds."）。旧代码直接把 content 按行切成查询词，于是
+ * 限流文案被 enhanceQueryWithTimestamp 追加 " 2026" 后回灌进 web-search →
+ * DDG 再对这条垃圾查询报 VQD 失败，刷屏错误日志、浪费请求配额。
+ *
+ * 这里在「接受查询」处统一拦截：任何命中限流/错误/配额语义、或长得根本不像
+ * 查询词（过长 / 含标准错误句式）的字符串都丢弃。
+ */
+function isJunkSearchQuery(raw: string): boolean {
+  const q = raw.trim();
+  if (q.length === 0) return true;
+  // 真实搜索词极少超过 ~120 字符；错误句子/堆栈往往很长
+  if (q.length > 160) return true;
+  return /rate.?limit|too many requests|try again in \d|quota|exceeded|no api key|api key|unauthorized|forbidden|service unavailable|service temporarily|429|5\d{2}\s|insufficient|not enough credits|timed? ?out|请稍后|请求过于频繁|超出.*限额|配额|密钥|无可用/i.test(
+    q,
+  );
+}
+
 // ==================== Action Tool Types ====================
 
 /**
@@ -793,10 +818,28 @@ export class LeaderToolService {
     }
 
     // 如果没有提供查询，让 Leader 生成查询
-    const searchQueries =
+    const rawQueries =
       queries && queries.length > 0
         ? queries
         : await this.generateSearchQueries(context);
+
+    // ★ 2026-05-25 防御层：无论查询来自调用方还是 LLM 生成，都先剔除限流/
+    //   错误文案这类「假查询」（见 isJunkSearchQuery）。全被剔光时退回确定性
+    //   查询，避免把垃圾字符串发给 web-search 刷错误日志 + 浪费配额。
+    const cleanQueries = rawQueries.filter((q) => !isJunkSearchQuery(q));
+    if (cleanQueries.length < rawQueries.length) {
+      this.logger.warn(
+        `[searchLatestData] Dropped ${rawQueries.length - cleanQueries.length} junk quer${
+          rawQueries.length - cleanQueries.length === 1 ? "y" : "ies"
+        } (rate-limit/error notices) for dimension: ${context.dimensionName}`,
+      );
+    }
+    const searchQueries =
+      cleanQueries.length > 0
+        ? cleanQueries
+        : [
+            `${context.topicName} ${context.dimensionName} ${new Date().getFullYear()}`,
+          ];
 
     const results: LeaderSearchResult[] = [];
 
@@ -980,6 +1023,9 @@ ${context.dimensionName}
         .split("\n")
         .map((q) => q.trim())
         .filter((q) => q.length > 0)
+        // ★ 2026-05-25: 过滤 provider 软失败时混进 content 的限流/错误文案，
+        //   否则会被当成查询词回灌进 web-search（见 isJunkSearchQuery 注释）。
+        .filter((q) => !isJunkSearchQuery(q))
         .slice(0, 3);
 
       return queries.length > 0
