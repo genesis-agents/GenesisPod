@@ -141,13 +141,30 @@ export class ResearchMissionHealthService
    * ★ Phase 5: 增加服务启动后自动恢复中断任务
    */
   onModuleInit(): void {
+    // 健康检查循环保留:它只把 stuck mission 标记为 FAILED(降低消耗),不跑 LLM。
     this.healthCheckRunner.start(() => this.runHealthCheck().then(() => {}));
     this.logger.log(
       `Health check service started with ${HEALTH_CHECK_CONFIG.checkIntervalMs / 1000}s interval`,
     );
 
-    // ★ Phase 5: 延迟启动自动恢复（等待其他服务就绪）
-    // isStartup=true: 跳过阈值过滤，进程刚启动时所有 EXECUTING mission 都是遗留的
+    // ════════════════════════════════════════════════════════════════════════
+    // ★ 2026-05-25 默认关闭「启动自动恢复」。
+    //   recoverInterruptedMissions({isStartup:true}) 会把所有 EXECUTING 的研究
+    //   mission 在重启后自动重新拉起、跑全量 LLM(BYOK 烧真金白银)——这正是「重启
+    //   后烧钱依然停不下来」的根因。静默后台重跑必须显式 opt-in,绝不默认开。
+    //   仅 boot 自动触发被关;显式/手动恢复(用户主动点)仍可用。
+    // ════════════════════════════════════════════════════════════════════════
+    if (process.env.ENABLE_RESEARCH_MISSION_AUTORECOVERY !== "true") {
+      this.logger.warn(
+        "[ResearchMissionHealth] startup auto-recovery DISABLED (default) — " +
+          "interrupted EXECUTING missions will NOT be auto-resumed on boot. " +
+          "Set ENABLE_RESEARCH_MISSION_AUTORECOVERY=true to opt in. " +
+          "（健康检查仍会把 stuck mission 标记为 FAILED）",
+      );
+      return;
+    }
+
+    // opt-in：延迟启动自动恢复（等待其他服务就绪）
     setTimeout(() => {
       void this.recoverInterruptedMissions({ isStartup: true }).catch((err) => {
         this.logger.error(`Auto-recovery failed: ${err.message}`);
@@ -155,7 +172,7 @@ export class ResearchMissionHealthService
     }, RECOVERY_CONFIG.recoveryDelayMs).unref();
 
     this.logger.log(
-      `Auto-recovery scheduled in ${RECOVERY_CONFIG.recoveryDelayMs / 1000}s`,
+      `Auto-recovery scheduled in ${RECOVERY_CONFIG.recoveryDelayMs / 1000}s (opt-in ENABLED)`,
     );
   }
 

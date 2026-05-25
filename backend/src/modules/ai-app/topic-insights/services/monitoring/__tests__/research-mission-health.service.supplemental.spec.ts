@@ -92,19 +92,54 @@ describe("ResearchMissionHealthService - Supplemental", () => {
   // ─── onModuleInit ───
 
   describe("onModuleInit", () => {
-    it("should start health check runner and schedule recovery", () => {
+    afterEach(() => {
+      delete process.env.ENABLE_RESEARCH_MISSION_AUTORECOVERY;
+    });
+
+    it("should start health check runner and schedule recovery (opt-in enabled)", () => {
       jest.useFakeTimers();
+      process.env.ENABLE_RESEARCH_MISSION_AUTORECOVERY = "true";
 
       try {
         mockPrisma.researchMission.findMany.mockResolvedValue([]);
+        const recoverSpy = jest
+          .spyOn(service, "recoverInterruptedMissions")
+          .mockResolvedValue({
+            checkedAt: new Date(),
+            interruptedMissions: 0,
+            recoveredMissions: 0,
+            failedRecoveries: 0,
+            details: [],
+          });
 
         service.onModuleInit();
-
-        // Advance past the recovery setTimeout delay (10s) without triggering
-        // the 5-minute setInterval infinitely (which jest.runAllTimers() would do)
         jest.advanceTimersByTime(10100);
 
-        // No assertions needed — just verify it doesn't throw
+        expect(recoverSpy).toHaveBeenCalledWith({ isStartup: true });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it("★ default-OFF: does NOT auto-recover on boot when env flag unset (anti silent-spend)", () => {
+      jest.useFakeTimers();
+      delete process.env.ENABLE_RESEARCH_MISSION_AUTORECOVERY;
+
+      try {
+        const recoverSpy = jest
+          .spyOn(service, "recoverInterruptedMissions")
+          .mockResolvedValue({
+            checkedAt: new Date(),
+            interruptedMissions: 0,
+            recoveredMissions: 0,
+            failedRecoveries: 0,
+            details: [],
+          });
+
+        service.onModuleInit();
+        jest.advanceTimersByTime(60000); // well past the 10s recovery delay
+
+        expect(recoverSpy).not.toHaveBeenCalled();
       } finally {
         jest.useRealTimers();
       }

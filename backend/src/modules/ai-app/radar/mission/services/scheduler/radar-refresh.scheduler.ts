@@ -97,7 +97,7 @@ export class RadarRefreshScheduler {
 
   @Cron(CronExpression.EVERY_MINUTE, {
     name: "radar-refresh-sweep",
-    disabled: process.env.RADAR_SCHEDULER_DISABLED === "1",
+    disabled: process.env.ENABLE_RADAR_SCHEDULER !== "true",
   })
   async sweep(): Promise<void> {
     const now = new Date();
@@ -162,7 +162,7 @@ export class RadarRefreshScheduler {
    */
   @Cron(CronExpression.EVERY_MINUTE, {
     name: "radar-daily-briefing-sweep",
-    disabled: process.env.RADAR_SCHEDULER_DISABLED === "1",
+    disabled: process.env.ENABLE_RADAR_SCHEDULER !== "true",
   })
   async sweepDailyBriefing(): Promise<void> {
     const now = new Date();
@@ -239,6 +239,8 @@ export class RadarRefreshScheduler {
   @Cron("0 18 * * SUN", {
     timeZone: "UTC",
     name: "radar-weekly-briefing-sweep",
+    // ★ 2026-05-25 默认关闭(opt-in):周报会发外部邮件 + 生成,属后台静默动作
+    disabled: process.env.ENABLE_RADAR_SCHEDULER !== "true",
   })
   async sweepWeeklyBriefing(): Promise<void> {
     const now = new Date();

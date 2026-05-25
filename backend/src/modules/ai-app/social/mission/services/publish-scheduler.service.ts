@@ -34,9 +34,11 @@ export class PublishSchedulerService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
+    // ★ 2026-05-25 默认关闭:后台定时发布会跑 LLM + 真实平台发帖(外部副作用),
+    //   必须显式 opt-in,绝不默认开。默认值 true → false。
     const enabled = this.configService.get<boolean>(
       "PUBLISH_SCHEDULER_ENABLED",
-      true,
+      false,
     );
 
     if (enabled) {

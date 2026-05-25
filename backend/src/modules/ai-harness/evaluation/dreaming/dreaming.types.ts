@@ -117,5 +117,7 @@ export const DEFAULT_DREAMING_CONFIG: DreamingSchedulerConfig = {
   sampleWindowHours: 24,
   sampleSize: 20,
   tokenBudget: 50_000,
-  enabled: true,
+  // ★ 2026-05-25 默认关闭:dreaming/reflection 每 6h 后台跑 LLM,属静默后台消耗,
+  //   必须显式 opt-in(DB 配置 enabled=true 或 admin 开启),绝不默认开。
+  enabled: false,
 };

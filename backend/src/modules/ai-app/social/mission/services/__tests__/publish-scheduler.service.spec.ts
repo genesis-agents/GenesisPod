@@ -61,7 +61,18 @@ describe("PublishSchedulerService", () => {
   });
 
   describe("onModuleInit", () => {
-    it("starts scheduler when enabled (default true)", () => {
+    it("★ default-OFF: does NOT start scheduler when flag unset (anti silent-spend)", () => {
+      // default mock returns the `def` arg → PUBLISH_SCHEDULER_ENABLED defaults false now
+      const setIntSpy = jest.spyOn(global, "setInterval");
+      service.onModuleInit();
+      expect(setIntSpy).not.toHaveBeenCalled();
+      setIntSpy.mockRestore();
+    });
+
+    it("starts scheduler when explicitly enabled (opt-in)", () => {
+      configService.get.mockImplementation((key: string, def: unknown) =>
+        key === "PUBLISH_SCHEDULER_ENABLED" ? true : def,
+      );
       const setIntSpy = jest
         .spyOn(global, "setInterval")
         .mockReturnValue({ unref: jest.fn() } as never);
