@@ -18,10 +18,11 @@
 
 ## 已完成
 
-| 条目                                                          | commit      | 验证                                    |
-| ------------------------------------------------------------- | ----------- | --------------------------------------- |
-| WS gateway 查 blocklist (e2e P0-#6)                           | `b5bdca089` | gateway spec 18 tests + tsc + eslint ✅ |
-| P32 守护栏缺口 (facade spec / PR-E0 / layout size / 安全 SOP) | `0b3e88079` | arch 24 suites/227 tests ✅             |
+| 条目                                                          | commit      | 验证                                            |
+| ------------------------------------------------------------- | ----------- | ----------------------------------------------- |
+| WS gateway 查 blocklist (e2e P0-#6)                           | `b5bdca089` | gateway spec 18 tests + tsc + eslint ✅         |
+| P32 守护栏缺口 (facade spec / PR-E0 / layout size / 安全 SOP) | `0b3e88079` | arch 24 suites/227 tests ✅                     |
+| liveness wall-time 主动 abort (e2e P0-#2，仅 wall-time 分支)  | `012117358` | tsc + eslint + finalize/conformance 12 tests ✅ |
 
 ---
 
@@ -94,7 +95,11 @@
 
 ---
 
-### B3-2 — Liveness markFailed 主动 abort in-flight (e2e P0-#2) 🟡
+### B3-2 — Liveness markFailed 主动 abort in-flight (e2e P0-#2) ✅ 已完成 `012117358`
+
+> 实施结论修正：只在 **wall-time-exceeded** 分支主动 abort（mission 仍活跃，有 in-flight）。
+> stale/crash 分支不 abort（heartbeat 停=worker presumed dead，本 pod 无 in-flight，
+> 且 abort enum 无 runtime_crashed 值）。比原 finding"总是 abort"更准。下方原分析保留供参考。
 
 **问题**：LivenessGuard 标 mission failed 后，不主动触发 AbortRegistry，in-flight LLM call 继续烧钱直到 ReAct loop 下一轮顶部检测到（最坏 1 个 LLM turn 的浪费）。
 
