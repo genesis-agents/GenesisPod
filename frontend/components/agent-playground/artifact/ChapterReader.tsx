@@ -343,12 +343,22 @@ export function ChapterReader({
     ).trimEnd();
   }, [selectedSection, artifact.content.fullMarkdown]);
 
+  const sectionFigures = useMemo(() => {
+    if (!selectedSection) return [];
+    const ids = new Set(selectedSection.figureIds);
+    return artifact.figures.filter((f) => ids.has(f.id));
+  }, [selectedSection, artifact.figures]);
+
   // 当前章对应的 citations 子集（章末参考文献 + 正文 [N] 角标解析）
   // ★ 2026-05-25 修：从本章 slice 里实际出现的 [N] 反推引用集合，对齐 continuous
   //   视图所用的全局编号。原先按 selectedSection.citations(可能是装配前的旧编号)
   //   过滤 —— 报告装配把 fullMarkdown 的 [N] 重排成全局编号后，slice 里的全局 [N]
   //   与旧编号子集对不上 → 正文角标灰显"引用元数据缺失"。改用 slice 实际 [N] ∩
   //   artifact.citations，章节视图与连续视图行为一致。
+  // ★ 2026-05-25 补：图片 source 角标用 figure.evidenceCitationIndex 取证据，该
+  //   index 通常不作为 [N] 出现在正文，需并入引用集合；否则章节视图里图片角标
+  //   hover 不出引用卡（evidenceInfo=null → 退化成无提示的 [N] 链接）。连续视图传
+  //   全量 citations 不受影响，这里对齐其行为。
   const sectionCitations = useMemo(() => {
     if (!selectedSection) return [];
     const cited = new Set<number>();
@@ -357,14 +367,11 @@ export function ChapterReader({
     while ((m = re.exec(sectionMarkdown)) !== null) {
       cited.add(parseInt(m[1], 10));
     }
+    for (const f of sectionFigures) {
+      if (f.evidenceCitationIndex != null) cited.add(f.evidenceCitationIndex);
+    }
     return artifact.citations.filter((c) => cited.has(c.index));
-  }, [selectedSection, sectionMarkdown, artifact.citations]);
-
-  const sectionFigures = useMemo(() => {
-    if (!selectedSection) return [];
-    const ids = new Set(selectedSection.figureIds);
-    return artifact.figures.filter((f) => ids.has(f.id));
-  }, [selectedSection, artifact.figures]);
+  }, [selectedSection, sectionMarkdown, sectionFigures, artifact.citations]);
 
   // 反向溯源
   const [reverseHighlight, setReverseHighlight] = useState<number | null>(null);
