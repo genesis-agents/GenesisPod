@@ -10,7 +10,7 @@
  *  - Bottom progress bar + consensus quality
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Brain,
   Search,
@@ -165,6 +165,12 @@ export function TeamRosterPanel({
   const [selectedRole, setSelectedRole] = useState<AgentRole | null>(null);
   // 默认展开 Research Team group → 让用户能看到每个 Researcher#N 节点
   const [groupExpanded, setGroupExpanded] = useState(true);
+  // 研究深度选择 — 纯本地 UI state，不联动 API / 弹窗 / 重跑。
+  // 点击 3 张卡片只切换高亮，由用户接下来手动点「更新」/「开始」时由
+  // 父层决定是否使用（当前两个按钮仍走 rerunMission 沿用原 depth）。
+  // depth prop 变化（切换到不同 mission）时同步本地选择。
+  const [selectedDepth, setSelectedDepth] = useState<string | undefined>(depth);
+  useEffect(() => setSelectedDepth(depth), [depth]);
 
   const { nodes, connections, rows, viewBoxHeight, rowYPositions } =
     useMemo(() => {
@@ -734,27 +740,31 @@ export function TeamRosterPanel({
                   研究深度
                 </div>
                 <div className="grid grid-cols-3 gap-1">
-                  {[
-                    { key: 'quick', label: '快速', desc: '基础搜索' },
-                    { key: 'standard', label: '标准', desc: '平衡覆盖' },
-                    { key: 'deep', label: '深度', desc: '完整链路' },
-                  ].map((option) => {
-                    const selected = depth === option.key;
+                  {(
+                    [
+                      { key: 'quick', label: '快速', desc: '基础搜索' },
+                      { key: 'standard', label: '标准', desc: '平衡覆盖' },
+                      { key: 'deep', label: '深度', desc: '完整链路' },
+                    ] as const
+                  ).map((option) => {
+                    const selected = selectedDepth === option.key;
                     return (
-                      <div
+                      <button
                         key={option.key}
+                        type="button"
+                        onClick={() => setSelectedDepth(option.key)}
                         className={cn(
-                          'rounded-md px-2 py-1.5 text-center text-xs',
+                          'rounded-md px-2 py-1.5 text-center text-xs transition-colors',
                           selected
                             ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
-                            : 'bg-gray-50 text-gray-500'
+                            : 'cursor-pointer bg-gray-50 text-gray-500 hover:bg-blue-50 hover:text-blue-700 hover:ring-1 hover:ring-blue-200'
                         )}
                       >
                         <div className="font-medium">{option.label}</div>
                         <div className="mt-0.5 whitespace-nowrap text-[10px] opacity-70">
                           {option.desc}
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
