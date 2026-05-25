@@ -11,15 +11,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Brain,
-  Search,
-  GitBranch,
-  PenLine,
-  Gavel,
-  CheckCircle2,
-  Loader2,
-} from 'lucide-react';
+import { Brain, Search, GitBranch, PenLine, Gavel } from 'lucide-react';
 import {
   TeamTopologyCanvas,
   type TeamTopologyNode,
@@ -461,10 +453,10 @@ export function TeamRosterPanel({
         </div>
       </div>
 
-      {/* ★ 2026-05-25 响应式修复：把 topology canvas + 角色列表一起放进同一个可滚动
-          中段，让 header(顶) 与 progress/操作按钮(底, shrink-0) 始终常驻。
-          低分辨率下中段滚动而非把"开始"按钮挤出视口。 */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {/* ★ 2026-05-25：团队阵型图常驻中段（flex-1 吸收余高，不滚动）。
+          原"角色列表"与阵型图信息重复，已移除；header(顶) 与
+          progress/操作按钮(底) 仍 shrink-0 常驻。 */}
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* SVG team topology canvas */}
         <div className="shrink-0 border-b border-gray-100 px-3 py-3">
           {/* 展开 / 折叠 切换 + Micro-pipeline 入口 */}
@@ -586,71 +578,8 @@ export function TeamRosterPanel({
             }}
           />
         </div>
-
-        {/* 角色列表 —— 与上方 canvas 同处一个可滚动中段（见上方 wrapper）。
-          Mission progress / 运行配置 / 按钮 仍 shrink-0 常驻 aside 底部，不进滚动域。*/}
-        <div className="shrink-0">
-          {/* Roster body — list of role rows with last-thought */}
-          <div className="space-y-1.5 p-3">
-            {ROLE_ROW.map(({ role, stage, label }) => {
-              const Icon = ROLE_ICON[role];
-              const st = stageMap.get(stage);
-              const roleAgents = agents.filter((a) => a.role === role);
-              const isActive = st?.status === 'running';
-              const isDone = st?.status === 'done';
-
-              return (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => setSelectedRole(role)}
-                  className="flex w-full items-start gap-2 rounded-lg border border-gray-100 bg-white px-2.5 py-2 text-left transition-all hover:border-violet-200 hover:bg-violet-50/30"
-                >
-                  <span
-                    className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
-                      isActive
-                        ? 'bg-violet-100 text-violet-600'
-                        : isDone
-                          ? 'bg-emerald-100 text-emerald-600'
-                          : 'bg-gray-100 text-gray-500'
-                    }`}
-                  >
-                    {isActive ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : isDone ? (
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    ) : (
-                      <Icon className="h-3.5 w-3.5" />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-[12px] font-semibold text-gray-900">
-                        {label}
-                      </span>
-                      {roleAgents.length > 0 && (
-                        <span className="text-[10px] text-gray-400">
-                          {
-                            roleAgents.filter((a) => a.phase === 'completed')
-                              .length
-                          }{' '}
-                          / {roleAgents.length}
-                        </span>
-                      )}
-                    </div>
-                    {/* ★ 2026-05-25: 移除角色卡里被截断、看不清的 thought 建议文字，
-                        只保留简洁状态标签。 */}
-                    <p className="mt-0.5 text-[11px] italic text-gray-400">
-                      {st?.detail ?? (isDone ? '已完成' : '待启动')}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </div>
-      {/* /可滚动中段（topology canvas + 角色列表） */}
+      {/* /阵型图中段 */}
 
       {/* Progress + 运行配置 — shrink-0 固定，不随角色列表滚动；与下面
           MissionActionGroup 一起组成 aside 底部"操作区" */}

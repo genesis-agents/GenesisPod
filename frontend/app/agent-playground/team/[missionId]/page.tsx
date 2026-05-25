@@ -1815,8 +1815,6 @@ function CompactMeters({
     }
     return sum;
   }, [view.dimensionPipelines]);
-  const fmtWords = (n: number) =>
-    n < 1000 ? `${n} 字` : `${(n / 1000).toFixed(1)}k 字`;
 
   // 预算使用率（tokensUsed / maxCredits）—— 100k 上限 = 100M tokens
   const maxTokens = maxCredits != null ? maxCredits * 1000 : null;
@@ -1834,21 +1832,21 @@ function CompactMeters({
           : 'text-amber-500';
 
   return (
-    <div className="hidden items-center gap-2 whitespace-nowrap pl-2 text-xs text-gray-500 lg:flex">
+    <div className="font-mono hidden items-center gap-x-2 whitespace-nowrap text-[11px] text-gray-500 lg:flex">
       <span
-        className="flex items-center gap-1"
+        className="flex items-center gap-0.5"
         title={
           maxTokens != null
             ? `已用 ${view.cost.tokensUsed.toLocaleString()} / 上限 ${maxTokens.toLocaleString()} tokens（maxCredits=${maxCredits}）`
-            : undefined
+            : `已用 ${view.cost.tokensUsed.toLocaleString()} tokens`
         }
       >
         <Coins className={`h-3.5 w-3.5 ${usageColor}`} />
-        {fmtTokens(view.cost.tokensUsed)} tk
+        {fmtTokens(view.cost.tokensUsed)}
         {usageRatio != null && (
           <span
             className={cn(
-              'font-mono ml-0.5 text-[10px]',
+              'ml-0.5 text-[10px]',
               usageRatio >= 1
                 ? 'text-red-600'
                 : usageRatio >= 0.9
@@ -1861,18 +1859,21 @@ function CompactMeters({
         )}
       </span>
       {totalWords > 0 && (
-        <span className="flex items-center gap-1" title="累计已写章节字数">
+        <span className="flex items-center gap-0.5" title="累计已写章节字数">
           <FileText className="h-3.5 w-3.5 text-emerald-500" />
-          {fmtWords(totalWords)}
+          {fmtTokens(totalWords)}
         </span>
       )}
       {view.mission.finalScore != null && (
-        <span className="flex items-center gap-1">
+        <span
+          className="flex items-center gap-0.5"
+          title={`共识质量评分 ${view.mission.finalScore} / 100`}
+        >
           <Gavel className="h-3.5 w-3.5 text-violet-500" />
-          {view.mission.finalScore} / 100
+          {view.mission.finalScore}
         </span>
       )}
-      <span className="flex items-center gap-1">
+      <span className="flex items-center gap-0.5" title="已运行时长">
         <Activity className="h-3.5 w-3.5 text-sky-500" />
         {fmtTime(wallTimeMs)}
       </span>
