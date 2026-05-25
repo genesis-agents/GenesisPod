@@ -12,6 +12,12 @@ export interface CaptureOptions {
   freezeMermaid?: boolean;
   /** 将 <img> 和 CSS background-image URL 转为 data: URL，避免 Puppeteer 请求拦截导致图片缺失 */
   inlineImages?: boolean;
+  /**
+   * 导出文档标题（原文 topic）。提供时在抓取内容顶部插入一个 <h1>。
+   * 报告标题通常只在页面 header 渲染、不在 data-export-content 内，导出成品
+   * 因此无标题；由公共抓取层统一补，所有走 ExportDialog 的 App 都受益。
+   */
+  documentTitle?: string;
   /** 最大等待时间 (ms) */
   timeout?: number;
 }
@@ -34,6 +40,7 @@ export class HtmlCaptureService {
       freezeCharts = true,
       freezeMermaid = true,
       inlineImages = true,
+      documentTitle,
       timeout = 5000,
     } = options;
 
@@ -84,6 +91,14 @@ export class HtmlCaptureService {
 
     // ★ v4.3: 为标题添加 ID 锚点（支持 TOC 跳转）
     HtmlCaptureService.addHeadingAnchors(clone);
+
+    // ★ 2026-05-25：导出顶部补报告标题（原文 topic）。在所有"按 index 对齐
+    //   original/clone"的处理（inlineImages / inlineCriticalStyles）之后插入，
+    //   避免给 clone 多塞一个元素打乱下标映射。用内联样式确保即使 CSS 抽取漏掉
+    //   也能正确呈现。仅导出时插入，不影响 live 视图。
+    if (documentTitle && documentTitle.trim()) {
+      HtmlCaptureService.prependDocumentTitle(clone, documentTitle.trim());
+    }
 
     // 提取 CSS (filtered by selectors used in container)
     let css = HtmlCaptureService.extractStyles(container as HTMLElement);
@@ -657,6 +672,34 @@ export class HtmlCaptureService {
         sup.replaceWith(anchor);
       }
     }
+  }
+
+  /**
+   * ★ 2026-05-25：在导出内容顶部插入报告标题 <h1>。
+   * 报告标题（topic）一般渲染在页面 header（data-export-content 之外），导出
+   * 抓不到。由公共抓取层统一补；用内联样式自包含，避免依赖 CSS 抽取。
+   */
+  private static prependDocumentTitle(clone: HTMLElement, title: string): void {
+    // 已有顶层 h1 则不重复插入（部分内容自身已含标题）
+    const firstEl = clone.querySelector('h1, h2');
+    if (firstEl && firstEl.textContent?.trim() === title) return;
+
+    const h1 = clone.ownerDocument.createElement('h1');
+    h1.textContent = title;
+    h1.setAttribute(
+      'style',
+      [
+        'margin: 0 0 24px',
+        'padding-bottom: 12px',
+        'border-bottom: 1px solid #e5e7eb',
+        'text-align: center',
+        'font-size: 24px',
+        'font-weight: 700',
+        'line-height: 1.3',
+        'color: #111827',
+      ].join('; ')
+    );
+    clone.insertBefore(h1, clone.firstChild);
   }
 
   /**

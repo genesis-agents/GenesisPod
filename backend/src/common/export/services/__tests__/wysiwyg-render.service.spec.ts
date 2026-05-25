@@ -40,6 +40,7 @@ const mockSetJsEnabled = jest.fn().mockResolvedValue(undefined);
 const mockSetRequestInterception = jest.fn().mockResolvedValue(undefined);
 const mockSetViewport = jest.fn().mockResolvedValue(undefined);
 const mockSetContent = jest.fn().mockResolvedValue(undefined);
+const mockPageGoto = jest.fn().mockResolvedValue(undefined);
 const mockPagePdf = jest
   .fn()
   .mockResolvedValue(Buffer.from("%PDF-1.4 fake-pdf"));
@@ -53,6 +54,7 @@ const mockPage = {
   on: jest.fn(),
   setViewport: mockSetViewport,
   setContent: mockSetContent,
+  goto: mockPageGoto,
   evaluate: mockPageEvaluate,
   screenshot: mockScreenshot,
   pdf: mockPagePdf,

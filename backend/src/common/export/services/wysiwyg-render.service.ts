@@ -131,10 +131,28 @@ export class WysiwygRenderService {
       }
 
       const fullHtml = this.wrapHtml(processedHtml, css, {});
-      await page.setContent(fullHtml, {
-        waitUntil: "domcontentloaded",
-        timeout: 60000,
-      });
+      // ★ 2026-05-25 用 file:// 导航替代 setContent：
+      //   setContent 的页面 origin 是 about:blank，Chromium 禁止非 file 源加载
+      //   file:// 子资源（上方为省堆把 base64 图片抽到的临时文件），导致 PDF
+      //   图片全破（HTML 导出保留 data URL 不受影响）。把整页 HTML 写到临时
+      //   .html 再 goto file://，页面 origin 变成 file://，配合启动参数
+      //   --allow-file-access-from-files 放行 file://→file:// 子资源；同时仍保留
+      //   base64 抽取的省堆优化。JS 已禁用 + HTML/CSS 已 sanitize，无本地文件外泄面。
+      {
+        const fs = require("fs") as typeof import("fs");
+        const path = require("path") as typeof import("path");
+        const os = require("os") as typeof import("os");
+        const htmlPath = path.join(
+          os.tmpdir(),
+          `wysiwyg-${Date.now()}-doc.html`,
+        );
+        fs.writeFileSync(htmlPath, fullHtml, "utf-8");
+        tempFiles.push(htmlPath);
+        await page.goto(`file://${htmlPath}`, {
+          waitUntil: "domcontentloaded",
+          timeout: 60000,
+        });
+      }
       // Wait for images to load (max 15s); continue with broken images on timeout
       await page
         .evaluate(() =>

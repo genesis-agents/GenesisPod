@@ -26,6 +26,10 @@ const DEFAULT_LAUNCH_ARGS = [
   "--disable-translate",
   "--no-first-run",
   "--js-flags=--max-old-space-size=256",
+  // ★ 2026-05-25 PDF 导出：渲染页用 file:// 导航以加载抽到临时文件的图片子资源，
+  //   默认 file:// 之间互相不可读，此参数放行 file://→file://（只影响 file 源页面，
+  //   http(s) / about:blank 页面不受影响，社交浏览等用例无安全面变化）。
+  "--allow-file-access-from-files",
 ];
 
 @Injectable()

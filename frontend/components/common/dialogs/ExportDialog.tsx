@@ -224,6 +224,8 @@ export function ExportDialog({
                 inlineStyles: true,
                 freezeCharts: true,
                 freezeMermaid: true,
+                // 报告标题统一由公共抓取层补到导出内容顶部（live 视图不变）
+                documentTitle: contentTitle,
               }
             );
             wysiwygHtml = captured.html;

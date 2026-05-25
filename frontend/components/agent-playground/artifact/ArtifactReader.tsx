@@ -260,7 +260,9 @@ export function ArtifactReader({
               )}
             </button>
           )}
-          {missionId && <ExportMenu missionId={missionId} />}
+          {missionId && (
+            <ExportMenu missionId={missionId} title={artifact.metadata.topic} />
+          )}
         </div>
       </div>
 
@@ -417,7 +419,13 @@ export function ArtifactReader({
  * 3) 原始数据（Markdown / CSV / JSON）保留为次要二级菜单 —— 这是 playground 独有的
  *    "原始数据"通道（事实表 / 引用表 / 完整 JSON），TI 没有对等能力。
  */
-function ExportMenu({ missionId }: { missionId: string }) {
+function ExportMenu({
+  missionId,
+  title,
+}: {
+  missionId: string;
+  title: string;
+}) {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [rawOpen, setRawOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -523,7 +531,7 @@ function ExportMenu({ missionId }: { missionId: string }) {
         isOpen={reportDialogOpen}
         onClose={() => setReportDialogOpen(false)}
         contentSelector='[data-export-content="playground-report"]'
-        contentTitle="Mission Report"
+        contentTitle={title?.trim() || 'Mission Report'}
         moduleType="playground"
         sourceId={missionId}
         availableFormats={['PDF', 'HTML']}
