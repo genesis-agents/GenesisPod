@@ -61,6 +61,8 @@ describe("ChannelResolver", () => {
       ["RADAR_SOURCE_AUTO_DISABLED", ["email", "site"]],
       ["RADAR_MISSION_COMPLETE", ["site"]],
       ["MISSION_COMPLETED", ["site"]],
+      // e2e P0-#5: 失败必须 email（用户关了 UI 也要知道），区别于完成的 site-only
+      ["MISSION_FAILED", ["email", "site"]],
       ["FEEDBACK_REPLIED", ["email", "site"]],
       ["KEY_REQUEST_SUBMITTED", ["email", "site"]],
       ["SYSTEM", ["site"]],

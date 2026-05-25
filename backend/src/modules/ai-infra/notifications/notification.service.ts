@@ -23,6 +23,7 @@ const VALID_NOTIFICATION_TYPES: Record<NotificationTypeDto, NotificationType> =
     [NotificationTypeDto.INVITATION_EXPIRED]: "INVITATION_EXPIRED",
     [NotificationTypeDto.RESEARCH_COMPLETED]: "RESEARCH_COMPLETED",
     [NotificationTypeDto.MISSION_COMPLETED]: "MISSION_COMPLETED",
+    [NotificationTypeDto.MISSION_FAILED]: "MISSION_FAILED",
     [NotificationTypeDto.WRITING_COMPLETED]: "WRITING_COMPLETED",
     [NotificationTypeDto.OFFICE_COMPLETED]: "OFFICE_COMPLETED",
     [NotificationTypeDto.TASK_ASSIGNED]: "TASK_ASSIGNED",

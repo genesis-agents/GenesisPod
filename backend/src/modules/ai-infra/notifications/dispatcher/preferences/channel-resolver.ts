@@ -112,6 +112,9 @@ export class ChannelResolver {
       case "WRITING_COMPLETED":
       case "OFFICE_COMPLETED":
         return ["site"]; // 任务完成走站内（密度高，避免邮件 spam）
+      case "MISSION_FAILED":
+        // 失败低频 + 高重要性：必须 email，确保用户关了 UI 也知道（e2e P0-#5 的核心）
+        return ["email", "site"];
       case "FEEDBACK_REPLIED":
       case "FEEDBACK_STATUS_CHANGED":
         return ["email", "site"];
