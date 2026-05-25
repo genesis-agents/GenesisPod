@@ -78,6 +78,20 @@ export function isModelLevelFailoverError(err: unknown): boolean {
     return true;
   }
 
+  // Request-too-large / payload-too-large (per-model/provider size cap — e.g.
+  // Groq's tokens-per-minute limit rejecting a 55k-token research request). The
+  // model's context window may be fine; it's the provider/tier request ceiling.
+  // Switching to a higher-capacity model is the correct recovery → DO failover.
+  // Checked BEFORE the budget guard so a size error whose wording happens to
+  // carry a "quota"/"rate" token is never mistaken for billing exhaustion (which
+  // would suppress failover and leave the mission dead).
+  if (
+    /request\s+too\s+large|too\s+large\s+for\s+model|reduce\s+your\s+(?:message|prompt)\s+size|payload\s+too\s+large|\b413\b/i.test(
+      msg,
+    )
+  )
+    return true;
+
   // Never failover on budget / billing exhaustion (user must act)
   if (
     /(insufficient[_\s-]?quota|exceeded[_\s\w]*quota|quota[_\s\w]*exceed|billing[_\s\w]*details|insufficient[_\s\w]*credit|insufficient[_\s\w]*balance|payment\s+required)/i.test(

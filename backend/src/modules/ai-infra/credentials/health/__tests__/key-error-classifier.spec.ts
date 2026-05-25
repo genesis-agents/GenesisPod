@@ -83,6 +83,46 @@ describe("KeyErrorClassifier", () => {
     });
   });
 
+  describe("REQUEST_TOO_LARGE", () => {
+    it("classifies Groq 'Request too large ... TPM' as REQUEST_TOO_LARGE (NOT quota) + RETHROW + finite cooldown + not dead", () => {
+      const r = classifier.classify({
+        status: 413,
+        message:
+          "Request too large for model `openai/gpt-oss-120b` in organization org_x on tokens per minute (TPM): Limit 8000, Requested 55061. Please reduce your message size and try again.",
+      });
+      expect(r.reason).toBe("REQUEST_TOO_LARGE");
+      expect(r.action).toBe("RETHROW"); // 换 key 无用 → 抛给上层 model-failover
+      expect(r.markDead).toBe(false);
+      expect(r.shouldStopChain).toBe(true);
+      // ★ 关键：绝不是 ∞ cooldown（那是 quota 行为，会把好端端的 key 永久禁用）
+      expect(r.cooldownMs).toBe(60_000);
+      expect(r.cooldownMs).not.toBe(Number.POSITIVE_INFINITY);
+    });
+
+    it("classifies 413 status alone as REQUEST_TOO_LARGE", () => {
+      const r = classifier.classify({
+        status: 413,
+        message: "Payload Too Large",
+      });
+      expect(r.reason).toBe("REQUEST_TOO_LARGE");
+    });
+
+    it("matches 'reduce your message size' wording without a status", () => {
+      const r = classifier.classify(
+        new Error("Please reduce your message size and try again"),
+      );
+      expect(r.reason).toBe("REQUEST_TOO_LARGE");
+    });
+
+    it("does NOT swallow a genuine RPM rate-limit (no 'too large' wording) → stays RATE_LIMIT_KEY", () => {
+      const r = classifier.classify({
+        status: 429,
+        message: "Rate limit reached: too many requests per minute",
+      });
+      expect(r.reason).toBe("RATE_LIMIT_KEY");
+    });
+  });
+
   describe("PROVIDER_DOWN", () => {
     it("classifies 500 as PROVIDER_DOWN + RETHROW + shouldStopChain", () => {
       const r = classifier.classify({

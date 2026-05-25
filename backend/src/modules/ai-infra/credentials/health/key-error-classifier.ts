@@ -18,6 +18,7 @@ export type KeyErrorReason =
   | "RATE_LIMIT_KEY" // 429 单 key 限流（短 cooldown）
   | "RATE_LIMIT_PROVIDER" // 429 provider 级（长 cooldown + stopChain）
   | "QUOTA_EXCEEDED" // 402 / 用户配额耗尽（长 cooldown，不标 dead）
+  | "REQUEST_TOO_LARGE" // 413 / 单请求体积超 model/provider 上限（如 Groq TPM）→ 换 model 而非换 key
   | "TIMEOUT" // 请求超时（短 cooldown）
   | "PROVIDER_DOWN" // 5xx / connection refused（provider 级 cooldown + stopChain）
   | "UNKNOWN"; // 未知错误，保守 RETHROW，不重试避免 cascading
@@ -66,6 +67,30 @@ export class KeyErrorClassifier {
         cooldownMs: COOLDOWN_INF,
         markDead: true,
         shouldStopChain: false,
+        message,
+        status,
+      });
+    }
+
+    // 1.5 REQUEST_TOO_LARGE — 413 / "request too large" / "reduce message size"
+    //   单请求体积超过该 model/provider 的上限（典型：Groq 对大模型的 TPM 上限，
+    //   55k token 单请求被拒）。换 key 没用（同 org 共享 TPM，每把都会同样被拒），
+    //   只有换 model 才有用 → RETHROW 把原始错误抛给上层 model-failover 接管；
+    //   provider 仅给短 cooldown（TPM 分钟级自动恢复），绝不像 quota 那样 ∞ cooldown。
+    //   ★ 必须排在 QUOTA / RATE_LIMIT 之前：避免 "Request too large ... tokens per
+    //   minute" 这类带 "rate" 字样的 TPM 文案被误归为可重试的限流 / quota（→ 关掉 failover）。
+    if (
+      status === 413 ||
+      /request[\s_-]?too[\s_-]?large|too[\s_-]?large[\s_-]?for[\s_-]?model|reduce[\s_-]?your[\s_-]?(?:message|prompt)[\s_-]?size|payload[\s_-]?too[\s_-]?large/i.test(
+        message,
+      )
+    ) {
+      return this.build({
+        action: "RETHROW", // 换 key 无用 → 直接抛原始错误，让 model-failover 换模型
+        reason: "REQUEST_TOO_LARGE",
+        cooldownMs: COOLDOWN_60S, // 短冷却（单 key 会被 SINGLE_KEY_COOLDOWN_CAP 进一步压到 30s）
+        markDead: false,
+        shouldStopChain: true, // model/provider 级体积上限，其余 key 同样会拒
         message,
         status,
       });
