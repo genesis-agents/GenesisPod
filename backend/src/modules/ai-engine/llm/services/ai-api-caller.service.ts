@@ -330,7 +330,8 @@ export class AiApiCallerService {
    */
   private isStructuredOutputRejection(err: unknown): boolean {
     const sig = extractErrorSignal(err);
-    if (!sig || (sig.httpStatus !== 400 && sig.httpStatus !== 422)) return false;
+    if (!sig || (sig.httpStatus !== 400 && sig.httpStatus !== 422))
+      return false;
     const hay = `${sig.errorCode} ${sig.bodySnippet}`.toLowerCase();
     return /response_format|json_schema|json schema|structured|format.*(unavailable|not.*support|unsupported)/.test(
       hay,
@@ -1020,7 +1021,36 @@ export class AiApiCallerService {
         modelId,
         userModelConfigId,
       });
-      throw err;
+      // ★ A (2026-05-25): in-request 降级 (Anthropic) —— 仅错误路径。tool_use 结构化
+      //   输出被拒(catalog 误配 / 未来 output_format beta 问题)→ 删 tools/tool_choice
+      //   退到 prompt;JSON 约束已在 system(adaptOut.systemPromptAddon),当次重试一次。
+      if (
+        anthropicStructuredStrategy &&
+        this.isStructuredOutputRejection(err)
+      ) {
+        delete requestBody["tools"];
+        delete requestBody["tool_choice"];
+        anthropicStructuredStrategy = undefined; // 改走 plain-text 解析
+        try {
+          response = await firstValueFrom(
+            this.httpService.post(effectiveEndpoint, requestBody, {
+              headers: {
+                "x-api-key": apiKey,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+              },
+              timeout,
+            }),
+          );
+          this.logger.warn(
+            `[in-request-degrade] ${modelId}: anthropic tool_use→prompt 重试成功(首次结构化被拒)`,
+          );
+        } catch {
+          throw err;
+        }
+      } else {
+        throw err;
+      }
     }
 
     const data = response.data;
@@ -1185,7 +1215,52 @@ export class AiApiCallerService {
         modelId,
         userModelConfigId,
       });
-      throw err;
+      // ★ A (2026-05-25): in-request 降级 (Gemini) —— 仅错误路径。responseSchema 被拒
+      //   → 沿链降 (gemini_response_schema→json_mode→prompt)。json_mode=只留
+      //   responseMimeType;prompt=全删 + 注入约束到 systemInstruction。当次重试一次。
+      const gWantsJson = !!outputJsonSchema || responseFormat === "json";
+      const gCurrent =
+        structuredOutputStrategy && outputJsonSchema
+          ? "gemini_response_schema"
+          : responseFormat === "json"
+            ? "json_mode"
+            : "none";
+      const gDegrade = this.computeSelfHealDegrade("google", modelId, gCurrent);
+      if (gDegrade && gWantsJson && this.isStructuredOutputRejection(err)) {
+        const gc = requestBody.generationConfig as Record<string, unknown>;
+        delete gc["responseSchema"];
+        if (gDegrade.toValue === "json_mode") {
+          gc["responseMimeType"] = "application/json";
+        } else {
+          // none / prompt：去掉 mime 约束 + 注入 JSON 提示到 systemInstruction
+          delete gc["responseMimeType"];
+          const constraint =
+            "\n\n[CRITICAL OUTPUT FORMAT] Output ONLY a valid JSON object, no markdown, no prose.";
+          const si = requestBody.systemInstruction as
+            | { parts: Array<{ text: string }> }
+            | undefined;
+          if (si?.parts?.[0]) si.parts[0].text += constraint;
+          else
+            requestBody.systemInstruction = {
+              parts: [{ text: constraint.trim() }],
+            };
+        }
+        try {
+          response = await firstValueFrom(
+            this.httpService.post(apiUrl, requestBody, {
+              headers: { "Content-Type": "application/json" },
+              timeout,
+            }),
+          );
+          this.logger.warn(
+            `[in-request-degrade] ${modelId}: gemini ${gCurrent}→${gDegrade.toValue} 重试成功(首次结构化被拒)`,
+          );
+        } catch {
+          throw err;
+        }
+      } else {
+        throw err;
+      }
     }
 
     const data = response.data;

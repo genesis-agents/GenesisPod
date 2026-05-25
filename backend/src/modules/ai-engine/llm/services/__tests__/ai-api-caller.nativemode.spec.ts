@@ -514,4 +514,88 @@ describe("AiApiCallerService – self-heal chain-aware degrade (R1)", () => {
     // 只发一次：没有 in-request 重试
     expect(httpMock.post).toHaveBeenCalledTimes(1);
   });
+
+  it("A: Anthropic tool_use 被拒 → 当次删 tools 退 prompt 重试成功", async () => {
+    httpMock.post
+      .mockReturnValueOnce(make400ResponseFormatError())
+      .mockReturnValueOnce(
+        of({
+          data: {
+            content: [{ type: "text", text: '{"answer":"ok"}' }],
+            usage: { input_tokens: 5, output_tokens: 5 },
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as Record<string, unknown>,
+        } as never),
+      );
+
+    const result = await service.callAnthropicAPI(
+      "https://api.anthropic.com/v1/messages",
+      "ak",
+      "claude-opus-4-7",
+      MESSAGES,
+      4000,
+      undefined,
+      120000,
+      "json",
+      undefined,
+      undefined,
+      "tool_use",
+      JSON_SCHEMA,
+      "my_schema",
+      "user-cfg-anthropic",
+    );
+
+    expect(result.content).toContain("ok");
+    expect(httpMock.post).toHaveBeenCalledTimes(2);
+    // 重试 body 不再带 tools（退到 prompt）
+    const retryBody = httpMock.post.mock.calls[1][1] as Record<string, unknown>;
+    expect(retryBody["tools"]).toBeUndefined();
+  });
+
+  it("A: Gemini responseSchema 被拒 → 当次降 json_mode 重试成功", async () => {
+    httpMock.post
+      .mockReturnValueOnce(make400ResponseFormatError())
+      .mockReturnValueOnce(
+        of({
+          data: {
+            candidates: [{ content: { parts: [{ text: '{"answer":"ok"}' }] } }],
+            usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 },
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as Record<string, unknown>,
+        } as never),
+      );
+
+    const result = await service.callGoogleAPI(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent",
+      "gk",
+      "gemini-2.5-pro",
+      MESSAGES,
+      4000,
+      undefined, // temperature
+      120000, // timeout
+      "json", // responseFormat
+      undefined, // _reasoningDepth
+      "gemini_response_schema", // structuredOutputStrategy
+      JSON_SCHEMA, // outputJsonSchema
+      "my_schema", // schemaName
+      "user-cfg-google", // userModelConfigId
+    );
+
+    expect(result.content).toContain("ok");
+    expect(httpMock.post).toHaveBeenCalledTimes(2);
+    // 重试 body：responseSchema 已删，沿链降为 json_mode（responseMimeType only）
+    const retryBody = httpMock.post.mock.calls[1][1] as {
+      generationConfig: Record<string, unknown>;
+    };
+    expect(retryBody.generationConfig["responseSchema"]).toBeUndefined();
+    expect(retryBody.generationConfig["responseMimeType"]).toBe(
+      "application/json",
+    );
+  });
 });
