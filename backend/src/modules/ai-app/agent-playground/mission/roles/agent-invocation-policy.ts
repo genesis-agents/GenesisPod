@@ -22,7 +22,10 @@ export class AgentInvocationPolicy {
       });
     const preDisabled: { failed: string; fallback: string }[] = [];
     for (const rec of known) {
-      if (rec.count >= 2 && rec.lastFallbackModel) {
+      // ★ E57 (2026-05-25): 用 FailureLearner 单一权威阈值判定（count≥阈值 且
+      //   未 resolved），取代此前各处硬编码的 `count >= 2`，避免阈值漂移 +
+      //   避免对已 resolved 的记录误禁用。
+      if (this.failureLearner.shouldAutoDisable(rec) && rec.lastFallbackModel) {
         void billing.markModelDisabled(rec.modelId, rec.lastFallbackModel);
         preDisabled.push({
           failed: rec.modelId,

@@ -37,6 +37,15 @@ export interface FailurePatternHit {
   lastSeenAt: Date;
 }
 
+/**
+ * ★ E57 (2026-05-25): 自动禁用模型的硬 count 阈值（单一权威源）。
+ * 此前各调用方各自拍脑袋判断 count 多少算"持续失败"，无统一阈值。现集中到
+ * FailureLearnerService.shouldAutoDisable，调用方一律用它，避免阈值漂移。
+ * 含义：同 (agent, model, prompt, failureCode) 累计失败 ≥ 阈值 且未标 resolved
+ * → 视为持续性失败，应 markModelDisabled 让 react-loop 自动绕开。
+ */
+export const FAILURE_AUTODISABLE_THRESHOLD = 3;
+
 @Injectable()
 export class FailureLearnerService {
   private readonly log = new Logger(FailureLearnerService.name);
@@ -175,6 +184,16 @@ export class FailureLearnerService {
       );
       return [];
     }
+  }
+
+  /**
+   * ★ E57 (2026-05-25): 单一权威判定 —— 某失败记录是否已达"持续性失败"应自动禁用。
+   * 调用方（model 预检 / react-loop 降级）一律用此函数，不再各自硬编码 count 比较。
+   */
+  shouldAutoDisable(
+    hit: Pick<FailurePatternHit, "count" | "resolved">,
+  ): boolean {
+    return !hit.resolved && hit.count >= FAILURE_AUTODISABLE_THRESHOLD;
   }
 
   /**

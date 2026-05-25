@@ -279,4 +279,22 @@ describe("FailureLearnerService", () => {
       ).resolves.toBeUndefined();
     });
   });
+
+  // ─── shouldAutoDisable (E57 单一权威阈值) ────────────────────────────────────
+  describe("shouldAutoDisable", () => {
+    const svc = new FailureLearnerService(makePrisma() as never);
+
+    it("count < 阈值 → false", () => {
+      expect(svc.shouldAutoDisable({ count: 2, resolved: false })).toBe(false);
+    });
+
+    it("count >= 阈值 且未 resolved → true", () => {
+      expect(svc.shouldAutoDisable({ count: 3, resolved: false })).toBe(true);
+      expect(svc.shouldAutoDisable({ count: 9, resolved: false })).toBe(true);
+    });
+
+    it("已 resolved → false（即便 count 高也不再禁用）", () => {
+      expect(svc.shouldAutoDisable({ count: 99, resolved: true })).toBe(false);
+    });
+  });
 });
