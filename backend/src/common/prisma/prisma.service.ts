@@ -27,6 +27,17 @@ const PRISMA_TRANSACTION_TIMEOUT = parseInt(
   10,
 );
 
+// ★ E14 (2026-05-25) Prisma in-flight query 无法被 client 主动 abort（平台限制：
+//   AbortSignal 不穿透 Prisma）。唯一缓解是 DB 侧 statement_timeout——超时后
+//   PostgreSQL 自动 cancel 该 query 并释放连接，即使 mission 已 abort/超时，卡死
+//   的查询也不会一直占资源。
+//   取值取舍：必须**远高于**任何合法查询（大报告 JSON 写入 / 向量批量 / 大聚合），
+//   仅作"真卡死"兜底，不是性能闸。默认 120s，env 可调；设 0 关闭（沿用 PG 语义）。
+const DB_STATEMENT_TIMEOUT_MS = parseInt(
+  process.env.DB_STATEMENT_TIMEOUT_MS || "120000",
+  10,
+);
+
 /**
  * 构建数据库 URL 并添加连接池参数
  * Prisma 使用 URL 中的 connection_limit 和 pool_timeout 参数控制连接池
@@ -54,6 +65,15 @@ function buildDatabaseUrl(): string | undefined {
     // 检查是否已有 pool_timeout 参数
     if (!url.searchParams.has("pool_timeout")) {
       url.searchParams.set("pool_timeout", DB_POOL_TIMEOUT.toString());
+    }
+
+    // ★ E14: DB 侧 statement_timeout 兜底（in-flight query 无法 client abort）。
+    //   >0 才设；0 = 关闭（不限制）。已显式带该参数则尊重调用方。
+    if (
+      DB_STATEMENT_TIMEOUT_MS > 0 &&
+      !url.searchParams.has("statement_timeout")
+    ) {
+      url.searchParams.set("statement_timeout", `${DB_STATEMENT_TIMEOUT_MS}`);
     }
 
     return url.toString();
