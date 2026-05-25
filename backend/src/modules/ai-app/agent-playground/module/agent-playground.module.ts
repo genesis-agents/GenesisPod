@@ -83,6 +83,7 @@ import { CreditsModule } from "../../../ai-infra/credits/credits.module";
 import {
   DomainEventBus,
   DomainEventRegistry,
+  MissionAbortReason,
   MissionElectionTracker,
   MissionFailureCode,
   MissionLifecycleManager,
@@ -360,15 +361,24 @@ export class AgentPlaygroundModule
         markFailed: async (missionId, reason, errorMessage) => {
           // ★ C0/C2/MAJOR-4:liveness 回收经 finalize 仲裁(条件写首写赢,不覆盖已终态),
           //   落 canonical failureCode(超时→wall_time;失联→runtime_crashed)。
-          const failureCode =
-            reason === "wall-time-exceeded"
-              ? MissionFailureCode.wall_time_exceeded
-              : MissionFailureCode.runtime_crashed;
+          const isWallTime = reason === "wall-time-exceeded";
+          const failureCode = isWallTime
+            ? MissionFailureCode.wall_time_exceeded
+            : MissionFailureCode.runtime_crashed;
+          // ★ e2e P0-#2 修 (2026-05-25): wall-time 超时时 mission 仍可能 *活跃运行*
+          //   (heartbeat 新鲜,只是跑太久) → 有 in-flight LLM/tool,必须主动 abort 止血,
+          //   否则继续烧到下一轮 loop 顶检测。abort 幂等。
+          //   stale/crash 情形不 abort:heartbeat 已停=worker presumed dead,本 pod
+          //   无 in-flight 可中断,且 MissionAbortReason 无 runtime_crashed 值(设计如此)。
           await this.lifecycleManager.finalize<PlaygroundTerminalExtra>({
             missionId,
+            abort: isWallTime,
             intent: {
               status: "failed",
               failureCode,
+              ...(isWallTime
+                ? { reason: MissionAbortReason.mission_wall_time_exceeded }
+                : {}),
               errorMessage,
               extra: {
                 kind: "failed",
