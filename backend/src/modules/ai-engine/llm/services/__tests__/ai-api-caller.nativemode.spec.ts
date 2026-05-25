@@ -15,9 +15,10 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
-import { of } from "rxjs";
+import { of, throwError } from "rxjs";
 import { AiApiCallerService } from "../ai-api-caller.service";
 import { ModelCapabilityService } from "../../capability/model-capability.service";
+import { ApiCallerSelfHealTriggerService } from "../api-caller-self-heal-trigger.service";
 import type { ChatMessage } from "../../types/task-profile.types";
 
 function makeHttpOk(content = "{}") {
@@ -324,5 +325,80 @@ describe("AiApiCallerService – nativeMode response_format reconciliation (FIX 
       const body = httpMock.post.mock.calls[0][1] as Record<string, unknown>;
       expect(body["response_format"]).toEqual({ type: "json_object" });
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// R1 (2026-05-25): self-heal chain-aware degrade — computeSelfHealDegrade
+// 验证 response_format 被 provider 拒后，trigger 收到沿派生链的下一档
+// （json_schema → json_mode），而非旧的一刀切 json_schema → none。
+// ─────────────────────────────────────────────────────────────────────────
+describe("AiApiCallerService – self-heal chain-aware degrade (R1)", () => {
+  let service: AiApiCallerService;
+  let httpMock: { post: jest.Mock };
+  let triggerMock: { triggerSelfHealAsync: jest.Mock };
+
+  beforeEach(async () => {
+    httpMock = { post: jest.fn() };
+    triggerMock = { triggerSelfHealAsync: jest.fn() };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiApiCallerService,
+        { provide: HttpService, useValue: httpMock },
+        ModelCapabilityService, // real — reads catalog
+        {
+          provide: ApiCallerSelfHealTriggerService,
+          useValue: triggerMock,
+        },
+      ],
+    }).compile();
+    service = module.get<AiApiCallerService>(AiApiCallerService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  function make400ResponseFormatError() {
+    const err = new Error("response_format type unavailable") as Error & {
+      response?: { status: number; data?: unknown };
+    };
+    err.response = {
+      status: 400,
+      data: { error: { code: "invalid_request_error", message: "x" } },
+    };
+    return throwError(() => err);
+  }
+
+  it("openrouter generic (nativeMode=json_schema) 被拒 → trigger 收到 json_schema→json_mode", async () => {
+    httpMock.post.mockReturnValueOnce(make400ResponseFormatError());
+
+    await expect(
+      service.callOpenAICompatibleAPI(
+        "https://openrouter.ai/api/v1/chat/completions",
+        "or-key",
+        "meta-llama/llama-3.1-70b",
+        MESSAGES,
+        4000,
+        undefined,
+        120000,
+        "max_tokens",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        "json_schema",
+        JSON_SCHEMA,
+        "my_schema",
+        undefined,
+        "openrouter", // provider
+        "user-cfg-1", // userModelConfigId → BYOK self-heal 路径
+      ),
+    ).rejects.toBeDefined();
+
+    expect(triggerMock.triggerSelfHealAsync).toHaveBeenCalledTimes(1);
+    const opts = triggerMock.triggerSelfHealAsync.mock.calls[0][1];
+    // chain-aware：json_schema 的下一档是 json_mode（不是一刀切 none）
+    expect(opts.fromValue).toBe("json_schema");
+    expect(opts.toValue).toBe("json_mode");
   });
 });
