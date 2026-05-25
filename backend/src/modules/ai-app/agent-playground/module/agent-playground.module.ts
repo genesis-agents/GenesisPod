@@ -16,6 +16,7 @@
 import {
   Logger,
   Module,
+  Optional,
   OnApplicationBootstrap,
   OnModuleInit,
 } from "@nestjs/common";
@@ -82,6 +83,7 @@ import {
 import { CreditsModule } from "../../../ai-infra/credits/credits.module";
 // e2e P0-#5: 提供 MissionFailedPreset（mission 失败通知，dispatcher @Optional 注入）
 import { NotificationDispatcherModule } from "../../../ai-infra/notifications/dispatcher/notification-dispatcher.module";
+import { MissionFailedPreset } from "../../../ai-infra/facade";
 import {
   DomainEventBus,
   DomainEventRegistry,
@@ -242,6 +244,10 @@ export class AgentPlaygroundModule
     //   调 promptSkillBridge.registerDomain，否则 SkillActivator tryGet
     //   全部 miss → "skipped: dimension-research / web-research"。
     private readonly promptSkillBridge: PromptSkillRegistrationService,
+    // ★ e2e P0-#5 / 深审 F1：liveness 回收(pod 崩/wall-time/失联)也要发失败通知 ——
+    //   这才是"用户关了 UI 不知道失败"最典型的场景（dispatcher handleMissionFailure
+    //   只覆盖即时失败）。@Optional：NotificationDispatcherModule 未装配则优雅缺省。
+    @Optional() private readonly missionFailedPreset?: MissionFailedPreset,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -413,6 +419,32 @@ export class AgentPlaygroundModule
                     `[liveness] emit mission:failed failed: ${err instanceof Error ? err.message : String(err)}`,
                   );
                 });
+              // ★ 深审 F1 (2026-05-25): liveness 回收也发 MISSION_FAILED 通知(email +
+              //   site) —— 这是"用户关了 UI"最典型场景。mission:failed 事件 userId 为空,
+              //   需从 DB 反查真实 owner + topic。fire-and-forget,查不到/未装配则跳。
+              if (this.missionFailedPreset) {
+                const meta = await this.store
+                  .getMetaForNotify(missionId)
+                  .catch(() => null);
+                if (meta?.userId) {
+                  await this.missionFailedPreset
+                    .notify({
+                      userId: meta.userId,
+                      missionId,
+                      missionTitle: meta.topic || "Mission",
+                      missionUrl: `/agent-playground/team/${missionId}`,
+                      reason: errorMessage,
+                      failureCode: isWallTime
+                        ? "RUNNER_WALL_TIME_EXCEEDED"
+                        : "MISSION_STALE",
+                    })
+                    .catch((err: unknown) => {
+                      this.playgroundLogger.warn(
+                        `[liveness] mission-failed notify failed: ${err instanceof Error ? err.message : String(err)}`,
+                      );
+                    });
+                }
+              }
             },
           });
           this.playgroundLogger.warn(
