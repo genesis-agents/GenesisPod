@@ -25,7 +25,10 @@ import {
   deleteTopic,
   listTopics,
   setVisibility,
+  pauseTopic,
+  resumeTopic,
 } from '@/services/ai-radar/api';
+import { toast } from '@/stores';
 import type {
   RadarTopic,
   RadarTopicWithCounts,
@@ -60,6 +63,8 @@ export default function AiRadarIndexPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<RadarTopic | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // 正在切换自动刷新的 topic id 集合（防重复点击 + 显示 disabled）
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -95,6 +100,39 @@ export default function AiRadarIndexPage() {
   ) => {
     await setVisibility(t.id, next);
     void reload();
+  };
+  const handleToggleAutoRefresh = async (
+    t: RadarTopic,
+    nextEnabled: boolean
+  ) => {
+    if (togglingIds.has(t.id)) return;
+    const nextStatus = nextEnabled ? 'ACTIVE' : 'PAUSED';
+    setTogglingIds((prev) => new Set(prev).add(t.id));
+    // 乐观更新：先本地切 status，失败再回滚 + 提示
+    setTopics((prev) =>
+      prev.map((x) => (x.id === t.id ? { ...x, status: nextStatus } : x))
+    );
+    try {
+      if (nextEnabled) {
+        await resumeTopic(t.id);
+      } else {
+        await pauseTopic(t.id);
+      }
+    } catch (e) {
+      setTopics((prev) =>
+        prev.map((x) => (x.id === t.id ? { ...x, status: t.status } : x))
+      );
+      toast.error(
+        nextEnabled ? '开启自动刷新失败' : '关闭自动刷新失败',
+        e instanceof Error ? e.message : String(e)
+      );
+    } finally {
+      setTogglingIds((prev) => {
+        const n = new Set(prev);
+        n.delete(t.id);
+        return n;
+      });
+    }
   };
   const handleDelete = (t: RadarTopic) => {
     setDeleteTarget(t);
@@ -170,6 +208,10 @@ export default function AiRadarIndexPage() {
               onVisibilityChange={(t, next) =>
                 void handleVisibilityChange(t, next)
               }
+              onToggleAutoRefresh={(t, next) =>
+                void handleToggleAutoRefresh(t, next)
+              }
+              toggling={togglingIds.has(topic.id)}
             />
           ))}
           <button

@@ -31,6 +31,7 @@ import {
   type AssetVisibility,
   type AssetVisibilityOption,
 } from '@/components/ui/cards/asset-card';
+import { Switch } from '@/components/ui/primitives/switch';
 import type {
   RadarTopic,
   RadarTopicWithCounts,
@@ -42,6 +43,13 @@ interface Props {
   onDelete?: (topic: RadarTopic) => void;
   /** 多租户可见性切换（权限：私有/共享/公开）。 */
   onVisibilityChange?: (topic: RadarTopic, next: AssetVisibility) => void;
+  /**
+   * 自动刷新开关：ACTIVE=开（调度器每分钟扫描）/ PAUSED=关。
+   * 归档（ARCHIVED）状态不显示开关。切换中 disabled。
+   */
+  onToggleAutoRefresh?: (topic: RadarTopic, nextEnabled: boolean) => void;
+  /** 该卡片是否正在切换（父级控制，防抖 + 防重复点击）。 */
+  toggling?: boolean;
 }
 
 const VISIBILITY_OPTIONS: Record<AssetVisibility, AssetVisibilityOption> = {
@@ -83,7 +91,13 @@ const STATUS_BADGE: Record<
   },
 };
 
-export function RadarTopicCard({ topic, onDelete, onVisibilityChange }: Props) {
+export function RadarTopicCard({
+  topic,
+  onDelete,
+  onVisibilityChange,
+  onToggleAutoRefresh,
+  toggling,
+}: Props) {
   const router = useRouter();
   const status = STATUS_BADGE[topic.status];
 
@@ -118,6 +132,23 @@ export function RadarTopicCard({ topic, onDelete, onVisibilityChange }: Props) {
       </div>
     ) : null;
 
+  // 自动刷新开关（归档态不显示）。stopPropagation 防止点 toggle 触发卡片跳转。
+  const autoRefreshToggle =
+    topic.status !== 'ARCHIVED' && onToggleAutoRefresh ? (
+      <div
+        className="flex items-center gap-1.5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Switch
+          checked={topic.status === 'ACTIVE'}
+          disabled={toggling}
+          onCheckedChange={(next) => onToggleAutoRefresh(topic, next)}
+          aria-label="自动刷新"
+        />
+        <span className="text-xs text-gray-500">自动刷新</span>
+      </div>
+    ) : undefined;
+
   return (
     <AssetCard
       title={topic.name}
@@ -125,6 +156,7 @@ export function RadarTopicCard({ topic, onDelete, onVisibilityChange }: Props) {
       icon={<RadarIcon className="h-6 w-6 text-white" />}
       gradient="from-cyan-500 to-sky-600"
       badges={badges}
+      footerExtra={autoRefreshToggle}
       isOwner
       visibility={topic.visibility}
       visibilityOptions={VISIBILITY_OPTIONS}

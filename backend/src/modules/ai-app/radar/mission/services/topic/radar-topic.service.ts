@@ -54,9 +54,12 @@ export class RadarTopicService {
         keywords: keywords as Prisma.InputJsonValue,
         ...(dto.matchMode ? { matchMode: dto.matchMode } : {}),
         refreshCron,
-        status: RadarTopicStatus.ACTIVE,
-        // nextDueAt 不在 PR-R1 计算，留给 PR-R4 scheduler 接入 cron-parser
-        nextDueAt: new Date(),
+        // ★ 2026-05-25: 新建 topic 默认「自动刷新关闭」(PAUSED)，避免每分钟
+        //   调度器静默跑完整 mission 烧用户配额。用户在卡片上显式开启
+        //   (resume → ACTIVE) 才进入 scheduler 扫描范围。
+        //   nextDueAt 同步留空——PAUSED 不被 sweep，resume 时再置 now。
+        status: RadarTopicStatus.PAUSED,
+        nextDueAt: null,
       },
     });
     this.log.log(

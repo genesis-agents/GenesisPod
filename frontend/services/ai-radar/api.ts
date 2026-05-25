@@ -145,6 +145,20 @@ export async function setVisibility(
   });
 }
 
+/**
+ * 自动刷新开关 —— 复用后端 status：
+ *   ACTIVE  = 自动刷新开（进 scheduler 每分钟扫描范围）
+ *   PAUSED  = 自动刷新关（不被 sweep；仍可手动「重新精选」）
+ * 新建 topic 默认 PAUSED，用户在卡片上显式开启。
+ */
+export async function resumeTopic(id: string): Promise<RadarTopic> {
+  return request<RadarTopic>(`/topics/${id}/resume`, { method: 'POST' });
+}
+
+export async function pauseTopic(id: string): Promise<RadarTopic> {
+  return request<RadarTopic>(`/topics/${id}/pause`, { method: 'POST' });
+}
+
 // ── Source ────────────────────────────────────────────
 
 export async function listSources(topicId: string): Promise<RadarSource[]> {
