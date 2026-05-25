@@ -72,8 +72,18 @@ export class AutoDreamSchedulerService
   /**
    * Auto-start the scheduler on module initialization.
    * Uses the default poll interval (60 minutes).
+   *
+   * ★ 2026-05-25 默认关闭：latent LLM 调用（BYOK 烧钱风险）。
+   *   Set ENABLE_MEMORY_CONSOLIDATION=true to opt in.
    */
   onModuleInit(): void {
+    if (process.env.ENABLE_MEMORY_CONSOLIDATION !== "true") {
+      this.logger.warn(
+        "[AutoDreamScheduler] background memory consolidation DISABLED (default) — " +
+          "set ENABLE_MEMORY_CONSOLIDATION=true to opt in",
+      );
+      return;
+    }
     this.start();
     this.logger.log("[onModuleInit] AutoDream scheduler started automatically");
   }

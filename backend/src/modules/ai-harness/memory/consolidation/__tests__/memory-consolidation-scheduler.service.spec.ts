@@ -24,11 +24,14 @@ describe("AutoDreamSchedulerService", () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     service = new AutoDreamSchedulerService(mockAutoDreamService as never);
+    // Enable by default so existing onModuleInit tests cover the start() path.
+    process.env.ENABLE_MEMORY_CONSOLIDATION = "true";
   });
 
   afterEach(() => {
     service.onModuleDestroy();
     jest.useRealTimers();
+    delete process.env.ENABLE_MEMORY_CONSOLIDATION;
   });
 
   describe("onModuleInit / lifecycle", () => {
@@ -281,6 +284,60 @@ describe("AutoDreamSchedulerService", () => {
       expect(stats.registeredScopes).toBe(0);
       expect(stats.totalRunsTriggered).toBe(0);
       expect(stats.lastCheckAt).toBeNull();
+    });
+  });
+
+  // ── ENABLE_MEMORY_CONSOLIDATION env gate ─────────────────────────────────────
+
+  describe("ENABLE_MEMORY_CONSOLIDATION env gate", () => {
+    it("does NOT arm the poll interval when flag is unset (default OFF)", () => {
+      delete process.env.ENABLE_MEMORY_CONSOLIDATION;
+      const setIntSpy = jest.spyOn(global, "setInterval");
+
+      service.onModuleInit();
+
+      // pollTimer must remain null — no interval armed
+      expect(setIntSpy).not.toHaveBeenCalled();
+      setIntSpy.mockRestore();
+    });
+
+    it("does NOT arm the poll interval when flag is 'false'", () => {
+      process.env.ENABLE_MEMORY_CONSOLIDATION = "false";
+      const setIntSpy = jest.spyOn(global, "setInterval");
+
+      service.onModuleInit();
+
+      expect(setIntSpy).not.toHaveBeenCalled();
+      setIntSpy.mockRestore();
+    });
+
+    it("arms the poll interval when flag is 'true' (opt-in)", () => {
+      // flag already set to 'true' by beforeEach
+      const setIntSpy = jest
+        .spyOn(global, "setInterval")
+        .mockReturnValue({ unref: jest.fn() } as never);
+
+      service.onModuleInit();
+
+      expect(setIntSpy).toHaveBeenCalled();
+      setIntSpy.mockRestore();
+    });
+
+    it("tick does NOT fire for any scope when poll interval was not armed", async () => {
+      delete process.env.ENABLE_MEMORY_CONSOLIDATION;
+      mockAutoDreamService.shouldRun.mockReturnValue(true);
+      service.register({
+        scopeId: "scope-blocked",
+        getEntries: jest.fn().mockResolvedValue([]),
+      });
+
+      service.onModuleInit();
+
+      // Advance time — if interval were armed, execute would be called
+      jest.advanceTimersByTime(60 * 60 * 1000 + 1);
+      await Promise.resolve();
+
+      expect(mockAutoDreamService.execute).not.toHaveBeenCalled();
     });
   });
 });
