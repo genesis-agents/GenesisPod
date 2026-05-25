@@ -441,7 +441,7 @@ export function TeamRosterPanel({
   return (
     <div className="flex h-full flex-col">
       {/* Section header */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+      <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           研究团队
         </span>
@@ -462,209 +462,215 @@ export function TeamRosterPanel({
         </div>
       </div>
 
-      {/* SVG team topology canvas */}
-      <div className="border-b border-gray-100 px-3 py-3">
-        {/* 展开 / 折叠 切换 + Micro-pipeline 入口 */}
-        <div className="mb-2 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setGroupExpanded((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium text-gray-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
-            title={
-              groupExpanded
-                ? '折叠为单一 Research Team Group 节点'
-                : '展开 Research Team，查看每个 Researcher 实例'
-            }
-          >
-            {groupExpanded ? '⊟ 折叠' : '⊞ 展开'} Research
-          </button>
-          {onResearchTeamClick && (
+      {/* ★ 2026-05-25 响应式修复：把 topology canvas + 角色列表一起放进同一个可滚动
+          中段，让 header(顶) 与 progress/操作按钮(底, shrink-0) 始终常驻。
+          低分辨率下中段滚动而非把"开始"按钮挤出视口。 */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {/* SVG team topology canvas */}
+        <div className="shrink-0 border-b border-gray-100 px-3 py-3">
+          {/* 展开 / 折叠 切换 + Micro-pipeline 入口 */}
+          <div className="mb-2 flex items-center justify-between">
             <button
               type="button"
-              onClick={onResearchTeamClick}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium text-gray-600 hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
-              title="打开 Micro Pipeline（章节流水线 + 5-axis 评分）"
-            >
-              Micro Pipeline →
-            </button>
-          )}
-        </div>
-        <TeamTopologyCanvas
-          nodes={nodes}
-          rows={rows}
-          connections={connections}
-          heightClass={viewBoxHeight === 240 ? 'h-[240px]' : 'h-[200px]'}
-          viewBoxHeight={viewBoxHeight}
-          rowYPositions={rowYPositions}
-          patternId="agent-playground"
-          renderDetail={(node, onClose) => {
-            const close = () => {
-              onClose();
-              setSelectedRole(null);
-            };
-            // 折叠态：点 group → 打开 micro-pipeline modal
-            if (node.id === 'research-team' && onResearchTeamClick) {
-              close();
-              onResearchTeamClick();
-              return null;
-            }
-            // 展开态：点单个 researcher#N 节点 → 打开该实例的 inspector
-            if (node.id.startsWith('researcher#')) {
-              const researcher = agents.find((a) => a.agentId === node.id);
-              if (researcher) {
-                const agentData = buildAgentInspectorPayload(
-                  'researcher',
-                  [researcher],
-                  stageMap.get('researchers')
-                );
-                // 覆盖 displayName 显示具体维度
-                const enriched = {
-                  ...agentData,
-                  name: `${agentData.name} · ${researcher.dimension ?? node.name}`,
-                };
-                return (
-                  <AgentInspector
-                    open
-                    onClose={close}
-                    mode="modal"
-                    agent={enriched}
-                  />
-                );
+              onClick={() => setGroupExpanded((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium text-gray-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
+              title={
+                groupExpanded
+                  ? '折叠为单一 Research Team Group 节点'
+                  : '展开 Research Team，查看每个 Researcher 实例'
               }
-            }
-            const role = node.role as AgentRole;
-            const agentData = buildAgentInspectorPayload(
-              role,
-              agents.filter((a) => a.role === role),
-              stageMap.get(
-                ROLE_ROW.find((r) => r.role === role)?.stage ?? 'leader'
-              )
-            );
-            return (
-              <AgentInspector
-                open
-                onClose={close}
-                mode="modal"
-                agent={agentData}
-                onChat={
-                  role === 'leader' && onLeaderClick
-                    ? () => {
-                        close();
-                        onLeaderClick();
-                      }
-                    : undefined
+            >
+              {groupExpanded ? '⊟ 折叠' : '⊞ 展开'} Research
+            </button>
+            {onResearchTeamClick && (
+              <button
+                type="button"
+                onClick={onResearchTeamClick}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium text-gray-600 hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
+                title="打开 Micro Pipeline（章节流水线 + 5-axis 评分）"
+              >
+                Micro Pipeline →
+              </button>
+            )}
+          </div>
+          <TeamTopologyCanvas
+            nodes={nodes}
+            rows={rows}
+            connections={connections}
+            heightClass={viewBoxHeight === 240 ? 'h-[240px]' : 'h-[200px]'}
+            viewBoxHeight={viewBoxHeight}
+            rowYPositions={rowYPositions}
+            patternId="agent-playground"
+            renderDetail={(node, onClose) => {
+              const close = () => {
+                onClose();
+                setSelectedRole(null);
+              };
+              // 折叠态：点 group → 打开 micro-pipeline modal
+              if (node.id === 'research-team' && onResearchTeamClick) {
+                close();
+                onResearchTeamClick();
+                return null;
+              }
+              // 展开态：点单个 researcher#N 节点 → 打开该实例的 inspector
+              if (node.id.startsWith('researcher#')) {
+                const researcher = agents.find((a) => a.agentId === node.id);
+                if (researcher) {
+                  const agentData = buildAgentInspectorPayload(
+                    'researcher',
+                    [researcher],
+                    stageMap.get('researchers')
+                  );
+                  // 覆盖 displayName 显示具体维度
+                  const enriched = {
+                    ...agentData,
+                    name: `${agentData.name} · ${researcher.dimension ?? node.name}`,
+                  };
+                  return (
+                    <AgentInspector
+                      open
+                      onClose={close}
+                      mode="modal"
+                      agent={enriched}
+                    />
+                  );
                 }
-                chatLabel="与 Leader 对话"
-              />
-            );
-          }}
-          renderTooltip={(node) => {
-            const isResearcherInst = node.id.startsWith('researcher#');
-            const inst = isResearcherInst
-              ? agents.find((a) => a.agentId === node.id)
-              : undefined;
-            return (
-              <div className="text-xs">
-                <div className="font-semibold text-gray-800">{node.name}</div>
-                <div className="mt-0.5 text-gray-500">
-                  {inst?.dimension
-                    ? inst.dimension
-                    : node.taskProgress
-                      ? `${node.taskProgress.completed} / ${node.taskProgress.total} done`
-                      : (node.statusLabel ?? 'Idle')}
-                </div>
-                {inst?.modelId && (
-                  <div className="font-mono mt-0.5 text-[10px] text-gray-400">
-                    {inst.modelId}
+              }
+              const role = node.role as AgentRole;
+              const agentData = buildAgentInspectorPayload(
+                role,
+                agents.filter((a) => a.role === role),
+                stageMap.get(
+                  ROLE_ROW.find((r) => r.role === role)?.stage ?? 'leader'
+                )
+              );
+              return (
+                <AgentInspector
+                  open
+                  onClose={close}
+                  mode="modal"
+                  agent={agentData}
+                  onChat={
+                    role === 'leader' && onLeaderClick
+                      ? () => {
+                          close();
+                          onLeaderClick();
+                        }
+                      : undefined
+                  }
+                  chatLabel="与 Leader 对话"
+                />
+              );
+            }}
+            renderTooltip={(node) => {
+              const isResearcherInst = node.id.startsWith('researcher#');
+              const inst = isResearcherInst
+                ? agents.find((a) => a.agentId === node.id)
+                : undefined;
+              return (
+                <div className="text-xs">
+                  <div className="font-semibold text-gray-800">{node.name}</div>
+                  <div className="mt-0.5 text-gray-500">
+                    {inst?.dimension
+                      ? inst.dimension
+                      : node.taskProgress
+                        ? `${node.taskProgress.completed} / ${node.taskProgress.total} done`
+                        : (node.statusLabel ?? 'Idle')}
                   </div>
-                )}
-              </div>
-            );
-          }}
-        />
-      </div>
+                  {inst?.modelId && (
+                    <div className="font-mono mt-0.5 text-[10px] text-gray-400">
+                      {inst.modelId}
+                    </div>
+                  )}
+                </div>
+              );
+            }}
+          />
+        </div>
 
-      {/* 只让"4 个角色列表"自己滚 —— 滚动条只覆盖角色区，Mission progress
-          / 运行配置 / 按钮 都固定在 aside 底部，不进滚动域。*/}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* Roster body — list of role rows with last-thought */}
-        <div className="space-y-1.5 p-3">
-          {ROLE_ROW.map(({ role, stage, label }) => {
-            const Icon = ROLE_ICON[role];
-            const st = stageMap.get(stage);
-            const roleAgents = agents.filter((a) => a.role === role);
-            const lastThought = (() => {
-              for (let i = roleAgents.length - 1; i >= 0; i--) {
-                const trace = roleAgents[i].trace;
-                for (let j = trace.length - 1; j >= 0; j--) {
-                  if (trace[j].kind === 'thought' && trace[j].text) {
-                    return trace[j].text;
+        {/* 角色列表 —— 与上方 canvas 同处一个可滚动中段（见上方 wrapper）。
+          Mission progress / 运行配置 / 按钮 仍 shrink-0 常驻 aside 底部，不进滚动域。*/}
+        <div className="shrink-0">
+          {/* Roster body — list of role rows with last-thought */}
+          <div className="space-y-1.5 p-3">
+            {ROLE_ROW.map(({ role, stage, label }) => {
+              const Icon = ROLE_ICON[role];
+              const st = stageMap.get(stage);
+              const roleAgents = agents.filter((a) => a.role === role);
+              const lastThought = (() => {
+                for (let i = roleAgents.length - 1; i >= 0; i--) {
+                  const trace = roleAgents[i].trace;
+                  for (let j = trace.length - 1; j >= 0; j--) {
+                    if (trace[j].kind === 'thought' && trace[j].text) {
+                      return trace[j].text;
+                    }
                   }
                 }
-              }
-              return null;
-            })();
-            const isActive = st?.status === 'running';
-            const isDone = st?.status === 'done';
+                return null;
+              })();
+              const isActive = st?.status === 'running';
+              const isDone = st?.status === 'done';
 
-            return (
-              <button
-                key={role}
-                type="button"
-                onClick={() => setSelectedRole(role)}
-                className="flex w-full items-start gap-2 rounded-lg border border-gray-100 bg-white px-2.5 py-2 text-left transition-all hover:border-violet-200 hover:bg-violet-50/30"
-              >
-                <span
-                  className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
-                    isActive
-                      ? 'bg-violet-100 text-violet-600'
-                      : isDone
-                        ? 'bg-emerald-100 text-emerald-600'
-                        : 'bg-gray-100 text-gray-500'
-                  }`}
+              return (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => setSelectedRole(role)}
+                  className="flex w-full items-start gap-2 rounded-lg border border-gray-100 bg-white px-2.5 py-2 text-left transition-all hover:border-violet-200 hover:bg-violet-50/30"
                 >
-                  {isActive ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : isDone ? (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  ) : (
-                    <Icon className="h-3.5 w-3.5" />
-                  )}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[12px] font-semibold text-gray-900">
-                      {label}
-                    </span>
-                    {roleAgents.length > 0 && (
-                      <span className="text-[10px] text-gray-400">
-                        {
-                          roleAgents.filter((a) => a.phase === 'completed')
-                            .length
-                        }{' '}
-                        / {roleAgents.length}
+                  <span
+                    className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+                      isActive
+                        ? 'bg-violet-100 text-violet-600'
+                        : isDone
+                          ? 'bg-emerald-100 text-emerald-600'
+                          : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {isActive ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : isDone ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <Icon className="h-3.5 w-3.5" />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[12px] font-semibold text-gray-900">
+                        {label}
                       </span>
+                      {roleAgents.length > 0 && (
+                        <span className="text-[10px] text-gray-400">
+                          {
+                            roleAgents.filter((a) => a.phase === 'completed')
+                              .length
+                          }{' '}
+                          / {roleAgents.length}
+                        </span>
+                      )}
+                    </div>
+                    {lastThought ? (
+                      <p
+                        className="mt-0.5 line-clamp-2 text-[11px] text-gray-600"
+                        title={lastThought}
+                      >
+                        <Lightbulb className="mr-0.5 inline h-2.5 w-2.5 text-amber-500" />
+                        {lastThought}
+                      </p>
+                    ) : (
+                      <p className="mt-0.5 text-[11px] italic text-gray-400">
+                        {st?.detail ?? (isDone ? '已完成' : '待启动')}
+                      </p>
                     )}
                   </div>
-                  {lastThought ? (
-                    <p
-                      className="mt-0.5 line-clamp-2 text-[11px] text-gray-600"
-                      title={lastThought}
-                    >
-                      <Lightbulb className="mr-0.5 inline h-2.5 w-2.5 text-amber-500" />
-                      {lastThought}
-                    </p>
-                  ) : (
-                    <p className="mt-0.5 text-[11px] italic text-gray-400">
-                      {st?.detail ?? (isDone ? '已完成' : '待启动')}
-                    </p>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
+      {/* /可滚动中段（topology canvas + 角色列表） */}
 
       {/* Progress + 运行配置 — shrink-0 固定，不随角色列表滚动；与下面
           MissionActionGroup 一起组成 aside 底部"操作区" */}

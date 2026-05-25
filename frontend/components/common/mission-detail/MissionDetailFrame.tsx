@@ -200,8 +200,11 @@ export function MissionDetailFrame<TTab extends string = string>({
           {/* topBanner slot — playground 用作 WS 失联 / 失败警告 banner */}
           {topBanner}
 
-          {/* Tab bar + trailing slot */}
-          <div className="flex min-w-0 items-center gap-3 border-b border-gray-200 bg-white px-4">
+          {/* Tab bar + trailing slot
+              响应式：flex-wrap —— 当 tabs + trailing(meters) 同行放不下时，trailing
+              换到第二行，而不是把 tabs 挤成横向滚动（tabs 拿满首行宽度，通常即可完整显示）。
+              对所有 mission-detail 页面生效（agent-playground / ai-radar 等）。 */}
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-gray-200 bg-white px-4">
             {/* W0(B)：用 canonical <Tabs>（与 playground 详情页同款，underline 默认）*/}
             <Tabs
               className="scrollbar-thin min-w-0 flex-1 overflow-x-auto border-b-0"
