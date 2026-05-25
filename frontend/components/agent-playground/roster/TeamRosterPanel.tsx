@@ -119,6 +119,11 @@ interface Props {
   topic?: string;
   /** mission 维度（从 leader stage 输出，用于左下任务列表） */
   dimensions?: { id?: string; name: string; rationale?: string }[];
+  /**
+   * 「任务进度」真实任务计数（来自 todo ledger，与「任务列表 共 N 项」同源）。
+   * 提供时进度按"已完成任务 / 总任务"显示；缺省回退到流水线阶段计数（向后兼容）。
+   */
+  taskProgress?: { completed: number; total: number };
   /** mission 当前状态 — 决定按钮显示 */
   missionStatus?: 'running' | 'completed' | 'failed' | 'cancelled' | 'idle';
   depth?: 'quick' | 'standard' | 'deep' | string;
@@ -155,6 +160,7 @@ export function TeamRosterPanel({
   stages,
   finalScore,
   dimensions,
+  taskProgress,
   missionStatus = 'idle',
   depth,
   language,
@@ -375,9 +381,16 @@ export function TeamRosterPanel({
       };
     }, [agents, stageMap, dimensions, groupExpanded]);
 
+  // 「任务进度」优先用真实任务计数（todo ledger，与「任务列表 共 N 项」同源），
+  // 缺省回退流水线阶段计数。避免恒显"5/5"误导（5 是固定阶段数，非任务总数）。
   const completedStages = stages.filter((s) => s.status === 'done').length;
   const totalStages = stages.length;
-  const overallPct = Math.round((completedStages / totalStages) * 100);
+  const progressCompleted = taskProgress?.completed ?? completedStages;
+  const progressTotal = taskProgress?.total ?? totalStages;
+  const overallPct =
+    progressTotal > 0
+      ? Math.round((progressCompleted / progressTotal) * 100)
+      : 0;
 
   void selectedRole; // selection-driven detail rendered inside TeamTopologyCanvas
 
@@ -680,7 +693,7 @@ export function TeamRosterPanel({
               </span>
             )}
             <span className="font-mono text-gray-500">
-              {completedStages} / {totalStages}
+              {progressCompleted} / {progressTotal}
             </span>
           </span>
         </div>

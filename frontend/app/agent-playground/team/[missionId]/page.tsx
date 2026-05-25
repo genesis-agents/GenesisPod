@@ -900,6 +900,12 @@ export default function MissionDetailPage() {
       finalScore={view.mission.finalScore}
       topic={view.mission.topic}
       dimensions={view.mission.dimensions}
+      // 「任务进度」用真实任务计数（与「任务列表 共 N 项」同源的 todo ledger），
+      // 取代原先恒显的 5 个流水线阶段计数。
+      taskProgress={{
+        completed: todoLedger.filter((t) => t.status === 'done').length,
+        total: todoLedger.length,
+      }}
       missionStatus={
         // ★ 取消按钮可用判定：只要不是终态（completed/failed/rejected/
         //   cancelled/quality-failed）就视为 running。这样初次加载 persisted
@@ -1828,7 +1834,7 @@ function CompactMeters({
           : 'text-amber-500';
 
   return (
-    <div className="hidden items-center gap-4 whitespace-nowrap text-xs text-gray-500 lg:flex">
+    <div className="hidden items-center gap-2 whitespace-nowrap pl-2 text-xs text-gray-500 lg:flex">
       <span
         className="flex items-center gap-1"
         title={
