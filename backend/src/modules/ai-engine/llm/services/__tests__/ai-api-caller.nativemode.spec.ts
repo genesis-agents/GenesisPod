@@ -363,7 +363,13 @@ describe("AiApiCallerService – self-heal chain-aware degrade (R1)", () => {
     };
     err.response = {
       status: 400,
-      data: { error: { code: "invalid_request_error", message: "x" } },
+      // 真实形态：body 里含 "response_format" 字样（extractErrorSignal 读 body 非 message）
+      data: {
+        error: {
+          code: "invalid_request_error",
+          message: "This response_format type is unavailable now",
+        },
+      },
     };
     return throwError(() => err);
   }
@@ -433,5 +439,79 @@ describe("AiApiCallerService – self-heal chain-aware degrade (R1)", () => {
     // chain-aware：json_schema_strict 的下一档是 json_schema（不是一刀切 none）
     expect(opts.fromValue).toBe("json_schema_strict");
     expect(opts.toValue).toBe("json_schema");
+  });
+
+  it("F3: in-request 降级 — json_schema 被拒后当次用 json_object 重试成功(不抛)", async () => {
+    // 第 1 次 POST 因 json_schema 被 400 拒；第 2 次(降级 json_object)成功。
+    httpMock.post
+      .mockReturnValueOnce(make400ResponseFormatError())
+      .mockReturnValueOnce(makeHttpOk('{"answer":"recovered"}'));
+
+    const result = await service.callOpenAICompatibleAPI(
+      "https://openrouter.ai/api/v1/chat/completions",
+      "or-key",
+      "meta-llama/llama-3.1-70b",
+      MESSAGES,
+      4000,
+      undefined,
+      120000,
+      "max_tokens",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      "json_schema",
+      JSON_SCHEMA,
+      "my_schema",
+      undefined,
+      "openrouter",
+      "user-cfg-1",
+    );
+
+    // 当次重试成功 → 不抛，返回降级后的内容
+    expect(result.content).toContain("recovered");
+    // 发了两次：第 1 次 json_schema(被拒) + 第 2 次 json_object(成功)
+    expect(httpMock.post).toHaveBeenCalledTimes(2);
+    const retryBody = httpMock.post.mock.calls[1][1] as Record<string, unknown>;
+    expect(retryBody["response_format"]).toEqual({ type: "json_object" });
+  });
+
+  it("F3: 非格式类 4xx 不触发 in-request 重试(只抛)", async () => {
+    // context_length_exceeded 类 400 不应被当成格式错 → 不重试
+    const err = new Error("context length exceeded") as Error & {
+      response?: { status: number; data?: unknown };
+    };
+    err.response = {
+      status: 400,
+      data: { error: { code: "context_length_exceeded", message: "too long" } },
+    };
+    httpMock.post.mockReturnValueOnce(throwError(() => err));
+
+    await expect(
+      service.callOpenAICompatibleAPI(
+        "https://openrouter.ai/api/v1/chat/completions",
+        "or-key",
+        "meta-llama/llama-3.1-70b",
+        MESSAGES,
+        4000,
+        undefined,
+        120000,
+        "max_tokens",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        "json_schema",
+        JSON_SCHEMA,
+        "my_schema",
+        undefined,
+        "openrouter",
+        "user-cfg-1",
+      ),
+    ).rejects.toBeDefined();
+    // 只发一次：没有 in-request 重试
+    expect(httpMock.post).toHaveBeenCalledTimes(1);
   });
 });

@@ -27,6 +27,7 @@ import {
 import type { StructuredOutputStrategy } from "../structured-output/structured-output-strategy.types";
 import { ModelCapabilityService } from "../capability/model-capability.service";
 import { CapabilitySelfHealService } from "../capability/capability-self-heal.service";
+import { extractErrorSignal } from "../capability/error-signal.types";
 import { ApiCallerSelfHealTriggerService } from "./api-caller-self-heal-trigger.service";
 import type { AIModelConfig } from "../types/model-config.types";
 
@@ -320,6 +321,20 @@ export class AiApiCallerService {
     const next = chain[idx + 1];
     // 链尾 prompt 不是合法 nativeMode → 映射为 none（同义：不发 response_format）
     return { fromValue: current, toValue: next === "prompt" ? "none" : next };
+  }
+
+  /**
+   * F3 (2026-05-25): 判断错误是否为"结构化输出格式被拒"（4xx + 提到
+   * response_format / json_schema / format）。用于 in-request 当次降级判定 ——
+   * 只对真·格式错误重试，避免对 context-too-long / auth 等其它 4xx 浪费重试。
+   */
+  private isStructuredOutputRejection(err: unknown): boolean {
+    const sig = extractErrorSignal(err);
+    if (!sig || (sig.httpStatus !== 400 && sig.httpStatus !== 422)) return false;
+    const hay = `${sig.errorCode} ${sig.bodySnippet}`.toLowerCase();
+    return /response_format|json_schema|json schema|structured|format.*(unavailable|not.*support|unsupported)/.test(
+      hay,
+    );
   }
 
   /**
@@ -745,7 +760,54 @@ export class AiApiCallerService {
           ? { fromValue: degrade.fromValue, toValue: degrade.toValue }
           : {}),
       });
-      throw err;
+
+      // ★ F3 (2026-05-25): in-request 当次降级 —— 仅错误路径，成功路径完全不动。
+      //   结构化输出被拒(4xx 格式错) + 有下一档 strategy + 调用方确实要 JSON →
+      //   当次用降级后的 response_format 重试一次（json_schema→json_mode→none）。
+      //   解决"catalog 漂移导致首个 mission 直接崩"（self-heal 只救下次）。
+      const wantsJson =
+        !!outputSchema || responseFormat === "json" || !!outputJsonSchema;
+      if (degrade && wantsJson && this.isStructuredOutputRejection(err)) {
+        const mode = degrade.toValue;
+        delete requestBody["response_format"];
+        if (mode === "json_mode") {
+          requestBody["response_format"] = { type: "json_object" };
+        } else if (
+          (mode === "json_schema" || mode === "json_schema_strict") &&
+          outputJsonSchema
+        ) {
+          requestBody["response_format"] = {
+            type: "json_schema",
+            json_schema: {
+              name: schemaName ?? "output",
+              schema: outputJsonSchema,
+              strict: mode === "json_schema_strict",
+            },
+          };
+        } else {
+          // none / prompt：撤掉 response_format + 注入 JSON 约束到 system msg
+          injectJsonConstraint();
+        }
+        try {
+          response = await firstValueFrom(
+            this.httpService.post(effectiveEndpoint, requestBody, {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+              },
+              timeout,
+            }),
+          );
+          this.logger.warn(
+            `[in-request-degrade] ${modelId}: ${degrade.fromValue}→${mode} 重试成功（首次格式被拒）`,
+          );
+          // 成功 → 不抛，落到下方解析
+        } catch {
+          throw err; // 降级仍失败 → 抛原始错误
+        }
+      } else {
+        throw err;
+      }
     }
 
     const data = response.data;
