@@ -42,6 +42,14 @@ const RETRY_FLAG_TTL_SECONDS = 6 * 3600; // 6h，下次 probe 周期前过期
 const SELF_HEALED_RETRY_WINDOW_HOURS = 24;
 const SELF_HEALED_LOOKBACK_DAYS = 7;
 
+// F8(b) catalog staleness 检测：过去 N 天 self-heal 把同一 (provider, modelId)
+// 的 structuredOutput.nativeMode 降级的"去重 BYOK config 数" ≥ 阈值 → 该 catalog
+// 条目疑似过时（撒谎说支持某 nativeMode），打 WARN 提醒人工复核 + 更新 catalog。
+const STALENESS_LOOKBACK_DAYS = 14;
+const STALENESS_DISTINCT_CONFIG_THRESHOLD = 2;
+const STALENESS_SCAN_CAP = 2000;
+const STRUCTURED_OUTPUT_FIELD = "structuredOutput.nativeMode";
+
 @Injectable()
 export class CapabilityProbeService {
   private readonly logger = new Logger(CapabilityProbeService.name);
@@ -79,6 +87,7 @@ export class CapabilityProbeService {
 
       await this.checkCatalogVersion();
       await this.markPassiveRetries();
+      await this.detectCatalogStaleness();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`[probe] exception during cycle: ${msg.slice(0, 300)}`);
@@ -284,6 +293,95 @@ export class CapabilityProbeService {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.warn(`[probe] markPassiveRetries failed: ${msg}`);
+    }
+  }
+
+  // ─────────── F8(b) catalog staleness detection（复原通道 #2：被动遥测） ───────────
+
+  /**
+   * 从 self-heal 遥测被动检测"过时的 catalog 条目"。
+   *
+   * 原理：self-heal 仅在某 BYOK config 连续 ≥3 次结构化输出被拒后才写一条
+   * `source='self-heal-user' field='structuredOutput.nativeMode'` 审计日志。若过去
+   * N 天内**多个去重 config**对同一 (provider, modelId) 都触发了这种降级，几乎可断定
+   * 不是单个用户坏 endpoint，而是 catalog 对该模型的 nativeMode 撒了谎（如 F7 修前的
+   * Anthropic tool_use、DeepSeek json_schema 事故）。打 WARN 提醒人工复核 + 更新
+   * `model-capability-catalog.ts`（不自动改 catalog —— 数据驱动文件需 git review）。
+   *
+   * 只读 + 只 log，fail-closed（异常仅 warn，不抛，不影响 probe 其它步骤）。
+   */
+  private async detectCatalogStaleness(): Promise<void> {
+    try {
+      const since = new Date(
+        Date.now() - STALENESS_LOOKBACK_DAYS * 86400 * 1000,
+      );
+      const logs = await this.prisma.capabilityOverrideAuditLog.findMany({
+        where: {
+          source: "self-heal-user",
+          field: STRUCTURED_OUTPUT_FIELD,
+          createdAt: { gte: since },
+          userModelConfigId: { not: null },
+        },
+        select: { userModelConfigId: true },
+        take: STALENESS_SCAN_CAP,
+      });
+      if (logs.length === 0) return;
+
+      const configIds = Array.from(
+        new Set(
+          logs
+            .map((l) => l.userModelConfigId)
+            .filter((id): id is string => !!id),
+        ),
+      );
+      if (configIds.length === 0) return;
+
+      const configs = await this.prisma.userModelConfig.findMany({
+        where: { id: { in: configIds } },
+        select: { id: true, provider: true, modelId: true },
+      });
+
+      // 按 (provider, modelId) 聚合去重 config 数
+      const byModel = new Map<
+        string,
+        { provider: string; modelId: string; configs: Set<string> }
+      >();
+      for (const c of configs) {
+        const key = `${c.provider.toLowerCase()}/${c.modelId.toLowerCase()}`;
+        let entry = byModel.get(key);
+        if (!entry) {
+          entry = {
+            provider: c.provider,
+            modelId: c.modelId,
+            configs: new Set(),
+          };
+          byModel.set(key, entry);
+        }
+        entry.configs.add(c.id);
+      }
+
+      const stale = [...byModel.values()]
+        .filter((e) => e.configs.size >= STALENESS_DISTINCT_CONFIG_THRESHOLD)
+        .sort((a, b) => b.configs.size - a.configs.size);
+
+      if (stale.length === 0) {
+        this.logger.debug(
+          `[probe] catalog staleness scan: ${configIds.length} self-healed configs, none over threshold(${STALENESS_DISTINCT_CONFIG_THRESHOLD})`,
+        );
+        return;
+      }
+
+      for (const e of stale) {
+        this.logger.warn(
+          `[probe][catalog-staleness] provider=${e.provider} model=${e.modelId} — ` +
+            `${STRUCTURED_OUTPUT_FIELD} auto-downgraded by ${e.configs.size} distinct BYOK configs ` +
+            `in last ${STALENESS_LOOKBACK_DAYS}d; catalog entry likely stale — re-verify provider docs & ` +
+            `update model-capability-catalog.ts (then bump CATALOG_VERSION)`,
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`[probe] detectCatalogStaleness failed: ${msg}`);
     }
   }
 

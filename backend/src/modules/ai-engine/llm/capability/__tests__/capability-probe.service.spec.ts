@@ -12,6 +12,7 @@
  *   - 被动反向探测打标记
  */
 
+import { Logger } from "@nestjs/common";
 import { CapabilityProbeService } from "../capability-probe.service";
 
 // mock catalog version
@@ -31,6 +32,7 @@ describe("CapabilityProbeService — v3.1 §B.6", () => {
     $queryRaw: jest.Mock;
     $transaction: jest.Mock;
     capabilityOverrideAuditLog: { findMany: jest.Mock };
+    userModelConfig: { findMany: jest.Mock };
   };
   let flags: { isProbeEnabled: jest.Mock };
   let svc: CapabilityProbeService;
@@ -59,6 +61,9 @@ describe("CapabilityProbeService — v3.1 §B.6", () => {
         return cb(tx);
       }),
       capabilityOverrideAuditLog: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      userModelConfig: {
         findMany: jest.fn().mockResolvedValue([]),
       },
     };
@@ -192,5 +197,79 @@ describe("CapabilityProbeService — v3.1 §B.6", () => {
       String(c[0]).startsWith("capability:probe:retry:"),
     );
     expect(retryFlagCalls).toHaveLength(2);
+  });
+
+  // ─────────── F8(b) catalog staleness 检测 ───────────
+
+  it("warns when ≥2 distinct BYOK configs auto-downgrade the same model's nativeMode", async () => {
+    store.set("capability:catalog:version", 2); // 不触发 catalog reset
+    // detectCatalogStaleness 专属查询（field=structuredOutput.nativeMode）返 4 条；
+    // markPassiveRetries 的查询（无该 field）返 []。
+    prisma.capabilityOverrideAuditLog.findMany.mockImplementation(
+      async (args: { where?: { field?: string } }) => {
+        if (args?.where?.field === "structuredOutput.nativeMode") {
+          return [
+            { userModelConfigId: "c1" },
+            { userModelConfigId: "c2" },
+            { userModelConfigId: "c3" },
+            { userModelConfigId: "c4" },
+          ];
+        }
+        return [];
+      },
+    );
+    prisma.userModelConfig.findMany.mockResolvedValue([
+      { id: "c1", provider: "anthropic", modelId: "claude-x" },
+      { id: "c2", provider: "anthropic", modelId: "claude-x" },
+      { id: "c3", provider: "anthropic", modelId: "claude-x" },
+      { id: "c4", provider: "openai", modelId: "gpt-x" }, // 仅 1 个 → 不报
+    ]);
+    const warnSpy = jest
+      .spyOn(Logger.prototype, "warn")
+      .mockImplementation(() => undefined);
+
+    await svc.runPeriodicProbe();
+
+    const staleWarn = warnSpy.mock.calls.find((c) =>
+      String(c[0]).includes("catalog-staleness"),
+    );
+    expect(staleWarn).toBeDefined();
+    expect(String(staleWarn?.[0])).toContain("claude-x");
+    expect(String(staleWarn?.[0])).toContain("3 distinct");
+    // gpt-x 只有 1 个 config（< 阈值 2）→ 不应单独报 staleness
+    const gptStale = warnSpy.mock.calls.find(
+      (c) =>
+        String(c[0]).includes("catalog-staleness") &&
+        String(c[0]).includes("gpt-x"),
+    );
+    expect(gptStale).toBeUndefined();
+
+    warnSpy.mockRestore();
+  });
+
+  it("does not warn staleness when distinct configs below threshold", async () => {
+    store.set("capability:catalog:version", 2);
+    prisma.capabilityOverrideAuditLog.findMany.mockImplementation(
+      async (args: { where?: { field?: string } }) => {
+        if (args?.where?.field === "structuredOutput.nativeMode") {
+          return [{ userModelConfigId: "c1" }];
+        }
+        return [];
+      },
+    );
+    prisma.userModelConfig.findMany.mockResolvedValue([
+      { id: "c1", provider: "anthropic", modelId: "claude-x" },
+    ]);
+    const warnSpy = jest
+      .spyOn(Logger.prototype, "warn")
+      .mockImplementation(() => undefined);
+
+    await svc.runPeriodicProbe();
+
+    const staleWarn = warnSpy.mock.calls.find((c) =>
+      String(c[0]).includes("catalog-staleness"),
+    );
+    expect(staleWarn).toBeUndefined();
+    warnSpy.mockRestore();
   });
 });
