@@ -1,0 +1,198 @@
+# Business-Team Framework 使用规范
+
+**版本：** 1.0
+**强制级别：** 🔴 MUST
+**状态：** 已采纳
+**日期：** 2026-05-24
+
+> **核心原则**：**新建 agent team app 必须基于 `ai-harness/teams/business-team/` framework + §8.2 目录布局；不允许 copy-paste playground 整个目录树作为模板。**
+> 本文是创建新 agent team app（mission-pipeline 型）的唯一权威 SOP。
+
+---
+
+## 1. 适用范围
+
+本规范覆盖以下情况：
+
+- **创建新 mission-pipeline 型 agent team app**（如未来新增 `ai-app/<new-team>/`）
+- **修改现有 3 个 agent team app 的结构**（`agent-playground` / `social` / `radar`）
+- **修改 `ai-harness/teams/business-team/` framework**
+
+不在范围：
+
+- 非 mission-pipeline 型 app（如 `ai-app/research`、`ai-app/writing` 等纯调用型）
+- engine/infra 层的能力下沉
+
+---
+
+## 2. §8.2 目录布局 (MUST)
+
+每个 agent team app 必须严格遵守以下顶层目录布局：
+
+```
+ai-app/<team-name>/
+├── module/         NestJS Module + onModuleInit 装配
+│   └── <team>.module.ts
+├── api/            HTTP 边界
+│   ├── controller/   *.controller.ts
+│   └── dto/          *.dto.ts
+├── runtime/        运行时配置/常量/网关
+│   ├── <team>.config.ts          mission pipeline 配置 (defineMissionPipeline)
+│   ├── <team>-runtime.config.ts  Zod 校验的运行时 tuning
+│   ├── <team>.constants.ts
+│   └── <team>.gateway.ts         WebSocket gateway（如适用）
+├── mission/        mission 运行时业务
+│   ├── pipeline/   stages + dispatcher + orchestrator + bindings + runtime-shell
+│   │   ├── stages/
+│   │   ├── <team>-pipeline-dispatcher.service.ts
+│   │   ├── <team>-business-orchestrator.service.ts
+│   │   ├── <team>-mission-runtime-shell.service.ts
+│   │   └── mission-stage-bindings.service.ts
+│   ├── agents/     SKILL.md per role（每个 agent 一个目录）
+│   │   ├── <role-1>/SKILL.md
+│   │   └── <role-2>/SKILL.md
+│   ├── lifecycle/  mission 持久化
+│   │   ├── <team>-mission-store.service.ts
+│   │   ├── <team>-mission-event-buffer.service.ts
+│   │   └── <team>-mission-config-snapshot.ts
+│   ├── services/   helper services (可选)
+│   └── （per-app 可选）roles/ context/ skills/ artifacts/ types/ chat/ export/ rerun/
+├── events/         DomainEventRegistry schema
+│   └── <team>.events.ts
+├── integrations/   外部平台适配（可选，如 wechat/xhs/sources）
+└── __tests__/      per-team 单测（contract 测试归 `src/__tests__/architecture/`）
+```
+
+**禁止行为**：
+
+- ❌ 根目录直接放 `.ts` 文件（必须落到 module/api/runtime/mission/events）
+- ❌ 出现旧版顶层目录 `services/` `controllers/` `dto/` `agents/` `utils/`
+- ❌ 缺少 `module/`、`api/`、`runtime/`、`mission/`、`events/` 任一顶层
+- ❌ `mission/` 下缺少 `pipeline/`、`agents/`、`lifecycle/` 任一必备子目录
+
+**自动看护**：`src/__tests__/architecture/agent-team-layout.spec.ts`（43 tests）—— 违规 jest 红 → pre-push 拒推。
+
+---
+
+## 3. 必须基于 `ai-harness/teams/business-team/` framework (MUST)
+
+新 agent team app 的运行时骨架必须 **继承** 而不是 **复制** framework：
+
+| 组件              | Framework 类（在 harness）                                | App 子类（在 ai-app）                                                      |
+| ----------------- | --------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Agent 调用        | `BusinessTeamAgentInvoker.framework` (`invocation/`)      | `<Team>AgentInvoker extends BusinessTeamAgentInvoker.framework`            |
+| Mission 派发      | `BusinessTeamMissionDispatcher.framework` (`dispatcher/`) | `<Team>PipelineDispatcher extends BusinessTeamMissionDispatcher.framework` |
+| Stage 绑定        | `BusinessTeamStageBindings.framework` (`bindings/`)       | `<Team>StageBindings extends BusinessTeamStageBindings.framework`          |
+| Cross-stage state | base class (`state/`)                                     | `<Team>CrossStageState extends ...`                                        |
+| Mission span      | tracking helper (`span/`)                                 | 直接复用，无子类                                                           |
+| Event relay       | shim pattern (`events/`)                                  | `<Team>EventRelay extends ...`                                             |
+| Runtime shell     | `MissionRuntimeShellFramework` (`lifecycle/`)             | `<Team>MissionRuntimeShell extends ...`                                    |
+
+**禁止行为**：
+
+- ❌ Copy-paste playground/social/radar 整个 `mission/pipeline/` 目录作为新 app 起点
+- ❌ 在 `ai-app/` 层重写已经在 `ai-harness/teams/business-team/` 提供的能力
+- ❌ 不通过 framework subclass，而是直接 `import` framework 内部并 instantiate
+
+**自动看护**：`src/__tests__/architecture/agent-team-facade-contract.spec.ts`（12 tests）—— `mission/{pipeline,lifecycle}/*.ts` 不得直接 `import` `ai-harness/teams/business-team/...`，必须走 `@/modules/ai-harness/facade`。
+
+---
+
+## 4. import 规则 (MUST)
+
+`ai-app/<team>/**/*.ts` 跨层 import：
+
+```typescript
+// ✅ 正确：从 facade 拿 framework + service
+import {
+  defineMissionPipeline,
+  MissionPipelineRegistry,
+  MissionPipelineOrchestrator,
+  BusinessTeamAgentInvoker,
+  BusinessTeamMissionDispatcher,
+  MissionLivenessGuard,
+  MissionLifecycleManager,
+  DomainEventRegistry,
+} from "@/modules/ai-harness/facade";
+
+import {
+  SkillLoaderService,
+  loadSkill,
+  ToolRegistry,
+} from "@/modules/ai-engine/facade";
+
+// ❌ 错误：穿透内部子路径
+import { BusinessTeamAgentInvoker } from "@/modules/ai-harness/teams/business-team/invocation/business-team-agent-invoker.framework";
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
+```
+
+**自动看护**（三层）：
+
+1. **ESLint** `backend/.eslintrc.js` SECTION 10 — IDE 实时 + lint-staged pre-commit
+2. **jest spec** `layer-boundaries.spec.ts` + `agent-team-facade-contract.spec.ts` — 动态 import / 注释 escape 也拦
+3. **pre-push hook** `.husky/pre-push` [0/6] — push 前最后防线
+
+---
+
+## 5. 新建 agent team app 检查清单
+
+按顺序：
+
+1. **目录骨架**：建 `ai-app/<team>/{module,api,runtime,mission/{pipeline,agents,lifecycle},events}/`
+2. **pipeline 配置**：`runtime/<team>.config.ts` 用 `defineMissionPipeline()` 定义 step 顺序 + DAG
+3. **运行时 tuning**：`runtime/<team>-runtime.config.ts` 用 Zod schema 校验 env 注入
+4. **stage 实现**：`mission/pipeline/stages/<s1>.stage.ts` 一个 step 一个文件
+5. **agents (SKILL.md)**：`mission/agents/<role>/SKILL.md` 每个 agent 一个 frontmatter + instructions
+6. **dispatcher / orchestrator / runtime-shell / bindings**：继承 framework 类，只填业务 hook
+7. **lifecycle**：`mission/lifecycle/<team>-mission-store.service.ts` 实现 mission 持久化
+8. **events schema**：`events/<team>.events.ts` 声明业务事件 + 在 module `onModuleInit` 注册
+9. **liveness adapter**：module `onModuleInit` 注册 `livenessGuard.registerAdapter(...)` 防孤儿
+10. **config snapshot**：runtime-shell `openSession()` 冻结 typed config snapshot
+11. **app.module.ts 集成**：在 `backend/src/app.module.ts` import `<Team>Module`
+12. **`MISSION_APP_MODULES` 登记**：把新 module 路径加到 `mission-app-conformance.spec.ts:23`
+13. **跑全套验证**：`npm run type-check` + `npx jest src/__tests__/architecture` + `npm run build`
+
+**红线**：任一项缺失，jest 自动看护会红，pre-push 拒推。
+
+---
+
+## 6. 修改 `ai-harness/teams/business-team/` framework 的红线
+
+修改 framework 前必须满足：
+
+1. **至少 2 个消费方需要这个改动**（避免 over-engineering for single consumer）
+2. **3 个 app 同步迁移**：framework 提取必须 playground + social + radar 同 PR 落地，**不允许 1-of-3**
+3. **不破坏向后兼容**：现有子类继承点（hook 签名）保持稳定，新增 hook 必须 optional + 有 default
+
+**自动看护**：`agent-team-layout.spec.ts` 锁 §8.1 子目录白名单（abstractions/invocation/dispatcher/bindings/lifecycle/orchestrator/state/span/events/helpers/rerun），加新顶层子目录会红。
+
+---
+
+## 7. 例外审批流程
+
+如果 §2-§6 任一规则无法满足：
+
+1. **停下来问用户**：说明哪条规则不适配 + 为什么 + 建议替代方案
+2. **获批后留痕**：在对应 spec 的 allowlist 加例外 + PR 描述注释原因
+3. **基线只能减不能增**：例外即"被批准一次"，下次 PR 再增即被锁
+
+**禁止行为**：
+
+- ❌ 未经批准在 spec 加 `it.skip(...)` 跳过
+- ❌ 未经批准用 `// eslint-disable-next-line` 绕过
+- ❌ 把 spec 的 forbidden 列表删一项就提交
+
+---
+
+## 相关文档
+
+- [agent-playground 边界 + 目录蓝图](../docs/architecture/ai-app/agent-playground/agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md) — §8.2 目录 + §8.1 framework 设计原始来源
+- [agent app 迁移路线图 v2](../docs/architecture/ai-app/agent-app-mass-migration-roadmap-2026-05-24.md) — Wave 1b + Wave 4 完成状态
+- [`16-ai-engine-harness-structure.md`](16-ai-engine-harness-structure.md) — ai-engine / ai-harness 11 顶层聚合（MECE）
+- [`02-directory-structure.md`](02-directory-structure.md) — 项目整体目录规范
+- [架构边界 jest spec](../backend/src/__tests__/architecture/) —— 自动看护源码
+
+---
+
+**最后更新**: 2026-05-24
+**维护者**: Claude Code (Wave 6 P31)

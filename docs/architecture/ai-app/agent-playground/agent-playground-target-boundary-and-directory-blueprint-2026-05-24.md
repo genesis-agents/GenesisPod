@@ -1,12 +1,58 @@
 # Agent Playground Target Boundary And Directory Blueprint
 
-**Status:** **Active execution** as of 2026-05-24 evening (revised from "Proposed").
+**Status:** **Wave 1b + Wave 4 完成 (2026-05-24 night)**。3 个 agent team app (playground/social/radar) 已统一到 §8.2 顶层布局；§8.1 business-team framework 6 个能力切片 (invoker / dispatcher / bindings / state / span / event-relay) 已沉到 `ai-harness/teams/business-team/`；3 层看护栏 (ESLint + jest spec + pre-push) 全部锁定。
 **Scope:** `backend/src/modules/ai-app/agent-playground/**`, its intended seam with `backend/src/modules/ai-harness/**`, and the corresponding frontend mission-detail structure.
 **Audience:** Engineers evolving `agent-playground` into the benchmark Agent Team app, and engineers creating future MissionPipeline-based teams.
 
 ---
 
 ## Revision Log
+
+### 2026-05-24 (night) — Wave 1b + Wave 4 完成
+
+**已落地的 §8.2 顶层布局 (3 个 agent team app 统一)**：
+
+```
+ai-app/{playground,social,radar}/
+├── module/        NestJS Module + onModuleInit
+├── api/           Controllers + DTO
+├── runtime/       *.config.ts + gateway + constants + tuning profile
+├── mission/
+│   ├── pipeline/   stages + dispatcher + orchestrator + bindings + runtime-shell
+│   ├── agents/     SKILL.md per role
+│   ├── lifecycle/  mission store + event buffer + config snapshot
+│   ├── services/   helper services
+│   └── （per-app 可选）roles/ context/ skills/ artifacts/ types/ chat/ export/ rerun/
+└── events/        DomainEventRegistry 注册 schema
+```
+
+**已沉降的 §8.1 framework (`ai-harness/teams/business-team/`)**：
+
+| 切片            | Framework class                           | LOC  | 消费方                  |
+| --------------- | ----------------------------------------- | ---- | ----------------------- |
+| `invocation/`   | `BusinessTeamAgentInvoker.framework`      | 155  | playground/social       |
+| `dispatcher/`   | `BusinessTeamMissionDispatcher.framework` | 192  | playground/social       |
+| `bindings/`     | `BusinessTeamStageBindings.framework`     | 46   | playground/social       |
+| `state/`        | cross-stage-state base                    | 81   | playground/social/radar |
+| `span/`         | mission-span tracking                     | 178  | playground/social       |
+| `events/`       | event-relay-base                          | shim | playground/social/radar |
+| `lifecycle/`    | `MissionRuntimeShellFramework`            | -    | 全 3 个                 |
+| `orchestrator/` | (P7 待评估,不在 Wave 1b 范围)             | -    | -                       |
+
+**三层看护栏 (2026-05-24 night Wave 4)**：
+
+1. **ESLint** (IDE 实时 + lint-staged) — `backend/.eslintrc.js` SECTION 10：ai-app 不得穿透 ai-harness 内部，必须走 `ai-harness/facade`
+2. **jest spec** (jest changedSince + pre-push 全量)：
+   - `agent-team-layout.spec.ts` (43 tests) — §8.2 顶层 + §8.1 子目录白名单
+   - `agent-team-facade-contract.spec.ts` (12 tests) — mission/{pipeline,lifecycle} 只能走 facade
+   - `layer-boundaries.spec.ts` — L4→L3→L2.5→L2→L1 单向
+   - `mission-app-conformance.spec.ts` — liveness adapter + config snapshot 必备
+3. **pre-push hook** (`.husky/pre-push` [0/6])：跑全 `src/__tests__/architecture/` 24 suites/228 tests，违规拒推
+
+**未做 / 推迟项 (per Roadmap §6)**：
+
+- **Wave 1 P4-P7 (T2/T3/T4 helpers + orchestrator framework)** — grep 显示 P4 列出的 8 个 helper 只存在于 playground，社/radar 没有等价物，**违反 "3 处使用再考虑抽象" 原则**，推迟到真有第二消费方时再做
+- **Wave 6 P32 (4-way collective review by architect / arch-auditor / reviewer / security-auditor)** — 需要用户授权（spawn 4 个 sub-agent 成本可观）
 
 ### 2026-05-24 (evening) — Reviewed and revised
 
