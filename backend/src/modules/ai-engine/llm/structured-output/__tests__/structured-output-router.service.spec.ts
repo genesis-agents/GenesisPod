@@ -68,13 +68,24 @@ describe("StructuredOutputRouter — 派生视图（v3.1 §A 收敛后）", () =
     expect(chain).toEqual(["prompt"]);
   });
 
-  it("DeepSeek-chat 未配置 → json_schema → json_mode → prompt", () => {
+  it("DeepSeek catch-all 未配置 → json_mode → prompt (DeepSeek 仅 json_object)", () => {
+    // 2026-05-25 线上事故修：DeepSeek 官方只支持 response_format {type:'json_object'}，
+    // 不支持 json_schema；catch-all 原默认 json_schema 让 v4-flash 崩溃。
     const chain = router.resolveChain({
       provider: "DeepSeek",
       modelId: "deepseek-chat",
       structuredOutputStrategy: null,
     });
-    expect(chain).toEqual(["json_schema", "json_mode", "prompt"]);
+    expect(chain).toEqual(["json_mode", "prompt"]);
+  });
+
+  it("DeepSeek-v4-flash 未配置 → json_mode → prompt (防回归: 不得发 json_schema)", () => {
+    const chain = router.resolveChain({
+      provider: "DeepSeek",
+      modelId: "deepseek-v4-flash",
+      structuredOutputStrategy: null,
+    });
+    expect(chain).toEqual(["json_mode", "prompt"]);
   });
 
   it("DeepSeek-v4-pro 未配置 → json_mode → prompt (2026-05-24 事故根因修复)", () => {

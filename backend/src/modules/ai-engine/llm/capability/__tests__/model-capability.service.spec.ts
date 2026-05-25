@@ -107,12 +107,21 @@ describe("ModelCapabilityService — resolveCapabilities (v3.1 §A)", () => {
       expect(caps.structuredOutput.fallbackChain).toEqual([]);
     });
 
-    it("deepseek-chat → nativeMode='json_schema' (V4-Flash non-thinking)", () => {
+    it("deepseek catch-all → nativeMode='json_mode' (V4 只支持 json_object，不支持 json_schema)", () => {
+      // 2026-05-25 线上事故修：DeepSeek 官方只支持 response_format {type:'json_object'}，
+      // deepseek-v4-flash 掉进 catch-all 后原发 json_schema 被 API 拒。
       const caps = svc.resolveCapabilities(
         baseConfig({ provider: "deepseek", modelId: "deepseek-chat" }),
       );
-      expect(caps.structuredOutput.nativeMode).toBe("json_schema");
-      expect(caps.structuredOutput.fallbackChain).toEqual(["json_mode"]);
+      expect(caps.structuredOutput.nativeMode).toBe("json_mode");
+      expect(caps.structuredOutput.fallbackChain).toEqual([]);
+    });
+
+    it("deepseek-v4-flash → nativeMode='json_mode'（防回归：不得再发 json_schema）", () => {
+      const caps = svc.resolveCapabilities(
+        baseConfig({ provider: "deepseek", modelId: "deepseek-v4-flash" }),
+      );
+      expect(caps.structuredOutput.nativeMode).toBe("json_mode");
     });
 
     it("OpenRouter claude 二级匹配 → tool_use（modelPattern /claude|anthropic/）", () => {
@@ -446,12 +455,13 @@ describe("ModelCapabilityService — resolveCapabilities (v3.1 §A)", () => {
 
     it("provider='deepseek' + modelId='' → 落到 deepseek 通用第 7 条（non-reasoner / 非 v4-pro）", () => {
       // modelPattern /reasoner/ 不命中空串；/v4[-_]?pro/ 也不命中；
-      // 落到无 modelPattern 的第 7 条 deepseek 兜底 → json_schema
+      // 落到无 modelPattern 的第 7 条 deepseek 兜底 → json_mode
+      // （2026-05-25 修：DeepSeek 仅支持 json_object，原 json_schema 默认是线上事故根因）
       const caps = svc.resolveCapabilities(
         baseConfig({ provider: "deepseek", modelId: "" }),
       );
-      expect(caps.structuredOutput.nativeMode).toBe("json_schema");
-      expect(caps.structuredOutput.fallbackChain).toEqual(["json_mode"]);
+      expect(caps.structuredOutput.nativeMode).toBe("json_mode");
+      expect(caps.structuredOutput.fallbackChain).toEqual([]);
     });
   });
 });

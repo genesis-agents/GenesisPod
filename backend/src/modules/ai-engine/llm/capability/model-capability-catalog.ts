@@ -196,13 +196,18 @@ export const PROVIDER_CAPABILITY_DEFAULTS: readonly ProviderCapabilityRule[] = [
     sourceUrl: "https://api-docs.deepseek.com/",
   },
 
-  // ─────────── 7. DeepSeek chat / 其它 deepseek（默认 json_schema → json_mode → prompt） ───────────
+  // ─────────── 7. DeepSeek catch-all（V4-Flash 等；json_object only，不支持 json_schema） ───────────
   {
     provider: "deepseek",
     capabilities: {
       structuredOutput: {
-        nativeMode: "json_schema",
-        fallbackChain: ["json_mode"],
+        // ★ 2026-05-25 线上事故修：DeepSeek 官方 API 只支持 response_format
+        //   {type:"json_object"}，不支持 {type:"json_schema"}（发了直接
+        //   INVALID_REQUEST "response_format type is unavailable"）。原默认
+        //   json_schema 让 deepseek-v4-flash（既不匹配 /reasoner/ 也不匹配
+        //   /v4-pro/）掉进本 catch-all 后发 json_schema 崩溃。改 json_mode。
+        nativeMode: "json_mode",
+        fallbackChain: [],
       },
       toolUse: { mode: "openai_functions", parallelCalls: false },
       reasoning: { kind: "none", exposeContent: "none" },
@@ -214,9 +219,10 @@ export const PROVIDER_CAPABILITY_DEFAULTS: readonly ProviderCapabilityRule[] = [
       promptCache: { support: "none" },
     },
     rationale:
-      "DeepSeek-chat（V4-Flash non-thinking）兼容 OpenAI json_schema lenient 模式（非 strict），结构化输出按 json_schema → json_mode → prompt 三级降级；推理模型走前两条具体规则，本条覆盖其它 DeepSeek 模型。",
+      "DeepSeek（2026-05 现状仅 V4-Flash + V4-Pro）API 只支持 response_format {type:'json_object'}，不支持 {type:'json_schema'}（OpenAI strict 风格）；严格 schema 仅经 tool_use/function-calling 提供。结构化输出走 json_mode → prompt 兜底。本条覆盖所有未被前面 /reasoner/、/v4-pro/ 命中的 DeepSeek 模型（含 v4-flash）。官方依据 https://api-docs.deepseek.com/guides/json_mode。",
     addedBy: "boris.baoxinghuai@gmail.com",
     addedAt: "2026-05-23",
+    sourceUrl: "https://api-docs.deepseek.com/guides/json_mode",
   },
 
   // ─────────── 8. OpenAI（含 GPT-4o / o1 / o3） ───────────
