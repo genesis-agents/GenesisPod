@@ -14,6 +14,10 @@ import {
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
 import { SocialTaskService } from "../../mission/services/social-task.service";
+// ★ B7-1 (thinning plan §B7-1): canonical mission detail view
+import { SocialMissionQueryService } from "../../mission/query/social-mission-query.service";
+import { projectSocialMissionView } from "../../mission/projectors/social-mission-view.projector";
+import type { SocialMissionViewEnvelope } from "../contracts/view-state.contract";
 import {
   CreateSocialTaskDto,
   RenameSocialTaskDto,
@@ -26,7 +30,28 @@ interface AuthenticatedRequest {
 @Controller("ai-social/tasks")
 @UseGuards(JwtAuthGuard)
 export class SocialTaskController {
-  constructor(private readonly taskService: SocialTaskService) {}
+  constructor(
+    private readonly taskService: SocialTaskService,
+    // ★ B7-1: canonical view query service
+    private readonly missionQuery: SocialMissionQueryService,
+  ) {}
+
+  /**
+   * GET /api/v1/ai-social/tasks/:id/view — canonical mission detail view
+   *
+   * thinning plan §B7-1 / §B2-3 sibling-route semantics.
+   * Mirror playground's GET /missions/:id/view. Existing /tasks/:id stays as
+   * sibling backward-compat (§6.9 disposition pattern).
+   */
+  @Get(":id/view")
+  async getMissionView(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+  ): Promise<SocialMissionViewEnvelope> {
+    const inputs = await this.missionQuery.loadInputs(id, req.user?.id);
+    const view = projectSocialMissionView(inputs);
+    return { view };
+  }
 
   @Post()
   async createTask(
