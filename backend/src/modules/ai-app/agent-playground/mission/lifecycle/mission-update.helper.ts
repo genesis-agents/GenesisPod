@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * MissionUpdateHelper — 用户主动修改 mission 元数据
  *

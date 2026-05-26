@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * LeaderChatService —— mission Leader 对话（编排）
  *

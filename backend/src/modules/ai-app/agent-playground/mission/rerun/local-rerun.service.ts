@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * LocalRerunService — 单 stage 局部重跑入口（B 路线主调）
  *

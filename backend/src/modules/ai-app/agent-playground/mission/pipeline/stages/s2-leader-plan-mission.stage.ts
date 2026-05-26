@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S2 — Leader plans the mission
  *

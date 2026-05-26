@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S3 — Researcher×N dispatch (含 self-heal + per-dim chapter pipeline)
  *

@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Critic Agent —— L4 独立复审（独立 critic，不参与生产）
  *

@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * AgentPlaygroundEvents — 事件类型注册清单
  *

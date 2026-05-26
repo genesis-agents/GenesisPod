@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * ReconcilerService —— 跨 dim 对账（[3.5] 节点）的统一入口
  *

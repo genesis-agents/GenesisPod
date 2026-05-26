@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Researcher Agent —— 单轮 ReAct + 真实 web 搜索
  *

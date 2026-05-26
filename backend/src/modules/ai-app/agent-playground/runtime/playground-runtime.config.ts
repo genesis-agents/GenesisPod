@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * playground-runtime.config.ts —— Typed runtime tunables for the
  * agent-playground (mission pipeline).

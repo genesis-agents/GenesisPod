@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * ResearcherService —— researcher 角色统一入口
  *

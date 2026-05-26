@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * chapter-integrity.validator.ts
  *

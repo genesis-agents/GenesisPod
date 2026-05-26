@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * playground.config.ts —— Mission Pipeline 配置（v5.1 §3.2 / §5）
  *

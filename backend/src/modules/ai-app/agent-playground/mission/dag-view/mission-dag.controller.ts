@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * MissionDagController —— Mission DAG 可视化端点
  *

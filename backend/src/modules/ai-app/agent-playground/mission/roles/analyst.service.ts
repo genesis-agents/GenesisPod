@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * AnalystService —— 跨 dim 综合分析的统一入口
  *

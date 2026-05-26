@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Analyst Agent —— ReflexionLoop + self/critical verifiers
  *

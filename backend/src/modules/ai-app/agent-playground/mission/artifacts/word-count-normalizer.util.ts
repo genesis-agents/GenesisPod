@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * 字数归一化（playground 薄 wrapper）
  *

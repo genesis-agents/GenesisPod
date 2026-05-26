@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * step-id-mapping.contract.ts — single source of truth for step-id → frontend stage-id mapping
  *

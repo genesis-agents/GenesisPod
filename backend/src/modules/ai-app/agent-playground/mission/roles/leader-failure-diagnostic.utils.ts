@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * leader-failure-diagnostic —— Leader runFn 失败诊断（playground 业务专属）
  *

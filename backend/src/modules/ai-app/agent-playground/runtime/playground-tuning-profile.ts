@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * playground-tuning-profile.ts —— Named tuning profiles for the
  * agent-playground runtime config.

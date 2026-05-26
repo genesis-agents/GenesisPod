@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * leader-verdict.types.ts — PR-R5b R2 共识 P0 (architect, 2026-05-07)
  *

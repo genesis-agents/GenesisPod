@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S12 — Self-Evolution（mission 复盘 + 系统自我进化）
  *

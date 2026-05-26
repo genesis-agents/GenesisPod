@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * MissionLifecycleHelper — mission 终态转换
  *

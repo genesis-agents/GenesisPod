@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Playground postmortem patterns —— playground 业务专属 substring patterns
  *

@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * PlaygroundBusinessOrchestrator —— Stage 1 / S1-1 拆分(2026-05-09)
  *

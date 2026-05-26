@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * grade-grounding.util.ts — playground binding shim over harness multi-axis grading framework
  *

@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * StewardAgent —— 资源 / 合规 / 边界守门员
  *

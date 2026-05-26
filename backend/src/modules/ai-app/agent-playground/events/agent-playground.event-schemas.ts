@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * AgentPlayground 事件 payload Zod schemas
  *

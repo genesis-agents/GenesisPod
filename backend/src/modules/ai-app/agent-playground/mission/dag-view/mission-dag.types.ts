@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * MissionDag types —— /api/v1/agent-playground/missions/:id/dag 的契约。
  *

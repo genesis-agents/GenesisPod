@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * PlaygroundMissionSpanService — R2-#38 OTel span emission (playground 薄壳)
  *

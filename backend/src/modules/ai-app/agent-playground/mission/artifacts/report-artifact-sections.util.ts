@@ -1,3 +1,4 @@
+// @blueprint:domain
 export interface SectionLike {
   title: string;
   startOffset: number;

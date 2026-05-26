@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * PlaygroundCrossStageState —— Stage 1 / S1-2 (2026-05-09,closes T3)
  *

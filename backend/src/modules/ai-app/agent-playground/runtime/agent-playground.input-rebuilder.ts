@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * PlaygroundMissionInputRebuilder —— C5/C6 / G7-G8（2026-05-22）：playground 对 harness
  * MissionInputRebuilder 契约的实现(纯值变换,无运行时 IO)。

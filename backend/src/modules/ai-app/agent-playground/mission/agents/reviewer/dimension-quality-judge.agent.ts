@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * DimensionQualityJudgeAgent —— 维度级 5-axis 评分（TI 同款）
  *

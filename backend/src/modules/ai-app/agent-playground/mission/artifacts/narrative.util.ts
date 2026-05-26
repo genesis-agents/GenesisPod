@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * NarrativeEmitter — playground-specific thin binding over ai-harness narrate factory
  *

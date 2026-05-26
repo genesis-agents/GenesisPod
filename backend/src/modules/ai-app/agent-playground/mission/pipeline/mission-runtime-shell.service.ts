@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass mode=delegate
 /**
  * MissionRuntimeShellService — playground 业务 adapter + thin wrapper
  *

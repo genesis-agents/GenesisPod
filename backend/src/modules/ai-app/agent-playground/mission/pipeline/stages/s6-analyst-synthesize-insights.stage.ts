@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S6 — Analyst: 跨 dim 综合分析
  *

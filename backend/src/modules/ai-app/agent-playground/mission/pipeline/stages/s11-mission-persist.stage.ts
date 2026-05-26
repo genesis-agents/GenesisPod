@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S11 — Persist (final)
  *

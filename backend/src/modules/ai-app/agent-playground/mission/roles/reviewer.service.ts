@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * ReviewerService —— 主观质量评审角色统一入口
  *

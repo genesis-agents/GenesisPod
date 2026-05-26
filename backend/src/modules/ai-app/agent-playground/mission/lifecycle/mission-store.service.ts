@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * MissionStore — agent-playground mission 持久化（委托入口）
  *

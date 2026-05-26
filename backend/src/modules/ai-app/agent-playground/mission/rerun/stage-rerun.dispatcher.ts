@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * StageRerunDispatcher — playground 业务子类(继承
  * BusinessTeamStageRerunDispatcherFramework + 老路径 legacy dispatch 保留)

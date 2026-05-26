@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * PrismaMissionCheckpointStore — playground 的 MissionCheckpointStore 实现
  *

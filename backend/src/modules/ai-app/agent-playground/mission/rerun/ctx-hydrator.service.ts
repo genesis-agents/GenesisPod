@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * CtxHydratorService —— playground 业务子类(继承 BusinessTeamCtxHydratorFramework)
  *

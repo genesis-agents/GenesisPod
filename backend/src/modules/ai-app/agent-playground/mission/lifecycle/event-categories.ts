@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Mission events 表 type 字符串前缀分类（playground 业务规则）。
  *

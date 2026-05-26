@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * WriterService —— 写作角色统一入口（多 mode 派发）
  *

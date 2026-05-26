@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S7 — Writer outline: Mission-level chapter planner
  *

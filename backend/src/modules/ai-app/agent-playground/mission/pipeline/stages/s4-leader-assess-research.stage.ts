@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S4 — Leader assesses research progress and dispatches corrective actions
  *

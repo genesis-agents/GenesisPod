@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * MissionRerunController —— playground 重跑 + Leader Chat post 端点
  *

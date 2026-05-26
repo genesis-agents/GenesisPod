@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S8 — Writer + L3 reviewer consensus + memory index + report assembly
  *

@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S1 — Budget estimate
  *

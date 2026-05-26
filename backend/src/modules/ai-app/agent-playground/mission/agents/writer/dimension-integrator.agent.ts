@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * DimensionIntegratorAgent —— 整合多个章节为完整维度报告
  *

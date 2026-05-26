@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * leader-decision-parser —— LLM 决策 JSON 解析（playground 业务 DSL 包装）
  *

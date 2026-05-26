@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S9 — Reviewer runs L4 critic (meta-review)
  *

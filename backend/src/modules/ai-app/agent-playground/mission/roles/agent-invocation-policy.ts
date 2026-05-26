@@ -1,3 +1,4 @@
+// @blueprint:domain
 import { Logger } from "@nestjs/common";
 import { FailureLearnerService } from "@/modules/ai-harness/facade";
 import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";

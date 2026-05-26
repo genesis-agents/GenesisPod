@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * AgentExecutionSupport — playground 业务专属 invoke wrapper
  *

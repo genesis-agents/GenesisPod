@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * DimensionOutlinePlannerAgent —— 维度规划为 N 个章节的 outline
  *

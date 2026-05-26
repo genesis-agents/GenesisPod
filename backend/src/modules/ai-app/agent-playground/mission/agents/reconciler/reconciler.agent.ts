@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Reconciler Agent —— Stage B' 对账节点
  *

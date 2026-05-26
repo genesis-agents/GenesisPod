@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * BaseMissionController —— 共享 ownership / store 注入 + assertOwnership helper
  *

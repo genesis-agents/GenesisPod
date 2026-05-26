@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * RerunMissionRuntimeBuilder — playground 业务子类(继承 BusinessTeamRerunRuntimeBuilderFramework)
  *

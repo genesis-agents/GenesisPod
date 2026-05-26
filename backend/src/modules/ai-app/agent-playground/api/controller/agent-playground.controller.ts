@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * AgentPlaygroundController — 后端 mission lifecycle REST 入口
  *

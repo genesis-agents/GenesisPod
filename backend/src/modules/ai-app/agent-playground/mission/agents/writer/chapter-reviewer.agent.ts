@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * ChapterReviewerAgent —— 单章节质量门控
  *

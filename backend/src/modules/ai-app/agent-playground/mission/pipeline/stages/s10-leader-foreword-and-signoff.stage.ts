@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S10 — Leader writes foreword and signs off
  *

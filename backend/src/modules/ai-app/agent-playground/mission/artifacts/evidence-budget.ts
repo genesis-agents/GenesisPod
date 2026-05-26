@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * evidence-budget.ts — playground binding shim over harness supply-budget framework
  *

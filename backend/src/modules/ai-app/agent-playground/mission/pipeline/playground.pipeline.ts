@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * PlaygroundPipelineDispatcher —— v5.1 R2-A.1 / R2-A.3 新轨入口
  *

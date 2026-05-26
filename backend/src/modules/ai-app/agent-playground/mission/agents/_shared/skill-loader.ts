@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * playground-specific shim 给 ai-engine SKILL.md loader。
  *

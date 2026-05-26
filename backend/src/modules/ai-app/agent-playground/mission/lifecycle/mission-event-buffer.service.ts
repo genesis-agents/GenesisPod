@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * MissionEventBuffer — 内存事件缓冲 + DB write-through 兜底
  *

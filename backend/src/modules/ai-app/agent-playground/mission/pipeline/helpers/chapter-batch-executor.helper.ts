@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * chapter-batch-executor.helper.ts — playground binding shim over harness framework
  *

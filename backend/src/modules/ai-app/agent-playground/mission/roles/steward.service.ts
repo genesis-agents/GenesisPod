@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * StewardService —— 资源守门统一入口
  *

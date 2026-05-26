@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Reviewer Agent —— 单 Reflexion 评审器；用作 Verify Consensus 的一员
  *

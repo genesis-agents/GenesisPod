@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 import { Injectable } from "@nestjs/common";
 import type { MissionContext } from "../context/mission-context";
 import type { MissionDeps } from "../context/mission-deps";

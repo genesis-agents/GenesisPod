@@ -1,3 +1,4 @@
+// @blueprint:domain
 import { z } from "zod";
 import {
   DEFAULT_SEARCH_TIME_RANGE,

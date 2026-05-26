@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Writer Agent —— ReActLoop + outputSchema 自愈（schema 失败自动 retry）
  *

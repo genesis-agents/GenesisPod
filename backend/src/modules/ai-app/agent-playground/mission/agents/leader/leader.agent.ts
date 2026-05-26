@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * LeaderAgent —— Mission 唯一最终负责对象（multi-phase）
  *

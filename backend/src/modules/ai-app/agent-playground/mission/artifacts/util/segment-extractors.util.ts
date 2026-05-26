@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Segment Extractors —— 把已有 stage 产物（analyst / reconciler / researcher / leader / critic）
  * 抽取为 ReportSegments 格式，让 StructuralReportAssembler 能够拼装 ReportArtifact。

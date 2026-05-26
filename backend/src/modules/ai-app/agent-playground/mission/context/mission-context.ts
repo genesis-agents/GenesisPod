@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * MissionContext —— 跨 stage 共享的可变状态包（按 phase 拆类型）
  *

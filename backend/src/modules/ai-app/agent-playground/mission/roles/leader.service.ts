@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * LeaderService —— Mission "领导"在工程层的承载体
  *

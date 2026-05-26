@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * MissionOutlinePlannerAgent —— Writer W1：写作大纲规划
  *

@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * VerifierService —— 客观事实核验统一入口
  *

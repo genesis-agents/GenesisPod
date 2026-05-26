@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Per-dimension chapter pipeline (TI-style)
  *

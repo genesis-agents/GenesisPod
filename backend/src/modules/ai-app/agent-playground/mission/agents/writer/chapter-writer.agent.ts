@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * ChapterWriterAgent —— 撰写单个章节（参照 TI SECTION_WRITING_SYSTEM_PROMPT）
  *

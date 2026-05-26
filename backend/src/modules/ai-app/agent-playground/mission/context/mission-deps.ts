@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * MissionDeps —— stage 函数所需的依赖包（按 phase 拆类型）
  *

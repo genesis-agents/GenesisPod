@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S5 — Reconciler: cross-dim 对账
  *

@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * AgentInvoker —— playground 内部的兼容门面。
  *

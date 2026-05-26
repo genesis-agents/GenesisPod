@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * MissionExportService —— mission 报告导出装配（CSV / Markdown / JSON）
  *

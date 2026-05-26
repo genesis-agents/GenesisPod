@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * leader-chat-prompt —— LeaderChat system prompt 拼装（纯函数）
  *

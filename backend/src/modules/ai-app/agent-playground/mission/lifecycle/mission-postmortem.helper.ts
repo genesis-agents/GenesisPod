@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * MissionPostmortemHelper — mission 复盘记录
  *

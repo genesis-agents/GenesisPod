@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * MissionDagService —— 把 mission 当前态组装成可视化用的 DAG 图谱。
  *

@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * LeaderInvocationFactory — 单源 LeaderRunFn 构造器
  *

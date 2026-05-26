@@ -1,3 +1,4 @@
+// @blueprint:framework-subclass
 /**
  * MissionReportHelper — 报告版本化与 trajectory 持久化
  *

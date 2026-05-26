@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S9B — 10 维客观报告评审 (沉淀消费 v3, 2026-04-29)
  *

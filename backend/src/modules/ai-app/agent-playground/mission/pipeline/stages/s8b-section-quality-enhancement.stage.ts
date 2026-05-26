@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * Stage S8B — Section Quality Enhancement (沉淀消费 v3, 2026-04-29)
  *

@@ -1,3 +1,4 @@
+// @blueprint:domain
 /**
  * VerifierAgent —— 客观事实核验员
  *
