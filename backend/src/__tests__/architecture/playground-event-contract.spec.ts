@@ -255,12 +255,12 @@ describe("Playground Event Contract — Frontend ↔ Backend", () => {
     }
   });
 
-  it("【prevention】不会再发生 stage:lifecycle 类型的单轨化漏 consumer", () => {
-    // 现在 derive.ts 已加 stage:lifecycle handler，新 stage:lifecycle 事件
-    // 必然有 frontend listener。如果有人未来再把 stage:lifecycle 改名 / 删除，
-    // 上面 3 条 spec 之一会失败。
+  it("【prevention】backend 仍 emit + 注册 stage:lifecycle（frontend listener W7 cutover 后下移）", () => {
+    // W7 cutover (2026-05-26): derive.ts 已删除；stage:lifecycle 的 frontend
+    // 处理路径下移到 backend canonical view —— 前端通过 useMissionDetailView refetch
+    // 间接消费（refresh hints driven），不再直接监听 event suffix。
+    // 仍保留 registered + emitted 断言：防止 backend 单边删除事件。
     expect(registered.has("agent-playground.stage:lifecycle")).toBe(true);
-    expect(listened.has("agent-playground.stage:lifecycle")).toBe(true);
     expect(emitted.has("agent-playground.stage:lifecycle")).toBe(true);
   });
 });
