@@ -92,27 +92,39 @@
     "prefer-const": "error",
     "no-var": "error",
 
-    // ★ B5-2 (2026-05-26 thinning plan §B5-2 / §3.4 single-track truth)
+    // ★ B5-2 (2026-05-26 thinning plan §B5-2 / §3.4 single-track truth) + B4-4a 升级
     //
-    // 禁止在 production 路径（不含 __tests__）import agent-playground derive truth
-    // 函数。canonical truth 只能来自 useMissionDetailView / canonical view endpoint。
+    // 精细化策略：禁止 truth-function 命名导入，但 type-only 导入仍允许
+    // （type 没有 runtime 行为；component 仅引用 DerivedView/MissionState 等 type
+    // 时不构成 truth derivation）。等 B4-4 component prop cutover 完成后再把这条
+    // 规则升级为"完全禁止任何 import"。
     //
-    // 允许 import 的 *raw event 解析* 部分（如 MissionState / AgentLiveState 类型）需要
-    // 在 B5-1 follow-up PR 中拆出独立模块；当前 first cut 只阻止 truth-bearing 函数
-    // （deriveView / deriveTodoLedger / synthesizeArtifactFromV1 / ensureRenderableArtifact /
-    // deriveDrawer 等）。
-    "no-restricted-imports": [
+    // 使用 @typescript-eslint/no-restricted-imports 因为它支持 allowTypeImports。
+    "no-restricted-imports": "off",
+    "@typescript-eslint/no-restricted-imports": [
       "error",
       {
         "patterns": [
           {
-            "group": [
-              "*/agent-playground/derive",
-              "*/agent-playground/todo-ledger",
-              "*/agent-playground/synthesize-artifact",
-              "*/agent-playground/drawer-derive"
+            "group": ["*/agent-playground/derive"],
+            "importNames": ["deriveView"],
+            "message": "禁止 import deriveView。canonical mission truth 走 useMissionDetailView / GET /missions/:id/view（thinning plan §B5-2 / §3.4）。type-only 导入允许；aggregateStageStatus / mapStepIdToStageId 等 pure helper 不携带 truth，亦允许。",
+            "allowTypeImports": true
+          },
+          {
+            "group": ["*/agent-playground/todo-ledger"],
+            "importNames": ["deriveTodoLedger"],
+            "message": "禁止 import deriveTodoLedger。canonical todo truth 走 missionView.todoBoard.items（plan §B5-2 / §3.4 / §6.6.3）。deriveLayerBreadcrumb 等 UI-only helper 仍允许（plan §6.6.3 second list）。",
+            "allowTypeImports": true
+          },
+          {
+            "group": ["*/agent-playground/synthesize-artifact"],
+            "importNames": [
+              "synthesizeArtifactFromV1",
+              "ensureRenderableArtifact"
             ],
-            "message": "禁止 import agent-playground derive truth 函数。canonical truth 走 useMissionDetailView / GET /missions/:id/view（thinning plan §B5-2 / §3.4）。raw event 解析路径将在 B5-1 拆模块后允许 import。"
+            "message": "禁止 import synthesize-artifact 的 v1->v2 normalize / ensure 函数。canonical artifact 走 missionView.reportArtifact（plan §B5-2 / §6.6 / §6.6.2 — backend ArtifactComposer 已 normalize）。",
+            "allowTypeImports": true
           }
         ]
       }
@@ -177,30 +189,19 @@
         "@typescript-eslint/no-unsafe-member-access": "off",
         "@typescript-eslint/no-unsafe-call": "off",
         "@typescript-eslint/no-unnecessary-type-assertion": "off",
-        "no-restricted-imports": "off"
+        "@typescript-eslint/no-restricted-imports": "off"
       }
     },
     {
-      "comment": "B5-2: derive truth 模块自己内部可以 self-import；外部 production 禁止。",
       "files": [
         "lib/features/agent-playground/derive.ts",
         "lib/features/agent-playground/todo-ledger.ts",
         "lib/features/agent-playground/synthesize-artifact.ts",
-        "lib/features/agent-playground/drawer-derive.ts"
+        "lib/features/agent-playground/drawer-derive.ts",
+        "lib/features/agent-playground/view-to-derived.shim.ts"
       ],
       "rules": {
-        "no-restricted-imports": "off"
-      }
-    },
-    {
-      "comment": "B5 过渡期：page.tsx 和 currently-coupled components 还未 cutover；B4-3/B4-4 完成前豁免，cutover PR 必须同时把对应路径从此豁免名单移除。",
-      "files": [
-        "app/agent-playground/team/[missionId]/page.tsx",
-        "components/agent-playground/**/*.tsx",
-        "lib/features/agent-playground/__tests__/**"
-      ],
-      "rules": {
-        "no-restricted-imports": "warn"
+        "@typescript-eslint/no-restricted-imports": "off"
       }
     }
   ]

@@ -1316,7 +1316,11 @@ export default function MissionDetailPage() {
           )}
 
           {activeTab === 'collab' && (
-            <MissionFlowView view={view} events={events} />
+            <MissionFlowView
+              view={view}
+              events={events}
+              todoLedger={todoLedger}
+            />
           )}
 
           {activeTab === 'report' && (

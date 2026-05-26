@@ -40,10 +40,10 @@ import {
   StatusPill,
   ExpandableText,
 } from '@/components/agent-playground/ui';
-import {
-  deriveTodoLedger,
-  type SystemStageId,
-  type MissionTodo,
+// ★ B4-4b cutover：deriveTodoLedger 不再调用，仅保留类型导入。
+import type {
+  SystemStageId,
+  MissionTodo,
 } from '@/lib/features/agent-playground/todo-ledger';
 import type { DerivedView } from '@/lib/features/agent-playground/derive';
 import {
@@ -93,6 +93,13 @@ const STAGE_ORDER: SystemStageId[] = [
 interface Props {
   view: DerivedView;
   events: PlaygroundEvent[];
+  /**
+   * ★ B4-4b (2026-05-26 thinning plan §B4-4 / §3.4):
+   *   todoLedger 由 page.tsx 从 canonical view.todoBoard.items 投影后传入；
+   *   component 不再 self-derive。零参数变体保持向后兼容用作 graceful fallback
+   *   （仅 §B7 future caller 才走 undefined 分支）。
+   */
+  todoLedger?: MissionTodo[];
   /**
    * 2026-05-20: 跨 domain stage 定义 override。传入时用调用方的 stage 列表渲染
    *   stepper（social/ai-radar 各传自己的 12/N 步），不传则用内部 playground
@@ -305,19 +312,21 @@ function TONE_DOT(tone?: 'info' | 'success' | 'warn' | 'error'): string {
         : 'bg-blue-500';
 }
 
-export function MissionFlowView({ view, events, stepperStages }: Props) {
+export function MissionFlowView({
+  view,
+  events,
+  todoLedger: todoLedgerProp,
+  stepperStages,
+}: Props) {
   const [filterRole, setFilterRole] = useState<string | null>(null);
 
-  const todoLedger = useMemo(
-    () =>
-      deriveTodoLedger({
-        events,
-        mission: view.mission,
-        agents: view.agents,
-        verdicts: view.verdicts,
-        dimensionPipelines: view.dimensionPipelines,
-      }),
-    [events, view.mission, view.agents, view.verdicts, view.dimensionPipelines]
+  // ★ B4-4b cutover (thinning plan §B4-4 / §3.4 single-track):
+  //   优先用 caller 投影后的 canonical todoLedger（来自 view.todoBoard.items）。
+  //   若 caller 未传（B7 social/radar future caller），保留 zero-state 而非
+  //   自派生 — 避免 component 内部重新成为 truth source（§3.4 禁止）。
+  const todoLedger = useMemo<MissionTodo[]>(
+    () => todoLedgerProp ?? [],
+    [todoLedgerProp]
   );
 
   const flow = useMemo(() => {
