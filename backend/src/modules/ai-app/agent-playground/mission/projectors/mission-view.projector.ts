@@ -87,6 +87,19 @@ function buildRowLoadedView(inputs: MissionQueryInputs): PlaygroundDomainView {
   const todoBoard = projectTodoBoard(row, inputs.events);
   const reportArtifact: ReportArtifactV2 | EmptyArtifactSentinel = projectArtifact(row);
 
+  // P0-1：真实投影 references + reportVersions（取代 first-cut 的 []）
+  const references = extractReferences(reportArtifact);
+  const reportVersions: ReportVersionView[] = inputs.reportVersions.map((r) => ({
+    version: r.version,
+    versionLabel: r.versionLabel,
+    reportTitle: r.reportTitle,
+    reportSummary: r.reportSummary,
+    finalScore: r.finalScore,
+    leaderSigned: r.leaderSigned,
+    triggerType: r.triggerType,
+    generatedAt: r.generatedAt.toISOString(),
+  }));
+
   const publicStatus = resolvePublicStatus(row);
 
   return {
@@ -129,9 +142,26 @@ function buildRowLoadedView(inputs: MissionQueryInputs): PlaygroundDomainView {
     // lastCompletedStage + finalScore presence 组合的轻量 reducer。任何变更触发 +1。
     snapshotVersion: deriveSnapshotVersion(row),
     refreshHints: [], // projector 不产生 hint；hint 在 §6.7.3 stream emit 时由 dispatcher 注入
-    references: [], // B3 阶段实施
-    reportVersions: [], // B3 阶段实施（已有 GET /report-versions sibling 路由提供）
+    references,
+    reportVersions,
   };
+}
+
+/**
+ * 从 canonical reportArtifact 提取 references（plan §6.3 MissionReferenceView shape）。
+ * v2 reportArtifact 已有结构化 citations[]；空态 sentinel 时返回 []。
+ */
+function extractReferences(
+  artifact: ReportArtifactV2 | EmptyArtifactSentinel,
+): MissionReferenceView[] {
+  if ("kind" in artifact) return []; // sentinel
+  return artifact.citations.map((c) => ({
+    index: c.index,
+    title: c.title,
+    url: c.url,
+    domain: c.domain,
+    publishedAt: c.publishedAt,
+  }));
 }
 
 // ============================================================================

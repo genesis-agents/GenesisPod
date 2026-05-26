@@ -161,8 +161,8 @@ export interface MissionCostView {
 // ============================================================================
 
 /**
- * Canonical mission view base. Apps extend with their own domain view
- * (e.g. PlaygroundDomainView / SocialDomainView / RadarDomainView).
+ * Canonical mission view base. Each mission app extends with its own
+ * app-specific domain view alias of this generic interface.
  *
  * TArtifact: app-specific artifact shape (or EmptyArtifactSentinel fallback).
  * TTodoEntry: app-specific todo entry shape.

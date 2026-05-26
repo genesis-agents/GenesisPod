@@ -38,9 +38,12 @@ import {
   TodoDetailDrawer,
   VerifyConsensusPanel,
 } from '@/components/agent-playground';
-// ★ B4-3 cutover：deriveTodoLedger 不再调用；canonical todo truth 走
-//   missionView.todoBoard.items（line 698 处 inline shim）。
-import type { MissionTodo } from '@/lib/features/agent-playground/todo-ledger-shapes';
+// HOTFIX：B3-1 backend 还是 first-cut，UI 仍需 deriveTodoLedger 的完整 truth。
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import {
+  deriveTodoLedger as deriveTodoLedgerLocal,
+  type MissionTodo,
+} from '@/lib/features/agent-playground/todo-ledger';
 import { cn } from '@/lib/utils/common';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 // 注：tab 切换由 MissionDetailFrame 内部用 canonical <Tabs> 渲染；这里保留导入
@@ -801,51 +804,26 @@ export default function MissionDetailPage() {
     return () => setCitationClickCallback(null);
   }, []);
 
-  // ★ B4-3 cutover (thinning plan §B4-3 action 3 / §3.4 single-track):
-  //   todoLedger 不再从 events 派生。truth 来自 canonical view.todoBoard.items
-  //   (B3-1 first-cut)。fields 缺失部分用 default 填充直到 B3-1 follow-up 把
-  //   retry / critic / reviewer todos 完整投影到 backend。
+  // ★ HOTFIX (Screenshot_46.png 反馈)：B3-1 backend TodoBoardProjector 是 first-cut
+  //   （只 system-stage + dimension rollup，缺 retry/critic/reviewer/narrativeLog/artifacts/assignee
+  //   等 UI 需要的完整 truth），导致 UI 把 dimension todos 推到 system-stage 14 之后 + 各种
+  //   面板拿不到 narrativeLog 显示空。
   //
-  //   ⚠️ isFirstCutTruncated = true 时前端 UI 应显示提示（B4-4 follow-up）。
-  const todoLedger: MissionTodo[] = useMemo(() => {
-    const board = missionView?.todoBoard as
-      | {
-          kind?: string;
-          items?: Array<{
-            id: string;
-            parentId?: string;
-            origin: string;
-            scope: string;
-            status: string;
-            title: string;
-            systemStageId?: string;
-            dimensionRef?: string;
-            createdAt: number;
-            startedAt?: number;
-            endedAt?: number;
-          }>;
-        }
-      | undefined;
-    const items = board?.items ?? [];
-    return items.map((entry): MissionTodo => ({
-      id: entry.id,
-      parentId: entry.parentId,
-      origin: entry.origin as MissionTodo['origin'],
-      createdBy: 'system',
-      createdAt: entry.createdAt,
-      reasonText: '',
-      scope: entry.scope as MissionTodo['scope'],
-      title: entry.title,
-      assignee: { role: 'mission' },
-      status: entry.status as MissionTodo['status'],
-      startedAt: entry.startedAt,
-      endedAt: entry.endedAt,
-      artifacts: [],
-      narrativeLog: [],
-      systemStageId: entry.systemStageId as MissionTodo['systemStageId'],
-      dimensionRef: entry.dimensionRef,
-    }));
-  }, [missionView]);
+  //   恢复到 deriveTodoLedger 直到 P0-3 真正完整 port todo-ledger.ts truth 到 backend。
+  //   §3.4 单轨约束在 B3-1 完整 port 完成前**部分回退**——文档以代码为准。
+  //
+  //   eslint-disable-next-line @typescript-eslint/no-restricted-imports -- P0-3 临时
+  const todoLedger: MissionTodo[] = useMemo(
+    () =>
+      deriveTodoLedgerLocal({
+        events,
+        mission: view.mission,
+        agents: view.agents,
+        verdicts: view.verdicts,
+        dimensionPipelines: view.dimensionPipelines,
+      }),
+    [events, view.mission, view.agents, view.verdicts, view.dimensionPipelines]
+  );
   const selectedTodo: MissionTodo | undefined = useMemo(
     () => todoLedger.find((t) => t.id === selectedTaskKey),
     [todoLedger, selectedTaskKey]

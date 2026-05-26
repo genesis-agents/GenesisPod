@@ -29,6 +29,7 @@ import {
   MissionStore,
   type MissionDetail,
 } from "../lifecycle/mission-store.service";
+import type { PlaygroundReportVersionRow } from "../lifecycle/mission-report.helper";
 import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import {
   ResumeRerunPolicyService,
@@ -60,6 +61,12 @@ export interface MissionQueryInputs {
   /** §6.5 决策结果（projector 不再重复计算）。 */
   resume: ResumeDecision;
   rerunnableStages: RerunnableStageEntry[];
+  /**
+   * 报告版本列表（来自 mission-store.listReportVersions），P0-1 真实投影到
+   * view.reportVersions（取代之前 first-cut 的 []）。canonical 字段，§B3-3 actions 3
+   * "add any minimal supporting metadata such as report versions"。
+   */
+  reportVersions: readonly PlaygroundReportVersionRow[];
 }
 
 // ============================================================================
@@ -119,6 +126,18 @@ export class MissionQueryService {
     // 3. events（buffer 优先 + persisted fallback）
     const events = await this.loadEvents(row.id);
 
+    // P0-1：listReportVersions（真实投影 view.reportVersions，不再固定 []）
+    const reportVersions = await this.store
+      .listReportVersions(row.id)
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[loadInputs ${row.id}] listReportVersions failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+        return [] as PlaygroundReportVersionRow[];
+      });
+
     // 4. checkpoint availability
     const { hasConfigSnapshot, hasCheckpoint } =
       await this.policy.loadCheckpointAvailability(row);
@@ -150,6 +169,7 @@ export class MissionQueryService {
       events,
       resume,
       rerunnableStages,
+      reportVersions,
     };
   }
 
@@ -172,6 +192,7 @@ export class MissionQueryService {
         hasCheckpoint: false,
         lastCompletedStageOrdinal: null,
       }),
+      reportVersions: [],
     };
   }
 
