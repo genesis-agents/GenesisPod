@@ -298,6 +298,148 @@ export async function getMissionDetail(id: string): Promise<MissionDetail> {
   return data.mission;
 }
 
+// ============================================================================
+// B4-1: canonical mission detail view
+// ============================================================================
+//
+// thinning plan §B2-3 / §B4-1。view endpoint 是 single-track mission truth 来源；
+// 上面的 getMissionDetail 仍为 sibling 兼容路由（plan §6.9 disposition table），
+// 不重新定义 view 已暴露字段（plan §3.1 scope clarification）。
+//
+// 注意：响应 envelope 形状是 { view }（与 { mission } 区分以避免 sibling-route 字段冲突）。
+
+/**
+ * MissionDetailView —— mirror backend canonical PlaygroundDomainView 形状（轻量化镜像）。
+ *
+ * 此处显式 mirror 而非从 backend types 反向 import：mirror 是 thinning 方向，
+ * 后端是 canonical source；前端独立的 type 在 B4-3/B4-4 完成后才可视作 type-level
+ * 单一源（届时 derive.ts 中的 type 别名应改为 import 自此模块或 backend contract）。
+ *
+ * §6.7 RefreshHint shape 必须与 backend contract 严格一致。
+ */
+export type MissionViewStatus =
+  | 'starting'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'quality-failed';
+export type ViewStageStatus =
+  | 'pending'
+  | 'running'
+  | 'done'
+  | 'failed'
+  | 'skipped';
+export type ViewAgentPhase = 'pending' | 'running' | 'completed' | 'failed';
+export type ViewRefreshFamily =
+  | 'mission'
+  | 'stages'
+  | 'agents'
+  | 'artifact'
+  | 'todo'
+  | 'cost'
+  | 'memory';
+export interface ViewRefreshHint {
+  family: ViewRefreshFamily;
+  mode: 'refetch' | 'patch';
+  id?: string;
+}
+
+export interface MissionDetailView {
+  mission: {
+    id: string;
+    title?: string;
+    topic?: string;
+    depth?: string;
+    language?: string;
+    maxCredits?: number;
+    wallTimeMs?: number;
+    themeSummary?: string;
+    dimensions?: { id: string; name: string; rationale?: string }[];
+    leaderJournal?: unknown;
+    leaderOverallScore?: number | null;
+    leaderSigned?: boolean | null;
+    leaderVerdict?: string | null;
+    terminalOutcome?: string | null;
+    failureCode?: string | null;
+    reportArtifactVersion?: number | null;
+    status: MissionViewStatus;
+    startedAt?: string;
+    finishedAt?: string;
+    finalScore?: number;
+    failureMessage?: string;
+    resumable: boolean;
+    canCancel: boolean;
+    rerunnableStages: { id: string; allowed: boolean; reason?: string }[];
+  };
+  stages: {
+    id: string;
+    label: string;
+    status: ViewStageStatus;
+    startedAt?: string;
+    endedAt?: string;
+    detail?: string;
+    attempts?: number;
+  }[];
+  agents: {
+    id: string;
+    role: string;
+    phase: ViewAgentPhase;
+    modelId?: string;
+    retryCount?: number;
+    failureMessage?: string;
+  }[];
+  /** ReportArtifactV2 形状 | EmptyArtifactSentinel；前端 type guard 用 'kind' 字段。 */
+  reportArtifact?: unknown;
+  /** TodoBoardSentinel；前端识别 kind 决定渲染。 */
+  todoBoard?: unknown;
+  cost?: {
+    tokensUsed?: string | null;
+    costUsd?: number | null;
+    elapsedWallTimeMs?: number | null;
+    trajectoryStored?: number | null;
+    currency: 'USD';
+  };
+  memory?: { kind: 'empty-memory' | 'memory'; payload?: unknown };
+  timelineVersion: number;
+  snapshotVersion: number;
+  refreshHints?: ViewRefreshHint[];
+  references: unknown[];
+  reportVersions: {
+    version: number;
+    versionLabel: string | null;
+    reportTitle: string | null;
+    reportSummary: string | null;
+    finalScore: number | null;
+    leaderSigned: boolean | null;
+    triggerType: string;
+    generatedAt: string;
+  }[];
+}
+
+/**
+ * GET /missions/:id/view — canonical detail view。thinning plan §B2-3 / §B4-1。
+ */
+export async function getMissionDetailView(
+  id: string,
+  opts?: { signal?: AbortSignal }
+): Promise<MissionDetailView> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(id)}/view`,
+    {
+      headers: { ...getAuthHeader() },
+      signal: opts?.signal,
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to fetch mission view: ${res.status}`);
+  }
+  const raw = await res.json();
+  const data = unwrapStandard<{ view?: MissionDetailView }>(raw);
+  if (!data.view) throw new Error('Mission view not found');
+  return data.view;
+}
+
 export type LeaderDecisionType =
   | 'DIRECT_ANSWER'
   | 'CREATE_TODO'
