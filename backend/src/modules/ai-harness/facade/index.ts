@@ -508,6 +508,31 @@ export type { IBusinessRerunGuard } from "../teams/business-team/abstractions/re
 //   出现时再抽。当前阶段 NestJS DI 完成装配，业务模块只需实现本规约的 4 个字段。
 export type { BusinessAgentTeamSpec } from "../teams/business-team/abstractions/business-team-spec.interface";
 
+// ★ B6 / B7 (2026-05-26 thinning plan §5.1 / §6.2 / §16.4):
+//   Canonical mission view base — 三 app（playground/social/radar）共享的 read-model
+//   契约。每个 app 在 api/contracts/view-state.contract.ts 内 extend 这些类型。
+//   abstractions/ 是 §22.2 批准的 harness 子目录，无需扩展 layout 白名单。
+export {
+  TERMINAL_MISSION_STATUSES,
+  isMissionTerminal,
+} from "../teams/business-team/abstractions/mission-view-base.contract";
+export type {
+  MissionStatus as MissionViewStatus,
+  StageStatus as MissionViewStageStatus,
+  AgentPhase as MissionViewAgentPhase,
+  RefreshHintFamily,
+  RefreshHint,
+  RerunnableStageEntry,
+  MissionViewBaseMission,
+  MissionViewBaseStage,
+  MissionViewBaseAgent,
+  EmptyArtifactSentinel,
+  TodoBoardSentinel,
+  MissionMemorySentinel,
+  MissionCostView,
+  MissionViewBase,
+} from "../teams/business-team/abstractions/mission-view-base.contract";
+
 // ── lifecycle ────────────────────────────────────────────────────────────
 // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
 export { MissionRuntimeShellFramework } from "../teams/business-team/lifecycle/mission-runtime-shell.framework";
