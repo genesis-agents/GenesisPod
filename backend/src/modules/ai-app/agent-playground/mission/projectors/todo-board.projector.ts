@@ -702,6 +702,511 @@ export function projectTodoBoard(
       continue;
     }
 
+    // ── leader:goals-set → s2 artifact + narrative ─────────────────
+    if (suffix === "leader:goals-set") {
+      const goals = (payload?.goals as
+        | { successCriteria?: unknown[]; qualityBar?: { minCoverage?: number } }
+        | undefined);
+      const successCriteria = (goals?.successCriteria ?? []).map((item) =>
+        typeof item === "string" ? item : JSON.stringify(item),
+      );
+      const minCoverage = goals?.qualityBar?.minCoverage;
+      const rawRisks = getArray<unknown>(payload, "initialRisks") ?? [];
+      const initialRisks = rawRisks.map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") {
+          const o = item as { type?: string; severity?: string; mitigation?: string };
+          return `${o.type ?? "风险"}${o.severity ? `[${o.severity}]` : ""}${o.mitigation ? `: ${o.mitigation}` : ""}`;
+        }
+        return String(item);
+      });
+      const s2Id = "system:s2-leader-plan";
+      const s2 = state.todos.get(s2Id);
+      if (s2) {
+        if (successCriteria.length > 0) {
+          s2.artifacts.push({
+            kind: "finding-count",
+            label: "成功标准",
+            value: `${successCriteria.length} 条`,
+          });
+          addNarrative(
+            state,
+            s2Id,
+            ts,
+            `Leader 声明成功标准：${successCriteria.slice(0, 3).map(s => s.length > 50 ? s.slice(0, 50) + "…" : s).join(" / ")}${successCriteria.length > 3 ? "…" : ""}`,
+          );
+        }
+        if (minCoverage != null) {
+          s2.artifacts.push({
+            kind: "verdict-score",
+            label: "质量阈值",
+            value: `≥ ${minCoverage}`,
+          });
+        }
+        if (initialRisks.length > 0) {
+          addNarrative(
+            state,
+            s2Id,
+            ts,
+            `Leader 初步风险：${initialRisks.slice(0, 2).map(s => s.length > 80 ? s.slice(0, 80) + "…" : s).join(" / ")}${initialRisks.length > 2 ? "…" : ""}`,
+            "warn",
+          );
+        }
+      }
+      continue;
+    }
+
+    // ── leader:decision (assess-research / assess-research-dispatched) → s4 ──
+    if (suffix === "leader:decision") {
+      const phase = getString(payload, "phase");
+      const s4Id = "system:s4-leader-assess";
+      if (phase === "assess-research-dispatched") {
+        const stats = (payload?.stats as Record<string, number> | undefined) ?? {};
+        const decisionMsg = `重派 ${stats.retried ?? 0} / 中止 ${stats.aborted ?? 0} / 追加 ${stats.appended ?? 0} / 跳过 ${stats.skipped ?? 0}`;
+        upsert(
+          state,
+          s4Id,
+          () => {
+            const preset = SYSTEM_STAGE_PRESETS.find((p) => p.id === "s4-leader-assess")!;
+            const t = makeSystemStageTodo(preset, ts);
+            t.agentRefId = "leader";
+            return t;
+          },
+          (t) => {
+            t.status = "done";
+            t.endedAt = ts;
+            t.agentRefId ??= "leader";
+            t.artifacts.push({
+              kind: "finding-count",
+              label: "维度调度",
+              value: decisionMsg,
+            });
+          },
+        );
+        addNarrative(state, s4Id, ts, `调度完成 · ${decisionMsg}`, "success");
+      } else if (phase === "assess-research") {
+        const decision = getString(payload, "decision");
+        const rationale = getString(payload, "rationale");
+        upsert(
+          state,
+          s4Id,
+          () => {
+            const preset = SYSTEM_STAGE_PRESETS.find((p) => p.id === "s4-leader-assess")!;
+            const t = makeSystemStageTodo(preset, ts);
+            t.agentRefId = "leader";
+            return t;
+          },
+          (t) => {
+            if (t.status === "pending") t.status = "in_progress";
+            t.startedAt ??= ts;
+            t.agentRefId ??= "leader";
+          },
+        );
+        if (decision) {
+          addNarrative(state, s4Id, ts, `Leader 评审决策：${decision}`);
+        }
+        if (rationale && rationale.trim().length > 0) {
+          addNarrative(
+            state,
+            s4Id,
+            ts,
+            `理由：${rationale.slice(0, 400)}${rationale.length > 400 ? "…" : ""}`,
+          );
+        }
+      }
+      continue;
+    }
+
+    // ── leader:foreword → s10 in_progress + foreword artifact ──────
+    if (suffix === "leader:foreword") {
+      const s10Id = "system:s10-leader-signoff";
+      upsert(
+        state,
+        s10Id,
+        () => makeSystemStageTodo(
+          SYSTEM_STAGE_PRESETS.find((p) => p.id === "s10-leader-signoff")!,
+          ts,
+        ),
+        (t) => {
+          if (t.status === "pending") t.status = "in_progress";
+          t.startedAt ??= ts;
+          t.artifacts.push({ kind: "foreword", label: "前言已写" });
+        },
+      );
+      continue;
+    }
+
+    // ── leader:signed → s10 done/failed + score / verdict / refusalReason ──
+    if (suffix === "leader:signed") {
+      const score = getNumber(payload, "leaderOverallScore");
+      const verdict = getString(payload, "leaderVerdict");
+      const signed = payload?.signed as boolean | undefined;
+      const refusalReason = getString(payload, "refusalReason");
+      const accountabilityNote = getString(payload, "accountabilityNote");
+      const s10Id = "system:s10-leader-signoff";
+      upsert(
+        state,
+        s10Id,
+        () => makeSystemStageTodo(
+          SYSTEM_STAGE_PRESETS.find((p) => p.id === "s10-leader-signoff")!,
+          ts,
+        ),
+        (t) => {
+          t.status = signed === false ? "failed" : "done";
+          t.endedAt = ts;
+          if (score != null) {
+            t.artifacts.push({
+              kind: "verdict-score",
+              label: "Leader 总评",
+              value: `${score}/100`,
+            });
+          }
+          if (verdict) {
+            t.artifacts.push({
+              kind: "finding-count",
+              label: "Verdict",
+              value: verdict,
+            });
+          }
+          if (signed === false && refusalReason) {
+            t.artifacts.push({
+              kind: "finding-count",
+              label: "拒签原因",
+              value: refusalReason,
+            });
+          }
+        },
+      );
+      if (signed === false && accountabilityNote) {
+        addNarrative(
+          state,
+          s10Id,
+          ts,
+          `Leader 拒签说明：${accountabilityNote.slice(0, 500)}${accountabilityNote.length > 500 ? "…" : ""}`,
+          "error",
+        );
+      }
+      continue;
+    }
+
+    // ── dimension:retry-failed → 找最近 leader-assess-* retry child todo 标 failed ──
+    if (suffix === "dimension:retry-failed") {
+      const dim = getString(payload, "dimension");
+      const error = getString(payload, "error");
+      if (dim) {
+        // 倒序找最近的 in_progress retry child todo
+        for (let i = state.order.length - 1; i >= 0; i--) {
+          const t = state.todos.get(state.order[i])!;
+          if (
+            t.scope === "dimension" &&
+            t.dimensionRef === dim &&
+            (t.origin === "leader-assess-retry" ||
+              t.origin === "leader-assess-replace" ||
+              t.origin === "leader-assess-extend") &&
+            t.status === "in_progress"
+          ) {
+            t.status = "failed";
+            t.endedAt = ts;
+            t.narrativeLog.push({
+              ts,
+              text: `Leader 重派失败：${error ?? "无具体错误"}（本维度沿用首轮 findings）`,
+              tone: "error",
+            });
+            break;
+          }
+        }
+      }
+      continue;
+    }
+
+    // ── mission:degraded → s4 warn narrative ───────────────────────
+    if (suffix === "mission:degraded") {
+      const reason = getString(payload, "reason") ?? "unknown";
+      const failedCount = getNumber(payload, "failedCount") ?? 0;
+      addNarrative(
+        state,
+        "system:s4-leader-assess",
+        ts,
+        `Mission 标记 degraded：${reason} (${failedCount} 项失败)`,
+        "warn",
+      );
+      continue;
+    }
+
+    // ── dimension:graded → dim todo done + 5-axis grade artifact ───
+    if (suffix === "dimension:graded") {
+      const dim = getString(payload, "dimension");
+      const grade = getNumber(payload, "overallScore");
+      if (dim) {
+        const dimId = `dim:${dim}`;
+        upsert(state, dimId, () => ({
+          id: dimId,
+          origin: "leader-plan",
+          createdBy: "leader",
+          createdAt: ts,
+          reasonText: "Leader 派遣维度研究",
+          scope: "dimension",
+          title: dim,
+          assignee: { role: "researcher", dimensionName: dim },
+          status: "done",
+          endedAt: ts,
+          artifacts: [],
+          narrativeLog: [],
+          dimensionRef: dim,
+        }), (t) => {
+          if (t.status !== "cancelled" && t.status !== "failed") {
+            t.status = "done";
+            t.endedAt = ts;
+          }
+          if (grade != null) {
+            t.artifacts.push({
+              kind: "verdict-score",
+              label: "维度评分",
+              value: `${grade}/100`,
+            });
+          }
+        });
+        if (grade != null) {
+          addNarrative(state, dimId, ts, `维度评分：${grade}/100`, grade >= 70 ? "success" : "warn");
+        }
+      }
+      continue;
+    }
+
+    // ── verifier:verdict → s8/s9 score artifact ────────────────────
+    if (suffix === "verifier:verdict") {
+      const verifierId = getString(payload, "verifierId");
+      const score = getNumber(payload, "score");
+      if (verifierId && score != null) {
+        const targetStage = verifierId.startsWith("critic")
+          ? "system:s9-critic-l4"
+          : "system:s8-writer-draft";
+        upsert(
+          state,
+          targetStage,
+          () => makeSystemStageTodo(
+            SYSTEM_STAGE_PRESETS.find((p) =>
+              `system:${p.id}` === targetStage,
+            )!,
+            ts,
+          ),
+          (t) => {
+            t.artifacts.push({
+              kind: "verdict-score",
+              label: `${verifierId}`,
+              value: `${score}/100`,
+            });
+          },
+        );
+      }
+      continue;
+    }
+
+    // ── mission:warning → s4 warn narrative （liveness guard 提示） ──
+    if (suffix === "mission:warning") {
+      const message = getString(payload, "message") ?? "Mission 长时间无心跳 / 事件";
+      addNarrative(state, "system:s11-persist", ts, message, "warn");
+      continue;
+    }
+
+    // ── mission:reopened → 重新置 in_progress 状态（reopen 语义）────
+    if (suffix === "mission:reopened") {
+      // mission 重新启动；不直接修 mission row（row.status 已 running），
+      // 但可以重置 s11/s12 状态以便 stage stepper 正确显示 reopened 后的步进
+      const s11 = state.todos.get("system:s11-persist");
+      if (s11 && s11.status === "done") {
+        s11.status = "in_progress";
+        s11.endedAt = undefined;
+      }
+      addNarrative(state, "system:s11-persist", ts, "mission reopened，重新进入持续路径", "info");
+      continue;
+    }
+
+    // ── chapter:writing:failed → chapter todo failed ───────────────
+    if (suffix === "chapter:writing:failed") {
+      const dim = getString(payload, "dimension");
+      const heading = getString(payload, "heading") ?? getString(payload, "chapterTitle");
+      const idx = getNumber(payload, "index");
+      const error = getString(payload, "error") ?? getString(payload, "message");
+      if (dim && heading) {
+        const id = `chapter:${dim}:${idx ?? heading}`;
+        upsert(state, id, () => ({
+          id,
+          parentId: `dim:${dim}`,
+          origin: "chapter-pipeline",
+          createdBy: "system",
+          createdAt: ts,
+          reasonText: "章节撰写失败",
+          scope: "chapter",
+          title: `${dim} · 章节${idx != null ? ` ${idx}` : ""}：${heading}`,
+          assignee: { role: "writer", dimensionName: dim },
+          status: "failed",
+          endedAt: ts,
+          artifacts: [],
+          narrativeLog: [],
+          dimensionRef: dim,
+        }), (t) => {
+          t.status = "failed";
+          t.endedAt = ts;
+        });
+        if (error) addNarrative(state, id, ts, `章节失败：${error.slice(0, 200)}`, "error");
+      }
+      continue;
+    }
+
+    // ── chapter:review:started / completed → reviewer-revise inner state ──
+    if (suffix === "chapter:review:started" || suffix === "chapter:review:completed") {
+      const dim = getString(payload, "dimension");
+      const heading = getString(payload, "heading") ?? getString(payload, "chapterTitle");
+      const idx = getNumber(payload, "index");
+      const passed = payload?.passed as boolean | undefined;
+      const score = getNumber(payload, "score");
+      if (dim && heading) {
+        const id = `chapter:${dim}:${idx ?? heading}`;
+        upsert(state, id, () => ({
+          id,
+          parentId: `dim:${dim}`,
+          origin: "chapter-pipeline",
+          createdBy: "system",
+          createdAt: ts,
+          reasonText: "章节复审",
+          scope: "chapter",
+          title: `${dim} · 章节${idx != null ? ` ${idx}` : ""}：${heading}`,
+          assignee: { role: "reviewer", dimensionName: dim },
+          status: "in_progress",
+          startedAt: ts,
+          artifacts: [],
+          narrativeLog: [],
+          dimensionRef: dim,
+        }), (t) => {
+          if (suffix === "chapter:review:started") {
+            t.assignee = { role: "reviewer", dimensionName: dim };
+            addNarrative(state, id, ts, "Reviewer 开始审稿");
+          } else {
+            // chapter:review:completed
+            if (score != null) {
+              t.artifacts.push({
+                kind: "verdict-score",
+                label: "Review",
+                value: `${score}/100`,
+              });
+            }
+            addNarrative(
+              state,
+              id,
+              ts,
+              passed === false ? "审稿不通过，触发重写" : "审稿通过",
+              passed === false ? "warn" : "success",
+            );
+          }
+        });
+      }
+      continue;
+    }
+
+    // ── researcher:completed → 收尾首轮 dim todo + retryLabel 分支处理 retry child ──
+    if (suffix === "researcher:completed") {
+      const dim = getString(payload, "dimension");
+      const cnt = getNumber(payload, "findingsCount") ?? 0;
+      const stateVal = getString(payload, "state");
+      const summary = getString(payload, "summary");
+      const retryLabel = getString(payload, "retryLabel");
+      if (!dim) continue;
+      if (retryLabel) {
+        // retry child 收尾：找最近的 leader-assess-* in_progress todo
+        for (let i = state.order.length - 1; i >= 0; i--) {
+          const t = state.todos.get(state.order[i])!;
+          if (
+            t.scope === "dimension" &&
+            t.dimensionRef === dim &&
+            (t.origin === "leader-assess-retry" ||
+              t.origin === "leader-assess-replace" ||
+              t.origin === "leader-assess-extend") &&
+            t.status === "in_progress"
+          ) {
+            t.artifacts.push({
+              kind: "finding-count",
+              label: "retry 后 finding",
+              value: cnt,
+            });
+            if (summary && summary.trim().length > 8) {
+              t.artifacts.push({
+                kind: "finding-count",
+                label: "retry summary",
+                value: summary.slice(0, 200),
+              });
+            }
+            t.narrativeLog.push({
+              ts,
+              text: `重派 researcher 完成 · ${cnt} 条新 finding`,
+              tone: "success",
+            });
+            break;
+          }
+        }
+        continue;
+      }
+      // 首轮 researcher 收尾：找 leader-plan dim todo
+      for (let i = state.order.length - 1; i >= 0; i--) {
+        const t = state.todos.get(state.order[i])!;
+        if (
+          t.scope === "dimension" &&
+          t.dimensionRef === dim &&
+          t.origin === "leader-plan"
+        ) {
+          if (stateVal === "completed") {
+            t.artifacts.push({
+              kind: "finding-count",
+              label: "采集到 finding",
+              value: cnt,
+            });
+            addNarrative(state, t.id, ts, `数据采集完成 · ${cnt} 条 finding，进入章节撰写与复审`, "success");
+            if (summary && summary.trim().length > 8) {
+              t.artifacts.push({
+                kind: "finding-count",
+                label: "采集摘要",
+                value: summary.slice(0, 200),
+              });
+            }
+          } else {
+            addNarrative(
+              state,
+              t.id,
+              ts,
+              `Researcher 收尾 · state=${stateVal ?? "unknown"}`,
+              "warn",
+            );
+          }
+          break;
+        }
+      }
+      continue;
+    }
+
+    // ── dimension:integrating:* → chapter pipeline integrator step ──
+    if (
+      suffix === "dimension:integrating:started" ||
+      suffix === "dimension:integrating:completed" ||
+      suffix === "dimension:integrating:failed"
+    ) {
+      const dim = getString(payload, "dimension");
+      if (dim) {
+        const dimId = `dim:${dim}`;
+        addNarrative(
+          state,
+          dimId,
+          ts,
+          suffix === "dimension:integrating:started"
+            ? "章节 integrator 启动"
+            : suffix === "dimension:integrating:completed"
+              ? "章节 integrator 完成"
+              : "章节 integrator 失败（按降级路径继续）",
+          suffix === "dimension:integrating:failed" ? "warn" : "info",
+        );
+      }
+      continue;
+    }
+
     // ── reset 不支持的 event；剩余 case 留 follow-up ───────────────
   }
 
