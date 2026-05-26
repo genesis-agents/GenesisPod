@@ -150,6 +150,9 @@ const ENDPOINT_BASELINE: ReadonlyArray<EndpointSpec> = [
   ["GET", "budget-tiers"],
   ["GET", "missions"],
   ["GET", "missions/:id"],
+  // ★ B2-3 (2026-05-26 thinning plan): canonical mission detail view
+  //   sibling-route of /missions/:id per §6.9 disposition table.
+  ["GET", "missions/:id/view"],
   ["GET", "missions/:id/export"],
   ["GET", "missions/:id/leader-chat"],
   ["GET", "missions/:id/report-versions"],
