@@ -1,8 +1,8 @@
 /**
  * mission-view-base.contract.ts —— Shared canonical MissionView base（B6 / B7 lift）
  *
- * Single source for cross-app mission detail view types. `agent-playground`,
- * `social`, and `radar` each extend this base with app-specific domain fields.
+ * Single source for cross-app mission detail view types. Each mission app
+ * extends this base with app-specific domain fields.
  *
  * 落地依据：thinning plan
  *   §5.1 shared framework over multiple mission stores

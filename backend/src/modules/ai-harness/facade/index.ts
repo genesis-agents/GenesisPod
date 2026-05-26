@@ -509,8 +509,8 @@ export type { IBusinessRerunGuard } from "../teams/business-team/abstractions/re
 export type { BusinessAgentTeamSpec } from "../teams/business-team/abstractions/business-team-spec.interface";
 
 // ★ B6 / B7 (2026-05-26 thinning plan §5.1 / §6.2 / §16.4):
-//   Canonical mission view base — 三 app（playground/social/radar）共享的 read-model
-//   契约。每个 app 在 api/contracts/view-state.contract.ts 内 extend 这些类型。
+//   Canonical mission view base —— 多 mission app 共享的 read-model 契约。
+//   每个 app 在自身 api/contracts/view-state.contract.ts 内 extend 这些类型。
 //   abstractions/ 是 §22.2 批准的 harness 子目录，无需扩展 layout 白名单。
 export {
   TERMINAL_MISSION_STATUSES,
