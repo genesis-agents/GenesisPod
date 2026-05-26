@@ -60,6 +60,9 @@ import { LeaderChatService } from "../mission/chat/leader-chat.service";
 import { LocalRerunService } from "../mission/rerun/local-rerun.service";
 import { CtxHydratorService } from "../mission/rerun/ctx-hydrator.service";
 import { RerunGuardService } from "../mission/rerun/rerun-guard.service";
+// ★ B2-1 / B2-1a (2026-05-26 thinning plan)：canonical view 单轨化
+import { MissionQueryService } from "../mission/query/mission-query.service";
+import { ResumeRerunPolicyService } from "../mission/rerun/resume-rerun-policy.service";
 // RerunLockRegistry 已上提到 ai-harness/facade（@Global TeamsModule provider）
 import { StageRerunDispatcher } from "../mission/rerun/stage-rerun.dispatcher";
 // ★ PR-R5b-FULL (2026-05-07): rerun runtime builder（billing/pool/leader 装配 stub）
@@ -169,6 +172,9 @@ import {
     // ── 局部重跑 ──
     LocalRerunService,
     CtxHydratorService,
+    // ── B2 canonical view 单轨（thinning plan §B2-1 / §B2-1a）──
+    ResumeRerunPolicyService,
+    MissionQueryService,
     // ★ 2026-05-07 rerun-overhaul v1.1：唯一 in-flight 判定 + zombie 主动清理
     RerunGuardService,
     // RerunLockRegistry 已上提到 ai-harness/facade（PR-3 standardize playground）
