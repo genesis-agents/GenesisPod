@@ -44,11 +44,18 @@ interface PositionedNode extends MissionDagNode {
   h: number;
 }
 
-/** 简单 layout 算法:把后端给的 nodes 按 layout hint 排进 canvas */
-function layoutGraph(
-  graph: MissionDagGraph,
-  canvasW: number
-): { nodes: PositionedNode[]; canvasH: number } {
+/**
+ * 把后端 nodes 按 layout hint 排进固定像素画布(canvasW × canvasH)。
+ * Phase 4 紧急修:
+ *   - 维度数 > 7 时 fan 自动分 2 行,避免一行 14 节点横向溢出 + 重叠。
+ *   - 节点尺寸+间距整体收紧,canvasH 更小,配合容器 scale-to-fit 不滚动。
+ */
+const CANVAS_W = 1180;
+function layoutGraph(graph: MissionDagGraph): {
+  nodes: PositionedNode[];
+  canvasH: number;
+  canvasW: number;
+} {
   const stepOrder = [
     's1-budget',
     's2-leader-plan',
@@ -64,26 +71,28 @@ function layoutGraph(
     's10-leader-foreword-signoff',
     's11-persist',
   ];
-  const macroSpineY: Record<string, number> = {};
-  const macroH = 48;
-  const macroGap = 16;
-  let cursorY = 20;
-  // 按 stepOrder 给每个 spine 节点分配 y;writer 单独 split 列(同 row)
-  for (const sid of stepOrder) {
-    if (sid === 's3-researcher-collect') {
-      // fan row 在 S3 占位
-      macroSpineY[sid] = cursorY;
-      cursorY += macroH + macroGap + 40; // 多留 40 给 fan 行
-    } else {
-      macroSpineY[sid] = cursorY;
-      cursorY += macroH + macroGap;
-    }
-  }
-  const canvasH = cursorY + 24;
+  const macroH = 40;
+  const macroGap = 10;
+  const fanH = 46;
+  const fanGap = 6;
 
-  const cx = canvasW / 2;
-  const positioned: PositionedNode[] = [];
   const dimNodes = graph.nodes.filter((n) => n.kind === 'research-dim');
+  const fanRows = dimNodes.length > 7 ? 2 : 1;
+  // fan 行总占用高 = 行数*fanH + 行间距 + 16 给 fan-in 连线缓冲
+  const fanReservedH = fanRows * fanH + (fanRows - 1) * 8 + 16;
+
+  const macroSpineY: Record<string, number> = {};
+  let cursorY = 14;
+  for (const sid of stepOrder) {
+    macroSpineY[sid] = cursorY;
+    cursorY +=
+      sid === 's3-researcher-collect'
+        ? macroH + macroGap + fanReservedH
+        : macroH + macroGap;
+  }
+  const canvasH = cursorY + 14;
+  const cx = CANVAS_W / 2;
+  const positioned: PositionedNode[] = [];
 
   for (const n of graph.nodes) {
     if (n.kind === 'research-dim') continue;
@@ -100,31 +109,36 @@ function layoutGraph(
       n.id === 's9b-objective-eval' ||
       n.id === 's8b-quality-enhancement'
     ) {
-      // 这三个 reviewer 类 stage 沿 spine,稍窄
       w = 200;
       x = cx - w / 2;
     }
     positioned.push({ ...n, x, y, w, h });
   }
-  // research-dim 节点放在 S3 spine 下方一行,横向 fan
-  const s3Y = macroSpineY['s3-researcher-collect'] ?? 200;
-  const fanY = s3Y + macroH + 14;
-  const fanCount = dimNodes.length;
-  const fanW = Math.min(
-    120,
-    Math.floor((canvasW - 60) / Math.max(fanCount, 1))
-  );
-  const fanH = 50;
-  const totalFanW = fanCount * fanW + (fanCount - 1) * 8;
-  let fx = cx - totalFanW / 2;
-  for (const n of dimNodes) {
-    positioned.push({ ...n, x: fx, y: fanY, w: fanW, h: fanH });
-    fx += fanW + 8;
-  }
-  // writer reviewer split:writer 在 s8-writer spine 左,reviewer s8b 同行右
-  // 已经处理 writer 左偏;reviewer 类节点保持 spine 中心(简化)。
 
-  return { nodes: positioned, canvasH };
+  // research-dim 节点:1 行或 2 行 fan
+  const s3Y = macroSpineY['s3-researcher-collect'] ?? 200;
+  const fanStartY = s3Y + macroH + 12;
+  const perRowCount = Math.ceil(dimNodes.length / fanRows);
+  const fanW =
+    perRowCount === 0
+      ? 0
+      : Math.max(
+          72,
+          Math.floor((CANVAS_W - 60 - (perRowCount - 1) * fanGap) / perRowCount)
+        );
+  for (let i = 0; i < dimNodes.length; i++) {
+    const row = Math.floor(i / perRowCount);
+    const col = i % perRowCount;
+    const thisRowCount =
+      row === fanRows - 1 ? dimNodes.length - row * perRowCount : perRowCount;
+    const thisRowW = thisRowCount * fanW + (thisRowCount - 1) * fanGap;
+    const rowStartX = cx - thisRowW / 2;
+    const x = rowStartX + col * (fanW + fanGap);
+    const y = fanStartY + row * (fanH + 8);
+    positioned.push({ ...dimNodes[i], x, y, w: fanW, h: fanH });
+  }
+
+  return { nodes: positioned, canvasH, canvasW: CANVAS_W };
 }
 
 function statusToCls(status: string): string {
@@ -220,11 +234,30 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
     };
   }, [missionId]);
 
-  const canvasW = 1180;
-  const { nodes, canvasH } = useMemo(() => {
-    if (!graph) return { nodes: [] as PositionedNode[], canvasH: 600 };
-    return layoutGraph(graph, canvasW);
+  const { nodes, canvasH, canvasW } = useMemo(() => {
+    if (!graph)
+      return { nodes: [] as PositionedNode[], canvasH: 600, canvasW: 1180 };
+    return layoutGraph(graph);
   }, [graph]);
+
+  // Phase 4 紧急修:scale-to-fit —— 测容器实尺寸,把固定像素画布按比例缩放装进去,
+  // overflow-hidden 彻底禁掉双向滚动。
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ w: 1180, h: 600 });
+  useEffect(() => {
+    const el = canvasContainerRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver((entries) => {
+      const r = entries[0].contentRect;
+      setContainerSize({ w: r.width, h: r.height });
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  const scale = useMemo(() => {
+    if (!canvasW || !canvasH) return 1;
+    return Math.min(containerSize.w / canvasW, containerSize.h / canvasH, 1);
+  }, [containerSize, canvasW, canvasH]);
 
   const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
@@ -376,177 +409,190 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
         </div>
       )}
 
-      {/* SVG canvas */}
+      {/* SVG canvas —— Phase 4: scale-to-fit 包裹,绝不出现滚动条 */}
       <div
-        className="relative overflow-auto rounded-xl border border-gray-200 bg-gray-50/30"
-        style={{ maxHeight: 'calc(85vh - 130px)' }}
+        ref={canvasContainerRef}
+        className="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50/30"
+        style={{ height: 'calc(85vh - 130px)' }}
       >
-        <svg
-          width={canvasW}
-          height={canvasH}
-          className="block"
-          style={{ overflow: 'visible' }}
+        <div
+          className="absolute left-0 top-0"
+          style={{
+            width: canvasW,
+            height: canvasH,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+          }}
         >
-          <defs>
-            <marker
-              id="dag-arrow"
-              markerWidth="9"
-              markerHeight="9"
-              refX="8"
-              refY="3"
-              orient="auto"
-            >
-              <path d="M0,0 L7,3 L0,6 Z" fill="#94a3b8" />
-            </marker>
-            <marker
-              id="dag-arrow-amber"
-              markerWidth="9"
-              markerHeight="9"
-              refX="8"
-              refY="3"
-              orient="auto"
-            >
-              <path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b" />
-            </marker>
-          </defs>
-          {graph.edges.map((e, i) => {
-            const a = nodeMap.get(e.from);
-            const b = nodeMap.get(e.to);
-            if (!a || !b) return null;
-            const x1 = a.x + a.w / 2;
-            const y1 = a.y + a.h;
-            const x2 = b.x + b.w / 2;
-            const y2 = b.y;
-            const isImpact =
-              !!sel &&
-              (sel.node.id === e.from || willSet?.has(e.from)) &&
-              willSet?.has(e.to);
-            const dim = !!sel && !isImpact;
-            const isLoop = e.kind === 'rewrite-loop';
-            const isSelf = e.kind === 'self-loop';
+          <svg
+            width={canvasW}
+            height={canvasH}
+            className="block"
+            style={{ overflow: 'visible' }}
+          >
+            <defs>
+              <marker
+                id="dag-arrow"
+                markerWidth="9"
+                markerHeight="9"
+                refX="8"
+                refY="3"
+                orient="auto"
+              >
+                <path d="M0,0 L7,3 L0,6 Z" fill="#94a3b8" />
+              </marker>
+              <marker
+                id="dag-arrow-amber"
+                markerWidth="9"
+                markerHeight="9"
+                refX="8"
+                refY="3"
+                orient="auto"
+              >
+                <path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b" />
+              </marker>
+            </defs>
+            {graph.edges.map((e, i) => {
+              const a = nodeMap.get(e.from);
+              const b = nodeMap.get(e.to);
+              if (!a || !b) return null;
+              const x1 = a.x + a.w / 2;
+              const y1 = a.y + a.h;
+              const x2 = b.x + b.w / 2;
+              const y2 = b.y;
+              const isImpact =
+                !!sel &&
+                (sel.node.id === e.from || willSet?.has(e.from)) &&
+                willSet?.has(e.to);
+              const dim = !!sel && !isImpact;
+              const isLoop = e.kind === 'rewrite-loop';
+              const isSelf = e.kind === 'self-loop';
+              return (
+                <path
+                  key={i}
+                  d={bezierPath(x1, y1, x2, y2, isSelf)}
+                  fill="none"
+                  stroke={isImpact ? '#f59e0b' : isLoop ? '#f59e0b' : '#94a3b8'}
+                  strokeWidth={isImpact ? 2.6 : 1.8}
+                  strokeDasharray={
+                    isLoop || isSelf ? '6 5' : isImpact ? '7 6' : undefined
+                  }
+                  opacity={dim ? 0.15 : 1}
+                  markerEnd={
+                    isImpact ? 'url(#dag-arrow-amber)' : 'url(#dag-arrow)'
+                  }
+                />
+              );
+            })}
+          </svg>
+          {/* 节点用 div 叠在 svg 上(更好做 hover/按钮) */}
+          {nodes.map((n) => {
+            const isSel = sel?.node.id === n.id;
+            const isWill = willSet?.has(n.id);
+            const isKept = !!sel && !isSel && !isWill;
+            const cls = isSel
+              ? 'border-amber-500 ring-4 ring-amber-100 shadow-md'
+              : isWill
+                ? 'border-amber-400 border-dashed bg-amber-50'
+                : statusToCls(n.status);
             return (
-              <path
-                key={i}
-                d={bezierPath(x1, y1, x2, y2, isSelf)}
-                fill="none"
-                stroke={isImpact ? '#f59e0b' : isLoop ? '#f59e0b' : '#94a3b8'}
-                strokeWidth={isImpact ? 2.6 : 1.8}
-                strokeDasharray={
-                  isLoop || isSelf ? '6 5' : isImpact ? '7 6' : undefined
-                }
-                opacity={dim ? 0.15 : 1}
-                markerEnd={
-                  isImpact ? 'url(#dag-arrow-amber)' : 'url(#dag-arrow)'
-                }
-              />
+              <div
+                key={n.id}
+                className={`group absolute rounded-xl border-2 px-2.5 py-1 transition-all ${cls} ${
+                  isKept ? 'opacity-40 grayscale' : ''
+                }`}
+                style={{ left: n.x, top: n.y, width: n.w, height: n.h }}
+                onClick={() => onAgentClick?.(n.id)}
+              >
+                {/* 左上 status dot */}
+                <span
+                  className={`absolute left-1.5 top-1.5 h-2 w-2 rounded-full ${dotCls(n.status)}`}
+                />
+                {/* 右上 iter badge(running 才显示) */}
+                {n.iter != null && (
+                  <span className="font-mono absolute right-7 top-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
+                    ↻{n.iter}
+                  </span>
+                )}
+                {/* Phase 3.2: 右下 score chip(reviewer/签收 类节点) */}
+                {n.score != null && (
+                  <span
+                    className={`font-mono absolute -bottom-2 right-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                      n.score >= 80
+                        ? 'bg-emerald-500 text-white'
+                        : n.score >= 65
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-red-500 text-white'
+                    }`}
+                  >
+                    {n.score}
+                  </span>
+                )}
+                {/* 节点 label */}
+                <div className="text-center text-[13px] font-bold leading-tight">
+                  {n.label}
+                </div>
+                {n.sub && (
+                  <div className="truncate text-center text-[10.5px] leading-tight text-gray-500">
+                    {n.sub}
+                  </div>
+                )}
+
+                {/* hover 2 按钮：↻ 重跑预览 + ○ 内部循环(P2) */}
+                <div className="pointer-events-none absolute -right-3 -top-3 z-10 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+                  <button
+                    type="button"
+                    disabled={!n.rerunable || busy}
+                    title={
+                      n.rerunable
+                        ? '预览重跑影响链路'
+                        : (n.rerunableReason ?? '不可重跑')
+                    }
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      void onRetry(n);
+                    }}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-amber-500 bg-white text-[13px] font-bold text-amber-600 shadow-md hover:scale-110 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400"
+                  >
+                    ↻
+                  </button>
+                  <button
+                    type="button"
+                    title="展开 ReAct 内部循环"
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      void onLoop(n);
+                    }}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-blue-500 bg-white text-[13px] font-bold text-blue-600 shadow-md hover:scale-110"
+                  >
+                    ○
+                  </button>
+                </div>
+              </div>
             );
           })}
-        </svg>
-        {/* 节点用 div 叠在 svg 上(更好做 hover/按钮) */}
-        {nodes.map((n) => {
-          const isSel = sel?.node.id === n.id;
-          const isWill = willSet?.has(n.id);
-          const isKept = !!sel && !isSel && !isWill;
-          const cls = isSel
-            ? 'border-amber-500 ring-4 ring-amber-100 shadow-md'
-            : isWill
-              ? 'border-amber-400 border-dashed bg-amber-50'
-              : statusToCls(n.status);
-          return (
-            <div
-              key={n.id}
-              className={`group absolute rounded-xl border-2 px-2.5 py-1 transition-all ${cls} ${
-                isKept ? 'opacity-40 grayscale' : ''
-              }`}
-              style={{ left: n.x, top: n.y, width: n.w, height: n.h }}
-              onClick={() => onAgentClick?.(n.id)}
-            >
-              {/* 左上 status dot */}
-              <span
-                className={`absolute left-1.5 top-1.5 h-2 w-2 rounded-full ${dotCls(n.status)}`}
-              />
-              {/* 右上 iter badge(running 才显示) */}
-              {n.iter != null && (
-                <span className="font-mono absolute right-7 top-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
-                  ↻{n.iter}
-                </span>
-              )}
-              {/* Phase 3.2: 右下 score chip(reviewer/签收 类节点) */}
-              {n.score != null && (
-                <span
-                  className={`font-mono absolute -bottom-2 right-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                    n.score >= 80
-                      ? 'bg-emerald-500 text-white'
-                      : n.score >= 65
-                        ? 'bg-amber-500 text-white'
-                        : 'bg-red-500 text-white'
-                  }`}
-                >
-                  {n.score}
-                </span>
-              )}
-              {/* 节点 label */}
-              <div className="text-center text-[13px] font-bold leading-tight">
-                {n.label}
-              </div>
-              {n.sub && (
-                <div className="truncate text-center text-[10.5px] leading-tight text-gray-500">
-                  {n.sub}
-                </div>
-              )}
+        </div>
 
-              {/* hover 2 按钮：↻ 重跑预览 + ○ 内部循环(P2) */}
-              <div className="pointer-events-none absolute -right-3 -top-3 z-10 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
-                <button
-                  type="button"
-                  disabled={!n.rerunable || busy}
-                  title={
-                    n.rerunable
-                      ? '预览重跑影响链路'
-                      : (n.rerunableReason ?? '不可重跑')
-                  }
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    void onRetry(n);
-                  }}
-                  className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-amber-500 bg-white text-[13px] font-bold text-amber-600 shadow-md hover:scale-110 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400"
-                >
-                  ↻
-                </button>
-                <button
-                  type="button"
-                  title="展开 ReAct 内部循环"
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    void onLoop(n);
-                  }}
-                  className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-blue-500 bg-white text-[13px] font-bold text-blue-600 shadow-md hover:scale-110"
-                >
-                  ○
-                </button>
-              </div>
-            </div>
-          );
-        })}
+        {/* Phase 2 ReAct 面板:必须放进 canvas 容器内才能 absolute 定位到模态里;
+            前一版误放到根 div 之外,导致面板飞到浏览器右上角(根没 relative)。
+            Phase 3.3 跟随 liveSignal 自动刷新。 */}
+        {reactSnap && (
+          <ReactRingPanel
+            missionId={missionId}
+            node={reactSnap.node}
+            snap={reactSnap.snap}
+            liveSignal={liveSignal}
+            onSnap={(s) =>
+              setReactSnap((prev) =>
+                prev && prev.node.id === reactSnap.node.id
+                  ? { node: prev.node, snap: s }
+                  : prev
+              )
+            }
+            onClose={closeReact}
+          />
+        )}
       </div>
-
-      {/* Phase 2: ReAct 内部循环面板(浮在右侧) · Phase 3.3 跟随 liveSignal 自动刷新 */}
-      {reactSnap && (
-        <ReactRingPanel
-          missionId={missionId}
-          node={reactSnap.node}
-          snap={reactSnap.snap}
-          liveSignal={liveSignal}
-          onSnap={(s) =>
-            setReactSnap((prev) =>
-              prev && prev.node.id === reactSnap.node.id
-                ? { node: prev.node, snap: s }
-                : prev
-            )
-          }
-          onClose={closeReact}
-        />
-      )}
     </div>
   );
 }

@@ -148,19 +148,22 @@ export class MissionDagService {
         : "idle";
     const s3Step = steps[s3Idx];
     const s3Rerunable = s3Step?.dag?.rerunable ?? true;
-    for (const dim of dims) {
+    for (let di = 0; di < dims.length; di++) {
+      const dim = dims[di];
       const dimId = `${RESEARCH_STEP_ID}::${dim.id}`;
       const dimStatus = this.deriveDimStatusFromPhase(
         perDimPhase.get(dim.name),
         s3Status,
       );
+      // Phase 4 紧急修:dim 节点 label 用 R{n} 短编号,完整 dim 名走 sub;否则 14
+      // 维度挤在一行时标签横向溢出节点框,前端 truncate 后仍会重叠。
       nodes.push({
         id: dimId,
         kind: "research-dim",
-        label: `R · ${this.shortDim(dim.name)}`,
-        sub: dim.name,
+        label: `R${di + 1}`,
+        sub: this.shortDim(dim.name),
         status: dimStatus,
-        rerunable: s3Rerunable, // 子节点继承父 stage 的 rerunable
+        rerunable: s3Rerunable,
         rerunableReason: s3Step?.dag?.rerunableReason,
         layout: "fan",
         dimensionRef: dim.name,

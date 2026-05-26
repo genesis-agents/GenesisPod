@@ -85,6 +85,36 @@ const TABS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
 // Mission brand icon — playground 沿用 Lucide ClipboardList（文档/任务感）
 const PlaygroundBrandIcon = ClipboardList;
 
+/**
+ * Phase 4.1: Mission DAG nodeId → todoLedger todo.id 的映射。
+ *   - research-dim 节点(s3-researcher-collect::dimId) → 'dim:{dimId}'
+ *   - macro stage 节点 → 'system:{frontend SystemStageId}',注意后端 stepId 与前端
+ *     SystemStageId 有几个名字不对齐(s3/s8/s9/s9b/s10),用 BACKEND_TO_FRONTEND_STEP 映射。
+ * 找不到匹配返回 null(调用方决定是否打开抽屉)。
+ */
+const BACKEND_TO_FRONTEND_STEP: Record<string, string> = {
+  's1-budget': 's1-budget',
+  's2-leader-plan': 's2-leader-plan',
+  's3-researcher-collect': 's3-researchers',
+  's4-leader-assess': 's4-leader-assess',
+  's5-reconciler': 's5-reconciler',
+  's6-analyst': 's6-analyst',
+  's7-writer-outline': 's7-writer-outline',
+  's8-writer': 's8-writer-draft',
+  's8b-quality-enhancement': 's8b-quality-enhancement',
+  's9-critic': 's9-critic-l4',
+  's9b-objective-eval': 's9b-objective-evaluation',
+  's10-leader-foreword-signoff': 's10-leader-signoff',
+  's11-persist': 's11-persist',
+};
+function dagNodeIdToTodoId(nodeId: string): string | null {
+  if (nodeId.startsWith('s3-researcher-collect::')) {
+    return `dim:${nodeId.slice('s3-researcher-collect::'.length)}`;
+  }
+  const fe = BACKEND_TO_FRONTEND_STEP[nodeId];
+  return fe ? `system:${fe}` : null;
+}
+
 export default function MissionDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -1199,15 +1229,19 @@ export default function MissionDetailPage() {
       />
 
       {/* Mission DAG modal —— 2026-05-26 重构:完整自上而下执行图(后端 /dag 驱动)
-          Phase 2:传 events.length 作 liveSignal,WS 增量事件 → 节流 1s 重拉 /dag */}
+          Phase 2:传 events.length 作 liveSignal,WS 增量事件 → 节流 1s 重拉 /dag
+          Phase 4.1:节点点击 → 映射 DAG nodeId 到 todoLedger 里的 todo id → 打开
+          已有 TodoDetailDrawer。research-dim 节点直接 dim:{id};macro stage 需要
+          后端 stepId → 前端 SystemStageId 的小映射(几个名字不一致)。 */}
       <TeamMissionModal
         open={researchTeamOpen}
         onClose={() => setResearchTeamOpen(false)}
         missionId={missionId}
         liveSignal={events.length}
-        onAgentClick={(taskKey) => {
+        onAgentClick={(nodeId) => {
+          const todoId = dagNodeIdToTodoId(nodeId);
           setResearchTeamOpen(false);
-          setSelectedTaskKey(taskKey);
+          if (todoId) setSelectedTaskKey(todoId);
         }}
       />
 
