@@ -26,6 +26,9 @@ import { AgentPlaygroundController } from "../api/controller/agent-playground.co
 // ★ 2026-05-15 PR-C god-class 拆分：原 856 行 controller 拆 3 个聚焦 controller
 import { MissionReadController } from "../api/controller/mission-read.controller";
 import { MissionRerunController } from "../api/controller/mission-rerun.controller";
+// ★ 2026-05-26 Mission DAG 可视化(后端定义、前端呈现):/dag + /dag/cascade
+import { MissionDagController } from "../mission/dag-view/mission-dag.controller";
+import { MissionDagService } from "../mission/dag-view/mission-dag.service";
 import { AgentPlaygroundGateway } from "../api/controller/agent-playground.gateway";
 import { MissionRuntimeShellService } from "../mission/pipeline/mission-runtime-shell.service";
 import { MissionStageBindingsService } from "../mission/pipeline/mission-stage-bindings.service";
@@ -130,8 +133,10 @@ import {
     AgentPlaygroundController,
     MissionReadController,
     MissionRerunController,
+    MissionDagController,
   ],
   providers: [
+    MissionDagService,
     AgentPlaygroundGateway,
     MissionRuntimeShellService,
     MissionStageBindingsService,

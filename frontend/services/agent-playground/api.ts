@@ -666,3 +666,87 @@ export async function getReportVersion(
   const raw: unknown = await res.json();
   return unwrapStandard<ReportVersionDetail>(raw);
 }
+
+// ===== Mission DAG (2026-05-26 后端定义、前端呈现) =====
+
+export type MissionDagNodeStatus =
+  | 'idle'
+  | 'running'
+  | 'done'
+  | 'failed'
+  | 'degraded'
+  | 'cancelled';
+
+export type MissionDagNodeKind =
+  | 'macro'
+  | 'research-dim'
+  | 'writer'
+  | 'reviewer'
+  | 'persist';
+
+export type MissionDagLayoutHint = 'spine' | 'fan' | 'split';
+
+export interface MissionDagNode {
+  id: string;
+  kind: MissionDagNodeKind;
+  label: string;
+  sub?: string;
+  status: MissionDagNodeStatus;
+  iter?: number;
+  rerunable: boolean;
+  rerunableReason?: string;
+  score?: number;
+  layout: MissionDagLayoutHint;
+  dimensionRef?: string;
+  parentStepId?: string;
+}
+
+export type MissionDagEdgeKind = 'flow' | 'fan' | 'rewrite-loop' | 'self-loop';
+
+export interface MissionDagEdge {
+  from: string;
+  to: string;
+  kind: MissionDagEdgeKind;
+}
+
+export interface MissionDagGraph {
+  missionId: string;
+  mission: { status: string; topic: string; finalScore: number | null };
+  nodes: MissionDagNode[];
+  edges: MissionDagEdge[];
+}
+
+export interface MissionDagCascadePreview {
+  origin: string;
+  willRerun: string[];
+  kept: string[];
+  rerunable: boolean;
+  reason?: string;
+}
+
+export async function fetchMissionDag(
+  missionId: string
+): Promise<MissionDagGraph> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/dag`,
+    {
+      headers: { ...getAuthHeader() },
+    }
+  );
+  if (!res.ok) throw new Error(`fetchMissionDag failed: ${res.status}`);
+  const raw: unknown = await res.json();
+  return unwrapStandard<MissionDagGraph>(raw);
+}
+
+export async function fetchMissionDagCascade(
+  missionId: string,
+  fromNodeId: string
+): Promise<MissionDagCascadePreview> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/dag/cascade?from=${encodeURIComponent(fromNodeId)}`,
+    { headers: { ...getAuthHeader() } }
+  );
+  if (!res.ok) throw new Error(`fetchMissionDagCascade failed: ${res.status}`);
+  const raw: unknown = await res.json();
+  return unwrapStandard<MissionDagCascadePreview>(raw);
+}

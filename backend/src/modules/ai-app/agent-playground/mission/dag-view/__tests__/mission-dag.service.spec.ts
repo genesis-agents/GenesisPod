@@ -1,0 +1,260 @@
+/**
+ * MissionDagService spec —— 验证 graph 构建 + 状态推导 + 级联预览
+ */
+
+import { NotFoundException } from "@nestjs/common";
+import { MissionDagService } from "../mission-dag.service";
+import { MissionStore } from "../../lifecycle/mission-store.service";
+import { PLAYGROUND_PIPELINE } from "../../../runtime/playground.config";
+
+type MissionLike = Awaited<ReturnType<MissionStore["getById"]>>;
+
+function makeMission(
+  overrides: Partial<NonNullable<MissionLike>> = {},
+): NonNullable<MissionLike> {
+  return {
+    id: "m-1",
+    topic: "Test mission",
+    depth: "standard",
+    language: "zh-CN",
+    status: "running",
+    startedAt: new Date(),
+    completedAt: null,
+    elapsedWallTimeMs: null,
+    finalScore: null,
+    tokensUsed: null,
+    costUsd: null,
+    reportTitle: null,
+    reportSummary: null,
+    errorMessage: null,
+    visibility: "PRIVATE" as never,
+    terminalOutcome: null,
+    failureCode: null,
+    configSnapshot: null,
+    maxCredits: 1000,
+    themeSummary: null,
+    dimensions: [],
+    reportFull: null,
+    verdicts: null,
+    trajectoryStored: null,
+    reportArtifactVersion: null,
+    userProfile: null,
+    reconciliationReport: null,
+    leaderJournal: null,
+    leaderOverallScore: null,
+    leaderSigned: null,
+    leaderVerdict: null,
+    lastCompletedStage: 0,
+    outlinePlan: null,
+    analystOutput: null,
+    heartbeatAt: null,
+    ...overrides,
+  } as NonNullable<MissionLike>;
+}
+
+function buildService(mission: NonNullable<MissionLike> | null) {
+  const store = {
+    getById: jest.fn().mockResolvedValue(mission),
+  } as unknown as MissionStore;
+  return { service: new MissionDagService(store), store };
+}
+
+const ALL_STEP_IDS = PLAYGROUND_PIPELINE.steps.map((s) => s.id);
+
+describe("MissionDagService", () => {
+  describe("buildGraph", () => {
+    it("returns 13 macro nodes (no dim children when dimensions empty)", async () => {
+      const { service } = buildService(makeMission({ dimensions: [] }));
+      const g = await service.buildGraph("m-1", "u-1");
+      const macroIds = g.nodes
+        .filter((n) => n.kind !== "research-dim")
+        .map((n) => n.id);
+      expect(macroIds).toEqual(expect.arrayContaining(ALL_STEP_IDS));
+      expect(g.nodes.filter((n) => n.kind === "research-dim")).toHaveLength(0);
+    });
+
+    it("expands S3 into per-dimension nodes when dimensions are present", async () => {
+      const dims = [
+        { id: "d1", name: "投资趋势", rationale: "" },
+        { id: "d2", name: "教育 AI", rationale: "" },
+        { id: "d3", name: "数据链", rationale: "" },
+      ];
+      const { service } = buildService(makeMission({ dimensions: dims }));
+      const g = await service.buildGraph("m-1", "u-1");
+      const dimNodes = g.nodes.filter((n) => n.kind === "research-dim");
+      expect(dimNodes).toHaveLength(3);
+      expect(dimNodes.map((n) => n.dimensionRef)).toEqual([
+        "投资趋势",
+        "教育 AI",
+        "数据链",
+      ]);
+      // dim 节点 id 用 stepId::id 格式
+      expect(dimNodes[0].id).toBe("s3-researcher-collect::d1");
+      // 应有 fan-out 边 s2 → 每个 dim
+      const fanFromS2 = g.edges.filter(
+        (e) => e.from === "s2-leader-plan" && e.kind === "fan",
+      );
+      expect(fanFromS2).toHaveLength(3);
+      // 应有 fan-in 边 每个 dim → s4
+      const fanToS4 = g.edges.filter(
+        (e) => e.to === "s4-leader-assess" && e.kind === "fan",
+      );
+      expect(fanToS4).toHaveLength(3);
+    });
+
+    it("derives macro status from lastCompletedStage cursor (running mission)", async () => {
+      // running, 已完成 0,1,2 → s1/s2/s3 done; s4 running; rest idle
+      const { service } = buildService(
+        makeMission({
+          status: "running",
+          lastCompletedStage: 3,
+          dimensions: [],
+        }),
+      );
+      const g = await service.buildGraph("m-1", "u-1");
+      const byId = new Map(g.nodes.map((n) => [n.id, n]));
+      expect(byId.get("s1-budget")?.status).toBe("done");
+      expect(byId.get("s2-leader-plan")?.status).toBe("done");
+      expect(byId.get("s3-researcher-collect")?.status).toBe("done");
+      expect(byId.get("s4-leader-assess")?.status).toBe("running");
+      expect(byId.get("s5-reconciler")?.status).toBe("idle");
+      expect(byId.get("s11-persist")?.status).toBe("idle");
+    });
+
+    it("marks last touched step as failed when mission.status=failed", async () => {
+      const { service } = buildService(
+        makeMission({ status: "failed", lastCompletedStage: 2 }),
+      );
+      const g = await service.buildGraph("m-1", "u-1");
+      const byId = new Map(g.nodes.map((n) => [n.id, n]));
+      expect(byId.get("s2-leader-plan")?.status).toBe("done");
+      expect(byId.get("s3-researcher-collect")?.status).toBe("failed");
+      expect(byId.get("s4-leader-assess")?.status).toBe("idle");
+    });
+
+    it("marks all stages done when mission.status=completed", async () => {
+      const { service } = buildService(
+        makeMission({ status: "completed", lastCompletedStage: 12 }),
+      );
+      const g = await service.buildGraph("m-1", "u-1");
+      expect(
+        g.nodes
+          .filter((n) => n.kind !== "research-dim")
+          .every((n) => n.status === "done"),
+      ).toBe(true);
+    });
+
+    it("includes rewrite-loop and self-loop edges", async () => {
+      const { service } = buildService(makeMission());
+      const g = await service.buildGraph("m-1", "u-1");
+      expect(g.edges.some((e) => e.kind === "rewrite-loop")).toBe(true);
+      expect(g.edges.some((e) => e.kind === "self-loop")).toBe(true);
+    });
+
+    it("marks s1-budget as rerunable=false (预算闸不可重跑)", async () => {
+      const { service } = buildService(makeMission());
+      const g = await service.buildGraph("m-1", "u-1");
+      const s1 = g.nodes.find((n) => n.id === "s1-budget");
+      expect(s1?.rerunable).toBe(false);
+      expect(s1?.rerunableReason).toMatch(/预算闸/);
+    });
+
+    it("throws NotFoundException when mission missing", async () => {
+      const { service } = buildService(null);
+      await expect(service.buildGraph("missing", "u-1")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe("computeCascade", () => {
+    it("returns rerunable=false with reason when origin is s1-budget", async () => {
+      const { service } = buildService(makeMission());
+      const preview = await service.computeCascade("m-1", "u-1", "s1-budget");
+      expect(preview.rerunable).toBe(false);
+      expect(preview.reason).toMatch(/预算闸/);
+      expect(preview.willRerun).toEqual([]);
+    });
+
+    it("returns downstream successors for s2-leader-plan", async () => {
+      const { service } = buildService(makeMission());
+      const preview = await service.computeCascade(
+        "m-1",
+        "u-1",
+        "s2-leader-plan",
+      );
+      expect(preview.rerunable).toBe(true);
+      // s2 successors 包括 s3..s11
+      expect(preview.willRerun).toEqual(
+        expect.arrayContaining([
+          "s3-researcher-collect",
+          "s6-analyst",
+          "s8-writer",
+          "s11-persist",
+        ]),
+      );
+    });
+
+    it("research-dim rerun cascades to shared downstream only (sibling dims preserved)", async () => {
+      // 单维度重跑 = local-rerun scope='dimension' —— 同维度兄弟保留(独立),
+      // 共享下游 S4-S11 必须重跑(消费的是整个维度集合的输出)。
+      const dims = [
+        { id: "d1", name: "投资", rationale: "" },
+        { id: "d2", name: "教育", rationale: "" },
+      ];
+      const { service } = buildService(
+        makeMission({ dimensions: dims, lastCompletedStage: 4 }),
+      );
+      const preview = await service.computeCascade(
+        "m-1",
+        "u-1",
+        "s3-researcher-collect::d1",
+      );
+      expect(preview.rerunable).toBe(true);
+      expect(preview.willRerun).not.toContain("s3-researcher-collect::d1");
+      // 兄弟维度不动
+      expect(preview.willRerun).not.toContain("s3-researcher-collect::d2");
+      // 共享下游全部重跑
+      expect(preview.willRerun).toEqual(
+        expect.arrayContaining([
+          "s4-leader-assess",
+          "s8-writer",
+          "s11-persist",
+        ]),
+      );
+    });
+
+    it("S2 rerun cascades to ALL dimension research-dim children (S3 stage 重跑 = 所有维度)", async () => {
+      // S2 cascade 包含 s3-researcher-collect macro → 应扩展成所有 research-dim 子节点
+      const dims = [
+        { id: "d1", name: "投资", rationale: "" },
+        { id: "d2", name: "教育", rationale: "" },
+      ];
+      const { service } = buildService(
+        makeMission({ dimensions: dims, lastCompletedStage: 1 }),
+      );
+      const preview = await service.computeCascade(
+        "m-1",
+        "u-1",
+        "s2-leader-plan",
+      );
+      expect(preview.rerunable).toBe(true);
+      expect(preview.willRerun).toEqual(
+        expect.arrayContaining([
+          "s3-researcher-collect::d1",
+          "s3-researcher-collect::d2",
+          "s3-researcher-collect",
+          "s4-leader-assess",
+          "s11-persist",
+        ]),
+      );
+    });
+
+    it("throws NotFoundException when node missing", async () => {
+      const { service } = buildService(makeMission());
+      await expect(
+        service.computeCascade("m-1", "u-1", "ghost-node"),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+});

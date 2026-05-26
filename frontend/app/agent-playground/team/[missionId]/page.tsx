@@ -1198,13 +1198,11 @@ export default function MissionDetailPage() {
         }}
       />
 
-      {/* Research Team micro-pipeline modal — triggered by clicking Research Team group node */}
+      {/* Mission DAG modal —— 2026-05-26 重构:完整自上而下执行图(后端 /dag 驱动) */}
       <TeamMissionModal
         open={researchTeamOpen}
         onClose={() => setResearchTeamOpen(false)}
-        dimensions={view.mission.dimensions ?? []}
-        agents={view.agents}
-        pipelines={view.dimensionPipelines}
+        missionId={missionId}
         onAgentClick={(taskKey) => {
           setResearchTeamOpen(false);
           setSelectedTaskKey(taskKey);
