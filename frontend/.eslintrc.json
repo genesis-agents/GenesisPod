@@ -92,6 +92,32 @@
     "prefer-const": "error",
     "no-var": "error",
 
+    // ★ B5-2 (2026-05-26 thinning plan §B5-2 / §3.4 single-track truth) + B4-4a 升级
+    //
+    // 精细化策略：禁止 truth-function 命名导入，但 type-only 导入仍允许
+    // （type 没有 runtime 行为；component 仅引用 DerivedView/MissionState 等 type
+    // 时不构成 truth derivation）。等 B4-4 component prop cutover 完成后再把这条
+    // 规则升级为"完全禁止任何 import"。
+    //
+    // 使用 @typescript-eslint/no-restricted-imports 因为它支持 allowTypeImports。
+    "no-restricted-imports": "off",
+    "@typescript-eslint/no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": [
+              "*/agent-playground/derive",
+              "*/agent-playground/todo-ledger",
+              "*/agent-playground/synthesize-artifact",
+              "*/agent-playground/drawer-derive"
+            ],
+            "message": "禁止直接 import 这些 truth-bearing 模块（plan §B5-2 / §3.4 / §6.6.3）。需要类型走 *-shapes.ts 代理文件（derive-shapes.ts / todo-ledger-shapes.ts）；需要 truth 走 useMissionDetailView / GET /missions/:id/view（canonical view）；需要 §6.6.3 UI-only helper (deriveLayerBreadcrumb / deriveDrawerSections / deriveStageArtifacts) 走 *-shapes.ts re-export。"
+          }
+        ]
+      }
+    ],
+
     // ★ Hydration 安全规则：禁止 locale-dependent 方法（SSR/CSR 结果不一致）
     // - toLocaleDateString/toLocaleTimeString: 使用 <ClientDate> 组件
     // - toLocaleString: 直接显示数字或使用 Intl.NumberFormat 在客户端格式化
@@ -150,7 +176,23 @@
         "@typescript-eslint/no-unsafe-assignment": "off",
         "@typescript-eslint/no-unsafe-member-access": "off",
         "@typescript-eslint/no-unsafe-call": "off",
-        "@typescript-eslint/no-unnecessary-type-assertion": "off"
+        "@typescript-eslint/no-unnecessary-type-assertion": "off",
+        "@typescript-eslint/no-restricted-imports": "off"
+      }
+    },
+    {
+      "files": [
+        "lib/features/agent-playground/derive.ts",
+        "lib/features/agent-playground/todo-ledger.ts",
+        "lib/features/agent-playground/synthesize-artifact.ts",
+        "lib/features/agent-playground/drawer-derive.ts",
+        "lib/features/agent-playground/view-to-derived.shim.ts",
+        "lib/features/agent-playground/derive-shapes.ts",
+        "lib/features/agent-playground/todo-ledger-shapes.ts",
+        "lib/features/agent-playground/drawer-derive-shapes.ts"
+      ],
+      "rules": {
+        "@typescript-eslint/no-restricted-imports": "off"
       }
     }
   ]

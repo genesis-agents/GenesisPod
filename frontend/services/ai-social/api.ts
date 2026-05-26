@@ -277,6 +277,118 @@ async function fetchWithAuth<T>(
   }
 }
 
+// ==================== B7-3: canonical mission detail view ====================
+//
+// thinning plan §B7-3 / §B2-3 sibling-route semantics。mirror playground 的
+// MissionDetailView shape — 后端 SocialDomainView 暴露相同的 base + social 字段。
+
+export type SocialViewStatus =
+  | 'starting'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'quality-failed';
+
+export type SocialViewStageStatus =
+  | 'pending'
+  | 'running'
+  | 'done'
+  | 'failed'
+  | 'skipped';
+
+export type SocialViewAgentPhase =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed';
+
+export type SocialViewRefreshFamily =
+  | 'mission'
+  | 'stages'
+  | 'agents'
+  | 'artifact'
+  | 'todo'
+  | 'cost'
+  | 'memory';
+
+export interface SocialViewRefreshHint {
+  family: SocialViewRefreshFamily;
+  mode: 'refetch' | 'patch';
+  id?: string;
+}
+
+export interface SocialMissionDetailView {
+  mission: {
+    id: string;
+    title?: string;
+    status: SocialViewStatus;
+    startedAt?: string;
+    finishedAt?: string;
+    finalScore?: number;
+    failureMessage?: string;
+    resumable: boolean;
+    canCancel: boolean;
+    rerunnableStages: { id: string; allowed: boolean; reason?: string }[];
+    contentId?: string;
+    platforms?: SocialPlatformType[];
+    connectionIds?: Record<string, string>;
+    depth?: string;
+    budgetProfile?: string;
+    language?: string;
+    maxCredits?: number;
+    failureCode?: string | null;
+    terminalOutcome?: string | null;
+  };
+  stages: {
+    id: string;
+    label: string;
+    status: SocialViewStageStatus;
+    startedAt?: string;
+    endedAt?: string;
+    detail?: string;
+    attempts?: number;
+  }[];
+  agents: {
+    id: string;
+    role: string;
+    phase: SocialViewAgentPhase;
+    modelId?: string;
+    retryCount?: number;
+    failureMessage?: string;
+  }[];
+  /** SocialPublishedSummary[] | EmptyArtifactSentinel — type guard via `kind` field. */
+  reportArtifact?: unknown;
+  todoBoard?: unknown;
+  cost?: {
+    tokensUsed?: string | null;
+    costUsd?: number | null;
+    elapsedWallTimeMs?: number | null;
+    trajectoryStored?: number | null;
+    currency: 'USD';
+  };
+  memory?: { kind: 'empty-memory' | 'memory'; payload?: unknown };
+  timelineVersion: number;
+  snapshotVersion: number;
+  refreshHints?: SocialViewRefreshHint[];
+}
+
+/**
+ * GET /ai-social/tasks/:id/view — canonical detail view（thinning plan §B7-1 / §B7-3）。
+ *
+ * 与 getTask sibling 兼容并存：getTask 仍返回 legacy shape；view endpoint 返回
+ * single-track truth。前端按需消费。
+ */
+export async function getSocialMissionDetailView(
+  id: string
+): Promise<SocialMissionDetailView> {
+  const wrapped = await fetchWithAuth<{ view: SocialMissionDetailView }>(
+    `/api/v1/ai-social/tasks/${encodeURIComponent(id)}/view`
+  );
+  if (!wrapped?.view) throw new Error('Social mission view not found');
+  return wrapped.view;
+}
+
 // ==================== Platform Connection API ====================
 
 /**

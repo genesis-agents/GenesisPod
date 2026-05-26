@@ -59,6 +59,131 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return unwrapStandard<T>(raw);
 }
 
+// ── B7-3: canonical mission detail view ──────────────────
+//
+// thinning plan §B7-2 / §B7-3 / §B2-3 sibling-route semantics。
+// 与 playground 的 MissionDetailView mirror，radar 后端 RadarDomainView 暴露。
+
+export type RadarViewStatus =
+  | 'starting'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'quality-failed';
+
+export type RadarViewStageStatus =
+  | 'pending'
+  | 'running'
+  | 'done'
+  | 'failed'
+  | 'skipped';
+
+export type RadarViewAgentPhase =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed';
+
+export type RadarViewRefreshFamily =
+  | 'mission'
+  | 'stages'
+  | 'agents'
+  | 'artifact'
+  | 'todo'
+  | 'cost'
+  | 'memory';
+
+export interface RadarViewRefreshHint {
+  family: RadarViewRefreshFamily;
+  mode: 'refetch' | 'patch';
+  id?: string;
+}
+
+export interface RadarRunDetailView {
+  mission: {
+    id: string;
+    title?: string;
+    status: RadarViewStatus;
+    startedAt?: string;
+    finishedAt?: string;
+    finalScore?: number;
+    failureMessage?: string;
+    resumable: boolean;
+    canCancel: boolean;
+    rerunnableStages: { id: string; allowed: boolean; reason?: string }[];
+    topicId?: string;
+    trigger?: 'MANUAL' | 'SCHEDULED' | 'BOOTSTRAP';
+    durationMs?: number | null;
+    wallTimeCapMs?: number | null;
+    maxCredits?: number;
+    failureCode?: string | null;
+    terminalOutcome?: string | null;
+    metricsSummary?: {
+      fetched?: number;
+      accepted?: number;
+      llmCost?: number;
+    };
+  };
+  stages: {
+    id: string;
+    label: string;
+    status: RadarViewStageStatus;
+    startedAt?: string;
+    endedAt?: string;
+    detail?: string;
+    attempts?: number;
+  }[];
+  agents: {
+    id: string;
+    role: string;
+    phase: RadarViewAgentPhase;
+    modelId?: string;
+    retryCount?: number;
+    failureMessage?: string;
+  }[];
+  /** RadarBriefingRef | EmptyArtifactSentinel — type guard via `kind` or `date` field. */
+  reportArtifact?: unknown;
+  todoBoard?: unknown;
+  cost?: {
+    tokensUsed?: string | null;
+    costUsd?: number | null;
+    elapsedWallTimeMs?: number | null;
+    trajectoryStored?: number | null;
+    currency: 'USD';
+  };
+  memory?: { kind: 'empty-memory' | 'memory'; payload?: unknown };
+  timelineVersion: number;
+  snapshotVersion: number;
+  refreshHints?: RadarViewRefreshHint[];
+}
+
+/**
+ * GET /radar/runs/:runId/view — canonical detail view（thinning plan §B7-2 / §B7-3）。
+ *
+ * 与 getRun sibling 兼容并存：getRun 仍返回 RadarRun row；view endpoint 返回
+ * single-track truth envelope。
+ */
+export async function getRadarRunDetailView(
+  runId: string,
+  opts?: { signal?: AbortSignal }
+): Promise<RadarRunDetailView> {
+  const res = await fetch(
+    `${API_BASE}/runs/${encodeURIComponent(runId)}/view`,
+    {
+      headers: { ...getAuthHeader() },
+      signal: opts?.signal,
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`Radar API ${res.status}: ${res.statusText}`);
+  }
+  const raw = (await res.json()) as unknown;
+  const data = unwrapStandard<{ view?: RadarRunDetailView }>(raw);
+  if (!data.view) throw new Error('Radar run view not found');
+  return data.view;
+}
+
 // ── Run 实时事件流回放（对齐 playground /replay）──────────
 
 export interface RadarStreamEvent {

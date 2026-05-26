@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { Coins, Trophy, Timer, Database } from 'lucide-react';
 import { StatCard } from '@/components/ui/cards';
-import type { DerivedView } from '@/lib/features/agent-playground/derive';
+import type { DerivedView } from '@/lib/features/agent-playground/derive-shapes';
 import {
   fmtUsd,
   fmtTokens,

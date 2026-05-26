@@ -45,6 +45,10 @@ import { RadarMissionStore } from "../../mission/lifecycle/radar-mission-store.s
 import { RadarMissionEventBuffer } from "../../mission/lifecycle/radar-mission-event-buffer.service";
 import { RadarPipelineDispatcher } from "../../mission/pipeline/radar-pipeline-dispatcher.service";
 import { DailyBriefingGeneratorService } from "../../mission/services/briefing/daily-briefing-generator.service";
+// ★ B7-2 (thinning plan §B7-2): canonical mission detail view
+import { RadarMissionQueryService } from "../../mission/query/radar-mission-query.service";
+import { projectRadarMissionView } from "../../mission/projectors/radar-mission-view.projector";
+import type { RadarMissionViewEnvelope } from "../contracts/view-state.contract";
 
 /** FU-P2-4: 设计 §4.3 — 同一日只能 rerun ≤2 次（首次精选 + 2 次手动 = 3 上限） */
 const RERUN_LIMIT_PER_DAY = 2;
@@ -63,7 +67,31 @@ export class RadarRunController {
     private readonly eventBuffer: RadarMissionEventBuffer,
     // ★ C0/G1：no-session 取消也经唯一终态写入口仲裁，不直写 store。
     private readonly lifecycleManager: MissionLifecycleManager,
+    // ★ B7-2 canonical view (thinning plan §B7-2)
+    private readonly missionQuery: RadarMissionQueryService,
   ) {}
+
+  /**
+   * GET /api/v1/radar/runs/:runId/view — canonical mission detail view
+   *
+   * thinning plan §B7-2 / §B2-3 sibling-route semantics.
+   * Mirror playground's GET /missions/:id/view. Existing /runs/:runId stays
+   * as sibling backward-compat (§6.9 disposition pattern).
+   */
+  @Get("runs/:runId/view")
+  @RateLimit({
+    maxRequests: 60,
+    windowSeconds: 60,
+    message: "查询过于频繁",
+  })
+  async getMissionView(
+    @Request() req: RequestWithUser,
+    @Param("runId", new ParseUUIDPipe({ version: "4" })) runId: string,
+  ): Promise<RadarMissionViewEnvelope> {
+    const inputs = await this.missionQuery.loadInputs(runId, req.user.id);
+    const view = projectRadarMissionView(inputs);
+    return { view };
+  }
 
   @Get("topics/:topicId/runs")
   async list(

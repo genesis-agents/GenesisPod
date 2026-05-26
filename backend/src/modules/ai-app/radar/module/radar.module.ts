@@ -65,6 +65,8 @@ import { DailyBriefingGeneratorService } from "../mission/services/briefing/dail
 
 // ── 新框架接入 ───────────────────────────────────────────────────────────
 import { RadarMissionStore } from "../mission/lifecycle/radar-mission-store.service";
+// ★ B7-2 (thinning plan §B7-2): radar canonical view
+import { RadarMissionQueryService } from "../mission/query/radar-mission-query.service";
 import { RadarMissionEventBuffer } from "../mission/lifecycle/radar-mission-event-buffer.service";
 import { RadarMissionRuntimeShell } from "../mission/pipeline/radar-mission-runtime-shell.service";
 import { RadarBusinessOrchestrator } from "../mission/pipeline/radar-business-orchestrator.service";
@@ -168,6 +170,8 @@ import { RADAR_DOMAIN_EVENTS } from "../events/radar.events";
     MissionPipelineRegistry,
     MissionPipelineOrchestrator,
     RadarMissionStore,
+    // ★ B7-2 canonical view (thinning plan §B7-2)
+    RadarMissionQueryService,
     RadarMissionEventBuffer,
     RadarMissionRuntimeShell,
     RadarBusinessOrchestrator,

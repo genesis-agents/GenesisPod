@@ -41,6 +41,12 @@ import { MissionEventBuffer } from "../../mission/lifecycle/mission-event-buffer
 import { MissionStore } from "../../mission/lifecycle/mission-store.service";
 import { LeaderChatService } from "../../mission/chat/leader-chat.service";
 import { MissionExportService } from "../../mission/export/mission-export.service";
+import { MissionQueryService } from "../../mission/query/mission-query.service";
+import { projectMissionView } from "../../mission/projectors/mission-view.projector";
+import type {
+  MissionViewEnvelope,
+  PlaygroundDomainView,
+} from "../contracts/view-state.contract";
 import { BaseMissionController } from "./base-mission.controller";
 
 @Controller("agent-playground")
@@ -66,8 +72,33 @@ export class MissionReadController extends BaseMissionController {
     private readonly exportService: MissionExportService,
     private readonly buffer: MissionEventBuffer,
     private readonly leaderChat: LeaderChatService,
+    // ★ B2-3 (2026-05-26 thinning plan)：canonical mission detail view
+    private readonly missionQuery: MissionQueryService,
   ) {
     super(ownership, store);
+  }
+
+  /**
+   * GET /api/v1/agent-playground/missions/:id/view
+   *
+   * thinning plan §B2-3 canonical detail endpoint。
+   *
+   * 与现有 GET /missions/:id 的关系：sibling-route。该路由是 canonical truth
+   * source（mission.status / stages / agents / resumable / rerunnableStages 等
+   * §6 contract 锁定字段），现有 /missions/:id 仅作为 backward-compatible 兼容入口
+   * （§6.9 disposition table 第三行），不重新定义 view 已暴露字段（§3.1 scope clarification）。
+   *
+   * Empty-state sentinels：reportArtifact / todoBoard 在 B3 才填实，B2 阶段返回
+   * stable sentinel（plan §B2-3 第 4 条）。
+   */
+  @Get("missions/:id/view")
+  async getMissionView(
+    @Param("id") id: string,
+    @Request() req: RequestWithUser,
+  ): Promise<MissionViewEnvelope> {
+    const inputs = await this.missionQuery.loadInputs(id, req.user?.id);
+    const view: PlaygroundDomainView = projectMissionView(inputs);
+    return { view };
   }
 
   /**

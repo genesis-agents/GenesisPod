@@ -12,6 +12,8 @@ import { AiSocialController } from "../api/controller/ai-social.controller";
 import { SocialDataSourceController } from "../api/controller/social-data-source.controller";
 import { SocialTaskController } from "../api/controller/social-task.controller";
 import { SocialTaskService } from "../mission/services/social-task.service";
+// ★ B7-1 (thinning plan §B7-1): social canonical view
+import { SocialMissionQueryService } from "../mission/query/social-mission-query.service";
 // P17a (2026-05-24): SocialDataSourceRegistry → engine ContentSourceRegistry
 //   (provided by @Global AiEngineModule; auto-injected, no registration needed)
 import { AiSocialService } from "../mission/services/ai-social.service";
@@ -99,6 +101,8 @@ import { PromptSkillRegistrationService } from "@/modules/ai-engine/facade";
   providers: [
     AiSocialService,
     SocialLeaderService,
+    // ★ B7-1 canonical view (thinning plan §B7-1)
+    SocialMissionQueryService,
     ContentFetcherService,
     LegacyContentTransformerService,
     ContentCheckerService,

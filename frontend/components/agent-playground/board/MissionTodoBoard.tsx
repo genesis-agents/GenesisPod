@@ -38,11 +38,11 @@ import type {
   MissionTodo,
   MissionTodoStatus,
   MissionTodoAssignee,
-} from '@/lib/features/agent-playground/todo-ledger';
+} from '@/lib/features/agent-playground/todo-ledger-shapes';
 import type {
   AgentLiveState,
   DimensionPipelineState,
-} from '@/lib/features/agent-playground/derive';
+} from '@/lib/features/agent-playground/derive-shapes';
 import { Card, StatusPill, RoleChip } from '@/components/agent-playground/ui';
 import { statusToken } from '@/lib/design/tokens';
 import { friendlyError } from '@/lib/features/agent-playground/friendly-error.util';

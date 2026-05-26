@@ -29,14 +29,14 @@ import { toast, confirm } from '@/stores';
 import type {
   MissionTodo,
   MissionTodoNarrativeItem,
-} from '@/lib/features/agent-playground/todo-ledger';
-import { deriveLayerBreadcrumb } from '@/lib/features/agent-playground/todo-ledger';
+} from '@/lib/features/agent-playground/todo-ledger-shapes';
+import { deriveLayerBreadcrumb } from '@/lib/features/agent-playground/todo-ledger-shapes';
 import type {
   AgentLiveState,
   AgentTraceItem,
   DimensionPipelineState,
-} from '@/lib/features/agent-playground/derive';
-import { deriveDrawerSections } from '@/lib/features/agent-playground/drawer-derive';
+} from '@/lib/features/agent-playground/derive-shapes';
+import { deriveDrawerSections } from '@/lib/features/agent-playground/drawer-derive-shapes';
 import { FRONTEND_STAGE_TO_STEP_ID } from '@/lib/features/agent-playground/stage-id-mapping';
 import {
   Card,
