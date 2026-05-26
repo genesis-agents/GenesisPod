@@ -36,7 +36,7 @@ import type {
   AgentTraceItem,
   DimensionPipelineState,
 } from '@/lib/features/agent-playground/derive-shapes';
-import { deriveDrawerSections } from '@/lib/features/agent-playground/drawer-derive';
+import { deriveDrawerSections } from '@/lib/features/agent-playground/drawer-derive-shapes';
 import { FRONTEND_STAGE_TO_STEP_ID } from '@/lib/features/agent-playground/stage-id-mapping';
 import {
   Card,
