@@ -20,6 +20,7 @@
 
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { MissionStore } from "../lifecycle/mission-store.service";
+import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import { PLAYGROUND_PIPELINE } from "../../runtime/playground.config";
 import type {
   MissionDagGraph,
@@ -29,6 +30,8 @@ import type {
   MissionDagCascadePreview,
   MissionDagNodeKind,
   MissionDagLayoutHint,
+  MissionDagReactSnapshot,
+  MissionDagReactCurrentStep,
 } from "./mission-dag.types";
 
 interface DimRef {
@@ -65,7 +68,10 @@ const STEP_LABELS: Record<string, { label: string; sub?: string }> = {
 
 @Injectable()
 export class MissionDagService {
-  constructor(private readonly store: MissionStore) {}
+  constructor(
+    private readonly store: MissionStore,
+    private readonly buffer: MissionEventBuffer,
+  ) {}
 
   /** 构图入口 —— ownership 校验已在 controller 完成 */
   async buildGraph(
@@ -346,5 +352,260 @@ export class MissionDagService {
 
   private shortDim(name: string): string {
     return name.length > 8 ? name.slice(0, 7) + "…" : name;
+  }
+
+  // ─── Phase 2: ReAct 内部循环快照 ────────────────────────────────────
+
+  /**
+   * 给定 DAG 节点 id,从 MissionEventBuffer 聚合 agent-* 事件,推 ReAct 快照。
+   *
+   * 节点 id → role 映射:
+   *   - s2/s4/s10            → leader
+   *   - s3-research-collect   → researcher(代表运行中或最近一个)
+   *   - s3-research-collect::dimId → researcher + dimension(由 mission.dimensions 取 name)
+   *   - s5-reconciler        → reconciler
+   *   - s6-analyst           → analyst
+   *   - s7/s8                → writer
+   *   - s8b/s9/s9b           → reviewer
+   *   - s1-budget / s11      → 没 ReAct(persist primitive),返回 note 解释
+   */
+  async buildReactSnapshot(
+    missionId: string,
+    userId: string,
+    nodeId: string,
+  ): Promise<MissionDagReactSnapshot> {
+    const mission = await this.store.getById(missionId, userId);
+    if (!mission) {
+      throw new NotFoundException(`mission ${missionId} not found`);
+    }
+    const roleHint = this.nodeIdToRoleHint(nodeId, mission.dimensions);
+    if (!roleHint) {
+      throw new NotFoundException(`node ${nodeId} unknown`);
+    }
+    if (roleHint.skip) {
+      return {
+        nodeId,
+        role: roleHint.role,
+        currentStep: "idle",
+        finalizeAttempts: 0,
+        phase: "pending",
+        note: roleHint.skipReason,
+      };
+    }
+    const events = this.buffer.read(missionId);
+    return this.aggregateReactSnapshot(
+      nodeId,
+      roleHint.role,
+      roleHint.dimension,
+      events,
+    );
+  }
+
+  /**
+   * 把 nodeId → {role, dimension?} 解出来;persist 节点(s1/s11)直接 skip。
+   */
+  private nodeIdToRoleHint(
+    nodeId: string,
+    dimensionsRaw: unknown,
+  ): {
+    role: string;
+    dimension?: string;
+    skip?: boolean;
+    skipReason?: string;
+  } | null {
+    if (nodeId.startsWith("s3-researcher-collect::")) {
+      const dimId = nodeId.slice("s3-researcher-collect::".length);
+      const dims = this.normalizeDimensions(dimensionsRaw);
+      const dim = dims.find((d) => d.id === dimId);
+      return { role: "researcher", dimension: dim?.name };
+    }
+    switch (nodeId) {
+      case "s1-budget":
+        return {
+          role: "leader",
+          skip: true,
+          skipReason: "S1 是预算闸(persist primitive),没有 ReAct 内循环",
+        };
+      case "s2-leader-plan":
+      case "s4-leader-assess":
+      case "s10-leader-foreword-signoff":
+        return { role: "leader" };
+      case "s3-researcher-collect":
+        return { role: "researcher" };
+      case "s5-reconciler":
+        return { role: "reconciler" };
+      case "s6-analyst":
+        return { role: "analyst" };
+      case "s7-writer-outline":
+      case "s8-writer":
+        return { role: "writer" };
+      case "s8b-quality-enhancement":
+      case "s9-critic":
+      case "s9b-objective-eval":
+        return { role: "reviewer" };
+      case "s11-persist":
+        return {
+          role: "leader",
+          skip: true,
+          skipReason: "S11 是持久化(persist primitive),没有 ReAct 内循环",
+        };
+    }
+    return null;
+  }
+
+  /**
+   * 把事件流聚合成一个快照 —— 找到最近活跃的 agentId,然后走该 agent 的事件
+   * 拿 lastThought / lastAction / lastObservation / iter / finalizeAttempts。
+   */
+  private aggregateReactSnapshot(
+    nodeId: string,
+    role: string,
+    dimension: string | undefined,
+    events: ReadonlyArray<{
+      type: string;
+      payload: unknown;
+      agentId?: string;
+      timestamp: number;
+    }>,
+  ): MissionDagReactSnapshot {
+    // 1) 过滤本 role/dim 相关的 agent-* / iteration:progress / stage:* 事件
+    const relevant = events.filter((e) => {
+      if (!e.type.startsWith("agent-playground.")) return false;
+      const t = e.type.slice("agent-playground.".length);
+      if (!t.startsWith("agent:") && t !== "iteration:progress") return false;
+      const p = (e.payload ?? {}) as {
+        role?: unknown;
+        dimension?: unknown;
+      };
+      if (typeof p.role === "string" && p.role !== role) return false;
+      if (
+        dimension !== undefined &&
+        typeof p.dimension === "string" &&
+        p.dimension !== dimension
+      )
+        return false;
+      return true;
+    });
+    if (relevant.length === 0) {
+      return {
+        nodeId,
+        role,
+        dimension,
+        currentStep: "idle",
+        finalizeAttempts: 0,
+        phase: "pending",
+      };
+    }
+    // 2) 找最近活跃的 agentId:优先选最后一条事件的 agentId
+    const last = relevant[relevant.length - 1];
+    const primaryAgentId =
+      last.agentId ??
+      ((last.payload as { agentId?: unknown }).agentId as string | undefined);
+
+    const byAgent = primaryAgentId
+      ? relevant.filter((e) => {
+          const id = e.agentId ?? (e.payload as { agentId?: unknown }).agentId;
+          return id === primaryAgentId;
+        })
+      : relevant;
+
+    // 3) 走该 agent 的事件聚合
+    let lastThought: string | undefined;
+    let lastAction: { kind: string; toolName?: string } | undefined;
+    let lastObservation: { kind: string } | undefined;
+    let iter: number | undefined;
+    let maxIter: number | undefined;
+    let finalizeAttempts = 0;
+    let lastError: string | undefined;
+    let phase: "pending" | "running" | "completed" | "failed" = "running";
+    let lastSuffix: string | undefined;
+
+    for (const e of byAgent) {
+      const t = e.type.slice("agent-playground.".length);
+      const p = (e.payload ?? {}) as Record<string, unknown>;
+      switch (t) {
+        case "agent:lifecycle": {
+          const ph = typeof p.phase === "string" ? p.phase : undefined;
+          if (ph === "started") phase = "running";
+          else if (ph === "completed") phase = "completed";
+          else if (ph === "failed") phase = "failed";
+          break;
+        }
+        case "agent:thought":
+          if (typeof p.text === "string") {
+            lastThought =
+              p.text.length > 240 ? p.text.slice(0, 240) + "…" : p.text;
+          }
+          break;
+        case "agent:action": {
+          const kind = typeof p.kind === "string" ? p.kind : "unknown";
+          const toolName =
+            typeof p.toolName === "string" ? p.toolName : undefined;
+          lastAction = { kind, toolName };
+          break;
+        }
+        case "agent:observation": {
+          const kind = typeof p.kind === "string" ? p.kind : "result";
+          lastObservation = { kind };
+          break;
+        }
+        case "agent:reflection":
+          finalizeAttempts++;
+          break;
+        case "agent:error":
+          if (typeof p.message === "string") {
+            lastError =
+              p.message.length > 200
+                ? p.message.slice(0, 200) + "…"
+                : p.message;
+          }
+          break;
+        case "iteration:progress": {
+          if (typeof p.iteration === "number") iter = p.iteration;
+          if (typeof p.maxIterations === "number") maxIter = p.maxIterations;
+          break;
+        }
+      }
+      lastSuffix = t;
+    }
+
+    // 4) currentStep 推断
+    let currentStep: MissionDagReactCurrentStep = "idle";
+    if (phase === "completed") currentStep = "completed";
+    else if (phase === "failed") currentStep = "failed";
+    else {
+      switch (lastSuffix) {
+        case "agent:thought":
+          currentStep = "thinking";
+          break;
+        case "agent:action":
+          currentStep = lastAction?.kind === "finalize" ? "finalizing" : "tool";
+          break;
+        case "agent:observation":
+          currentStep = "observing";
+          break;
+        case "agent:reflection":
+          currentStep = "finalizing";
+          break;
+        default:
+          currentStep = phase === "running" ? "thinking" : "idle";
+      }
+    }
+
+    return {
+      nodeId,
+      role,
+      dimension,
+      agentId: primaryAgentId,
+      currentStep,
+      iter,
+      maxIter,
+      lastThought,
+      lastAction,
+      lastObservation,
+      finalizeAttempts,
+      lastError,
+      phase,
+    };
   }
 }

@@ -4,28 +4,37 @@
  * MissionDagView —— 完整 Mission DAG 可视化(自上而下 SVG)。
  *
  * 设计原则(2026-05-26):
- *   - 后端是真源:nodes/edges/status/rerunable/cascade 全部 GET /dag 拿。
+ *   - 后端是真源:nodes/edges/status/rerunable/cascade/react 全部从 /dag 接口拿。
  *   - 前端只负责 layout(spine/fan/split 三档简单算法)+ SVG 渲染 + 交互。
- *   - 每节点 hover 出 2 个按钮:↻ 重跑级联预览 / ○ 内部循环(Phase 2 接入)。
+ *   - 每节点 hover 出 2 个按钮:↻ 重跑级联预览 / ○ 内部循环(ReAct ring)。
  *   - 点 ↻ → /dag/cascade 染色 + 顶部 bar 给"将级联 N / 保留 M",确认 → localRerunTodo。
+ *   - 点 ○ → /dag/react/:nodeId 拉 ReAct 快照,右侧浮出 ring 面板(可关闭)。
+ *   - liveSignal prop 变化 → 节流 1s 重拉 /dag(让 WS 事件触发增量刷新)。
  */
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   fetchMissionDag,
   fetchMissionDagCascade,
+  fetchMissionDagReact,
   localRerunTodo,
   type MissionDagGraph,
   type MissionDagNode,
   type MissionDagCascadePreview,
+  type MissionDagReactSnapshot,
 } from '@/services/agent-playground/api';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, X } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 
 interface Props {
   missionId: string;
   /** 点节点(非按钮区域)的回调 → 父级抽屉显示该 agent 详情 */
   onAgentClick?: (nodeId: string) => void;
+  /**
+   * 父级事件流变化的信号(可传 events.length 之类);本组件检测到变化时节流
+   * 1s 重拉 /dag,实现"WS 事件触发增量刷新"而不需要直接订阅 WS。
+   */
+  liveSignal?: number;
 }
 
 interface PositionedNode extends MissionDagNode {
@@ -172,7 +181,7 @@ function bezierPath(
   return `M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${x2},${y2}`;
 }
 
-export function MissionDagView({ missionId, onAgentClick }: Props) {
+export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
   const [graph, setGraph] = useState<MissionDagGraph | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -181,6 +190,13 @@ export function MissionDagView({ missionId, onAgentClick }: Props) {
     preview: MissionDagCascadePreview;
   } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Phase 2: ReAct ring 面板
+  const [reactSnap, setReactSnap] = useState<{
+    node: MissionDagNode;
+    snap: MissionDagReactSnapshot | null; // null = loading
+  } | null>(null);
+  // WS 触发 /dag 重拉的节流 timer
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 加载图
   useEffect(() => {
@@ -226,6 +242,40 @@ export function MissionDagView({ missionId, onAgentClick }: Props) {
   );
 
   const clearSel = useCallback(() => setSelectedFor(null), []);
+
+  // Phase 2: 点 ○ → 拉 ReAct 快照 → 弹面板
+  const onLoop = useCallback(
+    async (node: MissionDagNode) => {
+      setReactSnap({ node, snap: null });
+      try {
+        const snap = await fetchMissionDagReact(missionId, node.id);
+        setReactSnap({ node, snap });
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'react snapshot failed');
+        setReactSnap(null);
+      }
+    },
+    [missionId]
+  );
+  const closeReact = useCallback(() => setReactSnap(null), []);
+
+  // WS 增量:liveSignal 变化 → 节流 1s 重拉 /dag
+  useEffect(() => {
+    if (liveSignal === undefined || !graph) return;
+    if (refetchTimer.current) clearTimeout(refetchTimer.current);
+    refetchTimer.current = setTimeout(() => {
+      fetchMissionDag(missionId)
+        .then((g) => setGraph(g))
+        .catch(() => {
+          /* 静默失败 —— 增量刷新不打扰主流程 */
+        });
+    }, 1000);
+    return () => {
+      if (refetchTimer.current) clearTimeout(refetchTimer.current);
+    };
+    // graph 故意不进 deps:防止 setGraph 触发自激
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveSignal, missionId]);
 
   const onConfirmRerun = useCallback(async () => {
     if (!selectedFor) return;
@@ -451,9 +501,12 @@ export function MissionDagView({ missionId, onAgentClick }: Props) {
                 </button>
                 <button
                   type="button"
-                  title="展开 ReAct 内部循环（Phase 2）"
-                  disabled
-                  className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-blue-300 bg-white text-[13px] font-bold text-blue-400 shadow-md disabled:cursor-not-allowed"
+                  title="展开 ReAct 内部循环"
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    void onLoop(n);
+                  }}
+                  className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-blue-500 bg-white text-[13px] font-bold text-blue-600 shadow-md hover:scale-110"
                 >
                   ○
                 </button>
@@ -462,6 +515,194 @@ export function MissionDagView({ missionId, onAgentClick }: Props) {
           );
         })}
       </div>
+
+      {/* Phase 2: ReAct 内部循环面板(浮在右侧) */}
+      {reactSnap && (
+        <ReactRingPanel
+          node={reactSnap.node}
+          snap={reactSnap.snap}
+          onClose={closeReact}
+        />
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// ReAct ring 面板(简化版,展示 think/tool/observe 循环 + finalize)
+// ──────────────────────────────────────────────────────────────
+
+function ReactRingPanel({
+  node,
+  snap,
+  onClose,
+}: {
+  node: MissionDagNode;
+  snap: MissionDagReactSnapshot | null;
+  onClose: () => void;
+}) {
+  const cur = snap?.currentStep ?? 'idle';
+  const ringNodes = [
+    { key: 'thinking', label: '思考', x: 145, y: 28 },
+    { key: 'tool', label: '工具', x: 246, y: 168 },
+    { key: 'observing', label: '观察', x: 44, y: 168 },
+  ] as const;
+  const isCur = (k: string) =>
+    cur === k || (k === 'tool' && cur === 'finalizing'); // finalize 也显在工具点
+
+  return (
+    <div
+      className="absolute right-4 top-4 z-20 flex w-[320px] flex-col rounded-2xl border-2 border-slate-200 bg-white p-4 shadow-2xl"
+      style={{ maxHeight: 'calc(100% - 32px)' }}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-gray-900">
+            节点内部 · ReAct 循环
+          </h3>
+          <div className="mt-0.5 text-[11.5px] text-gray-500">
+            {node.label}
+            {snap?.dimension
+              ? ` · ${snap.dimension}`
+              : node.sub
+                ? ` · ${node.sub}`
+                : ''}
+          </div>
+          <div className="font-mono mt-0.5 text-[10.5px] text-gray-400">
+            {snap?.role ?? node.kind} · iter {snap?.iter ?? '—'}
+            {snap?.maxIter ? `/${snap.maxIter}` : ''}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          title="关闭"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {snap?.note && (
+        <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+          {snap.note}
+        </div>
+      )}
+
+      {!snap && (
+        <div className="mt-6 flex items-center gap-2 text-sm text-gray-500">
+          <Loader2 className="h-4 w-4 animate-spin" /> 拉取 ReAct 状态…
+        </div>
+      )}
+
+      {snap && !snap.note && (
+        <>
+          {/* 环可视化 */}
+          <div className="relative mx-auto mt-3 h-[200px] w-[290px]">
+            <svg width="290" height="200" className="overflow-visible">
+              {/* 三段曲线弧形成环 */}
+              {[
+                [ringNodes[0], ringNodes[1]],
+                [ringNodes[1], ringNodes[2]],
+                [ringNodes[2], ringNodes[0]],
+              ].map(([a, b], i) => {
+                const mx = (a.x + b.x) / 2;
+                const my = (a.y + b.y) / 2;
+                // bow 向中心外凸
+                const cx = 145;
+                const cy = 110;
+                const ox = mx + (mx - cx) * 0.3;
+                const oy = my + (my - cy) * 0.3;
+                return (
+                  <path
+                    key={i}
+                    d={`M${a.x + 32},${a.y + 16} Q${ox},${oy} ${b.x},${b.y + 8}`}
+                    fill="none"
+                    stroke="#3b82f6"
+                    strokeWidth="1.6"
+                    strokeDasharray="5 5"
+                  />
+                );
+              })}
+            </svg>
+            {ringNodes.map((rn) => {
+              const active = isCur(rn.key);
+              return (
+                <div
+                  key={rn.key}
+                  className={`absolute flex h-10 w-[78px] items-center justify-center rounded-full border-2 text-[12px] font-semibold ${
+                    active
+                      ? 'border-blue-500 bg-blue-100 text-blue-700 shadow-md'
+                      : 'border-blue-300 bg-blue-50 text-blue-600'
+                  }`}
+                  style={{ left: rn.x, top: rn.y }}
+                >
+                  {rn.label}
+                </div>
+              );
+            })}
+            {/* 中心 spinner */}
+            <div
+              className={`absolute left-1/2 top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-slate-300 ${
+                cur !== 'idle' && cur !== 'completed' && cur !== 'failed'
+                  ? 'animate-spin'
+                  : ''
+              }`}
+              style={{ animationDuration: '3s' }}
+            />
+          </div>
+
+          {/* finalize 状态 */}
+          <div className="mx-auto mt-1 inline-flex w-fit items-center gap-2 self-center rounded-lg border-2 border-emerald-300 bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-700">
+            finalize{' '}
+            {snap.finalizeAttempts > 0 && (
+              <span className="text-amber-600">
+                · 被拒 {snap.finalizeAttempts}/3 ↻
+              </span>
+            )}
+          </div>
+
+          {/* 详情字段 */}
+          <div className="mt-4 space-y-2 text-[12px] leading-relaxed">
+            {snap.lastThought && (
+              <div>
+                <span className="text-[10.5px] font-semibold uppercase tracking-wide text-gray-400">
+                  最近思考
+                </span>
+                <div className="mt-0.5 text-gray-700">{snap.lastThought}</div>
+              </div>
+            )}
+            {snap.lastAction && (
+              <div>
+                <span className="text-[10.5px] font-semibold uppercase tracking-wide text-gray-400">
+                  最近动作
+                </span>
+                <div className="font-mono mt-0.5 text-gray-700">
+                  {snap.lastAction.kind}
+                  {snap.lastAction.toolName
+                    ? ` · ${snap.lastAction.toolName}`
+                    : ''}
+                </div>
+              </div>
+            )}
+            {snap.lastObservation && (
+              <div>
+                <span className="text-[10.5px] font-semibold uppercase tracking-wide text-gray-400">
+                  最近观察
+                </span>
+                <div className="font-mono mt-0.5 text-gray-700">
+                  {snap.lastObservation.kind}
+                </div>
+              </div>
+            )}
+            {snap.lastError && (
+              <div className="font-mono rounded bg-red-50 px-2 py-1 text-[11px] text-red-700">
+                ⚠ {snap.lastError}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -26,7 +26,9 @@ interface Props {
   missionId: string;
   /** 点节点 → 详情抽屉(沿用旧 callback) */
   onAgentClick?: (taskKey: string) => void;
-  /** 旧 props 保留兼容(Phase 1 不使用) */
+  /** 父级事件流变化信号(传 events.length),驱动 MissionDagView 节流 1s 重拉 /dag */
+  liveSignal?: number;
+  /** 旧 props 保留兼容(Phase 1+2 不使用) */
   dimensions?: { id?: string; name: string; rationale?: string }[];
   agents?: AgentLiveState[];
   pipelines?: Map<string, DimensionPipelineState>;
@@ -37,6 +39,7 @@ export function TeamMissionModal({
   onClose,
   missionId,
   onAgentClick,
+  liveSignal,
 }: Props) {
   return (
     <Modal
@@ -46,7 +49,11 @@ export function TeamMissionModal({
       subtitle="完整执行图 · 节点 hover 出 ↻ 重跑预览 / ○ 内部循环 双按钮"
       size="xl"
     >
-      <MissionDagView missionId={missionId} onAgentClick={onAgentClick} />
+      <MissionDagView
+        missionId={missionId}
+        onAgentClick={onAgentClick}
+        liveSignal={liveSignal}
+      />
     </Modal>
   );
 }

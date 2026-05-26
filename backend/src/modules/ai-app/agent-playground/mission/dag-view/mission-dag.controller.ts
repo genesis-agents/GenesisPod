@@ -26,6 +26,7 @@ import { MissionDagService } from "./mission-dag.service";
 import type {
   MissionDagCascadePreview,
   MissionDagGraph,
+  MissionDagReactSnapshot,
 } from "./mission-dag.types";
 
 @Controller("agent-playground")
@@ -71,5 +72,24 @@ export class MissionDagController extends BaseMissionController {
     }
     await this.assertOwnership(missionId, userId);
     return this.dagService.computeCascade(missionId, userId, nodeId);
+  }
+
+  /**
+   * GET /api/v1/agent-playground/missions/:id/dag/react/:nodeId
+   * 该节点的 ReAct 内部循环快照(Phase 2):
+   *   - 从 MissionEventBuffer 聚合 agent-* 事件
+   *   - 推 lastThought / lastAction / lastObservation / iter / finalizeAttempts /
+   *     currentStep / phase 等,前端画 ring 用。
+   */
+  @Get("missions/:id/dag/react/:nodeId")
+  async getReactSnapshot(
+    @Param("id") missionId: string,
+    @Param("nodeId") nodeId: string,
+    @Request() req: RequestWithUser,
+  ): Promise<MissionDagReactSnapshot> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    await this.assertOwnership(missionId, userId);
+    return this.dagService.buildReactSnapshot(missionId, userId, nodeId);
   }
 }

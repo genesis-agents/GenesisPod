@@ -5,6 +5,7 @@
 import { NotFoundException } from "@nestjs/common";
 import { MissionDagService } from "../mission-dag.service";
 import { MissionStore } from "../../lifecycle/mission-store.service";
+import { MissionEventBuffer } from "../../lifecycle/mission-event-buffer.service";
 import { PLAYGROUND_PIPELINE } from "../../../runtime/playground.config";
 
 type MissionLike = Awaited<ReturnType<MissionStore["getById"]>>;
@@ -52,11 +53,26 @@ function makeMission(
   } as NonNullable<MissionLike>;
 }
 
-function buildService(mission: NonNullable<MissionLike> | null) {
+function buildService(
+  mission: NonNullable<MissionLike> | null,
+  events: ReadonlyArray<{
+    type: string;
+    payload: unknown;
+    agentId?: string;
+    timestamp: number;
+  }> = [],
+) {
   const store = {
     getById: jest.fn().mockResolvedValue(mission),
   } as unknown as MissionStore;
-  return { service: new MissionDagService(store), store };
+  const buffer = {
+    read: jest.fn().mockReturnValue(events),
+  } as unknown as MissionEventBuffer;
+  return {
+    service: new MissionDagService(store, buffer),
+    store,
+    buffer,
+  };
 }
 
 const ALL_STEP_IDS = PLAYGROUND_PIPELINE.steps.map((s) => s.id);
@@ -255,6 +271,171 @@ describe("MissionDagService", () => {
       await expect(
         service.computeCascade("m-1", "u-1", "ghost-node"),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("buildReactSnapshot", () => {
+    function evt(
+      suffix: string,
+      payload: Record<string, unknown>,
+      agentId?: string,
+    ) {
+      return {
+        type: `agent-playground.${suffix}`,
+        payload,
+        agentId,
+        timestamp: Date.now(),
+      };
+    }
+
+    it("returns note for s1-budget (persist primitive, no ReAct)", async () => {
+      const { service } = buildService(makeMission());
+      const snap = await service.buildReactSnapshot("m-1", "u-1", "s1-budget");
+      expect(snap.role).toBe("leader");
+      expect(snap.note).toMatch(/预算闸/);
+      expect(snap.currentStep).toBe("idle");
+    });
+
+    it("returns idle/pending when no agent events yet", async () => {
+      const { service } = buildService(makeMission(), []);
+      const snap = await service.buildReactSnapshot("m-1", "u-1", "s8-writer");
+      expect(snap.role).toBe("writer");
+      expect(snap.currentStep).toBe("idle");
+      expect(snap.phase).toBe("pending");
+      expect(snap.finalizeAttempts).toBe(0);
+    });
+
+    it("aggregates last think + action + observation + iter for writer", async () => {
+      const events = [
+        evt(
+          "agent:lifecycle",
+          { role: "writer", phase: "started" },
+          "writer#1",
+        ),
+        evt(
+          "agent:thought",
+          { role: "writer", text: "我需要先列大纲再分章撰写", tokenCount: 12 },
+          "writer#1",
+        ),
+        evt(
+          "agent:action",
+          { role: "writer", kind: "tool_call", toolName: "rag-search" },
+          "writer#1",
+        ),
+        evt(
+          "agent:observation",
+          { role: "writer", kind: "result" },
+          "writer#1",
+        ),
+        evt(
+          "iteration:progress",
+          { role: "writer", iteration: 2, maxIterations: 8 },
+          "writer#1",
+        ),
+      ];
+      const { service } = buildService(
+        makeMission({ status: "running" }),
+        events,
+      );
+      const snap = await service.buildReactSnapshot("m-1", "u-1", "s8-writer");
+      expect(snap.role).toBe("writer");
+      expect(snap.agentId).toBe("writer#1");
+      expect(snap.iter).toBe(2);
+      expect(snap.maxIter).toBe(8);
+      expect(snap.lastThought).toMatch(/大纲/);
+      expect(snap.lastAction).toEqual({
+        kind: "tool_call",
+        toolName: "rag-search",
+      });
+      expect(snap.lastObservation?.kind).toBe("result");
+      expect(snap.phase).toBe("running");
+      // 最后一条是 iteration:progress,fallback 到 thinking(running 状态)
+      expect(snap.currentStep).toBe("thinking");
+    });
+
+    it("counts finalize reflection attempts", async () => {
+      const events = [
+        evt(
+          "agent:lifecycle",
+          { role: "writer", phase: "started" },
+          "writer#1",
+        ),
+        evt(
+          "agent:reflection",
+          { role: "writer", score: 50, revision: 1 },
+          "writer#1",
+        ),
+        evt(
+          "agent:reflection",
+          { role: "writer", score: 65, revision: 2 },
+          "writer#1",
+        ),
+        evt("agent:action", { role: "writer", kind: "finalize" }, "writer#1"),
+      ];
+      const { service } = buildService(
+        makeMission({ status: "running" }),
+        events,
+      );
+      const snap = await service.buildReactSnapshot("m-1", "u-1", "s8-writer");
+      expect(snap.finalizeAttempts).toBe(2);
+      expect(snap.currentStep).toBe("finalizing");
+    });
+
+    it("filters by dimension for research-dim node", async () => {
+      const dims = [
+        { id: "d1", name: "投资", rationale: "" },
+        { id: "d2", name: "教育", rationale: "" },
+      ];
+      const events = [
+        evt(
+          "agent:lifecycle",
+          { role: "researcher", dimension: "投资", phase: "completed" },
+          "r#1",
+        ),
+        evt(
+          "agent:thought",
+          { role: "researcher", dimension: "投资", text: "看投资数据" },
+          "r#1",
+        ),
+        evt(
+          "agent:thought",
+          { role: "researcher", dimension: "教育", text: "看教育数据" },
+          "r#2",
+        ),
+      ];
+      const { service } = buildService(
+        makeMission({ dimensions: dims }),
+        events,
+      );
+      const snapD1 = await service.buildReactSnapshot(
+        "m-1",
+        "u-1",
+        "s3-researcher-collect::d1",
+      );
+      expect(snapD1.dimension).toBe("投资");
+      expect(snapD1.lastThought).toMatch(/投资/);
+      expect(snapD1.phase).toBe("completed");
+    });
+
+    it("marks phase=failed when latest lifecycle is failed", async () => {
+      const events = [
+        evt("agent:lifecycle", { role: "researcher", phase: "started" }, "r#1"),
+        evt(
+          "agent:error",
+          { role: "researcher", message: "tool timeout" },
+          "r#1",
+        ),
+        evt("agent:lifecycle", { role: "researcher", phase: "failed" }, "r#1"),
+      ];
+      const { service } = buildService(makeMission(), events);
+      const snap = await service.buildReactSnapshot(
+        "m-1",
+        "u-1",
+        "s3-researcher-collect",
+      );
+      expect(snap.phase).toBe("failed");
+      expect(snap.currentStep).toBe("failed");
+      expect(snap.lastError).toMatch(/tool timeout/);
     });
   });
 });

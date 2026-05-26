@@ -100,3 +100,59 @@ export interface MissionDagCascadePreview {
   /** 不允许时的原因 */
   readonly reason?: string;
 }
+
+/**
+ * GET /dag/react/:nodeId 返回:该节点的 ReAct 内部循环快照(Phase 2)。
+ *
+ * 数据从 MissionEventBuffer 的 agent-playground.agent:* 事件聚合派生:
+ *   - lastThought   ← agent:thought.text
+ *   - lastAction    ← agent:action.{kind, toolName}
+ *   - lastObserve   ← agent:observation.{kind}
+ *   - iter/maxIter  ← iteration:progress.{iteration, maxIterations}
+ *   - finalizeAttempts ← agent:reflection 的累计次数(每次 finalize 校验都会记一条)
+ *   - lastError     ← agent:error.message
+ *   - phase         ← agent:lifecycle.phase 的最新值
+ *   - currentStep   ← 由最近一条 agent:* 事件推断
+ */
+export type MissionDagReactCurrentStep =
+  | "idle"
+  | "thinking"
+  | "tool"
+  | "observing"
+  | "finalizing"
+  | "completed"
+  | "failed";
+
+export interface MissionDagReactSnapshot {
+  readonly nodeId: string;
+  /** 该节点对应的 agent role(leader / researcher / writer / reviewer 等) */
+  readonly role: string;
+  /** research-dim 节点专用:维度名(与 events.dimension 字符串对齐) */
+  readonly dimension?: string;
+  /** 选中的 agent 实例 id(同 role 下可能多个,这里选最近活跃的) */
+  readonly agentId?: string;
+  /** 当前在 ReAct 环里的哪一步 */
+  readonly currentStep: MissionDagReactCurrentStep;
+  /** 最近一次 iteration:progress 给的迭代数 */
+  readonly iter?: number;
+  readonly maxIter?: number;
+  /** 最近一次 think 文本(截断 ≤ 240 字符) */
+  readonly lastThought?: string;
+  /** 最近一次 action(kind 通常是 tool_call / parallel_tool_call / finalize) */
+  readonly lastAction?: {
+    readonly kind: string;
+    readonly toolName?: string;
+  };
+  /** 最近一次 observation kind(tool 结果或失败) */
+  readonly lastObservation?: {
+    readonly kind: string;
+  };
+  /** finalize 累计被拒次数(若有 reflection 事件可看出) */
+  readonly finalizeAttempts: number;
+  /** 最近一次错误消息(截断) */
+  readonly lastError?: string;
+  /** lifecycle 最新 phase(started / completed / failed) */
+  readonly phase: "pending" | "running" | "completed" | "failed";
+  /** 没事件可用时的解释(例如 s1-budget 是 persist primitive 没 ReAct 内循环) */
+  readonly note?: string;
+}

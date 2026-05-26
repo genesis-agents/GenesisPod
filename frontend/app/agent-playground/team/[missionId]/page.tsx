@@ -1198,11 +1198,13 @@ export default function MissionDetailPage() {
         }}
       />
 
-      {/* Mission DAG modal —— 2026-05-26 重构:完整自上而下执行图(后端 /dag 驱动) */}
+      {/* Mission DAG modal —— 2026-05-26 重构:完整自上而下执行图(后端 /dag 驱动)
+          Phase 2:传 events.length 作 liveSignal,WS 增量事件 → 节流 1s 重拉 /dag */}
       <TeamMissionModal
         open={researchTeamOpen}
         onClose={() => setResearchTeamOpen(false)}
         missionId={missionId}
+        liveSignal={events.length}
         onAgentClick={(taskKey) => {
           setResearchTeamOpen(false);
           setSelectedTaskKey(taskKey);

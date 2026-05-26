@@ -750,3 +750,44 @@ export async function fetchMissionDagCascade(
   const raw: unknown = await res.json();
   return unwrapStandard<MissionDagCascadePreview>(raw);
 }
+
+// ===== Phase 2: ReAct 内部循环快照 =====
+
+export type MissionDagReactCurrentStep =
+  | 'idle'
+  | 'thinking'
+  | 'tool'
+  | 'observing'
+  | 'finalizing'
+  | 'completed'
+  | 'failed';
+
+export interface MissionDagReactSnapshot {
+  nodeId: string;
+  role: string;
+  dimension?: string;
+  agentId?: string;
+  currentStep: MissionDagReactCurrentStep;
+  iter?: number;
+  maxIter?: number;
+  lastThought?: string;
+  lastAction?: { kind: string; toolName?: string };
+  lastObservation?: { kind: string };
+  finalizeAttempts: number;
+  lastError?: string;
+  phase: 'pending' | 'running' | 'completed' | 'failed';
+  note?: string;
+}
+
+export async function fetchMissionDagReact(
+  missionId: string,
+  nodeId: string
+): Promise<MissionDagReactSnapshot> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/dag/react/${encodeURIComponent(nodeId)}`,
+    { headers: { ...getAuthHeader() } }
+  );
+  if (!res.ok) throw new Error(`fetchMissionDagReact failed: ${res.status}`);
+  const raw: unknown = await res.json();
+  return unwrapStandard<MissionDagReactSnapshot>(raw);
+}
