@@ -1207,6 +1207,162 @@ export function projectTodoBoard(
       continue;
     }
 
+    // ── budget warnings → s1 narrative ─────────────────────────────
+    if (
+      suffix === "mission:budget-warning-soft" ||
+      suffix === "mission:budget-warning-hard"
+    ) {
+      const isHard = suffix.endsWith("hard");
+      const reason = getString(payload, "reason");
+      const wallTimeMs = getNumber(payload, "wallTimeMs") ?? 0;
+      const suggestion = getString(payload, "suggestion") ?? "abort";
+      const shortfall = getNumber(payload, "shortfall") ?? 0;
+      const hint =
+        reason === "wall_time_exceeded"
+          ? `Mission 总时长超出 ${Math.round(wallTimeMs / 60_000)} 分钟上限，已自动停止`
+          : isHard
+            ? `预算硬告警：${suggestion}（短缺 ${shortfall} credits）`
+            : `预算软告警：估算超出建议但可继续`;
+      addNarrative(state, "system:s1-budget", ts, hint, isHard ? "error" : "warn");
+      continue;
+    }
+    if (suffix === "budget:warning-soft") {
+      const ratio = getNumber(payload, "ratio") ?? 0;
+      const tokensUsed = getNumber(payload, "poolTokensUsed") ?? 0;
+      const tokensRemain = getNumber(payload, "poolTokensRemaining") ?? 0;
+      const fmt = (n: number) =>
+        n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n));
+      addNarrative(
+        state,
+        "system:s1-budget",
+        ts,
+        `预算软告警：已用 ${fmt(tokensUsed)} tokens（${Math.round(ratio * 100)}%），仅剩 ${fmt(tokensRemain)}`,
+        "warn",
+      );
+      continue;
+    }
+    if (suffix === "budget:exhausted") {
+      const tokensUsed = getNumber(payload, "poolTokensUsed") ?? 0;
+      const fmt = (n: number) =>
+        n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n));
+      addNarrative(
+        state,
+        "system:s1-budget",
+        ts,
+        `预算耗尽：已用 ${fmt(tokensUsed)} tokens 达到 maxCredits 上限，Mission 自动停止`,
+        "error",
+      );
+      continue;
+    }
+
+    // ── mission postlude (S12 self-evolution) ──────────────────────
+    if (
+      suffix === "mission:postlude:started" ||
+      suffix === "mission:postlude:completed" ||
+      suffix === "mission:postlude:failed"
+    ) {
+      const s12 = state.todos.get("system:s12-self-evolution");
+      if (s12) {
+        if (suffix === "mission:postlude:started") {
+          if (s12.status === "pending") {
+            s12.status = "in_progress";
+            s12.startedAt = ts;
+          }
+        } else if (suffix === "mission:postlude:completed") {
+          if (s12.status !== "failed" && s12.status !== "cancelled") {
+            s12.status = "done";
+            s12.endedAt = ts;
+          }
+          addNarrative(state, "system:s12-self-evolution", ts, "self-evolution 完成", "success");
+        } else {
+          // failed
+          s12.status = "failed";
+          s12.endedAt = ts;
+          const err = getString(payload, "error") ?? getString(payload, "message");
+          if (err) addNarrative(state, "system:s12-self-evolution", ts, `self-evolution 失败：${err}`, "error");
+        }
+      }
+      continue;
+    }
+
+    // ── failure-pattern pre-applied → s2 narrative (warn) ──────────
+    if (suffix === "failure-pattern:pre-applied") {
+      const patternId = getString(payload, "patternId");
+      addNarrative(
+        state,
+        "system:s2-leader-plan",
+        ts,
+        `预应用历史失败模式：${patternId ?? "未命名"}（FailureLearner 召回）`,
+        "info",
+      );
+      continue;
+    }
+
+    // ── iteration:progress → 心跳，挂到 currently-running stage ───
+    if (suffix === "iteration:progress") {
+      const iter = getNumber(payload, "iteration");
+      const stepId = getStepId(ev);
+      if (stepId && iter != null) {
+        const stageId = mapStepToFrontendStage(stepId);
+        addNarrative(
+          state,
+          `system:${stageId}`,
+          ts,
+          `迭代进度：第 ${iter} 轮`,
+        );
+      }
+      continue;
+    }
+
+    // ── event:dropped / event:oversized → buffer warning ───────────
+    if (suffix === "event:dropped" || suffix === "event:oversized") {
+      const reason = getString(payload, "reason");
+      addNarrative(
+        state,
+        "system:s11-persist",
+        ts,
+        `事件缓冲告警 (${suffix})：${reason ?? "buffer 容量限制"}`,
+        "warn",
+      );
+      continue;
+    }
+
+    // ── dimension:outline:planned → chapter pipeline outline 步骤 ──
+    if (suffix === "dimension:outline:planned") {
+      const dim = getString(payload, "dimension");
+      const chapterCount = getNumber(payload, "chapterCount") ?? getNumber(payload, "count");
+      if (dim) {
+        addNarrative(
+          state,
+          `dim:${dim}`,
+          ts,
+          chapterCount != null
+            ? `章节大纲规划完成：${chapterCount} 章`
+            : "章节大纲规划完成",
+        );
+      }
+      continue;
+    }
+
+    // ── dimension:retry-phase:started / completed → retry 三阶段细分 ──
+    if (
+      suffix === "dimension:retry-phase:started" ||
+      suffix === "dimension:retry-phase:completed"
+    ) {
+      const dim = getString(payload, "dimension");
+      const phase = getString(payload, "phase");
+      if (dim && phase) {
+        addNarrative(
+          state,
+          `dim:${dim}`,
+          ts,
+          `retry phase ${phase} ${suffix.endsWith("started") ? "启动" : "完成"}`,
+          suffix.endsWith("started") ? "info" : "success",
+        );
+      }
+      continue;
+    }
+
     // ── reset 不支持的 event；剩余 case 留 follow-up ───────────────
   }
 
