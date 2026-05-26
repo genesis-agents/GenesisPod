@@ -1,3 +1,4 @@
+// @blueprint:ui-helper
 /**
  * 前端 systemStageId → 后端 PLAYGROUND_PIPELINE.stepId 映射（单源）
  *

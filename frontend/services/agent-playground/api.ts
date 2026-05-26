@@ -1,3 +1,4 @@
+// @blueprint:api
 /**
  * Agent Playground API client
  *

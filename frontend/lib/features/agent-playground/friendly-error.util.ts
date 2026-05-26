@@ -1,3 +1,4 @@
+// @blueprint:ui-helper
 /**
  * 把后端 raw error code / stack 转成普通用户友好的简短中文。
  *

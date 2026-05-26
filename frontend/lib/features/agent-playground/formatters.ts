@@ -1,3 +1,4 @@
+// @blueprint:ui-helper
 /**
  * agent-playground 格式化工具函数 — 单一来源
  *

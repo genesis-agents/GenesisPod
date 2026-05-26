@@ -1,3 +1,4 @@
+// @blueprint:panel
 /**
  * artifact-markdown.utils.ts — PR-A6 (2026-05-07)
  *

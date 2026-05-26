@@ -1,3 +1,4 @@
+// @blueprint:legacy-derive
 /**
  * MissionTodoLedger —— Leader-owned 动态任务台账
  *

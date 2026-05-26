@@ -1,3 +1,4 @@
+// @blueprint:ui-helper
 /**
  * ReportArtifact 前端类型镜像
  *

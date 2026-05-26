@@ -1,3 +1,4 @@
+// @blueprint:legacy-derive
 /**
  * Drawer-derive —— 把 linkedAgent.trace 里的 action/observation 解析为结构化
  * 区块（参考 Topic Insights TodoDetailPanel 的 SearchResults / ToolUsage 派生）。

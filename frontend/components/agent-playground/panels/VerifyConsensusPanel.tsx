@@ -1,3 +1,4 @@
+// @blueprint:panel
 'use client';
 
 import { Gavel, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';

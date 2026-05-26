@@ -1,3 +1,4 @@
+// @blueprint:legacy-derive
 /**
  * 事件 → UI state 的纯函数派生层
  *

@@ -1,3 +1,4 @@
+// @blueprint:page
 'use client';
 
 import AppShell from '@/components/layout/AppShell';

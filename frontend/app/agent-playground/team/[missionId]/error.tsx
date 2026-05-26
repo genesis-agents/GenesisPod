@@ -1,3 +1,4 @@
+// @blueprint:page
 'use client';
 
 /**

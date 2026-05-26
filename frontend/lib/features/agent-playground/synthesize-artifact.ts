@@ -1,3 +1,4 @@
+// @blueprint:legacy-derive
 /**
  * synthesize-artifact —— 把任意形状的报告数据 upgrade 成 ReportArtifact 让 ArtifactReader 渲染
  *

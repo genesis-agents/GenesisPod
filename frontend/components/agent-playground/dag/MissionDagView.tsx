@@ -1,3 +1,4 @@
+// @blueprint:panel
 'use client';
 
 /**

@@ -1,3 +1,4 @@
+// @blueprint:panel
 /**
  * LeadJournalPanel — 展示 Leader-Replanner-Lite 全程产物
  *
