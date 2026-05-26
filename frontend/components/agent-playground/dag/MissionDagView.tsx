@@ -258,7 +258,10 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
   }, [missionId]);
 
   // v3:固定 canvasW(layout 稳定),d3-zoom 给 transform = translate(x,y) scale(k)
-  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  // 关键 bug 修(2026-05-26):loading early-return 阶段 canvas div 不在 DOM,
+  // 用 useEffect+`[]` deps 会在 mount 时跑(那时 ref=null),后续 graph 拉到也不会
+  // 重跑 → zoom 永远没装上(拖不动)。改用 ref-callback,在 div 真正进 DOM 时即时装。
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<
     HTMLDivElement,
     unknown
@@ -279,16 +282,25 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
     return layoutGraph(graph, CANVAS_W);
   }, [graph]);
 
-  // 绑 d3-zoom:容器 wheel = zoom,空白 drag = pan;节点/按钮上的 mousedown 被 filter 放行
-  useEffect(() => {
-    const el = canvasContainerRef.current;
-    if (!el) return;
+  const attachZoom = useCallback((el: HTMLDivElement | null) => {
+    // 卸载
+    if (!el) {
+      if (canvasContainerRef.current) {
+        d3.select(canvasContainerRef.current).on('.zoom', null);
+      }
+      canvasContainerRef.current = null;
+      zoomBehaviorRef.current = null;
+      return;
+    }
+    // 已装在同一 el 上则跳过
+    if (canvasContainerRef.current === el && zoomBehaviorRef.current) return;
+    canvasContainerRef.current = el;
+
     const sel = d3.select<HTMLDivElement, unknown>(el);
     const zb = d3
       .zoom<HTMLDivElement, unknown>()
       .scaleExtent([0.3, 2.5])
       .filter((event: Event) => {
-        // wheel 始终允许;mousedown 落在节点/按钮上时不接管(让节点点击/按钮 hover 优先)
         if (event.type === 'wheel') return true;
         const target = event.target as HTMLElement | null;
         if (!target) return true;
@@ -301,10 +313,6 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
       });
     sel.call(zb);
     zoomBehaviorRef.current = zb;
-    return () => {
-      sel.on('.zoom', null);
-      zoomBehaviorRef.current = null;
-    };
   }, []);
 
   // 控件:+/-/fit/reset。d3 selection.call(fn,...) 会把 fn 当 unbound method
@@ -503,7 +511,7 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
       {/* v3 Canvas:d3-zoom 提供"鼠标拖动 + 滚轮缩放",overflow-hidden + transform CSS。
           空白区域 cursor-grab,节点上有 data-dag-interactive 让 d3 不接管(保留 hover/click)。 */}
       <div
-        ref={canvasContainerRef}
+        ref={attachZoom}
         className="relative cursor-grab overflow-hidden rounded-xl border border-gray-200 bg-gray-50/30 active:cursor-grabbing"
         style={{ height: 'calc(85vh - 130px)' }}
       >
