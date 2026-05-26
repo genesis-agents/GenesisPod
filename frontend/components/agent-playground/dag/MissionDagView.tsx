@@ -1,18 +1,22 @@
 'use client';
 
 /**
- * MissionDagView —— 完整 Mission DAG 可视化(自上而下 SVG)。
+ * MissionDagView —— 完整 Mission DAG 可视化(可拖可缩 canvas)。
  *
- * 设计原则(2026-05-26):
+ * 设计原则(2026-05-26 v3):
  *   - 后端是真源:nodes/edges/status/rerunable/cascade/react 全部从 /dag 接口拿。
- *   - 前端只负责 layout(spine/fan/split 三档简单算法)+ SVG 渲染 + 交互。
+ *   - canvas 用 d3-zoom 提供"鼠标拖动 + 滚轮缩放 + 触屏 pinch",底层仍是 SVG +
+ *     绝对定位 div(hover 按钮 / 状态 chip 等都保留),外层 transform 整体缩放。
+ *   - layout 用固定 canvasW=1500(不再随容器宽变化),用户用 zoom 自适应观看;
+ *     底部右侧浮 +/- /fit/reset 控件做兜底。
  *   - 每节点 hover 出 2 个按钮:↻ 重跑级联预览 / ○ 内部循环(ReAct ring)。
  *   - 点 ↻ → /dag/cascade 染色 + 顶部 bar 给"将级联 N / 保留 M",确认 → localRerunTodo。
- *   - 点 ○ → /dag/react/:nodeId 拉 ReAct 快照,右侧浮出 ring 面板(可关闭)。
+ *   - 点 ○ → /dag/react/:nodeId 拉 ReAct 快照 → 独立 Modal 叠在外层 DAG Modal 上。
  *   - liveSignal prop 变化 → 节流 1s 重拉 /dag(让 WS 事件触发增量刷新)。
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import * as d3 from 'd3';
 import {
   fetchMissionDag,
   fetchMissionDagCascade,
@@ -23,7 +27,14 @@ import {
   type MissionDagCascadePreview,
   type MissionDagReactSnapshot,
 } from '@/services/agent-playground/api';
-import { Loader2, AlertCircle } from 'lucide-react';
+import {
+  Loader2,
+  AlertCircle,
+  Plus,
+  Minus,
+  Maximize2,
+  Locate,
+} from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Modal } from '@/components/ui/dialogs/Modal';
 
@@ -46,15 +57,14 @@ interface PositionedNode extends MissionDagNode {
 }
 
 /**
- * 把后端 nodes 按 layout hint 排进容器(以传入 canvasW 为宽度基准,canvasH 自然
- * 增长)。Phase 4 v2 重做(用户反馈"可以上下滚,2 行不够就 3 行"):
- *   - 不再 scale-to-fit;canvas 用容器实测宽度,纵向超出则模态滚动。
- *   - fan 行数自适应:按目标节点宽度算 maxPerRow,rows = ceil(N / maxPerRow),
- *     14 维度在窄容器自动分到 3 行,在宽容器 2 行甚至 1 行。
- *   - 节点 / 间距用自然像素,不缩放,箭头/标签/边距都清晰。
+ * 把后端 nodes 排进固定 canvasW=CANVAS_W 的画布。v3 不再随容器宽变化,因为引入
+ * d3-zoom 后用户自己缩放即可——layout 反而需要"稳定不抖"。
+ *   - canvas 永远 CANVAS_W 宽,fan 行数按 dim 数量决定(≤7 一行,≤14 两行,>14 三行)
+ *   - 节点 / 间距用自然像素,缩放靠 transform CSS
  */
-const FAN_TARGET_W = 150; // fan 节点目标宽度
-const FAN_MIN_W = 110;
+const CANVAS_W = 1500;
+const FAN_TARGET_W = 160;
+const FAN_MIN_W = 120;
 function layoutGraph(
   graph: MissionDagGraph,
   canvasW: number
@@ -81,7 +91,7 @@ function layoutGraph(
   const fanRowGap = 18;
 
   const dimNodes = graph.nodes.filter((n) => n.kind === 'research-dim');
-  // 多行 fan 自适应:按容器宽度反算 maxPerRow + rows
+  // 固定 canvasW 下:按目标节点宽度算 maxPerRow,再 ceil 出 rows;rows 决定行数,perRowCount 是每行容量
   let fanRows = 1;
   let perRowCount = dimNodes.length;
   if (dimNodes.length > 0) {
@@ -247,30 +257,98 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
     };
   }, [missionId]);
 
-  // Phase 4 v2:用容器实测宽度作为 canvasW(自然布局),不再缩放;高度自然增长,
-  // 容器纵向滚动。这样匀称 + 间距清晰 + 箭头视觉不模糊。
+  // v3:固定 canvasW(layout 稳定),d3-zoom 给 transform = translate(x,y) scale(k)
   const canvasContainerRef = useRef<HTMLDivElement>(null);
-  const [containerW, setContainerW] = useState(1080);
-  useEffect(() => {
-    const el = canvasContainerRef.current;
-    if (!el) return;
-    const obs = new ResizeObserver((entries) => {
-      const r = entries[0].contentRect;
-      setContainerW(r.width);
-    });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
+  const zoomBehaviorRef = useRef<d3.ZoomBehavior<
+    HTMLDivElement,
+    unknown
+  > | null>(null);
+  const [zoomT, setZoomT] = useState<{ x: number; y: number; k: number }>({
+    x: 0,
+    y: 0,
+    k: 1,
+  });
 
   const { nodes, canvasH, canvasW } = useMemo(() => {
     if (!graph)
       return {
         nodes: [] as PositionedNode[],
         canvasH: 600,
-        canvasW: containerW,
+        canvasW: CANVAS_W,
       };
-    return layoutGraph(graph, containerW);
-  }, [graph, containerW]);
+    return layoutGraph(graph, CANVAS_W);
+  }, [graph]);
+
+  // 绑 d3-zoom:容器 wheel = zoom,空白 drag = pan;节点/按钮上的 mousedown 被 filter 放行
+  useEffect(() => {
+    const el = canvasContainerRef.current;
+    if (!el) return;
+    const sel = d3.select<HTMLDivElement, unknown>(el);
+    const zb = d3
+      .zoom<HTMLDivElement, unknown>()
+      .scaleExtent([0.3, 2.5])
+      .filter((event: Event) => {
+        // wheel 始终允许;mousedown 落在节点/按钮上时不接管(让节点点击/按钮 hover 优先)
+        if (event.type === 'wheel') return true;
+        const target = event.target as HTMLElement | null;
+        if (!target) return true;
+        if (target.closest('[data-dag-interactive]')) return false;
+        return true;
+      })
+      .on('zoom', (event: d3.D3ZoomEvent<HTMLDivElement, unknown>) => {
+        const { x, y, k } = event.transform;
+        setZoomT({ x, y, k });
+      });
+    sel.call(zb);
+    zoomBehaviorRef.current = zb;
+    return () => {
+      sel.on('.zoom', null);
+      zoomBehaviorRef.current = null;
+    };
+  }, []);
+
+  // 控件:+/-/fit/reset。d3 selection.call(fn,...) 会把 fn 当 unbound method
+  // 触发 lint;直接把 selection 传给 zoom 方法等价、且保留 zb 的 this。
+  const zoomBy = useCallback((factor: number) => {
+    const el = canvasContainerRef.current;
+    const zb = zoomBehaviorRef.current;
+    if (!el || !zb) return;
+    zb.scaleBy(d3.select(el).transition().duration(180), factor);
+  }, []);
+  const zoomReset = useCallback(() => {
+    const el = canvasContainerRef.current;
+    const zb = zoomBehaviorRef.current;
+    if (!el || !zb) return;
+    zb.transform(d3.select(el).transition().duration(220), d3.zoomIdentity);
+  }, []);
+  const zoomFit = useCallback(() => {
+    const el = canvasContainerRef.current;
+    const zb = zoomBehaviorRef.current;
+    if (!el || !zb) return;
+    const rect = el.getBoundingClientRect();
+    const pad = 24;
+    const sx = (rect.width - pad * 2) / canvasW;
+    const sy = (rect.height - pad * 2) / canvasH;
+    const k = Math.min(sx, sy, 1);
+    const tx = (rect.width - canvasW * k) / 2;
+    const ty = pad;
+    zb.transform(
+      d3.select(el).transition().duration(240),
+      d3.zoomIdentity.translate(tx, ty).scale(k)
+    );
+  }, [canvasW, canvasH]);
+
+  // 首次加载完图后自动 fit 一次,避免初始 transform=(0,0,1) 节点跑出可视区域
+  const didInitialFit = useRef(false);
+  useEffect(() => {
+    if (didInitialFit.current || !graph || !zoomBehaviorRef.current) return;
+    // 微延后让容器 ResizeObserver / layout 稳定
+    const t = setTimeout(() => {
+      zoomFit();
+      didInitialFit.current = true;
+    }, 50);
+    return () => clearTimeout(t);
+  }, [graph, zoomFit]);
 
   const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
@@ -422,18 +500,22 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
         </div>
       )}
 
-      {/* Canvas:用容器实测宽自然布局,纵向超出 → overflow-y-auto 上下滚;横向永不滚。
-          ReAct 面板独立成 Modal 叠在外层 DAG Modal 上方(下面 render),canvas 永远全宽。 */}
+      {/* v3 Canvas:d3-zoom 提供"鼠标拖动 + 滚轮缩放",overflow-hidden + transform CSS。
+          空白区域 cursor-grab,节点上有 data-dag-interactive 让 d3 不接管(保留 hover/click)。 */}
       <div
         ref={canvasContainerRef}
-        className="relative overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-gray-50/30"
+        className="relative cursor-grab overflow-hidden rounded-xl border border-gray-200 bg-gray-50/30 active:cursor-grabbing"
         style={{ height: 'calc(85vh - 130px)' }}
       >
         <div
           style={{
-            position: 'relative',
+            position: 'absolute',
+            left: 0,
+            top: 0,
             width: canvasW,
             height: canvasH,
+            transform: `translate(${zoomT.x}px, ${zoomT.y}px) scale(${zoomT.k})`,
+            transformOrigin: '0 0',
           }}
         >
           <svg
@@ -510,7 +592,8 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
             return (
               <div
                 key={n.id}
-                className={`group absolute rounded-xl border-2 px-2.5 py-1 transition-all ${cls} ${
+                data-dag-interactive
+                className={`group absolute cursor-pointer rounded-xl border-2 bg-white px-2.5 py-1 transition-all ${cls} ${
                   isKept ? 'opacity-40 grayscale' : ''
                 }`}
                 style={{ left: n.x, top: n.y, width: n.w, height: n.h }}
@@ -583,6 +666,55 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
               </div>
             );
           })}
+        </div>
+
+        {/* zoom 控件 + 提示 —— 浮在 canvas 右下;按钮带 data-dag-interactive 避免被 pan 拦截 */}
+        <div
+          className="absolute bottom-3 right-3 flex flex-col gap-1.5"
+          data-dag-interactive
+        >
+          <div className="flex flex-col overflow-hidden rounded-lg border border-gray-300 bg-white shadow-md">
+            <button
+              type="button"
+              onClick={() => zoomBy(1.25)}
+              title="放大"
+              className="flex h-8 w-8 items-center justify-center text-gray-600 hover:bg-gray-50"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => zoomBy(0.8)}
+              title="缩小"
+              className="flex h-8 w-8 items-center justify-center border-t border-gray-200 text-gray-600 hover:bg-gray-50"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={zoomFit}
+              title="适配画布"
+              className="flex h-8 w-8 items-center justify-center border-t border-gray-200 text-gray-600 hover:bg-gray-50"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={zoomReset}
+              title="还原 100%"
+              className="flex h-8 w-8 items-center justify-center border-t border-gray-200 text-gray-600 hover:bg-gray-50"
+            >
+              <Locate className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="font-mono rounded-md bg-white/90 px-1.5 py-0.5 text-center text-[10px] text-gray-500 shadow-sm">
+            {Math.round(zoomT.k * 100)}%
+          </div>
+        </div>
+
+        {/* 操作提示 */}
+        <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-white/85 px-2 py-1 text-[10.5px] text-gray-500 shadow-sm backdrop-blur-sm">
+          拖动平移 · 滚轮缩放 · hover 节点出按钮
         </div>
       </div>
 
