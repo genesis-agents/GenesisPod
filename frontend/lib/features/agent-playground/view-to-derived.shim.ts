@@ -83,11 +83,15 @@ export function viewToDerivedShim(
     stages: projectStages(view),
     agents: projectAgents(view, events),
     cost: projectCost(view),
-    verdicts: deriveVerdictsFromEvents(events),
-    memory: deriveMemoryFromEvents(events),
+    // P0-A：verdicts / memory / dimensionPipelines 从 canonical view 取（取代 events 派生）。
+    //   backend mission-view.projector 已通过 extractVerdicts / extractMemoryIndex /
+    //   extractDimensionPipelines 实现派生 + 持久化优先。
+    //   view 缺失（旧 mission 没字段）时回落到 events 派生路径作为兼容兜底。
+    verdicts: projectVerdicts(view, events),
+    memory: projectMemory(view, events),
     reports: projectReports(view),
     finalReport: projectFinalReport(view),
-    dimensionPipelines: deriveDimensionPipelinesFromEvents(events),
+    dimensionPipelines: projectDimensionPipelinesFromView(view, events),
   };
 }
 
@@ -261,6 +265,38 @@ function projectFinalReport(view: MissionDetailView): ReportDraft['report'] | nu
 // 这些是临时分支：未来 view.mission.verdicts / view.memory / view.dimensionPipelines
 // 一旦在 backend canonical view 暴露，对应函数立即删除并替换为 view 路径。
 // ============================================================================
+
+// P0-A: 优先从 canonical view 取 verdicts；view 字段缺失时 fallback events 派生
+function projectVerdicts(
+  view: MissionDetailView,
+  events: PlaygroundEvent[]
+): VerifierVerdict[] {
+  const v = (view as unknown as { verdicts?: VerifierVerdict[] }).verdicts;
+  if (Array.isArray(v) && v.length > 0) return v;
+  return deriveVerdictsFromEvents(events);
+}
+
+function projectMemory(
+  view: MissionDetailView,
+  events: PlaygroundEvent[]
+): MemoryIndexState | null {
+  const mi = (view as unknown as { memoryIndex?: MemoryIndexState | null }).memoryIndex;
+  if (mi) return mi;
+  return deriveMemoryFromEvents(events);
+}
+
+function projectDimensionPipelinesFromView(
+  view: MissionDetailView,
+  events: PlaygroundEvent[]
+): Map<string, DimensionPipelineState> {
+  const dp = (view as unknown as {
+    dimensionPipelines?: Record<string, DimensionPipelineState>;
+  }).dimensionPipelines;
+  if (dp && Object.keys(dp).length > 0) {
+    return new Map(Object.entries(dp));
+  }
+  return deriveDimensionPipelinesFromEvents(events);
+}
 
 function deriveVerdictsFromEvents(events: PlaygroundEvent[]): VerifierVerdict[] {
   const verdicts: VerifierVerdict[] = [];

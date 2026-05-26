@@ -21,8 +21,10 @@ import { projectTodoBoard } from "./todo-board.projector";
 // projectArtifact 现由 ArtifactComposerService 调用（含 R2 fetch），projector 模块
 // 仅保留 normalizeV1ToV2 作为 service 内 helper。本文件无需直接 import 它。
 import type {
+  DimensionPipelineView,
   DimensionView,
   EmptyArtifactSentinel,
+  MemoryIndexView,
   MissionCostView,
   MissionMemorySentinel,
   MissionReferenceView,
@@ -30,6 +32,7 @@ import type {
   PlaygroundDomainView,
   ReportVersionView,
   TodoBoardSentinel,
+  VerifierVerdictView,
 } from "../../api/contracts/view-state.contract";
 import type { ReportArtifactV2 } from "../../api/contracts/artifact.contract";
 
@@ -74,6 +77,9 @@ function buildStartingView(
     refreshHints: [],
     references: [],
     reportVersions: [],
+    verdicts: [],
+    memoryIndex: null,
+    dimensionPipelines: {},
   };
 }
 
@@ -147,7 +153,145 @@ function buildRowLoadedView(inputs: MissionQueryInputs): PlaygroundDomainView {
     refreshHints: [], // projector 不产生 hint；hint 在 §6.7.3 stream emit 时由 dispatcher 注入
     references,
     reportVersions,
+    // P0-A 新暴露：取代 shim 内 events 派生
+    verdicts: extractVerdicts(row, inputs.events),
+    memoryIndex: extractMemoryIndex(inputs.events),
+    dimensionPipelines: extractDimensionPipelines(inputs.events, row),
   };
+}
+
+// ============================================================================
+// P0-A 派生（从 events / row 投影，取代 shim 内派生）
+// ============================================================================
+
+function extractVerdicts(
+  row: MissionDetail,
+  events: ReadonlyArray<{ type: string; payload: unknown; timestamp: number }>,
+): VerifierVerdictView[] {
+  // 优先用 mission row 上持久化的 verdicts（最终态）
+  if (Array.isArray(row.verdicts) && row.verdicts.length > 0) {
+    return (row.verdicts as Array<Record<string, unknown>>)
+      .filter((v) => typeof v.verifierId === "string" && typeof v.score === "number")
+      .map((v) => ({
+        verifierId: v.verifierId as string,
+        score: v.score as number,
+        critique: typeof v.critique === "string" ? v.critique : undefined,
+        criteria:
+          v.criteria && typeof v.criteria === "object"
+            ? (v.criteria as Record<string, number>)
+            : undefined,
+        modelId: typeof v.modelId === "string" ? v.modelId : undefined,
+        attempt: typeof v.attempt === "number" ? v.attempt : undefined,
+      }));
+  }
+  // 否则从 events 派生（mission 进行中或老数据无 row verdicts）
+  const out: VerifierVerdictView[] = [];
+  for (const ev of events) {
+    const suffix = ev.type.includes(".") ? ev.type.slice(ev.type.indexOf(".") + 1) : ev.type;
+    if (suffix !== "verifier:verdict") continue;
+    const p = ev.payload as Record<string, unknown> | null;
+    if (!p) continue;
+    if (typeof p.verifierId === "string" && typeof p.score === "number") {
+      out.push({
+        verifierId: p.verifierId,
+        score: p.score,
+        critique: typeof p.critique === "string" ? p.critique : undefined,
+        criteria:
+          p.criteria && typeof p.criteria === "object"
+            ? (p.criteria as Record<string, number>)
+            : undefined,
+        modelId: typeof p.modelId === "string" ? p.modelId : undefined,
+        attempt: typeof p.attempt === "number" ? p.attempt : undefined,
+      });
+    }
+  }
+  return out;
+}
+
+function extractMemoryIndex(
+  events: ReadonlyArray<{ type: string; payload: unknown }>,
+): MemoryIndexView | null {
+  // 取最近一条 memory.index 事件
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i];
+    const suffix = ev.type.includes(".") ? ev.type.slice(ev.type.indexOf(".") + 1) : ev.type;
+    if (suffix !== "memory.index" && suffix !== "memory:index") continue;
+    const p = ev.payload as Record<string, unknown> | null;
+    if (p && typeof p.chunks === "number") {
+      return {
+        chunks: p.chunks,
+        namespace: typeof p.namespace === "string" ? p.namespace : undefined,
+        tags: Array.isArray(p.tags)
+          ? (p.tags as unknown[]).filter((t): t is string => typeof t === "string")
+          : undefined,
+      };
+    }
+  }
+  return null;
+}
+
+function extractDimensionPipelines(
+  events: ReadonlyArray<{ type: string; payload: unknown; timestamp: number }>,
+  row: MissionDetail,
+): Record<string, DimensionPipelineView> {
+  // First-cut：每个 dimension 一个 entry，含 chapter list（从 chapter:writing:* 事件聚合）。
+  // 完整 ChapterState 等价化（含 score/critique/wordCount）排 follow-up。
+  const out: Record<string, DimensionPipelineView> = {};
+  const dimNames = extractDimensionsFromRow(row.dimensions);
+  for (const dim of dimNames) {
+    out[dim] = { dimension: dim, chapters: [] };
+  }
+  for (const ev of events) {
+    const suffix = ev.type.includes(".") ? ev.type.slice(ev.type.indexOf(".") + 1) : ev.type;
+    const p = ev.payload as Record<string, unknown> | null;
+    if (!p) continue;
+    const dim = typeof p.dimension === "string" ? p.dimension : undefined;
+    if (!dim) continue;
+    const pipe = out[dim] ?? { dimension: dim, chapters: [] };
+    out[dim] = pipe;
+
+    if (suffix === "chapter:writing:started" || suffix === "chapter:writing:completed" || suffix === "chapter:writing:failed" || suffix === "chapter:done") {
+      const heading = typeof p.heading === "string" ? p.heading : typeof p.chapterTitle === "string" ? p.chapterTitle : "";
+      const index = typeof p.index === "number" ? p.index : pipe.chapters.length + 1;
+      let chapter = pipe.chapters.find((c) => c.index === index);
+      if (!chapter) {
+        chapter = { index, heading, status: "pending", attempts: 0 };
+        pipe.chapters.push(chapter);
+      }
+      if (suffix === "chapter:writing:started") {
+        chapter.status = "writing";
+        chapter.attempts += 1;
+      } else if (suffix === "chapter:writing:completed" || suffix === "chapter:done") {
+        chapter.status = "done";
+        if (typeof p.wordCount === "number") chapter.wordCount = p.wordCount;
+      } else if (suffix === "chapter:writing:failed") {
+        chapter.status = "failed";
+      }
+    } else if (suffix === "chapter:revision" || suffix === "chapter:rewritten") {
+      const index = typeof p.index === "number" ? p.index : 0;
+      const chapter = pipe.chapters.find((c) => c.index === index);
+      if (chapter) chapter.status = "revising";
+    } else if (suffix === "dimension:integrating:completed") {
+      const totalWordCount = typeof p.totalWordCount === "number" ? p.totalWordCount : undefined;
+      if (totalWordCount != null) pipe.totalWordCount = totalWordCount;
+    } else if (suffix === "dimension:integrating:failed") {
+      pipe.integrationDegraded = true;
+    } else if (suffix === "dimension:graded") {
+      const overall = typeof p.overallScore === "number" ? p.overallScore : 0;
+      const grade = typeof p.grade === "string" ? p.grade : "—";
+      const summary = typeof p.summary === "string" ? p.summary : "";
+      pipe.grade = { overall, grade, summary };
+    }
+  }
+  return out;
+}
+
+function extractDimensionsFromRow(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((d): d is Record<string, unknown> => d != null && typeof d === "object")
+    .map((d) => (typeof d.name === "string" ? d.name : ""))
+    .filter((n) => n.length > 0);
 }
 
 /**

@@ -237,6 +237,73 @@ export interface PlaygroundDomainView
   };
   references: MissionReferenceView[];
   reportVersions: ReportVersionView[];
+  /**
+   * Verifier verdicts (P0-A: 暴露给前端，取代 shim 内 events 派生)。
+   * §6.2 base 没有此字段；playground 业务字段，由 backend projector 派生。
+   */
+  verdicts: VerifierVerdictView[];
+  /**
+   * 内存索引状态 (P0-A: 暴露)。
+   */
+  memoryIndex: MemoryIndexView | null;
+  /**
+   * Dimension pipeline 状态（chapter 列表 / integrator state / 5-axis grade 等，
+   * P0-A first cut：仅 chapters 简化形态。完整 ChapterState 等价化排 follow-up）。
+   */
+  dimensionPipelines: Record<string, DimensionPipelineView>;
+}
+
+// ============================================================================
+// P0-A 新暴露字段（取代 shim 内 events 派生）
+// ============================================================================
+
+export interface VerifierVerdictView {
+  verifierId: string;
+  score: number;
+  critique?: string;
+  criteria?: Record<string, number>;
+  modelId?: string;
+  attempt?: number;
+}
+
+export interface MemoryIndexView {
+  chunks: number;
+  namespace?: string;
+  tags?: string[];
+}
+
+export interface DimensionPipelineChapterView {
+  index: number;
+  heading: string;
+  thesis?: string;
+  status:
+    | "pending"
+    | "writing"
+    | "reviewing"
+    | "revising"
+    | "passed"
+    | "done"
+    | "failed-finalized"
+    | "failed";
+  attempts: number;
+  wordCount?: number;
+  score?: number;
+  critique?: string;
+}
+
+export interface DimensionPipelineView {
+  dimension: string;
+  chapters: DimensionPipelineChapterView[];
+  totalWordCount?: number;
+  integrationDegraded?: boolean;
+  grade?: {
+    overall: number;
+    grade: string;
+    summary: string;
+    failed?: boolean;
+    skipped?: boolean;
+    phase?: string;
+  };
 }
 
 // ============================================================================
