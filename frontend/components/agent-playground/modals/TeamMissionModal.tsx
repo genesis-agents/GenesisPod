@@ -47,7 +47,7 @@ export function TeamMissionModal({
       onClose={onClose}
       title="Mission DAG"
       subtitle="完整执行图 · 节点 hover 出 ↻ 重跑预览 / ○ 内部循环 双按钮"
-      size="xl"
+      size="full"
     >
       <MissionDagView
         missionId={missionId}
