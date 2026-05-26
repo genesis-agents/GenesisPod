@@ -1,7 +1,7 @@
 'use client';
 
 import { Coins } from 'lucide-react';
-import type { CostState } from '@/lib/features/agent-playground/derive';
+import type { CostState } from '@/lib/features/agent-playground/derive-shapes';
 import {
   fmtUsd,
   fmtTokens,

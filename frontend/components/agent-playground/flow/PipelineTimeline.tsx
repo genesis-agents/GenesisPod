@@ -16,7 +16,7 @@ import {
 import type {
   StageState,
   StageId,
-} from '@/lib/features/agent-playground/derive';
+} from '@/lib/features/agent-playground/derive-shapes';
 
 const META: Record<StageId, { label: string; Icon: typeof Brain }> = {
   leader: { label: 'Leader', Icon: Brain },

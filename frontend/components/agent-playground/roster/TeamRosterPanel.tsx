@@ -35,7 +35,7 @@ import type {
   AgentRole,
   StageState,
   StageId,
-} from '@/lib/features/agent-playground/derive';
+} from '@/lib/features/agent-playground/derive-shapes';
 
 const ROLE_ROW: {
   role: AgentRole;

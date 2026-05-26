@@ -31,8 +31,8 @@ import type {
   CostState,
   AgentLiveState,
   DimensionPipelineState,
-} from '@/lib/features/agent-playground/derive';
-import type { MissionTodo } from '@/lib/features/agent-playground/todo-ledger';
+} from '@/lib/features/agent-playground/derive-shapes';
+import type { MissionTodo } from '@/lib/features/agent-playground/todo-ledger-shapes';
 import {
   fmtUsd,
   fmtTokens,

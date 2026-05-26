@@ -44,8 +44,8 @@ import {
 import type {
   SystemStageId,
   MissionTodo,
-} from '@/lib/features/agent-playground/todo-ledger';
-import type { DerivedView } from '@/lib/features/agent-playground/derive';
+} from '@/lib/features/agent-playground/todo-ledger-shapes';
+import type { DerivedView } from '@/lib/features/agent-playground/derive-shapes';
 import {
   fmtTimestamp,
   fmtRelative,

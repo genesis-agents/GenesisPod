@@ -106,25 +106,13 @@
       {
         "patterns": [
           {
-            "group": ["*/agent-playground/derive"],
-            "importNames": ["deriveView"],
-            "message": "禁止 import deriveView。canonical mission truth 走 useMissionDetailView / GET /missions/:id/view（thinning plan §B5-2 / §3.4）。type-only 导入允许；aggregateStageStatus / mapStepIdToStageId 等 pure helper 不携带 truth，亦允许。",
-            "allowTypeImports": true
-          },
-          {
-            "group": ["*/agent-playground/todo-ledger"],
-            "importNames": ["deriveTodoLedger"],
-            "message": "禁止 import deriveTodoLedger。canonical todo truth 走 missionView.todoBoard.items（plan §B5-2 / §3.4 / §6.6.3）。deriveLayerBreadcrumb 等 UI-only helper 仍允许（plan §6.6.3 second list）。",
-            "allowTypeImports": true
-          },
-          {
-            "group": ["*/agent-playground/synthesize-artifact"],
-            "importNames": [
-              "synthesizeArtifactFromV1",
-              "ensureRenderableArtifact"
+            "group": [
+              "*/agent-playground/derive",
+              "*/agent-playground/todo-ledger",
+              "*/agent-playground/synthesize-artifact",
+              "*/agent-playground/drawer-derive"
             ],
-            "message": "禁止 import synthesize-artifact 的 v1->v2 normalize / ensure 函数。canonical artifact 走 missionView.reportArtifact（plan §B5-2 / §6.6 / §6.6.2 — backend ArtifactComposer 已 normalize）。",
-            "allowTypeImports": true
+            "message": "禁止直接 import 这些 truth-bearing 模块（plan §B5-2 / §3.4 / §6.6.3）。需要类型走 *-shapes.ts 代理文件（derive-shapes.ts / todo-ledger-shapes.ts）；需要 truth 走 useMissionDetailView / GET /missions/:id/view（canonical view）；需要 §6.6.3 UI-only helper (deriveLayerBreadcrumb / deriveDrawerSections / deriveStageArtifacts) 走 *-shapes.ts re-export。"
           }
         ]
       }
@@ -198,7 +186,9 @@
         "lib/features/agent-playground/todo-ledger.ts",
         "lib/features/agent-playground/synthesize-artifact.ts",
         "lib/features/agent-playground/drawer-derive.ts",
-        "lib/features/agent-playground/view-to-derived.shim.ts"
+        "lib/features/agent-playground/view-to-derived.shim.ts",
+        "lib/features/agent-playground/derive-shapes.ts",
+        "lib/features/agent-playground/todo-ledger-shapes.ts"
       ],
       "rules": {
         "@typescript-eslint/no-restricted-imports": "off"

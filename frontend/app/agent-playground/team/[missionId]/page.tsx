@@ -38,10 +38,9 @@ import {
   TodoDetailDrawer,
   VerifyConsensusPanel,
 } from '@/components/agent-playground';
-import {
-  deriveTodoLedger,
-  type MissionTodo,
-} from '@/lib/features/agent-playground/todo-ledger';
+// ★ B4-3 cutover：deriveTodoLedger 不再调用；canonical todo truth 走
+//   missionView.todoBoard.items（line 698 处 inline shim）。
+import type { MissionTodo } from '@/lib/features/agent-playground/todo-ledger-shapes';
 import { cn } from '@/lib/utils/common';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 // 注：tab 切换由 MissionDetailFrame 内部用 canonical <Tabs> 渲染；这里保留导入
@@ -69,7 +68,7 @@ import { useMissionDetailView } from '@/hooks/features/useMissionDetailView';
 import { viewToDerivedShim } from '@/lib/features/agent-playground/view-to-derived.shim';
 // B4-3：仅引入 DerivedView type（type-only import；不调 truth function；不违反 §3.4）
 // eslint-disable-next-line no-restricted-imports
-import type { DerivedView } from '@/lib/features/agent-playground/derive';
+import type { DerivedView } from '@/lib/features/agent-playground/derive-shapes';
 
 /**
  * ★ B4-3：buildEmptyArtifactPlaceholder —— 不带 v1→v2 normalize 的最小空态 placeholder。

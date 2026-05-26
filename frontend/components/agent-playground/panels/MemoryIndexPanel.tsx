@@ -1,7 +1,7 @@
 'use client';
 
 import { Database, Tag } from 'lucide-react';
-import type { MemoryIndexState } from '@/lib/features/agent-playground/derive';
+import type { MemoryIndexState } from '@/lib/features/agent-playground/derive-shapes';
 import { Card } from '@/components/agent-playground/ui';
 
 export function MemoryIndexPanel({

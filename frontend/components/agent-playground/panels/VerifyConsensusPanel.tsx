@@ -2,7 +2,7 @@
 
 import { Gavel, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
-import type { VerifierVerdict } from '@/lib/features/agent-playground/derive';
+import type { VerifierVerdict } from '@/lib/features/agent-playground/derive-shapes';
 import {
   scoreColor,
   scoreBgColor,

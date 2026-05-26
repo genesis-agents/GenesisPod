@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReportArtifact } from '@/lib/features/agent-playground/report-artifact.types';
-import type { DimensionPipelineState } from '@/lib/features/agent-playground/derive';
+import type { DimensionPipelineState } from '@/lib/features/agent-playground/derive-shapes';
 import { ContinuousReader } from './ContinuousReader';
 import { ChapterReader } from './ChapterReader';
 import { QuickReader } from './QuickReader';

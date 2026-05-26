@@ -40,7 +40,7 @@ import {
   type StepStatus,
   type VerifierVerdict,
   type DimensionPipelineState,
-} from './derive';
+} from './derive-shapes';
 
 const STAGE_ORDER: StageId[] = [
   'leader',
@@ -140,7 +140,7 @@ function projectStages(view: MissionDetailView): StageState[] {
   const stepStates = new Map<string, StepStatus>();
   const startedAtByStage = new Map<StageId, number>();
   const endedAtByStage = new Map<StageId, number>();
-  let attemptsByStage = new Map<StageId, number>();
+  const attemptsByStage = new Map<StageId, number>();
 
   for (const s of view.stages) {
     stepStates.set(s.id, mapBackendStageStatusToStep(s.status));
