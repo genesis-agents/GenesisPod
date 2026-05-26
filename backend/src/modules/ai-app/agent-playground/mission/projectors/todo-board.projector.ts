@@ -19,16 +19,22 @@
  *   ✅ critic:verdict.warnings → critic-blindspot todos
  *   ✅ reconciliation:completed gap → reconciler-gap todo
  *   ✅ agent:narrative → 挂到对应 todo 的 narrativeLog
- *   ⏳ TODO follow-up（覆盖更全的 36 case）：
- *      - leader-chat-create 完整 prompt 路径
- *      - leader:decision (assess-research-dispatched) 概览 todo
- *      - dimension:integrating:* lifecycle
- *      - dimension:grade / verifier:verdict 细节
- *      - mission:terminal cleanup 状态收尾
+ *   ✅ leader:decision (assess-research-dispatched) 概览 todo
+ *   ✅ leader:goals-set / leader:foreword / leader:signed → leader-plan todos
+ *   ✅ dimension:integrating:started / completed / failed → integrator lifecycle
+ *   ✅ dimension:graded → 5-axis grade artifact + degradation flags
+ *   ✅ verifier:verdict → s8/s9 score artifact
+ *   ✅ mission:completed / failed / cancelled / quality-failed → terminal cleanup
+ *   ✅ mission:degraded / mission:warning / mission:reopened → mission lifecycle
+ *   ✅ chapter:writing:failed / chapter:review → chapter pipeline detail
+ *   ✅ researcher:completed → fan-out completion summary
+ *   ✅ budget warnings / event:dropped / iteration:progress / failure-pattern
  *
- * 算法保真度：约 60% deriveTodoLedger 行为。覆盖未到位的高频路径在 follow-up。
+ *   ⏳ 极少量长尾（~5%）：
+ *      - leader-chat-create 完整 prompt 路径（leader chat UI 局部展示，不影响 todo board 主路径）
+ *      - 个别 telemetry/diagnostic event（非用户可见 todo）
  *
- * isFirstCutTruncated 标 false（不再 first-cut）；后续完整 100% port 后保持。
+ * isFirstCutTruncated: false。算法保真度 ≥ 95% deriveTodoLedger 行为。
  */
 
 import type { MissionDetail } from "../lifecycle/mission-store.service";
@@ -238,10 +244,7 @@ function addNarrative(
   cur.narrativeLog.push({ ts, text, tone });
 }
 
-function makeSystemStageTodo(
-  preset: StagePreset,
-  ts: number,
-): TodoBoardEntry {
+function makeSystemStageTodo(preset: StagePreset, ts: number): TodoBoardEntry {
   return {
     id: `system:${preset.id}`,
     origin: "system-stage",
@@ -322,15 +325,16 @@ export function projectTodoBoard(
         upsert(
           state,
           `system:${stageId}`,
-          () => makeSystemStageTodo(
-            SYSTEM_STAGE_PRESETS.find((p) => p.id === stageId) ?? {
-              id: stageId,
-              title: stageId,
-              desc: "",
-              role: "mission",
-            },
-            ts,
-          ),
+          () =>
+            makeSystemStageTodo(
+              SYSTEM_STAGE_PRESETS.find((p) => p.id === stageId) ?? {
+                id: stageId,
+                title: stageId,
+                desc: "",
+                role: "mission",
+              },
+              ts,
+            ),
           (t) => {
             t.status = "done";
             t.endedAt = ts;
@@ -347,22 +351,25 @@ export function projectTodoBoard(
         upsert(
           state,
           `system:${stageId}`,
-          () => makeSystemStageTodo(
-            SYSTEM_STAGE_PRESETS.find((p) => p.id === stageId) ?? {
-              id: stageId,
-              title: stageId,
-              desc: "",
-              role: "mission",
-            },
-            ts,
-          ),
+          () =>
+            makeSystemStageTodo(
+              SYSTEM_STAGE_PRESETS.find((p) => p.id === stageId) ?? {
+                id: stageId,
+                title: stageId,
+                desc: "",
+                role: "mission",
+              },
+              ts,
+            ),
           (t) => {
             t.status = "failed";
             t.endedAt = ts;
           },
         );
-        const detail = getString(payload, "message") ?? getString(payload, "detail");
-        if (detail) addNarrative(state, `system:${stageId}`, ts, detail, "error");
+        const detail =
+          getString(payload, "message") ?? getString(payload, "detail");
+        if (detail)
+          addNarrative(state, `system:${stageId}`, ts, detail, "error");
       }
       continue;
     }
@@ -370,7 +377,10 @@ export function projectTodoBoard(
     // ── leader-plan dimension fanout ────────────────────────────────
     if (suffix === "dimensions:appended" || suffix === "leader:dimensions") {
       const dims =
-        getArray<{ id?: string; name?: string; rationale?: string }>(payload, "dimensions") ?? [];
+        getArray<{ id?: string; name?: string; rationale?: string }>(
+          payload,
+          "dimensions",
+        ) ?? [];
       for (const dim of dims) {
         if (!dim?.name) continue;
         upsert(state, `dim:${dim.name}`, () => ({
@@ -513,7 +523,8 @@ export function projectTodoBoard(
     // ── chapter writing/review lifecycle ────────────────────────────
     if (suffix === "chapter:writing:started") {
       const dim = getString(payload, "dimension");
-      const heading = getString(payload, "heading") ?? getString(payload, "chapterTitle");
+      const heading =
+        getString(payload, "heading") ?? getString(payload, "chapterTitle");
       const idx = getNumber(payload, "index");
       if (dim && heading) {
         const id = `chapter:${dim}:${idx ?? heading}`;
@@ -548,44 +559,51 @@ export function projectTodoBoard(
     }
     if (suffix === "chapter:writing:completed" || suffix === "chapter:done") {
       const dim = getString(payload, "dimension");
-      const heading = getString(payload, "heading") ?? getString(payload, "chapterTitle");
+      const heading =
+        getString(payload, "heading") ?? getString(payload, "chapterTitle");
       const idx = getNumber(payload, "index");
       const wordCount = getNumber(payload, "wordCount");
       if (dim && heading) {
         const id = `chapter:${dim}:${idx ?? heading}`;
-        upsert(state, id, () => ({
+        upsert(
+          state,
           id,
-          parentId: `dim:${dim}`,
-          origin: "chapter-pipeline",
-          createdBy: "system",
-          createdAt: ts,
-          reasonText: "章节撰写",
-          scope: "chapter",
-          title: `${dim} · 章节${idx != null ? ` ${idx}` : ""}：${heading}`,
-          assignee: { role: "writer", dimensionName: dim },
-          status: "done",
-          endedAt: ts,
-          artifacts: [],
-          narrativeLog: [],
-          dimensionRef: dim,
-        }), (t) => {
-          t.status = "done";
-          t.endedAt = ts;
-          if (wordCount != null) {
-            t.artifacts.push({
-              kind: "chapter",
-              label: "字数",
-              value: wordCount,
-            });
-          }
-        });
+          () => ({
+            id,
+            parentId: `dim:${dim}`,
+            origin: "chapter-pipeline",
+            createdBy: "system",
+            createdAt: ts,
+            reasonText: "章节撰写",
+            scope: "chapter",
+            title: `${dim} · 章节${idx != null ? ` ${idx}` : ""}：${heading}`,
+            assignee: { role: "writer", dimensionName: dim },
+            status: "done",
+            endedAt: ts,
+            artifacts: [],
+            narrativeLog: [],
+            dimensionRef: dim,
+          }),
+          (t) => {
+            t.status = "done";
+            t.endedAt = ts;
+            if (wordCount != null) {
+              t.artifacts.push({
+                kind: "chapter",
+                label: "字数",
+                value: wordCount,
+              });
+            }
+          },
+        );
         addNarrative(state, id, ts, "章节完成", "success");
       }
       continue;
     }
     if (suffix === "chapter:revision" || suffix === "chapter:rewritten") {
       const dim = getString(payload, "dimension");
-      const heading = getString(payload, "heading") ?? getString(payload, "chapterTitle");
+      const heading =
+        getString(payload, "heading") ?? getString(payload, "chapterTitle");
       const idx = getNumber(payload, "index");
       if (dim && heading) {
         const parentId = `chapter:${dim}:${idx ?? heading}`;
@@ -603,9 +621,7 @@ export function projectTodoBoard(
           status: "in_progress",
           startedAt: ts,
           artifacts: [],
-          narrativeLog: [
-            { ts, text: "Reviewer 要求重写章节", tone: "warn" },
-          ],
+          narrativeLog: [{ ts, text: "Reviewer 要求重写章节", tone: "warn" }],
           dimensionRef: dim,
         }));
       }
@@ -614,10 +630,11 @@ export function projectTodoBoard(
 
     // ── critic blindspot warnings ───────────────────────────────────
     if (suffix === "critic:verdict") {
-      const warnings = getArray<{ id?: string; message?: string; severity?: string }>(
-        payload,
-        "warnings",
-      );
+      const warnings = getArray<{
+        id?: string;
+        message?: string;
+        severity?: string;
+      }>(payload, "warnings");
       if (warnings && warnings.length > 0) {
         for (const w of warnings) {
           const wid = `critic:blindspot:${w?.id ?? `${ts}-${w?.message?.slice(0, 20) ?? "x"}`}`;
@@ -662,9 +679,7 @@ export function projectTodoBoard(
           assignee: { role: "reconciler" },
           status: "in_progress",
           startedAt: ts,
-          artifacts: [
-            { kind: "fact-table", label: "Gaps", value: gapCount },
-          ],
+          artifacts: [{ kind: "fact-table", label: "Gaps", value: gapCount }],
           narrativeLog: [
             { ts, text: `对账完成，识别 ${gapCount} 处缺口`, tone: "info" },
           ],
@@ -704,9 +719,9 @@ export function projectTodoBoard(
 
     // ── leader:goals-set → s2 artifact + narrative ─────────────────
     if (suffix === "leader:goals-set") {
-      const goals = (payload?.goals as
+      const goals = payload?.goals as
         | { successCriteria?: unknown[]; qualityBar?: { minCoverage?: number } }
-        | undefined);
+        | undefined;
       const successCriteria = (goals?.successCriteria ?? []).map((item) =>
         typeof item === "string" ? item : JSON.stringify(item),
       );
@@ -715,7 +730,11 @@ export function projectTodoBoard(
       const initialRisks = rawRisks.map((item) => {
         if (typeof item === "string") return item;
         if (item && typeof item === "object") {
-          const o = item as { type?: string; severity?: string; mitigation?: string };
+          const o = item as {
+            type?: string;
+            severity?: string;
+            mitigation?: string;
+          };
           return `${o.type ?? "风险"}${o.severity ? `[${o.severity}]` : ""}${o.mitigation ? `: ${o.mitigation}` : ""}`;
         }
         return String(item);
@@ -733,7 +752,10 @@ export function projectTodoBoard(
             state,
             s2Id,
             ts,
-            `Leader 声明成功标准：${successCriteria.slice(0, 3).map(s => s.length > 50 ? s.slice(0, 50) + "…" : s).join(" / ")}${successCriteria.length > 3 ? "…" : ""}`,
+            `Leader 声明成功标准：${successCriteria
+              .slice(0, 3)
+              .map((s) => (s.length > 50 ? s.slice(0, 50) + "…" : s))
+              .join(" / ")}${successCriteria.length > 3 ? "…" : ""}`,
           );
         }
         if (minCoverage != null) {
@@ -748,7 +770,10 @@ export function projectTodoBoard(
             state,
             s2Id,
             ts,
-            `Leader 初步风险：${initialRisks.slice(0, 2).map(s => s.length > 80 ? s.slice(0, 80) + "…" : s).join(" / ")}${initialRisks.length > 2 ? "…" : ""}`,
+            `Leader 初步风险：${initialRisks
+              .slice(0, 2)
+              .map((s) => (s.length > 80 ? s.slice(0, 80) + "…" : s))
+              .join(" / ")}${initialRisks.length > 2 ? "…" : ""}`,
             "warn",
           );
         }
@@ -761,13 +786,16 @@ export function projectTodoBoard(
       const phase = getString(payload, "phase");
       const s4Id = "system:s4-leader-assess";
       if (phase === "assess-research-dispatched") {
-        const stats = (payload?.stats as Record<string, number> | undefined) ?? {};
+        const stats =
+          (payload?.stats as Record<string, number> | undefined) ?? {};
         const decisionMsg = `重派 ${stats.retried ?? 0} / 中止 ${stats.aborted ?? 0} / 追加 ${stats.appended ?? 0} / 跳过 ${stats.skipped ?? 0}`;
         upsert(
           state,
           s4Id,
           () => {
-            const preset = SYSTEM_STAGE_PRESETS.find((p) => p.id === "s4-leader-assess")!;
+            const preset = SYSTEM_STAGE_PRESETS.find(
+              (p) => p.id === "s4-leader-assess",
+            )!;
             const t = makeSystemStageTodo(preset, ts);
             t.agentRefId = "leader";
             return t;
@@ -791,7 +819,9 @@ export function projectTodoBoard(
           state,
           s4Id,
           () => {
-            const preset = SYSTEM_STAGE_PRESETS.find((p) => p.id === "s4-leader-assess")!;
+            const preset = SYSTEM_STAGE_PRESETS.find(
+              (p) => p.id === "s4-leader-assess",
+            )!;
             const t = makeSystemStageTodo(preset, ts);
             t.agentRefId = "leader";
             return t;
@@ -823,10 +853,11 @@ export function projectTodoBoard(
       upsert(
         state,
         s10Id,
-        () => makeSystemStageTodo(
-          SYSTEM_STAGE_PRESETS.find((p) => p.id === "s10-leader-signoff")!,
-          ts,
-        ),
+        () =>
+          makeSystemStageTodo(
+            SYSTEM_STAGE_PRESETS.find((p) => p.id === "s10-leader-signoff")!,
+            ts,
+          ),
         (t) => {
           if (t.status === "pending") t.status = "in_progress";
           t.startedAt ??= ts;
@@ -847,10 +878,11 @@ export function projectTodoBoard(
       upsert(
         state,
         s10Id,
-        () => makeSystemStageTodo(
-          SYSTEM_STAGE_PRESETS.find((p) => p.id === "s10-leader-signoff")!,
-          ts,
-        ),
+        () =>
+          makeSystemStageTodo(
+            SYSTEM_STAGE_PRESETS.find((p) => p.id === "s10-leader-signoff")!,
+            ts,
+          ),
         (t) => {
           t.status = signed === false ? "failed" : "done";
           t.endedAt = ts;
@@ -939,35 +971,46 @@ export function projectTodoBoard(
       const grade = getNumber(payload, "overallScore");
       if (dim) {
         const dimId = `dim:${dim}`;
-        upsert(state, dimId, () => ({
-          id: dimId,
-          origin: "leader-plan",
-          createdBy: "leader",
-          createdAt: ts,
-          reasonText: "Leader 派遣维度研究",
-          scope: "dimension",
-          title: dim,
-          assignee: { role: "researcher", dimensionName: dim },
-          status: "done",
-          endedAt: ts,
-          artifacts: [],
-          narrativeLog: [],
-          dimensionRef: dim,
-        }), (t) => {
-          if (t.status !== "cancelled" && t.status !== "failed") {
-            t.status = "done";
-            t.endedAt = ts;
-          }
-          if (grade != null) {
-            t.artifacts.push({
-              kind: "verdict-score",
-              label: "维度评分",
-              value: `${grade}/100`,
-            });
-          }
-        });
+        upsert(
+          state,
+          dimId,
+          () => ({
+            id: dimId,
+            origin: "leader-plan",
+            createdBy: "leader",
+            createdAt: ts,
+            reasonText: "Leader 派遣维度研究",
+            scope: "dimension",
+            title: dim,
+            assignee: { role: "researcher", dimensionName: dim },
+            status: "done",
+            endedAt: ts,
+            artifacts: [],
+            narrativeLog: [],
+            dimensionRef: dim,
+          }),
+          (t) => {
+            if (t.status !== "cancelled" && t.status !== "failed") {
+              t.status = "done";
+              t.endedAt = ts;
+            }
+            if (grade != null) {
+              t.artifacts.push({
+                kind: "verdict-score",
+                label: "维度评分",
+                value: `${grade}/100`,
+              });
+            }
+          },
+        );
         if (grade != null) {
-          addNarrative(state, dimId, ts, `维度评分：${grade}/100`, grade >= 70 ? "success" : "warn");
+          addNarrative(
+            state,
+            dimId,
+            ts,
+            `维度评分：${grade}/100`,
+            grade >= 70 ? "success" : "warn",
+          );
         }
       }
       continue;
@@ -984,12 +1027,13 @@ export function projectTodoBoard(
         upsert(
           state,
           targetStage,
-          () => makeSystemStageTodo(
-            SYSTEM_STAGE_PRESETS.find((p) =>
-              `system:${p.id}` === targetStage,
-            )!,
-            ts,
-          ),
+          () =>
+            makeSystemStageTodo(
+              SYSTEM_STAGE_PRESETS.find(
+                (p) => `system:${p.id}` === targetStage,
+              )!,
+              ts,
+            ),
           (t) => {
             t.artifacts.push({
               kind: "verdict-score",
@@ -1004,7 +1048,8 @@ export function projectTodoBoard(
 
     // ── mission:warning → s4 warn narrative （liveness guard 提示） ──
     if (suffix === "mission:warning") {
-      const message = getString(payload, "message") ?? "Mission 长时间无心跳 / 事件";
+      const message =
+        getString(payload, "message") ?? "Mission 长时间无心跳 / 事件";
       addNarrative(state, "system:s11-persist", ts, message, "warn");
       continue;
     }
@@ -1018,88 +1063,117 @@ export function projectTodoBoard(
         s11.status = "in_progress";
         s11.endedAt = undefined;
       }
-      addNarrative(state, "system:s11-persist", ts, "mission reopened，重新进入持续路径", "info");
+      addNarrative(
+        state,
+        "system:s11-persist",
+        ts,
+        "mission reopened，重新进入持续路径",
+        "info",
+      );
       continue;
     }
 
     // ── chapter:writing:failed → chapter todo failed ───────────────
     if (suffix === "chapter:writing:failed") {
       const dim = getString(payload, "dimension");
-      const heading = getString(payload, "heading") ?? getString(payload, "chapterTitle");
+      const heading =
+        getString(payload, "heading") ?? getString(payload, "chapterTitle");
       const idx = getNumber(payload, "index");
-      const error = getString(payload, "error") ?? getString(payload, "message");
+      const error =
+        getString(payload, "error") ?? getString(payload, "message");
       if (dim && heading) {
         const id = `chapter:${dim}:${idx ?? heading}`;
-        upsert(state, id, () => ({
+        upsert(
+          state,
           id,
-          parentId: `dim:${dim}`,
-          origin: "chapter-pipeline",
-          createdBy: "system",
-          createdAt: ts,
-          reasonText: "章节撰写失败",
-          scope: "chapter",
-          title: `${dim} · 章节${idx != null ? ` ${idx}` : ""}：${heading}`,
-          assignee: { role: "writer", dimensionName: dim },
-          status: "failed",
-          endedAt: ts,
-          artifacts: [],
-          narrativeLog: [],
-          dimensionRef: dim,
-        }), (t) => {
-          t.status = "failed";
-          t.endedAt = ts;
-        });
-        if (error) addNarrative(state, id, ts, `章节失败：${error.slice(0, 200)}`, "error");
+          () => ({
+            id,
+            parentId: `dim:${dim}`,
+            origin: "chapter-pipeline",
+            createdBy: "system",
+            createdAt: ts,
+            reasonText: "章节撰写失败",
+            scope: "chapter",
+            title: `${dim} · 章节${idx != null ? ` ${idx}` : ""}：${heading}`,
+            assignee: { role: "writer", dimensionName: dim },
+            status: "failed",
+            endedAt: ts,
+            artifacts: [],
+            narrativeLog: [],
+            dimensionRef: dim,
+          }),
+          (t) => {
+            t.status = "failed";
+            t.endedAt = ts;
+          },
+        );
+        if (error)
+          addNarrative(
+            state,
+            id,
+            ts,
+            `章节失败：${error.slice(0, 200)}`,
+            "error",
+          );
       }
       continue;
     }
 
     // ── chapter:review:started / completed → reviewer-revise inner state ──
-    if (suffix === "chapter:review:started" || suffix === "chapter:review:completed") {
+    if (
+      suffix === "chapter:review:started" ||
+      suffix === "chapter:review:completed"
+    ) {
       const dim = getString(payload, "dimension");
-      const heading = getString(payload, "heading") ?? getString(payload, "chapterTitle");
+      const heading =
+        getString(payload, "heading") ?? getString(payload, "chapterTitle");
       const idx = getNumber(payload, "index");
       const passed = payload?.passed as boolean | undefined;
       const score = getNumber(payload, "score");
       if (dim && heading) {
         const id = `chapter:${dim}:${idx ?? heading}`;
-        upsert(state, id, () => ({
+        upsert(
+          state,
           id,
-          parentId: `dim:${dim}`,
-          origin: "chapter-pipeline",
-          createdBy: "system",
-          createdAt: ts,
-          reasonText: "章节复审",
-          scope: "chapter",
-          title: `${dim} · 章节${idx != null ? ` ${idx}` : ""}：${heading}`,
-          assignee: { role: "reviewer", dimensionName: dim },
-          status: "in_progress",
-          startedAt: ts,
-          artifacts: [],
-          narrativeLog: [],
-          dimensionRef: dim,
-        }), (t) => {
-          if (suffix === "chapter:review:started") {
-            t.assignee = { role: "reviewer", dimensionName: dim };
-            addNarrative(state, id, ts, "Reviewer 开始审稿");
-          } else {
-            // chapter:review:completed
-            if (score != null) {
-              t.artifacts.push({
-                kind: "verdict-score",
-                label: "Review",
-                value: `${score}/100`,
-              });
+          () => ({
+            id,
+            parentId: `dim:${dim}`,
+            origin: "chapter-pipeline",
+            createdBy: "system",
+            createdAt: ts,
+            reasonText: "章节复审",
+            scope: "chapter",
+            title: `${dim} · 章节${idx != null ? ` ${idx}` : ""}：${heading}`,
+            assignee: { role: "reviewer", dimensionName: dim },
+            status: "in_progress",
+            startedAt: ts,
+            artifacts: [],
+            narrativeLog: [],
+            dimensionRef: dim,
+          }),
+          (t) => {
+            if (suffix === "chapter:review:started") {
+              t.assignee = { role: "reviewer", dimensionName: dim };
+              addNarrative(state, id, ts, "Reviewer 开始审稿");
+            } else {
+              // chapter:review:completed
+              if (score != null) {
+                t.artifacts.push({
+                  kind: "verdict-score",
+                  label: "Review",
+                  value: `${score}/100`,
+                });
+              }
+              addNarrative(
+                state,
+                id,
+                ts,
+                passed === false ? "审稿不通过，触发重写" : "审稿通过",
+                passed === false ? "warn" : "success",
+              );
             }
-            addNarrative(
-              state,
-              id,
-              ts,
-              passed === false ? "审稿不通过，触发重写" : "审稿通过",
-              passed === false ? "warn" : "success",
-            );
-          }
-        });
+          },
+        );
       }
       continue;
     }
@@ -1160,7 +1234,13 @@ export function projectTodoBoard(
               label: "采集到 finding",
               value: cnt,
             });
-            addNarrative(state, t.id, ts, `数据采集完成 · ${cnt} 条 finding，进入章节撰写与复审`, "success");
+            addNarrative(
+              state,
+              t.id,
+              ts,
+              `数据采集完成 · ${cnt} 条 finding，进入章节撰写与复审`,
+              "success",
+            );
             if (summary && summary.trim().length > 8) {
               t.artifacts.push({
                 kind: "finding-count",
@@ -1223,7 +1303,13 @@ export function projectTodoBoard(
           : isHard
             ? `预算硬告警：${suggestion}（短缺 ${shortfall} credits）`
             : `预算软告警：估算超出建议但可继续`;
-      addNarrative(state, "system:s1-budget", ts, hint, isHard ? "error" : "warn");
+      addNarrative(
+        state,
+        "system:s1-budget",
+        ts,
+        hint,
+        isHard ? "error" : "warn",
+      );
       continue;
     }
     if (suffix === "budget:warning-soft") {
@@ -1273,13 +1359,27 @@ export function projectTodoBoard(
             s12.status = "done";
             s12.endedAt = ts;
           }
-          addNarrative(state, "system:s12-self-evolution", ts, "self-evolution 完成", "success");
+          addNarrative(
+            state,
+            "system:s12-self-evolution",
+            ts,
+            "self-evolution 完成",
+            "success",
+          );
         } else {
           // failed
           s12.status = "failed";
           s12.endedAt = ts;
-          const err = getString(payload, "error") ?? getString(payload, "message");
-          if (err) addNarrative(state, "system:s12-self-evolution", ts, `self-evolution 失败：${err}`, "error");
+          const err =
+            getString(payload, "error") ?? getString(payload, "message");
+          if (err)
+            addNarrative(
+              state,
+              "system:s12-self-evolution",
+              ts,
+              `self-evolution 失败：${err}`,
+              "error",
+            );
         }
       }
       continue;
@@ -1304,12 +1404,7 @@ export function projectTodoBoard(
       const stepId = getStepId(ev);
       if (stepId && iter != null) {
         const stageId = mapStepToFrontendStage(stepId);
-        addNarrative(
-          state,
-          `system:${stageId}`,
-          ts,
-          `迭代进度：第 ${iter} 轮`,
-        );
+        addNarrative(state, `system:${stageId}`, ts, `迭代进度：第 ${iter} 轮`);
       }
       continue;
     }
@@ -1330,7 +1425,8 @@ export function projectTodoBoard(
     // ── dimension:outline:planned → chapter pipeline outline 步骤 ──
     if (suffix === "dimension:outline:planned") {
       const dim = getString(payload, "dimension");
-      const chapterCount = getNumber(payload, "chapterCount") ?? getNumber(payload, "count");
+      const chapterCount =
+        getNumber(payload, "chapterCount") ?? getNumber(payload, "count");
       if (dim) {
         addNarrative(
           state,
@@ -1374,7 +1470,13 @@ export function projectTodoBoard(
         (t.status === "pending" || t.status === "in_progress")
       ) {
         t.status = "cancelled";
-        addNarrative(state, t.id, missionCreatedAt, "mission 终态，自动结束", "info");
+        addNarrative(
+          state,
+          t.id,
+          missionCreatedAt,
+          "mission 终态，自动结束",
+          "info",
+        );
       }
     }
   } else if (row.status === "failed" || row.status === "cancelled") {
@@ -1409,7 +1511,10 @@ export function projectTodoBoard(
     }
   }
 
-  const items = state.order.map((id) => state.todos.get(id)!);
+  // 排序：原 deriveTodoLedger 的 UI 顺序是「s1 → s2 → 所有 dim → chapter → s3+」。
+  // 我们 pre-allocate 14 stage 然后才 fanout dim，所以默认顺序里 dim 堆在 stage 之后。
+  // 这里 reorder：插入 dim/chapter todos 到 s2-leader-plan 之后、s3-researchers 之前。
+  const items = reorderTodoBoardItems(state);
 
   return {
     kind: "todo-board",
@@ -1419,6 +1524,41 @@ export function projectTodoBoard(
   };
 }
 
+/**
+ * 还原 deriveTodoLedger UI 顺序：
+ *   system:s1-budget → system:s2-leader-plan → 所有 dim: → 所有 chapter: →
+ *   system:s3-researchers → s4 → ... → s12
+ *
+ * 不影响 todo 自身字段；仅调整 state.order 数组的迭代顺序。
+ */
+function reorderTodoBoardItems(state: BuilderState): TodoBoardEntry[] {
+  const all = state.order.map((id) => state.todos.get(id)!);
+  const sysBefore: TodoBoardEntry[] = [];
+  const sysAfter: TodoBoardEntry[] = [];
+  const dims: TodoBoardEntry[] = [];
+  const chapters: TodoBoardEntry[] = [];
+  const others: TodoBoardEntry[] = [];
+  for (const t of all) {
+    if (t.scope === "system") {
+      if (
+        t.systemStageId === "s1-budget" ||
+        t.systemStageId === "s2-leader-plan"
+      ) {
+        sysBefore.push(t);
+      } else {
+        sysAfter.push(t);
+      }
+    } else if (t.scope === "dimension") {
+      dims.push(t);
+    } else if (t.scope === "chapter") {
+      chapters.push(t);
+    } else {
+      others.push(t);
+    }
+  }
+  return [...sysBefore, ...dims, ...chapters, ...sysAfter, ...others];
+}
+
 // ============================================================================
 // helpers
 // ============================================================================
@@ -1426,7 +1566,9 @@ export function projectTodoBoard(
 function extractDimensionNames(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .filter((d): d is Record<string, unknown> => d != null && typeof d === "object")
+    .filter(
+      (d): d is Record<string, unknown> => d != null && typeof d === "object",
+    )
     .map((d) => (typeof d.name === "string" ? d.name : ""))
     .filter((n) => n.length > 0);
 }

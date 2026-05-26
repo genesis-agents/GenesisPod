@@ -266,8 +266,9 @@ export async function fetchBudgetTiers(): Promise<BudgetTiersResponse> {
 /**
  * Phase 5 checkpoint：列出"上次中断、可从 checkpoint 增量续跑"的 mission。
  * 数据源：mission row 持久化的 leaderJournal.__checkpoint JSONB key。
- * 后台重启后 in-memory orchestrator 死了，但 checkpoint 仍在；前端拿到 id 集合
- * 后在 mission 列表上叠 "可继续" 徽章 + "继续" 按钮，让用户主动触发 incremental rerun。
+ *
+ * W1 cutover (2026-05-26) 后 mission detail page 走 canonical view 的
+ * mission.resumable；本项目当前仅 mission 列表页可能展示批量"可继续"徽章用此函数。
  */
 export interface ResumableMissionItem {
   missionId: string;
@@ -275,6 +276,10 @@ export interface ResumableMissionItem {
   completedKeys: string[];
 }
 
+/**
+ * @deprecated W1 cutover — mission detail page 已改吃 useMissionDetailView.mission.resumable。
+ *             仅保留供 mission 列表批量"可继续"徽章使用；新代码不应再调。
+ */
 export async function listResumableMissions(): Promise<ResumableMissionItem[]> {
   const res = await fetch(`${API_BASE}/missions/resumable`, {
     headers: { ...getAuthHeader() },
@@ -287,6 +292,10 @@ export async function listResumableMissions(): Promise<ResumableMissionItem[]> {
   return Array.isArray(data.items) ? data.items : [];
 }
 
+/**
+ * @deprecated W1 cutover — mission detail page 已改吃 getMissionDetailView (canonical view)。
+ *             仅作 sibling 兼容路由（plan §6.9 disposition table）；新代码不应再调。
+ */
 export async function getMissionDetail(id: string): Promise<MissionDetail> {
   const res = await fetch(`${API_BASE}/missions/${encodeURIComponent(id)}`, {
     headers: { ...getAuthHeader() },

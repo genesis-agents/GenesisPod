@@ -1331,7 +1331,12 @@ export function TodoDetailDrawer({
                             ['freshness', '时效性'],
                           ] as const
                         ).map(([k, label]) => {
-                          const a = pipeline.grade!.axes[k];
+                          // canonical view DimensionPipelineView.grade 当前未暴露
+                          // axes 5-axis breakdown（grade 字段是简化形）。defensive
+                          // chain：axes 缺失时整 axis 区段不渲染。Follow-up：
+                          // backend projector 加 extractDimensionGradeAxes。
+                          const axes = pipeline.grade?.axes;
+                          const a = axes?.[k];
                           if (!a) return null;
                           return (
                             <li key={k}>

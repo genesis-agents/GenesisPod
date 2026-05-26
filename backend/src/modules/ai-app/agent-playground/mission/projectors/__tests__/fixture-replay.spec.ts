@@ -1,13 +1,17 @@
 /**
- * fixture-replay.spec.ts —— Fixture replay scaffold（B1-3）
+ * fixture-replay.spec.ts —— Fixture replay catalog spec
  *
- * 落地依据：thinning plan §B1-3 / §6.8 / §B2-4
+ * 落地依据：thinning plan §B1-3 / §6.8 / §B2-4 / §6.8.1.b
  *
- * B1-3 阶段：仅验证 fixture 加载、必填字段、shape sanity。
- * B2-4 阶段：接入 MissionViewProjectorService.project()，断言 fixture.expectedView 等价 projector 输出。
+ * 当前状态（2026-05-26，P0-4 完成后）：
+ * 9 类 fixture 全部 materialize（6 单点 + 3 组合态）：
+ *   单点（§6.8.1）：playground-completed / -failed / -quality-failed / -cancelled
+ *                    / -resumable / -reopened
+ *   组合态（§6.8.1.b）：playground-partial-failure-mid-run /
+ *                       -multi-stage-rerun-in-flight / -multi-agent-retry
  *
- * 当前断言走 listMaterializedFixtures（B1 只 materialize playground-completed），
- * 其余 8 个 fixture 在 B1-2 follow-up PR 完整 5 文件落盘后自动加入测试。
+ * 断言走 listMaterializedFixtures（loadFixture 自动跳过 PLACEHOLDER.md）。
+ * 投影对比通过 projectMissionView() 输出对照 expected-view.json。
  */
 
 import {
@@ -90,7 +94,11 @@ describe("§6.8 materialized fixture 形状一致性", () => {
       const isTerminal = TERMINAL_MISSION_STATUSES.has(
         bundle.expectedView.mission.status,
       );
-      if (isTerminal && id !== "playground-resumable" && id !== "playground-reopened") {
+      if (
+        isTerminal &&
+        id !== "playground-resumable" &&
+        id !== "playground-reopened"
+      ) {
         expect(bundle.expectedView.mission.resumable).toBe(false);
       }
     },
@@ -297,7 +305,8 @@ function synthesizeMissionDetailFromFixture(
     status: r.status,
     startedAt: new Date(r.startedAt),
     completedAt: r.completedAt ? new Date(r.completedAt) : null,
-    elapsedWallTimeMs: (r.elapsedWallTimeMs as number | null | undefined) ?? null,
+    elapsedWallTimeMs:
+      (r.elapsedWallTimeMs as number | null | undefined) ?? null,
     finalScore: r.finalScore ?? null,
     tokensUsed: r.tokensUsed != null ? Number(r.tokensUsed) : null,
     costUsd: r.costUsd ?? null,
@@ -308,7 +317,7 @@ function synthesizeMissionDetailFromFixture(
     failureCode: r.failureCode ?? null,
     configSnapshot: r.configSnapshot ?? null,
     maxCredits: (r.maxCredits as number | null | undefined) ?? null,
-    themeSummary: (r.themeSummary as string | null | undefined) ?? null,
+    themeSummary: r.themeSummary ?? null,
     dimensions: r.dimensions ?? null,
     reportFull: r.reportFull ?? null,
     verdicts: null,
