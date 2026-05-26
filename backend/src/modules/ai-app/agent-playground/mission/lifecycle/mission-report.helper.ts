@@ -162,6 +162,12 @@ export class MissionReportHelper extends BusinessTeamReportHelperFramework<Playg
     };
   }
 
+  // @blueprint:section-start domain
+  // ↓ playground 特有: research-result / chapter-draft 持久化 (research/chapter
+  //   是 playground 报告生成业务概念,不是通用 agent team 概念)
+  //   CLI 复制 playground → 新 team 时,删除 section-start/section-end 之间的内容
+  //   依赖的 Prisma model: agentPlaygroundResearchResult / agentPlaygroundChapterDraft
+
   async saveResearchResult(args: {
     missionId: string;
     dimension: string;
@@ -341,4 +347,6 @@ export class MissionReportHelper extends BusinessTeamReportHelperFramework<Playg
       wordCount: r.wordCount ?? undefined,
     }));
   }
+
+  // @blueprint:section-end
 }

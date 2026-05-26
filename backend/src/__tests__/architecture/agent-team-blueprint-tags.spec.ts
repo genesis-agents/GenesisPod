@@ -168,6 +168,44 @@ describe("Agent Team App Blueprint Tags — playground (ADR 009)", () => {
     });
   });
 
+  describe("(E) section 标签必须成对（start/end 数量一致）", () => {
+    it("framework-subclass 文件内 section-start 和 section-end 数量一致", () => {
+      const offending: Array<{ file: string; start: number; end: number }> = [];
+      for (const rel of allFiles) {
+        const abs = path.join(PLAYGROUND_ROOT, rel);
+        const content = fs.readFileSync(abs, "utf8");
+        const starts = (
+          content.match(/\/\/\s*@blueprint:section-start\b/g) ?? []
+        ).length;
+        const ends = (content.match(/\/\/\s*@blueprint:section-end\b/g) ?? [])
+          .length;
+        if (starts !== ends) {
+          offending.push({ file: rel, start: starts, end: ends });
+        }
+      }
+      expect(offending).toEqual([]);
+    });
+
+    it("section-start 标签必须带 kind（domain / experimental / legacy 之一）", () => {
+      const SECTION_KINDS = new Set(["domain", "experimental", "legacy"]);
+      const offending: Array<{ file: string; line: string }> = [];
+      for (const rel of allFiles) {
+        const abs = path.join(PLAYGROUND_ROOT, rel);
+        const content = fs.readFileSync(abs, "utf8");
+        const matches = content.matchAll(
+          /\/\/\s*@blueprint:section-start(?:\s+(\S+))?/g,
+        );
+        for (const m of matches) {
+          const kind = m[1];
+          if (!kind || !SECTION_KINDS.has(kind)) {
+            offending.push({ file: rel, line: m[0] });
+          }
+        }
+      }
+      expect(offending).toEqual([]);
+    });
+  });
+
   describe("文件统计快照（防意外回退）", () => {
     it("playground 各 kind 数量在合理范围", () => {
       let boilerplate = 0;
