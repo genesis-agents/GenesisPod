@@ -18,7 +18,7 @@
  * 都纳入 willRerun)。
  */
 
-import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { PLAYGROUND_PIPELINE } from "../../runtime/playground.config";
 import type {
@@ -65,8 +65,6 @@ const STEP_LABELS: Record<string, { label: string; sub?: string }> = {
 
 @Injectable()
 export class MissionDagService {
-  private readonly log = new Logger(MissionDagService.name);
-
   constructor(private readonly store: MissionStore) {}
 
   /** 构图入口 —— ownership 校验已在 controller 完成 */
