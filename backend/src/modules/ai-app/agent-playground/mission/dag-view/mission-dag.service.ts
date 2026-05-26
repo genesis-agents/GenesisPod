@@ -89,6 +89,13 @@ export class MissionDagService {
     const missionStatus = mission.status;
     const dims = this.normalizeDimensions(mission.dimensions);
 
+    // Phase 3.1: 一次性读事件,后面 per-dim 状态 / score 派生用
+    const events = this.buffer.read(missionId);
+    // Phase 3.1: 按维度名分别提取 researcher agent:lifecycle 的最新 phase
+    const perDimPhase = this.collectPerDimResearcherPhase(events);
+    // Phase 3.2: reviewer / 签收 节点的 score(从 mission 派生)
+    const scoreByNodeId = this.collectReviewerScores(mission);
+
     const nodes: MissionDagNode[] = [];
     const edges: MissionDagEdge[] = [];
 
@@ -108,6 +115,7 @@ export class MissionDagService {
       const dag = step.dag;
       const rerunable = dag?.rerunable ?? true;
       const rerunableReason = dag?.rerunableReason;
+      const score = scoreByNodeId.get(step.id);
 
       nodes.push({
         id: step.id,
@@ -121,11 +129,13 @@ export class MissionDagService {
         rerunable,
         rerunableReason,
         layout,
+        score,
       });
     }
 
-    // 2) S3 展开:为每个维度生成一个 research-dim 子节点
-    //    状态先复用 parent S3 状态(精细到每维度的运行态需要从 events 派生,放到 Phase 2)
+    // 2) S3 展开:为每个维度生成一个 research-dim 子节点。
+    //    Phase 3.1: 每维度状态独立 —— 若该维度有 lifecycle 事件,按事件推
+    //    (started→running, completed→done, failed→failed);否则继承父 S3 状态。
     const s3Idx = stepIndexById.get(RESEARCH_STEP_ID) ?? -1;
     const s3Status =
       s3Idx >= 0
@@ -140,12 +150,16 @@ export class MissionDagService {
     const s3Rerunable = s3Step?.dag?.rerunable ?? true;
     for (const dim of dims) {
       const dimId = `${RESEARCH_STEP_ID}::${dim.id}`;
+      const dimStatus = this.deriveDimStatusFromPhase(
+        perDimPhase.get(dim.name),
+        s3Status,
+      );
       nodes.push({
         id: dimId,
         kind: "research-dim",
         label: `R · ${this.shortDim(dim.name)}`,
         sub: dim.name,
-        status: s3Status,
+        status: dimStatus,
         rerunable: s3Rerunable, // 子节点继承父 stage 的 rerunable
         rerunableReason: s3Step?.dag?.rerunableReason,
         layout: "fan",
@@ -352,6 +366,72 @@ export class MissionDagService {
 
   private shortDim(name: string): string {
     return name.length > 8 ? name.slice(0, 7) + "…" : name;
+  }
+
+  /**
+   * Phase 3.1: 把事件流里所有 researcher agent:lifecycle 事件按 dimension
+   * 分桶,每个 dimension 取最新 phase。
+   */
+  private collectPerDimResearcherPhase(
+    events: ReadonlyArray<{
+      type: string;
+      payload: unknown;
+      timestamp: number;
+    }>,
+  ): Map<string, "started" | "completed" | "failed"> {
+    const map = new Map<string, "started" | "completed" | "failed">();
+    for (const e of events) {
+      if (e.type !== "agent-playground.agent:lifecycle") continue;
+      const p = (e.payload ?? {}) as Record<string, unknown>;
+      if (p.role !== "researcher") continue;
+      const dim = typeof p.dimension === "string" ? p.dimension : null;
+      const ph = typeof p.phase === "string" ? p.phase : null;
+      if (!dim || !ph) continue;
+      if (ph === "started" || ph === "completed" || ph === "failed") {
+        map.set(dim, ph);
+      }
+    }
+    return map;
+  }
+
+  /**
+   * Phase 3.1: 由事件 phase + 父 S3 状态推该维度的 DAG 节点状态。
+   *   started → running
+   *   completed → done
+   *   failed → failed
+   *   无事件 → 继承父 S3 状态(向前兼容)
+   */
+  private deriveDimStatusFromPhase(
+    phase: "started" | "completed" | "failed" | undefined,
+    fallback: MissionDagNodeStatus,
+  ): MissionDagNodeStatus {
+    if (phase === "started") return "running";
+    if (phase === "completed") return "done";
+    if (phase === "failed") return "failed";
+    return fallback;
+  }
+
+  /**
+   * Phase 3.2: reviewer / 签收节点的 score 填充。
+   *   - s10-leader-foreword-signoff ← mission.leaderOverallScore
+   *   - s9-critic / s9b-objective-eval / s8b-quality-enhancement ← mission.finalScore
+   *     (这三个 review 类 stage 共同决定 finalScore,简化:都标 finalScore)
+   */
+  private collectReviewerScores(mission: {
+    finalScore: number | null;
+    leaderOverallScore: number | null;
+  }): Map<string, number> {
+    const map = new Map<string, number>();
+    if (typeof mission.leaderOverallScore === "number") {
+      map.set("s10-leader-foreword-signoff", mission.leaderOverallScore);
+    }
+    if (typeof mission.finalScore === "number") {
+      const final = mission.finalScore;
+      map.set("s9-critic", final);
+      map.set("s9b-objective-eval", final);
+      map.set("s8b-quality-enhancement", final);
+    }
+    return map;
   }
 
   // ─── Phase 2: ReAct 内部循环快照 ────────────────────────────────────

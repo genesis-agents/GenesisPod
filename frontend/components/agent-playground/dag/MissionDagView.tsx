@@ -471,6 +471,20 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
                   ↻{n.iter}
                 </span>
               )}
+              {/* Phase 3.2: 右下 score chip(reviewer/签收 类节点) */}
+              {n.score != null && (
+                <span
+                  className={`font-mono absolute -bottom-2 right-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                    n.score >= 80
+                      ? 'bg-emerald-500 text-white'
+                      : n.score >= 65
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-red-500 text-white'
+                  }`}
+                >
+                  {n.score}
+                </span>
+              )}
               {/* 节点 label */}
               <div className="text-center text-[13px] font-bold leading-tight">
                 {n.label}
@@ -516,11 +530,20 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
         })}
       </div>
 
-      {/* Phase 2: ReAct 内部循环面板(浮在右侧) */}
+      {/* Phase 2: ReAct 内部循环面板(浮在右侧) · Phase 3.3 跟随 liveSignal 自动刷新 */}
       {reactSnap && (
         <ReactRingPanel
+          missionId={missionId}
           node={reactSnap.node}
           snap={reactSnap.snap}
+          liveSignal={liveSignal}
+          onSnap={(s) =>
+            setReactSnap((prev) =>
+              prev && prev.node.id === reactSnap.node.id
+                ? { node: prev.node, snap: s }
+                : prev
+            )
+          }
           onClose={closeReact}
         />
       )}
@@ -533,14 +556,42 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
 // ──────────────────────────────────────────────────────────────
 
 function ReactRingPanel({
+  missionId,
   node,
   snap,
+  liveSignal,
+  onSnap,
   onClose,
 }: {
+  missionId: string;
   node: MissionDagNode;
   snap: MissionDagReactSnapshot | null;
+  liveSignal?: number;
+  /** 内部静默 refetch 成功时把最新快照交回父级,父级用同 nodeId 替换 state */
+  onSnap?: (s: MissionDagReactSnapshot) => void;
   onClose: () => void;
 }) {
+  // Phase 3.3: liveSignal 变化 → 节流 800ms 重拉同节点 react 快照(面板期间)
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (liveSignal === undefined || !snap) return;
+    // 已结束/失败的节点不再刷(免无谓请求)
+    if (snap.phase === 'completed' || snap.phase === 'failed') return;
+    if (refetchTimer.current) clearTimeout(refetchTimer.current);
+    refetchTimer.current = setTimeout(() => {
+      fetchMissionDagReact(missionId, node.id)
+        .then((s) => onSnap?.(s))
+        .catch(() => {
+          /* 静默 */
+        });
+    }, 800);
+    return () => {
+      if (refetchTimer.current) clearTimeout(refetchTimer.current);
+    };
+    // 故意省 snap/onSnap 依赖防止自激刷新
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveSignal, missionId, node.id]);
+
   const cur = snap?.currentStep ?? 'idle';
   const ringNodes = [
     { key: 'thinking', label: '思考', x: 145, y: 28 },

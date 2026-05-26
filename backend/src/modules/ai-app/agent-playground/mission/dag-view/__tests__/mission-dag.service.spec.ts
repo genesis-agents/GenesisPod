@@ -167,6 +167,94 @@ describe("MissionDagService", () => {
       expect(g.edges.some((e) => e.kind === "self-loop")).toBe(true);
     });
 
+    // ─── Phase 3.1: per-dim 状态独立 ───
+    it("derives per-dim status from agent:lifecycle events (running / done / failed)", async () => {
+      const dims = [
+        { id: "d1", name: "投资", rationale: "" },
+        { id: "d2", name: "教育", rationale: "" },
+        { id: "d3", name: "数据", rationale: "" },
+        { id: "d4", name: "监管", rationale: "" },
+      ];
+      const events = [
+        // d1: started 然后 completed → done
+        {
+          type: "agent-playground.agent:lifecycle",
+          payload: {
+            role: "researcher",
+            dimension: "投资",
+            phase: "started",
+          },
+          timestamp: 1,
+        },
+        {
+          type: "agent-playground.agent:lifecycle",
+          payload: {
+            role: "researcher",
+            dimension: "投资",
+            phase: "completed",
+          },
+          timestamp: 2,
+        },
+        // d2: started 没 completed → running
+        {
+          type: "agent-playground.agent:lifecycle",
+          payload: {
+            role: "researcher",
+            dimension: "教育",
+            phase: "started",
+          },
+          timestamp: 3,
+        },
+        // d3: failed
+        {
+          type: "agent-playground.agent:lifecycle",
+          payload: {
+            role: "researcher",
+            dimension: "数据",
+            phase: "failed",
+          },
+          timestamp: 4,
+        },
+        // d4: 无事件 → 继承父 S3 状态
+      ];
+      const { service } = buildService(
+        makeMission({
+          dimensions: dims,
+          status: "running",
+          lastCompletedStage: 2, // S3 正在跑
+        }),
+        events,
+      );
+      const g = await service.buildGraph("m-1", "u-1");
+      const byId = new Map(g.nodes.map((n) => [n.id, n]));
+      expect(byId.get("s3-researcher-collect::d1")?.status).toBe("done");
+      expect(byId.get("s3-researcher-collect::d2")?.status).toBe("running");
+      expect(byId.get("s3-researcher-collect::d3")?.status).toBe("failed");
+      // d4 无事件,继承父 S3 status = running
+      expect(byId.get("s3-researcher-collect::d4")?.status).toBe("running");
+    });
+
+    // ─── Phase 3.2: reviewer / 签收节点 score ───
+    it("fills reviewer / signoff nodes score from mission fields", async () => {
+      const { service } = buildService(
+        makeMission({
+          status: "completed",
+          lastCompletedStage: 12,
+          finalScore: 78,
+          leaderOverallScore: 82,
+        }),
+      );
+      const g = await service.buildGraph("m-1", "u-1");
+      const byId = new Map(g.nodes.map((n) => [n.id, n]));
+      expect(byId.get("s9-critic")?.score).toBe(78);
+      expect(byId.get("s9b-objective-eval")?.score).toBe(78);
+      expect(byId.get("s8b-quality-enhancement")?.score).toBe(78);
+      expect(byId.get("s10-leader-foreword-signoff")?.score).toBe(82);
+      // 非 reviewer 节点不应有 score
+      expect(byId.get("s2-leader-plan")?.score).toBeUndefined();
+      expect(byId.get("s11-persist")?.score).toBeUndefined();
+    });
+
     it("marks s1-budget as rerunable=false (预算闸不可重跑)", async () => {
       const { service } = buildService(makeMission());
       const g = await service.buildGraph("m-1", "u-1");
