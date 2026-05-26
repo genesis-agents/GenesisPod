@@ -318,6 +318,30 @@ function extractDimensionPipelines(
       pipe.grade = { overall, grade, summary };
     }
   }
+
+  // mission terminal cleanup：mission row 已 terminal 但 events 没收到
+  // chapter:done 的 chapter（事件 buffer 过期或漏 emit），统一标 'done'
+  // 让前端 ArtifactReader 不会显示 "Revising N chapters" 假象。
+  const isTerminal =
+    row.status === "completed" ||
+    row.status === "failed" ||
+    row.status === "cancelled" ||
+    row.status === "rejected";
+  if (isTerminal) {
+    for (const dim of Object.values(out)) {
+      for (const ch of dim.chapters) {
+        if (
+          ch.status === "pending" ||
+          ch.status === "writing" ||
+          ch.status === "reviewing" ||
+          ch.status === "revising"
+        ) {
+          ch.status = row.status === "completed" ? "done" : "failed";
+        }
+      }
+    }
+  }
+
   return out;
 }
 
