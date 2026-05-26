@@ -92,6 +92,32 @@
     "prefer-const": "error",
     "no-var": "error",
 
+    // ★ B5-2 (2026-05-26 thinning plan §B5-2 / §3.4 single-track truth)
+    //
+    // 禁止在 production 路径（不含 __tests__）import agent-playground derive truth
+    // 函数。canonical truth 只能来自 useMissionDetailView / canonical view endpoint。
+    //
+    // 允许 import 的 *raw event 解析* 部分（如 MissionState / AgentLiveState 类型）需要
+    // 在 B5-1 follow-up PR 中拆出独立模块；当前 first cut 只阻止 truth-bearing 函数
+    // （deriveView / deriveTodoLedger / synthesizeArtifactFromV1 / ensureRenderableArtifact /
+    // deriveDrawer 等）。
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": [
+              "*/agent-playground/derive",
+              "*/agent-playground/todo-ledger",
+              "*/agent-playground/synthesize-artifact",
+              "*/agent-playground/drawer-derive"
+            ],
+            "message": "禁止 import agent-playground derive truth 函数。canonical truth 走 useMissionDetailView / GET /missions/:id/view（thinning plan §B5-2 / §3.4）。raw event 解析路径将在 B5-1 拆模块后允许 import。"
+          }
+        ]
+      }
+    ],
+
     // ★ Hydration 安全规则：禁止 locale-dependent 方法（SSR/CSR 结果不一致）
     // - toLocaleDateString/toLocaleTimeString: 使用 <ClientDate> 组件
     // - toLocaleString: 直接显示数字或使用 Intl.NumberFormat 在客户端格式化
@@ -150,7 +176,31 @@
         "@typescript-eslint/no-unsafe-assignment": "off",
         "@typescript-eslint/no-unsafe-member-access": "off",
         "@typescript-eslint/no-unsafe-call": "off",
-        "@typescript-eslint/no-unnecessary-type-assertion": "off"
+        "@typescript-eslint/no-unnecessary-type-assertion": "off",
+        "no-restricted-imports": "off"
+      }
+    },
+    {
+      "comment": "B5-2: derive truth 模块自己内部可以 self-import；外部 production 禁止。",
+      "files": [
+        "lib/features/agent-playground/derive.ts",
+        "lib/features/agent-playground/todo-ledger.ts",
+        "lib/features/agent-playground/synthesize-artifact.ts",
+        "lib/features/agent-playground/drawer-derive.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    },
+    {
+      "comment": "B5 过渡期：page.tsx 和 currently-coupled components 还未 cutover；B4-3/B4-4 完成前豁免，cutover PR 必须同时把对应路径从此豁免名单移除。",
+      "files": [
+        "app/agent-playground/team/[missionId]/page.tsx",
+        "components/agent-playground/**/*.tsx",
+        "lib/features/agent-playground/__tests__/**"
+      ],
+      "rules": {
+        "no-restricted-imports": "warn"
       }
     }
   ]
