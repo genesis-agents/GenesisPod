@@ -137,18 +137,27 @@ CLI 行为（详 BLUEPRINT.md §2）：
 - ✅ `npm run test:create-team` 防 CLI 腐化
 - ✅ 实测：CLI 跑 demo-team → 复制 193 文件 / 0 占位符残留 / 目录结构合规
 
-### Phase 4 — CLI V1（待做）
-- ⏳ domain 文件 body 清空（method 签名保留 + TODO 占位）
-- ⏳ section 区段内容删除（行级正则）
-- ⏳ Prisma schema model rename + migration 生成
-- ⏳ 自动注册到 `app.module.ts` / `mission-app-conformance.spec.ts` / `agent-team-layout.spec.ts`
+### Phase 3+ — CLI V1.1（PR-B.1 + PR-B.2）✅ DONE 2026-05-26 (commit e7c8b7c + 3906c40)
+- ✅ PR-B.1: framework-subclass 文件内 `@blueprint:section-start/end` 区段清空（行级 state machine，缩进沿用）
+- ✅ PR-B.2: auto-register 到 3 个入口文件（app.module.ts / agent-team-layout.spec / mission-app-conformance.spec），idempotent + 失败 warn 不中断
+- ✅ smoke test 升级 5/5 pass，含 mission-report.helper section 清空校验 + 注册校验 + git checkout 自清理
+- ✅ **关键里程碑**：CLI 跑完后 `npx jest src/__tests__/architecture/` 全绿（25 suites / 251 tests，含新增 demo-team 的 14 个 it.each）
 
-### Phase 5 — 前端业务下沉（PR-D，多波）⏳ 待做
-- 后端新增 `MissionViewState<T>` framework 端口（`ai-harness/teams/business-team/abstractions/`）
-- playground 后端新增 `view-state.service.ts` 实现，emit `mission:view-state` event
-- playground 前端 `lib/features/agent-playground/derive.ts` 等 6 类逻辑下沉
-- 加 ESLint + audit 看护
-- **每步必按 §0 兼容性红线**：双跑 → deep-equal → 灰度 ≥ 7 天 → 删旧
+### Phase 4 — CLI V2（待做）
+- ⏳ domain 文件 body 清空（method 签名保留 + TODO 占位，需 AST 或精细正则）
+- ⏳ Prisma schema model rename + migration 生成（深坑，schema 10K+ 行 6 model，需用户决策）
+- ⏳ i18n key 替换 + frontend route 注册到 Sidebar
+
+### Phase 5 — 前端业务下沉（PR-D，多波）
+- ✅ PR-D-0 (commit e967d34): `MissionViewState<TDomain>` framework contract + facade export
+  - `business-team/abstractions/mission-view-state.contract.ts`: MissionLifecycleStatus / StageViewState / AgentViewState / CostViewState / MissionViewState<T> / IMissionViewStatePort<T>
+  - 字段命名与现有前端 derive.ts 兼容（零字段变更，仅形态重组），满足 §0 红线
+  - 零 consumer（待 PR-D-1 开始用），不破坏 playground
+- ⏳ PR-D-1: `ai-app/agent-playground/mission/lifecycle/playground-view-state.service.ts` 实现 + emit
+- ⏳ PR-D-2: `*.equivalence.spec.ts` 验证后端 derive == 前端 derive deep-equal
+- ⏳ PR-D-3 ~ 6: 5 类逻辑分批下沉（derive / drawer-derive / synthesize-artifact / todo-ledger / report-artifact contract）
+- ⏳ PR-D-7: 灰度切换 + 删前端旧代码
+- **每步必按 §0 兼容性红线**：双跑 ≥ 7 天 → deep-equal → 灰度 → 删旧
 
 ### Phase 6 — 前端组件标杆化（PR-E）⏳ 待做
 - 把 playground 前端的"通用部分"提升到 `frontend/components/team-app-kit/` 或扩展现有 `components/common/mission-detail/`
@@ -158,9 +167,14 @@ CLI 行为（详 BLUEPRINT.md §2）：
 - standard 23 §6 红线："3 app 同步迁移"——任何 framework 变化必须 playground + social + radar 一起改
 - social / radar 前端切到 canonical shell（ADR 008 P28 复活）
 
-### Phase 8 — P32 P0/P1 修复（PR-C）⏳ 待做
-- P1-1: `mission-runtime-shell.interface.ts` PR-E0 违规
-- P1-2/3/4: `agent-team-facade-contract.spec.ts` 漏扫 rerun + lifecycle 空断言 + regex 漏洞
+### Phase 8 — P32 P0/P1 修复（PR-C）部分完成
+- ✅ P1-1 (已在 mission-runtime-shell.interface.ts 内部用注释 + 直接 source 路径 import 修过)
+- ✅ P1-2/3/4 (已修, facade-contract spec 注释 line 9-11 证明)
+- ✅ PR-C 本 ADR 提交 (commit a48b934): P0-3 修 mission-app-conformance config-snapshot 假断言
+  - 旧: `/buildForFreshRun|configSnapshot/` 兜底 regex (任何 "configSnapshot" 字符串都过)
+  - 新: 真实 call site 检测 `\b(build\w*ConfigSnapshot|buildForFreshRun)\s*\(`
+- ⏳ P0-2 bindings 单消费方薄骨架: roadmap §6 决策不回滚, 等 2nd consumer
+- ⏳ P1-5 framework hook 多态匹配: 设计层调整, 留 PR-D 阶段统一处理
 
 ### Phase 9 — 治理收口
 - ✅ standard 23 §8 CLI usage 章节（PR-A 已含）
