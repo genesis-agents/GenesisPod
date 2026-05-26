@@ -72,14 +72,15 @@ function layoutGraph(graph: MissionDagGraph): {
     's11-persist',
   ];
   const macroH = 40;
-  const macroGap = 10;
+  const macroGap = 16; // ↑ 10→16,纵向间距更明显;scale-to-fit 后还能保留可视分隔
   const fanH = 46;
-  const fanGap = 6;
+  const fanGap = 12; // ↑ 6→12,fan 行内横向间距加倍
+  const fanRowGap = 14; // ↑ 8→14,fan 两行之间更分开
 
   const dimNodes = graph.nodes.filter((n) => n.kind === 'research-dim');
   const fanRows = dimNodes.length > 7 ? 2 : 1;
-  // fan 行总占用高 = 行数*fanH + 行间距 + 16 给 fan-in 连线缓冲
-  const fanReservedH = fanRows * fanH + (fanRows - 1) * 8 + 16;
+  // fan 行总占用高 = 行数*fanH + 行间距 + 18 给 fan-in 连线缓冲
+  const fanReservedH = fanRows * fanH + (fanRows - 1) * fanRowGap + 18;
 
   const macroSpineY: Record<string, number> = {};
   let cursorY = 14;
@@ -134,7 +135,7 @@ function layoutGraph(graph: MissionDagGraph): {
     const thisRowW = thisRowCount * fanW + (thisRowCount - 1) * fanGap;
     const rowStartX = cx - thisRowW / 2;
     const x = rowStartX + col * (fanW + fanGap);
-    const y = fanStartY + row * (fanH + 8);
+    const y = fanStartY + row * (fanH + fanRowGap);
     positioned.push({ ...dimNodes[i], x, y, w: fanW, h: fanH });
   }
 
