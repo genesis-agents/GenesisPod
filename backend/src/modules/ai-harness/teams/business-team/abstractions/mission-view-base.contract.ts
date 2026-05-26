@@ -20,8 +20,8 @@
  *   ✅ harness-only fixture-testable
  *
  * Constraints:
- *   - this file MUST NOT reference any app-specific enum value (e.g. playground
- *     "rejected -> quality-failed" mapping stays in app projector per §6.4.1.a)
+ *   - this file MUST NOT reference any app-specific enum value (e.g. per-app
+ *     persistence-to-view mapping stays in each app's own projector per §6.4.1.a)
  *   - this file MUST NOT import from any ai-app/*
  */
 
