@@ -424,7 +424,47 @@ function test_e2e_cli(): void {
     `residual placeholder found:\n${grepOutput.split("\n").slice(0, 5).join("\n")}`,
   );
 
-  // 清理
+  // 验证 auto-register 已生效 (V1.1)
+  const appModule = readFileSync(
+    join(PROJECT_ROOT, "backend/src/app.module.ts"),
+    "utf8",
+  );
+  assert.match(
+    appModule,
+    /SmokeTestTeamModule/,
+    "app.module.ts 未注册 SmokeTestTeamModule",
+  );
+  assert.match(
+    appModule,
+    new RegExp(`from "\\./modules/ai-app/${E2E_TEAM}/module/`),
+    "app.module.ts 未加 import 行",
+  );
+  const layoutSpec = readFileSync(
+    join(
+      PROJECT_ROOT,
+      "backend/src/__tests__/architecture/agent-team-layout.spec.ts",
+    ),
+    "utf8",
+  );
+  assert.match(
+    layoutSpec,
+    new RegExp(`"${E2E_TEAM}"`),
+    "agent-team-layout.spec AGENT_TEAM_APPS 未加",
+  );
+  const conformanceSpec = readFileSync(
+    join(
+      PROJECT_ROOT,
+      "backend/src/__tests__/architecture/mission-app-conformance.spec.ts",
+    ),
+    "utf8",
+  );
+  assert.match(
+    conformanceSpec,
+    new RegExp(`"${E2E_TEAM}/module/${E2E_TEAM}\\.module\\.ts"`),
+    "mission-app-conformance.spec MISSION_APP_MODULES 未加",
+  );
+
+  // 清理: 删目录 + 撤销 register 改动 (git checkout 指定文件, 不全局)
   for (const dir of [
     `backend/src/modules/ai-app/${E2E_TEAM}`,
     `frontend/app/${E2E_TEAM}`,
@@ -434,8 +474,21 @@ function test_e2e_cli(): void {
     const abs = join(PROJECT_ROOT, dir);
     if (existsSync(abs)) rmSync(abs, { recursive: true, force: true });
   }
+  spawnSync(
+    "git",
+    [
+      "checkout",
+      "--",
+      "backend/src/app.module.ts",
+      "backend/src/__tests__/architecture/agent-team-layout.spec.ts",
+      "backend/src/__tests__/architecture/mission-app-conformance.spec.ts",
+    ],
+    { cwd: PROJECT_ROOT, stdio: "ignore" },
+  );
 
-  console.log("✓ E2E CLI run + 0 residue + cleanup");
+  console.log(
+    "✓ E2E CLI run + 0 residue + auto-register (3 entry files) + cleanup",
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────────────

@@ -307,6 +307,131 @@ function processCopyPlan(plan: CopyPlan, cases: CaseConverters): PlanResult {
   return result;
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Auto-register (PR-B.2): 把新 team 加到 4 个入口文件
+// ──────────────────────────────────────────────────────────────────────────
+
+interface RegistrationStep {
+  file: string;
+  description: string;
+  apply: (content: string) => string;
+  alreadyDoneCheck: (content: string) => boolean;
+}
+
+function buildRegistrationSteps(
+  teamName: string,
+  cases: CaseConverters,
+): RegistrationStep[] {
+  const moduleClassName = `${cases.pascal}Module`;
+  const moduleImportLine = `import { ${moduleClassName} } from "./modules/ai-app/${teamName}/module/${teamName}.module";`;
+  const moduleRelPath = `${teamName}/module/${teamName}.module.ts`;
+
+  return [
+    // 1. app.module.ts: import + imports[] 注册
+    {
+      file: "backend/src/app.module.ts",
+      description: "register module in app.module.ts",
+      alreadyDoneCheck: (c) =>
+        c.includes(moduleClassName) && c.includes(`/${teamName}/module/`),
+      apply: (c) => {
+        // 加 import 行: 在已有的 AgentPlaygroundModule import 后
+        const importAnchor =
+          'import { AgentPlaygroundModule } from "./modules/ai-app/agent-playground/module/agent-playground.module";';
+        if (!c.includes(importAnchor)) {
+          throw new Error(
+            `cannot find import anchor in app.module.ts (AgentPlaygroundModule). Manual register required.`,
+          );
+        }
+        let next = c.replace(importAnchor, `${importAnchor}\n${moduleImportLine}`);
+        // 加到 imports[] 里: 在 AgentPlaygroundModule, 后
+        const importsAnchor = "    AgentPlaygroundModule,";
+        if (!next.includes(importsAnchor)) {
+          throw new Error(
+            `cannot find imports[] anchor in app.module.ts (    AgentPlaygroundModule,). Manual register required.`,
+          );
+        }
+        next = next.replace(
+          importsAnchor,
+          `${importsAnchor}\n    ${moduleClassName},`,
+        );
+        return next;
+      },
+    },
+    // 2. agent-team-layout.spec.ts: AGENT_TEAM_APPS
+    {
+      file: "backend/src/__tests__/architecture/agent-team-layout.spec.ts",
+      description: "register in AGENT_TEAM_APPS (agent-team-layout.spec.ts)",
+      alreadyDoneCheck: (c) =>
+        new RegExp(`"${teamName}"`).test(c) &&
+        c.includes("AGENT_TEAM_APPS"),
+      apply: (c) => {
+        const re =
+          /const AGENT_TEAM_APPS = \[(?:"[^"]+",?\s*)+\];/;
+        const m = c.match(re);
+        if (!m) {
+          throw new Error(
+            `cannot find AGENT_TEAM_APPS const in agent-team-layout.spec.ts. Manual register required.`,
+          );
+        }
+        const updated = m[0].replace(
+          /\];$/,
+          `, "${teamName}"];`,
+        );
+        return c.replace(re, updated);
+      },
+    },
+    // 3. mission-app-conformance.spec.ts: MISSION_APP_MODULES
+    {
+      file: "backend/src/__tests__/architecture/mission-app-conformance.spec.ts",
+      description:
+        "register in MISSION_APP_MODULES (mission-app-conformance.spec.ts)",
+      alreadyDoneCheck: (c) => c.includes(`"${moduleRelPath}"`),
+      apply: (c) => {
+        // 在 social/module/ai-social.module.ts 后插入新行
+        const anchor = '  "social/module/ai-social.module.ts",';
+        if (!c.includes(anchor)) {
+          throw new Error(
+            `cannot find MISSION_APP_MODULES last-entry anchor in mission-app-conformance.spec.ts. Manual register required.`,
+          );
+        }
+        return c.replace(anchor, `${anchor}\n  "${moduleRelPath}",`);
+      },
+    },
+  ];
+}
+
+function applyRegistrations(
+  teamName: string,
+  cases: CaseConverters,
+): { done: number; skipped: number; warnings: string[] } {
+  const steps = buildRegistrationSteps(teamName, cases);
+  const warnings: string[] = [];
+  let done = 0;
+  let skipped = 0;
+  for (const step of steps) {
+    const abs = join(PROJECT_ROOT, step.file);
+    if (!existsSync(abs)) {
+      warnings.push(`${step.file}: file not found, skip`);
+      continue;
+    }
+    const content = readFileSync(abs, "utf8");
+    if (step.alreadyDoneCheck(content)) {
+      skipped += 1;
+      continue;
+    }
+    try {
+      const next = step.apply(content);
+      writeFileSync(abs, next, "utf8");
+      done += 1;
+    } catch (err) {
+      warnings.push(
+        `${step.file}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+  return { done, skipped, warnings };
+}
+
 function checkDstNotExist(plan: CopyPlan[]): void {
   for (const p of plan) {
     if (existsSync(p.dst)) {
@@ -322,44 +447,45 @@ function printPostCreateInstructions(
   cases: CaseConverters,
 ): void {
   const cap = cases.pascal;
-  console.log("\n=== Post-create manual steps (V0 CLI does NOT auto-do) ===");
+  console.log("\n=== Post-create manual steps (CLI 已做的步骤不再列) ===");
   console.log("");
-  console.log(`1. Register module in backend/src/app.module.ts:`);
-  console.log(
-    `   import { ${cap}Module } from './modules/ai-app/${teamName}/module/${teamName}.module';`,
-  );
-  console.log(`   imports: [..., ${cap}Module],`);
-  console.log("");
-  console.log(`2. Register frontend route in frontend/app/_layout (if needed)`);
-  console.log("");
-  console.log(`3. Prisma schema - duplicate model AgentPlaygroundMission:`);
+  console.log(`1. Prisma schema - duplicate model AgentPlaygroundMission (CLI V1 待做):`);
   console.log(`   - Open backend/prisma/schema/models.prisma`);
   console.log(`   - Copy AgentPlaygroundMission → ${cap}Mission (rename fields)`);
   console.log(`   - Run: npx prisma generate`);
-  console.log(`   - Create migration: backend/prisma/migrations/YYYYMMDD_create_${cases.snake}_missions/migration.sql`);
-  console.log("");
-  console.log(`4. Update spec lists:`);
   console.log(
-    `   - backend/src/__tests__/architecture/agent-team-layout.spec.ts: add "${teamName}" to AGENT_TEAM_APPS`,
-  );
-  console.log(
-    `   - backend/src/__tests__/architecture/mission-app-conformance.spec.ts: add ${cap}Module path to MISSION_APP_MODULES`,
+    `   - Create migration: backend/prisma/migrations/YYYYMMDD_create_${cases.snake}_missions/migration.sql`,
   );
   console.log("");
-  console.log(`5. Clean up domain (BLUEPRINT.md §3.3):`);
-  console.log(`   - Open each // @blueprint:domain file, replace body with TODO`);
-  console.log(`   - Remove content between // @blueprint:section-start domain ... section-end`);
+  console.log(`2. Clean up domain files (BLUEPRINT.md §3.3, CLI V1 待做 domain body 清空):`);
+  console.log(`   - Open each // @blueprint:domain file`);
+  console.log(`   - Replace method body with: throw new Error("TODO: implement");`);
   console.log("");
-  console.log(`6. Fill domain in order (BLUEPRINT.md §2 Step 3):`);
+  console.log(`3. Fill domain in order (BLUEPRINT.md §2 Step 3):`);
   console.log(`   - runtime/${teamName}.config.ts (defineMissionPipeline steps/roles)`);
   console.log(`   - mission/agents/<role>/SKILL.md`);
   console.log(`   - mission/pipeline/stages/*.stage.ts`);
   console.log(`   - api/dto/run-mission.dto.ts`);
   console.log("");
-  console.log(`7. Verify:`);
+  console.log(`4. Frontend route (if you want page in nav):`);
+  console.log(`   - frontend/app/${teamName}/page.tsx 已就位`);
+  console.log(`   - 如需进侧栏导航, 加 frontend/components/layout/Sidebar.tsx 或类似`);
+  console.log("");
+  console.log(`5. Verify:`);
   console.log(`   cd backend && npm run type-check`);
   console.log(`   npx jest src/__tests__/architecture/`);
   console.log(`   npm run audit:blueprint-tags`);
+  console.log(`   npm run test:create-team   # 防 CLI 腐化`);
+  console.log("");
+  console.log(`已自动做的事 (CLI V1.1):`);
+  console.log(`  ✓ 全栈目录复制 (后端 module + 前端 app/components/services)`);
+  console.log(`  ✓ 占位符 5-case 替换 (Pascal/camel/kebab/snake/UPPER_SNAKE)`);
+  console.log(`  ✓ 文件名/目录名前缀替换`);
+  console.log(`  ✓ legacy-derive 文件跳过 (不带 derive 业务推导)`);
+  console.log(`  ✓ framework-subclass 内 section-start/section-end 区段清空`);
+  console.log(`  ✓ 注册到 app.module.ts (import + imports[])`);
+  console.log(`  ✓ 注册到 AGENT_TEAM_APPS (layout spec)`);
+  console.log(`  ✓ 注册到 MISSION_APP_MODULES (conformance spec)`);
   console.log("");
 }
 
@@ -423,6 +549,16 @@ function main(): void {
     totalSkipped += s.result.skipped;
   }
   console.log(`  TOTAL                : copied=${totalCopied}, skipped=${totalSkipped}`);
+
+  // Auto-register (PR-B.2): 把新 team 加到 4 个入口文件 (app.module.ts + 2 spec)
+  console.log("\nAuto-registering entry points ...");
+  const reg = applyRegistrations(teamName, cases);
+  console.log(
+    `  done=${reg.done}  already-registered=${reg.skipped}  warnings=${reg.warnings.length}`,
+  );
+  for (const w of reg.warnings) {
+    console.log(`  WARNING: ${w}`);
+  }
 
   if (totalSkipped > 0) {
     console.log("\nSkipped files (by @blueprint tag):");
