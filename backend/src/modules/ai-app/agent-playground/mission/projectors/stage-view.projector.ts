@@ -52,6 +52,8 @@ interface StageEventDigest {
   attempts: number;
   observed: Set<StageStatus>;
   failedDetail?: string;
+  /** 最后看到的 verb（用于解决 rerun-in-flight：done → started 后状态应为 running）。 */
+  lastVerb?: "started" | "completed" | "failed" | "skipped";
 }
 
 // ============================================================================
@@ -111,21 +113,27 @@ function aggregateByStage(
 
     switch (verb) {
       case "started":
-        digest.startedAt ??= tsIso;
+        digest.startedAt = tsIso; // 覆盖（rerun 时记录最新一轮 startedAt）
         digest.attempts += 1;
         digest.observed.add("running");
+        digest.lastVerb = "started";
+        // rerun-in-flight：clear 上一轮的 endedAt 让 view 显示当前轮 startedAt
+        digest.endedAt = undefined;
         break;
       case "completed":
         digest.endedAt = tsIso;
         digest.observed.add("done");
+        digest.lastVerb = "completed";
         break;
       case "failed":
         digest.endedAt = tsIso;
         digest.observed.add("failed");
         digest.failedDetail = extractFailDetail(ev) ?? digest.failedDetail;
+        digest.lastVerb = "failed";
         break;
       case "skipped":
         digest.observed.add("skipped");
+        digest.lastVerb = "skipped";
         break;
       default:
         // 其他 verb 不影响 stage status
@@ -139,15 +147,30 @@ function aggregateByStage(
 }
 
 /**
- * §6.4.2 status resolution（优先级 failed > done > running > pending > skipped 慎用）。
- * skipped 只在显式观察到时使用（§6.4.2 rule 5）。
+ * §6.4.2 status resolution。
+ *
+ * 优先级（rerun-in-flight 语义）：
+ *   1. lastVerb = failed → failed（终态）
+ *   2. lastVerb = started → running（即使之前 done，rerun 后仍是 running）
+ *   3. lastVerb = completed → done
+ *   4. lastVerb = skipped → skipped
+ *   5. 无任何 verb → pending
+ *
+ * 用 lastVerb 而非 observed Set 解决 done→started 的 rerun-in-flight bug。
  */
 function resolveStageStatus(digest: StageEventDigest): StageStatus {
-  if (digest.observed.has("failed")) return "failed";
-  if (digest.observed.has("done")) return "done";
-  if (digest.observed.has("running")) return "running";
-  if (digest.observed.has("skipped")) return "skipped";
-  return "pending";
+  switch (digest.lastVerb) {
+    case "failed":
+      return "failed";
+    case "started":
+      return "running";
+    case "completed":
+      return "done";
+    case "skipped":
+      return "skipped";
+    default:
+      return "pending";
+  }
 }
 
 function extractStageId(ev: StageRelevantEvent): string | null {
