@@ -176,6 +176,10 @@ describe("§B2-4 projector replay", () => {
       resume: { resumable: false, reason: "benchmark" },
       rerunnableStages: [],
       reportVersions: [],
+      composedArtifact: {
+        kind: "empty-artifact",
+        reason: "not-yet-materialized",
+      },
     };
 
     const t0 = Date.now();
@@ -209,6 +213,10 @@ function bundleToInputs(bundle: FixtureBundle): MissionQueryInputs {
     },
     rerunnableStages: bundle.expectedView.mission.rerunnableStages,
     reportVersions: [],
+    composedArtifact: {
+      kind: "empty-artifact",
+      reason: "not-yet-materialized",
+    },
   };
 }
 

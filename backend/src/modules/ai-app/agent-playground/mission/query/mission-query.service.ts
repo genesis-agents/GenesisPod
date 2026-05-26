@@ -35,7 +35,10 @@ import {
   ResumeRerunPolicyService,
   type ResumeDecision,
 } from "../rerun/resume-rerun-policy.service";
+import { ArtifactComposerService } from "../services/artifact-composer.service";
 import type { RerunnableStageEntry } from "../../api/contracts/view-state.contract";
+import type { ReportArtifactV2 } from "../../api/contracts/artifact.contract";
+import type { EmptyArtifactSentinel } from "../../api/contracts/view-state.contract";
 
 // ============================================================================
 // Output bundle（projector 输入）
@@ -67,6 +70,12 @@ export interface MissionQueryInputs {
    * "add any minimal supporting metadata such as report versions"。
    */
   reportVersions: readonly PlaygroundReportVersionRow[];
+  /**
+   * P0-2：ArtifactComposerService 预组合的 canonical artifact。
+   * 包含 R2 off-load fetch 结果（§6.6.4），projector 直接消费不再 inline 调用。
+   * starting-placeholder 路径下为 sentinel。
+   */
+  composedArtifact: ReportArtifactV2 | EmptyArtifactSentinel;
 }
 
 // ============================================================================
@@ -82,6 +91,7 @@ export class MissionQueryService {
     private readonly eventBuffer: MissionEventBuffer,
     private readonly ownership: MissionOwnershipRegistry,
     private readonly policy: ResumeRerunPolicyService,
+    private readonly artifactComposer: ArtifactComposerService,
   ) {}
 
   /**
@@ -138,6 +148,9 @@ export class MissionQueryService {
         return [] as PlaygroundReportVersionRow[];
       });
 
+    // P0-2：ArtifactComposerService（含 R2 off-load fetch）
+    const composedArtifact = await this.artifactComposer.composeArtifactView(row);
+
     // 4. checkpoint availability
     const { hasConfigSnapshot, hasCheckpoint } =
       await this.policy.loadCheckpointAvailability(row);
@@ -170,6 +183,7 @@ export class MissionQueryService {
       resume,
       rerunnableStages,
       reportVersions,
+      composedArtifact,
     };
   }
 
@@ -193,6 +207,10 @@ export class MissionQueryService {
         lastCompletedStageOrdinal: null,
       }),
       reportVersions: [],
+      composedArtifact: {
+        kind: "empty-artifact",
+        reason: "not-yet-materialized",
+      },
     };
   }
 
