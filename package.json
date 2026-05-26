@@ -66,6 +66,7 @@
     "audit:mission-detail": "tsx scripts/utils/audit-mission-detail-discipline.ts",
     "audit:mission-detail-baseline": "tsx scripts/utils/audit-mission-detail-discipline.ts --update-baseline",
     "audit:blueprint-tags": "tsx scripts/utils/audit-blueprint-tags-frontend.ts",
+    "create:team": "tsx scripts/create-team.ts",
     "release": "standard-version",
     "release:minor": "standard-version --release-as minor",
     "release:major": "standard-version --release-as major",
