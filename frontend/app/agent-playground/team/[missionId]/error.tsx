@@ -5,7 +5,7 @@
  *
  * Next.js App Router 约定：error.tsx 自动成为 [missionId] 路由段的 ErrorBoundary。
  * 这一层独立于 app/global-error.tsx —— 全局只兜底 layout 级崩溃，这里专门抓
- * mission detail 渲染异常（最常见：deriveTodoLedger / deriveView 内 useMemo 抛错），
+ * mission detail 渲染异常（最常见来自 canonical view shape mismatch / shim 转换错误），
  * 让用户看到具体错误而不是空白"出错了"。
  *
  * 同时把错误上报到 backend（POST /api/v1/agent-playground/error-report），

@@ -45,7 +45,7 @@ import type {
   SystemStageId,
   MissionTodo,
 } from '@/lib/features/agent-playground/todo-ledger-shapes';
-import type { DerivedView } from '@/lib/features/agent-playground/derive-shapes';
+import type { MissionDetailView } from '@/services/agent-playground/api';
 import {
   fmtTimestamp,
   fmtRelative,
@@ -91,7 +91,7 @@ const STAGE_ORDER: SystemStageId[] = [
 ];
 
 interface Props {
-  view: DerivedView;
+  view: MissionDetailView;
   events: PlaygroundEvent[];
   /**
    * ★ B4-4b (2026-05-26 thinning plan §B4-4 / §3.4):
@@ -334,7 +334,16 @@ export function MissionFlowView({
     return filterRole ? all.filter((f) => f.role === filterRole) : all;
   }, [events, filterRole]);
 
-  const anchor = view.mission.startedAt ?? events[0]?.timestamp ?? Date.now();
+  // canonical view 暴露 ISO string；timeline math 需要 number。
+  const startedAtMs = view.mission.startedAt
+    ? new Date(view.mission.startedAt).getTime()
+    : undefined;
+  const anchor = startedAtMs ?? events[0]?.timestamp ?? Date.now();
+
+  // canonical status enum 已 §6.4.1.a 完成 rejected → quality-failed 投影。
+  const status = view.mission.status;
+  const isCompleted = status === 'completed' || status === 'quality-failed';
+  const isFailed = status === 'failed' || status === 'cancelled';
 
   // Active agents (running) + done count
   const runningAgents = view.agents.filter((a) => a.phase === 'running');
@@ -364,18 +373,18 @@ export function MissionFlowView({
               'flex h-10 w-10 items-center justify-center rounded-lg',
               runningAgents.length > 0
                 ? 'bg-blue-100 text-blue-600'
-                : view.mission.completedAt
+                : isCompleted
                   ? 'bg-emerald-100 text-emerald-600'
-                  : view.mission.failedAt
+                  : isFailed
                     ? 'bg-red-100 text-red-600'
                     : 'bg-gray-100 text-gray-500'
             )}
           >
             {runningAgents.length > 0 ? (
               <Loader2 className="h-5 w-5 animate-spin" />
-            ) : view.mission.completedAt ? (
+            ) : isCompleted ? (
               <CheckCircle2 className="h-5 w-5" />
-            ) : view.mission.failedAt ? (
+            ) : isFailed ? (
               <XCircle className="h-5 w-5" />
             ) : (
               <Activity className="h-5 w-5" />
@@ -385,9 +394,9 @@ export function MissionFlowView({
             <p className="text-sm font-semibold text-gray-900">
               {runningAgents.length > 0
                 ? `${runningAgents.length} 个 Agent 正在工作`
-                : view.mission.completedAt
+                : isCompleted
                   ? 'Mission 已完成'
-                  : view.mission.failedAt
+                  : isFailed
                     ? 'Mission 失败'
                     : 'Mission 等待启动'}
             </p>
@@ -407,17 +416,17 @@ export function MissionFlowView({
                 const tone = ROLE_TONE_CLASS(a.role);
                 return (
                   <span
-                    key={a.agentId}
+                    key={a.id}
                     className={cn(
                       'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium ring-1',
                       tone.bg,
                       tone.text,
                       tone.border.replace('border-', 'ring-')
                     )}
-                    title={a.agentId}
+                    title={a.id}
                   >
                     <Icon className="h-2.5 w-2.5" />
-                    {a.dimension ?? a.agentId}
+                    {a.id}
                   </span>
                 );
               })}

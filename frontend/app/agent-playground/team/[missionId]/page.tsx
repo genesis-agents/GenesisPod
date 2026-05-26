@@ -1310,9 +1310,9 @@ export default function MissionDetailPage() {
             />
           )}
 
-          {activeTab === 'collab' && (
+          {activeTab === 'collab' && missionView && (
             <MissionFlowView
-              view={view}
+              view={missionView}
               events={events}
               todoLedger={todoLedger}
             />
@@ -1363,7 +1363,9 @@ export default function MissionDetailPage() {
 
           {activeTab === 'cost' && (
             <div className="space-y-4">
-              <CapabilityMeters view={view} wallTimeMs={wallTimeMs} />
+              {missionView && (
+                <CapabilityMeters view={missionView} wallTimeMs={wallTimeMs} />
+              )}
               <ComputeUsagePanel
                 cost={view.cost}
                 agents={view.agents}

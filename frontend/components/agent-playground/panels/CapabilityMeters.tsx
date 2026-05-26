@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { Coins, Trophy, Timer, Database } from 'lucide-react';
 import { StatCard } from '@/components/ui/cards';
-import type { DerivedView } from '@/lib/features/agent-playground/derive-shapes';
+import type { MissionDetailView } from '@/services/agent-playground/api';
 import {
   fmtUsd,
   fmtTokens,
@@ -11,7 +11,7 @@ import {
 } from '@/lib/features/agent-playground/formatters';
 
 interface Props {
-  view: DerivedView;
+  view: MissionDetailView;
   wallTimeMs: number;
 }
 
@@ -28,22 +28,24 @@ interface Meter {
 export function CapabilityMeters({ view, wallTimeMs }: Props) {
   const score = view.mission.finalScore;
   const cost = view.cost;
-  const memory = view.memory;
+  const memoryIndex = view.memoryIndex;
+  const verdicts = view.verdicts ?? [];
+  const tokensUsed = cost?.tokensUsed != null ? Number(cost.tokensUsed) : 0;
+  const costUsd = cost?.costUsd ?? 0;
 
   const meters: Meter[] = [
     {
       icon: <Coins className="h-5 w-5" />,
       label: '消耗',
-      value: fmtUsd(cost.costUsd),
-      sub: `${fmtTokens(cost.tokensUsed)} tokens`,
+      value: fmtUsd(costUsd),
+      sub: `${fmtTokens(tokensUsed)} tokens`,
       tone: 'amber',
     },
     {
       icon: <Trophy className="h-5 w-5" />,
       label: '质量评分',
       value: score != null ? String(score) : '—',
-      sub:
-        view.verdicts.length > 0 ? `${view.verdicts.length} 个评审` : '待评审',
+      sub: verdicts.length > 0 ? `${verdicts.length} 个评审` : '待评审',
       tone: 'violet',
     },
     {
@@ -51,7 +53,7 @@ export function CapabilityMeters({ view, wallTimeMs }: Props) {
       label: '总耗时',
       value: fmtWallTime(wallTimeMs),
       sub:
-        view.mission.completedAt && view.mission.startedAt
+        view.mission.finishedAt && view.mission.startedAt
           ? '已完成'
           : view.mission.startedAt
             ? '进行中'
@@ -61,8 +63,8 @@ export function CapabilityMeters({ view, wallTimeMs }: Props) {
     {
       icon: <Database className="h-5 w-5" />,
       label: '记忆',
-      value: memory != null ? `${memory.chunks}` : '—',
-      sub: memory != null ? 'chunks 已索引' : '待索引',
+      value: memoryIndex != null ? `${memoryIndex.chunks}` : '—',
+      sub: memoryIndex != null ? 'chunks 已索引' : '待索引',
       tone: 'emerald',
     },
   ];
