@@ -38,12 +38,8 @@ import {
   TodoDetailDrawer,
   VerifyConsensusPanel,
 } from '@/components/agent-playground';
-// HOTFIX：B3-1 backend 还是 first-cut，UI 仍需 deriveTodoLedger 的完整 truth。
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import {
-  deriveTodoLedger as deriveTodoLedgerLocal,
-  type MissionTodo,
-} from '@/lib/features/agent-playground/todo-ledger';
+// W7 cutover: deriveTodoLedger 已删除，todoLedger 由 canonical missionView.todoBoard.items 直接消费。
+import type { MissionTodo } from '@/lib/features/agent-playground/todo-ledger-shapes';
 import { cn } from '@/lib/utils/common';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 // 注：tab 切换由 MissionDetailFrame 内部用 canonical <Tabs> 渲染；这里保留导入

@@ -11,7 +11,7 @@
  * 不做 JSON.stringify 兜底；解析失败的字段直接 omit。
  */
 
-import type { AgentLiveState, AgentTraceItem } from './derive';
+import type { AgentLiveState, AgentTraceItem } from './derive-shapes';
 
 export interface ParsedFinding {
   claim: string;

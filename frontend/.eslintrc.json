@@ -112,7 +112,7 @@
               "*/agent-playground/synthesize-artifact",
               "*/agent-playground/drawer-derive"
             ],
-            "message": "禁止直接 import 这些 truth-bearing 模块（plan §B5-2 / §3.4 / §6.6.3）。需要类型走 *-shapes.ts 代理文件（derive-shapes.ts / todo-ledger-shapes.ts）；需要 truth 走 useMissionDetailView / GET /missions/:id/view（canonical view）；需要 §6.6.3 UI-only helper (deriveLayerBreadcrumb / deriveDrawerSections / deriveStageArtifacts) 走 *-shapes.ts re-export。"
+            "message": "W7 cutover: derive.ts / todo-ledger.ts / synthesize-artifact.ts 已删除；drawer-derive 须走 *-shapes 代理。类型走 derive-shapes.ts / todo-ledger-shapes.ts；truth 走 useMissionDetailView / GET /missions/:id/view（canonical view）。"
           }
         ]
       }
@@ -182,9 +182,6 @@
     },
     {
       "files": [
-        "lib/features/agent-playground/derive.ts",
-        "lib/features/agent-playground/todo-ledger.ts",
-        "lib/features/agent-playground/synthesize-artifact.ts",
         "lib/features/agent-playground/drawer-derive.ts",
         "lib/features/agent-playground/view-to-derived.shim.ts",
         "lib/features/agent-playground/derive-shapes.ts",
