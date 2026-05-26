@@ -115,41 +115,59 @@ CLI 行为（详 BLUEPRINT.md §2）：
 4. 复制 Prisma schema 中的 `AgentPlaygroundMission` model 为 `MyTeamMission`
 5. 输出"请把 module 加到 `app.module.ts` / 页面路由加到 `frontend/app/`"提示（不自动改入口，安全）
 
-## 落地路线
+## 落地路线（进度跟踪）
 
-### Phase 1 — 文档奠基（本 ADR + PR-A）
+### Phase 1 — 文档奠基（PR-A）✅ DONE 2026-05-26 (commit 78dccd7)
 - ✅ ADR 009（本文件）
-- ✅ `agent-playground/BLUEPRINT.md`（完整 SOP）
-- ✅ standard 23 §8 增补（CLI 复制流程）
+- ✅ `agent-playground/BLUEPRINT.md`（完整 SOP，~600 行）
+- ✅ standard 23 §8 增补（CLI 复制流程 + §8.8 兼容性原则）
 
-### Phase 2 — 元数据落地（PR-A.5）
-- 给 playground 后端 ~117 个 .ts 文件加 `// @blueprint:<kind>` 文件头标签
-- 给 playground 前端 ~46 个 .tsx 文件加同上
-- 用区段标签圈出 framework-subclass 内的 domain 方法
-- 加 `backend/src/__tests__/architecture/agent-team-blueprint-tags.spec.ts` 看护
+### Phase 2 — 元数据落地（PR-A.5 / PR-A.6）✅ DONE 2026-05-26 (commits 479d3de + f9e61d1 + 567590d)
+- ✅ 后端 106 个 .ts 文件加 `// @blueprint:<kind>` (1 boilerplate / 19 framework-subclass / 86 domain)
+- ✅ 前端 55 个 .tsx 文件加同上 (4 page / 1 api / 33 panel / 13 ui-helper / 4 legacy-derive)
+- ✅ `mission-report.helper.ts` 用 `section-start domain` 区段标签圈出 research-result / chapter-draft (示范)
+- ✅ `agent-team-blueprint-tags.spec.ts` 看护（12 tests，含规则 A/B/C/D/E）
+- ✅ `audit:blueprint-tags` 前端看护 script
+- 其他 framework-subclass 文件的 section 标签：留待 PR-B.2 CLI 需要时补
 
-### Phase 3 — 前端业务下沉（PR-D，多波）
+### Phase 3 — CLI V0（PR-B）✅ DONE 2026-05-26 (commit 61edc94 + b16a586)
+- ✅ `scripts/create-team.ts` (~280 LOC) — 全栈复制 + 占位符替换 + 跳过 legacy-derive
+- ✅ `npm run create:team <team-name>` + 失败自动回滚
+- ✅ `scripts/utils/test-create-team-cli.ts` smoke test (4/4 pass)
+- ✅ `npm run test:create-team` 防 CLI 腐化
+- ✅ 实测：CLI 跑 demo-team → 复制 193 文件 / 0 占位符残留 / 目录结构合规
+
+### Phase 4 — CLI V1（待做）
+- ⏳ domain 文件 body 清空（method 签名保留 + TODO 占位）
+- ⏳ section 区段内容删除（行级正则）
+- ⏳ Prisma schema model rename + migration 生成
+- ⏳ 自动注册到 `app.module.ts` / `mission-app-conformance.spec.ts` / `agent-team-layout.spec.ts`
+
+### Phase 5 — 前端业务下沉（PR-D，多波）⏳ 待做
 - 后端新增 `MissionViewState<T>` framework 端口（`ai-harness/teams/business-team/abstractions/`）
 - playground 后端新增 `view-state.service.ts` 实现，emit `mission:view-state` event
-- playground 前端 `lib/features/agent-playground/derive.ts` 等 6 类逻辑删除
+- playground 前端 `lib/features/agent-playground/derive.ts` 等 6 类逻辑下沉
 - 加 ESLint + audit 看护
+- **每步必按 §0 兼容性红线**：双跑 → deep-equal → 灰度 ≥ 7 天 → 删旧
 
-### Phase 4 — 前端组件标杆化（PR-E）
+### Phase 6 — 前端组件标杆化（PR-E）⏳ 待做
 - 把 playground 前端的"通用部分"提升到 `frontend/components/team-app-kit/` 或扩展现有 `components/common/mission-detail/`
 - 拆解 5 个巨石组件（TodoDetailDrawer 1721 / MissionTodoBoard 1062 / TeamRosterPanel 928 / ArtifactReader 818 / MissionDagView 797）
 
-### Phase 5 — Social / Radar 同步迁移（PR-F）
+### Phase 7 — Social / Radar 同步迁移（PR-F）⏳ 待做
 - standard 23 §6 红线："3 app 同步迁移"——任何 framework 变化必须 playground + social + radar 一起改
 - social / radar 前端切到 canonical shell（ADR 008 P28 复活）
 
-### Phase 6 — CLI scaffold + 复制验证（PR-B）
-- 实现 `npm run create:team` CLI
-- 真实跑一遍：复制 playground → 起一个 demo team → 验证可跑通 mission
+### Phase 8 — P32 P0/P1 修复（PR-C）⏳ 待做
+- P1-1: `mission-runtime-shell.interface.ts` PR-E0 违规
+- P1-2/3/4: `agent-team-facade-contract.spec.ts` 漏扫 rerun + lifecycle 空断言 + regex 漏洞
 
-### Phase 7 — 治理收口
-- standard 23 §8 增补 CLI usage 章节（PR-A 已含）
-- ESLint + jest spec + audit script 全部就位
-- 4 路评审
+### Phase 9 — 治理收口
+- ✅ standard 23 §8 CLI usage 章节（PR-A 已含）
+- ✅ jest spec 看护（PR-A.5 含 12 tests）
+- ✅ audit script 看护（PR-A.5 含 frontend audit）
+- ⏳ pre-push 挂 `npm run test:create-team`
+- ⏳ 4 路评审（PR-D 完成后触发）
 
 ## 影响
 
