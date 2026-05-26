@@ -52,8 +52,13 @@ import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/panels/LeadJournalPanel';
 import { BudgetAndTimeLimitPanel } from '@/components/agent-playground/panels/BudgetAndTimeLimitPanel';
 import { useBudgetTiers, pickTier } from '@/hooks/features/useBudgetTiers';
-import { isReportArtifact } from '@/lib/features/agent-playground/report-artifact.types';
-import { ensureRenderableArtifact } from '@/lib/features/agent-playground/synthesize-artifact';
+import {
+  isReportArtifact,
+  type ReportArtifact,
+} from '@/lib/features/agent-playground/report-artifact.types';
+// ★ B4-3 cutover：移除 ensureRenderableArtifact import (§B5-2 lint enforced)。
+//   canonical view.reportArtifact 已由 backend ArtifactComposer (§B3-2) 完成
+//   v1->v2 normalize；frontend 仅做空态 placeholder fallback。
 import { setCitationClickCallback } from '@/components/common/citations/citationNavigation';
 import { useAgentPlaygroundStream } from '@/hooks/features/useAgentPlaygroundStream';
 // ★ B4-3 (thinning plan §B4-3 cutover): canonical mission truth 单轨切换。
@@ -65,6 +70,78 @@ import { viewToDerivedShim } from '@/lib/features/agent-playground/view-to-deriv
 // B4-3：仅引入 DerivedView type（type-only import；不调 truth function；不违反 §3.4）
 // eslint-disable-next-line no-restricted-imports
 import type { DerivedView } from '@/lib/features/agent-playground/derive';
+
+/**
+ * ★ B4-3：buildEmptyArtifactPlaceholder —— 不带 v1→v2 normalize 的最小空态 placeholder。
+ *
+ * 与旧 ensureRenderableArtifact 的区别：本 helper 只构造 ReportArtifact schema-complete
+ * 空骨架，**不消费任何 raw v1 字段**（v1→v2 normalize 已在 backend §B3-2 完成）。
+ * §7.2 "local presentation-only fallbacks such as empty-state chrome" 允许此 UI-only 行为。
+ */
+function buildEmptyArtifactPlaceholder(
+  title: string,
+  emptyMessage: string,
+): ReportArtifact {
+  const md = `# ${title}\n\n${emptyMessage}\n`;
+  return {
+    content: { fullMarkdown: md, fullReportSize: md.length },
+    sections: [],
+    citations: [],
+    figures: [],
+    factTable: [],
+    metadata: {
+      topic: title,
+      generatedAt: new Date().toISOString(),
+      generationTimeMs: 0,
+      version: 1,
+      isIncremental: false,
+      dimensionCount: 0,
+      sourceCount: 0,
+      factCount: 0,
+      figureCount: 0,
+      wordCount: md.length,
+      readingTimeMinutes: 1,
+      styleProfile: 'executive',
+      lengthProfile: 'standard',
+      audienceProfile: 'domain-expert',
+      language: 'zh-CN',
+      totalTokens: { prompt: 0, completion: 0, total: 0 },
+      costCents: 0,
+      modelTrail: [],
+    },
+    quality: {
+      overall: 0,
+      dimensions: {
+        traceability: 0,
+        factualConsistency: 0,
+        novelty: 0,
+        coverage: 0,
+        redundancy: 0,
+        formatCorrectness: 0,
+        citationDensity: 0,
+        styleConformance: 0,
+        lengthAccuracy: 0,
+        chapterBalance: 0,
+      },
+      hardGateViolations: [],
+      warnings: [],
+      qualityTrace: [],
+    },
+    quickView: {
+      executiveSummary: { markdown: emptyMessage, wordCount: emptyMessage.length },
+      topHighlights: [],
+      topTrends: [],
+      keyRisks: [],
+      topRecommendations: [],
+      keyCitations: [],
+      keyFigures: [],
+      estimatedReadingTime: 1,
+      whatYouWillLearn: [],
+      riskMatrix: [],
+      keyFindingsByDimension: [],
+    },
+  };
+}
 import {
   cancelMission,
   getMissionDetail,
@@ -598,15 +675,45 @@ export default function MissionDetailPage() {
   //   react-markdown 重新解析 → <img> 重新挂载导致闪烁。
   //   把这些计算挪到 useMemo，依赖具体内容字段（不包括 now / wallTimeMs），
   //   即使 setNow tick 也不会重算 artifact，markdown DOM 稳定不抖。
-  // versionOverride 优先于 persisted.reportFull（用户切了历史版本）
+  // ★ B4-3 cutover (thinning plan §B4-3 / §3.4 single-track / §6.6 artifact semantics):
+  //   reportArtifact truth source 优先级（descending）：
+  //     1. versionOverride —— 用户切历史版本，来自 GET /report-versions/:version sibling 路由
+  //     2. canonical view.reportArtifact —— B3-2 ArtifactComposer 已 normalize v1→v2
+  //     3. persisted.reportFull —— GET /missions/:id sibling 路由，仅 v2 才直接渲染
+  //     4. empty-state placeholder —— frontend allowed §7.2 "local presentation-only fallbacks"
+  //
+  //   旧 `ensureRenderableArtifact` 路径（前端 v1→v2 synthesize）已彻底移除（§B5-2 lint 阻止）。
+  //   canonical view 的 reportArtifact 字段可能是 ReportArtifactV2 也可能是 EmptyArtifactSentinel；
+  //   isReportArtifact type guard 同时识别这两种。
+  const canonicalArtifact = missionView?.reportArtifact;
   const reportFullRef =
     versionOverride ?? persisted?.reportFull ?? view.finalReport;
   const reportArtifact = useMemo(() => {
-    const isV2 =
+    // 优先 versionOverride（用户主动切版本）
+    if (
+      versionOverride &&
+      typeof versionOverride === 'object' &&
+      isReportArtifact(versionOverride)
+    ) {
+      return versionOverride;
+    }
+    // canonical view artifact（v2，B3-2 normalize 后）
+    if (
+      canonicalArtifact &&
+      typeof canonicalArtifact === 'object' &&
+      isReportArtifact(canonicalArtifact)
+    ) {
+      return canonicalArtifact;
+    }
+    // sibling /missions/:id 兜底（mission row reportFull 已是 v2）
+    if (
       reportFullRef &&
       typeof reportFullRef === 'object' &&
-      isReportArtifact(reportFullRef);
-    if (isV2) return reportFullRef;
+      isReportArtifact(reportFullRef)
+    ) {
+      return reportFullRef;
+    }
+    // empty-state placeholder（§7.2 presentation-only fallback；不调 ensureRenderableArtifact 函数式 synthesize）
     const emptyMessage = view.mission.failedAt
       ? `Mission 失败：${view.mission.failedMessage ?? '未知错误'}\n\n（请重新启动一个新 mission）`
       : view.mission.cancelledAt
@@ -615,8 +722,11 @@ export default function MissionDetailPage() {
           ? '报告生成中…\n\n（可能 S11 持久化未完成，稍后刷新页面）'
           : '报告生成中…\n\n（mission 仍在跑 S1-S10，写作完成后会显示草稿；mission 完成后会显示完整三视图）';
     const fallbackTitle = view.mission.topic ?? '研究报告';
-    return ensureRenderableArtifact(reportFullRef, fallbackTitle, emptyMessage);
+    // 复用 backend canonical empty-state contract 替代前端 v1→v2 函数式 synthesize
+    return buildEmptyArtifactPlaceholder(fallbackTitle, emptyMessage);
   }, [
+    versionOverride,
+    canonicalArtifact,
     reportFullRef,
     view.mission.failedAt,
     view.mission.cancelledAt,
@@ -692,18 +802,51 @@ export default function MissionDetailPage() {
     return () => setCitationClickCallback(null);
   }, []);
 
-  // Leader-owned dynamic task ledger（每条 todo = 一个 Leader/Reviewer/Critic 决策点）
-  const todoLedger = useMemo(
-    () =>
-      deriveTodoLedger({
-        events,
-        mission: view.mission,
-        agents: view.agents,
-        verdicts: view.verdicts,
-        dimensionPipelines: view.dimensionPipelines,
-      }),
-    [events, view.mission, view.agents, view.verdicts, view.dimensionPipelines]
-  );
+  // ★ B4-3 cutover (thinning plan §B4-3 action 3 / §3.4 single-track):
+  //   todoLedger 不再从 events 派生。truth 来自 canonical view.todoBoard.items
+  //   (B3-1 first-cut)。fields 缺失部分用 default 填充直到 B3-1 follow-up 把
+  //   retry / critic / reviewer todos 完整投影到 backend。
+  //
+  //   ⚠️ isFirstCutTruncated = true 时前端 UI 应显示提示（B4-4 follow-up）。
+  const todoLedger: MissionTodo[] = useMemo(() => {
+    const board = missionView?.todoBoard as
+      | {
+          kind?: string;
+          items?: Array<{
+            id: string;
+            parentId?: string;
+            origin: string;
+            scope: string;
+            status: string;
+            title: string;
+            systemStageId?: string;
+            dimensionRef?: string;
+            createdAt: number;
+            startedAt?: number;
+            endedAt?: number;
+          }>;
+        }
+      | undefined;
+    const items = board?.items ?? [];
+    return items.map((entry): MissionTodo => ({
+      id: entry.id,
+      parentId: entry.parentId,
+      origin: entry.origin as MissionTodo['origin'],
+      createdBy: 'system',
+      createdAt: entry.createdAt,
+      reasonText: '',
+      scope: entry.scope as MissionTodo['scope'],
+      title: entry.title,
+      assignee: { role: 'mission' },
+      status: entry.status as MissionTodo['status'],
+      startedAt: entry.startedAt,
+      endedAt: entry.endedAt,
+      artifacts: [],
+      narrativeLog: [],
+      systemStageId: entry.systemStageId as MissionTodo['systemStageId'],
+      dimensionRef: entry.dimensionRef,
+    }));
+  }, [missionView]);
   const selectedTodo: MissionTodo | undefined = useMemo(
     () => todoLedger.find((t) => t.id === selectedTaskKey),
     [todoLedger, selectedTaskKey]
