@@ -804,26 +804,68 @@ export default function MissionDetailPage() {
     return () => setCitationClickCallback(null);
   }, []);
 
-  // ★ HOTFIX (Screenshot_46.png 反馈)：B3-1 backend TodoBoardProjector 是 first-cut
-  //   （只 system-stage + dimension rollup，缺 retry/critic/reviewer/narrativeLog/artifacts/assignee
-  //   等 UI 需要的完整 truth），导致 UI 把 dimension todos 推到 system-stage 14 之后 + 各种
-  //   面板拿不到 narrativeLog 显示空。
+  // ★ P0-5 真切 (thinning plan §B4-3 + §3.4 single-track)：
+  //   backend TodoBoardProjector 已 port ~95% deriveTodoLedger 行为
+  //   （107 fixture-replay spec 锁定 9 类 fixture，覆盖 §6.8.1 + §6.8.1.b）。
+  //   page 切回 canonical view truth source — backend missionView.todoBoard.items
+  //   已含 narrativeLog / artifacts / assignee / retryPipelineKey 等完整字段。
   //
-  //   恢复到 deriveTodoLedger 直到 P0-3 真正完整 port todo-ledger.ts truth 到 backend。
-  //   §3.4 单轨约束在 B3-1 完整 port 完成前**部分回退**——文档以代码为准。
-  //
-  //   eslint-disable-next-line @typescript-eslint/no-restricted-imports -- P0-3 临时
-  const todoLedger: MissionTodo[] = useMemo(
-    () =>
-      deriveTodoLedgerLocal({
-        events,
-        mission: view.mission,
-        agents: view.agents,
-        verdicts: view.verdicts,
-        dimensionPipelines: view.dimensionPipelines,
-      }),
-    [events, view.mission, view.agents, view.verdicts, view.dimensionPipelines]
-  );
+  //   未覆盖（drawer-derive 范畴，不直接进 todo board，UI 影响极小）：
+  //   agent:lifecycle / action / observation / reflection / thought / error /
+  //   validation-rejected — frontend useAgentPlaygroundStream 仍按 §6.7.2
+  //   immediacy 路径展示。
+  const todoLedger: MissionTodo[] = useMemo(() => {
+    const board = missionView?.todoBoard as
+      | {
+          kind?: string;
+          items?: Array<{
+            id: string;
+            parentId?: string;
+            origin: string;
+            createdBy: string;
+            createdAt: number;
+            reasonText: string;
+            scope: string;
+            title: string;
+            assignee: {
+              role: string;
+              agentId?: string;
+              dimensionName?: string;
+            };
+            status: string;
+            startedAt?: number;
+            endedAt?: number;
+            artifacts: Array<{ kind: string; label: string; value?: string | number }>;
+            narrativeLog: Array<{ ts: number; text: string; tone?: string }>;
+            agentRefId?: string;
+            dimensionRef?: string;
+            systemStageId?: string;
+            retryPipelineKey?: string;
+          }>;
+        }
+      | undefined;
+    const items = board?.items ?? [];
+    return items.map((entry): MissionTodo => ({
+      id: entry.id,
+      parentId: entry.parentId,
+      origin: entry.origin as MissionTodo['origin'],
+      createdBy: entry.createdBy as MissionTodo['createdBy'],
+      createdAt: entry.createdAt,
+      reasonText: entry.reasonText,
+      scope: entry.scope as MissionTodo['scope'],
+      title: entry.title,
+      assignee: entry.assignee as MissionTodo['assignee'],
+      status: entry.status as MissionTodo['status'],
+      startedAt: entry.startedAt,
+      endedAt: entry.endedAt,
+      artifacts: entry.artifacts as MissionTodo['artifacts'],
+      narrativeLog: entry.narrativeLog as MissionTodo['narrativeLog'],
+      agentRefId: entry.agentRefId,
+      dimensionRef: entry.dimensionRef,
+      systemStageId: entry.systemStageId as MissionTodo['systemStageId'],
+      pipelineKey: entry.retryPipelineKey,
+    }));
+  }, [missionView]);
   const selectedTodo: MissionTodo | undefined = useMemo(
     () => todoLedger.find((t) => t.id === selectedTaskKey),
     [todoLedger, selectedTaskKey]
