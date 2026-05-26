@@ -183,7 +183,6 @@
     {
       "files": [
         "lib/features/agent-playground/drawer-derive.ts",
-        "lib/features/agent-playground/view-to-derived.shim.ts",
         "lib/features/agent-playground/derive-shapes.ts",
         "lib/features/agent-playground/todo-ledger-shapes.ts",
         "lib/features/agent-playground/drawer-derive-shapes.ts"
