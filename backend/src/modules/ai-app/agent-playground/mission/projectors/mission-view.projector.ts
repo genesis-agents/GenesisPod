@@ -18,7 +18,8 @@ import type { MissionQueryInputs } from "../query/mission-query.service";
 import { projectStages } from "./stage-view.projector";
 import { projectAgents } from "./agent-view.projector";
 import { projectTodoBoard } from "./todo-board.projector";
-import { projectArtifact } from "./artifact.projector";
+// projectArtifact 现由 ArtifactComposerService 调用（含 R2 fetch），projector 模块
+// 仅保留 normalizeV1ToV2 作为 service 内 helper。本文件无需直接 import 它。
 import type {
   DimensionView,
   EmptyArtifactSentinel,
@@ -85,7 +86,9 @@ function buildRowLoadedView(inputs: MissionQueryInputs): PlaygroundDomainView {
   const stages = projectStages(inputs.events);
   const agents = projectAgents(inputs.events);
   const todoBoard = projectTodoBoard(row, inputs.events);
-  const reportArtifact: ReportArtifactV2 | EmptyArtifactSentinel = projectArtifact(row);
+  // P0-2：artifact 来自 ArtifactComposerService（含 R2 off-load fetch），
+  //   不再 inline 调用 pure projectArtifact —— query service 已 await 异步组合。
+  const reportArtifact: ReportArtifactV2 | EmptyArtifactSentinel = inputs.composedArtifact;
 
   // P0-1：真实投影 references + reportVersions（取代 first-cut 的 []）
   const references = extractReferences(reportArtifact);
