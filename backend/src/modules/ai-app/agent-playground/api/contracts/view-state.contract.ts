@@ -55,7 +55,7 @@ import type {
 } from "@/modules/ai-harness/facade";
 
 // ============================================================================
-// TodoBoardState（B3-1 first cut；§6.6.3 truth logic split）
+// TodoBoardState（§6.6.3 — P0-3 实质 port，从 frontend MissionTodo 等价化）
 // ============================================================================
 
 export type TodoOrigin =
@@ -82,18 +82,70 @@ export type TodoStatus =
   | "failed"
   | "cancelled";
 
+export type TodoAssigneeRole =
+  | "leader"
+  | "researcher"
+  | "analyst"
+  | "writer"
+  | "reviewer"
+  | "reconciler"
+  | "critic"
+  | "mission";
+
+export interface TodoAssignee {
+  role: TodoAssigneeRole;
+  agentId?: string;
+  dimensionName?: string;
+}
+
+export interface TodoArtifact {
+  kind:
+    | "finding-count"
+    | "insight-count"
+    | "fact-table"
+    | "figure"
+    | "chapter"
+    | "verdict-score"
+    | "critic-warning"
+    | "foreword";
+  label: string;
+  value?: string | number;
+}
+
+export interface TodoNarrativeItem {
+  ts: number;
+  text: string;
+  tone?: "info" | "success" | "warn" | "error";
+}
+
+/**
+ * Backend canonical TodoBoardEntry — MissionTodo 等价（不含 UI-only 字段）。
+ *
+ * 落地依据：thinning plan §6.6.3 truth split。本 shape mirror frontend
+ * `MissionTodo`（去掉 derived UI helper output 如 layer breadcrumb）。
+ *
+ * Frontend B5-1 删除 derive ecosystem 后，本 shape 即唯一 todo truth source。
+ */
 export interface TodoBoardEntry {
   id: string;
   parentId?: string;
   origin: TodoOrigin;
-  scope: TodoScope;
-  status: TodoStatus;
-  title: string;
-  systemStageId?: string;
-  dimensionRef?: string;
+  createdBy: "leader" | "reviewer" | "critic" | "reconciler" | "system";
   createdAt: number;
+  reasonText: string;
+  scope: TodoScope;
+  title: string;
+  assignee: TodoAssignee;
+  status: TodoStatus;
   startedAt?: number;
   endedAt?: number;
+  artifacts: TodoArtifact[];
+  narrativeLog: TodoNarrativeItem[];
+  agentRefId?: string;
+  dimensionRef?: string;
+  systemStageId?: string;
+  /** retry 双路径 pipelineKey 索引（§6.6.3 retry pipeline 关键字段）。 */
+  retryPipelineKey?: string;
 }
 
 /**

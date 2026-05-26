@@ -160,6 +160,68 @@ describe("§B2-4 projector replay", () => {
     },
   );
 
+  // P0-3：TodoBoard 实质 port 后的行为锁定
+  it.each(materialized)(
+    "[%s] todoBoard 含 14 个 system-stage placeholder（mission:started 预占语义）",
+    (id) => {
+      const bundle = loadFixture(id);
+      const inputs = bundleToInputs(bundle);
+      const view = projectMissionView(inputs);
+      const board = view.todoBoard;
+      expect(board?.kind).toBe("todo-board");
+      const items = board?.items ?? [];
+      const systemStageTodos = items.filter((t) => t.scope === "system");
+      expect(systemStageTodos).toHaveLength(14);
+      // 14 个 system-stage 标准 id 必须都在
+      const stageIds = systemStageTodos.map((t) => t.systemStageId).sort();
+      expect(stageIds).toEqual(
+        [
+          "s1-budget",
+          "s2-leader-plan",
+          "s3-researchers",
+          "s4-leader-assess",
+          "s5-reconciler",
+          "s6-analyst",
+          "s7-writer-outline",
+          "s8-writer-draft",
+          "s8b-quality-enhancement",
+          "s9-critic-l4",
+          "s9b-objective-evaluation",
+          "s10-leader-signoff",
+          "s11-persist",
+          "s12-self-evolution",
+        ].sort(),
+      );
+    },
+  );
+
+  it.each(materialized)(
+    "[%s] todoBoard isFirstCutTruncated = false（P0-3 后核心 case 已 port）",
+    (id) => {
+      const bundle = loadFixture(id);
+      const inputs = bundleToInputs(bundle);
+      const view = projectMissionView(inputs);
+      expect(view.todoBoard?.isFirstCutTruncated).toBe(false);
+    },
+  );
+
+  it.each(materialized)(
+    "[%s] todoBoard entry 必填字段（assignee / narrativeLog / artifacts / createdBy / reasonText）",
+    (id) => {
+      const bundle = loadFixture(id);
+      const inputs = bundleToInputs(bundle);
+      const view = projectMissionView(inputs);
+      const items = view.todoBoard?.items ?? [];
+      for (const item of items) {
+        expect(item.assignee).toMatchObject({ role: expect.any(String) });
+        expect(Array.isArray(item.narrativeLog)).toBe(true);
+        expect(Array.isArray(item.artifacts)).toBe(true);
+        expect(typeof item.createdBy).toBe("string");
+        expect(typeof item.reasonText).toBe("string");
+      }
+    },
+  );
+
   it("benchmark: 500 event synthetic fixture 投影 < 200ms (§B2-4 第 4 条)", () => {
     const events = Array.from({ length: 500 }, (_, i) => ({
       type: "agent-playground.stage.started",
