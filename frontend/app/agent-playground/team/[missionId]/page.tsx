@@ -56,7 +56,15 @@ import { isReportArtifact } from '@/lib/features/agent-playground/report-artifac
 import { ensureRenderableArtifact } from '@/lib/features/agent-playground/synthesize-artifact';
 import { setCitationClickCallback } from '@/components/common/citations/citationNavigation';
 import { useAgentPlaygroundStream } from '@/hooks/features/useAgentPlaygroundStream';
-import { deriveView } from '@/lib/features/agent-playground/derive';
+// ★ B4-3 (thinning plan §B4-3 cutover): canonical mission truth 单轨切换。
+//   deriveView 不再调用 (§3.4 禁止 dual-run)。truth 来自 useMissionDetailView；
+//   viewToDerivedShim 把 canonical view 转回 legacy DerivedView 形状供 24 个
+//   component 继续消费 (B4-4 follow-up 把 component 改成直读 view shape)。
+import { useMissionDetailView } from '@/hooks/features/useMissionDetailView';
+import { viewToDerivedShim } from '@/lib/features/agent-playground/view-to-derived.shim';
+// B4-3：仅引入 DerivedView type（type-only import；不调 truth function；不违反 §3.4）
+// eslint-disable-next-line no-restricted-imports
+import type { DerivedView } from '@/lib/features/agent-playground/derive';
 import {
   cancelMission,
   getMissionDetail,
@@ -235,8 +243,34 @@ export default function MissionDetailPage() {
     };
   }, [events, missionId, invalidId]);
 
+  // ★ B4-3 (thinning plan §B4-3): canonical mission detail view —— 单一 truth source.
+  // §6.7 fetch-coalescing 已在 useMissionDetailView 内部实现；hint patch 走 refetch.
+  const {
+    data: missionView,
+    applyRefreshHints,
+  } = useMissionDetailView(invalidId ? undefined : missionId);
+
+  // ★ B4-3 桥接：把 stream 携带的 refreshHints 透传给 view fetcher（§6.7.3 multi-pod
+  //   hint emission path）。stream 路径保持启用以满足 §6.7.2 immediacy 需求。
+  useEffect(() => {
+    const lastEvent = events[events.length - 1] as unknown as
+      | { payload?: { refreshHints?: unknown[] } }
+      | undefined;
+    const hints = lastEvent?.payload?.refreshHints;
+    if (Array.isArray(hints) && hints.length > 0) {
+      applyRefreshHints(
+        hints.filter(
+          (h): h is { family: string; mode: string; id?: string } =>
+            !!h && typeof h === 'object'
+        ) as Parameters<typeof applyRefreshHints>[0]
+      );
+    }
+  }, [events, applyRefreshHints]);
+
   const view = useMemo(() => {
-    const liveView = deriveView(events);
+    // §3.4 单轨：truth 全部来自 canonical missionView；shim 仅做形状适配
+    // （24 个 component 在 B4-4 follow-up PR 改读 view shape 后此 shim 可删）
+    const liveView = viewToDerivedShim(missionView, events);
     if (events.length === 0 && persisted) {
       // Synthesize stages and agents skeleton from persisted snapshot so the
       // detail page is informative even after Railway recycles the in-memory
@@ -1293,9 +1327,9 @@ function MissionSettingsModal({
   onSaved,
 }: {
   missionId: string;
-  mission: ReturnType<typeof deriveView>['mission'];
+  mission: DerivedView['mission'];
   wallTimeMs: number;
-  cost: ReturnType<typeof deriveView>['cost'];
+  cost: DerivedView['cost'];
   userProfile: Record<string, unknown> | null;
   open: boolean;
   onClose: () => void;
@@ -1830,7 +1864,7 @@ function CompactMeters({
   wallTimeMs,
   maxCredits,
 }: {
-  view: ReturnType<typeof deriveView>;
+  view: DerivedView;
   wallTimeMs: number;
   maxCredits: number | null;
 }) {
