@@ -156,6 +156,62 @@ function readBlueprintTag(content: string): string | null {
 
 const SKIP_KINDS = new Set(["legacy-derive", "canonical-shell"]);
 
+/**
+ * 清空 framework-subclass 文件内的 `@blueprint:section-start <kind>` ...
+ * `@blueprint:section-end` 区段内容。保留标签作占位 + 加一行 TODO 注释。
+ *
+ * 行级扫描而非正则: section 跨多行内含 method 体 / 注释 / 空行,正则 [\s\S]*?
+ * 容易回溯到错位标签. 行级 state machine 最稳.
+ *
+ * 缩进: 沿用 section-start 行的缩进 (符合 class member 缩进).
+ *
+ * Throws: 不成对 (section-start 无 section-end / 反之) → Error.
+ */
+function clearDomainSections(content: string, sourcePath: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inSection = false;
+  let sectionStartLineNo = -1;
+  let sectionIndent = "";
+  let sectionKind = "";
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!inSection) {
+      const startMatch = line.match(
+        /^([ \t]*)\/\/\s*@blueprint:section-start\s+(\w+)/,
+      );
+      if (startMatch) {
+        inSection = true;
+        sectionStartLineNo = i + 1;
+        sectionIndent = startMatch[1];
+        sectionKind = startMatch[2];
+        out.push(line);
+        out.push(
+          `${sectionIndent}// TODO: implement ${sectionKind} methods here`,
+        );
+        continue;
+      }
+      out.push(line);
+    } else {
+      const endMatch = line.match(/^[ \t]*\/\/\s*@blueprint:section-end\b/);
+      if (endMatch) {
+        out.push(line);
+        inSection = false;
+      }
+      // else: skip line (inside section, drop it)
+    }
+  }
+
+  if (inSection) {
+    throw new Error(
+      `Unmatched @blueprint:section-start at ${sourcePath}:${sectionStartLineNo} (no section-end found)`,
+    );
+  }
+
+  return out.join("\n");
+}
+
 function applyPlaceholderReplacements(
   content: string,
   cases: CaseConverters,
@@ -217,14 +273,20 @@ function processCopyPlan(plan: CopyPlan, cases: CaseConverters): PlanResult {
     let content: string | null = null;
     if (isTextFile) {
       content = readFileSync(abs, "utf8");
+      let fileTag: string | null = null;
       // 仅 .ts/.tsx 看 blueprint tag 来跳过 (markdown/json 都复制)
       if (relFromCopyRoot.endsWith(".ts") || relFromCopyRoot.endsWith(".tsx")) {
-        const tag = readBlueprintTag(content);
-        if (tag && SKIP_KINDS.has(tag)) {
+        fileTag = readBlueprintTag(content);
+        if (fileTag && SKIP_KINDS.has(fileTag)) {
           result.skipped += 1;
-          result.skipDetail.push({ rel: relFromCopyRoot, kind: tag });
+          result.skipDetail.push({ rel: relFromCopyRoot, kind: fileTag });
           continue;
         }
+      }
+      // framework-subclass 文件清空 section-start/section-end 区段
+      // (domain 内方法被删除, 标签保留作占位)
+      if (fileTag === "framework-subclass") {
+        content = clearDomainSections(content, relFromCopyRoot);
       }
       content = applyPlaceholderReplacements(content, cases);
     }

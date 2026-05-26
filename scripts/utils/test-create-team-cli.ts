@@ -71,6 +71,47 @@ function renameFilePath(rel: string, teamName: string): string {
     .replace(/(^|\/)playground(\/|-|\.|$)/g, `$1${teamName}$2`);
 }
 
+function clearDomainSections(content: string, sourcePath: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inSection = false;
+  let sectionStartLineNo = -1;
+  let sectionIndent = "";
+  let sectionKind = "";
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!inSection) {
+      const startMatch = line.match(
+        /^([ \t]*)\/\/\s*@blueprint:section-start\s+(\w+)/,
+      );
+      if (startMatch) {
+        inSection = true;
+        sectionStartLineNo = i + 1;
+        sectionIndent = startMatch[1];
+        sectionKind = startMatch[2];
+        out.push(line);
+        out.push(
+          `${sectionIndent}// TODO: implement ${sectionKind} methods here`,
+        );
+        continue;
+      }
+      out.push(line);
+    } else {
+      const endMatch = line.match(/^[ \t]*\/\/\s*@blueprint:section-end\b/);
+      if (endMatch) {
+        out.push(line);
+        inSection = false;
+      }
+    }
+  }
+  if (inSection) {
+    throw new Error(
+      `Unmatched @blueprint:section-start at ${sourcePath}:${sectionStartLineNo} (no section-end found)`,
+    );
+  }
+  return out.join("\n");
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // 1. toCases
 // ──────────────────────────────────────────────────────────────────────────
@@ -206,7 +247,65 @@ function test_renameFilePath(): void {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// 4. E2E - 真实跑 CLI
+// 4. clearDomainSections
+// ──────────────────────────────────────────────────────────────────────────
+function test_clearDomainSections(): void {
+  const input = `class Foo {
+  async ok() { return 1; }
+
+  // @blueprint:section-start domain
+  async secret() {
+    return "should be removed";
+  }
+
+  async alsoRemoved() {
+    return 42;
+  }
+  // @blueprint:section-end
+
+  async stillHere() { return 2; }
+}`;
+
+  const out = clearDomainSections(input, "<test>");
+  assert.match(out, /async ok\(\)/);
+  assert.match(out, /async stillHere\(\)/);
+  assert.match(out, /@blueprint:section-start domain/);
+  assert.match(out, /@blueprint:section-end/);
+  assert.match(out, /TODO: implement domain methods here/);
+  assert.doesNotMatch(out, /secret\(\)/);
+  assert.doesNotMatch(out, /alsoRemoved/);
+  assert.doesNotMatch(out, /should be removed/);
+
+  // 嵌套不允许 (V0): section 内不许再开 section
+  // 简化测: 跑 mission-report.helper 实际文件
+  // (上面 e2e_cli 已覆盖)
+
+  // 不成对应抛错
+  try {
+    clearDomainSections(
+      `// @blueprint:section-start domain\nasync foo() {}\n// missing end\n`,
+      "<test>",
+    );
+    assert.fail("expected throw for unmatched section");
+  } catch (err) {
+    assert.match(
+      err instanceof Error ? err.message : String(err),
+      /Unmatched @blueprint:section-start/,
+    );
+  }
+
+  // 缩进沿用 section-start (class 内方法的 2 空格缩进)
+  const indented = clearDomainSections(
+    `  // @blueprint:section-start domain\n  async x() {}\n  // @blueprint:section-end\n`,
+    "<test>",
+  );
+  assert.match(indented, /^  \/\/ TODO: implement domain/m);
+
+  console.log("✓ clearDomainSections (basic + indent + unmatched throw)");
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 5. E2E - 真实跑 CLI
 // ──────────────────────────────────────────────────────────────────────────
 function test_e2e_cli(): void {
   const E2E_TEAM = "smoke-test-team";
@@ -279,6 +378,32 @@ function test_e2e_cli(): void {
   // 验证 @blueprint 标签保留
   assert.match(moduleContent, /@blueprint:boilerplate/);
 
+  // 验证 mission-report.helper 的 section 已被清空:
+  //   framework 部分(extends + saveReportVersion shim)保留
+  //   section 内的 saveResearchResult / saveChapterDraft 已移除
+  const reportHelperPath = join(
+    PROJECT_ROOT,
+    `backend/src/modules/ai-app/${E2E_TEAM}/mission/lifecycle/mission-report.helper.ts`,
+  );
+  if (existsSync(reportHelperPath)) {
+    const reportContent = readFileSync(reportHelperPath, "utf8");
+    assert.match(reportContent, /extends BusinessTeamReportHelperFramework/);
+    assert.match(reportContent, /saveReportVersion/); // shim 保留
+    assert.match(reportContent, /@blueprint:section-start domain/); // 标签保留
+    assert.match(reportContent, /@blueprint:section-end/);
+    assert.match(reportContent, /TODO: implement domain methods here/);
+    assert.doesNotMatch(
+      reportContent,
+      /saveResearchResult/,
+      "section 内的 saveResearchResult 应已被删除",
+    );
+    assert.doesNotMatch(
+      reportContent,
+      /saveChapterDraft/,
+      "section 内的 saveChapterDraft 应已被删除",
+    );
+  }
+
   // 0 占位符残留 (全局 grep). 用 spawnSync 因 grep 无匹配退出码 1, execFileSync 会抛.
   const grepResult = spawnSync(
     "grep",
@@ -320,6 +445,7 @@ const tests: Array<{ name: string; fn: () => void }> = [
   { name: "toCases", fn: test_toCases },
   { name: "applyPlaceholderReplacements", fn: test_applyPlaceholderReplacements },
   { name: "renameFilePath", fn: test_renameFilePath },
+  { name: "clearDomainSections", fn: test_clearDomainSections },
   { name: "e2e_cli", fn: test_e2e_cli },
 ];
 
