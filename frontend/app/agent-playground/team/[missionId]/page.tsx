@@ -82,7 +82,7 @@ import type { DerivedView } from '@/lib/features/agent-playground/derive-shapes'
  */
 function buildEmptyArtifactPlaceholder(
   title: string,
-  emptyMessage: string,
+  emptyMessage: string
 ): ReportArtifact {
   const md = `# ${title}\n\n${emptyMessage}\n`;
   return {
@@ -130,7 +130,10 @@ function buildEmptyArtifactPlaceholder(
       qualityTrace: [],
     },
     quickView: {
-      executiveSummary: { markdown: emptyMessage, wordCount: emptyMessage.length },
+      executiveSummary: {
+        markdown: emptyMessage,
+        wordCount: emptyMessage.length,
+      },
       topHighlights: [],
       topTrends: [],
       keyRisks: [],
@@ -146,10 +149,8 @@ function buildEmptyArtifactPlaceholder(
 }
 import {
   cancelMission,
-  getMissionDetail,
   getReportVersion,
   listReportVersions,
-  listResumableMissions,
   rerunMission,
   runTeam,
   type BudgetTier,
@@ -217,65 +218,52 @@ export default function MissionDetailPage() {
     return () => clearInterval(t);
   }, []);
 
-  const [persisted, setPersisted] = useState<MissionDetail | null>(null);
-  // 2026-05-13 #67: 当前 mission 是否处于"上次中断可续跑"状态。
-  // 真因来源：backend checkpoint snapshot 存在 → listResumableMissions 返回；
-  // UI 让详情页"更新"按钮变"继续上次"+ hint banner，避免在 homepage 弹无意义提示。
-  const [isResumable, setIsResumable] = useState(false);
-  useEffect(() => {
-    if (invalidId) return;
-    let cancelled = false;
-    let pollTimer: ReturnType<typeof setTimeout> | undefined;
-    // ★ 2026-05-01: starting 占位（DB 行还没落地）时持续轮询直到拿到真 row。
-    //   之前只 mount fetch 一次 → topic="" + status="starting" 永远卡住，
-    //   header 显示"研究 Mission"兜底文案，stage 占位 todo 因 mission:started
-    //   事件还没到也不显示。
-    const fetchAndMaybePoll = () => {
-      getMissionDetail(missionId)
-        .then((d) => {
-          if (cancelled) return;
-          setPersisted(d);
-          const m = d as unknown as { status?: string; topic?: string };
-          if (m?.status === 'starting' || !m?.topic) {
-            pollTimer = setTimeout(fetchAndMaybePoll, 1500);
-          }
-        })
-        .catch(() => {
-          if (cancelled) return;
-          // 错误也轮询（mission ID 在 in-memory ownership 但 DB 还没建）
-          pollTimer = setTimeout(fetchAndMaybePoll, 2000);
-        });
-    };
-    fetchAndMaybePoll();
-    return () => {
-      cancelled = true;
-      if (pollTimer) clearTimeout(pollTimer);
-    };
-  }, [missionId, invalidId]);
+  // ★ W1 cutover (2026-05-26): page.tsx 不再调旧 getMissionDetail / listResumableMissions。
+  // canonical missionView 已含 row + cost + verdicts + userProfile + reconciliationReport
+  // 等全部字段；terminal-refetch 由 stream refreshHints 走 useMissionDetailView.refresh()。
+  const {
+    data: missionView,
+    applyRefreshHints,
+    refresh: refreshMissionView,
+  } = useMissionDetailView(invalidId ? undefined : missionId);
 
-  // 2026-05-13 #67: 单独抓 resumable 集合，判定当前 mission 是否可续跑。
-  // 用 listResumableMissions（复用现有 endpoint，避免新加 backend route）。
-  useEffect(() => {
-    if (invalidId) return;
-    let cancelled = false;
-    listResumableMissions()
-      .then((items) => {
-        if (cancelled) return;
-        setIsResumable(items.some((it) => it.missionId === missionId));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setIsResumable(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [missionId, invalidId, persisted]);
+  // persisted = MissionDetail-shape alias 从 canonical view 派生，保留 30+ usage 不变。
+  // §6.4.1.a per-app 投影已在 backend 完成（rejected → quality-failed），此处仅形状映射。
+  const persisted = useMemo<MissionDetail | null>(() => {
+    if (!missionView) return null;
+    const m = missionView.mission;
+    return {
+      id: missionId,
+      topic: m.topic ?? '',
+      depth: m.depth ?? '',
+      language: m.language ?? '',
+      maxCredits: m.maxCredits ?? null,
+      status: m.status,
+      startedAt: m.startedAt ?? new Date().toISOString(),
+      completedAt: m.finishedAt ?? null,
+      themeSummary: m.themeSummary ?? null,
+      dimensions: (m.dimensions ?? null) as MissionDetail['dimensions'],
+      finalScore: m.finalScore ?? null,
+      errorMessage: m.failureMessage ?? null,
+      tokensUsed:
+        missionView.cost?.tokensUsed != null
+          ? Number(missionView.cost.tokensUsed)
+          : 0,
+      costUsd: missionView.cost?.costUsd ?? 0,
+      trajectoryStored: missionView.cost?.trajectoryStored ?? null,
+      verdicts: missionView.verdicts as MissionDetail['verdicts'],
+      reportFull: null as unknown as MissionDetail['reportFull'],
+      userProfile: m.userProfile,
+      reconciliationReport: m.reconciliationReport,
+    } as unknown as MissionDetail;
+  }, [missionView, missionId]);
 
-  // ★ 2026-04-30: mission:completed / mission:failed / mission:cancelled 事件触发 re-fetch
-  //   彻底解决"persisted 只 mount fetch 一次永不更新"导致 reportFull = null 走 fallback 的 bug。
-  //   S11 mission-persist 写库成功后才 emit mission:completed（修复了 S8 提前 emit），
-  //   此时 reportFull 已落库，re-fetch 拿到 v2 ReportArtifact → ArtifactReader 路径生效。
+  // isResumable 取自 canonical view（backend ResumeRerunPolicyService 已决策）。
+  const isResumable = missionView?.mission?.resumable ?? false;
+
+  // ★ Terminal refetch: backend stream 尚未注入 refreshHints（§6.7.3 follow-up），
+  //   先在前端 trigger refreshMissionView()。三连拉（立即 + 800 + 2500）让 S11
+  //   mission-persist 写库完成后能拿到 reportFull / token / cost 终态数值。
   const lastTerminalRef = useRef<string | null>(null);
   useEffect(() => {
     if (invalidId) return;
@@ -284,15 +272,9 @@ export default function MissionDetailPage() {
         'agent-playground.mission:completed',
         'agent-playground.mission:failed',
         'agent-playground.mission:cancelled',
-        // ★ 2026-04-30 (B 路线): 局部重跑完成也要 re-fetch persisted —— stage 产物已 patch
         'agent-playground.mission:rerun-completed',
-        // ★ 2026-05-23 #48: rerun 失败 / cascade-abort 也要 re-fetch —— 否则页面停留在
-        //   stale 状态（用户看到旧产物），错误信息无法显示。
         'agent-playground.mission:rerun-failed',
         'agent-playground.rerun:cascade-aborted',
-        // ★ 2026-05-06 #83: mission:postlude:completed 表示 S12 自我进化 fire-and-forget
-        //   也跑完，此时 mission row tokens_used / cost_usd / report_full 已最终落库，
-        //   再 re-fetch 一次确保前端拿到最终数字（不只是 S11 完成时刻的快照）。
         'agent-playground.mission:postlude:completed',
       ].includes(ev.type)
     );
@@ -300,34 +282,14 @@ export default function MissionDetailPage() {
     const sig = `${terminal.type}:${terminal.timestamp ?? ''}`;
     if (lastTerminalRef.current === sig) return;
     lastTerminalRef.current = sig;
-    let cancelled = false;
-    // ★ 2026-05-06 #83: 延迟 800 → 立即 + 800 + 2500 三连拉，让用户切到"输出报告"
-    //   tab 不需要等 800ms 才看到内容；如果第一次拉时 reportFull 还没写完（race），
-    //   后续两次兜底。
-    const fetchAndSet = () => {
-      if (cancelled) return;
-      getMissionDetail(missionId)
-        .then((d) => {
-          if (!cancelled) setPersisted(d);
-        })
-        .catch(() => {});
-    };
-    fetchAndSet();
-    const t1 = setTimeout(fetchAndSet, 800);
-    const t2 = setTimeout(fetchAndSet, 2500);
+    refreshMissionView();
+    const t1 = setTimeout(refreshMissionView, 800);
+    const t2 = setTimeout(refreshMissionView, 2500);
     return () => {
-      cancelled = true;
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [events, missionId, invalidId]);
-
-  // ★ B4-3 (thinning plan §B4-3): canonical mission detail view —— 单一 truth source.
-  // §6.7 fetch-coalescing 已在 useMissionDetailView 内部实现；hint patch 走 refetch.
-  const {
-    data: missionView,
-    applyRefreshHints,
-  } = useMissionDetailView(invalidId ? undefined : missionId);
+  }, [events, invalidId, refreshMissionView]);
 
   // ★ B4-3 桥接：把 stream 携带的 refreshHints 透传给 view fetcher（§6.7.3 multi-pod
   //   hint emission path）。stream 路径保持启用以满足 §6.7.2 immediacy 需求。
@@ -835,7 +797,11 @@ export default function MissionDetailPage() {
             status: string;
             startedAt?: number;
             endedAt?: number;
-            artifacts: Array<{ kind: string; label: string; value?: string | number }>;
+            artifacts: Array<{
+              kind: string;
+              label: string;
+              value?: string | number;
+            }>;
             narrativeLog: Array<{ ts: number; text: string; tone?: string }>;
             agentRefId?: string;
             dimensionRef?: string;
@@ -845,26 +811,28 @@ export default function MissionDetailPage() {
         }
       | undefined;
     const items = board?.items ?? [];
-    return items.map((entry): MissionTodo => ({
-      id: entry.id,
-      parentId: entry.parentId,
-      origin: entry.origin as MissionTodo['origin'],
-      createdBy: entry.createdBy as MissionTodo['createdBy'],
-      createdAt: entry.createdAt,
-      reasonText: entry.reasonText,
-      scope: entry.scope as MissionTodo['scope'],
-      title: entry.title,
-      assignee: entry.assignee as MissionTodo['assignee'],
-      status: entry.status as MissionTodo['status'],
-      startedAt: entry.startedAt,
-      endedAt: entry.endedAt,
-      artifacts: entry.artifacts as MissionTodo['artifacts'],
-      narrativeLog: entry.narrativeLog as MissionTodo['narrativeLog'],
-      agentRefId: entry.agentRefId,
-      dimensionRef: entry.dimensionRef,
-      systemStageId: entry.systemStageId as MissionTodo['systemStageId'],
-      pipelineKey: entry.retryPipelineKey,
-    }));
+    return items.map(
+      (entry): MissionTodo => ({
+        id: entry.id,
+        parentId: entry.parentId,
+        origin: entry.origin as MissionTodo['origin'],
+        createdBy: entry.createdBy as MissionTodo['createdBy'],
+        createdAt: entry.createdAt,
+        reasonText: entry.reasonText,
+        scope: entry.scope as MissionTodo['scope'],
+        title: entry.title,
+        assignee: entry.assignee as MissionTodo['assignee'],
+        status: entry.status as MissionTodo['status'],
+        startedAt: entry.startedAt,
+        endedAt: entry.endedAt,
+        artifacts: entry.artifacts as MissionTodo['artifacts'],
+        narrativeLog: entry.narrativeLog as MissionTodo['narrativeLog'],
+        agentRefId: entry.agentRefId,
+        dimensionRef: entry.dimensionRef,
+        systemStageId: entry.systemStageId as MissionTodo['systemStageId'],
+        pipelineKey: entry.retryPipelineKey,
+      })
+    );
   }, [missionView]);
   const selectedTodo: MissionTodo | undefined = useMemo(
     () => todoLedger.find((t) => t.id === selectedTaskKey),
@@ -1148,9 +1116,17 @@ export default function MissionDetailPage() {
               ? 'completed'
               : 'running'
       }
-      depth={view.mission.depth ?? (persisted as { depth?: string } | null)?.depth}
-      language={view.mission.language ?? (persisted as { language?: string } | null)?.language}
-      maxCredits={view.mission.maxCredits ?? (persisted as { maxCredits?: number } | null)?.maxCredits}
+      depth={
+        view.mission.depth ?? (persisted as { depth?: string } | null)?.depth
+      }
+      language={
+        view.mission.language ??
+        (persisted as { language?: string } | null)?.language
+      }
+      maxCredits={
+        view.mission.maxCredits ??
+        (persisted as { maxCredits?: number } | null)?.maxCredits
+      }
       onCollapse={() => setLeftCollapsed(true)}
       onLeaderClick={() => setLeaderChatOpen(true)}
       onResearchTeamClick={() => setResearchTeamOpen(true)}
@@ -1420,11 +1396,8 @@ export default function MissionDetailPage() {
         open={leaderChatOpen}
         onClose={() => setLeaderChatOpen(false)}
         onDimensionsAppended={() => {
-          // CREATE_TODO 成功 → 刷新 mission detail 把新 dimensions 拉进来
-          // （SVG / MissionTodoBoard 自动重新渲染）
-          getMissionDetail(missionId)
-            .then((d) => setPersisted(d))
-            .catch(() => {});
+          // CREATE_TODO 成功 → 刷新 canonical view 把新 dimensions 拉进来。
+          refreshMissionView();
         }}
       />
 
@@ -1468,14 +1441,9 @@ export default function MissionDetailPage() {
         }
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        onSaved={async () => {
-          // 2026-05-13 #66: 保存后 refetch persisted 让弹窗下次打开读到新值
-          try {
-            const d = await getMissionDetail(missionId);
-            setPersisted(d);
-          } catch {
-            /* ignore */
-          }
+        onSaved={() => {
+          // 2026-05-13 #66 / W1 cutover: 保存后刷新 canonical view，弹窗下次打开读到新值。
+          refreshMissionView();
         }}
       />
     </>

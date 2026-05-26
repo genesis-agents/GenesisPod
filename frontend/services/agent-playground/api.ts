@@ -363,6 +363,10 @@ export interface MissionDetailView {
     terminalOutcome?: string | null;
     failureCode?: string | null;
     reportArtifactVersion?: number | null;
+    /** W1 cutover：取代 page.tsx 的旧 persisted.userProfile 兜底。 */
+    userProfile?: unknown;
+    /** W1 cutover：取代 page.tsx 的旧 persisted.reconciliationReport 兜底。 */
+    reconciliationReport?: unknown;
     status: MissionViewStatus;
     startedAt?: string;
     finishedAt?: string;
@@ -404,6 +408,19 @@ export interface MissionDetailView {
   timelineVersion: number;
   snapshotVersion: number;
   refreshHints?: ViewRefreshHint[];
+  /** P0-A: verifier verdicts (取代 shim 内 events 派生)。 */
+  verdicts?: {
+    verifierId: string;
+    score: number;
+    critique?: string;
+    criteria?: Record<string, number>;
+    modelId?: string;
+    attempt?: number;
+  }[];
+  /** P0-A: memory index 状态。 */
+  memoryIndex?: { chunks: number; namespace?: string; tags?: string[] } | null;
+  /** P0-A: dimension pipeline 状态（chapter / grade 等）。 */
+  dimensionPipelines?: Record<string, unknown>;
   references: unknown[];
   reportVersions: {
     version: number;

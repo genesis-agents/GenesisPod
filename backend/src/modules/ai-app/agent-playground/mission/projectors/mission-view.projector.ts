@@ -94,20 +94,23 @@ function buildRowLoadedView(inputs: MissionQueryInputs): PlaygroundDomainView {
   const todoBoard = projectTodoBoard(row, inputs.events);
   // P0-2：artifact 来自 ArtifactComposerService（含 R2 off-load fetch），
   //   不再 inline 调用 pure projectArtifact —— query service 已 await 异步组合。
-  const reportArtifact: ReportArtifactV2 | EmptyArtifactSentinel = inputs.composedArtifact;
+  const reportArtifact: ReportArtifactV2 | EmptyArtifactSentinel =
+    inputs.composedArtifact;
 
   // P0-1：真实投影 references + reportVersions（取代 first-cut 的 []）
   const references = extractReferences(reportArtifact);
-  const reportVersions: ReportVersionView[] = inputs.reportVersions.map((r) => ({
-    version: r.version,
-    versionLabel: r.versionLabel,
-    reportTitle: r.reportTitle,
-    reportSummary: r.reportSummary,
-    finalScore: r.finalScore,
-    leaderSigned: r.leaderSigned,
-    triggerType: r.triggerType,
-    generatedAt: r.generatedAt.toISOString(),
-  }));
+  const reportVersions: ReportVersionView[] = inputs.reportVersions.map(
+    (r) => ({
+      version: r.version,
+      versionLabel: r.versionLabel,
+      reportTitle: r.reportTitle,
+      reportSummary: r.reportSummary,
+      finalScore: r.finalScore,
+      leaderSigned: r.leaderSigned,
+      triggerType: r.triggerType,
+      generatedAt: r.generatedAt.toISOString(),
+    }),
+  );
 
   const publicStatus = resolvePublicStatus(row);
 
@@ -129,6 +132,10 @@ function buildRowLoadedView(inputs: MissionQueryInputs): PlaygroundDomainView {
       terminalOutcome: row.terminalOutcome ?? null,
       failureCode: row.failureCode ?? null,
       reportArtifactVersion: row.reportArtifactVersion ?? null,
+      // W1 cutover：userProfile / reconciliationReport 暴露给前端，page.tsx
+      // 不再走旧 getMissionDetail / listResumableMissions。
+      userProfile: row.userProfile,
+      reconciliationReport: row.reconciliationReport,
       status: publicStatus,
       startedAt: isoOrUndef(row.startedAt),
       finishedAt: isoOrUndef(row.completedAt),
@@ -171,7 +178,9 @@ function extractVerdicts(
   // 优先用 mission row 上持久化的 verdicts（最终态）
   if (Array.isArray(row.verdicts) && row.verdicts.length > 0) {
     return (row.verdicts as Array<Record<string, unknown>>)
-      .filter((v) => typeof v.verifierId === "string" && typeof v.score === "number")
+      .filter(
+        (v) => typeof v.verifierId === "string" && typeof v.score === "number",
+      )
       .map((v) => ({
         verifierId: v.verifierId as string,
         score: v.score as number,
@@ -187,7 +196,9 @@ function extractVerdicts(
   // 否则从 events 派生（mission 进行中或老数据无 row verdicts）
   const out: VerifierVerdictView[] = [];
   for (const ev of events) {
-    const suffix = ev.type.includes(".") ? ev.type.slice(ev.type.indexOf(".") + 1) : ev.type;
+    const suffix = ev.type.includes(".")
+      ? ev.type.slice(ev.type.indexOf(".") + 1)
+      : ev.type;
     if (suffix !== "verifier:verdict") continue;
     const p = ev.payload as Record<string, unknown> | null;
     if (!p) continue;
@@ -214,7 +225,9 @@ function extractMemoryIndex(
   // 取最近一条 memory.index 事件
   for (let i = events.length - 1; i >= 0; i--) {
     const ev = events[i];
-    const suffix = ev.type.includes(".") ? ev.type.slice(ev.type.indexOf(".") + 1) : ev.type;
+    const suffix = ev.type.includes(".")
+      ? ev.type.slice(ev.type.indexOf(".") + 1)
+      : ev.type;
     if (suffix !== "memory.index" && suffix !== "memory:index") continue;
     const p = ev.payload as Record<string, unknown> | null;
     if (p && typeof p.chunks === "number") {
@@ -222,7 +235,9 @@ function extractMemoryIndex(
         chunks: p.chunks,
         namespace: typeof p.namespace === "string" ? p.namespace : undefined,
         tags: Array.isArray(p.tags)
-          ? (p.tags as unknown[]).filter((t): t is string => typeof t === "string")
+          ? (p.tags as unknown[]).filter(
+              (t): t is string => typeof t === "string",
+            )
           : undefined,
       };
     }
@@ -242,7 +257,9 @@ function extractDimensionPipelines(
     out[dim] = { dimension: dim, chapters: [] };
   }
   for (const ev of events) {
-    const suffix = ev.type.includes(".") ? ev.type.slice(ev.type.indexOf(".") + 1) : ev.type;
+    const suffix = ev.type.includes(".")
+      ? ev.type.slice(ev.type.indexOf(".") + 1)
+      : ev.type;
     const p = ev.payload as Record<string, unknown> | null;
     if (!p) continue;
     const dim = typeof p.dimension === "string" ? p.dimension : undefined;
@@ -250,9 +267,20 @@ function extractDimensionPipelines(
     const pipe = out[dim] ?? { dimension: dim, chapters: [] };
     out[dim] = pipe;
 
-    if (suffix === "chapter:writing:started" || suffix === "chapter:writing:completed" || suffix === "chapter:writing:failed" || suffix === "chapter:done") {
-      const heading = typeof p.heading === "string" ? p.heading : typeof p.chapterTitle === "string" ? p.chapterTitle : "";
-      const index = typeof p.index === "number" ? p.index : pipe.chapters.length + 1;
+    if (
+      suffix === "chapter:writing:started" ||
+      suffix === "chapter:writing:completed" ||
+      suffix === "chapter:writing:failed" ||
+      suffix === "chapter:done"
+    ) {
+      const heading =
+        typeof p.heading === "string"
+          ? p.heading
+          : typeof p.chapterTitle === "string"
+            ? p.chapterTitle
+            : "";
+      const index =
+        typeof p.index === "number" ? p.index : pipe.chapters.length + 1;
       let chapter = pipe.chapters.find((c) => c.index === index);
       if (!chapter) {
         chapter = { index, heading, status: "pending", attempts: 0 };
@@ -261,18 +289,25 @@ function extractDimensionPipelines(
       if (suffix === "chapter:writing:started") {
         chapter.status = "writing";
         chapter.attempts += 1;
-      } else if (suffix === "chapter:writing:completed" || suffix === "chapter:done") {
+      } else if (
+        suffix === "chapter:writing:completed" ||
+        suffix === "chapter:done"
+      ) {
         chapter.status = "done";
         if (typeof p.wordCount === "number") chapter.wordCount = p.wordCount;
       } else if (suffix === "chapter:writing:failed") {
         chapter.status = "failed";
       }
-    } else if (suffix === "chapter:revision" || suffix === "chapter:rewritten") {
+    } else if (
+      suffix === "chapter:revision" ||
+      suffix === "chapter:rewritten"
+    ) {
       const index = typeof p.index === "number" ? p.index : 0;
       const chapter = pipe.chapters.find((c) => c.index === index);
       if (chapter) chapter.status = "revising";
     } else if (suffix === "dimension:integrating:completed") {
-      const totalWordCount = typeof p.totalWordCount === "number" ? p.totalWordCount : undefined;
+      const totalWordCount =
+        typeof p.totalWordCount === "number" ? p.totalWordCount : undefined;
       if (totalWordCount != null) pipe.totalWordCount = totalWordCount;
     } else if (suffix === "dimension:integrating:failed") {
       pipe.integrationDegraded = true;
@@ -289,7 +324,9 @@ function extractDimensionPipelines(
 function extractDimensionsFromRow(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .filter((d): d is Record<string, unknown> => d != null && typeof d === "object")
+    .filter(
+      (d): d is Record<string, unknown> => d != null && typeof d === "object",
+    )
     .map((d) => (typeof d.name === "string" ? d.name : ""))
     .filter((n) => n.length > 0);
 }
@@ -401,7 +438,9 @@ function isoOrUndef(dt: Date | null | undefined): string | undefined {
 function extractDimensions(raw: unknown): DimensionView[] | undefined {
   if (!Array.isArray(raw)) return undefined;
   return raw
-    .filter((d): d is Record<string, unknown> => d != null && typeof d === "object")
+    .filter(
+      (d): d is Record<string, unknown> => d != null && typeof d === "object",
+    )
     .map((d) => ({
       id: typeof d.id === "string" ? d.id : "",
       name: typeof d.name === "string" ? d.name : "",
@@ -410,8 +449,4 @@ function extractDimensions(raw: unknown): DimensionView[] | undefined {
 }
 
 // Re-exports to make sibling routes / fixtures know the placeholder type aliases
-export type {
-  PlaygroundDomainView,
-  MissionReferenceView,
-  ReportVersionView,
-};
+export type { PlaygroundDomainView, MissionReferenceView, ReportVersionView };

@@ -72,7 +72,12 @@ export type TodoOrigin =
   | "system-stage"
   | "chapter-pipeline";
 
-export type TodoScope = "mission" | "dimension" | "chapter" | "review" | "system";
+export type TodoScope =
+  | "mission"
+  | "dimension"
+  | "chapter"
+  | "review"
+  | "system";
 
 export type TodoStatus =
   | "pending"
@@ -214,8 +219,10 @@ export interface LeaderJournalView {
  *
  * 重新加入这些字段时必须同 PR 提供具体 TS shape 和 consuming UI。
  */
-export interface PlaygroundDomainView
-  extends MissionViewBase<ReportArtifactView, TodoBoardEntry> {
+export interface PlaygroundDomainView extends MissionViewBase<
+  ReportArtifactView,
+  TodoBoardEntry
+> {
   mission: MissionViewBaseMission & {
     /** 兼容 baggage，新消费方禁用，参 §6.3 field-name compatibility rule 4-5。 */
     topic?: string;
@@ -234,6 +241,17 @@ export interface PlaygroundDomainView
     failureCode?: string | null;
     /** §6.6 v1 = ResearchReport / v2 = ReportArtifact。 */
     reportArtifactVersion?: number | null;
+    /**
+     * UserProfile 投影 (W1 cutover：page.tsx 直接吃此字段，不再调旧 getMissionDetail)。
+     * §6.3 playground extension。C5/G7 后是 configSnapshot 的读时投影。
+     */
+    userProfile?: unknown;
+    /**
+     * Reconciliation report 投影 (W1 cutover：page.tsx sidebar 用此判存在性)。
+     * §6.3 playground extension。含 R2 off-load uri/size 时由 ArtifactComposer 处理；
+     * page.tsx 仅做存在性判断（unknown shape ok）。
+     */
+    reconciliationReport?: unknown;
   };
   references: MissionReferenceView[];
   reportVersions: ReportVersionView[];
