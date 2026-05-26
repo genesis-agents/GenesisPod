@@ -206,6 +206,58 @@
 
 ---
 
+## 3-FE. 前端文件归属总表 (playground frontend)
+
+> 通用 vs 专用同样适用于前端，但**多一个判断**: **业务推导逻辑必须下沉到后端**（ADR 009 §3）—— 即"event → state derive"、"chunks → artifact synthesize"、"todo state 机"这些**不是 UI 层职责**，必须在后端 emit 已 derived 的 view state。
+
+前端可拆为 4 类:
+
+- **UI shell (canonical)**: 通用 mission 详情壳 (header / drawer / modal / stepper / tabs / DAG / timeline / roster)
+- **Domain panel**: playground 业务专属 tab panel (dimensions / references / report / verify-consensus / capability-meters)
+- **UI helper (ui-helper)**: 纯展示 helper (formatter / friendly-error / stage-id-mapping), locale-aware, **保留前端**
+- **Legacy derive (业务下沉)**: event → state / chunks → doc / todo state 机, **下沉到后端**
+
+### 3-FE.1 顶层结构
+
+| 目录 | LOC | files | 类别 | 目标态 | 备注 |
+|---|---|---|---|---|---|
+| `app/agent-playground/` | 2,197 | 4 | D | ~1,500 LOC | page 装配薄化 (大部分逻辑下沉后) |
+| `components/agent-playground/` | 14,574 | 45 | mixed | ~5,500 LOC | 通用上提 canonical, 业务 panel 留 |
+| `services/agent-playground/` | 794 | 1 | D | ~600 LOC | endpoint 调用 (业务) |
+| `lib/features/agent-playground/` | 4,279 | 8 | mixed | ~220 LOC | derive/synthesize/ledger 全下沉, 仅留 UI helper |
+
+### 3-FE.2 `components/agent-playground/` 各子目录判断
+
+| 子目录 | LOC | files | 类别 | 上提目标 | 留 app 内容 |
+|---|---|---|---|---|---|
+| `artifact/` (13 files) | 3,915 | 13 | S | ArtifactReader 通用骨架 / ArtifactMarkdown / ReportVersionDrawer 通用部分 → canonical | chapter/section 业务字段渲染 / FactTablePanel / ReconciliationPanel / ToolRecallTrace |
+| `board/` (2 files) | **2,785** | 2 | ✘ | **整体上提 canonical**: `MissionTodoBoard` (1062) + `TodoDetailDrawer` (1721, 拆 5 个 < 300 LOC 子件) | (无, todo board 是通用模式) |
+| `dag/` (1 file) | 798 | 1 | ✘ | **整体上提 canonical**: `MissionDagView` (与后端 dag-view framework 配套) | (无) |
+| `flow/` (3 files) | 1,167 | 3 | ✘ | **整体上提 canonical**: `MissionFlowView` (552) + `PipelineTimeline` + `RawEventLog` (453) | (无) |
+| `modals/` (3 files) | 996 | 3 | S | `LeaderChatModal` (与后端 chat framework 配套) → canonical; `TeamMissionModal` (通用) → canonical | `PlaygroundMissionDialog` 部分业务字段 |
+| `panels/` (10 files) | 2,782 | 10 | D | (留) | dimensions / references / report / verify-consensus / capability-meters / lead-journal / memory-index / compute-usage / cost-breakdown / budget-time-limit 全是 playground 业务 panel |
+| `roster/` (2 files) | 1,391 | 2 | ✘ | **整体上提 canonical**: `TeamRosterPanel` (928) + `AgentLiveGrid` (461) | (无, 团队展示是通用模式) |
+| `ui/` (10 files) | 722 | 10 | ✘ | **整体上提 canonical 小件**: `Card` / `Section` / `StatusPill` / `RoleChip` / `ToolBadge` / `ToneCard` / `ExpandableText` / `MetricStat` / `SourceLink` | (无) |
+
+**components/ 总瘦身**: 14,574 → **~5,500** (-62%) + 通用部分上提 ~6,500 LOC 一次性投入到 `components/common/mission-detail/` 或 `team-app-kit/`
+
+### 3-FE.3 `lib/features/agent-playground/` 详细判断
+
+| 文件 | LOC | 类别 | 目标 | 备注 |
+|---|---|---|---|---|
+| `derive.ts` | 1,031 | ✘ | 下沉后端 view-state.service | event → MissionViewState 完整 derive (PR-D-1) |
+| `drawer-derive.ts` | 330 | ✘ | 下沉后端 view-state.service | drawer state |
+| `synthesize-artifact.ts` | 237 | ✘ | 下沉后端 artifact-composer | chunks → markdown |
+| `todo-ledger.ts` | 2,230 | ✘ | 下沉后端 todo-ledger.service | todo state 机 (PR-D-3 ~ D-4) |
+| `report-artifact.types.ts` | 232 | ✘ | 下沉后端 api/contracts/ (PR-D-0.5 PlaygroundDomainView 已含部分) | type 单源 |
+| `formatters.ts` | 119 | D | (留) | locale-aware 千分位/日期 |
+| `friendly-error.util.ts` | 72 | D | (留) | i18n + UX 错误文案 |
+| `stage-id-mapping.ts` | 28 | D | (留) | i18n stage label |
+
+**lib/features/ 总瘦身**: 4,279 → **~219** (-95%); 下沉到后端 ~4,060 LOC
+
+---
+
 ## 4. 上提到 `ai-harness/teams/business-team/` 的新增内容
 
 §8.1 子目录白名单: **12 → 16 项**（同步更新 `agent-team-layout.spec.ts` ALLOWED_HARNESS_BUSINESS_TEAM_DIRS + standard 23 §8.1 文档）。
@@ -294,6 +346,57 @@ agents/
 
 ---
 
+## 4-FE. 前端通用部分上提目标
+
+ADR 008 已立**前端 canonical shell** (`components/common/mission-detail/`)，现有 9 个 canonical 组件:
+`DrawerShell` / `MissionActionGroup` / `MissionControlCard` / `MissionDetailFrame` / `MissionTaskList` / `ModalShell` / `RoleCard` / `StageStepper` / `tabs/`
+
+本 plan 在此基础上**继续从 playground 反向抽**新的 canonical 组件 (ADR 008 W0 "B 路" 精神延续):
+
+### 4-FE.1 扩展 `components/common/mission-detail/` (已存在)
+
+| 新增 canonical 组件 | 抽自 playground | 现 LOC | canonical 目标 LOC |
+|---|---|---|---|
+| `MissionFlowView.tsx` | `agent-playground/flow/MissionFlowView.tsx` | 552 | ~400 |
+| `MissionDagView.tsx` | `agent-playground/dag/MissionDagView.tsx` | 798 | ~500 |
+| `TeamRosterPanel.tsx` | `agent-playground/roster/TeamRosterPanel.tsx` | 928 | ~500 |
+| `AgentLiveGrid.tsx` | `agent-playground/roster/AgentLiveGrid.tsx` | 461 | ~300 |
+| `MissionTodoBoard.tsx` | `agent-playground/board/MissionTodoBoard.tsx` | 1062 | ~400 |
+| `TodoDetailDrawer/` (拆 5+) | `agent-playground/board/TodoDetailDrawer.tsx` | 1721 | 拆成多个 < 300 LOC |
+| `LeaderChatModal.tsx` | `agent-playground/modals/LeaderChatModal.tsx` | (~300) | ~250 |
+| `PipelineTimeline.tsx` | `agent-playground/flow/PipelineTimeline.tsx` | (~250) | ~250 |
+| `RawEventLog.tsx` | `agent-playground/flow/RawEventLog.tsx` | 453 | ~350 |
+| `ArtifactReader.tsx` (通用骨架) | `agent-playground/artifact/ArtifactReader.tsx` | 818 | ~400 (骨架, 业务 section 留 app) |
+| `ArtifactMarkdown.tsx` | `agent-playground/artifact/ArtifactMarkdown.tsx` | (~250) | ~250 |
+| `ReportVersionDrawer.tsx` (通用) | `agent-playground/artifact/ReportVersionDrawer.tsx` | (~280) | ~200 |
+| **小件**: `Card` / `Section` / `StatusPill` / `RoleChip` / `ToolBadge` / `ToneCard` / `ExpandableText` / `MetricStat` / `SourceLink` | `agent-playground/ui/*` | 722 | ~600 (拆放 `common/cards/` 等) |
+
+### 4-FE.2 新建 `components/common/team-app-kit/` (可选, 待评审)
+
+如果 canonical 组件已足够，不需要新建 team-app-kit。但**可视化 / 状态展示**类组件可能更适合归到 `team-app-kit/` 而非 `common/mission-detail/` (mission-detail 主要是壳，团队 app 还需 agent / event / artifact 展示)。
+
+待评审决策 (§10 新增 #6): canonical 扩展放在 `components/common/mission-detail/` 还是新开 `components/team-app-kit/` ？
+
+### 4-FE.3 业务 panel 留 `frontend/components/<team>/panels/`
+
+各 team 业务专属 tab panel:
+
+| Team | panels/ 留 LOC | 内容 |
+|---|---|---|
+| playground | ~2,782 | dimensions / references / report / verify-consensus / capability-meters / lead-journal / memory-index / compute-usage / cost-breakdown / budget-time-limit |
+| social | (未审计) | wechat-publish / xhs-publish / platform-status 等 |
+| radar | (未审计) | signals / source-health / briefing 等 |
+
+### 4-FE.4 前端 LOC 影响
+
+| 项 | LOC |
+|---|---|
+| 现有 `components/common/mission-detail/` | (~2,500) |
+| 新增 canonical 组件 (从 playground 反向抽) | +4,400 (一次性) |
+| **canonical 目标态** | **~6,900** (跨 N team 复用) |
+
+---
+
 ## 5. 三 app 同步影响
 
 按 standard 23 §6 红线: **"3 app 同步迁移"** —— 任何 framework 变更必须 playground + social + radar 同 PR 落地。
@@ -329,14 +432,38 @@ radar 当前 `radar-pipeline-dispatcher.service.ts` 543 / `radar-business-orches
 | `radar-mission-store.service.ts` | 318 | ~150 | -53% |
 | 业务 collectors (rss/yt/x/custom) | 不变 | 不变 | 0% |
 
-### 5.4 总瘦身效益
+### 5.4 后端三 app 总瘦身效益
 
 | 维度 | 现状 | 目标 | 净变化 |
 |---|---|---|---|
-| **3 app 合计 LOC** | 59,451 | **~39,800** | **-19,651 (-33%)** |
+| **3 app 后端合计 LOC** | 59,451 | **~39,800** | **-19,651 (-33%)** |
 | harness LOC | 3,454 | 5,700 | +2,246 |
-| **整体净瘦身** | — | — | **-17,405 (-29%)** |
+| **后端净瘦身** | — | — | **-17,405 (-29%)** |
 | 跨 N team 净收益 | — | — | (N-1) × ~6,500 LOC (新 team 起步即享) |
+
+### 5.5 前端三 app 瘦身估算
+
+playground 前端按本 plan §3-FE / §4-FE 瘦身后:
+
+| Team | 前端现 LOC | 目标 LOC | 减少 |
+|---|---|---|---|
+| **playground** | 24,289 (含 components+lib+app+services) | **~7,800** | **-68%** |
+| **social** | (未完整审计, 估 ~15K) | **~5,000** | **-67%** |
+| **radar** | (未完整审计, 估 ~8K) | **~3,000** | **-63%** |
+| 3 app 合计 | ~47,000 | **~15,800** | **-66%** |
+
+(social/radar 估算偏激进, 待实测审计。但 lib/features/ 业务下沉 + canonical 上提 + 巨石拆分三件套对三 app 同等适用。)
+
+### 5.6 全栈合计
+
+| 维度 | 现状 | 目标 | 减少 |
+|---|---|---|---|
+| **3 app 全栈 LOC** (后端 59K + 前端 ~47K) | ~106,500 | **~55,600** | **-48%** |
+| harness LOC | 3,454 | 5,700 | +2,246 |
+| canonical components/common LOC | (~2,500) | ~6,900 | +4,400 |
+| **整体净瘦身** | — | — | **~ -44,400 (-42%)** |
+
+跨 N team 净收益 (含前端 canonical 复用): **(N-1) × ~11,000 LOC** —— 平台未来加新 team 起步即享后端 framework + 前端 canonical 双层复用。
 
 ---
 
@@ -396,28 +523,70 @@ radar 当前 `radar-pipeline-dispatcher.service.ts` 543 / `radar-business-orches
 
 §8.1 子目录白名单从 12 项更新到 16 项 (同步改 spec + standard 23 §8.1)。
 
-### Wave T5 — 前端业务下沉 (高风险, ≥ 2 个月, 灰度)
+### Wave T5 — 前端业务下沉到后端 (高风险, ≥ 2 个月, 灰度)
 
-按 ADR 009 §3 / §0 红线，每步必按双跑 ≥ 7 天 0 diff:
+按 ADR 009 §3 / §0 红线，每步必按双跑 ≥ 7 天 0 diff。**5 类 derive 逻辑分子 PR 做**，禁止并行:
 
-| PR | 内容 | 兼容性验证 |
-|---|---|---|
-| T5.1 | 后端 `playground-view-state.service.ts` 实现 (PR-D-1) | equivalence spec vs 前端 derive.ts deep-equal |
-| T5.2 | 前端 dev 模式双跑 ≥ 7 天 | 0 diff |
-| T5.3 | 灰度切换 (feature flag) | 0 user-visible regression |
-| T5.4 | 删前端 `lib/features/agent-playground/derive.ts` (1031 LOC) | 视觉/行为零变化 |
-| T5.5 | 同上对 drawer-derive / synthesize-artifact / todo-ledger | -3828 前端 LOC |
+| PR | 后端实现 | 前端目标删除 | LOC (前端) | 兼容性验证 |
+|---|---|---|---|---|
+| T5.1 | `playground-view-state.service.ts` (PR-D-1) | `derive.ts` 1031 | -1,031 | equivalence spec deep-equal vs derive.ts |
+| T5.2 | view-state 含 drawer state | `drawer-derive.ts` 330 | -330 | 同上 vs drawer-derive.ts |
+| T5.3 | `playground-artifact-composer.service.ts` | `synthesize-artifact.ts` 237 | -237 | 同上 |
+| T5.4 | `playground-todo-ledger.service.ts` | `todo-ledger.ts` 2230 | -2,230 | 同上 |
+| T5.5 | api/contracts/playground-view-state.contract (PR-D-0.5 ✅) | `report-artifact.types.ts` 232 | -232 | codegen 单源 |
 
-### 总 Wave LOC 估算
+每 PR 灰度协议:
+1. 后端 emit `agent-playground.mission:view-state` event (含已 derive 字段)
+2. 前端 dev 模式双跑: 旧 derive 仍跑 + 后端推送也存 + 比对 diff 报告
+3. 比对 ≥ 7 天 0 diff → feature flag 切换 (前端用后端 view state)
+4. 切换 ≥ 7 天稳定 → 删旧 derive 文件
 
-| Wave | playground | social | radar | harness | 净 |
-|---|---|---|---|---|---|
-| T1 文档 | 0 | 0 | 0 | 0 | 0 |
-| T2 低风险 | -250 | -100 | -36 | 0 | -386 |
-| T3 framework 扩展 | -3,250 | -1,150 | -441 | +830 | **-4,011** |
-| T4 新 framework 子目录 | -1,577 | -300 | -150 | +1,160 | **-867** |
-| T5 前端业务下沉 | -3,828 (FE) | (后续 PR) | (后续 PR) | (FE 框架包) | **-3,828+** |
-| **合计** | **-8,905** | **-1,550** | **-627** | **+1,990** | **-9,092** |
+### Wave T6 — 前端组件标杆化 (canonical 反向抽 + 巨石拆分, 2-3 周)
+
+按 ADR 008 "playground 反向抽 canonical" 路线延续。每个组件:
+1. 从 playground 提取通用骨架到 `components/common/mission-detail/`
+2. playground 内引用改 import canonical
+3. social / radar 同步切到 canonical (即使现在不用也提前接入)
+4. 视觉回归: playwright screenshot diff
+
+| PR | canonical 抽取 + 巨石拆分 | playground 减 LOC | canonical 增 LOC |
+|---|---|---|---|
+| T6.1 | `MissionFlowView` + `PipelineTimeline` + `RawEventLog` (flow/ 1167) | -1,167 | +1,000 |
+| T6.2 | `MissionDagView` (dag/ 798, 配套 PR T4.2 后端 dag-view framework) | -798 | +500 |
+| T6.3 | `TeamRosterPanel` + `AgentLiveGrid` (roster/ 1391) | -1,391 | +800 |
+| T6.4 | `MissionTodoBoard` + `TodoDetailDrawer` 拆 5 子件 (board/ 2785) | -2,785 | +1,200 |
+| T6.5 | `LeaderChatModal` + `TeamMissionModal` 上提 (modals/ 部分 ~500) | -500 | +400 |
+| T6.6 | `ArtifactReader` 通用骨架 + `ArtifactMarkdown` + `ReportVersionDrawer` (artifact/ 部分 ~1500) | -1,500 | +900 |
+| T6.7 | ui/ 9 个小件 (Card / Section / StatusPill 等) → `components/common/cards/` 等 | -722 | +600 |
+| **T6 合计** | | **-8,863 (pg)** | **+5,400** (一次性, N team 共享) |
+
+T6 顺序约束:
+- T6.2 必须在 Wave T4.2 (后端 dag-view framework) 之后 (前端 DagView 需要新后端 contract)
+- T6.5 LeaderChatModal 必须在 T4.1 之后
+- 其他 T6.x 可独立并行 (无后端依赖)
+
+### Wave T7 — Social / Radar 前端同步 (≥ 1 个月)
+
+playground 完成 T5+T6 后，social / radar 跟进:
+
+| PR | 内容 |
+|---|---|
+| T7.1 | social 业务下沉 (按 T5 同样灰度协议) |
+| T7.2 | social 前端切 canonical (按 T6 抽出的 canonical 直接接入, 不需要再抽) |
+| T7.3 | radar 同 T7.1 + T7.2 |
+
+### 总 Wave LOC 估算 (含前端)
+
+| Wave | playground BE | social BE | radar BE | harness | playground FE | canonical FE | 净 |
+|---|---|---|---|---|---|---|---|
+| T1 文档 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| T2 低风险后端 | -250 | -100 | -36 | 0 | 0 | 0 | **-386** |
+| T3 framework 扩展 | -3,250 | -1,150 | -441 | +830 | 0 | 0 | **-4,011** |
+| T4 新 framework 子目录 | -1,577 | -300 | -150 | +1,160 | 0 | 0 | **-867** |
+| T5 前端业务下沉 | 0 | 0 | 0 | 0 | -4,060 | 0 | **-4,060** |
+| T6 前端组件标杆化 | 0 | 0 | 0 | 0 | -8,863 | +5,400 | **-3,463** |
+| T7 social/radar 前端同步 | 0 | 0 | 0 | 0 | (social: -10K, radar: -5K) | 0 | **-15,000** |
+| **合计** | **-5,077** | **-1,550** | **-627** | **+1,990** | **-12,923 (pg) -15K (其他)** | **+5,400** | **~ -40,000 (-38%)** |
 
 ---
 
@@ -469,15 +638,31 @@ radar 当前 `radar-pipeline-dispatcher.service.ts` 543 / `radar-business-orches
 
 完整方案验收:
 
+### 9.1 后端
 1. ✅ `npm run create:team my-team` 跑通 + 251 architecture tests 全绿 (已达成 by PR-B.2)
-2. ⏳ playground 总 LOC ≤ 18,000 (现 27,139)
-3. ⏳ playground 最大单文件 ≤ 300 LOC
-4. ⏳ social 总 LOC ≤ 15,000
-5. ⏳ radar 总 LOC ≤ 8,000
+2. ⏳ playground 后端总 LOC ≤ 18,000 (现 27,139)
+3. ⏳ playground 后端最大单文件 ≤ 300 LOC
+4. ⏳ social 后端总 LOC ≤ 15,000
+5. ⏳ radar 后端总 LOC ≤ 8,000
 6. ⏳ harness/teams/business-team/ 接管所有"通用 mission/agent/event"基础设施
-7. ⏳ 每个下沉 PR 的 equivalence spec 全绿
-8. ⏳ 真机回归 playground 多场景 mission 0 regression
-9. ⏳ ADR 009 §0 兼容性红线 100% 遵守
+
+### 9.2 前端
+7. ⏳ playground 前端总 LOC ≤ 8,000 (现 24,289)
+8. ⏳ playground 前端最大单文件 ≤ 300 LOC
+9. ⏳ `frontend/lib/features/agent-playground/` ≤ 220 LOC (仅留 formatters/friendly-error/stage-id-mapping)
+10. ⏳ `frontend/components/agent-playground/` 仅含业务 panel + page (无 dag/flow/roster/board/ui/modals 通用件)
+11. ⏳ components/common/mission-detail/ 含完整 canonical 套件 (Frame + Drawer + Modal + Stepper + Flow + Dag + Roster + Todo + Chat + Artifact 基)
+
+### 9.3 兼容性 (ADR 009 §0)
+12. ⏳ 每个下沉 PR 的 equivalence spec 全绿 (deep-equal)
+13. ⏳ 真机回归 playground 多场景 mission 0 regression (visual + behavioral)
+14. ⏳ 每 PR 灰度双跑 ≥ 7 天 0 diff
+15. ⏳ ADR 009 §0 兼容性红线 100% 遵守
+
+### 9.4 自动看护就位
+16. ⏳ `audit:mission-detail-discipline` 拦自写 mission shell
+17. ⏳ ESLint 禁 `frontend/lib/features/<team>/` 下 derive*.ts / synthesize-*.ts / *-ledger.ts
+18. ⏳ `*.equivalence.spec.ts` jest fixture 测试覆盖下沉的 5 类逻辑
 
 ---
 
@@ -488,6 +673,11 @@ radar 当前 `radar-pipeline-dispatcher.service.ts` 543 / `radar-business-orches
 3. **leader-chat 在其他 team 形态**: 假设未来 social/radar 也会有"leader 与用户对话"模式，但具体形态可能差异大。需 social/radar 团队确认形态契合。
 4. **Wave T3 中 dispatcher / orchestrator 扩展**: 涉及 3 app 同步改造，工作量大风险高。是否能分子 PR（如先 dispatcher 一项，再 orchestrator 一项）？
 5. **Wave T5 前端业务下沉**: ADR 009 §0 灰度协议要求 ≥ 7 天 0 diff。三个 team 总共 5 类逻辑 (derive / drawer-derive / synthesize-artifact / todo-ledger / report-artifact contract)，每类 1-2 周，全部完成预计 2-3 个月。
+6. **canonical 扩展放哪**: 抽出的 MissionFlowView/MissionDagView/TeamRosterPanel/MissionTodoBoard/LeaderChatModal 等组件，放 `components/common/mission-detail/` (扩成 mission-detail 大筐) 还是新建 `components/common/team-app-kit/` (按 team app 复用语义分目录)？后者更清晰但增加目录层级。
+7. **巨石组件拆分粒度**: TodoDetailDrawer 1721 LOC 怎么拆？建议拆 5 子件 (TodoItemCard / TodoStatusFlow / TodoArtifactsTab / TodoRetryHistory / TodoMetricsHeader)，每 < 300 LOC。视觉/交互必须 100% 等价，平移不重构。
+8. **前端 audit 覆盖**: ADR 008 立的 `audit:mission-detail-discipline` 当前只锁 page 不自写 shell。本 plan 完成后是否扩 audit 覆盖"feature 不自写 canonical 组件类型"(如 feature 不允许出现 `<header>` 自写, 必须用 `MissionDetailFrame`)？需要 audit 维度收口。
+9. **social/radar 前端审计精确数据**: §5.5 social/radar 前端 LOC 是估算。真实瘦身比例待 social/radar 前端文件归属诊断后确定。
+10. **跨 team app 视觉一致性**: T6 抽 canonical 后，playground/social/radar 视觉是否真的应该完全一致？还是每个 team 应该保留少量"品牌 / 业务气质"差异 (如颜色 / 图标 / 微交互)？涉及产品决策。
 
 ---
 
