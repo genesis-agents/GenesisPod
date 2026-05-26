@@ -17,6 +17,8 @@ import type { MissionDetail } from "../lifecycle/mission-store.service";
 import type { MissionQueryInputs } from "../query/mission-query.service";
 import { projectStages } from "./stage-view.projector";
 import { projectAgents } from "./agent-view.projector";
+import { projectTodoBoard } from "./todo-board.projector";
+import { projectArtifact } from "./artifact.projector";
 import type {
   DimensionView,
   EmptyArtifactSentinel,
@@ -28,6 +30,7 @@ import type {
   ReportVersionView,
   TodoBoardSentinel,
 } from "../../api/contracts/view-state.contract";
+import type { ReportArtifactV2 } from "../../api/contracts/artifact.contract";
 
 // ============================================================================
 // Public entry
@@ -81,6 +84,8 @@ function buildRowLoadedView(inputs: MissionQueryInputs): PlaygroundDomainView {
   const row = inputs.row!;
   const stages = projectStages(inputs.events);
   const agents = projectAgents(inputs.events);
+  const todoBoard = projectTodoBoard(row, inputs.events);
+  const reportArtifact: ReportArtifactV2 | EmptyArtifactSentinel = projectArtifact(row);
 
   const publicStatus = resolvePublicStatus(row);
 
@@ -113,8 +118,9 @@ function buildRowLoadedView(inputs: MissionQueryInputs): PlaygroundDomainView {
     },
     stages,
     agents,
-    reportArtifact: buildArtifactSentinelForB2(row),
-    todoBoard: buildEmptyTodoBoardSentinel(),
+    // B3-2 / B3-1 接入：artifact.projector + todo-board.projector
+    reportArtifact,
+    todoBoard,
     cost: buildCostView(row),
     memory: buildEmptyMemorySentinel(),
     // §6.7.1 timelineVersion = persisted event count（events 已含 buffer + persisted fallback）
@@ -155,19 +161,6 @@ function buildEmptyArtifactSentinel(
   reason: EmptyArtifactSentinel["reason"],
 ): EmptyArtifactSentinel {
   return { kind: "empty-artifact", reason };
-}
-
-function buildArtifactSentinelForB2(
-  row: MissionDetail,
-): EmptyArtifactSentinel {
-  if (row.reportFull == null) {
-    return buildEmptyArtifactSentinel("not-yet-materialized");
-  }
-  if (row.reportArtifactVersion == null || row.reportArtifactVersion < 2) {
-    return buildEmptyArtifactSentinel("v1-needs-normalization");
-  }
-  // B3 阶段 ArtifactComposerService 才返回真实 ReportArtifactV2；B2 阶段统一 sentinel
-  return buildEmptyArtifactSentinel("not-yet-materialized");
 }
 
 function buildEmptyTodoBoardSentinel(): TodoBoardSentinel {
