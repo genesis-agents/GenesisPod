@@ -175,6 +175,7 @@ describe("§B2-4 projector replay", () => {
       events,
       resume: { resumable: false, reason: "benchmark" },
       rerunnableStages: [],
+      reportVersions: [],
     };
 
     const t0 = Date.now();
@@ -207,6 +208,7 @@ function bundleToInputs(bundle: FixtureBundle): MissionQueryInputs {
       reason: undefined,
     },
     rerunnableStages: bundle.expectedView.mission.rerunnableStages,
+    reportVersions: [],
   };
 }
 
