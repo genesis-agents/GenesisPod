@@ -16,13 +16,14 @@ import type {
   EmptyArtifactSentinel,
   RadarTodoBoardSentinel,
 } from "../../api/contracts/view-state.contract";
-import type {
-  MissionViewBaseStage,
-  MissionViewStageStatus as StageStatus,
+import {
+  projectStagesByOrdinal,
+  type StagePresetEntry,
 } from "@/modules/ai-harness/facade";
+import type { MissionViewBaseStage } from "@/modules/ai-harness/facade";
 
 // Radar pipeline 9 个 stage（mirror radar/mission/pipeline/stages/ 目录）
-const RADAR_STAGES: ReadonlyArray<{ id: string; label: string }> = [
+const RADAR_STAGES: ReadonlyArray<StagePresetEntry> = [
   { id: "s1-source-resolve", label: "信息源解析" },
   { id: "s2-collect", label: "信源采集" },
   { id: "s3-dedupe", label: "去重清洗" },
@@ -38,23 +39,11 @@ function projectRadarStages(
   lastCompletedStage: number | null | undefined,
   missionStatus: MissionStatus,
 ): MissionViewBaseStage[] {
-  const lastCompleted = lastCompletedStage ?? 0;
-  const isTerminalFailed = missionStatus === "failed" || missionStatus === "cancelled" || missionStatus === "quality-failed";
-  const isCompleted = missionStatus === "completed";
-  return RADAR_STAGES.map((s, i) => {
-    const ord = i + 1;
-    let status: StageStatus;
-    if (ord <= lastCompleted) {
-      status = "done";
-    } else if (ord === lastCompleted + 1) {
-      if (isCompleted) status = "done";
-      else if (isTerminalFailed) status = "failed";
-      else status = "running";
-    } else {
-      status = "pending";
-    }
-    return { id: s.id, label: s.label, status };
-  });
+  return projectStagesByOrdinal(
+    RADAR_STAGES,
+    lastCompletedStage,
+    missionStatus,
+  );
 }
 
 export function projectRadarMissionView(

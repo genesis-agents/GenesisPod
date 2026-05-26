@@ -516,6 +516,10 @@ export {
   TERMINAL_MISSION_STATUSES,
   isMissionTerminal,
 } from "../teams/business-team/abstractions/mission-view-base.contract";
+// ★ C / B6 (2026-05-26): shared ordinal-based stage projection helper.
+//   多 mission app first-cut 路径共用；apps 仍可自定义 events-based 投影。
+export { projectStagesByOrdinal } from "../teams/business-team/abstractions/stage-ordinal-projection.util";
+export type { StagePresetEntry } from "../teams/business-team/abstractions/stage-ordinal-projection.util";
 export type {
   MissionStatus as MissionViewStatus,
   StageStatus as MissionViewStageStatus,

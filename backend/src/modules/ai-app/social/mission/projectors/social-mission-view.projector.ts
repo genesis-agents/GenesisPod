@@ -24,13 +24,14 @@ import type {
   SocialTodoBoardSentinel,
   SocialPublishedSummary,
 } from "../../api/contracts/view-state.contract";
-import type {
-  MissionViewBaseStage,
-  MissionViewStageStatus as StageStatus,
+import {
+  projectStagesByOrdinal,
+  type StagePresetEntry,
 } from "@/modules/ai-harness/facade";
+import type { MissionViewBaseStage } from "@/modules/ai-harness/facade";
 
-// Social pipeline 11 个 stage（mirror social/mission/pipeline/stages/ 目录）
-const SOCIAL_STAGES: ReadonlyArray<{ id: string; label: string }> = [
+// Social pipeline 13 个 stage（mirror social/mission/pipeline/stages/ 目录）
+const SOCIAL_STAGES: ReadonlyArray<StagePresetEntry> = [
   { id: "s1-mission-budget-eval", label: "预算评估" },
   { id: "s2-platform-probe", label: "平台探测" },
   { id: "s3-content-transform", label: "内容转换" },
@@ -47,31 +48,18 @@ const SOCIAL_STAGES: ReadonlyArray<{ id: string; label: string }> = [
 ];
 
 /**
- * Stage projection based on row.lastCompletedStage (ordinal) + status.
- * 增强 first-cut (P0-B): ordinal-based 推断，不读 events buffer。
- * 完整 events-based projection 排 follow-up（需 SocialMissionEventBuffer 集成）。
+ * Stage projection — 委托 harness projectStagesByOrdinal helper（C / B6 share）。
+ * social-specific stage list 由 SOCIAL_STAGES 提供；其余通用 ordinal 算法走 harness。
  */
 function projectSocialStages(
   lastCompletedStage: number | null | undefined,
   missionStatus: MissionStatus,
 ): MissionViewBaseStage[] {
-  const lastCompleted = lastCompletedStage ?? 0;
-  const isTerminalFailed = missionStatus === "failed" || missionStatus === "cancelled";
-  const isCompleted = missionStatus === "completed";
-  return SOCIAL_STAGES.map((s, i) => {
-    const ord = i + 1;
-    let status: StageStatus;
-    if (ord <= lastCompleted) {
-      status = "done";
-    } else if (ord === lastCompleted + 1) {
-      if (isCompleted) status = "done";
-      else if (isTerminalFailed) status = "failed";
-      else status = "running";
-    } else {
-      status = "pending";
-    }
-    return { id: s.id, label: s.label, status };
-  });
+  return projectStagesByOrdinal(
+    SOCIAL_STAGES,
+    lastCompletedStage,
+    missionStatus,
+  );
 }
 
 export function projectSocialMissionView(
@@ -91,8 +79,7 @@ export function projectSocialMissionView(
       finalScore: undefined, // social has no aggregate score; per-platform success only
       failureMessage: row.errorMessage ?? undefined,
       resumable: false, // first cut: social resume policy TBD
-      canCancel:
-        publicStatus === "running" || publicStatus === "starting",
+      canCancel: publicStatus === "running" || publicStatus === "starting",
       rerunnableStages: [], // first cut: B7 follow-up
       contentId: row.contentId,
       platforms: row.platforms as SocialDomainView["mission"]["platforms"],
