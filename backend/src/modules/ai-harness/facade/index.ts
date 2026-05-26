@@ -507,6 +507,20 @@ export type { IBusinessRerunGuard } from "../teams/business-team/abstractions/re
 //   YAGNI: 真 BusinessAgentTeamFactory 类等 2nd consumer (research / writing / TI 反向迁移)
 //   出现时再抽。当前阶段 NestJS DI 完成装配，业务模块只需实现本规约的 4 个字段。
 export type { BusinessAgentTeamSpec } from "../teams/business-team/abstractions/business-team-spec.interface";
+// ★ 2026-05-26 PR-D-0 (ADR 009 §3 前端业务下沉): MissionViewState 跨团队展示状态契约
+//   团队 app 在 ai-app/<team>/ 实现 view-state service 时通过 facade import.
+export type {
+  MissionLifecycleStatus,
+  MissionViewInfo,
+  StageStatus,
+  StageViewState,
+  AgentPhase,
+  AgentViewState,
+  CostViewState,
+  MissionViewState,
+  MissionViewStateEvent,
+  IMissionViewStatePort,
+} from "../teams/business-team/abstractions/mission-view-state.contract";
 
 // ── lifecycle ────────────────────────────────────────────────────────────
 // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
