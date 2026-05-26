@@ -182,7 +182,144 @@ import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 
 ---
 
-## 7. 例外审批流程
+## 8. CLI 复制流程（playground 作为全栈 blueprint）
+
+> **2026-05-26 ADR 009 落地**：新建 agent team app 的**首选方式**不再是按 §5 手工 13 步 SOP，而是用 CLI 一键 fork `agent-playground/`。详见 [ADR 009](../docs/decisions/009-team-app-blueprint-and-cli.md) + [BLUEPRINT.md](../backend/src/modules/ai-app/agent-playground/BLUEPRINT.md)。
+> §5 SOP 保留作为"理解 playground 内部结构"的参考文档。
+
+### 8.1 CLI 命令
+
+```bash
+npm run create:team <team-name>
+# 例：npm run create:team market-research
+```
+
+参数（CLI 会交互式询问，或通过 flag 传）：
+- `--agents=<roles>`：要保留的 agent 角色（默认全部）
+- `--stages=<count>`：保留的 stage 数（默认全部 14 个，CLI 删除多余）
+- `--skip-frontend`：只复制后端（默认前后端一起）
+
+### 8.2 CLI 行为（按 `@blueprint:*` 元数据变换）
+
+**后端**（`backend/src/modules/ai-app/agent-playground/` → `<team>/`）：
+
+| 文件元数据 | CLI 动作 |
+|---|---|
+| `// @blueprint:boilerplate` | 改名复制（class 名 + import 引用名替换）|
+| `// @blueprint:framework-subclass` | 保留 `extends *Framework` + import + super() 调用；改 class 名前缀；按 §8.3 区段标签清空 domain 方法 |
+| `// @blueprint:domain` | 保留 class/method 签名；body 清空为 `throw new Error("TODO: implement <method-name>")`；文件头加 `// TODO: implement domain logic` |
+
+**前端**（`frontend/components/agent-playground/` + `frontend/app/agent-playground/` + `frontend/services/agent-playground/` → 同名 `<team>` 路径）：
+
+| 文件元数据 | CLI 动作 |
+|---|---|
+| `// @blueprint:canonical-shell` | **不复制**——前端用 canonical shell（`MissionDetailFrame` / `DrawerShell` 等），新 team 直接引用，0 改动 |
+| `// @blueprint:panel` | 复制 + 改名；panel content body 清空为 `<div>TODO: render team-specific content</div>` |
+| `// @blueprint:page` | 复制 + 改名 + 替换 endpoint path 占位符 |
+| `// @blueprint:api` | 复制 + 改名 + 替换 endpoint path |
+| `// @blueprint:ui-helper` | 复制 + 改名（保留 formatters/friendly-error 等纯展示 helper）|
+
+**不复制**：
+- `frontend/lib/features/agent-playground/derive*.ts` / `synthesize-*.ts` / `*-ledger.ts` —— 这些业务推导逻辑已下沉到后端（ADR 009 决策），前端不需要
+
+**Prisma schema**：
+- `AgentPlaygroundMission` model → `<TeamName>Mission`
+- 生成 `prisma/migrations/YYYYMMDD_create_<team_name>_missions/migration.sql`
+
+### 8.3 区段标签语法（framework-subclass 内）
+
+```typescript
+export class PlaygroundMissionStore extends BusinessTeamMissionStoreFramework {
+  // ↓ 框架继承能力保留
+
+  // @blueprint:section-start domain
+  // ↓ playground 特有业务方法（CLI 删除标签之间内容）
+  async appendLeaderJournal(...) { /* ... */ }
+  async saveReportVersion(...) { /* ... */ }
+  // @blueprint:section-end
+}
+```
+
+CLI 删除两行之间内容，保留标签作占位 + 加一行 `// TODO: add your domain methods here`。
+
+### 8.4 占位符替换约定
+
+| 源（playground 里出现的形式）| CLI 替换为（按 case 转）|
+|---|---|
+| `Playground` (PascalCase) | `<TeamName>` |
+| `playground` (kebab/lower) | `<team-name>` 或 `<team_name>` |
+| `AgentPlayground` | `<TeamName>` |
+| `agent-playground` (路径) | `<team-name>` |
+| `agent_playground` (snake, DB)| `<team_name>` |
+| `PLAYGROUND_` (UPPER_SNAKE) | `<TEAM_NAME>_` |
+
+AST 改 class/identifier/import；正则改字符串字面量 + 注释 + Prisma model 名 + i18n key。
+
+### 8.5 复制后强制验证清单
+
+```bash
+# 1. 后端目录布局
+npx jest backend/src/__tests__/architecture/agent-team-layout.spec.ts
+# 2. 后端 facade contract
+npx jest backend/src/__tests__/architecture/agent-team-facade-contract.spec.ts
+# 3. 后端 blueprint tag 完整性（PR-A.5 后）
+npx jest backend/src/__tests__/architecture/agent-team-blueprint-tags.spec.ts
+# 4. 后端 mission app 注册
+npx jest backend/src/__tests__/architecture/mission-app-conformance.spec.ts
+# 5. 后端类型
+cd backend && npm run type-check
+# 6. 前端 canonical shell 合规
+cd frontend && npm run audit:mission-detail-discipline
+# 7. 前端 UI 规范
+npm run audit:ui-discipline
+# 8. 前端类型
+npm run type-check
+# 9. 整体 lint
+cd .. && npm run lint
+```
+
+**任一项不通过不允许 PR 合并**。
+
+### 8.6 复制后必填的 5 项
+
+CLI 把所有 domain body 清空。新 team 作者必须按顺序填：
+
+1. `runtime/<team>.config.ts` — `defineMissionPipeline()` steps + roles
+2. `mission/agents/<role>/SKILL.md` — agent prompt
+3. `mission/pipeline/stages/s*.stage.ts` — stage 业务实现
+4. `mission/lifecycle/<team>-view-state.service.ts` — 后端 derive logic（domain section）
+5. `api/dto/run-mission.dto.ts` — mission 输入字段
+
+### 8.7 维护协议
+
+- playground 后续演化（add/remove 文件、改 framework 继承点）必须维护 `@blueprint:*` 标签 → BLUEPRINT.md §9 维护协议
+- 修改 BLUEPRINT.md 等价于修改 §8 本节 → 必须 PR 同步两处
+- CLI 实现位于 `scripts/create-team.ts`（PR-B 落地）
+
+### 8.8 兼容性原则（最高红线，ADR 009 §0）
+
+playground 作为活标杆，**任何下沉、重构、CLI 改造都不允许破坏其用户视角功能**：
+
+1. **playground UI / 交互 / 报告输出 / event 命名 / URL** 在用户侧零变化
+2. **业务下沉到后端**时必须**完全等价**——前后端 derive 输出 deep-equal、event 时序一致、性能不退化
+3. **平移优先**——下沉时整体平移逻辑，不借机重构内部实现
+4. **灰度双跑**——前端旧 derive 不删，后端新 derive 并行 dev 比对 ≥ 7 天 0 diff → 灰度切换 → 再 7 天稳定 → 删旧
+5. **真机回归**——每个下沉 PR 必须真机跑 playground 多场景 mission，截图 + 行为对照
+6. **零容忍**——任何字段差异、时序差异、文案差异都是 P0 阻塞，**禁止"差不多就行"**
+
+**每个下沉 PR 必带 6 类验证**：
+- `*.equivalence.spec.ts` 字段级 deep-equal
+- WS event recorder + replay 时序一致性
+- playwright screenshot diff
+- 手工 operator checklist
+- 性能 baseline 对比（k6/autocannon）
+- 灰度双跑 dev 报告
+
+任一项不通过，PR 拒。CLI 实现也必须保证"复制 playground → 跑 mission 行为与原 playground 一致"——CLI 自身有 e2e 测试。
+
+---
+
+## 9. 例外审批流程
 
 如果 §2-§6 任一规则无法满足：
 
