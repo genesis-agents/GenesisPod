@@ -165,10 +165,65 @@ export interface EmptyArtifactSentinel {
   reason: "not-yet-materialized" | "no-report-versions" | "v1-needs-normalization";
 }
 
+// ============================================================================
+// TodoBoardState（B3-1 first cut；§6.6.3 truth logic split）
+// ============================================================================
+
+export type TodoOrigin =
+  | "leader-plan"
+  | "leader-assess-retry"
+  | "leader-assess-replace"
+  | "leader-assess-extend"
+  | "leader-assess-abort"
+  | "leader-chat-create"
+  | "self-heal-retry"
+  | "reviewer-revise"
+  | "critic-blindspot"
+  | "reconciler-gap"
+  | "system-stage"
+  | "chapter-pipeline";
+
+export type TodoScope = "mission" | "dimension" | "chapter" | "review" | "system";
+
+export type TodoStatus =
+  | "pending"
+  | "in_progress"
+  | "blocked"
+  | "done"
+  | "failed"
+  | "cancelled";
+
+export interface TodoBoardEntry {
+  id: string;
+  parentId?: string;
+  origin: TodoOrigin;
+  scope: TodoScope;
+  status: TodoStatus;
+  title: string;
+  systemStageId?: string;
+  dimensionRef?: string;
+  createdAt: number;
+  startedAt?: number;
+  endedAt?: number;
+}
+
+/**
+ * §6.6.3 first-cut Todo board canonical shape。
+ *
+ * 当前阶段（B3-1 first cut）：仅返回 system-stage todos + mission-scope todos
+ * 派生自 mission row + stage events。完整 port from todo-ledger.ts（含 retry pipeline /
+ * leader-chat-create / critic-blindspot 等高复杂度路径）排入 B3-1 follow-up PR。
+ *
+ * kind 字段保留向后兼容 sentinel 区分：
+ *   - "empty-todo-board": projector 未实现或无数据
+ *   - "todo-board": 真实有数据
+ */
 export interface TodoBoardSentinel {
   kind: "empty-todo-board" | "todo-board";
-  /** B3 实施 TodoBoardState 时替换为完整 shape。 */
-  items?: unknown;
+  /** kind = "todo-board" 时必填；kind = "empty-todo-board" 时可省。 */
+  items?: TodoBoardEntry[];
+  /** B3 follow-up: 完整 port 后置 false；first cut 标 true 提示前端继续 sibling tab 展示其余 todos。 */
+  isFirstCutTruncated?: boolean;
 }
 
 export interface MissionMemorySentinel {
