@@ -24,6 +24,55 @@ import type {
   SocialTodoBoardSentinel,
   SocialPublishedSummary,
 } from "../../api/contracts/view-state.contract";
+import type {
+  MissionViewBaseStage,
+  MissionViewStageStatus as StageStatus,
+} from "@/modules/ai-harness/facade";
+
+// Social pipeline 11 个 stage（mirror social/mission/pipeline/stages/ 目录）
+const SOCIAL_STAGES: ReadonlyArray<{ id: string; label: string }> = [
+  { id: "s1-mission-budget-eval", label: "预算评估" },
+  { id: "s2-platform-probe", label: "平台探测" },
+  { id: "s3-content-transform", label: "内容转换" },
+  { id: "s4-leader-assess-transform", label: "Leader 评审转换" },
+  { id: "s5-cover-craft", label: "封面制作" },
+  { id: "s6-body-compose", label: "正文组装" },
+  { id: "s7-polish-review", label: "润色复审" },
+  { id: "s8-publish-execute", label: "发布执行" },
+  { id: "s8b-publish-retry", label: "发布重试" },
+  { id: "s9-publish-verify", label: "发布核验" },
+  { id: "s10-leader-signoff", label: "Leader 签字" },
+  { id: "s11-mission-persist", label: "持久化" },
+  { id: "s12-self-evolution", label: "自我进化" },
+];
+
+/**
+ * Stage projection based on row.lastCompletedStage (ordinal) + status.
+ * 增强 first-cut (P0-B): ordinal-based 推断，不读 events buffer。
+ * 完整 events-based projection 排 follow-up（需 SocialMissionEventBuffer 集成）。
+ */
+function projectSocialStages(
+  lastCompletedStage: number | null | undefined,
+  missionStatus: MissionStatus,
+): MissionViewBaseStage[] {
+  const lastCompleted = lastCompletedStage ?? 0;
+  const isTerminalFailed = missionStatus === "failed" || missionStatus === "cancelled";
+  const isCompleted = missionStatus === "completed";
+  return SOCIAL_STAGES.map((s, i) => {
+    const ord = i + 1;
+    let status: StageStatus;
+    if (ord <= lastCompleted) {
+      status = "done";
+    } else if (ord === lastCompleted + 1) {
+      if (isCompleted) status = "done";
+      else if (isTerminalFailed) status = "failed";
+      else status = "running";
+    } else {
+      status = "pending";
+    }
+    return { id: s.id, label: s.label, status };
+  });
+}
 
 export function projectSocialMissionView(
   inputs: SocialMissionQueryInputs,
@@ -56,7 +105,7 @@ export function projectSocialMissionView(
       failureCode: row.failureCode ?? null,
       terminalOutcome: deriveTerminalOutcome(row.status),
     },
-    stages: [], // §B7-1 first cut sentinel
+    stages: projectSocialStages(row.lastCompletedStage, publicStatus),
     agents: [],
     reportArtifact: buildEmptyArtifactSentinel(row),
     todoBoard: buildEmptyTodoBoardSentinel(),

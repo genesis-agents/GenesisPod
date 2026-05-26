@@ -16,6 +16,46 @@ import type {
   EmptyArtifactSentinel,
   RadarTodoBoardSentinel,
 } from "../../api/contracts/view-state.contract";
+import type {
+  MissionViewBaseStage,
+  MissionViewStageStatus as StageStatus,
+} from "@/modules/ai-harness/facade";
+
+// Radar pipeline 9 个 stage（mirror radar/mission/pipeline/stages/ 目录）
+const RADAR_STAGES: ReadonlyArray<{ id: string; label: string }> = [
+  { id: "s1-source-resolve", label: "信息源解析" },
+  { id: "s2-collect", label: "信源采集" },
+  { id: "s3-dedupe", label: "去重清洗" },
+  { id: "s4-relevance", label: "相关性筛选" },
+  { id: "s5-quality", label: "质量评估" },
+  { id: "s6-entity", label: "实体抽取" },
+  { id: "s7-insight", label: "洞察生成" },
+  { id: "s8-persist", label: "持久化" },
+  { id: "s9-daily-top-n", label: "Daily Top-N" },
+];
+
+function projectRadarStages(
+  lastCompletedStage: number | null | undefined,
+  missionStatus: MissionStatus,
+): MissionViewBaseStage[] {
+  const lastCompleted = lastCompletedStage ?? 0;
+  const isTerminalFailed = missionStatus === "failed" || missionStatus === "cancelled" || missionStatus === "quality-failed";
+  const isCompleted = missionStatus === "completed";
+  return RADAR_STAGES.map((s, i) => {
+    const ord = i + 1;
+    let status: StageStatus;
+    if (ord <= lastCompleted) {
+      status = "done";
+    } else if (ord === lastCompleted + 1) {
+      if (isCompleted) status = "done";
+      else if (isTerminalFailed) status = "failed";
+      else status = "running";
+    } else {
+      status = "pending";
+    }
+    return { id: s.id, label: s.label, status };
+  });
+}
 
 export function projectRadarMissionView(
   inputs: RadarMissionQueryInputs,
@@ -45,7 +85,7 @@ export function projectRadarMissionView(
       terminalOutcome: deriveTerminalOutcome(row.status),
       metricsSummary,
     },
-    stages: [], // §B7-2 first cut sentinel
+    stages: projectRadarStages(row.lastCompletedStage, publicStatus),
     agents: [],
     reportArtifact: buildBriefingRefOrSentinel(row),
     todoBoard: buildEmptyTodoBoardSentinel(),
