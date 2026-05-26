@@ -1163,7 +1163,12 @@ export default function MissionDetailPage() {
                   >[0]['reconciliationReport']
                 }
                 toolRecallEntries={reportToolRecallEntries}
-                dimensionPipelines={view.dimensionPipelines}
+                dimensionPipelines={
+                  // mission terminal 后不再传 live chapter pipeline，避免
+                  // backend extractor 没把 chapter 状态收到 done 导致 banner
+                  // 显示 "Revising N chapters" 的回归。
+                  isRunning ? view.dimensionPipelines : new Map()
+                }
                 reportVersions={reportVersionMeta}
                 currentVersion={selectedVersion ?? undefined}
                 onSelectVersion={(v) => void handleSelectVersion(v)}
