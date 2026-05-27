@@ -1216,17 +1216,21 @@ export default function MissionDetailPage() {
               />
               <MemoryIndexPanel
                 memory={view.memory}
-                missionCompleted={
-                  !!(
-                    view.mission.completedAt ||
-                    view.mission.failedAt ||
-                    persisted?.status === 'completed' ||
-                    persisted?.status === 'quality-failed' ||
+                missionPhase={(() => {
+                  const aborted =
                     persisted?.status === 'failed' ||
                     persisted?.status === 'rejected' ||
-                    persisted?.status === 'cancelled'
-                  )
-                }
+                    persisted?.status === 'cancelled' ||
+                    !!view.mission.cancelledAt ||
+                    !!view.mission.failedAt;
+                  const succeeded =
+                    persisted?.status === 'completed' ||
+                    persisted?.status === 'quality-failed' ||
+                    !!view.mission.completedAt;
+                  if (aborted) return 'aborted';
+                  if (succeeded) return 'completed-noindex';
+                  return 'running';
+                })()}
               />
               <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                 <div className="mb-3 flex items-center gap-2">

@@ -265,24 +265,72 @@ export class EventRelayFramework {
           error?: { message: string };
           latencyMs: number;
           tokensUsed?: number;
+          subResults?: Array<{
+            action?: { kind: string; toolId?: string };
+            output?: unknown;
+            error?: { message: string };
+            latencyMs?: number;
+            tokensUsed?: number;
+          }>;
         };
-        await this.emitEvent({
-          type: `${this.eventNamespace}.agent:observation`,
-          missionId: ctx.missionId,
-          userId: ctx.userId,
-          agentId: ctx.agentId,
-          payload: {
+        // ★ 2026-05-27 Screenshot_47/#91 修复：parallel_tool_call 扇出
+        //   ToolInvoker.invokeMany 把 N 个 sub-tool 调用聚合成 1 个 action_executed
+        //   event：action.kind="parallel_tool_call"、toolId=undefined、subResults=[N
+        //   个 IActionResult 每个含独立 toolId + latencyMs]。原来 relay 直接把这个
+        //   action_executed 翻译成 1 个 agent:observation（toolId=undefined）→
+        //   ComputeUsagePanel buildToolStats 看到 !toolId 直接跳过 → 5+ 个真实工具
+        //   的 callCount 全归零，并被同行 action（agent:action.calls[]）单独计成
+        //   "无观测"。
+        //
+        //   修复：当 subResults.length > 0 时，把单个 action_executed 扇出成 N 个
+        //   agent:observation，每个携带 sub.action.toolId / sub.latencyMs。
+        //   tool_call（单工具）与 subResults 为空的退化场景仍走原单事件路径。
+        if (
+          r.action?.kind === "parallel_tool_call" &&
+          r.subResults &&
+          r.subResults.length > 0
+        ) {
+          for (let i = 0; i < r.subResults.length; i++) {
+            const sub = r.subResults[i];
+            await this.emitEvent({
+              type: `${this.eventNamespace}.agent:observation`,
+              missionId: ctx.missionId,
+              userId: ctx.userId,
+              agentId: ctx.agentId,
+              payload: {
+                agentId: ctx.agentId,
+                role: ctx.role,
+                kind: sub.action?.kind ?? "tool_call",
+                toolId: sub.action?.toolId,
+                output: this.truncatePayload(sub.output),
+                error: sub.error?.message,
+                latencyMs: sub.latencyMs,
+                tokensUsed: sub.tokensUsed,
+                // 同 batch 内事件用毫秒序号微调，保持时序稳定（projector
+                // dedupeAndCap 依赖 timestamp 唯一性）
+                originalTs: ev.timestamp + i * 0.001,
+              },
+            });
+          }
+        } else {
+          await this.emitEvent({
+            type: `${this.eventNamespace}.agent:observation`,
+            missionId: ctx.missionId,
+            userId: ctx.userId,
             agentId: ctx.agentId,
-            role: ctx.role,
-            kind: r.action?.kind,
-            toolId: r.action?.toolId,
-            output: this.truncatePayload(r.output),
-            error: r.error?.message,
-            latencyMs: r.latencyMs,
-            tokensUsed: r.tokensUsed,
-            originalTs: ev.timestamp,
-          },
-        });
+            payload: {
+              agentId: ctx.agentId,
+              role: ctx.role,
+              kind: r.action?.kind,
+              toolId: r.action?.toolId,
+              output: this.truncatePayload(r.output),
+              error: r.error?.message,
+              latencyMs: r.latencyMs,
+              tokensUsed: r.tokensUsed,
+              originalTs: ev.timestamp,
+            },
+          });
+        }
       } else if (ev.type === "reflection") {
         const p = ev.payload as {
           revision?: number;

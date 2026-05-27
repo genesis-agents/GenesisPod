@@ -175,6 +175,75 @@ describe("EventRelayFramework", () => {
       );
     });
 
+    // ★ Screenshot_47 / #91 regression: parallel_tool_call 必须扇出成 N 个独立
+    //   observation，每个携带 sub.toolId + sub.latencyMs，否则前端 buildToolStats
+    //   看 toolId=undefined 跳过 → 5+ 工具行 callCount 全归零、"无观测"。
+    it("parallel_tool_call action_executed → N separate observations", async () => {
+      const events = await relayOne({
+        type: "action_executed",
+        payload: {
+          action: { kind: "parallel_tool_call", toolId: undefined },
+          output: undefined,
+          latencyMs: 500,
+          subResults: [
+            {
+              action: { kind: "tool_call", toolId: "web-search" },
+              output: "result-1",
+              latencyMs: 200,
+              tokensUsed: 50,
+            },
+            {
+              action: { kind: "tool_call", toolId: "arxiv-search" },
+              output: "result-2",
+              latencyMs: 300,
+              tokensUsed: 75,
+            },
+            {
+              action: { kind: "tool_call", toolId: "industry-report-search" },
+              output: undefined,
+              error: { message: "timeout" },
+              latencyMs: 50,
+            },
+          ],
+        },
+        timestamp: 1000,
+      });
+      // 3 个 sub-result → 3 个 agent:observation event
+      expect(events).toHaveLength(3);
+      events.forEach((ev) => {
+        expect(ev.type).toBe("ns.agent:observation");
+      });
+      // 各 sub 携带独立 toolId + latencyMs
+      const payloads = events.map(
+        (ev) => ev.payload as Record<string, unknown>,
+      );
+      expect(payloads[0].toolId).toBe("web-search");
+      expect(payloads[0].latencyMs).toBe(200);
+      expect(payloads[0].tokensUsed).toBe(50);
+      expect(payloads[1].toolId).toBe("arxiv-search");
+      expect(payloads[1].latencyMs).toBe(300);
+      expect(payloads[2].toolId).toBe("industry-report-search");
+      expect(payloads[2].error).toBe("timeout");
+      // originalTs 微调避免 timestamp 撞车 (projector dedupe key)
+      const tsArr = payloads.map((p) => p.originalTs as number);
+      expect(new Set(tsArr).size).toBe(3);
+    });
+
+    it("parallel_tool_call without subResults → single observation (fallback)", async () => {
+      const events = await relayOne({
+        type: "action_executed",
+        payload: {
+          action: { kind: "parallel_tool_call", toolId: undefined },
+          output: undefined,
+          latencyMs: 500,
+          // subResults absent → 退化路径走单 event
+        },
+        timestamp: 1000,
+      });
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe("ns.agent:observation");
+    });
+
     it("reflection → ns.agent:reflection", async () => {
       const events = await relayOne({
         type: "reflection",
