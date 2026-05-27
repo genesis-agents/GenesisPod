@@ -698,6 +698,18 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
                   }
                   // 真正拖动了 → 不触发 click
                   if (s?.moved) return;
+                  // ★ Screenshot_79 真根因 (2026-05-27):
+                  //   pointer-up 从 hover ↻/○ 按钮冒泡上来时, 不能触发 onAgentClick
+                  //   (会关 DAG modal + 弹 todo drawer, 错误地"吃掉"了 button click)。
+                  //   前一次 4e8b3f13a 只修了 pointerDown 跳过 drag 捕获, 但没拦截
+                  //   pointerUp → onAgentClick 路径, 用户点 button 还是跳到 drawer。
+                  const target = e.target as HTMLElement | null;
+                  if (
+                    target &&
+                    (target.closest('button') || target.closest('a'))
+                  ) {
+                    return;
+                  }
                   onAgentClick?.(n.id);
                 }}
                 onDoubleClick={() => {
