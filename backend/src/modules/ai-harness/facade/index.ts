@@ -698,6 +698,17 @@ export type {
   BusinessTeamRerunRuntimeSession,
   RerunRuntimeComposerHooks,
 } from "../teams/business-team/rerun/abstractions/rerun-runtime-builder.contract";
+// ★ B6-L4 (2026-05-26): backend-authoritative resume/rerun policy framework
+//   抽自三 app 中已有实现；apps 注入各自 stage matrix + ordered stage ids 复用。
+export { BusinessTeamResumeRerunPolicyFramework } from "../teams/business-team/rerun/business-team-resume-rerun-policy.framework";
+export type {
+  BusinessTeamResumeRerunPolicyOptions,
+  StageResumeRule,
+  StageResumeMatrix,
+  ResumeDecision,
+  RerunnableStageEntry as PolicyRerunnableStageEntry,
+  PolicyInput,
+} from "../teams/business-team/rerun/business-team-resume-rerun-policy.framework";
 export { BusinessTeamRerunOrchestratorFramework } from "../teams/business-team/rerun/business-team-rerun-orchestrator.framework";
 export { RERUN_TOPIC_LIMIT_DEFAULT } from "../teams/business-team/rerun/abstractions/rerun-orchestrator.contract";
 export type {
