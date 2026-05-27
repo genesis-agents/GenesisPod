@@ -648,38 +648,11 @@ function buildAssigneeInspectorPayload(
     description: profile.description,
     icon: profile.Icon,
     iconClassName: 'bg-violet-50 text-violet-600',
-    // ★ Screenshot_81/82/83 修复 (2026-05-27 #110 续 — 状态一致性兜底):
-    //   todo.status 是主要来源, 但若 todo.status race-window 仍 in_progress / pending
-    //   而 matched agents 全 phase='completed' 时, 显"进行中"和"N 完成"矛盾。
-    //   兜底: agents 全完成 → 强制"已完成", 全失败 → "失败"。
-    statusLabel: (() => {
-      if (matched.length > 0 && matched.every((a) => a.phase === 'completed'))
-        return '已完成';
-      if (matched.length > 0 && matched.every((a) => a.phase === 'failed'))
-        return '失败';
-      return todo.status === 'done'
-        ? '已完成'
-        : todo.status === 'in_progress'
-          ? '进行中'
-          : todo.status === 'failed'
-            ? '失败'
-            : todo.status === 'cancelled'
-              ? '已放弃'
-              : '待启动';
-    })(),
-    statusColorClass: (() => {
-      if (matched.length > 0 && matched.every((a) => a.phase === 'completed'))
-        return 'text-emerald-600';
-      if (matched.length > 0 && matched.every((a) => a.phase === 'failed'))
-        return 'text-red-600';
-      return todo.status === 'done'
-        ? 'text-emerald-600'
-        : todo.status === 'in_progress'
-          ? 'text-blue-600'
-          : todo.status === 'failed'
-            ? 'text-red-600'
-            : 'text-gray-500';
-    })(),
+    // ★ Screenshot_81/82/83 (2026-05-27 #110 续): 用户反馈"没必要同一页显示两个
+    //   状态, 显示一个就行" — 删掉顶部 statusLabel, 让 inspector 只显示下方
+    //   instanceCounts row (running / completed / failed / iter) 作单一状态源。
+    statusLabel: undefined,
+    statusColorClass: undefined,
     totalInstances: matched.length || undefined,
     instanceCounts: matched.length
       ? {

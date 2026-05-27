@@ -911,36 +911,13 @@ export function buildAgentInspectorPayload(
     }
   }
 
-  // ★ Screenshot_81/82/83 修复 (2026-05-27 #110 续 — 状态一致性兜底):
-  //   buildAgentInspectorPayload 早先只看 stage?.status, 当 stages 投影 race window
-  //   仍 'running' 但 agents 全 phase='completed' 时, 标"进行中"和"N 完成"自相矛盾。
-  //   双层兜底: agents 全完成 → 强制"已完成", 全失败 → "失败"。覆盖 stage 残留。
-  const allCompleted =
-    agents.length > 0 && agents.every((a) => a.phase === 'completed');
-  const allFailed =
-    agents.length > 0 && agents.every((a) => a.phase === 'failed');
-  const statusLabel = allCompleted
-    ? '已完成'
-    : allFailed
-      ? '失败'
-      : stage?.status === 'done'
-        ? '已完成'
-        : stage?.status === 'running'
-          ? '进行中'
-          : stage?.status === 'failed'
-            ? '失败'
-            : '待启动';
-  const statusColorClass = allCompleted
-    ? 'text-emerald-600'
-    : allFailed
-      ? 'text-red-600'
-      : stage?.status === 'done'
-        ? 'text-emerald-600'
-        : stage?.status === 'running'
-          ? 'text-blue-600'
-          : stage?.status === 'failed'
-            ? 'text-red-600'
-            : 'text-gray-500';
+  // ★ Screenshot_81/82/83 (2026-05-27 #110 续):
+  //   用户反馈"没必要同一页显示两个状态" — 删掉顶部 statusLabel/Color,
+  //   只保留下方 instanceCounts row 作单一数据源 (running/completed/failed/iter)。
+  //   原 stage.status 派生的 statusLabel 与 agent.phase 累计的 counts.completed
+  //   race-window 期间不一致, 现在彻底消除"两个状态"。
+  const statusLabel = undefined;
+  const statusColorClass = undefined;
 
   return {
     name: profile.displayName,
