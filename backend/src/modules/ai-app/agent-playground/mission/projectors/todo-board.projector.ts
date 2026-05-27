@@ -339,7 +339,67 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
       const ts = ev.timestamp;
       const payload = ev.payload as Record<string, unknown> | null;
 
-      // ── stage lifecycle ────────────────────────────────────────────
+      // ── stage:lifecycle 单事件（dispatcher framework 实际 emit 形态）─────
+      //   ★ 2026-05-27 Screenshot_52 致命修复：BusinessTeamMissionDispatcher 实际
+      //   emit 的是 stage:lifecycle 单事件，payload.status="started"/"completed"/
+      //   "failed"。本 projector 之前只看 stage.started / stage:started split 事件
+      //   → system stage todos 永远 status='pending' → UI 显示"待启动"。
+      //   stage-view.projector 早已修过此 bug（commit d809c6c84），todo-board
+      //   projector 没同步 → 这次 catch up。
+      if (suffix === "stage:lifecycle") {
+        const stepId = this.getStepId(ev);
+        const status = payload?.status as string | undefined;
+        if (stepId && status) {
+          const stageId = mapStepToFrontendStage(stepId);
+          this.upsert(
+            state,
+            `system:${stageId}`,
+            () =>
+              makeSystemStageTodo(
+                SYSTEM_STAGE_PRESETS.find((p) => p.id === stageId) ?? {
+                  id: stageId,
+                  title: stageId,
+                  desc: "",
+                  role: "mission",
+                },
+                ts,
+              ),
+            (t) => {
+              if (status === "started") {
+                if (t.status === "pending") t.status = "in_progress";
+                if (!t.startedAt) t.startedAt = ts;
+              } else if (status === "completed") {
+                t.status = "done";
+                t.endedAt = ts;
+              } else if (status === "failed") {
+                t.status = "failed";
+                t.endedAt = ts;
+                const detail =
+                  this.getString(payload, "error") ??
+                  this.getString(payload, "message") ??
+                  this.getString(payload, "detail");
+                if (detail) {
+                  addNarrative(state, `system:${stageId}`, ts, detail, "error");
+                }
+              }
+            },
+          );
+          if (status === "started") {
+            addNarrative(state, `system:${stageId}`, ts, "stage 启动");
+          } else if (status === "completed") {
+            addNarrative(
+              state,
+              `system:${stageId}`,
+              ts,
+              "stage 完成",
+              "success",
+            );
+          }
+        }
+        continue;
+      }
+
+      // ── 旧 split 形态（fixture / legacy 兼容） ──────────────────────
       if (suffix === "stage.started" || suffix === "stage:started") {
         const stepId = this.getStepId(ev);
         if (stepId) {
