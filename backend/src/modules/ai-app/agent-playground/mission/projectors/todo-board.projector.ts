@@ -1545,13 +1545,19 @@ export function projectTodoBoard(
         // 非 system（dim retry / chapter / reconciler-gap 等）维持 cancelled 语义
         t.status = t.scope === "system" ? "done" : "cancelled";
         if (!t.endedAt) t.endedAt = missionCreatedAt;
-        addNarrative(
-          state,
-          t.id,
-          missionCreatedAt,
-          "mission 终态，自动结束",
-          "info",
-        );
+        // ★ 2026-05-27 修复（Screenshot_6）：narrative 仅在 narrativeLog 完全为空时
+        //   注入，避免在已有真实事件 trace 的 todo 上覆盖一条误导的"自动结束"信息。
+        //   也只对 non-system 注入（system stage 收 done 通常是事件 buffer evict 导致
+        //   trace 缺失，再加一条"自动结束"narrative 让用户更迷惑而不是更清楚）。
+        if (t.scope !== "system" && t.narrativeLog.length === 0) {
+          addNarrative(
+            state,
+            t.id,
+            missionCreatedAt,
+            "mission 终态，自动结束",
+            "info",
+          );
+        }
       }
     }
   } else if (row.status === "failed" || row.status === "cancelled") {

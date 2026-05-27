@@ -116,6 +116,96 @@ describe("§ dimension:graded payload contract — projector reads `overall` not
     expect(view.dimensionPipelines["DimA"].grade?.overall).toBe(0);
   });
 
+  it("chapter:writing:* / chapter:done 用 payload.chapterIndex（不是 p.index）", () => {
+    // 模拟 cache hit 6 个事件：3 章 × 2 事件 (writing:started + done)，所有事件
+    // 都用相同 chapterIndex —— projector 应该把 3 章合并成 3 个 entries 而不是
+    // 6 个（之前 bug：读 p.index → undefined → 每次 push）。
+    const view = projectMissionView(
+      makeInputs([
+        {
+          type: "agent-playground.chapter:writing:started",
+          payload: {
+            dimension: "DimA",
+            chapterIndex: 1,
+            heading: "Ch 1",
+            attempt: 1,
+          },
+          timestamp: 1700000000001,
+        },
+        {
+          type: "agent-playground.chapter:done",
+          payload: {
+            dimension: "DimA",
+            chapterIndex: 1,
+            wordCount: 1284,
+          },
+          timestamp: 1700000000002,
+        },
+        {
+          type: "agent-playground.chapter:writing:started",
+          payload: {
+            dimension: "DimA",
+            chapterIndex: 2,
+            heading: "Ch 2",
+            attempt: 1,
+          },
+          timestamp: 1700000000003,
+        },
+        {
+          type: "agent-playground.chapter:done",
+          payload: {
+            dimension: "DimA",
+            chapterIndex: 2,
+            wordCount: 1350,
+          },
+          timestamp: 1700000000004,
+        },
+      ]),
+    );
+
+    const chapters = view.dimensionPipelines["DimA"].chapters;
+    expect(chapters).toHaveLength(2);
+    expect(chapters[0]).toMatchObject({
+      index: 1,
+      heading: "Ch 1",
+      wordCount: 1284,
+      status: "done",
+    });
+    expect(chapters[1]).toMatchObject({
+      index: 2,
+      heading: "Ch 2",
+      wordCount: 1350,
+      status: "done",
+    });
+  });
+
+  it("chapter heading 在后续事件回补（首事件没 heading，后续事件有 → chapter.heading 被填）", () => {
+    const view = projectMissionView(
+      makeInputs([
+        {
+          type: "agent-playground.chapter:writing:started",
+          payload: { dimension: "DimA", chapterIndex: 1, attempt: 1 },
+          timestamp: 1700000000001,
+        },
+        {
+          type: "agent-playground.chapter:done",
+          payload: {
+            dimension: "DimA",
+            chapterIndex: 1,
+            chapterTitle: "From done event",
+            wordCount: 1284,
+          },
+          timestamp: 1700000000002,
+        },
+      ]),
+    );
+
+    expect(view.dimensionPipelines["DimA"].chapters).toHaveLength(1);
+    expect(view.dimensionPipelines["DimA"].chapters[0].heading).toBe(
+      "From done event",
+    );
+  });
+
   it("payload.failed / skipped / phase 也被 projector 接出来（防止失败 dim 误显示已完成）", () => {
     const view = projectMissionView(
       makeInputs([

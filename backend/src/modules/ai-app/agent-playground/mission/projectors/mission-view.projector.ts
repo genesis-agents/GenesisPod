@@ -279,12 +279,24 @@ function extractDimensionPipelines(
           : typeof p.chapterTitle === "string"
             ? p.chapterTitle
             : "";
+      // ★ 2026-05-27 修复：emitter (chapter-pipeline.helper.ts) + schemas
+      //   (ChapterWritingStarted/Completed/DoneSchema) 全部用 `chapterIndex`，
+      //   projector 之前读 `p.index` → undefined → fallback `chapters.length+1`
+      //   → 每个事件都创建一个新 chapter 条目（24 = 4 真实 × 6 事件）。
+      //   兼容历史 fixture（如果有）：先读 chapterIndex，再 fallback index。
       const index =
-        typeof p.index === "number" ? p.index : pipe.chapters.length + 1;
+        typeof p.chapterIndex === "number"
+          ? p.chapterIndex
+          : typeof p.index === "number"
+            ? p.index
+            : pipe.chapters.length + 1;
       let chapter = pipe.chapters.find((c) => c.index === index);
       if (!chapter) {
         chapter = { index, heading, status: "pending", attempts: 0 };
         pipe.chapters.push(chapter);
+      } else if (heading && !chapter.heading) {
+        // ★ 后续事件带 heading 而首事件没有时回补（如 cache-hit chapter:done 路径）
+        chapter.heading = heading;
       }
       if (suffix === "chapter:writing:started") {
         chapter.status = "writing";
