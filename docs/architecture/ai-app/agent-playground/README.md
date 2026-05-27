@@ -22,6 +22,7 @@ runtime contract material, rerun design, and cost strategy for
 | [agent-team-thinning-plan-2026-05-26.md](./agent-team-thinning-plan-2026-05-26.md)                                                                 | Main single-track thinning plan with batches, contracts, and execution rules                                                                                                             |
 | [agent-team-thinning-gap-audit-2026-05-26.md](./agent-team-thinning-gap-audit-2026-05-26.md)                                                       | Gap audit comparing the thinning plan target state against the current local implementation                                                                                              |
 | [playground-dfx-assessment-2026-05-26.md](./playground-dfx-assessment-2026-05-26.md)                                                               | 9-dimension DFX assessment (Reliability / Testability / Maintainability / Performance / Security / Observability / Deployability / Cost / UX) + frontend thinning 100% landed conclusion |
+| [playground-multi-review-coverage-2026-05-26.md](./playground-multi-review-coverage-2026-05-26.md)                                                 | Multi-perspective review (5 paths: backend / frontend / architecture / QA / SRE) with 10 ASCII flow diagrams + 33-branch exception matrix + 100% inference coverage trace                |
 | [playground-cost-strategy-v1.md](./playground-cost-strategy-v1.md)                                                                                 | Cost strategy for `deep` and `report` execution shapes, runtime spend control, and target economics                                                                                      |
 
 ---
@@ -65,7 +66,8 @@ runtime contract material, rerun design, and cost strategy for
 4. Read [agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md](./agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md).
 5. Read [agent-team-thinning-plan-2026-05-26.md](./agent-team-thinning-plan-2026-05-26.md).
 6. Read [playground-dfx-assessment-2026-05-26.md](./playground-dfx-assessment-2026-05-26.md) — current DFX status + thinning landed conclusion.
-7. Read [playground-cost-strategy-v1.md](./playground-cost-strategy-v1.md).
+7. Read [playground-multi-review-coverage-2026-05-26.md](./playground-multi-review-coverage-2026-05-26.md) — 5-path review + flow diagrams + 100% branch coverage.
+8. Read [playground-cost-strategy-v1.md](./playground-cost-strategy-v1.md).
 
 ---
 
