@@ -540,6 +540,13 @@ export function projectTodoBoard(
     if (suffix === "dimension:retrying") {
       const dim = getString(payload, "dimension");
       const reason = getString(payload, "reason") ?? "";
+      // ★ 2026-05-27 修复 (Screenshot_4 "Leader 要求修改 patch 内容" 空白)：
+      //   s4-leader-assess-research emit 时携带 payload.critique（Leader 评审的 patch 详情）
+      //   + payload.rationale（extend 新增维度的依据）。之前 projector 完全 drop 这两个字段。
+      //   现把 critique / rationale 落到 reasonText（取代生硬的 reason code）并加到 narrativeLog。
+      const critique = getString(payload, "critique") ?? "";
+      const rationale = getString(payload, "rationale") ?? "";
+      const patchDetail = critique || rationale;
       if (dim) {
         const isLeaderChat = reason === "leader-chat-create";
         const isLeaderAssess = reason.startsWith("leader-assess");
@@ -552,11 +559,16 @@ export function projectTodoBoard(
         const titleText = isLeaderChat
           ? `${dim} · Leader 对话追加`
           : `${dim} · 重试`;
-        const narrativeText = isLeaderChat
+        const narrativeBase = isLeaderChat
           ? `Leader 通过对话追加维度：${dim}`
           : isLeaderAssess
             ? `Leader 派发重试：${reason}`
             : `自愈触发：${reason}`;
+        const narrativeText = patchDetail
+          ? `${narrativeBase} · ${patchDetail.slice(0, 300)}`
+          : narrativeBase;
+        // reasonText 优先用 patchDetail（用户可读），fallback 到 reason code
+        const reasonTextOut = patchDetail || reason || "自愈重试";
         upsert(state, childId, () => ({
           id: childId,
           parentId: `dim:${dim}`,
@@ -567,7 +579,7 @@ export function projectTodoBoard(
               ? "leader"
               : "system",
           createdAt: ts,
-          reasonText: reason || "自愈重试",
+          reasonText: reasonTextOut,
           scope: "dimension",
           title: titleText,
           assignee: { role: "researcher", dimensionName: dim },

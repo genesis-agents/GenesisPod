@@ -314,7 +314,13 @@ function extractDimensionPipelines(
       suffix === "chapter:revision" ||
       suffix === "chapter:rewritten"
     ) {
-      const index = typeof p.index === "number" ? p.index : 0;
+      // 同 chapter:writing：emitter + schema 用 chapterIndex
+      const index =
+        typeof p.chapterIndex === "number"
+          ? p.chapterIndex
+          : typeof p.index === "number"
+            ? p.index
+            : 0;
       const chapter = pipe.chapters.find((c) => c.index === index);
       if (chapter) chapter.status = "revising";
     } else if (suffix === "dimension:integrating:completed") {

@@ -96,7 +96,7 @@ function aggregateByStage(
   const result = new Map<string, StageEventDigest>();
 
   for (const ev of events) {
-    const verb = extractVerb(ev.type);
+    const verb = extractVerb(ev.type, ev.payload);
     if (!verb) continue;
     const stageId = extractStageId(ev);
     if (!stageId) continue;
@@ -174,21 +174,47 @@ function resolveStageStatus(digest: StageEventDigest): StageStatus {
 }
 
 function extractStageId(ev: StageRelevantEvent): string | null {
-  // 兼容两种形态：
-  //   1) type = "agent-playground.stage.<verb>", payload.stepId = "s5-reconciler"
+  // 兼容三种形态：
+  //   1) type = "agent-playground.stage.<verb>", payload.stepId = "s5-reconciler"（旧 fixture）
   //   2) type = "stage.started" 顶层（fixture 形态）
+  //   3) type = "agent-playground.stage:lifecycle"，payload.{stepId,stage,status}
+  //      （★ 2026-05-27 修复：BusinessTeamMissionDispatcherFramework 实际 emit 的就是
+  //       这一种 colon 单事件携 payload.status。projector 之前完全不识别 → stage 全 pending）
   const payload = ev.payload as Record<string, unknown> | null;
   if (payload && typeof payload.stepId === "string") {
     return payload.stepId;
   }
+  if (payload && typeof payload.stage === "string") {
+    return payload.stage;
+  }
   return null;
 }
 
-function extractVerb(eventType: string): "started" | "completed" | "failed" | "skipped" | null {
+function extractVerb(
+  eventType: string,
+  payload: unknown,
+): "started" | "completed" | "failed" | "skipped" | null {
+  // 形态 3 (prod)：stage:lifecycle 单事件，verb 在 payload.status
+  if (
+    eventType.endsWith("stage:lifecycle") ||
+    eventType === "stage:lifecycle"
+  ) {
+    const p = payload as Record<string, unknown> | null;
+    const status = p?.status;
+    if (status === "started") return "started";
+    if (status === "completed") return "completed";
+    if (status === "failed") return "failed";
+    if (status === "skipped") return "skipped";
+    return null;
+  }
+  // 形态 1/2（fixture 兼容）：type 自带 verb
   if (eventType.endsWith("stage.started") || eventType === "stage.started") {
     return "started";
   }
-  if (eventType.endsWith("stage.completed") || eventType === "stage.completed") {
+  if (
+    eventType.endsWith("stage.completed") ||
+    eventType === "stage.completed"
+  ) {
     return "completed";
   }
   if (eventType.endsWith("stage.failed") || eventType === "stage.failed") {

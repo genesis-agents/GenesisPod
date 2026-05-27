@@ -356,7 +356,7 @@ function dvCollectAgentSummary(
       timestamp?: number;
     };
     if (!e.agentId || !e.type) continue;
-    const role = dvExtractRole(e);
+    const role = dvExtractRole(e) ?? dvDeriveRoleFromAgentId(e.agentId);
     if (!role || !DV_KNOWN_AGENT_ROLES.has(role)) continue;
     const a =
       out.get(e.agentId) ??
@@ -366,28 +366,35 @@ function dvCollectAgentSummary(
         phase: 'pending' as AgentPhase,
         trace: traceByAgent.get(e.agentId) ?? [],
       } as AgentLiveState);
-    if (
-      e.type === 'agent-playground.agent.started' ||
-      e.type === 'agent.started'
-    ) {
-      a.phase = 'running';
+    // ★ 2026-05-27 修复（Screenshot_5 "全是未启动"）：playground 不发独立 agent.X
+    //   事件，agent 生命周期 derive 自 chapter / dim / leader 等业务事件。
+    //   规则与后端 agent-view.projector.deriveVerbFromEventType 对齐。
+    const verb =
+      e.type === 'agent-playground.agent.started' || e.type === 'agent.started'
+        ? 'started'
+        : e.type === 'agent-playground.agent.completed' ||
+            e.type === 'agent.completed'
+          ? 'completed'
+          : e.type === 'agent-playground.agent.failed' ||
+              e.type === 'agent.failed'
+            ? 'failed'
+            : dvDeriveAgentVerbFromEventType(e.type);
+    if (verb === 'started') {
+      if (a.phase === 'pending') a.phase = 'running';
       a.startedAt ??= e.timestamp;
-    } else if (
-      e.type === 'agent-playground.agent.completed' ||
-      e.type === 'agent.completed'
-    ) {
+    } else if (verb === 'completed') {
       a.phase = 'completed';
       a.endedAt = e.timestamp;
-    } else if (
-      e.type === 'agent-playground.agent.failed' ||
-      e.type === 'agent.failed'
-    ) {
+    } else if (verb === 'failed') {
       a.phase = 'failed';
       a.endedAt = e.timestamp;
       a.failureMessage =
         typeof e.payload?.message === 'string'
           ? e.payload.message
           : a.failureMessage;
+    } else {
+      // 任何带 agentId 的事件，没有显式 verb 也至少标 running
+      if (a.phase === 'pending') a.phase = 'running';
     }
     if (e.payload && typeof e.payload.modelId === 'string') {
       a.modelId = e.payload.modelId;
@@ -395,6 +402,64 @@ function dvCollectAgentSummary(
     out.set(e.agentId, a);
   }
   return [...out.values()];
+}
+
+function dvDeriveRoleFromAgentId(agentId: string): AgentRole | null {
+  const prefix = agentId.split(/[#.]/)[0]?.toLowerCase();
+  if (!prefix) return null;
+  // 收口到 AgentRole 5 个值；prefix 在外延上更细（critic/reconciler/steward/verifier）
+  // 视觉上归到最贴近的 5 个 canonical role：
+  //   critic / verifier → reviewer（同 reviewer 一类，看产出 quality）
+  //   reconciler → analyst（综合多源、聚合视角）
+  //   steward → leader（leader 的辅助管理职责）
+  if (prefix.includes('writer')) return 'writer';
+  if (
+    prefix.includes('reviewer') ||
+    prefix === 'quality-judge' ||
+    prefix === 'critic' ||
+    prefix.includes('critic') ||
+    prefix === 'verifier'
+  )
+    return 'reviewer';
+  if (prefix === 'researcher') return 'researcher';
+  if (prefix === 'leader' || prefix === 'steward') return 'leader';
+  if (prefix === 'reconciler' || prefix === 'analyst') return 'analyst';
+  return null;
+}
+
+function dvDeriveAgentVerbFromEventType(
+  eventType: string
+): 'started' | 'completed' | 'failed' | null {
+  if (
+    eventType.endsWith('chapter:writing:completed') ||
+    eventType.endsWith('chapter:done') ||
+    eventType.endsWith('chapter:review:completed') ||
+    eventType.endsWith('dimension:research:completed') ||
+    eventType.endsWith('dimension:graded') ||
+    eventType.endsWith('dimension:integrating:completed') ||
+    eventType.endsWith('leader:signed') ||
+    eventType.endsWith('leader:decision') ||
+    eventType.endsWith('critic:verdict')
+  ) {
+    return 'completed';
+  }
+  if (
+    eventType.endsWith('chapter:writing:failed') ||
+    eventType.endsWith('dimension:retry-failed') ||
+    eventType.endsWith('dimension:integrating:failed')
+  ) {
+    return 'failed';
+  }
+  if (
+    eventType.endsWith('chapter:writing:started') ||
+    eventType.endsWith('chapter:review:started') ||
+    eventType.endsWith('dimension:research:started') ||
+    eventType.endsWith('dimension:integrating:started') ||
+    eventType.endsWith('dimension:outline:planned')
+  ) {
+    return 'started';
+  }
+  return null;
 }
 
 function dvMapBackendStageStatusToStep(

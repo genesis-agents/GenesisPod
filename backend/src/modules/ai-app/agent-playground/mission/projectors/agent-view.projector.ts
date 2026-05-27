@@ -41,7 +41,7 @@ export function projectAgents(
   for (const ev of events) {
     const id = extractAgentId(ev);
     if (!id) continue;
-    const role = extractRole(ev) ?? "unknown";
+    const role = extractRole(ev) ?? deriveRoleFromAgentId(id) ?? "unknown";
     const modelId = extractModelId(ev);
 
     const digest =
@@ -57,7 +57,17 @@ export function projectAgents(
     if (modelId && !digest.modelId) digest.modelId = modelId;
     if (role !== "unknown" && digest.role === "unknown") digest.role = role;
 
-    const verb = extractAgentVerb(ev.type);
+    // ★ 2026-05-27 修复 (Screenshot_5)：playground 没有专用 agent.started/completed
+    //   事件——agent 生命周期是从 stage / chapter / dim 事件 derive 出来的。
+    //   规则：
+    //     - 任何带 agentId 的 lifecycle event → agent 进入 running
+    //     - chapter:writing:completed / chapter:done / chapter:review:completed /
+    //       dimension:research:completed / dimension:graded / leader:signed →
+    //       agent 进入 completed
+    //     - chapter:writing:failed / dimension:retry-failed → agent failed
+    //     - chapter:revision / dimension:retrying → retry++
+    //   保留旧 agent.<verb> 路径兼容 fixture / 未来 explicit emit。
+    const verb = extractAgentVerb(ev.type) ?? deriveVerbFromEventType(ev.type);
     switch (verb) {
       case "started":
         digest.observed.add("running");
@@ -67,12 +77,20 @@ export function projectAgents(
         break;
       case "failed":
         digest.observed.add("failed");
-        digest.failureMessage = extractFailureMessage(ev) ?? digest.failureMessage;
+        digest.failureMessage =
+          extractFailureMessage(ev) ?? digest.failureMessage;
         break;
       case "retry":
         digest.retryCount += 1;
         break;
       default:
+        // 任何带 agentId 但不是显式 verb 的事件 → 至少把 agent 标 running
+        if (
+          !digest.observed.has("completed") &&
+          !digest.observed.has("failed")
+        ) {
+          digest.observed.add("running");
+        }
         break;
     }
 
@@ -87,6 +105,89 @@ export function projectAgents(
     retryCount: d.retryCount > 0 ? d.retryCount : undefined,
     failureMessage: d.failureMessage,
   }));
+}
+
+/**
+ * 从 agentId 推断 role（fallback，当事件 payload 没显式 role 时用）。
+ * agentId 命名约定 (per-dim-pipeline.util.ts 等):
+ *   - chapter-writer#N.M.A → writer
+ *   - chapter-reviewer#N.M.A → reviewer
+ *   - quality-judge#N → reviewer (dim grader)
+ *   - researcher#N → researcher
+ *   - reconciler / analyst / leader / critic / steward / verifier → 同名
+ */
+function deriveRoleFromAgentId(agentId: string): string | null {
+  const prefix = agentId.split(/[#.]/)[0]?.toLowerCase();
+  if (!prefix) return null;
+  // 收口到 5 个 canonical role（与 frontend AgentRole 枚举一致）：
+  //   leader / researcher / analyst / writer / reviewer
+  // 别名映射：
+  //   steward → leader（管理类辅助）
+  //   critic / verifier / quality-judge → reviewer（质量审查类）
+  //   reconciler → analyst（聚合/对账类）
+  if (prefix.includes("writer")) return "writer";
+  if (
+    prefix.includes("reviewer") ||
+    prefix === "quality-judge" ||
+    prefix === "critic" ||
+    prefix.includes("critic") ||
+    prefix === "verifier"
+  )
+    return "reviewer";
+  if (prefix === "researcher") return "researcher";
+  if (prefix === "leader" || prefix === "steward") return "leader";
+  if (prefix === "reconciler" || prefix === "analyst") return "analyst";
+  return null;
+}
+
+/**
+ * 从事件 type 推 agent verb（无显式 agent.X 事件时的兜底）。
+ * 规则与上方 projectAgents 注释一致。
+ */
+function deriveVerbFromEventType(
+  eventType: string,
+): "started" | "completed" | "failed" | "retry" | null {
+  // 终态信号
+  if (
+    eventType.endsWith("chapter:writing:completed") ||
+    eventType.endsWith("chapter:done") ||
+    eventType.endsWith("chapter:review:completed") ||
+    eventType.endsWith("dimension:research:completed") ||
+    eventType.endsWith("dimension:graded") ||
+    eventType.endsWith("dimension:integrating:completed") ||
+    eventType.endsWith("leader:signed") ||
+    eventType.endsWith("leader:decision") ||
+    eventType.endsWith("critic:verdict")
+  ) {
+    return "completed";
+  }
+  // 失败信号
+  if (
+    eventType.endsWith("chapter:writing:failed") ||
+    eventType.endsWith("dimension:retry-failed") ||
+    eventType.endsWith("dimension:integrating:failed")
+  ) {
+    return "failed";
+  }
+  // 重试信号
+  if (
+    eventType.endsWith("chapter:revision") ||
+    eventType.endsWith("chapter:rewritten") ||
+    eventType.endsWith("dimension:retrying")
+  ) {
+    return "retry";
+  }
+  // 启动 / 进行中信号
+  if (
+    eventType.endsWith("chapter:writing:started") ||
+    eventType.endsWith("chapter:review:started") ||
+    eventType.endsWith("dimension:research:started") ||
+    eventType.endsWith("dimension:integrating:started") ||
+    eventType.endsWith("dimension:outline:planned")
+  ) {
+    return "started";
+  }
+  return null;
 }
 
 function resolveAgentPhase(d: AgentDigest): AgentPhase {
