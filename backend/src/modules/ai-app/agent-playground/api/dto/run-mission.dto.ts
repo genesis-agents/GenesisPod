@@ -59,13 +59,13 @@ export const RunMissionInputSchema = z
     maxCredits: z.number().int().min(10).max(100_000).optional(),
     /**
      * 用户自定义 wall-time cap（毫秒）覆盖。不传则按 depth 档位（DEPTH_BUDGET_TIERS）解析。
-     * 范围 60s ~ 3h。
+     * 范围 60s ~ 24h（2026-05-27 上调以应对本地模型深度分析时长需求）。
      */
     wallTimeCapMs: z
       .number()
       .int()
       .min(60_000)
-      .max(3 * 60 * 60 * 1000)
+      .max(24 * 60 * 60 * 1000)
       .optional(),
     /**
      * ★ 2026-05-22 单一数据源：agent budget 倍率改为**可选覆盖**（scale agent 的
@@ -129,7 +129,9 @@ export const DEPTH_BUDGET_TIERS: Record<
   quick: {
     maxCredits: 3000,
     budgetMultiplier: 1.0,
-    wallTimeCapMs: 20 * 60_000,
+    // ★ 2026-05-27：本地模型深度分析时长需求大幅放宽
+    //   quick 20min → 3h（180min），standard 1h → 10h（600min），deep 3h → 24h（1440min）
+    wallTimeCapMs: 180 * 60_000,
     label: "快速",
     desc: "快速概览 / 试探",
     dimensionsHint: "~4 维度",
@@ -137,7 +139,7 @@ export const DEPTH_BUDGET_TIERS: Record<
   standard: {
     maxCredits: 8000,
     budgetMultiplier: 2.0,
-    wallTimeCapMs: 60 * 60_000,
+    wallTimeCapMs: 600 * 60_000,
     label: "标准",
     desc: "多数调研场景",
     dimensionsHint: "~7 维度",
@@ -145,7 +147,7 @@ export const DEPTH_BUDGET_TIERS: Record<
   deep: {
     maxCredits: 20000,
     budgetMultiplier: 4.0,
-    wallTimeCapMs: 180 * 60_000,
+    wallTimeCapMs: 1440 * 60_000,
     label: "深度",
     desc: "全面深度报告",
     dimensionsHint: "~11 维度",
@@ -156,7 +158,8 @@ export const DEPTH_BUDGET_TIERS: Record<
 export const BUDGET_FIELD_LIMITS = {
   maxCredits: { min: 10, max: 100_000 },
   budgetMultiplier: { min: 0.3, max: 10 },
-  wallTimeMinutes: { min: 1, max: 180 },
+  // ★ 2026-05-27：本地模型深度分析需要更长时间窗
+  wallTimeMinutes: { min: 1, max: 1440 },
 } as const;
 
 export interface BudgetTierView {

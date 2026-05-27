@@ -327,7 +327,7 @@ export class AgentPlaygroundController extends BaseMissionController {
    * 预算字段：
    *   - maxCredits：1 credit ≈ 1k tokens（10 - 100000）
    *   - budgetMultiplierOverride：每个 sub-agent token/iter 缩放（0.3 - 10）
-   *   - wallTimeCapMs：mission 总时长上限毫秒（60000 - 10800000，即 1min-180min）
+   *   - wallTimeCapMs：mission 总时长上限毫秒（60000 - 86400000，即 1min-24h）
    * status 必须为 terminal（completed/cancelled/failed/quality-failed/rejected）；
    * 下一次「重跑」会读到新值生效。
    */
@@ -386,10 +386,10 @@ export class AgentPlaygroundController extends BaseMissionController {
       }
       if (
         typeof body.wallTimeCapMs === "number" &&
-        (body.wallTimeCapMs < 60_000 || body.wallTimeCapMs > 180 * 60_000)
+        (body.wallTimeCapMs < 60_000 || body.wallTimeCapMs > 1440 * 60_000)
       ) {
         throw new BadRequestException(
-          "wallTimeCapMs must be 60000..10800000 (1-180min)",
+          "wallTimeCapMs must be 60000..86400000 (1min-24h)",
         );
       }
       const res = await this.store.updateBudgetByUser(missionId, userId, {

@@ -223,40 +223,44 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
       )}
 
       {/* 维度核心发现（结构化 keyFindingsByDimension，含 significance 高/中/低） */}
+      {/*
+        ★ 2026-05-27 (Screenshot_11/12)：原 list 渲染太瘦，单条 finding 是 80-200
+        字段落（参照 AI 洞察 reference 的丰富度），每条独立成段、左侧 significance
+        色条 + 字号收口，避免拥挤。
+      */}
       {dimensionFindings.length > 0 && (
         <section>
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
             <Target className="h-4 w-4 text-blue-500" />
             维度核心发现
           </h3>
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {dimensionFindings.map((dim) => (
               <div
                 key={dim.dimId}
-                className="rounded-xl border border-gray-100 bg-white p-3"
+                className="rounded-xl border border-gray-100 bg-white p-4"
               >
-                <h4 className="mb-2 text-base font-bold text-gray-800">
+                <h4 className="mb-3 text-base font-bold text-gray-800">
                   {dim.dimName}
                 </h4>
-                <ul className="space-y-1.5">
-                  {dim.items.map((f, idx) => (
-                    <li
-                      key={idx}
-                      className="flex items-start gap-2 text-sm leading-relaxed text-gray-600"
-                    >
-                      <span
-                        className={`mt-1 inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${
-                          f.significance === 'high'
-                            ? 'bg-red-400'
-                            : f.significance === 'medium'
-                              ? 'bg-amber-400'
-                              : 'bg-green-400'
-                        }`}
-                      />
-                      <span>{cleanText(f.finding)}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="space-y-2.5">
+                  {dim.items.map((f, idx) => {
+                    const tone =
+                      f.significance === 'high'
+                        ? 'border-red-300 bg-red-50/40'
+                        : f.significance === 'medium'
+                          ? 'border-amber-300 bg-amber-50/40'
+                          : 'border-green-300 bg-green-50/40';
+                    return (
+                      <div
+                        key={idx}
+                        className={`rounded-md border-l-4 px-3 py-2 text-sm leading-relaxed text-gray-700 ${tone}`}
+                      >
+                        {cleanText(f.finding)}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ))}
           </div>

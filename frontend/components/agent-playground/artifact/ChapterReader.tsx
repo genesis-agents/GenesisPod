@@ -226,6 +226,55 @@ function getSectionSlice(fullMarkdown: string, section: ArtifactSection) {
   );
 }
 
+/**
+ * 把章节正文 markdown 转为对人友好的纯文本预览（章节卡片缩略用）。
+ * 全局剥所有 markdown 语法，不仅章首；保证视觉上是连续中文散文。
+ */
+function stripMarkdownToPlainText(md: string): string {
+  return (
+    md
+      // 代码块 ```...``` 全段去掉
+      .replace(/```[\s\S]*?```/g, '')
+      // 内联代码 `code` → code
+      .replace(/`([^`]+)`/g, '$1')
+      // 图片 ![alt](url) → ''
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+      // 链接 [text](url) → text
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      // 所有 H1~H6 标题（多行 + 章首）→ 内容
+      .replace(/^#{1,6}\s+([^\n]+)\n+/gm, '$1。')
+      // 引导 emoji
+      .replace(/[🎯📌🔑⭐💡✅🔍📊📈🧭🌟]/gu, '')
+      // TI 沉淀小标题（含 ** 加粗）
+      .replace(
+        /(?:\*\*)?(核心观点|关键数据|关键发现|主要结论|主要观点|核心结论)(?:\*\*)?\s*[:：]\s*/g,
+        ''
+      )
+      // 加粗 **text** / __text__
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/__([^_]+)__/g, '$1')
+      // 斜体 *text* / _text_（单 * 单 _，避免吞已替换的加粗里的字符）
+      .replace(/(?<![*_])[*_]([^*_\n]+)[*_](?![*_])/g, '$1')
+      // 引用 [N] / [^N]
+      .replace(/\[\^?\d+\]/g, '')
+      // blockquote 前缀
+      .replace(/^>\s*/gm, '')
+      // 列表 bullet
+      .replace(/^[\s]*[-*•·—–+]\s+/gm, '')
+      // 有序列表 "1. " / "1) "
+      .replace(/^[\s]*\d+[.)]\s+/gm, '')
+      // 表格分隔行 | --- | --- |
+      .replace(/^\s*\|?\s*[-:]+\s*(\|\s*[-:]+\s*)+\|?\s*$/gm, '')
+      // 表格普通行的 | 分隔（保留内容用空格分隔）
+      .replace(/\s*\|\s*/g, ' ')
+      // HR
+      .replace(/^[\s]*[-=*]{3,}\s*$/gm, '')
+      // 连续空行 → 单空行
+      .replace(/\n{2,}/g, '\n')
+      .trim()
+  );
+}
+
 function repairSectionsFromHeadings(
   sections: ArtifactSection[],
   fullMarkdown: string
@@ -542,28 +591,11 @@ export function ChapterReader({
             //   ③ "核心观点 / 关键数据 / 关键发现 / 主要结论" 等 TI 沉淀小标题
             //   ④ 加粗、引文、blockquote、list bullet（- • · em-dash）
             //   保证所有 chapter card 的预览段开头都是纯散文，第一眼对齐。
-            const preview = getSectionSlice(artifact.content.fullMarkdown, s)
-              // ① 章首 H1~H6
-              .replace(/^#{1,6}\s+[^\n]+\n+/, '')
-              // ② 章首引导 emoji + 可选空格
-              .replace(/^[\s]*[🎯📌🔑⭐💡✅🔍📊📈🧭🌟][\s]*/u, '')
-              // ③ TI 沉淀小标题 (含 ** 加粗)
-              .replace(
-                /^\s*(?:\*\*)?(核心观点|关键数据|关键发现|主要结论|主要观点|核心结论)(?:\*\*)?\s*[:：]\s*/,
-                ''
-              )
-              // ④ 任何剩余加粗
-              .replace(/\*\*([^*]+)\*\*/g, '$1')
-              // [N] 引用
-              .replace(/\[(\d+)\]/g, '')
-              // blockquote 前缀
-              .replace(/^>\s*/gm, '')
-              // 列表 bullet（- / * / • / · / em-dash + 空格）
-              .replace(/^[\s]*[-*•·—–]\s+/gm, '')
-              // 多个连续空行 → 单空行
-              .replace(/\n{2,}/g, '\n')
-              .trim()
-              .slice(0, 200);
+            // ★ 2026-05-27 (Screenshot_10)：preview 必须是"对人的格式"——
+            //   全局剥所有 markdown 语法，不仅章首。
+            const preview = stripMarkdownToPlainText(
+              getSectionSlice(artifact.content.fullMarkdown, s)
+            ).slice(0, 200);
             // ★ 2026-04-30 (#65 截图20 卡片高度不一): 用户明确要求所有卡片
             //   外观完全统一。固定高度 = title 单行 + preview 强制 2 行
             //   (line-clamp-2 + min-h)，preview 为空时塞 placeholder 占位，
