@@ -20,7 +20,7 @@
  * 全程使用 playground-ui primitives + design tokens，禁止再写裸 Tailwind chip。
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChevronRight, Lightbulb, RefreshCw } from 'lucide-react';
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import { localRerunTodo } from '@/services/agent-playground/api';
@@ -39,6 +39,7 @@ import type {
 } from '@/lib/features/agent-playground/mission-presentation.types';
 import { deriveDrawerSections } from '@/lib/features/agent-playground/drawer-derive-shapes';
 import { StageProcessPanel } from '@/components/agent-playground/panels/StageProcessPanel';
+import { useStageProcessTrace } from '@/hooks/features/useStageProcessTrace';
 import { FRONTEND_STAGE_TO_STEP_ID } from '@/lib/features/agent-playground/stage-id-mapping';
 import {
   Card,
@@ -73,6 +74,13 @@ interface Props {
   allTodos?: MissionTodo[];
   /** T75: canonical view.stages[] —— system-stage drawer 直接读 processTrace 渲染 */
   stages?: ReadonlyArray<{ id: string; processTrace?: StageProcessTrace }>;
+  /** T75 streaming: live event stream，叠加到 stage.processTrace 实时刷新 Drawer */
+  events?: ReadonlyArray<{
+    type: string;
+    payload?: unknown;
+    agentId?: string;
+    timestamp: number;
+  }>;
   onClose: () => void;
   /** 单 todo 重跑 —— 仅 mission 终态 + 非 abort/persist origin 时启用 */
   missionId?: string;
@@ -800,6 +808,7 @@ export function TodoDetailDrawer({
   dimensionPipelines,
   allTodos,
   stages,
+  events,
   onClose,
   missionId,
   missionTerminal,
@@ -807,6 +816,20 @@ export function TodoDetailDrawer({
   const [showTimeline, setShowTimeline] = useState(true);
   const [showDiag, setShowDiag] = useState(false);
   const [rerunning, setRerunning] = useState(false);
+
+  // ★ T75 streaming: 从 canonical view 取 stage 静态 processTrace，再用 live events
+  //   叠加本地实时 reactTrace（在 backend view refetch 250ms+ 窗口内也能看到新事件）。
+  const targetStageId =
+    todo && todo.scope === 'system' ? todo.systemStageId : undefined;
+  const canonicalProcessTrace = useMemo(() => {
+    if (!targetStageId || !stages) return undefined;
+    return stages.find((s) => s.id === targetStageId)?.processTrace;
+  }, [targetStageId, stages]);
+  const liveProcessTrace = useStageProcessTrace(
+    targetStageId,
+    events ?? [],
+    canonicalProcessTrace
+  );
 
   if (!todo) return null;
 
@@ -1140,15 +1163,14 @@ export function TodoDetailDrawer({
           </ToneCard>
         )}
 
-        {/* T75: system-stage Drawer 优先展示 canonical processTrace（含 ReAct /
-            LLM calls / outputPeek），减少对 agent.trace 间接命中的依赖。 */}
-        {todo.scope === 'system' && todo.systemStageId && stages
+        {/* T75 streaming: system-stage Drawer 渲染 liveProcessTrace —— canonical
+            view.stages[X].processTrace + 本地 live events 累积合并（reactTrace
+            实时刷新，不需等 view refetch 250ms+ 窗口）。 */}
+        {todo.scope === 'system' && todo.systemStageId && liveProcessTrace
           ? (() => {
-              const stage = stages.find((s) => s.id === todo.systemStageId);
-              if (!stage?.processTrace) return null;
               return (
                 <StageProcessPanel
-                  processTrace={stage.processTrace}
+                  processTrace={liveProcessTrace}
                   stageLabel={todo.title}
                 />
               );

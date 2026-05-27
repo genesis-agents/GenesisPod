@@ -1286,6 +1286,7 @@ export default function MissionDetailPage() {
         dimensionPipelines={view.dimensionPipelines}
         allTodos={todoLedger}
         stages={missionView?.stages}
+        events={events}
         onClose={() => setSelectedTaskKey(null)}
         missionId={missionId}
         missionTerminal={!isRunning}
