@@ -74,7 +74,7 @@ function buildLegacyDerivedView(
     mission: dvProjectMission(view),
     stages: dvProjectStages(view),
     agents: dvProjectAgents(view, events),
-    cost: dvProjectCost(view),
+    cost: dvProjectCost(view, events),
     verdicts: dvProjectVerdicts(view, events),
     memory: dvProjectMemory(view, events),
     reports: dvProjectReports(view),
@@ -181,12 +181,45 @@ function dvProjectAgents(
     );
 }
 
-function dvProjectCost(view: MissionDetailView): CostState {
+function dvProjectCost(
+  view: MissionDetailView,
+  events: PlaygroundEvent[]
+): CostState {
   const c = view.cost;
+  // ★ 2026-05-27 (回归恢复)：baseline 15d2e93ab 从 cost:tick 事件 deltaTokens /
+  //   deltaCostUsd 按 stage 聚合 byStage。thinning shim 直接给 [] → ComputeUsagePanel /
+  //   CostBreakdownPanel 永远显示空。这里从 events 派生回来。
+  const byStageMap = new Map<string, { tokensUsed: number; costUsd: number }>();
+  let summedTokens = 0;
+  let summedCost = 0;
+  for (const ev of events) {
+    if (!ev || typeof ev !== 'object') continue;
+    const e = ev as { type?: string; payload?: Record<string, unknown> };
+    if (!e.type) continue;
+    if (e.type.endsWith('cost:tick') || e.type === 'cost:tick') {
+      const p = e.payload ?? {};
+      const stage = typeof p.stage === 'string' ? p.stage : undefined;
+      const dTok = typeof p.deltaTokens === 'number' ? p.deltaTokens : 0;
+      const dCost = typeof p.deltaCostUsd === 'number' ? p.deltaCostUsd : 0;
+      summedTokens += Math.max(0, dTok);
+      summedCost += Math.max(0, dCost);
+      if (stage && (dTok > 0 || dCost > 0)) {
+        const prev = byStageMap.get(stage) ?? { tokensUsed: 0, costUsd: 0 };
+        byStageMap.set(stage, {
+          tokensUsed: prev.tokensUsed + dTok,
+          costUsd: prev.costUsd + dCost,
+        });
+      }
+    }
+  }
   return {
-    tokensUsed: c?.tokensUsed != null ? Number(c.tokensUsed) : 0,
-    costUsd: c?.costUsd ?? 0,
-    byStage: [],
+    tokensUsed: c?.tokensUsed != null ? Number(c.tokensUsed) : summedTokens,
+    costUsd: c?.costUsd ?? summedCost,
+    byStage: Array.from(byStageMap.entries()).map(([stage, v]) => ({
+      stage,
+      tokensUsed: v.tokensUsed,
+      costUsd: v.costUsd,
+    })),
   };
 }
 
@@ -454,20 +487,47 @@ function dvCollectAgentSummary(
       e.type === 'agent:lifecycle' ||
       e.type.endsWith('.agent:lifecycle')
     ) {
-      const phase = e.payload?.phase;
+      const p = e.payload ?? {};
+      const phase = p.phase;
       if (phase === 'started') {
         if (a.phase === 'pending') a.phase = 'running';
         a.startedAt ??= e.timestamp;
+        if (typeof p.attempt === 'number') a.attempt = p.attempt;
+        if (typeof p.dimension === 'string') a.dimension = p.dimension;
       } else if (phase === 'completed') {
         a.phase = 'completed';
         a.endedAt = e.timestamp;
+        // baseline 还落 wallTimeMs / iterations 让 Inspector / 卡片显示真实耗时
+        if (typeof p.wallTimeMs === 'number') {
+          a.wallTimeMs = p.wallTimeMs;
+        } else if (a.startedAt && typeof e.timestamp === 'number') {
+          a.wallTimeMs = e.timestamp - a.startedAt;
+        }
+        if (typeof p.iterations === 'number') a.iterations = p.iterations;
       } else if (phase === 'failed') {
         a.phase = 'failed';
         a.endedAt = e.timestamp;
-        const msg = e.payload?.error ?? e.payload?.message;
+        const msg = p.error ?? p.message;
         if (typeof msg === 'string') a.failureMessage = msg;
+        if (typeof p.wallTimeMs === 'number') {
+          a.wallTimeMs = p.wallTimeMs;
+        } else if (a.startedAt && typeof e.timestamp === 'number') {
+          a.wallTimeMs = e.timestamp - a.startedAt;
+        }
+        if (typeof p.iterations === 'number') a.iterations = p.iterations;
       }
-      if (typeof e.payload?.modelId === 'string') a.modelId = e.payload.modelId;
+      if (typeof p.modelId === 'string') a.modelId = p.modelId;
+      out.set(agentId, a);
+      continue;
+    }
+    // dimension:retrying → 把 agent.retryCount + lastRetryReason 落上
+    if (
+      e.type === 'agent-playground.dimension:retrying' ||
+      e.type.endsWith('.dimension:retrying')
+    ) {
+      const p = e.payload ?? {};
+      a.retryCount = (a.retryCount ?? 0) + 1;
+      if (typeof p.reason === 'string') a.lastRetryReason = p.reason;
       out.set(agentId, a);
       continue;
     }
