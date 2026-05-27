@@ -93,7 +93,7 @@ export function projectSocialMissionView(
       terminalOutcome: deriveTerminalOutcome(row.status),
     },
     stages: projectSocialStages(row.lastCompletedStage, publicStatus),
-    agents: [],
+    agents: projectSocialAgents(row),
     reportArtifact: buildEmptyArtifactSentinel(row),
     todoBoard: buildEmptyTodoBoardSentinel(),
     cost: {
@@ -136,6 +136,58 @@ function deriveTerminalOutcome(persisted: string): string | null {
   if (persisted === "failed") return "failed";
   if (persisted === "aborted") return "cancelled";
   return null;
+}
+
+// ============================================================================
+// Agent projection (B7-1b first cut — row-based, no events join yet)
+// ============================================================================
+
+/**
+ * Social agents projection — first cut 基于 row.platforms 派生最小代理列表。
+ *
+ * - Leader：每个 social mission 都有 mission leader agent
+ * - 每个 platform target → 一个 publisher agent（platform name 当 id）
+ *
+ * 完整 events-based projection（含 trace / phase 变迁）排 B7 follow-up，
+ * 与 playground projectAgents 等价路径。
+ */
+function projectSocialAgents(row: {
+  status: string;
+  platforms?: unknown;
+}): SocialDomainView["agents"] {
+  const status = row.status;
+  const isTerminal =
+    status === "completed" || status === "failed" || status === "aborted";
+  const phase: "pending" | "running" | "completed" | "failed" =
+    status === "completed"
+      ? "completed"
+      : status === "failed" || status === "aborted"
+        ? "failed"
+        : status === "running"
+          ? "running"
+          : "pending";
+
+  const agents: SocialDomainView["agents"] = [
+    {
+      id: "leader",
+      role: "leader",
+      phase,
+    },
+  ];
+
+  const platforms = Array.isArray(row.platforms)
+    ? (row.platforms as Array<unknown>).filter(
+        (p): p is string => typeof p === "string",
+      )
+    : [];
+  for (const p of platforms) {
+    agents.push({
+      id: `publisher:${p}`,
+      role: "publisher",
+      phase: isTerminal ? phase : "pending",
+    });
+  }
+  return agents;
 }
 
 // ============================================================================

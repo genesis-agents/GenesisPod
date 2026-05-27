@@ -75,7 +75,7 @@ export function projectRadarMissionView(
       metricsSummary,
     },
     stages: projectRadarStages(row.lastCompletedStage, publicStatus),
-    agents: [],
+    agents: projectRadarAgents(row),
     reportArtifact: buildBriefingRefOrSentinel(row),
     todoBoard: buildEmptyTodoBoardSentinel(),
     cost: {
@@ -119,6 +119,35 @@ function deriveTerminalOutcome(persisted: string): string | null {
   if (persisted === "cancelled") return "cancelled";
   if (persisted === "rejected") return "quality-failed";
   return null;
+}
+
+/**
+ * Radar agents projection — first cut 基于 row 派生 9-stage pipeline 中的 5 个固定 agent role：
+ *   collector / dedupe / relevance-judge / quality-assessor / insight-writer
+ *
+ * radar 没有 dimension fanout（与 social 同 content-based），但 stage 序列固定，
+ * 每个高层 role 对应几个 stage。完整 events-based projection 排 B7 follow-up。
+ */
+function projectRadarAgents(row: {
+  status: string;
+}): RadarDomainView["agents"] {
+  const status = row.status;
+  const phase: "pending" | "running" | "completed" | "failed" =
+    status === "completed"
+      ? "completed"
+      : status === "failed" || status === "cancelled" || status === "rejected"
+        ? "failed"
+        : status === "running"
+          ? "running"
+          : "pending";
+  const roles: Array<{ id: string; role: string }> = [
+    { id: "collector", role: "collector" },
+    { id: "dedupe", role: "deduper" },
+    { id: "relevance-judge", role: "judge" },
+    { id: "quality-assessor", role: "judge" },
+    { id: "insight-writer", role: "writer" },
+  ];
+  return roles.map((r) => ({ id: r.id, role: r.role, phase }));
 }
 
 // ============================================================================
