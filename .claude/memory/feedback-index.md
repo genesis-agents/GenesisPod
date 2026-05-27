@@ -2,6 +2,9 @@
 
 > 用户协作偏好 + 项目反复踩到的反模式。每条 ≤200 字符，详情看链接文件。
 
+- [feedback_llm_recovery_mechanism_not_hardcode.md](feedback_llm_recovery_mechanism_not_hardcode.md) — LLM 格式/能力/恢复必须机制级解决：capability catalog+chain 驱动，禁 provider/modelId 硬编码(catalog 是先验,运行时输出是 ground truth 让 self-heal 自纠)；恢复信号不能只认 4xx 拒绝，要含"200 但 content 空/畸形"退化输出→in-request 降级+合成 degenerate_output 信号 self-heal 持久化+model-failover；推理耗尽判定含 finish_reason=stop。2026-05-25 deepseek-v4-flash 思考模式被强制 json_object 反复崩
+- [feedback_byok_never_admin_fallback.md](feedback_byok_never_admin_fallback.md) — 严格 BYOK：任何请求绝不静默回退 admin key/model；"授权"走既有 ASSIGNED(用户向系统申请,需 userId)路径,别造新 env 开关/用户 UI；无 userId 后台任务选模型返回 null/[] 优雅失败,真无人值守系统设施走显式 env key(如 OPENAI_API_KEY);控制面在运维/Admin 层。2026-05-25 收口无 userId admin 兜底三处。配合 [[feedback-background-spenders-default-off]]
+
 - [feedback_autonomous_mode.md](feedback_autonomous_mode.md) — 用户偏好自驱：给大方向后期望连续拆解执行，少问多做。低风险动作(文档/测试/spec/守护栏/import修复/commit+push)直接做；仅破坏性操作、有 blast radius 的运行时行为改动、架构决策才先确认。多次"为什么这么慢"=反复等待/确认让他不耐烦。并行 sub-agent 是认可的提速手段
 - [feedback_grep_before_yagni_judgment.md](feedback_grep_before_yagni_judgment.md) — 评估"过度抽象/目标态/YAGNI"前必须 grep 真实使用者数量,不凭"只有 1 个使用者"直觉判;2026-05-24 翻车:用"等触发"建议拖后腿,实际 agent-playground+social+radar 三家已 copy-paste 同一 mission-pipeline 范式急需 harness 化(文件名只换前缀,工具函数都在抄)。同一范式 ≥3 处 copy = 当下抽 framework 的信号,不是缓抽的借口
 - [feedback_batch_review_at_end.md](feedback_batch_review_at_end.md) — 大型 epic(v3.1 这种 ~10 阶段)用"全部跑完统一审视",不每阶段 review;早期高风险阶段(0/A0/A)单片 review 合理,进入定型阶段(B+/C/D/F)子片 review 信号已收敛+撞 sub-agent 配额,改"实施→commit→push→直接下一片",末尾统一派 4 路集中评审(范围覆盖全部 commits)
@@ -57,6 +60,8 @@
 - [feedback_audit_must_verify_dual_source_layer.md](feedback_audit_must_verify_dual_source_layer.md) — arch-auditor 报"双源 / 应上提"前必须 grep 验证抽象层是否同 + 邻居 ai-app 是否真有第二消费方（YAGNI）
 - [feedback_commit_msg_type_must_be_legal.md](feedback_commit_msg_type_must_be_legal.md) — commit type 必须是 commitlint type-enum 合法值（feat/fix/docs/style/refactor/perf/test/build/ci/chore/revert）；review/round/merge 不在列会让 commit-msg hook 拒
 - [feedback_commit_msg_line_length_100.md](feedback_commit_msg_line_length_100.md) — commit body/footer 每行也必须 ≤100 字符（CLAUDE.md 只点了 header）；bullet 堆色值/路径很容易超
+- [feedback_commit_msg_file_fallback.md](feedback_commit_msg_file_fallback.md) — PowerShell 多行 CJK commit message here-string 偶发被拆开报"did not match any file(s)"；改用 git commit -F 临时文件，提交后即 rm
+- [feedback_background_spenders_default_off.md](feedback_background_spenders_default_off.md) — 后台自动触发 LLM/BYOK/credit/外部花费的机制必须默认 OFF + 防并发锁；即使有守卫也默认关（2026-05-25 静默烧钱事故）
 - [feedback_admin_workflow_must_match_intuition.md](feedback_admin_workflow_must_match_intuition.md) — admin 工具入口必须按"操作语义中心"对象组织（用户侧），不是按 DB schema 组织成"资源池"页面；截图反馈优先级最高
 - [feedback_admin_entry_belongs_with_account.md](feedback_admin_entry_belongs_with_account.md) — Sidebar/MobileNav 中"系统"(admin) 入口紧贴 UserProfileButton（账户元操作），不混在业务 nav；改名"系统"而非"管理后台"
 - [feedback_multi_session_must_use_pathspec_commit.md](feedback_multi_session_must_use_pathspec_commit.md) — 多 session 并行时 commit 必须用 `git commit -m "msg" -- pathspec`，禁止默认 add+commit；lint-staged stash 会吸入别 session 文件

@@ -5,6 +5,7 @@
 **Owner**: Claude Code
 
 **Related**
+
 - [agent-team-thinning-review-baseline-2026-05-26.md](./agent-team-thinning-review-baseline-2026-05-26.md)
 - [agent-team-thinning-principles-2026-05-26.html](./agent-team-thinning-principles-2026-05-26.html)
 - [playground-read-model-and-frontend-thinning-plan-2026-05-25.md](./playground-read-model-and-frontend-thinning-plan-2026-05-25.md)
@@ -247,7 +248,9 @@ The correct abstraction is:
 interface IMissionPersistencePort<TMissionRow, TDomainView> {
   getMissionRow(id: string, userId?: string): Promise<TMissionRow | null>;
   buildViewSeed(row: TMissionRow): TDomainView;
-  listResumable(userId: string): Promise<Array<{ missionId: string; savedAt: Date }>>;
+  listResumable(
+    userId: string,
+  ): Promise<Array<{ missionId: string; savedAt: Date }>>;
 }
 ```
 
@@ -318,7 +321,13 @@ type MissionViewBase = {
   mission: {
     id: string;
     title?: string;
-    status: "starting" | "running" | "completed" | "failed" | "cancelled" | "quality-failed";
+    status:
+      | "starting"
+      | "running"
+      | "completed"
+      | "failed"
+      | "cancelled"
+      | "quality-failed";
     startedAt?: string;
     finishedAt?: string;
     finalScore?: number;
@@ -340,9 +349,9 @@ type MissionViewBase = {
     id: string;
     role: string;
     phase: "pending" | "running" | "completed" | "failed";
-      modelId?: string;
-      retryCount?: number;
-      failureMessage?: string;
+    modelId?: string;
+    retryCount?: number;
+    failureMessage?: string;
   }>;
   reportArtifact: ReportArtifact | null;
   todoBoard: TodoBoardState | null;
@@ -351,7 +360,14 @@ type MissionViewBase = {
   timelineVersion: number;
   snapshotVersion: number;
   refreshHints?: Array<{
-    family: "mission" | "stages" | "agents" | "artifact" | "todo" | "cost" | "memory";
+    family:
+      | "mission"
+      | "stages"
+      | "agents"
+      | "artifact"
+      | "todo"
+      | "cost"
+      | "memory";
     mode: "refetch" | "patch";
     id?: string;
   }>;
@@ -456,7 +472,13 @@ type MissionTodoView = {
   reasonText: string;
   scope: "mission" | "dimension" | "chapter" | "review" | "system";
   title: string;
-  status: "pending" | "in_progress" | "blocked" | "done" | "failed" | "cancelled";
+  status:
+    | "pending"
+    | "in_progress"
+    | "blocked"
+    | "done"
+    | "failed"
+    | "cancelled";
   startedAt?: number;
   endedAt?: number;
   dimensionRef?: string;
@@ -728,24 +750,24 @@ The initial explicit denylist is:
 
 For `agent-playground`, first-cut resume support is stage-sensitive.
 
-| Failure or interruption locus | Resume allowed in first cut | Notes |
-|---|---|---|
-| before durable row creation | no | falls back to restart, not resume |
-| bootstrap row exists but no checkpoint | no | canonical reason = missing checkpoint |
-| `s1-budget` | no | cheap to restart, no meaningful checkpoint value |
-| `s2-leader-plan` | yes, if checkpoint exists | plan snapshot is reusable |
-| `s3-researcher-collect` | yes, if checkpoint exists | existing crash-resume path already exists |
-| `s4-leader-assess` | yes, if checkpoint exists | review decision state may resume |
-| `s5-reconciler` | yes, if checkpoint exists | reconciliation report is resumable input |
-| `s6-analyst` | yes, if checkpoint exists | downstream synthesis may resume |
-| `s7-writer-outline` | yes, if checkpoint exists | outline state may resume |
-| `s8-writer-draft` | yes, if checkpoint exists | writer path may resume |
-| `s8b-quality-enhancement` | yes, if checkpoint exists | section loop may resume |
-| `s9-critic-l4` | yes, if checkpoint exists | critique loop may resume |
-| `s9b-objective-evaluation` | yes, if checkpoint exists | evaluator loop may resume |
-| `s10-leader-signoff` | yes, if checkpoint exists | signoff state may resume |
-| `s11-persist` | no | treat as rerun or restart boundary |
-| `s12-self-evolution` | no | postlude, non-blocking in public contract |
+| Failure or interruption locus          | Resume allowed in first cut | Notes                                            |
+| -------------------------------------- | --------------------------- | ------------------------------------------------ |
+| before durable row creation            | no                          | falls back to restart, not resume                |
+| bootstrap row exists but no checkpoint | no                          | canonical reason = missing checkpoint            |
+| `s1-budget`                            | no                          | cheap to restart, no meaningful checkpoint value |
+| `s2-leader-plan`                       | yes, if checkpoint exists   | plan snapshot is reusable                        |
+| `s3-researcher-collect`                | yes, if checkpoint exists   | existing crash-resume path already exists        |
+| `s4-leader-assess`                     | yes, if checkpoint exists   | review decision state may resume                 |
+| `s5-reconciler`                        | yes, if checkpoint exists   | reconciliation report is resumable input         |
+| `s6-analyst`                           | yes, if checkpoint exists   | downstream synthesis may resume                  |
+| `s7-writer-outline`                    | yes, if checkpoint exists   | outline state may resume                         |
+| `s8-writer-draft`                      | yes, if checkpoint exists   | writer path may resume                           |
+| `s8b-quality-enhancement`              | yes, if checkpoint exists   | section loop may resume                          |
+| `s9-critic-l4`                         | yes, if checkpoint exists   | critique loop may resume                         |
+| `s9b-objective-evaluation`             | yes, if checkpoint exists   | evaluator loop may resume                        |
+| `s10-leader-signoff`                   | yes, if checkpoint exists   | signoff state may resume                         |
+| `s11-persist`                          | no                          | treat as rerun or restart boundary               |
+| `s12-self-evolution`                   | no                          | postlude, non-blocking in public contract        |
 
 This matrix is the first implementation target for `ResumeRerunPolicyService`. Any deviation requires updating this table in the same PR.
 
@@ -1163,31 +1185,31 @@ These fields belong in app contracts, not harness contracts.
 
 The following existing `agent-playground` endpoints are the migration baseline. `B4` must not proceed without preserving or explicitly replacing each of them.
 
-| Endpoint | Current file anchor | Disposition in this plan |
-|---|---|---|
-| `GET /agent-playground/missions` | `mission-read.controller.ts` | Keep as-is |
-| `GET /agent-playground/missions/resumable` | `mission-read.controller.ts` | Keep as resumable source input |
-| `GET /agent-playground/missions/:id` | `mission-read.controller.ts` | Extend existing route into canonical detail route or keep it as a thin wrapper over `MissionQueryService`; do not create a duplicate greenfield primary detail endpoint without an explicit sibling-route reason |
-| `PATCH /agent-playground/missions/:id/visibility` | `mission-read.controller.ts` | Keep as-is |
-| `GET /agent-playground/missions/:id/export` | `mission-read.controller.ts` | Keep as sibling export route |
-| `GET /agent-playground/missions/:id/report-versions` | `mission-read.controller.ts` | Keep as sibling route; feed `reportVersions` metadata |
-| `GET /agent-playground/missions/:id/report-versions/:version` | `mission-read.controller.ts` | Keep as sibling route until artifact version switching is folded into canonical view deliberately |
-| `GET /agent-playground/replay/:missionId` | `mission-read.controller.ts` | Keep for debug, QA, and replay fallback; not a truth source |
-| `GET /agent-playground/missions/:id/leader-chat` | `mission-read.controller.ts` | Keep as sibling route |
-| `GET /agent-playground/missions/:id/dag` | `mission/dag-view/mission-dag.controller.ts` | Keep as sibling expert-view route; outside canonical detail payload |
-| `GET /agent-playground/missions/:id/dag/cascade` | `mission/dag-view/mission-dag.controller.ts` | Keep as sibling preview route used by local-rerun UX; do not fold into canonical detail payload |
-| `GET /agent-playground/missions/:id/dag/react/:nodeId` | `mission/dag-view/mission-dag.controller.ts` | Keep as sibling diagnostic route for node-level ReAct inspection |
-| `GET /agent-playground/budget-tiers` | `agent-playground.controller.ts` | Keep as sibling setup route; not part of canonical mission truth |
-| `POST /agent-playground/missions/:id/rerun` | `mission-rerun.controller.ts` | Keep as write path; projector consumes resulting state only |
-| `POST /agent-playground/missions/:id/todos/:todoId/rerun` | `mission-rerun.controller.ts` | Keep as write path |
-| `POST /agent-playground/missions/:id/todos/:todoId/local-rerun` | `mission-rerun.controller.ts` | Keep as write path |
-| `POST /agent-playground/missions/:id/leader-chat` | `mission-rerun.controller.ts` | Keep as write path |
-| `POST /agent-playground/team/run` | `agent-playground.controller.ts` | Keep as primary create-and-run write path; canonical view starts after this write path allocates ownership and durable state |
-| `POST /agent-playground/missions/:id/cancel` | `agent-playground.controller.ts` | Keep as write path |
-| `POST /agent-playground/error-report` | `mission-read.controller.ts` | Keep as operational support route; outside canonical detail contract |
-| `POST /agent-playground/dev/trigger-mission` | `agent-playground.controller.ts` | Keep only as non-production dev or internal route; exclude from canonical cutover obligations if production gating already forbids it |
-| `DELETE /agent-playground/missions/:id` | `agent-playground.controller.ts` | Keep as write path |
-| `PATCH /agent-playground/missions/:id` | `agent-playground.controller.ts` | Keep as write path; canonical read model must reflect updates |
+| Endpoint                                                        | Current file anchor                          | Disposition in this plan                                                                                                                                                                                         |
+| --------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /agent-playground/missions`                                | `mission-read.controller.ts`                 | Keep as-is                                                                                                                                                                                                       |
+| `GET /agent-playground/missions/resumable`                      | `mission-read.controller.ts`                 | Keep as resumable source input                                                                                                                                                                                   |
+| `GET /agent-playground/missions/:id`                            | `mission-read.controller.ts`                 | Extend existing route into canonical detail route or keep it as a thin wrapper over `MissionQueryService`; do not create a duplicate greenfield primary detail endpoint without an explicit sibling-route reason |
+| `PATCH /agent-playground/missions/:id/visibility`               | `mission-read.controller.ts`                 | Keep as-is                                                                                                                                                                                                       |
+| `GET /agent-playground/missions/:id/export`                     | `mission-read.controller.ts`                 | Keep as sibling export route                                                                                                                                                                                     |
+| `GET /agent-playground/missions/:id/report-versions`            | `mission-read.controller.ts`                 | Keep as sibling route; feed `reportVersions` metadata                                                                                                                                                            |
+| `GET /agent-playground/missions/:id/report-versions/:version`   | `mission-read.controller.ts`                 | Keep as sibling route until artifact version switching is folded into canonical view deliberately                                                                                                                |
+| `GET /agent-playground/replay/:missionId`                       | `mission-read.controller.ts`                 | Keep for debug, QA, and replay fallback; not a truth source                                                                                                                                                      |
+| `GET /agent-playground/missions/:id/leader-chat`                | `mission-read.controller.ts`                 | Keep as sibling route                                                                                                                                                                                            |
+| `GET /agent-playground/missions/:id/dag`                        | `mission/dag-view/mission-dag.controller.ts` | Keep as sibling expert-view route; outside canonical detail payload                                                                                                                                              |
+| `GET /agent-playground/missions/:id/dag/cascade`                | `mission/dag-view/mission-dag.controller.ts` | Keep as sibling preview route used by local-rerun UX; do not fold into canonical detail payload                                                                                                                  |
+| `GET /agent-playground/missions/:id/dag/react/:nodeId`          | `mission/dag-view/mission-dag.controller.ts` | Keep as sibling diagnostic route for node-level ReAct inspection                                                                                                                                                 |
+| `GET /agent-playground/budget-tiers`                            | `agent-playground.controller.ts`             | Keep as sibling setup route; not part of canonical mission truth                                                                                                                                                 |
+| `POST /agent-playground/missions/:id/rerun`                     | `mission-rerun.controller.ts`                | Keep as write path; projector consumes resulting state only                                                                                                                                                      |
+| `POST /agent-playground/missions/:id/todos/:todoId/rerun`       | `mission-rerun.controller.ts`                | Keep as write path                                                                                                                                                                                               |
+| `POST /agent-playground/missions/:id/todos/:todoId/local-rerun` | `mission-rerun.controller.ts`                | Keep as write path                                                                                                                                                                                               |
+| `POST /agent-playground/missions/:id/leader-chat`               | `mission-rerun.controller.ts`                | Keep as write path                                                                                                                                                                                               |
+| `POST /agent-playground/team/run`                               | `agent-playground.controller.ts`             | Keep as primary create-and-run write path; canonical view starts after this write path allocates ownership and durable state                                                                                     |
+| `POST /agent-playground/missions/:id/cancel`                    | `agent-playground.controller.ts`             | Keep as write path                                                                                                                                                                                               |
+| `POST /agent-playground/error-report`                           | `mission-read.controller.ts`                 | Keep as operational support route; outside canonical detail contract                                                                                                                                             |
+| `POST /agent-playground/dev/trigger-mission`                    | `agent-playground.controller.ts`             | Keep only as non-production dev or internal route; exclude from canonical cutover obligations if production gating already forbids it                                                                            |
+| `DELETE /agent-playground/missions/:id`                         | `agent-playground.controller.ts`             | Keep as write path                                                                                                                                                                                               |
+| `PATCH /agent-playground/missions/:id`                          | `agent-playground.controller.ts`             | Keep as write path; canonical read model must reflect updates                                                                                                                                                    |
 
 Only after playground cutover stabilizes may any of these routes be merged or retired in a separate endpoint-rationalization program.
 
@@ -1232,18 +1254,34 @@ The frontend may own:
 
 At cutover:
 
-1. `derive.ts` loses all production authority
-2. `todo-ledger.ts` loses all production authority
-3. `synthesize-artifact.ts` loses all production authority
-4. `drawer-derive.ts` loses all production authority
+1. `derive.ts` loses all production authority **and is deleted**
+2. `todo-ledger.ts` loses all production authority **and is deleted**
+3. `synthesize-artifact.ts` loses all production authority **and is deleted**
+4. `drawer-derive.ts` loses **mission-truth** authority but **may remain in
+   production render path under §7.2 raw-event-timeline-display exemption**
+   (it derives drawer UI sections — tool usage / sources / findings —
+   strictly from `agent.trace`, which §7.2 explicitly allows; it does not
+   derive mission / stage / agent / artifact / todo truth).
 
-Short-term retention is allowed only for:
+§7.2-exempt files (1-4 below) may stay in production render path **provided
+they import only types and helpers**, do not call deleted truth functions,
+and are guarded by ESLint `no-restricted-imports` so consumers go through
+`*-shapes` proxy modules:
 
-1. raw event timeline support
-2. debug tooling
-3. fixture comparison during refactor
+1. `drawer-derive.ts` + `drawer-derive-shapes.ts` (tool/source/finding
+   extraction from `agent.trace`)
+2. `mission-presentation.types.ts` (formerly `derive-shapes.ts`) — presentation
+   shape types + pure mapping helpers (`STAGE_STEPS` / `mapStepIdToStageId` /
+   `aggregateStageStatus`); no truth derivation
+3. `mission-todo.types.ts` (formerly `todo-ledger-shapes.ts`) — `MissionTodo`
+   type mirror of backend `TodoBoardEntry` + UI-only `deriveLayerBreadcrumb`
+4. `useMissionLegacyView` hook (formerly inline `viewToDerivedShim` / before
+   that `view-to-derived.shim.ts` file) — canonical-view → DerivedView shape
+   adapter; consumes canonical truth, derives presentation only
 
-These files must not remain in the production render path.
+Truth-deriving function bodies (`deriveView` / `deriveTodoLedger` /
+`synthesizeArtifact`) are deleted; the surviving files are presentation
+types / adapters under §7.2.
 
 ---
 
@@ -2003,6 +2041,7 @@ Apply the same contract shape and framework usage model to the other mission app
 - Owner: social and radar engineering owners
 - Size: `L`
 - Critical path: no
+
 3. less duplicated frontend truth logic in other apps
 
 **Exit criteria**
@@ -2072,18 +2111,18 @@ Required:
 
 Use this matrix when deciding where a concern should move.
 
-| Concern | Final home |
-|---|---|
-| mission runtime mechanics | `ai-harness` |
-| lifecycle and finalize mechanics | `ai-harness` + app mission-store port |
+| Concern                                  | Final home                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------------- |
+| mission runtime mechanics                | `ai-harness`                                                              |
+| lifecycle and finalize mechanics         | `ai-harness` + app mission-store port                                     |
 | mission detail truth projection skeleton | `ai-harness` or app-local projector framework layer depending on maturity |
-| app-specific field interpretation | app mission projector |
-| app-specific artifact semantics | app mission projector / app artifacts |
-| generic export mechanism | `ai-harness` |
-| generic chat mechanism | `ai-harness` |
-| generic DAG/timeline mechanism | `ai-harness` |
-| frontend business truth derivation | nowhere in final state |
-| frontend rendering and interaction | frontend |
+| app-specific field interpretation        | app mission projector                                                     |
+| app-specific artifact semantics          | app mission projector / app artifacts                                     |
+| generic export mechanism                 | `ai-harness`                                                              |
+| generic chat mechanism                   | `ai-harness`                                                              |
+| generic DAG/timeline mechanism           | `ai-harness`                                                              |
+| frontend business truth derivation       | nowhere in final state                                                    |
+| frontend rendering and interaction       | frontend                                                                  |
 
 ---
 
@@ -2130,37 +2169,37 @@ Use this map to avoid implementation drift.
 
 #### Backend
 
-| Responsibility | Primary files or directories |
-|---|---|
-| mission detail query | `backend/src/modules/ai-app/agent-playground/mission/query/` |
-| mission view projection | `backend/src/modules/ai-app/agent-playground/mission/projectors/` |
+| Responsibility                            | Primary files or directories                                                                         |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| mission detail query                      | `backend/src/modules/ai-app/agent-playground/mission/query/`                                         |
+| mission view projection                   | `backend/src/modules/ai-app/agent-playground/mission/projectors/`                                    |
 | resumable and rerunnable policy decisions | `backend/src/modules/ai-app/agent-playground/mission/rerun/` or `mission/query/` if kept query-local |
-| mission detail endpoint | `backend/src/modules/ai-app/agent-playground/api/controller/` |
-| app contracts | `backend/src/modules/ai-app/agent-playground/api/contracts/` |
-| mission store adapter logic | `backend/src/modules/ai-app/agent-playground/mission/lifecycle/` |
-| business pipeline | `backend/src/modules/ai-app/agent-playground/mission/pipeline/` |
-| business artifact rules | `backend/src/modules/ai-app/agent-playground/mission/artifacts/` |
+| mission detail endpoint                   | `backend/src/modules/ai-app/agent-playground/api/controller/`                                        |
+| app contracts                             | `backend/src/modules/ai-app/agent-playground/api/contracts/`                                         |
+| mission store adapter logic               | `backend/src/modules/ai-app/agent-playground/mission/lifecycle/`                                     |
+| business pipeline                         | `backend/src/modules/ai-app/agent-playground/mission/pipeline/`                                      |
+| business artifact rules                   | `backend/src/modules/ai-app/agent-playground/mission/artifacts/`                                     |
 
 #### Frontend
 
-| Responsibility | Primary files or directories |
-|---|---|
-| detail page composition | `frontend/app/agent-playground/team/[missionId]/page.tsx` |
-| API calls | `frontend/services/agent-playground/api.ts` |
-| canonical shells | `frontend/components/common/mission-detail/` |
-| business panels | `frontend/components/agent-playground/` |
-| lightweight helpers | `frontend/lib/features/agent-playground/{formatters,friendly-error.util,stage-id-mapping}.ts` |
-| deprecated truth logic | `frontend/lib/features/agent-playground/{derive,todo-ledger,synthesize-artifact,drawer-derive}.ts` |
+| Responsibility          | Primary files or directories                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------------- |
+| detail page composition | `frontend/app/agent-playground/team/[missionId]/page.tsx`                                          |
+| API calls               | `frontend/services/agent-playground/api.ts`                                                        |
+| canonical shells        | `frontend/components/common/mission-detail/`                                                       |
+| business panels         | `frontend/components/agent-playground/`                                                            |
+| lightweight helpers     | `frontend/lib/features/agent-playground/{formatters,friendly-error.util,stage-id-mapping}.ts`      |
+| deprecated truth logic  | `frontend/lib/features/agent-playground/{derive,todo-ledger,synthesize-artifact,drawer-derive}.ts` |
 
 #### Harness
 
-| Responsibility | Primary files or directories |
-|---|---|
-| generic mission-store framework | `backend/src/modules/ai-harness/teams/business-team/lifecycle/` |
-| generic dispatcher framework | `backend/src/modules/ai-harness/teams/business-team/dispatcher/` |
-| generic orchestrator framework | `backend/src/modules/ai-harness/teams/business-team/orchestrator/` |
-| generic rerun framework | `backend/src/modules/ai-harness/teams/business-team/rerun/` |
-| generic framework contracts | `backend/src/modules/ai-harness/teams/business-team/abstractions/` |
+| Responsibility                  | Primary files or directories                                       |
+| ------------------------------- | ------------------------------------------------------------------ |
+| generic mission-store framework | `backend/src/modules/ai-harness/teams/business-team/lifecycle/`    |
+| generic dispatcher framework    | `backend/src/modules/ai-harness/teams/business-team/dispatcher/`   |
+| generic orchestrator framework  | `backend/src/modules/ai-harness/teams/business-team/orchestrator/` |
+| generic rerun framework         | `backend/src/modules/ai-harness/teams/business-team/rerun/`        |
+| generic framework contracts     | `backend/src/modules/ai-harness/teams/business-team/abstractions/` |
 
 If new harness directories are required beyond these areas, they are out of scope for this program unless the matching standards and architecture guards are updated first.
 
@@ -2267,12 +2306,15 @@ Freeze business truth before implementation starts.
 10. record current staging latency baseline for the existing mission detail route before projector coding starts
 11. record R2 off-load constraints and large-artifact policy placeholder before setting `p95` gates
 12. freeze the realtime cutover split:
-   - canonical truth from detail view
-   - live token or narrative UX from socket stream
-   - refresh-hint as refetch trigger only
+
+- canonical truth from detail view
+- live token or narrative UX from socket stream
+- refresh-hint as refetch trigger only
+
 13. freeze the cross-pod refresh-hint transport assumption:
-   - use existing `DomainEventBus` plus socket adapter path
-   - no new app-local transport protocol in this program
+
+- use existing `DomainEventBus` plus socket adapter path
+- no new app-local transport protocol in this program
 
 **Done when**
 
