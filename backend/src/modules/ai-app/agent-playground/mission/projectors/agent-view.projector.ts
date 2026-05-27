@@ -31,6 +31,13 @@ interface AgentDigest {
   retryCount: number;
   failureMessage?: string;
   observed: Set<AgentPhase>;
+  // ★ 2026-05-27 (Screenshot_19) ComputeUsagePanel 必填字段
+  attempt?: number;
+  dimension?: string;
+  iterations?: number;
+  wallTimeMs?: number;
+  startedAt?: number;
+  endedAt?: number;
 }
 
 export function projectAgents(
@@ -67,6 +74,35 @@ export function projectAgents(
     //     - chapter:writing:failed / dimension:retry-failed → agent failed
     //     - chapter:revision / dimension:retrying → retry++
     //   保留旧 agent.<verb> 路径兼容 fixture / 未来 explicit emit。
+    // ★ 2026-05-27 (Screenshot_19)：agent:lifecycle 携带 attempt / dimension /
+    //   iterations / wallTimeMs，全部接出来供前端 ComputeUsagePanel 用。
+    const payload = ev.payload as Record<string, unknown> | null;
+    const isLifecycle =
+      ev.type.endsWith("agent:lifecycle") || ev.type === "agent:lifecycle";
+    if (isLifecycle && payload) {
+      if (typeof payload.attempt === "number") digest.attempt = payload.attempt;
+      if (typeof payload.dimension === "string")
+        digest.dimension = payload.dimension;
+      if (typeof payload.iterations === "number")
+        digest.iterations = payload.iterations;
+      if (typeof payload.wallTimeMs === "number")
+        digest.wallTimeMs = payload.wallTimeMs;
+      if (typeof ev.timestamp === "number") {
+        if (payload.phase === "started" && digest.startedAt == null) {
+          digest.startedAt = ev.timestamp;
+        } else if (
+          payload.phase === "completed" ||
+          payload.phase === "failed"
+        ) {
+          digest.endedAt = ev.timestamp;
+          // wallTimeMs fallback：startedAt → endedAt
+          if (digest.wallTimeMs == null && digest.startedAt != null) {
+            digest.wallTimeMs = ev.timestamp - digest.startedAt;
+          }
+        }
+      }
+    }
+
     const verb = extractAgentVerb(ev.type) ?? deriveVerbFromEventType(ev.type);
     switch (verb) {
       case "started":
@@ -84,7 +120,6 @@ export function projectAgents(
         digest.retryCount += 1;
         break;
       default:
-        // 任何带 agentId 但不是显式 verb 的事件 → 至少把 agent 标 running
         if (
           !digest.observed.has("completed") &&
           !digest.observed.has("failed")
@@ -104,6 +139,12 @@ export function projectAgents(
     modelId: d.modelId,
     retryCount: d.retryCount > 0 ? d.retryCount : undefined,
     failureMessage: d.failureMessage,
+    attempt: d.attempt,
+    dimension: d.dimension,
+    iterations: d.iterations,
+    wallTimeMs: d.wallTimeMs,
+    startedAt: d.startedAt,
+    endedAt: d.endedAt,
   }));
 }
 

@@ -176,6 +176,13 @@ function dvProjectAgents(
               modelId: a.modelId,
               retryCount: a.retryCount,
               failureMessage: a.failureMessage,
+              // ★ 2026-05-27 (Screenshot_19)：透传 ComputeUsagePanel 需要的 4 字段
+              attempt: (a as { attempt?: number }).attempt,
+              dimension: (a as { dimension?: string }).dimension,
+              iterations: (a as { iterations?: number }).iterations,
+              wallTimeMs: (a as { wallTimeMs?: number }).wallTimeMs,
+              startedAt: (a as { startedAt?: number }).startedAt,
+              endedAt: (a as { endedAt?: number }).endedAt,
               trace: traceByAgent.get(a.id) ?? [],
             })
           );

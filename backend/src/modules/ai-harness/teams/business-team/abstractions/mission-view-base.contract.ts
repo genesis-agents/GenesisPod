@@ -119,6 +119,15 @@ export interface MissionViewBaseAgent {
   modelId?: string;
   retryCount?: number;
   failureMessage?: string;
+  // ★ 2026-05-27 (Screenshot_19)：ComputeUsagePanel "Agent 实例耗时" 需要这 4 字段。
+  //   原 contract 只有 6 个，前端 dvProjectAgents 走 view.agents 短路时这些字段永远
+  //   是 undefined → 维度 / iter / 耗时 三列空白。新增 optional 字段，向后兼容。
+  attempt?: number;
+  dimension?: string;
+  iterations?: number;
+  wallTimeMs?: number;
+  startedAt?: number;
+  endedAt?: number;
 }
 
 // ============================================================================
@@ -167,10 +176,7 @@ export interface MissionCostView {
  * TArtifact: app-specific artifact shape (or EmptyArtifactSentinel fallback).
  * TTodoEntry: app-specific todo entry shape.
  */
-export interface MissionViewBase<
-  TArtifact = unknown,
-  TTodoEntry = unknown,
-> {
+export interface MissionViewBase<TArtifact = unknown, TTodoEntry = unknown> {
   mission: MissionViewBaseMission;
   stages: MissionViewBaseStage[];
   agents: MissionViewBaseAgent[];
