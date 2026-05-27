@@ -142,10 +142,18 @@ else
 fi
 
 # ── Push 到 ghcr ──────────────────────────────────────────
+# 每个业务镜像 push 两个 tag：`:<version>` (固定版本) + `:latest` (用户默认拉这个)
+#   ── 客户不指定 tag 时 docker 默认 :latest，避免每次升级都改 .env 的 *_IMAGE 行。
 if [ "$PUSH" -eq 1 ]; then
-  for img in "$GHCR_BACKEND" "$GHCR_FRONTEND" "$GHCR_AI_SERVICE"; do
-    log "Pushing $img..."
-    docker push "$img"
+  for pair in "$GHCR_BACKEND|ghcr.io/${GHCR_OWNER}/genesis-backend:latest" \
+              "$GHCR_FRONTEND|ghcr.io/${GHCR_OWNER}/genesis-frontend:latest" \
+              "$GHCR_AI_SERVICE|ghcr.io/${GHCR_OWNER}/genesis-ai-service:latest"; do
+    VER_TAG="${pair%|*}"; LATEST_TAG="${pair#*|}"
+    log "Pushing $VER_TAG..."
+    docker push "$VER_TAG"
+    log "Tag + push $LATEST_TAG..."
+    docker tag "$VER_TAG" "$LATEST_TAG"
+    docker push "$LATEST_TAG"
   done
 else
   warn "--no-push 模式：跳过 docker push"
@@ -169,10 +177,12 @@ cp "${ONPREM_DIR}/scripts/install.sh"            "${STAGING}/"
 cp "${ONPREM_DIR}/scripts/upgrade.sh"            "${STAGING}/"
 
 # 把镜像 tag 注入到 .env.production.example 默认值
+# ── 走 :latest 而非 :VERSION：客户拉默认 .env 就自动拿到最新版（user request 2026-05-27）。
+#    需要 pin 版本时客户自己改这 3 行成 :${VERSION}（或运维通过 envsubst 注入）。
 sed -i.bak \
-  -e "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=${GHCR_BACKEND}|" \
-  -e "s|^FRONTEND_IMAGE=.*|FRONTEND_IMAGE=${GHCR_FRONTEND}|" \
-  -e "s|^AI_SERVICE_IMAGE=.*|AI_SERVICE_IMAGE=${GHCR_AI_SERVICE}|" \
+  -e "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=ghcr.io/${GHCR_OWNER}/genesis-backend:latest|" \
+  -e "s|^FRONTEND_IMAGE=.*|FRONTEND_IMAGE=ghcr.io/${GHCR_OWNER}/genesis-frontend:latest|" \
+  -e "s|^AI_SERVICE_IMAGE=.*|AI_SERVICE_IMAGE=ghcr.io/${GHCR_OWNER}/genesis-ai-service:latest|" \
   "${STAGING}/.env.production.example"
 rm -f "${STAGING}/.env.production.example.bak"
 
@@ -239,11 +249,12 @@ ${C_BOLD}${C_GREEN}✓ 发布完成${C_RESET}
   Size             : ${SIZE}
   SHA-256          : ${SHA}
 
-  Images on ghcr.io:
+  Images on ghcr.io (both :${VERSION} and :latest tags pushed):
     ${GHCR_BACKEND}
     ${GHCR_FRONTEND}
     ${GHCR_AI_SERVICE}
     ${GHCR_INSTALLER}  ${C_DIM}← 客户用这个拿配置${C_RESET}
+  ${C_DIM}默认 .env 走 :latest，客户无需指定版本即可拉到最新发布${C_RESET}
 
 ${C_DIM}给客户的部署指引（首选：docker run，零文件传输）：${C_RESET}
   1. 在 org 加客户为 packages collaborator (Read)
