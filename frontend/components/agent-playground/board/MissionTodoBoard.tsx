@@ -118,6 +118,16 @@ function deriveDimSubStatus(
       label: '已放弃',
       tone: 'bg-gray-100 text-gray-600 ring-gray-200',
     };
+  // ★ Screenshot_61 修复 (#104): td.status === 'done' 时优先标"已完成"，
+  //   不再 fall through 到下方 pipeline.chapters 检查。否则 Leader 重派完成的
+  //   dim（chapter pipeline 未跑或被跳过 → chapters.length === 0）会被误标
+  //   "采集完成 · 待大纲"，与 status=done 自相矛盾。
+  if (td.status === 'done') {
+    return {
+      label: '已完成',
+      tone: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+    };
+  }
   const pipelineKey = td.pipelineKey ?? td.dimensionRef;
   const pipeline = pipelineKey ? pipelines?.get(pipelineKey) : undefined;
   // 还没起 outline

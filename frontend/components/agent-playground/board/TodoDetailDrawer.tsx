@@ -703,6 +703,12 @@ function buildTimeline(
   for (const t of trace) {
     if (t.kind === 'thought' && t.text && t.text.trim()) {
       out.push({ kind: 'thought', ts: t.ts, trace: t });
+    } else if (t.kind === 'action' && !t.toolId && t.text && t.text.trim()) {
+      // ★ Screenshot_62/63 (#105) 修复：单 LLM stage (outline-planner / critic 等)
+      //   走 structured output 而非 tool_call → toolId 永远缺失。早先这里直接 skip
+      //   导致"完整时间线"几乎全空（只剩 stage 启动/完成两条 narrative）。改为把无
+      //   toolId 的 action 当成 thought 一样渲染（其 text 字段才是 LLM 推理过程）。
+      out.push({ kind: 'thought', ts: t.ts, trace: t });
     } else if (t.kind === 'action' && t.toolId) {
       if (t.toolId === 'finalize') {
         // finalize 不另起卡（产出已在"关键发现"展示）—— 跳过
@@ -1176,6 +1182,111 @@ export function TodoDetailDrawer({
               );
             })()
           : null}
+
+        {/* BUG #101: s1-budget has no LLM — show notice + artifacts + timing */}
+        {todo.scope === 'system' &&
+          todo.systemStageId === 's1-budget' &&
+          !liveProcessTrace && (
+            <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  阶段过程 · stage process
+                </h4>
+                <span className="text-[11px] text-gray-400">{todo.title}</span>
+              </div>
+              <p className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-[12px] text-blue-700">
+                本阶段无 LLM 调用，仅做预算分配（deterministic token budget
+                allocation）
+              </p>
+              {todo.artifacts.length > 0 && (
+                <div className="space-y-1.5">
+                  <h5 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    预算分配结果
+                  </h5>
+                  <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+                    {todo.artifacts.map((a, i) => (
+                      <React.Fragment key={i}>
+                        <dt className="truncate text-gray-500">{a.label}</dt>
+                        <dd className="font-mono truncate text-right text-gray-800">
+                          {a.value != null ? String(a.value) : '—'}
+                        </dd>
+                      </React.Fragment>
+                    ))}
+                  </dl>
+                </div>
+              )}
+              {(todo.startedAt != null || todo.endedAt != null) && (
+                <div className="space-y-1.5">
+                  <h5 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    阶段时序
+                  </h5>
+                  <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+                    {todo.startedAt != null && (
+                      <React.Fragment>
+                        <dt className="text-gray-500">开始</dt>
+                        <dd className="font-mono text-right text-gray-800">
+                          {fmtTimestamp(todo.startedAt)}
+                        </dd>
+                      </React.Fragment>
+                    )}
+                    {todo.endedAt != null && (
+                      <React.Fragment>
+                        <dt className="text-gray-500">完成</dt>
+                        <dd className="font-mono text-right text-gray-800">
+                          {fmtTimestamp(todo.endedAt)}
+                        </dd>
+                      </React.Fragment>
+                    )}
+                    {todo.startedAt != null && todo.endedAt != null && (
+                      <React.Fragment>
+                        <dt className="text-gray-500">耗时</dt>
+                        <dd className="font-mono text-right text-gray-800">
+                          {fmtDuration(todo.startedAt, todo.endedAt)}
+                        </dd>
+                      </React.Fragment>
+                    )}
+                  </dl>
+                </div>
+              )}
+            </div>
+          )}
+
+        {/* BUG #100: dimension todo — render researcher agent ReAct process panel */}
+        {todo.scope === 'dimension' &&
+          linkedAgent &&
+          linkedAgent.trace.length > 0 &&
+          (() => {
+            const dimTrace: import('@/lib/features/agent-playground/mission-presentation.types').StageProcessTrace =
+              {
+                reactTrace: linkedAgent.trace.map((t) => ({
+                  kind: t.kind,
+                  ts: t.ts,
+                  text: t.text,
+                  toolId: t.toolId,
+                  output:
+                    t.output != null
+                      ? typeof t.output === 'string'
+                        ? t.output
+                        : JSON.stringify(t.output).slice(0, 500)
+                      : undefined,
+                  latencyMs: t.latencyMs,
+                  tokensUsed: t.tokensUsed,
+                  error: t.error,
+                })),
+                stepCount: linkedAgent.trace.length,
+                totalTokens: linkedAgent.trace.reduce(
+                  (s, t) => s + (t.tokensUsed ?? 0),
+                  0
+                ),
+                totalDurationMs: linkedAgent.wallTimeMs,
+              };
+            return (
+              <StageProcessPanel
+                processTrace={dimTrace}
+                stageLabel={`Researcher · ${todo.assignee.dimensionName ?? todo.assignee.agentId ?? ''}`}
+              />
+            );
+          })()}
 
         {/* 关键发现 */}
         {sections.findings.length > 0 && (
