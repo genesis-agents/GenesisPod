@@ -29,6 +29,8 @@ interface StageStepperProps {
   stages: StageStepperItem[];
   /** 标题，默认 "Mission 阶段" */
   heading?: string;
+  /** 点击单个 stage 时回调，调用方决定行为（filter timeline / focus drawer 等）。 */
+  onStageClick?: (stageId: string) => void;
 }
 
 const TONE: Record<StageStepperStatus, string> = {
@@ -48,6 +50,7 @@ const MARK: Record<StageStepperStatus, string> = {
 export function StageStepper({
   stages,
   heading = 'Mission 阶段',
+  onStageClick,
 }: StageStepperProps) {
   if (stages.length === 0) return null;
   return (
@@ -56,16 +59,27 @@ export function StageStepper({
         <Sparkles className="h-4 w-4 text-violet-500" />
         <h3 className="text-sm font-semibold text-gray-900">{heading}</h3>
         <span className="text-xs text-gray-500">· {stages.length} 阶段</span>
+        {onStageClick && (
+          <span className="ml-auto text-[10px] text-gray-400">
+            点击 stage 可定位到过程
+          </span>
+        )}
       </div>
       <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6 lg:grid-cols-12">
         {stages.map((s) => {
           const Icon = s.Icon;
+          const clickable = !!onStageClick;
+          const Tag = clickable ? 'button' : 'div';
           return (
-            <div
+            <Tag
               key={s.id}
+              type={clickable ? 'button' : undefined}
+              onClick={clickable ? () => onStageClick(s.id) : undefined}
               className={cn(
                 'flex flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-1.5 ring-1',
-                TONE[s.status]
+                TONE[s.status],
+                clickable &&
+                  'cursor-pointer transition hover:scale-105 hover:shadow focus:outline-none focus:ring-2 focus:ring-violet-400'
               )}
               title={s.title ?? s.short}
             >
@@ -74,7 +88,7 @@ export function StageStepper({
                 {s.short}
               </span>
               <span className="text-[9px]">{MARK[s.status]}</span>
-            </div>
+            </Tag>
           );
         })}
       </div>

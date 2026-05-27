@@ -314,13 +314,13 @@ export function PlaygroundMissionDialog({
             required
             hint={topic.length > 0 ? `${topic.length}/200` : undefined}
           >
-            <textarea
+            <input
+              type="text"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               placeholder="例如：2026 Q2 AI Agent 市场格局与主要厂商竞争力变化"
-              rows={3}
               maxLength={200}
-              className="w-full resize-y rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               autoFocus
               required
             />

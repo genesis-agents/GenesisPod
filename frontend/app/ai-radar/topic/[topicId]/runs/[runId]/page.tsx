@@ -62,6 +62,11 @@ import {
 } from '@/components/common/mission-detail';
 import { useRadarStream } from '@/hooks/domain/useRadarStream';
 import {
+  TeamTopologyCanvas,
+  type TeamTopologyNode,
+  type TeamNodeStatus,
+} from '@/components/common/team-topology';
+import {
   STAGE_GROUPS,
   agentRoleTone,
   effectiveLastCompletedStage,
@@ -487,7 +492,14 @@ function RadarTeamPanel({
         </h2>
       </div>
 
-      {/* Agent roster */}
+      {/* Agent topology — 与 playground / TI 共用 TeamTopologyCanvas */}
+      <RadarTeamTopology
+        run={run}
+        currentStage={currentStage}
+        onAgentClick={onAgentClick}
+      />
+
+      {/* Agent roster — 文字列表（仍保留以便看到 stage 描述 + click target） */}
       <div className="flex flex-col gap-1.5">
         {STAGE_GROUPS.map((g) => {
           const st = stageGroupStatus(run, g, currentStage);
@@ -570,6 +582,73 @@ function RadarTeamPanel({
           <MetricStat label="耗时" value={formatDuration(run.durationMs)} />
         </dl>
       </div>
+    </div>
+  );
+}
+
+// ─── Radar 5-Agent topology ──────────────────────────────
+// 与 playground / TI 共用 TeamTopologyCanvas（5 节点单行 pipeline）。
+function RadarTeamTopology({
+  run,
+  currentStage,
+  onAgentClick,
+}: {
+  run: RadarRun;
+  currentStage: string | null;
+  onAgentClick: (stageId: string) => void;
+}) {
+  const ROLE_COLOR: Record<string, string> = {
+    collector: 'blue',
+    deduper: 'amber',
+    scorer: 'emerald',
+    analyst: 'purple',
+    persister: 'rose',
+  };
+
+  const nodes: TeamTopologyNode[] = STAGE_GROUPS.map((g) => {
+    const st = stageGroupStatus(run, g, currentStage);
+    const status: TeamNodeStatus =
+      st === 'running'
+        ? 'working'
+        : st === 'completed'
+          ? 'completed'
+          : st === 'failed'
+            ? 'failed'
+            : 'idle';
+    return {
+      id: g.id,
+      name: g.agent.name,
+      role: g.agent.role,
+      icon: '🤖',
+      status,
+      colorKey: ROLE_COLOR[g.agent.role] ?? 'blue',
+    };
+  });
+
+  const rows: string[][] = [STAGE_GROUPS.map((g) => g.id)];
+  const connections = STAGE_GROUPS.slice(0, -1).map((g, i) => ({
+    from: g.id,
+    to: STAGE_GROUPS[i + 1].id,
+  }));
+
+  return (
+    <div
+      className="rounded-xl border border-gray-200 bg-white p-2"
+      onClick={(e) => {
+        const t = e.target as HTMLElement;
+        const id = t.closest('[data-node-id]')?.getAttribute('data-node-id');
+        if (id) onAgentClick(id);
+      }}
+    >
+      <TeamTopologyCanvas
+        nodes={nodes}
+        rows={rows}
+        connections={connections}
+        heightClass="h-[140px]"
+        viewBoxHeight={140}
+        rowYPositions={[70]}
+        patternId="radar"
+      />
     </div>
   );
 }

@@ -56,6 +56,26 @@ import {
   type StageStepperItem,
 } from '@/components/common/mission-detail/StageStepper';
 
+/** Stage → 主要 role for timeline filter on stage click（Screenshot_38 落地）。
+ * 与 buildFlowEvents 派生的 role 字符串对齐；多 role 的 stage 取主代表。
+ * mission-only stage (s1/s11/s12) 不映射 → click 等于清空 filter。 */
+const STAGE_TO_ROLE: Record<SystemStageId, string | undefined> = {
+  's1-budget': undefined,
+  's2-leader-plan': 'leader',
+  's3-researchers': 'researcher',
+  's4-leader-assess': 'leader',
+  's5-reconciler': 'reconciler',
+  's6-analyst': 'analyst',
+  's7-writer-outline': 'outline-planner',
+  's8-writer-draft': 'writer',
+  's8b-quality-enhancement': 'writer',
+  's9-critic-l4': 'critic',
+  's9b-objective-evaluation': 'critic',
+  's10-leader-signoff': 'leader',
+  's11-persist': undefined,
+  's12-self-evolution': undefined,
+};
+
 const STAGE_META: Record<SystemStageId, { short: string; Icon: LucideIcon }> = {
   's1-budget': { short: '预算估算', Icon: PiggyBank },
   's2-leader-plan': { short: '维度规划', Icon: Brain },
@@ -482,9 +502,20 @@ export function MissionFlowView({
             };
           })
         }
+        onStageClick={(stageId) => {
+          // 点 stage → filter timeline by 该 stage 主要 role；同时滚到时间线锚点
+          const role = STAGE_TO_ROLE[stageId as SystemStageId];
+          setFilterRole(role ?? null);
+          requestAnimationFrame(() => {
+            document
+              .getElementById('mission-timeline-anchor')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        }}
       />
 
       {/* ─── Mission-wide narrative timeline ─── */}
+      <div id="mission-timeline-anchor" />
       <Section
         title="Mission 实时时间线"
         count={`${flow.length} 条事件`}
