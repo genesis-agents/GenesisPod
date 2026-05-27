@@ -14,13 +14,13 @@ import type {
   RadarDomainView,
   RadarBriefingRef,
   EmptyArtifactSentinel,
-  RadarTodoBoardSentinel,
 } from "../../api/contracts/view-state.contract";
 import {
   projectStagesByOrdinal,
   type StagePresetEntry,
 } from "@/modules/ai-harness/facade";
 import type { MissionViewBaseStage } from "@/modules/ai-harness/facade";
+import { projectRadarTodoBoard } from "./radar-todo-board.projector";
 
 // Radar pipeline 9 个 stage（mirror radar/mission/pipeline/stages/ 目录）
 const RADAR_STAGES: ReadonlyArray<StagePresetEntry> = [
@@ -77,7 +77,7 @@ export function projectRadarMissionView(
     stages: projectRadarStages(row.lastCompletedStage, publicStatus),
     agents: projectRadarAgents(row),
     reportArtifact: buildBriefingRefOrSentinel(row),
-    todoBoard: buildEmptyTodoBoardSentinel(),
+    todoBoard: projectRadarTodoBoard(row, inputs.events),
     cost: {
       tokensUsed: null, // radar tracks via metrics.llmCost (USD); tokens not directly persisted
       costUsd: metricsSummary?.llmCost ?? null,
@@ -182,10 +182,6 @@ function buildBriefingRefOrSentinel(row: {
     };
   }
   return { kind: "empty-artifact", reason: "not-yet-materialized" };
-}
-
-function buildEmptyTodoBoardSentinel(): RadarTodoBoardSentinel {
-  return { kind: "empty-todo-board" };
 }
 
 function deriveSnapshotVersion(row: {
