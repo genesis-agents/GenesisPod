@@ -140,6 +140,18 @@ export function useMissionStream(
       withCredentials: true,
     });
 
+    // ★ 2026-05-27 Screenshot_49 致命修复 (failsafe polling start):
+    //   socket.io 初始 'connecting' 永远不进 'live' / 'disconnect' / 'connect_error'
+    //   时（罕见但用户实证：mission 创建后 14 stage 永远"待启动"），用户彻底卡死。
+    //   8 秒后若仍非 live → 强制 startPolling，让 page 至少通过 replay 端点 4s 一次
+    //   兜底拿事件，UI 能进展。WS 后续成功仍会切回 live（startPolling no-op 二次调用）。
+    const handshakeFailsafeTimer = setTimeout(() => {
+      if (!cancelled && socket && !socket.connected) {
+        setConnState('polling');
+        startPolling();
+      }
+    }, 8_000);
+
     const onConnect = () => {
       setConnState('live');
       setError(null);
@@ -207,6 +219,7 @@ export function useMissionStream(
 
     return () => {
       cancelled = true;
+      clearTimeout(handshakeFailsafeTimer);
       if (pollTimer) clearInterval(pollTimer);
       if (socket) {
         socket.emit(leaveEvent, { [idKey]: missionId });

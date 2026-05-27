@@ -252,6 +252,22 @@ describe("AgentPlaygroundGateway", () => {
       expect(result.ok).toBe(true);
       expect(cache.get).toHaveBeenCalledWith("blocklist:user:user-1");
     });
+
+    // ★ 2026-05-27 Screenshot_49 致命修复：cache 异常 fail-open。Redis 不可达
+    //   时 cache.get throw —— 旧实现 throw 上抛 → join 失败 → WS 0 事件到达前端
+    //   → 新 mission 页面永远"待启动"。新实现：log warn + 允许连接。
+    it("fail-open when cache.get throws (Redis unavailable)", async () => {
+      ownership.getOwner.mockReturnValue("user-1");
+      jwt.verify.mockReturnValue({ sub: "user-1" });
+      cache.get.mockRejectedValue(new Error("ECONNREFUSED 127.0.0.1:6379"));
+      const socket = makeMockSocket({ token: "valid" });
+      const result = await gateway.handleJoin(socket as never, {
+        missionId: "m-resilient",
+      });
+      // join 应当成功（fail-open），用户可以正常使用 mission
+      expect(result.ok).toBe(true);
+      expect(socket.join).toHaveBeenCalledWith("playground:m-resilient");
+    });
   });
 
   describe("handleLeave", () => {

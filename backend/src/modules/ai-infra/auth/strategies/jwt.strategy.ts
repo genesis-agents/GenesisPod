@@ -71,9 +71,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const userId = payload.sub;
 
     // ★ 检查 Redis 黑名单（被禁用/删除的用户）
-    const isBlocked = await this.cacheService.get<string>(
-      `${BLOCKLIST_PREFIX}${userId}`,
-    );
+    // ★ 2026-05-27 (fail-open on cache error)：cache 查询异常时 log warn 并放行。
+    //   Redis 不可达时若 throw → 所有 HTTP API 都 401，应用不可用。fail-open
+    //   保留 Redis 正常工作时的安全语义（被 block 的用户仍会被拦截），同时不
+    //   会因运行时 cache 故障让整个应用瘫痪。
+    let isBlocked: string | null | undefined = null;
+    try {
+      isBlocked = await this.cacheService.get<string>(
+        `${BLOCKLIST_PREFIX}${userId}`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `[jwt-validate] blocklist check failed for user=${userId} — fail-open: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
     if (isBlocked) {
       throw new UnauthorizedException("User account is disabled");
     }

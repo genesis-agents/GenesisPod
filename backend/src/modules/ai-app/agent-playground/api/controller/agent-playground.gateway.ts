@@ -163,9 +163,22 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
     // ★ P32 安全修 (e2e P0-#6): WS 鉴权除验签外必须查 Redis blocklist —— 否则被
     //   禁用/删除的用户旧 socket 仍能 join + 收 mission 流，直到 token 自然过期。
     //   与 HTTP JwtStrategy.validate 同源（同一 blocklist:user: key）。
-    const isBlocked = await this.cache.get<string>(
-      `${BLOCKLIST_PREFIX}${userId}`,
-    );
+    //
+    // ★ 2026-05-27 Screenshot_49 致命修复 (fail-open on cache error):
+    //   原实现 `await cache.get(...)` 在 Redis 不可达 / 超时 / 异常时直接 throw →
+    //   WS handshake 失败 → 用户新创建 mission 页面收不到任何事件 → 14 stage 永远
+    //   "待启动"。改成：cache 查询失败时 log warn 并放行（fail-open）。运行时仍
+    //   生效（Redis 正常 → 被禁用账号仍会被拦截）；运行时降级仍可工作。
+    let isBlocked: string | undefined | null = null;
+    try {
+      isBlocked = await this.cache.get<string>(`${BLOCKLIST_PREFIX}${userId}`);
+    } catch (err) {
+      this.log.warn(
+        `[ws-auth] blocklist check failed for user=${userId} — fail-open (allowing connection): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
     if (isBlocked) throw new UnauthorizedException("User account is disabled");
     return userId;
   }
