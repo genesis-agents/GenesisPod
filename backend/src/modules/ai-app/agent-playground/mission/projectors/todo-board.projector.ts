@@ -246,6 +246,51 @@ function addNarrative(
   cur.narrativeLog.push({ ts, text, tone });
 }
 
+/**
+ * 把 dim 维度下所有 in-progress retry 子任务收到目标状态。
+ *
+ * 触发场景（2026-05-26 修复 Screenshot_2 实证）：
+ *   - dimension:research:completed → dim 已 done，retry 视为成功收尾
+ *   - dimension:graded → 最终评分给出，retry 已被纳入
+ *
+ * 受影响 origin：leader-assess-retry / -replace / -extend / self-heal-retry / leader-chat-create。
+ */
+function resolveInProgressRetryChildren(
+  state: BuilderState,
+  dim: string,
+  ts: number,
+  outcome: "success" | "failure",
+): void {
+  const targetStatus: TodoStatus = outcome === "success" ? "done" : "failed";
+  const narrativeText =
+    outcome === "success"
+      ? "本轮重试已被纳入维度最终结果"
+      : "维度未能恢复，本轮重试结束";
+  const RETRY_ORIGINS = new Set([
+    "leader-assess-retry",
+    "leader-assess-replace",
+    "leader-assess-extend",
+    "self-heal-retry",
+    "leader-chat-create",
+  ]);
+  for (const t of state.todos.values()) {
+    if (
+      t.scope === "dimension" &&
+      t.dimensionRef === dim &&
+      RETRY_ORIGINS.has(t.origin) &&
+      (t.status === "in_progress" || t.status === "pending")
+    ) {
+      t.status = targetStatus;
+      t.endedAt = ts;
+      t.narrativeLog.push({
+        ts,
+        text: narrativeText,
+        tone: outcome === "success" ? "success" : "warn",
+      });
+    }
+  }
+}
+
 function makeSystemStageTodo(preset: StagePreset, ts: number): TodoBoardEntry {
   return {
     id: `system:${preset.id}`,
@@ -483,6 +528,10 @@ export function projectTodoBoard(
             : "研究完成",
           "success",
         );
+        // ★ 2026-05-26 修复：dim 研究完成 → in-progress retry child（leader-assess-*
+        //   / self-heal / leader-chat-create）随之标 done。否则 terminal cleanup 会
+        //   把 retry child 误标为 "cancelled"（见 Screenshot_2 实证）。
+        resolveInProgressRetryChildren(state, dim, ts, "success");
       }
       continue;
     }
@@ -1032,6 +1081,9 @@ export function projectTodoBoard(
             grade >= 70 ? "success" : "warn",
           );
         }
+        // ★ 2026-05-26 修复：dim graded（最终评分给出）→ 残留 in-progress retry
+        //   child 视为该轮 retry 已被纳入最终评分，状态收 done。
+        resolveInProgressRetryChildren(state, dim, ts, "success");
       }
       continue;
     }

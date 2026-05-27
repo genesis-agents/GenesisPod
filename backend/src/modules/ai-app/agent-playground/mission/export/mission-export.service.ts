@@ -20,6 +20,7 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { MissionStore } from "../../mission/lifecycle/mission-store.service";
+import { normalizeV1ToV2 } from "../../mission/projectors/artifact.projector";
 
 interface ExportedMission {
   filename: string;
@@ -60,13 +61,18 @@ export class MissionExportService {
     const mission = await this.store.getById(missionId, userId);
     if (!mission) throw new ForbiddenException("Mission not found");
 
-    const reportFull = (mission as { reportFull?: unknown }).reportFull as
-      | ReportFull
-      | null
-      | undefined;
-    if (!reportFull) {
+    const rawReportFull = (mission as { reportFull?: unknown }).reportFull;
+    if (!rawReportFull) {
       throw new BadRequestException("Mission has no report yet");
     }
+
+    // ★ 2026-05-26 WYSIWYG 修复：旧 mission row.reportFull 是 v1 shape
+    //   （title / summary / sections{heading,body} / citations:string[]）；
+    //   前端 ArtifactReader 走 ArtifactComposer 已 normalize 到 v2（含
+    //   content.fullMarkdown + ArtifactCitation[]）。本服务之前直接读 row.reportFull
+    //   导致 markdown 导出 fullMarkdown 缺失 / citations 不带 title，与 UI 不一致。
+    //   现统一走 normalizeV1ToV2，确保导出 = UI 所见。
+    const reportFull = this.normalizeReportFull(rawReportFull);
 
     const slug = this.makeSlug(reportFull, missionId);
 
@@ -83,6 +89,36 @@ export class MissionExportService {
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Ensure reportFull is in v2 shape (matching ArtifactReader display path).
+   * - already v2 (has content.fullMarkdown) → 原样返回
+   * - v1 shape (has title/summary/sections{heading,body}) → normalize 到 v2
+   * - unknown → as-is（兜底）
+   */
+  private normalizeReportFull(raw: unknown): ReportFull {
+    if (!raw || typeof raw !== "object") return {} as ReportFull;
+    const obj = raw as Record<string, unknown>;
+    const content = obj.content as { fullMarkdown?: string } | undefined;
+    // v2 hallmark：content.fullMarkdown 已存在 → 直接用
+    if (content && typeof content.fullMarkdown === "string") {
+      return raw as ReportFull;
+    }
+    // v1 hallmark：sections 是 {heading, body} 数组
+    const sections = obj.sections;
+    const hasV1Sections =
+      Array.isArray(sections) &&
+      sections.length > 0 &&
+      sections.every(
+        (s) => s && typeof s === "object" && "heading" in s && "body" in s,
+      );
+    if (hasV1Sections || obj.summary || obj.title) {
+      const v2 = normalizeV1ToV2(raw as Parameters<typeof normalizeV1ToV2>[0]);
+      // ReportArtifactV2 字段子集 mirror ReportFull interface
+      return v2 as unknown as ReportFull;
+    }
+    return raw as ReportFull;
+  }
 
   private sanitize(s: string): string {
     return `"${s.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
