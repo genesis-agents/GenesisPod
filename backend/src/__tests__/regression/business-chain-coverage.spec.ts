@@ -429,29 +429,30 @@ describe("resolveMissionWallTimeMs — pure function contracts", () => {
     expect(resolveMissionWallTimeMs(input)).toBe(300_000);
   });
 
-  it("never exceeds 3 hours hard ceiling (10800000 ms)", () => {
-    // 最大档位 deep = 180min = 3h（与 DTO wallTimeCapMs.max 对齐），不超过硬顶
+  it("never exceeds 24 hours hard ceiling (86400000 ms)", () => {
+    // ★ 2026-05-27：本地模型深度分析需求上调到 24h（deep=1440min）
+    //   与 DTO wallTimeCapMs.max + BUDGET_FIELD_LIMITS.wallTimeMinutes.max 对齐。
     const input = validInput({ depth: "deep" });
     expect(resolveMissionWallTimeMs(input)).toBeLessThanOrEqual(
-      3 * 60 * 60 * 1000,
+      24 * 60 * 60 * 1000,
     );
   });
 
-  // ★ 2026-05-22 单一源：wall-time 改由 DEPTH_BUDGET_TIERS 按 depth 解析
-  //   （去掉旧 depth×audit×budget 矩阵）。standard=60min / quick=20min / deep=180min。
-  it("standard tier wall-time is 60 min (DEPTH_BUDGET_TIERS, key regression)", () => {
+  // ★ 2026-05-27 单一源：wall-time 由 DEPTH_BUDGET_TIERS 按 depth 解析。
+  //   quick=180min / standard=600min / deep=1440min（应对本地模型深度分析时长）
+  it("standard tier wall-time is 600 min (10h) (DEPTH_BUDGET_TIERS, key regression)", () => {
     const input = validInput({ depth: "standard" });
-    expect(resolveMissionWallTimeMs(input)).toBe(60 * 60 * 1000);
+    expect(resolveMissionWallTimeMs(input)).toBe(600 * 60 * 1000);
   });
 
-  it("quick tier wall-time is 20 min", () => {
+  it("quick tier wall-time is 180 min (3h)", () => {
     const input = validInput({ depth: "quick" });
-    expect(resolveMissionWallTimeMs(input)).toBe(20 * 60 * 1000);
+    expect(resolveMissionWallTimeMs(input)).toBe(180 * 60 * 1000);
   });
 
-  it("deep tier wall-time is 180 min (3h)", () => {
+  it("deep tier wall-time is 1440 min (24h)", () => {
     const input = validInput({ depth: "deep" });
-    expect(resolveMissionWallTimeMs(input)).toBe(180 * 60 * 1000);
+    expect(resolveMissionWallTimeMs(input)).toBe(1440 * 60 * 1000);
   });
 });
 
