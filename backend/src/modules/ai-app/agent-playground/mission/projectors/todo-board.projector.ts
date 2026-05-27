@@ -1482,14 +1482,17 @@ export function projectTodoBoard(
     // ── reset 不支持的 event；剩余 case 留 follow-up ───────────────
   }
 
-  // 3. mission terminal cleanup：mission row terminal 状态 → 未完成 todo cancel
+  // 3. mission terminal cleanup：mission row terminal 状态 → 未完成 todo 收尾
+  //    ★ 2026-05-26 修复：mission completed/rejected 时 system stage 也必须收 done
+  //    （之前 t.scope !== "system" guard 导致事件 buffer FIFO 5000 evict 后早期 stage
+  //    显示"待启动"假象，见 Screenshot_1 实证）。
   if (row.status === "completed" || row.status === "rejected") {
     for (const t of state.todos.values()) {
-      if (
-        t.scope !== "system" &&
-        (t.status === "pending" || t.status === "in_progress")
-      ) {
-        t.status = "cancelled";
+      if (t.status === "pending" || t.status === "in_progress") {
+        // system stage 收 done（completed/rejected mission 必跑完所有 stage）
+        // 非 system（dim retry / chapter / reconciler-gap 等）维持 cancelled 语义
+        t.status = t.scope === "system" ? "done" : "cancelled";
+        if (!t.endedAt) t.endedAt = missionCreatedAt;
         addNarrative(
           state,
           t.id,
@@ -1502,6 +1505,8 @@ export function projectTodoBoard(
   } else if (row.status === "failed" || row.status === "cancelled") {
     for (const t of state.todos.values()) {
       if (
+        // failed / cancelled 仅清理非 system；system stages 维持 pending 以展示
+        // mission "停在哪里"（s1-sN done + sM failed + sM+1...s12 pending）。
         t.scope !== "system" &&
         (t.status === "pending" || t.status === "in_progress")
       ) {
