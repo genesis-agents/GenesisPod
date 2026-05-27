@@ -399,13 +399,14 @@ export default function MissionDetailPage() {
 
   useEffect(() => {
     if (invalidId) return;
-    if (!persisted) return;
+    const status = persisted?.status;
+    if (!status) return;
     const isTerminal =
-      persisted.status === 'completed' ||
-      persisted.status === 'quality-failed' ||
-      persisted.status === 'failed' ||
-      persisted.status === 'rejected' ||
-      persisted.status === 'cancelled';
+      status === 'completed' ||
+      status === 'quality-failed' ||
+      status === 'failed' ||
+      status === 'rejected' ||
+      status === 'cancelled';
     if (!isTerminal) return;
     let cancelled = false;
     listReportVersions(missionId)
@@ -424,7 +425,10 @@ export default function MissionDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [missionId, invalidId, persisted]);
+    // dep 取 persisted?.status 而非 persisted 整体：版本列表只在 mission 首次
+    // 进入 terminal 状态时拉一次。否则 /view 三连拉（race window）每次更新
+    // persisted 引用 → 这个 effect 重跑 3 次 → /report-versions 多调 2 次。
+  }, [missionId, invalidId, persisted?.status]);
 
   const handleSelectVersion = useCallback(
     async (version: number) => {
