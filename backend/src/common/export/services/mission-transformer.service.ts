@@ -185,9 +185,16 @@ export class MissionTransformerService {
   ): UnifiedContent {
     const reportFull = (mission.reportFull as Record<string, unknown>) ?? {};
     const content = (reportFull.content ?? {}) as { fullMarkdown?: string };
+    // ★ 2026-05-26 WYSIWYG 修复 (PDF / HTML 编辑模式回退路径)：
+    //   旧 mission.reportFull 是 v1 shape（{title, summary, sections:[{heading,body}], conclusion}）
+    //   时 content.fullMarkdown / reportFull.fullMarkdown 都缺，原回退到 reportSummary
+    //   只拿到摘要，导致 PDF / HTML 编辑模式（WYSIWYG body 太大 fallback 或后端直接走编辑模式）
+    //   导出主体严重缺失。这里直接 inline 同 backend/projectArtifact 的 v1→v2 markdown 拼接
+    //   逻辑，保证编辑模式也能拿到完整 markdown（与 UI ContinuousReader 所见对齐）。
     const fullMarkdown =
       content.fullMarkdown ||
       (reportFull.fullMarkdown as string | undefined) ||
+      this.buildMarkdownFromV1(reportFull) ||
       mission.reportSummary ||
       "";
 
@@ -276,6 +283,39 @@ export class MissionTransformerService {
       references: references.length > 0 ? references : undefined,
       appendices: appendices.length > 0 ? appendices : undefined,
     };
+  }
+
+  /**
+   * v1 ResearchReport → markdown 拼接（mirror artifact.projector.normalizeV1ToV2 的
+   * fullMarkdown 部分，但不构造 v2 全 schema —— 仅为 mission-transformer 编辑模式回退用）。
+   * common/export 不能直接 import ai-app/agent-playground/projectors 模块（反向依赖），
+   * 故在此 duplicate 该简单逻辑（v1 shape 是稳定契约）。
+   */
+  private buildMarkdownFromV1(reportFull: Record<string, unknown>): string {
+    const title = (reportFull.title as string | undefined) ?? "研究报告";
+    const summary = (reportFull.summary as string | undefined) ?? "";
+    const sectionsRaw = reportFull.sections;
+    const sections = Array.isArray(sectionsRaw)
+      ? (sectionsRaw as Array<{ heading?: string; body?: string }>)
+      : [];
+    const conclusion = (reportFull.conclusion as string | undefined) ?? "";
+    if (!summary && sections.length === 0 && !conclusion) return "";
+
+    const parts: string[] = [];
+    if (summary) {
+      parts.push(`# ${title}\n\n${summary}\n`);
+    } else {
+      parts.push(`# ${title}\n`);
+    }
+    sections.forEach((s, i) => {
+      const heading = (s?.heading ?? `章节 ${i + 1}`).toString().trim();
+      const body = (s?.body ?? "").toString().trim();
+      parts.push(`\n## ${heading}\n\n${body}\n`);
+    });
+    if (conclusion) {
+      parts.push(`\n## 结论\n\n${conclusion.trim()}\n`);
+    }
+    return parts.join("");
   }
 
   /**

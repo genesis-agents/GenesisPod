@@ -322,6 +322,27 @@ export function ArtifactReader({
         />
       )}
 
+      {/*
+        ★ 2026-05-26 WYSIWYG 修复：data-export-content="playground-report"
+        只挂在 ContinuousReader 的根 div 上；用户在 chapter / quick tab 下点导出，
+        ExportDialog 走 HtmlCaptureService.querySelector 找不到该选择器，会静默
+        fallback 到 editable 模式，导致 PDF / HTML 主体走 mission-transformer 编辑
+        路径（旧 v1 row 拿不到 fullMarkdown 只剩 reportSummary）。
+        解决：view !== continuous 时挂一份 hidden mirror，querySelector 永远命中。
+        外层 opacity-0 / pointer-events-none 让 mirror 视觉无感；
+        capture 时 getComputedStyle 只取被命中元素自身（root div opacity=1），
+        clone + inlineCriticalStyles 不会带上外层的 opacity 0。
+      */}
+      {view !== 'continuous' && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed left-0 top-0 -z-10 w-full opacity-0"
+          data-export-mirror="playground-report"
+        >
+          <ContinuousReader artifact={artifact} />
+        </div>
+      )}
+
       {/* ★ 2026-04-30 (#51): 报告分析 slide-over —— 元信息抽屉 */}
       <SideDrawer
         open={insightsOpen}
