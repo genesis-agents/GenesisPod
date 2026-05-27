@@ -74,8 +74,14 @@ export function projectAgents(
     //     - chapter:writing:failed / dimension:retry-failed → agent failed
     //     - chapter:revision / dimension:retrying → retry++
     //   保留旧 agent.<verb> 路径兼容 fixture / 未来 explicit emit。
-    // ★ 2026-05-27 (Screenshot_19)：agent:lifecycle 携带 attempt / dimension /
-    //   iterations / wallTimeMs，全部接出来供前端 ComputeUsagePanel 用。
+    // ★ 2026-05-27 (Screenshot_19/20)：ComputeUsagePanel 需要 attempt / dimension /
+    //   iterations / wallTimeMs。两类来源：
+    //   1. 主 agent (researcher / leader / analyst / reconciler / writer / reviewer)
+    //      走 agent:lifecycle 单事件，payload 自带这些字段
+    //   2. sub-agent (chapter-writer#X.Y.Z / chapter-reviewer#X.Y.Z) **不发**
+    //      agent:lifecycle —— 只发 chapter:writing:started/completed /
+    //      chapter:review:started/completed。我们用第一个 start 类事件 ts → startedAt，
+    //      最后一个 complete 类事件 ts → endedAt，wallTimeMs = endedAt - startedAt。
     const payload = ev.payload as Record<string, unknown> | null;
     const isLifecycle =
       ev.type.endsWith("agent:lifecycle") || ev.type === "agent:lifecycle";
@@ -95,10 +101,33 @@ export function projectAgents(
           payload.phase === "failed"
         ) {
           digest.endedAt = ev.timestamp;
-          // wallTimeMs fallback：startedAt → endedAt
           if (digest.wallTimeMs == null && digest.startedAt != null) {
             digest.wallTimeMs = ev.timestamp - digest.startedAt;
           }
+        }
+      }
+    }
+    // 通用 timing 兜底：任何带 agentId 的事件——startedAt 取首事件 ts，
+    // endedAt 取末事件 ts（在 chapter:writing:completed / chapter:review:completed /
+    // chapter:done 等终态信号处覆盖），wallTimeMs 末态时计算。
+    if (typeof ev.timestamp === "number") {
+      if (digest.startedAt == null) digest.startedAt = ev.timestamp;
+      if (payload) {
+        // 从 chapter event 接 dimension / attempt（sub-agent fallback）
+        if (typeof payload.dimension === "string" && digest.dimension == null) {
+          digest.dimension = payload.dimension;
+        }
+        if (typeof payload.attempt === "number" && digest.attempt == null) {
+          digest.attempt = payload.attempt;
+        }
+      }
+      // 终态事件 → 锁 endedAt + 计算 wallTimeMs
+      const verbNow =
+        extractAgentVerb(ev.type) ?? deriveVerbFromEventType(ev.type);
+      if (verbNow === "completed" || verbNow === "failed") {
+        digest.endedAt = ev.timestamp;
+        if (digest.wallTimeMs == null && digest.startedAt != null) {
+          digest.wallTimeMs = ev.timestamp - digest.startedAt;
         }
       }
     }
