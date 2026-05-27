@@ -1,5 +1,6645 @@
 [
   {
+    "version": "40.13.0",
+    "date": "2026-05-27",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "dag cascade resilience + pre-push set-e abort fix"
+      },
+      {
+        "type": "fix",
+        "description": "drawer + dim status — screenshot #56/#57/#61/#62/#63"
+      },
+      {
+        "type": "fix",
+        "description": "align stat-card sources + restore pages document + drawer trace fallback"
+      },
+      {
+        "type": "fix",
+        "description": "sub-agent wallTime/dim/attempt from chapter events"
+      },
+      {
+        "type": "fix",
+        "description": "expand MissionViewBaseAgent with dim/iter/wallTime for ComputeUsagePanel"
+      },
+      {
+        "type": "fix",
+        "description": "terminal-state agent sweep — completed mission 强制收尾所有滞留 agent"
+      },
+      {
+        "type": "fix",
+        "description": "restore cost.byStage + agent metadata from events"
+      },
+      {
+        "type": "fix",
+        "description": "restore full chapter state machine in projector"
+      },
+      {
+        "type": "fix",
+        "description": "restore agent trace + lifecycle from colon events"
+      },
+      {
+        "type": "fix",
+        "description": "3 SSR/CSR hydration mismatches (React #418/#423)"
+      },
+      {
+        "type": "fix",
+        "description": "full accuracy audit - stage / agent / critique projectors"
+      },
+      {
+        "type": "fix",
+        "description": "chapter index field name + suppress misleading terminal narrative"
+      },
+      {
+        "type": "fix",
+        "description": "dim grade reads payload.overall not overallScore"
+      },
+      {
+        "type": "fix",
+        "description": "wysiwyg pdf/html export missing report body on chapter/quick tabs"
+      },
+      {
+        "type": "fix",
+        "description": "retry-child resolve on dim success + export wysiwyg normalize"
+      },
+      {
+        "type": "fix",
+        "description": "include system stages in mission terminal cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "p3-a react hydration warnings ssr csr time mismatch"
+      },
+      {
+        "type": "fix",
+        "description": "hide reconciler-gap from main todo list (historical parity)"
+      },
+      {
+        "type": "fix",
+        "description": "anchor-based todo board sort + rename todo-ledger-shapes"
+      },
+      {
+        "type": "fix",
+        "description": "use natural event-driven order for todo board + rename derive-shapes"
+      },
+      {
+        "type": "fix",
+        "description": "preserve canonical todo order + rich citations + B6 event buffer lift"
+      },
+      {
+        "type": "fix",
+        "description": "backend chapter terminal cleanup in dimension pipeline extractor"
+      },
+      {
+        "type": "fix",
+        "description": "suppress Revising N chapters banner when mission terminal"
+      },
+      {
+        "type": "fix",
+        "description": "todo board ordering + dimension grade axes defensive read"
+      },
+      {
+        "type": "fix",
+        "description": "update specs after w7 derive deletion"
+      },
+      {
+        "type": "fix",
+        "description": "P0-2 ArtifactComposerService + 修 UI 闪过 + spec 补 composedArtifact"
+      },
+      {
+        "type": "fix",
+        "description": "fixture-replay spec 补 reportVersions: [] 占位"
+      },
+      {
+        "type": "fix",
+        "description": "HOTFIX page.tsx todoLedger 回 deriveTodoLedger + P0-1 view 字段补齐"
+      },
+      {
+        "type": "fix",
+        "description": "scrub last business-app name from abstractions contract comment"
+      },
+      {
+        "type": "fix",
+        "description": "scrub business-app names from harness comments"
+      },
+      {
+        "type": "fix",
+        "description": "用 ref-callback 装 d3.zoom,解决 loading 阶段 ref 为 null 导致拖不动"
+      },
+      {
+        "type": "fix",
+        "description": "节点 ReAct 面板改独立 Modal 叠层,canvas 永远全宽不挤压"
+      },
+      {
+        "type": "fix",
+        "description": "模态宽度 xl → full(max-w-3xl 768 → 90vw),容下 14 维度"
+      },
+      {
+        "type": "fix",
+        "description": "重做 DAG 布局-自然尺寸+竖滚+多行 fan+侧栏 ReAct+大箭头"
+      },
+      {
+        "type": "fix",
+        "description": "拉大 DAG 节点间距,缩放后视觉分隔更明显"
+      },
+      {
+        "type": "fix",
+        "description": "修 DAG 双向滚动 + 节点重叠 + ReAct 面板飞出模态 + 节点点击接抽屉"
+      },
+      {
+        "type": "fix",
+        "description": "删 MissionDagService 未用 Logger 字段(后端 tsc TS6133)"
+      },
+      {
+        "type": "fix",
+        "description": "已完成 mission 也能与 Leader 对话 + 显示真实用户名"
+      },
+      {
+        "type": "fix",
+        "description": "事实表去横向滚动（table-fixed 自适应列宽）"
+      },
+      {
+        "type": "fix",
+        "description": "事实表工具栏防挤压换行"
+      },
+      {
+        "type": "fix",
+        "description": "公共抓取层补报告标题 + 修复 PDF 图片 file:// 加载"
+      },
+      {
+        "type": "fix",
+        "description": "章节视图图片角标补 evidence 恢复引用悬浮卡"
+      },
+      {
+        "type": "fix",
+        "description": "移除重复角色列表 + 精简 tab 指标条"
+      },
+      {
+        "type": "fix",
+        "description": "章节视图引用角标失效——从 slice 实际 [N] 反推引用集合"
+      },
+      {
+        "type": "fix",
+        "description": "移除左栏角色卡里被截断看不清的 thought 建议文字"
+      },
+      {
+        "type": "fix",
+        "description": "图片代理失败返回透明占位图，不再误报 Critical/MONITORING 告警"
+      },
+      {
+        "type": "fix",
+        "description": "关停时在 onApplicationShutdown 断连，杜绝 \"Engine is not yet connected\" 批量报错"
+      },
+      {
+        "type": "fix",
+        "description": "mission 详情页响应式——tab 不横滚 + 低分辨率\"开始\"按钮常驻"
+      },
+      {
+        "type": "fix",
+        "description": "任务进度显示真实任务总数 + meters 紧凑让 tab 不挤压"
+      },
+      {
+        "type": "fix",
+        "description": "把 finalize 分隔传输 hints 透到 DefineAgentOptions/agent-runner"
+      },
+      {
+        "type": "fix",
+        "description": "修 JSON 抽取兜底未转义内层引号致 finalize 失败"
+      },
+      {
+        "type": "fix",
+        "description": "修 federal-register 数组参数(fields[]/多值 type)致 400 与静默空"
+      },
+      {
+        "type": "fix",
+        "description": "退化输出(200 空/畸形)纳入恢复机制——in-request 降级+self-heal+failover"
+      },
+      {
+        "type": "fix",
+        "description": "run T4 ToolConfig audit in onApplicationBootstrap to drop false orphans"
+      },
+      {
+        "type": "fix",
+        "description": "resolve 4 startup WARN findings (radar prompt/log flood/dup-reg/ownership)"
+      },
+      {
+        "type": "fix",
+        "description": "memory-consolidation 后台调度默认关闭(补 GAP-A 漏提)"
+      },
+      {
+        "type": "fix",
+        "description": "无 userId 后台路径不再回退 admin 模型(严格 BYOK 收口)"
+      },
+      {
+        "type": "fix",
+        "description": "后台自动消耗机制全部默认关闭(GAP-A 止血第二批)"
+      },
+      {
+        "type": "fix",
+        "description": "后台自动 LLM/外部消耗机制一律默认关闭(止血续作)"
+      },
+      {
+        "type": "fix",
+        "description": "关停后台静默刷新默认开关 + 阻断失控并发(烧 token 事故)"
+      },
+      {
+        "type": "fix",
+        "description": "request-too-large 触发 model-failover 而非误判 quota 判死"
+      },
+      {
+        "type": "fix",
+        "description": "runMission 早爆补发终态事件防前端死轮询(E32)"
+      },
+      {
+        "type": "fix",
+        "description": "in-request 降级扩到 Anthropic + Google 路径,全路径自愈 (A)"
+      },
+      {
+        "type": "fix",
+        "description": "加 DB statement_timeout 兜底 in-flight query(E14)"
+      },
+      {
+        "type": "fix",
+        "description": "failure-learning 自动禁用单一权威阈值(E57)"
+      },
+      {
+        "type": "fix",
+        "description": "redis 限流告警 + rerun checkpoint 损坏兜底"
+      },
+      {
+        "type": "fix",
+        "description": "in-request 当次结构化输出降级,不再首崩 (深审 F3)"
+      },
+      {
+        "type": "fix",
+        "description": "xAI 路径也走 chain-aware self-heal 降级 (深审 F4)"
+      },
+      {
+        "type": "fix",
+        "description": "graceful shutdown 主动终止 in-flight mission（E17）"
+      },
+      {
+        "type": "fix",
+        "description": "liveness 回收路径补 MISSION_FAILED 通知 (深审 F1)"
+      },
+      {
+        "type": "fix",
+        "description": "mission 并发上限原子兜底（H4/E9）"
+      },
+      {
+        "type": "fix",
+        "description": "self-heal 沿 fallback chain 降级,替代一刀切 json_schema→none (R1)"
+      },
+      {
+        "type": "fix",
+        "description": "报告输出脱敏高置信 PII（E46，仅信用卡号+Luhn）"
+      },
+      {
+        "type": "fix",
+        "description": "修 deepseek catalog 默认 json_schema → json_mode (线上事故根因)"
+      },
+      {
+        "type": "fix",
+        "description": "team/run 接 Redis 分布式限流（E4）"
+      },
+      {
+        "type": "fix",
+        "description": "修 MISSION_FAILED 三处类型注册缺口（B3-5 运行时 bug）"
+      },
+      {
+        "type": "fix",
+        "description": "左栏硬编码英文标签改中文"
+      },
+      {
+        "type": "fix",
+        "description": "拦截限流/错误文案被当搜索查询回灌"
+      },
+      {
+        "type": "fix",
+        "description": "修 liveness wall-time 回收主动 abort in-flight (e2e P0-#2)"
+      },
+      {
+        "type": "fix",
+        "description": "修 WS gateway 鉴权补 Redis blocklist 校验 (e2e P0-#6)"
+      },
+      {
+        "type": "fix",
+        "description": "修 P32 审计守护栏缺口 — facade contract + PR-E0 import + 安全 SOP"
+      },
+      {
+        "type": "fix",
+        "description": "mission 详情左栏加 sticky 底部操作按钮"
+      },
+      {
+        "type": "fix",
+        "description": "研究深度 3 张卡片改为可点击（纯本地 state）"
+      },
+      {
+        "type": "fix",
+        "description": "4 个 spec 路径跟上 P9b/P9c (playground-runtime.config + skill-loader)"
+      },
+      {
+        "type": "fix",
+        "description": "左栏滚动条只覆盖角色列表，progress/配置/按钮 固定"
+      },
+      {
+        "type": "fix",
+        "description": "24 文件改 export type 修 isolatedModules TS1205 build error"
+      },
+      {
+        "type": "fix",
+        "description": "让 mission 详情高度链真正生效 + 去掉左栏中段空白"
+      },
+      {
+        "type": "fix",
+        "description": "修 mission 详情左栏底部按钮被 overflow-hidden 裁切"
+      },
+      {
+        "type": "fix",
+        "description": "tolerate JSON5 dialect in AI-response JSON extraction"
+      },
+      {
+        "type": "fix",
+        "description": "knowledge-graph query-type aliases + tavily 432 as quota-exhausted"
+      },
+      {
+        "type": "fix",
+        "description": "capability-authority response_format + non-text chat-pool guard"
+      },
+      {
+        "type": "fix",
+        "description": "告警审视——欠费误判重试 + 导出丢图表(#72)"
+      },
+      {
+        "type": "fix",
+        "description": "failover 上限 3→12——\"多模型仅 1 可用\"时够不到那个可用模型(#70)"
+      },
+      {
+        "type": "fix",
+        "description": "failover 实跑三 bug——不吃迭代预算 + 跳过死 provider + 滤图像模型(#69)"
+      },
+      {
+        "type": "fix",
+        "description": "leader-chat 交互对话补模型级 failover(#68)"
+      },
+      {
+        "type": "fix",
+        "description": "模型级 failover 彻底覆盖——BYOK key 耗尽认定 + simple/plan-act 补齐(#67)"
+      },
+      {
+        "type": "fix",
+        "description": "/me 通用/账单页内容收进白卡容器(修内容碰边)"
+      },
+      {
+        "type": "fix",
+        "description": "series 落库原子化 $transaction，消除孤儿 DRAFT(RB-Gap6)"
+      },
+      {
+        "type": "fix",
+        "description": "宽数据行表全量 table-fixed+colgroup 消除横向滚动"
+      },
+      {
+        "type": "fix",
+        "description": "admin 模型管理图标按 provider 解析(修图标不对)"
+      },
+      {
+        "type": "fix",
+        "description": "模型表 Provider 列字号/图标与其他列对齐"
+      },
+      {
+        "type": "fix",
+        "description": "深审修复—成本cacheWrite/RAG阈值/注入完整性/韧性(R3)"
+      },
+      {
+        "type": "fix",
+        "description": "/me/models 页头按钮组加 shrink-0 防窄宽度折成两行"
+      },
+      {
+        "type": "fix",
+        "description": "宽表 table-fixed+colgroup 消除横向滚动（修表格归一回归）"
+      },
+      {
+        "type": "fix",
+        "description": "规避 runtime-deps 守护对注释里 from 引号串的误判"
+      },
+      {
+        "type": "fix",
+        "description": "成本真值入账+归因 + 预算执行粒度(R2-B2)"
+      },
+      {
+        "type": "fix",
+        "description": "评审驱动加固——评分接地/防伪 finding/截断/字数(review hardening)"
+      },
+      {
+        "type": "fix",
+        "description": "前端 dim 状态单一权威派生 顶层与详情不再矛盾(P2-fe)"
+      },
+      {
+        "type": "fix",
+        "description": "并行集成 P0-3/P1-engine/P1-grade 修降级/截断/低分根因"
+      },
+      {
+        "type": "fix",
+        "description": "每章建议字数改区间(0.7–1.4×) 破除恒定 728 字硬锚(P2-728)"
+      },
+      {
+        "type": "fix",
+        "description": "minFindings 硬门槛 10→5 + researcher finalize 输出 long→extended(P1)"
+      },
+      {
+        "type": "fix",
+        "description": "抢救 degraded/partial findings + 修死自愈重试码(P0 止血)"
+      },
+      {
+        "type": "fix",
+        "description": "dispatcher 抛错经 finalize 写终态(取代只 emit 留 running)"
+      },
+      {
+        "type": "fix",
+        "description": "改预算时重写 config snapshot(C5/G2 S4a)"
+      },
+      {
+        "type": "fix",
+        "description": "social markCancelled 真落 cancelled + 收紧 failureCode 类型(评审 MAJOR)"
+      },
+      {
+        "type": "fix",
+        "description": "失败按 abort reason 分类(budget/超时不再误记 user_cancelled)(C2/MINOR-2)"
+      },
+      {
+        "type": "fix",
+        "description": "补齐 C2 failureCode 真落库到所有失败路径(MAJOR-6/4/MINOR-1)"
+      },
+      {
+        "type": "fix",
+        "description": "abort 按 reason 分流(budget/超时不再误记 cancelled)(C0/MAJOR-3)"
+      },
+      {
+        "type": "fix",
+        "description": "修 G11 检视的真实切换缺口(迁移顺序/接口/patch类型/单位)"
+      },
+      {
+        "type": "fix",
+        "description": "修 G11 检视的 4 处真实切换缺口"
+      },
+      {
+        "type": "fix",
+        "description": "终态写条件化——C0 首写赢不变量三 app 统一(T16)"
+      },
+      {
+        "type": "fix",
+        "description": "cancel 真停——治\"取消后 mission 继续烧预算\"(C1/G0)"
+      },
+      {
+        "type": "fix",
+        "description": "注册 MissionLivenessGuard adapter——治孤儿 running 行永不回收(C8/G0)"
+      },
+      {
+        "type": "fix",
+        "description": "注册 MissionLivenessGuard adapter——治孤儿 running 行永不回收(C8/G0)"
+      },
+      {
+        "type": "fix",
+        "description": "researcher findings 成功线 4→10——逼出多源结果里的更多 finding"
+      },
+      {
+        "type": "fix",
+        "description": "web-search 结果数提至 8/12 + researcher 多工具类型扇出"
+      },
+      {
+        "type": "fix",
+        "description": "提 researcher 来源多样性——治章节少/报告薄/评审低/缺引用"
+      },
+      {
+        "type": "fix",
+        "description": "#25 Mission 设置弹窗精简——精细预算默认折叠"
+      },
+      {
+        "type": "fix",
+        "description": "知识来源/阅读器/选区预览强调色跟 --primary（收尾）"
+      },
+      {
+        "type": "fix",
+        "description": "装饰强调色全面跟 --primary（进度/加载/分页/折叠/查看器）"
+      },
+      {
+        "type": "fix",
+        "description": "卡片/表单/Tab 等部件交互色跟 --primary（按模块色统一）"
+      },
+      {
+        "type": "fix",
+        "description": "弹层圆角对齐 design token + 确认弹层收紧为干净白卡"
+      },
+      {
+        "type": "fix",
+        "description": "researcher 强制 web-search 兜底 + rag 相关度阈值收紧"
+      },
+      {
+        "type": "fix",
+        "description": "知识库不再静默持久化 + 已挂载显眼提示"
+      },
+      {
+        "type": "fix",
+        "description": "新建弹窗「高级设置」默认折叠"
+      },
+      {
+        "type": "fix",
+        "description": "预算单一数据源 + 修\"Mission 设置不生效\""
+      },
+      {
+        "type": "fix",
+        "description": "区分 abort reason，budget/超时不再误判为用户取消"
+      },
+      {
+        "type": "fix",
+        "description": "确认弹层套用 Modal 头/脚结构，去掉孤零图标与撑满按钮"
+      },
+      {
+        "type": "fix",
+        "description": "compose cooldown+retry, throttle per-(user+provider), cover streaming"
+      },
+      {
+        "type": "fix",
+        "description": "per-provider concurrency throttle + single-key cooldown cap + 2 nits"
+      },
+      {
+        "type": "fix",
+        "description": "bounded retry on recoverable LLM errors instead of terminating"
+      },
+      {
+        "type": "fix",
+        "description": "election last-resort for single-model + chapter-count quality floor"
+      },
+      {
+        "type": "fix",
+        "description": "公众号正文加「质量第一」标准（实质胜字数、反灌水）"
+      },
+      {
+        "type": "fix",
+        "description": "surface real failure code on dimension degrade + stage-aware fail label"
+      },
+      {
+        "type": "fix",
+        "description": "公众号正文加「每节≥300字」硬要求（治\"只搭骨架不填内容\"）"
+      },
+      {
+        "type": "fix",
+        "description": "实现 POST /tasks/:id/publish 发布到草稿箱（修 404）"
+      },
+      {
+        "type": "fix",
+        "description": "公众号正文起码 2000 字 + 深度展开手法 + 不达标注入扩写指令重写"
+      },
+      {
+        "type": "fix",
+        "description": "公众号正文改为深度长文骨架（金句/背景/人物/目录/编号分节）"
+      },
+      {
+        "type": "fix",
+        "description": "公众号正文加字数+结构硬要求(≥800字+≥3小标题)+不达标强制重写"
+      },
+      {
+        "type": "fix",
+        "description": "derive chapter count + citation floor from evidence supply"
+      },
+      {
+        "type": "fix",
+        "description": "route model selection through quality-first policy resolver"
+      },
+      {
+        "type": "fix",
+        "description": "ws-cors 模块加载期对 APP_CONFIG.railway 用可选链防崩"
+      },
+      {
+        "type": "fix",
+        "description": "socket CORS 通配拒绝 + ChunkLoadError 自愈"
+      },
+      {
+        "type": "fix",
+        "description": "explore 视频源抓真实字幕脚本，不再返回占位 content（修报告 stub）"
+      },
+      {
+        "type": "fix",
+        "description": "对话整理不再「啥都没做却说已完成」"
+      },
+      {
+        "type": "fix",
+        "description": "左栏组织阵型固定顶部，只滚动关键角色（修折叠/滚动范围）"
+      },
+      {
+        "type": "fix",
+        "description": "表 chrome 对齐 playground（读其代码后修样式）"
+      },
+      {
+        "type": "fix",
+        "description": "任务表角色列显示中文（预算管家/平台探测…），不露英文代码标识"
+      },
+      {
+        "type": "fix",
+        "description": "任务表对齐 playground 富样式（图标+角色chip+StatusBadge+操作列）"
+      },
+      {
+        "type": "fix",
+        "description": "参考文献改为来源类型聚合（修 UUID 乱码）"
+      },
+      {
+        "type": "fix",
+        "description": "资源摘要正文用 MarkdownViewer 渲染（修笔记 markdown 表格乱码）"
+      },
+      {
+        "type": "fix",
+        "description": "mission 完成后把生成内容落 task versions（修「输出不可见」）"
+      },
+      {
+        "type": "fix",
+        "description": "角色取对 + 左栏换 canonical 团队拓扑（修「太垃圾」）"
+      },
+      {
+        "type": "fix",
+        "description": "mission 详情接对 /social 事件流 + replay 水合 + 标题（打样 P2）"
+      },
+      {
+        "type": "fix",
+        "description": "toolActions 转 Prisma.InputJsonValue 修后端 tsc"
+      },
+      {
+        "type": "fix",
+        "description": "连接管理双侧边栏——页面去掉重复 AppShell（layout 已提供）"
+      },
+      {
+        "type": "fix",
+        "description": "function-calling tools 不再 double-wrap，修复 grok 工具调用 422"
+      },
+      {
+        "type": "fix",
+        "description": "移除 Path B xai 无条件注入的已废弃 search_parameters"
+      },
+      {
+        "type": "fix",
+        "description": "function-calling 走 Standard 路径，修复 grok 工具调用报 Live search deprecated"
+      },
+      {
+        "type": "fix",
+        "description": "tool-exec 透传 userId，工具循环按 BYOK 解析用户 key"
+      },
+      {
+        "type": "fix",
+        "description": "注册 FunctionCallingExecutor，修复对话整理 Tool execution not available"
+      },
+      {
+        "type": "fix",
+        "description": "房间加 HTTP 对账轮询，代理环境也能看到 AI 输出"
+      },
+      {
+        "type": "fix",
+        "description": "gateway 握手改 JWT 校验，不信任客户端 userId（BLK-7）"
+      },
+      {
+        "type": "fix",
+        "description": "房间 socket 代理环境直连后端 + 网关 CORS 改函数式校验"
+      },
+      {
+        "type": "fix",
+        "description": "卡片包在 Link 里时按钮不再误触发跳转"
+      },
+      {
+        "type": "fix",
+        "description": "流被代理掐断时轮询 history 回捞生成的图"
+      },
+      {
+        "type": "fix",
+        "description": "socket 全改 polling-first，代理环境实时更新不再失效"
+      },
+      {
+        "type": "fix",
+        "description": "流式兜底改轮询对账，代理中途掐断也能等回复入库"
+      },
+      {
+        "type": "fix",
+        "description": "代理掐断 SSE 时回捞已持久化回复，流式兜底"
+      },
+      {
+        "type": "fix",
+        "description": "google drive 连接 error 时停拉文件并引导重连"
+      },
+      {
+        "type": "fix",
+        "description": "让 R2 认卡设计系统多卡型 + 7 张合法卡型留痕，棘轮归 0"
+      },
+      {
+        "type": "fix",
+        "description": "加固 R2 检测器堵 4 处盲区 + 棘轮冻结 baseline 9"
+      },
+      {
+        "type": "fix",
+        "description": "让 R1 检测 layout-aware，消除 App Router 假阳性"
+      },
+      {
+        "type": "fix",
+        "description": "精准化 R7 到「tab 按钮 render」, 去 state-holder 假阳 (21→11)"
+      },
+      {
+        "type": "fix",
+        "description": "topic 详情页补滚动容器 — 长内容不再被裁切滚不动"
+      },
+      {
+        "type": "fix",
+        "description": "解锁 tab 战线 — 修文档假象 + R7 假绿"
+      },
+      {
+        "type": "fix",
+        "description": "event-contract spec 扫描路径跟随 lib/features 迁移"
+      },
+      {
+        "type": "fix",
+        "description": "精修 R2/R3 检测器剔除假阳性 — TOTAL 562→227(诚实计数)"
+      },
+      {
+        "type": "fix",
+        "description": "修 R7-Tabs 检测器逐行精检 — 排除 spinner 假阳性(10→4)"
+      },
+      {
+        "type": "fix",
+        "description": "/me/models 顶栏响应式 — 标题与按钮组窄屏分层不再拥挤"
+      },
+      {
+        "type": "fix",
+        "description": "修个人中心宽表被裁切 + 合并通用/个性化两 section"
+      },
+      {
+        "type": "fix",
+        "description": "first-level-directory spec 用 guard-throw 替代非法 2-arg expect"
+      },
+      {
+        "type": "fix",
+        "description": "mission pipeline 系统宽松化 - 全失败/全拒不再阻断 + status 加 draft"
+      },
+      {
+        "type": "fix",
+        "description": "leader 全拒不再 fail mission - 降级 + 让 stage 继续跑通"
+      },
+      {
+        "type": "fix",
+        "description": "leader prompt 强制输出 phase 字段 + 注册 agent:validation-rejected 事件"
+      },
+      {
+        "type": "fix",
+        "description": "derive/todo-ledger/stream hook 解锁 namespace 限制 - 让 social.* 事件流到 ui"
+      },
+      {
+        "type": "fix",
+        "description": "session-expired 闸宽松化 - 空 expiresat 给占位让 mission 跑下去"
+      },
+      {
+        "type": "fix",
+        "description": "hydratestewardinputs 字段名 typo - 真修 budget 闸永远 0 缺陷"
+      },
+      {
+        "type": "fix",
+        "description": "提高默认 maxcredits 覆盖估算成本 - 修 budget 闸永远 fail"
+      },
+      {
+        "type": "fix",
+        "description": "补 tools:recalled / iteration:progress 事件 + dispatcher 透传 error + 详情页/主页布局撑满"
+      },
+      {
+        "type": "fix",
+        "description": "注册 mission:gated event + 补 s12 postlude:started 缺失的 stage 字段"
+      },
+      {
+        "type": "fix",
+        "description": "social mission 注册 ownership 修 replay 403 + radar s3 用 upsert 防 unique 冲突"
+      },
+      {
+        "type": "fix",
+        "description": "mission 创建前补占位 socialcontent - 修 fk 违反"
+      },
+      {
+        "type": "fix",
+        "description": "r13 P0 双除 100 + 幂等卡死 — 终极根因 0 信号"
+      },
+      {
+        "type": "fix",
+        "description": "加模块级 layout - 详情页恢复全局侧边栏"
+      },
+      {
+        "type": "fix",
+        "description": "r11 manual 拉取窗口 24h → 30 天 — 解决\"什么都抓不到\""
+      },
+      {
+        "type": "fix",
+        "description": "r10.5 修语义混淆 — itemsDeduped 是移除数不是剩余数"
+      },
+      {
+        "type": "fix",
+        "description": "fetchJson 自动解包 backend responsetransform wrapper"
+      },
+      {
+        "type": "fix",
+        "description": "topic update 静默丢 6 个精选字段 — 保存后 ui 回原值"
+      },
+      {
+        "type": "fix",
+        "description": "swr cache 锁死空响应 - mount/focus 强制 revalidate"
+      },
+      {
+        "type": "fix",
+        "description": "r8 三连修 — manual since 24h + ws race polling 兜底 + 完成态回放卡片"
+      },
+      {
+        "type": "fix",
+        "description": "listDescriptors 用 spread 把 PrismaService 注入字段一并带出 → 循环引用 500"
+      },
+      {
+        "type": "fix",
+        "description": "真正修复\"数据源全部选不了\" — DiscoveryService metadataKey 过滤陷阱"
+      },
+      {
+        "type": "fix",
+        "description": "数据源全部选不了 — Registry onModuleInit 时机过早"
+      },
+      {
+        "type": "fix",
+        "description": "pickedPreview 单花括号 → 双花括号（项目 i18n interpolate 规范）"
+      },
+      {
+        "type": "fix",
+        "description": "5 路 reviewer round-1 P0+P1 修补"
+      },
+      {
+        "type": "fix",
+        "description": "4 路会诊整改 R6 — 10 项 P0/P1 bug + UX 整改"
+      },
+      {
+        "type": "fix",
+        "description": "completed mission 所有 stage 全显\"待执行\" — lastCompletedStage 字段历史缺失"
+      },
+      {
+        "type": "fix",
+        "description": "修 mission 详情页 404 race — refresh fire-and-forget 落库延迟"
+      },
+      {
+        "type": "fix",
+        "description": "运行详情页改回 单 Mission Agent Team 视角"
+      },
+      {
+        "type": "fix",
+        "description": "topic 页 sidebar 源健康度渲染 bug — 字段名 + 枚举值全错"
+      },
+      {
+        "type": "fix",
+        "description": "narrative.controller spec 补 RadarTopicService 依赖 + req.user 参数"
+      },
+      {
+        "type": "fix",
+        "description": "raw feed limit cap 100→200 + 页布局 max-w-3xl→5xl"
+      },
+      {
+        "type": "fix",
+        "description": "vitest i18n mock + 7 历史测试断言对齐（jest→vi alias 暴露 30 真失败）"
+      },
+      {
+        "type": "fix",
+        "description": "vitest jest alias 改用 unknown cast 避免 tsc 类型扩展报错"
+      },
+      {
+        "type": "fix",
+        "description": "vitest setup 加 jest→vi 全局 alias（修 38 个历史测试 jest 未定义）"
+      },
+      {
+        "type": "fix",
+        "description": "重新精选改 fire-and-forget + 可视 stepper + 删双按钮"
+      },
+      {
+        "type": "fix",
+        "description": "backend 显式声明 handlebars（生产 prod install MODULE_NOT_FOUND）"
+      },
+      {
+        "type": "fix",
+        "description": "radar drawer 用 getByLabelText 泛型替代 as 断言"
+      },
+      {
+        "type": "fix",
+        "description": "pr-dr2-fu2 r5 五路评审 p0/p1 整改"
+      },
+      {
+        "type": "fix",
+        "description": "railway 部署 6 处 TS 编译错误 + lockfile 同步 + scheduler spec 对齐"
+      },
+      {
+        "type": "fix",
+        "description": "系统性单花括号占位符复盘 — 47 keys × 2 locale 修齐 + 守护脚本"
+      },
+      {
+        "type": "fix",
+        "description": "pr-dr2-fu — i18n + 4 项 P2 全收口"
+      },
+      {
+        "type": "fix",
+        "description": "pr-dr2 x8 评审整改 batch-3 — UX 反馈 + 生产 Redis + 双栏布局"
+      },
+      {
+        "type": "fix",
+        "description": "pr-dr2 x8 评审整改 batch-2 — P0-8 BullMQ Processor"
+      },
+      {
+        "type": "fix",
+        "description": "pr-dr2 x8 评审整改 batch-1 (sec/UX/PM P0-P1)"
+      },
+      {
+        "type": "fix",
+        "description": "pr-dr1b-fu spec 修复 quotaService + tokenStore mock"
+      },
+      {
+        "type": "fix",
+        "description": "pr-dr1b-fu r2 安全 follow-up"
+      },
+      {
+        "type": "fix",
+        "description": "pr-dr1a r1 评审 5 项整改"
+      },
+      {
+        "type": "fix",
+        "description": "ai 推荐源质量整改 — yt @handle resolve + accept preflight + prompt 收紧"
+      },
+      {
+        "type": "fix",
+        "description": "social_missions 表 prod 缺失 hotfix — 修原 migration \"User\" 误引用"
+      },
+      {
+        "type": "fix",
+        "description": "r1 round-5 评审 p0 整改 — fast pipeline + i18n + a11y + drawer state"
+      },
+      {
+        "type": "fix",
+        "description": "social-event-buffer.read() shallow clone (5000 events OOM)"
+      },
+      {
+        "type": "fix",
+        "description": "r4 整改 — 闭环 markRejected + ws 大小写统一 + 同模式守 + 2 spec"
+      },
+      {
+        "type": "fix",
+        "description": "browser-context fnSource maxLen + audit log (REV-γ P0-2 + P1-1)"
+      },
+      {
+        "type": "fix",
+        "description": "recommend/accept 400 风暴 — confidence 双源契约统一 0-1 float"
+      },
+      {
+        "type": "fix",
+        "description": "tsc 修复 — getByPlaceholderText 返回 HTMLElement 不含 .value"
+      },
+      {
+        "type": "fix",
+        "description": "agent-handoff.tool.ts AgentResult.artifacts any[] → unknown[]"
+      },
+      {
+        "type": "fix",
+        "description": "round-3 复审 3 项 p1 清理（fk / logger / cast）"
+      },
+      {
+        "type": "fix",
+        "description": "boot 崩 — RadarModule 漏注册 MissionPipelineRegistry / Orchestrator (#113)"
+      },
+      {
+        "type": "fix",
+        "description": "prod boot 第二次崩同错 — youtube + x collector 同样的 rss-parser CJS bug"
+      },
+      {
+        "type": "fix",
+        "description": "修 prod boot 崩溃 rss_parser_1.default is not a constructor"
+      },
+      {
+        "type": "fix",
+        "description": "r6 整改 — 修 5 路评审 P0/P1 + 接入测试"
+      },
+      {
+        "type": "fix",
+        "description": "saveDraft schema 大改 + crop_multi 桥梁 + 正文 img 完整 schema (#111)"
+      },
+      {
+        "type": "fix",
+        "description": "cover 改 scene=1 进永久素材库 (#110)"
+      },
+      {
+        "type": "fix",
+        "description": "cover mediaId 从 data.content 字段解析 (#109)"
+      },
+      {
+        "type": "fix",
+        "description": "cover upload 拓宽 mediaId 字段候选 + 响应诊断 (#108)"
+      },
+      {
+        "type": "fix",
+        "description": "cover 占位图换 picsum.photos → placehold.co (#107)"
+      },
+      {
+        "type": "fix",
+        "description": "v2 schema 补 type/type0=10 强制长图文 (#105)"
+      },
+      {
+        "type": "fix",
+        "description": "强制 type=10 + title React 原生 setter (#104)"
+      },
+      {
+        "type": "fix",
+        "description": "massSend 5 schema 候选 (#102)"
+      },
+      {
+        "type": "fix",
+        "description": "massSend API 直发绕开 \"未授权切换账号\" 客户端校验 (#101)"
+      },
+      {
+        "type": "fix",
+        "description": "fillContent 选对 ProseMirror body editor (#100)"
+      },
+      {
+        "type": "fix",
+        "description": "多 schema 候选 + mplog 内部 trace 解码 (#99)"
+      },
+      {
+        "type": "fix",
+        "description": "sniff fingerprint via page request 破 ret=200002 (#98)"
+      },
+      {
+        "type": "fix",
+        "description": "api body 换无后缀新 schema 解 ret=444002 旧版图文素材拒绝 (#97)"
+      },
+      {
+        "type": "fix",
+        "description": "去掉 fast-path createType=0 - 真根因 ret=444002 (#96)"
+      },
+      {
+        "type": "fix",
+        "description": "saveDraft 走 API 直发，绕开 UI click 反爬死胡同 (#95)"
+      },
+      {
+        "type": "fix",
+        "description": "stealth runtime patches + POST body 拦截 dump 真请求 (#94)"
+      },
+      {
+        "type": "fix",
+        "description": "saveDraft 三防 + 显式 blur 修 React state 同步 (#93)"
+      },
+      {
+        "type": "fix",
+        "description": "saveDraft 用 page.mouse.click 模拟真鼠标坐标 (#92)"
+      },
+      {
+        "type": "fix",
+        "description": "长文走 type=10 直链解 saveDraft 死症 (#91)"
+      },
+      {
+        "type": "fix",
+        "description": "补 #author 必填 + dialog probe 解 saveDraft 静默 30s timeout (#90)"
+      },
+      {
+        "type": "fix",
+        "description": "saveDraft 加 network 全量日志 + 拓宽 API matcher"
+      },
+      {
+        "type": "fix",
+        "description": "修 /ai/social 404 + 嵌 dreaming 到 harness tab"
+      },
+      {
+        "type": "fix",
+        "description": "unset GIT_INDEX_FILE 等环境让 jest --changedSince 在 git push 下不再假失败"
+      },
+      {
+        "type": "fix",
+        "description": "删 HarnessApiModule barrel re-export 修 image/admin spec"
+      },
+      {
+        "type": "fix",
+        "description": "补 a97c9a6a1 漏掉的 schema/接通/注入尾巴"
+      },
+      {
+        "type": "fix",
+        "description": "cost spec mockReturnValue 修正"
+      },
+      {
+        "type": "fix",
+        "description": "/proxy/image 补 CORS 头修 PDF/HTML 导出破图"
+      },
+      {
+        "type": "fix",
+        "description": "patchDiff/getDiff 超时从 30s 提到 5min"
+      },
+      {
+        "type": "fix",
+        "description": "p0-a multi-pass 双语 KB 端到端打通"
+      },
+      {
+        "type": "fix",
+        "description": "p1 强化 slug 语言规则禁止英文页用拼音"
+      },
+      {
+        "type": "fix",
+        "description": "p1+p2 链路双语化与数据密度修复"
+      },
+      {
+        "type": "fix",
+        "description": "重复 title 加 (slug) 后缀做视觉区分"
+      },
+      {
+        "type": "fix",
+        "description": "兜底 LLM 错用 inline code 引用 + 强化 ingest prompt"
+      },
+      {
+        "type": "fix",
+        "description": "已覆盖时 modal 空白 + 加\"重新 Ingest 全部\"显式按钮"
+      },
+      {
+        "type": "fix",
+        "description": "outbound/back links 携带 title + i18n label,消灭拼音渲染"
+      },
+      {
+        "type": "fix",
+        "description": "openalex api_key 双通道认证 + 24h cooldown 锁死修复"
+      },
+      {
+        "type": "fix",
+        "description": "wire AICapabilityResolver into HarnessModule"
+      },
+      {
+        "type": "fix",
+        "description": "openalex 429 真因修复 - token bucket + cooldown 联动"
+      },
+      {
+        "type": "fix",
+        "description": "4 P0 + 2 P1 from 5-reviewer deep audit"
+      },
+      {
+        "type": "fix",
+        "description": "inject JSON skeleton into rejection critique + env-driven MAX_FINALIZE_REJECTS"
+      },
+      {
+        "type": "fix",
+        "description": "#67 续跑入口从主页移到详情页\"更新\"按钮"
+      },
+      {
+        "type": "fix",
+        "description": "route min-findings thresholds through typed runtime config"
+      },
+      {
+        "type": "fix",
+        "description": "simple-loop isError 短路 + dim-quality-judge schema 自适应"
+      },
+      {
+        "type": "fix",
+        "description": "image scarcity + adaptive reviewer + settings modal truly persists"
+      },
+      {
+        "type": "fix",
+        "description": "tolerate reasoning-model output drift in react-loop + recovery shims"
+      },
+      {
+        "type": "fix",
+        "description": "federal-register conditions[] + judge guardrail abstain"
+      },
+      {
+        "type": "fix",
+        "description": "repair upstream test-fixture drift unblocked by PR3 rebase"
+      },
+      {
+        "type": "fix",
+        "description": "mission 设置弹窗读真值 + 加保存按钮 + timeline 对齐"
+      },
+      {
+        "type": "fix",
+        "description": "grade 阶段 state=failed 真因 4 层修复"
+      },
+      {
+        "type": "fix",
+        "description": "strip wrong path suffix in ensureOpenAIEmbeddingsPath"
+      },
+      {
+        "type": "fix",
+        "description": "drop legacy (kb,slug) unique index — real screenshot_80/83 root cause"
+      },
+      {
+        "type": "fix",
+        "description": "expose xAI/provider 4xx response body + multi-shape body parser"
+      },
+      {
+        "type": "fix",
+        "description": "dedup by (slug,locale) + implicit-create upsert (Duplicate entry)"
+      },
+      {
+        "type": "fix",
+        "description": "404 GET debug + capability empty fallback + citation/meta hardening"
+      },
+      {
+        "type": "fix",
+        "description": "test buttons surface real availability (key+quota+results)"
+      },
+      {
+        "type": "fix",
+        "description": "per-provider fast-fail + search 4xx credits regex + ss cooldown"
+      },
+      {
+        "type": "fix",
+        "description": "merge assemble failedSlugs to outer + ingest progress race"
+      },
+      {
+        "type": "fix",
+        "description": "early per-item zod + assemble fallback recovery + partial success"
+      },
+      {
+        "type": "fix",
+        "description": "detect 'Not enough credits' body + bridge runtime failure to DB"
+      },
+      {
+        "type": "fix",
+        "description": "recursive compress + dual log levels for handoff compactor"
+      },
+      {
+        "type": "fix",
+        "description": "partial-success — commit successful pages when some sections fail"
+      },
+      {
+        "type": "fix",
+        "description": "use single-source inferIsReasoning + raise reasoning latency threshold 30s→60s"
+      },
+      {
+        "type": "fix",
+        "description": "demote prompt-sanitizer truncate log to debug"
+      },
+      {
+        "type": "fix",
+        "description": "rerank test surfaces attempted URL + diagnostic hint on 405/404"
+      },
+      {
+        "type": "fix",
+        "description": "dedup window so concurrent POST /leader/plan returns existing"
+      },
+      {
+        "type": "fix",
+        "description": "degraded fallback so single-BYOK-key users survive cooldowns"
+      },
+      {
+        "type": "fix",
+        "description": "handle reflection score=null and fail-loud on provider failures"
+      },
+      {
+        "type": "fix",
+        "description": "byok reasoning model timeout 120s short-circuit kills mission planning"
+      },
+      {
+        "type": "fix",
+        "description": "embedding token-aware batching + wiki ingest skipGuardrails"
+      },
+      {
+        "type": "fix",
+        "description": "pair off-load uri columns with their json/text counterparts in selects"
+      },
+      {
+        "type": "fix",
+        "description": "wire playground / topic insight imports into AddDocumentsDialog"
+      },
+      {
+        "type": "fix",
+        "description": "break ContentFetchModule prod boot cycle"
+      },
+      {
+        "type": "fix",
+        "description": "diff conflict alert/confirm 改用项目内 banner/dialog + 修过期 regex"
+      },
+      {
+        "type": "fix",
+        "description": "searchservice 失败状态同步到 secretkey db (admin ui 真实可见)"
+      },
+      {
+        "type": "fix",
+        "description": "fk 风暴熔断 — mission row 已删时主动 abort 在跑 orchestrator"
+      },
+      {
+        "type": "fix",
+        "description": "delete mission 在 running 状态下拒绝 (FK 事故修复)"
+      },
+      {
+        "type": "fix",
+        "description": "mission async planning 显式 RequestContext.run 包裹保证 byok userId 传播"
+      },
+      {
+        "type": "fix",
+        "description": "chat() 入口加 mission-context userId 第三兜底 + contract violation 检测"
+      },
+      {
+        "type": "fix",
+        "description": "model-resolver.selectModel 自动按 RequestContext.userId 解析 healthy providers"
+      },
+      {
+        "type": "fix",
+        "description": "election 三层闸——byok 用户跳过 agent-factory/spec-based-agent election + Step 3 KeyHealth 过滤"
+      },
+      {
+        "type": "fix",
+        "description": "byok 用户跳过 admin pricing-tier 模型注入"
+      },
+      {
+        "type": "fix",
+        "description": "admin 入口改名\"系统\"下沉至用户名下方 + playground 换 flask 图标避免与 ai-ask 重复"
+      },
+      {
+        "type": "fix",
+        "description": "getpersonalkey 把无 label 的 legacy cache 视为 stale"
+      },
+      {
+        "type": "fix",
+        "description": "keyresolver personal 路径用真实 label 防 p2025"
+      },
+      {
+        "type": "fix",
+        "description": "agent-playground module logger 改类字段防 nest di 解析炸"
+      },
+      {
+        "type": "fix",
+        "description": "secret 删除引用扫描扩到 toolconfig + mcpserverconfig"
+      },
+      {
+        "type": "fix",
+        "description": "provider 适配 P0+P1 —— taskType/dimensions/retry-after/cjk tokens"
+      },
+      {
+        "type": "fix",
+        "description": "关 EmbeddingService 内层 3-retry 让外层 TPM-aware throttle 真正生效"
+      },
+      {
+        "type": "fix",
+        "description": "ai-infra 不准提业务唯一名 — 改 jsdoc 去掉 topic-insights"
+      },
+      {
+        "type": "fix",
+        "description": "ai-insight 报告完成通知点击 404 — actionUrl 用真实前端路由"
+      },
+      {
+        "type": "fix",
+        "description": "4 路真因修复——byok quota / election tx timeout / skill register / search 400"
+      },
+      {
+        "type": "fix",
+        "description": "byok 命中统计真接上 user_api_keys (向量化/rerank 之前永远 0 hits)"
+      },
+      {
+        "type": "fix",
+        "description": "chapter pipeline 失败补 emit + integrity 30% 容错降级"
+      },
+      {
+        "type": "fix",
+        "description": "advisory lock cast ::text 防 prisma 6.19 void 反序列化"
+      },
+      {
+        "type": "fix",
+        "description": "trace.spans.length 假定数组炸 — 后端实际返回 spanCount: number"
+      },
+      {
+        "type": "fix",
+        "description": "drawer 4 卡 2x2 防大数 wrap + 待审批按钮顶部 + 技能分组 + harness 行抽屉"
+      },
+      {
+        "type": "fix",
+        "description": "unwrap ResponseTransformInterceptor + Array.isArray 防 admin 页崩溃"
+      },
+      {
+        "type": "fix",
+        "description": "让 wiki 跟随源文档语言（中文源→中文页，英文源→英文页）"
+      },
+      {
+        "type": "fix",
+        "description": "secret 真下拉框 + 双闸过滤（credential 模式 + toolid 命中）+ 截顶 30"
+      },
+      {
+        "type": "fix",
+        "description": "lint LLM 三调用补 modelType=CHAT 不再 fail DEFAULT_AI_MODEL"
+      },
+      {
+        "type": "fix",
+        "description": "秘钥下拉按类别过滤 + 名称相似度排序 + 抽 useToolSecretSuggestions 共享 hook"
+      },
+      {
+        "type": "fix",
+        "description": "secret 引用变下拉 + 阻断 Chrome 把登录密码 autofill 到 API Key"
+      },
+      {
+        "type": "fix",
+        "description": "throttle 失败 batch 不算消耗 + 429 不重试两个 bug"
+      },
+      {
+        "type": "fix",
+        "description": "第三方信源 dedup 后丢配置 + 搜索框 chrome 自动填充"
+      },
+      {
+        "type": "fix",
+        "description": "soft-truncate oneLiner >280 chars instead of rejecting whole diff"
+      },
+      {
+        "type": "fix",
+        "description": "时间窗断言代替 Date 精确比对修 flaky"
+      },
+      {
+        "type": "fix",
+        "description": "universal-llm adapter 走 pickbyokmodelforuser 单源"
+      },
+      {
+        "type": "fix",
+        "description": "getToolConfigs dedup 1:1 alias 行，消除 UI 重复显示"
+      },
+      {
+        "type": "fix",
+        "description": "单源 byok 选模型——所有 ai 入口走 pickbyokmodelforuser"
+      },
+      {
+        "type": "fix",
+        "description": "tab 分界改按\"调外部 HTTP\"原则，18 类 MECE 4 字标签"
+      },
+      {
+        "type": "fix",
+        "description": "byok 唯一源——删 admin default 路径 + di 反模式 guard"
+      },
+      {
+        "type": "fix",
+        "description": "恢复昨天 14 类工具分类共享真源 + 双 tab 复用"
+      },
+      {
+        "type": "fix",
+        "description": "post-review design + naming cleanups"
+      },
+      {
+        "type": "fix",
+        "description": "post-review UX + deploy fixes"
+      },
+      {
+        "type": "fix",
+        "description": "wire KeyResolverModule into AiEngineKnowledgeModule"
+      },
+      {
+        "type": "fix",
+        "description": "api services 按 toolId 重分类 + 彩色分组 + tab 重命名"
+      },
+      {
+        "type": "fix",
+        "description": "post-review P0 fixes — spec lastTestedAt + kernel split + harness i18n"
+      },
+      {
+        "type": "fix",
+        "description": "严格 BYOK——按用户配置选模型 + 不再回退系统 KEY"
+      },
+      {
+        "type": "fix",
+        "description": "soft-drop malformed source cites + spell out source schema in prompt"
+      },
+      {
+        "type": "fix",
+        "description": "搜索框禁用浏览器 autofill，避免初始值污染过滤"
+      },
+      {
+        "type": "fix",
+        "description": "kb 向量化进度可见化 + 429 熔断自动恢复 + 失败要红"
+      },
+      {
+        "type": "fix",
+        "description": "bare fetch 漏 auth header 致 401 \"Failed to fetch\""
+      },
+      {
+        "type": "fix",
+        "description": "cron BYOK 用消费者，不用 creator"
+      },
+      {
+        "type": "fix",
+        "description": "add missing GitBranch import for aiAppsPlanning card"
+      },
+      {
+        "type": "fix",
+        "description": "split page.tsx → content.tsx for embedded mode"
+      },
+      {
+        "type": "fix",
+        "description": "chat() 入口 withUserContext 兜底，cron 路径不再丢 userId"
+      },
+      {
+        "type": "fix",
+        "description": "unify lastUsedAt — real business + manual Test both write it"
+      },
+      {
+        "type": "fix",
+        "description": "shorten drawer stat labels to avoid CJK line-wrap"
+      },
+      {
+        "type": "fix",
+        "description": "use user BYOK key instead of system Secret Manager"
+      },
+      {
+        "type": "fix",
+        "description": "cron uses KB owner BYOK key, not system key"
+      },
+      {
+        "type": "fix",
+        "description": "cron path skips userId so chat falls to SYSTEM key"
+      },
+      {
+        "type": "fix",
+        "description": "keep rows single-line with truncate + title tooltip"
+      },
+      {
+        "type": "fix",
+        "description": "drawer + provider slug + dropdown dedup + modal width"
+      },
+      {
+        "type": "fix",
+        "description": "unwrap ResponseTransformInterceptor envelope in admin fetches"
+      },
+      {
+        "type": "fix",
+        "description": "page error + p10 migration column names"
+      },
+      {
+        "type": "fix",
+        "description": "expose error stack in prod (collapsible details)"
+      },
+      {
+        "type": "fix",
+        "description": "use config.apiUrl not apiBaseUrl for admin fetches (404 fix)"
+      },
+      {
+        "type": "fix",
+        "description": "make provider field editable in add model form"
+      },
+      {
+        "type": "fix",
+        "description": "sql repair misconfigured aimodel rows from screenshots"
+      },
+      {
+        "type": "fix",
+        "description": "connection-test no-longer hard-rejects unknown provider"
+      },
+      {
+        "type": "fix",
+        "description": "wire SkillLoaderService mock in ingest service spec"
+      },
+      {
+        "type": "fix",
+        "description": "puppeteer setContent + voyage/jina BYOK parity"
+      },
+      {
+        "type": "fix",
+        "description": "clear caller coverage + db cascade + facade re-export"
+      },
+      {
+        "type": "fix",
+        "description": "harden ask wiki and election correctness"
+      },
+      {
+        "type": "fix",
+        "description": "drop business names from FK-guard comment"
+      },
+      {
+        "type": "fix",
+        "description": "scroll RAG sources panel when content overflows"
+      },
+      {
+        "type": "fix",
+        "description": "align budget soft-warn event name with registry"
+      },
+      {
+        "type": "fix",
+        "description": "harden multi-model researcher allocation"
+      },
+      {
+        "type": "fix",
+        "description": "harden native tool protocol handling"
+      },
+      {
+        "type": "fix",
+        "description": "resolve wiki ask and playground execution bugs"
+      },
+      {
+        "type": "fix",
+        "description": "wrap playground mission run in KernelContext for diversity"
+      },
+      {
+        "type": "fix",
+        "description": "render inline error bubble on stream failure"
+      },
+      {
+        "type": "fix",
+        "description": "unify provider endpoint URL normalization (chat+embedding+image)"
+      },
+      {
+        "type": "fix",
+        "description": "getModelById 把长度阈值降到 >20 + 加 UserModelConfig CUID 查询"
+      },
+      {
+        "type": "fix",
+        "description": "isUserKey 严格语义 — 仅 ACTIVE KeyAssignment 指定 model 才算 My Key"
+      },
+      {
+        "type": "fix",
+        "description": "流式 trackSuccess/trackFailure 漏写 user_api_keys.usage_count"
+      },
+      {
+        "type": "fix",
+        "description": "删 userExtraModels 路径 + ai-ask 流式 UI 错位"
+      },
+      {
+        "type": "fix",
+        "description": "让 writer/reviewer 在 STRONG tier 内按 reasoning 区分反坍缩"
+      },
+      {
+        "type": "fix",
+        "description": "connection-test 走 DB ai_providers 真源解析 endpoint"
+      },
+      {
+        "type": "fix",
+        "description": "删除 BYOK_DEFAULT_MODELS 兜底逻辑根治双源"
+      },
+      {
+        "type": "fix",
+        "description": "clarify offload pipeline status semantics"
+      },
+      {
+        "type": "fix",
+        "description": "preserve degraded-stage contract in dispatcher"
+      },
+      {
+        "type": "fix",
+        "description": "neutralize storage offload prefixes"
+      },
+      {
+        "type": "fix",
+        "description": "decouple ingest from kb 向量化 button"
+      },
+      {
+        "type": "fix",
+        "description": "auto-open first page when entering kb without ?page="
+      },
+      {
+        "type": "fix",
+        "description": "r2 off-load round-1 review fixes (security + arch p0)"
+      },
+      {
+        "type": "fix",
+        "description": "stop dropping ingest diffs over LLM-hallucinated documentId"
+      },
+      {
+        "type": "fix",
+        "description": "raise apiClient timeout on LLM-bound endpoints"
+      },
+      {
+        "type": "fix",
+        "description": "split upsert update/create branches for TS prisma input types"
+      },
+      {
+        "type": "fix",
+        "description": "unblock enable-wiki, pages list, ingest LLM, query panel"
+      },
+      {
+        "type": "fix",
+        "description": "route enable-wiki modal KB list through apiClient"
+      },
+      {
+        "type": "fix",
+        "description": "correct 404 paths in wiki API client and tab"
+      },
+      {
+        "type": "fix",
+        "description": "shrink expanded brand logo so toggle button stays visible"
+      },
+      {
+        "type": "fix",
+        "description": "user msg seq must beat in-flight emitted seq (screenshot 48-49)"
+      },
+      {
+        "type": "fix",
+        "description": "rename sidebar Playground label to AI 实验场 in zh"
+      },
+      {
+        "type": "fix",
+        "description": "add sediment-topology link to backend ai-harness/readme"
+      },
+      {
+        "type": "fix",
+        "description": "align stage 0 §1 / §2 / §3 wording to facade-only"
+      },
+      {
+        "type": "fix",
+        "description": "close stage 0 round 6 reservations"
+      },
+      {
+        "type": "fix",
+        "description": "add sediment-topology link to backend ai-harness/readme"
+      },
+      {
+        "type": "fix",
+        "description": "align stage 0 §1 / §2 / §3 wording to facade-only"
+      },
+      {
+        "type": "fix",
+        "description": "close stage 0 round 6 reservations"
+      },
+      {
+        "type": "fix",
+        "description": "slug-normalize truncation hyphen + spec coverage gaps (p0a-1 r7.1)"
+      },
+      {
+        "type": "fix",
+        "description": "keep cross-dim chapter intact on reconciler-report fallback"
+      },
+      {
+        "type": "fix",
+        "description": "sync verifier SKILL.md embed with soul/duty (byte-equal contract)"
+      },
+      {
+        "type": "fix",
+        "description": "kill dead toolCategories on reconciler/verifier (audit follow-up)"
+      },
+      {
+        "type": "fix",
+        "description": "plug researcher prompt-vs-whitelist drift (8 missing tools + industry-report hint)"
+      },
+      {
+        "type": "fix",
+        "description": "structured recentThought rendering + dismissable WS warning"
+      },
+      {
+        "type": "fix",
+        "description": "room initial-load shows historical messages (was always empty)"
+      },
+      {
+        "type": "fix",
+        "description": "anti-prompt-pollution to parallel-merge / review / handoff"
+      },
+      {
+        "type": "fix",
+        "description": "停止按钮无效 — three-layer fix for terminal-event drop and stale cancel"
+      },
+      {
+        "type": "fix",
+        "description": "per-turn sequenceNum tracking — concurrent turns no longer mute each other"
+      },
+      {
+        "type": "fix",
+        "description": "room header shows composer's active mode (was room defaultMode)"
+      },
+      {
+        "type": "fix",
+        "description": "round 2 review consensus — 4 P0/P1 + 3 spec gaps"
+      },
+      {
+        "type": "fix",
+        "description": "surface vote/synthesis/error bubbles + system.notice across all 6 adapters"
+      },
+      {
+        "type": "fix",
+        "description": "re-allocate db sequenceNum + retry on P2002 in persistMessages"
+      },
+      {
+        "type": "fix",
+        "description": "render AI bubble content as markdown (was raw text)"
+      },
+      {
+        "type": "fix",
+        "description": "correct LLM history role mapping to stop AI from prefixing self-name"
+      },
+      {
+        "type": "fix",
+        "description": "emit message content with participant.done so UI bubbles render"
+      },
+      {
+        "type": "fix",
+        "description": "three real root causes (width / @ routing / flash-reload)"
+      },
+      {
+        "type": "fix",
+        "description": "full-width room layout + @ autocomplete + member picker + surface turn errors"
+      },
+      {
+        "type": "fix",
+        "description": "w6 review v6 fixes"
+      },
+      {
+        "type": "fix",
+        "description": "show personal UserModelConfig in /ai/models + fix dropdown UX"
+      },
+      {
+        "type": "fix",
+        "description": "surface pending key request status with inline cancel"
+      },
+      {
+        "type": "fix",
+        "description": "pass skipUserNotification=true in approve to avoid duplicate notify"
+      },
+      {
+        "type": "fix",
+        "description": "hide revoke button for non-ACTIVE assignments and filter list to ACTIVE only"
+      },
+      {
+        "type": "fix",
+        "description": "use is_enabled (snake_case) not isEnabled (camelCase) in 20260508a SQL"
+      },
+      {
+        "type": "fix",
+        "description": "break facade barrel circular load that nulled framework DI metadata"
+      },
+      {
+        "type": "fix",
+        "description": "import RuntimeResourceModule for RuntimeEnvironmentService DI"
+      },
+      {
+        "type": "fix",
+        "description": "add CreditsModule import + MissionAbortRegistry to @Global HarnessModule"
+      },
+      {
+        "type": "fix",
+        "description": "whitelist EventRelayFramework template-emitted events"
+      },
+      {
+        "type": "fix",
+        "description": "grantkeymodal 过滤 isenabled=false 模型避免后端校验失败"
+      },
+      {
+        "type": "fix",
+        "description": "创建/重跑 endpoint 限流统一 30/60s（修\"创建 mission 也 429\"）"
+      },
+      {
+        "type": "fix",
+        "description": "429 真因深层修 — 业务层 5→50/24h 保底（用户反馈\"点任何重跑都 429\"）"
+      },
+      {
+        "type": "fix",
+        "description": "local-rerun 限流 10/60s → 30/60s（用户反馈\"429 限制过严\"）"
+      },
+      {
+        "type": "fix",
+        "description": "industry-report-search 调用频率低 — 加 preferIds 决策启发式（task #152）"
+      },
+      {
+        "type": "fix",
+        "description": "pr-9 r4 阻塞补足 — referencedby 重映射 + 章节引言兜底 + 4/4 共识"
+      },
+      {
+        "type": "fix",
+        "description": "mission 843f6958 深度审视 8 个 patch — 图占位/章节/sanitizer/quality 闭环"
+      },
+      {
+        "type": "fix",
+        "description": "r2 4/4 共识 p0 — strict prefix + json 守卫 + dimstartindex"
+      },
+      {
+        "type": "fix",
+        "description": "恢复\"维度→章节→子小节\"包含关系（H4 子小节不加序号）"
+      },
+      {
+        "type": "fix",
+        "description": "既有 mission 编号修复 + DemoLauncher 维度数文案"
+      },
+      {
+        "type": "fix",
+        "description": "章节标题彻底消失 + 维度/章节自动层级编号"
+      },
+      {
+        "type": "fix",
+        "description": "对账总览渲染 markdown + 导出彻底走 wysiwyg"
+      },
+      {
+        "type": "fix",
+        "description": "leader assess-research 实事求是（修 a+b：pass/fail 显式 + 平衡话术）"
+      },
+      {
+        "type": "fix",
+        "description": "修 2 个 pre-existing spec failure（与 v1.6 无关）"
+      },
+      {
+        "type": "fix",
+        "description": "per-dim-pipeline.sanitize.spec mock subsectionplanneragent"
+      },
+      {
+        "type": "fix",
+        "description": "wall-time 用 effective start（reopen 不被原 startedAt 误杀）"
+      },
+      {
+        "type": "fix",
+        "description": "event_baseline 加 mission:zombie-cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "注册 mission:zombie-cleanup 事件 schema"
+      },
+      {
+        "type": "fix",
+        "description": "rerun 链路单点判定 + 因果倒置真因修"
+      },
+      {
+        "type": "fix",
+        "description": "god-class size guard 现在能识别 rename target"
+      },
+      {
+        "type": "fix",
+        "description": "layer 6 真兜底 + fc 路径保留 kind 对称防御"
+      },
+      {
+        "type": "fix",
+        "description": "n:1 secret 串号 — provider 间彼此泄漏 secretkey"
+      },
+      {
+        "type": "fix",
+        "description": "删 reset-before-cascade + s2/s5/s10 主动持久化 (c195035f 数据废墟修)"
+      },
+      {
+        "type": "fix",
+        "description": "pr-1 review p1 修 + zombie heartbeat 双信号判定"
+      },
+      {
+        "type": "fix",
+        "description": "per-key Hits 实时累加 + 替换重置 + 清零迁移坏种值"
+      },
+      {
+        "type": "fix",
+        "description": "tailwind darkMode 切 'class' 锁全站浅色 — 不跟随 OS 偏好"
+      },
+      {
+        "type": "fix",
+        "description": "replace key 触发浏览器 autofill 把 url 灌进搜索框"
+      },
+      {
+        "type": "fix",
+        "description": "第三轮共识 — markFailed userId + 4 stage 文件 markIntermediateState 严格隔离"
+      },
+      {
+        "type": "fix",
+        "description": "第二轮共识 — markIntermediateState userId 隔离 + errorMessage undefined spec"
+      },
+      {
+        "type": "fix",
+        "description": "pr-r0~r8 收尾评审 10 个 p0 全修"
+      },
+      {
+        "type": "fix",
+        "description": "pr-r5 注册 cascade 事件 + 同步 frontend-contract baseline"
+      },
+      {
+        "type": "fix",
+        "description": "pr-r3 frontend event baseline 加 mission:reopened"
+      },
+      {
+        "type": "fix",
+        "description": "pr-r3 注册 mission:reopened 事件"
+      },
+      {
+        "type": "fix",
+        "description": "pr-r0 集体评审收尾 — 3 路 approved + 3 非阻塞落地"
+      },
+      {
+        "type": "fix",
+        "description": "preface slot fixed→optional 防 S11 chapter_content_incomplete 误杀"
+      },
+      {
+        "type": "fix",
+        "description": "v1.7 4 轮共识收尾 — security 真 bug + docs 回填"
+      },
+      {
+        "type": "fix",
+        "description": "v1.7 三轮共识收尾 — fence lang-aware + spec 加固 + 业务名清"
+      },
+      {
+        "type": "fix",
+        "description": "v1.5 收尾 — 5 路代码评审 P0+P1 全修"
+      },
+      {
+        "type": "fix",
+        "description": "/me/ai?tab=keys 改用真表格，与 admin secrets 视觉完全一致"
+      },
+      {
+        "type": "fix",
+        "description": "launch 必 400 真因——translate 没传 P0-K 必填字段"
+      },
+      {
+        "type": "fix",
+        "description": "stage 状态不实时真因 — dispatcher 9 处直调 buffer.broadcast 切到 eventBus.emit"
+      },
+      {
+        "type": "fix",
+        "description": "报告分析 slide-over 紧凑化（截图 30 反馈）"
+      },
+      {
+        "type": "fix",
+        "description": "/[id] 页 ErrorBoundary 真因——Next 14 params 不是 Promise"
+      },
+      {
+        "type": "fix",
+        "description": "截图 25/26 反馈 — 删 platform 杂物 + secretversion 历史回填多 key"
+      },
+      {
+        "type": "fix",
+        "description": "#88 dispatcher boot 扫 orphan running missions（pod restart 救援）"
+      },
+      {
+        "type": "fix",
+        "description": "p4 frontend 加固 — byok 隐藏假按钮 + 删旧表格 + 错误 toast"
+      },
+      {
+        "type": "fix",
+        "description": "p4 backend 加固 — getvalue 委托 / 审计补全 / 事务化 / 软删联动"
+      },
+      {
+        "type": "fix",
+        "description": "多 key 面板状态与父组件解耦"
+      },
+      {
+        "type": "fix",
+        "description": "p3 业务侧迁移补齐 - 上次 commit 因 assume-unchanged 漏掉真改动"
+      },
+      {
+        "type": "fix",
+        "description": "#A leader stage 状态机重写 — 任意 step done → stage done 设计 bug"
+      },
+      {
+        "type": "fix",
+        "description": "批 3 — 报告导出 PDF/HTML 全失败"
+      },
+      {
+        "type": "fix",
+        "description": "批 2 — chartjs fence 残留 + 重复参考文献"
+      },
+      {
+        "type": "fix",
+        "description": "去除 ai-infra 注释里的业务唯一名"
+      },
+      {
+        "type": "fix",
+        "description": "批 1 — dim 卡延迟 / 兜底降级误标 / s12 已放弃 / 报告推送"
+      },
+      {
+        "type": "fix",
+        "description": "深度检视补 m.topic.toLowerCase() 同模式空指针防御"
+      },
+      {
+        "type": "fix",
+        "description": "mission 完成通知 actionUrl 双错 → 404"
+      },
+      {
+        "type": "fix",
+        "description": "修自定义 Agent 页 ErrorBoundary + 加分组 + 一键配置"
+      },
+      {
+        "type": "fix",
+        "description": "mark/delete 后 Sidebar badge 立即刷新"
+      },
+      {
+        "type": "fix",
+        "description": "10 P0 audit 闭环 — emit catch 47处 + signoff 严格化 + race guard"
+      },
+      {
+        "type": "fix",
+        "description": "加 2 条护栏阻止 useApi/apiClient path 双前缀漂移"
+      },
+      {
+        "type": "fix",
+        "description": "平台层删除 stage 死秒表 + zod 80事件 + youtubei 17 + contract spec"
+      },
+      {
+        "type": "fix",
+        "description": "修复路径双前缀漂移导致用户收不到通知"
+      },
+      {
+        "type": "fix",
+        "description": "derive.ts 加 stage:lifecycle handler — 修 mission stages 永不更新真因"
+      },
+      {
+        "type": "fix",
+        "description": "mission detail 全炸真因 — initialRisks 是 object 不是 string"
+      },
+      {
+        "type": "fix",
+        "description": "第4轮收敛 — credits P2002 race + notification timer cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "第3轮 9 个问题 — silent emit/race/credits/notification"
+      },
+      {
+        "type": "fix",
+        "description": "第2轮 18 个问题 — schema/并发/死字段/边界"
+      },
+      {
+        "type": "fix",
+        "description": "第1轮 27 个问题批量修 — 4 层并行清零"
+      },
+      {
+        "type": "fix",
+        "description": "举一反三同类清零 — migration/prisma log/userProfile/save catch"
+      },
+      {
+        "type": "fix",
+        "description": "业务链修1-5 — userProfile/abort/retry持久化/dim创建/cache节奏"
+      },
+      {
+        "type": "fix",
+        "description": "r-ca 真 bug + 覆盖不全清零"
+      },
+      {
+        "type": "fix",
+        "description": "r-ca 4 个风险点全部清零"
+      },
+      {
+        "type": "fix",
+        "description": "dim 节点 label \"完成\" → \"研究完成\"，避免误以为 mission 完成"
+      },
+      {
+        "type": "fix",
+        "description": "rerun 不再硬编码 maxCredits=300，让 budgetProfile 决定"
+      },
+      {
+        "type": "fix",
+        "description": "liveness-guard 5min 阈值放宽到 15min（regression 修复）"
+      },
+      {
+        "type": "fix",
+        "description": "5 个 stage 漏 emit stage:started/completed → 任务卡永远卡待启动"
+      },
+      {
+        "type": "fix",
+        "description": "无 byok 用户 banner + 后端联合 personal+assigned 双源"
+      },
+      {
+        "type": "fix",
+        "description": "默认模型优先用户 byok + dropdown 显示 key 来源 — 全 8 处统一"
+      },
+      {
+        "type": "fix",
+        "description": "publish 报错信息丢失 + 5 步 ✓ 假象 三件套修"
+      },
+      {
+        "type": "fix",
+        "description": "biz-name leakage 4 处修补，让 layer-boundaries spec 全绿"
+      },
+      {
+        "type": "fix",
+        "description": "heartbeat 误杀 healthy mission — recoverPodCrashedRunning 加 events cross-check"
+      },
+      {
+        "type": "fix",
+        "description": "字幕只显示 1 段 — getTranscript 不再返回稀疏 translatedTranscript + saveTranslation 改 merge"
+      },
+      {
+        "type": "fix",
+        "description": "严格 BYOK 风险兜底三件套 — ChatFacade 强制 userId + admin self-assign + 注释更新"
+      },
+      {
+        "type": "fix",
+        "description": "严格 BYOK 模式 — 删除 ADMIN SYSTEM fallback，所有用户必须显式配 PERSONAL/ASSIGNED"
+      },
+      {
+        "type": "fix",
+        "description": "batch 化优化 — 全 chart 不调 batch + spec 对齐 batch 语义"
+      },
+      {
+        "type": "fix",
+        "description": "散点机制清零 batch 2 — stage hang 根因 + rerun 抽象 + tool registry 双名解决"
+      },
+      {
+        "type": "fix",
+        "description": "机制性兜底 — agent wall-time + batch embedding + voyage 404"
+      },
+      {
+        "type": "fix",
+        "description": "rerun 完整化 — fresh / incremental 双模式 + running 检查"
+      },
+      {
+        "type": "fix",
+        "description": "更新按钮真正\"在既有基础上更新\"，对齐 Topic Insight 模式"
+      },
+      {
+        "type": "fix",
+        "description": "修 AbortSignal listener 泄漏 — mission 卡死真因"
+      },
+      {
+        "type": "fix",
+        "description": "semantic scholar cooldown 降级 WARN + parseChartOutput 诊断增强"
+      },
+      {
+        "type": "fix",
+        "description": "todo 模型列空白 — 从 task 表批量兜底 modelId"
+      },
+      {
+        "type": "fix",
+        "description": "401 auth-circuit-breaker + invalidate cache，避免 524 次刷屏"
+      },
+      {
+        "type": "fix",
+        "description": "latexRepair LLM 调用加 60s timeout，避免 mission 永远卡死"
+      },
+      {
+        "type": "fix",
+        "description": "keyFindings 必非空硬保障 + fallback regex 放宽"
+      },
+      {
+        "type": "fix",
+        "description": "voyage 缺 case 致\"Unknown provider\"+ custom-provider fallback"
+      },
+      {
+        "type": "fix",
+        "description": "抑制 NestJS 启动期 RouterExplorer / RoutesResolver / InstanceLoader 噪声"
+      },
+      {
+        "type": "fix",
+        "description": "topicDimension unique 冲突 + hydrate select resultUri 缺失"
+      },
+      {
+        "type": "fix",
+        "description": "p0 + p1 — capabilityResolveTools 静默 fallback 修复 + 同类排查"
+      },
+      {
+        "type": "fix",
+        "description": "c4 — anthropic p0-1 postmortem 真 embedding 闭环"
+      },
+      {
+        "type": "fix",
+        "description": "c1 figure-relevance llm batch 替代 embedding 路径"
+      },
+      {
+        "type": "fix",
+        "description": "c3 + c5 — biz-name 清理 + p0-3 hook fire points 闭合"
+      },
+      {
+        "type": "fix",
+        "description": "callXAIAPI 缺 inputTokens/outputTokens 致 mission token 始终为 0"
+      },
+      {
+        "type": "fix",
+        "description": "playground skills 注册缺失 + openalex 429 host 级冷却"
+      },
+      {
+        "type": "fix",
+        "description": "4 模块构造器 inline import() 类型导致 prod boot 失败"
+      },
+      {
+        "type": "fix",
+        "description": "runtime_version DB 列不再误标 legacy + 文档回填 R2-C 完成态"
+      },
+      {
+        "type": "fix",
+        "description": "debug audit p0 修复 4 项（s2/s3/s4/s5）"
+      },
+      {
+        "type": "fix",
+        "description": "friendly error + warn-level for upstream rate-limit"
+      },
+      {
+        "type": "fix",
+        "description": "embedding 429 backoff/circuit-breaker + axios 200MB+10MB truncate"
+      },
+      {
+        "type": "fix",
+        "description": "pod heartbeat 90s→300s + boot delay + industry-report fail-soft"
+      },
+      {
+        "type": "fix",
+        "description": "railway boot crash + r2-a.13.1/13.2 失败兜底+进度跟踪"
+      },
+      {
+        "type": "fix",
+        "description": "r2-a0 spec normalizer accepts prettier-induced reformatting"
+      },
+      {
+        "type": "fix",
+        "description": "restore plugin-core.module.ts filename and @genesis/plugin-core npm name"
+      },
+      {
+        "type": "fix",
+        "description": "rollback s7 deps narrowing missed in PR-7b"
+      },
+      {
+        "type": "fix",
+        "description": "validate export template refs and recover token usage"
+      },
+      {
+        "type": "fix",
+        "description": "restore live token accounting and refresh login"
+      },
+      {
+        "type": "fix",
+        "description": "harden report integrity and unify login entry"
+      },
+      {
+        "type": "fix",
+        "description": "correct retry task status and chapter counts"
+      },
+      {
+        "type": "fix",
+        "description": "redesign login and unify tool id aliases"
+      },
+      {
+        "type": "fix",
+        "description": "harden container startup and prisma deploy"
+      },
+      {
+        "type": "fix",
+        "description": "resolve prompt skill chat provider lazily"
+      },
+      {
+        "type": "fix",
+        "description": "resolve prisma alias in production build"
+      },
+      {
+        "type": "fix",
+        "description": "track runner env store interfaces"
+      },
+      {
+        "type": "fix",
+        "description": "reorder optional team mission dependency"
+      },
+      {
+        "type": "fix",
+        "description": "resolve changed test regressions and long-content wiring"
+      },
+      {
+        "type": "fix",
+        "description": "use direct tsc for backend compile"
+      },
+      {
+        "type": "fix",
+        "description": "round b — critic warnings 结构化 + 图片 fuzzy match + 拒签验证"
+      },
+      {
+        "type": "fix",
+        "description": "round a — 治根 3 件（参考文献偏少 / 空章节 / 章节进度假统计）"
+      },
+      {
+        "type": "fix",
+        "description": "真治根收尾 — failed/skipped/degraded 标志全链路透传到 ui"
+      },
+      {
+        "type": "fix",
+        "description": "深度仿真 round 2 — quick 模式 dim 卡死 + emit 故障韧性"
+      },
+      {
+        "type": "fix",
+        "description": "深度仿真发现的 invariant 漏洞 — research 失败 dim 也必发 graded"
+      },
+      {
+        "type": "fix",
+        "description": "失败原因人类可读化 — leader 拒签 + s12 自我进化 drawer 看具体内容"
+      },
+      {
+        "type": "fix",
+        "description": "s3 两阶段调度 — phase a research 高并发 + phase b chapter pipeline 中并发"
+      },
+      {
+        "type": "fix",
+        "description": "dim 终态 invariant 闭合 + 19 个分支 100% 测试覆盖"
+      },
+      {
+        "type": "fix",
+        "description": "researcher 学术工具兜底 + arxiv 治 timeout 30s"
+      },
+      {
+        "type": "fix",
+        "description": "byok 配置全面对齐 vendor 官方规范 — 治 xai 模型路由错端 + 35 行 backfill"
+      },
+      {
+        "type": "fix",
+        "description": "治 quota / model-not-found 真因被吞 + friendly regex 全文搜"
+      },
+      {
+        "type": "fix",
+        "description": "治评审重派后状态卡已完成 — retry todo 走 chapter pipeline 兜底"
+      },
+      {
+        "type": "fix",
+        "description": "治\"评审通过后跳到待启动\" + dim 调度从批改滑动窗口"
+      },
+      {
+        "type": "fix",
+        "description": "治 chapter status 卡 pending 真因 — 同毫秒事件 race（prod 实测证明）"
+      },
+      {
+        "type": "fix",
+        "description": "治 starting 占位卡死 + chapter 状态 pending 显示已完成 + outline merge 而非建一次"
+      },
+      {
+        "type": "fix",
+        "description": "章节评审字数降级为参考维度（10/100）+ 硬门槛 70%→40%"
+      },
+      {
+        "type": "fix",
+        "description": "chapter status 'pending' 按 dim 整体状态推断（治并行 event race 卡 pending）"
+      },
+      {
+        "type": "fix",
+        "description": "per-dim research 事件 + 显式 dimension 映射 — 治并行后状态错位"
+      },
+      {
+        "type": "fix",
+        "description": "harden agent playground risk controls"
+      },
+      {
+        "type": "fix",
+        "description": "align harness routes and observability attribution"
+      },
+      {
+        "type": "fix",
+        "description": "route harness cards to real admin surface"
+      },
+      {
+        "type": "fix",
+        "description": "rerun 不再修改 topic + header truncate 兜底剥换行"
+      },
+      {
+        "type": "fix",
+        "description": "单 todo 重跑分流（s9b 真局部 / 其他二次确认另起 mission）"
+      },
+      {
+        "type": "fix",
+        "description": "工具结果 _truncated 形态友好化（regex 抽 results + 双语摘要）"
+      },
+      {
+        "type": "fix",
+        "description": "admin todo 列表隐藏 reconciler-gap 系统自检 todo"
+      },
+      {
+        "type": "fix",
+        "description": "leader signoff 加字数 hard floor 30% 防假签字"
+      },
+      {
+        "type": "fix",
+        "description": "s11 markcompleted 加 chapter content guard 防假完成"
+      },
+      {
+        "type": "fix",
+        "description": "chapter:done 事件链 + 进度判别 + 阈值衰减 治根因"
+      },
+      {
+        "type": "fix",
+        "description": "tool output 16k 截断阈值 32k 解 mission 重写循环"
+      },
+      {
+        "type": "fix",
+        "description": "工具结果不可见 — 提 truncatePayload 阈值 + 前端兜底 _truncated 形状"
+      },
+      {
+        "type": "fix",
+        "description": "axios maxContentLength 5mb→50mb 解大文档抓取失败"
+      },
+      {
+        "type": "fix",
+        "description": "修 4 个 broken spec 让 pre-push 通过"
+      },
+      {
+        "type": "fix",
+        "description": "researcher 显式声明 rag-search 进白名单"
+      },
+      {
+        "type": "fix",
+        "description": "rag-search 必入白名单 + 修配套架构边界 spec"
+      },
+      {
+        "type": "fix",
+        "description": "strict_output_validation 上主干（默认 on，env=0 才关）"
+      },
+      {
+        "type": "fix",
+        "description": "overview 架构图对齐真实分层 + l1 命名去\"管理\"统一"
+      },
+      {
+        "type": "fix",
+        "description": "wall-time 25min → 45min — 12-stage pipeline 实测撞墙修正"
+      },
+      {
+        "type": "fix",
+        "description": "m2 收尾 — zod validator + sideEffect 全量补齐（P1-#3/#4）"
+      },
+      {
+        "type": "fix",
+        "description": "mission revision 死循环真因修复 + 集中阈值常量 (PR-G iter8)"
+      },
+      {
+        "type": "fix",
+        "description": "toolacl entitlement 搬到 permission middleware（P0-#5）"
+      },
+      {
+        "type": "fix",
+        "description": "pipeline 接通 + output reject 软切（P0-#1/#2）"
+      },
+      {
+        "type": "fix",
+        "description": "禁用 MissionHealthScheduler 自动扫描 (PR-G iter6 真因)"
+      },
+      {
+        "type": "fix",
+        "description": "recoverOrphanedRunning 30min → 240min (PR-G iter5 真因)"
+      },
+      {
+        "type": "fix",
+        "description": "修截图 22 出错了 — synthesize-artifact quickView 字段缺失"
+      },
+      {
+        "type": "fix",
+        "description": "临时禁用 orphan detector 自动扫描（PR-G iter3）"
+      },
+      {
+        "type": "fix",
+        "description": "orphan detector 阈值放宽 + 启动恩典窗口（修 mission 全死 bug）"
+      },
+      {
+        "type": "fix",
+        "description": "修 PR-F build 失败 — QUALITY_CHECKLIST import 但未使用"
+      },
+      {
+        "type": "fix",
+        "description": "PR-F writer 注入 TI report-writing-standards 沉淀"
+      },
+      {
+        "type": "fix",
+        "description": "PR-D 章节风格统一 — per-dim formatDimensionContent + 全局连续编号"
+      },
+      {
+        "type": "fix",
+        "description": "引用元数据补全 (PR-C) — title/snippet/publishedAt + path-aware credibility"
+      },
+      {
+        "type": "fix",
+        "description": "写作 prompt 去模板化 — 段落须有独立观点，非八股套话"
+      },
+      {
+        "type": "fix",
+        "description": "写作 prompt 去模板化 — 段落必须有独立观点而非八股套话"
+      },
+      {
+        "type": "fix",
+        "description": "章节卡片强制等高 (#65 截图 20 跟进)"
+      },
+      {
+        "type": "fix",
+        "description": "引用可信度 scale 0-100 修正 + 章节卡片预览统一剥结构"
+      },
+      {
+        "type": "fix",
+        "description": "报告图片闪烁 + 引用角标 hover 信息对齐 TI"
+      },
+      {
+        "type": "fix",
+        "description": "leader strategy 校验回退 optional — 兼容老 retry case 测试"
+      },
+      {
+        "type": "fix",
+        "description": "任务列表按逻辑流程顺序重排 — s1→s2→dim→s3→s4→retry→s5→s6→s7→s8→revise→s8b→s9→s9b→s10→s11→s12"
+      },
+      {
+        "type": "fix",
+        "description": "s7 撰写大纲一直待启动 + paranoid 类型对齐 thorough+"
+      },
+      {
+        "type": "fix",
+        "description": "collectResultsDeep 识别 findings + claim/evidence/source 字段"
+      },
+      {
+        "type": "fix",
+        "description": "mission 设置弹窗用 KnowledgeBaseSelector 复选框替代 ID 输入"
+      },
+      {
+        "type": "fix",
+        "description": "报告页崩溃 — 补 quality.hardGateViolations + quickView 字段"
+      },
+      {
+        "type": "fix",
+        "description": "orphan 误判根治 — maxAge 30→90min + lastActivity 5min 过滤 + stale 60min"
+      },
+      {
+        "type": "fix",
+        "description": "报告图片闪烁 — useMemo 缓存 artifact 防 setNow 500ms tick 重渲"
+      },
+      {
+        "type": "fix",
+        "description": "retry researcher 重跑后链式重跑 chapter pipeline + grade 不再借第一次评分"
+      },
+      {
+        "type": "fix",
+        "description": "critic warnings 不再每条独立成 todo - 合并到 s9 narrativeLog"
+      },
+      {
+        "type": "fix",
+        "description": "补 S8B/S9B 缺失 stage 事件 + 12 stage 占位卡 mission 启动时全显示"
+      },
+      {
+        "type": "fix",
+        "description": "章节视图碎片化 — keyPoint H2 降级为 H3 + 前端启发式合并"
+      },
+      {
+        "type": "fix",
+        "description": "工具结果展示双语化 + 体现关键结论 — 不再灌 raw JSON"
+      },
+      {
+        "type": "fix",
+        "description": "rerun service 用值导入避免 NestJS DI 失败"
+      },
+      {
+        "type": "fix",
+        "description": "屏蔽不支持局部重跑的 todo 重跑按钮 — 仅 system:s9b 显示"
+      },
+      {
+        "type": "fix",
+        "description": "彻底解决报告 fallback 渲染 — mission:completed/persist/v2 artifact 全链路对齐"
+      },
+      {
+        "type": "fix",
+        "description": "emit researcher:completed in retry path + ledger 不借第一次 grade"
+      },
+      {
+        "type": "fix",
+        "description": "admin 走 byok 优先 + react-loop 兜底无 envelope"
+      },
+      {
+        "type": "fix",
+        "description": "修 3 处 raw SQL 误用 Prisma model 名(PascalCase)"
+      },
+      {
+        "type": "fix",
+        "description": "runtime/abstractions 改从 harness/memory 导类型"
+      },
+      {
+        "type": "fix",
+        "description": "收口所有\"假成功\"链路 — S3 chapter pipeline + S10 reportArtifact 缺失"
+      },
+      {
+        "type": "fix",
+        "description": "S4 patch 失败强制 mission degraded + S10 强制拒签（真根因）"
+      },
+      {
+        "type": "fix",
+        "description": "mission completed 时 finalize 所有非终态 todo"
+      },
+      {
+        "type": "fix",
+        "description": "todo-ledger 添加 s12-self-evolution stage 事件 handler"
+      },
+      {
+        "type": "fix",
+        "description": "per-provider 429 冷却 — serper=1min, 其他=30min"
+      },
+      {
+        "type": "fix",
+        "description": "429 短冷却 30min 治 Serper key 误锁 24h + reconciler-gap todo 状态闭环"
+      },
+      {
+        "type": "fix",
+        "description": "tool-call URL 可点击 + tool-result 抓到内容时显示 raw 预览"
+      },
+      {
+        "type": "fix",
+        "description": "build 末尾兜底 copy duty/skill/preset md 到 dist 治 Railway 缺资源"
+      },
+      {
+        "type": "fix",
+        "description": "cron 触发的 refresh 显式 wrap withUserContext 治 BYOK 全 fail"
+      },
+      {
+        "type": "fix",
+        "description": "装配后 fullMarkdown 接入 15 个 TI 沉淀 cleanup helpers"
+      },
+      {
+        "type": "fix",
+        "description": "TI 章节风格 — 维度 chapter 注入 🎯 核心观点 + 关键数据"
+      },
+      {
+        "type": "fix",
+        "description": "TI 风格 — fullMarkdown 末尾 append ## 参考文献 section"
+      },
+      {
+        "type": "fix",
+        "description": "r-live 5 项观测/降级修复"
+      },
+      {
+        "type": "fix",
+        "description": "r5 P2 batch — 3/6 项"
+      },
+      {
+        "type": "fix",
+        "description": "r5 P0/P1 batch 2 — checkpoint 闭环 + S12/S2 race"
+      },
+      {
+        "type": "fix",
+        "description": "r5 P0/P1 batch — 12 项收尾"
+      },
+      {
+        "type": "fix",
+        "description": "cancel-ghost 短路 + reflexion 阈值 75→60"
+      },
+      {
+        "type": "fix",
+        "description": "tool-result 同时展示成功 + 失败子调用（不再被短路）"
+      },
+      {
+        "type": "fix",
+        "description": "analyst null 输出兜底 + reflection event 透传 verdicts"
+      },
+      {
+        "type": "fix",
+        "description": "tool-result 透传 error + mission failed banner 加关闭按钮"
+      },
+      {
+        "type": "fix",
+        "description": "mission failed 时所有非终态 todo 级联 finalize"
+      },
+      {
+        "type": "fix",
+        "description": "第三批 — P0 失败无原因 + P1 业务校验缺 input 上下文"
+      },
+      {
+        "type": "fix",
+        "description": "第二批工具失败必须有明细原因 — 透传最后一次 attempt 错误"
+      },
+      {
+        "type": "fix",
+        "description": "工具失败必须有明细原因 — 透传 error 到 LLM observation"
+      },
+      {
+        "type": "fix",
+        "description": "web-search 透传 SearchService 真实错误给 LLM / trace"
+      },
+      {
+        "type": "fix",
+        "description": "空响应触发 fallback + maxIterations 落 failed 而非 completed"
+      },
+      {
+        "type": "fix",
+        "description": "s9 critic stage 接受 degraded 输出"
+      },
+      {
+        "type": "fix",
+        "description": "per-dim pipeline outline/writer/reviewer 也接受 degraded"
+      },
+      {
+        "type": "fix",
+        "description": "role services 把 reflexion degraded 折成 failed 让 mission 全 fail"
+      },
+      {
+        "type": "fix",
+        "description": "round 4 — 修补第三轮二阶风险与 ReportAssembler 深度问题 14 项"
+      },
+      {
+        "type": "fix",
+        "description": "round 3 — 修补第二轮二阶风险与未细查面 11 项"
+      },
+      {
+        "type": "fix",
+        "description": "round 2 — 修补第一轮引入的 15 项二阶风险"
+      },
+      {
+        "type": "fix",
+        "description": "深度业务分支排查 — P0+P1+P2 共 23 处异常修复"
+      },
+      {
+        "type": "fix",
+        "description": "playground gateway.spec async 适配"
+      },
+      {
+        "type": "fix",
+        "description": "启用 OpenAI structured output mode 根除 reasoning model null 输出"
+      },
+      {
+        "type": "fix",
+        "description": "补 5 个 domain event 注册修复 emit 被 drop bug"
+      },
+      {
+        "type": "fix",
+        "description": "retry researcher 不收敛死循环 - 7 处修复"
+      },
+      {
+        "type": "fix",
+        "description": "round 4 - section-remediation outputLength 升 extended"
+      },
+      {
+        "type": "fix",
+        "description": "round 3 - 字数兑现率真因修复 (chapter/integrator output token 上限 + 多 1 次 revise)"
+      },
+      {
+        "type": "fix",
+        "description": "补 ResourceLifecycleModule 的 import 语句让 config.module 编译通过"
+      },
+      {
+        "type": "fix",
+        "description": "s12 真沉淀 + researcher wallTime 600s 修 retry 风暴"
+      },
+      {
+        "type": "fix",
+        "description": "5 UI fixes (TOC remove, chapter card view, table cols, researcher figures)"
+      },
+      {
+        "type": "fix",
+        "description": "assembler 优先用 per-dim fullMarkdown 避免 81K→3K 压缩"
+      },
+      {
+        "type": "fix",
+        "description": "wrap withUserContext + chapter reviewer length gate + plan threshold tweaks"
+      },
+      {
+        "type": "fix",
+        "description": "banner 区分 quality-failed (amber 可展开 + CTA) vs failed (red)"
+      },
+      {
+        "type": "fix",
+        "description": "per-dim 字数按 missionTarget/dimCount 推算 (修 epic 7 dim 失控问题)"
+      },
+      {
+        "type": "fix",
+        "description": "rerun 继承原 maxCredits + 顶部状态条识别 quality-failed"
+      },
+      {
+        "type": "fix",
+        "description": "drawer rerun + status icons + TI layout polish"
+      },
+      {
+        "type": "fix",
+        "description": "排版对齐 TI（去掉外层 card shadow，直接 bg-white + p-6 包 prose）"
+      },
+      {
+        "type": "fix",
+        "description": "报告主体视觉对齐 TI（blue 主色 + TI 同款 prose 类）"
+      },
+      {
+        "type": "fix",
+        "description": "chapter-writer prompt 强制段落数 + 字数刚性提示"
+      },
+      {
+        "type": "fix",
+        "description": "前端识别 quality-failed status 让用户能看到报告"
+      },
+      {
+        "type": "fix",
+        "description": "加章节字数硬门槛，逼 chapter-writer 写到 70%+ 目标"
+      },
+      {
+        "type": "fix",
+        "description": "mega 档位 cap 单章 ≤25K + HeroStrip 加 epic/mega label"
+      },
+      {
+        "type": "fix",
+        "description": "4 处 review 发现修复（must-fix + 3 should-fix）"
+      },
+      {
+        "type": "fix",
+        "description": "batch A+B 一次性消化 5 个修复"
+      },
+      {
+        "type": "fix",
+        "description": "leader-retry 的 dim 状态/抽屉透明化"
+      },
+      {
+        "type": "fix",
+        "description": "mission reliability — wall-time scaling + patch cap + analyst retry"
+      },
+      {
+        "type": "fix",
+        "description": "leader-assess drawer narrative + 4-char badge tooltips"
+      },
+      {
+        "type": "fix",
+        "description": "mission cancel state propagates to all UI surfaces"
+      },
+      {
+        "type": "fix",
+        "description": "drawer/stage overflow + tree task list + dim status semantics"
+      },
+      {
+        "type": "fix",
+        "description": "drawer/stage overflow + tree task list + dim done semantics"
+      },
+      {
+        "type": "fix",
+        "description": "purge inline raw JSON + title fallback for scrape results"
+      },
+      {
+        "type": "fix",
+        "description": "update Dockerfile entrypoint path after lint-staged rename"
+      },
+      {
+        "type": "fix",
+        "description": "copy TI button sizing + fix cancel button enabling"
+      },
+      {
+        "type": "fix",
+        "description": "adopt TI topology + table layout + structured drawer"
+      },
+      {
+        "type": "fix",
+        "description": "collapse messy researcher→analyst fan-in spaghetti"
+      },
+      {
+        "type": "fix",
+        "description": "kill chapter rewrite spam + TI-grade structured drawer"
+      },
+      {
+        "type": "fix",
+        "description": "clean task list + dedupe chapter rewrites + wall time"
+      },
+      {
+        "type": "fix",
+        "description": "defense-in-depth for Leader plan failure"
+      },
+      {
+        "type": "fix",
+        "description": "plumb task.input through validateBusinessRules"
+      },
+      {
+        "type": "feature",
+        "description": "push :latest tag alongside :version + default .env to :latest"
+      },
+      {
+        "type": "feature",
+        "description": "raise wallTime cap + plain-text chapter preview + richer dim findings"
+      },
+      {
+        "type": "feature",
+        "description": "frontend dependency direction spec (D1-D5 thinning scope)"
+      },
+      {
+        "type": "feature",
+        "description": "cross-app canonical view + frontend single-source spec"
+      },
+      {
+        "type": "feature",
+        "description": "radar todo board projector + events join (B7-2)"
+      },
+      {
+        "type": "feature",
+        "description": "tree-structured todo board + social B7 full port"
+      },
+      {
+        "type": "feature",
+        "description": "lift resume/rerun policy to BusinessTeamResumeRerunPolicyFramework (B6-L4)"
+      },
+      {
+        "type": "feature",
+        "description": "row-based agents projection for canonical view (B7 follow-up)"
+      },
+      {
+        "type": "feature",
+        "description": "port leader-chat-create todo origin to backend projector"
+      },
+      {
+        "type": "feature",
+        "description": "canonical view owns starting placeholder (§6.9)"
+      },
+      {
+        "type": "feature",
+        "description": "inject refreshHints into socket event envelope (§6.7.3)"
+      },
+      {
+        "type": "feature",
+        "description": "w8 delete view-to-derived.shim file"
+      },
+      {
+        "type": "feature",
+        "description": "remove dead persisted synthesis fallback in page.tsx"
+      },
+      {
+        "type": "feature",
+        "description": "w7 delete derive ecosystem files"
+      },
+      {
+        "type": "feature",
+        "description": "w2/w3/w5 components migrate off DerivedView"
+      },
+      {
+        "type": "feature",
+        "description": "w1 page.tsx cutover"
+      },
+      {
+        "type": "feature",
+        "description": "P0-B 充实 — projector 加 ordinal-based stage projection"
+      },
+      {
+        "type": "feature",
+        "description": "P0-A 收窄 shim — verdicts / memory / dimensionPipelines 从 canonical view 取"
+      },
+      {
+        "type": "feature",
+        "description": "P0-5 page 真切 — 移除 deriveTodoLedger hotfix，回到 canonical view truth"
+      },
+      {
+        "type": "feature",
+        "description": "P0-3 收尾 — 12 个 telemetry / postlude case port"
+      },
+      {
+        "type": "feature",
+        "description": "§6.8.1.b 3 combined-state fixture + stage-view rerun-in-flight 语义修正"
+      },
+      {
+        "type": "feature",
+        "description": "P0-3 剩余 port — todo-board.projector 增 12 个 case 群"
+      },
+      {
+        "type": "feature",
+        "description": "P0-3 实质 port todoBoard truth — ~60% deriveTodoLedger 行为下沉到 backend"
+      },
+      {
+        "type": "feature",
+        "description": "P0-4 续 — resumable + reopened fixture materialized"
+      },
+      {
+        "type": "feature",
+        "description": "P0-4 extract-mission-fixture extractor + 3 single-point fixtures materialized"
+      },
+      {
+        "type": "feature",
+        "description": "B7-3 social + radar canonical view client + hooks"
+      },
+      {
+        "type": "feature",
+        "description": "B7-2 canonical mission detail view + endpoint scaffold"
+      },
+      {
+        "type": "feature",
+        "description": "B7-1 canonical mission detail view + endpoint scaffold"
+      },
+      {
+        "type": "feature",
+        "description": "B6 lift MissionViewBase to business-team/abstractions"
+      },
+      {
+        "type": "feature",
+        "description": "B4-4 last mile — drawer-derive-shapes proxy + TodoDetailDrawer cutover"
+      },
+      {
+        "type": "feature",
+        "description": "B4-4 complete — 17 files now import via *-shapes proxies; derive.ts isolated"
+      },
+      {
+        "type": "feature",
+        "description": "B4-4a/b lint precision + MissionFlowView prop cutover"
+      },
+      {
+        "type": "feature",
+        "description": "B4-3 follow-up — remove last 2 truth derivations from page.tsx"
+      },
+      {
+        "type": "feature",
+        "description": "B4-3 page cutover to canonical view via shim"
+      },
+      {
+        "type": "feature",
+        "description": "B5-2 lint enforcement against derive truth imports"
+      },
+      {
+        "type": "feature",
+        "description": "B4-2 useMissionDetailView hook with §6.7 coalescing"
+      },
+      {
+        "type": "feature",
+        "description": "B4-1 API client getMissionDetailView"
+      },
+      {
+        "type": "feature",
+        "description": "B3-3 wire todoBoard + artifact into canonical view"
+      },
+      {
+        "type": "feature",
+        "description": "B3-2 ArtifactComposer (v1->v2 normalization)"
+      },
+      {
+        "type": "feature",
+        "description": "B3-1 TodoBoardProjector first-cut"
+      },
+      {
+        "type": "feature",
+        "description": "B2-3 GET /missions/:id/view endpoint"
+      },
+      {
+        "type": "feature",
+        "description": "B2-2 mission/stage/agent view projectors"
+      },
+      {
+        "type": "feature",
+        "description": "B2-1 MissionQueryService"
+      },
+      {
+        "type": "feature",
+        "description": "B2-1a ResumeRerunPolicyService"
+      },
+      {
+        "type": "feature",
+        "description": "B1-3 contract + fixture replay spec scaffold"
+      },
+      {
+        "type": "feature",
+        "description": "B1-2 fixture catalog scaffold + reference fixture"
+      },
+      {
+        "type": "feature",
+        "description": "B1-1 introduce canonical mission view contracts"
+      },
+      {
+        "type": "feature",
+        "description": "引入 d3-zoom 让 Mission DAG 支持拖动 + 缩放"
+      },
+      {
+        "type": "feature",
+        "description": "完成 Mission DAG Phase 3 - per-dim 状态 + score + 面板自动跟随"
+      },
+      {
+        "type": "feature",
+        "description": "完成 Mission DAG Phase 2 - ReAct 内部循环 + WS 增量"
+      },
+      {
+        "type": "feature",
+        "description": "完整 Mission DAG 可视化(后端定义 + 前端渲染)"
+      },
+      {
+        "type": "feature",
+        "description": "加 finalize 分隔输出传输层避免长文塞 JSON 崩解析(P1a/P1b，默认关)"
+      },
+      {
+        "type": "feature",
+        "description": "add per-KB auto-ingest toggle (autoIngestEnabled)"
+      },
+      {
+        "type": "feature",
+        "description": "probe 被动检测过时 catalog 条目(F8b)"
+      },
+      {
+        "type": "feature",
+        "description": "给 Claude 4.5+ 启用 native structured outputs(output_config)(F7)"
+      },
+      {
+        "type": "feature",
+        "description": "mission 失败通知 MISSION_FAILED (e2e P0-#5)"
+      },
+      {
+        "type": "feature",
+        "description": "topic 自动刷新开关 + 新建默认关闭"
+      },
+      {
+        "type": "feature",
+        "description": "wave 4 看护栏 §8.2/§8.1 + playground.config.ts 归位 runtime/"
+      },
+      {
+        "type": "feature",
+        "description": "研究深度档位真正联动并生效"
+      },
+      {
+        "type": "feature",
+        "description": "上提 SKILL.md loader 到 engine + shim(P9c)"
+      },
+      {
+        "type": "feature",
+        "description": "上提 ContentSource 契约 + Registry(P17a batch 1/4)"
+      },
+      {
+        "type": "feature",
+        "description": "下沉 BusinessTeamOrchestrator skeleton(P7,3 家迁)"
+      },
+      {
+        "type": "feature",
+        "description": "下沉 T4 lifecycle framework(P6,7 frameworks + FakeMars spec)"
+      },
+      {
+        "type": "feature",
+        "description": "下沉 T3 rerun framework(P5,5 frameworks + dummy mock spec)"
+      },
+      {
+        "type": "feature",
+        "description": "下沉 T2 通用 helpers(P4)"
+      },
+      {
+        "type": "feature",
+        "description": "下沉 Tier1 framework + 前端 canonical mission shell(P2+P25)"
+      },
+      {
+        "type": "feature",
+        "description": "下沉 invoker 能力(P1)"
+      },
+      {
+        "type": "feature",
+        "description": "阶段 F ── ESLint AST + 契约 spec + baseline lock 三层守护(v3.1 F)"
+      },
+      {
+        "type": "feature",
+        "description": "阶段 B+ ── apiFormat backfill + 其它 provider self-heal + clearOverride 真清(v3.1 B+)"
+      },
+      {
+        "type": "feature",
+        "description": "阶段 B 子片 3 ── 错误信号严格化+probe+flags+e2e(v3.1 B.5-B.9)"
+      },
+      {
+        "type": "feature",
+        "description": "阶段 B 子片 2 ── 写入面+self-heal+综合 spec(v3.1 B.3+B.4+B.9)"
+      },
+      {
+        "type": "feature",
+        "description": "阶段 B 子片 1 ── capability_overrides JSONB 列 + 字段流入(v3.1 B.1+B.2)"
+      },
+      {
+        "type": "feature",
+        "description": "阶段 A——capability 只读链(SSOT 数据驱动)(v3.1)"
+      },
+      {
+        "type": "feature",
+        "description": "模型级 failover 下沉到 chat() 单一总入口——BYOK 全覆盖(#71)"
+      },
+      {
+        "type": "feature",
+        "description": "研究员/react-loop 模型级 failover——provider 报错换模型(#66)"
+      },
+      {
+        "type": "feature",
+        "description": "跨模型 failover(BYOK)——选中模型报错换用户其它同类型模型(#65)"
+      },
+      {
+        "type": "feature",
+        "description": "模型级 failover——provider 报错 re-elect 换模型(非 BYOK)(#64)"
+      },
+      {
+        "type": "feature",
+        "description": "迭代级 checkpoint(S3) + 编排并行(S4‖S5)(R3-#37+#44)"
+      },
+      {
+        "type": "feature",
+        "description": "event emit→persist 类型化边界 helper(RB-Gap5)"
+      },
+      {
+        "type": "feature",
+        "description": "agent finalize 输出走严格 json_schema(researcher 试点)(R3-#35)"
+      },
+      {
+        "type": "feature",
+        "description": "agent 级 span 嵌套到 stage span(R3-#38)"
+      },
+      {
+        "type": "feature",
+        "description": "/me 通用页+账单页一镜到底重设计(紧凑+建立层级)"
+      },
+      {
+        "type": "feature",
+        "description": "rag-search HyDE 按查询长度条件化(R3-#41)"
+      },
+      {
+        "type": "feature",
+        "description": "阶段 DAG 诚实化 + OTel spans + narrate 提取 harness(R2-#44/#38/#50)"
+      },
+      {
+        "type": "feature",
+        "description": "崩溃续跑(crossState 持久化)+角色重试降级(R2-#37+#46)"
+      },
+      {
+        "type": "feature",
+        "description": "structured-output 路由补 Mistral/Qwen/Moonshot + 文档纠偏(R2-#52)"
+      },
+      {
+        "type": "feature",
+        "description": "/me/models 模型需求概览可折叠(默认收起)"
+      },
+      {
+        "type": "feature",
+        "description": "模型表 Provider 列显示真实 provider(logo+正名) + 默认/推理改符号挂模型上"
+      },
+      {
+        "type": "feature",
+        "description": "admin /admin/ai/models 首列由 Model 改为 Provider"
+      },
+      {
+        "type": "feature",
+        "description": "loop 非-FC 路径接原生结构化输出 json_schema(R2-#35)"
+      },
+      {
+        "type": "feature",
+        "description": "/me/models 首列由 Model 改为 Provider"
+      },
+      {
+        "type": "feature",
+        "description": "rag-search 走完整 RAG 管线取代 simpleQuery(R2-#41)"
+      },
+      {
+        "type": "feature",
+        "description": "工具观测注入防御—外部来源 external_source 隔离(R2-#42)"
+      },
+      {
+        "type": "feature",
+        "description": "FactTablePanel 行表归一 TruncatedCell（第6波·收尾）"
+      },
+      {
+        "type": "feature",
+        "description": "admin/ai 页 + storage grid 行表归一 TruncatedCell（第5波）"
+      },
+      {
+        "type": "feature",
+        "description": "admin kernel/system 运维表 + 非 admin 行表归一 TruncatedCell（第4波）"
+      },
+      {
+        "type": "feature",
+        "description": "admin knowledge/secrets/users/data + 非 admin 行表归一 TruncatedCell（第3波）"
+      },
+      {
+        "type": "feature",
+        "description": "admin ai-config/tools/skills 表归一 TruncatedCell（第2波）"
+      },
+      {
+        "type": "feature",
+        "description": "数据行表归一公共组件 TruncatedCell + R16 看护"
+      },
+      {
+        "type": "feature",
+        "description": "rb5 — 三 app businessInput 加运行期 zod 校验 + conformance spec"
+      },
+      {
+        "type": "feature",
+        "description": "终态写经 finalize 单入口仲裁 + 删 userProfile 列写回(C0/S4)"
+      },
+      {
+        "type": "feature",
+        "description": "终态写经 finalize 单入口仲裁(C0 切换)"
+      },
+      {
+        "type": "feature",
+        "description": "终态写经 finalize 单入口仲裁(C0 切换)"
+      },
+      {
+        "type": "feature",
+        "description": "泛型化 finalize 终态入口 + 注册 @Global(C0 切换地基)"
+      },
+      {
+        "type": "feature",
+        "description": "三 app 统一接入 config_snapshot(C5/G7 统一)"
+      },
+      {
+        "type": "feature",
+        "description": "rerun/hydrate 切读 config snapshot 单一真源(C5/G7 S3)"
+      },
+      {
+        "type": "feature",
+        "description": "落 playground config snapshot 冻结 + rebuilder(C5/C6 expand)"
+      },
+      {
+        "type": "feature",
+        "description": "接入 C7 terminalOutcome 到三 app 状态读出口(G9/#29)"
+      },
+      {
+        "type": "feature",
+        "description": "批量加 C5/C6/C7 harness 契约(snapshot/inputPatch/terminalOutcome)"
+      },
+      {
+        "type": "feature",
+        "description": "wallTime 拆 cap/elapsed 类型契约(C4/G5 harness)"
+      },
+      {
+        "type": "feature",
+        "description": "预算额度 canonical 值对象 ResolvedBudgetCaps(C3a/G4 harness)"
+      },
+      {
+        "type": "feature",
+        "description": "落库 canonical failure_code(C2/G3)"
+      },
+      {
+        "type": "feature",
+        "description": "落库 canonical failure_code + 删 inline 正则(C2/G3,三表加列)"
+      },
+      {
+        "type": "feature",
+        "description": "mission 级失败 canonical 契约 MissionFailure(C2/G3 harness 侧)"
+      },
+      {
+        "type": "feature",
+        "description": "abort reason canonical 化 MissionAbortReason enum + 全调用方切换(C1/G2)"
+      },
+      {
+        "type": "feature",
+        "description": "终态写权 finalize 单写入口 + 条件写仲裁(C0/G1)"
+      },
+      {
+        "type": "feature",
+        "description": "维度工具矩阵——facet→工具集确定性配置(机制取代 prompt)"
+      },
+      {
+        "type": "feature",
+        "description": "提取 CopyButton canonical 组件（P1）"
+      },
+      {
+        "type": "feature",
+        "description": "提取 Alert / Tag canonical 组件 + 接入桶 + 规范"
+      },
+      {
+        "type": "feature",
+        "description": "详情页头部按路由自动主题化 + AppShell 按模块覆盖 --primary"
+      },
+      {
+        "type": "feature",
+        "description": "建模块色系注册表 + 侧边栏/主页 hero 按菜单色统一"
+      },
+      {
+        "type": "feature",
+        "description": "mission 详情参考文献链接 + 历史兜底 + 运行/取消按钮常驻"
+      },
+      {
+        "type": "feature",
+        "description": "调研规模档位 UI（创建+设置），删冗余预算旋钮与漂移"
+      },
+      {
+        "type": "feature",
+        "description": "质量审查从\"空转\"变真闸——polish 加 quality 分 + refinedBody 回写正文"
+      },
+      {
+        "type": "feature",
+        "description": "公众号正文对齐新智元式排版 + 文末自动附参考资料"
+      },
+      {
+        "type": "feature",
+        "description": "主页卡片标准化(编辑/删除/搜索) + 任务列表加列 + 报告手机预览 + 安全加固"
+      },
+      {
+        "type": "feature",
+        "description": "任务重命名 API + content-transformer 真改写正文 + prompt 注入隔离"
+      },
+      {
+        "type": "feature",
+        "description": "详情页对齐 playground + 主页卡片网格重构 + 报告预览/复制"
+      },
+      {
+        "type": "feature",
+        "description": "报告链路修复 + 数据模型补全 + 安全脱敏 + 发布可诊断"
+      },
+      {
+        "type": "feature",
+        "description": "任务表加阶段说明副标题 + 耗时列（字段更丰富）"
+      },
+      {
+        "type": "feature",
+        "description": "接入飞书 tab 对话整理入口"
+      },
+      {
+        "type": "feature",
+        "description": "接入 Google Drive 文件对话整理（W3 Drive 全栈）"
+      },
+      {
+        "type": "feature",
+        "description": "接入 Notion tab 对话整理入口（W4 前端）"
+      },
+      {
+        "type": "feature",
+        "description": "收尾 Notion 页面对话整理（W4 后端）"
+      },
+      {
+        "type": "feature",
+        "description": "书签/笔记/图片统一对话整理入口（W2c 前端）"
+      },
+      {
+        "type": "feature",
+        "description": "笔记/图片/飞书可对话整理（W2b 后端）"
+      },
+      {
+        "type": "feature",
+        "description": "下沉 canonical MissionTaskList（行→Drawer）+ RoleCard（W1 重建）"
+      },
+      {
+        "type": "feature",
+        "description": "数据源统一整理 schema——CollectionItem 多态覆盖层（W2a）"
+      },
+      {
+        "type": "feature",
+        "description": "关键词编辑器 + matchMode 字面/精确匹配"
+      },
+      {
+        "type": "feature",
+        "description": "mission 详情渲染 social 内容（打样 P4，前后台打通）"
+      },
+      {
+        "type": "feature",
+        "description": "deriveSocialView 派生 social 13 阶段视图（打样 P3）"
+      },
+      {
+        "type": "feature",
+        "description": "对话整理呈现工具动作明细，代理掉事件也能看到做了什么"
+      },
+      {
+        "type": "feature",
+        "description": "mission replay 端点 + 打样 spec（前后台整改 P1）"
+      },
+      {
+        "type": "feature",
+        "description": "加 canonical MissionReferencesTab（标准 21 P1.5 可选复用 tab）"
+      },
+      {
+        "type": "feature",
+        "description": "前端对话整理模式（面板 Tab + 聊天 + 工具动作）"
+      },
+      {
+        "type": "feature",
+        "description": "加前端对话整理 SSE 客户端 + 代理对账"
+      },
+      {
+        "type": "feature",
+        "description": "串起对话整理 service/SSE/模块（chatWithToolsStream 集成）"
+      },
+      {
+        "type": "feature",
+        "description": "加 6 个书签整理 ITool（薄封装 collections）"
+      },
+      {
+        "type": "feature",
+        "description": "加 OrganizeSession/OrganizeMessage 数据层 + 迁移"
+      },
+      {
+        "type": "feature",
+        "description": "反馈类 UI 统一收尾 confirm 全站迁全局 confirm"
+      },
+      {
+        "type": "feature",
+        "description": "反馈类 UI 统一第6批 library+admin confirm 迁全局"
+      },
+      {
+        "type": "feature",
+        "description": "反馈类 UI 统一第5批 组件 confirm 迁全局 confirm"
+      },
+      {
+        "type": "feature",
+        "description": "反馈类 UI 统一第4批 组件 confirm 迁全局 confirm"
+      },
+      {
+        "type": "feature",
+        "description": "反馈类 UI 统一第3批——app/ 收尾 confirm()→全局 confirm"
+      },
+      {
+        "type": "feature",
+        "description": "反馈类 UI 统一第2批——主应用页 confirm()→全局 confirm"
+      },
+      {
+        "type": "feature",
+        "description": "反馈类 UI 统一第1批——全局 confirm 基座 + alert→toast"
+      },
+      {
+        "type": "feature",
+        "description": "资源信息流卡升级为 canonical FeedCard"
+      },
+      {
+        "type": "feature",
+        "description": "数据源 AI 整理面板表格化 + 书签卡迁 canonical AssetCard + 菜单瘦身"
+      },
+      {
+        "type": "feature",
+        "description": "多租户权限铺到 4 类卡片(playground/知识库/模拟/计划)"
+      },
+      {
+        "type": "feature",
+        "description": "playground 卡去重跑/取消 + 知识库新建卡去固定高 — 大小/按钮统一"
+      },
+      {
+        "type": "feature",
+        "description": "雷达卡清成「权限/编辑/删除」三键 — 删除暂停/恢复/归档"
+      },
+      {
+        "type": "feature",
+        "description": "雷达卡接「权限」可见性切换 — 可见性竖切前端完成"
+      },
+      {
+        "type": "feature",
+        "description": "雷达主题可见性 — 后端字段/接口 + 前端 api（权限基建）"
+      },
+      {
+        "type": "feature",
+        "description": "数据源二级 TAB 竖向分组菜单 + AIOrganizePanel 全面重构"
+      },
+      {
+        "type": "feature",
+        "description": "多租户可见性公共能力地基 — 统一 enum + 共享助手"
+      },
+      {
+        "type": "feature",
+        "description": "雷达卡接删除+编辑 — 列表卡可永久删除主题"
+      },
+      {
+        "type": "feature",
+        "description": "建 StatCard canonical（第2类统计卡）+ 迁 4 指标面板"
+      },
+      {
+        "type": "feature",
+        "description": "加 CitationListItem canonical（来源列表行）补 citations 模块缺口"
+      },
+      {
+        "type": "feature",
+        "description": "加 R11 卡片基线操作看护 — owner 卡须接齐 edit/delete/可见性切换"
+      },
+      {
+        "type": "feature",
+        "description": "补 R7 Signal-B(activeTab字面量) + R9 DIY环形spinner检测器 + PageHeaderHero onBack"
+      },
+      {
+        "type": "feature",
+        "description": "采集明细列出每源抓取的文章标题+链接（看清具体采集了什么）"
+      },
+      {
+        "type": "feature",
+        "description": "简报卡片显示原文来源（join evidenceItemIds，多源全量可追溯）"
+      },
+      {
+        "type": "feature",
+        "description": "mission 实时事件流 + 事件时间线/采集明细（对齐 playground）"
+      },
+      {
+        "type": "feature",
+        "description": "给 EmptyState.action 支持 ReactNode + 迁 ai-store 两 tab 空态 (R3)"
+      },
+      {
+        "type": "feature",
+        "description": "给 EmptyState 加 size=sm 紧凑变体 + 迁 2 处紧凑面板空态 (R3)"
+      },
+      {
+        "type": "feature",
+        "description": "建表格两层 canonical (DataTable + ui/table) + audit R8"
+      },
+      {
+        "type": "feature",
+        "description": "加 R7-Tabs 强制规则 + 基线锁定(防自写 tab 回潮)"
+      },
+      {
+        "type": "feature",
+        "description": "抽离 form (Input/Textarea) + Pagination primitive + me 接入"
+      },
+      {
+        "type": "feature",
+        "description": "抽离受控 Tabs 组件 + 首处接入"
+      },
+      {
+        "type": "feature",
+        "description": "抽离通用 ProgressBar primitive + 首处接入"
+      },
+      {
+        "type": "feature",
+        "description": "抽离统一 StatusBadge + StatusPill 改为薄封装(首个落地)"
+      },
+      {
+        "type": "feature",
+        "description": "/me/integrations 统一连接器行 + 删冗余英文引导"
+      },
+      {
+        "type": "feature",
+        "description": "个人中心整合 — 9 section 整页路由 + 真实暗色模式 + 目录归位"
+      },
+      {
+        "type": "feature",
+        "description": "抽 stagestepper 统一阶段进度 + social 12 步派生 + 移到 common"
+      },
+      {
+        "type": "feature",
+        "description": "任务自动派生标题 + delete 升级支持终态真删 + 表格列优化"
+      },
+      {
+        "type": "feature",
+        "description": "公共 frame + actiongroup + drawershell + modalshell - playground 抽象基础设施"
+      },
+      {
+        "type": "feature",
+        "description": "r14 briefing 4 bucket 聚合 — 今天/本周/本月/本年"
+      },
+      {
+        "type": "feature",
+        "description": "r13.5 topic 页加「已收录信号」面板 — 看 DB 全貌"
+      },
+      {
+        "type": "feature",
+        "description": "失败重试 + 详情页失败卡 + 主页表格信息密度优化"
+      },
+      {
+        "type": "feature",
+        "description": "r12 S9 briefing 加 DB 24h 已 accepted 兜底"
+      },
+      {
+        "type": "feature",
+        "description": "r10 流失归因 — 每条被淘汰 item 都有 score+原因+阈值快照"
+      },
+      {
+        "type": "feature",
+        "description": "r9 mission 详情两改 — 删历史 chip + 加数据流瀑布"
+      },
+      {
+        "type": "feature",
+        "description": "ai 推荐源 R7 — 推荐阶段就 preflight + 多召回 + CUSTOM selector"
+      },
+      {
+        "type": "feature",
+        "description": "pr-v5/v6/v7 + v2 集成 + v9 i18n — 意图驱动 v1 完整前端"
+      },
+      {
+        "type": "feature",
+        "description": "pr-v8 + 前端基础 — 删旧 wizard + 30 天 301 + 任务 API hook"
+      },
+      {
+        "type": "feature",
+        "description": "pr-v4 — POST /tasks + multi-source 聚合 + dispatcher preHydrated"
+      },
+      {
+        "type": "feature",
+        "description": "pr-v1/v2/v3 — registry + 7 providers + db migration (意图驱动 v1)"
+      },
+      {
+        "type": "feature",
+        "description": "查看详情 整页化重构 — 运行历史表格 + 行级 drawer"
+      },
+      {
+        "type": "feature",
+        "description": "refresh 过程可视化 v2 + 修 5 hooks /api/v1 双前缀 404"
+      },
+      {
+        "type": "feature",
+        "description": "ai-radar 字号系统化 + 新增 typography token + 删 27 处 sub-12px"
+      },
+      {
+        "type": "feature",
+        "description": "r5 follow-up 批次 b（通知偏好集成简化 + 收藏入知识库 + dep 守护）"
+      },
+      {
+        "type": "feature",
+        "description": "r5 follow-up 批次 a（narrativemap + 退订 ux + helpers + m2 metric）"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-fu2 — radar 邮件 HTML 渲染 + 多 scope 退订 token"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-fc — 功能闭环 #4-7（narrative/weekly/favorites/unsubscribe）"
+      },
+      {
+        "type": "feature",
+        "description": "提取 SettingsSectionCard 公共组件 + 替换 14 处 profile/notifications 自写卡片"
+      },
+      {
+        "type": "feature",
+        "description": "接入前端 ui 一致性看护脚本与首次基线冻结"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-6 f12-f15 topic briefing-first + /raw route + config drawer + rm stale"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-7 x4 domain hooks (dailybriefing/narrative/favorite)"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-6 f10 briefingcard/panel + 三态组件"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-3 b7-b9/b11/b18 scheduler sweep + dispatcher + 90d cleanup"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-6 f7/f8/f9/f11 前端业务组件 batch"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-4 b16 favorite api + userfavorite 表 + module 注册收口"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-4 b17 退订 scope=topic 真正 per-topic 实现"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-2 b4/b10/b20 s9 stage 编排 + 修双源"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-4 b15 narrative api"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-7 x3 settings 补 instantPushForTier3 toggle"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-2 b2/b3/x2 signal-editor LLM service + SKILL.md"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-3 x5 bullmq radar-briefing queue + 用户 <=10/天 quota"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-2 b5+b6 daily/weekly briefing repo + 纯模板拼装"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-2 b1 s9 stage a 评分公式 v1"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-4 email templates 4 sets + handlebars helpers security contract"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-4 k2 cross-user isolation + arch boundary spec"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-5 前端 common 6 组件下沉 (tierbadge / sidedrawer / dateswitcher / starrating / whyitmatterscallout / shareactions)"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr2-7 radar.* namespace (zh + en)"
+      },
+      {
+        "type": "feature",
+        "description": "milestone-2 PR-DR2-1 — RadarDailyBriefing/Weekly schema + 迁移"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr1b 账户级偏好 UI /settings/notifications"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr1b f3 老 caller 全切 dispatcher"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr1b emailchannel + i18n + 三级退订 jwt"
+      },
+      {
+        "type": "feature",
+        "description": "pr-dr1a notificationdispatcher 公共能力 + sitechannel"
+      },
+      {
+        "type": "feature",
+        "description": "pr-6 s8 写 SocialPublishLog + 删 PR-3 弃用 publishExecutor 依赖"
+      },
+      {
+        "type": "feature",
+        "description": "pr-5 i18n + business-friendly depth/budget labels"
+      },
+      {
+        "type": "feature",
+        "description": "pr-4 ui candidate-a single view + drawer + connections route"
+      },
+      {
+        "type": "feature",
+        "description": "pr-1 single-track fast pipeline (s1+s8+s9+s11)"
+      },
+      {
+        "type": "feature",
+        "description": "w5 真发回归前置全部完成（prisma + ctx 装配 + stage 一致性 + 前端 ui）"
+      },
+      {
+        "type": "feature",
+        "description": "w4-pr5 POST /ai-social/mission/run mission entry endpoint"
+      },
+      {
+        "type": "feature",
+        "description": "重构 milestone-3 ws 实时进度 + Tabs + Timeline"
+      },
+      {
+        "type": "feature",
+        "description": "重构 milestone-2 全面接入 mission pipeline 框架"
+      },
+      {
+        "type": "feature",
+        "description": "重构 milestone-1 接入 ai-harness mission pipeline 框架"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r5 主题卡片 + 详情 3 列 + sidebar 集成"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r4 cron 调度 + nextDueAt + 洞察通知"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r3 5 个 ai agent + 信号洞察落库"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r2 4 个 collector + 手动 refresh 链路通"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r1 模块骨架 + topic/source crud"
+      },
+      {
+        "type": "feature",
+        "description": "title AI 总结 ≤30 字 + cover 三级 fallback (#106)"
+      },
+      {
+        "type": "feature",
+        "description": "恢复 AI 社媒入口到 Sidebar / MobileNav，仅管理员可见"
+      },
+      {
+        "type": "feature",
+        "description": "wechat-mp / xhs / status 三 tool + 反转端口下沉到 harness/engine 底座"
+      },
+      {
+        "type": "feature",
+        "description": "pr-i.2~i.4 全闭环落地"
+      },
+      {
+        "type": "feature",
+        "description": "sidebar 加 dreaming 入口（紧贴 eval）"
+      },
+      {
+        "type": "feature",
+        "description": "p0-b 一键翻译已有 KB 到目标语种"
+      },
+      {
+        "type": "feature",
+        "description": "leader signoff 预警 — S8 后 timeline 红段告警"
+      },
+      {
+        "type": "feature",
+        "description": "boot-time idempotent SeedSyncService for system data"
+      },
+      {
+        "type": "feature",
+        "description": "first-class tuning-profile enums (frontier / local-quantized / local-reasoning)"
+      },
+      {
+        "type": "feature",
+        "description": "typed PlaygroundRuntimeConfig via @nestjs/config"
+      },
+      {
+        "type": "feature",
+        "description": "robustness fixes for local / reasoning models"
+      },
+      {
+        "type": "feature",
+        "description": "mission searchTimeRange 全链路接通 10 search tool"
+      },
+      {
+        "type": "feature",
+        "description": "wire public docs URL into install/help"
+      },
+      {
+        "type": "feature",
+        "description": "one-click upgrade via version arg + check-update + customer guide"
+      },
+      {
+        "type": "feature",
+        "description": "add installer image for zero-file-transfer customer delivery"
+      },
+      {
+        "type": "feature",
+        "description": "switch ghcr owner from junjie-duan to genesis-release org"
+      },
+      {
+        "type": "feature",
+        "description": "unified genesis.sh entrypoint with 8 customer ops commands"
+      },
+      {
+        "type": "feature",
+        "description": "switch on-prem delivery to ghcr.io private images"
+      },
+      {
+        "type": "feature",
+        "description": "real backend progress polling replaces hardcoded 10-min timer"
+      },
+      {
+        "type": "feature",
+        "description": "add on-prem deployment bundle for source-protected delivery"
+      },
+      {
+        "type": "feature",
+        "description": "persistent ingest banner replaces flash-toast for fire-and-forget runs"
+      },
+      {
+        "type": "feature",
+        "description": "fire-and-forget ingest — modal closes immediately, mission runs in background"
+      },
+      {
+        "type": "feature",
+        "description": "expose multi pass mode in kb wiki settings modal"
+      },
+      {
+        "type": "feature",
+        "description": "kb detail page imports playground / topic insight reports"
+      },
+      {
+        "type": "feature",
+        "description": "import Playground / Topic Insight reports as KB documents"
+      },
+      {
+        "type": "feature",
+        "description": "w7 multi-pass ingest pipeline (outline / fill / cross-link)"
+      },
+      {
+        "type": "feature",
+        "description": "w6 close 5 v2.0 rebuild gaps"
+      },
+      {
+        "type": "feature",
+        "description": "mission 列表显示\"可继续\"徽章 + \"继续\"按钮，消费 /missions/resumable checkpoint"
+      },
+      {
+        "type": "feature",
+        "description": "w5 hard delete + index page auto-regen"
+      },
+      {
+        "type": "feature",
+        "description": "w4 wiki-page-read tool 接入 ToolRegistry"
+      },
+      {
+        "type": "feature",
+        "description": "w3 kb-level enabledLocales (zh / en / both)"
+      },
+      {
+        "type": "feature",
+        "description": "w2 - 强 fan-out + 图注入 + 观察 source-only 输出"
+      },
+      {
+        "type": "feature",
+        "description": "创建 Mission 加\"研究描述\"长文本输入 + 全链路透传到 leader 4 phase prompt"
+      },
+      {
+        "type": "feature",
+        "description": "w1 - 源文档预解析管线 (复用 ContentFetchService/YoutubeService)"
+      },
+      {
+        "type": "feature",
+        "description": "工具列表加状态/命中/上次使用列 + 三 tab 表格列宽统一"
+      },
+      {
+        "type": "feature",
+        "description": "wire wiki page services for locale aware lookups and group fallback"
+      },
+      {
+        "type": "feature",
+        "description": "implement crosslink pass and merge multi pass into final diff"
+      },
+      {
+        "type": "feature",
+        "description": "implement outline and section fill passes with partial progress"
+      },
+      {
+        "type": "feature",
+        "description": "swap unique constraint to use locale aware index and upgrade affected keys"
+      },
+      {
+        "type": "feature",
+        "description": "create unique index for kb slug locale concurrently"
+      },
+      {
+        "type": "feature",
+        "description": "add locale and translation group columns to wiki page"
+      },
+      {
+        "type": "feature",
+        "description": "add zod schemas for outline section crosslink pass outputs"
+      },
+      {
+        "type": "feature",
+        "description": "split wiki ingest skill into outline section crosslink with shared header"
+      },
+      {
+        "type": "feature",
+        "description": "add wiki ingest pass mode and ingest draft table for multi pass"
+      },
+      {
+        "type": "feature",
+        "description": "expand body and add H2 H3 structure with coverage self check in ingest skill"
+      },
+      {
+        "type": "feature",
+        "description": "grid 卡片接 onEdit / onDisable，统一 AssetCard 操作语义"
+      },
+      {
+        "type": "feature",
+        "description": "pr-6 stale assignment 反向恢复 admin 重启模型时显式触发"
+      },
+      {
+        "type": "feature",
+        "description": "tpm 节流 + 修正 google rpm 启发式 + 配置 UI 暴露 rpm/tpm"
+      },
+      {
+        "type": "feature",
+        "description": "lint findings 批量解决/忽略 + diff 冲突 newer-wins 覆盖"
+      },
+      {
+        "type": "feature",
+        "description": "自适应限速——rpmlimit 字段 + provider 启发式默认 + batch 间节流"
+      },
+      {
+        "type": "feature",
+        "description": "mcp 已安装卡片加编辑配置按钮，可改 env"
+      },
+      {
+        "type": "feature",
+        "description": "add api services tab — split implemented:false to dedicated tab"
+      },
+      {
+        "type": "feature",
+        "description": "4-category architecture doc pages with mermaid overview"
+      },
+      {
+        "type": "feature",
+        "description": "w2bc documents + wiki tabs functional + extract shared primitives"
+      },
+      {
+        "type": "feature",
+        "description": "w2a kb tab functional with cross-user list + drawer"
+      },
+      {
+        "type": "feature",
+        "description": "one-click discover also upserts provider + fills model params"
+      },
+      {
+        "type": "feature",
+        "description": "admin UI 'AI 一键配置' button + ProviderDiscoverModal"
+      },
+      {
+        "type": "feature",
+        "description": "wire data-driven providers into Add Model + warning hint"
+      },
+      {
+        "type": "feature",
+        "description": "admin UI for ApiFormats + ModelTypes maintenance"
+      },
+      {
+        "type": "feature",
+        "description": "admin UI for AI Providers maintenance"
+      },
+      {
+        "type": "feature",
+        "description": "add provider discovery endpoint for one-click setup"
+      },
+      {
+        "type": "feature",
+        "description": "admin CRUD for ApiFormat + ModelType tables"
+      },
+      {
+        "type": "feature",
+        "description": "introduce ApiFormat + ModelType data-driven tables"
+      },
+      {
+        "type": "feature",
+        "description": "move ingest prompt to skill.md + PromptSkillBridge registration"
+      },
+      {
+        "type": "feature",
+        "description": "4-path logout hook + library-tab enum whitelist (tasks #2 #3)"
+      },
+      {
+        "type": "feature",
+        "description": "expose wiki to ai-engine rag-search via DI port"
+      },
+      {
+        "type": "feature",
+        "description": "expose mission budget caps in dialogs + 90% soft-warn"
+      },
+      {
+        "type": "feature",
+        "description": "render wiki citations as markdown + deep-link to wiki page"
+      },
+      {
+        "type": "feature",
+        "description": "wiki-aware KB query facade (transparent bridge)"
+      },
+      {
+        "type": "feature",
+        "description": "auto-ingest scheduler that compounds on raw refresh"
+      },
+      {
+        "type": "feature",
+        "description": "wire daily lint cron to existing config fields"
+      },
+      {
+        "type": "feature",
+        "description": "mission-scoped 通用多样性机制根治多模型坍缩"
+      },
+      {
+        "type": "feature",
+        "description": "添加 SSE 流式端点根治响应慢白屏"
+      },
+      {
+        "type": "feature",
+        "description": "modernize playground launch and enforce search freshness"
+      },
+      {
+        "type": "feature",
+        "description": "modernize playground launch and enforce search freshness"
+      },
+      {
+        "type": "feature",
+        "description": "unify storage governance and offload playground payloads"
+      },
+      {
+        "type": "feature",
+        "description": "complete storage inventory offload coverage"
+      },
+      {
+        "type": "feature",
+        "description": "refine Genesis logo and wiki query rendering"
+      },
+      {
+        "type": "feature",
+        "description": "refine Genesis brand header styling"
+      },
+      {
+        "type": "feature",
+        "description": "upgrade wiki workspace and reading surfaces"
+      },
+      {
+        "type": "feature",
+        "description": "unify markdown rendering and polish graph"
+      },
+      {
+        "type": "feature",
+        "description": "unify kb cards on AssetCard + add wiki grid create slot"
+      },
+      {
+        "type": "feature",
+        "description": "hide library shell when in wiki detail view"
+      },
+      {
+        "type": "feature",
+        "description": "off-load WikiDiff.items terminal rows to R2"
+      },
+      {
+        "type": "feature",
+        "description": "off-load WikiPageRevision.body to R2"
+      },
+      {
+        "type": "feature",
+        "description": "off-load KnowledgeBaseDocument.rawContent to R2"
+      },
+      {
+        "type": "feature",
+        "description": "kb card grid landing for wiki tab"
+      },
+      {
+        "type": "feature",
+        "description": "zoom + pan in graph view, bigger modal & nodes"
+      },
+      {
+        "type": "feature",
+        "description": "full i18n + real markdown render + graph view + 5 bug fixes"
+      },
+      {
+        "type": "feature",
+        "description": "real Log drawer + enable-other-KB from subheader"
+      },
+      {
+        "type": "feature",
+        "description": "implement create-page, settings, export, full subheader"
+      },
+      {
+        "type": "feature",
+        "description": "wire real userHash from auth session (task #1)"
+      },
+      {
+        "type": "feature",
+        "description": "ingest picker + wiki-enable modal close onboarding (p3b)"
+      },
+      {
+        "type": "feature",
+        "description": "enlarge formula logo and tune wordmark to editorial palette"
+      },
+      {
+        "type": "feature",
+        "description": "kb selector + three-pane reader + diff modal (p3a/p3b)"
+      },
+      {
+        "type": "feature",
+        "description": "kb selector list + wiki-enabled toggle + search backend (p3b backend)"
+      },
+      {
+        "type": "feature",
+        "description": "wiki as default first tab + placeholder (p3a entry)"
+      },
+      {
+        "type": "feature",
+        "description": "query inline branch + lint 5 types (p2)"
+      },
+      {
+        "type": "feature",
+        "description": "redesign logo as game-of-life formula in editorial palette"
+      },
+      {
+        "type": "feature",
+        "description": "ingest + diff apply transaction (p1 next iteration)"
+      },
+      {
+        "type": "feature",
+        "description": "page service + module skeleton + 16 endpoints (p1 first wave)"
+      },
+      {
+        "type": "feature",
+        "description": "stage 1 s1-2 cross-stage cache → z5 crossstagestate (closes t3)"
+      },
+      {
+        "type": "feature",
+        "description": "llm wiki schema (10 tables) + migration + adr (p0b)"
+      },
+      {
+        "type": "feature",
+        "description": "stage 1 s1-1/s1-4/s1-5 split dispatcher + classify rerun + decouple custom-agents"
+      },
+      {
+        "type": "feature",
+        "description": "synthesis detect{Contradictions,DataGaps} + StaleDetector for llm wiki p0a-3"
+      },
+      {
+        "type": "feature",
+        "description": "drop dark badge fill, render fabric mesh on transparent bg"
+      },
+      {
+        "type": "feature",
+        "description": "redesign logo as agent-fabric mesh in business blue"
+      },
+      {
+        "type": "feature",
+        "description": "redesign logo as business-grade G monogram"
+      },
+      {
+        "type": "feature",
+        "description": "match topic insights quickview layout in QuickReader"
+      },
+      {
+        "type": "feature",
+        "description": "boundary audit Stage 0 — mechanical guards + topology doc"
+      },
+      {
+        "type": "feature",
+        "description": "wire analyst structured quickview data through assembler"
+      },
+      {
+        "type": "feature",
+        "description": "wire analyst structured quickview data through assembler"
+      },
+      {
+        "type": "feature",
+        "description": "extend analyst output schema with structured quickview fields"
+      },
+      {
+        "type": "feature",
+        "description": "show \"工具\" label beside wrench tools button"
+      },
+      {
+        "type": "feature",
+        "description": "stream chat across 6 room adapters with cancel-aware billing"
+      },
+      {
+        "type": "feature",
+        "description": "boundary audit Stage 0 — mechanical guards + topology doc"
+      },
+      {
+        "type": "feature",
+        "description": "wiki-link-parser + slug-normalize utils for llm wiki p0a-1"
+      },
+      {
+        "type": "feature",
+        "description": "frontend load history + persist on send"
+      },
+      {
+        "type": "feature",
+        "description": "full i18n support for team room (askRoom namespace)"
+      },
+      {
+        "type": "feature",
+        "description": "backend list/append/clear endpoints"
+      },
+      {
+        "type": "feature",
+        "description": "persist AI chat history per (user, videoId)"
+      },
+      {
+        "type": "feature",
+        "description": "w6 e2e smoke + perf baseline + release notes"
+      },
+      {
+        "type": "feature",
+        "description": "teams room frontend mvp"
+      },
+      {
+        "type": "feature",
+        "description": "w4 vote review and handoff adapters"
+      },
+      {
+        "type": "feature",
+        "description": "w3 parallel-merge and debate adapters"
+      },
+      {
+        "type": "feature",
+        "description": "w2 pr3 room basics + freechat adapter"
+      },
+      {
+        "type": "feature",
+        "description": "debate pattern orchestrator + spec + facade re-export (W1 PR2 part 2)"
+      },
+      {
+        "type": "feature",
+        "description": "teams-mode schema and migration (W1 PR1)"
+      },
+      {
+        "type": "feature",
+        "description": "expose system-granted assignments in user-side BYOK UI"
+      },
+      {
+        "type": "feature",
+        "description": "debate pattern types + pure prompt builders (W1 PR2 part 1)"
+      },
+      {
+        "type": "feature",
+        "description": "wire KeyRequest lifecycle into W4 notifications + drop user-side provider selection"
+      },
+      {
+        "type": "feature",
+        "description": "admin grant+revoke unified, user inline 'request system key' modal"
+      },
+      {
+        "type": "feature",
+        "description": "business-team-spec 聚合接口 + README 装配指南 (E4)"
+      },
+      {
+        "type": "feature",
+        "description": "rerun guard 9-cell 决策矩阵上提到 business-team (E3)"
+      },
+      {
+        "type": "feature",
+        "description": "event-relay framework 上提到 business-team (E1)"
+      },
+      {
+        "type": "feature",
+        "description": "mission-store interface 抽出到 business-team (E2)"
+      },
+      {
+        "type": "feature",
+        "description": "mission-runtime-shell 上提到 business-team 框架 (E0)"
+      },
+      {
+        "type": "feature",
+        "description": "用户列表 actions 列加 keyround 按钮 + 模型多选弹窗"
+      },
+      {
+        "type": "feature",
+        "description": "grantbatch 模型粒度授权 + 周期续期 cron + stale 联动"
+      },
+      {
+        "type": "feature",
+        "description": "schema 升级 modelid 粒度 + 周期续期 + stale 状态"
+      },
+      {
+        "type": "feature",
+        "description": "学 ti 版本历史抽屉 — 顶部按钮 + 时间线卡片"
+      },
+      {
+        "type": "feature",
+        "description": "图文匹配 P1 彻底闭环 — chapter.figureReferences 优先路径"
+      },
+      {
+        "type": "feature",
+        "description": "图文匹配 chapter-writer 接 figureCandidates + 快速视图重构"
+      },
+      {
+        "type": "feature",
+        "description": "洞察类型 v1 — depth 单轴 + 字数全软化"
+      },
+      {
+        "type": "feature",
+        "description": "pr-8 v1.6 d5/d6 — 单一重跑入口 + figure ai 水印 (4 路 review p0 收敛)"
+      },
+      {
+        "type": "feature",
+        "description": "pr-8 v1.6 reportscale + 派生真值 + 硬合约 + 8 rerunintent + sub-section"
+      },
+      {
+        "type": "feature",
+        "description": "env-driven OPENAI_BASE_URL override + THROTTLE_AI_LIMIT"
+      },
+      {
+        "type": "feature",
+        "description": "pr-s0a alias map 收敛单源"
+      },
+      {
+        "type": "feature",
+        "description": "layer 4/5 native fc tool_call_id 全栈透传"
+      },
+      {
+        "type": "feature",
+        "description": "pr-1 react-loop native FC + toolId-as-kind 方言容错"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r5b-full — 11 stage 全部装真 handler + 主列表删 s11 排除"
+      },
+      {
+        "type": "feature",
+        "description": "multikeytable 加 hits 列显示每个 key 的累计命中次数"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r5b + a6/a7/a8 — s11 真 handler + 前端 sanitize + sanitizer metrics"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r7 frontend stepid 路由 + cascade preview"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r6 localrerun 黑名单/reopen/频次/cost guard"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r5 dispatcher cascade + handler registry"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r4 s6/s7/s8/s8b 主动持久化中间产物"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r3 markreopened + markintermediatestate + resetfields"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r2 ctx-hydrator 增强 + heartbeat 时间窗"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r1 stage dag schema + 14 step dag"
+      },
+      {
+        "type": "feature",
+        "description": "pr-r0 db migration + reportartifactzodschema"
+      },
+      {
+        "type": "feature",
+        "description": "v1.6 切主线 + 二轮评审全修"
+      },
+      {
+        "type": "feature",
+        "description": "pr-a5 segment-extractors + s8 接入 structuralassembler"
+      },
+      {
+        "type": "feature",
+        "description": "pr-a2 structuralreportassembler 骨架 + 20 spec"
+      },
+      {
+        "type": "feature",
+        "description": "pr-a1 markdownsanitizer 状态机 + 18 fixture 全覆盖"
+      },
+      {
+        "type": "feature",
+        "description": "pr-a0 报告装配重构前置 — dto/eslint/db/facade"
+      },
+      {
+        "type": "feature",
+        "description": "ai-ask 模型行也走 lucide 图标 — 截图 40 反馈补齐"
+      },
+      {
+        "type": "feature",
+        "description": "我的 / 系统 key 改用 lucide 图标 + 统一 dropdown"
+      },
+      {
+        "type": "feature",
+        "description": "key 状态/时间统一来自真使用反馈 + 真上游探测"
+      },
+      {
+        "type": "feature",
+        "description": "报告版本化端到端 + custom-agents Sidebar 修复"
+      },
+      {
+        "type": "feature",
+        "description": "b13+b14 — byok drawer 一致化 + 状态总览 4 态聚合"
+      },
+      {
+        "type": "feature",
+        "description": "批 6 — Claude Code v2.1.88 P0 借鉴 3 项（#77 #78 #79）"
+      },
+      {
+        "type": "feature",
+        "description": "多 key 面板复用 multikeytable - byok 与管理员视觉行为一致"
+      },
+      {
+        "type": "feature",
+        "description": "批 5 — 全栈对齐 Topic Insight（G+D+E + F+B+C，6 项深度修复）"
+      },
+      {
+        "type": "feature",
+        "description": "p3 业务侧透明迁移到多 key fallback chain"
+      },
+      {
+        "type": "feature",
+        "description": "admin 多 key drawer + 状态总览 tab + multikeytable 共享组件"
+      },
+      {
+        "type": "feature",
+        "description": "p1 多 key 服务层 + admin controller + spec"
+      },
+      {
+        "type": "feature",
+        "description": "批 4 — 章节级任务卡 + 报告版本化 + 7 修复 regression spec"
+      },
+      {
+        "type": "feature",
+        "description": "p1 多 key schema + migration + design doc"
+      },
+      {
+        "type": "feature",
+        "description": "router 真接 chat() native API + next prerender warning 修"
+      },
+      {
+        "type": "feature",
+        "description": "phase 4 router integration + admin capability + protection net"
+      },
+      {
+        "type": "feature",
+        "description": "provider capability matrix + structured output adapter framework — 商用+本地全覆盖"
+      },
+      {
+        "type": "feature",
+        "description": "contract drift 看护四件套（lying assertion / ErrorBoundary / fixture / events zod）"
+      },
+      {
+        "type": "feature",
+        "description": "p1/p2 修复 + p0-k 预算彻底去硬编码"
+      },
+      {
+        "type": "feature",
+        "description": "p0-d 完整 — trajectory 持久化让 rerun 真复用"
+      },
+      {
+        "type": "feature",
+        "description": "workflow 控制权回归 orchestrator — stage:lifecycle 桥接"
+      },
+      {
+        "type": "feature",
+        "description": "w4 收尾 — research/writing/office 桥接 + 类型枚举 + quiet hours"
+      },
+      {
+        "type": "feature",
+        "description": "系统通知端到端打通 — 用户读端 + 任务完成事件桥 + 实时推送"
+      },
+      {
+        "type": "feature",
+        "description": "\"更新\"按钮真正继承上次方案 — incremental rerun 跳过 S2 Leader LLM"
+      },
+      {
+        "type": "feature",
+        "description": "per-key failover + LastGood 粘性，端到端接入 chat/rerank"
+      },
+      {
+        "type": "feature",
+        "description": "散点机制清零 batch 3 — MissionLifecycleManager + embedding deprecate + provider catalog 薄壳"
+      },
+      {
+        "type": "feature",
+        "description": "散点机制清零 batch 1 — abortable-scope + circuit-breaker + S1 修复 + 看护拦截"
+      },
+      {
+        "type": "feature",
+        "description": "创建/编辑改为 me/ai tab 内 inline 切换，sidebar + tabs 持续"
+      },
+      {
+        "type": "feature",
+        "description": "我的 Agent tab 挂到 /me/ai"
+      },
+      {
+        "type": "feature",
+        "description": "pr-e2 + pr-e3 — 完整 5 步向导 + mission 翻译启动"
+      },
+      {
+        "type": "feature",
+        "description": "e r4 phase 2 pr-e1 骨架 — model + module + step1"
+      },
+      {
+        "type": "feature",
+        "description": "pr-2 frontend — multi-key 表格视图"
+      },
+      {
+        "type": "feature",
+        "description": "b-rest — wire 6 个 extended_hooks fire points"
+      },
+      {
+        "type": "feature",
+        "description": "pr-3 frontend — 自定义 provider tile + modal"
+      },
+      {
+        "type": "feature",
+        "description": "pr-3 user 自定义 provider crud endpoint"
+      },
+      {
+        "type": "feature",
+        "description": "b extended_hooks payload types + embedding_request fire point"
+      },
+      {
+        "type": "feature",
+        "description": "pr-2 user_api_keys 多 key 支持 (label 字段)"
+      },
+      {
+        "type": "feature",
+        "description": "pr-1 provider catalog ddd — db driven + admin crud"
+      },
+      {
+        "type": "feature",
+        "description": "add Voyage AI provider — embedding/rerank fallback for OpenAI 429"
+      },
+      {
+        "type": "feature",
+        "description": "架构债周期审计脚本 + npm scripts + 删 2 facade shim"
+      },
+      {
+        "type": "feature",
+        "description": "w2-b vector storage plugin (pgvector + jsonb, port for qdrant/pinecone/weaviate)"
+      },
+      {
+        "type": "feature",
+        "description": "w2-a object storage plugin (r2 first backend, port for s3/gcs/azure-blob/local-fs)"
+      },
+      {
+        "type": "feature",
+        "description": "rate-limit 回归核心 service（plugin 误分类修正）"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5-e w1-a tool-augment domain — single-track migration"
+      },
+      {
+        "type": "feature",
+        "description": "r2-c 单轨化删除 legacy team.mission + flag service"
+      },
+      {
+        "type": "feature",
+        "description": "flip default runtime to pipeline-v1 (r2-a 全面切换)"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.12+a.13 s10/s11/s12 hooks wired ★ pipeline-v1 试用就绪"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.11 s8b/s9/s9b review hooks wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.10 s8-writer hook wired (biggest stage)"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.9 s7-writer-outline hook wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.7+a.8 s5-reconciler + s6-analyst hooks wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.6 s4-leader-assess hook wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.5 s3-researcher-collect hook wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.4 s2-leader-plan hook wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.2+a.3 controller flag dispatch + s1-budget hook wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.1 pipeline dispatcher skeleton (still dead code)"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.0 pipeline.config + runtime flag scaffolding"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a0 18 soul/duty.md → 8 skill.md (anthropic standard format)"
+      },
+      {
+        "type": "feature",
+        "description": "r3-a demo validates r1 mission pipeline framework"
+      },
+      {
+        "type": "feature",
+        "description": "r1-d generic rerun orchestrator + frontend contract"
+      },
+      {
+        "type": "feature",
+        "description": "r1-c imissionstore + imissioneventstore ports + in-memory adapter"
+      },
+      {
+        "type": "feature",
+        "description": "r1-b mission pipeline orchestrator + config + registry"
+      },
+      {
+        "type": "feature",
+        "description": "r1-a 7 stage primitives + crossstagestate container"
+      },
+      {
+        "type": "feature",
+        "description": "r1-a0 skillspecbuilder + outputschemaregistry"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-12 plugin system invariants spec"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-11 PluginCoreModule nestjs integration"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-10 sandbox-isolated-vm plugin + tool-pipeline TOOL_WRAP integration"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-9 rate-limit plugin"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-8 tool-cache-redis plugin"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-7 telemetry-otel plugin"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-6 lifecycle-hook-bridge for mission/memory hooks"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-5 dual-track ai-chat hookbus"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-4 dual-track tool pipeline hookbus"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-3 registry / resolver / loader / supervisor / config"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-2 hookbus onion middleware engine"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-1 stable abstractions (iplugin / ipluginmanifest / ipluginContext)"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-0 plugin system guards + payload type bucket"
+      },
+      {
+        "type": "feature",
+        "description": "complete W17 ai-engine harness cleanup"
+      },
+      {
+        "type": "feature",
+        "description": "#7 报告下载真公共能力 — playground mission 走 TI 同款 /export"
+      },
+      {
+        "type": "feature",
+        "description": "#9 算力消耗加 工具调用矩阵 + 技能使用矩阵"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 4 个工具 (industry-report / social-x / job / video) + arxiv 治本走 openalex + 治等待评分卡死"
+      },
+      {
+        "type": "feature",
+        "description": "失败原因展示友好化（9 个错误码中文映射 + 截断兜底）"
+      },
+      {
+        "type": "feature",
+        "description": "add harness eval runs and admin surface"
+      },
+      {
+        "type": "feature",
+        "description": "output validation 三档 mode（lenient/strict/coerce）"
+      },
+      {
+        "type": "feature",
+        "description": "task-aware 模型路由（reviewer/sanity-check 自动走 fast）"
+      },
+      {
+        "type": "feature",
+        "description": "mission postmortem 8 类自动分类（s12 集成）"
+      },
+      {
+        "type": "feature",
+        "description": "tool result redis cache（mission 级 TTL 30min）"
+      },
+      {
+        "type": "feature",
+        "description": "web-scraper 智能选择性抓取 summary/full 模式"
+      },
+      {
+        "type": "feature",
+        "description": "admin 面板 4 区块分类（解 orphan 误报 + 三层扩展机制）"
+      },
+      {
+        "type": "feature",
+        "description": "P — A2A v0.3 spec 对齐（JSON-RPC 2.0 + Message/Part/Artifact + 8-state Task + SSE）"
+      },
+      {
+        "type": "feature",
+        "description": "admin 面板加待配置 secret 卡槽（接 GET /admin/secrets/expected）"
+      },
+      {
+        "type": "feature",
+        "description": "N — 三层看护机制锁定 9.8/10 架构合规度"
+      },
+      {
+        "type": "feature",
+        "description": "K — 用户自定义 skill 接通（ISkillProvider 端口 + ai-engine adapter）"
+      },
+      {
+        "type": "feature",
+        "description": "allow self-hosted local LLM endpoints via allowlist"
+      },
+      {
+        "type": "feature",
+        "description": "add email/password login page alongside Google OAuth"
+      },
+      {
+        "type": "feature",
+        "description": "PR-X-skill-bridge — 8 个 agent 接通 17 个 SKILL.md"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 3 个 SKILL.md 收尾 — leader M1/M6 + analyst 跨 dim 综合"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 objective-report-evaluation SKILL.md（10 维报告评审 rubric）"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 8 个 tier-2 SKILL.md — 覆盖 leader/researcher/writer/reviewer/steward"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 3 个 SKILL.md（cross-dim-fact-check / report-meta-critic / citation-audit）"
+      },
+      {
+        "type": "feature",
+        "description": "References 面板对齐 TI — 过滤/排序/搜索 三件套"
+      },
+      {
+        "type": "feature",
+        "description": "mission 状态外置 phase 9 — 4 内存 Map → Redis + heartbeat-based orphan 检测"
+      },
+      {
+        "type": "feature",
+        "description": "retry 双路径 — fresh-collect 新行 / reuse-recompute 利旧重算"
+      },
+      {
+        "type": "feature",
+        "description": "mission 设置弹窗可编辑 + 另存为新 mission"
+      },
+      {
+        "type": "feature",
+        "description": "报告 tab 极简化 — 元信息移到右侧悬浮抽屉"
+      },
+      {
+        "type": "feature",
+        "description": "章节修订状态实时反映 — banner + 卡片状态徽标 + live status lookup"
+      },
+      {
+        "type": "feature",
+        "description": "永远走 ArtifactReader 三视图 — 删 fallback ReportPanel + v1→v2 适配 + 流式空态"
+      },
+      {
+        "type": "feature",
+        "description": "单 stage 局部重跑 v1 — system:s9b 不再创建新 mission"
+      },
+      {
+        "type": "feature",
+        "description": "统一本地 KB 选择 — researcher 走 RAGPipelineService"
+      },
+      {
+        "type": "feature",
+        "description": "S12 自我进化阶段进 workflow UI（之前后端跑了 UI 看不到）"
+      },
+      {
+        "type": "feature",
+        "description": "single-model 无 fallback 时 emit warning event"
+      },
+      {
+        "type": "feature",
+        "description": "observability — stage:completed 加 durationMs/tokensUsed/status 公共字段"
+      },
+      {
+        "type": "feature",
+        "description": "simple-loop + 11 agent loop 类型迁移"
+      },
+      {
+        "type": "feature",
+        "description": "phase 9 沉淀 citation-formatter 5 种学术引用格式"
+      },
+      {
+        "type": "feature",
+        "description": "phase 7 接入沉淀 DAGExecutor 替代 S4 Promise.allSettled"
+      },
+      {
+        "type": "feature",
+        "description": "phase 8 沉淀 search-fusion 通用工具集"
+      },
+      {
+        "type": "feature",
+        "description": "phase 6 接入 MissionHealthMonitor + 拒签 revision 推荐"
+      },
+      {
+        "type": "feature",
+        "description": "phase 5 接入 ai-harness 沉淀的 MissionCheckpointService"
+      },
+      {
+        "type": "feature",
+        "description": "phase 4 沉淀 Checkpoint / Health / DAG 三件套"
+      },
+      {
+        "type": "feature",
+        "description": "phase 3 沉淀 ConcurrencyLimiter + word-count-balancer 到公共层"
+      },
+      {
+        "type": "feature",
+        "description": "phase 2 接入 TI 沉淀的 report-formatting 工具链"
+      },
+      {
+        "type": "feature",
+        "description": "phase 1 移植 TI 4 项 P0 能力"
+      },
+      {
+        "type": "feature",
+        "description": "p1 round - judge 跨 model family + s7 outline 真消费"
+      },
+      {
+        "type": "feature",
+        "description": "p0 三件套 - clamp minCoverage + lengthAccuracy + postmortem 闭环"
+      },
+      {
+        "type": "feature",
+        "description": "接入 oEmbed 预检 + lifecycle 审计 + dedup 大小写修复"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 v5 - quality 闭环 5 件套 + Playground 全量接入"
+      },
+      {
+        "type": "feature",
+        "description": "youtube 清理脚本升级 + ResourceLifecycleEvent 审计表"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 v4 - sanitize-output 白名单铁墙 + url-sanitizer"
+      },
+      {
+        "type": "feature",
+        "description": "新增 Lenny's Podcast 到 youtube 数据源 seed"
+      },
+      {
+        "type": "feature",
+        "description": "youtube 失效视频治理 — 列表过滤+入库预检+加速回查"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 LLM 注入防御三件套 + Reranker + defect-scanner 接入"
+      },
+      {
+        "type": "feature",
+        "description": "翻译结果自动入库全局共享，复访零延迟双语"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 v2 - section-self-eval + defect-scanner 到 ai-harness/governance/critique"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 critique-refine (Reflexion 闭环) 到 ai-harness/governance/critique"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 citation-verifier utils + 接入 agent-playground 跨章引用重映射"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 figure-extractor + figure-relevance 到 ai-engine/ai-harness"
+      },
+      {
+        "type": "feature",
+        "description": "mission detail 顶部加实时字数 meter"
+      },
+      {
+        "type": "feature",
+        "description": "加 dev/trigger-mission 内部端点（用 userApiKeyId 鉴权）"
+      },
+      {
+        "type": "feature",
+        "description": "单 todo 重跑 + 报告版式 TI 化 + epic/mega 字数档位"
+      },
+      {
+        "type": "feature",
+        "description": "s12 self-evolution + backlog closure"
+      },
+      {
+        "type": "feature",
+        "description": "batch C+D+E 配置项 + 公共并发 + 结构化 critique"
+      },
+      {
+        "type": "feature",
+        "description": "web-scraper 加 extractImages 选项 + Researcher 启用图片抽取"
+      },
+      {
+        "type": "feature",
+        "description": "assignee inspector + compute / references / report panels"
+      },
+      {
+        "type": "feature",
+        "description": "drawer chapter pipeline + collab tab rebuild + cancel fix"
+      },
+      {
+        "type": "feature",
+        "description": "structured drawer timeline with vertical timeline visual"
+      },
+      {
+        "type": "improvement",
+        "description": "extract connections / XHS / import-sources services from god class"
+      },
+      {
+        "type": "improvement",
+        "description": "drop runner-state shims + disambiguate social roles/services collision"
+      },
+      {
+        "type": "improvement",
+        "description": "lazy-mount export mirror + honest wysiwyg semantics"
+      },
+      {
+        "type": "improvement",
+        "description": "finish derive-shapes to mission-presentation.types rename"
+      },
+      {
+        "type": "improvement",
+        "description": "extract buildLegacyDerivedView to useMissionLegacyView hook"
+      },
+      {
+        "type": "improvement",
+        "description": "extract shared stage ordinal projector (C/B6)"
+      },
+      {
+        "type": "improvement",
+        "description": "详情页迁移到 MissionDetailFrame，与三剑客 UI 对齐"
+      },
+      {
+        "type": "improvement",
+        "description": "mission 详情迁移到 MissionDetailFrame，与 playground/social 对齐"
+      },
+      {
+        "type": "improvement",
+        "description": "mv 到 §8.2 布局 mission/{pipeline,services,...}+api+events+module+runtime(P11)"
+      },
+      {
+        "type": "improvement",
+        "description": "修 spec imports + skill-md-loader path(P10 batch 9)"
+      },
+      {
+        "type": "improvement",
+        "description": "integrations 平台子目录化(wechat/xhs)(P10 batch 8)"
+      },
+      {
+        "type": "improvement",
+        "description": "mv services 到 mission/services + spec(P10 batch 7)"
+      },
+      {
+        "type": "improvement",
+        "description": "mv pipeline 主体(P10 batch 6)"
+      },
+      {
+        "type": "improvement",
+        "description": "mv pipeline/stages(P10 batch 5)"
+      },
+      {
+        "type": "improvement",
+        "description": "mv roles 到 mission/roles(P10 batch 4)"
+      },
+      {
+        "type": "improvement",
+        "description": "mv context/lifecycle/skills(P10 batch 3)"
+      },
+      {
+        "type": "improvement",
+        "description": "mv agents 到 mission/agents(P10 batch 2)"
+      },
+      {
+        "type": "improvement",
+        "description": "mv api/events/module/types(P10 batch 1)"
+      },
+      {
+        "type": "improvement",
+        "description": "mv api/events/module(P10 batch 1)"
+      },
+      {
+        "type": "improvement",
+        "description": "外部消费同步 P10(app.module + arch spec)"
+      },
+      {
+        "type": "improvement",
+        "description": "删旧 services/agents/skills/utils 完成 P9b/P9c 收尾"
+      },
+      {
+        "type": "improvement",
+        "description": "mv chat/export/postmortem 到 mission/(P9b 3/4)"
+      },
+      {
+        "type": "improvement",
+        "description": "mv agents 到 mission/agents + 同步 module 路径(P9b 2/4)"
+      },
+      {
+        "type": "improvement",
+        "description": "mv skills/types 到 mission/(P9b 1/4)"
+      },
+      {
+        "type": "improvement",
+        "description": "删 utils/ + playground.config 改用 engine loader(P9c)"
+      },
+      {
+        "type": "improvement",
+        "description": "3 家迁 integrations(P17a batch 4/4)"
+      },
+      {
+        "type": "improvement",
+        "description": "4 家迁 integrations(P17a batch 3/4)"
+      },
+      {
+        "type": "improvement",
+        "description": "删旧 contracts + 改 consumer 走 engine ContentSourceRegistry(P17a batch 2/4)"
+      },
+      {
+        "type": "improvement",
+        "description": "删旧路径完成 §8.2 重组(P9 batch 7)"
+      },
+      {
+        "type": "improvement",
+        "description": "mission/pipeline 主体重组(P9 batch 6)"
+      },
+      {
+        "type": "improvement",
+        "description": "mission/pipeline/stages 重组(P9 batch 5)"
+      },
+      {
+        "type": "improvement",
+        "description": "mission/{lifecycle,rerun} 重组(P9 batch 4)"
+      },
+      {
+        "type": "improvement",
+        "description": "mission/{roles,context,artifacts} 重组(P9 batch 3)"
+      },
+      {
+        "type": "improvement",
+        "description": "api/module/runtime/events/agents 重组(P9 batch 2)"
+      },
+      {
+        "type": "improvement",
+        "description": "同步 P9 playground §8.2 路径(batch 1)"
+      },
+      {
+        "type": "improvement",
+        "description": "§8.1 子目录 formalize + 11 README + facade 分段(P8)"
+      },
+      {
+        "type": "improvement",
+        "description": "阶段 D ── god-class 拆 self-heal-trigger + P1 启发式显式 fallback(v3.1 D)"
+      },
+      {
+        "type": "improvement",
+        "description": "阶段 C ── P0 anti-pattern 清理(2 真反模式)(v3.1 C)"
+      },
+      {
+        "type": "improvement",
+        "description": "阶段 B 子片 2 review-fix——修 mergeInto 'none' 占位 dead-branch + 顺手 2 项"
+      },
+      {
+        "type": "improvement",
+        "description": "阶段 B 子片 1 review 共识修订——sub-strict/__meta/抽 parser(3 必修+2 可选)"
+      },
+      {
+        "type": "improvement",
+        "description": "阶段 A review 修订——三路共识 10 项(facade/zod/fallback/顺序锁/fail-open/假绿/铺路)"
+      },
+      {
+        "type": "improvement",
+        "description": "阶段 A0 review 修订——共识 4 项(spec 重命名 + 行为漂移文档化)"
+      },
+      {
+        "type": "improvement",
+        "description": "阶段 A0——AIModelConfig 双源合并为单一源(v3.1)"
+      },
+      {
+        "type": "improvement",
+        "description": "移除无消费方的 Redis 心跳，回收只认 DB liveness(RB-Gap4)"
+      },
+      {
+        "type": "improvement",
+        "description": "删除已退场 legacy cancel() 死代码(RB-Gap7)"
+      },
+      {
+        "type": "improvement",
+        "description": "预估链 fallback pricing 显式化(RB-Gap2)"
+      },
+      {
+        "type": "improvement",
+        "description": "configSnapshot 类型收口 unknown→typed(RB-Gap1)"
+      },
+      {
+        "type": "improvement",
+        "description": "前端单源收口—formatters/阈值/cost-by-stage(R2-#49)"
+      },
+      {
+        "type": "improvement",
+        "description": "cap 字段 wallTimeMs→wallTimeCapMs 硬切换(前后端原子,C4-BLOCKER-1)"
+      },
+      {
+        "type": "improvement",
+        "description": "收口 IAgentEvent.payload: unknown → AgentEventPayload canonical union (batch 1)"
+      },
+      {
+        "type": "improvement",
+        "description": "rb4 双心跳职责边界显式化 + 回收契约守护测试"
+      },
+      {
+        "type": "improvement",
+        "description": "s11-persist 终态写改经 finalize 中央漏斗(收口 C0)"
+      },
+      {
+        "type": "improvement",
+        "description": "消除 userProfile config 双写,configSnapshot 单一真源(C5 S4b)"
+      },
+      {
+        "type": "improvement",
+        "description": "mission 列 wall_time_ms 改名 elapsed_wall_time_ms 消二义(C4/G5)"
+      },
+      {
+        "type": "improvement",
+        "description": "mission 列 wall_time_ms 改名 elapsed_wall_time_ms 消二义(C4/G5)"
+      },
+      {
+        "type": "improvement",
+        "description": "wall_time_ms 改名 wall_time_cap_ms 消二义(C4/G5)"
+      },
+      {
+        "type": "improvement",
+        "description": "换算收口到 ResolvedBudgetCaps(删散落 ×1000/×0.002, C3a/G4)"
+      },
+      {
+        "type": "improvement",
+        "description": "纯复制按钮迁到 CopyButton（burn-down 批5）"
+      },
+      {
+        "type": "improvement",
+        "description": "共享复制按钮迁到 CopyButton（burn-down 批4）"
+      },
+      {
+        "type": "improvement",
+        "description": "ai-social 内联提示迁到 Alert/ErrorState/ErrorInline（burn-down 批3）"
+      },
+      {
+        "type": "improvement",
+        "description": "explore/missions 内联提示迁到 Alert/ErrorState（burn-down 批2）"
+      },
+      {
+        "type": "improvement",
+        "description": "内联 banner/错误态迁到 Alert/ErrorState/ErrorInline（burn-down 批1）"
+      },
+      {
+        "type": "improvement",
+        "description": "通知偏好错误 banner 迁到 Alert canonical（burn-down 起步）"
+      },
+      {
+        "type": "improvement",
+        "description": "清死配置(防腐朽) + single-shot 字数生产方 clamp"
+      },
+      {
+        "type": "improvement",
+        "description": "系统级契约强制注册表 + 深度审视报告(防腐朽)"
+      },
+      {
+        "type": "improvement",
+        "description": "③L/M 字数预算单一权威 + lengthProfile 真生效"
+      },
+      {
+        "type": "improvement",
+        "description": "③J/K 前端不再镜像后端 tier，改 fetch 单一源"
+      },
+      {
+        "type": "improvement",
+        "description": "①B targetWords 契约测试 + ②G maxCredits 去默认 + ②I wallTimeMs 澄清"
+      },
+      {
+        "type": "improvement",
+        "description": "harness 契约测试机制 + 章节数单一源(修 ORCH_CHAPTER_PIPELINE_FAILED)"
+      },
+      {
+        "type": "improvement",
+        "description": "公众号正文格式抽成单一共享 skill（_formats/wechat-mp.md）"
+      },
+      {
+        "type": "improvement",
+        "description": "任务表迁到 canonical MissionTaskList（W1b 下沉闭环）"
+      },
+      {
+        "type": "improvement",
+        "description": "20 个根散落组件归位 concern 子目录（标准 02）"
+      },
+      {
+        "type": "improvement",
+        "description": "根散落组件归位 concern 子目录（标准 02）"
+      },
+      {
+        "type": "improvement",
+        "description": "8 个根散落组件归位 concern 子目录（标准 02 §146）"
+      },
+      {
+        "type": "improvement",
+        "description": "详情页彻底重构复用 canonical（行→Drawer + 角色卡 + 完整列表）"
+      },
+      {
+        "type": "improvement",
+        "description": "发布从 tab 改为「输出报告」内按钮 + 弹层（参考 playground 导出）"
+      },
+      {
+        "type": "improvement",
+        "description": "左栏折叠对齐 playground、去 w-5 切换条（W0-B 第3-4块）"
+      },
+      {
+        "type": "improvement",
+        "description": "tab 条改用 canonical Tabs 对齐 playground（W0-B 第2块）"
+      },
+      {
+        "type": "improvement",
+        "description": "对齐 Frame header 到 playground（W0-B 第1块）"
+      },
+      {
+        "type": "improvement",
+        "description": "泛化 useMissionStream（标准 21 P1，#2 Teams 迁移）"
+      },
+      {
+        "type": "improvement",
+        "description": "对话整理改用 canonical LeaderChatDock 浮层对话框"
+      },
+      {
+        "type": "improvement",
+        "description": "数据源总览 我的内容/外部连接 呈现归一"
+      },
+      {
+        "type": "improvement",
+        "description": "书签卡按钮归一 只留编辑/删除/多选"
+      },
+      {
+        "type": "improvement",
+        "description": "立 components 归属原则 + 守护，page-header-hero 收回 ui/"
+      },
+      {
+        "type": "improvement",
+        "description": "卡片系统单一归属 ui/cards + 等高归一 + R15 守护"
+      },
+      {
+        "type": "improvement",
+        "description": "抽公共 CreateCard 收编内联新建卡 + ai-teams 补尾卡"
+      },
+      {
+        "type": "improvement",
+        "description": "custom-agents 列表表格改 AssetCard 卡片网格"
+      },
+      {
+        "type": "improvement",
+        "description": "8 个主页页头统一用 PageHeaderHero"
+      },
+      {
+        "type": "improvement",
+        "description": "新建卡高度统一为 h-full — 各模块去掉不一致的 min-h 固定高"
+      },
+      {
+        "type": "improvement",
+        "description": "个人/团队知识库新建卡置后 — 新建卡位置全站统一为末位"
+      },
+      {
+        "type": "improvement",
+        "description": "雷达页头去「我的收藏」+ 知识库新建卡置后 — 页头/网格风格统一"
+      },
+      {
+        "type": "improvement",
+        "description": "卡片标准化收官 — 5 内容卡迁 SectionPanelCard + R13 消息卡焊死"
+      },
+      {
+        "type": "improvement",
+        "description": "卡片标准化第2批 — 消息卡/内容卡/统计卡收尾"
+      },
+      {
+        "type": "improvement",
+        "description": "卡片标准化首批 — TemplateCard→AssetCard、来源行→CitationListItem、R12 焊死"
+      },
+      {
+        "type": "improvement",
+        "description": "收口 ui-discipline 至 TOTAL=0(ai-radar 迁移 + R11 基线改对)"
+      },
+      {
+        "type": "improvement",
+        "description": "并行迁 DIY spinner→LoadingState + tab栏→canonical Tabs (R9 62→10, R7 13→5)"
+      },
+      {
+        "type": "improvement",
+        "description": "并行迁 17 文件散写空态到 canonical EmptyState (R3 29→12)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁最后 3 文件弹层到 canonical Modal (R6→1)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 3 弹层 + R6 加 bespoke 例外白名单 (R6 21→4)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 8 admin/app 页面弹层到 canonical (R6 29→21, TOTAL<100)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 5 文件弹层到 canonical (R6 34→29)"
+      },
+      {
+        "type": "improvement",
+        "description": "并行迁 12 文件嵌入式弹层到 canonical (R6 46→34)"
+      },
+      {
+        "type": "improvement",
+        "description": "并行迁 7 弹层到 canonical Modal/SideDrawer (R6 53→46)"
+      },
+      {
+        "type": "improvement",
+        "description": "并行迁 22 弹层到 canonical Modal/ConfirmDialog/SideDrawer (R6 75→53)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 WikiLintPanel/FactTablePanel/PlanContentPanel 空态 (R3 32→29)"
+      },
+      {
+        "type": "improvement",
+        "description": "并行迁 29 文件空态到 canonical EmptyState (R3 61→32)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 ai-writing/[id] 交互记录空态到 EmptyState (R3)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 explore/youtube 关键时刻+字幕空态到 EmptyState (R3 62→61)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 ExploreContent/ai-teams 主页空态到 EmptyState (R3 64→62)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 ai-social ContentsTab/TasksTab 空态到 EmptyState (R3 66→64)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 admin data/collection sources 空态 (R3 67→66)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 admin feedback/guardrails 空态 (R3 69→67)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 RoomMessageList(删本地壳)/admin observability+monitoring 空态 (R3 72→69)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 ai-simulation EditorModal 公司/角色空态 (R3 73→72)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 wiki 活动/图谱 + GoogleDrive 浏览器空态 (R3 76→73)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 UserModelsManagement/admin-workspace 空态 (R3 78→76)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 ReportVersionDrawer/UserApiKeysTab + 删本地 EmptyState 壳 (R3 81→78)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 4 文件空态到 EmptyState (R3 85→81)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 Bookmark/Note 选择面板 + DocumentListDialog 空态 (R3 88→85)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 ChapterImportModal/SourceItemPicker/TopicResearchTab 空态 (R3 91→88)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 MyAgentsTab/TodoDetailPanel/MissionProgressPanel 空态 (R3 94→91)"
+      },
+      {
+        "type": "improvement",
+        "description": "让 EmptyState 支持 title-only + 迁 4 处空态 (R3 98→94)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 ChatPanel 空态 + R3 排除富欢迎页, 基线降至 98"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 VersionHistory 空态到 canonical EmptyState size=sm (R3)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 ResourceList 空态到 canonical EmptyState (R3)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 ReferencesPanel 搜索空态到 canonical EmptyState (R3)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 WikiLintPanel tab 到 canonical Tabs pill (R7 11→10)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 RadarTopicConfigDrawer tab 到 canonical Tabs (R7 16→15)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 WorkspaceLayout/dreaming tab 到 canonical Tabs (R7 18→16)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 ai-store/InsightsPanel tab 到 canonical Tabs + R7 排除 AdminTabs"
+      },
+      {
+        "type": "improvement",
+        "description": "lib 业务逻辑归入 lib/features/ + 激活分层看护"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 ai-office TaskList 空态到 canonical EmptyState (R3)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁余 8 处表格到 ui/table 原语, R8 清零并锁基线"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 15 个 admin 页表格到 ui/table 原语 (R8 23→8)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 9 处展示/待办表到 ui/table 原语 (R8 32→23)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 8 处展示表到 ui/table 原语 (R8 40→32)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁 ai-research/ai-image 空态到 canonical EmptyState (R3 114→109)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁移空态到 EmptyState (批4:planning/simulation/topic-research)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁移空态到 EmptyState (批3:notifications + library/rag)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁移空态到 EmptyState (批2:feedback/history)"
+      },
+      {
+        "type": "improvement",
+        "description": "迁移空态到 EmptyState (批1:ai-radar/favorites + ai-writing)"
+      },
+      {
+        "type": "improvement",
+        "description": "自写横向 tab 清零(in-scope R7 4→0)+ Tabs iconNode"
+      },
+      {
+        "type": "improvement",
+        "description": "解耦 ReportWorkspace 跨app泄漏 → common/"
+      },
+      {
+        "type": "improvement",
+        "description": "hooks/swr 并入 hooks/domain + 删死测试 .skip"
+      },
+      {
+        "type": "improvement",
+        "description": "tabs 接入 ai-teams TopicSettingsDialog"
+      },
+      {
+        "type": "improvement",
+        "description": "tabs 接入 observability + BYOKDictionaryModal"
+      },
+      {
+        "type": "improvement",
+        "description": "tabs 接入 admin system 三页 (logs/monitoring/mcp-server)"
+      },
+      {
+        "type": "improvement",
+        "description": "tabs 接入 admin Tools/Skills 管理页"
+      },
+      {
+        "type": "improvement",
+        "description": "统一遗留跳转到 next.config — 删 report/notion 壳页"
+      },
+      {
+        "type": "improvement",
+        "description": "删 3 个死组件 (~977 行) — 审计\"重复\"实为死代码"
+      },
+      {
+        "type": "improvement",
+        "description": "状态徽章家族接入 StatusBadge — Connection/Read/Sync"
+      },
+      {
+        "type": "improvement",
+        "description": "components/ui 彻底整改 — 删 re-export 壳 + 真组件归类"
+      },
+      {
+        "type": "improvement",
+        "description": "wave C 采用 canonical — 删 EmptyState 死代码 + ConfirmDialog 去重"
+      },
+      {
+        "type": "improvement",
+        "description": "wave A 跨feature组件上提到 common/"
+      },
+      {
+        "type": "improvement",
+        "description": "hooks/lib Tier2 归位 — feature 子目录并入标准分类"
+      },
+      {
+        "type": "improvement",
+        "description": "hooks/lib Tier1 归位 — 散落根文件入桶 + 删死代码 + design 合并"
+      },
+      {
+        "type": "improvement",
+        "description": "删 pages 死残留 + types 折叠进 lib/types"
+      },
+      {
+        "type": "improvement",
+        "description": "重定向 shim 收敛到 next.config 301 + 删 app 下页面级 shim"
+      },
+      {
+        "type": "improvement",
+        "description": "阶段1 目录归位 - 散落组件按规范归 common/feature"
+      },
+      {
+        "type": "improvement",
+        "description": "socialmissionpage 迁移到公共 frame + actiongroup"
+      },
+      {
+        "type": "improvement",
+        "description": "milestone-1 R3 整改 — 5/5 共识 + 收口 P1"
+      },
+      {
+        "type": "improvement",
+        "description": "milestone-1 R2 整改 — 5 路评审 P0 闭环"
+      },
+      {
+        "type": "improvement",
+        "description": "milestone-1 R1 整改 — 5 路评审 P0/P1 闭环"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-3 publish/batch 委托 dispatcher 单轨化"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-2 scheduler 切 dispatcher (depth=quick fast-track)"
+      },
+      {
+        "type": "improvement",
+        "description": "r2 5 路评审整改 — kol 兜底 + creatable enum 拆分 + 大小写防御"
+      },
+      {
+        "type": "improvement",
+        "description": "drop x source recommendations — align to industry RSS/YouTube/Newsletter"
+      },
+      {
+        "type": "improvement",
+        "description": "tools/ci → scripts/ci — 根目录不该有 tools/，单脚本归入 scripts/"
+      },
+      {
+        "type": "improvement",
+        "description": "侧栏分组改名 — 知识中心 / 行业洞察 / 推演决策 / 内容工坊 / 实验广场"
+      },
+      {
+        "type": "improvement",
+        "description": "r3 集体共识整改 — 3 p0 + 4 p1 + 2 dead 字段清"
+      },
+      {
+        "type": "improvement",
+        "description": "主页对齐 Playground 骨架 + 抽 PageHeaderHero 公共组件"
+      },
+      {
+        "type": "improvement",
+        "description": "上提 runner-state.util.ts 到 facade（playground + social 双源 → 单源）"
+      },
+      {
+        "type": "improvement",
+        "description": "milestone-6 contract Round 3 NO — 后端 status 同步小写"
+      },
+      {
+        "type": "improvement",
+        "description": "milestone-5 R2 整改 — 5 路评审 P1 闭环"
+      },
+      {
+        "type": "improvement",
+        "description": "w4-pr4b round-2-followup 切 extractTokenSpend 到 facade 真源"
+      },
+      {
+        "type": "improvement",
+        "description": "w4-pr4b round-2 接 MissionPipelineOrchestrator + Gateway + EventRegistry"
+      },
+      {
+        "type": "improvement",
+        "description": "milestone-4 R1 整改 — 5 路评审 P0/P1 闭环"
+      },
+      {
+        "type": "improvement",
+        "description": "w4-pr4 SocialPipelineDispatcher + module 注册 (v1)"
+      },
+      {
+        "type": "improvement",
+        "description": "w4-pr3c 13 stage adapter + workflow foundation"
+      },
+      {
+        "type": "improvement",
+        "description": "w4-pr3b 9 role service + SocialAgentInvoker"
+      },
+      {
+        "type": "improvement",
+        "description": "w4-pr3a 9 agent.ts (AgentSpec + @DefineAgent) + duty-loader"
+      },
+      {
+        "type": "improvement",
+        "description": "w4-pr2 填充 8 agent SKILL.md duty 内容"
+      },
+      {
+        "type": "improvement",
+        "description": "w4-pr1 9 agent role 骨架 + SKILL.md + skill-md-loader util"
+      },
+      {
+        "type": "improvement",
+        "description": "w2 抽 BrowserContextTool 到 ai-engine + 接入 wechat.adapter cookie 读取"
+      },
+      {
+        "type": "improvement",
+        "description": "w1 前台 workflow 顶部 stepper + 重构设计文档"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate WeChat publisher to image uploader service (#103)"
+      },
+      {
+        "type": "improvement",
+        "description": "sota 极简单栏登录页 + 4 处直跳 oauth 改 router.push('/login')"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-e step2+3 单源化 prompt — 删 soul.md/duties/* + fallback"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-e step1 砍 steward/verifier 死代码 schema/方法/spec"
+      },
+      {
+        "type": "improvement",
+        "description": "p0 整改让 playground 趋近标杆 — 5 件套 a/b/c/d/f"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-a~j 成熟度整改 + 3 轮共识评审"
+      },
+      {
+        "type": "improvement",
+        "description": "extract testTool analyzer + ingest polling hooks"
+      },
+      {
+        "type": "improvement",
+        "description": "drop dead AI_STUDIO hot-fix in deploy-migrations"
+      },
+      {
+        "type": "improvement",
+        "description": "拆 secret health 富化到独立 helper (god-class size guard)"
+      },
+      {
+        "type": "improvement",
+        "description": "drop in-service multi pass to reuse harness primitives"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-4 删除 AIModel.apiKey 明文列消费方 fallback"
+      },
+      {
+        "type": "improvement",
+        "description": "image generation 接入 byok 单源"
+      },
+      {
+        "type": "improvement",
+        "description": "teams function-calling 接入 byok 单源"
+      },
+      {
+        "type": "improvement",
+        "description": "inline remaining 4 pages into execution tab — done"
+      },
+      {
+        "type": "improvement",
+        "description": "hide L4 Open API from overview homepage"
+      },
+      {
+        "type": "improvement",
+        "description": "w3r restructure 3 tabs per user feedback"
+      },
+      {
+        "type": "improvement",
+        "description": "drop inner AdminTabs + fix L2.5 badge on overview"
+      },
+      {
+        "type": "improvement",
+        "description": "inline scheduler + traces into execution tab"
+      },
+      {
+        "type": "improvement",
+        "description": "inline eval + guardrails into governance tab"
+      },
+      {
+        "type": "improvement",
+        "description": "inline kernel/memory into harness hub memory tab (PoC)"
+      },
+      {
+        "type": "improvement",
+        "description": "rewire 4 cards into /admin/ai/harness?tab= hub tabs"
+      },
+      {
+        "type": "improvement",
+        "description": "consolidate AI Harness from 8 cards to 4 entity cards"
+      },
+      {
+        "type": "improvement",
+        "description": "w4 local skills table-first + rename analytics tab"
+      },
+      {
+        "type": "improvement",
+        "description": "w3 table-first rebuild with 3 tabs + sub-tabs"
+      },
+      {
+        "type": "improvement",
+        "description": "ai engine collapse to 4 cards with knowledge stub"
+      },
+      {
+        "type": "improvement",
+        "description": "aggregate 8 subpages into 4-tab hub at /admin/system"
+      },
+      {
+        "type": "improvement",
+        "description": "consolidate to 3 tabs + storage as single table + governance unified"
+      },
+      {
+        "type": "improvement",
+        "description": "strip inventory + quota panels, tighten table"
+      },
+      {
+        "type": "improvement",
+        "description": "users 5-drawer + byok unified to models drawer + secrets streamlined"
+      },
+      {
+        "type": "improvement",
+        "description": "l1 infrastructure to 4-entity hubs + shared components + audit fixes"
+      },
+      {
+        "type": "improvement",
+        "description": "collapse 3 dict panels into '字典管理' button + tabbed modal"
+      },
+      {
+        "type": "improvement",
+        "description": "extract useAdminAIProviders hook + ModelEndpointWarning"
+      },
+      {
+        "type": "improvement",
+        "description": "delete PROVIDER_DEFAULTS hardcoded fallback"
+      },
+      {
+        "type": "improvement",
+        "description": "rename KernelContext.processId to agentProcessId"
+      },
+      {
+        "type": "improvement",
+        "description": "maximize detail page content area"
+      },
+      {
+        "type": "improvement",
+        "description": "simplify detail page information hierarchy"
+      },
+      {
+        "type": "improvement",
+        "description": "sse 解析拆到 lib/api/ai-ask-stream 过 god-class 闸"
+      },
+      {
+        "type": "improvement",
+        "description": "replace verbose hero launcher with shared MissionDialogShell"
+      },
+      {
+        "type": "improvement",
+        "description": "align storage inventory UI with data-management style"
+      },
+      {
+        "type": "improvement",
+        "description": "extract Graph/Settings modals to separate files"
+      },
+      {
+        "type": "improvement",
+        "description": "replace 18 ad-hoc slug call sites with engine util (p0a-2)"
+      },
+      {
+        "type": "improvement",
+        "description": "unwrap envelope + redesign room chat page (商务大气风)"
+      },
+      {
+        "type": "improvement",
+        "description": "convert new-room flow to modal"
+      },
+      {
+        "type": "improvement",
+        "description": "teams button toolbar parity + new-room form simplify"
+      },
+      {
+        "type": "improvement",
+        "description": "move model request flow from API Keys tab to My Models tab"
+      },
+      {
+        "type": "improvement",
+        "description": "drop DistributableKey table, KeyAssignment now references AIModel directly"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-c 收敛入口 — 删除 key 池侧旧 modal + 加用户管理跳转"
+      },
+      {
+        "type": "improvement",
+        "description": "rerun-guard SQL LIKE 改 from BUSINESS_PREFIXES 单一源（PR-C1 范围调整）"
+      },
+      {
+        "type": "improvement",
+        "description": "mission-store 三方法去 userId 双分支重复"
+      },
+      {
+        "type": "improvement",
+        "description": "删 runWithConcurrency 零 caller 死代码 + DAG fallback 走 harness ConcurrencyLimiter"
+      },
+      {
+        "type": "improvement",
+        "description": "删 S12 hook builder 死代码 + NotYetWired 占位（120 行）"
+      },
+      {
+        "type": "improvement",
+        "description": "删 estimateUsdFromTokens 本地 shadow，改用 harness facade 单源"
+      },
+      {
+        "type": "improvement",
+        "description": "消除 ai-app 跨 app 直接 import + 双源 strip-chart-json"
+      },
+      {
+        "type": "improvement",
+        "description": "19 平铺 controller 按 domain 收纳到 subfolder"
+      },
+      {
+        "type": "improvement",
+        "description": "去 buildLeaderInvocation + FRONTEND_STAGE_TO_STEP_ID 双源"
+      },
+      {
+        "type": "improvement",
+        "description": "拆 G1/G2 spec 到独立文件 — 治 god-class 阈值违规"
+      },
+      {
+        "type": "improvement",
+        "description": "extract StructuredOutputCapabilitySection to fix god-class size guard"
+      },
+      {
+        "type": "improvement",
+        "description": "三份硬编码价格表彻底清零，单一源走 ModelPricingRegistry"
+      },
+      {
+        "type": "improvement",
+        "description": "单轨化彻底版 — 14 stage 删 emit + spec 跟进"
+      },
+      {
+        "type": "improvement",
+        "description": "单轨化 — 前端只看 stage:lifecycle"
+      },
+      {
+        "type": "improvement",
+        "description": "a-2 stage emit 重命名 stage:metrics"
+      },
+      {
+        "type": "improvement",
+        "description": "拆掉 _meta/ 自造层，custom-agents 平级 + agent-catalog 入 contracts"
+      },
+      {
+        "type": "improvement",
+        "description": "抽 BYOK failover caller 独立 service"
+      },
+      {
+        "type": "improvement",
+        "description": "emitWarning dedup + 删除 legacy MissionOrphanDetectorService"
+      },
+      {
+        "type": "improvement",
+        "description": "mission liveness 4 detector → 单一 MissionLivenessGuard"
+      },
+      {
+        "type": "improvement",
+        "description": "抽 maskSensitiveSetting + ai.facade JSDoc 压缩 + god-class guard 调容差"
+      },
+      {
+        "type": "improvement",
+        "description": "4 hardcoded provider 全部改 API 动态发现 + 删除 hardcoded 残留"
+      },
+      {
+        "type": "improvement",
+        "description": "修复 base-layer biz-name 红灯 — 迁 harness-redesign docs 到 ai-harness 归属"
+      },
+      {
+        "type": "improvement",
+        "description": "drop runtime_version DB 列（R2-C 后死权重）"
+      },
+      {
+        "type": "improvement",
+        "description": "runWithStageInstrumentation wrapper + s2 stage POC"
+      },
+      {
+        "type": "improvement",
+        "description": "r0-a5 三轮清理 — engine skill-loader 去 ai-app 路径硬编码"
+      },
+      {
+        "type": "improvement",
+        "description": "r0-a2/a3/a5 base-layer 业务无关 + 自动化看护"
+      },
+      {
+        "type": "improvement",
+        "description": "drop business _LEAD roles from BUILTIN_ROLES (R0-A1-d)"
+      },
+      {
+        "type": "improvement",
+        "description": "drop BUILTIN_TEAMS from base layer (R0-A1-c)"
+      },
+      {
+        "type": "improvement",
+        "description": "drop BUILTIN_AGENTS + AGENT_CONFIGS from base layer (R0-A1-a)"
+      },
+      {
+        "type": "improvement",
+        "description": "inject postmortem patterns from caller (R0-A4)"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr10d extract MissionRerunOrchestrator"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr10c split leader.service + extract MissionExport"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr10b lift JSON-fence parser to engine/content"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr10a split leader-chat into 3 files"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr5 lift MissionState → harness/memory/working"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr7b narrow ctx signatures across 11 stages"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr7a phase-grouped MissionContext + MissionDeps + s7 narrow"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize playground as benchmark app — batch 1"
+      },
+      {
+        "type": "improvement",
+        "description": "organize modules and fix validation regressions"
+      },
+      {
+        "type": "improvement",
+        "description": "organize facade guardrails and tracing exports"
+      },
+      {
+        "type": "improvement",
+        "description": "reorganize skill loader and runtime modules"
+      },
+      {
+        "type": "improvement",
+        "description": "split processing tools by subdomain"
+      },
+      {
+        "type": "improvement",
+        "description": "tighten auth and monitoring directories"
+      },
+      {
+        "type": "improvement",
+        "description": "stabilize base-layer governance baseline"
+      },
+      {
+        "type": "improvement",
+        "description": "tighten infra engine harness boundaries"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W17 finalize ai-engine top-level reorg"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W16 relocate mission lifecycle types"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W15 move protocols and mcp adapter"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W14 move execution into runner"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W13 rename kernel to agents"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W12 dissolve runtime facade"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W9 settle pricing and billing tests"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W10-W11 split runtime mission and env"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W9 runtime/cost 拆三处（含跨层迁 engine）"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W8 process/* 全部归位 + 删除 process 目录"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W7 process/handoff → handoffs（顶层）"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W6 governance/* 全部归位 + 删除 governance 目录"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W5 governance/observability → tracing 顶层"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W4 governance/verify → evaluation/verify"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W3 governance/critique → evaluation/critique"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W2 governance/figure → evaluation/figure"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W1 governance/learning → lifecycle/learning"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-P0d teams 上提到 ai-harness 顶层"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-P0c runtime/quality → governance/critique 收敛"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-P0b judge-primitives → governance/verify/primitives"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-P0a tracer/ → governance/observability/tracer/"
+      },
+      {
+        "type": "improvement",
+        "description": "u — engine 6 个子 module 收到子目录 + 加 README.md"
+      },
+      {
+        "type": "improvement",
+        "description": "t — skillcontext 双定义清理 + ai-chat-retry 空 stub 删除"
+      },
+      {
+        "type": "improvement",
+        "description": "Q-step2/3 — engine/llm 14→11 子目录 + harness/kernel/skills 命名清晰化"
+      },
+      {
+        "type": "improvement",
+        "description": "Q-step1 — 命名统一 + runtime cost 整合 + process/health 收敛"
+      },
+      {
+        "type": "improvement",
+        "description": "O — 系统改进收尾（interfaces.ts 拆 + 双定义合并）冲 9.95/10"
+      },
+      {
+        "type": "improvement",
+        "description": "M-step3 — 3 个 engine service 接口 + 配套类型整体下沉到 engine"
+      },
+      {
+        "type": "improvement",
+        "description": "M-step2 — engine facade 反向 re-export 全部下沉到 harness facade"
+      },
+      {
+        "type": "improvement",
+        "description": "M-step1 — intent types 归位 engine（修 P1 反向依赖）"
+      },
+      {
+        "type": "improvement",
+        "description": "L — 修 P0 反向依赖 ai-engine/facade ↛ ai-harness/execution"
+      },
+      {
+        "type": "improvement",
+        "description": "G+H — 删 skill-validator 死代码 + 下沉 stage-emit + EmitFn 通用化"
+      },
+      {
+        "type": "improvement",
+        "description": "F — 下沉 3 个通用 util 到 ai-harness/governance"
+      },
+      {
+        "type": "improvement",
+        "description": "MissionAbortRegistry + MissionOwnershipRegistry 上提到 ai-harness"
+      },
+      {
+        "type": "improvement",
+        "description": "credentials L2→L1 — ai-engine/credentials 下沉到 ai-infra/credentials"
+      },
+      {
+        "type": "improvement",
+        "description": "SocketBroadcastAdapter 上提 — playground/adapters → ai-harness/protocol/realtime"
+      },
+      {
+        "type": "improvement",
+        "description": "failure-learner 上提 — playground → ai-harness/governance/learning"
+      },
+      {
+        "type": "improvement",
+        "description": "report-assembler 上提 — playground → ai-harness/runtime/quality"
+      },
+      {
+        "type": "improvement",
+        "description": "SkillRegistry 双轨改名 — kernel/skills 改为 BuiltInReActSkillRegistry"
+      },
+      {
+        "type": "improvement",
+        "description": "planning 目录彻底删除 — 整体迁移到 ai-harness/runtime"
+      },
+      {
+        "type": "improvement",
+        "description": "output-reviewer 跨层搬到 ai-harness/runtime/quality"
+      },
+      {
+        "type": "improvement",
+        "description": "agent-executor 跨层搬到 ai-harness/execution/executor"
+      },
+      {
+        "type": "improvement",
+        "description": "adaptive-replanner 跨层搬到 ai-harness"
+      },
+      {
+        "type": "improvement",
+        "description": "8 个真 L2 算法从 planning/services 搬到 engine 子目录"
+      },
+      {
+        "type": "improvement",
+        "description": "报告输出复用 TI 沉淀的 postProcessFinalReport 管线"
+      },
+      {
+        "type": "improvement",
+        "description": "删 task-decomposer + task-breakdown 死链路 (-1300 行)"
+      },
+      {
+        "type": "improvement",
+        "description": "删 intent-router + task-planner 死链路 (-1546 行)"
+      },
+      {
+        "type": "improvement",
+        "description": "删除 ai-engine/planning 19 个死代码文件 (C2-step2)"
+      },
+      {
+        "type": "improvement",
+        "description": "auto-dream 从 ai-engine/planning 搬到 ai-harness/memory/dream (C2-step1)"
+      },
+      {
+        "type": "improvement",
+        "description": "adaptive-replanner 类型改名消除与 harness 同名异物冲突 (C1/4)"
+      },
+      {
+        "type": "improvement",
+        "description": "全 codebase 84 个 spec 移到 __tests__ 子目录（贴 standards）"
+      },
+      {
+        "type": "improvement",
+        "description": "markdown w/ KaTeX + reconciler 聚合 figureCandidates"
+      },
+      {
+        "type": "improvement",
+        "description": "use public CitationBadge + FigureRenderer"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-x46 consolidate Railway ops under infra/railway/"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 11 — final token alignment for Live grid + timeline"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 10 — align report artifact panels to design tokens"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 9 — RawEventLog uses Card + ExpandableText"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 8 — small polish on TeamRosterPanel role list"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 7 — AgentLiveGrid trace text supports expand"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 6 — wrap LeadJournalPanel long text in ExpandableText"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 5 — DimensionsPanel + ReportPanel to Card"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 4 — migrate cost/score/memory panels to design system"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 3 — migrate MissionTodoBoard to design system"
+      },
+      {
+        "type": "improvement",
+        "description": "introduce design system + rebuild drawer"
+      },
+      {
+        "type": "improvement",
+        "description": "rtk 风格优化 — web-search 域名 grouping + finding 跨章节去重"
+      },
+      {
+        "type": "improvement",
+        "description": "nothink layer b — verifier/steward/reconciler 切 minimal effort"
+      },
+      {
+        "type": "improvement",
+        "description": "nothink layer a — minimal effort 安全降级（不支持模型自动 low）"
+      },
+      {
+        "type": "improvement",
+        "description": "杠杆 4 扩展 — reconciler/steward/verifier/outline-planner 切 mini"
+      },
+      {
+        "type": "improvement",
+        "description": "杠杆 2 — 章节内 writer 并行（concurrency=2）2-3× 加速"
+      },
+      {
+        "type": "improvement",
+        "description": "杠杆 1 — 维度并行（concurrency=3，封顶 6）3-4× 加速"
+      }
+    ]
+  },
+  {
+    "version": "40.12.0",
+    "date": "2026-05-27",
+    "changes": [
+      {
+        "type": "feature",
+        "description": "t75 streaming — drawer live process trace (#75)"
+      },
+      {
+        "type": "feature",
+        "description": "settings modal section grouping + searchTimeRange enforcement spec"
+      },
+      {
+        "type": "feature",
+        "description": "t75 frontend stage-process panel + compute table nowrap"
+      },
+      {
+        "type": "feature",
+        "description": "stage process-trace contract + drawer/list bugs"
+      },
+      {
+        "type": "feature",
+        "description": "refresh login and callback experience"
+      },
+      {
+        "type": "feature",
+        "description": "land guard rules phase 2 — uplift gate + reorg"
+      },
+      {
+        "type": "feature",
+        "description": "land guard rules phase 1 — 6-layer rules + 3 specs"
+      },
+      {
+        "type": "feature",
+        "description": "dag per-node drag + double-click reset"
+      },
+      {
+        "type": "fix",
+        "description": "verifier:verdict colon vs dot drift (#97)"
+      },
+      {
+        "type": "fix",
+        "description": "parallel_tool_call fan-out + memory-panel phase-aware copy"
+      },
+      {
+        "type": "fix",
+        "description": "todo-board projector recognize stage:lifecycle (screenshot_52)"
+      },
+      {
+        "type": "fix",
+        "description": "ws gateway + jwt strategy fail-open + ws-stuck failsafe (screenshot_49)"
+      },
+      {
+        "type": "fix",
+        "description": "memory event name drift dot vs colon (screenshot_48)"
+      },
+      {
+        "type": "fix",
+        "description": "compute panel + memory + DAG status data integrity"
+      },
+      {
+        "type": "fix",
+        "description": "single-line topic input + clickable stage stepper + radar topology"
+      },
+      {
+        "type": "fix",
+        "description": "dedupe /report-versions fetch via status-only dep"
+      },
+      {
+        "type": "fix",
+        "description": "reorder headers so /_next/static keeps immutable cache"
+      },
+      {
+        "type": "fix",
+        "description": "guide anonymous users to login instead of showing 401"
+      },
+      {
+        "type": "fix",
+        "description": "use provided agent team login artwork"
+      },
+      {
+        "type": "fix",
+        "description": "cover all system stages in agent-link hint map"
+      },
+      {
+        "type": "fix",
+        "description": "wire system-stage todos to their executing agent"
+      },
+      {
+        "type": "fix",
+        "description": "tool 调用矩阵 总延迟/平均 从 observation 取（不是 action）"
+      },
+      {
+        "type": "improvement",
+        "description": "lift todo-board projector framework + mission-view helpers (Phase A+B+C+D)"
+      },
+      {
+        "type": "improvement",
+        "description": "full migration — all 25 flat specs into 6-layer subdirs"
+      }
+    ]
+  },
+  {
     "version": "40.9.0",
     "date": "2026-05-06",
     "changes": [
