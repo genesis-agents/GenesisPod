@@ -750,8 +750,13 @@ export function MissionTodoBoard({
       setRerunningId(null);
     }
   };
-  // 任务列表包含 system 阶段 + 工作任务（chapter 重写聚合到 dim，不进表）
-  const workTodos = todos.filter((td) => td.scope !== 'chapter');
+  // 任务列表包含 system 阶段 + 工作任务（chapter 重写聚合到 dim，不进表）。
+  // 历史 deriveTodoLedger HIDDEN_ORIGINS = {'reconciler-gap'}：跨维度对账 gap
+  // 是 reconciler 自动跑的诊断结果，由 Analyst 综合纳入，无需用户操作 → 主列表隐藏。
+  const HIDDEN_ORIGINS = new Set<MissionTodo['origin']>(['reconciler-gap']);
+  const workTodos = todos.filter(
+    (td) => td.scope !== 'chapter' && !HIDDEN_ORIGINS.has(td.origin)
+  );
 
   // ─── 树状排序：parent 紧跟 children，children 缩进显示 ───
   // 1. 索引 parent → children
