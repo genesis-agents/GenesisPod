@@ -30,6 +30,10 @@ import {
 } from "@/modules/ai-harness/facade";
 import type { MissionViewBaseStage } from "@/modules/ai-harness/facade";
 import { projectSocialTodoBoard } from "./social-todo-board.projector";
+import {
+  buildMissionCostView,
+  deriveSnapshotVersionFromRow,
+} from "@/modules/ai-harness/facade";
 
 // Social pipeline 13 个 stage（mirror social/mission/pipeline/stages/ 目录）
 const SOCIAL_STAGES: ReadonlyArray<StagePresetEntry> = [
@@ -97,13 +101,11 @@ export function projectSocialMissionView(
     agents: projectSocialAgents(row),
     reportArtifact: composeSocialArtifact(row),
     todoBoard: projectSocialTodoBoard(row, inputs.events),
-    cost: {
-      tokensUsed: row.tokensUsed != null ? String(row.tokensUsed) : null,
-      costUsd: row.costUsd ?? null,
-      elapsedWallTimeMs: row.elapsedWallTimeMs ?? null,
-      trajectoryStored: null,
-      currency: "USD",
-    },
+    cost: buildMissionCostView({
+      tokensUsed: row.tokensUsed,
+      costUsd: row.costUsd,
+      elapsedWallTimeMs: row.elapsedWallTimeMs,
+    }),
     memory: { kind: "empty-memory" },
     timelineVersion: row.lastCompletedStage ?? 0,
     snapshotVersion: deriveSnapshotVersion(row),
@@ -291,9 +293,7 @@ function deriveSnapshotVersion(row: {
   completedAt?: Date | null;
   errorMessage?: string | null;
 }): number {
-  let v = 0;
-  if (row.lastCompletedStage != null) v += row.lastCompletedStage;
-  if (row.completedAt != null) v += 1;
-  if (row.errorMessage != null) v += 1;
-  return v;
+  return deriveSnapshotVersionFromRow(row, {
+    extraFlags: [row.errorMessage],
+  });
 }

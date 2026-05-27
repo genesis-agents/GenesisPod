@@ -1531,3 +1531,24 @@ export {
   RerunNotAllowedError,
   SourceMissionNotFoundError,
 } from "../lifecycle/mission-lifecycle/rerun";
+
+// Phase-A lift: todo-board projector framework + mission-view helpers
+export { BusinessTeamTodoBoardProjectorFramework } from "../teams/business-team/projectors/business-team-todo-board-projector.framework";
+export type {
+  BaseTodoBoardEntry,
+  BaseStagePreset,
+  BaseProjectorRow,
+  BaseProjectorEvent,
+  BuilderState,
+  TodoBoardEntryStatus,
+} from "../teams/business-team/projectors/abstractions/todo-board-projector.contract";
+export {
+  buildMissionCostView,
+  deriveSnapshotVersionFromRow,
+} from "../teams/business-team/abstractions/mission-view-helpers";
+export type {
+  BaseMissionCostInput,
+  BaseMissionCostView,
+  BaseSnapshotVersionInput,
+  SnapshotVersionExtras,
+} from "../teams/business-team/abstractions/mission-view-helpers";

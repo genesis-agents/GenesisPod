@@ -91,6 +91,8 @@ const ALLOWED_HARNESS_BUSINESS_TEAM_DIRS = new Set([
   "events",
   "helpers",
   "rerun",
+  // projectors/ added 2026-05-27 by projector-framework-lift-plan Phase A
+  "projectors",
   "__tests__",
 ]);
 
@@ -114,7 +116,7 @@ describe("Agent Team App Layout — §8.2 强制规范", () => {
   });
 
   it("ALLOWED_HARNESS_BUSINESS_TEAM_DIRS 白名单大小锁定（改动需同步 §8.1）", () => {
-    expect(ALLOWED_HARNESS_BUSINESS_TEAM_DIRS.size).toBe(12);
+    expect(ALLOWED_HARNESS_BUSINESS_TEAM_DIRS.size).toBe(13);
   });
 
   it.each(AGENT_TEAM_APPS)(

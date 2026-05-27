@@ -21,6 +21,10 @@ import {
 } from "@/modules/ai-harness/facade";
 import type { MissionViewBaseStage } from "@/modules/ai-harness/facade";
 import { projectRadarTodoBoard } from "./radar-todo-board.projector";
+import {
+  buildMissionCostView,
+  deriveSnapshotVersionFromRow,
+} from "@/modules/ai-harness/facade";
 
 // Radar pipeline 9 个 stage（mirror radar/mission/pipeline/stages/ 目录）
 const RADAR_STAGES: ReadonlyArray<StagePresetEntry> = [
@@ -78,13 +82,12 @@ export function projectRadarMissionView(
     agents: projectRadarAgents(row),
     reportArtifact: buildBriefingRefOrSentinel(row),
     todoBoard: projectRadarTodoBoard(row, inputs.events),
-    cost: {
-      tokensUsed: null, // radar tracks via metrics.llmCost (USD); tokens not directly persisted
+    cost: buildMissionCostView({
+      // radar tracks via metrics.llmCost (USD); tokens not directly persisted
+      tokensUsed: null,
       costUsd: metricsSummary?.llmCost ?? null,
       elapsedWallTimeMs: row.durationMs ?? null,
-      trajectoryStored: null,
-      currency: "USD",
-    },
+    }),
     memory: { kind: "empty-memory" },
     timelineVersion: row.lastCompletedStage ?? 0,
     snapshotVersion: deriveSnapshotVersion(row),
@@ -189,9 +192,7 @@ function deriveSnapshotVersion(row: {
   completedAt?: Date | null;
   error?: string | null;
 }): number {
-  let v = 0;
-  if (row.lastCompletedStage != null) v += row.lastCompletedStage;
-  if (row.completedAt != null) v += 1;
-  if (row.error != null) v += 1;
-  return v;
+  return deriveSnapshotVersionFromRow(row, {
+    extraFlags: [row.error],
+  });
 }

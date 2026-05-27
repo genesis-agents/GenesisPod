@@ -1,30 +1,30 @@
 /**
- * social-todo-board.projector.ts — Canonical TodoBoardState for social（B7-1a）
+ * social-todo-board.projector.ts — Canonical TodoBoardState for social.
  *
- * 落地依据：thinning plan §B7-1 / §6.6.3 todo truth canonical / §23.8 social/radar 对齐
- *
- * Pattern mirror playground todo-board.projector.ts：
- *   - Pre-allocate 13 个 social stage placeholder（s1-mission-budget-eval … s12-self-evolution）
- *   - 事件驱动：mission/stage lifecycle + publish:executed/verified → todo upsert
- *   - 平台维度：每个 row.platforms 元素 → 一个 "platform" scope todo（s8-publish 周边）
- *   - anchor sort：与 playground 同设计，按 stage ordinal + origin 锚位排序
- *
- * §6.4.1.a social-specific status mapping (aborted → cancelled) 在 mission-view.projector
- * resolvePublicStatus 处理；此处 TodoBoard 仅消费 row.status 终态即可。
+ * Phase-B lifted: plumbing 走
+ * `BusinessTeamTodoBoardProjectorFramework`，本文件只剩 social 自己的：
+ *   - 13 stage preset 表（含 desc, social 比 radar 多）
+ *   - preAllocateExtras: per-platform placeholder (锚 s8.5)
+ *   - sortKeyForExtra: platform → 8.5
+ *   - handleBusinessEvent: publish:executed / publish:verified per-platform 处理
+ *   - mapTerminalStatus: aborted → failed（与 framework 默认一致）
  */
 
+import {
+  BusinessTeamTodoBoardProjectorFramework,
+  type BaseProjectorEvent,
+  type BaseStagePreset,
+  type BuilderState,
+} from "@/modules/ai-harness/facade";
 import type {
   SocialPlatform,
   SocialTodoBoardEntry,
   SocialTodoBoardSentinel,
 } from "../../api/contracts/view-state.contract";
 
-interface SourceEvent {
-  type: string;
-  payload: unknown;
-  timestamp: number;
-  agentId?: string;
-}
+// ============================================================================
+// Types
+// ============================================================================
 
 interface SocialMissionRowLike {
   id: string;
@@ -35,17 +35,15 @@ interface SocialMissionRowLike {
   contentId?: string | null;
 }
 
-// ============================================================================
-// 13 stage presets（mirror social/mission/pipeline/stages/ 目录）
-// ============================================================================
-
-interface StagePreset {
-  id: string;
-  title: string;
+interface SocialStagePreset extends BaseStagePreset {
   desc: string;
 }
 
-const SYSTEM_STAGE_PRESETS: ReadonlyArray<StagePreset> = [
+// ============================================================================
+// Stage presets (13)
+// ============================================================================
+
+const SYSTEM_STAGE_PRESETS: ReadonlyArray<SocialStagePreset> = [
   {
     id: "s1-mission-budget-eval",
     title: "预算评估",
@@ -85,73 +83,142 @@ const SYSTEM_STAGE_PRESETS: ReadonlyArray<StagePreset> = [
   },
 ];
 
-const STAGE_ORDINAL: Record<string, number> = SYSTEM_STAGE_PRESETS.reduce(
-  (acc, preset, idx) => {
-    acc[preset.id] = idx + 1;
-    return acc;
-  },
-  {} as Record<string, number>,
-);
-
 // ============================================================================
-// Builder
+// Projector subclass
 // ============================================================================
 
-interface BuilderState {
-  todos: Map<string, SocialTodoBoardEntry>;
-  order: string[];
-}
-
-function makeBuilder(): BuilderState {
-  return { todos: new Map(), order: [] };
-}
-
-function upsert(
-  state: BuilderState,
-  id: string,
-  init: () => SocialTodoBoardEntry,
-  mutate?: (t: SocialTodoBoardEntry) => void,
-): SocialTodoBoardEntry {
-  let cur = state.todos.get(id);
-  if (!cur) {
-    cur = init();
-    state.todos.set(id, cur);
-    state.order.push(id);
+class SocialTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramework<
+  SocialTodoBoardEntry,
+  SocialMissionRowLike,
+  SocialTodoBoardSentinel,
+  SocialStagePreset
+> {
+  protected systemStagePresets(): ReadonlyArray<SocialStagePreset> {
+    return SYSTEM_STAGE_PRESETS;
   }
-  if (mutate) mutate(cur);
-  return cur;
+
+  protected makeSystemStageTodo(
+    preset: SocialStagePreset,
+    ts: number,
+  ): SocialTodoBoardEntry {
+    return {
+      id: `system:${preset.id}`,
+      origin: "system-stage",
+      scope: "system",
+      status: "pending",
+      title: preset.title,
+      systemStageId: preset.id,
+      createdAt: ts,
+    };
+  }
+
+  protected emptySentinel(): SocialTodoBoardSentinel {
+    return { kind: "empty-todo-board" };
+  }
+
+  protected loadedSentinel(
+    items: SocialTodoBoardEntry[],
+  ): SocialTodoBoardSentinel {
+    return { kind: "todo-board", items, isFirstCutTruncated: false };
+  }
+
+  protected preAllocateExtras(
+    row: SocialMissionRowLike,
+    missionCreatedAt: number,
+    state: BuilderState<SocialTodoBoardEntry>,
+  ): void {
+    const platforms = extractPlatforms(row.platforms);
+    for (const platform of platforms) {
+      this.upsert(state, `platform:${platform}`, () => ({
+        id: `platform:${platform}`,
+        origin: "platform-publish",
+        scope: "platform",
+        status: "pending",
+        title: `发布到 ${platform}`,
+        platform,
+        createdAt: missionCreatedAt,
+      }));
+    }
+  }
+
+  protected sortKeyForExtra(todo: SocialTodoBoardEntry): number | undefined {
+    if (todo.scope === "platform") {
+      // platforms appear between s8-publish-execute (8) and s8b-publish-retry (9)
+      return 8.5;
+    }
+    return undefined;
+  }
+
+  protected handleBusinessEvent(
+    state: BuilderState<SocialTodoBoardEntry>,
+    ev: BaseProjectorEvent,
+  ): void {
+    const suffix = this.evSuffix(ev.type);
+    const ts = ev.timestamp;
+    const payload = ev.payload as Record<string, unknown> | null;
+
+    if (suffix === "publish:executed") {
+      const platform = this.getString(payload, "platform") as
+        | SocialPlatform
+        | undefined;
+      const status = this.getString(payload, "status"); // PUBLISHED / FAILED / SKIPPED
+      if (!platform) return;
+      this.upsert(
+        state,
+        `platform:${platform}`,
+        () => ({
+          id: `platform:${platform}`,
+          origin: "platform-publish",
+          scope: "platform",
+          status: "in_progress",
+          title: `发布到 ${platform}`,
+          platform,
+          createdAt: ts,
+          startedAt: ts,
+        }),
+        (t) => {
+          if (!t.startedAt) t.startedAt = ts;
+          if (status === "PUBLISHED") t.status = "done";
+          else if (status === "FAILED") t.status = "failed";
+          else if (status === "SKIPPED") t.status = "done";
+          else t.status = "in_progress";
+          t.endedAt = ts;
+        },
+      );
+      return;
+    }
+
+    if (suffix === "publish:verified") {
+      const platform = this.getString(payload, "platform") as
+        | SocialPlatform
+        | undefined;
+      if (!platform) return;
+      this.upsert(
+        state,
+        `platform:${platform}`,
+        () => ({
+          id: `platform:${platform}`,
+          origin: "platform-publish",
+          scope: "platform",
+          status: "done",
+          title: `发布到 ${platform}`,
+          platform,
+          createdAt: ts,
+          startedAt: ts,
+          endedAt: ts,
+        }),
+        (t) => {
+          // 核验通过保持 done
+          if (t.status !== "failed") t.status = "done";
+        },
+      );
+    }
+  }
 }
 
-function makeSystemStageTodo(
-  preset: StagePreset,
-  ts: number,
-): SocialTodoBoardEntry {
-  return {
-    id: `system:${preset.id}`,
-    origin: "system-stage",
-    scope: "system",
-    status: "pending",
-    title: preset.title,
-    systemStageId: preset.id,
-    createdAt: ts,
-  };
-}
-
-function evSuffix(type: string): string {
-  return type.includes(".") ? type.slice(type.indexOf(".") + 1) : type;
-}
-
-function getString(p: unknown, key: string): string | undefined {
-  if (!p || typeof p !== "object") return undefined;
-  const v = (p as Record<string, unknown>)[key];
-  return typeof v === "string" ? v : undefined;
-}
-
-function getStepId(ev: SourceEvent): string | null {
-  const p = ev.payload as Record<string, unknown> | null;
-  if (p && typeof p.stepId === "string") return p.stepId;
-  return null;
-}
+// ============================================================================
+// Helpers
+// ============================================================================
 
 function extractPlatforms(raw: unknown): SocialPlatform[] {
   if (!Array.isArray(raw)) return [];
@@ -162,216 +229,17 @@ function extractPlatforms(raw: unknown): SocialPlatform[] {
 // Public entry
 // ============================================================================
 
+const projector = new SocialTodoBoardProjector();
+
 export function projectSocialTodoBoard(
   row: SocialMissionRowLike | null,
-  events: ReadonlyArray<SourceEvent>,
+  events: ReadonlyArray<BaseProjectorEvent>,
 ): SocialTodoBoardSentinel {
-  if (!row) return { kind: "empty-todo-board" };
-
-  const state = makeBuilder();
-  const missionCreatedAt =
-    typeof row.startedAt === "string"
-      ? new Date(row.startedAt).getTime()
-      : row.startedAt.getTime();
-
-  // 1. Pre-allocate 13 stage placeholder
-  for (const preset of SYSTEM_STAGE_PRESETS) {
-    upsert(state, `system:${preset.id}`, () =>
-      makeSystemStageTodo(preset, missionCreatedAt),
-    );
-  }
-
-  // 2. Pre-allocate per-platform placeholders（s8-publish 周边）
-  const platforms = extractPlatforms(row.platforms);
-  for (const platform of platforms) {
-    upsert(state, `platform:${platform}`, () => ({
-      id: `platform:${platform}`,
-      origin: "platform-publish",
-      scope: "platform",
-      status: "pending",
-      title: `发布到 ${platform}`,
-      platform,
-      createdAt: missionCreatedAt,
-    }));
-  }
-
-  // 3. Iterate events
-  for (const ev of events) {
-    const suffix = evSuffix(ev.type);
-    const ts = ev.timestamp;
-    const payload = ev.payload as Record<string, unknown> | null;
-
-    // ── stage lifecycle ────────────────────────────────────────────
-    if (suffix === "stage:started" || suffix === "stage.started") {
-      const stepId = getStepId(ev);
-      if (stepId) {
-        const sid = `system:${stepId}`;
-        upsert(
-          state,
-          sid,
-          () => {
-            const preset = SYSTEM_STAGE_PRESETS.find(
-              (p) => p.id === stepId,
-            ) ?? {
-              id: stepId,
-              title: stepId,
-              desc: "",
-            };
-            return makeSystemStageTodo(preset, ts);
-          },
-          (t) => {
-            if (t.status === "pending") t.status = "in_progress";
-            if (!t.startedAt) t.startedAt = ts;
-          },
-        );
-      }
-      continue;
-    }
-    if (suffix === "stage:completed" || suffix === "stage.completed") {
-      const stepId = getStepId(ev);
-      if (stepId) {
-        upsert(
-          state,
-          `system:${stepId}`,
-          () => {
-            const preset = SYSTEM_STAGE_PRESETS.find(
-              (p) => p.id === stepId,
-            ) ?? {
-              id: stepId,
-              title: stepId,
-              desc: "",
-            };
-            return makeSystemStageTodo(preset, ts);
-          },
-          (t) => {
-            t.status = "done";
-            t.endedAt = ts;
-          },
-        );
-      }
-      continue;
-    }
-    if (suffix === "stage:failed" || suffix === "stage.failed") {
-      const stepId = getStepId(ev);
-      if (stepId) {
-        upsert(
-          state,
-          `system:${stepId}`,
-          () => {
-            const preset = SYSTEM_STAGE_PRESETS.find(
-              (p) => p.id === stepId,
-            ) ?? {
-              id: stepId,
-              title: stepId,
-              desc: "",
-            };
-            return makeSystemStageTodo(preset, ts);
-          },
-          (t) => {
-            t.status = "failed";
-            t.endedAt = ts;
-          },
-        );
-      }
-      continue;
-    }
-
-    // ── publish lifecycle per platform ─────────────────────────────
-    if (suffix === "publish:executed") {
-      const platform = getString(payload, "platform") as
-        | SocialPlatform
-        | undefined;
-      const status = getString(payload, "status"); // PUBLISHED / FAILED / SKIPPED
-      if (platform) {
-        upsert(
-          state,
-          `platform:${platform}`,
-          () => ({
-            id: `platform:${platform}`,
-            origin: "platform-publish",
-            scope: "platform",
-            status: "in_progress",
-            title: `发布到 ${platform}`,
-            platform,
-            createdAt: ts,
-            startedAt: ts,
-          }),
-          (t) => {
-            if (!t.startedAt) t.startedAt = ts;
-            if (status === "PUBLISHED") t.status = "done";
-            else if (status === "FAILED") t.status = "failed";
-            else if (status === "SKIPPED") t.status = "done";
-            else t.status = "in_progress";
-            t.endedAt = ts;
-          },
-        );
-      }
-      continue;
-    }
-    if (suffix === "publish:verified") {
-      const platform = getString(payload, "platform") as
-        | SocialPlatform
-        | undefined;
-      if (platform) {
-        upsert(
-          state,
-          `platform:${platform}`,
-          () => ({
-            id: `platform:${platform}`,
-            origin: "platform-publish",
-            scope: "platform",
-            status: "done",
-            title: `发布到 ${platform}`,
-            platform,
-            createdAt: ts,
-            startedAt: ts,
-            endedAt: ts,
-          }),
-          (t) => {
-            // 核验通过保持 done
-            if (t.status !== "failed") t.status = "done";
-          },
-        );
-      }
-      continue;
-    }
-  }
-
-  // 4. Mission terminal cleanup
-  const status = row.status;
-  const isTerminal =
-    status === "completed" || status === "failed" || status === "aborted";
-  if (isTerminal) {
-    for (const t of state.todos.values()) {
-      if (t.status === "pending" || t.status === "in_progress") {
-        if (status === "completed") t.status = "done";
-        else if (status === "failed") t.status = "failed";
-        else if (status === "aborted") t.status = "failed";
-      }
-    }
-  }
-
-  // 5. Anchor sort: system stages by ordinal, platforms anchored to s8-publish (sortKey 8.5)
-  const items = sortByAnchor(state);
-
-  return { kind: "todo-board", items, isFirstCutTruncated: false };
-}
-
-function sortByAnchor(state: BuilderState): SocialTodoBoardEntry[] {
-  const all = state.order.map((id) => state.todos.get(id)!);
-  function sortKey(t: SocialTodoBoardEntry): number {
-    if (t.scope === "system" && t.systemStageId) {
-      return STAGE_ORDINAL[t.systemStageId] ?? 13.5;
-    }
-    if (t.scope === "platform") {
-      // platforms appear between s8-publish-execute (8) and s8b-publish-retry (9)
-      return 8.5;
-    }
-    return 13.5; // mission scope, no specific anchor → 末尾
-  }
-  return all.slice().sort((a, b) => {
-    const k = sortKey(a) - sortKey(b);
-    if (k !== 0) return k;
-    return a.createdAt - b.createdAt;
-  });
+  // BaseProjectorRow shape requires startedAt: Date | string | null, but social row
+  // declares Date | string (non-null). Adapt at boundary.
+  if (!row) return projector.project(null, events);
+  return projector.project(
+    row as unknown as Parameters<typeof projector.project>[0],
+    events,
+  );
 }

@@ -18,6 +18,10 @@ import type { MissionQueryInputs } from "../query/mission-query.service";
 import { projectStages } from "./stage-view.projector";
 import { projectAgents } from "./agent-view.projector";
 import { projectTodoBoard } from "./todo-board.projector";
+import {
+  buildMissionCostView,
+  deriveSnapshotVersionFromRow,
+} from "@/modules/ai-harness/facade";
 // projectArtifact 现由 ArtifactComposerService 调用（含 R2 fetch），projector 模块
 // 仅保留 normalizeV1ToV2 作为 service 内 helper。本文件无需直接 import 它。
 import type {
@@ -539,44 +543,33 @@ function buildEmptyMemorySentinel(): MissionMemorySentinel {
 }
 
 // ============================================================================
-// cost view
+// cost view / snapshot version
 // ============================================================================
+// 共享 helper 在 harness 抽象层（Phase D lift）：
+// `ai-harness/teams/business-team/abstractions/mission-view-helpers.ts`
 
 function buildCostView(row: MissionDetail): MissionCostView {
-  return {
-    tokensUsed: row.tokensUsed != null ? String(row.tokensUsed) : null,
-    costUsd: row.costUsd ?? null,
-    elapsedWallTimeMs: row.elapsedWallTimeMs ?? null,
-    trajectoryStored: row.trajectoryStored ?? null,
-    currency: "USD",
-  };
+  return buildMissionCostView({
+    tokensUsed: row.tokensUsed,
+    costUsd: row.costUsd,
+    elapsedWallTimeMs: row.elapsedWallTimeMs,
+    trajectoryStored: row.trajectoryStored,
+  });
 }
 
 function buildZeroCost(): MissionCostView {
-  return {
+  return buildMissionCostView({
     tokensUsed: null,
     costUsd: null,
     elapsedWallTimeMs: null,
-    trajectoryStored: null,
-    currency: "USD",
-  };
+  });
 }
 
-// ============================================================================
-// §6.7.1 snapshotVersion reducer
-// ============================================================================
-
 function deriveSnapshotVersion(row: MissionDetail): number {
-  // first-cut 复合：reportArtifactVersion + finalScore 出现性 + lastCompletedStage 序数
-  // 三者任一变更触发 +1。lastCompletedStage 是 Prisma Int? stage ordinal（1-based），
-  // 直接累加。
-  let v = 0;
-  if (row.reportArtifactVersion != null) v += row.reportArtifactVersion;
-  if (row.finalScore != null) v += 1;
-  if (row.leaderSigned != null) v += 1;
-  if (row.lastCompletedStage != null) v += row.lastCompletedStage;
-  if (row.completedAt != null) v += 1;
-  return v;
+  return deriveSnapshotVersionFromRow(row, {
+    extraInts: [row.reportArtifactVersion],
+    extraFlags: [row.finalScore, row.leaderSigned],
+  });
 }
 
 // ============================================================================
