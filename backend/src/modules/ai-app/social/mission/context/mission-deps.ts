@@ -20,7 +20,7 @@ import type {
   LeaderService,
   StewardService,
   PlatformProbeService,
-  ContentTransformerService,
+  ContentTransformerAgentService,
   CoverArtistService,
   ComposerService,
   PolishReviewerService,
@@ -58,7 +58,7 @@ export interface CommonDeps {
   readonly leader: LeaderService;
   readonly steward: StewardService;
   readonly platformProbe: PlatformProbeService;
-  readonly contentTransformer: ContentTransformerService;
+  readonly contentTransformer: ContentTransformerAgentService;
   readonly coverArtist: CoverArtistService;
   readonly composer: ComposerService;
   readonly polishReviewer: PolishReviewerService;

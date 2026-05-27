@@ -24,7 +24,7 @@ import { ChapterReviewerAgent } from "../agents/writer/chapter-reviewer.agent";
 import { DimensionIntegratorAgent } from "../agents/writer/dimension-integrator.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import type { IAgentEvent } from "@/modules/ai-harness/facade";
-import { normalizeRunnerState } from "./runner-state.util";
+import { normalizeRunnerState } from "@/modules/ai-harness/facade";
 
 interface InvokeResult<TOut> {
   // degraded: reflexion verifier 评分 < passThreshold 但 outputSchema 合法的次优产物，

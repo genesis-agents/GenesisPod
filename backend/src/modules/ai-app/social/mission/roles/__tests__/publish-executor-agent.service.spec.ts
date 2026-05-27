@@ -1,5 +1,5 @@
 /**
- * Unit tests for PublishExecutorAgentService (roles/publish-executor.service.ts)
+ * Unit tests for PublishExecutorAgentService (roles/publish-executor-agent.service.ts)
  *
  * This tests the NEW agent-team variant (PublishExecutorAgentService) which
  * dispatches to PublishExecutorAgent via SocialAgentInvoker.
@@ -9,7 +9,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { PublishExecutorAgentService } from "../publish-executor.service";
+import { PublishExecutorAgentService } from "../publish-executor-agent.service";
 import {
   SocialAgentInvoker,
   type SocialInvocationContext,

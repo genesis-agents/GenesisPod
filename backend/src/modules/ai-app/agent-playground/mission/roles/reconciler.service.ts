@@ -10,7 +10,7 @@ import { Injectable } from "@nestjs/common";
 import { ReconcilerAgent } from "../agents/reconciler/reconciler.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import type { IAgentEvent } from "@/modules/ai-harness/facade";
-import { normalizeRunnerState } from "./runner-state.util";
+import { normalizeRunnerState } from "@/modules/ai-harness/facade";
 
 export interface ReconcileInput {
   topic: string;

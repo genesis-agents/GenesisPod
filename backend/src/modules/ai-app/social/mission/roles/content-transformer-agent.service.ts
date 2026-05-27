@@ -1,8 +1,12 @@
 /**
- * ContentTransformerService — S3 跨平台内容适配派发
+ * ContentTransformerAgentService — S3 跨平台内容适配派发（mission agent 版本）
  *
  * 多平台时 stage 层用 ConcurrencyLimiter 并发调本 service 的 run()，每个平台
  * 一份独立 LLM 调用。
+ *
+ * 与 services/content-transformer.service.ts 的 `ContentTransformerService`（同步
+ * 工作流，sync URL 处理用）分轨。命名后缀 `Agent` 与 PublishExecutorAgentService
+ * 对齐。
  */
 
 import { Injectable } from "@nestjs/common";
@@ -20,7 +24,7 @@ import {
   MissionBudgetPool,
   type IAgentEvent,
 } from "@/modules/ai-harness/facade";
-import { normalizeRunnerState } from "./runner-state.util";
+import { normalizeRunnerState } from "@/modules/ai-harness/facade";
 
 export interface ContentTransformerInvocationResult {
   state: "completed" | "degraded" | "failed" | "cancelled";
@@ -31,7 +35,7 @@ export interface ContentTransformerInvocationResult {
 }
 
 @Injectable()
-export class ContentTransformerService {
+export class ContentTransformerAgentService {
   constructor(private readonly invoker: SocialAgentInvoker) {}
 
   async run(args: {

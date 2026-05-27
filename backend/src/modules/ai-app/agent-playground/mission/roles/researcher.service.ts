@@ -20,7 +20,7 @@ import {
   type IAgentEvent,
   extractTokenSpend,
 } from "@/modules/ai-harness/facade";
-import { normalizeRunnerState } from "./runner-state.util";
+import { normalizeRunnerState } from "@/modules/ai-harness/facade";
 
 export interface ResearcherDimSpec {
   id: string;

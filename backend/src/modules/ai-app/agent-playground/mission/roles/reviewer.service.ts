@@ -13,7 +13,7 @@ import { MissionCriticAgent } from "../agents/reviewer/mission-critic.agent";
 import { DimensionQualityJudgeAgent } from "../agents/reviewer/dimension-quality-judge.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import type { IAgentEvent } from "@/modules/ai-harness/facade";
-import { normalizeRunnerState } from "./runner-state.util";
+import { normalizeRunnerState } from "@/modules/ai-harness/facade";
 
 interface InvokeResult<TOut> {
   state: "completed" | "degraded" | "failed" | "cancelled";

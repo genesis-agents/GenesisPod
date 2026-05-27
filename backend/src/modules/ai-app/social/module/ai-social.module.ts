@@ -19,7 +19,7 @@ import { SocialMissionQueryService } from "../mission/query/social-mission-query
 import { AiSocialService } from "../mission/services/ai-social.service";
 import { SocialLeaderService } from "../mission/services/social-leader.service";
 import { ContentFetcherService } from "../mission/services/content-fetcher.service";
-import { ContentTransformerService as LegacyContentTransformerService } from "../mission/services/content-transformer.service";
+import { ContentTransformerService } from "../mission/services/content-transformer.service";
 import { ContentCheckerService } from "../mission/services/content-checker.service";
 import { ContentVersionService } from "../mission/services/content-version.service";
 import { ReviewService } from "../mission/services/review.service";
@@ -48,7 +48,7 @@ import {
   LeaderService as MissionLeaderService,
   StewardService,
   PlatformProbeService,
-  ContentTransformerService as MissionContentTransformerService,
+  ContentTransformerAgentService,
   CoverArtistService,
   ComposerService,
   PolishReviewerService,
@@ -104,7 +104,7 @@ import { PromptSkillRegistrationService } from "@/modules/ai-engine/facade";
     // ★ B7-1 canonical view (thinning plan §B7-1)
     SocialMissionQueryService,
     ContentFetcherService,
-    LegacyContentTransformerService,
+    ContentTransformerService,
     ContentCheckerService,
     ContentVersionService,
     ReviewService,
@@ -125,7 +125,7 @@ import { PromptSkillRegistrationService } from "@/modules/ai-engine/facade";
     MissionLeaderService,
     StewardService,
     PlatformProbeService,
-    MissionContentTransformerService,
+    ContentTransformerAgentService,
     CoverArtistService,
     ComposerService,
     PolishReviewerService,

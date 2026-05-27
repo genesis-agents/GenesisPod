@@ -23,7 +23,7 @@ import {
   MissionBudgetPool,
   type IAgentEvent,
 } from "@/modules/ai-harness/facade";
-import { normalizeRunnerState } from "./runner-state.util";
+import { normalizeRunnerState } from "@/modules/ai-harness/facade";
 
 export interface PublishExecutorInvocationResult {
   state: "completed" | "degraded" | "failed" | "cancelled";
