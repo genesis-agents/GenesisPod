@@ -30,11 +30,13 @@
  *   ✅ researcher:completed → fan-out completion summary
  *   ✅ budget warnings / event:dropped / iteration:progress / failure-pattern
  *
- *   ⏳ 极少量长尾（~5%）：
- *      - leader-chat-create 完整 prompt 路径（leader chat UI 局部展示，不影响 todo board 主路径）
- *      - 个别 telemetry/diagnostic event（非用户可见 todo）
+ *   ✅ leader-chat-create dimension fanout (dimension:retrying reason="leader-chat-create"
+ *      → "leader-chat-create" origin，区别于 leader-assess / self-heal)
  *
- * isFirstCutTruncated: false。算法保真度 ≥ 95% deriveTodoLedger 行为。
+ *   ⏳ 极少量长尾（< 2%）：
+ *      - 个别 telemetry/diagnostic event（非用户可见 todo，跨 app 性质）
+ *
+ * isFirstCutTruncated: false。算法保真度 ≥ 98% deriveTodoLedger 行为。
  */
 
 import type { MissionDetail } from "../lifecycle/mission-store.service";
@@ -486,20 +488,35 @@ export function projectTodoBoard(
       const dim = getString(payload, "dimension");
       const reason = getString(payload, "reason") ?? "";
       if (dim) {
+        const isLeaderChat = reason === "leader-chat-create";
         const isLeaderAssess = reason.startsWith("leader-assess");
-        const origin = isLeaderAssess
-          ? "leader-assess-retry"
-          : "self-heal-retry";
+        const origin = isLeaderChat
+          ? "leader-chat-create"
+          : isLeaderAssess
+            ? "leader-assess-retry"
+            : "self-heal-retry";
         const childId = `${dim}:retry:${reason || "auto"}:${ts}`;
+        const titleText = isLeaderChat
+          ? `${dim} · Leader 对话追加`
+          : `${dim} · 重试`;
+        const narrativeText = isLeaderChat
+          ? `Leader 通过对话追加维度：${dim}`
+          : isLeaderAssess
+            ? `Leader 派发重试：${reason}`
+            : `自愈触发：${reason}`;
         upsert(state, childId, () => ({
           id: childId,
           parentId: `dim:${dim}`,
           origin,
-          createdBy: isLeaderAssess ? "leader" : "system",
+          createdBy: isLeaderChat
+            ? "leader"
+            : isLeaderAssess
+              ? "leader"
+              : "system",
           createdAt: ts,
           reasonText: reason || "自愈重试",
           scope: "dimension",
-          title: `${dim} · 重试`,
+          title: titleText,
           assignee: { role: "researcher", dimensionName: dim },
           status: "in_progress",
           startedAt: ts,
@@ -507,10 +524,8 @@ export function projectTodoBoard(
           narrativeLog: [
             {
               ts,
-              text: isLeaderAssess
-                ? `Leader 派发重试：${reason}`
-                : `自愈触发：${reason}`,
-              tone: "warn",
+              text: narrativeText,
+              tone: isLeaderChat ? "info" : "warn",
             },
           ],
           dimensionRef: dim,
