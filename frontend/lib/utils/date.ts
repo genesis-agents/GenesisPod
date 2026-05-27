@@ -26,11 +26,17 @@ export function formatDateSafe(
     const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
     if (isNaN(date.getTime())) return '--';
 
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
+    // ★ Hydration safety (2026-05-27 React #418 真根因): 用 UTC 方法而非 local
+    //   方法。Node SSR 容器一般是 UTC, 浏览器是用户本地 (e.g. Asia/Shanghai +8),
+    //   date.getDate/getHours/getMinutes 在两边输出不同字符串 → SSR 拼 "12:30"
+    //   而 CSR 拼 "20:30" → React #418 hydration mismatch。改用 getUTCxxx 让两边
+    //   完全一致, 代价是显示 UTC 时间不是 local; 需要 local 显示的位置改用
+    //   <ClientDate> 组件 (useEffect 内 toLocaleString 安全)。
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
 
     switch (format) {
       case 'date':

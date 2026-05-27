@@ -126,11 +126,21 @@ function dvProjectStages(view: MissionDetailView): StageState[] {
   // ★ 2026-05-27 Screenshot_35 修复：mission 已终态 (completed / quality-failed
   //   / failed / cancelled) 仍残留个别 stage.status === 'running' 时，DAG 节点
   //   popup 会显示"运行中"。前端做 terminal sweep，让 status 与 mission 终态一致。
+  // ★ 2026-05-27 强化 (Screenshot 66-69): 不只看 status 字段, 还看时间戳 — 后端
+  //   有时把 completedAt/failedAt/cancelledAt 写完了 status 字段还没更新到 row
+  //   (race window). 任何一个终态时间戳被设置, 都视为该方向的终态。
   const missionStatus = view.mission.status;
+  const m = view.mission;
+  const hasCompletedAt = !!(m as { completedAt?: string }).completedAt;
+  const hasFailedAt = !!(m as { failedAt?: string }).failedAt;
+  const hasCancelledAt = !!(m as { cancelledAt?: string }).cancelledAt;
+  // canonical status 字段只暴露 starting/running/completed/quality-failed 四值;
+  //   failure/cancel 通过 failedAt/cancelledAt 时间戳表达 (类型设计).
   const isTerminalSuccess =
-    missionStatus === 'completed' || missionStatus === 'quality-failed';
-  const isTerminalFailure =
-    missionStatus === 'failed' || missionStatus === 'cancelled';
+    missionStatus === 'completed' ||
+    missionStatus === 'quality-failed' ||
+    hasCompletedAt;
+  const isTerminalFailure = hasFailedAt || hasCancelledAt;
   for (const s of view.stages) {
     let effectiveStatus = s.status;
     if (effectiveStatus === 'running') {
@@ -204,19 +214,23 @@ function dvProjectAgents(
   //   path 也 sweep 滞留 running/pending 的 agent，与 backend agent-view.projector
   //   行为对齐。让 view.agents 空（live mission 后 buffer evict）走 events 派生
   //   的路径也不会显示 "23 个 Agent 正在工作"假象。
+  // ★ 2026-05-27 强化 (Screenshot 66-69 Leader/Writer 仍"运行中"): 同步 dvProjectStages
+  //   的强化逻辑 — 不只 status 字段, 还看时间戳。
   const status = view.mission?.status;
-  const isTerminal =
-    status === 'completed' ||
-    status === 'failed' ||
-    status === 'cancelled' ||
-    status === 'quality-failed';
+  const m = view.mission;
+  const hasCompletedAt = !!(m as { completedAt?: string } | undefined)
+    ?.completedAt;
+  const hasFailedAt = !!(m as { failedAt?: string } | undefined)?.failedAt;
+  const hasCancelledAt = !!(m as { cancelledAt?: string } | undefined)
+    ?.cancelledAt;
+  const isTerminalSuccess =
+    status === 'completed' || status === 'quality-failed' || hasCompletedAt;
+  const isTerminalFailure = hasFailedAt || hasCancelledAt;
+  const isTerminal = isTerminalSuccess || isTerminalFailure;
   if (isTerminal) {
     for (const a of out) {
       if (a.phase === 'running' || a.phase === 'pending') {
-        a.phase =
-          status === 'completed' || status === 'quality-failed'
-            ? 'completed'
-            : 'failed';
+        a.phase = isTerminalSuccess ? 'completed' : 'failed';
       }
     }
   }
