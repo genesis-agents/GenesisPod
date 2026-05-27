@@ -387,6 +387,8 @@ export function projectTodoBoard(
         if (!dim?.name) continue;
         upsert(state, `dim:${dim.name}`, () => ({
           id: `dim:${dim.name as string}`,
+          // 树形：dim 任务作为 s3-researchers 系统阶段的子节点（缩进显示）
+          parentId: "system:s3-researchers",
           origin: "leader-plan",
           createdBy: "leader",
           createdAt: ts,
@@ -412,6 +414,7 @@ export function projectTodoBoard(
           `dim:${dim}`,
           () => ({
             id: `dim:${dim}`,
+            parentId: "system:s3-researchers",
             origin: "leader-plan",
             createdBy: "leader",
             createdAt: ts,
@@ -445,6 +448,7 @@ export function projectTodoBoard(
           `dim:${dim}`,
           () => ({
             id: `dim:${dim}`,
+            parentId: "system:s3-researchers",
             origin: "leader-plan",
             createdBy: "leader",
             createdAt: ts,
@@ -991,6 +995,7 @@ export function projectTodoBoard(
           dimId,
           () => ({
             id: dimId,
+            parentId: "system:s3-researchers",
             origin: "leader-plan",
             createdBy: "leader",
             createdAt: ts,
@@ -1511,6 +1516,7 @@ export function projectTodoBoard(
     if (!state.todos.has(`dim:${dimName}`)) {
       upsert(state, `dim:${dimName}`, () => ({
         id: `dim:${dimName}`,
+        parentId: "system:s3-researchers",
         origin: "leader-plan",
         createdBy: "leader",
         createdAt: missionCreatedAt,
@@ -1576,7 +1582,9 @@ function sortByAnchor(state: BuilderState): TodoBoardEntry[] {
     if (t.scope === "system" && t.systemStageId) {
       return STAGE_ORDINAL[t.systemStageId] ?? 13.0;
     }
-    if (t.scope === "dimension") return 2.5;
+    // 维度任务锚定 s3-researchers 期间（s3=3.0 之后，s4=4.0 之前）。
+    // 用户偏好：s3-researchers 作为 section header，dim 任务列在其下。
+    if (t.scope === "dimension") return 3.5;
     if (t.scope === "chapter") return 7.5;
     if (t.scope === "review") return 11.5;
     if (t.scope === "mission" && t.origin === "reconciler-gap") return 5.5;

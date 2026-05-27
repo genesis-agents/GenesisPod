@@ -21,14 +21,15 @@ import type {
   MissionStatus,
   SocialDomainView,
   EmptyArtifactSentinel,
-  SocialTodoBoardSentinel,
   SocialPublishedSummary,
+  SocialPlatform,
 } from "../../api/contracts/view-state.contract";
 import {
   projectStagesByOrdinal,
   type StagePresetEntry,
 } from "@/modules/ai-harness/facade";
 import type { MissionViewBaseStage } from "@/modules/ai-harness/facade";
+import { projectSocialTodoBoard } from "./social-todo-board.projector";
 
 // Social pipeline 13 个 stage（mirror social/mission/pipeline/stages/ 目录）
 const SOCIAL_STAGES: ReadonlyArray<StagePresetEntry> = [
@@ -94,8 +95,8 @@ export function projectSocialMissionView(
     },
     stages: projectSocialStages(row.lastCompletedStage, publicStatus),
     agents: projectSocialAgents(row),
-    reportArtifact: buildEmptyArtifactSentinel(row),
-    todoBoard: buildEmptyTodoBoardSentinel(),
+    reportArtifact: composeSocialArtifact(row),
+    todoBoard: projectSocialTodoBoard(row, inputs.events),
     cost: {
       tokensUsed: row.tokensUsed != null ? String(row.tokensUsed) : null,
       costUsd: row.costUsd ?? null,
@@ -194,20 +195,95 @@ function projectSocialAgents(row: {
 // Sentinels
 // ============================================================================
 
-function buildEmptyArtifactSentinel(row: {
+/**
+ * Social artifact composer (B7-1b) — row.trajectory → SocialPublishedSummary[]
+ *
+ * trajectory shape（来自 S11 mission-persist 写入）：
+ *   {
+ *     probeResults: [...],
+ *     platformVersions: { [platform]: { coverUrl, body, ... } },
+ *     publishResults: [{ platform, status, publishedUrl, ... }],
+ *     verifyResults: [{ platform, publishedUrl, titleMatch, ... }]
+ *   }
+ *
+ * 投影策略：
+ *   - 优先用 verifyResults（含 publishedUrl + 核验信息）
+ *   - 否则用 publishResults
+ *   - 都缺则按 row.platforms 派生空骨架
+ *   - trajectory 为 null（未到 S11）→ empty-artifact sentinel
+ */
+function composeSocialArtifact(row: {
   trajectory?: unknown;
   status?: string;
+  platforms?: unknown;
 }): SocialPublishedSummary[] | EmptyArtifactSentinel {
-  // trajectory exists on mission completion; first cut returns sentinel until
-  // B7 follow-up implements SocialArtifactComposer
-  if (row.trajectory != null) {
+  if (row.trajectory == null) {
+    return { kind: "empty-artifact", reason: "not-yet-materialized" };
+  }
+  const t = row.trajectory as Record<string, unknown>;
+
+  // 优先级：verifyResults > publishResults > platforms 骨架
+  const verifyResults = Array.isArray(t.verifyResults)
+    ? (t.verifyResults as Array<Record<string, unknown>>)
+    : [];
+  const publishResults = Array.isArray(t.publishResults)
+    ? (t.publishResults as Array<Record<string, unknown>>)
+    : [];
+
+  const byPlatform = new Map<string, SocialPublishedSummary>();
+  for (const r of publishResults) {
+    const platform = typeof r.platform === "string" ? r.platform : null;
+    if (!platform) continue;
+    const statusRaw = typeof r.status === "string" ? r.status : "";
+    const status: SocialPublishedSummary["status"] =
+      statusRaw === "PUBLISHED"
+        ? "published"
+        : statusRaw === "FAILED"
+          ? "failed"
+          : "draft";
+    byPlatform.set(platform, {
+      platform: platform as SocialPlatform,
+      status,
+      externalUrl:
+        typeof r.publishedUrl === "string"
+          ? r.publishedUrl
+          : typeof r.draftUrl === "string"
+            ? r.draftUrl
+            : undefined,
+    });
+  }
+  // verifyResults 覆盖 publishResults（核验拿到的 url 更准）
+  for (const r of verifyResults) {
+    const platform = typeof r.platform === "string" ? r.platform : null;
+    if (!platform) continue;
+    const existing = byPlatform.get(platform);
+    const url = typeof r.publishedUrl === "string" ? r.publishedUrl : undefined;
+    byPlatform.set(platform, {
+      platform: platform as SocialPlatform,
+      status: existing?.status ?? "published",
+      externalUrl: url ?? existing?.externalUrl,
+      publishedAt: existing?.publishedAt,
+    });
+  }
+
+  // 补齐 row.platforms 中没有发布结果的（标 draft）
+  if (Array.isArray(row.platforms)) {
+    for (const p of row.platforms as Array<unknown>) {
+      if (typeof p !== "string") continue;
+      if (!byPlatform.has(p)) {
+        byPlatform.set(p, {
+          platform: p as SocialPlatform,
+          status: "draft",
+        });
+      }
+    }
+  }
+
+  const items = Array.from(byPlatform.values());
+  if (items.length === 0) {
     return { kind: "empty-artifact", reason: "v1-needs-normalization" };
   }
-  return { kind: "empty-artifact", reason: "not-yet-materialized" };
-}
-
-function buildEmptyTodoBoardSentinel(): SocialTodoBoardSentinel {
-  return { kind: "empty-todo-board" };
+  return items;
 }
 
 function deriveSnapshotVersion(row: {
