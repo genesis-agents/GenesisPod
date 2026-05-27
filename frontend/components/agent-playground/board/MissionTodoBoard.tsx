@@ -72,7 +72,8 @@ interface Props {
 function deriveDimSubStatus(
   td: MissionTodo,
   pipelines?: Map<string, DimensionPipelineState>,
-  allTodos?: MissionTodo[]
+  allTodos?: MissionTodo[],
+  agents?: AgentLiveState[]
 ): { label: string; tone: string } | null {
   if (td.scope !== 'dimension') return null;
   // ★ 优先级最高：若该 dim 有 leader-assess-* 子任务在 in_progress，整个 dim 显示"重派采集中"
@@ -119,8 +120,29 @@ function deriveDimSubStatus(
     };
   const pipelineKey = td.pipelineKey ?? td.dimensionRef;
   const pipeline = pipelineKey ? pipelines?.get(pipelineKey) : undefined;
-  // 还没起 outline → 数据采集中
+  // 还没起 outline
   if (!pipeline || pipeline.chapters.length === 0) {
+    // ★ 2026-05-27 修复 Screenshot_32/33 实证：Drawer 显示该 dim 已完成、tokens
+    //   都跑出来了，列表却仍写"数据采集"。根因：deriveDimSubStatus 这里只看
+    //   pipeline.chapters.length === 0 就标"采集中"，没看 researcher agent 自身已
+    //   `phase === 'completed'`。研究阶段确实完了、但写作阶段没起来时（mission 终态
+    //   + 整合阶段被跳过 / pipeline 残缺），标"采集完成 · 待大纲"更准确。
+    const dimName = td.assignee?.dimensionName;
+    const researcher = dimName
+      ? agents?.find((a) => a.role === 'researcher' && a.dimension === dimName)
+      : undefined;
+    if (researcher?.phase === 'completed') {
+      return {
+        label: '采集完成 · 待大纲',
+        tone: 'bg-teal-100 text-teal-700 ring-teal-200',
+      };
+    }
+    if (researcher?.phase === 'failed') {
+      return {
+        label: '采集失败',
+        tone: 'bg-red-100 text-red-700 ring-red-200',
+      };
+    }
     return {
       label: '数据采集',
       tone: 'bg-blue-100 text-blue-700 ring-blue-200',
@@ -995,7 +1017,12 @@ export function MissionTodoBoard({
             className: 'w-[14%] text-center',
             render: (td) => {
               const sk = statusKey(td.status);
-              const baseSub = deriveDimSubStatus(td, dimensionPipelines, todos);
+              const baseSub = deriveDimSubStatus(
+                td,
+                dimensionPipelines,
+                todos,
+                agents
+              );
               const subStatus =
                 missionCancelled &&
                 td.scope === 'dimension' &&

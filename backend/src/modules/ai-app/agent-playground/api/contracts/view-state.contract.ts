@@ -46,6 +46,7 @@ export type {
   EmptyArtifactSentinel,
   MissionMemorySentinel,
   MissionCostView,
+  StageProcessView,
 } from "@/modules/ai-harness/facade";
 
 import type {

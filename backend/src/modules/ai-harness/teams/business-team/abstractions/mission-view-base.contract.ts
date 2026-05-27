@@ -110,6 +110,50 @@ export interface MissionViewBaseStage {
   endedAt?: string;
   detail?: string;
   attempts?: number;
+  /**
+   * Stage process detail. System-stage Drawer renders this directly without
+   * needing to follow agentId indirection. Optional — projectors may omit it
+   * when the stage has no LLM activity (e.g. s1-budget / s11-persist).
+   *
+   * T75 / 2026-05-27.
+   */
+  processTrace?: StageProcessView;
+}
+
+/**
+ * Per-stage process surface — what the LLM stage actually did, structured so
+ * the Drawer can render it without needing per-app code paths.
+ *
+ * MECE field semantics:
+ *   - inputs    : high-level summary of what entered (counts / labels)
+ *   - llmCalls  : telemetry per LLM round-trip (model / tokens / duration)
+ *   - outputPeek: top-level structured output counts ({facts: 47, conflicts: 3})
+ *   - reactTrace: ReAct loop steps (thought/action/observation/reflection/error)
+ *   - totalTokens / totalDurationMs / stepCount: convenience aggregates
+ */
+export interface StageProcessView {
+  inputs?: Array<{ label: string; value: string | number }>;
+  llmCalls?: Array<{
+    modelId?: string;
+    tokensIn?: number;
+    tokensOut?: number;
+    durationMs?: number;
+    costUsd?: number;
+  }>;
+  outputPeek?: Record<string, number | string>;
+  reactTrace?: Array<{
+    kind: "thought" | "action" | "observation" | "reflection" | "error";
+    ts: number;
+    text?: string;
+    toolId?: string;
+    output?: string;
+    latencyMs?: number;
+    tokensUsed?: number;
+    error?: string;
+  }>;
+  totalTokens?: number;
+  totalDurationMs?: number;
+  stepCount?: number;
 }
 
 export interface MissionViewBaseAgent {

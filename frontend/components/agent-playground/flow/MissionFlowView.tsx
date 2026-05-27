@@ -362,9 +362,20 @@ export function MissionFlowView({
     if (td.systemStageId) systemTodoMap.set(td.systemStageId, td);
   }
 
-  // 角色过滤选项
-  const availableRoles = Array.from(
-    new Set(flow.map((f) => f.role).filter((r): r is string => Boolean(r)))
+  // 角色过滤选项 —— ★ 2026-05-27 修复 Screenshot_36/37 实证：
+  // 必须从 UNFILTERED events 派生角色集合，否则一旦选了任一角色，flow 只剩单一
+  // 角色 → availableRoles.length === 1 → 过滤器按钮自动 hide → 用户卡死无法回退到
+  // "全部角色"。改用 useMemo([events]) 计算，filterRole 变化不影响选项集合。
+  const availableRoles = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          buildFlowEvents(events)
+            .map((f) => f.role)
+            .filter((r): r is string => Boolean(r))
+        )
+      ),
+    [events]
   );
 
   return (

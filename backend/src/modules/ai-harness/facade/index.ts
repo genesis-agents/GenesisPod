@@ -535,6 +535,7 @@ export type {
   MissionMemorySentinel,
   MissionCostView,
   MissionViewBase,
+  StageProcessView,
 } from "../teams/business-team/abstractions/mission-view-base.contract";
 
 // ── lifecycle ────────────────────────────────────────────────────────────

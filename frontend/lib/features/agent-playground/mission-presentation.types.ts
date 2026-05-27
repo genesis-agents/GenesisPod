@@ -154,6 +154,37 @@ export interface PreflightRisk {
   }[];
 }
 
+/**
+ * T75: Per-stage process surface — projection of backend `StageProcessView`.
+ * Optional on `StageState`; absent for system-only stages (s1-budget /
+ * s11-persist / s12-self-evolution) and for missions whose events haven't
+ * begun yet.
+ */
+export interface StageProcessTrace {
+  inputs?: Array<{ label: string; value: string | number }>;
+  llmCalls?: Array<{
+    modelId?: string;
+    tokensIn?: number;
+    tokensOut?: number;
+    durationMs?: number;
+    costUsd?: number;
+  }>;
+  outputPeek?: Record<string, number | string>;
+  reactTrace?: Array<{
+    kind: 'thought' | 'action' | 'observation' | 'reflection' | 'error';
+    ts: number;
+    text?: string;
+    toolId?: string;
+    output?: string;
+    latencyMs?: number;
+    tokensUsed?: number;
+    error?: string;
+  }>;
+  totalTokens?: number;
+  totalDurationMs?: number;
+  stepCount?: number;
+}
+
 export interface StageState {
   id: StageId;
   status: StageStatus;
@@ -162,6 +193,9 @@ export interface StageState {
   detail?: string;
   attempts?: number;
   preflightRisk?: PreflightRisk;
+  /** T75: backend-derived per-stage process trace（available when present
+   *  in the canonical view; legacy missions / no-LLM stages omit it）. */
+  processTrace?: StageProcessTrace;
 }
 
 export type AgentRole =
