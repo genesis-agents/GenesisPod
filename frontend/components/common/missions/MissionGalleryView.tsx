@@ -35,7 +35,18 @@ import {
   type AssetVisibilityOption,
 } from '@/components/ui/cards/asset-card';
 import { PageHeaderHero } from '@/components/ui/page-header-hero';
+import SignInPrompt from '@/components/common/SignInPrompt';
+import { isAuthenticated } from '@/lib/utils/auth';
 import type { MissionListItem } from '@/services/agent-playground/api';
+
+// 把 fetch 抛出的错误归类为"未授权"——后端用 `Failed to list missions: 401`
+// 这类字符串，旁路 isAuthError 的 sign-in/unauthorized 关键词检测。
+function isUnauthorizedMessage(msg: string | null): boolean {
+  if (!msg) return false;
+  return (
+    /\b401\b/.test(msg) || /unauthorized|not authenticated|sign in/i.test(msg)
+  );
+}
 
 // ─── 共享 status / depth 视觉配置 ──────────────────────────────────────────
 const STATUS_CONFIG: Record<
@@ -313,9 +324,19 @@ export function MissionGalleryView({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [internalReload, setInternalReload] = useState(0);
+  // null = 客户端尚未挂载（SSR / 首屏），避免渲染期访问 localStorage 与服务端不一致。
+  const [authed, setAuthed] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    const ok = isAuthenticated();
+    setAuthed(ok);
+    if (!ok) {
+      setLoading(false);
+      setError(null);
+      setMissions([]);
+      return;
+    }
     setLoading(true);
     fetchMissions()
       .then((items) => {
@@ -335,6 +356,9 @@ export function MissionGalleryView({
       cancelled = true;
     };
   }, [fetchMissions, reloadKey, internalReload]);
+
+  // 未登录（首次访问） 或 token 过期被后端 401 → 都走登录引导而不是通用错误框。
+  const showSignInPrompt = authed === false || isUnauthorizedMessage(error);
 
   // 2026-05-13 #67: 删除 resumable 列表抓取 —— 续跑入口迁到详情页
 
@@ -378,14 +402,16 @@ export function MissionGalleryView({
           iconGradient={iconGradient}
           iconShadowClass={iconShadowClass}
           actions={
-            <button
-              type="button"
-              onClick={onCreateMission}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
-            >
-              <PlusIcon className="h-5 w-5" />
-              {createButtonLabel}
-            </button>
+            showSignInPrompt ? null : (
+              <button
+                type="button"
+                onClick={onCreateMission}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
+              >
+                <PlusIcon className="h-5 w-5" />
+                {createButtonLabel}
+              </button>
+            )
           }
         >
           <div className="relative">
@@ -403,7 +429,12 @@ export function MissionGalleryView({
 
       {/* Body */}
       <div className="px-8 py-6">
-        {loading ? (
+        {showSignInPrompt ? (
+          <SignInPrompt
+            title="登录后查看你的 Mission"
+            description="登录或注册后即可启动多智能体研究 mission、查看历史记录与结果"
+          />
+        ) : loading ? (
           <div className="rounded-xl border border-dashed border-gray-200 bg-white p-12 text-center">
             <Loader2 className="mx-auto mb-3 h-7 w-7 animate-spin text-gray-400" />
             <p className="text-sm text-gray-500">加载 mission 历史…</p>
