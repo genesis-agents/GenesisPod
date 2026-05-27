@@ -9,7 +9,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const AI_APP_ROOT = path.resolve(__dirname, "../../modules/ai-app");
+const AI_APP_ROOT = path.resolve(__dirname, "../../../modules/ai-app");
 const APP_DOMAINS = [
   "research",
   "social",

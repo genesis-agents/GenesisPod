@@ -57,7 +57,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
 
-const SRC_ROOT = path.resolve(__dirname, "../..");
+const SRC_ROOT = path.resolve(__dirname, "../../..");
 
 function listTsFiles(dir: string, acc: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

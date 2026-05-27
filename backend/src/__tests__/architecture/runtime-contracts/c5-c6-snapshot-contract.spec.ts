@@ -10,7 +10,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 
-const APP = join(__dirname, "../../modules/ai-app/agent-playground");
+const APP = join(__dirname, "../../../modules/ai-app/agent-playground");
 const read = (rel: string): string => readFileSync(join(APP, rel), "utf8");
 
 describe("C5/C6 config-snapshot 接入看护 (§0.8)", () => {

@@ -17,7 +17,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const BACKEND_ROOT = path.resolve(__dirname, "../../..");
+const BACKEND_ROOT = path.resolve(__dirname, "../../../..");
 const SEED_DIR = path.join(BACKEND_ROOT, "src/common/seed");
 const SEEDERS_DIR = path.join(SEED_DIR, "seeders");
 const DEPRECATED_DIR = path.join(BACKEND_ROOT, "scripts/seed");

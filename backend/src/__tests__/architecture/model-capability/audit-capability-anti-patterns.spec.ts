@@ -17,7 +17,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { execFileSync } from "child_process";
 
-const BACKEND_ROOT = path.resolve(__dirname, "../../..");
+const BACKEND_ROOT = path.resolve(__dirname, "../../../..");
 const SCRIPT = path.join(
   BACKEND_ROOT,
   "scripts",

@@ -204,7 +204,7 @@ describe("Protection Net — ErrorBoundary + error-report endpoint", () => {
   describe("4a. frontend error.tsx exists and imports useEffect + calls fetch", () => {
     const errorFile = path.resolve(
       __dirname,
-      "../../../../frontend/app/agent-playground/team/[missionId]/error.tsx",
+      "../../../../../frontend/app/agent-playground/team/[missionId]/error.tsx",
     );
 
     it("error.tsx file exists", () => {
@@ -240,7 +240,7 @@ describe("Protection Net — ErrorBoundary + error-report endpoint", () => {
     // 拆到 controllers/mission-read.controller.ts，spec readSrc 跟着迁。
     const controllerFile = path.resolve(
       __dirname,
-      "../../modules/ai-app/agent-playground/api/controller/mission-read.controller.ts",
+      "../../../modules/ai-app/agent-playground/api/controller/mission-read.controller.ts",
     );
 
     it("controller file exists", () => {

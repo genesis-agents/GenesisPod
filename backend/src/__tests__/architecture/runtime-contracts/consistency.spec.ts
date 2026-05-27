@@ -15,7 +15,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const SRC = path.resolve(__dirname, "../../");
+const SRC = path.resolve(__dirname, "../../../");
 
 function* walkTs(dir: string): Generator<string> {
   if (!fs.existsSync(dir)) return;

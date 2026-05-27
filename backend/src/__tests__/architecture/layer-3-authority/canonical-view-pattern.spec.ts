@@ -21,7 +21,7 @@
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 
-const APP_ROOT = join(__dirname, "../../modules/ai-app");
+const APP_ROOT = join(__dirname, "../../../modules/ai-app");
 
 interface MissionAppSpec {
   /** app 目录名（与 ai-app/<name>/ 一致）。 */
@@ -148,7 +148,7 @@ describe("Canonical view pattern — anti-regression checks", () => {
   it("backend SocketBroadcastAdapter 必注入 refreshHints（§6.7.3 multi-pod）", () => {
     const adapterPath = join(
       __dirname,
-      "../../modules/ai-harness/protocols/realtime/socket-broadcast.adapter.ts",
+      "../../../modules/ai-harness/protocols/realtime/socket-broadcast.adapter.ts",
     );
     const content = readFileSync(adapterPath, "utf8");
     expect(content).toMatch(/deriveRefreshHints/);
@@ -158,7 +158,7 @@ describe("Canonical view pattern — anti-regression checks", () => {
   it("ResumeRerunPolicy 算法在 harness（business-agnostic lift）", () => {
     const frameworkPath = join(
       __dirname,
-      "../../modules/ai-harness/teams/business-team/rerun/business-team-resume-rerun-policy.framework.ts",
+      "../../../modules/ai-harness/teams/business-team/rerun/business-team-resume-rerun-policy.framework.ts",
     );
     expect(existsSync(frameworkPath)).toBe(true);
     const content = readFileSync(frameworkPath, "utf8");

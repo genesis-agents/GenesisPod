@@ -19,7 +19,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 // __dirname = backend/src/__tests__/architecture → 4 层到 repo root
-const REPO_ROOT = path.resolve(__dirname, "../../../..");
+const REPO_ROOT = path.resolve(__dirname, "../../../../..");
 const BACKEND_SRC = path.join(REPO_ROOT, "backend/src");
 const FRONTEND = path.join(REPO_ROOT, "frontend");
 const PLAYGROUND_PREFIX = "agent-playground.";

@@ -50,7 +50,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
 
-const SRC_ROOT = path.resolve(__dirname, "../..");
+const SRC_ROOT = path.resolve(__dirname, "../../..");
 
 /**
  * v3.1 C/D 阶段清零的 P0 决策文件 —— 本 spec 锁这 3 个文件的能力决策 AST

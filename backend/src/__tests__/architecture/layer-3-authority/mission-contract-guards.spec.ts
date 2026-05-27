@@ -12,14 +12,14 @@ import { join } from "path";
 
 const BUDGET_DIR = join(
   __dirname,
-  "../../modules/ai-harness/guardrails/budget",
+  "../../../modules/ai-harness/guardrails/budget",
 );
 
 /** 已切换到 C0 finalize 单入口的 mission app（终态写必须经 finalize，禁旁路）。 */
 const CUTOVER_MISSION_APPS = ["agent-playground", "social", "radar"] as const;
 
 function appDir(app: string): string {
-  return join(__dirname, "../../modules/ai-app", app);
+  return join(__dirname, "../../../modules/ai-app", app);
 }
 
 /** 收集目录下所有非 spec 的 .ts 生产文件。 */
@@ -87,7 +87,7 @@ describe("mission 契约看护 (G10/L3，补充层)", () => {
     const src = readFileSync(
       join(
         __dirname,
-        "../../modules/ai-harness/lifecycle/mission-lifecycle/abstractions/mission-failure.ts",
+        "../../../modules/ai-harness/lifecycle/mission-lifecycle/abstractions/mission-failure.ts",
       ),
       "utf8",
     );

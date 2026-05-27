@@ -17,7 +17,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 
-const APP_ROOT = join(__dirname, "../../modules/ai-app");
+const APP_ROOT = join(__dirname, "../../../modules/ai-app");
 
 /** 所有 mission 型 app 的模块文件(新增 mission app 必须登记到此 + 注册 liveness)。 */
 const MISSION_APP_MODULES = [

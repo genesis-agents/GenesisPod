@@ -24,10 +24,10 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const APP_ROOT = path.resolve(__dirname, "../../modules/ai-app");
+const APP_ROOT = path.resolve(__dirname, "../../../modules/ai-app");
 const HARNESS_BUSINESS_TEAM_ROOT = path.resolve(
   __dirname,
-  "../../modules/ai-harness/teams/business-team",
+  "../../../modules/ai-harness/teams/business-team",
 );
 
 /** 三个 agent team app —— 每加一个 mission-pipeline 型 app 必须登记到此 */

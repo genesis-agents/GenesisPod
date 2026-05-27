@@ -29,7 +29,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const APP_ROOT = path.resolve(__dirname, "../../modules/ai-app");
+const APP_ROOT = path.resolve(__dirname, "../../../modules/ai-app");
 const AGENT_TEAM_APPS = ["agent-playground", "social", "radar"];
 
 /** 每个 app 内要扫的顶层目录（运行时业务 + API 边界）。 */

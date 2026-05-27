@@ -32,7 +32,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
 
-const SRC_ROOT = path.resolve(__dirname, "../..");
+const SRC_ROOT = path.resolve(__dirname, "../../..");
 
 /**
  * 2026-05-23 baseline（按 `<src 相对路径>`: 命中次数；不锁行号，让 import 排序 /

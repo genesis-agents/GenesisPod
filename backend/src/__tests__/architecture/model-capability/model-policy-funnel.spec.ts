@@ -18,7 +18,7 @@ import * as path from "path";
 
 const AI_CHAT_SERVICE = path.resolve(
   __dirname,
-  "../../modules/ai-engine/llm/services/ai-chat.service.ts",
+  "../../../modules/ai-engine/llm/services/ai-chat.service.ts",
 );
 
 function readSource(): string {
@@ -69,7 +69,7 @@ describe("Capability Contract · model policy funnel guard", () => {
     const policySrc = fs.readFileSync(
       path.resolve(
         __dirname,
-        "../../modules/ai-engine/llm/selection/model-policy.ts",
+        "../../../modules/ai-engine/llm/selection/model-policy.ts",
       ),
       "utf-8",
     );

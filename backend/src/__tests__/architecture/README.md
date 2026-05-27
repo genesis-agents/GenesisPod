@@ -44,10 +44,12 @@
 1. **先改 [ARCHITECTURE_RULES.md](../../../../docs/architecture/ARCHITECTURE_RULES.md)** —— 明确规则属于哪一层、什么 check、什么时候 fail
 2. **决定子目录** —— 按上面 6 层表选位置；落不进 6 层就开新子目录（先在 PR 讨论）
 3. **写 spec** —— 路径常量必须用相对 `__dirname`：
+
    ```typescript
-   // architecture/layer-X/foo.spec.ts → backend/
+   // architecture/<layer>/foo.spec.ts → backend/
    const PROJECT_ROOT = path.join(__dirname, "..", "..", "..", "..");
    ```
+
 4. **跑 spec** —— 通常会 fail（存量违规）。两条路：
    - (a) 修代码让 spec 过
    - (b) 在 [EXCEPTIONS.md](../../../../docs/architecture/EXCEPTIONS.md) 登记例外 + spec 内加 `EXEMPT_PATHS`
@@ -75,45 +77,60 @@
 
 ---
 
-## 5. 存量 spec 迁移计划（flat → 6-layer 子目录）
+## 5. 存量 spec 迁移完成（2026-05-27）
 
-下表是当前平铺的 spec 与目标子目录的映射。**新 spec 必须按此结构归位**，存量 spec
-**逐个 PR 渐进迁移**（每次 PR 只挪 2-3 个，连带更新 `__dirname` 路径）。
+所有 25 个原 flat 文件已迁入对应子目录，目录扁平化为 0。**新 spec 必须按 6-layer
+结构归位**。当前布局（28 spec 全部归类完毕）：
 
-| 现状（flat）                                          | 目标子目录            | 备注                      |
-| ----------------------------------------------------- | --------------------- | ------------------------- |
-| `layer-boundaries.spec.ts`                            | `layer-1-topology/`   | 主入口，谨慎挪，CI 引用多 |
-| `no-app-cross-coupling.spec.ts`                       | `layer-1-topology/`   |                           |
-| `module-di-wiring.spec.ts`                            | `layer-1-topology/`   |                           |
-| `canonical-view-pattern.spec.ts`                      | `layer-3-authority/`  |                           |
-| `mission-contract-guards.spec.ts`                     | `layer-3-authority/`  |                           |
-| `mission-app-conformance.spec.ts`                     | `layer-3-authority/`  |                           |
-| `playground-event-contract.spec.ts`                   | `layer-3-authority/`  |                           |
-| `playground-frontend-contract.spec.ts`                | `layer-3-authority/`  |                           |
-| `agent-team-facade-contract.spec.ts`                  | `layer-3-authority/`  |                           |
-| `agent-team-layout.spec.ts`                           | `layer-3-authority/`  |                           |
-| `infer-is-reasoning-callers.contract.spec.ts`         | `layer-4-vocabulary/` | 跟随 vocab-purity         |
-| `aimodelconfig-single-source.contract.spec.ts`        | `model-capability/`   |                           |
-| `audit-capability-anti-patterns.spec.ts`              | `model-capability/`   |                           |
-| `capability-provider-string-match.contract.spec.ts`   | `model-capability/`   |                           |
-| `evidence-budget-contract.spec.ts`                    | `model-capability/`   |                           |
-| `model-capability-catalog-shape.contract.spec.ts`     | `model-capability/`   |                           |
-| `model-policy-funnel.spec.ts`                         | `model-capability/`   |                           |
-| `no-hardcoded-pricing.spec.ts`                        | `model-capability/`   |                           |
-| `provider-default-chains-shape.contract.spec.ts`      | `model-capability/`   |                           |
-| `seed-governance.spec.ts`                             | `model-capability/`   |                           |
-| `structured-output-strategy-readers.contract.spec.ts` | `model-capability/`   |                           |
-| `c5-c6-snapshot-contract.spec.ts`                     | `runtime-contracts/`  |                           |
-| `consistency.spec.ts`                                 | `runtime-contracts/`  |                           |
-| `plugin-system.spec.ts`                               | `runtime-contracts/`  |                           |
-| `protection-net.spec.ts`                              | `runtime-contracts/`  |                           |
+```
+__tests__/architecture/
+├── README.md                ← 本文件
+├── CONTRACT_README.md       ← *.contract.spec.ts baseline 更新流程
+├── layer-1-topology/        (3) 单向依赖 + DI 边界
+│   ├── layer-boundaries.spec.ts
+│   ├── module-di-wiring.spec.ts
+│   └── no-app-cross-coupling.spec.ts
+├── layer-3-authority/       (7) canonical truth + event/facade contract
+│   ├── agent-team-facade-contract.spec.ts
+│   ├── agent-team-layout.spec.ts
+│   ├── canonical-view-pattern.spec.ts
+│   ├── mission-app-conformance.spec.ts
+│   ├── mission-contract-guards.spec.ts
+│   ├── playground-event-contract.spec.ts
+│   └── playground-frontend-contract.spec.ts
+├── layer-4-vocabulary/      (2) 词汇纯净
+│   ├── infer-is-reasoning-callers.contract.spec.ts
+│   └── vocab-purity.spec.ts
+├── layer-6-durability/      (1) projector purity
+│   └── projector-purity.spec.ts
+├── layer-7-uplift-gate/     (1) harness ≥2 consumer
+│   └── harness-uplift-gate.spec.ts
+├── model-capability/        (10) model / capability / pricing / safety
+│   ├── aimodelconfig-single-source.contract.spec.ts
+│   ├── audit-capability-anti-patterns.spec.ts
+│   ├── capability-provider-string-match.contract.spec.ts
+│   ├── evidence-budget-contract.spec.ts
+│   ├── model-capability-catalog-shape.contract.spec.ts
+│   ├── model-policy-funnel.spec.ts
+│   ├── no-hardcoded-pricing.spec.ts
+│   ├── provider-default-chains-shape.contract.spec.ts
+│   ├── seed-governance.spec.ts
+│   └── structured-output-strategy-readers.contract.spec.ts
+└── runtime-contracts/       (4) snapshot / plugin / protection-net / consistency
+    ├── c5-c6-snapshot-contract.spec.ts
+    ├── consistency.spec.ts
+    ├── plugin-system.spec.ts
+    └── protection-net.spec.ts
+```
 
-迁移 spec 的检查清单（每次 PR）：
+### 加 spec 时的相对路径模板
 
-1. `git mv` 进目标子目录
-2. 修复 `__dirname` 相对路径（`"..", "..", ".."` → `"..", "..", "..", ".."`）
-3. 跑 `npx jest --testPathPattern=<spec-name>` 验证仍通过
-4. 如果 spec 在 `package.json` script、`verify:arch` 或 CI 配置里被显式引用，同步更新引用
+```typescript
+// architecture/<layer>/foo.spec.ts → backend/src
+const PROJECT_ROOT = path.join(__dirname, "..", "..", "..", "..");
+// import 字符串同理，比 architecture/<spec>.ts 多一段 ..
+import { Foo } from "../../../modules/ai-engine/llm/...";
+```
 
 ---
 

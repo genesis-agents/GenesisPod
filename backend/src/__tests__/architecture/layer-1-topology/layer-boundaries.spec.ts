@@ -27,7 +27,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const SRC_ROOT = path.resolve(__dirname, "../..");
+const SRC_ROOT = path.resolve(__dirname, "../../..");
 
 /**
  * 递归扫描 .ts 文件（排除 .spec.ts / __tests__ / node_modules）

@@ -33,7 +33,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
 
-const SRC_ROOT = path.resolve(__dirname, "../..");
+const SRC_ROOT = path.resolve(__dirname, "../../..");
 
 const ROUTER_FILE = path.join(
   SRC_ROOT,

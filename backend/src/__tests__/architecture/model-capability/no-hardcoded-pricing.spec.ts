@@ -22,7 +22,7 @@ import * as path from "path";
 
 // __dirname = backend/src/__tests__/architecture
 // BACKEND_SRC should point to backend/src (where modules/ lives)
-const BACKEND_SRC = path.resolve(__dirname, "../..");
+const BACKEND_SRC = path.resolve(__dirname, "../../..");
 
 // ---------------------------------------------------------------------------
 // helpers

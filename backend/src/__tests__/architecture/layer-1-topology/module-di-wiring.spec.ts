@@ -29,7 +29,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const SRC_ROOT = path.resolve(__dirname, "../..");
+const SRC_ROOT = path.resolve(__dirname, "../../..");
 
 function listAllTsFiles(dir: string): string[] {
   const out: string[] = [];
