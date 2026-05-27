@@ -1824,7 +1824,7 @@ function CompactMeters({
   wallTimeMs,
   maxCredits,
 }: {
-  view: DerivedView;
+  view: MissionDetailView;
   wallTimeMs: number;
   maxCredits: number | null;
 }) {
@@ -1833,23 +1833,29 @@ function CompactMeters({
   const fmtTime = (ms: number) =>
     ms < 60_000 ? `${Math.floor(ms / 1000)}s` : `${Math.floor(ms / 60_000)}m`;
 
-  // ★ 实时字数累加（每个 dim pipeline 的章节 wordCount 之和）
+  // canonical dimensionPipelines 是 Record<string, ...>，iterate values。
   const totalWords = useMemo(() => {
     let sum = 0;
-    for (const dim of view.dimensionPipelines.values()) {
-      for (const ch of dim.chapters) {
+    const pipelines = view.dimensionPipelines ?? {};
+    for (const dim of Object.values(pipelines)) {
+      const chapters = (dim as { chapters?: { wordCount?: number }[] })
+        .chapters;
+      if (!Array.isArray(chapters)) continue;
+      for (const ch of chapters) {
         if (ch.wordCount) sum += ch.wordCount;
       }
     }
     return sum;
   }, [view.dimensionPipelines]);
 
+  // canonical cost.tokensUsed 是 string|null，先 Number 化。
+  const tokensUsed =
+    view.cost?.tokensUsed != null ? Number(view.cost.tokensUsed) : 0;
+
   // 预算使用率（tokensUsed / maxCredits）—— 100k 上限 = 100M tokens
   const maxTokens = maxCredits != null ? maxCredits * 1000 : null;
   const usageRatio =
-    maxTokens && maxTokens > 0
-      ? Math.min(1, view.cost.tokensUsed / maxTokens)
-      : null;
+    maxTokens && maxTokens > 0 ? Math.min(1, tokensUsed / maxTokens) : null;
   const usageColor =
     usageRatio == null
       ? 'text-amber-500'
@@ -1865,12 +1871,12 @@ function CompactMeters({
         className="flex items-center gap-0.5"
         title={
           maxTokens != null
-            ? `已用 ${view.cost.tokensUsed.toLocaleString()} / 上限 ${maxTokens.toLocaleString()} tokens（maxCredits=${maxCredits}）`
-            : `已用 ${view.cost.tokensUsed.toLocaleString()} tokens`
+            ? `已用 ${tokensUsed.toLocaleString()} / 上限 ${maxTokens.toLocaleString()} tokens（maxCredits=${maxCredits}）`
+            : `已用 ${tokensUsed.toLocaleString()} tokens`
         }
       >
         <Coins className={`h-3.5 w-3.5 ${usageColor}`} />
-        {fmtTokens(view.cost.tokensUsed)}
+        {fmtTokens(tokensUsed)}
         {usageRatio != null && (
           <span
             className={cn(

@@ -1,27 +1,29 @@
 /**
- * derive-shapes.ts — Frontend presentation-shape types + pure mapping helpers
+ * mission-presentation.types.ts — Frontend PRESENTATION shape types + pure mapping helpers
  *
  * 落地依据：thinning plan §B4-4 / §B5-1 / §B5-2 / §3.4 / §7.2
  *
- * **2026-05-26 W7+W8 cutover 收口**：
- *   - derive.ts (1030 LOC mission truth derivation) 已删除
- *   - view-to-derived.shim.ts 文件已删除（逻辑下沉到 useMissionLegacyView hook）
- *   - 本文件保留 PRESENTATION types（§7.2 raw event timeline display 合规）
+ * **2026-05-26 重命名收口**：原 derive-shapes.ts。
+ *   - "derive" 名头容易引起 §3.4 truth derivation 误解；
+ *   - 本文件实际是 §7.2 PRESENTATION types，由 useMissionPresentationView hook 输出，
+ *     供 ComputeUsagePanel / ArtifactReader / TodoDetailDrawer 等组件展示
+ *     events-derived UI summary（agent trace / chapter pipeline / tool latency 等）。
  *
  * **角色澄清（§3.4 + §7.2）**：
- *   - mission truth 由 backend canonical MissionDetailView 接管
- *   - DerivedView / AgentLiveState.trace[] / DimensionPipelineState 等是 PRESENTATION
- *     shapes —— 用于 ComputeUsagePanel / ArtifactReader 等组件展示 events 派生的
- *     UI summary（agent trace、chapter pipeline、tool latency 等），不是 mission truth
- *   - 这些字段 backend 暂未在 canonical view 暴露（需要大量 telemetry payload），
- *     §7.2 显式允许 frontend 从 raw events 解析 UI-only summary
+ *   - mission truth 由 backend canonical MissionDetailView 接管（GET /missions/:id/view）
+ *   - MissionPresentationView (原 DerivedView) / AgentLiveState.trace[] / DimensionPipelineState
+ *     是 PRESENTATION shapes —— 这些字段 backend 暂未在 canonical view 暴露
+ *     （需要大量 telemetry payload），§7.2 显式允许 frontend 从 raw events 解析 UI-only summary
  *
  * **本文件包含**：
- *   1. 形状类型（types / interfaces，含 DerivedView envelope）
+ *   1. 形状类型（types / interfaces，含 MissionPresentationView envelope）
  *   2. 不携带 mission truth 的纯映射 helper（STAGE_STEPS / mapStepIdToStageId /
  *      aggregateStageStatus）
  *
  * **不包含**：deriveView / deriveTodoLedger 等 mission truth 派生函数（已删除）。
+ *
+ * **历史 export 别名**：DerivedView 保留为 MissionPresentationView 别名，避免大规模
+ * 改动 50+ 消费方 import 站点；新代码请用 MissionPresentationView。
  */
 
 // ============================================================================
@@ -299,7 +301,7 @@ export interface DimensionPipelineState {
 // Top-level DerivedView envelope
 // ============================================================================
 
-export interface DerivedView {
+export interface MissionPresentationView {
   mission: MissionState;
   stages: StageState[];
   agents: AgentLiveState[];
@@ -310,3 +312,6 @@ export interface DerivedView {
   finalReport: ReportDraft['report'] | null;
   dimensionPipelines: Map<string, DimensionPipelineState>;
 }
+
+/** @deprecated 旧名；新代码请用 MissionPresentationView。保留以避免大量 import 站点改动。 */
+export type DerivedView = MissionPresentationView;

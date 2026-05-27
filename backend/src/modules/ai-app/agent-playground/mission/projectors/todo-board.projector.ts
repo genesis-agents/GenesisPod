@@ -278,13 +278,9 @@ export function projectTodoBoard(
   const state = makeBuilder();
   const missionCreatedAt = new Date(row.startedAt).getTime();
 
-  // 1. 一次性预占 14 个 stage 占位 todo（不依赖 mission:started 事件触发；
-  //    这样即使旧 mission 没有该事件也能展示完整 stage stepper）
-  for (const preset of SYSTEM_STAGE_PRESETS) {
-    upsert(state, `system:${preset.id}`, () =>
-      makeSystemStageTodo(preset, missionCreatedAt),
-    );
-  }
+  // 1. 不再 pre-allocate 14 stage —— 让 stage:started 事件驱动插入，
+  //    保持自然事件流顺序（s1 → s2 → dims → s3 → ... → reconciler-gap → s6 → ...）。
+  //    Mission terminal cleanup 时（步骤 4）补全缺失的 stage placeholder。
 
   // 2. 遍历 events 应用 case 群
   for (const ev of events) {
@@ -1526,10 +1522,13 @@ export function projectTodoBoard(
     }
   }
 
-  // 排序：原 deriveTodoLedger 的 UI 顺序是「s1 → s2 → 所有 dim → chapter → s3+」。
-  // 我们 pre-allocate 14 stage 然后才 fanout dim，所以默认顺序里 dim 堆在 stage 之后。
-  // 这里 reorder：插入 dim/chapter todos 到 s2-leader-plan 之后、s3-researchers 之前。
-  const items = reorderTodoBoardItems(state);
+  // 5. backfill 缺失的 stage placeholder：events 没有覆盖到的 stage 补在「自然位置」。
+  //    自然位置 = 在该 stage 的 stepId 顺序中应当出现的位置。
+  backfillMissingStagePlaceholders(state, missionCreatedAt);
+
+  // 6. items 直接走 state.order（event-driven 自然顺序），不再后处理 reorder。
+  //    自然顺序：s1 → s2 → dims (插入于 s2 期间) → s3 → ... → reconciler-gap (插入于 s5 期间) → ...
+  const items = state.order.map((id) => state.todos.get(id)!);
 
   return {
     kind: "todo-board",
@@ -1540,38 +1539,74 @@ export function projectTodoBoard(
 }
 
 /**
- * 还原 deriveTodoLedger UI 顺序：
- *   system:s1-budget → system:s2-leader-plan → 所有 dim: → 所有 chapter: →
- *   system:s3-researchers → s4 → ... → s12
+ * Backfill 缺失的 stage placeholder（events 没 emit / 旧 mission 没事件支持）。
  *
- * 不影响 todo 自身字段；仅调整 state.order 数组的迭代顺序。
+ * 按 SYSTEM_STAGE_PRESETS 顺序遍历，若某 stage 在 state.order 中缺失，则插入到
+ * 「下一个已存在 stage」之前。这样自然顺序保持：每个 stage 出现在它该出现的位置。
+ *
+ * 对于已存在的 stage（事件驱动创建），保留其插入顺序不动。
  */
-function reorderTodoBoardItems(state: BuilderState): TodoBoardEntry[] {
-  const all = state.order.map((id) => state.todos.get(id)!);
-  const sysBefore: TodoBoardEntry[] = [];
-  const sysAfter: TodoBoardEntry[] = [];
-  const dims: TodoBoardEntry[] = [];
-  const chapters: TodoBoardEntry[] = [];
-  const others: TodoBoardEntry[] = [];
-  for (const t of all) {
-    if (t.scope === "system") {
-      if (
-        t.systemStageId === "s1-budget" ||
-        t.systemStageId === "s2-leader-plan"
-      ) {
-        sysBefore.push(t);
-      } else {
-        sysAfter.push(t);
+function backfillMissingStagePlaceholders(
+  state: BuilderState,
+  missionCreatedAt: number,
+): void {
+  // 当前 state.order 中所有 system stage 的位置索引
+  const systemIndices = new Map<string, number>();
+  state.order.forEach((id, i) => {
+    if (id.startsWith("system:")) {
+      const stageId = id.slice("system:".length);
+      systemIndices.set(stageId, i);
+    }
+  });
+
+  // 按 SYSTEM_STAGE_PRESETS 顺序，识别缺失的 stage 并标记应插入位置
+  const presetOrder = SYSTEM_STAGE_PRESETS.map((p) => p.id);
+  const newOrder: string[] = [];
+  let presetIdx = 0;
+
+  for (let orderIdx = 0; orderIdx < state.order.length; orderIdx++) {
+    const id = state.order[orderIdx];
+    // 如果当前位置是 system stage，先把它前面（preset 顺序中靠前但未出现的）补全
+    if (id.startsWith("system:")) {
+      const currentStageId = id.slice("system:".length);
+      const currentPresetPos = presetOrder.indexOf(currentStageId);
+      while (presetIdx < currentPresetPos) {
+        const missingStageId = presetOrder[presetIdx];
+        if (!systemIndices.has(missingStageId)) {
+          const preset = SYSTEM_STAGE_PRESETS.find(
+            (p) => p.id === missingStageId,
+          );
+          if (preset) {
+            const sid = `system:${preset.id}`;
+            state.todos.set(sid, makeSystemStageTodo(preset, missionCreatedAt));
+            newOrder.push(sid);
+          }
+        }
+        presetIdx++;
       }
-    } else if (t.scope === "dimension") {
-      dims.push(t);
-    } else if (t.scope === "chapter") {
-      chapters.push(t);
+      newOrder.push(id);
+      presetIdx = currentPresetPos + 1;
     } else {
-      others.push(t);
+      newOrder.push(id);
     }
   }
-  return [...sysBefore, ...dims, ...chapters, ...sysAfter, ...others];
+
+  // 末尾补全：preset 还有剩的 stage 全部追加（如 mission 还没跑到 s12）
+  while (presetIdx < presetOrder.length) {
+    const missingStageId = presetOrder[presetIdx];
+    if (!systemIndices.has(missingStageId)) {
+      const preset = SYSTEM_STAGE_PRESETS.find((p) => p.id === missingStageId);
+      if (preset) {
+        const sid = `system:${preset.id}`;
+        state.todos.set(sid, makeSystemStageTodo(preset, missionCreatedAt));
+        newOrder.push(sid);
+      }
+    }
+    presetIdx++;
+  }
+
+  state.order.length = 0;
+  state.order.push(...newOrder);
 }
 
 // ============================================================================
