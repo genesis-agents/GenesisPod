@@ -403,21 +403,30 @@ interface ToolRow {
   errorCount: number;
 }
 function buildToolStats(agents: AgentLiveState[]): ToolRow[] {
+  // ★ 2026-05-27 (Screenshot_21) 修：tool 调用计数在 `agent:action`，但延迟 / 错误
+  //   在配对的 `agent:observation`（baseline derive.ts 是这个结构）。原实现只读
+  //   action.latencyMs → 永远是 0 → 总延迟 / 平均 列全空。
+  //   现在：action.toolId 计算 callCount，observation 同 toolId 累加 latency/error。
   const map = new Map<
     string,
     { callCount: number; totalLatency: number; errors: number }
   >();
   for (const a of agents) {
     for (const t of a.trace) {
-      if (t.kind !== 'action' || !t.toolId) continue;
+      if (!t.toolId) continue;
+      if (t.kind !== 'action' && t.kind !== 'observation') continue;
       const cur = map.get(t.toolId) ?? {
         callCount: 0,
         totalLatency: 0,
         errors: 0,
       };
-      cur.callCount += 1;
-      cur.totalLatency += t.latencyMs ?? 0;
-      if (t.error) cur.errors += 1;
+      if (t.kind === 'action') {
+        cur.callCount += 1;
+      } else {
+        // observation
+        if (typeof t.latencyMs === 'number') cur.totalLatency += t.latencyMs;
+        if (t.error) cur.errors += 1;
+      }
       map.set(t.toolId, cur);
     }
   }
