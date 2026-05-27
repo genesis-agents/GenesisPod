@@ -137,7 +137,11 @@ export class MissionReadController extends BaseMissionController {
 
   /**
    * GET /api/v1/agent-playground/missions/:id
-   * 单个 mission 完整 detail（含 reportFull / dimensions / verdicts）
+   * 单个 mission 完整 detail（sibling 兼容路由，§6.9 disposition table）
+   *
+   * §6.9 收口：starting placeholder 语义由 canonical view 唯一拥有（见
+   * GET /missions/:id/view，走 MissionQueryService.buildStartingPlaceholderInputs）。
+   * 此路由不再自带 starting fallback：row 未持久化时 404；新代码应改吃 canonical view。
    */
   @Get("missions/:id")
   async getMission(
@@ -148,22 +152,6 @@ export class MissionReadController extends BaseMissionController {
     if (!userId) throw new ForbiddenException("Authentication required");
     const mission = await this.store.getById(id, userId);
     if (mission) return { mission };
-    // mission 启动后 5s 内 GET → store.getById null (store.create 未跑完) 但
-    // in-memory ownership 已 assign。这里降级返回 "starting" 占位，避免前端
-    // detail 页面被 403 顶掉；前端轮询会拉到完整 row 后渲染真实数据。
-    const owner = this.ownership.getOwner(id);
-    if (owner === userId) {
-      this.log.debug(
-        `[getMission ${id}] DB row not yet persisted; returning ownership-confirmed pending placeholder`,
-      );
-      return {
-        mission: {
-          id,
-          status: "starting",
-          startedAt: new Date().toISOString(),
-        },
-      };
-    }
     throw new ForbiddenException("Mission not found");
   }
 
