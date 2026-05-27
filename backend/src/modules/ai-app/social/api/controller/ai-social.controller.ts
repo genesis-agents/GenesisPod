@@ -16,6 +16,9 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { AiSocialService } from "../../mission/services/ai-social.service";
+import { SocialConnectionsService } from "../../mission/services/social-connections.service";
+import { XhsMcpFacadeService } from "../../mission/services/xhs-mcp-facade.service";
+import { SocialImportSourcesService } from "../../mission/services/social-import-sources.service";
 import { SocialLeaderService } from "../../mission/services/social-leader.service";
 import { ReviewService } from "../../mission/services/review.service";
 import { ContentVersionService } from "../../mission/services/content-version.service";
@@ -48,6 +51,9 @@ export class AiSocialController {
 
   constructor(
     private readonly aiSocialService: AiSocialService,
+    private readonly connections: SocialConnectionsService,
+    private readonly xhsMcp: XhsMcpFacadeService,
+    private readonly importSources: SocialImportSourcesService,
     private readonly socialLeaderService: SocialLeaderService,
     private readonly reviewService: ReviewService,
     private readonly contentVersionService: ContentVersionService,
@@ -117,7 +123,7 @@ export class AiSocialController {
 
   @Get("connections")
   async getConnections(@Request() req: AuthenticatedRequest) {
-    return this.aiSocialService.getConnections(req.user.id);
+    return this.connections.getConnections(req.user.id);
   }
 
   @Post("connections/:type/init")
@@ -125,7 +131,7 @@ export class AiSocialController {
     @Request() req: AuthenticatedRequest,
     @Param("type") type: string,
   ) {
-    return this.aiSocialService.initConnection(req.user.id, type);
+    return this.connections.initConnection(req.user.id, type);
   }
 
   @Post("connections/:type/verify")
@@ -133,7 +139,7 @@ export class AiSocialController {
     @Request() req: AuthenticatedRequest,
     @Param("type") type: string,
   ) {
-    return this.aiSocialService.verifyConnection(req.user.id, type);
+    return this.connections.verifyConnection(req.user.id, type);
   }
 
   @Delete("connections/:type")
@@ -141,7 +147,7 @@ export class AiSocialController {
     @Request() req: AuthenticatedRequest,
     @Param("type") type: string,
   ) {
-    return this.aiSocialService.deleteConnection(req.user.id, type);
+    return this.connections.deleteConnection(req.user.id, type);
   }
 
   @Post("connections/:id/test")
@@ -149,7 +155,7 @@ export class AiSocialController {
     @Request() req: AuthenticatedRequest,
     @Param("id") id: string,
   ) {
-    return this.aiSocialService.testConnection(req.user.id, id);
+    return this.connections.testConnection(req.user.id, id);
   }
 
   @Post("connections/:id/refresh")
@@ -157,7 +163,7 @@ export class AiSocialController {
     @Request() req: AuthenticatedRequest,
     @Param("id") id: string,
   ) {
-    return this.aiSocialService.refreshConnection(req.user.id, id);
+    return this.connections.refreshConnection(req.user.id, id);
   }
 
   // ==================== 内容管理 ====================
@@ -412,7 +418,7 @@ export class AiSocialController {
     @Query("limit") limit?: string,
     @Query("since") since?: string,
   ) {
-    return this.aiSocialService.getExploreSources(req.user.id, {
+    return this.importSources.getExploreSources(req.user.id, {
       type,
       page: Number(page) || 1,
       limit: limit ? Number(limit) : undefined,
@@ -422,22 +428,22 @@ export class AiSocialController {
 
   @Get("sources/research")
   async getResearchSources(@Request() req: AuthenticatedRequest) {
-    return this.aiSocialService.getResearchSources(req.user.id);
+    return this.importSources.getResearchSources(req.user.id);
   }
 
   @Get("sources/office")
   async getOfficeSources(@Request() req: AuthenticatedRequest) {
-    return this.aiSocialService.getOfficeSources(req.user.id);
+    return this.importSources.getOfficeSources(req.user.id);
   }
 
   @Get("sources/writing")
   async getWritingSources(@Request() req: AuthenticatedRequest) {
-    return this.aiSocialService.getWritingSources(req.user.id);
+    return this.importSources.getWritingSources(req.user.id);
   }
 
   @Get("sources/topic-insights")
   async getTopicInsightsSources(@Request() req: AuthenticatedRequest) {
-    return this.aiSocialService.getTopicInsightsSources(req.user.id);
+    return this.importSources.getTopicInsightsSources(req.user.id);
   }
 
   // ==================== AI Engine ====================
@@ -529,12 +535,12 @@ export class AiSocialController {
 
   @Get("xhs/login-status")
   async xhsLoginStatus(@Request() _req: AuthenticatedRequest) {
-    return this.aiSocialService.xhsGetLoginStatus();
+    return this.xhsMcp.getLoginStatus();
   }
 
   @Get("xhs/feeds")
   async xhsListFeeds(@Request() _req: AuthenticatedRequest) {
-    return this.aiSocialService.xhsListFeeds();
+    return this.xhsMcp.listFeeds();
   }
 
   @Get("xhs/search")
@@ -545,7 +551,7 @@ export class AiSocialController {
     if (!keyword) {
       throw new HttpException("keyword is required", HttpStatus.BAD_REQUEST);
     }
-    return this.aiSocialService.xhsSearchFeeds(keyword);
+    return this.xhsMcp.searchFeeds(keyword);
   }
 
   @Get("xhs/feeds/:feedId")
@@ -557,7 +563,7 @@ export class AiSocialController {
     if (!xsecToken) {
       throw new HttpException("xsecToken is required", HttpStatus.BAD_REQUEST);
     }
-    return this.aiSocialService.xhsGetFeedDetail(feedId, xsecToken);
+    return this.xhsMcp.getFeedDetail(feedId, xsecToken);
   }
 
   @Post("xhs/feeds/:feedId/comment")
@@ -572,11 +578,7 @@ export class AiSocialController {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.aiSocialService.xhsPostComment(
-      feedId,
-      dto.xsecToken,
-      dto.content,
-    );
+    return this.xhsMcp.postComment(feedId, dto.xsecToken, dto.content);
   }
 
   @Get("xhs/users/:userId")
@@ -588,7 +590,7 @@ export class AiSocialController {
     if (!xsecToken) {
       throw new HttpException("xsecToken is required", HttpStatus.BAD_REQUEST);
     }
-    return this.aiSocialService.xhsGetUserProfile(userId, xsecToken);
+    return this.xhsMcp.getUserProfile(userId, xsecToken);
   }
 
   // ==================== 审核管理 ====================

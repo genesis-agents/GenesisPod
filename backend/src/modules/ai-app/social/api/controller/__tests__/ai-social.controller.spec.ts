@@ -1,9 +1,13 @@
 import { HttpException } from "@nestjs/common";
 import { AiSocialController } from "../ai-social.controller";
-import type { AiSocialService } from "../../../services/ai-social.service";
-import type { SocialLeaderService } from "../../../services/social-leader.service";
-import type { ReviewService } from "../../../services/review.service";
-import type { ContentVersionService } from "../../../services/content-version.service";
+import type { AiSocialService } from "../../../mission/services/ai-social.service";
+import type { SocialConnectionsService } from "../../../mission/services/social-connections.service";
+import type { XhsMcpFacadeService } from "../../../mission/services/xhs-mcp-facade.service";
+import type { SocialImportSourcesService } from "../../../mission/services/social-import-sources.service";
+import type { SocialLeaderService } from "../../../mission/services/social-leader.service";
+import type { ReviewService } from "../../../mission/services/review.service";
+import type { ContentVersionService } from "../../../mission/services/content-version.service";
+import type { SocialPipelineDispatcher } from "../../../mission/pipeline/social-pipeline-dispatcher.service";
 import { SocialPlatformType } from "../../../mission/types";
 
 // Mock BillingContext to passthrough
@@ -15,12 +19,6 @@ jest.mock("../../../../../ai-infra/credits/billing-context.store", () => ({
 
 function createMockAiSocialService() {
   return {
-    getConnections: jest.fn().mockResolvedValue([]),
-    initConnection: jest.fn().mockResolvedValue({ connectionId: "c1" }),
-    verifyConnection: jest.fn().mockResolvedValue({ verified: true }),
-    deleteConnection: jest.fn().mockResolvedValue({ deleted: true }),
-    testConnection: jest.fn().mockResolvedValue({ ok: true }),
-    refreshConnection: jest.fn().mockResolvedValue({ refreshed: true }),
     getContents: jest.fn().mockResolvedValue({ items: [], total: 0 }),
     createContent: jest.fn().mockResolvedValue({ id: "content-1" }),
     getContent: jest
@@ -35,17 +33,53 @@ function createMockAiSocialService() {
     scheduleContent: jest.fn().mockResolvedValue({ scheduled: true }),
     cancelPublish: jest.fn().mockResolvedValue({ cancelled: true }),
     getPublishLogs: jest.fn().mockResolvedValue([]),
+    getSeriesContents: jest.fn().mockResolvedValue([]),
+  } as unknown as jest.Mocked<AiSocialService>;
+}
+
+function createMockConnectionsService() {
+  return {
+    getConnections: jest.fn().mockResolvedValue([]),
+    initConnection: jest.fn().mockResolvedValue({ connectionId: "c1" }),
+    verifyConnection: jest.fn().mockResolvedValue({ verified: true }),
+    deleteConnection: jest.fn().mockResolvedValue({ deleted: true }),
+    testConnection: jest.fn().mockResolvedValue({ ok: true }),
+    refreshConnection: jest.fn().mockResolvedValue({ refreshed: true }),
+  } as unknown as jest.Mocked<SocialConnectionsService>;
+}
+
+function createMockXhsMcpFacade() {
+  return {
+    getLoginStatus: jest.fn().mockResolvedValue({ loggedIn: true }),
+    listFeeds: jest.fn().mockResolvedValue({ feeds: [] }),
+    searchFeeds: jest.fn().mockResolvedValue({ results: [] }),
+    getFeedDetail: jest.fn().mockResolvedValue({ feed: {} }),
+    postComment: jest.fn().mockResolvedValue({ success: true }),
+    getUserProfile: jest.fn().mockResolvedValue({ user: {} }),
+  } as unknown as jest.Mocked<XhsMcpFacadeService>;
+}
+
+function createMockImportSources() {
+  return {
     getExploreSources: jest.fn().mockResolvedValue({ items: [] }),
     getResearchSources: jest.fn().mockResolvedValue([]),
     getOfficeSources: jest.fn().mockResolvedValue([]),
     getWritingSources: jest.fn().mockResolvedValue([]),
-    xhsGetLoginStatus: jest.fn().mockResolvedValue({ loggedIn: true }),
-    xhsListFeeds: jest.fn().mockResolvedValue({ feeds: [] }),
-    xhsSearchFeeds: jest.fn().mockResolvedValue({ results: [] }),
-    xhsGetFeedDetail: jest.fn().mockResolvedValue({ feed: {} }),
-    xhsPostComment: jest.fn().mockResolvedValue({ success: true }),
-    xhsGetUserProfile: jest.fn().mockResolvedValue({ user: {} }),
-  } as unknown as jest.Mocked<AiSocialService>;
+    getTopicInsightsSources: jest.fn().mockResolvedValue([]),
+  } as unknown as jest.Mocked<SocialImportSourcesService>;
+}
+
+function createMockMissionDispatcher() {
+  return {
+    tryReserveInFlight: jest.fn().mockReturnValue({
+      missionId: "m-1",
+      reused: false,
+    }),
+    runMission: jest.fn().mockResolvedValue({
+      missionId: "m-1",
+      status: "completed",
+    }),
+  } as unknown as jest.Mocked<SocialPipelineDispatcher>;
 }
 
 function createMockSocialLeaderService() {
@@ -86,22 +120,34 @@ function createMockRequest(userId = "user-abc") {
 describe("AiSocialController", () => {
   let controller: AiSocialController;
   let mockAiSocialService: jest.Mocked<AiSocialService>;
+  let mockConnections: jest.Mocked<SocialConnectionsService>;
+  let mockXhsMcp: jest.Mocked<XhsMcpFacadeService>;
+  let mockImportSources: jest.Mocked<SocialImportSourcesService>;
   let mockSocialLeaderService: jest.Mocked<SocialLeaderService>;
   let mockReviewService: jest.Mocked<ReviewService>;
   let mockContentVersionService: jest.Mocked<ContentVersionService>;
+  let mockMissionDispatcher: jest.Mocked<SocialPipelineDispatcher>;
   let mockReq: ReturnType<typeof createMockRequest>;
 
   beforeEach(() => {
     mockAiSocialService = createMockAiSocialService();
+    mockConnections = createMockConnectionsService();
+    mockXhsMcp = createMockXhsMcpFacade();
+    mockImportSources = createMockImportSources();
     mockSocialLeaderService = createMockSocialLeaderService();
     mockReviewService = createMockReviewService();
     mockContentVersionService = createMockContentVersionService();
+    mockMissionDispatcher = createMockMissionDispatcher();
 
     controller = new AiSocialController(
       mockAiSocialService as unknown as AiSocialService,
+      mockConnections as unknown as SocialConnectionsService,
+      mockXhsMcp as unknown as XhsMcpFacadeService,
+      mockImportSources as unknown as SocialImportSourcesService,
       mockSocialLeaderService as unknown as SocialLeaderService,
       mockReviewService as unknown as ReviewService,
       mockContentVersionService as unknown as ContentVersionService,
+      mockMissionDispatcher as unknown as SocialPipelineDispatcher,
     );
 
     mockReq = createMockRequest();
@@ -114,9 +160,7 @@ describe("AiSocialController", () => {
   describe("getConnections", () => {
     it("should return connections for user", async () => {
       const result = await controller.getConnections(mockReq);
-      expect(mockAiSocialService.getConnections).toHaveBeenCalledWith(
-        "user-abc",
-      );
+      expect(mockConnections.getConnections).toHaveBeenCalledWith("user-abc");
       expect(result).toEqual([]);
     });
   });
@@ -124,7 +168,7 @@ describe("AiSocialController", () => {
   describe("initConnection", () => {
     it("should init a connection", async () => {
       const result = await controller.initConnection(mockReq, "WECHAT_MP");
-      expect(mockAiSocialService.initConnection).toHaveBeenCalledWith(
+      expect(mockConnections.initConnection).toHaveBeenCalledWith(
         "user-abc",
         "WECHAT_MP",
       );
@@ -135,7 +179,7 @@ describe("AiSocialController", () => {
   describe("verifyConnection", () => {
     it("should verify a connection", async () => {
       const result = await controller.verifyConnection(mockReq, "WECHAT_MP");
-      expect(mockAiSocialService.verifyConnection).toHaveBeenCalledWith(
+      expect(mockConnections.verifyConnection).toHaveBeenCalledWith(
         "user-abc",
         "WECHAT_MP",
       );
@@ -146,7 +190,7 @@ describe("AiSocialController", () => {
   describe("deleteConnection", () => {
     it("should delete a connection", async () => {
       const _result = await controller.deleteConnection(mockReq, "WECHAT_MP");
-      expect(mockAiSocialService.deleteConnection).toHaveBeenCalledWith(
+      expect(mockConnections.deleteConnection).toHaveBeenCalledWith(
         "user-abc",
         "WECHAT_MP",
       );
@@ -389,19 +433,17 @@ describe("AiSocialController", () => {
   describe("XHS endpoints", () => {
     it("should get login status", async () => {
       const _result = await controller.xhsLoginStatus(mockReq);
-      expect(mockAiSocialService.xhsGetLoginStatus).toHaveBeenCalled();
+      expect(mockXhsMcp.getLoginStatus).toHaveBeenCalled();
     });
 
     it("should list feeds", async () => {
       const _result = await controller.xhsListFeeds(mockReq);
-      expect(mockAiSocialService.xhsListFeeds).toHaveBeenCalled();
+      expect(mockXhsMcp.listFeeds).toHaveBeenCalled();
     });
 
     it("should search feeds with keyword", async () => {
       const _result = await controller.xhsSearchFeeds(mockReq, "test-keyword");
-      expect(mockAiSocialService.xhsSearchFeeds).toHaveBeenCalledWith(
-        "test-keyword",
-      );
+      expect(mockXhsMcp.searchFeeds).toHaveBeenCalledWith("test-keyword");
     });
 
     it("should throw when xhsSearchFeeds has no keyword", async () => {
@@ -416,7 +458,7 @@ describe("AiSocialController", () => {
         "feed-1",
         "xsec-token",
       );
-      expect(mockAiSocialService.xhsGetFeedDetail).toHaveBeenCalledWith(
+      expect(mockXhsMcp.getFeedDetail).toHaveBeenCalledWith(
         "feed-1",
         "xsec-token",
       );
@@ -433,7 +475,7 @@ describe("AiSocialController", () => {
         xsecToken: "tok",
         content: "Great post!",
       });
-      expect(mockAiSocialService.xhsPostComment).toHaveBeenCalledWith(
+      expect(mockXhsMcp.postComment).toHaveBeenCalledWith(
         "feed-1",
         "tok",
         "Great post!",
@@ -492,7 +534,7 @@ describe("AiSocialController", () => {
   describe("Source listing endpoints", () => {
     it("should get explore sources", async () => {
       await controller.getExploreSources(mockReq, "RESEARCH", "1", "20");
-      expect(mockAiSocialService.getExploreSources).toHaveBeenCalledWith(
+      expect(mockImportSources.getExploreSources).toHaveBeenCalledWith(
         "user-abc",
         { type: "RESEARCH", page: 1, limit: 20 },
       );
@@ -500,21 +542,21 @@ describe("AiSocialController", () => {
 
     it("should get research sources", async () => {
       await controller.getResearchSources(mockReq);
-      expect(mockAiSocialService.getResearchSources).toHaveBeenCalledWith(
+      expect(mockImportSources.getResearchSources).toHaveBeenCalledWith(
         "user-abc",
       );
     });
 
     it("should get office sources", async () => {
       await controller.getOfficeSources(mockReq);
-      expect(mockAiSocialService.getOfficeSources).toHaveBeenCalledWith(
+      expect(mockImportSources.getOfficeSources).toHaveBeenCalledWith(
         "user-abc",
       );
     });
 
     it("should get writing sources", async () => {
       await controller.getWritingSources(mockReq);
-      expect(mockAiSocialService.getWritingSources).toHaveBeenCalledWith(
+      expect(mockImportSources.getWritingSources).toHaveBeenCalledWith(
         "user-abc",
       );
     });

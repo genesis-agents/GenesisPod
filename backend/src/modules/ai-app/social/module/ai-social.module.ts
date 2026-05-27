@@ -17,6 +17,9 @@ import { SocialMissionQueryService } from "../mission/query/social-mission-query
 // P17a (2026-05-24): SocialDataSourceRegistry → engine ContentSourceRegistry
 //   (provided by @Global AiEngineModule; auto-injected, no registration needed)
 import { AiSocialService } from "../mission/services/ai-social.service";
+import { SocialConnectionsService } from "../mission/services/social-connections.service";
+import { XhsMcpFacadeService } from "../mission/services/xhs-mcp-facade.service";
+import { SocialImportSourcesService } from "../mission/services/social-import-sources.service";
 import { SocialLeaderService } from "../mission/services/social-leader.service";
 import { ContentFetcherService } from "../mission/services/content-fetcher.service";
 import { ContentTransformerService } from "../mission/services/content-transformer.service";
@@ -100,6 +103,10 @@ import { PromptSkillRegistrationService } from "@/modules/ai-engine/facade";
   ],
   providers: [
     AiSocialService,
+    // Phase 2.A.1/A.2/A.5 god class 拆分（2026-05-27）
+    SocialConnectionsService,
+    XhsMcpFacadeService,
+    SocialImportSourcesService,
     SocialLeaderService,
     // ★ B7-1 canonical view (thinning plan §B7-1)
     SocialMissionQueryService,

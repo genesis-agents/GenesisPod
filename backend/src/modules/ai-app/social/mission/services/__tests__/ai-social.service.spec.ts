@@ -16,29 +16,23 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger, NotFoundException, BadRequestException } from "@nestjs/common";
 import { AiSocialService } from "../ai-social.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { CacheService } from "../../../../../../common/cache/cache.service";
 import { ContentCheckerService } from "../content-checker.service";
 import { SocialPipelineDispatcher } from "../../pipeline/social-pipeline-dispatcher.service";
-import { SocialBrowserService } from "../social-browser.service";
-import { XhsMcpAdapter } from "../../../integrations/xiaohongshu/xiaohongshu.adapter";
 import {
   SocialPlatformType,
   SocialContentStatus,
   SocialContentSourceType,
 } from "../../types";
 
-// S4 audit fix（2026-05-04）：session-crypto 删 dev fallback 后，spec 必须设
-// SESSION_ENCRYPTION_KEY（64 hex chars = 32 bytes for AES-256）
-process.env.SESSION_ENCRYPTION_KEY =
-  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+// Connection / XHS / Sources tests 已搬到 social-connections.service.spec.ts /
+//   xhs-mcp-facade.service.spec.ts / social-import-sources.service.spec.ts
+//   (god class 拆分 phase 2.A.1/A.2/A.5)。
+//   本 spec 现只测 AiSocialService 剩余职责：内容 CRUD / 发布 / 批量。
 
 describe("AiSocialService", () => {
   let service: AiSocialService;
   let mockPrisma: any;
-  let mockCache: any;
   let mockContentChecker: any;
-  let mockPlaywright: any;
-  let mockXhsMcpAdapter: any;
 
   const userId = "user-123";
   const connectionId = "conn-456";
@@ -111,19 +105,6 @@ describe("AiSocialService", () => {
       $transaction: jest.fn(),
     };
 
-    // Mock CacheService
-    mockCache = {
-      get: jest.fn(),
-      set: jest.fn().mockResolvedValue(undefined),
-      del: jest.fn().mockResolvedValue(undefined),
-      buildKey: jest
-        .fn()
-        .mockImplementation(
-          (prefix: string, ...parts: string[]) =>
-            `${prefix}:${parts.join(":")}`,
-        ),
-    };
-
     // Mock ContentCheckerService
     mockContentChecker = {
       check: jest.fn().mockResolvedValue({
@@ -131,34 +112,6 @@ describe("AiSocialService", () => {
         issues: [],
         score: 1.0,
       }),
-    };
-
-    // Mock SocialBrowserService
-    mockPlaywright = {
-      startLoginSession: jest.fn().mockResolvedValue({
-        sessionKey: "session-key-123",
-        screenshot: "base64-screenshot-data",
-      }),
-      checkLoginStatus: jest.fn().mockResolvedValue({
-        loggedIn: false,
-        screenshot: "base64-screenshot-data",
-      }),
-      endLoginSession: jest.fn().mockResolvedValue(undefined),
-      restoreSession: jest.fn().mockResolvedValue(undefined),
-      createPage: jest.fn(),
-      closeContext: jest.fn().mockResolvedValue(undefined),
-    };
-
-    // Mock XhsMcpAdapter
-    mockXhsMcpAdapter = {
-      isAvailable: jest.fn().mockReturnValue(false),
-      checkLoginStatus: jest.fn().mockResolvedValue({ loggedIn: false }),
-      publishContent: jest.fn().mockResolvedValue({ success: true }),
-      listFeeds: jest.fn().mockResolvedValue([]),
-      searchFeeds: jest.fn().mockResolvedValue([]),
-      getFeedDetail: jest.fn().mockResolvedValue(null),
-      postComment: jest.fn().mockResolvedValue({ success: true }),
-      getUserProfile: jest.fn().mockResolvedValue(null),
     };
 
     const mockDispatcher = {
@@ -176,11 +129,8 @@ describe("AiSocialService", () => {
       providers: [
         AiSocialService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: CacheService, useValue: mockCache },
         { provide: ContentCheckerService, useValue: mockContentChecker },
         { provide: SocialPipelineDispatcher, useValue: mockDispatcher },
-        { provide: SocialBrowserService, useValue: mockPlaywright },
-        { provide: XhsMcpAdapter, useValue: mockXhsMcpAdapter },
       ],
     }).compile();
 
@@ -199,199 +149,6 @@ describe("AiSocialService", () => {
   // =========================================================================
   // Platform Connections
   // =========================================================================
-
-  describe("getConnections", () => {
-    it("should return user connections", async () => {
-      const result = await service.getConnections(userId);
-
-      expect(result).toEqual([mockConnection]);
-      expect(mockPrisma.socialPlatformConnection.findMany).toHaveBeenCalledWith(
-        {
-          where: { userId },
-        },
-      );
-    });
-  });
-
-  describe("initConnection", () => {
-    it("should return existing connection if already exists", async () => {
-      mockPrisma.socialPlatformConnection.findUnique.mockResolvedValue(
-        mockConnection,
-      );
-
-      const result = await service.initConnection(userId, "wechat_mp");
-
-      expect(result.status).toBe("existing");
-      expect(result.connection).toEqual(mockConnection);
-      expect(mockPlaywright.startLoginSession).not.toHaveBeenCalled();
-    });
-
-    it("should start new login session if no existing connection", async () => {
-      mockPrisma.socialPlatformConnection.findUnique.mockResolvedValue(null);
-
-      const result = (await service.initConnection(userId, "wechat_mp")) as any;
-
-      expect(result.status).toBe("pending");
-      expect(result.sessionKey).toBe("session-key-123");
-      expect(result.screenshot).toBe("base64-screenshot-data");
-      expect(mockPlaywright.startLoginSession).toHaveBeenCalledWith(
-        userId,
-        SocialPlatformType.WECHAT_MP,
-      );
-      expect(mockCache.set).toHaveBeenCalled();
-    });
-
-    it("should handle playwright startup errors", async () => {
-      mockPrisma.socialPlatformConnection.findUnique.mockResolvedValue(null);
-      mockPlaywright.startLoginSession.mockRejectedValue(
-        new Error("Playwright error"),
-      );
-
-      const result = await service.initConnection(userId, "wechat_mp");
-
-      expect(result.status).toBe("error");
-      expect(result.message).toContain("Playwright error");
-    });
-  });
-
-  describe("verifyConnection", () => {
-    it("should return pending if already verifying", async () => {
-      mockCache.get.mockResolvedValue(true); // Lock exists
-
-      const result = await service.verifyConnection(userId, "wechat_mp");
-
-      expect(result.status).toBe("pending");
-      expect(result.message).toContain("验证中");
-    });
-
-    it("should return error if no pending session found", async () => {
-      mockCache.get
-        .mockResolvedValueOnce(false) // No lock
-        .mockResolvedValueOnce(null); // No pending session
-
-      const result = await service.verifyConnection(userId, "wechat_mp");
-
-      expect(result.status).toBe("error");
-      expect(result.message).toContain("没有待验证的登录会话");
-    });
-
-    it("should return pending if login not yet completed", async () => {
-      mockCache.get.mockResolvedValueOnce(false); // No lock
-      mockCache.get.mockResolvedValueOnce({
-        sessionKey: "session-key-123",
-        platformType: SocialPlatformType.WECHAT_MP,
-      });
-
-      mockPlaywright.checkLoginStatus.mockResolvedValue({
-        loggedIn: false,
-        screenshot: "new-screenshot",
-      });
-
-      const result = (await service.verifyConnection(
-        userId,
-        "wechat_mp",
-      )) as any;
-
-      expect(result.status).toBe("pending");
-      expect(result.screenshot).toBe("new-screenshot");
-    });
-
-    it("should create connection on successful login", async () => {
-      mockCache.get.mockResolvedValueOnce(false); // No lock
-      mockCache.get.mockResolvedValueOnce({
-        sessionKey: "session-key-123",
-        platformType: SocialPlatformType.WECHAT_MP,
-      });
-
-      mockPlaywright.checkLoginStatus.mockResolvedValue({
-        loggedIn: true,
-        accountName: "MyAccount",
-        sessionData: {
-          cookies: [
-            { name: "session", value: "abc123", domain: "weixin.qq.com" },
-          ],
-          localStorage: {},
-        },
-      });
-
-      const result = (await service.verifyConnection(
-        userId,
-        "wechat_mp",
-      )) as any;
-
-      expect(result.status).toBe("success");
-      expect(result.connection).toBeDefined();
-      expect(mockPrisma.socialPlatformConnection.upsert).toHaveBeenCalled();
-      expect(mockPlaywright.endLoginSession).toHaveBeenCalledWith(
-        "session-key-123",
-      );
-      expect(mockCache.del).toHaveBeenCalled();
-    });
-
-    it("should handle login with no cookies gracefully", async () => {
-      mockCache.get.mockResolvedValueOnce(false);
-      mockCache.get.mockResolvedValueOnce({
-        sessionKey: "session-key-123",
-        platformType: SocialPlatformType.WECHAT_MP,
-      });
-
-      mockPlaywright.checkLoginStatus.mockResolvedValue({
-        loggedIn: true,
-        sessionData: {
-          cookies: [],
-          localStorage: {},
-        },
-      });
-
-      const result = await service.verifyConnection(userId, "wechat_mp");
-
-      expect(result.status).toBe("pending");
-      expect(result.message).toContain("登录检测中");
-    });
-
-    it("should release lock on error", async () => {
-      mockCache.get.mockResolvedValueOnce(false);
-      mockCache.get.mockResolvedValueOnce({
-        sessionKey: "session-key-123",
-        platformType: SocialPlatformType.WECHAT_MP,
-      });
-
-      mockPlaywright.checkLoginStatus.mockRejectedValue(
-        new Error("Check failed"),
-      );
-
-      const result = await service.verifyConnection(userId, "wechat_mp");
-
-      expect(result.status).toBe("error");
-      expect(mockCache.del).toHaveBeenCalled(); // Lock released
-    });
-  });
-
-  describe("deleteConnection", () => {
-    it("should delete connection", async () => {
-      const result = await service.deleteConnection(userId, "wechat_mp");
-
-      expect(result.success).toBe(true);
-      expect(mockPrisma.socialPlatformConnection.delete).toHaveBeenCalledWith({
-        where: {
-          userId_platformType: {
-            userId,
-            platformType: SocialPlatformType.WECHAT_MP,
-          },
-        },
-      });
-    });
-  });
-
-  describe("testConnection", () => {
-    it("should throw NotFoundException if connection not found", async () => {
-      mockPrisma.socialPlatformConnection.findFirst.mockResolvedValue(null);
-
-      await expect(
-        service.testConnection(userId, connectionId),
-      ).rejects.toThrow(NotFoundException);
-    });
-  });
 
   // =========================================================================
   // Content Management
@@ -1016,406 +773,21 @@ describe("AiSocialService", () => {
   // XHS MCP connection flows
   // =========================================================================
 
-  describe("initConnection - XIAOHONGSHU", () => {
-    it("should return pending with instructions when MCP not available", async () => {
-      mockPrisma.socialPlatformConnection.findUnique.mockResolvedValue(null);
-      mockXhsMcpAdapter.isAvailable.mockReturnValue(false);
-
-      const result = (await service.initConnection(
-        userId,
-        "xiaohongshu",
-      )) as any;
-
-      expect(result.status).toBe("pending");
-      expect(result.loginMethod).toBe("external-mcp");
-      expect(result.instructions).toBeDefined();
-      expect(result.message).toContain("MCP");
-    });
-
-    it("should create connection immediately when XHS already logged in", async () => {
-      mockPrisma.socialPlatformConnection.findUnique.mockResolvedValue(null);
-      mockXhsMcpAdapter.isAvailable.mockReturnValue(true);
-      mockXhsMcpAdapter.checkLoginStatus.mockResolvedValue({
-        loggedIn: true,
-        nickname: "XHSUser",
-      });
-      mockPrisma.socialPlatformConnection.create = jest.fn().mockResolvedValue({
-        id: "xhs-conn-id",
-        userId,
-        platformType: SocialPlatformType.XIAOHONGSHU,
-        accountName: "XHSUser",
-        sessionData: "mcp-managed",
-        isActive: true,
-      });
-
-      const result = (await service.initConnection(
-        userId,
-        "xiaohongshu",
-      )) as any;
-
-      expect(result.status).toBe("success");
-      expect(result.connection).toBeDefined();
-    });
-
-    it("should return pending with instructions when XHS not logged in yet", async () => {
-      mockPrisma.socialPlatformConnection.findUnique.mockResolvedValue(null);
-      mockXhsMcpAdapter.isAvailable.mockReturnValue(true);
-      mockXhsMcpAdapter.checkLoginStatus.mockResolvedValue({ loggedIn: false });
-
-      const result = (await service.initConnection(
-        userId,
-        "xiaohongshu",
-      )) as any;
-
-      expect(result.status).toBe("pending");
-      expect(result.instructions).toBeDefined();
-    });
-
-    it("should return error when XHS MCP throws", async () => {
-      mockPrisma.socialPlatformConnection.findUnique.mockResolvedValue(null);
-      mockXhsMcpAdapter.isAvailable.mockReturnValue(true);
-      mockXhsMcpAdapter.checkLoginStatus.mockRejectedValue(
-        new Error("MCP unavailable"),
-      );
-
-      const result = (await service.initConnection(
-        userId,
-        "xiaohongshu",
-      )) as any;
-
-      expect(result.status).toBe("error");
-      expect(result.message).toContain("MCP unavailable");
-    });
-  });
-
-  describe("verifyConnection - XIAOHONGSHU", () => {
-    it("should upsert connection when XHS login confirmed", async () => {
-      mockXhsMcpAdapter.checkLoginStatus.mockResolvedValue({
-        loggedIn: true,
-        nickname: "XHSUser",
-      });
-
-      const result = (await service.verifyConnection(
-        userId,
-        "xiaohongshu",
-      )) as any;
-
-      expect(result.status).toBe("success");
-      expect(mockPrisma.socialPlatformConnection.upsert).toHaveBeenCalled();
-    });
-
-    it("should return pending when XHS not yet logged in", async () => {
-      mockXhsMcpAdapter.checkLoginStatus.mockResolvedValue({ loggedIn: false });
-
-      const result = await service.verifyConnection(userId, "xiaohongshu");
-
-      expect(result.status).toBe("pending");
-      expect(result.message).toContain("等待");
-    });
-
-    it("should return error when XHS verify throws", async () => {
-      mockXhsMcpAdapter.checkLoginStatus.mockRejectedValue(
-        new Error("XHS error"),
-      );
-
-      const result = await service.verifyConnection(userId, "xiaohongshu");
-
-      expect(result.status).toBe("error");
-      expect(result.message).toContain("XHS error");
-    });
-  });
-
   // =========================================================================
   // testConnection - session validation paths
   // =========================================================================
-
-  describe("testConnection - session validation", () => {
-    it("should return invalid when sessionData is null", async () => {
-      const connectionWithNoSession = {
-        ...mockConnection,
-        sessionData: null,
-      };
-      mockPrisma.socialPlatformConnection.findFirst.mockResolvedValue(
-        connectionWithNoSession,
-      );
-
-      const result = await service.testConnection(userId, connectionId);
-
-      expect(result.success).toBe(false);
-      expect(result.message).toContain("无会话数据");
-    });
-
-    it("should validate XHS mcp-managed connection", async () => {
-      const xhsConnection = {
-        ...mockConnection,
-        platformType: SocialPlatformType.XIAOHONGSHU,
-        sessionData: "mcp-managed",
-      };
-      mockPrisma.socialPlatformConnection.findFirst.mockResolvedValue(
-        xhsConnection,
-      );
-      mockXhsMcpAdapter.checkLoginStatus.mockResolvedValue({ loggedIn: true });
-
-      const result = await service.testConnection(userId, connectionId);
-
-      expect(result.success).toBe(true);
-      expect(result.message).toBe("连接正常");
-    });
-
-    it("should return invalid when XHS MCP reports logged out", async () => {
-      const xhsConnection = {
-        ...mockConnection,
-        platformType: SocialPlatformType.XIAOHONGSHU,
-        sessionData: "mcp-managed",
-      };
-      mockPrisma.socialPlatformConnection.findFirst.mockResolvedValue(
-        xhsConnection,
-      );
-      mockXhsMcpAdapter.checkLoginStatus.mockResolvedValue({ loggedIn: false });
-
-      const result = await service.testConnection(userId, connectionId);
-
-      expect(result.success).toBe(false);
-    });
-
-    it("should return invalid when XHS MCP throws during validation", async () => {
-      const xhsConnection = {
-        ...mockConnection,
-        platformType: SocialPlatformType.XIAOHONGSHU,
-        sessionData: "mcp-managed",
-      };
-      mockPrisma.socialPlatformConnection.findFirst.mockResolvedValue(
-        xhsConnection,
-      );
-      mockXhsMcpAdapter.checkLoginStatus.mockRejectedValue(
-        new Error("MCP down"),
-      );
-
-      const result = await service.testConnection(userId, connectionId);
-
-      expect(result.success).toBe(false);
-      expect(result.message).toContain("MCP");
-    });
-
-    it("should validate wechat session returning unsupported platform for unknown type", async () => {
-      // Connection with non-xhs, non-wechat platform type (should return unsupported)
-      const unknownPlatformConnection = {
-        ...mockConnection,
-        platformType: "TWITTER" as any,
-        sessionData: "encrypted-data",
-      };
-      mockPrisma.socialPlatformConnection.findFirst.mockResolvedValue(
-        unknownPlatformConnection,
-      );
-
-      // Mock decryptSession behavior
-      const { decryptSession } = jest.requireMock("../session-crypto");
-      if (decryptSession) {
-        decryptSession.mockReturnValue({
-          cookies: [{ name: "test", value: "val" }],
-        });
-      }
-
-      mockPlaywright.restoreSession.mockResolvedValue(undefined);
-      mockPlaywright.createPage.mockResolvedValue({
-        goto: jest.fn(),
-        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
-        url: jest.fn().mockReturnValue("https://example.com"),
-        $: jest.fn().mockResolvedValue(null),
-      });
-      mockPlaywright.closeContext.mockResolvedValue(undefined);
-
-      const result = await service.testConnection(userId, connectionId);
-      // Should return false (unsupported or validation failed)
-      expect(result).toBeDefined();
-      expect(typeof result.success).toBe("boolean");
-    });
-  });
 
   // =========================================================================
   // refreshConnection
   // =========================================================================
 
-  describe("refreshConnection", () => {
-    it("should throw NotFoundException if connection not found", async () => {
-      mockPrisma.socialPlatformConnection.findFirst.mockResolvedValue(null);
-
-      await expect(
-        service.refreshConnection(userId, connectionId),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it("should update lastCheckAt and updatedAt", async () => {
-      mockPrisma.socialPlatformConnection.findFirst.mockResolvedValue(
-        mockConnection,
-      );
-      mockPrisma.socialPlatformConnection.update.mockResolvedValue({
-        ...mockConnection,
-        lastCheckAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      const result = await service.refreshConnection(userId, connectionId);
-
-      expect(mockPrisma.socialPlatformConnection.update).toHaveBeenCalledWith({
-        where: { id: connectionId },
-        data: expect.objectContaining({ lastCheckAt: expect.any(Date) }),
-      });
-      expect(result).toBeDefined();
-    });
-  });
-
   // =========================================================================
   // XHS pass-through methods
   // =========================================================================
 
-  describe("XHS pass-through methods", () => {
-    it("xhsGetLoginStatus should delegate to adapter", async () => {
-      mockXhsMcpAdapter.checkLoginStatus.mockResolvedValue({
-        loggedIn: true,
-        nickname: "User",
-      });
-
-      const result = await service.xhsGetLoginStatus();
-
-      expect(result.loggedIn).toBe(true);
-      expect(mockXhsMcpAdapter.checkLoginStatus).toHaveBeenCalled();
-    });
-
-    it("xhsListFeeds should delegate to adapter", async () => {
-      const feeds = [{ id: "feed-1", title: "Feed 1" }];
-      mockXhsMcpAdapter.listFeeds.mockResolvedValue(feeds);
-
-      const result = await service.xhsListFeeds();
-
-      expect(result).toEqual(feeds);
-    });
-
-    it("xhsSearchFeeds should delegate to adapter", async () => {
-      const feeds = [{ id: "feed-2", title: "Search Result" }];
-      mockXhsMcpAdapter.searchFeeds.mockResolvedValue(feeds);
-
-      const result = await service.xhsSearchFeeds("test keyword");
-
-      expect(result).toEqual(feeds);
-      expect(mockXhsMcpAdapter.searchFeeds).toHaveBeenCalledWith(
-        "test keyword",
-      );
-    });
-
-    it("xhsGetFeedDetail should delegate to adapter", async () => {
-      const detail = { id: "feed-1", title: "Detail", content: "..." };
-      mockXhsMcpAdapter.getFeedDetail.mockResolvedValue(detail);
-
-      const result = await service.xhsGetFeedDetail("feed-1", "token-abc");
-
-      expect(result).toEqual(detail);
-      expect(mockXhsMcpAdapter.getFeedDetail).toHaveBeenCalledWith(
-        "feed-1",
-        "token-abc",
-      );
-    });
-
-    it("xhsPostComment should delegate to adapter", async () => {
-      mockXhsMcpAdapter.postComment.mockResolvedValue({ success: true });
-
-      const result = await service.xhsPostComment(
-        "feed-1",
-        "token-abc",
-        "Nice post!",
-      );
-
-      expect(result.success).toBe(true);
-    });
-
-    it("xhsGetUserProfile should delegate to adapter", async () => {
-      const profile = { userId: "xhs-user-1", nickname: "User" };
-      mockXhsMcpAdapter.getUserProfile.mockResolvedValue(profile);
-
-      const result = await service.xhsGetUserProfile("xhs-user-1", "token");
-
-      expect(result).toEqual(profile);
-    });
-  });
-
   // =========================================================================
   // Source listing methods
   // =========================================================================
-
-  describe("getExploreSources", () => {
-    it("should return resources without type filter", async () => {
-      const mockResources = [
-        { id: "r1", type: "ARTICLE", title: "Resource 1" },
-      ];
-      mockPrisma.resource.findMany.mockResolvedValue(mockResources);
-
-      const result = await service.getExploreSources(userId, {
-        page: 1,
-        limit: 10,
-      });
-
-      expect(result).toEqual(mockResources);
-      expect(mockPrisma.resource.findMany).toHaveBeenCalled();
-    });
-
-    it("should filter by type when provided", async () => {
-      mockPrisma.resource.findMany.mockResolvedValue([]);
-
-      await service.getExploreSources(userId, {
-        type: "video",
-        page: 1,
-        limit: 10,
-      });
-
-      expect(mockPrisma.resource.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { type: "VIDEO" },
-        }),
-      );
-    });
-  });
-
-  describe("getResearchSources", () => {
-    it("should return user research topics", async () => {
-      const mockTopics = [{ id: "t1", name: "Topic 1", status: "ACTIVE" }];
-      mockPrisma.researchTopic.findMany.mockResolvedValue(mockTopics);
-
-      const result = await service.getResearchSources(userId);
-
-      expect(result).toEqual(mockTopics);
-      expect(mockPrisma.researchTopic.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId } }),
-      );
-    });
-  });
-
-  describe("getOfficeSources", () => {
-    it("should return user office documents", async () => {
-      const mockDocs = [{ id: "d1", title: "Doc 1", type: "SLIDES" }];
-      mockPrisma.officeDocument.findMany.mockResolvedValue(mockDocs);
-
-      const result = await service.getOfficeSources(userId);
-
-      expect(result).toEqual(mockDocs);
-      expect(mockPrisma.officeDocument.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId } }),
-      );
-    });
-  });
-
-  describe("getWritingSources", () => {
-    it("should return user writing projects", async () => {
-      const mockProjects = [{ id: "p1", name: "Project 1", status: "ACTIVE" }];
-      mockPrisma.writingProject.findMany.mockResolvedValue(mockProjects);
-
-      const result = await service.getWritingSources(userId);
-
-      expect(result).toEqual(mockProjects);
-      expect(mockPrisma.writingProject.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { ownerId: userId } }),
-      );
-    });
-  });
 
   describe("getPublishLogs", () => {
     it("should return publish logs for content", async () => {
