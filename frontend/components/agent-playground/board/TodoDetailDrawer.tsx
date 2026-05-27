@@ -249,20 +249,36 @@ function cascadeChainFor(stepId: string): string[] {
 // ─── System-stage → agent linking ─────────────────────
 // 把 system-stage todo（无 agentRefId）映射到运行 agent，使 Drawer 能 surface
 // 该 stage 的 ReAct trace + tool calls + tokens（与 dimension drawer 同等丰富）。
-// 后端 single-shot agent（Reconciler / Analyst / Writer-Outline / Writer-Draft）通过
-// AgentRunner emit `agent:thought/action/observation` 走标准 trace 管道，但 todo 自己
-// 不知道 agentId 是哪个 —— 由此 hint 表挂桥。
+// 后端 single-shot agent 通过 AgentRunner emit `agent:thought/action/observation`
+// 走标准 trace 管道，但 todo 自己不知道 agentId —— 由此 hint 表挂桥。
 //
-// 多 attempt 的 stage（s8-writer-draft = writer#1/writer#2/writer#3）返回最新一个。
+// 命名约定（与 backend `agentId: ...` literal 对齐）：
+//   ids[]      字符串完全匹配
+//   prefixes[] 前缀匹配（catches "writer#1" / "writer#2" / "analyst.retry"）
+//
+// 多 attempt 的 stage 取 trace 长度最大的 attempt（通常是最近一次）。
+// s1-budget / s11-persist / s12-self-evolution 无 LLM 调用，不需要 agent 链接。
 const SYSTEM_STAGE_AGENT_HINT: Record<
   string,
   { ids?: string[]; prefixes?: string[] }
 > = {
+  // s1-budget: 系统级 token 预算计算，无 LLM agent
+  's2-leader-plan': { ids: ['leader'] },
+  // s3-researchers: 维度并行 fanout，已通过 dimensionName 匹配覆盖
+  's4-leader-assess': { ids: ['leader'] }, // Leader 评审决策；retry 路径由 researcher#N agent 完成（dim drawer 覆盖）
   's5-reconciler': { ids: ['reconciler'] },
-  's6-analyst': { ids: ['analyst'] },
+  's6-analyst': { ids: ['analyst'], prefixes: ['analyst.'] }, // analyst + analyst.retry
   's7-writer-outline': { ids: ['outline-planner'] },
-  // s8 writerAgentId = `writer#${attempts}` → 取最新一次
-  's8-writer-draft': { prefixes: ['writer#', 'writer'] },
+  's8-writer-draft': { prefixes: ['writer#', 'writer.'], ids: ['writer'] }, // writer#1/#2/#3
+  's8b-quality-enhancement': { ids: ['writer'], prefixes: ['writer#'] }, // 章节质量自评，writer 复用
+  's9-critic-l4': { ids: ['critic'], prefixes: ['critic.', 'mission-critic'] },
+  's9b-objective-evaluation': {
+    ids: ['critic', 'evaluator'],
+    prefixes: ['critic.', 'evaluator.'],
+  },
+  's10-leader-signoff': { ids: ['leader'] },
+  // s11-persist: DB 写操作，无 LLM
+  // s12-self-evolution: postmortem 统计 + 向量索引，无 LLM
 };
 
 function findAgentForSystemStage(
