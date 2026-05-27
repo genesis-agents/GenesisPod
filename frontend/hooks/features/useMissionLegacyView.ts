@@ -163,22 +163,44 @@ function dvProjectAgents(
   events: PlaygroundEvent[]
 ): AgentLiveState[] {
   const traceByAgent = dvCollectAgentTraces(events);
-  if (view.agents.length === 0) {
-    return dvCollectAgentSummary(events, traceByAgent);
+  const out =
+    view.agents.length === 0
+      ? dvCollectAgentSummary(events, traceByAgent)
+      : view.agents
+          .filter((a) => DV_KNOWN_AGENT_ROLES.has(a.role as AgentRole))
+          .map(
+            (a): AgentLiveState => ({
+              agentId: a.id,
+              role: a.role as AgentRole,
+              phase: a.phase as AgentPhase,
+              modelId: a.modelId,
+              retryCount: a.retryCount,
+              failureMessage: a.failureMessage,
+              trace: traceByAgent.get(a.id) ?? [],
+            })
+          );
+
+  // ★ 2026-05-27 (Screenshot_17 状态一致 mirror)：mission 已终态时，前端 fallback
+  //   path 也 sweep 滞留 running/pending 的 agent，与 backend agent-view.projector
+  //   行为对齐。让 view.agents 空（live mission 后 buffer evict）走 events 派生
+  //   的路径也不会显示 "23 个 Agent 正在工作"假象。
+  const status = view.mission?.status;
+  const isTerminal =
+    status === 'completed' ||
+    status === 'failed' ||
+    status === 'cancelled' ||
+    status === 'quality-failed';
+  if (isTerminal) {
+    for (const a of out) {
+      if (a.phase === 'running' || a.phase === 'pending') {
+        a.phase =
+          status === 'completed' || status === 'quality-failed'
+            ? 'completed'
+            : 'failed';
+      }
+    }
   }
-  return view.agents
-    .filter((a) => DV_KNOWN_AGENT_ROLES.has(a.role as AgentRole))
-    .map(
-      (a): AgentLiveState => ({
-        agentId: a.id,
-        role: a.role as AgentRole,
-        phase: a.phase as AgentPhase,
-        modelId: a.modelId,
-        retryCount: a.retryCount,
-        failureMessage: a.failureMessage,
-        trace: traceByAgent.get(a.id) ?? [],
-      })
-    );
+  return out;
 }
 
 function dvProjectCost(

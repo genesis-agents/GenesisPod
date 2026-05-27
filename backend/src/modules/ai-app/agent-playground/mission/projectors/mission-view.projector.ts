@@ -91,6 +91,29 @@ function buildRowLoadedView(inputs: MissionQueryInputs): PlaygroundDomainView {
   const row = inputs.row!;
   const stages = projectStages(inputs.events);
   const agents = projectAgents(inputs.events);
+
+  // ★ 2026-05-27 (Screenshot_17 状态不一致修复)：mission row 已 terminal 时，
+  //   sweep 所有滞留 phase='running' 的 agent → 'completed'（completed mission）
+  //   或 'failed'（failed mission）。chapter-writer / quality-judge 等 sub-agent
+  //   可能因为 explicit agent:lifecycle 'completed' 事件被 buffer evict / 网络
+  //   race 而永远卡 running，导致 "23 个 Agent 正在工作" 假象。这是已知的
+  //   "事件缺失" 容灾：mission 已盖章 terminal，下游展示必须一致。
+  const isTerminal =
+    row.status === "completed" ||
+    row.status === "failed" ||
+    row.status === "cancelled" ||
+    row.status === "quality-failed";
+  if (isTerminal) {
+    for (const a of agents) {
+      if (a.phase === "running" || a.phase === "pending") {
+        a.phase =
+          row.status === "completed" || row.status === "quality-failed"
+            ? "completed"
+            : "failed";
+      }
+    }
+  }
+
   const todoBoard = projectTodoBoard(row, inputs.events);
   // P0-2：artifact 来自 ArtifactComposerService（含 R2 off-load fetch），
   //   不再 inline 调用 pure projectArtifact —— query service 已 await 异步组合。
