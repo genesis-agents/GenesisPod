@@ -11,17 +11,18 @@ runtime contract material, rerun design, and cost strategy for
 
 ## Core docs
 
-| Document                                                                                                                                           | Purpose                                                                                             |
-| -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| [mission-pipeline-baseline.md](./mission-pipeline-baseline.md)                                                                                     | Main baseline for mission pipeline architecture, contracts, and locked decisions                    |
-| [mission-pipeline-sota-audit-2026-04-29.md](./mission-pipeline-sota-audit-2026-04-29.md)                                                           | System-level audit against SOTA patterns                                                            |
-| [contract-single-source-audit-2026-05-22.md](./contract-single-source-audit-2026-05-22.md)                                                         | Single-source and runtime contract audit                                                            |
-| [agent-team-boundary-audit-2026-05-08.md](./agent-team-boundary-audit-2026-05-08.md)                                                               | Boundary review for app vs harness responsibilities                                                 |
-| [agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md](./agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md) | Target boundary and directory blueprint for app, harness, and frontend shells                       |
-| [playground-read-model-and-frontend-thinning-plan-2026-05-25.md](./playground-read-model-and-frontend-thinning-plan-2026-05-25.md)                 | Optimization plan for canonical read model, backend query projection, and frontend thinning         |
-| [agent-team-thinning-plan-2026-05-26.md](./agent-team-thinning-plan-2026-05-26.md)                                                                 | Main single-track thinning plan with batches, contracts, and execution rules                        |
-| [agent-team-thinning-gap-audit-2026-05-26.md](./agent-team-thinning-gap-audit-2026-05-26.md)                                                       | Gap audit comparing the thinning plan target state against the current local implementation         |
-| [playground-cost-strategy-v1.md](./playground-cost-strategy-v1.md)                                                                                 | Cost strategy for `deep` and `report` execution shapes, runtime spend control, and target economics |
+| Document                                                                                                                                           | Purpose                                                                                                                                                                                  |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [mission-pipeline-baseline.md](./mission-pipeline-baseline.md)                                                                                     | Main baseline for mission pipeline architecture, contracts, and locked decisions                                                                                                         |
+| [mission-pipeline-sota-audit-2026-04-29.md](./mission-pipeline-sota-audit-2026-04-29.md)                                                           | System-level audit against SOTA patterns                                                                                                                                                 |
+| [contract-single-source-audit-2026-05-22.md](./contract-single-source-audit-2026-05-22.md)                                                         | Single-source and runtime contract audit                                                                                                                                                 |
+| [agent-team-boundary-audit-2026-05-08.md](./agent-team-boundary-audit-2026-05-08.md)                                                               | Boundary review for app vs harness responsibilities                                                                                                                                      |
+| [agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md](./agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md) | Target boundary and directory blueprint for app, harness, and frontend shells                                                                                                            |
+| [playground-read-model-and-frontend-thinning-plan-2026-05-25.md](./playground-read-model-and-frontend-thinning-plan-2026-05-25.md)                 | Optimization plan for canonical read model, backend query projection, and frontend thinning                                                                                              |
+| [agent-team-thinning-plan-2026-05-26.md](./agent-team-thinning-plan-2026-05-26.md)                                                                 | Main single-track thinning plan with batches, contracts, and execution rules                                                                                                             |
+| [agent-team-thinning-gap-audit-2026-05-26.md](./agent-team-thinning-gap-audit-2026-05-26.md)                                                       | Gap audit comparing the thinning plan target state against the current local implementation                                                                                              |
+| [playground-dfx-assessment-2026-05-26.md](./playground-dfx-assessment-2026-05-26.md)                                                               | 9-dimension DFX assessment (Reliability / Testability / Maintainability / Performance / Security / Observability / Deployability / Cost / UX) + frontend thinning 100% landed conclusion |
+| [playground-cost-strategy-v1.md](./playground-cost-strategy-v1.md)                                                                                 | Cost strategy for `deep` and `report` execution shapes, runtime spend control, and target economics                                                                                      |
 
 ---
 
@@ -62,7 +63,9 @@ runtime contract material, rerun design, and cost strategy for
 2. Read [mission-pipeline-sota-audit-2026-04-29.md](./mission-pipeline-sota-audit-2026-04-29.md).
 3. Read [contract-single-source-audit-2026-05-22.md](./contract-single-source-audit-2026-05-22.md).
 4. Read [agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md](./agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md).
-5. Read [playground-cost-strategy-v1.md](./playground-cost-strategy-v1.md).
+5. Read [agent-team-thinning-plan-2026-05-26.md](./agent-team-thinning-plan-2026-05-26.md).
+6. Read [playground-dfx-assessment-2026-05-26.md](./playground-dfx-assessment-2026-05-26.md) — current DFX status + thinning landed conclusion.
+7. Read [playground-cost-strategy-v1.md](./playground-cost-strategy-v1.md).
 
 ---
 
