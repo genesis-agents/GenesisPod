@@ -336,35 +336,51 @@ function AgentInstanceTable({ agents }: { agents: AgentLiveState[] }) {
       </div>
       <Table className="w-full table-fixed text-[12px]">
         <colgroup>
-          <col className="w-[12%]" />
-          <col className="w-[24%]" />
-          <col className="w-[18%]" />
-          <col className="w-[18%]" />
-          <col className="w-[10%]" />
-          <col className="w-[10%]" />
           <col className="w-[8%]" />
+          <col className="w-[18%]" />
+          <col className="w-[14%]" />
+          <col className="w-[14%]" />
+          <col className="w-[8%]" />
+          <col className="w-[6%]" />
+          <col className="w-[6%]" />
+          <col className="w-[8%]" />
+          <col className="w-[8%]" />
+          <col className="w-[5%]" />
+          <col className="w-[5%]" />
         </colgroup>
         <THead className="bg-gray-50/80">
           <Tr>
-            <Th className="w-[12%] px-3 py-2 text-left font-medium text-gray-600">
+            <Th className="px-2 py-2 text-left font-medium text-gray-600">
               角色
             </Th>
-            <Th className="w-[24%] px-2 py-2 text-left font-medium text-gray-600">
+            <Th className="px-2 py-2 text-left font-medium text-gray-600">
               实例 ID
             </Th>
-            <Th className="w-[18%] px-2 py-2 text-left font-medium text-gray-600">
+            <Th className="px-2 py-2 text-left font-medium text-gray-600">
               维度
             </Th>
-            <Th className="w-[18%] px-2 py-2 text-left font-medium text-gray-600">
+            <Th className="px-2 py-2 text-left font-medium text-gray-600">
               模型
             </Th>
-            <Th className="w-[10%] px-2 py-2 text-right font-medium text-gray-600">
+            <Th className="px-2 py-2 text-left font-medium text-gray-600">
+              状态
+            </Th>
+            <Th className="px-2 py-2 text-right font-medium text-gray-600">
               Iter
             </Th>
-            <Th className="w-[10%] px-2 py-2 text-right font-medium text-gray-600">
+            <Th className="px-2 py-2 text-right font-medium text-gray-600">
               重试
             </Th>
-            <Th className="w-[8%] px-2 py-2 text-right font-medium text-gray-600">
+            <Th className="px-2 py-2 text-right font-medium text-gray-600">
+              Tokens
+            </Th>
+            <Th className="px-2 py-2 text-right font-medium text-gray-600">
+              成本
+            </Th>
+            <Th className="px-2 py-2 text-right font-medium text-gray-600">
+              工具
+            </Th>
+            <Th className="px-2 py-2 text-right font-medium text-gray-600">
               耗时
             </Th>
           </Tr>
@@ -392,6 +408,36 @@ function AgentInstanceTable({ agents }: { agents: AgentLiveState[] }) {
                   {a.modelId ?? '—'}
                 </TruncatedCell>
               </Td>
+              <Td className="px-2 py-2">
+                {(() => {
+                  const tone =
+                    a.phase === 'running'
+                      ? 'bg-orange-50 text-orange-700 ring-orange-200'
+                      : a.phase === 'completed'
+                        ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                        : a.phase === 'failed'
+                          ? 'bg-red-50 text-red-700 ring-red-200'
+                          : 'bg-gray-50 text-gray-600 ring-gray-200';
+                  const label =
+                    a.phase === 'running'
+                      ? '运行中'
+                      : a.phase === 'completed'
+                        ? '已完成'
+                        : a.phase === 'failed'
+                          ? '失败'
+                          : '待启动';
+                  return (
+                    <span
+                      className={cn(
+                        'inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ring-1',
+                        tone
+                      )}
+                    >
+                      {label}
+                    </span>
+                  );
+                })()}
+              </Td>
               <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
                 {a.iterations ?? 0}
               </Td>
@@ -404,6 +450,15 @@ function AgentInstanceTable({ agents }: { agents: AgentLiveState[] }) {
                 )}
               >
                 {a.retryCount ?? 0}
+              </Td>
+              <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+                {a.tokensUsed != null ? fmtTokens(a.tokensUsed) : '—'}
+              </Td>
+              <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+                {a.costUsd != null ? fmtUsd(a.costUsd) : '—'}
+              </Td>
+              <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+                {a.toolCallCount ?? 0}
               </Td>
               <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
                 {a.wallTimeMs ? fmtLatency(a.wallTimeMs) : '—'}

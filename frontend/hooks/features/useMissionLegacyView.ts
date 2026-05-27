@@ -207,6 +207,10 @@ function dvProjectAgents(
               startedAt: (a as { startedAt?: number }).startedAt,
               endedAt: (a as { endedAt?: number }).endedAt,
               trace: traceByAgent.get(a.id) ?? [],
+              // ★ 2026-05-27 (#109): tokens / toolCallCount 从 trace 派生 fallback.
+              //   backend agent-view.projector 暂未暴露 per-agent cost / token /
+              //   tool 计数字段, 先在前端从 traceByAgent 算; costUsd 留 undefined.
+              ...computeAgentTraceMetrics(traceByAgent.get(a.id) ?? []),
             })
           );
 
@@ -235,6 +239,28 @@ function dvProjectAgents(
     }
   }
   return out;
+}
+
+/**
+ * ★ 2026-05-27 (#109): 从 trace 派生 per-agent tokens / 工具调用次数, 给
+ *   ComputeUsagePanel AgentInstanceTable 用。backend canonical view 暂未在
+ *   agent 字段上暴露这些计数, 先在前端聚合。
+ */
+function computeAgentTraceMetrics(trace: AgentTraceItem[]): {
+  tokensUsed?: number;
+  toolCallCount?: number;
+} {
+  if (!trace || trace.length === 0) return {};
+  let tokens = 0;
+  let actionCount = 0;
+  for (const t of trace) {
+    if (typeof t.tokensUsed === 'number') tokens += t.tokensUsed;
+    if (t.kind === 'action') actionCount += 1;
+  }
+  return {
+    tokensUsed: tokens > 0 ? tokens : undefined,
+    toolCallCount: actionCount > 0 ? actionCount : undefined,
+  };
 }
 
 function dvProjectCost(

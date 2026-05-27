@@ -86,7 +86,12 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
       {
         dimId: string;
         dimName: string;
-        items: { finding: string; significance: 'high' | 'medium' | 'low' }[];
+        // ★ 2026-05-27 (#108): body 字段加进 legacy fallback shape, 与主 path 类型对齐。
+        items: {
+          finding: string;
+          body?: string;
+          significance: 'high' | 'medium' | 'low';
+        }[];
       }
     >();
     for (const h of qv.topHighlights) {
@@ -251,12 +256,25 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
                         : f.significance === 'medium'
                           ? 'border-amber-300 bg-amber-50/40'
                           : 'border-green-300 bg-green-50/40';
+                    // ★ 2026-05-27 (#108): finding 标题 + body 解释段双层渲染,
+                    //   参照 Topic Insight 快速视图。body optional, 缺时降级为单标题展示。
+                    const body =
+                      typeof (f as { body?: string }).body === 'string'
+                        ? (f as { body?: string }).body
+                        : undefined;
                     return (
                       <div
                         key={idx}
                         className={`rounded-md border-l-4 px-3 py-2 text-sm leading-relaxed text-gray-700 ${tone}`}
                       >
-                        {cleanText(f.finding)}
+                        <div className="font-medium text-gray-800">
+                          {cleanText(f.finding)}
+                        </div>
+                        {body && (
+                          <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                            {cleanText(body)}
+                          </p>
+                        )}
                       </div>
                     );
                   })}

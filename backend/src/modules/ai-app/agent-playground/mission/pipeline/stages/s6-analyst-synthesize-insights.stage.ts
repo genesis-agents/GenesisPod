@@ -64,6 +64,8 @@ export interface AnalystOutputShape {
     dimensionName: string;
     findings: {
       finding: string;
+      // ★ 2026-05-27 (#108): analyst LLM 输出可选 body 解释段。
+      body?: string;
       significance: "high" | "medium" | "low";
     }[];
   }[];

@@ -101,6 +101,9 @@ const Output = z.object({
         findings: z.array(
           z.object({
             finding: z.string(),
+            // ★ 2026-05-27 (#108): body = 80-200 字解释段, 参照 Topic Insight 快速视图
+            //   每个 finding 不仅有标题还有解释。LLM 可选输出, 缺时前端静默跳过。
+            body: z.string().optional(),
             significance: z.enum(["high", "medium", "low"]),
           }),
         ),
@@ -222,10 +225,11 @@ export class AnalystAgent extends AgentSpec<typeof Input, typeof Output> {
       `  conclusion:               150-250 字结论，提炼 3 个最重要的洞察 + 报告整体定调`,
       `- ★ MANDATORY 结构化 quickView 字段（5 组，独立喂报告"快速视图"卡片，与 prose 章节并存）：`,
       `  keyFindingsByDimension: 每维度抽 2-4 条 finding，每条标 significance (high/medium/low)`,
-      `    - ★ 2026-05-27 finding 文本要求（参照 AI 洞察的丰富度，不接受一句话占位）：`,
-      `      • 长度 80-200 字中文，独立成段；写完整 "发现 + 证据 + 数字 / 案例 + 解读" 四段式`,
-      `      • 不允许只写一句话或概括性结论 — 必须带具体数字 / 实体名 / 时间窗口 / 来源类别`,
-      `      • 避免重复 themeSummary 措辞；每条 finding 是独立可读的微段落`,
+      `    - ★ 2026-05-27 (#108) finding + body 分字段双层结构（参照 Topic Insight 快速视图）：`,
+      `      • finding: 8-20 字中文标题（提炼核心点，如"能源供给约束与液冷拐点"）`,
+      `      • body:    80-200 字中文解释段，独立成段；写完整 "发现 + 证据 + 数字/案例 + 解读" 四段式`,
+      `      • body 必须填写 — 不允许只输出 finding 不写 body；缺失会让快速视图卡片空白`,
+      `      • body 必须带具体数字 / 实体名 / 时间窗口 / 来源类别；避免重复 themeSummary 措辞`,
       `    - high   = 决定性证据 / 多源一致 / 直接驱动结论`,
       `    - medium = 重要支撑但有待印证 / 单源`,
       `    - low    = 背景信息 / 不影响主要结论`,
@@ -267,7 +271,11 @@ export class AnalystAgent extends AgentSpec<typeof Input, typeof Output> {
       `  ],`,
       `  "keyFindingsByDimension": [`,
       `    { "dimensionName": "<dim name>", "findings": [`,
-      `      { "finding": "<80-200 字独立成段的发现，含数字/案例/时间窗口/解读>", "significance": "high" | "medium" | "low" }`,
+      `      {`,
+      `        "finding": "<8-20 字中文标题>",`,
+      `        "body": "<80-200 字解释段，含数字/案例/时间窗口/解读>",`,
+      `        "significance": "high" | "medium" | "low"`,
+      `      }`,
       `    ] }`,
       `  ],`,
       `  "trendsByDimension": [`,

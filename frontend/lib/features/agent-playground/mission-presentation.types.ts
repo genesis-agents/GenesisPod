@@ -234,6 +234,10 @@ export interface AgentLiveState {
   retryCount?: number;
   lastRetryReason?: string;
   trace: AgentTraceItem[];
+  // ★ 2026-05-27 (#109): 算力消耗 tab Agent 实例耗时表新增列, 由 trace 派生 fallback.
+  tokensUsed?: number;
+  toolCallCount?: number;
+  costUsd?: number;
 }
 
 // ============================================================================

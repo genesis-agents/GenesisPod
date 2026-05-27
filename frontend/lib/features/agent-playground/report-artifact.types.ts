@@ -115,6 +115,8 @@ export interface ArtifactQuickView {
     dimensionName: string;
     findings: {
       finding: string;
+      /** ★ 2026-05-27 (#108): 80-200 字解释段, 参照 Topic Insight 快速视图。Optional 兼容存量数据。 */
+      body?: string;
       significance: 'high' | 'medium' | 'low';
     }[];
   }[];

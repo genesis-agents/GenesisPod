@@ -40,7 +40,12 @@ interface AnalystOutputShape {
   // ★ PR-quickview-parity (2026-05-09): 5 组结构化 quickView 字段
   keyFindingsByDimension?: {
     dimensionName: string;
-    findings: { finding: string; significance: "high" | "medium" | "low" }[];
+    findings: {
+      finding: string;
+      // ★ 2026-05-27 (#108): analyst LLM 输出可选 body 解释段。
+      body?: string;
+      significance: "high" | "medium" | "low";
+    }[];
   }[];
   trendsByDimension?: {
     dimensionName: string;
