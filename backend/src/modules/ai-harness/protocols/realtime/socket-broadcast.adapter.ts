@@ -59,9 +59,22 @@ export class SocketBroadcastAdapter implements IBroadcastAdapter {
     // ★ P1-NEW-E (round 2) + P1-R3-B (round 3):
     //   小事件直接 emit（socket.io 内部一次 stringify 即可，避免双 stringify CPU 浪费）；
     //   仅在 payload 看起来"可能大"时才做尺寸预检。
+    // ★ 2026-05-26 §6.7.3 multi-pod refresh-hint injection:
+    //   按 event.type suffix 派生 RefreshHint，注入 envelope.payload.refreshHints。
+    //   前端 useMissionDetailView.applyRefreshHints 据此触发 coalesced canonical view refetch。
+    //   通用映射（不绑业务）：mission/stage/agent/artifact/todo/cost 各自 family refetch。
+    const refreshHints = deriveRefreshHints(event.type);
+    const enrichedPayload =
+      refreshHints.length > 0 &&
+      event.payload != null &&
+      typeof event.payload === "object"
+        ? { ...(event.payload as Record<string, unknown>), refreshHints }
+        : refreshHints.length > 0
+          ? { refreshHints }
+          : event.payload;
     const envelope = {
       type: event.type,
-      payload: event.payload,
+      payload: enrichedPayload,
       agentId: event.agentId,
       traceId: event.traceId,
       timestamp: event.timestamp,
@@ -145,5 +158,53 @@ export class SocketBroadcastAdapter implements IBroadcastAdapter {
       return false;
     }
     return false;
+  }
+}
+
+// ============================================================================
+// §6.7.3 RefreshHint derivation（multi-pod canonical view refetch hint）
+// ============================================================================
+
+interface RefreshHint {
+  family: "mission" | "stage" | "agent" | "artifact" | "todo" | "cost";
+  mode: "refetch";
+  id?: string;
+}
+
+/**
+ * 根据 event.type suffix 派生 RefreshHint 列表。
+ *
+ * 通用规则（business-agnostic）：剥离 namespace 前缀后按 suffix 第一段路由到
+ * canonical view family — mission / stage / agent / artifact / todo / cost。
+ *
+ * 不匹配返回 []（不触发 refetch）。前端 useMissionDetailView.applyRefreshHints
+ * 已实现 coalesced refetch（任一 hint 触发整 view 拉取）。
+ */
+export function deriveRefreshHints(type: string): RefreshHint[] {
+  // 剥离 namespace 前缀（{app}.X:Y → X:Y）
+  const suffix = type.includes(".") ? type.slice(type.indexOf(".") + 1) : type;
+  const head = suffix.split(":")[0] ?? suffix;
+  switch (head) {
+    case "mission":
+      return [{ family: "mission", mode: "refetch" }];
+    case "stage":
+      return [{ family: "stage", mode: "refetch" }];
+    case "agent":
+      return [{ family: "agent", mode: "refetch" }];
+    case "chapter":
+    case "dimension":
+    case "verifier":
+    case "reconciliation":
+    case "critic":
+    case "leader":
+      return [{ family: "artifact", mode: "refetch" }];
+    case "todo":
+      return [{ family: "todo", mode: "refetch" }];
+    case "cost":
+    case "budget":
+    case "iteration":
+      return [{ family: "cost", mode: "refetch" }];
+    default:
+      return [];
   }
 }

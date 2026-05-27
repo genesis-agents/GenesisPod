@@ -76,13 +76,20 @@ describe("SocketBroadcastAdapter", () => {
     it("emits event with correct shape", async () => {
       const event = makeEvent({ agentId: "agent-1", traceId: "trace-1" });
       await adapter.broadcast(event);
-      expect(toChain.emit).toHaveBeenCalledWith(event.type, {
-        type: event.type,
-        payload: event.payload,
-        agentId: event.agentId,
-        traceId: event.traceId,
-        timestamp: event.timestamp,
-      });
+      // §6.7.3 adapter enriches payload with refreshHints — match shape loosely.
+      expect(toChain.emit).toHaveBeenCalledWith(
+        event.type,
+        expect.objectContaining({
+          type: event.type,
+          agentId: event.agentId,
+          traceId: event.traceId,
+          timestamp: event.timestamp,
+        }),
+      );
+      const emitArg = toChain.emit.mock.calls[0][1] as Record<string, unknown>;
+      expect(emitArg.payload).toMatchObject(
+        event.payload as Record<string, unknown>,
+      );
     });
 
     it("falls back to userId when missionId is missing from scope", async () => {
@@ -118,7 +125,35 @@ describe("SocketBroadcastAdapter", () => {
       const event = makeEvent({ payload: { message: "hello", score: 95 } });
       await adapter.broadcast(event);
       const emitArg = toChain.emit.mock.calls[0][1] as Record<string, unknown>;
-      expect(emitArg.payload).toEqual({ message: "hello", score: 95 });
+      // §6.7.3 adapter injects refreshHints; payload retains caller fields + refreshHints array.
+      expect(emitArg.payload).toMatchObject({ message: "hello", score: 95 });
+      expect((emitArg.payload as Record<string, unknown>).refreshHints).toEqual(
+        [{ family: "stage", mode: "refetch" }],
+      );
+    });
+
+    it("(§6.7.3) injects mission family refreshHint for mission:* events", async () => {
+      const event = makeEvent({
+        type: "agent-playground.mission:completed",
+        payload: {},
+      });
+      await adapter.broadcast(event);
+      const emitArg = toChain.emit.mock.calls[0][1] as Record<string, unknown>;
+      expect((emitArg.payload as Record<string, unknown>).refreshHints).toEqual(
+        [{ family: "mission", mode: "refetch" }],
+      );
+    });
+
+    it("(§6.7.3) injects artifact family for chapter:* events", async () => {
+      const event = makeEvent({
+        type: "agent-playground.chapter:writing:completed",
+        payload: {},
+      });
+      await adapter.broadcast(event);
+      const emitArg = toChain.emit.mock.calls[0][1] as Record<string, unknown>;
+      expect((emitArg.payload as Record<string, unknown>).refreshHints).toEqual(
+        [{ family: "artifact", mode: "refetch" }],
+      );
     });
 
     it("handles event without agentId or traceId (undefined)", async () => {
