@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Loader2, ShieldCheck, Sparkles, Stars } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import { BrandLogo } from '@/components/common/brand/BrandLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
@@ -40,24 +41,6 @@ const COPY: Record<
     passwordHint: 'Use at least 8 characters so your account starts protected.',
   },
 };
-
-const HIGHLIGHTS = [
-  {
-    icon: Sparkles,
-    title: 'Cleaner first impression',
-    body: 'Centered auth card, softer background light, stronger spacing hierarchy.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Trust without clutter',
-    body: 'Supportive copy and clearer states make the page feel more reliable.',
-  },
-  {
-    icon: Stars,
-    title: 'Production-ready direction',
-    body: 'This is the closest to your reference and the easiest to scale across auth flows.',
-  },
-];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -120,39 +103,18 @@ export default function LoginPage() {
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl items-center px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid w-full items-center gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:gap-10">
-          <section className="hidden lg:grid lg:gap-6">
-            <div className="inline-flex w-fit items-center rounded-full border border-white/70 bg-white/65 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-600 shadow-sm backdrop-blur">
-              Auth Experience
-            </div>
-
-            <div className="max-w-2xl">
-              <h1 className="text-6xl font-semibold tracking-[-0.07em] text-slate-950 xl:text-7xl">
-                Friendlier authentication, without losing clarity.
-              </h1>
-              <p className="mt-5 max-w-xl text-base leading-8 text-slate-600">
-                I picked the `Halo` direction for implementation. It keeps the calm,
-                centered auth card you liked from ChatGPT, but makes the page warmer,
-                more polished, and easier to trust at first glance.
-              </p>
-            </div>
-
-            <div className="grid max-w-2xl gap-3">
-              {HIGHLIGHTS.map(({ icon: Icon, title, body }) => (
-                <div
-                  key={title}
-                  className="grid grid-cols-[56px_1fr] gap-4 rounded-[24px] border border-slate-200/70 bg-white/55 p-4 shadow-[0_12px_32px_rgba(15,23,42,0.05)] backdrop-blur"
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="text-base font-semibold text-slate-900">
-                      {title}
-                    </div>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">{body}</p>
-                  </div>
-                </div>
-              ))}
+          <section className="hidden lg:block">
+            <div className="overflow-hidden rounded-[36px] border border-white/70 bg-white/62 p-4 shadow-[0_28px_90px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+              <div className="overflow-hidden rounded-[28px] bg-[#f8f4ec]">
+                <Image
+                  src="/illustrations/auth/agent-team-diagram.png"
+                  alt="Agent Team diagram"
+                  width={1256}
+                  height={1252}
+                  priority
+                  className="h-auto w-full"
+                />
+              </div>
             </div>
           </section>
 
@@ -241,16 +203,40 @@ export default function LoginPage() {
                   <span className="h-px bg-slate-200" />
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-3">
+                <form onSubmit={handleSubmit} autoComplete="off" className="space-y-3">
+                  <input
+                    type="text"
+                    name="fake-username"
+                    autoComplete="username"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className="hidden"
+                  />
+                  <input
+                    type="password"
+                    name="fake-password"
+                    autoComplete="current-password"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className="hidden"
+                  />
+
                   <div className="grid gap-3">
                     <label className="grid gap-2">
                       <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                         Email
                       </span>
                       <input
+                        key={`${mode}-email`}
                         type="email"
+                        name={`${mode}-contact`}
                         required
-                        autoComplete="email"
+                        autoComplete="off"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        data-form-type="other"
+                        data-lpignore="true"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="h-14 w-full rounded-[20px] border border-slate-200 bg-white px-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
@@ -263,15 +249,22 @@ export default function LoginPage() {
                         <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                           Username
                         </span>
-                        <input
-                          type="text"
-                          required
-                          minLength={1}
-                          maxLength={50}
-                          autoComplete="username"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          className="h-14 w-full rounded-[20px] border border-slate-200 bg-white px-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
+                      <input
+                        key={`${mode}-username`}
+                        type="text"
+                        name="register-display-name"
+                        required
+                        minLength={1}
+                        maxLength={50}
+                        autoComplete="off"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        data-form-type="other"
+                        data-lpignore="true"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="h-14 w-full rounded-[20px] border border-slate-200 bg-white px-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
                           placeholder="How your team will see you"
                         />
                       </label>
@@ -292,12 +285,17 @@ export default function LoginPage() {
                         )}
                       </div>
                       <input
+                        key={`${mode}-password`}
                         type="password"
+                        name={`${mode}-secret`}
                         required
                         minLength={mode === 'register' ? 8 : 6}
-                        autoComplete={
-                          mode === 'register' ? 'new-password' : 'current-password'
-                        }
+                        autoComplete="new-password"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        data-form-type="other"
+                        data-lpignore="true"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className="h-14 w-full rounded-[20px] border border-slate-200 bg-white px-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
