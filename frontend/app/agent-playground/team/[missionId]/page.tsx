@@ -921,12 +921,18 @@ export default function MissionDetailPage() {
       finalScore={view.mission.finalScore}
       topic={view.mission.topic}
       dimensions={view.mission.dimensions}
-      // 「任务进度」用真实任务计数（与「任务列表 共 N 项」同源的 todo ledger），
-      // 取代原先恒显的 5 个流水线阶段计数。
-      taskProgress={{
-        completed: todoLedger.filter((t) => t.status === 'done').length,
-        total: todoLedger.length,
-      }}
+      // ★ Screenshot_76 修复 (2026-05-27): 任务进度过滤规则必须与 MissionTodoBoard
+      //   的 workTodos 一致 — 排除 chapter scope (聚合到 dim) + reconciler-gap origin。
+      //   否则任务列表显"共 82 项"而进度条显"82/83",1 个隐藏 todo 让总数对不上。
+      taskProgress={(() => {
+        const visible = todoLedger.filter(
+          (t) => t.scope !== 'chapter' && t.origin !== 'reconciler-gap'
+        );
+        return {
+          completed: visible.filter((t) => t.status === 'done').length,
+          total: visible.length,
+        };
+      })()}
       missionStatus={
         // ★ 取消按钮可用判定：只要不是终态（completed/failed/rejected/
         //   cancelled/quality-failed）就视为 running。这样初次加载 persisted
