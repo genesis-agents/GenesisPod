@@ -68,7 +68,7 @@ import { useMissionDetailView } from '@/hooks/features/useMissionDetailView';
 import { useMissionLegacyView } from '@/hooks/features/useMissionLegacyView';
 // DerivedView 仅作为 MissionSettingsModal / ComputeUsagePanel 等内嵌子组件的 prop type，
 // 没有调用 derive truth 函数（已删除）。component-level cutover 完成后此 import 即可移除。
-import type { DerivedView } from '@/lib/features/agent-playground/derive-shapes';
+import type { DerivedView } from '@/lib/features/agent-playground/mission-presentation.types';
 
 /**
  * ★ B4-3：buildEmptyArtifactPlaceholder —— 不带 v1→v2 normalize 的最小空态 placeholder。
@@ -152,6 +152,7 @@ import {
   runTeam,
   type BudgetTier,
   type MissionDetail,
+  type MissionDetailView,
   type ReportVersionListItem,
 } from '@/services/agent-playground/api';
 import type { ReportVersionMeta } from '@/components/agent-playground/artifact/ArtifactReader';
@@ -1067,16 +1068,16 @@ export default function MissionDetailPage() {
   );
 
   // ── Tab bar trailing slot：CompactMeters（紧凑指标条） ─────────────
-  const tabBarTrailing = (
+  const tabBarTrailing = missionView ? (
     <CompactMeters
-      view={view}
+      view={missionView}
       wallTimeMs={wallTimeMs}
       maxCredits={
         (persisted as { userProfile?: { maxCredits?: number } })?.userProfile
           ?.maxCredits ?? null
       }
     />
-  );
+  ) : null;
 
   return (
     <>

@@ -37,7 +37,7 @@ import {
   type StepStatus,
   type VerifierVerdict,
   type DimensionPipelineState,
-} from '@/lib/features/agent-playground/derive-shapes';
+} from '@/lib/features/agent-playground/mission-presentation.types';
 
 const DV_STAGE_ORDER: StageId[] = [
   'leader',

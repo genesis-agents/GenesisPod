@@ -18,7 +18,7 @@ import { MissionDagView } from '../dag/MissionDagView';
 import type {
   AgentLiveState,
   DimensionPipelineState,
-} from '@/lib/features/agent-playground/derive-shapes';
+} from '@/lib/features/agent-playground/mission-presentation.types';
 
 interface Props {
   open: boolean;

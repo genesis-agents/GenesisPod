@@ -112,7 +112,7 @@
               "*/agent-playground/synthesize-artifact",
               "*/agent-playground/drawer-derive"
             ],
-            "message": "W7 cutover: derive.ts / todo-ledger.ts / synthesize-artifact.ts 已删除；drawer-derive 须走 *-shapes 代理。类型走 derive-shapes.ts / todo-ledger-shapes.ts；truth 走 useMissionDetailView / GET /missions/:id/view（canonical view）。"
+            "message": "W7 cutover: derive.ts / todo-ledger.ts / synthesize-artifact.ts 已删除；drawer-derive 须走 *-shapes 代理。类型走 mission-presentation.types.ts / todo-ledger-shapes.ts；truth 走 useMissionDetailView / GET /missions/:id/view（canonical view）。"
           }
         ]
       }
@@ -183,7 +183,7 @@
     {
       "files": [
         "lib/features/agent-playground/drawer-derive.ts",
-        "lib/features/agent-playground/derive-shapes.ts",
+        "lib/features/agent-playground/mission-presentation.types.ts",
         "lib/features/agent-playground/todo-ledger-shapes.ts",
         "lib/features/agent-playground/drawer-derive-shapes.ts"
       ],

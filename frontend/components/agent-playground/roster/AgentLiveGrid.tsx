@@ -23,7 +23,7 @@ import type {
   AgentLiveState,
   AgentRole,
   AgentTraceItem,
-} from '@/lib/features/agent-playground/derive-shapes';
+} from '@/lib/features/agent-playground/mission-presentation.types';
 import { ExpandableText } from '@/components/agent-playground/ui';
 
 const ROLE_META: Record<

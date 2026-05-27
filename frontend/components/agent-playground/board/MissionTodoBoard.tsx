@@ -42,7 +42,7 @@ import type {
 import type {
   AgentLiveState,
   DimensionPipelineState,
-} from '@/lib/features/agent-playground/derive-shapes';
+} from '@/lib/features/agent-playground/mission-presentation.types';
 import { Card, StatusPill, RoleChip } from '@/components/agent-playground/ui';
 import { statusToken } from '@/lib/design/tokens';
 import { friendlyError } from '@/lib/features/agent-playground/friendly-error.util';

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Layers, ChevronDown, ChevronRight } from 'lucide-react';
-import type { MissionState } from '@/lib/features/agent-playground/derive-shapes';
+import type { MissionState } from '@/lib/features/agent-playground/mission-presentation.types';
 import { Card, ExpandableText } from '@/components/agent-playground/ui';
 
 export function DimensionsPanel({ mission }: { mission: MissionState }) {
