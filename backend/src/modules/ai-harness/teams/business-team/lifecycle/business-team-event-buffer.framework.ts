@@ -103,7 +103,16 @@ export abstract class BusinessTeamEventBufferFramework implements IBroadcastAdap
       sinceTs == null
         ? slot.events
         : slot.events.filter((e) => e.timestamp >= sinceTs);
-    return structuredClone(source);
+    // 浅克隆：top-level spread 隔离内部状态。
+    // BufferedEvent.payload 标 readonly，调用方不得 mutate（事件总线契约）。
+    // 原 structuredClone(5000 events) 在 Windows + jest worker 默认堆内存下
+    // 触发 OOM（见 social-event-buffer commit a238185f3）。
+    return source.map((e) => ({ ...e }));
+  }
+
+  /** GC / clear cache helper（social-event-buffer parity）。 */
+  clear(missionId: string): void {
+    this.byMission.delete(missionId);
   }
 
   async readPersisted(
@@ -130,5 +139,8 @@ export abstract class BusinessTeamEventBufferFramework implements IBroadcastAdap
     for (const [k, v] of this.byMission) {
       if (now - v.lastWriteAt > this.ttlMs) this.byMission.delete(k);
     }
+    this.log.debug(
+      `[gc] kept ${this.byMission.size} mission buffers (TTL=${this.ttlMs / 60_000}min)`,
+    );
   }
 }

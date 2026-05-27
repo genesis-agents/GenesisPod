@@ -1160,13 +1160,23 @@ export default function MissionDetailPage() {
 
           {activeTab === 'references' &&
             (() => {
-              const reportFull = persisted?.reportFull ?? view.finalReport;
-              const richCitations =
-                reportFull &&
-                typeof reportFull === 'object' &&
-                isReportArtifact(reportFull)
-                  ? reportFull.citations
-                  : undefined;
+              // 优先取 canonical missionView.reportArtifact (ReportArtifactV2 with rich citations);
+              // 不是 sentinel 时直接吃。否则 fallback 到 view.finalReport.citations (string list)。
+              const canonicalArtifact = missionView?.reportArtifact;
+              const canonicalIsRich =
+                canonicalArtifact &&
+                typeof canonicalArtifact === 'object' &&
+                (canonicalArtifact as { kind?: string }).kind !==
+                  'empty-artifact' &&
+                Array.isArray(
+                  (canonicalArtifact as { citations?: unknown }).citations
+                );
+              const richCitations = canonicalIsRich
+                ? ((canonicalArtifact as { citations: unknown[] })
+                    .citations as Parameters<
+                    typeof ReferencesPanel
+                  >[0]['citations'])
+                : undefined;
               return (
                 <ReferencesPanel
                   citations={richCitations}

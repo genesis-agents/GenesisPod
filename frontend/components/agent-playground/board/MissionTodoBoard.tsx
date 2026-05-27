@@ -769,13 +769,23 @@ export function MissionTodoBoard({
     const parent = workTodos.find((x) => x.id === td.parentId);
     return parent ? depthOf(parent) + 1 : 1;
   };
-  // 3. DFS 展开顺序：root 按 createdAt，每个 root 后紧跟它的递归 children（也按 createdAt）
+  // 3. DFS 展开顺序：preserve backend canonical order（todo-board.projector
+  //    reorderTodoBoardItems 已经按 s1/s2 → dim → chapter → s3+ 排好），
+  //    frontend 不再按 createdAt re-sort（system stage 都同 missionCreatedAt，
+  //    会让 dim 错乱地堆到末尾，见 Screenshot_52 回归）。
   const sorted: MissionTodo[] = [];
+  const rootOrderIndex = new Map<string, number>();
+  workTodos.forEach((t, i) => {
+    if (!t.parentId || !workTodos.some((p) => p.id === t.parentId)) {
+      rootOrderIndex.set(t.id, i);
+    }
+  });
   const roots = workTodos
-    .filter((t) => !t.parentId || !workTodos.some((p) => p.id === t.parentId))
-    .sort((a, b) => a.createdAt - b.createdAt);
+    .filter((t) => rootOrderIndex.has(t.id))
+    .sort((a, b) => rootOrderIndex.get(a.id)! - rootOrderIndex.get(b.id)!);
   const visit = (td: MissionTodo) => {
     sorted.push(td);
+    // children 仍按 createdAt 排（retry 子任务的产生顺序）
     const kids = (childrenByParent.get(td.id) ?? []).sort(
       (a, b) => a.createdAt - b.createdAt
     );
