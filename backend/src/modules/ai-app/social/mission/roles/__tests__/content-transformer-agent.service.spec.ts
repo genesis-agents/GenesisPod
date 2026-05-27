@@ -1,12 +1,14 @@
 /**
- * Unit tests for ContentTransformerService
+ * Unit tests for ContentTransformerAgentService (roles/content-transformer-agent.service.ts)
  *
  * Mirrors composer.service.spec.ts pattern.
  * SocialAgentInvoker is fully mocked.
+ *
+ * NOT the legacy services/content-transformer.service.ts (sync workflow).
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { ContentTransformerService } from "../content-transformer.service";
+import { ContentTransformerAgentService } from "../content-transformer-agent.service";
 import {
   SocialAgentInvoker,
   type SocialInvocationContext,
@@ -57,20 +59,22 @@ const mockInvoker = {
 // Suite
 // ---------------------------------------------------------------------------
 
-describe("ContentTransformerService", () => {
-  let service: ContentTransformerService;
+describe("ContentTransformerAgentService (roles/content-transformer-agent.service.ts)", () => {
+  let service: ContentTransformerAgentService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ContentTransformerService,
+        ContentTransformerAgentService,
         { provide: SocialAgentInvoker, useValue: mockInvoker },
       ],
     }).compile();
 
-    service = module.get<ContentTransformerService>(ContentTransformerService);
+    service = module.get<ContentTransformerAgentService>(
+      ContentTransformerAgentService,
+    );
   });
 
   // -------------------------------------------------------------------------
