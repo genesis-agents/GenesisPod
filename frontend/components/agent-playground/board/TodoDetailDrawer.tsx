@@ -29,8 +29,8 @@ import { toast, confirm } from '@/stores';
 import type {
   MissionTodo,
   MissionTodoNarrativeItem,
-} from '@/lib/features/agent-playground/todo-ledger-shapes';
-import { deriveLayerBreadcrumb } from '@/lib/features/agent-playground/todo-ledger-shapes';
+} from '@/lib/features/agent-playground/mission-todo.types';
+import { deriveLayerBreadcrumb } from '@/lib/features/agent-playground/mission-todo.types';
 import type {
   AgentLiveState,
   AgentTraceItem,

@@ -38,7 +38,7 @@ import {
   TodoDetailDrawer,
 } from '@/components/agent-playground';
 // W7 cutover: deriveTodoLedger 已删除，todoLedger 由 canonical missionView.todoBoard.items 直接消费。
-import type { MissionTodo } from '@/lib/features/agent-playground/todo-ledger-shapes';
+import type { MissionTodo } from '@/lib/features/agent-playground/mission-todo.types';
 import { cn } from '@/lib/utils/common';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 // 注：tab 切换由 MissionDetailFrame 内部用 canonical <Tabs> 渲染；这里保留导入
@@ -259,9 +259,11 @@ export default function MissionDetailPage() {
   // isResumable 取自 canonical view（backend ResumeRerunPolicyService 已决策）。
   const isResumable = missionView?.mission?.resumable ?? false;
 
-  // ★ Terminal refetch: backend stream 尚未注入 refreshHints（§6.7.3 follow-up），
-  //   先在前端 trigger refreshMissionView()。三连拉（立即 + 800 + 2500）让 S11
-  //   mission-persist 写库完成后能拿到 reportFull / token / cost 终态数值。
+  // ★ Terminal refetch: §6.7.3 refreshHints 后端已注入（socket-broadcast.adapter
+  //   按 event.type suffix 派生 mission family hint），applyRefreshHints 会自动 refetch。
+  //   保留三连拉（立即 + 800 + 2500）专门处理 S11 mission-persist 的 race condition：
+  //   mission:completed 事件可能比 reportFull 写库早 800ms～2s 到达前端，单次 refetch
+  //   可能拿到 reportFull=null。三连拉确保 race window 内能拿到最终态。
   const lastTerminalRef = useRef<string | null>(null);
   useEffect(() => {
     if (invalidId) return;

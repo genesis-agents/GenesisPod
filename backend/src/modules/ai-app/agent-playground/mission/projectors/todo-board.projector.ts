@@ -278,9 +278,13 @@ export function projectTodoBoard(
   const state = makeBuilder();
   const missionCreatedAt = new Date(row.startedAt).getTime();
 
-  // 1. 不再 pre-allocate 14 stage —— 让 stage:started 事件驱动插入，
-  //    保持自然事件流顺序（s1 → s2 → dims → s3 → ... → reconciler-gap → s6 → ...）。
-  //    Mission terminal cleanup 时（步骤 4）补全缺失的 stage placeholder。
+  // 1. Pre-allocate 14 个 stage placeholder（即使没事件也展示完整 stepper；
+  //    legacy mission 无 stage:started 事件支持）。事件后续会更新 status / startedAt 等。
+  for (const preset of SYSTEM_STAGE_PRESETS) {
+    upsert(state, `system:${preset.id}`, () =>
+      makeSystemStageTodo(preset, missionCreatedAt),
+    );
+  }
 
   // 2. 遍历 events 应用 case 群
   for (const ev of events) {
@@ -1522,13 +1526,10 @@ export function projectTodoBoard(
     }
   }
 
-  // 5. backfill 缺失的 stage placeholder：events 没有覆盖到的 stage 补在「自然位置」。
-  //    自然位置 = 在该 stage 的 stepId 顺序中应当出现的位置。
-  backfillMissingStagePlaceholders(state, missionCreatedAt);
-
-  // 6. items 直接走 state.order（event-driven 自然顺序），不再后处理 reorder。
-  //    自然顺序：s1 → s2 → dims (插入于 s2 期间) → s3 → ... → reconciler-gap (插入于 s5 期间) → ...
-  const items = state.order.map((id) => state.todos.get(id)!);
+  // 5. items 按「锚定位置」排序：把每个 todo 映射到一个 sortKey（s1=1.0、s2=2.0、
+  //    dim=2.5、s3=3.0、retry=2.5x、chapter=7.5、reconciler-gap=5.5、critic-blindspot=9.5 ...），
+  //    然后按 sortKey 升序输出。这样无论事件以何种顺序到达，UI 顺序都稳定可预测。
+  const items = sortByAnchor(state);
 
   return {
     kind: "todo-board",
@@ -1539,74 +1540,76 @@ export function projectTodoBoard(
 }
 
 /**
- * Backfill 缺失的 stage placeholder（events 没 emit / 旧 mission 没事件支持）。
+ * 锚定位置排序：每个 todo 映射到一个 sortKey（小数位置标识它该出现在哪个 stage 期间）。
  *
- * 按 SYSTEM_STAGE_PRESETS 顺序遍历，若某 stage 在 state.order 中缺失，则插入到
- * 「下一个已存在 stage」之前。这样自然顺序保持：每个 stage 出现在它该出现的位置。
+ * 规则：
+ *   - system:s{N}-xxx → ordinal（s1=1, s2=2, ..., s12=14；s8b=8.5, s9b=10.5）
+ *   - scope dimension（leader-plan 派遣 / leader-chat-create 追加 / retry）→ 2.5
+ *     （在 s2-leader-plan 之后、s3-researchers 之前，与 deriveTodoLedger 原顺序一致）
+ *   - scope chapter → 7.5（s7-writer-outline 之后、s8-writer-draft 之前）
+ *   - scope review (critic-blindspot / reviewer-revise) → 11.5（s9b 之后、s10 之前）
+ *   - scope mission, origin=reconciler-gap → 5.5（s5-reconciler 之后、s6-analyst 之前）
+ *   - 其他 scope=mission → 13.0（落到 s12 之后）
  *
- * 对于已存在的 stage（事件驱动创建），保留其插入顺序不动。
+ * 同 sortKey 内按 createdAt 升序，确保 dim1/dim2 仍按事件到达顺序排列。
+ * Tie-break: scope='dimension' parent dim 排在自己的 retry child 之前（用 parentId 链）。
  */
-function backfillMissingStagePlaceholders(
-  state: BuilderState,
-  missionCreatedAt: number,
-): void {
-  // 当前 state.order 中所有 system stage 的位置索引
-  const systemIndices = new Map<string, number>();
-  state.order.forEach((id, i) => {
-    if (id.startsWith("system:")) {
-      const stageId = id.slice("system:".length);
-      systemIndices.set(stageId, i);
+function sortByAnchor(state: BuilderState): TodoBoardEntry[] {
+  const all = state.order.map((id) => state.todos.get(id)!);
+  const STAGE_ORDINAL: Record<string, number> = {
+    "s1-budget": 1.0,
+    "s2-leader-plan": 2.0,
+    "s3-researchers": 3.0,
+    "s4-leader-assess": 4.0,
+    "s5-reconciler": 5.0,
+    "s6-analyst": 6.0,
+    "s7-writer-outline": 7.0,
+    "s8-writer-draft": 8.0,
+    "s8b-quality-enhancement": 8.5,
+    "s9-critic-l4": 9.0,
+    "s9b-objective-evaluation": 9.5,
+    "s10-leader-signoff": 10.0,
+    "s11-persist": 11.0,
+    "s12-self-evolution": 12.0,
+  };
+  function sortKey(t: TodoBoardEntry): number {
+    if (t.scope === "system" && t.systemStageId) {
+      return STAGE_ORDINAL[t.systemStageId] ?? 13.0;
     }
+    if (t.scope === "dimension") return 2.5;
+    if (t.scope === "chapter") return 7.5;
+    if (t.scope === "review") return 11.5;
+    if (t.scope === "mission" && t.origin === "reconciler-gap") return 5.5;
+    return 13.0;
+  }
+  // 父子树指引（DFS）：parent 紧跟 children
+  const parentOf = new Map<string, TodoBoardEntry>();
+  for (const t of all) parentOf.set(t.id, t);
+  const childrenByParent = new Map<string, TodoBoardEntry[]>();
+  for (const t of all) {
+    if (t.parentId) {
+      const arr = childrenByParent.get(t.parentId) ?? [];
+      arr.push(t);
+      childrenByParent.set(t.parentId, arr);
+    }
+  }
+  // 仅 root（无 parent，或父不在集合内）参与一级排序，children 在 DFS 时按 createdAt 紧随父出现
+  const roots = all.filter((t) => !t.parentId || !parentOf.has(t.parentId));
+  roots.sort((a, b) => {
+    const k = sortKey(a) - sortKey(b);
+    if (k !== 0) return k;
+    return a.createdAt - b.createdAt;
   });
-
-  // 按 SYSTEM_STAGE_PRESETS 顺序，识别缺失的 stage 并标记应插入位置
-  const presetOrder = SYSTEM_STAGE_PRESETS.map((p) => p.id);
-  const newOrder: string[] = [];
-  let presetIdx = 0;
-
-  for (let orderIdx = 0; orderIdx < state.order.length; orderIdx++) {
-    const id = state.order[orderIdx];
-    // 如果当前位置是 system stage，先把它前面（preset 顺序中靠前但未出现的）补全
-    if (id.startsWith("system:")) {
-      const currentStageId = id.slice("system:".length);
-      const currentPresetPos = presetOrder.indexOf(currentStageId);
-      while (presetIdx < currentPresetPos) {
-        const missingStageId = presetOrder[presetIdx];
-        if (!systemIndices.has(missingStageId)) {
-          const preset = SYSTEM_STAGE_PRESETS.find(
-            (p) => p.id === missingStageId,
-          );
-          if (preset) {
-            const sid = `system:${preset.id}`;
-            state.todos.set(sid, makeSystemStageTodo(preset, missionCreatedAt));
-            newOrder.push(sid);
-          }
-        }
-        presetIdx++;
-      }
-      newOrder.push(id);
-      presetIdx = currentPresetPos + 1;
-    } else {
-      newOrder.push(id);
-    }
-  }
-
-  // 末尾补全：preset 还有剩的 stage 全部追加（如 mission 还没跑到 s12）
-  while (presetIdx < presetOrder.length) {
-    const missingStageId = presetOrder[presetIdx];
-    if (!systemIndices.has(missingStageId)) {
-      const preset = SYSTEM_STAGE_PRESETS.find((p) => p.id === missingStageId);
-      if (preset) {
-        const sid = `system:${preset.id}`;
-        state.todos.set(sid, makeSystemStageTodo(preset, missionCreatedAt));
-        newOrder.push(sid);
-      }
-    }
-    presetIdx++;
-  }
-
-  state.order.length = 0;
-  state.order.push(...newOrder);
+  const out: TodoBoardEntry[] = [];
+  const visit = (td: TodoBoardEntry): void => {
+    out.push(td);
+    const kids = (childrenByParent.get(td.id) ?? [])
+      .slice()
+      .sort((a, b) => a.createdAt - b.createdAt);
+    for (const k of kids) visit(k);
+  };
+  for (const r of roots) visit(r);
+  return out;
 }
 
 // ============================================================================

@@ -1,17 +1,19 @@
 /**
- * todo-ledger-shapes.ts — Frontend MissionTodo shape types + UI-only helper
+ * mission-todo.types.ts — Frontend MissionTodo TYPE MIRROR + UI-only helper
  *
  * 落地依据：thinning plan §B4-4 / §B5-1 / §6.6.3 / §7.2
  *
- * **2026-05-26 W7 cutover**: todo-ledger.ts 已删除（deriveTodoLedger truth function
- * 由 backend `TodoBoardProjector` 接管，§B3-1 / §B5-1）。本文件是唯一 frontend
- * MissionTodo type source。
+ * **2026-05-26 重命名收口**：原 todo-ledger-shapes.ts。"ledger" 容易暗示 truth
+ * derivation；本文件实际是 frontend MissionTodo TYPE MIRROR，仅供组件 prop 标注，
+ * 不携带任何 truth derivation。
  *
- * **§3.4 单轨约束**: 本文件只包含
- *   1. MissionTodo 形状类型（mirror backend `TodoBoardEntry`，去掉 backend-only 字段
- *      如 retryPipelineKey）
- *   2. UI-only helper：deriveLayerBreadcrumb（§6.6.3 second list / §7.2 raw event
- *      timeline display 类，不携带 mission truth）
+ * **本文件包含**：
+ *   1. MissionTodo 形状类型（mirror backend `TodoBoardEntry`，省 retryPipelineKey 等
+ *      backend-only 字段）
+ *   2. UI-only helper：deriveLayerBreadcrumb（§6.6.3 second list / §7.2 UI-only helper）
+ *
+ * **truth source**: backend canonical view `missionView.todoBoard.items: TodoBoardEntry[]`。
+ *   page.tsx 将其映射为 MissionTodo[]，分发到组件。
  */
 
 // ============================================================================

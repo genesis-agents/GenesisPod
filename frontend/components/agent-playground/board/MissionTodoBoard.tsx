@@ -38,7 +38,7 @@ import type {
   MissionTodo,
   MissionTodoStatus,
   MissionTodoAssignee,
-} from '@/lib/features/agent-playground/todo-ledger-shapes';
+} from '@/lib/features/agent-playground/mission-todo.types';
 import type {
   AgentLiveState,
   DimensionPipelineState,
