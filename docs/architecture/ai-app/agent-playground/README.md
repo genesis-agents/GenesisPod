@@ -66,6 +66,81 @@ runtime contract material, rerun design, and cost strategy for
 
 ---
 
+## Guardrail mechanism — five hard-rule categories
+
+Architecture is enforced by **executable rules**, not by review consensus. Below
+each category links to the spec / lint id that enforces it.
+
+### 1. 目录规则 (Directory placement)
+
+| Rule                                                                                                           | Enforcement                                                            |
+| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Backend canonical truth lives in `api/contracts` + `mission/query` + `mission/projectors` + `mission/services` | `backend/src/__tests__/architecture/canonical-view-pattern.spec.ts`    |
+| `mission-presentation.types.ts` replaces deleted `derive-shapes.ts`                                            | `frontend/__tests__/protection-net/canonical-mission-truth.spec.ts` T4 |
+| `mission-todo.types.ts` replaces deleted `todo-ledger-shapes.ts`                                               | same spec T5                                                           |
+| Harness `business-team/abstractions/` retains business-agnostic types                                          | `backend/src/__tests__/architecture/layer-boundaries.spec.ts` R0-A5    |
+
+### 2. 依赖方向规则 (Dependency direction)
+
+| Rule                                                                                                 | Enforcement                                |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| L4 → L3 → L2.5 → L2 → L1 strict                                                                      | `layer-boundaries.spec.ts` 7 assertions    |
+| `ai-app/**` only imports `ai-engine/**` via `facade/index.ts`                                        | same spec + ESLint `no-restricted-imports` |
+| `ai-harness/**` never contains business names (`playground` / `topic-insights` / `agent-playground`) | `layer-boundaries.spec.ts` R0-A5           |
+| `ai-engine/**` never imports `ai-harness/**`                                                         | same spec                                  |
+
+### 3. Authority 单点规则 (Single-source authority)
+
+| Concept                                           | Owning layer                                                                      |
+| ------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `mission.status` outward enum                     | backend canonical view (`mission-view.projector.ts`)                              |
+| Todo truth                                        | backend `<app>-todo-board.projector.ts` (B7 freeze)                               |
+| Artifact canonicalization (v1 → v2 + R2 off-load) | backend `ArtifactComposerService` (playground) / `composeSocialArtifact` (social) |
+| Resume / rerun policy                             | `BusinessTeamResumeRerunPolicyFramework`                                          |
+| Frontend mission truth                            | `useMissionDetailView` (single hook entry)                                        |
+| Stream immediacy                                  | `useAgentPlaygroundStream` (no truth)                                             |
+| Raw event trace parsing                           | frontend §7.2 presentation layer (`drawer-derive.ts`)                             |
+
+Enforcement: `canonical-view-pattern.spec.ts` invariants I1-I6 + `canonical-mission-truth.spec.ts` T2/T3.
+
+### 4. 禁止回流规则 (Anti-resurrection)
+
+| Forbidden                                                                      | Enforcement                                                |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `frontend/lib/features/agent-playground/derive.ts`                             | T1 spec + ESLint pattern block                             |
+| `todo-ledger.ts` / `synthesize-artifact.ts` / `view-to-derived.shim.ts`        | T1 spec + ESLint                                           |
+| Old `derive-shapes.ts` / `todo-ledger-shapes.ts` filenames                     | T1 spec (the rename was the cutover)                       |
+| `page.tsx` re-introducing `getMissionDetail` / `listResumableMissions` imports | T3 spec (assertion that page.tsx import map excludes them) |
+
+### 5. 行为验证规则 (Behavior verification, post-compile semantic drift detection)
+
+| Layer                                     | Spec                                                                   |
+| ----------------------------------------- | ---------------------------------------------------------------------- |
+| Contract shape                            | `fixture-replay.spec.ts` — 9 fixtures × 12 invariants = 107 assertions |
+| Endpoint baseline                         | `playground-frontend-contract.spec.ts` (path / status / shape lock)    |
+| Event registration ↔ frontend consumption | `playground-event-contract.spec.ts`                                    |
+| §6.7.3 multi-pod refresh hint injection   | `socket-broadcast.adapter.spec.ts` (14 tests)                          |
+| Cross-app pattern parity                  | `canonical-view-pattern.spec.ts` (23 tests)                            |
+| Frontend single-source truth              | `canonical-mission-truth.spec.ts` (18 tests)                           |
+
+### CI / pre-push gates
+
+| Gate                                                              | Stage                    |
+| ----------------------------------------------------------------- | ------------------------ |
+| ESLint `no-restricted-imports`                                    | lint-staged (pre-commit) |
+| `tsc --noEmit` backend + frontend                                 | pre-push step 1          |
+| `npm run verify:arch` (layer-boundaries + canonical-view-pattern) | pre-push step 0          |
+| Changed-files tests                                               | pre-push step 4          |
+| god-class size guard (>2500 LOC growth wall)                      | pre-push step 0a         |
+| i18n placeholder audit                                            | pre-push step 5          |
+| Backend runtime deps audit                                        | pre-push step 6          |
+
+If any gate fails, `git push` is rejected. No `--no-verify` bypass is allowed by
+CLAUDE.md §"Git 安全操作" unless the failure is environmental (commitlint
+missing, etc.) and explicitly granted by the user for that single push.
+
+---
+
 ## Notes
 
 - Historical or superseded material should go under [`_archive/`](./_archive/).
