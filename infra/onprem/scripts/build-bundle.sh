@@ -239,6 +239,72 @@ SIZE="$(du -h "$TARBALL" | awk '{print $1}')"
 # 清理 staging
 rm -rf "$STAGING"
 
+# ── 自动建 git tag + GitHub Release（仅当 VERSION 是 vX.Y.Z 形态且非 dry-run）
+#    用 gh CLI: 已登录的 PAT 必须有 repo:write 权限 (release create)。
+#    跳过条件：
+#      - VERSION 非 semver 形态 (e.g. SHA / -dirty 后缀)
+#      - --no-push 模式 (本地验证用，不动远端)
+#      - GH_NO_RELEASE=1 (调用方显式拒绝)
+#      - gh CLI 不存在
+if [ "$PUSH" -eq 1 ] && [ "${GH_NO_RELEASE:-0}" != "1" ] \
+   && echo "$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+  if command -v gh >/dev/null 2>&1; then
+    log "建 git tag + GitHub Release..."
+    # tag：本地不存在就建
+    if ! git -C "$PROJECT_ROOT" rev-parse "refs/tags/${VERSION}" >/dev/null 2>&1; then
+      git -C "$PROJECT_ROOT" tag "$VERSION"
+      log "本地 tag $VERSION 已建"
+    fi
+    # tag：远端不存在就推
+    if ! git -C "$PROJECT_ROOT" ls-remote --tags origin "$VERSION" 2>/dev/null | grep -q "$VERSION"; then
+      if git -C "$PROJECT_ROOT" push origin "$VERSION" >/dev/null 2>&1; then
+        log "tag $VERSION 已推到 origin"
+      else
+        warn "tag $VERSION push 失败（pre-push hook 拒绝或网络问题），release 仍可建"
+      fi
+    fi
+    # release：已存在就跳过（gh release view 退非零 = 不存在）
+    if gh release view "$VERSION" -R "$(git -C "$PROJECT_ROOT" remote get-url origin | sed -E 's#.*github.com[:/](.+)\.git#\1#')" >/dev/null 2>&1; then
+      log "GitHub Release $VERSION 已存在，跳过 create"
+    else
+      RELEASE_NOTES=$(cat <<RN_EOF
+## On-Prem Release ${VERSION}
+
+### Container images (ghcr.io/${GHCR_OWNER})
+All images pushed with both \`:${VERSION}\` and \`:latest\` tags.
+
+- \`${GHCR_BACKEND}\`
+- \`${GHCR_FRONTEND}\`
+- \`${GHCR_AI_SERVICE}\`
+- \`${GHCR_INSTALLER}\`
+
+### Customer install
+\`\`\`bash
+docker login ghcr.io -u <github-user>
+docker run --rm -v "\$(pwd):/out" ghcr.io/${GHCR_OWNER}/genesis-installer:latest
+cd genesis-config-${VERSION} && bash genesis.sh install
+\`\`\`
+
+\`.env.production.example\` defaults to \`:latest\` — customers don't need to pin.
+
+### Bundle
+SHA-256: \`${SHA}\`
+RN_EOF
+)
+      if gh release create "$VERSION" "$TARBALL" \
+           --title "$VERSION" --notes "$RELEASE_NOTES" >/dev/null 2>&1; then
+        log "GitHub Release $VERSION 已创建（含 ${BUNDLE_NAME}.tar.gz asset）"
+      else
+        warn "gh release create 失败（gh 未登录 / repo:write 缺失 / tag 不存在）"
+        warn "手动建：${C_BOLD}gh release create $VERSION $TARBALL --title $VERSION${C_RESET}"
+      fi
+    fi
+  else
+    warn "未检测到 gh CLI，跳过自动 release 创建"
+    warn "安装：${C_BOLD}winget install GitHub.cli${C_RESET} 或 https://cli.github.com/"
+  fi
+fi
+
 # ── 报告 ──────────────────────────────────────────────────
 cat <<EOF
 
