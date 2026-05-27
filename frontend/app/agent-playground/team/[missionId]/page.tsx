@@ -1214,7 +1214,20 @@ export default function MissionDetailPage() {
                 todos={todoLedger}
                 dimensionPipelines={view.dimensionPipelines}
               />
-              <MemoryIndexPanel memory={view.memory} />
+              <MemoryIndexPanel
+                memory={view.memory}
+                missionCompleted={
+                  !!(
+                    view.mission.completedAt ||
+                    view.mission.failedAt ||
+                    persisted?.status === 'completed' ||
+                    persisted?.status === 'quality-failed' ||
+                    persisted?.status === 'failed' ||
+                    persisted?.status === 'rejected' ||
+                    persisted?.status === 'cancelled'
+                  )
+                }
+              />
               <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                 <div className="mb-3 flex items-center gap-2">
                   <Database className="h-4 w-4 text-emerald-500" />

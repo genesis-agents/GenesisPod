@@ -56,11 +56,14 @@ function SummaryStrip({
   costUsd,
   totalCalls,
   avgLatencyMs,
+  hasLatencyData,
 }: {
   totalTokens: number;
   costUsd: number;
   totalCalls: number;
   avgLatencyMs: number;
+  /** true when at least one observation with latencyMs exists */
+  hasLatencyData: boolean;
 }) {
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -87,8 +90,12 @@ function SummaryStrip({
       />
       <StatCard
         label="平均延迟"
-        value={fmtLatency(avgLatencyMs)}
-        hint="工具单次调用平均"
+        value={hasLatencyData ? fmtLatency(avgLatencyMs) : '—'}
+        hint={
+          hasLatencyData
+            ? '工具单次调用平均（按 observation 事件计）'
+            : '无 latencyMs 观测 — backend 未发出 observation.latencyMs'
+        }
         icon={<Gauge className="h-5 w-5" />}
         tone="emerald"
       />
@@ -105,6 +112,9 @@ interface ModelRow {
   pct: number;
   estCostUsd: number;
 }
+const UNKNOWN_MODEL_KEY = '(unknown)';
+const UNKNOWN_MODEL_LABEL = '未识别模型 · backend modelId 缺失';
+
 function buildModelDistribution(
   agents: AgentLiveState[],
   totalTokensFallback: number
@@ -119,7 +129,7 @@ function buildModelDistribution(
       (s, t) => s + (t.tokensUsed ?? 0),
       0
     );
-    const m = a.modelId || '(unknown)';
+    const m = a.modelId || UNKNOWN_MODEL_KEY;
     const cur = map.get(m) ?? {
       callCount: 0,
       agentSet: new Set(),
@@ -138,7 +148,7 @@ function buildModelDistribution(
     [...map.values()].reduce((s, v) => s + v.callCount, 0) || 1;
   const totalBase =
     totalTraceTokens > 0 ? totalTraceTokens : Math.max(0, totalTokensFallback);
-  return [...map.entries()]
+  const allRows = [...map.entries()]
     .map(([modelId, v]) => {
       const estTokens =
         totalTraceTokens > 0
@@ -154,6 +164,18 @@ function buildModelDistribution(
       };
     })
     .sort((a, b) => b.estTokens - a.estTokens);
+
+  const hasRealRows = allRows.some((r) => r.modelId !== UNKNOWN_MODEL_KEY);
+  if (hasRealRows) {
+    // Drop unknown rows when real model data is present — unknown is noise.
+    return allRows.filter((r) => r.modelId !== UNKNOWN_MODEL_KEY);
+  }
+  // All rows are unknown: keep one row but relabel it so the user understands
+  // it's a data availability issue, not a misconfiguration.
+  return allRows.slice(0, 1).map((r) => ({
+    ...r,
+    modelId: UNKNOWN_MODEL_LABEL,
+  }));
 }
 
 function ModelDistributionTable({ rows }: { rows: ModelRow[] }) {
@@ -401,15 +423,23 @@ interface ToolRow {
   totalLatencyMs: number;
   avgLatencyMs: number;
   errorCount: number;
+  /** true = at least one observation event was recorded for this tool */
+  hasObservation: boolean;
 }
 function buildToolStats(agents: AgentLiveState[]): ToolRow[] {
   // ★ 2026-05-27 (Screenshot_21) 修：tool 调用计数在 `agent:action`，但延迟 / 错误
   //   在配对的 `agent:observation`（baseline derive.ts 是这个结构）。原实现只读
   //   action.latencyMs → 永远是 0 → 总延迟 / 平均 列全空。
   //   现在：action.toolId 计算 callCount，observation 同 toolId 累加 latency/error。
+  //   hasObservation 追踪是否有 observation 事件到达，用于区分「无数据」vs「真实 0」。
   const map = new Map<
     string,
-    { callCount: number; totalLatency: number; errors: number }
+    {
+      callCount: number;
+      totalLatency: number;
+      errors: number;
+      obsCount: number;
+    }
   >();
   for (const a of agents) {
     for (const t of a.trace) {
@@ -419,11 +449,13 @@ function buildToolStats(agents: AgentLiveState[]): ToolRow[] {
         callCount: 0,
         totalLatency: 0,
         errors: 0,
+        obsCount: 0,
       };
       if (t.kind === 'action') {
         cur.callCount += 1;
       } else {
         // observation
+        cur.obsCount += 1;
         if (typeof t.latencyMs === 'number') cur.totalLatency += t.latencyMs;
         if (t.error) cur.errors += 1;
       }
@@ -435,8 +467,9 @@ function buildToolStats(agents: AgentLiveState[]): ToolRow[] {
       toolId,
       callCount: v.callCount,
       totalLatencyMs: v.totalLatency,
-      avgLatencyMs: v.totalLatency / Math.max(1, v.callCount),
+      avgLatencyMs: v.obsCount > 0 ? v.totalLatency / v.obsCount : 0,
       errorCount: v.errors,
+      hasObservation: v.obsCount > 0,
     }))
     .sort((a, b) => b.totalLatencyMs - a.totalLatencyMs);
 }
@@ -446,8 +479,11 @@ function ToolLatencyTable({ rows }: { rows: ToolRow[] }) {
   // ★ 2026-05-02 (#9 用户实证)：工具的使用应该是矩阵表 — 加成功率 + 总调用合计行
   const totalCalls = rows.reduce((s, r) => s + r.callCount, 0);
   const totalErrors = rows.reduce((s, r) => s + r.errorCount, 0);
+  // Only rows that have observation events contribute to error counting.
+  const rowsWithObs = rows.filter((r) => r.hasObservation);
+  const obsCallCount = rowsWithObs.reduce((s, r) => s + r.callCount, 0);
   const overallSuccessRate =
-    totalCalls > 0 ? (1 - totalErrors / totalCalls) * 100 : 0;
+    obsCallCount > 0 ? (1 - totalErrors / obsCallCount) * 100 : null;
   return (
     <Card className="overflow-hidden" bordered>
       <div className="border-b border-gray-100 px-4 py-2.5">
@@ -456,18 +492,24 @@ function ToolLatencyTable({ rows }: { rows: ToolRow[] }) {
           <h3 className="text-sm font-semibold text-gray-900">工具调用矩阵</h3>
           <span className="text-xs text-gray-500">
             · 共 {rows.length} 个工具 / {totalCalls} 次调用 ·{' '}
-            <span
-              className={cn(
-                'font-medium',
-                overallSuccessRate >= 90
-                  ? 'text-emerald-600'
-                  : overallSuccessRate >= 70
-                    ? 'text-amber-600'
-                    : 'text-red-600'
-              )}
-            >
-              成功率 {overallSuccessRate.toFixed(0)}%
-            </span>
+            {overallSuccessRate === null ? (
+              <span className="font-medium italic text-gray-400">
+                成功率未知
+              </span>
+            ) : (
+              <span
+                className={cn(
+                  'font-medium',
+                  overallSuccessRate >= 90
+                    ? 'text-emerald-600'
+                    : overallSuccessRate >= 70
+                      ? 'text-amber-600'
+                      : 'text-red-600'
+                )}
+              >
+                成功率 {overallSuccessRate.toFixed(0)}%
+              </span>
+            )}
           </span>
         </div>
       </div>
@@ -504,8 +546,15 @@ function ToolLatencyTable({ rows }: { rows: ToolRow[] }) {
         </THead>
         <TBody className="divide-y divide-gray-100">
           {rows.map((r) => {
-            const successRate =
-              r.callCount > 0 ? (1 - r.errorCount / r.callCount) * 100 : 0;
+            // When no observation events arrived we cannot derive latency, errors, or
+            // success-rate — show explicit "no observation" placeholders instead of
+            // misleading zeros / 100 %.
+            const noObs = !r.hasObservation;
+            const successRate = noObs
+              ? null
+              : r.callCount > 0
+                ? (1 - r.errorCount / r.callCount) * 100
+                : null;
             return (
               <Tr key={r.toolId} className="hover:bg-emerald-50/30">
                 <Td className="px-3 py-2">
@@ -516,33 +565,57 @@ function ToolLatencyTable({ rows }: { rows: ToolRow[] }) {
                 <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
                   {r.callCount}
                 </Td>
-                <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
-                  {fmtLatency(r.totalLatencyMs)}
+                <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-500">
+                  {noObs ? (
+                    <span className="text-[10px] italic text-gray-400">
+                      无观测
+                    </span>
+                  ) : (
+                    fmtLatency(r.totalLatencyMs)
+                  )}
                 </Td>
-                <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
-                  {fmtLatency(r.avgLatencyMs)}
+                <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-500">
+                  {noObs ? (
+                    <span className="text-[10px] italic text-gray-400">
+                      无观测
+                    </span>
+                  ) : (
+                    fmtLatency(r.avgLatencyMs)
+                  )}
                 </Td>
                 <Td
                   className={cn(
                     'font-mono px-2 py-2 text-right tabular-nums',
-                    r.errorCount > 0
-                      ? 'font-semibold text-red-600'
-                      : 'text-gray-400'
+                    noObs
+                      ? 'text-gray-400'
+                      : r.errorCount > 0
+                        ? 'font-semibold text-red-600'
+                        : 'text-gray-400'
                   )}
                 >
-                  {r.errorCount}
+                  {noObs ? (
+                    <span className="text-[10px] italic">—</span>
+                  ) : (
+                    r.errorCount
+                  )}
                 </Td>
                 <Td
                   className={cn(
                     'font-mono px-2 py-2 text-right tabular-nums',
-                    successRate >= 90
-                      ? 'text-emerald-600'
-                      : successRate >= 70
-                        ? 'text-amber-600'
-                        : 'text-red-600'
+                    successRate === null
+                      ? 'text-gray-400'
+                      : successRate >= 90
+                        ? 'text-emerald-600'
+                        : successRate >= 70
+                          ? 'text-amber-600'
+                          : 'text-red-600'
                   )}
                 >
-                  {successRate.toFixed(0)}%
+                  {successRate === null ? (
+                    <span className="text-[10px] italic">未知</span>
+                  ) : (
+                    `${successRate.toFixed(0)}%`
+                  )}
                 </Td>
               </Tr>
             );
@@ -761,15 +834,21 @@ export function ComputeUsagePanel({
     (s, a) => s + a.trace.filter((t) => t.kind === 'action' && t.toolId).length,
     0
   );
-  const totalLatency = agents.reduce(
-    (s, a) =>
-      s +
-      a.trace
-        .filter((t) => t.kind === 'action' && t.toolId)
-        .reduce((s2, t) => s2 + (t.latencyMs ?? 0), 0),
-    0
+  // latency lives on observation events, not action events
+  const { totalLatency, obsCount } = agents.reduce(
+    (acc, a) => {
+      for (const t of a.trace) {
+        if (t.kind === 'observation' && t.toolId) {
+          acc.obsCount += 1;
+          if (typeof t.latencyMs === 'number') acc.totalLatency += t.latencyMs;
+        }
+      }
+      return acc;
+    },
+    { totalLatency: 0, obsCount: 0 }
   );
-  const avgLatency = totalCalls > 0 ? totalLatency / totalCalls : 0;
+  const hasLatencyData = obsCount > 0;
+  const avgLatency = hasLatencyData ? totalLatency / obsCount : 0;
   const modelRows = buildModelDistribution(agents, cost.tokensUsed);
   const toolRows = buildToolStats(agents);
 
@@ -780,6 +859,7 @@ export function ComputeUsagePanel({
         costUsd={cost.costUsd}
         totalCalls={totalCalls}
         avgLatencyMs={avgLatency}
+        hasLatencyData={hasLatencyData}
       />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ModelDistributionTable rows={modelRows} />

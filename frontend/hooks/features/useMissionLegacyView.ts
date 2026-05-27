@@ -123,8 +123,21 @@ function dvProjectStages(view: MissionDetailView): StageState[] {
   const startedAtByStage = new Map<StageId, number>();
   const endedAtByStage = new Map<StageId, number>();
   const attemptsByStage = new Map<StageId, number>();
+  // ★ 2026-05-27 Screenshot_35 修复：mission 已终态 (completed / quality-failed
+  //   / failed / cancelled) 仍残留个别 stage.status === 'running' 时，DAG 节点
+  //   popup 会显示"运行中"。前端做 terminal sweep，让 status 与 mission 终态一致。
+  const missionStatus = view.mission.status;
+  const isTerminalSuccess =
+    missionStatus === 'completed' || missionStatus === 'quality-failed';
+  const isTerminalFailure =
+    missionStatus === 'failed' || missionStatus === 'cancelled';
   for (const s of view.stages) {
-    stepStates.set(s.id, dvMapBackendStageStatusToStep(s.status));
+    let effectiveStatus = s.status;
+    if (effectiveStatus === 'running') {
+      if (isTerminalSuccess) effectiveStatus = 'done';
+      else if (isTerminalFailure) effectiveStatus = 'failed';
+    }
+    stepStates.set(s.id, dvMapBackendStageStatusToStep(effectiveStatus));
     const stageId = dvCanonicalStageToFrontendStage(s.id);
     if (!stageId) continue;
     const startedTs = s.startedAt ? Date.parse(s.startedAt) : undefined;
