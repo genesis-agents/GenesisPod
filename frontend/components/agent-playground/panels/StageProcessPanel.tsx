@@ -236,21 +236,60 @@ export function StageProcessPanel({ processTrace, stageLabel }: Props) {
                         {t.text ?? '（无文本）'}
                       </span>
                     )}
-                    {t.kind === 'action' && (
-                      <span className="text-gray-700">
-                        调用工具{' '}
-                        <code className="rounded bg-violet-50 px-1 text-violet-700">
-                          {t.toolId ?? '—'}
-                        </code>
-                      </span>
-                    )}
-                    {t.kind === 'observation' && (
-                      <span className="text-gray-700">
-                        返回{' '}
-                        {t.toolId && (
-                          <code className="rounded bg-emerald-50 px-1 text-emerald-700">
+                    {t.kind === 'action' &&
+                      // Screenshot_62/63 修复：单 LLM stage（outline-planner / critic 等）
+                      //   走 structured output 而非 tool_call，toolId 永远缺失。早先
+                      //   显示"调用工具 —"误导用户。toolId 缺失时改显 LLM reasoning text。
+                      (t.toolId ? (
+                        <span className="text-gray-700">
+                          调用工具{' '}
+                          <code className="rounded bg-violet-50 px-1 text-violet-700">
                             {t.toolId}
                           </code>
+                        </span>
+                      ) : t.text ? (
+                        <span className="text-gray-700">
+                          <span className="rounded bg-violet-50 px-1 text-[10px] text-violet-700">
+                            LLM 推理
+                          </span>{' '}
+                          <span className="italic text-gray-600">
+                            {t.text.length > 240
+                              ? t.text.slice(0, 240) + '…'
+                              : t.text}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-gray-400">
+                          结构化输出（无 tool_call）
+                        </span>
+                      ))}
+                    {t.kind === 'observation' && (
+                      <span className="text-gray-700">
+                        {t.toolId ? (
+                          <>
+                            返回{' '}
+                            <code className="rounded bg-emerald-50 px-1 text-emerald-700">
+                              {t.toolId}
+                            </code>
+                          </>
+                        ) : (
+                          // 同上：单 LLM stage 没 toolId，显示 output snippet 替代空"返回"
+                          <>
+                            <span className="rounded bg-emerald-50 px-1 text-[10px] text-emerald-700">
+                              LLM 产出
+                            </span>{' '}
+                            {t.output ? (
+                              <span className="text-gray-600">
+                                {t.output.length > 240
+                                  ? t.output.slice(0, 240) + '…'
+                                  : t.output}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-gray-400">
+                                完成
+                              </span>
+                            )}
+                          </>
                         )}{' '}
                         {t.latencyMs != null && (
                           <span className="text-[10px] text-gray-400">

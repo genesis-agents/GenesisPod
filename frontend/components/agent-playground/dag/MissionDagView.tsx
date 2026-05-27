@@ -456,7 +456,11 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
       </div>
     );
   }
-  if (error) {
+  // ★ 2026-05-27 Screenshot_59 修复：error 是 initial graph 加载失败时显示全屏失败；
+  //   一旦图已加载（graph 存在），任何 button 点击 API 失败（onRetry/onLoop）只应弹
+  //   inline banner（见下方 floating error toast），不能整个替换 canvas — 否则用户
+  //   感觉"按钮直接关闭弹层"。
+  if (error && !graph) {
     return (
       <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
         <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />

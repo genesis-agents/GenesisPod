@@ -1085,14 +1085,15 @@ export default function MissionDetailPage() {
   );
 
   // ── Tab bar trailing slot：CompactMeters（紧凑指标条） ─────────────
+  // ★ Screenshot_58 修复：cost / maxCredits 从 DerivedView + persisted top-level 取，
+  //   早先 maxCredits 路径错（userProfile.maxCredits 通常空 → 0% 假象）+ tokens 从
+  //   canonical 取常 stale（"0% 0.0 1.0%" 怪显示）。对齐 CapabilityMeters。
   const tabBarTrailing = missionView ? (
     <CompactMeters
       view={missionView}
       wallTimeMs={wallTimeMs}
-      maxCredits={
-        (persisted as { userProfile?: { maxCredits?: number } })?.userProfile
-          ?.maxCredits ?? null
-      }
+      cost={view.cost}
+      maxCredits={persisted?.maxCredits ?? null}
     />
   ) : null;
 
@@ -1206,7 +1207,12 @@ export default function MissionDetailPage() {
           {activeTab === 'cost' && (
             <div className="space-y-4">
               {missionView && (
-                <CapabilityMeters view={missionView} wallTimeMs={wallTimeMs} />
+                <CapabilityMeters
+                  view={missionView}
+                  wallTimeMs={wallTimeMs}
+                  cost={view.cost}
+                  memory={view.memory}
+                />
               )}
               <ComputeUsagePanel
                 cost={view.cost}
@@ -1900,14 +1906,21 @@ function SettingsGroup({
 function CompactMeters({
   view,
   wallTimeMs,
+  cost,
   maxCredits,
 }: {
   view: MissionDetailView;
   wallTimeMs: number;
+  cost: { tokensUsed: number; costUsd: number };
   maxCredits: number | null;
 }) {
+  // ★ Screenshot_58 修复：把 ≥ 1M 单独显示成 X.YM，否则 "1910.0k" 这种怪显示。
   const fmtTokens = (n: number) =>
-    n < 1000 ? String(n) : `${(n / 1000).toFixed(1)}k`;
+    n < 1000
+      ? String(n)
+      : n < 1_000_000
+        ? `${(n / 1000).toFixed(1)}k`
+        : `${(n / 1_000_000).toFixed(2)}M`;
   const fmtTime = (ms: number) =>
     ms < 60_000 ? `${Math.floor(ms / 1000)}s` : `${Math.floor(ms / 60_000)}m`;
 
@@ -1926,9 +1939,9 @@ function CompactMeters({
     return sum;
   }, [view.dimensionPipelines]);
 
-  // canonical cost.tokensUsed 是 string|null，先 Number 化。
-  const tokensUsed =
-    view.cost?.tokensUsed != null ? Number(view.cost.tokensUsed) : 0;
+  // ★ Screenshot_58 修复：tokens 改读 DerivedView.cost（events-derived 稳定），
+  //   不再读 canonical view.cost.tokensUsed（mission 刚完成时常 stale → "0.0 1.0%"）。
+  const tokensUsed = cost.tokensUsed;
 
   // 预算使用率（tokensUsed / maxCredits）—— 100k 上限 = 100M tokens
   const maxTokens = maxCredits != null ? maxCredits * 1000 : null;

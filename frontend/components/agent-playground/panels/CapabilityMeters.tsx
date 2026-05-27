@@ -4,6 +4,10 @@ import type { ReactNode } from 'react';
 import { Coins, Trophy, Timer, Database } from 'lucide-react';
 import { StatCard } from '@/components/ui/cards';
 import type { MissionDetailView } from '@/services/agent-playground/api';
+import type {
+  CostState,
+  MemoryIndexState,
+} from '@/lib/features/agent-playground/mission-presentation.types';
 import {
   fmtUsd,
   fmtTokens,
@@ -13,6 +17,16 @@ import {
 interface Props {
   view: MissionDetailView;
   wallTimeMs: number;
+  /**
+   * DerivedView.cost — events-derived fallback when canonical view.cost is stale.
+   * 优先于 view.cost 使用（screenshot #55: 顶部 stat 卡显示 $0 但 SummaryStrip 已有 $5.7）。
+   */
+  cost: CostState;
+  /**
+   * DerivedView.memory — events-derived fallback when canonical view.memoryIndex 未 populate。
+   * 优先于 view.memoryIndex 使用（screenshot #64: 记忆卡显示空但下方 MemoryIndexPanel 已有 3 chunks）。
+   */
+  memory: MemoryIndexState | null;
 }
 
 type ToneKey = 'amber' | 'violet' | 'blue' | 'emerald';
@@ -25,13 +39,15 @@ interface Meter {
   tone: ToneKey;
 }
 
-export function CapabilityMeters({ view, wallTimeMs }: Props) {
+export function CapabilityMeters({ view, wallTimeMs, cost, memory }: Props) {
   const score = view.mission.finalScore;
-  const cost = view.cost;
-  const memoryIndex = view.memoryIndex;
   const verdicts = view.verdicts ?? [];
-  const tokensUsed = cost?.tokensUsed != null ? Number(cost.tokensUsed) : 0;
-  const costUsd = cost?.costUsd ?? 0;
+  // DerivedView.cost 是 events-derived 的稳定快照；canonical view.cost 在 mission
+  //   刚完成时常 stale。下方 ComputeUsagePanel 也读 DerivedView.cost，对齐避免不一致。
+  const tokensUsed = cost.tokensUsed ?? 0;
+  const costUsd = cost.costUsd ?? 0;
+  // 同理：memory 优先 DerivedView (event-derived)，view.memoryIndex 仅作后备。
+  const memoryIndex = memory ?? view.memoryIndex ?? null;
 
   const meters: Meter[] = [
     {
