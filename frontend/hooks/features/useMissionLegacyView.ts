@@ -340,7 +340,14 @@ function dvDeriveVerdictsFromEvents(
   for (const ev of events) {
     if (!ev || typeof ev !== 'object') continue;
     const e = ev as { type?: string; payload?: Record<string, unknown> };
-    if (e.type === 'agent-playground.verifier.verdict' && e.payload) {
+    // ★ 2026-05-27 #97 修复：backend 实际 emit COLON 形态（agent-playground.events.ts
+    //   注册为 `verifier:verdict`，s8-writer-draft-report.stage.ts:327 实际发送）。
+    //   前端旧代码用 DOT → 永远不匹配 → verdicts 永远空。同时容忍 legacy DOT 形态。
+    if (
+      (e.type === 'agent-playground.verifier:verdict' ||
+        e.type === 'agent-playground.verifier.verdict') &&
+      e.payload
+    ) {
       const p = e.payload;
       if (typeof p.verifierId === 'string' && typeof p.score === 'number') {
         verdicts.push({
