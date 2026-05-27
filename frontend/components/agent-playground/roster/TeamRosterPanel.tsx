@@ -205,10 +205,26 @@ export function TeamRosterPanel({
           ? dimensions.length
           : researcherAgentsAll.length;
 
+      // ★ Screenshot_77 修复 (2026-05-27): 拓扑里每个 Agent 状态不一致
+      //   ("一个待启动一个完成") — mission terminal 后, 某些 stage.status 还 'pending'
+      //   或没有 agent 数据 → status='idle' → label "待启动", 与 mission "已完成"
+      //   矛盾。在循环开头根据 missionStatus 决定 idle 该 promote 到 completed/failed。
+      const isMissionTerminal =
+        missionStatus === 'completed' ||
+        missionStatus === 'failed' ||
+        missionStatus === 'cancelled';
+      const idleFallback: TeamNodeStatus =
+        missionStatus === 'completed'
+          ? 'completed'
+          : missionStatus === 'failed'
+            ? 'failed'
+            : 'idle';
       for (const r of ROLE_ROW) {
         const stage = stageMap.get(r.stage);
         const roleAgents = agents.filter((a) => a.role === r.role);
-        const status = stageStatusToNodeStatus(stage?.status ?? 'pending');
+        const rawStatus = stageStatusToNodeStatus(stage?.status ?? 'pending');
+        const status =
+          rawStatus === 'idle' && isMissionTerminal ? idleFallback : rawStatus;
 
         // ── Researcher：展开为 N 个独立节点 OR 折叠为 group ──
         if (r.role === 'researcher') {
@@ -251,7 +267,7 @@ export function TeamRosterPanel({
                   }));
             for (const item of list) {
               const phase = item.agent?.phase ?? 'pending';
-              const itemStatus: TeamNodeStatus =
+              const rawItemStatus: TeamNodeStatus =
                 phase === 'completed'
                   ? 'completed'
                   : phase === 'failed'
@@ -259,6 +275,11 @@ export function TeamRosterPanel({
                     : phase === 'running'
                       ? 'working'
                       : 'idle';
+              // ★ Screenshot_77 修复: 同上, mission 终态时无 agent 数据的 dim 升 idle → completed/failed.
+              const itemStatus: TeamNodeStatus =
+                rawItemStatus === 'idle' && isMissionTerminal
+                  ? idleFallback
+                  : rawItemStatus;
               const shortName =
                 item.name.length > 8 ? item.name.slice(0, 7) + '…' : item.name;
               nodes.push({
