@@ -90,7 +90,9 @@ function buildEmptyArtifactPlaceholder(
     factTable: [],
     metadata: {
       topic: title,
-      generatedAt: new Date().toISOString(),
+      // ★ Hydration safety: 用空字符串而非 new Date().toISOString()，避免
+      //   SSR/CSR 渲染时戳不同导致 React #418；placeholder 不展示 generatedAt。
+      generatedAt: '',
       generationTimeMs: 0,
       version: 1,
       isIncremental: false,
@@ -210,8 +212,12 @@ export default function MissionDetailPage() {
     invalidId ? null : missionId
   );
 
-  const [now, setNow] = useState(() => Date.now());
+  // ★ Hydration safety (P3-a fix): useState 不在 initializer 用 Date.now()，
+  //   否则 SSR 拿 server 时间，client hydration 拿 client 时间 → React #418 mismatch。
+  //   初始 0，client effect 启动后立刻 setNow(Date.now())。
+  const [now, setNow] = useState(0);
   useEffect(() => {
+    setNow(Date.now());
     const t = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(t);
   }, []);
@@ -237,7 +243,10 @@ export default function MissionDetailPage() {
       language: m.language ?? '',
       maxCredits: m.maxCredits ?? null,
       status: m.status,
-      startedAt: m.startedAt ?? new Date().toISOString(),
+      // Hydration safety: empty string fallback 而非 new Date()，避免 SSR/CSR mismatch。
+      //   missionView 加载后 m.startedAt 必有值（backend canonical view 投影保证），
+      //   fallback 仅在罕见的 race window 命中。
+      startedAt: m.startedAt ?? '',
       completedAt: m.finishedAt ?? null,
       themeSummary: m.themeSummary ?? null,
       dimensions: (m.dimensions ?? null) as MissionDetail['dimensions'],
@@ -323,7 +332,9 @@ export default function MissionDetailPage() {
     view.mission.failedAt ??
     view.mission.cancelledAt ??
     null;
-  const wallTimeMs = startedAtMs ? (finishedAt ?? now) - startedAtMs : 0;
+  // now=0 在 SSR / 第一帧；guard 防显示负数 wallTime（1 帧后 effect 设真 now）
+  const wallTimeMs =
+    startedAtMs && now > 0 ? (finishedAt ?? now) - startedAtMs : 0;
 
   // 默认进入卡片始终落到任务列表（不自动跳转 report）
   const [activeTab, setActiveTab] = useState<TabKey>('tasks');

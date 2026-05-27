@@ -327,7 +327,8 @@ function dvCollectAgentTraces(
     const p = e.payload ?? {};
     trace.push({
       kind,
-      ts: typeof e.timestamp === 'number' ? e.timestamp : Date.now(),
+      // Hydration safety: fallback 0 而非 Date.now()，避免 SSR/CSR 时戳 mismatch。
+      ts: typeof e.timestamp === 'number' ? e.timestamp : 0,
       text: typeof p.text === 'string' ? p.text : undefined,
       toolId: typeof p.toolId === 'string' ? p.toolId : undefined,
       input: p.input,
