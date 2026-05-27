@@ -367,7 +367,17 @@ function dvDeriveMemoryFromEvents(
     const ev = events[i];
     if (!ev || typeof ev !== 'object') continue;
     const e = ev as { type?: string; payload?: Record<string, unknown> };
-    if (e.type === 'agent-playground.memory.index' && e.payload) {
+    // ★ 2026-05-27 修复 Screenshot_48：backend 实际 emit 的是 `memory:indexed`
+    //   (COLON, 注册在 agent-playground.events.ts:175)；S8-writer 完成后由
+    //   trajectory indexer 发出。旧版前端找 `memory.index` (DOT, 不存在) →
+    //   memory panel 永远空 + 显示"backend 待补数据"假象。同时兼容 .index
+    //   后缀以防有别处保留旧形态。
+    if (
+      e.type === 'agent-playground.memory:indexed' ||
+      e.type === 'agent-playground.memory.index' ||
+      e.type === 'agent-playground.memory.indexed'
+    ) {
+      if (!e.payload) continue;
       const p = e.payload;
       if (typeof p.chunks === 'number') {
         return {
