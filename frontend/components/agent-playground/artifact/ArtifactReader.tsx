@@ -169,6 +169,10 @@ export function ArtifactReader({
   >('quality');
   // ★ 2026-05-07 学 TI 版本历史抽屉（替代 MetaTabBody 里的 select）
   const [versionPanelOpen, setVersionPanelOpen] = useState(false);
+  // ★ 2026-05-27 WYSIWYG 修复：lift 导出对话框 open state，给 hidden Continuous
+  //   mirror 做 lazy mount —— 用户没点导出时，chapter / quick tab 下不需要双倍
+  //   渲染 ContinuousReader；导出 dialog 打开时挂上 mirror 让 selector 命中。
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   // Phase P16-7: 视图切换持久到 URL hash
   const [view, setView] = useState<ViewMode>(() => {
@@ -261,7 +265,12 @@ export function ArtifactReader({
             </button>
           )}
           {missionId && (
-            <ExportMenu missionId={missionId} title={artifact.metadata.topic} />
+            <ExportMenu
+              missionId={missionId}
+              title={artifact.metadata.topic}
+              dialogOpen={exportDialogOpen}
+              onDialogOpenChange={setExportDialogOpen}
+            />
           )}
         </div>
       </div>
@@ -323,21 +332,32 @@ export function ArtifactReader({
       )}
 
       {/*
-        ★ 2026-05-26 WYSIWYG 修复：data-export-content="playground-report"
-        只挂在 ContinuousReader 的根 div 上；用户在 chapter / quick tab 下点导出，
-        ExportDialog 走 HtmlCaptureService.querySelector 找不到该选择器，会静默
-        fallback 到 editable 模式，导致 PDF / HTML 主体走 mission-transformer 编辑
-        路径（旧 v1 row 拿不到 fullMarkdown 只剩 reportSummary）。
-        解决：view !== continuous 时挂一份 hidden mirror，querySelector 永远命中。
-        外层 opacity-0 / pointer-events-none 让 mirror 视觉无感；
-        capture 时 getComputedStyle 只取被命中元素自身（root div opacity=1），
-        clone + inlineCriticalStyles 不会带上外层的 opacity 0。
+        ★ 2026-05-27 WYSIWYG 修复（v2 lazy mount）：
+        data-export-content="playground-report" 只挂在 ContinuousReader 根 div
+        上；用户在 chapter / quick tab 下点导出，HtmlCaptureService 的
+        querySelector 找不到该选择器，会静默 fallback 到 editable 模式
+        （mission-transformer 编辑路径），旧 v1 row 拿不到 fullMarkdown 只剩
+        reportSummary 摘要 → PDF / HTML 主体缺失。
+
+        baseline a5fa48664 同样存在此 bug —— 之所以"基线好"是因为用户当时只
+        在 Continuous tab 测过；切到 chapter / quick 也会观察到同症状。本修复
+        彻底消除该路径，无回归概念，只是补一直没补的 bug。
+
+        约定（语义诚实）：PDF / HTML 永远输出完整 Continuous 视图内容，不论
+        当前 tab。三视图共享同一份 reportFull / canonical artifact，Continuous
+        是 canonical 完整呈现；Chapter（章节列表 / 单章）与 Quick（精简卡片）
+        属于浏览态便利视图，不作为导出源。按钮 tooltip 已对齐为"导出完整报告"。
+
+        Lazy mount：mirror 只在 ExportDialog 打开时挂载，避免 chapter / quick
+        tab 长报告浏览时双倍渲染开销（react-markdown + sup 解析 +
+        renumberHeadings）。外层 opacity-0 / pointer-events-none 让 mirror 视觉
+        无感；capture 时 getComputedStyle 只取被命中元素自身（root div opacity=1），
+        clone + inlineCriticalStyles 不会带上外层 opacity 0。
       */}
-      {view !== 'continuous' && (
+      {view !== 'continuous' && exportDialogOpen && (
         <div
           aria-hidden="true"
           className="pointer-events-none fixed left-0 top-0 -z-10 w-full opacity-0"
-          data-export-mirror="playground-report"
         >
           <ContinuousReader artifact={artifact} />
         </div>
@@ -433,7 +453,9 @@ export function ArtifactReader({
  *    - HtmlCaptureService 抓 [data-export-content="playground-report"] 的 HTML+CSS
  *    - POST /api/export 带 renderMode=wysiwyg + wysiwygHtml + wysiwygCss
  *    - 后端 ExportOrchestrator 走 WysiwygRenderService → puppeteer page.pdf()
- *    → 真·所见即所得
+ *    → 输出完整 Continuous 视图（PDF / HTML 永远走完整报告，不论用户当前 tab；
+ *       chapter / quick 是浏览便利视图，不作为导出源 —— Continuous DOM 在
+ *       chapter / quick 下通过 hidden mirror 维持可用，由 ArtifactReader 控制 lazy mount）
  *
  * 2) DOCX / PPTX 已删（用户要求暂不支持）：availableFormats={['PDF','HTML']} 限制
  *
@@ -443,11 +465,19 @@ export function ArtifactReader({
 function ExportMenu({
   missionId,
   title,
+  dialogOpen,
+  onDialogOpenChange,
 }: {
   missionId: string;
   title: string;
+  /**
+   * ★ 2026-05-27 WYSIWYG 修复 (v2): 报告导出对话框 open state 由父级 ArtifactReader
+   *   控制 —— 父级要据此 lazy mount hidden Continuous mirror，让 chapter / quick
+   *   tab 下导出也能命中 data-export-content selector。
+   */
+  dialogOpen: boolean;
+  onDialogOpenChange: (open: boolean) => void;
 }) {
-  const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [rawOpen, setRawOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -487,13 +517,13 @@ function ExportMenu({
   return (
     <>
       <div className="flex items-center gap-1">
-        {/* 主按钮：报告导出（WYSIWYG PDF / HTML） */}
+        {/* 主按钮：报告导出（PDF / HTML，永远输出完整 Continuous 视图） */}
         <button
           type="button"
-          onClick={() => setReportDialogOpen(true)}
+          onClick={() => onDialogOpenChange(true)}
           disabled={busy != null}
           className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          title="导出所见即所得报告（PDF / HTML）"
+          title="导出完整报告（PDF / HTML，输出 Continuous 视图全文，不论当前 tab）"
         >
           <Download className="h-3 w-3" />
           导出报告
@@ -549,8 +579,8 @@ function ExportMenu({
       {/* WYSIWYG 报告导出对话框 —— PDF / HTML 走 puppeteer 截屏，
           DOCX / PPTX 用 availableFormats 屏蔽（用户要求暂不支持） */}
       <ExportDialog
-        isOpen={reportDialogOpen}
-        onClose={() => setReportDialogOpen(false)}
+        isOpen={dialogOpen}
+        onClose={() => onDialogOpenChange(false)}
         contentSelector='[data-export-content="playground-report"]'
         contentTitle={title?.trim() || 'Mission Report'}
         moduleType="playground"
