@@ -194,22 +194,22 @@ function ModelDistributionTable({ rows }: { rows: ModelRow[] }) {
       <Table className="w-full table-fixed text-[12px]">
         <THead className="bg-gray-50/80">
           <Tr>
-            <Th className="w-[34%] px-3 py-2 text-left font-medium text-gray-600">
+            <Th className="w-[36%] whitespace-nowrap px-3 py-2 text-left font-medium text-gray-600">
               模型 ID
             </Th>
-            <Th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
+            <Th className="w-[10%] whitespace-nowrap px-2 py-2 text-right font-medium text-gray-600">
               实例
             </Th>
-            <Th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
+            <Th className="w-[10%] whitespace-nowrap px-2 py-2 text-right font-medium text-gray-600">
               调用
             </Th>
-            <Th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
-              估算 tokens
+            <Th className="w-[14%] whitespace-nowrap px-2 py-2 text-right font-medium text-gray-600">
+              Tokens
             </Th>
-            <Th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
-              估算成本
+            <Th className="w-[14%] whitespace-nowrap px-2 py-2 text-right font-medium text-gray-600">
+              成本
             </Th>
-            <Th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
+            <Th className="w-[16%] whitespace-nowrap px-2 py-2 text-right font-medium text-gray-600">
               占比
             </Th>
           </Tr>
@@ -524,22 +524,22 @@ function ToolLatencyTable({ rows }: { rows: ToolRow[] }) {
         </colgroup>
         <THead className="bg-gray-50/80">
           <Tr>
-            <Th className="w-[34%] px-3 py-2 text-left font-medium text-gray-600">
+            <Th className="w-[34%] whitespace-nowrap px-3 py-2 text-left font-medium text-gray-600">
               工具 ID
             </Th>
-            <Th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
+            <Th className="w-[12%] whitespace-nowrap px-2 py-2 text-right font-medium text-gray-600">
               调用
             </Th>
-            <Th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
+            <Th className="w-[14%] whitespace-nowrap px-2 py-2 text-right font-medium text-gray-600">
               总延迟
             </Th>
-            <Th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
+            <Th className="w-[12%] whitespace-nowrap px-2 py-2 text-right font-medium text-gray-600">
               平均
             </Th>
-            <Th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
+            <Th className="w-[12%] whitespace-nowrap px-2 py-2 text-right font-medium text-gray-600">
               失败
             </Th>
-            <Th className="w-[16%] px-2 py-2 text-right font-medium text-gray-600">
+            <Th className="w-[16%] whitespace-nowrap px-2 py-2 text-right font-medium text-gray-600">
               成功率
             </Th>
           </Tr>

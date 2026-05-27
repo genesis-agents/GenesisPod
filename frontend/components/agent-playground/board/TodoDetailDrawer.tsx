@@ -35,8 +35,10 @@ import type {
   AgentLiveState,
   AgentTraceItem,
   DimensionPipelineState,
+  StageProcessTrace,
 } from '@/lib/features/agent-playground/mission-presentation.types';
 import { deriveDrawerSections } from '@/lib/features/agent-playground/drawer-derive-shapes';
+import { StageProcessPanel } from '@/components/agent-playground/panels/StageProcessPanel';
 import { FRONTEND_STAGE_TO_STEP_ID } from '@/lib/features/agent-playground/stage-id-mapping';
 import {
   Card,
@@ -69,6 +71,8 @@ interface Props {
   dimensionPipelines?: Map<string, DimensionPipelineState>;
   /** 全量 todos 列表 — 用于 dim 父级 drawer 展示「本维度被 Leader 要求修改了什么」 */
   allTodos?: MissionTodo[];
+  /** T75: canonical view.stages[] —— system-stage drawer 直接读 processTrace 渲染 */
+  stages?: ReadonlyArray<{ id: string; processTrace?: StageProcessTrace }>;
   onClose: () => void;
   /** 单 todo 重跑 —— 仅 mission 终态 + 非 abort/persist origin 时启用 */
   missionId?: string;
@@ -795,6 +799,7 @@ export function TodoDetailDrawer({
   agents,
   dimensionPipelines,
   allTodos,
+  stages,
   onClose,
   missionId,
   missionTerminal,
@@ -1134,6 +1139,21 @@ export function TodoDetailDrawer({
             />
           </ToneCard>
         )}
+
+        {/* T75: system-stage Drawer 优先展示 canonical processTrace（含 ReAct /
+            LLM calls / outputPeek），减少对 agent.trace 间接命中的依赖。 */}
+        {todo.scope === 'system' && todo.systemStageId && stages
+          ? (() => {
+              const stage = stages.find((s) => s.id === todo.systemStageId);
+              if (!stage?.processTrace) return null;
+              return (
+                <StageProcessPanel
+                  processTrace={stage.processTrace}
+                  stageLabel={todo.title}
+                />
+              );
+            })()
+          : null}
 
         {/* 关键发现 */}
         {sections.findings.length > 0 && (

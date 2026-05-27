@@ -393,6 +393,32 @@ export interface MissionDetailView {
     endedAt?: string;
     detail?: string;
     attempts?: number;
+    /** T75: backend-derived per-stage process surface（optional；legacy / no-LLM
+     *  stages omit it）. */
+    processTrace?: {
+      inputs?: { label: string; value: string | number }[];
+      llmCalls?: {
+        modelId?: string;
+        tokensIn?: number;
+        tokensOut?: number;
+        durationMs?: number;
+        costUsd?: number;
+      }[];
+      outputPeek?: Record<string, number | string>;
+      reactTrace?: {
+        kind: 'thought' | 'action' | 'observation' | 'reflection' | 'error';
+        ts: number;
+        text?: string;
+        toolId?: string;
+        output?: string;
+        latencyMs?: number;
+        tokensUsed?: number;
+        error?: string;
+      }[];
+      totalTokens?: number;
+      totalDurationMs?: number;
+      stepCount?: number;
+    };
   }[];
   agents: {
     id: string;
