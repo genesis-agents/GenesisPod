@@ -246,6 +246,47 @@ function cascadeChainFor(stepId: string): string[] {
   return [stepId, ...successors];
 }
 
+// ─── System-stage → agent linking ─────────────────────
+// 把 system-stage todo（无 agentRefId）映射到运行 agent，使 Drawer 能 surface
+// 该 stage 的 ReAct trace + tool calls + tokens（与 dimension drawer 同等丰富）。
+// 后端 single-shot agent（Reconciler / Analyst / Writer-Outline / Writer-Draft）通过
+// AgentRunner emit `agent:thought/action/observation` 走标准 trace 管道，但 todo 自己
+// 不知道 agentId 是哪个 —— 由此 hint 表挂桥。
+//
+// 多 attempt 的 stage（s8-writer-draft = writer#1/writer#2/writer#3）返回最新一个。
+const SYSTEM_STAGE_AGENT_HINT: Record<
+  string,
+  { ids?: string[]; prefixes?: string[] }
+> = {
+  's5-reconciler': { ids: ['reconciler'] },
+  's6-analyst': { ids: ['analyst'] },
+  's7-writer-outline': { ids: ['outline-planner'] },
+  // s8 writerAgentId = `writer#${attempts}` → 取最新一次
+  's8-writer-draft': { prefixes: ['writer#', 'writer'] },
+};
+
+function findAgentForSystemStage(
+  agents: AgentLiveState[],
+  systemStageId: string
+): AgentLiveState | undefined {
+  const hint = SYSTEM_STAGE_AGENT_HINT[systemStageId];
+  if (!hint) return undefined;
+  const matches: AgentLiveState[] = [];
+  for (const a of agents) {
+    if (hint.ids?.includes(a.agentId)) {
+      matches.push(a);
+      continue;
+    }
+    if (hint.prefixes?.some((p) => a.agentId.startsWith(p))) {
+      matches.push(a);
+    }
+  }
+  if (matches.length === 0) return undefined;
+  // 多个 attempt → 取 trace 长度最大的（最新一轮通常 trace 最丰富）
+  matches.sort((a, b) => (b.trace?.length ?? 0) - (a.trace?.length ?? 0));
+  return matches[0];
+}
+
 // ─── Status mapping ───────────────────────────────────
 function todoStatusToToken(s: MissionTodo['status']) {
   return s === 'done'
@@ -815,6 +856,11 @@ export function TodoDetailDrawer({
   const statusKey = todoStatusToToken(todo.status);
 
   // Linked agent
+  // 1. agentRefId 显式指定 → 直接找
+  // 2. dimension todo → 按 researcher.dimension 找
+  // 3. system-stage todo（无 agentRefId）→ 用 systemStageId 反查执行该 stage 的
+  //    agent（Reconciler / Analyst / Writer-Outline / Writer-Draft 等 single-shot
+  //    agent 通过 AgentRunner emit ReAct trace，但 todo 不知道 agentId）
   const linkedAgent = todo.agentRefId
     ? agents.find(
         (a) =>
@@ -827,7 +873,9 @@ export function TodoDetailDrawer({
             a.role === 'researcher' &&
             a.dimension === todo.assignee.dimensionName
         )
-      : undefined;
+      : todo.systemStageId
+        ? findAgentForSystemStage(agents, todo.systemStageId)
+        : undefined;
 
   const sections = deriveDrawerSections(linkedAgent);
   const timeline = buildTimeline(todo.narrativeLog, linkedAgent?.trace ?? []);
