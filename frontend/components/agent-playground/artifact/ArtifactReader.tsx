@@ -175,15 +175,20 @@ export function ArtifactReader({
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   // Phase P16-7: 视图切换持久到 URL hash
-  const [view, setView] = useState<ViewMode>(() => {
-    if (typeof window !== 'undefined') {
-      const hash = window.location.hash.match(
-        /^#view=(continuous|chapter|quick)/
-      );
-      if (hash?.[1]) return hash[1] as ViewMode;
-    }
-    return defaultView;
-  });
+  // ★ 2026-05-27 Hydration 修复 (React #418/#423)：useState lazy initializer 不能读
+  //   window.location.hash —— 服务端 typeof window === 'undefined' 永远 fallback 到
+  //   defaultView；客户端读 hash 拿到 'chapter'/'quick'。两端 view 不同 → 渲染不同子
+  //   组件 → DOM 不一致 → hydration fail。改为：初始永远用 defaultView，hash 同步走 effect。
+  const [view, setView] = useState<ViewMode>(defaultView);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // mount 后立刻读 hash 并应用（只看初始 hash，不订阅 hashchange —— 用户在页内用
+    // ViewBtn 切换走 setView 路径，已经会 push hash）
+    const m = window.location.hash.match(/^#view=(continuous|chapter|quick)/);
+    if (m?.[1] && m[1] !== view) setView(m[1] as ViewMode);
+    // 仅在 mount 时执行；后续 view 变化由下面 effect 写回 hash
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const newHash = `#view=${view}`;
@@ -697,14 +702,14 @@ function MetaTabBody({
   // ★ 2026-05-07：版本切换器已移到顶部工具栏 → ReportVersionDrawer 抽屉。
   //   元信息 tab 只展示"当前版本"徽章，避免双源（feedback_no_dual_sources）。
   const selectedVersion = currentVersion ?? m.version;
-  const generatedAt = (() => {
-    try {
-      const d = new Date(m.generatedAt);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-    } catch {
-      return m.generatedAt;
-    }
-  })();
+  // ★ 2026-05-27 Hydration 修复 (React #418)：原本用 d.getFullYear()/Month/Date/Hours
+  //   会按运行时本地时区格式化 —— Node 服务端通常是 UTC，客户端是 GMT+8 → 同一 ISO
+  //   产出不同字符串 → hydration mismatch。改为直接切 ISO 串前 16 位（YYYY-MM-DDTHH:MM）
+  //   再把 T 换成空格，结果只依赖 ISO 字符串本身，与时区无关。
+  const generatedAt =
+    typeof m.generatedAt === 'string' && m.generatedAt.length >= 16
+      ? m.generatedAt.slice(0, 16).replace('T', ' ')
+      : m.generatedAt;
   const tokens = m.totalTokens.total;
   const cost = (m.costCents / 100).toFixed(2);
   const seconds = Math.round(m.generationTimeMs / 1000);

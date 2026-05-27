@@ -338,7 +338,11 @@ export function MissionFlowView({
   const startedAtMs = view.mission.startedAt
     ? new Date(view.mission.startedAt).getTime()
     : undefined;
-  const anchor = startedAtMs ?? events[0]?.timestamp ?? Date.now();
+  // ★ 2026-05-27 Hydration 修复 (React #418)：mission 还没 startedAt 也没事件时
+  //   anchor 不能 fallback Date.now() —— 服务端 T1 / 客户端 T2 不同 → fmtRelative
+  //   产出不同字符串 → hydration mismatch。改为 0，fmtRelative 内部已经处理 0 anchor
+  //   （差值为正常 ts，对用户表现为"相对启动时间"等价用 ts 本身）。
+  const anchor = startedAtMs ?? events[0]?.timestamp ?? 0;
 
   // canonical status enum 已 §6.4.1.a 完成 rejected → quality-failed 投影。
   const status = view.mission.status;
