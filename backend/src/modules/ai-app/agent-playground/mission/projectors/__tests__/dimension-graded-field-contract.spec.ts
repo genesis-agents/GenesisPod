@@ -14,6 +14,7 @@ import { projectMissionView } from "../mission-view.projector";
 
 function makeInputs(
   events: Array<{ type: string; payload: unknown; timestamp: number }>,
+  rowStatus: "running" | "completed" = "completed",
 ): MissionQueryInputs {
   const baseTs = 1700000000000;
   const row: MissionDetail = {
@@ -23,9 +24,12 @@ function makeInputs(
     depth: "deep",
     language: "zh-CN",
     maxCredits: null,
-    status: "completed",
+    status: rowStatus,
     startedAt: new Date(baseTs - 1000),
-    completedAt: new Date(baseTs + events.length * 1000),
+    completedAt:
+      rowStatus === "completed"
+        ? new Date(baseTs + events.length * 1000)
+        : null,
     failedAt: null,
     cancelledAt: null,
     themeSummary: null,
@@ -138,6 +142,7 @@ describe("§ dimension:graded payload contract — projector reads `overall` not
             dimension: "DimA",
             chapterIndex: 1,
             wordCount: 1284,
+            qualified: true,
           },
           timestamp: 1700000000002,
         },
@@ -157,6 +162,7 @@ describe("§ dimension:graded payload contract — projector reads `overall` not
             dimension: "DimA",
             chapterIndex: 2,
             wordCount: 1350,
+            qualified: true,
           },
           timestamp: 1700000000004,
         },
@@ -194,6 +200,7 @@ describe("§ dimension:graded payload contract — projector reads `overall` not
             chapterIndex: 1,
             chapterTitle: "From done event",
             wordCount: 1284,
+            qualified: true,
           },
           timestamp: 1700000000002,
         },
@@ -203,6 +210,141 @@ describe("§ dimension:graded payload contract — projector reads `overall` not
     expect(view.dimensionPipelines["DimA"].chapters).toHaveLength(1);
     expect(view.dimensionPipelines["DimA"].chapters[0].heading).toBe(
       "From done event",
+    );
+  });
+
+  it("dimension:outline:planned 填 chapter.heading + thesis", () => {
+    const view = projectMissionView(
+      makeInputs(
+        [
+          {
+            type: "agent-playground.dimension:outline:planned",
+            payload: {
+              dimension: "DimA",
+              chapters: [
+                { index: 1, heading: "Ch 1", thesis: "thesis-1" },
+                { index: 2, heading: "Ch 2", thesis: "thesis-2" },
+              ],
+            },
+            timestamp: 1700000000000,
+          },
+        ],
+        "running",
+      ),
+    );
+    const chs = view.dimensionPipelines["DimA"].chapters;
+    expect(chs).toHaveLength(2);
+    expect(chs[0]).toMatchObject({
+      index: 1,
+      heading: "Ch 1",
+      thesis: "thesis-1",
+      status: "pending",
+    });
+  });
+
+  it("chapter:writing:started attempt>1 → status='revising'", () => {
+    const view = projectMissionView(
+      makeInputs(
+        [
+          {
+            type: "agent-playground.chapter:writing:started",
+            payload: { dimension: "DimA", chapterIndex: 1, attempt: 2 },
+            timestamp: 1700000000000,
+          },
+        ],
+        "running",
+      ),
+    );
+    expect(view.dimensionPipelines["DimA"].chapters[0].status).toBe("revising");
+  });
+
+  it("chapter:writing:completed → reviewing 而非 done（让前端区分写完与终态）", () => {
+    const view = projectMissionView(
+      makeInputs(
+        [
+          {
+            type: "agent-playground.chapter:writing:started",
+            payload: { dimension: "DimA", chapterIndex: 1, attempt: 1 },
+            timestamp: 1700000000000,
+          },
+          {
+            type: "agent-playground.chapter:writing:completed",
+            payload: { dimension: "DimA", chapterIndex: 1, wordCount: 1200 },
+            timestamp: 1700000001000,
+          },
+        ],
+        "running",
+      ),
+    );
+    expect(view.dimensionPipelines["DimA"].chapters[0].status).toBe(
+      "reviewing",
+    );
+  });
+
+  it("chapter:review:completed 抓 score / critique，pass 决议 → passed", () => {
+    const view = projectMissionView(
+      makeInputs(
+        [
+          {
+            type: "agent-playground.chapter:review:completed",
+            payload: {
+              dimension: "DimA",
+              chapterIndex: 1,
+              score: 82,
+              critique: "ok",
+              decision: "pass",
+            },
+            timestamp: 1700000000000,
+          },
+        ],
+        "running",
+      ),
+    );
+    expect(view.dimensionPipelines["DimA"].chapters[0]).toMatchObject({
+      score: 82,
+      critique: "ok",
+      status: "passed",
+    });
+  });
+
+  it("chapter:review:completed decision != pass 且 score < 75 → revising", () => {
+    const view = projectMissionView(
+      makeInputs(
+        [
+          {
+            type: "agent-playground.chapter:review:completed",
+            payload: {
+              dimension: "DimA",
+              chapterIndex: 1,
+              score: 60,
+              decision: "revise",
+            },
+            timestamp: 1700000000000,
+          },
+        ],
+        "running",
+      ),
+    );
+    expect(view.dimensionPipelines["DimA"].chapters[0].status).toBe("revising");
+  });
+
+  it("chapter:done qualified=false → failed-finalized（兜底落地）", () => {
+    const view = projectMissionView(
+      makeInputs([
+        {
+          type: "agent-playground.chapter:done",
+          payload: {
+            dimension: "DimA",
+            chapterIndex: 1,
+            qualified: false,
+            wordCount: 1200,
+          },
+          timestamp: 1700000000000,
+        },
+      ]),
+    );
+    expect(view.dimensionPipelines["DimA"].chapters[0].status).toBe(
+      "failed-finalized",
     );
   });
 

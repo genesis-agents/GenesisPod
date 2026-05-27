@@ -267,11 +267,41 @@ function extractDimensionPipelines(
     const pipe = out[dim] ?? { dimension: dim, chapters: [] };
     out[dim] = pipe;
 
-    if (
+    // ★ 2026-05-27 彻底重写（恢复 baseline 15d2e93ab derive.ts 的完整章节状态机）：
+    //   原 projector 只读 heading/wordCount + 用 "done" 笼统盖一切，丢失了
+    //   thesis (章节副标题) / score / critique / qualified (兜底落地) /
+    //   writing→reviewing→passed/revising→done 真实状态机。
+    //   Drawer / ChapterReader 想显示丰富信息但 view 里没数据 = 全部空白。
+
+    if (suffix === "dimension:outline:planned") {
+      // outline 阶段填 chapter.heading + thesis
+      const chapters = Array.isArray(p.chapters)
+        ? (p.chapters as Array<{
+            index: number;
+            heading: string;
+            thesis?: string;
+          }>)
+        : [];
+      for (const c of chapters) {
+        const existing = pipe.chapters.find((x) => x.index === c.index);
+        if (existing) {
+          if (c.heading) existing.heading = c.heading;
+          if (c.thesis) existing.thesis = c.thesis;
+        } else {
+          pipe.chapters.push({
+            index: c.index,
+            heading: c.heading,
+            thesis: c.thesis,
+            status: "pending",
+            attempts: 0,
+          });
+        }
+      }
+      pipe.chapters.sort((a, b) => a.index - b.index);
+    } else if (
       suffix === "chapter:writing:started" ||
       suffix === "chapter:writing:completed" ||
-      suffix === "chapter:writing:failed" ||
-      suffix === "chapter:done"
+      suffix === "chapter:writing:failed"
     ) {
       const heading =
         typeof p.heading === "string"
@@ -279,11 +309,6 @@ function extractDimensionPipelines(
           : typeof p.chapterTitle === "string"
             ? p.chapterTitle
             : "";
-      // ★ 2026-05-27 修复：emitter (chapter-pipeline.helper.ts) + schemas
-      //   (ChapterWritingStarted/Completed/DoneSchema) 全部用 `chapterIndex`，
-      //   projector 之前读 `p.index` → undefined → fallback `chapters.length+1`
-      //   → 每个事件都创建一个新 chapter 条目（24 = 4 真实 × 6 事件）。
-      //   兼容历史 fixture（如果有）：先读 chapterIndex，再 fallback index。
       const index =
         typeof p.chapterIndex === "number"
           ? p.chapterIndex
@@ -295,26 +320,74 @@ function extractDimensionPipelines(
         chapter = { index, heading, status: "pending", attempts: 0 };
         pipe.chapters.push(chapter);
       } else if (heading && !chapter.heading) {
-        // ★ 后续事件带 heading 而首事件没有时回补（如 cache-hit chapter:done 路径）
         chapter.heading = heading;
       }
       if (suffix === "chapter:writing:started") {
-        chapter.status = "writing";
-        chapter.attempts += 1;
-      } else if (
-        suffix === "chapter:writing:completed" ||
-        suffix === "chapter:done"
-      ) {
-        chapter.status = "done";
+        const attempt = typeof p.attempt === "number" ? p.attempt : undefined;
+        // attempt > 1 表示这是重写，状态 'revising'；首次 'writing'
+        chapter.status = attempt && attempt > 1 ? "revising" : "writing";
+        chapter.attempts = attempt ?? chapter.attempts + 1;
+      } else if (suffix === "chapter:writing:completed") {
+        // 写完进 review，不是 done
+        chapter.status = "reviewing";
         if (typeof p.wordCount === "number") chapter.wordCount = p.wordCount;
       } else if (suffix === "chapter:writing:failed") {
         chapter.status = "failed";
+      }
+    } else if (suffix === "chapter:review:completed") {
+      // review 给出 score + critique，决定 passed 还是 revising
+      const index =
+        typeof p.chapterIndex === "number"
+          ? p.chapterIndex
+          : typeof p.index === "number"
+            ? p.index
+            : undefined;
+      if (index != null) {
+        let chapter = pipe.chapters.find((c) => c.index === index);
+        if (!chapter) {
+          chapter = { index, heading: "", status: "pending", attempts: 0 };
+          pipe.chapters.push(chapter);
+        }
+        chapter.score = typeof p.score === "number" ? p.score : chapter.score;
+        chapter.critique =
+          typeof p.critique === "string" ? p.critique : chapter.critique;
+        const decision =
+          typeof p.decision === "string" ? p.decision : undefined;
+        const score = typeof p.score === "number" ? p.score : 0;
+        chapter.status =
+          decision === "pass" || score >= 75 ? "passed" : "revising";
+      }
+    } else if (suffix === "chapter:done") {
+      // 终态：qualified=true → done，false → failed-finalized（兜底落地）
+      const index =
+        typeof p.chapterIndex === "number"
+          ? p.chapterIndex
+          : typeof p.index === "number"
+            ? p.index
+            : pipe.chapters.length + 1;
+      const heading =
+        typeof p.heading === "string"
+          ? p.heading
+          : typeof p.chapterTitle === "string"
+            ? p.chapterTitle
+            : "";
+      let chapter = pipe.chapters.find((c) => c.index === index);
+      if (!chapter) {
+        chapter = { index, heading, status: "pending", attempts: 0 };
+        pipe.chapters.push(chapter);
+      } else if (heading && !chapter.heading) {
+        chapter.heading = heading;
+      }
+      const qualified = p.qualified === true;
+      chapter.status = qualified ? "done" : "failed-finalized";
+      if (typeof p.wordCount === "number") chapter.wordCount = p.wordCount;
+      if (typeof p.finalScore === "number" && chapter.score == null) {
+        chapter.score = p.finalScore;
       }
     } else if (
       suffix === "chapter:revision" ||
       suffix === "chapter:rewritten"
     ) {
-      // 同 chapter:writing：emitter + schema 用 chapterIndex
       const index =
         typeof p.chapterIndex === "number"
           ? p.chapterIndex
