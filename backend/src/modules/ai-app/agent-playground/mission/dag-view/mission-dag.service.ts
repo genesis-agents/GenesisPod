@@ -245,10 +245,52 @@ export class MissionDagService {
   ): Promise<MissionDagCascadePreview> {
     const graph = await this.buildGraph(missionId, userId);
     const nodeMap = new Map(graph.nodes.map((n) => [n.id, n]));
+    const steps = PLAYGROUND_PIPELINE.steps;
+    const stepById = new Map(steps.map((s) => [s.id, s]));
+
+    // 把 DAG nodeId 解析成 pipeline stepId。
+    // research-dim 节点 id 形如 "s3-researcher-collect::<dimId>"，canonical stepId
+    // 是其父 "s3-researcher-collect"；macro 节点 id 本身就是 stepId。
+    // 若 nodeId 不在当前图（前端 graph 可能是旧快照，后端 freshly rebuilt），则
+    // 尝试从 nodeId 的结构直接提取 stepId，避免因状态差异抛 NotFoundException。
+    function resolveStepId(nid: string): string {
+      if (nid.startsWith(`${RESEARCH_STEP_ID}::`)) {
+        return RESEARCH_STEP_ID;
+      }
+      return nid;
+    }
+
     const origin = nodeMap.get(nodeId);
     if (!origin) {
-      throw new NotFoundException(`node ${nodeId} not in mission dag`);
+      // 前端持有过期快照时 dim 节点可能已不在最新图中；
+      // 尝试按 nodeId 结构推导 stepId 给出降级级联预览。
+      const stepId = resolveStepId(nodeId);
+      const fromStep = stepById.get(stepId);
+      if (!fromStep) {
+        throw new NotFoundException(`node ${nodeId} not in mission dag`);
+      }
+      if (!fromStep.dag?.rerunable) {
+        return {
+          origin: nodeId,
+          willRerun: [],
+          kept: graph.nodes.map((n) => n.id),
+          rerunable: false,
+          reason: fromStep.dag?.rerunableReason ?? "该节点不允许重跑",
+        };
+      }
+      const cascadeSet = new Set<string>(fromStep.dag?.successors ?? []);
+      const willSet = new Set<string>(cascadeSet);
+      const kept = graph.nodes
+        .filter((n) => !willSet.has(n.id))
+        .map((n) => n.id);
+      return {
+        origin: nodeId,
+        willRerun: [...willSet],
+        kept,
+        rerunable: true,
+      };
     }
+
     if (!origin.rerunable) {
       return {
         origin: nodeId,
@@ -259,11 +301,13 @@ export class MissionDagService {
       };
     }
 
-    // 起点对应的 stepId(若是 research-dim,映射回 s3-researcher-collect)
+    // 起点对应的 stepId:
+    //   research-dim → parentStepId（始终是 s3-researcher-collect）
+    //   其它 → 用 resolveStepId 兜底（防 parentStepId 意外缺失）
     const originStepId =
-      origin.kind === "research-dim" ? origin.parentStepId! : origin.id;
-    const steps = PLAYGROUND_PIPELINE.steps;
-    const stepById = new Map(steps.map((s) => [s.id, s]));
+      origin.kind === "research-dim"
+        ? (origin.parentStepId ?? resolveStepId(nodeId))
+        : resolveStepId(nodeId);
     const fromStep = stepById.get(originStepId);
     if (!fromStep) {
       throw new NotFoundException(`step ${originStepId} not in pipeline`);

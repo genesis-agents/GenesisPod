@@ -137,13 +137,17 @@ echo "  diff base: $BASE_SHA"
 # 表象：hook 卡在 "backend: running jest --changedSince=..." 后立刻 exit 1。
 # 上面 git diff --name-only "$BASE_SHA" HEAD -- 'backend/**' 在 hook 自身 shell
 # 里没问题，所以只需在调用子进程测试之前 unset。
-unset GIT_INDEX_FILE GIT_DIR GIT_WORK_TREE GIT_PREFIX GIT_REFLOG_ACTION
+unset GIT_INDEX_FILE GIT_DIR GIT_WORK_TREE GIT_PREFIX GIT_REFLOG_ACTION GIT_QUARANTINE_PATH GIT_PUSH_OPTION_COUNT GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
 
 if [ -n "$BACKEND_CHANGED" ]; then
     echo "  backend: running jest --changedSince=$BASE_SHA"
     cd backend
-    npx jest --changedSince="$BASE_SHA" --passWithNoTests --forceExit > "$BACKEND_TEST_LOG" 2>&1
-    BACKEND_EXIT=$?
+    # 2026-05-27: husky 用 `sh -e $0` 跑本脚本, 任何子命令非零 set -e 立刻 abort
+    #   导致 BACKEND_EXIT=$? 永远没机会被赋值; tail 也来不及打。
+    #   `|| BACKEND_EXIT=$?` 把失败转给逻辑分支, set -e 不再触发, 后续 if 仍能正确
+    #   tail 日志展示测试失败细节。
+    BACKEND_EXIT=0
+    npx jest --changedSince="$BASE_SHA" --passWithNoTests --forceExit > "$BACKEND_TEST_LOG" 2>&1 || BACKEND_EXIT=$?
     cd ..
 else
     echo "  backend: no changed files"
@@ -153,8 +157,10 @@ fi
 if [ -n "$FRONTEND_CHANGED" ]; then
     echo "  frontend: running vitest --changed $BASE_SHA"
     cd frontend
-    npx vitest run --changed "$BASE_SHA" --passWithNoTests > "$FRONTEND_TEST_LOG" 2>&1
-    FRONTEND_EXIT=$?
+    # 同上 set -e 兼容: vitest 非零退出时, `|| FRONTEND_EXIT=$?` 把状态码捕获到变量,
+    #   下方 if 分支负责 tail FRONTEND_TEST_LOG 给开发者错误细节。
+    FRONTEND_EXIT=0
+    npx vitest run --changed "$BASE_SHA" --passWithNoTests > "$FRONTEND_TEST_LOG" 2>&1 || FRONTEND_EXIT=$?
     cd ..
 else
     echo "  frontend: no changed files"
