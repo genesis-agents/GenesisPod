@@ -271,6 +271,20 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
     y: 0,
     k: 1,
   });
+  // ★ 2026-05-27 (Screenshot_23) 节点级拖拽支持：保存每个节点的用户拖拽 offset。
+  //   渲染时 effective pos = layout 算的 (x, y) + 用户 offset。zoom k 用于将
+  //   屏幕像素 delta 还原为 canvas 坐标 delta。
+  const [nodeOffsets, setNodeOffsets] = useState<
+    Record<string, { dx: number; dy: number }>
+  >({});
+  const dragStateRef = useRef<{
+    id: string;
+    startClientX: number;
+    startClientY: number;
+    startDx: number;
+    startDy: number;
+    moved: boolean;
+  } | null>(null);
 
   const { nodes, canvasH, canvasW } = useMemo(() => {
     if (!graph)
@@ -558,10 +572,17 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
               const a = nodeMap.get(e.from);
               const b = nodeMap.get(e.to);
               if (!a || !b) return null;
-              const x1 = a.x + a.w / 2;
-              const y1 = a.y + a.h;
-              const x2 = b.x + b.w / 2;
-              const y2 = b.y;
+              // ★ 2026-05-27 边端点跟随节点拖拽 offset
+              const aOff = nodeOffsets[a.id];
+              const bOff = nodeOffsets[b.id];
+              const ax = a.x + (aOff?.dx ?? 0);
+              const ay = a.y + (aOff?.dy ?? 0);
+              const bx = b.x + (bOff?.dx ?? 0);
+              const by = b.y + (bOff?.dy ?? 0);
+              const x1 = ax + a.w / 2;
+              const y1 = ay + a.h;
+              const x2 = bx + b.w / 2;
+              const y2 = by;
               const isImpact =
                 !!sel &&
                 (sel.node.id === e.from || willSet?.has(e.from)) &&
@@ -597,15 +618,78 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
               : isWill
                 ? 'border-amber-400 border-dashed bg-amber-50'
                 : statusToCls(n.status);
+            // ★ 2026-05-27 节点拖拽位置
+            const off = nodeOffsets[n.id];
+            const left = n.x + (off?.dx ?? 0);
+            const top = n.y + (off?.dy ?? 0);
             return (
               <div
                 key={n.id}
                 data-dag-interactive
-                className={`group absolute cursor-pointer rounded-xl border-2 bg-white px-2.5 py-1 transition-all ${cls} ${
+                className={`group absolute cursor-move select-none rounded-xl border-2 bg-white px-2.5 py-1 transition-shadow ${cls} ${
                   isKept ? 'opacity-40 grayscale' : ''
                 }`}
-                style={{ left: n.x, top: n.y, width: n.w, height: n.h }}
-                onClick={() => onAgentClick?.(n.id)}
+                style={{ left, top, width: n.w, height: n.h }}
+                onPointerDown={(e) => {
+                  // 仅左键拖
+                  if (e.button !== 0) return;
+                  (e.currentTarget as HTMLElement).setPointerCapture(
+                    e.pointerId
+                  );
+                  const cur = nodeOffsets[n.id];
+                  dragStateRef.current = {
+                    id: n.id,
+                    startClientX: e.clientX,
+                    startClientY: e.clientY,
+                    startDx: cur?.dx ?? 0,
+                    startDy: cur?.dy ?? 0,
+                    moved: false,
+                  };
+                }}
+                onPointerMove={(e) => {
+                  const s = dragStateRef.current;
+                  if (!s || s.id !== n.id) return;
+                  // 屏幕 delta 还原为 canvas delta：除 zoom k
+                  const k = zoomT.k || 1;
+                  const dx = s.startDx + (e.clientX - s.startClientX) / k;
+                  const dy = s.startDy + (e.clientY - s.startClientY) / k;
+                  if (!s.moved) {
+                    if (
+                      Math.abs(e.clientX - s.startClientX) > 3 ||
+                      Math.abs(e.clientY - s.startClientY) > 3
+                    ) {
+                      s.moved = true;
+                    }
+                  }
+                  if (s.moved) {
+                    setNodeOffsets((prev) => ({
+                      ...prev,
+                      [n.id]: { dx, dy },
+                    }));
+                  }
+                }}
+                onPointerUp={(e) => {
+                  const s = dragStateRef.current;
+                  dragStateRef.current = null;
+                  try {
+                    (e.currentTarget as HTMLElement).releasePointerCapture(
+                      e.pointerId
+                    );
+                  } catch {
+                    // pointer 已释放，无影响
+                  }
+                  // 真正拖动了 → 不触发 click
+                  if (s?.moved) return;
+                  onAgentClick?.(n.id);
+                }}
+                onDoubleClick={() => {
+                  // 双击复位单个节点
+                  setNodeOffsets((prev) => {
+                    if (!prev[n.id]) return prev;
+                    const { [n.id]: _, ...rest } = prev;
+                    return rest;
+                  });
+                }}
               >
                 {/* 左上 status dot */}
                 <span
