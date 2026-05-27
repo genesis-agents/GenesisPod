@@ -37,6 +37,7 @@ import {
   type StepStatus,
   type VerifierVerdict,
   type DimensionPipelineState,
+  type ChapterState,
 } from '@/lib/features/agent-playground/mission-presentation.types';
 
 const DV_STAGE_ORDER: StageId[] = [
@@ -367,10 +368,37 @@ function dvProjectDimensionPipelines(
   const dp = view.dimensionPipelines as
     | Record<string, DimensionPipelineState>
     | undefined;
-  if (dp && Object.keys(dp).length > 0) {
-    return new Map(Object.entries(dp));
+  if (!dp || Object.keys(dp).length === 0) {
+    return new Map();
   }
-  return new Map();
+  // ★ 2026-05-27 (Screenshot_80 续 — "各个状态都要遍历"): mission 终态时也扫荡
+  //   chapter.status, 让 dim pipeline / 章节进度 / Mission DAG 节点状态与 mission
+  //   "已完成" pill 一致。残留 writing/reviewing/revising/pending 在终态下要 promote。
+  const m = view.mission;
+  const hasCompletedAt = !!(m as { completedAt?: string }).completedAt;
+  const hasFailedAt = !!(m as { failedAt?: string }).failedAt;
+  const hasCancelledAt = !!(m as { cancelledAt?: string }).cancelledAt;
+  const isTerminalSuccess =
+    m.status === 'completed' || m.status === 'quality-failed' || hasCompletedAt;
+  const isTerminalFailure = hasFailedAt || hasCancelledAt;
+  const isTerminal = isTerminalSuccess || isTerminalFailure;
+  if (!isTerminal) return new Map(Object.entries(dp));
+  const sweepChStatus = (s: ChapterState['status']): ChapterState['status'] => {
+    if (s === 'done' || s === 'passed') return s;
+    if (s === 'failed' || s === 'failed-finalized') return s;
+    return isTerminalSuccess ? 'done' : 'failed-finalized';
+  };
+  const out = new Map<string, DimensionPipelineState>();
+  for (const [key, pipeline] of Object.entries(dp)) {
+    out.set(key, {
+      ...pipeline,
+      chapters: pipeline.chapters.map((c) => ({
+        ...c,
+        status: sweepChStatus(c.status),
+      })),
+    });
+  }
+  return out;
 }
 
 function dvDeriveVerdictsFromEvents(

@@ -223,8 +223,13 @@ export function TeamRosterPanel({
         const stage = stageMap.get(r.stage);
         const roleAgents = agents.filter((a) => a.role === r.role);
         const rawStatus = stageStatusToNodeStatus(stage?.status ?? 'pending');
+        // ★ Screenshot_80 修复 (2026-05-27): mission 终态时不只 idle 要 sweep,
+        //   working 也要 — Leader 节点常在 mission 已完成但某 leader 子 stage 残留
+        //   running 状态时显"运行中", 与"已完成"矛盾。
         const status =
-          rawStatus === 'idle' && isMissionTerminal ? idleFallback : rawStatus;
+          isMissionTerminal && (rawStatus === 'idle' || rawStatus === 'working')
+            ? idleFallback
+            : rawStatus;
 
         // ── Researcher：展开为 N 个独立节点 OR 折叠为 group ──
         if (r.role === 'researcher') {
@@ -275,9 +280,11 @@ export function TeamRosterPanel({
                     : phase === 'running'
                       ? 'working'
                       : 'idle';
-              // ★ Screenshot_77 修复: 同上, mission 终态时无 agent 数据的 dim 升 idle → completed/failed.
+              // ★ Screenshot_77/80 修复: mission 终态时 idle + working 都需要 sweep, 让
+              //   topology agent 状态与"已完成" mission 一致。
               const itemStatus: TeamNodeStatus =
-                rawItemStatus === 'idle' && isMissionTerminal
+                isMissionTerminal &&
+                (rawItemStatus === 'idle' || rawItemStatus === 'working')
                   ? idleFallback
                   : rawItemStatus;
               const shortName =

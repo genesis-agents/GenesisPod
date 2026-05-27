@@ -638,6 +638,30 @@ export default function MissionDetailPage() {
         }
       | undefined;
     const items = board?.items ?? [];
+    // ★ Screenshot_80 修复 (2026-05-27 #110 续): mission 终态 (completedAt /
+    //   failedAt / cancelledAt / status='completed'|'quality-failed') 时, 个别
+    //   todo.status 可能仍残留 'in_progress' / 'pending' (backend projector 漏扫
+    //   或事件晚到), 让 AgentInspector / 任务列表 / 拓扑 三处显示不一致 ("进行中"
+    //   vs "已完成")。在前端 mapping 阶段做终态扫荡, 单一源对齐三处。
+    const m = missionView?.mission;
+    const missionTerminalSuccess = !!(
+      m?.status === 'completed' ||
+      m?.status === 'quality-failed' ||
+      (m as { completedAt?: number } | undefined)?.completedAt ||
+      (m as { finishedAt?: number } | undefined)?.finishedAt
+    );
+    const missionTerminalFailure = !!(
+      (m as { failedAt?: number } | undefined)?.failedAt ||
+      (m as { cancelledAt?: number } | undefined)?.cancelledAt
+    );
+    const missionTerminal = missionTerminalSuccess || missionTerminalFailure;
+    const sweepStatus = (raw: MissionTodo['status']): MissionTodo['status'] => {
+      if (!missionTerminal) return raw;
+      if (raw === 'done' || raw === 'failed' || raw === 'cancelled') return raw;
+      return missionTerminalSuccess
+        ? 'done'
+        : ('failed' as MissionTodo['status']);
+    };
     return items.map(
       (entry): MissionTodo => ({
         id: entry.id,
@@ -649,7 +673,7 @@ export default function MissionDetailPage() {
         scope: entry.scope as MissionTodo['scope'],
         title: entry.title,
         assignee: entry.assignee as MissionTodo['assignee'],
-        status: entry.status as MissionTodo['status'],
+        status: sweepStatus(entry.status as MissionTodo['status']),
         startedAt: entry.startedAt,
         endedAt: entry.endedAt,
         artifacts: entry.artifacts as MissionTodo['artifacts'],
