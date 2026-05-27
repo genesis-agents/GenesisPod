@@ -312,10 +312,25 @@ function extractDimensionPipelines(
     } else if (suffix === "dimension:integrating:failed") {
       pipe.integrationDegraded = true;
     } else if (suffix === "dimension:graded") {
-      const overall = typeof p.overallScore === "number" ? p.overallScore : 0;
+      // ★ 2026-05-27 修复：emitter (per-dim-pipeline.util.ts:216) + schema
+      //   (DimensionGradedSchema.overall) 都用 `overall`，projector 之前误读
+      //   `overallScore` → 所有 graded dim 的 overall 全是 0/100。
+      // 同时把 failed / skipped / phase 三个失败兜底字段也接出来（之前 projector
+      //   drop 掉 → 失败的 dim 误显示"已完成 · 0/100"而不是"采集失败"等）。
+      const overall = typeof p.overall === "number" ? p.overall : 0;
       const grade = typeof p.grade === "string" ? p.grade : "—";
       const summary = typeof p.summary === "string" ? p.summary : "";
-      pipe.grade = { overall, grade, summary };
+      const failed = typeof p.failed === "boolean" ? p.failed : undefined;
+      const skipped = typeof p.skipped === "boolean" ? p.skipped : undefined;
+      const phase = typeof p.phase === "string" ? p.phase : undefined;
+      pipe.grade = {
+        overall,
+        grade,
+        summary,
+        ...(failed !== undefined && { failed }),
+        ...(skipped !== undefined && { skipped }),
+        ...(phase !== undefined && { phase }),
+      };
     }
   }
 
