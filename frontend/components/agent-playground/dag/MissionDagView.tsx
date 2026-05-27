@@ -637,6 +637,20 @@ export function MissionDagView({ missionId, onAgentClick, liveSignal }: Props) {
                 onPointerDown={(e) => {
                   // 仅左键拖
                   if (e.button !== 0) return;
+                  // ★ Screenshot_70/#103 真根因 (2026-05-27):
+                  //   下方 hover ↻/○ 两个按钮 (line 734/750) 在 node div 内部,
+                  //   pointer-down 冒泡到 node div 时 setPointerCapture 抢走所有
+                  //   后续 pointer 事件 → click 永远不到达按钮 onClick → 用户点
+                  //   按钮"没反应"误判为弹层关闭/hydration 错误。
+                  //   修复: 判断 target 在 button (或其他交互元素) 内时, 跳过 drag
+                  //   捕获让原生 click 正常分发到按钮。
+                  const target = e.target as HTMLElement | null;
+                  if (
+                    target &&
+                    (target.closest('button') || target.closest('a'))
+                  ) {
+                    return;
+                  }
                   (e.currentTarget as HTMLElement).setPointerCapture(
                     e.pointerId
                   );
