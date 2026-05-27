@@ -335,16 +335,9 @@ const nextConfig = {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     const aiUrl = process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:5000';
     return [
-      // ★ 静态资源（带 content hash）可以长期缓存
-      {
-        source: '/_next/static/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
+      // ★ 顺序关键：Next.js headers 对同 key 取"后写覆盖"。catch-all 必须放在
+      //   _next/static 规则之前，否则 catch-all 的 max-age=0/must-revalidate
+      //   会冲掉 immutable，导致每个 chunk 都强制回源 304，prod 严重变慢。
       // ★ HTML 页面不缓存，确保用户总是获取最新版本
       {
         source: '/:path*',
@@ -397,6 +390,17 @@ const nextConfig = {
               // 允许manifest来源
               "manifest-src 'self' blob: data: https: http:",
             ].join('; '),
+          },
+        ],
+      },
+      // ★ 静态资源（带 content hash）可以长期 immutable 缓存
+      //   放在 catch-all 之后，让此规则的 Cache-Control 覆盖 catch-all 的值。
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
           },
         ],
       },
