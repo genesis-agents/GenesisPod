@@ -49,6 +49,25 @@ export function CapabilityMeters({ view, wallTimeMs, cost, memory }: Props) {
   // 同理：memory 优先 DerivedView (event-derived)，view.memoryIndex 仅作后备。
   const memoryIndex = memory ?? view.memoryIndex ?? null;
 
+  // ★ Screenshot_75 修复：mission 已终态 (有 completedAt/failedAt/cancelledAt)
+  //   时"待评审"语义错误 — 此时报告已结束, 即便后端 verdicts 数组为空, 也已经
+  //   过了 critic/leader-signoff 流程。改成显示 score 来源摘要或"评审完成"。
+  const m = view.mission;
+  const isTerminal = !!(
+    (m as { completedAt?: number }).completedAt ??
+    (m as { finishedAt?: number }).finishedAt ??
+    (m as { failedAt?: number }).failedAt ??
+    (m as { cancelledAt?: number }).cancelledAt
+  );
+  const qualitySub =
+    verdicts.length > 0
+      ? `${verdicts.length} 个评审`
+      : score != null
+        ? '评审完成'
+        : isTerminal
+          ? '未评审'
+          : '待评审';
+
   const meters: Meter[] = [
     {
       icon: <Coins className="h-5 w-5" />,
@@ -61,7 +80,7 @@ export function CapabilityMeters({ view, wallTimeMs, cost, memory }: Props) {
       icon: <Trophy className="h-5 w-5" />,
       label: '质量评分',
       value: score != null ? String(score) : '—',
-      sub: verdicts.length > 0 ? `${verdicts.length} 个评审` : '待评审',
+      sub: qualitySub,
       tone: 'violet',
     },
     {
