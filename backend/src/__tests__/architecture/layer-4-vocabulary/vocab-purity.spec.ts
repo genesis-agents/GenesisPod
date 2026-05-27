@@ -14,7 +14,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const PROJECT_ROOT = path.join(__dirname, "..", "..", "..");
+const PROJECT_ROOT = path.join(__dirname, "..", "..", "..", "..");
 
 // ============================================================================
 // 禁词清单

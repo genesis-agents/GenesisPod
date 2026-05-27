@@ -15,7 +15,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const PROJECT_ROOT = path.join(__dirname, "..", "..", "..");
+const PROJECT_ROOT = path.join(__dirname, "..", "..", "..", "..");
 
 /**
  * 受规则约束的 projector 文件清单。

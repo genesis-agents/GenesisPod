@@ -166,6 +166,20 @@
 
 ---
 
+### E013 — B6 uplift baseline（19 个 business-team framework single-consumer）
+
+| 字段             | 内容                                                                                                                                                                                                                                                                              |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **位置**         | `backend/src/modules/ai-harness/teams/business-team/` 下 19 个 framework / helper / decision 文件                                                                                                                                                                                 |
+| **违反规则**     | 硬规则 #7（harness 新共享逻辑 ≥2 app 复用）                                                                                                                                                                                                                                       |
+| **为什么允许**   | B6 把 19 个 framework 从 agent-playground 上提到 harness/business-team 完成框架，但 social / radar 实际接入还在 wave-by-wave 进行中。当前 single-consumer 是迁移期的合理过渡态，不算 regression。**新增**文件仍必须 ≥2 consumer 才能上提（spec 用 EXEMPT_PATHS 仅豁免现有 19 个） |
+| **负责人**       | 架构组                                                                                                                                                                                                                                                                            |
+| **移除截止**     | 跟随 social B7 + radar B7 整改完成；每个 app 接入后，从 EXEMPT_PATHS 删除对应文件                                                                                                                                                                                                 |
+| **不移除的风险** | 长期不接入，新的 framework 还往里堆，最终成为只服务 playground 的 misnamed harness 包                                                                                                                                                                                             |
+| **基线文件清单** | 19 项详见 `backend/src/__tests__/architecture/harness-uplift-gate.spec.ts` 中 `EXEMPT_PATHS` 数组                                                                                                                                                                                 |
+
+---
+
 ## 例外审计 (CI)
 
 - `backend/src/__tests__/architecture/vocab-purity.spec.ts` 检查 harness / engine production 源码不含禁词
