@@ -1,6 +1,5 @@
 export { PlaygroundMissionDialog } from './modals/PlaygroundMissionDialog';
 export { CapabilityMeters } from './panels/CapabilityMeters';
-export { PipelineTimeline } from './flow/PipelineTimeline';
 export { AgentLiveGrid } from './roster/AgentLiveGrid';
 export { VerifyConsensusPanel } from './panels/VerifyConsensusPanel';
 export { MemoryIndexPanel } from './panels/MemoryIndexPanel';

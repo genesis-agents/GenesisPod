@@ -1,20 +1,27 @@
 /**
- * derive-shapes.ts — Frontend canonical shape types + pure mapping helpers
+ * derive-shapes.ts — Frontend presentation-shape types + pure mapping helpers
  *
- * 落地依据：thinning plan §B4-4 / §B5-1 / §3.4 / §7.2
+ * 落地依据：thinning plan §B4-4 / §B5-1 / §B5-2 / §3.4 / §7.2
  *
- * **2026-05-26 W7 cutover**: derive.ts 已删除，本文件成为唯一 type source。
- * 所有 component / page / hook / shim 都从此文件 import 类型。
+ * **2026-05-26 W7+W8 cutover 收口**：
+ *   - derive.ts (1030 LOC mission truth derivation) 已删除
+ *   - view-to-derived.shim.ts 文件已删除（逻辑下沉到 useMissionLegacyView hook）
+ *   - 本文件保留 PRESENTATION types（§7.2 raw event timeline display 合规）
  *
- * **§3.4 单轨约束**: 本文件只包含
- *   1. 形状类型（types / interfaces）
- *   2. 不携带 mission truth 的纯映射 helper（StAGE_STEPS / mapStepIdToStageId /
+ * **角色澄清（§3.4 + §7.2）**：
+ *   - mission truth 由 backend canonical MissionDetailView 接管
+ *   - DerivedView / AgentLiveState.trace[] / DimensionPipelineState 等是 PRESENTATION
+ *     shapes —— 用于 ComputeUsagePanel / ArtifactReader 等组件展示 events 派生的
+ *     UI summary（agent trace、chapter pipeline、tool latency 等），不是 mission truth
+ *   - 这些字段 backend 暂未在 canonical view 暴露（需要大量 telemetry payload），
+ *     §7.2 显式允许 frontend 从 raw events 解析 UI-only summary
+ *
+ * **本文件包含**：
+ *   1. 形状类型（types / interfaces，含 DerivedView envelope）
+ *   2. 不携带 mission truth 的纯映射 helper（STAGE_STEPS / mapStepIdToStageId /
  *      aggregateStageStatus）
- * 不包含 deriveView 等 mission truth 派生函数（B5-1 删除后由 backend canonical
- * MissionDetailView 接管）。
  *
- * **DerivedView 形状保留原因**: viewToDerivedShim 与一些 page-internal helper
- * 仍以 DerivedView shape 协作（B5-2 follow-up 删除 shim 后此 type 一并退役）。
+ * **不包含**：deriveView / deriveTodoLedger 等 mission truth 派生函数（已删除）。
  */
 
 // ============================================================================
