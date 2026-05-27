@@ -311,6 +311,17 @@ function dvDeriveMemoryFromEvents(
 function dvCollectAgentTraces(
   events: PlaygroundEvent[]
 ): Map<string, AgentTraceItem[]> {
+  // ★ 2026-05-27 (Screenshot_13/15/16 回归)：恢复 baseline 15d2e93ab derive.ts 的
+  //   完整 trace 提取。Backend 发的是 `agent:thought` / `agent:action` /
+  //   `agent:observation` / `agent:reflection` / `agent:error` (COLON)，
+  //   thinning 期间 shim 误改成 `.thought` (DOT) → 永远不匹配 → 所有 trace 为空 →
+  //   AgentInspector / TodoDetailDrawer 工具调用 / Tokens / 推理过程全部丢失。
+  //   规则覆盖：
+  //   - agent:thought  →  { kind: 'thought', text, (capture modelId on side) }
+  //   - agent:action   →  { kind: 'action',  toolId, input } + parallel_tool_call 拍平
+  //   - agent:observation → { kind: 'observation', toolId, output, latencyMs, tokensUsed, error }
+  //   - agent:reflection → { kind: 'reflection', text or verdict }
+  //   - agent:error    →  { kind: 'error', error }
   const out = new Map<string, AgentTraceItem[]>();
   for (const ev of events) {
     if (!ev || typeof ev !== 'object') continue;
@@ -320,24 +331,87 @@ function dvCollectAgentTraces(
       agentId?: string;
       timestamp?: number;
     };
-    if (!e.type || !e.agentId) continue;
+    if (!e.type) continue;
     const kind = dvTraceKindFromEventType(e.type);
     if (!kind) continue;
-    const trace = out.get(e.agentId) ?? [];
     const p = e.payload ?? {};
-    trace.push({
-      kind,
-      // Hydration safety: fallback 0 而非 Date.now()，避免 SSR/CSR 时戳 mismatch。
-      ts: typeof e.timestamp === 'number' ? e.timestamp : 0,
-      text: typeof p.text === 'string' ? p.text : undefined,
-      toolId: typeof p.toolId === 'string' ? p.toolId : undefined,
-      input: p.input,
-      output: p.output,
-      latencyMs: typeof p.latencyMs === 'number' ? p.latencyMs : undefined,
-      tokensUsed: typeof p.tokensUsed === 'number' ? p.tokensUsed : undefined,
-      error: typeof p.error === 'string' ? p.error : undefined,
-    });
-    out.set(e.agentId, trace);
+    const agentId =
+      (typeof p.agentId === 'string' ? p.agentId : undefined) ?? e.agentId;
+    if (!agentId) continue;
+    // Hydration safety: fallback 0 而非 Date.now()
+    const ts =
+      (typeof p.originalTs === 'number' ? p.originalTs : undefined) ??
+      (typeof e.timestamp === 'number' ? e.timestamp : 0);
+    const trace = out.get(agentId) ?? [];
+
+    if (kind === 'action') {
+      // parallel_tool_call 拍平：每个 calls[] 元素拆成独立 action trace
+      const subKind = typeof p.kind === 'string' ? p.kind : undefined;
+      if (subKind === 'parallel_tool_call' && Array.isArray(p.calls)) {
+        (p.calls as unknown[]).forEach((sub, i) => {
+          if (!sub || typeof sub !== 'object') return;
+          const s = sub as Record<string, unknown>;
+          trace.push({
+            kind: 'action',
+            ts: ts + i * 0.001,
+            toolId:
+              (typeof s.toolId === 'string' ? s.toolId : undefined) ??
+              (typeof s.skillId === 'string' ? s.skillId : undefined) ??
+              (typeof s.kind === 'string' ? s.kind : undefined),
+            input: s.input,
+          });
+        });
+        trace.sort((a, b) => a.ts - b.ts);
+        out.set(agentId, trace);
+        continue;
+      }
+      trace.push({
+        kind: 'action',
+        ts,
+        toolId:
+          (typeof p.toolId === 'string' ? p.toolId : undefined) ??
+          (typeof p.skillId === 'string' ? p.skillId : undefined) ??
+          (typeof p.subagentName === 'string' ? p.subagentName : undefined) ??
+          (typeof p.kind === 'string' ? p.kind : undefined),
+        input: p.input,
+      });
+    } else if (kind === 'observation') {
+      trace.push({
+        kind: 'observation',
+        ts,
+        toolId:
+          (typeof p.toolId === 'string' ? p.toolId : undefined) ??
+          (typeof p.kind === 'string' ? p.kind : undefined),
+        output: p.output,
+        latencyMs: typeof p.latencyMs === 'number' ? p.latencyMs : undefined,
+        tokensUsed: typeof p.tokensUsed === 'number' ? p.tokensUsed : undefined,
+        error: typeof p.error === 'string' ? p.error : undefined,
+      });
+    } else if (kind === 'thought') {
+      trace.push({
+        kind: 'thought',
+        ts,
+        text: typeof p.text === 'string' ? p.text : undefined,
+      });
+    } else if (kind === 'reflection') {
+      const text = typeof p.text === 'string' ? p.text : undefined;
+      const verdict = typeof p.verdict === 'string' ? p.verdict : undefined;
+      trace.push({
+        kind: 'reflection',
+        ts,
+        text: text ?? (verdict ? `[verdict: ${verdict}]` : undefined),
+      });
+    } else {
+      trace.push({
+        kind: 'error',
+        ts,
+        error:
+          (typeof p.error === 'string' ? p.error : undefined) ??
+          (typeof p.message === 'string' ? p.message : undefined),
+      });
+    }
+    trace.sort((a, b) => a.ts - b.ts);
+    out.set(agentId, trace);
   }
   return out;
 }
@@ -355,17 +429,48 @@ function dvCollectAgentSummary(
       payload?: Record<string, unknown>;
       timestamp?: number;
     };
-    if (!e.agentId || !e.type) continue;
-    const role = dvExtractRole(e) ?? dvDeriveRoleFromAgentId(e.agentId);
+    if (!e.type) continue;
+    const agentId =
+      (typeof e.payload?.agentId === 'string'
+        ? e.payload.agentId
+        : undefined) ?? e.agentId;
+    if (!agentId) continue;
+    const role = dvExtractRole(e) ?? dvDeriveRoleFromAgentId(agentId);
     if (!role || !DV_KNOWN_AGENT_ROLES.has(role)) continue;
     const a =
-      out.get(e.agentId) ??
+      out.get(agentId) ??
       ({
-        agentId: e.agentId,
+        agentId,
         role,
         phase: 'pending' as AgentPhase,
-        trace: traceByAgent.get(e.agentId) ?? [],
+        trace: traceByAgent.get(agentId) ?? [],
       } as AgentLiveState);
+
+    // ★ 2026-05-27 (回归恢复)：优先从 `agent:lifecycle` 单事件 + payload.phase
+    //   读取生命周期（baseline 15d2e93ab 原本是这个路径）。这是 harness 发的
+    //   单一 lifecycle 信号；business 派生（chapter:writing:completed 等）作为 fallback。
+    if (
+      e.type === 'agent-playground.agent:lifecycle' ||
+      e.type === 'agent:lifecycle' ||
+      e.type.endsWith('.agent:lifecycle')
+    ) {
+      const phase = e.payload?.phase;
+      if (phase === 'started') {
+        if (a.phase === 'pending') a.phase = 'running';
+        a.startedAt ??= e.timestamp;
+      } else if (phase === 'completed') {
+        a.phase = 'completed';
+        a.endedAt = e.timestamp;
+      } else if (phase === 'failed') {
+        a.phase = 'failed';
+        a.endedAt = e.timestamp;
+        const msg = e.payload?.error ?? e.payload?.message;
+        if (typeof msg === 'string') a.failureMessage = msg;
+      }
+      if (typeof e.payload?.modelId === 'string') a.modelId = e.payload.modelId;
+      out.set(agentId, a);
+      continue;
+    }
     // ★ 2026-05-27 修复（Screenshot_5 "全是未启动"）：playground 不发独立 agent.X
     //   事件，agent 生命周期 derive 自 chapter / dim / leader 等业务事件。
     //   规则与后端 agent-view.projector.deriveVerbFromEventType 对齐。
@@ -399,7 +504,7 @@ function dvCollectAgentSummary(
     if (e.payload && typeof e.payload.modelId === 'string') {
       a.modelId = e.payload.modelId;
     }
-    out.set(e.agentId, a);
+    out.set(agentId, a);
   }
   return [...out.values()];
 }
@@ -479,13 +584,16 @@ function dvCanonicalStageToFrontendStage(canonicalId: string): StageId | null {
 }
 
 function dvTraceKindFromEventType(type: string): AgentTraceItem['kind'] | null {
-  if (type.endsWith('.thought') || type === 'agent.thought') return 'thought';
-  if (type.endsWith('.action') || type === 'agent.action') return 'action';
-  if (type.endsWith('.observation') || type === 'agent.observation')
+  // ★ 2026-05-27 (Screenshot_13 回归)：backend harness 用 `agent:thought` (COLON) 而非
+  //   `agent.thought` (DOT)。thinning shim 误改 → 永远不匹配。这里保留 COLON 主格式
+  //   + DOT 兼容（防 fixture / 旧 stream 退化用）。
+  if (type.endsWith(':thought') || type.endsWith('.thought')) return 'thought';
+  if (type.endsWith(':action') || type.endsWith('.action')) return 'action';
+  if (type.endsWith(':observation') || type.endsWith('.observation'))
     return 'observation';
-  if (type.endsWith('.reflection') || type === 'agent.reflection')
+  if (type.endsWith(':reflection') || type.endsWith('.reflection'))
     return 'reflection';
-  if (type.endsWith('.error') || type === 'agent.error') return 'error';
+  if (type.endsWith(':error') || type.endsWith('.error')) return 'error';
   return null;
 }
 
