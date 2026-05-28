@@ -386,10 +386,18 @@ export function ChapterReader({
 
   const sectionMarkdown = useMemo(() => {
     if (!selectedSection) return '';
-    return getSectionSlice(
+    const slice = getSectionSlice(
       artifact.content.fullMarkdown,
       selectedSection
     ).trimEnd();
+    // ★ 2026-05-27 修复: ChapterReader 章末有独立"章末参考文献"区块 (line 498+),
+    //   若本章 slice 里又混了 markdown 内联的 "## 参考文献" 段, 用户会看到两份。
+    //   连续视图 ContinuousReader 已通过 stripTrailingReferences 解 (#87),
+    //   这里同步剥离让章节视图行为一致。
+    return slice.replace(
+      /\n+##\s*(参考文献|参考资料|References)[\s\S]*$/m,
+      '\n'
+    );
   }, [selectedSection, artifact.content.fullMarkdown]);
 
   const sectionFigures = useMemo(() => {
