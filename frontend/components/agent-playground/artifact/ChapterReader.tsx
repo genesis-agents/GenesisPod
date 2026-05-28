@@ -386,14 +386,24 @@ export function ChapterReader({
 
   const sectionMarkdown = useMemo(() => {
     if (!selectedSection) return '';
+    // ★ 2026-05-27 修复 (用户实证: 参考文献章节出现两份引用清单):
+    //   "参考文献"章节本身的 body 由 structural-report-assembler.buildReferences()
+    //   自动生成 "Title — domain" 列表, 与下方 ChapterReader 章末 widget 渲染的
+    //   "[N] title" 列表内容重复 → 用户看到上下两份引用清单。
+    //   解法: 此 chapter 直接 body 清空, 让 widget 单一渲染。
+    const titleNormalized = (selectedSection.title ?? '').trim().toLowerCase();
+    if (
+      titleNormalized === '参考文献' ||
+      titleNormalized === '参考资料' ||
+      titleNormalized === 'references'
+    ) {
+      return '';
+    }
     const slice = getSectionSlice(
       artifact.content.fullMarkdown,
       selectedSection
     ).trimEnd();
-    // ★ 2026-05-27 修复: ChapterReader 章末有独立"章末参考文献"区块 (line 498+),
-    //   若本章 slice 里又混了 markdown 内联的 "## 参考文献" 段, 用户会看到两份。
-    //   连续视图 ContinuousReader 已通过 stripTrailingReferences 解 (#87),
-    //   这里同步剥离让章节视图行为一致。
+    // 其余章节: 仍剥末尾 "## 参考文献" inline 段, 与 ContinuousReader 行为一致 (#87)
     return slice.replace(
       /\n+##\s*(参考文献|参考资料|References)[\s\S]*$/m,
       '\n'
