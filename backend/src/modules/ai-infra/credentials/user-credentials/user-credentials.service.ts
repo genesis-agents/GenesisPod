@@ -175,6 +175,18 @@ export class UserCredentialsService {
    * 运行时取用户私有工具 Key 明文（供 ToolKeyResolver）。强制 userId（缺失即抛错，D6）。
    * 命中后异步累加 accessCount（fire-and-forget）。
    */
+  /** 按 ID 取明文（用于「从已有密钥复制」场景，owner 强制校验）。 */
+  async getCredentialValueById(
+    id: string,
+    userId: string,
+  ): Promise<string | null> {
+    const row = await this.prisma.userCredential.findFirst({
+      where: { id, userId, isActive: true, deletedAt: null },
+    });
+    if (!row) return null;
+    return this.encryption.decryptEnvelope(row);
+  }
+
   async getCredentialValue(
     name: string,
     userId: string,

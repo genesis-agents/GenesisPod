@@ -40,6 +40,26 @@ const TOKEN_PARAM_OPTIONS = [
     label: 'max_completion_tokens (o1/gpt-5 推理系列)',
   },
 ];
+/** 主流供应商预设：选中后自动填 endpoint + apiFormat */
+const KNOWN_PROVIDERS: {
+  slug: string;
+  label: string;
+  endpoint: string;
+  apiFormat: string;
+}[] = [
+  { slug: 'openai',      label: 'OpenAI',             endpoint: 'https://api.openai.com/v1',                    apiFormat: 'openai' },
+  { slug: 'anthropic',   label: 'Anthropic (Claude)',  endpoint: 'https://api.anthropic.com',                    apiFormat: 'anthropic' },
+  { slug: 'google',      label: 'Google (Gemini)',     endpoint: 'https://generativelanguage.googleapis.com/v1beta', apiFormat: 'google' },
+  { slug: 'xai',         label: 'xAI (Grok)',          endpoint: 'https://api.x.ai/v1',                          apiFormat: 'xai' },
+  { slug: 'deepseek',    label: 'DeepSeek',            endpoint: 'https://api.deepseek.com/v1',                  apiFormat: 'openai' },
+  { slug: 'groq',        label: 'Groq',                endpoint: 'https://api.groq.com/openai/v1',               apiFormat: 'openai' },
+  { slug: 'openrouter',  label: 'OpenRouter',          endpoint: 'https://openrouter.ai/api/v1',                 apiFormat: 'openai' },
+  { slug: 'together',    label: 'Together AI',         endpoint: 'https://api.together.xyz/v1',                  apiFormat: 'openai' },
+  { slug: 'ollama',      label: 'Ollama (本地)',        endpoint: 'http://localhost:11434/v1',                     apiFormat: 'openai' },
+  { slug: 'vllm',        label: 'vLLM (本地)',          endpoint: 'http://localhost:8000/v1',                      apiFormat: 'openai' },
+  { slug: 'lmstudio',   label: 'LM Studio (本地)',     endpoint: 'http://localhost:1234/v1',                      apiFormat: 'openai' },
+];
+const CUSTOM_SLUG = '__custom__';
 
 export function UserModelConfigModal({
   provider: initialProvider,
@@ -200,27 +220,47 @@ export function UserModelConfigModal({
         {/* Provider —— 改为可输入文本 + datalist autocomplete (用户反馈:
             本地模型 / 自建 provider 无法用 select 限定的下拉, 必须支持自由输入) */}
         <Field label="Provider" required>
-          <input
-            list="user-model-provider-list"
-            value={provider}
-            onChange={(e) => setProvider(e.target.value)}
-            disabled={isEdit}
-            placeholder="选择或输入 provider, e.g. openai / ollama-local / vllm-prod"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
-          />
-          <datalist id="user-model-provider-list">
-            {userKeys
-              .filter((k) => k.isActive)
-              .map((k) => (
-                <option key={k.provider} value={k.provider}>
-                  {k.keyHint}
-                </option>
-              ))}
-          </datalist>
-          {userKeys.filter((k) => k.isActive).length === 0 && (
-            <p className="mt-1 text-xs text-amber-600">
-              暂无已配置的 API Key —— 留空 Provider 或填自建 slug, 之后到 API Keys 配密钥。
-            </p>
+          {isEdit ? (
+            <input
+              value={provider}
+              disabled
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+            />
+          ) : (
+            <>
+              <select
+                value={KNOWN_PROVIDERS.find((p) => p.slug === provider) ? provider : CUSTOM_SLUG}
+                onChange={(e) => {
+                  const slug = e.target.value;
+                  if (slug === CUSTOM_SLUG) {
+                    setProvider('');
+                    setEndpoint('');
+                  } else {
+                    const preset = KNOWN_PROVIDERS.find((p) => p.slug === slug);
+                    if (preset) {
+                      setProvider(preset.slug);
+                      if (!endpoint) setEndpoint(preset.endpoint);
+                      setApiFormat(preset.apiFormat);
+                    }
+                  }
+                }}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="" disabled>-- 选择供应商 --</option>
+                {KNOWN_PROVIDERS.map((p) => (
+                  <option key={p.slug} value={p.slug}>{p.label}</option>
+                ))}
+                <option value={CUSTOM_SLUG}>其它 / 自定义…</option>
+              </select>
+              {(!KNOWN_PROVIDERS.find((p) => p.slug === provider) || provider === '') && (
+                <input
+                  value={provider}
+                  onChange={(e) => setProvider(e.target.value)}
+                  placeholder="填写自定义 provider slug，例如 my-proxy / ollama-prod"
+                  className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
+              )}
+            </>
           )}
         </Field>
 

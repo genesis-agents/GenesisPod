@@ -39,40 +39,58 @@ function mapCategory(category: string): string {
 
 interface ConfigureKeyModalProps {
   tool: UserToolItem;
+  userSecrets: Array<{
+    id: string;
+    name: string;
+    displayName: string;
+    category: string;
+    maskedValue: string;
+    source: string;
+  }>;
   onClose: () => void;
   onSuccess: () => void;
 }
 
 function ConfigureKeyModal({
   tool,
+  userSecrets,
   onClose,
   onSuccess,
 }: ConfigureKeyModalProps) {
   const { t } = useTranslation();
-  const [value, setValue] = useState('');
+  const targetCategory = mapCategory(tool.category);
+
+  const matchingSecrets = useMemo(
+    () => userSecrets.filter((s) => s.category === targetCategory || targetCategory === 'OTHER'),
+    [userSecrets, targetCategory]
+  );
+
+  const [mode, setMode] = useState<'select' | 'new'>(
+    matchingSecrets.length > 0 ? 'select' : 'new'
+  );
+  const [selectedId, setSelectedId] = useState(matchingSecrets[0]?.id ?? '');
+  const [newValue, setNewValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!value.trim()) {
-      setError(t('me.tools.modal.keyRequired'));
-      return;
-    }
     setError(null);
+    if (mode === 'select') {
+      if (!selectedId) { setError('请选择一个已有密钥'); return; }
+    } else {
+      if (!newValue.trim()) { setError(t('me.tools.modal.keyRequired')); return; }
+    }
     setSubmitting(true);
     try {
-      await apiClient.post('/user/secrets', {
-        name: tool.secretName,
-        category: mapCategory(tool.category),
-        provider: tool.toolId,
-        value: value.trim(),
-      });
+      const body =
+        mode === 'select'
+          ? { name: tool.secretName, category: targetCategory, provider: tool.toolId, sourceSecretId: selectedId }
+          : { name: tool.secretName, category: targetCategory, provider: tool.toolId, value: newValue.trim() };
+      await apiClient.post('/user/secrets', body);
       onSuccess();
       onClose();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : t('me.tools.modal.saveFailed')
-      );
+      setError(err instanceof Error ? err.message : t('me.tools.modal.saveFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -86,12 +104,7 @@ function ConfigureKeyModal({
       title={t('me.tools.modal.configureTitle', { name: tool.name })}
       footer={
         <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onClose}
-            disabled={submitting}
-          >
+          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>
             {t('me.tools.modal.cancel')}
           </Button>
           <Button size="sm" onClick={handleSubmit} disabled={submitting}>
@@ -100,22 +113,74 @@ function ConfigureKeyModal({
         </div>
       }
     >
-      <div className="space-y-3">
-        <p className="text-sm text-gray-600">
-          {t('me.tools.modal.configureDesc', { secretName: tool.secretName })}
+      <div className="space-y-4">
+        <p className="text-xs text-gray-500">
+          密钥名称：
+          <code className="rounded bg-gray-100 px-1 py-0.5 text-[11px]">{tool.secretName}</code>
         </p>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
-            {t('me.tools.modal.keyLabel')}
-          </label>
-          <input
-            type="password"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={t('me.tools.modal.keyPlaceholder')}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+
+        {/* 模式切换 */}
+        <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+          {matchingSecrets.length > 0 && (
+            <button
+              onClick={() => setMode('select')}
+              className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${
+                mode === 'select' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              从已有密钥选择（{matchingSecrets.length}）
+            </button>
+          )}
+          <button
+            onClick={() => setMode('new')}
+            className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${
+              mode === 'new' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            输入新密钥
+          </button>
         </div>
+
+        {mode === 'select' ? (
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-gray-700">
+              选择已保存的 {tool.category} 密钥
+            </label>
+            <select
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {matchingSecrets.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.displayName || s.name} · {s.maskedValue}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="text-xs font-medium text-gray-700">
+                {t('me.tools.modal.keyLabel')}
+              </label>
+              {matchingSecrets.length === 0 && (
+                <a href="/me/api-keys" className="text-xs text-primary underline hover:text-primary/80">
+                  前往「我的 API Keys」添加
+                </a>
+              )}
+            </div>
+            <input
+              type="text"
+              autoComplete="new-password"
+              value={newValue}
+              onChange={(e) => setNewValue(e.target.value)}
+              placeholder={t('me.tools.modal.keyPlaceholder')}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        )}
+
         {error && (
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
             {error}
@@ -479,6 +544,7 @@ export function UserToolsTab() {
       {configureTarget && (
         <ConfigureKeyModal
           tool={configureTarget}
+          userSecrets={secrets}
           onClose={() => setConfigureTarget(null)}
           onSuccess={refresh}
         />

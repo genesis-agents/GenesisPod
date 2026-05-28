@@ -135,7 +135,7 @@ function AddKeyModal({ onClose, onSubmit }: AddKeyModalProps) {
             {t('me.apiKeys.fieldValue')} *
           </label>
           <Input
-            type="password"
+            type="text" autoComplete="new-password"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={t('me.apiKeys.fieldValuePlaceholder')}
@@ -239,7 +239,7 @@ function EditKeyModal({ item, onClose, onSubmit }: EditKeyModalProps) {
             {t('me.apiKeys.fieldValue')}
           </label>
           <Input
-            type="password"
+            type="text" autoComplete="new-password"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={t('me.apiKeys.fieldValueEditPlaceholder')}

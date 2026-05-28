@@ -130,6 +130,24 @@ export class UserSecretsService {
     userId: string,
     dto: CreateUserSecretDto,
   ): Promise<UserSecretListItem> {
+    // 解析明文值：直接传值 OR 从已有密钥复制（sourceSecretId，owner 强制校验）
+    let resolvedValue = dto.value;
+    if (!resolvedValue && dto.sourceSecretId) {
+      const copied = await this.userCredentials.getCredentialValueById(
+        dto.sourceSecretId,
+        userId,
+      );
+      if (!copied) {
+        throw new BadRequestException(
+          "sourceSecretId 对应的密钥不存在或无权限",
+        );
+      }
+      resolvedValue = copied;
+    }
+    if (!resolvedValue) {
+      throw new BadRequestException("value 或 sourceSecretId 必须提供一个");
+    }
+
     if (dto.category === SecretCategory.AI_MODEL) {
       const provider = dto.provider?.trim();
       if (!provider) {
@@ -140,7 +158,7 @@ export class UserSecretsService {
       await this.userApiKeys.saveKey(
         userId,
         provider,
-        dto.value,
+        resolvedValue,
         ApiKeyMode.PERSONAL,
       );
       // saveKey 返回 { success, mode }，不含 id；用复合唯一键精确回读刚写入的行
@@ -161,7 +179,7 @@ export class UserSecretsService {
         displayName: dto.displayName || `${provider} API Key`,
         category: SecretCategory.AI_MODEL,
         provider,
-        maskedValue: saved?.keyHint || this.encryption.createKeyHint(dto.value),
+        maskedValue: saved?.keyHint || this.encryption.createKeyHint(resolvedValue),
         isActive: saved?.isActive ?? true,
         usageCount: saved?.usageCount ?? 0,
         testStatus: saved?.testStatus ?? null,
@@ -176,7 +194,7 @@ export class UserSecretsService {
       displayName: dto.displayName,
       category: dto.category,
       provider: dto.provider,
-      value: dto.value,
+      value: resolvedValue,
       description: dto.description,
       isActive: dto.isActive,
     });
