@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, PlusCircle } from 'lucide-react';
 import { toast } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
 import { useUserSkills, type UserSkillItem } from '@/hooks/features/useUserSkills';
@@ -15,10 +15,13 @@ import { Button } from '@/components/ui/primitives/button';
 import { Input, Textarea } from '@/components/ui/form';
 import { formatDateSafe } from '@/lib/utils/date';
 
-/**
- * 我的技能（/me/skills）—— 授权版：展示系统技能目录（来自 SkillRegistry）+
- * 当前用户的授权状态（已授权 / 审批中 / 未授权），逐技能向系统申请授权。
- */
+/** kebab-case / snake_case → Title Case（用于展示 domain 原始值） */
+function formatDomain(raw: string): string {
+  return raw
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function UserSkillsTab() {
   const { t } = useTranslation();
   const { skills, loading, error, refresh, requestSkillGrant } = useUserSkills();
@@ -62,42 +65,43 @@ export function UserSkillsTab() {
   };
 
   const renderStatus = (s: UserSkillItem) => {
-    if (s.granted) {
-      return <StatusBadge tone="success" label={t('me.skills.statusGranted')} />;
-    }
-    if (s.pending) {
-      return <StatusBadge tone="warning" label={t('me.skills.statusPending')} />;
-    }
+    if (s.granted) return <StatusBadge tone="success" label={t('me.skills.statusGranted')} />;
+    if (s.pending) return <StatusBadge tone="warning" label={t('me.skills.statusPending')} />;
     return <StatusBadge tone="neutral" label={t('me.skills.statusAvailable')} />;
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-5">
+      {/* 页头 */}
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-5 w-5 text-primary shrink-0" />
         <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <Sparkles className="h-5 w-5 text-primary" />
+          <h2 className="text-base font-semibold text-gray-900 leading-tight">
             {t('me.skills.title')}
           </h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="text-xs text-gray-400 mt-0.5">
             {t('me.skills.description')}
           </p>
         </div>
       </div>
 
+      {/* 待审批提示 */}
       {pendingCount > 0 && (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
           {t('me.skills.pendingNote', { count: pendingCount })}
-        </p>
+        </div>
       )}
 
+      {/* 搜索 */}
       <Input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={t('me.skills.search')}
-        className="max-w-sm"
+        className="max-w-xs h-8 text-sm"
       />
 
+      {/* 内容区 */}
       {loading ? (
         <LoadingState />
       ) : error ? (
@@ -111,41 +115,63 @@ export function UserSkillsTab() {
         <Table>
           <THead>
             <Tr>
-              <Th>{t('me.skills.colSkill')}</Th>
-              <Th>{t('me.skills.colDomain')}</Th>
-              <Th>{t('me.skills.colStatus')}</Th>
-              <Th>{t('me.skills.colExpires')}</Th>
-              <Th aria-label="actions" />
+              <Th className="w-[55%]">{t('me.skills.colSkill')}</Th>
+              <Th className="w-[15%]">{t('me.skills.colStatus')}</Th>
+              <Th className="w-[15%]">{t('me.skills.colExpires')}</Th>
+              <Th className="w-[15%]" aria-label="actions" />
             </Tr>
           </THead>
           <TBody>
             {filtered.map((s) => (
               <Tr key={s.id}>
+                {/* 技能名 + 描述（截断）+ domain chip */}
                 <Td>
-                  <div className="font-medium text-gray-900">{s.name}</div>
-                  <div className="text-xs text-gray-500">{s.description}</div>
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm font-medium text-gray-900 truncate">
+                          {s.name}
+                        </span>
+                        {s.domain && (
+                          <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-500 leading-none shrink-0">
+                            {formatDomain(s.domain)}
+                          </span>
+                        )}
+                      </div>
+                      {s.description && (
+                        <p
+                          className="mt-0.5 text-xs text-gray-400 line-clamp-1"
+                          title={s.description}
+                        >
+                          {s.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </Td>
-                <Td>{s.domain}</Td>
+
+                {/* 状态 */}
                 <Td>{renderStatus(s)}</Td>
-                <Td>
+
+                {/* 到期 */}
+                <Td className="text-sm text-gray-500">
                   {s.granted
                     ? s.grantExpiresAt
                       ? formatDateSafe(s.grantExpiresAt, 'date')
-                      : t('me.skills.neverExpires')
-                    : '—'}
+                      : <span className="text-gray-400">—</span>
+                    : <span className="text-gray-300">—</span>}
                 </Td>
+
+                {/* 操作 */}
                 <Td>
                   {!s.granted && !s.pending && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setTarget(s);
-                        setReason('');
-                      }}
+                    <button
+                      onClick={() => { setTarget(s); setReason(''); }}
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
                     >
+                      <PlusCircle className="h-3.5 w-3.5" />
                       {t('me.skills.requestThis')}
-                    </Button>
+                    </button>
                   )}
                 </Td>
               </Tr>
@@ -154,6 +180,7 @@ export function UserSkillsTab() {
         </Table>
       )}
 
+      {/* 申请授权 Modal */}
       <Modal
         open={target !== null}
         onClose={() => setTarget(null)}
