@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { SecretCategory, UserApiKeyMode } from "@prisma/client";
+import { SecretCategory } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../encryption/encryption.service";
 import { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
@@ -50,9 +50,9 @@ export class UserSecretsService {
   /** 统一列出用户所有私有 Key（LLM + 工具 + 其他类），归一成一个表的行。 */
   async list(userId: string): Promise<UserSecretListItem[]> {
     const [llmKeys, secretRows] = await Promise.all([
-      // 铁律 2：排除捐赠（mode != DONATED）
+      // H6: 捐赠池退役后 user_api_keys 恒为 PERSONAL，无需再排除捐赠。
       this.prisma.userApiKey.findMany({
-        where: { userId, mode: { not: UserApiKeyMode.DONATED } },
+        where: { userId },
         orderBy: [{ provider: "asc" }, { label: "asc" }],
       }),
       // 铁律 2：排除捐赠 category
@@ -228,9 +228,7 @@ export class UserSecretsService {
           userId,
           key.provider,
           dto.value,
-          key.mode === UserApiKeyMode.DONATED
-            ? ApiKeyMode.DONATED
-            : ApiKeyMode.PERSONAL,
+          ApiKeyMode.PERSONAL,
           key.preferredModelId ?? undefined,
           key.apiEndpoint ?? undefined,
           key.label,

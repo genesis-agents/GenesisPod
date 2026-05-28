@@ -103,15 +103,4 @@ export class UserApiKeysController {
       req.user.id,
     );
   }
-
-  /**
-   * 撤回捐赠（Key 变回自用模式）
-   */
-  @Delete(":provider/donate")
-  async withdrawDonation(
-    @Req() req: AuthenticatedRequest,
-    @Param("provider") provider: string,
-  ) {
-    return this.userApiKeysService.withdrawDonation(req.user.id, provider);
-  }
 }

@@ -14,7 +14,6 @@ describe("UserApiKeysController", () => {
     saveKey: jest.Mock;
     deleteKey: jest.Mock;
     testKey: jest.Mock;
-    withdrawDonation: jest.Mock;
   };
 
   const reqUser = { user: { id: "user-1", email: "u@x.com" } } as never;
@@ -27,7 +26,6 @@ describe("UserApiKeysController", () => {
       saveKey: jest.fn(),
       deleteKey: jest.fn(),
       testKey: jest.fn(),
-      withdrawDonation: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -165,17 +163,6 @@ describe("UserApiKeysController", () => {
       const result = await controller.testKey("openai", dto, reqUser);
 
       expect(result).toEqual({ ok: false, error: "401" });
-    });
-  });
-
-  describe("withdrawDonation", () => {
-    it("calls service.withdrawDonation with user id and provider", async () => {
-      service.withdrawDonation.mockResolvedValue({ withdrawn: true });
-
-      const result = await controller.withdrawDonation(reqUser, "openai");
-
-      expect(service.withdrawDonation).toHaveBeenCalledWith("user-1", "openai");
-      expect(result).toEqual({ withdrawn: true });
     });
   });
 });

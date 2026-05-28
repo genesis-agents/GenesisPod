@@ -8136,7 +8136,7 @@ model ResearchTodo {
 /// API Key 使用模式
 enum UserApiKeyMode {
   PERSONAL // 自用模式
-  DONATED // 捐赠到共享池
+  DONATED // @deprecated 2026-05-28 H6 捐赠池已退役；枚举值保留供历史行可读，DROP 留后续大版本
 }
 
 /// 2026-05-27 BYOK：用户 Key 缺失时的运行时兜底策略
@@ -8175,9 +8175,11 @@ model UserApiKey {
   iv                 String         @db.VarChar(32)
   keyHint            String?        @map("key_hint") @db.VarChar(20) // 脱敏提示如 "sk-...3f8a"
   keyVersion         Int            @default(1) @map("key_version")
+  /// @deprecated 2026-05-28 H6：捐赠池退役后恒为 PERSONAL。保留列待后续大版本 DROP。
   mode               UserApiKeyMode @default(PERSONAL)
   apiEndpoint        String?        @map("api_endpoint") @db.Text
   preferredModelId   String?        @map("preferred_model_id") @db.VarChar(200)
+  /// @deprecated 2026-05-28 H6：捐赠池退役，不再写入。保留列待后续大版本 DROP。
   donatedSecretId    String?        @map("donated_secret_id") // 关联 Secret Manager 的 ID
   isActive           Boolean        @default(true) @map("is_active")
   testStatus         String?        @map("test_status") @db.VarChar(20) // success | failed
@@ -8192,6 +8194,7 @@ model UserApiKey {
   /// (前 last_tested_at 列在 migration 20260512a 中 drop).
   /// 写入路径：persistDbHealthOutcome (personal 分支) success/failure 都更新.
   lastUsedAt         DateTime?      @map("last_used_at")
+  /// @deprecated 2026-05-28 H6：捐赠池退役，不再写入。保留列待后续大版本 DROP。
   donationRewardedAt DateTime?      @map("donation_rewarded_at") // 首次捐赠奖励发放时间（防重复）
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")

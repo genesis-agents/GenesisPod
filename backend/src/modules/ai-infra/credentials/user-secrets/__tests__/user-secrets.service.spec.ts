@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { SecretCategory, UserApiKeyMode } from "@prisma/client";
+import { SecretCategory } from "@prisma/client";
 import { UserSecretsService } from "../user-secrets.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../../encryption/encryption.service";
@@ -138,12 +138,12 @@ describe("UserSecretsService", () => {
     });
   });
 
-  describe("list — 铁律 2：排除捐赠", () => {
-    it("user_api_keys 过滤 mode != DONATED；secrets 过滤 category != USER_DONATED", async () => {
+  describe("list — H6：捐赠池退役后 user_api_keys 恒 PERSONAL", () => {
+    it("user_api_keys 不再过滤 mode；secrets 仍过滤 category != USER_DONATED", async () => {
       await service.list("user-1");
       expect(prisma.userApiKey.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: "user-1", mode: { not: UserApiKeyMode.DONATED } },
+          where: { userId: "user-1" },
         }),
       );
       expect(prisma.secret.findMany).toHaveBeenCalledWith(
