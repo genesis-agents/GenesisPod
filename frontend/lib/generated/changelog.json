@@ -1,5 +1,125 @@
 [
   {
+    "version": "50.6.0",
+    "date": "2026-05-28",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "UserModelConfigModal — provider 自由输入 + API 配置 section card"
+      }
+    ]
+  },
+  {
+    "version": "50.5.0",
+    "date": "2026-05-28",
+    "changes": [
+      {
+        "type": "improvement",
+        "description": "model modal clean form + skills search/desc fix"
+      },
+      {
+        "type": "improvement",
+        "description": "retire donation pool (H6/PR-0)"
+      },
+      {
+        "type": "fix",
+        "description": "key input UX — no auto-fill, select from existing, provider presets"
+      },
+      {
+        "type": "fix",
+        "description": "remove duplicate h2 titles in tools/models/skills sections"
+      },
+      {
+        "type": "fix",
+        "description": "FALLBACK default + task status sweep bug"
+      },
+      {
+        "type": "fix",
+        "description": "raise mission description limit 2000 → 10000 chars"
+      },
+      {
+        "type": "fix",
+        "description": "redesign skill table — domain chip, truncated desc, compact layout"
+      },
+      {
+        "type": "fix",
+        "description": "pre-upgrade DB snapshot + BYOK KEK isolation check in upgrade"
+      },
+      {
+        "type": "fix",
+        "description": "break facade barrel cycle and wire ToolKeyResolver into ExploreModule"
+      },
+      {
+        "type": "fix",
+        "description": "add ToolKeyResolverService mock in academic-tools integration spec"
+      },
+      {
+        "type": "fix",
+        "description": "fix ai-model-discovery spec DI + skip fetchAvailable (fb63df767 dynamic routing pending rewrite)"
+      },
+      {
+        "type": "feature",
+        "description": "KEK rotation re-wrap job (PR-6 rotation)"
+      },
+      {
+        "type": "feature",
+        "description": "credential hardening backfill script (PR-4)"
+      },
+      {
+        "type": "feature",
+        "description": "dual-read v2 across legacy credential tables (PR-3.1)"
+      },
+      {
+        "type": "feature",
+        "description": "UserCredentialsService — tool BYOK on envelope v2 (PR-3)"
+      },
+      {
+        "type": "feature",
+        "description": "schema — user_credentials table + v2 envelope columns (PR-2)"
+      },
+      {
+        "type": "feature",
+        "description": "encryption kernel — AES-256-GCM envelope + KEK provider (PR-1)"
+      },
+      {
+        "type": "feature",
+        "description": "full BYOK coverage — tools/models/skills/ux (phase B-E complete)"
+      },
+      {
+        "type": "feature",
+        "description": "extend runtime byok to finance connector (phase e)"
+      },
+      {
+        "type": "feature",
+        "description": "model config api-key selector (phase d - models)"
+      },
+      {
+        "type": "feature",
+        "description": "frontend /me pages — unified api-keys + tools + skills (phase d)"
+      },
+      {
+        "type": "feature",
+        "description": "activate byok at runtime for search tools (phase e)"
+      },
+      {
+        "type": "feature",
+        "description": "/me/tools catalog + authorization request/grant flow (C7/C9/C10)"
+      },
+      {
+        "type": "feature",
+        "description": "tool-key resolver with user-first priority chain (C6)"
+      },
+      {
+        "type": "feature",
+        "description": "unified user-secrets crud service + controller (C5)"
+      },
+      {
+        "type": "feature",
+        "description": "db schema + per-user encryption + admin-only secret filter"
+      }
+    ]
+  },
+  {
     "version": "40.13.0",
     "date": "2026-05-27",
     "changes": [
