@@ -188,6 +188,9 @@ model User {
   // BYOK: 用户自有 API Key
   apiKeys UserApiKey[]
 
+  // BYOK 加固 (PR-2): 用户私有「工具/其它类」Key（信封加密，与 admin secrets 分离）
+  userCredentials UserCredential[]
+
   // BYOK v2: 引导完成时间（为 null 说明新用户尚未走过引导）
   byokOnboardedAt DateTime? @map("byok_onboarded_at")
 
@@ -8175,6 +8178,11 @@ model UserApiKey {
   iv                 String         @db.VarChar(32)
   keyHint            String?        @map("key_hint") @db.VarChar(20) // 脱敏提示如 "sk-...3f8a"
   keyVersion         Int            @default(1) @map("key_version")
+  /// 2026-05-28 PR-2 信封加密 v2 列（dual-read）：enc_version=1=legacy CBC，2=GCM/envelope
+  authTag            String?        @map("auth_tag") @db.VarChar(32)
+  wrappedDek         String?        @map("wrapped_dek") @db.Text
+  encVersion         Int            @default(1) @map("enc_version")
+  kekVersion         Int            @default(1) @map("kek_version")
   /// @deprecated 2026-05-28 H6：捐赠池退役后恒为 PERSONAL。保留列待后续大版本 DROP。
   mode               UserApiKeyMode @default(PERSONAL)
   apiEndpoint        String?        @map("api_endpoint") @db.Text
@@ -8253,10 +8261,15 @@ model Secret {
   category    SecretCategory @default(OTHER)
   description String?        @db.Text
 
-  // ★ 加密存储 (AES-256-CBC)
+  // ★ 加密存储 (enc_version=1: AES-256-CBC; 2: AES-256-GCM 信封)
   encryptedValue String @map("encrypted_value") @db.Text // 密文
-  iv             String @db.VarChar(32) // 初始化向量 (hex, 16 bytes = 32 hex chars)
+  iv             String @db.VarChar(32) // 初始化向量 (hex)
   keyVersion     Int    @default(1) @map("key_version") // 加密密钥版本号，用于密钥轮转
+  // 2026-05-28 PR-2 信封加密 v2 列（dual-read）
+  authTag        String? @map("auth_tag") @db.VarChar(32)
+  wrappedDek     String? @map("wrapped_dek") @db.Text
+  encVersion     Int     @default(1) @map("enc_version")
+  kekVersion     Int     @default(1) @map("kek_version")
 
   // 元数据
   provider String? @db.VarChar(50) // openai, anthropic, tavily 等
@@ -8320,10 +8333,15 @@ model SecretKey {
   /// 标签（同一 secret 下唯一），用户输入或默认 "primary" / "backup-1"
   label String @db.VarChar(100)
 
-  /// 加密存储 (AES-256-CBC)
+  /// 加密存储 (enc_version=1: AES-256-CBC; 2: AES-256-GCM 信封)
   encryptedValue String @map("encrypted_value") @db.Text
   iv             String @db.VarChar(32)
   keyVersion     Int    @default(1) @map("key_version")
+  /// 2026-05-28 PR-2 信封加密 v2 列（dual-read）
+  authTag        String? @map("auth_tag") @db.VarChar(32)
+  wrappedDek     String? @map("wrapped_dek") @db.Text
+  encVersion     Int     @default(1) @map("enc_version")
+  kekVersion     Int     @default(1) @map("kek_version")
 
   /// 脱敏指纹用于 UI 显示（"sk-...3f8a"），不参与解密
   keyHint String? @map("key_hint") @db.VarChar(40)
@@ -8378,10 +8396,15 @@ model SecretVersion {
   secretId String @map("secret_id")
   version  Int // 版本号: 1, 2, 3...
 
-  // 加密存储
+  // 加密存储 (enc_version=1: AES-256-CBC; 2: AES-256-GCM 信封)
   encryptedValue String @map("encrypted_value") @db.Text
   iv             String @db.VarChar(32)
   keyVersion     Int    @default(1) @map("key_version")
+  // 2026-05-28 PR-2 信封加密 v2 列（dual-read）
+  authTag        String? @map("auth_tag") @db.VarChar(32)
+  wrappedDek     String? @map("wrapped_dek") @db.Text
+  encVersion     Int     @default(1) @map("enc_version")
+  kekVersion     Int     @default(1) @map("kek_version")
   checksum       String @db.VarChar(64) // SHA-256 用于完整性校验
 
   // 审计字段
@@ -8398,6 +8421,45 @@ model SecretVersion {
   @@index([secretId])
   @@index([createdAt])
   @@map("secret_versions")
+}
+
+/// 2026-05-28 BYOK 加固 PR-2（Sep-A / H1）：用户私有「工具/其它类」Key（信封加密 v2 原生）。
+/// 与 admin 系统 secrets 结构性分离 —— 工具 BYOK 不再混入 secrets 表。
+/// LLM 个人 key 仍留 user_api_keys（不并入，见方案 H1）。
+model UserCredential {
+  id          String         @id @default(cuid())
+  userId      String         @map("user_id")
+  category    SecretCategory @default(OTHER) // 不含 AI_MODEL（LLM 留 user_api_keys）
+  name        String         @db.VarChar(100) // (userId, name) 作用域唯一
+  displayName String         @map("display_name") @db.VarChar(200)
+  provider    String?        @db.VarChar(50)
+  description String?        @db.Text
+  apiEndpoint String?        @map("api_endpoint") @db.Text // 预留（自部署工具）
+
+  // 信封加密 (AES-256-GCM + KEK-wrapped DEK)，原生 v2
+  encryptedValue String @map("encrypted_value") @db.Text
+  iv             String @db.VarChar(32)
+  authTag        String @map("auth_tag") @db.VarChar(32)
+  wrappedDek     String @map("wrapped_dek") @db.Text
+  encVersion     Int    @default(2) @map("enc_version")
+  kekVersion     Int    @default(1) @map("kek_version")
+  keyHint        String? @map("key_hint") @db.VarChar(40)
+
+  isActive    Boolean   @default(true) @map("is_active")
+  expiresAt   DateTime? @map("expires_at")
+  testStatus  String?   @map("test_status") @db.VarChar(20)
+  accessCount Int       @default(0) @map("access_count")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy String?   @map("deleted_by") @db.VarChar(100)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId, category])
+  @@map("user_credentials")
 }
 
 /// Secret 访问日志
