@@ -28,9 +28,8 @@ model User {
   // 2026-05-27 BYOK 全量化扩展
   // byokMode：用户 Key 缺失时的兜底策略。STRICT = 不兜底（缺 Key 直接报错，不烧 admin 池）；
   // FALLBACK = 缺 Key 自动走系统 admin Key。默认 STRICT，与 BYOK v1.0 §3「不做智能 fallback」一致。
-  byokMode      ByokMode @default(STRICT) @map("byok_mode")
-  // onboardedByok：是否已完成首次 BYOK 配置引导（控制 dashboard onboarding banner 是否再弹）。
-  onboardedByok Boolean  @default(false) @map("onboarded_byok")
+  // 注：首次 BYOK 引导完成标记复用既有 byokOnboardedAt（见上），不另设字段。
+  byokMode ByokMode @default(STRICT) @map("byok_mode")
 
   // 个人信息
   fullName  String? @map("full_name")

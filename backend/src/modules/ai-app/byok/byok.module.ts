@@ -28,9 +28,11 @@ import { UserByokController } from "./user-byok.controller";
 import { UserApiKeysController } from "./user-api-keys.controller";
 import { UserModelConfigsController } from "./user-model-configs.controller";
 import { UserProvidersController } from "./user-providers.controller";
+import { UserSecretsController } from "./user-secrets.controller";
 import { AiEngineLLMModule } from "../../ai-engine/llm/llm.module";
 import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
 import { UserModelConfigsModule } from "../../ai-infra/credentials/user-model-configs/user-model-configs.module";
+import { UserSecretsModule } from "../../ai-infra/credentials/user-secrets/user-secrets.module";
 import { KeyAssignmentsModule } from "../../ai-infra/credentials/key-assignments";
 import { KeyRequestsModule } from "../../ai-infra/credentials/key-requests";
 import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
@@ -40,6 +42,7 @@ import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
     AiEngineLLMModule,
     UserApiKeysModule,
     UserModelConfigsModule,
+    UserSecretsModule,
     KeyAssignmentsModule,
     KeyRequestsModule,
     KeyResolverModule,
@@ -53,6 +56,7 @@ import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
     UserApiKeysController,
     UserModelConfigsController,
     UserProvidersController, // PR-3: 用户自定义 provider CRUD
+    UserSecretsController, // 2026-05-27 BYOK 全量化：统一 Key 表格
   ],
 })
 export class ByokModule {}
