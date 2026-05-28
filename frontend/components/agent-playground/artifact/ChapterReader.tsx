@@ -428,6 +428,18 @@ export function ChapterReader({
   //   全量 citations 不受影响，这里对齐其行为。
   const sectionCitations = useMemo(() => {
     if (!selectedSection) return [];
+    // ★ 2026-05-27 修复 (Screenshot_87 章节空白): "参考文献"章节自身 body
+    //   被 sectionMarkdown useMemo 清空了 → 这里 regex 抓不到 [N] → widget
+    //   读不到引用 → 整个章节空白显"该草节内容为空"误导。
+    //   "参考文献"章节本来就应该列出 *全部* 引用作为完整目录, 不是子集。
+    const titleNormalized = (selectedSection.title ?? '').trim().toLowerCase();
+    if (
+      titleNormalized === '参考文献' ||
+      titleNormalized === '参考资料' ||
+      titleNormalized === 'references'
+    ) {
+      return artifact.citations.slice();
+    }
     const cited = new Set<number>();
     const re = /\[(\d+)\]/g;
     let m: RegExpExecArray | null;
@@ -498,9 +510,15 @@ export function ChapterReader({
         <div className="flex-1 overflow-auto">
           <div className="bg-white p-6">
             {sectionMarkdown.trim().length === 0 ? (
-              <p className="rounded border border-dashed border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-700">
-                该章节内容为空（可能是 Researcher 阶段降级失败）
-              </p>
+              // ★ 2026-05-27 修复 (Screenshot_87): "参考文献"章节我故意清空 sectionMarkdown
+              //   让章末 widget 接管渲染, 这里不能再显示"该章节内容为空"误导。
+              ['参考文献', '参考资料', 'references'].includes(
+                (selectedSection.title ?? '').trim().toLowerCase()
+              ) ? null : (
+                <p className="rounded border border-dashed border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-700">
+                  该章节内容为空（可能是 Researcher 阶段降级失败）
+                </p>
+              )
             ) : (
               <ArtifactMarkdown
                 markdown={sectionMarkdown}
