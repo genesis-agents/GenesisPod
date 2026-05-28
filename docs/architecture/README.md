@@ -23,6 +23,9 @@
   - 五层依赖图
   - `ai-app/teams` 与 `agent-playground` 数据流
   - 核心存储与传输路径
+- [monetization/](monetization/subscription-byok-credit-system-design.md)
+  - 商业化：订阅制 + Free-tier BYOK + 统一 Credit 计量
+  - 跨 ai-infra(credits) / ai-app(byok) / ai-harness(计量) 的平台级设计
 
 ## 依赖方向
 
