@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-28T13:42:59.543Z",
+  "generatedAt": "2026-05-28T21:39:19.715Z",
   "count": 187,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -986,35 +986,35 @@
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 342,
+      "line": 345,
       "column": 11,
       "kind": "method-call",
       "snippet": "m.id.includes(\"grok\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 402,
+      "line": 405,
       "column": 11,
       "kind": "method-call",
       "snippet": "m.id.startsWith(\"gpt-\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 475,
+      "line": 482,
       "column": 16,
       "kind": "method-call",
       "snippet": "name.includes(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 482,
+      "line": 489,
       "column": 13,
       "kind": "method-call",
       "snippet": "name.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 492,
+      "line": 499,
       "column": 13,
       "kind": "method-call",
       "snippet": "name.includes(\"gemini\")"
