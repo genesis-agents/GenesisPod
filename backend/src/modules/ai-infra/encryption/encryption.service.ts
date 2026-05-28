@@ -53,6 +53,51 @@ export class EncryptionService {
   }
 
   /**
+   * 2026-05-27 BYOK 安全关键-1：用户私有 Secret 用 per-user 子密钥加密。
+   * HKDF-SHA256 从 master key 派生 `info = "user:<userId>"` 的 32 字节子密钥，
+   * 使 master key 泄露不等于一次性解开全部用户 Key（按用户隔离爆炸半径）。
+   * admin/系统 Secret 仍走 encrypt/decrypt（master key），两条路径互不影响。
+   */
+  private deriveUserKey(userId: string): Buffer {
+    const ikm = Buffer.from(this.encryptionKey);
+    const salt = Buffer.from("byok-user-secret-salt-v1");
+    const info = Buffer.from(`user:${userId}`);
+    return Buffer.from(crypto.hkdfSync("sha256", ikm, salt, info, 32));
+  }
+
+  /** 用 per-user 子密钥加密用户私有 Secret 明文。 */
+  encryptForUser(plaintext: string, userId: string): EncryptionResult {
+    const key = this.deriveUserKey(userId);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+    let encrypted = cipher.update(plaintext, "utf8", "hex");
+    encrypted += cipher.final("hex");
+    return { encryptedValue: encrypted, iv: iv.toString("hex") };
+  }
+
+  /** 用 per-user 子密钥解密用户私有 Secret，失败返回 null。 */
+  decryptForUser(
+    encryptedValue: string,
+    ivHex: string,
+    userId: string,
+  ): string | null {
+    if (!encryptedValue || !ivHex) return null;
+    try {
+      const key = this.deriveUserKey(userId);
+      const iv = Buffer.from(ivHex, "hex");
+      const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+      let decrypted = decipher.update(encryptedValue, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+      return decrypted;
+    } catch (error) {
+      this.logger.error(
+        `User-scoped decryption failed: ${(error as Error).message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
    * 加密明文，返回密文和 IV。密文和 IV 应分别存储到数据库不同字段。
    */
   encrypt(plaintext: string): EncryptionResult {

@@ -157,7 +157,11 @@ export class SecretsService {
 
   async findAll(category?: SecretCategory): Promise<SecretListItem[]> {
     const secrets = await this.prisma.secret.findMany({
-      where: { deletedAt: null, ...(category ? { category } : {}) },
+      where: {
+        deletedAt: null,
+        userId: null,
+        ...(category ? { category } : {}),
+      },
       orderBy: [{ category: "asc" }, { name: "asc" }],
       include: {
         keys: {
@@ -172,7 +176,9 @@ export class SecretsService {
   }
 
   async findByName(name: string): Promise<SecretListItem | null> {
-    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    const secret = await this.prisma.secret.findFirst({
+      where: { name, userId: null },
+    });
     if (!secret || secret.deletedAt) return null;
     return this.toListItem(secret);
   }
@@ -184,8 +190,8 @@ export class SecretsService {
     if (this.secretKeys) {
       const resolved = await this.secretKeys.getSecretKey(name);
       if (resolved) {
-        const sec = await this.prisma.secret.findUnique({
-          where: { name },
+        const sec = await this.prisma.secret.findFirst({
+          where: { name, userId: null },
           select: { id: true, name: true },
         });
         if (sec) {
@@ -208,7 +214,9 @@ export class SecretsService {
     }
 
     // Legacy 路径（secretKeys 未注入或 multi-key resolver 返 null）
-    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    const secret = await this.prisma.secret.findFirst({
+      where: { name, userId: null },
+    });
 
     if (!secret || secret.deletedAt) {
       if (context)
@@ -256,6 +264,7 @@ export class SecretsService {
       where: {
         isActive: true,
         deletedAt: null,
+        userId: null,
         category: "AI_MODEL",
         OR: [
           { provider: { equals: normalized, mode: "insensitive" } },
@@ -280,6 +289,7 @@ export class SecretsService {
       where: {
         isActive: true,
         deletedAt: null,
+        userId: null,
         category: "AI_MODEL",
         provider: { not: null },
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
@@ -305,8 +315,8 @@ export class SecretsService {
     if (this.secretKeys) {
       const resolved = await this.secretKeys.getSecretKey(normalizedName);
       if (resolved) {
-        const sec = await this.prisma.secret.findUnique({
-          where: { name: normalizedName },
+        const sec = await this.prisma.secret.findFirst({
+          where: { name: normalizedName, userId: null },
           select: { id: true, name: true },
         });
         if (sec) {
@@ -348,8 +358,8 @@ export class SecretsService {
       }
     }
 
-    const secret = await this.prisma.secret.findUnique({
-      where: { name: normalizedName },
+    const secret = await this.prisma.secret.findFirst({
+      where: { name: normalizedName, userId: null },
     });
     if (!secret || !secret.isActive || secret.deletedAt) {
       // 很多 caller（如 key-resolver `{provider}-api-endpoint`）做的是 optional
@@ -395,7 +405,9 @@ export class SecretsService {
     dto: UpdateSecretDto,
     context?: AuditContext,
   ): Promise<SecretListItem> {
-    const existing = await this.prisma.secret.findUnique({ where: { name } });
+    const existing = await this.prisma.secret.findFirst({
+      where: { name, userId: null },
+    });
     if (!existing || existing.deletedAt) {
       throw new NotFoundException(`Secret '${name}' not found`);
     }
@@ -451,7 +463,7 @@ export class SecretsService {
       }
 
       const updated = await tx.secret.update({
-        where: { name },
+        where: { id: existing.id },
         data: updateData,
       });
 
@@ -507,7 +519,9 @@ export class SecretsService {
   }
 
   async delete(name: string, context?: AuditContext): Promise<void> {
-    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    const secret = await this.prisma.secret.findFirst({
+      where: { name, userId: null },
+    });
     if (!secret || secret.deletedAt) {
       throw new NotFoundException(`Secret '${name}' not found`);
     }
@@ -528,7 +542,7 @@ export class SecretsService {
     // 实际 getSecretKey 会先 check secret.deletedAt 早返回 null（双保险）
     await this.prisma.$transaction(async (tx) => {
       await tx.secret.update({
-        where: { name },
+        where: { id: secret.id },
         data: {
           deletedAt: new Date(),
           deletedBy: context?.userEmail || context?.userId,
@@ -550,7 +564,9 @@ export class SecretsService {
     name: string,
     limit: number = 50,
   ): Promise<SecretAccessLog[]> {
-    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    const secret = await this.prisma.secret.findFirst({
+      where: { name, userId: null },
+    });
     return this.prisma.secretAccessLog.findMany({
       where: { OR: [{ secretId: secret?.id }, { secretName: name }] },
       orderBy: { timestamp: "desc" },
@@ -608,8 +624,8 @@ export class SecretsService {
   }
 
   async exists(name: string): Promise<boolean> {
-    const secret = await this.prisma.secret.findUnique({
-      where: { name },
+    const secret = await this.prisma.secret.findFirst({
+      where: { name, userId: null },
       select: { isActive: true, deletedAt: true, expiresAt: true },
     });
     if (!secret || secret.deletedAt) return false;
@@ -622,6 +638,7 @@ export class SecretsService {
       where: {
         isActive: true,
         deletedAt: null,
+        userId: null,
         ...(category ? { category } : {}),
       },
       select: { name: true },
@@ -661,8 +678,8 @@ export class SecretsService {
           "-",
         );
       try {
-        const exists = await this.prisma.secret.findUnique({
-          where: { name: secretName },
+        const exists = await this.prisma.secret.findFirst({
+          where: { name: secretName, userId: null },
         });
         if (exists) {
           skipped.push(`${secretName} (already exists)`);
@@ -709,8 +726,8 @@ export class SecretsService {
         });
         if (!dbSetting?.value) continue;
 
-        const exists = await this.prisma.secret.findUnique({
-          where: { name: setting.name },
+        const exists = await this.prisma.secret.findFirst({
+          where: { name: setting.name, userId: null },
         });
         if (exists) {
           skipped.push(`${setting.name} (already exists)`);
@@ -813,7 +830,7 @@ export class SecretsService {
   }> {
     // 1. 拉所有 active secret
     const dbSecrets = await this.prisma.secret.findMany({
-      where: { isActive: true, deletedAt: null },
+      where: { isActive: true, deletedAt: null, userId: null },
       select: {
         id: true,
         name: true,
@@ -1041,7 +1058,9 @@ export class SecretsService {
    * Get all versions of a secret
    */
   async getVersions(name: string): Promise<SecretVersionItem[]> {
-    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    const secret = await this.prisma.secret.findFirst({
+      where: { name, userId: null },
+    });
     if (!secret || secret.deletedAt) {
       throw new NotFoundException(`Secret '${name}' not found`);
     }
@@ -1070,7 +1089,9 @@ export class SecretsService {
     version: number,
     context?: AuditContext,
   ): Promise<string | null> {
-    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    const secret = await this.prisma.secret.findFirst({
+      where: { name, userId: null },
+    });
     if (!secret || secret.deletedAt) {
       throw new NotFoundException(`Secret '${name}' not found`);
     }
@@ -1114,7 +1135,9 @@ export class SecretsService {
     version: number,
     context?: AuditContext,
   ): Promise<SecretListItem> {
-    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    const secret = await this.prisma.secret.findFirst({
+      where: { name, userId: null },
+    });
     if (!secret || secret.deletedAt) {
       throw new NotFoundException(`Secret '${name}' not found`);
     }
@@ -1168,7 +1191,7 @@ export class SecretsService {
     });
 
     const updated = await this.prisma.secret.update({
-      where: { name },
+      where: { id: secret.id },
       data: {
         encryptedValue,
         iv,
@@ -1193,7 +1216,9 @@ export class SecretsService {
    * Create initial version for existing secrets (migration helper)
    */
   async createInitialVersion(name: string): Promise<void> {
-    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    const secret = await this.prisma.secret.findFirst({
+      where: { name, userId: null },
+    });
     if (!secret || secret.deletedAt) {
       throw new NotFoundException(`Secret '${name}' not found`);
     }
@@ -1254,7 +1279,7 @@ export class SecretsService {
     skipped: number;
   }> {
     const secrets = await this.prisma.secret.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, userId: null },
     });
 
     let processed = 0;
@@ -1302,8 +1327,8 @@ export class SecretsService {
     name: string,
   ): Promise<Array<{ value: string; keyId: string | null; label: string }>> {
     const normalizedName = normalizeSecretName(name);
-    const secret = await this.prisma.secret.findUnique({
-      where: { name: normalizedName },
+    const secret = await this.prisma.secret.findFirst({
+      where: { name: normalizedName, userId: null },
     });
     if (!secret || !secret.isActive || secret.deletedAt) return [];
     if (secret.expiresAt && secret.expiresAt < new Date()) return [];
@@ -1387,8 +1412,8 @@ export class SecretsService {
     if (this.secretKeys) {
       const resolved = await this.secretKeys.getSecretKey(normalizedName);
       if (resolved) {
-        const sec = await this.prisma.secret.findUnique({
-          where: { name: normalizedName },
+        const sec = await this.prisma.secret.findFirst({
+          where: { name: normalizedName, userId: null },
           select: { id: true, name: true },
         });
         if (sec) {

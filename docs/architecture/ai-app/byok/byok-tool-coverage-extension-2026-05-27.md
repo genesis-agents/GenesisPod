@@ -740,3 +740,41 @@ CREATE INDEX "secrets_userId_category_idx" ON secrets("userId", category);
 ---
 
 **最终结论（v0.2 基线锁定）**：20 项决策 + 9 用户故事 + 5 度量 + 错误 UX + onboarding + 4-PR 细化步骤已全部成文。**按用户授权进入完全自驱实施，不再逐项确认；遇不决之事组织投票**。
+
+---
+
+## 18. 投票裁决（v0.3，2026-05-27）—— 真正共识
+
+> 用户质疑「方案是否充分共识」。诚实结论：v0.2 中 2 个决策点是单方裁决（评审间有冲突）。按用户指令「不决之事组织投票」，对 V1/V2 组织 3 票独立投票（架构 / 安全 / 工程视角），结果如下。**投票验证了 v0.2 基线**（非推翻），现升级为真正共识 v0.3。
+
+### V1: 用户 LLM Key 存哪张表？ → **B 胜（2:1）**
+
+| 投票人 | 票    | 核心理由                                                                                                                              |
+| ------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 架构师 | **B** | 捐赠池/多key fallback/熔断是 user_api_keys 活机制；捐赠 key 已落 secrets 表（两表已耦合）；迁 A = 重写 KeyResolver 核心，高风险无收益 |
+| 工程   | **B** | A 约 5-8 天 + 高回归（v1.0 已上线，字段漏迁=解密失败）；B 约 1-2 天 + 零回归                                                          |
+| 安全   | A     | 两套 owner 过滤路径易越权（被 D6/D19 强制过滤 + 测试化解）                                                                            |
+
+**裁决 = B**：LLM Key 留 `user_api_keys`，工具/其他类 Key 进 `secrets`(userId)，`/me/secrets` 端点 UNION 两表给前端（UI 仍一个表）。
+
+### V2: 缺 Key 兜底默认？ → **SWITCH-default-strict 胜（2:1）**
+
+| 投票人 | 票            | 核心理由                                                                                        |
+| ------ | ------------- | ----------------------------------------------------------------------------------------------- |
+| 架构师 | **SWITCH**    | 默认 STRICT 守安全线，开关让用户显式知情同意才走 admin 池，留运营弹性                           |
+| 工程   | **SWITCH**    | TIER-based 测试矩阵翻倍 + resolver 依赖 billing；SWITCH 仅一处 if + 2×2 矩阵                    |
+| 安全   | STRICT-always | 红线「字段丢失也要 deny」→ 由 `byok_mode NOT NULL DEFAULT 'STRICT'` + undefined-userId 抛错满足 |
+
+**裁决 = SWITCH-default-strict**：`user.byokMode` 默认 STRICT（NOT NULL），用户可显式切 FALLBACK。
+
+### 18.1 投票产生的 3 条落地铁律（MUST，写进 PR-2/PR-3 验收）
+
+1. **`/me/secrets` 写回按 category 分流**：`category=AI_MODEL` → 写 `user_api_keys`；其余 → 写 `secrets`(userId)。端点内显式分支 + 注释 + 测试守护，禁止语义裂开。
+2. **UNION 读端点排除捐赠 key**：`secrets` 侧 `WHERE category != 'USER_DONATED'`；`user_api_keys` 侧 `WHERE mode != 'DONATED'`。否则用户会在自己表格看到自己捐出去的 key。
+3. **不给 user_api_keys 加 category 列**：UI 需要的 category 在端点层映射（LLM 行映射 `category='AI_MODEL'`），不下沉 schema，避免又一次迁移。
+
+### 18.2 共识达成度
+
+- V1/V2 均 2:1 多数票，少数票（安全）红线已被现有 D6/D19 + NOT NULL 默认值化解，无悬而未决反对。
+- 其余 18 项决策评审间无冲突，属一致同意。
+- **结论：方案 v0.3 已达充分共识，进入实施。**

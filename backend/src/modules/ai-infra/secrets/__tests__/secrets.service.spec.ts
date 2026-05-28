@@ -53,7 +53,7 @@ describe("SecretsService", () => {
       secret: {
         create: jest.fn().mockResolvedValue(makeSecret()),
         findMany: jest.fn().mockResolvedValue([]),
-        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
         update: jest.fn().mockResolvedValue(makeSecret()),
         count: jest.fn().mockResolvedValue(0),
       } as unknown as PrismaService["secret"],
@@ -206,7 +206,7 @@ describe("SecretsService", () => {
 
   describe("getValue", () => {
     it("returns null when secret not found", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
 
       const result = await service.getValue("nonexistent");
 
@@ -214,7 +214,7 @@ describe("SecretsService", () => {
     });
 
     it("returns null for deleted secret", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ deletedAt: new Date() }),
       );
 
@@ -224,7 +224,7 @@ describe("SecretsService", () => {
     });
 
     it("returns null for inactive secret", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ isActive: false }),
       );
 
@@ -235,7 +235,7 @@ describe("SecretsService", () => {
 
     it("returns null for expired secret", async () => {
       const pastDate = new Date(Date.now() - 1000);
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ expiresAt: pastDate }),
       );
 
@@ -262,9 +262,7 @@ describe("SecretsService", () => {
         iv: createCall.data.iv,
       };
 
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
-        realSecret,
-      );
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(realSecret);
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(realSecret);
 
       await service.getValue("access-key");
@@ -296,7 +294,7 @@ describe("SecretsService", () => {
         iv: createCall.data.iv,
       });
 
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         realEncrypted,
       );
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(realEncrypted);
@@ -307,7 +305,7 @@ describe("SecretsService", () => {
     });
 
     it("logs access denied when secret is inactive", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ isActive: false }),
       );
 
@@ -337,7 +335,7 @@ describe("SecretsService", () => {
         keyId: "sk-1",
         label: "primary",
       });
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue({
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue({
         id: "secret-1",
       });
 
@@ -362,7 +360,7 @@ describe("SecretsService", () => {
         keyId: "sk-99",
         label: "primary",
       });
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue({
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue({
         id: "secret-1",
         name: "test-api-key",
       });
@@ -395,7 +393,7 @@ describe("SecretsService", () => {
         keyId: null,
         label: "(legacy)",
       });
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue({
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue({
         id: "secret-1",
         name: "test-api-key",
       });
@@ -424,7 +422,7 @@ describe("SecretsService", () => {
       });
       const createCall = (mockPrisma.secret!.create as jest.Mock).mock
         .calls[0][0];
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({
           encryptedValue: createCall.data.encryptedValue,
           iv: createCall.data.iv,
@@ -499,7 +497,7 @@ describe("SecretsService", () => {
 
     it("update() with new value replaces existing 'primary' SecretKey via $transaction", async () => {
       const existing = makeSecret();
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.secretKey!.findUnique as jest.Mock).mockResolvedValue({
         id: "sk-primary-1",
@@ -522,7 +520,7 @@ describe("SecretsService", () => {
 
     it("update() adds 'primary' SecretKey via $transaction when none exists", async () => {
       const existing = makeSecret();
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.secretKey!.findUnique as jest.Mock).mockResolvedValue(null);
 
@@ -567,9 +565,10 @@ describe("SecretsService", () => {
       const result = await service.findAll();
 
       expect(result).toHaveLength(2);
+      // 2026-05-27 BYOK：SecretsService 只列系统 Secret（userId: null），不泄露用户私有 BYOK Secret（D19）
       expect(mockPrisma.secret!.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { deletedAt: null },
+          where: { deletedAt: null, userId: null },
         }),
       );
     });
@@ -581,7 +580,11 @@ describe("SecretsService", () => {
 
       expect(mockPrisma.secret!.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { deletedAt: null, category: SecretCategory.AI_MODEL },
+          where: {
+            deletedAt: null,
+            userId: null,
+            category: SecretCategory.AI_MODEL,
+          },
         }),
       );
     });
@@ -591,7 +594,7 @@ describe("SecretsService", () => {
 
   describe("update", () => {
     it("throws NotFoundException when secret not found", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(
         service.update("nonexistent", { displayName: "New Name" }),
@@ -600,7 +603,7 @@ describe("SecretsService", () => {
 
     it("creates a new version when value changes", async () => {
       const existing = makeSecret();
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(existing);
 
       await service.update("test-api-key", { value: "new-value" });
@@ -610,7 +613,7 @@ describe("SecretsService", () => {
 
     it("does not create version when only metadata changes", async () => {
       const existing = makeSecret();
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(existing);
 
       await service.update("test-api-key", { displayName: "New Name" });
@@ -624,7 +627,7 @@ describe("SecretsService", () => {
   describe("delete", () => {
     it("soft deletes a secret without references", async () => {
       const existing = makeSecret();
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.aIModel!.findMany as jest.Mock).mockResolvedValue([]); // no references
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(existing);
 
@@ -642,7 +645,7 @@ describe("SecretsService", () => {
 
     it("throws when secret is referenced by AI models", async () => {
       const existing = makeSecret();
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.aIModel!.findMany as jest.Mock).mockResolvedValue([
         { id: "model-1", displayName: "GPT-4" },
       ]);
@@ -657,7 +660,7 @@ describe("SecretsService", () => {
 
   describe("exists", () => {
     it("returns true for active non-expired non-deleted secret", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue({
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue({
         isActive: true,
         deletedAt: null,
         expiresAt: null,
@@ -669,7 +672,7 @@ describe("SecretsService", () => {
     });
 
     it("returns false when secret is deleted", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue({
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue({
         isActive: true,
         deletedAt: new Date(),
         expiresAt: null,
@@ -681,7 +684,7 @@ describe("SecretsService", () => {
     });
 
     it("returns false when secret has expired", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue({
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue({
         isActive: true,
         deletedAt: null,
         expiresAt: new Date(Date.now() - 1000),
@@ -693,7 +696,7 @@ describe("SecretsService", () => {
     });
 
     it("returns false when secret not found", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
 
       const result = await service.exists("missing-key");
 
@@ -705,7 +708,7 @@ describe("SecretsService", () => {
 
   describe("getVersions", () => {
     it("throws NotFoundException when secret not found", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(service.getVersions("nonexistent")).rejects.toThrow(
         NotFoundException,
@@ -714,7 +717,7 @@ describe("SecretsService", () => {
 
     it("returns versions with isCurrent flag", async () => {
       const secret = makeSecret({ currentVersion: 2 });
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(secret);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(secret);
       (mockPrisma.secretVersion!.findMany as jest.Mock).mockResolvedValue([
         {
           id: "ver-1",
@@ -775,7 +778,7 @@ describe("SecretsService", () => {
 
   describe("findByName", () => {
     it("returns null when secret not found", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
 
       const result = await service.findByName("nonexistent");
 
@@ -783,7 +786,7 @@ describe("SecretsService", () => {
     });
 
     it("returns null for soft-deleted secret", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ deletedAt: new Date() }),
       );
 
@@ -793,7 +796,7 @@ describe("SecretsService", () => {
     });
 
     it("returns list item for active secret", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret(),
       );
 
@@ -808,7 +811,7 @@ describe("SecretsService", () => {
 
   describe("getValueInternal", () => {
     it("returns null when secret not found", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
 
       const result = await service.getValueInternal("nonexistent");
 
@@ -816,7 +819,7 @@ describe("SecretsService", () => {
     });
 
     it("returns null for inactive secret", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ isActive: false }),
       );
 
@@ -826,7 +829,7 @@ describe("SecretsService", () => {
     });
 
     it("returns null for soft-deleted secret", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ deletedAt: new Date() }),
       );
 
@@ -836,7 +839,7 @@ describe("SecretsService", () => {
     });
 
     it("returns null for expired secret", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ expiresAt: new Date(Date.now() - 1000) }),
       );
 
@@ -846,13 +849,13 @@ describe("SecretsService", () => {
     });
 
     it("normalizes legacy SCREAMING_SNAKE_CASE names automatically", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
 
       // TAVILY_API_KEY should be normalized to tavily-search-api-key
       await service.getValueInternal("TAVILY_API_KEY");
 
-      expect(mockPrisma.secret!.findUnique).toHaveBeenCalledWith({
-        where: { name: "tavily-search-api-key" },
+      expect(mockPrisma.secret!.findFirst).toHaveBeenCalledWith({
+        where: { name: "tavily-search-api-key", userId: null },
       });
     });
 
@@ -874,9 +877,7 @@ describe("SecretsService", () => {
         iv: createCall.data.iv,
       };
 
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
-        realSecret,
-      );
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(realSecret);
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(realSecret);
 
       await service.getValueInternal("internal-key");
@@ -896,7 +897,7 @@ describe("SecretsService", () => {
   describe("getAccessLogs", () => {
     it("returns access logs for existing secret", async () => {
       const secret = makeSecret();
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(secret);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(secret);
       const fakeLogs = [
         { id: "log-1", action: SecretAction.VIEW, timestamp: new Date() },
       ];
@@ -918,7 +919,7 @@ describe("SecretsService", () => {
     });
 
     it("returns access logs with custom limit", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret(),
       );
       (mockPrisma.secretAccessLog!.findMany as jest.Mock).mockResolvedValue([]);
@@ -931,7 +932,7 @@ describe("SecretsService", () => {
     });
 
     it("handles null secret by still querying by name", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
       (mockPrisma.secretAccessLog!.findMany as jest.Mock).mockResolvedValue([]);
 
       const result = await service.getAccessLogs("unknown-key");
@@ -985,7 +986,7 @@ describe("SecretsService", () => {
 
   describe("getVersionValue", () => {
     it("throws NotFoundException when secret not found", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(service.getVersionValue("missing", 1)).rejects.toThrow(
         NotFoundException,
@@ -1010,7 +1011,7 @@ describe("SecretsService", () => {
         iv: createCall.data.iv,
       };
 
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(secret);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(secret);
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(secret);
 
       const value = await service.getVersionValue("vv-key", 1);
@@ -1019,7 +1020,7 @@ describe("SecretsService", () => {
     });
 
     it("throws NotFoundException for non-existent version", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ currentVersion: 1 }),
       );
       (mockPrisma.secretVersion!.findUnique as jest.Mock).mockResolvedValue(
@@ -1044,7 +1045,7 @@ describe("SecretsService", () => {
         .calls[0][0];
 
       const secret = makeSecret({ currentVersion: 3 });
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(secret);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(secret);
       (mockPrisma.secretVersion!.findUnique as jest.Mock).mockResolvedValue({
         id: "ver-2",
         version: 2,
@@ -1062,7 +1063,7 @@ describe("SecretsService", () => {
 
   describe("rollback", () => {
     it("throws NotFoundException when secret not found", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(service.rollback("missing", 1)).rejects.toThrow(
         NotFoundException,
@@ -1070,7 +1071,7 @@ describe("SecretsService", () => {
     });
 
     it("throws BadRequestException when rolling back to current version", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ currentVersion: 2 }),
       );
 
@@ -1080,7 +1081,7 @@ describe("SecretsService", () => {
     });
 
     it("throws NotFoundException when target version not found", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ currentVersion: 3 }),
       );
       (mockPrisma.secretVersion!.findUnique as jest.Mock).mockResolvedValue(
@@ -1105,7 +1106,7 @@ describe("SecretsService", () => {
         .calls[0][0];
 
       const secret = makeSecret({ currentVersion: 3 });
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(secret);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(secret);
       (mockPrisma.secretVersion!.findUnique as jest.Mock).mockResolvedValue({
         id: "ver-1",
         version: 1,
@@ -1146,7 +1147,7 @@ describe("SecretsService", () => {
 
   describe("createInitialVersion", () => {
     it("throws NotFoundException when secret not found", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(service.createInitialVersion("missing")).rejects.toThrow(
         NotFoundException,
@@ -1154,7 +1155,7 @@ describe("SecretsService", () => {
     });
 
     it("does nothing if version 1 already exists", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret(),
       );
       (mockPrisma.secretVersion!.findUnique as jest.Mock).mockResolvedValue({
@@ -1184,7 +1185,7 @@ describe("SecretsService", () => {
         iv: createCall.data.iv,
         currentVersion: null,
       });
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(secret);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(secret);
       // No existing version
       (mockPrisma.secretVersion!.findUnique as jest.Mock).mockResolvedValue(
         null,
@@ -1217,7 +1218,7 @@ describe("SecretsService", () => {
       ];
       (mockPrisma.secret!.findMany as jest.Mock).mockResolvedValue(secrets);
       // Both secrets already have version 1
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret(),
       );
       (mockPrisma.secretVersion!.findUnique as jest.Mock).mockResolvedValue({
@@ -1235,7 +1236,7 @@ describe("SecretsService", () => {
       const secrets = [makeSecret()];
       (mockPrisma.secret!.findMany as jest.Mock).mockResolvedValue(secrets);
       // findUnique returns null (throws NotFoundException path)
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
 
       const result = await service.initializeAllVersions();
 
@@ -1485,7 +1486,7 @@ describe("SecretsService", () => {
           apiKey: null,
         },
       ]);
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
       (mockPrisma.systemSetting!.findUnique as jest.Mock).mockResolvedValue(
         null,
       );
@@ -1507,7 +1508,7 @@ describe("SecretsService", () => {
         },
       ]);
       // secret already exists
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret(),
       );
       (mockPrisma.systemSetting!.findUnique as jest.Mock).mockResolvedValue(
@@ -1532,7 +1533,7 @@ describe("SecretsService", () => {
         },
       ]);
       // secret doesn't exist yet
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
       (mockPrisma.systemSetting!.findUnique as jest.Mock).mockResolvedValue(
         null,
       );
@@ -1553,7 +1554,7 @@ describe("SecretsService", () => {
         },
       ]);
       // findUnique returns null (no existing), create throws
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(null);
       (mockPrisma.secret!.create as jest.Mock).mockRejectedValue(
         new Error("DB error"),
       );
@@ -1573,7 +1574,7 @@ describe("SecretsService", () => {
   describe("update (additional branches)", () => {
     it("skips version creation when value is empty string", async () => {
       const existing = makeSecret();
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(existing);
 
       await service.update("test-api-key", { value: "" });
@@ -1583,7 +1584,7 @@ describe("SecretsService", () => {
 
     it("updates metadata fields without value change", async () => {
       const existing = makeSecret();
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(existing);
 
       await service.update("test-api-key", {
@@ -1601,7 +1602,7 @@ describe("SecretsService", () => {
     });
 
     it("throws NotFoundException for soft-deleted secret on update", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ deletedAt: new Date() }),
       );
 
@@ -1615,7 +1616,7 @@ describe("SecretsService", () => {
 
   describe("delete (additional branches)", () => {
     it("throws NotFoundException for soft-deleted secret", async () => {
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
         makeSecret({ deletedAt: new Date() }),
       );
 
@@ -1626,7 +1627,7 @@ describe("SecretsService", () => {
 
     it("logs access with userEmail when context provided", async () => {
       const existing = makeSecret();
-      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.aIModel!.findMany as jest.Mock).mockResolvedValue([]);
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(existing);
 
