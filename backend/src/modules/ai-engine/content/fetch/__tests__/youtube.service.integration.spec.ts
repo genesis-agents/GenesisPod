@@ -30,6 +30,8 @@ import { NotFoundException } from "@nestjs/common";
 import { YoutubeService } from "../youtube.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SystemSettingService } from "@/common/settings/system-setting.service";
+import { ToolKeyResolverService } from "@/modules/ai-infra/facade";
+import { RequestContext } from "@/common/context/request-context";
 
 // Mock external fetch globally
 const mockFetch = jest.fn();
@@ -54,6 +56,10 @@ const mockSystemSettingService = {
   getYoutubeApiKey: jest.fn(),
 };
 
+const mockToolKeyResolverService = {
+  resolveToolKey: jest.fn().mockResolvedValue(null),
+};
+
 // Helper to make all fetch calls fail (triggers NotFoundException)
 function makeAllFetchFail() {
   mockFetch.mockResolvedValue({
@@ -69,12 +75,19 @@ describe("YoutubeService (supplemental)", () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Default: no userId (system/admin path)
+    jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
+    mockToolKeyResolverService.resolveToolKey.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         YoutubeService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: SystemSettingService, useValue: mockSystemSettingService },
+        {
+          provide: ToolKeyResolverService,
+          useValue: mockToolKeyResolverService,
+        },
       ],
     }).compile();
 

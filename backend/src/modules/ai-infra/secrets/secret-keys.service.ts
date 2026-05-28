@@ -338,8 +338,8 @@ export class SecretKeysService {
   ): Promise<ResolvedSecretKey | null> {
     const normalizedName = normalizeSecretName(secretName);
 
-    const secret = await this.prisma.secret.findUnique({
-      where: { name: normalizedName },
+    const secret = await this.prisma.secret.findFirst({
+      where: { name: normalizedName, userId: null },
     });
     if (!secret || !secret.isActive || secret.deletedAt) return null;
     if (secret.expiresAt && secret.expiresAt < new Date()) return null;

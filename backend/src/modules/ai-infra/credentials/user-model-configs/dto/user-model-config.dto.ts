@@ -51,6 +51,14 @@ export class CreateUserModelConfigDto {
   @MaxLength(500)
   apiEndpoint?: string;
 
+  @ApiPropertyOptional({
+    description: "2026-05-27 BYOK：运行时用哪把用户 Key（UserApiKey.id）",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  apiKeyId?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
@@ -202,6 +210,14 @@ export class UpdateUserModelConfigDto {
   @IsString()
   @MaxLength(500)
   apiEndpoint?: string;
+
+  @ApiPropertyOptional({
+    description: "2026-05-27 BYOK：运行时用哪把用户 Key（UserApiKey.id）",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  apiKeyId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

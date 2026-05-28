@@ -80,7 +80,7 @@ describe("SecretKeysService", () => {
 
   beforeEach(async () => {
     prisma = {
-      secret: { findUnique: jest.fn() },
+      secret: { findUnique: jest.fn(), findFirst: jest.fn() },
       secretKey: {
         findUnique: jest.fn(),
         findMany: jest.fn(),
@@ -143,14 +143,14 @@ describe("SecretKeysService", () => {
 
   describe("getSecretKey - fallback chain", () => {
     it("returns null when secret not found", async () => {
-      prisma.secret.findUnique.mockResolvedValue(null);
+      prisma.secret.findFirst.mockResolvedValue(null);
       const result = await service.getSecretKey("missing-secret");
       expect(result).toBeNull();
     });
 
     it("falls back to legacy Secret.encryptedValue when no SecretKey rows", async () => {
       const legacy = encryption.encrypt("legacy-plaintext");
-      prisma.secret.findUnique.mockResolvedValue(
+      prisma.secret.findFirst.mockResolvedValue(
         makeSecretRow({
           encryptedValue: legacy.encryptedValue,
           iv: legacy.iv,
@@ -169,7 +169,7 @@ describe("SecretKeysService", () => {
     it("picks lowest priority active key", async () => {
       const enc1 = encryption.encrypt("primary-value");
       const enc2 = encryption.encrypt("backup-value");
-      prisma.secret.findUnique.mockResolvedValue(makeSecretRow());
+      prisma.secret.findFirst.mockResolvedValue(makeSecretRow());
       prisma.secretKey.findMany.mockResolvedValue([
         makeKeyRow({
           id: "k1",
@@ -197,7 +197,7 @@ describe("SecretKeysService", () => {
       const enc1 = encryption.encrypt("dead-value");
       const enc2 = encryption.encrypt("alive-value");
       const recentFailure = new Date(Date.now() - 60_000); // 1 min ago
-      prisma.secret.findUnique.mockResolvedValue(makeSecretRow());
+      prisma.secret.findFirst.mockResolvedValue(makeSecretRow());
       prisma.secretKey.findMany.mockResolvedValue([
         makeKeyRow({
           id: "k1",
@@ -224,7 +224,7 @@ describe("SecretKeysService", () => {
     it("uses failed key once circuit-break window expires", async () => {
       const enc1 = encryption.encrypt("revived-value");
       const oldFailure = new Date(Date.now() - 10 * 60_000); // 10 min ago
-      prisma.secret.findUnique.mockResolvedValue(makeSecretRow());
+      prisma.secret.findFirst.mockResolvedValue(makeSecretRow());
       prisma.secretKey.findMany.mockResolvedValue([
         makeKeyRow({
           id: "k1",
@@ -242,7 +242,7 @@ describe("SecretKeysService", () => {
     });
 
     it("returns null when secret is disabled", async () => {
-      prisma.secret.findUnique.mockResolvedValue(
+      prisma.secret.findFirst.mockResolvedValue(
         makeSecretRow({ isActive: false }),
       );
       const result = await service.getSecretKey("test-api-key");
@@ -250,7 +250,7 @@ describe("SecretKeysService", () => {
     });
 
     it("returns null when secret is expired", async () => {
-      prisma.secret.findUnique.mockResolvedValue(
+      prisma.secret.findFirst.mockResolvedValue(
         makeSecretRow({ expiresAt: new Date(Date.now() - 1000) }),
       );
       const result = await service.getSecretKey("test-api-key");

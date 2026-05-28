@@ -25,6 +25,12 @@ model User {
   subscriptionTier      String    @default("free") @map("subscription_tier")
   subscriptionExpiresAt DateTime? @map("subscription_expires_at")
 
+  // 2026-05-27 BYOK 全量化扩展
+  // byokMode：用户 Key 缺失时的兜底策略。STRICT = 不兜底（缺 Key 直接报错，不烧 admin 池）；
+  // FALLBACK = 缺 Key 自动走系统 admin Key。默认 STRICT，与 BYOK v1.0 §3「不做智能 fallback」一致。
+  // 注：首次 BYOK 引导完成标记复用既有 byokOnboardedAt（见上），不另设字段。
+  byokMode ByokMode @default(STRICT) @map("byok_mode")
+
   // 个人信息
   fullName  String? @map("full_name")
   avatarUrl String? @map("avatar_url")
@@ -101,6 +107,10 @@ model User {
 
   // Notion 集成
   notionConnections NotionConnection[]
+
+  // 2026-05-27 BYOK 授权申请 / 授予
+  authorizationRequests AuthorizationRequest[]
+  authorizationGrants   AuthorizationGrant[]
 
   // 统一导出系统
   exportJobs      ExportJob[]
@@ -8129,6 +8139,28 @@ enum UserApiKeyMode {
   DONATED // 捐赠到共享池
 }
 
+/// 2026-05-27 BYOK：用户 Key 缺失时的运行时兜底策略
+enum ByokMode {
+  STRICT // 缺 Key 直接报错，绝不走 admin 系统 Key（默认，账单可控）
+  FALLBACK // 缺 Key 自动兜底到 admin 系统 Key
+}
+
+/// 2026-05-27 BYOK：用户向系统申请授权的类型
+enum AuthRequestType {
+  KEY_ASSIGNMENT // 申请 admin 池里的一把 Key 配额
+  MODEL_GRANT // 申请使用系统侧某模型
+  TOOL_GRANT // 申请使用系统侧某工具（无需自配 Key）
+  SKILL_GRANT // 申请使用系统某本地技能
+}
+
+/// 2026-05-27 BYOK：授权申请状态
+enum AuthRequestStatus {
+  PENDING // 待审批
+  APPROVED // 已批准
+  REJECTED // 已拒绝
+  REVOKED // 已撤销（曾批准后又收回）
+}
+
 /// 用户自有 API Key
 /// 支持自用模式和捐赠到共享池模式
 model UserApiKey {
@@ -8207,7 +8239,13 @@ enum SecretAction {
 /// 所有敏感 API Key 统一加密存储，其他配置通过 secretRef 引用
 model Secret {
   id          String         @id @default(cuid())
-  name        String         @unique @db.VarChar(100) // 唯一标识，如 "openai-api-key"
+  /// 2026-05-27 BYOK 扩展：name 不再全局唯一，唯一性下放到 (name, userId)。
+  /// admin Secret: userId = NULL；用户私有 BYOK Secret: userId = 用户 id。
+  /// 实际唯一约束由手写迁移的两个 partial unique index 强制
+  /// (secrets_name_admin_key WHERE user_id IS NULL / secrets_name_user_key WHERE user_id IS NOT NULL)，
+  /// Prisma 侧不声明 @unique，所有按 name 查询统一改 findFirst({ where: { name, userId } })。
+  name        String         @db.VarChar(100) // 标识，如 "openai-api-key"（在同一 userId 作用域内唯一）
+  userId      String?        @map("user_id") // null = admin/系统 Secret；非空 = 用户私有 BYOK Secret
   displayName String         @map("display_name") @db.VarChar(200) // 显示名称
   category    SecretCategory @default(OTHER)
   description String?        @db.Text
@@ -8220,6 +8258,10 @@ model Secret {
   // 元数据
   provider String? @db.VarChar(50) // openai, anthropic, tavily 等
   isActive Boolean @default(true) @map("is_active")
+
+  // 2026-05-27 BYOK：用户私有 Secret 的脱敏指纹（"sk-...3f8a"），列表展示用，
+  // 避免每次 list 都解密每行（性能 + 减少明文在内存出现的侧信道窗口）。admin Secret 可为空。
+  keyHint String? @map("key_hint") @db.VarChar(40)
 
   // 过期管理
   expiresAt     DateTime? @map("expires_at") // 过期时间
@@ -8259,6 +8301,9 @@ model Secret {
   @@index([category, isActive])
   @@index([provider, isActive])
   @@index([isActive, updatedAt])
+  // 2026-05-27 BYOK：按 name+userId 查询（findFirst 走这条），按用户列分类
+  @@index([name, userId])
+  @@index([userId, category])
   @@map("secrets")
 }
 
@@ -8395,6 +8440,64 @@ model SecretAccessLog {
   @@index([userId, timestamp])
   @@index([action, timestamp])
   @@map("secret_access_logs")
+}
+
+// ============ 2026-05-27 BYOK 授权申请 / 授予 ============
+
+/// 用户向系统申请授权（Key 配额 / 模型 / 工具 / 技能）。
+/// admin 在 /admin/access/authorization-requests 审批；批准后生成 AuthorizationGrant。
+model AuthorizationRequest {
+  id     String            @id @default(cuid())
+  userId String            @map("user_id")
+  type   AuthRequestType
+  /// 申请目标标识：secretName / modelId / toolId / skillId（按 type 解释）
+  targetId String          @map("target_id") @db.VarChar(200)
+  /// 仅 KEY_ASSIGNMENT 申请用：申请的 Key 类别（SecretCategory 值，admin 审批识别）；其余 type 为空
+  category String?         @db.VarChar(50)
+  reason   String?         @db.Text // 用户填写的申请理由
+  status   AuthRequestStatus @default(PENDING)
+
+  // 审批信息
+  approverId   String?   @map("approver_id")
+  approverNote String?   @map("approver_note") @db.Text
+  expiresAt    DateTime? @map("expires_at") // 授权期限（admin 可设，空 = 永久）
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  decidedAt DateTime? @map("decided_at")
+
+  user  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grant AuthorizationGrant?
+
+  @@index([userId, status])
+  @@index([type, status])
+  @@index([status, createdAt])
+  @@map("authorization_requests")
+}
+
+/// 已生效的授权（来源工单或 admin 手动赋权）。运行时 resolver 据此让用户走系统资源。
+model AuthorizationGrant {
+  id     String          @id @default(cuid())
+  userId String          @map("user_id")
+  type   AuthRequestType
+  targetId String        @map("target_id") @db.VarChar(200)
+
+  /// 来源工单（手动赋权时为空）
+  requestId String? @unique @map("request_id")
+
+  grantedBy String    @map("granted_by") // admin id
+  expiresAt DateTime? @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  revokedBy String?   @map("revoked_by") // 撤销者 admin id（审计，安全复审 #4）
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  request AuthorizationRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+
+  @@index([userId, type])
+  @@index([userId, type, targetId])
+  @@index([revokedAt])
+  @@map("authorization_grants")
 }
 
 // ============ 通知系统 (Notification System) ============
@@ -9539,6 +9642,11 @@ model UserModelConfig {
   // 用户自定义 endpoint（空则用 provider 官方或 UserApiKey.apiEndpoint）
   apiEndpoint String? @map("api_endpoint") @db.Text
 
+  // 2026-05-27 BYOK：该模型运行时使用哪把用户 Key（指向 UserApiKey.id）。
+  // null = 走 provider 默认 / admin（按 user.byokMode 决定是否兜底）。
+  // onDelete SetNull：删除被引用的 Key 时本字段置空（前端在删除前会阻断并提示，见方案 §15）。
+  apiKeyId String? @map("api_key_id")
+
   // 运行参数
   maxTokens   Int   @default(4096) @map("max_tokens")
   temperature Float @default(0.7)
@@ -9591,6 +9699,7 @@ model UserModelConfig {
   @@index([userId, modelType, isEnabled])
   @@index([userId, provider])
   @@index([userId, isDefault])
+  @@index([apiKeyId])
   @@map("user_model_configs")
 }
 

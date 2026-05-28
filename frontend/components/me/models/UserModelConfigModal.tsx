@@ -64,6 +64,8 @@ export function UserModelConfigModal({
   const [modelId, setModelId] = useState(initial?.modelId ?? '');
   const [displayName, setDisplayName] = useState(initial?.displayName ?? '');
   const [endpoint, setEndpoint] = useState(initial?.apiEndpoint ?? '');
+  // 2026-05-27 BYOK：该模型运行时使用哪把用户 Key（UserApiKey.id），空 = provider 默认
+  const [apiKeyId, setApiKeyId] = useState(initial?.apiKeyId ?? '');
   const [maxTokens, setMaxTokens] = useState(
     String(initial?.maxTokens ?? 4096)
   );
@@ -135,6 +137,7 @@ export function UserModelConfigModal({
     displayName: displayName.trim(),
     modelType,
     apiEndpoint: endpoint.trim() || null,
+    apiKeyId: apiKeyId.trim() || null,
     maxTokens: Number(maxTokens) || 4096,
     temperature: Number(temperature) || 0.7,
     apiFormat,
@@ -283,6 +286,35 @@ export function UserModelConfigModal({
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
         </Field>
+
+        {/* 自定义 endpoint */}
+        <Field label="自定义 API Endpoint（留空则使用 provider 默认）">
+          <input
+            value={endpoint}
+            onChange={(e) => setEndpoint(e.target.value)}
+            placeholder={apiEndpoint || '留空使用 provider 默认'}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </Field>
+
+        {/* 2026-05-27 BYOK：运行时使用哪把用户 Key */}
+        <Field label="使用 Key（留空走 provider 默认 / 系统）">
+          <select
+            value={apiKeyId}
+            onChange={(e) => setApiKeyId(e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">默认（provider 默认 / 系统）</option>
+            {userKeys
+              .filter((k) => k.isActive && k.provider === provider)
+              .map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.label}（{k.keyHint}）
+                </option>
+              ))}
+          </select>
+        </Field>
+
 
         {/* 参数 */}
         <div className="grid grid-cols-2 gap-4">

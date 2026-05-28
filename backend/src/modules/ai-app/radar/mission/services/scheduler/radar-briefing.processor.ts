@@ -14,6 +14,7 @@ import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { Job } from "bullmq";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { withUserContext } from "@/common/context/with-user-context";
 import { DailyBriefingGeneratorService } from "../briefing/daily-briefing-generator.service";
 import { RadarBriefingQueueService } from "./radar-briefing-queue.service";
 
@@ -95,12 +96,17 @@ export class RadarBriefingProcessor extends WorkerHost {
       this.log.warn(`[${missionId}] topic ${topicId} not found — skip`);
       return { status: "skipped", selectedCount: 0 };
     }
-    const result = await this.dailyGenerator.generateForTopic({
-      topicId,
-      userId: topic.userId,
-      briefingDate,
-      missionId,
-    });
+    // ★ 2026-05-28 BYOK：BullMQ worker 脱离 HTTP RequestContext，必须显式用
+    //   job 里的 userId 重建上下文，否则下游 search/LLM 的 BYOK 解析（依赖
+    //   RequestContext.getUserId()）拿不到 userId → STRICT 模式被绕过 / 静默退化。
+    const result = await withUserContext(topic.userId, () =>
+      this.dailyGenerator.generateForTopic({
+        topicId,
+        userId: topic.userId,
+        briefingDate,
+        missionId,
+      }),
+    );
     return { status: result.status, selectedCount: result.selectedCount };
   }
 }

@@ -36,7 +36,13 @@ import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService, SECRET_NAMES } from "@/modules/ai-infra/facade";
+import {
+  SecretsService,
+  SECRET_NAMES,
+  ToolKeyResolverService,
+  NoToolKeyError,
+} from "@/modules/ai-infra/facade";
+import { RequestContext } from "@/common/context/request-context";
 import * as duckDuckScrape from "duck-duck-scrape";
 import * as crypto from "crypto";
 
@@ -192,7 +198,48 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
     private readonly configService: ConfigService,
+    private readonly toolKeyResolver: ToolKeyResolverService,
   ) {}
+
+  /**
+   * 2026-05-27 BYOK 全量化：把某搜索工具的 admin key 列表替换为「该用户应使用的 key」。
+   * - 有 userId（请求/任务上下文）：走 ToolKeyResolver（用户 Key 优先 → 授权 → strict/fallback）
+   *   - 解析到 → 返回单 key（keyId=null，不参与 admin SecretKey 健康机制）
+   *   - STRICT 且用户无 key/授权 → NoToolKeyError → 返回空（该 provider 不可用，降级 DuckDuckGo）
+   *   - FALLBACK 且 admin 也没配 → 空
+   * - 无 userId（background cron / 系统任务）：保持 admin key 列表不变。
+   */
+  private async applyByokToolKeys(
+    toolId: string,
+    adminKeys: string[],
+    adminKeyIds: Array<string | null>,
+  ): Promise<{ keys: string[]; keyIds: Array<string | null> }> {
+    const userId = RequestContext.getUserId();
+    if (!userId) {
+      // 返回副本——调用方会先清空原数组再 push，返回同引用会被自清空
+      return { keys: [...adminKeys], keyIds: [...adminKeyIds] };
+    }
+    try {
+      const resolved = await this.toolKeyResolver.resolveToolKey(
+        toolId,
+        userId,
+      );
+      if (resolved) {
+        return { keys: [resolved.value], keyIds: [null] };
+      }
+      // FALLBACK 模式但 admin 也没配 → 无可用 key
+      return { keys: [], keyIds: [] };
+    } catch (error) {
+      if (error instanceof NoToolKeyError) {
+        // STRICT：用户未配且无授权 → 不烧 admin 池，该 provider 不可用
+        this.logger.debug(
+          `[Search] BYOK STRICT: user ${userId} has no key/grant for ${toolId}, skipping admin keys`,
+        );
+        return { keys: [], keyIds: [] };
+      }
+      throw error;
+    }
+  }
 
   /**
    * 模块初始化时启动清理定时器
@@ -880,6 +927,27 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         serperKeys.push(...serperEnvKeys);
         serperKeyIds.push(...serperEnvKeys.map(() => null));
       }
+
+      // ★ 2026-05-27 BYOK 全量化：若处于用户上下文，按 BYOK 优先级替换 key 列表
+      //   （用户 Key 优先 → 授权 → strict/fallback）。无 userId 的系统任务不受影响。
+      const tavilyByok = await this.applyByokToolKeys(
+        "tavily",
+        tavilyKeys,
+        tavilyKeyIds,
+      );
+      const serperByok = await this.applyByokToolKeys(
+        "serper",
+        serperKeys,
+        serperKeyIds,
+      );
+      tavilyKeys.length = 0;
+      tavilyKeys.push(...tavilyByok.keys);
+      tavilyKeyIds.length = 0;
+      tavilyKeyIds.push(...tavilyByok.keyIds);
+      serperKeys.length = 0;
+      serperKeys.push(...serperByok.keys);
+      serperKeyIds.length = 0;
+      serperKeyIds.push(...serperByok.keyIds);
 
       // 获取 provider 配置（仍从 SystemSetting 获取，因为这不是密钥）
       let provider: string = "tavily";

@@ -17,6 +17,7 @@ import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { RESEARCH_LEAD_ROLE_CONFIG } from "../research/teams";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
+import { ToolKeyResolverModule } from "../../ai-infra/credentials/tool-key-resolver/tool-key-resolver.module";
 import { StorageModule } from "../../ai-infra/storage/storage.module";
 import { ExportModule } from "../../../common/export/export.module";
 import { TOPIC_INSIGHTS_DATA_EXPORT } from "../contracts/interfaces/data-export.interface";
@@ -271,6 +272,7 @@ const services = [
     ExportModule,
     ConfigModule,
     SecretsModule,
+    ToolKeyResolverModule, // 2026-05-27 BYOK：finance connector 解析 user 工具 Key
     StorageModule, // ★ Phase 6: R2 报告云存储
     JwtModule.registerAsync({
       imports: [ConfigModule],

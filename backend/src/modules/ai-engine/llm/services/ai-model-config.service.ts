@@ -103,9 +103,13 @@ export class AiModelConfigService {
         const resolved = await this.keyResolver.resolveKey(
           userId,
           model.provider,
-          // 透传 AIModel 上记录的 secretKey，供管理员路径精确定位 Secret，
-          // 避免因命名不规范（claude-api-key / gemini-api 等）查不到。
-          { systemSecretName: model.secretKey ?? null },
+          {
+            // 透传 AIModel 上记录的 secretKey，供管理员路径精确定位 Secret，
+            // 避免因命名不规范（claude-api-key / gemini-api 等）查不到。
+            systemSecretName: model.secretKey ?? null,
+            // 2026-05-28 BYOK：用户为该模型选定的具体 UserApiKey.id（若有）
+            preferredKeyId: model.apiKeyId ?? null,
+          },
         );
         const sourceMap = {
           PERSONAL: "personal",
@@ -532,6 +536,8 @@ export class AiModelConfigService {
       apiEndpoint: fallbackEndpoint,
       apiKey: null, // resolveApiKey 会用用户 Key
       secretKey: null,
+      // 2026-05-28 BYOK：透传用户为该模型选定的具体 Key，runtime 优先用它
+      apiKeyId: cfg.apiKeyId,
       maxTokens: cfg.maxTokens,
       temperature: cfg.temperature,
       isEnabled: cfg.isEnabled,

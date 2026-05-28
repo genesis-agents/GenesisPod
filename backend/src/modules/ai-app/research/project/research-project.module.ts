@@ -13,6 +13,7 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { StorageModule } from "../../../ai-infra/storage/storage.module";
 import { CreditsModule } from "../../../ai-infra/credits/credits.module";
+import { ToolKeyResolverModule } from "../../../ai-infra/credentials/tool-key-resolver/tool-key-resolver.module";
 // ★ 依赖反转: 导入 token 用于提供 ITTSService 实现
 import { TTS_SERVICE } from "@/modules/ai-harness/facade";
 
@@ -35,6 +36,7 @@ import { FileParserService } from "./services/file-parser.service";
     forwardRef(() => AiEngineModule),
     StorageModule,
     CreditsModule,
+    ToolKeyResolverModule,
   ],
   controllers: [ResearchProjectController],
   providers: [

@@ -9,8 +9,13 @@
  * 从 ai-teams/utils 迁移至 common 模块
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import {
+  ToolKeyResolverService,
+  NoToolKeyError,
+} from "@/modules/ai-infra/facade";
+import { RequestContext } from "@/common/context/request-context";
 
 /**
  * 内容提取结果
@@ -72,6 +77,16 @@ export class WebContentExtractionService {
   } = { cachedAt: 0 };
   private readonly API_KEY_CACHE_TTL = 60000; // 1分钟
 
+  /** provider → BYOK toolId（resolveToolKey 内部映射到 secret name）。 */
+  private readonly PROVIDER_TOOL_ID: Record<
+    "jina" | "firecrawl" | "tavily",
+    string
+  > = {
+    jina: "jina",
+    firecrawl: "firecrawl",
+    tavily: "tavilyExtract",
+  };
+
   // 内容缓存
   private contentCache = new Map<
     string,
@@ -79,14 +94,34 @@ export class WebContentExtractionService {
   >();
   private readonly CACHE_TTL = 3600 * 1000; // 1小时
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly toolKeyResolver?: ToolKeyResolverService,
+  ) {}
 
   /**
-   * 从数据库获取 API Key（带缓存）
+   * 获取抽取 API Key。
+   * 2026-05-28 BYOK：有用户上下文时用户 Key 优先（不进共享 apiKeyCache，避免
+   * 跨用户污染）；无 userId 的系统任务走 admin systemSetting + env（带缓存）。
+   * STRICT 模式用户未配 Key → 返回 undefined（jina 免费仍可用，不静默借 admin）。
    */
   private async getApiKey(
     provider: "jina" | "firecrawl" | "tavily",
   ): Promise<string | undefined> {
+    const userId = RequestContext.getUserId();
+    if (userId && this.toolKeyResolver) {
+      try {
+        const resolved = await this.toolKeyResolver.resolveToolKey(
+          this.PROVIDER_TOOL_ID[provider],
+          userId,
+        );
+        return resolved?.value ?? undefined;
+      } catch (error) {
+        if (error instanceof NoToolKeyError) return undefined;
+        throw error;
+      }
+    }
+
     const now = Date.now();
 
     // 检查缓存是否有效

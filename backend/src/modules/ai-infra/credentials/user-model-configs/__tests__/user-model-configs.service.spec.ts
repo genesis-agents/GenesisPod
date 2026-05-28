@@ -35,6 +35,12 @@ function makeMockPrisma() {
       delete: jest.fn().mockResolvedValue({}),
       count: jest.fn().mockResolvedValue(0),
     },
+    userApiKey: {
+      findFirst: jest.fn(),
+    },
+    aIProvider: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
     $transaction: jest.fn().mockImplementation(async (cbOrArray: unknown) => {
       if (typeof cbOrArray === "function") {
         return cbOrArray(tx);
@@ -183,6 +189,42 @@ describe("UserModelConfigsService", () => {
         provider: "custom-llm",
       });
       expect(result).toBeDefined();
+    });
+
+    // ─── apiKeyId 归属校验（IDOR 防护，2026-05-28）──────────────────────────
+    it("throws BadRequest when apiKeyId is not owned by the user (IDOR)", async () => {
+      prisma.userApiKey.findFirst.mockResolvedValueOnce(null); // 查不到归属当前用户的 key
+      await expect(
+        service.create("user-1", { ...BASE_INPUT, apiKeyId: "other-user-key" }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma._tx.userModelConfig.create).not.toHaveBeenCalled();
+    });
+
+    it("throws BadRequest when apiKeyId provider mismatches model provider", async () => {
+      prisma.userApiKey.findFirst.mockResolvedValueOnce({ provider: "anthropic" });
+      await expect(
+        service.create("user-1", {
+          ...BASE_INPUT,
+          provider: "openai",
+          apiKeyId: "uak-anthropic",
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("accepts apiKeyId owned by user with matching provider", async () => {
+      prisma.userApiKey.findFirst.mockResolvedValueOnce({ provider: "openai" });
+      prisma._tx.userModelConfig.create.mockResolvedValueOnce(SAMPLE_CONFIG);
+      const result = await service.create("user-1", {
+        ...BASE_INPUT,
+        provider: "openai",
+        apiKeyId: "uak-openai",
+      });
+      expect(result).toEqual(SAMPLE_CONFIG);
+      expect(prisma.userApiKey.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "uak-openai", userId: "user-1" },
+        }),
+      );
     });
   });
 

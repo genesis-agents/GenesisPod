@@ -16,6 +16,8 @@
 
 import { WebContentExtractionService } from "../web-content-extraction.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import { RequestContext } from "../../context/request-context";
+import { NoToolKeyError } from "@/modules/ai-infra/facade";
 
 // ---------------------------------------------------------------------------
 // Mock global fetch
@@ -681,6 +683,74 @@ describe("WebContentExtractionService", () => {
 
       // Calling cleanupCache shouldn't throw
       expect(() => service.cleanupCache()).not.toThrow();
+    });
+  });
+
+  // =========================================================================
+  // BYOK getApiKey paths (2026-05-28)
+  // =========================================================================
+  describe("BYOK getApiKey", () => {
+    const callGetApiKey = (
+      svc: WebContentExtractionService,
+      provider: "jina" | "firecrawl" | "tavily",
+    ) =>
+      (
+        svc as unknown as {
+          getApiKey: (p: string) => Promise<string | undefined>;
+        }
+      ).getApiKey(provider);
+
+    it("用户 key 优先，不进 apiKeyCache（防跨用户污染）", async () => {
+      const resolver = {
+        resolveToolKey: jest.fn().mockResolvedValue({ value: "user-fc-key" }),
+      };
+      const dbFindMany = jest.fn().mockResolvedValue([]);
+      const svc = new WebContentExtractionService(
+        { systemSetting: { findMany: dbFindMany } } as unknown as PrismaService,
+        resolver as never,
+      );
+      const key = await RequestContext.run({ userId: "u1" }, () =>
+        callGetApiKey(svc, "firecrawl"),
+      );
+      expect(key).toBe("user-fc-key");
+      expect(resolver.resolveToolKey).toHaveBeenCalledWith("firecrawl", "u1");
+      // 提前返回，绝不触碰共享 DB cache
+      expect(dbFindMany).not.toHaveBeenCalled();
+    });
+
+    it("STRICT NoToolKeyError → 返回 undefined，不借 admin", async () => {
+      const resolver = {
+        resolveToolKey: jest
+          .fn()
+          .mockRejectedValue(new NoToolKeyError("jina", "jina-api-key")),
+      };
+      const dbFindMany = jest.fn().mockResolvedValue([]);
+      const svc = new WebContentExtractionService(
+        { systemSetting: { findMany: dbFindMany } } as unknown as PrismaService,
+        resolver as never,
+      );
+      const key = await RequestContext.run({ userId: "u1" }, () =>
+        callGetApiKey(svc, "jina"),
+      );
+      expect(key).toBeUndefined();
+      expect(dbFindMany).not.toHaveBeenCalled();
+    });
+
+    it("无 userId 走 systemSetting + env（系统任务路径）", async () => {
+      const resolver = { resolveToolKey: jest.fn() };
+      const dbFindMany = jest.fn().mockResolvedValue([
+        {
+          key: "extraction.jina.apiKey",
+          value: JSON.stringify("admin-jina"),
+        },
+      ]);
+      const svc = new WebContentExtractionService(
+        { systemSetting: { findMany: dbFindMany } } as unknown as PrismaService,
+        resolver as never,
+      );
+      const key = await callGetApiKey(svc, "jina");
+      expect(resolver.resolveToolKey).not.toHaveBeenCalled();
+      expect(key).toBe("admin-jina");
     });
   });
 });

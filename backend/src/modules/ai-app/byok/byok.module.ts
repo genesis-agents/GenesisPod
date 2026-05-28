@@ -28,9 +28,22 @@ import { UserByokController } from "./user-byok.controller";
 import { UserApiKeysController } from "./user-api-keys.controller";
 import { UserModelConfigsController } from "./user-model-configs.controller";
 import { UserProvidersController } from "./user-providers.controller";
+import { UserSecretsController } from "./user-secrets.controller";
+import {
+  UserAuthorizationController,
+  AdminAuthorizationController,
+} from "./authorization.controller";
+import { UserToolsController } from "./user-tools.controller";
+import { UserSkillsController } from "./user-skills.controller";
+import { UserSkillsService } from "./user-skills.service";
 import { AiEngineLLMModule } from "../../ai-engine/llm/llm.module";
+import { AiEngineSkillsModule } from "../../ai-engine/skills/skills.module";
+import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
 import { UserModelConfigsModule } from "../../ai-infra/credentials/user-model-configs/user-model-configs.module";
+import { UserSecretsModule } from "../../ai-infra/credentials/user-secrets/user-secrets.module";
+import { UserToolsModule } from "../../ai-infra/credentials/user-tools/user-tools.module";
+import { AuthorizationModule } from "../../ai-infra/credentials/authorization/authorization.module";
 import { KeyAssignmentsModule } from "../../ai-infra/credentials/key-assignments";
 import { KeyRequestsModule } from "../../ai-infra/credentials/key-requests";
 import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
@@ -38,12 +51,18 @@ import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
 @Module({
   imports: [
     AiEngineLLMModule,
+    AiEngineSkillsModule,
+    PrismaModule,
     UserApiKeysModule,
     UserModelConfigsModule,
+    UserSecretsModule,
+    UserToolsModule,
+    AuthorizationModule,
     KeyAssignmentsModule,
     KeyRequestsModule,
     KeyResolverModule,
   ],
+  providers: [UserSkillsService],
   controllers: [
     UserModelsController,
     UserModelConfigsAutoController,
@@ -53,6 +72,11 @@ import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
     UserApiKeysController,
     UserModelConfigsController,
     UserProvidersController, // PR-3: 用户自定义 provider CRUD
+    UserSecretsController, // 2026-05-27 BYOK 全量化：统一 Key 表格
+    UserToolsController, // 2026-05-27 BYOK：我的工具目录 + Key 状态
+    UserSkillsController, // 2026-05-28 BYOK：我的技能目录(授权版) + 授权状态
+    UserAuthorizationController, // 2026-05-27 BYOK：用户申请授权
+    AdminAuthorizationController, // 2026-05-27 BYOK：admin 审批授权
   ],
 })
 export class ByokModule {}

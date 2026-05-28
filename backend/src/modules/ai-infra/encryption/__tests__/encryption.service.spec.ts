@@ -56,6 +56,35 @@ describe("EncryptionService", () => {
     });
   });
 
+  describe("encryptForUser/decryptForUser — HKDF per-user 子密钥", () => {
+    const svc = new EncryptionService(
+      buildConfig({
+        NODE_ENV: "test",
+        SETTINGS_ENCRYPTION_KEY: "unit-test-master-key",
+      }),
+    );
+
+    it("roundtrips with the same userId", () => {
+      const { encryptedValue, iv } = svc.encryptForUser("sk-user-a", "user-a");
+      expect(encryptedValue).not.toContain("sk-user-a");
+      expect(svc.decryptForUser(encryptedValue, iv, "user-a")).toBe("sk-user-a");
+    });
+
+    it("isolates users: user B cannot decrypt user A's ciphertext", () => {
+      const { encryptedValue, iv } = svc.encryptForUser("sk-user-a", "user-a");
+      expect(svc.decryptForUser(encryptedValue, iv, "user-b")).toBeNull();
+    });
+
+    it("user subkey differs from admin key (admin decrypt fails)", () => {
+      const { encryptedValue, iv } = svc.encryptForUser("sk-user-a", "user-a");
+      expect(svc.decrypt(encryptedValue, iv)).toBeNull();
+    });
+
+    it("returns null for empty input", () => {
+      expect(svc.decryptForUser("", "", "user-a")).toBeNull();
+    });
+  });
+
   describe("decryptLegacy", () => {
     const svc = new EncryptionService(
       buildConfig({

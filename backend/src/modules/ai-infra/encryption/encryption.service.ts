@@ -25,10 +25,16 @@ export interface EncryptionResult {
 export class EncryptionService {
   private readonly logger = new Logger(EncryptionService.name);
   private readonly encryptionKey: string;
+  /**
+   * PBKDF2 输出的完整 32 字节高熵材质，仅供 HKDF per-user 子密钥派生（IKM）使用。
+   * 区别于 `encryptionKey`（hex 截断的 32 ASCII 字符，仅 16 字节有效熵）。
+   */
+  private readonly userKeyMaterial: Buffer;
   readonly currentKeyVersion: number = 1;
 
   constructor(private readonly configService: ConfigService) {
     const key = this.configService.get<string>("SETTINGS_ENCRYPTION_KEY");
+    let password: string;
     if (!key) {
       const nodeEnv = this.configService.get<string>("NODE_ENV");
       if (nodeEnv === "production") {
@@ -40,16 +46,70 @@ export class EncryptionService {
       this.logger.warn(
         "WARNING: Using default encryption key. Set SETTINGS_ENCRYPTION_KEY in production!",
       );
-      this.encryptionKey = this.deriveKey("deepdive-dev-only-key");
+      password = "deepdive-dev-only-key";
     } else {
-      this.encryptionKey = this.deriveKey(key);
+      password = key;
     }
+    // PBKDF2 输出的完整 32 字节做两用：
+    //  - admin/系统路径（encrypt/decrypt）沿用历史的 hex 截断 32 字符作 AES key，
+    //    保证历史密文可解（不可改，改则旧数据全部解不开）。
+    //  - 用户 BYOK 路径（HKDF per-user 子密钥）用完整 32 字节高熵材质作 IKM，
+    //    而非截断后的 ASCII 字符。用户路径为新增能力、迁移尚未 apply、无历史密文，
+    //    可安全使用全熵材质。
+    const material = crypto.pbkdf2Sync(
+      password,
+      "deepdive-secrets-salt-v1",
+      100000,
+      32,
+      "sha256",
+    );
+    this.userKeyMaterial = material;
+    this.encryptionKey = material.toString("hex").substring(0, 32);
   }
 
-  private deriveKey(password: string): string {
-    const salt = "deepdive-secrets-salt-v1";
-    const derivedKey = crypto.pbkdf2Sync(password, salt, 100000, 32, "sha256");
-    return derivedKey.toString("hex").substring(0, 32);
+  /**
+   * 2026-05-27 BYOK 安全关键-1：用户私有 Secret 用 per-user 子密钥加密。
+   * HKDF-SHA256 从 master key 派生 `info = "user:<userId>"` 的 32 字节子密钥，
+   * 使 master key 泄露不等于一次性解开全部用户 Key（按用户隔离爆炸半径）。
+   * admin/系统 Secret 仍走 encrypt/decrypt（master key），两条路径互不影响。
+   */
+  private deriveUserKey(userId: string): Buffer {
+    const ikm = this.userKeyMaterial;
+    const salt = Buffer.from("byok-user-secret-salt-v1");
+    const info = Buffer.from(`user:${userId}`);
+    return Buffer.from(crypto.hkdfSync("sha256", ikm, salt, info, 32));
+  }
+
+  /** 用 per-user 子密钥加密用户私有 Secret 明文。 */
+  encryptForUser(plaintext: string, userId: string): EncryptionResult {
+    const key = this.deriveUserKey(userId);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+    let encrypted = cipher.update(plaintext, "utf8", "hex");
+    encrypted += cipher.final("hex");
+    return { encryptedValue: encrypted, iv: iv.toString("hex") };
+  }
+
+  /** 用 per-user 子密钥解密用户私有 Secret，失败返回 null。 */
+  decryptForUser(
+    encryptedValue: string,
+    ivHex: string,
+    userId: string,
+  ): string | null {
+    if (!encryptedValue || !ivHex) return null;
+    try {
+      const key = this.deriveUserKey(userId);
+      const iv = Buffer.from(ivHex, "hex");
+      const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+      let decrypted = decipher.update(encryptedValue, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+      return decrypted;
+    } catch (error) {
+      this.logger.error(
+        `User-scoped decryption failed: ${(error as Error).message}`,
+      );
+      return null;
+    }
   }
 
   /**

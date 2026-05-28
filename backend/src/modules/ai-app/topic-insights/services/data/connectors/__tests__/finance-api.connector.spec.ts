@@ -1,13 +1,20 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { FinanceApiConnector } from "../finance-api.connector";
 import { DataSourceType } from "../../../../types/data-source.types";
-import { SecretsService } from "@/modules/ai-infra/facade";
+import {
+  SecretsService,
+  ToolKeyResolverService,
+} from "@/modules/ai-infra/facade";
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 const mockSecretsService = {
   getValueInternal: jest.fn(),
+};
+
+const mockToolKeyResolver = {
+  resolveToolKey: jest.fn().mockResolvedValue(null),
 };
 
 describe("FinanceApiConnector", () => {
@@ -21,6 +28,7 @@ describe("FinanceApiConnector", () => {
       providers: [
         FinanceApiConnector,
         { provide: SecretsService, useValue: mockSecretsService },
+        { provide: ToolKeyResolverService, useValue: mockToolKeyResolver },
       ],
     }).compile();
 

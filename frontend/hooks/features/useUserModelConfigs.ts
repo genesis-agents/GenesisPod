@@ -24,6 +24,8 @@ export interface UserModelConfig {
   displayName: string;
   modelType: UserModelType;
   apiEndpoint: string | null;
+  /** 2026-05-27 BYOK：运行时使用哪把用户 Key（UserApiKey.id），null = provider 默认 */
+  apiKeyId: string | null;
   maxTokens: number;
   temperature: number;
   embeddingDimensions: number | null;
