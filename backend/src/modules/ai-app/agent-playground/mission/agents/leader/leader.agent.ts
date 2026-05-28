@@ -110,7 +110,7 @@ const Input = z.discriminatedUnion("phase", [
     phase: z.literal("plan"),
     topic: z.string(),
     /** 选填长文本描述，由 RunMissionInput.description 透传 */
-    description: z.string().max(2000).optional(),
+    description: z.string().max(10000).optional(),
     depth: z.enum(["quick", "standard", "deep"]),
     language: z.enum(["zh-CN", "en-US"]),
     userProfile: z.unknown().optional(),
@@ -134,7 +134,7 @@ const Input = z.discriminatedUnion("phase", [
   z.object({
     phase: z.literal("assess-research"),
     topic: z.string(),
-    description: z.string().max(2000).optional(),
+    description: z.string().max(10000).optional(),
     language: z.enum(["zh-CN", "en-US"]),
     myPlan: z.object({
       goals: Goals,
@@ -145,7 +145,7 @@ const Input = z.discriminatedUnion("phase", [
   z.object({
     phase: z.literal("foreword"),
     topic: z.string(),
-    description: z.string().max(2000).optional(),
+    description: z.string().max(10000).optional(),
     language: z.enum(["zh-CN", "en-US"]),
     myPlan: z.object({ goals: Goals, dimensions: z.array(Dimension) }),
     myDecisions: z.array(PastDecision).default([]),
@@ -170,7 +170,7 @@ const Input = z.discriminatedUnion("phase", [
   z.object({
     phase: z.literal("signoff"),
     topic: z.string(),
-    description: z.string().max(2000).optional(),
+    description: z.string().max(10000).optional(),
     language: z.enum(["zh-CN", "en-US"]),
     myPlan: z.object({ goals: Goals, dimensions: z.array(Dimension) }),
     myDecisions: z.array(PastDecision).default([]),
