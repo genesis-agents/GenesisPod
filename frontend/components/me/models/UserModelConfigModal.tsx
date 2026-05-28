@@ -215,6 +215,23 @@ export function UserModelConfigModal({
           </select>
         </Field>
 
+        {/* ★ 2026-05-27 提前 endpoint 字段位置 (用户反馈"找不到 endpoint 配置"):
+            放在 provider 之后, modelId 之前 — 自部署 / 自建 provider 优先填这个。
+            Provider 默认 endpoint 不为空时, placeholder 显示当前默认值供参考。 */}
+        <Field label="API Endpoint（留空使用 provider 默认值）">
+          <input
+            value={endpoint}
+            onChange={(e) => setEndpoint(e.target.value)}
+            placeholder={apiEndpoint || 'https://api.example.com/v1/chat/completions'}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+          />
+          {apiEndpoint && !endpoint && (
+            <p className="mt-1 text-xs text-gray-500">
+              当前 provider 默认: <code className="font-mono">{apiEndpoint}</code>
+            </p>
+          )}
+        </Field>
+
         {/* 模型类型 */}
         <Field label="模型类型" required>
           <select
@@ -249,16 +266,6 @@ export function UserModelConfigModal({
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="例如：My GPT-4o mini"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          />
-        </Field>
-
-        {/* 自定义 endpoint */}
-        <Field label="自定义 API Endpoint（留空则使用 provider 默认）">
-          <input
-            value={endpoint}
-            onChange={(e) => setEndpoint(e.target.value)}
-            placeholder={apiEndpoint || '留空使用 provider 默认'}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
         </Field>
