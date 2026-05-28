@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-28T13:10:09.839Z",
+  "generatedAt": "2026-05-28T13:42:59.543Z",
   "count": 187,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -874,147 +874,147 @@
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 38,
+      "line": 43,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 41,
+      "line": 46,
       "column": 11,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 44,
+      "line": 49,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"grok\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 45,
+      "line": 50,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"gpt-4\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 46,
+      "line": 51,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"gpt-5\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 47,
+      "line": 52,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.startsWith(\"o1\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 48,
+      "line": 53,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.startsWith(\"o3\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 49,
+      "line": 54,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"claude\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 68,
+      "line": 73,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "providerLower === \"xai\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 68,
+      "line": 73,
       "column": 36,
       "kind": "binary-eq",
       "snippet": "providerLower === \"grok\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 70,
+      "line": 75,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "providerLower === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 70,
+      "line": 75,
       "column": 39,
       "kind": "binary-eq",
       "snippet": "providerLower === \"gpt\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 72,
+      "line": 77,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "providerLower === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 72,
+      "line": 77,
       "column": 42,
       "kind": "binary-eq",
       "snippet": "providerLower === \"claude\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 74,
+      "line": 79,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "providerLower === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 74,
+      "line": 79,
       "column": 39,
       "kind": "binary-eq",
       "snippet": "providerLower === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 281,
+      "line": 342,
       "column": 11,
       "kind": "method-call",
       "snippet": "m.id.includes(\"grok\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 341,
+      "line": 402,
       "column": 11,
       "kind": "method-call",
       "snippet": "m.id.startsWith(\"gpt-\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 398,
+      "line": 475,
       "column": 16,
       "kind": "method-call",
       "snippet": "name.includes(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 405,
+      "line": 482,
       "column": 13,
       "kind": "method-call",
       "snippet": "name.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 415,
+      "line": 492,
       "column": 13,
       "kind": "method-call",
       "snippet": "name.includes(\"gemini\")"
