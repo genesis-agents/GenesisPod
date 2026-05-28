@@ -18,7 +18,13 @@ import {
   DataSourceType,
   DataSourceResult,
 } from "../../../types/data-source.types";
-import { SecretsService, SECRET_NAMES } from "../../../../../ai-infra/facade";
+import {
+  SecretsService,
+  SECRET_NAMES,
+  ToolKeyResolverService,
+  NoToolKeyError,
+} from "../../../../../ai-infra/facade";
+import { RequestContext } from "@/common/context/request-context";
 
 @Injectable()
 export class FinanceApiConnector implements IDataSourceConnector {
@@ -29,9 +35,29 @@ export class FinanceApiConnector implements IDataSourceConnector {
 
   private readonly baseUrl = "https://www.alphavantage.co/query";
 
-  constructor(private readonly secretsService: SecretsService) {}
+  constructor(
+    private readonly secretsService: SecretsService,
+    private readonly toolKeyResolver: ToolKeyResolverService,
+  ) {}
 
+  /**
+   * 2026-05-27 BYOK：有用户上下文时走 ToolKeyResolver（用户 Key 优先 → 授权 → strict/fallback）；
+   * 无 userId（系统任务）回落 admin Secret。
+   */
   private async getApiKey(): Promise<string | null> {
+    const userId = RequestContext.getUserId();
+    if (userId) {
+      try {
+        const resolved = await this.toolKeyResolver.resolveToolKey(
+          "alpha-vantage",
+          userId,
+        );
+        return resolved?.value ?? null;
+      } catch (error) {
+        if (error instanceof NoToolKeyError) return null;
+        throw error;
+      }
+    }
     return this.secretsService.getValueInternal(SECRET_NAMES.ALPHA_VANTAGE);
   }
 
