@@ -81,7 +81,7 @@ export function UserSkillsTab() {
       )}
 
       {/* 搜索 */}
-      <div className="relative max-w-sm">
+      <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
@@ -131,7 +131,7 @@ export function UserSkillsTab() {
                       </div>
                       {s.description && (
                         <p
-                          className="mt-0.5 text-xs text-gray-400 line-clamp-1"
+                          className="mt-0.5 text-xs text-gray-400 overflow-hidden line-clamp-1 max-w-[40ch]"
                           title={s.description}
                         >
                           {s.description}

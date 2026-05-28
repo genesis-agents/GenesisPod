@@ -217,15 +217,20 @@ export function UserModelConfigModal({
       }
     >
       <div className="space-y-4">
-        {/* Provider —— 改为可输入文本 + datalist autocomplete (用户反馈:
-            本地模型 / 自建 provider 无法用 select 限定的下拉, 必须支持自由输入) */}
+        {/* 1. 显示名 — 最顶部 */}
+        <Field label="显示名" required>
+          <input
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="例如：My GPT-4o mini"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </Field>
+
+        {/* 2. Provider — 预设 SELECT + 自定义输入 */}
         <Field label="Provider" required>
           {isEdit ? (
-            <input
-              value={provider}
-              disabled
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
-            />
+            <input value={provider} disabled className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50" />
           ) : (
             <>
               <select
@@ -235,11 +240,12 @@ export function UserModelConfigModal({
                   if (slug === CUSTOM_SLUG) {
                     setProvider('');
                     setEndpoint('');
+                    setApiFormat('openai');
                   } else {
                     const preset = KNOWN_PROVIDERS.find((p) => p.slug === slug);
                     if (preset) {
                       setProvider(preset.slug);
-                      if (!endpoint) setEndpoint(preset.endpoint);
+                      setEndpoint(preset.endpoint);
                       setApiFormat(preset.apiFormat);
                     }
                   }
@@ -250,13 +256,13 @@ export function UserModelConfigModal({
                 {KNOWN_PROVIDERS.map((p) => (
                   <option key={p.slug} value={p.slug}>{p.label}</option>
                 ))}
-                <option value={CUSTOM_SLUG}>其它 / 自定义…</option>
+                <option value={CUSTOM_SLUG}>其它 / 自定义...</option>
               </select>
               {(!KNOWN_PROVIDERS.find((p) => p.slug === provider) || provider === '') && (
                 <input
                   value={provider}
                   onChange={(e) => setProvider(e.target.value)}
-                  placeholder="填写自定义 provider slug，例如 my-proxy / ollama-prod"
+                  placeholder="自定义 slug，例如 my-proxy / ollama-prod"
                   className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 />
               )}
@@ -264,32 +270,17 @@ export function UserModelConfigModal({
           )}
         </Field>
 
-        {/* ★ API 配置 section — 视觉对齐 admin AI Model form */}
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            API 配置
-          </div>
-          <div className="space-y-3">
-            <Field label="API Endpoint（留空使用 provider 默认值）">
-              <input
-                value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
-                placeholder={
-                  apiEndpoint || 'https://api.example.com/v1/chat/completions'
-                }
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-mono"
-              />
-              {apiEndpoint && !endpoint && (
-                <p className="mt-1 text-xs text-gray-500">
-                  当前 provider 默认:{' '}
-                  <code className="font-mono">{apiEndpoint}</code>
-                </p>
-              )}
-            </Field>
-          </div>
-        </div>
+        {/* 3. API Endpoint — 知名供应商自动填，自定义为空 */}
+        <Field label="API Endpoint">
+          <input
+            value={endpoint}
+            onChange={(e) => setEndpoint(e.target.value)}
+            placeholder="知名供应商自动填写；自定义时手动输入"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+          />
+        </Field>
 
-        {/* 模型类型 */}
+        {/* 4. 模型类型 */}
         <Field label="模型类型" required>
           <select
             value={modelType}
@@ -304,7 +295,7 @@ export function UserModelConfigModal({
           </select>
         </Field>
 
-        {/* Model ID（带「获取」按钮） */}
+        {/* 5. Model ID + 获取 */}
         <UserModelIdSelector
           provider={provider}
           apiKey={apiKey}
@@ -317,46 +308,7 @@ export function UserModelConfigModal({
           }}
         />
 
-        {/* 显示名 */}
-        <Field label="显示名" required>
-          <input
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="例如：My GPT-4o mini"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          />
-        </Field>
-
-        {/* 自定义 endpoint */}
-        <Field label="自定义 API Endpoint（留空则使用 provider 默认）">
-          <input
-            value={endpoint}
-            onChange={(e) => setEndpoint(e.target.value)}
-            placeholder={apiEndpoint || '留空使用 provider 默认'}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          />
-        </Field>
-
-        {/* 2026-05-27 BYOK：运行时使用哪把用户 Key */}
-        <Field label="使用 Key（留空走 provider 默认 / 系统）">
-          <select
-            value={apiKeyId}
-            onChange={(e) => setApiKeyId(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="">默认（provider 默认 / 系统）</option>
-            {userKeys
-              .filter((k) => k.isActive && k.provider === provider)
-              .map((k) => (
-                <option key={k.id} value={k.id}>
-                  {k.label}（{k.keyHint}）
-                </option>
-              ))}
-          </select>
-        </Field>
-
-
-        {/* 参数 */}
+        {/* 6. Max Tokens + 推理模型（直接露出，常用）*/}
         <div className="grid grid-cols-2 gap-4">
           <Field label="Max Tokens">
             <input
@@ -367,120 +319,40 @@ export function UserModelConfigModal({
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </Field>
-          <Field label="Temperature">
-            <input
-              type="number"
-              step="0.1"
-              min={0}
-              max={2}
-              value={temperature}
-              onChange={(e) => setTemperature(e.target.value)}
-              disabled={!supportsTemperature}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+          <div className="flex items-end pb-1">
+            <Toggle
+              label="推理模型"
+              description="o1 / o3 / DeepSeek-R1 等"
+              value={isReasoning}
+              onChange={(v) => { setIsReasoning(v); setReasoningTouched(true); }}
             />
-          </Field>
+          </div>
         </div>
 
-        {/* 默认 / 启用 */}
-        <div className="grid grid-cols-2 gap-4">
-          <Toggle
-            label="作为该类型的默认模型"
-            description="启用 AI 调用时优先选用此模型"
-            value={isDefault}
-            onChange={setIsDefault}
-          />
-          <Toggle
-            label="启用"
-            description="关闭后此模型不会被路由选中"
-            value={isEnabled}
-            onChange={setIsEnabled}
-          />
-        </div>
-
-        {/* 高级设置折叠 */}
+        {/* ▸ 高级设置折叠 */}
         <button
           type="button"
           onClick={() => setShowAdvanced((v) => !v)}
           className="text-xs text-gray-500 hover:text-gray-700"
         >
-          {showAdvanced ? '▾' : '▸'} 高级设置（API 格式 / 能力标志 / 优先级 /
-          描述）
+          {showAdvanced ? '▾' : '▸'} 高级设置
         </button>
 
         {showAdvanced && (
           <div className="space-y-4 rounded-md bg-gray-50 p-4">
             <div className="grid grid-cols-2 gap-4">
-              <Field label="API Format">
-                <select
-                  value={apiFormat}
-                  onChange={(e) => setApiFormat(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                >
-                  {API_FORMAT_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Token Param Name">
-                <select
-                  value={tokenParamName}
-                  onChange={(e) => {
-                    setTokenParamName(e.target.value);
-                    setReasoningTouched(true);
-                  }}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                >
-                  {TOKEN_PARAM_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Toggle
-                label="推理模型（Reasoning）"
-                description="o1/o3/DeepSeek-R1 等"
-                value={isReasoning}
-                onChange={(v) => {
-                  setIsReasoning(v);
-                  setReasoningTouched(true);
-                }}
-              />
-              <Toggle
-                label="支持 Temperature 参数"
-                description="推理系列通常不支持"
-                value={supportsTemperature}
-                onChange={(v) => {
-                  setSupportsTemperature(v);
-                  setReasoningTouched(true);
-                }}
-              />
-              <Toggle
-                label="支持流式输出"
-                value={supportsStreaming}
-                onChange={setSupportsStreaming}
-              />
-              <Toggle
-                label="支持 Function Calling"
-                value={supportsFunctionCalling}
-                onChange={setSupportsFunctionCalling}
-              />
-              <Toggle
-                label="支持视觉输入"
-                description="可以接收图片输入"
-                value={supportsVision}
-                onChange={setSupportsVision}
-              />
-              <Field label="优先级 (0-100)">
+              <Field label="Temperature">
                 <input
-                  type="number"
-                  min={0}
-                  max={100}
+                  type="number" step="0.1" min={0} max={2}
+                  value={temperature}
+                  onChange={(e) => setTemperature(e.target.value)}
+                  disabled={!supportsTemperature}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
+                />
+              </Field>
+              <Field label="优先级 (0–100)">
+                <input
+                  type="number" min={0} max={100}
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
@@ -488,47 +360,39 @@ export function UserModelConfigModal({
               </Field>
             </div>
 
-            {/* 限速参数：避免上游 429 风暴。留空 = 用 provider 启发式默认 */}
-            <div className="rounded-md border border-amber-100 bg-amber-50/40 p-3">
-              <div className="mb-2 text-xs font-medium text-amber-900">
-                限速参数（避免 429）—— 留空走 provider 启发式默认
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="RPM (Requests / minute)">
-                  <input
-                    type="number"
-                    min={1}
-                    value={rpmLimit}
-                    onChange={(e) => setRpmLimit(e.target.value)}
-                    placeholder="例如 100（Gemini free embedding）"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </Field>
-                <Field label="TPM (Tokens / minute)">
-                  <input
-                    type="number"
-                    min={1}
-                    value={tpmLimit}
-                    onChange={(e) => setTpmLimit(e.target.value)}
-                    placeholder="例如 30000（Gemini free embedding）"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </Field>
-              </div>
-              <p className="mt-2 text-[11px] leading-relaxed text-gray-600">
-                Gemini free tier embedding：100 RPM / 30K TPM。OpenAI tier-1
-                paid embedding：~1500 RPM / 1M TPM。可在 Google AI Studio /
-                OpenAI dashboard 的 Rate Limit 页面查实际配额。
-              </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Toggle label="作为该类型的默认模型" description="优先路由此模型" value={isDefault} onChange={setIsDefault} />
+              <Toggle label="启用" description="关闭后不会被路由选中" value={isEnabled} onChange={setIsEnabled} />
+              <Toggle label="支持 Temperature" description="推理系列通常不支持" value={supportsTemperature} onChange={(v) => { setSupportsTemperature(v); setReasoningTouched(true); }} />
+              <Toggle label="支持流式输出" value={supportsStreaming} onChange={setSupportsStreaming} />
+              <Toggle label="支持 Function Calling" value={supportsFunctionCalling} onChange={setSupportsFunctionCalling} />
+              <Toggle label="支持视觉输入" description="可接收图片输入" value={supportsVision} onChange={setSupportsVision} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="API Format">
+                <select value={apiFormat} onChange={(e) => setApiFormat(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+                  {API_FORMAT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </Field>
+              <Field label="Token Param Name">
+                <select value={tokenParamName} onChange={(e) => { setTokenParamName(e.target.value); setReasoningTouched(true); }} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+                  {TOKEN_PARAM_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="RPM (请求/分钟)">
+                <input type="number" min={1} value={rpmLimit} onChange={(e) => setRpmLimit(e.target.value)} placeholder="留空 = 启发式默认" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+              </Field>
+              <Field label="TPM (Token/分钟)">
+                <input type="number" min={1} value={tpmLimit} onChange={(e) => setTpmLimit(e.target.value)} placeholder="留空 = 启发式默认" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+              </Field>
             </div>
 
             <Field label="描述（可选）">
-              <textarea
-                rows={2}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-              />
+              <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
             </Field>
           </div>
         )}
