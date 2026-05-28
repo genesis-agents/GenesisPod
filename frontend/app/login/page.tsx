@@ -54,7 +54,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const url = `${config.streamApiUrl}/auth/${mode}`;
+      // ★ 2026-05-27 修复 (Screenshot_86 "Failed to fetch"): streamApiUrl 在浏览器
+      //   绕 Next.js 代理直连 http://localhost:4000 (设计给 SSE 用)。但 onprem
+      //   docker-compose 不暴露 backend 4000 端口 → 浏览器 fetch 找不到 →
+      //   "Failed to fetch"。login 不是 SSE, 改用 apiUrl 走同源 → middleware
+      //   实时 rewrite 到 API_INTERNAL_URL=http://backend:4000。
+      const url = `${config.apiUrl}/auth/${mode}`;
       const body =
         mode === 'login' ? { email, password } : { email, password, username };
 
