@@ -26,6 +26,9 @@ interface AuthenticatedRequest {
 interface FetchUserModelsDto {
   /** 用户当前在表单里输入的 Key（还没保存），优先用它。 */
   apiKey?: string;
+  /** 用户在「使用 Key」下拉里选定的 BYOK 密钥 id（UserApiKey.id）。
+   *  选了就用这把 key 拉列表，使预览与运行时实际用的 key 一致。 */
+  apiKeyId?: string;
   /** 自定义 endpoint（可选） */
   apiEndpoint?: string;
   /** 过滤模型类型：CHAT/CHAT_FAST/EMBEDDING/... */
@@ -58,15 +61,34 @@ export class UserModelsController {
   ) {
     const normalized = provider.toLowerCase();
 
-    // 优先使用表单里输入的 Key（用户还没保存时也能拉列表）；
-    // 否则回退到已保存的 Personal Key。
+    // Key 解析优先级（必须与运行时一致，否则预览“能拉到”但运行时用别的 key 失败）：
+    //   1. 表单里当场输入的明文 Key（用户还没保存时也能拉列表）
+    //   2. 「使用 Key」下拉选定的 BYOK 密钥（按 id 解析，跨 provider 也按用户所选）
+    //   3. 回退到该 provider 的 Personal Key
     let apiKey = dto.apiKey?.trim();
+    let endpointFromKey: string | undefined;
+    const selectedKeyId = dto.apiKeyId?.trim();
+    if (!apiKey && selectedKeyId) {
+      // 不传 provider：尊重用户在下拉里的显式选择（下拉本就列出全部 provider 的 key）。
+      const selected = await this.userApiKeys.getPersonalKeyById(
+        req.user.id,
+        selectedKeyId,
+      );
+      if (!selected?.apiKey) {
+        throw new BadRequestException(
+          "Selected BYOK key not found or inactive.",
+        );
+      }
+      apiKey = selected.apiKey;
+      endpointFromKey = selected.apiEndpoint?.trim() || undefined;
+    }
     if (!apiKey) {
       const personal = await this.userApiKeys.getPersonalKey(
         req.user.id,
         normalized,
       );
       apiKey = personal?.apiKey;
+      endpointFromKey = personal?.apiEndpoint?.trim() || undefined;
     }
     if (!apiKey) {
       throw new BadRequestException(
@@ -77,7 +99,7 @@ export class UserModelsController {
     const result = await this.modelDiscovery.fetchAvailableModels(
       normalized,
       apiKey,
-      dto.apiEndpoint?.trim(),
+      dto.apiEndpoint?.trim() || endpointFromKey,
       dto.modelType,
     );
     return result;
@@ -121,23 +143,38 @@ export class UserModelConfigsAutoController {
     const cfg = await this.userModelConfigs.findById(req.user.id, id);
     if (!cfg) throw new NotFoundException("Model config not found");
 
-    const personal = await this.userApiKeys.getPersonalKey(
-      req.user.id,
-      cfg.provider,
-    );
-    if (!personal?.apiKey) {
+    // 测试必须用与运行时一致的 key：运行时走 keyResolver(preferredKeyId=cfg.apiKeyId)，
+    // 所以这里也必须先按 cfg.apiKeyId 解析那把具体 BYOK key，否则"测试通过但运行时挂"。
+    let apiKey: string | undefined;
+    let keyEndpoint: string | null | undefined;
+    if (cfg.apiKeyId) {
+      const selected = await this.userApiKeys.getPersonalKeyById(
+        req.user.id,
+        cfg.apiKeyId,
+      );
+      apiKey = selected?.apiKey;
+      keyEndpoint = selected?.apiEndpoint;
+    }
+    if (!apiKey) {
+      const personal = await this.userApiKeys.getPersonalKey(
+        req.user.id,
+        cfg.provider,
+      );
+      apiKey = personal?.apiKey;
+      keyEndpoint = personal?.apiEndpoint;
+    }
+    if (!apiKey) {
       throw new BadRequestException(
-        `No active Personal Key for provider "${cfg.provider}". 请先在 API Keys Tab 配置 Key。`,
+        `No active key for provider "${cfg.provider}"（选定的 BYOK 密钥可能已被删除或停用）。请在 API Keys Tab 配置 Key 或重新选择。`,
       );
     }
 
-    const endpoint =
-      cfg.apiEndpoint?.trim() || personal.apiEndpoint?.trim() || "";
+    const endpoint = cfg.apiEndpoint?.trim() || keyEndpoint?.trim() || "";
 
     return this.connectionTest.testModelConnectionWithKey(
       cfg.provider,
       cfg.modelId,
-      personal.apiKey,
+      apiKey,
       endpoint,
       cfg.modelType,
     );

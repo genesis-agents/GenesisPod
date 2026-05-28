@@ -13,8 +13,11 @@ interface DiscoveredModel {
 
 interface Props {
   provider: string;
-  /** 用户当前表单里输入的 API Key。留空时后端回退到已保存的 Personal Key。 */
+  /** 用户当前表单里输入的 API Key。留空时后端回退到 apiKeyId / Personal Key。 */
   apiKey: string;
+  /** 「使用 Key」下拉选定的 BYOK 密钥 id；传给后端用同一把 key 拉列表，
+   *  使预览与运行时实际用的 key 一致。 */
+  apiKeyId?: string;
   apiEndpoint?: string;
   /** 过滤模型类型；默认 CHAT */
   modelType?: string;
@@ -31,6 +34,7 @@ interface Props {
 export function UserModelIdSelector({
   provider,
   apiKey,
+  apiKeyId,
   apiEndpoint,
   modelType = 'CHAT',
   value,
@@ -55,6 +59,7 @@ export function UserModelIdSelector({
           },
           body: JSON.stringify({
             apiKey: apiKey || undefined,
+            apiKeyId: apiKeyId || undefined,
             apiEndpoint: apiEndpoint || undefined,
             modelType,
           }),
@@ -83,14 +88,14 @@ export function UserModelIdSelector({
     } finally {
       setLoading(false);
     }
-  }, [provider, apiKey, apiEndpoint, modelType]);
+  }, [provider, apiKey, apiKeyId, apiEndpoint, modelType]);
 
-  // 切换 provider / modelType 时清空已拉取结果
+  // 切换 provider / modelType / 选定 key 时清空已拉取结果
   useEffect(() => {
     setModels([]);
     setHasFetched(false);
     setError(null);
-  }, [provider, modelType]);
+  }, [provider, modelType, apiKeyId]);
 
   return (
     <div>

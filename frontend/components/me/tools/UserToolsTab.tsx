@@ -1,7 +1,14 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { FlaskConical, Search, Wrench, KeyRound, SendHorizonal, Check } from 'lucide-react';
+import {
+  FlaskConical,
+  Search,
+  Wrench,
+  KeyRound,
+  SendHorizonal,
+  Check,
+} from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { apiClient } from '@/lib/api/client';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
@@ -60,13 +67,20 @@ function ConfigureKeyModal({
   const { t } = useTranslation();
   const targetCategory = mapCategory(tool.category);
 
-  // 不限 category — 显示用户自己全部 BYOK 密钥，让用户自己选
-  const allUserSecrets = useMemo(() => userSecrets, [userSecrets]);
+  // 按工具类别过滤：只显示与该工具同 category 的密钥，避免把 Cohere key
+  // 列给 OpenAlex 这类混乱（大小写不敏感）。无匹配时下方自动落到「输入新密钥」。
+  const matchingSecrets = useMemo(
+    () =>
+      userSecrets.filter(
+        (s) => (s.category ?? '').toUpperCase() === targetCategory.toUpperCase()
+      ),
+    [userSecrets, targetCategory]
+  );
 
   const [mode, setMode] = useState<'select' | 'new'>(
-    allUserSecrets.length > 0 ? 'select' : 'new'
+    matchingSecrets.length > 0 ? 'select' : 'new'
   );
-  const [selectedId, setSelectedId] = useState(allUserSecrets[0]?.id ?? '');
+  const [selectedId, setSelectedId] = useState(matchingSecrets[0]?.id ?? '');
   const [newValue, setNewValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,21 +88,39 @@ function ConfigureKeyModal({
   const handleSubmit = async () => {
     setError(null);
     if (mode === 'select') {
-      if (!selectedId) { setError('请选择一个已有密钥'); return; }
+      if (!selectedId) {
+        setError('请选择一个已有密钥');
+        return;
+      }
     } else {
-      if (!newValue.trim()) { setError(t('me.tools.modal.keyRequired')); return; }
+      if (!newValue.trim()) {
+        setError(t('me.tools.modal.keyRequired'));
+        return;
+      }
     }
     setSubmitting(true);
     try {
       const body =
         mode === 'select'
-          ? { name: tool.secretName, category: targetCategory, provider: tool.toolId, sourceSecretId: selectedId }
-          : { name: tool.secretName, category: targetCategory, provider: tool.toolId, value: newValue.trim() };
+          ? {
+              name: tool.secretName,
+              category: targetCategory,
+              provider: tool.toolId,
+              sourceSecretId: selectedId,
+            }
+          : {
+              name: tool.secretName,
+              category: targetCategory,
+              provider: tool.toolId,
+              value: newValue.trim(),
+            };
       await apiClient.post('/user/secrets', body);
       onSuccess();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('me.tools.modal.saveFailed'));
+      setError(
+        err instanceof Error ? err.message : t('me.tools.modal.saveFailed')
+      );
     } finally {
       setSubmitting(false);
     }
@@ -102,7 +134,12 @@ function ConfigureKeyModal({
       title={t('me.tools.modal.configureTitle', { name: tool.name })}
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={submitting}
+          >
             {t('me.tools.modal.cancel')}
           </Button>
           <Button size="sm" onClick={handleSubmit} disabled={submitting}>
@@ -114,25 +151,31 @@ function ConfigureKeyModal({
       <div className="space-y-4">
         <p className="text-xs text-gray-500">
           密钥名称：
-          <code className="rounded bg-gray-100 px-1 py-0.5 text-[11px]">{tool.secretName}</code>
+          <code className="rounded bg-gray-100 px-1 py-0.5 text-[11px]">
+            {tool.secretName}
+          </code>
         </p>
 
         {/* 模式切换 */}
         <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
-          {allUserSecrets.length > 0 && (
+          {matchingSecrets.length > 0 && (
             <button
               onClick={() => setMode('select')}
               className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${
-                mode === 'select' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                mode === 'select'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              从已有密钥选择（{allUserSecrets.length}）
+              从已有密钥选择（{matchingSecrets.length}）
             </button>
           )}
           <button
             onClick={() => setMode('new')}
             className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${
-              mode === 'new' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              mode === 'new'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             输入新密钥
@@ -149,7 +192,7 @@ function ConfigureKeyModal({
               onChange={(e) => setSelectedId(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              {allUserSecrets.map((s) => (
+              {matchingSecrets.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.displayName || s.name} · {s.maskedValue}
                 </option>
@@ -162,8 +205,11 @@ function ConfigureKeyModal({
               <label className="text-xs font-medium text-gray-700">
                 {t('me.tools.modal.keyLabel')}
               </label>
-              {allUserSecrets.length === 0 && (
-                <a href="/me/api-keys" className="text-xs text-primary underline hover:text-primary/80">
+              {matchingSecrets.length === 0 && (
+                <a
+                  href="/me/api-keys"
+                  className="text-xs text-primary underline hover:text-primary/80"
+                >
                   前往「我的 API Keys」添加
                 </a>
               )}
@@ -283,7 +329,13 @@ interface ToolRowProps {
   isTesting?: boolean;
 }
 
-function ToolRow({ tool, onConfigureKey, onRequestGrant, onTestKey, isTesting }: ToolRowProps) {
+function ToolRow({
+  tool,
+  onConfigureKey,
+  onRequestGrant,
+  onTestKey,
+  isTesting,
+}: ToolRowProps) {
   const { t } = useTranslation();
 
   let badgeTone: 'success' | 'info' | 'neutral' | 'warning';

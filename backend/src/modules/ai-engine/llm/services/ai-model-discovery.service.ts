@@ -105,8 +105,11 @@ export class AiModelDiscoveryService {
       const defaults = await this.userApiKeysService.resolveProviderDefaults(
         provider.toLowerCase(),
       );
-      const endpointResolved = (apiEndpoint?.trim() || defaults?.endpoint || "")
-        .replace(/\/+$/, "");
+      const endpointResolved = (
+        apiEndpoint?.trim() ||
+        defaults?.endpoint ||
+        ""
+      ).replace(/\/+$/, "");
       const apiFormat = (defaults?.apiFormat || "openai").toLowerCase();
 
       if (!endpointResolved) {
@@ -425,8 +428,12 @@ export class AiModelDiscoveryService {
     apiKey: string,
     modelType?: string,
   ): Promise<FetchModelsResult> {
-    const sep = endpointBase.includes("?") ? "&" : "?";
-    return this.fetchGeminiImpl(`${endpointBase}${sep}key=${apiKey}`, modelType);
+    // endpointBase 是 provider base (如 .../v1beta), 需拼 /models 才是 list 端点。
+    // 不补 /models 会打到 GET /v1beta → Google 返 404。
+    const base = endpointBase.replace(/\/+$/, "");
+    const withModels = base.endsWith("/models") ? base : `${base}/models`;
+    const sep = withModels.includes("?") ? "&" : "?";
+    return this.fetchGeminiImpl(`${withModels}${sep}key=${apiKey}`, modelType);
   }
   private async fetchGeminiModels(
     apiKey: string,
@@ -579,7 +586,10 @@ export class AiModelDiscoveryService {
     endpointBase?: string,
   ): Promise<FetchModelsResult> {
     // endpointBase 是 provider base (默认 https://api.anthropic.com), 拼 /v1/models
-    const base = (endpointBase || "https://api.anthropic.com").replace(/\/+$/, "");
+    const base = (endpointBase || "https://api.anthropic.com").replace(
+      /\/+$/,
+      "",
+    );
     const url = base.endsWith("/v1") ? `${base}/models` : `${base}/v1/models`;
     try {
       const response = await firstValueFrom(
@@ -614,8 +624,7 @@ export class AiModelDiscoveryService {
       );
       return {
         success: false,
-        error:
-          "Anthropic /v1/models call failed — check API key and network.",
+        error: "Anthropic /v1/models call failed — check API key and network.",
       };
     }
   }
@@ -667,8 +676,7 @@ export class AiModelDiscoveryService {
       );
       return {
         success: false,
-        error:
-          "Cohere /v1/models call failed — check API key and network.",
+        error: "Cohere /v1/models call failed — check API key and network.",
       };
     }
   }
@@ -749,9 +757,7 @@ export class AiModelDiscoveryService {
   private extractVoyageIds(html: string, idPattern: RegExp): string[] {
     const tokens =
       html.match(/[a-z][a-z0-9]*(?:-[a-z0-9.]+)+/g)?.filter(Boolean) ?? [];
-    const unique = Array.from(new Set(tokens)).filter((t) =>
-      idPattern.test(t),
-    );
+    const unique = Array.from(new Set(tokens)).filter((t) => idPattern.test(t));
     return unique;
   }
 
@@ -775,5 +781,4 @@ export class AiModelDiscoveryService {
    * 实际是新 fetchAnthropicModels 路径。
    */
   // (旧 getAnthropicModels / getCohereModels / getVoyageModels 已转为下方动态版)
-
 }

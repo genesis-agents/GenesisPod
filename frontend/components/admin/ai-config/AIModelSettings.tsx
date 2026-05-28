@@ -1615,10 +1615,20 @@ function EditModelModal({
     model.secretKey ? 'secret' : 'direct'
   ); // 根据现有配置判断模式
 
-  // 获取可用的密钥列表（过滤 AI_MODEL 类型）
+  // 获取可用的密钥列表：AI_MODEL + active，再按当前 provider 收窄，
+  // 保留 provider 未标注的旧密钥 + 当前已选中那把（避免误藏）；收窄后为空则回退全部，
+  // 保证 admin 永不会被过滤到无可选。
   const { secrets } = useAdminSecrets();
-  const aiModelSecrets =
+  const aiModelSecretsBase =
     secrets?.filter((s) => s.category === 'AI_MODEL' && s.isActive) || [];
+  const aiModelSecretsScoped = aiModelSecretsBase.filter(
+    (s) =>
+      !s.provider ||
+      s.provider.toLowerCase() === (formData.provider || '').toLowerCase() ||
+      s.name === formData.secretKey
+  );
+  const aiModelSecrets =
+    aiModelSecretsScoped.length > 0 ? aiModelSecretsScoped : aiModelSecretsBase;
 
   // 打开编辑模态框时，获取完整的 API Key
   useEffect(() => {
@@ -1901,6 +1911,7 @@ function EditModelModal({
                       <option value="">选择密钥...</option>
                       {aiModelSecrets.map((secret) => (
                         <option key={secret.name} value={secret.name}>
+                          {secret.provider ? `[${secret.provider}] ` : ''}
                           {secret.displayName} ({secret.name})
                         </option>
                       ))}
@@ -2349,10 +2360,20 @@ function AddModelModal({
   // （拆到 hooks/admin/，god-class guard 减负）
   const { providers: dynamicProviders } = useAdminAIProviders();
 
-  // 获取可用的密钥列表（过滤 AI_MODEL 类型）
+  // 获取可用的密钥列表：AI_MODEL + active，再按当前 provider 收窄，
+  // 保留 provider 未标注的旧密钥 + 当前已选中那把（避免误藏）；收窄后为空则回退全部，
+  // 保证 admin 永不会被过滤到无可选。
   const { secrets } = useAdminSecrets();
-  const aiModelSecrets =
+  const aiModelSecretsBase =
     secrets?.filter((s) => s.category === 'AI_MODEL' && s.isActive) || [];
+  const aiModelSecretsScoped = aiModelSecretsBase.filter(
+    (s) =>
+      !s.provider ||
+      s.provider.toLowerCase() === (formData.provider || '').toLowerCase() ||
+      s.name === formData.secretKey
+  );
+  const aiModelSecrets =
+    aiModelSecretsScoped.length > 0 ? aiModelSecretsScoped : aiModelSecretsBase;
 
   const colorOptions = [
     { value: 'from-blue-500 to-blue-600', label: 'Blue' },
@@ -2647,6 +2668,7 @@ function AddModelModal({
                       <option value="">选择密钥...</option>
                       {aiModelSecrets.map((secret) => (
                         <option key={secret.name} value={secret.name}>
+                          {secret.provider ? `[${secret.provider}] ` : ''}
                           {secret.displayName} ({secret.name})
                         </option>
                       ))}
