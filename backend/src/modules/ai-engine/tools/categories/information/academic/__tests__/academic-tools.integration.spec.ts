@@ -12,6 +12,7 @@ import { PubMedSearchTool } from "../pubmed-search.tool";
 import { OpenAlexSearchTool } from "../openalex-search.tool";
 import { SemanticScholarSearchTool } from "../semantic-scholar-search.tool";
 import { PolicyDataService } from "../../policy/policy-data.service";
+import { ToolKeyResolverService } from "@/modules/ai-infra/facade";
 import { ToolContext } from "../../../../abstractions/tool.interface";
 
 // ---------------------------------------------------------------------------
@@ -499,6 +500,10 @@ describe("SemanticScholarSearchTool (extended coverage)", () => {
       providers: [
         SemanticScholarSearchTool,
         { provide: PolicyDataService, useValue: mockPolicy },
+        {
+          provide: ToolKeyResolverService,
+          useValue: { resolveToolKey: jest.fn().mockResolvedValue(null) },
+        },
       ],
     }).compile();
     tool = module.get(SemanticScholarSearchTool);
