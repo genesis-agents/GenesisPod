@@ -2825,7 +2825,9 @@
     "tasks": {
       "create": "+ New Task",
       "empty": "No tasks yet — click new to create your first publishing task",
-      "filter": { "all": "All" }
+      "filter": {
+        "all": "All"
+      }
     },
     "newTask": {
       "title": "New Social Publishing Task",
@@ -7350,7 +7352,9 @@
       "agents": "My Agents",
       "integrations": "Integrations",
       "notifications": "Notifications",
-      "billing": "Billing"
+      "billing": "Billing",
+      "tools": "My Tools",
+      "skills": "My Skills"
     },
     "general": {
       "appearance": "Appearance",
@@ -7383,6 +7387,125 @@
       "settings": "Settings",
       "language": "Language",
       "help": "Help & Feedback"
+    },
+    "apiKeys": {
+      "title": "My API Keys",
+      "addKey": "Add Key",
+      "requestSystemKey": "Request System Key",
+      "refresh": "Refresh",
+      "searchPlaceholder": "Search by name / display name…",
+      "filterAll": "All Categories",
+      "colName": "Name",
+      "colCategory": "Category",
+      "colValue": "Value",
+      "colStatus": "Status",
+      "colUsage": "Usage",
+      "colActions": "Actions",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "emptyTitle": "No API Keys",
+      "emptyDesc": "Click \"Add Key\" to configure your first key",
+      "emptySearchTitle": "No Matches",
+      "editTitle": "Edit Key",
+      "addTitle": "Add Key",
+      "fieldName": "Identifier (name)",
+      "fieldDisplayName": "Display Name",
+      "fieldCategory": "Category",
+      "fieldProvider": "Provider (optional)",
+      "fieldValue": "Key Value",
+      "fieldValuePlaceholder": "Enter key value…",
+      "fieldValueEditPlaceholder": "Leave blank to keep existing value",
+      "fieldDescription": "Description (optional)",
+      "fieldIsActive": "Active",
+      "fieldReason": "Reason (optional)",
+      "requestTitle": "Request System Key",
+      "requestCategory": "Category",
+      "cancel": "Cancel",
+      "save": "Save",
+      "submit": "Submit Request",
+      "saving": "Saving…",
+      "submitting": "Submitting…",
+      "deleteConfirmTitle": "Delete this key?",
+      "deleteConfirmDesc": "This action cannot be undone.",
+      "createSuccess": "Key created",
+      "updateSuccess": "Key updated",
+      "deleteSuccess": "Key deleted",
+      "requestSuccess": "Request submitted",
+      "createError": "Failed to create key",
+      "updateError": "Failed to update key",
+      "deleteError": "Failed to delete key",
+      "requestError": "Failed to submit request"
+    },
+    "tools": {
+      "title": "My Tools",
+      "description": "Manage your external tool API keys, or request system-level tool access",
+      "grantInfo": "Some tools require admin authorization. You can configure your own API key, or request to use the shared system key.",
+      "searchPlaceholder": "Search tool name or ID…",
+      "loading": "Loading tools…",
+      "loadError": "Failed to load",
+      "emptySearch": "No matching tools",
+      "emptyDefault": "No tools",
+      "col": {
+        "name": "Name",
+        "toolId": "Tool ID",
+        "category": "Category",
+        "myKey": "My Key",
+        "system": "System",
+        "actions": "Actions"
+      },
+      "status": {
+        "configured": "Configured",
+        "grantedSystem": "Granted (system)",
+        "systemAvailable": "System available",
+        "notConfigured": "Not configured"
+      },
+      "action": {
+        "configureKey": "Configure Key",
+        "requestGrant": "Request Access"
+      },
+      "modal": {
+        "configureTitle": "Configure Key — {{name}}",
+        "configureDesc": "Enter the API key for this tool (secret name: {{secretName}}). Takes effect immediately.",
+        "keyLabel": "API Key",
+        "keyPlaceholder": "Enter API key value…",
+        "keyRequired": "Key cannot be empty",
+        "save": "Save",
+        "saving": "Saving…",
+        "saveFailed": "Save failed, please retry",
+        "cancel": "Cancel",
+        "requestTitle": "Request System Access — {{name}}",
+        "requestDesc": "After submitting, an admin will review your request. Once approved you can use the shared system key.",
+        "reasonLabel": "Reason (optional)",
+        "reasonPlaceholder": "Describe your use case…",
+        "request": "Submit Request",
+        "requesting": "Submitting…",
+        "requestFailed": "Request failed, please retry"
+      }
+    },
+    "skills": {
+      "title": "My Skills",
+      "description": "View your granted local skills, or request skill authorization",
+      "requestGrant": "Request Skill Access",
+      "pendingNote": "You have {{count}} skill request(s) pending review",
+      "emptyTitle": "No granted skills",
+      "emptyDesc": "Click \"Request Skill Access\" to request a system skill",
+      "colSkill": "Skill",
+      "colStatus": "Status",
+      "colExpires": "Expires",
+      "statusGranted": "Granted",
+      "neverExpires": "Never",
+      "requestTitle": "Request Skill Access",
+      "requestDesc": "After submitting, an admin will review. Once approved you can use the system skill.",
+      "skillIdLabel": "Skill ID",
+      "skillIdPlaceholder": "Enter skill ID…",
+      "skillIdRequired": "Skill ID cannot be empty",
+      "reasonLabel": "Reason (optional)",
+      "reasonPlaceholder": "Describe your use case…",
+      "cancel": "Cancel",
+      "submit": "Submit Request",
+      "submitting": "Submitting…",
+      "requestSuccess": "Request submitted",
+      "requestError": "Request failed, please retry"
     }
   },
   "radar": {

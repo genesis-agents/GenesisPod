@@ -7,10 +7,14 @@ import {
   Blocks,
   Bell,
   CreditCard,
+  Wrench,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { UserApiKeysTab } from '@/components/me/api-keys/UserApiKeysTab';
 import { UserModelsManagement } from '@/components/me/models/UserModelsManagement';
+import { UserToolsTab } from '@/components/me/tools/UserToolsTab';
+import { UserSkillsTab } from '@/components/me/skills/UserSkillsTab';
 import { MyAgentsTab } from '@/components/custom-agents/MyAgentsTab';
 import { NotificationPreferencesView } from '@/components/me/notifications/NotificationPreferencesView';
 import { AccountSection } from '@/components/me/sections/AccountSection';
@@ -75,6 +79,20 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     icon: Wand2,
     group: 'ai',
     component: UserModelsManagement,
+  },
+  {
+    id: 'tools',
+    labelKey: 'me.nav.tools',
+    icon: Wrench,
+    group: 'ai',
+    component: UserToolsTab,
+  },
+  {
+    id: 'skills',
+    labelKey: 'me.nav.skills',
+    icon: Sparkles,
+    group: 'ai',
+    component: UserSkillsTab,
   },
   {
     id: 'agents',
