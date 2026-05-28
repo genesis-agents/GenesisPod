@@ -778,3 +778,54 @@ CREATE INDEX "secrets_userId_category_idx" ON secrets("userId", category);
 - V1/V2 均 2:1 多数票，少数票（安全）红线已被现有 D6/D19 + NOT NULL 默认值化解，无悬而未决反对。
 - 其余 18 项决策评审间无冲突，属一致同意。
 - **结论：方案 v0.3 已达充分共识，进入实施。**
+
+---
+
+## 19. 实施进度（2026-05-27 实时）
+
+### 后端 Phase B + C —— ✅ 完成（7 commits，全绿：tsc 0 + 单测 + verify:arch 250/250）
+
+| 提交        | 内容                                                                                                                                   | 测试        |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `72cb2370e` | 方案 v0.3 文档                                                                                                                         | —           |
+| `d2ede4c9b` | DB schema + 迁移（secrets.userId / byok_mode / 2 partial index / auth 表）+ per-user HKDF 加密 + SecretsService admin-only 隔离（D19） | 145 secrets |
+| `ae303081b` | UserSecretsService 统一 CRUD（3 铁律：category 分流 / 排捐赠 / 不下沉 category）                                                       | 9           |
+| `12d3fca0d` | ToolKeyResolverService（user→grant→strict/fallback，D6 强制 userId）                                                                   | 7           |
+| `bbc06601d` | /me/tools 目录端点（systemConfigured bool-only 不漏 hint）+ 授权申请/审批 + 工具定义下沉共享层                                         | 4           |
+
+后端新增端点（全部 `@UseGuards(JwtAuthGuard)`，admin 加 `AdminGuard`）：
+
+- `GET/POST/PUT/DELETE /user/secrets` —— 统一 Key CRUD（按 source=llm/secret 分流）
+- `GET /user/tools` —— 工具目录 + 用户 Key 状态
+- `POST/GET/DELETE /user/authorization/requests` + `GET /user/authorization/grants`
+- `GET /admin/authorization/requests/pending` + `POST .../:id/approve|reject` + `DELETE .../grants/:id`
+
+**未做（后端剩余）**：C8 `/user/secrets/:id/test`（测试按钮 + @Throttle，nice-to-have，不阻塞前端）。
+
+### 前端 Phase D —— ⏳ 待实施（精确 wiring 已就绪）
+
+> 关键发现：`/me/*` 不需要新建 `page.tsx`。路由由 `app/me/[section]/page.tsx` 动态渲染，菜单 + 内容来自注册表 `frontend/components/me/settings-sections.tsx` 的 `SETTINGS_SECTIONS`。新增页 = 注册表加一项 + 写一个内容组件。
+
+| 步        | 动作                                                                                                                                                                               | 文件                                        |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| D-svc     | 前端 API service（`/user/secrets` `/user/tools` `/user/authorization` 封装）                                                                                                       | `frontend/services/...` 或 hooks/domain     |
+| D-keys    | `UserApiKeysTab` 重构成统一表格（拉 `/user/secrets`，列 = admin SecretsManager 同款：名称/类别 chip/值/状态/操作 + 搜索 + All Categories + 添加密钥 Modal）+「向系统申请 Key」按钮 | `components/me/api-keys/UserApiKeysTab.tsx` |
+| D-tools   | 新 `UserToolsTab`（拉 `/user/tools`，按 category 分组 + 「我的 Key」状态列 + 配置/测试 + 申请工具授权）                                                                            | `components/me/tools/UserToolsTab.tsx`      |
+| D-skills  | 新 `UserSkillsTab`（镜像 admin 本地技能；**注：用户侧 skills 后端尚不存在**，需先评估是 BYOK 范围还是独立 feature）                                                                | `components/me/skills/UserSkillsTab.tsx`    |
+| D-models  | `UserModelsManagement` 加 endpoint + 「使用 Key」下拉（部分已于 `fa1f45e5f` 完成）                                                                                                 | `components/me/models/*`                    |
+| D-nav     | `settings-sections.tsx` 加 `tools` / `skills` 两 section（icon: Wrench / Sparkles，group: 'ai'）+ i18n key `me.nav.tools` / `me.nav.skills`                                        | `settings-sections.tsx` + i18n              |
+| D-onboard | onboarding banner（复用既有 `getByokStatus` + `byokOnboardedAt`）                                                                                                                  | dashboard                                   |
+| D-error   | 错误 UX（401 toast + 高亮 / STRICT 缺 Key 阻断）                                                                                                                                   | 全局拦截器                                  |
+
+### 运行时 Phase E —— ⏳ 待实施
+
+| 步    | 动作                                                                                                                                                                        |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E1-E2 | 工具 handler / ToolInvoker 调用点改用 `ToolKeyResolverService.resolveToolKey(toolId, ctx.userId)` 取代直接 `secretsService.getValueInternal`（grep 工具执行路径上的调用点） |
+| E3    | BullMQ job payload 带 userId + RequestContext 恢复（v1.0 J9 模式）                                                                                                          |
+| E4    | ESLint rule：工具路径禁直接 getValueInternal（error 级）                                                                                                                    |
+| E5    | E2E：用户配 tavily Key → 跑 research → log 确认走用户 Key（§9 验收基线）                                                                                                    |
+
+### 部署门禁（D17）
+
+- Phase B 迁移（`20260601_byok_tool_coverage`）+ Phase C 后端必须**同窗口部署**（unique 索引变更 + findFirst 改造耦合）。迁移尚未 apply 到任何 DB。
