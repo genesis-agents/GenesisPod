@@ -18,6 +18,7 @@ export interface CreateUserModelConfigInput {
   displayName: string;
   modelType: AIModelType;
   apiEndpoint?: string | null;
+  apiKeyId?: string | null;
   maxTokens?: number;
   temperature?: number;
   embeddingDimensions?: number | null;
@@ -79,6 +80,7 @@ export class UserModelConfigsService {
       displayName: input.displayName.trim() || input.modelId.trim(),
       modelType: input.modelType,
       apiEndpoint: input.apiEndpoint?.trim() || null,
+      apiKeyId: input.apiKeyId?.trim() || null,
       maxTokens: input.maxTokens ?? 4096,
       temperature: input.temperature ?? 0.7,
       embeddingDimensions: input.embeddingDimensions ?? null,
@@ -167,6 +169,8 @@ export class UserModelConfigsService {
     if (patch.modelType !== undefined) data.modelType = patch.modelType;
     if (patch.apiEndpoint !== undefined)
       data.apiEndpoint = patch.apiEndpoint?.trim() || null;
+    if (patch.apiKeyId !== undefined)
+      data.apiKeyId = patch.apiKeyId?.trim() || null;
     if (patch.maxTokens !== undefined) data.maxTokens = patch.maxTokens;
     if (patch.temperature !== undefined) data.temperature = patch.temperature;
     if (patch.embeddingDimensions !== undefined)
