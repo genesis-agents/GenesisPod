@@ -27,6 +27,16 @@ export {
   EXTERNAL_TOOL_SECRET_MAPPING,
 } from "../secrets/secret-name.catalog";
 
+// ─── BYOK 工具 Key 解析（2026-05-27 全量化）───
+export {
+  ToolKeyResolverService,
+  NoToolKeyError,
+} from "../credentials/tool-key-resolver/tool-key-resolver.service";
+export type {
+  ResolvedToolKey,
+  ToolKeySource,
+} from "../credentials/tool-key-resolver/tool-key-resolver.service";
+
 // ─── Storage ───
 export { StorageGovernanceService } from "../storage/governance/storage-governance.service";
 export { R2StorageService } from "../storage/runtime/r2-storage.service";

@@ -5,6 +5,7 @@ import { of } from "rxjs";
 import { SearchService } from "../search.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
+import { ToolKeyResolverService } from "@/modules/ai-infra/credentials/tool-key-resolver/tool-key-resolver.service";
 
 // Mock duck-duck-scrape module
 const mockDuckSearch = jest.fn();
@@ -140,6 +141,12 @@ describe("SearchService", () => {
         {
           provide: ConfigService,
           useValue: { get: jest.fn() },
+        },
+        {
+          provide: ToolKeyResolverService,
+          useValue: {
+            resolveToolKey: jest.fn().mockResolvedValue(null),
+          },
         },
       ],
     }).compile();
