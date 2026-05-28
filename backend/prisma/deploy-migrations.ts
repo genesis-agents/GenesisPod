@@ -114,17 +114,20 @@ async function markAllMigrationsApplied(): Promise<void> {
 }
 
 async function bootstrapFreshDatabase(): Promise<void> {
+  // ★ 2026-05-27 真根因 fix (用户实证 onprem localhost ai_providers/ai_models 全空):
+  //   原 bootstrap 是 `db push + markAllMigrationsApplied()` — schema 是从
+  //   schema.prisma 推出来, migrations 全标 applied 但 *SQL 没跑*, 导致 migration
+  //   里的 INSERT 默认数据 (ai_providers / ai_models / model_types / 等) 全部丢失。
+  //   改用 `prisma migrate deploy`: 按顺序跑全部 migration 包括 CREATE TABLE 和
+  //   INSERT, 自动写 _prisma_migrations。fresh DB 上等价于正确的 schema 初始化。
   console.log(
-    "   Fresh database detected; bootstrapping schema with prisma db push...",
+    "   Fresh database detected; bootstrapping via prisma migrate deploy (runs all migrations including INSERT)...",
   );
-  execSync("npx prisma db push --schema=prisma/schema --accept-data-loss", {
+  execSync("npx prisma migrate deploy --schema=prisma/schema", {
     stdio: "inherit",
     env: process.env,
   });
-
-  console.log("   Marking local migrations as applied baseline...");
-  await markAllMigrationsApplied();
-  console.log("   Fresh database bootstrap completed\n");
+  console.log("   Fresh database bootstrap completed (all INSERT data seeded)\n");
 }
 
 async function deploy(): Promise<void> {
