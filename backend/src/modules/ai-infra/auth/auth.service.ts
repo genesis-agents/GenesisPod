@@ -282,6 +282,11 @@ export class AuthService {
         email: user.email,
         username: user.username,
         createdAt: user.createdAt,
+        // ★ 2026-05-27 修复 (用户实证: ADMIN 登录后 Sidebar 不显 Admin 入口):
+        //   原 response 缺 role 字段, frontend isUserAdmin(user) 拿 user.role
+        //   undefined → false → AuthContext.isAdmin=false → 管理员被当普通用户。
+        //   把 role 加进 login + register response 让 frontend 即刻识别管理员。
+        role: user.role,
       },
       ...tokens,
     };
