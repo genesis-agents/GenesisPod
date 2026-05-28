@@ -69,6 +69,9 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # ★ 2026-05-27: BullMQ / cache.module 走 REDIS_URL (host:port 单字符串不识别);
+      #   不设这个 backend 默认 fallback 127.0.0.1:6379 ECONNREFUSED 风暴。
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
       # 应用密钥（详见 .env.production.example）
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (>= 32 chars random)}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET must be set}

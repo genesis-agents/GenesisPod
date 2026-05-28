@@ -95,6 +95,9 @@ export function UserApiKeysTab() {
     null
   );
   const [showAddCustomModal, setShowAddCustomModal] = useState(false);
+  // ★ 2026-05-27: 编辑模式 (custom provider) — null = 新建模式 (showAddCustomModal=true)
+  const [editingProvider, setEditingProvider] =
+    useState<CustomProviderEditable | null>(null);
 
   const donatedCount = keys.filter((k) => k.mode === 'donated').length;
   const configuredCount = keys.length;
@@ -275,6 +278,18 @@ export function UserApiKeysTab() {
                   onOpenDrawer={() => setDrawerProvider(provider)}
                   onDelete={() => handleDelete(provider)}
                   onWithdraw={() => handleWithdraw(provider)}
+                  onEditCustom={() =>
+                    setEditingProvider({
+                      id: provider.id,
+                      slug: provider.id,
+                      name: provider.name,
+                      endpoint: (provider as { endpoint?: string }).endpoint,
+                      apiFormat: (provider as { apiFormat?: string }).apiFormat,
+                      testModel: (provider as { testModel?: string }).testModel,
+                      capabilities: (provider as { capabilities?: string[] })
+                        .capabilities,
+                    })
+                  }
                   saving={saving}
                 />
               ))
@@ -301,6 +316,12 @@ export function UserApiKeysTab() {
       {showAddCustomModal && (
         <AddCustomProviderModal onClose={() => setShowAddCustomModal(false)} />
       )}
+      {editingProvider && (
+        <AddCustomProviderModal
+          onClose={() => setEditingProvider(null)}
+          editing={editingProvider}
+        />
+      )}
     </div>
   );
 }
@@ -312,6 +333,7 @@ function ProviderRow({
   onOpenDrawer,
   onDelete,
   onWithdraw,
+  onEditCustom,
   saving,
 }: {
   provider: ProviderInfo;
@@ -320,6 +342,7 @@ function ProviderRow({
   onOpenDrawer: () => void;
   onDelete: () => void;
   onWithdraw: () => void;
+  onEditCustom?: () => void;
   saving: boolean;
 }) {
   const { t } = useTranslation();
@@ -405,6 +428,18 @@ function ProviderRow({
       <Td className="px-4 py-2.5 text-sm text-gray-500">{totalUsage}</Td>
       <Td className="px-4 py-2.5 text-right">
         <div className="flex items-center justify-end gap-2">
+          {/* ★ 2026-05-27: 自建 Provider 提供 "编辑 Provider" 入口
+              (修 endpoint/format/testModel/能力, 与 Key 管理分开) */}
+          {!isBuiltin && onEditCustom && (
+            <button
+              onClick={onEditCustom}
+              disabled={saving}
+              className="rounded p-1.5 hover:bg-purple-50 disabled:opacity-50"
+              title="编辑 Provider"
+            >
+              <Settings2 className="h-4 w-4 text-purple-600" />
+            </button>
+          )}
           {existingKey ? (
             <>
               <button
@@ -451,17 +486,49 @@ function ProviderRow({
   );
 }
 
-// ─── Add Custom Provider modal（保留原有 OpenAI 兼容自助接入流） ─────────────
+// ─── Add / Edit Custom Provider modal ─────────────
+// ★ 2026-05-27 重构: 默认只露 Slug + 显示名 (用户实证: 之前所有字段并排显得很复杂);
+//   endpoint / format / testModel / capabilities 折成"高级（可选）"。
+//   支持 editing prop: 传入已有 provider 进入编辑模式 (PATCH /user/providers/:id);
+//   不传则新建 (POST /user/providers)。
 
-function AddCustomProviderModal({ onClose }: { onClose: () => void }) {
-  const [slug, setSlug] = useState('');
-  const [name, setName] = useState('');
-  const [endpoint, setEndpoint] = useState('');
+interface CustomProviderEditable {
+  id: string;
+  slug: string;
+  name: string;
+  endpoint?: string | null;
+  apiFormat?: string | null;
+  testModel?: string | null;
+  capabilities?: string[] | null;
+}
+
+function AddCustomProviderModal({
+  onClose,
+  editing,
+}: {
+  onClose: () => void;
+  editing?: CustomProviderEditable;
+}) {
+  const isEdit = !!editing;
+  const [slug, setSlug] = useState(editing?.slug ?? '');
+  const [name, setName] = useState(editing?.name ?? '');
+  const [endpoint, setEndpoint] = useState(editing?.endpoint ?? '');
   const [apiFormat, setApiFormat] = useState<
     'openai' | 'anthropic' | 'google' | 'cohere'
-  >('openai');
-  const [testModel, setTestModel] = useState('');
-  const [capabilities, setCapabilities] = useState<string[]>(['CHAT']);
+  >(
+    ((editing?.apiFormat ?? 'openai') as
+      | 'openai'
+      | 'anthropic'
+      | 'google'
+      | 'cohere') || 'openai'
+  );
+  const [testModel, setTestModel] = useState(editing?.testModel ?? '');
+  const [capabilities, setCapabilities] = useState<string[]>(
+    editing?.capabilities ?? ['CHAT']
+  );
+  const [showAdvanced, setShowAdvanced] = useState(
+    !!(editing?.endpoint || editing?.testModel)
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -473,33 +540,32 @@ function AddCustomProviderModal({ onClose }: { onClose: () => void }) {
 
   const submit = async () => {
     setError(null);
-    if (!/^[a-z0-9-]+$/.test(slug)) {
+    if (!isEdit && !/^[a-z0-9-]+$/.test(slug)) {
       setError('slug 仅允许小写字母、数字、短横线');
       return;
     }
-    if (!name || !endpoint || !testModel) {
-      setError('name / endpoint / testModel 必填');
-      return;
-    }
-    if (capabilities.length === 0) {
-      setError('至少勾选一个能力');
+    if (!name) {
+      setError('显示名必填');
       return;
     }
     setSubmitting(true);
     try {
-      await apiClient.post('/user/providers', {
+      const payload = {
         slug,
         name,
-        endpoint,
+        endpoint: endpoint || '',
         apiFormat,
-        testModel,
-        capabilities,
-      });
+        testModel: testModel || '',
+        capabilities: capabilities.length > 0 ? capabilities : ['CHAT'],
+      };
+      if (isEdit && editing?.id) {
+        await apiClient.patch(`/user/providers/${editing.id}`, payload);
+      } else {
+        await apiClient.post('/user/providers', payload);
+      }
       window.location.reload();
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : '保存失败，请检查 endpoint 是否合法'
-      );
+      setError(e instanceof Error ? e.message : '保存失败');
     } finally {
       setSubmitting(false);
     }
@@ -509,7 +575,7 @@ function AddCustomProviderModal({ onClose }: { onClose: () => void }) {
     <Modal
       open={true}
       onClose={onClose}
-      title="添加自定义 Provider"
+      title={isEdit ? `编辑 Provider · ${editing?.name}` : '添加自定义 Provider'}
       size="md"
       footer={
         <>
@@ -530,6 +596,10 @@ function AddCustomProviderModal({ onClose }: { onClose: () => void }) {
       }
     >
       <div className="space-y-3">
+        <div className="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          只填 Slug + 显示名即可保存。API Endpoint / Format / 模型 ID 等参数{' '}
+          <b>放到「AI 模型配置」</b>更合适，本表单仅创建 Provider 标签。
+        </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-700">
             Slug（kebab-case 唯一标识）
@@ -537,9 +607,10 @@ function AddCustomProviderModal({ onClose }: { onClose: () => void }) {
           <input
             type="text"
             value={slug}
+            disabled={isEdit}
             onChange={(e) => setSlug(e.target.value)}
             placeholder="e.g. mistral / jina / together"
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
         <div>
@@ -554,74 +625,91 @@ function AddCustomProviderModal({ onClose }: { onClose: () => void }) {
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
           />
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
-            API Endpoint
-          </label>
-          <input
-            type="url"
-            value={endpoint}
-            onChange={(e) => setEndpoint(e.target.value)}
-            placeholder="https://api.example.com/v1"
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
-            API Format
-          </label>
-          <select
-            value={apiFormat}
-            onChange={(e) => setApiFormat(e.target.value as typeof apiFormat)}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="openai">openai (默认，多数兼容)</option>
-            <option value="anthropic">anthropic</option>
-            <option value="google">google</option>
-            <option value="cohere">cohere</option>
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
-            探测/测试用模型 ID
-          </label>
-          <input
-            type="text"
-            value={testModel}
-            onChange={(e) => setTestModel(e.target.value)}
-            placeholder="e.g. mistral-small-latest"
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
-            支持能力
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {[
-              'CHAT',
-              'CHAT_FAST',
-              'CODE',
-              'MULTIMODAL',
-              'EMBEDDING',
-              'RERANK',
-              'IMAGE_GENERATION',
-            ].map((cap) => (
-              <button
-                key={cap}
-                type="button"
-                onClick={() => toggleCap(cap)}
-                className={`rounded px-2 py-1 text-xs ${
-                  capabilities.includes(cap)
-                    ? 'border border-blue-300 bg-blue-100 text-blue-700'
-                    : 'border border-gray-200 bg-gray-100 text-gray-600'
-                }`}
+
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((v) => !v)}
+          className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+        >
+          <span>{showAdvanced ? '▾' : '▸'}</span>
+          高级（可选 · 用于探测）
+        </button>
+
+        {showAdvanced && (
+          <div className="space-y-3 rounded border border-gray-200 bg-gray-50 p-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700">
+                API Endpoint
+              </label>
+              <input
+                type="url"
+                value={endpoint}
+                onChange={(e) => setEndpoint(e.target.value)}
+                placeholder="https://api.example.com/v1 (可在 AI 模型配置里覆盖)"
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700">
+                API Format
+              </label>
+              <select
+                value={apiFormat}
+                onChange={(e) =>
+                  setApiFormat(e.target.value as typeof apiFormat)
+                }
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm"
               >
-                {cap}
-              </button>
-            ))}
+                <option value="openai">openai (默认，多数兼容)</option>
+                <option value="anthropic">anthropic</option>
+                <option value="google">google</option>
+                <option value="cohere">cohere</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700">
+                探测/测试用模型 ID（可选）
+              </label>
+              <input
+                type="text"
+                value={testModel}
+                onChange={(e) => setTestModel(e.target.value)}
+                placeholder="e.g. mistral-small-latest"
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700">
+                支持能力
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  'CHAT',
+                  'CHAT_FAST',
+                  'CODE',
+                  'MULTIMODAL',
+                  'EMBEDDING',
+                  'RERANK',
+                  'IMAGE_GENERATION',
+                ].map((cap) => (
+                  <button
+                    key={cap}
+                    type="button"
+                    onClick={() => toggleCap(cap)}
+                    className={`rounded px-2 py-1 text-xs ${
+                      capabilities.includes(cap)
+                        ? 'border border-blue-300 bg-blue-100 text-blue-700'
+                        : 'border border-gray-200 bg-white text-gray-600'
+                    }`}
+                  >
+                    {cap}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
         {error && (
           <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
             {error}
