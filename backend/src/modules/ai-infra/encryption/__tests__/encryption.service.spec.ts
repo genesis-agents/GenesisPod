@@ -144,4 +144,91 @@ describe("EncryptionService", () => {
       expect(svc.createKeyHint("")).toBe("***");
     });
   });
+
+  describe("encryptEnvelope/decryptEnvelope — AES-256-GCM + KEK (v2)", () => {
+    const svc = new EncryptionService(
+      buildConfig({
+        NODE_ENV: "test",
+        SETTINGS_ENCRYPTION_KEY: "unit-test-master-key",
+      }),
+    );
+
+    it("roundtrips and tags row as encVersion=2", async () => {
+      const row = await svc.encryptEnvelope("sk-envelope-secret");
+      expect(row.encVersion).toBe(2);
+      expect(row.encryptedValue).not.toContain("sk-envelope-secret");
+      expect(row.authTag).toMatch(/^[0-9a-f]{32}$/);
+      expect(await svc.decryptEnvelope(row)).toBe("sk-envelope-secret");
+    });
+
+    it("uses a fresh random 12-byte iv each call", async () => {
+      const a = await svc.encryptEnvelope("same");
+      const b = await svc.encryptEnvelope("same");
+      expect(a.iv).toMatch(/^[0-9a-f]{24}$/);
+      expect(a.iv).not.toBe(b.iv);
+      expect(a.encryptedValue).not.toBe(b.encryptedValue);
+      expect(a.wrappedDek).not.toBe(b.wrappedDek);
+    });
+
+    it("fails (returns null) when authTag is tampered", async () => {
+      const row = await svc.encryptEnvelope("sk-tamper");
+      const flipped = row.authTag.startsWith("0")
+        ? "1" + row.authTag.slice(1)
+        : "0" + row.authTag.slice(1);
+      expect(await svc.decryptEnvelope({ ...row, authTag: flipped })).toBeNull();
+    });
+
+    it("fails (returns null) when ciphertext is tampered", async () => {
+      const row = await svc.encryptEnvelope("sk-tamper-ct");
+      const flipped = row.encryptedValue.startsWith("0")
+        ? "1" + row.encryptedValue.slice(1)
+        : "0" + row.encryptedValue.slice(1);
+      expect(
+        await svc.decryptEnvelope({ ...row, encryptedValue: flipped }),
+      ).toBeNull();
+    });
+
+    it("returns null when v2 columns are missing", async () => {
+      expect(
+        await svc.decryptEnvelope({ encryptedValue: "x", iv: "y" }),
+      ).toBeNull();
+    });
+  });
+
+  describe("decryptAny — dual-read dispatch", () => {
+    const svc = new EncryptionService(
+      buildConfig({
+        NODE_ENV: "test",
+        SETTINGS_ENCRYPTION_KEY: "unit-test-master-key",
+      }),
+    );
+
+    it("dispatches v2 rows to the envelope path", async () => {
+      const row = await svc.encryptEnvelope("v2-secret");
+      expect(await svc.decryptAny(row)).toBe("v2-secret");
+    });
+
+    it("dispatches v1 master rows to decrypt()", async () => {
+      const { encryptedValue, iv } = svc.encrypt("v1-master");
+      expect(await svc.decryptAny({ encryptedValue, iv })).toBe("v1-master");
+    });
+
+    it("dispatches v1 per-user rows to decryptForUser() via opts.userId", async () => {
+      const { encryptedValue, iv } = svc.encryptForUser("v1-user", "user-x");
+      expect(
+        await svc.decryptAny({ encryptedValue, iv }, { userId: "user-x" }),
+      ).toBe("v1-user");
+    });
+
+    it("dispatches legacy combined rows via opts.legacyCombined", async () => {
+      const { encryptedValue, iv } = svc.encrypt("legacy-combined");
+      const combined = `${iv}:${encryptedValue}`;
+      expect(
+        await svc.decryptAny(
+          { encryptedValue: combined, iv: "" },
+          { legacyCombined: true },
+        ),
+      ).toBe("legacy-combined");
+    });
+  });
 });
