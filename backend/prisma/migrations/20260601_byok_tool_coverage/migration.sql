@@ -73,7 +73,7 @@ DO $$ BEGIN
 END $$;
 
 -- 4. users 加 byok_mode（首次引导标记复用既有 byok_onboarded_at，不新增列）-----
-ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "byok_mode" "ByokMode" NOT NULL DEFAULT 'STRICT';
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "byok_mode" "ByokMode" NOT NULL DEFAULT 'FALLBACK';
 
 -- 5. authorization_requests 表 ----------------------------------------------
 CREATE TABLE IF NOT EXISTS "authorization_requests" (

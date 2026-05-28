@@ -638,21 +638,21 @@ export default function MissionDetailPage() {
         }
       | undefined;
     const items = board?.items ?? [];
-    // ★ Screenshot_80 修复 (2026-05-27 #110 续): mission 终态 (completedAt /
-    //   failedAt / cancelledAt / status='completed'|'quality-failed') 时, 个别
-    //   todo.status 可能仍残留 'in_progress' / 'pending' (backend projector 漏扫
-    //   或事件晚到), 让 AgentInspector / 任务列表 / 拓扑 三处显示不一致 ("进行中"
-    //   vs "已完成")。在前端 mapping 阶段做终态扫荡, 单一源对齐三处。
+    // ★ Screenshot_80 修复 (2026-05-27 #110 续): mission 终态時, 个别
+    //   todo.status 可能仍残留 'in_progress' / 'pending'（backend projector 漏扫
+    //   或事件晚到），在前端 mapping 阶段做终态扫荡，单一源对齐三处。
+    //
+    // ★ Screenshot_102 修复 (2026-05-28): 只用 m.status 判断终态，
+    //   不用 completedAt / finishedAt timestamp——这些字段可能在 mission 运行中
+    //   就被设置（如阶段完成时），导致全部任务被误扫成"已完成"。
     const m = missionView?.mission;
     const missionTerminalSuccess = !!(
       m?.status === 'completed' ||
-      m?.status === 'quality-failed' ||
-      (m as { completedAt?: number } | undefined)?.completedAt ||
-      (m as { finishedAt?: number } | undefined)?.finishedAt
+      m?.status === 'quality-failed'
     );
     const missionTerminalFailure = !!(
-      (m as { failedAt?: number } | undefined)?.failedAt ||
-      (m as { cancelledAt?: number } | undefined)?.cancelledAt
+      m?.status === 'failed' ||
+      m?.status === 'cancelled'
     );
     const missionTerminal = missionTerminalSuccess || missionTerminalFailure;
     const sweepStatus = (raw: MissionTodo['status']): MissionTodo['status'] => {
