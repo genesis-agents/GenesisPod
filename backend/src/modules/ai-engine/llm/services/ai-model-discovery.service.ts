@@ -1,6 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
+import { UserApiKeysService } from "../../../ai-infra/credentials/user-api-keys/user-api-keys.service";
 
 export interface DiscoveredModel {
   id: string;
@@ -27,7 +28,11 @@ export interface FetchModelsResult {
 export class AiModelDiscoveryService {
   private readonly logger = new Logger(AiModelDiscoveryService.name);
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(
+    private readonly httpService: HttpService,
+    @Inject(forwardRef(() => UserApiKeysService))
+    private readonly userApiKeysService: UserApiKeysService,
+  ) {}
 
   /**
    * Format a model ID into a user-friendly display name
@@ -92,6 +97,60 @@ export class AiModelDiscoveryService {
     }
 
     try {
+      // ★ 2026-05-27 数据驱动重构 (用户实证: 硬编码 provider 名字反模式):
+      //   1. 从 DB ai_providers 查 (slug → apiFormat + 默认 endpoint)
+      //   2. effective endpoint = 用户传入 > DB > 报错
+      //   3. 按 apiFormat (openai/anthropic/google/cohere) 路由到 4 个协议处理器
+      //   完全没有硬编码 provider 名字; 新增 provider 只需在 ai_providers 表加行。
+      const defaults = await this.userApiKeysService.resolveProviderDefaults(
+        provider.toLowerCase(),
+      );
+      const endpointResolved = (apiEndpoint?.trim() || defaults?.endpoint || "")
+        .replace(/\/+$/, "");
+      const apiFormat = (defaults?.apiFormat || "openai").toLowerCase();
+
+      if (!endpointResolved) {
+        return {
+          success: false,
+          error: `Provider "${provider}" not in catalog and no endpoint provided. Please add the provider in API Keys tab or pass apiEndpoint explicitly.`,
+        };
+      }
+
+      switch (apiFormat) {
+        case "anthropic":
+          return await this.fetchAnthropicModels(
+            apiKey,
+            modelType,
+            endpointResolved,
+          );
+        case "google":
+          return await this.fetchGeminiModelsAt(
+            endpointResolved,
+            apiKey,
+            modelType,
+          );
+        case "cohere":
+          return await this.fetchCohereModels(
+            apiKey,
+            modelType,
+            endpointResolved,
+          );
+        case "openai":
+        default: {
+          // OpenAI-compatible /models — 覆盖 OpenAI / xAI / DeepSeek / Qwen /
+          // Doubao / Zhipu / Kimi / MiniMax / OpenRouter / Groq / 自建 vLLM 等。
+          const url = endpointResolved + "/models";
+          return await this.fetchOpenAICompatibleModels(
+            url,
+            apiKey,
+            provider,
+            modelType,
+          );
+        }
+      }
+
+      // ★ 已 dead code, 保留下方 switch 仅给 voyage/google 这种需要特殊抓取的兜底。
+      //   provider catalog 标准 apiFormat 路径已上方接管。
       switch (provider.toLowerCase()) {
         case "xai":
         case "grok":
@@ -198,10 +257,12 @@ export class AiModelDiscoveryService {
           return await this.fetchVoyageModels(modelType);
 
         default: {
-          // ★ 2026-05-05: byok pr-3 自定义 Provider（OpenAI 兼容）：
-          //   用户传了 apiEndpoint → 按 OpenAI /models 协议拉；缺则返错。
-          if (apiEndpoint?.trim()) {
-            const url = apiEndpoint.replace(/\/+$/, "") + "/models";
+          // ★ 2026-05-27: 数据驱动后这里只作为残余 voyage 等特殊 provider 的兜底
+          //   入口 (上方主 switch 按 apiFormat 路由会接管 openai/anthropic/google/
+          //   cohere); 若新 provider 没在 DB ai_providers 表注册, 主路径会先返错。
+          const ep: string = (apiEndpoint ?? "").trim();
+          if (ep.length > 0) {
+            const url = ep.replace(/\/+$/, "") + "/models";
             return await this.fetchOpenAICompatibleModels(
               url,
               apiKey,
@@ -356,18 +417,34 @@ export class AiModelDiscoveryService {
 
   /**
    * Fetch models from Google Gemini API
+   * ★ 2026-05-27: 默认 endpoint hardcoded fallback 用 official URL (与原行为兼容);
+   *   fetchGeminiModelsAt 接受自定义 endpoint (走数据驱动路径)。
    */
+  private async fetchGeminiModelsAt(
+    endpointBase: string,
+    apiKey: string,
+    modelType?: string,
+  ): Promise<FetchModelsResult> {
+    const sep = endpointBase.includes("?") ? "&" : "?";
+    return this.fetchGeminiImpl(`${endpointBase}${sep}key=${apiKey}`, modelType);
+  }
   private async fetchGeminiModels(
     apiKey: string,
     modelType?: string,
   ): Promise<FetchModelsResult> {
+    return this.fetchGeminiImpl(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      modelType,
+    );
+  }
+  private async fetchGeminiImpl(
+    fullUrl: string,
+    modelType?: string,
+  ): Promise<FetchModelsResult> {
     const response = await firstValueFrom(
-      this.httpService.get(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-        {
-          timeout: 30000,
-        },
-      ),
+      this.httpService.get(fullUrl, {
+        timeout: 30000,
+      }),
     );
 
     const allModels = response.data?.models || [];
@@ -499,7 +576,11 @@ export class AiModelDiscoveryService {
   private async fetchAnthropicModels(
     apiKey: string,
     modelType?: string,
+    endpointBase?: string,
   ): Promise<FetchModelsResult> {
+    // endpointBase 是 provider base (默认 https://api.anthropic.com), 拼 /v1/models
+    const base = (endpointBase || "https://api.anthropic.com").replace(/\/+$/, "");
+    const url = base.endsWith("/v1") ? `${base}/models` : `${base}/v1/models`;
     try {
       const response = await firstValueFrom(
         this.httpService.get<{
@@ -508,7 +589,7 @@ export class AiModelDiscoveryService {
             display_name?: string;
             type: string;
           }>;
-        }>("https://api.anthropic.com/v1/models", {
+        }>(url, {
           headers: {
             "x-api-key": apiKey,
             "anthropic-version": "2023-06-01",
@@ -545,6 +626,7 @@ export class AiModelDiscoveryService {
   private async fetchCohereModels(
     apiKey: string,
     modelType?: string,
+    endpointBase?: string,
   ): Promise<FetchModelsResult> {
     const endpointFilter =
       modelType === "EMBEDDING"
@@ -552,6 +634,8 @@ export class AiModelDiscoveryService {
         : modelType === "RERANK"
           ? "rerank"
           : "chat";
+    const base = (endpointBase || "https://api.cohere.com").replace(/\/+$/, "");
+    const url = base.endsWith("/v1") ? `${base}/models` : `${base}/v1/models`;
     try {
       const response = await firstValueFrom(
         this.httpService.get<{
@@ -561,7 +645,7 @@ export class AiModelDiscoveryService {
             endpoints?: string[];
             context_length?: number;
           }>;
-        }>("https://api.cohere.com/v1/models", {
+        }>(url, {
           headers: { Authorization: `Bearer ${apiKey}` },
           timeout: 30000,
           params: { endpoint: endpointFilter, page_size: 1000 },
