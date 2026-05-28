@@ -194,43 +194,57 @@ export function UserModelConfigModal({
       }
     >
       <div className="space-y-4">
-        {/* Provider —— 新增时可选，编辑时锁定 */}
+        {/* Provider —— 改为可输入文本 + datalist autocomplete (用户反馈:
+            本地模型 / 自建 provider 无法用 select 限定的下拉, 必须支持自由输入) */}
         <Field label="Provider" required>
-          <select
+          <input
+            list="user-model-provider-list"
             value={provider}
             onChange={(e) => setProvider(e.target.value)}
             disabled={isEdit}
+            placeholder="选择或输入 provider, e.g. openai / ollama-local / vllm-prod"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
-          >
+          />
+          <datalist id="user-model-provider-list">
             {userKeys
               .filter((k) => k.isActive)
               .map((k) => (
                 <option key={k.provider} value={k.provider}>
-                  {k.provider}（{k.keyHint}）
+                  {k.keyHint}
                 </option>
               ))}
-            {userKeys.filter((k) => k.isActive).length === 0 && (
-              <option value="">（请先在 API Keys Tab 配置至少一个 Key）</option>
-            )}
-          </select>
-        </Field>
-
-        {/* ★ 2026-05-27 提前 endpoint 字段位置 (用户反馈"找不到 endpoint 配置"):
-            放在 provider 之后, modelId 之前 — 自部署 / 自建 provider 优先填这个。
-            Provider 默认 endpoint 不为空时, placeholder 显示当前默认值供参考。 */}
-        <Field label="API Endpoint（留空使用 provider 默认值）">
-          <input
-            value={endpoint}
-            onChange={(e) => setEndpoint(e.target.value)}
-            placeholder={apiEndpoint || 'https://api.example.com/v1/chat/completions'}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
-          />
-          {apiEndpoint && !endpoint && (
-            <p className="mt-1 text-xs text-gray-500">
-              当前 provider 默认: <code className="font-mono">{apiEndpoint}</code>
+          </datalist>
+          {userKeys.filter((k) => k.isActive).length === 0 && (
+            <p className="mt-1 text-xs text-amber-600">
+              暂无已配置的 API Key —— 留空 Provider 或填自建 slug, 之后到 API Keys 配密钥。
             </p>
           )}
         </Field>
+
+        {/* ★ API 配置 section — 视觉对齐 admin AI Model form */}
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            API 配置
+          </div>
+          <div className="space-y-3">
+            <Field label="API Endpoint（留空使用 provider 默认值）">
+              <input
+                value={endpoint}
+                onChange={(e) => setEndpoint(e.target.value)}
+                placeholder={
+                  apiEndpoint || 'https://api.example.com/v1/chat/completions'
+                }
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-mono"
+              />
+              {apiEndpoint && !endpoint && (
+                <p className="mt-1 text-xs text-gray-500">
+                  当前 provider 默认:{' '}
+                  <code className="font-mono">{apiEndpoint}</code>
+                </p>
+              )}
+            </Field>
+          </div>
+        </div>
 
         {/* 模型类型 */}
         <Field label="模型类型" required>
