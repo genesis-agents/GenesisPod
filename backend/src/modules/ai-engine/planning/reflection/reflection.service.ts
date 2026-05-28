@@ -23,7 +23,8 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { CHAT_PROVIDER_PORT, type IChatProvider } from "../../facade";
+import { CHAT_PROVIDER_PORT } from "../../facade/abstractions/runtime-deps.tokens";
+import type { IChatProvider } from "../../facade";
 
 // ==================== 类型定义 ====================
 

@@ -13,7 +13,8 @@ import { SkillRegistry } from "../../registry/skill.registry";
 import { SkillLoaderService } from "../../loader/loading/skill-loader.service";
 import { SkillPromptBuilder } from "../../builder/skill-prompt-builder.service";
 import { SkillContentService } from "../../content/skill-content.service";
-import { CHAT_PROVIDER_PORT, type IChatProvider } from "../../../facade";
+import { CHAT_PROVIDER_PORT } from "../../../facade/abstractions/runtime-deps.tokens";
+import type { IChatProvider } from "../../../facade";
 import { SkillMdDefinition } from "../../types/skill-md.types";
 import {
   PromptSkillAdapter,

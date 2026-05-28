@@ -9,6 +9,7 @@ import { YoutubeAiChatService } from "./youtube-ai-chat/youtube-ai-chat.service"
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { BrowserModule } from "../../../common/browser/browser.module";
 import { SystemSettingModule } from "../../../common/settings/system-setting.module";
+import { ToolKeyResolverModule } from "../../ai-infra/credentials/tool-key-resolver/tool-key-resolver.module";
 import { ExploreContentSourceProvider } from "./integrations/explore-content-source.provider";
 
 /**
@@ -16,7 +17,12 @@ import { ExploreContentSourceProvider } from "./integrations/explore-content-sou
  * 整合 YouTube 相关功能：字幕获取、PDF导出、视频管理、AI 聊天历史
  */
 @Module({
-  imports: [PrismaModule, BrowserModule, SystemSettingModule],
+  imports: [
+    PrismaModule,
+    BrowserModule,
+    SystemSettingModule,
+    ToolKeyResolverModule,
+  ],
   controllers: [
     YoutubeController,
     YoutubeVideosController,
