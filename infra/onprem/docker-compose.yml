@@ -83,6 +83,16 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-${PUBLIC_BASE_URL:-http://localhost:${FRONTEND_PORT:-3000}}}
       ADMIN_INITIAL_EMAIL: ${ADMIN_INITIAL_EMAIL:-admin@genesis.local}
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:?ADMIN_INITIAL_PASSWORD must be set for first boot}
+      # ★ Google OAuth (可选): 想用 "Continue with Google" 必须在 Google Cloud
+      #   Console 创建 OAuth 2.0 Client ID + 加 redirect URI 到 GOOGLE_CALLBACK_URL,
+      #   然后填这 3 个 env vars。空值时 Google 登录按钮点击会失败 (401 from Google)。
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-}
+      # 本地模型友好的 mission liveness 阈值 (可选, 默认 frontier model 严格阈值)
+      PLAYGROUND_WALL_TIME_CAP_MS: ${PLAYGROUND_WALL_TIME_CAP_MS:-}
+      PLAYGROUND_STALE_THRESHOLD_MIN: ${PLAYGROUND_STALE_THRESHOLD_MIN:-}
+      PLAYGROUND_SOFT_WARN_THRESHOLD_MIN: ${PLAYGROUND_SOFT_WARN_THRESHOLD_MIN:-}
       # 外部依赖
       FLARESOLVERR_URL: http://flaresolverr:8191/v1
       # 品牌（可选自定义；不填用 Genesis 默认）

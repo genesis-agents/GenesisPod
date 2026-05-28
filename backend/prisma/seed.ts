@@ -4,6 +4,7 @@ import {
   DataSourceStatus,
   ResourceType,
 } from "@prisma/client";
+import * as bcrypt from "bcrypt";
 import { execSync } from "child_process";
 import * as path from "path";
 
@@ -34,6 +35,38 @@ async function main() {
     console.log("✅ 默认用户已创建 (demo@genesis.ai)");
   } else {
     console.log("⏩ 默认用户已存在");
+  }
+
+  // ★ 2026-05-27 onprem 部署支持: 消费 ADMIN_INITIAL_EMAIL/PASSWORD env vars,
+  //   首次启动时自动创建管理员账户。之前 .env.production.example 挂了这俩字段
+  //   但 seed/auth 代码从来不读, 导致 onprem 客户无法登录。
+  const adminEmail = process.env.ADMIN_INITIAL_EMAIL?.trim();
+  const adminPassword = process.env.ADMIN_INITIAL_PASSWORD?.trim();
+  if (adminEmail && adminPassword) {
+    console.log(`\n👑 检查管理员账户 (${adminEmail})...`);
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: adminEmail },
+    });
+    if (existingAdmin) {
+      console.log(`⏩ 管理员账户已存在 (${adminEmail})`);
+    } else {
+      const passwordHash = await bcrypt.hash(adminPassword, 10);
+      await prisma.user.create({
+        data: {
+          email: adminEmail,
+          username: adminEmail.split("@")[0],
+          passwordHash,
+          role: "ADMIN",
+          isVerified: true,
+          isActive: true,
+        },
+      });
+      console.log(`✅ 管理员账户已创建 (${adminEmail}, role=ADMIN)`);
+    }
+  } else {
+    console.log(
+      "\n⏩ 跳过管理员账户创建 (ADMIN_INITIAL_EMAIL/PASSWORD 未配置)",
+    );
   }
 
   // 数据源现在通过 SQL migration 自动加载（20251123_seed_predefined_data_sources）
