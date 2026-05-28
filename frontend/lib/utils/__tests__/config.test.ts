@@ -145,10 +145,12 @@ describe('config — streamApiUrl getter (browser, local dev)', () => {
     vi.resetModules();
   });
 
-  it('should default to http://localhost:4000/api/v1 for streamApiUrl', async () => {
+  it('should default to same-origin /api/v1 for streamApiUrl (onprem-safe)', async () => {
     vi.resetModules();
     const { config } = await import('../config');
-    expect(config.streamApiUrl).toBe('http://localhost:4000/api/v1');
+    // 2026-05-27 真根因 fix: 旧 fallback http://localhost:4000 烤进 client bundle
+    // 导致 onprem 浏览器找自己的 localhost:4000 → fail。改用 same-origin。
+    expect(config.streamApiUrl).toBe('/api/v1');
   });
 
   it('should use NEXT_PUBLIC_API_URL env var for streamApiUrl when set', async () => {

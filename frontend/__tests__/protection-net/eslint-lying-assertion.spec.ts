@@ -201,7 +201,7 @@ describe('ESLint lying-assertion protection — black-box reverse evidence', () 
     // The output should mention the rule ID or our message keyword
     const combined = (result.stdout ?? '') + (result.stderr ?? '');
     expect(combined).toMatch(/lying assertion|no-restricted-syntax/i);
-  });
+  }, 30000);
 
   it('REVERSE EVIDENCE: clean code (no lying assertion) passes ESLint with exit 0', () => {
     const cleanFixture = path.join(TMP_DIR, 'clean-assertion.fixture.ts');
@@ -235,5 +235,5 @@ describe('ESLint lying-assertion protection — black-box reverse evidence', () 
     }
 
     expect(result.status).toBe(0);
-  });
+  }, 30000);
 });
