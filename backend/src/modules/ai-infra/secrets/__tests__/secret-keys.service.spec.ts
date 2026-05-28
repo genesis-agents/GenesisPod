@@ -134,7 +134,10 @@ describe("SecretKeysService", () => {
       const callArg = prisma.secretKey.create.mock.calls[0][0].data;
       expect(callArg.label).toBe("backup-1");
       expect(callArg.encryptedValue).not.toBe("sk-abcdef1234567890");
-      expect(callArg.iv).toMatch(/^[0-9a-f]{32}$/);
+      // PR-3.1：信封 v2 用 AES-256-GCM，iv = 12 bytes = 24 hex chars
+      expect(callArg.iv).toMatch(/^[0-9a-f]{24}$/);
+      expect(callArg.encVersion).toBe(2);
+      expect(callArg.authTag).toMatch(/^[0-9a-f]{32}$/);
       expect(callArg.priority).toBe(0);
       expect(callArg.isActive).toBe(true);
       expect(created.keyHint).toContain("…");

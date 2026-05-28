@@ -195,11 +195,15 @@ describe("UserApiKeysService (additional coverage)", () => {
     it("queries DB and caches result when cache misses", async () => {
       (mockCacheService.get as jest.Mock).mockResolvedValue(null);
 
-      const tempService = service as unknown as {
-        encrypt: (text: string) => { encryptedValue: string; iv: string };
-      };
-      const { encryptedValue, iv } = tempService.encrypt("db-api-key");
-      const key = makeApiKey({ encryptedValue, iv });
+      const env = await buildEncryption().encryptEnvelope("db-api-key");
+      const key = makeApiKey({
+        encryptedValue: env.encryptedValue,
+        iv: env.iv,
+        authTag: env.authTag,
+        wrappedDek: env.wrappedDek,
+        encVersion: env.encVersion,
+        kekVersion: env.kekVersion,
+      });
 
       (mockPrisma.userApiKey!.findFirst as jest.Mock).mockResolvedValue(key);
 

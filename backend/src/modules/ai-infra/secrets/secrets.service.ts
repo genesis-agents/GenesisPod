@@ -97,12 +97,13 @@ export class SecretsService {
     dto: CreateSecretDto,
     context?: AuditContext,
   ): Promise<SecretListItem> {
-    const { encryptedValue, iv } = this.encrypt(dto.value);
+    // 2026-05-28 PR-3.1：新写一律信封 v2（dual-read：旧行经 decryptAny 仍可解）。
+    const env = await this.encryption.encryptEnvelope(dto.value);
     const valueHash = this.hashValue(dto.value);
 
     // ★ Dual-write 事务化：Secret + SecretKey 'primary' 同步落表，
     // 任一失败整个事务回滚（防 secret 已建但 secret_keys 缺行的不一致）。
-    // SecretKey.encryptedValue 用独立 IV，与 Secret.encryptedValue 是独立密文
+    // SecretKey.encryptedValue 用独立 DEK，与 Secret.encryptedValue 是独立密文
     //（与 addKey 行为一致；保留 dual-track 期间各自独立旋转）。
     const secret = await this.prisma.$transaction(async (tx) => {
       const created = await tx.secret.create({
@@ -111,8 +112,12 @@ export class SecretsService {
           displayName: dto.displayName,
           category: dto.category,
           description: dto.description,
-          encryptedValue,
-          iv,
+          encryptedValue: env.encryptedValue,
+          iv: env.iv,
+          authTag: env.authTag,
+          wrappedDek: env.wrappedDek,
+          encVersion: env.encVersion,
+          kekVersion: env.kekVersion,
           keyVersion: this.currentKeyVersion,
           provider: dto.provider,
           isActive: dto.isActive ?? true,
@@ -122,13 +127,17 @@ export class SecretsService {
         },
       });
 
-      const skEnc = this.encrypt(dto.value);
+      const skEnc = await this.encryption.encryptEnvelope(dto.value);
       await tx.secretKey.create({
         data: {
           secretId: created.id,
           label: "primary",
           encryptedValue: skEnc.encryptedValue,
           iv: skEnc.iv,
+          authTag: skEnc.authTag,
+          wrappedDek: skEnc.wrappedDek,
+          encVersion: skEnc.encVersion,
+          kekVersion: skEnc.kekVersion,
           keyVersion: this.currentKeyVersion,
           keyHint: this.makeHint(dto.value),
           isActive: true,
@@ -243,7 +252,7 @@ export class SecretsService {
     await this.logAccess(secret.id, SecretAction.VIEW, context, {
       secretName: secret.name,
     });
-    return this.decrypt(secret.encryptedValue, secret.iv);
+    return this.encryption.decryptAny(secret);
   }
 
   /**
@@ -393,7 +402,7 @@ export class SecretsService {
       },
     });
 
-    const decrypted = this.decrypt(secret.encryptedValue, secret.iv);
+    const decrypted = await this.encryption.decryptAny(secret);
     this.logger.debug(
       `[getValueInternal] Secret "${normalizedName}" decrypt: success=${!!decrypted}, length=${decrypted?.length ?? 0}`,
     );
@@ -428,11 +437,15 @@ export class SecretsService {
 
     let valueRotated = false;
     if (dto.value !== undefined && dto.value !== "") {
-      const oldValue = this.decrypt(existing.encryptedValue, existing.iv);
+      const oldValue = await this.encryption.decryptAny(existing);
       oldValueHash = oldValue ? this.hashValue(oldValue) : undefined;
-      const { encryptedValue, iv } = this.encrypt(dto.value);
-      updateData.encryptedValue = encryptedValue;
-      updateData.iv = iv;
+      const env = await this.encryption.encryptEnvelope(dto.value);
+      updateData.encryptedValue = env.encryptedValue;
+      updateData.iv = env.iv;
+      updateData.authTag = env.authTag;
+      updateData.wrappedDek = env.wrappedDek;
+      updateData.encVersion = env.encVersion;
+      updateData.kekVersion = env.kekVersion;
       updateData.keyVersion = this.currentKeyVersion;
       updateData.lastRotatedAt = new Date();
       newValueHash = this.hashValue(dto.value);
@@ -454,6 +467,10 @@ export class SecretsService {
             version: newVersion,
             encryptedValue: updateData.encryptedValue as string,
             iv: updateData.iv as string,
+            authTag: updateData.authTag as string,
+            wrappedDek: updateData.wrappedDek as string,
+            encVersion: updateData.encVersion as number,
+            kekVersion: updateData.kekVersion as number,
             keyVersion: this.currentKeyVersion,
             checksum: this.calculateChecksum(dto.value!),
             createdBy: context?.userEmail || context?.userId,
@@ -473,13 +490,17 @@ export class SecretsService {
           where: { secretId_label: { secretId: updated.id, label: "primary" } },
           select: { id: true },
         });
-        const skEnc = this.encrypt(dto.value!);
+        const skEnc = await this.encryption.encryptEnvelope(dto.value!);
         if (primary) {
           await tx.secretKey.update({
             where: { id: primary.id },
             data: {
               encryptedValue: skEnc.encryptedValue,
               iv: skEnc.iv,
+              authTag: skEnc.authTag,
+              wrappedDek: skEnc.wrappedDek,
+              encVersion: skEnc.encVersion,
+              kekVersion: skEnc.kekVersion,
               keyVersion: this.currentKeyVersion,
               keyHint: this.makeHint(dto.value!),
               testStatus: null,
@@ -692,15 +713,19 @@ export class SecretsService {
           continue;
         }
 
-        const { encryptedValue, iv } = this.encrypt(decryptedValue);
+        const env = await this.encryption.encryptEnvelope(decryptedValue);
         await this.prisma.secret.create({
           data: {
             name: secretName,
             displayName: `${model.displayName} API Key`,
             category: "AI_MODEL",
             description: `API key for ${model.displayName} (${model.provider})`,
-            encryptedValue,
-            iv,
+            encryptedValue: env.encryptedValue,
+            iv: env.iv,
+            authTag: env.authTag,
+            wrappedDek: env.wrappedDek,
+            encVersion: env.encVersion,
+            kekVersion: env.kekVersion,
             keyVersion: this.currentKeyVersion,
             provider: model.provider,
             isActive: true,
@@ -742,15 +767,19 @@ export class SecretsService {
           continue;
         }
 
-        const { encryptedValue, iv } = this.encrypt(decryptedValue);
+        const env = await this.encryption.encryptEnvelope(decryptedValue);
         await this.prisma.secret.create({
           data: {
             name: setting.name,
             displayName: setting.displayName,
             category: setting.category as SecretCategory,
             description: `Migrated from SystemSetting: ${setting.key}`,
-            encryptedValue,
-            iv,
+            encryptedValue: env.encryptedValue,
+            iv: env.iv,
+            authTag: env.authTag,
+            wrappedDek: env.wrappedDek,
+            encVersion: env.encVersion,
+            kekVersion: env.kekVersion,
             keyVersion: this.currentKeyVersion,
             provider: setting.provider,
             isActive: true,
@@ -1040,14 +1069,6 @@ export class SecretsService {
     }
   }
 
-  private encrypt(text: string) {
-    return this.encryption.encrypt(text);
-  }
-
-  private decrypt(encryptedValue: string, ivHex: string): string | null {
-    return this.encryption.decrypt(encryptedValue, ivHex);
-  }
-
   private decryptLegacy(encryptedText: string | null): string | null {
     return this.encryption.decryptLegacy(encryptedText);
   }
@@ -1101,7 +1122,7 @@ export class SecretsService {
       await this.logAccess(secret.id, SecretAction.VIEW, context, {
         secretName: name,
       });
-      return this.decrypt(secret.encryptedValue, secret.iv);
+      return this.encryption.decryptAny(secret);
     }
 
     // Otherwise, get from version history
@@ -1124,7 +1145,7 @@ export class SecretsService {
       secretName: name,
     });
 
-    return this.decrypt(secretVersion.encryptedValue, secretVersion.iv);
+    return this.encryption.decryptAny(secretVersion);
   }
 
   /**
@@ -1163,10 +1184,7 @@ export class SecretsService {
     }
 
     // Decrypt the target version's value
-    const decryptedValue = this.decrypt(
-      targetVersion.encryptedValue,
-      targetVersion.iv,
-    );
+    const decryptedValue = await this.encryption.decryptAny(targetVersion);
     if (!decryptedValue) {
       throw new InternalServerErrorException(
         `Failed to decrypt version ${version}`,
@@ -1175,14 +1193,18 @@ export class SecretsService {
 
     // Create a new version with the rolled-back value
     const newVersion = currentVersion + 1;
-    const { encryptedValue, iv } = this.encrypt(decryptedValue);
+    const env = await this.encryption.encryptEnvelope(decryptedValue);
 
     await this.prisma.secretVersion.create({
       data: {
         secretId: secret.id,
         version: newVersion,
-        encryptedValue,
-        iv,
+        encryptedValue: env.encryptedValue,
+        iv: env.iv,
+        authTag: env.authTag,
+        wrappedDek: env.wrappedDek,
+        encVersion: env.encVersion,
+        kekVersion: env.kekVersion,
         keyVersion: this.currentKeyVersion,
         checksum: this.calculateChecksum(decryptedValue),
         createdBy: context?.userEmail || context?.userId,
@@ -1193,8 +1215,12 @@ export class SecretsService {
     const updated = await this.prisma.secret.update({
       where: { id: secret.id },
       data: {
-        encryptedValue,
-        iv,
+        encryptedValue: env.encryptedValue,
+        iv: env.iv,
+        authTag: env.authTag,
+        wrappedDek: env.wrappedDek,
+        encVersion: env.encVersion,
+        kekVersion: env.kekVersion,
         keyVersion: this.currentKeyVersion,
         currentVersion: newVersion,
         lastRotatedAt: new Date(),
@@ -1238,7 +1264,7 @@ export class SecretsService {
       return;
     }
 
-    const decryptedValue = this.decrypt(secret.encryptedValue, secret.iv);
+    const decryptedValue = await this.encryption.decryptAny(secret);
     if (!decryptedValue) {
       this.logger.warn(
         `Cannot create initial version for '${name}': decryption failed`,
@@ -1346,7 +1372,7 @@ export class SecretsService {
         label: string;
       }> = [];
       for (const row of rows) {
-        const decrypted = this.encryption.decrypt(row.encryptedValue, row.iv);
+        const decrypted = await this.encryption.decryptAny(row);
         if (decrypted) {
           out.push({ value: decrypted, keyId: row.id, label: row.label });
         }
@@ -1356,7 +1382,7 @@ export class SecretsService {
 
     // legacy dual-track：读 Secret.encryptedValue（可能 comma-separated 多 KEY，
     // 但都属于同一行，没有独立 keyId 可标失败状态）
-    const legacy = this.encryption.decrypt(secret.encryptedValue, secret.iv);
+    const legacy = await this.encryption.decryptAny(secret);
     if (!legacy) return [];
     return [{ value: legacy, keyId: null, label: "(legacy)" }];
   }

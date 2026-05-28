@@ -330,14 +330,17 @@ describe("UserApiKeysService", () => {
       expect(result).toBeNull();
     });
 
-    it("decrypts and returns key data", async () => {
-      // Create a real encrypted key
-      const tempService = service as unknown as {
-        encrypt: (text: string) => { encryptedValue: string; iv: string };
-      };
-      const { encryptedValue, iv } = tempService.encrypt("real-api-key");
-
-      const key = makeApiKey({ encryptedValue, iv });
+    it("decrypts and returns key data (envelope v2)", async () => {
+      // 用同 key 的 EncryptionService 产出 v2 信封行，decryptAny 双读应可解。
+      const env = await buildEncryption().encryptEnvelope("real-api-key");
+      const key = makeApiKey({
+        encryptedValue: env.encryptedValue,
+        iv: env.iv,
+        authTag: env.authTag,
+        wrappedDek: env.wrappedDek,
+        encVersion: env.encVersion,
+        kekVersion: env.kekVersion,
+      });
       (mockPrisma.userApiKey!.findFirst as jest.Mock).mockResolvedValue(key);
 
       const result = await service.getPersonalKey("user-1", "openai");

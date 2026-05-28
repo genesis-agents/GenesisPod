@@ -49,14 +49,6 @@ export class UserApiKeysService {
     this.eventEmitter.emit("user-api-key.changed", { userId });
   }
 
-  private encrypt(text: string) {
-    return this.encryption.encrypt(text);
-  }
-
-  private decrypt(encryptedValue: string, ivHex: string): string | null {
-    return this.encryption.decrypt(encryptedValue, ivHex);
-  }
-
   private validateProvider(provider: string): string {
     const normalized = provider.toLowerCase();
     if (!PROVIDER_NAME_PATTERN.test(normalized) || normalized.length > 50) {
@@ -172,7 +164,8 @@ export class UserApiKeysService {
     if (apiEndpoint) {
       this.validateEndpointUrl(apiEndpoint);
     }
-    const { encryptedValue, iv } = this.encrypt(apiKey);
+    // 2026-05-28 PR-3.1：新写一律信封 v2（AES-256-GCM + KEK）。旧行读取走 decryptAny 双读。
+    const env = await this.encryption.encryptEnvelope(apiKey);
 
     // 检查是否已有该 provider + label 的 Key
     const existing = await this.prisma.userApiKey.findUnique({
@@ -188,8 +181,12 @@ export class UserApiKeysService {
     // 捐赠池退役后（H6）：user_api_keys 恒为 PERSONAL。
     const keyHint = this.generateKeyHint(apiKey);
     const writeData: Prisma.UserApiKeyUpdateInput = {
-      encryptedValue,
-      iv,
+      encryptedValue: env.encryptedValue,
+      iv: env.iv,
+      authTag: env.authTag,
+      wrappedDek: env.wrappedDek,
+      encVersion: env.encVersion,
+      kekVersion: env.kekVersion,
       keyHint,
       mode: UserApiKeyMode.PERSONAL,
       apiEndpoint: apiEndpoint || null,
@@ -208,8 +205,12 @@ export class UserApiKeysService {
           user: { connect: { id: userId } },
           provider: normalizedProvider,
           label: normalizedLabel,
-          encryptedValue,
-          iv,
+          encryptedValue: env.encryptedValue,
+          iv: env.iv,
+          authTag: env.authTag,
+          wrappedDek: env.wrappedDek,
+          encVersion: env.encVersion,
+          kekVersion: env.kekVersion,
           keyHint,
           mode: UserApiKeyMode.PERSONAL,
           apiEndpoint: apiEndpoint || null,
@@ -433,7 +434,7 @@ export class UserApiKeysService {
       return null;
     }
 
-    const decrypted = this.decrypt(key.encryptedValue, key.iv);
+    const decrypted = await this.encryption.decryptAny(key);
     if (!decrypted) return null;
 
     const result = {
@@ -480,7 +481,7 @@ export class UserApiKeysService {
     if (provider && key.provider.toLowerCase() !== provider.toLowerCase()) {
       return null;
     }
-    const decrypted = this.decrypt(key.encryptedValue, key.iv);
+    const decrypted = await this.encryption.decryptAny(key);
     if (!decrypted) return null;
     return {
       apiKey: decrypted,
@@ -543,7 +544,7 @@ export class UserApiKeysService {
       preferredModelId: string | null;
     }> = [];
     for (const k of keys) {
-      const decrypted = this.decrypt(k.encryptedValue, k.iv);
+      const decrypted = await this.encryption.decryptAny(k);
       if (!decrypted) continue;
       result.push({
         keyRowId: k.id,
