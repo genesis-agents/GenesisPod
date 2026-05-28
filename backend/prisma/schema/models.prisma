@@ -8259,6 +8259,10 @@ model Secret {
   provider String? @db.VarChar(50) // openai, anthropic, tavily 等
   isActive Boolean @default(true) @map("is_active")
 
+  // 2026-05-27 BYOK：用户私有 Secret 的脱敏指纹（"sk-...3f8a"），列表展示用，
+  // 避免每次 list 都解密每行（性能 + 减少明文在内存出现的侧信道窗口）。admin Secret 可为空。
+  keyHint String? @map("key_hint") @db.VarChar(40)
+
   // 过期管理
   expiresAt     DateTime? @map("expires_at") // 过期时间
   lastRotatedAt DateTime? @map("last_rotated_at") // 最后轮转时间
@@ -8448,6 +8452,8 @@ model AuthorizationRequest {
   type   AuthRequestType
   /// 申请目标标识：secretName / modelId / toolId / skillId（按 type 解释）
   targetId String          @map("target_id") @db.VarChar(200)
+  /// 仅 KEY_ASSIGNMENT 申请用：申请的 Key 类别（SecretCategory 值，admin 审批识别）；其余 type 为空
+  category String?         @db.VarChar(50)
   reason   String?         @db.Text // 用户填写的申请理由
   status   AuthRequestStatus @default(PENDING)
 
@@ -8481,6 +8487,7 @@ model AuthorizationGrant {
   grantedBy String    @map("granted_by") // admin id
   expiresAt DateTime? @map("expires_at")
   revokedAt DateTime? @map("revoked_at")
+  revokedBy String?   @map("revoked_by") // 撤销者 admin id（审计，安全复审 #4）
 
   createdAt DateTime @default(now()) @map("created_at")
 

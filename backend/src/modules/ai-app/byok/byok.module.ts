@@ -34,7 +34,11 @@ import {
   AdminAuthorizationController,
 } from "./authorization.controller";
 import { UserToolsController } from "./user-tools.controller";
+import { UserSkillsController } from "./user-skills.controller";
+import { UserSkillsService } from "./user-skills.service";
 import { AiEngineLLMModule } from "../../ai-engine/llm/llm.module";
+import { AiEngineSkillsModule } from "../../ai-engine/skills/skills.module";
+import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
 import { UserModelConfigsModule } from "../../ai-infra/credentials/user-model-configs/user-model-configs.module";
 import { UserSecretsModule } from "../../ai-infra/credentials/user-secrets/user-secrets.module";
@@ -47,6 +51,8 @@ import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
 @Module({
   imports: [
     AiEngineLLMModule,
+    AiEngineSkillsModule,
+    PrismaModule,
     UserApiKeysModule,
     UserModelConfigsModule,
     UserSecretsModule,
@@ -56,6 +62,7 @@ import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
     KeyRequestsModule,
     KeyResolverModule,
   ],
+  providers: [UserSkillsService],
   controllers: [
     UserModelsController,
     UserModelConfigsAutoController,
@@ -67,6 +74,7 @@ import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
     UserProvidersController, // PR-3: 用户自定义 provider CRUD
     UserSecretsController, // 2026-05-27 BYOK 全量化：统一 Key 表格
     UserToolsController, // 2026-05-27 BYOK：我的工具目录 + Key 状态
+    UserSkillsController, // 2026-05-28 BYOK：我的技能目录(授权版) + 授权状态
     UserAuthorizationController, // 2026-05-27 BYOK：用户申请授权
     AdminAuthorizationController, // 2026-05-27 BYOK：admin 审批授权
   ],

@@ -1,7 +1,8 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useApiGet } from '@/hooks/core';
 import { apiClient } from '@/lib/api/client';
 import { toast } from '@/stores';
+import { useTranslation } from '@/lib/i18n';
 
 // All SecretCategory values exposed to users (USER_DONATED excluded per spec)
 export type SecretCategory =
@@ -74,11 +75,19 @@ interface UserSecretsResponse {
   items: UserSecretItem[];
 }
 
+interface TestKeyResult {
+  success: boolean;
+  message: string;
+  testedAt: string;
+}
+
 export function useUserSecrets() {
+  const { t } = useTranslation();
   const { data, loading, error, refresh } = useApiGet<UserSecretsResponse>(
     '/user/secrets',
     { immediate: true }
   );
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const secrets = data?.items ?? [];
 
@@ -131,6 +140,27 @@ export function useUserSecrets() {
     [refresh]
   );
 
+  const testSecret = useCallback(
+    async (source: 'llm' | 'secret', id: string): Promise<void> => {
+      setTestingId(id);
+      try {
+        const res = await apiClient.post<TestKeyResult>(
+          `/user/secrets/${source}/${id}/test`
+        );
+        if (res.success) {
+          toast.success(t('me.apiKeys.testSuccess'));
+        } else {
+          toast.error(res.message || t('me.apiKeys.testFailed'));
+        }
+      } catch (err) {
+        toast.error((err as Error).message || t('me.apiKeys.testFailed'));
+      } finally {
+        setTestingId(null);
+      }
+    },
+    [t]
+  );
+
   const requestSystemKey = useCallback(
     async (
       category: SecretCategory,
@@ -163,5 +193,7 @@ export function useUserSecrets() {
     updateSecret,
     deleteSecret,
     requestSystemKey,
+    testSecret,
+    testingId,
   };
 }

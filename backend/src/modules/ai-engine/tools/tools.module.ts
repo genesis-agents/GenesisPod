@@ -14,6 +14,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { ExportModule } from "../../../common/export/export.module";
 import { BrowserModule } from "../../../common/browser/browser.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
+import { ToolKeyResolverModule } from "../../ai-infra/credentials/tool-key-resolver/tool-key-resolver.module";
 
 // Registry
 import { ToolRegistry } from "./registry/tool.registry";
@@ -87,6 +88,7 @@ const toolExecutorFactory = {
     BrowserModule,
     ExportModule, // FileConversionTool needs ExportOrchestratorService
     SecretsModule,
+    ToolKeyResolverModule,
   ],
   providers: [
     // Registry

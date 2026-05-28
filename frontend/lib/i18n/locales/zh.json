@@ -7434,7 +7434,11 @@
       "createError": "创建失败",
       "updateError": "更新失败",
       "deleteError": "删除失败",
-      "requestError": "申请提交失败"
+      "requestError": "申请提交失败",
+      "test": "测试",
+      "testing": "测试中…",
+      "testSuccess": "Key 存在，校验通过",
+      "testFailed": "Key 测试失败"
     },
     "tools": {
       "title": "我的工具",
@@ -7505,7 +7509,15 @@
       "submit": "提交申请",
       "submitting": "提交中…",
       "requestSuccess": "申请已提交",
-      "requestError": "申请提交失败，请重试"
+      "requestError": "申请提交失败，请重试",
+      "search": "搜索技能名 / 说明…",
+      "colDomain": "领域",
+      "colDescription": "说明",
+      "statusAvailable": "未授权",
+      "statusPending": "审批中",
+      "requestThis": "申请",
+      "catalogEmptyTitle": "暂无可用技能",
+      "catalogEmptyDesc": "系统尚未注册任何技能"
     }
   },
   "radar": {

@@ -11,7 +11,6 @@
 
 import { config } from '../utils/config';
 import { getAuthTokens, refreshAccessToken, logout } from '../utils/auth';
-
 import { logger } from '@/lib/utils/logger';
 // ==================== 类型定义 ====================
 
@@ -340,7 +339,30 @@ class ApiClient {
             void import('@/lib/byok/event-bus').then((m) =>
               m.publishByokError(apiErr)
             );
+            // INVALID_API_KEY: 额外 toast，让用户第一时间看到提示（§15 错误 UX）
+            if (errorData.code === 'INVALID_API_KEY') {
+              const provider: string = (errorData.meta as { provider?: string })?.provider ?? '';
+              void import('@/stores').then((m) => {
+                const providerLabel = provider ? `${provider} ` : '';
+                m.toast.error(`${providerLabel}Key 鉴权失败，请检查`);
+              });
+            }
           }
+
+          // 缺 Key / 未配置 Key 引导：message 匹配常见后端错误文案（§15 错误 UX）
+          const msg: string = errorData.message ?? '';
+          const NO_KEY_PATTERNS = [
+            'NoToolKeyError',
+            'No API Key available',
+            '未配置',
+            '需先配置',
+          ];
+          if (NO_KEY_PATTERNS.some((p) => msg.includes(p))) {
+            void import('@/stores').then((m) =>
+              m.toast.error('Key 未配置，请前往「我的 API Keys」或「我的工具」添加')
+            );
+          }
+
           throw apiErr;
         }
 

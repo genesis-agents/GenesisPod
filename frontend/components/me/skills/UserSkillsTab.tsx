@@ -1,11 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Sparkles, Plus } from 'lucide-react';
-import { useApiGet } from '@/hooks/core';
-import { apiClient } from '@/lib/api/client';
+import { Sparkles } from 'lucide-react';
 import { toast } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
+import { useUserSkills, type UserSkillItem } from '@/hooks/features/useUserSkills';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { StatusBadge } from '@/components/ui/badges';
 import { EmptyState } from '@/components/ui/states/EmptyState';
@@ -16,79 +15,60 @@ import { Button } from '@/components/ui/primitives/button';
 import { Input, Textarea } from '@/components/ui/form';
 import { formatDateSafe } from '@/lib/utils/date';
 
-interface AuthGrant {
-  id: string;
-  type: string;
-  targetId: string;
-  expiresAt: string | null;
-  createdAt: string;
-}
-
-interface AuthRequest {
-  id: string;
-  type: string;
-  targetId: string;
-  status: string;
-  createdAt: string;
-}
-
 /**
- * 我的技能（/me/skills）—— 镜像 admin 本地技能的用户视角。
- * 当前后端用户侧技能能力 = 授权工单（SKILL_GRANT）：展示已授权技能 + 申请授权。
+ * 我的技能（/me/skills）—— 授权版：展示系统技能目录（来自 SkillRegistry）+
+ * 当前用户的授权状态（已授权 / 审批中 / 未授权），逐技能向系统申请授权。
  */
 export function UserSkillsTab() {
   const { t } = useTranslation();
-  const {
-    data: grantsData,
-    loading: grantsLoading,
-    error: grantsError,
-    execute: refreshGrants,
-  } = useApiGet<{ items: AuthGrant[] }>('/user/authorization/grants', {
-    immediate: true,
-  });
-  const { data: reqData, execute: refreshReqs } = useApiGet<{
-    items: AuthRequest[];
-  }>('/user/authorization/requests', { immediate: true });
+  const { skills, loading, error, refresh, requestSkillGrant } = useUserSkills();
 
-  const [requestOpen, setRequestOpen] = useState(false);
-  const [skillId, setSkillId] = useState('');
+  const [query, setQuery] = useState('');
+  const [target, setTarget] = useState<UserSkillItem | null>(null);
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const skillGrants = useMemo(
-    () => (grantsData?.items ?? []).filter((g) => g.type === 'SKILL_GRANT'),
-    [grantsData]
-  );
-  const pendingSkillRequests = useMemo(
-    () =>
-      (reqData?.items ?? []).filter(
-        (r) => r.type === 'SKILL_GRANT' && r.status === 'PENDING'
-      ),
-    [reqData]
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return skills;
+    return skills.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.description.toLowerCase().includes(q) ||
+        s.id.toLowerCase().includes(q)
+    );
+  }, [skills, query]);
+
+  const pendingCount = useMemo(
+    () => skills.filter((s) => s.pending).length,
+    [skills]
   );
 
   const submitRequest = async () => {
-    if (!skillId.trim()) {
-      toast.error(t('me.skills.skillIdRequired'));
-      return;
-    }
+    if (!target) return;
     setSubmitting(true);
     try {
-      await apiClient.post('/user/authorization/requests', {
-        type: 'SKILL_GRANT',
-        targetId: skillId.trim(),
-        reason: reason.trim() || undefined,
-      });
-      toast.success(t('me.skills.requestSuccess'));
-      setRequestOpen(false);
-      setSkillId('');
-      setReason('');
-      void refreshReqs();
-    } catch {
-      toast.error(t('me.skills.requestError'));
+      const ok = await requestSkillGrant(target.id, reason.trim() || undefined);
+      if (ok) {
+        toast.success(t('me.skills.requestSuccess'));
+        setTarget(null);
+        setReason('');
+      } else {
+        toast.error(t('me.skills.requestError'));
+      }
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const renderStatus = (s: UserSkillItem) => {
+    if (s.granted) {
+      return <StatusBadge tone="success" label={t('me.skills.statusGranted')} />;
+    }
+    if (s.pending) {
+      return <StatusBadge tone="warning" label={t('me.skills.statusPending')} />;
+    }
+    return <StatusBadge tone="neutral" label={t('me.skills.statusAvailable')} />;
   };
 
   return (
@@ -103,52 +83,70 @@ export function UserSkillsTab() {
             {t('me.skills.description')}
           </p>
         </div>
-        <Button onClick={() => setRequestOpen(true)} className="shrink-0">
-          <Plus className="mr-1 h-4 w-4" />
-          {t('me.skills.requestGrant')}
-        </Button>
       </div>
 
-      {pendingSkillRequests.length > 0 && (
+      {pendingCount > 0 && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-          {t('me.skills.pendingNote', {
-            count: pendingSkillRequests.length,
-          })}
+          {t('me.skills.pendingNote', { count: pendingCount })}
         </p>
       )}
 
-      {grantsLoading ? (
+      <Input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={t('me.skills.search')}
+        className="max-w-sm"
+      />
+
+      {loading ? (
         <LoadingState />
-      ) : grantsError ? (
-        <ErrorState error={grantsError} onRetry={() => void refreshGrants()} />
-      ) : skillGrants.length === 0 ? (
+      ) : error ? (
+        <ErrorState error={error} onRetry={() => void refresh()} />
+      ) : filtered.length === 0 ? (
         <EmptyState
-          title={t('me.skills.emptyTitle')}
-          description={t('me.skills.emptyDesc')}
+          title={t('me.skills.catalogEmptyTitle')}
+          description={t('me.skills.catalogEmptyDesc')}
         />
       ) : (
         <Table>
           <THead>
             <Tr>
               <Th>{t('me.skills.colSkill')}</Th>
+              <Th>{t('me.skills.colDomain')}</Th>
               <Th>{t('me.skills.colStatus')}</Th>
               <Th>{t('me.skills.colExpires')}</Th>
+              <Th aria-label="actions" />
             </Tr>
           </THead>
           <TBody>
-            {skillGrants.map((g) => (
-              <Tr key={g.id}>
-                <Td>{g.targetId}</Td>
+            {filtered.map((s) => (
+              <Tr key={s.id}>
                 <Td>
-                  <StatusBadge
-                    tone="success"
-                    label={t('me.skills.statusGranted')}
-                  />
+                  <div className="font-medium text-gray-900">{s.name}</div>
+                  <div className="text-xs text-gray-500">{s.description}</div>
+                </Td>
+                <Td>{s.domain}</Td>
+                <Td>{renderStatus(s)}</Td>
+                <Td>
+                  {s.granted
+                    ? s.grantExpiresAt
+                      ? formatDateSafe(s.grantExpiresAt, 'date')
+                      : t('me.skills.neverExpires')
+                    : '—'}
                 </Td>
                 <Td>
-                  {g.expiresAt
-                    ? formatDateSafe(g.expiresAt, 'date')
-                    : t('me.skills.neverExpires')}
+                  {!s.granted && !s.pending && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setTarget(s);
+                        setReason('');
+                      }}
+                    >
+                      {t('me.skills.requestThis')}
+                    </Button>
+                  )}
                 </Td>
               </Tr>
             ))}
@@ -157,8 +155,8 @@ export function UserSkillsTab() {
       )}
 
       <Modal
-        open={requestOpen}
-        onClose={() => setRequestOpen(false)}
+        open={target !== null}
+        onClose={() => setTarget(null)}
         title={t('me.skills.requestTitle')}
       >
         <div className="space-y-4">
@@ -167,11 +165,7 @@ export function UserSkillsTab() {
             <label className="mb-1 block text-sm font-medium text-gray-700">
               {t('me.skills.skillIdLabel')}
             </label>
-            <Input
-              value={skillId}
-              onChange={(e) => setSkillId(e.target.value)}
-              placeholder={t('me.skills.skillIdPlaceholder')}
-            />
+            <Input value={target?.name ?? ''} disabled />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -185,7 +179,7 @@ export function UserSkillsTab() {
             />
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setRequestOpen(false)}>
+            <Button variant="ghost" onClick={() => setTarget(null)}>
               {t('me.skills.cancel')}
             </Button>
             <Button onClick={() => void submitRequest()} disabled={submitting}>

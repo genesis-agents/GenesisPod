@@ -94,7 +94,12 @@ export class KeyResolverService {
     provider: string,
     // ★ 2026-05-05: options.systemSecretName 仅 ADMIN SYSTEM fallback 路径用，
     //   严格 BYOK 后该路径已删，参数保留作签名兼容（caller 可继续传，被忽略）。
-    _options: { systemSecretName?: string | null } = {},
+    // ★ 2026-05-28 BYOK: options.preferredKeyId = 用户为该模型选定的具体
+    //   UserApiKey.id（来自 UserModelConfig.apiKeyId），命中则优先用这把 key。
+    options: {
+      systemSecretName?: string | null;
+      preferredKeyId?: string | null;
+    } = {},
   ): Promise<ResolvedKey> {
     if (!userId) {
       throw new UnauthorizedException("userId is required for key resolution");
@@ -120,7 +125,11 @@ export class KeyResolverService {
     //   历史路径（已废）：之前 ADMIN 在 PERSONAL/ASSIGNED 都无时回退 SYSTEM
     //   "保留管理员维持系统功能能力"。改回严格后，ADMIN 也必须显式配 BYOK，
     //   保留可调用性的方法是去 Admin → AI 配置加 PERSONAL key。
-    return await this.resolveUserKey(userId, normalizedProvider);
+    return await this.resolveUserKey(
+      userId,
+      normalizedProvider,
+      options.preferredKeyId ?? null,
+    );
   }
 
   /**
@@ -266,7 +275,36 @@ export class KeyResolverService {
   private async resolveUserKey(
     userId: string,
     provider: string,
+    preferredKeyId?: string | null,
   ): Promise<ResolvedKey> {
+    // 0. ★ 2026-05-28 BYOK：用户为该模型显式选定的具体 Key（UserModelConfig.apiKeyId）。
+    //    命中（归属 + provider 匹配 + active + 可解密）则直接用它，跳过 provider 默认挑选。
+    //    未命中（key 被删/禁用/换 provider）→ 优雅退回 provider 级 personal key 解析，
+    //    仍是用户自己的 BYOK key，不静默走 admin。
+    if (preferredKeyId) {
+      const specific = await this.userApiKeys
+        .getPersonalKeyById(userId, preferredKeyId, provider)
+        .catch((error) => {
+          this.logger.warn(
+            `getPersonalKeyById failed for ${userId}/${preferredKeyId}: ${(error as Error).message}`,
+          );
+          return null;
+        });
+      if (specific?.apiKey) {
+        const label = specific.label ?? "default";
+        return {
+          source: "PERSONAL",
+          apiKey: specific.apiKey,
+          apiEndpoint: specific.apiEndpoint ?? null,
+          provider,
+          userId,
+          label,
+          healthKeyId: buildPersonalKeyId(userId, provider, label),
+          preferredModelId: specific.preferredModelId ?? null,
+        };
+      }
+    }
+
     // 1. Personal Key
     const personal = await this.userApiKeys
       .getPersonalKey(userId, provider)

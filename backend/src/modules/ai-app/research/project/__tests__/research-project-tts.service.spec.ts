@@ -1,5 +1,7 @@
 import { ResearchProjectTTSService } from "../research-project-tts.service";
 import type { ConfigService } from "@nestjs/config";
+import { ToolKeyResolverService, NoToolKeyError } from "@/modules/ai-infra/facade";
+import { RequestContext } from "@/common/context/request-context";
 
 // Mock global fetch
 const mockFetch = jest.fn();
@@ -13,6 +15,26 @@ function createMockConfigService(elevenLabsKey?: string, googleKey?: string) {
       return undefined;
     }),
   } as unknown as jest.Mocked<ConfigService>;
+}
+
+function createMockToolKeyResolverService() {
+  return {
+    resolveToolKey: jest.fn().mockResolvedValue(null),
+  } as unknown as jest.Mocked<ToolKeyResolverService>;
+}
+
+function createService(
+  elevenLabsKey?: string,
+  googleKey?: string,
+  toolKeyResolver?: Partial<ToolKeyResolverService>,
+): ResearchProjectTTSService {
+  const resolver = toolKeyResolver
+    ? (toolKeyResolver as ToolKeyResolverService)
+    : createMockToolKeyResolverService();
+  return new ResearchProjectTTSService(
+    createMockConfigService(elevenLabsKey, googleKey) as unknown as ConfigService,
+    resolver,
+  );
 }
 
 function createMockScript() {
@@ -43,71 +65,48 @@ describe("ResearchProjectTTSService", () => {
 
   describe("isAvailable", () => {
     it("should return true when ElevenLabs key is set", () => {
-      const service = new ResearchProjectTTSService(
-        createMockConfigService("el-api-key") as unknown as ConfigService,
-      );
+      const service = createService("el-api-key");
       expect(service.isAvailable()).toBe(true);
     });
 
     it("should return true when Google TTS key is set", () => {
-      const service = new ResearchProjectTTSService(
-        createMockConfigService(
-          undefined,
-          "google-api-key",
-        ) as unknown as ConfigService,
-      );
+      const service = createService(undefined, "google-api-key");
       expect(service.isAvailable()).toBe(true);
     });
 
     it("should return false when no keys are configured", () => {
-      const service = new ResearchProjectTTSService(
-        createMockConfigService() as unknown as ConfigService,
-      );
+      const service = createService();
       expect(service.isAvailable()).toBe(false);
     });
   });
 
   describe("getProvider", () => {
     it("should return elevenlabs when ElevenLabs key is set", () => {
-      const service = new ResearchProjectTTSService(
-        createMockConfigService("el-key") as unknown as ConfigService,
-      );
+      const service = createService("el-key");
       expect(service.getProvider()).toBe("elevenlabs");
     });
 
     it("should return google when only Google key is set", () => {
-      const service = new ResearchProjectTTSService(
-        createMockConfigService(
-          undefined,
-          "goog-key",
-        ) as unknown as ConfigService,
-      );
+      const service = createService(undefined, "goog-key");
       expect(service.getProvider()).toBe("google");
     });
 
     it("should return none when no keys are set", () => {
-      const service = new ResearchProjectTTSService(
-        createMockConfigService() as unknown as ConfigService,
-      );
+      const service = createService();
       expect(service.getProvider()).toBe("none");
     });
 
     it("should prefer ElevenLabs over Google when both are set", () => {
-      const service = new ResearchProjectTTSService(
-        createMockConfigService(
-          "el-key",
-          "goog-key",
-        ) as unknown as ConfigService,
-      );
+      const service = createService("el-key", "goog-key");
       expect(service.getProvider()).toBe("elevenlabs");
     });
   });
 
   describe("generateAudio - no provider", () => {
     it("should return null when no TTS provider is configured", async () => {
-      const service = new ResearchProjectTTSService(
-        createMockConfigService() as unknown as ConfigService,
-      );
+      // No env keys, no BYOK key
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
+      const service = createService();
 
       const result = await service.generateAudio(createMockScript());
       expect(result).toBeNull();
@@ -118,9 +117,8 @@ describe("ResearchProjectTTSService", () => {
     let service: ResearchProjectTTSService;
 
     beforeEach(() => {
-      service = new ResearchProjectTTSService(
-        createMockConfigService("el-api-key-test") as unknown as ConfigService,
-      );
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
+      service = createService("el-api-key-test");
     });
 
     it("should generate audio using ElevenLabs and return base64 URL", async () => {
@@ -250,12 +248,8 @@ describe("ResearchProjectTTSService", () => {
     let service: ResearchProjectTTSService;
 
     beforeEach(() => {
-      service = new ResearchProjectTTSService(
-        createMockConfigService(
-          undefined,
-          "google-tts-key",
-        ) as unknown as ConfigService,
-      );
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
+      service = createService(undefined, "google-tts-key");
     });
 
     it("should generate audio using Google TTS", async () => {
@@ -321,9 +315,7 @@ describe("ResearchProjectTTSService", () => {
     let service: ResearchProjectTTSService;
 
     beforeEach(() => {
-      service = new ResearchProjectTTSService(
-        createMockConfigService() as unknown as ConfigService,
-      );
+      service = createService();
     });
 
     it("should parse valid script JSON", () => {
@@ -377,6 +369,69 @@ describe("ResearchProjectTTSService", () => {
       const result = service.parseScript(JSON.stringify(bigScript));
 
       expect(result?.script.segments).toHaveLength(10);
+    });
+  });
+
+  describe("generateAudio - BYOK userId path", () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it("uses ToolKeyResolverService for ElevenLabs when userId is present", async () => {
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue("user-byok");
+      const mockResolver = createMockToolKeyResolverService();
+      mockResolver.resolveToolKey.mockResolvedValue({
+        value: "byok-el-key",
+        source: "user" as const,
+        secretName: "elevenlabs-api-key",
+      });
+
+      const service = createService(undefined, undefined, mockResolver);
+
+      const audioData = Buffer.from("fake-mp3");
+      mockFetch.mockResolvedValue({
+        ok: true,
+        arrayBuffer: jest.fn().mockResolvedValue(audioData.buffer),
+      });
+
+      const result = await service.generateAudio(createMockScript());
+
+      expect(mockResolver.resolveToolKey).toHaveBeenCalledWith(
+        "elevenlabs",
+        "user-byok",
+      );
+      expect(result).not.toBeNull();
+      expect(mockFetch.mock.calls[0][1].headers["xi-api-key"]).toBe("byok-el-key");
+    });
+
+    it("falls back to env key when no userId is present", async () => {
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
+      const mockResolver = createMockToolKeyResolverService();
+      const service = createService("env-el-key", undefined, mockResolver);
+
+      const audioData = Buffer.from("fake-mp3");
+      mockFetch.mockResolvedValue({
+        ok: true,
+        arrayBuffer: jest.fn().mockResolvedValue(audioData.buffer),
+      });
+
+      await service.generateAudio(createMockScript());
+
+      expect(mockResolver.resolveToolKey).not.toHaveBeenCalled();
+      expect(mockFetch.mock.calls[0][1].headers["xi-api-key"]).toBe("env-el-key");
+    });
+
+    it("returns null when BYOK NoToolKeyError is thrown and no env fallback", async () => {
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue("user-strict");
+      const mockResolver = createMockToolKeyResolverService();
+      mockResolver.resolveToolKey.mockRejectedValue(
+        new NoToolKeyError("elevenlabs", "elevenlabs-api-key"),
+      );
+
+      const service = createService(undefined, undefined, mockResolver);
+
+      const result = await service.generateAudio(createMockScript());
+      expect(result).toBeNull();
     });
   });
 });

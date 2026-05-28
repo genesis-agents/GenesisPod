@@ -27,6 +27,7 @@ import { WebContentExtractionService } from "./web-content-extraction.service";
 import { UrlParserService } from "./url-parser.service";
 import { ExploreModule } from "../../modules/ai-app/explore/explore.module";
 import { SystemSettingModule } from "../settings/system-setting.module";
+import { ToolKeyResolverModule } from "../../modules/ai-infra/credentials/tool-key-resolver/tool-key-resolver.module";
 
 @Global()
 @Module({
@@ -44,6 +45,7 @@ import { SystemSettingModule } from "../settings/system-setting.module";
     ConfigModule,
     ExploreModule,
     SystemSettingModule,
+    ToolKeyResolverModule,
   ],
   providers: [
     AdvancedExtractorService,

@@ -7434,7 +7434,11 @@
       "createError": "Failed to create key",
       "updateError": "Failed to update key",
       "deleteError": "Failed to delete key",
-      "requestError": "Failed to submit request"
+      "requestError": "Failed to submit request",
+      "test": "Test",
+      "testing": "Testing…",
+      "testSuccess": "Key exists and passed validation",
+      "testFailed": "Key test failed"
     },
     "tools": {
       "title": "My Tools",
@@ -7505,7 +7509,15 @@
       "submit": "Submit Request",
       "submitting": "Submitting…",
       "requestSuccess": "Request submitted",
-      "requestError": "Request failed, please retry"
+      "requestError": "Request failed, please retry",
+      "search": "Search skill name / description…",
+      "colDomain": "Domain",
+      "colDescription": "Description",
+      "statusAvailable": "Not granted",
+      "statusPending": "Pending",
+      "requestThis": "Request",
+      "catalogEmptyTitle": "No skills available",
+      "catalogEmptyDesc": "No skills are registered in the system yet"
     }
   },
   "radar": {

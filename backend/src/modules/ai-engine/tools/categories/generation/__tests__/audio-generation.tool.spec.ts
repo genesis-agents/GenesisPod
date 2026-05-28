@@ -36,6 +36,7 @@ function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
 function createMockTtsService(): jest.Mocked<ITTSService> {
   return {
     isAvailable: jest.fn().mockReturnValue(true),
+    isAvailableAsync: jest.fn().mockResolvedValue(true),
     getProvider: jest.fn().mockReturnValue("elevenlabs"),
     generateAudio: jest.fn().mockResolvedValue({
       audioUrl: "https://storage.example.com/audio/test-output.mp3",
@@ -259,7 +260,7 @@ describe("AudioGenerationTool", () => {
     });
 
     it("should return success:false when TTS service is not available (no API key)", async () => {
-      mockTtsService.isAvailable.mockReturnValue(false);
+      mockTtsService.isAvailableAsync.mockResolvedValue(false);
 
       const result = await tool.execute(
         { text: "API key missing" },

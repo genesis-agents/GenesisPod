@@ -12,6 +12,8 @@ import {
   SemanticScholarSearchOutput,
 } from "../semantic-scholar-search.tool";
 import { PolicyDataService } from "../../policy/policy-data.service";
+import { ToolKeyResolverService } from "@/modules/ai-infra/facade";
+import { RequestContext } from "@/common/context/request-context";
 import {
   ToolContext,
   ToolResult,
@@ -69,6 +71,10 @@ function createMockPolicyDataService(): jest.Mocked<PolicyDataServiceMock> {
   };
 }
 
+const mockToolKeyResolverService = {
+  resolveToolKey: jest.fn().mockResolvedValue(null),
+};
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -93,12 +99,20 @@ describe("SemanticScholarSearchTool", () => {
     )["requestQueue"] as unknown[];
     queue.length = 0;
 
+    // Default: no userId (system path)
+    jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
+    mockToolKeyResolverService.resolveToolKey.mockResolvedValue(null);
+
     mockPolicyDataService = createMockPolicyDataService();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SemanticScholarSearchTool,
         { provide: PolicyDataService, useValue: mockPolicyDataService },
+        {
+          provide: ToolKeyResolverService,
+          useValue: mockToolKeyResolverService,
+        },
       ],
     }).compile();
 
@@ -395,6 +409,47 @@ describe("SemanticScholarSearchTool", () => {
 
       expect(result.success).toBe(false);
       expect(mockPolicyDataService.httpGet).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // BYOK path
+  // -------------------------------------------------------------------------
+
+  describe("execute() - BYOK resolveApiKey", () => {
+    it("uses ToolKeyResolverService when userId is present", async () => {
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue("user-byok");
+      mockToolKeyResolverService.resolveToolKey.mockResolvedValue({
+        value: "byok-ss-key",
+        source: "user",
+        secretName: "semantic-scholar-api-key",
+      });
+      mockPolicyDataService.httpGet.mockResolvedValue(makeMockApiResponse());
+
+      const result = await tool.execute(
+        { query: "byok test" },
+        makeContext(),
+      );
+
+      expect(mockToolKeyResolverService.resolveToolKey).toHaveBeenCalledWith(
+        "semantic-scholar",
+        "user-byok",
+      );
+      expect(mockPolicyDataService.getApiKey).not.toHaveBeenCalled();
+      expect(result.data?.success).toBe(true);
+    });
+
+    it("falls back to PolicyDataService.getApiKey when no userId is present", async () => {
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
+      mockPolicyDataService.getApiKey.mockResolvedValue("admin-ss-key");
+      mockPolicyDataService.httpGet.mockResolvedValue(makeMockApiResponse());
+
+      await tool.execute({ query: "admin test" }, makeContext());
+
+      expect(mockPolicyDataService.getApiKey).toHaveBeenCalledWith(
+        "semantic-scholar",
+      );
+      expect(mockToolKeyResolverService.resolveToolKey).not.toHaveBeenCalled();
     });
   });
 

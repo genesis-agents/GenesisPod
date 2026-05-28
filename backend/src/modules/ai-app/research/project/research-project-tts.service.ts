@@ -1,5 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import {
+  ToolKeyResolverService,
+  NoToolKeyError,
+} from "@/modules/ai-infra/facade";
+import { RequestContext } from "@/common/context/request-context";
 
 export interface TTSOptions {
   text: string;
@@ -25,28 +30,85 @@ export interface AudioOverviewScript {
 @Injectable()
 export class ResearchProjectTTSService {
   private readonly logger = new Logger(ResearchProjectTTSService.name);
-  private readonly elevenLabsApiKey: string | undefined;
-  private readonly googleTTSApiKey: string | undefined;
 
-  constructor(private readonly configService: ConfigService) {
-    this.elevenLabsApiKey =
-      this.configService.get<string>("ELEVENLABS_API_KEY");
-    this.googleTTSApiKey = this.configService.get<string>("GOOGLE_TTS_API_KEY");
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly toolKeyResolver: ToolKeyResolverService,
+  ) {}
+
+  /**
+   * Resolve the ElevenLabs API key at call time.
+   *
+   * 2026-05-28 BYOK: userId present → ToolKeyResolver (user key → grant →
+   * strict/fallback). No userId → env ELEVENLABS_API_KEY admin fallback.
+   */
+  private async resolveElevenLabsKey(): Promise<string | undefined> {
+    const userId = RequestContext.getUserId();
+    if (userId) {
+      try {
+        const resolved = await this.toolKeyResolver.resolveToolKey(
+          "elevenlabs",
+          userId,
+        );
+        return resolved?.value ?? undefined;
+      } catch (error) {
+        if (error instanceof NoToolKeyError) return undefined;
+        throw error;
+      }
+    }
+    return this.configService.get<string>("ELEVENLABS_API_KEY");
   }
 
   /**
-   * Check if TTS is available
+   * Resolve the Google TTS API key at call time.
+   *
+   * 2026-05-28 BYOK: userId present → ToolKeyResolver (user key → grant →
+   * strict/fallback). No userId → env GOOGLE_TTS_API_KEY admin fallback.
+   */
+  private async resolveGoogleTtsKey(): Promise<string | undefined> {
+    const userId = RequestContext.getUserId();
+    if (userId) {
+      try {
+        const resolved = await this.toolKeyResolver.resolveToolKey(
+          "googleTts",
+          userId,
+        );
+        return resolved?.value ?? undefined;
+      } catch (error) {
+        if (error instanceof NoToolKeyError) return undefined;
+        throw error;
+      }
+    }
+    return this.configService.get<string>("GOOGLE_TTS_API_KEY");
+  }
+
+  /**
+   * Check if TTS is available (async; resolves at call time)
+   */
+  async isAvailableAsync(): Promise<boolean> {
+    const [el, goog] = await Promise.all([
+      this.resolveElevenLabsKey(),
+      this.resolveGoogleTtsKey(),
+    ]);
+    return !!(el || goog);
+  }
+
+  /**
+   * Check if TTS is available (synchronous legacy; reads env only, no BYOK)
    */
   isAvailable(): boolean {
-    return !!(this.elevenLabsApiKey || this.googleTTSApiKey);
+    return !!(
+      this.configService.get<string>("ELEVENLABS_API_KEY") ||
+      this.configService.get<string>("GOOGLE_TTS_API_KEY")
+    );
   }
 
   /**
-   * Get available TTS provider
+   * Get available TTS provider (synchronous legacy; reads env only, no BYOK)
    */
   getProvider(): "elevenlabs" | "google" | "none" {
-    if (this.elevenLabsApiKey) return "elevenlabs";
-    if (this.googleTTSApiKey) return "google";
+    if (this.configService.get<string>("ELEVENLABS_API_KEY")) return "elevenlabs";
+    if (this.configService.get<string>("GOOGLE_TTS_API_KEY")) return "google";
     return "none";
   }
 
@@ -57,24 +119,28 @@ export class ResearchProjectTTSService {
   async generateAudio(
     script: AudioOverviewScript,
   ): Promise<{ audioUrl: string; duration: number } | null> {
-    const provider = this.getProvider();
+    const elevenLabsKey = await this.resolveElevenLabsKey();
+    const googleTtsKey = elevenLabsKey
+      ? undefined
+      : await this.resolveGoogleTtsKey();
 
-    if (provider === "none") {
+    if (!elevenLabsKey && !googleTtsKey) {
       this.logger.warn(
         "No TTS provider configured. Set ELEVENLABS_API_KEY or GOOGLE_TTS_API_KEY.",
       );
       return null;
     }
 
+    const provider = elevenLabsKey ? "elevenlabs" : "google";
     this.logger.log(
       `Generating audio with ${provider} for ${script.script.segments.length} segments`,
     );
 
     try {
-      if (provider === "elevenlabs") {
-        return this.generateWithElevenLabs(script);
-      } else if (provider === "google") {
-        return this.generateWithGoogleTTS(script);
+      if (elevenLabsKey) {
+        return this.generateWithElevenLabs(script, elevenLabsKey);
+      } else if (googleTtsKey) {
+        return this.generateWithGoogleTTS(script, googleTtsKey);
       }
     } catch (error) {
       this.logger.error(`TTS generation failed: ${error}`);
@@ -89,8 +155,8 @@ export class ResearchProjectTTSService {
    */
   private async generateWithElevenLabs(
     script: AudioOverviewScript,
+    apiKey: string,
   ): Promise<{ audioUrl: string; duration: number } | null> {
-    if (!this.elevenLabsApiKey) return null;
 
     // Voice IDs for different hosts
     const voices = {
@@ -113,7 +179,7 @@ export class ResearchProjectTTSService {
             headers: {
               Accept: "audio/mpeg",
               "Content-Type": "application/json",
-              "xi-api-key": this.elevenLabsApiKey,
+              "xi-api-key": apiKey,
             },
             body: JSON.stringify({
               text: segment.text,
@@ -158,8 +224,8 @@ export class ResearchProjectTTSService {
    */
   private async generateWithGoogleTTS(
     script: AudioOverviewScript,
+    apiKey: string,
   ): Promise<{ audioUrl: string; duration: number } | null> {
-    if (!this.googleTTSApiKey) return null;
 
     // Voice configurations for different hosts
     const voices = {
@@ -184,7 +250,7 @@ export class ResearchProjectTTSService {
 
       try {
         const response = await fetch(
-          `https://texttospeech.googleapis.com/v1/text:synthesize?key=${this.googleTTSApiKey}`,
+          `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
           {
             method: "POST",
             headers: {

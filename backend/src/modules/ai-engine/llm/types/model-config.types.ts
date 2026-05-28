@@ -56,6 +56,12 @@ export interface AIModelConfig {
   apiEndpoint: string;
   apiKey: string | null;
   secretKey?: string | null; // 引用 Secret Manager 中的密钥名称
+  /**
+   * 2026-05-28 BYOK：用户为该模型显式指定的 UserApiKey.id。
+   * runtime resolveApiKey 会用这把具体的 Key 解析；null = 按 provider 默认解析
+   * （用户 personal key 中 label 字典序第一）。
+   */
+  apiKeyId?: string | null;
   maxTokens: number;
   temperature: number;
   isEnabled: boolean;

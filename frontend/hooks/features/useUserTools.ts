@@ -1,5 +1,8 @@
+import { useCallback, useState } from 'react';
 import { useApiGet } from '@/hooks/core';
 import { apiClient } from '@/lib/api/client';
+import { toast } from '@/stores';
+import { useTranslation } from '@/lib/i18n';
 
 export interface UserToolItem {
   toolId: string;
@@ -16,10 +19,42 @@ interface UserToolsResponse {
   items: UserToolItem[];
 }
 
+interface TestKeyResult {
+  success: boolean;
+  message: string;
+  testedAt: string;
+}
+
 export function useUserTools() {
+  const { t } = useTranslation();
   const { data, loading, error, execute } = useApiGet<UserToolsResponse>(
     '/user/tools',
     { immediate: true }
+  );
+  const [testingToolId, setTestingToolId] = useState<string | null>(null);
+
+  /** 测试工具 Key（通过 secret id 调 /user/secrets/secret/:id/test）。 */
+  const testToolKey = useCallback(
+    async (secretId: string): Promise<void> => {
+      setTestingToolId(secretId);
+      try {
+        const res = await apiClient.post<TestKeyResult>(
+          `/user/secrets/secret/${secretId}/test`
+        );
+        if (res.success) {
+          toast.success(t('me.apiKeys.testSuccess'));
+        } else {
+          toast.error(
+            res.message || t('me.apiKeys.testFailed')
+          );
+        }
+      } catch (err) {
+        toast.error((err as Error).message || t('me.apiKeys.testFailed'));
+      } finally {
+        setTestingToolId(null);
+      }
+    },
+    [t]
   );
 
   return {
@@ -27,6 +62,8 @@ export function useUserTools() {
     loading,
     error,
     refresh: execute,
+    testToolKey,
+    testingToolId,
   };
 }
 

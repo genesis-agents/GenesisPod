@@ -13,6 +13,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { SemanticScholarSearchTool } from "../semantic-scholar-search.tool";
 import { PolicyDataService } from "../../policy/policy-data.service";
+import { ToolKeyResolverService } from "@/modules/ai-infra/facade";
+import { RequestContext } from "@/common/context/request-context";
 import { ToolContext } from "../../../../abstractions/tool.interface";
 
 jest.useFakeTimers();
@@ -58,6 +60,10 @@ function createMockPolicyDataService(): jest.Mocked<PolicyDataServiceMock> {
   };
 }
 
+const mockToolKeyResolverService = {
+  resolveToolKey: jest.fn().mockResolvedValue(null),
+};
+
 function resetStaticState() {
   (SemanticScholarSearchTool as unknown as Record<string, unknown>)[
     "cooldownUntil"
@@ -80,12 +86,19 @@ describe("SemanticScholarSearchTool (extended coverage)", () => {
 
   beforeEach(async () => {
     resetStaticState();
+    // Default: no userId (system path)
+    jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
+    mockToolKeyResolverService.resolveToolKey.mockResolvedValue(null);
     mockPolicyDataService = createMockPolicyDataService();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SemanticScholarSearchTool,
         { provide: PolicyDataService, useValue: mockPolicyDataService },
+        {
+          provide: ToolKeyResolverService,
+          useValue: mockToolKeyResolverService,
+        },
       ],
     }).compile();
     tool = module.get<SemanticScholarSearchTool>(SemanticScholarSearchTool);
@@ -259,14 +272,11 @@ describe("SemanticScholarSearchTool (extended coverage)", () => {
         makeContext(),
       );
 
-      // Advance through all retry backoffs (3 retries with exponential backoff)
-      // retry 0: attempt=0, backoff = 2^1 * 1000 + random (up to 5000ms)
-      // retry 1: attempt=1, backoff = 2^2 * 1000 + random (up to 7000ms)
-      // retry 2: attempt=2, backoff = 2^3 * 1000 + random (up to 11000ms)
-      for (let i = 0; i < 10; i++) {
-        jest.advanceTimersByTime(15000);
-        await Promise.resolve();
-      }
+      // Advance through all retry backoffs (3 retries, cumulative backoff ~23s max).
+      // advanceTimersByTimeAsync 在每个定时器回调之间自动冲刷微任务，async 退避链
+      // 才能逐级推进。只推进 40s：足够耗尽 3 次退避，又不超过随后设置的 ~60s
+      // cooldown（推太多会让 Date.now() 越过 cooldownUntil，断言失败）。
+      await jest.advanceTimersByTimeAsync(40000);
 
       const result = await executePromise;
       expect(result.success).toBe(true);

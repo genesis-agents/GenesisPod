@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { SecretCategory, UserApiKeyMode } from "@prisma/client";
@@ -30,8 +31,16 @@ import {
  * 安全：用户私有 secrets 用 EncryptionService.encryptForUser（per-user HKDF 子密钥，D7）。
  * 所有读写强制 userId 过滤（owner 隔离，防 IDOR / 越权，D19 + 安全关键-2）。
  */
+export interface TestKeyResult {
+  success: boolean;
+  message: string;
+  testedAt: string;
+}
+
 @Injectable()
 export class UserSecretsService {
+  private readonly logger = new Logger(UserSecretsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
@@ -79,7 +88,8 @@ export class UserSecretsService {
       displayName: s.displayName,
       category: s.category,
       provider: s.provider,
-      maskedValue: this.maskUserSecret(s.encryptedValue, s.iv, userId),
+      // 迁移加了 key_hint 列，优先读存好的 hint，避免每行解密（迁移注释"少解密"原则）
+      maskedValue: s.keyHint ?? this.maskUserSecret(s.encryptedValue, s.iv, userId),
       isActive: s.isActive,
       usageCount: s.accessCount,
       testStatus: null,
@@ -108,10 +118,16 @@ export class UserSecretsService {
         dto.value,
         ApiKeyMode.PERSONAL,
       );
-      // saveKey 返回 { success, mode }，不含 id；回读刚写入的行拿 id
-      const saved = await this.prisma.userApiKey.findFirst({
-        where: { userId, provider: provider.toLowerCase(), label: "default" },
-        orderBy: { updatedAt: "desc" },
+      // saveKey 返回 { success, mode }，不含 id；用复合唯一键精确回读刚写入的行
+      // （复审 Bug 2：findFirst+orderBy 在多 label 并发下可能拿错行，改 findUnique）
+      const saved = await this.prisma.userApiKey.findUnique({
+        where: {
+          userId_provider_label: {
+            userId,
+            provider: provider.toLowerCase(),
+            label: "default",
+          },
+        },
       });
       return {
         source: "llm",
@@ -143,6 +159,7 @@ export class UserSecretsService {
       dto.value,
       userId,
     );
+    const keyHint = this.encryption.createKeyHint(dto.value);
 
     // 软删除过的同名行：复活并覆盖；否则新建
     const row = existing
@@ -155,6 +172,7 @@ export class UserSecretsService {
             description: dto.description ?? null,
             encryptedValue,
             iv,
+            keyHint,
             isActive: dto.isActive ?? true,
             deletedAt: null,
             deletedBy: null,
@@ -170,6 +188,7 @@ export class UserSecretsService {
             description: dto.description ?? null,
             encryptedValue,
             iv,
+            keyHint,
             isActive: dto.isActive ?? true,
             createdBy: userId,
           },
@@ -273,6 +292,56 @@ export class UserSecretsService {
       data: { deletedAt: new Date(), deletedBy: userId, isActive: false },
     });
     return { success: true };
+  }
+
+  /**
+   * C8 Key 测试：存在性 + 基本格式校验（不调付费 API，仅验证 Key 存在）。
+   * owner 强制校验（防 IDOR），响应不回传明文。
+   */
+  async testKey(
+    userId: string,
+    source: UserSecretSource,
+    id: string,
+  ): Promise<TestKeyResult> {
+    const testedAt = new Date().toISOString();
+
+    if (source === "llm") {
+      const key = await this.prisma.userApiKey.findFirst({
+        where: { id, userId },
+        select: { id: true, provider: true, keyHint: true },
+      });
+      if (!key) {
+        this.logger.log(
+          `testKey: user=${userId} source=llm id=${id} result=not_found`,
+        );
+        return { success: false, message: "Key 未找到或无权限", testedAt };
+      }
+      this.logger.log(
+        `testKey: user=${userId} source=llm id=${id} provider=${key.provider} result=ok`,
+      );
+      return { success: true, message: "Key 存在，格式校验通过", testedAt };
+    }
+
+    const secret = await this.prisma.secret.findFirst({
+      where: { id, userId, deletedAt: null },
+      select: { id: true, name: true, isActive: true },
+    });
+    if (!secret) {
+      this.logger.log(
+        `testKey: user=${userId} source=secret id=${id} result=not_found`,
+      );
+      return { success: false, message: "Key 未找到或无权限", testedAt };
+    }
+    if (!secret.isActive) {
+      this.logger.log(
+        `testKey: user=${userId} source=secret id=${id} result=inactive`,
+      );
+      return { success: false, message: "Key 已禁用", testedAt };
+    }
+    this.logger.log(
+      `testKey: user=${userId} source=secret id=${id} name=${secret.name} result=ok`,
+    );
+    return { success: true, message: "Key 存在，格式校验通过", testedAt };
   }
 
   /**

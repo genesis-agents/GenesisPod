@@ -26,6 +26,7 @@ describe("KeyResolverService", () => {
     };
     userApiKeys = {
       getPersonalKey: jest.fn().mockResolvedValue(null),
+      getPersonalKeyById: jest.fn().mockResolvedValue(null),
       getAvailableProviders: jest.fn().mockResolvedValue([]),
     };
     assignments = {
@@ -102,6 +103,42 @@ describe("KeyResolverService", () => {
         });
         const r = await service.resolveKey("admin", "openai");
         expect(r.source).toBe("ASSIGNED");
+      });
+    });
+
+    // ★ 2026-05-28 BYOK：UserModelConfig.apiKeyId honoring（preferredKeyId）
+    describe("preferredKeyId（用户为模型选定的具体 Key）", () => {
+      it("uses the specific key when preferredKeyId resolves", async () => {
+        (userApiKeys.getPersonalKeyById as jest.Mock).mockResolvedValueOnce({
+          apiKey: "sk-specific",
+          apiEndpoint: "https://ep",
+          label: "prod",
+          provider: "openai",
+          preferredModelId: null,
+        });
+        const r = await service.resolveKey("u", "openai", {
+          preferredKeyId: "uak-123",
+        });
+        expect(r.source).toBe("PERSONAL");
+        expect(r.apiKey).toBe("sk-specific");
+        expect(r.label).toBe("prod");
+        // 命中具体 key 时不再走 provider 级默认挑选
+        expect(userApiKeys.getPersonalKey).not.toHaveBeenCalled();
+      });
+
+      it("falls back to provider-level personal key when preferredKeyId not resolvable", async () => {
+        (userApiKeys.getPersonalKeyById as jest.Mock).mockResolvedValueOnce(null);
+        (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValueOnce({
+          apiKey: "sk-fallback",
+          apiEndpoint: null,
+          label: "default",
+        });
+        const r = await service.resolveKey("u", "openai", {
+          preferredKeyId: "deleted-key",
+        });
+        expect(r.source).toBe("PERSONAL");
+        expect(r.apiKey).toBe("sk-fallback");
+        expect(userApiKeys.getPersonalKey).toHaveBeenCalled();
       });
     });
 

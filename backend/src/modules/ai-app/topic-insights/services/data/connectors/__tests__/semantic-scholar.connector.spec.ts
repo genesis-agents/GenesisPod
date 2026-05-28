@@ -1,7 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/ai-infra/facade";
+import { SecretsService, ToolKeyResolverService } from "@/modules/ai-infra/facade";
+import { RequestContext } from "@/common/context/request-context";
 import { SemanticScholarConnector } from "../semantic-scholar.connector";
 import { DataSourceType } from "../../../../types/data-source.types";
 
@@ -22,6 +23,10 @@ const mockSecretsService = {
   getValue: jest.fn().mockResolvedValue(null),
 };
 
+const mockToolKeyResolverService = {
+  resolveToolKey: jest.fn().mockResolvedValue(null),
+};
+
 describe("SemanticScholarConnector", () => {
   let connector: SemanticScholarConnector;
 
@@ -30,6 +35,9 @@ describe("SemanticScholarConnector", () => {
     mockConfigService.get.mockReturnValue(undefined);
     mockPrismaService.toolConfig.findUnique.mockResolvedValue(null);
     mockSecretsService.getValue.mockResolvedValue(null);
+    mockToolKeyResolverService.resolveToolKey.mockResolvedValue(null);
+    // Default: no userId (system path)
+    jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -37,6 +45,10 @@ describe("SemanticScholarConnector", () => {
         { provide: ConfigService, useValue: mockConfigService },
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: SecretsService, useValue: mockSecretsService },
+        {
+          provide: ToolKeyResolverService,
+          useValue: mockToolKeyResolverService,
+        },
       ],
     }).compile();
 
@@ -270,6 +282,10 @@ describe("SemanticScholarConnector", () => {
           { provide: ConfigService, useValue: mockConfigService },
           { provide: PrismaService, useValue: mockPrismaService },
           { provide: SecretsService, useValue: mockSecretsService },
+          {
+            provide: ToolKeyResolverService,
+            useValue: mockToolKeyResolverService,
+          },
         ],
       }).compile();
 
@@ -369,6 +385,10 @@ describe("SemanticScholarConnector", () => {
           { provide: ConfigService, useValue: mockConfigService },
           { provide: PrismaService, useValue: mockPrismaService },
           { provide: SecretsService, useValue: mockSecretsService },
+          {
+            provide: ToolKeyResolverService,
+            useValue: mockToolKeyResolverService,
+          },
         ],
       }).compile();
 
@@ -453,6 +473,10 @@ describe("SemanticScholarConnector", () => {
           { provide: ConfigService, useValue: mockConfigService },
           { provide: PrismaService, useValue: mockPrismaService },
           { provide: SecretsService, useValue: mockSecretsService },
+          {
+            provide: ToolKeyResolverService,
+            useValue: mockToolKeyResolverService,
+          },
         ],
       }).compile();
 
@@ -468,6 +492,45 @@ describe("SemanticScholarConnector", () => {
       expect(
         (callOptions.headers as Record<string, string>)?.["x-api-key"],
       ).toBe("is-available-key");
+    });
+
+    it("should use BYOK key when userId is present", async () => {
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue("user-byok");
+      mockToolKeyResolverService.resolveToolKey.mockResolvedValue({
+        value: "byok-ss-key",
+        source: "user",
+        secretName: "semantic-scholar-api-key",
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ data: [] }),
+      });
+
+      await connector.search("test", 5);
+
+      expect(mockToolKeyResolverService.resolveToolKey).toHaveBeenCalledWith(
+        "semantic-scholar",
+        "user-byok",
+      );
+      const callOptions = mockFetch.mock.calls[0][1] as RequestInit;
+      expect(
+        (callOptions.headers as Record<string, string>)?.["x-api-key"],
+      ).toBe("byok-ss-key");
+    });
+
+    it("falls back to admin path when no userId is present", async () => {
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
+      mockConfigService.get.mockReturnValue("admin-ss-key");
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ data: [] }),
+      });
+
+      await connector.search("test", 5);
+
+      expect(mockToolKeyResolverService.resolveToolKey).not.toHaveBeenCalled();
     });
   });
 });

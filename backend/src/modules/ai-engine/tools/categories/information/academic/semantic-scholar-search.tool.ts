@@ -15,6 +15,11 @@ import {
 } from "../../../abstractions/tool.interface";
 import { PolicyDataService } from "../policy/policy-data.service";
 import {
+  ToolKeyResolverService,
+  NoToolKeyError,
+} from "@/modules/ai-infra/facade";
+import { RequestContext } from "@/common/context/request-context";
+import {
   resolveEffectiveTimeRange,
   resolveSearchTimeRangeYearWindow,
   SEARCH_TIME_RANGE_VALUES,
@@ -215,8 +220,34 @@ export class SemanticScholarSearchTool extends BaseTool<
     },
   };
 
-  constructor(private readonly policyDataService: PolicyDataService) {
+  constructor(
+    private readonly policyDataService: PolicyDataService,
+    private readonly toolKeyResolver: ToolKeyResolverService,
+  ) {
     super();
+  }
+
+  /**
+   * Resolve API key for Semantic Scholar.
+   *
+   * 2026-05-28 BYOK: userId present → ToolKeyResolver (user key → grant →
+   * strict/fallback). No userId → admin path via PolicyDataService.
+   */
+  private async resolveApiKey(): Promise<string | null> {
+    const userId = RequestContext.getUserId();
+    if (userId) {
+      try {
+        const resolved = await this.toolKeyResolver.resolveToolKey(
+          "semantic-scholar",
+          userId,
+        );
+        return resolved?.value ?? null;
+      } catch (error) {
+        if (error instanceof NoToolKeyError) return null;
+        throw error;
+      }
+    }
+    return this.policyDataService.getApiKey("semantic-scholar");
   }
 
   protected async doExecute(
@@ -239,7 +270,7 @@ export class SemanticScholarSearchTool extends BaseTool<
     );
 
     // 获取 API Key（可选，hoisted for catch block access）
-    const apiKey = await this.policyDataService.getApiKey("semantic-scholar");
+    const apiKey = await this.resolveApiKey();
 
     try {
       // 构建请求参数

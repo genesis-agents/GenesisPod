@@ -87,9 +87,15 @@ export interface TTSResult {
  */
 export interface ITTSService {
   /**
-   * 检查 TTS 服务是否可用
+   * 检查 TTS 服务是否可用（同步，仅看 env/admin；不含 BYOK 用户 Key）
    */
   isAvailable(): boolean;
+
+  /**
+   * 2026-05-28 BYOK：在当前用户上下文下检查是否可用（含用户 BYOK Key 解析）。
+   * 工具门控应优先用它，否则只配 BYOK Key 无 env 的用户会被同步检查误拦。
+   */
+  isAvailableAsync(): Promise<boolean>;
 
   /**
    * 获取当前 TTS 提供商

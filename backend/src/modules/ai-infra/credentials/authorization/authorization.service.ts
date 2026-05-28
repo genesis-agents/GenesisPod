@@ -40,6 +40,7 @@ export class AuthorizationService {
         userId,
         type: dto.type,
         targetId: dto.targetId,
+        category: dto.category ?? null,
         reason: dto.reason ?? null,
       },
     });
@@ -144,15 +145,18 @@ export class AuthorizationService {
     });
   }
 
-  /** 撤销已生效授权。 */
-  async revokeGrant(grantId: string) {
+  /** 撤销已生效授权（幂等防御：已撤销的不重复覆盖 revokedAt，保护审计时间）。 */
+  async revokeGrant(grantId: string, adminId?: string) {
     const grant = await this.prisma.authorizationGrant.findUnique({
       where: { id: grantId },
     });
     if (!grant) throw new NotFoundException("授权不存在");
+    if (grant.revokedAt) {
+      throw new BadRequestException("该授权已撤销");
+    }
     await this.prisma.authorizationGrant.update({
       where: { id: grantId },
-      data: { revokedAt: new Date() },
+      data: { revokedAt: new Date(), revokedBy: adminId ?? null },
     });
     return { success: true };
   }

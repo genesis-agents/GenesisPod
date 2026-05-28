@@ -17,6 +17,7 @@ describe("UserSecretsService", () => {
     };
     userApiKey: {
       findFirst: jest.Mock;
+      findUnique: jest.Mock;
       findMany: jest.Mock;
       update: jest.Mock;
     };
@@ -38,6 +39,7 @@ describe("UserSecretsService", () => {
       },
       userApiKey: {
         findFirst: jest.fn(),
+        findUnique: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
       },
@@ -67,7 +69,7 @@ describe("UserSecretsService", () => {
 
   describe("create — 铁律 1：按 category 分流", () => {
     it("AI_MODEL 写 user_api_keys（不落 secrets 表）", async () => {
-      prisma.userApiKey.findFirst.mockResolvedValue({
+      prisma.userApiKey.findUnique.mockResolvedValue({
         id: "uak-1",
         provider: "openai",
         keyHint: "sk-...1234",
@@ -190,6 +192,53 @@ describe("UserSecretsService", () => {
       prisma.secret.findFirst.mockResolvedValue(null);
       const val = await service.getUserSecretValue("tavily", "user-2");
       expect(val).toBeNull();
+    });
+  });
+
+  describe("testKey — C8 Key 测试", () => {
+    it("llm source: Key 存在 → success=true", async () => {
+      prisma.userApiKey.findFirst.mockResolvedValue({
+        id: "uak-1",
+        provider: "openai",
+        keyHint: "sk-...1234",
+      });
+      const res = await service.testKey("user-1", "llm", "uak-1");
+      expect(res.success).toBe(true);
+      expect(res.testedAt).toBeTruthy();
+    });
+
+    it("llm source: Key 不属于该用户 → success=false, 不抛错", async () => {
+      prisma.userApiKey.findFirst.mockResolvedValue(null);
+      const res = await service.testKey("user-1", "llm", "other-uak");
+      expect(res.success).toBe(false);
+      expect(res.message).toContain("未找到");
+    });
+
+    it("secret source: Key 存在且启用 → success=true", async () => {
+      prisma.secret.findFirst.mockResolvedValue({
+        id: "sec-1",
+        name: "tavily-key",
+        isActive: true,
+      });
+      const res = await service.testKey("user-1", "secret", "sec-1");
+      expect(res.success).toBe(true);
+    });
+
+    it("secret source: Key 存在但已禁用 → success=false", async () => {
+      prisma.secret.findFirst.mockResolvedValue({
+        id: "sec-1",
+        name: "tavily-key",
+        isActive: false,
+      });
+      const res = await service.testKey("user-1", "secret", "sec-1");
+      expect(res.success).toBe(false);
+      expect(res.message).toContain("禁用");
+    });
+
+    it("secret source: Key 不属于该用户 → success=false, 不抛错", async () => {
+      prisma.secret.findFirst.mockResolvedValue(null);
+      const res = await service.testKey("user-1", "secret", "other-sec");
+      expect(res.success).toBe(false);
     });
   });
 

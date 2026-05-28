@@ -3,6 +3,8 @@ import { NotFoundException } from "@nestjs/common";
 import { YoutubeService, TranscriptSegment } from "../youtube.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SystemSettingService } from "@/common/settings/system-setting.service";
+import { ToolKeyResolverService } from "@/modules/ai-infra/facade";
+import { RequestContext } from "@/common/context/request-context";
 
 // Mock external fetch globally
 const mockFetch = jest.fn();
@@ -27,17 +29,27 @@ const mockSystemSettingService = {
   getYoutubeApiKey: jest.fn(),
 };
 
+const mockToolKeyResolverService = {
+  resolveToolKey: jest.fn(),
+};
+
 describe("YoutubeService", () => {
   let service: YoutubeService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Default: no userId (system path)
+    jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         YoutubeService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: SystemSettingService, useValue: mockSystemSettingService },
+        {
+          provide: ToolKeyResolverService,
+          useValue: mockToolKeyResolverService,
+        },
       ],
     }).compile();
 
@@ -47,6 +59,7 @@ describe("YoutubeService", () => {
     mockPrismaService.youTubeTranscriptCache.findUnique.mockResolvedValue(null);
     // Default: no Supadata key
     mockSystemSettingService.getYoutubeApiKey.mockResolvedValue(null);
+    mockToolKeyResolverService.resolveToolKey.mockResolvedValue(null);
   });
 
   // ─── extractVideoId ──────────────────────────────────────────────
@@ -1137,6 +1150,91 @@ describe("YoutubeService", () => {
       await expect(
         service.cacheTranscript("vidErr", "Title", [], "en"),
       ).resolves.toBeUndefined();
+    });
+  });
+
+  // ─── BYOK: getSupadataApiKey – ToolKeyResolver path ─────────────────────────
+
+  describe("getSupadataApiKey – BYOK userId path", () => {
+    it("uses ToolKeyResolverService when userId is present", async () => {
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue("user-123");
+      mockToolKeyResolverService.resolveToolKey.mockResolvedValue({
+        value: "byok-supadata-key",
+        source: "user",
+        secretName: "supadata-api-key",
+      });
+
+      const supadataResult = {
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          content: [{ text: "BYOK segment", offset: 1000, duration: 2000 }],
+          lang: "en",
+          availableLangs: ["en"],
+        }),
+      };
+      const oEmbedResult = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({ title: "BYOK Video" }),
+      };
+
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes("supadata.ai")) return Promise.resolve(supadataResult);
+        if (url.includes("oembed")) return Promise.resolve(oEmbedResult);
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: jest.fn().mockResolvedValue(""),
+        });
+      });
+
+      mockPrismaService.youTubeTranscriptCache.upsert.mockResolvedValue({});
+
+      const result = await service.getTranscript("byokVid", "en");
+
+      expect(mockToolKeyResolverService.resolveToolKey).toHaveBeenCalledWith(
+        "supadata",
+        "user-123",
+      );
+      expect(result.transcript[0].text).toBe("BYOK segment");
+    });
+
+    it("falls back to admin path when no userId is present", async () => {
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
+      mockSystemSettingService.getYoutubeApiKey.mockResolvedValue("admin-key");
+
+      const supadataResult = {
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          content: [{ text: "Admin segment", offset: 500, duration: 1000 }],
+          lang: "en",
+          availableLangs: ["en"],
+        }),
+      };
+      const oEmbedResult = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({ title: "Admin Video" }),
+      };
+
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes("supadata.ai")) return Promise.resolve(supadataResult);
+        if (url.includes("oembed")) return Promise.resolve(oEmbedResult);
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: jest.fn().mockResolvedValue(""),
+        });
+      });
+
+      mockPrismaService.youTubeTranscriptCache.upsert.mockResolvedValue({});
+
+      await service.getTranscript("adminVid", "en");
+
+      expect(mockToolKeyResolverService.resolveToolKey).not.toHaveBeenCalled();
+      expect(mockSystemSettingService.getYoutubeApiKey).toHaveBeenCalledWith(
+        "supadata",
+      );
     });
   });
 

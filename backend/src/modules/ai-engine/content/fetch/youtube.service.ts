@@ -1,6 +1,11 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SystemSettingService } from "@/common/settings/system-setting.service";
+import {
+  ToolKeyResolverService,
+  NoToolKeyError,
+} from "@/modules/ai-infra/facade";
+import { RequestContext } from "@/common/context/request-context";
 import { Prisma } from "@prisma/client";
 
 type YoutubeModule = typeof import("youtubei.js");
@@ -46,6 +51,7 @@ export class YoutubeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly systemSettingService: SystemSettingService,
+    private readonly toolKeyResolver: ToolKeyResolverService,
   ) {}
 
   async onModuleInit() {
@@ -70,12 +76,30 @@ export class YoutubeService {
   }
 
   /**
-   * Get Supadata API key from database settings
-   * Falls back to environment variable for backward compatibility
+   * Get Supadata API key.
+   *
+   * 2026-05-28 BYOK: when a userId is in the request context, resolve via
+   * ToolKeyResolverService (user key → grant → strict/fallback).
+   * Without userId (system/background tasks) fall back to admin paths:
+   * SystemSettingService DB key → SUPADATA_API_KEY env var.
    */
   private async getSupadataApiKey(): Promise<string | null> {
+    const userId = RequestContext.getUserId();
+    if (userId) {
+      try {
+        const resolved = await this.toolKeyResolver.resolveToolKey(
+          "supadata",
+          userId,
+        );
+        return resolved?.value ?? null;
+      } catch (error) {
+        if (error instanceof NoToolKeyError) return null;
+        throw error;
+      }
+    }
+
+    // No userId — admin/system path
     try {
-      // Try database first
       const dbKey =
         await this.systemSettingService.getYoutubeApiKey("supadata");
       if (dbKey) {
@@ -85,9 +109,7 @@ export class YoutubeService {
       this.logger.debug(`Failed to get Supadata key from database: ${error}`);
     }
 
-    // Fall back to environment variable
-    const envKey = process.env.SUPADATA_API_KEY;
-    return envKey || null;
+    return process.env.SUPADATA_API_KEY ?? null;
   }
 
   /**

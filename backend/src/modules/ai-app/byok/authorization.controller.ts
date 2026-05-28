@@ -93,7 +93,7 @@ export class AdminAuthorizationController {
   }
 
   @Delete("grants/:id")
-  async revoke(@Param("id") id: string) {
-    return this.authorization.revokeGrant(id);
+  async revoke(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.authorization.revokeGrant(id, req.user.id);
   }
 }

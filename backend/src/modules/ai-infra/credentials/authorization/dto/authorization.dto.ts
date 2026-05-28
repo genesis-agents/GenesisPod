@@ -25,6 +25,15 @@ export class CreateAuthorizationRequestDto {
   @MaxLength(200)
   targetId!: string;
 
+  @ApiPropertyOptional({
+    description: "仅 KEY_ASSIGNMENT 用：申请的 Key 类别（SecretCategory 值）",
+    example: "SEARCH",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  category?: string;
+
   @ApiPropertyOptional({ description: "申请理由" })
   @IsOptional()
   @IsString()

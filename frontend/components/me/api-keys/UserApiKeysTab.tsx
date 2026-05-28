@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Key, Pencil, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { FlaskConical, Key, Pencil, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { confirm } from '@/stores';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
@@ -379,6 +379,8 @@ export function UserApiKeysTab() {
     updateSecret,
     deleteSecret,
     requestSystemKey,
+    testSecret,
+    testingId,
   } = useUserSecrets();
 
   const [search, setSearch] = useState('');
@@ -521,6 +523,8 @@ export function UserApiKeysTab() {
                   item={item}
                   onEdit={() => setEditingItem(item)}
                   onDelete={() => void handleDelete(item)}
+                  onTest={() => void testSecret(item.source, item.id)}
+                  isTesting={testingId === item.id}
                 />
               ))
             )}
@@ -560,10 +564,14 @@ function SecretRow({
   item,
   onEdit,
   onDelete,
+  onTest,
+  isTesting,
 }: {
   item: UserSecretItem;
   onEdit: () => void;
   onDelete: () => void;
+  onTest: () => void;
+  isTesting: boolean;
 }) {
   const { t } = useTranslation();
 
@@ -615,17 +623,29 @@ function SecretRow({
       {/* Actions */}
       <Td className="px-4 py-2.5 text-right">
         <div className="flex items-center justify-end gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onTest}
+            disabled={isTesting}
+            title={t('me.apiKeys.test')}
+          >
+            <FlaskConical className="h-3.5 w-3.5" />
+            <span className="ml-1 hidden sm:inline">
+              {isTesting ? t('me.apiKeys.testing') : t('me.apiKeys.test')}
+            </span>
+          </Button>
           <button
             onClick={onEdit}
             className="rounded p-1.5 hover:bg-gray-100"
-            title="Edit"
+            title={t('me.apiKeys.editTitle')}
           >
             <Pencil className="h-4 w-4 text-gray-500" />
           </button>
           <button
             onClick={onDelete}
             className="rounded p-1.5 hover:bg-red-50"
-            title="Delete"
+            title={t('me.apiKeys.deleteConfirmTitle')}
           >
             <Trash2 className="h-4 w-4 text-red-500" />
           </button>

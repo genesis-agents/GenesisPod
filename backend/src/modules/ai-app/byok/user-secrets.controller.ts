@@ -72,4 +72,18 @@ export class UserSecretsController {
   ) {
     return this.userSecrets.remove(req.user.id, source, id);
   }
+
+  /**
+   * C8：测试用户自己的 Key 是否存在（每用户每小时限 5 次）。
+   * 仅验证 Key 存在性，不调付费 API，响应不回传明文。
+   */
+  @Throttle({ default: { ttl: 3600000, limit: 5 } })
+  @Post(":source/:id/test")
+  async testKey(
+    @Req() req: AuthenticatedRequest,
+    @Param("source") source: UserSecretSource,
+    @Param("id") id: string,
+  ) {
+    return this.userSecrets.testKey(req.user.id, source, id);
+  }
 }

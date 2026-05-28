@@ -575,6 +575,46 @@ export class UserApiKeysService {
   }
 
   /**
+   * 2026-05-28 BYOK：按 UserApiKey.id 精确取一把用户 PERSONAL key（解密后）。
+   * 供 KeyResolver 在 UserModelConfig.apiKeyId 指定了具体 key 时使用。
+   * 校验：归属当前用户 + active + PERSONAL；传 provider 时再校验 provider 匹配。
+   * 任一不满足或解密失败返回 null（调用方据此退回 provider 级解析）。
+   */
+  async getPersonalKeyById(
+    userId: string,
+    id: string,
+    provider?: string,
+  ): Promise<{
+    apiKey: string;
+    apiEndpoint?: string | null;
+    preferredModelId?: string | null;
+    label: string;
+    provider: string;
+  } | null> {
+    const key = await this.prisma.userApiKey.findFirst({
+      where: {
+        id,
+        userId,
+        mode: UserApiKeyMode.PERSONAL,
+        isActive: true,
+      },
+    });
+    if (!key) return null;
+    if (provider && key.provider.toLowerCase() !== provider.toLowerCase()) {
+      return null;
+    }
+    const decrypted = this.decrypt(key.encryptedValue, key.iv);
+    if (!decrypted) return null;
+    return {
+      apiKey: decrypted,
+      apiEndpoint: key.apiEndpoint,
+      preferredModelId: key.preferredModelId,
+      label: key.label,
+      provider: key.provider,
+    };
+  }
+
+  /**
    * 使用户 API Key 缓存失效
    * 当用户更新、删除 Key 时调用
    */

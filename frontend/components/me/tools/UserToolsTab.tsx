@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Search, Wrench, KeyRound, SendHorizonal, Check } from 'lucide-react';
+import { FlaskConical, Search, Wrench, KeyRound, SendHorizonal, Check } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { apiClient } from '@/lib/api/client';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
@@ -16,6 +16,7 @@ import {
   requestToolGrant,
   type UserToolItem,
 } from '@/hooks/features/useUserTools';
+import { useUserSecrets } from '@/hooks/features/useUserSecrets';
 
 // category string → SecretCategory enum value used in POST /user/secrets
 const CATEGORY_MAP: Record<string, string> = {
@@ -215,9 +216,11 @@ interface ToolRowProps {
   tool: UserToolItem;
   onConfigureKey: (tool: UserToolItem) => void;
   onRequestGrant: (tool: UserToolItem) => void;
+  onTestKey?: (tool: UserToolItem) => void;
+  isTesting?: boolean;
 }
 
-function ToolRow({ tool, onConfigureKey, onRequestGrant }: ToolRowProps) {
+function ToolRow({ tool, onConfigureKey, onRequestGrant, onTestKey, isTesting }: ToolRowProps) {
   const { t } = useTranslation();
 
   let badgeTone: 'success' | 'info' | 'neutral' | 'warning';
@@ -262,24 +265,37 @@ function ToolRow({ tool, onConfigureKey, onRequestGrant }: ToolRowProps) {
         )}
       </Td>
       <Td className="px-4 py-2.5 text-right">
-        {tool.userConfigurable && !tool.configured && (
-          <button
-            onClick={() => onConfigureKey(tool)}
-            className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
-          >
-            <KeyRound className="h-3.5 w-3.5" />
-            {t('me.tools.action.configureKey')}
-          </button>
-        )}
-        {!tool.granted && !tool.configured && !tool.systemConfigured && (
-          <button
-            onClick={() => onRequestGrant(tool)}
-            className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
-          >
-            <SendHorizonal className="h-3.5 w-3.5" />
-            {t('me.tools.action.requestGrant')}
-          </button>
-        )}
+        <div className="flex items-center justify-end gap-1">
+          {tool.userConfigurable && !tool.configured && (
+            <button
+              onClick={() => onConfigureKey(tool)}
+              className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+              {t('me.tools.action.configureKey')}
+            </button>
+          )}
+          {tool.configured && onTestKey && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onTestKey(tool)}
+              disabled={isTesting}
+            >
+              <FlaskConical className="mr-1 h-3.5 w-3.5" />
+              {isTesting ? t('me.apiKeys.testing') : t('me.apiKeys.test')}
+            </Button>
+          )}
+          {!tool.granted && !tool.configured && !tool.systemConfigured && (
+            <button
+              onClick={() => onRequestGrant(tool)}
+              className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+            >
+              <SendHorizonal className="h-3.5 w-3.5" />
+              {t('me.tools.action.requestGrant')}
+            </button>
+          )}
+        </div>
       </Td>
     </Tr>
   );
@@ -292,6 +308,9 @@ interface CategoryGroupProps {
   tools: UserToolItem[];
   onConfigureKey: (tool: UserToolItem) => void;
   onRequestGrant: (tool: UserToolItem) => void;
+  onTestKey: (tool: UserToolItem) => void;
+  testingSecretId: string | null;
+  secretIdByName: Map<string, string>;
 }
 
 function CategoryGroup({
@@ -299,6 +318,9 @@ function CategoryGroup({
   tools,
   onConfigureKey,
   onRequestGrant,
+  onTestKey,
+  testingSecretId,
+  secretIdByName,
 }: CategoryGroupProps) {
   const { t } = useTranslation();
 
@@ -332,14 +354,19 @@ function CategoryGroup({
             </Tr>
           </THead>
           <TBody className="divide-y divide-gray-200">
-            {tools.map((tool) => (
-              <ToolRow
-                key={tool.toolId}
-                tool={tool}
-                onConfigureKey={onConfigureKey}
-                onRequestGrant={onRequestGrant}
-              />
-            ))}
+            {tools.map((tool) => {
+              const sid = secretIdByName.get(tool.secretName);
+              return (
+                <ToolRow
+                  key={tool.toolId}
+                  tool={tool}
+                  onConfigureKey={onConfigureKey}
+                  onRequestGrant={onRequestGrant}
+                  onTestKey={sid ? onTestKey : undefined}
+                  isTesting={!!sid && testingSecretId === sid}
+                />
+              );
+            })}
           </TBody>
         </Table>
       </div>
@@ -352,11 +379,28 @@ function CategoryGroup({
 export function UserToolsTab() {
   const { t } = useTranslation();
   const { tools, loading, error, refresh } = useUserTools();
+  const { secrets, testSecret, testingId } = useUserSecrets();
   const [search, setSearch] = useState('');
   const [configureTarget, setConfigureTarget] = useState<UserToolItem | null>(
     null
   );
   const [requestTarget, setRequestTarget] = useState<UserToolItem | null>(null);
+
+  // Build a map: secretName → secret id, for cross-referencing configured tool keys
+  const secretIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of secrets) {
+      map.set(s.name, s.id);
+    }
+    return map;
+  }, [secrets]);
+
+  const handleTestKey = (tool: UserToolItem) => {
+    const sid = secretIdByName.get(tool.secretName);
+    if (sid) {
+      void testSecret('secret', sid);
+    }
+  };
 
   const grouped = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -433,6 +477,9 @@ export function UserToolsTab() {
               tools={categoryTools}
               onConfigureKey={setConfigureTarget}
               onRequestGrant={setRequestTarget}
+              onTestKey={handleTestKey}
+              testingSecretId={testingId}
+              secretIdByName={secretIdByName}
             />
           ))}
         </div>

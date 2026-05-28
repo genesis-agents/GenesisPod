@@ -248,15 +248,16 @@ export class AudioGenerationTool extends BaseTool<
       };
     }
 
-    // 检查 TTS 服务是否可用（API key 配置）
-    if (!this.ttsService.isAvailable()) {
+    // 检查 TTS 服务是否可用（含 BYOK 用户 Key；2026-05-28 改用 async 门控，
+    // 否则只配 BYOK Key、无 env 的用户会被同步 isAvailable() 误拦）
+    if (!(await this.ttsService.isAvailableAsync())) {
       return {
         audioUrl: "",
         duration: 0,
         format,
         success: false,
         error:
-          "TTS service not available. Please configure ELEVENLABS_API_KEY or GOOGLE_TTS_API_KEY.",
+          "TTS service not available. Configure a TTS key in 我的工具 (BYOK) or set ELEVENLABS_API_KEY / GOOGLE_TTS_API_KEY.",
       };
     }
 

@@ -56,6 +56,32 @@ export class UserModelConfigsService {
   }
 
   /**
+   * 2026-05-28 BYOK 安全：校验用户绑定的 apiKeyId 确实属于当前用户、且 provider
+   * 匹配。否则用户可填他人的 UserApiKey.id，runtime honor 时会用他人 Key 调 LLM
+   * （横向越权）。仅在 apiKeyId 非空时校验。
+   */
+  private async assertApiKeyOwnership(
+    userId: string,
+    apiKeyId: string,
+    provider: string,
+  ): Promise<void> {
+    const key = await this.prisma.userApiKey.findFirst({
+      where: { id: apiKeyId, userId },
+      select: { provider: true },
+    });
+    if (!key) {
+      throw new BadRequestException(
+        "Selected API key not found or not owned by you",
+      );
+    }
+    if (key.provider.toLowerCase() !== provider.toLowerCase()) {
+      throw new BadRequestException(
+        `Selected API key belongs to provider "${key.provider}", not "${provider}"`,
+      );
+    }
+  }
+
+  /**
    * 2026-05-11 P2: apiFormat 兜底从硬编码 PROVIDER_DEFAULTS 改为 DB ai_providers。
    * 没填 + DB 也没该 provider → "openai" 兜底（覆盖绝大多数 OpenAI-兼容场景）。
    */
@@ -117,6 +143,9 @@ export class UserModelConfigsService {
       input.displayName = input.modelId;
     }
     const provider = this.validateProvider(input.provider);
+    if (input.apiKeyId?.trim()) {
+      await this.assertApiKeyOwnership(userId, input.apiKeyId.trim(), provider);
+    }
     const data = await this.applyDefaults(input, provider);
     data.user = { connect: { id: userId } };
 
@@ -160,6 +189,13 @@ export class UserModelConfigsService {
     });
     if (!existing || existing.userId !== userId) {
       throw new NotFoundException("Model config not found");
+    }
+    if (patch.apiKeyId?.trim()) {
+      await this.assertApiKeyOwnership(
+        userId,
+        patch.apiKeyId.trim(),
+        existing.provider,
+      );
     }
 
     const data: Prisma.UserModelConfigUpdateInput = {};
