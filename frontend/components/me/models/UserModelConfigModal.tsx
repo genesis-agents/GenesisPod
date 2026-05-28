@@ -280,6 +280,33 @@ export function UserModelConfigModal({
           />
         </Field>
 
+        {/* 3b. 使用的 BYOK Key — 用户自己存的全部密钥（不限 provider）*/}
+        <Field label="使用 Key（选择你的 BYOK 密钥）">
+          {userKeys.filter((k) => k.isActive).length === 0 ? (
+            <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              <span>暂无已保存的密钥</span>
+              <a href="/me/api-keys" className="underline font-medium hover:text-amber-900">
+                前往「我的 API Keys」添加
+              </a>
+            </div>
+          ) : (
+            <select
+              value={apiKeyId}
+              onChange={(e) => setApiKeyId(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">-- 选择 BYOK 密钥 --</option>
+              {userKeys
+                .filter((k) => k.isActive)
+                .map((k) => (
+                  <option key={k.id} value={k.id}>
+                    {k.provider} · {k.label}（{k.keyHint}）
+                  </option>
+                ))}
+            </select>
+          )}
+        </Field>
+
         {/* 4. 模型类型 */}
         <Field label="模型类型" required>
           <select

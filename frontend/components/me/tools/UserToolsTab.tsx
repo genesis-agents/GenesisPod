@@ -60,15 +60,13 @@ function ConfigureKeyModal({
   const { t } = useTranslation();
   const targetCategory = mapCategory(tool.category);
 
-  const matchingSecrets = useMemo(
-    () => userSecrets.filter((s) => s.category === targetCategory || targetCategory === 'OTHER'),
-    [userSecrets, targetCategory]
-  );
+  // 不限 category — 显示用户自己全部 BYOK 密钥，让用户自己选
+  const allUserSecrets = useMemo(() => userSecrets, [userSecrets]);
 
   const [mode, setMode] = useState<'select' | 'new'>(
-    matchingSecrets.length > 0 ? 'select' : 'new'
+    allUserSecrets.length > 0 ? 'select' : 'new'
   );
-  const [selectedId, setSelectedId] = useState(matchingSecrets[0]?.id ?? '');
+  const [selectedId, setSelectedId] = useState(allUserSecrets[0]?.id ?? '');
   const [newValue, setNewValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,14 +119,14 @@ function ConfigureKeyModal({
 
         {/* 模式切换 */}
         <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
-          {matchingSecrets.length > 0 && (
+          {allUserSecrets.length > 0 && (
             <button
               onClick={() => setMode('select')}
               className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${
                 mode === 'select' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              从已有密钥选择（{matchingSecrets.length}）
+              从已有密钥选择（{allUserSecrets.length}）
             </button>
           )}
           <button
@@ -151,7 +149,7 @@ function ConfigureKeyModal({
               onChange={(e) => setSelectedId(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              {matchingSecrets.map((s) => (
+              {allUserSecrets.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.displayName || s.name} · {s.maskedValue}
                 </option>
@@ -164,7 +162,7 @@ function ConfigureKeyModal({
               <label className="text-xs font-medium text-gray-700">
                 {t('me.tools.modal.keyLabel')}
               </label>
-              {matchingSecrets.length === 0 && (
+              {allUserSecrets.length === 0 && (
                 <a href="/me/api-keys" className="text-xs text-primary underline hover:text-primary/80">
                   前往「我的 API Keys」添加
                 </a>
