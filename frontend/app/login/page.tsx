@@ -54,11 +54,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // ★ 2026-05-27 修复 (Screenshot_86 "Failed to fetch"): streamApiUrl 在浏览器
-      //   绕 Next.js 代理直连 http://localhost:4000 (设计给 SSE 用)。但 onprem
-      //   docker-compose 不暴露 backend 4000 端口 → 浏览器 fetch 找不到 →
-      //   "Failed to fetch"。login 不是 SSE, 改用 apiUrl 走同源 → middleware
-      //   实时 rewrite 到 API_INTERNAL_URL=http://backend:4000。
+      // ★ 2026-05-27 修复 (Screenshot_86 Failed to fetch):
+      //   apiUrl 走 same-origin → Next.js middleware 实时 rewrite 到 backend,
+      //   不再用 streamApiUrl (那个为 SSE 直连设计, onprem 部署烤死 localhost:4000 失败)。
       const url = `${config.apiUrl}/auth/${mode}`;
       const body =
         mode === 'login' ? { email, password } : { email, password, username };
@@ -93,20 +91,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0a0f1c] px-4 py-8 text-slate-100">
-      {/* 背景：暗色 + 网格 + 双径向光 */}
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-violet-50/40 px-4 py-8 text-slate-900">
+      {/* 浅色背景: 极淡网格 + 双柔光 */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-60"
+        className="pointer-events-none absolute inset-0 opacity-50"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(148,163,184,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.06) 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
+            'linear-gradient(rgba(148,163,184,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.10) 1px, transparent 1px)',
+          backgroundSize: '52px 52px',
+          maskImage:
+            'radial-gradient(ellipse at center, black 40%, transparent 75%)',
         }}
       />
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[18%] top-[12%] h-[420px] w-[420px] rounded-full bg-violet-500/15 blur-[120px]" />
-        <div className="absolute bottom-[8%] right-[16%] h-[360px] w-[360px] rounded-full bg-cyan-400/10 blur-[100px]" />
+        <div className="absolute left-[15%] top-[12%] h-[420px] w-[420px] rounded-full bg-violet-200/40 blur-[120px]" />
+        <div className="absolute bottom-[8%] right-[14%] h-[380px] w-[380px] rounded-full bg-cyan-200/40 blur-[100px]" />
       </div>
 
       <main className="relative w-full max-w-[400px]">
@@ -126,16 +126,16 @@ export default function LoginPage() {
         </div>
 
         {/* 主卡片 */}
-        <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70 p-6 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.6)] backdrop-blur-xl sm:p-7">
+        <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-7">
           {/* Mode toggle */}
-          <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-800 bg-slate-950/50 p-1">
+          <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50/80 p-1">
             <button
               type="button"
               onClick={() => switchMode('login')}
               className={`h-9 rounded-lg text-[13px] font-medium transition ${
                 mode === 'login'
-                  ? 'bg-slate-100 text-slate-900 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                  : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               登入
@@ -145,8 +145,8 @@ export default function LoginPage() {
               onClick={() => switchMode('register')}
               className={`h-9 rounded-lg text-[13px] font-medium transition ${
                 mode === 'register'
-                  ? 'bg-slate-100 text-slate-900 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                  : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               注册
@@ -155,10 +155,10 @@ export default function LoginPage() {
 
           {/* 标题区 */}
           <div className="mb-5">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-50">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
               {copy.title}
             </h1>
-            <p className="mt-1 text-[13px] text-slate-400">{copy.subtitle}</p>
+            <p className="mt-1 text-[13px] text-slate-500">{copy.subtitle}</p>
           </div>
 
           {/* Google */}
@@ -166,7 +166,7 @@ export default function LoginPage() {
             type="button"
             onClick={() => loginWithGoogle(email || undefined)}
             disabled={loading}
-            className="mb-4 inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-700/80 bg-slate-800/60 px-4 text-[13.5px] font-medium text-slate-100 transition hover:border-slate-600 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mb-4 inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 text-[13.5px] font-medium text-slate-800 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -190,10 +190,10 @@ export default function LoginPage() {
           </button>
 
           {/* 分隔 */}
-          <div className="mb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
-            <span className="h-px bg-slate-800" />
+          <div className="mb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            <span className="h-px bg-slate-200" />
             <span>或</span>
-            <span className="h-px bg-slate-800" />
+            <span className="h-px bg-slate-200" />
           </div>
 
           {/* 表单 */}
@@ -228,7 +228,7 @@ export default function LoginPage() {
               data-lpignore="true"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-11 w-full rounded-xl border border-slate-700/80 bg-slate-950/40 px-3.5 text-[13.5px] text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-violet-500/70 focus:bg-slate-950/70 focus:ring-2 focus:ring-violet-500/15"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-[13.5px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
               placeholder="邮箱"
             />
 
@@ -248,7 +248,7 @@ export default function LoginPage() {
                 data-lpignore="true"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="h-11 w-full rounded-xl border border-slate-700/80 bg-slate-950/40 px-3.5 text-[13.5px] text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-violet-500/70 focus:bg-slate-950/70 focus:ring-2 focus:ring-violet-500/15"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-[13.5px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
                 placeholder="用户名"
               />
             )}
@@ -267,12 +267,12 @@ export default function LoginPage() {
               data-lpignore="true"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-11 w-full rounded-xl border border-slate-700/80 bg-slate-950/40 px-3.5 text-[13.5px] text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-violet-500/70 focus:bg-slate-950/70 focus:ring-2 focus:ring-violet-500/15"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-[13.5px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
               placeholder={mode === 'register' ? '设置密码 (≥8 位)' : '密码'}
             />
 
             {error && (
-              <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-[12.5px] text-rose-300">
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-[12.5px] text-rose-700">
                 {error}
               </div>
             )}
@@ -280,7 +280,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 px-4 text-[13.5px] font-semibold text-white shadow-[0_8px_24px_-8px_rgba(139,92,246,0.5)] transition hover:from-violet-400 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-600 px-4 text-[13.5px] font-semibold text-white shadow-[0_8px_24px_-8px_rgba(139,92,246,0.4)] transition hover:from-violet-500 hover:to-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               <span>{loading ? '请稍候' : copy.submit}</span>
@@ -293,15 +293,15 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => switchMode()}
-              className="font-medium text-slate-300 transition hover:text-slate-100"
+              className="font-medium text-slate-700 transition hover:text-slate-900"
             >
               {copy.switchPrompt}
-              <span className="ml-1 text-violet-400">{copy.switchAction}</span>
+              <span className="ml-1 text-violet-600">{copy.switchAction}</span>
             </button>
             {mode === 'login' && (
               <Link
                 href="/"
-                className="font-medium transition hover:text-slate-300"
+                className="font-medium transition hover:text-slate-700"
               >
                 需要帮助？
               </Link>
@@ -310,7 +310,7 @@ export default function LoginPage() {
         </div>
 
         {/* 页脚 */}
-        <p className="mt-5 text-center text-[11px] text-slate-600">
+        <p className="mt-5 text-center text-[11px] text-slate-400">
           Powered by Genesis · 多 Agent 协作研究平台
         </p>
       </main>

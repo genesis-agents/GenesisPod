@@ -141,12 +141,19 @@ export const config = {
    */
   get streamApiUrl(): string {
     if (isBrowser()) {
-      // 浏览器端：直连后端，绕过 Next.js 代理
+      // 浏览器端 Railway 公网直连，绕 CDN 缓冲
       if (isRailwayProduction()) {
         return `${RAILWAY_BACKEND_URL}/api/${this.apiVersion}`;
       }
-      // 本地开发：直连后端 localhost:4000
-      return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/${this.apiVersion}`;
+      // ★ 2026-05-27 真根因 fix (Screenshot_86 "Failed to fetch"):
+      //   原 fallback "http://localhost:4000" 烤死在 client bundle 后,
+      //   onprem 部署 (无论本地 docker 或远端服务器) 都让浏览器去自己的 localhost
+      //   :4000 找后端 → 找不到 → fail。所有 NEXT_PUBLIC_API_URL 未注入的部署
+      //   都中招。改用 same-origin '' 让请求走 frontend 同源 → middleware
+      //   实时 rewrite 到 API_INTERNAL_URL。SSE 也兼容 (Next.js middleware
+      //   NextResponse.rewrite 不缓冲)。
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+      return `${apiBase}/api/${this.apiVersion}`;
     }
     // 服务端：与 apiUrl 相同
     return this.apiUrl;
