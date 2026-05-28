@@ -7,9 +7,9 @@ import {
   Matches,
 } from "class-validator";
 
+// 2026-05-28 H6: 捐赠池退役 —— 仅保留 PERSONAL。
 export enum ApiKeyMode {
   PERSONAL = "personal",
-  DONATED = "donated",
 }
 
 export class SaveUserApiKeyDto {

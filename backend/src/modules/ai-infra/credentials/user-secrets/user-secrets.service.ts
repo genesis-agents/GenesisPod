@@ -1,14 +1,14 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { SecretCategory, UserApiKeyMode } from "@prisma/client";
+import { SecretCategory } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../encryption/encryption.service";
 import { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
+import { UserCredentialsService } from "../user-credentials/user-credentials.service";
 import { ApiKeyMode } from "../user-api-keys/dto";
 import {
   CreateUserSecretDto,
@@ -45,17 +45,23 @@ export class UserSecretsService {
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
     private readonly userApiKeys: UserApiKeysService,
+    private readonly userCredentials: UserCredentialsService,
   ) {}
 
-  /** 统一列出用户所有私有 Key（LLM + 工具 + 其他类），归一成一个表的行。 */
+  /**
+   * 统一列出用户所有私有 Key（LLM + 工具 + 其他类），归一成一个表的行。
+   * 2026-05-28 PR-3：工具/其它类来源切到 user_credentials；过渡期仍读 legacy secrets
+   * 用户行（按 name 去重，优先 user_credentials），待 PR-4 backfill 后下线 legacy 读。
+   */
   async list(userId: string): Promise<UserSecretListItem[]> {
-    const [llmKeys, secretRows] = await Promise.all([
-      // 铁律 2：排除捐赠（mode != DONATED）
+    const [llmKeys, credItems, legacySecretRows] = await Promise.all([
+      // H6: 捐赠池退役后 user_api_keys 恒为 PERSONAL，无需再排除捐赠。
       this.prisma.userApiKey.findMany({
-        where: { userId, mode: { not: UserApiKeyMode.DONATED } },
+        where: { userId },
         orderBy: [{ provider: "asc" }, { label: "asc" }],
       }),
-      // 铁律 2：排除捐赠 category
+      this.userCredentials.list(userId),
+      // 过渡期：legacy 用户工具行仍在 secrets（PR-4 backfill 后移除此读）。
       this.prisma.secret.findMany({
         where: {
           userId,
@@ -81,23 +87,42 @@ export class UserSecretsService {
       updatedAt: k.updatedAt,
     }));
 
-    const secretItems: UserSecretListItem[] = secretRows.map((s) => ({
+    const credSecretItems: UserSecretListItem[] = credItems.map((c) => ({
       source: "secret",
-      id: s.id,
-      name: s.name,
-      displayName: s.displayName,
-      category: s.category,
-      provider: s.provider,
-      // 迁移加了 key_hint 列，优先读存好的 hint，避免每行解密（迁移注释"少解密"原则）
-      maskedValue: s.keyHint ?? this.maskUserSecret(s.encryptedValue, s.iv, userId),
-      isActive: s.isActive,
-      usageCount: s.accessCount,
-      testStatus: null,
-      createdAt: s.createdAt,
-      updatedAt: s.updatedAt,
+      id: c.id,
+      name: c.name,
+      displayName: c.displayName,
+      category: c.category,
+      provider: c.provider,
+      maskedValue: c.maskedValue,
+      isActive: c.isActive,
+      usageCount: c.usageCount,
+      testStatus: c.testStatus,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
     }));
 
-    return [...llmItems, ...secretItems];
+    // 去重：legacy secrets 中 name 已存在于 user_credentials 的不再展示（优先新表）。
+    const credNames = new Set(credItems.map((c) => c.name));
+    const legacySecretItems: UserSecretListItem[] = legacySecretRows
+      .filter((s) => !credNames.has(s.name))
+      .map((s) => ({
+        source: "secret",
+        id: s.id,
+        name: s.name,
+        displayName: s.displayName,
+        category: s.category,
+        provider: s.provider,
+        maskedValue:
+          s.keyHint ?? this.maskUserSecret(s.encryptedValue, s.iv, userId),
+        isActive: s.isActive,
+        usageCount: s.accessCount,
+        testStatus: null,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+      }));
+
+    return [...llmItems, ...credSecretItems, ...legacySecretItems];
   }
 
   /** 创建用户私有 Secret，按 category 分流到对应表（铁律 1）。 */
@@ -145,69 +170,17 @@ export class UserSecretsService {
       };
     }
 
-    // 非 AI_MODEL → secrets 表（userId 非空）
-    const name = dto.name.trim();
-    const existing = await this.prisma.secret.findFirst({
-      where: { name, userId },
-      select: { id: true, deletedAt: true },
+    // 非 AI_MODEL → user_credentials（信封加密 v2，与 admin secrets 分离，PR-3）
+    const item = await this.userCredentials.create(userId, {
+      name: dto.name,
+      displayName: dto.displayName,
+      category: dto.category,
+      provider: dto.provider,
+      value: dto.value,
+      description: dto.description,
+      isActive: dto.isActive,
     });
-    if (existing && !existing.deletedAt) {
-      throw new ConflictException(`你已配置过同名 Key「${name}」`);
-    }
-
-    const { encryptedValue, iv } = this.encryption.encryptForUser(
-      dto.value,
-      userId,
-    );
-    const keyHint = this.encryption.createKeyHint(dto.value);
-
-    // 软删除过的同名行：复活并覆盖；否则新建
-    const row = existing
-      ? await this.prisma.secret.update({
-          where: { id: existing.id },
-          data: {
-            displayName: dto.displayName || name,
-            category: dto.category,
-            provider: dto.provider ?? null,
-            description: dto.description ?? null,
-            encryptedValue,
-            iv,
-            keyHint,
-            isActive: dto.isActive ?? true,
-            deletedAt: null,
-            deletedBy: null,
-          },
-        })
-      : await this.prisma.secret.create({
-          data: {
-            name,
-            userId,
-            displayName: dto.displayName || name,
-            category: dto.category,
-            provider: dto.provider ?? null,
-            description: dto.description ?? null,
-            encryptedValue,
-            iv,
-            keyHint,
-            isActive: dto.isActive ?? true,
-            createdBy: userId,
-          },
-        });
-
-    return {
-      source: "secret",
-      id: row.id,
-      name: row.name,
-      displayName: row.displayName,
-      category: row.category,
-      provider: row.provider,
-      maskedValue: this.encryption.createKeyHint(dto.value),
-      isActive: row.isActive,
-      usageCount: row.accessCount,
-      testStatus: null,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    };
+    return { source: "secret", ...item };
   }
 
   /** 更新用户私有 Secret（owner 强制校验）。 */
@@ -228,9 +201,7 @@ export class UserSecretsService {
           userId,
           key.provider,
           dto.value,
-          key.mode === UserApiKeyMode.DONATED
-            ? ApiKeyMode.DONATED
-            : ApiKeyMode.PERSONAL,
+          ApiKeyMode.PERSONAL,
           key.preferredModelId ?? undefined,
           key.apiEndpoint ?? undefined,
           key.label,
@@ -243,6 +214,11 @@ export class UserSecretsService {
         });
       }
       return { success: true };
+    }
+
+    // PR-3：工具/其它类落 user_credentials；id 命中新表则走新表，否则回退 legacy secrets。
+    if (await this.isUserCredential(id, userId)) {
+      return this.userCredentials.update(userId, id, dto);
     }
 
     const secret = await this.prisma.secret.findFirst({
@@ -280,6 +256,11 @@ export class UserSecretsService {
       if (!key) throw new NotFoundException("Key 不存在或无权限");
       await this.userApiKeys.deleteKey(userId, key.provider, key.label);
       return { success: true };
+    }
+
+    // PR-3：id 命中 user_credentials 则走新表软删，否则回退 legacy secrets。
+    if (await this.isUserCredential(id, userId)) {
+      return this.userCredentials.remove(userId, id);
     }
 
     const secret = await this.prisma.secret.findFirst({
@@ -322,6 +303,11 @@ export class UserSecretsService {
       return { success: true, message: "Key 存在，格式校验通过", testedAt };
     }
 
+    // PR-3：id 命中 user_credentials 则走新表测试，否则回退 legacy secrets。
+    if (await this.isUserCredential(id, userId)) {
+      return this.userCredentials.testKey(userId, id);
+    }
+
     const secret = await this.prisma.secret.findFirst({
       where: { id, userId, deletedAt: null },
       select: { id: true, name: true, isActive: true },
@@ -345,8 +331,9 @@ export class UserSecretsService {
   }
 
   /**
-   * 运行时取用户私有工具 Key 明文（仅 secrets 表，不含 LLM）。
-   * 供 ToolKeyResolverService 调用做「用户 Key 优先」。强制 userId（缺失即抛错，D6）。
+   * 运行时取用户私有工具 Key 明文（不含 LLM）。供 ToolKeyResolverService 做「用户 Key 优先」。
+   * 强制 userId（缺失即抛错，D6）。
+   * 2026-05-28 PR-3：优先读 user_credentials（信封 v2）；过渡期回退 legacy secrets。
    */
   async getUserSecretValue(
     name: string,
@@ -357,6 +344,10 @@ export class UserSecretsService {
         "getUserSecretValue: userId is required (BYOK isolation)",
       );
     }
+    const fromCred = await this.userCredentials.getCredentialValue(name, userId);
+    if (fromCred !== null) return fromCred;
+
+    // 过渡期回退：legacy 用户工具行仍在 secrets（PR-4 backfill 后移除）。
     const secret = await this.prisma.secret.findFirst({
       where: { name, userId, isActive: true, deletedAt: null },
     });
@@ -367,6 +358,15 @@ export class UserSecretsService {
       secret.iv,
       userId,
     );
+  }
+
+  /** id 是否为当前用户的一条 user_credentials 行（用于 secret-source 路由分派）。 */
+  private async isUserCredential(id: string, userId: string): Promise<boolean> {
+    const row = await this.prisma.userCredential.findFirst({
+      where: { id, userId },
+      select: { id: true },
+    });
+    return row !== null;
   }
 
   private maskUserSecret(

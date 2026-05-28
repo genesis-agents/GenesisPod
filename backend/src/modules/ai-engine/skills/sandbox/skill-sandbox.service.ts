@@ -8,7 +8,8 @@ import { Injectable, Logger, Inject } from "@nestjs/common";
 import { SkillRegistry } from "../registry/skill.registry";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
 import { SkillContentService } from "../content/skill-content.service";
-import { CHAT_PROVIDER_PORT, type IChatProvider } from "../../facade";
+import { CHAT_PROVIDER_PORT } from "../../facade/abstractions/runtime-deps.tokens";
+import type { IChatProvider } from "../../facade";
 import { PromptSkillAdapter } from "../runtime/adapters/prompt-skill.adapter";
 import { parseSkillMd } from "../loader/parsing/skill-parser";
 

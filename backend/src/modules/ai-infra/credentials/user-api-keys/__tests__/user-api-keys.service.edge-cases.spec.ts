@@ -2,11 +2,10 @@
  * UserApiKeysService – edge-case tests for uncovered methods/branches
  *
  * Covers (not in existing spec):
- * - getDonatedKey – no candidates, decryption fail, concurrent update (count=0), success + grant credits
  * - getPersonalKey – cache hit, cache miss + store, null stored in cache, decrypt fail
  * - invalidateUserKeyCache – with and without cacheService
  * - testKey – fetch mocking for openai/anthropic/google/unknown provider
- * - saveKey – DB failure rollback, switching donated→personal cleanup
+ * - saveKey – key hint generation
  * - isPrivateHost / validateEndpointUrl – various private IP ranges
  */
 
@@ -28,11 +27,9 @@ import { ConfigService } from "@nestjs/config";
 import { UserApiKeysService } from "../user-api-keys.service";
 import { ProviderProbeService } from "../../health/provider-probe.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
-import { CreditsService } from "../../../../ai-infra/credits/credits.service";
 import { EncryptionService } from "../../../../ai-infra/encryption/encryption.service";
 import { CacheService } from "../../../../../common/cache";
-import { UserApiKeyMode, CreditTransactionType } from "@prisma/client";
+import { UserApiKeyMode } from "@prisma/client";
 import { ApiKeyMode } from "../dto";
 
 // ─── fetch mock ───────────────────────────────────────────────────────────────
@@ -68,8 +65,6 @@ const makeApiKey = (overrides: Record<string, unknown> = {}) => ({
 describe("UserApiKeysService (additional coverage)", () => {
   let service: UserApiKeysService;
   let mockPrisma: jest.Mocked<Partial<PrismaService>>;
-  let mockSecretsService: jest.Mocked<Partial<SecretsService>>;
-  let mockCreditsService: jest.Mocked<Partial<CreditsService>>;
   let mockCacheService: jest.Mocked<Partial<CacheService>>;
 
   const buildEncryption = (): EncryptionService =>
@@ -138,17 +133,6 @@ describe("UserApiKeysService (additional coverage)", () => {
       } as unknown as PrismaService["aIProvider"],
     };
 
-    mockSecretsService = {
-      findByName: jest.fn().mockResolvedValue(null),
-      create: jest.fn().mockResolvedValue({ id: "secret-1" }),
-      update: jest.fn().mockResolvedValue({ id: "secret-1" }),
-      delete: jest.fn().mockResolvedValue(undefined),
-    };
-
-    mockCreditsService = {
-      grantCredits: jest.fn().mockResolvedValue(undefined),
-    };
-
     mockCacheService = {
       get: jest.fn().mockResolvedValue(null),
       set: jest.fn().mockResolvedValue(undefined),
@@ -159,8 +143,6 @@ describe("UserApiKeysService (additional coverage)", () => {
       providers: [
         UserApiKeysService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: SecretsService, useValue: mockSecretsService },
-        { provide: CreditsService, useValue: mockCreditsService },
         { provide: EncryptionService, useValue: buildEncryption() },
         { provide: CacheService, useValue: mockCacheService },
         // 用真 ProviderProbeService 让 testKey - provider-specific paths 那批测试
@@ -178,146 +160,6 @@ describe("UserApiKeysService (additional coverage)", () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-  });
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // getDonatedKey
-  // ──────────────────────────────────────────────────────────────────────────
-
-  describe("getDonatedKey", () => {
-    it("returns null when no candidates exist", async () => {
-      (mockPrisma.userApiKey!.findMany as jest.Mock).mockResolvedValue([]);
-
-      const result = await service.getDonatedKey("openai");
-
-      expect(result).toBeNull();
-    });
-
-    it("skips candidate when decryption fails", async () => {
-      // Provide a candidate with invalid encrypted data
-      const invalidKey = makeApiKey({
-        mode: UserApiKeyMode.DONATED,
-        encryptedValue: "invalid-hex",
-        iv: "invalidiv",
-      });
-      (mockPrisma.userApiKey!.findMany as jest.Mock).mockResolvedValue([
-        invalidKey,
-      ]);
-
-      const result = await service.getDonatedKey("openai");
-
-      expect(result).toBeNull();
-    });
-
-    it("skips candidate when optimistic lock fails (count=0)", async () => {
-      // Create a properly encrypted key
-      const tempService = service as unknown as {
-        encrypt: (text: string) => { encryptedValue: string; iv: string };
-      };
-      const { encryptedValue, iv } = tempService.encrypt("sk-donated-key");
-
-      const donatedKey = makeApiKey({
-        mode: UserApiKeyMode.DONATED,
-        encryptedValue,
-        iv,
-        usageCount: 5,
-      });
-      (mockPrisma.userApiKey!.findMany as jest.Mock).mockResolvedValue([
-        donatedKey,
-      ]);
-      // Optimistic lock fails
-      (mockPrisma.userApiKey!.updateMany as jest.Mock).mockResolvedValue({
-        count: 0,
-      });
-
-      const result = await service.getDonatedKey("openai");
-
-      expect(result).toBeNull();
-    });
-
-    it("returns decrypted key on success", async () => {
-      const tempService = service as unknown as {
-        encrypt: (text: string) => { encryptedValue: string; iv: string };
-      };
-      const { encryptedValue, iv } = tempService.encrypt("sk-valid-donated");
-
-      const donatedKey = makeApiKey({
-        mode: UserApiKeyMode.DONATED,
-        encryptedValue,
-        iv,
-        userId: "donor-user",
-      });
-      (mockPrisma.userApiKey!.findMany as jest.Mock).mockResolvedValue([
-        donatedKey,
-      ]);
-      (mockPrisma.userApiKey!.updateMany as jest.Mock).mockResolvedValue({
-        count: 1,
-      });
-
-      const result = await service.getDonatedKey("openai");
-
-      expect(result).not.toBeNull();
-      expect(result!.apiKey).toBe("sk-valid-donated");
-      expect(result!.donorUserId).toBe("donor-user");
-    });
-
-    it("grants usage reward credits to donor on success (fire-and-forget)", async () => {
-      const tempService = service as unknown as {
-        encrypt: (text: string) => { encryptedValue: string; iv: string };
-      };
-      const { encryptedValue, iv } = tempService.encrypt("sk-donated");
-
-      const donatedKey = makeApiKey({
-        mode: UserApiKeyMode.DONATED,
-        encryptedValue,
-        iv,
-        userId: "donor-id",
-      });
-      (mockPrisma.userApiKey!.findMany as jest.Mock).mockResolvedValue([
-        donatedKey,
-      ]);
-      (mockPrisma.userApiKey!.updateMany as jest.Mock).mockResolvedValue({
-        count: 1,
-      });
-
-      await service.getDonatedKey("openai");
-
-      // Allow microtasks to flush for fire-and-forget promise
-      await Promise.resolve();
-
-      expect(mockCreditsService.grantCredits).toHaveBeenCalledWith(
-        "donor-id",
-        2, // DONATION_USAGE_REWARD_CREDITS
-        CreditTransactionType.DONATION_USAGE_REWARD,
-        expect.stringContaining("openai"),
-      );
-    });
-
-    it("does not throw when credit grant fails (fire-and-forget)", async () => {
-      const tempService = service as unknown as {
-        encrypt: (text: string) => { encryptedValue: string; iv: string };
-      };
-      const { encryptedValue, iv } = tempService.encrypt("sk-donated");
-
-      const donatedKey = makeApiKey({
-        mode: UserApiKeyMode.DONATED,
-        encryptedValue,
-        iv,
-      });
-      (mockPrisma.userApiKey!.findMany as jest.Mock).mockResolvedValue([
-        donatedKey,
-      ]);
-      (mockPrisma.userApiKey!.updateMany as jest.Mock).mockResolvedValue({
-        count: 1,
-      });
-      (mockCreditsService.grantCredits as jest.Mock).mockRejectedValue(
-        new Error("Credits failed"),
-      );
-
-      const result = await service.getDonatedKey("openai");
-
-      expect(result).not.toBeNull(); // Main result still returned
-    });
   });
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -353,11 +195,15 @@ describe("UserApiKeysService (additional coverage)", () => {
     it("queries DB and caches result when cache misses", async () => {
       (mockCacheService.get as jest.Mock).mockResolvedValue(null);
 
-      const tempService = service as unknown as {
-        encrypt: (text: string) => { encryptedValue: string; iv: string };
-      };
-      const { encryptedValue, iv } = tempService.encrypt("db-api-key");
-      const key = makeApiKey({ encryptedValue, iv });
+      const env = await buildEncryption().encryptEnvelope("db-api-key");
+      const key = makeApiKey({
+        encryptedValue: env.encryptedValue,
+        iv: env.iv,
+        authTag: env.authTag,
+        wrappedDek: env.wrappedDek,
+        encVersion: env.encVersion,
+        kekVersion: env.kekVersion,
+      });
 
       (mockPrisma.userApiKey!.findFirst as jest.Mock).mockResolvedValue(key);
 
@@ -412,8 +258,6 @@ describe("UserApiKeysService (additional coverage)", () => {
         providers: [
           UserApiKeysService,
           { provide: PrismaService, useValue: mockPrisma },
-          { provide: SecretsService, useValue: mockSecretsService },
-          { provide: CreditsService, useValue: mockCreditsService },
           { provide: EncryptionService, useValue: buildEncryption() },
           ProviderProbeService,
         ],
@@ -605,63 +449,6 @@ describe("UserApiKeysService (additional coverage)", () => {
       );
 
       expect(mockPrisma.userApiKey!.create).toHaveBeenCalled();
-    });
-  });
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // saveKey – DB failure rollback
-  // ──────────────────────────────────────────────────────────────────────────
-
-  describe("saveKey - DB failure rollback", () => {
-    it("cleans up donated secret when DB write fails", async () => {
-      (mockPrisma.userApiKey!.findUnique as jest.Mock).mockResolvedValue(null);
-      (mockSecretsService.findByName as jest.Mock).mockResolvedValue(null);
-      (mockSecretsService.create as jest.Mock).mockResolvedValue({
-        id: "donated-secret-1",
-      });
-      (mockPrisma.userApiKey!.create as jest.Mock).mockRejectedValue(
-        new Error("DB write failed"),
-      );
-
-      await expect(
-        service.saveKey(
-          "user-1",
-          "openai",
-          "sk-donated-key1234",
-          ApiKeyMode.DONATED,
-        ),
-      ).rejects.toThrow("DB write failed");
-
-      // Cleanup should have been called
-      expect(mockSecretsService.delete).toHaveBeenCalled();
-    });
-  });
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // saveKey – switching from donated to personal
-  // ──────────────────────────────────────────────────────────────────────────
-
-  describe("saveKey - mode switching", () => {
-    it("cleans up donated secret when switching from DONATED to PERSONAL", async () => {
-      const existingDonated = makeApiKey({
-        mode: UserApiKeyMode.DONATED,
-        donatedSecretId: "old-secret-id",
-      });
-      (mockPrisma.userApiKey!.findUnique as jest.Mock).mockResolvedValue(
-        existingDonated,
-      );
-      (mockPrisma.userApiKey!.update as jest.Mock).mockResolvedValue(
-        makeApiKey({ mode: UserApiKeyMode.PERSONAL }),
-      );
-
-      await service.saveKey(
-        "user-1",
-        "openai",
-        "sk-new-personal",
-        ApiKeyMode.PERSONAL,
-      );
-
-      expect(mockSecretsService.delete).toHaveBeenCalled();
     });
   });
 

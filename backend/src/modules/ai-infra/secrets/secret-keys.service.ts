@@ -103,13 +103,18 @@ export class SecretKeysService {
       );
     }
 
-    const { encryptedValue, iv } = this.encryption.encrypt(dto.value);
+    // 2026-05-28 PR-3.1：新写一律信封 v2（dual-read：旧行经 decryptAny 仍可解）。
+    const env = await this.encryption.encryptEnvelope(dto.value);
     const created = await this.prisma.secretKey.create({
       data: {
         secretId,
         label: dto.label,
-        encryptedValue,
-        iv,
+        encryptedValue: env.encryptedValue,
+        iv: env.iv,
+        authTag: env.authTag,
+        wrappedDek: env.wrappedDek,
+        encVersion: env.encVersion,
+        kekVersion: env.kekVersion,
         keyVersion: this.encryption.currentKeyVersion,
         keyHint: this.makeHint(dto.value),
         isActive: dto.isActive ?? true,
@@ -161,12 +166,16 @@ export class SecretKeysService {
     context?: AuditContext,
   ): Promise<SecretKeyListItem> {
     await this.requireKey(keyId);
-    const { encryptedValue, iv } = this.encryption.encrypt(dto.value);
+    const env = await this.encryption.encryptEnvelope(dto.value);
     const updated = await this.prisma.secretKey.update({
       where: { id: keyId },
       data: {
-        encryptedValue,
-        iv,
+        encryptedValue: env.encryptedValue,
+        iv: env.iv,
+        authTag: env.authTag,
+        wrappedDek: env.wrappedDek,
+        encVersion: env.encVersion,
+        kekVersion: env.kekVersion,
         keyVersion: this.encryption.currentKeyVersion,
         keyHint: this.makeHint(dto.value),
         // 替换 value 后健康状态置回 unknown，等下次 test/调用回写
@@ -239,10 +248,7 @@ export class SecretKeysService {
     const existing = await this.requireKey(keyId);
     const updatedBy = context?.userEmail || context?.userId;
     const now = new Date();
-    const decrypted = this.encryption.decrypt(
-      existing.encryptedValue,
-      existing.iv,
-    );
+    const decrypted = await this.encryption.decryptAny(existing);
 
     if (!decrypted || decrypted.length === 0) {
       await this.prisma.secretKey.update({
@@ -346,10 +352,7 @@ export class SecretKeysService {
 
     const candidate = await this.pickActiveKey(secret.id);
     if (candidate) {
-      const decrypted = this.encryption.decrypt(
-        candidate.encryptedValue,
-        candidate.iv,
-      );
+      const decrypted = await this.encryption.decryptAny(candidate);
       if (!decrypted) {
         this.logger.warn(
           `getSecretKey: decrypt failed for secretKey id=${candidate.id} label=${candidate.label}`,
@@ -364,7 +367,7 @@ export class SecretKeysService {
     }
 
     // dual-track 降级：SecretKey 表为空 → 读 Secret.encryptedValue
-    const decrypted = this.encryption.decrypt(secret.encryptedValue, secret.iv);
+    const decrypted = await this.encryption.decryptAny(secret);
     if (!decrypted) return null;
     return { value: decrypted, keyId: null, label: "(legacy)" };
   }

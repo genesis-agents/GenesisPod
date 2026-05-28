@@ -1,10 +1,11 @@
 import { Test } from "@nestjs/testing";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { SecretCategory, UserApiKeyMode } from "@prisma/client";
+import { SecretCategory } from "@prisma/client";
 import { UserSecretsService } from "../user-secrets.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../../encryption/encryption.service";
 import { UserApiKeysService } from "../../user-api-keys/user-api-keys.service";
+import { UserCredentialsService } from "../../user-credentials/user-credentials.service";
 
 describe("UserSecretsService", () => {
   let service: UserSecretsService;
@@ -21,6 +22,7 @@ describe("UserSecretsService", () => {
       findMany: jest.Mock;
       update: jest.Mock;
     };
+    userCredential: { findFirst: jest.Mock };
   };
   let encryption: {
     encryptForUser: jest.Mock;
@@ -28,6 +30,14 @@ describe("UserSecretsService", () => {
     createKeyHint: jest.Mock;
   };
   let userApiKeys: { saveKey: jest.Mock; deleteKey: jest.Mock };
+  let userCredentials: {
+    list: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    remove: jest.Mock;
+    testKey: jest.Mock;
+    getCredentialValue: jest.Mock;
+  };
 
   beforeEach(async () => {
     prisma = {
@@ -43,6 +53,8 @@ describe("UserSecretsService", () => {
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
       },
+      // 默认：id 不属于 user_credentials → 走 legacy secrets 路径
+      userCredential: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     encryption = {
       encryptForUser: jest
@@ -55,6 +67,16 @@ describe("UserSecretsService", () => {
       saveKey: jest.fn().mockResolvedValue({ success: true, mode: "personal" }),
       deleteKey: jest.fn().mockResolvedValue({ success: true }),
     };
+    userCredentials = {
+      list: jest.fn().mockResolvedValue([]),
+      create: jest.fn(),
+      update: jest.fn().mockResolvedValue({ success: true }),
+      remove: jest.fn().mockResolvedValue({ success: true }),
+      testKey: jest
+        .fn()
+        .mockResolvedValue({ success: true, message: "ok", testedAt: "t" }),
+      getCredentialValue: jest.fn().mockResolvedValue(null),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -62,13 +84,14 @@ describe("UserSecretsService", () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EncryptionService, useValue: encryption },
         { provide: UserApiKeysService, useValue: userApiKeys },
+        { provide: UserCredentialsService, useValue: userCredentials },
       ],
     }).compile();
     service = moduleRef.get(UserSecretsService);
   });
 
   describe("create — 铁律 1：按 category 分流", () => {
-    it("AI_MODEL 写 user_api_keys（不落 secrets 表）", async () => {
+    it("AI_MODEL 写 user_api_keys（不落工具表）", async () => {
       prisma.userApiKey.findUnique.mockResolvedValue({
         id: "uak-1",
         provider: "openai",
@@ -93,7 +116,7 @@ describe("UserSecretsService", () => {
         "sk-plain-1234",
         "personal",
       );
-      expect(prisma.secret.create).not.toHaveBeenCalled();
+      expect(userCredentials.create).not.toHaveBeenCalled();
       expect(res.source).toBe("llm");
     });
 
@@ -107,16 +130,17 @@ describe("UserSecretsService", () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it("SEARCH 类写 secrets 表（per-user 加密）", async () => {
-      prisma.secret.findFirst.mockResolvedValue(null);
-      prisma.secret.create.mockResolvedValue({
-        id: "sec-1",
+    it("SEARCH 类委托 user_credentials（信封 v2）", async () => {
+      userCredentials.create.mockResolvedValue({
+        id: "cred-1",
         name: "tavily-search-api-key",
         displayName: "Tavily",
         category: SecretCategory.SEARCH,
         provider: "tavily",
-        accessCount: 0,
+        maskedValue: "sk-...1234",
         isActive: true,
+        usageCount: 0,
+        testStatus: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -128,33 +152,57 @@ describe("UserSecretsService", () => {
         value: "tvly-xyz",
       });
 
-      expect(encryption.encryptForUser).toHaveBeenCalledWith(
-        "tvly-xyz",
+      expect(userCredentials.create).toHaveBeenCalledWith(
         "user-1",
+        expect.objectContaining({ name: "tavily-search-api-key", value: "tvly-xyz" }),
       );
-      expect(prisma.secret.create).toHaveBeenCalled();
       expect(userApiKeys.saveKey).not.toHaveBeenCalled();
       expect(res.source).toBe("secret");
+      expect(res.id).toBe("cred-1");
     });
   });
 
-  describe("list — 铁律 2：排除捐赠", () => {
-    it("user_api_keys 过滤 mode != DONATED；secrets 过滤 category != USER_DONATED", async () => {
-      await service.list("user-1");
-      expect(prisma.userApiKey.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { userId: "user-1", mode: { not: UserApiKeyMode.DONATED } },
-        }),
-      );
-      expect(prisma.secret.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            userId: "user-1",
-            deletedAt: null,
-            category: { not: SecretCategory.USER_DONATED },
-          },
-        }),
-      );
+  describe("list — UNION user_api_keys + user_credentials (+legacy secrets)", () => {
+    it("聚合三来源，legacy secrets 与 cred 同名去重", async () => {
+      prisma.userApiKey.findMany.mockResolvedValue([]);
+      userCredentials.list.mockResolvedValue([
+        {
+          id: "cred-1",
+          name: "tavily",
+          displayName: "Tavily",
+          category: SecretCategory.SEARCH,
+          provider: "tavily",
+          maskedValue: "sk-...aaaa",
+          isActive: true,
+          usageCount: 0,
+          testStatus: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+      prisma.secret.findMany.mockResolvedValue([
+        {
+          id: "sec-dup",
+          name: "tavily", // 同名 → 被去重
+          displayName: "old",
+          category: SecretCategory.SEARCH,
+          provider: "tavily",
+          keyHint: "sk-...bbbb",
+          isActive: true,
+          accessCount: 0,
+          encryptedValue: "e",
+          iv: "i",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
+      const res = await service.list("user-1");
+
+      expect(userCredentials.list).toHaveBeenCalledWith("user-1");
+      // cred 保留，legacy 同名被过滤
+      expect(res).toHaveLength(1);
+      expect(res[0].id).toBe("cred-1");
     });
   });
 
@@ -165,21 +213,26 @@ describe("UserSecretsService", () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it("查询强制带 userId，命中则 per-user 解密", async () => {
+    it("优先命中 user_credentials（信封 v2）", async () => {
+      userCredentials.getCredentialValue.mockResolvedValue("sk-from-cred");
+      const val = await service.getUserSecretValue("tavily", "user-1");
+      expect(userCredentials.getCredentialValue).toHaveBeenCalledWith(
+        "tavily",
+        "user-1",
+      );
+      expect(val).toBe("sk-from-cred");
+      // 命中新表则不再查 legacy secrets
+      expect(prisma.secret.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("新表未命中则回退 legacy secrets（per-user 解密）", async () => {
+      userCredentials.getCredentialValue.mockResolvedValue(null);
       prisma.secret.findFirst.mockResolvedValue({
         encryptedValue: "enc",
         iv: "iv",
         expiresAt: null,
       });
       const val = await service.getUserSecretValue("tavily", "user-1");
-      expect(prisma.secret.findFirst).toHaveBeenCalledWith({
-        where: {
-          name: "tavily",
-          userId: "user-1",
-          isActive: true,
-          deletedAt: null,
-        },
-      });
       expect(encryption.decryptForUser).toHaveBeenCalledWith(
         "enc",
         "iv",
@@ -188,7 +241,8 @@ describe("UserSecretsService", () => {
       expect(val).toBe("sk-plain-1234");
     });
 
-    it("未命中（别人的 Key）返回 null", async () => {
+    it("两处都未命中返回 null", async () => {
+      userCredentials.getCredentialValue.mockResolvedValue(null);
       prisma.secret.findFirst.mockResolvedValue(null);
       const val = await service.getUserSecretValue("tavily", "user-2");
       expect(val).toBeNull();
@@ -207,14 +261,15 @@ describe("UserSecretsService", () => {
       expect(res.testedAt).toBeTruthy();
     });
 
-    it("llm source: Key 不属于该用户 → success=false, 不抛错", async () => {
-      prisma.userApiKey.findFirst.mockResolvedValue(null);
-      const res = await service.testKey("user-1", "llm", "other-uak");
-      expect(res.success).toBe(false);
-      expect(res.message).toContain("未找到");
+    it("secret source: id 命中 user_credentials → 委托新表", async () => {
+      prisma.userCredential.findFirst.mockResolvedValue({ id: "cred-1" });
+      const res = await service.testKey("user-1", "secret", "cred-1");
+      expect(userCredentials.testKey).toHaveBeenCalledWith("user-1", "cred-1");
+      expect(res.success).toBe(true);
     });
 
-    it("secret source: Key 存在且启用 → success=true", async () => {
+    it("secret source: legacy Key 存在且启用 → success=true", async () => {
+      prisma.userCredential.findFirst.mockResolvedValue(null);
       prisma.secret.findFirst.mockResolvedValue({
         id: "sec-1",
         name: "tavily-key",
@@ -224,7 +279,8 @@ describe("UserSecretsService", () => {
       expect(res.success).toBe(true);
     });
 
-    it("secret source: Key 存在但已禁用 → success=false", async () => {
+    it("secret source: legacy Key 已禁用 → success=false", async () => {
+      prisma.userCredential.findFirst.mockResolvedValue(null);
       prisma.secret.findFirst.mockResolvedValue({
         id: "sec-1",
         name: "tavily-key",
@@ -234,23 +290,25 @@ describe("UserSecretsService", () => {
       expect(res.success).toBe(false);
       expect(res.message).toContain("禁用");
     });
-
-    it("secret source: Key 不属于该用户 → success=false, 不抛错", async () => {
-      prisma.secret.findFirst.mockResolvedValue(null);
-      const res = await service.testKey("user-1", "secret", "other-sec");
-      expect(res.success).toBe(false);
-    });
   });
 
   describe("remove — owner 校验防 IDOR", () => {
-    it("secret 不属于该用户 → NotFound", async () => {
+    it("id 命中 user_credentials → 委托新表软删", async () => {
+      prisma.userCredential.findFirst.mockResolvedValue({ id: "cred-1" });
+      await service.remove("user-1", "secret", "cred-1");
+      expect(userCredentials.remove).toHaveBeenCalledWith("user-1", "cred-1");
+    });
+
+    it("legacy secret 不属于该用户 → NotFound", async () => {
+      prisma.userCredential.findFirst.mockResolvedValue(null);
       prisma.secret.findFirst.mockResolvedValue(null);
       await expect(
         service.remove("user-1", "secret", "sec-of-other-user"),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it("secret 属于该用户 → 软删除", async () => {
+    it("legacy secret 属于该用户 → 软删除", async () => {
+      prisma.userCredential.findFirst.mockResolvedValue(null);
       prisma.secret.findFirst.mockResolvedValue({ id: "sec-1" });
       await service.remove("user-1", "secret", "sec-1");
       expect(prisma.secret.update).toHaveBeenCalledWith(

@@ -15,11 +15,9 @@ import { Logger, NotFoundException, BadRequestException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { UserApiKeysService } from "../user-api-keys.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
-import { CreditsService } from "../../../../ai-infra/credits/credits.service";
 import { EncryptionService } from "../../../../ai-infra/encryption/encryption.service";
 import { ProviderProbeService } from "../../health/provider-probe.service";
-import { UserApiKeyMode, CreditTransactionType } from "@prisma/client";
+import { UserApiKeyMode } from "@prisma/client";
 import { ApiKeyMode } from "../dto";
 
 const buildEncryption = (): EncryptionService =>
@@ -35,8 +33,6 @@ const buildEncryption = (): EncryptionService =>
 describe("UserApiKeysService", () => {
   let service: UserApiKeysService;
   let mockPrisma: jest.Mocked<Partial<PrismaService>>;
-  let mockSecretsService: jest.Mocked<Partial<SecretsService>>;
-  let mockCreditsService: jest.Mocked<Partial<CreditsService>>;
 
   const makeApiKey = (overrides: Record<string, unknown> = {}) => ({
     id: "key-1",
@@ -106,23 +102,10 @@ describe("UserApiKeysService", () => {
       } as unknown as PrismaService["aIProvider"],
     };
 
-    mockSecretsService = {
-      findByName: jest.fn().mockResolvedValue(null),
-      create: jest.fn().mockResolvedValue({ id: "secret-1" }),
-      update: jest.fn().mockResolvedValue({ id: "secret-1" }),
-      delete: jest.fn().mockResolvedValue(undefined),
-    };
-
-    mockCreditsService = {
-      grantCredits: jest.fn().mockResolvedValue(undefined),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserApiKeysService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: SecretsService, useValue: mockSecretsService },
-        { provide: CreditsService, useValue: mockCreditsService },
         { provide: EncryptionService, useValue: buildEncryption() },
         {
           provide: ProviderProbeService,
@@ -266,87 +249,6 @@ describe("UserApiKeysService", () => {
       expect(mockPrisma.userApiKey!.update).toHaveBeenCalled();
     });
 
-    it("creates donated secret when mode is DONATED", async () => {
-      (mockPrisma.userApiKey!.findUnique as jest.Mock).mockResolvedValue(null);
-      (mockSecretsService.findByName as jest.Mock).mockResolvedValue(null);
-      (mockSecretsService.create as jest.Mock).mockResolvedValue({
-        id: "donated-secret-1",
-      });
-      (mockPrisma.userApiKey!.create as jest.Mock).mockResolvedValue(
-        makeApiKey({ mode: UserApiKeyMode.DONATED }),
-      );
-
-      await service.saveKey(
-        "user-1",
-        "openai",
-        "sk-donated1234567",
-        ApiKeyMode.DONATED,
-      );
-
-      expect(mockSecretsService.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: expect.stringContaining("donated-openai"),
-        }),
-        expect.any(Object),
-      );
-    });
-
-    it("grants DONATION_REWARD credits for first-time donation", async () => {
-      (mockPrisma.userApiKey!.findUnique as jest.Mock).mockResolvedValue(null);
-      (mockSecretsService.findByName as jest.Mock).mockResolvedValue(null);
-      (mockSecretsService.create as jest.Mock).mockResolvedValue({
-        id: "secret-1",
-      });
-      (mockPrisma.userApiKey!.create as jest.Mock).mockResolvedValue(
-        makeApiKey({
-          mode: UserApiKeyMode.DONATED,
-          donationRewardedAt: null,
-        }),
-      );
-
-      await service.saveKey(
-        "user-1",
-        "openai",
-        "sk-new-donated-key",
-        ApiKeyMode.DONATED,
-      );
-
-      expect(mockCreditsService.grantCredits).toHaveBeenCalledWith(
-        "user-1",
-        5000, // DONATION_REWARD_CREDITS
-        CreditTransactionType.DONATION_REWARD,
-        expect.stringContaining("openai"),
-      );
-    });
-
-    it("does not grant reward for repeated donation", async () => {
-      const existingDonated = makeApiKey({
-        mode: UserApiKeyMode.DONATED,
-        donationRewardedAt: new Date(), // already rewarded
-      });
-      (mockPrisma.userApiKey!.findUnique as jest.Mock).mockResolvedValue(
-        existingDonated,
-      );
-      (mockSecretsService.findByName as jest.Mock).mockResolvedValue({
-        id: "existing-secret",
-      });
-      (mockSecretsService.update as jest.Mock).mockResolvedValue({
-        id: "existing-secret",
-      });
-      (mockPrisma.userApiKey!.update as jest.Mock).mockResolvedValue(
-        existingDonated,
-      );
-
-      await service.saveKey(
-        "user-1",
-        "openai",
-        "sk-update-donated",
-        ApiKeyMode.DONATED,
-      );
-
-      expect(mockCreditsService.grantCredits).not.toHaveBeenCalled();
-    });
-
     it("validates endpoint URL format", async () => {
       await expect(
         service.saveKey(
@@ -397,23 +299,6 @@ describe("UserApiKeysService", () => {
         where: { id: key.id },
       });
     });
-
-    it("cleans up donated secret when deleting donated key", async () => {
-      const donatedKey = makeApiKey({
-        mode: UserApiKeyMode.DONATED,
-        donatedSecretId: "secret-1",
-      });
-      (mockPrisma.userApiKey!.findUnique as jest.Mock).mockResolvedValue(
-        donatedKey,
-      );
-      (mockPrisma.userApiKey!.delete as jest.Mock).mockResolvedValue(
-        donatedKey,
-      );
-
-      await service.deleteKey("user-1", "openai");
-
-      expect(mockSecretsService.delete).toHaveBeenCalled();
-    });
   });
 
   // ==================== testKey ====================
@@ -445,66 +330,23 @@ describe("UserApiKeysService", () => {
       expect(result).toBeNull();
     });
 
-    it("decrypts and returns key data", async () => {
-      // Create a real encrypted key
-      const tempService = service as unknown as {
-        encrypt: (text: string) => { encryptedValue: string; iv: string };
-      };
-      const { encryptedValue, iv } = tempService.encrypt("real-api-key");
-
-      const key = makeApiKey({ encryptedValue, iv });
+    it("decrypts and returns key data (envelope v2)", async () => {
+      // 用同 key 的 EncryptionService 产出 v2 信封行，decryptAny 双读应可解。
+      const env = await buildEncryption().encryptEnvelope("real-api-key");
+      const key = makeApiKey({
+        encryptedValue: env.encryptedValue,
+        iv: env.iv,
+        authTag: env.authTag,
+        wrappedDek: env.wrappedDek,
+        encVersion: env.encVersion,
+        kekVersion: env.kekVersion,
+      });
       (mockPrisma.userApiKey!.findFirst as jest.Mock).mockResolvedValue(key);
 
       const result = await service.getPersonalKey("user-1", "openai");
 
       expect(result).not.toBeNull();
       expect(result!.apiKey).toBe("real-api-key");
-    });
-  });
-
-  // ==================== withdrawDonation ====================
-
-  describe("withdrawDonation", () => {
-    it("throws BadRequestException when no donated key found", async () => {
-      (mockPrisma.userApiKey!.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await expect(
-        service.withdrawDonation("user-1", "openai"),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it("throws BadRequestException when key is not donated", async () => {
-      const personalKey = makeApiKey({ mode: UserApiKeyMode.PERSONAL });
-      (mockPrisma.userApiKey!.findUnique as jest.Mock).mockResolvedValue(
-        personalKey,
-      );
-
-      await expect(
-        service.withdrawDonation("user-1", "openai"),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it("converts donated key to personal on withdrawal", async () => {
-      const donatedKey = makeApiKey({
-        mode: UserApiKeyMode.DONATED,
-        donatedSecretId: "secret-1",
-      });
-      (mockPrisma.userApiKey!.findUnique as jest.Mock).mockResolvedValue(
-        donatedKey,
-      );
-      (mockPrisma.userApiKey!.update as jest.Mock).mockResolvedValue({
-        ...donatedKey,
-        mode: UserApiKeyMode.PERSONAL,
-      });
-
-      const result = await service.withdrawDonation("user-1", "openai");
-
-      expect(result.success).toBe(true);
-      expect(mockPrisma.userApiKey!.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { mode: UserApiKeyMode.PERSONAL, donatedSecretId: null },
-        }),
-      );
     });
   });
 

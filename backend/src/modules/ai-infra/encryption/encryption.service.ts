@@ -1,14 +1,38 @@
 import {
   Injectable,
   Logger,
+  Optional,
+  Inject,
   InternalServerErrorException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as crypto from "crypto";
+import { IKekProvider, KEK_PROVIDER } from "./kek/kek-provider.interface";
+import { EnvKekProvider } from "./kek/env-kek-provider";
 
 export interface EncryptionResult {
   encryptedValue: string;
   iv: string;
+}
+
+/** 信封加密（AES-256-GCM + KEK-wrapped DEK）写入结果，对应 v2 列。 */
+export interface EnvelopeResult {
+  encryptedValue: string;
+  iv: string;
+  authTag: string;
+  wrappedDek: string;
+  kekVersion: number;
+  encVersion: 2;
+}
+
+/** decryptAny / decryptEnvelope 读取的行形状（v1/v2 字段并存）。 */
+export interface DecryptableRow {
+  encryptedValue: string;
+  iv: string;
+  authTag?: string | null;
+  wrappedDek?: string | null;
+  kekVersion?: number | null;
+  encVersion?: number | null;
 }
 
 /**
@@ -31,8 +55,16 @@ export class EncryptionService {
    */
   private readonly userKeyMaterial: Buffer;
   readonly currentKeyVersion: number = 1;
+  /**
+   * KEK provider 用于信封加密（v2）。DI 可注入（cloud KMS，PR-6）；未注入时回退
+   * 到从 config 构造的 EnvKekProvider，保证 `new EncryptionService(config)` 直构也可用。
+   */
+  private readonly kek: IKekProvider;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @Optional() @Inject(KEK_PROVIDER) kekProvider?: IKekProvider,
+  ) {
     const key = this.configService.get<string>("SETTINGS_ENCRYPTION_KEY");
     let password: string;
     if (!key) {
@@ -65,6 +97,7 @@ export class EncryptionService {
     );
     this.userKeyMaterial = material;
     this.encryptionKey = material.toString("hex").substring(0, 32);
+    this.kek = kekProvider ?? new EnvKekProvider(this.configService);
   }
 
   /**
@@ -173,6 +206,85 @@ export class EncryptionService {
       );
       return null;
     }
+  }
+
+  // ==================== 信封加密 v2 (AES-256-GCM + KEK) ====================
+
+  /**
+   * 信封加密（G1+G2）：每条凭据独立随机 DEK 做 AES-256-GCM；DEK 用 KEK wrap。
+   * 返回 v2 列（encVersion=2）。AEAD 提供完整性 —— 篡改密文/authTag 解密即失败。
+   */
+  async encryptEnvelope(plaintext: string): Promise<EnvelopeResult> {
+    const dek = crypto.randomBytes(32);
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm", dek, iv);
+    const ciphertext = Buffer.concat([
+      cipher.update(plaintext, "utf8"),
+      cipher.final(),
+    ]);
+    const authTag = cipher.getAuthTag();
+    const { wrapped, kekVersion } = await this.kek.wrap(dek);
+    return {
+      encryptedValue: ciphertext.toString("hex"),
+      iv: iv.toString("hex"),
+      authTag: authTag.toString("hex"),
+      wrappedDek: wrapped,
+      kekVersion,
+      encVersion: 2,
+    };
+  }
+
+  /**
+   * 解密信封加密的 v2 行。KEK unwrap → AES-256-GCM 解密 + 校验 authTag。
+   * 失败（含篡改 / KEK 缺失）返回 null。
+   */
+  async decryptEnvelope(row: DecryptableRow): Promise<string | null> {
+    if (!row.encryptedValue || !row.iv || !row.authTag || !row.wrappedDek) {
+      return null;
+    }
+    try {
+      const dek = await this.kek.unwrap(row.wrappedDek, row.kekVersion ?? 1);
+      const decipher = crypto.createDecipheriv(
+        "aes-256-gcm",
+        dek,
+        Buffer.from(row.iv, "hex"),
+      );
+      decipher.setAuthTag(Buffer.from(row.authTag, "hex"));
+      const decrypted = Buffer.concat([
+        decipher.update(Buffer.from(row.encryptedValue, "hex")),
+        decipher.final(),
+      ]);
+      return decrypted.toString("utf8");
+    } catch (error) {
+      this.logger.error(
+        `Envelope decryption failed: ${(error as Error).message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 统一解密分派（dual-read）：按 `encVersion` 选择路径，所有 caller 经此即可
+   * 平滑过渡 v1→v2，无需各自分支。
+   *  - encVersion===2 → decryptEnvelope（信封）
+   *  - 否则（v1）：opts.userId → decryptForUser（HKDF per-user）；
+   *               opts.legacyCombined → decryptLegacy（`iv:cipher` 同字段）；
+   *               其余 → decrypt（master CBC）
+   */
+  async decryptAny(
+    row: DecryptableRow,
+    opts: { userId?: string; legacyCombined?: boolean } = {},
+  ): Promise<string | null> {
+    if (row.encVersion === 2) {
+      return this.decryptEnvelope(row);
+    }
+    if (opts.legacyCombined) {
+      return this.decryptLegacy(row.encryptedValue);
+    }
+    if (opts.userId) {
+      return this.decryptForUser(row.encryptedValue, row.iv, opts.userId);
+    }
+    return this.decrypt(row.encryptedValue, row.iv);
   }
 
   /**

@@ -260,6 +260,10 @@ describe("SecretsService", () => {
         ...makeSecret(),
         encryptedValue: createCall.data.encryptedValue,
         iv: createCall.data.iv,
+        authTag: createCall.data.authTag,
+        wrappedDek: createCall.data.wrappedDek,
+        encVersion: createCall.data.encVersion,
+        kekVersion: createCall.data.kekVersion,
       };
 
       (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(realSecret);
@@ -292,6 +296,10 @@ describe("SecretsService", () => {
       const realEncrypted = makeSecret({
         encryptedValue: createCall.data.encryptedValue,
         iv: createCall.data.iv,
+        authTag: createCall.data.authTag,
+        wrappedDek: createCall.data.wrappedDek,
+        encVersion: createCall.data.encVersion,
+        kekVersion: createCall.data.kekVersion,
       });
 
       (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(
@@ -426,6 +434,10 @@ describe("SecretsService", () => {
         makeSecret({
           encryptedValue: createCall.data.encryptedValue,
           iv: createCall.data.iv,
+          authTag: createCall.data.authTag,
+          wrappedDek: createCall.data.wrappedDek,
+          encVersion: createCall.data.encVersion,
+          kekVersion: createCall.data.kekVersion,
         }),
       );
 
@@ -875,6 +887,10 @@ describe("SecretsService", () => {
         ...makeSecret(),
         encryptedValue: createCall.data.encryptedValue,
         iv: createCall.data.iv,
+        authTag: createCall.data.authTag,
+        wrappedDek: createCall.data.wrappedDek,
+        encVersion: createCall.data.encVersion,
+        kekVersion: createCall.data.kekVersion,
       };
 
       (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(realSecret);
@@ -1009,6 +1025,10 @@ describe("SecretsService", () => {
         ...makeSecret({ currentVersion: 1 }),
         encryptedValue: createCall.data.encryptedValue,
         iv: createCall.data.iv,
+        authTag: createCall.data.authTag,
+        wrappedDek: createCall.data.wrappedDek,
+        encVersion: createCall.data.encVersion,
+        kekVersion: createCall.data.kekVersion,
       };
 
       (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(secret);
@@ -1051,6 +1071,10 @@ describe("SecretsService", () => {
         version: 2,
         encryptedValue: createCall.data.encryptedValue,
         iv: createCall.data.iv,
+        authTag: createCall.data.authTag,
+        wrappedDek: createCall.data.wrappedDek,
+        encVersion: createCall.data.encVersion,
+        kekVersion: createCall.data.kekVersion,
       });
 
       const value = await service.getVersionValue("hist-key", 2);
@@ -1112,6 +1136,10 @@ describe("SecretsService", () => {
         version: 1,
         encryptedValue: createCall.data.encryptedValue,
         iv: createCall.data.iv,
+        authTag: createCall.data.authTag,
+        wrappedDek: createCall.data.wrappedDek,
+        encVersion: createCall.data.encVersion,
+        kekVersion: createCall.data.kekVersion,
       });
       (mockPrisma.secretVersion!.create as jest.Mock).mockResolvedValue({
         id: "ver-4",
@@ -1183,6 +1211,10 @@ describe("SecretsService", () => {
       const secret = makeSecret({
         encryptedValue: createCall.data.encryptedValue,
         iv: createCall.data.iv,
+        authTag: createCall.data.authTag,
+        wrappedDek: createCall.data.wrappedDek,
+        encVersion: createCall.data.encVersion,
+        kekVersion: createCall.data.kekVersion,
         currentVersion: null,
       });
       (mockPrisma.secret!.findFirst as jest.Mock).mockResolvedValue(secret);

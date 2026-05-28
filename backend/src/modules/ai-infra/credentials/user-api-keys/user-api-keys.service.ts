@@ -7,19 +7,9 @@ import {
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import {
-  SecretsService,
-  AuditContext,
-} from "../../../ai-infra/secrets/secrets.service";
-import { CreditsService } from "../../../ai-infra/credits/credits.service";
 import { EncryptionService } from "../../../ai-infra/encryption/encryption.service";
 import { CacheService, CachePrefix, CacheTTL } from "../../../../common/cache";
-import {
-  SecretCategory,
-  CreditTransactionType,
-  UserApiKeyMode,
-  Prisma,
-} from "@prisma/client";
+import { UserApiKeyMode, Prisma } from "@prisma/client";
 import { ApiKeyMode } from "./dto";
 import {
   KeyHealthStore,
@@ -34,10 +24,8 @@ const PROVIDER_NAME_PATTERN = /^[a-z0-9-]+$/;
 // 数据驱动 —— resolveProviderDefaults 只读 DB ai_providers 表，找不到
 // 返回 null + 友好报错，让 admin 在 UI 配置（不再硬编码 fallback）。
 
-/** 捐赠奖励积分 */
-const DONATION_REWARD_CREDITS = 5000;
-/** 捐赠 Key 被使用时，捐赠者获得的积分 */
-const DONATION_USAGE_REWARD_CREDITS = 2;
+// 2026-05-28 H6: 捐赠池已退役 —— user_api_keys 现为纯个人 LLM key 表。
+// strict BYOK + AuthorizationGrant 已取代共享池；捐赠相关方法/积分全部移除。
 
 @Injectable()
 export class UserApiKeysService {
@@ -45,8 +33,6 @@ export class UserApiKeysService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly secretsService: SecretsService,
-    private readonly creditsService: CreditsService,
     private readonly encryption: EncryptionService,
     private readonly providerProbe: ProviderProbeService,
     @Optional() private readonly cacheService?: CacheService,
@@ -63,26 +49,12 @@ export class UserApiKeysService {
     this.eventEmitter.emit("user-api-key.changed", { userId });
   }
 
-  private encrypt(text: string) {
-    return this.encryption.encrypt(text);
-  }
-
-  private decrypt(encryptedValue: string, ivHex: string): string | null {
-    return this.encryption.decrypt(encryptedValue, ivHex);
-  }
-
   private validateProvider(provider: string): string {
     const normalized = provider.toLowerCase();
     if (!PROVIDER_NAME_PATTERN.test(normalized) || normalized.length > 50) {
       throw new BadRequestException("Invalid provider name");
     }
     return normalized;
-  }
-
-  private toPrismaMode(mode: ApiKeyMode): UserApiKeyMode {
-    return mode === ApiKeyMode.DONATED
-      ? UserApiKeyMode.DONATED
-      : UserApiKeyMode.PERSONAL;
   }
 
   /**
@@ -192,8 +164,8 @@ export class UserApiKeysService {
     if (apiEndpoint) {
       this.validateEndpointUrl(apiEndpoint);
     }
-    const prismaMode = this.toPrismaMode(mode);
-    const { encryptedValue, iv } = this.encrypt(apiKey);
+    // 2026-05-28 PR-3.1：新写一律信封 v2（AES-256-GCM + KEK）。旧行读取走 decryptAny 双读。
+    const env = await this.encryption.encryptEnvelope(apiKey);
 
     // 检查是否已有该 provider + label 的 Key
     const existing = await this.prisma.userApiKey.findUnique({
@@ -206,99 +178,49 @@ export class UserApiKeysService {
       },
     });
 
-    // 如果从捐赠切换到自用，需要先清理捐赠
-    if (
-      existing &&
-      existing.mode === UserApiKeyMode.DONATED &&
-      prismaMode === UserApiKeyMode.PERSONAL
-    ) {
-      await this.cleanupDonation(existing);
-    }
-
-    let donatedSecretId: string | null = null;
-
-    // ★ 捐赠模式：Secret 创建 → DB 写入 → 积分授予（有序、可追溯）
-    if (prismaMode === UserApiKeyMode.DONATED) {
-      // Step 1: 创建/更新 Secret（如果失败，整个操作中止）
-      donatedSecretId = await this.createDonatedSecret(
-        userId,
-        normalizedProvider,
-        apiKey,
-        apiEndpoint,
-      );
-    }
-
-    const isFirstDonation =
-      prismaMode === UserApiKeyMode.DONATED && !existing?.donationRewardedAt;
-
-    // Step 2: DB 写入（UserApiKey 记录）
+    // 捐赠池退役后（H6）：user_api_keys 恒为 PERSONAL。
     const keyHint = this.generateKeyHint(apiKey);
     const writeData: Prisma.UserApiKeyUpdateInput = {
-      encryptedValue,
-      iv,
+      encryptedValue: env.encryptedValue,
+      iv: env.iv,
+      authTag: env.authTag,
+      wrappedDek: env.wrappedDek,
+      encVersion: env.encVersion,
+      kekVersion: env.kekVersion,
       keyHint,
-      mode: prismaMode,
+      mode: UserApiKeyMode.PERSONAL,
       apiEndpoint: apiEndpoint || null,
       preferredModelId: preferredModelId || null,
-      donatedSecretId,
       isActive: true,
-      ...(isFirstDonation ? { donationRewardedAt: new Date() } : {}),
     };
 
-    try {
-      if (existing) {
-        await this.prisma.userApiKey.update({
-          where: { id: existing.id },
-          data: writeData,
-        });
-      } else {
-        await this.prisma.userApiKey.create({
-          data: {
-            user: { connect: { id: userId } },
-            provider: normalizedProvider,
-            label: normalizedLabel,
-            encryptedValue,
-            iv,
-            keyHint,
-            mode: prismaMode,
-            apiEndpoint: apiEndpoint || null,
-            preferredModelId: preferredModelId || null,
-            donatedSecretId,
-            isActive: true,
-            ...(isFirstDonation ? { donationRewardedAt: new Date() } : {}),
-          },
-        });
-      }
-    } catch (error) {
-      // DB 写入失败 → 回滚 Secret（如果刚创建了）
-      if (donatedSecretId && prismaMode === UserApiKeyMode.DONATED) {
-        await this.cleanupDonation({
-          donatedSecretId,
-          userId,
+    if (existing) {
+      await this.prisma.userApiKey.update({
+        where: { id: existing.id },
+        data: writeData,
+      });
+    } else {
+      await this.prisma.userApiKey.create({
+        data: {
+          user: { connect: { id: userId } },
           provider: normalizedProvider,
-        });
-      }
-      throw error;
+          label: normalizedLabel,
+          encryptedValue: env.encryptedValue,
+          iv: env.iv,
+          authTag: env.authTag,
+          wrappedDek: env.wrappedDek,
+          encVersion: env.encVersion,
+          kekVersion: env.kekVersion,
+          keyHint,
+          mode: UserApiKeyMode.PERSONAL,
+          apiEndpoint: apiEndpoint || null,
+          preferredModelId: preferredModelId || null,
+          isActive: true,
+        },
+      });
     }
 
-    // Step 3: 授予积分（DB 已写入成功，即使积分失败也不影响核心功能）
-    if (isFirstDonation) {
-      try {
-        await this.creditsService.grantCredits(
-          userId,
-          DONATION_REWARD_CREDITS,
-          CreditTransactionType.DONATION_REWARD,
-          `API Key 捐赠奖励 (${normalizedProvider})`,
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to grant donation reward for ${normalizedProvider}: ${(error as Error).message}`,
-        );
-        // 积分失败不回滚 Key 和 Secret，但记录错误以便后续补偿
-      }
-    }
-
-    // Step 4: 使缓存失效
+    // 使缓存失效
     await this.invalidateUserKeyCache(userId);
     this.emitUserApiKeyChanged(userId);
 
@@ -315,10 +237,8 @@ export class UserApiKeysService {
       await this.keyHealthStore.clearLastGood(userId, normalizedProvider);
     }
 
-    // Step 5 (BYOK v2)：如果这是该用户首次配置 Personal Key，标记引导完成
-    if (prismaMode === UserApiKeyMode.PERSONAL) {
-      await this.markOnboardedIfNeeded(userId);
-    }
+    // 首次配置 Personal Key → 标记引导完成（捐赠池退役后所有 key 均为 PERSONAL）
+    await this.markOnboardedIfNeeded(userId);
 
     return { success: true, mode };
   }
@@ -377,10 +297,6 @@ export class UserApiKeysService {
       throw new NotFoundException("No API Key found for this provider");
     }
 
-    if (existing.mode === UserApiKeyMode.DONATED) {
-      await this.cleanupDonation(existing);
-    }
-
     await this.prisma.userApiKey.delete({ where: { id: existing.id } });
 
     // 使缓存失效
@@ -397,44 +313,6 @@ export class UserApiKeysService {
       await this.keyHealthStore.delete(keyId);
       await this.keyHealthStore.clearLastGood(userId, normalizedProvider);
     }
-
-    return { success: true };
-  }
-
-  /**
-   * 撤回捐赠（保留 Key 为自用模式）
-   */
-  async withdrawDonation(
-    userId: string,
-    provider: string,
-    label: string = "default",
-  ) {
-    const normalizedProvider = this.validateProvider(provider);
-    const normalizedLabel = (label || "default").trim().toLowerCase();
-    const existing = await this.prisma.userApiKey.findUnique({
-      where: {
-        userId_provider_label: {
-          userId,
-          provider: normalizedProvider,
-          label: normalizedLabel,
-        },
-      },
-    });
-
-    if (!existing || existing.mode !== UserApiKeyMode.DONATED) {
-      throw new BadRequestException("No donated Key found for this provider");
-    }
-
-    await this.cleanupDonation(existing);
-
-    await this.prisma.userApiKey.update({
-      where: { id: existing.id },
-      data: { mode: UserApiKeyMode.PERSONAL, donatedSecretId: null },
-    });
-
-    // 使缓存失效
-    await this.invalidateUserKeyCache(userId);
-    this.emitUserApiKeyChanged(userId);
 
     return { success: true };
   }
@@ -556,7 +434,7 @@ export class UserApiKeysService {
       return null;
     }
 
-    const decrypted = this.decrypt(key.encryptedValue, key.iv);
+    const decrypted = await this.encryption.decryptAny(key);
     if (!decrypted) return null;
 
     const result = {
@@ -603,7 +481,7 @@ export class UserApiKeysService {
     if (provider && key.provider.toLowerCase() !== provider.toLowerCase()) {
       return null;
     }
-    const decrypted = this.decrypt(key.encryptedValue, key.iv);
+    const decrypted = await this.encryption.decryptAny(key);
     if (!decrypted) return null;
     return {
       apiKey: decrypted,
@@ -666,7 +544,7 @@ export class UserApiKeysService {
       preferredModelId: string | null;
     }> = [];
     for (const k of keys) {
-      const decrypted = this.decrypt(k.encryptedValue, k.iv);
+      const decrypted = await this.encryption.decryptAny(k);
       if (!decrypted) continue;
       result.push({
         keyRowId: k.id,
@@ -677,73 +555,6 @@ export class UserApiKeysService {
       });
     }
     return result;
-  }
-
-  /**
-   * 从共享池获取捐赠 Key（轮询选一个）
-   */
-  async getDonatedKey(provider: string): Promise<{
-    apiKey: string;
-    apiEndpoint?: string | null;
-    donorUserId: string;
-  } | null> {
-    // 使用原始 SQL 原子性地选择并递增使用计数，避免并发竞争
-    // 选择 usageCount 最小的一条，并原子递增
-    const normalizedProvider = provider.toLowerCase();
-
-    const candidates = await this.prisma.userApiKey.findMany({
-      where: {
-        provider: normalizedProvider,
-        mode: UserApiKeyMode.DONATED,
-        isActive: true,
-      },
-      orderBy: { usageCount: "asc" },
-      take: 3, // 取多条候选，防止单条解密失败
-    });
-
-    for (const key of candidates) {
-      const decrypted = this.decrypt(key.encryptedValue, key.iv);
-      if (!decrypted) {
-        this.logger.warn(`Failed to decrypt donated key ${key.id}, skipping`);
-        continue;
-      }
-
-      // 原子递增：使用乐观并发——只更新 usageCount 匹配的行
-      const updated = await this.prisma.userApiKey.updateMany({
-        where: {
-          id: key.id,
-          usageCount: key.usageCount, // 乐观锁
-        },
-        data: { usageCount: { increment: 1 } },
-      });
-
-      if (updated.count === 0) {
-        // 被其他并发请求抢先，尝试下一个候选
-        continue;
-      }
-
-      // 给捐赠者发放持续奖励积分（异步，不阻塞主流程）
-      this.creditsService
-        .grantCredits(
-          key.userId,
-          DONATION_USAGE_REWARD_CREDITS,
-          CreditTransactionType.DONATION_USAGE_REWARD,
-          `API Key 共享使用奖励 (${normalizedProvider})`,
-        )
-        .catch((error) => {
-          this.logger.warn(
-            `Failed to grant usage reward to donor ${key.userId}: ${(error as Error).message}`,
-          );
-        });
-
-      return {
-        apiKey: decrypted,
-        apiEndpoint: key.apiEndpoint,
-        donorUserId: key.userId,
-      };
-    }
-
-    return null;
   }
 
   /**
@@ -830,79 +641,6 @@ export class UserApiKeysService {
 
   // ==================== Private Helpers ====================
 
-  private async createDonatedSecret(
-    userId: string,
-    provider: string,
-    apiKey: string,
-    apiEndpoint?: string,
-  ): Promise<string> {
-    const shortId = userId.substring(0, 8);
-    const secretName = `donated-${provider}-${shortId}`;
-    const auditCtx: AuditContext = { userId };
-
-    // 检查是否已存在
-    const existing = await this.secretsService.findByName(secretName);
-    if (existing) {
-      await this.secretsService.update(
-        secretName,
-        { value: apiKey, isActive: true },
-        auditCtx,
-      );
-      return existing.id;
-    }
-
-    const secret = await this.secretsService.create(
-      {
-        name: secretName,
-        displayName: `User Donated - ${this.getProviderDisplayName(provider)}`,
-        value: apiKey,
-        category: SecretCategory.USER_DONATED,
-        provider,
-        description: `Donated by user ${shortId}. Endpoint: ${apiEndpoint || "default"}`,
-      },
-      auditCtx,
-    );
-
-    return secret.id;
-  }
-
-  private async cleanupDonation(key: {
-    donatedSecretId: string | null;
-    userId: string;
-    provider: string;
-  }) {
-    if (key.donatedSecretId) {
-      try {
-        const shortId = key.userId.substring(0, 8);
-        const secretName = `donated-${key.provider}-${shortId}`;
-        await this.secretsService.delete(secretName, { userId: key.userId });
-      } catch (error) {
-        const msg = (error as Error).message;
-        // 如果 Secret 被引用无法删除，至少将其禁用
-        if (msg.includes("still referenced")) {
-          this.logger.warn(
-            `Cannot delete donated secret (referenced): deactivating instead`,
-          );
-          try {
-            const shortId = key.userId.substring(0, 8);
-            const secretName = `donated-${key.provider}-${shortId}`;
-            await this.secretsService.update(
-              secretName,
-              { isActive: false },
-              { userId: key.userId },
-            );
-          } catch (updateError) {
-            this.logger.error(
-              `Failed to deactivate donated secret: ${(updateError as Error).message}`,
-            );
-          }
-        } else {
-          this.logger.warn(`Failed to delete donated secret: ${msg}`);
-        }
-      }
-    }
-  }
-
   private generateKeyHint(apiKey: string): string {
     if (apiKey.length <= 8) return "****";
     const prefix = apiKey.substring(0, 4);
@@ -932,22 +670,5 @@ export class UserApiKeysService {
       if (second >= 16 && second <= 31) return true;
     }
     return false;
-  }
-
-  private getProviderDisplayName(provider: string): string {
-    const names: Record<string, string> = {
-      openai: "OpenAI",
-      anthropic: "Anthropic",
-      deepseek: "DeepSeek",
-      google: "Google Gemini",
-      xai: "xAI (Grok)",
-      qwen: "Qwen",
-      cohere: "Cohere",
-      groq: "Groq",
-      openrouter: "OpenRouter",
-      minimax: "MiniMax",
-      voyage: "Voyage AI",
-    };
-    return names[provider] || provider;
   }
 }
