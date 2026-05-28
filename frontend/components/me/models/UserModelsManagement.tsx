@@ -282,16 +282,8 @@ export function UserModelsManagement() {
 
   return (
     <div className="space-y-4">
-      {/* Header — 对齐管理员 `/admin/ai/models` 的顶栏 */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">我的模型</h2>
-          <p className="mt-0.5 text-sm text-gray-500">
-            界面和字段与管理员的「模型管理」一致；使用你自己的 API Key
-            运行，不受系统默认模型 tier 限制
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+      {/* Action buttons */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
           <UserModelsAutoConfigureButton
             disabled={apiKeys.length === 0}
             onDone={() => void refresh()}
@@ -320,7 +312,6 @@ export function UserModelsManagement() {
           >
             <Plus className="h-4 w-4" /> Add Model
           </button>
-        </div>
       </div>
 
       {pendingRequest && (

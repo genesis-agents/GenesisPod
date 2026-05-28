@@ -433,16 +433,6 @@ export function UserToolsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-base font-semibold text-gray-900">
-          {t('me.tools.title')}
-        </h2>
-        <p className="mt-1 text-sm text-gray-500">
-          {t('me.tools.description')}
-        </p>
-      </div>
-
       {/* Info banner */}
       <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
         <p className="text-sm text-blue-800">{t('me.tools.grantInfo')}</p>
