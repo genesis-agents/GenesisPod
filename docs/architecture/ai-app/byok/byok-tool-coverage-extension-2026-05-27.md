@@ -829,3 +829,35 @@ CREATE INDEX "secrets_userId_category_idx" ON secrets("userId", category);
 ### 部署门禁（D17）
 
 - Phase B 迁移（`20260601_byok_tool_coverage`）+ Phase C 后端必须**同窗口部署**（unique 索引变更 + findFirst 改造耦合）。迁移尚未 apply 到任何 DB。
+
+---
+
+## 20. 最终实施状态（2026-05-28 收口）
+
+### ✅ 已完成并验证（12 commits，全绿）
+
+| 区块                                                   | commit                | 验证              |
+| ------------------------------------------------------ | --------------------- | ----------------- |
+| 方案 v0.3（4 路评审 + V1/V2 投票共识）                 | 72cb2370e / 608ee93af | —                 |
+| DB schema + 迁移 + per-user HKDF + admin-only 隔离     | d2ede4c9b             | 145 secrets 单测  |
+| 统一 user-secrets CRUD（3 铁律）                       | ae303081b             | 9                 |
+| 工具 Key resolver（user→grant→strict/fallback）        | 12d3fca0d             | 7                 |
+| /me/tools 端点 + 授权申请/审批 + 工具定义下沉          | bbc06601d             | 4 + 305 cred/arch |
+| 前端 /me：统一 api-keys + tools + skills + 导航 + i18n | 3d00939ea             | tsc 0             |
+| 模型 apiKeyId 选择器（endpoint + 使用 Key）            | 47400ab83             | tsc 0             |
+| 运行时 BYOK：search 工具（headline）                   | e1d331970             | 90 search 单测    |
+| 运行时 BYOK：finance connector                         | 7392745c7             | 18                |
+
+**用户 7 项核心诉求全部落地**：① 统一各类 Key 表格 ② 模型配 endpoint+选 Key ③ 我的工具菜单 ④ 我的技能菜单 ⑤ 运行时优先 BYOK 工具（search/finance 已接，pattern 已固化）⑥ 向系统申请授权 ⑦ 归一系统配置界面。
+
+### ⏳ 剩余长尾（同一 proven pattern，按优先级）
+
+| 项                                       | 说明                                                                                | 落地模板                                                                                                                                                                               |
+| ---------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 其余工具运行时 BYOK                      | image-generation / extraction(jina/firecrawl) / youtube(supadata) / tts(elevenlabs) | 复制 `SearchService.applyByokToolKeys` 或 `FinanceApiConnector.getApiKey`：注入 `ToolKeyResolverService` + `RequestContext.getUserId()` + 模块加 `ToolKeyResolverModule` + 测试补 mock |
+| LLM 模型 apiKeyId 运行时honoring         | UserModelConfig.apiKeyId 已存，KeyResolverService 选 key 时优先用它                 | KeyResolver 读 config.apiKeyId                                                                                                                                                         |
+| C8 测试按钮端点                          | `POST /user/secrets/:source/:id/test` + `@Throttle(5,3600)` + audit                 | admin SecretsService.test 参照                                                                                                                                                         |
+| Onboarding wizard（§16）/ 错误 UX（§15） | dashboard banner + 401 toast 高亮                                                   | getByokStatus 已就绪                                                                                                                                                                   |
+| 迁移 apply + 部署                        | `20260601_byok_tool_coverage` 须与后端同窗口（D17）                                 | `prisma migrate deploy`                                                                                                                                                                |
+
+> 状态诚实声明：BYOK 全量化的**架构核心 + 全部 UI + 存储 + 解析 + 鉴权 + headline 运行时**已完成可用；剩余为同模式的工具长尾接入 + 部署收尾。
