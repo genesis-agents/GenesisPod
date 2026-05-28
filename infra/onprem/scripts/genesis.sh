@@ -401,6 +401,33 @@ cmd_upgrade() {
   chmod 600 "$BACKUP"
   log "已备份 .env.production → ${BACKUP}"
 
+  # ── 升级前数据库快照（回滚点）──────────────────────────────
+  # 原流程只备份 .env，未备份数据库；schema 变更 / BYOK v2 迁移失败时无快照可回。
+  local DB_SNAP="db-preupgrade-${OLD_VERSION}-${TS}.sql.gz"
+  log "升级前快照数据库 → ${DB_SNAP}（回滚点）..."
+  if "${DC[@]}" exec -T postgres pg_dump -U genesis genesis 2>/dev/null | gzip > "$DB_SNAP" \
+     && [ -s "$DB_SNAP" ]; then
+    chmod 600 "$DB_SNAP"
+    log "  数据库快照完成（$(du -h "$DB_SNAP" | awk '{print $1}')）"
+  else
+    rm -f "$DB_SNAP"
+    DB_SNAP=""
+    warn "数据库快照失败（postgres 未运行？）"
+    if [ "${FORCE:-0}" != "1" ]; then
+      read -r -p "  无快照仍要升级? [y/N] " ANS
+      case "${ANS:-N}" in [yY]*) ;; *) die "已取消；建议先 bash genesis.sh backup 再升级"; esac
+    fi
+  fi
+
+  # ── BYOK 加固检查：KEK 隔离（v50.5.0+ 信封加密）─────────────
+  # 未配 SETTINGS_KEK_V1 时 EnvKekProvider 会从 SETTINGS_ENCRYPTION_KEY 派生 KEK（可用但未隔离）。
+  # ★ 这里只告警不自动改：已写入 v2 数据后更换 KEK 会导致旧密文解不开（须先跑 KEK 轮换 re-wrap 作业）。
+  if ! grep -qE '^SETTINGS_KEK_V1=.+' .env.production; then
+    warn "未配置 SETTINGS_KEK_V1：BYOK 信封加密的 KEK 当前从 SETTINGS_ENCRYPTION_KEY 派生（可用，但 KEK 与数据加密 key 未隔离）"
+    warn "  如需隔离：${C_BOLD}首次升级到 v2 版本前${C_RESET}往 .env.production 加 SETTINGS_KEK_V1=\$(openssl rand -hex 32)"
+    warn "  已有 v2 数据后再加/换 KEK，须先跑 KEK 轮换 re-wrap 作业，否则旧密文解不开"
+  fi
+
   log "从 ghcr.io 拉取新镜像..."
   while IFS= read -r img; do
     [ -z "$img" ] && continue
@@ -446,7 +473,14 @@ cmd_upgrade() {
 
   if [ "$HEALTHY" -ne 1 ]; then
     warn "backend 未在 10 分钟内 healthy；查看日志：bash genesis.sh logs"
-    warn "回滚：恢复 ${BACKUP} 为 .env.production 后跑 bash genesis.sh upgrade <旧 bundle>"
+    warn "回滚步骤："
+    warn "  1) 恢复配置：cp ${BACKUP} .env.production"
+    if [ -n "${DB_SNAP:-}" ] && [ -f "${DB_SNAP}" ]; then
+      warn "  2) 恢复数据库：gunzip -c ${DB_SNAP} | ${DC[*]} exec -T postgres psql -U genesis genesis"
+      warn "  3) 重装旧版本：bash genesis.sh upgrade ${OLD_VERSION}"
+    else
+      warn "  2) 重装旧版本：bash genesis.sh upgrade ${OLD_VERSION}（注意：本次无 DB 快照）"
+    fi
     exit 1
   fi
 
