@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Loader2 } from 'lucide-react';
@@ -19,26 +18,21 @@ const COPY: Record<
     submit: string;
     switchPrompt: string;
     switchAction: string;
-    passwordHint: string;
   }
 > = {
   login: {
-    title: 'Welcome back',
-    subtitle:
-      'Sign in to continue your workspace, saved conversations, and team drafts.',
-    submit: 'Continue',
-    switchPrompt: "Don't have an account?",
-    switchAction: 'Create one',
-    passwordHint: 'Use your account password to continue securely.',
+    title: '欢迎回来',
+    subtitle: '登入工作台，继续你的研究',
+    submit: '登入',
+    switchPrompt: '还没有账户？',
+    switchAction: '创建账户',
   },
   register: {
-    title: 'Create your account',
-    subtitle:
-      'Set up your workspace in minutes and keep your drafts, runs, and team context in one place.',
-    submit: 'Create account',
-    switchPrompt: 'Already have an account?',
-    switchAction: 'Sign in',
-    passwordHint: 'Use at least 8 characters so your account starts protected.',
+    title: '创建账户',
+    subtitle: '几分钟搭好你的 AI 工作流',
+    submit: '注册',
+    switchPrompt: '已有账户？',
+    switchAction: '直接登入',
   },
 };
 
@@ -94,256 +88,227 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#eef5ff_0%,#fff8f1_100%)] text-slate-950">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0a0f1c] px-4 py-8 text-slate-100">
+      {/* 背景：暗色 + 网格 + 双径向光 */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(148,163,184,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.06) 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+        }}
+      />
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[-8%] top-[-8%] h-[320px] w-[320px] rounded-full bg-sky-300/30 blur-3xl" />
-        <div className="absolute bottom-[-10%] right-[-6%] h-[280px] w-[280px] rounded-full bg-amber-200/40 blur-3xl" />
-        <div className="absolute left-1/2 top-[18%] h-[220px] w-[220px] -translate-x-1/2 rounded-full bg-white/35 blur-3xl" />
+        <div className="absolute left-[18%] top-[12%] h-[420px] w-[420px] rounded-full bg-violet-500/15 blur-[120px]" />
+        <div className="absolute bottom-[8%] right-[16%] h-[360px] w-[360px] rounded-full bg-cyan-400/10 blur-[100px]" />
       </div>
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl items-center px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid w-full items-center gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:gap-10">
-          <section className="hidden lg:block">
-            <div className="overflow-hidden rounded-[36px] border border-white/70 bg-white/62 p-4 shadow-[0_28px_90px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-              <div className="overflow-hidden rounded-[28px] bg-[#f8f4ec]">
-                <Image
-                  src="/illustrations/auth/agent-team-diagram.png"
-                  alt="Agent Team diagram"
-                  width={1256}
-                  height={1252}
-                  priority
-                  className="h-auto w-full"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="mx-auto w-full max-w-[540px]">
-            <div className="rounded-[32px] border border-white/70 bg-white/78 p-3 shadow-[0_28px_90px_rgba(15,23,42,0.10)] backdrop-blur-xl">
-              <div className="rounded-[28px] bg-white/92 p-5 sm:p-7">
-                <div className="mb-6 flex items-start justify-between gap-4">
-                  <button
-                    type="button"
-                    onClick={() => router.push('/')}
-                    className="transition-opacity hover:opacity-80"
-                    aria-label="Go home"
-                  >
-                    <BrandLogo variant="full" subtitle={null} />
-                  </button>
-
-                  <div className="hidden rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500 sm:block">
-                    {mode === 'login' ? 'Secure sign in' : 'New account'}
-                  </div>
-                </div>
-
-                <div className="mb-6 grid w-full grid-cols-2 rounded-[18px] bg-slate-100 p-1">
-                  <button
-                    type="button"
-                    onClick={() => switchMode('login')}
-                    className={`h-11 rounded-2xl text-sm font-semibold transition ${
-                      mode === 'login'
-                        ? 'bg-white text-slate-950 shadow-[0_10px_24px_rgba(15,23,42,0.08)]'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    Sign in
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => switchMode('register')}
-                    className={`h-11 rounded-2xl text-sm font-semibold transition ${
-                      mode === 'register'
-                        ? 'bg-white text-slate-950 shadow-[0_10px_24px_rgba(15,23,42,0.08)]'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    Create account
-                  </button>
-                </div>
-
-                <div className="mb-6">
-                  <h2 className="text-[34px] font-semibold tracking-[-0.05em] text-slate-950 sm:text-[42px]">
-                    {copy.title}
-                  </h2>
-                  <p className="mt-2 max-w-md text-sm leading-7 text-slate-600 sm:text-[15px]">
-                    {copy.subtitle}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => loginWithGoogle(email || undefined)}
-                  disabled={loading}
-                  className="inline-flex h-14 w-full items-center justify-center gap-3 rounded-full border border-slate-200 bg-white px-5 text-[15px] font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                  Continue with Google
-                </button>
-
-                <div className="my-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                  <span className="h-px bg-slate-200" />
-                  <span>Or</span>
-                  <span className="h-px bg-slate-200" />
-                </div>
-
-                <form onSubmit={handleSubmit} autoComplete="off" className="space-y-3">
-                  <input
-                    type="text"
-                    name="fake-username"
-                    autoComplete="username"
-                    tabIndex={-1}
-                    aria-hidden="true"
-                    className="hidden"
-                  />
-                  <input
-                    type="password"
-                    name="fake-password"
-                    autoComplete="current-password"
-                    tabIndex={-1}
-                    aria-hidden="true"
-                    className="hidden"
-                  />
-
-                  <div className="grid gap-3">
-                    <label className="grid gap-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        Email
-                      </span>
-                      <input
-                        key={`${mode}-email`}
-                        type="email"
-                        name={`${mode}-contact`}
-                        required
-                        autoComplete="off"
-                        autoCapitalize="none"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        data-form-type="other"
-                        data-lpignore="true"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="h-14 w-full rounded-[20px] border border-slate-200 bg-white px-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
-                        placeholder="you@example.com"
-                      />
-                    </label>
-
-                    {mode === 'register' && (
-                      <label className="grid gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                          Username
-                        </span>
-                      <input
-                        key={`${mode}-username`}
-                        type="text"
-                        name="register-display-name"
-                        required
-                        minLength={1}
-                        maxLength={50}
-                        autoComplete="off"
-                        autoCapitalize="none"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        data-form-type="other"
-                        data-lpignore="true"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="h-14 w-full rounded-[20px] border border-slate-200 bg-white px-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
-                          placeholder="How your team will see you"
-                        />
-                      </label>
-                    )}
-
-                    <label className="grid gap-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                          Password
-                        </span>
-                        {mode === 'login' && (
-                          <Link
-                            href="/"
-                            className="text-xs font-medium text-slate-500 transition hover:text-slate-900"
-                          >
-                            Need help?
-                          </Link>
-                        )}
-                      </div>
-                      <input
-                        key={`${mode}-password`}
-                        type="password"
-                        name={`${mode}-secret`}
-                        required
-                        minLength={mode === 'register' ? 8 : 6}
-                        autoComplete="new-password"
-                        autoCapitalize="none"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        data-form-type="other"
-                        data-lpignore="true"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="h-14 w-full rounded-[20px] border border-slate-200 bg-white px-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
-                        placeholder={
-                          mode === 'register'
-                            ? 'Create a strong password'
-                            : 'Enter your password'
-                        }
-                      />
-                    </label>
-                  </div>
-
-                  <div className="rounded-[20px] bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-500">
-                    {copy.passwordHint}
-                  </div>
-
-                  {error && (
-                    <div className="rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                      {error}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-slate-950 px-4 text-[15px] font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                    <span>{loading ? 'Please wait' : copy.submit}</span>
-                    {!loading && <ArrowRight className="h-4 w-4" />}
-                  </button>
-                </form>
-
-                <div className="mt-6 text-center text-sm text-slate-500">
-                  {copy.switchPrompt}{' '}
-                  <button
-                    type="button"
-                    onClick={() => switchMode()}
-                    className="font-semibold text-slate-900 transition hover:underline"
-                  >
-                    {copy.switchAction}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
+      <main className="relative w-full max-w-[400px]">
+        {/* Logo - 头顶居中, 极简 */}
+        <div className="mb-7 flex flex-col items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.push('/')}
+            className="transition-opacity hover:opacity-80"
+            aria-label="Go home"
+          >
+            <BrandLogo variant="full" subtitle={null} />
+          </button>
+          <span className="text-[10px] font-medium uppercase tracking-[0.25em] text-slate-500">
+            AI Research Workspace
+          </span>
         </div>
-      </div>
+
+        {/* 主卡片 */}
+        <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70 p-6 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.6)] backdrop-blur-xl sm:p-7">
+          {/* Mode toggle */}
+          <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-800 bg-slate-950/50 p-1">
+            <button
+              type="button"
+              onClick={() => switchMode('login')}
+              className={`h-9 rounded-lg text-[13px] font-medium transition ${
+                mode === 'login'
+                  ? 'bg-slate-100 text-slate-900 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              登入
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode('register')}
+              className={`h-9 rounded-lg text-[13px] font-medium transition ${
+                mode === 'register'
+                  ? 'bg-slate-100 text-slate-900 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              注册
+            </button>
+          </div>
+
+          {/* 标题区 */}
+          <div className="mb-5">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-50">
+              {copy.title}
+            </h1>
+            <p className="mt-1 text-[13px] text-slate-400">{copy.subtitle}</p>
+          </div>
+
+          {/* Google */}
+          <button
+            type="button"
+            onClick={() => loginWithGoogle(email || undefined)}
+            disabled={loading}
+            className="mb-4 inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-700/80 bg-slate-800/60 px-4 text-[13.5px] font-medium text-slate-100 transition hover:border-slate-600 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              />
+            </svg>
+            使用 Google 账户
+          </button>
+
+          {/* 分隔 */}
+          <div className="mb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+            <span className="h-px bg-slate-800" />
+            <span>或</span>
+            <span className="h-px bg-slate-800" />
+          </div>
+
+          {/* 表单 */}
+          <form onSubmit={handleSubmit} autoComplete="off" className="space-y-3">
+            <input
+              type="text"
+              name="fake-username"
+              autoComplete="username"
+              tabIndex={-1}
+              aria-hidden="true"
+              className="hidden"
+            />
+            <input
+              type="password"
+              name="fake-password"
+              autoComplete="current-password"
+              tabIndex={-1}
+              aria-hidden="true"
+              className="hidden"
+            />
+
+            <input
+              key={`${mode}-email`}
+              type="email"
+              name={`${mode}-contact`}
+              required
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-11 w-full rounded-xl border border-slate-700/80 bg-slate-950/40 px-3.5 text-[13.5px] text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-violet-500/70 focus:bg-slate-950/70 focus:ring-2 focus:ring-violet-500/15"
+              placeholder="邮箱"
+            />
+
+            {mode === 'register' && (
+              <input
+                key={`${mode}-username`}
+                type="text"
+                name="register-display-name"
+                required
+                minLength={1}
+                maxLength={50}
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                data-form-type="other"
+                data-lpignore="true"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-700/80 bg-slate-950/40 px-3.5 text-[13.5px] text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-violet-500/70 focus:bg-slate-950/70 focus:ring-2 focus:ring-violet-500/15"
+                placeholder="用户名"
+              />
+            )}
+
+            <input
+              key={`${mode}-password`}
+              type="password"
+              name={`${mode}-secret`}
+              required
+              minLength={mode === 'register' ? 8 : 6}
+              autoComplete="new-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="h-11 w-full rounded-xl border border-slate-700/80 bg-slate-950/40 px-3.5 text-[13.5px] text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-violet-500/70 focus:bg-slate-950/70 focus:ring-2 focus:ring-violet-500/15"
+              placeholder={mode === 'register' ? '设置密码 (≥8 位)' : '密码'}
+            />
+
+            {error && (
+              <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-[12.5px] text-rose-300">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 px-4 text-[13.5px] font-semibold text-white shadow-[0_8px_24px_-8px_rgba(139,92,246,0.5)] transition hover:from-violet-400 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              <span>{loading ? '请稍候' : copy.submit}</span>
+              {!loading && <ArrowRight className="h-3.5 w-3.5" />}
+            </button>
+          </form>
+
+          {/* 底部辅助 */}
+          <div className="mt-5 flex items-center justify-between gap-3 text-[12px] text-slate-500">
+            <button
+              type="button"
+              onClick={() => switchMode()}
+              className="font-medium text-slate-300 transition hover:text-slate-100"
+            >
+              {copy.switchPrompt}
+              <span className="ml-1 text-violet-400">{copy.switchAction}</span>
+            </button>
+            {mode === 'login' && (
+              <Link
+                href="/"
+                className="font-medium transition hover:text-slate-300"
+              >
+                需要帮助？
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* 页脚 */}
+        <p className="mt-5 text-center text-[11px] text-slate-600">
+          Powered by Genesis · 多 Agent 协作研究平台
+        </p>
+      </main>
     </div>
   );
 }
