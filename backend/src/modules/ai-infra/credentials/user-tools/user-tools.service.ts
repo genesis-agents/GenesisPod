@@ -9,12 +9,16 @@ export interface UserToolItem {
   category: string;
   secretName: string;
   userConfigurable: boolean;
-  /** 该用户在 secrets 表有 active 未删同名 secret */
+  /** 该用户有自己的同名 key（user_credentials 优先，兼容 legacy secrets） */
   configured: boolean;
   /** admin 是否配了同名系统 secret（只返回 boolean，不泄露值/id） */
   systemConfigured: boolean;
   /** 该用户有未撤销未过期的 TOOL_GRANT */
   granted: boolean;
+  /** 该用户现在能否直接使用此工具（自有 key / 授权 / FALLBACK 下平台兜底） */
+  usable: boolean;
+  /** 可用来源：user=自有 key, granted=被授权平台 key, platform=FALLBACK 平台兜底, none=不可用需配置 */
+  source: "user" | "granted" | "platform" | "none";
 }
 
 /**
@@ -45,53 +49,75 @@ export class UserToolsService {
     const secretNames = configurableTools.map((d) => d.secretKeyName as string);
     const toolIds = configurableTools.map((d) => d.id);
 
-    // 2. 批量查询用户私有 secret（一次查完，不 N+1）
-    const [userSecrets, adminSecrets, grants] = await Promise.all([
-      this.prisma.secret.findMany({
-        where: {
-          userId,
-          deletedAt: null,
-          name: { in: secretNames },
-        },
-        select: { name: true },
-      }),
-      // 3. 批量查询 admin 系统 secret（userId=null）——只取 boolean，不返回值
-      this.prisma.secret.findMany({
-        where: {
-          userId: null,
-          isActive: true,
-          name: { in: secretNames },
-        },
-        select: { name: true },
-      }),
-      // 4. 批量查询未撤销未过期的 TOOL_GRANT
-      this.prisma.authorizationGrant.findMany({
-        where: {
-          userId,
-          type: AuthRequestType.TOOL_GRANT,
-          revokedAt: null,
-          targetId: { in: [...toolIds, ...secretNames] },
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-        },
-        select: { targetId: true },
-      }),
-    ]);
+    // 2. 批量查询（一次查完，不 N+1）：用户自有 key（user_credentials 优先 + legacy
+    //    secrets 兼容）、admin 系统 secret、TOOL_GRANT、以及该用户的 byokMode。
+    const [userCreds, legacyUserSecrets, adminSecrets, grants, user] =
+      await Promise.all([
+        // BYOK 加固后用户工具 key 落 user_credentials
+        this.prisma.userCredential.findMany({
+          where: { userId, deletedAt: null, name: { in: secretNames } },
+          select: { name: true },
+        }),
+        // 过渡期兼容：legacy 用户行仍可能在 secrets
+        this.prisma.secret.findMany({
+          where: { userId, deletedAt: null, name: { in: secretNames } },
+          select: { name: true },
+        }),
+        // admin 系统 secret（userId=null）——只取 boolean，不返回值
+        this.prisma.secret.findMany({
+          where: { userId: null, isActive: true, name: { in: secretNames } },
+          select: { name: true },
+        }),
+        this.prisma.authorizationGrant.findMany({
+          where: {
+            userId,
+            type: AuthRequestType.TOOL_GRANT,
+            revokedAt: null,
+            targetId: { in: [...toolIds, ...secretNames] },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
+          select: { targetId: true },
+        }),
+        this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { byokMode: true },
+        }),
+      ]);
 
-    const userSecretSet = new Set(userSecrets.map((s) => s.name));
+    const userKeySet = new Set([
+      ...userCreds.map((s) => s.name),
+      ...legacyUserSecrets.map((s) => s.name),
+    ]);
     const adminSecretSet = new Set(adminSecrets.map((s) => s.name));
     const grantTargetSet = new Set(grants.map((g) => g.targetId));
+    // byokMode 默认 STRICT（与 ToolKeyResolver 一致）：缺则不走平台兜底
+    const fallback = user?.byokMode === "FALLBACK";
 
     return configurableTools.map((def) => {
       const secretName = def.secretKeyName as string;
+      const configured = userKeySet.has(secretName);
+      const granted =
+        grantTargetSet.has(def.id) || grantTargetSet.has(secretName);
+      const systemConfigured = adminSecretSet.has(secretName);
+
+      // 可用性 + 来源：自有 key > 授权平台 key > FALLBACK 平台兜底 > 不可用
+      let source: UserToolItem["source"];
+      if (configured) source = "user";
+      else if (granted) source = "granted";
+      else if (systemConfigured && fallback) source = "platform";
+      else source = "none";
+
       return {
         toolId: def.id,
         name: def.name,
         category: def.category,
         secretName,
         userConfigurable: true,
-        configured: userSecretSet.has(secretName),
-        systemConfigured: adminSecretSet.has(secretName),
-        granted: grantTargetSet.has(def.id) || grantTargetSet.has(secretName),
+        configured,
+        systemConfigured,
+        granted,
+        usable: source !== "none",
+        source,
       };
     });
   }
