@@ -25,7 +25,7 @@ describe("ToolKeyResolverService", () => {
       authorizationGrant: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     secrets = { getValueInternal: jest.fn().mockResolvedValue(null) };
-    // 默认 user-scoped secrets 读不到 → dual-read 回退既有 user_credentials 路径（现有用例不变）
+    // 默认 secret_keys 读不到 → 再读 secret 行值（均在 user-scoped secrets 存储内）
     secretKeys = { getSecretKey: jest.fn().mockResolvedValue(null) };
     userSecrets = { getUserSecretValue: jest.fn().mockResolvedValue(null) };
 
@@ -67,7 +67,7 @@ describe("ToolKeyResolverService", () => {
     const r = await service.resolveToolKey("tavily", "u1");
     expect(r?.source).toBe("user");
     expect(r?.value).toBe("tvly-secret-key");
-    // dual-read：命中 secrets 后不应再走旧 user_credentials 路径
+    // 命中 secret_keys 后不应再读 secret 行值（短路）
     expect(userSecrets.getUserSecretValue).not.toHaveBeenCalled();
     expect(secretKeys.getSecretKey).toHaveBeenCalledWith(
       "tavily-search-api-key",

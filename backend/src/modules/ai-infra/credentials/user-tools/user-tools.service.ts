@@ -9,7 +9,7 @@ export interface UserToolItem {
   category: string;
   secretName: string;
   userConfigurable: boolean;
-  /** 该用户有自己的同名 key（user_credentials 优先，兼容 legacy secrets） */
+  /** 该用户有自己的同名 key（user-scoped secrets） */
   configured: boolean;
   /** admin 是否配了同名系统 secret（只返回 boolean，不泄露值/id） */
   systemConfigured: boolean;

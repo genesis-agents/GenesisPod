@@ -72,9 +72,9 @@ export class ToolKeyResolverService {
     }
     const secretName = this.resolveSecretName(toolId);
 
-    // 1. 用户私有 Key 优先。
-    //   收敛后主源 = user-scoped secrets/secret_keys（多 Key + priority + 5min 熔断 failover）；
-    //   过渡期 dual-read：新表读不到再回退既有 user_credentials 路径（P5 迁移完成后回退路径自然失效）。
+    // 1. 用户私有 Key 优先，均在 user-scoped secrets/secret_keys 存储内：
+    //   先读 secret_keys（多 Key + priority + 5min 熔断 failover），未命中再读 secret 行值。
+    //   （W5 后 user_credentials 已退役，不再有该回退路径。）
     const userScoped = await this.secretKeys.getSecretKey(secretName, userId);
     if (userScoped) {
       return { value: userScoped.value, source: "user", secretName };

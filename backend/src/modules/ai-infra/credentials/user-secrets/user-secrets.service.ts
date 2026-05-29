@@ -173,10 +173,8 @@ export class UserSecretsService {
       };
     }
 
-    // ★ 2026-05-29 P4：非 AI_MODEL（工具/其它）收敛到 user-scoped secrets/secret_keys
-    //   （envelope v2 + 自动建 primary secret_key），从此可走 admin 同款多 Key 抽屉
-    //   （/user/secrets/:id/keys）+ getSecretKey failover。取代旧 user_credentials 路径
-    //   （user_credentials=0，零迁移）。
+    // 非 AI_MODEL（工具/其它）落 user-scoped secrets/secret_keys（envelope v2 + 自动建
+    //   primary secret_key），走 admin 同款多 Key 抽屉（/user/secrets/:id/keys）+ getSecretKey failover。
     const created = await this.secrets.create(
       {
         name: dto.name,
