@@ -413,6 +413,80 @@ module.exports = {
       },
     },
     {
+      // ════════════════════════════════════════════════════════════════
+      // ★ 2026-05-29 open-api facade 收口（与 ai-app 同等边界）：
+      //   open-api(L4) 访问 ai-engine(L2) / ai-harness(L2.5) 能力必须走各自
+      //   facade，不得穿透内部路径。缺口符号先补进 facade/index.ts 再用。
+      //
+      //   excludedFiles 例外（经用户确认）：深层内省 / 协议实现控制器，其职责
+      //   本就是深入 harness 内部，强行搬进 facade 会让 facade 表面积膨胀并触发
+      //   PR-E0 式循环加载风险，故文档化豁免：
+      //     - admin/harness/harness-inspector.controller.ts（LoopRegistry /
+      //       SpecAgentRegistry / AgentEventStore / SkillLearningCoordinator 内省）
+      //     - admin/observability/observability-admin.controller.ts（TraceCollector）
+      //     - a2a-server.controller.ts / a2a-rpc.controller.ts（A2A 协议内部）
+      //   *.module.ts 同 ai-app 例外（NestJS DI 装配必须用具体 module class）。
+      // ════════════════════════════════════════════════════════════════
+      files: ["**/modules/open-api/**/*.ts"],
+      excludedFiles: [
+        "**/*.spec.ts",
+        "**/*.test.ts",
+        "**/__tests__/**/*.ts",
+        "**/modules/open-api/**/*.module.ts",
+        // 深层内省 / 协议实现控制器豁免（见上方注释）
+        "**/modules/open-api/admin/harness/harness-inspector.controller.ts",
+        "**/modules/open-api/admin/observability/observability-admin.controller.ts",
+        "**/modules/open-api/a2a-server.controller.ts",
+        "**/modules/open-api/a2a-rpc.controller.ts",
+        // agents-api 直引 agent.types primitive：facade re-export 的 legacy
+        // plan-based AgentResult<AgentOutput> 会遮蔽 agent.types 的 AgentResult
+        // （含 tokensUsed），类型不兼容，故整目录走 agent.types 直引。
+        "**/modules/open-api/agents-api/**/*.ts",
+      ],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "**/ai-engine/llm/**",
+                  "**/ai-engine/tools/**",
+                  "**/ai-engine/rag/**",
+                  "**/ai-engine/knowledge/**",
+                  "**/ai-engine/skills/**",
+                  "**/ai-engine/planning/**",
+                  "**/ai-engine/safety/**",
+                  "**/ai-engine/content/**",
+                  "**/ai-engine/credentials/**",
+                ],
+                message:
+                  "open-api 访问 AI Engine 必须走 'ai-engine/facade'，不得穿透内部路径。" +
+                  "缺口符号先在 ai-engine/facade/index.ts 补 export 再用。",
+              },
+              {
+                group: [
+                  "**/ai-harness/agents/**",
+                  "**/ai-harness/runner/**",
+                  "**/ai-harness/teams/**",
+                  "**/ai-harness/handoffs/**",
+                  "**/ai-harness/memory/**",
+                  "**/ai-harness/protocols/**",
+                  "**/ai-harness/evaluation/**",
+                  "**/ai-harness/guardrails/**",
+                  "**/ai-harness/tracing/**",
+                  "**/ai-harness/lifecycle/**",
+                ],
+                message:
+                  "open-api 访问 AI Harness 必须走 'ai-harness/facade'，不得穿透内部路径。" +
+                  "缺口符号先在 ai-harness/facade/index.ts 补 export 再用。",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       // Phase H1: Harness 第一公民独立。ai-engine 永远不允许 import ai-harness
       // （依赖方向必须单向：ai-app → ai-harness → ai-engine）
       //

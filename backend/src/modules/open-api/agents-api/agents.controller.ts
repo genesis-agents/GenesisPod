@@ -18,6 +18,9 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
 import { Observable, map, catchError, of } from "rxjs";
+// agents-api 直接消费 ai-harness agent.types primitive 层（AgentResult 含 tokensUsed
+// 等字段），与 facade re-export 的 legacy plan-based AgentResult<AgentOutput> 命名冲突，
+// 故 agents-api 整目录在 .eslintrc.js 中文档化豁免，直引 agent.types primitive。
 import { AgentOrchestrator } from "../../ai-harness/agents/registry/agent-orchestrator";
 import { AgentRegistry } from "../../ai-harness/agents/registry/plan-based-agent-registry";
 import {

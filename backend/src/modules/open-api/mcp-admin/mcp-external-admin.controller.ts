@@ -19,7 +19,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { MCPClientRegistryService } from "../../ai-engine/tools/adapters/mcp/registry/mcp-client-registry.service";
+import { MCPClientRegistryService } from "../../ai-engine/facade";
 import {
   CreateExternalServerDto,
   UpdateExternalServerDto,

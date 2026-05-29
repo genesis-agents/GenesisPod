@@ -9,7 +9,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
-import { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
+import { SkillRegistry } from "../../ai-engine/facade";
 
 export interface SkillItem {
   id: string;
@@ -863,4 +863,3 @@ export class SkillsApiService {
     );
   }
 }
-

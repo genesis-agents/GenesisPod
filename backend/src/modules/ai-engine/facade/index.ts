@@ -287,6 +287,13 @@ export type { ModelFallbackOptions } from "../llm/selection/model-fallback.servi
 export { AiModelConfigService } from "@/modules/ai-engine/llm/services/ai-model-config.service";
 export type { AIModelConfig } from "@/modules/ai-engine/llm/services/ai-model-config.service";
 
+// 2026-05-29 open-api facade 收口：以下服务此前被 open-api 控制器直接穿透
+// 内部路径访问，统一从 engine facade 暴露（见 .eslintrc.js open-api 边界规则）。
+export { SystemModelInventoryService } from "../llm/services/system-model-inventory.service";
+export { SkillAnalyticsService } from "../skills/analytics/skill-analytics.service";
+export { MCPClientRegistryService } from "../tools/adapters/mcp/registry/mcp-client-registry.service";
+// 注：ModelRecommendationsService 已在本文件下方（约 412 行）导出，勿重复。
+
 // TeamMemberInfo 是 L2.5 ai-harness/runner 类型，2026-05-01 PR-X-M2 下沉为
 // ai-harness/facade export，engine 不再 re-export
 
