@@ -1,9 +1,9 @@
 # Business-Team Framework 使用规范
 
-**版本：** 1.0
+**版本：** 1.1
 **强制级别：** 🔴 MUST
 **状态：** 已采纳
-**日期：** 2026-05-24
+**日期：** 2026-05-24（1.1 增补 §2.1 最小骨架取舍 / §5.2 质量基线门禁 / §8 标杆依据，2026-05-29）
 
 > **核心原则**：**新建 agent team app 必须基于 `ai-harness/teams/business-team/` framework + §8.2 目录布局；不允许 copy-paste playground 整个目录树作为模板。**
 > 本文是创建新 agent team app（mission-pipeline 型）的唯一权威 SOP。
@@ -71,6 +71,34 @@ ai-app/<team-name>/
 - ❌ `mission/` 下缺少 `pipeline/`、`agents/`、`lifecycle/` 任一必备子目录
 
 **自动看护**：`src/__tests__/architecture/agent-team-layout.spec.ts`（43 tests）—— 违规 jest 红 → pre-push 拒推。
+
+### 2.1 最小骨架 vs 完整能力（按需取用，反过度抽象）
+
+> **核心**：§2 列的是**结构白名单**，不是"每个新 app 都要建满"。新 app 应从**最小骨架**起步，按真实需要才长出可选能力。整包照搬 playground 全量目录 = 过度复杂（违反 CLAUDE.md「简洁优先 / YAGNI」）。
+
+**MUST 子集（最小起步，参考 `radar`——6 个 `mission/` 子目录即可跑通）：**
+
+| 层                | MUST 目录                                                                                                                                                                        |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 顶层              | `module/` `api/` `runtime/` `mission/` `events/`                                                                                                                                 |
+| `mission/`        | `pipeline/`（stages + dispatcher + business-orchestrator + runtime-shell）、`lifecycle/`（mission-store + event-buffer + config-snapshot）、`projectors/`、`query/`、`services/` |
+| `mission/agents/` | 每个 role 一个 `<role>/SKILL.md`                                                                                                                                                 |
+
+**可选能力（有真实需求才加，参考 `social` 9 子目录 / `playground` 全量）：**
+
+| 可选目录                    | 何时才加                                        | 谁有                |
+| --------------------------- | ----------------------------------------------- | ------------------- |
+| `roles/`                    | role 逻辑超出 SKILL.md、需要 typed role service | social / playground |
+| `context/`                  | 需要跨 stage 的上下文初始化 / 演进              | social / playground |
+| `skills/`                   | app 自带 domain SKILL.md 目录（非 agent role）  | social / playground |
+| `types/`                    | 公共类型超过单文件                              | social / playground |
+| `chat/`                     | mission 内嵌 leader chat 交互                   | playground          |
+| `dag-view/`                 | 需要 DAG 可视化端点                             | playground          |
+| `export/`                   | 需要 CSV/JSON/MD 导出                           | playground          |
+| `rerun/`                    | 需要单 stage 局部重跑                           | playground          |
+| `calibration/` `artifacts/` | app 特有产物装配 / 标定                         | playground          |
+
+**判据**：一个可选目录只为"将来可能用"而建 = 违规。**3 处使用再抽象**（CLAUDE.md 简洁原则）。radar 至今只用 6 子目录跑生产，是最小骨架的活样本。
 
 ---
 
@@ -168,6 +196,27 @@ import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 
 **自动看护现状**：上述第 1/2/4 项可静态扫（controller decorator），但目前 `agent-team-layout.spec` 只锁目录结构，**未锁安全 decorator**。新 app 评审时人工核对本清单。后续如加 security decorator AST spec，更新此节。
 
+### 5.2 质量基线门禁（MUST，可看护）
+
+> **原则**：playground 之所以是标杆（见 §8），靠的是可量化的质量纪律。这些纪律必须是**机器可看护的门禁**，不是人工自觉。每条规则映射到一个 spec / lint / hook。
+
+| #   | 规则                                                                           | 阈值 / 判据                                     | 看护载体                                                   | 现状    |
+| --- | ------------------------------------------------------------------------------ | ----------------------------------------------- | ---------------------------------------------------------- | ------- |
+| 1   | **mission 类 app 测试比**：`__tests__` spec 数 / 非测试 `.ts` 数               | ≥ 35%（playground 41% / radar 实测）            | `agent-team-quality-gate.spec.ts`（新增）                  | ✅ 已加 |
+| 2   | **production 代码零 facade 穿透**（测试可 reach 内部）                         | 非 `__tests__` 文件 0 处内部路径 import         | `agent-team-facade-contract.spec.ts` + ESLint SECTION 10   | ✅ 已有 |
+| 3   | **无 `any` / `console.log`**（mission app 非测试代码）                         | 0 处                                            | ESLint `@typescript-eslint/no-explicit-any` + `no-console` | ✅ 已有 |
+| 4   | **终态只经 `MissionLifecycleManager.finalize` → arbiter**，禁直写 mission 终态 | store 不得旁路 `markX`/`applyTerminalIfRunning` | `mission-contract-guards.spec.ts`（C0 终态写收口）         | ✅ 已有 |
+| 5   | **每个 stage 一个文件**，`mission/pipeline/stages/` 下无多 stage runner 合并   | 1 file ≤ 1 stage runner class                   | `agent-team-quality-gate.spec.ts`（新增）                  | ✅ 已加 |
+| 6   | **outputSchema 用真 zod**，禁伪造 always-success 对象（lying assertion）       | 不得 `outputSchema: { parse:` 字面对象          | `agent-team-quality-gate.spec.ts`（新增）                  | ✅ 已加 |
+
+**禁止行为**：
+
+- ❌ 测试比低于阈值就提交（gate 红 → pre-push 拒推）
+- ❌ 用伪造 schema 蒙混 framework 校验（CLAUDE.md 反向洞察：lying assertion 是技术债）
+- ❌ 在 store 里直写终态绕过 finalize 仲裁（破坏 terminal arbiter 一致性）
+
+**门禁源码**：`backend/src/__tests__/architecture/agent-team-quality-gate.spec.ts`。新 app 自动纳入（扫 `MISSION_APP_MODULES` 清单）。
+
 ---
 
 ## 6. 修改 `ai-harness/teams/business-team/` framework 的红线
@@ -198,6 +247,27 @@ import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 
 ---
 
+## 8. 标杆依据（为什么以 `agent-playground` 为范本）
+
+> 本节是 narrative（非规则），解释"标杆气质"从何而来，让新 app 作者知道该学什么。数据为 2026-05-29 实测。
+
+`agent-playground` 是本项目 mission 家族的**事实标杆**——不是钦定，是 `radar` / `social` 已照它骨架长出来的客观结果（mission 框架现有 3 个消费方）。它够格的硬证据：
+
+| 维度        | 实测                                                                                      | 说明                                             |
+| ----------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 测试纪律    | 222 文件 / 92 测试（**~41%**）                                                            | 全项目最高测试密度，是 §5.2 门禁阈值的来源       |
+| Facade 纪律 | production 代码**零穿透**（违规仅在 `__tests__`）                                         | §4 import 规则的合格样板                         |
+| 代码卫生    | 222 文件中 `any`/`console.log` **仅 2 处**                                                | §5.2 规则 3 的标杆                               |
+| 横向耦合    | 对 `ai-app/teams` **零依赖**                                                              | app 之间不互相依赖（CLAUDE.md 模块依赖原则）     |
+| 框架复用    | mission 框架被 playground + radar + social 消费                                           | 证明 §3 framework 是真·可复制，非特殊待遇        |
+| 运行时模式  | terminal arbiter / liveness guard / event-buffer replay / checkpoint resume / local rerun | §5.2 规则 4 + CLAUDE.md 反向洞察 10 条的业务落地 |
+
+**适用边界（呼应 §1）**：标杆只适用于 mission-pipeline 家族（多步骤 + 多角色 + 产出 artifact）。`ask`/`image`/`library` 等问答/生成/CRUD 型**不在**此列——强套这套框架 = 过度抽象。
+
+**学它什么（而非抄它什么）**：学 §5.2 的质量纪律、§3 的继承而非复制、§2.1 的最小起步；**不要**整包复制它的 222 文件。
+
+---
+
 ## 相关文档
 
 - [agent-playground 边界 + 目录蓝图](../docs/architecture/ai-app/agent-playground/agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md) — §8.2 目录 + §8.1 framework 设计原始来源
@@ -208,5 +278,5 @@ import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 
 ---
 
-**最后更新**: 2026-05-24
-**维护者**: Claude Code (Wave 6 P31)
+**最后更新**: 2026-05-29
+**维护者**: Claude Code (Wave 6 P31；1.1 黄金路径增补)
