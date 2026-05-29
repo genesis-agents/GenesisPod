@@ -77,8 +77,11 @@ export class SecretKeysService {
 
   // ========== Admin CRUD ==========
 
-  async listKeys(secretId: string): Promise<SecretKeyListItem[]> {
-    await this.requireSecret(secretId);
+  async listKeys(
+    secretId: string,
+    ownerUserId?: string,
+  ): Promise<SecretKeyListItem[]> {
+    await this.requireSecret(secretId, ownerUserId);
     const rows = await this.prisma.secretKey.findMany({
       where: { secretId },
       orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
@@ -90,8 +93,9 @@ export class SecretKeysService {
     secretId: string,
     dto: AddSecretKeyDto,
     context?: AuditContext,
+    ownerUserId?: string,
   ): Promise<SecretKeyListItem> {
-    await this.requireSecret(secretId);
+    await this.requireSecret(secretId, ownerUserId);
 
     const dup = await this.prisma.secretKey.findUnique({
       where: { secretId_label: { secretId, label: dto.label } },
@@ -131,8 +135,9 @@ export class SecretKeysService {
     keyId: string,
     dto: UpdateSecretKeyMetaDto,
     context?: AuditContext,
+    ownerUserId?: string,
   ): Promise<SecretKeyListItem> {
-    const existing = await this.requireKey(keyId);
+    const existing = await this.requireKey(keyId, ownerUserId);
 
     if (dto.label && dto.label !== existing.label) {
       const dup = await this.prisma.secretKey.findUnique({
@@ -164,8 +169,9 @@ export class SecretKeysService {
     keyId: string,
     dto: ReplaceSecretKeyValueDto,
     context?: AuditContext,
+    ownerUserId?: string,
   ): Promise<SecretKeyListItem> {
-    await this.requireKey(keyId);
+    await this.requireKey(keyId, ownerUserId);
     const env = await this.encryption.encryptEnvelope(dto.value);
     const updated = await this.prisma.secretKey.update({
       where: { id: keyId },
@@ -193,8 +199,12 @@ export class SecretKeysService {
     return this.toListItem(updated);
   }
 
-  async deleteKey(keyId: string, context?: AuditContext): Promise<void> {
-    const existing = await this.requireKey(keyId);
+  async deleteKey(
+    keyId: string,
+    context?: AuditContext,
+    ownerUserId?: string,
+  ): Promise<void> {
+    const existing = await this.requireKey(keyId, ownerUserId);
     const secret = await this.prisma.secret.findUnique({
       where: { id: existing.secretId },
       select: { name: true },
@@ -244,8 +254,9 @@ export class SecretKeysService {
   async testKey(
     keyId: string,
     context?: AuditContext,
+    ownerUserId?: string,
   ): Promise<{ ok: boolean; errorCode?: string; errorMessage?: string }> {
-    const existing = await this.requireKey(keyId);
+    const existing = await this.requireKey(keyId, ownerUserId);
     const updatedBy = context?.userEmail || context?.userId;
     const now = new Date();
     const decrypted = await this.encryption.decryptAny(existing);
@@ -445,22 +456,40 @@ export class SecretKeysService {
     return candidates[0];
   }
 
-  private async requireSecret(secretId: string): Promise<Secret> {
+  /**
+   * @param ownerUserId BYOK owner 隔离（2026-05-29）：传入时强制 secret.userId === ownerUserId。
+   *   admin 调用不传（undefined）→ 不做 owner 校验（AdminGuard 管控）。
+   *   不匹配按 NotFound 处理（不泄露他人 secret 存在性，防 IDOR 探测）。
+   */
+  private async requireSecret(
+    secretId: string,
+    ownerUserId?: string,
+  ): Promise<Secret> {
     const secret = await this.prisma.secret.findUnique({
       where: { id: secretId },
     });
     if (!secret || secret.deletedAt) {
       throw new NotFoundException(`Secret '${secretId}' not found`);
     }
+    if (ownerUserId !== undefined && secret.userId !== ownerUserId) {
+      throw new NotFoundException(`Secret '${secretId}' not found`);
+    }
     return secret;
   }
 
-  private async requireKey(keyId: string): Promise<SecretKey> {
+  /** @param ownerUserId 传入时校验该 key 的父 secret 归属（见 requireSecret）。 */
+  private async requireKey(
+    keyId: string,
+    ownerUserId?: string,
+  ): Promise<SecretKey> {
     const key = await this.prisma.secretKey.findUnique({
       where: { id: keyId },
     });
     if (!key) {
       throw new NotFoundException(`SecretKey '${keyId}' not found`);
+    }
+    if (ownerUserId !== undefined) {
+      await this.requireSecret(key.secretId, ownerUserId);
     }
     return key;
   }

@@ -3,7 +3,9 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
+  Patch,
   Post,
   Put,
   Req,
@@ -13,6 +15,13 @@ import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { UserSecretsService } from "../../ai-infra/credentials/user-secrets/user-secrets.service";
+import { SecretsService } from "../../ai-infra/secrets/secrets.service";
+import { SecretKeysService } from "../../ai-infra/secrets/secret-keys.service";
+import {
+  AddSecretKeyDto,
+  UpdateSecretKeyMetaDto,
+  ReplaceSecretKeyValueDto,
+} from "../../ai-infra/secrets/dto/secret-key.dto";
 import {
   CreateUserSecretDto,
   UpdateUserSecretDto,
@@ -32,7 +41,29 @@ interface AuthenticatedRequest {
 @Controller("user/secrets")
 @UseGuards(JwtAuthGuard)
 export class UserSecretsController {
-  constructor(private readonly userSecrets: UserSecretsService) {}
+  constructor(
+    private readonly userSecrets: UserSecretsService,
+    // ★ 2026-05-29 BYOK 多 Key（对齐 admin）：user-scoped secrets/secret_keys
+    private readonly secrets: SecretsService,
+    private readonly secretKeys: SecretKeysService,
+  ) {}
+
+  /** 当前请求的审计上下文（owner 隔离全程用 req.user.id）。 */
+  private auditCtx(req: AuthenticatedRequest) {
+    return { userId: req.user.id, userEmail: req.user.email };
+  }
+
+  /**
+   * 校验 :id 这条 user-scoped secret 归属当前用户，返回其 name。
+   * 不存在/非本人 → 404（不泄露他人 secret 存在性）。
+   */
+  private async requireOwnedSecret(
+    req: AuthenticatedRequest,
+    id: string,
+  ): Promise<void> {
+    const owned = await this.secrets.getByIdForUser(id, req.user.id);
+    if (!owned) throw new NotFoundException(`Secret '${id}' not found`);
+  }
 
   /** 列出用户所有私有 Key（统一表格数据源）。 */
   @Get()
@@ -85,5 +116,81 @@ export class UserSecretsController {
     @Param("id") id: string,
   ) {
     return this.userSecrets.testKey(req.user.id, source, id);
+  }
+
+  // ═══════════ 同名多 Key 子资源（2026-05-29，呈现/行为对齐 admin /admin/secrets/:id/keys）═══════════
+  //   :id = user-scoped secret 行 id（secrets 表，userId=当前用户）。
+  //   全部经 SecretKeysService 并传 req.user.id 作 ownerUserId → owner 隔离防 IDOR。
+  //   段数与上方 :source/:id 系列不同，无路由冲突。
+
+  /** 列某 secret 下的所有 Key（多 Key 抽屉数据源）。 */
+  @Get(":id/keys")
+  async listKeys(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    await this.requireOwnedSecret(req, id);
+    const keys = await this.secretKeys.listKeys(id, req.user.id);
+    return { keys };
+  }
+
+  /** Add Key：同名下加一把备份 Key（label 唯一 + priority）。 */
+  @Throttle({ default: { ttl: 3600000, limit: 30 } })
+  @Post(":id/keys")
+  async addKey(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() dto: AddSecretKeyDto,
+  ) {
+    return this.secretKeys.addKey(id, dto, this.auditCtx(req), req.user.id);
+  }
+
+  /** 改 label / priority / isActive。 */
+  @Throttle({ default: { ttl: 60000, limit: 30 } })
+  @Patch(":id/keys/:keyId")
+  async updateKeyMeta(
+    @Req() req: AuthenticatedRequest,
+    @Param("keyId") keyId: string,
+    @Body() dto: UpdateSecretKeyMetaDto,
+  ) {
+    return this.secretKeys.updateKeyMeta(
+      keyId,
+      dto,
+      this.auditCtx(req),
+      req.user.id,
+    );
+  }
+
+  /** Replace：轮换某把 Key 的 value（状态重置）。 */
+  @Throttle({ default: { ttl: 3600000, limit: 30 } })
+  @Put(":id/keys/:keyId/value")
+  async replaceKeyValue(
+    @Req() req: AuthenticatedRequest,
+    @Param("keyId") keyId: string,
+    @Body() dto: ReplaceSecretKeyValueDto,
+  ) {
+    return this.secretKeys.replaceKeyValue(
+      keyId,
+      dto,
+      this.auditCtx(req),
+      req.user.id,
+    );
+  }
+
+  /** 删除某把 Key。 */
+  @Delete(":id/keys/:keyId")
+  async deleteKey(
+    @Req() req: AuthenticatedRequest,
+    @Param("keyId") keyId: string,
+  ) {
+    await this.secretKeys.deleteKey(keyId, this.auditCtx(req), req.user.id);
+    return { ok: true };
+  }
+
+  /** 后端代测某把 Key（真发探测，不回传明文）。 */
+  @Throttle({ default: { ttl: 3600000, limit: 30 } })
+  @Post(":id/keys/:keyId/test")
+  async testSecretKey(
+    @Req() req: AuthenticatedRequest,
+    @Param("keyId") keyId: string,
+  ) {
+    return this.secretKeys.testKey(keyId, this.auditCtx(req), req.user.id);
   }
 }

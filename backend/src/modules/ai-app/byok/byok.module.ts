@@ -42,6 +42,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
 import { UserModelConfigsModule } from "../../ai-infra/credentials/user-model-configs/user-model-configs.module";
 import { UserSecretsModule } from "../../ai-infra/credentials/user-secrets/user-secrets.module";
+import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { UserToolsModule } from "../../ai-infra/credentials/user-tools/user-tools.module";
 import { AuthorizationModule } from "../../ai-infra/credentials/authorization/authorization.module";
 import { KeyAssignmentsModule } from "../../ai-infra/credentials/key-assignments";
@@ -56,6 +57,7 @@ import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
     UserApiKeysModule,
     UserModelConfigsModule,
     UserSecretsModule,
+    SecretsModule, // 2026-05-29 BYOK 多 Key：复用 admin SecretsService/SecretKeysService（user 作用域）
     UserToolsModule,
     AuthorizationModule,
     KeyAssignmentsModule,

@@ -96,8 +96,10 @@ export class SecretsService {
   async create(
     dto: CreateSecretDto,
     context?: AuditContext,
+    ownerUserId?: string,
   ): Promise<SecretListItem> {
     // 2026-05-28 PR-3.1：新写一律信封 v2（dual-read：旧行经 decryptAny 仍可解）。
+    // 2026-05-29 BYOK：ownerUserId 传入时落 user-scoped 行（admin 不传 → userId=null）。
     const env = await this.encryption.encryptEnvelope(dto.value);
     const valueHash = this.hashValue(dto.value);
 
@@ -109,6 +111,7 @@ export class SecretsService {
       const created = await tx.secret.create({
         data: {
           name: dto.name,
+          userId: ownerUserId ?? null,
           displayName: dto.displayName,
           category: dto.category,
           description: dto.description,
@@ -187,6 +190,40 @@ export class SecretsService {
   async findByName(name: string): Promise<SecretListItem | null> {
     const secret = await this.prisma.secret.findFirst({
       where: { name, userId: null },
+    });
+    if (!secret || secret.deletedAt) return null;
+    return this.toListItem(secret);
+  }
+
+  // ───────── BYOK user-scoped 读（2026-05-29，与 admin findAll/findByName 同构）─────────
+
+  /** 列当前用户的 BYOK secrets（多 KEY 聚合状态，与 admin findAll 一致的呈现）。 */
+  async listByUser(
+    userId: string,
+    category?: SecretCategory,
+  ): Promise<SecretListItem[]> {
+    const secrets = await this.prisma.secret.findMany({
+      where: {
+        deletedAt: null,
+        userId,
+        ...(category ? { category } : {}),
+      },
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+      include: { keys: { select: { isActive: true, testStatus: true } } },
+    });
+    return secrets.map((secret) => {
+      const keyAgg = aggregateKeyStatus(secret.isActive, secret.keys ?? []);
+      return this.toListItem(secret, keyAgg);
+    });
+  }
+
+  /** 按 id + owner 取一个用户 secret（controller 用它做归属校验 + 拿 name 调 update/delete）。 */
+  async getByIdForUser(
+    id: string,
+    userId: string,
+  ): Promise<SecretListItem | null> {
+    const secret = await this.prisma.secret.findFirst({
+      where: { id, userId },
     });
     if (!secret || secret.deletedAt) return null;
     return this.toListItem(secret);
@@ -413,9 +450,11 @@ export class SecretsService {
     name: string,
     dto: UpdateSecretDto,
     context?: AuditContext,
+    ownerUserId?: string,
   ): Promise<SecretListItem> {
+    // 2026-05-29 BYOK：ownerUserId 传入时按 user 作用域查（admin 不传 → userId=null）。
     const existing = await this.prisma.secret.findFirst({
-      where: { name, userId: null },
+      where: { name, userId: ownerUserId ?? null },
     });
     if (!existing || existing.deletedAt) {
       throw new NotFoundException(`Secret '${name}' not found`);
@@ -539,19 +578,27 @@ export class SecretsService {
     return this.toListItem(secret);
   }
 
-  async delete(name: string, context?: AuditContext): Promise<void> {
+  async delete(
+    name: string,
+    context?: AuditContext,
+    ownerUserId?: string,
+  ): Promise<void> {
+    // 2026-05-29 BYOK：ownerUserId 传入时按 user 作用域查（admin 不传 → userId=null）。
     const secret = await this.prisma.secret.findFirst({
-      where: { name, userId: null },
+      where: { name, userId: ownerUserId ?? null },
     });
     if (!secret || secret.deletedAt) {
       throw new NotFoundException(`Secret '${name}' not found`);
     }
 
-    const references = await this.getReferences(name);
-    if (references.length > 0) {
-      throw new ConflictException(
-        `Cannot delete secret '${name}': still referenced by ${references.length} configuration(s)`,
-      );
+    // 系统引用检查仅对 admin secret 有意义（用户 BYOK secret 不被系统 config 引用）。
+    if (ownerUserId === undefined) {
+      const references = await this.getReferences(name);
+      if (references.length > 0) {
+        throw new ConflictException(
+          `Cannot delete secret '${name}': still referenced by ${references.length} configuration(s)`,
+        );
+      }
     }
 
     await this.logAccess(secret.id, SecretAction.DELETE, context, {

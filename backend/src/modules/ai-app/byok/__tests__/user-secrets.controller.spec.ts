@@ -1,6 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { UserSecretsController } from "../user-secrets.controller";
 import { UserSecretsService } from "../../../ai-infra/credentials/user-secrets/user-secrets.service";
+import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
+import { SecretKeysService } from "../../../ai-infra/secrets/secret-keys.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };
@@ -8,15 +10,31 @@ const mockGuard = { canActivate: () => true };
 describe("UserSecretsController — testKey endpoint (C8)", () => {
   let controller: UserSecretsController;
   let service: { testKey: jest.Mock };
+  let secrets: { getByIdForUser: jest.Mock };
+  let secretKeys: {
+    listKeys: jest.Mock;
+    addKey: jest.Mock;
+    deleteKey: jest.Mock;
+  };
 
   const req = { user: { id: "user-1", email: "u@x.com" } } as never;
 
   beforeEach(async () => {
     service = { testKey: jest.fn() };
+    secrets = { getByIdForUser: jest.fn() };
+    secretKeys = {
+      listKeys: jest.fn(),
+      addKey: jest.fn(),
+      deleteKey: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserSecretsController],
-      providers: [{ provide: UserSecretsService, useValue: service }],
+      providers: [
+        { provide: UserSecretsService, useValue: service },
+        { provide: SecretsService, useValue: secrets },
+        { provide: SecretKeysService, useValue: secretKeys },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue(mockGuard)
@@ -51,5 +69,55 @@ describe("UserSecretsController — testKey endpoint (C8)", () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("未找到");
+  });
+
+  // ── 同名多 Key 子资源（2026-05-29，owner 隔离）──
+  describe("multi-key sub-resource (owner-scoped)", () => {
+    it("listKeys 校验归属后按 userId 作用域列 key", async () => {
+      secrets.getByIdForUser.mockResolvedValue({ id: "sec-1" });
+      secretKeys.listKeys.mockResolvedValue([{ id: "k1", label: "primary" }]);
+
+      const res = await controller.listKeys(req, "sec-1");
+
+      expect(secrets.getByIdForUser).toHaveBeenCalledWith("sec-1", "user-1");
+      expect(secretKeys.listKeys).toHaveBeenCalledWith("sec-1", "user-1");
+      expect(res.keys).toHaveLength(1);
+    });
+
+    it("非本人 secret → listKeys 抛 NotFound（防 IDOR）", async () => {
+      secrets.getByIdForUser.mockResolvedValue(null);
+
+      await expect(controller.listKeys(req, "sec-other")).rejects.toThrow();
+      expect(secretKeys.listKeys).not.toHaveBeenCalled();
+    });
+
+    it("addKey 透传 ownerUserId 作 owner 作用域", async () => {
+      secretKeys.addKey.mockResolvedValue({ id: "k2", label: "backup-1" });
+
+      await controller.addKey(req, "sec-1", {
+        label: "backup-1",
+        value: "sk-xxx",
+      } as never);
+
+      expect(secretKeys.addKey).toHaveBeenCalledWith(
+        "sec-1",
+        expect.objectContaining({ label: "backup-1" }),
+        expect.objectContaining({ userId: "user-1" }),
+        "user-1",
+      );
+    });
+
+    it("deleteKey 透传 ownerUserId", async () => {
+      secretKeys.deleteKey.mockResolvedValue(undefined);
+
+      const res = await controller.deleteKey(req, "k2");
+
+      expect(secretKeys.deleteKey).toHaveBeenCalledWith(
+        "k2",
+        expect.objectContaining({ userId: "user-1" }),
+        "user-1",
+      );
+      expect(res.ok).toBe(true);
+    });
   });
 });
