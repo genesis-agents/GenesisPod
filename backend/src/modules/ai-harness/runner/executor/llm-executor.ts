@@ -493,6 +493,12 @@ export class LlmExecutor {
           processId,
           operationName: input.operationName ?? input.agentId,
           signal: input.signal,
+          // ★ 2026-05-28 内部 agent 推理调用绕过 guardrails。
+          //   prompt-injection-detector 会把 agent 自身的合成/finalize system
+          //   prompt（"act as…/ignore incomplete findings" 等合法措辞）误判为
+          //   "Jailbreak Attempt" 并拦截，导致 mission 推理步白跑。守护应作用于
+          //   mission 入口的用户输入，而非每一轮内部推理。见 ChatOptions.skipGuardrails。
+          skipGuardrails: true,
           // ★ 2026-05-06 native structured output fields
           // Pass strategy + JSON Schema so AiApiCallerService uses native API path.
           // strategyAddon covers prompt-only strategies; native strategies use requestBodyPatch.
