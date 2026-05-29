@@ -1,75 +1,75 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-28T21:39:19.715Z",
+  "generatedAt": "2026-05-29T20:45:32.506Z",
   "count": 187,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
     {
       "file": "modules/ai-app/image/generation/image-generation.service.ts",
-      "line": 299,
-      "column": 7,
-      "kind": "method-call",
-      "snippet": "provider.includes(\"google\")"
-    },
-    {
-      "file": "modules/ai-app/image/generation/image-generation.service.ts",
-      "line": 300,
-      "column": 7,
-      "kind": "method-call",
-      "snippet": "provider.includes(\"gemini\")"
-    },
-    {
-      "file": "modules/ai-app/image/generation/image-generation.service.ts",
       "line": 301,
       "column": 7,
       "kind": "method-call",
-      "snippet": "modelId.includes(\"gemini\")"
+      "snippet": "provider.includes(\"google\")"
     },
     {
       "file": "modules/ai-app/image/generation/image-generation.service.ts",
       "line": 302,
       "column": 7,
       "kind": "method-call",
+      "snippet": "provider.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-app/image/generation/image-generation.service.ts",
+      "line": 303,
+      "column": 7,
+      "kind": "method-call",
+      "snippet": "modelId.includes(\"gemini\")"
+    },
+    {
+      "file": "modules/ai-app/image/generation/image-generation.service.ts",
+      "line": 304,
+      "column": 7,
+      "kind": "method-call",
       "snippet": "modelId.includes(\"imagen\")"
     },
     {
       "file": "modules/ai-app/image/generation/image-generation.service.ts",
-      "line": 310,
+      "line": 312,
       "column": 16,
       "kind": "method-call",
       "snippet": "provider.includes(\"openai\")"
     },
     {
       "file": "modules/ai-app/image/generation/image-generation.service.ts",
-      "line": 371,
+      "line": 373,
       "column": 7,
       "kind": "method-call",
       "snippet": "provider.includes(\"google\")"
     },
     {
       "file": "modules/ai-app/image/generation/image-generation.service.ts",
-      "line": 372,
+      "line": 374,
       "column": 7,
       "kind": "method-call",
       "snippet": "provider.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-app/image/generation/image-generation.service.ts",
-      "line": 373,
+      "line": 375,
       "column": 7,
       "kind": "method-call",
       "snippet": "modelConfig.modelId.toLowerCase().includes(\"gemini\")"
     },
     {
       "file": "modules/ai-app/image/generation/image-generation.service.ts",
-      "line": 397,
+      "line": 399,
       "column": 19,
       "kind": "method-call",
       "snippet": "modelId.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-app/image/generation/image-generation.service.ts",
-      "line": 470,
+      "line": 472,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"imagen\")"

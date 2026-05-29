@@ -11,9 +11,11 @@ import { firstValueFrom } from "rxjs";
 import { AIModelType } from "@prisma/client";
 import { GEMINI_IMAGE_MODELS } from "../core/image.constants";
 import { ChatFacade } from "@/modules/ai-harness/facade";
-import { SecretsService } from "../../../ai-infra/facade";
-import { KeyResolverService } from "../../../ai-infra/credentials/key-resolver/key-resolver.service";
-import { NoAvailableKeyError } from "../../../ai-infra/credentials/key-resolver/key-resolver.errors";
+import {
+  SecretsService,
+  KeyResolverService,
+  NoAvailableKeyError,
+} from "../../../ai-infra/facade";
 
 interface ImageModelConfig {
   id: string;

@@ -22,6 +22,7 @@ export { InsufficientCreditsException } from "../credits/exceptions/insufficient
 
 // ─── Secrets ───
 export { SecretsService } from "../secrets/secrets.service";
+export { SecretKeysService } from "../secrets/secret-keys.service";
 export {
   SECRET_NAMES,
   EXTERNAL_TOOL_SECRET_MAPPING,
@@ -36,6 +37,7 @@ export type {
   ResolvedToolKey,
   ToolKeySource,
 } from "../credentials/tool-key-resolver/tool-key-resolver.service";
+export { UserSecretsService } from "../credentials/user-secrets/user-secrets.service";
 
 // ─── Storage ───
 export { StorageGovernanceService } from "../storage/governance/storage-governance.service";
@@ -91,6 +93,12 @@ export { KeyAssignmentsService } from "../credentials/key-assignments/key-assign
 export { KeyRequestsService } from "../credentials/key-requests/key-requests.service";
 export { UserApiKeysService } from "../credentials/user-api-keys/user-api-keys.service";
 export { KeyResolverService } from "../credentials/key-resolver/key-resolver.service";
+export { NoAvailableKeyError } from "../credentials/key-resolver/key-resolver.errors";
+export type {
+  ResolvedKey,
+  KeyChain,
+  KeySource,
+} from "../credentials/key-resolver/key-resolver.service";
 export { ByokMaintenanceScheduler } from "../credentials/scheduling/byok-maintenance.scheduler";
 export { UserModelConfigsService } from "../credentials/user-model-configs/user-model-configs.service";
 export { CreateKeyRequestDto } from "../credentials/key-requests/dto/create-key-request.dto";

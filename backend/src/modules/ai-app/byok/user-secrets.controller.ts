@@ -14,9 +14,11 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { UserSecretsService } from "../../ai-infra/credentials/user-secrets/user-secrets.service";
-import { SecretsService } from "../../ai-infra/secrets/secrets.service";
-import { SecretKeysService } from "../../ai-infra/secrets/secret-keys.service";
+import {
+  UserSecretsService,
+  SecretsService,
+  SecretKeysService,
+} from "../../ai-infra/facade";
 import {
   AddSecretKeyDto,
   UpdateSecretKeyMetaDto,
