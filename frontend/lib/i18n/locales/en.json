@@ -7407,6 +7407,7 @@
       "emptyDesc": "Click \"Add Key\" to configure your first key",
       "emptySearchTitle": "No Matches",
       "editTitle": "Edit Key",
+      "manageKeys": "Manage Keys (multi-key)",
       "addTitle": "Add Key",
       "fieldName": "Identifier (name)",
       "fieldDisplayName": "Display Name",

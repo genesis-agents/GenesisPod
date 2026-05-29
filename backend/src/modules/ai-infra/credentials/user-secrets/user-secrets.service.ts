@@ -9,6 +9,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../encryption/encryption.service";
 import { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
 import { UserCredentialsService } from "../user-credentials/user-credentials.service";
+import { SecretsService } from "../../secrets/secrets.service";
 import { ApiKeyMode } from "../user-api-keys/dto";
 import {
   CreateUserSecretDto,
@@ -46,6 +47,9 @@ export class UserSecretsService {
     private readonly encryption: EncryptionService,
     private readonly userApiKeys: UserApiKeysService,
     private readonly userCredentials: UserCredentialsService,
+    // ★ 2026-05-29 P4：非 AI_MODEL（工具）收敛到 user-scoped secrets/secret_keys，
+    //   走 admin 同款多 Key（envelope v2，与 getSecretKey/drawer 解密一致）。
+    private readonly secrets: SecretsService,
   ) {}
 
   /**
@@ -179,7 +183,8 @@ export class UserSecretsService {
         displayName: dto.displayName || `${provider} API Key`,
         category: SecretCategory.AI_MODEL,
         provider,
-        maskedValue: saved?.keyHint || this.encryption.createKeyHint(resolvedValue),
+        maskedValue:
+          saved?.keyHint || this.encryption.createKeyHint(resolvedValue),
         isActive: saved?.isActive ?? true,
         usageCount: saved?.usageCount ?? 0,
         testStatus: saved?.testStatus ?? null,
@@ -188,17 +193,37 @@ export class UserSecretsService {
       };
     }
 
-    // 非 AI_MODEL → user_credentials（信封加密 v2，与 admin secrets 分离，PR-3）
-    const item = await this.userCredentials.create(userId, {
-      name: dto.name,
-      displayName: dto.displayName,
-      category: dto.category,
-      provider: dto.provider,
-      value: resolvedValue,
-      description: dto.description,
-      isActive: dto.isActive,
-    });
-    return { source: "secret", ...item };
+    // ★ 2026-05-29 P4：非 AI_MODEL（工具/其它）收敛到 user-scoped secrets/secret_keys
+    //   （envelope v2 + 自动建 primary secret_key），从此可走 admin 同款多 Key 抽屉
+    //   （/user/secrets/:id/keys）+ getSecretKey failover。取代旧 user_credentials 路径
+    //   （user_credentials=0，零迁移）。
+    const created = await this.secrets.create(
+      {
+        name: dto.name,
+        displayName: dto.displayName ?? dto.name,
+        category: dto.category,
+        provider: dto.provider,
+        value: resolvedValue,
+        description: dto.description,
+        isActive: dto.isActive,
+      },
+      { userId },
+      userId,
+    );
+    return {
+      source: "secret",
+      id: created.id,
+      name: created.name,
+      displayName: created.displayName,
+      category: created.category,
+      provider: created.provider,
+      maskedValue: created.maskedValue,
+      isActive: created.isActive,
+      usageCount: created.accessCount,
+      testStatus: null,
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
+    };
   }
 
   /** 更新用户私有 Secret（owner 强制校验）。 */
@@ -234,30 +259,26 @@ export class UserSecretsService {
       return { success: true };
     }
 
-    // PR-3：工具/其它类落 user_credentials；id 命中新表则走新表，否则回退 legacy secrets。
+    // 过渡兼容：仍命中 legacy user_credentials 行则走旧表（user_credentials=0，基本不触发）。
     if (await this.isUserCredential(id, userId)) {
       return this.userCredentials.update(userId, id, dto);
     }
 
-    const secret = await this.prisma.secret.findFirst({
-      where: { id, userId, deletedAt: null },
-    });
-    if (!secret) throw new NotFoundException("Key 不存在或无权限");
-
-    const data: Record<string, unknown> = {};
-    if (dto.value) {
-      const { encryptedValue, iv } = this.encryption.encryptForUser(
-        dto.value,
-        userId,
-      );
-      data.encryptedValue = encryptedValue;
-      data.iv = iv;
-    }
-    if (dto.displayName !== undefined) data.displayName = dto.displayName;
-    if (dto.description !== undefined) data.description = dto.description;
-    if (dto.isActive !== undefined) data.isActive = dto.isActive;
-
-    await this.prisma.secret.update({ where: { id: secret.id }, data });
+    // ★ 2026-05-29 P4：工具/其它类已收敛到 user-scoped secrets → 走 SecretsService.update
+    //   （值变更走 envelope v2 双写到 primary secret_key，与多 Key 抽屉/runtime 一致）。
+    const owned = await this.secrets.getByIdForUser(id, userId);
+    if (!owned) throw new NotFoundException("Key 不存在或无权限");
+    await this.secrets.update(
+      owned.name,
+      {
+        displayName: dto.displayName,
+        description: dto.description,
+        isActive: dto.isActive,
+        value: dto.value,
+      },
+      { userId },
+      userId,
+    );
     return { success: true };
   }
 
@@ -276,20 +297,15 @@ export class UserSecretsService {
       return { success: true };
     }
 
-    // PR-3：id 命中 user_credentials 则走新表软删，否则回退 legacy secrets。
+    // 过渡兼容：仍命中 legacy user_credentials 行则走旧表（user_credentials=0，基本不触发）。
     if (await this.isUserCredential(id, userId)) {
       return this.userCredentials.remove(userId, id);
     }
 
-    const secret = await this.prisma.secret.findFirst({
-      where: { id, userId, deletedAt: null },
-    });
-    if (!secret) throw new NotFoundException("Key 不存在或无权限");
-    // 软删除（D10：保留审计期）
-    await this.prisma.secret.update({
-      where: { id: secret.id },
-      data: { deletedAt: new Date(), deletedBy: userId, isActive: false },
-    });
+    // ★ 2026-05-29 P4：收敛到 user-scoped secrets → SecretsService.delete（软删 + 级联禁用子 key）。
+    const owned = await this.secrets.getByIdForUser(id, userId);
+    if (!owned) throw new NotFoundException("Key 不存在或无权限");
+    await this.secrets.delete(owned.name, { userId }, userId);
     return { success: true };
   }
 
@@ -362,7 +378,10 @@ export class UserSecretsService {
         "getUserSecretValue: userId is required (BYOK isolation)",
       );
     }
-    const fromCred = await this.userCredentials.getCredentialValue(name, userId);
+    const fromCred = await this.userCredentials.getCredentialValue(
+      name,
+      userId,
+    );
     if (fromCred !== null) return fromCred;
 
     // 过渡期回退：legacy 用户工具行仍在 secrets（PR-4 backfill 后移除）。

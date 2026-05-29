@@ -3,18 +3,32 @@
 import { X } from 'lucide-react';
 import { MultiKeyTable } from '@/components/common/tables/MultiKeyTable';
 import { useSecretKeys } from '@/hooks/domain/useSecretKeys';
-import type { Secret } from '@/hooks/domain/useAdminSecrets';
+
+/** 仅取多 Key 抽屉需要的字段（admin Secret 与 BYOK user secret 都满足此形状）。 */
+interface SecretKeysDrawerTarget {
+  id: string;
+  name: string;
+  displayName: string;
+  provider?: string | null;
+}
 
 interface SecretKeysDrawerProps {
-  secret: Secret | null;
+  secret: SecretKeysDrawerTarget | null;
   onClose: () => void;
+  /** 多 Key 子资源根路径。默认 admin；BYOK 用户侧传 '/user/secrets'（呈现一致）。 */
+  baseUrl?: string;
 }
 
 /**
  * 编辑 secret 的多 KEY 抽屉。
  * 点击列表行的 edit 图标触发；保留列表上下文可见。
+ * 2026-05-29：参数化 baseUrl，admin 与 BYOK 用户侧共用同一抽屉（呈现完全一致）。
  */
-export function SecretKeysDrawer({ secret, onClose }: SecretKeysDrawerProps) {
+export function SecretKeysDrawer({
+  secret,
+  onClose,
+  baseUrl,
+}: SecretKeysDrawerProps) {
   const {
     keys,
     loading,
@@ -24,7 +38,7 @@ export function SecretKeysDrawer({ secret, onClose }: SecretKeysDrawerProps) {
     replaceKeyValue,
     deleteKey,
     testKey,
-  } = useSecretKeys(secret?.id ?? null);
+  } = useSecretKeys(secret?.id ?? null, baseUrl);
 
   if (!secret) return null;
 

@@ -6,6 +6,7 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../../encryption/encryption.service";
 import { UserApiKeysService } from "../../user-api-keys/user-api-keys.service";
 import { UserCredentialsService } from "../../user-credentials/user-credentials.service";
+import { SecretsService } from "../../../secrets/secrets.service";
 
 describe("UserSecretsService", () => {
   let service: UserSecretsService;
@@ -37,6 +38,12 @@ describe("UserSecretsService", () => {
     remove: jest.Mock;
     testKey: jest.Mock;
     getCredentialValue: jest.Mock;
+  };
+  let secrets: {
+    create: jest.Mock;
+    update: jest.Mock;
+    delete: jest.Mock;
+    getByIdForUser: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -77,6 +84,24 @@ describe("UserSecretsService", () => {
         .mockResolvedValue({ success: true, message: "ok", testedAt: "t" }),
       getCredentialValue: jest.fn().mockResolvedValue(null),
     };
+    // ★ 2026-05-29 P4：工具类收敛到 user-scoped secrets，create/update/delete 走 SecretsService
+    secrets = {
+      create: jest.fn().mockResolvedValue({
+        id: "sec-new",
+        name: "tavily",
+        displayName: "Tavily",
+        category: SecretCategory.SEARCH,
+        provider: "tavily",
+        maskedValue: "tv-...1234",
+        isActive: true,
+        accessCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+      update: jest.fn().mockResolvedValue({}),
+      delete: jest.fn().mockResolvedValue(undefined),
+      getByIdForUser: jest.fn().mockResolvedValue(null),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -85,6 +110,7 @@ describe("UserSecretsService", () => {
         { provide: EncryptionService, useValue: encryption },
         { provide: UserApiKeysService, useValue: userApiKeys },
         { provide: UserCredentialsService, useValue: userCredentials },
+        { provide: SecretsService, useValue: secrets },
       ],
     }).compile();
     service = moduleRef.get(UserSecretsService);
@@ -130,17 +156,16 @@ describe("UserSecretsService", () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it("SEARCH 类委托 user_credentials（信封 v2）", async () => {
-      userCredentials.create.mockResolvedValue({
-        id: "cred-1",
+    it("SEARCH 类收敛到 user-scoped secrets（2026-05-29 P4，含 primary key）", async () => {
+      secrets.create.mockResolvedValue({
+        id: "sec-new",
         name: "tavily-search-api-key",
         displayName: "Tavily",
         category: SecretCategory.SEARCH,
         provider: "tavily",
-        maskedValue: "sk-...1234",
+        maskedValue: "tv-...1234",
         isActive: true,
-        usageCount: 0,
-        testStatus: null,
+        accessCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -152,13 +177,19 @@ describe("UserSecretsService", () => {
         value: "tvly-xyz",
       });
 
-      expect(userCredentials.create).toHaveBeenCalledWith(
+      // 走 SecretsService.create（user 作用域 ownerUserId），不再落 user_credentials
+      expect(secrets.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "tavily-search-api-key",
+          value: "tvly-xyz",
+        }),
+        { userId: "user-1" },
         "user-1",
-        expect.objectContaining({ name: "tavily-search-api-key", value: "tvly-xyz" }),
       );
+      expect(userCredentials.create).not.toHaveBeenCalled();
       expect(userApiKeys.saveKey).not.toHaveBeenCalled();
       expect(res.source).toBe("secret");
-      expect(res.id).toBe("cred-1");
+      expect(res.id).toBe("sec-new");
     });
   });
 
@@ -307,15 +338,17 @@ describe("UserSecretsService", () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it("legacy secret 属于该用户 → 软删除", async () => {
+    it("user-scoped secret 属于该用户 → 走 SecretsService.delete（软删+级联禁用子key）", async () => {
       prisma.userCredential.findFirst.mockResolvedValue(null);
-      prisma.secret.findFirst.mockResolvedValue({ id: "sec-1" });
+      secrets.getByIdForUser.mockResolvedValue({
+        id: "sec-1",
+        name: "tavily-search-api-key",
+      });
       await service.remove("user-1", "secret", "sec-1");
-      expect(prisma.secret.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "sec-1" },
-          data: expect.objectContaining({ deletedBy: "user-1" }),
-        }),
+      expect(secrets.delete).toHaveBeenCalledWith(
+        "tavily-search-api-key",
+        { userId: "user-1" },
+        "user-1",
       );
     });
   });

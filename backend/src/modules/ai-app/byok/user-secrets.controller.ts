@@ -123,12 +123,11 @@ export class UserSecretsController {
   //   全部经 SecretKeysService 并传 req.user.id 作 ownerUserId → owner 隔离防 IDOR。
   //   段数与上方 :source/:id 系列不同，无路由冲突。
 
-  /** 列某 secret 下的所有 Key（多 Key 抽屉数据源）。 */
+  /** 列某 secret 下的所有 Key（多 Key 抽屉数据源；返回数组，与 admin GET 同契约）。 */
   @Get(":id/keys")
   async listKeys(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     await this.requireOwnedSecret(req, id);
-    const keys = await this.secretKeys.listKeys(id, req.user.id);
-    return { keys };
+    return this.secretKeys.listKeys(id, req.user.id);
   }
 
   /** Add Key：同名下加一把备份 Key（label 唯一 + priority）。 */

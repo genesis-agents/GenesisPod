@@ -1,7 +1,16 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { FlaskConical, Key, Pencil, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
+import {
+  FlaskConical,
+  Key,
+  Layers,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { confirm } from '@/stores';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
@@ -21,6 +30,9 @@ import {
   type CreateSecretBody,
   type UpdateSecretBody,
 } from '@/hooks/features/useUserSecrets';
+import { useUserApiKeys } from '@/hooks/features/useUserApiKeys';
+import { UserApiKeyDrawer } from '@/components/me/api-keys/UserApiKeyDrawer';
+import { SecretKeysDrawer } from '@/components/admin/secrets/SecretKeysDrawer';
 
 // ─── Add Key Modal ─────────────────────────────────────────────────────────────
 
@@ -135,7 +147,8 @@ function AddKeyModal({ onClose, onSubmit }: AddKeyModalProps) {
             {t('me.apiKeys.fieldValue')} *
           </label>
           <Input
-            type="text" autoComplete="new-password"
+            type="text"
+            autoComplete="new-password"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={t('me.apiKeys.fieldValuePlaceholder')}
@@ -239,7 +252,8 @@ function EditKeyModal({ item, onClose, onSubmit }: EditKeyModalProps) {
             {t('me.apiKeys.fieldValue')}
           </label>
           <Input
-            type="text" autoComplete="new-password"
+            type="text"
+            autoComplete="new-password"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={t('me.apiKeys.fieldValueEditPlaceholder')}
@@ -383,11 +397,25 @@ export function UserApiKeysTab() {
     testingId,
   } = useUserSecrets();
 
+  // ★ 2026-05-29 P4：AI_MODEL 行的同名多 Key 管理（admin 同款 UserApiKeyDrawer + MultiKeyTable）
+  const apiKeys = useUserApiKeys();
+
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [editingItem, setEditingItem] = useState<UserSecretItem | null>(null);
+  const [manageProvider, setManageProvider] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  // ★ 2026-05-29 P4：非 AI_MODEL（工具/其它）行的多 Key 管理（user-scoped secrets，admin 同款抽屉）
+  const [manageSecret, setManageSecret] = useState<{
+    id: string;
+    name: string;
+    displayName: string;
+    provider?: string | null;
+  } | null>(null);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -522,6 +550,23 @@ export function UserApiKeysTab() {
                   key={`${item.source}-${item.id}`}
                   item={item}
                   onEdit={() => setEditingItem(item)}
+                  onManageKeys={
+                    item.category === 'AI_MODEL' && item.provider
+                      ? () =>
+                          setManageProvider({
+                            id: item.provider as string,
+                            name: item.displayName || item.name,
+                          })
+                      : item.source === 'secret'
+                        ? () =>
+                            setManageSecret({
+                              id: item.id,
+                              name: item.name,
+                              displayName: item.displayName || item.name,
+                              provider: item.provider,
+                            })
+                        : undefined
+                  }
                   onDelete={() => void handleDelete(item)}
                   onTest={() => void testSecret(item.source, item.id)}
                   isTesting={testingId === item.id}
@@ -552,6 +597,36 @@ export function UserApiKeysTab() {
           onSubmit={requestSystemKey}
         />
       )}
+
+      {/* ★ 2026-05-29 P4：AI_MODEL 同名多 Key 管理抽屉（与 admin /admin/access/secrets 同款 MultiKeyTable） */}
+      {manageProvider && (
+        <UserApiKeyDrawer
+          open={true}
+          onClose={() => {
+            setManageProvider(null);
+            void refresh();
+          }}
+          provider={manageProvider}
+          keys={apiKeys.getKeysForProvider(manageProvider.id)}
+          loading={apiKeys.loading}
+          saving={apiKeys.saving}
+          testing={apiKeys.testing}
+          onSave={apiKeys.saveKey}
+          onDelete={apiKeys.deleteKey}
+        />
+      )}
+
+      {/* ★ 2026-05-29 P4：工具/其它类同名多 Key 管理（user-scoped secrets，与 admin 同款抽屉） */}
+      {manageSecret && (
+        <SecretKeysDrawer
+          secret={manageSecret}
+          baseUrl="/user/secrets"
+          onClose={() => {
+            setManageSecret(null);
+            void refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -563,12 +638,14 @@ export default UserApiKeysTab;
 function SecretRow({
   item,
   onEdit,
+  onManageKeys,
   onDelete,
   onTest,
   isTesting,
 }: {
   item: UserSecretItem;
   onEdit: () => void;
+  onManageKeys?: () => void;
   onDelete: () => void;
   onTest: () => void;
   isTesting: boolean;
@@ -635,6 +712,15 @@ function SecretRow({
               {isTesting ? t('me.apiKeys.testing') : t('me.apiKeys.test')}
             </span>
           </Button>
+          {onManageKeys && (
+            <button
+              onClick={onManageKeys}
+              className="rounded p-1.5 hover:bg-violet-50"
+              title={t('me.apiKeys.manageKeys')}
+            >
+              <Layers className="h-4 w-4 text-violet-600" />
+            </button>
+          )}
           <button
             onClick={onEdit}
             className="rounded p-1.5 hover:bg-gray-100"

@@ -81,7 +81,7 @@ describe("UserSecretsController — testKey endpoint (C8)", () => {
 
       expect(secrets.getByIdForUser).toHaveBeenCalledWith("sec-1", "user-1");
       expect(secretKeys.listKeys).toHaveBeenCalledWith("sec-1", "user-1");
-      expect(res.keys).toHaveLength(1);
+      expect(res).toHaveLength(1);
     });
 
     it("非本人 secret → listKeys 抛 NotFound（防 IDOR）", async () => {

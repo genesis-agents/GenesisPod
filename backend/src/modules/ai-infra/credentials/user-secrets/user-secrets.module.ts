@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { UserApiKeysModule } from "../user-api-keys/user-api-keys.module";
 import { UserCredentialsModule } from "../user-credentials/user-credentials.module";
+import { SecretsModule } from "../../secrets/secrets.module";
 import { UserSecretsService } from "./user-secrets.service";
 
 /**
@@ -10,7 +11,12 @@ import { UserSecretsService } from "./user-secrets.service";
  * 2026-05-28 PR-3：工具/其它类 BYOK 落 user_credentials（UserCredentialsService）。
  */
 @Module({
-  imports: [PrismaModule, UserApiKeysModule, UserCredentialsModule],
+  imports: [
+    PrismaModule,
+    UserApiKeysModule,
+    UserCredentialsModule,
+    SecretsModule, // 2026-05-29 P4：工具类 BYOK 收敛到 user-scoped secrets
+  ],
   providers: [UserSecretsService],
   exports: [UserSecretsService],
 })

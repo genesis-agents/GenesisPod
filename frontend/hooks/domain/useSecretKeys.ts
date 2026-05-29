@@ -42,7 +42,14 @@ export interface UpdateKeyMetaInput {
   isActive?: boolean;
 }
 
-export function useSecretKeys(secretId: string | null) {
+/**
+ * @param baseUrl 多 Key 子资源根路径。默认 admin（/admin/secrets）；
+ *   BYOK 用户侧传 '/user/secrets'（同款契约，owner 作用域由后端按 req.user.id 强制）。
+ */
+export function useSecretKeys(
+  secretId: string | null,
+  baseUrl: string = '/admin/secrets'
+) {
   const [keys, setKeys] = useState<SecretKeyRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +61,7 @@ export function useSecretKeys(secretId: string | null) {
     setError(null);
     try {
       const data = await apiClient.get<SecretKeyRow[]>(
-        `/admin/secrets/${secretId}/keys`
+        `${baseUrl}/${secretId}/keys`
       );
       setKeys(data ?? []);
     } catch (e) {
@@ -62,7 +69,7 @@ export function useSecretKeys(secretId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [secretId]);
+  }, [secretId, baseUrl]);
 
   useEffect(() => {
     if (secretId) void load();
@@ -91,52 +98,52 @@ export function useSecretKeys(secretId: string | null) {
     async (input: AddKeyInput) => {
       if (!secretId) return;
       await runAction('add', () =>
-        apiClient.post(`/admin/secrets/${secretId}/keys`, input)
+        apiClient.post(`${baseUrl}/${secretId}/keys`, input)
       );
     },
-    [secretId, runAction]
+    [secretId, runAction, baseUrl]
   );
 
   const updateKeyMeta = useCallback(
     async (keyId: string, meta: UpdateKeyMetaInput) => {
       if (!secretId) return;
       await runAction('update', () =>
-        apiClient.patch(`/admin/secrets/${secretId}/keys/${keyId}`, meta)
+        apiClient.patch(`${baseUrl}/${secretId}/keys/${keyId}`, meta)
       );
     },
-    [secretId, runAction]
+    [secretId, runAction, baseUrl]
   );
 
   const replaceKeyValue = useCallback(
     async (keyId: string, value: string) => {
       if (!secretId) return;
       await runAction('replace', () =>
-        apiClient.put(`/admin/secrets/${secretId}/keys/${keyId}/value`, {
+        apiClient.put(`${baseUrl}/${secretId}/keys/${keyId}/value`, {
           value,
         })
       );
     },
-    [secretId, runAction]
+    [secretId, runAction, baseUrl]
   );
 
   const deleteKey = useCallback(
     async (keyId: string) => {
       if (!secretId) return;
       await runAction('delete', () =>
-        apiClient.delete(`/admin/secrets/${secretId}/keys/${keyId}`)
+        apiClient.delete(`${baseUrl}/${secretId}/keys/${keyId}`)
       );
     },
-    [secretId, runAction]
+    [secretId, runAction, baseUrl]
   );
 
   const testKey = useCallback(
     async (keyId: string) => {
       if (!secretId) return;
       await runAction('test', () =>
-        apiClient.post(`/admin/secrets/${secretId}/keys/${keyId}/test`, {})
+        apiClient.post(`${baseUrl}/${secretId}/keys/${keyId}/test`, {})
       );
     },
-    [secretId, runAction]
+    [secretId, runAction, baseUrl]
   );
 
   return {
