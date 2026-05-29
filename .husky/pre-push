@@ -146,8 +146,12 @@ if [ -n "$BACKEND_CHANGED" ]; then
     #   导致 BACKEND_EXIT=$? 永远没机会被赋值; tail 也来不及打。
     #   `|| BACKEND_EXIT=$?` 把失败转给逻辑分支, set -e 不再触发, 后续 if 仍能正确
     #   tail 日志展示测试失败细节。
+    # 2026-05-29: 加 --no-cache —— ts-jest 在本仓多 worker 并发下会运行期污染
+    #   transform 缓存, 把未改动文件的合法 TS 语法(如 `as const`)误报 parse 失败
+    #   (cached 误失败 / --no-cache 通过, 同份代码)。宽改集(如改 facade barrel 牵出
+    #   大批 changedSince 套件)必现。--no-cache 略慢但验证可靠, 杜绝假失败。
     BACKEND_EXIT=0
-    npx jest --changedSince="$BASE_SHA" --passWithNoTests --forceExit > "$BACKEND_TEST_LOG" 2>&1 || BACKEND_EXIT=$?
+    npx jest --changedSince="$BASE_SHA" --no-cache --passWithNoTests --forceExit > "$BACKEND_TEST_LOG" 2>&1 || BACKEND_EXIT=$?
     cd ..
 else
     echo "  backend: no changed files"
