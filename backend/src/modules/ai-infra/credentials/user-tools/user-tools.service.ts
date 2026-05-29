@@ -49,45 +49,36 @@ export class UserToolsService {
     const secretNames = configurableTools.map((d) => d.secretKeyName as string);
     const toolIds = configurableTools.map((d) => d.id);
 
-    // 2. 批量查询（一次查完，不 N+1）：用户自有 key（user_credentials 优先 + legacy
-    //    secrets 兼容）、admin 系统 secret、TOOL_GRANT、以及该用户的 byokMode。
-    const [userCreds, legacyUserSecrets, adminSecrets, grants, user] =
-      await Promise.all([
-        // BYOK 加固后用户工具 key 落 user_credentials
-        this.prisma.userCredential.findMany({
-          where: { userId, deletedAt: null, name: { in: secretNames } },
-          select: { name: true },
-        }),
-        // 过渡期兼容：legacy 用户行仍可能在 secrets
-        this.prisma.secret.findMany({
-          where: { userId, deletedAt: null, name: { in: secretNames } },
-          select: { name: true },
-        }),
-        // admin 系统 secret（userId=null）——只取 boolean，不返回值
-        this.prisma.secret.findMany({
-          where: { userId: null, isActive: true, name: { in: secretNames } },
-          select: { name: true },
-        }),
-        this.prisma.authorizationGrant.findMany({
-          where: {
-            userId,
-            type: AuthRequestType.TOOL_GRANT,
-            revokedAt: null,
-            targetId: { in: [...toolIds, ...secretNames] },
-            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-          },
-          select: { targetId: true },
-        }),
-        this.prisma.user.findUnique({
-          where: { id: userId },
-          select: { byokMode: true },
-        }),
-      ]);
-
-    const userKeySet = new Set([
-      ...userCreds.map((s) => s.name),
-      ...legacyUserSecrets.map((s) => s.name),
+    // 2. 批量查询（一次查完，不 N+1）：用户自有 key（user-scoped secrets）、
+    //    admin 系统 secret、TOOL_GRANT、以及该用户的 byokMode。
+    const [userSecrets, adminSecrets, grants, user] = await Promise.all([
+      // 用户工具 key 落 user-scoped secrets（W5 后 user_credentials 已退役）
+      this.prisma.secret.findMany({
+        where: { userId, deletedAt: null, name: { in: secretNames } },
+        select: { name: true },
+      }),
+      // admin 系统 secret（userId=null）——只取 boolean，不返回值
+      this.prisma.secret.findMany({
+        where: { userId: null, isActive: true, name: { in: secretNames } },
+        select: { name: true },
+      }),
+      this.prisma.authorizationGrant.findMany({
+        where: {
+          userId,
+          type: AuthRequestType.TOOL_GRANT,
+          revokedAt: null,
+          targetId: { in: [...toolIds, ...secretNames] },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+        select: { targetId: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { byokMode: true },
+      }),
     ]);
+
+    const userKeySet = new Set(userSecrets.map((s) => s.name));
     const adminSecretSet = new Set(adminSecrets.map((s) => s.name));
     const grantTargetSet = new Set(grants.map((g) => g.targetId));
     // byokMode 默认 STRICT（与 ToolKeyResolver 一致）：缺则不走平台兜底

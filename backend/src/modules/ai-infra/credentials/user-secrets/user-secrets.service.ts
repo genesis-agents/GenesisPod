@@ -8,7 +8,6 @@ import { SecretCategory } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../encryption/encryption.service";
 import { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
-import { UserCredentialsService } from "../user-credentials/user-credentials.service";
 import { SecretsService } from "../../secrets/secrets.service";
 import { ApiKeyMode } from "../user-api-keys/dto";
 import {
@@ -46,26 +45,23 @@ export class UserSecretsService {
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
     private readonly userApiKeys: UserApiKeysService,
-    private readonly userCredentials: UserCredentialsService,
-    // ★ 2026-05-29 P4：非 AI_MODEL（工具）收敛到 user-scoped secrets/secret_keys，
-    //   走 admin 同款多 Key（envelope v2，与 getSecretKey/drawer 解密一致）。
+    // 2026-05-29 W5：非 AI_MODEL（工具）收敛到 user-scoped secrets/secret_keys，
+    //   走 admin 同款多 Key（envelope v2）。user_credentials 过渡表已退役（0 行）。
     private readonly secrets: SecretsService,
   ) {}
 
   /**
    * 统一列出用户所有私有 Key（LLM + 工具 + 其他类），归一成一个表的行。
-   * 2026-05-28 PR-3：工具/其它类来源切到 user_credentials；过渡期仍读 legacy secrets
-   * 用户行（按 name 去重，优先 user_credentials），待 PR-4 backfill 后下线 legacy 读。
+   * LLM 行来自 user_api_keys；工具/其它类来自 user-scoped secrets（W5 后 user_credentials
+   * 过渡表已退役）。
    */
   async list(userId: string): Promise<UserSecretListItem[]> {
-    const [llmKeys, credItems, legacySecretRows] = await Promise.all([
+    const [llmKeys, secretRows] = await Promise.all([
       // H6: 捐赠池退役后 user_api_keys 恒为 PERSONAL，无需再排除捐赠。
       this.prisma.userApiKey.findMany({
         where: { userId },
         orderBy: [{ provider: "asc" }, { label: "asc" }],
       }),
-      this.userCredentials.list(userId),
-      // 过渡期：legacy 用户工具行仍在 secrets（PR-4 backfill 后移除此读）。
       this.prisma.secret.findMany({
         where: {
           userId,
@@ -90,42 +86,23 @@ export class UserSecretsService {
       updatedAt: k.updatedAt,
     }));
 
-    const credSecretItems: UserSecretListItem[] = credItems.map((c) => ({
+    const secretItems: UserSecretListItem[] = secretRows.map((s) => ({
       source: "secret",
-      id: c.id,
-      name: c.name,
-      displayName: c.displayName,
-      category: c.category,
-      provider: c.provider,
-      maskedValue: c.maskedValue,
-      isActive: c.isActive,
-      usageCount: c.usageCount,
-      testStatus: c.testStatus,
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
+      id: s.id,
+      name: s.name,
+      displayName: s.displayName,
+      category: s.category,
+      provider: s.provider,
+      maskedValue:
+        s.keyHint ?? this.maskUserSecret(s.encryptedValue, s.iv, userId),
+      isActive: s.isActive,
+      usageCount: s.accessCount,
+      testStatus: null,
+      createdAt: s.createdAt,
+      updatedAt: s.updatedAt,
     }));
 
-    // 去重：legacy secrets 中 name 已存在于 user_credentials 的不再展示（优先新表）。
-    const credNames = new Set(credItems.map((c) => c.name));
-    const legacySecretItems: UserSecretListItem[] = legacySecretRows
-      .filter((s) => !credNames.has(s.name))
-      .map((s) => ({
-        source: "secret",
-        id: s.id,
-        name: s.name,
-        displayName: s.displayName,
-        category: s.category,
-        provider: s.provider,
-        maskedValue:
-          s.keyHint ?? this.maskUserSecret(s.encryptedValue, s.iv, userId),
-        isActive: s.isActive,
-        usageCount: s.accessCount,
-        testStatus: null,
-        createdAt: s.createdAt,
-        updatedAt: s.updatedAt,
-      }));
-
-    return [...llmItems, ...credSecretItems, ...legacySecretItems];
+    return [...llmItems, ...secretItems];
   }
 
   /** 创建用户私有 Secret，按 category 分流到对应表（铁律 1）。 */
@@ -136,10 +113,14 @@ export class UserSecretsService {
     // 解析明文值：直接传值 OR 从已有密钥复制（sourceSecretId，owner 强制校验）
     let resolvedValue = dto.value;
     if (!resolvedValue && dto.sourceSecretId) {
-      const copied = await this.userCredentials.getCredentialValueById(
+      // 从用户已有的 secret 复制值（owner 强制校验，W5 后源恒为 user-scoped secrets）
+      const source = await this.secrets.getByIdForUser(
         dto.sourceSecretId,
         userId,
       );
+      const copied = source
+        ? await this.getUserSecretValue(source.name, userId)
+        : null;
       if (!copied) {
         throw new BadRequestException(
           "sourceSecretId 对应的密钥不存在或无权限",
@@ -258,12 +239,7 @@ export class UserSecretsService {
       return { success: true };
     }
 
-    // 过渡兼容：仍命中 legacy user_credentials 行则走旧表（user_credentials=0，基本不触发）。
-    if (await this.isUserCredential(id, userId)) {
-      return this.userCredentials.update(userId, id, dto);
-    }
-
-    // ★ 2026-05-29 P4：工具/其它类已收敛到 user-scoped secrets → 走 SecretsService.update
+    // 工具/其它类已收敛到 user-scoped secrets → 走 SecretsService.update
     //   （值变更走 envelope v2 双写到 primary secret_key，与多 Key 抽屉/runtime 一致）。
     const owned = await this.secrets.getByIdForUser(id, userId);
     if (!owned) throw new NotFoundException("Key 不存在或无权限");
@@ -296,12 +272,7 @@ export class UserSecretsService {
       return { success: true };
     }
 
-    // 过渡兼容：仍命中 legacy user_credentials 行则走旧表（user_credentials=0，基本不触发）。
-    if (await this.isUserCredential(id, userId)) {
-      return this.userCredentials.remove(userId, id);
-    }
-
-    // ★ 2026-05-29 P4：收敛到 user-scoped secrets → SecretsService.delete（软删 + 级联禁用子 key）。
+    // 收敛到 user-scoped secrets → SecretsService.delete（软删 + 级联禁用子 key）。
     const owned = await this.secrets.getByIdForUser(id, userId);
     if (!owned) throw new NotFoundException("Key 不存在或无权限");
     await this.secrets.delete(owned.name, { userId }, userId);
@@ -336,11 +307,6 @@ export class UserSecretsService {
       return { success: true, message: "Key 存在，格式校验通过", testedAt };
     }
 
-    // PR-3：id 命中 user_credentials 则走新表测试，否则回退 legacy secrets。
-    if (await this.isUserCredential(id, userId)) {
-      return this.userCredentials.testKey(userId, id);
-    }
-
     const secret = await this.prisma.secret.findFirst({
       where: { id, userId, deletedAt: null },
       select: { id: true, name: true, isActive: true },
@@ -365,8 +331,7 @@ export class UserSecretsService {
 
   /**
    * 运行时取用户私有工具 Key 明文（不含 LLM）。供 ToolKeyResolverService 做「用户 Key 优先」。
-   * 强制 userId（缺失即抛错，D6）。
-   * 2026-05-28 PR-3：优先读 user_credentials（信封 v2）；过渡期回退 legacy secrets。
+   * 强制 userId（缺失即抛错，D6）。W5 后工具 key 统一在 user-scoped secrets。
    */
   async getUserSecretValue(
     name: string,
@@ -377,30 +342,14 @@ export class UserSecretsService {
         "getUserSecretValue: userId is required (BYOK isolation)",
       );
     }
-    const fromCred = await this.userCredentials.getCredentialValue(
-      name,
-      userId,
-    );
-    if (fromCred !== null) return fromCred;
-
-    // 回退读 user-scoped secrets 行。★ 2026-05-29 评审修复：用 decryptAny（按 encVersion 分派），
-    //   既能解 P4 新建的 envelope v2 行，也能解 legacy per-user HKDF 行；不能再写死 decryptForUser
-    //   （否则 envelope v2 行被 HKDF 路径误解、静默返回垃圾/null）。
+    // 读 user-scoped secrets 行，用 decryptAny（按 encVersion 分派）：既解 envelope v2，
+    //   也兼容 legacy per-user HKDF 行；不能写死 decryptForUser（否则 v2 行被误解）。
     const secret = await this.prisma.secret.findFirst({
       where: { name, userId, isActive: true, deletedAt: null },
     });
     if (!secret) return null;
     if (secret.expiresAt && secret.expiresAt < new Date()) return null;
     return this.encryption.decryptAny(secret, { userId });
-  }
-
-  /** id 是否为当前用户的一条 user_credentials 行（用于 secret-source 路由分派）。 */
-  private async isUserCredential(id: string, userId: string): Promise<boolean> {
-    const row = await this.prisma.userCredential.findFirst({
-      where: { id, userId },
-      select: { id: true },
-    });
-    return row !== null;
   }
 
   private maskUserSecret(

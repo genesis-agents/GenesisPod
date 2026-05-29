@@ -114,7 +114,19 @@ W3 抽屉收敛（判定已在 `MultiKeyTable` 层最佳态，不新造 `KeyMana
 W3+ BYOK 能力对齐（per-key Test by id + 错误码可见，镜像 admin）/
 W2 解析门面（用既有 `ai-infra/facade` 收口 ai-app 深穿消费方，非新造 `resolve()` god-facade）。
 
-### W5（过渡债下线）—— 部署+数据门控，**未执行**
+### W5（过渡债下线）—— ✅ 已实现（2026-05-29，user 确认线上 user_credentials=0 行）
+
+代码侧已下线 user_credentials 整条过渡路径：删 `UserCredentialsService`/module/dto/spec、
+`user-secrets.service` 与 `user-tools.service` 的 user_credentials 读、schema `UserCredential`
+model、作废的 secrets→user_credentials backfill 段。工具/其它类 BYOK 统一落 user-scoped
+`secrets`/`secret_keys`。迁移 `20260604_drop_user_credentials` **自带护栏**：DROP 前断言
+表行数=0，若非空直接 RAISE 中止（绝不静默丢密钥），0 行则安全 DROP。
+验证：tsc=0、verify:arch 31 套件 351、user-secrets/tool-key-resolver 27 测试、audit 187=187。
+
+> 部署提示：本分支部署时 `prisma migrate deploy` 会执行 20260604 迁移；线上若意外有
+> user_credentials 行，迁移会 fail-fast（需先按下方历史 runbook 反向迁移）。已确认 0 行则直接通过。
+
+### W5 历史 runbook（若未来 user_credentials 非空时的反向迁移参考）—— 部署+数据门控
 
 **已验证的生产数据现实（2026-05-29，main vs 分支 diff）**：
 
