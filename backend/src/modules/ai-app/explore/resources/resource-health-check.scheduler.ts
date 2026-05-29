@@ -69,9 +69,11 @@ export class ResourceHealthCheckScheduler
   }
 
   onModuleInit() {
+    // 默认开启：失效链接清理是常态运维能力，不应依赖部署时记得配 flag。
+    // 仅 HTTP HEAD/oEmbed 探活 + DB，无 LLM 成本。显式设 =false 可关闭。
     const enabled = this.configService.get<boolean>(
       "RESOURCE_HEALTH_CHECK_ENABLED",
-      false,
+      true,
     );
 
     if (enabled) {
@@ -79,7 +81,7 @@ export class ResourceHealthCheckScheduler
       this.startScheduler();
     } else {
       this.logger.log(
-        "Resource health check scheduler is disabled. Set RESOURCE_HEALTH_CHECK_ENABLED=true to enable.",
+        "Resource health check scheduler is disabled via RESOURCE_HEALTH_CHECK_ENABLED=false.",
       );
     }
   }

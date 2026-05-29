@@ -83,17 +83,25 @@ describe("ResourceHealthCheckScheduler", () => {
       setIntSpy.mockRestore();
     });
 
-    it("default is OFF — skips scheduler when RESOURCE_HEALTH_CHECK_ENABLED is not set", () => {
-      // ConfigService returns default value (false) when env var is unset
+    it("default is ON — starts scheduler when RESOURCE_HEALTH_CHECK_ENABLED is not set", () => {
+      // ConfigService returns the default value passed by the caller when the
+      // env var is unset; that default is now `true`.
       configService.get.mockImplementation((_k: string, def: unknown) => def);
-      const setIntSpy = jest.spyOn(global, "setInterval");
+      const setIntSpy = jest
+        .spyOn(global, "setInterval")
+        .mockReturnValue({ unref: jest.fn() } as unknown as NodeJS.Timeout);
+      const setTimSpy = jest
+        .spyOn(global, "setTimeout")
+        .mockReturnValue({ unref: jest.fn() } as unknown as NodeJS.Timeout);
 
       scheduler.onModuleInit();
 
-      // default is false → scheduler must NOT start
-      expect(setIntSpy).not.toHaveBeenCalled();
+      // default is true → scheduler must start
+      expect(setIntSpy).toHaveBeenCalled();
+      expect(setTimSpy).toHaveBeenCalled();
 
       setIntSpy.mockRestore();
+      setTimSpy.mockRestore();
     });
   });
 
