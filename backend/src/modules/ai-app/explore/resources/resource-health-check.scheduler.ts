@@ -55,6 +55,9 @@ export class ResourceHealthCheckScheduler
   // 新入库 YouTube 资源在 24h 内强制回查一次，捕获"刚发不久就被删/审核下架"
   private readonly YOUTUBE_RECHECK_NEW_HOURS = 24;
   private readonly INITIAL_DELAY_MS = 10 * 60 * 1000; // 10 minutes
+  // 手动"立即清理"扫描：有界并发 + 上限，保证在网关超时内返回
+  private readonly MANUAL_SCAN_LIMIT = 300;
+  private readonly MANUAL_SCAN_CONCURRENCY = 8;
 
   constructor(
     private readonly configService: ConfigService,
@@ -255,6 +258,139 @@ export class ResourceHealthCheckScheduler
     } finally {
       this.isRunning = false;
     }
+  }
+
+  /**
+   * 手动触发的"探活 + 标记 BROKEN"扫描（管理员"立即清理"按钮用）。
+   *
+   * 与定时 runHealthCheck 的区别：
+   *  - 只挑非 BROKEN 候选（UNKNOWN / 超期未检查的 HEALTHY），目标是"立刻发现新失效"
+   *  - 有界并发、无 per-item sleep —— 让按钮在反向代理网关超时内返回
+   *  - 只标记，不删除/归档（删除交给 cleanupBrokenResources，避免重复处理 + 计数失真）
+   *
+   * 返回本次扫描条数与扫描后处于 BROKEN 的条数；capped=true 表示候选超过上限、
+   * 本次只扫了一部分（再次点击可继续）。
+   */
+  async scanAndMarkBroken(): Promise<{
+    scanned: number;
+    broken: number;
+    capped: boolean;
+  }> {
+    if (this.isRunning) {
+      this.logger.warn("Health check already in progress, manual scan skipped");
+      return { scanned: 0, broken: 0, capped: false };
+    }
+
+    this.isRunning = true;
+    try {
+      const candidates = await this.collectScanCandidates(
+        this.MANUAL_SCAN_LIMIT,
+      );
+      if (candidates.length === 0) {
+        this.logger.log("Manual scan: no candidate resources to check");
+        return { scanned: 0, broken: 0, capped: false };
+      }
+
+      const ids = candidates.map((r) => r.id);
+      await this.runConcurrent(
+        candidates,
+        this.MANUAL_SCAN_CONCURRENCY,
+        async (r) => {
+          try {
+            await this.checkSingleResource(r);
+          } catch (e) {
+            this.logger.error(
+              `Manual scan failed for resource ${r.id}: ${(e as Error).message}`,
+            );
+          }
+        },
+      );
+
+      const broken = await this.prisma.resource.count({
+        where: { id: { in: ids }, linkHealth: LINK_HEALTH.BROKEN },
+      });
+
+      const capped = candidates.length >= this.MANUAL_SCAN_LIMIT;
+      this.logger.log(
+        `Manual scan complete: ${candidates.length} checked, ${broken} now BROKEN${capped ? " (capped, more remain)" : ""}`,
+      );
+      return { scanned: candidates.length, broken, capped };
+    } finally {
+      this.isRunning = false;
+    }
+  }
+
+  /**
+   * 收集手动扫描候选：优先从未验证的 UNKNOWN（默认态），其次超期未检查的 HEALTHY。
+   * 不含 BROKEN（已是目标态，无需重复探活），不含 ARCHIVED。
+   */
+  private async collectScanCandidates(limit: number): Promise<
+    Array<{
+      id: string;
+      sourceUrl: string | null;
+      pdfUrl: string | null;
+      linkHealth: string | null;
+      linkCheckFailCount: number;
+      title: string | null;
+      type: string | null;
+    }>
+  > {
+    const select = {
+      id: true,
+      sourceUrl: true,
+      pdfUrl: true,
+      linkHealth: true,
+      linkCheckFailCount: true,
+      title: true,
+      type: true,
+    } as const;
+
+    const unknown = await this.prisma.resource.findMany({
+      where: { linkHealth: LINK_HEALTH.UNKNOWN, sourceUrl: { not: "" } },
+      select,
+      take: limit,
+    });
+    if (unknown.length >= limit) return unknown;
+
+    const recheckThreshold = new Date(
+      Date.now() - this.RECHECK_AFTER_DAYS * 24 * 60 * 60 * 1000,
+    );
+    const stale = await this.prisma.resource.findMany({
+      where: {
+        linkHealth: LINK_HEALTH.HEALTHY,
+        OR: [
+          { lastHealthCheckAt: null },
+          { lastHealthCheckAt: { lt: recheckThreshold } },
+        ],
+        sourceUrl: { not: "" },
+      },
+      select,
+      take: limit - unknown.length,
+      orderBy: { lastHealthCheckAt: "asc" },
+    });
+
+    return [...unknown, ...stale];
+  }
+
+  /**
+   * 有界并发执行：固定 worker 数从队列取任务，无 per-item sleep。
+   */
+  private async runConcurrent<T>(
+    items: T[],
+    concurrency: number,
+    worker: (item: T) => Promise<void>,
+  ): Promise<void> {
+    let idx = 0;
+    const runners = Array.from(
+      { length: Math.min(concurrency, items.length) },
+      async () => {
+        while (idx < items.length) {
+          const current = items[idx++];
+          await worker(current);
+        }
+      },
+    );
+    await Promise.all(runners);
   }
 
   /**

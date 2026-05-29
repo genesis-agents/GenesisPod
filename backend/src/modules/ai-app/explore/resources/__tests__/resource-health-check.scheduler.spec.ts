@@ -16,6 +16,7 @@ describe("ResourceHealthCheckScheduler", () => {
       findMany: jest.Mock;
       update: jest.Mock;
       updateMany: jest.Mock;
+      count: jest.Mock;
     };
   };
   let configService: { get: jest.Mock };
@@ -34,6 +35,7 @@ describe("ResourceHealthCheckScheduler", () => {
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({}),
+        count: jest.fn().mockResolvedValue(0),
       },
     };
     configService = {
@@ -641,6 +643,61 @@ describe("ResourceHealthCheckScheduler", () => {
       await scheduler.runHealthCheck();
 
       expect(prisma.resource.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("scanAndMarkBroken", () => {
+    it("returns zero counts when no candidates", async () => {
+      prisma.resource.findMany.mockResolvedValue([]); // unknown + stale both empty
+
+      const result = await scheduler.scanAndMarkBroken();
+
+      expect(result).toEqual({ scanned: 0, broken: 0, capped: false });
+      expect(prisma.resource.count).not.toHaveBeenCalled();
+    });
+
+    it("skips when a health check is already running", async () => {
+      (scheduler as unknown as { isRunning: boolean }).isRunning = true;
+
+      const result = await scheduler.scanAndMarkBroken();
+
+      expect(result).toEqual({ scanned: 0, broken: 0, capped: false });
+      expect(prisma.resource.findMany).not.toHaveBeenCalled();
+    });
+
+    it("probes candidates, marks broken, and reports counts", async () => {
+      prisma.resource.findMany
+        .mockResolvedValueOnce([
+          {
+            id: "u1",
+            sourceUrl: "https://youtu.be/dead",
+            pdfUrl: null,
+            linkHealth: "UNKNOWN",
+            linkCheckFailCount: 0,
+            title: "t",
+            type: "YOUTUBE_VIDEO",
+          },
+        ]) // UNKNOWN candidates
+        .mockResolvedValueOnce([]); // stale HEALTHY candidates
+      // YouTube oEmbed 404 → deleted → broken (threshold 1)
+      axiosMock.default.get.mockResolvedValue({ status: 404 });
+      prisma.resource.count.mockResolvedValue(1);
+
+      const result = await scheduler.scanAndMarkBroken();
+
+      expect(prisma.resource.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ linkHealth: "BROKEN" }),
+        }),
+      );
+      expect(prisma.resource.count).toHaveBeenCalledWith({
+        where: { id: { in: ["u1"] }, linkHealth: "BROKEN" },
+      });
+      expect(result).toEqual({ scanned: 1, broken: 1, capped: false });
+      // 必须重置 isRunning，否则后续定时检查会被永久跳过
+      expect((scheduler as unknown as { isRunning: boolean }).isRunning).toBe(
+        false,
+      );
     });
   });
 });

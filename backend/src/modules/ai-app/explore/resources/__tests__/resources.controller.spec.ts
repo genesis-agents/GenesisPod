@@ -5,6 +5,7 @@ import { ResourcesService } from "../resources.service";
 import { AIEnrichmentService } from "../ai-enrichment.service";
 import { PdfThumbnailService } from "../pdf-thumbnail.service";
 import { DynamicThumbnailService } from "../dynamic-thumbnail.service";
+import { ResourceHealthCheckScheduler } from "../resource-health-check.scheduler";
 import { R2StorageService } from "../../../../ai-infra/storage/runtime/r2-storage.service";
 import { ThrottlerModule } from "@nestjs/throttler";
 
@@ -32,7 +33,14 @@ const mockResourcesService = {
   toggleUpvote: jest.fn(),
   getUserUpvotedResourceIds: jest.fn(),
   cleanupDuplicates: jest.fn(),
+  cleanupBrokenResources: jest.fn(),
   translateResource: jest.fn(),
+};
+
+const mockHealthScheduler = {
+  scanAndMarkBroken: jest
+    .fn()
+    .mockResolvedValue({ scanned: 0, broken: 0, capped: false }),
 };
 
 const mockAIEnrichmentService = {
@@ -71,6 +79,10 @@ describe("ResourcesController", () => {
           useValue: mockDynamicThumbnailService,
         },
         { provide: R2StorageService, useValue: mockR2StorageService },
+        {
+          provide: ResourceHealthCheckScheduler,
+          useValue: mockHealthScheduler,
+        },
       ],
     }).compile();
 
@@ -578,6 +590,35 @@ describe("ResourcesController", () => {
     });
   });
 
+  // ─── cleanupBroken ────────────────────────────────────────────────
+
+  describe("cleanupBroken", () => {
+    it("scans first, then cleans, surfacing scanned/deleted counts", async () => {
+      mockHealthScheduler.scanAndMarkBroken.mockResolvedValue({
+        scanned: 42,
+        broken: 7,
+        capped: false,
+      });
+      mockResourcesService.cleanupBrokenResources.mockResolvedValue({
+        deleted: 5,
+        archived: 2,
+        total: 7,
+      });
+
+      const result = await controller.cleanupBroken();
+
+      // 顺序很关键：必须先扫描标记 BROKEN，再删除，否则永远删 0
+      expect(mockHealthScheduler.scanAndMarkBroken).toHaveBeenCalledTimes(1);
+      expect(mockResourcesService.cleanupBrokenResources).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(result.scanned).toBe(42);
+      expect(result.deleted).toBe(5);
+      expect(result.archived).toBe(2);
+      expect(result.capped).toBe(false);
+    });
+  });
+
   // ─── translate ────────────────────────────────────────────────────
 
   describe("translate", () => {
@@ -593,4 +634,3 @@ describe("ResourcesController", () => {
     });
   });
 });
-

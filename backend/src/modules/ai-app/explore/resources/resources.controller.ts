@@ -38,6 +38,7 @@ import { ResourcesService } from "./resources.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
+import { ResourceHealthCheckScheduler } from "./resource-health-check.scheduler";
 import { R2StorageService } from "../../../ai-infra/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
@@ -73,6 +74,7 @@ export class ResourcesController {
     private pdfThumbnailService: PdfThumbnailService,
     private dynamicThumbnailService: DynamicThumbnailService,
     private r2StorageService: R2StorageService,
+    private healthScheduler: ResourceHealthCheckScheduler,
   ) {}
 
   /**
@@ -266,20 +268,24 @@ export class ResourcesController {
   }
 
   /**
-   * 一键清理 BROKEN 资源（管理员专用）
+   * 一键扫描并清理 BROKEN 资源（管理员专用）
    * POST /api/v1/resources/cleanup/broken
    *
-   * 删除 linkHealth=BROKEN 且无 notes/comments 的资源。
-   * 与 ResourceHealthCheckScheduler 的自动归档互补——
-   * 这里是"立刻物理删除"，归档只是改 linkHealth=ARCHIVED。
+   * 两步：
+   *  1. 实时探活当前 UNKNOWN/超期 HEALTHY 资源，把已失效的标成 BROKEN
+   *     —— 否则库里没有 BROKEN 行，删除永远是 0（"清理无效"的根因）。
+   *  2. 删除 linkHealth=BROKEN 且无 notes/comments 的资源；有用户数据的改为 ARCHIVED。
    */
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Post("cleanup/broken")
   async cleanupBroken() {
-    this.logger.log("Cleaning up BROKEN resources (link unavailable)");
+    this.logger.log("Manual broken-resource scan + cleanup triggered");
+    const scan = await this.healthScheduler.scanAndMarkBroken();
     const result = await this.resourcesService.cleanupBrokenResources();
     return {
-      message: `Deleted ${result.deleted} broken resources`,
+      message: `Scanned ${scan.scanned}, deleted ${result.deleted} broken resources`,
+      scanned: scan.scanned,
+      capped: scan.capped,
       ...result,
     };
   }

@@ -22,6 +22,7 @@ import { ResourcesService } from "../resources.service";
 import { AIEnrichmentService } from "../ai-enrichment.service";
 import { PdfThumbnailService } from "../pdf-thumbnail.service";
 import { DynamicThumbnailService } from "../dynamic-thumbnail.service";
+import { ResourceHealthCheckScheduler } from "../resource-health-check.scheduler";
 import { R2StorageService } from "../../../../ai-infra/facade";
 
 // Guards: mock JwtAuthGuard + AdminGuard to always pass in unit tests
@@ -69,6 +70,12 @@ const mockR2StorageService = {
   uploadBuffer: jest.fn(),
 };
 
+const mockHealthScheduler = {
+  scanAndMarkBroken: jest
+    .fn()
+    .mockResolvedValue({ scanned: 0, broken: 0, capped: false }),
+};
+
 function makeAuthRequest(userId?: string): {
   user?: { id: string };
 } {
@@ -114,6 +121,10 @@ describe("ResourcesController (supplemental)", () => {
           useValue: mockDynamicThumbnailService,
         },
         { provide: R2StorageService, useValue: mockR2StorageService },
+        {
+          provide: ResourceHealthCheckScheduler,
+          useValue: mockHealthScheduler,
+        },
       ],
     }).compile();
 
