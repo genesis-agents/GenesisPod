@@ -114,20 +114,44 @@ async function markAllMigrationsApplied(): Promise<void> {
 }
 
 async function bootstrapFreshDatabase(): Promise<void> {
-  // ★ 2026-05-27 真根因 fix (用户实证 onprem localhost ai_providers/ai_models 全空):
-  //   原 bootstrap 是 `db push + markAllMigrationsApplied()` — schema 是从
-  //   schema.prisma 推出来, migrations 全标 applied 但 *SQL 没跑*, 导致 migration
-  //   里的 INSERT 默认数据 (ai_providers / ai_models / model_types / 等) 全部丢失。
-  //   改用 `prisma migrate deploy`: 按顺序跑全部 migration 包括 CREATE TABLE 和
-  //   INSERT, 自动写 _prisma_migrations。fresh DB 上等价于正确的 schema 初始化。
+  // ★ 2026-05-29 真根因 fix（onprem 冷启动从未成功）：
+  //   迁移链不完整——schema.prisma 有 279 张表，迁移链只建了 ~255 张（缺 47 张，含
+  //   knowledge_bases / child_chunks 等 CRITICAL 表）+ 21 个枚举类型 + 25 个枚举缺值。
+  //   团队长期用 `prisma db push` 演进 schema，迁移只零散补，链早已无法在空库重放出
+  //   完整 schema（`migrate deploy` 在前向引用处必崩，且就算修过崩点也少 47 张表）。
+  //
+  //   2026-05-27 曾从 `db push` 改成 `migrate deploy`，理由是 db push 不跑 migration
+  //   里的 INSERT 种子（ai_providers/ai_models 丢失）。本次修复保留 db push（唯一能产出
+  //   完整正确 schema 的方式），并显式补种子（seed-catalog.sql）堵上那个坑。
+  //
+  //   ⚠️ 仅 fresh 库走此分支（isFreshDatabase=true）。现存库（有 _prisma_migrations /
+  //   表）永远不进这里，继续走 Step 3 的增量 migrate deploy，完全不受影响。
   console.log(
-    "   Fresh database detected; bootstrapping via prisma migrate deploy (runs all migrations including INSERT)...",
+    "   Fresh database detected; bootstrapping full schema from schema.prisma (db push)...",
   );
-  execSync("npx prisma migrate deploy --schema=prisma/schema", {
-    stdio: "inherit",
-    env: process.env,
-  });
-  console.log("   Fresh database bootstrap completed (all INSERT data seeded)\n");
+  execSync(
+    "npx prisma db push --schema=prisma/schema --skip-generate --accept-data-loss",
+    { stdio: "inherit", env: process.env },
+  );
+
+  console.log(
+    "   Schema pushed. Marking all migrations as applied (so future incremental deploys work)...",
+  );
+  await markAllMigrationsApplied();
+
+  // db push 不执行 migration 里的 INSERT，故显式补 AI provider/model 目录种子。
+  // seed-catalog.sql 全部 ON CONFLICT DO NOTHING，幂等。
+  console.log(
+    "   Seeding AI provider/model catalog (migration INSERTs are not run under db push)...",
+  );
+  execSync(
+    "npx prisma db execute --schema=prisma/schema --file prisma/seed-catalog.sql",
+    { stdio: "inherit", env: process.env },
+  );
+
+  console.log(
+    "   Fresh database bootstrap completed (full schema from schema.prisma + catalog seeded)\n",
+  );
 }
 
 async function deploy(): Promise<void> {
