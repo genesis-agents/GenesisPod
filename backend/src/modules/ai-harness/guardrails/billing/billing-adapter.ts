@@ -155,7 +155,8 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     // RuntimeEnvironmentService.snapshot 已自带 30s cache
     const snap = await this.runtimeEnv.snapshot({ userId: this.userId });
     if (snap.userKeys.hasByok) return "personal";
-    if (snap.userKeys.sharedKeyAvailable) return "donated";
+    // ★ 2026-05-29 W4a：共享/授权 key 原误标 "donated"，归一为 "assigned"
+    if (snap.userKeys.sharedKeyAvailable) return "assigned";
     return "platform";
   }
 

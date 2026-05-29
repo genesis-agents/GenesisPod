@@ -1175,7 +1175,7 @@ export class AgentRunner {
       const lines: string[] = ["<environment>"];
       if (byok) {
         lines.push(
-          `- byok: ${byok}  (personal=user-key / donated=shared / platform=fallback)`,
+          `- byok: ${byok}  (personal=user-key / assigned=admin-assigned / platform=fallback)`,
         );
       }
       if (credit) {

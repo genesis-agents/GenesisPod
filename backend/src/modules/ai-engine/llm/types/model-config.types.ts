@@ -26,10 +26,11 @@ import type { ModelCapabilitiesOverrides } from "../capability/model-capability.
 /**
  * API Key 来源标识
  * personal: 用户自用 Key（不扣积分）
- * donated:  共享池捐赠 Key（扣积分）
+ * assigned: 管理员授权分配的 Key（来自 key_assignments，扣积分）
+ *           ★ 2026-05-29 W4a：原误名 "donated"（实为 ASSIGNED 来源），归一为 "assigned"。
  * system:   系统管理员配置 Key（扣积分）
  */
-export type ApiKeySource = "personal" | "donated" | "system";
+export type ApiKeySource = "personal" | "assigned" | "system";
 
 export interface ResolvedApiKey {
   apiKey: string;

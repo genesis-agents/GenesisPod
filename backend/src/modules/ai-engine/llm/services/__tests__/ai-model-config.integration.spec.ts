@@ -179,7 +179,7 @@ describe("AiModelConfigService (extended coverage)", () => {
       await buildModule({ withKeyResolver: true });
 
       mockKeyResolver.resolveKey.mockResolvedValue({
-        apiKey: "donated-key",
+        apiKey: "assigned-key",
         source: "ASSIGNED",
         apiEndpoint: undefined,
       });
@@ -204,8 +204,8 @@ describe("AiModelConfigService (extended coverage)", () => {
       };
 
       const result = await service.resolveApiKey(model, "user-123");
-      expect(result?.apiKey).toBe("donated-key");
-      expect(result?.source).toBe("donated");
+      expect(result?.apiKey).toBe("assigned-key");
+      expect(result?.source).toBe("assigned");
     });
 
     it("returns null when keyResolver throws NoAvailableKeyError (line 284-287)", async () => {

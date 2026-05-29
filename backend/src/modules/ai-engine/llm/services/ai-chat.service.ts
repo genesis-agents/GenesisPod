@@ -114,8 +114,8 @@ export interface ChatCompletionResult {
   isError?: boolean;
   /** 错误分类类型（仅在 isError=true 时有值，用于 fallback 决策） */
   errorType?: string;
-  /** BYOK: API Key 来源（personal=用户自用, donated=共享池, system=系统） */
-  apiKeySource?: "personal" | "donated" | "system";
+  /** BYOK: API Key 来源（personal=用户自用, assigned=管理员分配, system=系统） */
+  apiKeySource?: "personal" | "assigned" | "system";
   /**
    * LLM Function Calling: tool call requests returned by the model.
    * Populated when the model responds with tool_use / function_call instead of plain text.
@@ -221,7 +221,7 @@ export interface ChatResult {
   model: string;
   finishReason?: string;
   isError?: boolean;
-  apiKeySource?: "personal" | "donated" | "system";
+  apiKeySource?: "personal" | "assigned" | "system";
   /**
    * LLM Function Calling: tool call requests returned by the model.
    * Present only when the LLM decides to call one or more tools.
@@ -1048,11 +1048,11 @@ export class AiChatService {
       // Modal 弹出引导卡片，而不是把错误文本当 AI 回复渲染。
       // source === "system" 时（管理员走系统 Secret）保留原有的 isError 行为。
       const isUserScopedKey =
-        apiKeySource === "personal" || apiKeySource === "donated";
+        apiKeySource === "personal" || apiKeySource === "assigned";
       const source =
         apiKeySource === "personal"
           ? "PERSONAL"
-          : apiKeySource === "donated"
+          : apiKeySource === "assigned"
             ? "ASSIGNED"
             : "SYSTEM";
 
@@ -2292,7 +2292,7 @@ export class AiChatService {
       content: string;
       done: boolean;
       error?: string;
-      apiKeySource?: "personal" | "donated" | "system";
+      apiKeySource?: "personal" | "assigned" | "system";
       usage?: {
         promptTokens: number;
         completionTokens: number;

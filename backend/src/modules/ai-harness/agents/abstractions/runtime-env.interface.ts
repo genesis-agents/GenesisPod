@@ -23,7 +23,7 @@ import type { EnvironmentSnapshot } from "../../guardrails/runtime/runtime-envir
 export type ByokStatus =
   | "platform" // 用平台共享 key
   | "personal" // 用户自己的 key
-  | "donated" // 用户共享出来的 key
+  | "assigned" // ★ 2026-05-29 W4a：管理员分配/授权给用户的 key（原误名 "donated"）
   | "none"; // 完全无 key 可用
 
 export interface ICreditState {

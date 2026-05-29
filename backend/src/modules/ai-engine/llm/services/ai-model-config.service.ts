@@ -113,7 +113,7 @@ export class AiModelConfigService {
         );
         const sourceMap = {
           PERSONAL: "personal",
-          ASSIGNED: "donated",
+          ASSIGNED: "assigned", // W4a：原误标 "donated"，ASSIGNED 来源归一为 "assigned"
           SYSTEM: "system",
         } as const;
         return {

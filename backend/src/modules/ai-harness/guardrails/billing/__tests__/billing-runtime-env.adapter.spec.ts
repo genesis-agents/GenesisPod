@@ -69,14 +69,14 @@ describe("BillingRuntimeEnvAdapter", () => {
       expect(await adapter.getByokStatus()).toBe("personal");
     });
 
-    it("returns donated when sharedKeyAvailable", async () => {
+    it("returns assigned when sharedKeyAvailable", async () => {
       const adapter = new BillingRuntimeEnvAdapter(
         "u1",
         undefined,
         makeCredits() as never,
         makeRuntimeEnv({ sharedKeyAvailable: true }) as never,
       );
-      expect(await adapter.getByokStatus()).toBe("donated");
+      expect(await adapter.getByokStatus()).toBe("assigned");
     });
   });
 
