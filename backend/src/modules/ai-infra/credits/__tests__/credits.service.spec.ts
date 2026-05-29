@@ -56,6 +56,13 @@ describe("CreditsService", () => {
           ...mockAccount,
           ...data,
         })),
+        // 原子条件递减：默认成功（命中 1 行）。余额不足的测试会 override 为 { count: 0 }。
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        // 扣减后读回权威余额，供交易流水 balanceAfter。默认 5000 - 100 = 4900。
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          ...mockAccount,
+          balance: 4900,
+        }),
       },
       creditTransaction: {
         create: jest.fn().mockResolvedValue({
@@ -444,9 +451,11 @@ describe("CreditsService", () => {
       expect(result.consumed).toBe(100);
       expect(result.balanceAfter).toBe(4900);
       expect(result.transactionId).toBe("txn-consume-1");
-      expect(mockPrisma.creditAccount.update).toHaveBeenCalledWith(
+      // 原子条件递减：where 含 `balance >= cost` 守卫，data 用 decrement 而非绝对值。
+      expect(mockPrisma.creditAccount.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ balance: 4900 }),
+          where: expect.objectContaining({ balance: { gte: 100 } }),
+          data: expect.objectContaining({ balance: { decrement: 100 } }),
         }),
       );
     });
@@ -482,6 +491,25 @@ describe("CreditsService", () => {
       );
     });
 
+    it("should throw InsufficientCreditsException when a concurrent deduction wins the race (updateMany count=0)", async () => {
+      // 快照显示余额充足（早检查通过），但原子 updateMany 因 `balance >= cost`
+      // 守卫未命中任何行（并发扣减已抢先把余额用掉）→ count=0 → 必须抛错回滚，
+      // 而不是写出负余额。这是 P0 lost-update 修复的核心保护。
+      mockRulesService.calculateCredits.mockResolvedValue(100);
+      mockPrisma.creditAccount.findUnique.mockResolvedValue({
+        ...mockAccount,
+        balance: 5000,
+      });
+      mockPrisma.creditAccount.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.consumeCredits(baseParams)).rejects.toThrow(
+        InsufficientCreditsException,
+      );
+      // count=0 处已抛错：不应读回余额，也不应写交易流水。
+      expect(mockPrisma.creditAccount.findUniqueOrThrow).not.toHaveBeenCalled();
+      expect(mockPrisma.creditTransaction.create).not.toHaveBeenCalled();
+    });
+
     it("should throw AccountFrozenException when account is frozen", async () => {
       mockPrisma.creditAccount.findUnique.mockResolvedValue({
         ...mockAccount,
@@ -507,6 +535,11 @@ describe("CreditsService", () => {
         isFrozen: false,
       };
       mockPrisma.creditAccount.create.mockResolvedValue(newAccount);
+      // 新账户 10000 - 100 = 9900，读回权威余额。
+      mockPrisma.creditAccount.findUniqueOrThrow.mockResolvedValue({
+        ...newAccount,
+        balance: 9900,
+      });
       mockPrisma.creditTransaction.create.mockResolvedValue({
         id: "txn-auto",
         amount: -100,
@@ -540,9 +573,10 @@ describe("CreditsService", () => {
 
       await service.consumeCredits(baseParams);
 
-      expect(mockPrisma.creditAccount.update).toHaveBeenCalledWith(
+      // 同一天 → todaySpent 用 increment 累加（200 + 100，由 DB 原子完成）。
+      expect(mockPrisma.creditAccount.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ todaySpent: 300 }),
+          data: expect.objectContaining({ todaySpent: { increment: 100 } }),
         }),
       );
     });
@@ -567,7 +601,8 @@ describe("CreditsService", () => {
 
       await service.consumeCredits(baseParams);
 
-      expect(mockPrisma.creditAccount.update).toHaveBeenCalledWith(
+      // 跨天 → todaySpent 重置为本次消费的绝对值。
+      expect(mockPrisma.creditAccount.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ todaySpent: 100 }),
         }),

@@ -345,6 +345,9 @@ export class CreditsService implements OnModuleInit {
           throw new AccountFrozenException();
         }
 
+        // 快照早检查（fast-fail）：余额明显不足时立刻报错，省去一次写库尝试。
+        // 注意：这不是权威守卫——并发下快照可能过期，真正防 lost-update 的是下面
+        // updateMany 的 `balance >= cost` 行锁条件。
         if (account.balance < creditsToConsume) {
           throw new InsufficientCreditsException(
             creditsToConsume,
@@ -352,26 +355,39 @@ export class CreditsService implements OnModuleInit {
           );
         }
 
-        // 更新余额
-        const newBalance = account.balance - creditsToConsume;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        const isSameDay = !!account.todayDate && account.todayDate >= today;
 
-        // 计算今日消费
-        let newTodaySpent = creditsToConsume;
-        if (account.todayDate && account.todayDate >= today) {
-          newTodaySpent = account.todaySpent + creditsToConsume;
-        }
-
-        await tx.creditAccount.update({
-          where: { id: account.id },
+        // 原子条件递减：用 updateMany + `balance >= cost` 守卫，让 Postgres 行锁
+        // 串行化并发扣减，杜绝 read-modify-write 快照覆盖写导致的 lost-update / 负余额。
+        // count === 0 表示并发窗口内余额已被其他扣减用掉 → 视为余额不足并回滚。
+        const updated = await tx.creditAccount.updateMany({
+          where: { id: account.id, balance: { gte: creditsToConsume } },
           data: {
-            balance: newBalance,
-            totalSpent: account.totalSpent + creditsToConsume,
-            todaySpent: newTodaySpent,
+            balance: { decrement: creditsToConsume },
+            totalSpent: { increment: creditsToConsume },
+            todaySpent: isSameDay
+              ? { increment: creditsToConsume }
+              : creditsToConsume,
             todayDate: today,
           },
         });
+
+        if (updated.count === 0) {
+          throw new InsufficientCreditsException(
+            creditsToConsume,
+            account.balance,
+          );
+        }
+
+        // balanceAfter 必须读回权威值——并发下 account.balance 快照可能已过期，
+        // 不能用 `account.balance - cost` 计算，否则流水记录的余额会错。
+        const refreshed = await tx.creditAccount.findUniqueOrThrow({
+          where: { id: account.id },
+          select: { balance: true },
+        });
+        const newBalance = refreshed.balance;
 
         // 创建交易记录
         const transaction = await tx.creditTransaction.create({
