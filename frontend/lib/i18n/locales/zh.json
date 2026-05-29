@@ -7443,7 +7443,7 @@
     "tools": {
       "title": "我的工具",
       "description": "管理你使用的外部工具 Key，或向管理员申请系统级工具授权",
-      "grantInfo": "部分工具需要管理员授权才能使用。你可以配置自己的 API Key，或申请使用系统共享 Key。",
+      "grantInfo": "工具默认用平台共享 Key，开箱即用。你也可以选用已有的 Key 或新增一个来覆盖（可选）。",
       "searchPlaceholder": "搜索工具名称或 ID…",
       "loading": "加载工具列表…",
       "loadError": "加载失败",
@@ -7453,19 +7453,20 @@
         "name": "名称",
         "toolId": "Tool ID",
         "category": "类别",
-        "myKey": "我的 Key",
+        "myKey": "状态",
         "system": "系统",
         "actions": "操作"
       },
       "status": {
-        "configured": "已配置",
-        "grantedSystem": "已授权用系统",
-        "systemAvailable": "可用系统(未配)",
-        "notConfigured": "未配置"
+        "configured": "已用你的 Key",
+        "grantedSystem": "可用 · 平台授权",
+        "systemAvailable": "可用 · 平台提供",
+        "notConfigured": "需要配置 Key"
       },
       "action": {
         "configureKey": "配置 Key",
-        "requestGrant": "申请授权"
+        "requestGrant": "申请授权",
+        "useMyKey": "用我的 Key"
       },
       "modal": {
         "configureTitle": "配置 Key — {{name}}",

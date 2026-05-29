@@ -7,7 +7,6 @@ import {
   Wrench,
   KeyRound,
   SendHorizonal,
-  Check,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { apiClient } from '@/lib/api/client';
@@ -67,20 +66,22 @@ function ConfigureKeyModal({
   const { t } = useTranslation();
   const targetCategory = mapCategory(tool.category);
 
-  // 按工具类别过滤：只显示与该工具同 category 的密钥，避免把 Cohere key
-  // 列给 OpenAlex 这类混乱（大小写不敏感）。无匹配时下方自动落到「输入新密钥」。
-  const matchingSecrets = useMemo(
-    () =>
-      userSecrets.filter(
-        (s) => (s.category ?? '').toUpperCase() === targetCategory.toUpperCase()
-      ),
-    [userSecrets, targetCategory]
-  );
+  // 可选密钥 = 用户全部已有 key（同类别排前面）。确保「能选自己的 key」，
+  // 不因类别不匹配就一个都不显示（旧行为的 bug：选不了的根因）。
+  const selectableSecrets = useMemo(() => {
+    const sameCat = (c?: string) =>
+      (c ?? '').toUpperCase() === targetCategory.toUpperCase();
+    return [...userSecrets].sort(
+      (a, b) => Number(sameCat(b.category)) - Number(sameCat(a.category))
+    );
+  }, [userSecrets, targetCategory]);
 
   const [mode, setMode] = useState<'select' | 'new'>(
-    matchingSecrets.length > 0 ? 'select' : 'new'
+    selectableSecrets.length > 0 ? 'select' : 'new'
   );
-  const [selectedId, setSelectedId] = useState(matchingSecrets[0]?.id ?? '');
+  const [selectedId, setSelectedId] = useState(
+    selectableSecrets[0]?.id ?? ''
+  );
   const [newValue, setNewValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -150,15 +151,12 @@ function ConfigureKeyModal({
     >
       <div className="space-y-4">
         <p className="text-xs text-gray-500">
-          密钥名称：
-          <code className="rounded bg-gray-100 px-1 py-0.5 text-[11px]">
-            {tool.secretName}
-          </code>
+          为「{tool.name}」选择你已有的 Key，或新增一个。
         </p>
 
         {/* 模式切换 */}
         <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
-          {matchingSecrets.length > 0 && (
+          {selectableSecrets.length > 0 && (
             <button
               onClick={() => setMode('select')}
               className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${
@@ -167,7 +165,7 @@ function ConfigureKeyModal({
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              从已有密钥选择（{matchingSecrets.length}）
+              从已有密钥选择（{selectableSecrets.length}）
             </button>
           )}
           <button
@@ -185,16 +183,16 @@ function ConfigureKeyModal({
         {mode === 'select' ? (
           <div>
             <label className="mb-1.5 block text-xs font-medium text-gray-700">
-              选择已保存的 {tool.category} 密钥
+              选择你的一个密钥（同类别已置顶）
             </label>
             <select
               value={selectedId}
               onChange={(e) => setSelectedId(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              {matchingSecrets.map((s) => (
+              {selectableSecrets.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.displayName || s.name} · {s.maskedValue}
+                  {s.displayName || s.name} · {s.category} · {s.maskedValue}
                 </option>
               ))}
             </select>
@@ -205,7 +203,7 @@ function ConfigureKeyModal({
               <label className="text-xs font-medium text-gray-700">
                 {t('me.tools.modal.keyLabel')}
               </label>
-              {matchingSecrets.length === 0 && (
+              {selectableSecrets.length === 0 && (
                 <a
                   href="/me/api-keys"
                   className="text-xs text-primary underline hover:text-primary/80"
@@ -338,22 +336,17 @@ function ToolRow({
 }: ToolRowProps) {
   const { t } = useTranslation();
 
-  let badgeTone: 'success' | 'info' | 'neutral' | 'warning';
-  let badgeLabel: string;
-
-  if (tool.configured) {
-    badgeTone = 'success';
-    badgeLabel = t('me.tools.status.configured');
-  } else if (tool.granted) {
-    badgeTone = 'info';
-    badgeLabel = t('me.tools.status.grantedSystem');
-  } else if (tool.systemConfigured) {
-    badgeTone = 'neutral';
-    badgeLabel = t('me.tools.status.systemAvailable');
-  } else {
-    badgeTone = 'warning';
-    badgeLabel = t('me.tools.status.notConfigured');
-  }
+  // 状态由后端算好的 source 驱动：可用(绿) vs 需配置(黄)，一眼看懂。
+  const badgeTone: 'success' | 'warning' =
+    tool.source === 'none' ? 'warning' : 'success';
+  const badgeLabel =
+    tool.source === 'user'
+      ? t('me.tools.status.configured')
+      : tool.source === 'granted'
+        ? t('me.tools.status.grantedSystem')
+        : tool.source === 'platform'
+          ? t('me.tools.status.systemAvailable')
+          : t('me.tools.status.notConfigured');
 
   return (
     <Tr className="hover:bg-gray-50">
@@ -372,43 +365,59 @@ function ToolRow({
       <Td className="px-4 py-2.5">
         <StatusBadge tone={badgeTone} label={badgeLabel} />
       </Td>
-      <Td className="px-4 py-2.5">
-        {tool.systemConfigured ? (
-          <Check className="h-4 w-4 text-emerald-500" />
-        ) : (
-          <span className="text-sm text-gray-400">—</span>
-        )}
-      </Td>
       <Td className="px-4 py-2.5 text-right">
         <div className="flex items-center justify-end gap-1">
-          {tool.userConfigurable && !tool.configured && (
+          {tool.source === 'user' ? (
+            // 已用你的 Key：测试 + 更换
+            <>
+              {onTestKey && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onTestKey(tool)}
+                  disabled={isTesting}
+                >
+                  <FlaskConical className="mr-1 h-3.5 w-3.5" />
+                  {isTesting ? t('me.apiKeys.testing') : t('me.apiKeys.test')}
+                </Button>
+              )}
+              <button
+                onClick={() => onConfigureKey(tool)}
+                className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+                {t('me.tools.action.useMyKey')}
+              </button>
+            </>
+          ) : tool.usable ? (
+            // 平台已提供/已授权：开箱可用，BYOK 为可选覆盖
             <button
               onClick={() => onConfigureKey(tool)}
-              className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+              className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100"
             >
               <KeyRound className="h-3.5 w-3.5" />
-              {t('me.tools.action.configureKey')}
+              {t('me.tools.action.useMyKey')}
             </button>
-          )}
-          {tool.configured && onTestKey && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onTestKey(tool)}
-              disabled={isTesting}
-            >
-              <FlaskConical className="mr-1 h-3.5 w-3.5" />
-              {isTesting ? t('me.apiKeys.testing') : t('me.apiKeys.test')}
-            </Button>
-          )}
-          {!tool.granted && !tool.configured && !tool.systemConfigured && (
-            <button
-              onClick={() => onRequestGrant(tool)}
-              className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
-            >
-              <SendHorizonal className="h-3.5 w-3.5" />
-              {t('me.tools.action.requestGrant')}
-            </button>
+          ) : (
+            // 不可用：需要配置 Key（或申请平台授权）
+            <>
+              <button
+                onClick={() => onConfigureKey(tool)}
+                className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+                {t('me.tools.action.configureKey')}
+              </button>
+              {!tool.systemConfigured && (
+                <button
+                  onClick={() => onRequestGrant(tool)}
+                  className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+                >
+                  <SendHorizonal className="h-3.5 w-3.5" />
+                  {t('me.tools.action.requestGrant')}
+                </button>
+              )}
+            </>
           )}
         </div>
       </Td>
@@ -459,9 +468,6 @@ function CategoryGroup({
               </Th>
               <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 {t('me.tools.col.myKey')}
-              </Th>
-              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                {t('me.tools.col.system')}
               </Th>
               <Th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                 {t('me.tools.col.actions')}

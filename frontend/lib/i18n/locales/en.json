@@ -7443,7 +7443,7 @@
     "tools": {
       "title": "My Tools",
       "description": "Manage your external tool API keys, or request system-level tool access",
-      "grantInfo": "Some tools require admin authorization. You can configure your own API key, or request to use the shared system key.",
+      "grantInfo": "Tools work out of the box using the shared platform key. You can optionally use one of your own keys or add a new one to override.",
       "searchPlaceholder": "Search tool name or ID…",
       "loading": "Loading tools…",
       "loadError": "Failed to load",
@@ -7453,19 +7453,20 @@
         "name": "Name",
         "toolId": "Tool ID",
         "category": "Category",
-        "myKey": "My Key",
+        "myKey": "Status",
         "system": "System",
         "actions": "Actions"
       },
       "status": {
-        "configured": "Configured",
-        "grantedSystem": "Granted (system)",
-        "systemAvailable": "System available",
-        "notConfigured": "Not configured"
+        "configured": "Using your key",
+        "grantedSystem": "Available · granted",
+        "systemAvailable": "Available · platform",
+        "notConfigured": "Needs a key"
       },
       "action": {
         "configureKey": "Configure Key",
-        "requestGrant": "Request Access"
+        "requestGrant": "Request Access",
+        "useMyKey": "Use my key"
       },
       "modal": {
         "configureTitle": "Configure Key — {{name}}",

@@ -13,6 +13,10 @@ export interface UserToolItem {
   configured: boolean;
   systemConfigured: boolean;
   granted: boolean;
+  /** 该用户现在能否直接使用此工具 */
+  usable: boolean;
+  /** 可用来源：user=自有 key, granted=被授权平台 key, platform=FALLBACK 平台兜底, none=需配置 */
+  source: 'user' | 'granted' | 'platform' | 'none';
 }
 
 interface UserToolsResponse {
