@@ -567,10 +567,17 @@ export default function MissionDetailPage() {
       .slice(0, 12);
   }, [events]);
 
+  // ★ 2026-05-29 fix: 运行态用权威 status 判定，绝不用 completedAt/finishedAt 时间戳。
+  //   后者会在阶段完成时（如数据采集 done）就被 backend 设置，导致 mission 仍在跑时
+  //   页头误显示"已完成" → 用户以为跑完、怕浪费钱而取消（实证致命 bug）。
   const isRunning =
-    !view.mission.completedAt &&
+    !view.mission.cancelledAt &&
     !view.mission.failedAt &&
-    !view.mission.cancelledAt;
+    persisted?.status !== 'completed' &&
+    persisted?.status !== 'quality-failed' &&
+    persisted?.status !== 'failed' &&
+    persisted?.status !== 'cancelled' &&
+    persisted?.status !== 'rejected';
 
   // Cross-panel citation navigation：点报告中 [N] 角标 → 切到「参考文献」并定位
   useEffect(() => {
@@ -754,7 +761,7 @@ export default function MissionDetailPage() {
           <span className="h-2 w-2 rounded-full bg-red-500" />
           <span className="text-sm font-medium text-red-700">已失败</span>
         </div>
-      ) : view.mission.completedAt && persisted?.status === 'quality-failed' ? (
+      ) : persisted?.status === 'quality-failed' ? (
         <div className="flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5">
           <span className="h-2 w-2 rounded-full bg-amber-500" />
           <span
@@ -764,7 +771,7 @@ export default function MissionDetailPage() {
             质量未达标
           </span>
         </div>
-      ) : view.mission.completedAt ? (
+      ) : persisted?.status === 'completed' ? (
         <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />
           <span className="text-sm font-medium text-emerald-700">已完成</span>
@@ -967,8 +974,7 @@ export default function MissionDetailPage() {
               persisted?.status === 'failed' ||
               persisted?.status === 'rejected'
             ? 'failed'
-            : view.mission.completedAt ||
-                persisted?.status === 'completed' ||
+            : persisted?.status === 'completed' ||
                 persisted?.status === 'quality-failed'
               ? 'completed'
               : 'running'
