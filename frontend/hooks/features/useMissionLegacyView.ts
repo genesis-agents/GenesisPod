@@ -545,8 +545,7 @@ function dvDeriveDimensionPipelinesFromEvents(
       pipe.chapters.sort((a, b) => a.index - b.index);
     } else if (
       suffix === 'chapter:writing:started' ||
-      suffix === 'chapter:writing:completed' ||
-      suffix === 'chapter:writing:failed'
+      suffix === 'chapter:writing:completed'
     ) {
       const heading =
         typeof p.heading === 'string'
@@ -574,8 +573,6 @@ function dvDeriveDimensionPipelinesFromEvents(
       } else if (suffix === 'chapter:writing:completed') {
         chapter.status = 'reviewing';
         if (typeof p.wordCount === 'number') chapter.wordCount = p.wordCount;
-      } else if (suffix === 'chapter:writing:failed') {
-        chapter.status = 'failed';
       }
     } else if (suffix === 'chapter:review:completed') {
       const index =
