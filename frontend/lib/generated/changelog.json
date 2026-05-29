@@ -6,6 +6,10 @@
       {
         "type": "fix",
         "description": "UserModelConfigModal — provider 自由输入 + API 配置 section card"
+      },
+      {
+        "type": "fix",
+        "description": "use selected key consistently, fix gemini model-list 404, filter key dropdowns"
       }
     ]
   },
