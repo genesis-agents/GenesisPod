@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { AuthRequestType, ByokMode } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SecretsService } from "../../secrets/secrets.service";
+import { SecretKeysService } from "../../secrets/secret-keys.service";
 import { EXTERNAL_TOOL_SECRET_MAPPING } from "../../secrets/secret-name.catalog";
 import { UserSecretsService } from "../user-secrets/user-secrets.service";
 
@@ -46,6 +47,8 @@ export class ToolKeyResolverService {
     private readonly prisma: PrismaService,
     private readonly userSecrets: UserSecretsService,
     private readonly secrets: SecretsService,
+    // ★ 2026-05-29 BYOK 收敛：user-scoped secrets/secret_keys 多 Key + failover
+    private readonly secretKeys: SecretKeysService,
   ) {}
 
   /** 把 toolId 映射到 secret name；未在映射表的，按 toolId 原样当 secret name。 */
@@ -69,7 +72,13 @@ export class ToolKeyResolverService {
     }
     const secretName = this.resolveSecretName(toolId);
 
-    // 1. 用户私有 Key 优先
+    // 1. 用户私有 Key 优先。
+    //   收敛后主源 = user-scoped secrets/secret_keys（多 Key + priority + 5min 熔断 failover）；
+    //   过渡期 dual-read：新表读不到再回退既有 user_credentials 路径（P5 迁移完成后回退路径自然失效）。
+    const userScoped = await this.secretKeys.getSecretKey(secretName, userId);
+    if (userScoped) {
+      return { value: userScoped.value, source: "user", secretName };
+    }
     const userValue = await this.userSecrets.getUserSecretValue(
       secretName,
       userId,

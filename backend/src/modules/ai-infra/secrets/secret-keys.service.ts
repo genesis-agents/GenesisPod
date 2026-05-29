@@ -351,12 +351,17 @@ export class SecretKeysService {
    */
   async getSecretKey(
     secretName: string,
+    ownerUserId?: string | null,
     _context?: AuditContext,
   ): Promise<ResolvedSecretKey | null> {
-    const normalizedName = normalizeSecretName(secretName);
+    // 2026-05-29 BYOK：ownerUserId 传入时按 user 作用域查 user secret（不做 catalog 归一，
+    //   用户 secret 名为自定义）；admin 不传 → userId=null + 沿用 catalog 归一。
+    const lookupName = ownerUserId
+      ? secretName
+      : normalizeSecretName(secretName);
 
     const secret = await this.prisma.secret.findFirst({
-      where: { name: normalizedName, userId: null },
+      where: { name: lookupName, userId: ownerUserId ?? null },
     });
     if (!secret || !secret.isActive || secret.deletedAt) return null;
     if (secret.expiresAt && secret.expiresAt < new Date()) return null;

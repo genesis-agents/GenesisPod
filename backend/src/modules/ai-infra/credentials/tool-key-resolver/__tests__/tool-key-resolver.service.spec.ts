@@ -6,6 +6,7 @@ import {
 } from "../tool-key-resolver.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { SecretsService } from "../../../secrets/secrets.service";
+import { SecretKeysService } from "../../../secrets/secret-keys.service";
 import { UserSecretsService } from "../../user-secrets/user-secrets.service";
 
 describe("ToolKeyResolverService", () => {
@@ -15,6 +16,7 @@ describe("ToolKeyResolverService", () => {
     authorizationGrant: { findFirst: jest.Mock };
   };
   let secrets: { getValueInternal: jest.Mock };
+  let secretKeys: { getSecretKey: jest.Mock };
   let userSecrets: { getUserSecretValue: jest.Mock };
 
   beforeEach(async () => {
@@ -23,6 +25,8 @@ describe("ToolKeyResolverService", () => {
       authorizationGrant: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     secrets = { getValueInternal: jest.fn().mockResolvedValue(null) };
+    // 默认 user-scoped secrets 读不到 → dual-read 回退既有 user_credentials 路径（现有用例不变）
+    secretKeys = { getSecretKey: jest.fn().mockResolvedValue(null) };
     userSecrets = { getUserSecretValue: jest.fn().mockResolvedValue(null) };
 
     const moduleRef = await Test.createTestingModule({
@@ -30,6 +34,7 @@ describe("ToolKeyResolverService", () => {
         ToolKeyResolverService,
         { provide: PrismaService, useValue: prisma },
         { provide: SecretsService, useValue: secrets },
+        { provide: SecretKeysService, useValue: secretKeys },
         { provide: UserSecretsService, useValue: userSecrets },
       ],
     }).compile();
@@ -51,6 +56,23 @@ describe("ToolKeyResolverService", () => {
       secretName: "tavily-search-api-key",
     });
     expect(secrets.getValueInternal).not.toHaveBeenCalled();
+  });
+
+  it("收敛后优先 user-scoped secrets 多 Key（命中即用，不回退旧路径）", async () => {
+    secretKeys.getSecretKey.mockResolvedValue({
+      value: "tvly-secret-key",
+      keyId: "sk-1",
+      label: "primary",
+    });
+    const r = await service.resolveToolKey("tavily", "u1");
+    expect(r?.source).toBe("user");
+    expect(r?.value).toBe("tvly-secret-key");
+    // dual-read：命中 secrets 后不应再走旧 user_credentials 路径
+    expect(userSecrets.getUserSecretValue).not.toHaveBeenCalled();
+    expect(secretKeys.getSecretKey).toHaveBeenCalledWith(
+      "tavily-search-api-key",
+      "u1",
+    );
   });
 
   it("无用户 Key 但有授权 → 走 admin（source=granted）", async () => {
