@@ -244,6 +244,55 @@ describe("SecretKeysService", () => {
       expect(result?.value).toBe("revived-value");
     });
 
+    // ★ W1 (2026-05-29) 动态熔断：AUTH_FAILED → 永久熔断，即使很久以前失败也跳过
+    it("AUTH_FAILED key 永久熔断（10min 前失败仍跳过，用下一把）", async () => {
+      const enc1 = encryption.encrypt("dead-key");
+      const enc2 = encryption.encrypt("good-key");
+      prisma.secret.findFirst.mockResolvedValue(makeSecretRow());
+      prisma.secretKey.findMany.mockResolvedValue([
+        makeKeyRow({
+          id: "k1",
+          priority: 0,
+          testStatus: "failed",
+          lastErrorCode: "AUTH_FAILED",
+          lastUsedAt: new Date(Date.now() - 10 * 60_000),
+          encryptedValue: enc1.encryptedValue,
+          iv: enc1.iv,
+        }),
+        makeKeyRow({
+          id: "k2",
+          priority: 1,
+          testStatus: "success",
+          encryptedValue: enc2.encryptedValue,
+          iv: enc2.iv,
+        }),
+      ]);
+
+      const result = await service.getSecretKey("test-api-key");
+      expect(result?.keyId).toBe("k2");
+    });
+
+    // ★ W1：RATE_LIMIT_KEY → 60s 短冷却，90s 前失败已过窗口 → 复用（旧固定 5min 会误跳过）
+    it("RATE_LIMIT_KEY 90s 前失败 → 已过 60s 窗口，复用该 key", async () => {
+      const enc1 = encryption.encrypt("rate-limited-then-ok");
+      prisma.secret.findFirst.mockResolvedValue(makeSecretRow());
+      prisma.secretKey.findMany.mockResolvedValue([
+        makeKeyRow({
+          id: "k1",
+          priority: 0,
+          testStatus: "failed",
+          lastErrorCode: "RATE_LIMIT_KEY",
+          lastUsedAt: new Date(Date.now() - 90_000),
+          encryptedValue: enc1.encryptedValue,
+          iv: enc1.iv,
+        }),
+      ]);
+
+      const result = await service.getSecretKey("test-api-key");
+      expect(result?.keyId).toBe("k1");
+      expect(result?.value).toBe("rate-limited-then-ok");
+    });
+
     it("returns null when secret is disabled", async () => {
       prisma.secret.findFirst.mockResolvedValue(
         makeSecretRow({ isActive: false }),

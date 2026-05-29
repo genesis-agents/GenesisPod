@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { KEY_COOLDOWN_MS } from "./key-cooldown-policy";
 
 /**
  * KeyErrorClassifier — 把 raw error 映射为统一的失效响应决策。
@@ -41,10 +42,11 @@ export interface ClassifiedError {
   readonly httpStatus?: number;
 }
 
-const COOLDOWN_60S = 60 * 1000;
-const COOLDOWN_30S = 30 * 1000;
-const COOLDOWN_5MIN = 5 * 60 * 1000;
-const COOLDOWN_INF = Number.POSITIVE_INFINITY;
+// W1 (2026-05-29)：cooldown 时长统一引用共享策略 key-cooldown-policy（单一真源）。值不变。
+const COOLDOWN_60S = KEY_COOLDOWN_MS.RATE_LIMIT;
+const COOLDOWN_30S = KEY_COOLDOWN_MS.SHORT;
+const COOLDOWN_5MIN = KEY_COOLDOWN_MS.PROVIDER_OR_UNKNOWN;
+const COOLDOWN_INF = KEY_COOLDOWN_MS.INFINITE;
 
 @Injectable()
 export class KeyErrorClassifier {

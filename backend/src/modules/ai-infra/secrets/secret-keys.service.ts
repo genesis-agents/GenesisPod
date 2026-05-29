@@ -25,6 +25,10 @@ import {
 } from "./dto/secret-key.dto";
 import { normalizeSecretName } from "./secret-name.catalog";
 import { ProviderProbeService } from "../credentials/health/provider-probe.service";
+import {
+  cooldownMsForCode,
+  isPermanentCooldown,
+} from "../credentials/health/key-cooldown-policy";
 
 export interface SecretKeyListItem {
   id: string;
@@ -62,8 +66,8 @@ export interface AuditContext {
   userAgent?: string;
 }
 
-/// failed 状态后多久内仍熔断（避免持续打废 KEY，单位 ms）
-const FAILED_CIRCUIT_BREAK_MS = 5 * 60 * 1000;
+// W1 (2026-05-29)：熔断时长改由共享策略 key-cooldown-policy.cooldownMsForCode 按错误码决定，
+//   不再用固定 5min 常量（原 FAILED_CIRCUIT_BREAK_MS 已移除）。
 
 @Injectable()
 export class SecretKeysService {
@@ -449,16 +453,26 @@ export class SecretKeysService {
     });
     if (candidates.length === 0) return null;
 
+    // W1 (2026-05-29)：从固定 5min 升级为按 lastErrorCode 动态熔断（复用共享 cooldown 策略）。
+    //   AUTH_FAILED / 配额耗尽 / 解密失败 → 永久熔断（等替换）；限流 60s；超时 30s；未分类 5min。
     const now = Date.now();
+    let fallback: SecretKey | null = null; // 全熔断时兜底：优先非永久熔断的那把
     for (const k of candidates) {
       if (k.testStatus === "failed" && k.lastUsedAt) {
+        const cooldownMs = cooldownMsForCode(k.lastErrorCode);
         const since = now - k.lastUsedAt.getTime();
-        if (since < FAILED_CIRCUIT_BREAK_MS) continue; // 仍在熔断窗口内，跳过
+        if (since < cooldownMs) {
+          // 仍在熔断窗口：跳过。非永久熔断的留作兜底候选（让业务到期后自然恢复）。
+          if (fallback === null && !isPermanentCooldown(cooldownMs))
+            fallback = k;
+          continue;
+        }
       }
       return k;
     }
-    // 全部熔断中 → 兜底返回第一个（让业务再试一次自然恢复 markSuccess）
-    return candidates[0];
+    // 全部在熔断窗口内 → 兜底返回一个非永久熔断的（避免硬返回已 DEAD 的坏 key）；
+    // 若全是永久熔断（全坏/全配额耗尽），仍返回第一个让上层拿到明确失败。
+    return fallback ?? candidates[0];
   }
 
   /**
