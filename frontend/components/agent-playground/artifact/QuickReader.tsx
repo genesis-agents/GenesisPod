@@ -12,6 +12,8 @@ import {
   Clock,
   ExternalLink,
   Target,
+  Compass,
+  Radar,
 } from 'lucide-react';
 import type { ReportArtifact } from '@/lib/features/agent-playground/report-artifact.types';
 
@@ -50,6 +52,39 @@ const DIRECTION_LABEL: Record<string, string> = {
   decreasing: '↓',
   stable: '→',
   emerging: '✦',
+};
+
+// ★ Foresight L1：前瞻判断的展示标签
+const CONFIDENCE_LABEL: Record<string, string> = {
+  low: '置信度低',
+  moderate: '置信度中',
+  high: '置信度高',
+};
+const HORIZON_LABEL: Record<string, string> = {
+  '0-6m': '0-6 个月',
+  '6-18m': '6-18 个月',
+  '18m-3y': '18 个月-3 年',
+  '3y+': '3 年以上',
+};
+const SCENARIO_META: Record<
+  string,
+  { label: string; tone: string; bar: string }
+> = {
+  bull: {
+    label: '乐观',
+    tone: 'border-emerald-200 bg-emerald-50/50 text-emerald-700',
+    bar: 'bg-emerald-500',
+  },
+  base: {
+    label: '基准',
+    tone: 'border-blue-200 bg-blue-50/50 text-blue-700',
+    bar: 'bg-blue-500',
+  },
+  bear: {
+    label: '悲观',
+    tone: 'border-rose-200 bg-rose-50/50 text-rose-700',
+    bar: 'bg-rose-500',
+  },
 };
 
 /**
@@ -382,6 +417,209 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
                 })}
               </TBody>
             </Table>
+          </div>
+        </section>
+      )}
+
+      {/* 未来推演（Foresight：基准判断 + 情景 + 早期信号） */}
+      {qv.foresight && qv.foresight.baseCase.length > 0 && (
+        <section>
+          <h3 className="mb-3 flex items-center justify-between gap-1.5 text-sm font-bold text-gray-900">
+            <span className="flex items-center gap-1.5">
+              <Compass className="h-4 w-4 text-indigo-500" />
+              未来推演
+            </span>
+            {typeof qv.foresight.robustness === 'number' && (
+              <span
+                className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${
+                  qv.foresight.robustness >= 70
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : qv.foresight.robustness >= 50
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-rose-100 text-rose-700'
+                }`}
+                title="Forecast 红队评定的前瞻判断韧性"
+              >
+                前瞻韧性 {qv.foresight.robustness}/100
+              </span>
+            )}
+          </h3>
+          <div className="space-y-3">
+            {/* 基准判断：概率条 + 置信度 + 时间窗 + 裁决标准 */}
+            <div className="rounded-xl border border-indigo-100 bg-white p-4">
+              <h4 className="mb-3 text-sm font-bold text-indigo-700">
+                基准判断
+              </h4>
+              <div className="space-y-3">
+                {qv.foresight.baseCase.map((b, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-gray-100 bg-gray-50/60 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium leading-relaxed text-gray-800">
+                        {cleanText(b.judgment)}
+                      </p>
+                      <span className="flex-shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-bold text-indigo-700">
+                        {Math.round(b.probability * 100)}%
+                      </span>
+                    </div>
+                    {/* 概率条 */}
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-indigo-500"
+                        style={{
+                          width: `${Math.round(b.probability * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                      <span className="rounded bg-violet-50 px-1.5 py-0.5 font-medium text-violet-600">
+                        {CONFIDENCE_LABEL[b.confidence] ?? b.confidence}
+                      </span>
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-500">
+                        {HORIZON_LABEL[b.horizon] ?? b.horizon}
+                      </span>
+                    </div>
+                    {b.baseRate && (
+                      <p className="mt-1.5 text-xs leading-relaxed text-gray-500">
+                        历史基准率：{cleanText(b.baseRate)}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                      裁决标准：{cleanText(b.resolutionCriteria)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 情景分析：bull / base / bear */}
+            {qv.foresight.scenarios.length > 0 && (
+              <div className="grid gap-2 sm:grid-cols-3">
+                {qv.foresight.scenarios.map((s, idx) => {
+                  const meta = SCENARIO_META[s.kind] ?? SCENARIO_META.base;
+                  return (
+                    <div
+                      key={idx}
+                      className={`rounded-xl border p-3 ${meta.tone}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold">{meta.label}</span>
+                        <span className="text-xs font-bold">
+                          {Math.round(s.probability * 100)}%
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/70">
+                        <div
+                          className={`h-full rounded-full ${meta.bar}`}
+                          style={{
+                            width: `${Math.round(s.probability * 100)}%`,
+                          }}
+                        />
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-gray-700">
+                        {cleanText(s.narrative)}
+                      </p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                        触发：{cleanText(s.trigger)}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 预定元素 vs 关键不确定性 */}
+            {(qv.foresight.predeterminedElements.length > 0 ||
+              qv.foresight.criticalUncertainties.length > 0) && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {qv.foresight.predeterminedElements.length > 0 && (
+                  <div className="rounded-xl border border-gray-100 bg-white p-3">
+                    <h4 className="mb-1.5 text-xs font-bold uppercase tracking-wider text-gray-400">
+                      几乎确定
+                    </h4>
+                    <ul className="space-y-1">
+                      {qv.foresight.predeterminedElements.map((e, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-1.5 text-sm leading-relaxed text-gray-600"
+                        >
+                          <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-emerald-500" />
+                          <span>{cleanText(e)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {qv.foresight.criticalUncertainties.length > 0 && (
+                  <div className="rounded-xl border border-gray-100 bg-white p-3">
+                    <h4 className="mb-1.5 text-xs font-bold uppercase tracking-wider text-gray-400">
+                      关键不确定性
+                    </h4>
+                    <ul className="space-y-1">
+                      {qv.foresight.criticalUncertainties.map((u, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-1.5 text-sm leading-relaxed text-gray-600"
+                        >
+                          <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-amber-500" />
+                          <span>{cleanText(u)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 值得跟踪的早期信号 */}
+            {qv.foresight.leadingIndicators.length > 0 && (
+              <div className="rounded-xl border border-gray-100 bg-white p-3">
+                <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gray-400">
+                  <Radar className="h-3.5 w-3.5 text-indigo-400" />
+                  值得跟踪的早期信号
+                </h4>
+                <ul className="space-y-1.5">
+                  {qv.foresight.leadingIndicators.map((ind, i) => (
+                    <li
+                      key={i}
+                      className="text-sm leading-relaxed text-gray-700"
+                    >
+                      <span className="font-medium text-gray-800">
+                        {cleanText(ind.signal)}
+                      </span>
+                      <span className="text-gray-500">
+                        {' '}
+                        —— {cleanText(ind.watchFor)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* 判断可能错在哪（Forecast 红队回灌的反指标） */}
+            {qv.foresight.couldBeWrongIf &&
+              qv.foresight.couldBeWrongIf.length > 0 && (
+                <div className="rounded-xl border border-rose-100 bg-rose-50/40 p-3">
+                  <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-500">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    判断可能错在哪
+                  </h4>
+                  <ul className="space-y-1">
+                    {qv.foresight.couldBeWrongIf.map((c, i) => (
+                      <li
+                        key={i}
+                        className="flex items-start gap-1.5 text-sm leading-relaxed text-gray-600"
+                      >
+                        <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-rose-400" />
+                        <span>{cleanText(c)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
           </div>
         </section>
       )}

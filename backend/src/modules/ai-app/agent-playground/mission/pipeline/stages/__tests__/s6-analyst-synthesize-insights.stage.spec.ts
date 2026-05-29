@@ -70,6 +70,14 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
         wallTimeMs: 1000,
         iterations: 4,
       }),
+      // 默认空输出 → 不触发 merge，保持现有用例行为不变
+      synthesizeQuickView: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: undefined,
+        events: [],
+        wallTimeMs: 0,
+        iterations: 1,
+      }),
     },
     missionState: {
       compressIfNeeded: jest.fn().mockImplementation((x: unknown) => x),
@@ -102,6 +110,56 @@ describe("runAnalystStage (S6)", () => {
     const result = await runAnalystStage(ctx, deps);
     expect(ctx.analystOutput).toBeDefined();
     expect(result.insights).toHaveLength(2);
+  });
+
+  it("merges focused quick-view synthesis output over analyst inline fields", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    const richFindings = [
+      {
+        dimensionName: "Market",
+        findings: [
+          {
+            finding: "需求拐点",
+            body: "2026 年市场规模突破 500 亿，年增 40%，由 X/Y 驱动。",
+            significance: "high" as const,
+          },
+        ],
+      },
+    ];
+    (deps.analyst.synthesizeQuickView as jest.Mock).mockResolvedValue({
+      state: "completed",
+      output: {
+        keyFindingsByDimension: richFindings,
+        whatYouWillLearn: ["读完了解市场拐点"],
+      },
+      events: [],
+      wallTimeMs: 500,
+      iterations: 1,
+    });
+
+    const result = await runAnalystStage(ctx, deps);
+
+    expect(deps.analyst.synthesizeQuickView).toHaveBeenCalledTimes(1);
+    expect(result.keyFindingsByDimension).toEqual(richFindings);
+    expect(result.whatYouWillLearn).toEqual(["读完了解市场拐点"]);
+    // 富字段也应进入持久化的 ctx.analystOutput
+    expect(ctx.analystOutput?.keyFindingsByDimension).toEqual(richFindings);
+  });
+
+  it("keeps analyst inline fields when quick-view synthesis throws", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    (deps.analyst.synthesizeQuickView as jest.Mock).mockRejectedValue(
+      new Error("qv engine down"),
+    );
+
+    const result = await runAnalystStage(ctx, deps);
+
+    // 不抛错、stage 正常完成，analyst 主输出保留
+    expect(result.insights).toHaveLength(2);
+    expect(ctx.analystOutput).toBeDefined();
+    expect(deps.log.warn).toHaveBeenCalled();
   });
 
   // ★ 2026-05-06 单轨化: stage 不再 emit stage:started/completed，由 orchestrator

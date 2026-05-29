@@ -253,6 +253,11 @@ export async function runCriticStage(
         );
       }
     }
+
+    // ★ Forecast 红队 (2026-05-29 L2)：仅当报告含 foresight 时，对前瞻判断做事前验尸。
+    //   与 L4 critic 同阶段、同 auditLayers 分档；评的是"未来脆性"而非当下质量。
+    //   折叠进 s9（而非新建 pipeline step）：避免 step 注册 / rerun / 13-step 断言的机械改动。
+    await runForecastRedTeam(ctx, deps);
   } catch (err) {
     // ★ 2026-05-06 (A-6): swallow 改成 markStageDegraded
     const message = err instanceof Error ? err.message : String(err);
@@ -262,6 +267,166 @@ export async function runCriticStage(
       userId,
       "s9-critic",
       `L4 critic 失败但 mission 继续：${message.slice(0, 200)}`,
+    );
+  }
+}
+
+/**
+ * Forecast 红队（事前验尸）—— s9 critic 阶段内的前瞻脆性对抗复核。
+ *
+ * 仅当 reportArtifact.quickView.foresight 含 baseCase 时运行。结果：
+ *   - ctx.reportRedTeamVerdict 落 ctx（供 s10 foreword / 持久化）
+ *   - 回灌 foresight.couldBeWrongIf + foresight.robustness（前端"未来推演"卡片渲染）
+ *   - 写 quality.warnings / qualityTrace；robustness < 50 记 hardGateViolation
+ * 非致命：任何失败只 log.warn，不影响 mission。
+ */
+type RedTeamOutput = NonNullable<QualityPhaseCtx["reportRedTeamVerdict"]>;
+
+async function runForecastRedTeam(
+  ctx: MissionInvariants &
+    PlanPhaseCtx &
+    ResearchPhaseCtx &
+    SynthesisPhaseCtx &
+    WriterPhaseCtx &
+    QualityPhaseCtx,
+  deps: MissionDeps,
+): Promise<void> {
+  const {
+    reportArtifact,
+    input,
+    missionId,
+    userId,
+    billing,
+    pool,
+    budgetMultiplier,
+  } = ctx;
+  const foresight = reportArtifact?.quickView.foresight;
+  if (!reportArtifact || !foresight || foresight.baseCase.length === 0) return;
+
+  try {
+    await deps.invoker.preDisableKnownFailingModels(
+      billing,
+      "playground.forecast-red-team",
+      `${input.topic}::redteam::${input.language}`,
+    );
+    const rtRes = await deps.reviewer.forecastRedTeam<unknown, RedTeamOutput>(
+      {
+        topic: input.topic,
+        language: input.language,
+        baseCase: foresight.baseCase.map((b) => ({
+          judgment: b.judgment,
+          probability: b.probability,
+          confidence: b.confidence,
+          horizon: b.horizon,
+        })),
+        scenarios: foresight.scenarios.map((s) => ({
+          kind: s.kind,
+          narrative: s.narrative,
+          probability: s.probability,
+        })),
+        criticalUncertainties: foresight.criticalUncertainties,
+      },
+      {
+        missionId,
+        userId,
+        agentId: "forecast-red-team",
+        role: "critic",
+        envAdapter: billing,
+        budgetMultiplier,
+      },
+    );
+    await deps.invoker.tickCost(
+      missionId,
+      userId,
+      "reviewer",
+      pool,
+      extractTokenSpend(rtRes.events),
+      rtRes.events,
+    );
+    if (
+      (rtRes.state !== "completed" && rtRes.state !== "degraded") ||
+      !rtRes.output
+    ) {
+      return;
+    }
+    // ★ schema 兜底：LLM 偶发字段缺失时不让 .map / 数值运算抛错
+    const raw = rtRes.output as Record<string, unknown>;
+    const robustness =
+      typeof raw.overallRobustness === "number" &&
+      Number.isFinite(raw.overallRobustness)
+        ? Math.max(0, Math.min(100, raw.overallRobustness))
+        : 50;
+    const couldBeWrongIf = Array.isArray(raw.couldBeWrongIf)
+      ? (raw.couldBeWrongIf as string[])
+      : [];
+    const vulnerabilities = Array.isArray(raw.vulnerabilities)
+      ? (raw.vulnerabilities as RedTeamOutput["vulnerabilities"])
+      : [];
+    const rationale = typeof raw.rationale === "string" ? raw.rationale : "";
+
+    const verdict: RedTeamOutput = {
+      vulnerabilities,
+      couldBeWrongIf,
+      overallRobustness: robustness,
+      rationale,
+    };
+    ctx.reportRedTeamVerdict = verdict;
+    // 回灌前端"未来推演"卡片
+    foresight.couldBeWrongIf = couldBeWrongIf;
+    foresight.robustness = robustness;
+
+    reportArtifact.quality.warnings.push(
+      {
+        dimension: "forecast-redteam",
+        message: `前瞻韧性 ${robustness}/100 · ${rationale.slice(0, 120)}`,
+      },
+      ...vulnerabilities.slice(0, 5).map((v) => ({
+        dimension: "forecast-vulnerability",
+        message: `[${v.impactIfFails ?? "?"}/${v.timeHorizon ?? "?"}] ${v.statement} → ${v.failureScenario}`,
+      })),
+    );
+    reportArtifact.quality.qualityTrace.push({
+      stage: "critic",
+      check: "forecast-red-team",
+      passed: robustness >= 50,
+      timestamp: Date.now(),
+    });
+    // 韧性过低 → 记 hardGate 警告（不阻塞，但前端高亮）
+    if (robustness < 50) {
+      reportArtifact.quality.hardGateViolations.push({
+        dimension: "forecast-redteam",
+        severity: "warning",
+        message: `前瞻判断韧性偏低（${robustness}/100）：${rationale.slice(0, 100)}`,
+      });
+    }
+
+    await deps
+      .emit({
+        type: "agent-playground.red-team:verdict",
+        missionId,
+        userId,
+        payload: {
+          robustness,
+          vulnerabilityCount: vulnerabilities.length,
+          couldBeWrongIfCount: couldBeWrongIf.length,
+          rationale,
+        },
+      })
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit red-team:verdict failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s9-critic-l4",
+      role: "critic",
+      tag: robustness >= 70 ? "success" : robustness >= 50 ? "info" : "warning",
+      text: `Forecast 红队完成 · 前瞻韧性 ${robustness}/100 · ${vulnerabilities.length} 处脆弱点 / ${couldBeWrongIf.length} 条反指标`,
+      agentId: "critic",
+    });
+  } catch (err) {
+    deps.log.warn(
+      `[${missionId}] forecast red-team failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 }

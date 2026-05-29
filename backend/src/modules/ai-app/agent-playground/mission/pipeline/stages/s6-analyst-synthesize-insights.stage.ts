@@ -89,6 +89,27 @@ export interface AnalystOutputShape {
     forInvestors?: { shortTerm: string[]; midTerm: string[] };
   };
   whatYouWillLearn?: string[];
+  // ★ Foresight (2026-05-29 前瞻洞察 L1)：Outlook 章节 + 未来推演卡片的来源。
+  foresight?: {
+    baseCase: {
+      judgment: string;
+      probability: number;
+      confidence: "low" | "moderate" | "high";
+      horizon: "0-6m" | "6-18m" | "18m-3y" | "3y+";
+      resolutionCriteria: string;
+      baseRate?: string;
+      evidenceIds: string[];
+    }[];
+    scenarios: {
+      kind: "bull" | "base" | "bear";
+      narrative: string;
+      trigger: string;
+      probability: number;
+    }[];
+    predeterminedElements: string[];
+    criticalUncertainties: string[];
+    leadingIndicators: { signal: string; watchFor: string }[];
+  };
 }
 
 export async function runAnalystStage(
@@ -286,6 +307,8 @@ export async function runAnalystStage(
       riskMatrix: [],
       recommendationsByAudience: undefined,
       whatYouWillLearn: [],
+      // ★ Foresight 兜底 undefined → Outlook 章节短路、未来推演卡片不渲染（无回归）
+      foresight: undefined,
     };
 
     ctx.analystOutput = fallback;
@@ -309,6 +332,80 @@ export async function runAnalystStage(
     text: `Analyst 综合完成 · 提炼 ${analyst.insights.length} 条核心洞察${analyst.contradictions?.length ? ` · 标记 ${analyst.contradictions.length} 处冲突` : ""}`,
     agentId: "analyst",
   });
+  // ★ 2026-05-29 快速视图拆调用：keyFindingsByDimension(含 body)/trends/riskMatrix
+  //   等结构化字段原本和 6 个散文章节挤在 analyst 一次 long(≈8K) 调用里，排在尾部
+  //   的 body 被 token 预算饿死 → 快速视图卡片只剩干瘪标题（连续视图正常因为它走
+  //   Writer 链路）。这里用一次聚焦调用(extended+medium，body 必填)重产这 5 组字段，
+  //   覆盖 analyst 内联的薄版本。失败兜底：保留 analyst 主调用字段，零回归。
+  type QuickViewFields = Pick<
+    AnalystOutputShape,
+    | "keyFindingsByDimension"
+    | "trendsByDimension"
+    | "riskMatrix"
+    | "recommendationsByAudience"
+    | "whatYouWillLearn"
+  >;
+  try {
+    // ★ M3 (2026-05-29 评审整改)：第二次 LLM 调用同样接 FailureLearner 预禁用，
+    //   避免已知失败模型在 quickview 调用上空烧 token 后才降级。
+    await deps.invoker.preDisableKnownFailingModels(
+      billing,
+      "playground.quick-view-synthesizer",
+      `${input.topic}::quickview::${input.language}`,
+    );
+    const qvRes = await deps.analyst.synthesizeQuickView<
+      unknown,
+      QuickViewFields
+    >(
+      {
+        topic: input.topic,
+        language: input.language,
+        researcherResults: analystResearcherInput,
+        themeSummary: analyst.themeSummary,
+        insights: analyst.insights,
+      },
+      {
+        missionId,
+        userId,
+        agentId: "analyst.quickview",
+        role: "analyst",
+        envAdapter: billing,
+        budgetMultiplier,
+      },
+    );
+    await deps.invoker.tickCost(
+      missionId,
+      userId,
+      "analyst",
+      pool,
+      extractTokenSpend(qvRes.events),
+      qvRes.events,
+    );
+    const qv = qvRes.output;
+    if ((qvRes.state === "completed" || qvRes.state === "degraded") && qv) {
+      if (qv.keyFindingsByDimension?.length)
+        analyst.keyFindingsByDimension = qv.keyFindingsByDimension;
+      if (qv.trendsByDimension?.length)
+        analyst.trendsByDimension = qv.trendsByDimension;
+      if (qv.riskMatrix?.length) analyst.riskMatrix = qv.riskMatrix;
+      if (qv.recommendationsByAudience)
+        analyst.recommendationsByAudience = qv.recommendationsByAudience;
+      if (qv.whatYouWillLearn?.length)
+        analyst.whatYouWillLearn = qv.whatYouWillLearn;
+      deps.log.log(
+        `[${missionId}] quick-view synthesis merged (${qv.keyFindingsByDimension?.length ?? 0} dims with findings)`,
+      );
+    } else {
+      deps.log.warn(
+        `[${missionId}] quick-view synthesis returned no usable output (state=${qvRes.state}); keeping analyst inline fields`,
+      );
+    }
+  } catch (e) {
+    deps.log.warn(
+      `[${missionId}] quick-view synthesis failed, keeping analyst inline fields: ${(e as Error).message}`,
+    );
+  }
+
   ctx.analystOutput = analyst;
   // ★ PR-R4 (2026-05-07): stage 主动持久化 — 写 analystOutput
   // ★ 收尾评审第三轮 P0-S (2026-05-07): 传 userId 走严格隔离

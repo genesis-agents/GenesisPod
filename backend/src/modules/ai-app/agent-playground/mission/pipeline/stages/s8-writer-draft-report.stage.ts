@@ -111,6 +111,8 @@ export async function runWriterStage(
     insights: unknown[];
     themeSummary: string;
     contradictions?: unknown[];
+    // ★ Foresight L1：透传给 extractReportSegments → Outlook 章节 + 未来推演卡片
+    foresight?: unknown;
   },
   workspaceId: string | undefined,
 ): Promise<void> {

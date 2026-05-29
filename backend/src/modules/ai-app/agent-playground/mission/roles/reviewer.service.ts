@@ -11,6 +11,7 @@ import { Injectable } from "@nestjs/common";
 import { MissionReviewerAgent } from "../agents/reviewer/mission-reviewer.agent";
 import { MissionCriticAgent } from "../agents/reviewer/mission-critic.agent";
 import { DimensionQualityJudgeAgent } from "../agents/reviewer/dimension-quality-judge.agent";
+import { ForecastRedTeamAgent } from "../agents/reviewer/forecast-red-team.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import type { IAgentEvent } from "@/modules/ai-harness/facade";
 import { normalizeRunnerState } from "@/modules/ai-harness/facade";
@@ -46,6 +47,14 @@ export class ReviewerService {
     ctx: InvocationContext,
   ): Promise<InvokeResult<TOut>> {
     return this.invokeReviewer(DimensionQualityJudgeAgent, input, ctx);
+  }
+
+  // ★ Forecast 红队 (2026-05-29 L2)：对 foresight 做事前验尸，评未来脆性
+  async forecastRedTeam<TIn, TOut>(
+    input: TIn,
+    ctx: InvocationContext,
+  ): Promise<InvokeResult<TOut>> {
+    return this.invokeReviewer(ForecastRedTeamAgent, input, ctx);
   }
 
   private async invokeReviewer<TSpec, TIn, TOut>(

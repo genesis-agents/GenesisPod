@@ -355,6 +355,7 @@ export class StageRerunDispatcher extends BusinessTeamStageRerunDispatcherFramew
             insights?: unknown[];
             themeSummary?: string;
             contradictions?: unknown[];
+            foresight?: unknown;
           }
         | undefined;
       const analyst = analystRaw ?? {
@@ -368,6 +369,8 @@ export class StageRerunDispatcher extends BusinessTeamStageRerunDispatcherFramew
           insights: analyst.insights ?? [],
           themeSummary: analyst.themeSummary ?? "",
           contradictions: analyst.contradictions,
+          // ★ Foresight L1：透传到 Outlook 章节 + 未来推演卡片
+          foresight: (analyst as { foresight?: unknown }).foresight,
         },
         undefined,
       );

@@ -80,6 +80,8 @@ export interface ReportSegments {
     riskAssessment?: string;
     recommendations?: string;
     conclusion?: string;
+    /** ★ Foresight L1：未来推演（Outlook）章节正文，由 foresight 结构确定性渲染 */
+    futureOutlook?: string;
   };
   /**
    * ★ PR-quickview-parity (2026-05-09): 结构化 quickView 数据（来源 analyst Output 的同名字段）。
@@ -120,6 +122,27 @@ export interface ReportSegments {
       supportingDimensions: string[];
       confidence: number;
     }[];
+    /** ★ Foresight L1：结构化前瞻判断，供 buildQuickView 派生"未来推演"卡片 */
+    foresight?: {
+      baseCase: {
+        judgment: string;
+        probability: number;
+        confidence: "low" | "moderate" | "high";
+        horizon: "0-6m" | "6-18m" | "18m-3y" | "3y+";
+        resolutionCriteria: string;
+        baseRate?: string;
+        evidenceIds: string[];
+      }[];
+      scenarios: {
+        kind: "bull" | "base" | "bear";
+        narrative: string;
+        trigger: string;
+        probability: number;
+      }[];
+      predeterminedElements: string[];
+      criticalUncertainties: string[];
+      leadingIndicators: { signal: string; watchFor: string }[];
+    };
   };
   citations: ArtifactCitation[];
   figures: ArtifactFigure[];
@@ -197,6 +220,13 @@ export const MULTI_DIMENSION_REPORT_TEMPLATE: ReportTemplate = {
       key: "recommendations",
       title: "战略建议",
       bodySource: { kind: "fromBuilder", builder: "foreword-recommendations" },
+    },
+    // ★ Foresight L1：未来推演章节（基准判断 / 情景 / 早期信号），缺失时 optional 自动跳过
+    {
+      kind: "optional",
+      key: "outlook",
+      title: "未来推演",
+      bodySource: { kind: "fromBodies", field: "futureOutlook" },
     },
     {
       kind: "optional",

@@ -52,6 +52,7 @@ import {
   ResearcherCompletedSchema,
   VerifierVerdictSchema,
   CriticVerdictSchema,
+  RedTeamVerdictSchema,
   // cost / budget
   CostTickSchema,
   BudgetExhaustedSchema,
@@ -202,6 +203,7 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   S("agent:validation-rejected", AgentValidationRejectedSchema),
   // ── Phase P21-2: Critic L4 verdict 事件 ──
   S("critic:verdict", CriticVerdictSchema), // ★ schema 化
+  S("red-team:verdict", RedTeamVerdictSchema), // ★ Foresight L2 forecast 红队
   // ── Phase P0-10: 预算两档闸 ──
   S("mission:budget-warning-soft", MissionBudgetWarningSoftSchema),
   S("mission:budget-warning-hard", MissionBudgetWarningHardSchema),

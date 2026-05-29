@@ -143,4 +143,50 @@ describe("AnalystService", () => {
     const svc = new AnalystService(invoker as never);
     await expect(svc.analyze({}, baseCtx)).resolves.toBeDefined();
   });
+
+  describe("synthesizeQuickView", () => {
+    it("delegates to invoker.invoke and returns completed state", async () => {
+      const invoker = makeInvoker();
+      invoker.invoke.mockResolvedValue({
+        state: "completed",
+        output: { keyFindingsByDimension: [] },
+        events: [],
+        iterations: 1,
+        wallTimeMs: 200,
+      });
+      const svc = new AnalystService(invoker as never);
+      const result = await svc.synthesizeQuickView(
+        { topic: "AI", researcherResults: [] },
+        baseCtx,
+      );
+      expect(result.state).toBe("completed");
+      expect(invoker.invoke).toHaveBeenCalledTimes(1);
+    });
+
+    it("maps failed state and undefined output", async () => {
+      const invoker = makeInvoker();
+      invoker.invoke.mockResolvedValue({
+        state: "failed",
+        output: undefined,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 50,
+      });
+      const svc = new AnalystService(invoker as never);
+      const result = await svc.synthesizeQuickView({}, baseCtx);
+      expect(result.state).toBe("failed");
+      expect(result.output).toBeUndefined();
+    });
+
+    it("invokes a different agent spec than analyze", async () => {
+      const invoker = makeInvoker();
+      const svc = new AnalystService(invoker as never);
+      await svc.analyze({}, baseCtx);
+      await svc.synthesizeQuickView({}, baseCtx);
+      // 两次调用应针对不同的 agent 类（analyst vs quick-view-synthesizer）
+      expect(invoker.invoke.mock.calls[0][0]).not.toBe(
+        invoker.invoke.mock.calls[1][0],
+      );
+    });
+  });
 });

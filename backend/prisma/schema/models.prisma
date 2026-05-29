@@ -10060,6 +10060,8 @@ model AgentPlaygroundMission {
   reportVersions  MissionReportVersion[]
   /// ★ PR-R0 (per-task rerun + cascade)：单 stage 重跑频次记录（24h × 5 次/mission+stepId 防滥用）
   rerunAttempts   AgentPlaygroundRerunAttempt[]
+  /// ★ Foresight L3 (2026-05-29)：本 mission 产出的前瞻预测留痕（到期裁决 + Brier 校准）
+  predictionRecords AgentPlaygroundPredictionRecord[]
 
   /// ★ PR-H v1 (2026-05-01): pod-aware mission lifecycle —— pod 重启检测 + 后续 resume 接续
   /// lastCompletedStage: 0~12（S0~S12）；null = 还没完成 S1
@@ -10092,6 +10094,45 @@ model AgentPlaygroundRerunAttempt {
   @@index([missionId, stepId, triggeredAt(sort: Desc)])
   @@index([userId, triggeredAt(sort: Desc)])
   @@map("agent_playground_rerun_attempts")
+}
+
+/// ★ Foresight L3 (2026-05-29 前瞻洞察校准闭环)：前瞻预测留痕
+/// 每条 = mission foresight.baseCase 里的一个判断。生命周期：
+///   s12 落库（actualOutcome=null）→ scheduler 到期裁决回填 actualOutcome+brierScore
+///   → s12/Leader 聚合该 topic Brier 反哺下次预测保守度。
+/// 独立表（非 mission JSON 字段）：支持 targetDate 索引到期扫描 + 跨 mission Brier 聚合。
+model AgentPlaygroundPredictionRecord {
+  id                 String                 @id @default(uuid())
+  missionId          String                 @map("mission_id")
+  mission            AgentPlaygroundMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  userId             String                 @map("user_id")
+
+  /// 预测内容（来自 analyst.foresight.baseCase）
+  predictionText     String   @map("prediction_text") @db.Text
+  probability        Float // 事件发生概率 [0,1]
+  confidence         String   @db.VarChar(20) // low / moderate / high
+  horizon            String   @db.VarChar(20) // 0-6m / 6-18m / 18m-3y / 3y+
+  targetDate         DateTime @map("target_date") // horizon → 绝对到期日
+  resolutionCriteria String   @map("resolution_criteria") @db.Text
+  topic              String   @db.VarChar(500)
+
+  /// 裁决信息（scheduler 到期回填）
+  actualOutcome      Boolean?  @map("actual_outcome") // true=应验 / false=证伪 / null=未裁决
+  outcomeEvidenceUrl String?   @map("outcome_evidence_url") @db.Text
+  needsReview        Boolean   @default(false) @map("needs_review") // 低置信裁决标记
+  judgmentAt         DateTime? @map("judgment_at")
+
+  /// Brier 分数 = (probability - (actualOutcome?1:0))^2，越低越准
+  brierScore         Float? @map("brier_score")
+
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  /// 到期回扫："targetDate <= now 且 actualOutcome IS NULL"
+  @@index([actualOutcome, targetDate])
+  @@index([userId, topic])
+  @@index([missionId])
+  @@map("agent_playground_prediction_records")
 }
 
 /// agent-playground mission 的事件流持久化

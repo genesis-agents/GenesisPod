@@ -69,6 +69,25 @@ const FigureCandidate = z.object({
   fromDimensionId: z.string(),
 });
 
+// ★ ACH 竞争性假设分析 (2026-05-29 前瞻洞察 L2)：情报分析 tradecraft —— 列举未来假设并
+//   主动从已有 findings 中寻找**证伪证据**（而非确认证据），供 Analyst 的 foresight 消费
+//   （已 refuted 的假设不得进入 baseCase）。
+const AlternativeHypothesis = z.object({
+  id: z.string(),
+  statement: z.string().min(20), // "若 X，则 Y" 形式的未来因果陈述
+  likelihood: z.enum(["low", "medium", "high"]),
+  refutingEvidence: z
+    .array(
+      z.object({
+        claim: z.string(), // 来自 researcher findings 的反证
+        source: z.string(), // URL 或 [N] 编号
+        strength: z.enum(["weak", "moderate", "strong"]),
+      }),
+    )
+    .min(1), // ACH 核心：每个假设至少 1 条证伪证据
+  status: z.enum(["plausible", "unlikely", "refuted"]),
+});
+
 const Input = z.object({
   topic: z.string(),
   language: z.enum(["zh-CN", "en-US"]),
@@ -115,6 +134,8 @@ const Output = z.object({
   overlaps: z.array(Overlap),
   gaps: z.array(Gap),
   figureCandidates: z.array(FigureCandidate),
+  // ★ ACH (2026-05-29 L2)：竞争性假设分析。default [] 让单维/证据不足时合法短路。
+  alternativeHypotheses: z.array(AlternativeHypothesis).default([]),
   // P71-1: reconciliationReport cap 5000 字符（避免下游 prompt 爆）
   reconciliationReport: z.string().min(20).max(5000),
   // P78-2: 对齐 TI report-editor.deduplicationStats（统计去重指标供 UI 展示）
@@ -171,7 +192,8 @@ const Output = z.object({
   },
   inputSchema: Input,
   outputSchema: Output,
-  budget: { maxTokens: 20_000, maxIterations: 3, maxWallTimeMs: 120_000 },
+  // ★ 2026-05-29 L2：+4k tokens 头寸给 ACH 竞争性假设输出（2-4 假设 + 证伪证据）
+  budget: { maxTokens: 24_000, maxIterations: 3, maxWallTimeMs: 120_000 },
 })
 export class ReconcilerAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
@@ -221,6 +243,14 @@ export class ReconcilerAgent extends AgentSpec<typeof Input, typeof Output> {
       `   - "## 下游消费指引" — 一句话告诉 Analyst/Writer 注意什么（如"对 dim-2 中事实 X，必须采用 [N] 的来源"）`,
       `   Down-stream Analyst & Writer MUST consume this — be precise and quotable.`,
       ``,
+      `7. **竞争性假设分析 (ACH)** —— 情报分析方法，为下游 foresight 提供"经过证伪检验"的未来假设：`,
+      `   - 基于 fact table 列举 2-4 个"未来可能走向"假设，每个写成"若 X，则 Y"的因果陈述（面向未来，非过去事实）。`,
+      `   - ★ 关键纪律：对每个假设，**主动从 researcher findings 中找证伪证据**（refuting evidence），不是找支持证据。`,
+      `     人天然爱找确认证据，ACH 强制反过来——这是它的全部价值所在。`,
+      `   - 每个假设至少 1 条 refutingEvidence，标 strength (weak/moderate/strong) + source（[N] 或 URL）。`,
+      `   - status：refuted（有 strong 证伪）/ unlikely（有 moderate 证伪）/ plausible（仅 weak 证伪，仍站得住）。`,
+      `   - 不要凭空臆测：假设和证伪证据都必须能从已有 findings 追溯。证据不足就少列或给 []。`,
+      ``,
       `## Hard rules`,
       `- factTable.length ≥ 3 (最起码抽几个核心事实)`,
       `- 每个 conflict 必须有 rationale ≥ 20 chars`,
@@ -234,6 +264,11 @@ export class ReconcilerAgent extends AgentSpec<typeof Input, typeof Output> {
       `  "overlaps": [{ "dimensionPair":["dim-1","dim-2"], "similarityScore":0.7, "overlappingClaim":"...", "resolutionAction":"merge-into-cross-dim" }],`,
       `  "gaps": [{ "dimensionId":"dim-2", "expectedAspects":["..."], "severity":"minor" }],`,
       `  "figureCandidates": [],`,
+      `  "alternativeHypotheses": [`,
+      `    { "id":"hyp-1", "statement":"若…则…（面向未来的因果陈述）", "likelihood":"medium",`,
+      `      "refutingEvidence":[{ "claim":"<来自 findings 的反证>", "source":"[3]", "strength":"moderate" }],`,
+      `      "status":"unlikely" }`,
+      `  ],`,
       `  "reconciliationReport": "<markdown>",`,
       `  "deduplicationStats": {`,
       `    "duplicatesRemoved": <number>,`,
@@ -328,6 +363,24 @@ export class ReconcilerAgent extends AgentSpec<typeof Input, typeof Output> {
     if (output.figureCandidates.length > 20) {
       issues.push(
         `figureCandidates.length=${output.figureCandidates.length} 超上限 20`,
+      );
+    }
+    // ★ ACH (2026-05-29 L2)：每个假设必须有证伪证据；标 refuted 的须有 strong 级证伪
+    for (const h of output.alternativeHypotheses ?? []) {
+      if (!h.refutingEvidence || h.refutingEvidence.length === 0) {
+        issues.push(`hypothesis ${h.id} 缺 refutingEvidence（ACH 要求 ≥1）`);
+      }
+      if (
+        h.status === "refuted" &&
+        !(h.refutingEvidence ?? []).some((e) => e.strength === "strong")
+      ) {
+        issues.push(`hypothesis ${h.id} 标记 refuted 但无 strong 级证伪证据`);
+      }
+    }
+    // ACH 列表 cap 8（避免发散，对账阶段不是自由头脑风暴）
+    if ((output.alternativeHypotheses ?? []).length > 8) {
+      issues.push(
+        `alternativeHypotheses.length=${output.alternativeHypotheses.length} 超上限 8`,
       );
     }
     if (issues.length > 0) throw new Error(issues.join("; "));

@@ -38,6 +38,8 @@ import { PlaygroundPipelineDispatcher } from "../mission/pipeline/playground.pip
 // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到独立 service(STAGE_NUMBER / CHECKPOINT_AT
 //   字面量 + 11 个 build*Hooks),dispatcher inject + delegate
 import { PlaygroundBusinessOrchestrator } from "../mission/pipeline/playground-business-orchestrator.service";
+import { PredictionCalibrationService } from "../mission/calibration/prediction-calibration.service";
+import { PredictionRecalibrationScheduler } from "../mission/calibration/prediction-recalibration.scheduler";
 import { PlaygroundMissionSpanService } from "../mission/pipeline/playground-mission-span.service";
 import {
   MissionPipelineOrchestrator,
@@ -148,6 +150,9 @@ import {
     // MissionOwnershipRegistry / MissionAbortRegistry 由 @Global HarnessModule 提供（PR-X-E 上提）
     MissionEventBuffer,
     MissionStore,
+    // ★ Foresight L3 (2026-05-29)：前瞻预测校准闭环（留痕 + 到期裁决 + Brier 反哺）
+    PredictionCalibrationService,
+    PredictionRecalibrationScheduler,
     // ★ Phase 5 (2026-04-29): playground 接入 ai-harness 沉淀的 MissionCheckpointService
     PrismaMissionCheckpointStore,
     {

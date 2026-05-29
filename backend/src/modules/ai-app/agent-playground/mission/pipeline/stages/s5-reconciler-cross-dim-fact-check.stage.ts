@@ -151,6 +151,9 @@ export async function runReconcilerStage(
             gapCount: ctx.reconciliationReport!.gaps.length,
             figureCandidateCount:
               ctx.reconciliationReport!.figureCandidates.length,
+            // ★ ACH (2026-05-29 L2)：竞争性假设计数
+            alternativeHypothesisCount:
+              ctx.reconciliationReport!.alternativeHypotheses?.length ?? 0,
           },
         })
         .catch((err: unknown) => {
@@ -159,11 +162,13 @@ export async function runReconcilerStage(
           );
         });
       const r = ctx.reconciliationReport!;
+      // ★ ACH (2026-05-29 L2)：竞争性假设计数（类型已含 alternativeHypotheses）
+      const achCount = r.alternativeHypotheses?.length ?? 0;
       await narrate(deps.emit, missionId, userId, {
         stage: "s5-reconciler",
         role: "reconciler",
         tag: "success",
-        text: `对账完成 · ${r.factTable.length} 条事实 / ${r.conflicts.length} 处冲突 / ${r.gaps.length} 处缺口 / ${r.figureCandidates.length} 张图候选`,
+        text: `对账完成 · ${r.factTable.length} 条事实 / ${r.conflicts.length} 处冲突 / ${r.gaps.length} 处缺口 / ${r.figureCandidates.length} 张图候选${achCount > 0 ? ` / ${achCount} 个竞争假设` : ""}`,
         agentId: "reconciler",
       });
     }

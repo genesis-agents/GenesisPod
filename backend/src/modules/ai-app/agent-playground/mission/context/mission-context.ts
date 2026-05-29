@@ -123,6 +123,15 @@ export interface SynthesisPhaseCtx {
     gaps: unknown[];
     figureCandidates: unknown[];
     reconciliationReport: string;
+    // ★ ACH (2026-05-29 L2)：竞争性假设，供 s6 Analyst foresight 消费（refuted 不进 baseCase）。
+    //   类型显式声明，保证 reconciler Output → ctx → analyst Input 全程类型可达，不靠 unknown cast。
+    alternativeHypotheses?: {
+      id: string;
+      statement: string;
+      likelihood: "low" | "medium" | "high";
+      status: "plausible" | "unlikely" | "refuted";
+      refutingEvidence?: unknown[];
+    }[];
   } | null;
 
   /** s6-analyst-synthesize-insights.stage.ts */
@@ -170,6 +179,24 @@ export interface QualityPhaseCtx {
 
   /** ★ 沉淀消费 v3 (2026-04-29): 10 维结构化报告评审结果 */
   reportEvaluation?: import("@/modules/ai-harness/facade").EvaluationResult;
+
+  /**
+   * ★ Forecast 红队 (2026-05-29 L2): s9 阶段对 foresight 的事前验尸完整结论（含 vulnerabilities）。
+   * 注：用户可见的 robustness + couldBeWrongIf 已由 s9 直接回灌 reportArtifact.quickView.foresight
+   * （那是持久化与前端渲染的真实路径）。本 ctx 字段保留完整 verdict 供同 mission 内下游只读（如未来 s10 foreword 引用）。
+   */
+  reportRedTeamVerdict?: {
+    vulnerabilities: {
+      statement: string;
+      failureScenario: string;
+      timeHorizon: "6m" | "12m" | "2y";
+      likelihood: number;
+      impactIfFails: "minor" | "moderate" | "critical";
+    }[];
+    couldBeWrongIf: string[];
+    overallRobustness: number;
+    rationale: string;
+  };
 }
 
 // ─── Phase 6: Signoff（s10 leader foreword + signoff）──────────────

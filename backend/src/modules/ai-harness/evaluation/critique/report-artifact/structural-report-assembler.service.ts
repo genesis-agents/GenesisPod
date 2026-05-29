@@ -347,6 +347,8 @@ export class StructuralReportAssembler {
         return "risk_assessment";
       case "recommendations":
         return "recommendations";
+      case "outlook":
+        return "outlook";
       case "conclusion":
         return "conclusion";
       case "references":
@@ -478,6 +480,8 @@ export class StructuralReportAssembler {
       riskMatrix: qd.riskMatrix ?? [],
       recommendationsByAudience: rba,
       keyFindingsByDimension,
+      // ★ Foresight L1：结构化前瞻判断直透 quickView，驱动前端"未来推演"卡片
+      foresight: qd.foresight,
     };
   }
 

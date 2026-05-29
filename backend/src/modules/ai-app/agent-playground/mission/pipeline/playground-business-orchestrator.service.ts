@@ -47,6 +47,7 @@ import { runLeaderForewordAndSignoffStage } from "./stages/s10-leader-foreword-a
 import { runPersistStage } from "./stages/s11-mission-persist.stage";
 import { MissionCheckpointService } from "@/modules/ai-harness/facade";
 import { MissionStore } from "../lifecycle/mission-store.service";
+import { PredictionCalibrationService } from "../calibration/prediction-calibration.service";
 import type { MissionInvariants } from "../context/mission-context";
 import type { SessionEntry } from "./playground.pipeline";
 
@@ -80,6 +81,8 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
     private readonly stageBindings: MissionStageBindingsService,
     private readonly missionCheckpoint: MissionCheckpointService,
     private readonly store: MissionStore,
+    // ★ Foresight L3 (2026-05-29)：signed mission 的 foresight 留痕（校准闭环入口）
+    private readonly predictionCalibration: PredictionCalibrationService,
   ) {
     super({ namespace: "playground", stageNumber: STAGE_NUMBER });
   }
@@ -754,6 +757,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
               insights?: unknown[];
               themeSummary?: string;
               contradictions?: unknown[];
+              foresight?: unknown;
             }
           | undefined) ?? {
           insights: [],
@@ -766,6 +770,8 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
             insights: analyst.insights ?? [],
             themeSummary: analyst.themeSummary ?? "",
             contradictions: analyst.contradictions,
+            // ★ Foresight L1：透传到 Outlook 章节 + 未来推演卡片
+            foresight: (analyst as { foresight?: unknown }).foresight,
           },
           entry.workspaceId,
         );
@@ -931,8 +937,55 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
               );
             });
         }
+        // ★ Foresight L3 (2026-05-29)：signed mission 的 foresight.baseCase 留痕（校准闭环起点）。
+        //   仅 signed 才记（未签字的判断质量不足以追踪）；非致命，失败不影响 persist。
+        void this.recordForesightPredictions(entry, missionId);
       },
     };
     return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * 把 signed mission 的前瞻判断写入预测记录表（Foresight L3 校准闭环起点）。
+   * fire-and-forget：失败只 log，不阻塞 persist 主流程。
+   */
+  private async recordForesightPredictions(
+    entry: SessionEntry,
+    missionId: string,
+  ): Promise<void> {
+    try {
+      if (entry.crossState.lastLeaderSignOff?.signed !== true) return;
+      const artifact = entry.crossState.lastReportArtifact as
+        | {
+            quickView?: {
+              foresight?: {
+                baseCase?: {
+                  judgment: string;
+                  probability: number;
+                  confidence: "low" | "moderate" | "high";
+                  horizon: "0-6m" | "6-18m" | "18m-3y" | "3y+";
+                  resolutionCriteria: string;
+                }[];
+              };
+            };
+            metadata?: { topic?: string };
+          }
+        | undefined;
+      const baseCase = artifact?.quickView?.foresight?.baseCase;
+      if (!baseCase || baseCase.length === 0) return;
+      await this.predictionCalibration.recordPredictions({
+        missionId,
+        userId: entry.session.userId,
+        topic:
+          artifact?.metadata?.topic ??
+          entry.crossState.lastPlan?.themeSummary ??
+          "",
+        baseCase,
+      });
+    } catch (err) {
+      this.log.warn(
+        `[s11-persist ${missionId}] recordForesightPredictions failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 }

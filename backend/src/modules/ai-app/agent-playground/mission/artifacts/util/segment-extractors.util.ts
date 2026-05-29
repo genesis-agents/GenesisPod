@@ -66,6 +66,29 @@ interface AnalystOutputShape {
     forInvestors?: { shortTerm: string[]; midTerm: string[] };
   };
   whatYouWillLearn?: string[];
+  // ★ Foresight (2026-05-29 前瞻洞察 L1)：Outlook 章节正文 + 未来推演卡片的唯一来源。
+  foresight?: ForesightShape;
+}
+
+interface ForesightShape {
+  baseCase: {
+    judgment: string;
+    probability: number;
+    confidence: "low" | "moderate" | "high";
+    horizon: "0-6m" | "6-18m" | "18m-3y" | "3y+";
+    resolutionCriteria: string;
+    baseRate?: string;
+    evidenceIds: string[];
+  }[];
+  scenarios: {
+    kind: "bull" | "base" | "bear";
+    narrative: string;
+    trigger: string;
+    probability: number;
+  }[];
+  predeterminedElements: string[];
+  criticalUncertainties: string[];
+  leadingIndicators: { signal: string; watchFor: string }[];
 }
 
 interface ReconcilerOutputShape {
@@ -129,6 +152,8 @@ export function extractReportSegments(
       riskAssessment: analyst.riskAssessment?.trim(),
       recommendations: analyst.strategicRecommendations?.trim(),
       conclusion: analyst.conclusion?.trim(),
+      // ★ Foresight L1：确定性渲染为 Outlook 章节正文（与卡片 / 追踪预测同源）
+      futureOutlook: renderForesightChapter(analyst.foresight),
     },
     quickViewData: {
       keyFindingsByDimension: analyst.keyFindingsByDimension,
@@ -137,6 +162,7 @@ export function extractReportSegments(
       recommendationsByAudience: analyst.recommendationsByAudience,
       whatYouWillLearn: analyst.whatYouWillLearn,
       insights: analyst.insights,
+      foresight: analyst.foresight,
     },
     citations: input.citations ?? [],
     figures: input.figures ?? [],
@@ -176,4 +202,76 @@ function pickCrossDim(
 
 function demoteTopHeadingsToH3(md: string): string {
   return md.replace(/^(#{1,2})(?=\s+\S)/gm, "###");
+}
+
+/**
+ * Foresight → Outlook 章节正文（确定性渲染，0 LLM）。
+ *
+ * 单一数据源原则：报告 Outlook 章节展示的判断，与 L3 校准追踪入库的预测来自同一
+ * foresight 结构，保证"报告里写 65% ↔ 追踪记录里 0.65"字节级一致，校准可信。
+ *
+ * 缺失（foresight=undefined / baseCase 为空）→ 返回 undefined，模板 optional slot 跳过该章节。
+ */
+const CONFIDENCE_LABEL: Record<string, string> = {
+  low: "低",
+  moderate: "中",
+  high: "高",
+};
+const HORIZON_LABEL: Record<string, string> = {
+  "0-6m": "0-6 个月",
+  "6-18m": "6-18 个月",
+  "18m-3y": "18 个月-3 年",
+  "3y+": "3 年以上",
+};
+const SCENARIO_LABEL: Record<string, string> = {
+  bull: "乐观情景",
+  base: "基准情景",
+  bear: "悲观情景",
+};
+
+function renderForesightChapter(
+  foresight: ForesightShape | undefined,
+): string | undefined {
+  if (!foresight?.baseCase?.length) return undefined;
+  const pct = (p: number) => `${Math.round(p * 100)}%`;
+  const lines: string[] = [];
+
+  lines.push("### 基准判断");
+  for (const b of foresight.baseCase) {
+    const conf = CONFIDENCE_LABEL[b.confidence] ?? b.confidence;
+    const hz = HORIZON_LABEL[b.horizon] ?? b.horizon;
+    lines.push(
+      `- **${b.judgment}**（概率 ${pct(b.probability)} · 置信度 ${conf} · 时间窗 ${hz}）`,
+    );
+    if (b.baseRate?.trim()) lines.push(`  - 历史基准率：${b.baseRate.trim()}`);
+    lines.push(`  - 裁决标准：${b.resolutionCriteria}`);
+  }
+
+  if (foresight.scenarios?.length) {
+    lines.push("", "### 情景分析");
+    for (const s of foresight.scenarios) {
+      const label = SCENARIO_LABEL[s.kind] ?? s.kind;
+      lines.push(
+        `- **${label}（${pct(s.probability)}）**：${s.narrative} 触发条件：${s.trigger}`,
+      );
+    }
+  }
+
+  if (foresight.predeterminedElements?.length) {
+    lines.push("", "### 几乎确定的要素");
+    for (const e of foresight.predeterminedElements) lines.push(`- ${e}`);
+  }
+
+  if (foresight.criticalUncertainties?.length) {
+    lines.push("", "### 关键不确定性");
+    for (const u of foresight.criticalUncertainties) lines.push(`- ${u}`);
+  }
+
+  if (foresight.leadingIndicators?.length) {
+    lines.push("", "### 值得跟踪的早期信号");
+    for (const i of foresight.leadingIndicators)
+      lines.push(`- **${i.signal}** —— ${i.watchFor}`);
+  }
+
+  return lines.join("\n");
 }

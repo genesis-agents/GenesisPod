@@ -31,6 +31,7 @@ const SectionTypeEnum = z.enum([
   "cross_dimension",
   "risk_assessment",
   "recommendations",
+  "outlook",
   "conclusion",
   "appendix",
 ]);

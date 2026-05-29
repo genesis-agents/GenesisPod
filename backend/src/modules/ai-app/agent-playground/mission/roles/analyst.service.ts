@@ -9,6 +9,7 @@
 
 import { Injectable } from "@nestjs/common";
 import { AnalystAgent } from "../agents/analyst/analyst.agent";
+import { QuickViewSynthesizerAgent } from "../agents/analyst/quick-view-synthesizer.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import type { IAgentEvent } from "@/modules/ai-harness/facade";
 import { normalizeRunnerState } from "@/modules/ai-harness/facade";
@@ -30,6 +31,34 @@ export class AnalystService {
   }> {
     const r = await this.invoker.invoke(
       AnalystAgent,
+      input as Parameters<AgentInvoker["invoke"]>[1],
+      ctx,
+    );
+    return {
+      state: normalizeRunnerState(r.state),
+      output: r.output as TOut | undefined,
+      events: r.events,
+      iterations: r.iterations,
+      wallTimeMs: r.wallTimeMs,
+    };
+  }
+
+  /**
+   * 快速视图结构化字段的专用合成（与 analyze 主调用拆开，避免 body 被散文章节
+   * 挤占输出预算饿死）。失败由调用方兜底（保留 analyst 主调用的内联字段）。
+   */
+  async synthesizeQuickView<TIn, TOut>(
+    input: TIn,
+    ctx: InvocationContext,
+  ): Promise<{
+    state: "completed" | "degraded" | "failed" | "cancelled";
+    output?: TOut;
+    events: readonly IAgentEvent[];
+    iterations: number;
+    wallTimeMs: number;
+  }> {
+    const r = await this.invoker.invoke(
+      QuickViewSynthesizerAgent,
       input as Parameters<AgentInvoker["invoke"]>[1],
       ctx,
     );

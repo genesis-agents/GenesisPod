@@ -13,6 +13,7 @@ export interface ArtifactSection {
     | 'cross_dimension'
     | 'risk_assessment'
     | 'recommendations'
+    | 'outlook'
     | 'conclusion'
     | 'appendix';
   level: 2 | 3;
@@ -120,6 +121,30 @@ export interface ArtifactQuickView {
       significance: 'high' | 'medium' | 'low';
     }[];
   }[];
+  /** ★ Foresight (2026-05-29 前瞻洞察 L1)：结构化前瞻判断，驱动"未来推演"卡片。Optional 兼容存量数据。 */
+  foresight?: {
+    baseCase: {
+      judgment: string;
+      probability: number;
+      confidence: 'low' | 'moderate' | 'high';
+      horizon: '0-6m' | '6-18m' | '18m-3y' | '3y+';
+      resolutionCriteria: string;
+      baseRate?: string;
+      evidenceIds: string[];
+    }[];
+    scenarios: {
+      kind: 'bull' | 'base' | 'bear';
+      narrative: string;
+      trigger: string;
+      probability: number;
+    }[];
+    predeterminedElements: string[];
+    criticalUncertainties: string[];
+    leadingIndicators: { signal: string; watchFor: string }[];
+    /** ★ Forecast 红队 (2026-05-29 L2)：事前验尸回灌的反指标 + 韧性分（缺失=未跑红队） */
+    couldBeWrongIf?: string[];
+    robustness?: number;
+  };
 }
 
 export interface ArtifactHighlight {

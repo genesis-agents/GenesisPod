@@ -1143,3 +1143,12 @@ export const CriticVerdictSchema = z.object({
   notes: z.string().optional(),
 });
 export type CriticVerdictPayload = z.infer<typeof CriticVerdictSchema>;
+
+// ─────────── red-team:verdict (Foresight L2 forecast 红队) ───────────
+export const RedTeamVerdictSchema = z.object({
+  robustness: z.number().optional(),
+  vulnerabilityCount: z.number().optional(),
+  couldBeWrongIfCount: z.number().optional(),
+  rationale: z.string().optional(),
+});
+export type RedTeamVerdictPayload = z.infer<typeof RedTeamVerdictSchema>;

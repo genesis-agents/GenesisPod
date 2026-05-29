@@ -6,3 +6,4 @@
  */
 
 export { AnalystAgent } from "./analyst.agent";
+export { QuickViewSynthesizerAgent } from "./quick-view-synthesizer.agent";
