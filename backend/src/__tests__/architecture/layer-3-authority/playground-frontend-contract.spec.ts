@@ -119,6 +119,8 @@ const EVENT_BASELINE: ReadonlyArray<string> = [
   "agent-playground.reconciliation:completed",
   "agent-playground.reconciliation:skipped",
   "agent-playground.reconciliation:warnings-orphaned",
+  // ★ Foresight L2 (2026-05-29)：forecast 红队事前验尸 verdict（前端经 artifact.quickView.foresight 消费，事件供实时 trace）
+  "agent-playground.red-team:verdict",
   "agent-playground.report:assembled",
   "agent-playground.report:draft",
   "agent-playground.researcher:completed",
