@@ -88,11 +88,13 @@ export function CapabilityMeters({ view, wallTimeMs, cost, memory }: Props) {
       label: '总耗时',
       value: fmtWallTime(wallTimeMs),
       sub:
-        view.mission.finishedAt && view.mission.startedAt
+        view.mission.status === 'completed'
           ? '已完成'
-          : view.mission.startedAt
-            ? '进行中'
-            : '未启动',
+          : view.mission.finishedAt
+            ? '已结束'
+            : view.mission.startedAt
+              ? '进行中'
+              : '未启动',
       tone: 'blue',
     },
     {

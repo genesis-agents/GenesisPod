@@ -73,7 +73,8 @@ function deriveDimSubStatus(
   td: MissionTodo,
   pipelines?: Map<string, DimensionPipelineState>,
   allTodos?: MissionTodo[],
-  agents?: AgentLiveState[]
+  agents?: AgentLiveState[],
+  missionCompleted?: boolean
 ): { label: string; tone: string } | null {
   if (td.scope !== 'dimension') return null;
   // ★ 优先级最高：若该 dim 有 leader-assess-* 子任务在 in_progress，整个 dim 显示"重派采集中"
@@ -123,10 +124,18 @@ function deriveDimSubStatus(
   //   dim（chapter pipeline 未跑或被跳过 → chapters.length === 0）会被误标
   //   "采集完成 · 待大纲"，与 status=done 自相矛盾。
   if (td.status === 'done') {
-    return {
-      label: '已完成',
-      tone: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
-    };
+    // ★ 2026-05-29: 维度 todo 在 dimension:research:completed 时就被标 done（采集完，
+    //   但章节/报告尚未写）。mission 未真完成时显示"采集完成"而非"已完成"，避免用户
+    //   看到满屏"已完成"误以为整体跑完而提前取消。只有 mission 真 completed 才标"已完成"。
+    return missionCompleted
+      ? {
+          label: '已完成',
+          tone: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+        }
+      : {
+          label: '采集完成',
+          tone: 'bg-teal-100 text-teal-700 ring-teal-200',
+        };
   }
   const pipelineKey = td.pipelineKey ?? td.dimensionRef;
   const pipeline = pipelineKey ? pipelines?.get(pipelineKey) : undefined;
@@ -694,6 +703,8 @@ export function MissionTodoBoard({
   missionTerminal,
 }: Props) {
   const router = useRouter();
+  // mission 真正完成（终态且非失败/取消）—— 决定维度卡片显示"已完成"还是"采集完成"
+  const missionCompleted = !!missionTerminal && !missionFailed && !missionCancelled;
   const [inspectorTodo, setInspectorTodo] = useState<MissionTodo | null>(null);
   const [rerunningId, setRerunningId] = useState<string | null>(null);
 
@@ -1018,7 +1029,8 @@ export function MissionTodoBoard({
                 td,
                 dimensionPipelines,
                 todos,
-                agents
+                agents,
+                missionCompleted
               );
               const subStatus =
                 missionCancelled &&
