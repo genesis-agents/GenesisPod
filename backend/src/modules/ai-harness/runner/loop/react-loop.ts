@@ -1394,6 +1394,15 @@ export class ReActLoop implements IAgentLoop {
               ? decision.action.output
               : actionResult.output;
 
+          // ★ 2026-05-29 (screenshot_22 根因)：模型在 finalize 槽位塞了 tool-call 信封
+          //   （{kind:"tool_call", calls:[...]}）——它没数据、还想搜，而非 finalize 字段缺失。
+          //   普通 schema critique（"dimension/findings/summary Required"）会让它继续吐
+          //   tool_call 死循环：3 次空转烧满 30K budget，最后强吐 tool_call 垃圾当 output。
+          //   下面给一条专门硬提醒，并在 force-accept 时吐空串而非 tool_call 垃圾。
+          const finalizeIsToolCallEnvelope =
+            decision.action.kind === "finalize" &&
+            this.isToolCallEnvelopeOutput(output);
+
           // ★ 内容驱动的退出闸：finalize 时框架先校验 outputSchema +
           //   validateBusinessRules，不达标就注入精准 critique reminder 让 LLM
           //   "原地补缺"（不重启 ReActLoop，复用已有 envelope 的工具结果）。
@@ -1408,6 +1417,12 @@ export class ReActLoop implements IAgentLoop {
           if (validateBusinessRules) {
             const businessIssue = validateBusinessRules(output);
             if (businessIssue) issuesParts.push(`Business: ${businessIssue}`);
+          }
+          // tool-call 信封必然 schema 不达标；确保至少有一条明确 issue（不依赖 validator）
+          if (finalizeIsToolCallEnvelope && issuesParts.length === 0) {
+            issuesParts.push(
+              "Schema: emitted a tool_call in the finalize slot (no findings produced)",
+            );
           }
           if (issuesParts.length > 0) {
             finalizeRejectCount += 1;
@@ -1432,9 +1447,13 @@ export class ReActLoop implements IAgentLoop {
                 diagnostic: {
                   rejectCount: finalizeRejectCount,
                   lastIssues: issuesParts.join("; "),
+                  toolCallInFinalizeSlot: finalizeIsToolCallEnvelope,
                 },
               });
-              yield this.makeEvent(agentId, "output", { output: output ?? "" });
+              // tool-call 信封不是合法产物 → 吐空串，避免下游把 {kind:tool_call} 当 findings
+              yield this.makeEvent(agentId, "output", {
+                output: finalizeIsToolCallEnvelope ? "" : (output ?? ""),
+              });
               stopReason = "completed";
               yield this.makeEvent(agentId, "terminated", {
                 reason: "completed",
@@ -1450,14 +1469,21 @@ export class ReActLoop implements IAgentLoop {
               ? `\n\n${outputSchemaDescription}\n` +
                 `Emit your next finalize.output as JSON matching the shape above.`
               : "";
-            const critique =
-              `[FINALIZE REJECTED ${finalizeRejectCount}/${MAX_FINALIZE_REJECTS}] Your finalize.output failed validation:\n` +
-              issuesParts.map((p) => `  - ${p}`).join("\n") +
-              `\n\nDO NOT rerun tools. Use the tool results already in this conversation to ` +
-              `produce a corrected finalize that addresses the issues above. ` +
-              `If the existing tool results genuinely don't have the needed information, ` +
-              `you may emit ONE focused tool_call to fill the specific gap (do not search broadly).` +
-              skeletonBlock;
+            const critique = finalizeIsToolCallEnvelope
+              ? // 专门处理 tool-call-in-finalize：明确"别再吐 tool_call"，给出空结果出口
+                `[FINALIZE REQUIRED ${finalizeRejectCount}/${MAX_FINALIZE_REJECTS}] You emitted a tool_call where the FINAL ANSWER is required. ` +
+                `You are out of search budget — do NOT emit any tool_call. ` +
+                `Produce finalize.output from the tool results already in this conversation. ` +
+                `If you genuinely found no usable sources, emit a schema-valid result with an EMPTY findings array ([]) ` +
+                `and a summary stating that no usable sources were found for this dimension.` +
+                skeletonBlock
+              : `[FINALIZE REJECTED ${finalizeRejectCount}/${MAX_FINALIZE_REJECTS}] Your finalize.output failed validation:\n` +
+                issuesParts.map((p) => `  - ${p}`).join("\n") +
+                `\n\nDO NOT rerun tools. Use the tool results already in this conversation to ` +
+                `produce a corrected finalize that addresses the issues above. ` +
+                `If the existing tool results genuinely don't have the needed information, ` +
+                `you may emit ONE focused tool_call to fill the specific gap (do not search broadly).` +
+                skeletonBlock;
             this.logger.log(
               `[${agentId}] finalize rejected (${finalizeRejectCount}/${MAX_FINALIZE_REJECTS}): ${issuesParts.join("; ").slice(0, 200)}`,
             );
@@ -1909,6 +1935,23 @@ export class ReActLoop implements IAgentLoop {
         modelId: response.model,
       },
     };
+  }
+
+  /**
+   * 2026-05-29: 判定 finalize.output 是否其实是个"工具调用信封"——模型没数据、
+   * 还想继续搜（即便被 approachingLimit 强制 finalize），就把 {kind:"tool_call"|
+   * "parallel_tool_call", calls:[...]} 塞进 finalize 槽位。这不是"字段缺失"型 schema
+   * 不达标，需专门处理（否则普通 critique 让模型继续吐 tool_call 死循环烧预算）。
+   */
+  private isToolCallEnvelopeOutput(output: unknown): boolean {
+    if (!output || typeof output !== "object") return false;
+    const o = output as Record<string, unknown>;
+    return (
+      o.kind === "tool_call" ||
+      o.kind === "parallel_tool_call" ||
+      Array.isArray(o.calls) ||
+      (typeof o.toolId === "string" && "input" in o)
+    );
   }
 
   private parseDecision(raw: string): {

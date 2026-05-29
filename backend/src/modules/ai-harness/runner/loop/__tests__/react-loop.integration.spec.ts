@@ -394,6 +394,62 @@ describe("ReActLoop — Extended coverage", () => {
     expect(terminated?.payload).toEqual({ reason: "completed" });
   });
 
+  it("tool_call envelope in finalize slot → sharper critique + empty output, no garbage (screenshot_22)", async () => {
+    // 模型没数据、在 finalize 槽位反复塞 tool_call 信封（想继续搜而非 finalize）
+    const toolCallFinalize = {
+      content: JSON.stringify({
+        thinking: "no usable data, want to search more",
+        action: {
+          kind: "finalize",
+          output: {
+            kind: "tool_call",
+            calls: [{ toolId: "rag-search", input: { query: "x" } }],
+          },
+        },
+      }),
+    };
+    const chat = mkChat([toolCallFinalize, toolCallFinalize, toolCallFinalize]);
+    const reg = mkToolRegistry({});
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    // 无 outputSchemaValidator：tool-call 信封检测应独立生效（不依赖业务 schema）
+    const events = await drain(
+      loop.run(makeEnvelope(), criteria, { agentId: "tc-finalize" }),
+    );
+
+    // 每次都被拒（tool-call 信封）→ 3 次 validation_failed，issue 明确点出 tool_call
+    const valFailed = events.filter((e) => e.type === "validation_failed");
+    expect(valFailed).toHaveLength(3);
+    expect(
+      String((valFailed[0].payload as Record<string, unknown>).issues),
+    ).toContain("tool_call");
+
+    // force-accept error 诊断标记 toolCallInFinalizeSlot
+    const schemaErr = events.find(
+      (e) =>
+        e.type === "error" &&
+        (e.payload as Record<string, unknown>).failureCode ===
+          "RUNNER_OUTPUT_SCHEMA_MISMATCH",
+    );
+    expect(schemaErr).toBeDefined();
+    expect(
+      (
+        (schemaErr!.payload as Record<string, unknown>).diagnostic as Record<
+          string,
+          unknown
+        >
+      ).toolCallInFinalizeSlot,
+    ).toBe(true);
+
+    // 最终 output 是空串，而非把 {kind:tool_call} 垃圾当 findings 吐出
+    const outputEvt = [...events].reverse().find((e) => e.type === "output");
+    expect((outputEvt!.payload as Record<string, unknown>).output).toBe("");
+  });
+
   // ── validateBusinessRules ───────────────────────────────────────────────────
 
   it("emits validation_failed when validateBusinessRules returns an issue string", async () => {
