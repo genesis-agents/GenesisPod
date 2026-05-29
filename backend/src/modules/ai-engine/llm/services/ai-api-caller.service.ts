@@ -857,47 +857,6 @@ export class AiApiCallerService {
           `message structure: ${JSON.stringify(messageObj || {}).substring(0, 500)}`,
       );
 
-      // ★ 2026-05-28 reasoning_content 兜底回收：部分推理模型（如 deepseek thinking
-      //   在被强制 json_object 时）把最终答案塞进 reasoning_content、content 留空。
-      //   仅在 (调用方要 JSON) 且 (reasoning_content 已是完整可解析 JSON) 时直接采用，
-      //   省掉一次降级重试往返。解析失败则落到既有降级/耗尽逻辑——不会把残缺 CoT 当答案，
-      //   也不会掩盖真正的推理耗尽（那种情况 reasoning_content 不是完整 JSON，解析必失败）。
-      const reasoningField =
-        typeof messageObj?.reasoning_content === "string"
-          ? messageObj.reasoning_content.trim()
-          : "";
-      if (wantsJson && reasoningField) {
-        const candidate = reasoningField
-          .replace(/^```(?:json)?/i, "")
-          .replace(/```$/, "")
-          .trim();
-        if (candidate.startsWith("{") || candidate.startsWith("[")) {
-          let parseable = false;
-          try {
-            JSON.parse(candidate);
-            parseable = true;
-          } catch {
-            parseable = false;
-          }
-          if (parseable) {
-            this.logger.warn(
-              `[reasoning-content-recover] ${modelId}: 从 reasoning_content 回收完整答案（content 空，省去降级重试）`,
-            );
-            const u = data.usage || {};
-            return {
-              content: reasoningField,
-              model: modelId,
-              tokensUsed: u.total_tokens || 0,
-              inputTokens: u.prompt_tokens || 0,
-              outputTokens: u.completion_tokens || 0,
-              cacheReadTokens: u.prompt_tokens_details?.cached_tokens || 0,
-              finishReason: data.choices?.[0]?.finish_reason || undefined,
-              toolCalls,
-            };
-          }
-        }
-      }
-
       // 检测 reasoning 模型用完了推理 token
       const isReasoningModelExhausted =
         reasoningTokens > 0 && reasoningTokens >= completionTokens * 0.9;
