@@ -102,3 +102,41 @@ KeyResolverFacade.resolve({ kind, identity, userId }) → KeyChain（统一 fail
 1. **A 还是 B**？（我荐 B；A 可作为 B 之后的远期）
 2. **donated→assigned 命名归一**是否纳入本专项（涉及枚举/DB/前端文案，中等改动）？
 3. **起步范围**：先做 W0 盘点 + W1 共享原语（最安全、零存储变更、立刻减少"两套熔断"债），还是要我直接把 W0–W3 的完整设计细化到文件级？
+
+---
+
+## 6. 进度（2026-05-29）与 W5 部署 runbook
+
+### 已交付（分支 `refactor/secret-system-consolidation`，未合 main）
+
+W0 盘点 / W1 共享 cooldown+动态熔断 / W4a-c 命名归一+donated 退役（2 条数据安全 enum 迁移）/
+W3 抽屉收敛（判定已在 `MultiKeyTable` 层最佳态，不新造 `KeyManagerDrawer`）/
+W3+ BYOK 能力对齐（per-key Test by id + 错误码可见，镜像 admin）/
+W2 解析门面（用既有 `ai-infra/facade` 收口 ai-app 深穿消费方，非新造 `resolve()` god-facade）。
+
+### W5（过渡债下线）—— 部署+数据门控，**未执行**
+
+**已验证的生产数据现实（2026-05-29，main vs 分支 diff）**：
+
+- `origin/main` 的 `user-secrets.service.create` 写入 **`user_credentials`**（PR-3 路径，已上线）。
+  → 生产 `user_credentials` 可能持有用户工具 BYOK key（PR-3 上线后创建的）。
+- 本分支 P4 把工具 secret 写入 **user-scoped `secrets`/`secret_keys`**（admin 同款多 Key），
+  并对读做了**双读兜底**（`list()` 同读 user_credentials + secrets 去重；`getUserSecretValue`
+  先 user_credentials 后 secrets）——**读路径向后兼容，部署本分支不丢数据**。
+
+**因此过渡债下线必须按序，缺一不可（否则丢用户密钥）**：
+
+1. 部署本分支（P4 双读生效，新写落 secrets，旧 user_credentials 仍可读）。
+2. 跑**反向 backfill** `user_credentials → user-scoped secrets`（方向与现有
+   `backfill-byok-credential-hardening.ts` 相反，**该反向脚本尚未编写**；需解密 envelope v2
+   → 经 `SecretsService.create` 建 secret+primary secret_key → 软删源 user_credential 行）。
+   先 DRY-RUN 核对计数，DB 快照，再 `--apply`，确认 `errors=0` 且残留 user_credentials 行=0。
+3. **确认 (2) 完成后**才下线过渡债（本步即 W5 代码改动，独立 PR + 部署门控）：
+   - 删 `list()` 的 user_credentials 读分支 + `getUserSecretValue` 的 user_credentials 兜底；
+   - 删 `UserCredentialsService` / `user-tools` 对它的读 / `user_credentials` 表（迁移 DROP）；
+   - 删现有 secrets→user_credentials backfill（已反向作废）；
+   - 同步删相关测试/mock。
+
+**门控原因**：步骤 2 是动生产数据（CLAUDE.md 红线，需快照+回滚+部署窗口）；步骤 3 在
+步骤 2 确认前执行会让生产 user_credentials 行不可见 = 丢用户密钥。代码侧（步骤 3）可随时
+按本 runbook 实现，但**不得在反向 backfill 跑完确认前 deploy**。
