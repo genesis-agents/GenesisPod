@@ -116,6 +116,14 @@ const rateLimitCooldownFor = (provider: string): number =>
 const KEY_QUOTA_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 小时
 
 /**
+ * DuckDuckGo 反爬熔断（2026-05-28）：DDG 是免 key 兜底，无官方限流额度，
+ * mission 密集并发会触发 "DDG detected an anomaly" 反爬。命中后进入冷却，
+ * 期间直接跳过 DDG（响亮失败，不再刷屏重试）；并用串行队列 + 最小间隔降低触发概率。
+ */
+const DDG_COOLDOWN_MS = 60 * 1000; // 命中反爬后冷却 60s
+const DDG_MIN_SPACING_MS = 1200; // 串行请求之间最小间隔
+
+/**
  * 判断是否为速率限制错误（短冷却即可，避免 24h 误锁）。
  * 注意：429 不再单独给 24h，统一走 30 分钟短冷却。
  */
@@ -192,6 +200,12 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
 
   /** 清理定时器 */
   private cleanupTimer: NodeJS.Timeout | null = null;
+
+  /** ★ DuckDuckGo 反爬冷却截止时间戳（ms）。命中 anomaly/限流后设置，期间跳过 DDG。 */
+  private ddgCooldownUntil = 0;
+
+  /** ★ DuckDuckGo 串行化队列尾：把并发搜索排队，避免同时多路触发反爬。 */
+  private ddgQueue: Promise<unknown> = Promise.resolve();
 
   constructor(
     private readonly httpService: HttpService,
@@ -1480,13 +1494,50 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Search using DuckDuckGo (no API key required)
-   * Uses duck-duck-scrape library
+   * ★ 2026-05-28 加反爬熔断：串行队列 + 最小间隔 + 命中 anomaly 后冷却跳过，
+   *   避免 mission 并发搜索把 DDG 打到反爬后无限刷屏。
    */
   private async searchWithDuckduckgo(
     query: string,
     maxResults: number,
     since?: Date,
   ): Promise<SearchResponse> {
+    // 串行化：把并发 DDG 请求排队，链尾接最小间隔，降低反爬触发概率。
+    const run = this.ddgQueue.then(() =>
+      this.executeDuckduckgo(query, maxResults, since),
+    );
+    this.ddgQueue = run.then(
+      () => this.ddgSpacing(),
+      () => this.ddgSpacing(),
+    );
+    return run;
+  }
+
+  /** DDG 串行间隔：冷却中直接放行（反正会快速跳过），否则隔开请求。 */
+  private ddgSpacing(): Promise<void> {
+    if (Date.now() < this.ddgCooldownUntil) return Promise.resolve();
+    return new Promise((resolve) => setTimeout(resolve, DDG_MIN_SPACING_MS));
+  }
+
+  private async executeDuckduckgo(
+    query: string,
+    maxResults: number,
+    since?: Date,
+  ): Promise<SearchResponse> {
+    // ★ 熔断：冷却窗口内直接快速失败，不再发请求刷屏。
+    const cdNow = Date.now();
+    if (cdNow < this.ddgCooldownUntil) {
+      const remainSec = Math.ceil((this.ddgCooldownUntil - cdNow) / 1000);
+      this.logger.warn(
+        `[Search] DuckDuckGo in anti-bot cooldown ${remainSec}s — skipped`,
+      );
+      return {
+        success: false,
+        results: [],
+        error: `DuckDuckGo in anti-bot cooldown for ${remainSec}s`,
+      };
+    }
+
     this.logger.debug(`Searching with DuckDuckGo: "${query}"`);
 
     try {
@@ -1549,13 +1600,19 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       return { success: true, results: rankedResults };
     } catch (error: unknown) {
       const err = error as { message?: string };
-      this.logger.error(
-        `DuckDuckGo search failed: ${err.message || String(error)}`,
-      );
+      const msg = err.message || String(error);
+      // ★ 反爬/限流 → 进入冷却，停止继续打 DDG。
+      if (/anomaly|too quickly|rate.?limit|\b429\b/i.test(msg)) {
+        this.ddgCooldownUntil = Date.now() + DDG_COOLDOWN_MS;
+        this.logger.warn(
+          `[Search] DuckDuckGo anti-bot detected → cooldown ${DDG_COOLDOWN_MS / 1000}s (后续搜索将跳过 DDG)`,
+        );
+      }
+      this.logger.error(`DuckDuckGo search failed: ${msg}`);
       return {
         success: false,
         results: [],
-        error: `DuckDuckGo search failed: ${err.message || String(error)}`,
+        error: `DuckDuckGo search failed: ${msg}`,
       };
     }
   }
