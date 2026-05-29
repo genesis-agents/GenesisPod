@@ -47,6 +47,26 @@ export function UserSkillsTab() {
     [skills]
   );
 
+  // 按 domain 分组（技能数量大，扁平列表太丑）。已授权/待审优先排前面。
+  const grouped = useMemo(() => {
+    const map = new Map<string, UserSkillItem[]>();
+    for (const s of filtered) {
+      const d = s.domain || 'other';
+      const list = map.get(d) ?? [];
+      list.push(s);
+      map.set(d, list);
+    }
+    for (const list of map.values()) {
+      list.sort(
+        (a, b) =>
+          Number(b.granted) - Number(a.granted) ||
+          Number(b.pending) - Number(a.pending) ||
+          a.name.localeCompare(b.name)
+      );
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [filtered]);
+
   const submitRequest = async () => {
     if (!target) return;
     setSubmitting(true);
@@ -103,72 +123,85 @@ export function UserSkillsTab() {
           description={t('me.skills.catalogEmptyDesc')}
         />
       ) : (
-        <Table>
-          <THead>
-            <Tr>
-              <Th className="w-[55%]">{t('me.skills.colSkill')}</Th>
-              <Th className="w-[15%]">{t('me.skills.colStatus')}</Th>
-              <Th className="w-[15%]">{t('me.skills.colExpires')}</Th>
-              <Th className="w-[15%]" aria-label="actions" />
-            </Tr>
-          </THead>
-          <TBody>
-            {filtered.map((s) => (
-              <Tr key={s.id}>
-                {/* 技能名 + 描述（截断）+ domain chip */}
-                <Td>
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-sm font-medium text-gray-900 truncate">
-                          {s.name}
-                        </span>
-                        {s.domain && (
-                          <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-500 leading-none shrink-0">
-                            {formatDomain(s.domain)}
-                          </span>
-                        )}
-                      </div>
-                      {s.description && (
-                        <p
-                          className="mt-0.5 text-xs text-gray-400 overflow-hidden line-clamp-1 max-w-[40ch]"
-                          title={s.description}
-                        >
-                          {s.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </Td>
-
-                {/* 状态 */}
-                <Td>{renderStatus(s)}</Td>
-
-                {/* 到期 */}
-                <Td className="text-sm text-gray-500">
-                  {s.granted
-                    ? s.grantExpiresAt
-                      ? formatDateSafe(s.grantExpiresAt, 'date')
-                      : <span className="text-gray-400">—</span>
-                    : <span className="text-gray-300">—</span>}
-                </Td>
-
-                {/* 操作 */}
-                <Td>
-                  {!s.granted && !s.pending && (
-                    <button
-                      onClick={() => { setTarget(s); setReason(''); }}
-                      className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-                    >
-                      <PlusCircle className="h-3.5 w-3.5" />
-                      {t('me.skills.requestThis')}
-                    </button>
-                  )}
-                </Td>
-              </Tr>
-            ))}
-          </TBody>
-        </Table>
+        <div className="space-y-6">
+          {grouped.map(([domain, items]) => (
+            <div key={domain} className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                {formatDomain(domain)}{' '}
+                <span className="font-normal text-gray-400">· {items.length}</span>
+              </h3>
+              {/* table-fixed + 统一列宽：各 domain 组的列上下对齐 */}
+              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                <Table className="w-full table-fixed">
+                  <THead className="bg-gray-50">
+                    <Tr>
+                      <Th className="w-[56%] px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                        {t('me.skills.colSkill')}
+                      </Th>
+                      <Th className="w-[15%] px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                        {t('me.skills.colStatus')}
+                      </Th>
+                      <Th className="w-[14%] px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                        {t('me.skills.colExpires')}
+                      </Th>
+                      <Th
+                        className="w-[15%] px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500"
+                        aria-label="actions"
+                      />
+                    </Tr>
+                  </THead>
+                  <TBody className="divide-y divide-gray-200">
+                    {items.map((s) => (
+                      <Tr key={s.id} className="hover:bg-gray-50">
+                        <Td className="px-4 py-2.5">
+                          <div className="min-w-0">
+                            <span className="block truncate text-sm font-medium text-gray-900">
+                              {s.name}
+                            </span>
+                            {s.description && (
+                              <p
+                                className="mt-0.5 truncate text-xs text-gray-400"
+                                title={s.description}
+                              >
+                                {s.description}
+                              </p>
+                            )}
+                          </div>
+                        </Td>
+                        <Td className="px-4 py-2.5">{renderStatus(s)}</Td>
+                        <Td className="px-4 py-2.5 text-sm text-gray-500">
+                          {s.granted ? (
+                            s.grantExpiresAt ? (
+                              formatDateSafe(s.grantExpiresAt, 'date')
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </Td>
+                        <Td className="px-4 py-2.5 text-right">
+                          {!s.granted && !s.pending && (
+                            <button
+                              onClick={() => {
+                                setTarget(s);
+                                setReason('');
+                              }}
+                              className="inline-flex items-center gap-1 text-xs text-primary transition-colors hover:text-primary/80"
+                            >
+                              <PlusCircle className="h-3.5 w-3.5" />
+                              {t('me.skills.requestThis')}
+                            </button>
+                          )}
+                        </Td>
+                      </Tr>
+                    ))}
+                  </TBody>
+                </Table>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* 申请授权 Modal */}

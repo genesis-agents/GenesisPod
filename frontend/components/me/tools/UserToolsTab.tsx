@@ -351,17 +351,19 @@ function ToolRow({
   return (
     <Tr className="hover:bg-gray-50">
       <Td className="px-4 py-2.5">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Wrench className="h-4 w-4 flex-shrink-0 text-gray-400" />
-          <span className="font-medium text-gray-900">{tool.name}</span>
+          <span className="truncate font-medium text-gray-900">{tool.name}</span>
         </div>
       </Td>
       <Td className="px-4 py-2.5">
-        <code className="font-mono rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+        <code className="block truncate font-mono rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
           {tool.toolId}
         </code>
       </Td>
-      <Td className="px-4 py-2.5 text-sm text-gray-600">{tool.category}</Td>
+      <Td className="truncate px-4 py-2.5 text-sm text-gray-600">
+        {tool.category}
+      </Td>
       <Td className="px-4 py-2.5">
         <StatusBadge tone={badgeTone} label={badgeLabel} />
       </Td>
@@ -454,22 +456,23 @@ function CategoryGroup({
         {category}
       </h3>
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-        <Table className="w-full">
+        {/* table-fixed + 统一列宽：保证各类别组的列上下对齐 */}
+        <Table className="w-full table-fixed">
           <THead className="bg-gray-50">
             <Tr>
-              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <Th className="w-[28%] px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 {t('me.tools.col.name')}
               </Th>
-              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <Th className="w-[16%] px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 {t('me.tools.col.toolId')}
               </Th>
-              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <Th className="w-[18%] px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 {t('me.tools.col.category')}
               </Th>
-              <Th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <Th className="w-[16%] px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 {t('me.tools.col.myKey')}
               </Th>
-              <Th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <Th className="w-[22%] px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                 {t('me.tools.col.actions')}
               </Th>
             </Tr>
