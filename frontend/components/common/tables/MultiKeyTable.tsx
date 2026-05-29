@@ -25,7 +25,7 @@ import type {
  * - 列：LABEL / VALUE(hint) / PRIORITY / STATUS / LAST USED / OPS
  * - OPS：Test / Replace / Edit / Delete
  * - 顶部 [+ Add Key]
- * - readOnly：只读模式（admin donatedKeys 等场景；BYOK 用户对自己的 key 不读 only）
+ * - readOnly：只读模式（admin 分配 key 等场景；BYOK 用户对自己的 key 不读 only）
  */
 export interface MultiKeyTableProps {
   keys: SecretKeyRow[];

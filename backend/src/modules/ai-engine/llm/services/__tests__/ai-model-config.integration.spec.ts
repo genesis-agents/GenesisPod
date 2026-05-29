@@ -85,7 +85,6 @@ describe("AiModelConfigService (extended coverage)", () => {
 
     mockUserApiKeysService = {
       getPersonalKey: jest.fn().mockResolvedValue(null),
-      getDonatedKey: jest.fn().mockResolvedValue(null),
       getAvailableProviders: jest.fn().mockResolvedValue([]),
       // 2026-05-11 P2: toAIModelConfigFromUserConfig 走 DB ai_providers 兜底
       resolveProviderDefaults: jest.fn().mockResolvedValue({

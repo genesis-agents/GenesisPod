@@ -16,7 +16,6 @@ export type SecretCategory =
   | 'IMAGE_SEARCH'
   | 'DEV_TOOLS'
   | 'MCP'
-  | 'USER_DONATED'
   | 'OTHER';
 
 export type SecretAggregateStatus = 'ok' | 'failed' | 'unknown' | 'disabled';

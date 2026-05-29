@@ -26,7 +26,7 @@ export interface UserApiKeyDrawerProps {
   onSave: (
     provider: string,
     apiKey: string,
-    mode: 'personal' | 'donated',
+    mode: 'personal',
     preferredModelId?: string,
     apiEndpoint?: string,
     label?: string

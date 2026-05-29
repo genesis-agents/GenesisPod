@@ -14,7 +14,6 @@ import { SecretCategory as PrismaSecretCategory } from "@prisma/client";
 
 const SecretCategory = PrismaSecretCategory ?? {
   AI_MODEL: "AI_MODEL",
-  USER_DONATED: "USER_DONATED",
   SYSTEM: "SYSTEM",
   INTEGRATION: "INTEGRATION",
   OTHER: "OTHER",

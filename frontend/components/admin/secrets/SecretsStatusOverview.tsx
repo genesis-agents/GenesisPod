@@ -39,7 +39,6 @@ const CATEGORY_LABEL: Record<SecretCategory, string> = {
   IMAGE_SEARCH: 'Image Search',
   DEV_TOOLS: 'Dev Tools',
   MCP: 'MCP Server',
-  USER_DONATED: 'User Donated',
   OTHER: 'Other',
 };
 

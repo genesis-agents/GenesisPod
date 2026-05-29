@@ -113,7 +113,7 @@ export class UserApiKeysService {
 
     return keys.map((key) => ({
       ...key,
-      mode: key.mode.toLowerCase() as "personal" | "donated",
+      mode: key.mode.toLowerCase() as "personal", // 捐赠池退役后恒为 personal（W4b）
       keyHint: key.keyHint || "****",
     }));
   }
@@ -506,7 +506,7 @@ export class UserApiKeysService {
    * PR-1 (2026-05-05) failover: 列出该 user/provider 下所有可用 PERSONAL key（解密后）。
    *
    * 排序：label asc（"default" 字典序最小，自然第一），同 label 内 lastUsedAt desc。
-   * 仅返回 isActive=true & PERSONAL mode；DONATED key 不进个人调用链路。
+   * 仅返回 isActive=true & PERSONAL mode（W4b 后枚举已收敛为单值，无需再排除捐赠 key）。
    *
    * 调用方（KeyResolver.resolveKeyChain）拿到列表后再叠加 KeyHealthStore.filterUsable
    * 过滤 DEAD/COOLDOWN，并把 LastGood 提到队首。

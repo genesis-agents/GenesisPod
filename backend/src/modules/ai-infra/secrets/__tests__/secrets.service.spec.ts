@@ -774,12 +774,12 @@ describe("SecretsService", () => {
     it("filters by category", async () => {
       (mockPrisma.secret!.findMany as jest.Mock).mockResolvedValue([]);
 
-      await service.getSecretNames(SecretCategory.USER_DONATED);
+      await service.getSecretNames(SecretCategory.SEARCH);
 
       expect(mockPrisma.secret!.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            category: SecretCategory.USER_DONATED,
+            category: SecretCategory.SEARCH,
           }),
         }),
       );

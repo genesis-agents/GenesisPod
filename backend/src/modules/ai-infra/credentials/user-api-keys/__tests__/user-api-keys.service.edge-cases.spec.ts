@@ -49,8 +49,6 @@ const makeApiKey = (overrides: Record<string, unknown> = {}) => ({
   mode: UserApiKeyMode.PERSONAL,
   apiEndpoint: null,
   preferredModelId: null,
-  donatedSecretId: null,
-  donationRewardedAt: null,
   isActive: true,
   lastUsedAt: null,
   testStatus: null,

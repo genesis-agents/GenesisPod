@@ -311,40 +311,6 @@ describe('useUserApiKeys', () => {
     });
   });
 
-  // ==================== withdrawDonation ====================
-
-  it('withdrawDonation: calls delete on donate endpoint', async () => {
-    vi.mocked(apiClient.delete).mockResolvedValue(undefined);
-
-    const { result } = renderHook(() => useUserApiKeys());
-
-    let success: boolean | undefined;
-    await act(async () => {
-      success = await result.current.withdrawDonation('openai');
-    });
-
-    expect(success).toBe(true);
-    expect(apiClient.delete).toHaveBeenCalledWith(
-      '/user/api-keys/openai/donate'
-    );
-  });
-
-  it('withdrawDonation: returns false and shows toast on error', async () => {
-    vi.mocked(apiClient.delete).mockRejectedValue(
-      new Error('Withdrawal failed')
-    );
-
-    const { result } = renderHook(() => useUserApiKeys());
-
-    let success: boolean | undefined;
-    await act(async () => {
-      success = await result.current.withdrawDonation('openai');
-    });
-
-    expect(success).toBe(false);
-    expect(toast.error).toHaveBeenCalledWith('Withdrawal failed');
-  });
-
   // ==================== getKeyForProvider ====================
 
   it('getKeyForProvider: returns matching key for provider', () => {

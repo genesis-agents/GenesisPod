@@ -9,7 +9,7 @@ export interface UserApiKeyInfo {
   provider: string;
   /** PR-2 multi-key 标签：default / backup-1 / etc */
   label: string;
-  mode: 'personal' | 'donated';
+  mode: 'personal';
   apiEndpoint: string | null;
   preferredModelId: string | null;
   isActive: boolean;
@@ -57,7 +57,7 @@ export function useUserApiKeys() {
     async (
       provider: string,
       apiKey: string,
-      mode: 'personal' | 'donated',
+      mode: 'personal',
       preferredModelId?: string,
       apiEndpoint?: string,
       label?: string
@@ -127,23 +127,6 @@ export function useUserApiKeys() {
     []
   );
 
-  const withdrawDonation = useCallback(
-    async (provider: string): Promise<boolean> => {
-      setSaving(true);
-      try {
-        await apiClient.delete(`/user/api-keys/${provider}/donate`);
-        await refresh();
-        return true;
-      } catch (err) {
-        toast.error((err as Error).message || 'Failed to withdraw donation');
-        return false;
-      } finally {
-        setSaving(false);
-      }
-    },
-    [refresh]
-  );
-
   const getKeyForProvider = useCallback(
     (provider: string) => keys.find((k) => k.provider === provider),
     [keys]
@@ -169,7 +152,6 @@ export function useUserApiKeys() {
     saveKey,
     deleteKey,
     testKey,
-    withdrawDonation,
     getKeyForProvider,
     getKeysForProvider,
   };

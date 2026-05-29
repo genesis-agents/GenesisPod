@@ -141,7 +141,6 @@ describe("Mod1: Secret Manager key resolution", () => {
     let mockSecretsService: { getValueInternal: jest.Mock };
     let mockUserApiKeysService: {
       getPersonalKey: jest.Mock;
-      getDonatedKey: jest.Mock;
     };
     let mockLogger: { warn: jest.Mock; error: jest.Mock };
 
@@ -172,18 +171,8 @@ describe("Mod1: Secret Manager key resolution", () => {
           mockLogger.warn("Failed to get personal key");
         }
       }
-      // Priority 2: donated key
-      try {
-        const donatedKey = await mockUserApiKeysService.getDonatedKey(
-          model.provider,
-        );
-        if (donatedKey) {
-          return { apiKey: donatedKey.apiKey, source: "donated" };
-        }
-      } catch {
-        mockLogger.warn("Failed to get donated key");
-      }
-      // Priority 3: Secret Manager (no fallback to apiKey)
+      // Priority 2: Secret Manager (no fallback to apiKey)
+      // 2026-05-29 W4b：捐赠池退役，原 donated 优先级分支已移除。
       if (model.secretKey) {
         const secretValue = await mockSecretsService.getValueInternal(
           model.secretKey,
@@ -202,7 +191,6 @@ describe("Mod1: Secret Manager key resolution", () => {
       mockSecretsService = { getValueInternal: jest.fn() };
       mockUserApiKeysService = {
         getPersonalKey: jest.fn().mockResolvedValue(null),
-        getDonatedKey: jest.fn().mockResolvedValue(null),
       };
       mockLogger = { warn: jest.fn(), error: jest.fn() };
     });

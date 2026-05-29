@@ -24,10 +24,10 @@ import {
  * 方案：docs/architecture/ai-app/byok/byok-tool-coverage-extension-2026-05-27.md（v0.3 共识）
  *
  * 落地铁律（§18.1，投票产生，MUST）：
- *  1. 写回按 category 分流：category=AI_MODEL → user_api_keys（复用 v1.0 KeyResolver/捐赠池/多key）；
+ *  1. 写回按 category 分流：category=AI_MODEL → user_api_keys（复用 v1.0 KeyResolver/多key）；
  *     其余 category → secrets 表（userId 非空 + per-user HKDF 加密）。
- *  2. UNION 读排除捐赠 key：secrets 侧 category != USER_DONATED；user_api_keys 侧 mode != DONATED。
- *  3. 不给 user_api_keys 加 category 列：LLM 行在本层映射 category=AI_MODEL。
+ *  2. 不给 user_api_keys 加 category 列：LLM 行在本层映射 category=AI_MODEL。
+ *  （2026-05-29 W4b/W4c：捐赠池退役，USER_DONATED/DONATED 已移除，UNION 读无需再排除。）
  *
  * 安全：用户私有 secrets 用 EncryptionService.encryptForUser（per-user HKDF 子密钥，D7）。
  * 所有读写强制 userId 过滤（owner 隔离，防 IDOR / 越权，D19 + 安全关键-2）。
@@ -70,7 +70,6 @@ export class UserSecretsService {
         where: {
           userId,
           deletedAt: null,
-          category: { not: SecretCategory.USER_DONATED },
         },
         orderBy: [{ category: "asc" }, { name: "asc" }],
       }),

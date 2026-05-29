@@ -4,7 +4,7 @@ import { apiClient } from '@/lib/api/client';
 import { toast } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
 
-// All SecretCategory values exposed to users (USER_DONATED excluded per spec)
+// All SecretCategory values exposed to users (2026-05-29 W4c: USER_DONATED 已退役移除)
 export type SecretCategory =
   | 'AI_MODEL'
   | 'SEARCH'

@@ -8137,9 +8137,9 @@ model ResearchTodo {
 // ============ 用户 API Key (BYOK) ============
 
 /// API Key 使用模式
+/// 2026-05-29 W4b：捐赠池 H6 退役后仅余 PERSONAL，DONATED 值已移除（migration 20260529_retire_donated_z01）
 enum UserApiKeyMode {
   PERSONAL // 自用模式
-  DONATED // @deprecated 2026-05-28 H6 捐赠池已退役；枚举值保留供历史行可读，DROP 留后续大版本
 }
 
 /// 2026-05-27 BYOK：用户 Key 缺失时的运行时兜底策略
@@ -8164,8 +8164,7 @@ enum AuthRequestStatus {
   REVOKED // 已撤销（曾批准后又收回）
 }
 
-/// 用户自有 API Key
-/// 支持自用模式和捐赠到共享池模式
+/// 用户自有 API Key（BYOK 自用模式；2026-05-29 W4b 捐赠池已退役）
 model UserApiKey {
   id                 String         @id @default(cuid())
   userId             String         @map("user_id")
@@ -8183,12 +8182,10 @@ model UserApiKey {
   wrappedDek         String?        @map("wrapped_dek") @db.Text
   encVersion         Int            @default(1) @map("enc_version")
   kekVersion         Int            @default(1) @map("kek_version")
-  /// @deprecated 2026-05-28 H6：捐赠池退役后恒为 PERSONAL。保留列待后续大版本 DROP。
+  /// 2026-05-29 W4b：捐赠池退役后恒为 PERSONAL（UserApiKeyMode 已收敛为单值）。
   mode               UserApiKeyMode @default(PERSONAL)
   apiEndpoint        String?        @map("api_endpoint") @db.Text
   preferredModelId   String?        @map("preferred_model_id") @db.VarChar(200)
-  /// @deprecated 2026-05-28 H6：捐赠池退役，不再写入。保留列待后续大版本 DROP。
-  donatedSecretId    String?        @map("donated_secret_id") // 关联 Secret Manager 的 ID
   isActive           Boolean        @default(true) @map("is_active")
   testStatus         String?        @map("test_status") @db.VarChar(20) // success | failed
   /// ★ 2026-05-06: 归一化错误码（与 SecretKey 对齐）
@@ -8202,8 +8199,6 @@ model UserApiKey {
   /// (前 last_tested_at 列在 migration 20260512a 中 drop).
   /// 写入路径：persistDbHealthOutcome (personal 分支) success/failure 都更新.
   lastUsedAt         DateTime?      @map("last_used_at")
-  /// @deprecated 2026-05-28 H6：捐赠池退役，不再写入。保留列待后续大版本 DROP。
-  donationRewardedAt DateTime?      @map("donation_rewarded_at") // 首次捐赠奖励发放时间（防重复）
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")
 
@@ -8232,7 +8227,7 @@ enum SecretCategory {
   IMAGE_SEARCH // 图片搜索 API (Bing, Google CSE, SerpAPI)
   DEV_TOOLS // 开发工具 API (GitHub, GitLab)
   MCP // MCP 服务器 API (Slack, Google Drive)
-  USER_DONATED // 用户捐赠的 API Key
+  // 2026-05-29 W4c：USER_DONATED 已移除（捐赠池退役，历史行 remap→OTHER，migration 20260529_retire_donated_z02）
   OTHER // 其他
 }
 

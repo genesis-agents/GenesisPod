@@ -133,7 +133,6 @@ describe("AiModelConfigService", () => {
 
     const mockUserApiKeysService = {
       getPersonalKey: jest.fn().mockResolvedValue(null),
-      getDonatedKey: jest.fn().mockResolvedValue(null),
       getAvailableProviders: jest.fn().mockResolvedValue([]),
       // 2026-05-11 P2: toAIModelConfigFromUserConfig 走 DB ai_providers 兜底
       resolveProviderDefaults: jest.fn().mockImplementation((slug: string) =>
@@ -1042,7 +1041,7 @@ describe("AiModelConfigService", () => {
 
   describe("resolveApiKey - additional coverage", () => {
     // BYOK v2: 无 userId 时只保留系统 Secret 回退路径（过渡期，供旧定时任务使用）。
-    // 捐赠共享池已废弃，getDonatedKey 在 BYOK v2 代码路径中不再被调用。
+    // 捐赠共享池已退役（W4b），无 donated 优先级分支。
     it("falls back to system secret when userId is absent and model.secretKey exists", async () => {
       (secretsService.getValueInternal as jest.Mock).mockResolvedValue(
         "sys-secret-value",

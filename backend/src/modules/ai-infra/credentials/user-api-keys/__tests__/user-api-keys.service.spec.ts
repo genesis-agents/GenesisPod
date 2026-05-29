@@ -44,8 +44,6 @@ describe("UserApiKeysService", () => {
     mode: UserApiKeyMode.PERSONAL,
     apiEndpoint: null,
     preferredModelId: null,
-    donatedSecretId: null,
-    donationRewardedAt: null,
     isActive: true,
     lastUsedAt: null,
     testStatus: null,
@@ -174,12 +172,13 @@ describe("UserApiKeysService", () => {
     });
 
     it("normalizes mode to lowercase", async () => {
-      const keys = [makeApiKey({ mode: UserApiKeyMode.DONATED })];
+      const keys = [makeApiKey({ mode: UserApiKeyMode.PERSONAL })];
       (mockPrisma.userApiKey!.findMany as jest.Mock).mockResolvedValue(keys);
 
       const result = await service.listUserApiKeys("user-1");
 
-      expect(result[0].mode).toBe("donated");
+      // 捐赠池退役后 mode 恒为 personal（W4b）
+      expect(result[0].mode).toBe("personal");
     });
 
     it("returns empty array when no keys exist", async () => {

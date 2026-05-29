@@ -131,7 +131,6 @@ describe("AiModelConfigService — capability_overrides (v3.1 B.2)", () => {
 
     const mockUserApiKeysService = {
       getPersonalKey: jest.fn().mockResolvedValue(null),
-      getDonatedKey: jest.fn().mockResolvedValue(null),
       getAvailableProviders: jest.fn().mockResolvedValue([]),
       resolveProviderDefaults: jest.fn().mockResolvedValue({
         endpoint: "https://api.openai.com/v1",

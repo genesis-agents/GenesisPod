@@ -89,11 +89,6 @@ const CATEGORY_OPTIONS: {
     label: 'MCP Server',
     color: 'bg-cyan-100 text-cyan-800',
   },
-  {
-    value: 'USER_DONATED',
-    label: 'User Donated',
-    color: 'bg-pink-100 text-pink-800',
-  },
   { value: 'OTHER', label: 'Other', color: 'bg-gray-100 text-gray-800' },
 ];
 

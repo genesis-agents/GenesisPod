@@ -17,7 +17,7 @@
  *   tsx scripts/backfill-byok-credential-hardening.ts            # dry-run
  *   tsx scripts/backfill-byok-credential-hardening.ts --apply    # 实际执行
  */
-import { PrismaClient, SecretCategory } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { ConfigService } from "@nestjs/config";
 import { EncryptionService } from "../src/modules/ai-infra/encryption/encryption.service";
 
@@ -53,10 +53,7 @@ async function migrateUserSecretsToCredentials(): Promise<Stats> {
   });
   for (const row of rows) {
     stats.scanned++;
-    if (row.category === SecretCategory.USER_DONATED) {
-      stats.skipped++;
-      continue;
-    }
+    // 2026-05-29 W4c：USER_DONATED 已退役（remap→OTHER），无需再跳过捐赠行。
     const userId = row.userId as string;
     const plain = await encryption.decryptAny(row, { userId });
     if (plain === null) {
@@ -182,7 +179,12 @@ async function main(): Promise<void> {
     `[1] secrets(user)→user_credentials: scanned=${migrated.scanned} upgraded=${migrated.upgraded} skipped=${migrated.skipped} errors=${migrated.errors}`,
   );
 
-  for (const t of ["secret", "userApiKey", "secretKey", "secretVersion"] as const) {
+  for (const t of [
+    "secret",
+    "userApiKey",
+    "secretKey",
+    "secretVersion",
+  ] as const) {
     const s = await upgradeTable(t);
     log(
       `[2] ${t} v1→v2: scanned=${s.scanned} upgraded=${s.upgraded} skipped=${s.skipped} errors=${s.errors}`,

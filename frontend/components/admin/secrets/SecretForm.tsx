@@ -37,7 +37,6 @@ const CATEGORY_KEYS: { value: SecretCategory; key: string }[] = [
   { value: 'IMAGE_SEARCH', key: 'imageSearch' },
   { value: 'DEV_TOOLS', key: 'devTools' },
   { value: 'MCP', key: 'mcp' },
-  { value: 'USER_DONATED', key: 'userDonated' },
   { value: 'OTHER', key: 'other' },
 ];
 
