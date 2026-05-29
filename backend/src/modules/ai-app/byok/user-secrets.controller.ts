@@ -138,6 +138,8 @@ export class UserSecretsController {
     @Param("id") id: string,
     @Body() dto: AddSecretKeyDto,
   ) {
+    // ★ 2026-05-29 评审修复：纵深防御——先校验 :id 父 secret 归属（service 层 ownerUserId 仍兜底）。
+    await this.requireOwnedSecret(req, id);
     return this.secretKeys.addKey(id, dto, this.auditCtx(req), req.user.id);
   }
 
@@ -146,9 +148,11 @@ export class UserSecretsController {
   @Patch(":id/keys/:keyId")
   async updateKeyMeta(
     @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
     @Param("keyId") keyId: string,
     @Body() dto: UpdateSecretKeyMetaDto,
   ) {
+    await this.requireOwnedSecret(req, id);
     return this.secretKeys.updateKeyMeta(
       keyId,
       dto,
@@ -162,9 +166,11 @@ export class UserSecretsController {
   @Put(":id/keys/:keyId/value")
   async replaceKeyValue(
     @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
     @Param("keyId") keyId: string,
     @Body() dto: ReplaceSecretKeyValueDto,
   ) {
+    await this.requireOwnedSecret(req, id);
     return this.secretKeys.replaceKeyValue(
       keyId,
       dto,
@@ -177,8 +183,10 @@ export class UserSecretsController {
   @Delete(":id/keys/:keyId")
   async deleteKey(
     @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
     @Param("keyId") keyId: string,
   ) {
+    await this.requireOwnedSecret(req, id);
     await this.secretKeys.deleteKey(keyId, this.auditCtx(req), req.user.id);
     return { ok: true };
   }
@@ -188,8 +196,16 @@ export class UserSecretsController {
   @Post(":id/keys/:keyId/test")
   async testSecretKey(
     @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
     @Param("keyId") keyId: string,
   ) {
-    return this.secretKeys.testKey(keyId, this.auditCtx(req), req.user.id);
+    await this.requireOwnedSecret(req, id);
+    // ★ 2026-05-29 评审修复：用户侧只回规范化 errorCode，不透传 provider 原始 errorMessage（防内部信息泄露）。
+    const r = await this.secretKeys.testKey(
+      keyId,
+      this.auditCtx(req),
+      req.user.id,
+    );
+    return { ok: r.ok, errorCode: r.errorCode };
   }
 }

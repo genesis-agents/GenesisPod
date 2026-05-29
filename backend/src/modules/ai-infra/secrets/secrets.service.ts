@@ -122,6 +122,9 @@ export class SecretsService {
           encVersion: env.encVersion,
           kekVersion: env.kekVersion,
           keyVersion: this.currentKeyVersion,
+          // ★ 2026-05-29 评审修复：持久化脱敏指纹，避免列表渲染时为生成 mask 而解密明文
+          //   （尤其 user-scoped secret 走 UserSecretsService.list 的 keyHint ?? 路径）。
+          keyHint: this.makeHint(dto.value),
           provider: dto.provider,
           isActive: dto.isActive ?? true,
           expiresAt: dto.expiresAt,
@@ -498,7 +501,9 @@ export class SecretsService {
     // ★ 事务化：Secret 更新 + SecretVersion 历史 + secret_keys 'primary' 同步
     // 任一失败回滚（防 secret 改了但 secret_keys 还是老 value 的不一致）
     const secret = await this.prisma.$transaction(async (tx) => {
-      if (valueRotated) {
+      // ★ 2026-05-29 评审修复：SecretVersion 历史/回滚 API 仅 admin 作用域（查 userId=null），
+      //   用户 BYOK secret 写版本行会成孤儿数据 → user 作用域跳过版本快照（值仍同步到 primary key）。
+      if (valueRotated && ownerUserId == null) {
         const newVersion = updateData.currentVersion as number;
         await tx.secretVersion.create({
           data: {
@@ -592,7 +597,8 @@ export class SecretsService {
     }
 
     // 系统引用检查仅对 admin secret 有意义（用户 BYOK secret 不被系统 config 引用）。
-    if (ownerUserId === undefined) {
+    // == null 同时覆盖 undefined 与 null，与 where 的 `ownerUserId ?? null` 语义对称。
+    if (ownerUserId == null) {
       const references = await this.getReferences(name);
       if (references.length > 0) {
         throw new ConflictException(

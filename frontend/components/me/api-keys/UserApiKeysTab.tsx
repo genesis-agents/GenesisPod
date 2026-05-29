@@ -551,7 +551,10 @@ export function UserApiKeysTab() {
                   item={item}
                   onEdit={() => setEditingItem(item)}
                   onManageKeys={
-                    item.category === 'AI_MODEL' && item.provider
+                    // 按存储来源路由（比 category 更稳健）：
+                    //   llm  → user_api_keys（UserApiKeyDrawer，provider 维度）
+                    //   secret → user-scoped secrets（SecretKeysDrawer，secret id 维度）
+                    item.source === 'llm' && item.provider
                       ? () =>
                           setManageProvider({
                             id: item.provider as string,

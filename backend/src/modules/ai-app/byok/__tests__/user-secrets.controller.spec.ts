@@ -91,7 +91,8 @@ describe("UserSecretsController — testKey endpoint (C8)", () => {
       expect(secretKeys.listKeys).not.toHaveBeenCalled();
     });
 
-    it("addKey 透传 ownerUserId 作 owner 作用域", async () => {
+    it("addKey 先校验 :id 归属再透传 ownerUserId", async () => {
+      secrets.getByIdForUser.mockResolvedValue({ id: "sec-1" });
       secretKeys.addKey.mockResolvedValue({ id: "k2", label: "backup-1" });
 
       await controller.addKey(req, "sec-1", {
@@ -99,6 +100,7 @@ describe("UserSecretsController — testKey endpoint (C8)", () => {
         value: "sk-xxx",
       } as never);
 
+      expect(secrets.getByIdForUser).toHaveBeenCalledWith("sec-1", "user-1");
       expect(secretKeys.addKey).toHaveBeenCalledWith(
         "sec-1",
         expect.objectContaining({ label: "backup-1" }),
@@ -107,11 +109,24 @@ describe("UserSecretsController — testKey endpoint (C8)", () => {
       );
     });
 
-    it("deleteKey 透传 ownerUserId", async () => {
+    it("非本人 secret → addKey 抛 NotFound（纵深防御）", async () => {
+      secrets.getByIdForUser.mockResolvedValue(null);
+      await expect(
+        controller.addKey(req, "sec-other", {
+          label: "x",
+          value: "v",
+        } as never),
+      ).rejects.toThrow();
+      expect(secretKeys.addKey).not.toHaveBeenCalled();
+    });
+
+    it("deleteKey 校验 :id 归属后透传 ownerUserId", async () => {
+      secrets.getByIdForUser.mockResolvedValue({ id: "sec-1" });
       secretKeys.deleteKey.mockResolvedValue(undefined);
 
-      const res = await controller.deleteKey(req, "k2");
+      const res = await controller.deleteKey(req, "sec-1", "k2");
 
+      expect(secrets.getByIdForUser).toHaveBeenCalledWith("sec-1", "user-1");
       expect(secretKeys.deleteKey).toHaveBeenCalledWith(
         "k2",
         expect.objectContaining({ userId: "user-1" }),

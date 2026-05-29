@@ -384,17 +384,15 @@ export class UserSecretsService {
     );
     if (fromCred !== null) return fromCred;
 
-    // 过渡期回退：legacy 用户工具行仍在 secrets（PR-4 backfill 后移除）。
+    // 回退读 user-scoped secrets 行。★ 2026-05-29 评审修复：用 decryptAny（按 encVersion 分派），
+    //   既能解 P4 新建的 envelope v2 行，也能解 legacy per-user HKDF 行；不能再写死 decryptForUser
+    //   （否则 envelope v2 行被 HKDF 路径误解、静默返回垃圾/null）。
     const secret = await this.prisma.secret.findFirst({
       where: { name, userId, isActive: true, deletedAt: null },
     });
     if (!secret) return null;
     if (secret.expiresAt && secret.expiresAt < new Date()) return null;
-    return this.encryption.decryptForUser(
-      secret.encryptedValue,
-      secret.iv,
-      userId,
-    );
+    return this.encryption.decryptAny(secret, { userId });
   }
 
   /** id 是否为当前用户的一条 user_credentials 行（用于 secret-source 路由分派）。 */

@@ -28,6 +28,7 @@ describe("UserSecretsService", () => {
   let encryption: {
     encryptForUser: jest.Mock;
     decryptForUser: jest.Mock;
+    decryptAny: jest.Mock;
     createKeyHint: jest.Mock;
   };
   let userApiKeys: { saveKey: jest.Mock; deleteKey: jest.Mock };
@@ -68,6 +69,7 @@ describe("UserSecretsService", () => {
         .fn()
         .mockReturnValue({ encryptedValue: "enc", iv: "iv" }),
       decryptForUser: jest.fn().mockReturnValue("sk-plain-1234"),
+      decryptAny: jest.fn().mockResolvedValue("sk-plain-1234"),
       createKeyHint: jest.fn().mockReturnValue("sk-...1234"),
     };
     userApiKeys = {
@@ -256,19 +258,15 @@ describe("UserSecretsService", () => {
       expect(prisma.secret.findFirst).not.toHaveBeenCalled();
     });
 
-    it("新表未命中则回退 legacy secrets（per-user 解密）", async () => {
+    it("新表未命中则回退 secrets 行（decryptAny 按 encVersion 分派，兼容 envelope v2 与 legacy HKDF）", async () => {
       userCredentials.getCredentialValue.mockResolvedValue(null);
-      prisma.secret.findFirst.mockResolvedValue({
-        encryptedValue: "enc",
-        iv: "iv",
-        expiresAt: null,
-      });
+      const row = { encryptedValue: "enc", iv: "iv", expiresAt: null };
+      prisma.secret.findFirst.mockResolvedValue(row);
       const val = await service.getUserSecretValue("tavily", "user-1");
-      expect(encryption.decryptForUser).toHaveBeenCalledWith(
-        "enc",
-        "iv",
-        "user-1",
-      );
+      // ★ 评审修复：用 decryptAny（不再写死 decryptForUser），envelope v2 行才能解开
+      expect(encryption.decryptAny).toHaveBeenCalledWith(row, {
+        userId: "user-1",
+      });
       expect(val).toBe("sk-plain-1234");
     });
 
