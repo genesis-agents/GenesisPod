@@ -60,6 +60,8 @@ interface Props {
   missionFailed?: boolean;
   missionFailedMessage?: string;
   missionCancelled?: boolean;
+  /** ★ 2026-05-29: quality-failed（拒签）也是非成功终态，不得显示顶层"已完成"。 */
+  missionQualityFailed?: boolean;
   agents?: AgentLiveState[];
   dimensionPipelines?: Map<string, DimensionPipelineState>;
   /** mission id —— 用于单 todo 重跑 */
@@ -119,24 +121,6 @@ function deriveDimSubStatus(
       label: '已放弃',
       tone: 'bg-gray-100 text-gray-600 ring-gray-200',
     };
-  // ★ Screenshot_61 修复 (#104): td.status === 'done' 时优先标"已完成"，
-  //   不再 fall through 到下方 pipeline.chapters 检查。否则 Leader 重派完成的
-  //   dim（chapter pipeline 未跑或被跳过 → chapters.length === 0）会被误标
-  //   "采集完成 · 待大纲"，与 status=done 自相矛盾。
-  if (td.status === 'done') {
-    // ★ 2026-05-29: 维度 todo 在 dimension:research:completed 时就被标 done（采集完，
-    //   但章节/报告尚未写）。mission 未真完成时显示"采集完成"而非"已完成"，避免用户
-    //   看到满屏"已完成"误以为整体跑完而提前取消。只有 mission 真 completed 才标"已完成"。
-    return missionCompleted
-      ? {
-          label: '已完成',
-          tone: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
-        }
-      : {
-          label: '采集完成',
-          tone: 'bg-teal-100 text-teal-700 ring-teal-200',
-        };
-  }
   const pipelineKey = td.pipelineKey ?? td.dimensionRef;
   const pipeline = pipelineKey ? pipelines?.get(pipelineKey) : undefined;
   // 还没起 outline
@@ -161,6 +145,20 @@ function deriveDimSubStatus(
         label: '采集失败',
         tone: 'bg-red-100 text-red-700 ring-red-200',
       };
+    }
+    if (td.status === 'done') {
+      // dimension todo 会在 research completed 时先变成 done；只有在后续章节/评分
+      // 流水线尚未 materialize 时，列表才显示“采集完成”。一旦 pipeline 有章节数据，
+      // 必须继续往下看 writing/review/grade，不能被这个早期 done 卡死。
+      return missionCompleted
+        ? {
+            label: '已完成',
+            tone: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+          }
+        : {
+            label: '采集完成',
+            tone: 'bg-teal-100 text-teal-700 ring-teal-200',
+          };
     }
     return {
       label: '数据采集',
@@ -697,14 +695,20 @@ export function MissionTodoBoard({
   missionFailed,
   missionFailedMessage,
   missionCancelled,
+  missionQualityFailed,
   agents,
   dimensionPipelines,
   missionId,
   missionTerminal,
 }: Props) {
   const router = useRouter();
-  // mission 真正完成（终态且非失败/取消）—— 决定维度卡片显示"已完成"还是"采集完成"
-  const missionCompleted = !!missionTerminal && !missionFailed && !missionCancelled;
+  // mission 真正完成（终态且非失败/取消/拒签）—— 决定维度卡片显示"已完成"还是"采集完成"。
+  // quality-failed（拒签）虽是终态但非成功，顶层不得显示"已完成"（与页头 pill "质量未达标" 一致）。
+  const missionCompleted =
+    !!missionTerminal &&
+    !missionFailed &&
+    !missionCancelled &&
+    !missionQualityFailed;
   const [inspectorTodo, setInspectorTodo] = useState<MissionTodo | null>(null);
   const [rerunningId, setRerunningId] = useState<string | null>(null);
 

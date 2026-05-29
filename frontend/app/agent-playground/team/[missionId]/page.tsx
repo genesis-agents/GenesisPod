@@ -229,7 +229,12 @@ export default function MissionDetailPage() {
     data: missionView,
     applyRefreshHints,
     refresh: refreshMissionView,
-  } = useMissionDetailView(invalidId ? undefined : missionId);
+  } = useMissionDetailView(invalidId ? undefined : missionId, {
+    // ★ 2026-05-29: WS 退化为 polling/disconnected 时 stream 事件不再带 refreshHints，
+    //   canonical view 会停止 refetch。此时启用定时 refetch 兜底（hook 内部按
+    //   mission 终态自停 + coalescing 去重）。
+    shouldPoll: connState === 'polling' || connState === 'disconnected',
+  });
 
   // persisted = MissionDetail-shape alias 从 canonical view 派生，保留 30+ usage 不变。
   // §6.4.1.a per-app 投影已在 backend 完成（rejected → quality-failed），此处仅形状映射。
@@ -654,12 +659,10 @@ export default function MissionDetailPage() {
     //   就被设置（如阶段完成时），导致全部任务被误扫成"已完成"。
     const m = missionView?.mission;
     const missionTerminalSuccess = !!(
-      m?.status === 'completed' ||
-      m?.status === 'quality-failed'
+      m?.status === 'completed' || m?.status === 'quality-failed'
     );
     const missionTerminalFailure = !!(
-      m?.status === 'failed' ||
-      m?.status === 'cancelled'
+      m?.status === 'failed' || m?.status === 'cancelled'
     );
     const missionTerminal = missionTerminalSuccess || missionTerminalFailure;
     const sweepStatus = (raw: MissionTodo['status']): MissionTodo['status'] => {
@@ -1167,6 +1170,7 @@ export default function MissionDetailPage() {
               missionFailed={!!view.mission.failedAt}
               missionFailedMessage={view.mission.failedMessage}
               missionCancelled={!!view.mission.cancelledAt}
+              missionQualityFailed={persisted?.status === 'quality-failed'}
               agents={view.agents}
               dimensionPipelines={view.dimensionPipelines}
               missionId={missionId}
@@ -1960,13 +1964,16 @@ function CompactMeters({
   const fmtTime = (ms: number) =>
     ms < 60_000 ? `${Math.floor(ms / 1000)}s` : `${Math.floor(ms / 60_000)}m`;
 
-  // canonical dimensionPipelines 是 Record<string, ...>，iterate values。
+  // ★ 2026-05-29 fix: view.dimensionPipelines 是 Map（useMissionLegacyView 返回），
+  //   原代码注释误标 Record + 用 Object.values(map) → 永远空数组 → totalWords 恒为 0。
   const totalWords = useMemo(() => {
     let sum = 0;
-    const pipelines = view.dimensionPipelines ?? {};
-    for (const dim of Object.values(pipelines)) {
-      const chapters = (dim as { chapters?: { wordCount?: number }[] })
-        .chapters;
+    const pipelines = view.dimensionPipelines as
+      | Map<string, { chapters?: { wordCount?: number }[] }>
+      | undefined;
+    if (!pipelines || typeof pipelines.values !== 'function') return 0;
+    for (const dim of pipelines.values()) {
+      const chapters = dim.chapters;
       if (!Array.isArray(chapters)) continue;
       for (const ch of chapters) {
         if (ch.wordCount) sum += ch.wordCount;

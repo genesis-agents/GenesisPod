@@ -1120,7 +1120,9 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
       // ── dimension:graded → dim todo done + 5-axis grade artifact ───
       if (suffix === "dimension:graded") {
         const dim = this.getString(payload, "dimension");
-        const grade = this.getNumber(payload, "overallScore");
+        const grade =
+          this.getNumber(payload, "overall") ??
+          this.getNumber(payload, "overallScore");
         if (dim) {
           const dimId = `dim:${dim}`;
           this.upsert(

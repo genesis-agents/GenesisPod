@@ -80,7 +80,7 @@ function buildLegacyDerivedView(
     memory: dvProjectMemory(view, events),
     reports: dvProjectReports(view),
     finalReport: dvProjectFinalReport(view),
-    dimensionPipelines: dvProjectDimensionPipelines(view),
+    dimensionPipelines: dvProjectDimensionPipelines(view, events),
   };
 }
 
@@ -363,14 +363,52 @@ function dvProjectMemory(
 }
 
 function dvProjectDimensionPipelines(
-  view: MissionDetailView
+  view: MissionDetailView,
+  events: PlaygroundEvent[]
 ): Map<string, DimensionPipelineState> {
-  const dp = view.dimensionPipelines as
+  // ★ 2026-05-29 根因修复（"采集完成后列表永远不刷新 / 永远停在采集完成"）：
+  //   原实现 dimensionPipelines 是本文件里唯一没有 events 派生兜底的字段 —— 100%
+  //   依赖 canonical view (useMissionDetailView)。canonical view 只在 stream 事件
+  //   携带 refreshHints 时 refetch，而 refreshHints 只由 live WS dispatcher 注入，
+  //   replay/polling 的持久化事件不带 hint。WS 一断进 polling（Railway 每次 push
+  //   重启杀 WS / 长 mission / 自定义域名代理 socket.io 困难）→ canonical 永不 refetch
+  //   → dimensionPipelines 冻结在采集阶段快照 (chapters:[]) → 维度卡片 deriveDimSubStatus
+  //   看到 chapters.length===0 → 永远「采集完成」。后台其实早写完章节（事件全在 DB）。
+  //   thinning 重构（2026-05）把 cost/verdicts/memory/agents/trace 的 events 派生
+  //   全砍了，5-27 逐一"回归恢复"，唯独漏了 dimensionPipelines —— 这就是本回归。
+  //   修法：与同文件其它字段一致，从 events 派生（移植 backend extractDimensionPipelines
+  //   的完整章节状态机），再与 canonical 做 per-dimension 合并（章节多/有 grade 的胜出），
+  //   让 events（WS+polling 都会持续增长）驱动列表推进，摆脱对 live-WS refreshHints 的依赖。
+  const dimNames = (view.mission.dimensions ?? [])
+    .map((d) => d.name)
+    .filter((n): n is string => typeof n === 'string' && n.length > 0);
+  const fromEvents = dvDeriveDimensionPipelinesFromEvents(events, dimNames);
+
+  const canonical = view.dimensionPipelines as
     | Record<string, DimensionPipelineState>
     | undefined;
-  if (!dp || Object.keys(dp).length === 0) {
-    return new Map();
+  const canonicalEntries = canonical ? Object.entries(canonical) : [];
+
+  // per-dimension merge：events 与 canonical 各自可能更新（WS 退化时 events 靠
+  //   replay/polling，未必比 canonical 新；canonical refetch 后也未必比 events 新）。
+  //   按 chapter index + 状态推进度逐章合并，谁的状态更靠后用谁，绝不让任一侧回退。
+  const merged = new Map<string, DimensionPipelineState>(fromEvents);
+  for (const [key, canonPipe] of canonicalEntries) {
+    const evPipe = merged.get(key);
+    if (!evPipe) {
+      merged.set(key, canonPipe);
+      continue;
+    }
+    merged.set(key, {
+      dimension: evPipe.dimension || canonPipe.dimension,
+      chapters: dvMergeChapters(evPipe.chapters, canonPipe.chapters),
+      totalWordCount: evPipe.totalWordCount ?? canonPipe.totalWordCount,
+      integrationDegraded:
+        evPipe.integrationDegraded || canonPipe.integrationDegraded,
+      grade: evPipe.grade ?? canonPipe.grade,
+    });
   }
+
   // ★ 2026-05-27 (Screenshot_80 续 — "各个状态都要遍历"): mission 终态时也扫荡
   //   chapter.status, 让 dim pipeline / 章节进度 / Mission DAG 节点状态与 mission
   //   "已完成" pill 一致。残留 writing/reviewing/revising/pending 在终态下要 promote。
@@ -382,14 +420,14 @@ function dvProjectDimensionPipelines(
     m.status === 'completed' || m.status === 'quality-failed' || hasCompletedAt;
   const isTerminalFailure = hasFailedAt || hasCancelledAt;
   const isTerminal = isTerminalSuccess || isTerminalFailure;
-  if (!isTerminal) return new Map(Object.entries(dp));
+  if (!isTerminal) return merged;
   const sweepChStatus = (s: ChapterState['status']): ChapterState['status'] => {
     if (s === 'done' || s === 'passed') return s;
     if (s === 'failed' || s === 'failed-finalized') return s;
     return isTerminalSuccess ? 'done' : 'failed-finalized';
   };
   const out = new Map<string, DimensionPipelineState>();
-  for (const [key, pipeline] of Object.entries(dp)) {
+  for (const [key, pipeline] of merged) {
     out.set(key, {
       ...pipeline,
       chapters: pipeline.chapters.map((c) => ({
@@ -397,6 +435,239 @@ function dvProjectDimensionPipelines(
         status: sweepChStatus(c.status),
       })),
     });
+  }
+  return out;
+}
+
+/**
+ * 章节状态推进度排名（越大越靠后）。终态(done/passed/failed*)高于进行中，
+ * 进行中按 writing→reviewing→revising 时间序。逐章合并时取排名更高的一方，
+ * 避免 events / canonical 任一侧把已推进的章节状态回退。
+ */
+const DV_CH_STATUS_RANK: Record<ChapterState['status'], number> = {
+  pending: 1,
+  writing: 2,
+  reviewing: 3,
+  revising: 4,
+  passed: 5,
+  failed: 5,
+  'failed-finalized': 5,
+  done: 6,
+};
+
+function dvMergeChapters(a: ChapterState[], b: ChapterState[]): ChapterState[] {
+  const byIndex = new Map<number, ChapterState>();
+  const consider = (c: ChapterState) => {
+    const existing = byIndex.get(c.index);
+    if (!existing) {
+      byIndex.set(c.index, { ...c });
+      return;
+    }
+    const winner =
+      DV_CH_STATUS_RANK[c.status] >= DV_CH_STATUS_RANK[existing.status]
+        ? c
+        : existing;
+    const loser = winner === c ? existing : c;
+    byIndex.set(c.index, {
+      ...loser,
+      ...winner, // winner.status 胜出
+      heading: winner.heading || loser.heading,
+      thesis: winner.thesis ?? loser.thesis,
+      wordCount: winner.wordCount ?? loser.wordCount,
+      score: winner.score ?? loser.score,
+      critique: winner.critique ?? loser.critique,
+      attempts: Math.max(winner.attempts ?? 0, loser.attempts ?? 0),
+    });
+  };
+  a.forEach(consider);
+  b.forEach(consider);
+  return [...byIndex.values()].sort((x, y) => x.index - y.index);
+}
+
+/**
+ * 从 raw events 派生 dimension → chapter pipeline（移植 backend
+ * mission-view.projector.ts extractDimensionPipelines 的完整章节状态机）。
+ * 后端与前端读同一批事件，逻辑须一致；前端这份是 canonical view 未 refetch 时的
+ * liveness 兜底（events 由 WS+polling 持续增长）。
+ */
+function dvDeriveDimensionPipelinesFromEvents(
+  events: PlaygroundEvent[],
+  dimNames: string[]
+): Map<string, DimensionPipelineState> {
+  const out = new Map<string, DimensionPipelineState>();
+  for (const dim of dimNames) {
+    out.set(dim, { dimension: dim, chapters: [] });
+  }
+  const sfx = (type: string): string =>
+    type.includes('.') ? type.slice(type.indexOf('.') + 1) : type;
+  const getPipe = (dim: string): DimensionPipelineState => {
+    const existing = out.get(dim);
+    if (existing) return existing;
+    const fresh: DimensionPipelineState = { dimension: dim, chapters: [] };
+    out.set(dim, fresh);
+    return fresh;
+  };
+
+  for (const ev of events) {
+    if (!ev || typeof ev !== 'object') continue;
+    const e = ev as { type?: string; payload?: Record<string, unknown> };
+    if (!e.type) continue;
+    const suffix = sfx(e.type);
+    const p = e.payload;
+    if (!p) continue;
+    const dim = typeof p.dimension === 'string' ? p.dimension : undefined;
+    if (!dim) continue;
+    const pipe = getPipe(dim);
+
+    if (suffix === 'dimension:outline:planned') {
+      const chapters = Array.isArray(p.chapters)
+        ? (p.chapters as Array<{
+            index: number;
+            heading: string;
+            thesis?: string;
+          }>)
+        : [];
+      for (const c of chapters) {
+        const existing = pipe.chapters.find((x) => x.index === c.index);
+        if (existing) {
+          if (c.heading) existing.heading = c.heading;
+          if (c.thesis) existing.thesis = c.thesis;
+        } else {
+          pipe.chapters.push({
+            index: c.index,
+            heading: c.heading,
+            thesis: c.thesis,
+            status: 'pending',
+            attempts: 0,
+          });
+        }
+      }
+      pipe.chapters.sort((a, b) => a.index - b.index);
+    } else if (
+      suffix === 'chapter:writing:started' ||
+      suffix === 'chapter:writing:completed' ||
+      suffix === 'chapter:writing:failed'
+    ) {
+      const heading =
+        typeof p.heading === 'string'
+          ? p.heading
+          : typeof p.chapterTitle === 'string'
+            ? p.chapterTitle
+            : '';
+      const index =
+        typeof p.chapterIndex === 'number'
+          ? p.chapterIndex
+          : typeof p.index === 'number'
+            ? p.index
+            : pipe.chapters.length + 1;
+      let chapter = pipe.chapters.find((c) => c.index === index);
+      if (!chapter) {
+        chapter = { index, heading, status: 'pending', attempts: 0 };
+        pipe.chapters.push(chapter);
+      } else if (heading && !chapter.heading) {
+        chapter.heading = heading;
+      }
+      if (suffix === 'chapter:writing:started') {
+        const attempt = typeof p.attempt === 'number' ? p.attempt : undefined;
+        chapter.status = attempt && attempt > 1 ? 'revising' : 'writing';
+        chapter.attempts = attempt ?? chapter.attempts + 1;
+      } else if (suffix === 'chapter:writing:completed') {
+        chapter.status = 'reviewing';
+        if (typeof p.wordCount === 'number') chapter.wordCount = p.wordCount;
+      } else if (suffix === 'chapter:writing:failed') {
+        chapter.status = 'failed';
+      }
+    } else if (suffix === 'chapter:review:completed') {
+      const index =
+        typeof p.chapterIndex === 'number'
+          ? p.chapterIndex
+          : typeof p.index === 'number'
+            ? p.index
+            : undefined;
+      if (index != null) {
+        let chapter = pipe.chapters.find((c) => c.index === index);
+        if (!chapter) {
+          chapter = { index, heading: '', status: 'pending', attempts: 0 };
+          pipe.chapters.push(chapter);
+        }
+        chapter.score = typeof p.score === 'number' ? p.score : chapter.score;
+        chapter.critique =
+          typeof p.critique === 'string' ? p.critique : chapter.critique;
+        const decision =
+          typeof p.decision === 'string' ? p.decision : undefined;
+        const score = typeof p.score === 'number' ? p.score : 0;
+        chapter.status =
+          decision === 'pass' || score >= 75 ? 'passed' : 'revising';
+      }
+    } else if (suffix === 'chapter:done') {
+      const index =
+        typeof p.chapterIndex === 'number'
+          ? p.chapterIndex
+          : typeof p.index === 'number'
+            ? p.index
+            : pipe.chapters.length + 1;
+      const heading =
+        typeof p.heading === 'string'
+          ? p.heading
+          : typeof p.chapterTitle === 'string'
+            ? p.chapterTitle
+            : '';
+      let chapter = pipe.chapters.find((c) => c.index === index);
+      if (!chapter) {
+        chapter = { index, heading, status: 'pending', attempts: 0 };
+        pipe.chapters.push(chapter);
+      } else if (heading && !chapter.heading) {
+        chapter.heading = heading;
+      }
+      const qualified = p.qualified === true;
+      chapter.status = qualified ? 'done' : 'failed-finalized';
+      if (typeof p.wordCount === 'number') chapter.wordCount = p.wordCount;
+      if (typeof p.finalScore === 'number' && chapter.score == null) {
+        chapter.score = p.finalScore;
+      }
+    } else if (
+      suffix === 'chapter:revision' ||
+      suffix === 'chapter:rewritten'
+    ) {
+      const index =
+        typeof p.chapterIndex === 'number'
+          ? p.chapterIndex
+          : typeof p.index === 'number'
+            ? p.index
+            : 0;
+      const chapter = pipe.chapters.find((c) => c.index === index);
+      if (chapter) chapter.status = 'revising';
+    } else if (suffix === 'dimension:integrating:completed') {
+      const totalWordCount =
+        typeof p.totalWordCount === 'number' ? p.totalWordCount : undefined;
+      if (totalWordCount != null) pipe.totalWordCount = totalWordCount;
+    } else if (suffix === 'dimension:integrating:failed') {
+      pipe.integrationDegraded = true;
+    } else if (suffix === 'dimension:degraded') {
+      pipe.integrationDegraded = true;
+    } else if (suffix === 'dimension:graded') {
+      // ★ 与 backend todo-board.projector 一致：overall 优先，旧 replay 事件回退 overallScore。
+      const overall =
+        typeof p.overall === 'number'
+          ? p.overall
+          : typeof p.overallScore === 'number'
+            ? p.overallScore
+            : 0;
+      const grade = typeof p.grade === 'string' ? p.grade : '—';
+      const summary = typeof p.summary === 'string' ? p.summary : '';
+      const failed = typeof p.failed === 'boolean' ? p.failed : undefined;
+      const skipped = typeof p.skipped === 'boolean' ? p.skipped : undefined;
+      const phase = typeof p.phase === 'string' ? p.phase : undefined;
+      pipe.grade = {
+        overall,
+        grade,
+        axes: {},
+        summary,
+        ...(failed !== undefined && { failed }),
+        ...(skipped !== undefined && { skipped }),
+        ...(phase !== undefined && { phase }),
+      };
+    }
   }
   return out;
 }

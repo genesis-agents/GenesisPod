@@ -50,9 +50,24 @@ interface InternalState {
  *   3. hints within the same 250ms window are coalesced
  *   4. one user interaction round must not trigger unbounded fan-out
  */
+interface UseMissionDetailViewOptions {
+  /**
+   * ★ 2026-05-29: WS 断开走 polling 时，stream 事件不再携带 refreshHints
+   *   （hint 只由 live WS dispatcher 注入），导致 canonical view 永不 refetch、
+   *   所有 canonical-only 字段（dimensionPipelines / references / reportVersions /
+   *   finalScore 等）冻结。调用方在 connState !== 'live' 且 mission 未终态时置
+   *   shouldPoll=true，本 hook 定时 refetch 兜底。
+   */
+  shouldPoll?: boolean;
+  /** 轮询间隔，默认 4s（与 useMissionStream POLL_INTERVAL_MS 对齐）。 */
+  pollIntervalMs?: number;
+}
+
 export function useMissionDetailView(
-  missionId: string | undefined
+  missionId: string | undefined,
+  options?: UseMissionDetailViewOptions
 ): UseMissionDetailViewResult {
+  const { shouldPoll = false, pollIntervalMs = 4000 } = options ?? {};
   const [data, setData] = useState<MissionDetailView | null>(null);
   const [loading, setLoading] = useState<boolean>(!!missionId);
   const [error, setError] = useState<Error | null>(null);
@@ -64,6 +79,9 @@ export function useMissionDetailView(
   });
   const abortRef = useRef<AbortController | null>(null);
   const coalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // mission 是否已终态——polling 兜底据此自停，无需调用方传 isRunning（避免
+  // hook 调用点早于 isRunning 计算的时序问题）。
+  const terminalRef = useRef<boolean>(false);
 
   const performFetch = useCallback(
     async (id: string) => {
@@ -79,6 +97,12 @@ export function useMissionDetailView(
         });
         setData(view);
         setError(null);
+        const st = (view.mission as { status?: string } | undefined)?.status;
+        terminalRef.current =
+          st === 'completed' ||
+          st === 'quality-failed' ||
+          st === 'failed' ||
+          st === 'cancelled';
       } catch (err) {
         if ((err as { name?: string })?.name === 'AbortError') {
           // 主动取消（unmount / 新 fetch 抢占）不算 error
@@ -135,6 +159,18 @@ export function useMissionDetailView(
       };
     };
   }, [missionId, performFetch]);
+
+  // ★ 2026-05-29 polling 兜底：WS 退化为 polling 时 refreshHints 不再到达，
+  //   靠定时 refetch 保证 canonical-only 字段持续更新。coalescing 规则仍生效
+  //   （scheduleFetch 内部去重），不会叠加 fan-out。
+  useEffect(() => {
+    if (!missionId || !shouldPoll) return;
+    const timer = setInterval(() => {
+      if (terminalRef.current) return; // 终态后停止轮询
+      scheduleFetch(missionId);
+    }, pollIntervalMs);
+    return () => clearInterval(timer);
+  }, [missionId, shouldPoll, pollIntervalMs, scheduleFetch]);
 
   const refresh = useCallback(() => {
     if (missionId) scheduleFetch(missionId);
