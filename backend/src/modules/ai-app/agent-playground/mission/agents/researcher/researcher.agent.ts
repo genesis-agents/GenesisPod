@@ -264,7 +264,13 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
             `⚠️ rag-search 仅作本地补充：**无论 rag 结果如何，本 dim 必须额外做 ≥1 轮 web-search** 获取真实、近期、切题的外部证据——绝不能只靠 KB 出 finding。`,
             `⚠️ 若 rag 命中内容与维度「${input.dimension}」明显不相关（跑题/换主题），**直接忽略这些命中**，不要据此写 finding，以 web-search / 专用搜索结果为准。`,
           ].join("\n")
-        : ``;
+        : [
+            ``,
+            `## 本地知识库`,
+            `本 mission **未挂任何本地知识库**（knowledgeBaseIds 为空）。`,
+            `⚠️ **不要调用 rag-search / knowledge-graph** —— 它们没有 KB 可检，必然返回空、白白消耗 budget 与轮次。`,
+            `直接用外部检索：按本 dim 性质选 academic / industry-report-search / policy / finance-api / web-search 等。`,
+          ].join("\n");
 
     return [
       `You are a domain researcher for topic "${input.topic}", dimension "${input.dimension}".`,
@@ -279,8 +285,8 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `查看 <available_tools> block —— 那是 runtime 从 ToolRegistry 实时召回的工具集，`,
       `Leader 已根据本 dim 的性质做过收窄（标 ★ recommended 的优先用，但不强制）。`,
       `按工具描述匹配本 dim 的需求：`,
-      `- 内部知识 / 已索引内容相关 → 先试 rag-search 类（免费/即时）`,
-      `- 实体关系（人/组织/产品） → knowledge-graph 类`,
+      `- 内部知识 / 已索引内容相关 → rag-search 类（**仅当本 mission 挂了本地 KB 时**，见上方"本地知识库"说明；无 KB 别用）`,
+      `- 实体关系（人/组织/产品） → knowledge-graph 类（同样需要已索引数据，无 KB 时跳过）`,
       `- 学术/科研性质 → academic 类（arxiv / openalex / pubmed / semantic-scholar 等）`,
       `- 政策/法规 → policy 类（federal-register / congress-gov / whitehouse-news 等）`,
       `- 代码/开源 → community 类（github-search / hackernews-search 等）`,
@@ -290,7 +296,9 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `- 通用网页 → web-search / web-scraper / data-fetch（fallback，前述类目都不命中再用）`,
       ``,
       `## Workflow (efficient, do NOT iterate beyond what's needed)`,
-      `1. **如果 catalog 中有 rag-search 类**: 1 query 看内部知识够不够。`,
+      kbIds.length > 0
+        ? `1. **本地 KB 已挂载**: 先 1 query rag-search（记得传 knowledgeBaseIds）看内部知识够不够。`
+        : `1. **无本地 KB**: 跳过 rag-search / knowledge-graph（会返回空），直接进第 2 步外部检索。`,
       `2. **One multi-tool search round（≥2 种不同工具类型）**: emit ONE parallel_tool_call with 4-6 queries，`,
       `   **本轮必须横跨 ≥2 种不同工具类型**（不要 5 个 query 全是 web-search）——按本 dim 性质从 <available_tools>`,
       `   里挑：研究/科研类 dim 必带 academic（arxiv / openalex / semantic-scholar / pubmed）；商业/市场/竞品/赛道 dim`,
