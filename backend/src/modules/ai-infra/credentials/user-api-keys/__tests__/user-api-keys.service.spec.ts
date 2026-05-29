@@ -318,6 +318,44 @@ describe("UserApiKeysService", () => {
     });
   });
 
+  // ==================== testKeyById (W3+ 能力对齐) ====================
+
+  describe("testKeyById", () => {
+    it("probes stored key and writes back success status", async () => {
+      // 真实 v2 信封行，decryptAny 才能解出值（否则走 DECRYPTION_FAILED 分支）
+      const env = await buildEncryption().encryptEnvelope("sk-stored");
+      (mockPrisma.userApiKey!.findFirst as jest.Mock).mockResolvedValue(
+        makeApiKey({
+          id: "key-1",
+          provider: "openai",
+          encryptedValue: env.encryptedValue,
+          iv: env.iv,
+          authTag: env.authTag,
+          wrappedDek: env.wrappedDek,
+          encVersion: env.encVersion,
+          kekVersion: env.kekVersion,
+        }),
+      );
+
+      const result = await service.testKeyById("user-1", "key-1");
+
+      expect(result.ok).toBe(true);
+      const updateCall = (mockPrisma.userApiKey!.update as jest.Mock).mock
+        .calls[0][0];
+      expect(updateCall.where).toEqual({ id: "key-1" });
+      expect(updateCall.data.testStatus).toBe("success");
+      expect(updateCall.data.lastErrorCode).toBeNull();
+    });
+
+    it("throws NotFound for a key not owned by the user (owner isolation)", async () => {
+      (mockPrisma.userApiKey!.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.testKeyById("user-1", "someone-elses-key"),
+      ).rejects.toThrow("API Key not found");
+    });
+  });
+
   // ==================== getPersonalKey ====================
 
   describe("getPersonalKey", () => {

@@ -104,6 +104,8 @@ export class UserApiKeysService {
         isActive: true,
         lastUsedAt: true,
         testStatus: true,
+        lastErrorCode: true,
+        lastErrorMessage: true,
         usageCount: true,
         createdAt: true,
         updatedAt: true,
@@ -368,6 +370,86 @@ export class UserApiKeysService {
       message: result.errorMessage ?? "API Key validation failed",
       errorCode: result.errorCode,
     };
+  }
+
+  /**
+   * 2026-05-29 W3+：按已存储 key 的 id 主动测试（与 admin SecretKeysService.testKey 能力对齐）。
+   *
+   * 加载归属当前用户的 key → decryptAny 解密 → ProviderProbe 真发 HTTP →
+   * 写回 testStatus / lastUsedAt / lastErrorCode / lastErrorMessage（UI 可见错误码）。
+   * owner 隔离：非本人 key 抛 NotFound（不暴露存在性）。返回只含 { ok, errorCode }，
+   * 不外泄 errorMessage（与 user-secrets testSecretKey 一致）。
+   */
+  async testKeyById(
+    userId: string,
+    id: string,
+  ): Promise<{ ok: boolean; errorCode?: string }> {
+    const key = await this.prisma.userApiKey.findFirst({
+      where: { id, userId, mode: UserApiKeyMode.PERSONAL },
+    });
+    if (!key) {
+      throw new NotFoundException("API Key not found");
+    }
+
+    const now = new Date();
+    const decrypted = await this.encryption.decryptAny(key);
+    if (!decrypted) {
+      await this.prisma.userApiKey.update({
+        where: { id },
+        data: {
+          testStatus: "failed",
+          lastUsedAt: now,
+          lastErrorCode: "DECRYPTION_FAILED",
+          lastErrorMessage:
+            "decryption failed (encryptedValue or iv corrupted)",
+        },
+      });
+      return { ok: false, errorCode: "DECRYPTION_FAILED" };
+    }
+
+    const defaults = await this.resolveProviderDefaults(key.provider, userId);
+    const endpoint = key.apiEndpoint || defaults?.endpoint;
+    if (!endpoint) {
+      await this.prisma.userApiKey.update({
+        where: { id },
+        data: {
+          testStatus: "failed",
+          lastUsedAt: now,
+          lastErrorCode: "UNKNOWN",
+          lastErrorMessage: `Provider "${key.provider}" 未配置 endpoint`,
+        },
+      });
+      return { ok: false, errorCode: "UNKNOWN" };
+    }
+
+    const result = await this.providerProbe.probe({
+      apiFormat: defaults?.apiFormat || "openai",
+      apiKey: decrypted,
+      endpoint,
+      providerLabel: key.provider,
+    });
+
+    await this.prisma.userApiKey.update({
+      where: { id },
+      data: result.ok
+        ? {
+            testStatus: "success",
+            lastUsedAt: now,
+            lastErrorCode: null,
+            lastErrorMessage: null,
+          }
+        : {
+            testStatus: "failed",
+            lastUsedAt: now,
+            lastErrorCode: (result.errorCode ?? "UNKNOWN").slice(0, 40),
+            lastErrorMessage: (result.errorMessage ?? "probe failed").slice(
+              0,
+              500,
+            ),
+          },
+    });
+
+    return { ok: result.ok, errorCode: result.errorCode };
   }
 
   /**

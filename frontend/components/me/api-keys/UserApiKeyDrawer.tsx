@@ -32,6 +32,8 @@ export interface UserApiKeyDrawerProps {
     label?: string
   ) => Promise<boolean>;
   onDelete: (provider: string, label?: string) => Promise<boolean>;
+  /** ★ 2026-05-29 W3+: 按已存储 key 主动测试（与 admin 能力对齐） */
+  onTest: (keyId: string) => Promise<void>;
 }
 
 export function UserApiKeyDrawer({
@@ -44,6 +46,7 @@ export function UserApiKeyDrawer({
   testing,
   onSave,
   onDelete,
+  onTest,
 }: UserApiKeyDrawerProps) {
   // UserApiKeyInfo → SecretKeyRow 适配
   const adapted: SecretKeyRow[] = userKeys.map((k) => ({
@@ -55,10 +58,9 @@ export function UserApiKeyDrawer({
     priority: 0,
     testStatus: (k.testStatus as 'success' | 'failed' | null) ?? null,
     lastUsedAt: k.lastUsedAt,
-    // ★ 2026-05-06: BYOK 后端 testKey 现在写回 lastErrorCode/lastErrorMessage；
-    //   useUserApiKeys hook 当前的 UserApiKeyInfo 还没扩这两字段，下个 PR 补
-    lastErrorCode: null,
-    lastErrorMessage: null,
+    // ★ 2026-05-29 W3+: 与 admin key 能力对齐，按 key 测试后的错误码/信息已可见
+    lastErrorCode: k.lastErrorCode,
+    lastErrorMessage: k.lastErrorMessage,
     accessCount: k.usageCount,
     createdAt: k.createdAt,
     updatedAt: k.updatedAt,
@@ -98,8 +100,8 @@ export function UserApiKeyDrawer({
     await onDelete(provider.id, target.label);
   };
 
-  const handleTest = async (_keyId: string) => {
-    // BYOK 无主动 test（hideTest）；通过真实流量被动 markFailure 反馈
+  const handleTest = async (keyId: string) => {
+    await onTest(keyId);
   };
 
   return (
@@ -127,7 +129,6 @@ export function UserApiKeyDrawer({
           onDelete={handleDelete}
           onTest={handleTest}
           hideEditMeta
-          hideTest
         />
 
         <div className="mt-6 rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
@@ -145,7 +146,10 @@ export function UserApiKeyDrawer({
               <strong>Replace</strong> 会重写该 label 的 value（status
               自动重置）。
             </li>
-            <li>priority / 主动 test 不在 BYOK 暴露（系统自动调度）。</li>
+            <li>
+              <strong>Test</strong> 主动探测该 KEY 是否可用（写回状态/错误码，与
+              admin 一致）；priority 仍由系统按健康自动调度。
+            </li>
           </ul>
         </div>
       </div>

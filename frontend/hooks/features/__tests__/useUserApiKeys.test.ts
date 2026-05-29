@@ -256,6 +256,36 @@ describe('useUserApiKeys', () => {
     });
   });
 
+  it('testKeyById: posts to per-key test endpoint and returns ok', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({ ok: true });
+
+    const { result } = renderHook(() => useUserApiKeys());
+
+    let res: { ok: boolean; errorCode?: string } | undefined;
+    await act(async () => {
+      res = await result.current.testKeyById('openai', 'key-1');
+    });
+
+    expect(res).toEqual({ ok: true });
+    expect(apiClient.post).toHaveBeenCalledWith(
+      '/user/api-keys/openai/keys/key-1/test',
+      {}
+    );
+  });
+
+  it('testKeyById: returns { ok: false } on error', async () => {
+    vi.mocked(apiClient.post).mockRejectedValue(new Error('probe failed'));
+
+    const { result } = renderHook(() => useUserApiKeys());
+
+    let res: { ok: boolean; errorCode?: string } | undefined;
+    await act(async () => {
+      res = await result.current.testKeyById('openai', 'key-1');
+    });
+
+    expect(res).toEqual({ ok: false });
+  });
+
   it('testKey: returns failure result on error', async () => {
     vi.mocked(apiClient.post).mockRejectedValue(
       new Error('Connection refused')

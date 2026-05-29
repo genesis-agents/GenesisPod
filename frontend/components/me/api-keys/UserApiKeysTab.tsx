@@ -616,6 +616,9 @@ export function UserApiKeysTab() {
           testing={apiKeys.testing}
           onSave={apiKeys.saveKey}
           onDelete={apiKeys.deleteKey}
+          onTest={async (keyId) => {
+            await apiKeys.testKeyById(manageProvider.id, keyId);
+          }}
         />
       )}
 

@@ -103,4 +103,18 @@ export class UserApiKeysController {
       req.user.id,
     );
   }
+
+  /**
+   * 测试已存储的某把 key（按 id，与 admin SecretKeys 能力对齐）
+   * POST /user/api-keys/:provider/keys/:keyId/test
+   * 返回 { ok, errorCode? }，写回 testStatus/lastErrorCode 供 UI 展示。
+   */
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Post(":provider/keys/:keyId/test")
+  async testStoredKey(
+    @Param("keyId") keyId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.userApiKeysService.testKeyById(req.user.id, keyId);
+  }
 }

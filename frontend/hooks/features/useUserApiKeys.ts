@@ -17,6 +17,9 @@ export interface UserApiKeyInfo {
    *  取代旧 lastTestedAt. UI 唯一的"上次使用"字段. */
   lastUsedAt: string | null;
   testStatus: string | null;
+  /** ★ 2026-05-29 W3+: 与 admin key 能力对齐——按 key 测试后的错误码/信息 */
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
   usageCount: number;
   createdAt: string;
   updatedAt: string;
@@ -127,6 +130,30 @@ export function useUserApiKeys() {
     []
   );
 
+  /** ★ 2026-05-29 W3+: 按已存储 key 的 id 主动测试（与 admin 能力对齐），写回 testStatus/错误码 */
+  const testKeyById = useCallback(
+    async (
+      provider: string,
+      keyId: string
+    ): Promise<{ ok: boolean; errorCode?: string }> => {
+      setTesting(true);
+      try {
+        const result = await apiClient.post<{
+          ok: boolean;
+          errorCode?: string;
+        }>(`/user/api-keys/${provider}/keys/${keyId}/test`, {});
+        await refresh();
+        return result || { ok: false };
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to test API key');
+        return { ok: false };
+      } finally {
+        setTesting(false);
+      }
+    },
+    [refresh]
+  );
+
   const getKeyForProvider = useCallback(
     (provider: string) => keys.find((k) => k.provider === provider),
     [keys]
@@ -152,6 +179,7 @@ export function useUserApiKeys() {
     saveKey,
     deleteKey,
     testKey,
+    testKeyById,
     getKeyForProvider,
     getKeysForProvider,
   };
