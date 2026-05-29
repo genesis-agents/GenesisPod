@@ -446,7 +446,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
           </h3>
           <div className="space-y-3">
             {/* 基准判断：概率条 + 置信度 + 时间窗 + 裁决标准 */}
-            <div className="rounded-xl border border-indigo-100 bg-white p-4">
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-4">
               <h4 className="mb-3 text-sm font-bold text-indigo-700">
                 基准判断
               </h4>
@@ -535,7 +535,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
               qv.foresight.criticalUncertainties.length > 0) && (
               <div className="grid gap-2 sm:grid-cols-2">
                 {qv.foresight.predeterminedElements.length > 0 && (
-                  <div className="rounded-xl border border-gray-100 bg-white p-3">
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/40 p-3">
                     <h4 className="mb-1.5 text-xs font-bold uppercase tracking-wider text-gray-400">
                       几乎确定
                     </h4>
@@ -553,7 +553,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
                   </div>
                 )}
                 {qv.foresight.criticalUncertainties.length > 0 && (
-                  <div className="rounded-xl border border-gray-100 bg-white p-3">
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/40 p-3">
                     <h4 className="mb-1.5 text-xs font-bold uppercase tracking-wider text-gray-400">
                       关键不确定性
                     </h4>
@@ -575,7 +575,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
 
             {/* 值得跟踪的早期信号 */}
             {qv.foresight.leadingIndicators.length > 0 && (
-              <div className="rounded-xl border border-gray-100 bg-white p-3">
+              <div className="rounded-xl border border-gray-100 bg-gray-50/40 p-3">
                 <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gray-400">
                   <Radar className="h-3.5 w-3.5 text-indigo-400" />
                   值得跟踪的早期信号
