@@ -22,6 +22,7 @@ import type {
 import type { MissionDeps } from "../../context/mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { narrate } from "../../artifacts/narrative.util";
+import { agentUsageFromEvents } from "../helpers/agent-usage.util";
 
 export async function runReconcilerStage(
   ctx: MissionInvariants & PlanPhaseCtx & ResearchPhaseCtx & SynthesisPhaseCtx,
@@ -175,6 +176,7 @@ export async function runReconcilerStage(
       {
         wallTimeMs: reconRes.wallTimeMs,
         iterations: reconRes.iterations,
+        ...agentUsageFromEvents(reconRes.events),
       },
     );
   } catch (err) {

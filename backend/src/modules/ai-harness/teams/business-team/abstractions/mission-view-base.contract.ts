@@ -172,6 +172,12 @@ export interface MissionViewBaseAgent {
   wallTimeMs?: number;
   startedAt?: number;
   endedAt?: number;
+  // ★ 2026-05-29：per-agent 用量（"Agent 实例耗时"表的 Tokens / 成本 / 工具列）。
+  //   由各 agent 终态事件（chapter:*:completed / agent:lifecycle）携带 RunResult 用量，
+  //   projector 读取后填充。新增 optional 字段，向后兼容。
+  tokensUsed?: number;
+  costUsd?: number;
+  toolCallCount?: number;
 }
 
 // ============================================================================

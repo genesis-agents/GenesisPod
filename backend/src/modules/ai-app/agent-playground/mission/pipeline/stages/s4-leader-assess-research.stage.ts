@@ -33,6 +33,7 @@ import type { MissionDeps } from "../../context/mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { extractFailureMessage } from "@/modules/ai-harness/facade";
 import { narrate } from "../../artifacts/narrative.util";
+import { agentUsageDetail } from "../helpers/agent-usage.util";
 import { runPerDimPipeline } from "../helpers/per-dim-pipeline.util";
 // ★ 2026-05-21 P2 闭环：来源充分性单一权威（含域名多样性）
 import { computeEvidenceBudget } from "../../artifacts/evidence-budget";
@@ -777,6 +778,7 @@ async function runResearcherWithCritique(
       iterations: r.iterations,
       dimension: dim.name,
       retryLabel,
+      ...agentUsageDetail(r),
       error: extractFailureMessage(r.events, r.state, !!r.output, {
         iterations: r.iterations,
         wallTimeMs: r.wallTimeMs,

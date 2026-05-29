@@ -52,6 +52,7 @@ import {
   MISSION_WRITER_MAX_ATTEMPTS,
 } from "@/modules/ai-harness/facade";
 import { narrate } from "../../artifacts/narrative.util";
+import { agentUsageDetail } from "../helpers/agent-usage.util";
 import { clampScore, scaleScore } from "@/modules/ai-harness/facade";
 import { defaultStructuralReportAssembler } from "@/modules/ai-harness/facade";
 import { extractReportSegments } from "../../artifacts/util/segment-extractors.util";
@@ -242,6 +243,7 @@ export async function runWriterStage(
         wallTimeMs: writerRes.wallTimeMs,
         iterations: writerRes.iterations,
         attempt: attempts,
+        ...agentUsageDetail(writerRes),
         error: extractFailureMessage(
           writerRes.events,
           writerRes.state,

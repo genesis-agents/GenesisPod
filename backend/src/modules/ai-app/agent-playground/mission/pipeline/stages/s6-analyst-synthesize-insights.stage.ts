@@ -27,6 +27,7 @@ import {
   extractFailureMessage,
 } from "@/modules/ai-harness/facade";
 import { narrate } from "../../artifacts/narrative.util";
+import { agentUsageFromEvents } from "../helpers/agent-usage.util";
 
 /**
  * Provider 层失败码：发送给同一 provider 的下游调用必然也会失败，
@@ -235,6 +236,7 @@ export async function runAnalystStage(
       iterations: analystRes.iterations,
       error: analystFailMsg,
       degraded: analystRes.state === "degraded" || undefined,
+      ...agentUsageFromEvents(analystRes.events),
     },
   );
   if (!finalUsable) {

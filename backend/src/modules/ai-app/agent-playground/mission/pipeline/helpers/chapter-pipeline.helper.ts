@@ -14,6 +14,7 @@ import { ChapterReviewerAgent } from "../../agents/writer/chapter-reviewer.agent
 import type { MissionDeps } from "../../context/mission-deps";
 import type { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import type { MissionBudgetPool } from "@/modules/ai-harness/facade";
+import { agentUsageDetail } from "./agent-usage.util";
 import {
   extractTokenSpend,
   REVIEW_PASS_THRESHOLD,
@@ -329,6 +330,8 @@ export async function runChapterPipeline(
           state: "completed",
           defectScan:
             totalDefects > 0 ? { total: totalDefects, ...defects } : undefined,
+          // ★ 2026-05-29：per-agent 用量（Tokens / 成本 / 模型 / 工具列）
+          ...agentUsageDetail(writerRes),
         },
       })
       .catch((err: unknown) => {
@@ -459,6 +462,8 @@ export async function runChapterPipeline(
           summary: verdict.summary,
           issues,
           critique: verdict.critique ?? verdict.summary,
+          // ★ 2026-05-29：reviewer per-agent 用量（trace 太薄不显示的真因，从 RunResult 带出）
+          ...agentUsageDetail(reviewerRes),
         },
       })
       .catch((err: unknown) => {

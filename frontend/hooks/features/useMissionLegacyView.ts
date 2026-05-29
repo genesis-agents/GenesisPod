@@ -208,10 +208,25 @@ function dvProjectAgents(
               startedAt: (a as { startedAt?: number }).startedAt,
               endedAt: (a as { endedAt?: number }).endedAt,
               trace: traceByAgent.get(a.id) ?? [],
-              // ★ 2026-05-27 (#109): tokens / toolCallCount 从 trace 派生 fallback.
-              //   backend agent-view.projector 暂未暴露 per-agent cost / token /
-              //   tool 计数字段, 先在前端从 traceByAgent 算; costUsd 留 undefined.
-              ...computeAgentTraceMetrics(traceByAgent.get(a.id) ?? []),
+              // ★ 2026-05-29: backend agent-view.projector 现已暴露 per-agent
+              //   tokensUsed / costUsd / toolCallCount（各 agent 终态事件携带 RunResult
+              //   用量）。优先用 canonical 值；缺失时回退 trace 派生（#109 老路径，
+              //   覆盖 buffer evict / 旧 mission 无新字段的情况）。
+              ...(() => {
+                const traceMetrics = computeAgentTraceMetrics(
+                  traceByAgent.get(a.id) ?? []
+                );
+                const ca = a as {
+                  tokensUsed?: number;
+                  costUsd?: number;
+                  toolCallCount?: number;
+                };
+                return {
+                  tokensUsed: ca.tokensUsed ?? traceMetrics.tokensUsed,
+                  toolCallCount: ca.toolCallCount ?? traceMetrics.toolCallCount,
+                  costUsd: ca.costUsd,
+                };
+              })(),
             })
           );
 

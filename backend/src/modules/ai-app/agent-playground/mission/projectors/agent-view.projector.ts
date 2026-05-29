@@ -38,6 +38,10 @@ interface AgentDigest {
   wallTimeMs?: number;
   startedAt?: number;
   endedAt?: number;
+  // ★ 2026-05-29 per-agent 用量（从终态事件 payload 读取）
+  tokensUsed?: number;
+  costUsd?: number;
+  toolCallCount?: number;
 }
 
 export function projectAgents(
@@ -63,6 +67,19 @@ export function projectAgents(
 
     if (modelId && !digest.modelId) digest.modelId = modelId;
     if (role !== "unknown" && digest.role === "unknown") digest.role = role;
+
+    // ★ 2026-05-29：per-agent 用量从终态事件 payload 读取（chapter:*:completed /
+    //   agent:lifecycle 由 agentUsageDetail 注入）。取最后一次非空值（终态事件携带完整累计）。
+    {
+      const up = ev.payload as Record<string, unknown> | null;
+      if (up) {
+        if (typeof up.tokensUsed === "number")
+          digest.tokensUsed = up.tokensUsed;
+        if (typeof up.costUsd === "number") digest.costUsd = up.costUsd;
+        if (typeof up.toolCallCount === "number")
+          digest.toolCallCount = up.toolCallCount;
+      }
+    }
 
     // ★ 2026-05-27 修复 (Screenshot_5)：playground 没有专用 agent.started/completed
     //   事件——agent 生命周期是从 stage / chapter / dim 事件 derive 出来的。
@@ -174,6 +191,9 @@ export function projectAgents(
     wallTimeMs: d.wallTimeMs,
     startedAt: d.startedAt,
     endedAt: d.endedAt,
+    tokensUsed: d.tokensUsed,
+    costUsd: d.costUsd,
+    toolCallCount: d.toolCallCount,
   }));
 }
 

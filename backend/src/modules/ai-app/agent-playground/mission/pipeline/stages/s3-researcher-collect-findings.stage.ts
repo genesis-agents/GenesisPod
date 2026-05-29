@@ -33,6 +33,7 @@ import type {
   ResearchPhaseCtx,
 } from "../../context/mission-context";
 import type { MissionDeps } from "../../context/mission-deps";
+import { agentUsageDetail } from "../helpers/agent-usage.util";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { MissionAbortReason } from "@/modules/ai-harness/facade";
 import {
@@ -686,6 +687,7 @@ async function runOneDim(
         wallTimeMs: r.wallTimeMs,
         iterations: r.iterations,
         dimension: dim.name,
+        ...agentUsageDetail(r),
         error: extractFailureMessage(r.events, r.state, !!r.output, {
           iterations: r.iterations,
           wallTimeMs: r.wallTimeMs,
