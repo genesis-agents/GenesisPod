@@ -30,6 +30,41 @@
 
 ---
 
+## 要 X 能力 → 从哪个 facade 导入（canonical 速查）
+
+> **背景**：约 23 个 engine 原子符号同时从 `ai-engine/facade` 与 `ai-harness/facade` 导出，IDE
+> auto-import 会随机挑一个。**canonical 来源 = `ai-engine/facade`**；harness 对这些符号仅做过渡
+> re-export，且已加 `@deprecated` JSDoc（IDE 显示删除线）引导你换源。**不要因为"两边都能 import 通"
+> 就随手挑 harness 那条**。
+
+**判定法则（一句话）：**
+
+- **engine 原子能力**（LLM 调用 / RAG / Skill 注册 / Tool 注册 / 模型配置 / 安全守卫等，"换个 App 也能复用"）→ **从 `@/modules/ai-engine/facade` 导入**。
+- **harness 运行时能力**（Agent / Team / Mission 生命周期 / 编排 loop / 协议 / 追踪 / 资源 guardrails 等，"必知 agent / mission"）→ **从 `@/modules/ai-harness/facade` 导入**。
+
+| 你要的能力                                                                        | canonical facade    | 代表符号                                                                                                                                 |
+| --------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| LLM 调用 / 模型配置 / failover / 发现 / 连接测试 / 自动配置                       | `ai-engine/facade`  | `AiChatService` `AiModelConfigService` `ModelFallbackService` `AiModelDiscoveryService` `AiConnectionTestService` `AutoConfigureService` |
+| 模型选举 / prompt 缓存协调 / `inferIsReasoning`                                   | `ai-engine/facade`  | `ModelElectionService` `MissionElectionTracker` `PromptCacheCoordinatorService` `inferIsReasoning`                                       |
+| RAG 基元（embedding / 向量 / 切块 / pipeline）                                    | `ai-engine/facade`  | `EmbeddingService` `VectorService` `DocumentChunker` `RAGPipelineService`                                                                |
+| Skill 注册 / 桥接                                                                 | `ai-engine/facade`  | `SkillRegistry` `PromptSkillBridge`                                                                                                      |
+| Tool 注册 / 具体工具                                                              | `ai-engine/facade`  | `ToolRegistry` `FederalRegisterTool` `CongressGovTool` `WhiteHouseNewsTool`                                                              |
+| 上下文压缩 / 上下文演化 / 跨切面综合 / token 预算                                 | `ai-engine/facade`  | `ContextCompressionService` `ContextEvolutionService` `CrossCuttingSynthesisService` `TokenBudgetService`                                |
+| 安全守卫 / 熔断 / 图像匹配 / 内容 sanitize / function-calling 适配 / YouTube 抓取 | `ai-engine/facade`  | `CapabilityGuardService` `CircuitBreakerService` `ImageMatchingService` `sanitizeForDb` `FunctionCallingLLMAdapter` `YoutubeService`     |
+| Agent 定义 / 注册 / 基类                                                          | `ai-harness/facade` | `AgentRegistry` `AgentFactory` `BaseAgent` `PlanBasedAgent`                                                                              |
+| Team / Role 注册 / Mission 编排 / pipeline                                        | `ai-harness/facade` | `TeamRegistry` `RoleRegistry` `MissionOrchestrator` `MissionPipelineOrchestrator`                                                        |
+| Mission 生命周期 / 终态仲裁 / checkpoint / 健康监测                               | `ai-harness/facade` | `MissionLifecycleManager` `MissionCheckpointService` `MissionHealthMonitor`                                                              |
+| 运行循环 / executor / token 追踪 / DAG 调度                                       | `ai-harness/facade` | `AgentExecutorService` `QueryLoopService` `TokenTrackerService` `DAGExecutor`                                                            |
+| 协议（事件总线 / IPC / A2A / 实时 / journal）                                     | `ai-harness/facade` | `DomainEventBus` `EventBusService` `MessageBusService` `EventJournalService`                                                             |
+| 追踪 / 可观测 / 评测 harness                                                      | `ai-harness/facade` | `AgentTracer` `AiObservabilityService` `EvalHarnessService`                                                                              |
+| 资源 guardrails（预算 / 计费 / 限流 / 并发 / 约束）                               | `ai-harness/facade` | `MissionBudgetPool` `BillingRuntimeEnvAdapter` `RateLimiter` `ConstraintEngine`                                                          |
+
+> **当且仅当一个符号两边都导出时**，挑 `ai-engine/facade`（canonical）。harness 那条标了 `@deprecated`，
+> 留着只为不破坏 600+ 现有 import，**不要新增对 harness 那条的依赖**。纯 harness 运行时符号（上表下半部分）
+> 在 engine/facade 不存在，照常从 `ai-harness/facade` 导入。
+
+---
+
 ## 配方 1：新增 Agent
 
 参考实现：`backend/src/modules/ai-app/topic-insights/agents/topic-insights.agent.ts`
