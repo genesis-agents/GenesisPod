@@ -668,8 +668,12 @@ export default function MissionDetailPage() {
     const sweepStatus = (raw: MissionTodo['status']): MissionTodo['status'] => {
       if (!missionTerminal) return raw;
       if (raw === 'done' || raw === 'failed' || raw === 'cancelled') return raw;
-      return missionTerminalSuccess
-        ? 'done'
+      if (missionTerminalSuccess) return 'done';
+      // ★ 2026-05-30：mission 被取消（含额度耗尽被判 cancelled）时，未抵达的 stage
+      //   显示「已取消」（中性灰）而非「失败」（红），避免"额度没了也满屏红"的误导观感。
+      //   真正 failed 的 mission 才把未结 stage 扫成红。
+      return m?.status === 'cancelled'
+        ? ('cancelled' as MissionTodo['status'])
         : ('failed' as MissionTodo['status']);
     };
     return items.map(
@@ -1799,13 +1803,21 @@ function MissionSettingsModal({
             status?: string;
             errorMessage?: string | null;
           };
-          if (m.status !== 'failed' || !m.errorMessage) return null;
+          // ★ 2026-05-30：失败原因横幅此前只在 status==='failed' 渲染，导致 cancelled /
+          //   quality-failed 终态（含"额度耗尽被判 cancelled"）完全不显示原因。改为所有
+          //   非成功终态都展示，让用户看得到"为什么停了"。
+          const isFailish =
+            m.status === 'failed' ||
+            m.status === 'cancelled' ||
+            m.status === 'quality-failed';
+          if (!isFailish || !m.errorMessage) return null;
           return (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-900">
-              <p className="font-semibold">上次失败原因</p>
+              <p className="font-semibold">上次未成功原因</p>
               <p className="mt-0.5">{m.errorMessage}</p>
               <p className="mt-1 text-amber-700">
-                如为预算耗尽，请提高下方「调研规模」档位或自定义 Credits
+                如为预算 / 密钥额度耗尽，请充值对应
+                Provider，或提高下方「调研规模」档位 / 自定义 Credits
                 上限后重跑（修改后保存即生效）。
               </p>
             </div>

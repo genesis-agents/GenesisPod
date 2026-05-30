@@ -144,43 +144,125 @@ describe("§ todo-board projector × stage:lifecycle (Screenshot_52 regression g
     expect(s2!.status).toBe("in_progress");
   });
 
-  it("failed mission + 早期 stage 事件被 buffer evict → 失败点之前的 system stage 补 done（Screenshot_26/27 回归）", () => {
-    // 单维度 local-rerun 场景：rerun 事件洪水把 s1/s2 的原始 done 事件挤出
-    // MissionEventBuffer FIFO(5000)，projector 重放看不到 → 不修复会残留 pending →
-    // 前端 sweepStatus 把 pending system stage 一律扫成 failed → s1/s2 误显红。
+  it("cancelled mission 但持久化产物证明 s1-s8 跑完 → 即便事件全被 evict 仍显 done（Screenshot_29 额度耗尽回归）", () => {
+    // 生产实证 mission 06be38c5：多轮重跑后 MissionEventBuffer FIFO 把**所有** stage
+    // 事件挤掉（此处传 [] 模拟全 evict），但 row 里 themeSummary/reconciliationReport/
+    // analystOutput/outlinePlan/reportFull 全在（s1-s8 实际跑完），verdicts(s9)/
+    // leaderSigned(s10) 缺。改用产物 high-water 后，s1-s8 应显 done 而非满屏红。
     const row = fakeRow();
-    (row as { status: string }).status = "failed";
+    Object.assign(row as Record<string, unknown>, {
+      status: "cancelled",
+      themeSummary: "算力负载预测",
+      dimensions: [{ id: "d1", name: "硬件" }],
+      reconciliationReport: { gaps: [] },
+      analystOutput: { insights: [] },
+      outlinePlan: { chapterOutlines: [] },
+      reportFull: { content: {}, sections: [] },
+      verdicts: null,
+      leaderSigned: false,
+    });
+    const out = projectTodoBoard(row, []); // 事件全 evict
+    const items = out.kind === "todo-board" ? (out.items ?? []) : [];
+    const byStage = (id: string) => items.find((t) => t.systemStageId === id);
+    // 产物 high-water = s8-writer-draft（reportFull 存在）→ s1..s8 全 done
+    for (const id of [
+      "s1-budget",
+      "s2-leader-plan",
+      "s3-researchers",
+      "s4-leader-assess",
+      "s5-reconciler",
+      "s6-analyst",
+      "s7-writer-outline",
+      "s8-writer-draft",
+    ]) {
+      expect(byStage(id)!.status).toBe("done");
+    }
+    // high-water 之上（verdicts/签字 缺）→ 维持 pending，前端按 cancelled 终态扫成灰
+    expect(byStage("s9-critic-l4")!.status).toBe("pending");
+    expect(byStage("s10-leader-signoff")!.status).toBe("pending");
+    expect(byStage("s11-persist")!.status).toBe("pending");
+  });
+
+  it("quality-failed mission（此前不匹配任何分支，gap#1）→ 产物证明的 s1-s8 仍 done", () => {
+    // quality-failed = leader 拒签/质量闸门未过，是终态但既非 completed 也非 failed。
+    // 重构前它不匹配 projector 任何分支 → 零补偿 → 满屏红。统一后按产物 high-water 收尾。
+    const row = fakeRow();
+    Object.assign(row as Record<string, unknown>, {
+      status: "quality-failed",
+      themeSummary: "算力负载预测",
+      reconciliationReport: { gaps: [] },
+      analystOutput: { insights: [] },
+      outlinePlan: { chapterOutlines: [] },
+      reportFull: { content: {}, sections: [] },
+      verdicts: null,
+      leaderSigned: false,
+    });
+    const out = projectTodoBoard(row, []); // 事件全 evict
+    const items = out.kind === "todo-board" ? (out.items ?? []) : [];
+    const byStage = (id: string) => items.find((t) => t.systemStageId === id);
+    for (const id of [
+      "s1-budget",
+      "s2-leader-plan",
+      "s3-researchers",
+      "s4-leader-assess",
+      "s5-reconciler",
+      "s6-analyst",
+      "s7-writer-outline",
+      "s8-writer-draft",
+    ]) {
+      expect(byStage(id)!.status).toBe("done");
+    }
+    expect(byStage("s9-critic-l4")!.status).toBe("pending");
+  });
+
+  it("running mission + 早期事件被 evict（gap#2）→ 产物补 done，但保留 live in_progress 不回退", () => {
+    const row = fakeRow();
+    Object.assign(row as Record<string, unknown>, {
+      status: "running",
+      themeSummary: "x",
+      reconciliationReport: {},
+      analystOutput: {},
+      outlinePlan: {},
+      reportFull: { content: {}, sections: [] }, // high-water = s8
+    });
+    // 早期 s1-s8 事件已 evict（缺失），只剩 s9 的 live started 事件：
     const out = projectTodoBoard(row, [
-      // s1/s2 的 done 事件已被 evict（此处缺失）；只剩 rerun 后的近期事件：
       {
         type: "agent-playground.stage:lifecycle",
-        payload: { stepId: "s3-researcher-collect", status: "completed" },
-        timestamp: 1700000003000,
-      },
-      {
-        type: "agent-playground.stage:lifecycle",
-        payload: {
-          stepId: "s4-leader-assess",
-          status: "failed",
-          error: "cascade aborted",
-        },
-        timestamp: 1700000004000,
+        payload: { stepId: "s9-critic", status: "started" },
+        timestamp: 1700000009000,
       },
     ]);
     const items = out.kind === "todo-board" ? (out.items ?? []) : [];
     const byStage = (id: string) => items.find((t) => t.systemStageId === id);
-    // 失败点（s4，idx 3）之前的 system stage：s1/s2/s3 → 补 done
+    // 产物补偿：s1-s8 pending → done（即便 running）
     expect(byStage("s1-budget")!.status).toBe("done");
-    expect(byStage("s2-leader-plan")!.status).toBe("done");
-    expect(byStage("s3-researchers")!.status).toBe("done");
-    // 失败点本身维持 failed
-    expect(byStage("s4-leader-assess")!.status).toBe("failed");
-    // 失败点之后的 system stage 维持 pending（"停在哪里"语义，前端再按终态扫）
-    expect(byStage("s5-reconciler")!.status).toBe("pending");
-    expect(byStage("s11-persist")!.status).toBe("pending");
+    expect(byStage("s8-writer-draft")!.status).toBe("done");
+    // live 阶段不回退：s9 维持 in_progress（high-water 之上，运行中不动）
+    expect(byStage("s9-critic-l4")!.status).toBe("in_progress");
+    // s10+ 仍 pending（既无产物也无事件）
+    expect(byStage("s10-leader-signoff")!.status).toBe("pending");
   });
 
-  it("failed mission 早期失败（s1 failed）→ 不误补任何 stage 为 done", () => {
+  it("completed mission + 维度 todo 事件被 evict（gap#6）→ 维度显 done 而非灰 cancelled", () => {
+    const row = fakeRow();
+    (row as { status: string }).status = "completed";
+    // 维度 todo 由事件创建为 in_progress（completed 事件被 evict）；主维度 origin=leader-plan
+    const out = projectTodoBoard(row, [
+      {
+        type: "agent-playground.dimension:research:started",
+        payload: { dimension: "硬件产能与供应链天花板" },
+        timestamp: 1700000003000,
+      },
+    ]);
+    const items = out.kind === "todo-board" ? (out.items ?? []) : [];
+    const dim = items.find((t) => t.dimensionRef === "硬件产能与供应链天花板");
+    expect(dim).toBeDefined();
+    // completed mission 的主维度 → done（不再 blanket 扫成 cancelled）
+    expect(dim!.status).toBe("done");
+  });
+
+  it("failed mission 早期失败、无任何持久化产物 → 不误补任何 stage 为 done", () => {
     const row = fakeRow();
     (row as { status: string }).status = "failed";
     const out = projectTodoBoard(row, [
@@ -193,7 +275,7 @@ describe("§ todo-board projector × stage:lifecycle (Screenshot_52 regression g
     const items = out.kind === "todo-board" ? (out.items ?? []) : [];
     const byStage = (id: string) => items.find((t) => t.systemStageId === id);
     expect(byStage("s1-budget")!.status).toBe("failed");
-    // s2+ 没有任何 stage 跑过 → 不补 done，维持 pending
+    // 无产物 high-water（artifactHighWater=-1）→ 不补任何 done，s2+ 维持 pending
     expect(byStage("s2-leader-plan")!.status).toBe("pending");
     expect(byStage("s6-analyst")!.status).toBe("pending");
   });
