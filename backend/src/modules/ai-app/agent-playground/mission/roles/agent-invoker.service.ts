@@ -31,6 +31,63 @@ import { AgentExecutionSupport } from "./agent-execution-support";
 import { AgentInvocationPolicy } from "./agent-invocation-policy";
 import { AgentPlaygroundEventRelay } from "../../runtime/agent-playground.event-relay";
 import { PlaygroundMissionSpanService } from "../pipeline/playground-mission-span.service";
+import { MissionStore } from "../lifecycle/mission-store.service";
+
+/**
+ * ★ Wire-Cost (2026-05-30)：从一个 stage 的 raw agent events 抽取真实 LLM 用量
+ * （promptTokens / completionTokens / costUsd / 主导 modelId），用于逐 stage 写
+ * 成本台账。promptTokens/completionTokens/costUsd 取所有 thinking 事件之和；
+ * model 取出现次数最多的 modelId（同一 stage 内可能多轮 react，模型一般一致）。
+ */
+function extractStageUsage(events: readonly IAgentEvent[] | undefined): {
+  promptTokens: number;
+  completionTokens: number;
+  costUsd: number;
+  model: string | null;
+} {
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let costUsd = 0;
+  const modelCounts = new Map<string, number>();
+  if (events) {
+    for (const ev of events) {
+      if (ev.type !== "thinking") continue;
+      const p = ev.payload as {
+        promptTokens?: unknown;
+        completionTokens?: unknown;
+        costUsd?: unknown;
+        modelId?: unknown;
+      } | null;
+      const pt = toFiniteNonNeg(p?.promptTokens);
+      const ct = toFiniteNonNeg(p?.completionTokens);
+      const cu = toFiniteNonNeg(p?.costUsd);
+      promptTokens += pt;
+      completionTokens += ct;
+      costUsd += cu;
+      if (typeof p?.modelId === "string" && p.modelId.length > 0) {
+        modelCounts.set(p.modelId, (modelCounts.get(p.modelId) ?? 0) + 1);
+      }
+    }
+  }
+  let model: string | null = null;
+  let best = 0;
+  for (const [m, c] of modelCounts) {
+    if (c > best) {
+      best = c;
+      model = m;
+    }
+  }
+  return { promptTokens, completionTokens, costUsd, model };
+}
+
+function toFiniteNonNeg(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v) && v >= 0) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return 0;
+}
 
 /** 每次 invoke 时给到 invoker 的 context，统一所有 role service 入参 shape */
 export interface InvocationContext {
@@ -61,6 +118,9 @@ export class AgentInvoker {
     private readonly abortRegistry: MissionAbortRegistry,
     failureLearner: FailureLearnerService,
     @Optional() private readonly spanService?: PlaygroundMissionSpanService,
+    // ★ Wire-Cost (2026-05-30)：逐 stage 把 LLM 用量 append 到成本台账。
+    //   Optional：spec / 无 store 环境下降级为仅原 tickCost 行为。
+    @Optional() private readonly missionStore?: MissionStore,
   ) {
     this.execution = new AgentExecutionSupport(runner, abortRegistry);
     this.relay = new AgentPlaygroundEventRelay(eventBus);
@@ -221,6 +281,32 @@ export class AgentInvoker {
       deltaTokens,
       agentEvents,
     );
+    // ★ Wire-Cost (2026-05-30)：逐 stage 把真实 LLM 用量 append 到成本台账。
+    //   fire-and-forget（不阻塞主链路）；CostLedgerStore 内部失败已结构化 warn
+    //   'cost_ledger_write_failed' 不吞错。此处再包一层 void+catch 兜底防 reject 逃逸。
+    if (this.missionStore) {
+      const usage = extractStageUsage(agentEvents);
+      void this.missionStore
+        .appendCostEntry({
+          missionId,
+          userId,
+          stepId: stage,
+          role: stage,
+          model: usage.model,
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          // 真实 per-model costUsd 优先；thinking 事件无 costUsd 时回退 pool 已记的
+          //   deltaTokens 估算（与 relay.tickCost 的 estimateUsdFromTokens 同口径）。
+          costUsd: usage.costUsd > 0 ? usage.costUsd : deltaTokens * 0.000003,
+        })
+        .catch((err: unknown) => {
+          this.log.warn(
+            `cost_ledger_write_failed mission=${missionId} stage=${stage}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        });
+    }
   }
 
   /**
