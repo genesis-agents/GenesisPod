@@ -469,6 +469,35 @@ describe("SupervisedMission.assessResearchers", () => {
     );
   });
 
+  it("hydratePlan() unblocks assessResearchers WITHOUT an LLM plan call (single-dim rerun, Screenshot_28 regression)", async () => {
+    // 重跑 cascade 从 s3 起、s2-leader-plan 不重跑：leader.plan() 永不调用。
+    // hydratePlan 用持久化 plan 回灌 context.plan，使 assessResearchers 不再撞
+    // "must call plan() before assessResearchers()"，且不消耗一次 LLM 规划调用。
+    const store = makeStore();
+    const runFn = jest.fn().mockResolvedValueOnce({
+      state: "completed",
+      output: makeAssessOutput(),
+      events: [],
+    });
+    const mission = new SupervisedMission(
+      "m1",
+      "u1",
+      baseTask,
+      runFn,
+      store as never,
+      makeLog(),
+    );
+    mission.hydratePlan(makePlanOutput() as never);
+    const result = await mission.assessResearchers(outcomes);
+    expect(result.phase).toBe("assess-research");
+    // 仅 1 次 runFn（assess），plan 没有走 LLM
+    expect(runFn).toHaveBeenCalledTimes(1);
+    // 回灌时种入了一条 plan 决策（供 M7 signOff 问责引用）
+    expect(mission.getContext().decisions.some((d) => d.phase === "plan")).toBe(
+      true,
+    );
+  });
+
   it("returns assessResearch output after plan()", async () => {
     const store = makeStore();
     const runFn = jest

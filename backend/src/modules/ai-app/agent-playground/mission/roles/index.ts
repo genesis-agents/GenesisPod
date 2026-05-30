@@ -29,6 +29,7 @@ export {
   type LeaderResearcherOutcome,
   type LeaderStageOutcomes,
   type LeaderFinalQuality,
+  type LeaderPlanOutput,
 } from "./leader.service";
 export { ResearcherService } from "./researcher.service";
 export { ReconcilerService } from "./reconciler.service";

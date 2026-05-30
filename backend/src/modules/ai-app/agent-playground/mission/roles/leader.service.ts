@@ -27,6 +27,8 @@ import {
   type LeaderPlanOutput,
   type LeaderSignoffOutput,
 } from "../agents/leader/leader.agent";
+
+export type { LeaderPlanOutput } from "../agents/leader/leader.agent";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { describeLeaderFailure } from "./leader-failure-diagnostic.utils";
 // ★ 2026-05-22 矩阵配置：维度 facet → 推荐工具集 确定性派生
@@ -437,6 +439,31 @@ export class SupervisedMission {
       throw new Error(`Leader.signOff failed [${fail.code}]: ${fail.message}`);
     }
     return res.output;
+  }
+
+  /**
+   * ★ 2026-05-30 单维度/中途重跑修复：cascade 从 s3+ 开始时 s2-leader-plan 不重跑，
+   *   leader.plan() 永不被调用 → assessResearchers / writeForeword / signOff 的
+   *   `if (!this.context.plan)` guard 全部 throw "must call plan() before X()"
+   *   （生产日志实证 mission 06be38c5：M1 assess-research failed: must call plan()...）。
+   *
+   *   用持久化的 leaderJournal.plan 无损回灌 context.plan（themeSummary/dimensions/
+   *   goals/initialRisks 在 plan() 阶段已整份写盘，见上方 appendLeaderJournal），不需
+   *   重新调用 LLM 规划。foreword 不在此回灌：cascade 到 s10 时 writeForeword 会先于
+   *   signOff 重新生成并 set context.foreword，使 signOff 的双重 guard 自然通过。
+   */
+  hydratePlan(plan: LeaderPlanOutput): void {
+    this.context.plan = plan;
+    // 重新种入一条 plan 决策，让 M7 signOff 的问责 prompt 仍能引用 M0 计划
+    // （rerun leader 的 decisions 从空开始，否则 signoff 看不到 M0 决策）。
+    if (!this.context.decisions.some((d) => d.phase === "plan")) {
+      this.context.decisions.push({
+        phase: "plan",
+        at: new Date().toISOString(),
+        decision: `plan(hydrated):${plan.dimensions.length}-dim`,
+        rationale: plan.themeSummary.slice(0, 200),
+      });
+    }
   }
 
   getContext(): Readonly<MissionContext> {

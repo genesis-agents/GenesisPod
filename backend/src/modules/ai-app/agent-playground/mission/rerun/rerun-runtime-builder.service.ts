@@ -22,7 +22,11 @@ import {
   type RerunRuntimeComposerHooks,
 } from "@/modules/ai-harness/facade";
 import { CreditsService } from "../../../../ai-infra/credits/credits.service";
-import { LeaderService, type SupervisedMission } from "../roles";
+import {
+  LeaderService,
+  type SupervisedMission,
+  type LeaderPlanOutput,
+} from "../roles";
 import { LeaderInvocationFactory } from "../pipeline/leader-invocation.factory";
 import {
   resolveBudgetMultiplier,
@@ -88,6 +92,22 @@ export class RerunMissionRuntimeBuilder extends BusinessTeamRerunRuntimeBuilderF
           },
           leaderInvocationFactory.build(missionId, userId, billing),
         );
+
+        // ★ 2026-05-30 单维度/中途重跑修复：cascade 从 s3+ 起 s2-leader-plan 不重跑，
+        //   leader.plan() 永不调用 → s4 assessResearchers / s10 writeForeword+signOff
+        //   全部撞 "must call plan() before X()"（生产日志 mission 06be38c5 实证）。
+        //   用 hydrate 出的持久化 plan（ctx-hydrator 已优先取 leaderJournal.plan 整份还原）
+        //   无 LLM 回灌 leader.context.plan。仅当 goals 存在（= 完整 plan，非 legacy 残缺）
+        //   才回灌，避免把 undefined goals 喂给 leader 导致 qualityBar 静默降级。
+        if (ctx.plan?.goals) {
+          // ctx.plan 来自 leaderJournal.plan 整份还原（dimensions 含 facet/toolHint），
+          // 运行期即完整 LeaderPlanOutput；stage 侧 MissionContext["plan"] 类型偏松
+          // （facet/toolHint 可选），此处断言收窄到 LeaderPlanOutput（必要断言，非冗余）。
+          leader.hydratePlan({
+            phase: "plan",
+            ...ctx.plan,
+          } as LeaderPlanOutput);
+        }
 
         const cleanup = this.makeCleanup(missionId);
         this.log.log(

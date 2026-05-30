@@ -146,6 +146,23 @@ export class CtxHydratorService extends BusinessTeamCtxHydratorFramework<
         | null) ?? [];
     const themeSummary = detail.themeSummary ?? "";
 
+    // ★ 2026-05-30 单维度/中途重跑修复：leaderJournal.plan 是 plan() 阶段整份写盘的
+    //   完整 LeaderPlanOutput（含 goals/initialRisks/qualityBar），而 mission 主行
+    //   只有 themeSummary + dimensions（无 goals/initialRisks）。优先用 journal.plan
+    //   还原完整 plan，让 buildSession 能回灌 leader.context.plan（解决 cascade 从 s3
+    //   起 s2 不重跑 → leader.plan() 永不调用 → assessResearchers 撞 "must call plan()"）。
+    //   legacy mission（journal 缺失）回落主行字段，goals/initialRisks 仍为 undefined。
+    const journalPlan = (
+      detail.leaderJournal as {
+        plan?: {
+          themeSummary?: string;
+          dimensions?: NonNullable<MissionContext["plan"]>["dimensions"];
+          goals?: NonNullable<MissionContext["plan"]>["goals"];
+          initialRisks?: NonNullable<MissionContext["plan"]>["initialRisks"];
+        };
+      } | null
+    )?.plan;
+
     type LeaderVerdict = "excellent" | "good" | "acceptable" | "failed";
     const leaderVerdict =
       (detail.leaderVerdict as LeaderVerdict | null) ?? null;
@@ -159,14 +176,12 @@ export class CtxHydratorService extends BusinessTeamCtxHydratorFramework<
       input,
       t0: Date.now(),
       plan: {
-        themeSummary,
-        dimensions,
-        goals: undefined as unknown as NonNullable<
+        themeSummary: journalPlan?.themeSummary ?? themeSummary,
+        dimensions: journalPlan?.dimensions ?? dimensions,
+        goals: journalPlan?.goals as NonNullable<
           MissionContext["plan"]
         >["goals"],
-        initialRisks: undefined as unknown as NonNullable<
-          MissionContext["plan"]
-        >["initialRisks"],
+        initialRisks: journalPlan?.initialRisks ?? [],
       },
       researcherResults,
       reconciliationReport:
