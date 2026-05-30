@@ -92,12 +92,13 @@ L1 Infrastructure → modules/ai-infra/
 >    - `ai-app/**` 不得穿透 `ai-engine/**` / `ai-harness/**` 内部路径，必须走各自 facade
 >    - 配置见 `backend/.eslintrc.js`
 > 2. **架构边界 spec 测试**（jest 拦截，覆盖 ESLint 漏掉的动态 import / 注释逃逸）
->    - 文件：`backend/src/__tests__/architecture/layer-boundaries.spec.ts`
->    - 7 项断言：单向依赖（4）+ facade 穿透（3）
->    - 命令：`npm run verify:arch`
-> 3. **pre-push hook**（推送前最后防线，CI 二次执行）
+>    - 范围：以 `backend/src/__tests__/architecture` 整个目录为准（多套件 / 多文件，含 layer-1-topology / layer-3-authority / layer-4-vocabulary / model-capability / runtime-contracts 等），不再是单文件单 7 项断言
+>    - 命令：`npm run verify:arch`（= `jest src/__tests__/architecture --no-coverage --forceExit`）
+> 3. **pre-push hook + CI 合并门**（推送前最后防线 + CI 强制执行）
 >    - `.husky/pre-push` 第 0 步先跑 `verify:arch`，违规直接拒推
 >    - 类型检查 / 构建 / 变更测试在后续步骤
+>    - CI：`verify:arch` 已在 GitHub Actions 的 `arch-boundary` job 执行，结果汇入 `ci-status` 合并门（失败即拒绝合并）
+>    - **覆盖率阈值（已知项，待接入 CI）**：`jest.config` 对 3 个核心模块配置了 85% 覆盖率门槛，但目前仅本地跑 `test:coverage` 时触发；CI 的 `test:quick` 不带 `--coverage`，故覆盖率阈值当前未在 CI 强制（待后续确认现状后接入）
 >
 > **历史包袱**：`modules/ai-kernel/`（已删，PR 7）+ `modules/ai-engine/runtime/`（已迁出，PR-X4~X10）—— 早期分层尝试，所有 Agent 运行时能力现在都集中在 `modules/ai-harness/` 这一层。
 >
@@ -183,20 +184,22 @@ onModuleInit() {
 ### Claude Code v2.1.88 反向洞察 10 条（2026-05-06 引入）
 
 > 来源：Anthropic 自己注释里写的"血的教训"（`d:/projects/codes/claude-code-build` 还原源码 1916 文件）。
-> 这套护栏对 ai-harness/runner / ai-engine/llm 类改动**全部强制**。任何 PR 不允许违反。
+> 这套护栏对 ai-harness/runner / ai-engine/llm 类改动是**强约束规范**。**如实说明**：当前 10 条均为 **honor-only**（靠人工 code review + 交付前自检清单看护），尚无自动化 spec/lint 拦截（架构 spec 套件与 `backend/.eslintrc.js` 经核对均未覆盖这 10 条）；其中第 1/4/8 条另有事后 post-mortem memory 记录（见末列），但属事故复盘而非预防性看护。待后续按"看护方式"列把高频项升级为 spec/lint。
+>
+> 看护方式图例：`spec`=有架构/单元 spec 拦截 · `lint`=有 ESLint 规则拦截 · `checklist`=纳入交付前自检清单 · `honor`=仅靠人工 review 自觉遵守。
 
-| #   | 反向坑                                                                                                  | 后果                                 | 出处                               | 我们对应教训                              |
-| --- | ------------------------------------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------- | ----------------------------------------- |
-| 1   | **`stop_reason === 'tool_use'` 不可靠**——必须看 assistant content 里有没有未执行 tool_use block         | 偶发漏判终止 / 该停没停 / 该续没续   | `query.ts:553-557`                 | `project_stage_emit_missing_2026_05_06`   |
-| 2   | **stop_reason 在 `message_delta` 才到，不是 `content_block_stop`**——读 content_block_stop 时永远是 null | 永远读到 null                        | `QueryEngine.ts:802-808`           | —                                         |
-| 3   | **`assistantMessages.push` 用原对象、yield 用 clone**——破原对象会破 prompt cache                        | 改原对象破 prompt cache 命中率       | `query.ts:742-787`                 | —                                         |
-| 4   | **API error 不跑 stop hook**——hook 注 token → PTL → retry 死循环                                        | 永远不可恢复的 retry storm           | `query.ts:1262-1264`               | `project_p1_react_runaway_fix_2026_04_29` |
-| 5   | **必须有 autocompact 断路器（MAX_CONSECUTIVE_FAILURES=3）**——否则不可恢复"context 永远超限"             | 日烧 250K API calls 类规模化事故     | `query.ts:262`（注释明文）         | —                                         |
-| 6   | **fallback 时必须 strip thinking signature**——signature 与模型绑定，跨模型 400                          | 跨 provider failover 一定 400        | `query.ts:925-929`                 | —                                         |
-| 7   | **pinnedEdits 必须每轮重插同位置（字节级一致）**——否则前缀漂移                                          | cache 命中率从 90%→0                 | `claude.ts:3127`                   | —                                         |
-| 8   | **Sub-agent / forked agent 默认禁用 cached microcompact**——写 module-level state 会跨 thread 污染       | 跨 thread 状态污染 / 数据错乱        | `microCompact.ts:272-285`          | `feedback_lint_staged_stash_safety`       |
-| 9   | **fallback 后必须 yield 配对 tool_result 占位**——否则 invalid_request                                   | API 直接 400                         | `query.ts:984`                     | —                                         |
-| 10  | **`streamingToolExecutor.discard()` 必须存在**——否则 partial tool 的 tool_use_id 与新一轮不匹配         | tool_use_id 漂移导致 invalid_request | `StreamingToolExecutor.ts:153-204` | —                                         |
+| #   | 反向坑                                                                                                  | 后果                                 | 出处                               | 看护方式 | 我们对应教训                              |
+| --- | ------------------------------------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------- | -------- | ----------------------------------------- |
+| 1   | **`stop_reason === 'tool_use'` 不可靠**——必须看 assistant content 里有没有未执行 tool_use block         | 偶发漏判终止 / 该停没停 / 该续没续   | `query.ts:553-557`                 | honor    | `project_stage_emit_missing_2026_05_06`   |
+| 2   | **stop_reason 在 `message_delta` 才到，不是 `content_block_stop`**——读 content_block_stop 时永远是 null | 永远读到 null                        | `QueryEngine.ts:802-808`           | honor    | —                                         |
+| 3   | **`assistantMessages.push` 用原对象、yield 用 clone**——破原对象会破 prompt cache                        | 改原对象破 prompt cache 命中率       | `query.ts:742-787`                 | honor    | —                                         |
+| 4   | **API error 不跑 stop hook**——hook 注 token → PTL → retry 死循环                                        | 永远不可恢复的 retry storm           | `query.ts:1262-1264`               | honor    | `project_p1_react_runaway_fix_2026_04_29` |
+| 5   | **必须有 autocompact 断路器（MAX_CONSECUTIVE_FAILURES=3）**——否则不可恢复"context 永远超限"             | 日烧 250K API calls 类规模化事故     | `query.ts:262`（注释明文）         | honor    | —                                         |
+| 6   | **fallback 时必须 strip thinking signature**——signature 与模型绑定，跨模型 400                          | 跨 provider failover 一定 400        | `query.ts:925-929`                 | honor    | —                                         |
+| 7   | **pinnedEdits 必须每轮重插同位置（字节级一致）**——否则前缀漂移                                          | cache 命中率从 90%→0                 | `claude.ts:3127`                   | honor    | —                                         |
+| 8   | **Sub-agent / forked agent 默认禁用 cached microcompact**——写 module-level state 会跨 thread 污染       | 跨 thread 状态污染 / 数据错乱        | `microCompact.ts:272-285`          | honor    | `feedback_lint_staged_stash_safety`       |
+| 9   | **fallback 后必须 yield 配对 tool_result 占位**——否则 invalid_request                                   | API 直接 400                         | `query.ts:984`                     | honor    | —                                         |
+| 10  | **`streamingToolExecutor.discard()` 必须存在**——否则 partial tool 的 tool_use_id 与新一轮不匹配         | tool_use_id 漂移导致 invalid_request | `StreamingToolExecutor.ts:153-204` | honor    | —                                         |
 
 > 落地手册：[docs/architecture/claude-code-borrow/agent-execution-guide.md](../../docs/architecture/claude-code-borrow/agent-execution-guide.md) §3 反向洞察 + P0/P1 任务卡
 

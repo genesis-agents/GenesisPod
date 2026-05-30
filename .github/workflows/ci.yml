@@ -237,12 +237,35 @@ jobs:
       - name: Facade boundary check
         run: bash scripts/devops/check-facade-boundary.sh
 
+  # ── Architecture Boundary ─────────────────────────────────
+  arch-boundary:
+    name: Architecture Boundary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=prisma/schema
+        working-directory: ./backend
+
+      - name: Architecture boundary spec
+        run: npm run verify:arch
+        working-directory: ./backend
+
   # ── CI Gate ────────────────────────────────────────────────
   ci-status:
     name: CI Status
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, test-backend, test-frontend, build, quality]
+    needs: [lint, test-backend, test-frontend, build, quality, arch-boundary]
     steps:
       - name: Check results
         run: |
@@ -251,12 +274,14 @@ jobs:
           echo "Test Frontend:  ${{ needs.test-frontend.result }}"
           echo "Build:          ${{ needs.build.result }}"
           echo "Quality:        ${{ needs.quality.result }}"
+          echo "Arch Boundary:  ${{ needs.arch-boundary.result }}"
 
           if [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.test-backend.result }}" != "success" ] || \
              [ "${{ needs.test-frontend.result }}" != "success" ] || \
              [ "${{ needs.build.result }}" != "success" ] || \
-             [ "${{ needs.quality.result }}" != "success" ]; then
+             [ "${{ needs.quality.result }}" != "success" ] || \
+             [ "${{ needs.arch-boundary.result }}" != "success" ]; then
             echo "CI failed"
             exit 1
           fi
