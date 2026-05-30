@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-29T20:45:32.506Z",
+  "generatedAt": "2026-05-30T20:32:22.489Z",
   "count": 187,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -440,154 +440,154 @@
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 504,
+      "line": 507,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "p === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 504,
+      "line": 507,
       "column": 30,
       "kind": "binary-eq",
       "snippet": "p === \"claude\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 505,
+      "line": 508,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "p === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 505,
+      "line": 508,
       "column": 27,
       "kind": "binary-eq",
       "snippet": "p === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 506,
+      "line": 509,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "p === \"xai\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 506,
+      "line": 509,
       "column": 24,
       "kind": "binary-eq",
       "snippet": "p === \"grok\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 525,
+      "line": 528,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "modelLower === \"grok\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 525,
+      "line": 528,
       "column": 34,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"grok\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 528,
+      "line": 531,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "modelLower === \"gpt-4\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 529,
+      "line": 532,
       "column": 7,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"gpt\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 530,
+      "line": 533,
       "column": 7,
       "kind": "method-call",
       "snippet": "modelLower.startsWith(\"o1\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 531,
+      "line": 534,
       "column": 7,
       "kind": "method-call",
       "snippet": "modelLower.startsWith(\"o3\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 534,
+      "line": 537,
       "column": 16,
       "kind": "binary-eq",
       "snippet": "modelLower === \"claude\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 534,
+      "line": 537,
       "column": 43,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"claude\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 536,
+      "line": 539,
       "column": 16,
       "kind": "binary-eq",
       "snippet": "modelLower === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 536,
+      "line": 539,
       "column": 43,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 2389,
+      "line": 2410,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "dbApiFormat === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 2390,
+      "line": 2411,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "dbApiFormat === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 2391,
+      "line": 2412,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "dbApiFormat === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 2392,
+      "line": 2413,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "dbApiFormat === \"xai\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 2441,
+      "line": 2462,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "apiFormat === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-chat.service.ts",
-      "line": 2456,
+      "line": 2477,
       "column": 18,
       "kind": "binary-eq",
       "snippet": "apiFormat === \"anthropic\""

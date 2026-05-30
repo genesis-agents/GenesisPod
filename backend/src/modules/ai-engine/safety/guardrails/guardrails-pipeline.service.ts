@@ -72,6 +72,9 @@ export class GuardrailsPipelineService {
     }
     const results: GuardrailResult[] = [];
     let blockedBy: string | undefined;
+    // ★ PII 脱敏通道：随管道逐个 guardrail 改写内容（chain），最终回传给调用方。
+    let currentContent = input.content;
+    let transformed = false;
 
     for (const guardrail of this.inputGuardrails) {
       // Skip disabled guardrails
@@ -81,8 +84,18 @@ export class GuardrailsPipelineService {
       }
 
       try {
-        const result = await guardrail.check(input);
+        // ★ 把上一个 guardrail 的脱敏结果作为下一个的输入（链式改写）
+        const result = await guardrail.check({
+          ...input,
+          content: currentContent,
+        });
         results.push(result);
+
+        // ★ 若该 guardrail 改写了内容（如 PII 脱敏），更新当前内容
+        if (typeof result.transformedContent === "string") {
+          currentContent = result.transformedContent;
+          transformed = true;
+        }
 
         // Short-circuit on 'block' severity
         if (result.severity === "block" && !result.passed) {
@@ -126,6 +139,9 @@ export class GuardrailsPipelineService {
       passed,
       results,
       blockedBy,
+      // ★ 仅当确实发生改写且未被阻断时回传脱敏内容，否则 undefined（调用方沿用原文）
+      transformedContent:
+        transformed && !blockedBy ? currentContent : undefined,
     };
   }
 
@@ -154,6 +170,9 @@ export class GuardrailsPipelineService {
     }
     const results: GuardrailResult[] = [];
     let blockedBy: string | undefined;
+    // ★ 输出侧同样支持脱敏链式改写
+    let currentContent = output.content;
+    let transformed = false;
 
     for (const guardrail of this.outputGuardrails) {
       // Skip disabled guardrails
@@ -165,8 +184,16 @@ export class GuardrailsPipelineService {
       }
 
       try {
-        const result = await guardrail.check(output);
+        const result = await guardrail.check({
+          ...output,
+          content: currentContent,
+        });
         results.push(result);
+
+        if (typeof result.transformedContent === "string") {
+          currentContent = result.transformedContent;
+          transformed = true;
+        }
 
         // Short-circuit on 'block' severity
         if (result.severity === "block" && !result.passed) {
@@ -210,6 +237,8 @@ export class GuardrailsPipelineService {
       passed,
       results,
       blockedBy,
+      transformedContent:
+        transformed && !blockedBy ? currentContent : undefined,
     };
   }
 
