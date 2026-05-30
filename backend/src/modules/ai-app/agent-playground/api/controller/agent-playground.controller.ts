@@ -21,6 +21,7 @@ import {
   Get,
   Headers,
   Logger,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -130,6 +131,11 @@ export class AgentPlaygroundController extends BaseMissionController {
     body: { userApiKeyId: string; input: unknown; internalToken?: string },
     @Headers("x-agent-playground-token") headerToken?: string,
   ): Promise<{ missionId: string }> {
+    // ★ WS-DEV (2026-05-30): 生产环境彻底关闭该内部触发端点，避免弱鉴权敞口。
+    //   抛 NotFoundException 使端点在生产环境表现为"不存在"，不暴露其存在性。
+    if (process.env.NODE_ENV === "production") {
+      throw new NotFoundException();
+    }
     if (!this.isDevTriggerAuthorized(headerToken ?? body?.internalToken)) {
       throw new ForbiddenException("dev trigger disabled or unauthorized");
     }
