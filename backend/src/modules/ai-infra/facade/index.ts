@@ -85,6 +85,12 @@ export { SettingsService } from "../settings/settings.service";
 export { AIMetricsService } from "../monitoring/metrics/ai-metrics.service";
 export { ErrorTrackingService } from "../monitoring/tracking/error-tracking.service";
 export { HealthCheckService } from "../monitoring/health/health-check.service";
+export { AuditLogService } from "../monitoring/audit/audit-log.service";
+export type {
+  AuditResult,
+  AuditRecordInput,
+  AuditQueryFilter,
+} from "../monitoring/audit/audit-log.service";
 
 // ─── BYOK / Credentials ─── (2026-05-01: 从 ai-engine/credentials 下沉到 ai-infra/credentials)
 // API key 凭证管理是基础设施（CRUD / 加解密 / BYOK 调度），不是 engine 核心能力。

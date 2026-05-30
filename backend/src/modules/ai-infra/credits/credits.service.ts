@@ -20,6 +20,7 @@ import {
   TransactionQueryDto,
   PaginatedTransactionsResponse,
 } from "./dto/transaction-query.dto";
+import { AuditLogService } from "../monitoring/audit/audit-log.service";
 
 /**
  * 余额阈值配置
@@ -66,6 +67,7 @@ export class CreditsService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     private creditRulesService: CreditRulesService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   async onModuleInit() {
@@ -619,6 +621,16 @@ export class CreditsService implements OnModuleInit {
     });
 
     this.logger.warn(`Account frozen for user ${userId}: ${reason}`);
+
+    // 高敏操作审计：账户冻结 append-only 留痕（写失败不阻断冻结）
+    await this.auditLog.record({
+      actorUserId: userId,
+      action: "credit.freeze",
+      resourceType: "credit_account",
+      resourceId: userId,
+      result: "success",
+      metadata: { reason },
+    });
   }
 
   /**

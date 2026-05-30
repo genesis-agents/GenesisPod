@@ -30,6 +30,7 @@ import {
 } from "./secret-name.catalog";
 import { EncryptionService } from "../encryption/encryption.service";
 import { SecretKeysService } from "./secret-keys.service";
+import { AuditLogService } from "../monitoring/audit/audit-log.service";
 
 export type SecretAggregateStatus = "ok" | "failed" | "unknown" | "disabled";
 
@@ -91,6 +92,7 @@ export class SecretsService {
     private prisma: PrismaService,
     private encryption: EncryptionService,
     private secretKeys: SecretKeysService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   async create(
@@ -258,6 +260,16 @@ export class SecretsService {
             secretName: sec.name,
           });
         }
+        // 高敏操作审计：secret 访问 append-only 留痕（与内部 access log 互补）
+        await this.auditLog.record({
+          actorUserId: context?.userId ?? null,
+          action: "secret.access",
+          resourceType: "secret",
+          resourceId: sec?.id,
+          result: "success",
+          ip: context?.ipAddress,
+          metadata: { secretName: name, path: "multi-key" },
+        });
         return resolved.value;
       }
     }
@@ -291,6 +303,16 @@ export class SecretsService {
 
     await this.logAccess(secret.id, SecretAction.VIEW, context, {
       secretName: secret.name,
+    });
+    // 高敏操作审计：secret 访问 append-only 留痕（legacy 单 KEY 路径）
+    await this.auditLog.record({
+      actorUserId: context?.userId ?? null,
+      action: "secret.access",
+      resourceType: "secret",
+      resourceId: secret.id,
+      result: "success",
+      ip: context?.ipAddress,
+      metadata: { secretName: secret.name, path: "legacy" },
     });
     return this.encryption.decryptAny(secret);
   }

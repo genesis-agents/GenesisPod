@@ -38,6 +38,7 @@ import { DistributedRateLimitGuard } from "../../../../../common/guards/distribu
 import { Public } from "../../../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../../../common/types/express-request.types";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { AuditLogService } from "@/modules/ai-infra/facade";
 import {
   RunMissionInputSchema,
   type RunMissionInput,
@@ -82,6 +83,8 @@ export class AgentPlaygroundController extends BaseMissionController {
     private readonly lifecycleManager: MissionLifecycleManager,
     // ★ E32 (2026-05-25): runMission 建行前早爆时补发终态事件，防前端死轮询。
     private readonly eventBus: DomainEventBus,
+    // ★ WS-Audit (2026-05-30): mission 取消/删除高敏操作 append-only 审计留痕。
+    private readonly auditLog: AuditLogService,
   ) {
     super(ownership, store);
   }
@@ -293,6 +296,14 @@ export class AgentPlaygroundController extends BaseMissionController {
         });
       },
     });
+    // 高敏操作审计：mission 取消 append-only 留痕（写失败不阻断取消）
+    await this.auditLog.record({
+      actorUserId: userId,
+      action: "mission.cancel",
+      resourceType: "agent_playground_mission",
+      resourceId: missionId,
+      result: "success",
+    });
     return { ok: true, status: "cancelled" };
   }
 
@@ -322,6 +333,15 @@ export class AgentPlaygroundController extends BaseMissionController {
     await this.store.deleteByUser(missionId, userId);
     this.electionTracker.clear(missionId);
     this.ownership.release(missionId);
+    // 高敏操作审计：mission 删除 append-only 留痕（写失败不阻断删除）
+    await this.auditLog.record({
+      actorUserId: userId,
+      action: "mission.delete",
+      resourceType: "agent_playground_mission",
+      resourceId: missionId,
+      result: "success",
+      metadata: { priorStatus: persisted.status },
+    });
     return { ok: true };
   }
 
