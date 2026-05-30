@@ -203,22 +203,36 @@ export function createMarkdownComponents(
               }
             }
 
-            // 3. Fallback: search all headings for text content match
+            // 3. Fallback: 按文字匹配标题。用【锚点 raw + 链接显示文字】两个 needle，
+            //    先精确（剥"N. "编号 + 去空格后相等），再包含式模糊（writer 改写过目录措辞
+            //    时局部出入也能命中）。覆盖 renumberHeadings 加编号 / TOC 与标题措辞不完全一致。
             if (!target) {
               const clean = (s: string) =>
                 s
-                  .replace(/^\d+[\s.、:：]+/, '')
+                  .replace(/^[\d.]+[\s.、:：)]+/, '') // 剥前导编号 "1. " / "1.2 " / "1)"
                   .replace(/\s+/g, '')
                   .toLowerCase();
-              const needle = clean(raw);
-              const headings = document.querySelectorAll(
-                'h1[id], h2[id], h3[id], h4[id]'
+              const needles = Array.from(
+                new Set([clean(raw), clean(extractText(children))])
+              ).filter((n) => n.length > 0);
+              // 不限 [id]：即便标题无 id（别的渲染器 / sanitize 滤掉）也能按文字命中并滚动
+              const headings = Array.from(
+                document.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6')
               );
-              for (const h of headings) {
-                if (clean(h.textContent || '') === needle) {
-                  target = h as HTMLElement;
-                  break;
-                }
+              // 3a. 精确相等
+              target =
+                headings.find((h) =>
+                  needles.includes(clean(h.textContent || ''))
+                ) ?? null;
+              // 3b. 包含式模糊（needle ⊆ 标题 或 标题 ⊆ needle，长度≥4 防误命中）
+              if (!target) {
+                target =
+                  headings.find((h) => {
+                    const ht = clean(h.textContent || '');
+                    return needles.some(
+                      (n) => n.length >= 4 && (ht.includes(n) || n.includes(ht))
+                    );
+                  }) ?? null;
               }
             }
 
