@@ -1658,15 +1658,45 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
         }
       }
     } else if (row.status === "failed" || row.status === "cancelled") {
+      // ★ 2026-05-30 修复（单维度重跑 → 全节点变"失败"，Screenshot_26/27）：
+      //   单维度 local-rerun 时 dispatcher 发大量 rerun 事件，把早期 stage 的
+      //   "stage done" 事件从 MissionEventBuffer FIFO(5000) 挤掉，projector 重放
+      //   时看不到 s1/s2 的 done → 残留 pending → 前端 sweepStatus 把 pending
+      //   system stage 一律扫成 failed → 上游已成功的 s1/s2 误显红色。
+      //
+      //   修复：流水线严格顺序，若某 system stage 仍有确定状态（done/failed/
+      //   in_progress），则它**之前**的所有 system stage 必然跑过 → pending 的
+      //   补 done（buffer evict 补偿）。失败点本身及其下游维持 pending 语义
+      //   （"停在哪里"），不在本次修复范围内动。
+      const stageIdx = (t: TodoBoardEntry): number =>
+        t.scope === "system" && t.systemStageId
+          ? SYSTEM_STAGE_PRESETS.findIndex((p) => p.id === t.systemStageId)
+          : -1;
+      let highestReachedIdx = -1;
       for (const t of state.todos.values()) {
         if (
-          // failed / cancelled 仅清理非 system；system stages 维持 pending 以展示
-          // mission "停在哪里"（s1-sN done + sM failed + sM+1...s12 pending）。
-          t.scope !== "system" &&
-          (t.status === "pending" || t.status === "in_progress")
+          t.scope === "system" &&
+          (t.status === "done" ||
+            t.status === "failed" ||
+            t.status === "in_progress")
         ) {
-          t.status = row.status === "failed" ? "failed" : "cancelled";
+          highestReachedIdx = Math.max(highestReachedIdx, stageIdx(t));
         }
+      }
+      for (const t of state.todos.values()) {
+        if (t.status !== "pending" && t.status !== "in_progress") continue;
+        if (t.scope === "system") {
+          // 失败点之前的 system stage（buffer evict 丢了 done 事件）→ 补 done
+          const idx = stageIdx(t);
+          if (idx >= 0 && idx < highestReachedIdx) {
+            t.status = "done";
+            if (!t.endedAt) t.endedAt = missionCreatedAt;
+          }
+          // idx >= highestReachedIdx 的 system stage 维持 pending（停在哪里）
+          continue;
+        }
+        // 非 system（dim retry / chapter / reconciler-gap 等）→ failed/cancelled
+        t.status = row.status === "failed" ? "failed" : "cancelled";
       }
     }
 

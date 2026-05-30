@@ -144,6 +144,60 @@ describe("§ todo-board projector × stage:lifecycle (Screenshot_52 regression g
     expect(s2!.status).toBe("in_progress");
   });
 
+  it("failed mission + 早期 stage 事件被 buffer evict → 失败点之前的 system stage 补 done（Screenshot_26/27 回归）", () => {
+    // 单维度 local-rerun 场景：rerun 事件洪水把 s1/s2 的原始 done 事件挤出
+    // MissionEventBuffer FIFO(5000)，projector 重放看不到 → 不修复会残留 pending →
+    // 前端 sweepStatus 把 pending system stage 一律扫成 failed → s1/s2 误显红。
+    const row = fakeRow();
+    (row as { status: string }).status = "failed";
+    const out = projectTodoBoard(row, [
+      // s1/s2 的 done 事件已被 evict（此处缺失）；只剩 rerun 后的近期事件：
+      {
+        type: "agent-playground.stage:lifecycle",
+        payload: { stepId: "s3-researcher-collect", status: "completed" },
+        timestamp: 1700000003000,
+      },
+      {
+        type: "agent-playground.stage:lifecycle",
+        payload: {
+          stepId: "s4-leader-assess",
+          status: "failed",
+          error: "cascade aborted",
+        },
+        timestamp: 1700000004000,
+      },
+    ]);
+    const items = out.kind === "todo-board" ? (out.items ?? []) : [];
+    const byStage = (id: string) => items.find((t) => t.systemStageId === id);
+    // 失败点（s4，idx 3）之前的 system stage：s1/s2/s3 → 补 done
+    expect(byStage("s1-budget")!.status).toBe("done");
+    expect(byStage("s2-leader-plan")!.status).toBe("done");
+    expect(byStage("s3-researchers")!.status).toBe("done");
+    // 失败点本身维持 failed
+    expect(byStage("s4-leader-assess")!.status).toBe("failed");
+    // 失败点之后的 system stage 维持 pending（"停在哪里"语义，前端再按终态扫）
+    expect(byStage("s5-reconciler")!.status).toBe("pending");
+    expect(byStage("s11-persist")!.status).toBe("pending");
+  });
+
+  it("failed mission 早期失败（s1 failed）→ 不误补任何 stage 为 done", () => {
+    const row = fakeRow();
+    (row as { status: string }).status = "failed";
+    const out = projectTodoBoard(row, [
+      {
+        type: "agent-playground.stage:lifecycle",
+        payload: { stepId: "s1-budget", status: "failed", error: "余额不足" },
+        timestamp: 1700000000000,
+      },
+    ]);
+    const items = out.kind === "todo-board" ? (out.items ?? []) : [];
+    const byStage = (id: string) => items.find((t) => t.systemStageId === id);
+    expect(byStage("s1-budget")!.status).toBe("failed");
+    // s2+ 没有任何 stage 跑过 → 不补 done，维持 pending
+    expect(byStage("s2-leader-plan")!.status).toBe("pending");
+    expect(byStage("s6-analyst")!.status).toBe("pending");
+  });
+
   it("step-id 映射：s3-researcher-collect → s3-researchers（mapStepToFrontendStage）", () => {
     const out = projectTodoBoard(fakeRow(), [
       {
