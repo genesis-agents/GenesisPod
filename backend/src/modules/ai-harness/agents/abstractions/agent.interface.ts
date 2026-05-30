@@ -115,6 +115,8 @@ export interface IAgentResult {
   readonly state: Exclude<AgentState, "idle" | "running" | "paused">;
   readonly iterations: number;
   readonly tokensUsed: number;
+  /** 真实美元成本（per-model 定价，extractRealCostUsd 聚合）；无归因成本时省略，向后兼容 */
+  readonly costUsd?: number;
   readonly wallTimeMs: number;
   readonly errors?: readonly string[];
 }

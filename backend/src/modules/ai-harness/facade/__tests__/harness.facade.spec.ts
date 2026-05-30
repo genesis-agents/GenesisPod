@@ -211,6 +211,44 @@ describe("HarnessFacade", () => {
       expect(result.output).toBe("");
       expect(result.state).toBe("completed");
     });
+
+    it("aggregates real costUsd from thinking events (P-FAC2)", async () => {
+      const agent = {
+        execute: jest.fn().mockReturnValue(
+          makeEventStream([
+            { type: "thinking", payload: { costUsd: 0.002 } },
+            { type: "thinking", payload: { costUsd: 0.003 } },
+            { type: "output", payload: { output: "done" } },
+          ]),
+        ),
+      };
+      const factory = makeFactory({ create: jest.fn().mockReturnValue(agent) });
+      const facade = new HarnessFacade(
+        factory,
+        makeHookRegistry(),
+        makeLoopRegistry(),
+      );
+      const result = await facade.execute({} as any, {} as any);
+      expect(result.costUsd).toBeCloseTo(0.005);
+    });
+
+    it("costUsd defaults to 0 when no thinking events carry cost", async () => {
+      const agent = {
+        execute: jest
+          .fn()
+          .mockReturnValue(
+            makeEventStream([{ type: "output", payload: { output: "done" } }]),
+          ),
+      };
+      const factory = makeFactory({ create: jest.fn().mockReturnValue(agent) });
+      const facade = new HarnessFacade(
+        factory,
+        makeHookRegistry(),
+        makeLoopRegistry(),
+      );
+      const result = await facade.execute({} as any, {} as any);
+      expect(result.costUsd).toBe(0);
+    });
   });
 
   describe("registerLoop()", () => {

@@ -26,7 +26,10 @@ import {
   AgentEventStore,
   type AgentEventRecord,
 } from "../memory/checkpoint/agent-event-store";
-import { extractTokenSpend } from "../tracing/observability/token-spend.utils";
+import {
+  extractTokenSpend,
+  extractRealCostUsd,
+} from "../tracing/observability/token-spend.utils";
 
 @Injectable()
 export class HarnessFacade implements IHarness {
@@ -83,6 +86,7 @@ export class HarnessFacade implements IHarness {
       state: terminatedState as IAgentResult["state"],
       iterations,
       tokensUsed: extractTokenSpend(events),
+      costUsd: extractRealCostUsd(events),
       wallTimeMs: Date.now() - startMs,
     };
   }
