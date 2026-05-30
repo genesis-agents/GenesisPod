@@ -40,6 +40,14 @@ import { computeEvidenceBudget } from "../../artifacts/evidence-budget";
 // ★ Phase 7 (2026-04-29): 用 ai-harness 沉淀的 DAGExecutor 替代 Promise.allSettled
 import { DAGExecutor, type DAGAdapter } from "@/modules/ai-harness/facade";
 
+/**
+ * Leader 主动 abort 的哨兵错误。用类型识别（instanceof）而非 message 前缀匹配 ——
+ * 后者在错误文案本地化后会失配，把"应终止 mission"的 abort 误吞成"非致命继续"。
+ */
+class LeaderAbortError extends Error {
+  readonly isLeaderAbort = true;
+}
+
 interface PlanDimensionLite {
   id: string;
   name: string;
@@ -204,8 +212,45 @@ export async function runLeaderAssessResearchStage(
       });
 
     if (m1.decision === "abort") {
-      throw new Error(
-        `Leader aborted mission after assess-research: ${m1.rationale.slice(0, 200)}`,
+      // ★ 2026-05-30：用户面错误文案确定性本地化（匹配 mission 语言），不依赖 LLM
+      //   rationale 的语言（英文 rationale 已随上方 leader:decision 事件持久化，
+      //   「详情」可展开原始判词）。用结构化数据拼"哪些维度零来源 / 未达标"。
+      const zh = ctx.input.language !== "en-US";
+      const zeroSourceDims = researcherOutcomes.filter(
+        (o) => o.state === "failed" || o.findingsCount === 0,
+      );
+      const belowMinDims = researcherOutcomes.filter(
+        (o) =>
+          o.state !== "failed" && o.findingsCount > 0 && !o.meetsMinSources,
+      );
+      const fmtNames = (list: typeof researcherOutcomes): string =>
+        list
+          .map((o) => (zh ? `「${o.dimensionName}」` : `"${o.dimensionName}"`))
+          .join(zh ? "" : ", ");
+      const parts: string[] = [];
+      if (zeroSourceDims.length) {
+        parts.push(
+          zh
+            ? `维度${fmtNames(zeroSourceDims)}零来源`
+            : `dimensions ${fmtNames(zeroSourceDims)} returned zero sources`,
+        );
+      }
+      if (belowMinDims.length) {
+        parts.push(
+          zh
+            ? `另有 ${belowMinDims.length} 个维度未达到最低来源要求`
+            : `${belowMinDims.length} other dimension(s) did not meet the minimum-sources requirement`,
+        );
+      }
+      const body = parts.length
+        ? parts.join(zh ? "；" : "; ")
+        : zh
+          ? "多个维度研究质量不达标"
+          : "several dimensions fell short on research quality";
+      throw new LeaderAbortError(
+        zh
+          ? `研究质量不达标，Leader 中止任务：${body}。请检查密钥额度 / 搜索可用性后重跑。`
+          : `Research quality insufficient — Leader aborted the mission: ${body}. Please check API key quota / search availability, then rerun.`,
       );
     }
     // 把 patch/redirect 决策落到 researcher 重派
@@ -236,7 +281,9 @@ export async function runLeaderAssessResearchStage(
         });
     }
   } catch (err) {
-    if (err instanceof Error && err.message.startsWith("Leader aborted")) {
+    // Leader 主动 abort → rethrow 终止 mission（用 instanceof 而非 message 前缀，
+    // 文案本地化后前缀匹配会失效，详见 LeaderAbortError 注释）。
+    if (err instanceof LeaderAbortError) {
       throw err;
     }
     // ★ 2026-05-06 (A-6): swallow 改成 markStageDegraded — 前端 narrative 可见

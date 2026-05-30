@@ -117,7 +117,8 @@ describe("runLeaderAssessResearchStage (S4)", () => {
     );
     const deps = makeDeps();
     await expect(runLeaderAssessResearchStage(ctx, deps)).rejects.toThrow(
-      /Leader aborted/,
+      // 文案已本地化（zh-CN）：用 instanceof LeaderAbortError 识别 abort，不靠 message 前缀。
+      /中止任务/,
     );
   });
 

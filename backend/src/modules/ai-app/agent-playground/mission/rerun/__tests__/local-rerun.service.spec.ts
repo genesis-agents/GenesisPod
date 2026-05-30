@@ -491,9 +491,8 @@ describe("LocalRerunService.run (PR-R6)", () => {
             kind: "failed",
             userId: "u1",
             detail: expect.objectContaining({
-              errorMessage: expect.stringContaining(
-                "cascade_aborted_at_s9-critic",
-              ),
+              // ★ 2026-05-30：去掉 cascade_aborted_at_ 技术前缀，直接透传 stage 本地化消息。
+              errorMessage: expect.stringContaining("[PR-R5b] s9-critic"),
             }),
           }),
         }),
@@ -527,9 +526,8 @@ describe("LocalRerunService.run (PR-R6)", () => {
             kind: "failed",
             userId: "u1",
             detail: expect.objectContaining({
-              errorMessage: expect.stringMatching(
-                /cascade_aborted_at_s9-critic: unknown/,
-              ),
+              // ★ 2026-05-30：errorMessage=undefined 兜底为本地化"重跑在阶段 X 中止"。
+              errorMessage: expect.stringMatching(/重跑在阶段 s9-critic 中止/),
             }),
           }),
         }),
