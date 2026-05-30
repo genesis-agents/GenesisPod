@@ -338,11 +338,13 @@ export class LocalRerunService {
                   extra: {
                     kind: "failed",
                     detail: {
-                      errorMessage:
-                        `cascade_aborted_at_${result.abortedAt}: ${result.errorMessage ?? "unknown"}`.slice(
-                          0,
-                          500,
-                        ),
+                      // ★ 2026-05-30：用户面 errorMessage 去掉 cascade_aborted_at_ 技术前缀
+                      //   （abortedAt 已在上方 log.warn 留痕）。stage 抛出的消息本身已按
+                      //   mission 语言本地化（见 s4 abort 文案），直接透传。
+                      errorMessage: (
+                        result.errorMessage ??
+                        `重跑在阶段 ${result.abortedAt} 中止`
+                      ).slice(0, 500),
                     },
                     userId,
                   },
