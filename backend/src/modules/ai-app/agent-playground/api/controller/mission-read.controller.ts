@@ -284,7 +284,10 @@ export class MissionReadController extends BaseMissionController {
     @Query("since") since: string | undefined,
     @Request() req: RequestWithUser,
   ): Promise<{ events: readonly unknown[]; serverNow: number }> {
-    await this.assertOwnership(missionId, req.user?.id);
+    // ★ P-IDOR2：只读端点改走 assertReadAccess（own ∨ PUBLIC ∨ SHARED+TopicMember，
+    //   否则 404 不泄露存在性）。当前 store.getById 按 (id, userId) 过滤，故非所有者
+    //   的 PUBLIC/SHARED 暂无 visibility 数据源 → 实际仍只放行 own（见 risks）。
+    await this.assertReadAccess(missionId, req.user?.id);
     const sinceTs = since ? Number(since) : undefined;
     const ts = Number.isFinite(sinceTs as number)
       ? (sinceTs as number)
@@ -306,7 +309,9 @@ export class MissionReadController extends BaseMissionController {
     @Param("id") missionId: string,
     @Request() req: RequestWithUser,
   ): Promise<{ messages: unknown[] }> {
-    await this.assertOwnership(missionId, req.user?.id);
+    // ★ P-IDOR2：只读端点改走 assertReadAccess（own ∨ PUBLIC ∨ SHARED+TopicMember，
+    //   否则 404）。详见 replay 注释与 base-mission.controller assertReadAccess。
+    await this.assertReadAccess(missionId, req.user?.id);
     const messages = await this.leaderChat.list(missionId);
     return { messages };
   }

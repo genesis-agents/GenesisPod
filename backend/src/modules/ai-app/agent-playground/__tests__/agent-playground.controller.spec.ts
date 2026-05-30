@@ -6,7 +6,11 @@
  * deleteMission, updateMission, replay, listLeaderChat, sendLeaderChat
  */
 
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from "@nestjs/common";
 import { AgentPlaygroundController } from "../api/controller/agent-playground.controller";
 
 function makeReq(userId?: string) {
@@ -1028,11 +1032,49 @@ describe("AgentPlaygroundController", () => {
       expect(buffer.read).toHaveBeenCalledWith("m-1", 12345);
     });
 
-    it("throws ForbiddenException when ownership rejected", async () => {
-      const { controller, ownership } = buildController();
+    // ★ P-IDOR2：replay 改走 assertReadAccess —— 非所有者且 store.getById
+    //   (按 id+userId 过滤) miss → assertResourceAccess 判 PRIVATE → 404
+    //   (NotFoundException，不泄露存在性)，而非旧的 403。
+    it("throws NotFoundException when not owner and mission is PRIVATE", async () => {
+      const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("other-user");
+      store.getById.mockResolvedValue(null); // 按 (id, user-1) 过滤 miss
       await expect(
         controller.replay("m-1", undefined, makeReq("user-1")),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    // ★ P-IDOR2：own 放行 —— registry fast-path 命中所有者，直接通过。
+    it("allows replay for the owner (registry fast-path)", async () => {
+      const { controller, ownership, buffer } = buildController();
+      ownership.getOwner.mockReturnValue("user-1");
+      buffer.read.mockReturnValue([{ type: "evt", timestamp: 1 }]);
+      const result = await controller.replay(
+        "m-1",
+        undefined,
+        makeReq("user-1"),
+      );
+      expect(result.events).toHaveLength(1);
+    });
+
+    // ★ P-IDOR2：own 放行（DB fallback）—— registry miss 但 getById(id,user)
+    //   命中（即所有者），assertResourceAccess own 分支放行。
+    it("allows replay for the owner via DB fallback (registry miss)", async () => {
+      const { controller, ownership, store } = buildController();
+      ownership.getOwner.mockReturnValue(undefined);
+      store.getById.mockResolvedValue({ id: "m-1", topic: "t" }); // 按 (id,user-1) 命中 = 所有者
+      const result = await controller.replay(
+        "m-1",
+        undefined,
+        makeReq("user-1"),
+      );
+      expect(result.events).toBeDefined();
+    });
+
+    it("throws ForbiddenException when no userId (replay)", async () => {
+      const { controller } = buildController();
+      await expect(
+        controller.replay("m-1", undefined, makeReq(undefined)),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -1044,6 +1086,23 @@ describe("AgentPlaygroundController", () => {
       leaderChat.list.mockResolvedValue([{ id: "msg-1" }]);
       const result = await controller.listLeaderChat("m-1", makeReq("user-1"));
       expect(result).toEqual({ messages: [{ id: "msg-1" }] });
+    });
+
+    // ★ P-IDOR2：listLeaderChat 改走 assertReadAccess —— 非所有者 PRIVATE → 404。
+    it("throws NotFoundException when not owner and mission is PRIVATE", async () => {
+      const { controller, ownership, store } = buildController();
+      ownership.getOwner.mockReturnValue("other-user");
+      store.getById.mockResolvedValue(null);
+      await expect(
+        controller.listLeaderChat("m-1", makeReq("user-1")),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("throws ForbiddenException when no userId (listLeaderChat)", async () => {
+      const { controller } = buildController();
+      await expect(
+        controller.listLeaderChat("m-1", makeReq(undefined)),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
