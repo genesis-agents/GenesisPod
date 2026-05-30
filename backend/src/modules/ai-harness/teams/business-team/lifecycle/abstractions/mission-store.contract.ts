@@ -52,6 +52,19 @@ export interface MissionStoreHooks<
   ) => Promise<readonly MissionHeartbeatRow[]>;
   /** 把 orphan running mission → failed (含 canonical failure code + 提示文案)。 */
   readonly markOrphanFailed: (missionIds: readonly string[]) => Promise<void>;
+  /**
+   * P-DUR2 (2026-05-30): 多 pod 安全的**原子认领**单个 orphan。
+   *
+   * 实现必须用条件 updateMany(WHERE id, status='running') 并返回更新行数：
+   *   - count === 1 → 本 pod 认领赢家（返回 true）：唯一被授权续跑该 mission 的 pod
+   *   - count === 0 → 其它 pod 已抢先标记（返回 false）：本 pod 跳过续跑
+   *
+   * 注入此 hook 后，framework 的 `cleanupOrphanRunningMissionsAtomic` 会逐 orphan 认领，
+   * 只返回本 pod 抢到的赢家集合，消除多 pod 重复 rerun（重复烧 credit）。
+   *
+   * 可选：未注入时 framework 回退到批量 `markOrphanFailed`（旧单 pod 行为，全部视为赢家）。
+   */
+  readonly claimOrphanFailed?: (missionId: string) => Promise<boolean>;
   /** stage 进度推进 (where status='running')。 */
   readonly writeStageProgress: (
     missionId: string,

@@ -125,6 +125,64 @@ export abstract class BusinessTeamMissionStoreFramework<
     }
   }
 
+  /**
+   * P-DUR2 (2026-05-30): 多 pod 安全的 orphan cleanup —— **原子认领**版。
+   *
+   * 与 `cleanupOrphanRunningMissions` 区别：返回 `{ orphans, claimedWinners }`：
+   *   - `orphans`：本 pod 扫到的全部 stale-running orphan（只读快照，给调用方做观测）
+   *   - `claimedWinners`：本 pod 用 `claimOrphanFailed` **原子抢到**（count===1）的 orphan
+   *     子集 —— 调用方应**只对这些**做续跑（rerun），消除多 pod 重复 rerun。
+   *
+   * 行为分支：
+   *   - 注入了 `claimOrphanFailed` hook → 逐 orphan 认领，winners = 抢到的子集
+   *   - 未注入 → 回退到批量 `markOrphanFailed`（旧单 pod 行为），winners = 全部 orphan
+   *
+   * 注：N 个 pod 并发对同一 orphan 调本方法，DB 条件写（WHERE status='running'）保证
+   * 只有一个 pod 的 updateMany 命中 1 行，其余命中 0 行 → 只有一个 pod 进 winners。
+   */
+  async cleanupOrphanRunningMissionsAtomic(thresholdMs: number): Promise<{
+    orphans: MissionHeartbeatRow[];
+    claimedWinners: MissionHeartbeatRow[];
+  }> {
+    try {
+      const cutoff = new Date(Date.now() - thresholdMs);
+      const orphans = await this.storeHooks.findOrphanRunning(
+        cutoff,
+        this.orphanBatchSize,
+      );
+      if (orphans.length === 0) return { orphans: [], claimedWinners: [] };
+
+      const claim = this.storeHooks.claimOrphanFailed;
+      if (!claim) {
+        // 回退：无原子认领 hook → 旧批量行为，全部视为本 pod 赢家。
+        await this.storeHooks.markOrphanFailed(orphans.map((o) => o.id));
+        return { orphans: [...orphans], claimedWinners: [...orphans] };
+      }
+
+      const claimedWinners: MissionHeartbeatRow[] = [];
+      for (const o of orphans) {
+        // 逐 orphan 原子认领：count===1 本 pod 赢，count===0 其它 pod 抢先。
+        const won = await claim(o.id).catch((err: unknown) => {
+          this.log.warn(
+            `[cleanupOrphanRunningMissionsAtomic] claim ${o.id} failed (treat as lost): ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+          return false;
+        });
+        if (won) claimedWinners.push(o);
+      }
+      return { orphans: [...orphans], claimedWinners };
+    } catch (err: unknown) {
+      this.log.error(
+        `[cleanupOrphanRunningMissionsAtomic] failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return { orphans: [], claimedWinners: [] };
+    }
+  }
+
   /** Emergency abort wrapper —— 防重 + log。 */
   protected triggerEmergencyAbort(missionId: string, reason: string): void {
     if (this.emergencyAborted.has(missionId)) return;

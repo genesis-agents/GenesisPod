@@ -22,7 +22,13 @@
  *                         runBudgetEstimateStage（其余 13 step 仍 NotYetWired）
  *   - R2-A.4 ~ R2-A.13: s2-s12 hook 逐 stage 实装
  */
-import { Injectable, OnModuleInit, Optional } from "@nestjs/common";
+import {
+  Injectable,
+  OnModuleInit,
+  Optional,
+  Inject,
+  forwardRef,
+} from "@nestjs/common";
 import {
   BusinessTeamMissionDispatcherFramework,
   DomainEventBus,
@@ -60,6 +66,11 @@ import { PlaygroundMissionSpanService } from "./playground-mission-span.service"
 // ★ Stage 1 / S1-2 (2026-05-09,closes T3): cross-stage cache 改用 Z5 CrossStageState 容器
 import { PlaygroundCrossStageState } from "./playground-cross-stage-state";
 import { mapStepIdToFrontendStageId } from "../../api/contracts/step-id-mapping.contract";
+// ★ P-DUR2 (2026-05-30): orphan boot 自动续跑 —— 认领赢家 + canResume 的 orphan 经
+//   rerun orchestrator 以 incremental/inheritFromMissionId 续跑（复用 checkpoint）。
+//   循环依赖（rerun orchestrator inject dispatcher）用 forwardRef 解。值导入只在
+//   forwardRef 箭头闭包内引用，模块加载期不触发 require 循环求值。
+import { MissionRerunOrchestratorService } from "../rerun/mission-rerun-orchestrator.service";
 
 export interface PipelineMissionSummary {
   readonly missionId: string;
@@ -134,6 +145,12 @@ export class PlaygroundPipelineDispatcher
     // ★ e2e P0-#5: mission 失败通知（email + site）。@Optional — NotificationDispatcherModule
     //   未装配时优雅缺省（不发通知，不影响 mission 失败处理）。
     @Optional() private readonly missionFailedPreset?: MissionFailedPreset,
+    // ★ P-DUR2 (2026-05-30): orphan boot 续跑编排器。forwardRef 解循环依赖
+    //   （rerun orchestrator 构造期 inject 本 dispatcher）。@Optional 让缺省装配
+    //   时（如裁剪测试床）优雅降级为"只 mark failed 不续跑"。
+    @Optional()
+    @Inject(forwardRef(() => MissionRerunOrchestratorService))
+    private readonly rerunOrchestrator?: MissionRerunOrchestratorService,
   ) {
     // 2026-05-24 P4: framework 提供 emitToBus + bridgeOrchestratorStageEvent
     //   通用 mechanism；本 dispatcher 仅注入 playground 专属事件 type 字符串。
@@ -258,33 +275,26 @@ export class PlaygroundPipelineDispatcher
   private async cleanupOrphanRunningMissions(): Promise<void> {
     try {
       const orphanThresholdMs = 5 * 60 * 1000; // 5 min
-      const orphans =
-        await this.store.cleanupOrphanRunningMissions?.(orphanThresholdMs);
-      if (!orphans || orphans.length === 0) {
+      // ★ P-DUR2 (2026-05-30): 原子认领版 cleanup。多 pod 并发启动时，每个 orphan
+      //   只被一个 pod 原子认领（claimOrphanFailed 条件写 count===1）。本 pod 只对
+      //   **认领赢家**触发续跑，其它 pod count===0 跳过 → 消除重复 rerun（重复烧 credit）。
+      const result =
+        await this.store.cleanupOrphanRunningMissionsAtomic?.(
+          orphanThresholdMs,
+        );
+      const orphans = result?.orphans ?? [];
+      const claimedWinners = result?.claimedWinners ?? [];
+      if (orphans.length === 0) {
         this.log.log("[#88 orphan-cleanup] no orphan running missions found");
         return;
       }
       this.log.warn(
         `[#88 orphan-cleanup] cleaned ${orphans.length} orphan running missions ` +
-          `(heartbeat > ${Math.round(orphanThresholdMs / 60000)}min stale)`,
+          `(heartbeat > ${Math.round(orphanThresholdMs / 60000)}min stale), ` +
+          `claimed=${claimedWinners.length} (this pod)`,
       );
-      for (const o of orphans) {
-        // WS-DUR (2026-05-30): orphan 已被 framework store.cleanupOrphanRunningMissions
-        //   内部 markOrphanFailed 标记 failed（返回前即落终态）。本层无法在标记前拦截
-        //   做自动续跑（见下方 resume-eligibility 探针 + risks 说明）：runMission 入口
-        //   走 openSession → createMission 硬 INSERT 同 id，对已存在的 orphan row 会
-        //   P2002 冲突；安全续跑语义在 MissionRerunOrchestrator（分配新 missionId，本
-        //   dispatcher 未注入该编排器）。此处只做只读 resume-eligibility 观测，便于
-        //   后续接 OTel 量化"丢失的可恢复 mission"，不改变 failed 终态。
-        const resumable = await this.missionCheckpoint
-          .canResume(o.id)
-          .then((d) => d.canResume)
-          .catch(() => false);
-        this.log.warn(
-          `orphan_resume_skipped missionId=${o.id} ` +
-            `resumable=${resumable} reason=auto-resume-unsupported-in-cleanup-path ` +
-            `action=user-manual-rerun`,
-        );
+      // 对**本 pod 认领赢家**逐个发失败事件 + 视情况续跑。
+      for (const o of claimedWinners) {
         await this.emitToBus({
           type: "agent-playground.mission:failed",
           missionId: o.id,
@@ -297,10 +307,60 @@ export class PlaygroundPipelineDispatcher
             source: "dispatcher-boot-orphan-cleanup",
           },
         });
+        // ★ P-DUR2 续跑：认领赢家且 canResume()=true → 经 rerun orchestrator 以
+        //   incremental（inheritFromMissionId + checkpoint clone）分配**新 missionId**
+        //   续跑，复用已落 checkpoint 的 trajectory，不从零重跑。rerun 分配新 id
+        //   规避 runMission 入口 createMission 对已存在 orphan row 的 P2002 冲突。
+        //   幂等：认领已保证同一 source 只有一个 pod 进此分支 → 只触发一次续跑。
+        await this.maybeResumeOrphan(o.id, o.userId);
       }
     } catch (err) {
       this.log.error(
         `[#88 orphan-cleanup] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * ★ P-DUR2 (2026-05-30): 对本 pod 认领赢家的 orphan，若可恢复则触发 incremental
+   * rerun（复用 checkpoint），否则仅记录"已 mark failed、不续跑"。
+   *
+   * - canResume()=false（无 checkpoint / 超出恢复窗口）→ 不续跑，只 log（用户手动重跑）。
+   * - rerunOrchestrator 未装配（@Optional 缺省）→ 不续跑，只 log。
+   * - 续跑失败不抛（fire-and-forget 语义在 orchestrator 内部），本层只 log。
+   */
+  private async maybeResumeOrphan(
+    missionId: string,
+    userId: string,
+  ): Promise<void> {
+    const resumable = await this.missionCheckpoint
+      .canResume(missionId)
+      .then((d) => d.canResume)
+      .catch(() => false);
+    if (!resumable || !this.rerunOrchestrator) {
+      this.log.warn(
+        `orphan_resume_skipped missionId=${missionId} ` +
+          `resumable=${resumable} orchestrator=${this.rerunOrchestrator ? "present" : "absent"} ` +
+          `action=user-manual-rerun`,
+      );
+      return;
+    }
+    try {
+      const { missionId: newMissionId } =
+        await this.rerunOrchestrator.rerunFullMission(
+          missionId,
+          userId,
+          "incremental",
+        );
+      this.log.warn(
+        `orphan_resume_triggered sourceMissionId=${missionId} ` +
+          `newMissionId=${newMissionId} mode=incremental reason=boot-orphan-claimed-winner`,
+      );
+    } catch (err) {
+      // legacy snapshot / guard 拒绝 / 配置缺失等 → 已 mark failed，用户可手动重跑。
+      this.log.warn(
+        `orphan_resume_failed missionId=${missionId} ` +
+          `reason="${err instanceof Error ? err.message : String(err)}" action=user-manual-rerun`,
       );
     }
   }

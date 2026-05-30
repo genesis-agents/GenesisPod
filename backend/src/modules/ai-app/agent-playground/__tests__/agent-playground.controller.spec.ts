@@ -47,6 +47,9 @@ function makeStore() {
   return {
     listByUser: jest.fn().mockResolvedValue([]),
     getById: jest.fn().mockResolvedValue(null),
+    // ★ P-IDOR2 (full): 按 id 查访问元信息（owner + visibility），不带 userId 过滤。
+    //   默认 null（查不到 → 404）；需放行的测试自行 mock 返回真实 meta。
+    getAccessMetaById: jest.fn().mockResolvedValue(null),
     // ★ C0/G1：applyTerminalIfRunning 替代 markCancelled（条件写，首写赢，返回 boolean）
     applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
     deleteByUser: jest.fn().mockResolvedValue(undefined),
@@ -1032,13 +1035,45 @@ describe("AgentPlaygroundController", () => {
       expect(buffer.read).toHaveBeenCalledWith("m-1", 12345);
     });
 
-    // ★ P-IDOR2：replay 改走 assertReadAccess —— 非所有者且 store.getById
-    //   (按 id+userId 过滤) miss → assertResourceAccess 判 PRIVATE → 404
+    // ★ P-IDOR2 (full)：replay 走 assertReadAccess —— 非所有者，getAccessMetaById
+    //   返回他人 PRIVATE mission → assertResourceAccess 判 PRIVATE → 404
     //   (NotFoundException，不泄露存在性)，而非旧的 403。
     it("throws NotFoundException when not owner and mission is PRIVATE", async () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("other-user");
-      store.getById.mockResolvedValue(null); // 按 (id, user-1) 过滤 miss
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "other-user",
+        visibility: "PRIVATE",
+        topicId: null,
+      });
+      await expect(
+        controller.replay("m-1", undefined, makeReq("user-1")),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    // ★ P-IDOR2 (full)：他人 PUBLIC mission → 放行（真生效，不再 own+404）。
+    it("allows replay for a non-owner when mission is PUBLIC", async () => {
+      const { controller, ownership, store, buffer } = buildController();
+      ownership.getOwner.mockReturnValue("other-user");
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "other-user",
+        visibility: "PUBLIC",
+        topicId: null,
+      });
+      buffer.read.mockReturnValue([{ type: "evt", timestamp: 1 }]);
+      const result = await controller.replay(
+        "m-1",
+        undefined,
+        makeReq("user-1"),
+      );
+      expect(result.events).toHaveLength(1);
+    });
+
+    // ★ P-IDOR2 (full)：missing mission（meta=null）→ 404。
+    it("throws NotFoundException when mission does not exist", async () => {
+      const { controller, ownership, store } = buildController();
+      ownership.getOwner.mockReturnValue(undefined);
+      store.getAccessMetaById.mockResolvedValue(null);
       await expect(
         controller.replay("m-1", undefined, makeReq("user-1")),
       ).rejects.toThrow(NotFoundException);
@@ -1057,18 +1092,24 @@ describe("AgentPlaygroundController", () => {
       expect(result.events).toHaveLength(1);
     });
 
-    // ★ P-IDOR2：own 放行（DB fallback）—— registry miss 但 getById(id,user)
-    //   命中（即所有者），assertResourceAccess own 分支放行。
+    // ★ P-IDOR2 (full)：own 放行（DB fallback）—— registry miss 但 getAccessMetaById
+    //   返回的 owner === requester，assertResourceAccess own 分支放行。
     it("allows replay for the owner via DB fallback (registry miss)", async () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue(undefined);
-      store.getById.mockResolvedValue({ id: "m-1", topic: "t" }); // 按 (id,user-1) 命中 = 所有者
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "user-1", // owner === requester
+        visibility: "PRIVATE",
+        topicId: null,
+      });
       const result = await controller.replay(
         "m-1",
         undefined,
         makeReq("user-1"),
       );
       expect(result.events).toBeDefined();
+      // own 命中 → 重新登记 in-memory ownership。
+      expect(ownership.assign).toHaveBeenCalledWith("m-1", "user-1");
     });
 
     it("throws ForbiddenException when no userId (replay)", async () => {
@@ -1088,14 +1129,32 @@ describe("AgentPlaygroundController", () => {
       expect(result).toEqual({ messages: [{ id: "msg-1" }] });
     });
 
-    // ★ P-IDOR2：listLeaderChat 改走 assertReadAccess —— 非所有者 PRIVATE → 404。
+    // ★ P-IDOR2 (full)：listLeaderChat 走 assertReadAccess —— 非所有者 PRIVATE → 404。
     it("throws NotFoundException when not owner and mission is PRIVATE", async () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("other-user");
-      store.getById.mockResolvedValue(null);
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "other-user",
+        visibility: "PRIVATE",
+        topicId: null,
+      });
       await expect(
         controller.listLeaderChat("m-1", makeReq("user-1")),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    // ★ P-IDOR2 (full)：他人 PUBLIC mission 的 leader chat → 放行（真生效）。
+    it("allows listLeaderChat for a non-owner when mission is PUBLIC", async () => {
+      const { controller, ownership, store, leaderChat } = buildController();
+      ownership.getOwner.mockReturnValue("other-user");
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "other-user",
+        visibility: "PUBLIC",
+        topicId: null,
+      });
+      leaderChat.list.mockResolvedValue([{ id: "msg-1" }]);
+      const result = await controller.listLeaderChat("m-1", makeReq("user-1"));
+      expect(result).toEqual({ messages: [{ id: "msg-1" }] });
     });
 
     it("throws ForbiddenException when no userId (listLeaderChat)", async () => {
@@ -1387,11 +1446,16 @@ describe("AgentPlaygroundController", () => {
   });
 
   describe("ownership — DB fallback registers in-memory", () => {
-    it("assertOwnership DB fallback calls ownership.assign for future hot path", async () => {
+    it("assertReadAccess DB fallback calls ownership.assign for future hot path", async () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue(undefined); // cache miss
-      store.getById.mockResolvedValue({ id: "m-1", topic: "test" }); // DB hit
-      // replay uses assertOwnership
+      // getAccessMetaById owner === requester → own 放行 + 重登记
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "user-1",
+        visibility: "PRIVATE",
+        topicId: null,
+      });
+      // replay uses assertReadAccess
       const result = await controller.replay(
         "m-1",
         undefined,

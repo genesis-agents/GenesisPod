@@ -12,7 +12,12 @@
  *   - rerunFromTodo 业务规则：origin / scope 黑名单 + dimensionRef / chapterIndex DTO
  */
 
-import { BadRequestException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Inject,
+  forwardRef,
+} from "@nestjs/common";
 import { PlaygroundPipelineDispatcher } from "../pipeline/playground.pipeline";
 import {
   MissionStore,
@@ -48,6 +53,9 @@ export class MissionRerunOrchestratorService extends BusinessTeamRerunOrchestrat
   RerunTodoBody
 > {
   constructor(
+    // ★ P-DUR2 (2026-05-30): dispatcher 现在反向 inject 本 orchestrator（orphan boot
+    //   续跑），形成模块内循环依赖 → forwardRef 解。
+    @Inject(forwardRef(() => PlaygroundPipelineDispatcher))
     orchestrator: PlaygroundPipelineDispatcher,
     store: MissionStore,
     buffer: MissionEventBuffer,

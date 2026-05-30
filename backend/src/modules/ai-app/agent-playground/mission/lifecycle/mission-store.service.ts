@@ -262,6 +262,23 @@ export class MissionStore
           },
         });
       },
+      // ★ P-DUR2 (2026-05-30): 多 pod 安全的原子认领单个 orphan。条件写
+      //   WHERE id + status='running'：DB 保证 N pod 并发只有一个命中 1 行（赢家），
+      //   其余命中 0 行。只有 count===1 的 pod 被授权续跑（rerun），消除重复烧 credit。
+      claimOrphanFailed: async (missionId) => {
+        const { count } = await prisma.agentPlaygroundMission.updateMany({
+          where: { id: missionId, status: "running" },
+          data: {
+            status: "failed",
+            completedAt: new Date(),
+            failureCode: "runtime_crashed",
+            errorMessage:
+              "Mission 在执行中遇到后端重启或异常退出（dispatcher 内存丢失）。" +
+              "已自动标记为失败，建议使用顶部「重新运行」按钮重启相同主题。",
+          },
+        });
+        return count === 1;
+      },
       writeStageProgress: async (missionId, stageNumber) => {
         await prisma.agentPlaygroundMission.updateMany({
           where: { id: missionId, status: "running" },
@@ -634,5 +651,28 @@ export class MissionStore
       select: { userId: true, topic: true },
     });
     return row ? { userId: row.userId, topic: row.topic } : null;
+  }
+
+  /**
+   * ★ P-IDOR2：按 id 查 mission 的读访问元信息（owner + visibility），**不**带
+   * userId 过滤。供 `BaseMissionController.assertReadAccess` 判定 own ∨ PUBLIC ∨
+   * SHARED+TopicMember —— `getById(id, userId)` 按 (id, userId) 过滤，非所有者
+   * 永远 miss，无法支撑 PUBLIC/SHARED 放行，故需本方法暴露真实 owner/visibility。
+   *
+   * AgentPlaygroundMission 多租户走 workspaceId，无 topicId，故 topicId 恒为 null
+   * （SHARED+TopicMember 在 mission 落地 topicId 前不放行，不杜撰）。查不到 → null。
+   */
+  async getAccessMetaById(missionId: string): Promise<{
+    userId: string;
+    visibility: ContentVisibility;
+    topicId: string | null;
+  } | null> {
+    const row = await this.prisma.agentPlaygroundMission.findUnique({
+      where: { id: missionId },
+      select: { userId: true, visibility: true },
+    });
+    return row
+      ? { userId: row.userId, visibility: row.visibility, topicId: null }
+      : null;
   }
 }
