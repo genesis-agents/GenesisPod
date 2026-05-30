@@ -18,6 +18,7 @@ import {
   ForbiddenException,
   Get,
   Logger,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -96,7 +97,11 @@ export class MissionReadController extends BaseMissionController {
     @Param("id") id: string,
     @Request() req: RequestWithUser,
   ): Promise<MissionViewEnvelope> {
-    const inputs = await this.missionQuery.loadInputs(id, req.user?.id);
+    // ★ P-IDOR2：统一走 assertReadAccess（own ∨ PUBLIC，否则 404）。放行后按
+    //   所有者身份载入 —— PUBLIC mission 跨用户可读时 loadInputs 内部 (id, userId)
+    //   过滤需用所有者 id 命中行。
+    const ownerId = await this.assertReadAccess(id, req.user?.id);
+    const inputs = await this.missionQuery.loadInputs(id, ownerId);
     const view: PlaygroundDomainView = projectMissionView(inputs);
     return { view };
   }
@@ -148,11 +153,12 @@ export class MissionReadController extends BaseMissionController {
     @Param("id") id: string,
     @Request() req: RequestWithUser,
   ): Promise<{ mission: unknown }> {
-    const userId = req.user?.id;
-    if (!userId) throw new ForbiddenException("Authentication required");
-    const mission = await this.store.getById(id, userId);
+    // ★ P-IDOR2：统一走 assertReadAccess（own ∨ PUBLIC，否则 404）。放行后按
+    //   所有者身份取行，使 PUBLIC mission 跨用户可读。
+    const ownerId = await this.assertReadAccess(id, req.user?.id);
+    const mission = await this.store.getById(id, ownerId);
     if (mission) return { mission };
-    throw new ForbiddenException("Mission not found");
+    throw new NotFoundException("Mission not found");
   }
 
   /**
@@ -180,14 +186,15 @@ export class MissionReadController extends BaseMissionController {
     @Query("format") format: string,
     @Request() req: RequestWithUser,
   ): Promise<{ filename: string; mimeType: string; content: string }> {
-    const userId = req.user?.id;
-    if (!userId) throw new ForbiddenException("Authentication required");
     if (!format || !MissionReadController.ALLOWED_EXPORT_FORMATS.has(format)) {
       throw new BadRequestException(
         `Invalid export format "${format ?? ""}". Allowed: ${[...MissionReadController.ALLOWED_EXPORT_FORMATS].join(", ")}`,
       );
     }
-    return this.exportService.export(id, userId, format);
+    // ★ P-IDOR2：统一走 assertReadAccess（own ∨ PUBLIC，否则 404）。放行后按
+    //   所有者身份导出，使 PUBLIC mission 跨用户可导出。
+    const ownerId = await this.assertReadAccess(id, req.user?.id);
+    return this.exportService.export(id, ownerId, format);
   }
 
   /**
@@ -210,10 +217,9 @@ export class MissionReadController extends BaseMissionController {
       generatedAt: string;
     }>;
   }> {
-    const userId = req.user?.id;
-    if (!userId) throw new ForbiddenException("Authentication required");
-    const mission = await this.store.getById(id, userId);
-    if (!mission) throw new ForbiddenException("Mission not found");
+    // ★ P-IDOR2：统一走 assertReadAccess（own ∨ PUBLIC，否则 404）。版本列表本身
+    //   按 missionId 取（非 userId 过滤），访问决策交 assertReadAccess。
+    await this.assertReadAccess(id, req.user?.id);
     const rows = await this.store.listReportVersions(id);
     return {
       items: rows.map((r) => ({
@@ -246,14 +252,13 @@ export class MissionReadController extends BaseMissionController {
     reportFull: unknown;
     changesFromPrev: unknown;
   }> {
-    const userId = req.user?.id;
-    if (!userId) throw new ForbiddenException("Authentication required");
     const version = Number.parseInt(versionRaw, 10);
     if (!Number.isFinite(version) || version <= 0) {
       throw new BadRequestException("version must be a positive integer");
     }
-    const mission = await this.store.getById(id, userId);
-    if (!mission) throw new ForbiddenException("Mission not found");
+    // ★ P-IDOR2：统一走 assertReadAccess（own ∨ PUBLIC，否则 404）。单版本本身按
+    //   (missionId, version) 取，访问决策交 assertReadAccess。
+    await this.assertReadAccess(id, req.user?.id);
     const row = await this.store.getReportVersion(id, version);
     if (!row) {
       throw new BadRequestException(

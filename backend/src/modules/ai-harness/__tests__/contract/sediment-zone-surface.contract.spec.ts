@@ -147,7 +147,7 @@ describe("Sediment Zone Surface Contract (Rev 5 / S0-5)", () => {
   // ════════════════════════════════════════════════════════════════════════
 
   describe("Z3 IBusinessTeamMissionStore (BusinessAgentTeam lifecycle 视角子集)", () => {
-    it("[type] declares 7 lifecycle methods (heartbeat / stage / cleanup / fail / reopen)", () => {
+    it("[type] declares 6 lifecycle methods (heartbeat / stage / fail / reopen)", () => {
       type RequiredZ3Surface = {
         refreshHeartbeat(missionId: string, podId: string): Promise<void>;
         clearHeartbeat(missionId: string, userId: string): Promise<void>;
@@ -156,10 +156,6 @@ describe("Sediment Zone Surface Contract (Rev 5 / S0-5)", () => {
           stageNumber: number,
         ): Promise<void>;
         countRunningByUser(userId: string): Promise<number>;
-        cleanupOrphanRunningMissions(thresholdSeconds: number): Promise<{
-          found: number;
-          cleaned: number;
-        }>;
         markFailed(
           missionId: string,
           args: { userId?: string; errorMessage?: string },
@@ -186,12 +182,6 @@ describe("Sediment Zone Surface Contract (Rev 5 / S0-5)", () => {
         async markStageComplete(): Promise<void> {}
         async countRunningByUser(): Promise<number> {
           return 0;
-        }
-        async cleanupOrphanRunningMissions(): Promise<{
-          found: number;
-          cleaned: number;
-        }> {
-          return { found: 0, cleaned: 0 };
         }
         async markFailed(): Promise<void> {}
         async markReopened(): Promise<void> {}

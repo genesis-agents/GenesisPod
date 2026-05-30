@@ -26,7 +26,7 @@
  *
  *   - **Z3 `IBusinessTeamMissionStore`(本接口)**: BusinessAgentTeam lifecycle 视角的
  *     **互补集合**(refreshHeartbeat / clearHeartbeat / markStageComplete / countRunningByUser /
- *     cleanupOrphanRunningMissions / markFailed / markReopened) —— **method 名与 Z1 不重叠**,
+ *     markFailed / markReopened) —— **method 名与 Z1 不重叠**,
  *     Z3 framework 关心"mission 在生命周期上发生什么"。
  *
  * benchmark consumer 的 mission store(reference 实现，@migrated-from 业务侧 mission store)
@@ -73,15 +73,6 @@ export interface IBusinessTeamMissionStore {
    * 当前用户运行中 mission 数（用于并发限流 / rerun guard）。
    */
   countRunningByUser(userId: string): Promise<number>;
-
-  /**
-   * 清理 status=running 但 heartbeat 已 stale 的 mission（启动期 + 周期性 cron 调用）。
-   * 返回值：清理统计供 logger 输出。
-   */
-  cleanupOrphanRunningMissions(thresholdSeconds: number): Promise<{
-    found: number;
-    cleaned: number;
-  }>;
 
   /**
    * 标记 mission 失败（终态）。

@@ -59,34 +59,6 @@ describe("BusinessTeamMissionStoreFramework (FakeMars)", () => {
     );
   });
 
-  it("cleanupOrphanRunningMissions returns orphan rows", async () => {
-    const hooks = makeFakeMarsMissionStoreHooks();
-    (hooks.findOrphanRunning as jest.Mock).mockResolvedValue([
-      { id: "m1", userId: "u1" },
-      { id: "m2", userId: "u2" },
-    ]);
-    const store = new FakeMarsMissionStore(hooks);
-    const got = await store.cleanupOrphanRunningMissions(60_000);
-    expect(got).toHaveLength(2);
-    expect(hooks.markOrphanFailed).toHaveBeenCalledWith(["m1", "m2"]);
-  });
-
-  it("cleanupOrphanRunningMissions: empty findOrphanRunning → no markOrphanFailed", async () => {
-    const hooks = makeFakeMarsMissionStoreHooks();
-    (hooks.findOrphanRunning as jest.Mock).mockResolvedValue([]);
-    const store = new FakeMarsMissionStore(hooks);
-    const got = await store.cleanupOrphanRunningMissions(60_000);
-    expect(got).toEqual([]);
-    expect(hooks.markOrphanFailed).not.toHaveBeenCalled();
-  });
-
-  it("cleanupOrphanRunningMissions: DB error → returns []", async () => {
-    const hooks = makeFakeMarsMissionStoreHooks();
-    (hooks.findOrphanRunning as jest.Mock).mockRejectedValue(new Error("db"));
-    const store = new FakeMarsMissionStore(hooks);
-    expect(await store.cleanupOrphanRunningMissions(60_000)).toEqual([]);
-  });
-
   it("countRunningByUser delegates", async () => {
     const hooks = makeFakeMarsMissionStoreHooks();
     (hooks.countRunning as jest.Mock).mockResolvedValue(7);
@@ -96,20 +68,7 @@ describe("BusinessTeamMissionStoreFramework (FakeMars)", () => {
 
   // ── P-DUR2 (2026-05-30): atomic claim version ───────────────────────────────
   describe("cleanupOrphanRunningMissionsAtomic", () => {
-    it("no claimOrphanFailed hook → falls back to batch markOrphanFailed, all winners", async () => {
-      const hooks = makeFakeMarsMissionStoreHooks();
-      (hooks.findOrphanRunning as jest.Mock).mockResolvedValue([
-        { id: "m1", userId: "u1" },
-        { id: "m2", userId: "u2" },
-      ]);
-      const store = new FakeMarsMissionStore(hooks);
-      const got = await store.cleanupOrphanRunningMissionsAtomic(60_000);
-      expect(got.orphans).toHaveLength(2);
-      expect(got.claimedWinners).toHaveLength(2);
-      expect(hooks.markOrphanFailed).toHaveBeenCalledWith(["m1", "m2"]);
-    });
-
-    it("with claimOrphanFailed → winners are only the orphans this pod atomically claimed (count===1)", async () => {
+    it("winners are only the orphans this pod atomically claimed (count===1)", async () => {
       // Simulate two pods racing on the same two orphans: this pod wins m1, loses m2.
       const claim = jest.fn(async (id: string) => id === "m1");
       const hooks = makeFakeMarsMissionStoreHooks({ claimOrphanFailed: claim });
@@ -122,8 +81,6 @@ describe("BusinessTeamMissionStoreFramework (FakeMars)", () => {
 
       expect(got.orphans).toHaveLength(2);
       expect(got.claimedWinners).toEqual([{ id: "m1", userId: "u1" }]);
-      // batch markOrphanFailed NOT used when claim hook present
-      expect(hooks.markOrphanFailed).not.toHaveBeenCalled();
       expect(claim).toHaveBeenCalledTimes(2);
     });
 

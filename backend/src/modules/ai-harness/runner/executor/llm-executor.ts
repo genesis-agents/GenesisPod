@@ -36,9 +36,6 @@ import {
   isModelLevelFailoverError,
   MAX_MODEL_FAILOVERS,
 } from "../../../ai-engine/llm/model-failover.classifier";
-// 反向洞察 #6：跨 provider failover 前剥离 provider-specific thinking/signature，
-// 否则跨模型重发被对端确定性 400（invalid_request）。
-import { stripThinkingSignature } from "./strip-thinking-signature.util";
 
 // ============ Model-level failover ============
 
@@ -345,23 +342,6 @@ export class LlmExecutor {
   }
 
   /**
-   * 解析 modelId 对应的 provider 名（用于跨 provider failover 判定）。
-   * 缺 modelConfigService 或查询失败时返回 undefined（视为未知 provider，
-   * 此时 stripThinkingSignature 不会剥离——同 from/to 未知即保守保留）。
-   */
-  private async resolveProvider(
-    modelId: string | undefined,
-  ): Promise<string | undefined> {
-    if (!modelId || !this.modelConfigService) return undefined;
-    try {
-      const cfg = await this.modelConfigService.getModelConfig(modelId);
-      return cfg?.provider ?? undefined;
-    } catch {
-      return undefined;
-    }
-  }
-
-  /**
    * 把 strategy 对应的"格式约束 hint" 注入 system prompt（最小侵入接入）。
    * 后续 PR 把 strategy 真正推到 chat options 让 OpenAI/Anthropic native API 生效。
    */
@@ -459,13 +439,7 @@ export class LlmExecutor {
     const failedProviders: string[] = [];
     // The currently elected model (may be updated after failover).
     let activeModel: string | undefined = input.model;
-    // Provider of the currently active model — used to detect cross-provider
-    // failover so we can strip provider-bound thinking/signature (反向洞察 #6).
-    let activeProvider: string | undefined =
-      await this.resolveProvider(activeModel);
-    // The outgoing user-turn message(s). Rebuilt per attempt with the retry
-    // hint; on cross-provider failover, run through stripThinkingSignature so
-    // no provider-bound thinking/signature block leaks to the new provider.
+    // The outgoing user-turn message(s). Rebuilt per attempt with the retry hint.
     let outgoingMessages: Array<{ role: "user"; content: string }> = [];
 
     // ★ 2026-05-06 接入 StructuredOutputRouter：按 model capability 拿 strategy
@@ -574,19 +548,7 @@ export class LlmExecutor {
                 `[${input.agentId}] model-failover: ${failedModelId || "(default)"} → ${nextModelId} ` +
                   `(failed=${failedModelIds.length}/${MAX_MODEL_FAILOVERS}, reason: ${errMsg.slice(0, 120)})`,
               );
-              // ★ 反向洞察 #6：切到新模型前，若 provider 变了，剥离已装配
-              //   messages 中 provider-specific 的 thinking/signature/
-              //   redacted_thinking，否则跨 provider 重发被对端确定性 400。
-              //   当前 executor 每轮重建纯 user-turn（无 thinking），此调用是
-              //   防御 + 防未来回归（若上游开始透传 thinking block）。
-              const nextProvider = await this.resolveProvider(nextModelId);
-              outgoingMessages = stripThinkingSignature(
-                outgoingMessages,
-                activeProvider,
-                nextProvider,
-              );
               activeModel = nextModelId;
-              activeProvider = nextProvider;
               // Re-resolve strategy chain for the new model
               strategyChain =
                 await this.resolveOutputStrategyChain(activeModel);

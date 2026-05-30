@@ -248,20 +248,6 @@ export class MissionStore
         });
         return orphans;
       },
-      markOrphanFailed: async (missionIds) => {
-        await prisma.agentPlaygroundMission.updateMany({
-          where: { id: { in: [...missionIds] }, status: "running" },
-          data: {
-            status: "failed",
-            completedAt: new Date(),
-            // ★ C2/MINOR-1:启动清理孤儿 running 行 = 进程崩溃,落 canonical runtime_crashed。
-            failureCode: "runtime_crashed",
-            errorMessage:
-              "Mission 在执行中遇到后端重启或异常退出（dispatcher 内存丢失）。" +
-              "已自动标记为失败，建议使用顶部「重新运行」按钮重启相同主题。",
-          },
-        });
-      },
       // ★ P-DUR2 (2026-05-30): 多 pod 安全的原子认领单个 orphan。条件写
       //   WHERE id + status='running'：DB 保证 N pod 并发只有一个命中 1 行（赢家），
       //   其余命中 0 行。只有 count===1 的 pod 被授权续跑（rerun），消除重复烧 credit。
@@ -354,7 +340,7 @@ export class MissionStore
 
   // ── CRUD / heartbeat / stage / orphan: framework 已提供
   //    refreshHeartbeat / clearHeartbeat / markStageComplete /
-  //    cleanupOrphanRunningMissions / countRunningByUser / create
+  //    cleanupOrphanRunningMissionsAtomic / countRunningByUser / create
   // ──────────────────────────────────────────────────────────────────────────
 
   // ── Lifecycle delegates ───────────────────────────────────────────────────

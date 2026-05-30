@@ -212,12 +212,12 @@ describe("HarnessFacade", () => {
       expect(result.state).toBe("completed");
     });
 
-    it("aggregates real costUsd from thinking events (P-FAC2)", async () => {
+    it("aggregates real tokensUsed from action_executed events", async () => {
       const agent = {
         execute: jest.fn().mockReturnValue(
           makeEventStream([
-            { type: "thinking", payload: { costUsd: 0.002 } },
-            { type: "thinking", payload: { costUsd: 0.003 } },
+            { type: "action_executed", payload: { tokensUsed: 200 } },
+            { type: "action_executed", payload: { tokensUsed: 300 } },
             { type: "output", payload: { output: "done" } },
           ]),
         ),
@@ -229,10 +229,10 @@ describe("HarnessFacade", () => {
         makeLoopRegistry(),
       );
       const result = await facade.execute({} as any, {} as any);
-      expect(result.costUsd).toBeCloseTo(0.005);
+      expect(result.tokensUsed).toBe(500);
     });
 
-    it("costUsd defaults to 0 when no thinking events carry cost", async () => {
+    it("tokensUsed defaults to 0 when no events carry token spend", async () => {
       const agent = {
         execute: jest
           .fn()
@@ -247,7 +247,7 @@ describe("HarnessFacade", () => {
         makeLoopRegistry(),
       );
       const result = await facade.execute({} as any, {} as any);
-      expect(result.costUsd).toBe(0);
+      expect(result.tokensUsed).toBe(0);
     });
   });
 

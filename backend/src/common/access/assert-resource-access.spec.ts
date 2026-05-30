@@ -5,105 +5,51 @@ import { assertResourceAccess } from "./assert-resource-access";
 describe("assertResourceAccess", () => {
   const requester = { userId: "user-1" };
 
-  it("放行：own（resource.userId === requester.userId）", async () => {
-    await expect(
+  it("放行：own（resource.userId === requester.userId）", () => {
+    expect(() =>
       assertResourceAccess(
         { userId: "user-1", visibility: ContentVisibility.PRIVATE },
         requester,
       ),
-    ).resolves.toBeUndefined();
+    ).not.toThrow();
   });
 
-  it("放行：own 即使 visibility 缺省（按 PRIVATE 处理）", async () => {
-    await expect(
+  it("放行：own 即使 visibility 缺省（按 PRIVATE 处理）", () => {
+    expect(() =>
       assertResourceAccess({ userId: "user-1" }, requester),
-    ).resolves.toBeUndefined();
+    ).not.toThrow();
   });
 
-  it("404：他人 PRIVATE", async () => {
-    await expect(
+  it("404：他人 PRIVATE", () => {
+    expect(() =>
       assertResourceAccess(
         { userId: "owner-x", visibility: ContentVisibility.PRIVATE },
         requester,
       ),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    ).toThrow(NotFoundException);
   });
 
-  it("404：visibility 缺省（按 PRIVATE）且非所有者", async () => {
-    await expect(
+  it("404：visibility 缺省（按 PRIVATE）且非所有者", () => {
+    expect(() =>
       assertResourceAccess({ userId: "owner-x" }, requester),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    ).toThrow(NotFoundException);
   });
 
-  it("放行：SHARED 且 isTopicMember=true", async () => {
-    const isTopicMember = jest.fn().mockResolvedValue(true);
-    await expect(
+  it("404：他人 SHARED（SHARED 不再放行非所有者）", () => {
+    expect(() =>
       assertResourceAccess(
-        {
-          userId: "owner-x",
-          visibility: ContentVisibility.SHARED,
-          topicId: "topic-1",
-        },
-        requester,
-        { isTopicMember },
-      ),
-    ).resolves.toBeUndefined();
-    expect(isTopicMember).toHaveBeenCalledWith("topic-1", "user-1");
-  });
-
-  it("404：SHARED 且非成员（isTopicMember=false）", async () => {
-    const isTopicMember = jest.fn().mockResolvedValue(false);
-    await expect(
-      assertResourceAccess(
-        {
-          userId: "owner-x",
-          visibility: ContentVisibility.SHARED,
-          topicId: "topic-1",
-        },
-        requester,
-        { isTopicMember },
-      ),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it("404：SHARED 但 topicId 为空（无 Topic 上下文，不放行非所有者）", async () => {
-    const isTopicMember = jest.fn().mockResolvedValue(true);
-    await expect(
-      assertResourceAccess(
-        {
-          userId: "owner-x",
-          visibility: ContentVisibility.SHARED,
-          topicId: null,
-        },
-        requester,
-        { isTopicMember },
-      ),
-    ).rejects.toBeInstanceOf(NotFoundException);
-    expect(isTopicMember).not.toHaveBeenCalled();
-  });
-
-  it("404：SHARED 有 topicId 但未注入 isTopicMember 回调", async () => {
-    await expect(
-      assertResourceAccess(
-        {
-          userId: "owner-x",
-          visibility: ContentVisibility.SHARED,
-          topicId: "topic-1",
-        },
+        { userId: "owner-x", visibility: ContentVisibility.SHARED },
         requester,
       ),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    ).toThrow(NotFoundException);
   });
 
-  it("放行：PUBLIC（无需 Topic 查询）", async () => {
-    const isTopicMember = jest.fn();
-    await expect(
+  it("放行：PUBLIC", () => {
+    expect(() =>
       assertResourceAccess(
         { userId: "owner-x", visibility: ContentVisibility.PUBLIC },
         requester,
-        { isTopicMember },
       ),
-    ).resolves.toBeUndefined();
-    expect(isTopicMember).not.toHaveBeenCalled();
+    ).not.toThrow();
   });
 });

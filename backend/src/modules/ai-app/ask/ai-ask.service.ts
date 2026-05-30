@@ -24,7 +24,10 @@ import { KbQueryService } from "@/modules/ai-app/library/kb-query/kb-query.servi
 // so any "ignore previous instructions" embedded in a document is treated as
 // research material, not a command. Same primitive the harness loop uses for
 // tool observations (wrapToolObservation).
-import { wrapExternalContent } from "@/modules/ai-engine/facade";
+import {
+  wrapExternalContent,
+  getExternalContentNotice,
+} from "@/modules/ai-engine/facade";
 import { AIModelType, MemoryLayer } from "@prisma/client";
 import {
   CreditsService,
@@ -1101,6 +1104,7 @@ export class AiAskService {
       systemParts.push(
         `\n${RAG_REFERENCE_SECTION_TITLE}\n${RAG_REFERENCE_INTRO}`,
       );
+      systemParts.push(getExternalContentNotice());
       systemParts.push(ragContext);
       systemParts.push(`\n${RAG_USAGE_GUIDE}`);
     }
@@ -1150,6 +1154,7 @@ export class AiAskService {
     if (ragContext) {
       parts.push(`\n${RAG_REFERENCE_SECTION_TITLE_CHAT}`);
       parts.push(RAG_REFERENCE_INTRO_CHAT);
+      parts.push(getExternalContentNotice());
       parts.push(ragContext);
     }
 

@@ -48,8 +48,13 @@ function makeStore() {
     listByUser: jest.fn().mockResolvedValue([]),
     getById: jest.fn().mockResolvedValue(null),
     // ★ P-IDOR2 (full): 按 id 查访问元信息（owner + visibility），不带 userId 过滤。
-    //   默认 null（查不到 → 404）；需放行的测试自行 mock 返回真实 meta。
-    getAccessMetaById: jest.fn().mockResolvedValue(null),
+    //   默认 own（owner === 测试常用 requester "user-1"，PRIVATE）让既有读端点
+    //   测试直接放行；需 404 / 跨用户场景的测试自行 mock 返回 null 或他人 meta。
+    getAccessMetaById: jest.fn().mockResolvedValue({
+      userId: "user-1",
+      visibility: "PRIVATE",
+      topicId: null,
+    }),
     // ★ C0/G1：applyTerminalIfRunning 替代 markCancelled（条件写，首写赢，返回 boolean）
     applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
     deleteByUser: jest.fn().mockResolvedValue(undefined),
@@ -322,19 +327,50 @@ describe("AgentPlaygroundController", () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it("throws ForbiddenException when mission not found", async () => {
+    it("throws NotFoundException when mission not found (assertReadAccess)", async () => {
       const { controller, store } = buildController();
-      store.getById.mockResolvedValue(null);
+      store.getAccessMetaById.mockResolvedValue(null);
       await expect(
         controller.getMission("m-1", makeReq("user-1")),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(NotFoundException);
     });
 
-    it("returns mission when found", async () => {
+    it("returns mission when found (own)", async () => {
       const { controller, store } = buildController();
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "user-1",
+        visibility: "PRIVATE",
+        topicId: null,
+      });
       store.getById.mockResolvedValue({ id: "m-1", topic: "test" });
       const result = await controller.getMission("m-1", makeReq("user-1"));
       expect(result).toEqual({ mission: { id: "m-1", topic: "test" } });
+    });
+
+    it("returns mission when PUBLIC and requester is not owner", async () => {
+      const { controller, store } = buildController();
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "owner-x",
+        visibility: "PUBLIC",
+        topicId: null,
+      });
+      // fetched by owner id, not requester id
+      store.getById.mockResolvedValue({ id: "m-1", topic: "test" });
+      const result = await controller.getMission("m-1", makeReq("user-1"));
+      expect(result).toEqual({ mission: { id: "m-1", topic: "test" } });
+      expect(store.getById).toHaveBeenCalledWith("m-1", "owner-x");
+    });
+
+    it("throws NotFoundException when other-user PRIVATE", async () => {
+      const { controller, store } = buildController();
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "owner-x",
+        visibility: "PRIVATE",
+        topicId: null,
+      });
+      await expect(
+        controller.getMission("m-1", makeReq("user-1")),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -346,16 +382,21 @@ describe("AgentPlaygroundController", () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it("throws ForbiddenException when mission not found", async () => {
+    it("throws NotFoundException when mission not found (assertReadAccess)", async () => {
       const { controller, store } = buildController();
-      store.getById.mockResolvedValue(null);
+      store.getAccessMetaById.mockResolvedValue(null);
       await expect(
         controller.exportMission("m-1", "csv-facts", makeReq("user-1")),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("throws BadRequestException when mission has no reportFull", async () => {
       const { controller, store } = buildController();
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "user-1",
+        visibility: "PRIVATE",
+        topicId: null,
+      });
       store.getById.mockResolvedValue({ id: "m-1", topic: "test" });
       await expect(
         controller.exportMission("m-1", "csv-facts", makeReq("user-1")),
@@ -364,6 +405,11 @@ describe("AgentPlaygroundController", () => {
 
     it("exports csv-facts with correct MIME type", async () => {
       const { controller, store } = buildController();
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "user-1",
+        visibility: "PRIVATE",
+        topicId: null,
+      });
       store.getById.mockResolvedValue({
         configSnapshot: SNAP,
         id: "m-1",
@@ -1475,12 +1521,16 @@ describe("AgentPlaygroundController", () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it("throws ForbiddenException when mission not owned by user", async () => {
+    it("throws NotFoundException when mission not accessible (other-user PRIVATE)", async () => {
       const { controller, store } = buildController();
-      store.getById.mockResolvedValue(null); // 跨 user → null
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "owner-x",
+        visibility: "PRIVATE",
+        topicId: null,
+      });
       await expect(
         controller.listMissionReportVersions("m-1", makeReq("user-1")),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("returns mapped version list with ISO timestamps", async () => {
@@ -1551,12 +1601,16 @@ describe("AgentPlaygroundController", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("throws ForbiddenException when mission not owned by user", async () => {
+    it("throws NotFoundException when mission not accessible (other-user PRIVATE)", async () => {
       const { controller, store } = buildController();
-      store.getById.mockResolvedValue(null);
+      store.getAccessMetaById.mockResolvedValue({
+        userId: "owner-x",
+        visibility: "PRIVATE",
+        topicId: null,
+      });
       await expect(
         controller.getMissionReportVersion("m-1", "1", makeReq("user-1")),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("throws BadRequestException when version row not found", async () => {

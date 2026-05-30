@@ -143,7 +143,7 @@ export function makeFakeMarsMissionStoreHooks(
     writeHeartbeat: jest.fn(async () => undefined),
     resetHeartbeat: jest.fn(async () => undefined),
     findOrphanRunning: jest.fn(async () => []),
-    markOrphanFailed: jest.fn(async () => undefined),
+    claimOrphanFailed: jest.fn(async () => true),
     writeStageProgress: jest.fn(async () => undefined),
     countRunning: jest.fn(async () => 0),
     isMissionRowMissing: jest.fn((err) => {
