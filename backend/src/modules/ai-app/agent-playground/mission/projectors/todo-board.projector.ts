@@ -151,6 +151,16 @@ const SYSTEM_STAGE_PRESETS: ReadonlyArray<StagePreset> = [
   },
 ];
 
+// 维度重试类 origin（这些 dimension todo 是"重试子任务"，非主维度任务）。
+// 模块级共享：终态收尾 + resolveInProgressRetryChildren 同源。
+const DIMENSION_RETRY_ORIGINS: ReadonlySet<string> = new Set([
+  "leader-assess-retry",
+  "leader-assess-replace",
+  "leader-assess-extend",
+  "self-heal-retry",
+  "leader-chat-create",
+]);
+
 // step-id → frontend stage-id（与 step-id-mapping.contract.ts 一致）
 function mapStepToFrontendStage(stepId: string): string {
   const map: Record<string, string> = {
@@ -233,13 +243,7 @@ function resolveInProgressRetryChildren(
     outcome === "success"
       ? "本轮重试已被纳入维度最终结果"
       : "维度未能恢复，本轮重试结束";
-  const RETRY_ORIGINS = new Set([
-    "leader-assess-retry",
-    "leader-assess-replace",
-    "leader-assess-extend",
-    "self-heal-retry",
-    "leader-chat-create",
-  ]);
+  const RETRY_ORIGINS = DIMENSION_RETRY_ORIGINS;
   for (const t of state.todos.values()) {
     if (
       t.scope === "dimension" &&
@@ -1631,72 +1635,104 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
       // ── reset 不支持的 event；剩余 case 留 follow-up ───────────────
     }
 
-    // 3. mission terminal cleanup：mission row terminal 状态 → 未完成 todo 收尾
-    //    ★ 2026-05-26 修复：mission completed/rejected 时 system stage 也必须收 done
-    //    （之前 t.scope !== "system" guard 导致事件 buffer FIFO 5000 evict 后早期 stage
-    //    显示"待启动"假象，见 Screenshot_1 实证）。
-    if (row.status === "completed" || row.status === "rejected") {
-      for (const t of state.todos.values()) {
-        if (t.status === "pending" || t.status === "in_progress") {
-          // system stage 收 done（completed/rejected mission 必跑完所有 stage）
-          // 非 system（dim retry / chapter / reconciler-gap 等）维持 cancelled 语义
-          t.status = t.scope === "system" ? "done" : "cancelled";
-          if (!t.endedAt) t.endedAt = missionCreatedAt;
-          // ★ 2026-05-27 修复（Screenshot_6）：narrative 仅在 narrativeLog 完全为空时
-          //   注入，避免在已有真实事件 trace 的 todo 上覆盖一条误导的"自动结束"信息。
-          //   也只对 non-system 注入（system stage 收 done 通常是事件 buffer evict 导致
-          //   trace 缺失，再加一条"自动结束"narrative 让用户更迷惑而不是更清楚）。
-          if (t.scope !== "system" && t.narrativeLog.length === 0) {
-            addNarrative(
-              state,
-              t.id,
-              missionCreatedAt,
-              "mission 终态，自动结束",
-              "info",
-            );
-          }
-        }
+    // ──────────────────────────────────────────────────────────────────────
+    // 3. 持久化产物 high-water 收尾 —— 全状态机统一单一真相（2026-05-30 重构）
+    //
+    //    病根（历次截图反复爆雷）：system stage 状态此前靠"重放事件"算，而
+    //    MissionEventBuffer 是 FIFO(5000)，多轮重跑后早期 stage 的 lifecycle 事件被
+    //    挤掉 → projector 看不到 done → 残留 pending → 前端把 pending 扫成红 → 满屏
+    //    "失败"（即便 mission 早已产出完整报告）。逐状态打补丁还漏了 quality-failed
+    //    （不匹配任何分支，零补偿）和 running（早期事件被挤也不补）。
+    //
+    //    单一真相：持久化产物在 DB 列，**永不被事件 buffer 挤掉**。流水线严格顺序 +
+    //    产物单调链 ⇒ 某阶段产物存在则它及之前所有 stage 必然跑完。这套逻辑对全部 6
+    //    种 mission 状态统一生效，不再每加一个状态补一处。
+    //
+    //    边界：**只决定 system stage 的"最终完成与否"**。维度/章节/重试子任务的实时
+    //    中间态（"采集完成""撰写中"…）与每行叙述 trace 仍由事件驱动，这里不碰；运行中
+    //    只把"待启动"的已完成阶段补 done，绝不下调 live 的 in_progress。
+    const idxOf = (id: string): number =>
+      SYSTEM_STAGE_PRESETS.findIndex((p) => p.id === id);
+    const dimsArr = Array.isArray(row.dimensions)
+      ? (row.dimensions as unknown[])
+      : null;
+    const journalPlan = (row.leaderJournal as { plan?: unknown } | null)?.plan;
+    let artifactHighWater = -1;
+    const bump = (stageId: string, present: boolean): void => {
+      if (present) {
+        artifactHighWater = Math.max(artifactHighWater, idxOf(stageId));
       }
-    } else if (row.status === "failed" || row.status === "cancelled") {
-      // ★ 2026-05-30 修复（单维度重跑 → 全节点变"失败"，Screenshot_26/27）：
-      //   单维度 local-rerun 时 dispatcher 发大量 rerun 事件，把早期 stage 的
-      //   "stage done" 事件从 MissionEventBuffer FIFO(5000) 挤掉，projector 重放
-      //   时看不到 s1/s2 的 done → 残留 pending → 前端 sweepStatus 把 pending
-      //   system stage 一律扫成 failed → 上游已成功的 s1/s2 误显红色。
-      //
-      //   修复：流水线严格顺序，若某 system stage 仍有确定状态（done/failed/
-      //   in_progress），则它**之前**的所有 system stage 必然跑过 → pending 的
-      //   补 done（buffer evict 补偿）。失败点本身及其下游维持 pending 语义
-      //   （"停在哪里"），不在本次修复范围内动。
-      const stageIdx = (t: TodoBoardEntry): number =>
-        t.scope === "system" && t.systemStageId
-          ? SYSTEM_STAGE_PRESETS.findIndex((p) => p.id === t.systemStageId)
-          : -1;
-      let highestReachedIdx = -1;
-      for (const t of state.todos.values()) {
-        if (
-          t.scope === "system" &&
-          (t.status === "done" ||
-            t.status === "failed" ||
-            t.status === "in_progress")
-        ) {
-          highestReachedIdx = Math.max(highestReachedIdx, stageIdx(t));
-        }
-      }
+    };
+    // 每个映射：DB 列有值 ⇒ 该阶段（及其之前全部）必然跑完。无独立产物的 s1/s3/s4/
+    // s8b/s9b/s11/s12 由 idx<=HW 的包含式规则被前驱产物隐含覆盖。
+    bump(
+      "s2-leader-plan",
+      !!row.themeSummary || !!(dimsArr && dimsArr.length) || !!journalPlan,
+    );
+    bump("s5-reconciler", !!row.reconciliationReport);
+    bump("s6-analyst", !!row.analystOutput);
+    bump("s7-writer-outline", !!row.outlinePlan);
+    bump("s8-writer-draft", !!row.reportFull);
+    bump(
+      "s9-critic-l4",
+      Array.isArray(row.verdicts) && (row.verdicts as unknown[]).length > 0,
+    );
+    bump("s10-leader-signoff", row.leaderSigned === true);
+
+    const isSuccess = row.status === "completed" || row.status === "rejected";
+    const isTerminalFailure =
+      row.status === "failed" ||
+      row.status === "cancelled" ||
+      row.status === "quality-failed";
+    const isTerminal = isSuccess || isTerminalFailure;
+
+    // (a) 通用产物补偿（全状态机）：idx<=HW 的 system stage 必然跑完 → done。
+    //     终态：产物是最终真相，覆盖残留 failed/pending；
+    //     运行中：只补 pending（保留 live 的 in_progress/failed/done，不回退过程）。
+    for (const t of state.todos.values()) {
+      if (t.scope !== "system" || !t.systemStageId) continue;
+      const idx = idxOf(t.systemStageId);
+      if (idx < 0 || idx > artifactHighWater) continue;
+      if (t.status === "done") continue;
+      if (!isTerminal && t.status !== "pending") continue;
+      t.status = "done";
+      if (!t.endedAt) t.endedAt = missionCreatedAt;
+    }
+
+    // (b) 终态收尾：处理 high-water 之上仍未结的 todo。运行中不执行（中间态照常）。
+    if (isTerminal) {
       for (const t of state.todos.values()) {
         if (t.status !== "pending" && t.status !== "in_progress") continue;
         if (t.scope === "system") {
-          // 失败点之前的 system stage（buffer evict 丢了 done 事件）→ 补 done
-          const idx = stageIdx(t);
-          if (idx >= 0 && idx < highestReachedIdx) {
+          // 成功态：剩余 system stage 也收 done（completed 必跑完全程）；
+          // 失败态：high-water 之上的 system stage 维持原状（前端按终态扫）。
+          if (isSuccess) {
             t.status = "done";
             if (!t.endedAt) t.endedAt = missionCreatedAt;
           }
-          // idx >= highestReachedIdx 的 system stage 维持 pending（停在哪里）
           continue;
         }
-        // 非 system（dim retry / chapter / reconciler-gap 等）→ failed/cancelled
+        if (t.scope === "dimension" && !DIMENSION_RETRY_ORIGINS.has(t.origin)) {
+          // 主维度 todo：成功态 → done（维度已交付报告，不该显灰 cancelled）；
+          //   失败/取消/quality-failed → cancelled（中性未完成，非红"失败"）。
+          t.status = isSuccess ? "done" : "cancelled";
+          if (!t.endedAt) t.endedAt = missionCreatedAt;
+          continue;
+        }
+        // 其它非 system（retry 子任务 / chapter / reconciler-gap 等）：
+        //   硬失败 failed → failed；其余终态（成功/取消/quality-failed）→ cancelled。
         t.status = row.status === "failed" ? "failed" : "cancelled";
+        if (!t.endedAt) t.endedAt = missionCreatedAt;
+        // narrative 仅在该 todo 完全无事件 trace 时补一条（避免覆盖真实 trace）。
+        if (t.narrativeLog.length === 0) {
+          addNarrative(
+            state,
+            t.id,
+            missionCreatedAt,
+            "mission 终态，自动结束",
+            "info",
+          );
+        }
       }
     }
 

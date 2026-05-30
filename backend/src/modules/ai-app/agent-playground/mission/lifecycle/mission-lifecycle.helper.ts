@@ -74,6 +74,10 @@ export class MissionLifecycleHelper extends BusinessTeamLifecycleTransitionsFram
       PlaygroundCompletedDetail,
       PlaygroundFailedDetail
     > = {
+      // ★ 2026-05-30：playground 允许从 cancelled 复活（默认只有 failed/quality-failed）。
+      //   用户对一个被取消的 mission 点「重跑」= 明确想重新跑；不复活的话 cascade 会跑、
+      //   烧额度，但终态永远卡在 cancelled，重跑的真实失败（如额度耗尽）写不回也显示不出来。
+      reopenableStatuses: ["failed", "quality-failed", "cancelled"],
       buildCompletedUpdate: (d) => {
         const update: Prisma.AgentPlaygroundMissionUpdateInput = {
           status: "completed",

@@ -865,6 +865,15 @@ export class PlaygroundPipelineDispatcher
       /credit|余额不足|insufficient/i.test(message)
     ) {
       missionFailureCode = "ORCH_CREDIT_INSUFFICIENT";
+    } else if (
+      // ★ 2026-05-30：BYOK 密钥额度/配额耗尽（"Payment required - quota exceeded" /
+      //   QUOTA_EXCEEDED / PROVIDER_QUOTA_EXCEEDED）此前掉进兜底 PROVIDER_API_ERROR，
+      //   只显示裸英文，用户看不懂"为什么停了"。单列出来给可操作中文文案。
+      /quota.?exceeded|payment required|QUOTA_EXCEEDED|配额|额度耗尽/i.test(
+        message,
+      )
+    ) {
+      missionFailureCode = "PROVIDER_QUOTA_EXCEEDED";
     } else if (errName === "ByokRequiredError") {
       missionFailureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";
     } else if (
@@ -878,13 +887,18 @@ export class PlaygroundPipelineDispatcher
       missionFailureCode = "PROVIDER_API_ERROR";
     }
 
-    // ★ 预算/超时类失败给用户可操作的中文文案（替代裸 abort message "operation aborted"）
+    // ★ 预算/超时/额度类失败给用户可操作的中文文案（替代裸 abort message）
     const displayMessage =
       missionFailureCode === "BUDGET_EXHAUSTED"
         ? `预算已耗尽（已用约 ${Math.round(snap.poolTokensUsed / 1000)}k tokens / $${snap.poolCostUsd.toFixed(2)}）。请在「Mission 设置」提高 Credits 上限后重跑。`
         : missionFailureCode === "RUNNER_WALL_TIME_EXCEEDED"
           ? "运行超过墙钟时限被中止。请在「Mission 设置」提高时间上限后重跑。"
-          : message;
+          : missionFailureCode === "PROVIDER_QUOTA_EXCEEDED" ||
+              missionFailureCode === "ORCH_CREDIT_INSUFFICIENT"
+            ? `调用模型时密钥额度/配额已耗尽（${message.slice(0, 160)}）。请为对应 Provider 充值，或在「Mission 设置」切换到有额度的模型 / 启用平台额度后重跑。`
+            : missionFailureCode === "PROVIDER_RATE_LIMIT"
+              ? `模型调用触发限流（${message.slice(0, 160)}）。请稍后重跑，或在「Mission 设置」切换到更高额度档的模型。`
+              : message;
 
     await this.invoker
       .emitEvent({

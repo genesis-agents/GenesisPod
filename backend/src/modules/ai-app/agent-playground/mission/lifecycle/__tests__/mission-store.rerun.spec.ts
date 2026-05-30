@@ -92,13 +92,14 @@ describe("MissionStore.markIntermediateState (PR-R3)", () => {
 });
 
 describe("MissionStore.markReopened (PR-R3 真 5×5 矩阵)", () => {
-  // v1.2 类别 B3：5 from × 5 expected to = 25 case
-  // failed/quality-failed → running 允许；completed/cancelled/running → 拒绝（保留原状态）
+  // v1.2 类别 B3 + 2026-05-30：failed/quality-failed/cancelled → running 允许；
+  // completed/running → 拒绝（保留原状态）。cancelled 加入复活白名单 —— 被取消的
+  // mission 点重跑也应能复活（见 mission-lifecycle.helper.ts reopenableStatuses）。
   const cases = [
     { from: "failed", expectedTo: "running", shouldThrow: false },
     { from: "quality-failed", expectedTo: "running", shouldThrow: false },
+    { from: "cancelled", expectedTo: "running", shouldThrow: false },
     { from: "completed", expectedTo: "completed", shouldThrow: true },
-    { from: "cancelled", expectedTo: "cancelled", shouldThrow: true },
     { from: "running", expectedTo: "running", shouldThrow: true }, // 拒但 to 仍是 running 因为不变
   ] as const;
 
