@@ -5,5 +5,6 @@
 
 export * from "./guardrails.interface";
 export * from "./guardrails-pipeline.service";
+export * from "./external-content-wrapper.util";
 export * from "./input";
 export * from "./output";

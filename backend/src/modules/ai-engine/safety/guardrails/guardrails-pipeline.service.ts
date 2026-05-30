@@ -103,13 +103,16 @@ export class GuardrailsPipelineService {
         this.logger.error(
           `Error running input guardrail ${guardrail.id}: ${error instanceof Error ? error.message : error}`,
         );
-        // Continue with other guardrails on error
+        // ★ Security (P0): 护栏 check() 抛错 → fail-closed 阻断。
+        // 安全护栏执行失败时无法判定输入是否安全，按 block 处理而非放行。
         results.push({
           passed: false,
           guardrailId: guardrail.id,
-          severity: "error",
+          severity: "block",
           message: `Guardrail execution error: ${error instanceof Error ? error.message : "Unknown error"}`,
         });
+        blockedBy = guardrail.id;
+        break;
       }
     }
 
@@ -184,13 +187,16 @@ export class GuardrailsPipelineService {
         this.logger.error(
           `Error running output guardrail ${guardrail.id}: ${error instanceof Error ? error.message : error}`,
         );
-        // Continue with other guardrails on error
+        // ★ Security (P0): 护栏 check() 抛错 → fail-closed 阻断。
+        // 安全护栏执行失败时无法判定输出是否安全，按 block 处理而非放行。
         results.push({
           passed: false,
           guardrailId: guardrail.id,
-          severity: "error",
+          severity: "block",
           message: `Guardrail execution error: ${error instanceof Error ? error.message : "Unknown error"}`,
         });
+        blockedBy = guardrail.id;
+        break;
       }
     }
 

@@ -275,7 +275,8 @@ describe("GuardrailsPipelineService - Unit", () => {
   // =========================================================================
 
   describe("processInput - exception handling", () => {
-    it("should continue with other guardrails when one throws", async () => {
+    // ★ Security (P0): 护栏抛错 → fail-closed 阻断并短路（不再 fail-open 继续放行）
+    it("should fail-closed and short-circuit when a guardrail throws", async () => {
       const throwing: IInputGuardrail = {
         id: "throwing",
         name: "Throwing Guardrail",
@@ -293,10 +294,13 @@ describe("GuardrailsPipelineService - Unit", () => {
 
       const result = await service.processInput({ content: "test" });
 
-      // The throwing guardrail produces an error result
-      expect(result.results).toHaveLength(2);
-      expect(result.results[0].severity).toBe("error");
+      // Throw is treated as a block: not passed, blockedBy set, short-circuits
+      expect(result.passed).toBe(false);
+      expect(result.blockedBy).toBe("throwing");
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0].severity).toBe("block");
       expect(result.results[0].message).toContain("execution error");
+      expect(passing.check).not.toHaveBeenCalled();
     });
   });
 

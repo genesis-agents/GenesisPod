@@ -869,7 +869,32 @@ describe("AiChatService", () => {
       expect(mockGuardrailsPipeline.processOutput).not.toHaveBeenCalled();
     });
 
-    it("should continue when guardrails throw error", async () => {
+    // ★ Security (P0): 生产环境不允许通过 GUARDRAILS_ENABLED=false 关闭护栏
+    it("should keep guardrails ON in production even if GUARDRAILS_ENABLED=false", async () => {
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === "GUARDRAILS_ENABLED") return "false";
+        if (key === "NODE_ENV") return "production";
+        if (key === "DEFAULT_AI_MODEL") return "gpt-4o";
+        return undefined;
+      });
+
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockGuardrailsPipeline.processInput.mockResolvedValue({ passed: true });
+      mockGuardrailsPipeline.processOutput.mockResolvedValue({ passed: true });
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      // Production must NOT honor the disable flag
+      expect(mockGuardrailsPipeline.processInput).toHaveBeenCalled();
+      expect(mockGuardrailsPipeline.processOutput).toHaveBeenCalled();
+    });
+
+    // ★ Security (P0): guardrail 管道异常 → fail-closed 阻断（旧行为是 fail-open 放行）
+    it("should fail-closed (block) when input guardrails throw error", async () => {
       const mockConfig = createMockModelConfig();
       mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
       mockGuardrailsPipeline.processInput.mockRejectedValue(
@@ -881,8 +906,12 @@ describe("AiChatService", () => {
         model: "gpt-4o",
       });
 
-      // Should continue despite guardrail error
-      expect(result.content).toBe("Test response");
+      // Pipeline error must block the request rather than leak through
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain("blocked by content safety guardrail");
+      expect(
+        mockApiCallerService.callOpenAICompatibleAPI,
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -2150,7 +2179,8 @@ describe("AiChatService", () => {
       expect(lastChunk.error).toContain("安全策略");
     });
 
-    it("should not block stream when guardrails processOutput throws", async () => {
+    // ★ Security (P0): processOutput 异常 → fail-closed 阻断流（旧行为是 fail-open 放行）
+    it("should fail-closed (block stream) when guardrails processOutput throws", async () => {
       const config = createMockModelConfig();
       mockModelConfigService.getModelConfig.mockResolvedValue(config);
 
@@ -2179,13 +2209,13 @@ describe("AiChatService", () => {
         chunks.push(chunk);
       }
 
-      // Should still emit final chunk without error (fail-open)
+      // Pipeline error must block the stream with a safety-policy error chunk
       const finalChunk = chunks[chunks.length - 1] as {
         done: boolean;
         error?: string;
       };
       expect(finalChunk.done).toBe(true);
-      expect(finalChunk.error).toBeUndefined();
+      expect(finalChunk.error).toContain("安全策略");
     });
 
     it("should yield chunk error if stream yields error chunk", async () => {

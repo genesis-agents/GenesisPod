@@ -2512,12 +2512,15 @@ export class AiChatService {
       // ★ Guardrails: Output validation (skip for internal system calls)
       if (
         !options.skipGuardrails &&
-        this.guardrailsPipeline &&
-        this.configService.get<string>("GUARDRAILS_ENABLED") !== "false" &&
+        this.guardrailsEnabled() &&
         accumulatedContent
       ) {
+        const pipeline = this.guardrailsPipeline;
         try {
-          const outputResult = await this.guardrailsPipeline.processOutput({
+          if (!pipeline) {
+            throw new Error("guardrails pipeline unavailable");
+          }
+          const outputResult = await pipeline.processOutput({
             content: accumulatedContent,
             modelId: model,
           });
@@ -2543,7 +2546,13 @@ export class AiChatService {
           this.logger.error(
             `[chatStream] Guardrails processing error: ${errMsg}`,
           );
-          // 不阻塞输出，继续返回结果
+          // ★ Security (P0): block 级护栏 fail-closed —— 安全管道异常时阻断输出而非放行。
+          yield {
+            content: "",
+            done: true,
+            error: "内容违反安全策略: guardrail-output-error",
+          };
+          return;
         }
       }
 
@@ -2648,6 +2657,27 @@ export class AiChatService {
   // ==================== Guardrails 私有方法 ====================
 
   /**
+   * Guardrails 是否启用。
+   *
+   * ★ Security (P0): 之前是「全局布尔一键关」——任何环境设 GUARDRAILS_ENABLED=false
+   * 即可整体绕过安全护栏。现收敛为：仅当 NODE_ENV !== "production" 时才允许显式关闭，
+   * 生产环境恒开，杜绝误配 / 攻击者篡改环境变量关闭护栏。
+   */
+  private guardrailsEnabled(): boolean {
+    if (!this.guardrailsPipeline) {
+      return false;
+    }
+    const disabled =
+      this.configService.get<string>("GUARDRAILS_ENABLED") === "false";
+    if (!disabled) {
+      return true;
+    }
+    // 显式请求关闭：仅非生产环境允许
+    const nodeEnv = this.configService.get<string>("NODE_ENV");
+    return nodeEnv === "production";
+  }
+
+  /**
    * 运行输入 Guardrails 检查
    * 从 Path A 和 Path B 提取的通用逻辑
    *
@@ -2669,10 +2699,7 @@ export class AiChatService {
     passed: boolean;
     blockedBy?: string;
   }> {
-    if (
-      !this.guardrailsPipeline ||
-      this.configService.get<string>("GUARDRAILS_ENABLED") === "false"
-    ) {
+    if (!this.guardrailsEnabled()) {
       return { passed: true };
     }
 
@@ -2681,8 +2708,14 @@ export class AiChatService {
       .map((m) => m.content)
       .join("\n");
 
+    // guardrailsEnabled() 已确保 pipeline 非空（null 时返回 false 走上面 early-return）
+    const pipeline = this.guardrailsPipeline;
+    if (!pipeline) {
+      return { passed: true };
+    }
+
     try {
-      const inputResult = await this.guardrailsPipeline.processInput({
+      const inputResult = await pipeline.processInput({
         content: userContent,
         context: {
           modelType: context?.modelType,
@@ -2718,8 +2751,9 @@ export class AiChatService {
       this.logger.error(
         `[${pathLabel}] Guardrail input check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
-      // 检查失败时允许继续（fail-open 策略）
-      return { passed: true };
+      // ★ Security (P0): block 级护栏 fail-closed —— 安全管道本身抛错时无法判定输入是否安全，
+      // 视为不通过/阻断而非放行（旧 fail-open 会让护栏故障即整体绕过）。
+      return { passed: false, blockedBy: "guardrail-input-error" };
     }
   }
 
@@ -2744,15 +2778,18 @@ export class AiChatService {
     passed: boolean;
     blockedBy?: string;
   }> {
-    if (
-      !this.guardrailsPipeline ||
-      this.configService.get<string>("GUARDRAILS_ENABLED") === "false"
-    ) {
+    if (!this.guardrailsEnabled()) {
+      return { passed: true };
+    }
+
+    // guardrailsEnabled() 已确保 pipeline 非空（null 时返回 false 走上面 early-return）
+    const pipeline = this.guardrailsPipeline;
+    if (!pipeline) {
       return { passed: true };
     }
 
     try {
-      const outputResult = await this.guardrailsPipeline.processOutput({
+      const outputResult = await pipeline.processOutput({
         content,
         modelId,
       });
@@ -2787,8 +2824,9 @@ export class AiChatService {
       this.logger.error(
         `[${pathLabel}] Guardrail output check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
-      // 检查失败时允许继续（fail-open 策略）
-      return { passed: true };
+      // ★ Security (P0): block 级护栏 fail-closed —— 安全管道本身抛错时无法判定输出是否安全，
+      // 视为不通过/阻断而非放行（旧 fail-open 会让护栏故障即整体绕过）。
+      return { passed: false, blockedBy: "guardrail-output-error" };
     }
   }
 }
