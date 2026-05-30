@@ -296,6 +296,12 @@ export class LocalRerunService {
       //   覆盖、跑失败保留。详见 stage-rerun.dispatcher.runFromStageWithCascade 注释。
       const ctx = await this.hydrator.hydrate(missionId, userId);
 
+      // ★ 2026-05-29 单维度 scope 重跑：s3 重跑且带 dimensionRef → 只重跑该维度，
+      //   其余维度复用 hydrate 出的已有产物（s3 handler 读 ctx.focusDimension 处理）。
+      if (stepId === "s3-researcher-collect" && input.dimensionRef) {
+        ctx.focusDimension = input.dimensionRef;
+      }
+
       // ── 9. dispatch（stepId 路径走 cascade，老路径走 scope dispatch）──
       let cascade: LocalRerunResult["cascade"];
       if (stepId) {

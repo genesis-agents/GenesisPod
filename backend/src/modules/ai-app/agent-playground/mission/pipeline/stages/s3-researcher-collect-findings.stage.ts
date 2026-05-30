@@ -122,12 +122,14 @@ export async function runResearcherDispatchStage(
   const { missionId, userId, input, pool, plan } = ctx;
   if (!plan) throw new Error("S3 researcher dispatch requires ctx.plan");
 
-  await narrate(deps.emit, missionId, userId, {
-    stage: "s3-researchers",
-    role: "researcher",
-    tag: "info",
-    text: `派遣 ${plan.dimensions.length} 个 Researcher 并行采集（concurrency=${input.concurrency}）`,
-  });
+  if (!ctx.focusDimension) {
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s3-researchers",
+      role: "researcher",
+      tag: "info",
+      text: `派遣 ${plan.dimensions.length} 个 Researcher 并行采集（concurrency=${input.concurrency}）`,
+    });
+  }
 
   // ★ Phase P1-17: 检测 dependsOn → 走 DAG 调度；否则全并行
   const hasDependencies = plan.dimensions.some(
@@ -174,6 +176,47 @@ export async function runResearcherDispatchStage(
           `[s3 dim-checkpoint ${missionId}] dim "${dim.name}" checkpoint failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
         );
       });
+  }
+
+  // ★ 2026-05-29 单维度 scope 局部重跑：只重跑 ctx.focusDimension 指定的维度，
+  //   其余维度复用 hydrate 出的已有产物（ctx.researcherResults），merge 后交下游 cascade。
+  //   不触碰下面的多维度 phase A/B 逻辑。focus 维度不在 plan 时落回全维度路径。
+  if (ctx.focusDimension) {
+    const focusName = ctx.focusDimension;
+    const focusIdx = plan.dimensions.findIndex(
+      (d) => d.name === focusName || d.id === focusName,
+    );
+    if (focusIdx >= 0) {
+      const prior = ctx.researcherResults ?? [];
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s3-researchers",
+        role: "researcher",
+        tag: "info",
+        text: `单维度局部重跑：仅重新采集「${plan.dimensions[focusIdx].name}」（保留其余 ${Math.max(prior.length - 1, 0)} 个维度已有产物）`,
+      });
+      const skipChapterPipeline =
+        input.auditLayers === "minimal" || input.depth === "quick";
+      const fresh = await runOneDim(
+        ctx,
+        deps,
+        plan.dimensions[focusIdx],
+        focusIdx,
+        {
+          skipChapterPipeline,
+        },
+      );
+      fireDimCheckpoint(plan.dimensions[focusIdx], fresh);
+      ctx.researcherResults = prior.some((r) => r.dimension === fresh.dimension)
+        ? prior.map((r) => (r.dimension === fresh.dimension ? fresh : r))
+        : [...prior, fresh];
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s3-researchers",
+        role: "researcher",
+        tag: fresh.findings.length > 0 ? "success" : "warning",
+        text: `维度「${fresh.dimension}」重新采集完成（${fresh.findings.length} 条 finding），下游章节将据此更新`,
+      });
+      return;
+    }
   }
 
   let researcherResults: ResearcherDimResult[];

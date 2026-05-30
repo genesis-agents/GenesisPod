@@ -736,7 +736,11 @@ export function MissionTodoBoard({
     //   到 stepId 都走局部重跑（cascade 自动展开下游）。仅 s12 / 无 stepId 走"开新研究对比"。
     const stepId = td.systemStageId
       ? FRONTEND_STAGE_TO_STEP_ID[td.systemStageId]
-      : undefined;
+      : // ★ 2026-05-29 单维度局部重跑：维度 todo 无 systemStageId，映射到 s3 研究段
+        //   + 传 dimensionRef，后端只重跑该维度（不重建整 mission）。
+        td.scope === 'dimension' && td.dimensionRef
+        ? 's3-researcher-collect'
+        : undefined;
     const supportsLocalRerun =
       // 老路径兼容：s9b legacy todo id 后缀路径
       (td.scope === 'system' && td.id.endsWith('s9b-objective-evaluation')) ||

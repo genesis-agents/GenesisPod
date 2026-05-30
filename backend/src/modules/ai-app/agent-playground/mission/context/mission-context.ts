@@ -111,6 +111,13 @@ export interface ResearchPhaseCtx {
     error: string;
     occurredAt: number;
   }[];
+
+  /**
+   * ★ 2026-05-29 单维度 scope 局部重跑：local-rerun 带 dimensionRef 时设此字段（=维度名）。
+   * s3 handler 据此只重跑该维度的 researcher、merge 进其余维度已有产物，再交下游 cascade。
+   * 普通整跑 / 整段重跑时为 undefined。
+   */
+  focusDimension?: string;
 }
 
 // ─── Phase 3: Synthesis（s5 reconciler + s6 analyst）──────────────

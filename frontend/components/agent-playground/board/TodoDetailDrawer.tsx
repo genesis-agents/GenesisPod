@@ -847,7 +847,11 @@ export function TodoDetailDrawer({
   //   - reopen 自动：cascade 终点是 s11-persist 且 status=failed → markReopened
   const stepId = todo.systemStageId
     ? FRONTEND_STAGE_TO_STEP_ID[todo.systemStageId]
-    : undefined;
+    : // ★ 2026-05-29 单维度局部重跑：维度 todo 映射到 s3 研究段 + dimensionRef，
+      //   后端只重跑该维度（不重建整 mission）。
+      todo.scope === 'dimension' && todo.dimensionRef
+      ? 's3-researcher-collect'
+      : undefined;
   const supportsLocalRerun =
     // 老路径：v1 已支持的 s9b
     (todo.scope === 'system' && todo.id.endsWith('s9b-objective-evaluation')) ||
