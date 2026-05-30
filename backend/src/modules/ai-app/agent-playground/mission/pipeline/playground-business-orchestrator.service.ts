@@ -467,18 +467,29 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
             ...existing,
             [dimId]: dimResult,
           };
-          await this.missionCheckpoint.save(
-            _cbMissionId,
-            {
-              lastStage: "s3-researcher-collect",
-              topic: currentEntry.input.topic,
-              crossState: currentEntry.crossState.toJSON(),
-            },
-            Object.keys(this.STAGE_NUMBER).filter(
-              (k) => (this.STAGE_NUMBER[k] ?? 0) < 3,
-            ),
-            "running",
-          );
+          await this.missionCheckpoint
+            .save(
+              _cbMissionId,
+              {
+                lastStage: "s3-researcher-collect",
+                topic: currentEntry.input.topic,
+                crossState: currentEntry.crossState.toJSON(),
+              },
+              Object.keys(this.STAGE_NUMBER).filter(
+                (k) => (this.STAGE_NUMBER[k] ?? 0) < 3,
+              ),
+              "running",
+            )
+            .catch((err: unknown) => {
+              // WS-DUR: per-dim checkpoint save 失败不再静默/不再冒泡阻塞研究 collect。
+              // 结构化信号(checkpoint_write_failed)便于后续接 OTel/metric;丢一次 dim 级
+              // checkpoint 只影响 crash-resume 粒度(回退到上一 milestone),不影响本次产出。
+              this.log.warn(
+                `checkpoint_write_failed op=save stage=s3-researcher-collect ` +
+                  `missionId=${_cbMissionId} dim=${dimId} ` +
+                  `error=${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
         };
 
         const freshDeps = {
@@ -912,8 +923,13 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
           this.stageBindings.buildDeps(),
         );
         await this.missionCheckpoint.clear(missionId).catch((err: unknown) => {
+          // WS-DUR: 结构化失败信号(checkpoint_write_failed)+ missionId,便于后续接 OTel/metric。
+          // 保持 fire-and-forget:clear 失败不阻塞 s11 主流程(最坏遗留一条 stale checkpoint,
+          // 由 resume 窗口/listResumable 兜底过滤)。
           this.log.warn(
-            `[s11-hooks ${missionId}] checkpoint.clear failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+            `checkpoint_write_failed op=clear stage=s11 ` +
+              `missionId=${missionId} ` +
+              `error=${err instanceof Error ? err.message : String(err)}`,
           );
         });
         const reportPayload =

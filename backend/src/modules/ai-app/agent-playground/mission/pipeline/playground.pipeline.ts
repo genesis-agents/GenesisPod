@@ -269,6 +269,22 @@ export class PlaygroundPipelineDispatcher
           `(heartbeat > ${Math.round(orphanThresholdMs / 60000)}min stale)`,
       );
       for (const o of orphans) {
+        // WS-DUR (2026-05-30): orphan 已被 framework store.cleanupOrphanRunningMissions
+        //   内部 markOrphanFailed 标记 failed（返回前即落终态）。本层无法在标记前拦截
+        //   做自动续跑（见下方 resume-eligibility 探针 + risks 说明）：runMission 入口
+        //   走 openSession → createMission 硬 INSERT 同 id，对已存在的 orphan row 会
+        //   P2002 冲突；安全续跑语义在 MissionRerunOrchestrator（分配新 missionId，本
+        //   dispatcher 未注入该编排器）。此处只做只读 resume-eligibility 观测，便于
+        //   后续接 OTel 量化"丢失的可恢复 mission"，不改变 failed 终态。
+        const resumable = await this.missionCheckpoint
+          .canResume(o.id)
+          .then((d) => d.canResume)
+          .catch(() => false);
+        this.log.warn(
+          `orphan_resume_skipped missionId=${o.id} ` +
+            `resumable=${resumable} reason=auto-resume-unsupported-in-cleanup-path ` +
+            `action=user-manual-rerun`,
+        );
         await this.emitToBus({
           type: "agent-playground.mission:failed",
           missionId: o.id,

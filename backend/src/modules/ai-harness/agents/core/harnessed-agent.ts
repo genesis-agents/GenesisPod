@@ -8,6 +8,7 @@
  */
 
 import { randomUUID } from "crypto";
+import { Logger } from "@nestjs/common";
 import type {
   AgentId,
   AgentState,
@@ -161,6 +162,7 @@ export class HarnessedAgent implements IAgent {
   private readonly modelFailoverProvider?: HarnessedAgentInit["modelFailoverProvider"];
   /** Persistent AbortController — lives from construction. cancel() before execute() still aborts. */
   private readonly abortController = new AbortController();
+  private readonly logger = new Logger(HarnessedAgent.name);
 
   constructor(init: HarnessedAgentInit, id?: string) {
     this.id = id ?? randomUUID();
@@ -393,8 +395,16 @@ export class HarnessedAgent implements IAgent {
                   reason: "auto-interval",
                   taskSnapshot,
                 })
-                .catch(() => {
-                  /* fire-and-forget; never break loop */
+                .catch((err: unknown) => {
+                  // WS-DUR: 不再静默吞错。fire-and-forget 语义保留（不 break loop），
+                  // 但结构化 warn 含 'checkpoint_write_failed' 标识 + missionId/agentId/error，
+                  // 便于后续接 OTel / metric。
+                  this.logger.warn(
+                    `checkpoint_write_failed reason=auto-interval ` +
+                      `missionId=${this.preferredModelMissionId ?? "unknown"} ` +
+                      `agentId=${this.id} action=${actionCount} ` +
+                      `error=${err instanceof Error ? err.message : String(err)}`,
+                  );
                 });
             }
           }
