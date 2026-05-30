@@ -209,6 +209,24 @@ export async function runResearcherDispatchStage(
       ctx.researcherResults = prior.some((r) => r.dimension === fresh.dimension)
         ? prior.map((r) => (r.dimension === fresh.dimension ? fresh : r))
         : [...prior, fresh];
+      // ★ 2026-05-29 修：local rerun 走裸 stage handler，不经 orchestrator 后置的
+      //   saveResearchResult；单维度重跑必须在此显式落库 agent_playground_research_results
+      //   （retryLabel='' 覆盖 baseline 行），否则只改内存 ctx → ctx-hydrator re-fetch 读回旧
+      //   findings = 像没重跑。与 orchestrator 后置（playground-business-orchestrator:508-517）
+      //   同 state 映射 + best-effort .catch 非致命（FK 由 saveResearchResult 内部兜底）。
+      await deps.store
+        .saveResearchResult({
+          missionId,
+          dimension: fresh.dimension,
+          findings: fresh.findings,
+          summary: fresh.summary,
+          state: fresh.findings.length === 0 ? "failed" : "completed",
+        })
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[s3 single-dim rerun saveResearchResult] dim=${fresh.dimension} failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
       await narrate(deps.emit, missionId, userId, {
         stage: "s3-researchers",
         role: "researcher",
