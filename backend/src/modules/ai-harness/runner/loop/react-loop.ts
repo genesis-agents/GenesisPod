@@ -71,6 +71,10 @@ import {
   isModelLevelFailoverError,
   MAX_MODEL_FAILOVERS,
 } from "../executor/llm-executor";
+// 反向洞察 #6：跨 provider failover 后重发 messages 前，剥离 provider-specific
+// 的 thinking/signature/redacted_thinking，否则跨模型重发被对端确定性 400
+// （invalid_request）。util 是纯函数 + 同 provider / 未知 provider 保守不剥。
+import { stripThinkingSignature } from "../executor/strip-thinking-signature.util";
 
 /**
  * #35 — Build a decision-wrapper schema that embeds the strict business-agent
@@ -89,6 +93,33 @@ import {
  * Returns null if finalizeOutputJsonSchema is not provided (caller uses the
  * permissive REACT_LOOP_DECISION_JSON_SCHEMA as before).
  */
+/**
+ * 反向洞察 #6 辅助：从 modelId 提取 provider 家族，用于跨 provider failover 判定。
+ *
+ * ReActLoop 没有注入 AiModelConfigService（不在白名单 / 不改 .module.ts），无法像
+ * LlmExecutor.resolveProvider 那样查 DB 拿权威 provider。这里只认 provider 前缀
+ * 形态（`anthropic/claude-...`、`openai/gpt-...`、`xai/grok-...`）这一**结构化**信号
+ * 来提取 to-provider；裸 modelId（无 slash 前缀）无法在不引入 model-name substring
+ * 启发式（被 audit:capability 治理禁止）的前提下可靠区分 provider，故返回 undefined。
+ *
+ * 提取不出（返回 undefined）时 stripThinkingSignature 会保守不剥（from/to 任一未知即
+ * 原样保留），不会误删合法字段。failover 路径的 from-provider 另有错误消息里
+ * `provider "<name>"` 的权威正则来源（见调用点），不依赖本函数。
+ *
+ * 纯函数，无副作用。
+ */
+function inferProviderFamily(modelId: string | undefined): string | undefined {
+  const id = (modelId ?? "").trim().toLowerCase();
+  if (!id) return undefined;
+  // provider 前缀形态："anthropic/claude-..."、"openai/gpt-..."、"xai/grok-..."。
+  // 取 slash 前缀即权威 provider 段，无需 model-name substring 匹配。
+  const slash = id.indexOf("/");
+  if (slash > 0) return id.slice(0, slash);
+  // 裸 modelId 无结构化 provider 段 → undefined（strip 保守不剥；不引入被治理
+  // 禁止的 model-name substring 启发式）。
+  return undefined;
+}
+
 function buildFinalizeDecisionSchema(
   finalizeOutputJsonSchema: Record<string, unknown> | undefined,
 ): Record<string, unknown> | null {
@@ -438,6 +469,12 @@ export class ReActLoop implements IAgentLoop {
     // When failover succeeds, the elected model is kept here so the next
     // reason() call uses it instead of re-computing from budget tier / BYOK.
     let failoverModelId: string | undefined;
+    // 反向洞察 #6：跨 provider failover 后，下一轮 buildMessages 重发前需要剥离
+    // provider-specific 的 thinking/signature。failover-success 处记录 from/to
+    // provider，buildMessages 后消费一次（消费即清空）。同 provider / 任一未知
+    // 时 stripThinkingSignature 自身保守不剥。
+    let pendingFailoverFromProvider: string | undefined;
+    let pendingFailoverToProvider: string | undefined;
     let currentEnvelope = envelope;
     let iteration = 0;
     let budgetWarned = false;
@@ -715,7 +752,27 @@ export class ReActLoop implements IAgentLoop {
         }
 
         // 1. perceive
-        const messages = this.buildMessages(currentEnvelope);
+        let messages = this.buildMessages(currentEnvelope);
+        // ★ 反向洞察 #6：上一轮发生了跨 provider failover → 在把重建的 messages
+        //   发给新 provider 之前剥离 provider-specific 的 thinking/signature/
+        //   redacted_thinking，否则跨模型重发被对端确定性 400（invalid_request）。
+        //   当前 buildMessages 仅透传 role/content/name/toolCallId（IContextMessage
+        //   不带 thinking/signature 字段），故此调用是防御 + 防未来回归（若上游
+        //   开始在消息上挂 thinking block）。stripThinkingSignature 在同 provider /
+        //   任一未知 provider 时保守原样返回，不会误删。消费一次后清空标记。
+        if (pendingFailoverFromProvider || pendingFailoverToProvider) {
+          // ChatMessage 是声明式 interface（无 index signature），不被推断为
+          // util 的 `T extends Record<string, unknown>`，故经 unknown 过桥。
+          // util 是纯函数：未改动的消息原样透传，改动的浅克隆——形状仍是
+          // ChatMessage（仅删 thinking/signature 类字段），回桥安全。
+          messages = stripThinkingSignature(
+            messages as unknown as Record<string, unknown>[],
+            pendingFailoverFromProvider,
+            pendingFailoverToProvider,
+          ) as unknown as ChatMessage[];
+          pendingFailoverFromProvider = undefined;
+          pendingFailoverToProvider = undefined;
+        }
 
         // 2. reason — PR-I: 把 budget tier 转成具体 modelId 注入
         // PR-J: 选 model 后再问 runtimeEnv "能用吗"，不可用则按 fallbackTo 切换
@@ -1108,6 +1165,15 @@ export class ReActLoop implements IAgentLoop {
                     `${failedId || "(default)"} → ${nextModelId} ` +
                     `(failed=${failedModelIds.length}/${MAX_MODEL_FAILOVERS}, reason: ${message.slice(0, 120)})`,
                 );
+                // ★ 反向洞察 #6：记录本次 failover 的 from/to provider，供下一轮
+                //   buildMessages 后剥离 provider-specific thinking/signature。
+                //   from-provider 优先用错误消息里抽到的 provider（如
+                //   `No API Key available for provider "deepseek"`），缺省再从
+                //   failedId 粗推；to-provider 从新模型 id 粗推。两端任一推不出
+                //   时 stripThinkingSignature 保守不剥。
+                pendingFailoverFromProvider =
+                  provMatch?.[1] ?? inferProviderFamily(failedId);
+                pendingFailoverToProvider = inferProviderFamily(nextModelId);
                 failoverModelId = nextModelId;
                 lastModelId = nextModelId;
                 consecutiveRecoverableRetries = 0;
