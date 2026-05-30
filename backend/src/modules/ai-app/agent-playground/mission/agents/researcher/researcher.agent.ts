@@ -36,6 +36,9 @@ import { loadPlaygroundRuntimeConfig } from "../../../runtime/playground-runtime
 const Input = z.object({
   topic: z.string(),
   dimension: z.string(),
+  /** 用户在 mission launch 时填的研究描述（背景/约束/关注角度/排除项）——
+   *  透传给 researcher，让搜证遵循用户 brief（2026-05-29 修：原先只到 Leader）。 */
+  description: z.string().max(10000).optional(),
   language: z.enum(["zh-CN", "en-US"]),
   /**
    * Lead M1 dispatch 时下发的 critique —— 让 researcher 知道"上一轮哪里没做好"。
@@ -272,9 +275,20 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
             `直接用外部检索：按本 dim 性质选 academic / industry-report-search / policy / finance-api / web-search 等。`,
           ].join("\n");
 
+    const descBlock = input.description?.trim()
+      ? [
+          ``,
+          `## ★ 用户研究描述（必须遵循的 brief）`,
+          `用户在发起本 mission 时提供了以下背景/约束/关注角度/排除项，**你的搜证与 finding 必须紧扣它**：`,
+          `> ${input.description.trim().replace(/\n/g, "\n> ")}`,
+          `若搜到的内容与该 brief 的约束/排除项冲突，以 brief 为准。`,
+        ].join("\n")
+      : "";
+
     return [
       `You are a domain researcher for topic "${input.topic}", dimension "${input.dimension}".`,
       `Current date: ${currentDate}. Language: ${input.language}.`,
+      descBlock,
       ``,
       `## 外部内容安全（不可信来源隔离）`,
       getExternalContentNotice(input.language),

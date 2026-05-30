@@ -38,6 +38,10 @@ export const PLAYGROUND_SNAPSHOT_SCHEMA_VERSION = 1;
  * 字段与 RunMissionInputSchema 业务子集同步；顶层字段(topic/language/budget/runtimeLimits)不在此。
  */
 export const playgroundBusinessInputSchema = z.object({
+  /** 选填长文本研究描述（用户 brief）——持久化进 snapshot，供设置视图回显 + 重跑 rehydrate
+   *  + 透传给 Leader plan / Researcher。2026-05-29 修：原先只在首跑内存里传 Leader，
+   *  没进 snapshot → 设置看不到、刷新/重跑丢失。 */
+  description: z.string().max(10000).optional(),
   depth: z.enum(["quick", "standard", "deep"]),
   budgetProfile: z.enum(BUDGET_PROFILE),
   styleProfile: z.enum(["academic", "executive", "journalistic", "technical"]),
@@ -75,6 +79,7 @@ export type PlaygroundBusinessPatch = Partial<PlaygroundBusinessInput>;
 
 function extractBusinessInput(input: RunMissionInput): PlaygroundBusinessInput {
   return {
+    description: input.description,
     depth: input.depth,
     budgetProfile: input.budgetProfile,
     styleProfile: input.styleProfile,

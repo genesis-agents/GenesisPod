@@ -63,6 +63,7 @@ function projectUserProfileView(
   if (snap?.schemaVersion == null) return null;
   const b = snap.businessInput;
   return {
+    description: b.description,
     depth: b.depth,
     language: snap.language,
     budgetProfile: b.budgetProfile,

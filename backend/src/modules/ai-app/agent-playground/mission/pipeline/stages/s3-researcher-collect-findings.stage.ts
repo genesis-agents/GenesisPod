@@ -523,6 +523,7 @@ async function runOneDim(
         {
           topic: input.topic + topicSuffix,
           dimension: dim.name,
+          description: input.description,
           language: input.language,
           withFigures: input.withFigures,
           knowledgeBaseIds: input.knowledgeBaseIds,

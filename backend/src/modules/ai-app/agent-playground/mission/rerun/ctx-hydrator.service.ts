@@ -98,6 +98,7 @@ export class CtxHydratorService extends BusinessTeamCtxHydratorFramework<
     const b = snap.businessInput;
     const input: RunMissionInput = {
       topic: snap.topic,
+      description: b.description,
       depth: b.depth,
       language: snap.language as RunMissionInput["language"],
       budgetProfile: b.budgetProfile,
