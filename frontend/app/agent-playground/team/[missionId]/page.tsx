@@ -1393,6 +1393,7 @@ function MissionSettingsModal({
   // ★ 2026-05-22 ③J/K 单一源：档位数值来自后端，前端无镜像。
   const { data: budgetTierData } = useBudgetTiers();
   const [topic, setTopic] = useState('');
+  const [description, setDescription] = useState('');
   const [depth, setDepth] = useState<Depth>('deep');
   const [language, setLanguage] = useState<Lang>('zh-CN');
   const [lengthProfile, setLengthProfile] = useState<LP>('standard');
@@ -1417,6 +1418,7 @@ function MissionSettingsModal({
   useEffect(() => {
     if (!open) return;
     setTopic(mission.topic ?? '');
+    setDescription((userProfile?.description as string) ?? '');
     setDepth((mission.depth as Depth) ?? 'deep');
     setLanguage((mission.language as Lang) ?? 'zh-CN');
     setLengthProfile((userProfile?.lengthProfile as LP) ?? 'standard');
@@ -1475,6 +1477,7 @@ function MissionSettingsModal({
       const { runTeam } = await import('@/services/agent-playground/api');
       const { missionId: newId } = await runTeam({
         topic: topic.trim(),
+        description: description.trim() || undefined,
         depth,
         language,
         lengthProfile,
@@ -1637,6 +1640,16 @@ function MissionSettingsModal({
               maxLength={200}
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-900 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               placeholder="例：系统洞察一下 Anthropic Managed Agent"
+            />
+          </FormField>
+          <FormField label="研究描述（选填，背景 / 约束 / 关注角度 / 排除项）">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              maxLength={10000}
+              rows={4}
+              className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-900 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              placeholder="补充你的研究意图：背景、必须覆盖的角度、约束条件、要排除的内容等。Leader 拆维度 + Researcher 搜证都会遵循。"
             />
           </FormField>
           <div className="grid grid-cols-2 gap-2">
