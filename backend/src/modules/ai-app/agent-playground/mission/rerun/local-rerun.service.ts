@@ -461,8 +461,10 @@ export class LocalRerunService {
   }
 
   /**
-   * v1.2 §3.4: cascade 链终点是 S11 + mission 当前 failed/quality-failed →
+   * v1.2 §3.4: cascade 链终点是 S11 + mission 当前 failed/quality-failed/cancelled →
    * 调 markReopened 让 S11 之后的 markCompleted 能改 status。
+   * ★ 2026-05-30：加入 cancelled —— 被取消的 mission 点重跑也应能复活，否则 cascade
+   *   跑了却改不动终态，重跑的真实失败（额度耗尽等）写不回也显示不出来。
    */
   private async maybeReopen(
     missionId: string,
@@ -478,7 +480,11 @@ export class LocalRerunService {
     const detail = await this.store.getById(missionId, userId);
     if (!detail) return;
 
-    if (detail.status === "failed" || detail.status === "quality-failed") {
+    if (
+      detail.status === "failed" ||
+      detail.status === "quality-failed" ||
+      detail.status === "cancelled"
+    ) {
       try {
         await this.store.markReopened(missionId, userId);
         this.log.log(
