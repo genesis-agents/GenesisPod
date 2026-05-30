@@ -18,6 +18,13 @@ import {
   ProcessMemoryManagerService,
 } from "@/modules/ai-harness/facade";
 import { KbQueryService } from "@/modules/ai-app/library/kb-query/kb-query.service";
+// ★ Security (OWASP LLM01 indirect prompt injection): RAG-recalled KB content
+// (uploaded docs / imported web/platform pages) is untrusted external content.
+// Before it enters the LLM system prompt it must be wrapped in <external_source>
+// so any "ignore previous instructions" embedded in a document is treated as
+// research material, not a command. Same primitive the harness loop uses for
+// tool observations (wrapToolObservation).
+import { wrapExternalContent } from "@/modules/ai-engine/facade";
 import { AIModelType, MemoryLayer } from "@prisma/client";
 import {
   CreditsService,
@@ -449,7 +456,13 @@ export class AiAskService {
                 ragResponse.context &&
                 ragResponse.context.sources.length > 0
               ) {
-                ragContext = ragResponse.context.text;
+                // ★ Wrap untrusted KB content before it enters the prompt.
+                // maxLength large enough to preserve the pipeline-built context
+                // (already token-capped upstream at MAX_CONTEXT_TOKENS).
+                ragContext = wrapExternalContent(ragResponse.context.text, {
+                  source: "knowledge-base",
+                  maxLength: 40000,
+                });
                 // Collect RAG sources to return to frontend.
                 // Pass `metadata` through (don't strip) — wiki sources carry
                 // { source: 'wiki', kbId, slug, category, oneLiner } so the
@@ -841,7 +854,11 @@ export class AiAskService {
           },
         });
         if (ragResponse.context && ragResponse.context.sources.length > 0) {
-          ragContext = ragResponse.context.text;
+          // ★ Wrap untrusted KB content before it enters the prompt (OWASP LLM01).
+          ragContext = wrapExternalContent(ragResponse.context.text, {
+            source: "knowledge-base",
+            maxLength: 40000,
+          });
           // Pass metadata through so the UI can branch on
           // { source: 'wiki', kbId, slug, ... } for markdown + deep-link.
           ragSources = ragResponse.context.sources.map(
