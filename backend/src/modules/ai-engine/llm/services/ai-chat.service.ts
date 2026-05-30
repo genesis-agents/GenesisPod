@@ -23,9 +23,11 @@ import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./ai-stream-handler.service";
 import { AIMetricsService } from "@/modules/ai-infra/facade";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
-// ★ P1 PII 脱敏：用同一脱敏纯函数对每条 user message 做就地改写，
-// 保证传给 provider 的 messages 里 PII 已被占位符替换（真生效，非 inert）。
-import { redactPII } from "../../safety/guardrails/input/pii-redactor";
+// ★ P1 PII 脱敏：消费侧改写逻辑抽到 helper，避免 god-class 增长（真生效，非 inert）。
+import {
+  redactUserMessages,
+  resolveRedactedOutput,
+} from "./pii-guardrail-redaction.helper";
 // ★ L2 ai-engine 内部代码禁止从 @/modules/ai-engine/facade 导入 —— facade 是 L3
 // AI App 的单向入口，L2 自己走 facade barrel 会触发 barrel → 50+ 子模块 → L2
 // 的回环加载，在 module-evaluation 阶段产生 undefined class ref，Nest DI 随后
@@ -2719,10 +2721,7 @@ export class AiChatService {
   ): Promise<{
     passed: boolean;
     blockedBy?: string;
-    /**
-     * ★ PII 脱敏后的 messages：仅当管道改写了内容时返回。
-     * 调用方必须用它替换原 messages 再发给 provider，确保脱敏真生效。
-     */
+    // ★ PII 脱敏后的 messages（仅管道改写时返回）：调用方须替换原 messages 再发 provider。
     redactedMessages?: ChatMessage[];
   }> {
     if (!this.guardrailsEnabled()) {
@@ -2771,21 +2770,12 @@ export class AiChatService {
         };
       }
 
-      // ★ PII 脱敏真生效：管道报告内容被改写时，对每条 user message 就地脱敏，
-      // 返回新的 messages 数组供调用方替换后发给 provider。
-      // 用 transformedContent 的存在作为「需脱敏」的权威判定，逐条 redactPII 改写
-      // （管道返回的是 join 后的整串，无法可靠拆回单条，故对每条单独脱敏，结果等价）。
+      // ★ PII 脱敏真生效：管道报告内容被改写时，逐条脱敏 user message 后供调用方替换发 provider。
       if (typeof inputResult.transformedContent === "string") {
-        const redactedMessages = messages.map((m) =>
-          m.role === "user"
-            ? { ...m, content: redactPII(m.content).redacted }
-            : m,
-        );
-        const pathLabel = context?.pathName ?? "chat";
         this.logger.warn(
-          `[${pathLabel}] PII redacted in input before sending to provider`,
+          `[${context?.pathName ?? "chat"}] PII redacted in input before sending to provider`,
         );
-        return { passed: true, redactedMessages };
+        return { passed: true, redactedMessages: redactUserMessages(messages) };
       }
 
       return { passed: true };
@@ -2820,10 +2810,7 @@ export class AiChatService {
   ): Promise<{
     passed: boolean;
     blockedBy?: string;
-    /**
-     * ★ PII 脱敏后的输出内容：仅当输出被改写时返回。
-     * 调用方必须用它替换返回给用户的内容，确保输出侧脱敏真生效。
-     */
+    // ★ PII 脱敏后的输出内容（仅被改写时返回）：调用方须替换返回给用户的内容。
     redactedContent?: string;
   }> {
     if (!this.guardrailsEnabled()) {
@@ -2866,16 +2853,14 @@ export class AiChatService {
         };
       }
 
-      // ★ 输出侧 PII 脱敏：管道未配置输出脱敏 guardrail 时 transformedContent 为
-      // undefined，此处对模型输出兜底脱敏，保证返回用户的内容不含 PII（真生效）。
-      const redacted =
-        typeof outputResult.transformedContent === "string"
-          ? outputResult.transformedContent
-          : redactPII(content).redacted;
+      // ★ 输出侧 PII 脱敏：管道未配置输出脱敏 guardrail 时兜底脱敏，保证返回用户的内容不含 PII。
+      const redacted = resolveRedactedOutput(
+        content,
+        outputResult.transformedContent,
+      );
       if (redacted !== content) {
-        const pathLabel = context?.pathName ?? "chat";
         this.logger.warn(
-          `[${pathLabel}] PII redacted in output before returning to user`,
+          `[${context?.pathName ?? "chat"}] PII redacted in output before returning to user`,
         );
         return { passed: true, redactedContent: redacted };
       }
