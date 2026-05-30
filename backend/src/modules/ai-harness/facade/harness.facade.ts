@@ -14,6 +14,7 @@ import type {
   IHarness,
   IAgentLoop,
   IOutputEvent,
+  IAgentEvent,
   AgentState,
 } from "../agents/abstractions";
 import { AgentFactory } from "../agents/core/agent-factory";
@@ -25,6 +26,7 @@ import {
   AgentEventStore,
   type AgentEventRecord,
 } from "../memory/checkpoint/agent-event-store";
+import { extractTokenSpend } from "../tracing/observability/token-spend.utils";
 
 @Injectable()
 export class HarnessFacade implements IHarness {
@@ -53,8 +55,14 @@ export class HarnessFacade implements IHarness {
     let lastOutput: IOutputEvent["payload"]["output"] = "";
     let iterations = 0;
     let terminatedState: AgentState = "completed";
+    // 收集事件流，用 extractTokenSpend 在结束后聚合真实 token 用量（不再硬编码 0）。
+    // tokensUsed 真实来源：react-loop 每轮 emit 的 action_executed.tokensUsed
+    // （已累加 LLM prompt+completion）/ budget_warning.tokensUsed（budget.snapshot）/
+    // thinking.{promptTokens,completionTokens} 三路取 max，与计费链路同一口径。
+    const events: IAgentEvent[] = [];
 
     for await (const event of agent.execute(task)) {
+      events.push(event);
       if (event.type === "output") {
         lastOutput = (event as IOutputEvent).payload.output;
       } else if (event.type === "action_executed") {
@@ -74,7 +82,7 @@ export class HarnessFacade implements IHarness {
       output: lastOutput,
       state: terminatedState as IAgentResult["state"],
       iterations,
-      tokensUsed: 0, // Phase 2: token tracking postponed to runtime observability integration
+      tokensUsed: extractTokenSpend(events),
       wallTimeMs: Date.now() - startMs,
     };
   }
