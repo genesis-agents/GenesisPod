@@ -14,6 +14,7 @@ import AdminPageLayout, {
 } from '@/components/admin/layout/AdminPageLayout';
 import AdminTabs, { type AdminTab } from '@/components/admin/shared/AdminTabs';
 import AdminLoadingSkeleton from '@/components/admin/shared/AdminLoadingSkeleton';
+import { ErrorState } from '@/components/ui/states/ErrorState';
 import { useOperationMetrics } from '@/hooks/domain/useOperationMetrics';
 import OverviewPanel from '@/components/admin/operations/OverviewPanel';
 import FunnelPanel from '@/components/admin/operations/FunnelPanel';
@@ -76,10 +77,11 @@ export default function OperationsPage() {
         />
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            部分指标加载失败：{error.message ?? '未知错误'}
-            （已降级展示可用数据）
-          </div>
+          <ErrorState
+            error={error}
+            title="部分指标加载失败"
+            onRetry={refreshAll}
+          />
         )}
 
         {tab === 'overview' && (
@@ -112,7 +114,7 @@ export default function OperationsPage() {
 
         {tab === 'retention' && (
           <>
-            {loading && cohort.length === 0 ? (
+            {loading ? (
               <AdminLoadingSkeleton variant="table" rows={6} />
             ) : (
               <RetentionPanel cohort={cohort} weeks={WEEKS} />
