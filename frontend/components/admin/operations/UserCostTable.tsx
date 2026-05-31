@@ -13,6 +13,7 @@ interface UserCostTableProps {
 
 const CSV_HEADERS: Array<{ key: keyof OperationUserCost; label: string }> = [
   { key: 'userId', label: 'userId' },
+  { key: 'userName', label: 'userName' },
   { key: 'costUsd', label: 'costUsd' },
   { key: 'tokens', label: 'tokens' },
   { key: 'spentCredits', label: 'spentCredits' },
@@ -83,8 +84,19 @@ export default function UserCostTable({ rows, days }: UserCostTableProps) {
             <tbody className="divide-y divide-gray-50">
               {rows.map((r) => (
                 <tr key={r.userId} className="hover:bg-gray-50/50">
-                  <td className="font-mono whitespace-nowrap px-4 py-3 text-xs text-gray-700">
-                    {r.userId}
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
+                    {r.userName ? (
+                      <div className="flex flex-col">
+                        <span className="font-medium">{r.userName}</span>
+                        <span className="font-mono text-xs text-gray-400">
+                          {r.userId.slice(0, 8)}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="font-mono text-xs text-gray-500">
+                        {r.userId.slice(0, 12)}…
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-gray-900">
                     ${r.costUsd.toFixed(4)}

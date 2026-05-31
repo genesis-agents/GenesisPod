@@ -60,6 +60,6 @@ version 2.1, available at
 
 ---
 
-*中文：本项目采用 [Contributor Covenant][homepage] 行为准则 2.1 版。我们承诺为所有
+_中文：本项目采用 [Contributor Covenant][homepage] 行为准则 2.1 版。我们承诺为所有
 参与者营造无骚扰的社区环境。违规行为可发送邮件至 **hello@gens.team**
-举报，所有举报都将被及时、公正地处理，并对举报人身份保密。*
+举报，所有举报都将被及时、公正地处理，并对举报人身份保密。_

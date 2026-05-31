@@ -46,11 +46,11 @@ wiki 里一张会与现实脱节的图。
 
 monorepo，包含三个运行时：
 
-| 包            | 技术栈 |
-| ------------- | ------ |
+| 包            | 技术栈                                                                   |
+| ------------- | ------------------------------------------------------------------------ |
 | `frontend/`   | Next.js 14, React 18, TypeScript, Tailwind, Zustand, SWR, TanStack Query |
-| `backend/`    | NestJS 10, Prisma, PostgreSQL 16, Redis 7, Socket.IO |
-| `ai-service/` | FastAPI（辅助 AI 服务） |
+| `backend/`    | NestJS 10, Prisma, PostgreSQL 16, Redis 7, Socket.IO                     |
+| `ai-service/` | FastAPI（辅助 AI 服务）                                                  |
 
 后端按 5 个顶层模块分层，**严格单向依赖**：
 
@@ -106,14 +106,14 @@ AI 服务 `http://localhost:5000`。
 
 ## 开发
 
-| 命令 | 用途 |
-| ---- | ---- |
-| `npm run dev` | 全栈开发 |
-| `npm run type-check` | 类型检查 |
-| `npm run test:quick` | 快速测试 |
-| `npm run verify:arch` | 架构边界检查 |
+| 命令                  | 用途                      |
+| --------------------- | ------------------------- |
+| `npm run dev`         | 全栈开发                  |
+| `npm run type-check`  | 类型检查                  |
+| `npm run test:quick`  | 快速测试                  |
+| `npm run verify:arch` | 架构边界检查              |
 | `npm run verify:full` | lint + 类型 + 测试 + 构建 |
-| `npm run e2e` | Playwright 端到端 |
+| `npm run e2e`         | Playwright 端到端         |
 
 提 PR 前请先读 [`CONTRIBUTING.md`](./CONTRIBUTING.md)。
 

@@ -54,11 +54,11 @@ diagram in a wiki that drifts from reality.
 
 A monorepo with three runtimes:
 
-| Package       | Stack |
-| ------------- | ----- |
+| Package       | Stack                                                                    |
+| ------------- | ------------------------------------------------------------------------ |
 | `frontend/`   | Next.js 14, React 18, TypeScript, Tailwind, Zustand, SWR, TanStack Query |
-| `backend/`    | NestJS 10, Prisma, PostgreSQL 16, Redis 7, Socket.IO |
-| `ai-service/` | FastAPI (auxiliary AI service) |
+| `backend/`    | NestJS 10, Prisma, PostgreSQL 16, Redis 7, Socket.IO                     |
+| `ai-service/` | FastAPI (auxiliary AI service)                                           |
 
 The backend is layered into five top-level modules with a **strict one-way
 dependency direction**:
@@ -116,14 +116,14 @@ Run a single side with `npm run dev:frontend` / `dev:backend` / `dev:ai`.
 
 ## Development
 
-| Command | Purpose |
-| ------- | ------- |
-| `npm run dev` | full-stack dev |
-| `npm run type-check` | TypeScript check |
-| `npm run test:quick` | fast tests |
+| Command               | Purpose                      |
+| --------------------- | ---------------------------- |
+| `npm run dev`         | full-stack dev               |
+| `npm run type-check`  | TypeScript check             |
+| `npm run test:quick`  | fast tests                   |
 | `npm run verify:arch` | architecture-boundary checks |
-| `npm run verify:full` | lint + type + test + build |
-| `npm run e2e` | Playwright end-to-end |
+| `npm run verify:full` | lint + type + test + build   |
+| `npm run e2e`         | Playwright end-to-end        |
 
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening a PR.
 

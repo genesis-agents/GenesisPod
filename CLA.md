@@ -82,6 +82,6 @@ By making a Contribution to this project, You agree to the terms below.
 
 ---
 
-*This is a lightweight CLA adapted in spirit from the Apache ICLA. For large
+_This is a lightweight CLA adapted in spirit from the Apache ICLA. For large
 corporate contributions, a separate Corporate CLA can be arranged by emailing
-hello@gens.team.*
+hello@gens.team._

@@ -372,6 +372,61 @@ describe("TopicRefreshScheduler", () => {
       expect(result.getMonth()).toBe(expectedMonth);
     });
 
+    // 月末溢出边界（固定系统时间，不依赖运行日期）——
+    // 原 setMonth(+1) 在 5/31、1/31 等月末会溢出到下下月，已用 clamp 修复。
+    it("MONTHLY 月末防溢出：5/31 → 6/30（非 7/1）", () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 4, 31, 12, 0, 0));
+      try {
+        const result = scheduler.calculateNextRefreshTime(
+          RefreshFrequency.MONTHLY,
+        );
+        expect(result.getMonth()).toBe(5); // 6 月
+        expect(result.getDate()).toBe(30);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it("MONTHLY 月末防溢出：1/31 → 2/28（平年）", () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 0, 31, 12, 0, 0));
+      try {
+        const result = scheduler.calculateNextRefreshTime(
+          RefreshFrequency.MONTHLY,
+        );
+        expect(result.getMonth()).toBe(1); // 2 月
+        expect(result.getDate()).toBe(28);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it("MONTHLY 闰年：1/31 → 2/29（2028 闰年）", () => {
+      jest.useFakeTimers().setSystemTime(new Date(2028, 0, 31, 12, 0, 0));
+      try {
+        const result = scheduler.calculateNextRefreshTime(
+          RefreshFrequency.MONTHLY,
+        );
+        expect(result.getMonth()).toBe(1);
+        expect(result.getDate()).toBe(29);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it("MONTHLY 跨年：12/15 → 次年 1/15", () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 11, 15, 12, 0, 0));
+      try {
+        const result = scheduler.calculateNextRefreshTime(
+          RefreshFrequency.MONTHLY,
+        );
+        expect(result.getFullYear()).toBe(2027);
+        expect(result.getMonth()).toBe(0); // 1 月
+        expect(result.getDate()).toBe(15);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it("should return a date ~1 year ahead for MANUAL", () => {
       const before = Date.now();
       const result = scheduler.calculateNextRefreshTime(

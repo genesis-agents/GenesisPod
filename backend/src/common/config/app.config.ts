@@ -33,8 +33,7 @@ export const APP_CONFIG = {
       process.env.BRAND_EMAIL_FROM ||
       `${BRAND_NAME} <noreply@${BRAND_NAME.toLowerCase()}.ai>`,
     /** 联系邮箱 */
-    contactEmail:
-      process.env.BRAND_CONTACT_EMAIL || "hello@gens.team",
+    contactEmail: process.env.BRAND_CONTACT_EMAIL || "hello@gens.team",
     /** 站点名称 */
     siteName: BRAND_NAME,
     /** Logo SVG 路径（相对于项目根目录） */

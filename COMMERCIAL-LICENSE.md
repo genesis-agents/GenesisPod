@@ -48,12 +48,12 @@ whether you need support/SLA terms. Pricing is tailored to deployment size.
 
 ### Which one do I need? (quick guide)
 
-| Your situation | License |
-| --- | --- |
-| Self-hosting, personal/research/internal, **willing to publish your source changes** | AGPL-3.0 (free) |
-| Contributing back to this project | AGPL-3.0 (free) + sign the [CLA](./CLA.md) |
-| Closed-source product/SaaS, **not** publishing your changes | **Commercial** |
-| Need warranty / indemnity / SLA / priority support | **Commercial** |
+| Your situation                                                                       | License                                    |
+| ------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Self-hosting, personal/research/internal, **willing to publish your source changes** | AGPL-3.0 (free)                            |
+| Contributing back to this project                                                    | AGPL-3.0 (free) + sign the [CLA](./CLA.md) |
+| Closed-source product/SaaS, **not** publishing your changes                          | **Commercial**                             |
+| Need warranty / indemnity / SLA / priority support                                   | **Commercial**                             |
 
 > This document is a plain-language summary and is **not** itself the license
 > grant. The AGPL text in [`LICENSE`](./LICENSE) and a signed commercial
@@ -99,12 +99,12 @@ Genesis.ai 采用**双重授权**。
 
 ### 我该选哪个？（速查）
 
-| 你的情况 | 许可证 |
-| --- | --- |
-| 自托管，个人 / 研究 / 内部使用，**愿意公开你的源码改动** | AGPL-3.0（免费） |
-| 向本项目贡献代码 | AGPL-3.0（免费）+ 签署 [CLA](./CLA.md) |
-| 闭源产品 / SaaS，**不**公开改动 | **商业授权** |
-| 需要质保 / 赔偿 / SLA / 优先支持 | **商业授权** |
+| 你的情况                                                 | 许可证                                 |
+| -------------------------------------------------------- | -------------------------------------- |
+| 自托管，个人 / 研究 / 内部使用，**愿意公开你的源码改动** | AGPL-3.0（免费）                       |
+| 向本项目贡献代码                                         | AGPL-3.0（免费）+ 签署 [CLA](./CLA.md) |
+| 闭源产品 / SaaS，**不**公开改动                          | **商业授权**                           |
+| 需要质保 / 赔偿 / SLA / 优先支持                         | **商业授权**                           |
 
 > 本文件为通俗摘要，**本身不构成**授权。具有法律约束力的是 [`LICENSE`](./LICENSE)
 > 中的 AGPL 文本与签署后的商业协议。

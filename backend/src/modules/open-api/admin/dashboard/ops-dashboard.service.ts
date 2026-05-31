@@ -334,10 +334,32 @@ export class OpsDashboardService {
       });
     }
 
+    // 3) 这批用户的显示名（username / email），避免表格里裸显 UUID
+    const userRows = await this.safeRows<{
+      id: string;
+      username: string | null;
+      email: string | null;
+    }>(
+      () => this.prisma.$queryRaw`
+        SELECT id, username, email
+        FROM users
+        WHERE id = ANY(${userIds}::text[])
+      `,
+    );
+    const userInfoMap = new Map<
+      string,
+      { username: string | null; email: string | null }
+    >();
+    for (const u of userRows) {
+      userInfoMap.set(u.id, { username: u.username, email: u.email });
+    }
+
     return costRows.map((r) => {
       const credit = creditByUser.get(r.user_id) ?? { spent: 0, earned: 0 };
+      const info = userInfoMap.get(r.user_id);
       return {
         userId: r.user_id,
+        userName: info?.username ?? info?.email ?? null,
         costUsd: this.round(Number(r.cost_usd ?? 0), 6),
         tokens: this.toNumber(r.tokens),
         spentCredits: credit.spent,

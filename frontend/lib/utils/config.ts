@@ -79,8 +79,7 @@ export const config = {
       `${BRAND_NAME} <noreply@${BRAND_NAME.toLowerCase()}.ai>`,
     /** 联系邮箱 */
     contactEmail:
-      process.env.NEXT_PUBLIC_BRAND_CONTACT_EMAIL ||
-      'hello@gens.team',
+      process.env.NEXT_PUBLIC_BRAND_CONTACT_EMAIL || 'hello@gens.team',
     /** GitHub Issues URL */
     githubIssuesUrl:
       process.env.NEXT_PUBLIC_BRAND_GITHUB_ISSUES_URL ||
