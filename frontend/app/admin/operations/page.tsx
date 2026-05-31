@@ -1,133 +1,147 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Activity, Hash, LineChart, TrendingUp } from 'lucide-react';
-import { AdminPageLayout } from '@/components/admin/layout';
-import { AdminTabs, type AdminTab } from '@/components/admin/shared';
+import { useState } from 'react';
+import {
+  Gauge,
+  Filter,
+  LineChart as LineChartIcon,
+  LayoutGrid,
+  Hash,
+  RefreshCw,
+} from 'lucide-react';
+import AdminPageLayout, {
+  AdminPageSection,
+} from '@/components/admin/layout/AdminPageLayout';
+import AdminTabs, { type AdminTab } from '@/components/admin/shared/AdminTabs';
+import AdminLoadingSkeleton from '@/components/admin/shared/AdminLoadingSkeleton';
+import { useOperationMetrics } from '@/hooks/domain/useOperationMetrics';
 import OverviewPanel from '@/components/admin/operations/OverviewPanel';
+import FunnelPanel from '@/components/admin/operations/FunnelPanel';
+import RetentionPanel from '@/components/admin/operations/RetentionPanel';
+import UserCostTable from '@/components/admin/operations/UserCostTable';
 import ModuleHealthTable from '@/components/admin/operations/ModuleHealthTable';
 import TopicsPanel from '@/components/admin/operations/TopicsPanel';
-import {
-  useOverviewMetrics,
-  useModuleHealth,
-  useTopicMetrics,
-} from '@/hooks/domain/useOperationMetrics';
 
-/**
- * 运营看板（只读经营指标）
- *
- * 对接 /api/v1/admin/dashboard 三个只读端点，三屏分区：
- * - overview（经营总览）：PWAU / 今日活跃 / 今日新增 + 按模块成本
- * - modules（模块健康）：各模块漏斗（发起/完成/失败）+ 完成率
- * - topics（主题运营）：topicKey 频次 top 20
- *
- * 顶部 days 选择器控制三个端点的时间窗（7 / 30 / 90 天）。
- */
+const TABS: AdminTab[] = [
+  { key: 'overview', label: '经营总览', icon: Gauge },
+  { key: 'funnel', label: '增长漏斗', icon: Filter },
+  { key: 'retention', label: '留存', icon: LineChartIcon },
+  { key: 'modules', label: '模块健康', icon: LayoutGrid },
+  { key: 'topics', label: '主题运营', icon: Hash },
+];
 
-type OpsTab = 'overview' | 'modules' | 'topics';
+const DAYS = 30;
+const WEEKS = 8;
+const COST_LIMIT = 20;
 
-const DAYS_OPTIONS = [7, 30, 90];
+export default function OperationsPage() {
+  const [tab, setTab] = useState<string>('overview');
+  const {
+    overview,
+    funnel,
+    cohort,
+    userCost,
+    modules,
+    topics,
+    loading,
+    error,
+    refreshAll,
+  } = useOperationMetrics({ days: DAYS, weeks: WEEKS, costLimit: COST_LIMIT });
 
-function OperationsPageInner() {
-  const searchParams = useSearchParams();
-
-  const rawTab = searchParams?.get('tab');
-  const tab: OpsTab =
-    rawTab === 'modules' || rawTab === 'topics' ? rawTab : 'overview';
-
-  const rawDays = Number(searchParams?.get('days'));
-  const days = DAYS_OPTIONS.includes(rawDays) ? rawDays : 30;
-
-  const overview = useOverviewMetrics(days);
-  const modules = useModuleHealth(days);
-  const topics = useTopicMetrics(days);
-
-  const tabs: AdminTab[] = [
-    { key: 'overview', label: '经营总览', icon: TrendingUp },
-    { key: 'modules', label: '模块健康', icon: Activity },
-    { key: 'topics', label: '主题运营', icon: Hash },
-  ];
+  const refreshAction = (
+    <button
+      type="button"
+      onClick={refreshAll}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+    >
+      <RefreshCw className="h-4 w-4" />
+      刷新
+    </button>
+  );
 
   return (
     <AdminPageLayout
       title="运营看板"
-      description="经营总览、模块健康与主题运营的只读指标"
-      icon={LineChart}
+      description="经营总览 · 增长漏斗 · 留存 · 模块健康 · 主题运营"
+      icon={Gauge}
       domain="overview"
-      actions={<DaysSelector value={days} />}
+      actions={refreshAction}
     >
-      <div className="mb-6">
-        <AdminTabs tabs={tabs} mode="route" />
-      </div>
-
-      {tab === 'overview' && (
-        <OverviewPanel
-          data={overview.data}
-          loading={overview.loading}
-          error={Boolean(overview.error)}
+      <div className="space-y-6">
+        <AdminTabs
+          tabs={TABS}
+          activeKey={tab}
+          onChange={setTab}
+          mode="controlled"
         />
-      )}
 
-      {tab === 'modules' && (
-        <ModuleHealthTable
-          rows={modules.data}
-          loading={modules.loading}
-          error={Boolean(modules.error)}
-        />
-      )}
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            部分指标加载失败：{error.message ?? '未知错误'}
+            （已降级展示可用数据）
+          </div>
+        )}
 
-      {tab === 'topics' && (
-        <TopicsPanel
-          rows={topics.data}
-          loading={topics.loading}
-          error={Boolean(topics.error)}
-        />
-      )}
-    </AdminPageLayout>
-  );
-}
+        {tab === 'overview' && (
+          <>
+            {loading && !overview ? (
+              <AdminLoadingSkeleton variant="cards" rows={4} />
+            ) : (
+              <OverviewPanel overview={overview} />
+            )}
 
-/** 时间窗选择器 —— 写入 URL ?days=N，复用 AdminTabs 的 route 同步模式 */
-function DaysSelector({ value }: { value: number }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+            {/* 单用户成本表常驻总览之下，便于直接审视单用户经济性 */}
+            <AdminPageSection
+              title="单用户成本 / 积分毛利"
+              description="货币成本来自 ai_engine_metrics（唯一真源），积分毛利为近似口径"
+            >
+              <UserCostTable rows={userCost} days={DAYS} />
+            </AdminPageSection>
+          </>
+        )}
 
-  const handleSelect = (days: number) => {
-    if (!pathname) return;
-    const params = new URLSearchParams(searchParams?.toString() ?? '');
-    params.set('days', String(days));
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  };
+        {tab === 'funnel' && (
+          <>
+            {loading && !funnel ? (
+              <AdminLoadingSkeleton variant="cards" rows={4} />
+            ) : (
+              <FunnelPanel funnel={funnel} days={DAYS} />
+            )}
+          </>
+        )}
 
-  return (
-    <div className="inline-flex items-center rounded-lg border border-gray-300 bg-white p-1 shadow-sm">
-      {DAYS_OPTIONS.map((d) => {
-        const isActive = d === value;
-        return (
-          <button
-            key={d}
-            type="button"
-            onClick={() => handleSelect(d)}
-            className={
-              isActive
-                ? 'rounded-md bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700'
-                : 'rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }
+        {tab === 'retention' && (
+          <>
+            {loading && cohort.length === 0 ? (
+              <AdminLoadingSkeleton variant="table" rows={6} />
+            ) : (
+              <RetentionPanel cohort={cohort} weeks={WEEKS} />
+            )}
+          </>
+        )}
+
+        {tab === 'modules' && (
+          <AdminPageSection
+            title="模块健康"
+            description="各模块发起 / 完成 / 失败 / 完成率"
           >
-            {d} 天
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+            <ModuleHealthTable
+              rows={modules}
+              loading={loading}
+              error={!!error}
+            />
+          </AdminPageSection>
+        )}
 
-export default function OperationsPage() {
-  return (
-    <Suspense fallback={null}>
-      <OperationsPageInner />
-    </Suspense>
+        {tab === 'topics' && (
+          <AdminPageSection
+            title="主题运营"
+            description="热门主题 top 20（按事件频次）"
+          >
+            <TopicsPanel rows={topics} loading={loading} error={!!error} />
+          </AdminPageSection>
+        )}
+      </div>
+    </AdminPageLayout>
   );
 }

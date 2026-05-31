@@ -1,58 +1,100 @@
-import { Controller, Get, Query, UseGuards, Logger } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
+import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { OpsDashboardService } from "./ops-dashboard.service";
-import {
+import type {
+  OpsFunnelDto,
+  OpsCohortDto,
+  OpsUserCostDto,
   OpsOverviewDto,
-  OpsModuleStatDto,
-  OpsTopicStatDto,
 } from "./dto/ops-dashboard.dto";
 
 /**
- * 运营看板（Ops Dashboard）只读控制器
+ * 运营看板控制器
  * 统一路由前缀: /admin/dashboard
- * 三个端点均接受 ?days=30（默认 30）。
+ *
+ * 端点：
+ * - GET /overview     总览（含 arpuCredits / payingRate / stickiness / guardrail）
+ * - GET /modules      按模块事件聚合
+ * - GET /topics       按 topic_key 事件聚合
+ * - GET /funnel       注册→激活→留存→付费代理 漏斗
+ * - GET /cohort       注册周同期群留存矩阵
+ * - GET /userCost     单用户成本/积分聚合（成本 desc top）
  */
 @ApiTags("Admin - Ops Dashboard")
 @Controller("admin/dashboard")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class OpsDashboardController {
-  private readonly logger = new Logger(OpsDashboardController.name);
-
   constructor(private readonly opsDashboardService: OpsDashboardService) {}
 
   @Get("overview")
-  @ApiOperation({ summary: "运营看板总览：活跃/新增/事件/成本" })
+  @ApiOperation({ summary: "运营总览（活跃/成本/付费率/粘性/守护栏）" })
   @ApiQuery({ name: "days", required: false, type: Number })
-  @ApiResponse({ status: 200, description: "返回运营总览聚合数据" })
   async getOverview(@Query("days") days?: string): Promise<OpsOverviewDto> {
-    this.logger.log("Admin: Fetching ops dashboard overview");
     return this.opsDashboardService.getOverview(this.parseDays(days));
   }
 
   @Get("modules")
-  @ApiOperation({ summary: "运营看板：各模块漏斗统计" })
+  @ApiOperation({ summary: "按模块聚合事件量" })
   @ApiQuery({ name: "days", required: false, type: Number })
-  @ApiResponse({ status: 200, description: "返回各模块漏斗统计" })
-  async getModules(@Query("days") days?: string): Promise<OpsModuleStatDto[]> {
-    this.logger.log("Admin: Fetching ops dashboard module stats");
+  async getModules(@Query("days") days?: string) {
     return this.opsDashboardService.getModules(this.parseDays(days));
   }
 
   @Get("topics")
-  @ApiOperation({ summary: "运营看板：热门话题 top 20" })
+  @ApiOperation({ summary: "按 topic_key 聚合事件量" })
   @ApiQuery({ name: "days", required: false, type: Number })
-  @ApiResponse({ status: 200, description: "返回热门话题统计" })
-  async getTopics(@Query("days") days?: string): Promise<OpsTopicStatDto[]> {
-    this.logger.log("Admin: Fetching ops dashboard topic stats");
-    return this.opsDashboardService.getTopics(this.parseDays(days));
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getTopics(
+    @Query("days") days?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.opsDashboardService.getTopics(
+      this.parseDays(days),
+      this.parseInt(limit, 50),
+    );
   }
 
-  /** 解析 days 查询参数，默认 30（service 内再做范围归一化） */
-  private parseDays(days?: string): number {
-    if (days === undefined) return 30;
-    const parsed = parseInt(days, 10);
-    return Number.isNaN(parsed) ? 30 : parsed;
+  @Get("funnel")
+  @ApiOperation({ summary: "漏斗：注册→激活→留存→付费代理" })
+  @ApiQuery({ name: "days", required: false, type: Number })
+  async getFunnel(@Query("days") days?: string): Promise<OpsFunnelDto> {
+    return this.opsDashboardService.getFunnel(this.parseDays(days));
+  }
+
+  @Get("cohort")
+  @ApiOperation({ summary: "注册周同期群留存矩阵" })
+  @ApiQuery({ name: "weeks", required: false, type: Number })
+  async getCohort(@Query("weeks") weeks?: string): Promise<OpsCohortDto[]> {
+    return this.opsDashboardService.getCohort(this.parseInt(weeks, 8));
+  }
+
+  @Get("userCost")
+  @ApiOperation({ summary: "单用户成本/积分聚合（成本 desc top）" })
+  @ApiQuery({ name: "days", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getUserCost(
+    @Query("days") days?: string,
+    @Query("limit") limit?: string,
+  ): Promise<OpsUserCostDto[]> {
+    return this.opsDashboardService.getUserCost(
+      this.parseDays(days),
+      this.parseInt(limit, 20),
+    );
+  }
+
+  /** 解析 days 查询参数，默认 30，限制 1..365 */
+  private parseDays(value?: string): number {
+    const n = Number.parseInt(value ?? "", 10);
+    if (!Number.isFinite(n) || n <= 0) return 30;
+    return Math.min(n, 365);
+  }
+
+  /** 解析整数查询参数，非法回退 fallback */
+  private parseInt(value: string | undefined, fallback: number): number {
+    const n = Number.parseInt(value ?? "", 10);
+    if (!Number.isFinite(n) || n <= 0) return fallback;
+    return n;
   }
 }

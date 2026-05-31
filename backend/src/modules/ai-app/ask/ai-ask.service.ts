@@ -5,6 +5,13 @@ import {
   Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  USER_EVENT_NAME,
+  MODULE,
+  ACTION,
+  type UserEventPayload,
+} from "@/common/observability/user-event.types";
 import { LruMap } from "@/common/utils/lru-map";
 import {
   ChatFacade,
@@ -98,6 +105,7 @@ export class AiAskService {
     @Optional() private readonly kernelMemory?: ProcessMemoryManagerService,
     @Optional()
     private readonly runtimeStateStore?: AskRoomRuntimeStateStore,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   /**
@@ -409,6 +417,18 @@ export class AiAskService {
             webSearch: dto.webSearch || false,
           },
         });
+
+        // 运营看板埋点（W2, PRD §4.2）：ask 用户消息 = 辅助活跃（不计北极星）
+        if (this.eventEmitter) {
+          this.eventEmitter.emit(USER_EVENT_NAME, {
+            userId,
+            module: MODULE.AI_ASK,
+            action: ACTION.STARTED,
+            resourceType: "AskMessage",
+            resourceId: userMessage.id,
+            topicKey: sessionId,
+          } satisfies UserEventPayload);
+        }
 
         // 添加当前用户消息到上下文
         contextMessages.push({
