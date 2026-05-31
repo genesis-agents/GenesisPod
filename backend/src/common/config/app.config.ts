@@ -7,7 +7,7 @@
 const BRAND_NAME = process.env.BRAND_NAME || "Genesis";
 const BRAND_FULL_NAME = process.env.BRAND_FULL_NAME || "Genesis.ai";
 const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || "";
-const RAILWAY_DOMAIN = process.env.RAILWAY_DOMAIN || "genesis";
+const RAILWAY_DOMAIN = process.env.RAILWAY_DOMAIN || "GenesisPod";
 
 /**
  * 应用配置常量
@@ -77,7 +77,7 @@ export const APP_CONFIG = {
     /** 默认 GitHub 仓库所有者 */
     owner: process.env.GITHUB_OWNER || "genesis-agents",
     /** 默认 GitHub 仓库名称 */
-    repo: process.env.GITHUB_REPO || "genesis",
+    repo: process.env.GITHUB_REPO || "GenesisPod",
   },
 
   // ==================== 辅助方法 ====================

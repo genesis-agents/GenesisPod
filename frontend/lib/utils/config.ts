@@ -83,7 +83,7 @@ export const config = {
     /** GitHub Issues URL */
     githubIssuesUrl:
       process.env.NEXT_PUBLIC_BRAND_GITHUB_ISSUES_URL ||
-      'https://github.com/genesis-agents/genesis/issues',
+      'https://github.com/genesis-agents/GenesisPod/issues',
   },
 
   // ==================== Railway URL 配置 ====================
