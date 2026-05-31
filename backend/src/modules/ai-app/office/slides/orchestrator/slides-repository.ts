@@ -7,6 +7,12 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import {
+  USER_EVENT_NAME,
+  MODULE,
+  ACTION,
+  type UserEventPayload,
+} from "@/common/observability/user-event.types";
 import { Prisma } from "@prisma/client";
 import {
   SlidesMission,
@@ -363,6 +369,15 @@ export class SlidesRepository {
         title,
         metrics: { pageCount: pages.length },
       });
+
+      // 运营看板埋点（W2, PRD §4.2）：office 产出完成。成本不在此（唯一真源 AIEngineMetric）。
+      this.eventEmitter.emit(USER_EVENT_NAME, {
+        userId: updated.userId,
+        module: MODULE.AI_OFFICE,
+        action: ACTION.COMPLETED,
+        resourceType: "SlidesMission",
+        resourceId: missionId,
+      } satisfies UserEventPayload);
     }
   }
 
