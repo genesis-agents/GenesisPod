@@ -26,6 +26,7 @@ import {
 import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import { FailureLearnerService } from "@/modules/ai-harness/facade";
+import { estimateUsdFromTokens } from "@/modules/ai-harness/facade";
 import type { IAgentEvent } from "@/modules/ai-harness/facade";
 import { AgentExecutionSupport } from "./agent-execution-support";
 import { AgentInvocationPolicy } from "./agent-invocation-policy";
@@ -295,9 +296,13 @@ export class AgentInvoker {
           model: usage.model,
           promptTokens: usage.promptTokens,
           completionTokens: usage.completionTokens,
-          // 真实 per-model costUsd 优先；thinking 事件无 costUsd 时回退 pool 已记的
-          //   deltaTokens 估算（与 relay.tickCost 的 estimateUsdFromTokens 同口径）。
-          costUsd: usage.costUsd > 0 ? usage.costUsd : deltaTokens * 0.000003,
+          // 真实 per-model costUsd 优先；thinking 事件无 costUsd 时回退 canonical
+          //   estimateUsdFromTokens（与 relay.tickCost / agent-usage.util 同口径，
+          //   消除内联 0.000003 魔数 —— PG-08）。
+          costUsd:
+            usage.costUsd > 0
+              ? usage.costUsd
+              : estimateUsdFromTokens(deltaTokens),
         })
         .catch((err: unknown) => {
           this.log.warn(

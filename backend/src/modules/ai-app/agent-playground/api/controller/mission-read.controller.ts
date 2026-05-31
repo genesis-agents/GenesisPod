@@ -162,6 +162,50 @@ export class MissionReadController extends BaseMissionController {
   }
 
   /**
+   * GET /api/v1/agent-playground/missions/:id/cost
+   *
+   * per-mission 成本明细 + 汇总（chargeback / showback / 审计）。台账由 CostLedgerStore
+   * 逐 stage 落库，此前只在终态内部 SUM、无读端点暴露（PG-04）。走 assertReadAccess
+   * （own ∨ PUBLIC，否则 404），与其余只读端点一致。
+   */
+  @Get("missions/:id/cost")
+  async getMissionCost(
+    @Param("id") id: string,
+    @Request() req: RequestWithUser,
+  ): Promise<{
+    summary: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+      costUsd: number;
+      entryCount: number;
+    };
+    entries: Array<{
+      id: string;
+      stepId: string | null;
+      role: string | null;
+      model: string | null;
+      promptTokens: number;
+      completionTokens: number;
+      costUsd: number;
+      createdAt: string;
+    }>;
+  }> {
+    await this.assertReadAccess(id, req.user?.id);
+    const [summary, rows] = await Promise.all([
+      this.store.sumCostByMission(id),
+      this.store.listCostByMission(id),
+    ]);
+    return {
+      summary,
+      entries: rows.map((r) => ({
+        ...r,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  /**
    * PATCH /api/v1/agent-playground/missions/:id/visibility
    * 多租户可见性切换（仅所有者）。
    */
