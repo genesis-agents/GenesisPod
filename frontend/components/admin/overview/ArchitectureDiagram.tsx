@@ -1,6 +1,7 @@
 'use client';
 
-import { MousePointerClick, Eye, Layers } from 'lucide-react';
+import { MousePointerClick, Eye, Layers, BarChart3 } from 'lucide-react';
+import Link from 'next/link';
 import { ARCHITECTURE_LAYERS } from '@/lib/features/admin/architecture';
 import { useTranslation } from '@/lib/i18n';
 import { useApiGet } from '@/hooks/core';
@@ -61,8 +62,15 @@ export default function ArchitectureDiagram() {
             </div>
           </div>
 
-          {/* Right: Stats pills */}
+          {/* Right: 运营看板入口 + Stats pills */}
           <div className="hidden items-center gap-3 md:flex">
+            <Link
+              href="/admin/operations"
+              className="flex items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+            >
+              <BarChart3 className="h-4 w-4" />
+              {t('admin.nav.operations')}
+            </Link>
             <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5">
               <span className="text-sm font-semibold text-gray-700">
                 {ARCHITECTURE_LAYERS.length}
