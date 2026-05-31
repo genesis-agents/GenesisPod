@@ -132,10 +132,14 @@ export class AgentsService {
 
   /**
    * 获取任务
+   *
+   * ★ IDOR 防护：按 (id, ownerUserId) 查询，非属主视作不存在。userId 由全局
+   *   JwtAuthGuard 保证存在；调用方必须传真实 userId（不可传 undefined，否则
+   *   Prisma 会丢弃该谓词导致越权）。
    */
-  async getTask(taskId: string) {
-    const task = await this.prisma.officeAgentTask.findUnique({
-      where: { id: taskId },
+  async getTask(taskId: string, userId: string) {
+    const task = await this.prisma.officeAgentTask.findFirst({
+      where: { id: taskId, userId },
       include: {
         artifacts: true,
       },
@@ -231,8 +235,17 @@ export class AgentsService {
 
   /**
    * 获取任务产出物
+   *
+   * ★ IDOR 防护：先校验 task 归属，非属主任务的产出物视作不存在。
    */
-  async getArtifacts(taskId: string): Promise<Artifact[]> {
+  async getArtifacts(taskId: string, userId: string): Promise<Artifact[]> {
+    const owns = await this.prisma.officeAgentTask.findFirst({
+      where: { id: taskId, userId },
+      select: { id: true },
+    });
+    if (!owns) {
+      throw new NotFoundException("Task not found");
+    }
     const artifacts = await this.prisma.officeAgentArtifact.findMany({
       where: { taskId },
     });
@@ -250,15 +263,20 @@ export class AgentsService {
   /**
    * 获取产出物下载
    */
-  async getArtifactDownload(artifactId: string): Promise<{
+  async getArtifactDownload(
+    artifactId: string,
+    userId: string,
+  ): Promise<{
     url: string | null;
     name: string;
     mimeType: string;
   }> {
+    // ★ IDOR 防护：经父 task 的 userId 校验归属，非属主视作不存在。
     const artifact = await this.prisma.officeAgentArtifact.findUnique({
       where: { id: artifactId },
+      include: { task: { select: { userId: true } } },
     });
-    if (!artifact) {
+    if (!artifact || artifact.task?.userId !== userId) {
       throw new NotFoundException("Artifact not found");
     }
     return {
@@ -270,10 +288,12 @@ export class AgentsService {
 
   /**
    * 取消任务
+   *
+   * ★ IDOR 防护：按 (id, ownerUserId) 查询，非属主任务不可取消。
    */
-  async cancelTask(taskId: string): Promise<boolean> {
-    const task = await this.prisma.officeAgentTask.findUnique({
-      where: { id: taskId },
+  async cancelTask(taskId: string, userId: string): Promise<boolean> {
+    const task = await this.prisma.officeAgentTask.findFirst({
+      where: { id: taskId, userId },
     });
     if (task && task.status === OfficeTaskStatus.EXECUTING) {
       await this.prisma.officeAgentTask.update({
