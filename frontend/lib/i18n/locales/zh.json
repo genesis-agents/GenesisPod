@@ -3473,6 +3473,7 @@
     "nav": {
       "overview": "概览",
       "dashboard": "仪表盘",
+      "operations": "运营看板",
       "aiConfig": "AI 配置",
       "models": "模型管理",
       "recommendations": "推荐矩阵",

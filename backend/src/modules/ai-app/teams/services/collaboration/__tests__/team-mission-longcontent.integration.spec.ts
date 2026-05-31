@@ -75,7 +75,7 @@ describe("TeamMissionService Long Content Integration", () => {
   const mockPrismaService = {
     teamMission: {
       findUnique: jest.fn(),
-      update: jest.fn(),
+      update: jest.fn().mockResolvedValue({ createdById: "test-user" }),
     },
     agentTask: {
       update: jest.fn(),

@@ -28,6 +28,8 @@ import { ObservabilityAdminController } from "./observability/observability-admi
 import { HarnessInspectorController } from "./harness/harness-inspector.controller";
 import { EvalAdminController } from "./eval/eval-admin.controller";
 import { DreamingAdminController } from "./dreaming/dreaming-admin.controller";
+import { OpsDashboardController } from "./dashboard/ops-dashboard.controller";
+import { OpsDashboardService } from "./dashboard/ops-dashboard.service";
 import { MCPExternalAdminController } from "../mcp-admin/mcp-external-admin.controller";
 import { AgentConfigService } from "../../ai-harness/facade";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -87,6 +89,7 @@ import {
     ModelTypesAdminController, // /admin/model-types/* 2026-05-11 P3 ModelType CRUD
     ProviderDiscoveryController, // /admin/ai-models/discover 2026-05-11 P5 一键探测
     KnowledgeAdminController, // /admin/knowledge/* 2026-05-11 W2 admin 视角知识管理
+    OpsDashboardController, // /admin/dashboard/* 运营看板（运营看板 W5）
     ...(process.env.NODE_ENV === "production"
       ? []
       : [HarnessInspectorController]), // /harness/inspector/* routes (PR-X17: migrated from ai-harness/agents/dev-tools)
@@ -104,6 +107,7 @@ import {
     BillingService,
     NotificationsAdminService,
     AgentConfigService,
+    OpsDashboardService, // 运营看板聚合（运营看板 W5）
     // Note: ErrorTrackingService and AIMetricsService are provided globally by MonitoringModule
   ],
   exports: [

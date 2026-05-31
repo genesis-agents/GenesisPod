@@ -3,11 +3,19 @@ import {
   NotFoundException,
   ForbiddenException,
   Logger,
+  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { Prisma } from "@prisma/client";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  USER_EVENT_NAME,
+  MODULE,
+  ACTION,
+  type UserEventPayload,
+} from "@/common/observability/user-event.types";
 
 /**
  * 笔记服务
@@ -25,6 +33,7 @@ export class NotesService {
   constructor(
     private prisma: PrismaService,
     private chatFacade: ChatFacade,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   /**
@@ -82,6 +91,16 @@ export class NotesService {
     this.logger.log(
       `Note created ${resourceId ? `for resource ${resourceId}` : "(standalone)"} by user ${userId}`,
     );
+
+    if (this.eventEmitter) {
+      this.eventEmitter.emit(USER_EVENT_NAME, {
+        userId,
+        module: MODULE.LIBRARY,
+        action: ACTION.SAVED,
+        resourceType: "Note",
+        resourceId: note.id,
+      } satisfies UserEventPayload);
+    }
 
     return note;
   }

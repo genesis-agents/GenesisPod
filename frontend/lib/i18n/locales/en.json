@@ -3473,6 +3473,7 @@
     "nav": {
       "overview": "Overview",
       "dashboard": "Dashboard",
+      "operations": "Operations",
       "aiConfig": "AI Configuration",
       "models": "Model Management",
       "recommendations": "Recommendation Matrix",
