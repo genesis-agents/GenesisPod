@@ -11,7 +11,7 @@
 
 ### 1.1 背景
 
-通过对 Genspark AI Slides 的深度分析，结合 Genesis.ai 现有架构优势，制定本优化方案。
+通过对 Genspark AI Slides 的深度分析，结合 GenesisPod 现有架构优势，制定本优化方案。
 
 **核心发现**:
 

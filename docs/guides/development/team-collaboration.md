@@ -1,4 +1,4 @@
-# Genesis.ai 团队协作规范
+# GenesisPod 团队协作规范
 
 ## 目录
 
@@ -24,7 +24,7 @@
 ### 1.2 功能模块分工
 
 ```
-Genesis.ai 功能模块
+GenesisPod 功能模块
 ├── Ask AI (问答功能)
 │   ├── Frontend: frontend/app/ask/, frontend/components/ask/
 │   └── Backend: backend/src/modules/ai/

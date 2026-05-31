@@ -2,7 +2,7 @@
 
 **制定日期**: 2025-11-22
 **文档专家**: Claude (Documentation Agent)
-**项目**: Genesis.ai
+**项目**: GenesisPod
 **规范版本**: project-rules.md v2.1
 
 ---

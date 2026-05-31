@@ -1,4 +1,4 @@
-# Genesis.ai AI 架构基线文档
+# GenesisPod AI 架构基线文档
 
 > 版本: 2.0
 > 更新日期: 2026-01-21

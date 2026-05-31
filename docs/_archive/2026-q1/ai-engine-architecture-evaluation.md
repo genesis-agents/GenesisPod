@@ -1,4 +1,4 @@
-# Genesis.ai 架构评估报告
+# GenesisPod 架构评估报告
 
 > 评估范围：AI Engine 核心层、AI Teams 协作层、AI Apps 应用层、基础设施与横切关注点
 > 评估日期：2026-02-06
@@ -23,7 +23,7 @@
 
 ### 整体定位
 
-Genesis.ai 是一个**企业级 AI 应用平台**，采用三层架构（Engine → Teams → Apps），在单一代码库中实现了从底层 LLM 调用到上层多 Agent 协作的完整能力栈。
+GenesisPod 是一个**企业级 AI 应用平台**，采用三层架构（Engine → Teams → Apps），在单一代码库中实现了从底层 LLM 调用到上层多 Agent 协作的完整能力栈。
 
 ### 核心数据
 
@@ -321,7 +321,7 @@ ToolRegistry (注册、发现、调用)
 
 ### 5.1 对标竞品矩阵
 
-| 能力维度     | Genesis.ai              | LangChain/LangGraph | CrewAI          | AutoGen            | Dify            | Coze          |
+| 能力维度     | GenesisPod              | LangChain/LangGraph | CrewAI          | AutoGen            | Dify            | Coze          |
 | ------------ | ----------------------- | ------------------- | --------------- | ------------------ | --------------- | ------------- |
 | **LLM 抽象** | A（TaskProfile 语义化） | B+（直接参数）      | B（直接参数）   | B（直接参数）      | B+（UI 配置）   | B（预设）     |
 | **多 Agent** | A-（辩论/投票/Mission） | B+（LangGraph）     | A-（Crew/Task） | A（多 Agent 会话） | B（工作流节点） | B（Bot 组合） |

@@ -1,7 +1,7 @@
 # ADR-0003: 使用PostgreSQL+MongoDB双数据库策略
 
 > **创建日期**: 2025-01-01
-> **作者**: Genesis.ai Team
+> **作者**: GenesisPod Team
 > **审阅者**: -
 
 ---
@@ -16,7 +16,7 @@
 
 ### 问题描述
 
-Genesis.ai需要存储两类数据：
+GenesisPod需要存储两类数据：
 
 **结构化数据**:
 

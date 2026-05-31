@@ -1,10 +1,10 @@
-# Genesis.ai MCP Server Integration Guide
+# GenesisPod MCP Server Integration Guide
 
-Technical integration guide for external AI agents to discover and use Genesis.ai capabilities via the Model Context Protocol (MCP).
+Technical integration guide for external AI agents to discover and use GenesisPod capabilities via the Model Context Protocol (MCP).
 
 ## Overview
 
-The Genesis.ai MCP Server exposes five core AI capabilities through a standardized MCP interface over HTTP:
+The GenesisPod MCP Server exposes five core AI capabilities through a standardized MCP interface over HTTP:
 
 - **genesis_ask**: Multi-model Q&A with web search augmentation
 - **genesis_deep_research**: Comprehensive research with iterative search and self-reflection
@@ -1012,7 +1012,7 @@ curl -X POST https://your-genesis-instance.com/api/v1/mcp \
 
 ### JSON-RPC Error Codes
 
-Genesis.ai follows standard JSON-RPC 2.0 error codes:
+GenesisPod follows standard JSON-RPC 2.0 error codes:
 
 | Code   | Message          | Description                                      |
 | ------ | ---------------- | ------------------------------------------------ |
@@ -1082,7 +1082,7 @@ Tool execution errors are returned as successful JSON-RPC responses with `isErro
 
 ### Guardrails
 
-Genesis.ai MCP Server includes multi-layer security guardrails:
+GenesisPod MCP Server includes multi-layer security guardrails:
 
 1. **Input Guardrails**: Validate and sanitize all incoming tool arguments
 2. **Output Guardrails**: Filter sensitive data from responses
@@ -1129,7 +1129,7 @@ System prompts explicitly instruct the model to:
 
 ### API Key Management
 
-- API keys are stored in Genesis.ai's Secrets system with `category="MCP"`
+- API keys are stored in GenesisPod's Secrets system with `category="MCP"`
 - Keys are validated on every request
 - Failed authentication returns HTTP 401
 - Sessions are isolated per API key
@@ -1177,7 +1177,7 @@ System prompts explicitly instruct the model to:
 ```javascript
 const axios = require("axios");
 
-class Genesis.aiMCPClient {
+class GenesisPodMCPClient {
   constructor(apiKey, baseUrl = "https://your-genesis-instance.com/api/v1/mcp") {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
@@ -1258,7 +1258,7 @@ class Genesis.aiMCPClient {
 }
 
 // Usage
-const client = new Genesis.aiMCPClient("your-api-key");
+const client = new GenesisPodMCPClient("your-api-key");
 await client.initialize();
 
 const result = await client.research("Impact of AI on healthcare", {
@@ -1275,7 +1275,7 @@ console.log(JSON.parse(result.content[0].text));
 import requests
 import json
 
-class Genesis.aiMCPClient:
+class GenesisPodMCPClient:
     def __init__(self, api_key, base_url='https://your-genesis-instance.com/api/v1/mcp'):
         self.api_key = api_key
         self.base_url = base_url
@@ -1335,7 +1335,7 @@ class Genesis.aiMCPClient:
         return self.call_tool('genesis_deep_research', {'topic': topic, **options})
 
 # Usage
-client = Genesis.aiMCPClient('your-api-key')
+client = GenesisPodMCPClient('your-api-key')
 client.initialize()
 
 result = client.research(

@@ -1,4 +1,4 @@
-# Genesis.ai — AI Engine & AI Apps 系统评估报告
+# GenesisPod — AI Engine & AI Apps 系统评估报告
 
 **评估日期**: 2026-02-17
 **评估团队**: 6 个专家 Agent 并行审查

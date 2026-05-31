@@ -916,7 +916,7 @@ export class AiAskService {
    * 构建 RAG System Prompt
    */
   private getRAGSystemPrompt(): string {
-    return `你是 Genesis.ai 的 AI 助手。
+    return `你是 GenesisPod 的 AI 助手。
 
 当用户的问题与提供的参考资料相关时，请基于参考资料回答。
 在引用参考资料时，请在相关内容后标注来源编号，例如 [1]、[2]。

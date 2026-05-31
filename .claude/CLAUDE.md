@@ -1,10 +1,10 @@
-# Genesis.ai - Claude Code 配置
+# GenesisPod - Claude Code 配置
 
 > AI 助手行为配置，指导 Claude Code 在本项目中的决策和行为。
 
 ## 项目概述
 
-**Genesis.ai** - 企业级 AI 深度研究和内容管理平台。
+**GenesisPod** - 企业级 AI 深度研究和内容管理平台。
 
 ### 核心模块
 

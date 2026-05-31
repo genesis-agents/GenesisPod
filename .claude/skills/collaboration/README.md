@@ -1,6 +1,6 @@
 # Collaboration Skills
 
-> Multi-agent collaboration patterns for Genesis.ai.
+> Multi-agent collaboration patterns for GenesisPod.
 
 ## Skills Overview
 

@@ -4914,7 +4914,7 @@
   },
   "byok": {
     "onboarding": {
-      "title": "Welcome to Genesis.ai",
+      "title": "Welcome to GenesisPod",
       "subtitle": "Configure a Provider API Key or request one from the admin before using AI features.",
       "haveKeyTitle": "I have my own API Key",
       "haveKeyDesc": "Use your own OpenAI / Claude / Gemini Key. No quota limits; costs billed to your Provider account.",

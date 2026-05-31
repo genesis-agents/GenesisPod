@@ -1,4 +1,4 @@
-# Genesis.ai - Frontend Architecture Evaluation
+# GenesisPod - Frontend Architecture Evaluation
 
 **Evaluation Date**: 2026-01-23
 **Evaluator**: Architect Agent
@@ -620,7 +620,7 @@ export type { AIAskState } from "./types";
 
 ## Conclusion
 
-The Genesis.ai frontend demonstrates solid foundational choices (Next.js 14, Zustand, TypeScript) but suffers from:
+The GenesisPod frontend demonstrates solid foundational choices (Next.js 14, Zustand, TypeScript) but suffers from:
 
 1. **Oversized components** that need splitting
 2. **Underutilization** of Next.js App Router capabilities

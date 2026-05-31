@@ -1,7 +1,7 @@
 # ADR-0001: 采用Monorepo架构
 
 > **创建日期**: 2025-01-01
-> **作者**: Genesis.ai Team
+> **作者**: GenesisPod Team
 > **审阅者**: -
 
 ---
@@ -16,7 +16,7 @@
 
 ### 问题描述
 
-Genesis.ai包含多个紧密关联的模块：
+GenesisPod包含多个紧密关联的模块：
 
 - **Frontend**: Next.js应用，用户界面
 - **Backend**: NestJS API服务

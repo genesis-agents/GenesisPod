@@ -1,4 +1,4 @@
-# Genesis.ai Structure
+# GenesisPod Structure
 
 最后更新：`2026-05-03`
 

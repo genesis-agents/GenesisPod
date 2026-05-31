@@ -1,6 +1,6 @@
-# Genesis.ai vs 业界多Agent框架对比分析
+# GenesisPod vs 业界多Agent框架对比分析
 
-> 本文档对比分析 Genesis.ai 与业界主流多Agent框架（AutoGen、CrewAI、LangGraph）的设计差异和能力特点。
+> 本文档对比分析 GenesisPod 与业界主流多Agent框架（AutoGen、CrewAI、LangGraph）的设计差异和能力特点。
 
 **最后更新**: 2025-01-27
 
@@ -8,14 +8,14 @@
 
 ## 一、架构设计对比
 
-| 维度           | Genesis.ai                   | AutoGen      | CrewAI   | LangGraph         |
+| 维度           | GenesisPod                   | AutoGen      | CrewAI   | LangGraph         |
 | -------------- | ---------------------------- | ------------ | -------- | ----------------- |
 | **核心模式**   | 分层架构 + DAG 编排          | 对话式协作   | 角色扮演 | 图状态机          |
 | **Agent 抽象** | Plan-Based + Reactive 双模式 | 单一对话模式 | 角色模板 | 节点函数          |
 | **工作流**     | DAG/Sequential/Parallel      | 轮询对话     | 顺序执行 | 有向图            |
 | **状态管理**   | 显式持久化(Prisma)           | 内存         | 内存     | 内置 checkpointer |
 
-### 1.1 Genesis.ai 分层架构
+### 1.1 GenesisPod 分层架构
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -56,7 +56,7 @@
 
 ### 2.1 Agent 协作机制
 
-#### Genesis.ai
+#### GenesisPod
 
 - **任务委派 (Handoff)**: 支持成员间任务转交，可等待结果
 - **消息广播**: 支持 REQUEST/RESPONSE/NOTIFICATION/BROADCAST 消息类型
@@ -103,7 +103,7 @@ enum VoteStrategy {
 | **AutoGen**   | ⚠️ 主要是对话轮询，需手动编排复杂流程        |
 | **CrewAI**    | ⚠️ 主要是顺序流水线                          |
 
-#### Genesis.ai DAG 执行流程
+#### GenesisPod DAG 执行流程
 
 ```
 构建 DAG
@@ -130,7 +130,7 @@ enum VoteStrategy {
 | **AutoGen**   | ✅ 对话历史   | ⚠️ 需集成 | ⚠️ 需集成   |
 | **CrewAI**    | ✅ 任务上下文 | ⚠️ 需集成 | ⚠️ 需集成   |
 
-#### Genesis.ai 记忆架构
+#### GenesisPod 记忆架构
 
 ```typescript
 // 短期记忆 - 会话级别
@@ -157,7 +157,7 @@ interface LongTermMemory {
 
 ## 三、差异化优势
 
-### 3.1 Genesis.ai 独有特性
+### 3.1 GenesisPod 独有特性
 
 #### 1. 企业级约束管理
 
@@ -222,10 +222,10 @@ interface ConstraintProfile {
 | **快速原型/对话场景** | AutoGen    | 低代码，快速部署      |
 | **简单顺序流程**      | CrewAI     | YAML 配置，角色清晰   |
 | **复杂状态机逻辑**    | LangGraph  | 图灵活性，条件分支    |
-| **企业级协作平台**    | Genesis.ai | 约束管理，审核机制    |
-| **需要审核机制**      | Genesis.ai | Leader 审核，返工循环 |
-| **需要成本控制**      | Genesis.ai | 预算约束，模型偏好    |
-| **实时交互需求**      | Genesis.ai | WebSocket 推送        |
+| **企业级协作平台**    | GenesisPod | 约束管理，审核机制    |
+| **需要审核机制**      | GenesisPod | Leader 审核，返工循环 |
+| **需要成本控制**      | GenesisPod | 预算约束，模型偏好    |
+| **实时交互需求**      | GenesisPod | WebSocket 推送        |
 
 ---
 
@@ -262,7 +262,7 @@ interface ConstraintProfile {
 
 ## 七、总结
 
-Genesis.ai 在**企业级能力**方面有明显优势：
+GenesisPod 在**企业级能力**方面有明显优势：
 
 1. **约束管理** - 成本、质量、效率三维约束
 2. **审核机制** - Leader 审核 + 返工循环

@@ -1,6 +1,6 @@
 # Development Skills
 
-> Frontend and backend development patterns for Genesis.ai.
+> Frontend and backend development patterns for GenesisPod.
 
 ## Skills Overview
 

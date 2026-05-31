@@ -1,12 +1,12 @@
 # AI Reports 优化设计概述
 
-> 参考 Genspark 专业报告生成逻辑，全面升级 Genesis.ai 的 AI Reports 功能
+> 参考 Genspark 专业报告生成逻辑，全面升级 GenesisPod 的 AI Reports 功能
 
 ## 一、背景与目标
 
 ### 1.1 现状分析
 
-当前 Genesis.ai 的深度研究报告存在以下问题：
+当前 GenesisPod 的深度研究报告存在以下问题：
 
 | 问题维度       | 具体表现          | 影响                   |
 | -------------- | ----------------- | ---------------------- |
@@ -589,4 +589,4 @@ interface ReportChapter {
 
 **文档版本**: v1.0
 **创建日期**: 2024-12-28
-**作者**: Genesis.ai Team
+**作者**: GenesisPod Team

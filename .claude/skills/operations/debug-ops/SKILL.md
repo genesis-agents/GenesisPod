@@ -24,7 +24,7 @@ boundaries:
 
 # Debug Operations Expert
 
-> Diagnose and debug issues in the Genesis.ai production environment.
+> Diagnose and debug issues in the GenesisPod production environment.
 
 ## Quick Diagnosis Flow
 

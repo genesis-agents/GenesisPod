@@ -1,6 +1,6 @@
 <div align="center">
 
-# Genesis.ai
+# GenesisPod
 
 **An open-source, enterprise-grade platform for AI deep research, content production, and multi-agent collaboration.**
 
@@ -15,9 +15,9 @@
 
 ---
 
-## What is Genesis.ai?
+## What is GenesisPod?
 
-Genesis.ai is a full-stack platform for building and running **AI research and
+GenesisPod is a full-stack platform for building and running **AI research and
 multi-agent workflows** in production. It ships a complete product surface — deep
 research, multi-agent orchestration, document/slide generation, long-form
 writing, RAG and knowledge graphs — on top of a strictly layered, **architecture-
@@ -29,7 +29,7 @@ available for closed-source and SaaS use.
 ### Why another AI platform?
 
 The differentiator is **architectural discipline you can verify**. Most agent
-frameworks rot into a tangle of cross-imports within a year. Genesis.ai enforces
+frameworks rot into a tangle of cross-imports within a year. GenesisPod enforces
 its 5-layer boundaries (`ai-app → ai-engine → ai-harness → ai-infra → open-api`)
 through three independent gates — ESLint rules, a jest architecture-spec suite,
 and a pre-push + CI merge gate — so the structure stays sound as the codebase
@@ -129,7 +129,7 @@ See [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening a PR.
 
 ## License
 
-Genesis.ai is **dual-licensed**:
+GenesisPod is **dual-licensed**:
 
 - **[AGPL-3.0](./LICENSE)** for open-source and self-hosted use. Note: AGPL
   treats network use as distribution — if you run a modified version as a

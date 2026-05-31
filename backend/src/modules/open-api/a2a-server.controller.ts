@@ -121,7 +121,7 @@ export class A2AController {
   @ApiOperation({
     summary: "Get Agent Card (A2A v0.3)",
     description:
-      "Returns the A2A v0.3 spec-compliant Agent Card describing Genesis.ai capabilities. This is a public discovery endpoint.",
+      "Returns the A2A v0.3 spec-compliant Agent Card describing GenesisPod capabilities. This is a public discovery endpoint.",
   })
   @ApiResponse({
     status: 200,

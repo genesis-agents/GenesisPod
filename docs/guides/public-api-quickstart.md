@@ -1,6 +1,6 @@
 # Public API Quickstart
 
-External-developer guide for the Genesis.ai Public API. Every path, header, and
+External-developer guide for the GenesisPod Public API. Every path, header, and
 field below is verified against the live controllers and DTOs (see
 [Source references](#source-references) at the bottom).
 

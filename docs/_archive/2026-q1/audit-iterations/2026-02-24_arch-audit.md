@@ -385,7 +385,7 @@ ai-engine 中发现的 `console.log` 均在 JSDoc 注释示例代码（`facade/a
 | 文件                                                | 行  | 内容                                                | 评估                                                             |
 | --------------------------------------------------- | --- | --------------------------------------------------- | ---------------------------------------------------------------- |
 | `office/slides/skills/content-compression.skill.ts` | 141 | `"footer": "2024年度分析报告 \| DeepDive Research"` | **违规**：示例数据中硬编码品牌名，应使用 `APP_CONFIG.brand.name` |
-| `ask/constants/project-context.ts`                  | 2   | 文件头注释 "Genesis.ai 项目上下文"                  | 注释，非字符串字面量，不计违规                                   |
+| `ask/constants/project-context.ts`                  | 2   | 文件头注释 "GenesisPod 项目上下文"                  | 注释，非字符串字面量，不计违规                                   |
 
 ---
 

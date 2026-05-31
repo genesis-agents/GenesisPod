@@ -225,7 +225,7 @@ interface TriageDecision {
 
 ```typescript
 const TRIAGE_AGENT_SYSTEM_PROMPT = `
-你是 Genesis.ai 的反馈分诊专家（Triage Agent）。
+你是 GenesisPod 的反馈分诊专家（Triage Agent）。
 
 你的职责是分析用户提交的反馈，判断其合理性，并决定最佳处理方式。
 

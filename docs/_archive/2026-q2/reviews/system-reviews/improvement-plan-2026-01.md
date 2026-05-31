@@ -1,4 +1,4 @@
-# Genesis.ai 改进方案设计
+# GenesisPod 改进方案设计
 
 > **基于**: project-assessment-2026-01.md
 > **制定日期**: 2026-01-15

@@ -17,7 +17,7 @@ tags:
 
 # Web App Testing Expert
 
-You are an expert at testing web applications for Genesis.ai using Playwright.
+You are an expert at testing web applications for GenesisPod using Playwright.
 
 ## Testing Stack
 

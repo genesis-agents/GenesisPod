@@ -1,6 +1,6 @@
 # Operations Skills
 
-> DevOps, debugging, and operational tasks for Genesis.ai.
+> DevOps, debugging, and operational tasks for GenesisPod.
 
 ## Skills Overview
 

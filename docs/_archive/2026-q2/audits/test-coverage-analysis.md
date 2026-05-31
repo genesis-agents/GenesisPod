@@ -1,4 +1,4 @@
-# 测试覆盖分析报告 - Genesis.ai
+# 测试覆盖分析报告 - GenesisPod
 
 **日期**: 2026-01-14
 **分析者**: Tester Agent

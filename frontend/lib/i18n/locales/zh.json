@@ -4914,7 +4914,7 @@
   },
   "byok": {
     "onboarding": {
-      "title": "欢迎使用 Genesis.ai",
+      "title": "欢迎使用 GenesisPod",
       "subtitle": "使用 AI 功能前，请配置一个 Provider 的 API Key，或向管理员申请分配。",
       "haveKeyTitle": "我有自己的 API Key",
       "haveKeyDesc": "使用你自己的 OpenAI / Claude / Gemini Key。无配额限制，费用由你自己的 Provider 账号承担。",

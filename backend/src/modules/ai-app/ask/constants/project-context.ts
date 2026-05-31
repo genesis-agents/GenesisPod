@@ -1,5 +1,5 @@
 /**
- * Genesis.ai 项目上下文
+ * GenesisPod 项目上下文
  * 内置项目信息，让 AI Ask 能够回答关于本项目的问题
  */
 

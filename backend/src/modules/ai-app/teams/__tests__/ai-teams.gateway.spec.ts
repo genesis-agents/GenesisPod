@@ -24,7 +24,7 @@ jest.mock("../../../../common/config/app.config", () => ({
   APP_CONFIG: {
     brand: {
       name: "Genesis",
-      fullName: "Genesis.ai",
+      fullName: "GenesisPod",
       siteName: "Genesis",
       emailFrom: "Genesis <noreply@genesis.ai>",
     },

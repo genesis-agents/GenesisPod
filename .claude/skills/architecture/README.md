@@ -1,6 +1,6 @@
 # Architecture Skills
 
-> System design and architectural patterns for Genesis.ai.
+> System design and architectural patterns for GenesisPod.
 
 ## Skills Overview
 

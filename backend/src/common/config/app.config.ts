@@ -4,10 +4,10 @@
  */
 
 // ==================== 核心品牌配置（环境变量优先）====================
-const BRAND_NAME = process.env.BRAND_NAME || "Genesis";
-const BRAND_FULL_NAME = process.env.BRAND_FULL_NAME || "Genesis.ai";
+const BRAND_NAME = process.env.BRAND_NAME || "GenesisPod";
+const BRAND_FULL_NAME = process.env.BRAND_FULL_NAME || "GenesisPod";
 const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || "";
-const RAILWAY_DOMAIN = process.env.RAILWAY_DOMAIN || "GenesisPod";
+const RAILWAY_DOMAIN = process.env.RAILWAY_DOMAIN || "genesis-ai";
 
 /**
  * 应用配置常量

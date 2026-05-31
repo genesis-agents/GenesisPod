@@ -45,7 +45,7 @@ The following nav links were consistently present in the sidebar across all page
 
 **URL tested**: https://genesis-ai.up.railway.app/ai-ask
 **Final URL**: https://genesis-ai.up.railway.app/ai-ask (no redirect)
-**Page title**: Genesis.ai - AI-Powered Research Platform
+**Page title**: GenesisPod - AI-Powered Research Platform
 **Auth gate**: Inline — H1: "Sign in to start chatting"
 
 | Step                                     | Plan ID     | Observation                                                          | Result        |
@@ -70,7 +70,7 @@ The following nav links were consistently present in the sidebar across all page
 
 **URL tested**: https://genesis-ai.up.railway.app/ai-research
 **Final URL**: https://genesis-ai.up.railway.app/ai-research (no redirect)
-**Page title**: Genesis.ai - AI-Powered Research Platform
+**Page title**: GenesisPod - AI-Powered Research Platform
 **Auth state**: Partial access — page loads with functional UI elements
 
 | Step                                     | Plan ID     | Observation                                                                      | Result        |
@@ -93,7 +93,7 @@ The following nav links were consistently present in the sidebar across all page
 
 **URL tested**: https://genesis-ai.up.railway.app/ai-teams
 **Final URL**: https://genesis-ai.up.railway.app/ai-teams (no redirect)
-**Page title**: Genesis.ai - AI-Powered Research Platform
+**Page title**: GenesisPod - AI-Powered Research Platform
 **Auth gate**: Inline — H2: "Please sign in to access AI Teams"
 
 | Step                        | Plan ID     | Observation                                  | Result        |
@@ -115,7 +115,7 @@ The following nav links were consistently present in the sidebar across all page
 
 **URL tested**: https://genesis-ai.up.railway.app/ai-writing
 **Final URL**: https://genesis-ai.up.railway.app/ai-writing (no redirect)
-**Page title**: Genesis.ai - AI-Powered Research Platform
+**Page title**: GenesisPod - AI-Powered Research Platform
 **Auth gate**: Inline — H2: "Please Sign In"
 
 | Step                        | Plan ID     | Observation                   | Result        |
@@ -163,7 +163,7 @@ The following nav links were consistently present in the sidebar across all page
 
 **URL tested**: https://genesis-ai.up.railway.app/ai-image
 **Final URL**: https://genesis-ai.up.railway.app/ai-image (no redirect)
-**Page title**: Genesis.ai - AI-Powered Research Platform
+**Page title**: GenesisPod - AI-Powered Research Platform
 **Auth gate**: Inline — H2: "Please Sign In"
 
 | Step                        | Plan ID     | Observation                                                   | Result        |
@@ -185,7 +185,7 @@ The following nav links were consistently present in the sidebar across all page
 
 **URL tested**: https://genesis-ai.up.railway.app/ai-social
 **Final URL**: https://genesis-ai.up.railway.app/ai-social (no redirect)
-**Page title**: Genesis.ai - AI-Powered Research Platform
+**Page title**: GenesisPod - AI-Powered Research Platform
 **Auth gate**: Inline — H1: "Please sign in"
 
 | Step                        | Plan ID     | Observation                                                      | Result        |
@@ -207,7 +207,7 @@ The following nav links were consistently present in the sidebar across all page
 
 **URL tested**: https://genesis-ai.up.railway.app/ai-office
 **Final URL**: https://genesis-ai.up.railway.app/ai-office (no redirect)
-**Page title**: Genesis.ai - AI-Powered Research Platform
+**Page title**: GenesisPod - AI-Powered Research Platform
 **Auth state**: Partial — page title renders, Google OAuth button visible
 
 | Step                         | Plan ID     | Observation                                                      | Result        |

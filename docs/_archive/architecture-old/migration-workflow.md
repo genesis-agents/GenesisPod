@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document defines the standard workflow for database migrations in Genesis.ai. All team members must follow these guidelines to ensure database stability and consistency.
+This document defines the standard workflow for database migrations in GenesisPod. All team members must follow these guidelines to ensure database stability and consistency.
 
 ---
 

@@ -1,4 +1,4 @@
-# Genesis.ai 商业化系统设计：订阅制 + Free-tier BYOK + 统一 Credit 计量
+# GenesisPod 商业化系统设计：订阅制 + Free-tier BYOK + 统一 Credit 计量
 
 > **版本**: v1.1
 > **创建时间**: 2026-05-28

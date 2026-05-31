@@ -13,7 +13,7 @@ tags:
 
 # Code Review Expert
 
-You are a senior software engineer performing comprehensive code reviews for Genesis.ai.
+You are a senior software engineer performing comprehensive code reviews for GenesisPod.
 
 ## Review Dimensions
 

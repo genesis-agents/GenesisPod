@@ -1,4 +1,4 @@
-# Genesis.ai - Platform Evolution Roadmap v1.0
+# GenesisPod - Platform Evolution Roadmap v1.0
 
 **Created**: 2026-02-05
 **Last Updated**: 2026-02-05
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-Genesis.ai already possesses a mature platform with comprehensive Admin management (MCP servers, Skills, Tools, Teams, Monitoring). This roadmap focuses on **filling the real gaps** that prevent Genesis from fully participating in the emerging AI Agent ecosystem.
+GenesisPod already possesses a mature platform with comprehensive Admin management (MCP servers, Skills, Tools, Teams, Monitoring). This roadmap focuses on **filling the real gaps** that prevent Genesis from fully participating in the emerging AI Agent ecosystem.
 
 ---
 

@@ -1,4 +1,4 @@
-# Genesis.ai - Backend Architecture Evaluation Report
+# GenesisPod - Backend Architecture Evaluation Report
 
 > Generated: 2026-01-23
 > Evaluator: Architect Agent
@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-Genesis.ai 后端采用 NestJS 框架，整体架构遵循三层 AI 架构设计（AI Engine -> AI Teams -> AI Apps）。经过全面评估，发现架构整体设计合理，但存在一些需要关注的问题。
+GenesisPod 后端采用 NestJS 框架，整体架构遵循三层 AI 架构设计（AI Engine -> AI Teams -> AI Apps）。经过全面评估，发现架构整体设计合理，但存在一些需要关注的问题。
 
 ### Overall Rating: B+ (3.5/5)
 
@@ -665,7 +665,7 @@ export class AIEngineFacade {
 
 ## Conclusion
 
-The Genesis.ai backend has a solid foundation with clear AI architecture layering. The main concerns are:
+The GenesisPod backend has a solid foundation with clear AI architecture layering. The main concerns are:
 
 1. **God Services** that need immediate refactoring
 2. **Missing Repository layer** affecting testability

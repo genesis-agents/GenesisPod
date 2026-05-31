@@ -119,7 +119,7 @@ interface CoverPageConfig {
   "template": "cover",
   "elements": {
     "organizationBar": {
-      "name": "Genesis.ai"
+      "name": "GenesisPod"
     },
     "titleBlock": {
       "mainTitle": "美国AI系统深度分析报告",

@@ -1,4 +1,4 @@
-# Genesis.ai — MCP Skill Manifest
+# GenesisPod — MCP Skill Manifest
 
 > 声明式能力描述，供 OpenClaw、Claude Code 等 MCP 客户端自动发现和集成。
 

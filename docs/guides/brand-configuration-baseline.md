@@ -18,7 +18,7 @@
 | Variable              | Default                        | Description           |
 | --------------------- | ------------------------------ | --------------------- |
 | `BRAND_NAME`          | `Genesis`                      | Short brand name      |
-| `BRAND_FULL_NAME`     | `Genesis.ai`                   | Full brand name       |
+| `BRAND_FULL_NAME`     | `GenesisPod`                   | Full brand name       |
 | `BRAND_SUBTITLE`      | `AI ENGINE`                    | Logo subtitle text    |
 | `RAILWAY_DOMAIN`      | `genesis-ai`                   | Railway domain prefix |
 | `BRAND_EMAIL_FROM`    | `Genesis <noreply@genesis.ai>` | Email sender          |
@@ -30,7 +30,7 @@
 | Variable                      | Default                        | Description           |
 | ----------------------------- | ------------------------------ | --------------------- |
 | `NEXT_PUBLIC_BRAND_NAME`      | `Genesis`                      | Short brand name      |
-| `NEXT_PUBLIC_BRAND_FULL_NAME` | `Genesis.ai`                   | Full brand name       |
+| `NEXT_PUBLIC_BRAND_FULL_NAME` | `GenesisPod`                   | Full brand name       |
 | `NEXT_PUBLIC_BRAND_SUBTITLE`  | `AI ENGINE`                    | Logo subtitle         |
 | `NEXT_PUBLIC_BRAND_TAGLINE`   | `AI-Powered Research Platform` | Page title tagline    |
 | `NEXT_PUBLIC_RAILWAY_DOMAIN`  | `genesis-ai`                   | Railway domain prefix |

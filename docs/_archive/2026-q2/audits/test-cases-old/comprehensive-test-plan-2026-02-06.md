@@ -1,4 +1,4 @@
-# Genesis.ai 全面测试方案
+# GenesisPod 全面测试方案
 
 **制定日期**: 2026-02-06
 **基准版本**: commit 33ae0e03 (main)

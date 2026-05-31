@@ -394,7 +394,7 @@ Score: 1/1
 
 **Hardcoded brand names: 1/1**
 
-No hardcoded `"Genesis"`, `"Raven"`, or `"DeepDive"` strings found in production code. The file `mcp-server.module.ts` has a comment mentioning "Genesis.ai" in a comment but not as a string literal.
+No hardcoded `"Genesis"`, `"Raven"`, or `"DeepDive"` strings found in production code. The file `mcp-server.module.ts` has a comment mentioning "GenesisPod" in a comment but not as a string literal.
 Score: 1/1
 
 **Score: 6/10** (any: 2/4, oversized files: 0/2, ts-ignore: 2/2, console.log: 1/1, brand names: 1/1)

@@ -1,4 +1,4 @@
-# Genesis.ai 前端 UI 审计基线（2026-05-18）
+# GenesisPod 前端 UI 审计基线（2026-05-18）
 
 > **基线日期**：2026-05-18
 > **审计工具**：`scripts/utils/audit-ui-discipline.ts` + `scripts/utils/audit-ui-tokens.ts`

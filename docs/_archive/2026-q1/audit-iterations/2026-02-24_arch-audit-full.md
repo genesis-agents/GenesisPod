@@ -292,10 +292,10 @@ ESLint `no-restricted-imports` 规则**不检测** TypeScript 内联 `import()` 
 
 | 文件                                           | 内容                                | 性质                                         |
 | ---------------------------------------------- | ----------------------------------- | -------------------------------------------- |
-| `ai-app/ask/ai-ask.service.ts:603,609,653,659` | `"Genesis.ai"` 在注释和日志字符串中 | 仅出现在日志消息中，不影响运行时行为，低风险 |
+| `ai-app/ask/ai-ask.service.ts:603,609,653,659` | `"GenesisPod"` 在注释和日志字符串中 | 仅出现在日志消息中，不影响运行时行为，低风险 |
 | `ai-app/ask/constants/project-context.ts:2`    | 文件注释                            | 注释                                         |
-| `ai-app/image/` 多个文件头注释                 | `"Genesis.ai v2.1"`                 | 文件头注释                                   |
-| `ai-engine/a2a/` 相关文件                      | `"Genesis"`, `"Genesis.ai"`         | A2A Agent Card 中作为平台标识符使用          |
+| `ai-app/image/` 多个文件头注释                 | `"GenesisPod v2.1"`                 | 文件头注释                                   |
+| `ai-engine/a2a/` 相关文件                      | `"Genesis"`, `"GenesisPod"`         | A2A Agent Card 中作为平台标识符使用          |
 
 **唯一运行时影响**:
 

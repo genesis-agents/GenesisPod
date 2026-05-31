@@ -1,4 +1,4 @@
-# Genesis.ai - 客户离线部署（On-Prem）
+# GenesisPod - 客户离线部署（On-Prem）
 
 源码不公开的客户本地部署方案。客户拿到的是预编译 Docker 镜像 tar 包 + 一份 compose 配置，看不到 TypeScript / Python 源码。
 

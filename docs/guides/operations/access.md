@@ -1,4 +1,4 @@
-# 🚀 Genesis.ai - 访问指南
+# 🚀 GenesisPod - 访问指南
 
 ## 📍 访问地址
 

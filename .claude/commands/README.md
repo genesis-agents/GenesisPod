@@ -1,6 +1,6 @@
 # Claude Code Commands
 
-> Genesis.ai 项目的 slash commands 快捷指令集。
+> GenesisPod 项目的 slash commands 快捷指令集。
 
 ## 使用方法
 

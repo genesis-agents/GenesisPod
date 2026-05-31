@@ -1,4 +1,4 @@
-# AI OS 架构对比分析：传统 OS vs AIOS vs Karpathy LLM OS vs Genesis.ai
+# AI OS 架构对比分析：传统 OS vs AIOS vs Karpathy LLM OS vs GenesisPod
 
 **Date**: 2026-02-28
 **Version**: v1.0
@@ -19,9 +19,9 @@
 | **传统 OS** (Linux/Windows) | 工业标准   | 50+ 年工业验证 | 定义了 OS 核心概念：进程、内存、调度、IPC、安全   |
 | **Karpathy LLM OS** (2023)  | 概念框架   | 思想实验       | 提出 "LLM 即 CPU" 隐喻，启发了 AI OS 方向         |
 | **AIOS** (COLM 2025)        | 学术原型   | 开源实现       | 首个系统性的 LLM Agent OS 内核论文，有性能基准    |
-| **Genesis.ai** (6 层架构)   | 生产级系统 | 生产环境运行   | 完整 OS 概念映射 + 企业级容错 + 多租户 + 成本控制 |
+| **GenesisPod** (6 层架构)   | 生产级系统 | 生产环境运行   | 完整 OS 概念映射 + 企业级容错 + 多租户 + 成本控制 |
 
-**核心结论**：Karpathy 定义了愿景，AIOS 做了学术验证，Genesis.ai 将 AI OS 概念落地为可运行的企业级系统。Genesis.ai 在进程持久化、事件溯源、多租户隔离、成本归因等维度上超越了 AIOS 论文的实现。
+**核心结论**：Karpathy 定义了愿景，AIOS 做了学术验证，GenesisPod 将 AI OS 概念落地为可运行的企业级系统。GenesisPod 在进程持久化、事件溯源、多租户隔离、成本归因等维度上超越了 AIOS 论文的实现。
 
 ---
 
@@ -34,7 +34,7 @@
 | [Karpathy LLM OS (X)](https://x.com/karpathy/status/1723140519554105733)                             | 原始概念帖 (2023-11)                            |
 | [Illustrated LLM OS (HuggingFace)](https://huggingface.co/blog/shivance/illustrated-llm-os)          | 架构可视化解读                                  |
 | [AI OS & Agentic OS (Fluid AI)](https://www.fluid.ai/blog/ai-operating-systems-agentic-os-explained) | 企业 AI OS 定义                                 |
-| Genesis.ai 源码                                                                                      | `backend/src/modules/ai-kernel/` + `ai-engine/` |
+| GenesisPod 源码                                                                                      | `backend/src/modules/ai-kernel/` + `ai-engine/` |
 
 ---
 
@@ -42,7 +42,7 @@
 
 ### 2.1 分层架构
 
-| 层级           | 传统 OS                      | AIOS                                | Karpathy LLM OS      | Genesis.ai                                       |
+| 层级           | 传统 OS                      | AIOS                                | Karpathy LLM OS      | GenesisPod                                       |
 | -------------- | ---------------------------- | ----------------------------------- | -------------------- | ------------------------------------------------ |
 | **应用层**     | 用户程序                     | Agent SDK (Cerebrum) + 6 Agent 框架 | 未定义               | L6 Agent OS + L4 AI Apps                         |
 | **接口层**     | System Call Interface        | LLM System Call Interface           | --                   | L5 Open API (MCP/REST/Webhooks)                  |
@@ -53,7 +53,7 @@
 
 ### 2.2 架构范式
 
-| 维度         | 传统 OS                | AIOS                 | Karpathy LLM OS       | Genesis.ai                  |
+| 维度         | 传统 OS                | AIOS                 | Karpathy LLM OS       | GenesisPod                  |
 | ------------ | ---------------------- | -------------------- | --------------------- | --------------------------- |
 | **核心理念** | 管理硬件资源           | 管理 LLM Agent 资源  | LLM 替代 CPU 成为中枢 | OS 隐喻的企业 AI 平台       |
 | **设计哲学** | 确定性、可预测         | 学术研究导向         | 概念愿景、类比驱动    | 生产级、业务导向            |
@@ -66,7 +66,7 @@
 
 ### 3.1 进程 / Agent 管理
 
-| 维度         | 传统 OS                              | AIOS                    | Karpathy LLM OS | Genesis.ai                                                             |
+| 维度         | 传统 OS                              | AIOS                    | Karpathy LLM OS | GenesisPod                                                             |
 | ------------ | ------------------------------------ | ----------------------- | --------------- | ---------------------------------------------------------------------- |
 | **调度单元** | Process / Thread                     | Agent Request           | --              | `AgentProcess` (完整状态机)                                            |
 | **状态模型** | NEW-READY-RUNNING-WAITING-TERMINATED | 隐式 (队列/执行/完成)   | 未定义          | **8 态**: CREATED-READY-RUNNING-PAUSED-WAITING-COMPLETED-FAILED-ZOMBIE |
@@ -76,7 +76,7 @@
 | **持久化**   | 无 (内存中)                          | 无 (内存中)             | --              | **PostgreSQL** `agent_processes` 表                                    |
 | **崩溃恢复** | 进程终止                             | 无                      | --              | 有 checkpoint -> READY 重试; 无 -> FAILED                              |
 
-**Genesis.ai 关键代码**:
+**GenesisPod 关键代码**:
 
 ```
 ProcessManager.spawn()     → 创建进程 (类似 fork() 系统调用)
@@ -86,11 +86,11 @@ ProcessManager.checkpoint() → 保存执行快照 (支持崩溃恢复)
 ProcessManager.wait()       → 等待进程结束 (类似 waitpid())
 ```
 
-**Genesis.ai 优势**: 唯一实现了完整进程状态机 + 数据库持久化 + 父子进程层级 + 崩溃恢复。AIOS 和 Karpathy 均未涉及。
+**GenesisPod 优势**: 唯一实现了完整进程状态机 + 数据库持久化 + 父子进程层级 + 崩溃恢复。AIOS 和 Karpathy 均未涉及。
 
 ### 3.2 内存管理
 
-| 维度         | 传统 OS                    | AIOS                                   | Karpathy LLM OS                    | Genesis.ai                                |
+| 维度         | 传统 OS                    | AIOS                                   | Karpathy LLM OS                    | GenesisPod                                |
 | ------------ | -------------------------- | -------------------------------------- | ---------------------------------- | ----------------------------------------- |
 | **层级模型** | 寄存器-Cache-RAM-Swap-Disk | Short-term + Long-term + Context Cache | RAM=Context Window, Disk=Vector DB | **3 层**: STACK-HEAP-PERSISTENT           |
 | **短期**     | CPU 寄存器 + L1 Cache      | `short_term_memory` dict               | 128K token 上下文窗口              | `STACK` 层 (TTL 过期清理)                 |
@@ -100,7 +100,7 @@ ProcessManager.wait()       → 等待进程结束 (类似 waitpid())
 | **清理**     | 进程退出释放               | --                                     | --                                 | `deleteAll(processId)` + TTL 自动过期     |
 | **共享**     | 共享内存段 / mmap          | `share_memory()`                       | --                                 | `MessageBus` 跨 Agent IPC                 |
 
-**Genesis.ai 三层内存模型**:
+**GenesisPod 三层内存模型**:
 
 ```
 STACK (栈)       → 函数级临时变量, 短 TTL, 自动过期
@@ -112,14 +112,14 @@ PERSISTENT (持久) → 跨进程持久存储, 存入 PostgreSQL
 
 ### 3.3 上下文管理 / 检查点
 
-| 维度           | 传统 OS                    | AIOS                                        | Karpathy LLM OS | Genesis.ai                                            |
+| 维度           | 传统 OS                    | AIOS                                        | Karpathy LLM OS | GenesisPod                                            |
 | -------------- | -------------------------- | ------------------------------------------- | --------------- | ----------------------------------------------------- |
 | **上下文保存** | 保存/恢复 CPU 寄存器 + PCB | text-based (序列化) / logits-based (推理树) | --              | `EventJournal.recordStep()` 幂等执行 + `checkpoint()` |
 | **切换开销**   | ~微秒级                    | 2.1s -> 0.1s (声称 95% 改进)                | --              | 基于数据库 I/O, ~毫秒级                               |
 | **故障恢复**   | 无 (进程终止)              | 无                                          | --              | **有 checkpoint -> 回到 READY; 无 -> FAILED**         |
 | **事件溯源**   | 无 (日志可选)              | 无                                          | --              | `process_events` 表, 按 sequence 有序, 确定性重放     |
 
-**Genesis.ai 幂等执行模式**:
+**GenesisPod 幂等执行模式**:
 
 ```
 EventJournal.recordStep(processId, step):
@@ -128,11 +128,11 @@ EventJournal.recordStep(processId, step):
   3. 未执行 → 执行并持久化结果
 ```
 
-**Genesis.ai 优势**: 唯一实现事件溯源 + 幂等重放 + 检查点恢复，提供企业级容错能力。
+**GenesisPod 优势**: 唯一实现事件溯源 + 幂等重放 + 检查点恢复，提供企业级容错能力。
 
 ### 3.4 进程间通信 (IPC)
 
-| 维度         | 传统 OS                             | AIOS             | Karpathy LLM OS | Genesis.ai                                                |
+| 维度         | 传统 OS                             | AIOS             | Karpathy LLM OS | GenesisPod                                                |
 | ------------ | ----------------------------------- | ---------------- | --------------- | --------------------------------------------------------- |
 | **机制**     | Pipe, Socket, SharedMem, Signal, MQ | Agent 间共享内存 | 其他 LLM (网络) | **双总线**: EventBus + MessageBus                         |
 | **广播**     | 信号 / 多播 Socket                  | --               | --              | `EventBus.emit()` -> EventEmitter2 + Socket.IO            |
@@ -144,7 +144,7 @@ EventJournal.recordStep(processId, step):
 
 ### 3.5 资源管理
 
-| 维度         | 传统 OS                 | AIOS                  | Karpathy LLM OS | Genesis.ai                                          |
+| 维度         | 传统 OS                 | AIOS                  | Karpathy LLM OS | GenesisPod                                          |
 | ------------ | ----------------------- | --------------------- | --------------- | --------------------------------------------------- |
 | **资源限制** | ulimit, cgroups, quotas | API Rate Limiting     | --              | **Token Budget + Cost Budget 双重约束**             |
 | **熔断**     | --                      | --                    | --              | `CircuitBreakerService` (CLOSED-OPEN-HALF_OPEN)     |
@@ -154,7 +154,7 @@ EventJournal.recordStep(processId, step):
 
 ### 3.6 安全 / 访问控制
 
-| 维度             | 传统 OS          | AIOS                      | Karpathy LLM OS | Genesis.ai                                          |
+| 维度             | 传统 OS          | AIOS                      | Karpathy LLM OS | GenesisPod                                          |
 | ---------------- | ---------------- | ------------------------- | --------------- | --------------------------------------------------- |
 | **模型**         | DAC / MAC / RBAC | Access Manager (隐私策略) | --              | **Capability-Based Access Control**                 |
 | **粒度**         | 文件/进程级      | Agent 级                  | --              | 进程级: `grantedTools[]` + `grantedSkills[]` 白名单 |
@@ -164,7 +164,7 @@ EventJournal.recordStep(processId, step):
 
 ### 3.7 工具 / 外设管理
 
-| 维度         | 传统 OS              | AIOS                   | Karpathy LLM OS        | Genesis.ai                                                                                  |
+| 维度         | 传统 OS              | AIOS                   | Karpathy LLM OS        | GenesisPod                                                                                  |
 | ------------ | -------------------- | ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------- |
 | **概念**     | 设备驱动 + /dev      | Tool Manager           | 计算器/Python/终端     | `ToolRegistry` + 48 内置工具                                                                |
 | **分类**     | 块设备/字符设备/网络 | web_search, pdf_reader | 计算器/代码解释器/终端 | 8 大类: information/generation/processing/execution/integration/memory/export/collaboration |
@@ -175,7 +175,7 @@ EventJournal.recordStep(processId, step):
 
 ### 3.8 监督 / 健康检查
 
-| 维度             | 传统 OS               | AIOS | Karpathy LLM OS | Genesis.ai                                                 |
+| 维度             | 传统 OS               | AIOS | Karpathy LLM OS | GenesisPod                                                 |
 | ---------------- | --------------------- | ---- | --------------- | ---------------------------------------------------------- |
 | **进程看护**     | init/systemd 自动重启 | --   | --              | `ProcessSupervisor` 每 30s 健康检查                        |
 | **超时检测**     | --                    | --   | --              | 30min 无更新 -> FAILED, 2h -> ZOMBIE                       |
@@ -187,7 +187,7 @@ EventJournal.recordStep(processId, step):
 
 ## 四、OS 概念映射总览
 
-| 传统 OS 概念       | AIOS 对应                              | Karpathy LLM OS            | Genesis.ai 对应                            |
+| 传统 OS 概念       | AIOS 对应                              | Karpathy LLM OS            | GenesisPod 对应                            |
 | ------------------ | -------------------------------------- | -------------------------- | ------------------------------------------ |
 | CPU                | LLM Core(s)                            | LLM 推理引擎 (GPT-4 Turbo) | `AiChatService` + `TaskProfile`            |
 | 进程 (Process)     | Agent Request                          | --                         | `AgentProcess` (8 态状态机)                |
@@ -227,7 +227,7 @@ EventJournal.recordStep(processId, step):
 | 错误恢复       | 手动     | 自动       | 100% 自动化 |
 | 执行加速       | 基线     | 最高 2.1x  | --          |
 
-### 5.2 Genesis.ai 生产数据
+### 5.2 GenesisPod 生产数据
 
 | 指标             | 设计值                              |
 | ---------------- | ----------------------------------- |
@@ -277,7 +277,7 @@ EventJournal.recordStep(processId, step):
 - 本地推理假设在企业级场景中不够现实 (模型规模限制)
 - 未考虑多租户、成本控制、合规审计等企业需求
 
-### 6.3 Genesis.ai 的工程创新
+### 6.3 GenesisPod 的工程创新
 
 **创新点**:
 
@@ -300,9 +300,9 @@ EventJournal.recordStep(processId, step):
 
 ---
 
-## 七、Genesis.ai 独有能力矩阵
+## 七、GenesisPod 独有能力矩阵
 
-以下能力为 Genesis.ai 独有，AIOS 和 Karpathy LLM OS 均未涉及:
+以下能力为 GenesisPod 独有，AIOS 和 Karpathy LLM OS 均未涉及:
 
 | 能力                | 实现模块                              | 说明                                  |
 | ------------------- | ------------------------------------- | ------------------------------------- |
@@ -341,7 +341,7 @@ EventJournal.recordStep(processId, step):
                     |     - 无持久化/多租户/成本控制
                     |
                     |
-  Genesis.ai        |  * 生产级 AI 内核
+  GenesisPod        |  * 生产级 AI 内核
   (6 层架构)        |     - 完整 OS 概念映射 (16 个内核服务)
                     |     - PostgreSQL 持久化 + 事件溯源
                     |     - 多租户 + 成本归因 + 安全管线
@@ -351,11 +351,11 @@ EventJournal.recordStep(processId, step):
                     +------------------------------> 生产就绪度
 ```
 
-**一句话定位**: Karpathy 画了蓝图，AIOS 做了实验室验证，Genesis.ai 将 AI OS 概念工程化为可上线的企业级系统。
+**一句话定位**: Karpathy 画了蓝图，AIOS 做了实验室验证，GenesisPod 将 AI OS 概念工程化为可上线的企业级系统。
 
 ---
 
-## 九、对 Genesis.ai 路线图的启示
+## 九、对 GenesisPod 路线图的启示
 
 基于本次对比分析，对 [Genesis Agent OS 2026 路线图](./genesis-agent-os-roadmap-2026.md) 的补充建议:
 

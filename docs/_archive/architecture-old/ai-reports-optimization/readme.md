@@ -1,6 +1,6 @@
 # AI Reports 优化设计方案
 
-> 基于 Genspark 专业报告生成逻辑，全面升级 Genesis.ai 的 AI Office Reports 功能
+> 基于 Genspark 专业报告生成逻辑，全面升级 GenesisPod 的 AI Office Reports 功能
 
 ## 文档目录
 
@@ -31,7 +31,7 @@
 
 ### 模块说明
 
-AI Office 是 Genesis.ai 的 AI 办公套件模块，包含：
+AI Office 是 GenesisPod 的 AI 办公套件模块，包含：
 
 - **AI Reports** - PPT/演示文稿生成（本设计方案的重构目标）
 - **AI Docs** - 文档生成

@@ -1,6 +1,6 @@
 # 🏗️ 基础设施部署 (Infrastructure as Code)
 
-本目录包含 Genesis.ai 的多云部署方案。
+本目录包含 GenesisPod 的多云部署方案。
 
 ## 📁 目录结构
 

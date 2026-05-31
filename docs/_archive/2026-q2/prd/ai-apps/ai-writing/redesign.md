@@ -116,7 +116,7 @@
 
 ### 2.3 差异化机会
 
-Genesis.ai 的独特优势：**AI Teams 多Agent协作机制**
+GenesisPod 的独特优势：**AI Teams 多Agent协作机制**
 
 竞品大多是单Agent模式，而我们可以：
 

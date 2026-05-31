@@ -10,7 +10,7 @@
 
 ## 概述
 
-AI Image 模块是 Genesis.ai 的图像生成子系统，提供三种核心能力：
+AI Image 模块是 GenesisPod 的图像生成子系统，提供三种核心能力：
 
 1. **AI 图像生成**: 支持 DALL-E、Imagen4、Gemini 等多提供商
 2. **信息图生成**: HTML 模板渲染 + Puppeteer 截图，支持 12+ 布局模板

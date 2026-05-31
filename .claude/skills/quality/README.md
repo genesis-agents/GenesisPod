@@ -1,6 +1,6 @@
 # Quality Skills
 
-> Testing, code review, and performance optimization for Genesis.ai.
+> Testing, code review, and performance optimization for GenesisPod.
 
 ## Skills Overview
 

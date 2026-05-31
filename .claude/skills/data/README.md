@@ -1,6 +1,6 @@
 # Data Skills
 
-> Data processing and knowledge management for Genesis.ai.
+> Data processing and knowledge management for GenesisPod.
 
 ## Skills Overview
 

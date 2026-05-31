@@ -1,4 +1,4 @@
-# Genesis.ai 项目综合评估报告
+# GenesisPod 项目综合评估报告
 
 > **评估日期**: 2026-01-15
 > **评估团队**: Architect + Reviewer + Tester + Docs Specialist
@@ -234,7 +234,7 @@ function TeamInteractionTabContent({
 
 ### 项目健康度评估
 
-Genesis.ai 整体架构设计优秀，特别是 AI Engine 核心能力层的分层抽象、统一入口设计、参数语义化配置等方面展现了较高的工程成熟度。
+GenesisPod 整体架构设计优秀，特别是 AI Engine 核心能力层的分层抽象、统一入口设计、参数语义化配置等方面展现了较高的工程成熟度。
 
 **主要风险**:
 

@@ -30,7 +30,7 @@ Initial probes against `/api/health` returned 404 — all subsequent D-phase tes
 | Test                                             | Plan ID     | Expected                                | Actual                                                                    | TTFB  | Result |
 | ------------------------------------------------ | ----------- | --------------------------------------- | ------------------------------------------------------------------------- | ----- | ------ |
 | Health check (`/health`)                         | DFX-O-005   | 200                                     | 200                                                                       | 0.44s | PASS   |
-| Health response structure                        | DFX-O-005   | `{status, timestamp, service, version}` | `{status:"ok", timestamp, service:"Genesis.ai Backend", version:"1.0.0"}` | -     | PASS   |
+| Health response structure                        | DFX-O-005   | `{status, timestamp, service, version}` | `{status:"ok", timestamp, service:"GenesisPod Backend", version:"1.0.0"}` | -     | PASS   |
 | Unauthenticated request (`/api/v1/ask/sessions`) | AUT-TKN-001 | 401                                     | 401                                                                       | -     | PASS   |
 | Invalid JWT token                                | AUT-TKN-002 | 401                                     | 401                                                                       | -     | PASS   |
 
@@ -40,7 +40,7 @@ Initial probes against `/api/health` returned 404 — all subsequent D-phase tes
 {
   "status": "ok",
   "timestamp": "2026-02-25T15:19:34.572Z",
-  "service": "Genesis.ai Backend",
+  "service": "GenesisPod Backend",
   "version": "1.0.0"
 }
 ```

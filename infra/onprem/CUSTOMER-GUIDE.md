@@ -1,4 +1,4 @@
-# Genesis.ai 客户运维手册
+# GenesisPod 客户运维手册
 
 > 在线最新版：**https://github.com/genesis-release/docs**
 > 本副本由你的 installer 镜像离线分发，与上述线上版本一致（按 installer 镜像 tag 对应版本）
@@ -77,7 +77,7 @@ bash genesis.sh install
 - `Admin password` —— 至少 8 字符
 - `Public base URL` —— 用户浏览器输入的访问地址（如 `https://genesis.acme.com`，留空走同源）
 
-跑完 5-10 分钟（首次拉镜像 3.4GB + 数据库迁移），出现 `✓ Genesis.ai 部署完成` 即成功。
+跑完 5-10 分钟（首次拉镜像 3.4GB + 数据库迁移），出现 `✓ GenesisPod 部署完成` 即成功。
 
 ### 手动操作（脚本失败时）
 

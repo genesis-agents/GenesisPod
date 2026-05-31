@@ -4,7 +4,7 @@
 
 ### 1.1 背景
 
-Genesis.ai 当前存在多个独立的导出实现：
+GenesisPod 当前存在多个独立的导出实现：
 
 - AI Office: `export.service.ts` (763行)
 - AI Agents: `export-pdf.tool.ts`, `export-docx.tool.ts` 等

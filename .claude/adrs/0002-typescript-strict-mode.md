@@ -1,7 +1,7 @@
 # ADR-0002: 启用TypeScript严格模式
 
 > **创建日期**: 2025-11-09
-> **作者**: Genesis.ai Team
+> **作者**: GenesisPod Team
 > **审阅者**: -
 
 ---

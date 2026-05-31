@@ -1,4 +1,4 @@
-# Genesis.ai 系统综合测试套件 v2.0
+# GenesisPod 系统综合测试套件 v2.0
 
 **创建日期**: 2026-02-17
 **测试环境**: https://genesis-ai.up.railway.app

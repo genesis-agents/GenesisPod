@@ -1,6 +1,6 @@
 # Google OAuth 配置指南
 
-本文档说明如何配置 Google OAuth 认证，让用户可以通过 Google 账户登录 Genesis.ai。
+本文档说明如何配置 Google OAuth 认证，让用户可以通过 Google 账户登录 GenesisPod。
 
 ---
 
@@ -10,7 +10,7 @@
 
 1. 访问 [Google Cloud Console](https://console.cloud.google.com/)
 2. 点击项目下拉菜单，选择"新建项目"
-3. 输入项目名称（例如：Genesis.ai）
+3. 输入项目名称（例如：GenesisPod）
 4. 点击"创建"
 
 ### 2. 启用 Google+ API
@@ -29,7 +29,7 @@
    - 点击"配置同意屏幕"
    - 选择"外部"（如果要让任何Google用户登录）
    - 填写应用信息：
-     - 应用名称：Genesis.ai
+     - 应用名称：GenesisPod
      - 用户支持电子邮件：你的邮箱
      - 开发者联系信息：你的邮箱
    - 点击"保存并继续"
@@ -39,7 +39,7 @@
 
 5. 返回凭据创建：
    - 应用类型：选择"Web 应用"
-   - 名称：Genesis.ai OAuth Client
+   - 名称：GenesisPod OAuth Client
    - 已授权的重定向 URI：
      - 开发环境：`http://localhost:8080/api/v1/auth/google/callback`
      - 生产环境：`https://your-domain.com/api/v1/auth/google/callback`

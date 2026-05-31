@@ -945,7 +945,7 @@ describe("AiAskService", () => {
       const result = (service as any).buildSystemPromptWithContext(
         [],
         undefined,
-        "What is Genesis.ai?",
+        "What is GenesisPod?",
       );
       // Project-related queries get extra context added
       expect(typeof result).toBe("string");

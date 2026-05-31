@@ -1,6 +1,6 @@
 # Skills Directory
 
-> Genesis.ai 的 Claude Code 技能库，采用 Progressive Disclosure 结构。
+> GenesisPod 的 Claude Code 技能库，采用 Progressive Disclosure 结构。
 
 ## Skills vs Commands
 

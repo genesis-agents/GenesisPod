@@ -1,4 +1,4 @@
-# Genesis.ai 改进 TODO 清单
+# GenesisPod 改进 TODO 清单
 
 > **基于**: improvement-plan-2026-01.md
 > **创建日期**: 2026-01-15

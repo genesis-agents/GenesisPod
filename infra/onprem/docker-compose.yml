@@ -1,4 +1,4 @@
-# Genesis.ai - On-Prem / 客户离线部署 Compose（初稿）
+# GenesisPod - On-Prem / 客户离线部署 Compose（初稿）
 #
 # 详细使用步骤见同目录 README.md。
 #
@@ -100,7 +100,7 @@ services:
       FLARESOLVERR_URL: http://flaresolverr:8191/v1
       # 品牌（可选自定义；不填用 Genesis 默认）
       BRAND_NAME: ${BRAND_NAME:-Genesis}
-      BRAND_FULL_NAME: ${BRAND_FULL_NAME:-Genesis.ai}
+      BRAND_FULL_NAME: ${BRAND_FULL_NAME:-GenesisPod}
       # LLM 由用户 BYOK（admin 后台配置），不要在这里塞 OPENAI_API_KEY 等
     volumes:
       - backend_thumbnails:/app/public/thumbnails
@@ -139,7 +139,7 @@ services:
       NEXT_PUBLIC_API_URL: ${PUBLIC_BASE_URL:-}
       # 品牌透传
       NEXT_PUBLIC_BRAND_NAME: ${BRAND_NAME:-Genesis}
-      NEXT_PUBLIC_BRAND_FULL_NAME: ${BRAND_FULL_NAME:-Genesis.ai}
+      NEXT_PUBLIC_BRAND_FULL_NAME: ${BRAND_FULL_NAME:-GenesisPod}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     restart: unless-stopped

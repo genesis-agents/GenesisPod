@@ -1,6 +1,6 @@
 # AI Skills
 
-> AI/LLM development capabilities for Genesis.ai.
+> AI/LLM development capabilities for GenesisPod.
 
 ## Skills Overview
 

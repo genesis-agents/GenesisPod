@@ -1,4 +1,4 @@
-# Genesis.ai Roadmap · 2026-05 → 2027-05
+# GenesisPod Roadmap · 2026-05 → 2027-05
 
 > Genesis 平台未来 12 个月战略与执行路线图。基于 4 层架构（ai-app / ai-harness / ai-engine / ai-infra）已落地 + 标杆 app（agent-playground）成熟 + ai-ask Teams 模式上线 + LLM Wiki MVP 落地 + Storage Lifecycle v1.2 共识达成的现状制定。
 

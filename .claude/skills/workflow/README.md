@@ -1,6 +1,6 @@
 # Workflow Skills
 
-> Task planning and execution workflows for Genesis.ai.
+> Task planning and execution workflows for GenesisPod.
 
 ## Skills Overview
 

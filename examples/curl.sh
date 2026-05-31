@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Genesis.ai Public API — runnable curl examples.
+# GenesisPod Public API — runnable curl examples.
 #
 # Usage:
 #   export GENESIS_BASE_URL="http://localhost:4000"   # or your Railway domain

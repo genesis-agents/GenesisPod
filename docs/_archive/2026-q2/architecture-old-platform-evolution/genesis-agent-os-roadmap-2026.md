@@ -1,4 +1,4 @@
-# Genesis.ai 2026 演进路线图：从 AI Feature 平台到 AI Agent OS
+# GenesisPod 2026 演进路线图：从 AI Feature 平台到 AI Agent OS
 
 **Date**: 2026-02-22
 **Version**: v1.0
@@ -9,7 +9,7 @@
 
 ## 执行摘要
 
-Genesis.ai 当前以"功能型 AI 平台"形态运营：用户需要主动在 Research、Teams、Writing、Office 等模块间切换，每次切换意味着上下文清零和记忆断裂。这是 2024 年前 AI 产品的标准范式，但随着 Agent 技术成熟，这一范式正在被快速淘汰。
+GenesisPod 当前以"功能型 AI 平台"形态运营：用户需要主动在 Research、Teams、Writing、Office 等模块间切换，每次切换意味着上下文清零和记忆断裂。这是 2024 年前 AI 产品的标准范式，但随着 Agent 技术成熟，这一范式正在被快速淘汰。
 
 2026 年的战略转型目标是：将 Genesis 从"AI Feature 集合"重新定位为 **AI Agent OS**——一个以意图理解为核心、跨模块自主编排、支持协议互操作的 AI 操作系统。用户描述目标，系统自动选择工具、规划路径、调用能力、汇报结果。
 

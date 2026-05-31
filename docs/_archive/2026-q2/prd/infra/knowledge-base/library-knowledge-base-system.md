@@ -23,7 +23,7 @@
 
 ### 1.1 系统定位
 
-知识库系统是 Genesis.ai 的核心基础能力模块，它不仅是一个独立的功能模块，更是为整个平台提供知识检索和上下文增强能力的基础设施。
+知识库系统是 GenesisPod 的核心基础能力模块，它不仅是一个独立的功能模块，更是为整个平台提供知识检索和上下文增强能力的基础设施。
 
 **核心价值主张**：
 
@@ -35,7 +35,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                          Genesis.ai Platform                                │
+│                          GenesisPod Platform                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
@@ -1251,7 +1251,7 @@ POST   /api/v1/admin/embedding-models/:id/test    # 测试模型
 ### 11.1 参考文档
 
 - [Google Drive RAG 知识库 PRD v2.0](./google-drive-rag-knowledge-base.md)
-- [Genesis.ai PRD v2.0](./genesis-ai-prd-v2.0.md)
+- [GenesisPod PRD v2.0](./genesis-ai-prd-v2.0.md)
 - [RAG Best Practices 2025](https://orkes.io/blog/rag-best-practices/)
 
 ### 11.2 变更记录

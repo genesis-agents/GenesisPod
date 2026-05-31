@@ -1,5 +1,5 @@
 /**
- * Genesis.ai v2.1 - 品牌套件 API 控制器
+ * GenesisPod v2.1 - 品牌套件 API 控制器
  */
 
 import {

@@ -1,4 +1,4 @@
-# Genesis.ai - Service Management Scripts
+# GenesisPod - Service Management Scripts
 
 ## 使用说明
 

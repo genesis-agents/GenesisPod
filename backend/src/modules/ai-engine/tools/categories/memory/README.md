@@ -226,4 +226,4 @@ npm run test:e2e -- --grep "Memory"
 
 ## License
 
-Copyright © 2025 Genesis.ai
+Copyright © 2025 GenesisPod

@@ -1,4 +1,4 @@
-# Genesis.ai 系统架构诊断报告
+# GenesisPod 系统架构诊断报告
 
 > 诊断日期: 2026-01-21
 > 诊断版本: 1.0
@@ -635,7 +635,7 @@ private async searchFederalRegister(query: string): Promise<DataSourceResult[]> 
 
 ### 9.1 总体评价
 
-Genesis.ai 的系统架构设计良好，具有以下优点：
+GenesisPod 的系统架构设计良好，具有以下优点：
 
 1. **分层清晰**: Core -> AI Engine -> AI Apps 三层架构职责明确
 2. **Secret 管理规范**: 统一使用 `secret-name.catalog.ts`，支持旧格式自动转换

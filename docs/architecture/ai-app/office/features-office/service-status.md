@@ -1,4 +1,4 @@
-# 🎉 Genesis.ai - AI Office 快速生成功能已启动!
+# 🎉 GenesisPod - AI Office 快速生成功能已启动!
 
 ## ✅ 服务状态
 

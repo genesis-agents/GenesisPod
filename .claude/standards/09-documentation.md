@@ -19,7 +19,7 @@
 
 ## 文档类型
 
-Genesis.ai的文档体系：
+GenesisPod的文档体系：
 
 ```
 docs/

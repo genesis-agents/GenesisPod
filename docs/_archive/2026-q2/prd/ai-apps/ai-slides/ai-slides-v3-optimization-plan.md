@@ -13,7 +13,7 @@
 
 ### 1.1 背景
 
-基于对 Genspark AI Slides 的深度技术调研，结合 Genesis.ai AI Slides v3 系统的现状分析，本文档提出一套分阶段、可落地的优化方案，旨在将我们的 AI Slides 产品提升至行业领先水平。
+基于对 Genspark AI Slides 的深度技术调研，结合 GenesisPod AI Slides v3 系统的现状分析，本文档提出一套分阶段、可落地的优化方案，旨在将我们的 AI Slides 产品提升至行业领先水平。
 
 ### 1.2 核心发现
 
@@ -1196,7 +1196,7 @@ Week 10:    正式发布
 ### 8.1 参考资料
 
 1. Genspark AI Slides 深度技术调研报告
-2. Genesis.ai AI Slides v3 系统分析
+2. GenesisPod AI Slides v3 系统分析
 3. Material Design 3 动效指南
 4. Apple Human Interface Guidelines - Motion
 

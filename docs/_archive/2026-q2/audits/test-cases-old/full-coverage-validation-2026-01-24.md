@@ -1,4 +1,4 @@
-# Genesis.ai 完整功能覆盖验证
+# GenesisPod 完整功能覆盖验证
 
 **验证日期**: 2026-01-24
 **验证环境**: https://genesis-ai.up.railway.app

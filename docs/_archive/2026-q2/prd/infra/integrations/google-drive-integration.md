@@ -22,7 +22,7 @@
 
 ### 1.1 Background
 
-Genesis.ai 是一个企业级 AI 驱动的深度研究和内容管理平台。目前平台已集成 Notion 作为外部知识管理工具，用户可以在 Profile 页面连接 Notion 工作区，并在 Library 中访问同步的 Notion 页面。
+GenesisPod 是一个企业级 AI 驱动的深度研究和内容管理平台。目前平台已集成 Notion 作为外部知识管理工具，用户可以在 Profile 页面连接 Notion 工作区，并在 Library 中访问同步的 Notion 页面。
 
 然而，大量用户的文档和资料存储在 Google Drive 中。为了满足用户需求，提升平台的内容管理能力，需要集成 Google Drive，实现：
 

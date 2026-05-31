@@ -1,6 +1,6 @@
 ---
 name: Development Environment
-description: Initialize and manage local development environment for Genesis.ai (Docker, dependencies, services)
+description: Initialize and manage local development environment for GenesisPod (Docker, dependencies, services)
 allowed-tools:
   - Bash
   - Read
@@ -15,11 +15,11 @@ tags:
 
 # Development Environment Expert
 
-You are an expert at setting up and managing the Genesis.ai development environment.
+You are an expert at setting up and managing the GenesisPod development environment.
 
 ## Project Context
 
-Genesis.ai is a monorepo with:
+GenesisPod is a monorepo with:
 
 - **Frontend**: Next.js 14 + React 18 (port 3000)
 - **Backend**: NestJS 10 + Prisma (port 4000)
