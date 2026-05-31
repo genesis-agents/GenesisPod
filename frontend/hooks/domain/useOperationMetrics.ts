@@ -50,6 +50,8 @@ export interface OperationCohort {
 /** GET /admin/dashboard/userCost?days=30&limit=20 单行 */
 export interface OperationUserCost {
   userId: string;
+  /** 显示名（username ?? email），无则 null，前端 fallback 到 userId 短码 */
+  userName: string | null;
   /** 货币成本（唯一真源 ai_engine_metrics 聚合） */
   costUsd: number;
   /** token 数（in+out） */

@@ -31,6 +31,8 @@ export interface OpsCohortDto {
 /** 单用户成本/积分聚合（成本 desc 排序） */
 export interface OpsUserCostDto {
   userId: string;
+  /** 显示名（username ?? email），无则 null，前端 fallback 到 userId 短码 */
+  userName: string | null;
   /** 该用户窗内 ai_engine_metrics 估算成本合计（USD） */
   costUsd: number;
   /** 该用户窗内 token 合计（input + output） */
