@@ -1,9 +1,22 @@
-import { Controller, Get } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpException,
+  HttpStatus,
+} from "@nestjs/common";
 import { AppService } from "./app.service";
 import { Public } from "./common/decorators/public.decorator";
 import { PrismaService } from "./common/prisma/prisma.service";
 import { CacheService } from "./common/cache/cache.service";
 import { APP_CONFIG } from "./common/config/app.config";
+
+/** 单个依赖检查结果 */
+interface DependencyCheck {
+  status: "healthy" | "unhealthy";
+  latency?: number;
+  message?: string;
+}
 
 @Public()
 @Controller()
@@ -19,12 +32,13 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  @Get("health")
-  async getHealth() {
-    const checks: Record<
-      string,
-      { status: "healthy" | "unhealthy"; latency?: number; message?: string }
-    > = {};
+  /**
+   * 依赖检查（DB + cache），/health 与 /readyz 共享，避免复制粘贴。
+   */
+  private async runDependencyChecks(): Promise<
+    Record<string, DependencyCheck>
+  > {
+    const checks: Record<string, DependencyCheck> = {};
 
     // Database check
     checks.database = await this.prisma.healthCheck();
@@ -46,6 +60,42 @@ export class AppController {
         message: "Cache unavailable",
       };
     }
+
+    return checks;
+  }
+
+  /**
+   * Liveness 探针：只证明进程存活，不查任何依赖（依赖检查是 readiness 的事）。
+   */
+  @Get("healthz")
+  getLiveness() {
+    return { status: "ok" };
+  }
+
+  /**
+   * Readiness 探针：复用依赖检查逻辑，全 healthy 返 200，否则 503。
+   */
+  @Get("readyz")
+  async getReadiness() {
+    const checks = await this.runDependencyChecks();
+    const allHealthy = Object.values(checks).every(
+      (c) => c.status === "healthy",
+    );
+
+    if (!allHealthy) {
+      throw new HttpException(
+        { status: "unavailable", checks },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    return { status: "ok", checks };
+  }
+
+  @Get("health")
+  @HttpCode(HttpStatus.OK)
+  async getHealth() {
+    const checks = await this.runDependencyChecks();
 
     const allHealthy = Object.values(checks).every(
       (c) => c.status === "healthy",

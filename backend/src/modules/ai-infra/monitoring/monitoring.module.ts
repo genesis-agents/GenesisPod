@@ -4,6 +4,8 @@ import { HealthCheckService } from "./health/health-check.service";
 import { AIMetricsService } from "./metrics/ai-metrics.service";
 import { ErrorTrackingService } from "./tracking/error-tracking.service";
 import { AuditLogService } from "./audit/audit-log.service";
+import { MetricsService } from "./metrics/metrics.service";
+import { MetricsController } from "./metrics/metrics.controller";
 
 /**
  * 监控模块 - 提供全局可用的监控服务
@@ -17,17 +19,20 @@ import { AuditLogService } from "./audit/audit-log.service";
 @Global()
 @Module({
   imports: [PrismaModule],
+  controllers: [MetricsController],
   providers: [
     AIMetricsService,
     ErrorTrackingService,
     HealthCheckService,
     AuditLogService,
+    MetricsService,
   ],
   exports: [
     AIMetricsService,
     ErrorTrackingService,
     HealthCheckService,
     AuditLogService,
+    MetricsService,
   ],
 })
 export class MonitoringModule {}
