@@ -9933,6 +9933,11 @@ model AgentPlaygroundMission {
   userId        String                @map("user_id")
   user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   visibility    ContentVisibility     @default(PRIVATE)
+  /// ★ FUTURE-RESERVED（PG-01, 2026-05-31 platform-review）：当前写入但**读路径/授权
+  ///   不消费**——所有读端点仅按 userId 过滤，assertReadAccess 只判 own∨PUBLIC。
+  ///   隔离粒度=user 级（自洽且安全）。workspace 级共享读尚无产品需求，落地前需补
+  ///   mission↔workspace 成员关系表 + 改读端点谓词。详见 ADR-0005。**勿误当作已生效
+  ///   的授权边界**。
   workspaceId   String?               @map("workspace_id")
   electionState MissionElectionState?
 

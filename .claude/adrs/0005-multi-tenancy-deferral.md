@@ -26,6 +26,12 @@
 - SHARED 协作读：`AgentPlaygroundMission` 无 `topicId` 列，SHARED 暂按 PRIVATE 处理（不杜撰数据源）；落 topicId + 注入 isTopicMember 后激活。
 - L1 计费/密钥/配额仍 user-scoped；org 维度待触发条件出现。
 
+### `workspaceId` 状态澄清（PG-01，2026-05-31 platform-review wave1）
+
+`AgentPlaygroundMission.workspaceId` **写入但读路径/授权不消费**：所有读端点仅按 `userId` 过滤，`assertReadAccess` 只判 `own ∨ PUBLIC`。本次评审确认这是「写了不用」的列，易被误当作已生效的隔离边界。**决策（用户拍板）**：保留该列但在 schema 字段显式标注为 **future-reserved**（`///` 注释），当前隔离粒度 = **user 级**（自洽且安全，非owner→404 已运行时验证）。
+
+workspace 级共享读尚无明确产品需求；落地时按 expand→backfill→contract：补 `mission ↔ workspace` 成员关系 + 把读端点谓词改为 `(userId OR workspaceId ∈ 用户所属 workspace)`，与上方 Organization 触发条件解耦（workspace 级共享可先于 Org 层出现）。
+
 ## 参考资料
 
 - [详细 ADR：多租户 Org 模型决策](../../docs/architecture/platform-review/multi-tenancy-org-model-adr.md)
