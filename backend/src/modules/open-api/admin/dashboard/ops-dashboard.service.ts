@@ -317,8 +317,8 @@ export class OpsDashboardService {
     }>(
       () => this.prisma.$queryRaw`
         SELECT a.user_id,
-               COALESCE(sum(CASE WHEN t.type = ANY(${OpsDashboardService.CONSUME_TYPES}::"CreditTransactionType"[]) THEN abs(t.amount) ELSE 0 END), 0)::bigint AS spent,
-               COALESCE(sum(CASE WHEN t.type = ANY(${OpsDashboardService.EARN_TYPES}::"CreditTransactionType"[]) THEN t.amount ELSE 0 END), 0)::bigint AS earned
+               COALESCE(sum(CASE WHEN t.type::text = ANY(${OpsDashboardService.CONSUME_TYPES}::text[]) THEN abs(t.amount) ELSE 0 END), 0)::bigint AS spent,
+               COALESCE(sum(CASE WHEN t.type::text = ANY(${OpsDashboardService.EARN_TYPES}::text[]) THEN t.amount ELSE 0 END), 0)::bigint AS earned
         FROM credit_transactions t
         JOIN credit_accounts a ON a.id = t.account_id
         WHERE t.created_at >= ${since} AND a.user_id = ANY(${userIds}::text[])
@@ -443,7 +443,7 @@ export class OpsDashboardService {
         FROM credit_transactions t
         JOIN credit_accounts a ON a.id = t.account_id
         WHERE t.created_at >= ${since}
-          AND t.type = ANY(${OpsDashboardService.CONSUME_TYPES}::"CreditTransactionType"[])
+          AND t.type::text = ANY(${OpsDashboardService.CONSUME_TYPES}::text[])
       `,
     );
     return this.toNumber(row?.count);
@@ -468,7 +468,7 @@ export class OpsDashboardService {
         SELECT COALESCE(sum(abs(amount)), 0)::bigint AS total
         FROM credit_transactions
         WHERE created_at >= ${since}
-          AND type = ANY(${OpsDashboardService.CONSUME_TYPES}::"CreditTransactionType"[])
+          AND type::text = ANY(${OpsDashboardService.CONSUME_TYPES}::text[])
       `,
     );
     return this.toNumber(row?.total);
