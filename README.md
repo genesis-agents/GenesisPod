@@ -2,7 +2,7 @@
 
 企业级 AI 研究、内容生产与多 Agent 协作平台。
 
-当前版本：`40.5.0`
+当前版本：`50.6.1`
 
 ## 项目概览
 
@@ -242,7 +242,7 @@ npm run build:backend
 ## 文档导航
 
 - 项目结构：[`STRUCTURE.md`](STRUCTURE.md)
-- 变更记录：[`CHANGELOG.md`](CHANGELOG.md)
+- 变更记录：[GitHub Releases](https://github.com/junjie-duan/genesis-agent-teams/releases)
 - 部署与环境：`infra/railway/`
 - 需求与设计：`docs/`
 
