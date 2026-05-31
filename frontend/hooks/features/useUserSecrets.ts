@@ -161,6 +161,21 @@ export function useUserSecrets() {
     [t]
   );
 
+  const getSecretValue = useCallback(
+    async (source: 'llm' | 'secret', id: string): Promise<string | null> => {
+      try {
+        const res = await apiClient.get<{ value: string | null }>(
+          `/user/secrets/${source}/${id}/value`
+        );
+        return res.value ?? null;
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to fetch key value');
+        return null;
+      }
+    },
+    []
+  );
+
   const requestSystemKey = useCallback(
     async (
       category: SecretCategory,
@@ -195,5 +210,6 @@ export function useUserSecrets() {
     requestSystemKey,
     testSecret,
     testingId,
+    getSecretValue,
   };
 }

@@ -7409,6 +7409,7 @@
       "emptySearchTitle": "无匹配结果",
       "editTitle": "编辑密钥",
       "manageKeys": "管理密钥（多 Key）",
+      "viewValue": "查看密钥",
       "addTitle": "添加密钥",
       "fieldName": "标识符（name）",
       "fieldDisplayName": "显示名",

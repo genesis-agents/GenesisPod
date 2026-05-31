@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import {
+  Eye,
   FlaskConical,
   Key,
   Layers,
@@ -33,6 +34,7 @@ import {
 import { useUserApiKeys } from '@/hooks/features/useUserApiKeys';
 import { UserApiKeyDrawer } from '@/components/me/api-keys/UserApiKeyDrawer';
 import { SecretKeysDrawer } from '@/components/admin/secrets/SecretKeysDrawer';
+import { SecretValueModal } from '@/components/admin/secrets/SecretValueModal';
 
 // ─── Add Key Modal ─────────────────────────────────────────────────────────────
 
@@ -395,6 +397,7 @@ export function UserApiKeysTab() {
     requestSystemKey,
     testSecret,
     testingId,
+    getSecretValue,
   } = useUserSecrets();
 
   // ★ 2026-05-29 P4：AI_MODEL 行的同名多 Key 管理（admin 同款 UserApiKeyDrawer + MultiKeyTable）
@@ -405,6 +408,8 @@ export function UserApiKeysTab() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [editingItem, setEditingItem] = useState<UserSecretItem | null>(null);
+  // ★ 揭示密钥明文（与 admin SecretsManager 同款 SecretValueModal）
+  const [viewingItem, setViewingItem] = useState<UserSecretItem | null>(null);
   const [manageProvider, setManageProvider] = useState<{
     id: string;
     name: string;
@@ -550,6 +555,7 @@ export function UserApiKeysTab() {
                   key={`${item.source}-${item.id}`}
                   item={item}
                   onEdit={() => setEditingItem(item)}
+                  onViewValue={() => setViewingItem(item)}
                   onManageKeys={
                     // 按存储来源路由（比 category 更稳健）：
                     //   llm  → user_api_keys（UserApiKeyDrawer，provider 维度）
@@ -601,6 +607,18 @@ export function UserApiKeysTab() {
         />
       )}
 
+      {/* 揭示密钥明文（复用 admin SecretValueModal：揭示 + 复制 + 30s 自动隐藏 + 自动清剪贴板） */}
+      {viewingItem && (
+        <SecretValueModal
+          secretName={viewingItem.name}
+          displayName={viewingItem.displayName || viewingItem.name}
+          onClose={() => setViewingItem(null)}
+          getSecretValue={() =>
+            getSecretValue(viewingItem.source, viewingItem.id)
+          }
+        />
+      )}
+
       {/* ★ 2026-05-29 P4：AI_MODEL 同名多 Key 管理抽屉（与 admin /admin/access/secrets 同款 MultiKeyTable） */}
       {manageProvider && (
         <UserApiKeyDrawer
@@ -644,6 +662,7 @@ export default UserApiKeysTab;
 function SecretRow({
   item,
   onEdit,
+  onViewValue,
   onManageKeys,
   onDelete,
   onTest,
@@ -651,6 +670,7 @@ function SecretRow({
 }: {
   item: UserSecretItem;
   onEdit: () => void;
+  onViewValue: () => void;
   onManageKeys?: () => void;
   onDelete: () => void;
   onTest: () => void;
@@ -683,11 +703,20 @@ function SecretRow({
           <p className="mt-0.5 text-xs text-gray-400">{item.provider}</p>
         )}
       </Td>
-      {/* Masked value */}
+      {/* Masked value（与 admin SecretsManager 同款：灰底胶囊 + 👁 揭示按钮） */}
       <Td className="px-4 py-2.5">
-        <TruncatedCell className="font-mono max-w-[180px] text-sm text-gray-600">
-          {item.maskedValue || '—'}
-        </TruncatedCell>
+        <div className="flex items-center gap-2">
+          <code className="font-mono rounded bg-gray-100 px-2 py-1 text-sm text-gray-600">
+            {item.maskedValue || '—'}
+          </code>
+          <button
+            onClick={onViewValue}
+            className="rounded p-1 hover:bg-gray-100"
+            title={t('me.apiKeys.viewValue')}
+          >
+            <Eye className="h-4 w-4 text-gray-500" />
+          </button>
+        </div>
       </Td>
       {/* Status */}
       <Td className="px-4 py-2.5">

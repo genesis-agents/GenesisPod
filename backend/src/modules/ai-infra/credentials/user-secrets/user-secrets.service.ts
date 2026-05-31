@@ -78,7 +78,8 @@ export class UserSecretsService {
       displayName: `${k.provider} API Key${k.label && k.label !== "default" ? ` (${k.label})` : ""}`,
       category: SecretCategory.AI_MODEL, // 铁律 3：本层映射，不下沉 schema
       provider: k.provider,
-      maskedValue: k.keyHint || "••••••••",
+      // 非泄露脱敏（对齐 admin）：不再用 keyHint 的「前 3 后 4 明文」，避免泄露真实 Key 头尾
+      maskedValue: this.generateMaskedHint(k.encryptedValue),
       isActive: k.isActive,
       usageCount: k.usageCount,
       testStatus: k.testStatus,
@@ -93,8 +94,8 @@ export class UserSecretsService {
       displayName: s.displayName,
       category: s.category,
       provider: s.provider,
-      maskedValue:
-        s.keyHint ?? this.maskUserSecret(s.encryptedValue, s.iv, userId),
+      // 与 admin SecretsManager 同款非泄露脱敏（统一走 generateMaskedHint）
+      maskedValue: this.generateMaskedHint(s.encryptedValue),
       isActive: s.isActive,
       usageCount: s.accessCount,
       testStatus: null,
@@ -350,12 +351,43 @@ export class UserSecretsService {
     return this.encryption.decryptAny(secret, { userId });
   }
 
-  private maskUserSecret(
-    encryptedValue: string,
-    iv: string,
+  /**
+   * 揭示用户自己某把 Key 的明文（/me/api-keys 的 👁 查看，对齐 admin SecretValueModal）。
+   * owner 强制校验（防 IDOR）；仅供用户查看自己的 Key，绝不跨用户。前端弹窗负责
+   * 默认遮罩 / 30s 自动隐藏 / 复制后自动清剪贴板。
+   */
+  async getValue(
     userId: string,
-  ): string {
-    const plain = this.encryption.decryptForUser(encryptedValue, iv, userId);
-    return plain ? this.encryption.createKeyHint(plain) : "••••••••";
+    source: UserSecretSource,
+    id: string,
+  ): Promise<string | null> {
+    if (!userId) {
+      throw new BadRequestException(
+        "getValue: userId is required (BYOK isolation)",
+      );
+    }
+    if (source === "llm") {
+      const key = await this.prisma.userApiKey.findFirst({
+        where: { id, userId },
+      });
+      if (!key) throw new NotFoundException("Key 不存在或无权限");
+      return this.encryption.decryptAny(key);
+    }
+    const secret = await this.prisma.secret.findFirst({
+      where: { id, userId, deletedAt: null },
+    });
+    if (!secret) throw new NotFoundException("Key 不存在或无权限");
+    return this.encryption.decryptAny(secret, { userId });
+  }
+
+  /**
+   * 非泄露脱敏展示（对齐 admin SecretsService.generateMaskedHint）：`••••${hash4}••••`，
+   * 只取 encryptedValue 的 SHA-256 片段，绝不暴露明文任何字符。
+   * 取代旧的 createKeyHint（前 3 后 4 明文，会泄露真实 Key 头尾）。
+   */
+  private generateMaskedHint(encryptedValue: string): string {
+    if (!encryptedValue || encryptedValue.length < 8) return "••••••••";
+    const hint = this.encryption.hashValue(encryptedValue).substring(0, 4);
+    return `••••${hint}••••`;
   }
 }
