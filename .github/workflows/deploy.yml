@@ -1,13 +1,11 @@
 name: Deploy & Release
 
+# Manual-only for now. The deploy job is still a placeholder and the release
+# job auto-bumps the version + pushes to main, so we gate the whole workflow
+# behind a manual trigger to avoid surprise release commits on every push.
+# Re-enable push/tag triggers once real deployment is wired up.
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - ".vscode/**"
-      - ".claude/**"
+  workflow_dispatch:
 
 concurrency:
   group: deploy-${{ github.ref }}

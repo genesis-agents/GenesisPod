@@ -7,7 +7,7 @@
 const BRAND_NAME = process.env.BRAND_NAME || "Genesis";
 const BRAND_FULL_NAME = process.env.BRAND_FULL_NAME || "Genesis.ai";
 const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || "";
-const RAILWAY_DOMAIN = process.env.RAILWAY_DOMAIN || "genesis-ai";
+const RAILWAY_DOMAIN = process.env.RAILWAY_DOMAIN || "genesis";
 
 /**
  * 应用配置常量
@@ -33,8 +33,7 @@ export const APP_CONFIG = {
       process.env.BRAND_EMAIL_FROM ||
       `${BRAND_NAME} <noreply@${BRAND_NAME.toLowerCase()}.ai>`,
     /** 联系邮箱 */
-    contactEmail:
-      process.env.BRAND_CONTACT_EMAIL || "hello.junjie.duan@gmail.com",
+    contactEmail: process.env.BRAND_CONTACT_EMAIL || "hello@gens.team",
     /** 站点名称 */
     siteName: BRAND_NAME,
     /** Logo SVG 路径（相对于项目根目录） */
@@ -76,9 +75,9 @@ export const APP_CONFIG = {
   // ==================== GitHub 配置 ====================
   github: {
     /** 默认 GitHub 仓库所有者 */
-    owner: process.env.GITHUB_OWNER || "JUNJIE-DUAN",
+    owner: process.env.GITHUB_OWNER || "genesis-agents",
     /** 默认 GitHub 仓库名称 */
-    repo: process.env.GITHUB_REPO || "genesis-ai",
+    repo: process.env.GITHUB_REPO || "genesis",
   },
 
   // ==================== 辅助方法 ====================

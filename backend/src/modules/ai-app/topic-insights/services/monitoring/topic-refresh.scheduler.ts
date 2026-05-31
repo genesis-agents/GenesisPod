@@ -250,18 +250,15 @@ export class TopicRefreshScheduler implements OnModuleInit, OnModuleDestroy {
         return new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
       case RefreshFrequency.MONTHLY: {
-        // 月末溢出防护：5/31 + 1 月应落在 6/30，而非 JS setMonth 溢出到 7/1；
-        // 1/31 → 2/28（闰年 2/29）。先归 1 号避免溢出，再 clamp 到目标日或当月最后一天。
+        // 月末溢出修正：setMonth 在 5/31 +1 月会溢出到 7/1（6 月仅 30 天），
+        // 导致月末 topic 被排到 ~2 个月后。若发生跳月，用 setDate(0) 回退到
+        // 目标月最后一天（如 6/30）。
         const nextMonth = new Date(now);
-        const targetDay = nextMonth.getDate();
-        nextMonth.setDate(1);
-        nextMonth.setMonth(nextMonth.getMonth() + 1);
-        const lastDayOfMonth = new Date(
-          nextMonth.getFullYear(),
-          nextMonth.getMonth() + 1,
-          0,
-        ).getDate();
-        nextMonth.setDate(Math.min(targetDay, lastDayOfMonth));
+        const targetMonth = nextMonth.getMonth() + 1;
+        nextMonth.setMonth(targetMonth);
+        if (nextMonth.getMonth() !== targetMonth % 12) {
+          nextMonth.setDate(0);
+        }
         return nextMonth;
       }
 

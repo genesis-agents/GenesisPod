@@ -277,27 +277,44 @@ describe("AgentsController", () => {
   // ==================== getTask ====================
 
   describe("getTask", () => {
-    it("should return task when found", async () => {
-      const result = await controller.getTask("task-1");
+    const req = { user: { id: "user-1", email: "user@test.com" } } as any;
 
-      expect(mockAgentsService.getTask).toHaveBeenCalledWith("task-1");
+    it("should return task when found (owner-scoped)", async () => {
+      const result = await controller.getTask("task-1", req);
+
+      expect(mockAgentsService.getTask).toHaveBeenCalledWith(
+        "task-1",
+        "user-1",
+      );
       expect(result).toBeDefined();
     });
 
-    it("should throw NOT_FOUND when task does not exist", async () => {
+    it("should throw NOT_FOUND when task does not exist (or not owned)", async () => {
       mockAgentsService.getTask.mockResolvedValueOnce(null);
 
-      await expect(controller.getTask("nonexistent")).rejects.toThrow(
+      await expect(controller.getTask("nonexistent", req)).rejects.toThrow(
         new HttpException("Task not found", HttpStatus.NOT_FOUND),
       );
+    });
+
+    it("should throw 401 when request has no authenticated user", async () => {
+      await expect(
+        controller.getTask("task-1", { user: undefined } as any),
+      ).rejects.toThrow(
+        new HttpException("Unauthorized", HttpStatus.UNAUTHORIZED),
+      );
+      // 关键：未认证时绝不带 undefined userId 调用 service（防 Prisma 丢谓词越权）
+      expect(mockAgentsService.getTask).not.toHaveBeenCalled();
     });
   });
 
   // ==================== streamTask ====================
 
   describe("streamTask", () => {
-    it("should return observable with JSON-stringified events", (done) => {
-      const observable = controller.streamTask("task-1");
+    const req = { user: { id: "user-1", email: "user@test.com" } } as any;
+
+    it("should return observable with JSON-stringified events for the owner", (done) => {
+      const observable = controller.streamTask("task-1", req);
 
       observable.subscribe({
         next: (event) => {
@@ -314,7 +331,7 @@ describe("AgentsController", () => {
         throwError(() => new Error("Stream broken")),
       );
 
-      const observable = controller.streamTask("task-1");
+      const observable = controller.streamTask("task-1", req);
 
       observable.subscribe({
         next: (event) => {
@@ -326,22 +343,43 @@ describe("AgentsController", () => {
         error: done,
       });
     });
+
+    it("IDOR: emits an error event (404) for a non-owner before streaming", (done) => {
+      mockAgentsService.getTask.mockResolvedValueOnce(null); // 非属主
+      const observable = controller.streamTask("task-1", req);
+
+      observable.subscribe({
+        next: (event) => {
+          const data = JSON.parse(event.data as string);
+          expect(data.type).toBe("error");
+          // getTaskStream 不应在归属校验失败后被订阅
+          expect(mockAgentsService.getTaskStream).not.toHaveBeenCalled();
+          done();
+        },
+        error: done,
+      });
+    });
   });
 
   // ==================== cancelTask ====================
 
   describe("cancelTask", () => {
-    it("should cancel task and return success: true", async () => {
-      const result = await controller.cancelTask("task-1");
+    const req = { user: { id: "user-1", email: "user@test.com" } } as any;
 
-      expect(mockAgentsService.cancelTask).toHaveBeenCalledWith("task-1");
+    it("should cancel task and return success: true (owner-scoped)", async () => {
+      const result = await controller.cancelTask("task-1", req);
+
+      expect(mockAgentsService.cancelTask).toHaveBeenCalledWith(
+        "task-1",
+        "user-1",
+      );
       expect(result.success).toBe(true);
     });
 
     it("should return success: false when task cannot be cancelled", async () => {
       mockAgentsService.cancelTask.mockResolvedValueOnce(false);
 
-      const result = await controller.cancelTask("task-1");
+      const result = await controller.cancelTask("task-1", req);
       expect(result.success).toBe(false);
     });
   });
@@ -349,10 +387,15 @@ describe("AgentsController", () => {
   // ==================== getArtifacts ====================
 
   describe("getArtifacts", () => {
-    it("should return artifacts for a task", async () => {
-      const result = await controller.getArtifacts("task-1");
+    const req = { user: { id: "user-1", email: "user@test.com" } } as any;
 
-      expect(mockAgentsService.getArtifacts).toHaveBeenCalledWith("task-1");
+    it("should return artifacts for a task (owner-scoped)", async () => {
+      const result = await controller.getArtifacts("task-1", req);
+
+      expect(mockAgentsService.getArtifacts).toHaveBeenCalledWith(
+        "task-1",
+        "user-1",
+      );
       expect(result.artifacts).toHaveLength(1);
     });
   });
@@ -360,11 +403,14 @@ describe("AgentsController", () => {
   // ==================== downloadArtifact ====================
 
   describe("downloadArtifact", () => {
-    it("should return artifact download info", async () => {
-      const result = await controller.downloadArtifact("artifact-1");
+    const req = { user: { id: "user-1", email: "user@test.com" } } as any;
+
+    it("should return artifact download info (owner-scoped)", async () => {
+      const result = await controller.downloadArtifact("artifact-1", req);
 
       expect(mockAgentsService.getArtifactDownload).toHaveBeenCalledWith(
         "artifact-1",
+        "user-1",
       );
       expect(result.url).toBeDefined();
       expect(result.name).toBe("presentation.pptx");

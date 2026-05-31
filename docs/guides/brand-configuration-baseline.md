@@ -22,7 +22,7 @@
 | `BRAND_SUBTITLE`      | `AI ENGINE`                    | Logo subtitle text    |
 | `RAILWAY_DOMAIN`      | `genesis-ai`                   | Railway domain prefix |
 | `BRAND_EMAIL_FROM`    | `Genesis <noreply@genesis.ai>` | Email sender          |
-| `BRAND_CONTACT_EMAIL` | `hello.junjie.duan@gmail.com`  | Contact email         |
+| `BRAND_CONTACT_EMAIL` | `hello@gens.team`              | Contact email         |
 | `BRAND_LOGO_SVG_PATH` | `brand/logo.svg`               | Logo file path        |
 
 ### Frontend (`NEXT_PUBLIC_BRAND_*`)

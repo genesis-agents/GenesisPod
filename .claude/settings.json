@@ -6,7 +6,7 @@
     "NODE_ENV": "development"
   },
   "attribution": {
-    "commit": "\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Jason Duan <hello.junjie.duan@gmail.com>",
+    "commit": "\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: genesis-agents <hello@gens.team>",
     "pr": "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
   },
   "permissions": {

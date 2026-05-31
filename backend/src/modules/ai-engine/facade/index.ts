@@ -725,6 +725,13 @@ export type {
 } from "../safety/resilience/circuit-breaker.service";
 export { CapabilityGuardService } from "../safety/security/capability-guard.service";
 export type { CapabilityCheckResult } from "../safety/security/capability.types";
+// SSRF / 出站防护(platform-review wave1)：项目唯一统一出站闸门，ai-app / open-api 经此复用
+export {
+  assertUrlSafe,
+  isBlockedIp,
+  safeFetch,
+} from "../safety/security/ssrf/ssrf-guard";
+export type { AssertUrlSafeOptions } from "../safety/security/ssrf/ssrf-guard";
 
 // ════════════════════════════════════════════════════════════════════
 // LLM Error Classification (PR-X28: lifted from common/ai-orchestration)

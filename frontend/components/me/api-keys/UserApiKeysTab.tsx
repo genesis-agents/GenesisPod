@@ -734,26 +734,22 @@ function SecretRow({
       <Td className="px-4 py-2.5 text-sm text-gray-500">{item.usageCount}</Td>
       {/* Actions */}
       <Td className="px-4 py-2.5 text-right">
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            size="sm"
-            variant="outline"
+        <div className="flex items-center justify-end gap-2">
+          <button
             onClick={onTest}
             disabled={isTesting}
-            title={t('me.apiKeys.test')}
+            className="rounded p-1.5 hover:bg-gray-100 disabled:opacity-50"
+            title={isTesting ? t('me.apiKeys.testing') : t('me.apiKeys.test')}
           >
-            <FlaskConical className="h-3.5 w-3.5" />
-            <span className="ml-1 hidden sm:inline">
-              {isTesting ? t('me.apiKeys.testing') : t('me.apiKeys.test')}
-            </span>
-          </Button>
+            <FlaskConical className="h-4 w-4 text-gray-500" />
+          </button>
           {onManageKeys && (
             <button
               onClick={onManageKeys}
-              className="rounded p-1.5 hover:bg-violet-50"
+              className="rounded p-1.5 hover:bg-gray-100"
               title={t('me.apiKeys.manageKeys')}
             >
-              <Layers className="h-4 w-4 text-violet-600" />
+              <Layers className="h-4 w-4 text-gray-500" />
             </button>
           )}
           <button
@@ -765,7 +761,7 @@ function SecretRow({
           </button>
           <button
             onClick={onDelete}
-            className="rounded p-1.5 hover:bg-red-50"
+            className="rounded p-1.5 hover:bg-red-100"
             title={t('me.apiKeys.deleteConfirmTitle')}
           >
             <Trash2 className="h-4 w-4 text-red-500" />

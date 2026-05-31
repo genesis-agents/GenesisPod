@@ -82,7 +82,7 @@ async function main() {
         "deepdive_user",
         JSON.stringify({
           id: uid,
-          email: "hello.junjie.duan@gmail.com",
+          email: "hello@gens.team",
           username: "junjie",
           createdAt: new Date().toISOString(),
         }),

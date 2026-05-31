@@ -56,6 +56,7 @@ describe("AgentsService", () => {
       officeAgentTask: {
         create: jest.fn().mockResolvedValue(makeTask()),
         findUnique: jest.fn().mockResolvedValue(makeTask()),
+        findFirst: jest.fn().mockResolvedValue(makeTask()),
         update: jest.fn().mockResolvedValue(makeTask()),
         findMany: jest.fn().mockResolvedValue([makeTask()]),
         deleteMany: jest.fn().mockResolvedValue({ count: 3 }),
@@ -83,6 +84,8 @@ describe("AgentsService", () => {
           size: 1024,
           url: "https://storage.example.com/output.docx",
           content: null,
+          // ★ IDOR：getArtifactDownload 经父 task.userId 校验归属
+          task: { userId: "user-1" },
         }),
       },
     };
@@ -181,12 +184,12 @@ describe("AgentsService", () => {
   // ==================== getTask ====================
 
   describe("getTask", () => {
-    it("should return task with artifacts when found", async () => {
-      const task = await service.getTask("task-1");
+    it("should return task scoped to owner with artifacts when found", async () => {
+      const task = await service.getTask("task-1", "user-1");
 
-      expect(mockPrisma.officeAgentTask.findUnique).toHaveBeenCalledWith(
+      expect(mockPrisma.officeAgentTask.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "task-1" },
+          where: { id: "task-1", userId: "user-1" },
           include: { artifacts: true },
         }),
       );
@@ -194,9 +197,21 @@ describe("AgentsService", () => {
     });
 
     it("should return null when task not found", async () => {
-      mockPrisma.officeAgentTask.findUnique.mockResolvedValueOnce(null);
-      const task = await service.getTask("nonexistent");
+      mockPrisma.officeAgentTask.findFirst.mockResolvedValueOnce(null);
+      const task = await service.getTask("nonexistent", "user-1");
       expect(task).toBeNull();
+    });
+
+    it("IDOR: returns null for a non-owner (other user's task)", async () => {
+      // 非属主查询时 findFirst(where:{id,userId}) 不命中 → null（controller 转 404）
+      mockPrisma.officeAgentTask.findFirst.mockResolvedValueOnce(null);
+      const task = await service.getTask("task-1", "attacker-9");
+      expect(task).toBeNull();
+      expect(mockPrisma.officeAgentTask.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "task-1", userId: "attacker-9" },
+        }),
+      );
     });
   });
 
@@ -384,9 +399,14 @@ describe("AgentsService", () => {
   // ==================== getArtifacts ====================
 
   describe("getArtifacts", () => {
-    it("should return mapped artifacts", async () => {
-      const artifacts = await service.getArtifacts("task-1");
+    it("should return mapped artifacts for the owner", async () => {
+      const artifacts = await service.getArtifacts("task-1", "user-1");
 
+      expect(mockPrisma.officeAgentTask.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "task-1", userId: "user-1" },
+        }),
+      );
       expect(artifacts).toHaveLength(1);
       expect(artifacts[0].id).toBe("artifact-1");
       expect(artifacts[0].type).toBe("docx"); // lowercased
@@ -406,16 +426,27 @@ describe("AgentsService", () => {
         },
       ]);
 
-      const artifacts = await service.getArtifacts("task-1");
+      const artifacts = await service.getArtifacts("task-1", "user-1");
       expect(artifacts[0].url).toBeUndefined();
+    });
+
+    it("IDOR: throws NotFound for a non-owner and never reads artifacts", async () => {
+      mockPrisma.officeAgentTask.findFirst.mockResolvedValueOnce(null);
+      await expect(
+        service.getArtifacts("task-1", "attacker-9"),
+      ).rejects.toThrow("Task not found");
+      expect(mockPrisma.officeAgentArtifact.findMany).not.toHaveBeenCalled();
     });
   });
 
   // ==================== getArtifactDownload ====================
 
   describe("getArtifactDownload", () => {
-    it("should return artifact download info", async () => {
-      const download = await service.getArtifactDownload("artifact-1");
+    it("should return artifact download info for the owner", async () => {
+      const download = await service.getArtifactDownload(
+        "artifact-1",
+        "user-1",
+      );
 
       expect(download.url).toBe("https://storage.example.com/output.docx");
       expect(download.name).toBe("output.docx");
@@ -425,23 +456,45 @@ describe("AgentsService", () => {
     it("should throw when artifact not found", async () => {
       mockPrisma.officeAgentArtifact.findUnique.mockResolvedValueOnce(null);
 
-      await expect(service.getArtifactDownload("nonexistent")).rejects.toThrow(
-        "Artifact not found",
-      );
+      await expect(
+        service.getArtifactDownload("nonexistent", "user-1"),
+      ).rejects.toThrow("Artifact not found");
+    });
+
+    it("IDOR: throws NotFound when artifact belongs to another user", async () => {
+      mockPrisma.officeAgentArtifact.findUnique.mockResolvedValueOnce({
+        id: "artifact-1",
+        type: OfficeArtifactType.DOCX,
+        name: "output.docx",
+        mimeType: "application/octet-stream",
+        size: 1024,
+        url: "https://storage.example.com/output.docx",
+        content: null,
+        task: { userId: "victim-1" },
+      });
+
+      await expect(
+        service.getArtifactDownload("artifact-1", "attacker-9"),
+      ).rejects.toThrow("Artifact not found");
     });
   });
 
   // ==================== cancelTask ====================
 
   describe("cancelTask", () => {
-    it("should cancel an EXECUTING task and return true", async () => {
-      mockPrisma.officeAgentTask.findUnique.mockResolvedValueOnce(
+    it("should cancel an EXECUTING task owned by the user and return true", async () => {
+      mockPrisma.officeAgentTask.findFirst.mockResolvedValueOnce(
         makeTask({ status: OfficeTaskStatus.EXECUTING }),
       );
 
-      const result = await service.cancelTask("task-1");
+      const result = await service.cancelTask("task-1", "user-1");
 
       expect(result).toBe(true);
+      expect(mockPrisma.officeAgentTask.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "task-1", userId: "user-1" },
+        }),
+      );
       expect(mockPrisma.officeAgentTask.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: { status: OfficeTaskStatus.CANCELLED },
@@ -450,19 +503,27 @@ describe("AgentsService", () => {
     });
 
     it("should return false when task is not EXECUTING", async () => {
-      mockPrisma.officeAgentTask.findUnique.mockResolvedValueOnce(
+      mockPrisma.officeAgentTask.findFirst.mockResolvedValueOnce(
         makeTask({ status: OfficeTaskStatus.COMPLETED }),
       );
 
-      const result = await service.cancelTask("task-1");
+      const result = await service.cancelTask("task-1", "user-1");
       expect(result).toBe(false);
     });
 
     it("should return false when task not found", async () => {
-      mockPrisma.officeAgentTask.findUnique.mockResolvedValueOnce(null);
+      mockPrisma.officeAgentTask.findFirst.mockResolvedValueOnce(null);
 
-      const result = await service.cancelTask("nonexistent");
+      const result = await service.cancelTask("nonexistent", "user-1");
       expect(result).toBe(false);
+    });
+
+    it("IDOR: non-owner cancel does not match the task and never updates", async () => {
+      mockPrisma.officeAgentTask.findFirst.mockResolvedValueOnce(null);
+
+      const result = await service.cancelTask("task-1", "attacker-9");
+      expect(result).toBe(false);
+      expect(mockPrisma.officeAgentTask.update).not.toHaveBeenCalled();
     });
   });
 

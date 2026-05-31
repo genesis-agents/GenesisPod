@@ -9,7 +9,7 @@ updates:
       day: "monday"
     open-pull-requests-limit: 10
     reviewers:
-      - "JUNJIE-DUAN"
+      - "genesis-agents"
     labels:
       - "dependencies"
     groups:

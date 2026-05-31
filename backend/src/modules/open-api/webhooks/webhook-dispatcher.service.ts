@@ -16,6 +16,8 @@ import {
 import { WebhookPayload } from "./dto";
 import { createHmac, randomUUID } from "crypto";
 import { OnEvent } from "@nestjs/event-emitter";
+// SSRF 防护：经 ai-engine facade 复用统一出站闸门（DNS 解析复核，堵 rebinding）。
+import { assertUrlSafe } from "../../ai-engine/facade";
 
 interface WebhookEvent {
   type: WebhookEventType;
@@ -204,9 +206,15 @@ export class WebhookDispatcherService implements OnModuleInit {
     const signature = this.signPayload(payload, subscription.secret);
 
     try {
+      // ★ SSRF 防护（dispatch 时校验，防注册后 DNS rebinding）：解析后按真实 IP 复核。
+      //   被拒抛 BadRequestException → 走下方 catch 记为投递失败（fail-closed）。
+      await assertUrlSafe(subscription.url);
+
       const startTime = Date.now();
       const response = await fetch(subscription.url, {
         method: "POST",
+        // ★ 不跟随重定向：webhook 目标不应把我们重定向到内网（重定向 rebinding）。
+        redirect: "manual",
         headers: {
           "Content-Type": "application/json",
           "X-Webhook-Signature": signature,

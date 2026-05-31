@@ -643,7 +643,7 @@ export interface INotificationChannel {
 │                                                          │
 │  📧 邮件接收                                             │
 │  ────────────────────────                               │
-│  接收邮箱  hello.junjie.duan@gmail.com                  │
+│  接收邮箱  hello@gens.team                  │
 │  全局开关  ☑ 启用                                        │
 │                                                          │
 │  💬 微信公众号                                            │

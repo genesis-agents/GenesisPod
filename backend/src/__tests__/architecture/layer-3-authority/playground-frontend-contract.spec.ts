@@ -152,6 +152,9 @@ const ENDPOINT_BASELINE: ReadonlyArray<EndpointSpec> = [
   ["GET", "budget-tiers"],
   ["GET", "missions"],
   ["GET", "missions/:id"],
+  // ★ PG-04 (2026-05-31 platform-review wave1): per-mission 成本台账只读端点
+  //   （chargeback/showback/审计）。后端新增，前端成本面板后续接入。
+  ["GET", "missions/:id/cost"],
   // ★ B2-3 (2026-05-26 thinning plan): canonical mission detail view
   //   sibling-route of /missions/:id per §6.9 disposition table.
   ["GET", "missions/:id/view"],

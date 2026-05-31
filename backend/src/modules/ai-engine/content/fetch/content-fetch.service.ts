@@ -11,7 +11,6 @@
 import {
   Injectable,
   Logger,
-  BadRequestException,
   InternalServerErrorException,
   ServiceUnavailableException,
   Optional,
@@ -20,6 +19,8 @@ import {
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { WebContentExtractionService } from "@/common/content-processing/web-content-extraction.service";
 import { FetchedContent, sanitizeForDb } from "./content-fetch.types";
+// SSRF 防护：项目唯一的统一出站闸门（字面校验 + DNS 解析复核）。
+import { assertUrlSafe } from "../../safety/security/ssrf/ssrf-guard";
 
 /**
  * YoutubeService injection token
@@ -29,85 +30,6 @@ export const YOUTUBE_SERVICE_TOKEN = "YOUTUBE_SERVICE";
 
 interface YoutubeServiceLike {
   getTranscript(videoId: string): Promise<unknown>;
-}
-
-// ===== SSRF 防护常量 =====
-const ALLOWED_PROTOCOLS = ["http:", "https:"];
-
-const BLOCKED_IP_PATTERNS = [
-  // 私有 IP 地址
-  /^10\./,
-  /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
-  /^192\.168\./,
-  // 本地回环
-  /^127\./,
-  /^localhost$/i,
-  // 链路本地
-  /^169\.254\./,
-  // 特殊地址
-  /^0\./,
-  /^224\./, // 多播
-  /^240\./, // 保留
-];
-
-const BLOCKED_HOSTNAMES = [
-  "localhost",
-  "127.0.0.1",
-  "0.0.0.0",
-  "[::1]",
-  "[::0]",
-  "metadata.google.internal",
-  "169.254.169.254",
-  "metadata.azure.com",
-];
-
-const MAX_URL_LENGTH = 2048;
-
-/**
- * 验证 URL 是否安全可访问（SSRF 防护）
- */
-function validateUrl(url: string): URL {
-  if (!url || url.length > MAX_URL_LENGTH) {
-    throw new BadRequestException(
-      `URL 过长或为空（最大 ${MAX_URL_LENGTH} 字符）`,
-    );
-  }
-
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(url);
-  } catch {
-    throw new BadRequestException("无效的 URL 格式");
-  }
-
-  if (!ALLOWED_PROTOCOLS.includes(parsedUrl.protocol)) {
-    throw new BadRequestException(
-      `不支持的协议: ${parsedUrl.protocol}（仅支持 HTTP/HTTPS）`,
-    );
-  }
-
-  const hostname = parsedUrl.hostname.toLowerCase();
-
-  if (BLOCKED_HOSTNAMES.includes(hostname)) {
-    throw new BadRequestException("不允许访问内部服务地址");
-  }
-
-  for (const pattern of BLOCKED_IP_PATTERNS) {
-    if (pattern.test(hostname)) {
-      throw new BadRequestException("不允许访问内网 IP 地址");
-    }
-  }
-
-  if (hostname.startsWith("[") || hostname.includes(":")) {
-    throw new BadRequestException("不支持 IPv6 地址");
-  }
-
-  const port = parsedUrl.port;
-  if (port && !["80", "443", ""].includes(port)) {
-    throw new BadRequestException(`不允许访问非标准端口: ${port}`);
-  }
-
-  return parsedUrl;
 }
 
 @Injectable()
@@ -132,8 +54,8 @@ export class ContentFetchService {
    * - 协议限制（仅 HTTP/HTTPS）
    */
   async fetchFromUrl(url: string): Promise<FetchedContent> {
-    // SSRF 防护：验证 URL 安全性
-    validateUrl(url);
+    // SSRF 防护：统一 SsrfGuard —— 字面校验 + DNS 解析后对所有 IP 复核（堵 rebinding）。
+    await assertUrlSafe(url);
 
     this.logger.log(`Fetching content from URL: ${url}`);
 

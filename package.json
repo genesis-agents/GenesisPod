@@ -49,7 +49,7 @@
     "verify:full": "npm run lint && npm run type-check && npm run test && npm run build",
     "verify:frontend": "cd frontend && npm run type-check && npm run test",
     "verify:backend": "cd backend && npm run type-check && npm run test:quick",
-    "verify:changed": "node scripts/verify-changed.js",
+    "verify:changed": "node scripts/utils/verify-changed.js",
     "verify:pre-push": "npm run type-check && npm run build:backend",
     "verify:ci-local": "npm run type-check && npm run lint && npm run build && npm run test:quick",
     "verify:arch": "cd backend && npm run verify:arch",

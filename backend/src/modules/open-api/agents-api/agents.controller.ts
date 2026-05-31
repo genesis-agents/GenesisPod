@@ -17,7 +17,7 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
-import { Observable, map, catchError, of } from "rxjs";
+import { Observable, map, catchError, of, from, switchMap } from "rxjs";
 // agents-api 直接消费 ai-harness agent.types primitive 层（AgentResult 含 tokensUsed
 // 等字段），与 facade re-export 的 legacy plan-based AgentResult<AgentOutput> 命名冲突，
 // 故 agents-api 整目录在 .eslintrc.js 中文档化豁免，直引 agent.types primitive。
@@ -53,6 +53,18 @@ export class AgentsController {
     private readonly agentsService: AgentsService,
     private readonly agentsTaskQueue: AgentsTaskQueueService,
   ) {}
+
+  /**
+   * 取已认证用户 id。全局 JwtAuthGuard 已保证存在，此处兜底防御：
+   * 缺失时显式 401，绝不让 undefined userId 流入 Prisma where（会被丢弃→越权）。
+   */
+  private requireUserId(req: AuthenticatedRequest): string {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new HttpException("Unauthorized", HttpStatus.UNAUTHORIZED);
+    }
+    return userId;
+  }
 
   /**
    * 获取所有可用的 Agent
@@ -217,8 +229,12 @@ export class AgentsController {
     status: 404,
     description: "任务不存在",
   })
-  async getTask(@Param("taskId") taskId: string): Promise<TaskResponseDto> {
-    const task = await this.agentsService.getTask(taskId);
+  async getTask(
+    @Param("taskId") taskId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<TaskResponseDto> {
+    const userId = this.requireUserId(req);
+    const task = await this.agentsService.getTask(taskId, userId);
     if (!task) {
       throw new HttpException("Task not found", HttpStatus.NOT_FOUND);
     }
@@ -242,8 +258,20 @@ export class AgentsController {
     status: 200,
     description: "SSE 流连接成功",
   })
-  streamTask(@Param("taskId") taskId: string): Observable<MessageEvent> {
-    return this.agentsService.getTaskStream(taskId).pipe(
+  streamTask(
+    @Param("taskId") taskId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Observable<MessageEvent> {
+    const userId = this.requireUserId(req);
+    // ★ IDOR 防护：订阅事件流前先校验 task 归属，非属主直接 404，
+    //   避免跨用户监听他人任务的 SSE 事件。
+    return from(this.agentsService.getTask(taskId, userId)).pipe(
+      switchMap((task) => {
+        if (!task) {
+          throw new HttpException("Task not found", HttpStatus.NOT_FOUND);
+        }
+        return this.agentsService.getTaskStream(taskId);
+      }),
       map((event) => ({
         data: JSON.stringify(event),
       })),
@@ -280,8 +308,10 @@ export class AgentsController {
   })
   async cancelTask(
     @Param("taskId") taskId: string,
+    @Req() req: AuthenticatedRequest,
   ): Promise<CancelResponseDto> {
-    const success = await this.agentsService.cancelTask(taskId);
+    const userId = this.requireUserId(req);
+    const success = await this.agentsService.cancelTask(taskId, userId);
     return { success };
   }
 
@@ -309,8 +339,10 @@ export class AgentsController {
   })
   async getArtifacts(
     @Param("taskId") taskId: string,
+    @Req() req: AuthenticatedRequest,
   ): Promise<ArtifactsResponseDto> {
-    const artifacts = await this.agentsService.getArtifacts(taskId);
+    const userId = this.requireUserId(req);
+    const artifacts = await this.agentsService.getArtifacts(taskId, userId);
     return {
       artifacts: artifacts as unknown as ArtifactsResponseDto["artifacts"],
     };
@@ -339,7 +371,9 @@ export class AgentsController {
   })
   async downloadArtifact(
     @Param("artifactId") artifactId: string,
+    @Req() req: AuthenticatedRequest,
   ): Promise<{ url: string | null; name: string; mimeType: string }> {
-    return this.agentsService.getArtifactDownload(artifactId);
+    const userId = this.requireUserId(req);
+    return this.agentsService.getArtifactDownload(artifactId, userId);
   }
 }

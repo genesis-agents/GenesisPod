@@ -450,7 +450,7 @@ docker stats genesis-backend genesis-frontend genesis-ai-service
 
 1. 跑 `bash genesis.sh status` 截图
 2. 跑 `bash genesis.sh logs backend` 抓最后 200 行
-3. 发邮件给开发方：**hello.junjie.duan@gmail.com**
+3. 发邮件给开发方：**hello@gens.team**
 
 附上以上两份输出 + 你做了什么操作 + 期望结果 vs 实际结果，加快诊断。
 
