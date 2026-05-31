@@ -89,7 +89,9 @@ export class ParallelOrchestratorService {
     };
   }
 
-  private generateExecutionPlan(
+  // public: s4-chapter-fanout stage 复用拓扑分轮逻辑（设计文档 §1.4 / §4.4）。
+  // 仅改可见性 —— 纯函数，只读 this.logger.warn（环依赖告警），不变更私有状态。
+  generateExecutionPlan(
     dependencyGraph: Map<string, string[]>,
     maxParallel: number,
   ) {

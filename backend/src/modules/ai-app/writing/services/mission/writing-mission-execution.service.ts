@@ -34,6 +34,7 @@ import {
   PROGRESS_TRACKER_PHASES,
 } from "../config";
 import { MISSION_TYPE_CONFIGS } from "../config/mission-type-mapping.config";
+import { WritingPipelineDispatcher } from "../../mission/pipeline/writing-pipeline-dispatcher.service";
 
 @Injectable()
 export class WritingMissionExecutionService {
@@ -55,6 +56,8 @@ export class WritingMissionExecutionService {
     private readonly textProcessor: WritingTextProcessorService,
     @Optional() private readonly progressTracker?: ProgressTrackerService,
     @Optional() private readonly nestEventEmitter?: EventEmitter2,
+    @Optional()
+    private readonly writingPipelineDispatcher?: WritingPipelineDispatcher,
   ) {
     // Wire up circular dependency
     this.lifecycleService.setExecutionService(this);
@@ -70,6 +73,9 @@ export class WritingMissionExecutionService {
 
   /**
    * Run a writing mission in background (called by LifecycleService)
+   *
+   * Feature flag: WRITING_PIPELINE_V2=true routes to WritingPipelineDispatcher (new pipeline).
+   * Default (flag absent or false) runs the legacy executorMap path unchanged.
    */
   async runMissionInBackground(
     missionId: string,
@@ -77,6 +83,39 @@ export class WritingMissionExecutionService {
     userId: string,
     modelAssignments: RoleModelAssignment[],
   ): Promise<void> {
+    // ── Writing pipeline routing ──────────────────────────────────────────
+    // Default = new mission-pipeline. Emergency rollback to the legacy
+    // executorMap path: set WRITING_PIPELINE_LEGACY=true (kill switch).
+    // NOTE: the new path has NOT had a real-env end-to-end run yet — the
+    // kill switch is the rollback if a runtime issue surfaces in production.
+    const forceLegacy = process.env.WRITING_PIPELINE_LEGACY === "true";
+
+    if (!forceLegacy && this.writingPipelineDispatcher) {
+      this.logger.log(
+        `[${missionId}] routing to WritingPipelineDispatcher (mission-pipeline v1)`,
+      );
+      try {
+        await this.writingPipelineDispatcher.runMission(
+          missionId,
+          input,
+          userId,
+          input.projectId,
+        );
+      } catch (err) {
+        this.logger.error(
+          `[${missionId}] WritingPipelineDispatcher.runMission threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      return;
+    }
+
+    this.logger.warn(
+      forceLegacy
+        ? `[${missionId}] WRITING_PIPELINE_LEGACY=true: using legacy executor path`
+        : `[${missionId}] WritingPipelineDispatcher not injected; using legacy executor path`,
+    );
+    // ── end routing ────────────────────────────────────────────────────────
+
     // Start trace
     const traceId = this.agentFacade.startTrace({
       name: `AI Writing: ${input.missionType}`,
