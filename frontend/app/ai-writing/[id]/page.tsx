@@ -6,6 +6,11 @@ import ReactMarkdown from 'react-markdown';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIWritingStore } from '@/stores';
+import { useWritingStream } from '@/hooks/features/useWritingStream';
+import { useWritingMissionView } from '@/hooks/features/useWritingMissionView';
+import { useWritingDerivedView } from '@/hooks/features/useWritingDerivedView';
+// [W4-COMPAT] useWritingWebSocket kept for legacy-event routers (chapter:*, consistency:*, keeper:*, leader:response)
+// that have no equivalent in the new writing.* event stream. Remove in W5+ when backend emits canonical equivalents.
 import {
   useWritingWebSocket,
   type WritingEvent,
@@ -51,6 +56,19 @@ import { Modal } from '@/components/ui/dialogs/Modal';
 import { Tabs } from '@/components/ui/tabs';
 
 import { logger } from '@/lib/utils/logger';
+
+// W4: terminal status helper (must match useWritingMissionView TERMINAL_STATUSES)
+function isTerminalStatus(status: string | null | undefined): boolean {
+  if (!status) return false;
+  return [
+    'completed',
+    'failed',
+    'cancelled',
+    'quality-failed',
+    'COMPLETED',
+    'FAILED',
+  ].includes(status);
+}
 
 // 根据后端返回的 agentName 匹配到前端配置（使用统一的匹配函数）
 function getAgentConfig(agentName: string | undefined) {
@@ -320,11 +338,15 @@ export default function WritingProjectPage() {
     startMission,
     cancelMission,
     checkRunningMission,
-    isMissionRunning,
-    missionProgress,
+    // [W4] Store real-time fields kept as fallback for isStuckMission/missionProgress (no new-system equivalent).
+    // isMissionRunning/missionCompleted are now derived from missionView below; these store values serve as
+    // offline fallback when canonical view hasn't loaded yet.
+    isMissionRunning: isMissionRunningStore,
+    missionProgress: missionProgressStore,
     missionMessage,
-    missionCompleted,
-    activeAgentIds,
+    missionCompleted: missionCompletedStore,
+    // activeAgentIds: dead read — removed (replaced by agentViews from useWritingDerivedView)
+    currentMissionId,
     isStuckMission,
     stuckMissionId,
     clearStuckMission,
@@ -335,6 +357,65 @@ export default function WritingProjectPage() {
     addToConversationHistory,
     clearConversationHistory,
   } = useAIWritingStore();
+
+  // ── W4: New canonical data-source triple ──────────────────────────────────
+  //轨 A (immediacy): WS event stream
+  const { events: writingEvents, connState: wsConnState } = useWritingStream(
+    currentMissionId ?? null
+  );
+
+  //轨 B (truth): canonical REST view.
+  // shouldPoll is derived after useWritingDerivedView to avoid forward-ref; initial value false,
+  // polling kicks in on next render once we know terminal state.
+  const [shouldPoll, setShouldPoll] = useState(false);
+  const { data: writingMissionViewData, refresh: refreshMissionView } =
+    useWritingMissionView(currentMissionId ?? undefined, { shouldPoll });
+
+  // Derived views: MissionView / StageView[] / AgentView[]
+  const { missionView, stageViews, agentViews, isTerminal } =
+    useWritingDerivedView(writingMissionViewData, writingEvents);
+
+  // Sync shouldPoll: poll when WS is not live and mission is not terminal
+  useEffect(() => {
+    setShouldPoll(wsConnState !== 'live' && !isTerminal);
+  }, [wsConnState, isTerminal]);
+
+  // Derived booleans — canonical view wins over store fields when available
+  const isMissionRunning = missionView
+    ? missionView.status === 'running'
+    : isMissionRunningStore;
+  const missionCompleted = missionView
+    ? isTerminal &&
+      missionView.status !== 'failed' &&
+      missionView.status !== 'cancelled'
+    : missionCompletedStore;
+
+  // missionProgress: no direct canonical field; derive from completed stageViews ratio
+  // [W4-GAP] stageViews don't carry a numeric progress %; fall back to store value.
+  const missionProgress: number = (() => {
+    if (stageViews.length > 0) {
+      const done = stageViews.filter(
+        (s) => s.status === 'done' || s.status === 'skipped'
+      ).length;
+      return Math.round((done / stageViews.length) * 100);
+    }
+    return missionProgressStore;
+  })();
+
+  // Terminal-event 3-burst refetch: when WS signals completion, pull canonical view
+  useEffect(() => {
+    if (!isTerminal || !currentMissionId) return;
+    // Burst-refresh canonical view 3×(0 / 1.5s / 4s) to catch any trailing writes
+    refreshMissionView();
+    const t1 = setTimeout(() => refreshMissionView(), 1500);
+    const t2 = setTimeout(() => refreshMissionView(), 4000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [isTerminal, currentMissionId, refreshMissionView]);
+
+  // ── end W4 hooks ──────────────────────────────────────────────────────────
 
   const [userInput, setUserInput] = useState('');
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
@@ -814,14 +895,18 @@ export default function WritingProjectPage() {
     [addToConversationHistory]
   );
 
-  // WebSocket for real-time updates - always connected when on project page
-  // to receive events from the start of mission
+  // [W4-COMPAT] Legacy WS hook kept ONLY for:
+  //   1. consistencyIssues panel (no equivalent in new writing.* events)
+  //   2. chapter:* / consistency:* / world:* / keeper:* / leader:response events in taskMessages timeline
+  //   3. mission:started/completed/failed still fires via old project-room until W1 backend lands
+  // Remove this hook when backend W1 (writing.* events + new gateway) is live and all cases above
+  // have canonical equivalents.
   const wsState = useWritingWebSocket(projectId, {
     enabled: !!projectId && !!user,
     onEvent: handleWritingEvent,
   });
 
-  // 解构一致性检查问题
+  // [W4-GAP] consistencyIssues: no equivalent in useWritingDerivedView; keeping legacy WS source.
   const { consistencyIssues } = wsState;
 
   // Clear old project data when projectId changes to prevent data mixing
@@ -2024,10 +2109,13 @@ export default function WritingProjectPage() {
         {/* Main Content */}
         <div className="flex flex-1 gap-4 overflow-hidden p-4">
           {/* Left: AI Team Panel */}
+          {/* [W4] New props: missionView/stageViews/agentViews from useWritingDerivedView.
+              missionProgress falls back to stageViews ratio (or store) — see derived value above.
+              isStuckMission still from store (no new-system equivalent). */}
           <WritingTeamPanel
-            isMissionRunning={isMissionRunning}
-            missionCompleted={missionCompleted}
-            missionMessage={missionMessage}
+            missionView={missionView}
+            stageViews={stageViews}
+            agentViews={agentViews}
             missionProgress={missionProgress}
             isStuckMission={isStuckMission}
             chaptersCount={allChapters?.length || 0}
