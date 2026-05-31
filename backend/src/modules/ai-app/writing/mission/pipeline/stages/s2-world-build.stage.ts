@@ -71,6 +71,14 @@ export async function runWorldBuildStage(
     text: "世界观构建开始 · 分析故事背景、注入时代知识、构建故事圣经设定",
   });
 
+  // ── emit world:building_started ───────────────────────────────────────────
+  void deps.emit({
+    type: "writing.world:building_started",
+    missionId,
+    userId,
+    payload: {},
+  });
+
   // ── Step A: WorldBuildingEnhancer — 注入领域知识（时代/专业背景）──────────
   const enhancement = deps.worldBuildingEnhancer.enhanceWorldBuildingPrompt(
     input.userPrompt,
@@ -300,5 +308,18 @@ export async function runWorldBuildStage(
       (bibleOutput.warnings?.length
         ? ` · ${bibleOutput.warnings.length} 条警告`
         : ""),
+  });
+
+  // ── emit world:building_completed ─────────────────────────────────────────
+  void deps.emit({
+    type: "writing.world:building_completed",
+    missionId,
+    userId,
+    payload: {
+      settings:
+        worldSettings.length > 0
+          ? { count: worldSettings.length, items: worldSettings }
+          : undefined,
+    },
   });
 }

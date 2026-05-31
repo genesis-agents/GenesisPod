@@ -47,6 +47,19 @@ import {
   // tool trace / iteration
   ToolsRecalledSchema,
   IterationProgressSchema,
+  // chapter lifecycle
+  ChapterStartedSchema,
+  ChapterContentSchema,
+  ChapterCompletedSchema,
+  // consistency check
+  ConsistencyCheckStartedSchema,
+  ConsistencyIssuesFoundSchema,
+  ConsistencyFixCompletedSchema,
+  // world building
+  WorldBuildingStartedSchema,
+  WorldBuildingCompletedSchema,
+  // keeper context
+  KeeperContextReadySchema,
 } from "./writing.event-schemas";
 
 /**
@@ -114,4 +127,21 @@ export const WRITING_EVENTS: readonly DomainEventTypeSpec[] = [
   S("tools:recalled", ToolsRecalledSchema),
   // IAgentEvent "iteration_progress"（ReAct 循环进度，P1 死循环防护）
   S("iteration:progress", IterationProgressSchema),
+
+  // ── chapter lifecycle ────────────────────────────────────────────────────
+  S("chapter:started", ChapterStartedSchema),
+  S("chapter:content", ChapterContentSchema),
+  S("chapter:completed", ChapterCompletedSchema),
+
+  // ── consistency check ────────────────────────────────────────────────────
+  S("consistency:check_started", ConsistencyCheckStartedSchema),
+  S("consistency:issues_found", ConsistencyIssuesFoundSchema),
+  S("consistency:fix_completed", ConsistencyFixCompletedSchema),
+
+  // ── world building ───────────────────────────────────────────────────────
+  S("world:building_started", WorldBuildingStartedSchema),
+  S("world:building_completed", WorldBuildingCompletedSchema),
+
+  // ── keeper context ───────────────────────────────────────────────────────
+  S("keeper:context_ready", KeeperContextReadySchema),
 ];

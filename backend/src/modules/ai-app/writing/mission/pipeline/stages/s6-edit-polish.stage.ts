@@ -268,6 +268,25 @@ export async function runEditPolishStage(
     const revisedContent = editorOut.revisedContent;
     const finalWordCount = editorOut.stats.wordCountAfter;
 
+    // ── emit consistency:fix_completed when issues were fixed ─────────────
+    if (allIssues.length > 0 && editorOut.stats.fixedIssues > 0) {
+      void deps
+        .emit({
+          type: "writing.consistency:fix_completed",
+          missionId,
+          userId,
+          payload: {
+            chapterNumber,
+            fixedIssues: editorOut.stats.fixedIssues,
+          },
+        })
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit writing.consistency:fix_completed ch${chapterNumber} failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
+
     // ── Quick quality signal (rule-based, zero LLM cost) ─────────────────
     try {
       const quickReport = deps.chapterQualityEvaluator.quickEvaluate(

@@ -390,6 +390,144 @@ export type BudgetWarningSoftPayload = z.infer<typeof BudgetWarningSoftSchema>;
 export const BudgetExhaustedSchema = BudgetPoolSnapshotSchema;
 export type BudgetExhaustedPayload = z.infer<typeof BudgetExhaustedSchema>;
 
+// ─────────────────────── chapter lifecycle ───────────────────────────────
+
+/**
+ * writing.chapter:started
+ * Payload: { chapterNumber, title }
+ */
+export const ChapterStartedSchema = z
+  .object({
+    chapterNumber: z.number(),
+    title: z.string(),
+  })
+  .passthrough();
+export type ChapterStartedPayload = z.infer<typeof ChapterStartedSchema>;
+
+/**
+ * writing.chapter:content
+ * Payload: { chapterNumber, title, content, wordCount, volumeIndex }
+ */
+export const ChapterContentSchema = z
+  .object({
+    chapterNumber: z.number(),
+    title: z.string(),
+    content: z.string(),
+    wordCount: z.number(),
+    volumeIndex: z.number(),
+  })
+  .passthrough();
+export type ChapterContentPayload = z.infer<typeof ChapterContentSchema>;
+
+/**
+ * writing.chapter:completed
+ * Payload: { chapterNumber, wordCount }
+ */
+export const ChapterCompletedSchema = z
+  .object({
+    chapterNumber: z.number(),
+    wordCount: z.number(),
+  })
+  .passthrough();
+export type ChapterCompletedPayload = z.infer<typeof ChapterCompletedSchema>;
+
+// ─────────────────────── consistency check ────────────────────────────────
+
+/**
+ * writing.consistency:check_started
+ * Payload: { chapterNumber? }
+ */
+export const ConsistencyCheckStartedSchema = z
+  .object({
+    chapterNumber: z.number().optional(),
+  })
+  .passthrough();
+export type ConsistencyCheckStartedPayload = z.infer<
+  typeof ConsistencyCheckStartedSchema
+>;
+
+/**
+ * writing.consistency:issues_found
+ * Payload: { chapterNumber, issues }
+ */
+export const ConsistencyIssuesFoundSchema = z
+  .object({
+    chapterNumber: z.number(),
+    issues: z.array(
+      z.object({
+        type: z.string(),
+        severity: z.string(),
+        description: z.string(),
+        suggestion: z.string().optional(),
+      }),
+    ),
+  })
+  .passthrough();
+export type ConsistencyIssuesFoundPayload = z.infer<
+  typeof ConsistencyIssuesFoundSchema
+>;
+
+/**
+ * writing.consistency:fix_completed
+ * Payload: { chapterNumber, fixedIssues }
+ */
+export const ConsistencyFixCompletedSchema = z
+  .object({
+    chapterNumber: z.number(),
+    fixedIssues: z.number(),
+  })
+  .passthrough();
+export type ConsistencyFixCompletedPayload = z.infer<
+  typeof ConsistencyFixCompletedSchema
+>;
+
+// ─────────────────────── world building ──────────────────────────────────
+
+/**
+ * writing.world:building_started
+ * Payload: {}
+ */
+export const WorldBuildingStartedSchema = z.object({}).passthrough();
+export type WorldBuildingStartedPayload = z.infer<
+  typeof WorldBuildingStartedSchema
+>;
+
+/**
+ * writing.world:building_completed
+ * Payload: { settings? }
+ */
+export const WorldBuildingCompletedSchema = z
+  .object({
+    settings: z.record(z.unknown()).optional(),
+  })
+  .passthrough();
+export type WorldBuildingCompletedPayload = z.infer<
+  typeof WorldBuildingCompletedSchema
+>;
+
+// ─────────────────────── keeper context ──────────────────────────────────
+
+/**
+ * writing.keeper:context_ready
+ * Payload: { chapterNumber, context? }
+ */
+export const KeeperContextReadySchema = z
+  .object({
+    chapterNumber: z.number(),
+    context: z
+      .object({
+        relevantCharacters: z.array(z.string()).optional(),
+        relevantLocations: z.array(z.string()).optional(),
+        previousEvents: z.array(z.string()).optional(),
+        warnings: z.array(z.string()).optional(),
+      })
+      .optional(),
+  })
+  .passthrough();
+export type KeeperContextReadyPayload = z.infer<
+  typeof KeeperContextReadySchema
+>;
+
 // ─────────────────────── tool trace ───────────────────────────────────────
 
 /**
