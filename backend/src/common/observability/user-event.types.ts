@@ -75,7 +75,7 @@ export function emitUserEvent(
   emitter: EventEmitter2 | undefined,
   payload: UserEventPayload,
 ): void {
-  if (!emitter) return;
+  if (!emitter || !payload.userId) return;
   emitter.emit(USER_EVENT_NAME, payload);
 }
 
