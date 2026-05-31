@@ -336,6 +336,57 @@ export class AgentsService {
   }
 
   /**
+   * 查询在途任务（boot recovery 用）
+   *
+   * 进程崩溃/重启会遗留 status ∈ {PLANNING, EXECUTING} 的任务——内存执行已断，
+   * DB 状态卡在中间态。boot 时扫出这些任务重投 BullMQ（jobId=taskId 幂等）。
+   * 排除 PENDING：PENDING 的 job 仍在队列里等 worker，BullMQ 自身持久化已覆盖。
+   */
+  async findInFlightTasks(): Promise<
+    Array<{ id: string; agentType: OfficeAgentType; userId: string | null }>
+  > {
+    const tasks = await this.prisma.officeAgentTask.findMany({
+      where: {
+        status: { in: [OfficeTaskStatus.PLANNING, OfficeTaskStatus.EXECUTING] },
+      },
+      select: { id: true, agentType: true, userId: true, input: true },
+    });
+    return tasks.map((t) => ({
+      id: t.id,
+      agentType: t.agentType,
+      userId: t.userId,
+    }));
+  }
+
+  /**
+   * 读取任务的原始 input（boot recovery 重投时重建 AgentInput）
+   */
+  async getTaskInput(taskId: string): Promise<AgentInput | null> {
+    const task = await this.prisma.officeAgentTask.findUnique({
+      where: { id: taskId },
+      select: { input: true },
+    });
+    if (!task) return null;
+    return task.input as unknown as AgentInput;
+  }
+
+  /**
+   * 把 Prisma OfficeAgentType 反映射回 AgentId（boot recovery 重投用）
+   */
+  officeAgentTypeToAgentId(type: OfficeAgentType): AgentId {
+    switch (type) {
+      case OfficeAgentType.SLIDES:
+        return SLIDES_AGENT_ID;
+      case OfficeAgentType.DOCS:
+        return DOCS_AGENT_ID;
+      case OfficeAgentType.DESIGNER:
+        return DESIGNER_AGENT_ID;
+      default:
+        return DOCS_AGENT_ID;
+    }
+  }
+
+  /**
    * 清理过期任务
    */
   async cleanupExpiredTasks(

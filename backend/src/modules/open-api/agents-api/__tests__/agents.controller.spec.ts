@@ -20,12 +20,14 @@ import { AgentsController } from "../agents.controller";
 import { AgentOrchestrator } from "../../../ai-harness/facade";
 import { AgentRegistry } from "../../../ai-harness/facade";
 import { AgentsService } from "../agents.service";
+import { AgentsTaskQueueService } from "../agents-task-queue.service";
 
 describe("AgentsController", () => {
   let controller: AgentsController;
   let mockOrchestrator: any;
   let mockAgentRegistry: any;
   let mockAgentsService: any;
+  let mockAgentsTaskQueue: { enqueue: jest.Mock };
 
   const mockAgentConfig = {
     id: "slides",
@@ -112,12 +114,17 @@ describe("AgentsController", () => {
       }),
     };
 
+    mockAgentsTaskQueue = {
+      enqueue: jest.fn().mockResolvedValue({ jobId: "task-1" }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AgentsController],
       providers: [
         { provide: AgentOrchestrator, useValue: mockOrchestrator },
         { provide: AgentRegistry, useValue: mockAgentRegistry },
         { provide: AgentsService, useValue: mockAgentsService },
+        { provide: AgentsTaskQueueService, useValue: mockAgentsTaskQueue },
       ],
     }).compile();
 
@@ -201,12 +208,6 @@ describe("AgentsController", () => {
     const mockRequest = { user: { id: "user-1", email: "user@test.com" } };
 
     it("should create task and return taskId with pending status", async () => {
-      // Mock the orchestrator execute as async generator
-      async function* mockExecute() {
-        yield { type: "complete" as const, result: { success: true } };
-      }
-      mockOrchestrator.execute.mockReturnValue(mockExecute());
-
       const result = await controller.execute(
         {
           prompt: "Create a presentation",
@@ -229,12 +230,23 @@ describe("AgentsController", () => {
       expect(result.status).toBe("pending");
     });
 
-    it("should pass input fields to agentsService.createTask", async () => {
-      async function* mockExecute() {
-        yield { type: "complete" as const, result: { success: true } };
-      }
-      mockOrchestrator.execute.mockReturnValue(mockExecute());
+    it("should enqueue the task to BullMQ (no in-memory execution)", async () => {
+      await controller.execute(
+        { prompt: "Create a presentation", agentId: "slides" },
+        mockRequest as any,
+      );
 
+      // Durable queue path: enqueue is called, orchestrator is NOT run inline.
+      expect(mockAgentsTaskQueue.enqueue).toHaveBeenCalledWith(
+        "task-1",
+        expect.objectContaining({ prompt: "Create a presentation" }),
+        "slides",
+        "user-1",
+      );
+      expect(mockOrchestrator.execute).not.toHaveBeenCalled();
+    });
+
+    it("should pass input fields to agentsService.createTask", async () => {
       await controller.execute(
         {
           prompt: "My prompt",
@@ -360,69 +372,37 @@ describe("AgentsController", () => {
     });
   });
 
-  // ==================== executeTaskAsync (private, through execute) ====================
+  // ==================== durable enqueue (replaces former in-memory executeTaskAsync) ====================
 
-  describe("executeTaskAsync (via execute)", () => {
+  describe("execute → durable enqueue", () => {
     const mockReq = { user: { id: "user-1", email: "user@test.com" } };
 
-    it("should handle plan_ready event", async () => {
-      const plan = { steps: ["plan step"] };
-      async function* mockGen() {
-        yield { type: "plan_ready" as const, plan };
-        yield { type: "complete" as const, result: { success: true } };
-      }
-      mockOrchestrator.execute.mockReturnValue(mockGen());
-
+    it("enqueues with taskId, input, agentId, userId and does not touch the orchestrator", async () => {
       await controller.execute(
         { prompt: "Test", agentId: "slides" },
         mockReq as any,
       );
 
-      // Give async task time to start
-      await new Promise((r) => setTimeout(r, 50));
-
-      expect(mockAgentsService.updateTaskStatus).toHaveBeenCalledWith(
+      expect(mockAgentsTaskQueue.enqueue).toHaveBeenCalledWith(
         "task-1",
-        "PLANNING",
+        expect.objectContaining({ prompt: "Test" }),
+        "slides",
+        "user-1",
       );
+      // Execution (PLANNING/EXECUTING/COMPLETED state machine) now runs in the
+      // worker (AgentsTaskProcessor), not inline in the controller.
+      expect(mockOrchestrator.execute).not.toHaveBeenCalled();
+      expect(mockAgentsService.updateTaskStatus).not.toHaveBeenCalled();
     });
 
-    it("should handle error event from orchestrator", async () => {
-      async function* mockGen() {
-        yield { type: "error" as const, error: "Agent failed" };
-      }
-      mockOrchestrator.execute.mockReturnValue(mockGen());
-
+    it("enqueues even when agentId is omitted (orchestrator auto-routes in worker)", async () => {
       await controller.execute({ prompt: "Fail" }, mockReq as any);
 
-      await new Promise((r) => setTimeout(r, 50));
-
-      // updateTaskStatus should be called with FAILED eventually
-      // (async background task)
-      expect(mockAgentsService.updateTaskStatus).toHaveBeenCalledWith(
+      expect(mockAgentsTaskQueue.enqueue).toHaveBeenCalledWith(
         "task-1",
-        "PLANNING",
-      );
-    });
-
-    it("should handle thrown exception from orchestrator", async () => {
-      async function* mockGen() {
-        throw new Error("Orchestrator crash");
-        // eslint-disable-next-line no-unreachable
-        yield { type: "complete" as const, result: {} } as any;
-      }
-      mockOrchestrator.execute.mockReturnValue(mockGen());
-
-      // Should not throw — error is caught inside executeTaskAsync
-      await expect(
-        controller.execute({ prompt: "Crash" }, mockReq as any),
-      ).resolves.toBeDefined();
-
-      await new Promise((r) => setTimeout(r, 50));
-
-      expect(mockAgentsService.updateTaskStatus).toHaveBeenCalledWith(
-        "task-1",
-        "PLANNING",
+        expect.objectContaining({ prompt: "Fail" }),
+        undefined,
+        "user-1",
       );
     });
   });
