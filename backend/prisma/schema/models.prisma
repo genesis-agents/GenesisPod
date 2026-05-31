@@ -11040,3 +11040,29 @@ model CapabilityOverrideAuditLog {
   @@index([actorId, createdAt(sort: Desc)])
   @@map("capability_override_audit_logs")
 }
+
+// ============ 运营看板：统一用户事件流（运营看板 W1, PRD §4.1）============
+
+/// UserEvent = 后端跨模块业务动作流（module/action/success），支撑运营看板漏斗/北极星/模块健康。
+/// 与 UserActivity（前端资源浏览埋点 VIEW/scrollDepth）语义正交，禁止合并或重复埋点。
+/// 成本不在此表：成本聚合/对账/毛利 100% 以 AIEngineMetric 为唯一真源（按 userId + resourceId(missionId) JOIN），
+/// 故无 tokens/costUsd 列（避免 UNION SUM 双计）。
+/// 运营审计表不建 User 外键：避免删用户连锁删审计数据。
+/// module/action 用 string 而非 enum：各模块 status 枚举互不一致，取值由 common/observability/user-event.types.ts 字典约束。
+model UserEvent {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  module       String // ai-research / ai-teams / ai-office / ai-writing / ai-ask / ai-image / ai-social / topic-insights / library / explore
+  action       String // started / completed / failed / saved / shared / published / viewed
+  resourceType String?  @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  topicKey     String?  @map("topic_key") // 归一后的主题键，支撑主题运营（W2 起填充）
+  success      Boolean? // 三态：null 不计入成功产出
+  metadata     Json? // 承载 channel/source（W2 注册埋点预留）
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([module, action, createdAt])
+  @@index([topicKey, createdAt])
+  @@map("user_events")
+}
