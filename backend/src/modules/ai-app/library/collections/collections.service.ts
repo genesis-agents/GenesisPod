@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   Logger,
+  Optional,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
@@ -17,6 +18,13 @@ import {
   BatchUpdateTagsDto,
   BatchUpdateStatusDto,
 } from "./dto";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  USER_EVENT_NAME,
+  MODULE,
+  ACTION,
+  type UserEventPayload,
+} from "@/common/observability/user-event.types";
 
 /**
  * 数据源统一整理支持的源类型（W2 NOTE/IMAGE、W3 FEISHU；BOOKMARK/DRIVE 走既有集合）。
@@ -69,6 +77,7 @@ export class CollectionsService {
   constructor(
     private prisma: PrismaService,
     private chatFacade: ChatFacade,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   /**
@@ -109,6 +118,16 @@ export class CollectionsService {
     });
 
     this.logger.log(`Collection created: ${collection.name} by user ${userId}`);
+
+    if (this.eventEmitter) {
+      this.eventEmitter.emit(USER_EVENT_NAME, {
+        userId,
+        module: MODULE.LIBRARY,
+        action: ACTION.SAVED,
+        resourceType: "Collection",
+        resourceId: collection.id,
+      } satisfies UserEventPayload);
+    }
 
     return collection;
   }

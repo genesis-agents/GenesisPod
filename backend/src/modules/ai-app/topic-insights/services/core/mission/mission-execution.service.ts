@@ -53,6 +53,12 @@ import {
 } from "../task-executors";
 import { InsufficientCreditsException } from "../../../types/research.exceptions";
 import { BillingContext } from "@/modules/ai-infra/facade";
+import {
+  USER_EVENT_NAME,
+  MODULE,
+  ACTION,
+  type UserEventPayload,
+} from "@/common/observability/user-event.types";
 
 /** Alias for task result JSON shape */
 type TaskResultJson = TaskExecutionResult;
@@ -962,7 +968,7 @@ export class MissionExecutionService {
     // ★ 先检查 Mission 当前状态，如果已被取消则不覆盖
     const currentMission = await this.prisma.researchMission.findUnique({
       where: { id: missionId },
-      select: { status: true },
+      select: { status: true, topic: { select: { userId: true } } },
     });
 
     if (currentMission?.status === ResearchMissionStatus.CANCELLED) {
@@ -1025,6 +1031,22 @@ export class MissionExecutionService {
         completedAt: new Date(),
       },
     });
+
+    // 运营看板埋点：COMPLETED / FAILED 跃迁
+    const userId = currentMission?.topic?.userId;
+    if (userId) {
+      this.eventEmitter?.emit(USER_EVENT_NAME, {
+        userId,
+        module: MODULE.AI_RESEARCH,
+        action:
+          finalStatus === ResearchMissionStatus.COMPLETED
+            ? ACTION.COMPLETED
+            : ACTION.FAILED,
+        resourceType: "ResearchMission",
+        resourceId: missionId,
+        topicKey: topicId,
+      } satisfies UserEventPayload);
+    }
 
     // ★ 只清理完全空的草稿报告（没有任何维度分析的）
     // 部分成功的报告应该保留，让用户看到已完成的研究
@@ -1326,7 +1348,7 @@ export class MissionExecutionService {
     // 1. 检查 Mission 状态
     const mission = await this.prisma.researchMission.findUnique({
       where: { id: missionId },
-      select: { status: true },
+      select: { status: true, topic: { select: { userId: true } } },
     });
 
     if (!mission) {
@@ -1373,6 +1395,18 @@ export class MissionExecutionService {
         where: { id: missionId },
         data: { status: ResearchMissionStatus.EXECUTING },
       });
+
+      // 运营看板埋点：EXECUTING→started
+      if (mission.topic?.userId) {
+        this.eventEmitter?.emit(USER_EVENT_NAME, {
+          userId: mission.topic.userId,
+          module: MODULE.AI_RESEARCH,
+          action: ACTION.STARTED,
+          resourceType: "ResearchMission",
+          resourceId: missionId,
+          topicKey: topicId,
+        } satisfies UserEventPayload);
+      }
 
       // 5. 发送状态更新事件
       await this.researchEventEmitter.emitMissionProgress(topicId, {
@@ -1584,6 +1618,17 @@ export class MissionExecutionService {
             `[continueExecution] Failed to mark mission as FAILED: ${updateErr.message}`,
           );
         });
+      // 运营看板埋点：执行启动失败→FAILED
+      if (mission.topic?.userId) {
+        this.eventEmitter?.emit(USER_EVENT_NAME, {
+          userId: mission.topic.userId,
+          module: MODULE.AI_RESEARCH,
+          action: ACTION.FAILED,
+          resourceType: "ResearchMission",
+          resourceId: missionId,
+          topicKey: mission.topicId,
+        } satisfies UserEventPayload);
+      }
     });
   }
 

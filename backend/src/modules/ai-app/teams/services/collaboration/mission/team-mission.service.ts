@@ -6,6 +6,13 @@ import {
   OnModuleInit,
   Optional,
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  USER_EVENT_NAME,
+  MODULE,
+  ACTION,
+  type UserEventPayload,
+} from "@/common/observability/user-event.types";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { Prisma } from "@prisma/client";
 import {
@@ -150,6 +157,7 @@ export class TeamMissionService implements OnModuleInit {
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly kernelJournal?: EventJournalService,
     @Optional() private readonly progressTracker?: ProgressTrackerService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   /**
@@ -1198,13 +1206,25 @@ export class TeamMissionService implements OnModuleInit {
       });
 
       // 更新状态为执行中
-      await this.prisma.teamMission.update({
+      const startedMission = await this.prisma.teamMission.update({
         where: { id: mission.id },
         data: {
           status: MissionStatus.IN_PROGRESS,
           totalTasks: breakdown.tasks.length,
         },
+        select: { createdById: true },
       });
+
+      if (this.eventEmitter) {
+        this.eventEmitter.emit(USER_EVENT_NAME, {
+          userId: startedMission.createdById,
+          module: MODULE.AI_TEAMS,
+          action: ACTION.STARTED,
+          resourceType: "TeamMission",
+          resourceId: mission.id,
+          topicKey: mission.topicId,
+        } satisfies UserEventPayload);
+      }
 
       // ★ 更新长内容服务的任务总数（修复统计数据错误）
       try {
@@ -1264,10 +1284,22 @@ export class TeamMissionService implements OnModuleInit {
         },
       );
 
-      await this.prisma.teamMission.update({
+      const failedMission = await this.prisma.teamMission.update({
         where: { id: mission.id },
         data: { status: MissionStatus.FAILED },
+        select: { createdById: true },
       });
+
+      if (this.eventEmitter) {
+        this.eventEmitter.emit(USER_EVENT_NAME, {
+          userId: failedMission.createdById,
+          module: MODULE.AI_TEAMS,
+          action: ACTION.FAILED,
+          resourceType: "TeamMission",
+          resourceId: mission.id,
+          topicKey: mission.topicId,
+        } satisfies UserEventPayload);
+      }
 
       // ★ AI Kernel: 标记进程失败
       this.failKernelProcess(
@@ -3351,6 +3383,17 @@ export class TeamMissionService implements OnModuleInit {
         },
       });
 
+      if (this.eventEmitter) {
+        this.eventEmitter.emit(USER_EVENT_NAME, {
+          userId: mission.createdById,
+          module: MODULE.AI_TEAMS,
+          action: ACTION.COMPLETED,
+          resourceType: "TeamMission",
+          resourceId: missionId,
+          topicKey: mission.topicId,
+        } satisfies UserEventPayload);
+      }
+
       // ★ AI Kernel: 标记进程完成
       const processId = this.kernelProcessIds.get(missionId);
       if (processId && this.missionExecutor) {
@@ -3460,6 +3503,17 @@ export class TeamMissionService implements OnModuleInit {
         where: { id: missionId },
         data: { status: MissionStatus.FAILED },
       });
+
+      if (this.eventEmitter) {
+        this.eventEmitter.emit(USER_EVENT_NAME, {
+          userId: mission.createdById,
+          module: MODULE.AI_TEAMS,
+          action: ACTION.FAILED,
+          resourceType: "TeamMission",
+          resourceId: missionId,
+          topicKey: mission.topicId,
+        } satisfies UserEventPayload);
+      }
 
       // ★ AI Kernel: 标记进程失败
       this.failKernelProcess(

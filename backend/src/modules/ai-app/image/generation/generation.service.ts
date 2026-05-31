@@ -48,6 +48,13 @@ import { PromptEnhancementService } from "./prompt-enhancement.service";
 import { ImageGenerationService } from "./image-generation.service";
 import { ImageStorageService } from "../storage/storage.service";
 import { Imagen4PromptService } from "./imagen4-prompt.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  USER_EVENT_NAME,
+  MODULE,
+  ACTION,
+  type UserEventPayload,
+} from "@/common/observability/user-event.types";
 import {
   parseUrlInput,
   getUrlStepTitle,
@@ -79,6 +86,7 @@ export class AiImageService {
     private readonly imagen4PromptService: Imagen4PromptService,
     private readonly chatFacade: ChatFacade,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   /**
@@ -779,6 +787,16 @@ export class AiImageService {
         });
 
         emitStep("save_db", "Saved to Database", "completed");
+
+        if (this.eventEmitter && userId) {
+          this.eventEmitter.emit(USER_EVENT_NAME, {
+            userId,
+            module: MODULE.AI_IMAGE,
+            action: ACTION.COMPLETED,
+            resourceType: "GeneratedImage",
+            resourceId: savedImage.id,
+          } satisfies UserEventPayload);
+        }
 
         // Cleanup old images
         if (userId) {

@@ -11,8 +11,10 @@ import {
   ForbiddenException,
   BadRequestException,
   Inject,
+  Optional,
   forwardRef,
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { withTimeout } from "@/common/utils/timeout.utils";
 import { RequestContext } from "@/common/context/request-context";
 import { StateTransitionValidator } from "@/modules/ai-harness/facade";
@@ -42,6 +44,12 @@ import { AgentActivityType } from "@prisma/client";
 import { MissionQueryService } from "./mission-query.service";
 import { MissionExecutionService } from "./mission-execution.service";
 import { BillingContext } from "@/modules/ai-infra/facade";
+import {
+  USER_EVENT_NAME,
+  MODULE,
+  ACTION,
+  type UserEventPayload,
+} from "@/common/observability/user-event.types";
 
 @Injectable()
 export class MissionLifecycleService {
@@ -70,6 +78,8 @@ export class MissionLifecycleService {
     // Lifecycle triggers Execution after planning; Execution updates Mission state managed by Lifecycle
     @Inject(forwardRef(() => MissionExecutionService))
     private readonly executionService: MissionExecutionService,
+    @Optional()
+    private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   /**
@@ -340,6 +350,17 @@ export class MissionLifecycleService {
           `[createMission] Failed to update mission status: ${updateErr}`,
         );
       }
+      // 运营看板埋点：规划超时/失败→FAILED
+      if (topic.userId) {
+        this.eventEmitter?.emit(USER_EVENT_NAME, {
+          userId: topic.userId,
+          module: MODULE.AI_RESEARCH,
+          action: ACTION.FAILED,
+          resourceType: "ResearchMission",
+          resourceId: mission.id,
+          topicKey: topicId,
+        } satisfies UserEventPayload);
+      }
     });
 
     this.logger.log(
@@ -472,7 +493,7 @@ export class MissionLifecycleService {
       );
 
       // 更新 Mission
-      await this.prisma.researchMission.update({
+      const updatedMission = await this.prisma.researchMission.update({
         where: { id: missionId },
         data: {
           leaderPlan: toPrismaJson(leaderPlan),
@@ -480,7 +501,20 @@ export class MissionLifecycleService {
           status: ResearchMissionStatus.EXECUTING,
           startedAt: new Date(),
         },
+        include: { topic: { select: { userId: true } } },
       });
+
+      // 运营看板埋点：EXECUTING→started
+      if (updatedMission.topic?.userId) {
+        this.eventEmitter?.emit(USER_EVENT_NAME, {
+          userId: updatedMission.topic.userId,
+          module: MODULE.AI_RESEARCH,
+          action: ACTION.STARTED,
+          resourceType: "ResearchMission",
+          resourceId: missionId,
+          topicKey: topicId,
+        } satisfies UserEventPayload);
+      }
 
       // 发送进度事件
       this.queryService.emitProgress({
@@ -566,14 +600,16 @@ export class MissionLifecycleService {
 
       // 规划失败，更新状态
       // ★ 使用 try-catch 包裹更新操作，避免 mission 已被删除时报错
+      let failedMissionUserId: string | undefined;
       try {
         // ★ 先检查 mission 是否仍存在
         const missionExists = await this.prisma.researchMission.findUnique({
           where: { id: missionId },
-          select: { id: true },
+          select: { id: true, topic: { select: { userId: true } } },
         });
 
         if (missionExists) {
+          failedMissionUserId = missionExists.topic?.userId;
           await this.prisma.researchMission.update({
             where: { id: missionId },
             data: {
@@ -589,6 +625,18 @@ export class MissionLifecycleService {
         this.logger.debug(
           `[executePlanningAsync] Could not update mission status: ${updateError}`,
         );
+      }
+
+      // 运营看板埋点：规划失败→FAILED
+      if (failedMissionUserId) {
+        this.eventEmitter?.emit(USER_EVENT_NAME, {
+          userId: failedMissionUserId,
+          module: MODULE.AI_RESEARCH,
+          action: ACTION.FAILED,
+          resourceType: "ResearchMission",
+          resourceId: missionId,
+          topicKey: topicId,
+        } satisfies UserEventPayload);
       }
 
       // ★ 发送失败事件，让前端知道规划失败

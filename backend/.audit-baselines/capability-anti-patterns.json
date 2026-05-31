@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-29T20:45:32.506Z",
+  "generatedAt": "2026-05-31T02:10:24.372Z",
   "count": 187,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -160,7 +160,7 @@
     },
     {
       "file": "modules/ai-app/writing/services/mission/writing-mission-lifecycle.service.ts",
-      "line": 678,
+      "line": 708,
       "column": 24,
       "kind": "binary-eq",
       "snippet": "m.provider !== \"xAI\""

@@ -18,6 +18,13 @@ import {
   Optional,
   ConflictException,
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  USER_EVENT_NAME,
+  MODULE,
+  ACTION,
+  type UserEventPayload,
+} from "@/common/observability/user-event.types";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ChatFacade, TeamFacade } from "@/modules/ai-harness/facade";
@@ -65,6 +72,7 @@ export class WritingMissionLifecycleService {
     private readonly chatFacade: ChatFacade,
     private readonly teamFacade: TeamFacade,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {
     // Writing roles + team config 由 WritingAgentCoordinator 统一注册（它先于本
     // 服务 init、按角色逐个注册）。本服务不再重复注册，因此也无需注入
@@ -475,7 +483,7 @@ export class WritingMissionLifecycleService {
     const missionType =
       MISSION_TYPE_DB_MAP[input.missionType.toLowerCase()] || "CHAPTER";
 
-    return this.prisma.writingMission.create({
+    const created = await this.prisma.writingMission.create({
       data: {
         id: missionId,
         projectId: input.projectId,
@@ -494,6 +502,18 @@ export class WritingMissionLifecycleService {
         },
       },
     });
+
+    if (this.eventEmitter) {
+      this.eventEmitter.emit(USER_EVENT_NAME, {
+        userId: _userId,
+        module: MODULE.AI_WRITING,
+        action: ACTION.STARTED,
+        resourceType: "WritingMission",
+        resourceId: missionId,
+      } satisfies UserEventPayload);
+    }
+
+    return created;
   }
 
   /**
@@ -526,7 +546,7 @@ export class WritingMissionLifecycleService {
     // Update project status
     const project = await this.prisma.writingProject.findUnique({
       where: { id: mission.projectId },
-      select: { currentWords: true },
+      select: { currentWords: true, ownerId: true },
     });
 
     if (project) {
@@ -544,6 +564,16 @@ export class WritingMissionLifecycleService {
       this.logger.log(
         `Updated project ${mission.projectId} status to ${newStatus}`,
       );
+
+      if (this.eventEmitter) {
+        this.eventEmitter.emit(USER_EVENT_NAME, {
+          userId: project.ownerId,
+          module: MODULE.AI_WRITING,
+          action: result.success ? ACTION.COMPLETED : ACTION.FAILED,
+          resourceType: "WritingMission",
+          resourceId: missionId,
+        } satisfies UserEventPayload);
+      }
     }
 
     return mission;

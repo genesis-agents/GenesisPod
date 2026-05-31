@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { SocialBrowserService } from "./social-browser.service";
 import { ContentVersionService } from "./content-version.service";
@@ -12,6 +12,13 @@ import {
 } from "../types";
 import { decryptSession } from "../services/session-crypto";
 import { SessionData } from "../types/platform.types";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  USER_EVENT_NAME,
+  MODULE,
+  ACTION,
+  type UserEventPayload,
+} from "@/common/observability/user-event.types";
 
 export interface PublishResult {
   success: boolean;
@@ -30,6 +37,7 @@ export class PublishExecutorService {
     private readonly contentVersionService: ContentVersionService,
     private readonly wechatAdapter: WechatAdapter,
     private readonly xhsMcpAdapter: XhsMcpAdapter,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   // Expose playwright for adapters that may need direct access
@@ -197,6 +205,16 @@ export class PublishExecutorService {
           errorMessage: result.errorMessage,
         },
       });
+
+      if (this.eventEmitter) {
+        this.eventEmitter.emit(USER_EVENT_NAME, {
+          userId: content.userId,
+          module: MODULE.AI_SOCIAL,
+          action: result.success ? ACTION.PUBLISHED : ACTION.FAILED,
+          resourceType: "SocialContent",
+          resourceId: contentId,
+        } satisfies UserEventPayload);
+      }
 
       return result;
     } catch (error) {
