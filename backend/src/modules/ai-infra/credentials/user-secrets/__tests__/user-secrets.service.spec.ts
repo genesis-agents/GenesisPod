@@ -30,6 +30,7 @@ describe("UserSecretsService", () => {
     decryptForUser: jest.Mock;
     decryptAny: jest.Mock;
     createKeyHint: jest.Mock;
+    hashValue: jest.Mock;
   };
   let userApiKeys: { saveKey: jest.Mock; deleteKey: jest.Mock };
   let secrets: {
@@ -61,6 +62,7 @@ describe("UserSecretsService", () => {
       decryptForUser: jest.fn().mockReturnValue("sk-plain-1234"),
       decryptAny: jest.fn().mockResolvedValue("sk-plain-1234"),
       createKeyHint: jest.fn().mockReturnValue("sk-...1234"),
+      hashValue: jest.fn().mockReturnValue("abcd1234ef"),
     };
     userApiKeys = {
       saveKey: jest.fn().mockResolvedValue({ success: true, mode: "personal" }),
@@ -210,6 +212,64 @@ describe("UserSecretsService", () => {
       expect(res).toHaveLength(2);
       expect(res.find((r) => r.source === "llm")?.provider).toBe("openai");
       expect(res.find((r) => r.source === "secret")?.id).toBe("sec-1");
+    });
+
+    it("maskedValue 用非泄露哈希脱敏（••••hash••••），不再回传明文头尾的 keyHint", async () => {
+      prisma.userApiKey.findMany.mockResolvedValue([
+        {
+          id: "uak-1",
+          provider: "openai",
+          label: "default",
+          keyHint: "sk-...1234", // 旧泄露式 hint：不应出现在 maskedValue
+          encryptedValue: "enc-abcdefgh",
+          isActive: true,
+          usageCount: 0,
+          testStatus: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
+      const res = await service.list("user-1");
+      const llm = res.find((r) => r.source === "llm");
+      expect(llm?.maskedValue).toBe("••••abcd••••");
+      expect(llm?.maskedValue).not.toContain("sk-...1234");
+    });
+  });
+
+  describe("getValue — 揭示本人明文（owner 隔离 + 防 IDOR）", () => {
+    it("缺 userId 抛 BadRequest", async () => {
+      await expect(service.getValue("", "llm", "uak-1")).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it("llm source: 命中本人 key → decryptAny 返回明文", async () => {
+      const key = { id: "uak-1", userId: "user-1", encryptedValue: "enc" };
+      prisma.userApiKey.findFirst.mockResolvedValue(key);
+      const val = await service.getValue("user-1", "llm", "uak-1");
+      expect(prisma.userApiKey.findFirst).toHaveBeenCalledWith({
+        where: { id: "uak-1", userId: "user-1" },
+      });
+      expect(encryption.decryptAny).toHaveBeenCalledWith(key);
+      expect(val).toBe("sk-plain-1234");
+    });
+
+    it("secret source: 命中本人 secret → decryptAny(secret,{userId}) 返回明文", async () => {
+      const row = { id: "sec-1", userId: "user-1", encryptedValue: "enc" };
+      prisma.secret.findFirst.mockResolvedValue(row);
+      const val = await service.getValue("user-1", "secret", "sec-1");
+      expect(encryption.decryptAny).toHaveBeenCalledWith(row, {
+        userId: "user-1",
+      });
+      expect(val).toBe("sk-plain-1234");
+    });
+
+    it("非本人 / 不存在 → NotFound（不泄露他人 Key 存在性）", async () => {
+      prisma.userApiKey.findFirst.mockResolvedValue(null);
+      await expect(
+        service.getValue("user-1", "llm", "uak-x"),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

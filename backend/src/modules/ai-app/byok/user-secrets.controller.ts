@@ -120,6 +120,22 @@ export class UserSecretsController {
     return this.userSecrets.testKey(req.user.id, source, id);
   }
 
+  /**
+   * 揭示用户自己某把 Key 的明文（/me/api-keys 的 👁 查看，对齐 admin /admin/secrets 的 SecretValueModal）。
+   * owner 隔离（service 层强制 req.user.id）+ 限流（每用户每分钟 10 次），只返回本人 Key。
+   * 段数（3）与下方 `:id/keys`（2）不同，无路由冲突。
+   */
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Get(":source/:id/value")
+  async getValue(
+    @Req() req: AuthenticatedRequest,
+    @Param("source") source: UserSecretSource,
+    @Param("id") id: string,
+  ) {
+    const value = await this.userSecrets.getValue(req.user.id, source, id);
+    return { value };
+  }
+
   // ═══════════ 同名多 Key 子资源（2026-05-29，呈现/行为对齐 admin /admin/secrets/:id/keys）═══════════
   //   :id = user-scoped secret 行 id（secrets 表，userId=当前用户）。
   //   全部经 SecretKeysService 并传 req.user.id 作 ownerUserId → owner 隔离防 IDOR。

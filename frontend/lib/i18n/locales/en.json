@@ -7408,6 +7408,7 @@
       "emptySearchTitle": "No Matches",
       "editTitle": "Edit Key",
       "manageKeys": "Manage Keys (multi-key)",
+      "viewValue": "View Secret",
       "addTitle": "Add Key",
       "fieldName": "Identifier (name)",
       "fieldDisplayName": "Display Name",
