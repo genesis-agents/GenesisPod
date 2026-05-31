@@ -28,6 +28,16 @@ export interface GuardrailResult {
   severity: "info" | "warning" | "error" | "block";
 
   /**
+   * Transformed content (e.g. PII-redacted text).
+   *
+   * When a guardrail rewrites the content (PII 脱敏占位符替换), it sets this
+   * field to the sanitized text. The pipeline propagates it so the caller
+   * (ai-chat) can send the redacted content to the LLM provider instead of
+   * the original. 仅在内容被改写时设置；未改写则保持 undefined。
+   */
+  transformedContent?: string;
+
+  /**
    * Additional metadata
    */
   metadata?: Record<string, unknown>;
@@ -141,4 +151,13 @@ export interface GuardrailsPipelineResult {
    * ID of guardrail that blocked (if any)
    */
   blockedBy?: string;
+
+  /**
+   * Final transformed content after running all guardrails (e.g. PII-redacted).
+   *
+   * Set when at least one guardrail rewrote the content. The caller MUST use
+   * this (when present) as the content sent to / returned from the LLM, so
+   * redaction actually takes effect (not inert). undefined = 无任何改写，沿用原文。
+   */
+  transformedContent?: string;
 }

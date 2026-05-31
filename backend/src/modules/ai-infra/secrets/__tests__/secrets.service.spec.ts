@@ -5,6 +5,7 @@ import { SecretsService } from "../secrets.service";
 import { SecretKeysService } from "../secret-keys.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../encryption/encryption.service";
+import { AuditLogService } from "../../monitoring/audit/audit-log.service";
 import { SecretCategory, SecretAction } from "@prisma/client";
 import { classifySecret } from "../secret-name.catalog";
 
@@ -112,6 +113,10 @@ describe("SecretsService", () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EncryptionService, useValue: buildEncryption() },
         { provide: SecretKeysService, useValue: mockSecretKeys },
+        {
+          provide: AuditLogService,
+          useValue: { record: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 

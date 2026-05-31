@@ -98,6 +98,38 @@ export interface ResolvedStageHooks {
 }
 
 /**
+ * 单个 stage hook 的“可接受形状”——任意 callable，args/return 由各 primitive 自定。
+ *
+ * 用于 {@link defineStageHooks} 约束：只放宽到“值必须是函数”，依然在编译期捕获
+ * 把非函数（拼错成对象/常量）塞进 hooks 表的错误。args 用逆变安全的 `never`，
+ * return 用协变安全的 `unknown`（兼容同步返回值与 `Promise<unknown>`）。
+ */
+export type StageHookShape = (args: never) => unknown;
+
+/**
+ * 类型安全地把一组业务 hook 收敛成 {@link ResolvedStageHooks}。
+ *
+ * 背景：`ResolvedStageHooks` 的 index signature 把每个 hook 锁成
+ * `StageHookFn`（`(args: unknown) => void | Promise<void>`），而业务 builder 里的
+ * hook 取更窄的 args（如 `{ ctx }`）且返回 `Promise<unknown>`（产物供下游 primitive
+ * 透传消费）。在 strictFunctionTypes 下这是逆变/协变双重不兼容，历史上靠
+ * `return hooks as unknown as ResolvedStageHooks` 双重断言绕过——hook 名拼错或漏写
+ * 函数编译期都不报错。
+ *
+ * 本 helper 用泛型捕获实参对象类型 `T`，并以 `T extends Record<string, StageHookShape>`
+ * 约束：每个属性必须是 callable（拼成对象/常量会编译报错），保留“值是函数”这一层
+ * 校验；arg/return 的协逆变放宽集中在 helper 这一个位置（runtime 上 primitive 拿到
+ * hooks 后会再 cast 回各自精确 shape，行为不变）。
+ *
+ * 这样把 11 处分散的 `as unknown as ResolvedStageHooks` 收敛成单一受控转换点。
+ */
+export function defineStageHooks<T extends Record<string, StageHookShape>>(
+  hooks: T,
+): ResolvedStageHooks {
+  return hooks as unknown as ResolvedStageHooks;
+}
+
+/**
  * IStagePrimitive 核心接口（v5.1 §3.2）
  *
  * happy-path < 250 行；业务专属逻辑通过 hooks + crossStageState 注入。

@@ -192,6 +192,16 @@ function buildController() {
       },
     ),
   };
+  // ★ E32: DomainEventBus mock（早爆补发终态事件）
+  const eventBus = {
+    publish: jest.fn().mockResolvedValue(undefined),
+    emit: jest.fn(),
+  };
+  // ★ WS-Audit (2026-05-30): AuditLogService mock（mission 取消/删除留痕）
+  const auditLog = {
+    record: jest.fn().mockResolvedValue(undefined),
+    query: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+  };
   const mainCtrl = new AgentPlaygroundController(
     ownership as never,
     store as never,
@@ -201,6 +211,8 @@ function buildController() {
     electionTracker as never,
     pipelineDispatcher as never,
     lifecycleManager as never,
+    eventBus as never,
+    auditLog as never,
   );
   const readCtrl = new MissionReadController(
     ownership as never,
@@ -257,6 +269,7 @@ function buildController() {
     pipelineDispatcher,
     electionTracker,
     lifecycleManager,
+    auditLog,
   };
 }
 
@@ -908,6 +921,7 @@ describe("AgentPlaygroundController", () => {
         buffer,
         electionTracker,
         lifecycleManager,
+        auditLog,
       } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
@@ -918,6 +932,16 @@ describe("AgentPlaygroundController", () => {
       });
       const result = await controller.cancelMission("m-1", makeReq("user-1"));
       expect(result).toEqual({ ok: true, status: "cancelled" });
+      // ★ WS-Audit: mission 取消高敏操作 append-only 留痕
+      expect(auditLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorUserId: "user-1",
+          action: "mission.cancel",
+          resourceType: "agent_playground_mission",
+          resourceId: "m-1",
+          result: "success",
+        }),
+      );
       expect(abortRegistry.abort).toHaveBeenCalledWith("m-1", "user_cancelled");
       // ★ C0/G1：取消终态经 lifecycleManager.finalize 仲裁（不再直写 store.markCancelled）
       expect(lifecycleManager.finalize).toHaveBeenCalledWith(
@@ -952,7 +976,7 @@ describe("AgentPlaygroundController", () => {
     });
 
     it("deletes mission and returns ok when in terminal state", async () => {
-      const { controller, store, ownership, electionTracker } =
+      const { controller, store, ownership, electionTracker, auditLog } =
         buildController();
       // 终态（如 completed）允许直接删
       store.getById.mockResolvedValue({
@@ -966,6 +990,16 @@ describe("AgentPlaygroundController", () => {
       expect(store.deleteByUser).toHaveBeenCalledWith("m-1", "user-1");
       expect(electionTracker.clear).toHaveBeenCalledWith("m-1");
       expect(ownership.release).toHaveBeenCalledWith("m-1");
+      // ★ WS-Audit: mission 删除高敏操作 append-only 留痕
+      expect(auditLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorUserId: "user-1",
+          action: "mission.delete",
+          resourceType: "agent_playground_mission",
+          resourceId: "m-1",
+          result: "success",
+        }),
+      );
     });
 
     // 2026-05-12 FK 事故修复：running mission 直接 DELETE 会让 background workers

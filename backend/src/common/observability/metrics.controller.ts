@@ -7,6 +7,7 @@
 import { Controller, Get, Header } from "@nestjs/common";
 import { MetricsService } from "./metrics.service";
 import { Public } from "../../common/decorators/public.decorator";
+import { SkipTransform } from "../../common/interceptors/decorators/skip-transform.decorator";
 
 @Public()
 @Controller("metrics")
@@ -18,6 +19,7 @@ export class MetricsController {
    * 返回 Prometheus 格式的指标
    */
   @Get()
+  @SkipTransform()
   @Header("Content-Type", "text/plain; version=0.0.4")
   getMetrics(): string {
     return this.metricsService.exportPrometheus();

@@ -23,12 +23,10 @@ import { Observable, map, catchError, of } from "rxjs";
 // 故 agents-api 整目录在 .eslintrc.js 中文档化豁免，直引 agent.types primitive。
 import { AgentOrchestrator } from "../../ai-harness/agents/registry/agent-orchestrator";
 import { AgentRegistry } from "../../ai-harness/agents/registry/plan-based-agent-registry";
-import {
-  AgentId,
-  AgentInput,
-} from "@/modules/ai-harness/agents/abstractions/agent.types";
+import { AgentInput } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { isPlatformAgentId } from "@/modules/ai-app/contracts/agent-catalog";
 import { AgentsService } from "./agents.service";
+import { AgentsTaskQueueService } from "./agents-task-queue.service";
 import {
   ExecuteRequestDto,
   ExecuteResponseDto,
@@ -53,6 +51,7 @@ export class AgentsController {
     private readonly orchestrator: AgentOrchestrator,
     private readonly agentRegistry: AgentRegistry,
     private readonly agentsService: AgentsService,
+    private readonly agentsTaskQueue: AgentsTaskQueueService,
   ) {}
 
   /**
@@ -186,8 +185,9 @@ export class AgentsController {
       input,
     });
 
-    // 异步执行任务
-    void this.executeTaskAsync(task.id, input, body.agentId, userId);
+    // 入队 durable 执行任务（BullMQ）——HTTP 立即返回，执行交给 worker，
+    // 进程崩溃/重启不丢任务（boot recovery 重投在途任务）。
+    await this.agentsTaskQueue.enqueue(task.id, input, body.agentId, userId);
 
     return {
       taskId: task.id,
@@ -341,58 +341,5 @@ export class AgentsController {
     @Param("artifactId") artifactId: string,
   ): Promise<{ url: string | null; name: string; mimeType: string }> {
     return this.agentsService.getArtifactDownload(artifactId);
-  }
-
-  /**
-   * 异步执行任务
-   */
-  private async executeTaskAsync(
-    taskId: string,
-    input: AgentInput,
-    agentId?: AgentId,
-    userId?: string,
-  ): Promise<void> {
-    try {
-      await this.agentsService.updateTaskStatus(taskId, "PLANNING");
-
-      for await (const event of this.orchestrator.execute(
-        input,
-        agentId,
-        userId,
-      )) {
-        // 发布事件到 SSE 流
-        this.agentsService.publishEvent(taskId, event);
-
-        // 更新任务状态
-        if (event.type === "plan_ready") {
-          await this.agentsService.updateTaskStatus(taskId, "EXECUTING");
-          await this.agentsService.updateTaskPlan(taskId, event.plan);
-        }
-
-        if (event.type === "artifact") {
-          await this.agentsService.saveArtifact(taskId, event.artifact);
-        }
-
-        if (event.type === "complete") {
-          await this.agentsService.updateTaskStatus(taskId, "COMPLETED");
-          await this.agentsService.updateTaskResult(taskId, event.result);
-        }
-
-        if (event.type === "error") {
-          await this.agentsService.updateTaskStatus(
-            taskId,
-            "FAILED",
-            event.error,
-          );
-        }
-      }
-    } catch (error) {
-      this.logger.error(`Task execution error: ${error}`);
-      await this.agentsService.updateTaskStatus(
-        taskId,
-        "FAILED",
-        error instanceof Error ? error.message : "Unknown error",
-      );
-    }
   }
 }

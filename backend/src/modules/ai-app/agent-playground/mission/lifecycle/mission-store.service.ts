@@ -85,6 +85,12 @@ function projectUserProfileView(
 import { MissionUpdateHelper } from "./mission-update.helper";
 import { MissionPostmortemHelper } from "./mission-postmortem.helper";
 import { MissionReportHelper } from "./mission-report.helper";
+import {
+  CostLedgerStore,
+  type CostLedgerEntry,
+  type CostLedgerRow,
+  type CostLedgerSummary,
+} from "./cost-ledger.store";
 
 export interface MissionListItem {
   id: string;
@@ -177,6 +183,7 @@ export class MissionStore
   private readonly update: MissionUpdateHelper;
   private readonly postmortem: MissionPostmortemHelper;
   private readonly report: MissionReportHelper;
+  private readonly costLedger: CostLedgerStore;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -291,6 +298,7 @@ export class MissionStore
       isMissionRowMissing,
       (missionId, reason) => this.triggerEmergencyAbort(missionId, reason),
     );
+    this.costLedger = new CostLedgerStore(prisma);
   }
 
   private async clearCheckpointJsonbKey(missionId: string): Promise<void> {
@@ -324,18 +332,52 @@ export class MissionStore
       case "completed":
         return this.lifecycle.writeCompleted(
           missionId,
-          extra.detail,
+          await this.reconcileTerminalCost(missionId, extra.detail),
           extra.userId,
         );
       case "failed":
         return this.lifecycle.writeFailed(
           missionId,
-          extra.detail,
+          await this.reconcileTerminalCost(missionId, extra.detail),
           extra.userId,
         );
       case "cancelled":
         return this.lifecycle.writeCancelled(missionId, extra.userId);
     }
+  }
+
+  /**
+   * ★ Wire-Cost (2026-05-30)：终态 costUsd/tokensUsed 改取成本台账 SUM（DB 端权威值），
+   * 替代 budget pool 标量快照漂移。台账有行 → 覆盖；无行（legacy / 无 LLM 结算）→
+   * 保留调用方传入的标量，保证向后兼容不丢值。
+   */
+  private async reconcileTerminalCost<
+    T extends { tokensUsed?: number; costUsd?: number },
+  >(missionId: string, detail: T): Promise<T> {
+    const summary = await this.costLedger.sumByMission(missionId);
+    if (summary.entryCount === 0) return detail; // 无台账留痕：回退标量，不覆盖
+    return {
+      ...detail,
+      tokensUsed: summary.totalTokens,
+      costUsd: summary.costUsd,
+    };
+  }
+
+  // ── Cost ledger delegates (Wire-Cost) ─────────────────────────────────────
+
+  /** stage / role 结算点追加一行成本台账（fire-and-forget；失败结构化 warn 不吞错）。 */
+  appendCostEntry(entry: CostLedgerEntry): Promise<boolean> {
+    return this.costLedger.appendCostEntry(entry);
+  }
+
+  /** 单 mission 成本求和（终态 costUsd/tokensUsed 取此值）。 */
+  sumCostByMission(missionId: string): Promise<CostLedgerSummary> {
+    return this.costLedger.sumByMission(missionId);
+  }
+
+  /** 单 mission 成本明细（per-stage/role/model 列行，供审计 / 成本面板）。 */
+  listCostByMission(missionId: string): Promise<CostLedgerRow[]> {
+    return this.costLedger.listByMission(missionId);
   }
 
   // ── CRUD / heartbeat / stage / orphan: framework 已提供

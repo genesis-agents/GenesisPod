@@ -23,6 +23,11 @@ import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./ai-stream-handler.service";
 import { AIMetricsService } from "@/modules/ai-infra/facade";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
+// ★ P1 PII 脱敏：消费侧改写逻辑抽到 helper，避免 god-class 增长（真生效，非 inert）。
+import {
+  redactUserMessages,
+  resolveRedactedOutput,
+} from "./pii-guardrail-redaction.helper";
 // ★ L2 ai-engine 内部代码禁止从 @/modules/ai-engine/facade 导入 —— facade 是 L3
 // AI App 的单向入口，L2 自己走 facade barrel 会触发 barrel → 50+ 子模块 → L2
 // 的回环加载，在 module-evaluation 阶段产生 undefined class ref，Nest DI 随后
@@ -1569,6 +1574,8 @@ export class AiChatService {
       );
 
       // ★ Guardrails: Input validation for BYOK path (skip for internal system calls)
+      // ★ PII 脱敏：默认用原 messages，命中 PII 时换成脱敏后的 messages 再发 provider。
+      let byokMessages = messages;
       if (!skipGuardrails) {
         const inputGuardrailResult = await this.runInputGuardrails(messages, {
           provider,
@@ -1584,6 +1591,9 @@ export class AiChatService {
             isError: true,
           };
         }
+        if (inputGuardrailResult.redactedMessages) {
+          byokMessages = inputGuardrailResult.redactedMessages;
+        }
       }
 
       try {
@@ -1593,7 +1603,7 @@ export class AiChatService {
           apiKey,
           apiEndpoint,
           systemPrompt,
-          messages,
+          messages: byokMessages,
           taskProfile,
           maxTokens: providedMaxTokens,
           temperature: providedTemperature,
@@ -1621,6 +1631,10 @@ export class AiChatService {
               model: result.model,
               isError: true,
             };
+          }
+          // ★ PII 脱敏：输出含 PII 时用脱敏后的内容替换再返回用户。
+          if (outputGuardrailResult.redactedContent) {
+            result.content = outputGuardrailResult.redactedContent;
           }
         }
 
@@ -1891,6 +1905,8 @@ export class AiChatService {
     );
 
     // ★ Guardrails: Input validation (skip for internal system calls)
+    // ★ PII 脱敏：默认用原 messages，命中 PII 时换成脱敏后的 messages 再发 provider。
+    let effectiveMessages = messages;
     if (!skipGuardrails) {
       const inputGuardrailResult = await this.runInputGuardrails(messages, {
         modelType,
@@ -1905,6 +1921,9 @@ export class AiChatService {
           usage: { totalTokens: 0 },
           isError: true,
         };
+      }
+      if (inputGuardrailResult.redactedMessages) {
+        effectiveMessages = inputGuardrailResult.redactedMessages;
       }
     }
 
@@ -1934,7 +1953,7 @@ export class AiChatService {
       const result = await this.generateChatCompletion({
         model: currentModel,
         systemPrompt: effectiveSystemPrompt,
-        messages,
+        messages: effectiveMessages,
         maxTokens: effectiveMaxTokens,
         temperature: effectiveTemperature,
         strictMode,
@@ -2094,6 +2113,10 @@ export class AiChatService {
               model: result.model,
               isError: true,
             };
+          }
+          // ★ PII 脱敏：输出含 PII 时用脱敏后的内容替换再返回用户。
+          if (outputGuardrailResult.redactedContent) {
+            result.content = outputGuardrailResult.redactedContent;
           }
         }
 
@@ -2698,6 +2721,8 @@ export class AiChatService {
   ): Promise<{
     passed: boolean;
     blockedBy?: string;
+    // ★ PII 脱敏后的 messages（仅管道改写时返回）：调用方须替换原 messages 再发 provider。
+    redactedMessages?: ChatMessage[];
   }> {
     if (!this.guardrailsEnabled()) {
       return { passed: true };
@@ -2726,7 +2751,7 @@ export class AiChatService {
       });
 
       if (!inputResult.passed) {
-        const pathLabel = context?.pathName || "chat";
+        const pathLabel = context?.pathName ?? "chat";
         this.logger.warn(
           `[${pathLabel}] Input blocked by guardrail: ${inputResult.blockedBy}`,
         );
@@ -2745,9 +2770,17 @@ export class AiChatService {
         };
       }
 
+      // ★ PII 脱敏真生效：管道报告内容被改写时，逐条脱敏 user message 后供调用方替换发 provider。
+      if (typeof inputResult.transformedContent === "string") {
+        this.logger.warn(
+          `[${context?.pathName ?? "chat"}] PII redacted in input before sending to provider`,
+        );
+        return { passed: true, redactedMessages: redactUserMessages(messages) };
+      }
+
       return { passed: true };
     } catch (error) {
-      const pathLabel = context?.pathName || "chat";
+      const pathLabel = context?.pathName ?? "chat";
       this.logger.error(
         `[${pathLabel}] Guardrail input check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
@@ -2777,6 +2810,8 @@ export class AiChatService {
   ): Promise<{
     passed: boolean;
     blockedBy?: string;
+    // ★ PII 脱敏后的输出内容（仅被改写时返回）：调用方须替换返回给用户的内容。
+    redactedContent?: string;
   }> {
     if (!this.guardrailsEnabled()) {
       return { passed: true };
@@ -2795,7 +2830,7 @@ export class AiChatService {
       });
 
       if (!outputResult.passed) {
-        const pathLabel = context?.pathName || "chat";
+        const pathLabel = context?.pathName ?? "chat";
         this.logger.warn(
           `[${pathLabel}] Output blocked by guardrail: ${outputResult.blockedBy}`,
         );
@@ -2818,9 +2853,21 @@ export class AiChatService {
         };
       }
 
+      // ★ 输出侧 PII 脱敏：管道未配置输出脱敏 guardrail 时兜底脱敏，保证返回用户的内容不含 PII。
+      const redacted = resolveRedactedOutput(
+        content,
+        outputResult.transformedContent,
+      );
+      if (redacted !== content) {
+        this.logger.warn(
+          `[${context?.pathName ?? "chat"}] PII redacted in output before returning to user`,
+        );
+        return { passed: true, redactedContent: redacted };
+      }
+
       return { passed: true };
     } catch (error) {
-      const pathLabel = context?.pathName || "chat";
+      const pathLabel = context?.pathName ?? "chat";
       this.logger.error(
         `[${pathLabel}] Guardrail output check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
       );

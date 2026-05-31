@@ -9,19 +9,16 @@ import {
   GuardrailInput,
   GuardrailResult,
 } from "../guardrails.interface";
-
-/**
- * PII pattern
- */
-interface PIIPattern {
-  pattern: RegExp;
-  name: string;
-  type: string;
-}
+import { redactPII } from "./pii-redactor";
 
 /**
  * Content Safety Filter
- * Detects PII and sensitive information in input
+ * Detects AND redacts PII / sensitive information in input.
+ *
+ * ★ P1 (PII 脱敏真生效): 之前仅检测并返回 severity:'warning'，原文照进 LLM。
+ * 现改为命中即调用 redactPII 脱敏，并把脱敏后文本写入 result.transformedContent，
+ * 由管道传播给 ai-chat，最终用脱敏内容替换 messages 再发给 provider。
+ * 策略：PII 默认脱敏（不阻断），保持 passed:true / severity:'warning'。
  */
 @Injectable()
 export class ContentSafetyFilter implements IInputGuardrail {
@@ -29,77 +26,11 @@ export class ContentSafetyFilter implements IInputGuardrail {
   readonly name = "Content Safety Filter";
   readonly enabled = true;
 
-  private readonly piiPatterns: PIIPattern[] = [
-    // Email addresses
-    {
-      pattern: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
-      name: "Email Address",
-      type: "email",
-    },
-    // Phone numbers (international and US formats)
-    {
-      pattern:
-        /(?:\+?86)?1[3-9]\d{9}|\+?1?\s*\(?[0-9]{3}\)?[-.\s]*[0-9]{3}[-.\s]*[0-9]{4}/g,
-      name: "Phone Number",
-      type: "phone",
-    },
-    // Credit card numbers (basic pattern)
-    {
-      pattern: /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g,
-      name: "Credit Card Number",
-      type: "credit_card",
-    },
-    // Social Security Numbers (US)
-    {
-      pattern: /\b\d{3}-\d{2}-\d{4}\b/g,
-      name: "Social Security Number",
-      type: "ssn",
-    },
-    // Chinese ID card numbers
-    {
-      pattern: /\b\d{17}[\dXx]\b|\b\d{15}\b/g,
-      name: "ID Card Number",
-      type: "id_card",
-    },
-    // IP addresses
-    {
-      pattern: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
-      name: "IP Address",
-      type: "ip_address",
-    },
-    // API keys (simple pattern for common formats)
-    {
-      pattern: /\b[A-Za-z0-9_-]{32,}\b/g,
-      name: "Potential API Key",
-      type: "api_key",
-    },
-  ];
-
   /**
-   * Check input for PII and sensitive information
+   * Check input for PII and redact in place.
    */
   async check(input: GuardrailInput): Promise<GuardrailResult> {
-    const detections: Array<{ type: string; name: string; count: number }> = [];
-
-    for (const { pattern, name, type } of this.piiPatterns) {
-      // Reset lastIndex for global regex
-      pattern.lastIndex = 0;
-
-      const matches = input.content.match(pattern);
-      if (matches && matches.length > 0) {
-        // Filter out false positives for API keys (too short or common words)
-        if (type === "api_key") {
-          const validMatches = matches.filter(
-            (m) => m.length >= 32 && !/^[a-zA-Z]+$/.test(m),
-          );
-          if (validMatches.length > 0) {
-            detections.push({ type, name, count: validMatches.length });
-          }
-        } else {
-          detections.push({ type, name, count: matches.length });
-        }
-      }
-    }
+    const { redacted, detections } = redactPII(input.content);
 
     // No detections
     if (detections.length === 0) {
@@ -111,20 +42,19 @@ export class ContentSafetyFilter implements IInputGuardrail {
       };
     }
 
-    // PII detected - return warning
+    // PII detected → 脱敏后通过（默认 redact，不阻断）
     const totalCount = detections.reduce((sum, d) => sum + d.count, 0);
     return {
       passed: true,
       guardrailId: this.id,
       severity: "warning",
-      message: `Detected ${totalCount} potential PII instances: ${detections.map((d) => `${d.name} (${d.count})`).join(", ")}`,
+      message: `Redacted ${totalCount} potential PII instances: ${detections.map((d) => `${d.name} (${d.count})`).join(", ")}`,
+      // ★ 脱敏后文本回传给管道 → ai-chat 用它替换 messages 再发 provider
+      transformedContent: redacted,
       metadata: {
-        detections: detections.map((d) => ({
-          type: d.type,
-          name: d.name,
-          count: d.count,
-        })),
+        detections,
         totalCount,
+        redacted: true,
       },
     };
   }

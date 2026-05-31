@@ -15,6 +15,7 @@ import { CreditTransactionType, Prisma } from "@prisma/client";
 import { CreditsService } from "../credits.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CreditRulesService } from "../policy/credit-rules.service";
+import { AuditLogService } from "../../monitoring/audit/audit-log.service";
 import { InsufficientCreditsException } from "../exceptions/insufficient-credits.exception";
 import { AccountFrozenException } from "../exceptions/insufficient-credits.exception";
 import { ConsumeCreditsParams } from "../dto/consume-credits.dto";
@@ -96,6 +97,10 @@ describe("CreditsService", () => {
         CreditsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: CreditRulesService, useValue: mockRulesService },
+        {
+          provide: AuditLogService,
+          useValue: { record: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 

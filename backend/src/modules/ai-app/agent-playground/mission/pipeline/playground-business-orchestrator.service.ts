@@ -26,6 +26,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import {
   runWithStageInstrumentation,
   BusinessTeamOrchestratorFramework,
+  defineStageHooks,
   type BusinessTeamStageRunner,
   type ResolvedStageHooks,
   type StageRunArgs,
@@ -209,7 +210,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
         await runBudgetEstimateStage(invariants, deps, entry.workspaceId);
       },
     };
-    return hooks as unknown as ResolvedStageHooks;
+    return defineStageHooks(hooks);
   }
 
   /**
@@ -312,7 +313,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
         };
       },
     };
-    return hooks as unknown as ResolvedStageHooks;
+    return defineStageHooks(hooks);
   }
 
   /**
@@ -578,7 +579,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
         return entry.crossState.lastResearcherResults;
       },
     };
-    return hooks as unknown as ResolvedStageHooks;
+    return defineStageHooks(hooks);
   }
 
   /**
@@ -622,7 +623,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
         return "continue";
       },
     };
-    return hooks as unknown as ResolvedStageHooks;
+    return defineStageHooks(hooks);
   }
 
   /**
@@ -660,7 +661,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
         return stageCtx.reconciliationReport;
       },
     };
-    return hooks as unknown as ResolvedStageHooks;
+    return defineStageHooks(hooks);
   }
 
   /**
@@ -698,7 +699,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
         return stageCtx.analystOutput;
       },
     };
-    return hooks as unknown as ResolvedStageHooks;
+    return defineStageHooks(hooks);
   }
 
   /**
@@ -728,7 +729,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
         return stageCtx.outlinePlan ?? null;
       },
     };
-    return hooks as unknown as ResolvedStageHooks;
+    return defineStageHooks(hooks);
   }
 
   /**
@@ -794,7 +795,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
         return stageCtx.reportArtifact ?? stageCtx.report ?? null;
       },
     };
-    return hooks as unknown as ResolvedStageHooks;
+    return defineStageHooks(hooks);
   }
 
   /**
@@ -836,7 +837,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
         };
       },
     };
-    return hooks as unknown as ResolvedStageHooks;
+    return defineStageHooks(hooks);
   }
 
   /**
@@ -876,7 +877,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
         };
       },
     };
-    return hooks as unknown as ResolvedStageHooks;
+    return defineStageHooks(hooks);
   }
 
   /**
@@ -958,7 +959,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
         void this.recordForesightPredictions(entry, missionId);
       },
     };
-    return hooks as unknown as ResolvedStageHooks;
+    return defineStageHooks(hooks);
   }
 
   /**

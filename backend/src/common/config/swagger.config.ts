@@ -47,15 +47,55 @@ The Public API (\`/api/v1/public/*\`) provides external access to AI capabilitie
 - **Writing**: Content improvement, summarization, proofreading
 - **Analysis**: Multi-dimensional content analysis
 
+### Success Response Envelope
+
+All successful internal REST responses are wrapped by a transform interceptor:
+\`\`\`json
+{
+  "success": true,
+  "data": { "...": "endpoint-specific payload" },
+  "metadata": {
+    "requestId": "req_1717000000000_ab12cd3",
+    "timestamp": "2026-05-30T12:00:00.000Z",
+    "duration": 42
+  }
+}
+\`\`\`
+The actual endpoint payload is always under \`data\`. \`metadata.requestId\` is
+echoed in the \`X-Request-Id\` response header. (Endpoints decorated to skip
+transform — e.g. file/stream downloads — return their raw body instead.)
+
 ### Error Response Format
 
+Errors are produced by the global exception filter with this exact shape:
 \`\`\`json
 {
   "statusCode": 400,
+  "timestamp": "2026-05-30T12:00:00.000Z",
+  "path": "/api/v1/public/research",
+  "method": "POST",
   "message": "Error description",
-  "error": "Bad Request"
+  "code": "VALIDATION_ERROR",
+  "requestId": "req_1717000000000_ab12cd3",
+  "traceId": "trace-abc123"
 }
 \`\`\`
+Field notes:
+- \`statusCode\` — HTTP status (also the HTTP response status line).
+- \`code\` — stable machine-readable error code (e.g. \`INTERNAL_ERROR\`,
+  \`NOT_FOUND\`, \`DUPLICATE_ERROR\`, \`VALIDATION_ERROR\`); prefer this over
+  matching on \`message\`.
+- \`message\` — human-readable description.
+- \`requestId\` / \`traceId\` — present when available; quote them in support requests.
+- \`details\` — optional object with structured error context (present for
+  some validation/database errors).
+- \`stack\` — included only when the server runs in development mode.
+
+Note: the **Public API** family (\`/api/v1/public/*\`) speaks two protocols with
+their own JSON-RPC error envelopes — MCP (\`/mcp\`) and A2A (\`/a2a\`) return
+\`{ "jsonrpc": "2.0", "id": ..., "error": { "code": <number>, "message": "..." } }\`
+instead of the REST shape above. See \`backend/src/common/errors/protocol-error-codes.ts\`
+for the cross-protocol error-code reference.
       `,
       )
       .setVersion("1.0.0")

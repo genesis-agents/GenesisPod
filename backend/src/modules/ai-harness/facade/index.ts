@@ -37,11 +37,21 @@ export { HarnessFacade } from "./harness.facade";
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { AIFacade } from "./ai.facade";
 export * from "./domain";
+/**
+ * @deprecated engine 原子能力 —— canonical 来源是 `@/modules/ai-engine/facade`。
+ * harness 仅为过渡期提供 thin re-export；新代码请从 ai-engine/facade 导入。
+ * 速查表见 .claude/standards/27-extension-cookbook.md §「要 X 能力 → 从哪个 facade 导入」。
+ */
 export { RAGPipelineService } from "../../ai-engine/rag/pipeline/rag-pipeline.service";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { PromptSkillBridge } from "../../ai-engine/skills/runtime";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { ToolRegistry } from "../../ai-engine/tools/registry/tool.registry";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { FederalRegisterTool } from "../../ai-engine/tools/categories/information/policy/federal-register.tool";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { CongressGovTool } from "../../ai-engine/tools/categories/information/policy/congress-gov.tool";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { WhiteHouseNewsTool } from "../../ai-engine/tools/categories/information/policy/whitehouse-news.tool";
 export type {
   ITool,
@@ -58,6 +68,7 @@ export type {
   ConcurrencyPlanOptions,
   ConcurrencyPlan,
 } from "../guardrails/resources/concurrency-planner.service";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { YoutubeService } from "../../ai-engine/content/fetch/youtube.service";
 export type { TranscriptSegment } from "../../ai-engine/content/fetch/youtube.service";
 export {
@@ -87,13 +98,19 @@ export {
 } from "../../ai-engine/llm/output-parsing";
 
 // â˜… Planning & Knowledge services
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { TokenBudgetService } from "../../ai-engine/planning/budget/token-budget.service";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { ContextCompressionService } from "../../ai-engine/planning/context/context-compression.service";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { CrossCuttingSynthesisService } from "../../ai-engine/knowledge/synthesis/cross-cutting-synthesis.service";
 export type { SynthesisResult } from "../../ai-engine/knowledge/synthesis/cross-cutting-synthesis.service";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { PromptCacheCoordinatorService } from "../../ai-engine/llm/services/prompt-cache-coordinator.service";
 export type { SaveEvidenceRequest } from "../../ai-engine/knowledge/evidence/abstractions/evidence.interface";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { inferIsReasoning } from "../../ai-engine/llm/types/model.utils";
 // ★ 2026-05-01 (PR-G iter8 + iter9): 集中所有 review pass/attempt 阈值 + agent budget cap
 export {
@@ -375,6 +392,7 @@ export type {
   ParseReportArtifactResult,
 } from "../evaluation/critique/report-artifact/report-artifact-zod.schema";
 
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export {
   MissionElectionTracker,
   ModelElectionService,
@@ -890,6 +908,7 @@ export {
 // â"€â"€ Resource â"€â"€
 export { ResourceManagerService } from "../guardrails/resources/resource-manager.service";
 // PR-X15: 通过 engine/facade barrel 转发，不穿透 engine 私有路径
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export {
   CircuitBreakerService,
   TaskCompletionType,
@@ -1004,6 +1023,7 @@ export type {
 
 // â"€â"€ Security â"€â"€
 // PR-X15: 通过 engine/facade barrel，不穿透 engine 私有路径
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { CapabilityGuardService } from "../../ai-engine/facade";
 export type { CapabilityCheckResult } from "../../ai-engine/facade";
 
@@ -1330,8 +1350,11 @@ export type {
 export { SKILL_PROVIDERS } from "../agents/abstractions/skill.interface";
 
 // Engine LLM service classes (PR-X14: harness facade 转发常用 engine 服务)
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { AiModelConfigService } from "../../ai-engine/llm/services/ai-model-config.service";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallback.service";
 export type { ModelFallbackOptions } from "../../ai-engine/llm/selection/model-fallback.service";
 export type { AIModelConfig } from "../../ai-engine/llm/services/ai-model-config.service";
@@ -1344,6 +1367,7 @@ export {
 } from "../runner/loop/model-failover.util";
 
 // Engine content/fetch helpers used by ai-app/social
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export {
   sanitizeForDb,
   sanitizeJson,
@@ -1366,12 +1390,21 @@ export {
   UpdateUserModelConfigDto,
 } from "../../ai-infra/facade";
 
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { AiModelDiscoveryService } from "../../ai-engine/llm/services/ai-model-discovery.service";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { AiConnectionTestService } from "../../ai-engine/llm/services/ai-connection-test.service";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { AutoConfigureService } from "../../ai-engine/llm/user-config/user-models-auto-configure.service";
 
 // Compatibility forwards for ai-app imports that still use the harness facade
 // as the single public entrypoint while their implementations remain engine-owned.
+/**
+ * @deprecated 本组符号是 engine 原子能力（EmbeddingService / VectorService /
+ * DocumentChunker / ImageMatchingService / FunctionCallingLLMAdapter / AIError 等）。
+ * canonical 来源是 `@/modules/ai-engine/facade`；harness 仅过渡 re-export，新代码请直接从
+ * ai-engine/facade 导入。速查表见 .claude/standards/27-extension-cookbook.md。
+ */
 export {
   wrapExternalContent,
   wrapExternalContentBatch,
@@ -1450,6 +1483,7 @@ export type {
   BudgetAllocation,
   ErrorDetectionRetryConfig,
 } from "../../ai-engine/facade";
+/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
 
 // ╔════════════════════════════════════════════════════════════════════════
@@ -1468,6 +1502,8 @@ export {
   type ResolvedRole,
   type ResolvedStageHooks,
   type StageHookFn,
+  type StageHookShape,
+  defineStageHooks,
   type MissionContext,
   type RoleState,
   type PastDecision as StagePastDecision,

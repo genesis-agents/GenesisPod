@@ -223,6 +223,9 @@ model User {
   radarTopicSubscriptions RadarTopicSubscription[]
   userFavorites           UserFavorite[]
 
+  // 2026-05-30 P0 remediation：统一审计日志（actor 反向关系）
+  auditLogs AuditLog[] @relation("UserAuditLogs")
+
   @@map("users")
 }
 
@@ -10019,6 +10022,8 @@ model AgentPlaygroundMission {
   rerunAttempts   AgentPlaygroundRerunAttempt[]
   /// ★ Foresight L3 (2026-05-29)：本 mission 产出的前瞻预测留痕（到期裁决 + Brier 校准）
   predictionRecords AgentPlaygroundPredictionRecord[]
+  /// ★ 2026-05-30 P0 remediation：本 mission 的成本台账（逐 step LLM 用量）
+  costLedger        AgentPlaygroundMissionCostLedger[]
 
   /// ★ PR-H v1 (2026-05-01): pod-aware mission lifecycle —— pod 重启检测 + 后续 resume 接续
   /// lastCompletedStage: 0~12（S0~S12）；null = 还没完成 S1
@@ -11065,4 +11070,49 @@ model UserEvent {
   @@index([module, action, createdAt])
   @@index([topicKey, createdAt])
   @@map("user_events")
+}
+
+/// ★ 2026-05-30 P0 remediation：统一审计日志（append-only，全局安全/合规留痕）
+/// 写入点：secret 访问、credit 冻结、mission 删除/运行/取消等敏感操作。
+/// 只增不改不删（append-only），查询走 actorUserId / action / resource / createdAt 索引。
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorUserId  String?  @map("actor_user_id")
+  actor        User?    @relation("UserAuditLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+  action       String   @db.VarChar(80) // 'secret.access' | 'credit.freeze' | 'mission.delete' | 'mission.run' | 'mission.cancel'
+  resourceType String   @map("resource_type") @db.VarChar(80)
+  resourceId   String?  @map("resource_id")
+  result       String   @db.VarChar(20) // 'success' | 'denied' | 'error'
+  ip           String?  @db.VarChar(64)
+  traceId      String?  @map("trace_id") @db.VarChar(120)
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([resourceType, resourceId])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+/// ★ 2026-05-30 P0 remediation：Agent Playground mission 成本台账（逐 step LLM 用量留痕）
+/// 写入点：mission 每个 step LLM 调用结算时 append 一行（promptTokens/completionTokens/costUsd）。
+/// 查询：按 missionId 汇总单 mission 成本、按 userId 汇总用户总花费。
+model AgentPlaygroundMissionCostLedger {
+  id               String                 @id @default(uuid())
+  missionId        String                 @map("mission_id")
+  mission          AgentPlaygroundMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  userId           String                 @map("user_id")
+  stepId           String?                @map("step_id") @db.VarChar(120)
+  role             String?                @db.VarChar(80)
+  model            String?                @db.VarChar(120)
+  promptTokens     Int                    @default(0) @map("prompt_tokens")
+  completionTokens Int                    @default(0) @map("completion_tokens")
+  costUsd          Float                  @default(0) @map("cost_usd")
+  createdAt        DateTime               @default(now()) @map("created_at")
+
+  @@index([missionId])
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@map("agent_playground_mission_cost_ledger")
 }
