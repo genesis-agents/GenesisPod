@@ -10,7 +10,18 @@
  * - 支持不同类型批注（评论、建议、问题、引用）
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import {
+  MessageSquare,
+  Lightbulb,
+  AlertTriangle,
+  Paperclip,
+  FileText,
+  Check,
+  RotateCcw,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import { confirm } from '@/stores';
 import {
   getChapterAnnotations,
@@ -36,27 +47,27 @@ interface ChapterAnnotationsProps {
 // 批注类型配置
 const ANNOTATION_TYPE_CONFIG: Record<
   AnnotationType,
-  { label: string; color: string; icon: string }
+  { label: string; color: string; icon: ReactNode }
 > = {
   COMMENT: {
     label: '评论',
     color: 'bg-blue-100 text-blue-700 border-blue-200',
-    icon: '💬',
+    icon: <MessageSquare className="h-3 w-3" />,
   },
   SUGGESTION: {
     label: '建议',
     color: 'bg-green-100 text-green-700 border-green-200',
-    icon: '💡',
+    icon: <Lightbulb className="h-3 w-3" />,
   },
   ISSUE: {
     label: '问题',
     color: 'bg-red-100 text-red-700 border-red-200',
-    icon: '⚠️',
+    icon: <AlertTriangle className="h-3 w-3" />,
   },
   REFERENCE: {
     label: '引用',
     color: 'bg-purple-100 text-purple-700 border-purple-200',
-    icon: '📎',
+    icon: <Paperclip className="h-3 w-3" />,
   },
 };
 
@@ -235,7 +246,7 @@ export default function ChapterAnnotations({
       {/* 头部 */}
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-lg">📝</span>
+          <FileText className="h-5 w-5 text-gray-500" />
           <h3 className="font-semibold text-gray-800">批注</h3>
           <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
             {stats.open} 待处理 / {stats.total} 总计
@@ -369,8 +380,9 @@ export default function ChapterAnnotations({
       )}
 
       {/* 提示 */}
-      <div className="border-b border-gray-100 bg-blue-50 px-4 py-2 text-xs text-blue-600">
-        💡 提示: 在右侧内容区选中文本后，可添加针对该文本的批注
+      <div className="flex items-center gap-1 border-b border-gray-100 bg-blue-50 px-4 py-2 text-xs text-blue-600">
+        <Lightbulb className="h-3 w-3" /> 提示:
+        在右侧内容区选中文本后，可添加针对该文本的批注
       </div>
 
       {/* 错误提示 */}
@@ -507,7 +519,7 @@ export default function ChapterAnnotations({
                           className="rounded p-1 text-green-600 hover:bg-green-50"
                           title="标记为已解决"
                         >
-                          ✓
+                          <Check className="h-3.5 w-3.5" />
                         </button>
                       )}
                       {annotation.status !== 'OPEN' && (
@@ -518,7 +530,7 @@ export default function ChapterAnnotations({
                           className="rounded p-1 text-yellow-600 hover:bg-yellow-50"
                           title="重新打开"
                         >
-                          ↺
+                          <RotateCcw className="h-3.5 w-3.5" />
                         </button>
                       )}
                       <button
@@ -529,14 +541,14 @@ export default function ChapterAnnotations({
                         className="rounded p-1 text-gray-500 hover:bg-gray-100"
                         title="编辑"
                       >
-                        ✏️
+                        <Pencil className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteAnnotation(annotation.id)}
                         className="rounded p-1 text-red-500 hover:bg-red-50"
                         title="删除"
                       >
-                        🗑️
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>

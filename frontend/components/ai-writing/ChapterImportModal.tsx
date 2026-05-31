@@ -10,7 +10,18 @@
  * - 设置导入选项
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import {
+  Clipboard,
+  File,
+  FileText,
+  Library,
+  FileCode,
+  Globe,
+  Download,
+  ClipboardList,
+  Check,
+} from 'lucide-react';
 import {
   parseImport,
   confirmImport,
@@ -38,17 +49,27 @@ interface ChapterImportModalProps {
 
 type Step = 'input' | 'preview' | 'importing' | 'complete' | 'history';
 
-const IMPORT_SOURCES: Record<ImportSource, { label: string; icon: string }> = {
-  PASTE: { label: '粘贴文本', icon: '📋' },
-  FILE_TXT: { label: 'TXT 文件', icon: '📄' },
-  FILE_DOCX: { label: 'Word 文档', icon: '📝' },
-  FILE_EPUB: { label: 'EPUB 电子书', icon: '📚' },
-  FILE_MD: { label: 'Markdown', icon: '📃' },
-  URL_QIDIAN: { label: '起点中文网', icon: '🌐' },
-  URL_JJWXC: { label: '晋江文学城', icon: '🌐' },
-  URL_FANQIE: { label: '番茄小说', icon: '🌐' },
-  URL_OTHER: { label: '其他网站', icon: '🌐' },
-};
+const IMPORT_SOURCES: Record<ImportSource, { label: string; icon: ReactNode }> =
+  {
+    PASTE: { label: '粘贴文本', icon: <Clipboard className="h-3.5 w-3.5" /> },
+    FILE_TXT: { label: 'TXT 文件', icon: <File className="h-3.5 w-3.5" /> },
+    FILE_DOCX: {
+      label: 'Word 文档',
+      icon: <FileText className="h-3.5 w-3.5" />,
+    },
+    FILE_EPUB: {
+      label: 'EPUB 电子书',
+      icon: <Library className="h-3.5 w-3.5" />,
+    },
+    FILE_MD: { label: 'Markdown', icon: <FileCode className="h-3.5 w-3.5" /> },
+    URL_QIDIAN: {
+      label: '起点中文网',
+      icon: <Globe className="h-3.5 w-3.5" />,
+    },
+    URL_JJWXC: { label: '晋江文学城', icon: <Globe className="h-3.5 w-3.5" /> },
+    URL_FANQIE: { label: '番茄小说', icon: <Globe className="h-3.5 w-3.5" /> },
+    URL_OTHER: { label: '其他网站', icon: <Globe className="h-3.5 w-3.5" /> },
+  };
 
 const PATTERN_OPTIONS: Record<ChapterPatternType, string> = {
   auto: '自动检测',
@@ -329,14 +350,14 @@ export default function ChapterImportModal({
       onClose={onClose}
       title={
         <span className="flex items-center gap-2">
-          <span>📥</span>
+          <Download className="h-4 w-4" />
           <span>导入章节</span>
           {step === 'input' && (
             <button
               onClick={loadHistory}
-              className="ml-2 rounded px-2 py-1 text-sm font-normal text-gray-600 hover:bg-gray-100"
+              className="ml-2 flex items-center gap-1 rounded px-2 py-1 text-sm font-normal text-gray-600 hover:bg-gray-100"
             >
-              📋 历史记录
+              <ClipboardList className="h-3.5 w-3.5" /> 历史记录
             </button>
           )}
         </span>
@@ -633,7 +654,7 @@ export default function ChapterImportModal({
         {step === 'complete' && importStatus && (
           <div className="flex flex-col items-center justify-center py-12">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <span className="text-3xl">✓</span>
+              <Check className="h-8 w-8 text-green-600" />
             </div>
             <p className="text-lg font-medium text-gray-800">导入完成</p>
             {importStatus.result && (

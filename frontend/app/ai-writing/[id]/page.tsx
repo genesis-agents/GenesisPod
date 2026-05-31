@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  type ReactNode,
+} from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import AppShell from '@/components/layout/AppShell';
@@ -39,6 +46,22 @@ import {
   Settings,
   Search,
   MessageSquare,
+  MapPin,
+  Link2,
+  BookOpen,
+  Library,
+  MessagesSquare,
+  Crown,
+  AlertTriangle,
+  Info,
+  Pin,
+  Calendar,
+  Printer,
+  ChevronDown,
+  ChevronUp,
+  FileCode,
+  Swords,
+  Check,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState, LoadingInline, ErrorState } from '@/components/ui';
@@ -243,7 +266,7 @@ function ChapterContentStructured({
             <div>
               <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-blue-600">
                 <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-blue-100">
-                  📍
+                  <MapPin className="h-3 w-3 text-blue-600" />
                 </span>
                 设定 ({parsed.settings.length})
               </div>
@@ -287,7 +310,7 @@ function ChapterContentStructured({
             <div>
               <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-pink-600">
                 <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-pink-100">
-                  🔗
+                  <Link2 className="h-3 w-3 text-pink-600" />
                 </span>
                 关系 ({parsed.relations.length})
               </div>
@@ -577,7 +600,7 @@ export default function WritingProjectPage() {
           msg = {
             id: `msg-ws-${ev.timestamp}`,
             type: 'system',
-            content: '🚀 任务开始执行，AI 团队正在协作...',
+            content: '任务开始执行，AI 团队正在协作...',
             timestamp: ts,
           };
           break;
@@ -613,7 +636,7 @@ export default function WritingProjectPage() {
             id: `msg-ws-${ev.timestamp}-ch${chNum}-start`,
             type: 'agent',
             content: `开始创作第 ${chNum} 章：${title}`,
-            agent: '✍️ 作家',
+            agent: '作家',
             timestamp: ts,
           };
           break;
@@ -629,8 +652,8 @@ export default function WritingProjectPage() {
           msg = {
             id: `msg-ws-${ev.timestamp}-ch${chNum}-content`,
             type: 'agent',
-            content: `📖 第 ${chNum} 章「${title}」内容生成中 (${wordCount} 字)`,
-            agent: '✍️ 作家',
+            content: `第 ${chNum} 章「${title}」内容生成中 (${wordCount} 字)`,
+            agent: '作家',
             timestamp: ts,
             detail: {
               type: 'chapter_content',
@@ -647,8 +670,8 @@ export default function WritingProjectPage() {
           msg = {
             id: `msg-ws-${ev.timestamp}-ch${chNum}-done`,
             type: 'agent',
-            content: `✅ 第 ${chNum} 章创作完成${wordCount ? ` (${wordCount} 字)` : ''}`,
-            agent: '✍️ 作家',
+            content: `第 ${chNum} 章创作完成${wordCount ? ` (${wordCount} 字)` : ''}`,
+            agent: '作家',
             timestamp: ts,
           };
           break;
@@ -664,7 +687,7 @@ export default function WritingProjectPage() {
               chNum !== undefined
                 ? `开始检查第 ${chNum} 章的一致性...`
                 : '开始进行一致性检查...',
-            agent: '🔍 检查员',
+            agent: '检查员',
             timestamp: ts,
           };
           break;
@@ -684,8 +707,8 @@ export default function WritingProjectPage() {
           msg = {
             id: `msg-ws-${ev.timestamp}-consistency-issues`,
             type: 'agent',
-            content: `⚠️ 第 ${chNum} 章发现 ${issues.length} 个问题，点击展开查看详情`,
-            agent: '🔍 一致性检查员',
+            content: `第 ${chNum} 章发现 ${issues.length} 个问题，点击展开查看详情`,
+            agent: '一致性检查员',
             timestamp: ts,
             detail: {
               type: 'issues',
@@ -704,7 +727,7 @@ export default function WritingProjectPage() {
             id: `msg-ws-${ev.timestamp}-consistency-fix`,
             type: 'agent',
             content: `第 ${chNum} 章修复完成，已解决 ${fixedIssues} 个问题`,
-            agent: '📝 编辑',
+            agent: '编辑',
             timestamp: ts,
           };
           break;
@@ -715,7 +738,7 @@ export default function WritingProjectPage() {
             id: `msg-ws-${ev.timestamp}-world-start`,
             type: 'agent',
             content: '开始构建世界观设定...',
-            agent: '📚 守护者',
+            agent: '守护者',
             timestamp: ts,
           };
           break;
@@ -728,8 +751,8 @@ export default function WritingProjectPage() {
           msg = {
             id: `msg-ws-${ev.timestamp}-world-done`,
             type: 'agent',
-            content: '✅ 世界观设定构建完成，点击展开查看',
-            agent: '📚 守护者',
+            content: '世界观设定构建完成，点击展开查看',
+            agent: '守护者',
             timestamp: ts,
             detail: settings
               ? { type: 'world_settings', data: settings }
@@ -751,29 +774,29 @@ export default function WritingProjectPage() {
                 })
               : undefined;
           const contextSummary = ctx
-            ? `角色: ${ctx.relevantCharacters?.length || 0}, 场景: ${ctx.relevantLocations?.length || 0}, 事件: ${ctx.previousEvents?.length || 0}${ctx.warnings?.length ? `, ⚠️ ${ctx.warnings.length} 条提醒` : ''}`
+            ? `角色: ${ctx.relevantCharacters?.length || 0}, 场景: ${ctx.relevantLocations?.length || 0}, 事件: ${ctx.previousEvents?.length || 0}${ctx.warnings?.length ? `, ${ctx.warnings.length} 条提醒` : ''}`
             : '';
           msg = {
             id: `msg-ws-${ev.timestamp}-keeper-ctx`,
             type: 'agent',
-            content: `✅ 第 ${chNum} 章上下文准备完成 (${contextSummary})`,
-            agent: '📚 守护者',
+            content: `第 ${chNum} 章上下文准备完成 (${contextSummary})`,
+            agent: '守护者',
             timestamp: ts,
             detail: ctx
               ? {
                   type: 'text',
                   data: [
                     ctx.relevantCharacters?.length
-                      ? `👤 相关角色: ${ctx.relevantCharacters.join(', ')}`
+                      ? `相关角色: ${ctx.relevantCharacters.join(', ')}`
                       : '',
                     ctx.relevantLocations?.length
-                      ? `📍 相关场景: ${ctx.relevantLocations.join(', ')}`
+                      ? `相关场景: ${ctx.relevantLocations.join(', ')}`
                       : '',
                     ctx.previousEvents?.length
-                      ? `📜 前文事件: ${ctx.previousEvents.slice(0, 3).join('; ')}${ctx.previousEvents.length > 3 ? '...' : ''}`
+                      ? `前文事件: ${ctx.previousEvents.slice(0, 3).join('; ')}${ctx.previousEvents.length > 3 ? '...' : ''}`
                       : '',
                     ctx.warnings?.length
-                      ? `⚠️ 注意事项: ${ctx.warnings.join('; ')}`
+                      ? `注意事项: ${ctx.warnings.join('; ')}`
                       : '',
                   ]
                     .filter(Boolean)
@@ -788,7 +811,7 @@ export default function WritingProjectPage() {
           msg = {
             id: `msg-ws-${ev.timestamp}-mission-done`,
             type: 'system',
-            content: '✅ 任务完成！',
+            content: '任务完成！',
             timestamp: ts,
           };
           break;
@@ -798,7 +821,7 @@ export default function WritingProjectPage() {
           msg = {
             id: `msg-ws-${ev.timestamp}-mission-fail`,
             type: 'system',
-            content: `❌ 任务失败：${errMsg}`,
+            content: `任务失败：${errMsg}`,
             timestamp: ts,
           };
           break;
@@ -1014,28 +1037,28 @@ export default function WritingProjectPage() {
       // Determine agent from message content
       let agent = 'AI 团队';
       if (missionMessage.includes('架构') || missionMessage.includes('规划')) {
-        agent = '📐 架构师';
+        agent = '架构师';
       } else if (
         missionMessage.includes('世界观') ||
         missionMessage.includes('设定')
       ) {
-        agent = '📚 守护者';
+        agent = '守护者';
       } else if (
         missionMessage.includes('作家') ||
         missionMessage.includes('创作') ||
         missionMessage.includes('章节')
       ) {
-        agent = '✍️ 作家';
+        agent = '作家';
       } else if (
         missionMessage.includes('检查') ||
         missionMessage.includes('校验')
       ) {
-        agent = '🔍 检查员';
+        agent = '检查员';
       } else if (
         missionMessage.includes('编辑') ||
         missionMessage.includes('润色')
       ) {
-        agent = '📝 编辑';
+        agent = '编辑';
       }
 
       setTaskMessages((prev) => [
@@ -1079,7 +1102,7 @@ export default function WritingProjectPage() {
           {
             id: `msg-${Date.now()}`,
             type: 'system',
-            content: '✅ 任务已完成！',
+            content: '任务已完成！',
             timestamp: new Date(),
           },
         ]);
@@ -1733,7 +1756,7 @@ export default function WritingProjectPage() {
   </style>
 </head>
 <body>
-  <button class="print-btn" onclick="window.print()">🖨️ 打印 / 导出 PDF</button>
+  <button class="print-btn" onclick="window.print()">打印 / 导出 PDF</button>
   <h1>${currentProject.name}</h1>
   <div class="meta">
     ${currentProject.description ? `<p>${currentProject.description}</p>` : ''}
@@ -1811,16 +1834,18 @@ export default function WritingProjectPage() {
     return (
       <AppShell>
         <main className="flex flex-1 flex-col items-center justify-center p-8">
-          <span className="mb-4 text-5xl">📖</span>
-          <h2 className="mb-2 text-xl font-semibold text-gray-800">
-            项目不存在
-          </h2>
-          <button
-            onClick={() => router.push('/ai-writing')}
-            className="text-amber-600 hover:underline"
-          >
-            返回项目列表
-          </button>
+          <EmptyState
+            icon={<BookOpen className="h-12 w-12" />}
+            title="项目不存在"
+            action={
+              <button
+                onClick={() => router.push('/ai-writing')}
+                className="text-amber-600 hover:underline"
+              >
+                返回项目列表
+              </button>
+            }
+          />
         </main>
       </AppShell>
     );
@@ -1938,28 +1963,28 @@ export default function WritingProjectPage() {
                       onClick={handleExportMarkdown}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <span className="text-base">📝</span>
+                      <FileText className="h-4 w-4" />
                       Markdown (.md)
                     </button>
                     <button
                       onClick={handleExportTxt}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <span className="text-base">📄</span>
+                      <FileCode className="h-4 w-4" />
                       纯文本 (.txt)
                     </button>
                     <button
                       onClick={handleExportHtml}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <span className="text-base">🌐</span>
+                      <Globe className="h-4 w-4" />
                       网页 (.html)
                     </button>
                     <button
                       onClick={handleExportPdf}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <span className="text-base">📑</span>
+                      <Printer className="h-4 w-4" />
                       打印 / PDF
                     </button>
                     <div className="border-t border-gray-100" />
@@ -1967,7 +1992,7 @@ export default function WritingProjectPage() {
                       onClick={handleShareLink}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <span className="text-base">🔗</span>
+                      <Link2 className="h-4 w-4" />
                       复制分享链接
                     </button>
                   </div>
@@ -1990,7 +2015,7 @@ export default function WritingProjectPage() {
               onClick={clearError}
               className="text-red-500 hover:text-red-700"
             >
-              ✕
+              <XCircle className="h-4 w-4" />
             </button>
           </div>
         )}
@@ -2016,7 +2041,7 @@ export default function WritingProjectPage() {
               onClick={() => setToast(null)}
               className="ml-2 text-gray-400 hover:text-gray-600"
             >
-              ✕
+              <XCircle className="h-4 w-4" />
             </button>
           </div>
         )}
@@ -2065,7 +2090,8 @@ export default function WritingProjectPage() {
                     key: 'chapters',
                     label: (
                       <>
-                        📖 章节列表
+                        <BookOpen className="mr-1 h-3.5 w-3.5" />
+                        章节列表
                         <span className="ml-1 text-xs">
                           ({allChapters.length})
                         </span>
@@ -2076,9 +2102,10 @@ export default function WritingProjectPage() {
                     key: 'worldview',
                     label: (
                       <>
-                        🌍 世界观
+                        <Globe className="mr-1 h-3.5 w-3.5" />
+                        世界观
                         {storyBible?.premise && (
-                          <span className="ml-1 text-xs text-green-500">✓</span>
+                          <CheckCircle2 className="ml-1 h-3 w-3 text-green-500" />
                         )}
                       </>
                     ),
@@ -2087,7 +2114,8 @@ export default function WritingProjectPage() {
                     key: 'storyBible',
                     label: (
                       <>
-                        📚 故事圣经
+                        <Library className="mr-1 h-3.5 w-3.5" />
+                        故事圣经
                         {storyBible?.characters &&
                           storyBible.characters.length > 0 && (
                             <span className="ml-1 text-xs text-emerald-500">
@@ -2097,12 +2125,21 @@ export default function WritingProjectPage() {
                       </>
                     ),
                   },
-                  { key: 'relationships', label: '🔗 角色关系' },
+                  {
+                    key: 'relationships',
+                    label: (
+                      <>
+                        <Link2 className="mr-1 h-3.5 w-3.5" />
+                        角色关系
+                      </>
+                    ),
+                  },
                   {
                     key: 'taskDetails',
                     label: (
                       <>
-                        💬 Team交互区
+                        <MessagesSquare className="mr-1 h-3.5 w-3.5" />
+                        Team交互区
                         {taskMessages.length > 0 && (
                           <span className="ml-1 text-xs">
                             ({taskMessages.length})
@@ -2169,9 +2206,11 @@ export default function WritingProjectPage() {
                                         : 'bg-gray-100 text-gray-500'
                                     }`}
                                   >
-                                    {chapter.content
-                                      ? '✓'
-                                      : chapter.chapterNumber}
+                                    {chapter.content ? (
+                                      <Check className="h-4 w-4" />
+                                    ) : (
+                                      chapter.chapterNumber
+                                    )}
                                   </span>
                                   <div className="min-w-0 flex-1">
                                     <div className="font-medium text-gray-800">
@@ -2451,7 +2490,7 @@ export default function WritingProjectPage() {
                           storyBible.timelineEvents.length > 0 && (
                             <div className="rounded-xl bg-orange-50 p-4">
                               <h3 className="mb-2 flex items-center gap-2 font-medium text-orange-800">
-                                <span>📅</span> 时间线事件
+                                <Calendar className="h-4 w-4" /> 时间线事件
                                 <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs">
                                   {storyBible.timelineEvents.length} 个事件
                                 </span>
@@ -2536,7 +2575,7 @@ export default function WritingProjectPage() {
                           storyBible.terminologies.length > 0 && (
                             <div className="rounded-xl bg-cyan-50 p-4">
                               <h3 className="mb-2 flex items-center gap-2 font-medium text-cyan-800">
-                                <span>📖</span> 术语与专有名词
+                                <BookOpen className="h-4 w-4" /> 术语与专有名词
                                 <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs">
                                   {storyBible.terminologies.length} 个术语
                                 </span>
@@ -2574,7 +2613,7 @@ export default function WritingProjectPage() {
                       /* Show building state during mission */
                       <div className="flex flex-col items-center justify-center py-12 text-center">
                         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
-                          <span className="text-3xl">🌍</span>
+                          <Globe className="h-8 w-8 text-indigo-500" />
                         </div>
                         <h3 className="mb-2 text-lg font-semibold text-gray-800">
                           世界观构建中
@@ -2588,15 +2627,11 @@ export default function WritingProjectPage() {
                       </div>
                     ) : (
                       /* Empty state - no mission running, no content */
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <span className="mb-4 text-4xl">🌍</span>
-                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
-                          暂无世界观设定
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          开始创作后，AI 守护者将自动建立故事的世界观
-                        </p>
-                      </div>
+                      <EmptyState
+                        icon={<Globe className="h-12 w-12" />}
+                        title="暂无世界观设定"
+                        description="开始创作后，AI 守护者将自动建立故事的世界观"
+                      />
                     )}
                   </div>
                 )}
@@ -2863,7 +2898,7 @@ export default function WritingProjectPage() {
                         {/* 世界设定摘要 */}
                         <div className="rounded-xl border border-blue-200 bg-white p-4">
                           <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-blue-800">
-                            <span>🌐</span> 世界设定摘要
+                            <Globe className="h-4 w-4" /> 世界设定摘要
                           </h3>
                           <div className="grid gap-3 sm:grid-cols-2">
                             {storyBible.premise && (
@@ -2979,8 +3014,9 @@ export default function WritingProjectPage() {
                                     {/* 章节情节设定 - 结构化显示 */}
                                     {chapterSettings.length > 0 && (
                                       <div className="mt-4">
-                                        <h4 className="mb-2 text-sm font-medium text-gray-700">
-                                          📖 章节情节记录
+                                        <h4 className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                                          <BookOpen className="h-3.5 w-3.5" />{' '}
+                                          章节情节记录
                                         </h4>
                                         <div className="space-y-2">
                                           {chapterSettings.map((setting) => (
@@ -3017,7 +3053,7 @@ export default function WritingProjectPage() {
                     ) : isMissionRunning ? (
                       <div className="flex flex-col items-center justify-center py-12 text-center">
                         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-                          <span className="text-3xl">📚</span>
+                          <Library className="h-8 w-8 text-emerald-500" />
                         </div>
                         <h3 className="mb-2 text-lg font-semibold text-gray-800">
                           故事圣经构建中
@@ -3027,15 +3063,11 @@ export default function WritingProjectPage() {
                         </p>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <span className="mb-4 text-4xl">📚</span>
-                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
-                          暂无故事圣经
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          开始创作后，AI 团队将自动建立完整的故事圣经
-                        </p>
-                      </div>
+                      <EmptyState
+                        icon={<Library className="h-12 w-12" />}
+                        title="暂无故事圣经"
+                        description="开始创作后，AI 团队将自动建立完整的故事圣经"
+                      />
                     )}
                   </div>
                 )}
@@ -3181,8 +3213,9 @@ export default function WritingProjectPage() {
                                 <div className="mt-2 rounded-lg bg-gray-50 p-3 text-xs">
                                   {msg.detail.type === 'chapter_content' && (
                                     <div className="space-y-1">
-                                      <div className="font-medium text-gray-600">
-                                        📖 内容预览：
+                                      <div className="flex items-center gap-1 font-medium text-gray-600">
+                                        <BookOpen className="h-3 w-3" />{' '}
+                                        内容预览：
                                       </div>
                                       <div className="whitespace-pre-wrap border-l-2 border-violet-300 pl-3 italic leading-relaxed text-gray-700">
                                         {typeof msg.detail.data === 'string'
@@ -3251,69 +3284,93 @@ export default function WritingProjectPage() {
                                         const sectionConfig: Record<
                                           string,
                                           {
-                                            icon: string;
+                                            icon: ReactNode;
                                             label: string;
                                             color: string;
                                           }
                                         > = {
                                           // 后端可能返回不同的 key，做兼容映射
                                           story_core: {
-                                            icon: '💡',
+                                            icon: (
+                                              <Lightbulb className="h-3.5 w-3.5" />
+                                            ),
                                             label: '故事核心',
                                             color: 'purple',
                                           },
                                           core: {
-                                            icon: '💡',
+                                            icon: (
+                                              <Lightbulb className="h-3.5 w-3.5" />
+                                            ),
                                             label: '故事核心',
                                             color: 'purple',
                                           },
                                           world: {
-                                            icon: '🌍',
+                                            icon: (
+                                              <Globe className="h-3.5 w-3.5" />
+                                            ),
                                             label: '世界背景',
                                             color: 'blue',
                                           },
                                           setting: {
-                                            icon: '🌍',
+                                            icon: (
+                                              <Globe className="h-3.5 w-3.5" />
+                                            ),
                                             label: '世界设定',
                                             color: 'blue',
                                           },
                                           characters: {
-                                            icon: '👥',
+                                            icon: (
+                                              <Users className="h-3.5 w-3.5" />
+                                            ),
                                             label: '主要角色',
                                             color: 'amber',
                                           },
                                           character: {
-                                            icon: '👥',
+                                            icon: (
+                                              <Users className="h-3.5 w-3.5" />
+                                            ),
                                             label: '角色设定',
                                             color: 'amber',
                                           },
                                           factions: {
-                                            icon: '⚔️',
+                                            icon: (
+                                              <Swords className="h-3.5 w-3.5" />
+                                            ),
                                             label: '势力阵营',
                                             color: 'red',
                                           },
                                           faction: {
-                                            icon: '⚔️',
+                                            icon: (
+                                              <Swords className="h-3.5 w-3.5" />
+                                            ),
                                             label: '势力阵营',
                                             color: 'red',
                                           },
                                           terminology: {
-                                            icon: '📖',
+                                            icon: (
+                                              <BookOpen className="h-3.5 w-3.5" />
+                                            ),
                                             label: '专有名词',
                                             color: 'purple',
                                           },
                                           locations: {
-                                            icon: '📍',
+                                            icon: (
+                                              <MapPin className="h-3.5 w-3.5" />
+                                            ),
                                             label: '重要地点',
                                             color: 'green',
                                           },
                                           location: {
-                                            icon: '📍',
+                                            icon: (
+                                              <MapPin className="h-3.5 w-3.5" />
+                                            ),
                                             label: '重要地点',
                                             color: 'green',
                                           },
                                           timeline: {
-                                            icon: '📅',
+                                            icon: (
+                                              <Calendar className="h-3.5 w-3.5" />
+                                            ),
                                             label: '时间线',
                                             color: 'indigo',
                                           },
@@ -3348,7 +3405,9 @@ export default function WritingProjectPage() {
                                             const config = sectionConfig[
                                               key
                                             ] || {
-                                              icon: '📌',
+                                              icon: (
+                                                <Pin className="h-3.5 w-3.5" />
+                                              ),
                                               label: key,
                                               color: 'gray',
                                             };
@@ -3568,7 +3627,7 @@ export default function WritingProjectPage() {
                     className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-amber-50"
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-sm">
-                      👑
+                      <Crown className="h-4 w-4 text-white" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-gray-800">
@@ -3751,11 +3810,11 @@ export default function WritingProjectPage() {
                 <ReactMarkdown>{selectedChapter.content}</ReactMarkdown>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <span className="mb-4 text-4xl">📝</span>
-                <p className="text-gray-500">暂无内容</p>
-                <p className="mt-1 text-sm text-gray-400">该章节尚未生成内容</p>
-              </div>
+              <EmptyState
+                icon={<FileText className="h-12 w-12" />}
+                title="暂无内容"
+                description="该章节尚未生成内容"
+              />
             ))}
         </Modal>
 
@@ -3788,7 +3847,7 @@ export default function WritingProjectPage() {
               onClick={() => setShowConsistencyPanel(!showConsistencyPanel)}
             >
               <div className="flex items-center gap-2">
-                <span className="text-lg">🔍</span>
+                <Search className="h-4 w-4 text-white" />
                 <span className="text-sm font-semibold text-white">
                   一致性检查
                 </span>
@@ -3802,7 +3861,11 @@ export default function WritingProjectPage() {
                   个问题
                 </span>
                 <span className="text-white/80">
-                  {showConsistencyPanel ? '▼' : '▲'}
+                  {showConsistencyPanel ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronUp className="h-4 w-4" />
+                  )}
                 </span>
               </div>
             </div>
@@ -3817,7 +3880,9 @@ export default function WritingProjectPage() {
                         第 {check.chapterNumber} 章
                       </span>
                       {check.passed ? (
-                        <span className="text-xs text-green-500">✓ 通过</span>
+                        <span className="flex items-center gap-0.5 text-xs text-green-500">
+                          <Check className="h-3 w-3" /> 通过
+                        </span>
                       ) : (
                         <span className="text-xs text-amber-500">
                           {check.issues.length} 个问题
@@ -3838,11 +3903,13 @@ export default function WritingProjectPage() {
                         >
                           <div className="flex items-start gap-1">
                             <span>
-                              {issue.severity === 'error'
-                                ? '❌'
-                                : issue.severity === 'warning'
-                                  ? '⚠️'
-                                  : 'ℹ️'}
+                              {issue.severity === 'error' ? (
+                                <XCircle className="h-3 w-3 text-red-600" />
+                              ) : issue.severity === 'warning' ? (
+                                <AlertTriangle className="h-3 w-3 text-amber-600" />
+                              ) : (
+                                <Info className="h-3 w-3 text-blue-600" />
+                              )}
                             </span>
                             <div>
                               <span className="font-medium">
@@ -3850,8 +3917,9 @@ export default function WritingProjectPage() {
                               </span>{' '}
                               {issue.description}
                               {issue.suggestion && (
-                                <div className="mt-0.5 text-gray-500">
-                                  💡 {issue.suggestion}
+                                <div className="mt-0.5 flex items-center gap-1 text-gray-500">
+                                  <Lightbulb className="h-3 w-3" />{' '}
+                                  {issue.suggestion}
                                 </div>
                               )}
                             </div>

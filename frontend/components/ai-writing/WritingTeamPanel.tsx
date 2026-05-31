@@ -17,7 +17,20 @@
  */
 
 import { useMemo } from 'react';
-import { CheckCircle2, RefreshCw, AlertTriangle } from 'lucide-react';
+import {
+  CheckCircle2,
+  RefreshCw,
+  AlertTriangle,
+  DraftingCompass,
+  BookOpen,
+  PenLine,
+  Search,
+  FileEdit,
+  Play,
+  Square,
+  Clipboard,
+  Target,
+} from 'lucide-react';
 import {
   TeamTopologyCanvas,
   AVATAR_ROW_Y,
@@ -32,18 +45,18 @@ import type { StageView, AgentView, MissionView } from '@/lib/missions/derive';
 const WRITING_AGENTS = [
   {
     id: 'architect',
-    icon: '\u{1F4D0}',
+    icon: DraftingCompass,
     colorKey: 'purple',
     isLeader: true,
     row: 0,
   },
-  { id: 'keeper', icon: '\u{1F4DA}', colorKey: 'indigo', row: 1 },
-  { id: 'writer-1', icon: '\u{270D}\u{FE0F}', colorKey: 'amber', row: 1 },
-  { id: 'writer-2', icon: '\u{270D}\u{FE0F}', colorKey: 'orange', row: 1 },
-  { id: 'writer-3', icon: '\u{270D}\u{FE0F}', colorKey: 'yellow', row: 1 },
-  { id: 'checker-1', icon: '\u{1F50D}', colorKey: 'green', row: 2 },
-  { id: 'checker-2', icon: '\u{1F50D}', colorKey: 'emerald', row: 2 },
-  { id: 'editor', icon: '\u{1F4DD}', colorKey: 'pink', row: 2 },
+  { id: 'keeper', icon: BookOpen, colorKey: 'indigo', row: 1 },
+  { id: 'writer-1', icon: PenLine, colorKey: 'amber', row: 1 },
+  { id: 'writer-2', icon: PenLine, colorKey: 'orange', row: 1 },
+  { id: 'writer-3', icon: PenLine, colorKey: 'yellow', row: 1 },
+  { id: 'checker-1', icon: Search, colorKey: 'green', row: 2 },
+  { id: 'checker-2', icon: Search, colorKey: 'emerald', row: 2 },
+  { id: 'editor', icon: FileEdit, colorKey: 'pink', row: 2 },
 ] as const;
 
 // Agent display names
@@ -68,11 +81,11 @@ const WRITING_ROWS: string[][] = [
 // Workflow steps definition
 // id maps to phase key via STAGE_ID_TO_PHASE for stageViews matching
 const WORKFLOW_STEPS = [
-  { id: 'keeper', label: '建立世界观设定', icon: '\u{1F4DA}' },
-  { id: 'architect', label: '规划故事结构', icon: '\u{1F451}' },
-  { id: 'writer', label: '创作故事内容', icon: '\u{270D}\u{FE0F}' },
-  { id: 'checker', label: '校验内容一致性', icon: '\u{1F50D}' },
-  { id: 'editor-step', label: '润色文字表达', icon: '\u{1F3A8}' },
+  { id: 'keeper', label: '建立世界观设定' },
+  { id: 'architect', label: '规划故事结构' },
+  { id: 'writer', label: '创作故事内容' },
+  { id: 'checker', label: '校验内容一致性' },
+  { id: 'editor-step', label: '润色文字表达' },
 ];
 
 /**
@@ -327,8 +340,8 @@ export function WritingTeamPanel({
 
                   {/* Description */}
                   <div className="mb-3">
-                    <div className="mb-1 text-xs font-medium text-gray-500">
-                      {'\u{1F4CB}'} 职责描述
+                    <div className="mb-1 flex items-center gap-1 text-xs font-medium text-gray-500">
+                      <Clipboard className="h-3 w-3" /> 职责描述
                     </div>
                     <p className="text-sm text-gray-700">
                       {details.description}
@@ -337,8 +350,8 @@ export function WritingTeamPanel({
 
                   {/* Skills */}
                   <div className="mb-3">
-                    <div className="mb-1.5 text-xs font-medium text-gray-500">
-                      {'\u{1F3AF}'} 技能
+                    <div className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-500">
+                      <Target className="h-3 w-3" /> 技能
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {details.skills.map((skill) => (
@@ -354,8 +367,8 @@ export function WritingTeamPanel({
 
                   {/* Tools */}
                   <div>
-                    <div className="mb-1.5 text-xs font-medium text-gray-500">
-                      {'\u{1F527}'} 工具
+                    <div className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-500">
+                      <Search className="h-3 w-3" /> 工具
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {details.tools.map((tool) => (
@@ -411,7 +424,13 @@ export function WritingTeamPanel({
               >
                 {/* Status icon */}
                 <span className="text-xs">
-                  {isDone ? '✅' : isStepActive ? '🔄' : '⏳'}
+                  {isDone ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                  ) : isStepActive ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                  ) : (
+                    <Target className="h-3.5 w-3.5 text-gray-400" />
+                  )}
                 </span>
 
                 {/* Step name */}
@@ -486,7 +505,7 @@ export function WritingTeamPanel({
                 : 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
             }`}
           >
-            <span>▶</span>
+            <Play className="h-3.5 w-3.5" />
             {chaptersCount === 0 ? '开始' : '继续'}
           </button>
 
@@ -500,7 +519,7 @@ export function WritingTeamPanel({
                 : 'bg-green-600 text-white shadow-sm hover:bg-green-700'
             }`}
           >
-            <span>🔄</span>
+            <RefreshCw className="h-3.5 w-3.5" />
             续写
           </button>
 
@@ -514,7 +533,7 @@ export function WritingTeamPanel({
                 : 'border border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
             }`}
           >
-            <span>⏹</span>
+            <Square className="h-3.5 w-3.5" />
             取消
           </button>
         </div>

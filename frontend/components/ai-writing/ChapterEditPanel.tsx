@@ -10,7 +10,23 @@
  * - AI 辅助编辑工具
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from 'react';
+import {
+  RotateCw,
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Palette,
+  ClipboardList,
+  FileText,
+  Bot,
+} from 'lucide-react';
 import { confirm } from '@/stores';
 import ReactMarkdown from 'react-markdown';
 import {
@@ -34,13 +50,33 @@ type ViewMode = 'preview' | 'edit' | 'split';
 
 const AI_OPERATIONS: Record<
   AiEditOperation,
-  { label: string; icon: string; desc: string }
+  { label: string; icon: ReactNode; desc: string }
 > = {
-  rewrite: { label: '重写', icon: '🔄', desc: '重新生成选中内容' },
-  polish: { label: '润色', icon: '✨', desc: '优化文字表达' },
-  expand: { label: '扩写', icon: '📈', desc: '扩展内容细节' },
-  condense: { label: '缩写', icon: '📉', desc: '精简内容篇幅' },
-  style_fix: { label: '风格修正', icon: '🎨', desc: '调整写作风格' },
+  rewrite: {
+    label: '重写',
+    icon: <RotateCw className="h-3.5 w-3.5" />,
+    desc: '重新生成选中内容',
+  },
+  polish: {
+    label: '润色',
+    icon: <Sparkles className="h-3.5 w-3.5" />,
+    desc: '优化文字表达',
+  },
+  expand: {
+    label: '扩写',
+    icon: <TrendingUp className="h-3.5 w-3.5" />,
+    desc: '扩展内容细节',
+  },
+  condense: {
+    label: '缩写',
+    icon: <TrendingDown className="h-3.5 w-3.5" />,
+    desc: '精简内容篇幅',
+  },
+  style_fix: {
+    label: '风格修正',
+    icon: <Palette className="h-3.5 w-3.5" />,
+    desc: '调整写作风格',
+  },
 };
 
 export default function ChapterEditPanel({
@@ -244,25 +280,25 @@ export default function ChapterEditPanel({
             onClick={() =>
               setSidePanel(sidePanel === 'revisions' ? 'none' : 'revisions')
             }
-            className={`rounded px-2 py-1 text-sm ${
+            className={`flex items-center gap-1 rounded px-2 py-1 text-sm ${
               sidePanel === 'revisions'
                 ? 'bg-violet-100 text-violet-700'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            📋 历史
+            <ClipboardList className="h-3.5 w-3.5" /> 历史
           </button>
           <button
             onClick={() =>
               setSidePanel(sidePanel === 'annotations' ? 'none' : 'annotations')
             }
-            className={`rounded px-2 py-1 text-sm ${
+            className={`flex items-center gap-1 rounded px-2 py-1 text-sm ${
               sidePanel === 'annotations'
                 ? 'bg-violet-100 text-violet-700'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            📝 批注
+            <FileText className="h-3.5 w-3.5" /> 批注
           </button>
 
           {/* 保存按钮 - 始终显示 */}
@@ -356,9 +392,10 @@ export default function ChapterEditPanel({
                     <button
                       onClick={() => setShowAiMenu(!showAiMenu)}
                       disabled={aiLoading}
-                      className="rounded bg-violet-100 px-2 py-1 text-xs text-violet-700 hover:bg-violet-200 disabled:opacity-50"
+                      className="flex items-center gap-1 rounded bg-violet-100 px-2 py-1 text-xs text-violet-700 hover:bg-violet-200 disabled:opacity-50"
                     >
-                      🤖 {selection ? '编辑选中' : '编辑全文'}
+                      <Bot className="h-3.5 w-3.5" />{' '}
+                      {selection ? '编辑选中' : '编辑全文'}
                     </button>
 
                     {showAiMenu && (

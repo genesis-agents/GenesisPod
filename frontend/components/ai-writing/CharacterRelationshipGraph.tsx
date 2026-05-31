@@ -17,7 +17,8 @@ import {
   deleteCharacterRelationship,
 } from '@/services/ai-writing/api';
 import { EmptyState } from '@/components/ui/states/EmptyState';
-import { Users } from 'lucide-react';
+import { LoadingState } from '@/components/ui';
+import { Users, RotateCcw, Lightbulb } from 'lucide-react';
 
 interface Props {
   projectId: string;
@@ -523,8 +524,7 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500" />
-        <span className="ml-2 text-gray-500">加载角色关系图谱...</span>
+        <LoadingState size="lg" text="加载角色关系图谱..." />
       </div>
     );
   }
@@ -620,10 +620,10 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
           )}
           <button
             onClick={resetLayout}
-            className="rounded bg-gray-200 px-3 py-1 text-sm text-gray-700 hover:bg-gray-300"
+            className="flex items-center gap-1 rounded bg-gray-200 px-3 py-1 text-sm text-gray-700 hover:bg-gray-300"
             title="重置布局"
           >
-            ↺ 重置布局
+            <RotateCcw className="h-3.5 w-3.5" /> 重置布局
           </button>
           <button
             onClick={fetchGraph}
@@ -652,10 +652,10 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
             </button>
             <button
               onClick={resetZoom}
-              className="ml-1 rounded bg-gray-200 px-2 py-1 text-sm text-gray-700 hover:bg-gray-300"
+              className="ml-1 flex items-center justify-center rounded bg-gray-200 px-2 py-1 text-sm text-gray-700 hover:bg-gray-300"
               title="重置缩放"
             >
-              ⟲
+              <RotateCcw className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
@@ -672,8 +672,8 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
 
       {/* 拖动提示 */}
       {!isAddingRelation && (
-        <div className="mb-2 text-xs text-gray-400">
-          💡 提示：可以拖动角色节点调整位置
+        <div className="mb-2 flex items-center gap-1 text-xs text-gray-400">
+          <Lightbulb className="h-3 w-3" /> 提示：可以拖动角色节点调整位置
         </div>
       )}
 
@@ -902,7 +902,19 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
               onClick={() => setSelectedNode(null)}
               className="text-gray-400 hover:text-gray-600"
             >
-              ✕
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </button>
           </div>
           <div className="space-y-2 text-sm">
