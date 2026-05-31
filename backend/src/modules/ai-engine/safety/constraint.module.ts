@@ -38,6 +38,8 @@ import {
   ContentSafetyFilter,
   InputComplexityCheck,
 } from "./guardrails/input";
+// ★ P2: LLM 语义级 moderation（escalation-only，懒解析 AiChatService 破循环 DI）
+import { LlmModerationGuardrail } from "./guardrails/input/llm-moderation.guardrail";
 
 // Output Guardrails
 import { ContentComplianceCheck } from "./guardrails/output";
@@ -76,6 +78,8 @@ const contentFilterFactory = {
     PromptInjectionDetector,
     ContentSafetyFilter,
     InputComplexityCheck,
+    // ★ P2: escalation-only LLM 语义 moderation
+    LlmModerationGuardrail,
 
     // Output Guardrails
     ContentComplianceCheck,
@@ -98,6 +102,7 @@ export class AiEngineConstraintModule implements OnModuleInit {
     private readonly contentSafetyFilter: ContentSafetyFilter,
     private readonly inputComplexityCheck: InputComplexityCheck,
     private readonly contentComplianceCheck: ContentComplianceCheck,
+    private readonly llmModerationGuardrail: LlmModerationGuardrail,
   ) {}
 
   onModuleInit() {
@@ -107,6 +112,12 @@ export class AiEngineConstraintModule implements OnModuleInit {
     );
     this.guardrailsPipeline.registerInputGuardrail(this.contentSafetyFilter);
     this.guardrailsPipeline.registerInputGuardrail(this.inputComplexityCheck);
+
+    // ★ P2: escalation-only LLM moderation —— 不进 inputGuardrails 数组（不每请求跑），
+    //   仅当正则护栏报 'warning'（疑似但不确定）时由管道升级调用。
+    this.guardrailsPipeline.registerEscalationGuardrail(
+      this.llmModerationGuardrail,
+    );
 
     // Register output guardrails
     this.guardrailsPipeline.registerOutputGuardrail(

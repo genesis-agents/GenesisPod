@@ -22,6 +22,14 @@ export class GuardrailsPipelineService {
   private readonly logger = new Logger(GuardrailsPipelineService.name);
   private inputGuardrails: IInputGuardrail[] = [];
   private outputGuardrails: IOutputGuardrail[] = [];
+  /**
+   * ★ P2 escalation-only：语义级 LLM moderation 护栏。
+   *
+   * 不放进 inputGuardrails 数组（否则每请求都跑，烧 token/延迟）。仅当快筛的
+   * 正则护栏报告"疑似但不确定"（severity:'warning'）时，processInput 才升级调用
+   * 它做一次 LLM 语义分类。干净输入永不触发。undefined = 未注册（无升级层）。
+   */
+  private escalationGuardrail?: IInputGuardrail;
 
   /** B (2026-05-05): SAFETY_INPUT/OUTPUT plugin hook seam */
   constructor(
@@ -37,6 +45,21 @@ export class GuardrailsPipelineService {
       `Registering input guardrail: ${guardrail.id} (${guardrail.name})`,
     );
     this.inputGuardrails.push(guardrail);
+  }
+
+  /**
+   * Register the escalation-only guardrail (LLM semantic moderation).
+   *
+   * Distinct from registerInputGuardrail: this guardrail does NOT run on every
+   * request. It is invoked by processInput only when a regex input guardrail
+   * flags a 'warning' (suspicious-but-not-blocked) result. Registering it more
+   * than once replaces the previous one (single escalation layer).
+   */
+  registerEscalationGuardrail(guardrail: IInputGuardrail): void {
+    this.logger.log(
+      `Registering escalation guardrail: ${guardrail.id} (${guardrail.name})`,
+    );
+    this.escalationGuardrail = guardrail;
   }
 
   /**
@@ -126,6 +149,46 @@ export class GuardrailsPipelineService {
         });
         blockedBy = guardrail.id;
         break;
+      }
+    }
+
+    // ★ P2 escalation-only：正则护栏已快筛完。仅当未被 block，且某个护栏报告
+    //   "疑似但不确定"（severity:'warning'）时，才升级跑一次 LLM 语义分类。
+    //   干净输入（全 info/pass）**不**触发 → 不每请求烧 token/延迟。
+    if (!blockedBy && this.escalationGuardrail?.enabled) {
+      const suspicious = results.some((r) => r.severity === "warning");
+      if (suspicious) {
+        this.logger.warn(
+          `Escalating to LLM moderation (${this.escalationGuardrail.id}): regex guardrail reported suspicious input`,
+        );
+        try {
+          const moderationResult = await this.escalationGuardrail.check({
+            ...input,
+            content: currentContent,
+          });
+          results.push(moderationResult);
+          if (
+            moderationResult.severity === "block" &&
+            !moderationResult.passed
+          ) {
+            blockedBy = this.escalationGuardrail.id;
+            this.logger.warn(
+              `Input blocked by escalation guardrail: ${this.escalationGuardrail.id} - ${moderationResult.message}`,
+            );
+          }
+        } catch (error) {
+          // fail-closed：升级护栏抛错 → 阻断（与正则护栏 catch 语义一致）
+          this.logger.error(
+            `Error running escalation guardrail ${this.escalationGuardrail.id}: ${error instanceof Error ? error.message : error}`,
+          );
+          results.push({
+            passed: false,
+            guardrailId: this.escalationGuardrail.id,
+            severity: "block",
+            message: `Escalation guardrail execution error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          });
+          blockedBy = this.escalationGuardrail.id;
+        }
       }
     }
 
