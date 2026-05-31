@@ -7,10 +7,30 @@ import { WritingRepository } from "./writing.repository";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
-import { PromptSkillBridge } from "@/modules/ai-harness/facade";
+import {
+  PromptSkillBridge,
+  MissionPipelineRegistry,
+  MissionPipelineOrchestrator,
+  MissionCheckpointService,
+  InMemoryMissionCheckpointStore,
+  type MissionCheckpointStore,
+} from "@/modules/ai-harness/facade";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { LongContentModule } from "./content-engine/long-content.module";
+
+// ★ B4 Writing Mission Pipeline — new providers (新旧并存，B5 单点切换)
+import { WritingBusinessOrchestrator } from "./mission/pipeline/writing-business-orchestrator.service";
+import { WritingPipelineDispatcher } from "./mission/pipeline/writing-pipeline-dispatcher.service";
+import { WritingMissionStoreService } from "./mission/lifecycle/writing-mission-store.service";
+import { WritingArtifactProjector } from "./mission/projectors/writing-artifact.projector";
+// Role services (6)
+import { AgentInvoker } from "./mission/roles/agent-invoker.service";
+import { WriterService } from "./mission/roles/writer.service";
+import { BibleKeeperService } from "./mission/roles/bible-keeper.service";
+import { StoryArchitectService } from "./mission/roles/story-architect.service";
+import { ConsistencyService } from "./mission/roles/consistency.service";
+import { EditorService } from "./mission/roles/editor.service";
 
 // WebSocket Gateway and Event Emitter
 import { AiWritingGateway } from "./ai-writing.gateway";
@@ -246,6 +266,37 @@ import {
     EditorAgent,
     // Generic ContentSource provider (auto-discovered by engine ContentSourceRegistry)
     WritingContentSourceProvider,
+
+    // ★ B4 Writing Mission Pipeline — new providers (新旧并存，不切换执行路径)
+    // pipeline 基础设施（非 @Global，必须本地注册，对齐 social 形态）
+    MissionPipelineRegistry,
+    MissionPipelineOrchestrator,
+    // checkpoint store + service（WritingMissionStoreService 依赖）
+    // InMemoryMissionCheckpointStore: plain class（无 @Injectable），用 useValue 实例化
+    {
+      provide: InMemoryMissionCheckpointStore,
+      useValue: new InMemoryMissionCheckpointStore(),
+    },
+    {
+      provide: MissionCheckpointService,
+      useFactory: (store: MissionCheckpointStore) =>
+        new MissionCheckpointService(store),
+      inject: [InMemoryMissionCheckpointStore],
+    },
+    // store + projector
+    WritingMissionStoreService,
+    WritingArtifactProjector,
+    // business-orchestrator 必须在 dispatcher 之前注册（dispatcher.onModuleInit 调
+    // businessOrch.bindSessionLookup 时 instance 已存在）
+    WritingBusinessOrchestrator,
+    WritingPipelineDispatcher,
+    // Role services (6 = AgentInvoker + 5 writing roles)
+    AgentInvoker,
+    WriterService,
+    BibleKeeperService,
+    StoryArchitectService,
+    ConsistencyService,
+    EditorService,
   ],
   exports: [
     AiWritingService,
