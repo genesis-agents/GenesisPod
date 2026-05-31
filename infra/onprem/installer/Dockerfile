@@ -13,7 +13,7 @@
 
 FROM alpine:3.20
 
-LABEL org.opencontainers.image.source="https://github.com/JUNJIE-DUAN/genesis-agent-teams"
+LABEL org.opencontainers.image.source="https://github.com/genesis-agents/genesis"
 LABEL org.opencontainers.image.description="Genesis.ai on-prem installer (extracts compose + scripts to host)"
 LABEL org.opencontainers.image.licenses="Proprietary"
 

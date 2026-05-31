@@ -586,7 +586,7 @@ Railway 在构建时自动提供以下环境变量:
 | ---------------------------- | -------------------- | ---------------------------- |
 | `RAILWAY_GIT_COMMIT_SHA`     | 完整 Git commit hash | `a1b2c3d4e5f6...`            |
 | `RAILWAY_GIT_BRANCH`         | 当前分支             | `main` / `develop`           |
-| `RAILWAY_GIT_AUTHOR`         | 提交作者             | `Jason Duan`                 |
+| `RAILWAY_GIT_AUTHOR`         | 提交作者             | `Your Name`                 |
 | `RAILWAY_GIT_COMMIT_MESSAGE` | 提交信息             | `feat: add new feature`      |
 | `RAILWAY_DEPLOYMENT_ID`      | 部署 ID              | `778e36a9-a54d-4d23...`      |
 | `RAILWAY_ENVIRONMENT`        | 环境名称             | `production` / `development` |

@@ -9,7 +9,7 @@
 
 ```bash
 # 1. 克隆并设置项目
-git clone https://github.com/JUNJIE-DUAN/genesis-ai.git
+git clone https://github.com/genesis-agents/genesis.git
 cd genesis-ai
 
 # 2. 安装依赖
@@ -349,8 +349,8 @@ AI_SERVICE_TIMEOUT=60
 - **产品需求：** [prd.md](../../prd.md)
 - **技术架构：** [architecture.md](../../architecture.md)
 - **开发规范：** [project-rules.md](../../project-rules.md)
-- **GitHub：** https://github.com/JUNJIE-DUAN/genesis-ai
-- **Issues：** https://github.com/JUNJIE-DUAN/genesis-ai/issues
+- **GitHub：** https://github.com/genesis-agents/genesis
+- **Issues：** https://github.com/genesis-agents/genesis/issues
 
 ---
 

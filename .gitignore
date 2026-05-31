@@ -155,3 +155,14 @@ backend/src/coverage-supplemental/
 .claude/settings.local.json
 .claude/CLAUDE.local.md
 tmpclaude-*
+
+# Secrets / captured auth state (never commit — see SECURITY.md)
+e2e/.auth/
+backend/.env.railway
+*.gitleaks-report.json
+.gitleaks-report.json
+.gitleaks-tree.json
+.tmp-gitleaks/
+
+# Internal AI-collaboration memory (incident postmortems, personal prefs) — not published
+.claude/memory/

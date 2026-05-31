@@ -80,11 +80,11 @@ export const config = {
     /** 联系邮箱 */
     contactEmail:
       process.env.NEXT_PUBLIC_BRAND_CONTACT_EMAIL ||
-      'hello.junjie.duan@gmail.com',
+      'hello@gens.team',
     /** GitHub Issues URL */
     githubIssuesUrl:
       process.env.NEXT_PUBLIC_BRAND_GITHUB_ISSUES_URL ||
-      'https://github.com/JUNJIE-DUAN/genesis-ai/issues',
+      'https://github.com/genesis-agents/genesis/issues',
   },
 
   // ==================== Railway URL 配置 ====================

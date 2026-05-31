@@ -7,7 +7,7 @@
 const { PrismaClient } = require("@prisma/client");
 const jwt = require("jsonwebtoken");
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "hello.junjie.duan@gmail.com";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "hello@gens.team";
 const JWT_SECRET = process.env.JWT_SECRET;
 const API_BASE = process.env.API_BASE || "https://api.gens.team";
 

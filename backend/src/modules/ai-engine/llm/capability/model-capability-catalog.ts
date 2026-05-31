@@ -84,7 +84,7 @@ export const PROVIDER_CAPABILITY_DEFAULTS: readonly ProviderCapabilityRule[] = [
     },
     rationale:
       "Claude 4.5+（Opus 4.5/4.6/4.7、Sonnet 4.5/4.6、Haiku 4.5）2026-05 起 GA 支持 native structured outputs：output_config.format={type:'json_schema',schema}，schema 编译成 grammar 约束 token 生成，首次即保证合规，比 tool_use 模拟更可靠；不需 beta header（anthropic-version:2023-06-01）。降级链 native→tool_use→prompt，配合 in-request 当次降级(A)，catalog 漂移或个别模型不支持也不会崩。",
-    addedBy: "hello.junjie.duan@gmail.com",
+    addedBy: "hello@gens.team",
     addedAt: "2026-05-25",
     sourceUrl:
       "https://platform.claude.com/docs/en/build-with-claude/structured-outputs",
@@ -129,7 +129,7 @@ export const PROVIDER_CAPABILITY_DEFAULTS: readonly ProviderCapabilityRule[] = [
     },
     rationale:
       "Provider 字段写作 'claude' 的 Claude 4.5+ 模型与 anthropic 同 API 同能力——native structured outputs(output_config.format) GA；与上面 anthropic 4.5+ 条目保持一致，避免别名路径回落到旧 tool_use。降级链 native→tool_use→prompt。",
-    addedBy: "hello.junjie.duan@gmail.com",
+    addedBy: "hello@gens.team",
     addedAt: "2026-05-25",
     sourceUrl:
       "https://platform.claude.com/docs/en/build-with-claude/structured-outputs",

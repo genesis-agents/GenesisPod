@@ -1,253 +1,151 @@
+<div align="center">
+
 # Genesis.ai
 
-企业级 AI 研究、内容生产与多 Agent 协作平台。
+**An open-source, enterprise-grade platform for AI deep research, content production, and multi-agent collaboration.**
 
-当前版本：`40.5.0`
+[English](./README.md) · [简体中文](./README.zh-CN.md)
 
-## 项目概览
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](./LICENSE)
+[![Commercial license available](https://img.shields.io/badge/license-commercial%20available-green.svg)](./COMMERCIAL-LICENSE.md)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+[![Secret scan: gitleaks](https://img.shields.io/badge/secret%20scan-gitleaks-informational.svg)](./.github/workflows/gitleaks.yml)
 
-Genesis.ai 是一个 monorepo，包含：
+</div>
 
-- `frontend/`：Next.js 14 前端
-- `backend/`：NestJS 10 后端
-- `ai-service/`：FastAPI 辅助服务
-- `infra/`：Railway / EdgeOne 部署脚本与配置
-- `e2e/`：Playwright 端到端测试
+---
 
-核心产品面：
+## What is Genesis.ai?
 
-- `AI Ask`：通用问答
-- `AI Insights`：话题洞察
-- `AI Research`：深度研究
-- `Agent Playground`：多 Agent 研究编排与报告生成
-- `AI Office / Slides`：报告与演示文稿生产
-- `AI Writing`：长文写作
-- `AI Social`：社媒内容生成
-- `Library / RAG / Knowledge Graph`：知识沉淀与检索
-- `Admin`：模型、工具、Secrets、数据源、系统管理
+Genesis.ai is a full-stack platform for building and running **AI research and
+multi-agent workflows** in production. It ships a complete product surface — deep
+research, multi-agent orchestration, document/slide generation, long-form
+writing, RAG and knowledge graphs — on top of a strictly layered, **architecture-
+governed** backend.
 
-## 技术栈
+It is **fully open source under AGPL-3.0**, with a [commercial license](./COMMERCIAL-LICENSE.md)
+available for closed-source and SaaS use.
 
-| 层       | 技术                                                                     |
-| -------- | ------------------------------------------------------------------------ |
-| Frontend | Next.js 14, React 18, TypeScript, Tailwind, Zustand, SWR, TanStack Query |
-| Backend  | NestJS 10, Prisma, PostgreSQL 16, Redis 7, Socket.IO, EventEmitter       |
-| AI       | OpenAI, Anthropic, Gemini, Grok, DeepSeek, LiteLLM-compatible providers  |
-| Infra    | Docker Compose, Railway, EdgeOne, Playwright, Husky                      |
+### Why another AI platform?
 
-## 当前架构
+The differentiator is **architectural discipline you can verify**. Most agent
+frameworks rot into a tangle of cross-imports within a year. Genesis.ai enforces
+its 5-layer boundaries (`ai-app → ai-engine → ai-harness → ai-infra → open-api`)
+through three independent gates — ESLint rules, a jest architecture-spec suite,
+and a pre-push + CI merge gate — so the structure stays sound as the codebase
+grows. The architecture compliance is **machine-checked on every push**, not a
+diagram in a wiki that drifts from reality.
 
-后端当前按 5 个顶层模块分层：
+## Features
 
-- `ai-app`：业务应用层
-- `ai-engine`：通用 AI 能力
-- `ai-harness`：多 Agent 运行时、生命周期、评测、协议
-- `ai-infra`：认证、存储、密钥、通知等基础设施
-- `open-api`：对外 API / MCP / Admin 接口
+- **AI Research** — multi-step planning, source gathering, and report generation.
+- **Agent Playground** — multi-agent mission orchestration with live tracing,
+  token/cost accounting, and structured report artifacts.
+- **AI Ask / Insights** — multi-model Q&A and topic insights.
+- **AI Office / Slides / Writing / Social** — document, presentation, long-form,
+  and social content generation.
+- **Library / RAG / Knowledge Graph** — ingestion, retrieval, and knowledge
+  consolidation.
+- **BYOK & multi-provider** — OpenAI, Anthropic, Gemini, Grok, DeepSeek, and any
+  LiteLLM-compatible provider, with a first-class secrets module.
+- **Admin** — model, tool, secrets, data-source, and system management.
 
-这比旧文档里的 `intent-gateway / ai-kernel` 六层说法更接近当前真实代码。
+## Architecture
 
-## 快速开始
+A monorepo with three runtimes:
 
-### 1. 环境要求
+| Package       | Stack |
+| ------------- | ----- |
+| `frontend/`   | Next.js 14, React 18, TypeScript, Tailwind, Zustand, SWR, TanStack Query |
+| `backend/`    | NestJS 10, Prisma, PostgreSQL 16, Redis 7, Socket.IO |
+| `ai-service/` | FastAPI (auxiliary AI service) |
 
-- Node.js `>= 20`
-- npm `>= 9`
+The backend is layered into five top-level modules with a **strict one-way
+dependency direction**:
+
+```
+open-api    →  external API / MCP / admin surface
+ai-app      →  business applications (research, teams, office, writing, ...)
+ai-engine   →  reusable AI primitives (LLM, tools, RAG, knowledge, planning)
+ai-harness  →  multi-agent runtime, lifecycle, evaluation, protocols
+ai-infra    →  auth, storage, secrets, notifications
+```
+
+`ai-app` reaches `ai-engine` only through a facade; `ai-engine` never imports
+`ai-harness`. See [`STRUCTURE.md`](./STRUCTURE.md) for the full map.
+
+## Quick start
+
+### Requirements
+
+- Node.js `>= 20`, npm `>= 9`
 - Docker / Docker Compose
-- PostgreSQL 与 Redis 通过本地容器启动
+- At least one model provider API key (e.g. `OPENAI_API_KEY`)
 
-### 2. 安装依赖
+### Run it
 
 ```bash
+# 1. Install
 npm install
-```
 
-### 3. 启动基础设施
+# 2. Configure — copy the template and fill in your keys (never commit .env)
+cp .env.example .env
 
-```bash
+# 3. Start infrastructure (postgres + redis + flaresolverr)
 npm run db:setup
-```
 
-这会启动：
-
-- `postgres`：`localhost:5432`
-- `redis`：`localhost:6379`
-- `flaresolverr`：`localhost:8191`
-
-### 4. 初始化数据库
-
-```bash
+# 4. Initialize the database
 cd backend
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
-```
+npm run prisma:generate && npm run prisma:migrate && npm run prisma:seed
+cd ..
 
-### 5. 启动开发环境
-
-在仓库根目录：
-
-```bash
+# 5. Start the full stack
 npm run dev
 ```
 
-默认端口：
+Default ports: frontend `http://localhost:3000`, backend `http://localhost:3001`,
+AI service `http://localhost:5000`.
 
-- Frontend：`http://localhost:3000`
-- Backend：`http://localhost:3001` 或项目当前配置端口
-- AI Service：`http://localhost:5000`
+Run a single side with `npm run dev:frontend` / `dev:backend` / `dev:ai`.
 
-如果只启动单端：
+### Minimum environment variables
 
-```bash
-npm run dev:frontend
-npm run dev:backend
-npm run dev:ai
-```
+`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, and one provider key
+(`OPENAI_API_KEY` or another). For login, storage, and integrations see
+`.env.example`.
 
-## 常用命令
+## Development
 
-### 根目录
+| Command | Purpose |
+| ------- | ------- |
+| `npm run dev` | full-stack dev |
+| `npm run type-check` | TypeScript check |
+| `npm run test:quick` | fast tests |
+| `npm run verify:arch` | architecture-boundary checks |
+| `npm run verify:full` | lint + type + test + build |
+| `npm run e2e` | Playwright end-to-end |
 
-```bash
-npm run dev
-npm run build
-npm run test
-npm run lint
-npm run type-check
-npm run verify:quick
-npm run verify:full
-npm run e2e
-```
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening a PR.
 
-### 前端
+## License
 
-```bash
-cd frontend
-npm run dev
-npm run build
-npm run test
-npm run type-check
-```
+Genesis.ai is **dual-licensed**:
 
-### 后端
+- **[AGPL-3.0](./LICENSE)** for open-source and self-hosted use. Note: AGPL
+  treats network use as distribution — if you run a modified version as a
+  service, you must publish your source changes.
+- **[Commercial license](./COMMERCIAL-LICENSE.md)** for closed-source products,
+  proprietary SaaS, or when you need warranty/SLA/indemnity. Contact
+  **hello@gens.team**.
 
-```bash
-cd backend
-npm run dev
-npm run build
-npm run test
-npm run test:quick
-npm run type-check
-npm run diagnose
-```
+Not sure which you need? See the [decision table](./COMMERCIAL-LICENSE.md#which-one-do-i-need-quick-guide).
 
-### 数据库
+## Contributing
 
-```bash
-npm run db:setup
-npm run db:migrate
-npm run db:seed
-npm run db:studio
-```
+Contributions are welcome. Please read [`CONTRIBUTING.md`](./CONTRIBUTING.md) and
+note that a one-time [CLA](./CLA.md) signature is required (automated via a bot
+on your first PR) — this is what keeps the dual-license model possible.
 
-## 本地容器化运行
+## Security
 
-仓库支持把前后端分别构建后放进本地容器验证。当前常见本地联调链路：
-
-- 前端容器：`localhost:3000`
-- 后端容器：`localhost:4000`
-
-适合验证：
-
-- 登录页与 OAuth 入口
-- Agent Playground mission 流程
-- 报告三视图
-- 容器环境下的 Prisma / dist / alias / bootstrap 问题
-
-## 近期关键约束
-
-### 1. 登录入口
-
-当前登录入口已经统一为先进入 `/login`，不应再由首页通用“登录”按钮直接跳 Google OAuth。
-
-### 2. Agent Playground 报告完整性
-
-近期修复重点包括：
-
-- 章节 pipeline 完整性约束
-- `reportArtifact` section offset 修复
-- `S8B / S9B / S11` 完整性闭环
-- 历史坏 `sections` 的前端读取兜底
-
-### 3. Playground token 统计
-
-近期修复了 live token 聚合问题：
-
-- 支持 `cost:tick.deltaTokens` 记入总 token
-- 页面会使用持久化 cost 兜底覆盖 live 低值
-- 算力面板模型分布在 trace 无 token 时按调用占比分摊
-
-## 环境变量
-
-最小本地开发通常至少需要：
-
-- `DATABASE_URL`
-- `REDIS_URL`
-- `JWT_SECRET`
-- `OPENAI_API_KEY` 或其他任一模型提供方 Key
-
-若启用登录、对象存储、第三方集成，还需要：
-
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `GOOGLE_CALLBACK_URL`
-- `STORAGE_*`
-- `RESEND_API_KEY` 或其他邮件服务配置
-
-请以仓库内现有 `.env` 模板和 Railway 环境配置为准，不要只依赖历史文档。
-
-## 部署
-
-生产部署以 `infra/railway/` 为主：
-
-- Railway service 构建与发布脚本
-- release notify
-- 环境变量注入
-- 数据库迁移流程
-
-相关目录：
-
-- `infra/railway/`
-- `backend/prisma/`
-- `backend/prisma/deploy-migrations.ts`
-
-## 测试与质量门禁
-
-提交前常用：
-
-```bash
-npm run type-check
-npm run test:quick
-npm run build:backend
-```
-
-仓库还包含：
-
-- Husky pre-commit
-- pre-push 验证
-- 架构边界检查
-- Playwright E2E
-
-## 文档导航
-
-- 项目结构：[`STRUCTURE.md`](STRUCTURE.md)
-- 变更记录：[`CHANGELOG.md`](CHANGELOG.md)
-- 部署与环境：`infra/railway/`
-- 需求与设计：`docs/`
-
-## 当前维护建议
-
-- 更新文档时，优先以真实目录和脚本为准，不要沿用旧项目名 `deepdive-engine`
-- 描述后端分层时，优先使用当前真实模块：`ai-app / ai-engine / ai-harness / ai-infra / open-api`
-- 对 Agent Playground、登录、报告完整性相关说明，要跟最近线上修复保持同步
+Found a vulnerability? **Do not** open a public issue — see [`SECURITY.md`](./SECURITY.md).
