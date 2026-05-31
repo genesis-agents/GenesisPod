@@ -1502,6 +1502,8 @@ export {
   type ResolvedRole,
   type ResolvedStageHooks,
   type StageHookFn,
+  type StageHookShape,
+  defineStageHooks,
   type MissionContext,
   type RoleState,
   type PastDecision as StagePastDecision,
