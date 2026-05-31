@@ -331,7 +331,7 @@ docker compose --env-file .env.production up -d --force-recreate frontend
 # 1. 查谁占用
 sudo ss -tlnp | grep :3000        # 或 sudo netstat -tlnp | grep :3000
 
-# 2. 改 Genesis 监听端口（如 改成 8080）
+# 2. 改 GenesisPod 监听端口（如 改成 8080）
 sed -i 's|^FRONTEND_PORT=.*|FRONTEND_PORT=8080|' .env.production
 docker compose --env-file .env.production up -d --force-recreate frontend
 # 然后访问 http://服务器IP:8080

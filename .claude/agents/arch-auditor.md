@@ -357,7 +357,7 @@ Grep pattern: console\.(log|warn|error|debug)\(
 Path: backend/src/modules/**/*.ts (exclude *.spec.ts, *.test.ts)
 
 # 硬编码品牌名
-Grep pattern: ['"`](Genesis|DeepDive|Raven)['"`]
+Grep pattern: ['"`](GenesisPod|DeepDive|Raven)['"`]
 Path: backend/src/modules/**/*.ts (exclude *.spec.ts)
 ```
 

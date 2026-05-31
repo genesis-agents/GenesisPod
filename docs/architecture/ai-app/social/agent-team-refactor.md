@@ -2,7 +2,7 @@
 
 > **Status**: Active (W1 开始 2026-05-16)
 > **Branch**: `refactor/ai-social-agent-team`
-> **Tracking**: Genesis Agent Teams workflow
+> **Tracking**: GenesisPod Agent Teams workflow
 
 ## 目标
 

@@ -76,7 +76,7 @@ interface LocalSkill {
 ├─────────────────────────────────────────────────────────┤
 │ ┌───────────────────────────────────────────────────┐   │
 │ │ 📊 AI Architecture Layering        v2.0  [Active] │   │
-│ │ By: Genesis Team                                 │   │
+│ │ By: GenesisPod Team                                 │   │
 │ │ Design AI systems with clear architectural layers │   │
 │ │ [View] [Edit] [Disable] [Delete]                  │   │
 │ └───────────────────────────────────────────────────┘   │

@@ -876,5 +876,5 @@ try {
 
 ---
 
-**维护者**: Genesis Team
+**维护者**: GenesisPod Team
 **联系方式**: tech@genesis.ai

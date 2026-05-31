@@ -766,7 +766,7 @@ export default function TemplateGallery() {
 
 ### 与Genspark对标:
 
-| 功能         | Genspark | Genesis (优化后) |
+| 功能         | Genspark | GenesisPod (优化后) |
 | ------------ | -------- | ---------------- |
 | 自然语言输入 | ✅       | ✅               |
 | 自动研究     | ✅       | ✅               |

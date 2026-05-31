@@ -4349,11 +4349,11 @@
       },
       {
         "type": "feature",
-        "description": "refine Genesis logo and wiki query rendering"
+        "description": "refine GenesisPod logo and wiki query rendering"
       },
       {
         "type": "feature",
-        "description": "refine Genesis brand header styling"
+        "description": "refine GenesisPod brand header styling"
       },
       {
         "type": "feature",
@@ -10721,7 +10721,7 @@
       },
       {
         "type": "feature",
-        "description": "rename Gens.Team → Genesis"
+        "description": "rename Gens.Team → GenesisPod"
       },
       {
         "type": "feature",
@@ -14377,7 +14377,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -14803,7 +14803,7 @@
       },
       {
         "type": "feature",
-        "description": "rename Gens.Team → Genesis"
+        "description": "rename Gens.Team → GenesisPod"
       },
       {
         "type": "feature",
@@ -18455,7 +18455,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -18873,7 +18873,7 @@
       },
       {
         "type": "feature",
-        "description": "rename Gens.Team → Genesis"
+        "description": "rename Gens.Team → GenesisPod"
       },
       {
         "type": "feature",
@@ -22521,7 +22521,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -22935,7 +22935,7 @@
       },
       {
         "type": "feature",
-        "description": "rename Gens.Team → Genesis"
+        "description": "rename Gens.Team → GenesisPod"
       },
       {
         "type": "feature",
@@ -26583,7 +26583,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -27001,7 +27001,7 @@
       },
       {
         "type": "feature",
-        "description": "rename Gens.Team → Genesis"
+        "description": "rename Gens.Team → GenesisPod"
       },
       {
         "type": "feature",
@@ -30641,7 +30641,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -31055,7 +31055,7 @@
       },
       {
         "type": "feature",
-        "description": "rename Gens.Team → Genesis"
+        "description": "rename Gens.Team → GenesisPod"
       },
       {
         "type": "feature",
@@ -34695,7 +34695,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -35109,7 +35109,7 @@
       },
       {
         "type": "feature",
-        "description": "rename Gens.Team → Genesis"
+        "description": "rename Gens.Team → GenesisPod"
       },
       {
         "type": "feature",
@@ -38745,7 +38745,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -39159,7 +39159,7 @@
       },
       {
         "type": "feature",
-        "description": "rename Gens.Team → Genesis"
+        "description": "rename Gens.Team → GenesisPod"
       },
       {
         "type": "feature",
@@ -42791,7 +42791,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -43205,7 +43205,7 @@
       },
       {
         "type": "feature",
-        "description": "rename Gens.Team → Genesis"
+        "description": "rename Gens.Team → GenesisPod"
       },
       {
         "type": "feature",
@@ -46833,7 +46833,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -48691,7 +48691,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -49027,7 +49027,7 @@
       },
       {
         "type": "feature",
-        "description": "rename Gens.Team → Genesis"
+        "description": "rename Gens.Team → GenesisPod"
       },
       {
         "type": "feature",
@@ -52647,7 +52647,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -54445,7 +54445,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -56103,7 +56103,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -57761,7 +57761,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -59415,7 +59415,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -61063,7 +61063,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -62711,7 +62711,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -64341,7 +64341,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -65971,7 +65971,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -67589,7 +67589,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -69203,7 +69203,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -70813,7 +70813,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -72415,7 +72415,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -74001,7 +74001,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -75597,7 +75597,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -77175,7 +77175,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",
@@ -78915,7 +78915,7 @@
       },
       {
         "type": "improvement",
-        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+        "description": "revert to original layout with GenesisPod + AI ENGINE subtitle"
       },
       {
         "type": "improvement",

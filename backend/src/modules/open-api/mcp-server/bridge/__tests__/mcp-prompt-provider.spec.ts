@@ -5,8 +5,8 @@
 jest.mock("../../../../../common/config/app.config", () => ({
   APP_CONFIG: {
     brand: {
-      name: "Genesis",
-      fullName: "Genesis AI",
+      name: "GenesisPod",
+      fullName: "GenesisPod AI",
     },
   },
 }));

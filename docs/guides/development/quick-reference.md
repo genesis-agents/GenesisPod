@@ -368,4 +368,4 @@ npm ci
 ---
 
 **最后更新**: 2026-01-15
-**维护者**: Genesis Team
+**维护者**: GenesisPod Team

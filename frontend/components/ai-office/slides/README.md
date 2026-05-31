@@ -47,7 +47,7 @@ const coverContent: CoverSlideContent = {
   templateType: 'cover',
   title: 'AI 驱动的未来',
   subtitle: '探索人工智能的无限可能',
-  author: 'Genesis Team',
+  author: 'GenesisPod Team',
   organization: 'GenesisPod',
   date: '2025-12-28',
   tagline: '创新 · 洞察 · 行动',

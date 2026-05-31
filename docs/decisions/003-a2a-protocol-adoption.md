@@ -5,7 +5,7 @@
 
 ## Background
 
-Google's A2A protocol (v0.3, backed by 150+ organizations) standardizes agent-to-agent communication. Genesis already has a mature multi-agent Teams module (Team + TeamBuilder + ITeamMember + ILeader + Workflow + ConstraintEngine) that handles internal agent collaboration. Enterprise customers need cross-platform agent orchestration.
+Google's A2A protocol (v0.3, backed by 150+ organizations) standardizes agent-to-agent communication. GenesisPod already has a mature multi-agent Teams module (Team + TeamBuilder + ITeamMember + ILeader + Workflow + ConstraintEngine) that handles internal agent collaboration. Enterprise customers need cross-platform agent orchestration.
 
 ## Decision
 
@@ -15,9 +15,9 @@ Integrate A2A INTO the existing Teams system via the adapter pattern, not as a p
    - External A2A agents join teams as regular members via `TeamBuilder.addMember()`
    - Status maps from A2A lifecycle to existing `MemberStatus` enum
    - Skills/tools derived from A2A Agent Card capabilities
-   - External agents are always members, never leaders (Genesis retains orchestration control)
+   - External agents are always members, never leaders (GenesisPod retains orchestration control)
 
-2. **Agent Cards** for Genesis agents expose them to external A2A platforms
+2. **Agent Cards** for GenesisPod agents expose them to external A2A platforms
    - Discovery endpoint: `/.well-known/agent.json`
    - Maps existing agent capabilities to A2A skill format
 
@@ -34,7 +34,7 @@ Integrate A2A INTO the existing Teams system via the adapter pattern, not as a p
 ## Impact
 
 - **Positive**: Agent interoperability with zero disruption to existing teams
-- **Positive**: Genesis agents discoverable by external platforms
+- **Positive**: GenesisPod agents discoverable by external platforms
 - **Negative**: External agents may have higher latency (HTTP round-trips)
 - **Risk**: External agent reliability affects team execution
 

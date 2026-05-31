@@ -22,7 +22,7 @@ export API_KEY="your-mcp-api-key"
 The Public API and the A2A protocol are authenticated by an **MCP-category
 secret**. Keys are minted by a platform admin through the admin Secrets API
 (JWT + admin role required). As an external developer you receive the key value
-from your Genesis administrator — you do not self-serve it.
+from your GenesisPod administrator — you do not self-serve it.
 
 How an admin creates a key (for reference; requires an admin JWT, not your API key):
 
@@ -226,7 +226,7 @@ Response (`data` payload):
 
 ## 6. Example: A2A `message/send` (Agent-to-Agent, JSON-RPC 2.0)
 
-Genesis exposes an A2A v0.3 spec endpoint for agent-to-agent interop.
+GenesisPod exposes an A2A v0.3 spec endpoint for agent-to-agent interop.
 
 - Discovery (public, no key, **no** `/api/v1` prefix):
   `GET /.well-known/agent.json`
@@ -320,11 +320,11 @@ under `data`.
 ## 7. BYOK (Bring Your Own Key) essentials
 
 BYOK lets the model calls behind these endpoints run on keys owned by the
-Genesis tenant/user rather than the platform's system keys.
+GenesisPod tenant/user rather than the platform's system keys.
 
-- The MCP API key you send authenticates **you to the Genesis Public API**. It is
+- The MCP API key you send authenticates **you to the GenesisPod Public API**. It is
   not your LLM provider key.
-- LLM provider keys (OpenAI, Anthropic, etc.) are configured inside Genesis as
+- LLM provider keys (OpenAI, Anthropic, etc.) are configured inside GenesisPod as
   user-owned `UserApiKey` records (BYOK self-use mode). Model resolution and key
   selection happen server-side via the BYOK key resolver — you never pass a
   provider key on the wire to these endpoints.
@@ -337,7 +337,7 @@ Genesis tenant/user rather than the platform's system keys.
   external API consumer.
 
 Practical takeaway for an external developer: configure your provider keys (or
-have your admin assign them) in Genesis BYOK first; then call the Public API with
+have your admin assign them) in GenesisPod BYOK first; then call the Public API with
 your MCP key. The platform routes each request to the correct provider key
 according to the tenant's BYOK policy.
 

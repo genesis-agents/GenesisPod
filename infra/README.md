@@ -340,4 +340,4 @@ bash scripts/deploy.sh
 
 **版本**: v1.0
 **最后更新**: 2024
-**维护者**: Genesis 基础设施团队
+**维护者**: GenesisPod 基础设施团队

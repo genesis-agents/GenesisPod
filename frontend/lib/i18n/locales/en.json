@@ -3602,7 +3602,7 @@
       },
       "external": {
         "title": "External MCP Servers",
-        "description": "Connect to external MCP servers to extend Genesis capabilities",
+        "description": "Connect to external MCP servers to extend GenesisPod capabilities",
         "tab": "External",
         "addServer": "Add Server",
         "editServer": "Edit Server",
@@ -3671,7 +3671,7 @@
     },
     "publicApi": {
       "title": "Public API",
-      "description": "External REST API for integrating Genesis capabilities",
+      "description": "External REST API for integrating GenesisPod capabilities",
       "capabilities": "Capabilities",
       "status": "Service Status",
       "openclawConfig": "OpenClaw Config"

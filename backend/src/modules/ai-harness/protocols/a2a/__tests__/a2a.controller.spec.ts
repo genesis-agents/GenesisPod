@@ -28,7 +28,7 @@ const mockAgentCard = {
   name: "GenesisPod",
   description: "Enterprise AI platform",
   url: "https://api.genesis.ai/a2a/tasks",
-  provider: { organization: "Genesis", url: "https://api.genesis.ai" },
+  provider: { organization: "GenesisPod", url: "https://api.genesis.ai" },
   version: "1.0.0",
   capabilities: { streaming: false, pushNotifications: true },
   defaultInputModes: ["text"],

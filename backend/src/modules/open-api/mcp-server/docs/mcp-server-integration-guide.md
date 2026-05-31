@@ -26,7 +26,7 @@ The GenesisPod MCP Server exposes five core AI capabilities through a standardiz
 
 ### Step 1: Obtain API Key
 
-API keys are managed through Genesis's Secrets system with category "MCP". Contact your Genesis administrator or create a key via the Secrets API:
+API keys are managed through GenesisPod's Secrets system with category "MCP". Contact your GenesisPod administrator or create a key via the Secrets API:
 
 ```bash
 POST /api/v1/secrets
@@ -205,7 +205,7 @@ Response:
     "tools": [
       {
         "name": "genesis_ask",
-        "description": "Ask Genesis AI a question...",
+        "description": "Ask GenesisPod AI a question...",
         "inputSchema": {
           "type": "object",
           "properties": { "question": { "type": "string" } },
@@ -306,7 +306,7 @@ Requests without an `id` field are treated as notifications (no response sent):
 
 ### 1. genesis_ask
 
-Ask Genesis AI a question with optional web search augmentation.
+Ask GenesisPod AI a question with optional web search augmentation.
 
 **Input Schema:**
 

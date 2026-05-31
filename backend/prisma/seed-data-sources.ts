@@ -1203,7 +1203,7 @@ const predefinedDataSources = [
     rateLimit: 300,
     keywords: [
       "DOE AI",
-      "Genesis Mission",
+      "GenesisPod Mission",
       "FASST",
       "national labs",
       "AI infrastructure",

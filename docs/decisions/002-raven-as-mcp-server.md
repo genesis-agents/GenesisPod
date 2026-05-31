@@ -1,15 +1,15 @@
-# 002. Expose Genesis Capabilities as MCP Server
+# 002. Expose GenesisPod Capabilities as MCP Server
 
 **Date**: 2026-02-05
 **Status**: Proposed
 
 ## Background
 
-MCP has become the universal standard for AI tool integration. Claude Code, Cursor, ChatGPT Desktop, and other AI tools can connect to any MCP server to extend their capabilities. By exposing Genesis's unique capabilities (deep research, multi-agent teams, content generation) as an MCP server, Genesis can serve as a backend capability provider for the entire AI tool ecosystem.
+MCP has become the universal standard for AI tool integration. Claude Code, Cursor, ChatGPT Desktop, and other AI tools can connect to any MCP server to extend their capabilities. By exposing GenesisPod's unique capabilities (deep research, multi-agent teams, content generation) as an MCP server, GenesisPod can serve as a backend capability provider for the entire AI tool ecosystem.
 
 ## Decision
 
-Implement a standalone MCP Server module in Genesis that:
+Implement a standalone MCP Server module in GenesisPod that:
 
 1. Exposes 5 core tools: `genesis/research`, `genesis/write`, `genesis/teams/debate`, `genesis/teams/analyze`, `genesis/slides`
 2. Uses Streamable HTTP transport for external access
@@ -19,9 +19,9 @@ Implement a standalone MCP Server module in Genesis that:
 
 ## Rationale
 
-- Turns Genesis from a consumer-only platform into a capability provider
+- Turns GenesisPod from a consumer-only platform into a capability provider
 - Enables integration with developer workflows (Claude Code, Cursor)
-- Creates a new distribution channel for Genesis's core AI capabilities
+- Creates a new distribution channel for GenesisPod's core AI capabilities
 - API key model aligns with existing BYOK system
 - Low implementation cost: wraps existing services, no new AI logic
 

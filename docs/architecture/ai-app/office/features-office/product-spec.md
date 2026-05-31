@@ -2,7 +2,7 @@
 
 **版本**: v1.0
 **日期**: 2025-11-15
-**产品经理**: Genesis Team
+**产品经理**: GenesisPod Team
 **文档状态**: 正式版
 
 ---
@@ -559,7 +559,7 @@ AI Office
 │  │                  │  名称: YouTube视频分析报告         │
 │  │   [模板预览]     │  类型: Word文档                    │
 │  │                  │  版本: v1.2                        │
-│  │                  │  作者: Genesis Team               │
+│  │                  │  作者: GenesisPod Team               │
 │  │                  │  评分: ⭐⭐⭐⭐⭐ 4.9/5.0           │
 │  │                  │  使用次数: 234                     │
 │  └──────────────────┘                                   │
@@ -1480,7 +1480,7 @@ class ReportGenerator {
 
   "metadata": {
     "description": "适用于YouTube视频内容分析",
-    "author": "Genesis Team",
+    "author": "GenesisPod Team",
     "tags": ["youtube", "video", "analysis"],
     "required_data_sources": ["youtube_video"]
   },

@@ -5,7 +5,7 @@
 
 ## Background
 
-GenesisPod currently implements MCP (Model Context Protocol) with stdio transport only (`StdioMCPClient`), limited to local child processes. The MCP 2025-11 specification introduced Streamable HTTP as the primary transport mechanism, enabling remote server connectivity. With 13,000+ MCP servers in the ecosystem, Genesis needs multi-transport support to access them.
+GenesisPod currently implements MCP (Model Context Protocol) with stdio transport only (`StdioMCPClient`), limited to local child processes. The MCP 2025-11 specification introduced Streamable HTTP as the primary transport mechanism, enabling remote server connectivity. With 13,000+ MCP servers in the ecosystem, GenesisPod needs multi-transport support to access them.
 
 ## Decision
 

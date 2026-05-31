@@ -8,7 +8,7 @@
  * - Streaming: SSE 进度推送 (接入 Engine EventEmitter)
  * - Session: 完整生命周期管理 + 权限策略
  *
- * 让外部 AI 工具（Claude Code、Cursor、OpenClaw 等）调用 Genesis 能力
+ * 让外部 AI 工具（Claude Code、Cursor、OpenClaw 等）调用 GenesisPod 能力
  */
 
 import { Module, OnModuleInit } from "@nestjs/common";

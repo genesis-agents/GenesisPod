@@ -4,8 +4,8 @@
  */
 
 // ==================== 核心品牌配置（环境变量优先）====================
-const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME || 'Genesis';
-const BRAND_FULL_NAME = process.env.NEXT_PUBLIC_BRAND_FULL_NAME || 'Genesis';
+const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME || 'GenesisPod';
+const BRAND_FULL_NAME = process.env.NEXT_PUBLIC_BRAND_FULL_NAME || 'GenesisPod';
 const BRAND_SUBTITLE = process.env.NEXT_PUBLIC_BRAND_SUBTITLE || '';
 const BRAND_TAGLINE =
   process.env.NEXT_PUBLIC_BRAND_TAGLINE || 'AI-Powered Research Platform';

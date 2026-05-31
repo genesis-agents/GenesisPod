@@ -194,7 +194,7 @@ sustainability for a business conference
 
 ## 🎯 与Genspark对标
 
-| 功能         | Genspark | Genesis (现在) | 状态            |
+| 功能         | Genspark | GenesisPod (现在) | 状态            |
 | ------------ | -------- | -------------- | --------------- |
 | 自然语言输入 | ✅       | ✅             | ✅ 已实现       |
 | 自动研究     | ✅       | ✅             | ✅ 已实现       |

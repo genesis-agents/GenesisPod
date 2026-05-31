@@ -129,7 +129,7 @@ POST /api/v1/ai-image/generate
 ```typescript
 POST /api/v1/ai-image/brand-kits
 {
-  "name": "Genesis 品牌",
+  "name": "GenesisPod 品牌",
   "primaryColor": "#3B82F6", // 主色
   "secondaryColor": "#10B981", // 辅色
   "accentColor": "#F59E0B", // 强调色
@@ -144,7 +144,7 @@ POST /api/v1/ai-image/brand-kits
 Response:
 {
   "id": "brand-xxx",
-  "name": "Genesis 品牌",
+  "name": "GenesisPod 品牌",
   "colors": {
     "primary": "#3B82F6",
     "secondary": "#10B981",

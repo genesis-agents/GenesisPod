@@ -1,15 +1,15 @@
 # Iterative Research System - 自迭代研究系统设计方案
 
-> 借鉴 Karpathy autoresearch 的"假设→实验→评估→迭代"闭环，将 Genesis AI Research 从单次研究升级为自迭代研究系统。
+> 借鉴 Karpathy autoresearch 的"假设→实验→评估→迭代"闭环，将 GenesisPod AI Research 从单次研究升级为自迭代研究系统。
 
 ## 1. 核心理念
 
-### 1.1 Karpathy autoresearch 与 Genesis Research 的同构关系
+### 1.1 Karpathy autoresearch 与 GenesisPod Research 的同构关系
 
 两个系统共享相同的核心循环：**假设 → 执行 → 评估 → 迭代**。
 
 ```
-Karpathy autoresearch              Genesis AI Research (现有)
+Karpathy autoresearch              GenesisPod AI Research (现有)
 ───────────────────                ─────────────────────────
 program.md (人类指导)          ←→   研究策略知识库 (Research Memory)
 train.py (可执行代码)          ←→   Demo 软件 (可操作的产品原型)
@@ -1492,7 +1492,7 @@ backend/prisma/
 
 ## 附录 A: 与 Karpathy autoresearch 的完整对照
 
-| 维度         | autoresearch             | Genesis Iterative Research                   |
+| 维度         | autoresearch             | GenesisPod Iterative Research                   |
 | ------------ | ------------------------ | -------------------------------------------- |
 | 指导文件     | `program.md` (人写)      | `research-strategies.md` (人写 + 自动进化)   |
 | 可执行产物   | `train.py` (模型代码)    | Demo HTML (可操作软件)                       |

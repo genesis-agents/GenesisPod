@@ -111,7 +111,7 @@ export class A2AController {
 
   /**
    * Agent Discovery Endpoint
-   * 公开端点，返回 Agent Card，用于外部 Agent 发现 Genesis 能力
+   * 公开端点，返回 Agent Card，用于外部 Agent 发现 GenesisPod 能力
    *
    * 标准路径: /.well-known/agent.json
    */

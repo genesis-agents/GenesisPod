@@ -23,10 +23,10 @@ import { AiTeamsGateway } from "../ai-teams.gateway";
 jest.mock("../../../../common/config/app.config", () => ({
   APP_CONFIG: {
     brand: {
-      name: "Genesis",
+      name: "GenesisPod",
       fullName: "GenesisPod",
-      siteName: "Genesis",
-      emailFrom: "Genesis <noreply@genesis.ai>",
+      siteName: "GenesisPod",
+      emailFrom: "GenesisPod <noreply@genesis.ai>",
     },
     railway: {
       frontendUrl: "http://localhost:3000",

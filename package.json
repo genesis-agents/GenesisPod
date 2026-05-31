@@ -120,7 +120,7 @@
     "learning",
     "research"
   ],
-  "author": "Genesis Team",
+  "author": "GenesisPod Team",
   "license": "MIT",
   "dependencies": {
     "@napi-rs/canvas": "^0.1.100",

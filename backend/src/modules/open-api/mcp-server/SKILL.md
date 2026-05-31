@@ -13,7 +13,7 @@ description: >
   Enterprise AI engine exposing deep research, multi-agent debate,
   content analysis, writing assistance, and 50+ dynamic tools
   via the Model Context Protocol.
-author: Genesis AI
+author: GenesisPod AI
 license: proprietary
 ```
 
@@ -101,7 +101,7 @@ category: chat
 tier: curated
 timeout: 60s
 description: >
-  Ask Genesis AI a question. Supports multi-model responses
+  Ask GenesisPod AI a question. Supports multi-model responses
   with web search augmentation.
 input:
   question:
@@ -321,7 +321,7 @@ prompts:
       style: { required: false, description: "academic|professional|..." }
 
   discover-capabilities:
-    description: Discover available Genesis AI capabilities
+    description: Discover available GenesisPod AI capabilities
     arguments:
       category:
         { required: false, description: "tools|skills|agents|teams|models" }

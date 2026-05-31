@@ -1,4 +1,4 @@
-# Genesis Agent SDK 范式改造方案 v5（含 Plugin 系统）
+# GenesisPod Agent SDK 范式改造方案 v5（含 Plugin 系统）
 
 **版本：** 5.0
 **日期：** 2026-05-04
