@@ -502,7 +502,7 @@ R2_ACCOUNT_ID=xxx
 R2_ACCESS_KEY_ID=xxx
 R2_SECRET_ACCESS_KEY=xxx
 R2_BUCKET_NAME=genesis-images
-R2_PUBLIC_URL=https://cdn.genesis.ai
+R2_PUBLIC_URL=https://cdn.gens.team
 
 # 数据库
 DATABASE_URL=postgresql://...
@@ -877,4 +877,4 @@ try {
 ---
 
 **维护者**: GenesisPod Team
-**联系方式**: tech@genesis.ai
+**联系方式**: tech@gens.team

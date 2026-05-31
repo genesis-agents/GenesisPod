@@ -541,11 +541,11 @@ function RAGPanel() {
 
 ```bash
 # 1. 创建知识库
-curl -X POST https://api.genesis.ai/api/v1/rag/knowledge-bases \
+curl -X POST https://api.gens.team/api/v1/rag/knowledge-bases \
   -d '{"name": "技术文档库"}'
 
 # 2. 上传文档
-curl -X POST https://api.genesis.ai/api/v1/rag/knowledge-bases/KB_ID/documents/upload \
+curl -X POST https://api.gens.team/api/v1/rag/knowledge-bases/KB_ID/documents/upload \
   -F "file=@document.pdf"
 
 # 3. 等待处理完成（状态变为 COMPLETED）
@@ -554,7 +554,7 @@ curl -X POST https://api.genesis.ai/api/v1/rag/knowledge-bases/KB_ID/documents/u
 ### 2. RAG 查询
 
 ```bash
-curl -X POST https://api.genesis.ai/api/v1/rag/query \
+curl -X POST https://api.gens.team/api/v1/rag/query \
   -d '{
     "query": "如何配置数据库？",
     "knowledgeBaseIds": ["kb-xxx"],

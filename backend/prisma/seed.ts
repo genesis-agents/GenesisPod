@@ -25,14 +25,14 @@ async function main() {
     await prisma.user.create({
       data: {
         id: defaultUserId,
-        email: "demo@genesis.ai",
+        email: "demo@gens.team",
         username: "demo",
         passwordHash: "$2b$10$placeholder.hash.for.demo.user.only",
         role: "USER",
         isVerified: true,
       },
     });
-    console.log("✅ 默认用户已创建 (demo@genesis.ai)");
+    console.log("✅ 默认用户已创建 (demo@gens.team)");
   } else {
     console.log("⏩ 默认用户已存在");
   }

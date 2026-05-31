@@ -142,10 +142,10 @@ genesis-ai (Railway Project)
 
 **自定义域名 (可选)**:
 
-| 环境        | 前端             | 后端 API             |
-| ----------- | ---------------- | -------------------- |
-| Production  | `genesis.ai`     | `api.genesis.ai`     |
-| Development | `dev.genesis.ai` | `dev-api.genesis.ai` |
+| 环境        | 前端            | 后端 API            |
+| ----------- | --------------- | ------------------- |
+| Production  | `gens.team`     | `api.gens.team`     |
+| Development | `dev.gens.team` | `dev-api.gens.team` |
 
 ---
 

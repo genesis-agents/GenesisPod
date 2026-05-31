@@ -1492,7 +1492,7 @@ backend/prisma/
 
 ## 附录 A: 与 Karpathy autoresearch 的完整对照
 
-| 维度         | autoresearch             | GenesisPod Iterative Research                   |
+| 维度         | autoresearch             | GenesisPod Iterative Research                |
 | ------------ | ------------------------ | -------------------------------------------- |
 | 指导文件     | `program.md` (人写)      | `research-strategies.md` (人写 + 自动进化)   |
 | 可执行产物   | `train.py` (模型代码)    | Demo HTML (可操作软件)                       |

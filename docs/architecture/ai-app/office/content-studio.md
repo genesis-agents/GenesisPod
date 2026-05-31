@@ -200,7 +200,7 @@ AI Office = NotebookLM (RAG 能力)
 | **云存储**   | Dropbox, Google Drive     | OAuth 连接       | ✅ 实时同步 |
 | **代码仓库** | GitHub, GitLab            | Git 集成         | ✅ 代码理解 |
 | **多媒体**   | YouTube, 播客             | URL + 转录       | ✅ 文本索引 |
-| **个人笔记** | GenesisPod Notes             | 内置系统         | ✅ 自动关联 |
+| **个人笔记** | GenesisPod Notes          | 内置系统         | ✅ 自动关联 |
 
 ### 3.2 输出能力
 
@@ -890,7 +890,7 @@ class CollaborationEngine {
 
     // 2. 连接 WebSocket Provider
     this.provider = new WebsocketProvider(
-      "wss://api.genesis.ai/collab",
+      "wss://api.gens.team/collab",
       `project-${projectId}`,
       this.ydoc,
     );

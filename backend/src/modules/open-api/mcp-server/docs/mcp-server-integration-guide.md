@@ -1178,7 +1178,10 @@ System prompts explicitly instruct the model to:
 const axios = require("axios");
 
 class GenesisPodMCPClient {
-  constructor(apiKey, baseUrl = "https://your-genesis-instance.com/api/v1/mcp") {
+  constructor(
+    apiKey,
+    baseUrl = "https://your-genesis-instance.com/api/v1/mcp",
+  ) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     this.sessionId = null;
@@ -1249,7 +1252,11 @@ class GenesisPodMCPClient {
   }
 
   async assist(content, task, options = {}) {
-    return this.callTool("genesis_writing_assist", { content, task, ...options });
+    return this.callTool("genesis_writing_assist", {
+      content,
+      task,
+      ...options,
+    });
   }
 
   async debate(topic, options = {}) {

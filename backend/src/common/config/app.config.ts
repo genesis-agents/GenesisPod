@@ -25,13 +25,12 @@ export const APP_CONFIG = {
     /** HTTP User-Agent（API 调用） */
     userAgent: `${BRAND_NAME}-AI-Engine/1.0`,
     /** 网页抓取 User-Agent（浏览器兼容格式，避免被网站拒绝） */
-    botUserAgent: `Mozilla/5.0 (compatible; ${BRAND_NAME}Bot/1.0; +https://${BRAND_NAME.toLowerCase()}.ai)`,
+    botUserAgent: `Mozilla/5.0 (compatible; ${BRAND_NAME}Bot/1.0; +https://gens.team)`,
     /** Webhook User-Agent */
     webhookUserAgent: `${BRAND_NAME}-Webhook/1.0`,
     /** 默认邮件发送者 */
     emailFrom:
-      process.env.BRAND_EMAIL_FROM ||
-      `${BRAND_NAME} <noreply@${BRAND_NAME.toLowerCase()}.ai>`,
+      process.env.BRAND_EMAIL_FROM || `${BRAND_NAME} <noreply@gens.team>`,
     /** 联系邮箱 */
     contactEmail: process.env.BRAND_CONTACT_EMAIL || "hello@gens.team",
     /** 站点名称 */

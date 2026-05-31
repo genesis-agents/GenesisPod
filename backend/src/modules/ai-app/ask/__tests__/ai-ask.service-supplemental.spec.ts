@@ -587,7 +587,7 @@ describe("AiAskService (supplemental)", () => {
       const prompt = (service as any).buildSystemPromptWithContext(
         [],
         undefined,
-        "genesis.ai 的 research 功能怎么用",
+        "gens.team 的 research 功能怎么用",
       );
       expect(typeof prompt).toBe("string");
       expect(prompt.length).toBeGreaterThan(0);

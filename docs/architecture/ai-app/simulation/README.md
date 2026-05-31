@@ -514,7 +514,7 @@ function SimulationPage({ scenarioId }) {
 
 ```bash
 # 定义竞争场景
-curl -X POST https://api.genesis.ai/api/v1/ai-simulation/scenarios \
+curl -X POST https://api.gens.team/api/v1/ai-simulation/scenarios \
   -d '{
     "name": "外卖大战",
     "industry": "Food Delivery",
@@ -540,7 +540,7 @@ curl -X POST https://api.genesis.ai/api/v1/ai-simulation/scenarios \
 ### 3. 启动推演
 
 ```bash
-curl -X POST https://api.genesis.ai/api/v1/ai-simulation/scenarios/SCENARIO_ID/runs \
+curl -X POST https://api.gens.team/api/v1/ai-simulation/scenarios/SCENARIO_ID/runs \
   -d '{"rounds": 5}'
 
 # 立即返回 runId
@@ -561,7 +561,7 @@ GET /api/v1/ai-simulation/runs/RUN_ID?perspective=RED
 
 ```bash
 # 在推演过程中注入事件
-curl -X POST https://api.genesis.ai/api/v1/ai-simulation/runs/RUN_ID/intervene \
+curl -X POST https://api.gens.team/api/v1/ai-simulation/runs/RUN_ID/intervene \
   -d '{
     "message": "政府出台补贴政策",
     "injectEvent": {"type": "policy", "subsidy": 1000000}

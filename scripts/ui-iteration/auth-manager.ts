@@ -15,12 +15,12 @@ function getAuthProfiles(): Record<string, AuthConfig> {
   return {
     demo: {
       baseUrl: BACKEND_API_URL,
-      email: process.env.UI_PATROL_DEMO_EMAIL || "demo@genesis.ai",
+      email: process.env.UI_PATROL_DEMO_EMAIL || "demo@gens.team",
       password: process.env.UI_PATROL_DEMO_PASSWORD || "demo123456",
     },
     admin: {
       baseUrl: BACKEND_API_URL,
-      email: process.env.UI_PATROL_ADMIN_EMAIL || "admin@genesis.ai",
+      email: process.env.UI_PATROL_ADMIN_EMAIL || "admin@gens.team",
       password: process.env.UI_PATROL_ADMIN_PASSWORD || "admin123456",
     },
   };

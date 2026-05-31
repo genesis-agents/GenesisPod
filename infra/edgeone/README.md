@@ -52,7 +52,7 @@ NODE_ENV=production
 ### 3. Custom Domain
 
 1. Go to Project Settings → Domains
-2. Add custom domain (e.g., `app.genesis.ai`)
+2. Add custom domain (e.g., `app.gens.team`)
 3. Configure DNS CNAME record pointing to EdgeOne
 
 ### 4. Routing Configuration
@@ -64,7 +64,7 @@ EdgeOne uses `edgeone.json` for routing instead of Next.js rewrites:
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://api.genesis.ai/api/$1",
+      "dest": "https://api.gens.team/api/$1",
       "headers": {
         "X-Forwarded-Host": "$host"
       }

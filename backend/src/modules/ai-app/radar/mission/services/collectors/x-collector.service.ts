@@ -59,7 +59,7 @@ export class XCollector implements ICollector {
       requestOptions: {
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (compatible; GenesisRadar/1.0; +https://genesis.ai/bot)",
+            "Mozilla/5.0 (compatible; GenesisRadar/1.0; +https://gens.team/bot)",
         },
       },
     });

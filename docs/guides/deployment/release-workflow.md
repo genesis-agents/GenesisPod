@@ -50,7 +50,7 @@
 │                        │                                            │
 │                        ▼                                            │
 │  4. QA 验证                                                          │
-│     └── 在 staging.genesis.ai 测试                                │
+│     └── 在 staging.gens.team 测试                                │
 │     └── 功能验收                                                     │
 │     └── 回归测试                                                     │
 │                        │                                            │
@@ -165,9 +165,9 @@ jobs:
       - name: Run smoke tests
         run: |
           echo "Testing Staging API health..."
-          curl -f https://staging-api.genesis.ai/api/v1/health || exit 1
+          curl -f https://staging-api.gens.team/api/v1/health || exit 1
           echo "Testing Staging Frontend..."
-          curl -f https://staging.genesis.ai || exit 1
+          curl -f https://staging.gens.team || exit 1
           echo "✅ Staging deployment verified!"
 
       - name: Notify on success
@@ -178,7 +178,7 @@ jobs:
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: develop" >> $GITHUB_STEP_SUMMARY
           echo "- **Time**: $(date -u)" >> $GITHUB_STEP_SUMMARY
-          echo "- **URL**: https://staging.genesis.ai" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://staging.gens.team" >> $GITHUB_STEP_SUMMARY
 
       - name: Notify on failure
         if: failure()
@@ -228,7 +228,7 @@ jobs:
       - name: Verify staging is healthy
         run: |
           echo "Verifying Staging environment..."
-          curl -f https://staging-api.genesis.ai/api/v1/health || {
+          curl -f https://staging-api.gens.team/api/v1/health || {
             echo "::error::Staging is unhealthy! Aborting production deployment."
             exit 1
           }
@@ -275,9 +275,9 @@ jobs:
         if: ${{ github.event.inputs.skip_smoke_tests != 'true' }}
         run: |
           echo "Testing Production API health..."
-          curl -f https://api.genesis.ai/api/v1/health || exit 1
+          curl -f https://api.gens.team/api/v1/health || exit 1
           echo "Testing Production Frontend..."
-          curl -f https://genesis.ai || exit 1
+          curl -f https://gens.team || exit 1
           echo "✅ Production deployment verified!"
 
       - name: Update deployment summary
@@ -288,7 +288,7 @@ jobs:
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: main" >> $GITHUB_STEP_SUMMARY
           echo "- **Time**: $(date -u)" >> $GITHUB_STEP_SUMMARY
-          echo "- **URL**: https://genesis.ai" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://gens.team" >> $GITHUB_STEP_SUMMARY
 
   post-deploy:
     name: Post-deployment Tasks
@@ -341,16 +341,16 @@ jobs:
           ENV="${{ github.event.inputs.environment || 'production' }}"
           case $ENV in
             production)
-              echo "API_URL=https://api.genesis.ai" >> $GITHUB_OUTPUT
-              echo "WEB_URL=https://genesis.ai" >> $GITHUB_OUTPUT
+              echo "API_URL=https://api.gens.team" >> $GITHUB_OUTPUT
+              echo "WEB_URL=https://gens.team" >> $GITHUB_OUTPUT
               ;;
             staging)
-              echo "API_URL=https://staging-api.genesis.ai" >> $GITHUB_OUTPUT
-              echo "WEB_URL=https://staging.genesis.ai" >> $GITHUB_OUTPUT
+              echo "API_URL=https://staging-api.gens.team" >> $GITHUB_OUTPUT
+              echo "WEB_URL=https://staging.gens.team" >> $GITHUB_OUTPUT
               ;;
             development)
-              echo "API_URL=https://dev-api.genesis.ai" >> $GITHUB_OUTPUT
-              echo "WEB_URL=https://dev.genesis.ai" >> $GITHUB_OUTPUT
+              echo "API_URL=https://dev-api.gens.team" >> $GITHUB_OUTPUT
+              echo "WEB_URL=https://dev.gens.team" >> $GITHUB_OUTPUT
               ;;
           esac
 

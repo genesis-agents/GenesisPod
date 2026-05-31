@@ -29,17 +29,17 @@ agents 域之外的"原子能力"，全部放 engine：
 llm · tools · rag · knowledge · skills · planning · safety · content · facade
 ```
 
-| 聚合            | 职责                                         | 关键边界                                                      |
-| --------------- | -------------------------------------------- | ------------------------------------------------------------- |
-| **llm**         | LLM 调用 + 模型适配 + 路由 + 定价 + user-config + key-health + 意图识别 | 无 agent 状态；含 model pricing                               |
-| **tools**       | 工具目录 + 单次执行 + 来源适配（含 MCP）     | **项目唯一的 tools/**；含 mcp/openapi/function adapter        |
-| **rag**         | 检索增强生成基元                             | embedding / vector / chunker / retriever / reranker           |
-| **knowledge**   | 知识抽取                                     | fact / entity / relation / context-evolution / world-building |
-| **skills**      | Skill 定义 + 注册（SKILL.md 风格）           | **项目唯一的 SkillRegistry**                                  |
-| **planning**    | 任务分解（不含 agent loop）                  | task-planner / decomposer                                     |
-| **safety**      | 输入输出安全                                 | pii / moderation / injection                                  |
-| **content**     | 内容处理基元                                 | fetch / cleaner / markdown                                    |
-| **facade**      | engine 对外门面                              | 仅 re-export，无业务逻辑                                      |
+| 聚合          | 职责                                                                    | 关键边界                                                      |
+| ------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------- |
+| **llm**       | LLM 调用 + 模型适配 + 路由 + 定价 + user-config + key-health + 意图识别 | 无 agent 状态；含 model pricing                               |
+| **tools**     | 工具目录 + 单次执行 + 来源适配（含 MCP）                                | **项目唯一的 tools/**；含 mcp/openapi/function adapter        |
+| **rag**       | 检索增强生成基元                                                        | embedding / vector / chunker / retriever / reranker           |
+| **knowledge** | 知识抽取                                                                | fact / entity / relation / context-evolution / world-building |
+| **skills**    | Skill 定义 + 注册（SKILL.md 风格）                                      | **项目唯一的 SkillRegistry**                                  |
+| **planning**  | 任务分解（不含 agent loop）                                             | task-planner / decomposer                                     |
+| **safety**    | 输入输出安全                                                            | pii / moderation / injection                                  |
+| **content**   | 内容处理基元                                                            | fetch / cleaner / markdown                                    |
+| **facade**    | engine 对外门面                                                         | 仅 re-export，无业务逻辑                                      |
 
 ---
 
@@ -53,7 +53,7 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 | -------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
 | **agents**     | WHAT agents are                                  | core / base / registry / domain / **subagents** / dev-tools                                      |
 | **runner**     | HOW they run                                     | loop / executor / tool-invoker / tool-routing / context / **scheduler**                          |
-| **teams**      | GenesisPod 团队业务模式                             | abstractions / base / profile / factory / registry / orchestrator / services / **collaboration** |
+| **teams**      | GenesisPod 团队业务模式                          | abstractions / base / profile / factory / registry / orchestrator / services / **collaboration** |
 | **handoffs**   | Agent 切换（OpenAI 标准词）                      | pattern + registry                                                                               |
 | **memory**     | WHAT they remember                               | vector / working / checkpoint / event-store / stores / consolidation / indexing                  |
 | **protocols**  | HOW they communicate（**仅 5 个 agent 层协议**） | a2a / ipc / events / realtime / journal（**MCP 不在此**）                                        |

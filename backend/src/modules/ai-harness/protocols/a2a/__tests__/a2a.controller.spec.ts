@@ -27,8 +27,8 @@ jest.spyOn(Logger.prototype, "error").mockImplementation();
 const mockAgentCard = {
   name: "GenesisPod",
   description: "Enterprise AI platform",
-  url: "https://api.genesis.ai/a2a/tasks",
-  provider: { organization: "GenesisPod", url: "https://api.genesis.ai" },
+  url: "https://api.gens.team/a2a/tasks",
+  provider: { organization: "GenesisPod", url: "https://api.gens.team" },
   version: "1.0.0",
   capabilities: { streaming: false, pushNotifications: true },
   defaultInputModes: ["text"],

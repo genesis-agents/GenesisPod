@@ -53,8 +53,8 @@
           └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘
                    │                     │                     │
                    ▼                     ▼                     ▼
-          api.genesis.ai    staging-api.genesis.ai   dev-api.genesis.ai
-          genesis.ai        staging.genesis.ai       dev.genesis.ai
+          api.gens.team    staging-api.gens.team   dev-api.gens.team
+          gens.team        staging.gens.team       dev.gens.team
 ```
 
 ### 1.2 Railway 项目结构
@@ -106,11 +106,11 @@ genesis-ai (Railway Project)
 
 ### 2.2 域名规划
 
-| 环境        | 前端域名             | 后端 API 域名            |
-| ----------- | -------------------- | ------------------------ |
-| Production  | `genesis.ai`         | `api.genesis.ai`         |
-| Staging     | `staging.genesis.ai` | `staging-api.genesis.ai` |
-| Development | `dev.genesis.ai`     | `dev-api.genesis.ai`     |
+| 环境        | 前端域名            | 后端 API 域名           |
+| ----------- | ------------------- | ----------------------- |
+| Production  | `gens.team`         | `api.gens.team`         |
+| Staging     | `staging.gens.team` | `staging-api.gens.team` |
+| Development | `dev.gens.team`     | `dev-api.gens.team`     |
 
 ### 2.3 成本估算
 

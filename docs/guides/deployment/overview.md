@@ -118,7 +118,7 @@ AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
 
 # CORS
-CORS_ORIGIN=https://genesis.ai
+CORS_ORIGIN=https://gens.team
 CORS_CREDENTIALS=true
 
 # 日志
@@ -137,10 +137,10 @@ PROMETHEUS_PORT=9090
 
 ```bash
 # API配置
-NEXT_PUBLIC_API_BASE_URL=https://api.genesis.ai
+NEXT_PUBLIC_API_BASE_URL=https://api.gens.team
 
 # 认证
-NEXT_PUBLIC_AUTH_DOMAIN=auth.genesis.ai
+NEXT_PUBLIC_AUTH_DOMAIN=auth.gens.team
 
 # 分析
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
@@ -557,7 +557,7 @@ upstream frontend {
 
 server {
     listen 80;
-    server_name genesis.ai www.genesis.ai;
+    server_name gens.team www.gens.team;
 
     # 重定向到 HTTPS
     return 301 https://$server_name$request_uri;
@@ -565,7 +565,7 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name genesis.ai www.genesis.ai;
+    server_name gens.team www.gens.team;
 
     # SSL 配置
     ssl_certificate /etc/nginx/ssl/cert.pem;
@@ -732,7 +732,7 @@ spec:
             - containerPort: 3000
           env:
             - name: NEXT_PUBLIC_API_BASE_URL
-              value: "https://api.genesis.ai"
+              value: "https://api.gens.team"
           resources:
             requests:
               memory: "256Mi"
@@ -941,7 +941,7 @@ export class CacheService {
 {
   "Origins": [
     {
-      "DomainName": "genesis.ai",
+      "DomainName": "gens.team",
       "Id": "genesis-origin",
       "CustomOriginConfig": {
         "HTTPPort": 80,
@@ -984,7 +984,7 @@ sudo ufw enable
 sudo apt-get install certbot python3-certbot-nginx
 
 # 获取证书
-sudo certbot --nginx -d genesis.ai -d www.genesis.ai
+sudo certbot --nginx -d gens.team -d www.gens.team
 
 # 自动续期
 sudo certbot renew --dry-run

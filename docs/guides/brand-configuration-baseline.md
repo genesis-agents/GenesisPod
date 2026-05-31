@@ -15,21 +15,21 @@
 
 ### Backend (`BRAND_*`)
 
-| Variable              | Default                        | Description           |
-| --------------------- | ------------------------------ | --------------------- |
-| `BRAND_NAME`          | `GenesisPod`                      | Short brand name      |
-| `BRAND_FULL_NAME`     | `GenesisPod`                   | Full brand name       |
-| `BRAND_SUBTITLE`      | `AI ENGINE`                    | Logo subtitle text    |
-| `RAILWAY_DOMAIN`      | `genesis-ai`                   | Railway domain prefix |
-| `BRAND_EMAIL_FROM`    | `GenesisPod <noreply@genesis.ai>` | Email sender          |
-| `BRAND_CONTACT_EMAIL` | `hello@gens.team`              | Contact email         |
-| `BRAND_LOGO_SVG_PATH` | `brand/logo.svg`               | Logo file path        |
+| Variable              | Default                          | Description           |
+| --------------------- | -------------------------------- | --------------------- |
+| `BRAND_NAME`          | `GenesisPod`                     | Short brand name      |
+| `BRAND_FULL_NAME`     | `GenesisPod`                     | Full brand name       |
+| `BRAND_SUBTITLE`      | `AI ENGINE`                      | Logo subtitle text    |
+| `RAILWAY_DOMAIN`      | `genesis-ai`                     | Railway domain prefix |
+| `BRAND_EMAIL_FROM`    | `GenesisPod <noreply@gens.team>` | Email sender          |
+| `BRAND_CONTACT_EMAIL` | `hello@gens.team`                | Contact email         |
+| `BRAND_LOGO_SVG_PATH` | `brand/logo.svg`                 | Logo file path        |
 
 ### Frontend (`NEXT_PUBLIC_BRAND_*`)
 
 | Variable                      | Default                        | Description           |
 | ----------------------------- | ------------------------------ | --------------------- |
-| `NEXT_PUBLIC_BRAND_NAME`      | `GenesisPod`                      | Short brand name      |
+| `NEXT_PUBLIC_BRAND_NAME`      | `GenesisPod`                   | Short brand name      |
 | `NEXT_PUBLIC_BRAND_FULL_NAME` | `GenesisPod`                   | Full brand name       |
 | `NEXT_PUBLIC_BRAND_SUBTITLE`  | `AI ENGINE`                    | Logo subtitle         |
 | `NEXT_PUBLIC_BRAND_TAGLINE`   | `AI-Powered Research Platform` | Page title tagline    |

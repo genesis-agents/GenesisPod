@@ -26,7 +26,7 @@ jest.mock("../../../../common/config/app.config", () => ({
       name: "GenesisPod",
       fullName: "GenesisPod",
       siteName: "GenesisPod",
-      emailFrom: "GenesisPod <noreply@genesis.ai>",
+      emailFrom: "GenesisPod <noreply@gens.team>",
     },
     railway: {
       frontendUrl: "http://localhost:3000",

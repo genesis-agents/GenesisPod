@@ -96,7 +96,7 @@ GenesisPod ai-harness/engine 持续向 **Anthropic Managed Agent / Claude Agent 
 
 > 与本手册 P0/P1 任务卡一一对应。"差距评级"决定优先级。
 
-| 维度                     | Claude Code 设计                                                             | GenesisPod 现状                                        | 差距 | 任务卡   |
+| 维度                     | Claude Code 设计                                                             | GenesisPod 现状                                     | 差距 | 任务卡   |
 | ------------------------ | ---------------------------------------------------------------------------- | --------------------------------------------------- | ---- | -------- |
 | Agent loop 退出信号      | `needsFollowUp = (assistant content 含 tool_use)`；显式弃用 `stop_reason`    | 6 个 loop 部分依赖 finalize / stop_reason           | 🟡   | **P0-2** |
 | 上下文压缩               | 4 层金字塔（budget/snip/microcompact/autoCompact）+ `cache_edits` API        | `cache-control-planner.ts` 有起步，缺 `cache_edits` | 🔴   | **P0-1** |
@@ -122,7 +122,7 @@ GenesisPod ai-harness/engine 持续向 **Anthropic Managed Agent / Claude Agent 
 
 > 这些注释从 Claude Code 源码里直接抄出来。每条对应 GenesisPod 已踩过或将踩的坑。**任何 PR 不允许违反**。
 
-| 反向坑                                                         | 后果                                                | 出处                               | 对应 GenesisPod 教训                               |
+| 反向坑                                                         | 后果                                                | 出处                               | 对应 GenesisPod 教训                            |
 | -------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------- | ----------------------------------------------- |
 | `stop_reason === 'tool_use'` 不可靠                            | 偶发漏判终止                                        | `query.ts:553-557`                 | [project_stage_emit_missing_2026_05_06](memory) |
 | stop_reason 在 `message_delta` 才到，不是 `content_block_stop` | 永远读到 null                                       | `QueryEngine.ts:802-808`           | —                                               |
@@ -897,7 +897,7 @@ Notification / UserPromptSubmit / Setup / TeammateIdle / CwdChanged / Instructio
 
 ## 附录 B：GenesisPod 接入锚点索引
 
-| 主题                    | GenesisPod 路径                                                                                                                     |
+| 主题                    | GenesisPod 路径                                                                                                                  |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Agent loop 6 形态       | `backend/src/modules/ai-harness/runner/loop/{react,reflexion,plan-act,leader-worker,simple}-loop.ts` + `loop-registry.ts`        |
 | 上下文压缩              | `backend/src/modules/ai-harness/runner/context/{cache-control-planner,context-compactor,priority-pruner,token-estimator}.ts`     |

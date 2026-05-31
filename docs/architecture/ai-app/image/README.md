@@ -74,7 +74,7 @@ POST /api/v1/ai-image/generate
 Response:
 {
   "id": "img-xxx",
-  "url": "https://cdn.genesis.ai/images/xxx.png",
+  "url": "https://cdn.gens.team/images/xxx.png",
   "prompt": "一只可爱的猫咪在花园里玩耍",
   "enhancedPrompt": "A cute fluffy cat playing in a colorful garden, sunlight filtering through leaves, photorealistic, 8k resolution",
   "model": "imagen4",
@@ -137,7 +137,7 @@ POST /api/v1/ai-image/brand-kits
     "primary": "Inter",
     "secondary": "Roboto Mono"
   },
-  "logoUrl": "https://cdn.genesis.ai/logo.svg",
+  "logoUrl": "https://cdn.gens.team/logo.svg",
   "guidelines": "品牌色以蓝色为主，传达科技感和专业性"
 }
 
@@ -183,9 +183,9 @@ POST /api/v1/ai-image/infographics
 Response:
 {
   "id": "infographic-xxx",
-  "url": "https://cdn.genesis.ai/infographics/xxx.png",
+  "url": "https://cdn.gens.team/infographics/xxx.png",
   "type": "chart",
-  "thumbnail": "https://cdn.genesis.ai/thumbnails/xxx.jpg"
+  "thumbnail": "https://cdn.gens.team/thumbnails/xxx.jpg"
 }
 ```
 
@@ -241,7 +241,7 @@ POST /api/v1/ai-image/export
 Response:
 {
   "exportId": "export-xxx",
-  "downloadUrl": "https://cdn.genesis.ai/exports/xxx.zip",
+  "downloadUrl": "https://cdn.gens.team/exports/xxx.zip",
   "files": [
     {"name": "img-1_1024x1024.png", "size": 1234567},
     {"name": "img-1_512x512.png", "size": 345678}
@@ -437,7 +437,7 @@ function ImageGenerator() {
 ### 1. 生成基础图像
 
 ```bash
-curl -X POST https://api.genesis.ai/api/v1/ai-image/generate \
+curl -X POST https://api.gens.team/api/v1/ai-image/generate \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -451,14 +451,14 @@ curl -X POST https://api.genesis.ai/api/v1/ai-image/generate \
 
 ```bash
 # 1. 创建品牌
-curl -X POST https://api.genesis.ai/api/v1/ai-image/brand-kits \
+curl -X POST https://api.gens.team/api/v1/ai-image/brand-kits \
   -d '{
     "name": "我的品牌",
     "primaryColor": "#3B82F6"
   }'
 
 # 2. 使用品牌生成
-curl -X POST https://api.genesis.ai/api/v1/ai-image/generate \
+curl -X POST https://api.gens.team/api/v1/ai-image/generate \
   -d '{
     "prompt": "产品海报",
     "brandKitId": "brand-xxx"
@@ -468,7 +468,7 @@ curl -X POST https://api.genesis.ai/api/v1/ai-image/generate \
 ### 3. 生成信息图
 
 ```bash
-curl -X POST https://api.genesis.ai/api/v1/ai-image/infographics \
+curl -X POST https://api.gens.team/api/v1/ai-image/infographics \
   -d '{
     "type": "chart",
     "title": "月度收入",

@@ -191,7 +191,7 @@ for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
 const frontendBase = process.env.FRONTEND_URL ?? "http://localhost:3000";
 ```
 
-`http://` fallback 在生产环境如果 `FRONTEND_URL` 未配置，会生成 http 链接嵌入邮件 body，导致邮件链接不安全（非 HTTPS）。不构成直接漏洞，但属于安全配置最佳实践缺口。建议 fallback 改为 `"https://app.genesis.ai"` 或在启动时强制校验 `FRONTEND_URL` 存在且以 `https://` 开头。
+`http://` fallback 在生产环境如果 `FRONTEND_URL` 未配置，会生成 http 链接嵌入邮件 body，导致邮件链接不安全（非 HTTPS）。不构成直接漏洞，但属于安全配置最佳实践缺口。建议 fallback 改为 `"https://app.gens.team"` 或在启动时强制校验 `FRONTEND_URL` 存在且以 `https://` 开头。
 
 ### Info — topicId 路径参数未做 UUID 格式校验（部分端点）
 

@@ -1013,7 +1013,7 @@ async function streamAIGeneration() {
 // 使用WebSocket实现实时同步
 class CollaborationManager {
   constructor() {
-    this.ws = new WebSocket("wss://api.genesis.ai/collab");
+    this.ws = new WebSocket("wss://api.gens.team/collab");
   }
 
   onAIUpdate(content) {

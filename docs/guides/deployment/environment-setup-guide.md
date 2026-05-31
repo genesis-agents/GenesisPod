@@ -95,8 +95,8 @@ DATABASE_URL=${{Postgres.DATABASE_URL}}
 REDIS_URL=${{Redis.REDIS_URL}}
 
 # URLs
-FRONTEND_URL=https://genesis.ai
-CORS_ORIGIN=https://genesis.ai
+FRONTEND_URL=https://gens.team
+CORS_ORIGIN=https://gens.team
 
 # AI 服务内网地址
 AI_SERVICE_URL=http://${{ai-service.RAILWAY_PRIVATE_DOMAIN}}:8000
@@ -108,7 +108,7 @@ JWT_EXPIRES_IN=7d
 # Google OAuth
 GOOGLE_CLIENT_ID=<production-google-client-id>
 GOOGLE_CLIENT_SECRET=<production-google-client-secret>
-GOOGLE_CALLBACK_URL=https://api.genesis.ai/api/v1/auth/google/callback
+GOOGLE_CALLBACK_URL=https://api.gens.team/api/v1/auth/google/callback
 
 # AI API Keys (可跨环境共用)
 OPENAI_API_KEY=<openai-api-key>
@@ -136,8 +136,8 @@ DATABASE_URL=${{Postgres.DATABASE_URL}}
 REDIS_URL=${{Redis.REDIS_URL}}
 
 # URLs
-FRONTEND_URL=https://staging.genesis.ai
-CORS_ORIGIN=https://staging.genesis.ai
+FRONTEND_URL=https://staging.gens.team
+CORS_ORIGIN=https://staging.gens.team
 
 # AI 服务
 AI_SERVICE_URL=http://${{ai-service.RAILWAY_PRIVATE_DOMAIN}}:8000
@@ -149,7 +149,7 @@ JWT_EXPIRES_IN=7d
 # Google OAuth (可使用测试应用)
 GOOGLE_CLIENT_ID=<staging-google-client-id>
 GOOGLE_CLIENT_SECRET=<staging-google-client-secret>
-GOOGLE_CALLBACK_URL=https://staging-api.genesis.ai/api/v1/auth/google/callback
+GOOGLE_CALLBACK_URL=https://staging-api.gens.team/api/v1/auth/google/callback
 
 # AI API Keys (共用生产 keys)
 OPENAI_API_KEY=<openai-api-key>
@@ -177,8 +177,8 @@ DATABASE_URL=${{Postgres.DATABASE_URL}}
 REDIS_URL=${{Redis.REDIS_URL}}
 
 # URLs
-FRONTEND_URL=https://dev.genesis.ai
-CORS_ORIGIN=https://dev.genesis.ai
+FRONTEND_URL=https://dev.gens.team
+CORS_ORIGIN=https://dev.gens.team
 
 # AI 服务
 AI_SERVICE_URL=http://${{ai-service.RAILWAY_PRIVATE_DOMAIN}}:8000
@@ -190,7 +190,7 @@ JWT_EXPIRES_IN=7d
 # Google OAuth (测试应用)
 GOOGLE_CLIENT_ID=<dev-google-client-id>
 GOOGLE_CLIENT_SECRET=<dev-google-client-secret>
-GOOGLE_CALLBACK_URL=https://dev-api.genesis.ai/api/v1/auth/google/callback
+GOOGLE_CALLBACK_URL=https://dev-api.gens.team/api/v1/auth/google/callback
 
 # AI API Keys
 OPENAI_API_KEY=<openai-api-key>
@@ -206,8 +206,8 @@ LOG_LEVEL=debug
 
 ```bash
 # API URLs (构建时注入)
-NEXT_PUBLIC_API_URL=https://api.genesis.ai
-NEXT_PUBLIC_AI_URL=https://ai.genesis.ai
+NEXT_PUBLIC_API_URL=https://api.gens.team
+NEXT_PUBLIC_AI_URL=https://ai.gens.team
 
 # 分析
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
@@ -217,16 +217,16 @@ NEXT_PUBLIC_SENTRY_DSN=<production-frontend-sentry-dsn>
 #### Staging
 
 ```bash
-NEXT_PUBLIC_API_URL=https://staging-api.genesis.ai
-NEXT_PUBLIC_AI_URL=https://staging-ai.genesis.ai
+NEXT_PUBLIC_API_URL=https://staging-api.gens.team
+NEXT_PUBLIC_AI_URL=https://staging-ai.gens.team
 NEXT_PUBLIC_SENTRY_DSN=<staging-frontend-sentry-dsn>
 ```
 
 #### Development
 
 ```bash
-NEXT_PUBLIC_API_URL=https://dev-api.genesis.ai
-NEXT_PUBLIC_AI_URL=https://dev-ai.genesis.ai
+NEXT_PUBLIC_API_URL=https://dev-api.gens.team
+NEXT_PUBLIC_AI_URL=https://dev-ai.gens.team
 ```
 
 ### 3.3 AI Service 变量
@@ -251,14 +251,14 @@ HOST=0.0.0.0
 
 在 DNS 服务商（如 Cloudflare）添加以下记录：
 
-| 类型  | 名称               | 目标                               | 环境        |
-| ----- | ------------------ | ---------------------------------- | ----------- |
-| CNAME | `@` / `genesis.ai` | Railway Frontend Production Domain | Production  |
-| CNAME | `api`              | Railway Backend Production Domain  | Production  |
-| CNAME | `staging`          | Railway Frontend Staging Domain    | Staging     |
-| CNAME | `staging-api`      | Railway Backend Staging Domain     | Staging     |
-| CNAME | `dev`              | Railway Frontend Dev Domain        | Development |
-| CNAME | `dev-api`          | Railway Backend Dev Domain         | Development |
+| 类型  | 名称              | 目标                               | 环境        |
+| ----- | ----------------- | ---------------------------------- | ----------- |
+| CNAME | `@` / `gens.team` | Railway Frontend Production Domain | Production  |
+| CNAME | `api`             | Railway Backend Production Domain  | Production  |
+| CNAME | `staging`         | Railway Frontend Staging Domain    | Staging     |
+| CNAME | `staging-api`     | Railway Backend Staging Domain     | Staging     |
+| CNAME | `dev`             | Railway Frontend Dev Domain        | Development |
+| CNAME | `dev-api`         | Railway Backend Dev Domain         | Development |
 
 ### 4.2 Railway 域名配置
 
@@ -269,12 +269,12 @@ HOST=0.0.0.0
 
 **Frontend (Production)**:
 
-- `genesis.ai`
-- `www.genesis.ai`
+- `gens.team`
+- `www.gens.team`
 
 **Backend (Production)**:
 
-- `api.genesis.ai`
+- `api.gens.team`
 
 ---
 
@@ -305,8 +305,8 @@ DATABASE_URL=$STAGING_DATABASE_URL npx prisma db seed
 
 ### 6.1 Staging 环境验证
 
-- [ ] 访问 `https://staging.genesis.ai` 页面正常加载
-- [ ] 访问 `https://staging-api.genesis.ai/api/v1/health` 返回健康状态
+- [ ] 访问 `https://staging.gens.team` 页面正常加载
+- [ ] 访问 `https://staging-api.gens.team/api/v1/health` 返回健康状态
 - [ ] Google OAuth 登录流程正常
 - [ ] AI 功能可用（调用 LiteLLM）
 - [ ] 数据库连接正常
@@ -314,8 +314,8 @@ DATABASE_URL=$STAGING_DATABASE_URL npx prisma db seed
 
 ### 6.2 Development 环境验证
 
-- [ ] 访问 `https://dev.genesis.ai` 页面正常加载
-- [ ] 访问 `https://dev-api.genesis.ai/api/v1/health` 返回健康状态
+- [ ] 访问 `https://dev.gens.team` 页面正常加载
+- [ ] 访问 `https://dev-api.gens.team/api/v1/health` 返回健康状态
 - [ ] 手动触发部署正常工作
 
 ### 6.3 Production 环境验证
