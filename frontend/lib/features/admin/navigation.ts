@@ -62,6 +62,12 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         href: '/admin/overview',
         icon: LayoutDashboard,
       },
+      {
+        key: 'operations',
+        labelKey: 'admin.nav.operations',
+        href: '/admin/operations',
+        icon: BarChart3,
+      },
     ],
   },
   {
