@@ -10,6 +10,8 @@
  * 成本不在此处：成本唯一真源是 AIEngineMetric，故 payload 不含 tokens/costUsd。
  */
 
+import type { EventEmitter2 } from "@nestjs/event-emitter";
+
 /** 业务模块标识（与 user_events.module 取值集对齐）。 */
 export const MODULE = {
   AI_RESEARCH: "ai-research",
@@ -63,6 +65,19 @@ export interface UserEventPayload {
 
 /** EventEmitter2 事件名（与 llm.cost.record 同范式）。 */
 export const USER_EVENT_NAME = "user.event";
+
+/**
+ * 统一发射 user.event（fire-and-forget，自动判空）。
+ * 各业务模块复用，避免在调用点重复写 `if (emitter) { emitter.emit(...) }` 块
+ * （尤其 god-class 文件需控制净增行数）。
+ */
+export function emitUserEvent(
+  emitter: EventEmitter2 | undefined,
+  payload: UserEventPayload,
+): void {
+  if (!emitter) return;
+  emitter.emit(USER_EVENT_NAME, payload);
+}
 
 /**
  * status → action 映射表（逐模块写死真实枚举，PRD §4.2 must-fix#4）。
