@@ -1246,3 +1246,122 @@ export async function getAnalysisDashboard(
     `/api/v1/ai-writing/projects/${projectId}/analysis-dashboard`
   );
 }
+
+// ==================== Writing Mission Canonical View (W3) ====================
+// Mirror types from backend writing-artifact.projector.ts + writing-mission-read.controller.ts.
+// Do NOT hand-write these shapes — they are copied from the backend source of truth.
+
+/** Mirror of WritingArtifact (backend: PersistPhaseCtx["writingArtifact"]) */
+export interface WritingArtifact {
+  id: string;
+  projectId: string;
+  sections: Array<{
+    chapterId: string;
+    chapterNumber: number;
+    title: string;
+    wordCount: number;
+    quality?: number;
+  }>;
+  metadata: {
+    totalWords: number;
+    chapterCount: number;
+  };
+  quality: {
+    overall: number;
+    consistency: number;
+    completeness: number;
+  };
+}
+
+/** Mirror of WritingChapterListView (backend: writing-artifact.projector.ts) */
+export interface WritingChapterListView {
+  chapterCount: number;
+  chapters: Array<{
+    chapterId: string;
+    chapterNumber: number;
+    title: string;
+    wordCount: number;
+    quality?: number;
+  }>;
+  totalWords: number;
+}
+
+/** Mirror of WritingFullTextView (backend: writing-artifact.projector.ts) */
+export interface WritingFullTextView {
+  topic: string;
+  premise?: string;
+  theme?: string;
+  chapterTitles: string[];
+  totalWords: number;
+  qualityScore: number;
+}
+
+/** Mirror of WritingQualityReportView (backend: writing-artifact.projector.ts) */
+export interface WritingQualityReportView {
+  overall: number;
+  score: number;
+  passed: boolean;
+  dimensions: {
+    coherence: number;
+    completeness: number;
+    consistency: number;
+  };
+  chapterCount: number;
+  revisedCount: number;
+  reason?: string;
+}
+
+/**
+ * Mirror of WritingMissionViewEnvelope (backend: writing-mission-read.controller.ts).
+ * Backend returns this directly (not wrapped under a "view" key).
+ */
+export interface WritingMissionViewEnvelope {
+  missionId: string;
+  status: string;
+  writingArtifact: WritingArtifact | null;
+  chapterList: WritingChapterListView | null;
+  fullText: WritingFullTextView | null;
+  qualityReport: WritingQualityReportView | null;
+  /** Terminal event types that signal the view should be re-fetched */
+  refreshHints: string[];
+}
+
+/**
+ * GET /api/v1/ai-writing/missions/:id/view
+ *
+ * Canonical truth endpoint for writing mission detail.
+ * Returns WritingArtifact + 3 views projected by WritingArtifactProjector.
+ * writingArtifact/chapterList/fullText/qualityReport are null when mission
+ * has no REVISED chapters yet (in progress or not started).
+ */
+export async function getWritingMissionView(
+  missionId: string,
+  opts?: { signal?: AbortSignal }
+): Promise<WritingMissionViewEnvelope> {
+  return fetchWithAuth<WritingMissionViewEnvelope>(
+    `/api/v1/ai-writing/missions/${encodeURIComponent(missionId)}/view`,
+    { signal: opts?.signal }
+  );
+}
+
+// TODO: writingReplay — backend replay endpoint (GET /api/v1/ai-writing/replay/:missionId?since=)
+// does not exist yet (W1 backend wave pending). Once backend adds MissionEventBuffer adapter
+// and the replay route in WritingMissionReadController, implement:
+//
+//   export interface WritingReplayEvent {
+//     type: string;
+//     payload: unknown;
+//     agentId?: string;
+//     traceId?: string;
+//     timestamp: number;
+//   }
+//   export interface WritingReplayResponse {
+//     events: WritingReplayEvent[];
+//     serverNow: number;
+//   }
+//   export async function writingReplay(
+//     missionId: string,
+//     sinceTs?: number
+//   ): Promise<WritingReplayResponse> { ... }
+//
+// Until then, useMissionStream for writing uses terminal-event refetch + shouldPoll fallback.
