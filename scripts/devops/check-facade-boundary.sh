@@ -24,8 +24,28 @@ while IFS= read -r line; do
     continue
   fi
 
-  # Skip AiEngineModule imports in .module.ts files (NestJS DI wiring is legitimate)
+  # Skip AiEngineModule imports (NestJS DI wiring is legitimate)
   if echo "$line" | grep -q "ai-engine.module"; then
+    continue
+  fi
+
+  # Skip NestJS module-assembly files (*.module.ts): ai-app modules legitimately
+  # import ai-engine sub-modules into their imports[] for DI wiring. This mirrors
+  # the authoritative ESLint policy (backend/.eslintrc.js exempts
+  # **/modules/ai-app/**/*.module.ts from these import restrictions — "本例外
+  # 只针对装配"), and is required because routing some modules through facade /
+  # AiEngineModule reintroduces the 2026-05-12 bootstrap crash (see
+  # preparse.module.ts ContentFetchModule note). Service-layer access still must
+  # go through ai-engine/facade.
+  if echo "$line" | grep -qE "\.module\.ts:"; then
+    continue
+  fi
+
+  # Skip contracts/* backwards-compat tunnels: deliberately-allowlisted shims that
+  # re-export engine barrels to preserve original import paths without polluting
+  # caller namespaces (matches ESLint + arch-spec allowlist; see
+  # ai-app/contracts/report-template/index.ts).
+  if echo "$line" | grep -qE "/ai-app/contracts/"; then
     continue
   fi
 

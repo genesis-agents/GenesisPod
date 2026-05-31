@@ -281,6 +281,8 @@ export type { IImageGenerationService } from "../tools/abstractions/generation-s
 export { IMAGE_GENERATION_SERVICE_TOKEN } from "@/modules/ai-engine/content/abstractions/image.interface";
 export type { IRAGPipelineService } from "@/modules/ai-engine/rag/abstractions/rag.interface";
 export { RAG_PIPELINE_SERVICE_TOKEN } from "@/modules/ai-engine/rag/abstractions/rag.interface";
+// KB-query augmentor port type — consumed by ai-app/library/kb-query service layer
+export type { WikiPageRead } from "../rag/abstractions/kb-query-augmentor.interface";
 
 // LLM model fallback types
 export type { ModelFallbackOptions } from "../llm/selection/model-fallback.service";

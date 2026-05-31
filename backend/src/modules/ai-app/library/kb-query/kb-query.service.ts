@@ -7,8 +7,8 @@ import {
   type RAGContext,
   type ContextSource,
   type SearchResult,
+  type WikiPageRead,
 } from "../../../ai-engine/facade";
-import type { WikiPageRead } from "../../../ai-engine/rag/abstractions/kb-query-augmentor.interface";
 import {
   WikiSourceProvider,
   type WikiSourceHit,
