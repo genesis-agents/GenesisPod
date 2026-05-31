@@ -1,17 +1,24 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  type ReactNode,
+} from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIWritingStore } from '@/stores';
+import { useWritingStream } from '@/hooks/features/useWritingStream';
+import { useWritingMissionView } from '@/hooks/features/useWritingMissionView';
+import { useWritingDerivedView } from '@/hooks/features/useWritingDerivedView';
 import {
-  useWritingWebSocket,
-  type WritingEvent,
-  type AgentWorkingData,
-  type MissionProgressData,
-} from '@/hooks/features/useWritingWebSocket';
+  useWritingTimeline,
+  type TimelineMessage,
+} from '@/hooks/features/useWritingTimeline';
 import type { Chapter, MissionLogItem } from '@/services/ai-writing/api';
 import { getMissionLogs, getProjectMissions } from '@/services/ai-writing/api';
 import { matchAgentByName } from '@/lib/features/ai-writing/agent-config';
@@ -42,6 +49,22 @@ import {
   Settings,
   Search,
   MessageSquare,
+  MapPin,
+  Link2,
+  BookOpen,
+  Library,
+  MessagesSquare,
+  Crown,
+  AlertTriangle,
+  Info,
+  Pin,
+  Calendar,
+  Printer,
+  ChevronDown,
+  ChevronUp,
+  FileCode,
+  Swords,
+  Check,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState, LoadingInline, ErrorState } from '@/components/ui';
@@ -51,6 +74,19 @@ import { Modal } from '@/components/ui/dialogs/Modal';
 import { Tabs } from '@/components/ui/tabs';
 
 import { logger } from '@/lib/utils/logger';
+
+// W4: terminal status helper (must match useWritingMissionView TERMINAL_STATUSES)
+function isTerminalStatus(status: string | null | undefined): boolean {
+  if (!status) return false;
+  return [
+    'completed',
+    'failed',
+    'cancelled',
+    'quality-failed',
+    'COMPLETED',
+    'FAILED',
+  ].includes(status);
+}
 
 // 根据后端返回的 agentName 匹配到前端配置（使用统一的匹配函数）
 function getAgentConfig(agentName: string | undefined) {
@@ -233,7 +269,7 @@ function ChapterContentStructured({
             <div>
               <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-blue-600">
                 <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-blue-100">
-                  📍
+                  <MapPin className="h-3 w-3 text-blue-600" />
                 </span>
                 设定 ({parsed.settings.length})
               </div>
@@ -277,7 +313,7 @@ function ChapterContentStructured({
             <div>
               <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-pink-600">
                 <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-pink-100">
-                  🔗
+                  <Link2 className="h-3 w-3 text-pink-600" />
                 </span>
                 关系 ({parsed.relations.length})
               </div>
@@ -320,11 +356,15 @@ export default function WritingProjectPage() {
     startMission,
     cancelMission,
     checkRunningMission,
-    isMissionRunning,
-    missionProgress,
+    // [W4] Store real-time fields kept as fallback for isStuckMission/missionProgress (no new-system equivalent).
+    // isMissionRunning/missionCompleted are now derived from missionView below; these store values serve as
+    // offline fallback when canonical view hasn't loaded yet.
+    isMissionRunning: isMissionRunningStore,
+    missionProgress: missionProgressStore,
     missionMessage,
-    missionCompleted,
-    activeAgentIds,
+    missionCompleted: missionCompletedStore,
+    // activeAgentIds: dead read — removed (replaced by agentViews from useWritingDerivedView)
+    currentMissionId,
     isStuckMission,
     stuckMissionId,
     clearStuckMission,
@@ -335,6 +375,65 @@ export default function WritingProjectPage() {
     addToConversationHistory,
     clearConversationHistory,
   } = useAIWritingStore();
+
+  // ── W4: New canonical data-source triple ──────────────────────────────────
+  //轨 A (immediacy): WS event stream
+  const { events: writingEvents, connState: wsConnState } = useWritingStream(
+    currentMissionId ?? null
+  );
+
+  //轨 B (truth): canonical REST view.
+  // shouldPoll is derived after useWritingDerivedView to avoid forward-ref; initial value false,
+  // polling kicks in on next render once we know terminal state.
+  const [shouldPoll, setShouldPoll] = useState(false);
+  const { data: writingMissionViewData, refresh: refreshMissionView } =
+    useWritingMissionView(currentMissionId ?? undefined, { shouldPoll });
+
+  // Derived views: MissionView / StageView[] / AgentView[]
+  const { missionView, stageViews, agentViews, isTerminal } =
+    useWritingDerivedView(writingMissionViewData, writingEvents);
+
+  // Sync shouldPoll: poll when WS is not live and mission is not terminal
+  useEffect(() => {
+    setShouldPoll(wsConnState !== 'live' && !isTerminal);
+  }, [wsConnState, isTerminal]);
+
+  // Derived booleans — canonical view wins over store fields when available
+  const isMissionRunning = missionView
+    ? missionView.status === 'running'
+    : isMissionRunningStore;
+  const missionCompleted = missionView
+    ? isTerminal &&
+      missionView.status !== 'failed' &&
+      missionView.status !== 'cancelled'
+    : missionCompletedStore;
+
+  // missionProgress: no direct canonical field; derive from completed stageViews ratio
+  // [W4-GAP] stageViews don't carry a numeric progress %; fall back to store value.
+  const missionProgress: number = (() => {
+    if (stageViews.length > 0) {
+      const done = stageViews.filter(
+        (s) => s.status === 'done' || s.status === 'skipped'
+      ).length;
+      return Math.round((done / stageViews.length) * 100);
+    }
+    return missionProgressStore;
+  })();
+
+  // Terminal-event 3-burst refetch: when WS signals completion, pull canonical view
+  useEffect(() => {
+    if (!isTerminal || !currentMissionId) return;
+    // Burst-refresh canonical view 3×(0 / 1.5s / 4s) to catch any trailing writes
+    refreshMissionView();
+    const t1 = setTimeout(() => refreshMissionView(), 1500);
+    const t2 = setTimeout(() => refreshMissionView(), 4000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [isTerminal, currentMissionId, refreshMissionView]);
+
+  // ── end W4 hooks ──────────────────────────────────────────────────────────
 
   const [userInput, setUserInput] = useState('');
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
@@ -351,29 +450,14 @@ export default function WritingProjectPage() {
     | 'summaries'
   >('chapters');
 
-  // Task details messages for showing generation process
-  const [taskMessages, setTaskMessages] = useState<
-    Array<{
-      id: string;
-      type: 'user' | 'system' | 'agent' | 'progress';
-      content: string;
-      agent?: string;
-      timestamp: Date;
-      // 详细信息（可展开）
-      detail?: {
-        type: 'chapter_content' | 'issues' | 'world_settings' | 'text';
-        data:
-          | string
-          | Array<{
-              type: string;
-              severity: string;
-              description: string;
-              suggestion?: string;
-            }>
-          | Record<string, unknown>;
-      };
-    }>
-  >([]);
+  // W4.6 timeline: consistencyIssues + taskMessages derived from writing.* event stream
+  const {
+    consistencyIssues,
+    taskMessages,
+    setTaskMessages,
+    taskMessagesEndRef,
+    resetProcessedCount,
+  } = useWritingTimeline(writingEvents);
   // Track expanded message IDs for showing details
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
     new Set()
@@ -386,7 +470,6 @@ export default function WritingProjectPage() {
     type: 'success' | 'error';
   } | null>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
-  const taskMessagesEndRef = useRef<HTMLDivElement>(null);
   const lastMissionMessageRef = useRef<string>('');
   const hasLoadedLogsRef = useRef<boolean>(false);
 
@@ -436,394 +519,6 @@ export default function WritingProjectPage() {
     }, 0);
   };
 
-  // Convert WebSocket events to task messages
-  const handleWritingEvent = useCallback(
-    (event: WritingEvent) => {
-      const { type, data } = event;
-      let message: {
-        id: string;
-        type: 'user' | 'system' | 'agent' | 'progress';
-        content: string;
-        agent?: string;
-        timestamp: Date;
-        detail?: {
-          type: 'chapter_content' | 'issues' | 'world_settings' | 'text';
-          data:
-            | string
-            | Array<{
-                type: string;
-                severity: string;
-                description: string;
-                suggestion?: string;
-              }>
-            | Record<string, unknown>;
-        };
-      } | null = null;
-
-      switch (type) {
-        case 'mission:started':
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'system',
-            content: '🚀 任务开始执行，AI 团队正在协作...',
-            timestamp: new Date(),
-          };
-          break;
-
-        case 'mission:progress': {
-          const progressData = data as MissionProgressData;
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'progress',
-            content: `进度 ${progressData.progress}%：${progressData.currentStep}`,
-            agent: progressData.activeAgents?.join(', ') || 'AI 团队',
-            timestamp: new Date(),
-          };
-          break;
-        }
-
-        case 'agent:working': {
-          const agentData = data as AgentWorkingData;
-          const agentIcons: Record<string, string> = {
-            architect: '📐',
-            keeper: '📚',
-            writer: '✍️',
-            checker: '🔍',
-            editor: '📝',
-          };
-          const icon = agentIcons[agentData.agentRole] || '🤖';
-          const statusText =
-            agentData.status === 'working'
-              ? '开始工作'
-              : agentData.status === 'completed'
-                ? '完成工作'
-                : '工作失败';
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: `${agentData.taskDescription || statusText}`,
-            agent: `${icon} ${agentData.agentName}`,
-            timestamp: new Date(),
-          };
-          break;
-        }
-
-        case 'chapter:started': {
-          const chapterData = data as { chapterNumber: number; title: string };
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: `开始创作第 ${chapterData.chapterNumber} 章：${chapterData.title || ''}`,
-            agent: '✍️ 作家',
-            timestamp: new Date(),
-          };
-          break;
-        }
-
-        case 'chapter:content': {
-          // 章节内容更新 - 显示内容预览
-          const contentData = data as {
-            chapterNumber: number;
-            title: string;
-            content: string;
-            wordCount: number;
-          };
-          // 提取前200字作为预览
-          const preview = contentData.content?.slice(0, 300) || '';
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: `📖 第 ${contentData.chapterNumber} 章「${contentData.title}」内容生成中 (${contentData.wordCount} 字)`,
-            agent: '✍️ 作家',
-            timestamp: new Date(),
-            detail: {
-              type: 'chapter_content',
-              data: preview + (contentData.content?.length > 300 ? '...' : ''),
-            },
-          };
-          break;
-        }
-
-        case 'chapter:completed': {
-          const chapterData = data as {
-            chapterNumber: number;
-            wordCount?: number;
-          };
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: `✅ 第 ${chapterData.chapterNumber} 章创作完成${chapterData.wordCount ? ` (${chapterData.wordCount} 字)` : ''}`,
-            agent: '✍️ 作家',
-            timestamp: new Date(),
-          };
-          break;
-        }
-
-        case 'consistency:check_started': {
-          const checkData = data as { chapterNumber?: number };
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: checkData.chapterNumber
-              ? `开始检查第 ${checkData.chapterNumber} 章的一致性...`
-              : '开始进行一致性检查...',
-            agent: '🔍 检查员',
-            timestamp: new Date(),
-          };
-          break;
-        }
-
-        case 'consistency:issues_found': {
-          const issuesData = data as {
-            chapterNumber: number;
-            issues: Array<{
-              type: string;
-              severity: string;
-              description: string;
-              suggestion?: string;
-            }>;
-          };
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: `⚠️ 第 ${issuesData.chapterNumber} 章发现 ${issuesData.issues?.length || 0} 个问题，点击展开查看详情`,
-            agent: '🔍 一致性检查员',
-            timestamp: new Date(),
-            detail: {
-              type: 'issues',
-              data: issuesData.issues || [],
-            },
-          };
-          break;
-        }
-
-        case 'consistency:fix_completed': {
-          const fixData = data as {
-            chapterNumber: number;
-            fixedIssues: number;
-          };
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: `第 ${fixData.chapterNumber} 章修复完成，已解决 ${fixData.fixedIssues} 个问题`,
-            agent: '📝 编辑',
-            timestamp: new Date(),
-          };
-          break;
-        }
-
-        case 'world:building_started':
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: '开始构建世界观设定...',
-            agent: '📚 守护者',
-            timestamp: new Date(),
-          };
-          break;
-
-        case 'world:building_completed': {
-          const worldData = data as { settings?: Record<string, unknown> };
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: '✅ 世界观设定构建完成，点击展开查看',
-            agent: '📚 守护者',
-            timestamp: new Date(),
-            detail: worldData.settings
-              ? {
-                  type: 'world_settings',
-                  data: worldData.settings,
-                }
-              : undefined,
-          };
-          break;
-        }
-
-        // 守护者增强事件
-        case 'keeper:extracting_context': {
-          const ctxData = data as { chapterNumber: number };
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: `📖 正在提取第 ${ctxData.chapterNumber} 章相关上下文...`,
-            agent: '📚 守护者',
-            timestamp: new Date(),
-          };
-          break;
-        }
-
-        case 'keeper:context_ready': {
-          const ctxData = data as {
-            chapterNumber: number;
-            context?: {
-              relevantCharacters: string[];
-              relevantLocations: string[];
-              previousEvents: string[];
-              warnings: string[];
-            };
-          };
-          const ctx = ctxData.context;
-          const contextSummary = ctx
-            ? `角色: ${ctx.relevantCharacters?.length || 0}, 场景: ${ctx.relevantLocations?.length || 0}, 事件: ${ctx.previousEvents?.length || 0}${ctx.warnings?.length ? `, ⚠️ ${ctx.warnings.length} 条提醒` : ''}`
-            : '';
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: `✅ 第 ${ctxData.chapterNumber} 章上下文准备完成 (${contextSummary})`,
-            agent: '📚 守护者',
-            timestamp: new Date(),
-            detail: ctx
-              ? {
-                  type: 'text',
-                  data: [
-                    ctx.relevantCharacters?.length
-                      ? `👤 相关角色: ${ctx.relevantCharacters.join(', ')}`
-                      : '',
-                    ctx.relevantLocations?.length
-                      ? `📍 相关场景: ${ctx.relevantLocations.join(', ')}`
-                      : '',
-                    ctx.previousEvents?.length
-                      ? `📜 前文事件: ${ctx.previousEvents.slice(0, 3).join('; ')}${ctx.previousEvents.length > 3 ? '...' : ''}`
-                      : '',
-                    ctx.warnings?.length
-                      ? `⚠️ 注意事项: ${ctx.warnings.join('; ')}`
-                      : '',
-                  ]
-                    .filter(Boolean)
-                    .join('\n'),
-                }
-              : undefined,
-          };
-          break;
-        }
-
-        case 'keeper:updating_bible': {
-          const bibleData = data as { chapterNumber: number };
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: `📝 正在根据第 ${bibleData.chapterNumber} 章更新故事圣经...`,
-            agent: '📚 守护者',
-            timestamp: new Date(),
-          };
-          break;
-        }
-
-        case 'keeper:bible_updated': {
-          const bibleData = data as {
-            chapterNumber: number;
-            updates?: {
-              newFacts: string[];
-              characterUpdates: string[];
-              timelineEvents: string[];
-            };
-          };
-          const updates = bibleData.updates;
-          const updateCount =
-            (updates?.newFacts?.length || 0) +
-            (updates?.characterUpdates?.length || 0) +
-            (updates?.timelineEvents?.length || 0);
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'agent',
-            content: `✅ 故事圣经已更新 (第 ${bibleData.chapterNumber} 章新增 ${updateCount} 条记录)`,
-            agent: '📚 守护者',
-            timestamp: new Date(),
-            detail: updates
-              ? {
-                  type: 'text',
-                  data: [
-                    updates.newFacts?.length
-                      ? `📌 新事实: ${updates.newFacts.join('; ')}`
-                      : '',
-                    updates.characterUpdates?.length
-                      ? `👤 角色更新: ${updates.characterUpdates.join('; ')}`
-                      : '',
-                    updates.timelineEvents?.length
-                      ? `📅 时间线: ${updates.timelineEvents.join('; ')}`
-                      : '',
-                  ]
-                    .filter(Boolean)
-                    .join('\n'),
-                }
-              : undefined,
-          };
-          break;
-        }
-
-        case 'mission:completed': {
-          const completeData = data as {
-            totalWords?: number;
-            totalChapters?: number;
-          };
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'system',
-            content: `✅ 任务完成！${completeData.totalChapters ? `共 ${completeData.totalChapters} 章` : ''}${completeData.totalWords ? `，${completeData.totalWords} 字` : ''}`,
-            timestamp: new Date(),
-          };
-          break;
-        }
-
-        case 'mission:failed': {
-          const errorData = data as { error?: string };
-          message = {
-            id: `msg-${Date.now()}`,
-            type: 'system',
-            content: `❌ 任务失败：${errorData.error || '未知错误'}`,
-            timestamp: new Date(),
-          };
-          break;
-        }
-
-        case 'leader:response': {
-          // Leader 多轮对话响应
-          const responseData = data as {
-            missionId?: string;
-            response?: string;
-          };
-          if (responseData.response) {
-            // 添加到对话历史（多轮对话上下文）
-            addToConversationHistory({
-              role: 'assistant',
-              content: responseData.response,
-            });
-
-            // 显示在任务详情中
-            message = {
-              id: `msg-${Date.now()}`,
-              type: 'agent',
-              content: responseData.response,
-              agent: '📐 故事架构师 (Leader)',
-              timestamp: new Date(),
-            };
-          }
-          break;
-        }
-      }
-
-      if (message) {
-        setTaskMessages((prev) => [...prev, message]);
-        // Auto scroll to bottom
-        setTimeout(() => {
-          taskMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-      }
-    },
-    [addToConversationHistory]
-  );
-
-  // WebSocket for real-time updates - always connected when on project page
-  // to receive events from the start of mission
-  const wsState = useWritingWebSocket(projectId, {
-    enabled: !!projectId && !!user,
-    onEvent: handleWritingEvent,
-  });
-
-  // 解构一致性检查问题
-  const { consistencyIssues } = wsState;
-
   // Clear old project data when projectId changes to prevent data mixing
   useEffect(() => {
     // Clear old data immediately when projectId changes
@@ -833,7 +528,8 @@ export default function WritingProjectPage() {
     setTaskMessages([]);
     hasLoadedLogsRef.current = false;
     lastMissionMessageRef.current = '';
-  }, [projectId, clearCurrentProjectData]);
+    resetProcessedCount();
+  }, [projectId, clearCurrentProjectData, resetProcessedCount]);
 
   // Load project data
   useEffect(() => {
@@ -871,29 +567,8 @@ export default function WritingProjectPage() {
           return dateA - dateB; // 旧的在前
         });
 
-        // 转换日志为 taskMessages 格式的类型定义
-        type TaskMessage = {
-          id: string;
-          type: 'user' | 'system' | 'agent' | 'progress';
-          content: string;
-          agent?: string;
-          timestamp: Date;
-          detail?: {
-            type: 'chapter_content' | 'issues' | 'world_settings' | 'text';
-            data:
-              | string
-              | Array<{
-                  type: string;
-                  severity: string;
-                  description: string;
-                  suggestion?: string;
-                }>
-              | Record<string, unknown>;
-          };
-        };
-
         // 从所有任务中加载日志（每个任务最多200条，总共不超过1000条）
-        const allMessages: TaskMessage[] = [];
+        const allMessages: TimelineMessage[] = [];
         const maxLogsPerMission = 200;
         const maxTotalLogs = 1000;
 
@@ -908,39 +583,41 @@ export default function WritingProjectPage() {
             );
             if (!logs || logs.length === 0) continue;
 
-            const messages: TaskMessage[] = logs.map((log: MissionLogItem) => {
-              const msgType = log.eventType.includes('system')
-                ? 'system'
-                : log.eventType.includes('progress')
-                  ? 'progress'
-                  : 'agent';
+            const messages: TimelineMessage[] = logs.map(
+              (log: MissionLogItem) => {
+                const msgType = log.eventType.includes('system')
+                  ? 'system'
+                  : log.eventType.includes('progress')
+                    ? 'progress'
+                    : 'agent';
 
-              // Ensure content is always a string
-              const content =
-                typeof log.content === 'string'
-                  ? log.content
-                  : JSON.stringify(log.content);
+                // Ensure content is always a string
+                const content =
+                  typeof log.content === 'string'
+                    ? log.content
+                    : JSON.stringify(log.content);
 
-              return {
-                id: log.id,
-                type: msgType as 'user' | 'system' | 'agent' | 'progress',
-                content,
-                agent: log.agentName,
-                timestamp: new Date(log.createdAt),
-                detail: log.detail
-                  ? {
-                      type: (log.detail as { type?: string }).type as
-                        | 'chapter_content'
-                        | 'issues'
-                        | 'world_settings'
-                        | 'text',
-                      data: (log.detail as { data?: unknown }).data as
-                        | string
-                        | Record<string, unknown>,
-                    }
-                  : undefined,
-              };
-            });
+                return {
+                  id: log.id,
+                  type: msgType as 'user' | 'system' | 'agent' | 'progress',
+                  content,
+                  agent: log.agentName,
+                  timestamp: new Date(log.createdAt),
+                  detail: log.detail
+                    ? {
+                        type: (log.detail as { type?: string }).type as
+                          | 'chapter_content'
+                          | 'issues'
+                          | 'world_settings'
+                          | 'text',
+                        data: (log.detail as { data?: unknown }).data as
+                          | string
+                          | Record<string, unknown>,
+                      }
+                    : undefined,
+                };
+              }
+            );
 
             allMessages.push(...messages);
           } catch {
@@ -1014,28 +691,28 @@ export default function WritingProjectPage() {
       // Determine agent from message content
       let agent = 'AI 团队';
       if (missionMessage.includes('架构') || missionMessage.includes('规划')) {
-        agent = '📐 架构师';
+        agent = '架构师';
       } else if (
         missionMessage.includes('世界观') ||
         missionMessage.includes('设定')
       ) {
-        agent = '📚 守护者';
+        agent = '守护者';
       } else if (
         missionMessage.includes('作家') ||
         missionMessage.includes('创作') ||
         missionMessage.includes('章节')
       ) {
-        agent = '✍️ 作家';
+        agent = '作家';
       } else if (
         missionMessage.includes('检查') ||
         missionMessage.includes('校验')
       ) {
-        agent = '🔍 检查员';
+        agent = '检查员';
       } else if (
         missionMessage.includes('编辑') ||
         missionMessage.includes('润色')
       ) {
-        agent = '📝 编辑';
+        agent = '编辑';
       }
 
       setTaskMessages((prev) => [
@@ -1079,7 +756,7 @@ export default function WritingProjectPage() {
           {
             id: `msg-${Date.now()}`,
             type: 'system',
-            content: '✅ 任务已完成！',
+            content: '任务已完成！',
             timestamp: new Date(),
           },
         ]);
@@ -1733,7 +1410,7 @@ export default function WritingProjectPage() {
   </style>
 </head>
 <body>
-  <button class="print-btn" onclick="window.print()">🖨️ 打印 / 导出 PDF</button>
+  <button class="print-btn" onclick="window.print()">打印 / 导出 PDF</button>
   <h1>${currentProject.name}</h1>
   <div class="meta">
     ${currentProject.description ? `<p>${currentProject.description}</p>` : ''}
@@ -1811,16 +1488,18 @@ export default function WritingProjectPage() {
     return (
       <AppShell>
         <main className="flex flex-1 flex-col items-center justify-center p-8">
-          <span className="mb-4 text-5xl">📖</span>
-          <h2 className="mb-2 text-xl font-semibold text-gray-800">
-            项目不存在
-          </h2>
-          <button
-            onClick={() => router.push('/ai-writing')}
-            className="text-amber-600 hover:underline"
-          >
-            返回项目列表
-          </button>
+          <EmptyState
+            icon={<BookOpen className="h-12 w-12" />}
+            title="项目不存在"
+            action={
+              <button
+                onClick={() => router.push('/ai-writing')}
+                className="text-amber-600 hover:underline"
+              >
+                返回项目列表
+              </button>
+            }
+          />
         </main>
       </AppShell>
     );
@@ -1938,28 +1617,28 @@ export default function WritingProjectPage() {
                       onClick={handleExportMarkdown}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <span className="text-base">📝</span>
+                      <FileText className="h-4 w-4" />
                       Markdown (.md)
                     </button>
                     <button
                       onClick={handleExportTxt}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <span className="text-base">📄</span>
+                      <FileCode className="h-4 w-4" />
                       纯文本 (.txt)
                     </button>
                     <button
                       onClick={handleExportHtml}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <span className="text-base">🌐</span>
+                      <Globe className="h-4 w-4" />
                       网页 (.html)
                     </button>
                     <button
                       onClick={handleExportPdf}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <span className="text-base">📑</span>
+                      <Printer className="h-4 w-4" />
                       打印 / PDF
                     </button>
                     <div className="border-t border-gray-100" />
@@ -1967,7 +1646,7 @@ export default function WritingProjectPage() {
                       onClick={handleShareLink}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <span className="text-base">🔗</span>
+                      <Link2 className="h-4 w-4" />
                       复制分享链接
                     </button>
                   </div>
@@ -1990,7 +1669,7 @@ export default function WritingProjectPage() {
               onClick={clearError}
               className="text-red-500 hover:text-red-700"
             >
-              ✕
+              <XCircle className="h-4 w-4" />
             </button>
           </div>
         )}
@@ -2016,7 +1695,7 @@ export default function WritingProjectPage() {
               onClick={() => setToast(null)}
               className="ml-2 text-gray-400 hover:text-gray-600"
             >
-              ✕
+              <XCircle className="h-4 w-4" />
             </button>
           </div>
         )}
@@ -2024,10 +1703,13 @@ export default function WritingProjectPage() {
         {/* Main Content */}
         <div className="flex flex-1 gap-4 overflow-hidden p-4">
           {/* Left: AI Team Panel */}
+          {/* [W4] New props: missionView/stageViews/agentViews from useWritingDerivedView.
+              missionProgress falls back to stageViews ratio (or store) — see derived value above.
+              isStuckMission still from store (no new-system equivalent). */}
           <WritingTeamPanel
-            isMissionRunning={isMissionRunning}
-            missionCompleted={missionCompleted}
-            missionMessage={missionMessage}
+            missionView={missionView}
+            stageViews={stageViews}
+            agentViews={agentViews}
             missionProgress={missionProgress}
             isStuckMission={isStuckMission}
             chaptersCount={allChapters?.length || 0}
@@ -2062,7 +1744,8 @@ export default function WritingProjectPage() {
                     key: 'chapters',
                     label: (
                       <>
-                        📖 章节列表
+                        <BookOpen className="mr-1 h-3.5 w-3.5" />
+                        章节列表
                         <span className="ml-1 text-xs">
                           ({allChapters.length})
                         </span>
@@ -2073,9 +1756,10 @@ export default function WritingProjectPage() {
                     key: 'worldview',
                     label: (
                       <>
-                        🌍 世界观
+                        <Globe className="mr-1 h-3.5 w-3.5" />
+                        世界观
                         {storyBible?.premise && (
-                          <span className="ml-1 text-xs text-green-500">✓</span>
+                          <CheckCircle2 className="ml-1 h-3 w-3 text-green-500" />
                         )}
                       </>
                     ),
@@ -2084,7 +1768,8 @@ export default function WritingProjectPage() {
                     key: 'storyBible',
                     label: (
                       <>
-                        📚 故事圣经
+                        <Library className="mr-1 h-3.5 w-3.5" />
+                        故事圣经
                         {storyBible?.characters &&
                           storyBible.characters.length > 0 && (
                             <span className="ml-1 text-xs text-emerald-500">
@@ -2094,12 +1779,21 @@ export default function WritingProjectPage() {
                       </>
                     ),
                   },
-                  { key: 'relationships', label: '🔗 角色关系' },
+                  {
+                    key: 'relationships',
+                    label: (
+                      <>
+                        <Link2 className="mr-1 h-3.5 w-3.5" />
+                        角色关系
+                      </>
+                    ),
+                  },
                   {
                     key: 'taskDetails',
                     label: (
                       <>
-                        💬 Team交互区
+                        <MessagesSquare className="mr-1 h-3.5 w-3.5" />
+                        Team交互区
                         {taskMessages.length > 0 && (
                           <span className="ml-1 text-xs">
                             ({taskMessages.length})
@@ -2166,9 +1860,11 @@ export default function WritingProjectPage() {
                                         : 'bg-gray-100 text-gray-500'
                                     }`}
                                   >
-                                    {chapter.content
-                                      ? '✓'
-                                      : chapter.chapterNumber}
+                                    {chapter.content ? (
+                                      <Check className="h-4 w-4" />
+                                    ) : (
+                                      chapter.chapterNumber
+                                    )}
                                   </span>
                                   <div className="min-w-0 flex-1">
                                     <div className="font-medium text-gray-800">
@@ -2448,7 +2144,7 @@ export default function WritingProjectPage() {
                           storyBible.timelineEvents.length > 0 && (
                             <div className="rounded-xl bg-orange-50 p-4">
                               <h3 className="mb-2 flex items-center gap-2 font-medium text-orange-800">
-                                <span>📅</span> 时间线事件
+                                <Calendar className="h-4 w-4" /> 时间线事件
                                 <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs">
                                   {storyBible.timelineEvents.length} 个事件
                                 </span>
@@ -2533,7 +2229,7 @@ export default function WritingProjectPage() {
                           storyBible.terminologies.length > 0 && (
                             <div className="rounded-xl bg-cyan-50 p-4">
                               <h3 className="mb-2 flex items-center gap-2 font-medium text-cyan-800">
-                                <span>📖</span> 术语与专有名词
+                                <BookOpen className="h-4 w-4" /> 术语与专有名词
                                 <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs">
                                   {storyBible.terminologies.length} 个术语
                                 </span>
@@ -2571,7 +2267,7 @@ export default function WritingProjectPage() {
                       /* Show building state during mission */
                       <div className="flex flex-col items-center justify-center py-12 text-center">
                         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
-                          <span className="text-3xl">🌍</span>
+                          <Globe className="h-8 w-8 text-indigo-500" />
                         </div>
                         <h3 className="mb-2 text-lg font-semibold text-gray-800">
                           世界观构建中
@@ -2585,15 +2281,11 @@ export default function WritingProjectPage() {
                       </div>
                     ) : (
                       /* Empty state - no mission running, no content */
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <span className="mb-4 text-4xl">🌍</span>
-                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
-                          暂无世界观设定
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          开始创作后，AI 守护者将自动建立故事的世界观
-                        </p>
-                      </div>
+                      <EmptyState
+                        icon={<Globe className="h-12 w-12" />}
+                        title="暂无世界观设定"
+                        description="开始创作后，AI 守护者将自动建立故事的世界观"
+                      />
                     )}
                   </div>
                 )}
@@ -2860,7 +2552,7 @@ export default function WritingProjectPage() {
                         {/* 世界设定摘要 */}
                         <div className="rounded-xl border border-blue-200 bg-white p-4">
                           <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-blue-800">
-                            <span>🌐</span> 世界设定摘要
+                            <Globe className="h-4 w-4" /> 世界设定摘要
                           </h3>
                           <div className="grid gap-3 sm:grid-cols-2">
                             {storyBible.premise && (
@@ -2976,8 +2668,9 @@ export default function WritingProjectPage() {
                                     {/* 章节情节设定 - 结构化显示 */}
                                     {chapterSettings.length > 0 && (
                                       <div className="mt-4">
-                                        <h4 className="mb-2 text-sm font-medium text-gray-700">
-                                          📖 章节情节记录
+                                        <h4 className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                                          <BookOpen className="h-3.5 w-3.5" />{' '}
+                                          章节情节记录
                                         </h4>
                                         <div className="space-y-2">
                                           {chapterSettings.map((setting) => (
@@ -3014,7 +2707,7 @@ export default function WritingProjectPage() {
                     ) : isMissionRunning ? (
                       <div className="flex flex-col items-center justify-center py-12 text-center">
                         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-                          <span className="text-3xl">📚</span>
+                          <Library className="h-8 w-8 text-emerald-500" />
                         </div>
                         <h3 className="mb-2 text-lg font-semibold text-gray-800">
                           故事圣经构建中
@@ -3024,15 +2717,11 @@ export default function WritingProjectPage() {
                         </p>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <span className="mb-4 text-4xl">📚</span>
-                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
-                          暂无故事圣经
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          开始创作后，AI 团队将自动建立完整的故事圣经
-                        </p>
-                      </div>
+                      <EmptyState
+                        icon={<Library className="h-12 w-12" />}
+                        title="暂无故事圣经"
+                        description="开始创作后，AI 团队将自动建立完整的故事圣经"
+                      />
                     )}
                   </div>
                 )}
@@ -3178,8 +2867,9 @@ export default function WritingProjectPage() {
                                 <div className="mt-2 rounded-lg bg-gray-50 p-3 text-xs">
                                   {msg.detail.type === 'chapter_content' && (
                                     <div className="space-y-1">
-                                      <div className="font-medium text-gray-600">
-                                        📖 内容预览：
+                                      <div className="flex items-center gap-1 font-medium text-gray-600">
+                                        <BookOpen className="h-3 w-3" />{' '}
+                                        内容预览：
                                       </div>
                                       <div className="whitespace-pre-wrap border-l-2 border-violet-300 pl-3 italic leading-relaxed text-gray-700">
                                         {typeof msg.detail.data === 'string'
@@ -3248,69 +2938,93 @@ export default function WritingProjectPage() {
                                         const sectionConfig: Record<
                                           string,
                                           {
-                                            icon: string;
+                                            icon: ReactNode;
                                             label: string;
                                             color: string;
                                           }
                                         > = {
                                           // 后端可能返回不同的 key，做兼容映射
                                           story_core: {
-                                            icon: '💡',
+                                            icon: (
+                                              <Lightbulb className="h-3.5 w-3.5" />
+                                            ),
                                             label: '故事核心',
                                             color: 'purple',
                                           },
                                           core: {
-                                            icon: '💡',
+                                            icon: (
+                                              <Lightbulb className="h-3.5 w-3.5" />
+                                            ),
                                             label: '故事核心',
                                             color: 'purple',
                                           },
                                           world: {
-                                            icon: '🌍',
+                                            icon: (
+                                              <Globe className="h-3.5 w-3.5" />
+                                            ),
                                             label: '世界背景',
                                             color: 'blue',
                                           },
                                           setting: {
-                                            icon: '🌍',
+                                            icon: (
+                                              <Globe className="h-3.5 w-3.5" />
+                                            ),
                                             label: '世界设定',
                                             color: 'blue',
                                           },
                                           characters: {
-                                            icon: '👥',
+                                            icon: (
+                                              <Users className="h-3.5 w-3.5" />
+                                            ),
                                             label: '主要角色',
                                             color: 'amber',
                                           },
                                           character: {
-                                            icon: '👥',
+                                            icon: (
+                                              <Users className="h-3.5 w-3.5" />
+                                            ),
                                             label: '角色设定',
                                             color: 'amber',
                                           },
                                           factions: {
-                                            icon: '⚔️',
+                                            icon: (
+                                              <Swords className="h-3.5 w-3.5" />
+                                            ),
                                             label: '势力阵营',
                                             color: 'red',
                                           },
                                           faction: {
-                                            icon: '⚔️',
+                                            icon: (
+                                              <Swords className="h-3.5 w-3.5" />
+                                            ),
                                             label: '势力阵营',
                                             color: 'red',
                                           },
                                           terminology: {
-                                            icon: '📖',
+                                            icon: (
+                                              <BookOpen className="h-3.5 w-3.5" />
+                                            ),
                                             label: '专有名词',
                                             color: 'purple',
                                           },
                                           locations: {
-                                            icon: '📍',
+                                            icon: (
+                                              <MapPin className="h-3.5 w-3.5" />
+                                            ),
                                             label: '重要地点',
                                             color: 'green',
                                           },
                                           location: {
-                                            icon: '📍',
+                                            icon: (
+                                              <MapPin className="h-3.5 w-3.5" />
+                                            ),
                                             label: '重要地点',
                                             color: 'green',
                                           },
                                           timeline: {
-                                            icon: '📅',
+                                            icon: (
+                                              <Calendar className="h-3.5 w-3.5" />
+                                            ),
                                             label: '时间线',
                                             color: 'indigo',
                                           },
@@ -3345,7 +3059,9 @@ export default function WritingProjectPage() {
                                             const config = sectionConfig[
                                               key
                                             ] || {
-                                              icon: '📌',
+                                              icon: (
+                                                <Pin className="h-3.5 w-3.5" />
+                                              ),
                                               label: key,
                                               color: 'gray',
                                             };
@@ -3565,7 +3281,7 @@ export default function WritingProjectPage() {
                     className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-amber-50"
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-sm">
-                      👑
+                      <Crown className="h-4 w-4 text-white" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-gray-800">
@@ -3748,11 +3464,11 @@ export default function WritingProjectPage() {
                 <ReactMarkdown>{selectedChapter.content}</ReactMarkdown>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <span className="mb-4 text-4xl">📝</span>
-                <p className="text-gray-500">暂无内容</p>
-                <p className="mt-1 text-sm text-gray-400">该章节尚未生成内容</p>
-              </div>
+              <EmptyState
+                icon={<FileText className="h-12 w-12" />}
+                title="暂无内容"
+                description="该章节尚未生成内容"
+              />
             ))}
         </Modal>
 
@@ -3785,7 +3501,7 @@ export default function WritingProjectPage() {
               onClick={() => setShowConsistencyPanel(!showConsistencyPanel)}
             >
               <div className="flex items-center gap-2">
-                <span className="text-lg">🔍</span>
+                <Search className="h-4 w-4 text-white" />
                 <span className="text-sm font-semibold text-white">
                   一致性检查
                 </span>
@@ -3799,7 +3515,11 @@ export default function WritingProjectPage() {
                   个问题
                 </span>
                 <span className="text-white/80">
-                  {showConsistencyPanel ? '▼' : '▲'}
+                  {showConsistencyPanel ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronUp className="h-4 w-4" />
+                  )}
                 </span>
               </div>
             </div>
@@ -3814,7 +3534,9 @@ export default function WritingProjectPage() {
                         第 {check.chapterNumber} 章
                       </span>
                       {check.passed ? (
-                        <span className="text-xs text-green-500">✓ 通过</span>
+                        <span className="flex items-center gap-0.5 text-xs text-green-500">
+                          <Check className="h-3 w-3" /> 通过
+                        </span>
                       ) : (
                         <span className="text-xs text-amber-500">
                           {check.issues.length} 个问题
@@ -3835,11 +3557,13 @@ export default function WritingProjectPage() {
                         >
                           <div className="flex items-start gap-1">
                             <span>
-                              {issue.severity === 'error'
-                                ? '❌'
-                                : issue.severity === 'warning'
-                                  ? '⚠️'
-                                  : 'ℹ️'}
+                              {issue.severity === 'error' ? (
+                                <XCircle className="h-3 w-3 text-red-600" />
+                              ) : issue.severity === 'warning' ? (
+                                <AlertTriangle className="h-3 w-3 text-amber-600" />
+                              ) : (
+                                <Info className="h-3 w-3 text-blue-600" />
+                              )}
                             </span>
                             <div>
                               <span className="font-medium">
@@ -3847,8 +3571,9 @@ export default function WritingProjectPage() {
                               </span>{' '}
                               {issue.description}
                               {issue.suggestion && (
-                                <div className="mt-0.5 text-gray-500">
-                                  💡 {issue.suggestion}
+                                <div className="mt-0.5 flex items-center gap-1 text-gray-500">
+                                  <Lightbulb className="h-3 w-3" />{' '}
+                                  {issue.suggestion}
                                 </div>
                               )}
                             </div>

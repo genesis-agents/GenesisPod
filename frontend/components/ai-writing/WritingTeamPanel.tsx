@@ -17,7 +17,20 @@
  */
 
 import { useMemo } from 'react';
-import { CheckCircle2, XCircle, RefreshCw, AlertTriangle } from 'lucide-react';
+import {
+  CheckCircle2,
+  RefreshCw,
+  AlertTriangle,
+  DraftingCompass,
+  BookOpen,
+  PenLine,
+  Search,
+  FileEdit,
+  Play,
+  Square,
+  Clipboard,
+  Target,
+} from 'lucide-react';
 import {
   TeamTopologyCanvas,
   AVATAR_ROW_Y,
@@ -26,36 +39,25 @@ import {
   type TeamTopologyLegendItem,
 } from '@/components/common/team-topology';
 import { getAgentDetails } from '@/lib/features/ai-writing/agent-config';
+import type { StageView, AgentView, MissionView } from '@/lib/missions/derive';
 
 // Agent configuration for the writing team
 const WRITING_AGENTS = [
   {
     id: 'architect',
-    icon: '\u{1F4D0}',
+    icon: DraftingCompass,
     colorKey: 'purple',
     isLeader: true,
     row: 0,
   },
-  { id: 'keeper', icon: '\u{1F4DA}', colorKey: 'indigo', row: 1 },
-  { id: 'writer-1', icon: '\u{270D}\u{FE0F}', colorKey: 'amber', row: 1 },
-  { id: 'writer-2', icon: '\u{270D}\u{FE0F}', colorKey: 'orange', row: 1 },
-  { id: 'writer-3', icon: '\u{270D}\u{FE0F}', colorKey: 'yellow', row: 1 },
-  { id: 'checker-1', icon: '\u{1F50D}', colorKey: 'green', row: 2 },
-  { id: 'checker-2', icon: '\u{1F50D}', colorKey: 'emerald', row: 2 },
-  { id: 'editor', icon: '\u{1F4DD}', colorKey: 'pink', row: 2 },
+  { id: 'keeper', icon: BookOpen, colorKey: 'indigo', row: 1 },
+  { id: 'writer-1', icon: PenLine, colorKey: 'amber', row: 1 },
+  { id: 'writer-2', icon: PenLine, colorKey: 'orange', row: 1 },
+  { id: 'writer-3', icon: PenLine, colorKey: 'yellow', row: 1 },
+  { id: 'checker-1', icon: Search, colorKey: 'green', row: 2 },
+  { id: 'checker-2', icon: Search, colorKey: 'emerald', row: 2 },
+  { id: 'editor', icon: FileEdit, colorKey: 'pink', row: 2 },
 ] as const;
-
-// Keywords to detect which agent is active based on mission message
-const AGENT_KEYWORDS: Record<string, string[]> = {
-  architect: ['架构', '规划', '结构', '大纲'],
-  keeper: ['世界观', '设定', '守护'],
-  'writer-1': ['作家', '写作', '创作', '章节', '撰写'],
-  'writer-2': ['作家', '写作', '创作', '章节', '撰写'],
-  'writer-3': ['作家', '写作', '创作', '章节', '撰写'],
-  'checker-1': ['检查', '校验', '一致性', '审核', '检查员'],
-  'checker-2': ['检查', '校验', '一致性', '审核', '检查员'],
-  editor: ['编辑', '润色', '打磨', '优化'],
-};
 
 // Agent display names
 const AGENT_NAMES: Record<string, string> = {
@@ -77,38 +79,31 @@ const WRITING_ROWS: string[][] = [
 ];
 
 // Workflow steps definition
+// id maps to phase key via STAGE_ID_TO_PHASE for stageViews matching
 const WORKFLOW_STEPS = [
-  {
-    id: 'keeper',
-    label: '建立世界观设定',
-    icon: '\u{1F4DA}',
-    keywords: ['世界观', '设定', '守护'],
-  },
-  {
-    id: 'architect',
-    label: '规划故事结构',
-    icon: '\u{1F451}',
-    keywords: ['架构', '规划', '结构', '大纲'],
-  },
-  {
-    id: 'writer',
-    label: '创作故事内容',
-    icon: '\u{270D}\u{FE0F}',
-    keywords: ['作家', '写作', '创作', '章节', '撰写'],
-  },
-  {
-    id: 'checker',
-    label: '校验内容一致性',
-    icon: '\u{1F50D}',
-    keywords: ['检查', '校验', '一致性', '审核', '检查员'],
-  },
-  {
-    id: 'editor-step',
-    label: '润色文字表达',
-    icon: '\u{1F3A8}',
-    keywords: ['编辑', '润色', '打磨', '优化'],
-  },
+  { id: 'keeper', label: '建立世界观设定' },
+  { id: 'architect', label: '规划故事结构' },
+  { id: 'writer', label: '创作故事内容' },
+  { id: 'checker', label: '校验内容一致性' },
+  { id: 'editor-step', label: '润色文字表达' },
 ];
+
+/**
+ * Stage id (from backend writing.stage:lifecycle payload.stageId) → writing phase key.
+ * These ids are the stageId strings emitted by the new pipeline stages.
+ * If a stageId does not match any key, currentPhase falls back to 'writing'.
+ */
+const STAGE_ID_TO_PHASE: Record<string, string> = {
+  worldbuilding: 'worldbuilding',
+  'world-building': 'worldbuilding',
+  planning: 'planning',
+  'story-planning': 'planning',
+  writing: 'writing',
+  'chapter-writing': 'writing',
+  checking: 'checking',
+  consistency: 'checking',
+  editing: 'editing',
+};
 
 // Phase display mapping for writing
 const PHASE_DISPLAY: Record<string, string> = {
@@ -122,10 +117,15 @@ const PHASE_DISPLAY: Record<string, string> = {
 };
 
 interface WritingTeamPanelProps {
-  isMissionRunning: boolean;
-  missionCompleted: boolean;
-  missionMessage: string;
+  /** canonical mission view（来自 useWritingDerivedView） */
+  missionView: MissionView | null;
+  /** canonical stage views（来自 useWritingDerivedView） */
+  stageViews: StageView[];
+  /** canonical agent views（来自 useWritingDerivedView） */
+  agentViews: AgentView[];
+  /** 进度百分比（0-100）；新系统尚无直接替代，由 page 传入（stageViews 完成比 or store 残留） */
   missionProgress: number;
+  /** 卡死状态（轮询韧性专属，新 WS 系统无对应，保留原 store 字段） */
   isStuckMission: boolean;
   chaptersCount: number;
   onContinueWriting: () => void;
@@ -133,66 +133,52 @@ interface WritingTeamPanelProps {
 }
 
 export function WritingTeamPanel({
-  isMissionRunning,
-  missionCompleted,
-  missionMessage,
+  missionView,
+  stageViews,
+  agentViews,
   missionProgress,
   isStuckMission,
   chaptersCount,
   onContinueWriting,
   onCancelMission,
 }: WritingTeamPanelProps) {
-  // Derive current phase from mission message
+  // Derive isMissionRunning / missionCompleted from canonical MissionView
+  const isMissionRunning =
+    missionView?.status === 'running' || missionView?.status === 'starting';
+  const missionCompleted = missionView?.status === 'completed';
+
+  // Derive current phase from stageViews — find the running stage, map to writing phase key
   const currentPhase = useMemo(() => {
     if (missionCompleted) return 'completed';
     if (!isMissionRunning) return 'idle';
-    const msg = missionMessage || '';
-    if (['世界观', '设定', '守护'].some((kw) => msg.includes(kw)))
-      return 'worldbuilding';
-    if (['架构', '规划', '结构', '大纲'].some((kw) => msg.includes(kw)))
-      return 'planning';
-    if (['作家', '写作', '创作', '章节', '撰写'].some((kw) => msg.includes(kw)))
-      return 'writing';
-    if (
-      ['检查', '校验', '一致性', '审核', '检查员'].some((kw) =>
-        msg.includes(kw)
-      )
-    )
-      return 'checking';
-    if (['编辑', '润色', '打磨', '优化'].some((kw) => msg.includes(kw)))
-      return 'editing';
-    return 'writing'; // default active phase
-  }, [isMissionRunning, missionCompleted, missionMessage]);
+    const runningStage = stageViews.find((s) => s.status === 'running');
+    if (!runningStage) return 'writing'; // default active phase
+    return STAGE_ID_TO_PHASE[runningStage.id] ?? 'writing';
+  }, [isMissionRunning, missionCompleted, stageViews]);
 
-  // Compute step stats
+  // Compute step stats from stageViews
   const stepStats = useMemo(() => {
-    const msg = missionMessage || '';
-    let completedSteps = 0;
-    let activeSteps = 0;
-
-    WORKFLOW_STEPS.forEach((step, idx) => {
-      const isStepActive =
-        isMissionRunning && step.keywords.some((kw) => msg.includes(kw));
-      const stepThreshold = (idx + 1) * 20;
-      const isDone = missionProgress >= stepThreshold && !isStepActive;
-      if (isDone) completedSteps++;
-      if (isStepActive) activeSteps++;
-    });
-
+    const completedSteps = stageViews.filter((s) => s.status === 'done').length;
+    const activeSteps = stageViews.filter((s) => s.status === 'running').length;
     return {
       completed: completedSteps,
       executing: activeSteps,
-      total: WORKFLOW_STEPS.length,
+      total: Math.max(stageViews.length, WORKFLOW_STEPS.length),
     };
-  }, [isMissionRunning, missionMessage, missionProgress]);
+  }, [stageViews]);
+
+  // Build a set of currently-running agent ids from agentViews
+  const activeAgentIdSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const av of agentViews) {
+      if (av.phase === 'running') set.add(av.agentId);
+    }
+    return set;
+  }, [agentViews]);
 
   const { nodes, connections, legendItems } = useMemo(() => {
-    const msg = missionMessage || '';
-
     const topoNodes: TeamTopologyNode[] = WRITING_AGENTS.map((agent) => {
-      const keywords = AGENT_KEYWORDS[agent.id] || [];
-      const isActive =
-        isMissionRunning && keywords.some((kw) => msg.includes(kw));
+      const isActive = isMissionRunning && activeAgentIdSet.has(agent.id);
 
       return {
         id: agent.id,
@@ -224,7 +210,7 @@ export function WritingTeamPanel({
     ];
 
     return { nodes: topoNodes, connections: conns, legendItems: legend };
-  }, [isMissionRunning, missionCompleted, missionMessage]);
+  }, [isMissionRunning, missionCompleted, activeAgentIdSet]);
 
   return (
     <div className="flex h-full w-80 shrink-0 flex-col bg-white">
@@ -354,8 +340,8 @@ export function WritingTeamPanel({
 
                   {/* Description */}
                   <div className="mb-3">
-                    <div className="mb-1 text-xs font-medium text-gray-500">
-                      {'\u{1F4CB}'} 职责描述
+                    <div className="mb-1 flex items-center gap-1 text-xs font-medium text-gray-500">
+                      <Clipboard className="h-3 w-3" /> 职责描述
                     </div>
                     <p className="text-sm text-gray-700">
                       {details.description}
@@ -364,8 +350,8 @@ export function WritingTeamPanel({
 
                   {/* Skills */}
                   <div className="mb-3">
-                    <div className="mb-1.5 text-xs font-medium text-gray-500">
-                      {'\u{1F3AF}'} 技能
+                    <div className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-500">
+                      <Target className="h-3 w-3" /> 技能
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {details.skills.map((skill) => (
@@ -381,8 +367,8 @@ export function WritingTeamPanel({
 
                   {/* Tools */}
                   <div>
-                    <div className="mb-1.5 text-xs font-medium text-gray-500">
-                      {'\u{1F527}'} 工具
+                    <div className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-500">
+                      <Search className="h-3 w-3" /> 工具
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {details.tools.map((tool) => (
@@ -406,11 +392,24 @@ export function WritingTeamPanel({
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-1 p-3">
           {WORKFLOW_STEPS.map((step, idx) => {
-            const msg = missionMessage || '';
+            // Resolve step status from stageViews (canonical truth) by matching step id to phase key.
+            // stageViews may have fewer entries than WORKFLOW_STEPS when events are sparse;
+            // fall back to missionProgress threshold to mark steps as done (legacy compat).
+            const matchedStage = stageViews.find(
+              (sv) =>
+                (STAGE_ID_TO_PHASE[sv.id] ?? sv.id) === step.id ||
+                sv.id === step.id
+            );
             const isStepActive =
-              isMissionRunning && step.keywords.some((kw) => msg.includes(kw));
+              isMissionRunning &&
+              (matchedStage?.status === 'running' ||
+                // fallback: current phase matches this step id
+                (currentPhase === step.id && !matchedStage));
+            const isDoneFromStage = matchedStage?.status === 'done';
             const stepThreshold = (idx + 1) * 20;
-            const isDone = missionProgress >= stepThreshold && !isStepActive;
+            const isDoneFromProgress =
+              missionProgress >= stepThreshold && !isStepActive;
+            const isDone = isDoneFromStage || isDoneFromProgress;
 
             return (
               <div
@@ -425,7 +424,13 @@ export function WritingTeamPanel({
               >
                 {/* Status icon */}
                 <span className="text-xs">
-                  {isDone ? '✅' : isStepActive ? '🔄' : '⏳'}
+                  {isDone ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                  ) : isStepActive ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                  ) : (
+                    <Target className="h-3.5 w-3.5 text-gray-400" />
+                  )}
                 </span>
 
                 {/* Step name */}
@@ -449,15 +454,6 @@ export function WritingTeamPanel({
             );
           })}
         </div>
-
-        {/* Status message — current activity */}
-        {isMissionRunning && missionMessage && (
-          <div className="px-3 pb-2">
-            <p className="line-clamp-2 text-xs text-gray-400">
-              {missionMessage}
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Bottom Status Bar — matches TopicTeamPanel */}
@@ -509,7 +505,7 @@ export function WritingTeamPanel({
                 : 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
             }`}
           >
-            <span>▶</span>
+            <Play className="h-3.5 w-3.5" />
             {chaptersCount === 0 ? '开始' : '继续'}
           </button>
 
@@ -523,7 +519,7 @@ export function WritingTeamPanel({
                 : 'bg-green-600 text-white shadow-sm hover:bg-green-700'
             }`}
           >
-            <span>🔄</span>
+            <RefreshCw className="h-3.5 w-3.5" />
             续写
           </button>
 
@@ -537,7 +533,7 @@ export function WritingTeamPanel({
                 : 'border border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
             }`}
           >
-            <span>⏹</span>
+            <Square className="h-3.5 w-3.5" />
             取消
           </button>
         </div>

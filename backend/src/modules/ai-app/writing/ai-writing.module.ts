@@ -1,6 +1,8 @@
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { JwtModule } from "@nestjs/jwt";
 import { AiWritingController } from "./ai-writing.controller";
+import { WritingMissionReadController } from "./api/writing-mission-read.controller";
 import { AiWritingService } from "./ai-writing.service";
 import { WritingCoordinatorService } from "./writing-coordinator.service";
 import { WritingRepository } from "./writing.repository";
@@ -14,7 +16,10 @@ import {
   MissionCheckpointService,
   InMemoryMissionCheckpointStore,
   type MissionCheckpointStore,
+  DomainEventRegistry,
 } from "@/modules/ai-harness/facade";
+import { WritingMissionGateway } from "./mission/writing-mission.gateway";
+import { WRITING_EVENTS } from "./events/writing.events";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { LongContentModule } from "./content-engine/long-content.module";
@@ -154,8 +159,17 @@ import {
     ConfigModule,
     CreditsModule,
     LongContentModule,
+    // ★ W1: JwtService needed by WritingMissionGateway for WS auth
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>("JWT_SECRET"),
+        signOptions: { expiresIn: "7d" },
+      }),
+      inject: [ConfigService],
+    }),
   ],
-  controllers: [AiWritingController],
+  controllers: [AiWritingController, WritingMissionReadController],
   providers: [
     // Repository
     WritingRepository,
@@ -165,6 +179,8 @@ import {
     WritingCoordinatorService,
     // WebSocket Gateway and Event Emitter
     AiWritingGateway,
+    // ★ W1: new mission-scoped gateway (writing.* events via DomainEventBus → socket room)
+    WritingMissionGateway,
     WritingEventEmitterService,
     WritingRealtimeAdapter, // ★ Engine Realtime 集成
     // Bible services
@@ -285,7 +301,11 @@ import {
     },
     // store + projector
     WritingMissionStoreService,
-    WritingArtifactProjector,
+    // WritingArtifactProjector is a pure class (no @Injectable), registered via useValue
+    {
+      provide: WritingArtifactProjector,
+      useValue: new WritingArtifactProjector(),
+    },
     // business-orchestrator 必须在 dispatcher 之前注册（dispatcher.onModuleInit 调
     // businessOrch.bindSessionLookup 时 instance 已存在）
     WritingBusinessOrchestrator,
@@ -321,9 +341,16 @@ export class AiWritingModule implements OnModuleInit {
     private readonly consistencyCheckExecutor: ConsistencyCheckExecutor,
     // R0-A5: 注册 writing skills 目录到 engine SkillLoader
     private readonly skillLoader: SkillLoaderService,
+    // ★ W1: 事件类型注册（DomainEventBus 未注册的 type 全部 drop+warn）
+    private readonly eventRegistry: DomainEventRegistry,
   ) {}
 
   async onModuleInit() {
+    // ★ W1: 注册 writing.* 事件类型 — DomainEventBus 校验未注册 type 会 drop+warn
+    // 必须在 gateway afterInit 之前完成，但 DI 生命周期保证 onModuleInit 先于 afterInit
+    this.eventRegistry.registerAll(WRITING_EVENTS);
+    this.logger.log("  writing.* event types registered (21)");
+
     // R0-A5 (2026-05-04): writing 自己注册 skill 目录到 engine（替代 engine
     // 硬编码 ai-app/writing/skills 路径）
     const path = await import("path");

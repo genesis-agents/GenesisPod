@@ -293,6 +293,20 @@ async function writeSingleChapter(
   const chapterTitle = (chapterEntry["title"] as string | undefined) ?? "";
   const chapterOutline = (chapterEntry["outline"] as string | undefined) ?? "";
 
+  // ── emit chapter:started ───────────────────────────────────────────────
+  void deps
+    .emit({
+      type: "writing.chapter:started",
+      missionId: ctx.missionId,
+      userId: ctx.userId,
+      payload: { chapterNumber, title: chapterTitle },
+    })
+    .catch((err: unknown) => {
+      deps.log.warn(
+        `[s4] emit writing.chapter:started failed for ch ${chapterId}: ${(err as Error).message}`,
+      );
+    });
+
   // Acquire writer pool slot
   const writer = await deps.writerPool.acquire();
   deps.writerPool.setCurrentChapter(writer.id, chapterId);
@@ -529,6 +543,40 @@ async function writeSingleChapter(
         `[s4] narrative craft rewrite failed for chapter ${chapterId} (non-fatal): ${(craftErr as Error).message}`,
       );
     }
+
+    // ── emit chapter:content（最终定稿内容，含 retry + narrativeCraft 后）────
+    void deps
+      .emit({
+        type: "writing.chapter:content",
+        missionId: ctx.missionId,
+        userId: ctx.userId,
+        payload: {
+          chapterNumber,
+          title: chapterTitle,
+          content: finalContent,
+          wordCount: finalWordCount,
+          volumeIndex: (chapterEntry["volumeIndex"] as number | undefined) ?? 0,
+        },
+      })
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[s4] emit writing.chapter:content failed for ch ${chapterId}: ${(err as Error).message}`,
+        );
+      });
+
+    // ── emit chapter:completed ─────────────────────────────────────────────
+    void deps
+      .emit({
+        type: "writing.chapter:completed",
+        missionId: ctx.missionId,
+        userId: ctx.userId,
+        payload: { chapterNumber, wordCount: finalWordCount },
+      })
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[s4] emit writing.chapter:completed failed for ch ${chapterId}: ${(err as Error).message}`,
+        );
+      });
 
     return { ok: true, chapterId, wordCount: finalWordCount };
   } catch (err: unknown) {

@@ -9,7 +9,18 @@
  * - 回滚到指定版本
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import {
+  Pencil,
+  Bot,
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Palette,
+  Download,
+  RotateCcw,
+  ClipboardList,
+} from 'lucide-react';
 import { confirm } from '@/stores';
 import {
   getChapterRevisions,
@@ -33,40 +44,48 @@ interface ChapterRevisionHistoryProps {
 // 修改类型的显示配置
 const CHANGE_TYPE_CONFIG: Record<
   RevisionChangeType,
-  { label: string; color: string; icon: string }
+  { label: string; color: string; icon: ReactNode }
 > = {
   MANUAL_EDIT: {
     label: '手动编辑',
     color: 'bg-blue-100 text-blue-700',
-    icon: '✏️',
+    icon: <Pencil className="h-3 w-3" />,
   },
   AI_REWRITE: {
     label: 'AI重写',
     color: 'bg-purple-100 text-purple-700',
-    icon: '🤖',
+    icon: <Bot className="h-3 w-3" />,
   },
   AI_POLISH: {
     label: 'AI润色',
     color: 'bg-pink-100 text-pink-700',
-    icon: '✨',
+    icon: <Sparkles className="h-3 w-3" />,
   },
   AI_EXPAND: {
     label: 'AI扩写',
     color: 'bg-green-100 text-green-700',
-    icon: '📈',
+    icon: <TrendingUp className="h-3 w-3" />,
   },
   AI_CONDENSE: {
     label: 'AI缩写',
     color: 'bg-orange-100 text-orange-700',
-    icon: '📉',
+    icon: <TrendingDown className="h-3 w-3" />,
   },
   AI_STYLE_FIX: {
     label: '风格修正',
     color: 'bg-yellow-100 text-yellow-700',
-    icon: '🎨',
+    icon: <Palette className="h-3 w-3" />,
   },
-  IMPORTED: { label: '导入', color: 'bg-gray-100 text-gray-700', icon: '📥' },
-  ROLLBACK: { label: '版本回滚', color: 'bg-red-100 text-red-700', icon: '↩️' },
+  IMPORTED: {
+    label: '导入',
+    color: 'bg-gray-100 text-gray-700',
+    icon: <Download className="h-3 w-3" />,
+  },
+  ROLLBACK: {
+    label: '版本回滚',
+    color: 'bg-red-100 text-red-700',
+    icon: <RotateCcw className="h-3 w-3" />,
+  },
 };
 
 export default function ChapterRevisionHistory({
@@ -189,7 +208,7 @@ export default function ChapterRevisionHistory({
       {/* 头部 */}
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-lg">📋</span>
+          <ClipboardList className="h-5 w-5 text-gray-500" />
           <h3 className="font-semibold text-gray-800">修订历史</h3>
           <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
             {revisions.length} 个版本

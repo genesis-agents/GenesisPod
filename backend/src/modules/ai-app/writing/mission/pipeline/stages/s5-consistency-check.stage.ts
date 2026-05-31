@@ -129,6 +129,7 @@ export async function runConsistencyCheckStage(
   const allIssues: ConsistencyIssue[] = [];
   const allFacts: NonNullable<ConsistencyCheckerOutput["extractedFacts"]> = [];
   let degradedCount = 0;
+  let draftedIndex = 0;
 
   for (const draft of drafts) {
     // Abort check before each chapter (spec §4.1 — long loop self-check).
@@ -145,6 +146,23 @@ export async function runConsistencyCheckStage(
       );
       continue;
     }
+
+    draftedIndex++;
+    const chapterNumber = draftedIndex;
+
+    // emit: consistency check starting for this chapter
+    void deps
+      .emit({
+        type: "writing.consistency:check_started",
+        missionId,
+        userId,
+        payload: { chapterNumber },
+      })
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] s5: emit consistency:check_started failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
 
     // ── Step 1: Fetch chapter content from DB ────────────────────────────────
     let chapterContent: string;
@@ -231,6 +249,30 @@ export async function runConsistencyCheckStage(
       allIssues.push(...output.issues);
       if (output.extractedFacts?.length) {
         allFacts.push(...output.extractedFacts);
+      }
+
+      // emit: issues found for this chapter (only when there are issues)
+      if (output.issues.length > 0) {
+        void deps
+          .emit({
+            type: "writing.consistency:issues_found",
+            missionId,
+            userId,
+            payload: {
+              chapterNumber,
+              issues: output.issues.map((issue) => ({
+                type: issue.type,
+                severity: issue.severity,
+                description: issue.description,
+                suggestion: issue.suggestion,
+              })),
+            },
+          })
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[${missionId}] s5: emit consistency:issues_found failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
       }
 
       await narrate(deps.emit, missionId, userId, {
