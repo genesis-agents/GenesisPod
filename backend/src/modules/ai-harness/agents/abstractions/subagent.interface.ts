@@ -29,6 +29,14 @@ export interface ISubagentSpec {
     maxIterations?: number;
     maxWallTimeMs?: number;
   };
+  /**
+   * T3 (sub-agent least-privilege): the child's tool allowlist. When set, the
+   * child inherits only (parent.tools ∩ allowedTools). Empty/undefined ⇒ inherit
+   * all non-forbidden parent tools. Mirrors Claude Code's sub-agent allowlist.
+   */
+  allowedTools?: readonly string[];
+  /** T3: tools the child must never see, even if the parent has them. */
+  forbiddenTools?: readonly string[];
 }
 
 /** 子 Agent 运行句柄 */

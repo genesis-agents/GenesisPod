@@ -9,6 +9,7 @@ import {
   WorktreeIsolation,
   resolveIsolation,
 } from "../isolation";
+import { filterInheritedTools } from "../isolation/isolation.types";
 
 function makeParent(): ContextEnvelope {
   return new ContextEnvelope({
@@ -124,6 +125,61 @@ describe("WorktreeIsolation", () => {
     });
     expect(child.budget.tokensRemaining).toBeLessThanOrEqual(10_000);
     expect(child.budget.iterationsRemaining).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("filterInheritedTools() — T3 sub-agent least-privilege", () => {
+  it("returns all parent tools when no allow/forbid policy is given", () => {
+    expect(filterInheritedTools(["a", "b", "c"])).toEqual(["a", "b", "c"]);
+  });
+
+  it("intersects parent tools with the child's allowlist", () => {
+    expect(filterInheritedTools(["a", "b", "c"], ["a", "c", "z"])).toEqual([
+      "a",
+      "c",
+    ]);
+  });
+
+  it("excludes forbidden tools even when present in parent", () => {
+    expect(filterInheritedTools(["a", "b", "c"], undefined, ["b"])).toEqual([
+      "a",
+      "c",
+    ]);
+  });
+
+  it("lets forbidden win over allowed", () => {
+    expect(filterInheritedTools(["a", "b", "c"], ["a", "b"], ["b"])).toEqual([
+      "a",
+    ]);
+  });
+});
+
+describe("isolation derive() honors child tool allow/forbid policy", () => {
+  it.each([
+    ["none", () => new NoneIsolation()],
+    ["context", () => new ContextIsolation()],
+    ["worktree", () => new WorktreeIsolation()],
+  ] as const)(
+    "%s isolation intersects inherited tools instead of copying full parent set",
+    (_kind, make) => {
+      const parent = makeParent(); // parent.tools = ["t1", "t2"]
+      const child = make().derive(parent, {
+        subagentSessionId: "child-s",
+        subagentSystemPrompt: "sys",
+        allowedTools: ["t1"],
+      });
+      expect(child.tools).toEqual(["t1"]);
+    },
+  );
+
+  it("drops forbidden tools from the inherited set", () => {
+    const parent = makeParent();
+    const child = new ContextIsolation().derive(parent, {
+      subagentSessionId: "child-s",
+      subagentSystemPrompt: "sys",
+      forbiddenTools: ["t2"],
+    });
+    expect(child.tools).toEqual(["t1"]);
   });
 });
 

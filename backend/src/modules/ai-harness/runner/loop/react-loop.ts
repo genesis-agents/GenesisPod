@@ -811,6 +811,17 @@ export class ReActLoop implements IAgentLoop {
           // Track the model we are about to call so failover can exclude it even
           // when reason() throws before usage.modelId is available.
           attemptedModelId = tierModelId ?? undefined;
+          // T2 (least-privilege tool scoping): filter the LLM-visible tool list
+          // by the agent's allow/forbid policy BEFORE building FunctionDefinitions,
+          // so the model never sees — and therefore cannot choose — a tool it is
+          // not permitted to call. ToolInvoker still enforces at invocation time
+          // as defense-in-depth (see executeAction), but pre-filtering avoids the
+          // wasted reason() turn + fail-then-loop when the model picks a denied tool.
+          const visibleToolIds = this.filterVisibleTools(
+            currentEnvelope.tools,
+            allowedTools,
+            forbiddenTools,
+          );
           const reasoned = await this.reason(
             messages,
             currentEnvelope.system,
@@ -824,7 +835,8 @@ export class ReActLoop implements IAgentLoop {
             specTaskProfile,
             // PR-1 native-FC: envelope.tools 是上游 performToolRecall 召回的工具 id
             // 列表，传下去让 reason() 在 flag-on 时构造 FunctionDefinition[]。
-            currentEnvelope.tools,
+            // T2: 已按 allow/forbid 策略前置过滤（见上方 visibleToolIds）。
+            visibleToolIds,
             // #35: on final iterations switch to the strict finalize schema so
             // strict providers enforce the business payload shape.
             approachingLimit,
@@ -860,7 +872,13 @@ export class ReActLoop implements IAgentLoop {
           //   (c) response_format=json_object 强制下，model 憋出最简空 JSON 假装完成
           //
           // 防 false-positive：thinking 非空说明 LLM 在思考，可能合理 finalize；
-          // 只有 thinking="" + output 空 + 连续 2 次 才 abort。
+          // 只在 thinking="" + output 空时判定为空响应。
+          // T5 (2026-06-01)：第 1 次空响应即终止（不是"连续 2 次"）。失败已按子码
+          //   分类——LOOP_EMPTY_RESPONSE_IMMEDIATE（API 拒绝/模型死）与
+          //   PROVIDER_QUOTA_EXCEEDED 是确定性失败，同模型重试必然还空；reasoning
+          //   CoT 撞墙交由下方 suggestFallback 切非 reasoning 模型恢复（换模型才是正确
+          //   修法，不是同模型重试）。故 consecutiveEmptyLLM 仅进诊断 payload，不作终止
+          //   阈值。若日后遥测出现 reasoning-exhaustion 误杀，再针对该单一子类加 nudge-retry。
           let isEmptyResponse = false;
           if (
             decision.action.kind === "finalize" &&
@@ -975,7 +993,7 @@ export class ReActLoop implements IAgentLoop {
             });
             return;
           } else {
-            // 重置连续空响应计数：跨非连续 empty 不累计（empty / good / empty 应记 1，不是 2）
+            // 重置空响应计数（仅供诊断 payload；见上方 T5 说明，不作终止阈值）
             consecutiveEmptyLLM = 0;
           }
         } catch (err) {
@@ -1661,6 +1679,30 @@ export class ReActLoop implements IAgentLoop {
     // 第二份会让 LLM 看到工具列表 2 遍 → 困惑"哪份准？"，可能引用降级版的
     // 不完整信息生成错误 action。
     return msgs;
+  }
+
+  /**
+   * T2 (least-privilege): scope a recalled tool-id list to the agent's
+   * allow/forbid policy. forbidden wins over allowed; an empty/undefined
+   * allowlist means "all non-forbidden tools are visible". Used to build the
+   * LLM-visible tool surface before FunctionDefinitions are constructed.
+   */
+  private filterVisibleTools(
+    toolIds: readonly string[],
+    allowed?: readonly string[],
+    forbidden?: readonly string[],
+  ): readonly string[] {
+    if (
+      (!forbidden || forbidden.length === 0) &&
+      (!allowed || allowed.length === 0)
+    ) {
+      return toolIds;
+    }
+    return toolIds.filter((id) => {
+      if (forbidden?.includes(id)) return false;
+      if (allowed && allowed.length > 0) return allowed.includes(id);
+      return true;
+    });
   }
 
   private async reason(

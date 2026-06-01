@@ -9,7 +9,11 @@
 
 import type { IContextEnvelope } from "@/modules/ai-harness/agents/abstractions";
 import { ContextEnvelope } from "@/modules/ai-harness/agents/core/context-envelope";
-import type { IsolationPolicy } from "./isolation.types";
+import type {
+  IsolationDeriveOptions,
+  IsolationPolicy,
+} from "./isolation.types";
+import { filterInheritedTools } from "./isolation.types";
 
 const DEFAULT_MAX_TOKENS = 10_000;
 const DEFAULT_MAX_ITERATIONS = 5;
@@ -19,15 +23,7 @@ export class WorktreeIsolation implements IsolationPolicy {
 
   derive(
     parent: IContextEnvelope,
-    options: {
-      subagentSessionId: string;
-      subagentSystemPrompt: string;
-      budgetOverride?: {
-        maxTokens?: number;
-        maxIterations?: number;
-        maxWallTimeMs?: number;
-      };
-    },
+    options: IsolationDeriveOptions,
   ): IContextEnvelope {
     const over = options.budgetOverride;
     const childMaxTokens = Math.min(
@@ -43,7 +39,11 @@ export class WorktreeIsolation implements IsolationPolicy {
       system: options.subagentSystemPrompt,
       messages: [],
       reminders: [],
-      tools: [...parent.tools],
+      tools: filterInheritedTools(
+        parent.tools,
+        options.allowedTools,
+        options.forbiddenTools,
+      ),
       memory: {
         sessionId: options.subagentSessionId,
         // Explicitly DO NOT inherit userId → no long-term memory access
