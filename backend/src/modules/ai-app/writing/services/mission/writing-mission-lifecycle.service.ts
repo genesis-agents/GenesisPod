@@ -40,7 +40,7 @@ import type {
   WritingMissionInput,
   WritingMissionResult,
 } from "./writing-mission.types";
-import type { RoleModelAssignment } from "../task-executors/task-executor.interface";
+import type { RoleModelAssignment } from "./writing-model-manager.service";
 import { MISSION_TYPE_DB_MAP, WRITING_DEFAULTS } from "../config";
 
 // Forward reference to avoid circular dependency

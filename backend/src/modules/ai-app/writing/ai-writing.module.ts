@@ -37,11 +37,6 @@ import { StoryArchitectService } from "./mission/roles/story-architect.service";
 import { ConsistencyService } from "./mission/roles/consistency.service";
 import { EditorService } from "./mission/roles/editor.service";
 
-// WebSocket Gateway and Event Emitter
-import { AiWritingGateway } from "./ai-writing.gateway";
-import { WritingEventEmitterService } from "./services/events/writing-event-emitter.service";
-import { WritingRealtimeAdapter } from "./services/events/writing-realtime.adapter";
-
 // Bible services
 import { StoryBibleService } from "./services/bible/story-bible.service";
 import { CharacterService } from "./services/bible/character.service";
@@ -82,15 +77,6 @@ import { WritingTextProcessorService } from "./services/mission/writing-text-pro
 import { WritingMissionLifecycleService } from "./services/mission/writing-mission-lifecycle.service";
 import { WritingMissionQueryService } from "./services/mission/writing-mission-query.service";
 import { WritingMissionExecutionService } from "./services/mission/writing-mission-execution.service";
-
-// NEW: Task Executors
-import { FullStoryExecutor } from "./services/task-executors/full-story.executor";
-import { ContinueStoryExecutor } from "./services/task-executors/continue-story.executor";
-import { SingleChapterExecutor } from "./services/task-executors/single-chapter.executor";
-import { OutlineExecutor } from "./services/task-executors/outline.executor";
-import { LeaderCommandExecutor } from "./services/task-executors/leader-command.executor";
-import { RevisionExecutor } from "./services/task-executors/revision.executor";
-import { ConsistencyCheckExecutor } from "./services/task-executors/consistency-check.executor";
 
 // NEW: Quality Pipeline
 import { WritingQualityPipelineService } from "./services/quality/writing-quality-pipeline.service";
@@ -177,12 +163,8 @@ import {
     AiWritingService,
     WritingDataExportService,
     WritingCoordinatorService,
-    // WebSocket Gateway and Event Emitter
-    AiWritingGateway,
     // ★ W1: new mission-scoped gateway (writing.* events via DomainEventBus → socket room)
     WritingMissionGateway,
-    WritingEventEmitterService,
-    WritingRealtimeAdapter, // ★ Engine Realtime 集成
     // Bible services
     StoryBibleService,
     CharacterService,
@@ -219,14 +201,6 @@ import {
     WritingMissionLifecycleService,
     WritingMissionQueryService,
     WritingMissionExecutionService,
-    // NEW: Task Executors
-    FullStoryExecutor,
-    ContinueStoryExecutor, // Internal only: delegated by FullStoryExecutor, NOT in executorMap
-    SingleChapterExecutor,
-    OutlineExecutor,
-    LeaderCommandExecutor,
-    RevisionExecutor,
-    ConsistencyCheckExecutor,
     // NEW: Quality Pipeline
     WritingQualityPipelineService,
     WritingStructuralGateService,
@@ -331,14 +305,6 @@ export class AiWritingModule implements OnModuleInit {
   constructor(
     private readonly styleTemplateService: StyleTemplateService,
     private readonly promptSkillBridge: PromptSkillBridge,
-    // Task executor wiring
-    private readonly executionService: WritingMissionExecutionService,
-    private readonly fullStoryExecutor: FullStoryExecutor,
-    private readonly singleChapterExecutor: SingleChapterExecutor,
-    private readonly outlineExecutor: OutlineExecutor,
-    private readonly leaderCommandExecutor: LeaderCommandExecutor,
-    private readonly revisionExecutor: RevisionExecutor,
-    private readonly consistencyCheckExecutor: ConsistencyCheckExecutor,
     // R0-A5: 注册 writing skills 目录到 engine SkillLoader
     private readonly skillLoader: SkillLoaderService,
     // ★ W1: 事件类型注册（DomainEventBus 未注册的 type 全部 drop+warn）
@@ -359,17 +325,6 @@ export class AiWritingModule implements OnModuleInit {
       domain: "writing",
       recursive: false,
     });
-
-    // Register task executors into execution service's executorMap
-    // NOTE: ContinueStoryExecutor is NOT registered - it shares taskType "full_story"
-    // and is delegated to internally by FullStoryExecutor
-    this.executionService.registerExecutor(this.fullStoryExecutor);
-    this.executionService.registerExecutor(this.singleChapterExecutor);
-    this.executionService.registerExecutor(this.outlineExecutor);
-    this.executionService.registerExecutor(this.leaderCommandExecutor);
-    this.executionService.registerExecutor(this.revisionExecutor);
-    this.executionService.registerExecutor(this.consistencyCheckExecutor);
-    this.logger.log("  Task executors registered (6)");
 
     // Writing Agents are managed internally by WritingMissionService
     // They don't need to be registered with the global AgentRegistry
