@@ -6,6 +6,7 @@ import { inferIsReasoning } from "../types/model.utils";
 import {
   ensureChatCompletionsPath,
   ensureMessagesPath,
+  ensureCohereChatPath,
   ensureGeminiGenerateContentPath,
   ensureOpenAIEmbeddingsPath,
   ensureCohereEmbedPath,
@@ -454,6 +455,32 @@ export class AiConnectionTestService {
           break;
         }
 
+        case "cohere": {
+          // Cohere v2 chat 专用（非 OpenAI-compatible）：POST /v2/chat，
+          // body 用 messages[]，响应 message.content[] 由下方按 cohere 分支解析。
+          response = await firstValueFrom(
+            this.httpService.post(
+              ensureCohereChatPath(apiEndpoint) ||
+                "https://api.cohere.com/v2/chat",
+              {
+                model: modelId || "",
+                messages: testMessages,
+                max_tokens: 50,
+                temperature: 0,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                  Accept: "application/json",
+                },
+                timeout: 30000,
+              },
+            ),
+          );
+          break;
+        }
+
         default: {
           // 2026-05-11 P4: 不再硬拒"未知 provider"。admin 在 UI 加的新 provider
           // 走通用 OpenAI-兼容派发：DB ai_providers.endpoint + Bearer auth +
@@ -509,6 +536,14 @@ export class AiConnectionTestService {
       ) {
         content =
           response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      } else if (provider.toLowerCase() === "cohere") {
+        // Cohere v2：message.content 是 block 数组
+        content =
+          (
+            response.data?.message?.content as
+              | Array<{ type?: string; text?: string }>
+              | undefined
+          )?.find((b) => b.type === "text")?.text || "";
       } else {
         content = response.data?.choices?.[0]?.message?.content || "";
       }

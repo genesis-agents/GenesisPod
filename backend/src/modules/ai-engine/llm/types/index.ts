@@ -38,6 +38,7 @@ export { inferIsReasoning, getKnownModelLimit } from "./model.utils";
 export {
   ensureChatCompletionsPath,
   ensureMessagesPath,
+  ensureCohereChatPath,
   ensureGeminiGenerateContentPath,
   ensureOpenAIEmbeddingsPath,
   ensureCohereEmbedPath,

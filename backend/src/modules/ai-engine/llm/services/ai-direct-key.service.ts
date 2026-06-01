@@ -9,6 +9,7 @@ import {
   safeReasoningEffort,
   ensureChatCompletionsPath,
   ensureMessagesPath,
+  ensureCohereChatPath,
 } from "../types";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService } from "./ai-model-config.service";
@@ -358,6 +359,22 @@ export class AiDirectKeyService {
           );
         }
 
+        case "cohere": {
+          // Cohere v2 chat 专用（非 OpenAI-compatible），避免落 default 用 Grok 端点。
+          const cohereChatUrl =
+            ensureCohereChatPath(apiEndpoint) ||
+            "https://api.cohere.com/v2/chat";
+          return await this.callCohereApiWithKey(
+            cohereChatUrl,
+            apiKey,
+            modelId || "",
+            fullMessages,
+            maxTokens,
+            temperature,
+            responseFormat,
+          );
+        }
+
         default:
           this.logger.warn(`Unknown provider: ${provider}, using Grok`);
           return await this.callApiWithKey(
@@ -639,6 +656,77 @@ export class AiDirectKeyService {
       },
       "Claude-API",
       "claude",
+    );
+  }
+
+  /**
+   * Helper method to call Cohere v2 Chat API with key (BYOK 直连)。
+   * 非 OpenAI-compatible：messages[] 请求，响应 message.content[] 文本块拼接，
+   * usage 在 usage.tokens.{input,output}_tokens。
+   */
+  private async callCohereApiWithKey(
+    url: string,
+    apiKey: string,
+    modelId: string,
+    messages: ChatMessage[],
+    maxTokens: number,
+    temperature: number,
+    responseFormat?: string,
+  ): Promise<ChatCompletionResult> {
+    const dynamicTimeout = Math.max(
+      120000,
+      Math.min(600000, 120000 + Math.ceil(maxTokens / 1000) * 15000),
+    );
+
+    return await this.retryService.withExponentialBackoff(
+      async () => {
+        const response = await firstValueFrom(
+          this.httpService.post(
+            url,
+            {
+              model: modelId,
+              max_tokens: maxTokens,
+              temperature,
+              messages: messages.map((m) => ({
+                role: m.role,
+                content:
+                  typeof m.content === "string"
+                    ? m.content
+                    : JSON.stringify(m.content),
+              })),
+              ...(responseFormat === "json"
+                ? { response_format: { type: "json_object" } }
+                : {}),
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              timeout: dynamicTimeout,
+            },
+          ),
+        );
+
+        const data = response.data ?? {};
+        const blocks = (data.message?.content ?? []) as Array<{
+          type?: string;
+          text?: string;
+        }>;
+        const content = blocks
+          .filter((b) => b.type === "text" && typeof b.text === "string")
+          .map((b) => b.text)
+          .join("");
+        const tokens = data.usage?.tokens ?? {};
+        return {
+          content,
+          model: modelId,
+          tokensUsed: (tokens.input_tokens || 0) + (tokens.output_tokens || 0),
+        };
+      },
+      "Cohere-API",
+      modelId,
     );
   }
 
