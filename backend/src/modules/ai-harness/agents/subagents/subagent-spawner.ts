@@ -79,6 +79,10 @@ export class SubagentSpawner implements ISubagentSpawner {
       subagentSessionId: childSessionId,
       subagentSystemPrompt: childSystemPrompt,
       budgetOverride: spec.budget,
+      // T3 (sub-agent least-privilege): scope inherited tools to the child's
+      // own allow/forbid policy instead of copying the full parent tool surface.
+      allowedTools: spec.allowedTools,
+      forbiddenTools: spec.forbiddenTools,
     });
 
     // 3. Build child agent via factory with derived envelope

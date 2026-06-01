@@ -175,6 +175,54 @@ describe("ReActLoop · PR-1 native function-calling", () => {
     expect(firstChatArg.systemPrompt).toMatch(/skill_invoke/);
   });
 
+  it("1b. T2: forbidden tools are filtered out of the LLM-visible tool list", async () => {
+    process.env.HARNESS_REACT_NATIVE_FC = "true";
+    const chat = mkChat([
+      {
+        toolCalls: [
+          { id: "c1", name: "web-search", arguments: { query: "react" } },
+        ],
+      },
+      {
+        content: JSON.stringify({
+          thinking: "done",
+          action: { kind: "finalize", output: { ok: true } },
+        }),
+      },
+    ]);
+    const reg = mkToolRegistry({ "web-search": { success: true, data: "ok" } });
+    const atr = mkAgentToolRegistry(["web-search", "rag-search"]);
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    const loop = new ReActLoop(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      chat as any,
+      invoker,
+      hooks,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      atr as any,
+    );
+    const events = await drain(
+      loop.run(makeEnvelope(["web-search", "rag-search"]), criteria, {
+        agentId: "a1",
+        forbiddenTools: ["rag-search"],
+      }),
+    );
+    expect(events.filter((e) => e.type === "terminated").length).toBe(1);
+    // T2: the forbidden tool must never be built into FunctionDefinitions, so
+    // getSchemas is called with the filtered list and chat() only sees web-search.
+    expect(atr.getSchemas).toHaveBeenCalledWith(["web-search"]);
+    const firstChatArg = (chat.chat as jest.Mock).mock.calls[0][0];
+    expect(firstChatArg.tools.map((t: { name: string }) => t.name)).toEqual([
+      "web-search",
+    ]);
+  });
+
   it("2. flag ON: multiple toolCalls become parallel_tool_call", async () => {
     process.env.HARNESS_REACT_NATIVE_FC = "true";
     const chat = mkChat([

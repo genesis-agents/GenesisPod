@@ -155,9 +155,11 @@ describe("AgentCardRegistry", () => {
       mockConfigGet.mockReturnValue(undefined);
       const card = registry.getAgentCard();
 
+      // T4: pushNotifications advertised as false until the config methods are
+      // implemented (currently return METHOD_NOT_FOUND).
       expect(card.capabilities).toMatchObject({
         streaming: false,
-        pushNotifications: true,
+        pushNotifications: false,
         stateTransitionHistory: true,
       });
     });

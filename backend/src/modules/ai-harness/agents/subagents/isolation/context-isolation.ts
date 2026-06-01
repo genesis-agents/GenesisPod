@@ -8,7 +8,11 @@
 
 import type { IContextEnvelope } from "@/modules/ai-harness/agents/abstractions";
 import { ContextEnvelope } from "@/modules/ai-harness/agents/core/context-envelope";
-import type { IsolationPolicy } from "./isolation.types";
+import type {
+  IsolationDeriveOptions,
+  IsolationPolicy,
+} from "./isolation.types";
+import { filterInheritedTools } from "./isolation.types";
 
 const DEFAULT_MAX_TOKENS = 20_000;
 const DEFAULT_MAX_ITERATIONS = 10;
@@ -19,15 +23,7 @@ export class ContextIsolation implements IsolationPolicy {
 
   derive(
     parent: IContextEnvelope,
-    options: {
-      subagentSessionId: string;
-      subagentSystemPrompt: string;
-      budgetOverride?: {
-        maxTokens?: number;
-        maxIterations?: number;
-        maxWallTimeMs?: number;
-      };
-    },
+    options: IsolationDeriveOptions,
   ): IContextEnvelope {
     const over = options.budgetOverride;
     const parentRemainingTokens = parent.budget.tokensRemaining;
@@ -47,7 +43,11 @@ export class ContextIsolation implements IsolationPolicy {
       system: options.subagentSystemPrompt,
       messages: [],
       reminders: [],
-      tools: [...parent.tools],
+      tools: filterInheritedTools(
+        parent.tools,
+        options.allowedTools,
+        options.forbiddenTools,
+      ),
       memory: {
         // New session id for this subagent
         sessionId: options.subagentSessionId,
