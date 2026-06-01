@@ -3,8 +3,10 @@ import {
   MemoryCoordinatorService,
   MemoryEvent,
 } from "../memory-coordinator.service";
+import { MEMORY_EMBEDDER } from "../memory-coordinator.service";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 import { LongTermMemoryService } from "../../stores/long-term-memory.service";
+import { PrismaVectorStore } from "../../vector/prisma-vector-store";
 
 // ─── Mocks ────────────────────────────────────────────────
 
@@ -208,6 +210,124 @@ describe("MemoryCoordinatorService", () => {
       await service.store(event, USER_ID); // no sessionId
 
       expect(shortTermMock.setWithSession).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── G2: semantic (vector) Layer-3 recall ──────────────────
+  describe("G2 semantic memory", () => {
+    const ORIG = process.env.HARNESS_SEMANTIC_MEMORY;
+    const vectorMock = { add: jest.fn(), recall: jest.fn() };
+    const embedderMock = {
+      id: "test",
+      dim: 4,
+      embed: jest.fn().mockResolvedValue([0.1, 0.2, 0.3, 0.4]),
+      embedBatch: jest.fn(),
+    };
+    let svc: MemoryCoordinatorService;
+
+    afterEach(() => {
+      if (ORIG === undefined) delete process.env.HARNESS_SEMANTIC_MEMORY;
+      else process.env.HARNESS_SEMANTIC_MEMORY = ORIG;
+    });
+
+    beforeEach(async () => {
+      jest.clearAllMocks();
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          MemoryCoordinatorService,
+          { provide: ShortTermMemoryService, useValue: shortTermMock },
+          { provide: LongTermMemoryService, useValue: longTermMock },
+          { provide: PrismaVectorStore, useValue: vectorMock },
+          { provide: MEMORY_EMBEDDER, useValue: embedderMock },
+        ],
+      }).compile();
+      svc = module.get(MemoryCoordinatorService);
+      longTermMock.getWithUser.mockResolvedValue(null);
+      shortTermMock.getWithSession.mockResolvedValue(undefined);
+    });
+
+    it("flag OFF: does not embed or vector-recall (exact-key only)", async () => {
+      delete process.env.HARNESS_SEMANTIC_MEMORY;
+      await svc.recall({ query: "q", layers: [3] }, USER_ID);
+      expect(embedderMock.embed).not.toHaveBeenCalled();
+      expect(vectorMock.recall).not.toHaveBeenCalled();
+    });
+
+    it("flag ON: embeds query and returns vector hits as Layer-3 fragments", async () => {
+      process.env.HARNESS_SEMANTIC_MEMORY = "true";
+      vectorMock.recall.mockResolvedValue([
+        {
+          entry: {
+            entryKey: "pref-tone",
+            content: "prefers concise answers",
+            metadata: { type: "preference" },
+          },
+          similarity: 0.82,
+        },
+      ]);
+      const ctx = await svc.recall(
+        { query: "how do they like replies", layers: [3] },
+        USER_ID,
+      );
+      expect(embedderMock.embed).toHaveBeenCalledWith(
+        "how do they like replies",
+      );
+      expect(vectorMock.recall).toHaveBeenCalledWith(
+        [0.1, 0.2, 0.3, 0.4],
+        expect.objectContaining({ namespace: `ltm:${USER_ID}` }),
+      );
+      const frag = ctx.fragments.find((f) => f.key === "pref-tone");
+      expect(frag).toBeDefined();
+      expect(frag?.relevanceScore).toBe(0.82);
+      expect(frag?.type).toBe("preference");
+    });
+
+    it("flag ON: store() indexes long-term events into the vector store", async () => {
+      process.env.HARNESS_SEMANTIC_MEMORY = "true";
+      longTermMock.setWithUser.mockResolvedValue(undefined);
+      await svc.store(
+        {
+          type: "preference",
+          key: "pref-tone",
+          value: "concise",
+          importance: 0.7,
+        },
+        USER_ID,
+      );
+      // fire-and-forget — allow the microtask to flush
+      await new Promise((r) => setImmediate(r));
+      expect(embedderMock.embed).toHaveBeenCalledWith("concise");
+      expect(vectorMock.add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          namespace: `ltm:${USER_ID}`,
+          entryKey: "pref-tone",
+          content: "concise",
+          confidence: 0.7,
+        }),
+      );
+    });
+
+    it("merges exact-key and semantic hits, deduped by key", async () => {
+      process.env.HARNESS_SEMANTIC_MEMORY = "true";
+      longTermMock.getWithUser.mockResolvedValue({
+        value: "exact value",
+        type: "knowledge",
+        importance: 0.6,
+      });
+      vectorMock.recall.mockResolvedValue([
+        {
+          entry: { entryKey: "q", content: "dup", metadata: {} },
+          similarity: 0.9,
+        }, // same key as exact → deduped
+        {
+          entry: { entryKey: "other", content: "sem", metadata: {} },
+          similarity: 0.7,
+        },
+      ]);
+      const ctx = await svc.recall({ query: "q", layers: [3] }, USER_ID);
+      const keys = ctx.fragments.map((f) => f.key);
+      expect(keys.filter((k) => k === "q")).toHaveLength(1); // deduped
+      expect(keys).toContain("other");
     });
   });
 });
