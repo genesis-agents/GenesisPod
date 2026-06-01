@@ -21,10 +21,20 @@
  *   - Ask / Research 对话中：recall() 注入历史知识
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { ShortTermMemoryService } from "../stores/short-term-memory.service";
 import { LongTermMemoryService } from "../stores/long-term-memory.service";
 import { KnowledgeGraphTool } from "../../../ai-engine/tools/categories/information/knowledge/knowledge-graph.tool";
+import { PrismaVectorStore } from "../vector/prisma-vector-store";
+import type { IEmbeddingProvider } from "../vector/embedding-provider";
+
+/**
+ * G2: DI token for the Layer-3 semantic embedder. `IEmbeddingProvider` is a TS
+ * interface (erased at runtime), so it MUST be injected via this token — a module
+ * enabling semantic memory provides `{ provide: MEMORY_EMBEDDER, useClass/useValue }`
+ * plus `PrismaVectorStore`. Absent either (or flag off) → exact-key recall only.
+ */
+export const MEMORY_EMBEDDER = Symbol("MEMORY_EMBEDDER");
 
 // ─────────────────────────────────────────────────────────
 // Public types
@@ -109,7 +119,31 @@ export class MemoryCoordinatorService {
     private readonly longTermMemory: LongTermMemoryService,
     // Layer 4: KnowledgeGraphTool — @Optional() 降级兼容（无 Prisma 时跳过）
     @Optional() private readonly knowledgeGraph?: KnowledgeGraphTool,
+    // G2 语义记忆（可选）：向量库 + 嵌入器同时注入且 flag on 才启用，
+    // 否则 Layer 3 退化为纯精确 key 查找（现网默认行为不变）。
+    @Optional() private readonly vectorStore?: PrismaVectorStore,
+    @Optional()
+    @Inject(MEMORY_EMBEDDER)
+    private readonly embedder?: IEmbeddingProvider,
   ) {}
+
+  /** G2: 语义记忆需 flag on + 向量库 + 嵌入器三者齐备。 */
+  private semanticEnabled(): boolean {
+    return (
+      process.env.HARNESS_SEMANTIC_MEMORY === "true" &&
+      !!this.vectorStore &&
+      !!this.embedder
+    );
+  }
+
+  /** Layer 3 向量 namespace（按 user 隔离）。 */
+  private ltmNamespace(userId: string): string {
+    return `ltm:${userId}`;
+  }
+
+  private serializeValue(value: unknown): string {
+    return typeof value === "string" ? value : JSON.stringify(value);
+  }
 
   // ─── Public API ─────────────────────────────────────────
 
@@ -226,6 +260,12 @@ export class MemoryCoordinatorService {
               ttl: event.ttl,
             },
           );
+          // G2: 同步把该条索引进向量库（fire-and-forget，失败不影响 LTM 写入）
+          void this.indexToVector(userId, event).catch((err) => {
+            this.logger.warn(
+              `[store] vector index failed (key=${event.key}): ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
           break;
       }
 
@@ -283,30 +323,87 @@ export class MemoryCoordinatorService {
     ];
   }
 
-  /** Layer 3: 从长期记忆中查找匹配条目（按 importance 排序） */
+  /**
+   * Layer 3: 长期记忆召回。混合策略 —
+   *   - 精确 key 查找（词法信号，高置信）
+   *   - G2: 若语义记忆启用，再做向量 KNN（自然语言查询命中语义相近条目）
+   * 两路结果按 key 去重合并。
+   */
   private async recallLayer3(
     query: MemoryQuery,
     userId: string,
   ): Promise<MemoryFragment[]> {
-    // 先尝试精确 key 查找
+    const fragments: MemoryFragment[] = [];
+
+    // 1. 精确 key 查找
     const exact = await this.longTermMemory.getWithUser(userId, query.query);
-    if (!exact) return [];
-
-    const record = exact as {
-      value: unknown;
-      type?: string;
-      importance?: number;
-    };
-
-    return [
-      {
+    if (exact) {
+      const record = exact as {
+        value: unknown;
+        type?: string;
+        importance?: number;
+      };
+      fragments.push({
         layer: 3,
         key: query.query,
         value: record.value,
         relevanceScore: record.importance ?? 0.5,
         type: (record.type as MemoryEventType) ?? "knowledge",
-      },
-    ];
+      });
+    }
+
+    // 2. G2 语义向量召回（启用时），去重后合并
+    if (this.semanticEnabled()) {
+      const semantic = await this.recallLayer3Semantic(query, userId);
+      for (const f of semantic) {
+        if (!fragments.some((e) => e.key === f.key)) fragments.push(f);
+      }
+    }
+
+    return fragments;
+  }
+
+  /** G2: 向量 KNN 召回（embed query → PrismaVectorStore.recall）。 */
+  private async recallLayer3Semantic(
+    query: MemoryQuery,
+    userId: string,
+  ): Promise<MemoryFragment[]> {
+    if (!this.vectorStore || !this.embedder) return [];
+    const queryEmbedding = await this.embedder.embed(query.query);
+    const hits = await this.vectorStore.recall(queryEmbedding, {
+      namespace: this.ltmNamespace(userId),
+      k: query.limit ?? 10,
+      minSimilarity: 0.3,
+    });
+    return hits.map((h) => ({
+      layer: 3 as const,
+      key: h.entry.entryKey,
+      value: h.entry.content,
+      relevanceScore: h.similarity,
+      type:
+        (h.entry.metadata?.["type"] as MemoryEventType | undefined) ??
+        "knowledge",
+    }));
+  }
+
+  /** G2: 把一条长期记忆事件嵌入并写入向量库（启用时）。 */
+  private async indexToVector(
+    userId: string,
+    event: MemoryEvent,
+  ): Promise<void> {
+    if (!this.semanticEnabled() || !this.vectorStore || !this.embedder) return;
+    const content = this.serializeValue(event.value);
+    const embedding = await this.embedder.embed(content);
+    await this.vectorStore.add({
+      namespace: this.ltmNamespace(userId),
+      source: "ltm",
+      entryKey: event.key,
+      content,
+      embedding,
+      confidence: event.importance ?? 0.5,
+      tags: event.tags ?? [],
+      metadata: { type: event.type },
+    });
   }
 
   /**
