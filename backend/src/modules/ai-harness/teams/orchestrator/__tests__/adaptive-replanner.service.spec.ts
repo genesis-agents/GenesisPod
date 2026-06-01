@@ -8,8 +8,10 @@ import {
   ReplanTrigger,
   ReplanContext,
   ReplanStep,
+  ReplanResult,
   StepExecutionResult,
 } from "../adaptive-replanner.service";
+import { ExecutionStep, MissionExecutionPlan } from "../orchestrator.interface";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -295,6 +297,125 @@ describe("AdaptiveReplannerService", () => {
         expect(result.replanned).toBe(false);
         expect(result.modifiedSteps).toHaveLength(0);
       });
+    });
+  });
+
+  describe("applyToPlan() — T7", () => {
+    let service: AdaptiveReplannerService;
+
+    beforeEach(() => {
+      service = makeService();
+    });
+
+    function execStep(id: string, dependencies: string[] = []): ExecutionStep {
+      return {
+        id,
+        name: id,
+        description: id,
+        executor: "exec",
+        type: "task",
+        dependencies,
+        estimatedDuration: 1000,
+        estimatedCost: 1,
+      };
+    }
+    function plan(steps: ExecutionStep[]): MissionExecutionPlan {
+      return { steps } as MissionExecutionPlan;
+    }
+    function result(over: Partial<ReplanResult>): ReplanResult {
+      return {
+        replanned: true,
+        addedSteps: [],
+        removedSteps: [],
+        modifiedSteps: [],
+        reasoning: "test",
+        ...over,
+      };
+    }
+    const addStep = (id: string, dependencies: string[] = []): ReplanStep => ({
+      id,
+      name: id,
+      description: id,
+      status: "pending",
+      dependencies,
+    });
+
+    it("removes pending steps but never completed or running ones", () => {
+      const p = plan([execStep("a"), execStep("b"), execStep("c")]);
+      const out = service.applyToPlan(
+        p,
+        result({ removedSteps: ["a", "b", "c"] }),
+        {
+          completedStepIds: new Set(["a"]),
+          runningStepIds: new Set(["b"]),
+        },
+      );
+      // a completed, b running → kept; only c removed
+      expect(out.removed).toEqual(["c"]);
+      expect(out.skipped).toEqual(expect.arrayContaining(["a", "b"]));
+      expect(p.steps.map((s) => s.id).sort()).toEqual(["a", "b"]);
+    });
+
+    it("adds a step with resolvable deps and maps it to an ExecutionStep", () => {
+      const p = plan([execStep("a")]);
+      const out = service.applyToPlan(
+        p,
+        result({ addedSteps: [addStep("retry-a", [])] }),
+        { completedStepIds: new Set(), runningStepIds: new Set() },
+      );
+      expect(out.added).toEqual(["retry-a"]);
+      const added = p.steps.find((s) => s.id === "retry-a");
+      expect(added?.type).toBe("task");
+      expect(added?.executor).toBe(""); // no assignee → leader fallback downstream
+      expect(added?.dependencies).toEqual([]);
+    });
+
+    it("treats a completed step as a resolvable dependency", () => {
+      const p = plan([execStep("a")]);
+      const out = service.applyToPlan(
+        p,
+        result({ addedSteps: [addStep("rev", ["done-step"])] }),
+        {
+          completedStepIds: new Set(["done-step"]),
+          runningStepIds: new Set(),
+        },
+      );
+      expect(out.added).toEqual(["rev"]);
+    });
+
+    it("skips an added step whose dependency cannot be resolved", () => {
+      const p = plan([execStep("a")]);
+      const out = service.applyToPlan(
+        p,
+        result({ addedSteps: [addStep("x", ["ghost"])] }),
+        { completedStepIds: new Set(), runningStepIds: new Set() },
+      );
+      expect(out.added).toEqual([]);
+      expect(out.skipped).toEqual(["x"]);
+      expect(p.steps.map((s) => s.id)).toEqual(["a"]);
+    });
+
+    it("skips an added step with a duplicate id", () => {
+      const p = plan([execStep("a")]);
+      const out = service.applyToPlan(
+        p,
+        result({ addedSteps: [addStep("a", [])] }),
+        { completedStepIds: new Set(), runningStepIds: new Set() },
+      );
+      expect(out.added).toEqual([]);
+      expect(out.skipped).toEqual(["a"]);
+      expect(p.steps).toHaveLength(1);
+    });
+
+    it("skips a self-referential added step (no cycle introduced)", () => {
+      const p = plan([execStep("a")]);
+      const out = service.applyToPlan(
+        p,
+        result({ addedSteps: [addStep("self", ["self"])] }),
+        { completedStepIds: new Set(), runningStepIds: new Set() },
+      );
+      expect(out.added).toEqual([]);
+      expect(p.steps.map((s) => s.id)).toEqual(["a"]);
     });
   });
 });

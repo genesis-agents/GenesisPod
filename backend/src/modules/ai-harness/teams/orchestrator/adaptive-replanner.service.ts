@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { ExecutionStep, MissionExecutionPlan } from "./orchestrator.interface";
 
 // ─── Types ───
 
@@ -281,5 +282,104 @@ export class AdaptiveReplannerService {
       modifiedSteps: modified,
       reasoning: `New information received. ${modified.length} pending steps flagged for re-evaluation.`,
     };
+  }
+
+  /**
+   * T7 (G1): apply a ReplanResult to a live MissionExecutionPlan **in place**.
+   *
+   * Safe by construction:
+   * - removes only steps that are neither completed nor currently running;
+   * - adds steps only when the id is new and every dependency resolves (exists
+   *   in the plan or is already completed);
+   * - rolls back additions that would introduce a dependency cycle;
+   * - defers `modifiedSteps` (its `changes` is free-text, not machine-applicable).
+   *
+   * executePlan() re-evaluates `plan.steps` every tick, so the mutation is picked
+   * up on the next scheduling pass without restarting the loop.
+   */
+  applyToPlan(
+    plan: MissionExecutionPlan,
+    result: ReplanResult,
+    ctx: {
+      completedStepIds: ReadonlySet<string>;
+      runningStepIds: ReadonlySet<string>;
+    },
+  ): { added: string[]; removed: string[]; skipped: string[] } {
+    const skipped: string[] = [];
+
+    // 1. remove — never drop completed/running steps
+    const removable = new Set(
+      result.removedSteps.filter(
+        (id) => !ctx.completedStepIds.has(id) && !ctx.runningStepIds.has(id),
+      ),
+    );
+    for (const id of result.removedSteps) {
+      if (!removable.has(id)) skipped.push(id);
+    }
+    if (removable.size > 0) {
+      plan.steps = plan.steps.filter((s) => !removable.has(s.id));
+    }
+
+    // 2. add — unique id + resolvable dependencies
+    const existingIds = new Set(plan.steps.map((s) => s.id));
+    const added: string[] = [];
+    for (const rs of result.addedSteps) {
+      const deps = rs.dependencies ?? [];
+      const depsResolvable = deps.every(
+        (d) => existingIds.has(d) || ctx.completedStepIds.has(d),
+      );
+      if (existingIds.has(rs.id) || !depsResolvable) {
+        skipped.push(rs.id);
+        continue;
+      }
+      plan.steps.push(this.replanStepToExecutionStep(rs));
+      existingIds.add(rs.id);
+      added.push(rs.id);
+    }
+
+    // 3. cycle guard — roll back additions if they introduced a cycle
+    if (added.length > 0 && this.hasDependencyCycle(plan.steps)) {
+      plan.steps = plan.steps.filter((s) => !added.includes(s.id));
+      this.logger.warn(
+        `[applyToPlan] additions introduced a dependency cycle; rolled back: ${added.join(", ")}`,
+      );
+      skipped.push(...added);
+      added.length = 0;
+    }
+
+    return { added, removed: [...removable], skipped };
+  }
+
+  /** ReplanStep (replan 视图) → ExecutionStep (执行视图)。recovery 步骤用固定估算。 */
+  private replanStepToExecutionStep(rs: ReplanStep): ExecutionStep {
+    return {
+      id: rs.id,
+      name: rs.name,
+      description: rs.description,
+      // 无 assignee → executor 空串，executePlan 兜底到 team.leader。
+      executor: rs.assignee ?? "",
+      type: "task",
+      dependencies: rs.dependencies ?? [],
+      estimatedDuration: 30000,
+      estimatedCost: 5,
+    };
+  }
+
+  /** DFS 检测有向依赖图是否存在环（dependencies 指向前置步骤）。 */
+  private hasDependencyCycle(steps: ExecutionStep[]): boolean {
+    const byId = new Map(steps.map((s) => [s.id, s]));
+    const mark = new Map<string, 0 | 1>(); // 0 = visiting, 1 = done
+    const visit = (id: string): boolean => {
+      const m = mark.get(id);
+      if (m === 0) return true; // back-edge → cycle
+      if (m === 1) return false;
+      mark.set(id, 0);
+      for (const dep of byId.get(id)?.dependencies ?? []) {
+        if (byId.has(dep) && visit(dep)) return true;
+      }
+      mark.set(id, 1);
+      return false;
+    };
+    return steps.some((s) => visit(s.id));
   }
 }
