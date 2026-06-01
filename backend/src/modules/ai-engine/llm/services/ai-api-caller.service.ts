@@ -10,6 +10,7 @@ import {
 import {
   ensureChatCompletionsPath,
   ensureMessagesPath,
+  ensureCohereChatPath,
   ensureGeminiGenerateContentPath,
   ensureOpenAIEmbeddingsPath,
   ensureCohereEmbedPath,
@@ -1210,6 +1211,96 @@ export class AiApiCallerService {
         data.stop_reason === "max_tokens"
           ? "length"
           : data.stop_reason || undefined,
+    };
+  }
+
+  /**
+   * 调用 Cohere v2 Chat API（POST /v2/chat）。
+   *
+   * Cohere v2 chat 非 OpenAI-compatible：请求用 messages[]（role 同 OpenAI），
+   * 但响应 message.content 是 content block 数组（[{type:"text",text}]），
+   * usage 在 usage.tokens.{input,output}_tokens，finish_reason 为 COMPLETE/MAX_TOKENS。
+   * 故单列 caller，不能复用 callOpenAICompatibleAPI（之前 cohere 落到 default 分支
+   * 走 OpenAI 格式 → 响应解析失败，是「能发现/能配但运行时必挂」的假动态根因）。
+   *
+   * 首版聚焦文本对话：tool calling / native structured-output 暂不实现（responseFormat
+   * ==="json" 时启用 Cohere 原生 json_object；其余结构化策略降级为 system prompt 约束）。
+   */
+  async callCohereAPI(
+    apiEndpoint: string,
+    apiKey: string,
+    modelId: string,
+    messages: ChatMessage[],
+    maxTokens: number,
+    temperature?: number,
+    timeout: number = 120000,
+    responseFormat?: string,
+  ): Promise<ChatCompletionResult> {
+    const effectiveEndpoint =
+      ensureCohereChatPath(apiEndpoint) || "https://api.cohere.com/v2/chat";
+
+    // Cohere v2 messages：role 直通（system/user/assistant/tool），content 转纯文本。
+    // 多模态 contentParts 暂以 JSON 字符串兜底（首版不处理 vision block）。
+    const requestBody: Record<string, unknown> = {
+      model: modelId,
+      max_tokens: maxTokens,
+      messages: messages.map((m) => ({
+        role: m.role,
+        content:
+          typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+      })),
+    };
+
+    if (temperature !== undefined && temperature !== null) {
+      requestBody.temperature = temperature;
+    }
+
+    // Cohere v2 原生支持 response_format: { type: "json_object" }
+    if (responseFormat === "json") {
+      requestBody.response_format = { type: "json_object" };
+    }
+
+    this.logger.debug(
+      `[callCohereAPI] model=${modelId}, maxTokens=${maxTokens}`,
+    );
+
+    const response = await firstValueFrom(
+      this.httpService.post(effectiveEndpoint, requestBody, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        timeout,
+      }),
+    );
+
+    const data = response.data ?? {};
+    // 响应 message.content 是 block 数组，拼接所有 text block。
+    const contentBlocks: Array<{ type?: string; text?: string }> =
+      data.message?.content ?? [];
+    const textContent = contentBlocks
+      .filter((b) => b.type === "text" && typeof b.text === "string")
+      .map((b) => b.text)
+      .join("");
+
+    const tokens = data.usage?.tokens ?? {};
+    const inputTokens = tokens.input_tokens || 0;
+    const outputTokens = tokens.output_tokens || 0;
+    const finishRaw = (data.finish_reason || "").toString().toLowerCase();
+
+    return {
+      content: textContent,
+      model: modelId,
+      tokensUsed: inputTokens + outputTokens,
+      inputTokens,
+      outputTokens,
+      finishReason:
+        finishRaw === "max_tokens"
+          ? "length"
+          : finishRaw === "complete"
+            ? "stop"
+            : finishRaw || undefined,
     };
   }
 

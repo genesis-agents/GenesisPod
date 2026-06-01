@@ -983,6 +983,20 @@ export class AiChatService {
               tools,
             );
 
+          case "cohere":
+            // Cohere v2 chat（非 OpenAI-compatible）专用 caller；之前落 default
+            // 走 OpenAI 格式必挂，是 cohere chat 假动态根因。
+            return await this.apiCallerService.callCohereAPI(
+              effectiveEndpoint,
+              apiKey,
+              modelId,
+              messages,
+              maxTokens,
+              effectiveTemperature,
+              timeout,
+              responseFormat,
+            );
+
           default:
             return await this.apiCallerService.callOpenAICompatibleAPI(
               effectiveEndpoint,

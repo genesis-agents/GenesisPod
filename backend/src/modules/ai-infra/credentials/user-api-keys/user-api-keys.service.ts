@@ -662,6 +662,9 @@ export class UserApiKeysService {
         id: p.slug,
         name: p.name,
         endpoint: p.endpoint,
+        // apiFormat 暴露给前端「添加模型配置」下拉：选中 provider 后自动带出调用协议，
+        // 取代前端硬编码的 KNOWN_PROVIDERS（消除前后端两套数据源 + xai 协议漂移 bug）。
+        apiFormat: p.apiFormat,
         iconUrl: p.iconUrl,
         freeTierNote: p.freeTierNote,
         docUrl: p.docUrl,

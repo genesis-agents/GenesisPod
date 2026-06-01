@@ -57,6 +57,22 @@ export function ensureMessagesPath(
 }
 
 /**
+ * Append `/chat` if missing (Cohere v2 chat, `/v2/chat`).
+ * DB ai_providers.endpoint 存 `https://api.cohere.com/v2` → 追加 `/chat`。
+ * Cohere v2 chat 协议非 OpenAI-compatible（响应 message.content 为数组），
+ * 故单列 caller，不能走 ensureChatCompletionsPath。
+ */
+export function ensureCohereChatPath(
+  url: string | undefined | null,
+): string | null {
+  const trimmed = url?.trim();
+  if (!trimmed) return null;
+  const normalized = stripTrailingSlash(trimmed);
+  if (normalized.endsWith("/chat")) return normalized;
+  return `${normalized}/chat`;
+}
+
+/**
  * Build Gemini generateContent URL，容忍三种入参形态：
  *   1. 完整 URL（含 `:generateContent`）→ 原样（仅去尾斜杠）
  *   2. base URL（含 `/models`，不带 model）→ `${base}/${modelId}:generateContent`
