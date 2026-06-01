@@ -31,8 +31,10 @@ export class AgentCardRegistry {
       version: "1.0.0",
       capabilities: {
         streaming: false, // 暂不支持流式响应
-        pushNotifications: true, // 支持 Webhook 通知
-        stateTransitionHistory: true, // 支持状态历史
+        // T4: tasks/pushNotificationConfig/{set,get} 当前返回 METHOD_NOT_FOUND，
+        // 接通 Webhook 注册前不得宣称支持（避免 A2A 规范一致性谎言）。
+        pushNotifications: false,
+        stateTransitionHistory: true, // tasks/get 返回 history，真实支持
       },
       authentication: {
         schemes: ["Bearer", "X-API-Key"],
@@ -155,9 +157,14 @@ export class AgentCardRegistry {
    * 与旧 getAgentCard() 区别:
    *   - url 指向 JSON-RPC 入口 /a2a/v1（不是 /a2a/tasks）
    *   - protocolVersion: "0.3.0"
-   *   - capabilities.streaming: true（已加 SSE 端点）
    *   - securitySchemes（OpenAPI-style）替代旧 authentication.schemes
    *   - 完整 AgentCard 类型（A2A v0.3 spec）
+   *
+   * T4 (2026-06-01): capabilities.streaming/pushNotifications 暂置 false ——
+   *   /a2a/v1/stream SSE 当前是单发 stub（一次 RPC → 一个 final event，非增量
+   *   TaskStatusUpdateEvent/TaskArtifactUpdateEvent），且 tasks/pushNotificationConfig
+   *   与 tasks/resubscribe 均返回 METHOD_NOT_FOUND。接通 MissionEventBuffer → SSE
+   *   增量事件 + Webhook 注册后（见路线图 T9）再改回 true。
    */
   getAgentCardV03(): AgentCardV03 {
     const baseUrl = this.getBaseUrl();
@@ -173,8 +180,10 @@ export class AgentCardRegistry {
       },
       version: "1.0.0",
       capabilities: {
-        streaming: true,
-        pushNotifications: true,
+        // T4: see method-doc above — SSE is a single-shot stub and push-notification
+        // config methods return METHOD_NOT_FOUND, so neither is advertised yet.
+        streaming: false,
+        pushNotifications: false,
         stateTransitionHistory: true,
       },
       securitySchemes: {
