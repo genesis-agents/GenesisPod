@@ -1,5 +1,8 @@
 /**
  * Unit tests for WritingMissionExecutionService
+ *
+ * B6: legacy executorMap path removed. Tests now verify the new pipeline
+ * delegation path (WritingPipelineDispatcher).
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -7,15 +10,9 @@ import { WritingMissionExecutionService } from "../writing-mission-execution.ser
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { ChatFacade, AgentFacade } from "@/modules/ai-harness/facade";
 import { WritingMissionLifecycleService } from "../writing-mission-lifecycle.service";
-import { WritingPersistence } from "../writing-persistence.service";
-import { WritingEventEmitterService } from "../../events/writing-event-emitter.service";
-import { WritingTextProcessorService } from "../writing-text-processor.service";
+import { WritingPipelineDispatcher } from "../../../mission/pipeline/writing-pipeline-dispatcher.service";
 import type { WritingMissionInput } from "../writing-mission.types";
-import type {
-  RoleModelAssignment,
-  IWritingTaskExecutor,
-  WritingTaskResult,
-} from "../../task-executors/task-executor.interface";
+import type { RoleModelAssignment } from "../writing-model-manager.service";
 
 function buildMockPrisma() {
   return {
@@ -61,10 +58,16 @@ function buildMockAgentFacade() {
   };
 }
 
+function buildMockDispatcher() {
+  return {
+    runMission: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
 describe("WritingMissionExecutionService", () => {
   let service: WritingMissionExecutionService;
-  let prisma: ReturnType<typeof buildMockPrisma>;
   let lifecycleService: ReturnType<typeof buildMockLifecycleService>;
+  let dispatcher: ReturnType<typeof buildMockDispatcher>;
 
   const mockMissionInput: WritingMissionInput = {
     projectId: "project-1",
@@ -80,41 +83,17 @@ describe("WritingMissionExecutionService", () => {
   ];
 
   beforeEach(async () => {
-    prisma = buildMockPrisma();
     lifecycleService = buildMockLifecycleService();
+    dispatcher = buildMockDispatcher();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WritingMissionExecutionService,
-        { provide: PrismaService, useValue: prisma },
-        {
-          provide: ChatFacade,
-          useValue: buildMockChatFacade(),
-        },
-        {
-          provide: AgentFacade,
-          useValue: buildMockAgentFacade(),
-        },
-        {
-          provide: WritingMissionLifecycleService,
-          useValue: lifecycleService,
-        },
-        {
-          provide: WritingPersistence,
-          useValue: {
-            saveGeneratedContent: jest.fn().mockResolvedValue(undefined),
-          },
-        },
-        {
-          provide: WritingEventEmitterService,
-          useValue: {
-            emitMissionCompleted: jest.fn().mockResolvedValue(undefined),
-          },
-        },
-        {
-          provide: WritingTextProcessorService,
-          useValue: { countWords: jest.fn().mockReturnValue(500) },
-        },
+        { provide: PrismaService, useValue: buildMockPrisma() },
+        { provide: ChatFacade, useValue: buildMockChatFacade() },
+        { provide: AgentFacade, useValue: buildMockAgentFacade() },
+        { provide: WritingMissionLifecycleService, useValue: lifecycleService },
+        { provide: WritingPipelineDispatcher, useValue: dispatcher },
       ],
     }).compile();
 
@@ -128,22 +107,45 @@ describe("WritingMissionExecutionService", () => {
     jest.useRealTimers();
   });
 
-  describe("registerExecutor", () => {
-    it("should register a task executor", () => {
-      const mockExecutor: IWritingTaskExecutor = {
-        taskType: "chapter",
-        execute: jest.fn(),
-      };
-
-      // Should not throw
-      expect(() => service.registerExecutor(mockExecutor)).not.toThrow();
-    });
-  });
-
   describe("runMissionInBackground", () => {
-    it("should fail when no executor is registered for mission type", async () => {
-      // No executor registered — should call failKernelProcess
+    it("should delegate to WritingPipelineDispatcher", async () => {
       await service.runMissionInBackground(
+        "mission-1",
+        mockMissionInput,
+        "user-1",
+        mockModelAssignments,
+      );
+
+      expect(dispatcher.runMission).toHaveBeenCalledWith(
+        "mission-1",
+        mockMissionInput,
+        "user-1",
+        "project-1",
+      );
+    });
+
+    it("should mark mission failed when dispatcher is not injected", async () => {
+      // Create a service instance without the dispatcher
+      const moduleWithoutDispatcher: TestingModule =
+        await Test.createTestingModule({
+          providers: [
+            WritingMissionExecutionService,
+            { provide: PrismaService, useValue: buildMockPrisma() },
+            { provide: ChatFacade, useValue: buildMockChatFacade() },
+            { provide: AgentFacade, useValue: buildMockAgentFacade() },
+            {
+              provide: WritingMissionLifecycleService,
+              useValue: lifecycleService,
+            },
+          ],
+        }).compile();
+
+      const serviceWithoutDispatcher =
+        moduleWithoutDispatcher.get<WritingMissionExecutionService>(
+          WritingMissionExecutionService,
+        );
+
+      await serviceWithoutDispatcher.runMissionInBackground(
         "mission-1",
         mockMissionInput,
         "user-1",
@@ -152,144 +154,21 @@ describe("WritingMissionExecutionService", () => {
 
       expect(lifecycleService.failKernelProcess).toHaveBeenCalledWith(
         "mission-1",
-        expect.stringContaining("No executor registered"),
+        expect.stringContaining("WritingPipelineDispatcher not injected"),
       );
     });
 
-    it("should execute mission with registered executor and succeed", async () => {
-      const longContent =
-        "This is generated content that is long enough. ".repeat(50);
-      const mockExecutor: IWritingTaskExecutor = {
-        taskType: "chapter",
-        execute: jest.fn().mockResolvedValue({
-          content: longContent,
-          wordCount: 500,
-          shouldPersist: true,
-          summary: "Chapter generated",
-        } satisfies WritingTaskResult),
-      };
+    it("should not throw when dispatcher.runMission rejects", async () => {
+      dispatcher.runMission.mockRejectedValueOnce(new Error("pipeline error"));
 
-      service.registerExecutor(mockExecutor);
-
-      await service.runMissionInBackground(
-        "mission-1",
-        mockMissionInput,
-        "user-1",
-        mockModelAssignments,
-      );
-
-      expect(mockExecutor.execute).toHaveBeenCalled();
-      expect(lifecycleService.updateMissionRecord).toHaveBeenCalledWith(
-        "mission-1",
-        expect.objectContaining({ success: true }),
-      );
-    });
-
-    it("should update mission as failed when executor throws", async () => {
-      const mockExecutor: IWritingTaskExecutor = {
-        taskType: "chapter",
-        execute: jest.fn().mockRejectedValue(new Error("LLM timeout")),
-      };
-
-      service.registerExecutor(mockExecutor);
-
-      await service.runMissionInBackground(
-        "mission-1",
-        mockMissionInput,
-        "user-1",
-        mockModelAssignments,
-      );
-
-      expect(lifecycleService.failKernelProcess).toHaveBeenCalledWith(
-        "mission-1",
-        expect.stringContaining("LLM timeout"),
-      );
-    });
-
-    it("should handle DELEGATE_FULL_STORY_INTERNAL marker", async () => {
-      const chapterExecutor: IWritingTaskExecutor = {
-        taskType: "chapter",
-        execute: jest.fn().mockResolvedValue({
-          content: "[DELEGATE_FULL_STORY_INTERNAL]",
-          wordCount: 0,
-          shouldPersist: false,
-        }),
-      };
-      const fullStoryContent =
-        "[ALL_CHAPTERS_COMPLETED] Full story done. ".repeat(30);
-      const fullStoryExecutor: IWritingTaskExecutor = {
-        taskType: "full_story",
-        execute: jest.fn().mockResolvedValue({
-          content: fullStoryContent,
-          wordCount: 500,
-          shouldPersist: true,
-          summary: "Full story completed",
-        }),
-      };
-
-      service.registerExecutor(chapterExecutor);
-      service.registerExecutor(fullStoryExecutor);
-
-      await service.runMissionInBackground(
-        "mission-1",
-        mockMissionInput,
-        "user-1",
-        mockModelAssignments,
-      );
-
-      expect(chapterExecutor.execute).toHaveBeenCalled();
-      expect(fullStoryExecutor.execute).toHaveBeenCalled();
-      expect(lifecycleService.updateMissionRecord).toHaveBeenCalledWith(
-        "mission-1",
-        expect.objectContaining({ success: true }),
-      );
-    });
-
-    it("should fail when executor returns null content", async () => {
-      const mockExecutor: IWritingTaskExecutor = {
-        taskType: "chapter",
-        execute: jest.fn().mockResolvedValue({
-          content: null,
-          wordCount: 0,
-          shouldPersist: false,
-        }),
-      };
-
-      service.registerExecutor(mockExecutor);
-
-      await service.runMissionInBackground(
-        "mission-1",
-        mockMissionInput,
-        "user-1",
-        mockModelAssignments,
-      );
-
-      expect(lifecycleService.failKernelProcess).toHaveBeenCalled();
-    });
-
-    it("should use writer model when available in assignments", async () => {
-      const longContent = "Content for testing model selection. ".repeat(50);
-      const mockExecutor: IWritingTaskExecutor = {
-        taskType: "chapter",
-        execute: jest.fn().mockResolvedValue({
-          content: longContent,
-          wordCount: 500,
-          shouldPersist: true,
-        }),
-      };
-
-      service.registerExecutor(mockExecutor);
-
-      await service.runMissionInBackground(
-        "mission-1",
-        mockMissionInput,
-        "user-1",
-        mockModelAssignments,
-      );
-
-      // The executor should have been called with writer model (model-gpt4)
-      const callContext = (mockExecutor.execute as jest.Mock).mock.calls[0][0];
-      expect(callContext.modelId).toBe("model-gpt4");
+      await expect(
+        service.runMissionInBackground(
+          "mission-1",
+          mockMissionInput,
+          "user-1",
+          mockModelAssignments,
+        ),
+      ).resolves.not.toThrow();
     });
   });
 });

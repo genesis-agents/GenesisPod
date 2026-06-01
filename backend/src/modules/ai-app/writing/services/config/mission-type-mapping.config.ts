@@ -49,8 +49,8 @@ export const MISSION_TYPE_CONFIGS: Record<
     minWordCount: 200,
     creativity: "high",
     outputLength: "long",
-    emitStartEvent: false, // handled internally by FullStoryExecutor
-    emitCompleteEvent: false, // handled internally
+    emitStartEvent: false,
+    emitCompleteEvent: false,
   },
   chapter: {
     dbType: "CHAPTER",
