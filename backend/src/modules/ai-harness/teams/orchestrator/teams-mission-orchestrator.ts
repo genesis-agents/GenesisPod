@@ -1091,6 +1091,9 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     const state = this.states.get(missionId) || this.initializeState(missionId);
     const completedSteps = new Set<string>();
     const iterationStartTime = Date.now();
+    // T7 (G1): bound adaptive replanning per mission to avoid fail→replan→fail loops.
+    const MAX_REPLANS = 2;
+    let replanCount = 0;
 
     // 按拓扑顺序执行步骤
     while (completedSteps.size < plan.steps.length) {
@@ -1354,19 +1357,30 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
               currentPlan,
               executionHistory,
             );
-            if (shouldReplan) {
+            // T7 (G1): apply the replan to the live plan, bounded by a replan
+            // budget to prevent fail → replan → fail loops.
+            if (shouldReplan && replanCount < MAX_REPLANS) {
+              replanCount++;
               const replanResult = this.adaptiveReplanner.replan(
                 trigger,
                 currentPlan,
                 executionHistory,
               );
-              this.logger.log(
-                `[MissionOrchestrator] Replanned: ${replanResult.reasoning}`,
+              const { added, removed } = this.adaptiveReplanner.applyToPlan(
+                plan,
+                replanResult,
+                {
+                  completedStepIds: completedSteps,
+                  runningStepIds: new Set(state.currentSteps),
+                },
               );
-              // TODO(Phase 4): Apply replanResult to plan:
-              // - plan.steps.push(...replanResult.addedSteps)
-              // - plan.steps = plan.steps.filter(s => !replanResult.removedSteps.includes(s.id))
-              // - replanResult.modifiedSteps.forEach(m => { /* update step */ })
+              this.logger.log(
+                `[MissionOrchestrator] Replan #${replanCount} applied (+${added.length}/-${removed.length}): ${replanResult.reasoning}`,
+              );
+            } else if (shouldReplan) {
+              this.logger.warn(
+                `[MissionOrchestrator] Replan budget exhausted (${MAX_REPLANS}); not replanning further`,
+              );
             }
           }
 
