@@ -46,6 +46,7 @@ import {
   OrchestratorPhase,
   DEFAULT_ORCHESTRATOR_CONFIG,
 } from "./orchestrator.interface";
+import { tryDynamicDecomposition, leafStepIds } from "./dynamic-planning";
 
 // AI Engine 核心依赖
 import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool.registry";
@@ -984,46 +985,67 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     const steps: ExecutionStep[] = [];
     const workflow = team.workflow;
 
-    // 基于工作流生成步骤
-    for (const workflowStep of workflow.steps) {
-      const executors = workflowStep.executorRoles.map((roleId: RoleId) => {
-        const members = team.getMembersByRole(roleId);
-        return members[0]?.id || roleId;
-      });
+    // T6 (G1 动态规划): high-complexity 任务尝试 LLM 动态分解；
+    // flag HARNESS_DYNAMIC_PLANNING 默认 off + 静态 workflow 兜底，零现网行为变更。
+    const dynamicSteps = await tryDynamicDecomposition(
+      intent,
+      team,
+      constraints,
+      {
+        estimateStepDuration: (t, d) => this.estimateStepDuration(t, d),
+        estimateStepCost: (dur, mp) => this.estimateStepCost(dur, mp),
+      },
+      this.logger,
+    );
+    if (dynamicSteps) {
+      steps.push(...dynamicSteps);
+    } else {
+      // 基于工作流生成步骤（静态默认路径）
+      for (const workflowStep of workflow.steps) {
+        const executors = workflowStep.executorRoles.map((roleId: RoleId) => {
+          const members = team.getMembersByRole(roleId);
+          return members[0]?.id || roleId;
+        });
 
-      const stepDuration = this.estimateStepDuration(
-        workflowStep.type,
-        constraints.quality.depth,
-      );
-      const stepCost = this.estimateStepCost(
-        stepDuration,
-        constraints.cost.modelPreference,
-      );
+        const stepDuration = this.estimateStepDuration(
+          workflowStep.type,
+          constraints.quality.depth,
+        );
+        const stepCost = this.estimateStepCost(
+          stepDuration,
+          constraints.cost.modelPreference,
+        );
 
-      steps.push({
-        id: workflowStep.id,
-        name: workflowStep.name,
-        description: workflowStep.description,
-        executor: executors[0],
-        type: this.mapStepType(workflowStep.type),
-        dependencies: workflowStep.dependsOn,
-        estimatedDuration: stepDuration,
-        estimatedCost: stepCost,
-        // ★ 包含工作流配置的超时时间，用于强制执行超时
-        timeout: workflowStep.timeout,
-      });
+        steps.push({
+          id: workflowStep.id,
+          name: workflowStep.name,
+          description: workflowStep.description,
+          executor: executors[0],
+          type: this.mapStepType(workflowStep.type),
+          dependencies: workflowStep.dependsOn,
+          estimatedDuration: stepDuration,
+          estimatedCost: stepCost,
+          // ★ 包含工作流配置的超时时间，用于强制执行超时
+          timeout: workflowStep.timeout,
+        });
+      }
     }
+
+    // review/delivery 的终止依赖：静态线性 workflow 沿用"最后一步"（行为不变）；
+    // 动态分解可能有并行分支 → 依赖所有叶子步骤，否则 delivery 会早于部分分支完成。
+    const terminalDeps = dynamicSteps
+      ? leafStepIds(steps)
+      : [steps[steps.length - 1].id];
 
     // 添加审核步骤
     if (constraints.quality.reviewRequired) {
-      const lastStep = steps[steps.length - 1];
       steps.push({
         id: "review",
         name: "质量审核",
         description: "Leader 审核所有输出",
         executor: team.leader.id,
         type: "review",
-        dependencies: [lastStep.id],
+        dependencies: terminalDeps,
         estimatedDuration: 60000,
         estimatedCost: 10,
       });
@@ -1038,7 +1060,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       type: "delivery",
       dependencies: constraints.quality.reviewRequired
         ? ["review"]
-        : [steps[steps.length - 1].id],
+        : terminalDeps,
       estimatedDuration: 30000,
       estimatedCost: 5,
     });
