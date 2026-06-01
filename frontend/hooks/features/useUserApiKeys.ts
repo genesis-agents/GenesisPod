@@ -30,6 +30,11 @@ export interface ProviderInfo {
   id: string;
   name: string;
   endpoint: string;
+  /** 调用协议（openai / anthropic / google / cohere）；驱动「添加模型」下拉自动填充 */
+  apiFormat?: string;
+  capabilities?: string[];
+  scope?: string;
+  isCustom?: boolean;
 }
 
 interface UserApiKeysResponse {
