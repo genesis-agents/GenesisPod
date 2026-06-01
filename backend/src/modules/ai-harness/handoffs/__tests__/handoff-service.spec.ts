@@ -201,6 +201,53 @@ describe("HandoffService", () => {
   });
 
   // -------------------------------------------------------------------------
+  // G6: on_handoff hook
+  // -------------------------------------------------------------------------
+
+  it("onHandoff hook can block the handoff after authorize passes", async () => {
+    const onHandoff = jest.fn().mockResolvedValue({
+      block: true,
+      reason: "invalid input payload",
+    });
+    const policy: IHandoffPolicy = {
+      async authorize() {
+        return { allow: true };
+      },
+      onHandoff,
+    };
+    const serviceWithPolicy = new HandoffService(registry, policy);
+    const fromAgent = makeAgent("agent-from");
+    registry.register(makeAgent("agent-to"));
+
+    const ctx = makeContext({ input: { escalationLevel: 3 } });
+    const result = await serviceWithPolicy.handoff(fromAgent, ctx);
+
+    expect(onHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({ input: { escalationLevel: 3 } }),
+    );
+    expect(result.accepted).toBe(false);
+    expect(result.rejectedReason).toBe("invalid input payload");
+  });
+
+  it("onHandoff hook that does not block lets the handoff proceed", async () => {
+    const onHandoff = jest.fn().mockResolvedValue(undefined);
+    const policy: IHandoffPolicy = {
+      async authorize() {
+        return { allow: true };
+      },
+      onHandoff,
+    };
+    const serviceWithPolicy = new HandoffService(registry, policy);
+    const fromAgent = makeAgent("agent-from");
+    registry.register(makeAgent("agent-to"));
+
+    const result = await serviceWithPolicy.handoff(fromAgent, makeContext());
+
+    expect(onHandoff).toHaveBeenCalled();
+    expect(result.accepted).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
   // HandoffResult shape
   // -------------------------------------------------------------------------
 

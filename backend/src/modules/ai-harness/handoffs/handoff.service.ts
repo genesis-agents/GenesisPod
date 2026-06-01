@@ -76,7 +76,7 @@ export class HandoffService {
       };
     }
 
-    const policy = this.policy ?? this.defaultPolicy;
+    const policy: IHandoffPolicy = this.policy ?? this.defaultPolicy;
     const auth = await policy.authorize(ctx);
     if (!auth.allow) {
       return {
@@ -85,6 +85,19 @@ export class HandoffService {
         rejectedReason: auth.reason ?? "policy denied",
         handoffId: randomUUID(),
       };
+    }
+
+    // G6: on_handoff 钩子 —— 校验 ctx.input / 审计 / 二次否决（authorize 后、形塑前）
+    if (policy.onHandoff) {
+      const decision = await policy.onHandoff(ctx);
+      if (decision?.block) {
+        return {
+          toAgentId: ctx.toAgentId,
+          accepted: false,
+          rejectedReason: decision.reason ?? "blocked by onHandoff",
+          handoffId: randomUUID(),
+        };
+      }
     }
 
     // 准备 envelope

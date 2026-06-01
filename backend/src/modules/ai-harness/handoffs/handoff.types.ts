@@ -29,6 +29,12 @@ export interface HandoffContext {
   readonly handoverMessage?: string;
   /** 是否携带 fromAgent 的 envelope（默认 true）；false 则目标 agent 全新 envelope */
   readonly carryEnvelope?: boolean;
+  /**
+   * G6: 结构化转移载荷（对标 OpenAI Agents SDK handoff 的 input_type）。`handoverMessage`
+   * 是自由文本给 LLM 看；`input` 是给 policy.onHandoff 校验/路由的结构化业务数据
+   * （如 `{ escalationLevel, ticketId }`）。policy 自行用 Zod 等校验其形状。
+   */
+  readonly input?: unknown;
   /** 业务自定义元数据（如 escalation level / priority） */
   readonly metadata?: Record<string, unknown>;
 }
@@ -53,4 +59,12 @@ export interface IHandoffPolicy {
     envelope: IContextEnvelope,
     ctx: HandoffContext,
   ): Promise<IContextEnvelope>;
+  /**
+   * G6: on_handoff 钩子（对标 OpenAI Agents SDK on_handoff）。在 authorize 通过后、
+   * 形塑 envelope 前触发，用于校验 `ctx.input`、做审计、或基于业务条件二次否决转移。
+   * 返回 `{ block: true, reason }` 则拒绝本次 handoff。
+   */
+  onHandoff?(
+    ctx: HandoffContext,
+  ): Promise<{ block?: boolean; reason?: string } | void>;
 }

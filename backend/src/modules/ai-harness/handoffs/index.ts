@@ -5,3 +5,9 @@ export type {
   HandoffResult,
   IHandoffPolicy,
 } from "./handoff.types";
+export {
+  removeToolMessages,
+  keepLastNMessages,
+  redactMessages,
+  composeFilters,
+} from "./handoff-filters";
