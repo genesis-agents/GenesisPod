@@ -284,34 +284,34 @@ export function UserModelsManagement() {
     <div className="space-y-4">
       {/* Action buttons */}
       <div className="flex flex-wrap items-center justify-end gap-2">
-          <UserModelsAutoConfigureButton
-            disabled={apiKeys.length === 0}
-            onDone={() => void refresh()}
-          />
-          <button
-            onClick={() => setShowRequestModal(true)}
-            disabled={!!pendingRequest}
-            className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
-            title={
-              pendingRequest
-                ? '你已有 1 条待审批的申请，请先撤销或等待管理员处理'
-                : '向管理员申请授权一个系统模型（无需自己配 Key）'
-            }
-          >
-            <Send className="h-4 w-4" /> 申请系统模型
-          </button>
-          <button
-            onClick={() => setShowAdd(true)}
-            disabled={apiKeys.length === 0}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-            title={
-              apiKeys.length === 0
-                ? '请先在 API Keys Tab 配置至少一个 Provider 的 Key'
-                : undefined
-            }
-          >
-            <Plus className="h-4 w-4" /> Add Model
-          </button>
+        <UserModelsAutoConfigureButton
+          disabled={apiKeys.length === 0}
+          onDone={() => void refresh()}
+        />
+        <button
+          onClick={() => setShowRequestModal(true)}
+          disabled={!!pendingRequest}
+          className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
+          title={
+            pendingRequest
+              ? '你已有 1 条待审批的申请，请先撤销或等待管理员处理'
+              : '向管理员申请授权一个系统模型（无需自己配 Key）'
+          }
+        >
+          <Send className="h-4 w-4" /> 申请系统模型
+        </button>
+        <button
+          onClick={() => setShowAdd(true)}
+          disabled={apiKeys.length === 0}
+          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+          title={
+            apiKeys.length === 0
+              ? '请先在 API Keys Tab 配置至少一个 Provider 的 Key'
+              : undefined
+          }
+        >
+          <Plus className="h-4 w-4" /> Add Model
+        </button>
       </div>
 
       {pendingRequest && (
@@ -968,6 +968,7 @@ function RequestKeyModal({
     <Modal
       open
       onClose={onClose}
+      closeOnOverlayClick={false}
       size="lg"
       title="申请系统模型"
       subtitle="提交后管理员将根据当前可用模型为你授权，通常 24 小时内处理。审批通过后模型会出现在「我的模型」表格里，标识为「系统授权」。"

@@ -79,9 +79,7 @@ function ConfigureKeyModal({
   const [mode, setMode] = useState<'select' | 'new'>(
     selectableSecrets.length > 0 ? 'select' : 'new'
   );
-  const [selectedId, setSelectedId] = useState(
-    selectableSecrets[0]?.id ?? ''
-  );
+  const [selectedId, setSelectedId] = useState(selectableSecrets[0]?.id ?? '');
   const [newValue, setNewValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,6 +129,7 @@ function ConfigureKeyModal({
     <Modal
       open={true}
       onClose={onClose}
+      closeOnOverlayClick={false}
       size="sm"
       title={t('me.tools.modal.configureTitle', { name: tool.name })}
       footer={
@@ -271,6 +270,7 @@ function RequestGrantModal({
     <Modal
       open={true}
       onClose={onClose}
+      closeOnOverlayClick={false}
       size="sm"
       title={t('me.tools.modal.requestTitle', { name: tool.name })}
       footer={
@@ -353,11 +353,13 @@ function ToolRow({
       <Td className="px-4 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <Wrench className="h-4 w-4 flex-shrink-0 text-gray-400" />
-          <span className="truncate font-medium text-gray-900">{tool.name}</span>
+          <span className="truncate font-medium text-gray-900">
+            {tool.name}
+          </span>
         </div>
       </Td>
       <Td className="px-4 py-2.5">
-        <code className="block truncate font-mono rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+        <code className="font-mono block truncate rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
           {tool.toolId}
         </code>
       </Td>

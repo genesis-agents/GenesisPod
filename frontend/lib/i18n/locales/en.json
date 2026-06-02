@@ -7415,6 +7415,8 @@
       "fieldDisplayName": "Display Name",
       "fieldCategory": "Category",
       "fieldProvider": "Provider (optional)",
+      "fieldProviderRequired": "Provider",
+      "fieldProviderAiModelHint": "AI_MODEL keys must specify a provider (e.g. openai / anthropic)",
       "fieldValue": "Key Value",
       "fieldValuePlaceholder": "Enter key value…",
       "fieldValueEditPlaceholder": "Leave blank to keep existing value",

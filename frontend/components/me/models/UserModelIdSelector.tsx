@@ -46,6 +46,12 @@ export function UserModelIdSelector({
   const [hasFetched, setHasFetched] = useState(false);
 
   const fetchModels = useCallback(async () => {
+    // provider 是 available-models 路由的路径段；为空会拼出 /user/api-keys//available-models
+    // → "Cannot POST" 404。自定义供应商需先填 slug 再获取。
+    if (!provider.trim()) {
+      setError('请先填写 Provider（自定义供应商请填写 slug，如 tokenmix）');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -113,7 +119,7 @@ export function UserModelIdSelector({
         <button
           type="button"
           onClick={fetchModels}
-          disabled={loading}
+          disabled={loading || !provider.trim()}
           className="flex items-center gap-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
           {loading ? (

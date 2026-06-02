@@ -4,7 +4,10 @@ import { useMemo, useState } from 'react';
 import { Sparkles, PlusCircle, Search } from 'lucide-react';
 import { toast } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
-import { useUserSkills, type UserSkillItem } from '@/hooks/features/useUserSkills';
+import {
+  useUserSkills,
+  type UserSkillItem,
+} from '@/hooks/features/useUserSkills';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { StatusBadge } from '@/components/ui/badges';
 import { EmptyState } from '@/components/ui/states/EmptyState';
@@ -17,14 +20,13 @@ import { formatDateSafe } from '@/lib/utils/date';
 
 /** kebab-case / snake_case → Title Case（用于展示 domain 原始值） */
 function formatDomain(raw: string): string {
-  return raw
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return raw.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function UserSkillsTab() {
   const { t } = useTranslation();
-  const { skills, loading, error, refresh, requestSkillGrant } = useUserSkills();
+  const { skills, loading, error, refresh, requestSkillGrant } =
+    useUserSkills();
 
   const [query, setQuery] = useState('');
   const [target, setTarget] = useState<UserSkillItem | null>(null);
@@ -85,9 +87,17 @@ export function UserSkillsTab() {
   };
 
   const renderStatus = (s: UserSkillItem) => {
-    if (s.granted) return <StatusBadge tone="success" label={t('me.skills.statusGranted')} />;
-    if (s.pending) return <StatusBadge tone="warning" label={t('me.skills.statusPending')} />;
-    return <StatusBadge tone="neutral" label={t('me.skills.statusAvailable')} />;
+    if (s.granted)
+      return (
+        <StatusBadge tone="success" label={t('me.skills.statusGranted')} />
+      );
+    if (s.pending)
+      return (
+        <StatusBadge tone="warning" label={t('me.skills.statusPending')} />
+      );
+    return (
+      <StatusBadge tone="neutral" label={t('me.skills.statusAvailable')} />
+    );
   };
 
   return (
@@ -95,7 +105,7 @@ export function UserSkillsTab() {
       {/* 待审批提示 */}
       {pendingCount > 0 && (
         <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
           {t('me.skills.pendingNote', { count: pendingCount })}
         </div>
       )}
@@ -128,7 +138,9 @@ export function UserSkillsTab() {
             <div key={domain} className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
                 {formatDomain(domain)}{' '}
-                <span className="font-normal text-gray-400">· {items.length}</span>
+                <span className="font-normal text-gray-400">
+                  · {items.length}
+                </span>
               </h3>
               {/* table-fixed + 统一列宽：各 domain 组的列上下对齐 */}
               <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
@@ -208,6 +220,7 @@ export function UserSkillsTab() {
       <Modal
         open={target !== null}
         onClose={() => setTarget(null)}
+        closeOnOverlayClick={false}
         title={t('me.skills.requestTitle')}
       >
         <div className="space-y-4">

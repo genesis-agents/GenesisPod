@@ -218,6 +218,7 @@ export function UserModelConfigModal({
     <Modal
       open
       onClose={onClose}
+      closeOnOverlayClick={false}
       size="2xl"
       title={isEdit ? '编辑模型配置' : '添加模型配置'}
       subtitle={`provider: ${provider}`}
