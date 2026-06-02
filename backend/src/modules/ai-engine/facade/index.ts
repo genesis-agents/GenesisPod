@@ -727,6 +727,14 @@ export type {
   CircuitBreakerConfig,
   HealthMetrics,
 } from "../reliability/entity-health/entity-health.registry";
+export {
+  RateLimitService,
+  RateLimitedError,
+} from "../reliability/rate-limit/rate-limit.service";
+export type {
+  RateLimitConfig as EngineRateLimitConfig,
+  RateLimitCheckResult,
+} from "../reliability/rate-limit/rate-limit.service";
 export { CapabilityGuardService } from "../safety/security/capability-guard.service";
 export type { CapabilityCheckResult } from "../safety/security/capability.types";
 // SSRF / 出站防护(platform-review wave1)：项目唯一统一出站闸门，ai-app / open-api 经此复用

@@ -21,7 +21,8 @@ import { CapabilityGuardService } from "./security/capability-guard.service";
 
 // Guardrails (Legacy)
 import { ContentFilter } from "./moderation/content-filter";
-// CostController / RateLimiter 由 ai-harness/RuntimeResourceModule (@Global) 提供，
+// CostController 由 ai-harness/RuntimeResourceModule (@Global) 提供，
+// RateLimitService 由 AiEngineReliabilityModule (@Global) 提供，
 // 任何模块都能直接注入 — engine 不再反向 import。
 
 // Guardrails Pipeline (New Framework)

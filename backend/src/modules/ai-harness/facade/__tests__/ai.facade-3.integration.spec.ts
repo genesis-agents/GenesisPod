@@ -218,8 +218,9 @@ describe("AIFacade enforceRateLimitAndBudget (via chat())", () => {
 
   it("returns rate limit error when rate limiter denies request", async () => {
     const rateLimiter = {
-      check: jest.fn().mockReturnValue({ allowed: false, retryAfter: 30000 }),
-      consume: jest.fn(),
+      checkAndConsume: jest
+        .fn()
+        .mockResolvedValue({ allowed: false, retryAfterMs: 30000 }),
     };
 
     const constraintFeature = {
@@ -247,8 +248,7 @@ describe("AIFacade enforceRateLimitAndBudget (via chat())", () => {
 
   it("consumes rate limit token when request is allowed", async () => {
     const rateLimiter = {
-      check: jest.fn().mockReturnValue({ allowed: true }),
-      consume: jest.fn(),
+      checkAndConsume: jest.fn().mockResolvedValue({ allowed: true }),
     };
 
     const constraintFeature = {
@@ -269,7 +269,9 @@ describe("AIFacade enforceRateLimitAndBudget (via chat())", () => {
       },
     });
 
-    expect(rateLimiter.consume).toHaveBeenCalledWith("user-456");
+    expect(rateLimiter.checkAndConsume).toHaveBeenCalledWith("chat", {
+      tenantId: "user-456",
+    });
     expect(chatSvc.chat).toHaveBeenCalled();
   });
 

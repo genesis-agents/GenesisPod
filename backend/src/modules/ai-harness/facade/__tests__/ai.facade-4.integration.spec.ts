@@ -327,8 +327,9 @@ describe("AIFacade — constraint enforcement via CONSTRAINT_FEATURE", () => {
   it("should return rate limit error when rate limiter blocks", async () => {
     const mockAiChatService = makeMockAiChatService();
     const mockRateLimiter = {
-      check: jest.fn().mockReturnValue({ allowed: false, retryAfter: 30000 }),
-      consume: jest.fn(),
+      checkAndConsume: jest
+        .fn()
+        .mockResolvedValue({ allowed: false, retryAfterMs: 30000 }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -401,8 +402,7 @@ describe("AIFacade — constraint enforcement via CONSTRAINT_FEATURE", () => {
   it("should consume rate limit token after allowed check", async () => {
     const mockAiChatService = makeMockAiChatService();
     const mockRateLimiter = {
-      check: jest.fn().mockReturnValue({ allowed: true }),
-      consume: jest.fn(),
+      checkAndConsume: jest.fn().mockResolvedValue({ allowed: true }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -433,7 +433,9 @@ describe("AIFacade — constraint enforcement via CONSTRAINT_FEATURE", () => {
       },
     });
 
-    expect(mockRateLimiter.consume).toHaveBeenCalledWith("user-allowed");
+    expect(mockRateLimiter.checkAndConsume).toHaveBeenCalledWith("chat", {
+      tenantId: "user-allowed",
+    });
   });
 });
 

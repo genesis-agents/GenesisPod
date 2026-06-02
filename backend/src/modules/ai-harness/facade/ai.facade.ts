@@ -529,20 +529,20 @@ export class AIFacade {
   ): Promise<ChatResponse | null> {
     if (this.constraint?.rateLimiter) {
       const rateLimitKey = request.billing?.userId || "global";
-      const rateLimitResult =
-        await this.constraint.rateLimiter.check(rateLimitKey);
-      if (!rateLimitResult.allowed) {
+      const rl = await this.constraint.rateLimiter.checkAndConsume("chat", {
+        tenantId: rateLimitKey,
+      });
+      if (!rl.allowed) {
         this.logger.warn(
-          `[chat] Rate limited for key=${rateLimitKey}, retryAfter=${rateLimitResult.retryAfter}ms`,
+          `[chat] Rate limited for key=${rateLimitKey}, retryAfter=${rl.retryAfterMs}ms`,
         );
         return {
-          content: `Rate limit exceeded. Please try again in ${Math.ceil((rateLimitResult.retryAfter || 0) / 1000)} seconds.`,
+          content: `Rate limit exceeded. Please try again in ${Math.ceil((rl.retryAfterMs || 0) / 1000)} seconds.`,
           model: modelId,
           tokensUsed: 0,
           isError: true,
         };
       }
-      await this.constraint.rateLimiter.consume(rateLimitKey);
     }
 
     if (this.constraint?.costController) {

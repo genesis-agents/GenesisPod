@@ -20,7 +20,7 @@ import { SkillPromptBuilder } from "../../ai-engine/skills/builder/skill-prompt-
 import { EventBusService as EngineEventEmitterService } from "../protocols/ipc/event-bus.service";
 import { ProgressTrackerService } from "../protocols/ipc/progress-tracker.service";
 // â˜… Constraint Feature ä¾èµ–
-import { RateLimiter } from "../guardrails/resources/rate-limiter";
+import { RateLimitService } from "../../ai-engine/facade";
 import { CostController } from "../guardrails/resources/cost-controller";
 // ★ Orchestration 扩展依赖
 // TaskDecomposerService 已删 (2026-04-30)
@@ -152,7 +152,7 @@ export interface RealtimeFeature {
  * 约束控制特性
  */
 export interface ConstraintFeature {
-  rateLimiter: RateLimiter;
+  rateLimiter: RateLimitService;
   costController: CostController;
 }
 
@@ -440,14 +440,14 @@ export const realtimeFeatureProvider: Provider = {
 export const constraintFeatureProvider: Provider = {
   provide: CONSTRAINT_FEATURE,
   useFactory: (
-    rateLimiter?: RateLimiter,
+    rateLimiter?: RateLimitService,
     costController?: CostController,
   ): ConstraintFeature | undefined => {
     if (!rateLimiter || !costController) return undefined;
     return { rateLimiter, costController };
   },
   inject: [
-    { token: RateLimiter, optional: true },
+    { token: RateLimitService, optional: true },
     { token: CostController, optional: true },
   ],
 };

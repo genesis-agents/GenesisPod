@@ -931,11 +931,6 @@ export type {
   BudgetPeriod,
   ModelPricing,
 } from "../guardrails/resources/cost-controller";
-export { RateLimiter, TokenBucket } from "../guardrails/resources/rate-limiter";
-export type {
-  RateLimitResult,
-  RateLimitConfig,
-} from "../guardrails/resources/rate-limiter";
 // 注：harness 内部有 MissionTokenLedger（mission-level token tracker，原 TokenBudgetService），
 // 与 ai-engine/planning/budget/ContextBudgetCalculator（原 TokenBudgetService）同名已消歧。
 // MissionTokenLedger 不在 facade 导出；ai-app 需要 context sizing 请用 ai-engine/facade 的 ContextBudgetCalculator。
