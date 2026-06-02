@@ -13,7 +13,10 @@ import { ForbiddenException } from "@nestjs/common";
 
 import { UserModelConfigsController } from "../user-model-configs.controller";
 import { UserModelConfigsService } from "@/modules/ai-harness/facade";
-import { CapabilityOverridesWriterService } from "@/modules/ai-engine/facade";
+import {
+  CapabilityOverridesWriterService,
+  AiModelConfigService,
+} from "@/modules/ai-engine/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };
@@ -47,6 +50,10 @@ describe("UserModelConfigsController — capability_overrides (v3.1 §B.3)", () 
       providers: [
         { provide: UserModelConfigsService, useValue: service },
         { provide: CapabilityOverridesWriterService, useValue: writer },
+        {
+          provide: AiModelConfigService,
+          useValue: { clearResolvedModelCache: jest.fn() },
+        },
       ],
     })
       .overrideGuard(JwtAuthGuard)

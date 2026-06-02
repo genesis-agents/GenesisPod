@@ -5,6 +5,7 @@ import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
 import { UserModelConfigsService } from "@/modules/ai-infra/credentials/user-model-configs/user-model-configs.service";
 import { AIModelType } from "@prisma/client";
+import { RequestContext } from "@/common/context/request-context";
 
 describe("AiModelConfigService", () => {
   let service: AiModelConfigService;
@@ -1613,6 +1614,87 @@ describe("AiModelConfigService", () => {
 
       const result = await service.getDefaultModelByType("CHAT" as any);
       expect(result).toBeNull();
+    });
+  });
+
+  // ====================================================================
+  // BYOK 解析缓存（perf：per-(userId, modelId) 60s TTL + 主动失效）
+  // ====================================================================
+  describe("resolved-model cache", () => {
+    let resolveSpy: jest.SpyInstance;
+    let nowSpy: jest.SpyInstance;
+
+    const T0 = 1_700_000_000_000;
+
+    beforeEach(() => {
+      // 桩掉串行 DB fallback 链，只观察它被调了几次（=是否命中缓存）
+      resolveSpy = jest
+        .spyOn(service as any, "resolveModelByIdUncached")
+        .mockResolvedValue({ modelId: "gpt-4o", provider: "openai" });
+      nowSpy = jest.spyOn(Date, "now").mockReturnValue(T0);
+    });
+
+    afterEach(() => {
+      resolveSpy.mockRestore();
+      nowSpy.mockRestore();
+      service.clearResolvedModelCache(); // 清全局，避免跨用例污染
+    });
+
+    it("命中缓存：TTL 内第二次调用跳过 DB 解析链", async () => {
+      await RequestContext.run({ userId: "u1" }, async () => {
+        await service.getModelById("gpt-4o");
+        await service.getModelById("gpt-4o");
+      });
+      expect(resolveSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("TTL 过期（>60s）后回源重新解析", async () => {
+      await RequestContext.run({ userId: "u1" }, async () => {
+        await service.getModelById("gpt-4o");
+        nowSpy.mockReturnValue(T0 + 60_001); // 越过 60s TTL
+        await service.getModelById("gpt-4o");
+      });
+      expect(resolveSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it("不同 userId 各自独立缓存（按用户隔离）", async () => {
+      await RequestContext.run({ userId: "u1" }, () =>
+        service.getModelById("gpt-4o"),
+      );
+      await RequestContext.run({ userId: "u2" }, () =>
+        service.getModelById("gpt-4o"),
+      );
+      expect(resolveSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it("clearResolvedModelCache(userId) 强制该用户回源", async () => {
+      await RequestContext.run({ userId: "u1" }, async () => {
+        await service.getModelById("gpt-4o");
+        service.clearResolvedModelCache("u1");
+        await service.getModelById("gpt-4o");
+      });
+      expect(resolveSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it("clearResolvedModelCache(userId) 只清该用户、不动其他用户缓存", async () => {
+      await RequestContext.run({ userId: "u1" }, () =>
+        service.getModelById("gpt-4o"),
+      );
+      await RequestContext.run({ userId: "u2" }, () =>
+        service.getModelById("gpt-4o"),
+      );
+      expect(resolveSpy).toHaveBeenCalledTimes(2);
+
+      service.clearResolvedModelCache("u1");
+
+      // u1 需回源（+1），u2 仍命中缓存（不变）
+      await RequestContext.run({ userId: "u1" }, () =>
+        service.getModelById("gpt-4o"),
+      );
+      await RequestContext.run({ userId: "u2" }, () =>
+        service.getModelById("gpt-4o"),
+      );
+      expect(resolveSpy).toHaveBeenCalledTimes(3);
     });
   });
 });

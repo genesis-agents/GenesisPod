@@ -2,7 +2,10 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { UserModelConfigsController } from "../user-model-configs.controller";
 import { UserModelConfigsService } from "@/modules/ai-harness/facade";
-import { CapabilityOverridesWriterService } from "@/modules/ai-engine/facade";
+import {
+  CapabilityOverridesWriterService,
+  AiModelConfigService,
+} from "@/modules/ai-engine/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };
@@ -18,6 +21,7 @@ describe("UserModelConfigsController", () => {
     setDefault: jest.Mock;
     delete: jest.Mock;
   };
+  let aiModelConfig: { clearResolvedModelCache: jest.Mock };
 
   const reqUser = { user: { id: "user-1", email: "u@x.com" } } as never;
 
@@ -31,6 +35,7 @@ describe("UserModelConfigsController", () => {
       setDefault: jest.fn(),
       delete: jest.fn(),
     };
+    aiModelConfig = { clearResolvedModelCache: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserModelConfigsController],
@@ -40,6 +45,7 @@ describe("UserModelConfigsController", () => {
           provide: CapabilityOverridesWriterService,
           useValue: { applyOverrideTransactional: jest.fn() },
         },
+        { provide: AiModelConfigService, useValue: aiModelConfig },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -102,6 +108,9 @@ describe("UserModelConfigsController", () => {
 
       expect(service.create).toHaveBeenCalledWith("user-1", dto);
       expect(result).toEqual({ id: "c1" });
+      expect(aiModelConfig.clearResolvedModelCache).toHaveBeenCalledWith(
+        "user-1",
+      );
     });
   });
 
@@ -114,6 +123,9 @@ describe("UserModelConfigsController", () => {
 
       expect(service.update).toHaveBeenCalledWith("user-1", "c1", dto);
       expect(result).toEqual({ id: "c1", displayName: "renamed" });
+      expect(aiModelConfig.clearResolvedModelCache).toHaveBeenCalledWith(
+        "user-1",
+      );
     });
   });
 
@@ -125,6 +137,9 @@ describe("UserModelConfigsController", () => {
 
       expect(service.setDefault).toHaveBeenCalledWith("user-1", "c1");
       expect(result).toEqual({ id: "c1", isDefault: true });
+      expect(aiModelConfig.clearResolvedModelCache).toHaveBeenCalledWith(
+        "user-1",
+      );
     });
   });
 
@@ -136,6 +151,9 @@ describe("UserModelConfigsController", () => {
 
       expect(service.delete).toHaveBeenCalledWith("user-1", "c1");
       expect(result).toEqual({ deleted: true });
+      expect(aiModelConfig.clearResolvedModelCache).toHaveBeenCalledWith(
+        "user-1",
+      );
     });
   });
 });
