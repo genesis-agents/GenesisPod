@@ -15,6 +15,10 @@ import { HttpModule } from "@nestjs/axios";
 // Registry
 import { SkillRegistry } from "./registry/skill.registry";
 
+// ★ 2026-06-02: 语义 skill 路由（补 matchByTrigger 字面短板）。
+// 注入 ScoredRouterService 走 @Global AiEngineModule re-export，无需显式 import routing（避免潜在环）。
+import { SemanticSkillRouter } from "./routing/semantic-skill-router.service";
+
 // Loader & Cache
 import { SkillLoaderService } from "./loader/loading/skill-loader.service";
 import { SkillCacheService } from "./loader/caching/skill-cache.service";
@@ -48,6 +52,9 @@ import { EngineSkillProvider } from "./runtime/adapters/engine-skill-provider.ad
     // Registry
     SkillRegistry,
 
+    // ★ 2026-06-02: 语义 skill 路由
+    SemanticSkillRouter,
+
     // Loader & Cache
     SkillLoaderService,
     SkillCacheService,
@@ -72,6 +79,7 @@ import { EngineSkillProvider } from "./runtime/adapters/engine-skill-provider.ad
   ],
   exports: [
     SkillRegistry,
+    SemanticSkillRouter,
     SkillLoaderService,
     SkillCacheService,
     SkillContentService,

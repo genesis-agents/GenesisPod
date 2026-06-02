@@ -32,6 +32,8 @@ import { AiEngineLLMModule } from "./llm/llm.module";
 import { AiEngineToolsModule } from "./tools/tools.module";
 import { AiEngineSkillsModule } from "./skills/skills.module";
 import { AiEnginePlanningModule } from "@/modules/ai-engine/planning/planning.module";
+// ★ 2026-06-02: 第 10 个 engine 聚合——通用语义打分路由 core（LLM/Tools/Skills 共用）
+import { AiEngineRoutingModule } from "./routing/routing.module";
 // AiEngineMemoryModule 已移除（2026-04-30）—— Memory 服务全部迁到
 // ai-harness/memory（CLAUDE.md L2.5 规定 memory 是 Harness 一等公民），
 // 由 RuntimeMemoryModule (@Global) 提供，无需 engine 层 forwardRef。
@@ -126,6 +128,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     AiEnginePlanningModule,
     AiEngineConstraintModule,
     AiEngineKnowledgeModule,
+    // ★ 2026-06-02: 通用语义打分路由 core
+    AiEngineRoutingModule,
     // ★ P2 能力下沉：新增子模块
     EvidenceModule,
     QualityModule,
@@ -184,6 +188,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     AiEnginePlanningModule,
     AiEngineConstraintModule,
     AiEngineKnowledgeModule,
+    // ★ 2026-06-02: 通用语义打分路由 core
+    AiEngineRoutingModule,
     // ★ P2 能力下沉：新增子模块导出
     EvidenceModule,
     QualityModule,
