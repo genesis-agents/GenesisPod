@@ -1923,7 +1923,7 @@ export default function AskPage() {
                                   setShowModelSelector(!showModelSelector)
                                 }
                                 disabled={modelsLoading}
-                                className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100"
+                                className="flex max-w-[220px] items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100"
                               >
                                 {modelsLoading ? (
                                   <span className="text-gray-400">
@@ -1941,13 +1941,20 @@ export default function AskPage() {
                                     ) : (
                                       <span>🤖</span>
                                     )}
-                                    <span>
+                                    <span
+                                      className="min-w-0 truncate"
+                                      title={
+                                        isMixtureMode
+                                          ? 'Mixture'
+                                          : selectedModelInfo?.name
+                                      }
+                                    >
                                       {isMixtureMode
                                         ? 'Mixture'
                                         : selectedModelInfo?.name || 'Select'}
                                     </span>
                                     <svg
-                                      className="h-4 w-4 text-gray-400"
+                                      className="h-4 w-4 shrink-0 text-gray-400"
                                       fill="none"
                                       stroke="currentColor"
                                       viewBox="0 0 24 24"
