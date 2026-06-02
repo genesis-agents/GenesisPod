@@ -42,6 +42,29 @@ const TOKEN_PARAM_OPTIONS = [
 ];
 const CUSTOM_SLUG = '__custom__';
 
+/** 把任意字符串规整成合法 provider slug（后端要求 /^[a-z0-9-]+$/）。 */
+function sanitizeSlug(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/** 从 API Endpoint 主机名推导自定义 provider slug，如 https://api.tokenmix.ai/v1 → tokenmix。 */
+function deriveSlugFromEndpoint(endpoint: string): string {
+  const trimmed = endpoint.trim();
+  if (!trimmed) return '';
+  try {
+    const u = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`);
+    const host = u.hostname
+      .toLowerCase()
+      .replace(/^(api|gateway|gw|llm|chat|openai)\./, '');
+    return sanitizeSlug(host.split('.')[0] ?? '');
+  } catch {
+    return '';
+  }
+}
+
 export function UserModelConfigModal({
   provider: initialProvider,
   apiKey,
@@ -158,8 +181,8 @@ export function UserModelConfigModal({
   }, [knownProviders, provider, isEdit, endpoint]);
 
   const canSave = useMemo(
-    () => !!(modelId.trim() && displayName.trim()),
-    [modelId, displayName]
+    () => !!(modelId.trim() && displayName.trim() && provider.trim()),
+    [modelId, displayName, provider]
   );
 
   // Provider 下拉的「已知 / 自定义」判定 —— 必须考虑 providers 异步加载：
@@ -173,6 +196,16 @@ export function UserModelConfigModal({
     : treatProviderAsCustom
       ? CUSTOM_SLUG
       : provider;
+
+  // 自定义供应商：slug 留空时从 API Endpoint 主机名自动推导（可编辑），
+  // 否则保存会撞后端 /^[a-z0-9-]+$/ 校验报"provider must match"。仅新建 + 自定义 + 当前为空时填。
+  useEffect(() => {
+    if (isEdit) return;
+    if (!treatProviderAsCustom) return;
+    if (provider.trim()) return;
+    const slug = deriveSlugFromEndpoint(endpoint);
+    if (slug) setProvider(slug);
+  }, [endpoint, treatProviderAsCustom, provider, isEdit]);
 
   const buildPayload = (): CreateUserModelConfigInput => ({
     provider,
@@ -298,8 +331,8 @@ export function UserModelConfigModal({
               {treatProviderAsCustom && (
                 <input
                   value={provider}
-                  onChange={(e) => setProvider(e.target.value)}
-                  placeholder="自定义 slug，例如 my-proxy / ollama-prod"
+                  onChange={(e) => setProvider(sanitizeSlug(e.target.value))}
+                  placeholder="自定义 slug（小写字母/数字/连字符），例如 tokenmix / my-proxy"
                   className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 />
               )}
