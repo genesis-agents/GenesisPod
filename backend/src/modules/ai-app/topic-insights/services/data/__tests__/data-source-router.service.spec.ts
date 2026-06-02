@@ -23,7 +23,7 @@ import { DataSourcePlannerService } from "../data-source-planner.service";
 import { DataSourceConnectorRegistry } from "../connectors/data-source-connector.registry";
 import { DataSourceType } from "../../../types/data-source.types";
 import {
-  CircuitBreakerService,
+  EntityHealthRegistry,
   CapabilityGuardService,
 } from "@/modules/ai-harness/facade";
 import { RAGFusionService } from "../rag-fusion.service";
@@ -4087,7 +4087,7 @@ describe("DataSourceRouterService", () => {
             provide: DataSourceConnectorRegistry,
             useValue: mockConnectorRegistry,
           },
-          { provide: CircuitBreakerService, useValue: circuitBreakerMock },
+          { provide: EntityHealthRegistry, useValue: circuitBreakerMock },
         ],
       }).compile();
       return module.get<DataSourceRouterService>(DataSourceRouterService);

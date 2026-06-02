@@ -719,14 +719,14 @@ export type { CachePrefix } from "@/modules/ai-engine/llm/services/prompt-cache-
 // 供 ai-harness/facade 转发，避免 harness 穿透 engine 私有路径）
 // ════════════════════════════════════════════════════════════════════
 export {
-  CircuitBreakerService,
+  EntityHealthRegistry,
   TaskCompletionType,
-} from "../safety/resilience/circuit-breaker.service";
+} from "../reliability/entity-health/entity-health.registry";
 export type {
   CircuitState,
   CircuitBreakerConfig,
   HealthMetrics,
-} from "../safety/resilience/circuit-breaker.service";
+} from "../reliability/entity-health/entity-health.registry";
 export { CapabilityGuardService } from "../safety/security/capability-guard.service";
 export type { CapabilityCheckResult } from "../safety/security/capability.types";
 // SSRF / 出站防护(platform-review wave1)：项目唯一统一出站闸门，ai-app / open-api 经此复用

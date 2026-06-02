@@ -26,7 +26,7 @@ import { AiEngineConstraintModule } from "../safety/constraint.module";
 // TaskDecomposerService 已删 (2026-04-30) — 死代码链路 (TaskBreakdown 0 注入)
 // AgentExecutorService 已搬到 ai-harness/runner/executor/ (2026-04-30)
 // OutputReviewerService 已搬到 ai-harness/evaluation/critique/ (2026-05-02)
-import { CircuitBreakerService } from "../safety/resilience/circuit-breaker.service";
+// EntityHealthRegistry / RateLimitService 由 @Global AiEngineReliabilityModule 提供（W7）
 import { ContextBudgetCalculator } from "./budget/token-budget.service";
 import { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";
 import { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
@@ -70,7 +70,6 @@ import { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutti
     // from @Global() HarnessModule via DI tokens — engine 不直接 import
 
     // Engine Orchestration Services —— C2-step2 删除 IterationManager / ComplexityAnalyzer / IntelligentModelRouter
-    CircuitBreakerService,
     ContextBudgetCalculator,
     ContextEvolutionService,
     ContextInitializationService,
@@ -87,7 +86,6 @@ import { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutti
     // Executors
 
     // Engine Services
-    CircuitBreakerService,
     ContextBudgetCalculator,
     ContextEvolutionService,
     ContextInitializationService,

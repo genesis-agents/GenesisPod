@@ -40,6 +40,7 @@ import { AiEngineKnowledgeModule } from "./knowledge/knowledge.module";
 // ★ P2 能力下沉：新增子模块导入
 import { EvidenceModule } from "./knowledge/evidence/evidence.module";
 import { AiEngineEvaluationModule } from "./evaluation/evaluation.module";
+import { AiEngineReliabilityModule } from "./reliability/reliability.module";
 // ★ v1.5.3 P0a-3: LLM Wiki 共享一致性原语（StaleDetectorService）
 import { ConsistencyModule } from "./knowledge/consistency/consistency.module";
 // ★ HarnessModule / HarnessApiModule / RealtimeModule + CollaborationModule 由
@@ -129,6 +130,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // ★ P2 能力下沉：新增子模块
     EvidenceModule,
     AiEngineEvaluationModule,
+    AiEngineReliabilityModule,
     // ★ v1.5.3 P0a-3: LLM Wiki / research / writing 共享一致性原语
     ConsistencyModule,
     // CollaborationModule 已搬到 ai-harness/teams/collaboration（@Global），
@@ -187,6 +189,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // ★ P2 能力下沉：新增子模块导出
     EvidenceModule,
     AiEngineEvaluationModule,
+    AiEngineReliabilityModule,
     // ★ v1.5.3 P0a-3: LLM Wiki / research / writing 共享一致性原语
     ConsistencyModule,
     // CollaborationModule 已搬到 ai-harness/teams/collaboration（@Global），

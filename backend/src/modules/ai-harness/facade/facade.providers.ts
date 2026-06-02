@@ -12,7 +12,7 @@ import { ToolRegistry } from "../../ai-engine/tools/registry/tool.registry";
 import { ToolPipeline } from "../../ai-engine/tools/middleware/tool-pipeline";
 import { FunctionCallingExecutor } from "../../ai-harness/runner/executor/function-calling-executor";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm.adapter";
-import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
+import { EntityHealthRegistry } from "../../ai-engine/reliability/entity-health/entity-health.registry";
 import { AgentExecutorService } from "../runner/executor/agent-executor.service";
 import { SkillLoaderService } from "../../ai-engine/skills/loader/loading/skill-loader.service";
 import { SkillPromptBuilder } from "../../ai-engine/skills/builder/skill-prompt-builder.service";
@@ -96,7 +96,7 @@ export interface ToolFeature {
  * 编排能力特性（扩展：含任务分解、意图检测等）
  */
 export interface OrchestrationFeature {
-  circuitBreaker: CircuitBreakerService;
+  circuitBreaker: EntityHealthRegistry;
   agentExecutor: AgentExecutorService;
   // taskDecomposer 已删 (2026-04-30)
   intentDetector?: IntentDetectionService;
@@ -296,7 +296,7 @@ export const toolFeatureProvider: Provider = {
 export const orchestrationFeatureProvider: Provider = {
   provide: ORCHESTRATION_FEATURE,
   useFactory: (
-    circuitBreaker?: CircuitBreakerService,
+    circuitBreaker?: EntityHealthRegistry,
     agentExecutor?: AgentExecutorService,
     intentDetector?: IntentDetectionService,
     execStateManager?: ExecutionStateManager,
@@ -318,7 +318,7 @@ export const orchestrationFeatureProvider: Provider = {
     };
   },
   inject: [
-    { token: CircuitBreakerService, optional: true },
+    { token: EntityHealthRegistry, optional: true },
     { token: AgentExecutorService, optional: true },
     { token: IntentDetectionService, optional: true },
     { token: ExecutionStateManager, optional: true },

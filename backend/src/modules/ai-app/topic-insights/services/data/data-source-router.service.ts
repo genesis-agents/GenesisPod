@@ -21,7 +21,7 @@ import {
 import { ChatFacade, RAGFacade, ToolFacade } from "@/modules/ai-harness/facade";
 
 import {
-  CircuitBreakerService,
+  EntityHealthRegistry,
   TaskCompletionType,
   CapabilityGuardService,
 } from "@/modules/ai-harness/facade";
@@ -103,7 +103,7 @@ export class DataSourceRouterService {
     private readonly connectorRegistry?: DataSourceConnectorRegistry,
     // ★ CircuitBreaker: 数据源容错（可选，Kernel 不可用时降级）
     @Optional()
-    private readonly circuitBreaker?: CircuitBreakerService,
+    private readonly circuitBreaker?: EntityHealthRegistry,
     // ★ Batch 2: 数据源访问能力检查
     @Optional()
     private readonly capabilityGuard?: CapabilityGuardService,

@@ -42,7 +42,7 @@ import type {
   RoomConfig,
   ProgressEvent,
 } from "../../protocols/realtime/abstractions/event-emitter.interface";
-import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
+import { EntityHealthRegistry } from "../../../ai-engine/reliability/entity-health/entity-health.registry";
 import { AgentExecutorService } from "../../runner/executor/agent-executor.service";
 // TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../../ai-engine/planning/intent/intent-detection.service";
@@ -180,8 +180,8 @@ export class AgentFacade {
 
   // ==================== Orchestration Service Getters ====================
 
-  /** CircuitBreakerService for load control and health monitoring */
-  get circuitBreaker(): CircuitBreakerService | undefined {
+  /** EntityHealthRegistry for load control and health monitoring */
+  get circuitBreaker(): EntityHealthRegistry | undefined {
     return this.orchestration?.circuitBreaker;
   }
 

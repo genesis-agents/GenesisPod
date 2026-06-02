@@ -1,10 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import {
-  CircuitBreakerService,
+  EntityHealthRegistry,
   TaskCompletionType,
   CircuitBreakerConfig,
-} from "../circuit-breaker.service";
+} from "../entity-health.registry";
 import { CacheService } from "@/common/cache/cache.service";
 
 jest.spyOn(Logger.prototype, "log").mockImplementation();
@@ -18,8 +18,8 @@ const mockCacheService = {
   del: jest.fn(),
 };
 
-describe("CircuitBreakerService", () => {
-  let service: CircuitBreakerService;
+describe("EntityHealthRegistry", () => {
+  let service: EntityHealthRegistry;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -29,12 +29,12 @@ describe("CircuitBreakerService", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        CircuitBreakerService,
+        EntityHealthRegistry,
         { provide: CacheService, useValue: mockCacheService },
       ],
     }).compile();
 
-    service = module.get<CircuitBreakerService>(CircuitBreakerService);
+    service = module.get<EntityHealthRegistry>(EntityHealthRegistry);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -72,13 +72,12 @@ describe("CircuitBreakerService", () => {
 
       const freshModule = await Test.createTestingModule({
         providers: [
-          CircuitBreakerService,
+          EntityHealthRegistry,
           { provide: CacheService, useValue: localMock },
         ],
       }).compile();
-      const freshService = freshModule.get<CircuitBreakerService>(
-        CircuitBreakerService,
-      );
+      const freshService =
+        freshModule.get<EntityHealthRegistry>(EntityHealthRegistry);
       await freshService.onModuleInit();
 
       // State loaded; canExecute should respect OPEN state with active cooldown
@@ -620,22 +619,21 @@ describe("CircuitBreakerService", () => {
   // ==================== Without CacheService ====================
 
   describe("without CacheService (Optional)", () => {
-    let serviceNoCacheService: CircuitBreakerService;
+    let serviceNoCacheService: EntityHealthRegistry;
 
     beforeEach(async () => {
       // When CacheService is not provided, @Optional() will inject undefined
       const module: TestingModule = await Test.createTestingModule({
         providers: [
-          CircuitBreakerService,
+          EntityHealthRegistry,
           { provide: CacheService, useValue: null },
         ],
       })
         .overrideProvider(CacheService)
         .useValue(undefined)
         .compile();
-      serviceNoCacheService = module.get<CircuitBreakerService>(
-        CircuitBreakerService,
-      );
+      serviceNoCacheService =
+        module.get<EntityHealthRegistry>(EntityHealthRegistry);
     });
 
     it("should initialize without error", async () => {
@@ -689,18 +687,17 @@ describe("CircuitBreakerService", () => {
       const freshModule = await Test.createTestingModule({
         providers: [
           {
-            provide: CircuitBreakerService,
+            provide: EntityHealthRegistry,
             useFactory: () => {
-              const svc = new CircuitBreakerService(localMock as any);
+              const svc = new EntityHealthRegistry(localMock as any);
               svc.configure({ inactiveTtlMs: 100, cleanupIntervalMs: 50 });
               return svc;
             },
           },
         ],
       }).compile();
-      const freshService = freshModule.get<CircuitBreakerService>(
-        CircuitBreakerService,
-      );
+      const freshService =
+        freshModule.get<EntityHealthRegistry>(EntityHealthRegistry);
       await freshService.onModuleInit();
 
       freshService.recordSuccess("entity-stale", 100);
@@ -725,18 +722,17 @@ describe("CircuitBreakerService", () => {
       const freshModule = await Test.createTestingModule({
         providers: [
           {
-            provide: CircuitBreakerService,
+            provide: EntityHealthRegistry,
             useFactory: () => {
-              const svc = new CircuitBreakerService(localMock as any);
+              const svc = new EntityHealthRegistry(localMock as any);
               svc.configure({ inactiveTtlMs: 60000, cleanupIntervalMs: 50 });
               return svc;
             },
           },
         ],
       }).compile();
-      const freshService = freshModule.get<CircuitBreakerService>(
-        CircuitBreakerService,
-      );
+      const freshService =
+        freshModule.get<EntityHealthRegistry>(EntityHealthRegistry);
       await freshService.onModuleInit();
 
       freshService.recordSuccess("entity-active", 100);
@@ -786,13 +782,12 @@ describe("CircuitBreakerService", () => {
 
       const freshModule = await Test.createTestingModule({
         providers: [
-          CircuitBreakerService,
+          EntityHealthRegistry,
           { provide: CacheService, useValue: localMock },
         ],
       }).compile();
-      const freshService = freshModule.get<CircuitBreakerService>(
-        CircuitBreakerService,
-      );
+      const freshService =
+        freshModule.get<EntityHealthRegistry>(EntityHealthRegistry);
       await freshService.onModuleInit();
 
       expect(freshService.canExecute("agent-full")).toBe(false);

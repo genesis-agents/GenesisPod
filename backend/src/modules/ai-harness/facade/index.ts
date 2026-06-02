@@ -912,7 +912,7 @@ export { ResourceManagerService } from "../guardrails/resources/resource-manager
 // PR-X15: 通过 engine/facade barrel 转发，不穿透 engine 私有路径
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export {
-  CircuitBreakerService,
+  EntityHealthRegistry,
   TaskCompletionType,
 } from "../../ai-engine/facade";
 export type {

@@ -16,11 +16,6 @@ import { CacheModule } from "@/common/cache/cache.module";
 // Validators
 import { SchemaValidator } from "./validation/schema-validator";
 
-// Resilience（PR-X3：通用熔断器从 harness 搬到 engine）
-import { CircuitBreakerService } from "./resilience/circuit-breaker.service";
-// W1-a-fixup（2026-05-04）：rate-limit 从误分类的 plugin 形态回归 ai-engine 核心 service
-import { RateLimitService } from "./resilience/rate-limit.service";
-
 // Security（PR-X3：CapabilityGuard 从 harness 搬到 engine）
 import { CapabilityGuardService } from "./security/capability-guard.service";
 
@@ -61,10 +56,6 @@ const contentFilterFactory = {
     // Validators
     SchemaValidator,
 
-    // Resilience
-    CircuitBreakerService,
-    RateLimitService,
-
     // Security
     CapabilityGuardService,
 
@@ -87,8 +78,6 @@ const contentFilterFactory = {
   exports: [
     SchemaValidator,
     ContentFilter,
-    CircuitBreakerService,
-    RateLimitService,
     CapabilityGuardService,
     GuardrailsPipelineService,
   ],
