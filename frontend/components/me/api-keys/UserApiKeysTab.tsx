@@ -54,8 +54,11 @@ function AddKeyModal({ onClose, onSubmit }: AddKeyModalProps) {
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
 
+  // AI_MODEL 类密钥后端强制要求 provider（路由到对应 LLM provider），其余类别可选
+  const providerMissing = category === 'AI_MODEL' && !provider.trim();
+
   const handleSubmit = async () => {
-    if (!name.trim() || !value.trim()) return;
+    if (!name.trim() || !value.trim() || providerMissing) return;
     setSubmitting(true);
     const ok = await onSubmit({
       name: name.trim(),
@@ -74,6 +77,7 @@ function AddKeyModal({ onClose, onSubmit }: AddKeyModalProps) {
     <Modal
       open={true}
       onClose={onClose}
+      closeOnOverlayClick={false}
       title={t('me.apiKeys.addTitle')}
       size="md"
       closeButtonDisabled={submitting}
@@ -90,7 +94,9 @@ function AddKeyModal({ onClose, onSubmit }: AddKeyModalProps) {
           <Button
             size="sm"
             onClick={handleSubmit}
-            disabled={submitting || !name.trim() || !value.trim()}
+            disabled={
+              submitting || !name.trim() || !value.trim() || providerMissing
+            }
           >
             {submitting ? t('me.apiKeys.saving') : t('me.apiKeys.save')}
           </Button>
@@ -136,13 +142,20 @@ function AddKeyModal({ onClose, onSubmit }: AddKeyModalProps) {
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-700">
-            {t('me.apiKeys.fieldProvider')}
+            {category === 'AI_MODEL'
+              ? `${t('me.apiKeys.fieldProviderRequired')} *`
+              : t('me.apiKeys.fieldProvider')}
           </label>
           <Input
             value={provider}
             onChange={(e) => setProvider(e.target.value)}
             placeholder="e.g. openai"
           />
+          {category === 'AI_MODEL' && !provider.trim() && (
+            <p className="mt-1 text-xs text-amber-600">
+              {t('me.apiKeys.fieldProviderAiModelHint')}
+            </p>
+          )}
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-700">
@@ -220,6 +233,7 @@ function EditKeyModal({ item, onClose, onSubmit }: EditKeyModalProps) {
     <Modal
       open={true}
       onClose={onClose}
+      closeOnOverlayClick={false}
       title={t('me.apiKeys.editTitle')}
       size="md"
       closeButtonDisabled={submitting}
@@ -321,6 +335,7 @@ function RequestKeyModal({ onClose, onSubmit }: RequestKeyModalProps) {
     <Modal
       open={true}
       onClose={onClose}
+      closeOnOverlayClick={false}
       title={t('me.apiKeys.requestTitle')}
       size="md"
       closeButtonDisabled={submitting}

@@ -7415,6 +7415,8 @@
       "fieldDisplayName": "显示名",
       "fieldCategory": "类别",
       "fieldProvider": "Provider（可选）",
+      "fieldProviderRequired": "Provider",
+      "fieldProviderAiModelHint": "AI_MODEL 类密钥必须指定 provider（如 openai / anthropic）",
       "fieldValue": "密钥值",
       "fieldValuePlaceholder": "输入密钥值…",
       "fieldValueEditPlaceholder": "留空则不更新密钥值",
