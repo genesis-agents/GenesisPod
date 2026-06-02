@@ -46,17 +46,19 @@ export function UserModelIdSelector({
   const [hasFetched, setHasFetched] = useState(false);
 
   const fetchModels = useCallback(async () => {
-    // provider 是 available-models 路由的路径段；为空会拼出 /user/api-keys//available-models
-    // → "Cannot POST" 404。自定义供应商需先填 slug 再获取。
-    if (!provider.trim()) {
-      setError('请先填写 Provider（自定义供应商请填写 slug，如 tokenmix）');
+    // 自定义供应商靠 apiEndpoint 即可拉模型，无需 provider slug。
+    // 但 available-models 路由需要一个路径段（空段会拼出 /user/api-keys//available-models
+    // → "Cannot POST" 404），故 slug 缺失时回退 "custom"。仅当 provider 与 endpoint 都空才拦。
+    if (!provider.trim() && !apiEndpoint?.trim()) {
+      setError('请选择 Provider，或填写 API Endpoint（自定义供应商）');
       return;
     }
+    const providerSlug = provider.trim() || 'custom';
     setLoading(true);
     setError(null);
     try {
       const resp = await fetch(
-        `${config.apiUrl}/user/api-keys/${provider}/available-models`,
+        `${config.apiUrl}/user/api-keys/${providerSlug}/available-models`,
         {
           method: 'POST',
           headers: {
@@ -119,7 +121,7 @@ export function UserModelIdSelector({
         <button
           type="button"
           onClick={fetchModels}
-          disabled={loading || !provider.trim()}
+          disabled={loading || (!provider.trim() && !apiEndpoint?.trim())}
           className="flex items-center gap-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
           {loading ? (
