@@ -185,7 +185,19 @@ export function getProviderBrand(name: string): ProviderBrand {
     return PROVIDER_BRANDS.doubao;
   }
 
-  return DEFAULT_BRAND;
+  // 未收录的 provider（自定义 slug / 新厂商如 agnes / tokenmix）：
+  // 回退用真实 slug 名（首字母大写）而不是死板的 "AI"，否则一列全显示 "AI"。
+  return { ...DEFAULT_BRAND, name: titleCaseSlug(name) || DEFAULT_BRAND.name };
+}
+
+/** "agnes" → "Agnes"；"my-proxy" → "My Proxy"；"sapiens-ai/agnes" → "Agnes"（取末段）。 */
+function titleCaseSlug(raw: string): string {
+  const base = (raw || '').split('/').pop() ?? '';
+  return base
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 /**
