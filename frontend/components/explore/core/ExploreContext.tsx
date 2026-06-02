@@ -188,7 +188,7 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<
     'publishedAt' | 'qualityScore' | 'trendingScore'
-  >('trendingScore');
+  >('publishedAt'); // 默认「最新」（按发布时间倒序）
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterCategory, setFilterCategory] = useState<string>('');
 
