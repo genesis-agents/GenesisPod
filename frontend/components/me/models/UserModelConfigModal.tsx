@@ -51,7 +51,11 @@ export function UserModelConfigModal({
   onSaved,
 }: Props) {
   const { create, update, mutating } = useUserModelConfigs();
-  const { keys: userKeys, providers } = useUserApiKeys();
+  const {
+    keys: userKeys,
+    providers,
+    loading: providersLoading,
+  } = useUserApiKeys();
   const isEdit = !!initial;
 
   // Provider 预设：单一数据源 = DB ai_providers（经 /user/api-keys 返回），
@@ -140,10 +144,35 @@ export function UserModelConfigModal({
     }
   }, [modelId, isEdit, reasoningTouched]);
 
+  // 新建时自动带出预设 endpoint + apiFormat。
+  // 覆盖两种时机：① 初始挂载（provider 来自 initialProvider）② providers 异步加载完成。
+  // 之前自动填只写在 select 的 onChange 里 → 初始 provider 不触发 → endpoint 空白
+  // （需手动换一个再换回来才填上）。仅在 endpoint 为空时填，不覆盖用户手填/自定义。
+  useEffect(() => {
+    if (isEdit) return;
+    const preset = knownProviders.find((p) => p.slug === provider);
+    if (preset && !endpoint) {
+      setEndpoint(preset.endpoint);
+      setApiFormat(preset.apiFormat);
+    }
+  }, [knownProviders, provider, isEdit, endpoint]);
+
   const canSave = useMemo(
     () => !!(modelId.trim() && displayName.trim()),
     [modelId, displayName]
   );
+
+  // Provider 下拉的「已知 / 自定义」判定 —— 必须考虑 providers 异步加载：
+  // 加载未完成时不能把已知 provider（如 cohere）误判为「其它/自定义」而强制手填。
+  const providerInList = knownProviders.some((p) => p.slug === provider);
+  const treatProviderAsCustom =
+    provider === '' ||
+    (!providersLoading && knownProviders.length > 0 && !providerInList);
+  const providerSelectValue = providerInList
+    ? provider
+    : treatProviderAsCustom
+      ? CUSTOM_SLUG
+      : provider;
 
   const buildPayload = (): CreateUserModelConfigInput => ({
     provider,
@@ -232,11 +261,7 @@ export function UserModelConfigModal({
           ) : (
             <>
               <select
-                value={
-                  knownProviders.find((p) => p.slug === provider)
-                    ? provider
-                    : CUSTOM_SLUG
-                }
+                value={providerSelectValue}
                 onChange={(e) => {
                   const slug = e.target.value;
                   if (slug === CUSTOM_SLUG) {
@@ -257,6 +282,11 @@ export function UserModelConfigModal({
                 <option value="" disabled>
                   -- 选择供应商 --
                 </option>
+                {/* providers 还在加载、当前 provider 尚未进列表：补一个临时 option，
+                    避免 select 落到空值/误显「其它/自定义」 */}
+                {provider && !providerInList && !treatProviderAsCustom && (
+                  <option value={provider}>{provider}</option>
+                )}
                 {knownProviders.map((p) => (
                   <option key={p.slug} value={p.slug}>
                     {p.label}
@@ -264,8 +294,7 @@ export function UserModelConfigModal({
                 ))}
                 <option value={CUSTOM_SLUG}>其它 / 自定义...</option>
               </select>
-              {(!knownProviders.find((p) => p.slug === provider) ||
-                provider === '') && (
+              {treatProviderAsCustom && (
                 <input
                   value={provider}
                   onChange={(e) => setProvider(e.target.value)}
