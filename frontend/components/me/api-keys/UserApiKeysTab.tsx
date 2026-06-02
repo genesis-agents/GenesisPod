@@ -3,10 +3,10 @@
 import { useMemo, useState } from 'react';
 import {
   Eye,
-  FlaskConical,
   Key,
-  Layers,
+  KeyRound,
   Pencil,
+  PlugZap,
   Plus,
   RefreshCw,
   Search,
@@ -741,7 +741,7 @@ function SecretRow({
             className="rounded p-1.5 hover:bg-gray-100 disabled:opacity-50"
             title={isTesting ? t('me.apiKeys.testing') : t('me.apiKeys.test')}
           >
-            <FlaskConical className="h-4 w-4 text-gray-500" />
+            <PlugZap className="h-4 w-4 text-gray-500" />
           </button>
           {onManageKeys && (
             <button
@@ -749,7 +749,7 @@ function SecretRow({
               className="rounded p-1.5 hover:bg-gray-100"
               title={t('me.apiKeys.manageKeys')}
             >
-              <Layers className="h-4 w-4 text-gray-500" />
+              <KeyRound className="h-4 w-4 text-gray-500" />
             </button>
           )}
           <button
