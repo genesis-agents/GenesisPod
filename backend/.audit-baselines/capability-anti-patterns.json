@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-02T00:13:23.831Z",
+  "generatedAt": "2026-06-02T01:48:23.350Z",
   "count": 185,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -615,77 +615,77 @@
     },
     {
       "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
-      "line": 529,
+      "line": 545,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "provider.toLowerCase() === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
-      "line": 530,
+      "line": 546,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "provider.toLowerCase() === \"claude\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
-      "line": 534,
+      "line": 550,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "provider.toLowerCase() === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
-      "line": 535,
+      "line": 551,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "provider.toLowerCase() === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
-      "line": 1111,
+      "line": 1145,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "providerLower === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
-      "line": 1165,
+      "line": 1199,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "providerLower === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
-      "line": 1165,
+      "line": 1199,
       "column": 41,
       "kind": "binary-eq",
       "snippet": "providerLower === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
-      "line": 1228,
+      "line": 1262,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "p === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
-      "line": 1228,
+      "line": 1262,
       "column": 29,
       "kind": "binary-eq",
       "snippet": "p === \"gpt\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
-      "line": 1271,
+      "line": 1305,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "p === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-connection-test.service.ts",
-      "line": 1271,
+      "line": 1305,
       "column": 29,
       "kind": "binary-eq",
       "snippet": "p === \"gemini\""

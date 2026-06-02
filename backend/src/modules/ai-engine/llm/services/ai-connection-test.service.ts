@@ -524,6 +524,22 @@ export class AiConnectionTestService {
 
       const latency = Date.now() - startTime;
 
+      // 防呆：部分 provider（如 Agnes）在鉴权失败 / endpoint 非 API 时返回站点 HTML
+      // 而非 JSON。直接甩原始 HTML 体验极差，识别后给出可操作错误。
+      const rawData: unknown = response.data;
+      if (
+        typeof rawData === "string" &&
+        /<!doctype html|<html[\s>]/i.test(rawData.slice(0, 200))
+      ) {
+        return {
+          success: false,
+          message:
+            "Provider 返回了 HTML 页面而非 JSON API 响应——通常是该 endpoint 不是 API 地址，" +
+            "或 API Key 无效/缺失（部分 provider 鉴权失败时直接返回首页）。请检查 API Endpoint 与 Key。",
+          latency,
+        };
+      }
+
       let content = "";
       if (
         provider.toLowerCase() === "anthropic" ||
@@ -561,8 +577,17 @@ export class AiConnectionTestService {
       if (err.response) {
         const response = err.response as Record<string, unknown>;
         const status = response.status;
-        const data = response.data as Record<string, unknown> | undefined;
-        errorMessage = `API Error (${status}): ${(data?.error as Record<string, unknown>)?.message || data?.message || JSON.stringify(data)}`;
+        const rawData: unknown = response.data;
+        if (
+          typeof rawData === "string" &&
+          /<!doctype html|<html[\s>]/i.test(rawData.slice(0, 200))
+        ) {
+          // 防呆：provider 返回 HTML（非 JSON）—— 不再把整页 HTML 塞进错误消息。
+          errorMessage = `API Error (${status}): provider 返回 HTML 页面而非 JSON——该 endpoint 可能不是 API 地址，或 API Key 无效/缺失（部分 provider 鉴权失败时返回首页）。`;
+        } else {
+          const data = rawData as Record<string, unknown> | undefined;
+          errorMessage = `API Error (${status}): ${(data?.error as Record<string, unknown>)?.message || data?.message || JSON.stringify(data)}`;
+        }
       } else if (err.code === "ECONNABORTED") {
         errorMessage = "Connection timeout";
       } else if (err.message) {
@@ -802,8 +827,17 @@ export class AiConnectionTestService {
       if (err.response) {
         const response = err.response as Record<string, unknown>;
         const status = response.status;
-        const data = response.data as Record<string, unknown> | undefined;
-        errorMessage = `API Error (${status}): ${(data?.error as Record<string, unknown>)?.message || data?.message || JSON.stringify(data)}`;
+        const rawData: unknown = response.data;
+        if (
+          typeof rawData === "string" &&
+          /<!doctype html|<html[\s>]/i.test(rawData.slice(0, 200))
+        ) {
+          // 防呆：provider 返回 HTML（非 JSON）—— 不再把整页 HTML 塞进错误消息。
+          errorMessage = `API Error (${status}): provider 返回 HTML 页面而非 JSON——该 endpoint 可能不是 API 地址，或 API Key 无效/缺失（部分 provider 鉴权失败时返回首页）。`;
+        } else {
+          const data = rawData as Record<string, unknown> | undefined;
+          errorMessage = `API Error (${status}): ${(data?.error as Record<string, unknown>)?.message || data?.message || JSON.stringify(data)}`;
+        }
       } else if (err.code === "ECONNABORTED") {
         errorMessage = "Connection timeout";
       } else if (err.message) {

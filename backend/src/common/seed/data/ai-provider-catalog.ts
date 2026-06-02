@@ -267,9 +267,10 @@ export const AI_PROVIDER_CATALOG: AiProviderSeed[] = [
     docUrl: "https://docs.siliconflow.cn",
   },
   {
-    // 新加坡 Sapiens AI 一方多模态模型（chat + image + video）。
-    // base + /api/v1/models 已实测 200（OpenAI 兼容响应结构）；chat 路径按
-    // OpenAI 兼容标准布局推定（GET /chat/completions 返 404 系 POST-only 路由表现）。
+    // 新加坡 Sapiens AI 一方多模态模型。端点结构由 Agnes 自家 routing 元数据证实：
+    // GET /api/v1/models 返回每个模型的 routing.endpoint=/v1/chat/completions（相对网关
+    // /api）→ 完整 chat = /api/v1/chat/completions，正是本 base 拼出的路径。
+    // 注意：Agnes 鉴权失败时返回站点 HTML 而非 JSON 401，需配置有效 API key 才能调通。
     slug: "agnes",
     name: "Agnes AI (Sapiens)",
     endpoint: "https://agnes-ai.com/api/v1",
@@ -277,7 +278,7 @@ export const AI_PROVIDER_CATALOG: AiProviderSeed[] = [
     testModel: "sapiens-ai/agnes-1.5-lite",
     capabilities: ["CHAT", "CHAT_FAST", "IMAGE_GENERATION"],
     displayOrder: 300,
-    freeTierNote: "Agnes 2.0 永久免费 API（新加坡 Sapiens AI）",
+    freeTierNote: "Agnes 2.0 免费 API（新加坡 Sapiens AI；需注册取 key）",
     docUrl: "https://agnes-ai.com/doc",
   },
 
