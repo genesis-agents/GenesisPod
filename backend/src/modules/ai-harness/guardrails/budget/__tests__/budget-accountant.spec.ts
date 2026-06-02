@@ -43,6 +43,40 @@ describe("BudgetAccountant", () => {
     });
   });
 
+  describe("nearLimit()", () => {
+    it("is false well under the threshold", () => {
+      const acc = make(1000, 100);
+      acc.accountLLM(500, 0, 0); // 50%
+      expect(acc.nearLimit()).toBe(false);
+    });
+
+    it("is true at/over the default 85% threshold (tokens)", () => {
+      const acc = make(1000, 100);
+      acc.accountLLM(900, 0, 0); // 90%
+      expect(acc.nearLimit()).toBe(true);
+    });
+
+    it("is true near the cost limit", () => {
+      const acc = make(99999, 10);
+      acc.accountLLM(0, 0, 9); // 90% of cost
+      expect(acc.nearLimit()).toBe(true);
+    });
+
+    it("respects a custom ratio", () => {
+      const acc = make(1000, 100);
+      acc.accountLLM(600, 0, 0); // 60%
+      expect(acc.nearLimit(0.5)).toBe(true);
+      expect(acc.nearLimit(0.9)).toBe(false);
+    });
+
+    it("is false once exhausted (that is a hard stop, not an early warning)", () => {
+      const acc = make(1000, 100);
+      acc.accountLLM(1000, 0, 0); // exhausted
+      expect(acc.exhausted()).toBe(true);
+      expect(acc.nearLimit()).toBe(false);
+    });
+  });
+
   describe("canDowngrade() / downgrade()", () => {
     it("can downgrade from strong", () => {
       const acc = make();
