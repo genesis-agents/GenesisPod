@@ -320,10 +320,12 @@ const nextConfig = {
         source: '/api/v1/:path*',
         destination: `${apiUrl}/api/v1/:path*`,
       },
-      {
-        source: '/api/ai-service/:path*',
-        destination: `${aiUrl}/api/v1/:path*`,
-      },
+      // ★ 2026-06-02：删除 /api/ai-service/* → 独立 Python ai-service 的 rewrite。
+      //   该 rewrite 把 Explore/首页的 AI（summary/insights/chat/quick-action）转发到
+      //   一个未配 key 的旧 Python 服务（返回 503 "All AI services unavailable"），
+      //   且盖住了 app/api/ai-service/ai/*/route.ts —— 那些 handler 才是正确代理到
+      //   NestJS BYOK 后端（/api/v1/ai/*，含 chat→simple-chat 路径映射）。
+      //   删掉 rewrite 后请求落到 route handler，AI 走用户 BYOK 模型。
       {
         source: '/api/ai-office/:path*',
         destination: `${apiUrl}/api/v1/ai-office/:path*`,
