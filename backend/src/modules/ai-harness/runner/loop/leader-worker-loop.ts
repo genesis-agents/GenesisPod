@@ -208,10 +208,21 @@ export class LeaderWorkerLoop implements IAgentLoop {
       return;
     }
 
+    // 硬停前的一次性早期预算预警（finalize 宽限信号）
+    let budgetWarned = false;
+
     while (reviewRound < maxReview) {
       if (options?.signal?.aborted) {
         yield this.event(agentId, "terminated", { reason: "cancelled" });
         return;
+      }
+      // 早期预警：用量逼近上限但未耗尽 → 发一次 soft 预警，给 agent 收尾窗口
+      // （?.() 容忍未实现 nearLimit 的 budget 实现/mock）
+      if (!budgetWarned && options?.budget?.nearLimit?.()) {
+        budgetWarned = true;
+        yield this.event(agentId, "budget_warning", {
+          severity: "soft",
+        });
       }
       if (options?.budget?.exhausted()) {
         yield this.event(agentId, "budget_warning", {

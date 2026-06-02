@@ -33,6 +33,17 @@ export class BudgetAccountant {
     return tokenPct >= 0.7 || costPct >= 0.7;
   }
 
+  /**
+   * token 或 cost 用量达到 ratio（默认 0.85）但尚未 exhausted —— 用于硬停前的
+   * 早期预警（让 loop 发 budget_warning，给 agent 一个 finalize 的宽限窗口）。
+   */
+  nearLimit(ratio = 0.85): boolean {
+    if (this.exhausted()) return false;
+    const tokenPct = this.tokensUsed / this.cap.maxTokens;
+    const costPct = this.costUsd / this.cap.maxCostUsd;
+    return tokenPct >= ratio || costPct >= ratio;
+  }
+
   canDowngrade(): boolean {
     return this.currentTier !== "basic";
   }
