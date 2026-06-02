@@ -266,20 +266,10 @@ export const AI_PROVIDER_CATALOG: AiProviderSeed[] = [
     displayOrder: 290,
     docUrl: "https://docs.siliconflow.cn",
   },
-  {
-    // 新加坡 Sapiens AI 一方多模态模型（chat + image + video）。
-    // base + /api/v1/models 已实测 200（OpenAI 兼容响应结构）；chat 路径按
-    // OpenAI 兼容标准布局推定（GET /chat/completions 返 404 系 POST-only 路由表现）。
-    slug: "agnes",
-    name: "Agnes AI (Sapiens)",
-    endpoint: "https://agnes-ai.com/api/v1",
-    apiFormat: "openai",
-    testModel: "sapiens-ai/agnes-1.5-lite",
-    capabilities: ["CHAT", "CHAT_FAST", "IMAGE_GENERATION"],
-    displayOrder: 300,
-    freeTierNote: "Agnes 2.0 永久免费 API（新加坡 Sapiens AI）",
-    docUrl: "https://agnes-ai.com/doc",
-  },
+  // 注：Agnes AI (Sapiens) 曾在此 —— 已移除。`/api/v1/models` 虽返 200，但
+  // `/api/v1/chat/completions` 返回站点 HTML（非 API），chat 不可用；待有可验证的
+  // OpenAI 兼容 chat 端点再重新加入。已 seed 的 system 行由 AiProvidersSeeder 的
+  // REMOVED_SYSTEM_SLUGS 清除。
 
   // ───────────────── 聚合网关 / 多模型路由 ─────────────────
   {
