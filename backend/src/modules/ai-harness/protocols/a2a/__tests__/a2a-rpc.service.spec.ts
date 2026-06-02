@@ -3,6 +3,7 @@
  */
 
 import { A2ARpcService } from "../a2a-rpc.service";
+import { A2ATaskStore } from "../a2a-task-store";
 import { A2A_ERROR_CODES, A2A_METHODS, TaskState } from "../a2a-spec.types";
 import type {
   JsonRpcRequest,
@@ -77,6 +78,7 @@ describe("A2ARpcService (A2A v0.3 spec)", () => {
     service = new A2ARpcService(
       mockRegistry as never,
       mockTeamsService as never,
+      new A2ATaskStore(), // no CacheService → in-memory (mirrors prior Map behavior)
     );
   });
 

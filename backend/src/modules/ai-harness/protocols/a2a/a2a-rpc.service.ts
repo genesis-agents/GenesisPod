@@ -15,8 +15,8 @@
  * 设计:
  *   - 本服务做 spec 翻译 + 路由分发；具体执行委托给 TeamsService
  *   - skill 路由：Message.metadata.skillId 或 Message.parts 的 textPart 内容
- *   - context 持久化：用 (taskId → contextId / message history) 内存 Map
- *     生产可换 Redis（与 MissionRuntimeStateStore 同模式）
+ *   - context 持久化：委托 A2ATaskStore（taskId → contextId / message history）
+ *     注入 CacheService 时走 Redis（跨 pod 持久），未注入则进程内回退（与 MissionRuntimeStateStore 同模式）
  */
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
@@ -36,6 +36,7 @@ import {
   type TaskStatus,
 } from "./a2a-spec.types";
 import { TaskState as TaskStateEnum } from "./a2a-spec.types";
+import { A2ATaskStore } from "./a2a-task-store";
 import { AgentCardRegistry } from "./agent-card.registry";
 import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "./a2a.tokens";
 import type { TeamId } from "../../teams/abstractions/team.interface";
@@ -105,15 +106,12 @@ function extractTextFromMessage(message: Message): string {
 export class A2ARpcService {
   private readonly logger = new Logger(A2ARpcService.name);
 
-  /** taskId → contextId 映射（生产可换 Redis） */
-  private readonly contextByTask = new Map<string, string>();
-  /** taskId → message 历史（生产可换 Redis） */
-  private readonly historyByTask = new Map<string, Message[]>();
-
   constructor(
     private readonly agentCardRegistry: AgentCardRegistry,
     @Inject(TEAMS_SERVICE_TOKEN)
     private readonly teamsService: IKernelTeamsService,
+    // G3: contextId / 历史持久化（Redis 经 CacheService，未注入则进程内回退）
+    private readonly taskStore: A2ATaskStore,
     @Optional()
     @Inject(TRACE_COLLECTOR_TOKEN)
     private readonly traceCollector?: IKernelTraceCollector,
@@ -223,12 +221,14 @@ export class A2ARpcService {
 
       // 关联 contextId（client 提供 OR 新建）
       const contextId = message.contextId ?? randomUUID();
-      this.contextByTask.set(missionId, contextId);
+      await this.taskStore.setContext(missionId, contextId);
 
       // 历史 message 累积
-      const taskHistory = this.historyByTask.get(missionId) ?? [];
-      taskHistory.push({ ...message, taskId: missionId, contextId });
-      this.historyByTask.set(missionId, taskHistory);
+      await this.taskStore.appendHistory(missionId, {
+        ...message,
+        taskId: missionId,
+        contextId,
+      });
 
       if (traceId) {
         this.traceCollector?.endTrace(traceId, { status: "success" });
@@ -249,7 +249,7 @@ export class A2ARpcService {
       throw new Error("missing params.id");
     }
     const status = this.teamsService.getMissionStatus(params.id);
-    const contextId = this.contextByTask.get(params.id) ?? params.id;
+    const contextId = (await this.taskStore.getContext(params.id)) ?? params.id;
 
     const a2aState = mapToA2AState(status.status);
     const task = this.buildTask(params.id, contextId, a2aState);
@@ -292,7 +292,7 @@ export class A2ARpcService {
     }
 
     if (params.historyLength && params.historyLength > 0) {
-      const history = this.historyByTask.get(params.id) ?? [];
+      const history = await this.taskStore.getHistory(params.id);
       task.history = history.slice(-params.historyLength);
     }
 
@@ -319,7 +319,7 @@ export class A2ARpcService {
         A2A_ERROR_CODES.TASK_NOT_CANCELABLE;
       throw error;
     }
-    const contextId = this.contextByTask.get(params.id) ?? params.id;
+    const contextId = (await this.taskStore.getContext(params.id)) ?? params.id;
     return this.buildTask(params.id, contextId, TaskStateEnum.CANCELED);
   }
 

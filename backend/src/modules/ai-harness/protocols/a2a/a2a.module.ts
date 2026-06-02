@@ -19,6 +19,7 @@ import { Module } from "@nestjs/common";
 import { AgentCardRegistry } from "./agent-card.registry";
 import { A2AApiKeyGuard } from "./guards/a2a-api-key.guard";
 import { A2ARpcService } from "./a2a-rpc.service";
+import { A2ATaskStore } from "./a2a-task-store";
 import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "./a2a.tokens";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { TeamsModule } from "../../teams/teams.module";
@@ -32,6 +33,8 @@ import { TraceCollectorService } from "../../../ai-harness/tracing/observability
     A2AApiKeyGuard,
     // 2026-05-01 (PR-X-P): A2A v0.3 JSON-RPC handler service
     A2ARpcService,
+    // G3: A2A task contextId/历史持久化（Redis via @Global CacheService；缺则进程内回退）
+    A2ATaskStore,
     // DI token bindings: A2AController (in open-api/a2a-server.controller.ts) injects via token
     {
       provide: TEAMS_SERVICE_TOKEN,
