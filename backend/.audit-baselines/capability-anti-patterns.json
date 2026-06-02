@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-02T11:47:02.684Z",
+  "generatedAt": "2026-06-02T13:28:27.842Z",
   "count": 185,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -986,21 +986,21 @@
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 239,
+      "line": 242,
       "column": 16,
       "kind": "method-call",
       "snippet": "name.includes(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 246,
+      "line": 249,
       "column": 13,
       "kind": "method-call",
       "snippet": "name.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-discovery.service.ts",
-      "line": 256,
+      "line": 259,
       "column": 13,
       "kind": "method-call",
       "snippet": "name.includes(\"gemini\")"
