@@ -266,10 +266,21 @@ export const AI_PROVIDER_CATALOG: AiProviderSeed[] = [
     displayOrder: 290,
     docUrl: "https://docs.siliconflow.cn",
   },
-  // 注：Agnes AI (Sapiens) 曾在此 —— 已移除。`/api/v1/models` 虽返 200，但
-  // `/api/v1/chat/completions` 返回站点 HTML（非 API），chat 不可用；待有可验证的
-  // OpenAI 兼容 chat 端点再重新加入。已 seed 的 system 行由 AiProvidersSeeder 的
-  // REMOVED_SYSTEM_SLUGS 清除。
+  {
+    // 新加坡 Sapiens AI 一方多模态模型。端点结构由 Agnes 自家 routing 元数据证实：
+    // GET /api/v1/models 返回每个模型的 routing.endpoint=/v1/chat/completions（相对网关
+    // /api）→ 完整 chat = /api/v1/chat/completions，正是本 base 拼出的路径。
+    // 注意：Agnes 鉴权失败时返回站点 HTML 而非 JSON 401，需配置有效 API key 才能调通。
+    slug: "agnes",
+    name: "Agnes AI (Sapiens)",
+    endpoint: "https://agnes-ai.com/api/v1",
+    apiFormat: "openai",
+    testModel: "sapiens-ai/agnes-1.5-lite",
+    capabilities: ["CHAT", "CHAT_FAST", "IMAGE_GENERATION"],
+    displayOrder: 300,
+    freeTierNote: "Agnes 2.0 免费 API（新加坡 Sapiens AI；需注册取 key）",
+    docUrl: "https://agnes-ai.com/doc",
+  },
 
   // ───────────────── 聚合网关 / 多模型路由 ─────────────────
   {

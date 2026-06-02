@@ -13,36 +13,15 @@ import { AI_PROVIDER_CATALOG } from "../data/ai-provider-catalog";
  * 【create-only】只在「该 slug 的 system 行不存在」时 create，绝不 update 已存在行，
  * 因此不会覆盖 admin 在 /admin/ai-providers 改过的 endpoint / 启停状态
  * （与 SimulationProvidersSeeder 的「保留用户改动」语义一致）。
- *
- * 【REMOVED_SYSTEM_SLUGS】例外：曾误加、已确认不可用的内置 provider，启动时主动删除其
- * system 行（仅 scope=system，不碰用户自定义 / user scope）。用于撤回错误的内置项。
  */
 @Injectable()
 export class AiProvidersSeeder implements ISeeder {
   readonly name = "ai-providers";
   private readonly logger = new Logger(AiProvidersSeeder.name);
 
-  /** 已撤回的内置 provider slug：每次启动清除其 system 行（幂等）。
-   *  agnes —— /api/v1/chat/completions 返回站点 HTML 而非 API，chat 不可用。 */
-  private static readonly REMOVED_SYSTEM_SLUGS = ["agnes"];
-
   constructor(private readonly prisma: PrismaService) {}
 
   async sync(): Promise<SeederResult> {
-    // 撤回误加的内置 provider（仅 system scope，幂等）。
-    const removed = await this.prisma.aIProvider.deleteMany({
-      where: {
-        slug: { in: AiProvidersSeeder.REMOVED_SYSTEM_SLUGS },
-        scope: "system",
-        ownerUserId: null,
-      },
-    });
-    if (removed.count > 0) {
-      this.logger.log(
-        `Removed ${removed.count} retired system AI provider(s): ${AiProvidersSeeder.REMOVED_SYSTEM_SLUGS.join(", ")}`,
-      );
-    }
-
     // 一次性取出全部 system scope slug，避免逐行查询。
     const existing = await this.prisma.aIProvider.findMany({
       where: { scope: "system", ownerUserId: null },
