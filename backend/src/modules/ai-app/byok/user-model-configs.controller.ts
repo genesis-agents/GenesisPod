@@ -24,6 +24,7 @@ import {
   CapabilityOverridesWriterService,
   ApplyCapabilityOverridesDto,
   DeleteCapabilityOverridesDto,
+  AiModelConfigService,
 } from "@/modules/ai-engine/facade";
 
 interface AuthenticatedRequest {
@@ -40,6 +41,9 @@ export class UserModelConfigsController {
     private readonly service: UserModelConfigsService,
     // v3.1 阶段 B 子片 2：capability_overrides 写入面 SSOT（BYOK 用户路径）
     private readonly capabilityOverridesWriter: CapabilityOverridesWriterService,
+    // BYOK 配置变更后失效 AiModelConfigService 的 per-(user,modelId) 解析缓存
+    // （TTL 60s 是兜底，主动失效消除"删/改配置后 60s 内仍命中旧配置"窗口）。
+    private readonly aiModelConfig: AiModelConfigService,
   ) {}
 
   /**
@@ -85,7 +89,9 @@ export class UserModelConfigsController {
     @Req() req: AuthenticatedRequest,
     @Body() dto: CreateUserModelConfigDto,
   ) {
-    return this.service.create(req.user.id, dto);
+    const created = await this.service.create(req.user.id, dto);
+    this.aiModelConfig.clearResolvedModelCache(req.user.id);
+    return created;
   }
 
   @Patch(":id")
@@ -94,17 +100,23 @@ export class UserModelConfigsController {
     @Param("id") id: string,
     @Body() dto: UpdateUserModelConfigDto,
   ) {
-    return this.service.update(req.user.id, id, dto);
+    const updated = await this.service.update(req.user.id, id, dto);
+    this.aiModelConfig.clearResolvedModelCache(req.user.id);
+    return updated;
   }
 
   @Post(":id/set-default")
   async setDefault(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
-    return this.service.setDefault(req.user.id, id);
+    const result = await this.service.setDefault(req.user.id, id);
+    this.aiModelConfig.clearResolvedModelCache(req.user.id);
+    return result;
   }
 
   @Delete(":id")
   async remove(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
-    return this.service.delete(req.user.id, id);
+    const result = await this.service.delete(req.user.id, id);
+    this.aiModelConfig.clearResolvedModelCache(req.user.id);
+    return result;
   }
 
   /**

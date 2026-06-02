@@ -7,6 +7,7 @@ import { NoAvailableKeyError } from "@/modules/ai-infra/credentials/key-resolver
 import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
 import { UserModelConfigsService } from "@/modules/ai-infra/credentials/user-model-configs/user-model-configs.service";
 import { RequestContext } from "@/common/context/request-context";
+import { LruMap } from "@/common/utils/lru-map";
 import { AIModelType, UserModelConfig } from "@prisma/client";
 import { inferIsReasoning } from "../types";
 // v3.1 A0：AIModelConfig 单一源已迁出至 types/model-config.types.ts；
@@ -60,6 +61,19 @@ export class AiModelConfigService {
   private readonly MODEL_CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5 分钟缓存
   // 防 stampede：并发刷新时共享同一个 Promise
   private refreshPromise: Promise<void> | null = null;
+
+  // ★ BYOK 解析缓存：按 (userId, modelId) 缓存 getModelById 结果。
+  //   背景：BYOK 模型（UserModelConfig / synthesized）不在上面的 5min 全量缓存里，
+  //   getModelById 每次都跑一长串串行 DB fallback（缓存未命中 → 直查 → findUserModelConfig
+  //   → findDisabledModelForUser → synthesizeConfigForUserModel）。在高 DB-RTT 部署上
+  //   单次解析可达数秒，且每条消息都重跑。命中缓存即可跳过整条链。
+  //   只缓存「配置」（endpoint / modelId / 参数），不含密钥——apiKey 仍由 resolveApiKey
+  //   在调用时实时解析，故缓存不会泄露或固化凭证。TTL 60s 限制改配后的陈旧窗口。
+  private readonly resolvedModelCache = new LruMap<
+    string,
+    { config: AIModelConfig | null; time: number }
+  >(2000);
+  private readonly RESOLVED_MODEL_CACHE_TTL = 60 * 1000; // 60s
 
   constructor(
     private readonly prisma: PrismaService,
@@ -1389,6 +1403,42 @@ export class AiModelConfigService {
    * ★ 支持所有 modelType（包括 IMAGE_GENERATION、EMBEDDING 等）
    */
   async getModelById(idOrModelId: string): Promise<AIModelConfig | null> {
+    // ★ BYOK 解析缓存：命中即跳过整条串行 DB fallback 链（见字段注释）。
+    //   key 含 userId —— BYOK 配置按用户隔离；无 userId 的后台调用归入 "system"。
+    const userId = RequestContext.getUserId();
+    const cacheKey = `${userId ?? "system"}::${idOrModelId}`;
+    const cached = this.resolvedModelCache.get(cacheKey);
+    if (cached && Date.now() - cached.time < this.RESOLVED_MODEL_CACHE_TTL) {
+      return cached.config;
+    }
+    const resolved = await this.resolveModelByIdUncached(idOrModelId);
+    this.resolvedModelCache.set(cacheKey, {
+      config: resolved,
+      time: Date.now(),
+    });
+    return resolved;
+  }
+
+  /**
+   * 清除 BYOK 解析缓存。用户改 Key / 模型配置后应调用（传 userId 只清该用户）。
+   * 不传 userId = 全清（如管理员批量改模型）。
+   */
+  clearResolvedModelCache(userId?: string): void {
+    if (!userId) {
+      this.resolvedModelCache.clear();
+      return;
+    }
+    const prefix = `${userId}::`;
+    for (const key of [...this.resolvedModelCache.keys()]) {
+      if (key.startsWith(prefix)) {
+        this.resolvedModelCache.delete(key);
+      }
+    }
+  }
+
+  private async resolveModelByIdUncached(
+    idOrModelId: string,
+  ): Promise<AIModelConfig | null> {
     // 1. 先尝试按 modelId/name 查找（使用缓存，仅 CHAT/CHAT_FAST）
     const configByModelId = await this.getModelConfig(idOrModelId);
     if (configByModelId) {
