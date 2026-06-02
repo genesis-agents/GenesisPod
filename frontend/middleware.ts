@@ -33,21 +33,15 @@ export function middleware(req: NextRequest) {
       process.env.NEXT_PUBLIC_API_URL ||
       'https://api.gens.team'
   );
-  const aiBase = ensureProtocol(
-    process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:5000'
-  );
-
   // /api/v1/* → ${API}/api/v1/*
   if (pathname.startsWith('/api/v1/')) {
     const url = new URL(`${apiBase}${pathname}${search}`);
     return NextResponse.rewrite(url);
   }
-  // /api/ai-service/* → ${AI}/api/v1/*
-  if (pathname.startsWith('/api/ai-service/')) {
-    const rel = pathname.replace('/api/ai-service/', '/api/v1/');
-    const url = new URL(`${aiBase}${rel}${search}`);
-    return NextResponse.rewrite(url);
-  }
+  // ★ 2026-06-02：/api/ai-service/* 不再 rewrite 到独立 Python ai-service（已弃用，
+  //   未配 key 时返回 503 "All AI services unavailable"）。改为放行，让
+  //   app/api/ai-service/ai/*/route.ts 处理 —— 它们代理到 NestJS BYOK 后端
+  //   (/api/v1/ai/*，含 chat→simple-chat 映射)，AI 走用户自己的 BYOK 模型。
   // /api/ai-office/* → ${API}/api/v1/ai-office/*
   if (pathname.startsWith('/api/ai-office/')) {
     const rel = pathname.replace('/api/ai-office/', '/api/v1/ai-office/');
@@ -57,5 +51,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/v1/:path*', '/api/ai-service/:path*', '/api/ai-office/:path*'],
+  matcher: ['/api/v1/:path*', '/api/ai-office/:path*'],
 };
