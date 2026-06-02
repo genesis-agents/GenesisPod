@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { AuthRequestType, ByokMode } from "@prisma/client";
+import { AuthRequestType, ToolKeyFallbackMode } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SecretsService } from "../../secrets/secrets.service";
 import { SecretKeysService } from "../../secrets/secret-keys.service";
@@ -33,7 +33,7 @@ export interface ResolvedToolKey {
  * 优先级链（方案 §3 D3 / §18 V2=SWITCH-default-strict）：
  *  1. 用户私有 Key（user_secrets，per-user 解密）           → source=user
  *  2. 系统授权（AuthorizationGrant TOOL_GRANT 未过期未撤销）→ 走 admin Key，source=granted
- *  3. user.byokMode:
+ *  3. user.toolKeyFallbackMode:
  *       FALLBACK → 走 admin 系统 Key                       → source=admin-fallback
  *       STRICT   → 抛 NoToolKeyError（不烧 admin 池）
  *
@@ -96,9 +96,9 @@ export class ToolKeyResolverService {
       }
     }
 
-    // 3. byokMode 决定是否兜底 admin
-    const mode = await this.getByokMode(userId);
-    if (mode === ByokMode.FALLBACK) {
+    // 3. toolKeyFallbackMode 决定是否兜底 admin
+    const mode = await this.getToolKeyFallbackMode(userId);
+    if (mode === ToolKeyFallbackMode.FALLBACK) {
       const adminValue = await this.secrets.getValueInternal(secretName);
       if (adminValue) {
         return { value: adminValue, source: "admin-fallback", secretName };
@@ -114,14 +114,16 @@ export class ToolKeyResolverService {
     throw new NoToolKeyError(toolId, secretName);
   }
 
-  private async getByokMode(userId: string): Promise<ByokMode> {
+  private async getToolKeyFallbackMode(
+    userId: string,
+  ): Promise<ToolKeyFallbackMode> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { byokMode: true },
+      select: { toolKeyFallbackMode: true },
     });
     // schema 默认 FALLBACK；此处 ?? STRICT 仅为 user 记录缺失（理论上不应发生）时的安全兜底，
     // 不烧 admin 池。真实用户的默认由 DB 列 @default(FALLBACK) 决定。
-    return user?.byokMode ?? ByokMode.STRICT;
+    return user?.toolKeyFallbackMode ?? ToolKeyFallbackMode.STRICT;
   }
 
   private async hasActiveToolGrant(

@@ -26,13 +26,14 @@ model User {
   subscriptionExpiresAt DateTime? @map("subscription_expires_at")
 
   // 2026-05-27 BYOK 全量化扩展
-  // byokMode：【仅控制工具 key 解析】缺 Key 时是否兜底平台 admin key。
+  // toolKeyFallbackMode：【仅控制工具 key 解析】缺 Key 时是否兜底平台 admin key。
   //   STRICT = 不兜底（缺 Key 报错，不烧 admin 池）；FALLBACK = 缺 Key 走平台 admin key。
   //   ★ 默认 FALLBACK（工具开箱即用、平台提供）。仅 tool-key-resolver / user-tools 消费此字段。
-  //   ★ LLM 模型不读此字段——模型始终严格 BYOK（pickBYOKModelForUser 带 userId 绝不回退 admin）。
-  //   命名历史债：叫 byokMode 但只管工具,更准确应为 toolKeyFallbackMode（待后续重命名）。
+  //   ★ LLM 模型不读此字段——模型始终严格 BYOK（pickBYOKModelForUser 带 userId 绝不回退 admin）；
+  //     技能走 SKILL_GRANT 授权，也不读此字段。故命名为 toolKeyFallbackMode（2026-06-08 从
+  //     误导性的 byokMode 改名而来——它从不管模型/技能）。
   // 注：首次 BYOK 引导完成标记复用既有 byokOnboardedAt（见上），不另设字段。
-  byokMode ByokMode @default(FALLBACK) @map("byok_mode")
+  toolKeyFallbackMode ToolKeyFallbackMode @default(FALLBACK) @map("tool_key_fallback_mode")
 
   // 个人信息
   fullName  String? @map("full_name")
@@ -8146,7 +8147,8 @@ enum UserApiKeyMode {
 }
 
 /// 2026-05-27 BYOK：用户 Key 缺失时的运行时兜底策略
-enum ByokMode {
+// 工具 key 缺失时的兜底策略（仅工具用，见 User.toolKeyFallbackMode）。
+enum ToolKeyFallbackMode {
   STRICT // 缺 Key 直接报错，绝不走 admin 系统 Key（账单可控）
   FALLBACK // 缺 Key 自动兜底到 admin 系统 Key（默认；工具开箱即用）
 }
@@ -9671,7 +9673,8 @@ model UserModelConfig {
   apiEndpoint String? @map("api_endpoint") @db.Text
 
   // 2026-05-27 BYOK：该模型运行时使用哪把用户 Key（指向 UserApiKey.id）。
-  // null = 走 provider 默认 / admin（按 user.byokMode 决定是否兜底）。
+  // null = 走 provider 默认（按模型解析链 pickBYOKModelForUser；模型严格 BYOK，
+  //   带 userId 绝不回退 admin。注：toolKeyFallbackMode 只管工具，不影响这里）。
   // onDelete SetNull：删除被引用的 Key 时本字段置空（前端在删除前会阻断并提示，见方案 §15）。
   apiKeyId String? @map("api_key_id")
 

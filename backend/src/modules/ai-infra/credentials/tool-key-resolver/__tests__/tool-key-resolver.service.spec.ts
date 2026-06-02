@@ -1,5 +1,5 @@
 import { Test } from "@nestjs/testing";
-import { ByokMode } from "@prisma/client";
+import { ToolKeyFallbackMode } from "@prisma/client";
 import {
   NoToolKeyError,
   ToolKeyResolverService,
@@ -21,7 +21,11 @@ describe("ToolKeyResolverService", () => {
 
   beforeEach(async () => {
     prisma = {
-      user: { findUnique: jest.fn().mockResolvedValue({ byokMode: "STRICT" }) },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ toolKeyFallbackMode: "STRICT" }),
+      },
       authorizationGrant: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     secrets = { getValueInternal: jest.fn().mockResolvedValue(null) };
@@ -84,7 +88,9 @@ describe("ToolKeyResolverService", () => {
   });
 
   it("STRICT 模式无 Key 无授权 → 抛 NoToolKeyError（不烧 admin 池）", async () => {
-    prisma.user.findUnique.mockResolvedValue({ byokMode: ByokMode.STRICT });
+    prisma.user.findUnique.mockResolvedValue({
+      toolKeyFallbackMode: ToolKeyFallbackMode.STRICT,
+    });
     await expect(service.resolveToolKey("tavily", "u1")).rejects.toBeInstanceOf(
       NoToolKeyError,
     );
@@ -92,7 +98,9 @@ describe("ToolKeyResolverService", () => {
   });
 
   it("FALLBACK 模式无 Key → 兜底 admin（source=admin-fallback）", async () => {
-    prisma.user.findUnique.mockResolvedValue({ byokMode: ByokMode.FALLBACK });
+    prisma.user.findUnique.mockResolvedValue({
+      toolKeyFallbackMode: ToolKeyFallbackMode.FALLBACK,
+    });
     secrets.getValueInternal.mockResolvedValue("tvly-admin");
     const r = await service.resolveToolKey("tavily", "u1");
     expect(r?.source).toBe("admin-fallback");
@@ -100,7 +108,9 @@ describe("ToolKeyResolverService", () => {
   });
 
   it("FALLBACK 模式但 admin 也没配 → null", async () => {
-    prisma.user.findUnique.mockResolvedValue({ byokMode: ByokMode.FALLBACK });
+    prisma.user.findUnique.mockResolvedValue({
+      toolKeyFallbackMode: ToolKeyFallbackMode.FALLBACK,
+    });
     secrets.getValueInternal.mockResolvedValue(null);
     const r = await service.resolveToolKey("tavily", "u1");
     expect(r).toBeNull();
