@@ -114,6 +114,8 @@ import { DomainConceptRegistry } from "./agents/domain/concept-registry";
 import { DomainAdapterRegistry } from "./agents/domain/domain-adapter";
 import { PromptRegistry } from "./runner/prompt/prompt-registry";
 import { ToolSelectorRegistry } from "./runner/tool-routing/tool-selector-registry";
+// ★ 2026-06-02: 语义工具选择器（opt-in，构造时自注册进 ToolSelectorRegistry）
+import { SemanticToolSelector } from "./runner/tool-routing/semantic-tool-selector";
 // 2026-05-14: AICapabilityResolver 缺少 module 注册导致 ToolFeature.capabilityResolver
 // 永远是 undefined → ToolFacade.capabilityResolveTools 永远 warn "DI not wired" + 返回 []。
 // 见 feedback_optional_di_must_wire_module：@Optional() 注入必须配套 module providers。
@@ -344,6 +346,8 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     DomainAdapterRegistry,
     PromptRegistry,
     ToolSelectorRegistry,
+    // ★ 2026-06-02: 语义工具选择器（注入 ScoredRouter + ToolRegistry，自注册）
+    SemanticToolSelector,
 
     // 2026-05-14: AICapabilityResolver — Agent 运行时拿可用 tools/skills/MCP 的总入口
     // 之前没在任何 module 注册，DI 永远拿到 undefined → ToolFacade.capabilityResolveTools
