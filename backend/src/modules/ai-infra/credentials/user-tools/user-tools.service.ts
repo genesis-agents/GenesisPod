@@ -50,7 +50,7 @@ export class UserToolsService {
     const toolIds = configurableTools.map((d) => d.id);
 
     // 2. 批量查询（一次查完，不 N+1）：用户自有 key（user-scoped secrets）、
-    //    admin 系统 secret、TOOL_GRANT、以及该用户的 byokMode。
+    //    admin 系统 secret、TOOL_GRANT、以及该用户的 toolKeyFallbackMode。
     const [userSecrets, adminSecrets, grants, user] = await Promise.all([
       // 用户工具 key 落 user-scoped secrets（W5 后 user_credentials 已退役）
       this.prisma.secret.findMany({
@@ -74,7 +74,7 @@ export class UserToolsService {
       }),
       this.prisma.user.findUnique({
         where: { id: userId },
-        select: { byokMode: true },
+        select: { toolKeyFallbackMode: true },
       }),
     ]);
 
@@ -82,7 +82,7 @@ export class UserToolsService {
     const adminSecretSet = new Set(adminSecrets.map((s) => s.name));
     const grantTargetSet = new Set(grants.map((g) => g.targetId));
     // schema 默认 FALLBACK（工具开箱即用）；此处仅当 user 记录缺失/为 null 时保守不兜底。
-    const fallback = user?.byokMode === "FALLBACK";
+    const fallback = user?.toolKeyFallbackMode === "FALLBACK";
 
     return configurableTools.map((def) => {
       const secretName = def.secretKeyName as string;
