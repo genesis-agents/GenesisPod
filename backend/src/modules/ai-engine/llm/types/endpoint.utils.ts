@@ -34,6 +34,13 @@
 
 const stripTrailingSlash = (url: string): string => url.replace(/\/+$/, "");
 
+/**
+ * 剥掉误填的 `/models` 尾巴：用户常把"获取模型列表"的端点（`.../v1/models`）当成
+ * base 填进 API Endpoint，导致下游拼出 `.../v1/models/chat/completions` → 404。
+ * `/models` 永远不是 chat/embedding base，剥掉是安全的。
+ */
+const stripModelsSuffix = (url: string): string => url.replace(/\/models$/, "");
+
 /** Append `/chat/completions` if missing. */
 export function ensureChatCompletionsPath(
   url: string | undefined | null,
@@ -42,7 +49,7 @@ export function ensureChatCompletionsPath(
   if (!trimmed) return null;
   const normalized = stripTrailingSlash(trimmed);
   if (normalized.endsWith("/chat/completions")) return normalized;
-  return `${normalized}/chat/completions`;
+  return `${stripModelsSuffix(normalized)}/chat/completions`;
 }
 
 /** Append `/messages` if missing (Anthropic). */
@@ -53,7 +60,7 @@ export function ensureMessagesPath(
   if (!trimmed) return null;
   const normalized = stripTrailingSlash(trimmed);
   if (normalized.endsWith("/messages")) return normalized;
-  return `${normalized}/messages`;
+  return `${stripModelsSuffix(normalized)}/messages`;
 }
 
 /**
@@ -69,7 +76,7 @@ export function ensureCohereChatPath(
   if (!trimmed) return null;
   const normalized = stripTrailingSlash(trimmed);
   if (normalized.endsWith("/chat")) return normalized;
-  return `${normalized}/chat`;
+  return `${stripModelsSuffix(normalized)}/chat`;
 }
 
 /**
@@ -112,6 +119,7 @@ export function ensureOpenAIEmbeddingsPath(
     "/responses",
     "/messages",
     "/chat",
+    "/models",
   ];
   for (const suffix of WRONG_PATH_SUFFIXES) {
     if (normalized.endsWith(suffix)) {
@@ -130,7 +138,7 @@ export function ensureCohereEmbedPath(
   if (!trimmed) return null;
   const normalized = stripTrailingSlash(trimmed);
   if (normalized.endsWith("/embed")) return normalized;
-  return `${normalized}/embed`;
+  return `${stripModelsSuffix(normalized)}/embed`;
 }
 
 /** Build Gemini `/models/{model}:batchEmbedContents` URL（容忍尾部 /models）. */
@@ -168,10 +176,9 @@ export function ensureOpenAIImagesGenerationsPath(
 ): string | null {
   const trimmed = url?.trim();
   if (!trimmed) return null;
-  const stripped = stripTrailingSlash(trimmed).replace(
-    /\/chat\/completions$/,
-    "",
-  );
+  const stripped = stripTrailingSlash(trimmed)
+    .replace(/\/chat\/completions$/, "")
+    .replace(/\/models$/, "");
   if (stripped.endsWith("/images/generations")) return stripped;
   // 若传入仅 base（不含 /v1），自动补 /v1。
   if (stripped.endsWith("/v1")) return `${stripped}/images/generations`;
