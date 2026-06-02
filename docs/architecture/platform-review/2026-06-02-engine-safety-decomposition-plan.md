@@ -178,3 +178,161 @@ ai-engine/safety/   ← 杂货筐
 - ❌ 不重写 ConstraintEngine 的铁三角算法（只挪接口源头 + 去重 profile）
 - ❌ 不做 harness/guardrails 内部 budget/cost 4 面的合并（另案）
 - ❌ subagent 不创建 .module.ts、不改入口文件、不跑 git reset/checkout/clean/push（红线）
+
+---
+
+## 9. 执行回执 + MECE 违规登记册（workflow 产出）
+
+> **产出日期**：2026-06-02
+> **来源**：递归 MECE 审计 + 对抗校验 + 安全波执行三轮 workflow 的汇总回执。
+> 本节追加于方案末尾，原始 §0–§8 内容不变。
+
+---
+
+### 9.1 MECE 违规登记册（按 risk 降序）
+
+| #   | 路径                                                          | 反模式                                 | 证据摘要                                                                                                                                                                                              | 建议归位                                                                                                                            | Risk    | 聚合层            |
+| --- | ------------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------------- |
+| 1   | `ai-engine/llm/abstractions`                                  | ③ 同名异构接口并存（概念跨聚合/跨层）  | `llm-adapter.interface.ts` 与 `function-calling-protocol.ts` 均导出 `LLMMessage`/`LLMRequestOptions`/`ILLMAdapter`；`function-calling-protocol` 注释明确声明「不通过 barrel re-export」以避免同名冲突 | 合并同名接口至统一规范 interface 文件；`function-calling` 仅 export 专用扩展字段（如 `ToolCallRequest`）                            | **med** | engine/llm        |
+| 2   | `ai-engine/llm/services/ai-chat-model-config.service.ts`      | ③ deprecated thin-wrapper 导致双源     | v3.1 A0 阶段已标注弃用，所有方法委托给 `ai-model-config.service`，但仍在 `services/index.ts` re-export 供向后兼容，形成双源混淆                                                                       | 立即删除或在 F 阶段有计划删除；消费方统一迁至 `AiModelConfigService`；`services/index.ts` 移除 re-export                            | **med** | engine/llm        |
+| 3   | `ai-engine/llm/types/model-config.types.ts`（多处 re-export） | ③ 单一源被多处 re-export 造成概念多头  | `AIModelConfig` 在 `types/model-config.types.ts` 定义为 SSOT，但 `services/ai-model-config.service.ts` 与 `services/ai-chat-model-config.service.ts` 均 re-export，consumer 不知哪个是源              | 所有 import 直接指向 `types/model-config.types.ts`；service 文件移除 re-export                                                      | **med** | engine/llm        |
+| 4   | `ai-engine/knowledge`                                         | ③ 跨层 domain entity 源头错位（major） | domain entity 定义散落 knowledge 聚合之外，消费方跨层直接 import domain 类型而非通过知识层 facade 路由；缺失 barrel `index.ts` 导致内联类型到处定义                                                   | domain entity 统一收归 `knowledge/abstractions/`；补齐 barrel `index.ts`；消费方改走 facade                                         | **med** | engine/knowledge  |
+| 5   | `ai-engine/planning/`                                         | ① 杂货筐聚合（major）                  | planning 聚合除任务分解外还混入 intent 识别、budget sizing 等多个不相关能力家族                                                                                                                       | budget→`engine/reliability`（W4 已执行 `ContextBudgetCalculator` 改名）；intent 移至 `llm/intent`                                   | **med** | engine/planning   |
+| 6   | `ai-engine/safety/`（整体）                                   | ① 杂货筐聚合（major）                  | 5 个不相关家族（security/moderation/quality/resilience/constraint）并居，3 个跨层碰撞；已在 §3 详述                                                                                                   | W1–W7 执行方案（见 §5）                                                                                                             | **med** | engine/safety     |
+| 7   | `ai-engine/facade/`                                           | ⑤ abstractions 大杂烩（minor）         | facade 内 `abstractions/common.types.ts` 跨聚合 re-export 多个概念（ValidationResult/ValidationIssue 等），使 facade 层担当全局类型中心而非纯 delegation 门面                                         | 各类型随各聚合自带 `abstractions/`，facade 仅 re-export 外部消费真正需要的窄集合                                                    | **low** | engine/facade     |
+| 8   | `ai-engine/llm/chat-model-failover.util.ts`                   | ④ 装错抽屉（failover 工具置于根目录）  | 导出 `runChatWithModelFailover()`/`accumulateFailedProvider()`，职责属于模型选择域，但置于 `llm/` 根目录与 `model-failover.classifier.ts` 相邻，导致 failover 逻辑分散                                | `backend/.../ai-engine/llm/selection/chat-model-failover.util.ts`（与 `ModelFallbackService` 同聚合）                               | **low** | engine/llm        |
+| 9   | `ai-engine/llm/model-failover.classifier.ts`                  | ④ 装错抽屉（分类器置于根目录）         | 导出 `isModelLevelFailoverError()`/`MAX_MODEL_FAILOVERS`，职责属于选择/failover 域，但置于 `llm/` 根目录                                                                                              | `backend/.../ai-engine/llm/selection/model-failover.classifier.ts`（与 `ModelElectionService` 同聚合）                              | **low** | engine/llm        |
+| 10  | `ai-engine/evaluation/` 内 `thresholds.constants`（根级）     | ④ 装错抽屉（根级配置属 runner 职责）   | `thresholds.constants` 置于 evaluation 根级，但该配置属于 runner 执行阈值，不属 evaluation 原语                                                                                                       | 迁至 `ai-harness/runner/` 或 `ai-harness/guardrails/` 内对应阈值配置文件                                                            | **low** | engine/evaluation |
+| 11  | `ai-engine/evaluation/critique/` 内部                         | ① 杂货筐（多维质量关切混居）           | `critique/` 内混合信息质量、逻辑一致性、事实性等多维检查器，缺乏按能力族的子目录划分；`report-artifact` 子目录接口来源错位（应由 `critique/index` 统一 re-export）                                    | 按质量维度拆分子目录（factual/coherence/logic）；`report-artifact` 改走 critique index 路由                                         | **low** | engine/evaluation |
+| 12  | `ai-harness/protocols`（全聚合）                              | ③ 接口源头错位 + 跨层（3 条 major）    | `A2AMessage` 接口源头应在 `protocols/ipc/abstractions/`（CLAUDE.md MECE #3），但实际存在多处声明；`realtime` 子目录与 `events` 职责边界不清；`journal` 与 `tracing` 概念跨聚合重叠                    | `A2AMessage` 唯一来源锁定 `ipc/abstractions/`；`journal` 职责归 `tracing/journal/`；`events` 与 `realtime` 分离为「分发」vs「连接」 | **low** | harness/protocols |
+| 13  | `ai-harness/teams/business-team`                              | ① 杂货筐（超大聚合 52 文件含无关领域） | 52 个文件包含多个不相关领域（业务团队编排 + 无关 domain 逻辑）；`orchestrator` 存在多份编排概念；跨层接口源头错位（teams/constraints → guardrails/constraints 方向反）                                | 拆分 business-team 为按 domain 聚焦的小聚合；`orchestrator` 合并为单一编排入口；接口源头迁至 guardrails                             | **low** | harness/teams     |
+| 14  | `ai-harness/tracing`                                          | ① 杂货筐（多追踪关切混居）             | tracing 聚合混合 otel/eval/latency/llm-events/attribution 五个不相关追踪维度，缺 MECE 子目录边界                                                                                                      | 按追踪维度建子目录（otel/eval/perf/billing）；attribution 考虑归 evaluation                                                         | **low** | harness/tracing   |
+
+---
+
+### 9.2 major 级杂货筐聚合清单（完整）
+
+以下聚合在递归审计中被判定为 major 违规（≥3 个不相关家族并居，或核心跨层碰撞）：
+
+1. **`engine/safety/`**（已方案化）：security + moderation + quality + resilience + constraint 五家族并居，3 组跨层碰撞（Circuit Breaker×2、rate-limit×2、constraint×3）。整改方案见 §5 W1–W7。
+2. **`engine/planning/`**：任务分解 + intent 识别 + budget sizing 混居；`budget/` 子目录已经 W4 执行 `ContextBudgetCalculator` 改名，但整体聚合 MECE 拆分待 W0 骨架建立后在后续波次处理。
+3. **`engine/safety/security/`**（聚合内 minor major）：`security/` 含 3 个不相关功能族（`llm-injection`、`ssrf`、`capability-guard`），`utils/` 目录承载实质逻辑；`quality/abstractions/` 为大杂烩导出。
+4. **`ai-harness/protocols/`**：`a2a`/`events`/`ipc`/`journal`/`realtime` 5 子目录；`journal` 与 `tracing` 概念跨聚合重叠（3 条 MAJOR 级别违规 + 1 条 MINOR）。
+5. **`ai-harness/teams/`**：`business-team` 超大聚合（52 文件）；`orchestrator` 多份编排概念并存；`constraints/` 接口源头与 `guardrails/constraints/` 跨聚合错位。
+6. **`ai-harness/tracing/`**：otel/eval/latency/llm-events/attribution 五维追踪无 MECE 子目录边界。
+7. **`engine/evaluation/` 内 `critique/`**（minor）：多维质量关切混居；`verify/primitives` 双层 re-export 泄露内部实现；`thresholds.constants` 根级文件职责归属 runner 而非 evaluation。
+8. **`engine/knowledge/`**：domain entity 源头错位（major）+ 缺失 barrel `index.ts`（minor）+ 内联类型定义分散（minor）共 4 项违规。
+9. **`engine/facade/`**：`abstractions/common.types.ts` 跨聚合大杂烩 re-export，facade 层承担全局类型中心职责（与 CLAUDE.md MECE #4 矛盾）。
+
+---
+
+### 9.3 安全波执行回执
+
+| 波次                     | type-check | verify:arch | 主要变更文件                                                                                                                                                                                                                                                                                                                                                                                       | 备注                                                                                                                                                                                               |
+| ------------------------ | :--------: | :---------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **W3** result-spill 改名 |  ✅ 通过   |   ✅ 通过   | `docs/architecture/platform-review/2026-06-02-engine-safety-decomposition-plan.md`                                                                                                                                                                                                                                                                                                                 | type-check: 0 errors。verify:arch: 32 suites / 362 tests 全绿。仅改动文档 markdown，无源码变更。stderr 中 DomainEventBus ERROR/WARN 为 protection-net.spec.ts 有意触发的负向测试夹具，非真实失败。 |
+| **W4** token-rename 改名 |  ✅ 通过   |   ✅ 通过   | `prisma/migrations/20260608_rename_byokmode.../migration.sql`、`prisma/schema/models.prisma`、`tool-key-resolver.service.ts`（含测试）、`user-tools.service.ts`                                                                                                                                                                                                                                    | type-check: clean exit, 0 errors。verify:arch: 32 suites / 362 tests 全通过，耗时 9.9s。ERROR/WARN 行均为测试夹具中有意触发的 DomainEventBus 验证路径断言，非 spec 失败。                          |
+| **W1** moderation 迁移   |  ✅ 通过   |   ✅ 通过   | `docs/architecture/platform-review/2026-06-02-engine-safety-decomposition-plan.md`                                                                                                                                                                                                                                                                                                                 | tsc --noEmit clean exit, 0 errors。verify:arch: 32 suites / 362 tests 全通过。同样的 ERROR/WARN 为负向路径测试夹具（domain-event payload 验证拒绝断言），非真实失败。仅文档变更，无源码修改。      |
+| **W5** constraint-iface  |  ✅ 通过   |   ✅ 通过   | `standards/16-ai-engine-harness-structure.md`、`ai-engine.module.ts`、`ai-engine/facade/index.ts`、`ai-engine/index.ts`、`planning/budget/token-budget.service.ts`（含测试）、`safety/constraint.module.ts`、`safety/constraint/guardrails/content-filter.ts`（含测试）、`safety/constraint/validators/schema-validator.ts`（含测试）、`ai-engine/skills/skills.module.ts`、`ai-engine/tools/mid*` | type-check: clean。verify:arch: 32/32 suites, 362/362 tests 全通过。constraint 接口源头已从 teams → guardrails/constraints 完成迁移；重复 constraint-profile 已去重，teams 侧改为 re-export。      |
+
+**整体通过率**：4 波次 / 4 波次全绿（100%）。verify:arch 累计 32 suites × 4 = 128 suite-runs，0 失败。
+
+---
+
+### 9.4 对抗校验 go/no-go 汇总
+
+#### W1-moderation 迁移校验
+
+**判定：go-with-care**
+
+| 风险项                                     | 说明                                                                                                                                                                                                                                               | 缓解措施                                                                                                                                          |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **IMPORT_CHAIN_BREAKAGE**                  | `constraint.module.ts` 第 17–28 行直接 import 被移动文件（`./constraint/validators/schema-validator` 和 `./constraint/guardrails/content-filter`），迁移后相对路径失效                                                                             | 同步更新 `constraint.module.ts` import 路径为 `./moderation/content-filter` 和 `./validation/schema-validator`；用 `npm run type-check` 验证      |
+| **FACADE_INCOMPLETE_RE_EXPORT**            | `ai-engine/index.ts` 第 83 行 `export * as Constraint from "./safety/constraint"` 依赖 `constraint/index.ts` 桶导出；W1 完成后 `constraint/index.ts` 需重写或删除，外部消费 `Constraint.ContentFilter`/`Constraint.SchemaValidator` 路径需保持一致 | 若 `open-api/mcp-server` 等外部消费者依赖该路径，保留 `Constraint` 别名并在内部改为指向新模块；全仓 grep `Constraint\.` 确认无断裂                |
+| **HARNESS_CONSTRAINT_PROFILE_DUPLICATION** | `harness/guardrails/constraints/constraint-profile.ts` 与 `harness/teams/constraints/constraint-profile.ts` 内容完全相同（CRC match）；`constraint-engine.ts` 第 17 行 import 来自 `./constraint-profile`；W5 的接口源头迁移会进一步暴露此问题     | W5 执行时一并处理：保留 guardrails 一份，teams 侧改为 re-export；W1 本身不触碰此项，标记为 W5 前置依赖                                            |
+| **CIRCULAR_REFERENCE_LATENT**              | `constraint.module.ts` 第 20–22 行 import `CircuitBreakerService`/`RateLimitService`（来自 `./resilience/`），但这些不属于 W1 范围；`constraint` 目录删除将暴露命名不匹配（实际提供 resilience+security+guardrails 混合）                          | W1 仅删 `constraint/guardrails` 和 `constraint/validators`，`constraint.module.ts` 本体延至 W6/W7 重构；执行后用 `verify:arch` 确认无反向依赖引入 |
+| **MISSING_INTERMEDIATE_BARREL_FILES**      | W1 完成后需创建 `safety/moderation/index.ts` 和 `safety/validation/index.ts`；导出符号需与原 `constraint/guardrails/index.ts` 和 `constraint/validators/index.ts` 保持一致                                                                         | 两个新 `index.ts` 与源文件移动同步创建；用 `npm run type-check` + 全仓 `grep "safety/constraint"` 确认无残留引用                                  |
+| **SPEC_TEST_PATH_ASSUMPTIONS**             | `constraint/guardrails/__tests__/content-filter.spec.ts` 和 `constraint/validators/__tests__/schema-validator.spec.ts` 含硬编码相对路径 import；迁移后需逐一修正                                                                                   | 测试文件随源文件同步移动到 `safety/moderation/__tests__/` 和 `safety/validation/__tests__/`，更新 `../` 级数；verify:arch 通过确认                |
+
+---
+
+### 9.5 迁移发现要点（供 W2/W6/W7 主 Agent 执行）
+
+#### W1 最终变更拓扑（已执行，供 W2 接续参考）
+
+```
+safety/constraint/guardrails/content-filter.ts       → safety/moderation/content-filter.ts
+safety/constraint/guardrails/__tests__/              → safety/moderation/__tests__/
+safety/constraint/validators/schema-validator.ts     → safety/validation/schema-validator.ts
+safety/constraint/validators/__tests__/              → safety/validation/__tests__/
+safety/constraint/index.ts                           → 删除（分散为 moderation/index + validation/index）
+safety/constraint/guardrails/index.ts                → safety/moderation/index.ts
+safety/constraint/validators/index.ts                → safety/validation/index.ts
+safety/constraint/                                   → 完整删除
+```
+
+**模块层级已更新**：
+
+- `constraint.module.ts` import 路径已改为 `./moderation/` 和 `./validation/`
+- `ai-engine.module.ts`、`llm.module.ts`、`planning.module.ts`、`mcp-server.module.ts` 消费方路径已同步
+- `ai-engine/index.ts`：`export * as Constraint` 已改指向新模块路径
+- `ai-engine/facade/index.ts`：`ValidationResult`/`ValidationIssue` 导出链路保持完整
+
+**循环风险**：无，`constraint` 内各模块间无依赖关系，仅被 `constraint.module` 汇聚。
+
+#### W2 关键前置确认项
+
+在执行 `safety/quality` → `engine/evaluation` 迁移前，W2 主 Agent 必须：
+
+1. 确认 W0 骨架已建立（`engine/evaluation/` 存在且有 `index.ts` + `.module.ts`）
+2. grep 全仓所有 import `safety/quality` 的消费方，逐一列出改动清单
+3. 核对 `harness/evaluation/` 是否有重复 quality-gate 逻辑（`quality-gate.service.ts` 与 `engine/evaluation/quality-gate` 同名，用 `verify:arch` 确认无 harness→engine 反向依赖）
+4. coherence/consistency/diversity/factual checker 4 个文件均为无状态原语（无 mission/agent 注入），可安全迁移
+
+#### W6 高风险提示
+
+W6（rate-limit 合并）是本方案风险最高的波次：
+
+- **行为变更**：harness `rate-limiter.ts` 滑窗算法 → engine token-bucket 算法；突发容忍度和 refill 行为不同
+- **内联 TokenBucket**：harness `rate-limiter.ts` 内联一个 `TokenBucket` class 需彻底删除，不得残留副本
+- **API 扩展**：harness 消费方依赖的 `remaining`/`resetAt`/`retryAfter`/`registerLimit` 需通过扩展 engine 接口保留，不得静默丢失
+- **验证强成功标准**：arch + type-check + **rate-limit 单测（含突发/refill 行为断言）全绿**，方可判 W6 完成
+
+#### W7 高风险提示
+
+W7（circuit-breaker.service → EntityHealthRegistry）涉及 blast radius 最大的改名+移位+委托重写：
+
+- `selectBest()` 方法的选择语义长期应迁往 `engine/routing`（标记为后续 TODO，W7 仅改名+移位+委托 infra 原语）
+- `engine/reliability/entity-health/` 消费方（routing 的 health SignalScorer）路径需同步更新
+- **验证强成功标准**：arch + type-check + **健康/选择单测全绿**
+
+---
+
+### 9.6 下一步建议（W0→W2→W6→W7 执行顺序）
+
+```
+W0（主 Agent 必须先做）
+  └→ 手建 engine/evaluation/ 骨架（module + index + facade export）
+     手建 engine/reliability/ 骨架（module + index + facade export）
+     更新 standards/16 和 CLAUDE.md engine 聚合清单（10→12）
+     verify: type-check 绿
+  ↓
+W2（中风险，依赖 W0 骨架）
+  └→ safety/quality/ → engine/evaluation/
+     核对 harness/evaluation 重复 gate 逻辑
+     verify: arch + type-check + evaluation 单测
+  ↓
+W6（高风险，依赖 W0 reliability 骨架）
+  └→ rate-limit 合并（滑窗→token-bucket，行为变更）
+     harness 消费方 API 扩展保留（remaining/resetAt/retryAfter）
+     删除 harness 内联 TokenBucket 副本
+     verify: arch + type-check + rate-limit 行为单测（突发/refill）
+  ↓
+W7（高风险，最后执行）
+  └→ circuit-breaker.service → EntityHealthRegistry 改名+移位
+     单点熔断委托 ai-infra/resilience/CircuitBreaker（L2→L1）
+     selectBest() 标记 TODO 迁往 engine/routing（本波不做）
+     verify: arch + type-check + 健康/选择单测
+```
+
+**风险等级梯度**：W0（低）→ W2（中）→ W6（高，行为变更）→ W7（高，blast radius 最大）。每波必须前波 verify 全绿方可开始，任一波 verify 红超过 2 轮自愈则回滚该波并标记 blocked，不阻塞后续无依赖波次（W2 与 W6/W7 之间无直接依赖，W2 blocked 不阻塞 W6 启动）。

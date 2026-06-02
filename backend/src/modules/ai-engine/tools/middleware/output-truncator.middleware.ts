@@ -19,7 +19,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { ToolOutputSpillStorageService } from "../output-manager/spill-storage.service";
+import { ToolOutputSpillStorageService } from "../result-spill/spill-storage.service";
 
 /** 默认落盘阈值（字符数）—— 参考 Anthropic Claude Code Bash tool */
 export const DEFAULT_SPILL_THRESHOLD = 30_000;

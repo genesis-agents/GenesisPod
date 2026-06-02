@@ -80,7 +80,9 @@ export {
 export * as Core from "./facade/index";
 export * as Tools from "./tools";
 export * as Skills from "./skills";
-export * as Constraint from "./safety/constraint";
+// W1-moderation (2026-06-02): safety/constraint split into moderation + validation
+export * as Moderation from "./safety/moderation";
+export * as Validation from "./safety/validation";
 export * as Guardrails from "./safety/guardrails";
 export * as LLM from "./llm";
 // Memory barrel 已迁移到 ai-harness/memory（2026-04-30）

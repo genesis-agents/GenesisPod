@@ -14,7 +14,7 @@ import { Global, Module, OnModuleInit, Logger } from "@nestjs/common";
 import { CacheModule } from "@/common/cache/cache.module";
 
 // Validators
-import { SchemaValidator } from "./constraint/validators/schema-validator";
+import { SchemaValidator } from "./validation/schema-validator";
 
 // Resilience（PR-X3：通用熔断器从 harness 搬到 engine）
 import { CircuitBreakerService } from "./resilience/circuit-breaker.service";
@@ -25,7 +25,7 @@ import { RateLimitService } from "./resilience/rate-limit.service";
 import { CapabilityGuardService } from "./security/capability-guard.service";
 
 // Guardrails (Legacy)
-import { ContentFilter } from "./constraint/guardrails/content-filter";
+import { ContentFilter } from "./moderation/content-filter";
 // CostController / RateLimiter 由 ai-harness/RuntimeResourceModule (@Global) 提供，
 // 任何模块都能直接注入 — engine 不再反向 import。
 

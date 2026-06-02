@@ -22,12 +22,10 @@ function makeStorageService(
     isEnabled: jest.fn().mockReturnValue(overrides.isEnabled ?? true),
     uploadText:
       overrides.uploadText ??
-      jest
-        .fn()
-        .mockResolvedValue({
-          success: true,
-          key: "tool-output-spill/id-123.txt",
-        }),
+      jest.fn().mockResolvedValue({
+        success: true,
+        key: "tool-output-spill/id-123.txt",
+      }),
     downloadText:
       overrides.downloadText ?? jest.fn().mockResolvedValue("full content"),
   } as jest.Mocked<

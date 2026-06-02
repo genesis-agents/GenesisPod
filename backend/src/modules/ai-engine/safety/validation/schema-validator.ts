@@ -4,7 +4,10 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { ValidationResult, ValidationIssue } from "@/modules/ai-engine/facade/index";
+import {
+  ValidationResult,
+  ValidationIssue,
+} from "@/modules/ai-engine/facade/index";
 
 /**
  * JSON Schema 定义（简化版）

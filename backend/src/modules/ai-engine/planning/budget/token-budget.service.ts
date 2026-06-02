@@ -153,8 +153,8 @@ export function inferProviderFromModelId(modelId: string): string {
 }
 
 @Injectable()
-export class TokenBudgetService {
-  private readonly logger = new Logger(TokenBudgetService.name);
+export class ContextBudgetCalculator {
+  private readonly logger = new Logger(ContextBudgetCalculator.name);
 
   // 简单的 token 计算（中文约 1.5 token/字符，英文约 0.25 token/字符）
   private readonly AVG_TOKENS_PER_CHAR_ZH = 1.5;

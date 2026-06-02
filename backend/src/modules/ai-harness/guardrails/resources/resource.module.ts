@@ -7,7 +7,7 @@
  * - ConstraintEngine / ConstraintEnforcementService: 三轴约束评估 & 强制
  * - CostController: 成本控制
  * - RateLimiter: 速率限制
- * - TokenBudgetService: Token 预算
+ * - MissionTokenLedger: Token 预算
  *
  * HealthCheckRunner 是纯类（非 @Injectable），消费者 `new HealthCheckRunner({...})`
  * 自己持有。不要把它放进 providers——Nest 会尝试注入 undefined 导致启动崩溃。
@@ -31,7 +31,7 @@ import { ConstraintEngine } from "../constraints/constraint-engine";
 import { ConstraintEnforcementService } from "../constraints/constraint-enforcement.service";
 import { CostController } from "./cost-controller";
 import { RateLimiter } from "./rate-limiter";
-import { TokenBudgetService } from "../runtime/token-budget.service";
+import { MissionTokenLedger } from "../runtime/token-budget.service";
 import { RuntimeEnvironmentService } from "../runtime/runtime-environment.service";
 
 const RUNTIME_RESOURCE_PROVIDERS = [
@@ -40,7 +40,7 @@ const RUNTIME_RESOURCE_PROVIDERS = [
   ConstraintEnforcementService,
   CostController,
   RateLimiter,
-  TokenBudgetService,
+  MissionTokenLedger,
   RuntimeEnvironmentService,
 ];
 

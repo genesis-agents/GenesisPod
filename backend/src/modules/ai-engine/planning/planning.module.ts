@@ -27,7 +27,7 @@ import { AiEngineConstraintModule } from "../safety/constraint.module";
 // AgentExecutorService 已搬到 ai-harness/runner/executor/ (2026-04-30)
 // OutputReviewerService 已搬到 ai-harness/evaluation/critique/ (2026-05-02)
 import { CircuitBreakerService } from "../safety/resilience/circuit-breaker.service";
-import { TokenBudgetService } from "./budget/token-budget.service";
+import { ContextBudgetCalculator } from "./budget/token-budget.service";
 import { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";
 import { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
 // PR-X18: ConstraintEnforcementService 通过 CONSTRAINT_ENFORCEMENT_PORT token 注入
@@ -71,7 +71,7 @@ import { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutti
 
     // Engine Orchestration Services —— C2-step2 删除 IterationManager / ComplexityAnalyzer / IntelligentModelRouter
     CircuitBreakerService,
-    TokenBudgetService,
+    ContextBudgetCalculator,
     ContextEvolutionService,
     ContextInitializationService,
     ContextCompressionService,
@@ -88,7 +88,7 @@ import { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutti
 
     // Engine Services
     CircuitBreakerService,
-    TokenBudgetService,
+    ContextBudgetCalculator,
     ContextEvolutionService,
     ContextInitializationService,
     ContextCompressionService,

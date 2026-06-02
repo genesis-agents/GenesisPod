@@ -230,9 +230,11 @@ export { ContextCompressionService } from "../planning/context/context-compressi
 //   - FactExtractionRequest / FactExtractionResult / ContextEvolutionConfig
 // ai-app 改从 @/modules/ai-harness/facade 引入这些符号。
 
-// TokenBudgetService 是 engine 自有（llm/budget/token-budget.service.ts），
+// ContextBudgetCalculator (formerly TokenBudgetService) 是 engine 自有（planning/budget/），
 // 修复原 reverse path（engine→harness→engine 绕一圈）为直接 engine 自身
-export { TokenBudgetService } from "../planning/budget/token-budget.service";
+export { ContextBudgetCalculator } from "../planning/budget/token-budget.service";
+/** @deprecated use ContextBudgetCalculator */
+export { ContextBudgetCalculator as TokenBudgetService } from "../planning/budget/token-budget.service";
 export type {
   ModelConfig as TokenBudgetModelConfig,
   TokenBudget,

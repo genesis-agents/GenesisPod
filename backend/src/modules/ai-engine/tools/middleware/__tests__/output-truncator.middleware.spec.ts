@@ -6,7 +6,7 @@ import {
   ToolOutputTruncatorMiddleware,
   DEFAULT_SPILL_THRESHOLD,
 } from "../output-truncator.middleware";
-import type { ToolOutputSpillStorageService } from "../../output-manager/spill-storage.service";
+import type { ToolOutputSpillStorageService } from "../../result-spill/spill-storage.service";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -21,12 +21,10 @@ function makeSpillStorage(
   return {
     spill:
       overrides.spill ??
-      jest
-        .fn()
-        .mockResolvedValue({
-          spillPath: "tool-output-spill/id-1234.txt",
-          success: true,
-        }),
+      jest.fn().mockResolvedValue({
+        spillPath: "tool-output-spill/id-1234.txt",
+        success: true,
+      }),
     retrieve: overrides.retrieve ?? jest.fn().mockResolvedValue(null),
   } as unknown as jest.Mocked<ToolOutputSpillStorageService>;
 }
@@ -109,12 +107,10 @@ describe("ToolOutputTruncatorMiddleware", () => {
   describe("spill — output exceeds threshold", () => {
     it("calls spill storage and returns spilled=true with spillPath in output", async () => {
       const spillStorage = makeSpillStorage({
-        spill: jest
-          .fn()
-          .mockResolvedValue({
-            spillPath: "tool-output-spill/eid-5-1234.txt",
-            success: true,
-          }),
+        spill: jest.fn().mockResolvedValue({
+          spillPath: "tool-output-spill/eid-5-1234.txt",
+          success: true,
+        }),
       });
       const mw = new ToolOutputTruncatorMiddleware(spillStorage);
       const longOutput = makeOutput(THRESHOLD + 50);

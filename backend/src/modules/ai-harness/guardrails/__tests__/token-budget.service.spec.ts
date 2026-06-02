@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { TokenBudgetService } from "../runtime/token-budget.service";
+import { MissionTokenLedger } from "../runtime/token-budget.service";
 import { CacheService } from "@/common/cache/cache.service";
 
 jest.spyOn(Logger.prototype, "log").mockImplementation();
@@ -49,8 +49,8 @@ class FakeCacheService {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("TokenBudgetService", () => {
-  let service: TokenBudgetService;
+describe("MissionTokenLedger", () => {
+  let service: MissionTokenLedger;
   let fakeCache: FakeCacheService;
 
   beforeEach(async () => {
@@ -58,11 +58,11 @@ describe("TokenBudgetService", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        TokenBudgetService,
+        MissionTokenLedger,
         { provide: CacheService, useValue: fakeCache },
       ],
     }).compile();
-    service = module.get<TokenBudgetService>(TokenBudgetService);
+    service = module.get<MissionTokenLedger>(MissionTokenLedger);
   });
 
   afterEach(() => {

@@ -4,7 +4,7 @@
  */
 
 import type { UploadedFile } from "@/modules/ai-harness/agents/abstractions/agent.types";
-import type { ConstraintProfile } from "../../teams/constraints/constraint-profile";
+import type { ConstraintProfile } from "../../guardrails/constraints/constraint-profile";
 import type { TeamId } from "../../teams/abstractions/team.interface";
 
 // ==================== Mission ID ====================

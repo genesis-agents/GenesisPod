@@ -1,4 +1,6 @@
-export { TokenBudgetService } from "../runtime/token-budget.service";
+export { MissionTokenLedger } from "../runtime/token-budget.service";
+/** @deprecated use MissionTokenLedger */
+export { MissionTokenLedger as TokenBudgetService } from "../runtime/token-budget.service";
 export { RuntimeEnvironmentService } from "../runtime/runtime-environment.service";
 export type {
   EnvironmentSnapshot,
