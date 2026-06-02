@@ -12,7 +12,10 @@ import { Button } from '@/components/ui/primitives/button';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { logger } from '@/lib/utils/logger';
-import { updateTopic } from '@/services/topic-insights/api';
+import {
+  updateTopic,
+  updateTopicVisibility,
+} from '@/services/topic-insights/api';
 import { toast } from '@/stores';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -106,13 +109,17 @@ export function ResearchSettingsModal({
           ...currentTopic?.topicConfig,
           knowledgeBaseIds: selectedKnowledgeBases,
         },
-        visibility:
-          visibility === 'private'
-            ? 'PRIVATE'
-            : visibility === 'team'
-              ? 'SHARED'
-              : 'PUBLIC',
       });
+
+      // ★ 可见性走专用端点（updateTopic 的 DTO 不含 visibility，会被后端静默丢弃）
+      await updateTopicVisibility(
+        topicId,
+        visibility === 'private'
+          ? 'PRIVATE'
+          : visibility === 'team'
+            ? 'SHARED'
+            : 'PUBLIC'
+      );
 
       logger.debug('Saved settings successfully:', {
         selectedKnowledgeBases,

@@ -123,6 +123,10 @@ interface TopicInsightsState {
   fetchTopic: (topicId: string) => Promise<void>;
   createTopic: (dto: CreateTopicDto) => Promise<ResearchTopic>;
   updateTopic: (topicId: string, dto: UpdateTopicDto) => Promise<ResearchTopic>;
+  setTopicVisibility: (
+    topicId: string,
+    visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC'
+  ) => Promise<void>;
   patchTopic: (topicId: string, patch: Partial<ResearchTopic>) => void;
   deleteTopic: (topicId: string) => Promise<void>;
   setCurrentTopic: (topic: ResearchTopic | null) => void;
@@ -386,6 +390,20 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
         state.currentTopic?.id === topicId ? topic : state.currentTopic,
     }));
     return topic; // ★ 返回更新后的专题
+  },
+
+  // ★ 可见性走专用端点（updateTopic 的 DTO 不含 visibility，会被后端静默丢弃）
+  setTopicVisibility: async (topicId, visibility) => {
+    await api.updateTopicVisibility(topicId, visibility);
+    set((state) => ({
+      topics: state.topics.map((t) =>
+        t.id === topicId ? { ...t, visibility } : t
+      ),
+      currentTopic:
+        state.currentTopic?.id === topicId
+          ? { ...state.currentTopic, visibility }
+          : state.currentTopic,
+    }));
   },
 
   // ★ 无 API 调用的本地 patch，用于 modal 等组件在自行完成 API 调用后同步 store

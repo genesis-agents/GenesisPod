@@ -164,7 +164,7 @@ export default function TopicResearchPage() {
     fetchTopics,
     triggerRefresh,
     deleteTopic,
-    updateTopic,
+    setTopicVisibility,
     clearError,
   } = useTopicInsightsStore();
 
@@ -282,7 +282,8 @@ export default function TopicResearchPage() {
     visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC'
   ) => {
     try {
-      await updateTopic(topicId, { visibility });
+      // 走专用端点；updateTopic 的 DTO 不含 visibility，后端会静默丢弃
+      await setTopicVisibility(topicId, visibility);
     } catch (err) {
       // Error is handled in store
     }

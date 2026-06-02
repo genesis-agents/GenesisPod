@@ -106,7 +106,7 @@ export function TopicResearchTab({
     loadMoreTopics,
     triggerRefresh,
     deleteTopic,
-    updateTopic,
+    setTopicVisibility,
     clearError,
   } = useTopicInsightsStore();
 
@@ -256,15 +256,18 @@ export function TopicResearchTab({
   );
 
   // ★ Handle visibility change - 切换可见性
+  // 走专用 setTopicVisibility（PATCH /topics/:id/visibility）。
+  // 注意：不能用 updateTopic —— UpdateTopicDto 无 visibility 字段，
+  // 会被后端 ValidationPipe whitelist 静默丢弃，导致"点了没反应"。
   const handleVisibilityChange = useCallback(
     async (topicId: string, visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC') => {
       try {
-        await updateTopic(topicId, { visibility });
+        await setTopicVisibility(topicId, visibility);
       } catch (err) {
         // Error is handled in store
       }
     },
-    [updateTopic]
+    [setTopicVisibility]
   );
 
   return (

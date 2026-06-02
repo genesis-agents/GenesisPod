@@ -525,7 +525,8 @@ export interface UpdateTopicDto {
   refreshFrequency?: RefreshFrequency;
   status?: ResearchTopicStatus;
   topicConfig?: TopicConfig; // ★ 专题配置更新
-  visibility?: TopicVisibility; // ★ 可见性设置
+  // ★ visibility 不在此 DTO：后端 UpdateTopicDto 无该字段（whitelist 会静默丢弃）。
+  //   可见性走专用 setTopicVisibility → PATCH /topics/:id/visibility。
 }
 
 /**
