@@ -1,6 +1,6 @@
 /**
- * AI Engine - Quality Module
- * 质量控制能力
+ * AI Engine - Evaluation
+ * 评估原语聚合（质量检查器）
  */
 
 // Abstractions
@@ -16,4 +16,4 @@ export * from "./services";
 export * from "./types";
 
 // Module
-export { QualityModule } from "./quality.module";
+export { AiEngineEvaluationModule } from "./evaluation.module";
