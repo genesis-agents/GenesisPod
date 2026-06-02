@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { CacheService } from "../../../../common/cache";
 import { ClassifiedError } from "./key-error-classifier";
+import { KEY_COOLDOWN_MS } from "./key-cooldown-policy";
 
 /**
  * KeyHealthStore — per-key 健康状态 + LastGood 粘性 + provider 级 cooldown，全部 Redis-backed。
@@ -33,6 +34,12 @@ export interface KeyHealthRecord {
   readonly lastSuccessAt: number | null;
   /** 末次失败原因（用于 UI 展示） */
   readonly lastReason: string | null;
+  /**
+   * 连续 AUTH_FAILED 次数。非-auth 失败或 markSuccess 重置为 0。
+   * 用于"偶发 401 不立即 DEAD"：网关瞬时故障会偶发回 401，但 key 实际有效，
+   * 需累计到 AUTH_DEAD_THRESHOLD 次才真正标 DEAD。旧记录无此字段 → 视为 0。
+   */
+  readonly authFailureCount?: number;
 }
 
 const KEY_HEALTH_PREFIX = "keyhealth:";
@@ -44,6 +51,14 @@ const LASTGOOD_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 const RATE_WINDOW_TTL_SECONDS = 30; // 30s 滑窗
 const RATE_WINDOW_THRESHOLD = 2; // ≥2 个 key → 升级为 provider 级
 const PROVIDER_COOLDOWN_DEFAULT_SECONDS = 5 * 60; // 5 min
+
+/**
+ * 连续 AUTH_FAILED 达到此次数才把 key 标 DEAD（防 provider 网关偶发 401 误杀有效 key）。
+ * 单次 401 仅给短熔断，且能被 single-key degraded fallback 兜底。
+ */
+const AUTH_DEAD_THRESHOLD = 3;
+/** 单次/少量 AUTH_FAILED 的临时熔断时长——分钟级自愈，可被 degraded fallback 兜底。 */
+const AUTH_TRANSIENT_COOLDOWN_MS = KEY_COOLDOWN_MS.RATE_LIMIT; // 60s
 
 /**
  * KeyId 解析结果，用于 markSuccess 时反查 (userId, provider) 来设置 LastGood。
@@ -171,6 +186,20 @@ export class KeyHealthStore {
         );
         return [fallbackId];
       }
+      // ★ 2026-06-02 单 key 用户最后兜底：唯一一把 key 升级为 DEAD（连续 auth 失败）时，
+      //   仍作为 last-resort 返回，避免无备用 key 的用户被一串 401 彻底锁死。配合 Fix1
+      //   （偶发 401 不立即 DEAD），真正走到这里的多是"反复 401"——给一次重试机会，若仍
+      //   失败上层会再 markFailure，不比硬锁死 30 天更糟。QUOTA/billing 永久熔断（state
+      //   仍是 COOLDOWN，非 DEAD）不在此列：retry 必然再失败、只会空烧调用。
+      if (keyIds.length === 1) {
+        const only = records[0];
+        if (only && only.state === "DEAD") {
+          this.logger.warn(
+            `[filterUsable] single key is DEAD; returning it as last-resort fallback (no alternative key for this user/provider — auth failure may be transient, see Test Connection)`,
+          );
+          return [keyIds[0]];
+        }
+      }
     }
     return usable;
   }
@@ -196,20 +225,37 @@ export class KeyHealthStore {
     if (!this.cache) return;
     const now = Date.now();
     const prev = await this.get(keyId);
+
+    // ★ 2026-06-02 防偶发 401 误杀有效 key：provider 网关在大上下文/瞬时故障下会偶发
+    //   回 401（key 实际有效，可用 Test Connection 复验），单次就永久 DEAD 会把无备用
+    //   key 的用户锁死 30 天。改为：连续 AUTH_FAILED 累计到 AUTH_DEAD_THRESHOLD 才真正
+    //   标 DEAD；其余次只给短熔断（可被 single-key degraded fallback 兜底）。
+    //   非 AUTH 的 markDead（当前无）仍按原语义立即 DEAD。
+    const isAuth = classified.reason === "AUTH_FAILED";
+    const nextAuthFailureCount = isAuth ? (prev.authFailureCount ?? 0) + 1 : 0;
+    const escalateDead =
+      classified.markDead &&
+      (!isAuth || nextAuthFailureCount >= AUTH_DEAD_THRESHOLD);
+    const effectiveCooldownMs =
+      classified.markDead && isAuth && !escalateDead
+        ? AUTH_TRANSIENT_COOLDOWN_MS
+        : classified.cooldownMs;
+
     const next: KeyHealthRecord = {
-      state: classified.markDead
+      state: escalateDead
         ? "DEAD"
-        : classified.cooldownMs > 0
+        : effectiveCooldownMs > 0
           ? "COOLDOWN"
           : "HEALTHY",
-      cooldownUntil: classified.markDead
+      cooldownUntil: escalateDead
         ? Number.MAX_SAFE_INTEGER
-        : classified.cooldownMs === Number.POSITIVE_INFINITY
+        : effectiveCooldownMs === Number.POSITIVE_INFINITY
           ? Number.MAX_SAFE_INTEGER
-          : classified.cooldownMs > 0
-            ? now + classified.cooldownMs
+          : effectiveCooldownMs > 0
+            ? now + effectiveCooldownMs
             : 0,
       failureCount: prev.failureCount + 1,
+      authFailureCount: nextAuthFailureCount,
       lastFailureAt: now,
       lastSuccessAt: prev.lastSuccessAt,
       lastReason: classified.reason,
@@ -225,8 +271,8 @@ export class KeyHealthStore {
       await this.recordRateWindow(provider, keyId);
     }
 
-    // 失效的 key 如果是 LastGood，清理掉
-    if (classified.markDead) {
+    // 失效的 key 如果是 LastGood，清理掉——仅在真正升级为 DEAD 时（偶发 401 暂 COOLDOWN 不动）
+    if (escalateDead) {
       const parsed = parseKeyId(keyId);
       if (parsed?.userId && parsed.provider) {
         const last = await this.getLastGood(parsed.userId, parsed.provider);
@@ -249,6 +295,7 @@ export class KeyHealthStore {
       state: "HEALTHY",
       cooldownUntil: 0,
       failureCount: 0,
+      authFailureCount: 0,
       lastFailureAt: null,
       lastSuccessAt: now,
       lastReason: null,
@@ -358,6 +405,7 @@ export class KeyHealthStore {
       state: "HEALTHY",
       cooldownUntil: 0,
       failureCount: 0,
+      authFailureCount: 0,
       lastFailureAt: null,
       lastSuccessAt: null,
       lastReason: null,

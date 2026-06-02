@@ -48,6 +48,7 @@ import { AuthorizationModule } from "../../ai-infra/credentials/authorization/au
 import { KeyAssignmentsModule } from "../../ai-infra/credentials/key-assignments";
 import { KeyRequestsModule } from "../../ai-infra/credentials/key-requests";
 import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
+import { KeyHealthModule } from "../../ai-infra/credentials/health/key-health.module";
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
     KeyAssignmentsModule,
     KeyRequestsModule,
     KeyResolverModule,
+    KeyHealthModule, // 2026-06-02 Test Connection 成功后 forceHealthy 清除 key 的 DEAD 状态
   ],
   providers: [UserSkillsService],
   controllers: [

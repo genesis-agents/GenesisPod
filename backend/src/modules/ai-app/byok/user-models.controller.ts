@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Logger,
   NotFoundException,
   Param,
   Post,
@@ -18,6 +19,10 @@ import {
   UserModelConfigsService,
   AutoConfigureService,
 } from "@/modules/ai-harness/facade";
+import {
+  KeyHealthStore,
+  buildPersonalKeyId,
+} from "@/modules/ai-infra/credentials/health";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };
@@ -117,11 +122,14 @@ export class UserModelsController {
 @Controller("user/model-configs")
 @UseGuards(JwtAuthGuard)
 export class UserModelConfigsAutoController {
+  private readonly logger = new Logger(UserModelConfigsAutoController.name);
+
   constructor(
     private readonly autoConfigure: AutoConfigureService,
     private readonly userModelConfigs: UserModelConfigsService,
     private readonly userApiKeys: UserApiKeysService,
     private readonly connectionTest: AiConnectionTestService,
+    private readonly keyHealth: KeyHealthStore,
   ) {}
 
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
@@ -147,6 +155,9 @@ export class UserModelConfigsAutoController {
     // 所以这里也必须先按 cfg.apiKeyId 解析那把具体 BYOK key，否则"测试通过但运行时挂"。
     let apiKey: string | undefined;
     let keyEndpoint: string | null | undefined;
+    // ★ key label 用于复原运行时 healthKeyId（personal:{userId}:{provider}:{label}），
+    //   测试通过后清除该 key 的 DEAD/cooldown 健康状态。
+    let keyLabel: string | undefined;
     if (cfg.apiKeyId) {
       const selected = await this.userApiKeys.getPersonalKeyById(
         req.user.id,
@@ -154,6 +165,7 @@ export class UserModelConfigsAutoController {
       );
       apiKey = selected?.apiKey;
       keyEndpoint = selected?.apiEndpoint;
+      keyLabel = selected?.label;
     }
     if (!apiKey) {
       const personal = await this.userApiKeys.getPersonalKey(
@@ -162,6 +174,7 @@ export class UserModelConfigsAutoController {
       );
       apiKey = personal?.apiKey;
       keyEndpoint = personal?.apiEndpoint;
+      keyLabel = personal?.label;
     }
     if (!apiKey) {
       throw new BadRequestException(
@@ -171,12 +184,32 @@ export class UserModelConfigsAutoController {
 
     const endpoint = cfg.apiEndpoint?.trim() || keyEndpoint?.trim() || "";
 
-    return this.connectionTest.testModelConnectionWithKey(
+    const result = await this.connectionTest.testModelConnectionWithKey(
       cfg.provider,
       cfg.modelId,
       apiKey,
       endpoint,
       cfg.modelType,
     );
+
+    // ★ 2026-06-02 修"测试通过但运行时仍说 key 失效"：测试连接实际调通 provider 即证明
+    //   key 有效，必须把该 key 在 KeyHealthStore 里的 DEAD/cooldown 状态清掉（forceHealthy
+    //   → markSuccess），否则之前被偶发 401 标死的 key 仍会被 filterUsable 过滤，mission
+    //   继续报 "No API Key available"。健康状态写失败不影响测试结果返回。
+    if (result?.success && keyLabel) {
+      try {
+        await this.keyHealth.forceHealthy(
+          buildPersonalKeyId(req.user.id, cfg.provider, keyLabel),
+        );
+      } catch (err) {
+        this.logger.warn(
+          `[testConnection] forceHealthy failed for ${cfg.provider}/${keyLabel}: ${
+            (err as Error).message
+          }`,
+        );
+      }
+    }
+
+    return result;
   }
 }

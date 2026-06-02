@@ -10,8 +10,9 @@
  *   deps:       analyst.analyze, invoker (preDisable + tickCost),
  *               missionState (compressIfNeeded), emit, lifecycle
  *
- * Failure modes: analystRes.state !== completed → throw（关键路径，无 analyst output
- *                Writer 无法工作）
+ * Failure modes: analystRes.state !== completed → 降级发空 analystOutput 让 mission 跑完
+ *                （含 provider 层失败，2026-06-02 起不再硬终止），下游 Writer 直接基于
+ *                raw findings 撰写，质量打折但不全废。
  */
 
 import type {
@@ -266,37 +267,44 @@ export async function runAnalystStage(
     //   RUNNER_OUTPUT_SCHEMA_MISMATCH。之前直接 throw 让 mission 全死, 浪费已采集的
     //   6 维 researcher results + reconciler facts。改成发空 analystOutput 让下游
     //   writer / reviewer 至少能把已有 facts 渲成报告。
-    // ★ 2026-05-13 (P1-FAIL-LOUD-PROVIDER): 区分失败原因。Provider 层失败
-    //   （API key 不可用 / 限流 / 配额耗尽）下游 writer 用同 provider 必然也炸,
-    //   兜底只是 lying success 拖延失败可见性。这类失败必须 fail-loud。
-    //   只对 LLM 内部输出问题（schema mismatch / CoT exhaustion / empty）兜底。
+    // ★ 2026-05-13 (P1-FAIL-LOUD-PROVIDER) → 2026-06-02 修订：此前对 provider 层失败
+    //   直接 throw 终止 mission（怕 lying success）。但 writer/reviewer 各有独立的跨模型
+    //   failover，单 provider 故障未必拖垮下游，硬终止反而浪费已采集的多维 findings。
+    //   现统一降级兜底，但对 provider 层失败用更醒目的 narrate fail-loud（见下分支），
+    //   保留"用户能看到真实根因"的初衷，去掉"必然失败"的过强假设。
     const diagnostic = extractAgentFailureDiagnostic(analystRes.events);
     const failureCode = diagnostic?.failureCode;
-    if (failureCode && PROVIDER_LEVEL_FAILURE_CODES.has(failureCode)) {
-      deps.log.error(
-        `[${missionId}] analyst provider-level failure (${failureCode}); refusing to fall back since downstream writer will hit the same provider — failing mission early so users see the real cause`,
+    const isProviderLevel =
+      !!failureCode && PROVIDER_LEVEL_FAILURE_CODES.has(failureCode);
+    // ★ 2026-06-02 (single-provider 不硬终止): provider 层失败（如某把 BYOK key 偶发
+    //   401/限流）此前直接 throw 让整个 mission failed。但下游 writer/reviewer 各自带
+    //   跨 12 模型的 model-failover，单个 provider 故障未必拖垮下游；且配合凭证层修复
+    //   （偶发 401 不再立即把 key 标 DEAD），provider 大概率已自愈。改为：降级发空
+    //   analystOutput 让 mission 跑完，同时 fail-loud 把真实 provider 根因 narrate 给
+    //   用户（非静默 lying success），报告里明确标注"analyst 因 provider 故障降级"。
+    if (isProviderLevel) {
+      deps.log.warn(
+        `[${missionId}] analyst provider-level failure (${failureCode}); degrading to empty analystOutput instead of failing the mission — downstream writer/reviewer have independent model-failover and may still succeed (cause: ${diagnostic?.message ?? analystFailMsg ?? "unknown"})`,
       );
       await narrate(deps.emit, missionId, userId, {
         stage: "s6-analyst",
         role: "analyst",
         tag: "warning",
-        text: `Analyst 调用失败 (${failureCode})。下游 Writer 调用同一 provider 必然同样失败，提前终止 mission 让你立即看到真实原因（${diagnostic?.message ?? analystFailMsg ?? "未知"}）。`,
+        text: `Analyst 调用因 provider 故障失败 (${failureCode}：${diagnostic?.message ?? analystFailMsg ?? "未知"})。已降级——下游 Writer 将用独立的模型 failover 基于 ${researcherResults.length} 维 raw findings 继续撰写，报告质量可能打折。`,
         agentId: "analyst",
       });
-      throw new Error(
-        `Analyst stage aborted due to provider-level failure: ${failureCode} — ${diagnostic?.message ?? analystFailMsg ?? analystRes.state}`,
+    } else {
+      deps.log.warn(
+        `[${missionId}] analyst 两次失败 (code=${failureCode ?? "UNKNOWN"})，发空 analystOutput 兜底让 mission 跑完（${analystFailMsg ?? analystRes.state}）`,
       );
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s6-analyst",
+        role: "analyst",
+        tag: "warning",
+        text: `Analyst 综合阶段连续 2 次未产出（code=${failureCode ?? "UNKNOWN"}）。发空 insights 兜底，下游 Writer 直接基于 ${researcherResults.length} 维度 raw findings 写报告（质量会打折）。`,
+        agentId: "analyst",
+      });
     }
-    deps.log.warn(
-      `[${missionId}] analyst 两次失败 (code=${failureCode ?? "UNKNOWN"})，发空 analystOutput 兜底让 mission 跑完（${analystFailMsg ?? analystRes.state}）`,
-    );
-    await narrate(deps.emit, missionId, userId, {
-      stage: "s6-analyst",
-      role: "analyst",
-      tag: "warning",
-      text: `Analyst 综合阶段连续 2 次未产出（code=${failureCode ?? "UNKNOWN"}）。发空 insights 兜底，下游 Writer 直接基于 ${researcherResults.length} 维度 raw findings 写报告（质量会打折）。`,
-      agentId: "analyst",
-    });
     const fallback: AnalystOutputShape = {
       insights: [],
       themeSummary: `（analyst 阶段未产出有效综合分析；下游基于 ${researcherResults.length} 个维度的原始研究发现直接撰写报告）`,

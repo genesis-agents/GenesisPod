@@ -227,11 +227,13 @@ describe("runAnalystStage (S6)", () => {
     expect(ctx.analystOutput).toBe(result);
   });
 
-  // 回归 P1-FAIL-LOUD-PROVIDER (2026-05-13): provider 级失败必须 fail-loud,
-  // 不能兜底假成功。下游 writer 调同一 provider 必然同样失败，兜底只是延后
-  // 失败可见性。这里 mock 一个 PROVIDER_API_ERROR error event 模拟 prod 现象
-  // （BYOK KeyExecutor 熔断后 "No API Key available for provider openai"）。
-  it("provider-level failure (PROVIDER_API_ERROR) throws instead of empty fallback", async () => {
+  // 2026-06-02 (single-provider 不硬终止): provider 级失败不再 throw 终止 mission。
+  // 下游 writer/reviewer 各有独立的跨 12 模型 model-failover，单 provider 故障未必拖垮
+  // 下游；硬终止反而浪费已采集的多维 findings。改为降级发空 analystOutput 让 mission
+  // 跑完，同时用醒目 narrate fail-loud 把真实 provider 根因暴露给用户（非静默假成功）。
+  // mock 一个 PROVIDER_API_ERROR error event 模拟 prod 现象（BYOK 熔断后
+  // "No API Key available for provider openai"）。
+  it("provider-level failure (PROVIDER_API_ERROR) degrades to empty fallback + loud narrate (no throw)", async () => {
     const ctx = makeCtx();
     const deps = makeDeps();
     (deps.analyst.analyze as jest.Mock).mockResolvedValue({
@@ -249,15 +251,20 @@ describe("runAnalystStage (S6)", () => {
       wallTimeMs: 100,
       iterations: 1,
     });
-    await expect(runAnalystStage(ctx, deps)).rejects.toThrow(
-      /provider-level failure: PROVIDER_API_ERROR/,
-    );
-    // emit narrate 应带 warning + 文案含失败码
+    // 不再 throw：返回空兜底 output，mission 继续
+    const result = await runAnalystStage(ctx, deps);
+    expect(result.insights).toEqual([]);
+    expect(ctx.analystOutput).toBe(result);
+    // 仍 fail-loud：narrate 文案含失败码
     const narrateCalls = (deps.emit as jest.Mock).mock.calls;
     const errorNarrate = narrateCalls.find((c) =>
       JSON.stringify(c).includes("PROVIDER_API_ERROR"),
     );
     expect(errorNarrate).toBeDefined();
+    // log.warn 记录 provider-level degrade（区别于普通 schema-mismatch 兜底）
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("provider-level failure"),
+    );
   });
 
   it("schema-mismatch failure still falls back (preserves P0-LIVE-NULL-OUTPUT behavior)", async () => {

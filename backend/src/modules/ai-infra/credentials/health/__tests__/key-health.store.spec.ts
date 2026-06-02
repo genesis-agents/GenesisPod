@@ -97,8 +97,11 @@ describe("KeyHealthStore", () => {
       expect(out).toEqual(["personal:u1:openai:a", "personal:u1:openai:b"]);
     });
 
-    it("filters out DEAD keys", async () => {
-      await store.markFailure("personal:u1:openai:a", authFailedClassified);
+    it("filters out DEAD keys (after AUTH_DEAD_THRESHOLD consecutive 401s)", async () => {
+      // 单次 401 只是 COOLDOWN；连续 3 次才升级 DEAD（防偶发 401 误杀有效 key）
+      for (let i = 0; i < 3; i++) {
+        await store.markFailure("personal:u1:openai:a", authFailedClassified);
+      }
       const out = await store.filterUsable([
         "personal:u1:openai:a",
         "personal:u1:openai:b",
@@ -166,9 +169,32 @@ describe("KeyHealthStore", () => {
       jest.useRealTimers();
     });
 
-    it("degraded fallback: DEAD key excluded (auth failed = truly unusable)", async () => {
+    it("single 401 → key stays usable via finite cooldown (not instant DEAD)", async () => {
+      // ★ Fix1: 偶发 401 只给 60s finite cooldown → 单 key 用户仍能被 degraded fallback 兜底
       await store.markFailure("personal:u1:openai:a", authFailedClassified);
       const out = await store.filterUsable(["personal:u1:openai:a"]);
+      expect(out).toEqual(["personal:u1:openai:a"]);
+    });
+
+    it("single DEAD key returned as last-resort fallback (avoid single-key lockout)", async () => {
+      // ★ Fix3: 唯一一把 key 即便升级 DEAD，仍作为最后手段返回，避免无备用 key 用户被锁死
+      for (let i = 0; i < 3; i++) {
+        await store.markFailure("personal:u1:openai:a", authFailedClassified);
+      }
+      expect((await store.get("personal:u1:openai:a")).state).toBe("DEAD");
+      const out = await store.filterUsable(["personal:u1:openai:a"]);
+      expect(out).toEqual(["personal:u1:openai:a"]);
+    });
+
+    it("multi-key all DEAD → returns [] (last-resort only for single-key users)", async () => {
+      for (let i = 0; i < 3; i++) {
+        await store.markFailure("personal:u1:openai:a", authFailedClassified);
+        await store.markFailure("personal:u1:openai:b", authFailedClassified);
+      }
+      const out = await store.filterUsable([
+        "personal:u1:openai:a",
+        "personal:u1:openai:b",
+      ]);
       expect(out).toEqual([]);
     });
 
@@ -189,14 +215,40 @@ describe("KeyHealthStore", () => {
   });
 
   describe("markFailure / markSuccess state machine", () => {
-    it("401 → DEAD with cooldownUntil = MAX_SAFE_INTEGER", async () => {
+    it("single 401 → COOLDOWN (transient, not DEAD) with finite ~60s cooldown", async () => {
       const keyId = buildPersonalKeyId(userId, provider, "default");
+      const before = Date.now();
       await store.markFailure(keyId, authFailedClassified);
+      const rec = await store.get(keyId);
+      expect(rec.state).toBe("COOLDOWN");
+      expect(rec.cooldownUntil).toBeGreaterThanOrEqual(before + 60_000 - 100);
+      expect(rec.cooldownUntil).toBeLessThanOrEqual(before + 60_000 + 1000);
+      expect(rec.failureCount).toBe(1);
+      expect(rec.authFailureCount).toBe(1);
+      expect(rec.lastReason).toBe("AUTH_FAILED");
+    });
+
+    it("3 consecutive 401s → DEAD with cooldownUntil = MAX_SAFE_INTEGER", async () => {
+      const keyId = buildPersonalKeyId(userId, provider, "default");
+      for (let i = 0; i < 3; i++) {
+        await store.markFailure(keyId, authFailedClassified);
+      }
       const rec = await store.get(keyId);
       expect(rec.state).toBe("DEAD");
       expect(rec.cooldownUntil).toBe(Number.MAX_SAFE_INTEGER);
-      expect(rec.failureCount).toBe(1);
+      expect(rec.authFailureCount).toBe(3);
       expect(rec.lastReason).toBe("AUTH_FAILED");
+    });
+
+    it("a non-auth failure resets the auth-failure streak (no premature DEAD)", async () => {
+      const keyId = buildPersonalKeyId(userId, provider, "default");
+      await store.markFailure(keyId, authFailedClassified); // authStreak=1
+      await store.markFailure(keyId, authFailedClassified); // authStreak=2
+      await store.markFailure(keyId, rateLimitClassified); // resets streak → 0
+      await store.markFailure(keyId, authFailedClassified); // authStreak=1 again
+      const rec = await store.get(keyId);
+      expect(rec.state).not.toBe("DEAD");
+      expect(rec.authFailureCount).toBe(1);
     });
 
     it("429 → COOLDOWN with cooldownUntil ≈ now + 60s", async () => {
@@ -222,22 +274,33 @@ describe("KeyHealthStore", () => {
       expect(last).toBe(keyId);
     });
 
-    it("markFailure(401) clears LastGood if it was the dead key", async () => {
+    it("single 401 keeps LastGood; only DEAD escalation clears it", async () => {
       const keyId = buildPersonalKeyId(userId, provider, "default");
       await store.markSuccess(keyId);
       expect(await store.getLastGood(userId, provider)).toBe(keyId);
 
+      // 单次 401 → COOLDOWN，LastGood 保留（key 可能很快自愈）
       await store.markFailure(keyId, authFailedClassified);
+      expect(await store.getLastGood(userId, provider)).toBe(keyId);
+
+      // 再 2 次（streak 累计到 3）→ 升级 DEAD → 清掉 LastGood
+      await store.markFailure(keyId, authFailedClassified);
+      await store.markFailure(keyId, authFailedClassified);
+      expect((await store.get(keyId)).state).toBe("DEAD");
       expect(await store.getLastGood(userId, provider)).toBeNull();
     });
 
-    it("forceHealthy resets DEAD → HEALTHY", async () => {
+    it("forceHealthy resets DEAD → HEALTHY (simulates Test Connection success)", async () => {
       const keyId = buildPersonalKeyId(userId, provider, "default");
-      await store.markFailure(keyId, authFailedClassified);
+      for (let i = 0; i < 3; i++) {
+        await store.markFailure(keyId, authFailedClassified);
+      }
       expect((await store.get(keyId)).state).toBe("DEAD");
 
       await store.forceHealthy(keyId);
-      expect((await store.get(keyId)).state).toBe("HEALTHY");
+      const rec = await store.get(keyId);
+      expect(rec.state).toBe("HEALTHY");
+      expect(rec.authFailureCount).toBe(0);
     });
   });
 
