@@ -81,7 +81,7 @@ export class UserToolsService {
     const userKeySet = new Set(userSecrets.map((s) => s.name));
     const adminSecretSet = new Set(adminSecrets.map((s) => s.name));
     const grantTargetSet = new Set(grants.map((g) => g.targetId));
-    // byokMode 默认 STRICT（与 ToolKeyResolver 一致）：缺则不走平台兜底
+    // schema 默认 FALLBACK（工具开箱即用）；此处仅当 user 记录缺失/为 null 时保守不兜底。
     const fallback = user?.byokMode === "FALLBACK";
 
     return configurableTools.map((def) => {

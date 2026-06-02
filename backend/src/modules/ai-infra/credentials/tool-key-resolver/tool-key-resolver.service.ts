@@ -119,6 +119,8 @@ export class ToolKeyResolverService {
       where: { id: userId },
       select: { byokMode: true },
     });
+    // schema 默认 FALLBACK；此处 ?? STRICT 仅为 user 记录缺失（理论上不应发生）时的安全兜底，
+    // 不烧 admin 池。真实用户的默认由 DB 列 @default(FALLBACK) 决定。
     return user?.byokMode ?? ByokMode.STRICT;
   }
 
