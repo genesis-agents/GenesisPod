@@ -172,6 +172,50 @@ describe("AiChatRetryService", () => {
     });
   });
 
+  // ★ 2026-06-02 BYOK throttle resilience：401 智能退避重试
+  describe("withExponentialBackoff — smart 401 (transient throttle) retry", () => {
+    beforeEach(() => {
+      // 避免真实退避延迟拖慢测试
+      jest.spyOn(service, "sleep").mockResolvedValue(undefined);
+    });
+
+    const invalidKeyError = () => new Error("Invalid API key");
+
+    it("does NOT retry 401/INVALID_API_KEY by default (original behavior)", async () => {
+      const op = jest.fn().mockRejectedValue(invalidKeyError());
+
+      await expect(
+        service.withExponentialBackoff(op, "test-op", "agnes"),
+      ).rejects.toBeDefined();
+      expect(op).toHaveBeenCalledTimes(1); // 立即失败，不重试
+    });
+
+    it("retries 401 as transient when retryTransient401=true and recovers", async () => {
+      const op = jest
+        .fn()
+        .mockRejectedValueOnce(invalidKeyError())
+        .mockResolvedValueOnce("ok");
+
+      const res = await service.withExponentialBackoff(op, "test-op", "agnes", {
+        retryTransient401: true,
+      });
+
+      expect(res).toBe("ok");
+      expect(op).toHaveBeenCalledTimes(2); // 退避后第二次成功
+    });
+
+    it("gives up after max retries when 401 persists even with retryTransient401", async () => {
+      const op = jest.fn().mockRejectedValue(invalidKeyError());
+
+      await expect(
+        service.withExponentialBackoff(op, "test-op", "agnes", {
+          retryTransient401: true,
+        }),
+      ).rejects.toBeDefined();
+      expect(op).toHaveBeenCalledTimes(3); // MAX_RETRIES 后放弃
+    });
+  });
+
   // 2026-05-01 (PR-X-T): validateAIServiceAvailability 删除 — 该方法在 retry
   // service 是空 TODO stub，真实现在 ai-chat.service.ts 上；0 caller 调用 retry 的版本。
 
