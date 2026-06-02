@@ -67,4 +67,56 @@ describe("toOtelGenAiAttributes (PR-U)", () => {
     });
     expect(out).not.toHaveProperty("gen_ai.usage.cache_read_input_tokens");
   });
+
+  // ─── G8: operation.name from loopKind + error.type + response.id ───
+
+  it("maps an agent loop (loopKind present) to operation=invoke_agent", () => {
+    const out = toOtelGenAiAttributes("react.iter", {
+      modelId: "claude-opus-4-7",
+      loopKind: "react",
+    });
+    expect(out["gen_ai.operation.name"]).toBe("invoke_agent");
+  });
+
+  it("falls back to chat when no loopKind and not a tool/embed span", () => {
+    const out = toOtelGenAiAttributes("some.span", { modelId: "gpt-4o" });
+    expect(out["gen_ai.operation.name"]).toBe("chat");
+  });
+
+  it("maps embedding spans to operation=embeddings", () => {
+    const out = toOtelGenAiAttributes("embed.batch", {});
+    expect(out["gen_ai.operation.name"]).toBe("embeddings");
+  });
+
+  it("execute_tool takes priority even when loopKind is set", () => {
+    const out = toOtelGenAiAttributes("tool.web-search", {
+      loopKind: "react",
+      toolName: "web-search",
+    });
+    expect(out["gen_ai.operation.name"]).toBe("execute_tool");
+  });
+
+  it("emits error.type on failure (defaults when no finishReason)", () => {
+    const out = toOtelGenAiAttributes("react.iter", {
+      success: false,
+      finishReason: "PROVIDER_RATE_LIMIT",
+    });
+    expect(out["error.type"]).toBe("PROVIDER_RATE_LIMIT");
+    const out2 = toOtelGenAiAttributes("react.iter", { success: false });
+    expect(out2["error.type"]).toBe("agent_error");
+  });
+
+  it("does not emit error.type on success", () => {
+    const out = toOtelGenAiAttributes("react.iter", { success: true });
+    expect(out).not.toHaveProperty("error.type");
+  });
+
+  it("passes through gen_ai.response.id", () => {
+    const out = toOtelGenAiAttributes("react.iter", {
+      responseId: "resp_abc123",
+    });
+    expect(out["gen_ai.response.id"]).toBe("resp_abc123");
+    // not double-emitted as a raw passthrough key
+    expect(out).not.toHaveProperty("responseId");
+  });
 });

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-01T23:09:26.066Z",
+  "generatedAt": "2026-06-02T00:13:23.831Z",
   "count": 185,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -1266,35 +1266,35 @@
     },
     {
       "file": "modules/ai-harness/tracing/tracer/otel-semantic-conventions.ts",
-      "line": 53,
+      "line": 55,
       "column": 7,
       "kind": "method-call",
       "snippet": "m.startsWith(\"claude\")"
     },
     {
       "file": "modules/ai-harness/tracing/tracer/otel-semantic-conventions.ts",
-      "line": 55,
+      "line": 57,
       "column": 7,
       "kind": "method-call",
       "snippet": "m.startsWith(\"gpt\")"
     },
     {
       "file": "modules/ai-harness/tracing/tracer/otel-semantic-conventions.ts",
-      "line": 56,
+      "line": 58,
       "column": 7,
       "kind": "method-call",
       "snippet": "m.startsWith(\"gemini\")"
     },
     {
       "file": "modules/ai-harness/tracing/tracer/otel-semantic-conventions.ts",
-      "line": 57,
+      "line": 59,
       "column": 7,
       "kind": "method-call",
       "snippet": "m.startsWith(\"grok\")"
     },
     {
       "file": "modules/ai-harness/tracing/tracer/otel-semantic-conventions.ts",
-      "line": 59,
+      "line": 61,
       "column": 7,
       "kind": "method-call",
       "snippet": "m.startsWith(\"llama\")"
