@@ -11,6 +11,7 @@ import {
   UserModelConfigsService,
   AutoConfigureService,
 } from "@/modules/ai-harness/facade";
+import { KeyHealthStore } from "@/modules/ai-infra/credentials/health";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };
@@ -121,6 +122,7 @@ describe("UserModelConfigsAutoController", () => {
   let userModelConfigs: { findById: jest.Mock };
   let userApiKeys: { getPersonalKey: jest.Mock };
   let connectionTest: { testModelConnectionWithKey: jest.Mock };
+  let keyHealth: { forceHealthy: jest.Mock };
 
   const reqUser = { user: { id: "user-1", email: "u@x.com" } } as never;
 
@@ -129,6 +131,7 @@ describe("UserModelConfigsAutoController", () => {
     userModelConfigs = { findById: jest.fn() };
     userApiKeys = { getPersonalKey: jest.fn() };
     connectionTest = { testModelConnectionWithKey: jest.fn() };
+    keyHealth = { forceHealthy: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserModelConfigsAutoController],
@@ -137,6 +140,7 @@ describe("UserModelConfigsAutoController", () => {
         { provide: UserModelConfigsService, useValue: userModelConfigs },
         { provide: UserApiKeysService, useValue: userApiKeys },
         { provide: AiConnectionTestService, useValue: connectionTest },
+        { provide: KeyHealthStore, useValue: keyHealth },
       ],
     })
       .overrideGuard(JwtAuthGuard)
