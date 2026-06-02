@@ -142,7 +142,10 @@ export class AiModelDiscoveryService {
         default: {
           // OpenAI-compatible /models — 覆盖 OpenAI / xAI / DeepSeek / Qwen /
           // Doubao / Zhipu / Kimi / MiniMax / OpenRouter / Groq / 自建 vLLM 等。
-          const url = endpointResolved + "/models";
+          // 幂等：用户把 endpoint 误填成 .../v1/models 时不再二次追加成 .../models/models。
+          const url = endpointResolved.endsWith("/models")
+            ? endpointResolved
+            : endpointResolved + "/models";
           return await this.fetchOpenAICompatibleModels(
             url,
             apiKey,
