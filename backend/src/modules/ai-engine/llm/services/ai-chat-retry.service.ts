@@ -1,5 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { AIErrorClassifier, AIError } from "../abstractions/error-classifier";
+import {
+  AIErrorClassifier,
+  AIError,
+  AIErrorType,
+} from "../abstractions/error-classifier";
 
 /**
  * AI Chat Retry Service
@@ -154,6 +158,15 @@ export class AiChatRetryService {
     operation: () => Promise<T>,
     operationName: string,
     provider?: string,
+    opts?: {
+      /**
+       * ★ 2026-06-02 BYOK throttle resilience：把 401/INVALID_API_KEY 当**瞬时节流**退避重试。
+       * 仅当调用方确认这把 key 近期成功过（lastSuccessAt 新鲜）时传 true —— 此时 401 几乎必然是
+       * provider 在并发/速率压力下的假性鉴权失败（如 new-api 网关「无效的令牌」），而非真无效 key。
+       * 不传 / false 时保持原行为：INVALID_API_KEY 立即失败、不重试。
+       */
+      retryTransient401?: boolean;
+    },
   ): Promise<T> {
     const maxRetries = this.MAX_RETRIES;
     let lastError: Error | null = null;
@@ -165,14 +178,22 @@ export class AiChatRetryService {
         const aiError: AIError = this.errorClassifier.classify(error, provider);
         lastError = aiError;
 
+        // ★ 瞬时节流 401：key 近期健康时，把"非重试"的 INVALID_API_KEY 当作可退避重试。
+        const isTransient401 =
+          !!opts?.retryTransient401 &&
+          aiError.type === AIErrorType.INVALID_API_KEY;
+
         this.logger.warn(
-          `[${operationName}] Attempt ${attempt}/${maxRetries} failed: ${aiError.message} (type: ${aiError.type})`,
+          `[${operationName}] Attempt ${attempt}/${maxRetries} failed: ${aiError.message} (type: ${aiError.type}${isTransient401 ? ", treated as transient throttle" : ""})`,
         );
 
-        if (aiError.isRetryable() && attempt < maxRetries) {
+        if ((aiError.isRetryable() || isTransient401) && attempt < maxRetries) {
+          // 节流类用固定 base（3s）退避，给 provider 速率窗口恢复时间。
+          const baseDelay = isTransient401
+            ? 3000
+            : aiError.getRetryDelay() || 1000;
           const delay =
-            aiError.getRetryDelay() * Math.pow(2, attempt - 1) +
-            Math.random() * 500;
+            baseDelay * Math.pow(2, attempt - 1) + Math.random() * 500;
           this.logger.debug(
             `[${operationName}] Retrying in ${Math.round(delay)}ms...`,
           );
@@ -181,7 +202,7 @@ export class AiChatRetryService {
         }
 
         this.logger.error(
-          `[${operationName}] ${aiError.isRetryable() ? "Max retries exceeded" : "Non-retryable error"}: ${aiError.message}`,
+          `[${operationName}] ${aiError.isRetryable() || isTransient401 ? "Max retries exceeded" : "Non-retryable error"}: ${aiError.message}`,
         );
         throw aiError;
       }

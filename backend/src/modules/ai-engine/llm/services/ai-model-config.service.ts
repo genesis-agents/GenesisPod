@@ -714,6 +714,27 @@ export class AiModelConfigService {
   }
 
   /**
+   * ★ 2026-06-02 BYOK throttle resilience：取某用户某模型显式配置的速率上限。
+   * 仅返回用户在 UserModelConfig 里**显式填过**的 rpmLimit/tpmLimit（null = 未配 = 不限流）。
+   * 用于让"添加模型配置"里填的 RPM 真正生效（此前是死配置）。查询失败/无配 → null。
+   */
+  async getRateLimitForUserModel(
+    userId: string,
+    modelId: string,
+  ): Promise<{ rpmLimit: number | null; tpmLimit: number | null } | null> {
+    try {
+      const cfg = await this.prisma.userModelConfig.findFirst({
+        where: { userId, modelId, isEnabled: true },
+        select: { rpmLimit: true, tpmLimit: true },
+        orderBy: { updatedAt: "desc" },
+      });
+      return cfg ? { rpmLimit: cfg.rpmLimit, tpmLimit: cfg.tpmLimit } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * 项目唯一 BYOK 选模型入口 —— 所有 AI 入口（chat / embedding / image / rerank...）
    * 都调这个，**不要在 service 里写自己的版本**。
    *

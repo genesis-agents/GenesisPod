@@ -17,10 +17,7 @@ import {
  *   按 user 隔离，避免一个重 mission 饿死别的用户。默认 6，env 可调。
  */
 const PROVIDER_MAX_CONCURRENCY = (() => {
-  const n = Number.parseInt(
-    process.env.LLM_PROVIDER_MAX_CONCURRENCY ?? "",
-    10,
-  );
+  const n = Number.parseInt(process.env.LLM_PROVIDER_MAX_CONCURRENCY ?? "", 10);
   return Number.isFinite(n) && n > 0 ? n : 6;
 })();
 
@@ -237,6 +234,25 @@ export class KeyExecutorService {
   ): Promise<void> {
     await this.healthStore.markSuccess(healthKeyId, provider, userId);
     await this.resolver.persistOutcome(healthKeyId, { ok: true });
+  }
+
+  /**
+   * ★ 2026-06-02 BYOK throttle resilience：判断某 key 是否「近期成功过」。
+   * 用于区分 401 是「真无效 key」还是「provider 并发/速率压力下的瞬时假性鉴权失败」——
+   * 近期成功过 → 401 几乎必然是瞬时节流，应退避重试而非立即放弃。
+   * 默认窗口 15 分钟。无记录 / 查询失败时返回 false（保守：按原行为不重试）。
+   */
+  async isKeyRecentlyHealthy(
+    healthKeyId: string,
+    windowMs = 15 * 60 * 1000,
+  ): Promise<boolean> {
+    try {
+      const record = await this.healthStore.get(healthKeyId);
+      if (!record?.lastSuccessAt) return false;
+      return Date.now() - record.lastSuccessAt <= windowMs;
+    } catch {
+      return false;
+    }
   }
 
   async trackFailure(

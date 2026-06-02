@@ -52,6 +52,57 @@ export class AiChatFailoverCallerService {
     return this.keyExecutor != null;
   }
 
+  // ★ 2026-06-02 BYOK throttle resilience — rpm 节流（opt-in，pod 内单例）
+  /** per-(user+model) 下一可用时隙时间戳；用于按 rpm 均匀间隔放行 */
+  private readonly rpmNextSlotAt = new Map<string, number>();
+  /** rpmLimit 查询的短 TTL 缓存，避免每次 LLM 调用都打 DB */
+  private readonly rpmCache = new Map<
+    string,
+    { rpm: number | null; at: number }
+  >();
+  private static readonly RPM_CACHE_TTL_MS = 60_000;
+  private static readonly RPM_MAX_WAIT_MS = 120_000;
+
+  /**
+   * 让用户在「添加模型配置」里显式配的 rpmLimit 真正生效：按 rpm 均匀间隔放行调用，
+   * 从源头避免把弱 provider（如 Agnes Starter 套餐 1500 次/5h）打到节流 401。
+   * **严格 opt-in**：未配 rpmLimit（null/<=0）→ 直接返回，零行为变化。
+   * 单 pod 进程内节流（与 keyExecutor 并发槽同范围）；多 pod 由各自承担其份额。
+   */
+  private async paceByConfiguredRpm(
+    userId: string,
+    modelId: string,
+  ): Promise<void> {
+    const cacheKey = `${userId}:${modelId}`;
+    const now = Date.now();
+    let entry = this.rpmCache.get(cacheKey);
+    if (
+      !entry ||
+      now - entry.at > AiChatFailoverCallerService.RPM_CACHE_TTL_MS
+    ) {
+      const rl = await this.modelConfigService.getRateLimitForUserModel(
+        userId,
+        modelId,
+      );
+      entry = { rpm: rl?.rpmLimit ?? null, at: now };
+      this.rpmCache.set(cacheKey, entry);
+    }
+    const rpm = entry.rpm;
+    if (!rpm || rpm <= 0) return; // opt-in：未配 → 不节流
+
+    const intervalMs = 60_000 / rpm;
+    const t = Date.now();
+    // 同步预订下一时隙（在任何 await 之前完成 → 并发安全，不会两路抢同一时隙）
+    const scheduledAt = Math.max(t, this.rpmNextSlotAt.get(cacheKey) ?? 0);
+    this.rpmNextSlotAt.set(cacheKey, scheduledAt + intervalMs);
+    const wait = scheduledAt - t;
+    if (wait > 0) {
+      await this.retryService.sleep(
+        Math.min(wait, AiChatFailoverCallerService.RPM_MAX_WAIT_MS),
+      );
+    }
+  }
+
   /**
    * 为流式路径（chatStream 不走 execute()）占用 per-(user+provider) 并发槽。
    * 返回 release 函数；keyExecutor 不可用时返回 null（调用方跳过节流）。
@@ -138,6 +189,10 @@ export class AiChatFailoverCallerService {
     const timeout = Math.max(computedTimeout, configuredTimeout);
     const useStrictMode = optionStrictMode ?? false;
     const effectiveTemperature = supportsTemp ? temperature : undefined;
+
+    // ★ rpm 节流（opt-in）：用户显式配了该模型 rpmLimit 时，按 rpm 均匀放行，
+    //   从源头避免把弱 provider 打到节流 401。未配则零开销 no-op。
+    await this.paceByConfiguredRpm(userId, modelId);
 
     try {
       const result = await this.keyExecutor.execute(
@@ -244,12 +299,18 @@ export class AiChatFailoverCallerService {
                 );
             }
           };
+          // ★ 2026-06-02 BYOK throttle resilience：若这把 key 近期成功过，则把 401 当
+          //   provider 并发/速率压力下的瞬时假性鉴权失败（如 Agnes new-api 网关「无效的令牌」），
+          //   退避重试而非立即放弃 —— 否则单 key 用户撞一次节流整章就阵亡。
+          const keyRecentlyHealthy =
+            await this.keyExecutor!.isKeyRecentlyHealthy(key.healthKeyId);
           // 内层重试：同一把 key 上的 5xx 走 retryService 指数退避；
           // 抛出后 KeyExecutor 才接管 key 切换
           return await this.retryService.withExponentialBackoff(
             apiCall,
             `callAPIWithFailover [${modelId}|${key.healthKeyId}]`,
             provider,
+            { retryTransient401: keyRecentlyHealthy },
           );
         },
       );
