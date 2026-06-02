@@ -5,6 +5,7 @@ export {
   SimpleAllowlistSelector,
 } from "./tool-selector";
 export { ToolSelectorRegistry } from "./tool-selector-registry";
+export { SemanticToolSelector } from "./semantic-tool-selector";
 export {
   type IResultFusion,
   type FusionInput,

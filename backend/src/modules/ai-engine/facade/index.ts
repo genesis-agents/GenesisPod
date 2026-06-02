@@ -151,6 +151,18 @@ export type {
 export { ToolRegistry } from "../tools/registry/tool.registry";
 export { SkillRegistry } from "../skills/registry/skill.registry";
 
+// ★ 2026-06-02: 通用语义打分路由 core（LLM/Tools/Skills 共用）
+export { ScoredRouterService } from "../routing/scored-router.service";
+export { defaultScorers } from "../routing/signal-scorers";
+export type {
+  RoutableCandidate,
+  RouteQuery,
+  RouteResult,
+  RouteScore,
+  SignalScorer,
+  CandidateSignals,
+} from "../routing/routing.types";
+
 // ★ P17a (2026-05-24): 通用 ContentSource 契约 + Registry
 //   任何 ai-app 暴露内容源都实现 ContentSource、注册到 ContentSourceRegistry。
 //   consumer (ai-app/social / 未来其他 app) 注入 ContentSourceRegistry，
