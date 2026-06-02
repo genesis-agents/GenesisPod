@@ -390,15 +390,14 @@ describe("AIFacade chat() — circuit breaker", () => {
 describe("AIFacade chat() — constraints", () => {
   let facade: AIFacade;
   let chatSvc: ReturnType<typeof makeChatService>;
-  let rateLimiter: { check: jest.Mock; consume: jest.Mock };
+  let rateLimiter: { checkAndConsume: jest.Mock };
   let costController: { checkBudget: jest.Mock };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     chatSvc = makeChatService();
     rateLimiter = {
-      check: jest.fn().mockReturnValue({ allowed: true, retryAfter: 0 }),
-      consume: jest.fn(),
+      checkAndConsume: jest.fn().mockResolvedValue({ allowed: true }),
     };
     costController = {
       checkBudget: jest.fn().mockReturnValue({ allowed: true }),
@@ -413,7 +412,10 @@ describe("AIFacade chat() — constraints", () => {
   });
 
   it("returns rate limit error when rate limiter says not allowed", async () => {
-    rateLimiter.check.mockReturnValue({ allowed: false, retryAfter: 3000 });
+    rateLimiter.checkAndConsume.mockResolvedValue({
+      allowed: false,
+      retryAfterMs: 3000,
+    });
 
     const result = await facade.chat({
       messages: [{ role: "user", content: "Hi" }],
@@ -446,7 +448,9 @@ describe("AIFacade chat() — constraints", () => {
       billing: { userId: "user-123", moduleType: "chat", operationType: "ask" },
     });
 
-    expect(rateLimiter.consume).toHaveBeenCalledWith("user-123");
+    expect(rateLimiter.checkAndConsume).toHaveBeenCalledWith("chat", {
+      tenantId: "user-123",
+    });
   });
 
   it("uses global key for rate limiting when no billing userId", async () => {
@@ -454,7 +458,9 @@ describe("AIFacade chat() — constraints", () => {
       messages: [{ role: "user", content: "Hi" }],
     });
 
-    expect(rateLimiter.consume).toHaveBeenCalledWith("global");
+    expect(rateLimiter.checkAndConsume).toHaveBeenCalledWith("chat", {
+      tenantId: "global",
+    });
   });
 });
 

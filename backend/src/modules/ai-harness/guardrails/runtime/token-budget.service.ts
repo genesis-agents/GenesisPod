@@ -104,8 +104,8 @@ function reviveRecord(raw: TokenUsageRecord): TokenUsageRecord {
  * 状态存储在 Redis（通过 CacheService），支持 multi-pod 一致计数。
  */
 @Injectable()
-export class TokenBudgetService {
-  private readonly logger = new Logger(TokenBudgetService.name);
+export class MissionTokenLedger {
+  private readonly logger = new Logger(MissionTokenLedger.name);
 
   constructor(private readonly cache: CacheService) {}
 

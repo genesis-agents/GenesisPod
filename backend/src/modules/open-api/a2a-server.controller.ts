@@ -39,7 +39,7 @@ import {
   A2ATaskStatusResponse,
   A2ATaskStatus,
 } from "../ai-harness/protocols/a2a/a2a.types";
-import type { ConstraintProfile } from "../ai-harness/teams/constraints/constraint-profile";
+import type { ConstraintProfile } from "../ai-harness/guardrails/constraints/constraint-profile";
 import type { TeamId } from "../ai-harness/teams/abstractions/team.interface";
 import {
   TEAMS_SERVICE_TOKEN,

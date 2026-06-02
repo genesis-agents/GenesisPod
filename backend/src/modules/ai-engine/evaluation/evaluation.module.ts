@@ -1,6 +1,6 @@
 /**
- * AI Engine - Quality Module
- * 质量控制模块
+ * AI Engine - Evaluation Module
+ * 评估原语聚合（质量检查器层）—— 与 ai-harness/evaluation 编排层成 L2/L2.5 对
  */
 
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
@@ -29,8 +29,8 @@ import { CoherenceChecker } from "./checkers/coherence.checker";
     CoherenceChecker,
   ],
 })
-export class QualityModule implements OnModuleInit {
-  private readonly logger = new Logger(QualityModule.name);
+export class AiEngineEvaluationModule implements OnModuleInit {
+  private readonly logger = new Logger(AiEngineEvaluationModule.name);
 
   constructor(
     private readonly qualityGate: QualityGateService,

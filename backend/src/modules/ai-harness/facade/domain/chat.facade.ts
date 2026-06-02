@@ -22,7 +22,7 @@ import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 import { ModelFallbackService } from "../../../ai-engine/llm/selection/model-fallback.service";
-import { TaskCompletionType } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
+import { TaskCompletionType } from "../../../ai-engine/reliability/entity-health/entity-health.registry";
 import {
   CreditsService,
   BillingContext,
@@ -351,20 +351,20 @@ export class ChatFacade {
   ): Promise<ChatResponse | null> {
     if (this.constraint?.rateLimiter) {
       const rateLimitKey = request.billing?.userId || "global";
-      const rateLimitResult =
-        await this.constraint.rateLimiter.check(rateLimitKey);
-      if (!rateLimitResult.allowed) {
+      const rl = await this.constraint.rateLimiter.checkAndConsume("chat", {
+        tenantId: rateLimitKey,
+      });
+      if (!rl.allowed) {
         this.logger.warn(
-          `[chat] Rate limited for key=${rateLimitKey}, retryAfter=${rateLimitResult.retryAfter}ms`,
+          `[chat] Rate limited for key=${rateLimitKey}, retryAfter=${rl.retryAfterMs}ms`,
         );
         return {
-          content: `Rate limit exceeded. Please try again in ${Math.ceil((rateLimitResult.retryAfter || 0) / 1000)} seconds.`,
+          content: `Rate limit exceeded. Please try again in ${Math.ceil((rl.retryAfterMs || 0) / 1000)} seconds.`,
           model: modelId,
           tokensUsed: 0,
           isError: true,
         };
       }
-      await this.constraint.rateLimiter.consume(rateLimitKey);
     }
 
     if (this.constraint?.costController) {

@@ -100,8 +100,8 @@ export interface HealthMetrics {
  * 4. 提供健康指标用于智能负载均衡
  */
 @Injectable()
-export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(CircuitBreakerService.name);
+export class EntityHealthRegistry implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(EntityHealthRegistry.name);
 
   // Redis key 前缀
   private static readonly REDIS_PREFIX = "circuit-breaker:";
@@ -565,7 +565,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
     this.currentLoad.clear();
     if (this.cacheService) {
       this.cacheService
-        .del(`${CircuitBreakerService.REDIS_PREFIX}_index`)
+        .del(`${EntityHealthRegistry.REDIS_PREFIX}_index`)
         .catch((err) =>
           this.logger.warn(`[CircuitBreaker] Redis resetAll failed: ${err}`),
         );
@@ -691,13 +691,13 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
     if (!this.cacheService) return;
     try {
       const index = await this.cacheService.get<string[]>(
-        `${CircuitBreakerService.REDIS_PREFIX}_index`,
+        `${EntityHealthRegistry.REDIS_PREFIX}_index`,
       );
       if (!index || index.length === 0) return;
       let loaded = 0;
       for (const entityId of index) {
         const state = await this.cacheService.get<CircuitBreakerState>(
-          `${CircuitBreakerService.REDIS_PREFIX}${entityId}`,
+          `${EntityHealthRegistry.REDIS_PREFIX}${entityId}`,
         );
         if (state) {
           // Restore Date objects (Redis serializes to strings)
@@ -728,7 +728,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
     const ttlSeconds = Math.ceil(this.config.inactiveTtlMs / 1000);
     Promise.all([
       this.cacheService.set(
-        `${CircuitBreakerService.REDIS_PREFIX}${entityId}`,
+        `${EntityHealthRegistry.REDIS_PREFIX}${entityId}`,
         state,
         ttlSeconds,
       ),
@@ -743,7 +743,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
   private deleteFromRedis(entityId: string): void {
     if (!this.cacheService) return;
     Promise.all([
-      this.cacheService.del(`${CircuitBreakerService.REDIS_PREFIX}${entityId}`),
+      this.cacheService.del(`${EntityHealthRegistry.REDIS_PREFIX}${entityId}`),
       this.updateRedisIndex(entityId, "remove"),
     ]).catch((err) =>
       this.logger.warn(
@@ -757,7 +757,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
     action: "add" | "remove",
   ): Promise<void> {
     if (!this.cacheService) return;
-    const indexKey = `${CircuitBreakerService.REDIS_PREFIX}_index`;
+    const indexKey = `${EntityHealthRegistry.REDIS_PREFIX}_index`;
     const ttlSeconds = Math.ceil(this.config.inactiveTtlMs / 1000);
     const index = (await this.cacheService.get<string[]>(indexKey)) || [];
     if (action === "add") {

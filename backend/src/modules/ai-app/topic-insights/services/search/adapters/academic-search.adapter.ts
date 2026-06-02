@@ -10,7 +10,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { CircuitBreakerService } from "@/modules/ai-harness/facade";
+import { EntityHealthRegistry } from "@/modules/ai-harness/facade";
 import { SessionLatencyTrackerService } from "@/modules/ai-harness/facade";
 import { ToolRegistry } from "@/modules/ai-harness/facade";
 import { DataSourceType } from "../../../types/data-source.types";
@@ -43,7 +43,7 @@ export class AcademicSearchAdapter extends SearchAdapterBase {
   constructor(
     private readonly toolRegistry: ToolRegistry,
     private readonly throttle: GlobalSourceThrottleService,
-    @Optional() circuitBreaker?: CircuitBreakerService,
+    @Optional() circuitBreaker?: EntityHealthRegistry,
     @Optional() latencyTracker?: SessionLatencyTrackerService,
   ) {
     super(circuitBreaker, latencyTracker);

@@ -1,20 +1,20 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import {
-  TokenBudgetService,
+  ContextBudgetCalculator,
   TokenBudget,
   ContentPriority,
   ModelConfig,
 } from "../token-budget.service";
 
-describe("TokenBudgetService", () => {
-  let service: TokenBudgetService;
+describe("ContextBudgetCalculator", () => {
+  let service: ContextBudgetCalculator;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TokenBudgetService],
+      providers: [ContextBudgetCalculator],
     }).compile();
 
-    service = module.get(TokenBudgetService);
+    service = module.get(ContextBudgetCalculator);
   });
 
   // ─── countTokens ────────────────────────────────────────────────────────────

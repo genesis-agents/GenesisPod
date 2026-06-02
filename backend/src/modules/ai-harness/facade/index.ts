@@ -99,7 +99,9 @@ export {
 
 // â˜… Planning & Knowledge services
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { TokenBudgetService } from "../../ai-engine/planning/budget/token-budget.service";
+export { ContextBudgetCalculator } from "../../ai-engine/planning/budget/token-budget.service";
+/** @deprecated use ContextBudgetCalculator; engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
+export { ContextBudgetCalculator as TokenBudgetService } from "../../ai-engine/planning/budget/token-budget.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { ContextCompressionService } from "../../ai-engine/planning/context/context-compression.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
@@ -910,7 +912,7 @@ export { ResourceManagerService } from "../guardrails/resources/resource-manager
 // PR-X15: 通过 engine/facade barrel 转发，不穿透 engine 私有路径
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export {
-  CircuitBreakerService,
+  EntityHealthRegistry,
   TaskCompletionType,
 } from "../../ai-engine/facade";
 export type {
@@ -929,15 +931,9 @@ export type {
   BudgetPeriod,
   ModelPricing,
 } from "../guardrails/resources/cost-controller";
-export { RateLimiter, TokenBucket } from "../guardrails/resources/rate-limiter";
-export type {
-  RateLimitResult,
-  RateLimitConfig,
-} from "../guardrails/resources/rate-limiter";
-// 注：harness 内部有一个 generic TokenBudgetService（mission-level token tracker），
-// 与 ai-engine/llm/budget/token-budget.service.ts 同名但语义不同
-// （后者带 smartTruncate 用于上下文窗口分配）。为避免 DI / import 歧义，
-// 不在 facade 导出 harness 版本；ai-app 需要 token 预算请用 ai-engine/facade 的 TokenBudgetService。
+// 注：harness 内部有 MissionTokenLedger（mission-level token tracker，原 TokenBudgetService），
+// 与 ai-engine/planning/budget/ContextBudgetCalculator（原 TokenBudgetService）同名已消歧。
+// MissionTokenLedger 不在 facade 导出；ai-app 需要 context sizing 请用 ai-engine/facade 的 ContextBudgetCalculator。
 export { HealthCheckRunner } from "../guardrails/resources/health-check-runner";
 export type { HealthCheckRunnerConfig } from "../guardrails/resources/health-check-runner";
 export { RuntimeEnvironmentService } from "../guardrails/runtime/runtime-environment.service";
@@ -1202,13 +1198,13 @@ export type {
   A2APriority,
   A2AMessageHandler,
 } from "../protocols/ipc/abstractions/a2a-message.types";
-export type { ConstraintProfile } from "../teams/constraints/constraint-profile";
-export { createConstraintProfile } from "../teams/constraints/constraint-profile";
+export type { ConstraintProfile } from "../guardrails/constraints/constraint-profile";
+export { createConstraintProfile } from "../guardrails/constraints/constraint-profile";
 export type {
   IConstraintEngine,
   ConstraintEvaluation,
   ConstraintViolation as ConstraintEngineViolation,
-} from "../teams/constraints/constraint-engine.interface";
+} from "../guardrails/constraints/constraint-engine.interface";
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Runtime: mission + budget + billing + kernel-api

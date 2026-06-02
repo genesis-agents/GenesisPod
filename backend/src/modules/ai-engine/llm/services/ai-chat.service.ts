@@ -33,9 +33,9 @@ import {
 // 的回环加载，在 module-evaluation 阶段产生 undefined class ref，Nest DI 随后
 // 报 "LlmExecutor dependency at index [0]"。全部改直接相对路径。
 import {
-  CircuitBreakerService,
+  EntityHealthRegistry,
   TaskCompletionType,
-} from "../../safety/resilience/circuit-breaker.service";
+} from "../../reliability/entity-health/entity-health.registry";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { randomUUID } from "crypto";
 // ★ 拆分后的子服务
@@ -276,7 +276,7 @@ export class AiChatService {
     @Optional() private readonly aiMetricsService?: AIMetricsService,
     @Optional()
     private readonly guardrailsPipeline?: GuardrailsPipelineService,
-    @Optional() private readonly circuitBreaker?: CircuitBreakerService,
+    @Optional() private readonly circuitBreaker?: EntityHealthRegistry,
     @Optional()
     private readonly connectionTestService?: AiConnectionTestService,
     @Optional()

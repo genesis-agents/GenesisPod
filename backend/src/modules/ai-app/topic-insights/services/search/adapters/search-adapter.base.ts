@@ -10,7 +10,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import {
-  CircuitBreakerService,
+  EntityHealthRegistry,
   TaskCompletionType,
 } from "@/modules/ai-harness/facade";
 import { SessionLatencyTrackerService } from "@/modules/ai-harness/facade";
@@ -37,7 +37,7 @@ export abstract class SearchAdapterBase implements ISearchAdapter {
   abstract readonly defaultTimeoutMs: number;
 
   constructor(
-    @Optional() protected readonly circuitBreaker?: CircuitBreakerService,
+    @Optional() protected readonly circuitBreaker?: EntityHealthRegistry,
     @Optional()
     protected readonly latencyTracker?: SessionLatencyTrackerService,
   ) {}

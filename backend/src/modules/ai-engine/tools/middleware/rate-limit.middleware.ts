@@ -14,7 +14,7 @@ import { Logger } from "@nestjs/common";
 import { ITool, ToolContext } from "../abstractions/tool.interface";
 import { ToolError } from "../abstractions/tool.error";
 import { IToolMiddleware } from "./middleware.interface";
-import { RateLimitService } from "../../safety/resilience/rate-limit.service";
+import { RateLimitService } from "../../reliability/rate-limit/rate-limit.service";
 
 export class RateLimitMiddleware implements IToolMiddleware {
   readonly name = "rate-limit";

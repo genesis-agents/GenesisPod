@@ -34,7 +34,7 @@ import {
   CreateMissionDto,
 } from "../teams/services/teams.service";
 import type { MissionEvent } from "../agents/abstractions/mission.types";
-import { TaskCompletionType } from "../../ai-engine/safety/resilience/circuit-breaker.service";
+import { TaskCompletionType } from "../../ai-engine/reliability/entity-health/entity-health.registry";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallback.service";
 import {
@@ -169,7 +169,7 @@ import type {
   SkillPromptOptions,
 } from "../../ai-harness/runner/capabilities/types";
 import type { SkillMdDefinition } from "../../ai-engine/skills/types/skill-md.types";
-import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
+import { EntityHealthRegistry } from "../../ai-engine/reliability/entity-health/entity-health.registry";
 import { AgentExecutorService } from "../runner/executor/agent-executor.service";
 // TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../ai-engine/planning/intent/intent-detection.service";
@@ -529,20 +529,20 @@ export class AIFacade {
   ): Promise<ChatResponse | null> {
     if (this.constraint?.rateLimiter) {
       const rateLimitKey = request.billing?.userId || "global";
-      const rateLimitResult =
-        await this.constraint.rateLimiter.check(rateLimitKey);
-      if (!rateLimitResult.allowed) {
+      const rl = await this.constraint.rateLimiter.checkAndConsume("chat", {
+        tenantId: rateLimitKey,
+      });
+      if (!rl.allowed) {
         this.logger.warn(
-          `[chat] Rate limited for key=${rateLimitKey}, retryAfter=${rateLimitResult.retryAfter}ms`,
+          `[chat] Rate limited for key=${rateLimitKey}, retryAfter=${rl.retryAfterMs}ms`,
         );
         return {
-          content: `Rate limit exceeded. Please try again in ${Math.ceil((rateLimitResult.retryAfter || 0) / 1000)} seconds.`,
+          content: `Rate limit exceeded. Please try again in ${Math.ceil((rl.retryAfterMs || 0) / 1000)} seconds.`,
           model: modelId,
           tokensUsed: 0,
           isError: true,
         };
       }
-      await this.constraint.rateLimiter.consume(rateLimitKey);
     }
 
     if (this.constraint?.costController) {
@@ -2853,8 +2853,8 @@ export class AIFacade {
 
   // ==================== 编排服务（Orchestration）直接访问 ====================
 
-  /** 获取 CircuitBreakerService（用于 Teams 执行层负载控制） */
-  get circuitBreaker(): CircuitBreakerService | undefined {
+  /** 获取 EntityHealthRegistry（用于 Teams 执行层负载控制） */
+  get circuitBreaker(): EntityHealthRegistry | undefined {
     return this.orchestration?.circuitBreaker;
   }
 

@@ -9,7 +9,7 @@ import { EventJournalService } from "../../protocols/journal/event-journal.servi
 import { ProcessMemoryManagerService } from "../../memory/working/process-memory-manager.service";
 import { ResourceManagerService } from "../../guardrails/resources/resource-manager.service";
 import { MissionExecutorService } from "../../lifecycle/manager/mission-executor.service";
-import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
+import { EntityHealthRegistry } from "../../../ai-engine/reliability/entity-health/entity-health.registry";
 import { EventBusService } from "../../protocols/ipc/event-bus.service";
 import { MessageBusService } from "../../protocols/ipc/message-bus.service";
 import { ProgressTrackerService } from "../../protocols/ipc/progress-tracker.service";
@@ -42,7 +42,7 @@ export class HarnessApiService {
     private readonly memoryManager: ProcessMemoryManagerService,
     private readonly resourceManager: ResourceManagerService,
     private readonly missionExecutor: MissionExecutorService,
-    private readonly circuitBreaker: CircuitBreakerService,
+    private readonly circuitBreaker: EntityHealthRegistry,
     private readonly eventBus: EventBusService,
     private readonly messageBus: MessageBusService,
     private readonly progressTracker: ProgressTrackerService,

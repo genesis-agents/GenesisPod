@@ -10,7 +10,7 @@ import { AiApiCallerService } from "../ai-api-caller.service";
 import { AiStreamHandlerService } from "../ai-stream-handler.service";
 import { AIMetricsService } from "@/modules/ai-infra/monitoring";
 import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
-import { CircuitBreakerService } from "../../../safety/resilience/circuit-breaker.service";
+import { EntityHealthRegistry } from "../../../reliability/entity-health/entity-health.registry";
 import { AiConnectionTestService } from "../ai-connection-test.service";
 import { AiModelDiscoveryService } from "../ai-model-discovery.service";
 import { AiDirectKeyService } from "../ai-direct-key.service";
@@ -90,7 +90,7 @@ describe("AiChatService.chat() — model-level failover wrapper", () => {
         { provide: AiChatRetryService, useValue: {} },
         { provide: AIMetricsService, useValue: { recordMetric: noop } },
         { provide: GuardrailsPipelineService, useValue: {} },
-        { provide: CircuitBreakerService, useValue: {} },
+        { provide: EntityHealthRegistry, useValue: {} },
         { provide: AiConnectionTestService, useValue: {} },
         { provide: AiModelDiscoveryService, useValue: {} },
         { provide: AiDirectKeyService, useValue: {} },

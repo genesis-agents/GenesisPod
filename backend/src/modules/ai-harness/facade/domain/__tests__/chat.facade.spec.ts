@@ -220,8 +220,7 @@ describe("ChatFacade", () => {
 
     beforeEach(async () => {
       mockRateLimiter = {
-        check: jest.fn().mockReturnValue({ allowed: true }),
-        consume: jest.fn(),
+        checkAndConsume: jest.fn().mockResolvedValue({ allowed: true }),
       };
       mockCostController = {
         checkBudget: jest.fn().mockReturnValue({ allowed: true }),
@@ -259,9 +258,9 @@ describe("ChatFacade", () => {
     });
 
     it("should enforce rate limit and return error when exceeded", async () => {
-      mockRateLimiter.check.mockReturnValue({
+      mockRateLimiter.checkAndConsume.mockResolvedValue({
         allowed: false,
-        retryAfter: 3000,
+        retryAfterMs: 3000,
       });
 
       const result = await facadeWithConstraints.chat({
@@ -292,7 +291,7 @@ describe("ChatFacade", () => {
         messages: [{ role: "user", content: "Test" }],
       });
 
-      expect(mockRateLimiter.consume).toHaveBeenCalled();
+      expect(mockRateLimiter.checkAndConsume).toHaveBeenCalled();
     });
   });
 

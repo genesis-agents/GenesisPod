@@ -18,7 +18,7 @@ import { EventJournalService } from "../../protocols/journal/event-journal.servi
 import { ProcessMemoryManagerService } from "../../memory/working/process-memory-manager.service";
 import { ResourceManagerService } from "../../guardrails/resources/resource-manager.service";
 import { MissionExecutorService } from "@/modules/ai-harness/lifecycle/manager/mission-executor.service";
-import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
+import { EntityHealthRegistry } from "../../../ai-engine/reliability/entity-health/entity-health.registry";
 import { EventBusService } from "../../protocols/ipc/event-bus.service";
 import { MessageBusService } from "../../protocols/ipc/message-bus.service";
 import { ProgressTrackerService } from "../../protocols/ipc/progress-tracker.service";
@@ -177,7 +177,7 @@ describe("HarnessApiService", () => {
         { provide: ProcessMemoryManagerService, useValue: mockMemoryManager },
         { provide: ResourceManagerService, useValue: mockResourceManager },
         { provide: MissionExecutorService, useValue: mockMissionExecutor },
-        { provide: CircuitBreakerService, useValue: mockCircuitBreaker },
+        { provide: EntityHealthRegistry, useValue: mockCircuitBreaker },
         { provide: EventBusService, useValue: mockEventBus },
         { provide: MessageBusService, useValue: mockMessageBus },
         { provide: ProgressTrackerService, useValue: mockProgressTracker },

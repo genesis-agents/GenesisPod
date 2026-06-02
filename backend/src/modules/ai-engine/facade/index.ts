@@ -242,9 +242,11 @@ export { ContextCompressionService } from "../planning/context/context-compressi
 //   - FactExtractionRequest / FactExtractionResult / ContextEvolutionConfig
 // ai-app 改从 @/modules/ai-harness/facade 引入这些符号。
 
-// TokenBudgetService 是 engine 自有（llm/budget/token-budget.service.ts），
+// ContextBudgetCalculator (formerly TokenBudgetService) 是 engine 自有（planning/budget/），
 // 修复原 reverse path（engine→harness→engine 绕一圈）为直接 engine 自身
-export { TokenBudgetService } from "../planning/budget/token-budget.service";
+export { ContextBudgetCalculator } from "../planning/budget/token-budget.service";
+/** @deprecated use ContextBudgetCalculator */
+export { ContextBudgetCalculator as TokenBudgetService } from "../planning/budget/token-budget.service";
 export type {
   ModelConfig as TokenBudgetModelConfig,
   TokenBudget,
@@ -729,14 +731,22 @@ export type { CachePrefix } from "@/modules/ai-engine/llm/services/prompt-cache-
 // 供 ai-harness/facade 转发，避免 harness 穿透 engine 私有路径）
 // ════════════════════════════════════════════════════════════════════
 export {
-  CircuitBreakerService,
+  EntityHealthRegistry,
   TaskCompletionType,
-} from "../safety/resilience/circuit-breaker.service";
+} from "../reliability/entity-health/entity-health.registry";
 export type {
   CircuitState,
   CircuitBreakerConfig,
   HealthMetrics,
-} from "../safety/resilience/circuit-breaker.service";
+} from "../reliability/entity-health/entity-health.registry";
+export {
+  RateLimitService,
+  RateLimitedError,
+} from "../reliability/rate-limit/rate-limit.service";
+export type {
+  RateLimitConfig as EngineRateLimitConfig,
+  RateLimitCheckResult,
+} from "../reliability/rate-limit/rate-limit.service";
 export { CapabilityGuardService } from "../safety/security/capability-guard.service";
 export type { CapabilityCheckResult } from "../safety/security/capability.types";
 // SSRF / 出站防护(platform-review wave1)：项目唯一统一出站闸门，ai-app / open-api 经此复用

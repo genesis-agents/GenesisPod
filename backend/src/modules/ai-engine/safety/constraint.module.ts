@@ -14,19 +14,15 @@ import { Global, Module, OnModuleInit, Logger } from "@nestjs/common";
 import { CacheModule } from "@/common/cache/cache.module";
 
 // Validators
-import { SchemaValidator } from "./constraint/validators/schema-validator";
-
-// Resilience（PR-X3：通用熔断器从 harness 搬到 engine）
-import { CircuitBreakerService } from "./resilience/circuit-breaker.service";
-// W1-a-fixup（2026-05-04）：rate-limit 从误分类的 plugin 形态回归 ai-engine 核心 service
-import { RateLimitService } from "./resilience/rate-limit.service";
+import { SchemaValidator } from "./validation/schema-validator";
 
 // Security（PR-X3：CapabilityGuard 从 harness 搬到 engine）
 import { CapabilityGuardService } from "./security/capability-guard.service";
 
 // Guardrails (Legacy)
-import { ContentFilter } from "./constraint/guardrails/content-filter";
-// CostController / RateLimiter 由 ai-harness/RuntimeResourceModule (@Global) 提供，
+import { ContentFilter } from "./moderation/content-filter";
+// CostController 由 ai-harness/RuntimeResourceModule (@Global) 提供，
+// RateLimitService 由 AiEngineReliabilityModule (@Global) 提供，
 // 任何模块都能直接注入 — engine 不再反向 import。
 
 // Guardrails Pipeline (New Framework)
@@ -61,10 +57,6 @@ const contentFilterFactory = {
     // Validators
     SchemaValidator,
 
-    // Resilience
-    CircuitBreakerService,
-    RateLimitService,
-
     // Security
     CapabilityGuardService,
 
@@ -87,8 +79,6 @@ const contentFilterFactory = {
   exports: [
     SchemaValidator,
     ContentFilter,
-    CircuitBreakerService,
-    RateLimitService,
     CapabilityGuardService,
     GuardrailsPipelineService,
   ],

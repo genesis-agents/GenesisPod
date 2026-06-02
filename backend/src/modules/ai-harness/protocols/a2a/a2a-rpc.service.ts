@@ -40,7 +40,7 @@ import { A2ATaskStore } from "./a2a-task-store";
 import { AgentCardRegistry } from "./agent-card.registry";
 import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "./a2a.tokens";
 import type { TeamId } from "../../teams/abstractions/team.interface";
-import type { ConstraintProfile } from "../../teams/constraints/constraint-profile";
+import type { ConstraintProfile } from "../../guardrails/constraints/constraint-profile";
 
 interface IKernelTeamsService {
   executeMission(params: {

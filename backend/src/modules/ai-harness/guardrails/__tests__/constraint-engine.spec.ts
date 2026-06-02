@@ -9,7 +9,7 @@ import type {
   ResourceRequirement,
   ResourceUsage,
   ConstraintViolation,
-} from "@/modules/ai-harness/teams/constraints/constraint-engine.interface";
+} from "@/modules/ai-harness/guardrails/constraints/constraint-engine.interface";
 
 const mockCostController = {
   calculateCost: jest.fn().mockReturnValue(0.5),

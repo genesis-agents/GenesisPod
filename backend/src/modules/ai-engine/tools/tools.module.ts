@@ -34,7 +34,7 @@ import { ProgressMiddleware } from "./middleware/progress.middleware";
 // ★ L2-7: Tool result cache
 import { ToolResultCacheService } from "./cache/tool-result-cache.service";
 // W1-a-fixup: rate-limit 回归 engine 后注入到 ToolPipeline middleware
-import { RateLimitService } from "../safety/resilience/rate-limit.service";
+import { RateLimitService } from "../reliability/rate-limit/rate-limit.service";
 
 // All Tools
 import {

@@ -8,7 +8,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { CircuitBreakerService } from "@/modules/ai-harness/facade";
+import { EntityHealthRegistry } from "@/modules/ai-harness/facade";
 import { SessionLatencyTrackerService } from "@/modules/ai-harness/facade";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { ToolRegistry } from "@/modules/ai-harness/facade";
@@ -37,7 +37,7 @@ export class SocialSearchAdapter extends SearchAdapterBase {
   constructor(
     private readonly chatFacade: ChatFacade,
     private readonly toolRegistry: ToolRegistry,
-    @Optional() circuitBreaker?: CircuitBreakerService,
+    @Optional() circuitBreaker?: EntityHealthRegistry,
     @Optional() latencyTracker?: SessionLatencyTrackerService,
   ) {
     super(circuitBreaker, latencyTracker);

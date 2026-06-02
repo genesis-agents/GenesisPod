@@ -19,7 +19,7 @@ jest.mock("@prisma/client", () => ({
 }));
 
 jest.mock("@/modules/ai-harness/facade", () => ({
-  CircuitBreakerService: class {},
+  EntityHealthRegistry: class {},
   TaskCompletionType: {
     TIMEOUT: "TIMEOUT",
     API_ERROR: "API_ERROR",
@@ -27,7 +27,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   },
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({
-  CircuitBreakerService: class {},
+  EntityHealthRegistry: class {},
   TaskCompletionType: {
     TIMEOUT: "TIMEOUT",
     API_ERROR: "API_ERROR",
