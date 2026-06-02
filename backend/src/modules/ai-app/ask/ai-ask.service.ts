@@ -799,6 +799,9 @@ export class AiAskService {
     void,
     unknown
   > {
+    // ★ 计时埋点：拆分「首字前后端开销」与「provider TTFT/生成」，定位慢点
+    const tReqStart = Date.now();
+
     const session = await this.prisma.askSession.findFirst({
       where: { id: sessionId, userId },
     });
@@ -806,20 +809,26 @@ export class AiAskService {
       throw new NotFoundException("Session not found");
     }
 
+    // ★ AI Kernel: 创建进程记录（仅首条消息）。
+    // 必须 fire-and-forget —— execute() 内部有 ~5 次串行 DB 往返，若 await
+    // 会把首条消息的首字延迟整整顶住（非流式 sendMessage 同逻辑也是异步的）。
+    // processId 在本流式方法后续不会同步用到，无需等待。
     if (this.missionExecutor && !this.sessionProcessIds.has(sessionId)) {
-      try {
-        const kernelResult = await this.missionExecutor.execute({
+      void this.missionExecutor
+        .execute({
           userId,
           agentId: "ai-ask",
           teamSessionId: sessionId,
           input: { title: session.title },
+        })
+        .then((kernelResult) => {
+          this.sessionProcessIds.set(sessionId, kernelResult.processId);
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `[Kernel] Failed to spawn process: ${err instanceof Error ? err.message : String(err)}`,
+          );
         });
-        this.sessionProcessIds.set(sessionId, kernelResult.processId);
-      } catch (err) {
-        this.logger.warn(
-          `[Kernel] Failed to spawn process: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
     }
 
     const isRagQuery = dto.knowledgeBaseIds && dto.knowledgeBaseIds.length > 0;
@@ -921,6 +930,10 @@ export class AiAskService {
         ...contextMessages,
       ];
 
+      // ★ 计时：进入 LLM 流之前 / 首个 chunk
+      const tBeforeLLM = Date.now();
+      let tFirstChunk = 0;
+
       for await (const chunk of this.chatFacade.chatStream({
         messages: messagesWithSystem,
         model: modelConfig.modelId,
@@ -939,6 +952,7 @@ export class AiAskService {
           return;
         }
         if (chunk.content) {
+          if (tFirstChunk === 0) tFirstChunk = Date.now();
           assistantContent += chunk.content;
           yield { type: "chunk", content: chunk.content };
         }
@@ -946,6 +960,15 @@ export class AiAskService {
           break;
         }
       }
+
+      // ★ 计时落账：total / 首字前后端开销(preLLM) / provider 首字延迟(ttft) / 生成(gen)
+      const tEnd = Date.now();
+      this.logger.log(
+        `[sendMessageStream timing] model=${modelConfig.modelId} ` +
+          `total=${tEnd - tReqStart}ms preLLM=${tBeforeLLM - tReqStart}ms ` +
+          `ttft=${tFirstChunk ? tFirstChunk - tBeforeLLM : -1}ms ` +
+          `gen=${tFirstChunk ? tEnd - tFirstChunk : -1}ms`,
+      );
     } catch (error) {
       const msg =
         error instanceof Error
