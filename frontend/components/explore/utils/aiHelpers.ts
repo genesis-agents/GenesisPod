@@ -77,20 +77,16 @@ export async function generateSummary(
     });
 
     if (!res.ok) {
-      if (res.status === 503) {
-        setAiSummary(
-          '⚠️ AI服务暂不可用\n\n请在 ai-service/.env 文件中配置以下API密钥之一：\n• GROK_API_KEY (推荐)\n• OPENAI_API_KEY\n\n配置后重启 ai-service 即可使用AI功能。'
-        );
-      } else {
-        try {
-          const error = await res.json();
-          setAiSummary(
-            `生成失败: ${error.error || error.detail || error.message || 'AI服务返回错误'}`
-          );
-        } catch {
-          setAiSummary(`生成失败: AI服务返回错误 (${res.status})`);
-        }
+      // 透传后端真实原因（如所选模型额度不足 / 未配可用模型 / provider 报错），
+      // 不再硬编码"配置 ai-service.env"——该路由实际走主后端 BYOK，文案误导。
+      let detail = `AI 服务返回错误 (${res.status})`;
+      try {
+        const error = await res.json();
+        detail = error.error || error.detail || error.message || detail;
+      } catch {
+        /* 保留默认 */
       }
+      setAiSummary(`⚠️ 摘要生成失败：${detail}`);
       return;
     }
 
@@ -106,7 +102,7 @@ export async function generateSummary(
   } catch (error) {
     logger.error('Failed to generate summary:', error);
     setAiSummary(
-      '⚠️ 无法连接到AI服务\n\n请确保 ai-service 已启动：\ncd ai-service && uvicorn main:app --reload'
+      `⚠️ 摘要生成失败：${error instanceof Error ? error.message : '网络错误，请稍后重试'}`
     );
   } finally {
     setAiLoading(false);
