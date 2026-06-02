@@ -808,6 +808,7 @@ export class AiAskService {
     if (!session) {
       throw new NotFoundException("Session not found");
     }
+    const tAfterSession = Date.now();
 
     // ★ AI Kernel: 创建进程记录（仅首条消息）。
     // 必须 fire-and-forget —— execute() 内部有 ~5 次串行 DB 往返，若 await
@@ -835,13 +836,34 @@ export class AiAskService {
     const operationType = isRagQuery ? "rag-chat" : "chat";
     const estimatedCredits = isRagQuery ? 15 : 10;
     const modelId = dto.modelId || session.modelId;
+    // ★ 计时：分别测三条并行分支各自耗时，定位 preLLM 慢点
+    let tModelMs = 0;
+    let tBalanceMs = 0;
+    let tCtxMs = 0;
+    const tParallelStart = Date.now();
     const [modelConfig, balanceCheck, contextMessages] = await Promise.all([
-      this.getModelConfig(modelId),
-      this.creditsService
-        ? this.creditsService.checkBalance(userId, estimatedCredits)
-        : Promise.resolve(null),
-      this.buildContext(sessionId),
+      (async () => {
+        const s = Date.now();
+        const r = await this.getModelConfig(modelId);
+        tModelMs = Date.now() - s;
+        return r;
+      })(),
+      (async () => {
+        const s = Date.now();
+        const r = this.creditsService
+          ? await this.creditsService.checkBalance(userId, estimatedCredits)
+          : null;
+        tBalanceMs = Date.now() - s;
+        return r;
+      })(),
+      (async () => {
+        const s = Date.now();
+        const r = await this.buildContext(sessionId);
+        tCtxMs = Date.now() - s;
+        return r;
+      })(),
     ]);
+    const tAfterParallel = Date.now();
 
     if (balanceCheck && !balanceCheck.sufficient) {
       throw new InsufficientCreditsException(
@@ -860,6 +882,16 @@ export class AiAskService {
         webSearch: dto.webSearch || false,
       },
     });
+
+    const tAfterUserMsg = Date.now();
+    // ★ preLLM 分段：session 查询 / 三路并行(各分支) / 写用户消息
+    this.logger.log(
+      `[sendMessageStream preLLM breakdown] ` +
+        `session=${tAfterSession - tReqStart}ms ` +
+        `parallel=${tAfterParallel - tParallelStart}ms ` +
+        `(model=${tModelMs}ms balance=${tBalanceMs}ms ctx=${tCtxMs}ms) ` +
+        `userMsgInsert=${tAfterUserMsg - tAfterParallel}ms`,
+    );
 
     contextMessages.push({ role: "user" as const, content: dto.content });
 
