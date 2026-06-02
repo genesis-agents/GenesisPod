@@ -36,6 +36,8 @@ export interface RawSpanAttributes {
   truncated?: boolean;
   success?: boolean;
   durationMs?: number;
+  /** provider 返回的 response id（OTel gen_ai.response.id） */
+  responseId?: string;
   /** 输入 / 输出（脱敏后才传，OTel 不强制） */
   input?: unknown;
   output?: unknown;
@@ -61,19 +63,20 @@ function detectSystem(modelId?: string): string {
 }
 
 /**
- * 推断 operation name —— 根据 spanName 启发式映射。
+ * 推断 operation name —— 优先用 caller 显式 loopKind（权威信号），再退回 spanName 启发式。
+ * 修复评估 G8「heuristic 把一切塌成 chat」：agent loop 迭代映射为 OTel 标准 invoke_agent，
+ * 工具执行 execute_tool，嵌入 embeddings；其余才 chat。
  */
-function detectOperation(spanName: string): string {
+function detectOperation(spanName: string, raw: RawSpanAttributes): string {
   const lower = spanName.toLowerCase();
-  if (lower.startsWith("tool.")) return "execute_tool";
-  if (lower.includes("embed")) return "embedding";
-  if (
-    lower.includes("react") ||
-    lower.includes("plan") ||
-    lower.includes("reflexion")
-  )
-    return "chat";
-  if (lower.includes("judge") || lower.includes("verify")) return "chat";
+  // 工具执行优先（span 名或 raw.tool* 任一命中）
+  if (lower.startsWith("tool.") || raw.toolName || raw.toolId) {
+    return "execute_tool";
+  }
+  if (lower.includes("embed")) return "embeddings";
+  // loopKind 是 runner 显式传入的权威信号（react / reflexion / plan-act /
+  // leader-worker / simple）→ 这是 agent 调用而非裸 chat completion。
+  if (raw.loopKind) return "invoke_agent";
   return "chat";
 }
 
@@ -86,13 +89,18 @@ export function toOtelGenAiAttributes(
   raw: RawSpanAttributes,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {
-    "gen_ai.operation.name": detectOperation(spanName),
+    "gen_ai.operation.name": detectOperation(spanName, raw),
   };
 
   if (raw.modelId) {
     out["gen_ai.system"] = detectSystem(raw.modelId);
     out["gen_ai.request.model"] = raw.modelId;
     out["gen_ai.response.model"] = raw.modelId;
+  }
+  if (raw.responseId) out["gen_ai.response.id"] = raw.responseId;
+  // 失败时按 OTel 语义补 error.type（让后端能按错误类型聚合 span）
+  if (raw.success === false) {
+    out["error.type"] = raw.finishReason ?? "agent_error";
   }
   if (typeof raw.temperature === "number")
     out["gen_ai.request.temperature"] = raw.temperature;
@@ -147,6 +155,7 @@ export function toOtelGenAiAttributes(
         "truncated",
         "success",
         "durationMs",
+        "responseId",
         "input",
         "output",
       ].includes(k)
