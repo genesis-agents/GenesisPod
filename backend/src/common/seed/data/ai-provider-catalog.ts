@@ -267,14 +267,14 @@ export const AI_PROVIDER_CATALOG: AiProviderSeed[] = [
     docUrl: "https://docs.siliconflow.cn",
   },
   {
-    // 新加坡 Sapiens AI 一方多模态模型。鉴权 API 网关在 `api.` 子域，base =
-    // https://api.agnes-ai.com/api/v1，拼出 .../api/v1/chat/completions（实测：假 key
-    // 返回 JSON 401 "invalid or expired token" = 路由存在做鉴权，真 key 即通）。
-    // ⚠️ 根域 agnes-ai.com 是营销站（Next.js）：仅 /api/v1/models 公开返回 200，
-    //   /api/v1/chat/completions 在根域是 404 HTML —— 早期误用根域导致连接测试恒 404。
+    // 新加坡 Sapiens AI 一方多模态模型。base 以官方文档为准（agnes-ai.com/doc §2）：
+    // https://apihub.agnes-ai.com/v1 —— OpenAI 兼容网关（new-api 架构），
+    // 拼出 .../v1/chat/completions、.../v1/models。鉴权 `Authorization: Bearer <key>`。
+    // ⚠️ 两个易踩的错 host：① 根域 agnes-ai.com 是营销站(Next.js)，chat 返 404 HTML；
+    //   ② api.agnes-ai.com 是另一网关，key 不被它认（返 000501 invalid token）。均非文档端点。
     slug: "agnes",
     name: "Agnes AI (Sapiens)",
-    endpoint: "https://api.agnes-ai.com/api/v1",
+    endpoint: "https://apihub.agnes-ai.com/v1",
     apiFormat: "openai",
     testModel: "sapiens-ai/agnes-1.5-lite",
     capabilities: ["CHAT", "CHAT_FAST", "IMAGE_GENERATION"],
