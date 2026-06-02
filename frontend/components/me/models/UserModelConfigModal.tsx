@@ -50,6 +50,18 @@ function sanitizeSlug(raw: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+/**
+ * 归一化 API Endpoint 存成干净 base：剥掉用户常误填的尾部 path
+ * （/models 列表端点、/chat/completions、/messages、/embeddings）和尾斜杠，
+ * 让下游 ensure*Path 各自拼正确路径，避免 .../v1/models/chat/completions 这种 404。
+ */
+function normalizeEndpointBase(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\/+$/, '')
+    .replace(/\/(models|chat\/completions|messages|embeddings)$/, '');
+}
+
 /** 从 API Endpoint 主机名推导自定义 provider slug，如 https://api.tokenmix.ai/v1 → tokenmix。 */
 function deriveSlugFromEndpoint(endpoint: string): string {
   const trimmed = endpoint.trim();
@@ -212,7 +224,7 @@ export function UserModelConfigModal({
     modelId: modelId.trim(),
     displayName: displayName.trim(),
     modelType,
-    apiEndpoint: endpoint.trim() || null,
+    apiEndpoint: normalizeEndpointBase(endpoint) || null,
     apiKeyId: apiKeyId.trim() || null,
     maxTokens: Number(maxTokens) || 4096,
     temperature: Number(temperature) || 0.7,
