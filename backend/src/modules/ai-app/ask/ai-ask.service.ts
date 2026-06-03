@@ -14,6 +14,10 @@ import {
 } from "@/common/observability/user-event.types";
 import { LruMap } from "@/common/utils/lru-map";
 import {
+  RequestContext,
+  type LatencySegment,
+} from "@/common/context/request-context";
+import {
   ChatFacade,
   ToolFacade,
   RAGFacade,
@@ -786,6 +790,11 @@ export class AiAskService {
           modelName?: string;
           tokens: number;
         };
+        /** 本次请求的细粒度时延明细（前端/API 可直接渲染瀑布，无需读日志） */
+        timing?: {
+          totalMs: number;
+          segments: LatencySegment[];
+        };
       }
     | {
         type: "error";
@@ -901,6 +910,19 @@ export class AiAskService {
         `userMsgDispatch=${tAfterUserMsg - tAfterParallel}ms(deferred)`,
     );
 
+    // ★ 把 preLLM 明细推进请求级累加器（model_resolve 段已由引擎 getModelById 推入）。
+    //   出口 done 事件统一读出 RequestContext.getLatencySegments()——明细时间从日志
+    //   字符串升级成结构化、可被前端/API 直接消费的数据。
+    RequestContext.pushLatencySegment({
+      kind: "session_load",
+      ms: tAfterSession - tReqStart,
+    });
+    RequestContext.pushLatencySegment({
+      kind: "balance_check",
+      ms: tBalanceMs,
+    });
+    RequestContext.pushLatencySegment({ kind: "context_build", ms: tCtxMs });
+
     contextMessages.push({ role: "user" as const, content: dto.content });
 
     // RAG 检索（同步阻塞，但 emit status 让前端显示"检索中"）
@@ -1009,6 +1031,20 @@ export class AiAskService {
           `ttft=${tFirstChunk ? tFirstChunk - tBeforeLLM : -1}ms ` +
           `gen=${tFirstChunk ? tEnd - tFirstChunk : -1}ms`,
       );
+      if (tFirstChunk) {
+        RequestContext.pushLatencySegment({
+          kind: "llm_ttft",
+          ms: tFirstChunk - tBeforeLLM,
+          meta: {
+            model: modelConfig.modelId,
+            provider: modelConfig.provider,
+          },
+        });
+        RequestContext.pushLatencySegment({
+          kind: "llm_gen",
+          ms: tEnd - tFirstChunk,
+        });
+      }
     } catch (error) {
       const msg =
         error instanceof Error
@@ -1062,6 +1098,10 @@ export class AiAskService {
           modelId: errorMessage.modelId ?? undefined,
           modelName: errorMessage.modelName ?? undefined,
           tokens: errorMessage.tokens ?? 0,
+        },
+        timing: {
+          totalMs: Date.now() - tReqStart,
+          segments: RequestContext.getLatencySegments(),
         },
       };
       return;
@@ -1146,6 +1186,10 @@ export class AiAskService {
         modelId: assistantMessage.modelId ?? undefined,
         modelName: assistantMessage.modelName ?? undefined,
         tokens: assistantMessage.tokens ?? 0,
+      },
+      timing: {
+        totalMs: Date.now() - tReqStart,
+        segments: RequestContext.getLatencySegments(),
       },
     };
   }
