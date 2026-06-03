@@ -8,7 +8,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { TaskProfileMapperService } from "../task-profile-mapper.service";
+import { TaskProfileMapperService } from "../chat/task-profile-mapper.service";
 import type { AIModelConfig } from "../ai-chat.service";
 
 function createModelConfig(
@@ -225,5 +225,3 @@ describe("TaskProfileMapperService (extended coverage)", () => {
     });
   });
 });
-
-

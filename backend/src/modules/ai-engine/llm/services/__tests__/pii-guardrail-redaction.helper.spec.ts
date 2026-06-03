@@ -1,4 +1,4 @@
-import { redactUserMessages } from "../pii-guardrail-redaction.helper";
+import { redactUserMessages } from "../chat/pii-guardrail-redaction.helper";
 import type { ChatMessage } from "../../types";
 
 const EMAIL = "john.doe@example.com";

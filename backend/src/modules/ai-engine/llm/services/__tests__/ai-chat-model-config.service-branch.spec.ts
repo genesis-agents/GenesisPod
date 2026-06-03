@@ -13,7 +13,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { AiChatModelConfigService } from "../ai-chat-model-config.service";
+import { AiChatModelConfigService } from "../chat/ai-chat-model-config.service";
 // v3.1 A0：wrapper 现委托给 canonical AiModelConfigService。
 import { AiModelConfigService } from "../ai-model-config.service";
 import { PrismaService } from "@/common/prisma/prisma.service";

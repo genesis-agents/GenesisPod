@@ -9,8 +9,8 @@ import {
   getReasoningMinTokens,
   JSON_OUTPUT_MAX_TEMPERATURE,
   getKnownModelLimit,
-} from "../types";
-import { AIModelConfig } from "./ai-chat.service";
+} from "../../types";
+import { AIModelConfig } from "../ai-chat.service";
 
 /**
  * TaskProfile 参数映射结果

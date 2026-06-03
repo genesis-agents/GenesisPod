@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
 import { of } from "rxjs";
-import { AiStreamHandlerService } from "../ai-stream-handler.service";
+import { AiStreamHandlerService } from "../chat/ai-stream-handler.service";
 
 /**
  * Helper to create a mock SSE stream from lines

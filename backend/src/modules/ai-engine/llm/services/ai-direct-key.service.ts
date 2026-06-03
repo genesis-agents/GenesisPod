@@ -11,12 +11,12 @@ import {
   ensureMessagesPath,
   ensureCohereChatPath,
 } from "../types";
-import { TaskProfileMapperService } from "./task-profile-mapper.service";
+import { TaskProfileMapperService } from "./chat/task-profile-mapper.service";
 import { AiModelConfigService } from "./ai-model-config.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiModelDiscoveryService } from "./ai-model-discovery.service";
-import { AiChatPromptService } from "./ai-chat-prompt.service";
-import { AiChatRetryService } from "./ai-chat-retry.service";
+import { AiChatPromptService } from "./chat/ai-chat-prompt.service";
+import { AiChatRetryService } from "./chat/ai-chat-retry.service";
 
 /**
  * AI Direct Key Service

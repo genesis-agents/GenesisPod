@@ -27,15 +27,18 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { ChatMessage } from "../types";
-import { AIModelConfig, AiModelConfigService } from "./ai-model-config.service";
-import { AiApiCallerService } from "./ai-api-caller.service";
+import { ChatMessage } from "../../types";
+import {
+  AIModelConfig,
+  AiModelConfigService,
+} from "../ai-model-config.service";
+import { AiApiCallerService } from "../ai-api-caller.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
 import { KeyExecutorService } from "@/modules/ai-engine/credentials/executor";
 import { BYOKError } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.errors";
-import type { ChatCompletionResult } from "./ai-chat.service";
-import type { StructuredOutputStrategy } from "../structured-output/structured-output-strategy.types";
-import type { FunctionDefinition } from "../../tools/abstractions/tool.interface";
+import type { ChatCompletionResult } from "../ai-chat.service";
+import type { StructuredOutputStrategy } from "../../structured-output/structured-output-strategy.types";
+import type { FunctionDefinition } from "../../../tools/abstractions/tool.interface";
 
 @Injectable()
 export class AiChatFailoverCallerService {
@@ -167,7 +170,7 @@ export class AiChatFailoverCallerService {
     temperature: number | undefined,
     optionStrictMode: boolean | undefined,
     responseFormat: string | undefined,
-    reasoningDepth: import("../types").ReasoningDepth | undefined,
+    reasoningDepth: import("../../types").ReasoningDepth | undefined,
     cachePolicy: "auto" | undefined,
     outputSchema:
       | { type: "json_schema"; schema: Record<string, unknown> }

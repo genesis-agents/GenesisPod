@@ -16,13 +16,13 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { AiChatService } from "../ai-chat.service";
-import { TaskProfileMapperService } from "../task-profile-mapper.service";
+import { TaskProfileMapperService } from "../chat/task-profile-mapper.service";
 import {
   AiModelConfigService,
   AIModelConfig,
 } from "../ai-model-config.service";
 import { AiApiCallerService } from "../ai-api-caller.service";
-import { AiStreamHandlerService } from "../ai-stream-handler.service";
+import { AiStreamHandlerService } from "../chat/ai-stream-handler.service";
 import { AIMetricsService } from "@/modules/platform/monitoring";
 import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
 import { EntityHealthRegistry } from "../../../reliability/entity-health/entity-health.registry";
@@ -30,7 +30,7 @@ import { AiConnectionTestService } from "../ai-connection-test.service";
 import { AiModelDiscoveryService } from "../ai-model-discovery.service";
 import { AiDirectKeyService } from "../ai-direct-key.service";
 import { AiImageGenerationService } from "../ai-image-generation.service";
-import { AiChatRetryService } from "../ai-chat-retry.service";
+import { AiChatRetryService } from "../chat/ai-chat-retry.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { RequestContext } from "@/common/context/request-context";
 

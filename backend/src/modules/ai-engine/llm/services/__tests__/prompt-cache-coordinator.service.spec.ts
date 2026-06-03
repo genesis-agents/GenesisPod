@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { PromptCacheCoordinatorService } from "../prompt-cache-coordinator.service";
+import { PromptCacheCoordinatorService } from "../chat/prompt-cache-coordinator.service";
 
 describe("PromptCacheCoordinatorService", () => {
   let service: PromptCacheCoordinatorService;

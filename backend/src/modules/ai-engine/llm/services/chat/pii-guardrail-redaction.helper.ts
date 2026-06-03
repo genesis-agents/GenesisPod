@@ -1,5 +1,5 @@
-import { redactPII } from "../../safety/guardrails/input/pii-redactor";
-import type { ChatMessage } from "../types";
+import { redactPII } from "../../../safety/guardrails/input/pii-redactor";
+import type { ChatMessage } from "../../types";
 
 /**
  * ★ P1 PII 脱敏（消费侧）—— 从 AiChatService 抽出，避免 god-class 增长。

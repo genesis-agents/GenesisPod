@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { AiChatRetryService } from "../ai-chat-retry.service";
+import { AiChatRetryService } from "../chat/ai-chat-retry.service";
 
 describe("AiChatRetryService", () => {
   let service: AiChatRetryService;

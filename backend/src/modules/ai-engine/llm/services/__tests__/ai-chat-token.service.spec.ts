@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { AiChatTokenService } from "../ai-chat-token.service";
+import { AiChatTokenService } from "../chat/ai-chat-token.service";
 
 describe("AiChatTokenService", () => {
   let service: AiChatTokenService;

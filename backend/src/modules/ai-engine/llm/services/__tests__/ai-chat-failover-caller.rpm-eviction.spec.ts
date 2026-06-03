@@ -1,4 +1,4 @@
-import { AiChatFailoverCallerService } from "../ai-chat-failover-caller.service";
+import { AiChatFailoverCallerService } from "../chat/ai-chat-failover-caller.service";
 
 /**
  * L4 回归：rpmCache / rpmNextSlotAt 两个 per-(user,model) Map 之前只 get/set、

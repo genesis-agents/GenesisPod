@@ -216,7 +216,7 @@ export {
 export type {
   StreamTiming,
   StreamChunk,
-} from "@/modules/ai-engine/llm/services/ai-stream-handler.service";
+} from "@/modules/ai-engine/llm/services/chat/ai-stream-handler.service";
 
 // TaskPlan / IntentRouter / TaskPlanner 已删 (2026-04-30) — 死代码
 export type {
@@ -719,8 +719,8 @@ export type {
 } from "../knowledge/consistency/stale-detector.service";
 
 // ★ Phase 5: Prompt Cache Coordination
-export { PromptCacheCoordinatorService } from "@/modules/ai-engine/llm/services/prompt-cache-coordinator.service";
-export type { CachePrefix } from "@/modules/ai-engine/llm/services/prompt-cache-coordinator.service";
+export { PromptCacheCoordinatorService } from "@/modules/ai-engine/llm/services/chat/prompt-cache-coordinator.service";
+export type { CachePrefix } from "@/modules/ai-engine/llm/services/chat/prompt-cache-coordinator.service";
 
 // ★ Phase 9: Background Autonomous Agents
 //   2026-04-30 (C2-step1): AutoDream 已搬到 ai-harness/memory/consolidation/，

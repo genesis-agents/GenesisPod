@@ -6,7 +6,7 @@ import {
   ensureChatCompletionsPath,
   ensureMessagesPath,
   reasoningDepthToEffort,
-} from "../types";
+} from "../../types";
 
 export interface StreamChunk {
   content: string;

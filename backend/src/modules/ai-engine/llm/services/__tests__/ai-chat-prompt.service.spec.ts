@@ -2,7 +2,10 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
 import { of, throwError } from "rxjs";
 import { AxiosResponse } from "axios";
-import { AiChatPromptService, ChatMessage } from "../ai-chat-prompt.service";
+import {
+  AiChatPromptService,
+  ChatMessage,
+} from "../chat/ai-chat-prompt.service";
 
 describe("AiChatPromptService", () => {
   let service: AiChatPromptService;
