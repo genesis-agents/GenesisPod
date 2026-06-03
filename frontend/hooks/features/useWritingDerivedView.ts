@@ -184,25 +184,28 @@ function extractMissionTimesFromEvents(
 // ─── Stages ──────────────────────────────────────────────────────────────────
 
 /**
- * Writing 的 stage 状态来自 writing.stage:lifecycle 事件 payload.phase。
- * payload schema（StagLifecycleSchema）：{ stageId, phase: 'started'|'completed'|'failed', ... }
+ * Writing 的 stage 状态来自 writing.stage:lifecycle 事件。
+ * H3 fix：后端 StagLifecycleSchema 实际 payload 是
+ *   { stage, stepId, primitive?, status: 'started'|'completed'|'failed', ... }
+ * 之前误读 payload.stageId / payload.phase（这两个字段根本不存在）→ 每条事件
+ * 都被丢弃 → stageViews 永远为空，进度面板从来不渲染。改读 stage / status。
  *
  * canonical view 当前不含 stages 列表（WritingMissionViewEnvelope 未暴露），
  * 直接从 events 派生。
  */
-function deriveStages(
+export function deriveStages(
   _envelope: WritingMissionViewEnvelope | null | undefined,
   events: WritingEvent[]
 ): StageView[] {
-  const stageMap = new Map<string, string>(); // stageId → status string
+  const stageMap = new Map<string, string>(); // stage → status string
 
   for (const ev of events) {
     if (!ev?.type) continue;
     if (ev.type !== 'writing.stage:lifecycle') continue;
     const p = ev.payload as Record<string, unknown> | undefined;
     if (!p) continue;
-    const stageId = typeof p.stageId === 'string' ? p.stageId : undefined;
-    const phase = typeof p.phase === 'string' ? p.phase : undefined;
+    const stageId = typeof p.stage === 'string' ? p.stage : undefined;
+    const phase = typeof p.status === 'string' ? p.status : undefined;
     if (!stageId || !phase) continue;
     // phase: 'started' → 'running', 'completed' → 'done', 'failed' → 'failed'
     const current = stageMap.get(stageId);

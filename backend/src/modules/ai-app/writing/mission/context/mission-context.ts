@@ -117,6 +117,9 @@ export interface EditPhaseCtx {
    */
   revisedChapters?: Array<{
     chapterId: string;
+    // M5 fix：真实章号，供 projector 按章号查标题（不再按数组下标 idx+1，
+    // 否则中间章 FAILED 被过滤后幸存章会整体错位串标题）。
+    chapterNumber: number;
     status: "REVISED" | "FAILED";
     wordCount: number;
   }>;

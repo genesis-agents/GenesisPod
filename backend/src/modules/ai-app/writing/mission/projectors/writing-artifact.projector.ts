@@ -213,6 +213,7 @@ export class WritingArtifactProjector {
   private buildSections(
     revisedChapters: Array<{
       chapterId: string;
+      chapterNumber: number;
       status: string;
       wordCount: number;
     }>,
@@ -230,7 +231,9 @@ export class WritingArtifactProjector {
     }
 
     return revisedChapters.map((chapter, idx) => {
-      const chapterNumber = idx + 1;
+      // M5 fix：用真实章号（不再 idx+1）。过滤掉中间 FAILED 章后，下标会塌缩，
+      // idx+1 会把幸存章的章号/标题整体前移串位。fallback idx+1 仅防御缺值。
+      const chapterNumber = chapter.chapterNumber ?? idx + 1;
       const title =
         titleByNumber.get(chapterNumber) ?? `第 ${chapterNumber} 章`;
       return {
