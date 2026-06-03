@@ -54,9 +54,11 @@ scripts/
 
 - 脚本目录合规由 `scripts/utils/check-scripts-compliance.sh` 检查（5 项：`fix-*` / `migrate-*`
   误留活跃区、临时文件、目录结构、README、过期归档），`--fix` 可自动归档。
-- 可跑 `npm run audit:scripts` 触发。
-- **现状**：该检查**未接入任何阻断门禁**（不在 husky pre-commit / pre-push / CI），属手动 +
-  `scripts-guardian` agent 按需触发的 honor-level 看护，与本仓其余"软约束"同级。
+- 本地手动跑：`npm run audit:scripts`（`-- --fix` 自动归档）。
+- **已接入阻断门禁**（2026-06-03）：
+  - **pre-push** `.husky/pre-push` 步骤 `[0d/6]`——违规拒推。
+  - **CI** `.github/workflows/ci.yml` 的 `scripts-compliance` job，结果汇入 `ci-status` 合并门。
+  - `scripts-guardian` agent 仍可按需做更细的语义巡检（read-only）。
 
 ## 注意事项
 

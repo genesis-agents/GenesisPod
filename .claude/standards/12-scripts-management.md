@@ -1,8 +1,8 @@
 # 脚本管理规范
 
-**版本：** 1.0
+**版本：** 1.1
 **强制级别：** MUST
-**更新日期：** 2025-01-19
+**更新日期：** 2026-06-03
 
 ---
 
@@ -227,6 +227,23 @@ A:
 - 单元测试 -> `backend/test/` 或 `frontend/__tests__/`
 - E2E 测试 -> `backend/test/e2e/`
 - 临时测试脚本 -> 完成后删除
+
+---
+
+## 强制执行（Enforcement）
+
+> 2026-06-03 起本规范从 honor-level 升级为**阻断门禁**。
+
+| 层       | 机制                                                                                          | 范围                            |
+| -------- | --------------------------------------------------------------------------------------------- | ------------------------------- |
+| 本地     | `npm run audit:scripts`（= `scripts/utils/check-scripts-compliance.sh`，`-- --fix` 自动归档） | 手动按需                        |
+| pre-push | `.husky/pre-push` 步骤 `[0d/6]`——违规拒推                                                     | `scripts/` + `backend/scripts/` |
+| CI       | `.github/workflows/ci.yml` 的 `scripts-compliance` job，汇入 `ci-status` 合并门               | 同上                            |
+| Agent    | `scripts-guardian`（read-only）——更细的语义巡检 / 识别该归档的脚本                            | 按需触发                        |
+
+检查 5 项：①`fix-*` / `migrate-*` 误留活跃区（按名硬拦截，故这两个前缀是一次性脚本保留词，
+长期工具改用 `generate-*` / `validate-*` 等动词）·②临时文件（`.tmp` / `.bak` / `temp*`）·
+③必需目录结构·④`scripts/README.md` 存在·⑤过期归档（>6 个月，warning）。
 
 ---
 

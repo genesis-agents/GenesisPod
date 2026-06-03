@@ -294,6 +294,18 @@ jobs:
           STORAGE_ADMIN_KEY: test_storage_admin_key
           NODE_ENV: test
 
+  # ── Scripts Compliance ─────────────────────────────────────
+  # 脚本目录治理：fix-*/migrate-* 误留活跃区、归档规范、目录结构、README。
+  # 纯 bash/git/find，无需 npm ci。规范：.claude/standards/12-scripts-management.md
+  scripts-compliance:
+    name: Scripts Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scripts directory compliance
+        run: bash scripts/utils/check-scripts-compliance.sh
+
   # ── CI Gate ────────────────────────────────────────────────
   ci-status:
     name: CI Status
@@ -308,6 +320,7 @@ jobs:
         quality,
         arch-boundary,
         boot-smoke,
+        scripts-compliance,
       ]
     steps:
       - name: Check results
@@ -319,6 +332,7 @@ jobs:
           echo "Quality:        ${{ needs.quality.result }}"
           echo "Arch Boundary:  ${{ needs.arch-boundary.result }}"
           echo "Boot Smoke:     ${{ needs.boot-smoke.result }}"
+          echo "Scripts:        ${{ needs.scripts-compliance.result }}"
 
           if [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.test-backend.result }}" != "success" ] || \
@@ -326,7 +340,8 @@ jobs:
              [ "${{ needs.build.result }}" != "success" ] || \
              [ "${{ needs.quality.result }}" != "success" ] || \
              [ "${{ needs.arch-boundary.result }}" != "success" ] || \
-             [ "${{ needs.boot-smoke.result }}" != "success" ]; then
+             [ "${{ needs.boot-smoke.result }}" != "success" ] || \
+             [ "${{ needs.scripts-compliance.result }}" != "success" ]; then
             echo "CI failed"
             exit 1
           fi
