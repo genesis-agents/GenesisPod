@@ -46,7 +46,6 @@ const THIN_GATEWAY_ALLOWLIST = [
   "modules/open-api/admin/kernel/kernel.controller.ts",
   "modules/open-api/admin/knowledge/knowledge.controller.ts",
   "modules/open-api/admin/monitoring/monitoring.controller.ts",
-  "modules/open-api/admin/research/research.controller.ts",
 ];
 
 function softStaleWarn(name: string, allowlist: string[], actual: string[]) {
