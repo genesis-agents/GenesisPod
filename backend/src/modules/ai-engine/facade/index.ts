@@ -780,6 +780,12 @@ export type {
   ToolKeySource,
 } from "../credentials/tool-key-resolver/tool-key-resolver.service";
 export { UserSecretsService } from "../credentials/user-secrets/user-secrets.service";
+// NOTE: credential-management surfaces (ai-app/byok, open-api/byok-admin) import
+// credential *services* (AuthorizationService / UserToolsService / KeyAssignments
+// etc.) directly from source, NOT via this barrel — adding heavy credential
+// services here bloats the facade barrel and triggers circular-load failures in
+// unrelated consumers (e.g. orchestrator specs: "undefined reading 'SEARCH'").
+// Those surfaces are eslint/ facade-boundary exempted instead.
 export { KeyAssignmentsService } from "../credentials/key-assignments/key-assignments.service";
 export { KeyRequestsService } from "../credentials/key-requests/key-requests.service";
 export { UserApiKeysService } from "../credentials/user-api-keys/user-api-keys.service";

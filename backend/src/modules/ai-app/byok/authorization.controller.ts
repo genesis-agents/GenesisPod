@@ -12,6 +12,8 @@ import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
+// Credential-management surface: imports credentials from source (the engine
+// facade barrel would circular-load); facade-boundary exempted for ai-app/byok.
 import { AuthorizationService } from "../../ai-engine/credentials/authorization/authorization.service";
 import {
   ApproveAuthorizationDto,

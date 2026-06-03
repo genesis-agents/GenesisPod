@@ -1,6 +1,7 @@
 import { Controller, Get, Req, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+// Credential-management surface: imports credentials from source (facade-boundary exempted).
 import { UserToolsService } from "../../ai-engine/credentials/user-tools/user-tools.service";
 
 interface AuthenticatedRequest {
