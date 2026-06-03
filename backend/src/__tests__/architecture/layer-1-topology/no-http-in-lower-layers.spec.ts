@@ -52,20 +52,12 @@ function controllersIn(moduleRel: string): string[] {
     .sort();
 }
 
-/**
- * platform 残留 controller 收缩名单（standards/16 §三·补）。
- * 完成一个上提 → 删一行。清空 = platform 与 engine/harness 同样 0 HTTP。
- *
- * 2026-06-03 已清空：auth/credits/notification/storage-governance/metrics 全部上提
- * open-api（admin/system/public-api），platform 现已硬焊 0 controller。
- */
 // 绝对原则（2026-06-03 裁定）：**任何外部可访问的 HTTP 端点都属 open-api 或
 // ai-app**，engine/harness/platform = 0 HTTP，**无永久例外**（含 Prometheus
 // `/metrics`，已上提 open-api/system/metrics）。
-// 2026-06-03 已清空：auth/credits/notification/storage-governance/metrics 全部上提
-// → platform 现已 0 controller（offenders 断言即兜底硬焊 0）。
-const PLATFORM_ALLOWLIST: string[] = [];
-
+// 2026-06-03 platform 上提清零（auth/credits/notification/storage-governance/metrics
+// 全部进 open-api admin/system/public-api）→ 三层一律硬焊 0 controller，删除收缩
+// ALLOWLIST，与 engine/harness 同等强约束（兑现 #254 TODO）。
 describe("standards/16 · HTTP 只在 L3/L4，下层不开 HTTP", () => {
   it("ai-engine（硬件层）= 0 个 @Controller", () => {
     expect(controllersIn("ai-engine")).toEqual([]);
@@ -75,32 +67,7 @@ describe("standards/16 · HTTP 只在 L3/L4，下层不开 HTTP", () => {
     expect(controllersIn("ai-harness")).toEqual([]);
   });
 
-  it("platform（固件层）的 controller 不得超出收缩 ALLOWLIST（新增即红）", () => {
-    const actual = controllersIn("platform");
-    const allowed = new Set(PLATFORM_ALLOWLIST);
-    const offenders = actual.filter((c) => !allowed.has(c));
-    expect(offenders).toEqual([]);
+  it("platform（固件层）= 0 个 @Controller（无永久例外，新增即红）", () => {
+    expect(controllersIn("platform")).toEqual([]);
   });
-
-  // 软告警：并发上提后名单可能有"已搬走却还列着"的过期条目。**不**硬失败
-  // （否则别人上提就把 main 弄红 = 竞态），只提示维护者清理，保持进度准确。
-  it("剩余例外可见 + 过期条目软提示（不阻断）", () => {
-    const actual = controllersIn("platform");
-    const stale = PLATFORM_ALLOWLIST.filter((c) => !actual.includes(c));
-    if (stale.length > 0) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[std16-http-guard] ALLOWLIST 过期条目（已上提，请从名单删除）：\n  ${stale.join("\n  ")}`,
-      );
-    }
-    // eslint-disable-next-line no-console
-    console.info(
-      `[std16-http-guard] platform 剩余 HTTP 例外 ${actual.length} 个：${actual.join(", ") || "（已清零，可硬焊 0）"}`,
-    );
-    expect(true).toBe(true);
-  });
-
-  // TODO（platform 上提清零后）：删除 PLATFORM_ALLOWLIST 与本测试，把上面
-  // platform 测试改成 `expect(controllersIn("platform")).toEqual([])`，与
-  // engine/harness 同样硬焊 0 —— 兑现"无永久例外"。
 });
