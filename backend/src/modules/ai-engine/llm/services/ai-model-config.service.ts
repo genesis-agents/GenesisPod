@@ -655,7 +655,7 @@ export class AiModelConfigService {
       `[synthesizeConfigForUserModel] Synthesizing config for user ` +
         `${userId}: provider=${provider}, modelId=${modelId}`,
     );
-    return {
+    const synthesized: AIModelConfig = {
       id: `user-${userId}-${provider}-${modelId}`,
       name: modelId,
       displayName: modelId,
@@ -680,6 +680,65 @@ export class AiModelConfigService {
       defaultTimeoutMs: 120000,
       priority: 0,
     };
+
+    // ★ 惰性自动注册：把首次合成的 BYOK 模型落成正式 UserModelConfig，之后该
+    //   (user, modelId) 的解析直接命中 findUserModelConfigByModelId（1 次 DB），
+    //   不再跑整条 synthesize 兜底链——冷解析成本一辈子只付一次，无需用户/admin
+    //   手动注册。fire-and-forget，不阻塞本次返回；helper 自带 try/catch。
+    void this.persistSynthesizedAsUserModelConfig(userId, synthesized);
+
+    return synthesized;
+  }
+
+  /**
+   * 把 synthesize 出来的 BYOK 模型持久化成正式 UserModelConfig。
+   *
+   * 直接落 synthesize 已算好的字段（endpoint / apiFormat / isReasoning /
+   * tokenParamName 等），不重新推断 —— 保证持久化行与本次运行时配置完全一致，
+   * 避免推断漂移（历史上 xAI 模型被推断成 openai 格式导致路由错的那类坑）。
+   *
+   * dedup：synthesize 仅在 findUserModelConfigByModelId 已 miss 后才会执行，故首次
+   * 必无重复行；并发重复由 UserModelConfig 唯一约束（P2002 → ConflictException）兜底。
+   * 任何失败都不影响解析，静默降级。
+   */
+  private async persistSynthesizedAsUserModelConfig(
+    userId: string,
+    cfg: AIModelConfig,
+  ): Promise<void> {
+    if (!this.userModelConfigs) return;
+    try {
+      await this.userModelConfigs.create(userId, {
+        provider: cfg.provider,
+        modelId: cfg.modelId,
+        displayName: cfg.displayName ?? cfg.modelId,
+        // findByModelId 按 (userId, modelId) 查、不过滤 modelType，CHAT 即可覆盖
+        modelType: AIModelType.CHAT,
+        apiEndpoint: cfg.apiEndpoint || null,
+        maxTokens: cfg.maxTokens,
+        isReasoning: cfg.isReasoning,
+        apiFormat: cfg.apiFormat,
+        supportsTemperature: cfg.supportsTemperature,
+        supportsStreaming: cfg.supportsStreaming,
+        supportsFunctionCalling: cfg.supportsFunctionCalling,
+        supportsVision: cfg.supportsVision,
+        tokenParamName: cfg.tokenParamName,
+        defaultTimeoutMs: cfg.defaultTimeoutMs,
+        isDefault: false, // 不抢用户已有默认
+        isEnabled: true,
+      });
+      this.logger.log(
+        `[synthesizeConfigForUserModel] Lazily registered BYOK model as ` +
+          `UserModelConfig: user=${userId} ${cfg.provider}/${cfg.modelId}`,
+      );
+      // 解析结果变了（synthesized → UserModelConfig 行），清掉本用户解析缓存让下次回源
+      this.clearResolvedModelCache(userId);
+    } catch (error) {
+      // P2002 并发重复 → ConflictException；其余失败也不影响解析，静默
+      this.logger.debug(
+        `[synthesizeConfigForUserModel] Lazy-register skipped for ` +
+          `${cfg.modelId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
