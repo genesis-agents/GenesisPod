@@ -20,10 +20,10 @@ import {
 } from "@nestjs/common";
 import { Request } from "express";
 import { ApiTags } from "@nestjs/swagger";
-import { SecretsService } from "./secrets.service";
-import { CreateSecretDto } from "./dto/create-secret.dto";
-import { UpdateSecretDto } from "./dto/update-secret.dto";
-import { SecretNameValidationPipe } from "./dto/secret-name-validation.pipe";
+import { SecretsService } from "@/modules/platform/credentials/secrets/secrets.service";
+import { CreateSecretDto } from "@/modules/platform/credentials/secrets/dto/create-secret.dto";
+import { UpdateSecretDto } from "@/modules/platform/credentials/secrets/dto/update-secret.dto";
+import { SecretNameValidationPipe } from "@/modules/platform/credentials/secrets/dto/secret-name-validation.pipe";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { AdminGuard } from "@/common/guards/admin.guard";

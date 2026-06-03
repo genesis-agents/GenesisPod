@@ -1,10 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { CanActivate, ExecutionContext, Logger } from "@nestjs/common";
 import { SettingsController } from "../settings.controller";
-import { SettingsService } from "../settings.service";
-import { EmailService } from "../../email/email.service";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { SettingsService } from "@/modules/platform/settings/settings.service";
+import { EmailService } from "@/modules/platform/email/email.service";
+import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
+import { AdminGuard } from "@/common/guards/admin.guard";
 
 const mockGuard: CanActivate = {
   canActivate: (_ctx: ExecutionContext) => true,
