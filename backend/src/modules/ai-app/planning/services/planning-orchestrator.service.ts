@@ -29,7 +29,7 @@ import {
 } from "@/modules/ai-harness/facade";
 import { ProcessMemoryManagerService } from "@/modules/ai-harness/facade";
 import type { ChatMessage, TaskProfile } from "@/modules/ai-harness/facade";
-import { BillingContext } from "../../../ai-infra/facade";
+import { BillingContext } from "../../../platform/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 export interface PlanPhaseStatus {

@@ -41,8 +41,8 @@ import { CacheModule } from "../../../../common/cache/cache.module";
 import { BrowserModule } from "../../../../common/browser/browser.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { ExploreModule } from "../../explore/explore.module";
-import { NotificationModule } from "../../../ai-infra/notifications/notification.module";
-import { CreditsModule } from "../../../ai-infra/credits/credits.module";
+import { NotificationModule } from "../../../platform/notifications/notification.module";
+import { CreditsModule } from "../../../platform/credits/credits.module";
 import { initSessionCrypto } from "../mission/services/session-crypto";
 
 // ★ W4 PR-3b/3c/4: SocialPublishMission Agent Team

@@ -487,13 +487,13 @@ export class TemplateRenderTool extends BaseTool<
     // Radar email helpers — security contract (§7.3.3-bis)
     //
     // F4 FU3 整改：urlEncode / truncate / tierBadge / evidenceSources 4 helpers
-    // 从 common/handlebars/radar-email-helpers 统一注册（与 ai-infra/email 端
+    // 从 common/handlebars/radar-email-helpers 统一注册（与 platform/email 端
     // 同源），避免实现漂移
     // ==========================================================================
     registerRadarEmailHelpers(hbs as HbsLike);
 
     // detailUrl: LLM 工具端签名是单参 (signalId)，从 APP_CONFIG 取 base，URL
-    // 模式 `/ai-radar/signal/${id}`（无 topicId）。与 ai-infra/email 端 3 参签
+    // 模式 `/ai-radar/signal/${id}`（无 topicId）。与 platform/email 端 3 参签
     // 名 by design 不一致 —— 保留本地实现
     const UUID_RE =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

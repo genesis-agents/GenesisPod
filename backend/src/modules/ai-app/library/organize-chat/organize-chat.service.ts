@@ -10,7 +10,7 @@ import {
 import {
   CreditsService,
   InsufficientCreditsException,
-} from "../../../ai-infra/facade";
+} from "../../../platform/facade";
 import { OrganizeChatDto } from "./dto/organize-chat.dto";
 import { ORGANIZE_AGENT_ROLE_ID } from "./tools/organize-bookmark-tools";
 

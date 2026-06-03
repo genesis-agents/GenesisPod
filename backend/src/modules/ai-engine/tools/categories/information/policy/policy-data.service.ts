@@ -14,7 +14,7 @@ import { HttpService } from "@nestjs/axios";
 import { Prisma } from "@prisma/client";
 import { getToolIdAliases } from "@/common/ai/tool-id-aliases";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/ai-infra/facade";
+import { SecretsService } from "@/modules/platform/facade";
 import { firstValueFrom } from "rxjs";
 import { APP_CONFIG } from "@/common/config/app.config";
 import * as crypto from "crypto";

@@ -74,7 +74,7 @@ import {
 } from "../../../../../common/guards/rate-limit.guard";
 import { Public } from "../../../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../../../common/types/express-request.types";
-import { BillingContext } from "../../../../ai-infra/facade";
+import { BillingContext } from "../../../../platform/facade";
 import {
   KernelContext,
   MissionExecutorService,

@@ -14,7 +14,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import {
   ToolKeyResolverService,
   NoToolKeyError,
-} from "@/modules/ai-infra/facade";
+} from "@/modules/ai-engine/facade";
 import { RequestContext } from "@/common/context/request-context";
 
 /**

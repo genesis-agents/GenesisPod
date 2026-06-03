@@ -497,7 +497,7 @@ describe("AiConnectionTestService", () => {
             { provide: HttpService, useValue: mockHttpService },
             {
               provide: (
-                await import("@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service")
+                await import("@/modules/ai-engine/credentials/user-api-keys/user-api-keys.service")
               ).UserApiKeysService,
               useValue: userApiKeysMock,
             },
@@ -544,7 +544,7 @@ describe("AiConnectionTestService", () => {
             { provide: HttpService, useValue: mockHttpService },
             {
               provide: (
-                await import("@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service")
+                await import("@/modules/ai-engine/credentials/user-api-keys/user-api-keys.service")
               ).UserApiKeysService,
               useValue: userApiKeysMock,
             },

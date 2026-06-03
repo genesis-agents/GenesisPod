@@ -16,7 +16,7 @@ import {
 } from "@nestjs/common";
 import { Observable } from "rxjs";
 import type { Request } from "express";
-import { BillingContext } from "@/modules/ai-infra/facade";
+import { BillingContext } from "@/modules/platform/facade";
 
 @Injectable()
 export class BillingContextInterceptor implements NestInterceptor {

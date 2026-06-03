@@ -111,7 +111,7 @@ const IMG_TAG_REGEX =
  *   - 标准 IPv4：必须是 4 段、每段 0-255、且不在私网段
  *   - 其他：单段数字 / 含 `:` / 含 `0x` 前缀 / 含字母 'x' / 全数字 → 拒
  *
- * 不做 DNS lookup（async + DNS rebinding 风险），最终防线在 ai-infra
+ * 不做 DNS lookup（async + DNS rebinding 风险），最终防线在 platform
  * 网络层（生产环境用 egress firewall 拦内网）。
  */
 function isUrlSsrfSafe(rawUrl: string): boolean {

@@ -1,7 +1,9 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { SecretsService } from "../../ai-infra/secrets/secrets.service";
-import { KeyAssignmentsService } from "../../ai-infra/credentials/key-assignments/key-assignments.service";
+import { SecretsService } from "../../platform/secrets/secrets.service";
+// Credential-admin surface imports credentials from source (not the engine
+// facade barrel) to avoid circular-barrel DI breakage; eslint-exempted below.
+import { KeyAssignmentsService } from "../../ai-engine/credentials/key-assignments/key-assignments.service";
 import { AIModelType } from "@prisma/client";
 import {
   mapWithConcurrency,

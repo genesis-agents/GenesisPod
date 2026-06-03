@@ -12,7 +12,7 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { IS_PUBLIC_KEY } from "@/common/decorators/public.decorator";
-import { SecretsService } from "../../../../ai-infra/facade";
+import { SecretsService } from "../../../../platform/facade";
 import { safeCompare } from "@/common/utils/crypto.utils";
 
 @Injectable()

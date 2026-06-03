@@ -4,7 +4,7 @@ import { CollectionsController } from "./collections.controller";
 import { CollectionsRepository } from "./collections.repository";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
-import { CreditsModule } from "../../../ai-infra/credits/credits.module";
+import { CreditsModule } from "../../../platform/credits/credits.module";
 
 @Module({
   imports: [PrismaModule, AiEngineModule, CreditsModule],

@@ -3,7 +3,7 @@
  */
 
 import { ToolOutputSpillStorageService } from "../spill-storage.service";
-import type { R2StorageService } from "@/modules/ai-infra/storage/runtime/r2-storage.service";
+import type { R2StorageService } from "@/modules/platform/storage/runtime/r2-storage.service";
 
 // ---------------------------------------------------------------------------
 // Helpers

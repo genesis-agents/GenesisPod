@@ -18,7 +18,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-harness/facade";
-import { SecretsService } from "../../../ai-infra/facade";
+import { SecretsService } from "../../../platform/facade";
 import type {
   ScreenshotAnalysis,
   FeedbackAttachment,

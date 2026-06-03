@@ -34,11 +34,11 @@ import { MCPExternalAdminController } from "../mcp-admin/mcp-external-admin.cont
 import { AgentConfigService } from "../../ai-harness/facade";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
-import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
-import { KeyAssignmentsModule } from "../../ai-infra/credentials/key-assignments/key-assignments.module";
+import { SecretsModule } from "../../platform/secrets/secrets.module";
+import { KeyAssignmentsModule } from "../../ai-engine/credentials/key-assignments/key-assignments.module";
 import { QuotaModule } from "./quota/quota.module";
 import { MCPServerModule } from "../../open-api/mcp-server/mcp-server.module";
-import { StorageModule } from "../../ai-infra/storage/storage.module";
+import { StorageModule } from "../../platform/storage/storage.module";
 
 // Admin sub-services
 import {

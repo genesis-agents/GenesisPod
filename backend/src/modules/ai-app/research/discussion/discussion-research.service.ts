@@ -18,7 +18,7 @@ import {
   CreditsService,
   InsufficientCreditsException,
   BillingContext,
-} from "../../../ai-infra/facade";
+} from "../../../platform/facade";
 import {
   KernelContext,
   MissionExecutorService,

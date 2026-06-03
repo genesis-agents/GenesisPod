@@ -22,7 +22,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { AdminService } from "../admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
+import { SecretsService } from "../../../platform/secrets/secrets.service";
 import { UserManagementService } from "../services/user-management.service";
 import { ResourceManagementService } from "../services/resource-management.service";
 import { StatisticsService } from "../services/statistics.service";
@@ -120,7 +120,7 @@ describe("AdminService (supplemental2)", () => {
         // PR-6 (2026-05-12): AdminService 新增 KeyAssignmentsService 依赖
         {
           provide:
-            require("../../../ai-infra/credentials/key-assignments/key-assignments.service")
+            require("../../../ai-engine/credentials/key-assignments/key-assignments.service")
               .KeyAssignmentsService,
           useValue: {
             reactivateStale: jest.fn().mockResolvedValue({ count: 0 }),

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ImageStorageService } from "../storage.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { R2StorageService } from "../../../../ai-infra/storage/runtime/r2-storage.service";
+import { R2StorageService } from "../../../../platform/storage/runtime/r2-storage.service";
 
 describe("ImageStorageService", () => {
   let service: ImageStorageService;
@@ -660,4 +660,3 @@ describe("ImageStorageService", () => {
     });
   });
 });
-

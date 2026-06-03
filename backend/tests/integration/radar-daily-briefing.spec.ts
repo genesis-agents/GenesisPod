@@ -27,20 +27,20 @@ import { RadarRefreshScheduler } from "../../src/modules/ai-app/radar/mission/se
 // Services used by scheduler — must use class tokens for NestJS DI
 import { PrismaService } from "../../src/common/prisma/prisma.service";
 import { CacheService } from "../../src/common/cache/cache.service";
-import { EmailService } from "../../src/modules/ai-infra/email/email.service";
+import { EmailService } from "../../src/modules/platform/email/email.service";
 
 import { RadarDailyBriefingRepo } from "../../src/modules/ai-app/radar/mission/services/briefing/radar-daily-briefing.repo";
 import { RadarWeeklyBriefingService } from "../../src/modules/ai-app/radar/mission/services/briefing/radar-weekly-briefing.service";
 import { RadarBriefingQueueService } from "../../src/modules/ai-app/radar/mission/services/scheduler/radar-briefing-queue.service";
-import { NotificationDispatcher } from "../../src/modules/ai-infra/notifications/dispatcher/notification-dispatcher.service";
-import { NotificationPreferenceService } from "../../src/modules/ai-infra/notifications/dispatcher/preferences/notification-preference.service";
-import { ChannelResolver } from "../../src/modules/ai-infra/notifications/dispatcher/preferences/channel-resolver";
-import { EmailChannel } from "../../src/modules/ai-infra/notifications/dispatcher/channels/email-channel.adapter";
+import { NotificationDispatcher } from "../../src/modules/platform/notifications/dispatcher/notification-dispatcher.service";
+import { NotificationPreferenceService } from "../../src/modules/platform/notifications/dispatcher/preferences/notification-preference.service";
+import { ChannelResolver } from "../../src/modules/platform/notifications/dispatcher/preferences/channel-resolver";
+import { EmailChannel } from "../../src/modules/platform/notifications/dispatcher/channels/email-channel.adapter";
 import { RadarPipelineDispatcher } from "../../src/modules/ai-app/radar/mission/pipeline/radar-pipeline-dispatcher.service";
-import { RadarDailyBriefingEmailPreset } from "../../src/modules/ai-infra/notifications/dispatcher/presets/radar-daily-briefing-email.preset";
-import { RadarWeeklyBriefingEmailPreset } from "../../src/modules/ai-infra/notifications/dispatcher/presets/radar-weekly-briefing-email.preset";
+import { RadarDailyBriefingEmailPreset } from "../../src/modules/platform/notifications/dispatcher/presets/radar-daily-briefing-email.preset";
+import { RadarWeeklyBriefingEmailPreset } from "../../src/modules/platform/notifications/dispatcher/presets/radar-weekly-briefing-email.preset";
 import { NarrativeService } from "../../src/modules/ai-app/radar/mission/services/briefing/narrative.service";
-import { AIMetricsService } from "../../src/modules/ai-infra/monitoring/metrics/ai-metrics.service";
+import { AIMetricsService } from "../../src/modules/platform/monitoring/metrics/ai-metrics.service";
 
 // Event contract
 import {
@@ -51,7 +51,7 @@ import type { DailySignal } from "../../src/modules/ai-app/radar/mission/service
 import type {
   DispatchPayload,
   DispatchOptions,
-} from "../../src/modules/ai-infra/notifications/dispatcher/abstractions/notification-channel";
+} from "../../src/modules/platform/notifications/dispatcher/abstractions/notification-channel";
 
 // ─────────────────────────────────────────────────────────
 // Shared fixtures

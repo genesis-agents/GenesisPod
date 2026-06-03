@@ -15,7 +15,7 @@ import {
 import { randomUUID } from "crypto";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { Observable, Subject } from "rxjs";
-import { BillingContext } from "../../../ai-infra/facade";
+import { BillingContext } from "../../../platform/facade";
 // 直接从具体文件导入，避免通过 barrel export 引发循环依赖
 import { ContentExtractorService } from "../../../../common/content-processing/content-extractor.service";
 import {

@@ -18,7 +18,7 @@ import {
   ApiBearerAuth,
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { BillingContext } from "../../../ai-infra/facade";
+import { BillingContext } from "../../../platform/facade";
 import {
   AiFileOrganizerService,
   FileInfo,

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
-import { NotificationPresetsService } from "@/modules/ai-infra/facade";
+import { NotificationPresetsService } from "@/modules/platform/facade";
 
 /**
  * 业务模块 emit 的"任务完成"事件 payload 标准。

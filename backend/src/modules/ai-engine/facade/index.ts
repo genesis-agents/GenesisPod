@@ -767,24 +767,56 @@ export {
 } from "../llm/abstractions/error-classifier";
 
 // ════════════════════════════════════════════════════════════════════
-// BYOK / Credentials — 2026-05-01 已下沉到 ai-infra/credentials/
-// Engine 仅保留 LLM 配置探测与多 Key 健康管理，统一挂在 llm/*
-//   ai-app/byok controllers 应改从 "@/modules/ai-infra/facade" 导入。
-//   本处的 re-export 保留是为向后兼容；新代码请直接走 ai-infra/facade。
+// BYOK / Credentials — 2026-06-02: 迁入 ai-engine（AI 专属：LLM 供应商/模型
+// 密钥解析 + user-model-configs + BYOK 调度）。从本 facade 直接暴露。
+//   消费方（ai-app/byok controllers、open-api/admin）从 "@/modules/ai-engine/facade" 导入。
 // ════════════════════════════════════════════════════════════════════
 export {
-  KeyAssignmentsService,
-  KeyRequestsService,
-  UserApiKeysService,
-  KeyResolverService,
-  UserModelConfigsService,
-  CreateKeyRequestDto,
+  ToolKeyResolverService,
+  NoToolKeyError,
+} from "../credentials/tool-key-resolver/tool-key-resolver.service";
+export type {
+  ResolvedToolKey,
+  ToolKeySource,
+} from "../credentials/tool-key-resolver/tool-key-resolver.service";
+export { UserSecretsService } from "../credentials/user-secrets/user-secrets.service";
+// NOTE: credential-management surfaces (ai-app/byok, open-api/byok-admin) import
+// credential *services* (AuthorizationService / UserToolsService / KeyAssignments
+// etc.) directly from source, NOT via this barrel — adding heavy credential
+// services here bloats the facade barrel and triggers circular-load failures in
+// unrelated consumers (e.g. orchestrator specs: "undefined reading 'SEARCH'").
+// Those surfaces are eslint/ facade-boundary exempted instead.
+export { KeyAssignmentsService } from "../credentials/key-assignments/key-assignments.service";
+export { KeyRequestsService } from "../credentials/key-requests/key-requests.service";
+export { UserApiKeysService } from "../credentials/user-api-keys/user-api-keys.service";
+export { KeyResolverService } from "../credentials/key-resolver/key-resolver.service";
+export { NoAvailableKeyError } from "../credentials/key-resolver/key-resolver.errors";
+export type {
+  ResolvedKey,
+  KeyChain,
+  KeySource,
+} from "../credentials/key-resolver/key-resolver.service";
+export { ByokMaintenanceScheduler } from "../credentials/scheduling/byok-maintenance.scheduler";
+export { UserModelConfigsService } from "../credentials/user-model-configs/user-model-configs.service";
+export { CreateKeyRequestDto } from "../credentials/key-requests/dto/create-key-request.dto";
+// admin / byok-admin (open-api) DTOs — exposed so open-api routes through the facade
+export {
+  ApproveKeyRequestDto,
+  RejectKeyRequestDto,
+} from "../credentials/key-requests/dto";
+export {
+  RevokeAssignmentDto,
+  UpdateAssignmentDto,
+} from "../credentials/key-assignments/dto";
+export {
   SaveUserApiKeyDto,
   ApiKeyMode,
-  TestApiKeyDto,
+} from "../credentials/user-api-keys/dto/save-user-api-key.dto";
+export { TestApiKeyDto } from "../credentials/user-api-keys/dto/test-api-key.dto";
+export {
   CreateUserModelConfigDto,
   UpdateUserModelConfigDto,
-} from "../../ai-infra/facade";
+} from "../credentials/user-model-configs/dto/user-model-config.dto";
 export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/services/ai-model-discovery.service";
 export { AiConnectionTestService } from "@/modules/ai-engine/llm/services/ai-connection-test.service";
 export { AutoConfigureService } from "@/modules/ai-engine/llm/user-config/user-models-auto-configure.service";

@@ -11,7 +11,7 @@ import {
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { Request, Response } from "express";
 import { RequestContext } from "../context/request-context";
-import { ErrorTrackingService } from "../../modules/ai-infra/monitoring";
+import { ErrorTrackingService } from "../../modules/platform/monitoring";
 
 interface ErrorResponse {
   statusCode: number;

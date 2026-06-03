@@ -1,5 +1,5 @@
 // Mock BillingContext before any imports to avoid real async-local-storage usage
-jest.mock("../../../../ai-infra/credits/billing-context.store", () => ({
+jest.mock("../../../../platform/credits/billing-context.store", () => ({
   BillingContext: {
     run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()),
   },

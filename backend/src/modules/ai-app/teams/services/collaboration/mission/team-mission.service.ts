@@ -35,7 +35,7 @@ import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务（通过 AIFacade 访问）
 import { TaskCompletionType } from "@/modules/ai-harness/facade";
-import { MissionCompletionPreset } from "../../../../../ai-infra/facade";
+import { MissionCompletionPreset } from "../../../../../platform/facade";
 import { ConfigService } from "@nestjs/config";
 import {
   findMemberByNameEnhanced,

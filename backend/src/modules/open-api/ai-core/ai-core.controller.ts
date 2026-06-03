@@ -19,7 +19,7 @@ import { Response, Request } from "express";
 import { AiCoreService } from "./ai-core.service";
 import { ChatFacade } from "../../ai-harness/facade";
 import { RAGPipelineService, SearchService } from "@/modules/ai-engine/facade";
-import { SecretsService, BillingContext } from "../../ai-infra/facade";
+import { SecretsService, BillingContext } from "../../platform/facade";
 import { ApiTags } from "@nestjs/swagger";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
 import { Public } from "../../../common/decorators/public.decorator";

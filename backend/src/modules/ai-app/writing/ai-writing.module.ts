@@ -21,7 +21,7 @@ import {
 import { WritingMissionGateway } from "./mission/writing-mission.gateway";
 import { WRITING_EVENTS } from "./events/writing.events";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
-import { CreditsModule } from "../../ai-infra/credits/credits.module";
+import { CreditsModule } from "../../platform/credits/credits.module";
 import { LongContentModule } from "./content-engine/long-content.module";
 
 // ★ B4 Writing Mission Pipeline — new providers (新旧并存，B5 单点切换)

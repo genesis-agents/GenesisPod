@@ -29,9 +29,9 @@ import {
   MissionPipelineRegistry,
 } from "@/modules/ai-harness/facade";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
-import { NotificationModule } from "../../../ai-infra/notifications/notification.module";
-import { NotificationDispatcherModule } from "../../../ai-infra/notifications/dispatcher/notification-dispatcher.module";
-import { MonitoringModule } from "../../../ai-infra/monitoring/monitoring.module";
+import { NotificationModule } from "../../../platform/notifications/notification.module";
+import { NotificationDispatcherModule } from "../../../platform/notifications/dispatcher/notification-dispatcher.module";
+import { MonitoringModule } from "../../../platform/monitoring/monitoring.module";
 
 import { RadarTopicController } from "../api/controller/radar-topic.controller";
 import { RadarSourceController } from "../api/controller/radar-source.controller";

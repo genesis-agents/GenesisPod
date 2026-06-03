@@ -19,7 +19,7 @@ import {
 } from "../research-export.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { CitationFormatterService } from "../citation-formatter.service";
-import { R2StorageService } from "@/modules/ai-infra/facade";
+import { R2StorageService } from "@/modules/platform/facade";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Fixtures
@@ -318,5 +318,3 @@ describe("ResearchExportService (supplemental)", () => {
     });
   });
 });
-
-

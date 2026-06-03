@@ -17,9 +17,9 @@ import type {
 import { FunctionDefinition } from "../../tools/abstractions/tool.interface";
 import { AiChatService, ChatMessage } from "../services/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/ai-infra/facade";
-import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
-import { NoAvailableKeyError } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.errors";
+import { SecretsService } from "@/modules/platform/facade";
+import { KeyResolverService } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.service";
+import { NoAvailableKeyError } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.errors";
 
 /**
  * Function Calling LLM 适配器配置

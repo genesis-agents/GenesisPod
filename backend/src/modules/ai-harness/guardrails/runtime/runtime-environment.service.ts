@@ -22,8 +22,8 @@ import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool.registry";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill.registry";
 // v3.1 A0：AiChatModelConfigService 弃用，迁至 canonical AiModelConfigService
 import { AiModelConfigService } from "@/modules/ai-engine/llm/services/ai-model-config.service";
-import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
-import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
+import { KeyResolverService } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.service";
+import { SecretsService } from "@/modules/platform/secrets/secrets.service";
 import {
   SPEC_AGENT_REGISTRY_PROBE,
   TOOL_CIRCUIT_BREAKER_PROBE,

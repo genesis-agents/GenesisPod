@@ -420,7 +420,7 @@ describe("P0-919d4a4cb — hardcoded pricing confined to known locations", () =>
   });
 
   it("ai-metrics.service.ts does not contain private estimateCost", () => {
-    const file = "ai-infra/monitoring/metrics/ai-metrics.service.ts";
+    const file = "platform/monitoring/metrics/ai-metrics.service.ts";
     if (!exists(file)) return;
     const src = read(file);
     expect(src).not.toContain("private estimateCost");

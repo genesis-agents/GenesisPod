@@ -47,7 +47,7 @@ jest.mock("../../../../common/prisma/prisma.service", () => ({
   })),
 }));
 
-jest.mock("../../../ai-infra/facade", () => ({
+jest.mock("../../../platform/facade", () => ({
   BillingContext: {
     run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()),
   },

@@ -23,12 +23,12 @@ import { ResearchPlannerService } from "../research-planner.service";
 import { IterativeSearchService } from "../iterative-search.service";
 import { SelfReflectionService } from "../self-reflection.service";
 import { ReportSynthesizerService } from "../report-synthesizer.service";
-import { CreditsService } from "../../../../ai-infra/credits/credits.service";
+import { CreditsService } from "../../../../platform/credits/credits.service";
 import { DeepResearchStatus } from "@prisma/client";
 import { firstValueFrom, toArray } from "rxjs";
 
 // Mock BillingContext so it executes the callback directly
-jest.mock("../../../../ai-infra/credits/billing-context.store", () => ({
+jest.mock("../../../../platform/credits/billing-context.store", () => ({
   BillingContext: {
     run: jest
       .fn()

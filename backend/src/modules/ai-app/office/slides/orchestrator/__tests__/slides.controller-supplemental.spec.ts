@@ -16,7 +16,12 @@
  */
 
 jest.mock("@prisma/client", () => ({
-  PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, ...jest.requireActual("@prisma/client"),
+  PrismaClient: class PrismaClient {
+    $connect = jest.fn();
+    $disconnect = jest.fn();
+    $on = jest.fn();
+  },
+  ...jest.requireActual("@prisma/client"),
   AIModelType: {
     CHAT: "CHAT",
     CHAT_FAST: "CHAT_FAST",
@@ -90,7 +95,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   EventJournalService: jest.fn(),
 }));
 
-jest.mock("@/modules/ai-infra/facade", () => ({
+jest.mock("@/modules/platform/facade", () => ({
   BillingContext: {
     run: jest
       .fn()

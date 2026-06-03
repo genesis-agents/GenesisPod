@@ -7,7 +7,7 @@ import {
   EmailNotificationPresetsService,
   FeedbackStatusUpdatePreset,
   R2StorageService,
-} from "../../ai-infra/facade";
+} from "../../platform/facade";
 import {
   FeedbackEvent,
   FeedbackCreatedPayload,

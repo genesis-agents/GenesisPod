@@ -13,8 +13,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { withUserContext } from "@/common/context";
 import { KernelContext } from "@/common/context/kernel-context";
-import { BillingContext } from "@/modules/ai-infra/credits/billing-context.store";
-import { CreditsService } from "@/modules/ai-infra/credits/credits.service";
+import { BillingContext } from "@/modules/platform/credits/billing-context.store";
+import { CreditsService } from "@/modules/platform/credits/credits.service";
 // ★ 不走 @/modules/ai-harness/facade barrel：facade/index.ts 也 re-export 本 framework
 //   (PR-E0)，构成 facade ⇄ framework 的模块循环加载，编译产物里
 //   `__metadata("design:paramtypes", [..., facade_1.RuntimeEnvironmentService, ...])`

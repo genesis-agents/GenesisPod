@@ -12,8 +12,8 @@ import {
   TOOL_ID_ALIAS_TO_REGISTRY_ID,
 } from "@/common/ai/tool-id-aliases";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { EXTERNAL_TOOL_SECRET_MAPPING } from "../../../ai-infra/secrets/secret-name.catalog";
-import { EXTERNAL_TOOL_DEFINITIONS } from "../../../ai-infra/secrets/external-tool-definitions";
+import { EXTERNAL_TOOL_SECRET_MAPPING } from "../../../platform/secrets/secret-name.catalog";
+import { EXTERNAL_TOOL_DEFINITIONS } from "../../../platform/secrets/external-tool-definitions";
 import { DEFAULT_PAGE_SIZE } from "../../../../common/constants/pagination.constants";
 
 /**
@@ -76,7 +76,7 @@ import {
   KeyHealthStatus,
 } from "../../../ai-engine/facade";
 import { MCPManager } from "../../../ai-harness/facade";
-import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
+import { SecretsService } from "../../../platform/secrets/secrets.service";
 import { enrichToolsWithSecretHealth } from "./tool-secret-health.helper";
 import { analyzeToolResult } from "./tool-test-result.helper";
 

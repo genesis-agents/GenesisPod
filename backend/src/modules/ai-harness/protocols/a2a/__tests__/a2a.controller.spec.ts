@@ -13,7 +13,7 @@ import { Reflector } from "@nestjs/core";
 import { A2AController } from "../../../../open-api/a2a-server.controller";
 import { AgentCardRegistry } from "../agent-card.registry";
 import { A2AApiKeyGuard } from "../guards/a2a-api-key.guard";
-import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
+import { SecretsService } from "@/modules/platform/secrets/secrets.service";
 import { A2ATaskStatus } from "../a2a.types";
 import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "../a2a.tokens";
 

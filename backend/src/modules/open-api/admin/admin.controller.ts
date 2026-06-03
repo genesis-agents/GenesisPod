@@ -26,11 +26,11 @@ import {
   SystemModelInventoryService,
 } from "../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
-import { SecretsService } from "../../ai-infra/secrets/secrets.service";
+import { SecretsService } from "../../platform/secrets/secrets.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
 import { CreateUserDto } from "./dto/create-user.dto";
-import { StorageInventoryService } from "../../ai-infra/storage/governance/storage-inventory.service";
-import { StorageOffloadService } from "../../ai-infra/storage/governance/storage-offload.service";
+import { StorageInventoryService } from "../../platform/storage/governance/storage-inventory.service";
+import { StorageOffloadService } from "../../platform/storage/governance/storage-offload.service";
 
 interface AuthenticatedRequest {
   user?: { id: string };

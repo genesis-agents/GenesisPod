@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { FeedbackController } from "../feedback.controller";
 import { FeedbackService } from "../feedback.service";
-import { EmailService } from "../../../ai-infra/facade";
+import { EmailService } from "../../../platform/facade";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";

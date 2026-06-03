@@ -2,7 +2,7 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
-import { CreditsModule } from "../../../ai-infra/credits/credits.module";
+import { CreditsModule } from "../../../platform/credits/credits.module";
 import { CollaborationModule } from "../../../ai-harness/teams/collaboration/collaboration.module";
 import { CollectionsModule } from "../collections/collections.module";
 import { ToolRegistry } from "@/modules/ai-harness/facade";

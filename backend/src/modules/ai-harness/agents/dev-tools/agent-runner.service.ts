@@ -27,7 +27,7 @@ import type {
 import type { MissionElectionReservation } from "../../guardrails/runtime/mission-election-tracker.service";
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool.registry";
 import { BuiltinSkillCatalog } from "../skill-runtime";
-import { BillingContext } from "../../../ai-infra/credits/billing-context.store";
+import { BillingContext } from "../../../platform/credits/billing-context.store";
 import {
   readDefineAgentMeta,
   AgentSpec,

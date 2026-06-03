@@ -1,5 +1,5 @@
 /**
- * BillingRuntimeEnvAdapter — 把 ai-infra/credits + RuntimeEnvironmentService
+ * BillingRuntimeEnvAdapter — 把 platform/credits + RuntimeEnvironmentService
  * 适配为 Harness 的 IRuntimeEnvironment 接口。
  *
  * 业务方参考实现：fork 改成自己的 BillingContext 适配器即可。
@@ -24,7 +24,7 @@ import type {
   IRuntimeEnvironment,
 } from "../../agents/abstractions";
 import { CREDITS_TO_TOKENS } from "../budget/resolved-budget-caps";
-import type { CreditsService } from "../../../ai-infra/credits/credits.service";
+import type { CreditsService } from "../../../platform/credits/credits.service";
 import type { RuntimeEnvironmentService } from "../../../ai-harness/guardrails/runtime/runtime-environment.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import type { CacheService } from "../../../../common/cache/cache.service";

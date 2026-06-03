@@ -5,7 +5,7 @@
 
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
-import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
+import { SecretsModule } from "../../../platform/secrets/secrets.module";
 import { QuotaController } from "./quota.controller";
 import { QuotaService } from "./quota.service";
 import {

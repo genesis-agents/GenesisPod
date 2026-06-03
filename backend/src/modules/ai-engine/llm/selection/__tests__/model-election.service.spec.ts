@@ -18,7 +18,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AIModelType } from "@prisma/client";
 import { ModelElectionService } from "../model-election.service";
 import { AiModelConfigService } from "../../services/ai-model-config.service";
-import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
+import { KeyResolverService } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.service";
 import {
   NoEligibleModelError,
   type ElectionCandidate,

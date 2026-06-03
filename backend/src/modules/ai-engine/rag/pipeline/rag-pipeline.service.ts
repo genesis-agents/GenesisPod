@@ -19,7 +19,7 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { RequestContext } from "@/common/context/request-context";
-import { KeyExecutorService } from "@/modules/ai-infra/credentials/executor";
+import { KeyExecutorService } from "@/modules/ai-engine/credentials/executor";
 import { EmbeddingService } from "../embedding";
 import { VectorService } from "../vector";
 import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";

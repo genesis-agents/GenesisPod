@@ -49,6 +49,17 @@ while IFS= read -r line; do
     continue
   fi
 
+  # Skip ai-app/byok credential-management surface importing ai-engine/credentials.
+  # 2026-06-03: BYOK credentials moved into ai-engine; ai-app/byok is the user-facing
+  # BYOK credential UI/API (counterpart of open-api/byok-admin), inherently coupled to
+  # credentials. Routing credential *services* through the ai-engine/facade barrel
+  # bloats it and triggers circular-load failures in unrelated consumers, so this
+  # surface imports credentials from source (mirrors the ESLint excludedFiles
+  # exemption for open-api/byok-admin + admin.service).
+  if echo "$line" | grep -qE "/ai-app/byok/.*ai-engine/credentials/"; then
+    continue
+  fi
+
   VIOLATIONS+="$line"$'\n'
   COUNT=$((COUNT + 1))
 done < <(grep -rn "from.*['\"].*ai-engine/" "$AI_APP_DIR" \

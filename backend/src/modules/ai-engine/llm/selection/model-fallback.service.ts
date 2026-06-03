@@ -27,7 +27,7 @@ import {
 import {
   BYOKError,
   NoModelConfiguredError,
-} from "@/modules/ai-infra/credentials/key-resolver/key-resolver.errors";
+} from "@/modules/ai-engine/credentials/key-resolver/key-resolver.errors";
 import { AIModelType } from "@prisma/client";
 
 // ==================== 类型定义 ====================

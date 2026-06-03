@@ -1000,7 +1000,7 @@ export class ReActLoop implements IAgentLoop {
           const message = err instanceof Error ? err.message : String(err);
           const aborted = /aborted/i.test(message);
           // ★ provider cooldown 错误携带剩余时长（ProviderCooldownError.remainingMs），
-          //   用于按实际 cooldown 退避等待。duck-type 读取，避免 ai-harness 反向依赖 ai-infra。
+          //   用于按实际 cooldown 退避等待。duck-type 读取，避免 ai-harness 反向依赖 platform。
           const cooldownRemainingMs =
             err &&
             typeof err === "object" &&

@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ContentProcessingModule } from "@/common/content-processing/content-processing.module";
 import { SystemSettingModule } from "@/common/settings/system-setting.module";
-import { ToolKeyResolverModule } from "@/modules/ai-infra/credentials/tool-key-resolver/tool-key-resolver.module";
+import { ToolKeyResolverModule } from "@/modules/ai-engine/credentials/tool-key-resolver/tool-key-resolver.module";
 import {
   ContentFetchService,
   YOUTUBE_SERVICE_TOKEN,
@@ -17,7 +17,11 @@ import { YoutubeService } from "./youtube.service";
  * PR-X22: imports SystemSettingModule (YoutubeService 注入 SystemSettingService)
  */
 @Module({
-  imports: [ContentProcessingModule, SystemSettingModule, ToolKeyResolverModule],
+  imports: [
+    ContentProcessingModule,
+    SystemSettingModule,
+    ToolKeyResolverModule,
+  ],
   providers: [
     ContentFetchService,
     YoutubeService,

@@ -9,7 +9,7 @@
  *   2. FALLBACK_TIER_COSTS in constraint-engine.ts is the ONLY survivor (no other files)
  *   3. ai-engine/planning/budget/cost.calculator.ts has been deleted
  *   4. ai-observability.service.ts has no `static estimateCost`
- *   5. ai-metrics.service.ts (ai-infra) has no `private estimateCost`
+ *   5. ai-metrics.service.ts (platform) has no `private estimateCost`
  *
  * Uses fs.readFileSync + recursive directory walk to avoid cross-platform
  * shell quoting issues with execSync grep.
@@ -173,14 +173,14 @@ describe("Hardcoded Pricing Zero-Out — Protection Net", () => {
   });
 
   // --------------------------------------------------------------------------
-  // 5. ai-metrics.service.ts (ai-infra) — no `private estimateCost`
+  // 5. ai-metrics.service.ts (platform) — no `private estimateCost`
   // --------------------------------------------------------------------------
 
   describe("5. ai-metrics.service.ts no private estimateCost", () => {
-    it("file exists at ai-infra/monitoring/metrics/", () => {
+    it("file exists at platform/monitoring/metrics/", () => {
       const file = path.join(
         BACKEND_SRC,
-        "modules/ai-infra/monitoring/metrics/ai-metrics.service.ts",
+        "modules/platform/monitoring/metrics/ai-metrics.service.ts",
       );
       expect(fs.existsSync(file)).toBe(true);
     });
@@ -188,7 +188,7 @@ describe("Hardcoded Pricing Zero-Out — Protection Net", () => {
     it("does not contain 'private estimateCost'", () => {
       const file = path.join(
         BACKEND_SRC,
-        "modules/ai-infra/monitoring/metrics/ai-metrics.service.ts",
+        "modules/platform/monitoring/metrics/ai-metrics.service.ts",
       );
       if (!fs.existsSync(file)) return;
       const content = fs.readFileSync(file, "utf8");

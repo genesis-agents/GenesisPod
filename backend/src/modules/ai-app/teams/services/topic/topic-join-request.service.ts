@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { TopicRole, JoinRequestStatus } from "@prisma/client";
-import { NotificationPresetsService } from "../../../../ai-infra/facade";
+import { NotificationPresetsService } from "../../../../platform/facade";
 
 /**
  * 处理团队加入申请

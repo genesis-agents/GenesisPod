@@ -28,11 +28,13 @@ import {
 import { KeyAssignmentStatus } from "@prisma/client";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { KeyAssignmentsService } from "../../ai-infra/credentials/key-assignments/key-assignments.service";
+// Credential-admin surface imports credentials from source (not the engine
+// facade barrel) to avoid circular-barrel DI breakage; eslint-exempted below.
+import { KeyAssignmentsService } from "../../ai-engine/credentials/key-assignments/key-assignments.service";
 import {
   RevokeAssignmentDto,
   UpdateAssignmentDto,
-} from "../../ai-infra/credentials/key-assignments/dto";
+} from "../../ai-engine/credentials/key-assignments/dto";
 
 /**
  * 模型粒度批量授权 DTO（v5 重构）

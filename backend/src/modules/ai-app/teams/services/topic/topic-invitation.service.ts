@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { TopicRole } from "@prisma/client";
-import { NotificationPresetsService } from "../../../../ai-infra/facade";
+import { NotificationPresetsService } from "../../../../platform/facade";
 import { randomBytes } from "crypto";
 
 // Type definitions for invitation (until Prisma client is regenerated)

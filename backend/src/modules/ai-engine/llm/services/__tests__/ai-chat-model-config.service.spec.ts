@@ -4,8 +4,8 @@ import { AiChatModelConfigService } from "../ai-chat-model-config.service";
 // 同时提供两者，验证 wrapper API surface 与底层等价行为。
 import { AiModelConfigService } from "../ai-model-config.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
-import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
+import { SecretsService } from "@/modules/platform/secrets/secrets.service";
+import { UserApiKeysService } from "@/modules/ai-engine/credentials/user-api-keys/user-api-keys.service";
 import { AIModelType } from "@prisma/client";
 
 function createMockDbModel(overrides: Record<string, unknown> = {}) {

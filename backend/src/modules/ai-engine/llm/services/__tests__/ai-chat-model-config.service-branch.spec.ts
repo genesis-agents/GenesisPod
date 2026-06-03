@@ -17,8 +17,8 @@ import { AiChatModelConfigService } from "../ai-chat-model-config.service";
 // v3.1 A0：wrapper 现委托给 canonical AiModelConfigService。
 import { AiModelConfigService } from "../ai-model-config.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
-import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
+import { SecretsService } from "@/modules/platform/secrets/secrets.service";
+import { UserApiKeysService } from "@/modules/ai-engine/credentials/user-api-keys/user-api-keys.service";
 
 function createMockDbModel(overrides: Record<string, unknown> = {}) {
   return {

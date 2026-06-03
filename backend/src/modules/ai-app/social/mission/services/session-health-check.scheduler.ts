@@ -9,7 +9,7 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   NotificationService,
   NotificationTypeDto,
-} from "../../../../ai-infra/facade";
+} from "../../../../platform/facade";
 import { SocialBrowserService } from "./social-browser.service";
 import { XhsMcpAdapter } from "../../integrations/xiaohongshu/xiaohongshu.adapter";
 import { SocialPlatformType } from "../types";

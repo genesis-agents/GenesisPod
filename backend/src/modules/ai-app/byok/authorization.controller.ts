@@ -12,12 +12,14 @@ import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { AuthorizationService } from "../../ai-infra/credentials/authorization/authorization.service";
+// Credential-management surface: imports credentials from source (the engine
+// facade barrel would circular-load); facade-boundary exempted for ai-app/byok.
+import { AuthorizationService } from "../../ai-engine/credentials/authorization/authorization.service";
 import {
   ApproveAuthorizationDto,
   CreateAuthorizationRequestDto,
   RejectAuthorizationDto,
-} from "../../ai-infra/credentials/authorization/dto/authorization.dto";
+} from "../../ai-engine/credentials/authorization/dto/authorization.dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

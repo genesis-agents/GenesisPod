@@ -17,7 +17,7 @@ import { AdminGuard } from "../../../../common/guards/admin.guard";
 import {
   ErrorTrackingService,
   AIMetricsService,
-} from "../../../ai-infra/facade";
+} from "../../../platform/facade";
 import { AIAdminService } from "../ai/ai-admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {

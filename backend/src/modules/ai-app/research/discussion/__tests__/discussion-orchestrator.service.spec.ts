@@ -123,7 +123,7 @@ jest.mock("../iterative-search.service");
 jest.mock("../report-synthesizer.service");
 jest.mock("../research-replanner.service");
 
-jest.mock("../../../../ai-infra/facade", () => ({
+jest.mock("../../../../platform/facade", () => ({
   BillingContext: {
     run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()),
   },

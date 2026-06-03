@@ -1,4 +1,4 @@
-jest.mock("../../../ai-infra/credits/billing-context.store", () => ({
+jest.mock("../../../platform/credits/billing-context.store", () => ({
   BillingContext: {
     run: jest
       .fn()

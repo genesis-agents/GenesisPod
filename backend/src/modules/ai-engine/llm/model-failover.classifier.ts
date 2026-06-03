@@ -12,7 +12,7 @@
  */
 
 /**
- * BYOK error codes (raised by ai-infra key-resolver as `BYOKError.code`) that
+ * BYOK error codes (raised by platform key-resolver as `BYOKError.code`) that
  * mean ALL keys for a model's provider failed — or none is configured. Each is
  * a PER-PROVIDER key problem, so the right recovery is switching to a DIFFERENT
  * model (a provider the user has a working key for), not terminating.

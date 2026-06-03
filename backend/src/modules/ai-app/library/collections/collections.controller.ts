@@ -13,7 +13,7 @@ import {
   HttpCode,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { BillingContext } from "../../../ai-infra/facade";
+import { BillingContext } from "../../../platform/facade";
 import { CollectionsService } from "./collections.service";
 import {
   CreateCollectionDto,

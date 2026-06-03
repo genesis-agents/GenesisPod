@@ -5,7 +5,7 @@
  * R2 endpoint: https://${ACCOUNT_ID}.r2.cloudflarestorage.com
  *
  * Backend 自身只做 primitive ops（put/get/delete/signedUrl）。高级 helper
- * （uploadBase64Image / uploadText）留在 ai-infra/storage/ObjectStorageService。
+ * （uploadBase64Image / uploadText）留在 platform/storage/ObjectStorageService。
  */
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";

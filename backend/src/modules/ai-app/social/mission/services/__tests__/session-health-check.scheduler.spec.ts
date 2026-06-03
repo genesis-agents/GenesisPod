@@ -1,7 +1,7 @@
 import { SessionHealthCheckScheduler } from "../session-health-check.scheduler";
 import type { ConfigService } from "@nestjs/config";
 import type { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import type { NotificationService } from "../../../../ai-infra/notifications/notification.service";
+import type { NotificationService } from "../../../../platform/notifications/notification.service";
 import type { SocialBrowserService } from "../social-browser.service";
 import type { XhsMcpAdapter } from "../../../integrations/xiaohongshu/xiaohongshu.adapter";
 import { SocialPlatformType } from "../../types";

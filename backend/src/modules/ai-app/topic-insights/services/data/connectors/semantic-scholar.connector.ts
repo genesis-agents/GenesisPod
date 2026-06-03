@@ -9,11 +9,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { SecretsService } from "@/modules/platform/facade";
 import {
-  SecretsService,
   ToolKeyResolverService,
   NoToolKeyError,
-} from "@/modules/ai-infra/facade";
+} from "@/modules/ai-engine/facade";
 import { RequestContext } from "@/common/context/request-context";
 import {
   IDataSourceConnector,

@@ -9,7 +9,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   NotificationService,
   NotificationTypeDto,
-} from "../../../../ai-infra/facade";
+} from "../../../../platform/facade";
 import {
   TopicCollaboratorRole,
   CollaboratorStatus as PrismaCollaboratorStatus,

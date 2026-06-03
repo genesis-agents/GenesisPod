@@ -36,7 +36,7 @@ import {
   CreditsService,
   InsufficientCreditsException,
   BillingContext,
-} from "../../../../ai-infra/facade";
+} from "../../../../platform/facade";
 import { MetricsService, Trace } from "../../../../../common/observability";
 import { AuditService } from "../../../../../common/audit";
 

@@ -211,7 +211,7 @@ describe("ModelResolverService — auto BYOK from RequestContext", () => {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         {
           provide:
-            require("../../../ai-infra/credentials/key-resolver/key-resolver.service")
+            require("../../../ai-engine/credentials/key-resolver/key-resolver.service")
               .KeyResolverService,
           useValue: keyResolver,
         },
@@ -267,7 +267,7 @@ describe("ModelResolverService — auto BYOK from RequestContext", () => {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         {
           provide:
-            require("../../../ai-infra/credentials/key-resolver/key-resolver.service")
+            require("../../../ai-engine/credentials/key-resolver/key-resolver.service")
               .KeyResolverService,
           useValue: keyResolver,
         },
@@ -321,7 +321,7 @@ describe("ModelResolverService — auto BYOK from RequestContext", () => {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         {
           provide:
-            require("../../../ai-infra/credentials/key-resolver/key-resolver.service")
+            require("../../../ai-engine/credentials/key-resolver/key-resolver.service")
               .KeyResolverService,
           useValue: keyResolver,
         },

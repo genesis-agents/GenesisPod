@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { TopicCollaboratorService } from "../topic-collaborator.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { NotificationService } from "@/modules/ai-infra/notifications/notification.service";
+import { NotificationService } from "@/modules/platform/notifications/notification.service";
 import { CollaboratorRole } from "../../../dto/collaborator.dto";
 
 const mockPrisma = {

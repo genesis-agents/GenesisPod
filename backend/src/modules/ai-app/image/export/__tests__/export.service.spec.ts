@@ -7,7 +7,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ExportService } from "../export.service";
-import { R2StorageService } from "../../../../ai-infra/storage/runtime/r2-storage.service";
+import { R2StorageService } from "../../../../platform/storage/runtime/r2-storage.service";
 import { PuppeteerPoolService } from "../../../../../common/browser/puppeteer-pool.service";
 
 describe("ExportService", () => {
@@ -318,4 +318,3 @@ describe("ExportService", () => {
     });
   });
 });
-

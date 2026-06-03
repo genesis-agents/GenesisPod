@@ -27,11 +27,11 @@ import { RadarBriefingQueueService } from "./radar-briefing-queue.service";
 import { RadarDailyBriefingRepo } from "../briefing/radar-daily-briefing.repo";
 import { RadarWeeklyBriefingService } from "../briefing/radar-weekly-briefing.service";
 import { NarrativeService } from "../briefing/narrative.service";
-import { AIMetricsService } from "@/modules/ai-infra/monitoring/metrics/ai-metrics.service";
-import { NotificationDispatcher } from "@/modules/ai-infra/notifications/dispatcher/notification-dispatcher.service";
-import { NotificationPreferenceService } from "@/modules/ai-infra/notifications/dispatcher/preferences/notification-preference.service";
-import { RadarDailyBriefingEmailPreset } from "@/modules/ai-infra/notifications/dispatcher/presets/radar-daily-briefing-email.preset";
-import { RadarWeeklyBriefingEmailPreset } from "@/modules/ai-infra/notifications/dispatcher/presets/radar-weekly-briefing-email.preset";
+import { AIMetricsService } from "@/modules/platform/monitoring/metrics/ai-metrics.service";
+import { NotificationDispatcher } from "@/modules/platform/notifications/dispatcher/notification-dispatcher.service";
+import { NotificationPreferenceService } from "@/modules/platform/notifications/dispatcher/preferences/notification-preference.service";
+import { RadarDailyBriefingEmailPreset } from "@/modules/platform/notifications/dispatcher/presets/radar-daily-briefing-email.preset";
+import { RadarWeeklyBriefingEmailPreset } from "@/modules/platform/notifications/dispatcher/presets/radar-weekly-briefing-email.preset";
 import {
   RADAR_BRIEFING_GENERATED_METRIC,
   RADAR_BRIEFING_SIGNAL_CREATED_EVENT,

@@ -2,9 +2,9 @@
  * BYOK Module (Bring Your Own Key) — User-facing credential management
  *
  * User-facing controllers for personal API key management and model configuration.
- * Services remain in ai-infra/credentials (credential infrastructure).
+ * Services remain in ai-engine/credentials (credential infrastructure).
  *
- * Controllers migrated from ai-infra/credentials/* (PR-X17, 5 个 user 控制器)
+ * Controllers migrated from ai-engine/credentials/* (PR-X17, 5 个 user 控制器)
  * + ai-engine/llm/user-models.controller.ts (PR-X17, 模型发现/自动配置)。
  *
  * Routes:
@@ -39,16 +39,16 @@ import { UserSkillsService } from "./user-skills.service";
 import { AiEngineLLMModule } from "../../ai-engine/llm/llm.module";
 import { AiEngineSkillsModule } from "../../ai-engine/skills/skills.module";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
-import { UserModelConfigsModule } from "../../ai-infra/credentials/user-model-configs/user-model-configs.module";
-import { UserSecretsModule } from "../../ai-infra/credentials/user-secrets/user-secrets.module";
-import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
-import { UserToolsModule } from "../../ai-infra/credentials/user-tools/user-tools.module";
-import { AuthorizationModule } from "../../ai-infra/credentials/authorization/authorization.module";
-import { KeyAssignmentsModule } from "../../ai-infra/credentials/key-assignments";
-import { KeyRequestsModule } from "../../ai-infra/credentials/key-requests";
-import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver";
-import { KeyHealthModule } from "../../ai-infra/credentials/health/key-health.module";
+import { UserApiKeysModule } from "../../ai-engine/credentials/user-api-keys/user-api-keys.module";
+import { UserModelConfigsModule } from "../../ai-engine/credentials/user-model-configs/user-model-configs.module";
+import { UserSecretsModule } from "../../ai-engine/credentials/user-secrets/user-secrets.module";
+import { SecretsModule } from "../../platform/secrets/secrets.module";
+import { UserToolsModule } from "../../ai-engine/credentials/user-tools/user-tools.module";
+import { AuthorizationModule } from "../../ai-engine/credentials/authorization/authorization.module";
+import { KeyAssignmentsModule } from "../../ai-engine/credentials/key-assignments";
+import { KeyRequestsModule } from "../../ai-engine/credentials/key-requests";
+import { KeyResolverModule } from "../../ai-engine/credentials/key-resolver";
+import { KeyHealthModule } from "../../platform/key-health/key-health.module";
 
 @Module({
   imports: [

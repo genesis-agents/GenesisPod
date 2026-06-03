@@ -9,7 +9,7 @@ import { MissionObservabilityService } from "../mission-observability.service";
 import {
   ErrorTrackingService,
   AIMetricsService,
-} from "@/modules/ai-infra/facade";
+} from "@/modules/platform/facade";
 import { EventBusService } from "@/modules/ai-harness/facade";
 import {
   CostAttributionService,

@@ -26,25 +26,25 @@ import { AuditModule } from "./common/audit";
 import { EventsModule } from "./common/events";
 import { CacheModule } from "./common/cache";
 // AI Infrastructure modules
-import { AuthModule } from "./modules/ai-infra/auth/auth.module";
+import { AuthModule } from "./modules/platform/auth/auth.module";
 import { AdminModule } from "./modules/open-api/admin/admin.module";
-import { MonitoringModule } from "./modules/ai-infra/monitoring";
-import { EmailModule } from "./modules/ai-infra/email/email.module";
+import { MonitoringModule } from "./modules/platform/monitoring";
+import { EmailModule } from "./modules/platform/email/email.module";
 import { FeedbackModule } from "./modules/ai-app/feedback/feedback.module";
-import { NotificationModule } from "./modules/ai-infra/notifications/notification.module";
-import { NotificationDispatcherModule } from "./modules/ai-infra/notifications/dispatcher/notification-dispatcher.module";
-import { ReleaseModule } from "./modules/ai-infra/release/release.module";
-import { SettingsModule } from "./modules/ai-infra/settings/settings.module";
-import { StorageModule } from "./modules/ai-infra/storage/storage.module";
-import { DbGovernanceModule } from "./modules/ai-infra/db-governance/db-governance.module";
-import { CreditsModule } from "./modules/ai-infra/credits/credits.module";
-import { EncryptionModule } from "./modules/ai-infra/encryption/encryption.module";
-import { UserApiKeysModule } from "./modules/ai-infra/credentials/user-api-keys/user-api-keys.module";
+import { NotificationModule } from "./modules/platform/notifications/notification.module";
+import { NotificationDispatcherModule } from "./modules/platform/notifications/dispatcher/notification-dispatcher.module";
+import { ReleaseModule } from "./modules/platform/release/release.module";
+import { SettingsModule } from "./modules/platform/settings/settings.module";
+import { StorageModule } from "./modules/platform/storage/storage.module";
+import { DbOpsModule } from "./modules/platform/db-ops/db-ops.module";
+import { CreditsModule } from "./modules/platform/credits/credits.module";
+import { EncryptionModule } from "./modules/platform/encryption/encryption.module";
+import { UserApiKeysModule } from "./modules/ai-engine/credentials/user-api-keys/user-api-keys.module";
 import { ByokModule } from "./modules/ai-app/byok/byok.module";
-import { KeyAssignmentsModule } from "./modules/ai-infra/credentials/key-assignments";
-import { KeyRequestsModule } from "./modules/ai-infra/credentials/key-requests";
-import { KeyResolverModule } from "./modules/ai-infra/credentials/key-resolver";
-import { UserModelConfigsModule } from "./modules/ai-infra/credentials/user-model-configs";
+import { KeyAssignmentsModule } from "./modules/ai-engine/credentials/key-assignments";
+import { KeyRequestsModule } from "./modules/ai-engine/credentials/key-requests";
+import { KeyResolverModule } from "./modules/ai-engine/credentials/key-resolver";
+import { UserModelConfigsModule } from "./modules/ai-engine/credentials/user-model-configs";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
 // AI Harness â€” Agent kernel / execution / memory / process / protocol / governance / facade
@@ -112,7 +112,7 @@ import { SkillsApiModule } from "./modules/open-api/skills-api/skills-api.module
 import { TeamsApiModule } from "./modules/open-api/teams-api/teams-api.module";
 // A2A API module (open-api layer â€” PR-X17: controller moved from ai-harness/protocols/a2a)
 import { A2AApiModule } from "./modules/open-api/a2a-api/a2a-api.module";
-// BYOK Admin module (open-api layer â€” PR-X17: 4 admin controllers moved from ai-infra/credentials)
+// BYOK Admin module (open-api layer â€” PR-X17: 4 admin controllers moved from ai-engine/credentials)
 import { ByokAdminModule } from "./modules/open-api/byok-admin/byok-admin.module";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
@@ -129,7 +129,7 @@ import { PluginCoreModule } from "./plugins/core";
 import {
   AI_CHAT_TOKEN,
   AI_OBSERVABILITY_TOKEN,
-} from "./modules/ai-infra/abstractions/ai-services.interface";
+} from "./modules/platform/abstractions/ai-services.interface";
 import { ChatFacade } from "./modules/ai-harness/facade";
 import { AiObservabilityService } from "./modules/ai-harness/facade";
 
@@ -196,7 +196,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     ReleaseModule,
     SettingsModule,
     StorageModule,
-    DbGovernanceModule,
+    DbOpsModule,
     CreditsModule,
     EncryptionModule, // å…¨å±€åŠ å¯†æœåŠ¡ï¼ˆå¿…é¡»å…ˆäºŽä¾èµ–å®ƒçš„æ¨¡å—æ³¨å†Œï¼‰
     UserApiKeysModule,
@@ -292,7 +292,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     // Teams API (PR-X16: moved from ai-harness/teams/controllers)
     TeamsApiModule,
 
-    // BYOK Admin API (PR-X17: 4 admin controllers moved from ai-infra/credentials)
+    // BYOK Admin API (PR-X17: 4 admin controllers moved from ai-engine/credentials)
     ByokAdminModule,
   ],
   controllers: [AppController],
