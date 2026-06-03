@@ -256,6 +256,8 @@ function isoTime(timestamp: number | string): string {
  *
  * 数据源（与 backend stage 文件 `agentId: "..."` literal 对齐）：
  *   s2-leader-plan / s4-leader-assess / s10-leader-signoff → "leader"（共享）
+ *   s3-researchers → "researcher#0" / "researcher#1" / ...（每维度一个，
+ *                    retry 变体 "researcher#N.retryK"）—— 故全部走 "researcher#" 前缀
  *   s5-reconciler → "reconciler"
  *   s6-analyst → "analyst" / "analyst.retry"
  *   s7-writer-outline → "outline-planner"
@@ -272,6 +274,9 @@ const STAGE_AGENT_PATTERN: Record<
   { ids?: string[]; prefixes?: string[] }
 > = {
   "s2-leader-plan": { ids: ["leader"] },
+  // s3 数据采集：每维度派 researcher#${idx}（retry 走 researcher#${idx}.retry${n}），
+  // 两者都以 "researcher#" 开头 → 单前缀全覆盖，把工具调用 trace 归入数据采集阶段。
+  "s3-researchers": { prefixes: ["researcher#"] },
   "s4-leader-assess": { ids: ["leader"] },
   "s5-reconciler": { ids: ["reconciler"] },
   "s6-analyst": { ids: ["analyst"], prefixes: ["analyst."] },

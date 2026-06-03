@@ -216,4 +216,79 @@ describe("§ stage-view processTrace (T75)", () => {
     expect(s5.processTrace?.reactTrace?.[0].kind).toBe("reflection");
     expect(s5.processTrace?.reactTrace?.[1].kind).toBe("error");
   });
+
+  // ── 回归：c23e05cad(T75)建 STAGE_AGENT_PATTERN 时漏了 s3-researchers，
+  //    导致数据采集阶段的工具调用 trace 全部被丢弃、面板空白（约 2026-05-27 起）。
+  it("(12) researcher#N（含 .retry 变体）→ s3-researchers，工具调用进 reactTrace", () => {
+    const stages = projectStages([
+      {
+        type: "agent-playground.agent:action",
+        payload: { agentId: "researcher#0", toolId: "web-search" },
+        timestamp: 100,
+      },
+      {
+        type: "agent-playground.agent:observation",
+        payload: {
+          agentId: "researcher#0",
+          toolId: "web-search",
+          tokensUsed: 200,
+          latencyMs: 1500,
+        },
+        timestamp: 200,
+      },
+      {
+        type: "agent-playground.agent:action",
+        payload: { agentId: "researcher#1.retry1", toolId: "arxiv-search" },
+        timestamp: 300,
+      },
+    ]);
+    const s3 = find(stages, "s3-researchers");
+    expect(s3.processTrace?.reactTrace).toHaveLength(3);
+    expect(s3.processTrace?.reactTrace?.[0]).toMatchObject({
+      kind: "action",
+      toolId: "web-search",
+    });
+    expect(s3.processTrace?.reactTrace?.[2]).toMatchObject({
+      kind: "action",
+      toolId: "arxiv-search",
+    });
+    expect(s3.processTrace?.totalTokens).toBe(200);
+    expect(s3.processTrace?.totalDurationMs).toBe(1500);
+  });
+
+  // ── Exhaustiveness 守护：pipeline 每个 stage 实际 emit 的代表性 agentId 都必须
+  //    能被 STAGE_AGENT_PATTERN 映射到某个 stage——任何一个映射不到就会被
+  //    projector 的 `if (!stageId) continue` 静默丢弃，面板对该 stage 过程空白
+  //    （正是 s3-researchers 漏映射这个 bug 的本质）。新增会 emit agent 事件的
+  //    stage / 改 agentId 命名时，必须同步更新下面这张清单 + STAGE_AGENT_PATTERN。
+  //
+  //    注：s4/s10 共享 "leader"、s8b 共享 "writer#"、s9b 共享 "critic"，按
+  //    first-wins 命中前序 stage 是设计；故本守护只断言"不被丢弃"，不绑定具体 stage。
+  it("(13) exhaustiveness：每个 pipeline emit 的 agentId 都能映射、不被静默丢弃", () => {
+    const EMITTED_AGENT_IDS = [
+      "leader", // s2 / s4 / s10
+      "researcher#0", // s3
+      "researcher#3.retry1", // s3 retry 变体
+      "reconciler", // s5
+      "analyst", // s6
+      "analyst.retry", // s6 retry 变体
+      "outline-planner", // s7
+      "writer#1", // s8 / s8b
+      "critic", // s9 / s9b
+      "evaluator", // s9b
+    ];
+    const dropped = EMITTED_AGENT_IDS.filter((agentId) => {
+      const stages = projectStages([
+        {
+          type: "agent-playground.agent:action",
+          payload: { agentId, toolId: "x" },
+          timestamp: 1,
+        },
+      ]);
+      // "被丢弃" = 没有任何 stage 收到这条 action 的 reactTrace
+      return stages.every((s) => !(s.processTrace?.reactTrace?.length ?? 0));
+    });
+    // 任何被丢弃的 agentId 都列在这里，断言它为空 —— 失败时直接看到是哪个掉了
+    expect(dropped).toEqual([]);
+  });
 });
