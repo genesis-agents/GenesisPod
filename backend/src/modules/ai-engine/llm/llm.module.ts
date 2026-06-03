@@ -50,6 +50,7 @@ import { AiChatFailoverCallerService } from "./chat/ai-chat-failover-caller.serv
 // Extracted Services (from ai-chat.service.ts God Object split)
 import { AiConnectionTestService } from "./byok/ai-connection-test.service";
 import { AiModelDiscoveryService } from "./models/catalog/ai-model-discovery.service";
+import { ModelTypeService } from "./models/catalog/model-type.service";
 import { AiDirectKeyService } from "./byok/ai-direct-key.service";
 import { AiImageGenerationService } from "./image/ai-image-generation.service";
 import { PromptCacheCoordinatorService } from "./chat/prompt-cache-coordinator.service";
@@ -144,6 +145,7 @@ import { CapabilityProbeService } from "./models/capability/capability-probe.ser
     // Extracted Services
     AiConnectionTestService,
     AiModelDiscoveryService,
+    ModelTypeService,
     AiDirectKeyService,
     AiImageGenerationService,
 
@@ -198,6 +200,7 @@ import { CapabilityProbeService } from "./models/capability/capability-probe.ser
     AiChatService,
     AiConnectionTestService,
     AiModelDiscoveryService,
+    ModelTypeService,
     AiDirectKeyService,
     AiImageGenerationService,
     PromptCacheCoordinatorService,
