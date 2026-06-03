@@ -37,8 +37,6 @@ const DIR_VOCAB_ALLOWLIST = []; // 待去后缀（teams-api 已整改）
 
 // ── 律1 admin 散落 ──
 const ADMIN_SCATTER_ALLOWLIST = [
-  "modules/open-api/mcp/mcp-server-admin.controller.ts",
-  "modules/open-api/system/credits/credits.controller.ts", // AdminCreditsController 待拆出
 ];
 
 // ── 律4 薄网关（Prisma in controller）──

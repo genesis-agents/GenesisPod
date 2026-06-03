@@ -34,10 +34,8 @@ import { ThrottlerModule } from "@nestjs/throttler";
 import { CreditTransactionType } from "@prisma/client";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { AdminGuard } from "@/common/guards/admin.guard";
-import {
-  CreditsController,
-  AdminCreditsController,
-} from "../credits.controller";
+import { CreditsController } from "../credits.controller";
+import { AdminCreditsController } from "../../../admin/credits/admin-credits.controller";
 import { CreditsService } from "@/modules/platform/credits/credits.service";
 import { CheckinService } from "@/modules/platform/credits/rewards/checkin.service";
 import { CreditRulesService } from "@/modules/platform/credits/policy/credit-rules.service";

@@ -32,6 +32,8 @@ import { OpsDashboardController } from "./dashboard/ops-dashboard.controller";
 import { OpsDashboardService } from "./dashboard/ops-dashboard.service";
 import { MCPExternalAdminController } from "./mcp/external-servers.controller";
 import { MCPServerAdminController } from "./mcp/server.controller";
+import { AdminCreditsController } from "./credits/admin-credits.controller";
+import { CreditsModule } from "../../platform/credits/credits.module";
 // ★ 2026-06-03 standards/16: System HTTP 上提——platform 的 admin/* controller
 //   迁入 open-api/admin（System API 网关），对应 service 留 L1 platform。
 import { SecretsController } from "./secrets/secrets.controller";
@@ -71,6 +73,7 @@ import {
     KeyAssignmentsModule, // PR-6: 让 AdminService 能在 updateAIModel 时反向恢复 STALE
     QuotaModule,
     MCPServerModule,
+    CreditsModule, // AdminCreditsController 注入 CreditsService/CreditRulesService
     StorageModule,
     DbOpsModule, // DbOpsService（admin/tables controller 上提后注入）；SettingsService/EmailService/SecretsService 已 @Global 或经 SecretsModule 提供
   ],
@@ -93,6 +96,7 @@ import {
     CacheAdminController, // /admin/cache/* routes for cache management
     MCPExternalAdminController, // /admin/mcp/external-servers/* routes
     MCPServerAdminController, // /admin/mcp/server（原 mcp-server-admin，admin/mcp-server 路由）
+    AdminCreditsController, // /admin/credits（从 system/credits 拆出）
     AgentAdminController, // /admin/agents/* routes for agent configuration
     ResearchAdminController, // /admin/research/templates/* routes for research templates
     ApprovalsAdminController, // /admin/approvals/* routes for human-in-the-loop approvals
