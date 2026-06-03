@@ -18,7 +18,7 @@ import type {
   SkillId,
   ToolId,
 } from "@/modules/ai-harness/agents/abstractions/agent.types";
-import { normalizeMarkdownSlug } from "@/modules/ai-engine/facade";
+import { normalizeMarkdownSlug } from "@/modules/ai-engine/content/markdown/slug-normalize.util";
 import { A2AAgentCard, A2ATaskStatus } from "../a2a.types";
 
 /**

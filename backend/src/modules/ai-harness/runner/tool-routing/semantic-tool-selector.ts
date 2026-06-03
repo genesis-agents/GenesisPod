@@ -14,12 +14,10 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import {
-  ScoredRouterService,
-  ToolRegistry,
-  defaultScorers,
-  type RoutableCandidate,
-} from "@/modules/ai-engine/facade";
+import { ScoredRouterService } from "@/modules/ai-engine/routing/scored-router.service";
+import { defaultScorers } from "@/modules/ai-engine/routing/signal-scorers";
+import type { RoutableCandidate } from "@/modules/ai-engine/routing/routing.types";
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool.registry";
 import type {
   IToolSelector,
   ToolSelectionContext,

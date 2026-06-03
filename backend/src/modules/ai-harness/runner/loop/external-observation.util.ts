@@ -9,7 +9,7 @@
  * 隔离原语来自 ai-engine/safety（wrapExternalContent）；本文件只负责判定"哪些工具
  * 算外部不可信来源"并推断 source 类型。纯函数，便于单测。
  */
-import { wrapExternalContent } from "@/modules/ai-engine/facade";
+import { wrapExternalContent } from "@/modules/ai-engine/safety/security/llm-injection/external-content-wrapper.utils";
 
 /** 单段观测最大保留字符数（≈4k tokens）——超长抓取内容截断，保上下文健康 */
 const MAX_OBSERVATION_CHARS = 16000;
