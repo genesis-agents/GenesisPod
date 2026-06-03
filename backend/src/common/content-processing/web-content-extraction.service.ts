@@ -11,10 +11,17 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+// Import from credentials SOURCE, not the ai-engine/facade barrel: this service
+// is injected into ContentFetchService, which the harness facade.providers wiring
+// pulls into the facade barrel's transitive closure. Importing the barrel here
+// closes a circular chain (facade → skills → harness → critique → facade.providers
+// → content-fetch.service → web-content) that left WebContentExtractionService
+// undefined at boot ("can't resolve ContentFetchService arg [1]"). (common/ is
+// exempt from the ai-app facade-boundary rule.)
 import {
   ToolKeyResolverService,
   NoToolKeyError,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-engine/credentials/tool-key-resolver/tool-key-resolver.service";
 import { RequestContext } from "@/common/context/request-context";
 
 /**
