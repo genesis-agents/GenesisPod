@@ -24,6 +24,10 @@ boundaries:
 # AI Architecture Layering
 
 > AI Engine 与 AI Apps 的职责边界定义，确保架构清晰、可复用。
+>
+> **统领心智模型（必读）**：`harness 是 Agent OS（操作系统），engine 是它驱动的计算引擎（CPU/存储/IO 全套能力机）`。
+> 这条比喻解释了为什么"engine 无 agent/mission 状态"（=硬件不知道哪个进程在用它）、为什么依赖只能 harness→engine（=OS 驱动硬件、硬件不回调 OS）。
+> 完整映射见 [standards/16-ai-engine-harness-structure.md](../../../standards/16-ai-engine-harness-structure.md) §一·补「Agent OS 心智模型」。
 
 ## 架构概览
 
