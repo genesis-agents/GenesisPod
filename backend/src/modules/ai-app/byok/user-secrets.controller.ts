@@ -20,7 +20,7 @@ import {
   AddSecretKeyDto,
   UpdateSecretKeyMetaDto,
   ReplaceSecretKeyValueDto,
-} from "../../platform/secrets/dto/secret-key.dto";
+} from "../../platform/credentials/secrets/dto/secret-key.dto";
 import {
   CreateUserSecretDto,
   UpdateUserSecretDto,

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { AuthRequestType } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { EXTERNAL_TOOL_DEFINITIONS } from "@/modules/platform/secrets/external-tool-definitions";
+import { EXTERNAL_TOOL_DEFINITIONS } from "@/modules/platform/credentials/secrets/external-tool-definitions";
 
 export interface UserToolItem {
   toolId: string;

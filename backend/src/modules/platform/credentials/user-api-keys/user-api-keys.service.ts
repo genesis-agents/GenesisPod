@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { EncryptionService } from "../../../platform/encryption/encryption.service";
+import { EncryptionService } from "../../../platform/credentials/encryption/encryption.service";
 import { CacheService, CachePrefix, CacheTTL } from "../../../../common/cache";
 import { UserApiKeyMode, Prisma } from "@prisma/client";
 import { ApiKeyMode } from "./dto";
@@ -15,7 +15,7 @@ import {
   KeyHealthStore,
   buildPersonalKeyId,
   ProviderProbeService,
-} from "@/modules/platform/key-health";
+} from "@/modules/platform/credentials/key-health";
 
 /** Valid provider name pattern */
 const PROVIDER_NAME_PATTERN = /^[a-z0-9-]+$/;

@@ -3,7 +3,7 @@ import {
   ClassifiedError,
   KeyErrorClassifier,
   KeyHealthStore,
-} from "@/modules/platform/key-health";
+} from "@/modules/platform/credentials/key-health";
 import {
   KeyResolverService,
   ResolvedKey,

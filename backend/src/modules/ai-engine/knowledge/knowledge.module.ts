@@ -13,11 +13,11 @@
 import { Module } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { SecretsModule } from "../../platform/secrets/secrets.module";
+import { SecretsModule } from "../../platform/credentials/secrets/secrets.module";
 import { UserApiKeysModule } from "../../platform/credentials/user-api-keys/user-api-keys.module";
 import { KeyExecutorModule } from "../../platform/credentials/executor/key-executor.module";
 import { KeyResolverModule } from "../../platform/credentials/key-resolver/key-resolver.module";
-import { KeyHealthModule } from "../../platform/key-health/key-health.module";
+import { KeyHealthModule } from "../../platform/credentials/key-health/key-health.module";
 import { ToolKeyResolverModule } from "../../platform/credentials/tool-key-resolver/tool-key-resolver.module";
 import { AiEngineLLMModule } from "../llm/llm.module";
 // W2-B: vector backends @Global module（pgvector / jsonb，未来 qdrant / pinecone）

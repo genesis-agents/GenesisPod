@@ -11,7 +11,7 @@
 
 import { Module, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
-import { SecretsModule } from "../../platform/secrets/secrets.module";
+import { SecretsModule } from "../../platform/credentials/secrets/secrets.module";
 import { UserApiKeysModule } from "../../platform/credentials/user-api-keys/user-api-keys.module";
 import { KeyResolverModule } from "../../platform/credentials/key-resolver/key-resolver.module";
 import { KeyExecutorModule } from "../../platform/credentials/executor/key-executor.module";

@@ -26,7 +26,7 @@ import { firstValueFrom } from "rxjs";
 import { AIModelType } from "@prisma/client";
 import { ImageGenerationService } from "../image-generation.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
-import { SecretsService } from "../../../../platform/secrets/secrets.service";
+import { SecretsService } from "../../../../platform/credentials/secrets/secrets.service";
 import { KeyResolverService } from "../../../../platform/credentials/key-resolver/key-resolver.service";
 import { NoAvailableKeyError } from "../../../../platform/credentials/key-resolver/key-resolver.errors";
 import { HttpService } from "@nestjs/axios";

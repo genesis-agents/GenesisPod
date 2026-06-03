@@ -42,13 +42,13 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { UserApiKeysModule } from "../../platform/credentials/user-api-keys/user-api-keys.module";
 import { UserModelConfigsModule } from "../../platform/credentials/user-model-configs/user-model-configs.module";
 import { UserSecretsModule } from "../../platform/credentials/user-secrets/user-secrets.module";
-import { SecretsModule } from "../../platform/secrets/secrets.module";
+import { SecretsModule } from "../../platform/credentials/secrets/secrets.module";
 import { UserToolsModule } from "../../platform/credentials/user-tools/user-tools.module";
 import { AuthorizationModule } from "../../platform/credentials/authorization/authorization.module";
 import { KeyAssignmentsModule } from "../../platform/credentials/key-assignments";
 import { KeyRequestsModule } from "../../platform/credentials/key-requests";
 import { KeyResolverModule } from "../../platform/credentials/key-resolver";
-import { KeyHealthModule } from "../../platform/key-health/key-health.module";
+import { KeyHealthModule } from "../../platform/credentials/key-health/key-health.module";
 
 @Module({
   imports: [

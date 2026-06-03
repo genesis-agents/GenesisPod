@@ -25,7 +25,7 @@ export class EnvKekProvider implements IKekProvider {
     let maxVersion = 0;
     for (let v = 1; v <= 64; v++) {
       const raw = config.get<string>(`SETTINGS_KEK_V${v}`);
-      if (raw && raw.trim()) {
+      if (raw?.trim()) {
         this.keks.set(v, this.normalizeKek(raw.trim()));
         maxVersion = Math.max(maxVersion, v);
       }

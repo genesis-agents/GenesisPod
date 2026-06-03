@@ -20,7 +20,7 @@ import { SecretsService } from "@/modules/platform/facade";
 import { AiApiCallerService } from "@/modules/ai-engine/llm/providers/ai-api-caller.service";
 import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
 import { NoAvailableKeyError } from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
-import { KeyErrorClassifier } from "@/modules/platform/key-health/key-error-classifier";
+import { KeyErrorClassifier } from "@/modules/platform/credentials/key-health/key-error-classifier";
 import { AiModelConfigService } from "@/modules/ai-engine/llm/models/config/ai-model-config.service";
 import { RequestContext } from "@/common/context/request-context";
 import { OnEvent } from "@nestjs/event-emitter";
@@ -301,7 +301,7 @@ export class EmbeddingService {
       | { ok: true }
       | {
           ok: false;
-          classified: import("@/modules/platform/key-health/key-error-classifier").ClassifiedError;
+          classified: import("@/modules/platform/credentials/key-health/key-error-classifier").ClassifiedError;
         },
   ): void {
     if (!config.healthKeyId) return; // system / cron 路径无 user-key

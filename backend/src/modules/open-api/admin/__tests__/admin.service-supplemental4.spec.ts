@@ -166,7 +166,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { AdminService } from "../admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../platform/secrets/secrets.service";
+import { SecretsService } from "../../../platform/credentials/secrets/secrets.service";
 import { UserManagementService } from "../services/user-management.service";
 import { ResourceManagementService } from "../services/resource-management.service";
 import { StatisticsService } from "../services/statistics.service";

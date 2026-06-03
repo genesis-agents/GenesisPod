@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { UserApiKeysModule } from "../user-api-keys/user-api-keys.module";
-import { SecretsModule } from "@/modules/platform/secrets/secrets.module";
+import { SecretsModule } from "@/modules/platform/credentials/secrets/secrets.module";
 import { UserSecretsService } from "./user-secrets.service";
 
 /**

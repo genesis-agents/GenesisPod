@@ -13,7 +13,7 @@ import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { ExportModule } from "../../../common/export/export.module";
 import { BrowserModule } from "../../../common/browser/browser.module";
-import { SecretsModule } from "../../platform/secrets/secrets.module";
+import { SecretsModule } from "../../platform/credentials/secrets/secrets.module";
 import { ToolKeyResolverModule } from "../../platform/credentials/tool-key-resolver/tool-key-resolver.module";
 
 // Registry

@@ -23,7 +23,7 @@ import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill.registr
 // v3.1 A0：AiChatModelConfigService 弃用，迁至 canonical AiModelConfigService
 import { AiModelConfigService } from "@/modules/ai-engine/llm/models/config/ai-model-config.service";
 import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
-import { SecretsService } from "@/modules/platform/secrets/secrets.service";
+import { SecretsService } from "@/modules/platform/credentials/secrets/secrets.service";
 import {
   SPEC_AGENT_REGISTRY_PROBE,
   TOOL_CIRCUIT_BREAKER_PROBE,

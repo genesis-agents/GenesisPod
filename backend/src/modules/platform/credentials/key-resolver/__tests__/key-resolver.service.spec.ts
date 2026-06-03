@@ -4,7 +4,7 @@ import { UserRole } from "@prisma/client";
 import { KeyResolverService } from "../key-resolver.service";
 import { KeyAssignmentsService } from "../../key-assignments/key-assignments.service";
 import { UserApiKeysService } from "../../user-api-keys/user-api-keys.service";
-import { SecretsService } from "../../../../platform/secrets/secrets.service";
+import { SecretsService } from "../../../../platform/credentials/secrets/secrets.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   NoAvailableKeyError,
@@ -269,7 +269,8 @@ describe("KeyResolverService", () => {
           {
             provide:
               // eslint-disable-next-line @typescript-eslint/no-require-imports
-              require("@/modules/platform/key-health").KeyHealthStore,
+              require("@/modules/platform/credentials/key-health")
+                .KeyHealthStore,
             useValue: healthStore,
           },
         ],
@@ -313,7 +314,8 @@ describe("KeyResolverService", () => {
           {
             provide:
               // eslint-disable-next-line @typescript-eslint/no-require-imports
-              require("@/modules/platform/key-health").KeyHealthStore,
+              require("@/modules/platform/credentials/key-health")
+                .KeyHealthStore,
             useValue: healthStore,
           },
         ],
@@ -342,7 +344,8 @@ describe("KeyResolverService", () => {
           {
             provide:
               // eslint-disable-next-line @typescript-eslint/no-require-imports
-              require("@/modules/platform/key-health").KeyHealthStore,
+              require("@/modules/platform/credentials/key-health")
+                .KeyHealthStore,
             useValue: healthStore,
           },
         ],

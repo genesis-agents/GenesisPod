@@ -2,7 +2,7 @@ import {
   BYOKError,
   BYOK_ERROR_CODES,
 } from "../key-resolver/key-resolver.errors";
-import { ClassifiedError } from "@/modules/platform/key-health/key-error-classifier";
+import { ClassifiedError } from "@/modules/platform/credentials/key-health/key-error-classifier";
 
 /**
  * Failover 专用错误码（扩展 BYOK_ERROR_CODES）。
