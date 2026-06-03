@@ -724,6 +724,35 @@ module.exports = {
         ],
       },
     },
+    // W1-I：platform/** 不得 import plugins/storage 具体实现（object-r2/vector-pgvector/
+    //   vector-jsonb），必须走 plugins/core/abstractions/storage 端口（DI token）。
+    //   ai-engine/ai-harness 已由上一条规则覆盖；此条是 platform 层的新增守护。
+    {
+      files: ["**/modules/platform/**/*.ts"],
+      excludedFiles: [
+        "**/*.spec.ts",
+        "**/*.test.ts",
+        "**/__tests__/**/*.ts",
+        // *.module.ts 允许 import plugins/storage/*.module（@Global NestJS DI 装配）
+        "**/*.module.ts",
+      ],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: ["**/plugins/storage/**", "@/plugins/storage/**"],
+                message:
+                  "platform 不得 import plugins/storage 实现，必须通过 " +
+                  "plugins/core/abstractions/storage 端口（DI token）。" +
+                  "*.module.ts 装配除外。",
+              },
+            ],
+          },
+        ],
+      },
+    },
     {
       files: [
         "**/plugins/observability/**/*.ts",
