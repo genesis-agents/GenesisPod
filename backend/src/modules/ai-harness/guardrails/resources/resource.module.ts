@@ -8,7 +8,7 @@
  * - CostController: 成本控制
  * - MissionTokenLedger: Token 预算
  * - MissionElectionTracker: mission 级模型选举多样性状态（2026-06-02 P0-1 自
- *   ai-engine/llm/selection 迁入；mission 状态属 L2.5）。@Global 导出，全局可注入。
+ *   ai-engine/llm/models/selection 迁入；mission 状态属 L2.5）。@Global 导出，全局可注入。
  *
  * HealthCheckRunner 是纯类（非 @Injectable），消费者 `new HealthCheckRunner({...})`
  * 自己持有。不要把它放进 providers——Nest 会尝试注入 undefined 导致启动崩溃。

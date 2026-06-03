@@ -12,12 +12,12 @@ import { randomUUID } from "crypto";
 // (HarnessModule.onApplicationBootstrap) to avoid NestJS v10 forwardRef+Optional
 // timing issues on sibling providers (LlmExecutor was losing AiChatService
 // resolution in prod when this was a constructor @Optional inject).
-import type { ModelElectionService } from "../../../ai-engine/llm/selection";
+import type { ModelElectionService } from "../../../ai-engine/llm/models/selection";
 import type {
   MissionElectionReservation,
   MissionElectionTracker,
 } from "../../guardrails/runtime/mission-election-tracker.service";
-import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
+import { AiModelConfigService } from "../../../ai-engine/llm/models/config/ai-model-config.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import { AIModelType } from "@prisma/client";

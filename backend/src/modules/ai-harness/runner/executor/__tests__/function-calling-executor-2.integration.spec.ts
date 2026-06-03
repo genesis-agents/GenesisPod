@@ -41,7 +41,7 @@ import {
   FunctionDefinition,
 } from "../../../../ai-engine/tools/abstractions/tool.interface";
 import { ToolConcurrencyService } from "../../../../ai-engine/tools/concurrency/tool-concurrency.service";
-import { ModelFallbackService } from "../../../../ai-engine/llm/selection/model-fallback.service";
+import { ModelFallbackService } from "../../../../ai-engine/llm/models/selection/model-fallback.service";
 import { ContextCompactionPipelineService } from "../../../../ai-engine/planning/context/context-compaction-pipeline.service";
 import { QueryLoopService } from "../query-loop.service";
 import { ExecutionCheckpointService } from "../execution-checkpoint.service";

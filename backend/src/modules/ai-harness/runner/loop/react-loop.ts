@@ -59,7 +59,7 @@ import { ContextManager } from "../context/context-manager";
 import { CacheControlPlanner } from "../context/cache-control-planner";
 import { HookRegistry } from "../../agents/core/hook-registry";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
-import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
+import { ModelPricingRegistry } from "@/modules/ai-engine/llm/models/pricing/model-pricing.registry";
 import { wrapToolObservation } from "./external-observation.util";
 import type { IAgent, ISubagentSpawner } from "../../agents/abstractions";
 import {

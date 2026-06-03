@@ -6,7 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
 import { of, throwError } from "rxjs";
 import { AxiosResponse } from "axios";
-import { AiImageGenerationService } from "../ai-image-generation.service";
+import { AiImageGenerationService } from "../../image/ai-image-generation.service";
 
 // We mock sleep at the module level by mocking setTimeout to resolve immediately.
 // This avoids the complexity of interleaving fake timer ticks with async operations.

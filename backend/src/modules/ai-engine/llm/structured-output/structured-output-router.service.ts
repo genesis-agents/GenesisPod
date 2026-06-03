@@ -42,7 +42,7 @@ import {
   STRUCTURED_OUTPUT_STRATEGIES,
   type StructuredOutputStrategy,
 } from "./structured-output-strategy.types";
-import { ModelCapabilityService } from "../capability/model-capability.service";
+import { ModelCapabilityService } from "../models/capability/model-capability.service";
 import type { AIModelConfig } from "../types/model-config.types";
 
 /**

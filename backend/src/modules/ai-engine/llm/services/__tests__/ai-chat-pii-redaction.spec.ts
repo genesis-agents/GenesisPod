@@ -13,7 +13,7 @@ import { ConfigService } from "@nestjs/config";
 import { Logger } from "@nestjs/common";
 import { AiChatService } from "../ai-chat.service";
 import { TaskProfileMapperService } from "../chat/task-profile-mapper.service";
-import { AiModelConfigService } from "../ai-model-config.service";
+import { AiModelConfigService } from "../../models/config/ai-model-config.service";
 import { AiApiCallerService } from "../ai-api-caller.service";
 import { AiStreamHandlerService } from "../chat/ai-stream-handler.service";
 import { AIMetricsService } from "@/modules/platform/monitoring";
@@ -22,9 +22,9 @@ import { ContentSafetyFilter } from "../../../safety/guardrails/input/content-sa
 import { PromptInjectionDetector } from "../../../safety/guardrails/input/prompt-injection-detector";
 import { EntityHealthRegistry } from "../../../reliability/entity-health/entity-health.registry";
 import { AiConnectionTestService } from "../ai-connection-test.service";
-import { AiModelDiscoveryService } from "../ai-model-discovery.service";
+import { AiModelDiscoveryService } from "../../models/catalog/ai-model-discovery.service";
 import { AiDirectKeyService } from "../ai-direct-key.service";
-import { AiImageGenerationService } from "../ai-image-generation.service";
+import { AiImageGenerationService } from "../../image/ai-image-generation.service";
 import { AiChatRetryService } from "../chat/ai-chat-retry.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 

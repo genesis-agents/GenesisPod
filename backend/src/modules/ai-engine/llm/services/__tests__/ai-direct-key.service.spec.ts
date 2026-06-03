@@ -4,9 +4,9 @@ import { HttpService } from "@nestjs/axios";
 import { of } from "rxjs";
 import { AiDirectKeyService } from "../ai-direct-key.service";
 import { TaskProfileMapperService } from "../chat/task-profile-mapper.service";
-import { AiModelConfigService } from "../ai-model-config.service";
-import { AiImageGenerationService } from "../ai-image-generation.service";
-import { AiModelDiscoveryService } from "../ai-model-discovery.service";
+import { AiModelConfigService } from "../../models/config/ai-model-config.service";
+import { AiImageGenerationService } from "../../image/ai-image-generation.service";
+import { AiModelDiscoveryService } from "../../models/catalog/ai-model-discovery.service";
 import { AiChatPromptService } from "../chat/ai-chat-prompt.service";
 import { AiChatRetryService } from "../chat/ai-chat-retry.service";
 

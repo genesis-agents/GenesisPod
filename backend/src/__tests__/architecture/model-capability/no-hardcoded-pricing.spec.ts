@@ -201,10 +201,10 @@ describe("Hardcoded Pricing Zero-Out — Protection Net", () => {
   // --------------------------------------------------------------------------
 
   describe("6. ModelPricingRegistry (canonical source) exists", () => {
-    it("model-pricing.registry.ts exists under ai-engine/llm/pricing", () => {
+    it("model-pricing.registry.ts exists under ai-engine/llm/models/pricing", () => {
       const file = path.join(
         BACKEND_SRC,
-        "modules/ai-engine/llm/pricing/model-pricing.registry.ts",
+        "modules/ai-engine/llm/models/pricing/model-pricing.registry.ts",
       );
       expect(fs.existsSync(file)).toBe(true);
     });
@@ -212,7 +212,7 @@ describe("Hardcoded Pricing Zero-Out — Protection Net", () => {
     it("model-pricing.registry.ts does NOT declare a DEFAULT_TABLE constant (only mentions it in comments as deleted)", () => {
       const file = path.join(
         BACKEND_SRC,
-        "modules/ai-engine/llm/pricing/model-pricing.registry.ts",
+        "modules/ai-engine/llm/models/pricing/model-pricing.registry.ts",
       );
       if (!fs.existsSync(file)) return;
       const content = fs.readFileSync(file, "utf8");

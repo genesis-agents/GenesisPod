@@ -10,9 +10,9 @@
  */
 
 import type { AIModelType } from "@prisma/client";
-import type { TaskProfile } from "../types";
+import type { TaskProfile } from "../../types";
 // v3.1 A0：AIModelConfig 单一源已迁至 types/model-config.types.ts
-import type { AIModelConfig } from "../types/model-config.types";
+import type { AIModelConfig } from "../../types/model-config.types";
 
 /**
  * Role 偏好提示。由 spec.identity.role.id（如 AG-01-LD / AG-03-SW / AG-07-FE）

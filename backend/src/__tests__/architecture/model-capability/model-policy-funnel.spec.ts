@@ -3,7 +3,7 @@
  *
  * 2026-05-21 根因治理：模型选择曾被 5 套机制各自断言，导致"配了 grok-4 却用
  * grok-3-mini"。根治方案是在 AiChatService 的 modelType→model 解析处设单一权威
- * （resolveEffectiveModelType，见 ai-engine/llm/selection/model-policy.ts），所有
+ * （resolveEffectiveModelType，见 ai-engine/llm/models/selection/model-policy.ts），所有
  * 调用经此漏斗按 downgradePolicy 解析。
  *
  * 本 spec 锁住该不变量：**任何人移除 AiChatService 里的策略闸 → 这条测试就挂。**
@@ -69,7 +69,7 @@ describe("Capability Contract · model policy funnel guard", () => {
     const policySrc = fs.readFileSync(
       path.resolve(
         __dirname,
-        "../../../modules/ai-engine/llm/selection/model-policy.ts",
+        "../../../modules/ai-engine/llm/models/selection/model-policy.ts",
       ),
       "utf-8",
     );

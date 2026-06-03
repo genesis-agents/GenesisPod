@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AiChatModelConfigService } from "../chat/ai-chat-model-config.service";
 // v3.1 A0：wrapper 现委托给 canonical AiModelConfigService，测试通过 DI 容器
 // 同时提供两者，验证 wrapper API surface 与底层等价行为。
-import { AiModelConfigService } from "../ai-model-config.service";
+import { AiModelConfigService } from "../../models/config/ai-model-config.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/platform/secrets/secrets.service";
 import { UserApiKeysService } from "@/modules/ai-engine/credentials/user-api-keys/user-api-keys.service";

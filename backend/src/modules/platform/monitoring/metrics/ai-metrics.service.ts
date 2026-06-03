@@ -53,7 +53,7 @@ export class AIMetricsService {
   private readonly logger = new Logger(AIMetricsService.name);
 
   // 模型成本估算的硬编码表已删除。价格走 ModelPricingRegistry 单一权威源
-  // （ai-engine/llm/pricing/model-pricing.registry.ts，从 ai_models 表 hydrate）。
+  // （ai-engine/llm/models/pricing/model-pricing.registry.ts，从 ai_models 表 hydrate）。
   // 调用方传 estimatedCost 给 recordMetric，platform 层不持有价格知识。
 
   constructor(private readonly prisma: PrismaService) {}

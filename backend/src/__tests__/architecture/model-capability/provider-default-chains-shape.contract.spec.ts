@@ -41,17 +41,17 @@ const ROUTER_FILE = path.join(
 );
 const CATALOG_FILE = path.join(
   SRC_ROOT,
-  "modules/ai-engine/llm/capability/model-capability-catalog.ts",
+  "modules/ai-engine/llm/models/capability/model-capability-catalog.ts",
 );
 const CAPABILITY_SERVICE_FILE = path.join(
   SRC_ROOT,
-  "modules/ai-engine/llm/capability/model-capability.service.ts",
+  "modules/ai-engine/llm/models/capability/model-capability.service.ts",
 );
 // v3.1 §B.6（2026-05-24）：probe daemon 合法导入 CATALOG_VERSION 用于版本检测。
 // 这是 catalog 数据驱动设计的另一个允许消费方（catalog 升版 → 批量 reset self-heal）。
 const CAPABILITY_PROBE_FILE = path.join(
   SRC_ROOT,
-  "modules/ai-engine/llm/capability/capability-probe.service.ts",
+  "modules/ai-engine/llm/models/capability/capability-probe.service.ts",
 );
 
 /**
@@ -157,7 +157,7 @@ function listRuntimeTsFiles(dir: string, acc: string[] = []): string[] {
 function findCatalogImporters(): string[] {
   const result: string[] = [];
   const CATALOG_REL =
-    "modules/ai-engine/llm/capability/model-capability-catalog.ts";
+    "modules/ai-engine/llm/models/capability/model-capability-catalog.ts";
   for (const file of listRuntimeTsFiles(SRC_ROOT)) {
     const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
     if (rel === CATALOG_REL) continue;

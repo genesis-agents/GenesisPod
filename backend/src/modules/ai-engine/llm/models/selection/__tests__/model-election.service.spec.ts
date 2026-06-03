@@ -17,14 +17,14 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AIModelType } from "@prisma/client";
 import { ModelElectionService } from "../model-election.service";
-import { AiModelConfigService } from "../../services/ai-model-config.service";
+import { AiModelConfigService } from "../../config/ai-model-config.service";
 import { KeyResolverService } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.service";
 import {
   NoEligibleModelError,
   type ElectionCandidate,
   type ElectionRequest,
 } from "../model-election.types";
-import type { AIModelConfig } from "../../services/ai-chat.service";
+import type { AIModelConfig } from "../../../services/ai-chat.service";
 
 function makeConfig(overrides: Partial<AIModelConfig> = {}): AIModelConfig {
   return {

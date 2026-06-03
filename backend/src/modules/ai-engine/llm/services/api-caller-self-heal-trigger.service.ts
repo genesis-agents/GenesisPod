@@ -20,11 +20,11 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { CapabilitySelfHealService } from "../capability/capability-self-heal.service";
+import { CapabilitySelfHealService } from "../models/capability/capability-self-heal.service";
 import {
   buildDegenerateOutputSignal,
   extractErrorSignal,
-} from "../capability/error-signal.types";
+} from "../models/capability/error-signal.types";
 
 export interface SelfHealTriggerOptions {
   /** 模型 id（仅用于日志，不参与决策） */

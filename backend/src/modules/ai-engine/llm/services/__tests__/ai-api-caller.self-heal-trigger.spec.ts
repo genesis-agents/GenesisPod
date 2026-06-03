@@ -17,7 +17,7 @@ import { AnthropicCaller } from "../api-callers/anthropic-caller";
 import { CohereCaller } from "../api-callers/cohere-caller";
 import { GoogleCaller } from "../api-callers/google-caller";
 import { XaiCaller } from "../api-callers/xai-caller";
-import type { CapabilitySelfHealService } from "../../capability/capability-self-heal.service";
+import type { CapabilitySelfHealService } from "../../models/capability/capability-self-heal.service";
 
 // split 后 self-heal-in-catch 逻辑随各 provider 搬到对应 caller；用真 caller 构造
 // AiApiCallerService(委派打到真 caller),catch 行为与拆分前一致。

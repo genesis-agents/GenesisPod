@@ -10,13 +10,13 @@ if (EventEmitter.defaultMaxListeners < 30) {
 }
 import { UserApiKeysService } from "../../../ai-engine/credentials/user-api-keys/user-api-keys.service";
 import { UserModelConfigsService } from "../../../ai-engine/credentials/user-model-configs/user-model-configs.service";
-import { AiModelDiscoveryService } from "../services/ai-model-discovery.service";
+import { AiModelDiscoveryService } from "../models/catalog/ai-model-discovery.service";
 import { AiConnectionTestService } from "../services/ai-connection-test.service";
-import { ModelRecommendationsService } from "../selection/model-recommendations.service";
+import { ModelRecommendationsService } from "../models/selection/model-recommendations.service";
 import {
   EXCLUDED_MODEL_SUBSTRINGS,
   PROVIDER_PREFERENCE_BY_TYPE,
-} from "../selection/default-recommendations.config";
+} from "../models/selection/default-recommendations.config";
 
 export interface AutoConfigureResult {
   createdCount: number;

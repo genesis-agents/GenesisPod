@@ -14,10 +14,10 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import type { z } from "zod";
-import { ModelPricingRegistry } from "../../../ai-engine/llm/pricing/model-pricing.registry";
+import { ModelPricingRegistry } from "../../../ai-engine/llm/models/pricing/model-pricing.registry";
 import { StructuredOutputRouter } from "../../../ai-engine/llm/structured-output/structured-output-router.service";
 import type { StructuredOutputStrategy } from "../../../ai-engine/llm/structured-output/structured-output-strategy.types";
-import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
+import { AiModelConfigService } from "../../../ai-engine/llm/models/config/ai-model-config.service";
 // ★ 直接相对路径导入，绕开 facade barrel。
 // 原因：facade/index.ts 是 L3 AI App 的单向入口；L2 harness 内部代码
 // 若也从 facade 导入，会触发 barrel → 众多子模块 → harness 的回环加载，
@@ -35,7 +35,7 @@ import { AIModelType } from "@prisma/client";
 import {
   isModelLevelFailoverError,
   MAX_MODEL_FAILOVERS,
-} from "../../../ai-engine/llm/model-failover.classifier";
+} from "../../../ai-engine/llm/models/selection/model-failover.classifier";
 
 // ============ Model-level failover ============
 

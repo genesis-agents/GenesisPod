@@ -20,7 +20,7 @@ import { CapabilityOverridesWriterService } from "../../../ai-engine/facade";
 import { SecretsService } from "../../../platform/secrets/secrets.service";
 import { StorageInventoryService } from "../../../platform/storage/governance/storage-inventory.service";
 import { StorageOffloadService } from "../../../platform/storage/governance/storage-offload.service";
-import { SystemModelInventoryService } from "../../../ai-engine/llm/services/system-model-inventory.service";
+import { SystemModelInventoryService } from "../../../ai-engine/llm/models/catalog/system-model-inventory.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 

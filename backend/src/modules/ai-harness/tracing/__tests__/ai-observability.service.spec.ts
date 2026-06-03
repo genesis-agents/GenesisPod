@@ -722,7 +722,7 @@ describe("AiObservabilityService (no Prisma)", () => {
   // 注：旧的 static estimateCost() + COST_PER_1K_TOKENS 硬编码价格表已删除。
   // 模型价格的单一权威源是 ModelPricingRegistry（DB AIModel 表 hydrate）。
   // 调用方注入 ModelPricingRegistry 自行 estimateCost。覆盖见
-  // ai-engine/llm/pricing/__tests__/model-pricing-registry.spec.ts
+  // ai-engine/llm/models/pricing/__tests__/model-pricing-registry.spec.ts
   // =========================================================================
   // lifecycle hooks (no Prisma)
   // =========================================================================

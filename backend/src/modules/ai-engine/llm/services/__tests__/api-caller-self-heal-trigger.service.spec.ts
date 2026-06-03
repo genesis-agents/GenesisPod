@@ -14,7 +14,7 @@
  */
 
 import { ApiCallerSelfHealTriggerService } from "../api-caller-self-heal-trigger.service";
-import type { CapabilitySelfHealService } from "../../capability/capability-self-heal.service";
+import type { CapabilitySelfHealService } from "../../models/capability/capability-self-heal.service";
 
 describe("ApiCallerSelfHealTriggerService — v3.1 §D.1", () => {
   let selfHeal: { maybeSelfHeal: jest.Mock };

@@ -11,14 +11,14 @@ import { RequestContext } from "@/common/context/request-context";
 import { withUserContext } from "@/common/context/with-user-context";
 import { TaskProfile, ChatMessage } from "../types";
 import { TaskProfileMapperService } from "./chat/task-profile-mapper.service";
-import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
+import { AiModelConfigService, AIModelConfig } from "../models/config/ai-model-config.service";
 // 模型级 failover：chat() 的 BYOK 换模型逻辑抽到独立 util（god-class 不膨胀）。
-import { runChatWithModelFailover } from "../chat-model-failover.util";
+import { runChatWithModelFailover } from "../models/selection/chat-model-failover.util";
 // ★ 2026-05-21 Capability Contract: modelType 选择的单一权威（quality-first 默认）
 import {
   resolveEffectiveModelType,
   normalizeDowngradePolicy,
-} from "../selection/model-policy";
+} from "../models/selection/model-policy";
 import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./chat/ai-stream-handler.service";
 import { AIMetricsService } from "@/modules/platform/facade";
@@ -40,13 +40,13 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { randomUUID } from "crypto";
 // ★ 拆分后的子服务
 import { AiConnectionTestService } from "./ai-connection-test.service";
-import { AiModelDiscoveryService } from "./ai-model-discovery.service";
+import { AiModelDiscoveryService } from "../models/catalog/ai-model-discovery.service";
 import { AiDirectKeyService } from "./ai-direct-key.service";
-import { AiImageGenerationService } from "./ai-image-generation.service";
+import { AiImageGenerationService } from "../image/ai-image-generation.service";
 import { AiChatRetryService } from "./chat/ai-chat-retry.service";
 import { KernelContext } from "@/common/context/kernel-context";
 import { BillingContext } from "@/modules/platform/facade";
-import { ModelPricingRegistry } from "../pricing/model-pricing.registry";
+import { ModelPricingRegistry } from "../models/pricing/model-pricing.registry";
 import { KeyResolverService } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.service";
 import { AiChatFailoverCallerService } from "./chat/ai-chat-failover-caller.service";
 // v5.1 R0.5 PR-5: 双轨接 plugins/core HookBus
@@ -133,7 +133,7 @@ export interface ChatCompletionResult {
 }
 
 // Re-export types for backward compatibility
-export type { AIModelConfig } from "./ai-model-config.service";
+export type { AIModelConfig } from "../models/config/ai-model-config.service";
 export type { ChatMessage } from "../types";
 
 /**

@@ -177,8 +177,8 @@ describe("Capability Contract · structured-output field readers baseline (v3.1 
   // 5 个"原始"读者（v3.1 §A 后）：
   //   router(派生薄壳) / model-config / executor / admin(写流) / capability-service(派生器)
   const EXPECTED_STRATEGY_READERS_BASE = [
-    "modules/ai-engine/llm/capability/model-capability.service.ts",
-    "modules/ai-engine/llm/services/ai-model-config.service.ts",
+    "modules/ai-engine/llm/models/capability/model-capability.service.ts",
+    "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
     "modules/ai-engine/llm/structured-output/structured-output-router.service.ts",
     "modules/ai-harness/runner/executor/llm-executor.ts",
     "modules/open-api/admin/admin.service.ts",
@@ -236,7 +236,7 @@ describe("Capability Contract · structured-output field readers baseline (v3.1 
       // **没有任何 LLM 调用 / structured output 决策代码读这 5 个字段** —— D6 决议
       // 的关键事实依据。任何 PR 引入新读者必须重审 D6 删除计划。
       expect(READER_INDEX[field]).toEqual([
-        "modules/ai-engine/llm/services/ai-model-config.service.ts",
+        "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
         "modules/open-api/admin/admin.service.ts",
       ]);
     },

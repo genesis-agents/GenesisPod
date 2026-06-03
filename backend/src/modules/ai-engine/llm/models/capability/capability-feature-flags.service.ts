@@ -20,7 +20,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 
-import { CacheService } from "../../../../common/cache/cache.service";
+import { CacheService } from "../../../../../common/cache/cache.service";
 
 const REDIS_PREFIX = "capability:flags:";
 

@@ -7,7 +7,7 @@ import { AnthropicCaller } from "../api-callers/anthropic-caller";
 import { CohereCaller } from "../api-callers/cohere-caller";
 import { GoogleCaller } from "../api-callers/google-caller";
 import { XaiCaller } from "../api-callers/xai-caller";
-import { ModelCapabilityService } from "../../capability/model-capability.service";
+import { ModelCapabilityService } from "../../models/capability/model-capability.service";
 import {
   safeReasoningEffort,
   isMinimalEffortSupported,

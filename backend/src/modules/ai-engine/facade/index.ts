@@ -258,7 +258,7 @@ export { ContextEvolutionService } from "../knowledge/extraction/context-evoluti
 // AgentExecutorService 已搬到 ai-harness/runner/executor/ (2026-04-30)
 export { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
 // TaskDecomposerService 已删 (2026-04-30) — 死代码
-export { ModelFallbackService } from "../llm/selection/model-fallback.service";
+export { ModelFallbackService } from "../llm/models/selection/model-fallback.service";
 
 // Content feature types
 export {
@@ -299,13 +299,13 @@ export { RAG_PIPELINE_SERVICE_TOKEN } from "@/modules/ai-engine/rag/abstractions
 export type { WikiPageRead } from "../rag/abstractions/kb-query-augmentor.interface";
 
 // LLM model fallback types
-export type { ModelFallbackOptions } from "../llm/selection/model-fallback.service";
-export { AiModelConfigService } from "@/modules/ai-engine/llm/services/ai-model-config.service";
-export type { AIModelConfig } from "@/modules/ai-engine/llm/services/ai-model-config.service";
+export type { ModelFallbackOptions } from "../llm/models/selection/model-fallback.service";
+export { AiModelConfigService } from "@/modules/ai-engine/llm/models/config/ai-model-config.service";
+export type { AIModelConfig } from "@/modules/ai-engine/llm/models/config/ai-model-config.service";
 
 // 2026-05-29 open-api facade 收口：以下服务此前被 open-api 控制器直接穿透
 // 内部路径访问，统一从 engine facade 暴露（见 .eslintrc.js open-api 边界规则）。
-export { SystemModelInventoryService } from "../llm/services/system-model-inventory.service";
+export { SystemModelInventoryService } from "../llm/models/catalog/system-model-inventory.service";
 export { SkillAnalyticsService } from "../skills/analytics/skill-analytics.service";
 export { MCPClientRegistryService } from "../tools/adapters/mcp/registry/mcp-client-registry.service";
 // 注：ModelRecommendationsService 已在本文件下方（约 412 行）导出，勿重复。
@@ -423,9 +423,9 @@ export {
 } from "@/modules/ai-engine/llm/types/model.utils";
 
 // ★ Model Election
-export { ModelElectionService } from "../llm/selection";
+export { ModelElectionService } from "../llm/models/selection";
 // ★ Model Recommendations (DB + 默认推荐合并)
-export { ModelRecommendationsService } from "../llm/selection";
+export { ModelRecommendationsService } from "../llm/models/selection";
 export {
   NoEligibleModelError,
   type ElectionCandidate,
@@ -434,7 +434,7 @@ export {
   type ElectionRoleHint,
   type ElectionScore,
   type ElectionCostBias,
-} from "../llm/selection";
+} from "../llm/models/selection";
 // MissionElectionTracker / MissionElectionReservation relocated to ai-harness
 // (mission state is L2.5) — import them from '@/modules/ai-harness/facade'.
 export { SearchService } from "../knowledge/search/search.service";
@@ -817,7 +817,7 @@ export {
   CreateUserModelConfigDto,
   UpdateUserModelConfigDto,
 } from "../credentials/user-model-configs/dto/user-model-config.dto";
-export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/services/ai-model-discovery.service";
+export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/models/catalog/ai-model-discovery.service";
 export { AiConnectionTestService } from "@/modules/ai-engine/llm/services/ai-connection-test.service";
 export { AutoConfigureService } from "@/modules/ai-engine/llm/user-config/user-models-auto-configure.service";
 
@@ -832,7 +832,7 @@ export { AutoConfigureService } from "@/modules/ai-engine/llm/user-config/user-m
 // 仅写入入口 + 必要类型对外暴露：parser / model-capability types 不出 facade
 // （v3.1 §3.6 SSOT：ai-app 永不读 caps）。
 // ════════════════════════════════════════════════════════════════════
-export { CapabilityOverridesWriterService } from "@/modules/ai-engine/llm/capability/capability-overrides-writer.service";
+export { CapabilityOverridesWriterService } from "@/modules/ai-engine/llm/models/capability/capability-overrides-writer.service";
 export type {
   ApplyOverrideOptions as CapabilityApplyOverrideOptions,
   ApplyOverrideResult as CapabilityApplyOverrideResult,
@@ -840,10 +840,10 @@ export type {
   CapabilityOverrideSource,
   CapabilityOverrideActor,
   CapabilityOverrideTarget,
-} from "@/modules/ai-engine/llm/capability/capability-overrides-writer.types";
-export type { ModelCapabilitiesOverrides } from "@/modules/ai-engine/llm/capability/model-capability.types";
+} from "@/modules/ai-engine/llm/models/capability/capability-overrides-writer.types";
+export type { ModelCapabilitiesOverrides } from "@/modules/ai-engine/llm/models/capability/model-capability.types";
 // DTOs for admin (open-api/admin) + BYOK (ai-app/byok) controllers
 export {
   ApplyCapabilityOverridesDto,
   DeleteCapabilityOverridesDto,
-} from "@/modules/ai-engine/llm/capability/dto/apply-capability-overrides.dto";
+} from "@/modules/ai-engine/llm/models/capability/dto/apply-capability-overrides.dto";
