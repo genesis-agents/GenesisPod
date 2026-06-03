@@ -1239,6 +1239,96 @@ describe("AiModelConfigService", () => {
     });
   });
 
+  // ============ synthesizeConfigForUserModel - 并行 key 取回 (via getModelConfig) ============
+
+  describe("synthesizeConfigForUserModel - parallel key fetch", () => {
+    it("synthesizes from the provider whose preferredModelId matches (others miss)", async () => {
+      const { RequestContext } =
+        await import("../../../../../common/context/request-context");
+      const spy = jest
+        .spyOn(RequestContext, "getUserId")
+        .mockReturnValue("user-byok-syn");
+
+      // 1~5 全 miss：cache 空 + enabled/disabled AIModel.findFirst → null + UserModelConfig → null
+      (prismaService.aIModel.findFirst as jest.Mock).mockResolvedValue(null);
+
+      (userApiKeysService.getAvailableProviders as jest.Mock).mockResolvedValue(
+        ["openai", "deepseek"],
+      );
+      (userApiKeysService.getPersonalKey as jest.Mock).mockImplementation(
+        (_uid: string, provider: string) =>
+          Promise.resolve(
+            provider === "deepseek"
+              ? {
+                  apiEndpoint: "https://api.deepseek.com/v1",
+                  preferredModelId: "agnes-2.0-flash",
+                }
+              : { apiEndpoint: null, preferredModelId: "gpt-4o" },
+          ),
+      );
+
+      const result = await service.getModelConfig("agnes-2.0-flash");
+      spy.mockRestore();
+
+      expect(result).not.toBeNull();
+      expect(result?.provider).toBe("deepseek");
+      expect(result?.modelId).toBe("agnes-2.0-flash");
+      expect(result?.apiEndpoint).toBe("https://api.deepseek.com/v1");
+      // 并行取回：两个 provider 的 key 都被请求（不是命中即停的串行）
+      expect(userApiKeysService.getPersonalKey).toHaveBeenCalledTimes(2);
+    });
+
+    it("preserves provider order: picks the first match when several providers match", async () => {
+      const { RequestContext } =
+        await import("../../../../../common/context/request-context");
+      const spy = jest
+        .spyOn(RequestContext, "getUserId")
+        .mockReturnValue("user-byok-order");
+
+      (prismaService.aIModel.findFirst as jest.Mock).mockResolvedValue(null);
+
+      // openai 在数组首位 → 即便两者都匹配，也应选 openai（与原串行「首个匹配即返回」一致）
+      (userApiKeysService.getAvailableProviders as jest.Mock).mockResolvedValue(
+        ["openai", "deepseek"],
+      );
+      (userApiKeysService.getPersonalKey as jest.Mock).mockImplementation(
+        (_uid: string, provider: string) =>
+          Promise.resolve({
+            apiEndpoint: `https://${provider}.example/v1`,
+            preferredModelId: "shared-model",
+          }),
+      );
+
+      const result = await service.getModelConfig("shared-model");
+      spy.mockRestore();
+
+      expect(result?.provider).toBe("openai");
+      expect(result?.apiEndpoint).toBe("https://openai.example/v1");
+    });
+
+    it("returns null when no provider key matches the modelId", async () => {
+      const { RequestContext } =
+        await import("../../../../../common/context/request-context");
+      const spy = jest
+        .spyOn(RequestContext, "getUserId")
+        .mockReturnValue("user-byok-nomatch");
+
+      (prismaService.aIModel.findFirst as jest.Mock).mockResolvedValue(null);
+      (userApiKeysService.getAvailableProviders as jest.Mock).mockResolvedValue(
+        ["openai"],
+      );
+      (userApiKeysService.getPersonalKey as jest.Mock).mockResolvedValue({
+        apiEndpoint: null,
+        preferredModelId: "some-other-model",
+      });
+
+      const result = await service.getModelConfig("agnes-2.0-flash");
+      spy.mockRestore();
+
+      expect(result).toBeNull();
+    });
+  });
+
   // ==================== getModelsByProvider + getFirstModelByProvider ====================
 
   describe("getModelsByProvider", () => {

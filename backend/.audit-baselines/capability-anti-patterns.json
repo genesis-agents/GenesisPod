@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-02T20:06:47.234Z",
+  "generatedAt": "2026-06-03T00:47:21.511Z",
   "count": 185,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -797,77 +797,77 @@
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
-      "line": 1357,
+      "line": 1383,
       "column": 9,
       "kind": "method-call",
       "snippet": "lowerName.includes(\"grok\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
-      "line": 1357,
+      "line": 1383,
       "column": 39,
       "kind": "binary-eq",
       "snippet": "lowerProvider === \"xai\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
-      "line": 1361,
+      "line": 1387,
       "column": 7,
       "kind": "method-call",
       "snippet": "lowerName.includes(\"gpt\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
-      "line": 1363,
+      "line": 1389,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "lowerProvider === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
-      "line": 1367,
+      "line": 1393,
       "column": 9,
       "kind": "method-call",
       "snippet": "lowerName.includes(\"claude\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
-      "line": 1367,
+      "line": 1393,
       "column": 41,
       "kind": "binary-eq",
       "snippet": "lowerProvider === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
-      "line": 1370,
+      "line": 1396,
       "column": 9,
       "kind": "method-call",
       "snippet": "lowerName.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
-      "line": 1370,
+      "line": 1396,
       "column": 41,
       "kind": "binary-eq",
       "snippet": "lowerProvider === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
-      "line": 1380,
+      "line": 1406,
       "column": 9,
       "kind": "method-call",
       "snippet": "lowerName.includes(\"deepseek\")"
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
-      "line": 1380,
+      "line": 1406,
       "column": 43,
       "kind": "binary-eq",
       "snippet": "lowerProvider === \"deepseek\""
     },
     {
       "file": "modules/ai-engine/llm/services/ai-model-config.service.ts",
-      "line": 1384,
+      "line": 1410,
       "column": 7,
       "kind": "method-call",
       "snippet": "lowerName.includes(\"qwen\")"
