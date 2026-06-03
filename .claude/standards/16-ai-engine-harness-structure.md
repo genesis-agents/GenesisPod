@@ -199,10 +199,12 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 ### HTTP 接口面（controller 归属）
 
 > OS 类比：HTTP 入口属 **L4 open-api（公共 API 网关/daemon）** 与 **L3 ai-app（用户态应用各开各的 socket）**；**engine（硬件）/ harness（内核）/ platform（固件）不开 HTTP 口**。
+>
+> **绝对原则（2026-06-03 裁定）**：**任何外部可访问的 HTTP 端点都属 open-api 或 ai-app，无永久例外。** 连 Prometheus `/metrics` 抓取端点也算外部访问 → 同样上提 open-api（`system/monitoring`），不在 platform 永久保留。
 
 **🔒 已 spec 看护**：`src/__tests__/architecture/layer-1-topology/no-http-in-lower-layers.spec.ts`（进 `verify:arch`）硬焊 **engine/harness = 0 `@Controller`**，platform 带**收缩 ALLOWLIST**（搬一个删一行，清空即焊 0）。新增越界 controller 即红。
 
-实测（2026-06-03）：`@Controller` 数 = open-api 39 · ai-app 91 · **engine 0** · **harness 0** · platform 3（auth/credits/metrics，余 ALLOWLIST 中）。
+实测（2026-06-03，持续上提中）：`@Controller` 数 = **engine 0** · **harness 0** · platform **2**（auth/metrics，余 ALLOWLIST；credits/notifications/admin-* 已上提 open-api/system）。清零后 platform 与 engine/harness 同样硬焊 0。
 
 - ✅ **engine / harness = 0 controller** —— 最关键的不变量已满足，无需动。
 - ✅ **两个 HTTP 面有意区分，勿合并**：`ai-app` = 一方前端 feature API（ask/explore/byok）；`open-api` = 对外/协议/管理面（a2a / mcp-server / admin / public-api / agents-api·skills-api·teams-api / webhooks）。把 ai-app 的 91 个 feature controller 灌进 open-api 会搅混两个面、破坏内聚 → **不做**。
@@ -218,7 +220,7 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
   | notifications/unsubscribe（RateLimit 无鉴权） | 公开 | **open-api/public-api** | 系统对外 | ✅ 已挪走 |
   | auth · credits · notification（jwt 一方用户） | 一方 | **open-api（系统服务面）** | 系统横切（用户可见≠产品）| ⏳ 批2（生产关键，独立 PR）|
   | storage-governance（无 guard） | 待确认 | open-api（admin 或系统面）| 系统 | ⏳ 批3 |
-  | metrics（`/metrics` 抓取端点） | 机器 | 特殊（Prometheus）| 监控 | ⏳ 待定（机器抓取，非普通 HTTP）|
+  | metrics（`/metrics` 抓取端点） | 机器 | **open-api/system/monitoring** | 监控 | ⏳ 待搬（外部访问 = 无永久例外）|
 
   > **执行约束**：跨层 module 重接线 + 生产关键路由（auth/credits），route/guard **原样保留**，**只搬 controller+spec，service/DTO/pipe 留 platform**（service 自身 import DTO，搬 DTO 会造 L1→L4 反向依赖）；勿漏删 platform 各 `index.ts` barrel 的 controller export；靠**真 dist boot-smoke** + 测试验 DI。**独立 PR**，不与其它重构混。分批：✅ 批1 `admin/*`（PR#238）· ⏳ 批2 auth/credits/notification · ⏳ 批3 storage-governance/metrics。
   >
