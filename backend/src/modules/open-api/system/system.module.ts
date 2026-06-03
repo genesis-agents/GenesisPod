@@ -1,6 +1,11 @@
 import { Module } from "@nestjs/common";
 import { NotificationController } from "./notifications/notification.controller";
 import { NotificationModule } from "../../platform/notifications/notification.module";
+import {
+  CreditsController,
+  AdminCreditsController,
+} from "./credits/credits.controller";
+import { CreditsModule } from "../../platform/credits/credits.module";
 
 /**
  * Open-API System Module（系统服务面）
@@ -13,10 +18,15 @@ import { NotificationModule } from "../../platform/notifications/notification.mo
  * open-api/admin = 系统管理面；open-api/public-api = 对外公共面）。各 controller
  * 的 service 仍由对应 platform 模块提供（此处 import 取用，不重复注册）。
  *
- * 2026-06-03 首个进驻：NotificationController（notifications，jwt 一方用户）。
+ * 2026-06-03 进驻：NotificationController（notifications）、CreditsController
+ * （credits）、AdminCreditsController（admin/credits）。
  */
 @Module({
-  imports: [NotificationModule], // exports NotificationService（NotificationController 注入）
-  controllers: [NotificationController],
+  imports: [NotificationModule, CreditsModule], // exports 各自 service（上提的 controller 注入）
+  controllers: [
+    NotificationController,
+    CreditsController,
+    AdminCreditsController,
+  ],
 })
 export class OpenApiSystemModule {}

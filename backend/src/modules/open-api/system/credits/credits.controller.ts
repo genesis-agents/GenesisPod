@@ -12,22 +12,22 @@ import {
   Param,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
+import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
+import { AdminGuard } from "@/common/guards/admin.guard";
 import { CreditTransactionType } from "@prisma/client";
-import { CreditsService } from "./credits.service";
-import { CheckinService } from "./rewards/checkin.service";
-import { CreditRulesService } from "./policy/credit-rules.service";
-import { TransactionQueryDto } from "./dto/transaction-query.dto";
+import { CreditsService } from "@/modules/platform/credits/credits.service";
+import { CheckinService } from "@/modules/platform/credits/rewards/checkin.service";
+import { CreditRulesService } from "@/modules/platform/credits/policy/credit-rules.service";
+import { TransactionQueryDto } from "@/modules/platform/credits/dto/transaction-query.dto";
 import {
   AdminGrantCreditsDto,
   BatchGrantCreditsDto,
-} from "./dto/grant-credits.dto";
+} from "@/modules/platform/credits/dto/grant-credits.dto";
 import {
   FreezeAccountDto,
   UnfreezeAccountDto,
   UpdateCreditRuleDto,
-} from "./dto/admin-credits.dto";
+} from "@/modules/platform/credits/dto/admin-credits.dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };
