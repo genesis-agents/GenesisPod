@@ -1,8 +1,8 @@
 # 脚本管理规范
 
-**版本：** 1.0
+**版本：** 1.1
 **强制级别：** MUST
-**更新日期：** 2025-01-19
+**更新日期：** 2026-06-03
 
 ---
 
@@ -17,22 +17,27 @@
 
 ## 目录结构
 
+> 2026-06-03 与现实对齐：原列的 `deployment/` 不存在（实为 `devops/`），并补齐
+> `ci/` `dev/` `devops/` `ui-iteration/` 四个真实目录。
+
 ```
 scripts/
 ├── _archive/                    # 已完成/过期脚本归档
 │   ├── migrations/              # 已完成的迁移脚本
 │   └── fixes/                   # 已完成的修复脚本
 │
-├── deployment/                  # 部署相关脚本
-├── docs-specialist/             # 文档管理脚本
-├── local-server/                # 本地开发服务
-├── merge-to-main/               # 合并工作流
-├── monitoring/                  # 监控和告警
+├── ci/                          # CI 门禁脚本（namespace 检查等）
+├── dev/                         # 开发调试 / 夹具导出 / 本地诊断
+├── devops/                      # 部署 / 运维 / 发布（facade 边界 / 生产监控 / GitHub release 同步）
+├── docs-specialist/             # 文档治理脚本
+├── local-server/                # 本地开发服务启停
+├── merge-to-main/               # 合并工作流（CI 监控 / 预合并校验 / 回滚）
+├── monitoring/                  # 监控和告警（含 config/）
 ├── release-notification/        # 发布通知
+├── ui-iteration/                # UI 自动迭代框架（TS 模块）
 │
-├── utils/                       # 通用工具脚本
-│   ├── diagnostics/             # 诊断工具
-│   └── *.sh / *.js              # 其他工具
+├── utils/                       # 通用工具 + audit-* 治理脚本
+│   └── diagnostics/             # 诊断工具
 │
 └── README.md                    # 目录说明
 ```
@@ -123,20 +128,25 @@ YYYY-MM-{original-name}.{ext}
 
 ## Backend 脚本规范
 
-后端脚本放在 `backend/scripts/` 目录：
+后端脚本放在 `backend/scripts/` 目录。**根目录只放活脚本**（被 package.json / Dockerfile /
+CI 引用的入口），其余按职责进桶（2026-06-03 收敛，详见 `backend/scripts/README.md`）：
 
 ```
 backend/scripts/
-├── _archive/                    # 已完成/过期脚本归档
-├── seed-*.ts                    # 种子数据脚本
-├── generate-*.ts                # 代码/数据生成
-├── validate-*.ts                # 数据验证
-├── update-*.ts                  # 数据更新脚本
-├── check-*.ts                   # 检查脚本
-├── send-*.ts                    # 通知/发送脚本
-├── docker-entrypoint.sh         # Docker 入口
-└── studio-railway.*             # Railway 工具
+├── _archive/                    # 一次性历史脚本归档（YYYY-MM-{name} 前缀，FLAT 不建子目录）
+├── ci/                          # CI 门禁（boot smoke 等）
+├── db/                          # 数据库工具（检查 / 维护 / 应用迁移 / UI patrol 夹具）
+├── dev-tools/                   # 开发调试 / 覆盖率 / 循环依赖 / 监控诊断
+├── maintenance/                 # 数据维护与运维（完整性 / 白名单 / KEK 轮换 / 清理）
+├── thumbnails/                  # 缩略图生成
+├── entrypoint.sh                # Docker 入口（Dockerfile CMD）—— 活脚本留根
+├── copy-build-assets.js         # 构建产物拷贝（package.json build）—— 活脚本留根
+├── audit-*.{cjs,ts}             # 能力/架构债门禁（package.json + arch spec）—— 活脚本留根
+└── README.md                    # 目录说明
 ```
+
+> 命名前缀（`seed-*` / `generate-*` / `validate-*` / `check-*` / `update-*`）仍按上文规范，
+> 但**位置进对应桶**，不再散落根目录。
 
 ### 禁止在 backend/scripts/ 中
 
@@ -227,6 +237,23 @@ A:
 - 单元测试 -> `backend/test/` 或 `frontend/__tests__/`
 - E2E 测试 -> `backend/test/e2e/`
 - 临时测试脚本 -> 完成后删除
+
+---
+
+## 强制执行（Enforcement）
+
+> 2026-06-03 起本规范从 honor-level 升级为**阻断门禁**。
+
+| 层       | 机制                                                                                          | 范围                            |
+| -------- | --------------------------------------------------------------------------------------------- | ------------------------------- |
+| 本地     | `npm run audit:scripts`（= `scripts/utils/check-scripts-compliance.sh`，`-- --fix` 自动归档） | 手动按需                        |
+| pre-push | `.husky/pre-push` 步骤 `[0d/6]`——违规拒推                                                     | `scripts/` + `backend/scripts/` |
+| CI       | `.github/workflows/ci.yml` 的 `scripts-compliance` job，汇入 `ci-status` 合并门               | 同上                            |
+| Agent    | `scripts-guardian`（read-only）——更细的语义巡检 / 识别该归档的脚本                            | 按需触发                        |
+
+检查 5 项：①`fix-*` / `migrate-*` 误留活跃区（按名硬拦截，故这两个前缀是一次性脚本保留词，
+长期工具改用 `generate-*` / `validate-*` 等动词）·②临时文件（`.tmp` / `.bak` / `temp*`）·
+③必需目录结构·④`scripts/README.md` 存在·⑤过期归档（>6 个月，warning）。
 
 ---
 

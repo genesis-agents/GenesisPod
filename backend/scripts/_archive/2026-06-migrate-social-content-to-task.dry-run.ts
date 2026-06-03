@@ -4,22 +4,22 @@
  *
  * 使用：cd backend && npx ts-node scripts/migrate-social-content-to-task.dry-run.ts
  */
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 async function main() {
   const prisma = new PrismaClient();
   try {
     const total = await prisma.socialContent.count();
     const byStatus = await prisma.socialContent.groupBy({
-      by: ['status'],
+      by: ["status"],
       _count: { _all: true },
     });
     const byContentType = await prisma.socialContent.groupBy({
-      by: ['contentType'],
+      by: ["contentType"],
       _count: { _all: true },
     });
     const bySourceType = await prisma.socialContent.groupBy({
-      by: ['sourceType'],
+      by: ["sourceType"],
       _count: { _all: true },
     });
     const withSource = await prisma.socialContent.count({
@@ -29,19 +29,21 @@ async function main() {
       where: { title: { not: null } },
     });
 
-    console.log('=== Migration dry-run: SocialContent → SocialContentTask ===');
+    console.log("=== Migration dry-run: SocialContent → SocialContentTask ===");
     console.log(`Total SocialContent rows : ${total}`);
-    console.log('By status       :', JSON.stringify(byStatus, null, 2));
-    console.log('By contentType  :', JSON.stringify(byContentType, null, 2));
-    console.log('By sourceType   :', JSON.stringify(bySourceType, null, 2));
+    console.log("By status       :", JSON.stringify(byStatus, null, 2));
+    console.log("By contentType  :", JSON.stringify(byContentType, null, 2));
+    console.log("By sourceType   :", JSON.stringify(bySourceType, null, 2));
     console.log(`With sourceId   : ${withSource}`);
     console.log(`With title      : ${withTitle}`);
-    console.log('');
-    console.log('Expected migration output:');
+    console.log("");
+    console.log("Expected migration output:");
     console.log(`  SocialContentTask rows        : ${total}`);
     console.log(`  SocialContentTaskSource rows  : ${withSource}`);
-    console.log(`  SocialContentTaskVersion rows : ${total}  (one per content row)`);
-    console.log('=== End ===');
+    console.log(
+      `  SocialContentTaskVersion rows : ${total}  (one per content row)`,
+    );
+    console.log("=== End ===");
   } finally {
     await prisma.$disconnect();
   }

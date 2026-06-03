@@ -3,7 +3,7 @@
  */
 
 import { execSync } from "child_process";
-import type { FixSuggestion } from "./fix-generator";
+import type { FixSuggestion } from "./generate-fixes";
 
 export interface ValidationResult {
   issueId: string;

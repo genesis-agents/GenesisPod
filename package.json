@@ -57,6 +57,7 @@
     "monitor": "bash scripts/devops/monitor-production.sh",
     "monitor:quiet": "bash scripts/devops/monitor-production.sh --quiet",
     "check:facade": "bash scripts/devops/check-facade-boundary.sh",
+    "audit:scripts": "bash scripts/utils/check-scripts-compliance.sh",
     "audit:ui": "npm run audit:ui-discipline && npm run audit:ui-tokens",
     "audit:ui-discipline": "tsx scripts/utils/audit-ui-discipline.ts",
     "audit:ui-tokens": "tsx scripts/utils/audit-ui-tokens.ts",
