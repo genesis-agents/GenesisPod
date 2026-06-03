@@ -8,7 +8,7 @@ import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys
 import { UserModelConfigsService } from "@/modules/ai-infra/credentials/user-model-configs/user-model-configs.service";
 import { RequestContext } from "@/common/context/request-context";
 import { LruMap } from "@/common/utils/lru-map";
-import { AIModelType, UserModelConfig } from "@prisma/client";
+import { AIModel, AIModelType, UserModelConfig } from "@prisma/client";
 import { inferIsReasoning } from "../types";
 // v3.1 A0：AIModelConfig 单一源已迁出至 types/model-config.types.ts；
 // 本文件 import 后再 re-export，向后兼容旧 `from "./ai-model-config.service"`
@@ -436,54 +436,73 @@ export class AiModelConfigService {
       }
     }
 
-    // 3. 直接从数据库精确查询（同时支持 modelId 和 name 字段）
-    // ★ 不限 modelType — getModelConfig 的职责是按 ID 查配置，类型过滤由调用方负责
-    try {
-      const model = await this.prisma.aIModel.findFirst({
-        where: {
-          OR: [
-            { modelId: { equals: normalizedModelId, mode: "insensitive" } },
-            { name: { equals: normalizedModelId, mode: "insensitive" } },
-          ],
-          isEnabled: true,
-        },
-      });
+    // 3/4/5. ★ 缓存全 miss 后的 DB fallback。三条查找互相独立（enabled AIModel /
+    //    UserModelConfig / disabled AIModel），原先串行 await 会把每次 DB RTT 叠加 ——
+    //    在高 DB-RTT 部署上一次解析就要数秒。这里改成并行发起，墙钟从「RTT 之和」
+    //    压成「单次 RTT」，再按原优先级取首个命中，语义与串行完全一致。
+    //    ★ 不限 modelType — getModelConfig 的职责是按 ID 查配置，类型过滤由调用方负责。
+    const [enabledModel, userConfig, disabledConfig] = await Promise.all([
+      this.queryEnabledAiModelByIdOrName(normalizedModelId),
+      this.findUserModelConfigByModelId(normalizedModelId),
+      this.findDisabledModelForUser(normalizedModelId),
+    ]);
 
-      if (model) {
-        // ★ 使用统一的 buildModelConfig 方法
-        const config = this.buildModelConfig(model);
-        this.modelConfigCache.set(normalizedModelId, config);
-        // 同时缓存 modelId 和 name 以提高后续查找效率
-        if (model.modelId !== normalizedModelId) {
-          this.modelConfigCache.set(model.modelId, config);
-        }
-        if (model.name !== normalizedModelId && model.name !== model.modelId) {
-          this.modelConfigCache.set(model.name, config);
-        }
-        return config;
+    // 3. enabled AIModel（最高优先级）
+    if (enabledModel) {
+      // ★ 使用统一的 buildModelConfig 方法
+      const config = this.buildModelConfig(enabledModel);
+      this.modelConfigCache.set(normalizedModelId, config);
+      // 同时缓存 modelId 和 name 以提高后续查找效率
+      if (enabledModel.modelId !== normalizedModelId) {
+        this.modelConfigCache.set(enabledModel.modelId, config);
       }
-    } catch (error) {
-      this.logger.warn(`[getModelConfig] Database query failed: ${error}`);
+      if (
+        enabledModel.name !== normalizedModelId &&
+        enabledModel.name !== enabledModel.modelId
+      ) {
+        this.modelConfigCache.set(enabledModel.name, config);
+      }
+      return config;
     }
 
     // 4. ★ BYOK v3: 用户自定义模型配置（UserModelConfig 表）
-    //    用户像管理员那样配的完整 profile，按 modelId 精确匹配。
-    const userConfig =
-      await this.findUserModelConfigByModelId(normalizedModelId);
     if (userConfig) return userConfig;
 
-    // 5. ★ BYOK: 查找 disabled 模型（用户有对应 provider 的 Key 时可用）
-    const disabledConfig =
-      await this.findDisabledModelForUser(normalizedModelId);
+    // 5. ★ BYOK: disabled 模型（用户有对应 provider 的 Key 时可用）
     if (disabledConfig) return disabledConfig;
 
     // 6. ★ BYOK: 用户只填了 UserApiKey.preferredModelId 但没建 UserModelConfig
     //    时的向后兼容路径 —— 用 provider 默认参数合成一个 AIModelConfig。
+    //    合成路径最贵（多次 key 查询），且优先级最低，仅在前 3 条全 miss 时才跑。
     const synthesized =
       await this.synthesizeConfigForUserModel(normalizedModelId);
     if (synthesized) return synthesized;
 
     return null;
+  }
+
+  /**
+   * 按 modelId / name 精确查 enabled 的 AIModel（不区分大小写）。
+   * 从 getModelConfig 的 DB fallback 抽出，便于与其它 BYOK 查找并行发起。
+   * 自带 try/catch —— 失败回 null，保证并行 Promise.all 不会因单条查询异常整体 reject。
+   */
+  private async queryEnabledAiModelByIdOrName(
+    modelId: string,
+  ): Promise<AIModel | null> {
+    try {
+      return await this.prisma.aIModel.findFirst({
+        where: {
+          OR: [
+            { modelId: { equals: modelId, mode: "insensitive" } },
+            { name: { equals: modelId, mode: "insensitive" } },
+          ],
+          isEnabled: true,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(`[getModelConfig] Database query failed: ${error}`);
+      return null;
+    }
   }
 
   /**
@@ -595,57 +614,64 @@ export class AiModelConfigService {
     // —— 只要用户配了某 provider 的 Key + preferredModelId 匹配就走合成。
     const providers =
       await this.userApiKeysService.getAvailableProviders(userId);
-    for (const provider of providers) {
-      const personal = await this.userApiKeysService.getPersonalKey(
-        userId,
-        provider,
-      );
-      if (!personal) continue;
-      if (
-        personal.preferredModelId &&
-        personal.preferredModelId.toLowerCase() === modelId.toLowerCase()
-      ) {
-        // 2026-05-11 P2: 从 DB ai_providers 拿默认 endpoint/apiFormat，
-        // 找不到时 personal.apiEndpoint 必填（用户配 Key 时已强制要求）。
-        const defaults = (await this.userApiKeysService.resolveProviderDefaults(
-          provider,
-        )) ?? {
-          endpoint: "",
-          apiFormat: "openai",
-          testModel: "",
-        };
-        this.logger.log(
-          `[synthesizeConfigForUserModel] Synthesizing config for user ` +
-            `${userId}: provider=${provider}, modelId=${modelId}`,
-        );
-        return {
-          id: `user-${userId}-${provider}-${modelId}`,
-          name: modelId,
-          displayName: modelId,
-          provider,
-          modelId,
-          apiEndpoint: personal.apiEndpoint || defaults.endpoint,
-          apiKey: null, // resolveApiKey 会用用户 Key
-          secretKey: null,
-          maxTokens: 8192,
-          temperature: 0.7,
-          isEnabled: true,
-          isDefault: false,
-          isReasoning: inferIsReasoning(modelId),
-          apiFormat: defaults.apiFormat,
-          supportsTemperature: true,
-          supportsStreaming: true,
-          supportsFunctionCalling: true,
-          supportsVision: false,
-          tokenParamName: inferIsReasoning(modelId)
-            ? "max_completion_tokens"
-            : "max_tokens",
-          defaultTimeoutMs: 120000,
-          priority: 0,
-        };
-      }
-    }
-    return null;
+
+    // 各 provider 的 personal key 互相独立，原先 for-await 逐个串行查在高 DB-RTT
+    // 部署上会叠成数秒。并行取回后，按 providers 原顺序找首个 preferredModelId 命中
+    // 的 provider —— 与串行版「第一个匹配即返回」语义一致。
+    const personalKeys = await Promise.all(
+      providers.map((provider) =>
+        this.userApiKeysService
+          .getPersonalKey(userId, provider)
+          .then((key) => ({ provider, key })),
+      ),
+    );
+    const match = personalKeys.find(
+      ({ key }) =>
+        key?.preferredModelId &&
+        key.preferredModelId.toLowerCase() === modelId.toLowerCase(),
+    );
+    if (!match?.key) return null;
+
+    const { provider } = match;
+    const personal = match.key;
+    // 2026-05-11 P2: 从 DB ai_providers 拿默认 endpoint/apiFormat，
+    // 找不到时 personal.apiEndpoint 必填（用户配 Key 时已强制要求）。
+    const defaults = (await this.userApiKeysService.resolveProviderDefaults(
+      provider,
+    )) ?? {
+      endpoint: "",
+      apiFormat: "openai",
+      testModel: "",
+    };
+    this.logger.log(
+      `[synthesizeConfigForUserModel] Synthesizing config for user ` +
+        `${userId}: provider=${provider}, modelId=${modelId}`,
+    );
+    return {
+      id: `user-${userId}-${provider}-${modelId}`,
+      name: modelId,
+      displayName: modelId,
+      provider,
+      modelId,
+      apiEndpoint: personal.apiEndpoint || defaults.endpoint,
+      apiKey: null, // resolveApiKey 会用用户 Key
+      secretKey: null,
+      maxTokens: 8192,
+      temperature: 0.7,
+      isEnabled: true,
+      isDefault: false,
+      isReasoning: inferIsReasoning(modelId),
+      apiFormat: defaults.apiFormat,
+      supportsTemperature: true,
+      supportsStreaming: true,
+      supportsFunctionCalling: true,
+      supportsVision: false,
+      tokenParamName: inferIsReasoning(modelId)
+        ? "max_completion_tokens"
+        : "max_tokens",
+      defaultTimeoutMs: 120000,
+      priority: 0,
+    };
   }
 
   /**
