@@ -182,5 +182,24 @@
 
 ---
 
-**维护者**：Claude Code · **版本**：1.0（adversarially-verified）
-**下次更新**：每波次落地后回填实际 PR 号与验证结果
+## 执行进度（2026-06-03 落地回填）
+
+第二轮 workflow（`wf_9e369f4d-1c0`，11 agent）为剩余波次出了 current-source-verified 执行套件 + 对抗校验，5 域全 needs-fix，又抓出多处硬错（A 漏 34 测试+9 facade 间接消费方/facade 段实为 770-819；H 前提自相矛盾；F facade 未导出 3 个 Mission 服务+目标目录不存在；I eslint 规则与既有 685-726 冗余；D 同名实为 5 个非 6）。落地顺序按安全度 **I → D → H → A → F**。
+
+| 波次                                            | 状态                  | commit / 决定                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| W1-2/4/B.1/B.2                                  | ✅ 合 main            | PR #230                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| W2-E（路由公式去重，安全切片）                  | ✅ committed          | `d2caa6da1`（election golden 字节不变；cost 分歧保留；generic-ranker 全量 swap 仍 defer）                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **W1-I**（platform/\*\* storage 守护 + README） | ✅ committed          | `405135606`（只加 platform 新覆盖，ai-engine/harness 已有规则；零违规）                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **W1-D**（evaluation）                          | ✅ **决定：维持双份** | 无代码改动。依据：harness 源码头注释已记录"TI 商用基线保留本地副本"；两份 diff 仅 13 行近等价；5 个同名服务（ReportQualityGate/CritiqueRefine/ReportEvaluation/SectionSelfEval/SectionRemediation）双份均 live（TI 本地 import + harness 经 facade 供 agent-playground/report-artifact-assembler），**非死副本，不可删**。抽 L2 engine 无状态 core 给两份共用=待决策（需先 grep ai-app/writing/services/quality 排查误撞，建议否）。`QualityTraceComputeService(harness)` vs `ReportQualityTraceService(TI)` 是异名异实现，非冲突 |
+
+### 剩余 XL 波次（H/A/F）—— 单 PR 原子、breaksArchMidway，各需专注落地
+
+- **H-ingestion**（阻断决策）：迁入 platform(L1) 后残留 3 处 `platform→ai-app(explore)` 反向 import（config.module:23 / crawlers.module:17 / hackernews.service:5），`layer-boundaries.spec:211` 硬断言必 RED。**单 PR 不可能 green，波次前提自相矛盾**。三方案选一（推荐 **i**）：(i) 引入 DI 端口让 platform 只依赖抽象、explore 侧实现注入；(ii) 不迁 L1；(iii) spec 加 allowlist（下策）。另：补 5 处漏列 consumer rewrite（explore link-health/feed + 2 jest.mock）；删 2 个 phantom edit（topic-insights/research-project 实不 import IngestionConfigModule）。
+- **A-credentials**（XL ~107 文件原子）：ai-engine/facade credential re-export 实为 **770-819 整段**（非 5 service）。推荐 **方案 A**：repoint 整段为 `@deprecated` 转发 `from platform/facade`，使 9 个间接消费方 + harness/facade:1374-1386 无需逐个改。补 34 个测试文件 import rewrite（tsc/jest 必查）。本波建议**只搬 credentials**，secrets/encryption/key-health 拆波记债。
+- **F-teams**（XL ~30 文件原子）：**硬前提**——harness/facade 当前**不导出** MissionStateManager/MissionContextService/MissionInputService（grep 0），主 Agent 须先在 facade/index.ts 新增 3 export。目标目录 `harness/teams/collaboration/context/` **不存在**需先建。teams.module 是扁平模块不 import CollaborationModule。补 ~17 spec rewrite。`MissionContext/Input` 落点（engine vs harness）开工前二次确认依赖就近。
+
+---
+
+**维护者**：Claude Code · **版本**：2.0（W1 全合 main + W2-E/W1-I committed + D 定案；H/A/F runbook 见上）
+**下次更新**：H/A/F 各自原子 PR 落地后回填
