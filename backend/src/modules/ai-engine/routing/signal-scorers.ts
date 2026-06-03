@@ -13,6 +13,11 @@ import type {
   RouteQuery,
   SignalScorer,
 } from "./routing.types";
+import {
+  scoreDiversity,
+  scoreHealthRate,
+  scorePriority,
+} from "./scoring-formulas";
 
 /**
  * 健康：recentErrorRate 0 → +20；0.1 → +10；0.3 → 0；更高 → -20。
@@ -22,12 +27,7 @@ export function healthScorer<T extends RoutableCandidate>(): SignalScorer<T> {
   return {
     key: "health",
     score(cand) {
-      const rate = cand.signals?.recentErrorRate;
-      if (rate === undefined) return 15;
-      if (rate <= 0.01) return 20;
-      if (rate <= 0.1) return 10;
-      if (rate <= 0.3) return 0;
-      return -20;
+      return scoreHealthRate(cand.signals?.recentErrorRate);
     },
   };
 }
@@ -62,10 +62,7 @@ export function diversityScorer<
   return {
     key: "diversity",
     score(cand, query: RouteQuery) {
-      const prev = query.previouslyChosen;
-      if (!prev || prev.length === 0) return 0;
-      const occurrences = prev.filter((id) => id === cand.id).length;
-      return -10 * occurrences;
+      return scoreDiversity(cand.id, query.previouslyChosen);
     },
   };
 }
@@ -77,7 +74,7 @@ export function priorityScorer<T extends RoutableCandidate>(): SignalScorer<T> {
   return {
     key: "priority",
     score(cand) {
-      return (cand.signals?.priority ?? 50) / 10;
+      return scorePriority(cand.signals?.priority);
     },
   };
 }

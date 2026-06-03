@@ -24,6 +24,11 @@ import { KeyResolverService } from "@/modules/ai-engine/credentials/key-resolver
 import { AiModelConfigService } from "../config/ai-model-config.service";
 import type { AIModelConfig } from "../../services/ai-chat.service";
 import { classifyModelTier, ModelTier } from "../../types/model-tier.types";
+import {
+  scoreHealthRate,
+  scorePriority,
+  scoreDiversity as sharedScoreDiversity,
+} from "@/modules/ai-engine/routing/scoring-formulas";
 import type { TaskProfile } from "../../types";
 import {
   NoEligibleModelError,
@@ -246,10 +251,10 @@ export class ModelElectionService {
     const tierScore = this.scoreTier(tier, targetTier);
     const roleScore = this.scoreRole(role, config, tier);
     const costScore = this.scoreCost(costBias, candidate.costTier, tier);
-    const healthScore = this.scoreHealth(candidate.recentErrorRate);
-    const priorityScore = (config.priority ?? 50) / 10; // 0-10
+    const healthScore = scoreHealthRate(candidate.recentErrorRate);
+    const priorityScore = scorePriority(config.priority); // 0-10
     const isDefaultScore = config.isDefault ? 5 : 0;
-    const diversityScore = this.scoreDiversity(
+    const diversityScore = sharedScoreDiversity(
       config.modelId,
       previouslyElected,
     );
@@ -276,28 +281,6 @@ export class ModelElectionService {
         diversity: diversityScore,
       },
     };
-  }
-
-  /**
-   * Mission-scoped 多样性扣分（2026-05-10 §3 通用机制）
-   *
-   * 当 caller（mission orchestrator）传入"本 mission 已选过的 modelId 列表"时，
-   * 同一 modelId 出现 N 次 → 扣 -10 × N 分。让无状态 elect() 在宏观上呈现
-   * 多模型分布特性，避免 11 个 agent 全选 grok-3 这类坍缩。
-   *
-   * 设计要点：
-   * - 不强制硬切，仅扣分。reasoning role 重大优势仍能压住 diversity penalty
-   *   （例如 leader+reasoning +20 vs 已用过 1 次扣 -10 仍是净 +10）
-   * - 调用方完全控制是否启用：previouslyElected 默认空 → score=0 → 行为不变
-   * - 不需要新服务/新 DI；caller 负责维护 list（如 MissionElectionTracker）
-   */
-  private scoreDiversity(
-    modelId: string,
-    previouslyElected: ReadonlyArray<string>,
-  ): number {
-    if (previouslyElected.length === 0) return 0;
-    const occurrences = previouslyElected.filter((id) => id === modelId).length;
-    return -10 * occurrences;
   }
 
   /** tier 匹配：目标命中 +25；相邻 +10；更远 0 */
@@ -375,15 +358,6 @@ export class ModelElectionService {
       return effective === "strong" ? 15 : effective === "standard" ? 5 : 0;
     }
     return effective === "standard" ? 10 : 5; // balanced
-  }
-
-  /** 健康评分：recentErrorRate 0 → 20；0.1 → 10；0.3 → 0；>0.3 → -20（仍通过硬过滤则说明 < 0.5） */
-  private scoreHealth(rate: number | undefined): number {
-    if (rate === undefined) return 15; // 未知 = 默认中位
-    if (rate <= 0.01) return 20;
-    if (rate <= 0.1) return 10;
-    if (rate <= 0.3) return 0;
-    return -20;
   }
 
   // ============================================================
