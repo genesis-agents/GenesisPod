@@ -2,10 +2,10 @@
  * Diagnostic script to check chart data in database
  *
  * 在生产环境运行:
- * railway run npx ts-node scripts/check-charts-data.ts <topicId>
+ * railway run npx ts-node scripts/dev-tools/check-charts-data.ts <topicId>
  *
  * 或在本地连接生产数据库:
- * DATABASE_URL="postgresql://..." npx ts-node scripts/check-charts-data.ts <topicId>
+ * DATABASE_URL="postgresql://..." npx ts-node scripts/dev-tools/check-charts-data.ts <topicId>
  */
 
 import * as dotenv from "dotenv";
