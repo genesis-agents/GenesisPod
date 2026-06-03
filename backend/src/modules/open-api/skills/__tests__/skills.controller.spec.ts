@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { SkillsController } from "../skills.controller";
-import { SkillsApiService } from "../skills-api.service";
+import { SkillsService } from "../skills.service";
 import { SkillAnalyticsService } from "../../../ai-engine/skills/analytics/skill-analytics.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
@@ -25,7 +25,7 @@ const mockSkillsApiService = {
   getSkillsByDomain: jest.fn(),
   setSkillDomainOverride: jest.fn(),
   syncFromSkillsMP: jest.fn(),
-} as unknown as jest.Mocked<SkillsApiService>;
+} as unknown as jest.Mocked<SkillsService>;
 
 const mockAnalyticsService = {
   getDashboardMetrics: jest.fn(),
@@ -51,7 +51,7 @@ describe("SkillsController", () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SkillsController],
       providers: [
-        { provide: SkillsApiService, useValue: mockSkillsApiService },
+        { provide: SkillsService, useValue: mockSkillsApiService },
         { provide: SkillAnalyticsService, useValue: mockAnalyticsService },
       ],
     })
@@ -64,7 +64,7 @@ describe("SkillsController", () => {
       .compile();
 
     controller = module.get<SkillsController>(SkillsController);
-    service = module.get(SkillsApiService);
+    service = module.get(SkillsService);
   });
 
   // -------------------------------------------------------------------------

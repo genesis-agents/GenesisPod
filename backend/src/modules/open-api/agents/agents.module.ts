@@ -21,4 +21,4 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
   providers: [AgentsService, AgentsTaskQueueService, AgentsTaskProcessor],
   exports: [AgentsService],
 })
-export class AgentsApiModule {}
+export class AgentsModule {}

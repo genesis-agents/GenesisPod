@@ -17,7 +17,7 @@ import { RadarDailyBriefingEmailPreset } from "./presets/radar-daily-briefing-em
 import { RadarWeeklyBriefingEmailPreset } from "./presets/radar-weekly-briefing-email.preset";
 import { UnsubscribeTokenService } from "./preferences/unsubscribe-token.service";
 // UnsubscribeController（notifications/unsubscribe，公开退订）已上提到
-// open-api/public-api（System HTTP → L4）；UnsubscribeTokenService 留 L1 platform 并导出。
+// open-api/public（System HTTP → L4）；UnsubscribeTokenService 留 L1 platform 并导出。
 
 /**
  * NotificationDispatcherModule（PR-DR1a）

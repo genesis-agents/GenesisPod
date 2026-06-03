@@ -1,20 +1,20 @@
 /**
  * Public API Controller E2E Tests
  *
- * Tests all endpoints exposed by the PublicApiController.
+ * Tests all endpoints exposed by the PublicController.
  * Mocks AI dependencies (AIFacade, ChatFacade, ToolFacade).
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotImplementedException, ExecutionContext } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { PublicApiController } from "../public-api.controller";
+import { PublicController } from "../public.controller";
 import { AIFacade } from "../../../ai-harness/facade/ai.facade";
 import { ChatFacade, ToolFacade } from "../../../ai-harness/facade";
 import { MCPApiKeyGuard } from "../../mcp-server/guards/mcp-api-key.guard";
 
-describe("PublicApiController", () => {
-  let controller: PublicApiController;
+describe("PublicController", () => {
+  let controller: PublicController;
   // Single shared mock object registered under all three DI tokens.
   // Each token satisfies one part of the production constructor, and
   // the shared reference lets tests assert on any method regardless of
@@ -48,7 +48,7 @@ describe("PublicApiController", () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [PublicApiController],
+      controllers: [PublicController],
       providers: [
         { provide: AIFacade, useValue: sharedMock },
         { provide: ChatFacade, useValue: sharedMock },
@@ -59,7 +59,7 @@ describe("PublicApiController", () => {
       .useValue(mockGuard)
       .compile();
 
-    controller = module.get<PublicApiController>(PublicApiController);
+    controller = module.get<PublicController>(PublicController);
 
     jest.clearAllMocks();
   });
