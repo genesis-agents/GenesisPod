@@ -31,7 +31,7 @@ import { ChatMessage } from "../../types";
 import {
   AIModelConfig,
   AiModelConfigService,
-} from "../ai-model-config.service";
+} from "../../models/config/ai-model-config.service";
 import { AiApiCallerService } from "../ai-api-caller.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
 import { KeyExecutorService } from "@/modules/ai-engine/credentials/executor";

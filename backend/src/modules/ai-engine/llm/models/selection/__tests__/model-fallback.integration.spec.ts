@@ -13,7 +13,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { ModelFallbackService } from "../model-fallback.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIError, AIErrorType } from "../../abstractions/error-classifier";
+import { AIError, AIErrorType } from "../../../abstractions/error-classifier";
 
 describe("ModelFallbackService - Extended", () => {
   let service: ModelFallbackService;

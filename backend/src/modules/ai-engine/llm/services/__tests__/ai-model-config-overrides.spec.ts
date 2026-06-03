@@ -14,13 +14,13 @@
  */
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { AiModelConfigService } from "../ai-model-config.service";
+import { AiModelConfigService } from "../../models/config/ai-model-config.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/platform/secrets/secrets.service";
 import { UserApiKeysService } from "@/modules/ai-engine/credentials/user-api-keys/user-api-keys.service";
 import { UserModelConfigsService } from "@/modules/ai-engine/credentials/user-model-configs/user-model-configs.service";
 import { AIModelType, UserModelConfig } from "@prisma/client";
-import { ModelCapabilitiesOverridesSchema } from "../../capability/model-capability.types";
+import { ModelCapabilitiesOverridesSchema } from "../../models/capability/model-capability.types";
 
 /**
  * Admin AIModel 行 fixture 工厂（capability_overrides 可注入）

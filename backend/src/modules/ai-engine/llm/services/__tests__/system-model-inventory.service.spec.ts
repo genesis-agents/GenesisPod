@@ -1,7 +1,7 @@
 /**
  * SystemModelInventoryService 单元测试
  */
-import { SystemModelInventoryService } from "../system-model-inventory.service";
+import { SystemModelInventoryService } from "../../models/catalog/system-model-inventory.service";
 
 describe("SystemModelInventoryService", () => {
   let service: SystemModelInventoryService;

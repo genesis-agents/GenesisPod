@@ -8,7 +8,7 @@
  *
  * DELETE 路由复用 reason 字段（patch 字段忽略）。
  *
- * 放在 ai-engine/llm/capability/dto/ —— admin 与 BYOK 两个 controller 共享，
+ * 放在 ai-engine/llm/models/capability/dto/ —— admin 与 BYOK 两个 controller 共享，
  * 不能放 admin/dto（ai-app/byok 跨层导）也不能放 ai-app/byok/dto（admin 跨层导）。
  */
 

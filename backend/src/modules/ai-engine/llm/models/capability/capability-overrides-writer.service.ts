@@ -34,7 +34,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 import { CapabilityFeatureFlagsService } from "./capability-feature-flags.service";
 import { parseCapabilityOverrides } from "./capability-overrides-parser";

@@ -22,7 +22,7 @@ import { HttpService } from "@nestjs/axios";
 import { of, throwError } from "rxjs";
 import { AxiosResponse } from "axios";
 import { AiConnectionTestService } from "../ai-connection-test.service";
-import { AiModelConfigService } from "../ai-model-config.service";
+import { AiModelConfigService } from "../../models/config/ai-model-config.service";
 
 // ---------------------------------------------------------------------------
 // Helpers

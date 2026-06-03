@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
 import { of } from "rxjs";
-import { AiModelDiscoveryService } from "../ai-model-discovery.service";
+import { AiModelDiscoveryService } from "../../models/catalog/ai-model-discovery.service";
 import { UserApiKeysService } from "../../../../ai-engine/credentials/user-api-keys/user-api-keys.service";
 
 describe("AiModelDiscoveryService", () => {

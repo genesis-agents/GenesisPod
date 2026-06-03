@@ -51,7 +51,7 @@ const EXPECTED_CALLERS: ReadonlyArray<readonly [string, number]> = [
   // 原 2 处 `inferIsReasoning(...)` 调用随 buildModelConfig / isReasoningModel
   // 委托给 canonical AiModelConfigService 而被消除。
   ["modules/ai-engine/llm/services/ai-connection-test.service.ts", 1],
-  ["modules/ai-engine/llm/services/ai-model-config.service.ts", 3],
+  ["modules/ai-engine/llm/models/config/ai-model-config.service.ts", 3],
   ["modules/ai-harness/tracing/observability/ai-observability.service.ts", 1],
   ["modules/open-api/admin/admin.service.ts", 1],
 ];

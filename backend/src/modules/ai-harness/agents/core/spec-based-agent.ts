@@ -30,12 +30,12 @@ import {
   NoEligibleModelError,
   type ElectionCandidate,
   type ElectionRoleHint,
-} from "../../../ai-engine/llm/selection";
+} from "../../../ai-engine/llm/models/selection";
 import {
   MissionElectionTracker,
   type MissionElectionReservation,
 } from "../../guardrails/runtime/mission-election-tracker.service";
-import type { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
+import type { AiModelConfigService } from "../../../ai-engine/llm/models/config/ai-model-config.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import type {
   IAgent,

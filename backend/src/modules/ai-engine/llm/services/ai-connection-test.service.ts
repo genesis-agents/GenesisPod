@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { AiModelConfigService } from "./ai-model-config.service";
+import { AiModelConfigService } from "../models/config/ai-model-config.service";
 import { inferIsReasoning } from "../types/model.utils";
 import {
   ensureChatCompletionsPath,

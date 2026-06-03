@@ -255,7 +255,7 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
         if (fileLayer(file) !== "ai-app") continue;
         const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
         for (const target of extractImportTargets(file)) {
-          // 命中 ai-engine/llm/capability/model-capability.service（任意相对/绝对路径形态）
+          // 命中 ai-engine/llm/models/capability/model-capability.service（任意相对/绝对路径形态）
           if (/capability\/model-capability\.service/.test(target)) {
             violations.push(`${rel} → ${target}`);
           }

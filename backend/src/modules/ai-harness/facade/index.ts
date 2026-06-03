@@ -399,7 +399,7 @@ export type {
 export { MissionElectionTracker } from "../guardrails/runtime/mission-election-tracker.service";
 export type { MissionElectionReservation } from "../guardrails/runtime/mission-election-tracker.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { ModelElectionService } from "../../ai-engine/llm/selection";
+export { ModelElectionService } from "../../ai-engine/llm/models/selection";
 
 // ★ PR-R1 (2026-05-07 per-task rerun + cascade):
 //   Stage 静态依赖图元数据（每 stage 声明 successors / ctxReads / dbWrites / resetFields）
@@ -1348,11 +1348,11 @@ export { SKILL_PROVIDERS } from "../agents/abstractions/skill.interface";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { AiModelConfigService } from "../../ai-engine/llm/services/ai-model-config.service";
+export { AiModelConfigService } from "../../ai-engine/llm/models/config/ai-model-config.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallback.service";
-export type { ModelFallbackOptions } from "../../ai-engine/llm/selection/model-fallback.service";
-export type { AIModelConfig } from "../../ai-engine/llm/services/ai-model-config.service";
+export { ModelFallbackService } from "../../ai-engine/llm/models/selection/model-fallback.service";
+export type { ModelFallbackOptions } from "../../ai-engine/llm/models/selection/model-fallback.service";
+export type { AIModelConfig } from "../../ai-engine/llm/models/config/ai-model-config.service";
 
 // 模型级 failover 共享 helper（ai-app 的非 loop 直调 chat 也能容错，如 leader-chat）
 export {
@@ -1386,7 +1386,7 @@ export {
 } from "../../ai-engine/facade";
 
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { AiModelDiscoveryService } from "../../ai-engine/llm/services/ai-model-discovery.service";
+export { AiModelDiscoveryService } from "../../ai-engine/llm/models/catalog/ai-model-discovery.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { AiConnectionTestService } from "../../ai-engine/llm/services/ai-connection-test.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */

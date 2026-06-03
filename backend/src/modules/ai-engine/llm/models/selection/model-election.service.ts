@@ -21,10 +21,10 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { KeyResolverService } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.service";
-import { AiModelConfigService } from "../services/ai-model-config.service";
-import type { AIModelConfig } from "../services/ai-chat.service";
-import { classifyModelTier, ModelTier } from "../types/model-tier.types";
-import type { TaskProfile } from "../types";
+import { AiModelConfigService } from "../config/ai-model-config.service";
+import type { AIModelConfig } from "../../services/ai-chat.service";
+import { classifyModelTier, ModelTier } from "../../types/model-tier.types";
+import type { TaskProfile } from "../../types";
 import {
   NoEligibleModelError,
   type ElectionCandidate,

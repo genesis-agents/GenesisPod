@@ -13,9 +13,9 @@ import {
   PromptOnlyAdapter,
 } from "../../structured-output/adapters";
 import type { StructuredOutputStrategy } from "../../structured-output/structured-output-strategy.types";
-import { ModelCapabilityService } from "../../capability/model-capability.service";
-import { CapabilitySelfHealService } from "../../capability/capability-self-heal.service";
-import { extractErrorSignal } from "../../capability/error-signal.types";
+import { ModelCapabilityService } from "../../models/capability/model-capability.service";
+import { CapabilitySelfHealService } from "../../models/capability/capability-self-heal.service";
+import { extractErrorSignal } from "../../models/capability/error-signal.types";
 import { ApiCallerSelfHealTriggerService } from "../api-caller-self-heal-trigger.service";
 import type { AIModelConfig } from "../../types/model-config.types";
 import type {
@@ -177,7 +177,7 @@ export abstract class BaseHttpCaller {
     provider: string,
     modelId: string,
   ):
-    | import("../../capability/model-capability.types").NativeStructuredOutputMode
+    | import("../../models/capability/model-capability.types").NativeStructuredOutputMode
     | null {
     if (!this.capabilityService || !provider?.trim()) {
       return null; // fail-open: preserve caller-driven behavior
@@ -215,7 +215,7 @@ export abstract class BaseHttpCaller {
     provider: string,
     modelId: string,
     current:
-      | import("../../capability/model-capability.types").NativeStructuredOutputMode
+      | import("../../models/capability/model-capability.types").NativeStructuredOutputMode
       | null,
   ): { fromValue: string; toValue: string } | null {
     if (!this.capabilityService || !provider?.trim() || !current) return null;

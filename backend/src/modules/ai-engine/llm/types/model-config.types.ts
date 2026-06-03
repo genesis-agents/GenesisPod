@@ -1,4 +1,4 @@
-import type { ModelCapabilitiesOverrides } from "../capability/model-capability.types";
+import type { ModelCapabilitiesOverrides } from "../models/capability/model-capability.types";
 
 /**
  * AI Model Config —— v3.1 A0 阶段：AIModelConfig **单一源**。
@@ -7,7 +7,7 @@ import type { ModelCapabilitiesOverrides } from "../capability/model-capability.
  *   - 原 #1（旧/精简版，12 字段）：
  *     `modules/ai-engine/llm/services/ai-chat-model-config.service.ts:11-37`
  *   - 原 #2（canonical/超集版，19 字段，含 7 个 v3.x structured-output 扩展）：
- *     `modules/ai-engine/llm/services/ai-model-config.service.ts:55-92`
+ *     `modules/ai-engine/llm/models/config/ai-model-config.service.ts:55-92`
  *
  * 合并策略：保留 canonical 超集；旧文件改为 thin wrapper（委托给
  * `AiModelConfigService`），所有 import 点经 A0 期间收敛到本文件。

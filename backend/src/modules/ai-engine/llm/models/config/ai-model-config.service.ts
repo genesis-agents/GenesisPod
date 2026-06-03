@@ -9,7 +9,7 @@ import { UserModelConfigsService } from "@/modules/ai-engine/credentials/user-mo
 import { RequestContext } from "@/common/context/request-context";
 import { LruMap } from "@/common/utils/lru-map";
 import { AIModel, AIModelType, UserModelConfig } from "@prisma/client";
-import { inferIsReasoning } from "../types";
+import { inferIsReasoning } from "../../types";
 // v3.1 A0：AIModelConfig 单一源已迁出至 types/model-config.types.ts；
 // 本文件 import 后再 re-export，向后兼容旧 `from "./ai-model-config.service"`
 // 路径上的下游消费方。
@@ -17,7 +17,7 @@ import type {
   AIModelConfig,
   ApiKeySource,
   ResolvedApiKey,
-} from "../types/model-config.types";
+} from "../../types/model-config.types";
 // v3.1 B.2: capability_overrides JSONB 严校（safeParse 失败仅 warn 跳过）
 // 解析逻辑独立在 capability-overrides-parser（review 2026-05-24 Fix-3 防 god-class）
 import { parseCapabilityOverrides } from "../capability/capability-overrides-parser";

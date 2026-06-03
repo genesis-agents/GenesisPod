@@ -7,8 +7,8 @@ import {
   ensureGeminiBatchEmbedContentsPath,
 } from "../../types/endpoint.utils";
 import type { StructuredOutputStrategy } from "../../structured-output/structured-output-strategy.types";
-import { ModelCapabilityService } from "../../capability/model-capability.service";
-import { CapabilitySelfHealService } from "../../capability/capability-self-heal.service";
+import { ModelCapabilityService } from "../../models/capability/model-capability.service";
+import { CapabilitySelfHealService } from "../../models/capability/capability-self-heal.service";
 import { ApiCallerSelfHealTriggerService } from "../api-caller-self-heal-trigger.service";
 import {
   BaseHttpCaller,

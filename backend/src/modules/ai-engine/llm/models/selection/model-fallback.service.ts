@@ -18,7 +18,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { RequestContext } from "@/common/context/request-context";
-import { AIModelConfig } from "../index";
+import { AIModelConfig } from "../../index";
 import {
   AIError,
   AIErrorClassifier,

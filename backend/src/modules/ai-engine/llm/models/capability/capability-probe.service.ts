@@ -28,8 +28,8 @@ import type { RedisStore } from "cache-manager-ioredis-yet";
 import type { Redis, Cluster } from "ioredis";
 import { randomUUID } from "crypto";
 
-import { CacheService } from "../../../../common/cache/cache.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { CacheService } from "../../../../../common/cache/cache.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 import { CATALOG_VERSION } from "./model-capability-catalog";
 import { CapabilityFeatureFlagsService } from "./capability-feature-flags.service";

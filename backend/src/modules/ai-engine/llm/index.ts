@@ -22,4 +22,4 @@ export * from "./factory";
 export * from "./services";
 
 // Model Selection (PR-X-Q: 合并自原 election + recommendations + model-fallback)
-export * from "./selection";
+export * from "./models/selection";

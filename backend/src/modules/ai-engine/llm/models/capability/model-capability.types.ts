@@ -9,7 +9,7 @@
  *   - 零业务逻辑：纯数据 + zod schema，业务派生在 ModelCapabilityService 内
  *   - 嵌套结构按维度聚合：structuredOutput / toolUse / reasoning / ...
  *
- * v3.1 阶段 A 范围：本类型不出 ai-engine/llm/capability + ai-engine/llm/services
+ * v3.1 阶段 A 范围：本类型不出 ai-engine/llm/models/capability + ai-engine/llm/services
  *   facade（防 ai-app 直接读 caps 再生散点 if 判断）—— 详见 v3 §3.6。
  *
  * v3.1 阶段 B 演进：本文件会被 capability_overrides JSONB 写入侧用于强校验
@@ -21,7 +21,7 @@ import { z } from "zod";
 import {
   STRUCTURED_OUTPUT_STRATEGIES,
   type StructuredOutputStrategy,
-} from "../structured-output/structured-output-strategy.types";
+} from "../../structured-output/structured-output-strategy.types";
 
 // ─────────────── structuredOutput 维度（v3 §3.2 #1, #2） ───────────────
 

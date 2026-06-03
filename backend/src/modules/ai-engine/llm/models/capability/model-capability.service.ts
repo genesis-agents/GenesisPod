@@ -24,7 +24,7 @@
 
 import { Injectable } from "@nestjs/common";
 
-import type { AIModelConfig } from "../types/model-config.types";
+import type { AIModelConfig } from "../../types/model-config.types";
 import {
   PROVIDER_CAPABILITY_DEFAULTS,
   SAFE_DEFAULTS,

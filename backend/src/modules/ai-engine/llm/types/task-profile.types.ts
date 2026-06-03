@@ -74,7 +74,7 @@ export type TaskType =
  * ★ 2026-05-21：历史上 TaskProfileMapperService.pickModelType() 曾按 taskKind 把
  * review / sanity-check / classify / summarize 自动路由到 CHAT_FAST —— 该路由是
  * **死代码（无任何生产调用方）已删除**。模型档位现由单一权威
- * resolveEffectiveModelType（ai-engine/llm/selection/model-policy.ts）按
+ * resolveEffectiveModelType（ai-engine/llm/models/selection/model-policy.ts）按
  * downgradePolicy 统一裁决，taskKind 不再决定用哪个模型档。
  */
 export type TaskKind =
@@ -277,7 +277,7 @@ export interface TaskProfile {
    *
    * ★ 2026-05-21：曾经 taskKind 经 TaskProfileMapperService.pickModelType() 自动
    * 路由到 CHAT_FAST —— 该路由是死代码已删除。模型档位现由单一权威
-   * resolveEffectiveModelType（ai-engine/llm/selection/model-policy.ts）按
+   * resolveEffectiveModelType（ai-engine/llm/models/selection/model-policy.ts）按
    * downgradePolicy 统一裁决，taskKind 不再决定用哪个模型档。
    */
   taskKind?: TaskKind;

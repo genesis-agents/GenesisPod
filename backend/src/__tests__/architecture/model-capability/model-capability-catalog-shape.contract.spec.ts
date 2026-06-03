@@ -20,7 +20,7 @@ import {
   PROVIDER_CAPABILITY_DEFAULTS,
   SAFE_DEFAULTS,
   type ProviderCapabilityRule,
-} from "../../../modules/ai-engine/llm/capability/model-capability-catalog";
+} from "../../../modules/ai-engine/llm/models/capability/model-capability-catalog";
 
 const MIN_RATIONALE_LENGTH = 30;
 const MIN_PROVIDER_LENGTH = 3;

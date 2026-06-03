@@ -6,7 +6,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { LruMap } from "@/common/utils/lru-map";
 import { CacheService } from "@/common/cache/cache.service";
-import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
+import { ModelPricingRegistry } from "@/modules/ai-engine/llm/models/pricing/model-pricing.registry";
 
 /**
  * 成本记录

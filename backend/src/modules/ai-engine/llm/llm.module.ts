@@ -30,7 +30,7 @@ import { TaskProfileMapperService } from "./services/chat/task-profile-mapper.se
 
 // Core Services
 import { AiChatService } from "./services/ai-chat.service";
-import { AiModelConfigService } from "./services/ai-model-config.service";
+import { AiModelConfigService } from "./models/config/ai-model-config.service";
 import { AiApiCallerService } from "./services/ai-api-caller.service";
 // 2026-06：AiApiCallerService 拆分出的 per-provider HTTP callers（thin facade delegate 到这些）。
 // BaseHttpCaller 是 abstract 基类（共享逻辑），不注册为 provider。
@@ -49,41 +49,41 @@ import { AiChatFailoverCallerService } from "./services/chat/ai-chat-failover-ca
 
 // Extracted Services (from ai-chat.service.ts God Object split)
 import { AiConnectionTestService } from "./services/ai-connection-test.service";
-import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
+import { AiModelDiscoveryService } from "./models/catalog/ai-model-discovery.service";
 import { AiDirectKeyService } from "./services/ai-direct-key.service";
-import { AiImageGenerationService } from "./services/ai-image-generation.service";
+import { AiImageGenerationService } from "./image/ai-image-generation.service";
 import { PromptCacheCoordinatorService } from "./services/chat/prompt-cache-coordinator.service";
-import { SystemModelInventoryService } from "./services/system-model-inventory.service";
+import { SystemModelInventoryService } from "./models/catalog/system-model-inventory.service";
 
 // Model Fallback
-import { ModelFallbackService } from "./selection/model-fallback.service";
+import { ModelFallbackService } from "./models/selection/model-fallback.service";
 
 // Auto-configure service (used by UserModelConfigsAutoController in ai-app/byok)
 import { AutoConfigureService } from "./user-config/user-models-auto-configure.service";
 
 // Long-term editable recommendation matrix (user + admin auto-configure share this)
-import { ModelRecommendationsService } from "./selection/model-recommendations.service";
+import { ModelRecommendationsService } from "./models/selection/model-recommendations.service";
 
 // Environment-aware model election (pick modelId from env snapshot + request hints)
 // NOTE: stateless scoring only. Mission-scoped election state (MissionElectionTracker)
 // was relocated to ai-harness/guardrails/runtime on 2026-06-02 (MECE audit P0-1) —
 // engine must not hold mission state.
-import { ModelElectionService } from "./selection/model-election.service";
+import { ModelElectionService } from "./models/selection/model-election.service";
 
 // Single source of truth for model pricing (DB AIModel table → in-memory hydrate)
-import { ModelPricingRegistry } from "./pricing/model-pricing.registry";
+import { ModelPricingRegistry } from "./models/pricing/model-pricing.registry";
 
 // Provider-aware structured output adapter router (covers商用 + 本地全部主流 provider)
 import { StructuredOutputRouter } from "./structured-output/structured-output-router.service";
 
 // v3.1 阶段 A：capability 只读链（SSOT，替代 router 内 PROVIDER_DEFAULT_CHAINS）
-import { ModelCapabilityService } from "./capability/model-capability.service";
+import { ModelCapabilityService } from "./models/capability/model-capability.service";
 // v3.1 阶段 B 子片 2：capability_overrides 写入面 + self-heal（D2 + §4.5 同事务 + §4.4 阈值/lock/cooling-off）
-import { CapabilityOverridesWriterService } from "./capability/capability-overrides-writer.service";
-import { CapabilitySelfHealService } from "./capability/capability-self-heal.service";
+import { CapabilityOverridesWriterService } from "./models/capability/capability-overrides-writer.service";
+import { CapabilitySelfHealService } from "./models/capability/capability-self-heal.service";
 // v3.1 阶段 B 子片 3 (2026-05-24)：feature flag 体系 + probe daemon（@Cron 6h + 分布式锁 + catalog version bump 复原）
-import { CapabilityFeatureFlagsService } from "./capability/capability-feature-flags.service";
-import { CapabilityProbeService } from "./capability/capability-probe.service";
+import { CapabilityFeatureFlagsService } from "./models/capability/capability-feature-flags.service";
+import { CapabilityProbeService } from "./models/capability/capability-probe.service";
 
 @Module({
   imports: [

@@ -35,7 +35,7 @@ import { CostController } from "../resources/cost-controller";
 import {
   ModelPricingRegistry,
   type ModelTier,
-} from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
+} from "@/modules/ai-engine/llm/models/pricing/model-pricing.registry";
 import { Optional } from "@nestjs/common";
 
 /**

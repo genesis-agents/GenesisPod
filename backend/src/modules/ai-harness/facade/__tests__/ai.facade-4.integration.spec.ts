@@ -18,7 +18,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { AIFacade } from "../ai.facade";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
-import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
+import { AiModelConfigService } from "../../../ai-engine/llm/models/config/ai-model-config.service";
 import { AIModelType } from "@prisma/client";
 import {
   TOOL_FEATURE,

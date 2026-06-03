@@ -37,7 +37,7 @@ import { AIModelType } from "@prisma/client";
 import {
   AiModelConfigService,
   type AIModelConfig,
-} from "../ai-model-config.service";
+} from "../../models/config/ai-model-config.service";
 
 // v3.1 A0：interface 单一源已迁至 types/model-config.types.ts；本文件 re-export
 // 保持下游 `import { AIModelConfig } from ".../ai-chat-model-config.service"`

@@ -4,7 +4,7 @@
  * 历史背景（A0 之前）：
  *   - `ai-engine/llm/services/ai-chat-model-config.service.ts` export
  *     interface AIModelConfig（旧/精简版 12 字段）
- *   - `ai-engine/llm/services/ai-model-config.service.ts` export interface
+ *   - `ai-engine/llm/models/config/ai-model-config.service.ts` export interface
  *     AIModelConfig（canonical 超集 19 字段，含 7 个 §3.x structured-output 字段）
  *   - 双源并存。任何"哪边添字段"决策都需 reviewer 人工把关，易漂移。
  *
@@ -46,7 +46,7 @@ const FILE_OLD_WRAPPER = path.join(
 );
 const FILE_CANONICAL_SERVICE = path.join(
   SRC_ROOT,
-  "modules/ai-engine/llm/services/ai-model-config.service.ts",
+  "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
 );
 
 /**

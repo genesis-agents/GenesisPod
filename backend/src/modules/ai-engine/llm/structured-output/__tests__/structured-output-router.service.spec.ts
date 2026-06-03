@@ -1,5 +1,5 @@
 import { StructuredOutputRouter } from "../structured-output-router.service";
-import { ModelCapabilityService } from "../../capability/model-capability.service";
+import { ModelCapabilityService } from "../../models/capability/model-capability.service";
 
 /**
  * v3.1 §A：本 spec 保留全部既有用例（行为契约不变）；router 内部派生

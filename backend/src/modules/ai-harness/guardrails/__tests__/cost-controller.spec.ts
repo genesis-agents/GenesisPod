@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { CostController, BudgetPeriod } from "../resources/cost-controller";
 import { CacheService } from "@/common/cache/cache.service";
-import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
+import { ModelPricingRegistry } from "@/modules/ai-engine/llm/models/pricing/model-pricing.registry";
 
 jest.spyOn(Logger.prototype, "log").mockImplementation();
 jest.spyOn(Logger.prototype, "debug").mockImplementation();

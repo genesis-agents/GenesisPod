@@ -1,4 +1,4 @@
-import { isModelLevelFailoverError } from "../model-failover.classifier";
+import { isModelLevelFailoverError } from "../models/selection/model-failover.classifier";
 
 /**
  * isModelLevelFailoverError 单元 spec —— 重点回归 2026-05-25 事故：

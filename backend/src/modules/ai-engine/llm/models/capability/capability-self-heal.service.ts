@@ -20,8 +20,8 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 
-import { CacheService } from "../../../../common/cache/cache.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { CacheService } from "../../../../../common/cache/cache.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 import { CapabilityFeatureFlagsService } from "./capability-feature-flags.service";
 import { CapabilityOverridesWriterService } from "./capability-overrides-writer.service";
