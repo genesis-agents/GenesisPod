@@ -1,10 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { FinanceApiConnector } from "../finance-api.connector";
 import { DataSourceType } from "../../../../types/data-source.types";
-import {
-  SecretsService,
-  ToolKeyResolverService,
-} from "@/modules/platform/facade";
+import { SecretsService } from "@/modules/platform/facade";
+import { ToolKeyResolverService } from "@/modules/ai-engine/credentials/tool-key-resolver/tool-key-resolver.service";
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

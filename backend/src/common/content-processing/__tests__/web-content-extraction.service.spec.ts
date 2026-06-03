@@ -17,7 +17,7 @@
 import { WebContentExtractionService } from "../web-content-extraction.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { RequestContext } from "../../context/request-context";
-import { NoToolKeyError } from "@/modules/platform/facade";
+import { NoToolKeyError } from "@/modules/ai-engine/credentials/tool-key-resolver/tool-key-resolver.service";
 
 // ---------------------------------------------------------------------------
 // Mock global fetch
