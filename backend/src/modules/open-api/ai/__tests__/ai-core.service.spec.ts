@@ -1,11 +1,11 @@
 /**
- * Unit tests for AiCoreService
+ * Unit tests for AiService
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { HttpException, HttpStatus, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { AiCoreService } from "../ai-core.service";
+import { AiService } from "../ai.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ChatFacade } from "../../../ai-harness/facade";
 import { AiModelConfigService } from "../../../ai-engine/llm/models/config/ai-model-config.service";
@@ -30,8 +30,8 @@ const mockModelConfigService = {
   getModelById: jest.fn(),
 };
 
-describe("AiCoreService", () => {
-  let service: AiCoreService;
+describe("AiService", () => {
+  let service: AiService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -42,14 +42,14 @@ describe("AiCoreService", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        AiCoreService,
+        AiService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ChatFacade, useValue: mockAiFacade },
         { provide: AiModelConfigService, useValue: mockModelConfigService },
       ],
     }).compile();
 
-    service = module.get<AiCoreService>(AiCoreService);
+    service = module.get<AiService>(AiService);
   });
 
   describe("getEnabledModels", () => {

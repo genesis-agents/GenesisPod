@@ -16,7 +16,7 @@ import {
 import { AIModelType } from "@prisma/client";
 import { ConfigService } from "@nestjs/config";
 import { Response, Request } from "express";
-import { AiCoreService } from "./ai-core.service";
+import { AiService } from "./ai.service";
 import { ChatFacade } from "../../ai-harness/facade";
 import { RAGPipelineService, SearchService } from "@/modules/ai-engine/facade";
 import { SecretsService, BillingContext } from "../../platform/facade";
@@ -60,11 +60,11 @@ interface InsightsRequest {
 
 @ApiTags("AI Core")
 @Controller("ai")
-export class AiCoreController {
-  private readonly logger = new Logger(AiCoreController.name);
+export class AiController {
+  private readonly logger = new Logger(AiController.name);
 
   constructor(
-    private readonly aiCoreService: AiCoreService,
+    private readonly aiCoreService: AiService,
     private readonly aiFacade: ChatFacade,
     private readonly configService: ConfigService,
     private readonly ragPipelineService: RAGPipelineService,

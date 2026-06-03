@@ -59,8 +59,8 @@ import { SkillRegistry } from "./skills/registry/skill.registry";
 import { LLMFactory } from "./llm/factory/llm.factory";
 import { UniversalLLMAdapter } from "./llm/adapters/universal-llm.adapter";
 
-// AiCoreController + AiCoreService moved to open-api/ai-core (PR-X6)
-// They are now registered in AiCoreModule, not here.
+// AiController + AiService moved to open-api/ai (PR-X6)
+// They are now registered in AiModule, not here.
 
 // ★ Phase 3: ContentAnalysisModule moved to ai-app/office/content-analysis/
 
@@ -149,9 +149,9 @@ import { ITool } from "./tools/abstractions/tool.interface";
     PromptsModule,
     CreditsModule, // ★ 积分服务（用于 Facade 自动计费）
   ],
-  controllers: [], // AiCoreController moved to open-api/ai-core (PR-X6)
+  controllers: [], // AiController moved to open-api/ai (PR-X6)
   providers: [
-    // AiCoreService moved to open-api/ai-core (PR-X6)
+    // AiService moved to open-api/ai (PR-X6)
 
     // ★ VotingManager 和 HandoffCoordinator 已迁移到 CollaborationModule
 
