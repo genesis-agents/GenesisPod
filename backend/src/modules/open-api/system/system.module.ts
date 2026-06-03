@@ -3,7 +3,6 @@ import { NotificationController } from "./notifications/notification.controller"
 import { NotificationModule } from "../../platform/notifications/notification.module";
 import {
   CreditsController,
-  AdminCreditsController,
 } from "./credits/credits.controller";
 import { CreditsModule } from "../../platform/credits/credits.module";
 import { AuthController } from "./auth/auth.controller";
@@ -33,7 +32,6 @@ import { MetricsController } from "./metrics/metrics.controller";
   controllers: [
     NotificationController,
     CreditsController,
-    AdminCreditsController,
     AuthController,
     MetricsController,
   ],

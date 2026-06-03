@@ -70,6 +70,7 @@ import {
     KeyAssignmentsModule, // PR-6: 让 AdminService 能在 updateAIModel 时反向恢复 STALE
     QuotaModule,
     MCPServerModule,
+    CreditsModule, // AdminCreditsController 注入 CreditsService/CreditRulesService
     StorageModule,
     DbOpsModule, // DbOpsService（admin/tables controller 上提后注入）；SettingsService/EmailService/SecretsService 已 @Global 或经 SecretsModule 提供
   ],
