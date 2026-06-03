@@ -1,6 +1,5 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { StorageGovernanceController } from "./governance/storage-governance.controller";
 import { StorageGovernanceService } from "./governance/storage-governance.service";
 import { ObjectStorageService } from "./runtime/object-storage.service";
 import { StorageOffloadService } from "./governance/storage-offload.service";
@@ -11,7 +10,8 @@ import { ObjectStorageModule } from "@/plugins/storage/object-storage.module";
 
 @Module({
   imports: [PrismaModule, ConfigModule, ObjectStorageModule],
-  controllers: [StorageGovernanceController],
+  // StorageGovernanceController（storage/*，STORAGE_ADMIN_KEY header 鉴权的运维/清理端点）
+  // 已上提到 open-api/admin（System HTTP → L4）；StorageGovernanceService 留 L1 platform 并导出。
   providers: [
     // Governance aggregate for storage admin/cleanup workflows.
     StorageGovernanceService,

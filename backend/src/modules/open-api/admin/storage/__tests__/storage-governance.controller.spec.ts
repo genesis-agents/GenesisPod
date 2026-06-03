@@ -43,7 +43,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { StorageGovernanceController } from "../storage-governance.controller";
-import { StorageGovernanceService } from "../storage-governance.service";
+import { StorageGovernanceService } from "@/modules/platform/storage/governance/storage-governance.service";
 import type {
   StorageStats,
   CleanupResult,

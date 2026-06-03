@@ -17,9 +17,9 @@ import {
   DatabaseAnalysis,
   NodeMemoryStats,
   SystemMemoryStats,
-} from "./storage-governance.service";
-import { safeCompare } from "../../../../common/utils/crypto.utils";
-import { Public } from "../../../../common/decorators/public.decorator";
+} from "@/modules/platform/storage/governance/storage-governance.service";
+import { safeCompare } from "@/common/utils/crypto.utils";
+import { Public } from "@/common/decorators/public.decorator";
 
 @ApiTags("Storage")
 @Public()
