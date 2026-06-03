@@ -15,7 +15,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ExecutionContext, CallHandler } from "@nestjs/common";
 import { of, throwError } from "rxjs";
 import { RequestLoggerInterceptor } from "../request-logger.interceptor";
-import { MetricsService } from "../../observability/metrics.service";
+import { MetricsService } from "@/modules/platform/monitoring/metrics/metrics.service";
 
 // ---------------------------------------------------------------------------
 // Helpers

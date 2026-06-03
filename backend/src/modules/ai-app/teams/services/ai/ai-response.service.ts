@@ -37,7 +37,7 @@ import {
   InsufficientCreditsException,
   BillingContext,
 } from "../../../../platform/facade";
-import { MetricsService, Trace } from "../../../../../common/observability";
+import { MetricsService, Trace } from "@/modules/platform/monitoring";
 import { AuditService } from "../../../../../common/audit";
 
 /**

@@ -31,7 +31,7 @@ import {
   DistributedRateLimitGuard,
 } from "../../../../common/guards";
 import { runSecurityChecks } from "../../../../common/config/security.config";
-import { MetricsService } from "../../../../common/observability/metrics.service";
+import { MetricsService } from "@/modules/platform/monitoring/metrics/metrics.service";
 import { MCPServerService } from "../../../open-api/mcp-server/mcp-server.service";
 
 interface AuthenticatedRequest extends Request {
