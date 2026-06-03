@@ -2,7 +2,7 @@
  * DX entry — AI App 业务方的唯一进入点
  *
  * 业务方只需 `import { DefineAgent, AgentSpec, AgentRunner }` from
- * "@/modules/ai-engine/harness/dx"，从此告别样板代码。
+ * "@/modules/ai-harness/agents/dev-tools"，从此告别样板代码。
  */
 
 export {

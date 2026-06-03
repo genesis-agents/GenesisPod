@@ -1,7 +1,7 @@
 /**
  * MetaJudge — 分歧仲裁（consensus 判 escalate_to_meta 时调）
  *
- * 归属：L2 ai-engine/harness/runtime/judge-primitives/
+ * 归属：@/modules/ai-harness/evaluation/verify/primitives/
  *
  * 用更强的 model 读各 judge 的 critique 做最终裁决，产出 pass/fail + 解释。
  */

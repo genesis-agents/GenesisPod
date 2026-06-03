@@ -17,31 +17,37 @@ ai-engine/
 ├── ai-engine.module.ts           ← 顶层聚合 module（imports 所有子 module）
 ├── index.ts                       ← top-level barrel
 ├── facade/                        ★ 对外门面与共享抽象
+│   ├── abstractions/
+│   └── exports/                   按子域切分的 re-export 桶
 │
 ├── llm/                           ★ LLM 调用、适配、选型、定价
-│   ├── llm.module.ts
 │   ├── abstractions/
 │   ├── adapters/
+│   ├── byok/                      自带 key 的运行时解析
+│   ├── chat/                      AiChatService 等调用核心
 │   ├── factory/
-│   ├── output-parsing/
-│   ├── pricing/
-│   ├── prompt-adaptation/
+│   ├── image/
+│   ├── models/                    模型元数据
+│   │   ├── capability/
+│   │   ├── catalog/
+│   │   ├── config/
+│   │   ├── pricing/
+│   │   └── selection/             无状态择优
+│   ├── output/                    structured / sanitization
 │   ├── prompts/
-│   ├── key-health/
-│   ├── selection/
-│   ├── services/
-│   ├── user-config/
+│   ├── providers/
 │   └── types/
 │
 ├── tools/                         ★ 工具目录、执行与 source adapters
-│   ├── tools.module.ts
 │   ├── abstractions/
 │   ├── adapters/                  含 mcp/
 │   ├── base/
+│   ├── cache/
 │   ├── categories/
 │   ├── concurrency/
 │   ├── middleware/
 │   ├── registry/
+│   ├── result-spill/
 │   └── search-fusion/
 │
 ├── rag/                           ★ RAG 基元
@@ -52,7 +58,7 @@ ai-engine/
 │   └── vector/
 │
 ├── knowledge/                     ★ 知识抽取与组织
-│   ├── knowledge.module.ts
+│   ├── consistency/
 │   ├── evidence/
 │   ├── extraction/
 │   ├── rerank/
@@ -60,45 +66,58 @@ ai-engine/
 │   ├── synthesis/
 │   └── world-building/
 │
-├── planning/                      ★ 与 agent 无关的规划能力
-│   ├── planning.module.ts
-│   ├── budget/
-│   ├── context/
-│   ├── intent/
-│   └── reflection/
-│
-├── safety/                        ★ 安全、约束与韧性
-│   ├── constraint.module.ts
-│   ├── constraint/
-│   ├── guardrails/
-│   ├── quality/
-│   ├── resilience/
-│   ├── security/
-│   └── utils/
-│
 ├── content/                       ★ 内容处理与格式化
 │   ├── abstractions/
 │   ├── citation/
 │   ├── fetch/
 │   ├── figure/
 │   ├── image/
+│   ├── markdown/
 │   ├── report-template/
+│   ├── sources/
 │   └── types/
 │
-└── skills/                        ★ Skill 定义、注册与运行时桥接
-    ├── skills.module.ts
-    ├── abstractions/
-    ├── analytics/
-    ├── base/
-    ├── builder/
-    ├── content/
-    ├── ecosystem/
-    ├── loader/
-    ├── output-manager/
-    ├── registry/
-    ├── runtime/
-    ├── sandbox/
-    └── types/
+├── routing/                       ★ 请求→模型/技能/工具的无状态打分路由（W-2026-06-02）
+│   └── eval/
+│
+├── reliability/                   ★ 引擎级韧性（W7）
+│   ├── entity-health/
+│   └── rate-limit/
+│
+├── evaluation/                    ★ 无状态启发式质量检查（无 LLM、无 agent 状态，W2）
+│   ├── abstractions/
+│   ├── checkers/
+│   ├── services/
+│   └── types/
+│
+├── skills/                        ★ Skill 定义、注册与运行时桥接
+│   ├── abstractions/
+│   ├── analytics/
+│   ├── base/
+│   ├── builder/
+│   ├── content/
+│   ├── ecosystem/
+│   ├── loader/
+│   ├── output-manager/
+│   ├── registry/
+│   ├── routing/
+│   ├── runtime/
+│   ├── sandbox/
+│   ├── spec-builder/
+│   └── types/
+│
+├── planning/                      ★ 通用规划/调控原语（与 agent 无关）
+│   ├── budget/
+│   ├── context/
+│   ├── intent/                    intent-detection.service（项目唯一意图识别落点）
+│   └── reflection/
+│
+└── safety/                        ★ 安全（pii/moderation/injection/guardrails tripwire）
+    ├── guardrails/
+    ├── moderation/
+    ├── security/
+    ├── utils/
+    └── validation/
 ```
 
 ## 设计原则
@@ -133,6 +152,6 @@ ai-engine/
 - 早期 `modules/ai-kernel/`（已删，PR-7）：第一代 agent 运行时尝试，能力混进 engine
 - `modules/ai-engine/runtime/`（已迁出，PR-X4 ~ PR-X10）：所有 agent 运行时下沉到 ai-harness
 - 2026-05-02（W17）：顶层 `core/` 与 `abstractions/` 解散，补齐 `rag/`、`planning/`
-- 2026-05-02（W20）：撤销 engine 顶层 `credentials/`，并回 `llm/user-config` 与 `llm/key-health`
+- 2026-05-02（W20）：撤销 engine 顶层 `credentials/`，BYOK 运行时解析归入 `llm/byok`（含连接测试 / direct-key / 自动配置）
 - 2026-05-01 (PR-X-Q ~ PR-X-U)：内部颗粒度统一 + 子 module 收到子目录
 - 当前架构合规度 **9.85/10**（详见 [CLAUDE.md L4→L3→L2.5→L2→L1 规则](../../../.claude/CLAUDE.md)）

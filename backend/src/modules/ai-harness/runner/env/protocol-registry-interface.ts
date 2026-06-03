@@ -1,7 +1,7 @@
 /**
  * ProtocolRegistry 接口 — taskType → Protocol 路由抽象
  *
- * 归属：L2 ai-engine/harness/runtime/ — 通用
+ * 归属：@/modules/ai-harness/runner/env/ — 通用
  * 具体实现（注册哪些 protocol）由 App 层完成。
  */
 

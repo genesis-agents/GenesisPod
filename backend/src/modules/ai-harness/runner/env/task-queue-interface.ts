@@ -1,7 +1,7 @@
 /**
  * SOTA Runtime · TaskQueue 接口（方案 §0.3 §10）
  *
- * 归属：ai-engine/harness/runtime/ — 通用
+ * 归属：@/modules/ai-harness/runner/env/ — 通用
  * 实现方：ai-app/{app}/agent/adapters/{biz}-task-queue.ts
  *
  * harness 只声明"DAG 调度 + 优先级 + 并发控制 + 终态检查"能力，具体 persistence

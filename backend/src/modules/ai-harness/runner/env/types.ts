@@ -9,7 +9,7 @@
  *   - 所有业务字段（missionId / topicId / dimensionId / ...）通过泛型 TMetadata 注入
  *
  * 消费方：
- *   - ai-engine/harness/runtime/*（本层）
+ *   - ai-harness/runner/*（本层）
  *   - ai-app/{any}/agent/adapters/* 适配层（把业务 model 转成 AgentTask<TMetadata>）
  */
 

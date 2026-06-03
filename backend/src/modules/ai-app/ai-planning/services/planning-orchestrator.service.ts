@@ -11,13 +11,7 @@ import { AiResponseService } from "../../teams/services/ai/ai-response.service";
 import { PlanningTemplateService } from "./planning-template.service";
 import { CreatePlanDto, PlanningDepth } from "../dto/create-plan.dto";
 import { UpdatePlanDto } from "../dto/update-plan.dto";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- forward-import for future kernel memory integration
-import {
-  Prisma,
-  TopicType,
-  AIModelType,
-  MemoryLayer as _MemoryLayer,
-} from "@prisma/client";
+import { Prisma, TopicType, AIModelType } from "@prisma/client";
 import { ChatFacade, TeamFacade, RAGFacade } from "@/modules/ai-harness/facade";
 import { ProgressTrackerService } from "@/modules/ai-harness/facade";
 import {

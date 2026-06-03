@@ -9,10 +9,6 @@
  *   - 5 个 SKILL.md 通过 SkillLoaderService 加载（替代 5 个旧 @Injectable agent service）
  *   - radar.events.ts 注册到 EventRegistry
  *   - RadarGateway 在 afterInit 注册 SocketBroadcastAdapter
- *
- * 暂保留（Phase 7 整体删除）：
- *   - RadarCollectService / RadarPipeline / 5 旧 agent service —— 当前 controller /
- *     scheduler 还在引用，等 Phase 5/6 改造完后整体删除
  */
 import { Logger, Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";

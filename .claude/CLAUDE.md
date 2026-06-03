@@ -61,7 +61,7 @@ L2.5 AI Harness（11 顶层聚合，全业界标准词）→ modules/ai-harness/
 
 L2 AI Engine（12 顶层聚合，2026-06-02 核实）→ modules/ai-engine/
       ├── facade/        engine 公共桶
-      ├── llm/           LLM 调用 + 模型适配 + 定价 + intent + selection（无状态择优）
+      ├── llm/           LLM 调用 + 模型适配 + 定价 + models/selection（无状态择优）+ byok/output
       ├── tools/         项目唯一 tools（含 mcp/openapi/function adapter）
       ├── rag/           检索基元（chunking/embedding/vector/pipeline）
       ├── knowledge/     知识抽取（fact/entity/relation/world-building）
@@ -70,7 +70,7 @@ L2 AI Engine（12 顶层聚合，2026-06-02 核实）→ modules/ai-engine/
       ├── reliability/   引擎级韧性（rate-limit / entity-health，W7 扩出）
       ├── evaluation/    无状态启发式质量检查（无 LLM、无 agent 状态，W2 扩出）
       ├── skills/        项目唯一 SkillRegistry（定义层）
-      ├── planning/      任务分解（不含 agent loop）
+      ├── planning/      通用规划/调控原语（budget/context/intent/reflection，不含 agent loop）
       └── safety/        安全（pii/moderation/injection/guardrails tripwire）
 
 L1 Infrastructure → modules/ai-infra/

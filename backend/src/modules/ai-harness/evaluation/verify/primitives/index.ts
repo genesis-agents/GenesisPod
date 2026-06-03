@@ -1,7 +1,7 @@
 /**
  * verification barrel
  *
- * 归属：L2 ai-engine/harness/runtime/judge-primitives/
+ * 归属：@/modules/ai-harness/evaluation/verify/primitives/
  */
 
 export {

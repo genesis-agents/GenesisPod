@@ -4,7 +4,7 @@
  * harness 层只声明接口，不碰 Prisma。由 AI App 层（业务模块 / ...）
  * 提供 Prisma 实现，通过 NestJS DI 注入 ReActRunner。
  *
- * 归属：ai-engine/harness/runtime/ — 通用（任何 App 复用）
+ * 归属：@/modules/ai-harness/runner/env/ — 通用（任何 App 复用）
  */
 
 import type {

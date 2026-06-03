@@ -3,7 +3,7 @@
  *
  * 方案文档 §4.2 / §0.3。通用 Observe→Think→Plan→Act→Reflect→SelfEval 循环。
  *
- * 归属：L2 ai-engine/harness/runtime/ — 通用，任何 AI App 复用
+ * 归属：@/modules/ai-harness/runner/env/ — 通用，任何 AI App 复用
  *
  * 架构硬约束（方案 §0.1）：
  *   - 不 import @prisma/client 业务 model
@@ -14,10 +14,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { BudgetAccountant } from "@/modules/ai-harness/guardrails/budget/budget-accountant";
-import {
-  AgentToolRegistry,
-  type ToolExecContext,
-} from "../env/tool-registry";
+import { AgentToolRegistry, type ToolExecContext } from "../env/tool-registry";
 import { AgentTracer, type Span } from "../../tracing/tracer/otel-tracer";
 import type {
   StepStore,

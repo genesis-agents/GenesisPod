@@ -1,7 +1,7 @@
 /**
  * SOTA Runtime · MissionOrchestrator (thin + generic)
  *
- * 方案文档 §2.1 Layer 1 / §5。归属 L2 ai-engine/harness/runtime/ — 通用。
+ * 方案文档 §2.1 Layer 1 / §5。位于 @/modules/ai-harness/runner/ — 通用。
  *
  * 职责（薄层）：
  *   - enqueue 初始 task 列表
