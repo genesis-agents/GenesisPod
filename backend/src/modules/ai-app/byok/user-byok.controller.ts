@@ -16,7 +16,7 @@ interface AuthenticatedRequest {
  * 用户 BYOK 公共接口：可用模型、引导状态。
  *
  * 直接查 AIModel 表（Prisma），不经过 ai-engine/ModelResolver，
- * 避免 ai-infra → ai-engine 的反向层依赖。模型的高级路由选择仍由
+ * 避免 platform → ai-engine 的反向层依赖。模型的高级路由选择仍由
  * ai-engine 内部负责，这里只是给 UI 展示可选项。
  */
 @ApiTags("User - BYOK")

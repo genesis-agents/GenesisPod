@@ -1,6 +1,6 @@
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ChatFacade, ToolFacade } from "@/modules/ai-harness/facade";
-import { CreditsService } from "../../../ai-infra/facade";
+import { CreditsService } from "../../../platform/facade";
 import {
   OrganizeChatService,
   type OrganizeStreamEvent,

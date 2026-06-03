@@ -3,10 +3,10 @@ import { ConfigModule } from "@nestjs/config";
 import { FeedbackController } from "./feedback.controller";
 import { FeedbackService } from "./feedback.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { StorageModule } from "../../ai-infra/storage/storage.module";
-import { EmailModule } from "../../ai-infra/email/email.module";
-import { NotificationDispatcherModule } from "../../ai-infra/notifications/dispatcher/notification-dispatcher.module";
-import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
+import { StorageModule } from "../../platform/storage/storage.module";
+import { EmailModule } from "../../platform/email/email.module";
+import { NotificationDispatcherModule } from "../../platform/notifications/dispatcher/notification-dispatcher.module";
+import { SecretsModule } from "../../platform/secrets/secrets.module";
 
 // AI Services
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";

@@ -13,12 +13,12 @@
 import { Module } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
-import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
-import { KeyExecutorModule } from "../../ai-infra/credentials/executor/key-executor.module";
-import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver/key-resolver.module";
-import { KeyHealthModule } from "../../ai-infra/credentials/health/key-health.module";
-import { ToolKeyResolverModule } from "../../ai-infra/credentials/tool-key-resolver/tool-key-resolver.module";
+import { SecretsModule } from "../../platform/secrets/secrets.module";
+import { UserApiKeysModule } from "../../platform/credentials/user-api-keys/user-api-keys.module";
+import { KeyExecutorModule } from "../../platform/credentials/executor/key-executor.module";
+import { KeyResolverModule } from "../../platform/credentials/key-resolver/key-resolver.module";
+import { KeyHealthModule } from "../../platform/credentials/health/key-health.module";
+import { ToolKeyResolverModule } from "../../platform/credentials/tool-key-resolver/tool-key-resolver.module";
 import { AiEngineLLMModule } from "../llm/llm.module";
 // W2-B: vector backends @Global module（pgvector / jsonb，未来 qdrant / pinecone）
 import { VectorBackendsModule } from "@/plugins/storage/vector-backends.module";

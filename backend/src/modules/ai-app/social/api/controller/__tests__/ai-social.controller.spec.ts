@@ -11,7 +11,7 @@ import type { SocialPipelineDispatcher } from "../../../mission/pipeline/social-
 import { SocialPlatformType } from "../../../mission/types";
 
 // Mock BillingContext to passthrough
-jest.mock("../../../../../ai-infra/credits/billing-context.store", () => ({
+jest.mock("../../../../../platform/credits/billing-context.store", () => ({
   BillingContext: {
     run: jest.fn().mockImplementation((_context, fn) => fn()),
   },

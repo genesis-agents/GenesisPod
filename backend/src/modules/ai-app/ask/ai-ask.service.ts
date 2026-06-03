@@ -40,7 +40,7 @@ import {
   CreditsService,
   InsufficientCreditsException,
   BillingContext,
-} from "../../ai-infra/facade";
+} from "../../platform/facade";
 import {
   GENESIS_AI_CONTEXT,
   isProjectRelatedQuery,

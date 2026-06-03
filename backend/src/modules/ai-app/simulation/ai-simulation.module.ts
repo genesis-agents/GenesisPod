@@ -2,7 +2,7 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
-import { CreditsModule } from "../../ai-infra/credits/credits.module";
+import { CreditsModule } from "../../platform/credits/credits.module";
 import { AiSimulationService } from "./ai-simulation.service";
 import { AiSimulationController } from "./ai-simulation.controller";
 import { AiSimulationEngineService } from "./ai-simulation.engine";

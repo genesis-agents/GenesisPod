@@ -10,7 +10,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   MissionCompletionPreset,
   SettingsService,
-} from "@/modules/ai-infra/facade";
+} from "@/modules/platform/facade";
 
 @Injectable()
 export class MissionNotificationService {

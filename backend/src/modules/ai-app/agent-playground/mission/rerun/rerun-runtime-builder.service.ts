@@ -21,7 +21,7 @@ import {
   type BusinessTeamRerunRuntimeSession,
   type RerunRuntimeComposerHooks,
 } from "@/modules/ai-harness/facade";
-import { CreditsService } from "../../../../ai-infra/credits/credits.service";
+import { CreditsService } from "../../../../platform/credits/credits.service";
 import {
   LeaderService,
   type SupervisedMission,

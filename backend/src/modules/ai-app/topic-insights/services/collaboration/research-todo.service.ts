@@ -29,7 +29,7 @@ import {
 import type { ResearchTodo, ResearchMission } from "@prisma/client";
 import { ResearchEventEmitterService } from "../core/research/research-event-emitter.service";
 import { LeaderReviewService } from "../core/leader/leader-review.service";
-import { BillingContext } from "@/modules/ai-infra/facade";
+import { BillingContext } from "@/modules/platform/facade";
 import type { ReviewDecision } from "../../types/leader.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import {

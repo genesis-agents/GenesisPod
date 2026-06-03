@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AllExceptionsFilter } from "../all-exceptions.filter";
-import { ErrorTrackingService } from "../../../modules/ai-infra/monitoring";
+import { ErrorTrackingService } from "../../../modules/platform/monitoring";
 import {
   HttpException,
   HttpStatus,

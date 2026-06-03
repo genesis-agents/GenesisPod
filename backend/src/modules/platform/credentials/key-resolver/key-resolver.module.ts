@@ -3,7 +3,7 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { KeyHealthModule } from "../health/key-health.module";
 import { KeyAssignmentsModule } from "../key-assignments/key-assignments.module";
 import { ByokMaintenanceScheduler } from "../scheduling/byok-maintenance.scheduler";
-import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
+import { SecretsModule } from "../../../platform/secrets/secrets.module";
 import { UserApiKeysModule } from "../user-api-keys/user-api-keys.module";
 import { KeyResolverService } from "./key-resolver.service";
 

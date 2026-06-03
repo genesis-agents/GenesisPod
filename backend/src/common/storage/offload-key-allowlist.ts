@@ -2,14 +2,14 @@
  * R2 key prefix allow-list — 单一源 (2026-05-09)。
  *
  * common/ 层只导出"前缀字符串"白名单 + 校验函数；prisma-aware 的 ID 提取 / DB
- * 反查逻辑在 ai-infra/storage/governance/offload-prefixes.ts。
+ * 反查逻辑在 platform/storage/governance/offload-prefixes.ts。
  *
  * 本白名单被两处消费：
  *   1. PrismaService.downloadText 校验：uri 必须 startsWith 某个前缀，
  *      防止 object substitution 攻击（恶意 row.uri 指向 bucket 内任意路径）
- *   2. ai-infra StorageOrphanCleanup：扫 R2 对象时按前缀匹配再交给对应 detail 处理
+ *   2. platform StorageOrphanCleanup：扫 R2 对象时按前缀匹配再交给对应 detail 处理
  *
- * 新增 off-load 字段必须同时在两处更新：本文件 + ai-infra/.../offload-prefixes.ts。
+ * 新增 off-load 字段必须同时在两处更新：本文件 + platform/.../offload-prefixes.ts。
  */
 
 export const OFFLOAD_KEY_PREFIXES = [

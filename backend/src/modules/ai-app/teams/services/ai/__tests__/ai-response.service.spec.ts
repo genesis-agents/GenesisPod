@@ -18,7 +18,7 @@ import { ContextRouterService } from "../context-router.service";
 import { TopicContextRetrievalService } from "../topic-context-retrieval.service";
 import { TeamMemberAgent } from "../../../agents";
 import { TopicEventEmitterService } from "../../events";
-import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
+import { CreditsService } from "../../../../../platform/credits/credits.service";
 import { MetricsService } from "../../../../../../common/observability";
 import { AuditService } from "../../../../../../common/audit";
 import { MessageContentType } from "@prisma/client";

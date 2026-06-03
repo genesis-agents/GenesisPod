@@ -25,7 +25,7 @@ import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
 import { MissionStore } from "../../mission/lifecycle/mission-store.service";
 import { wsCorsOrigin } from "@/common/config/ws-cors";
 import { CacheService } from "@/common/cache/cache.service";
-import { BLOCKLIST_PREFIX } from "@/modules/ai-infra/auth/strategies/jwt.strategy";
+import { BLOCKLIST_PREFIX } from "@/modules/platform/auth/strategies/jwt.strategy";
 
 interface JwtPayload {
   sub?: string;

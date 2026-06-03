@@ -23,7 +23,7 @@ import {
 } from "../ai-model-config.service";
 import { AiApiCallerService } from "../ai-api-caller.service";
 import { AiStreamHandlerService } from "../ai-stream-handler.service";
-import { AIMetricsService } from "@/modules/ai-infra/monitoring";
+import { AIMetricsService } from "@/modules/platform/monitoring";
 import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
 import { EntityHealthRegistry } from "../../../reliability/entity-health/entity-health.registry";
 import { AiConnectionTestService } from "../ai-connection-test.service";

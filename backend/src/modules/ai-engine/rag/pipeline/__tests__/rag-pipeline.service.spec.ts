@@ -5,7 +5,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { EmbeddingService } from "../../embedding";
 import { VectorService } from "../../vector";
 import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
-import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
+import { UserApiKeysService } from "@/modules/platform/credentials/user-api-keys/user-api-keys.service";
 
 // ─── Mock factories ───────────────────────────────────────
 

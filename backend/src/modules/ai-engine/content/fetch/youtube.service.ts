@@ -4,7 +4,7 @@ import { SystemSettingService } from "@/common/settings/system-setting.service";
 import {
   ToolKeyResolverService,
   NoToolKeyError,
-} from "@/modules/ai-infra/facade";
+} from "@/modules/platform/facade";
 import { RequestContext } from "@/common/context/request-context";
 import { Prisma } from "@prisma/client";
 

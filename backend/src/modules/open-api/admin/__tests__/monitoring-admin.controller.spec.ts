@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { MonitoringAdminController } from "../monitoring/monitoring-admin.controller";
-import { ErrorTrackingService } from "../../../ai-infra/monitoring";
-import { AIMetricsService } from "../../../ai-infra/monitoring";
+import { ErrorTrackingService } from "../../../platform/monitoring";
+import { AIMetricsService } from "../../../platform/monitoring";
 import { AIAdminService } from "../ai/ai-admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {

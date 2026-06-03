@@ -125,7 +125,7 @@ import { AiEngineLLMModule } from "../ai-engine/llm/llm.module";
 import { AiEngineToolsModule } from "../ai-engine/tools/tools.module";
 // AiEngineMemoryModule 已移除（2026-04-30）—— Memory 服务全部迁到
 // ai-harness/memory（RuntimeMemoryModule @Global），无需在此 forwardRef。
-import { CreditsModule } from "../ai-infra/credits/credits.module";
+import { CreditsModule } from "../platform/credits/credits.module";
 import { MissionAbortRegistry } from "./lifecycle/mission-lifecycle/abort-registry";
 import { MissionLifecycleManager } from "./lifecycle/mission-lifecycle/mission-lifecycle-manager";
 

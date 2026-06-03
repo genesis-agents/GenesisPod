@@ -9,7 +9,7 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import {
   ErrorTrackingService,
   AIMetricsService,
-} from "@/modules/ai-infra/facade";
+} from "@/modules/platform/facade";
 import { EventBusService } from "@/modules/ai-harness/facade";
 import { CostAttributionService } from "@/modules/ai-harness/facade";
 import type { EngineEvent } from "@/modules/ai-harness/facade";

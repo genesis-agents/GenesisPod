@@ -10,7 +10,7 @@
  *   L3 ai-app   → L2.5 / L2 / L1
  *   L2.5 ai-harness → L2 / L1（不允许 import L3 / L4）
  *   L2 ai-engine    → L1（不允许 import L2.5 / L3 / L4）
- *   L1 ai-infra     → 无（顶层基础设施，不允许 import 任何更高层）
+ *   L1 platform     → 无（顶层基础设施，不允许 import 任何更高层）
  *   common/ → 任何层（共享基础工具）
  *
  * Allowlist（合法的反向 / adapter 模式）：
@@ -208,11 +208,11 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       expect(violations).toEqual([]);
     });
 
-    it("ai-infra 不得 import ai-engine / ai-harness / ai-app / open-api", () => {
+    it("platform 不得 import ai-engine / ai-harness / ai-app / open-api", () => {
       const forbidden = ["ai-engine", "ai-harness", "ai-app", "open-api"];
       const violations: string[] = [];
       for (const file of ALL_FILES) {
-        if (fileLayer(file) !== "ai-infra") continue;
+        if (fileLayer(file) !== "platform") continue;
         for (const target of extractImportTargets(file)) {
           const tgtLayer = importLayer(target);
           if (tgtLayer && forbidden.includes(tgtLayer)) {
@@ -344,25 +344,25 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       expect(violations).toEqual([]);
     });
 
-    it("ai-app 不得穿透 ai-infra 内部（除 facade / module .module.ts 入口）", () => {
-      // ai-infra 的 .module.ts 是 NestJS 模块装配入口，允许 ai-app .module.ts 引用
+    it("ai-app 不得穿透 platform 内部（除 facade / module .module.ts 入口）", () => {
+      // platform 的 .module.ts 是 NestJS 模块装配入口，允许 ai-app .module.ts 引用
       const violations: string[] = [];
       for (const file of ALL_FILES) {
         if (fileLayer(file) !== "ai-app") continue;
         for (const target of extractImportTargets(file)) {
-          if (importLayer(target) !== "ai-infra") continue;
-          const sub = detectInternalPenetration(target, "ai-infra");
+          if (importLayer(target) !== "platform") continue;
+          const sub = detectInternalPenetration(target, "platform");
           if (sub && !sub.endsWith(".module") && !/\.module(\?|$)/.test(sub)) {
             violations.push(
               `${path
                 .relative(SRC_ROOT, file)
-                .replace(/\\/g, "/")} → modules/ai-infra/${sub}`,
+                .replace(/\\/g, "/")} → modules/platform/${sub}`,
             );
           }
         }
       }
-      // 当前对 ai-infra 暂留宽松（基础设施访问模式多样，部分 ai-app 直接 import service.ts），
-      // 不强制 expect=[]，仅 assert 没有"反向 import 高层"的恶性情况（已在上方 ai-infra
+      // 当前对 platform 暂留宽松（基础设施访问模式多样，部分 ai-app 直接 import service.ts），
+      // 不强制 expect=[]，仅 assert 没有"反向 import 高层"的恶性情况（已在上方 platform
       // 不得 import 上层 case 覆盖）。本 case 当前为信息级别。
       expect(violations.length).toBeGreaterThanOrEqual(0); // 总是过；占位保留可见性
     });
@@ -371,17 +371,17 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
   /**
    * X6 (2026-05-18): NotificationDispatcher 边界看护
    *
-   * ai-infra/notifications/dispatcher/ 是 L1 基础设施层的通知分发组件，
+   * platform/notifications/dispatcher/ 是 L1 基础设施层的通知分发组件，
    * 不得向上 import ai-app / ai-engine（违反 L1 单向规则）。
    *
-   * 与顶层 "ai-infra 不得 import ai-engine / ai-harness / ai-app / open-api" 断言
+   * 与顶层 "platform 不得 import ai-engine / ai-harness / ai-app / open-api" 断言
    * 互补：本组断言精确定位到 dispatcher 子目录，给出更易读的违规报告。
    */
   describe("NotificationDispatcher isolation (X6)", () => {
     function listDispatcherFiles(): string[] {
       const dispatcherDir = path.resolve(
         SRC_ROOT,
-        "modules/ai-infra/notifications/dispatcher",
+        "modules/platform/notifications/dispatcher",
       );
       if (!fs.existsSync(dispatcherDir)) return [];
       return listTsFiles(dispatcherDir);
@@ -496,7 +496,7 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
         "ai-app",
         "ai-harness",
         "ai-engine",
-        "ai-infra",
+        "platform",
         "open-api",
       ]);
       const violations: string[] = [];
@@ -635,8 +635,8 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
     //   - credits/policy 两个 catalog：用 ai-app 名作为业务 key（计费按模块
     //     分类），是业务设计而非泄漏 —— 永久 allowlist。
     const ALLOWLIST: ReadonlySet<string> = new Set<string>([
-      "modules/ai-infra/credits/policy/credit-transaction-type.catalog.ts",
-      "modules/ai-infra/credits/policy/default-credit-rules.catalog.ts",
+      "modules/platform/credits/policy/credit-transaction-type.catalog.ts",
+      "modules/platform/credits/policy/default-credit-rules.catalog.ts",
     ]);
 
     function fileMentionsBusinessName(file: string): {
@@ -684,10 +684,10 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       expect(violations).toEqual([]);
     });
 
-    it("ai-infra 不得提及业务唯一名", () => {
+    it("platform 不得提及业务唯一名", () => {
       const violations: string[] = [];
       for (const file of ALL_FILES) {
-        if (fileLayer(file) !== "ai-infra") continue;
+        if (fileLayer(file) !== "platform") continue;
         const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
         if (ALLOWLIST.has(rel)) continue;
         const r = fileMentionsBusinessName(file);

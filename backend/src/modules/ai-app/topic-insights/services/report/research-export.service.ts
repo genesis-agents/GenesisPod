@@ -16,7 +16,7 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { CitationFormatterService } from "./citation-formatter.service";
 import { CitationStyle } from "../../types/citation.types";
-import { R2StorageService } from "@/modules/ai-infra/facade";
+import { R2StorageService } from "@/modules/platform/facade";
 
 /**
  * 导出格式

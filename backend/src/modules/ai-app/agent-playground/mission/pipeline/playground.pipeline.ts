@@ -54,7 +54,7 @@ import { type RunMissionInput } from "../../api/dto/run-mission.dto";
 //   只保留 runtime-glue 必要的 runSelfEvolutionStage (S12 fire-and-forget postlude)。
 import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
 import { MissionCheckpointService } from "@/modules/ai-harness/facade";
-import { MissionFailedPreset } from "@/modules/ai-infra/facade";
+import { MissionFailedPreset } from "@/modules/platform/facade";
 import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { AgentInvoker, LeaderService, type SupervisedMission } from "../roles";

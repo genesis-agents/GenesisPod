@@ -22,7 +22,7 @@ import { SocialImportSourcesService } from "../../mission/services/social-import
 import { SocialLeaderService } from "../../mission/services/social-leader.service";
 import { ReviewService } from "../../mission/services/review.service";
 import { ContentVersionService } from "../../mission/services/content-version.service";
-import { BillingContext } from "../../../../ai-infra/facade";
+import { BillingContext } from "../../../../platform/facade";
 import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../../common/guards/admin.guard";
 import { CreateContentDto } from "../dto/create-content.dto";

@@ -1,7 +1,7 @@
 import { Controller, Get, Req, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { UserToolsService } from "../../ai-infra/credentials/user-tools/user-tools.service";
+import { UserToolsService } from "../../platform/credentials/user-tools/user-tools.service";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

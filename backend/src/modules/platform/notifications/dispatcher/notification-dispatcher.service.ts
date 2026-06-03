@@ -181,7 +181,7 @@ export class NotificationDispatcher {
   /**
    * PR-DR2 P0-10 helper：查询用户对该 topic 是否退订
    * 注：直接 Prisma 查 RadarTopicSubscription（共享 schema 表，非 ai-app 内部 service），
-   * 不违反 ai-infra→ai-app 反向依赖（无 import）
+   * 不违反 platform→ai-app 反向依赖（无 import）
    */
   private async checkPerTopicUnsubscribe(
     userId: string,

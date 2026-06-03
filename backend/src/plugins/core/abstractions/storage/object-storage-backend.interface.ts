@@ -10,7 +10,7 @@
  *   - IPFS / Arweave 等去中心化方案
  *
  * 由 plugins/storage/object-storage.module 通过 OBJECT_STORAGE_BACKEND_TOKEN
- * 注入给 ai-infra/storage 的 ObjectStorageService（orchestrator）。
+ * 注入给 platform/storage 的 ObjectStorageService（orchestrator）。
  */
 
 export interface ObjectMetadata {

@@ -16,7 +16,7 @@ import { TaskProfileMapperService } from "../task-profile-mapper.service";
 import { AiModelConfigService } from "../ai-model-config.service";
 import { AiApiCallerService } from "../ai-api-caller.service";
 import { AiStreamHandlerService } from "../ai-stream-handler.service";
-import { AIMetricsService } from "@/modules/ai-infra/monitoring";
+import { AIMetricsService } from "@/modules/platform/monitoring";
 import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
 import { ContentSafetyFilter } from "../../../safety/guardrails/input/content-safety-filter";
 import { PromptInjectionDetector } from "../../../safety/guardrails/input/prompt-injection-detector";

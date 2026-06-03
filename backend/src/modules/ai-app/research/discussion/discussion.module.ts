@@ -12,7 +12,7 @@ import { Module, forwardRef, OnModuleInit } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { AIFacade } from "@/modules/ai-harness/facade";
-import { CreditsModule } from "../../../ai-infra/credits/credits.module";
+import { CreditsModule } from "../../../platform/credits/credits.module";
 
 import { DiscussionResearchService } from "./discussion-research.service";
 import { ResearchPlannerService } from "./research-planner.service";

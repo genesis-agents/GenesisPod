@@ -54,7 +54,7 @@ export class AIMetricsService {
 
   // 模型成本估算的硬编码表已删除。价格走 ModelPricingRegistry 单一权威源
   // （ai-engine/llm/pricing/model-pricing.registry.ts，从 ai_models 表 hydrate）。
-  // 调用方传 estimatedCost 给 recordMetric，ai-infra 层不持有价格知识。
+  // 调用方传 estimatedCost 给 recordMetric，platform 层不持有价格知识。
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -74,7 +74,7 @@ export class AIMetricsService {
     outputTokens?: number;
     /**
      * 调用方算好的 estimatedCost（USD）。模型价格走 ModelPricingRegistry
-     * 单一源（ai_models 表），ai-infra 层不再持有任何硬编码价格表。
+     * 单一源（ai_models 表），platform 层不再持有任何硬编码价格表。
      * 未传则视为 0（"模型未在 admin 配价格"）。
      */
     estimatedCost?: number;

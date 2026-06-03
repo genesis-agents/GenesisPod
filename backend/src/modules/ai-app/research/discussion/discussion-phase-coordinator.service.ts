@@ -8,7 +8,7 @@ import { ReportSynthesizerService } from "./report-synthesizer.service";
 import {
   CreditsService,
   InsufficientCreditsException,
-} from "../../../ai-infra/facade";
+} from "../../../platform/facade";
 import { ResearchIdeaService } from "../idea/research-idea.service";
 import { AgentFacade, TeamFacade } from "@/modules/ai-harness/facade";
 import {

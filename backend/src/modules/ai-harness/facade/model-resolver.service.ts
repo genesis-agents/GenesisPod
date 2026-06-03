@@ -18,7 +18,7 @@ import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../ai-engine/llm/services/ai-model-config.service";
 import { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallback.service";
-import { KeyResolverService } from "../../ai-infra/credentials/key-resolver/key-resolver.service";
+import { KeyResolverService } from "../../platform/credentials/key-resolver/key-resolver.service";
 import { RequestContext } from "../../../common/context/request-context";
 import type { ModelInfo, ModelSelectionOptions } from "./types/facade.types";
 import {

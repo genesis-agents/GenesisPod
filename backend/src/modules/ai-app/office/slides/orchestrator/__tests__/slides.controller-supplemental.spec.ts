@@ -90,7 +90,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   EventJournalService: jest.fn(),
 }));
 
-jest.mock("@/modules/ai-infra/facade", () => ({
+jest.mock("@/modules/platform/facade", () => ({
   BillingContext: {
     run: jest
       .fn()

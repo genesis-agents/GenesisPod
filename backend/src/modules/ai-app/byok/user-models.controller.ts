@@ -22,7 +22,7 @@ import {
 import {
   KeyHealthStore,
   buildPersonalKeyId,
-} from "@/modules/ai-infra/credentials/health";
+} from "@/modules/platform/credentials/health";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

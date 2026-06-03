@@ -100,7 +100,7 @@ import { LeaderModelService } from "../../../ai/leader-model.service";
 import {
   EmailNotificationPresetsService,
   EmailService,
-} from "../../../../../../ai-infra/facade";
+} from "../../../../../../platform/facade";
 import { ConfigService } from "@nestjs/config";
 import { MissionContextService } from "../mission-context.service";
 import { ConstraintEnforcementService } from "@/modules/ai-harness/facade";

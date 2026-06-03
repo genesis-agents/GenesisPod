@@ -25,7 +25,7 @@ import {
 import { DiscoveryModule } from "@nestjs/core";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { PrismaService } from "../../common/prisma/prisma.service";
-import { SecretsModule } from "../ai-infra/secrets/secrets.module";
+import { SecretsModule } from "../platform/secrets/secrets.module";
 
 // ★ 子模块导入
 import { AiEngineLLMModule } from "./llm/llm.module";
@@ -85,7 +85,7 @@ import { ContentSourceRegistry } from "./content/sources/content-source-registry
 // ★ TeamsModule 已迁移到 ai-harness/teams（PR-X4），由 HarnessApiModule 统一装配
 // ★ Phase 3: LongContentModule moved to ai-app/writing/content-engine/
 import { PromptsModule } from "./llm/prompts/prompts.module";
-import { CreditsModule } from "../ai-infra/credits/credits.module";
+import { CreditsModule } from "../platform/credits/credits.module";
 
 // MCP moved to ai-engine/tools/adapters/mcp (PR-X7)
 // MCPManager and MCPClientRegistryService are now provided by HarnessModule (@Global)

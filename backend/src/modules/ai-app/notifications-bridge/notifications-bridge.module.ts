@@ -1,7 +1,7 @@
 import { Module, OnModuleInit } from "@nestjs/common";
 import { NotificationBroadcastAdapter } from "./notification-broadcast-adapter";
 import { NotificationEventListener } from "./notification-event-listener.service";
-import { NotificationModule } from "@/modules/ai-infra/notifications/notification.module";
+import { NotificationModule } from "@/modules/platform/notifications/notification.module";
 import { HarnessModule } from "@/modules/ai-harness/harness.module";
 import { DomainEventBus } from "@/modules/ai-harness/facade";
 import { PrismaModule } from "@/common/prisma/prisma.module";
@@ -18,8 +18,8 @@ import { PrismaModule } from "@/common/prisma/prisma.module";
  *   - 不被业务模块 import；与业务侧无任何编译时耦合
  *   - 即使本模块未启用，业务事件流照常工作
  *
- * 在 ai-app 层（非 ai-infra）原因：
- *   ai-infra (L1) 不能依赖 ai-harness (L2.5)；本模块需要 DomainEventBus，
+ * 在 ai-app 层（非 platform）原因：
+ *   platform (L1) 不能依赖 ai-harness (L2.5)；本模块需要 DomainEventBus，
  *   故落在 ai-app (L3)。
  */
 @Module({

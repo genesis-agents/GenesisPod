@@ -22,8 +22,8 @@ import { AiEngineSkillsModule } from "@/modules/ai-engine/skills/skills.module";
 import { AiEnginePlanningModule } from "@/modules/ai-engine/planning/planning.module";
 // CostController 走 ModelPricingRegistry 单源（DB AIModel 表），删 6 模型硬编码价格表。
 import { AiEngineLLMModule } from "@/modules/ai-engine/llm/llm.module";
-import { KeyResolverModule } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.module";
-import { SecretsModule } from "@/modules/ai-infra/secrets/secrets.module";
+import { KeyResolverModule } from "@/modules/platform/credentials/key-resolver/key-resolver.module";
+import { SecretsModule } from "@/modules/platform/secrets/secrets.module";
 import { ResourceManagerService } from "./resource-manager.service";
 // CircuitBreakerService 已搬到 ai-engine/safety/resilience/（PR-X3）
 import { ConstraintEngine } from "../constraints/constraint-engine";

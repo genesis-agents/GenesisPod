@@ -14,11 +14,11 @@ import { RadarPipelineDispatcher } from "../../../pipeline/radar-pipeline-dispat
 import { RadarBriefingQueueService } from "../radar-briefing-queue.service";
 import { RadarDailyBriefingRepo } from "../../briefing/radar-daily-briefing.repo";
 import { RadarWeeklyBriefingService } from "../../briefing/radar-weekly-briefing.service";
-import { NotificationDispatcher } from "@/modules/ai-infra/notifications/dispatcher/notification-dispatcher.service";
-import { NotificationPreferenceService } from "@/modules/ai-infra/notifications/dispatcher/preferences/notification-preference.service";
+import { NotificationDispatcher } from "@/modules/platform/notifications/dispatcher/notification-dispatcher.service";
+import { NotificationPreferenceService } from "@/modules/platform/notifications/dispatcher/preferences/notification-preference.service";
 import { CacheService } from "@/common/cache/cache.service";
 import { NarrativeService } from "../../briefing/narrative.service";
-import { AIMetricsService } from "@/modules/ai-infra/monitoring/metrics/ai-metrics.service";
+import { AIMetricsService } from "@/modules/platform/monitoring/metrics/ai-metrics.service";
 import type { RadarBriefingSignalCreatedEvent } from "../../../pipeline/stages/s9-daily-top-n.stage";
 import type { DailySignal } from "../../briefing/radar-daily-briefing.repo";
 
@@ -143,13 +143,13 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
         // FU2-D: scheduler 现注入 daily/weekly email preset；这里 mock 成 spy
         {
           provide:
-            require("@/modules/ai-infra/notifications/dispatcher/presets/radar-daily-briefing-email.preset")
+            require("@/modules/platform/notifications/dispatcher/presets/radar-daily-briefing-email.preset")
               .RadarDailyBriefingEmailPreset,
           useValue: mockDailyEmailPreset,
         },
         {
           provide:
-            require("@/modules/ai-infra/notifications/dispatcher/presets/radar-weekly-briefing-email.preset")
+            require("@/modules/platform/notifications/dispatcher/presets/radar-weekly-briefing-email.preset")
               .RadarWeeklyBriefingEmailPreset,
           useValue: mockWeeklyEmailPreset,
         },

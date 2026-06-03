@@ -1,6 +1,6 @@
 import { ResearchProjectTTSService } from "../research-project-tts.service";
 import type { ConfigService } from "@nestjs/config";
-import { ToolKeyResolverService, NoToolKeyError } from "@/modules/ai-infra/facade";
+import { ToolKeyResolverService, NoToolKeyError } from "@/modules/platform/facade";
 import { RequestContext } from "@/common/context/request-context";
 
 // Mock global fetch

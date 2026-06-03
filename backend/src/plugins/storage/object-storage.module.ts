@@ -2,7 +2,7 @@
  * ObjectStorageModule — @Global 暴露 IObjectStorageBackend
  * （v5.1 R0.5-E W2-A 部署平台差异驱动的真 plugin）
  *
- * AppModule import 一次。ai-infra/storage 的 ObjectStorageService 通过
+ * AppModule import 一次。platform/storage 的 ObjectStorageService 通过
  * OBJECT_STORAGE_BACKEND_TOKEN 拿 active backend，不 import 任何具体 plugin。
  *
  * 当前 active backend：R2（凭 R2_* ENV 自动启用）

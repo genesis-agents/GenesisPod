@@ -107,13 +107,13 @@ export class NotificationPresetsService {
   /**
    * 长任务 mission 完成通知（上层消费方按业务侧含义传 missionTitle）。
    * W4 (2026-05-05): 切到独立 MISSION_COMPLETED 枚举（schema 已迁移）；
-   * appBasePath / relatedType 由消费方传入，ai-infra 不感知具体业务路由。
+   * appBasePath / relatedType 由消费方传入，platform 不感知具体业务路由。
    */
   async notifyMissionCompleted(params: {
     userId: string;
     missionId: string;
     missionTitle: string;
-    /** 业务侧应用根路径（如 "/<app>/missions"），由上层消费方传入；ai-infra 不感知具体业务路由 */
+    /** 业务侧应用根路径（如 "/<app>/missions"），由上层消费方传入；platform 不感知具体业务路由 */
     appBasePath: string;
     /** relatedType 由上层消费方提供（数据字段不参与命名校验）*/
     relatedType: string;
@@ -136,7 +136,7 @@ export class NotificationPresetsService {
       title: "Mission 已完成",
       message: `「${missionTitle}」已完成${scoreSuffix}`,
       // ★ 2026-05-06: 路由段 "/team/" 由消费方约定（前端真实 mission 详情路由）
-      //   旧值 "/missions/" 与前端不一致导致 404；ai-infra 不感知具体业务名
+      //   旧值 "/missions/" 与前端不一致导致 404；platform 不感知具体业务名
       actionUrl: `${appBasePath}/team/${missionId}`,
       actionLabel: "查看报告",
       relatedType,
@@ -147,7 +147,7 @@ export class NotificationPresetsService {
 
   /**
    * 长篇写作任务完成通知（章节 / 全文）。
-   * appBasePath / relatedType 由消费方传入（ai-infra 不感知 ai-writing/* 路由命名）。
+   * appBasePath / relatedType 由消费方传入（platform 不感知 ai-writing/* 路由命名）。
    */
   async notifyWritingTaskCompleted(params: {
     userId: string;
@@ -189,7 +189,7 @@ export class NotificationPresetsService {
 
   /**
    * Slides 生成完成通知。
-   * appBasePath / relatedType 由消费方传入（ai-infra 不感知 ai-office/* 路由命名）。
+   * appBasePath / relatedType 由消费方传入（platform 不感知 ai-office/* 路由命名）。
    */
   async notifyOfficeSlidesCompleted(params: {
     userId: string;

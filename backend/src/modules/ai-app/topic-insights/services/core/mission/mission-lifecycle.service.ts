@@ -43,7 +43,7 @@ import {
 import { AgentActivityType } from "@prisma/client";
 import { MissionQueryService } from "./mission-query.service";
 import { MissionExecutionService } from "./mission-execution.service";
-import { BillingContext } from "@/modules/ai-infra/facade";
+import { BillingContext } from "@/modules/platform/facade";
 import {
   USER_EVENT_NAME,
   MODULE,

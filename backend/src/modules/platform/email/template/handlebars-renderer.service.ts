@@ -8,7 +8,7 @@
  *     （eq/gt/length/join/lookup 是 Handlebars 内置；urlEncode/truncate/tierBadge/
  *      detailUrl/evidenceSources/add 来自 B14 设计）
  *   - 提供 render(filename, locale, ctx) → HTML 字符串
- *   - 模板路径：`backend/src/modules/ai-infra/email/templates/<name>.<locale>.hbs`
+ *   - 模板路径：`backend/src/modules/platform/email/templates/<name>.<locale>.hbs`
  *     dev 模式 = 源码；prod 模式 = dist 复制（webpack/tsc 需 include .hbs）
  *
  * 暂时与 ai-engine/tools/template-render.tool.ts 的 helpers 重复实现（B14）：

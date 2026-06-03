@@ -4,8 +4,8 @@ import { ConfigModule } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
-import { StorageModule } from "../../ai-infra/storage/storage.module";
-import { CreditsModule } from "../../ai-infra/credits/credits.module";
+import { StorageModule } from "../../platform/storage/storage.module";
+import { CreditsModule } from "../../platform/credits/credits.module";
 import { ExportModule } from "../../../common/export/export.module";
 import { BrowserModule } from "../../../common/browser/browser.module";
 

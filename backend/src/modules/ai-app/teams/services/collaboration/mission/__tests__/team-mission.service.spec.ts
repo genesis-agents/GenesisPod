@@ -19,7 +19,7 @@ import { ToolRegistry } from "@/modules/ai-harness/facade";
 import { TopicEventEmitterService } from "../../../events";
 import { TeamsLongContentService } from "../../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../../ai/leader-model.service";
-import { EmailService } from "../../../../../../ai-infra/email/email.service";
+import { EmailService } from "../../../../../../platform/email/email.service";
 import { ConfigService } from "@nestjs/config";
 import { MissionContextService } from "../mission-context.service";
 import { ConstraintEnforcementService } from "@/modules/ai-harness/facade";

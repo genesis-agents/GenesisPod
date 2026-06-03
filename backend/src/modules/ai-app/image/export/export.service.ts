@@ -6,7 +6,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PuppeteerPoolService } from "../../../../common/browser/puppeteer-pool.service";
-import { R2StorageService } from "../../../ai-infra/facade";
+import { R2StorageService } from "../../../platform/facade";
 import {
   ExportOptions,
   ExportResult,

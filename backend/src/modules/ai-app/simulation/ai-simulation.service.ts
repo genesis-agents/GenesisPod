@@ -13,7 +13,7 @@ import {
   SimulationTeam,
 } from "@prisma/client";
 import { AiSimulationEngineService } from "./ai-simulation.engine";
-import { BillingContext } from "../../ai-infra/facade";
+import { BillingContext } from "../../platform/facade";
 
 export interface CreateScenarioInput {
   name: string;

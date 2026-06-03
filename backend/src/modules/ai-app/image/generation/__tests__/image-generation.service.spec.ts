@@ -26,9 +26,9 @@ import { firstValueFrom } from "rxjs";
 import { AIModelType } from "@prisma/client";
 import { ImageGenerationService } from "../image-generation.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
-import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
-import { KeyResolverService } from "../../../../ai-infra/credentials/key-resolver/key-resolver.service";
-import { NoAvailableKeyError } from "../../../../ai-infra/credentials/key-resolver/key-resolver.errors";
+import { SecretsService } from "../../../../platform/secrets/secrets.service";
+import { KeyResolverService } from "../../../../platform/credentials/key-resolver/key-resolver.service";
+import { NoAvailableKeyError } from "../../../../platform/credentials/key-resolver/key-resolver.errors";
 import { HttpService } from "@nestjs/axios";
 import { GEMINI_IMAGE_MODELS } from "../../core/image.constants";
 

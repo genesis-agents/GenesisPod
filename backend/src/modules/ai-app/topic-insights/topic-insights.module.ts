@@ -3,8 +3,8 @@ import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TopicInsightsContentSourceProvider } from "./integrations/topic-insights-content-source.provider";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { NotificationModule } from "../../ai-infra/notifications/notification.module";
-import { NotificationDispatcherModule } from "../../ai-infra/notifications/dispatcher/notification-dispatcher.module";
+import { NotificationModule } from "../../platform/notifications/notification.module";
+import { NotificationDispatcherModule } from "../../platform/notifications/dispatcher/notification-dispatcher.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import {
@@ -15,10 +15,10 @@ import {
 } from "@/modules/ai-harness/facade";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { RESEARCH_LEAD_ROLE_CONFIG } from "../research/teams";
-import { CreditsModule } from "../../ai-infra/credits/credits.module";
-import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
-import { ToolKeyResolverModule } from "../../ai-infra/credentials/tool-key-resolver/tool-key-resolver.module";
-import { StorageModule } from "../../ai-infra/storage/storage.module";
+import { CreditsModule } from "../../platform/credits/credits.module";
+import { SecretsModule } from "../../platform/secrets/secrets.module";
+import { ToolKeyResolverModule } from "../../platform/credentials/tool-key-resolver/tool-key-resolver.module";
+import { StorageModule } from "../../platform/storage/storage.module";
 import { ExportModule } from "../../../common/export/export.module";
 import { TOPIC_INSIGHTS_DATA_EXPORT } from "../contracts/interfaces/data-export.interface";
 import { TopicInsightsAgent } from "./agents";

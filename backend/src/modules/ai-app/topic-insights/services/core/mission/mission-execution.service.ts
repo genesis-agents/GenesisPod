@@ -52,7 +52,7 @@ import {
   type TaskExecutionResult,
 } from "../task-executors";
 import { InsufficientCreditsException } from "../../../types/research.exceptions";
-import { BillingContext } from "@/modules/ai-infra/facade";
+import { BillingContext } from "@/modules/platform/facade";
 import {
   USER_EVENT_NAME,
   MODULE,

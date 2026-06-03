@@ -61,7 +61,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   EventBusService: class {},
   KernelContext: { run: jest.fn((_, fn) => fn()) },
 }));
-jest.mock("../../../../ai-infra/facade", () => ({
+jest.mock("../../../../platform/facade", () => ({
   BillingContext: { run: jest.fn((_, fn) => fn()) },
 }));
 // ─────────────────────────────────────────────────────────────────────────────

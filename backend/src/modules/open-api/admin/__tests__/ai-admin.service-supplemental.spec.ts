@@ -26,7 +26,7 @@ import {
   SearchService,
   MultiKeyRegistry,
 } from "../../../ai-engine/facade";
-import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
+import { SecretsService } from "../../../platform/secrets/secrets.service";
 
 describe("AIAdminService (supplemental)", () => {
   let service: AIAdminService;

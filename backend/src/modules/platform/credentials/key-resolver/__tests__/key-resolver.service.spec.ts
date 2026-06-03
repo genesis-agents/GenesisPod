@@ -4,7 +4,7 @@ import { UserRole } from "@prisma/client";
 import { KeyResolverService } from "../key-resolver.service";
 import { KeyAssignmentsService } from "../../key-assignments/key-assignments.service";
 import { UserApiKeysService } from "../../user-api-keys/user-api-keys.service";
-import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
+import { SecretsService } from "../../../../platform/secrets/secrets.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   NoAvailableKeyError,

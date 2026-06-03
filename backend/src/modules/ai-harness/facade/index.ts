@@ -1370,7 +1370,7 @@ export {
 } from "../../ai-engine/content/fetch/content-fetch.types";
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// BYOK / Credentials (re-exported from ai-infra/facade)
+// BYOK / Credentials (re-exported from platform/facade)
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export {
   KeyAssignmentsService,
@@ -1384,7 +1384,7 @@ export {
   TestApiKeyDto,
   CreateUserModelConfigDto,
   UpdateUserModelConfigDto,
-} from "../../ai-infra/facade";
+} from "../../platform/facade";
 
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { AiModelDiscoveryService } from "../../ai-engine/llm/services/ai-model-discovery.service";

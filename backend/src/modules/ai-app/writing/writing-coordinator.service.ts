@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { BillingContext } from "../../ai-infra/facade";
+import { BillingContext } from "../../platform/facade";
 import { ProjectService } from "./services/writing/project.service";
 import { StoryBibleService } from "./services/bible/story-bible.service";
 import { CharacterService } from "./services/bible/character.service";

@@ -15,7 +15,7 @@ import {
   SecretsService,
   KeyResolverService,
   NoAvailableKeyError,
-} from "../../../ai-infra/facade";
+} from "../../../platform/facade";
 
 interface ImageModelConfig {
   id: string;

@@ -18,17 +18,17 @@ import {
   UserSecretsService,
   SecretsService,
   SecretKeysService,
-} from "../../ai-infra/facade";
+} from "../../platform/facade";
 import {
   AddSecretKeyDto,
   UpdateSecretKeyMetaDto,
   ReplaceSecretKeyValueDto,
-} from "../../ai-infra/secrets/dto/secret-key.dto";
+} from "../../platform/secrets/dto/secret-key.dto";
 import {
   CreateUserSecretDto,
   UpdateUserSecretDto,
   UserSecretSource,
-} from "../../ai-infra/credentials/user-secrets/dto/user-secret.dto";
+} from "../../platform/credentials/user-secrets/dto/user-secret.dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

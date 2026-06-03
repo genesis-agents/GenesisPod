@@ -21,7 +21,7 @@ import {
 } from "../selection/model-policy";
 import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./ai-stream-handler.service";
-import { AIMetricsService } from "@/modules/ai-infra/facade";
+import { AIMetricsService } from "@/modules/platform/facade";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 // ★ P1 PII 脱敏：消费侧改写逻辑抽到 helper，避免 god-class 增长（真生效，非 inert）。
 import {
@@ -45,9 +45,9 @@ import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
 import { KernelContext } from "@/common/context/kernel-context";
-import { BillingContext } from "@/modules/ai-infra/facade";
+import { BillingContext } from "@/modules/platform/facade";
 import { ModelPricingRegistry } from "../pricing/model-pricing.registry";
-import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
+import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
 import { AiChatFailoverCallerService } from "./ai-chat-failover-caller.service";
 // v5.1 R0.5 PR-5: 双轨接 plugins/core HookBus
 import type { HookBus } from "@/plugins/core/hook-bus";
@@ -62,7 +62,7 @@ import {
   InvalidApiKeyError,
   NoAvailableKeyError,
   QuotaExceededError,
-} from "@/modules/ai-infra/credentials/key-resolver/key-resolver.errors";
+} from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
 
 export interface ChatCompletionOptions {
   model: string;

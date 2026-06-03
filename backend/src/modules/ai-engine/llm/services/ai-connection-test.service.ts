@@ -13,7 +13,7 @@ import {
   ensureGeminiEmbedContentPath,
   ensureOpenAIImagesGenerationsPath,
 } from "../types/endpoint.utils";
-import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
+import { UserApiKeysService } from "@/modules/platform/credentials/user-api-keys/user-api-keys.service";
 
 /**
  * AI Connection Test Service

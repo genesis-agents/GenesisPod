@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { TopicJoinRequestService } from "../topic-join-request.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { NotificationPresetsService } from "../../../../../ai-infra/notifications/presets/notification-presets.service";
+import { NotificationPresetsService } from "../../../../../platform/notifications/presets/notification-presets.service";
 import {
   NotFoundException,
   ForbiddenException,

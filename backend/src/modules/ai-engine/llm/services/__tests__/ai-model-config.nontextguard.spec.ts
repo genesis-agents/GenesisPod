@@ -11,9 +11,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AiModelConfigService } from "../ai-model-config.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
-import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
-import { UserModelConfigsService } from "@/modules/ai-infra/credentials/user-model-configs/user-model-configs.service";
+import { SecretsService } from "@/modules/platform/secrets/secrets.service";
+import { UserApiKeysService } from "@/modules/platform/credentials/user-api-keys/user-api-keys.service";
+import { UserModelConfigsService } from "@/modules/platform/credentials/user-model-configs/user-model-configs.service";
 import { RequestContext } from "@/common/context/request-context";
 import { AIModelType } from "@prisma/client";
 

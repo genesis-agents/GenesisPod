@@ -1,6 +1,6 @@
 // ─── Module-level mocks (must be before any imports) ──────────────────────────
 // Mock common/cache/cache.service to prevent loading @nestjs/cache-manager
-// (not installed in test environment). Chain: feedback.service -> ai-infra/facade
+// (not installed in test environment). Chain: feedback.service -> platform/facade
 // -> auth.service -> cache.service -> @nestjs/cache-manager
 jest.mock("../../../../common/cache/cache.service", () => ({
   CacheService: class MockCacheService {
@@ -9,10 +9,10 @@ jest.mock("../../../../common/cache/cache.service", () => ({
     del = jest.fn();
   },
 }));
-// Mock ai-infra/facade barrel to prevent deep dependency chain loading.
+// Mock platform/facade barrel to prevent deep dependency chain loading.
 // We export named classes so that feedback.service.ts gets these mock classes
 // as the DI tokens for EmailNotificationPresetsService and R2StorageService.
-jest.mock("../../../ai-infra/facade", () => ({
+jest.mock("../../../platform/facade", () => ({
   EmailNotificationPresetsService: class EmailNotificationPresetsService {
     sendFeedbackNotification = jest.fn();
   },
@@ -70,7 +70,7 @@ import {
   EmailNotificationPresetsService,
   FeedbackStatusUpdatePreset,
   R2StorageService,
-} from "../../../ai-infra/facade";
+} from "../../../platform/facade";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
 
 describe("FeedbackService (supplemental)", () => {
@@ -128,7 +128,7 @@ describe("FeedbackService (supplemental)", () => {
         FeedbackService,
         { provide: PrismaService, useValue: mockPrisma },
         // Use the facade-imported class as the token - this matches what
-        // feedback.service.ts uses when it imports from ../../ai-infra/facade
+        // feedback.service.ts uses when it imports from ../../platform/facade
         {
           provide: EmailNotificationPresetsService,
           useValue: mockEmailService,

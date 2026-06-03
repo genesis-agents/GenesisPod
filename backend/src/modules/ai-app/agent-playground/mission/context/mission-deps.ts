@@ -48,7 +48,7 @@ import type {
   QualityTraceComputeService,
 } from "@/modules/ai-harness/facade";
 import type { FigureExtractorService } from "@/modules/ai-engine/facade";
-import type { CreditsService } from "../../../../ai-infra/credits/credits.service";
+import type { CreditsService } from "../../../../platform/credits/credits.service";
 import type { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 import type { PostmortemClassifierService } from "@/modules/ai-harness/facade";
 import type { MissionLifecycleManager } from "@/modules/ai-harness/facade";

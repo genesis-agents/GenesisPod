@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SettingsService } from "../../../../ai-infra/facade";
+import { SettingsService } from "../../../../platform/facade";
 import { CollectionTaskService } from "../sources/collection-task.service";
 import { getErrorMessage } from "../../../../../common/utils/error.utils";
 import { ResourceType } from "@prisma/client";

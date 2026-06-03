@@ -1,13 +1,13 @@
 /**
  * AI Infrastructure Facade (L1)
  *
- * Unified entry point for all ai-infra public exports.
+ * Unified entry point for all platform public exports.
  * All higher-layer modules (L3 AI Engine, L4 AI Apps, L5 Open API)
- * should import ai-infra symbols from this facade, not from internal paths.
+ * should import platform symbols from this facade, not from internal paths.
  *
  * NOTE: NestJS Module classes are NOT exported here to avoid circular
  * dependency chains. Module imports in `imports: []` arrays should use
- * direct paths (e.g., `import { CreditsModule } from "../ai-infra/credits/credits.module"`).
+ * direct paths (e.g., `import { CreditsModule } from "../platform/credits/credits.module"`).
  */
 
 // ─── Auth ───
@@ -92,9 +92,9 @@ export type {
   AuditQueryFilter,
 } from "../monitoring/audit/audit-log.service";
 
-// ─── BYOK / Credentials ─── (2026-05-01: 从 ai-engine/credentials 下沉到 ai-infra/credentials)
+// ─── BYOK / Credentials ─── (2026-05-01: 从 ai-engine/credentials 下沉到 platform/credentials)
 // API key 凭证管理是基础设施（CRUD / 加解密 / BYOK 调度），不是 engine 核心能力。
-// 全部从 ai-infra/facade 暴露。ai-engine/facade 暂保留 re-export 兼容历史引用。
+// 全部从 platform/facade 暴露。ai-engine/facade 暂保留 re-export 兼容历史引用。
 export { KeyAssignmentsService } from "../credentials/key-assignments/key-assignments.service";
 export { KeyRequestsService } from "../credentials/key-requests/key-requests.service";
 export { UserApiKeysService } from "../credentials/user-api-keys/user-api-keys.service";

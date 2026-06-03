@@ -17,11 +17,11 @@ import {
   AIModelConfig,
 } from "../ai-model-config.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
-import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
-import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
-import { UserModelConfigsService } from "@/modules/ai-infra/credentials/user-model-configs/user-model-configs.service";
-import { NoAvailableKeyError } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.errors";
+import { SecretsService } from "@/modules/platform/secrets/secrets.service";
+import { UserApiKeysService } from "@/modules/platform/credentials/user-api-keys/user-api-keys.service";
+import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
+import { UserModelConfigsService } from "@/modules/platform/credentials/user-model-configs/user-model-configs.service";
+import { NoAvailableKeyError } from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
 import { AIModelType } from "@prisma/client";
 import { RequestContext } from "@/common/context/request-context";
 

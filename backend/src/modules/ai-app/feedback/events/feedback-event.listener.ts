@@ -26,7 +26,7 @@ import type {
   TriageInput,
   TriageDecision,
 } from "../triage/triage-decision.types";
-import { BillingContext } from "../../../ai-infra/facade";
+import { BillingContext } from "../../../platform/facade";
 
 @Injectable()
 export class FeedbackEventListener {

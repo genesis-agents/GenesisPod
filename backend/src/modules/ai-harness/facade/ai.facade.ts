@@ -41,7 +41,7 @@ import {
   AICapabilityResolver,
   AICapabilityContext,
 } from "../../ai-harness/runner/capabilities/ai-capability-resolver.service";
-import { CreditsService, BillingContext } from "../../ai-infra/facade";
+import { CreditsService, BillingContext } from "../../platform/facade";
 import { RequestContext } from "../../../common/context/request-context";
 import type { CreditBillingInfo } from "./types/facade.types";
 import type {

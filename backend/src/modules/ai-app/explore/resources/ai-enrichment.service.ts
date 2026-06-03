@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { getErrorMessage } from "../../../../common/utils/error.utils";
 import axios, { AxiosInstance } from "axios";
 import { ResourceType } from "@prisma/client";
-import { BillingContext } from "../../../ai-infra/facade";
+import { BillingContext } from "../../../platform/facade";
 import {
   ResourceAISummary,
   convertToStructuredSummary,

@@ -1,7 +1,7 @@
 import { OFFLOAD_PREFIXES } from "../offload-prefixes";
 import { OFFLOAD_KEY_PREFIXES } from "../../../../../common/storage/offload-key-allowlist";
 
-describe("offload-prefixes (ai-infra registry)", () => {
+describe("offload-prefixes (platform registry)", () => {
   it("covers every entry in OFFLOAD_KEY_PREFIXES (allow-list = registry parity)", () => {
     const registered = new Set(OFFLOAD_PREFIXES.map((p) => p.prefix));
     for (const allow of OFFLOAD_KEY_PREFIXES) {

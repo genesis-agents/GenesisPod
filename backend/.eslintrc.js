@@ -96,7 +96,7 @@ module.exports = {
         selector:
           "CallExpression[callee.property.name='addEventListener'][arguments.0.type='Literal'][arguments.0.value='abort']",
         message:
-          "Use AbortableScope from @/modules/ai-infra/resilience instead of raw addEventListener('abort', ...). Naked listeners with {once:true} leak when abort never fires.",
+          "Use AbortableScope from @/modules/platform/resilience instead of raw addEventListener('abort', ...). Naked listeners with {once:true} leak when abort never fires.",
       },
       {
         // task #6 + 看护：禁止 admin 直接 return process.env.* 的密钥字段。

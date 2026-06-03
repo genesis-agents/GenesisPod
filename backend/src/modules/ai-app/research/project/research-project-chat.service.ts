@@ -14,7 +14,7 @@ import {
   KernelContext,
   MissionExecutorService,
 } from "@/modules/ai-harness/facade";
-import { BillingContext } from "../../../ai-infra/facade";
+import { BillingContext } from "../../../platform/facade";
 
 export interface ChatMessage {
   id: string;

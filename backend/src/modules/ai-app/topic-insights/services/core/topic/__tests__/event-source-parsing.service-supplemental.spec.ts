@@ -49,7 +49,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: class {},
 }));
 
-jest.mock("@/modules/ai-infra/facade", () => ({
+jest.mock("@/modules/platform/facade", () => ({
   BillingContext: {
     get: jest.fn().mockReturnValue(null),
     run: jest.fn((_opts: unknown, cb: () => void) => cb()),

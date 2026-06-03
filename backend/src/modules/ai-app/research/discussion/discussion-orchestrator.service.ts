@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Subject, Observable } from "rxjs";
 import { DeepResearchStatus } from "@prisma/client";
-import { BillingContext } from "../../../ai-infra/facade";
+import { BillingContext } from "../../../platform/facade";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   StartDeepResearchDto,

@@ -39,7 +39,7 @@ import { TopicEventEmitterService } from "../../events";
 import { LeaderModelService } from "../../ai/leader-model.service";
 import { MissionContextService } from "../mission/mission-context.service";
 import { ConstraintEnforcementService } from "@/modules/ai-harness/facade";
-import { EmailNotificationPresetsService } from "../../../../../ai-infra/facade";
+import { EmailNotificationPresetsService } from "../../../../../platform/facade";
 import { MissionStateManager } from "../mission/mission-state.manager";
 import { MissionLifecycleService } from "../mission/mission-lifecycle.service";
 import { MissionRetryService } from "../mission/mission-retry.service";

@@ -11,9 +11,9 @@ import { Module, forwardRef } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
-import { StorageModule } from "../../../ai-infra/storage/storage.module";
-import { CreditsModule } from "../../../ai-infra/credits/credits.module";
-import { ToolKeyResolverModule } from "../../../ai-infra/credentials/tool-key-resolver/tool-key-resolver.module";
+import { StorageModule } from "../../../platform/storage/storage.module";
+import { CreditsModule } from "../../../platform/credits/credits.module";
+import { ToolKeyResolverModule } from "../../../platform/credentials/tool-key-resolver/tool-key-resolver.module";
 // ★ 依赖反转: 导入 token 用于提供 ITTSService 实现
 import { TTS_SERVICE } from "@/modules/ai-harness/facade";
 

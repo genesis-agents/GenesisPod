@@ -6,8 +6,8 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   EmailNotificationPresetsService,
   FeedbackStatusUpdatePreset,
-} from "../../../ai-infra/facade";
-import { R2StorageService } from "../../../ai-infra/storage/runtime/r2-storage.service";
+} from "../../../platform/facade";
+import { R2StorageService } from "../../../platform/storage/runtime/r2-storage.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
 
 describe("FeedbackService", () => {

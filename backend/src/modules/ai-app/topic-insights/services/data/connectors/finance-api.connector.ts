@@ -23,7 +23,7 @@ import {
   SECRET_NAMES,
   ToolKeyResolverService,
   NoToolKeyError,
-} from "../../../../../ai-infra/facade";
+} from "../../../../../platform/facade";
 import { RequestContext } from "@/common/context/request-context";
 
 @Injectable()

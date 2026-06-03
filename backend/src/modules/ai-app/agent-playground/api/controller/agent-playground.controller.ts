@@ -38,7 +38,7 @@ import { DistributedRateLimitGuard } from "../../../../../common/guards/distribu
 import { Public } from "../../../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../../../common/types/express-request.types";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AuditLogService } from "@/modules/ai-infra/facade";
+import { AuditLogService } from "@/modules/platform/facade";
 import {
   RunMissionInputSchema,
   type RunMissionInput,

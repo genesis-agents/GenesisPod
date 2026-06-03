@@ -767,10 +767,10 @@ export {
 } from "../llm/abstractions/error-classifier";
 
 // ════════════════════════════════════════════════════════════════════
-// BYOK / Credentials — 2026-05-01 已下沉到 ai-infra/credentials/
+// BYOK / Credentials — 2026-05-01 已下沉到 platform/credentials/
 // Engine 仅保留 LLM 配置探测与多 Key 健康管理，统一挂在 llm/*
-//   ai-app/byok controllers 应改从 "@/modules/ai-infra/facade" 导入。
-//   本处的 re-export 保留是为向后兼容；新代码请直接走 ai-infra/facade。
+//   ai-app/byok controllers 应改从 "@/modules/platform/facade" 导入。
+//   本处的 re-export 保留是为向后兼容；新代码请直接走 platform/facade。
 // ════════════════════════════════════════════════════════════════════
 export {
   KeyAssignmentsService,
@@ -784,7 +784,7 @@ export {
   TestApiKeyDto,
   CreateUserModelConfigDto,
   UpdateUserModelConfigDto,
-} from "../../ai-infra/facade";
+} from "../../platform/facade";
 export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/services/ai-model-discovery.service";
 export { AiConnectionTestService } from "@/modules/ai-engine/llm/services/ai-connection-test.service";
 export { AutoConfigureService } from "@/modules/ai-engine/llm/user-config/user-models-auto-configure.service";

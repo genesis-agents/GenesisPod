@@ -10,7 +10,7 @@
 
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
+import { SecretsService } from "../../../platform/secrets/secrets.service";
 import {
   ProviderQuota,
   QuotaStatus,

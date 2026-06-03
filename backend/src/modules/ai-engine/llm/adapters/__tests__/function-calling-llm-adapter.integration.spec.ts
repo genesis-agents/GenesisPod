@@ -19,9 +19,9 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { FunctionCallingLLMAdapter } from "../function-calling-llm.adapter";
 import { AiChatService } from "../../services/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/ai-infra/facade";
-import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
-import { NoAvailableKeyError } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.errors";
+import { SecretsService } from "@/modules/platform/facade";
+import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
+import { NoAvailableKeyError } from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
 
 describe("FunctionCallingLLMAdapter (extended coverage)", () => {
   let adapter: FunctionCallingLLMAdapter;

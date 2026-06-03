@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { NotificationEventListener } from "../notification-event-listener.service";
-import { NotificationPresetsService } from "@/modules/ai-infra/facade";
+import { NotificationPresetsService } from "@/modules/platform/facade";
 import type { TaskCompletedNotificationPayload } from "../notification-event-listener.service";
 
 describe("NotificationEventListener", () => {

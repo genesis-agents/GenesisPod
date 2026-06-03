@@ -10,7 +10,7 @@ import { ResourceLifecycleModule } from "./resource-lifecycle.module";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { RawDataModule } from "../../../../common/rawdata/rawdata.module";
 import { IngestionConfigModule } from "../../management/ingestion/config/config.module";
-import { StorageModule } from "../../../ai-infra/storage/storage.module";
+import { StorageModule } from "../../../platform/storage/storage.module";
 import { ProxyModule } from "../../library/proxy/proxy.module";
 
 /**

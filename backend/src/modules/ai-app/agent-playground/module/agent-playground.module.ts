@@ -90,10 +90,10 @@ import {
   VerifierService,
   StewardService,
 } from "../mission/roles";
-import { CreditsModule } from "../../../ai-infra/credits/credits.module";
+import { CreditsModule } from "../../../platform/credits/credits.module";
 // e2e P0-#5: 提供 MissionFailedPreset（mission 失败通知，dispatcher @Optional 注入）
-import { NotificationDispatcherModule } from "../../../ai-infra/notifications/dispatcher/notification-dispatcher.module";
-import { MissionFailedPreset } from "../../../ai-infra/facade";
+import { NotificationDispatcherModule } from "../../../platform/notifications/dispatcher/notification-dispatcher.module";
+import { MissionFailedPreset } from "../../../platform/facade";
 import {
   DomainEventBus,
   DomainEventRegistry,

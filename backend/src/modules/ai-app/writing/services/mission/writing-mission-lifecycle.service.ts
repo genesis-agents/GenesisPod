@@ -33,7 +33,7 @@ import {
   KernelContext,
 } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
-import { BillingContext } from "../../../../ai-infra/facade";
+import { BillingContext } from "../../../../platform/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 import type {

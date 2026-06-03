@@ -20,7 +20,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { R2StorageService } from "@/modules/ai-infra/facade";
+import { R2StorageService } from "@/modules/platform/facade";
 
 import type { MissionDetail } from "../lifecycle/mission-store.service";
 import {

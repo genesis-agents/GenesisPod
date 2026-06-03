@@ -13,7 +13,7 @@ import {
   SecretsService,
   ToolKeyResolverService,
   NoToolKeyError,
-} from "@/modules/ai-infra/facade";
+} from "@/modules/platform/facade";
 import { RequestContext } from "@/common/context/request-context";
 import {
   IDataSourceConnector,

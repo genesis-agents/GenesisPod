@@ -28,11 +28,11 @@ import {
 import { KeyAssignmentStatus } from "@prisma/client";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { KeyAssignmentsService } from "../../ai-infra/credentials/key-assignments/key-assignments.service";
+import { KeyAssignmentsService } from "../../platform/credentials/key-assignments/key-assignments.service";
 import {
   RevokeAssignmentDto,
   UpdateAssignmentDto,
-} from "../../ai-infra/credentials/key-assignments/dto";
+} from "../../platform/credentials/key-assignments/dto";
 
 /**
  * 模型粒度批量授权 DTO（v5 重构）

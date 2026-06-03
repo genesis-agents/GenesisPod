@@ -17,7 +17,7 @@ jest.mock("@prisma/client", () => ({
 const mockBillingContextGet = jest.fn();
 const mockBillingContextRun = jest.fn();
 
-jest.mock("@/modules/ai-infra/facade", () => ({
+jest.mock("@/modules/platform/facade", () => ({
   BillingContext: {
     get: mockBillingContextGet,
     run: mockBillingContextRun,

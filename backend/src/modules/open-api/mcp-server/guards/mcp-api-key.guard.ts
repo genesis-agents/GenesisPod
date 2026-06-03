@@ -11,7 +11,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { Request } from "express";
-import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
+import { SecretsService } from "../../../platform/secrets/secrets.service";
 import { safeCompare } from "../../../../common/utils/crypto.utils";
 
 @Injectable()

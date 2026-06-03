@@ -41,7 +41,7 @@ import {
   SECRET_NAMES,
   ToolKeyResolverService,
   NoToolKeyError,
-} from "@/modules/ai-infra/facade";
+} from "@/modules/platform/facade";
 import { RequestContext } from "@/common/context/request-context";
 import * as duckDuckScrape from "duck-duck-scrape";
 import * as crypto from "crypto";

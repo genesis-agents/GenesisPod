@@ -4,7 +4,7 @@ import { DataSourceType } from "../../../../types/data-source.types";
 import {
   SecretsService,
   ToolKeyResolverService,
-} from "@/modules/ai-infra/facade";
+} from "@/modules/platform/facade";
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

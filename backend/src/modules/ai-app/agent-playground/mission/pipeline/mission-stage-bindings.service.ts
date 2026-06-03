@@ -43,7 +43,7 @@ import {
   RuntimeEnvironmentService,
 } from "@/modules/ai-harness/facade";
 import { FigureExtractorService } from "@/modules/ai-engine/facade";
-import { CreditsService } from "../../../../ai-infra/credits/credits.service";
+import { CreditsService } from "../../../../platform/credits/credits.service";
 import { PostmortemClassifierService } from "@/modules/ai-harness/facade";
 // ★ DI 注入 → runtime import（非 import type），见上文 emitDecoratorMetadata 说明。
 import { MissionLifecycleManager } from "@/modules/ai-harness/facade";

@@ -447,7 +447,7 @@ describe("AiAskService", () => {
 
     it("should throw InsufficientCreditsException when balance is insufficient", async () => {
       const { InsufficientCreditsException } =
-        await import("../../../ai-infra/credits/exceptions/insufficient-credits.exception");
+        await import("../../../platform/credits/exceptions/insufficient-credits.exception");
       const creditsService = {
         checkBalance: jest
           .fn()

@@ -44,7 +44,7 @@ import {
   TopicForwardBookmarkService,
   TopicEventEmitterService,
 } from "./services";
-import { BillingContext } from "../../ai-infra/facade";
+import { BillingContext } from "../../platform/facade";
 
 @Injectable()
 export class AiTeamsService {

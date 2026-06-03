@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ContentProcessingModule } from "@/common/content-processing/content-processing.module";
 import { SystemSettingModule } from "@/common/settings/system-setting.module";
-import { ToolKeyResolverModule } from "@/modules/ai-infra/credentials/tool-key-resolver/tool-key-resolver.module";
+import { ToolKeyResolverModule } from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.module";
 import {
   ContentFetchService,
   YOUTUBE_SERVICE_TOKEN,
