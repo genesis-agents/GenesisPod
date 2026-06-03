@@ -117,25 +117,27 @@ System 按"职责 vs 暴露"落两层：
 
 ---
 
-## 二、ai-engine 顶层（10 个聚合，业界标准词）
+## 二、ai-engine 顶层（12 个聚合，业界标准词）
 
 ```
-agents 域之外的"原子能力"，全部放 engine：
-llm · tools · rag · knowledge · skills · planning · safety · content · routing · facade
+agents 域之外的"原子能力"，全部放 engine（每个聚合即一台「引擎」，见 §一·补）：
+llm · tools · rag · knowledge · skills · planning · safety · content · routing · reliability · evaluation · facade
 ```
 
-| 聚合          | 职责                                                                    | 关键边界                                                                            |
-| ------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| **llm**       | LLM 调用 + 模型适配 + 路由 + 定价 + user-config + key-health + 意图识别 | 无 agent 状态；含 model pricing                                                     |
-| **tools**     | 工具目录 + 单次执行 + 来源适配（含 MCP）                                | **项目唯一的 tools/**；含 mcp/openapi/function adapter                              |
-| **rag**       | 检索增强生成基元                                                        | embedding / vector / chunker / retriever / reranker                                 |
-| **knowledge** | 知识抽取                                                                | fact / entity / relation / context-evolution / world-building                       |
-| **skills**    | Skill 定义 + 注册（SKILL.md 风格）                                      | **项目唯一的 SkillRegistry**                                                        |
-| **planning**  | 任务分解（不含 agent loop）                                             | task-planner / decomposer                                                           |
-| **safety**    | 输入输出安全                                                            | pii / moderation / injection                                                        |
-| **content**   | 内容处理基元                                                            | fetch / cleaner / markdown                                                          |
-| **routing**   | 通用语义打分路由 core（LLM/Tools/Skills 共用）                          | scored-router / semantic-retrieval / signal-scorers；无 agent 状态；2026-06-02 新增 |
-| **facade**    | engine 对外门面                                                         | 仅 re-export，无业务逻辑                                                            |
+| 聚合            | 职责                                                              | 关键边界                                                                            |
+| --------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **llm**         | LLM 调用 + 模型适配 + 路由 + 定价 + BYOK + 意图识别（内部分 chat/providers/byok/output/prompts/models） | 无 agent 状态；含 model pricing。注：通用 key-health 已迁 platform（PR#232）        |
+| **tools**       | 工具目录 + 单次执行 + 来源适配（含 MCP）                          | **项目唯一的 tools/**；含 mcp/openapi/function adapter                              |
+| **rag**         | 检索增强生成基元                                                  | embedding / vector / chunker / retriever / reranker                                 |
+| **knowledge**   | 知识抽取                                                          | fact / entity / relation / context-evolution / world-building                       |
+| **skills**      | Skill 定义 + 注册（SKILL.md 风格）                                | **项目唯一的 SkillRegistry**                                                        |
+| **planning**    | 任务分解（不含 agent loop）                                       | task-planner / decomposer                                                           |
+| **safety**      | 输入输出安全                                                      | pii / moderation / injection                                                        |
+| **content**     | 内容处理基元                                                      | fetch / cleaner / markdown / citation / figure                                      |
+| **routing**     | 通用语义打分路由 core（LLM/Tools/Skills 共用）                    | scored-router / semantic-retrieval / signal-scorers；无 agent 状态；2026-06-02 新增 |
+| **reliability** | 引擎级韧性（无 agent 状态）                                       | rate-limit / entity-health；2026-W7 扩出                                            |
+| **evaluation**  | 无状态启发式质量检查（无 LLM、无 agent 状态）                     | 与 harness/evaluation（agent 感知评判）有意分层，**勿合**；2026-W2 扩出             |
+| **facade**      | engine 对外门面                                                   | 仅 re-export，无业务逻辑                                                            |
 
 ---
 
@@ -208,12 +210,15 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 
   | platform controller | 路由 | → 去向 | 性质 |
   | --- | --- | --- | --- |
-  | db-ops · secrets · secret-keys · settings（AdminGuard） | `admin/*` | **open-api/admin** | 系统管理 |
-  | notifications/unsubscribe（RateLimit 无鉴权） | 公开 | **open-api/public-api** | 系统对外 |
-  | auth · credits · notification（jwt 一方用户） | 一方 | **open-api（系统服务面）** | 系统横切（用户可见≠产品）|
-  | storage-governance（无 guard） | 待确认 | open-api（admin 或系统面）| 系统 |
+  | platform controller | 路由 | → 去向 | 性质 | 状态 |
+  | --- | --- | --- | --- | --- |
+  | db-ops · secrets · secret-keys · settings（AdminGuard） | `admin/*` | **open-api/admin** | 系统管理 | ✅ 已合 **PR#238** |
+  | notifications/unsubscribe（RateLimit 无鉴权） | 公开 | **open-api/public-api** | 系统对外 | ✅ 已挪走 |
+  | auth · credits · notification（jwt 一方用户） | 一方 | **open-api（系统服务面）** | 系统横切（用户可见≠产品）| ⏳ 批2（生产关键，独立 PR）|
+  | storage-governance（无 guard） | 待确认 | open-api（admin 或系统面）| 系统 | ⏳ 批3 |
+  | metrics（`/metrics` 抓取端点） | 机器 | 特殊（Prometheus）| 监控 | ⏳ 待定（机器抓取，非普通 HTTP）|
 
-  > **执行约束**：跨层 module 重接线 + 生产关键路由（auth/credits），route/guard **原样保留**，service 留 platform，靠 boot-smoke + 测试验 DI。**独立 PR**，不与其它重构混。分批：先 4 个 `admin/*` → open-api/admin（去向最明确、目录已存在），再 auth/credits/notification → open-api 系统面，最后 unsubscribe / storage-governance。
+  > **执行约束**：跨层 module 重接线 + 生产关键路由（auth/credits），route/guard **原样保留**，**只搬 controller+spec，service/DTO/pipe 留 platform**（service 自身 import DTO，搬 DTO 会造 L1→L4 反向依赖）；勿漏删 platform 各 `index.ts` barrel 的 controller export；靠**真 dist boot-smoke** + 测试验 DI。**独立 PR**，不与其它重构混。分批：✅ 批1 `admin/*`（PR#238）· ⏳ 批2 auth/credits/notification · ⏳ 批3 storage-governance/metrics。
   >
   > **推论（roadmap，本轮不动）**：`ai-app/byok`（用户密钥/provider 管理 10+ controller）按原则属**账户级 system**，非产品域 → 严格说该归 system（open-api），而非 ai-app。
 
