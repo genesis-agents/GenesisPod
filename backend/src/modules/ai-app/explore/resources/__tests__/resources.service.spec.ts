@@ -3,7 +3,7 @@ import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { ResourcesService } from "../resources.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { RawDataService } from "../../../../../common/rawdata/rawdata.service";
-import { SourceWhitelistService } from "../../../management/ingestion/config/services/source-whitelist.service";
+import { SourceWhitelistService } from "../../../explore/ingestion/config/services/source-whitelist.service";
 import { AIEnrichmentService } from "../ai-enrichment.service";
 import { ResourcesRepository } from "../resources.repository";
 import { ResourceLifecycleService } from "../resource-lifecycle.service";

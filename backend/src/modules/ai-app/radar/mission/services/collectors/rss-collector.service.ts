@@ -3,7 +3,7 @@ import { RadarSource } from "@prisma/client";
 // 紧急修复 (2026-05-16): `import Parser from "rss-parser"` 在 CJS 编译后变成
 // `rss_parser_1.default()`，而 rss-parser 是纯 CJS 包没有 default export，
 // 触发 prod bootstrap `TypeError: rss_parser_1.default is not a constructor`。
-// 改用 `import * as Parser` 同项目内 RssService（management/ingestion）一致的写法。
+// 改用 `import * as Parser` 同项目内 RssService（explore/ingestion）一致的写法。
 import * as RssParserModule from "rss-parser";
 import { CollectContext, ICollector, RawCollectedItem } from "./icollector";
 import { computeContentHash } from "./hash.util";
@@ -41,7 +41,7 @@ const Parser = ((RssParserModule as unknown as { default?: unknown }).default ??
 /**
  * RssCollector —— 直接解析 identifier (URL) 拿 feed。
  *
- * 用 rss-parser npm 包（项目已装），不依赖 management/ingestion/RssService
+ * 用 rss-parser npm 包（项目已装），不依赖 explore/ingestion/RssService
  * 以保持 ai-app/radar 内的边界单一。
  */
 @Injectable()

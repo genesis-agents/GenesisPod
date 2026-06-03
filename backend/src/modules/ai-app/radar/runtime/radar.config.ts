@@ -12,7 +12,7 @@
  *   - RADAR_DISCOVERY_PIPELINE: AI 推荐源（1 step：source-curator）
  *
  * 数据采集（s2-collect）走 ai-engine 标准 services：
- *   - RSS  → ai-app/management/ingestion/crawlers/RssService.fetchRssFeed
+ *   - RSS  → ai-app/explore/ingestion/crawlers/RssService.fetchRssFeed
  *   - YT   → ai-engine/content/fetch/YoutubeService（或 RSS feed channel_id）
  *   - X    → AgentInvoker 调 web-search tool（不再自写 Nitter collector）
  *   - CUSTOM → ai-engine/content/fetch/ContentFetchService

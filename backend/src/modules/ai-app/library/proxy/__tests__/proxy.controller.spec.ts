@@ -26,7 +26,7 @@ jest.mock("../../../../../common/config/app.config", () => ({
 
 // PR-X29: removed dead jest.mock for src/config/domain-whitelist.config —
 // that file had no production import sites; the whitelist responsibility now
-// lives in ai-app/management/ingestion/config/services/source-whitelist.service.
+// lives in ai-app/explore/ingestion/config/services/source-whitelist.service.
 
 describe("ProxyController - PDF Proxy", () => {
   let controller: ProxyController;
