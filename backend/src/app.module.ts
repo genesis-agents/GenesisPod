@@ -104,6 +104,7 @@ import { ExportModule } from "./common/export";
 import { WebhooksModule } from "./modules/open-api/webhooks";
 import { MCPServerModule } from "./modules/open-api/mcp-server";
 import { PublicApiModule } from "./modules/open-api/public-api/public-api.module";
+import { OpenApiSystemModule } from "./modules/open-api/system/system.module";
 import { AiCoreModule } from "./modules/open-api/ai-core/ai-core.module";
 import { AgentsApiModule } from "./modules/open-api/agents-api/agents-api.module";
 import { McpAdminModule } from "./modules/open-api/mcp-admin/mcp-admin.module";
@@ -271,6 +272,8 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
 
     // Public API module
     PublicApiModule,
+    // Open-API 系统服务面（standards/16: System HTTP → L4；首个进驻 NotificationController）
+    OpenApiSystemModule,
 
     // A2A API module (PR-X17: controller moved to open-api/a2a-api)
     A2AApiModule,

@@ -11,12 +11,12 @@ import {
   Request,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
-import { NotificationService } from "./notification.service";
+import { NotificationService } from "@/modules/platform/notifications/notification.service";
 import {
   GetNotificationsQueryDto,
   UpdateNotificationPreferenceDto,
-} from "./dto/notification.dto";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+} from "@/modules/platform/notifications/dto/notification.dto";
+import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 
 @ApiTags("Notifications")
 @Controller("notifications")
