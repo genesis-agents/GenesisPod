@@ -6,8 +6,8 @@
 
 import { Controller, Get, Header } from "@nestjs/common";
 import { MetricsService } from "./metrics.service";
-import { Public } from "../../common/decorators/public.decorator";
-import { SkipTransform } from "../../common/interceptors/decorators/skip-transform.decorator";
+import { Public } from "@/common/decorators/public.decorator";
+import { SkipTransform } from "@/common/interceptors/decorators/skip-transform.decorator";
 
 @Public()
 @Controller("metrics")

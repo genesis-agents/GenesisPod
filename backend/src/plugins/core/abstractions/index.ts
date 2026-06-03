@@ -18,3 +18,6 @@ export * from "./hook-context.interface";
 
 // W2-A: storage 域端口集合（按部署平台差异驱动 plugin 化）
 export * from "./storage";
+
+// W1-B: observability 域端口集合（可换 span exporter 后端）
+export * from "./observability";

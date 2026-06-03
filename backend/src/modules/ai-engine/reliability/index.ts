@@ -6,9 +6,8 @@
 // Entity health（多实体健康注册 + 选择）
 export * from "./entity-health/entity-health.registry";
 
-// Rate limiting（token-bucket）
+// Rate limiting（RPM 策略；token-bucket 基元已下沉 platform/resilience）
 export * from "./rate-limit/rate-limit.service";
-export * from "./rate-limit/token-bucket";
 
 // Module
 export { AiEngineReliabilityModule } from "./reliability.module";

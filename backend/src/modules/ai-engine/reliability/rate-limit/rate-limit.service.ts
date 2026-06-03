@@ -28,7 +28,7 @@ import {
   type ITokenBucketStore,
   InMemoryTokenBucketStore,
   RedisTokenBucketStore,
-} from "./token-bucket";
+} from "@/modules/platform/resilience";
 
 export interface RateLimitConfig {
   /** 全局 RPM（默认 600 req/min = 10 rps） */

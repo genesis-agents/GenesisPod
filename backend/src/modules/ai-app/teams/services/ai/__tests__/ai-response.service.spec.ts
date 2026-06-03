@@ -19,7 +19,7 @@ import { TopicContextRetrievalService } from "../topic-context-retrieval.service
 import { TeamMemberAgent } from "../../../agents";
 import { TopicEventEmitterService } from "../../events";
 import { CreditsService } from "../../../../../platform/credits/credits.service";
-import { MetricsService } from "../../../../../../common/observability";
+import { MetricsService } from "@/modules/platform/monitoring";
 import { AuditService } from "../../../../../../common/audit";
 import { MessageContentType } from "@prisma/client";
 

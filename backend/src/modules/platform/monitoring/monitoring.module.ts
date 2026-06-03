@@ -2,8 +2,12 @@ import { Module, Global } from "@nestjs/common";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { HealthCheckService } from "./health/health-check.service";
 import { AIMetricsService } from "./metrics/ai-metrics.service";
+import { MetricsService } from "./metrics/metrics.service";
+import { MetricsController } from "./metrics/metrics.controller";
 import { ErrorTrackingService } from "./tracking/error-tracking.service";
 import { AuditLogService } from "./audit/audit-log.service";
+// UserEventListener 含业务事件词表（TOPIC_INSIGHTS 等），留 common（L1 业务名禁令豁免），由本 @Global 模块装配
+import { UserEventListener } from "@/common/observability/user-event.listener";
 
 /**
  * 监控模块 - 提供全局可用的监控服务
@@ -13,22 +17,26 @@ import { AuditLogService } from "./audit/audit-log.service";
  * - ErrorTrackingService: 错误跟踪和聚合
  * - HealthCheckService: 统一健康检查（DB/Cache/AI Engine）
  * - AuditLogService: append-only 高敏操作审计
+ * - MetricsService: 进程内 Prometheus registry（W1-B 从 common/observability 并入）
+ * - MetricsController: Prometheus /metrics 端点（canonical，单一来源）
+ * - UserEventListener: user_events 批量 flush（@Global 自动注册）
  * 此模块是 @Global() 的，因此只需在 AppModule 中导入一次
- *
- * 注：Prometheus /metrics 端点由 common/observability/MetricsController 提供（canonical，
- * 单一来源）。本模块不再注册重复的 /metrics 控制器。
  */
 @Global()
 @Module({
   imports: [PrismaModule],
+  controllers: [MetricsController],
   providers: [
     AIMetricsService,
+    MetricsService,
     ErrorTrackingService,
     HealthCheckService,
     AuditLogService,
+    UserEventListener,
   ],
   exports: [
     AIMetricsService,
+    MetricsService,
     ErrorTrackingService,
     HealthCheckService,
     AuditLogService,

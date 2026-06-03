@@ -21,7 +21,6 @@ import { GraphModule } from "./common/graph/graph.module";
 // the old module had zero production consumers.
 import { StreamingModule } from "./common/streaming";
 import { ContentProcessingModule } from "./common/content-processing";
-import { ObservabilityModule } from "./common/observability";
 import { AuditModule } from "./common/audit";
 import { EventsModule } from "./common/events";
 import { CacheModule } from "./common/cache";
@@ -57,7 +56,7 @@ import { AiImageModule } from "./modules/ai-app/image/ai-image.module";
 import { AiOfficeModule } from "./modules/ai-app/office/ai-office.module";
 import { AiSimulationModule } from "./modules/ai-app/simulation/ai-simulation.module";
 import { AiTeamsModule } from "./modules/ai-app/teams/ai-teams.module";
-import { AiPlanningModule } from "./modules/ai-app/planning/ai-planning.module";
+import { AiPlanningModule } from "./modules/ai-app/ai-planning/ai-planning.module";
 import { RAGModule } from "./modules/ai-app/library/rag/rag.module";
 import { AiWritingModule } from "./modules/ai-app/writing/ai-writing.module";
 import { ResearchModule } from "./modules/ai-app/research";
@@ -181,7 +180,6 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     CacheModule, // Redis/å†…å­˜ç¼“å­˜ï¼ˆå…¨å±€ï¼‰
     StreamingModule,
     ContentProcessingModule,
-    ObservabilityModule,
     AuditModule,
     EventsModule,
 

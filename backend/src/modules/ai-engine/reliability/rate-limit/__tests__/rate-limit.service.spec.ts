@@ -5,7 +5,7 @@ import { RateLimitService } from "../rate-limit.service";
 import {
   InMemoryTokenBucketStore,
   RedisTokenBucketStore,
-} from "../token-bucket";
+} from "@/modules/platform/resilience";
 import type { CacheService } from "@/common/cache/cache.service";
 
 // 内存仿 CacheService（深拷贝模拟 Redis 序列化边界）

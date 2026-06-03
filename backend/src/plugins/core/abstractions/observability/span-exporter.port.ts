@@ -1,11 +1,15 @@
 /**
- * Span exporter 接口（v5.1 R0.5 PR-7）
+ * Span exporter 端口（plugins/core 中立契约）
  *
- * 抽象 OTLP 上报，让 plugin 在测试时可注入 mock；生产环境注入真实 OTLP exporter。
+ * 2026-06-03 W1-B 归位：可换后端契约住在中立 plugins/core/abstractions（与 storage
+ * 端口同构），由 L0 exporter 插件 implements、由消费侧经 DI 消费——对齐 OTel "SDK 产
+ * span / exporter 可插拔"。原 plugins/observability/telemetry-otel/span-exporter.interface.ts。
+ *
  * 此接口故意小：只接受 plain JSON-safe span 数据，不依赖任何 OTel SDK 类型。
+ * SpanData 改名 TelemetrySpanData 以规避与 ai-harness/tracing trace.interface 的 SpanData 撞名。
  */
 
-export interface SpanData {
+export interface TelemetrySpanData {
   /** span name，如 "llm.request" / "tool.execute" / "mission.run" */
   readonly name: string;
   /** 业务无关 attributes（不含 PII；attributes 已经过 PII scrubber 过滤）*/
@@ -21,7 +25,7 @@ export interface SpanData {
 
 export interface ISpanExporter {
   /** 导出一条 span（fire-and-forget；exporter 自己处理批量 / 重试 / OTLP 协议）*/
-  export(span: SpanData): void | Promise<void>;
+  export(span: TelemetrySpanData): void | Promise<void>;
   /** flush 缓存（可选，进程退出 / dispose 时调用）*/
   flush?(): Promise<void>;
 }
@@ -30,14 +34,14 @@ export interface ISpanExporter {
  * 测试 / 开发用：内存 exporter，spec 用它断言 plugin 写入正确 span
  */
 export class InMemorySpanExporter implements ISpanExporter {
-  private readonly spans: SpanData[] = [];
+  private readonly spans: TelemetrySpanData[] = [];
 
-  export(span: SpanData): void {
+  export(span: TelemetrySpanData): void {
     this.spans.push(span);
   }
 
   /** 测试用：拿到累计 span 列表 */
-  getSpans(): ReadonlyArray<SpanData> {
+  getSpans(): ReadonlyArray<TelemetrySpanData> {
     return this.spans.slice();
   }
 
