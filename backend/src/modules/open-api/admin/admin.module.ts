@@ -37,6 +37,7 @@ import { SecretsController } from "./secrets/secrets.controller";
 import { SecretKeysController } from "./secrets/secret-keys.controller";
 import { DbOpsController } from "./db-ops/db-ops.controller";
 import { SettingsController } from "./settings/settings.controller";
+import { StorageGovernanceController } from "./storage/storage-governance.controller";
 import { AgentConfigService } from "../../ai-harness/facade";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
@@ -79,6 +80,7 @@ import {
     SecretKeysController, // admin/secrets/:secretId/keys/*
     DbOpsController, // admin/tables/*
     SettingsController, // admin/settings/*
+    StorageGovernanceController, // storage/* (STORAGE_ADMIN_KEY header 鉴权的运维清理端点)
     AITeamsAdminController,
     AITeamsTemplatesController,
     AIAdminController, // /admin/ai/* routes for tools, skills, mcp-servers
