@@ -4,7 +4,7 @@
  * 三家 ai-app mission dispatcher 的通用 runtime-glue：
  *   - `emitToBus(event)` — 统一事件出口（catch + log，event 失败不阻断 dispatcher）
  *   - `bridgeOrchestratorStageEvent(event, ctx, opts)` — orchestrator 的 stage 级
- *     lifecycle/stalled/degraded 事件桥接到 DomainEventBus（namespaced）
+ *     lifecycle/stalled/degraded 事件桥接到 EventBus（namespaced）
  *
  * 业务侧 dispatcher 实现 `runMission` 主流程（每团队 finalize 规则、failureCode 分类、
  * crash-resume / dedup window / discovery vs refresh dual-pipeline 等都不同），
@@ -19,7 +19,7 @@
  * ```ts
  * @Injectable()
  * export class MyPipelineDispatcher extends BusinessTeamMissionDispatcherFramework {
- *   constructor(eventBus: DomainEventBus, ...) {
+ *   constructor(eventBus: EventBus, ...) {
  *     super(eventBus, {
  *       namespace: "my-app",
  *       stageLifecycleEvent: "my-app.stage:lifecycle",
@@ -38,7 +38,7 @@
 import { Logger } from "@nestjs/common";
 // ★ 不走 facade barrel（与同目录其他 framework 一致，详见 mission-runtime-shell.framework.ts）：
 //   facade/index.ts 会 re-export 本 framework，构成循环加载。
-import { DomainEventBus } from "@/modules/ai-harness/protocols/events/domain-event-bus";
+import { EventBus } from "@/common/events/event-bus";
 import type {
   BusinessTeamMissionBusEvent,
   MapStepIdHook,
@@ -77,7 +77,7 @@ export abstract class BusinessTeamMissionDispatcherFramework {
   protected readonly log: Logger;
 
   constructor(
-    protected readonly eventBus: DomainEventBus,
+    protected readonly eventBus: EventBus,
     protected readonly config: BusinessTeamMissionDispatcherConfig,
   ) {
     this.log = new Logger(`${config.namespace}-pipeline-dispatcher`);
@@ -105,7 +105,7 @@ export abstract class BusinessTeamMissionDispatcherFramework {
 
   /**
    * 把 orchestrator 内置的 stage 级事件（stage:started / stage:completed /
-   * stage:failed / stage:stalled / stage:degraded）桥接到 DomainEventBus，
+   * stage:failed / stage:stalled / stage:degraded）桥接到 EventBus，
    * 用业务方注入的 type 字符串。
    *
    * 返回 true 表示事件已被 framework 接管（业务侧 onEvent 不需要再处理）；

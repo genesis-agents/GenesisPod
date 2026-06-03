@@ -18,8 +18,8 @@
  */
 
 import { Logger } from "@nestjs/common";
-import type { DomainEvent } from "../../../protocols/events/domain-event.types";
-import type { IBroadcastAdapter } from "../../../protocols/events/broadcast-adapter";
+import type { DomainEvent } from "@/common/events/domain-event.types";
+import type { IBroadcastAdapter } from "@/common/events/broadcast-adapter";
 import {
   DEFAULT_GC_INTERVAL_MS,
   DEFAULT_MAX_PER_MISSION,

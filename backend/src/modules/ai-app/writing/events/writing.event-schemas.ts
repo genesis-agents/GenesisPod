@@ -1,7 +1,7 @@
 /**
  * Writing event payload Zod schemas — single source of truth.
  *
- * DomainEventBus校验：DomainEventBus.emit() 在 emit 时调用 spec.schema.safeParse(payload)；
+ * EventBus 校验：EventBus.emit() 在 emit 时调用 spec.schema.safeParse(payload)；
  * 失败则 dev/staging 直接 throw，生产降级 log.warn 静默 drop。
  *
  * 字段来源逐一对照实际 emit 点（2026-05-31）：
@@ -86,7 +86,7 @@ export type StageStalledPayload = z.infer<typeof StageStalledSchema>;
  *
  * Using z.discriminatedUnion is not possible because both branches share "stage"
  * and neither has an exclusive discriminator key. We use z.union instead.
- * The DomainEventBus will accept payload matching either branch.
+ * The EventBus will accept payload matching either branch.
  */
 const StageDegradedFrameworkSchema = z
   .object({

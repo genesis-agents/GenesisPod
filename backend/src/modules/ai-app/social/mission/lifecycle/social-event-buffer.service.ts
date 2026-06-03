@@ -1,7 +1,7 @@
 /**
  * SocialEventBuffer — social.* 事件内存缓冲（B6-L3 lift：复用 framework）
  *
- * 注册为 DomainEventBus adapter，截获所有 `social.` 前缀事件入内存，
+ * 注册为 EventBus adapter，截获所有 `social.` 前缀事件入内存，
  * 供 /replay 等回放端点读取。
  *
  * 2026-05-26 B6 lift：原 80-LOC 自实现替换为继承 BusinessTeamEventBufferFramework；

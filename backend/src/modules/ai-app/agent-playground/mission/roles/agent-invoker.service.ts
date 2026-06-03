@@ -19,7 +19,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import {
   AgentRunner,
-  DomainEventBus,
+  EventBus,
   MissionBudgetPool,
   BusinessTeamAgentInvokerFramework,
 } from "@/modules/ai-harness/facade";
@@ -115,7 +115,7 @@ export class AgentInvoker {
 
   constructor(
     runner: AgentRunner,
-    eventBus: DomainEventBus,
+    eventBus: EventBus,
     private readonly abortRegistry: MissionAbortRegistry,
     failureLearner: FailureLearnerService,
     @Optional() private readonly spanService?: PlaygroundMissionSpanService,

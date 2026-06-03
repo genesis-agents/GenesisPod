@@ -1,7 +1,7 @@
 /**
  * WritingMissionGateway — mission-scoped Socket.IO gateway for writing.* events
  *
- * Bridges DomainEventBus writing.* events → socket room writing:${missionId}.
+ * Bridges EventBus writing.* events → socket room writing:${missionId}.
  *
  * Mirrors AgentPlaygroundGateway pattern exactly:
  *   - afterInit() registers SocketBroadcastAdapter (io available at this point)
@@ -32,7 +32,7 @@ import {
 import type { Server, Socket } from "socket.io";
 import { JwtService } from "@nestjs/jwt";
 import {
-  DomainEventBus,
+  EventBus,
   SocketBroadcastAdapter,
   MissionOwnershipRegistry,
 } from "@/modules/ai-harness/facade";
@@ -56,7 +56,7 @@ export class WritingMissionGateway implements OnGatewayInit {
   private readonly log = new Logger(WritingMissionGateway.name);
 
   constructor(
-    private readonly eventBus: DomainEventBus,
+    private readonly eventBus: EventBus,
     private readonly ownership: MissionOwnershipRegistry,
     private readonly jwt: JwtService,
     private readonly missionQuery: WritingMissionQueryService,

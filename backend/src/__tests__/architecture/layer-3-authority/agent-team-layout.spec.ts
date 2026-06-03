@@ -40,7 +40,7 @@ const AGENT_TEAM_APPS = ["agent-playground", "social", "radar"];
  *   - api/       Controllers + DTO
  *   - runtime/   *.config.ts / gateway / constants / tuning profile
  *   - mission/   pipeline + agents + lifecycle + services + roles + ...
- *   - events/    DomainEventRegistry 注册 schema
+ *   - events/    EventRegistry 注册 schema
  *   - __tests__/ test fixtures（per-team 单测，contract 测试归 src/__tests__/）
  *
  * Per-app 可选：
@@ -169,7 +169,7 @@ describe("Agent Team App Layout — §8.2 强制规范", () => {
   });
 
   it.each(AGENT_TEAM_APPS)(
-    "%s 必须包含 events/ 顶层目录（DomainEventRegistry schema）",
+    "%s 必须包含 events/ 顶层目录（EventRegistry schema）",
     (app) => {
       const dir = path.join(APP_ROOT, app, "events");
       expect(fs.existsSync(dir) && fs.statSync(dir).isDirectory()).toBe(true);

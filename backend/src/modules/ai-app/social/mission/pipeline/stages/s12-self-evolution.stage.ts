@@ -41,7 +41,7 @@ export async function runSelfEvolutionStage(
     }
   }
 
-  // emit postlude 事件（schema 要求 stage:string —— 缺会被 DomainEventBus drop）
+  // emit postlude 事件（schema 要求 stage:string —— 缺会被 EventBus drop）
   await deps
     .emit({
       type: "social.mission:postlude:started",

@@ -9,7 +9,7 @@
  * 失败处理：
  *   - 单 source 失败 → 标记 SourceHealthService（指数 cooldown），不阻断其他 source
  *   - 全部 source 失败 → stage 仍返回（rawItems 为空），下游 S3-S7 自然短路
- *   - SourceHealthService 状态变化通过 DomainEventBus emit radar.source.health-changed
+ *   - SourceHealthService 状态变化通过 EventBus emit radar.source.health-changed
  */
 import { Injectable, Logger } from "@nestjs/common";
 import {

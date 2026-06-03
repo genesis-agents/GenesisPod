@@ -1,5 +1,5 @@
 /**
- * 反向回归 spec：dispatcher 触发的 lifecycle 事件必须走 DomainEventBus，不得直调
+ * 反向回归 spec：dispatcher 触发的 lifecycle 事件必须走 EventBus，不得直调
  * MissionEventBuffer.broadcast()。
  *
  * 真问题（2026-05-06 用户实证）：
@@ -9,7 +9,7 @@
  *   / mission:execution-aborted / mission:postlude:* 全部不实时刷新，必须刷新
  *   页面（/replay 走 buffer.read 兜底）才能看到。
  *
- * 反向证据：本 spec 用真 DomainEventBus + 一个 spy adapter，验证 dispatcher 触发的
+ * 反向证据：本 spec 用真 EventBus + 一个 spy adapter，验证 dispatcher 触发的
  *   每条事件都被该 spy adapter 收到（即"socket 实时分发"路径打通）。
  *
  * 如果以后又有人在 dispatcher 里写 buffer.broadcast() 直调，这条 spec 会立即拦截。
@@ -18,15 +18,15 @@
 import { Test } from "@nestjs/testing";
 import { z } from "zod";
 import {
-  DomainEventBus,
-  DomainEventRegistry,
+  EventBus,
+  EventRegistry,
   type IBroadcastAdapter,
   type DomainEvent,
 } from "@/modules/ai-harness/facade";
 import { CacheService } from "@/common/cache/cache.service";
 
 /**
- * 2026-05-15 Round 1 P1 fix: DomainEventBus 新增 CacheService 依赖（跨 pod 事件
+ * 2026-05-15 Round 1 P1 fix: EventBus 新增 CacheService 依赖（跨 pod 事件
  * 去重 + throttle）。spec 注入 fake cache，行为等价单 pod 内存模式。
  */
 class FakeCacheService {
@@ -43,20 +43,20 @@ class FakeCacheService {
 }
 
 describe("playground dispatcher → eventBus path (anti-bypass regression)", () => {
-  let eventBus: DomainEventBus;
-  let registry: DomainEventRegistry;
+  let eventBus: EventBus;
+  let registry: EventRegistry;
   let spyAdapter: IBroadcastAdapter & { received: DomainEvent[] };
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
-        DomainEventBus,
-        DomainEventRegistry,
+        EventBus,
+        EventRegistry,
         { provide: CacheService, useValue: new FakeCacheService() },
       ],
     }).compile();
-    eventBus = moduleRef.get(DomainEventBus);
-    registry = moduleRef.get(DomainEventRegistry);
+    eventBus = moduleRef.get(EventBus);
+    registry = moduleRef.get(EventRegistry);
 
     // 注册本 spec 用到的 5 条事件 type（passthrough schema，配合 bus 校验）
     registry.registerAll([

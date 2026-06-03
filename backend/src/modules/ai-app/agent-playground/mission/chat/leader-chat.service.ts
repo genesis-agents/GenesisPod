@@ -31,7 +31,7 @@ import {
   AiChatService,
   AiModelConfigService,
   BuiltinSkillCatalog,
-  DomainEventBus,
+  EventBus,
   ReflectionMissionScheduler,
   executeWithModelFailover,
   type DomainEvent,
@@ -92,7 +92,7 @@ export class LeaderChatService {
     private readonly prisma: PrismaService,
     private readonly chat: AiChatService,
     private readonly store: MissionStore,
-    private readonly eventBus: DomainEventBus,
+    private readonly eventBus: EventBus,
     private readonly skillCatalog: BuiltinSkillCatalog,
     // 2026-05-15 PR-I.4: Dreaming rule injection — 闭环让 LLM 看到过去失败模式提醒。
     // @Optional() 让 spec 不传也能跑（无 rule 时 snippet=空 → 与原 behavior 等价）。

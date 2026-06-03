@@ -25,7 +25,7 @@ export interface RadarMissionContext {
   readonly signal: AbortSignal;
   /**
    * dispatcher 注入：stage 内 emit 细粒度领域事件（如 source-progress）。
-   * 走 DomainEventBus（type 必须在 radar.events.ts 注册 schema），fire-and-forget。
+   * 走 EventBus（type 必须在 radar.events.ts 注册 schema），fire-and-forget。
    */
   readonly emit?: (type: string, payload: Record<string, unknown>) => void;
 }

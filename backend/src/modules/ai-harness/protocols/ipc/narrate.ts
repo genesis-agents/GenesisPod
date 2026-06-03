@@ -15,7 +15,7 @@
  *   - emit failures are swallowed (best-effort — narration must not break the pipeline)
  */
 
-import type { EmitFn } from "../ipc/stage-emit.utils";
+import type { EmitFn } from "./stage-emit.utils";
 
 // ── Types exported via facade ─────────────────────────────────────────────
 

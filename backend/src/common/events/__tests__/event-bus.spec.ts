@@ -1,5 +1,5 @@
 /**
- * DomainEventBus 单测 (PR-K / PR-E Phase 2 P0-4)
+ * EventBus 单测 (PR-K / PR-E Phase 2 P0-4)
  *
  * CacheService 用进程内 Map mock 替代，语义与真实 Redis 等价：
  *   - get: 若 key 存在且未过期返回值，否则 undefined
@@ -7,8 +7,8 @@
  */
 
 import { z } from "zod";
-import { DomainEventRegistry } from "../domain-event-registry";
-import { DomainEventBus } from "../domain-event-bus";
+import { EventRegistry } from "../event-registry";
+import { EventBus } from "../event-bus";
 import type { IBroadcastAdapter } from "../broadcast-adapter";
 import type { DomainEvent } from "../domain-event.types";
 import type { CacheService } from "@/common/cache/cache.service";
@@ -33,7 +33,7 @@ function mkCacheMock(): CacheService {
     del: jest.fn(async (key: string) => {
       store.delete(key);
     }),
-    // Other CacheService methods not exercised by DomainEventBus
+    // Other CacheService methods not exercised by EventBus
     getOrSet: jest.fn(),
     delByPrefix: jest.fn(),
     invalidateAIModelCache: jest.fn(),
@@ -57,9 +57,9 @@ function mkAdapter(
   return { adapter, calls };
 }
 
-describe("DomainEventBus (PR-K / PR-E P0-4)", () => {
+describe("EventBus (PR-K / PR-E P0-4)", () => {
   it("rejects unregistered event types", async () => {
-    const bus = new DomainEventBus(new DomainEventRegistry(), mkCacheMock());
+    const bus = new EventBus(new EventRegistry(), mkCacheMock());
     const ok = await bus.emit({
       type: "unknown.event",
       scope: {},
@@ -70,12 +70,12 @@ describe("DomainEventBus (PR-K / PR-E P0-4)", () => {
   });
 
   it("validates payload against registered schema", async () => {
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({
       type: "test.event",
       schema: z.object({ count: z.number() }),
     });
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     const a = mkAdapter("t");
     bus.registerAdapter(a.adapter);
 
@@ -101,10 +101,10 @@ describe("DomainEventBus (PR-K / PR-E P0-4)", () => {
   });
 
   it("dedupes by idempotencyKey within TTL (Redis-backed)", async () => {
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({ type: "x.evt" });
     const cache = mkCacheMock();
-    const bus = new DomainEventBus(reg, cache);
+    const bus = new EventBus(reg, cache);
     const a = mkAdapter("t");
     bus.registerAdapter(a.adapter);
 
@@ -128,9 +128,9 @@ describe("DomainEventBus (PR-K / PR-E P0-4)", () => {
   });
 
   it("allows distinct idempotencyKeys to both emit", async () => {
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({ type: "x.evt" });
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     const a = mkAdapter("t");
     bus.registerAdapter(a.adapter);
 
@@ -156,12 +156,12 @@ describe("DomainEventBus (PR-K / PR-E P0-4)", () => {
   });
 
   it("throttles per agentId per window (Redis-backed)", async () => {
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({
       type: "fast.evt",
       throttle: { windowMs: 1000, maxEvents: 2 },
     });
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     const a = mkAdapter("t");
     bus.registerAdapter(a.adapter);
 
@@ -179,12 +179,12 @@ describe("DomainEventBus (PR-K / PR-E P0-4)", () => {
   });
 
   it("throttle counts are independent across different agentIds", async () => {
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({
       type: "fast.evt",
       throttle: { windowMs: 1000, maxEvents: 1 },
     });
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     const a = mkAdapter("t");
     bus.registerAdapter(a.adapter);
 
@@ -221,9 +221,9 @@ describe("DomainEventBus (PR-K / PR-E P0-4)", () => {
   });
 
   it("only delivers to adapters that accept the event", async () => {
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({ type: "ws.evt" });
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     const wsAdapter = mkAdapter("ws", (e) => e.type.startsWith("ws."));
     const otherAdapter = mkAdapter("other", (e) => e.type.startsWith("rest."));
     bus.registerAdapter(wsAdapter.adapter);
@@ -240,13 +240,13 @@ describe("DomainEventBus (PR-K / PR-E P0-4)", () => {
   });
 
   it("throttle Redis key uses correct prefix and TTL", async () => {
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({
       type: "thr.evt",
       throttle: { windowMs: 5000, maxEvents: 10 },
     });
     const cache = mkCacheMock();
-    const bus = new DomainEventBus(reg, cache);
+    const bus = new EventBus(reg, cache);
     bus.registerAdapter(mkAdapter("t").adapter);
 
     await bus.emit({

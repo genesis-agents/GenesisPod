@@ -1,7 +1,7 @@
 /**
  * RadarMissionEventBuffer — 内存事件缓冲（B6-L3 lift：复用 framework）
  *
- * 注册为 DomainEventBus adapter，截获所有 ai-radar.* 事件按 runId(=missionId)
+ * 注册为 EventBus adapter，截获所有 ai-radar.* 事件按 runId(=missionId)
  * 缓存，供 GET /radar/replay/:runId 回放。
  *
  * 2026-05-26 B6 lift：原 80-LOC 自实现替换为继承 BusinessTeamEventBufferFramework；

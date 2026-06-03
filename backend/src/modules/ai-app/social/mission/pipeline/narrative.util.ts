@@ -3,7 +3,7 @@
  *
  * Wave-1 P4 (2026-05-24, mirroring playground R2-#50): The generic narrate()
  * function and NarrativeEvent/NarrativeTag types live in ai-harness
- * (protocols/events/narrate.ts) and are exported via the harness facade. This
+ * (protocols/ipc/narrate.ts) and are exported via the harness facade. This
  * file is a binding shim that:
  *   - Re-exports the types so stage files keep the same import path
  *   - Binds the social-specific event type string "social.agent:narrative"

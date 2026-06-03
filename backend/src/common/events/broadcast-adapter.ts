@@ -9,7 +9,7 @@
  *
  * Adapter 接收 DomainEvent 流，自行决定如何分发（房间过滤、ack、persist 等）。
  *
- * 事件去重 / 节流由 DomainEventBus 在 emit 前完成；adapter 只负责传输。
+ * 事件去重 / 节流由 EventBus 在 emit 前完成；adapter 只负责传输。
  */
 
 import { Injectable, Logger } from "@nestjs/common";

@@ -10,7 +10,7 @@
  * ```ts
  * @Injectable()
  * export class MyAppEventRelay extends EventRelayFramework {
- *   constructor(eventBus: DomainEventBus) {
+ *   constructor(eventBus: EventBus) {
  *     super(eventBus, "my-app");
  *   }
  * }
@@ -20,7 +20,7 @@
 import { Logger } from "@nestjs/common";
 // ★ 不走 facade barrel：facade/index.ts 也 re-export 本 framework，
 //   构成循环加载（详见 mission-runtime-shell.framework.ts 注释）。
-import { DomainEventBus } from "@/modules/ai-harness/protocols/events/domain-event-bus";
+import { EventBus } from "@/common/events/event-bus";
 import {
   MissionAbortRegistry,
   MissionAbortReason,
@@ -30,7 +30,7 @@ import {
   estimateUsdFromTokens,
   extractRealCostUsd,
 } from "@/modules/ai-harness/tracing/observability/token-spend.utils";
-import type { DomainEvent } from "@/modules/ai-harness/protocols/events/domain-event.types";
+import type { DomainEvent } from "@/common/events/domain-event.types";
 import type { IAgentEvent } from "@/modules/ai-harness/agents/abstractions/agent-event.interface";
 
 /** EventRelay 与 invoker 共享的调用上下文 */
@@ -52,7 +52,7 @@ export class EventRelayFramework {
   private static readonly SOFT_WARN_THRESHOLD = 0.9;
 
   constructor(
-    protected readonly eventBus: DomainEventBus,
+    protected readonly eventBus: EventBus,
     /** 业务事件 type 字符串前缀（如 "my-app" / "research"） */
     protected readonly eventNamespace: string,
   ) {}

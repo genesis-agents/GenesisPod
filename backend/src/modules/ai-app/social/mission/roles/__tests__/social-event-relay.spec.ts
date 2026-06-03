@@ -4,12 +4,12 @@
  * SocialEventRelay extends EventRelayFramework and passes "social" as the
  * namespace prefix to the parent constructor.
  *
- * We mock DomainEventBus and EventRelayFramework at the module level to avoid
+ * We mock EventBus and EventRelayFramework at the module level to avoid
  * pulling in the full harness stack.
  */
 
 import {
-  DomainEventBus,
+  EventBus,
   EventRelayFramework,
 } from "@/modules/ai-harness/facade";
 import { SocialEventRelay } from "../social-event-relay";
@@ -41,15 +41,15 @@ jest.mock("@/modules/ai-harness/facade", () => ({
     this.tickCost = mockTickCost;
     this.clearMission = mockClearMission;
   }),
-  DomainEventBus: jest.fn(),
+  EventBus: jest.fn(),
 }));
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeMockEventBus(): DomainEventBus {
-  return { emit: jest.fn(), on: jest.fn() } as unknown as DomainEventBus;
+function makeMockEventBus(): EventBus {
+  return { emit: jest.fn(), on: jest.fn() } as unknown as EventBus;
 }
 
 // ---------------------------------------------------------------------------

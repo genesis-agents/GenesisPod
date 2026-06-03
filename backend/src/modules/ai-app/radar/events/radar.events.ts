@@ -1,7 +1,7 @@
 /**
- * RadarEvents —— DomainEventBus 事件 schema 注册清单
+ * RadarEvents —— EventBus 事件 schema 注册清单
  *
- * 所有 ai-radar.* 事件必须在此声明 zod schema；DomainEventBus 校验未注册的
+ * 所有 ai-radar.* 事件必须在此声明 zod schema；EventBus 校验未注册的
  * type 一律 drop+warn 不广播。
  *
  * scope.missionId 实际是 RadarRun.id，前端 socket.io room "radar:<runId>"。

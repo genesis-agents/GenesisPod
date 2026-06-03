@@ -6,7 +6,7 @@
  * in AGENT_PLAYGROUND_EVENTS.
  *
  * If an emit is added to source but the events registry is not updated,
- * DomainEventBus will silently drop it at runtime.  This spec makes that a
+ * EventBus will silently drop it at runtime.  This spec makes that a
  * hard test failure instead.
  *
  * Approach: use Node fs to read all non-test .ts files, regex-extract every
@@ -114,7 +114,7 @@ describe("#48-registry AGENT_PLAYGROUND_EVENTS coverage", () => {
       // Provide a clear, actionable error message
       throw new Error(
         `The following event types are emitted in source but NOT registered in AGENT_PLAYGROUND_EVENTS.\n` +
-          `DomainEventBus will silently DROP them at runtime.\n` +
+          `EventBus will silently DROP them at runtime.\n` +
           `Add them to agent-playground.events.ts:\n\n` +
           unregistered.map((u) => `  - ${u}`).join("\n"),
       );

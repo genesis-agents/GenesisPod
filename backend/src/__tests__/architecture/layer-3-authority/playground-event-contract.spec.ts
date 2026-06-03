@@ -239,7 +239,7 @@ describe("Playground Event Contract — Frontend ↔ Backend", () => {
     }
   });
 
-  it("backend 实际 emit 的每个事件类型都在 AGENT_PLAYGROUND_EVENTS 注册（防 DomainEventBus drop）", () => {
+  it("backend 实际 emit 的每个事件类型都在 AGENT_PLAYGROUND_EVENTS 注册（防 EventBus drop）", () => {
     const unregistered: string[] = [];
     for (const ev of emitted) {
       if (!registered.has(ev)) {
@@ -248,7 +248,7 @@ describe("Playground Event Contract — Frontend ↔ Backend", () => {
     }
     if (unregistered.length > 0) {
       throw new Error(
-        `Backend 代码 emit 下列事件但 events.ts 未注册（DomainEventBus 会 drop + warn）:\n` +
+        `Backend 代码 emit 下列事件但 events.ts 未注册（EventBus 会 drop + warn）:\n` +
           unregistered.map((e) => `  ✗ ${e}`).join("\n") +
           `\n\n修法：在 backend agent-playground.events.ts 用 T(...) 或 S(..., schema) 注册。`,
       );

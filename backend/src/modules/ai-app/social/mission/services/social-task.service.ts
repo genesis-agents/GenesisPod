@@ -46,7 +46,7 @@ export class SocialTaskService {
 
   /**
    * 拉取该 social mission 的累积事件（前端 hydrate + polling 兜底）。
-   * 仿 agent-playground replay；事件源 = SocialEventBuffer（DomainEventBus adapter）。
+   * 仿 agent-playground replay；事件源 = SocialEventBuffer（EventBus adapter）。
    * 鉴权：mission 必须属于该用户（按 missionId 查 task）。
    */
   async getMissionReplay(

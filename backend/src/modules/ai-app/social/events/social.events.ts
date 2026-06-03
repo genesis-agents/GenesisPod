@@ -1,7 +1,7 @@
 /**
- * SocialEvents — DomainEventBus 事件类型注册清单
+ * SocialEvents — EventBus 事件类型注册清单
  *
- * 未注册的 type 会被 DomainEventBus drop+warn 不广播。所有 social.* 事件必须
+ * 未注册的 type 会被 EventBus drop+warn 不广播。所有 social.* 事件必须
  * 在此声明。Mirror of agent-playground/agent-playground.events.ts。
  */
 

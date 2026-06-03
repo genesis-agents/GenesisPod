@@ -4,28 +4,28 @@
  * Verifies four backend protection mechanisms with REVERSE EVIDENCE:
  * each test deliberately provides a "broken" payload to confirm the guard fires.
  *
- *   3a. DomainEventBus: emit payload that fails zod schema → returns false
- *   3b. DomainEventBus STRICT mode: same payload → throws
- *   3c. DomainEventBus: real leader:goals-set payload shape → passes schema
- *   3d. DomainEventBus: mutated leader:goals-set (initialRisks item is string) → fails
+ *   3a. EventBus: emit payload that fails zod schema → returns false
+ *   3b. EventBus STRICT mode: same payload → throws
+ *   3c. EventBus: real leader:goals-set payload shape → passes schema
+ *   3d. EventBus: mutated leader:goals-set (initialRisks item is string) → fails
  *   4.  POST /api/v1/agent-playground/error-report endpoint structure check
  */
 
 import { z } from "zod";
-import { DomainEventRegistry } from "@/modules/ai-harness/protocols/events/domain-event-registry";
-import { DomainEventBus } from "@/modules/ai-harness/protocols/events/domain-event-bus";
+import { EventRegistry } from "@/common/events/event-registry";
+import { EventBus } from "@/common/events/event-bus";
 import * as fs from "fs";
 import * as path from "path";
 
 // ---------------------------------------------------------------------------
-// 3. DomainEventBus schema validation (reverse evidence tests)
+// 3. EventBus schema validation (reverse evidence tests)
 // ---------------------------------------------------------------------------
 
-describe("Protection Net — DomainEventBus contract-drift guard", () => {
+describe("Protection Net — EventBus contract-drift guard", () => {
   function buildBus(schema?: z.ZodTypeAny) {
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({ type: "test.goals-set", schema });
-    return new DomainEventBus(reg);
+    return new EventBus(reg);
   }
 
   // ---- 3a. Default mode: invalid payload → false, not throw ----
@@ -184,7 +184,7 @@ describe("Protection Net — DomainEventBus contract-drift guard", () => {
 
   describe("3d. Unregistered event type is dropped", () => {
     it("emitting an unregistered event type returns false", async () => {
-      const bus = new DomainEventBus(new DomainEventRegistry());
+      const bus = new EventBus(new EventRegistry());
       const result = await bus.emit({
         type: "unregistered.event.type",
         scope: {},

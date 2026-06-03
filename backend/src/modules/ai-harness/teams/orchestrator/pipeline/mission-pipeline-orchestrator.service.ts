@@ -284,14 +284,14 @@ export class MissionPipelineOrchestrator {
     //     1. **stage 不再有 abort timer**——直接 `await primitive.run(...)`，跑到
     //        完成 / primitive 内部主动 throw（如 LLM HTTP timeout 抛上来）。
     //     2. **inactivity 检测在 mission level**：MissionLivenessGuard 监听
-    //        DomainEventBus 该 missionId 事件流；stage 内子事件 emit → 自动刷新
+    //        EventBus 该 missionId 事件流；stage 内子事件 emit → 自动刷新
     //        liveness signal → mission 不会被误杀。真没活动 5min 才视为死。
     //     3. **wall-clock 上限在 mission level**：mission-runtime-shell 的
     //        wallTimer 防 LLM 死循环（默认 mission 总长 ≤ 3h）。
     //     4. **stallVisibilityMs**（保留 step.timeoutMs * 1.5 / 默认 15min）仅作
     //        可见性 emit `stage:stalled` warning，不再杀 stage。
     //
-    //   联动信号源：DomainEventBus 该 missionId 事件流（同时驱动 liveness +
+    //   联动信号源：EventBus 该 missionId 事件流（同时驱动 liveness +
     //   stall watchdog + heartbeat）。所有走 PipelineOrchestrator 的 ai-app
     //   一起受益（统一平台机制）。
     const stallVisibilityMs = Math.max(

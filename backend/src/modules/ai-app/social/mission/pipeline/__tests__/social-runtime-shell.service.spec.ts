@@ -6,7 +6,7 @@
 import { SocialRuntimeShellService } from "../social-runtime-shell.service";
 import type {
   MissionRuntimeShellFramework,
-  DomainEventBus,
+  EventBus,
 } from "@/modules/ai-harness/facade";
 import type { SocialMissionStore } from "../../lifecycle/social-mission-store.service";
 import type { RunSocialMissionInput } from "../../context/mission-context";
@@ -32,7 +32,7 @@ function createMockStore() {
 function createMockEventBus() {
   return {
     emit: jest.fn().mockResolvedValue(undefined),
-  } as unknown as jest.Mocked<DomainEventBus>;
+  } as unknown as jest.Mocked<EventBus>;
 }
 
 function makeInput(
@@ -69,7 +69,7 @@ describe("SocialRuntimeShellService", () => {
     service = new SocialRuntimeShellService(
       mockFramework as unknown as MissionRuntimeShellFramework,
       mockStore as unknown as SocialMissionStore,
-      mockEventBus as unknown as DomainEventBus,
+      mockEventBus as unknown as EventBus,
     );
   });
 

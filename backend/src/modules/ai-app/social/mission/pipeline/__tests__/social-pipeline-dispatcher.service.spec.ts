@@ -24,7 +24,7 @@ import {
 import type {
   MissionPipelineRegistry,
   MissionPipelineOrchestrator,
-  DomainEventBus,
+  EventBus,
   AgentRunner,
   MissionAbortRegistry,
   FailureLearnerService,
@@ -162,7 +162,7 @@ function createMockInvoker() {
 function createMockEventBus() {
   return {
     emit: jest.fn().mockResolvedValue(undefined),
-  } as unknown as jest.Mocked<DomainEventBus>;
+  } as unknown as jest.Mocked<EventBus>;
 }
 
 function createMockAbortRegistry() {
@@ -221,7 +221,7 @@ function createDispatcher(
     businessOrch?: jest.Mocked<SocialBusinessOrchestrator>;
     store?: jest.Mocked<SocialMissionStore>;
     invoker?: jest.Mocked<SocialAgentInvoker>;
-    eventBus?: jest.Mocked<DomainEventBus>;
+    eventBus?: jest.Mocked<EventBus>;
     prisma?: jest.Mocked<PrismaService>;
     lifecycleManager?: jest.Mocked<MissionLifecycleManager>;
   } = {},
@@ -254,7 +254,7 @@ function createDispatcher(
     store as unknown as SocialMissionStore,
     invoker as unknown as SocialAgentInvoker,
     runner as unknown as AgentRunner,
-    eventBus as unknown as DomainEventBus,
+    eventBus as unknown as EventBus,
     abortRegistry as unknown as MissionAbortRegistry,
     ownershipRegistry as never,
     failureLearner as unknown as FailureLearnerService,
@@ -946,7 +946,7 @@ describe("SocialPipelineDispatcher", () => {
   describe("bridgeOrchestratorEvent via orchestrator.run onEvent", () => {
     async function runWithEvent(
       eventArg: Record<string, unknown>,
-    ): Promise<jest.Mocked<DomainEventBus>> {
+    ): Promise<jest.Mocked<EventBus>> {
       const prisma = createMockPrisma();
       (prisma.socialContent.findFirst as jest.Mock).mockResolvedValue({
         title: "T",

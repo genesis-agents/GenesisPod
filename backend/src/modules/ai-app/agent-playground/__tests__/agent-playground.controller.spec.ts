@@ -192,7 +192,7 @@ function buildController() {
       },
     ),
   };
-  // ★ E32: DomainEventBus mock（早爆补发终态事件）
+  // ★ E32: EventBus mock（早爆补发终态事件）
   const eventBus = {
     publish: jest.fn().mockResolvedValue(undefined),
     emit: jest.fn(),

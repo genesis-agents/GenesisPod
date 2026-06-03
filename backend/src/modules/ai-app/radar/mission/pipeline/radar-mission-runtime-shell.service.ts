@@ -8,7 +8,7 @@
  */
 import { Injectable, Logger } from "@nestjs/common";
 import {
-  DomainEventBus,
+  EventBus,
   MissionRuntimeShellFramework,
   type IMissionRuntimeAdapter,
   type MissionRuntimeSession,
@@ -48,7 +48,7 @@ export class RadarMissionRuntimeShell {
   constructor(
     private readonly framework: MissionRuntimeShellFramework,
     private readonly store: RadarMissionStore,
-    private readonly eventBus: DomainEventBus,
+    private readonly eventBus: EventBus,
   ) {}
 
   async openSession(args: {

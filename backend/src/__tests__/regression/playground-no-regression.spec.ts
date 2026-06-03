@@ -318,7 +318,7 @@ describe("P0-D — trajectory persistence methods exist in MissionStore", () => 
 
 // ---------------------------------------------------------------------------
 // P0-8de5d02b0: leader:goals-set initialRisks must be object[] not string[]
-// — tested here via DomainEventBus contract (same guard as protection-net.spec.ts
+// — tested here via EventBus contract (same guard as protection-net.spec.ts
 //   but verifying the specific event schema registered in the registry)
 // ---------------------------------------------------------------------------
 

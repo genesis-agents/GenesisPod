@@ -20,7 +20,7 @@ import { Injectable, OnModuleInit } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import {
   BusinessTeamMissionDispatcherFramework,
-  DomainEventBus,
+  EventBus,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
   MissionAbortReason,
@@ -119,7 +119,7 @@ export class RadarPipelineDispatcher
     private readonly orchestrator: MissionPipelineOrchestrator,
     private readonly runtimeShell: RadarMissionRuntimeShell,
     private readonly businessOrch: RadarBusinessOrchestrator,
-    eventBus: DomainEventBus,
+    eventBus: EventBus,
     private readonly store: RadarMissionStore,
     // ★ C0/G1：唯一终态写入口。dispatcher 不再直写 store.markX，统一经 finalize 仲裁。
     private readonly lifecycleManager: MissionLifecycleManager,
