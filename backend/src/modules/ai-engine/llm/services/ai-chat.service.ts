@@ -11,7 +11,10 @@ import { RequestContext } from "@/common/context/request-context";
 import { withUserContext } from "@/common/context/with-user-context";
 import { TaskProfile, ChatMessage } from "../types";
 import { TaskProfileMapperService } from "./chat/task-profile-mapper.service";
-import { AiModelConfigService, AIModelConfig } from "../models/config/ai-model-config.service";
+import {
+  AiModelConfigService,
+  AIModelConfig,
+} from "../models/config/ai-model-config.service";
 // 模型级 failover：chat() 的 BYOK 换模型逻辑抽到独立 util（god-class 不膨胀）。
 import { runChatWithModelFailover } from "../models/selection/chat-model-failover.util";
 // ★ 2026-05-21 Capability Contract: modelType 选择的单一权威（quality-first 默认）
@@ -47,7 +50,7 @@ import { AiChatRetryService } from "./chat/ai-chat-retry.service";
 import { KernelContext } from "@/common/context/kernel-context";
 import { BillingContext } from "@/modules/platform/facade";
 import { ModelPricingRegistry } from "../models/pricing/model-pricing.registry";
-import { KeyResolverService } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.service";
+import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
 import { AiChatFailoverCallerService } from "./chat/ai-chat-failover-caller.service";
 // v5.1 R0.5 PR-5: 双轨接 plugins/core HookBus
 import type { HookBus } from "@/plugins/core/hook-bus";
@@ -62,7 +65,7 @@ import {
   InvalidApiKeyError,
   NoAvailableKeyError,
   QuotaExceededError,
-} from "@/modules/ai-engine/credentials/key-resolver/key-resolver.errors";
+} from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
 
 export interface ChatCompletionOptions {
   model: string;

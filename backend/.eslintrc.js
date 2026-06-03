@@ -474,10 +474,10 @@ module.exports = {
         // plan-based AgentResult<AgentOutput> 会遮蔽 agent.types 的 AgentResult
         // （含 tokensUsed），类型不兼容，故整目录走 agent.types 直引。
         "**/modules/open-api/agents-api/**/*.ts",
-        // 2026-06-03: credential-admin 面（credentials 迁入 ai-engine 后）。这些是
-        // 管理 BYOK key 的 admin 端点，本就紧贴 credentials；从 ai-engine/facade 大
-        // barrel 取 credential service 会触发循环加载 → NestJS DI 构造参数 undefined
-        // （admin.service index[6] 解析失败）。与 ai-app/byok 同理，直引 credentials source。
+        // 2026-06-03: credential-admin 面（credentials 已迁 L1 platform/credentials）。这些是
+        // 管理 BYOK key 的 admin 端点，本就紧贴 credentials；从 facade 大 barrel 取 credential
+        // service 会触发循环加载 → NestJS DI 构造参数 undefined（admin.service index[6] 解析
+        // 失败）。与 ai-app/byok 同理，直引 platform/credentials source。
         "**/modules/open-api/admin/admin.service.ts",
         "**/modules/open-api/byok-admin/admin-key-assignments.controller.ts",
         "**/modules/open-api/byok-admin/admin-key-requests.controller.ts",

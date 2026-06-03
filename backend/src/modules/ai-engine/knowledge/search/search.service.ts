@@ -40,7 +40,7 @@ import { SecretsService, SECRET_NAMES } from "@/modules/platform/facade";
 import {
   ToolKeyResolverService,
   NoToolKeyError,
-} from "@/modules/ai-engine/credentials/tool-key-resolver/tool-key-resolver.service";
+} from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
 import { RequestContext } from "@/common/context/request-context";
 import * as duckDuckScrape from "duck-duck-scrape";
 import * as crypto from "crypto";

@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/platform/facade";
-import { ToolKeyResolverService } from "@/modules/ai-engine/credentials/tool-key-resolver/tool-key-resolver.service";
+import { ToolKeyResolverService } from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
 import { RequestContext } from "@/common/context/request-context";
 import { SemanticScholarConnector } from "../semantic-scholar.connector";
 import { DataSourceType } from "../../../../types/data-source.types";

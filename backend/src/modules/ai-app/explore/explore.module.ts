@@ -9,7 +9,7 @@ import { YoutubeAiChatService } from "./youtube-ai-chat/youtube-ai-chat.service"
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { BrowserModule } from "../../../common/browser/browser.module";
 import { SystemSettingModule } from "../../../common/settings/system-setting.module";
-import { ToolKeyResolverModule } from "../../ai-engine/credentials/tool-key-resolver/tool-key-resolver.module";
+import { ToolKeyResolverModule } from "../../platform/credentials/tool-key-resolver/tool-key-resolver.module";
 import { ExploreContentSourceProvider } from "./integrations/explore-content-source.provider";
 
 /**

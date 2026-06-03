@@ -14,7 +14,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { ExportModule } from "../../../common/export/export.module";
 import { BrowserModule } from "../../../common/browser/browser.module";
 import { SecretsModule } from "../../platform/secrets/secrets.module";
-import { ToolKeyResolverModule } from "../../ai-engine/credentials/tool-key-resolver/tool-key-resolver.module";
+import { ToolKeyResolverModule } from "../../platform/credentials/tool-key-resolver/tool-key-resolver.module";
 
 // Registry
 import { ToolRegistry } from "./registry/tool.registry";
