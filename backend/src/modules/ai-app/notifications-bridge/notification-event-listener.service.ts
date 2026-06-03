@@ -30,7 +30,7 @@ export interface TaskCompletedNotificationPayload {
 /**
  * NotificationEventListener
  *
- * 业务模块（research / writing / office）走自有 SocketIO emit，**没上 DomainEventBus**，
+ * 业务模块（research / writing / office）走自有 SocketIO emit，**没上 EventBus**，
  * 所以 NotificationBroadcastAdapter 那条路接不到它们。这里通过 NestJS 的 EventEmitter2
  * 标准 `@OnEvent` 接收业务模块 fire-and-forget emit 的 `notification.task-completed` 事件。
  *

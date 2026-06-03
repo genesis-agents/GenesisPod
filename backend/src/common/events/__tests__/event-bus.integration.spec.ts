@@ -1,5 +1,5 @@
 /**
- * DomainEventBus — extra branch coverage (PR-K extra / PR-E Phase 2 P0-4 update)
+ * EventBus — extra branch coverage (PR-K extra / PR-E Phase 2 P0-4 update)
  * Covers: unregisterAdapter, adapter failure handling, global throttle (no agentId),
  *         duplicate adapter skip, throttle reset, schema-less events, key-less idempotency,
  *         defaultAdapter constructor slot.
@@ -8,8 +8,8 @@
  * replaced by Redis TTL-based expiry in PR-E Phase 2 P0-4. No explicit GC needed.
  */
 
-import { DomainEventRegistry } from "../domain-event-registry";
-import { DomainEventBus } from "../domain-event-bus";
+import { EventRegistry } from "../event-registry";
+import { EventBus } from "../event-bus";
 import type { IBroadcastAdapter } from "../broadcast-adapter";
 import type { DomainEvent } from "../domain-event.types";
 import type { CacheService } from "@/common/cache/cache.service";
@@ -66,15 +66,15 @@ function makeReg(
     schema?: unknown;
   },
 ) {
-  const reg = new DomainEventRegistry();
+  const reg = new EventRegistry();
   reg.register({ type, ...(opts ?? {}) });
   return reg;
 }
 
-describe("DomainEventBus — extra branches", () => {
+describe("EventBus — extra branches", () => {
   it("unregisterAdapter removes it from delivery", async () => {
     const reg = makeReg("u.evt");
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     const { adapter, calls } = mkAdapter("ua");
     bus.registerAdapter(adapter);
 
@@ -88,13 +88,13 @@ describe("DomainEventBus — extra branches", () => {
   });
 
   it("unregisterAdapter on unknown id is a no-op", () => {
-    const bus = new DomainEventBus(new DomainEventRegistry(), mkCacheMock());
+    const bus = new EventBus(new EventRegistry(), mkCacheMock());
     expect(() => bus.unregisterAdapter("nonexistent")).not.toThrow();
   });
 
   it("adapter broadcast failure is swallowed — event returns true", async () => {
     const reg = makeReg("fail.evt");
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     const { adapter: failAdapter } = mkAdapter("fail", () => true, true);
     const { adapter: okAdapter, calls: okCalls } = mkAdapter("ok");
     bus.registerAdapter(failAdapter);
@@ -112,7 +112,7 @@ describe("DomainEventBus — extra branches", () => {
 
   it("duplicate adapter id is not re-added", async () => {
     const reg = makeReg("dup.evt");
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     const { adapter, calls } = mkAdapter("dup");
     bus.registerAdapter(adapter);
     bus.registerAdapter(adapter); // second register with same id
@@ -121,12 +121,12 @@ describe("DomainEventBus — extra branches", () => {
   });
 
   it("global throttle applies when no agentId on event", async () => {
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({
       type: "global.evt",
       throttle: { windowMs: 10000, maxEvents: 1 },
     });
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     const { adapter, calls } = mkAdapter("t");
     bus.registerAdapter(adapter);
 
@@ -145,12 +145,12 @@ describe("DomainEventBus — extra branches", () => {
 
   it("throttle resets after windowMs elapses", async () => {
     jest.useFakeTimers();
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({
       type: "win.evt",
       throttle: { windowMs: 100, maxEvents: 1 },
     });
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     const { adapter, calls } = mkAdapter("t");
     bus.registerAdapter(adapter);
 
@@ -173,9 +173,9 @@ describe("DomainEventBus — extra branches", () => {
   });
 
   it("many unique agentIds do not cause errors (Redis TTL handles expiry)", async () => {
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({ type: "gc.evt", throttle: { windowMs: 1, maxEvents: 999 } });
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     // Emit 200 times with unique agentIds — no GC counter needed, Redis TTL expires entries
     for (let i = 0; i < 200; i++) {
       await bus.emit({
@@ -190,9 +190,9 @@ describe("DomainEventBus — extra branches", () => {
   });
 
   it("many unique idempotencyKeys do not cause errors (Redis TTL handles expiry)", async () => {
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({ type: "idem.evt" });
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     // Emit 200 unique keys — no cap-based GC needed, Redis TTL expires entries
     for (let i = 0; i < 200; i++) {
       await bus.emit({
@@ -207,9 +207,9 @@ describe("DomainEventBus — extra branches", () => {
   });
 
   it("schema validation allows events without schema", async () => {
-    const reg = new DomainEventRegistry();
+    const reg = new EventRegistry();
     reg.register({ type: "no.schema.evt" }); // no schema
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     const { adapter, calls } = mkAdapter("t");
     bus.registerAdapter(adapter);
 
@@ -225,7 +225,7 @@ describe("DomainEventBus — extra branches", () => {
 
   it("idempotency key dedup does not affect events without key", async () => {
     const reg = makeReg("nokey.evt");
-    const bus = new DomainEventBus(reg, mkCacheMock());
+    const bus = new EventBus(reg, mkCacheMock());
     const { adapter, calls } = mkAdapter("t");
     bus.registerAdapter(adapter);
 
@@ -244,7 +244,7 @@ describe("DomainEventBus — extra branches", () => {
     const reg = makeReg("def.evt");
     const { adapter: defaultAdapter, calls } = mkAdapter("logger");
     // Pass as optional third arg (LoggerBroadcastAdapter slot)
-    const bus = new DomainEventBus(reg, mkCacheMock(), defaultAdapter as never);
+    const bus = new EventBus(reg, mkCacheMock(), defaultAdapter as never);
     await bus.emit({ type: "def.evt", scope: {}, payload: {}, timestamp: 0 });
     expect(calls).toHaveLength(1);
   });

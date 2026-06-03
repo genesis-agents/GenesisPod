@@ -11,7 +11,7 @@
  *                                    ：social 业务档位映射
  *   - createMissionRow              ：调 SocialMissionStore.create
  *   - refreshHeartbeat              ：调 SocialMissionStore.refreshHeartbeat
- *   - emitMissionEvent              ：经 DomainEventBus → 走 buffer + socket adapter
+ *   - emitMissionEvent              ：经 EventBus → 走 buffer + socket adapter
  *
  * Mirror of agent-playground/services/mission/workflow/mission-runtime-shell.service.ts，
  * 但 social 版本 simpler：无 inheritFromMissionId / userProfile JSON 持久化 / leader
@@ -20,7 +20,7 @@
 
 import { Injectable } from "@nestjs/common";
 import {
-  DomainEventBus,
+  EventBus,
   MissionRuntimeShellFramework,
   type IMissionRuntimeAdapter,
   type MissionRuntimeSession,
@@ -74,7 +74,7 @@ export class SocialRuntimeShellService {
   constructor(
     private readonly framework: MissionRuntimeShellFramework,
     private readonly store: SocialMissionStore,
-    private readonly eventBus: DomainEventBus,
+    private readonly eventBus: EventBus,
   ) {}
 
   async openSession(args: {
@@ -159,7 +159,7 @@ export class SocialRuntimeShellService {
             timestamp: Date.now(),
           })
           .catch(() => {
-            // schema 校验失败由 DomainEventBus 自己 log，这里不阻断
+            // schema 校验失败由 EventBus 自己 log，这里不阻断
           });
       },
     };

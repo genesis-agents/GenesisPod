@@ -16,7 +16,7 @@ import {
   MissionCheckpointService,
   InMemoryMissionCheckpointStore,
   type MissionCheckpointStore,
-  DomainEventRegistry,
+  EventRegistry,
 } from "@/modules/ai-harness/facade";
 import { WritingMissionGateway } from "./mission/writing-mission.gateway";
 import { WRITING_EVENTS } from "./events/writing.events";
@@ -163,7 +163,7 @@ import {
     AiWritingService,
     WritingDataExportService,
     WritingCoordinatorService,
-    // ★ W1: new mission-scoped gateway (writing.* events via DomainEventBus → socket room)
+    // ★ W1: new mission-scoped gateway (writing.* events via EventBus → socket room)
     WritingMissionGateway,
     // Bible services
     StoryBibleService,
@@ -307,12 +307,12 @@ export class AiWritingModule implements OnModuleInit {
     private readonly promptSkillBridge: PromptSkillBridge,
     // R0-A5: 注册 writing skills 目录到 engine SkillLoader
     private readonly skillLoader: SkillLoaderService,
-    // ★ W1: 事件类型注册（DomainEventBus 未注册的 type 全部 drop+warn）
-    private readonly eventRegistry: DomainEventRegistry,
+    // ★ W1: 事件类型注册（EventBus 未注册的 type 全部 drop+warn）
+    private readonly eventRegistry: EventRegistry,
   ) {}
 
   async onModuleInit() {
-    // ★ W1: 注册 writing.* 事件类型 — DomainEventBus 校验未注册 type 会 drop+warn
+    // ★ W1: 注册 writing.* 事件类型 — EventBus 校验未注册 type 会 drop+warn
     // 必须在 gateway afterInit 之前完成，但 DI 生命周期保证 onModuleInit 先于 afterInit
     this.eventRegistry.registerAll(WRITING_EVENTS);
     this.logger.log("  writing.* event types registered (21)");

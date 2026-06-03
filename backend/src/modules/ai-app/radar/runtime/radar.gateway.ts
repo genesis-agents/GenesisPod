@@ -16,7 +16,7 @@ import {
 import type { Server, Socket } from "socket.io";
 import { JwtService } from "@nestjs/jwt";
 import {
-  DomainEventBus,
+  EventBus,
   SocketBroadcastAdapter,
 } from "@/modules/ai-harness/facade";
 import { RadarMissionStore } from "../mission/lifecycle/radar-mission-store.service";
@@ -63,7 +63,7 @@ export class RadarGateway implements OnGatewayInit {
   private readonly log = new Logger(RadarGateway.name);
 
   constructor(
-    private readonly eventBus: DomainEventBus,
+    private readonly eventBus: EventBus,
     private readonly jwt: JwtService,
     private readonly store: RadarMissionStore,
     private readonly eventBuffer: RadarMissionEventBuffer,

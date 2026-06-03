@@ -6,7 +6,7 @@
 import { SocialAgentInvoker } from "../social-agent-invoker.service";
 import type {
   AgentRunner,
-  DomainEventBus,
+  EventBus,
   MissionAbortRegistry,
   MissionBudgetPool,
 } from "@/modules/ai-harness/facade";
@@ -24,7 +24,7 @@ function createMockRunner() {
 function createMockEventBus() {
   return {
     emit: jest.fn().mockResolvedValue(undefined),
-  } as unknown as jest.Mocked<DomainEventBus>;
+  } as unknown as jest.Mocked<EventBus>;
 }
 
 function createMockAbortRegistry() {
@@ -77,7 +77,7 @@ describe("SocialAgentInvoker", () => {
     mockAbortRegistry = createMockAbortRegistry();
     invoker = new SocialAgentInvoker(
       mockRunner as unknown as AgentRunner,
-      mockEventBus as unknown as DomainEventBus,
+      mockEventBus as unknown as EventBus,
       mockAbortRegistry as unknown as MissionAbortRegistry,
     );
   });

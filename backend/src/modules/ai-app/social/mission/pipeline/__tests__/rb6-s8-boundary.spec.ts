@@ -83,7 +83,7 @@ import {
 import type {
   MissionPipelineRegistry,
   MissionPipelineOrchestrator,
-  DomainEventBus,
+  EventBus,
   AgentRunner,
   MissionAbortRegistry,
   FailureLearnerService,
@@ -277,10 +277,10 @@ function createMockLifecycleManager(): jest.Mocked<MissionLifecycleManager> {
   return { finalize } as unknown as jest.Mocked<MissionLifecycleManager>;
 }
 
-function createMockEventBus(): jest.Mocked<DomainEventBus> {
+function createMockEventBus(): jest.Mocked<EventBus> {
   return {
     emit: jest.fn().mockResolvedValue(undefined),
-  } as unknown as jest.Mocked<DomainEventBus>;
+  } as unknown as jest.Mocked<EventBus>;
 }
 
 function createMockAbortRegistry(): jest.Mocked<MissionAbortRegistry> {
@@ -376,7 +376,7 @@ function createRb6Setup(opts: {
     store as unknown as SocialMissionStore,
     invoker as unknown as SocialAgentInvoker,
     makeRoleStub<AgentRunner>() as unknown as AgentRunner,
-    eventBus as unknown as DomainEventBus,
+    eventBus as unknown as EventBus,
     createMockAbortRegistry() as unknown as MissionAbortRegistry,
     { assign: jest.fn(), getOwner: jest.fn(), remove: jest.fn() } as never,
     makeRoleStub<FailureLearnerService>() as unknown as FailureLearnerService,

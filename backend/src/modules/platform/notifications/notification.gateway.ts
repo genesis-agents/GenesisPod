@@ -51,7 +51,7 @@ interface NotificationBroadcastEvent {
  *   - JWT 校验失败 → disconnect
  *   - emit 失败 → logger.warn，不抛错（拉模式兜底，下次刷新仍能拿到通知）
  *
- * 与 ai-harness DomainEventBus 的关系：
+ * 与 ai-harness EventBus 的关系：
  *   - 不复用 SocketBroadcastAdapter（它走 mission/topic scope 房间）
  *   - 通知是 user-scope，独立 namespace + 独立房间策略
  */

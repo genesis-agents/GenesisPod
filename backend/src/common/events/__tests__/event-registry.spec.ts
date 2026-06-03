@@ -1,8 +1,8 @@
-import { DomainEventRegistry } from "../domain-event-registry";
+import { EventRegistry } from "../event-registry";
 
-describe("DomainEventRegistry", () => {
+describe("EventRegistry", () => {
   function make() {
-    return new DomainEventRegistry();
+    return new EventRegistry();
   }
 
   it("registers and retrieves a spec", () => {

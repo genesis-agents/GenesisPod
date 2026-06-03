@@ -9,7 +9,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 /**
  * NotificationBroadcastAdapter
  *
- * 把 DomainEventBus 上的"业务任务完成"事件桥接成持久化通知。
+ * 把 EventBus 上的"业务任务完成"事件桥接成持久化通知。
  *
  * 职责：
  *   - 监听 `agent-playground.mission:completed` 等业务终态事件
@@ -19,14 +19,14 @@ import { PrismaService } from "@/common/prisma/prisma.service";
  *
  * 解耦设计：
  *   - 业务模块（playground/research/writing/office）只 emit DomainEvent，不 import 通知服务
- *   - 适配 ai-harness 的 IBroadcastAdapter 协议，通过 DomainEventBus.registerAdapter 接入
+ *   - 适配 ai-harness 的 IBroadcastAdapter 协议，通过 EventBus.registerAdapter 接入
  *   - 后续新增模块只需扩 EVENT_TYPE_MAP，无需改业务侧
  *
  * V1 覆盖事件：
  *   - agent-playground.mission:completed (mission 完成 + Lead 已签字)
  *
  * 待扩展（W4 follow-up）：
- *   - topic-insights research:completed（当前走自有 SocketIO emit，未上 DomainEventBus）
+ *   - topic-insights research:completed（当前走自有 SocketIO emit，未上 EventBus）
  *   - writing.task:completed
  *   - office.slides:completed
  */

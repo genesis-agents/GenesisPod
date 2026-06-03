@@ -1,12 +1,12 @@
 /**
- * social-event-schemas — Zod schemas for social.* DomainEventBus events
+ * social-event-schemas — Zod schemas for social.* EventBus events
  *
  * Mirror of agent-playground/agent-playground.event-schemas.ts。
  *
  * 设计原则：
  *   - lifecycle 事件给最小可观测 payload（status / stage / error）
  *   - narrative / agent / stage 事件给宽容 payload（passthrough record）
- *   - schema fail 走 DomainEventBus 默认 drop+warn（不阻断业务），后续 PR
+ *   - schema fail 走 EventBus 默认 drop+warn（不阻断业务），后续 PR
  *     按字段收紧
  */
 

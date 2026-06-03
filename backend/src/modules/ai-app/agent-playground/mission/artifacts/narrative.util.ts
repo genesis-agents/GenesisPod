@@ -2,7 +2,7 @@
  * NarrativeEmitter — playground-specific thin binding over ai-harness narrate factory
  *
  * R2-#50: The generic narrate() function and NarrativeEvent/NarrativeTag types now
- * live in ai-harness (protocols/events/narrate.ts) and are exported via the harness
+ * live in ai-harness (protocols/ipc/narrate.ts) and are exported via the harness
  * facade. This file is a binding shim that:
  *   - Re-exports the types so stage files keep the same import path
  *   - Binds the playground-specific event type string "agent-playground.agent:narrative"

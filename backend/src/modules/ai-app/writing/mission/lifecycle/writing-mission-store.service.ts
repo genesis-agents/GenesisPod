@@ -24,7 +24,7 @@ import type { WritingMissionStore } from "../context/mission-deps";
 import type { WritingMissionContext } from "../context/mission-context";
 import {
   MissionCheckpointService,
-  DomainEventBus,
+  EventBus,
 } from "@/modules/ai-harness/facade";
 
 @Injectable()
@@ -35,7 +35,7 @@ export class WritingMissionStoreService implements WritingMissionStore {
     private readonly checkpoint: MissionCheckpointService<
       Partial<WritingMissionContext>
     >,
-    private readonly eventBus: DomainEventBus,
+    private readonly eventBus: EventBus,
   ) {}
 
   /**

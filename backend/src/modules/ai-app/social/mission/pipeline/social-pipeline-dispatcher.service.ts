@@ -8,7 +8,7 @@
  *   3. 走 MissionPipelineOrchestrator.run 执行 12-step pipeline（hooks 由
  *      SocialBusinessOrchestrator.buildHooksForStep 注入；hook 内通过 sessions Map
  *      取 SessionEntry，delegate 到既有 stage adapter）
- *   4. onEvent 桥接 orchestrator 生命周期事件到 DomainEventBus（social.stage:lifecycle
+ *   4. onEvent 桥接 orchestrator 生命周期事件到 EventBus（social.stage:lifecycle
  *      / social.stage:stalled / social.stage:degraded）
  *   5. cleanup session（成功 / 失败都释放 abort registry / heartbeat timer）
  *   6. fire-and-forget S12 self-evolution postlude（mission terminal 后）
@@ -29,7 +29,7 @@ import { createHash, randomUUID } from "crypto";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   BusinessTeamMissionDispatcherFramework,
-  DomainEventBus,
+  EventBus,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
 } from "@/modules/ai-harness/facade";
@@ -116,7 +116,7 @@ export class SocialPipelineDispatcher
     private readonly store: SocialMissionStore,
     private readonly invoker: SocialAgentInvoker,
     private readonly runner: AgentRunner,
-    eventBus: DomainEventBus,
+    eventBus: EventBus,
     private readonly abortRegistry: MissionAbortRegistry,
     private readonly ownershipRegistry: MissionOwnershipRegistry,
     private readonly failureLearner: FailureLearnerService,
@@ -631,7 +631,7 @@ export class SocialPipelineDispatcher
 
   /**
    * 把 orchestrator 内置 stage 级事件 + social 专属 mission:aborted 桥接到
-   * DomainEventBus（前端 socket 订阅 social: room）。
+   * EventBus（前端 socket 订阅 social: room）。
    *
    * 2026-05-24 P4: stage:* 走 framework 通用 bridgeOrchestratorStageEvent；
    * mission:aborted 是 social 专属语义（携带 wallTimeMs from sessions Map），

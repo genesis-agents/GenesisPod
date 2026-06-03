@@ -5,8 +5,8 @@
  *   - IAgentEvent 是 Loop 通用事件（thinking/action_planned/output/...）
  *   - DomainEvent 是业务自定义类型（mission:started / dimension:research_progress / ...）
  *
- * 业务方在 DomainEventRegistry.register({ type, schema }) 注册自己的事件类型，
- * Harness 用 DomainEventBus.emit() 发出，IBroadcastAdapter 落地到 Socket.IO / SSE / Webhook。
+ * 业务方在 EventRegistry.register({ type, schema }) 注册自己的事件类型，
+ * Harness 用 EventBus.emit() 发出，IBroadcastAdapter 落地到 Socket.IO / SSE / Webhook。
  */
 
 import type { z } from "zod";

@@ -365,7 +365,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     };
     // ★ 2026-05-06 真治：dispatcher 现在直接走 eventBus.emit，需要注入。
     //   spec 只需要 emit() 是 thenable —— 真 broadcast 路径在 module wiring 上由
-    //   buffer adapter 接收（DomainEventBus 自身的 spec 已覆盖）。
+    //   buffer adapter 接收（EventBus 自身的 spec 已覆盖）。
     fakeEventBus = {
       emit: jest.fn().mockResolvedValue(true),
       registerAdapter: jest.fn(),

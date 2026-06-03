@@ -95,8 +95,8 @@ import { CreditsModule } from "../../../platform/credits/credits.module";
 import { NotificationDispatcherModule } from "../../../platform/notifications/dispatcher/notification-dispatcher.module";
 import { MissionFailedPreset } from "../../../platform/facade";
 import {
-  DomainEventBus,
-  DomainEventRegistry,
+  EventBus,
+  EventRegistry,
   MissionAbortReason,
   MissionElectionTracker,
   MissionFailureCode,
@@ -241,8 +241,8 @@ export class AgentPlaygroundModule
   private readonly playgroundLogger = new Logger(AgentPlaygroundModule.name);
 
   constructor(
-    private readonly eventBus: DomainEventBus,
-    private readonly registry: DomainEventRegistry,
+    private readonly eventBus: EventBus,
+    private readonly registry: EventRegistry,
     private readonly buffer: MissionEventBuffer,
     private readonly store: MissionStore,
     private readonly prisma: PrismaService,
@@ -281,7 +281,7 @@ export class AgentPlaygroundModule
       recursive: false,
     });
 
-    // 1. 注册事件类型 —— DomainEventBus 校验未注册的 type 会 drop+warn
+    // 1. 注册事件类型 —— EventBus 校验未注册的 type 会 drop+warn
     this.registry.registerAll(AGENT_PLAYGROUND_EVENTS);
     // 2. 注册缓冲 adapter，截获所有 agent-playground.* 事件入内存（给 /replay 用）
     this.eventBus.registerAdapter(this.buffer);

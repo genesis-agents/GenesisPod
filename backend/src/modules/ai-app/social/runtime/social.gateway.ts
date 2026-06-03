@@ -2,7 +2,7 @@
  * SocialGateway — Socket.IO 入口
  *
  * 让前端订阅 social.* mission 事件流：
- *   - afterInit: 注册 SocketBroadcastAdapter 到 DomainEventBus（io 此时已绑定）
+ *   - afterInit: 注册 SocketBroadcastAdapter 到 EventBus（io 此时已绑定）
  *   - @SubscribeMessage('join'): JWT 鉴权 + ownership 校验 + socket.join(room)
  *
  * Mirror of agent-playground/agent-playground.gateway.ts，区别：
@@ -21,7 +21,7 @@ import {
 import type { Server, Socket } from "socket.io";
 import { JwtService } from "@nestjs/jwt";
 import {
-  DomainEventBus,
+  EventBus,
   SocketBroadcastAdapter,
 } from "@/modules/ai-harness/facade";
 import { SocialMissionStore } from "../mission/lifecycle/social-mission-store.service";
@@ -42,7 +42,7 @@ export class SocialGateway implements OnGatewayInit {
   private readonly log = new Logger(SocialGateway.name);
 
   constructor(
-    private readonly eventBus: DomainEventBus,
+    private readonly eventBus: EventBus,
     private readonly store: SocialMissionStore,
     private readonly jwt: JwtService,
   ) {}

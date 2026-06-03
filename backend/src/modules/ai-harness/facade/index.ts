@@ -1026,18 +1026,18 @@ export type { CapabilityCheckResult } from "../../ai-engine/facade";
 // Protocol: events + ipc + journal + realtime
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export {
-  DomainEventBus,
-  DomainEventRegistry,
+  EventBus,
+  EventRegistry,
   LoggerBroadcastAdapter,
-} from "../protocols/events";
+} from "@/common/events";
 export type {
   DomainEvent,
   IBroadcastAdapter,
   DomainEventTypeSpec,
-} from "../protocols/events";
+} from "@/common/events";
 // R2-#50: generic narrate factory + narrative types (extracted to harness)
-export { narrate } from "../protocols/events/narrate";
-export type { NarrativeEvent, NarrativeTag } from "../protocols/events/narrate";
+export { narrate } from "../protocols/ipc/narrate";
+export type { NarrativeEvent, NarrativeTag } from "../protocols/ipc/narrate";
 
 // ── IPC ──
 export { EventBusService } from "../protocols/ipc/event-bus.service";

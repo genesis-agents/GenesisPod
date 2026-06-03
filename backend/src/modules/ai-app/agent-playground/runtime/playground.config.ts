@@ -107,7 +107,7 @@ export const PLAYGROUND_PIPELINE: MissionPipelineConfig = defineMissionPipeline(
     // ★ 2026-05-06 重大整改: 平台层 mission-pipeline-orchestrator 已删除 stage
     //   死秒表机制。step.timeoutMs 现在仅作 stage:stalled 警告阈值（× 1.5 后 emit
     //   stage:stalled，不再杀 stage）。stage 真死活由：
-    //     1. MissionLivenessGuard（inactivity 5min，监听 DomainEventBus 事件流）
+    //     1. MissionLivenessGuard（inactivity 5min，监听 EventBus 事件流）
     //     2. mission-runtime-shell wallTimer（mission 总长上限）
     //     3. primitive 内部 LLM HTTP timeout 抛错冒泡
     //   下面 timeoutMs 数值仅供"stage 跑超 X 分钟还没完"的可见性 warning。

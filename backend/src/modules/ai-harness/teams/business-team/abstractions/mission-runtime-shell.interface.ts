@@ -38,7 +38,7 @@ export interface MissionRuntimeSession {
  * 一个 BusinessAgentTeam 实现一个 adapter，把"业务专属决策"注入到通用 shell 框架：
  *   - resolve* 方法：input → 数值（业务方决定档位映射）
  *   - createMissionRow / refreshHeartbeat：业务方持久化（业务 schema）
- *   - emitMissionEvent：业务方决定走 DomainEventBus / EventEmitter2 / 其他
+ *   - emitMissionEvent：业务方决定走 EventBus / EventEmitter2 / 其他
  *   - eventNamespace：业务事件前缀（如 "my-app" / "research"），框架内部
  *     生成 lifecycle 事件 type 时拼接（{namespace}.mission:rejected / :warning / :budget-warning-hard）
  *   - billingModuleType：BillingContext.run 用，区分计费归属

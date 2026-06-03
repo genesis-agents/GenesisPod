@@ -16,7 +16,7 @@
  */
 
 import {
-  DomainEventBus,
+  EventBus,
   EventRelayFramework,
 } from "@/modules/ai-harness/facade";
 
@@ -81,7 +81,7 @@ export function redactSocialEvent(
 }
 
 export class SocialEventRelay extends EventRelayFramework {
-  constructor(eventBus: DomainEventBus) {
+  constructor(eventBus: EventBus) {
     super(eventBus, "social");
   }
 

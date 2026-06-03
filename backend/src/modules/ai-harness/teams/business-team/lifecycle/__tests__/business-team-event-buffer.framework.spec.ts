@@ -5,7 +5,7 @@ import {
   FakeMarsEventBuffer,
   makeFakeMarsEventBufferHooks,
 } from "./__fixtures__/p6-fake-team-mocks";
-import type { DomainEvent } from "../../../../protocols/events/domain-event.types";
+import type { DomainEvent } from "@/common/events/domain-event.types";
 
 function makeEvent(
   type: string,

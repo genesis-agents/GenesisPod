@@ -5,7 +5,7 @@
  *   1. 验证目标 agent 存在（AgentRegistry.has(toAgentId)）
  *   2. 应用 IHandoffPolicy.authorize（默认 allow）
  *   3. 复制 / 形塑 envelope（policy.shapeEnvelope）
- *   4. emit 'handoff' 事件到 DomainEventBus（可选）
+ *   4. emit 'handoff' 事件到 EventBus（可选）
  *   5. 触发目标 agent.execute()，把控制权交出
  *
  * 不负责：取消 source agent；source agent 的 cleanup（caller 自行 cancel）

@@ -3,11 +3,11 @@
  *
  * 彻底重构后（2026-05-16）：
  *   - 完全用 ai-harness mission pipeline 框架（MissionPipelineOrchestrator /
- *     SkillLoaderService / DomainEventBus / MissionAbortRegistry /
+ *     SkillLoaderService / EventBus / MissionAbortRegistry /
  *     MissionRuntimeShellFramework / SocketBroadcastAdapter）
  *   - 9 个 stage adapter（s1-s8 + discovery）+ BusinessOrchestrator + Dispatcher
  *   - 5 个 SKILL.md 通过 SkillLoaderService 加载（替代 5 个旧 @Injectable agent service）
- *   - radar.events.ts 注册到 DomainEventRegistry
+ *   - radar.events.ts 注册到 EventRegistry
  *   - RadarGateway 在 afterInit 注册 SocketBroadcastAdapter
  *
  * 暂保留（Phase 7 整体删除）：
@@ -21,7 +21,7 @@ import { BullModule } from "@nestjs/bullmq";
 import * as path from "path";
 
 import {
-  DomainEventRegistry,
+  EventRegistry,
   MissionFailureCode,
   MissionLifecycleManager,
   MissionLivenessGuard,
@@ -164,7 +164,7 @@ import { RADAR_DOMAIN_EVENTS } from "../events/radar.events";
     RadarBriefingProcessor,
     DailyBriefingGeneratorService,
     // 新框架接入 —— pipeline registry / orchestrator 必须由消费模块本地 register
-    // （MissionRuntimeShellFramework / DomainEventBus 由 @Global HarnessModule 提供，
+    // （MissionRuntimeShellFramework / EventBus 由 @Global HarnessModule 提供，
     // 但 MissionPipelineRegistry / MissionPipelineOrchestrator 不是 @Global —— 跟
     // agent-playground / writing-team module 同模式，每个 ai-app 自行注册）
     MissionPipelineRegistry,
@@ -199,7 +199,7 @@ export class RadarModule implements OnModuleInit {
   private readonly log = new Logger(RadarModule.name);
 
   constructor(
-    private readonly eventRegistry: DomainEventRegistry,
+    private readonly eventRegistry: EventRegistry,
     private readonly skillLoader: SkillLoaderService,
     private readonly livenessGuard: MissionLivenessGuard,
     private readonly missionStore: RadarMissionStore,
@@ -208,7 +208,7 @@ export class RadarModule implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    // 1. 注册业务事件 schema —— DomainEventBus 校验未注册的 type 一律 drop+warn
+    // 1. 注册业务事件 schema —— EventBus 校验未注册的 type 一律 drop+warn
     this.eventRegistry.registerAll(RADAR_DOMAIN_EVENTS);
     this.log.log(
       `RadarModule: registered ${RADAR_DOMAIN_EVENTS.length} domain event types`,

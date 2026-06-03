@@ -7,12 +7,12 @@
  * 前缀，向后兼容现有 import 路径与构造函数签名。
  */
 
-import { DomainEventBus } from "@/modules/ai-harness/facade";
+import { EventBus } from "@/modules/ai-harness/facade";
 import { EventRelayFramework } from "@/modules/ai-harness/facade";
 import type { InvocationContext } from "../mission/roles/agent-invoker.service";
 
 export class AgentPlaygroundEventRelay extends EventRelayFramework {
-  constructor(eventBus: DomainEventBus) {
+  constructor(eventBus: EventBus) {
     super(eventBus, "agent-playground");
   }
 }

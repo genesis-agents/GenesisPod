@@ -1,8 +1,8 @@
 /**
- * DomainEventBus — 业务事件中央枢纽
+ * EventBus — 业务事件中央枢纽
  *
  * 职责：
- *   1. emit() 时按 DomainEventRegistry 校验 type + payload schema
+ *   1. emit() 时按 EventRegistry 校验 type + payload schema
  *   2. 应用 throttle（每 source 每 window 最多 N 条）
  *   3. 应用 idempotency（idempotencyKey 在 60s 内重复直接 drop）
  *   4. 分发到所有 accept 的 IBroadcastAdapter
@@ -22,7 +22,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { DomainEventRegistry } from "./domain-event-registry";
+import { EventRegistry } from "./event-registry";
 import { IBroadcastAdapter, LoggerBroadcastAdapter } from "./broadcast-adapter";
 import type { DomainEvent } from "./domain-event.types";
 import { CacheService } from "@/common/cache/cache.service";
@@ -37,12 +37,12 @@ const IDEMPOTENCY_KEY_PREFIX = "harness:event-bus:idempotency:";
 const IDEMPOTENCY_TTL_SEC = 60;
 
 @Injectable()
-export class DomainEventBus {
-  private readonly log = new Logger(DomainEventBus.name);
+export class EventBus {
+  private readonly log = new Logger(EventBus.name);
   private readonly adapters: IBroadcastAdapter[] = [];
 
   constructor(
-    private readonly registry: DomainEventRegistry,
+    private readonly registry: EventRegistry,
     private readonly cache: CacheService,
     @Optional() defaultAdapter?: LoggerBroadcastAdapter,
   ) {
@@ -69,7 +69,7 @@ export class DomainEventBus {
     if (!spec) {
       this.log.warn(
         `Domain event "${event.type}" not registered — dropping. ` +
-          `Use DomainEventRegistry.register() at module init.`,
+          `Use EventRegistry.register() at module init.`,
       );
       return false;
     }

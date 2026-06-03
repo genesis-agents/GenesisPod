@@ -1,7 +1,7 @@
 /**
  * AgentPlaygroundEvents — 事件类型注册清单
  *
- * DomainEventBus 校验：未注册的 type 一律 drop+warn，不会广播。
+ * EventBus 校验：未注册的 type 一律 drop+warn，不会广播。
  * 所有 demo 事件必须在此声明。
  */
 
@@ -109,7 +109,7 @@ import {
 } from "./agent-playground.event-schemas";
 
 /**
- * S(suffix, schema) — 注册带 zod payload schema 的事件，DomainEventBus.emit() 会
+ * S(suffix, schema) — 注册带 zod payload schema 的事件，EventBus.emit() 会
  * 自动 safeParse。schema 失败默认 log.warn 静默 drop（不阻断业务），但开发期可由
  * 业务层 broadcast 失败 throw（让 backend 自己炸而不是污染前端）。
  */

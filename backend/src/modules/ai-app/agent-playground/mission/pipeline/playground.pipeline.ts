@@ -31,7 +31,7 @@ import {
 } from "@nestjs/common";
 import {
   BusinessTeamMissionDispatcherFramework,
-  DomainEventBus,
+  EventBus,
   MissionElectionTracker,
   MissionLifecycleManager,
   MissionPipelineOrchestrator,
@@ -133,7 +133,7 @@ export class PlaygroundPipelineDispatcher
     //   / stage:degraded / mission:execution-aborted / mission:postlude:* 全部不实时。
     //   现在统一走 eventBus.emit() —— buffer 仍作为 adapter 接收（agent-playground.module.ts:165
     //   注册），同时 socket adapter 也分发 → 前端实时刷新。
-    eventBus: DomainEventBus,
+    eventBus: EventBus,
     // ★ Stage 1 / S1-1 (2026-05-09): 业务编排(STAGE_NUMBER / CHECKPOINT_AT 字面量 +
     //   11 个 build*Hooks)已抽到独立 service。dispatcher 在 onModuleInit bind sessionLookup
     //   后,buildBaseHooksForStep 改为 delegate 到此 service。

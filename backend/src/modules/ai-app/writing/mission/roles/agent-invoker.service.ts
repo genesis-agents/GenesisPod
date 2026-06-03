@@ -23,7 +23,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import {
   AgentRunner,
-  DomainEventBus,
+  EventBus,
   EventRelayFramework,
   MissionAbortRegistry,
   MissionBudgetPool,
@@ -34,7 +34,7 @@ import {
 
 /** writing.* 前缀事件中继薄壳（无脱敏层，writing 无凭证暴露面） */
 class WritingEventRelay extends EventRelayFramework {
-  constructor(eventBus: DomainEventBus) {
+  constructor(eventBus: EventBus) {
     super(eventBus, "writing");
   }
 }
@@ -62,7 +62,7 @@ export class AgentInvoker {
 
   constructor(
     private readonly runner: AgentRunner,
-    eventBus: DomainEventBus,
+    eventBus: EventBus,
     private readonly abortRegistry: MissionAbortRegistry,
   ) {
     this.relay = new WritingEventRelay(eventBus);

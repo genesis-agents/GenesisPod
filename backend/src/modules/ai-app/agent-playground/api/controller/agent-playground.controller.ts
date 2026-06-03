@@ -59,7 +59,7 @@ import {
   MissionAbortRegistry,
   MissionAbortReason,
   MissionLifecycleManager,
-  DomainEventBus,
+  EventBus,
 } from "@/modules/ai-harness/facade";
 import type { PlaygroundTerminalExtra } from "../../mission/lifecycle/mission-store.service";
 // ★ R2-C 单轨化（2026-05-04）：pipeline-v1 现在是唯一 mission 路径。
@@ -82,7 +82,7 @@ export class AgentPlaygroundController extends BaseMissionController {
     // ★ C0/G1：取消终态写经 finalize 单入口仲裁，不再直写 store.markCancelled。
     private readonly lifecycleManager: MissionLifecycleManager,
     // ★ E32 (2026-05-25): runMission 建行前早爆时补发终态事件，防前端死轮询。
-    private readonly eventBus: DomainEventBus,
+    private readonly eventBus: EventBus,
     // ★ WS-Audit (2026-05-30): mission 取消/删除高敏操作 append-only 审计留痕。
     private readonly auditLog: AuditLogService,
   ) {

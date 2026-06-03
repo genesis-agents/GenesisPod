@@ -1,7 +1,7 @@
 /**
  * AgentPlayground 事件 payload Zod schemas
  *
- * 单一来源（前后端共用）。每个事件 emit 时由 DomainEventBus.emit() 调用
+ * 单一来源（前后端共用）。每个事件 emit 时由 EventBus.emit() 调用
  * spec.schema.safeParse(payload) 校验；失败在 dev/staging 直接 throw（让 backend
  * 自己炸而不是污染前端 ErrorBoundary），生产降级到 log.warn 不阻断业务。
  *

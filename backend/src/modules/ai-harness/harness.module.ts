@@ -105,9 +105,9 @@ import { MCPClientRegistryService } from "../ai-engine/tools/adapters/mcp/regist
 import { AgentRunner, FixtureStore } from "./agents/dev-tools";
 // PR-J..P
 import { LeaderWorkerLoop } from "./runner/loop/leader-worker-loop";
-import { DomainEventRegistry } from "./protocols/events/domain-event-registry";
-import { DomainEventBus } from "./protocols/events/domain-event-bus";
-import { LoggerBroadcastAdapter } from "./protocols/events/broadcast-adapter";
+import { EventRegistry } from "@/common/events/event-registry";
+import { EventBus } from "@/common/events/event-bus";
+import { LoggerBroadcastAdapter } from "@/common/events/broadcast-adapter";
 import { DomainConceptRegistry } from "./agents/domain/concept-registry";
 import { DomainAdapterRegistry } from "./agents/domain/domain-adapter";
 import { PromptRegistry } from "./runner/prompt/prompt-registry";
@@ -340,8 +340,8 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
 
     // PR-J..P
     LeaderWorkerLoop,
-    DomainEventRegistry,
-    DomainEventBus,
+    EventRegistry,
+    EventBus,
     LoggerBroadcastAdapter,
     DomainConceptRegistry,
     DomainAdapterRegistry,
@@ -457,8 +457,8 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
 
     // PR-J..P exports
     LeaderWorkerLoop,
-    DomainEventRegistry,
-    DomainEventBus,
+    EventRegistry,
+    EventBus,
     LoggerBroadcastAdapter,
     DomainConceptRegistry,
     DomainAdapterRegistry,
@@ -491,7 +491,7 @@ export class HarnessModule implements OnApplicationBootstrap {
     @Inject(LeaderWorkerLoop)
     private readonly leaderWorkerLoop: LeaderWorkerLoop,
     @Inject(JudgeService) private readonly judgeService: JudgeService,
-    @Inject(DomainEventBus) private readonly eventBus: DomainEventBus,
+    @Inject(EventBus) private readonly eventBus: EventBus,
     @Inject(LoggerBroadcastAdapter)
     private readonly defaultBroadcaster: LoggerBroadcastAdapter,
     @Optional()

@@ -39,7 +39,7 @@ import type { Logger } from "@nestjs/common";
 
 import type {
   AgentRunner,
-  DomainEventBus,
+  EventBus,
   EmitFn,
   LifecycleFn,
   MissionLifecycleManager,
@@ -125,7 +125,7 @@ export interface CommonDeps {
   readonly store: WritingMissionStore;
   readonly runner: AgentRunner;
   readonly lifecycleManager: MissionLifecycleManager;
-  readonly eventBus: DomainEventBus;
+  readonly eventBus: EventBus;
   readonly log: Logger;
   readonly emit: EmitFn;
   readonly lifecycle: LifecycleFn;

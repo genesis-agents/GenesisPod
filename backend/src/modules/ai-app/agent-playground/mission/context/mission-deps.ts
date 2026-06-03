@@ -40,7 +40,7 @@ import type {
   AgentRunner,
   JudgeService,
   MemoryAutoIndexer,
-  DomainEventBus,
+  EventBus,
   FigureRelevanceService,
   SectionSelfEvalService,
   SectionRemediationService,
@@ -67,7 +67,7 @@ export interface CommonDeps {
   readonly missionState: HandoffCompactorService;
   readonly abortRegistry: MissionAbortRegistry;
   readonly runner: AgentRunner;
-  readonly eventBus: DomainEventBus;
+  readonly eventBus: EventBus;
   readonly credits: CreditsService;
   readonly runtimeEnv: RuntimeEnvironmentService;
   readonly log: Logger;

@@ -3,7 +3,7 @@ import { NotificationBroadcastAdapter } from "./notification-broadcast-adapter";
 import { NotificationEventListener } from "./notification-event-listener.service";
 import { NotificationModule } from "@/modules/platform/notifications/notification.module";
 import { HarnessModule } from "@/modules/ai-harness/harness.module";
-import { DomainEventBus } from "@/modules/ai-harness/facade";
+import { EventBus } from "@/modules/ai-harness/facade";
 import { PrismaModule } from "@/common/prisma/prisma.module";
 
 /**
@@ -11,7 +11,7 @@ import { PrismaModule } from "@/common/prisma/prisma.module";
  *
  * 把"业务任务完成"DomainEvent 桥接到持久化通知。
  * 业务模块（playground/research/...）只 emit DomainEvent，
- * 这里在 onModuleInit 时给 DomainEventBus 注册一个 adapter，把符合条件的事件
+ * 这里在 onModuleInit 时给 EventBus 注册一个 adapter，把符合条件的事件
  * 转写到 NotificationService（落 DB / 触发 NotificationGateway 实时推送）。
  *
  * 解耦：
@@ -19,7 +19,7 @@ import { PrismaModule } from "@/common/prisma/prisma.module";
  *   - 即使本模块未启用，业务事件流照常工作
  *
  * 在 ai-app 层（非 platform）原因：
- *   platform (L1) 不能依赖 ai-harness (L2.5)；本模块需要 DomainEventBus，
+ *   platform (L1) 不能依赖 ai-harness (L2.5)；本模块需要 EventBus，
  *   故落在 ai-app (L3)。
  */
 @Module({
@@ -29,7 +29,7 @@ import { PrismaModule } from "@/common/prisma/prisma.module";
 })
 export class NotificationsBridgeModule implements OnModuleInit {
   constructor(
-    private readonly eventBus: DomainEventBus,
+    private readonly eventBus: EventBus,
     private readonly adapter: NotificationBroadcastAdapter,
   ) {}
 

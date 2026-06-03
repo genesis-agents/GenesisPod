@@ -67,8 +67,8 @@ import { SocialEventBuffer } from "../mission/lifecycle/social-event-buffer.serv
 import { SocialGateway } from "../runtime/social.gateway";
 import { SOCIAL_EVENTS } from "../events/social.events";
 import {
-  DomainEventBus,
-  DomainEventRegistry,
+  EventBus,
+  EventRegistry,
   MissionFailureCode,
   MissionLifecycleManager,
   MissionLivenessGuard,
@@ -166,8 +166,8 @@ export class AiSocialModule implements OnModuleInit, OnApplicationBootstrap {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly eventBus: DomainEventBus,
-    private readonly registry: DomainEventRegistry,
+    private readonly eventBus: EventBus,
+    private readonly registry: EventRegistry,
     private readonly buffer: SocialEventBuffer,
     private readonly promptSkillBridge: PromptSkillRegistrationService,
     private readonly livenessGuard: MissionLivenessGuard,
@@ -193,7 +193,7 @@ export class AiSocialModule implements OnModuleInit, OnApplicationBootstrap {
       );
     }
 
-    // ★ W4 PR-4b round-2 / Reviewer C P0-5+P0-7: DomainEventRegistry 注册 social.*
+    // ★ W4 PR-4b round-2 / Reviewer C P0-5+P0-7: EventRegistry 注册 social.*
     //   事件类型（未注册的 type 被 drop+warn）+ 注册 buffer adapter（截获 social.*
     //   入内存，给 /replay 用 + 缓冲 mission 启动期事件）
     this.registry.registerAll(SOCIAL_EVENTS);

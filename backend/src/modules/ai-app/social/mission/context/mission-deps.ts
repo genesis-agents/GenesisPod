@@ -9,7 +9,7 @@
 import type { Logger } from "@nestjs/common";
 import type {
   AgentRunner,
-  DomainEventBus,
+  EventBus,
   MissionAbortRegistry,
   FailureLearnerService,
   PostmortemClassifierService,
@@ -41,7 +41,7 @@ export interface CommonDeps {
   readonly invoker: SocialAgentInvoker;
   readonly abortRegistry: MissionAbortRegistry;
   readonly runner: AgentRunner;
-  readonly eventBus: DomainEventBus;
+  readonly eventBus: EventBus;
   readonly log: Logger;
   readonly emit: EmitFn;
   readonly lifecycle: LifecycleFn;

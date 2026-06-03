@@ -1,13 +1,13 @@
 import { EventRelayFramework } from "../event-relay.framework";
 import { MissionBudgetPool } from "@/modules/ai-harness/guardrails/budget/mission-budget-pool";
-import type { DomainEventBus } from "@/modules/ai-harness/protocols/events/domain-event-bus";
+import type { EventBus } from "@/common/events/domain-event-bus";
 import type { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import type { IAgentEvent } from "@/modules/ai-harness/facade";
 
 function makeBus() {
   return {
     emit: jest.fn().mockResolvedValue(undefined),
-  } as unknown as DomainEventBus;
+  } as unknown as EventBus;
 }
 
 function makeRegistry() {
@@ -44,7 +44,7 @@ describe("EventRelayFramework", () => {
     it("swallows non-critical emit errors silently", async () => {
       const bus = {
         emit: jest.fn().mockRejectedValue(new Error("bus down")),
-      } as unknown as DomainEventBus;
+      } as unknown as EventBus;
       const relay = new EventRelayFramework(bus, "my-ns");
       await expect(
         relay.emitEvent({

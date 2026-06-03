@@ -1,5 +1,5 @@
 /**
- * DomainEventRegistry — 业务事件类型中央表
+ * EventRegistry — 业务事件类型中央表
  *
  * 业务模块（业务模块 / ...）启动时注册自己用到的事件类型，
  * 中央表强制：
@@ -14,8 +14,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEventTypeSpec } from "./domain-event.types";
 
 @Injectable()
-export class DomainEventRegistry {
-  private readonly log = new Logger(DomainEventRegistry.name);
+export class EventRegistry {
+  private readonly log = new Logger(EventRegistry.name);
   private readonly specs = new Map<string, DomainEventTypeSpec<unknown>>();
 
   register<TPayload>(spec: DomainEventTypeSpec<TPayload>): void {

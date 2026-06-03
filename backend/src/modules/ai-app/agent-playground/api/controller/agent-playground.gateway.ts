@@ -18,7 +18,7 @@ import type { Server, Socket } from "socket.io";
 import { JwtService } from "@nestjs/jwt";
 // 必修 #8: 走 facade
 import {
-  DomainEventBus,
+  EventBus,
   SocketBroadcastAdapter,
 } from "@/modules/ai-harness/facade";
 import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
@@ -42,7 +42,7 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
   private readonly log = new Logger(AgentPlaygroundGateway.name);
 
   constructor(
-    private readonly eventBus: DomainEventBus,
+    private readonly eventBus: EventBus,
     private readonly ownership: MissionOwnershipRegistry,
     private readonly jwt: JwtService,
     private readonly store: MissionStore,

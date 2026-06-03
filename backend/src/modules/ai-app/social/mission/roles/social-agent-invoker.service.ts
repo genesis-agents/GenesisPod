@@ -21,7 +21,7 @@
 import { Injectable } from "@nestjs/common";
 import {
   AgentRunner,
-  DomainEventBus,
+  EventBus,
   MissionAbortRegistry,
   MissionBudgetPool,
   BusinessTeamAgentInvokerFramework,
@@ -51,7 +51,7 @@ export class SocialAgentInvoker {
 
   constructor(
     private readonly runner: AgentRunner,
-    eventBus: DomainEventBus,
+    eventBus: EventBus,
     private readonly abortRegistry: MissionAbortRegistry,
   ) {
     this.relay = new SocialEventRelay(eventBus);

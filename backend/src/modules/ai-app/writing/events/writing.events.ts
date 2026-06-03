@@ -1,11 +1,11 @@
 /**
  * WritingEvents — writing.* 事件类型注册清单
  *
- * DomainEventBus 校验：未注册的 type 一律 drop+warn，不会广播。
+ * EventBus 校验：未注册的 type 一律 drop+warn，不会广播。
  * 所有 writing.* 事件必须在此声明，然后在 ai-writing.module.ts onModuleInit
  * 调用 registry.registerAll(WRITING_EVENTS)。
  *
- * S(suffix, schema) 工厂强制 "writing." 前缀，DomainEventBus.emit() 会
+ * S(suffix, schema) 工厂强制 "writing." 前缀，EventBus.emit() 会
  * 自动 safeParse(payload)，失败 dev/staging throw，生产 log.warn 静默 drop。
  *
  * 事件分类：

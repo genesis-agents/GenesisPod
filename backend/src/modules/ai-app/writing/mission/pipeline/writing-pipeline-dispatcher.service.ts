@@ -9,7 +9,7 @@
  *   3. 走 MissionPipelineOrchestrator.run 执行 N-step pipeline（hooks 由
  *      WritingBusinessOrchestrator.buildHooksForStep 注入；hook 内通过 sessions Map
  *      取 WritingSessionEntry，delegate 到既有 stage free 函数）
- *   4. onEvent 桥接 orchestrator 生命周期事件到 DomainEventBus（writing.stage:lifecycle
+ *   4. onEvent 桥接 orchestrator 生命周期事件到 EventBus（writing.stage:lifecycle
  *      / writing.stage:stalled / writing.stage:degraded）
  *   5. cleanup session（成功 / 失败都释放 heartbeat timer）
  *
@@ -31,7 +31,7 @@ import { Injectable, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   BusinessTeamMissionDispatcherFramework,
-  DomainEventBus,
+  EventBus,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
   AgentRunner,
@@ -186,7 +186,7 @@ export class WritingPipelineDispatcher
     // DB
     private readonly prisma: PrismaService,
     // eventBus passed to framework super()
-    eventBus: DomainEventBus,
+    eventBus: EventBus,
   ) {
     super(eventBus, {
       namespace: "writing",
@@ -561,7 +561,7 @@ export class WritingPipelineDispatcher
   }
 
   /**
-   * Bridge orchestrator stage-level events to DomainEventBus.
+   * Bridge orchestrator stage-level events to EventBus.
    * Stage events (with stepId) → framework bridgeOrchestratorStageEvent.
    * mission:aborted → writing.mission:aborted (writing-specific payload).
    */

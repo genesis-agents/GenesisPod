@@ -1,7 +1,7 @@
 /**
  * SocketBroadcastAdapter — DomainEvent → Socket.IO room
  *
- * 通用 IBroadcastAdapter 实现：把 DomainEventBus 的事件按 scope.missionId
+ * 通用 IBroadcastAdapter 实现：把 EventBus 的事件按 scope.missionId
  * 分发到对应 room。`eventTypePrefix` + `roomPrefix` 由调用方传入决定路由。
  *
  * 2026-05-01 上提: 原在 ai-app/{app}/adapters/，改用参数化 prefix
