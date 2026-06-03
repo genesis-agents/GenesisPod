@@ -109,7 +109,7 @@ import { AiCoreModule } from "./modules/open-api/ai-core/ai-core.module";
 import { AgentsModule } from "./modules/open-api/agents/agents.module";
 import { McpAdminModule } from "./modules/open-api/mcp-admin/mcp-admin.module";
 import { SkillsModule } from "./modules/open-api/skills/skills.module";
-import { TeamsApiModule } from "./modules/open-api/teams-api/teams-api.module";
+import { TeamsApiModule } from "./modules/open-api/teams/teams.module";
 // A2A API module (open-api layer â€” PR-X17: controller moved from ai-harness/protocols/a2a)
 import { A2AApiModule } from "./modules/open-api/a2a/a2a.module";
 // BYOK Admin module (open-api layer â€” PR-X17: 4 admin controllers moved from platform/credentials)
