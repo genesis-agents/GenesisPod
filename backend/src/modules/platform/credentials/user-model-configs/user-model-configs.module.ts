@@ -4,7 +4,7 @@ import { UserModelConfigsService } from "./user-model-configs.service";
 
 @Module({
   imports: [PrismaModule],
-  // PR-X17: HTTP Controllers moved to open-api/byok-admin or ai-app/byok
+  // PR-X17: HTTP Controllers moved to open-api/admin/byok or ai-app/byok
   controllers: [],
   providers: [UserModelConfigsService],
   exports: [UserModelConfigsService],

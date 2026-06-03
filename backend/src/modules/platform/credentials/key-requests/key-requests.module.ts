@@ -6,7 +6,7 @@ import { KeyRequestsService } from "./key-requests.service";
 
 @Module({
   imports: [PrismaModule, KeyAssignmentsModule, NotificationModule],
-  // PR-X17: HTTP Controllers moved to open-api/byok-admin or ai-app/byok
+  // PR-X17: HTTP Controllers moved to open-api/admin/byok or ai-app/byok
   controllers: [],
   providers: [KeyRequestsService],
   exports: [KeyRequestsService],
