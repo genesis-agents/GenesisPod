@@ -68,12 +68,20 @@ export class AiModelConfigService {
   //   → findDisabledModelForUser → synthesizeConfigForUserModel）。在高 DB-RTT 部署上
   //   单次解析可达数秒，且每条消息都重跑。命中缓存即可跳过整条链。
   //   只缓存「配置」（endpoint / modelId / 参数），不含密钥——apiKey 仍由 resolveApiKey
-  //   在调用时实时解析，故缓存不会泄露或固化凭证。TTL 60s 限制改配后的陈旧窗口。
+  //   在调用时实时解析，故缓存不会泄露或固化凭证。
+  //
+  //   TTL=5min（与 modelConfigCache 对齐）。原先压到 60s 是因为担心改配后陈旧窗口，但
+  //   用户侧的写路径现已全部接上失效（clearResolvedModelCache(userId)）：
+  //     · UserModelConfig CRUD —— user-model-configs.controller
+  //     · UserApiKey 存/删 key + 改 preferredModelId/endpoint —— user-api-keys.controller（M2 fix）
+  //   故用户改自己的 BYOK 配置立即生效，与 TTL 无关。剩余「admin 改 AIModel」一类全局变更，
+  //   本来就靠 modelConfigCache 的 5min TTL 传播（admin 写路径也不显式失效），这里取同样的
+  //   5min 不引入比现状更长的陈旧窗口。换来 BYOK 冷解析次数降到原来的 ~1/5（每 5min 而非每会话）。
   private readonly resolvedModelCache = new LruMap<
     string,
     { config: AIModelConfig | null; time: number }
   >(2000);
-  private readonly RESOLVED_MODEL_CACHE_TTL = 60 * 1000; // 60s
+  private readonly RESOLVED_MODEL_CACHE_TTL = 5 * 60 * 1000; // 5min（与 MODEL_CONFIG_CACHE_TTL 对齐）
 
   constructor(
     private readonly prisma: PrismaService,
