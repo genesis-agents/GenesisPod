@@ -8,3 +8,8 @@
 export { AbortableScope } from "./abortable-scope";
 export { CircuitBreaker, isCooldownFailure } from "./circuit-breaker";
 export type { CircuitBreakerOptions } from "./circuit-breaker";
+export {
+  InMemoryTokenBucketStore,
+  RedisTokenBucketStore,
+} from "./token-bucket";
+export type { ITokenBucketStore } from "./abstractions/token-bucket.port";

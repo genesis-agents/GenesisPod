@@ -1,9 +1,10 @@
 /**
- * Token bucket 限流算法（v5.1 R0.5-E 重新归位 ai-engine 核心 service）
+ * Token bucket 限流算法（L1 platform/resilience 通用韧性基元）
  *
- * 历史：原作为 plugins/resilience/rate-limit 实现；2026-05-04 修正分类后
- * 回归 ai-engine —— token-bucket 是一个标准算法，非 swappable backend，
- * 不该是 plugin。
+ * 历史：原 plugins/resilience/rate-limit → 2026-05-04 回归 ai-engine/reliability
+ * → 2026-06-03 W1-2 按 MECE 下沉 L1 platform/resilience（与 CircuitBreaker 同居，
+ * 都是通用韧性基元；token-bucket 是标准算法、非 swappable backend、不该是 plugin）。
+ * 引擎层 RateLimitService 改注入本层 ITokenBucketStore 端口（L2→L1 合法）。
  *
  * 设计：
  * - 每个 key 一个 bucket（capacity / refillPerSec）
@@ -13,15 +14,9 @@
  */
 import { CacheService } from "@/common/cache/cache.service";
 
-export interface ITokenBucketStore {
-  /** 试图消耗 n 个 token；成功 true，失败 false */
-  tryConsume(
-    key: string,
-    capacity: number,
-    refillPerSec: number,
-    n?: number,
-  ): Promise<boolean>;
-}
+import type { ITokenBucketStore } from "./abstractions/token-bucket.port";
+
+export type { ITokenBucketStore } from "./abstractions/token-bucket.port";
 
 interface BucketState {
   tokens: number;
@@ -101,6 +96,7 @@ export class InMemoryTokenBucketStore implements ITokenBucketStore {
 export class RedisTokenBucketStore implements ITokenBucketStore {
   constructor(private readonly cache: CacheService) {}
 
+  // W1-2 注：cache key 前缀保留 "engine:" 以零中断迁移（不重置在途限流计数）。
   private bucketKey(key: string): string {
     return `engine:rate-limit:bucket:${key}`;
   }
