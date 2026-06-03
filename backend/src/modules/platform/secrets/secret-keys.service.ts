@@ -24,11 +24,11 @@ import {
   ReplaceSecretKeyValueDto,
 } from "./dto/secret-key.dto";
 import { normalizeSecretName } from "./secret-name.catalog";
-import { ProviderProbeService } from "../credentials/health/provider-probe.service";
+import { ProviderProbeService } from "../key-health/provider-probe.service";
 import {
   cooldownMsForCode,
   isPermanentCooldown,
-} from "../credentials/health/key-cooldown-policy";
+} from "../key-health/key-cooldown-policy";
 
 export interface SecretKeyListItem {
   id: string;

@@ -1,7 +1,7 @@
 import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { UserApiKeysService } from "../../../platform/credentials/user-api-keys/user-api-keys.service";
+import { UserApiKeysService } from "../../../ai-engine/credentials/user-api-keys/user-api-keys.service";
 
 export interface DiscoveredModel {
   id: string;

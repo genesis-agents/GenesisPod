@@ -28,8 +28,8 @@ import {
   BillingContext,
   InsufficientCreditsException,
 } from "../../../platform/facade";
-// PR-X9: BYOKError 已搬到 platform/credentials/key-resolver
-import { BYOKError } from "../../../platform/credentials/key-resolver/key-resolver.errors";
+// PR-X9: BYOKError 已搬到 ai-engine/credentials/key-resolver
+import { BYOKError } from "../../../ai-engine/credentials/key-resolver/key-resolver.errors";
 import { RequestContext } from "../../../../common/context/request-context";
 import { ModelSubFacade } from "../sub-facades/model.sub-facade";
 import type { ModelResolverService } from "../model-resolver.service";

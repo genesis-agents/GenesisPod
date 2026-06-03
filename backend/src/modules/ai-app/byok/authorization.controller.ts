@@ -12,12 +12,12 @@ import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { AuthorizationService } from "../../platform/credentials/authorization/authorization.service";
+import { AuthorizationService } from "../../ai-engine/credentials/authorization/authorization.service";
 import {
   ApproveAuthorizationDto,
   CreateAuthorizationRequestDto,
   RejectAuthorizationDto,
-} from "../../platform/credentials/authorization/dto/authorization.dto";
+} from "../../ai-engine/credentials/authorization/dto/authorization.dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

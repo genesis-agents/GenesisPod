@@ -28,17 +28,6 @@ export {
   EXTERNAL_TOOL_SECRET_MAPPING,
 } from "../secrets/secret-name.catalog";
 
-// ─── BYOK 工具 Key 解析（2026-05-27 全量化）───
-export {
-  ToolKeyResolverService,
-  NoToolKeyError,
-} from "../credentials/tool-key-resolver/tool-key-resolver.service";
-export type {
-  ResolvedToolKey,
-  ToolKeySource,
-} from "../credentials/tool-key-resolver/tool-key-resolver.service";
-export { UserSecretsService } from "../credentials/user-secrets/user-secrets.service";
-
 // ─── Storage ───
 export { StorageGovernanceService } from "../storage/governance/storage-governance.service";
 export { R2StorageService } from "../storage/runtime/r2-storage.service";
@@ -92,31 +81,8 @@ export type {
   AuditQueryFilter,
 } from "../monitoring/audit/audit-log.service";
 
-// ─── BYOK / Credentials ─── (2026-05-01: 从 ai-engine/credentials 下沉到 platform/credentials)
-// API key 凭证管理是基础设施（CRUD / 加解密 / BYOK 调度），不是 engine 核心能力。
-// 全部从 platform/facade 暴露。ai-engine/facade 暂保留 re-export 兼容历史引用。
-export { KeyAssignmentsService } from "../credentials/key-assignments/key-assignments.service";
-export { KeyRequestsService } from "../credentials/key-requests/key-requests.service";
-export { UserApiKeysService } from "../credentials/user-api-keys/user-api-keys.service";
-export { KeyResolverService } from "../credentials/key-resolver/key-resolver.service";
-export { NoAvailableKeyError } from "../credentials/key-resolver/key-resolver.errors";
-export type {
-  ResolvedKey,
-  KeyChain,
-  KeySource,
-} from "../credentials/key-resolver/key-resolver.service";
-export { ByokMaintenanceScheduler } from "../credentials/scheduling/byok-maintenance.scheduler";
-export { UserModelConfigsService } from "../credentials/user-model-configs/user-model-configs.service";
-export { CreateKeyRequestDto } from "../credentials/key-requests/dto/create-key-request.dto";
-export {
-  SaveUserApiKeyDto,
-  ApiKeyMode,
-} from "../credentials/user-api-keys/dto/save-user-api-key.dto";
-export { TestApiKeyDto } from "../credentials/user-api-keys/dto/test-api-key.dto";
-export {
-  CreateUserModelConfigDto,
-  UpdateUserModelConfigDto,
-} from "../credentials/user-model-configs/dto/user-model-config.dto";
+// ─── BYOK / Credentials ─── 2026-06-02: 迁至 ai-engine（AI 专属：模型/供应商密钥
+// 解析 + user-model-configs）。从 ai-engine/facade 暴露，不再经 platform/facade。
 
 // ─── Release ───
 export { ReleaseService } from "../release/release.service";

@@ -35,7 +35,7 @@ import { of } from "rxjs";
 import { SearchService } from "../search.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/platform/secrets/secrets.service";
-import { ToolKeyResolverService } from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
+import { ToolKeyResolverService } from "@/modules/ai-engine/credentials/tool-key-resolver/tool-key-resolver.service";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

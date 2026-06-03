@@ -12,10 +12,10 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { SecretsModule } from "../../platform/secrets/secrets.module";
-import { UserApiKeysModule } from "../../platform/credentials/user-api-keys/user-api-keys.module";
-import { KeyResolverModule } from "../../platform/credentials/key-resolver/key-resolver.module";
-import { KeyExecutorModule } from "../../platform/credentials/executor/key-executor.module";
-import { UserModelConfigsModule } from "../../platform/credentials/user-model-configs/user-model-configs.module";
+import { UserApiKeysModule } from "../../ai-engine/credentials/user-api-keys/user-api-keys.module";
+import { KeyResolverModule } from "../../ai-engine/credentials/key-resolver/key-resolver.module";
+import { KeyExecutorModule } from "../../ai-engine/credentials/executor/key-executor.module";
+import { UserModelConfigsModule } from "../../ai-engine/credentials/user-model-configs/user-model-configs.module";
 import { AiEngineConstraintModule } from "../safety/constraint.module";
 import { AiEnginePlanningModule } from "../planning/planning.module";
 import * as http from "http";

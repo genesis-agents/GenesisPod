@@ -11,7 +11,7 @@ import {
   UserModelConfigsService,
   AutoConfigureService,
 } from "@/modules/ai-harness/facade";
-import { KeyHealthStore } from "@/modules/platform/credentials/health";
+import { KeyHealthStore } from "@/modules/platform/key-health";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };

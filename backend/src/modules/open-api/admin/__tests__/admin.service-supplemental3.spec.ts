@@ -135,7 +135,7 @@ describe("AdminService (supplemental3)", () => {
         // PR-6 (2026-05-12): AdminService 新增 KeyAssignmentsService 依赖
         {
           provide:
-            require("../../../platform/credentials/key-assignments/key-assignments.service")
+            require("../../../ai-engine/credentials/key-assignments/key-assignments.service")
               .KeyAssignmentsService,
           useValue: {
             reactivateStale: jest.fn().mockResolvedValue({ count: 0 }),

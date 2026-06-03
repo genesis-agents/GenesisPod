@@ -17,7 +17,7 @@ import { PolicyDataService } from "../policy/policy-data.service";
 import {
   ToolKeyResolverService,
   NoToolKeyError,
-} from "@/modules/platform/facade";
+} from "@/modules/ai-engine/facade";
 import { RequestContext } from "@/common/context/request-context";
 import {
   resolveEffectiveTimeRange,

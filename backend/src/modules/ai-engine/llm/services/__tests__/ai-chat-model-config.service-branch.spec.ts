@@ -18,7 +18,7 @@ import { AiChatModelConfigService } from "../ai-chat-model-config.service";
 import { AiModelConfigService } from "../ai-model-config.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/platform/secrets/secrets.service";
-import { UserApiKeysService } from "@/modules/platform/credentials/user-api-keys/user-api-keys.service";
+import { UserApiKeysService } from "@/modules/ai-engine/credentials/user-api-keys/user-api-keys.service";
 
 function createMockDbModel(overrides: Record<string, unknown> = {}) {
   return {

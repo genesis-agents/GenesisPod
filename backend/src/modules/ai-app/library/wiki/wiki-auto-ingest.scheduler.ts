@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { KeyResolverService } from "../../../platform/facade";
+import { KeyResolverService } from "../../../ai-engine/facade";
 import {
   AUTO_INGEST_SYSTEM_USER_ID,
   WikiIngestService,

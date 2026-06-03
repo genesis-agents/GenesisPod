@@ -4,7 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { SecretKeysService } from "../secret-keys.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../encryption/encryption.service";
-import { ProviderProbeService } from "../../credentials/health/provider-probe.service";
+import { ProviderProbeService } from "../../key-health/provider-probe.service";
 
 const buildEncryption = (): EncryptionService =>
   new EncryptionService({

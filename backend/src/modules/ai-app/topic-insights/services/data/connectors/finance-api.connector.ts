@@ -18,12 +18,11 @@ import {
   DataSourceType,
   DataSourceResult,
 } from "../../../types/data-source.types";
+import { SecretsService, SECRET_NAMES } from "../../../../../platform/facade";
 import {
-  SecretsService,
-  SECRET_NAMES,
   ToolKeyResolverService,
   NoToolKeyError,
-} from "../../../../../platform/facade";
+} from "../../../../../ai-engine/facade";
 import { RequestContext } from "@/common/context/request-context";
 
 @Injectable()

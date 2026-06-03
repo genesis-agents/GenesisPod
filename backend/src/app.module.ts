@@ -39,12 +39,12 @@ import { StorageModule } from "./modules/platform/storage/storage.module";
 import { DbGovernanceModule } from "./modules/platform/db-governance/db-governance.module";
 import { CreditsModule } from "./modules/platform/credits/credits.module";
 import { EncryptionModule } from "./modules/platform/encryption/encryption.module";
-import { UserApiKeysModule } from "./modules/platform/credentials/user-api-keys/user-api-keys.module";
+import { UserApiKeysModule } from "./modules/ai-engine/credentials/user-api-keys/user-api-keys.module";
 import { ByokModule } from "./modules/ai-app/byok/byok.module";
-import { KeyAssignmentsModule } from "./modules/platform/credentials/key-assignments";
-import { KeyRequestsModule } from "./modules/platform/credentials/key-requests";
-import { KeyResolverModule } from "./modules/platform/credentials/key-resolver";
-import { UserModelConfigsModule } from "./modules/platform/credentials/user-model-configs";
+import { KeyAssignmentsModule } from "./modules/ai-engine/credentials/key-assignments";
+import { KeyRequestsModule } from "./modules/ai-engine/credentials/key-requests";
+import { KeyResolverModule } from "./modules/ai-engine/credentials/key-resolver";
+import { UserModelConfigsModule } from "./modules/ai-engine/credentials/user-model-configs";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
 // AI Harness â€” Agent kernel / execution / memory / process / protocol / governance / facade
@@ -112,7 +112,7 @@ import { SkillsApiModule } from "./modules/open-api/skills-api/skills-api.module
 import { TeamsApiModule } from "./modules/open-api/teams-api/teams-api.module";
 // A2A API module (open-api layer â€” PR-X17: controller moved from ai-harness/protocols/a2a)
 import { A2AApiModule } from "./modules/open-api/a2a-api/a2a-api.module";
-// BYOK Admin module (open-api layer â€” PR-X17: 4 admin controllers moved from platform/credentials)
+// BYOK Admin module (open-api layer â€” PR-X17: 4 admin controllers moved from ai-engine/credentials)
 import { ByokAdminModule } from "./modules/open-api/byok-admin/byok-admin.module";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
@@ -292,7 +292,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     // Teams API (PR-X16: moved from ai-harness/teams/controllers)
     TeamsApiModule,
 
-    // BYOK Admin API (PR-X17: 4 admin controllers moved from platform/credentials)
+    // BYOK Admin API (PR-X17: 4 admin controllers moved from ai-engine/credentials)
     ByokAdminModule,
   ],
   controllers: [AppController],

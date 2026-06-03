@@ -2,7 +2,7 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { CreditsModule } from "../../../platform/credits/credits.module";
-import { KeyResolverModule } from "../../../platform/credentials/key-resolver/key-resolver.module";
+import { KeyResolverModule } from "../../../ai-engine/credentials/key-resolver/key-resolver.module";
 import { RAGModule } from "../rag/rag.module";
 import { PromptSkillBridge } from "@/modules/ai-harness/facade";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";

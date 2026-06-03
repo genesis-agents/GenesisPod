@@ -36,12 +36,11 @@ import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { SecretsService, SECRET_NAMES } from "@/modules/platform/facade";
 import {
-  SecretsService,
-  SECRET_NAMES,
   ToolKeyResolverService,
   NoToolKeyError,
-} from "@/modules/platform/facade";
+} from "@/modules/ai-engine/facade";
 import { RequestContext } from "@/common/context/request-context";
 import * as duckDuckScrape from "duck-duck-scrape";
 import * as crypto from "crypto";

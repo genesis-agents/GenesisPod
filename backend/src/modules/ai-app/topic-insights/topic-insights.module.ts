@@ -17,7 +17,7 @@ import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { RESEARCH_LEAD_ROLE_CONFIG } from "../research/teams";
 import { CreditsModule } from "../../platform/credits/credits.module";
 import { SecretsModule } from "../../platform/secrets/secrets.module";
-import { ToolKeyResolverModule } from "../../platform/credentials/tool-key-resolver/tool-key-resolver.module";
+import { ToolKeyResolverModule } from "../../ai-engine/credentials/tool-key-resolver/tool-key-resolver.module";
 import { StorageModule } from "../../platform/storage/storage.module";
 import { ExportModule } from "../../../common/export/export.module";
 import { TOPIC_INSIGHTS_DATA_EXPORT } from "../contracts/interfaces/data-export.interface";
