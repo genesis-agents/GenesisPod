@@ -260,12 +260,55 @@ jobs:
         run: npm run verify:arch
         working-directory: ./backend
 
+  # ── Boot Smoke Test ───────────────────────────────────────
+  # CI 从不真正启动应用（单测大量 mock），循环导入引发的 DI 解析崩溃
+  # 会一路漏到生产（2026-06-03 ContentFetchService 生产崩溃，hotfix #220）。
+  # 本 job 用 NestFactory.create(AppModule) 实例化完整 provider 依赖图——
+  # DI 循环崩溃正是在此阶段触发——但不调用 app.init()，故无需 Redis/外部网络。
+  boot-smoke:
+    name: Boot Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      # 构建到 dist（含 prisma generate + tsc + tsc-alias）——boot 测试针对编译产物运行，
+      # 与生产 `node dist/main.js` 启动路径一致，且避开 tsx 对 `@/` paths 的解析 bug。
+      - name: Build backend
+        run: npm run build
+        working-directory: ./backend
+
+      - name: Boot smoke test (DI graph resolution)
+        run: npm run test:boot
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/genesis_test
+          JWT_SECRET: test_secret
+          STORAGE_ADMIN_KEY: test_storage_admin_key
+          NODE_ENV: test
+
   # ── CI Gate ────────────────────────────────────────────────
   ci-status:
     name: CI Status
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, test-backend, test-frontend, build, quality, arch-boundary]
+    needs:
+      [
+        lint,
+        test-backend,
+        test-frontend,
+        build,
+        quality,
+        arch-boundary,
+        boot-smoke,
+      ]
     steps:
       - name: Check results
         run: |
@@ -275,13 +318,15 @@ jobs:
           echo "Build:          ${{ needs.build.result }}"
           echo "Quality:        ${{ needs.quality.result }}"
           echo "Arch Boundary:  ${{ needs.arch-boundary.result }}"
+          echo "Boot Smoke:     ${{ needs.boot-smoke.result }}"
 
           if [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.test-backend.result }}" != "success" ] || \
              [ "${{ needs.test-frontend.result }}" != "success" ] || \
              [ "${{ needs.build.result }}" != "success" ] || \
              [ "${{ needs.quality.result }}" != "success" ] || \
-             [ "${{ needs.arch-boundary.result }}" != "success" ]; then
+             [ "${{ needs.arch-boundary.result }}" != "success" ] || \
+             [ "${{ needs.boot-smoke.result }}" != "success" ]; then
             echo "CI failed"
             exit 1
           fi
