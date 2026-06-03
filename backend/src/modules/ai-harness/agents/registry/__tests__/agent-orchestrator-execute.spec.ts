@@ -287,6 +287,28 @@ describe("AgentOrchestrator — with guardrails", () => {
     expect(agent.plan).not.toHaveBeenCalled();
   });
 
+  it("M3: applies redacted transformedContent to the agent prompt (PII redact-not-block)", async () => {
+    const agent = makePlanBasedAgent("redact-agent");
+    registry.register(agent as any);
+
+    mockGuardrails.processInput.mockResolvedValueOnce({
+      passed: true,
+      transformedContent: "my email is [EMAIL]",
+    });
+
+    await collectEvents(
+      orchestrator.execute(
+        { prompt: "my email is john@x.com" },
+        "redact-agent",
+        "user-1",
+      ),
+    );
+
+    // agent 必须收到脱敏后的 prompt，而非原始含 PII 的
+    const planArg = agent.plan.mock.calls[0]?.[0];
+    expect(planArg.prompt).toBe("my email is [EMAIL]");
+  });
+
   it("should call processOutput for complete events", async () => {
     const agent = makePlanBasedAgent("output-guarded");
     registry.register(agent as any);
