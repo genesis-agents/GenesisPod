@@ -17,13 +17,13 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { MCPClientRegistryService } from "../../ai-engine/facade";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { MCPClientRegistryService } from "../../../ai-engine/facade";
 import {
   CreateExternalServerDto,
   UpdateExternalServerDto,
-} from "./mcp-external-admin.dto";
+} from "./external-servers.dto";
 
 @Controller("admin/mcp/external-servers")
 @ApiTags("Admin - MCP External Servers")

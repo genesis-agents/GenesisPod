@@ -23,7 +23,7 @@ import { Throttle } from "@nestjs/throttler";
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { AIModelType } from "@prisma/client";
 import { Public } from "../../../common/decorators/public.decorator";
-import { MCPApiKeyGuard } from "../mcp-server/guards/mcp-api-key.guard";
+import { MCPApiKeyGuard } from "../mcp/guards/mcp-api-key.guard";
 import { AIFacade, ChatFacade, ToolFacade } from "../../ai-harness/facade";
 import { StartResearchDto } from "./dto/research.dto";
 import { AskDto } from "./dto/ask.dto";

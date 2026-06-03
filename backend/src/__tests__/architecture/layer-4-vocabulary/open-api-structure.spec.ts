@@ -33,12 +33,11 @@ const rel = (f: string) => path.relative(SRC_ROOT, f).replace(/\\/g, "/");
 
 // ── 律2 顶层目录词汇 ──
 const CANONICAL_DIRS = ["admin", "system", "public", "a2a", "mcp", "agents", "skills", "teams", "ai", "webhooks"];
-const DIR_VOCAB_ALLOWLIST = ["mcp-admin", "mcp-server"]; // 待去后缀（teams-api 已整改）
+const DIR_VOCAB_ALLOWLIST = []; // 待去后缀（teams-api 已整改）
 
 // ── 律1 admin 散落 ──
 const ADMIN_SCATTER_ALLOWLIST = [
-  "modules/open-api/mcp-admin/mcp-external-admin.controller.ts",
-  "modules/open-api/mcp-server/mcp-server-admin.controller.ts",
+  "modules/open-api/mcp/mcp-server-admin.controller.ts",
   "modules/open-api/system/credits/credits.controller.ts", // AdminCreditsController 待拆出
 ];
 

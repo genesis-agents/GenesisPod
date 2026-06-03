@@ -3,7 +3,7 @@ import { Logger } from "@nestjs/common";
 import { StatisticsService } from "../statistics.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { KernelApiService } from "../../../../ai-harness/facade";
-import { MCPServerService } from "../../../../open-api/mcp-server/mcp-server.service";
+import { MCPServerService } from "../../../../open-api/mcp/mcp-server.service";
 import { GuardrailsPipelineService } from "../../../../ai-engine/facade";
 
 describe("StatisticsService", () => {

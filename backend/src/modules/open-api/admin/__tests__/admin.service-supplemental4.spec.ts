@@ -158,7 +158,7 @@ jest.mock("../../../ai-harness/facade", () => ({
   KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
 
-jest.mock("../../mcp-server/mcp-server.service", () => ({
+jest.mock("../../mcp/mcp-server.service", () => ({
   MCPServerService: class {},
 }));
 
