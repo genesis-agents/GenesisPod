@@ -26,7 +26,7 @@ import { AdaptiveReplannerService } from "./orchestrator/adaptive-replanner.serv
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
 import { MessageBusService as A2AMessageBusService } from "@/modules/ai-harness/protocols/ipc/message-bus.service";
-// PR-X16: TeamsController 已迁移至 open-api/teams-api（HTTP Controller 上提）
+// PR-X16: TeamsController 已迁移至 open-api/teams（HTTP Controller 上提）
 
 // AI Engine 核心依赖
 import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool.registry";
@@ -53,7 +53,7 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
  * - Mission 编排器（集成 LLM/Tools/Skills/Memory）
  */
 @Module({
-  controllers: [], // TeamsController moved to open-api/teams-api (PR-X16)
+  controllers: [], // TeamsController moved to open-api/teams (PR-X16)
   providers: [
     RoleRegistry,
     TeamRegistry,
