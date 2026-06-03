@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { RawDataService } from "../../../../../common/rawdata/rawdata.service";
+import { RawDataService } from "@/modules/ai-app/explore/rawdata/rawdata.service";
 import { DeduplicationService } from "./deduplication.service";
 import { getErrorStack } from "../../../../../common/utils/error.utils";
 import axios from "axios";

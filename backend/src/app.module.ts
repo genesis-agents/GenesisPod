@@ -14,7 +14,7 @@ import { PrismaModule } from "./common/prisma/prisma.module";
 import { SeedModule } from "./common/seed/seed.module";
 // ★ PR-A6 (2026-05-07): per-workspace 灰度 @Global service（无业务依赖，仅 Prisma）
 import { FeatureFlagModule } from "./common/feature-flag/feature-flag.module";
-import { RawDataModule } from "./common/rawdata/rawdata.module";
+import { RawDataModule } from "./modules/ai-app/explore/rawdata/rawdata.module";
 import { GraphModule } from "./common/graph/graph.module";
 // AiOrchestrationModule removed (PR-X28): only error-classifier was used; it
 // is now at ai-engine/llm/abstractions/error-classifier.ts. Other services in

@@ -5,7 +5,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import axios from "axios";
 import { WebScraperService } from "../web-scraper.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { RawDataService } from "../../../../../../common/rawdata/rawdata.service";
+import { RawDataService } from "@/modules/ai-app/explore/rawdata/rawdata.service";
 import { DeduplicationService } from "../deduplication.service";
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;

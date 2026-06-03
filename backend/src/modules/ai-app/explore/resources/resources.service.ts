@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { RawDataService } from "../../../../common/rawdata/rawdata.service";
+import { RawDataService } from "@/modules/ai-app/explore/rawdata/rawdata.service";
 import { ensureError } from "../../../../common/utils/error.utils";
 import { Prisma, ResourceType } from "@prisma/client";
 import { SourceWhitelistService } from "../../explore/ingestion/config/services/source-whitelist.service";

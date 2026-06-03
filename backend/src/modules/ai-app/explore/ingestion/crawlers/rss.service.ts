@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ResourceType, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { RawDataService } from "../../../../../common/rawdata/rawdata.service";
+import { RawDataService } from "@/modules/ai-app/explore/rawdata/rawdata.service";
 import { DeduplicationService } from "./deduplication.service";
 import * as Parser from "rss-parser";
 import { precheckYoutubeUrl } from "../../../explore/resources/youtube-precheck.util";
