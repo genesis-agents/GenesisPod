@@ -13,7 +13,7 @@ import { Module, forwardRef } from "@nestjs/common";
 // Registries (from other modules)
 import { AiEngineToolsModule } from "../tools/tools.module";
 import { AiEngineSkillsModule } from "../skills/skills.module";
-import { AiEngineConstraintModule } from "../safety/constraint.module";
+import { AiEngineSafetyModule } from "../safety/safety.module";
 
 // Executors —— 2026-04-30 (C2-step2) 删除 4 个死代码 (BaseExecutor / DAGExecutor /
 // SequentialExecutor / ParallelExecutor)；DAG 业务实际用 ai-harness/runner/dag/
@@ -56,7 +56,7 @@ import { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutti
   imports: [
     forwardRef(() => AiEngineToolsModule),
     forwardRef(() => AiEngineSkillsModule),
-    forwardRef(() => AiEngineConstraintModule),
+    forwardRef(() => AiEngineSafetyModule),
   ],
   controllers: [],
   providers: [

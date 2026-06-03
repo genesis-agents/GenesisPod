@@ -13,7 +13,7 @@
 import { Test } from "@nestjs/testing";
 import { SchedulerRegistry } from "@nestjs/schedule";
 import { ReflectionMissionScheduler } from "../reflection-mission-scheduler.service";
-import { DEFAULT_DREAMING_CONFIG } from "../dreaming.types";
+import { DEFAULT_CONSOLIDATION_CONFIG } from "../consolidation.types";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { CacheService } from "@/common/cache/cache.service";
 import { AiChatService } from "../../../../ai-engine/llm/chat/ai-chat.service";
@@ -143,9 +143,9 @@ describe("ReflectionMissionScheduler", () => {
   });
 
   describe("config", () => {
-    it("starts with DEFAULT_DREAMING_CONFIG", async () => {
+    it("starts with DEFAULT_CONSOLIDATION_CONFIG", async () => {
       const { svc } = await makeService();
-      expect(svc.getConfig()).toEqual(DEFAULT_DREAMING_CONFIG);
+      expect(svc.getConfig()).toEqual(DEFAULT_CONSOLIDATION_CONFIG);
     });
 
     it("setConfig persists to cache and re-registers cron", async () => {

@@ -10,7 +10,7 @@ import {
 import { RoleId } from "./role.interface";
 import { ITeamMember, TeamMemberId } from "./member.interface";
 import { IWorkflow, WorkflowConfig } from "./workflow.interface";
-import { ConstraintProfile } from "../constraints/constraint-profile";
+import { MissionExecutionProfile } from "../profile/mission-execution-profile";
 
 // ==================== Team ID ====================
 
@@ -60,7 +60,7 @@ export interface TeamConfig {
   availableTools: ToolId[];
 
   /** 约束配置 */
-  constraintProfile: ConstraintProfile;
+  constraintProfile: MissionExecutionProfile;
 
   /** 交付物类型 */
   deliverableTypes: string[];
@@ -117,7 +117,7 @@ export interface ITeam {
   readonly workflow: IWorkflow;
 
   /** 约束配置 */
-  readonly constraintProfile: ConstraintProfile;
+  readonly constraintProfile: MissionExecutionProfile;
 
   /**
    * 获取所有成员（含 Leader）
@@ -215,7 +215,7 @@ export interface TeamExecutionContext {
   endTime?: Date;
 
   /** 约束条件 */
-  constraints: ConstraintProfile;
+  constraints: MissionExecutionProfile;
 
   /** 共享状态 */
   sharedState: Record<string, unknown>;

@@ -1,7 +1,7 @@
 /**
- * DreamingController — PR-I 骨架 2026-05-15
+ * ConsolidationController — PR-I 骨架 2026-05-15
  *
- * Admin 入口，让运维 / 产品看到 Dreaming（主动反思）的持续成果：
+ * Admin 入口，让运维 / 产品看到 Consolidation（主动反思）的持续成果：
  *   - 历史：每轮反思 mission 的 timeline（trigger / sample / 产出 / token）
  *   - 详情：单条 RuleBase 条目的 pattern / mitigation / 来源 missions / 效用统计
  *   - 配置：cron / 抽样窗口 / token budget / 启用开关
@@ -32,14 +32,14 @@ import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import {
   ReflectionMissionScheduler,
-  type DreamingRule,
-  type DreamingRunResult,
-  type DreamingSchedulerConfig,
+  type ConsolidationRule,
+  type ConsolidationRunResult,
+  type ConsolidationSchedulerConfig,
 } from "../../../ai-harness/facade";
-import { UpdateDreamingConfigDto } from "./dto/update-dreaming-config.dto";
+import { UpdateConsolidationConfigDto } from "./dto/update-consolidation-config.dto";
 
 /** 历史 run 列表项 */
-export interface DreamingRunListItem {
+export interface ConsolidationRunListItem {
   id: string;
   triggeredAt: string;
   triggerKind: "cron" | "failure_threshold" | "manual";
@@ -52,7 +52,7 @@ export interface DreamingRunListItem {
 }
 
 /** 详情：单条 rule 的完整 view */
-export interface DreamingRuleDetail extends DreamingRule {
+export interface ConsolidationRuleDetail extends ConsolidationRule {
   /** 衰减后的有效置信度（confidence × successRate） */
   effectiveConfidence: number;
   /** 平均 success rate */
@@ -66,7 +66,7 @@ export interface DreamingRuleDetail extends DreamingRule {
 }
 
 /** dashboard 顶部统计 */
-export interface DreamingOverview {
+export interface ConsolidationOverview {
   totalRules: number;
   activeRules: number;
   recentRunsCount: number; // 近 7d
@@ -78,17 +78,17 @@ export interface DreamingOverview {
 @ApiTags("admin/dreaming")
 @UseGuards(JwtAuthGuard, AdminGuard)
 @Controller("admin/dreaming")
-export class DreamingController {
+export class ConsolidationController {
   constructor(private readonly scheduler: ReflectionMissionScheduler) {}
 
   // ─── Overview ─────────────────────────────────────────────────────────────
 
   @Get("overview")
   @ApiOperation({
-    summary: "Dreaming dashboard overview (前端 admin 进入页顶部 stat 卡)",
+    summary: "Consolidation dashboard overview (前端 admin 进入页顶部 stat 卡)",
   })
   @ApiResponse({ status: 200 })
-  async getOverview(): Promise<DreamingOverview> {
+  async getOverview(): Promise<ConsolidationOverview> {
     return this.scheduler.getOverview();
   }
 
@@ -96,14 +96,14 @@ export class DreamingController {
 
   @Get("runs")
   @ApiOperation({
-    summary: "List reflection mission runs (Dreaming 历史 timeline)",
+    summary: "List reflection mission runs (Consolidation 历史 timeline)",
   })
   @ApiQuery({ name: "limit", required: false })
   @ApiQuery({ name: "since", required: false, description: "ISO timestamp" })
   async listRuns(
     @Query("limit") limit?: string,
     @Query("since") since?: string,
-  ): Promise<DreamingRunListItem[]> {
+  ): Promise<ConsolidationRunListItem[]> {
     const parsedLimit = limit ? parseInt(limit, 10) : 20;
     const parsedSince = since ? new Date(since) : undefined;
     const safeSince =
@@ -112,13 +112,13 @@ export class DreamingController {
     return runs.map((r) => ({
       id: r.id,
       triggeredAt: r.triggeredAt.toISOString(),
-      triggerKind: r.triggerKind as DreamingRunListItem["triggerKind"],
+      triggerKind: r.triggerKind as ConsolidationRunListItem["triggerKind"],
       sampleSize: r.sampledMissionIds.length,
       newRulesCount: r.newRulesCount,
       rejectedCandidates: r.rejectedCandidates,
       tokensUsed: r.tokensUsed,
       durationMs: r.durationMs,
-      status: r.status as DreamingRunListItem["status"],
+      status: r.status as ConsolidationRunListItem["status"],
     }));
   }
 
@@ -159,7 +159,7 @@ export class DreamingController {
   @ApiQuery({ name: "includeDisabled", required: false })
   async listRules(
     @Query("includeDisabled") includeDisabled?: string,
-  ): Promise<DreamingRuleDetail[]> {
+  ): Promise<ConsolidationRuleDetail[]> {
     const rules = await this.scheduler.listRules(includeDisabled === "true");
     return rules.map((r) => {
       const successRate =
@@ -192,7 +192,7 @@ export class DreamingController {
   })
   async getRuleDetail(
     @Param("ruleId") ruleId: string,
-  ): Promise<DreamingRuleDetail> {
+  ): Promise<ConsolidationRuleDetail> {
     const r = await this.scheduler.getRuleById(ruleId);
     if (!r) {
       throw new HttpException("Rule not found", HttpStatus.NOT_FOUND);
@@ -246,8 +246,8 @@ export class DreamingController {
   // ─── Config ───────────────────────────────────────────────────────────────
 
   @Get("config")
-  @ApiOperation({ summary: "Get Dreaming scheduler config" })
-  getConfig(): DreamingSchedulerConfig {
+  @ApiOperation({ summary: "Get Consolidation scheduler config" })
+  getConfig(): ConsolidationSchedulerConfig {
     return this.scheduler.getConfig();
   }
 
@@ -259,8 +259,8 @@ export class DreamingController {
   // 校验 + 剔除多余字段，防止 admin token 泄漏后任意值灌进 scheduler config。
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async updateConfig(
-    @Body() updates: UpdateDreamingConfigDto,
-  ): Promise<DreamingSchedulerConfig> {
+    @Body() updates: UpdateConsolidationConfigDto,
+  ): Promise<ConsolidationSchedulerConfig> {
     await this.scheduler.setConfig(updates);
     return this.scheduler.getConfig();
   }
@@ -269,9 +269,9 @@ export class DreamingController {
 
   @Post("runs/trigger")
   @ApiOperation({
-    summary: "手动触发一次 Dreaming run（admin 调试 / 紧急反思）",
+    summary: "手动触发一次 Consolidation run（admin 调试 / 紧急反思）",
   })
-  async triggerRun(): Promise<DreamingRunResult> {
+  async triggerRun(): Promise<ConsolidationRunResult> {
     return this.scheduler.runOnce({
       kind: "manual",
       detail: "admin-triggered",

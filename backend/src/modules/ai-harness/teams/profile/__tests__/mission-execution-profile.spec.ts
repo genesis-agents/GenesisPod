@@ -1,5 +1,5 @@
 /**
- * Constraint Profile Utility Tests
+ * Mission Execution Profile Utility Tests
  *
  * Covers:
  * 1. CONSTRAINT_PRESETS – shape and values
@@ -13,10 +13,10 @@ import {
   createConstraintProfile,
   getDefaultConstraintProfile,
   mergeConstraintProfiles,
-  ConstraintProfile,
-} from "../constraint-profile";
+  MissionExecutionProfile,
+} from "../mission-execution-profile";
 
-describe("constraint-profile utilities", () => {
+describe("mission-execution-profile utilities", () => {
   // ============================================================
   // CONSTRAINT_PRESETS
   // ============================================================
@@ -225,7 +225,7 @@ describe("constraint-profile utilities", () => {
   // ============================================================
 
   describe("mergeConstraintProfiles", () => {
-    const base: ConstraintProfile = {
+    const base: MissionExecutionProfile = {
       cost: {
         budget: 500,
         modelPreference: "balanced",

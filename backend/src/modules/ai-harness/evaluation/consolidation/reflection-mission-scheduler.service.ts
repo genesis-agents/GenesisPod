@@ -1,7 +1,7 @@
 /**
- * ReflectionMissionScheduler — Dreaming 主动反思调度器
+ * ReflectionMissionScheduler — Consolidation 主动反思调度器
  *
- * 周期性触发反思 mission，从近期失败 mission 抽样、归纳通用规则、写 DreamingRule，
+ * 周期性触发反思 mission，从近期失败 mission 抽样、归纳通用规则、写 ConsolidationRule，
  * 并在新 mission 启动时按 failureCode 注入 leader plan。
  *
  * 落地路径（4 sub-PR，共 12 天）：
@@ -11,7 +11,7 @@
  *   - PR-I.4 ✅ 注入闭环 + admin 真实现 + UI 接通 + 集体评审
  *
  * 依赖（注入）：
- *   - PrismaService     : DreamingRun / DreamingRule 读写
+ *   - PrismaService     : ConsolidationRun / ConsolidationRule 读写
  *   - AiChatService     : LLM 反思调用（走 TaskProfile，禁硬编码 model）
  *   - CacheService      : 跨 pod 锁（同时只有一个 pod 跑反思）
  *   - SchedulerRegistry : 动态注册/更新 cron job（admin 改 config 不需重启）
@@ -26,13 +26,13 @@ import { CacheService, CacheTTL } from "@/common/cache/cache.service";
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
 import {
-  DEFAULT_DREAMING_CONFIG,
-  DreamingRule,
-  DreamingRunResult,
-  DreamingSchedulerConfig,
-  DreamingTrigger,
+  DEFAULT_CONSOLIDATION_CONFIG,
+  ConsolidationRule,
+  ConsolidationRunResult,
+  ConsolidationSchedulerConfig,
+  ConsolidationTrigger,
   InjectedRuleSet,
-} from "./dreaming.types";
+} from "./consolidation.types";
 
 const CRON_JOB_NAME = "dreaming.reflection";
 const POD_LOCK_KEY = "dreaming:run-lock";
@@ -50,7 +50,7 @@ type CandidateRule = z.infer<typeof candidateRuleSchema>;
 @Injectable()
 export class ReflectionMissionScheduler implements OnModuleInit {
   private readonly logger = new Logger(ReflectionMissionScheduler.name);
-  private config: DreamingSchedulerConfig = DEFAULT_DREAMING_CONFIG;
+  private config: ConsolidationSchedulerConfig = DEFAULT_CONSOLIDATION_CONFIG;
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
@@ -62,9 +62,9 @@ export class ReflectionMissionScheduler implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     const persisted =
-      await this.cache.get<DreamingSchedulerConfig>(CONFIG_CACHE_KEY);
+      await this.cache.get<ConsolidationSchedulerConfig>(CONFIG_CACHE_KEY);
     if (persisted) {
-      this.config = { ...DEFAULT_DREAMING_CONFIG, ...persisted };
+      this.config = { ...DEFAULT_CONSOLIDATION_CONFIG, ...persisted };
     }
     this.registerCronJob();
   }
@@ -76,7 +76,7 @@ export class ReflectionMissionScheduler implements OnModuleInit {
       this.schedulerRegistry.deleteCronJob(CRON_JOB_NAME);
     }
     if (!this.config.enabled) {
-      this.logger.log("[Dreaming] disabled, cron job not registered");
+      this.logger.log("[Consolidation] disabled, cron job not registered");
       return;
     }
     const job = new CronJob(this.config.cronExpression, () => {
@@ -85,19 +85,21 @@ export class ReflectionMissionScheduler implements OnModuleInit {
         detail: this.config.cronExpression,
         triggeredAt: new Date(),
       }).catch((err: unknown) =>
-        this.logger.error(`[Dreaming] cron run failed: ${String(err)}`),
+        this.logger.error(`[Consolidation] cron run failed: ${String(err)}`),
       );
     });
     this.schedulerRegistry.addCronJob(CRON_JOB_NAME, job as never);
     job.start();
     this.logger.log(
-      `[Dreaming] cron job registered: ${this.config.cronExpression}`,
+      `[Consolidation] cron job registered: ${this.config.cronExpression}`,
     );
   }
 
   // ─── 单轮反思（cron / manual / threshold 三入口共用）────────────────────────
 
-  async runOnce(trigger: DreamingTrigger): Promise<DreamingRunResult> {
+  async runOnce(
+    trigger: ConsolidationTrigger,
+  ): Promise<ConsolidationRunResult> {
     const startMs = Date.now();
     const windowEnd = trigger.triggeredAt;
     const windowStart = new Date(
@@ -108,7 +110,7 @@ export class ReflectionMissionScheduler implements OnModuleInit {
     const lockAcquired = await this.tryAcquireLock();
     if (!lockAcquired) {
       this.logger.warn(
-        `[Dreaming] another pod is running reflection, skip this trigger (${trigger.kind})`,
+        `[Consolidation] another pod is running reflection, skip this trigger (${trigger.kind})`,
       );
       return this.emptyResult(trigger, windowStart, windowEnd, startMs);
     }
@@ -118,7 +120,7 @@ export class ReflectionMissionScheduler implements OnModuleInit {
       const missions = await this.sampleFailedMissions(windowStart, windowEnd);
       if (missions.length < 3) {
         this.logger.log(
-          `[Dreaming] only ${missions.length} failed missions in window, need ≥3 for pattern induction, skip`,
+          `[Consolidation] only ${missions.length} failed missions in window, need ≥3 for pattern induction, skip`,
         );
         return this.persistRunSkip(
           trigger,
@@ -132,7 +134,7 @@ export class ReflectionMissionScheduler implements OnModuleInit {
       // 2) LLM 反思
       const reflectionResult = await this.reflectViaLLM(missions);
 
-      // 3) 校验 + dedup + 写 DreamingRule
+      // 3) 校验 + dedup + 写 ConsolidationRule
       const runId = await this.persistRun({
         trigger,
         windowStart,
@@ -166,7 +168,7 @@ export class ReflectionMissionScheduler implements OnModuleInit {
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`[Dreaming] runOnce failed: ${msg}`);
+      this.logger.error(`[Consolidation] runOnce failed: ${msg}`);
       await this.persistRunFailure(
         trigger,
         windowStart,
@@ -216,7 +218,7 @@ export class ReflectionMissionScheduler implements OnModuleInit {
       )
       .join("\n\n");
 
-    const systemPrompt = `You are a Dreaming reflection agent. Your job: given a batch of FAILED research missions, induce general failure-pattern rules (cross-mission, not single-mission specific).
+    const systemPrompt = `You are a memory-consolidation reflection agent. Your job: given a batch of FAILED research missions, induce general failure-pattern rules (cross-mission, not single-mission specific).
 
 Output STRICT JSON ONLY in this shape (no markdown, no commentary):
 {
@@ -267,7 +269,7 @@ ${sampleBlock}
       }
     } catch (err) {
       this.logger.warn(
-        `[Dreaming] LLM output outer-shape fail: ${err instanceof Error ? err.message : String(err)}`,
+        `[Consolidation] LLM output outer-shape fail: ${err instanceof Error ? err.message : String(err)}`,
       );
       rejected = 1;
     }
@@ -278,7 +280,7 @@ ${sampleBlock}
   // ─── 持久化 ─────────────────────────────────────────────────────────────────
 
   private async persistRun(input: {
-    trigger: DreamingTrigger;
+    trigger: ConsolidationTrigger;
     windowStart: Date;
     windowEnd: Date;
     sampledMissionIds: string[];
@@ -308,12 +310,12 @@ ${sampleBlock}
   }
 
   private async persistRunSkip(
-    trigger: DreamingTrigger,
+    trigger: ConsolidationTrigger,
     windowStart: Date,
     windowEnd: Date,
     missions: Array<{ id: string }>,
     startMs: number,
-  ): Promise<DreamingRunResult> {
+  ): Promise<ConsolidationRunResult> {
     await this.prisma.dreamingRun.create({
       data: {
         triggerKind: trigger.kind,
@@ -334,7 +336,7 @@ ${sampleBlock}
   }
 
   private async persistRunFailure(
-    trigger: DreamingTrigger,
+    trigger: ConsolidationTrigger,
     windowStart: Date,
     windowEnd: Date,
     errorMessage: string,
@@ -363,7 +365,7 @@ ${sampleBlock}
     runId: string,
     candidates: CandidateRule[],
     sampleMissionIds: string[],
-  ): Promise<DreamingRule[]> {
+  ): Promise<ConsolidationRule[]> {
     if (candidates.length === 0) return [];
     const existing = await this.prisma.dreamingRule.findMany({
       where: { disabled: false },
@@ -411,7 +413,7 @@ ${sampleBlock}
 
   async getRulesForMission(failureCodes: string[]): Promise<InjectedRuleSet> {
     // 空 failureCodes 时返回通用 top-K（新 mission 启动还不知道会失败什么，
-    // 注入"过去 SUMARY 失败模式"作为一般性提示，对齐 Anthropic Dreaming 群体智能）
+    // 注入"过去 SUMARY 失败模式"作为一般性提示，对齐 Anthropic memory-consolidation 群体智能）
     const where =
       failureCodes.length > 0
         ? { disabled: false, failureCodes: { hasSome: failureCodes } }
@@ -540,14 +542,18 @@ ${sampleBlock}
 
   // ─── Config ─────────────────────────────────────────────────────────────────
 
-  getConfig(): DreamingSchedulerConfig {
+  getConfig(): ConsolidationSchedulerConfig {
     return { ...this.config };
   }
 
-  async setConfig(updates: Partial<DreamingSchedulerConfig>): Promise<void> {
+  async setConfig(
+    updates: Partial<ConsolidationSchedulerConfig>,
+  ): Promise<void> {
     this.config = { ...this.config, ...updates };
     await this.cache.set(CONFIG_CACHE_KEY, this.config, CacheTTL.LONG);
-    this.logger.log(`[Dreaming] config updated: ${JSON.stringify(updates)}`);
+    this.logger.log(
+      `[Consolidation] config updated: ${JSON.stringify(updates)}`,
+    );
     this.registerCronJob();
   }
 
@@ -565,11 +571,11 @@ ${sampleBlock}
   }
 
   private emptyResult(
-    trigger: DreamingTrigger,
+    trigger: ConsolidationTrigger,
     windowStart: Date,
     windowEnd: Date,
     startMs: number,
-  ): DreamingRunResult {
+  ): ConsolidationRunResult {
     return {
       trigger,
       sample: {

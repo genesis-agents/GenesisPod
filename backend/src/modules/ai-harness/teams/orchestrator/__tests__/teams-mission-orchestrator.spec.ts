@@ -15,7 +15,7 @@ import {
 } from "../../../agents/abstractions/mission.types";
 import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
-import { ConstraintProfile } from "../../constraints";
+import { MissionExecutionProfile } from "../../constraints";
 
 // ---------------------------------------------------------------------------
 // Helper: consume all events from an AsyncGenerator
@@ -214,7 +214,7 @@ describe("MissionOrchestrator", () => {
     let mockLeader: ITeamMember;
     let mockMember: ITeamMember;
     let mockIntent: ParsedIntent;
-    let mockConstraints: ConstraintProfile;
+    let mockConstraints: MissionExecutionProfile;
 
     beforeEach(() => {
       mockLeader = {
@@ -409,7 +409,7 @@ describe("MissionOrchestrator", () => {
     });
 
     it("should add review step when review is required", async () => {
-      const constraintsWithReview: ConstraintProfile = {
+      const constraintsWithReview: MissionExecutionProfile = {
         ...mockConstraints,
         quality: { ...mockConstraints.quality, reviewRequired: true },
       };
@@ -468,12 +468,12 @@ describe("MissionOrchestrator", () => {
     });
 
     it("should estimate cost based on quality depth", async () => {
-      const standardConstraints: ConstraintProfile = {
+      const standardConstraints: MissionExecutionProfile = {
         ...mockConstraints,
         quality: { ...mockConstraints.quality, depth: "standard" },
       };
 
-      const comprehensiveConstraints: ConstraintProfile = {
+      const comprehensiveConstraints: MissionExecutionProfile = {
         ...mockConstraints,
         quality: { ...mockConstraints.quality, depth: "comprehensive" },
       };
@@ -1132,7 +1132,7 @@ describe("MissionOrchestrator", () => {
         leader: mockLeader,
         members: [],
         workflow: { id: "wf-1", type: "sequential", steps: [] },
-        constraintProfile: {} as ConstraintProfile,
+        constraintProfile: {} as MissionExecutionProfile,
         config: {},
       } as unknown as ITeam;
     });
@@ -1193,7 +1193,7 @@ describe("MissionOrchestrator", () => {
         leader: { id: "leader-1" },
         members: [],
         workflow: { id: "wf-1", type: "sequential", steps: [] },
-        constraintProfile: {} as ConstraintProfile,
+        constraintProfile: {} as MissionExecutionProfile,
         config: {},
       } as unknown as ITeam;
     });
@@ -1258,7 +1258,7 @@ describe("MissionOrchestrator", () => {
     let mockLeader: ITeamMember;
     let mockMember: ITeamMember;
     let mockTeam: ITeam;
-    let baseConstraints: ConstraintProfile;
+    let baseConstraints: MissionExecutionProfile;
     let epMemoryStore: Map<string, Map<string, unknown>>;
     let epOrchestrator: MissionOrchestrator;
 
@@ -1578,7 +1578,7 @@ describe("MissionOrchestrator", () => {
     it("should throw when cost budget is exceeded", async () => {
       // Note: The source uses `constraints.cost?.budget || Infinity`, so budget must be > 0
       // to avoid the `0 || Infinity` falsy coercion. Use budget=1 and costUsed=100.
-      const tightBudgetConstraints: ConstraintProfile = {
+      const tightBudgetConstraints: MissionExecutionProfile = {
         ...baseConstraints,
         cost: {
           budget: 1,
@@ -2383,7 +2383,7 @@ describe("MissionOrchestrator", () => {
         leader: mockLeaderMember,
         members: [],
         workflow: { id: "wf-1", type: "sequential", steps: [] },
-        constraintProfile: {} as ConstraintProfile,
+        constraintProfile: {} as MissionExecutionProfile,
         config: {},
       } as unknown as ITeam;
     });
@@ -2601,7 +2601,7 @@ describe("MissionOrchestrator", () => {
         leader: { id: "leader-1" },
         members: [],
         workflow: { id: "wf-1", type: "sequential", steps: [] },
-        constraintProfile: {} as ConstraintProfile,
+        constraintProfile: {} as MissionExecutionProfile,
         config: {},
       } as unknown as ITeam;
     });

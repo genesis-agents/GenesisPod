@@ -36,12 +36,12 @@ import { MCPStreamingBridge } from "./streaming/mcp-streaming-bridge";
 
 // Dependencies
 import { SecretsModule } from "../../platform/credentials/secrets/secrets.module";
-import { AiEngineConstraintModule } from "../../ai-engine/safety/constraint.module";
+import { AiEngineSafetyModule } from "../../ai-engine/safety/safety.module";
 
 @Module({
   imports: [
     SecretsModule,
-    AiEngineConstraintModule,
+    AiEngineSafetyModule,
     // ★ DiscussionModule removed — research accessed via AIFacade.executeDirectResearch()
   ],
   controllers: [MCPServerController],

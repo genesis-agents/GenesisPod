@@ -31,7 +31,7 @@ import {
   ComplexityLevel,
 } from "../../agents/abstractions/mission.types";
 import {
-  ConstraintProfile,
+  MissionExecutionProfile,
   ResourceUsage,
   mergeConstraintProfiles,
 } from "../constraints";
@@ -327,7 +327,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
   async *execute(
     input: MissionInput,
     team: ITeam,
-    constraintOverrides?: Partial<ConstraintProfile>,
+    constraintOverrides?: Partial<MissionExecutionProfile>,
   ): AsyncGenerator<MissionEvent, MissionResult> {
     const missionId = uuidv4();
     const startTime = Date.now();
@@ -978,7 +978,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   async plan(
     intent: ParsedIntent,
     team: ITeam,
-    constraints: ConstraintProfile,
+    constraints: MissionExecutionProfile,
   ): Promise<MissionExecutionPlan> {
     this.logger.log("Generating execution plan...");
 
@@ -1085,7 +1085,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   async *executePlan(
     plan: MissionExecutionPlan,
     team: ITeam,
-    constraints: ConstraintProfile,
+    constraints: MissionExecutionProfile,
   ): AsyncGenerator<MissionEvent, MissionExecutionState> {
     const missionId = plan.missionId;
     const state = this.states.get(missionId) || this.initializeState(missionId);
@@ -1456,7 +1456,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     executor: ITeamMember,
     missionId: string,
     state: MissionExecutionState,
-    constraints: ConstraintProfile,
+    constraints: MissionExecutionProfile,
   ): Promise<StepExecutionResult> {
     // 获取超时时间：步骤配置 > 默认 60 秒
     const timeout = step.timeout || 60000;
@@ -1504,7 +1504,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     executor: ITeamMember,
     missionId: string,
     state: MissionExecutionState,
-    constraints: ConstraintProfile,
+    constraints: MissionExecutionProfile,
   ): Promise<StepExecutionResult> {
     const context = await this.getContext(missionId);
     let totalTokens = 0;
@@ -1959,7 +1959,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
    * depth 为主信号；standard 时用 workStyle.outputStyle 作为 tiebreaker
    */
   private mapDepthToOutputLength(
-    depth: ConstraintProfile["quality"]["depth"],
+    depth: MissionExecutionProfile["quality"]["depth"],
     workStyle?: ITeamMember["workStyle"],
   ): "short" | "medium" | "long" {
     if (depth === "comprehensive") return "long";

@@ -94,10 +94,10 @@ export class LeaderChatService {
     private readonly store: MissionStore,
     private readonly eventBus: EventBus,
     private readonly skillCatalog: BuiltinSkillCatalog,
-    // 2026-05-15 PR-I.4: Dreaming rule injection — 闭环让 LLM 看到过去失败模式提醒。
+    // 2026-05-15 PR-I.4: Consolidation rule injection — 闭环让 LLM 看到过去失败模式提醒。
     // @Optional() 让 spec 不传也能跑（无 rule 时 snippet=空 → 与原 behavior 等价）。
     @Optional()
-    private readonly dreaming?: ReflectionMissionScheduler,
+    private readonly consolidation?: ReflectionMissionScheduler,
     // 模型级 failover：BYOK 默认模型 provider 报错时换用户的下一个 CHAT 模型。
     // @Optional() 缺失时退化为无 failover（行为同修复前）。
     @Optional()
@@ -168,15 +168,15 @@ export class LeaderChatService {
     const decisionInstructions =
       skill?.instructions ?? LEADER_CHAT_SKILL_FALLBACK;
 
-    // PR-I.4: Dreaming rule injection — 拿过去归纳的 top-K 通用失败模式提醒
-    let dreamingSnippet = "";
-    if (this.dreaming) {
+    // PR-I.4: Consolidation rule injection — 拿过去归纳的 top-K 通用失败模式提醒
+    let consolidationSnippet = "";
+    if (this.consolidation) {
       try {
-        const ruleSet = await this.dreaming.getRulesForMission([]);
-        dreamingSnippet = ruleSet.promptSnippet;
+        const ruleSet = await this.consolidation.getRulesForMission([]);
+        consolidationSnippet = ruleSet.promptSnippet;
       } catch (err) {
         this.log.warn(
-          `[send ${missionId}] dreaming rule fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+          `[send ${missionId}] consolidation rule fetch failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }
@@ -184,7 +184,7 @@ export class LeaderChatService {
     const systemPrompt = buildLeaderChatPrompt(
       mission,
       decisionInstructions,
-      dreamingSnippet,
+      consolidationSnippet,
     );
 
     const messages = previous.map((m) => ({

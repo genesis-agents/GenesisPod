@@ -870,18 +870,18 @@ export {
   type SchedulerStats as AutoDreamSchedulerStats,
 } from "../memory/consolidation/memory-consolidation-scheduler.service";
 
-// ★ 2026-05-15 PR-I: Dreaming（主动反思）— ReflectionMissionScheduler + RuleBase
+// ★ 2026-05-15 PR-I: Consolidation（主动反思）— ReflectionMissionScheduler + RuleBase
 export {
   ReflectionMissionScheduler,
-  DEFAULT_DREAMING_CONFIG,
-  type DreamingRule,
-  type DreamingRunResult,
-  type DreamingSample,
-  type DreamingSchedulerConfig,
-  type DreamingTrigger,
-  type DreamingTriggerKind,
+  DEFAULT_CONSOLIDATION_CONFIG,
+  type ConsolidationRule,
+  type ConsolidationRunResult,
+  type ConsolidationSample,
+  type ConsolidationSchedulerConfig,
+  type ConsolidationTrigger,
+  type ConsolidationTriggerKind,
   type InjectedRuleSet,
-} from "../evaluation/dreaming";
+} from "../evaluation/consolidation";
 
 // ★ 沉淀 Phase 4 (2026-04-29): Checkpoint / Health / DAG 三件套
 export {

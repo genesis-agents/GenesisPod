@@ -21,7 +21,7 @@ import {
 } from "../../../agents/abstractions/mission.types";
 import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
-import { ConstraintProfile } from "../../constraints";
+import { MissionExecutionProfile } from "../../constraints";
 import { TraceCollectorService } from "@/modules/ai-harness/tracing/observability/trace-collector.service";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 
@@ -128,7 +128,7 @@ function makeMember(id: string, roleId: string): ITeamMember {
 function makeTeam(workflowOverrides: Partial<ITeam["workflow"]> = {}): ITeam {
   const leader = makeLeader();
   const member = makeMember("member-1", "researcher");
-  const defaultConstraints: ConstraintProfile = {
+  const defaultConstraints: MissionExecutionProfile = {
     efficiency: { priority: "balanced", maxDuration: 300000 },
     cost: { budget: 100, modelPreference: "auto" },
     quality: {
@@ -526,7 +526,7 @@ describe("MissionOrchestrator plan() — reviewRequired=true adds review step", 
     };
     const intent = await orchestrator.parse(input);
     const team = makeTeam();
-    const constraints: ConstraintProfile = {
+    const constraints: MissionExecutionProfile = {
       efficiency: { priority: "balanced", maxDuration: 300000 },
       cost: { budget: 100, modelPreference: "auto" },
       quality: {
@@ -550,7 +550,7 @@ describe("MissionOrchestrator plan() — reviewRequired=true adds review step", 
     const input: MissionInput = { prompt: "no review test", metadata: {} };
     const intent = await orchestrator.parse(input);
     const team = makeTeam();
-    const constraints: ConstraintProfile = {
+    const constraints: MissionExecutionProfile = {
       efficiency: { priority: "balanced", maxDuration: 300000 },
       cost: { budget: 100, modelPreference: "auto" },
       quality: {
@@ -594,7 +594,7 @@ describe("MissionOrchestrator execute() review phase events", () => {
 
     const input: MissionInput = { prompt: "review test", metadata: {} };
     const team = makeTeam();
-    const constraintOverrides: Partial<ConstraintProfile> = {
+    const constraintOverrides: Partial<MissionExecutionProfile> = {
       quality: {
         depth: "standard",
         reviewRequired: true,

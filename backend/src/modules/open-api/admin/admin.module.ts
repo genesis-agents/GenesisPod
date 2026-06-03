@@ -27,7 +27,7 @@ import { AdminModelRecommendationsController } from "./recommendations/model-rec
 import { ObservabilityController } from "./observability/observability.controller";
 import { HarnessInspectorController } from "./harness/harness-inspector.controller";
 import { EvalController } from "./eval/eval.controller";
-import { DreamingController } from "./dreaming/dreaming.controller";
+import { ConsolidationController } from "./consolidation/consolidation.controller";
 import { OpsDashboardController } from "./dashboard/ops-dashboard.controller";
 import { OpsDashboardService } from "./dashboard/ops-dashboard.service";
 import { MCPExternalController } from "./mcp/external-servers.controller";
@@ -110,7 +110,7 @@ import {
     AdminModelRecommendationsController, // /admin/ai-models/auto-configure + /admin/model-recommendations
     ObservabilityController, // /admin/traces/* routes (PR-X17: migrated from ai-harness/tracing)
     EvalController, // /admin/evals/* routes for eval runs and experiments
-    DreamingController, // /admin/dreaming/* 2026-05-15 PR-I Dreaming（主动反思）骨架
+    ConsolidationController, // /admin/dreaming/* 2026-05-15 PR-I Dreaming（主动反思）骨架
     AiProvidersController, // /admin/ai-providers/* PR-1 数据驱动 provider catalog
     ApiFormatsController, // /admin/api-formats/* 2026-05-11 P3 ApiFormat CRUD
     ModelTypesController, // /admin/model-types/* 2026-05-11 P3 ModelType CRUD

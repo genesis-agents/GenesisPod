@@ -1,11 +1,9 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- forward-import for future kernel memory integration
 import {
   Prisma,
   SimulationRunStatus,
   SimulationTeam,
   AIModelType,
-  MemoryLayer as _MemoryLayer,
 } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ExternalDataService } from "./external-data.service";

@@ -46,7 +46,7 @@ const DEFAULT_SCHEDULER_CONFIG: SchedulerConfig = {
  * multiple project/org scopes.
  *
  * Responsibilities:
- * - Register/deregister scopes for automated dreaming
+ * - Register/deregister scopes for automated consolidation
  * - Poll each scope on a configurable interval
  * - Delegate gate checks and execution to AutoDreamService
  * - Accumulate basic run statistics
@@ -129,7 +129,7 @@ export class AutoDreamSchedulerService
   // ─── Scope Registration ───
 
   /**
-   * Register a scope for automated dreaming.
+   * Register a scope for automated consolidation.
    * If the scope was already registered it will be replaced.
    */
   register(scope: ScheduledScope): void {
@@ -139,7 +139,7 @@ export class AutoDreamSchedulerService
   }
 
   /**
-   * Remove a scope from automated dreaming.
+   * Remove a scope from automated consolidation.
    */
   deregister(scopeId: string): void {
     const removed = this.scopes.delete(scopeId);

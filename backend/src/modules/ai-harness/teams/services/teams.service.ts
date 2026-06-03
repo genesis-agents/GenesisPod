@@ -28,7 +28,7 @@ import {
 } from "../../agents/abstractions/mission.types";
 import { ConstraintEngine } from "@/modules/ai-harness/guardrails/constraints/constraint-engine";
 import { ITeam, TeamConfig, TeamId } from "../abstractions/team.interface";
-import { ConstraintProfile } from "../constraints/constraint-profile";
+import { MissionExecutionProfile } from "../profile/mission-execution-profile";
 import { LruMap } from "@/common/utils/lru-map";
 
 // ==================== DTOs ====================
@@ -47,7 +47,7 @@ export interface CreateMissionDto {
   context?: string;
 
   /** 约束覆盖（可选） */
-  constraints?: Partial<ConstraintProfile>;
+  constraints?: Partial<MissionExecutionProfile>;
 
   /** 用户 ID（可选） */
   userId?: string;
@@ -332,7 +332,7 @@ export class TeamsService {
     _missionId: string,
     team: ITeam,
     dto: CreateMissionDto,
-    _constraints: ConstraintProfile,
+    _constraints: MissionExecutionProfile,
     _signal: AbortSignal,
   ): Promise<MissionResult> {
     const running = this.runningMissions.get(_missionId);
@@ -459,9 +459,9 @@ export class TeamsService {
    * 合并约束配置
    */
   private mergeConstraints(
-    base: ConstraintProfile,
-    overrides?: Partial<ConstraintProfile>,
-  ): ConstraintProfile {
+    base: MissionExecutionProfile,
+    overrides?: Partial<MissionExecutionProfile>,
+  ): MissionExecutionProfile {
     if (!overrides) {
       return base;
     }

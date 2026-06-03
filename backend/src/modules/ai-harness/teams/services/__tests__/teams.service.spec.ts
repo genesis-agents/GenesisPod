@@ -17,7 +17,7 @@ import { TeamRegistry } from "../../registry/team-registry";
 import { RoleRegistry } from "../../registry/role-registry";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "../../orchestrator/teams-mission-orchestrator";
 import { ConstraintEngine } from "@/modules/ai-harness/facade";
-import { getDefaultConstraintProfile } from "../../constraints/constraint-profile";
+import { getDefaultConstraintProfile } from "../../profile/mission-execution-profile";
 import { ITeam, TeamConfig, TeamId } from "../../abstractions/team.interface";
 import {
   MissionEvent,

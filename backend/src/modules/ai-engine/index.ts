@@ -113,7 +113,7 @@ export { AiEngineSkillsModule } from "./skills/skills.module";
 export { AiEnginePlanningModule } from "@/modules/ai-engine/planning/planning.module";
 // AiEngineMemoryModule 已移除（2026-04-30）—— 见 RuntimeMemoryModule
 // (ai-harness/memory/working/memory.module.ts)
-export { AiEngineConstraintModule } from "./safety/constraint.module";
+export { AiEngineSafetyModule } from "./safety/safety.module";
 
 // TeamsModule（PR-X4: 已迁移，从 ai-harness/teams 导入）
 

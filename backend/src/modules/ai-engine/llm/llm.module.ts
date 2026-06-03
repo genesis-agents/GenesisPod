@@ -16,7 +16,7 @@ import { UserApiKeysModule } from "../../platform/credentials/user-api-keys/user
 import { KeyResolverModule } from "../../platform/credentials/key-resolver/key-resolver.module";
 import { KeyExecutorModule } from "../../platform/credentials/executor/key-executor.module";
 import { UserModelConfigsModule } from "../../platform/credentials/user-model-configs/user-model-configs.module";
-import { AiEngineConstraintModule } from "../safety/constraint.module";
+import { AiEngineSafetyModule } from "../safety/safety.module";
 import { AiEnginePlanningModule } from "../planning/planning.module";
 import * as http from "http";
 import * as https from "https";
@@ -116,7 +116,7 @@ import { CapabilityProbeService } from "./models/capability/capability-probe.ser
     KeyResolverModule, // BYOK v2: 统一 API Key 解析
     KeyExecutorModule, // BYOK v3 (PR-4): 失效切换 + LastGood 粘性
     UserModelConfigsModule, // BYOK v3: 用户自定义多模型
-    AiEngineConstraintModule,
+    AiEngineSafetyModule,
     forwardRef(() => AiEnginePlanningModule),
   ],
   providers: [

@@ -22,7 +22,7 @@ import {
 } from "../../../agents/abstractions/mission.types";
 import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
-import { ConstraintProfile } from "../../constraints";
+import { MissionExecutionProfile } from "../../constraints";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -119,12 +119,12 @@ function makeMember(id: string, roleId: string): ITeamMember {
 }
 
 function makeTeamWithConstraints(
-  overrides: Partial<ConstraintProfile> = {},
+  overrides: Partial<MissionExecutionProfile> = {},
   workflowOverrides: Partial<ITeam["workflow"]> = {},
 ): ITeam {
   const leader = makeLeader();
   const member = makeMember("member-1", "researcher");
-  const constraints: ConstraintProfile = {
+  const constraints: MissionExecutionProfile = {
     efficiency: { priority: "balanced", maxDuration: 300000 },
     cost: { budget: 100, modelPreference: "auto" },
     quality: {

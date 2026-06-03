@@ -20,7 +20,7 @@ import { ConstraintEngine } from "@/modules/ai-harness/facade";
 import { MissionInput } from "../../../agents/abstractions/mission.types";
 import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
-import { ConstraintProfile } from "../../constraints";
+import { MissionExecutionProfile } from "../../constraints";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 import { TraceCollectorService } from "@/modules/ai-harness/tracing/observability/trace-collector.service";
 import { CheckpointManager } from "@/modules/ai-harness/facade";
@@ -129,10 +129,10 @@ function makeMember(id: string, roleId: string): ITeamMember {
   } as unknown as ITeamMember;
 }
 
-function makeSimpleTeam(constraints?: Partial<ConstraintProfile>): ITeam {
+function makeSimpleTeam(constraints?: Partial<MissionExecutionProfile>): ITeam {
   const leader = makeLeader();
   const member = makeMember("member-1", "researcher");
-  const defaultConstraints: ConstraintProfile = {
+  const defaultConstraints: MissionExecutionProfile = {
     efficiency: { priority: "balanced", maxDuration: 300000 },
     cost: { budget: 100, modelPreference: "auto" },
     quality: {
@@ -440,7 +440,7 @@ describe("MissionOrchestrator execute() with constraintOverrides", () => {
 
     const team = makeSimpleTeam();
     const input: MissionInput = { prompt: "Override test", metadata: {} };
-    const overrides: Partial<ConstraintProfile> = {
+    const overrides: Partial<MissionExecutionProfile> = {
       efficiency: { priority: "speed", maxDuration: 60000 },
     };
 

@@ -4,7 +4,10 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import { ToolId, SkillId } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import {
+  ToolId,
+  SkillId,
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { RoleId, IRole } from "../abstractions/role.interface";
 import {
   ITeamMember,
@@ -19,9 +22,9 @@ import {
   TeamConfig,
 } from "../abstractions/team.interface";
 import {
-  ConstraintProfile,
+  MissionExecutionProfile,
   getDefaultConstraintProfile,
-} from "../constraints/constraint-profile";
+} from "../profile/mission-execution-profile";
 import { createMember, createLeader } from "./member";
 
 /**
@@ -36,7 +39,7 @@ export class Team implements ITeam {
   readonly leader: ITeamMember;
   readonly members: ITeamMember[];
   readonly workflow: IWorkflow;
-  readonly constraintProfile: ConstraintProfile;
+  readonly constraintProfile: MissionExecutionProfile;
 
   private readonly roleRegistry: Map<RoleId, IRole>;
   private readonly memberMap: Map<TeamMemberId, ITeamMember>;
@@ -237,7 +240,7 @@ export class TeamBuilder {
   /**
    * 设置约束配置
    */
-  setConstraintProfile(profile: ConstraintProfile): this {
+  setConstraintProfile(profile: MissionExecutionProfile): this {
     this.config.constraintProfile = profile;
     return this;
   }

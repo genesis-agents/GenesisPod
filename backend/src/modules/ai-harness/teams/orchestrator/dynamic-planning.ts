@@ -10,7 +10,7 @@ import { ITeam } from "../abstractions/team.interface";
 import { RoleId } from "../abstractions/role.interface";
 import { ILeader, SubTask, TaskInput } from "../abstractions/member.interface";
 import { ParsedIntent } from "../../agents/abstractions/mission.types";
-import { ConstraintProfile } from "../constraints";
+import { MissionExecutionProfile } from "../constraints";
 import { ExecutionStep } from "./orchestrator.interface";
 
 /** 步骤耗时/成本估算器（由 orchestrator 注入，复用其内部公式，避免重复）。 */
@@ -34,7 +34,7 @@ export function leafStepIds(steps: ExecutionStep[]): string[] {
 export async function tryDynamicDecomposition(
   intent: ParsedIntent,
   team: ITeam,
-  constraints: ConstraintProfile,
+  constraints: MissionExecutionProfile,
   estimators: PlanningEstimators,
   logger: Logger,
 ): Promise<ExecutionStep[] | null> {
@@ -98,7 +98,7 @@ export async function tryDynamicDecomposition(
 function subTaskToStep(
   st: SubTask,
   team: ITeam,
-  constraints: ConstraintProfile,
+  constraints: MissionExecutionProfile,
   estimators: PlanningEstimators,
 ): ExecutionStep {
   const executor =

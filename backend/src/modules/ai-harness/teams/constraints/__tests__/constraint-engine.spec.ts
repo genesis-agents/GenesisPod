@@ -6,7 +6,7 @@ import { ConstraintEngine } from "@/modules/ai-harness/facade";
 import {
   createConstraintProfile,
   getDefaultConstraintProfile,
-} from "../constraint-profile";
+} from "../../profile/mission-execution-profile";
 import {
   ResourceUsage,
   ConstraintViolation,

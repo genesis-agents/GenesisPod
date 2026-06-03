@@ -21,7 +21,7 @@ import { ConstraintEngine } from "@/modules/ai-harness/facade";
 import type { MissionInput } from "../../../agents/abstractions/mission.types";
 import type { ITeam } from "../../abstractions/team.interface";
 import type { ITeamMember } from "../../abstractions/member.interface";
-import type { ConstraintProfile } from "../../constraints";
+import type { MissionExecutionProfile } from "../../constraints";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 import type { MissionExecutorService } from "@/modules/ai-harness/facade";
 import type { EventJournalService } from "@/modules/ai-harness/facade";
@@ -95,10 +95,10 @@ function makeMember(
   } as unknown as ITeamMember;
 }
 
-function makeSimpleTeam(constraints?: Partial<ConstraintProfile>): ITeam {
+function makeSimpleTeam(constraints?: Partial<MissionExecutionProfile>): ITeam {
   const leader = makeLeader();
   const member = makeMember("member-1", "researcher");
-  const defaultConstraints: ConstraintProfile = {
+  const defaultConstraints: MissionExecutionProfile = {
     efficiency: { priority: "balanced", maxDuration: 300000 },
     cost: { budget: 100, modelPreference: "auto" },
     quality: {

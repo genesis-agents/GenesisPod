@@ -9,7 +9,7 @@ import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
 import { TeamConfig, TeamId } from "../../abstractions/team.interface";
 import { IRole } from "../../abstractions/role.interface";
 import { Role } from "../../base/role";
-import { getDefaultConstraintProfile } from "../../constraints/constraint-profile";
+import { getDefaultConstraintProfile } from "../../profile/mission-execution-profile";
 
 // ==================== Helpers ====================
 

@@ -98,7 +98,7 @@ import {
   ReportEvaluationService,
   QualityTraceComputeService,
 } from "./evaluation/critique";
-import { ReflectionMissionScheduler } from "./evaluation/dreaming";
+import { ReflectionMissionScheduler } from "./evaluation/consolidation";
 import { MCPRelay } from "../ai-engine/tools/adapters/mcp/mcp-relay.service";
 import { MCPManager } from "../ai-engine/tools/adapters/mcp/manager/mcp-manager";
 import { MCPClientRegistryService } from "../ai-engine/tools/adapters/mcp/registry/mcp-client-registry.service";
@@ -321,7 +321,7 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     ReportEvaluationService,
     QualityTraceComputeService,
 
-    // ★ 2026-05-15 PR-I: Dreaming（主动反思）骨架 — 周期归纳跨 mission 规则
+    // ★ 2026-05-15 PR-I: Consolidation（主动反思）骨架 — 周期归纳跨 mission 规则
     ReflectionMissionScheduler,
 
     // ★ PR-G: SpanExporter — AgentTracer 多目标分发（Logger + Langfuse）
@@ -437,7 +437,7 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     SectionRemediationService, // ★ 沉淀 v3: 弱维度合并补救
     ReportEvaluationService, // ★ 沉淀 v3: 10 维结构化报告评审
     QualityTraceComputeService, // ★ 沉淀 v3: 全链路质量 trace 纯计算
-    ReflectionMissionScheduler, // ★ 2026-05-15 PR-I: Dreaming 骨架
+    ReflectionMissionScheduler, // ★ 2026-05-15 PR-I: Consolidation 骨架
     SpanExporter,
     MCPRelay,
     MCPManager,

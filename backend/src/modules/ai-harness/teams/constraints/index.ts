@@ -3,7 +3,7 @@
  * 约束配置导出
  */
 
-// Constraint Profile
+// Mission Execution Profile (R9: moved out of constraints/, renamed from ConstraintProfile)
 export type {
   CostConstraint,
   ModelPreference,
@@ -12,15 +12,15 @@ export type {
   AccuracyRequirement,
   EfficiencyConstraint,
   Priority,
-  ConstraintProfile,
+  MissionExecutionProfile,
   ConstraintPreset,
-} from "./constraint-profile";
+} from "../profile/mission-execution-profile";
 export {
   CONSTRAINT_PRESETS,
   createConstraintProfile,
   getDefaultConstraintProfile,
   mergeConstraintProfiles,
-} from "./constraint-profile";
+} from "../profile/mission-execution-profile";
 
 // Constraint Engine Interface
 export type {

@@ -1,6 +1,6 @@
 /**
- * AI Engine Constraint Module
- * 约束引擎子模块
+ * AI Engine Safety Module
+ * 安全引擎子模块（约束 / 校验 / Guardrails）
  *
  * 提供:
  * - Schema Validator
@@ -83,8 +83,8 @@ const contentFilterFactory = {
     GuardrailsPipelineService,
   ],
 })
-export class AiEngineConstraintModule implements OnModuleInit {
-  private readonly logger = new Logger(AiEngineConstraintModule.name);
+export class AiEngineSafetyModule implements OnModuleInit {
+  private readonly logger = new Logger(AiEngineSafetyModule.name);
 
   constructor(
     private readonly guardrailsPipeline: GuardrailsPipelineService,

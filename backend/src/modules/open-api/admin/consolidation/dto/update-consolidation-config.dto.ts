@@ -1,8 +1,8 @@
 /**
- * UpdateDreamingConfigDto — class-validator schema for PATCH /admin/dreaming/config
+ * UpdateConsolidationConfigDto — class-validator schema for PATCH /admin/dreaming/config
  *
  * 2026-05-15 Round 2 安全评审 Medium 修复：
- *   原 `@Body() updates: Partial<DreamingSchedulerConfig>` 是裸 interface，
+ *   原 `@Body() updates: Partial<ConsolidationSchedulerConfig>` 是裸 interface，
  *   攻击者可传 `sampleSize: -1` / `tokenBudget: 999999999` / 7 字段 `cronExpression`
  *   → 直接 spread 进 scheduler config，PR-I.2 cron 调度器接通后会被滥用。
  *   本 DTO 给所有字段加 class-validator 边界，配合 controller @UsePipes(ValidationPipe)。
@@ -25,7 +25,7 @@ import {
   Min,
 } from "class-validator";
 
-export class UpdateDreamingConfigDto {
+export class UpdateConsolidationConfigDto {
   @ApiPropertyOptional({
     description: "Cron expression (e.g. '0 */6 * * *')",
     example: "0 */6 * * *",

@@ -1,30 +1,30 @@
 /**
- * Dreaming（主动反思）类型定义 — PR-I 2026-05-15 骨架
+ * Consolidation（主动反思）类型定义 — PR-I 2026-05-15 骨架
  *
- * 与 Anthropic Managed Agent 的 Dreaming 范式对齐：
+ * 与 Anthropic Managed Agent 的 memory-consolidation 范式对齐：
  *   - 被动学习：单 mission 失败 → Postmortem → VectorMemory（已实现，见 lifecycle/learning）
  *   - 主动反思：跨多 mission 周期抽样 → 归纳通用规则 → RuleBase → 注入下轮 leader plan
  *
  * 本骨架定义接口与数据形态，service 实现见 reflection-mission-scheduler.service.ts /
- * dreaming-orchestrator.service.ts。
+ * consolidation-orchestrator.service.ts。
  */
 
 /**
  * 反思触发器：定期 cron / 阈值达到 / 手动触发。
  */
-export type DreamingTriggerKind = "cron" | "failure_threshold" | "manual";
+export type ConsolidationTriggerKind = "cron" | "failure_threshold" | "manual";
 
-export interface DreamingTrigger {
-  kind: DreamingTriggerKind;
+export interface ConsolidationTrigger {
+  kind: ConsolidationTriggerKind;
   /** Cron 表达式（kind=cron）或 触发原因（其他）*/
   detail?: string;
   triggeredAt: Date;
 }
 
 /**
- * 反思样本：被纳入本轮 Dreaming 分析的失败 mission 集合。
+ * 反思样本：被纳入本轮 Consolidation 分析的失败 mission 集合。
  */
-export interface DreamingSample {
+export interface ConsolidationSample {
   /** 抽样窗口起止 */
   windowStart: Date;
   windowEnd: Date;
@@ -39,9 +39,9 @@ export interface DreamingSample {
  *
  * 与单 mission Postmortem（一次性教训）区别：
  *   - Postmortem：单 mission 内的 root cause + immediate fix（短期）
- *   - DreamingRule：跨多 mission 归纳的 pattern + 通用 mitigation（长期）
+ *   - ConsolidationRule：跨多 mission 归纳的 pattern + 通用 mitigation（长期）
  */
-export interface DreamingRule {
+export interface ConsolidationRule {
   /** UUID */
   id: string;
   /**
@@ -71,13 +71,13 @@ export interface DreamingRule {
 }
 
 /**
- * 本轮 Dreaming 运行结果。
+ * 本轮 Consolidation 运行结果。
  */
-export interface DreamingRunResult {
-  trigger: DreamingTrigger;
-  sample: DreamingSample;
+export interface ConsolidationRunResult {
+  trigger: ConsolidationTrigger;
+  sample: ConsolidationSample;
   /** 本轮新增 / 强化的 rules */
-  newRules: DreamingRule[];
+  newRules: ConsolidationRule[];
   /** 因低置信度 / 重复被 reject 的候选 */
   rejectedCandidates: number;
   /** LLM 调用 token 消耗 */
@@ -91,15 +91,15 @@ export interface DreamingRunResult {
  */
 export interface InjectedRuleSet {
   /** 命中的规则 */
-  rules: Pick<DreamingRule, "id" | "pattern" | "mitigation">[];
+  rules: Pick<ConsolidationRule, "id" | "pattern" | "mitigation">[];
   /** 注入 prompt 的文本片段 */
   promptSnippet: string;
 }
 
 /**
- * Dreaming 调度配置。
+ * Consolidation 调度配置。
  */
-export interface DreamingSchedulerConfig {
+export interface ConsolidationSchedulerConfig {
   /** Cron 周期，默认每 6h */
   cronExpression: string;
   /** 抽样窗口（小时），默认 24 */
@@ -112,12 +112,12 @@ export interface DreamingSchedulerConfig {
   enabled: boolean;
 }
 
-export const DEFAULT_DREAMING_CONFIG: DreamingSchedulerConfig = {
+export const DEFAULT_CONSOLIDATION_CONFIG: ConsolidationSchedulerConfig = {
   cronExpression: "0 */6 * * *", // every 6h
   sampleWindowHours: 24,
   sampleSize: 20,
   tokenBudget: 50_000,
-  // ★ 2026-05-25 默认关闭:dreaming/reflection 每 6h 后台跑 LLM,属静默后台消耗,
+  // ★ 2026-05-25 默认关闭:consolidation/reflection 每 6h 后台跑 LLM,属静默后台消耗,
   //   必须显式 opt-in(DB 配置 enabled=true 或 admin 开启),绝不默认开。
   enabled: false,
 };

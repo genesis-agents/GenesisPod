@@ -13,7 +13,7 @@ import {
   ParsedIntent,
   MissionDeliverable,
 } from "../../agents/abstractions/mission.types";
-import { ConstraintProfile, ResourceUsage } from "../constraints";
+import { MissionExecutionProfile, ResourceUsage } from "../constraints";
 import { WorkflowExecutionState } from "../abstractions/workflow.interface";
 
 // ==================== 执行计划 ====================
@@ -197,7 +197,7 @@ export interface IMissionOrchestrator {
   execute(
     input: MissionInput,
     team: ITeam,
-    constraints?: Partial<ConstraintProfile>,
+    constraints?: Partial<MissionExecutionProfile>,
   ): AsyncGenerator<MissionEvent, MissionResult>;
 
   /**
@@ -211,7 +211,7 @@ export interface IMissionOrchestrator {
   plan(
     intent: ParsedIntent,
     team: ITeam,
-    constraints: ConstraintProfile,
+    constraints: MissionExecutionProfile,
   ): Promise<MissionExecutionPlan>;
 
   /**
@@ -220,7 +220,7 @@ export interface IMissionOrchestrator {
   executePlan(
     plan: MissionExecutionPlan,
     team: ITeam,
-    constraints: ConstraintProfile,
+    constraints: MissionExecutionProfile,
   ): AsyncGenerator<MissionEvent, MissionExecutionState>;
 
   /**
@@ -280,7 +280,7 @@ export interface IExecutionPlanner {
   plan(
     intent: ParsedIntent,
     team: ITeam,
-    constraints: ConstraintProfile,
+    constraints: MissionExecutionProfile,
   ): Promise<MissionExecutionPlan>;
 
   /**
@@ -288,7 +288,7 @@ export interface IExecutionPlanner {
    */
   optimize(
     plan: MissionExecutionPlan,
-    constraints: ConstraintProfile,
+    constraints: MissionExecutionProfile,
   ): Promise<MissionExecutionPlan>;
 }
 

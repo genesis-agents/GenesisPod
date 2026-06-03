@@ -6,7 +6,7 @@ import { Team, TeamBuilder, createTeamBuilder } from "../team";
 import { Role } from "../role";
 import { createLeader, createMember } from "../member";
 import { Workflow } from "../workflow";
-import { getDefaultConstraintProfile } from "../../constraints/constraint-profile";
+import { getDefaultConstraintProfile } from "../../profile/mission-execution-profile";
 import { IRole } from "../../abstractions/role.interface";
 import { IWorkflow } from "../../abstractions/workflow.interface";
 import { ITeamMember } from "../../abstractions/member.interface";

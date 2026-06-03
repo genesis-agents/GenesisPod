@@ -18,7 +18,7 @@
 
 import { TeamRegistry } from "../team-registry";
 import { TeamConfig, ITeam } from "../../abstractions/team.interface";
-import { getDefaultConstraintProfile } from "../../constraints/constraint-profile";
+import { getDefaultConstraintProfile } from "../../profile/mission-execution-profile";
 
 function makeConfig(
   id: string,

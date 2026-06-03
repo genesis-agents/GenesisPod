@@ -16,7 +16,7 @@ import {
   ParsedIntent,
   TaskType,
 } from "../../../agents/abstractions/mission.types";
-import { ConstraintProfile } from "../../constraints";
+import { MissionExecutionProfile } from "../../constraints";
 import { ExecutionStep } from "../orchestrator.interface";
 
 const estimators: PlanningEstimators = {
@@ -44,7 +44,7 @@ describe("dynamic-planning", () => {
     setAvailableRoles: jest.Mock;
   };
   let intent: ParsedIntent;
-  let constraints: ConstraintProfile;
+  let constraints: MissionExecutionProfile;
 
   afterEach(() => {
     if (ORIG_FLAG === undefined) delete process.env.HARNESS_DYNAMIC_PLANNING;
@@ -117,7 +117,7 @@ describe("dynamic-planning", () => {
         allowParallel: true,
         maxParallelism: 4,
       },
-    } as ConstraintProfile;
+    } as MissionExecutionProfile;
   });
 
   describe("tryDynamicDecomposition()", () => {
