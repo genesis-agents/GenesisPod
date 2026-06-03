@@ -21,9 +21,8 @@ export {
   MissionReviewService,
   MissionPromptService,
   MissionQueryService,
-  MissionContextService,
-  MissionInputService,
-  MissionStateManager,
+  // W2-F: MissionContextService/MissionInputService/MissionStateManager 已迁 harness，
+  //   改从 @/modules/ai-harness/facade 注入，本 barrel 不再 re-export。
   // TaskBreakdownService 已删 (2026-04-30)
   MissionLifecycleService,
   MissionRetryService,

@@ -11,12 +11,16 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionExecutionService } from "../mission-execution.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
-import { ChatFacade, AgentFacade, ToolFacade } from "@/modules/ai-harness/facade";
+import {
+  ChatFacade,
+  AgentFacade,
+  ToolFacade,
+} from "@/modules/ai-harness/facade";
 import { ToolRegistry } from "@/modules/ai-harness/facade";
 import { TopicEventEmitterService } from "../../../events";
 import { TeamsLongContentService } from "../../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../../ai/leader-model.service";
-import { MissionStateManager } from "../mission-state.manager";
+import { MissionStateManager } from "@/modules/ai-harness/facade";
 import { AgentTaskStatus, MissionStatus, TaskType } from "@prisma/client";
 
 const buildMockMission = (overrides = {}) => ({

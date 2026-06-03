@@ -20,7 +20,7 @@ import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AIFacade 访问熔断器服务
 import { AgentFacade } from "@/modules/ai-harness/facade";
 import { TaskCompletionType } from "@/modules/ai-harness/facade";
-import { MissionStateManager } from "./mission-state.manager";
+import { MissionStateManager } from "@/modules/ai-harness/facade";
 import { parseReviewResult } from "../utils";
 import {
   MissionWithRelations,

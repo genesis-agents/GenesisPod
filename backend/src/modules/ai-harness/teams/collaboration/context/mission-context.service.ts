@@ -3,8 +3,8 @@ import {
   MissionContextPackage,
   validateContextPackage,
   createEmptyContextPackage,
-  EstablishedFact,
-} from "@/modules/ai-harness/facade";
+} from "@/modules/ai-harness/teams/abstractions";
+import { EstablishedFact } from "@/modules/ai-harness/runner/executor/executor.types";
 
 /**
  * Mission Context Service

@@ -38,7 +38,7 @@ import {
 } from "../../../../../../common/utils/concurrency.utils";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
-import { MissionStateManager } from "./mission-state.manager";
+import { MissionStateManager } from "@/modules/ai-harness/facade";
 import { RETRY_CONFIG, AGENT_SWITCH_CONFIG } from "../config";
 import {
   isRetryableError,
