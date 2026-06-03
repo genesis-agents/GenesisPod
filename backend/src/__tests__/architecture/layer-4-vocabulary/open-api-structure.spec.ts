@@ -33,7 +33,7 @@ const rel = (f: string) => path.relative(SRC_ROOT, f).replace(/\\/g, "/");
 
 // ── 律2 顶层目录词汇 ──
 const CANONICAL_DIRS = ["admin", "system", "public", "a2a", "mcp", "agents", "skills", "teams", "ai", "webhooks"];
-const DIR_VOCAB_ALLOWLIST = ["ai-core", "mcp-admin", "mcp-server", "teams-api"]; // 待去后缀
+const DIR_VOCAB_ALLOWLIST = ["ai-core", "mcp-admin", "mcp-server"]; // 待去后缀（teams-api 已整改）
 
 // ── 律1 admin 散落 ──
 const ADMIN_SCATTER_ALLOWLIST = [
