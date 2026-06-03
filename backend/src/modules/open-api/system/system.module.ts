@@ -1,6 +1,9 @@
 import { Module } from "@nestjs/common";
 import { NotificationController } from "./notifications/notification.controller";
 import { NotificationModule } from "../../platform/notifications/notification.module";
+// MetricsController（/metrics Prometheus 端点）：MetricsService 由 @Global MonitoringModule
+// 提供，无需 import；@SkipTransform 随 controller 保留，Prometheus 抓取行为不变。
+import { MetricsController } from "./metrics/metrics.controller";
 
 /**
  * Open-API System Module（系统服务面）
@@ -17,6 +20,6 @@ import { NotificationModule } from "../../platform/notifications/notification.mo
  */
 @Module({
   imports: [NotificationModule], // exports NotificationService（NotificationController 注入）
-  controllers: [NotificationController],
+  controllers: [NotificationController, MetricsController],
 })
 export class OpenApiSystemModule {}
