@@ -394,12 +394,12 @@ export type {
   ParseReportArtifactResult,
 } from "../evaluation/critique/report-artifact/report-artifact-zod.schema";
 
+// MissionElectionTracker · mission-scoped 模型选举多样性状态（2026-06-02 P0-1 自
+// ai-engine 迁入 harness；mission 状态属 L2.5）。harness 原生导出。
+export { MissionElectionTracker } from "../guardrails/runtime/mission-election-tracker.service";
+export type { MissionElectionReservation } from "../guardrails/runtime/mission-election-tracker.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export {
-  MissionElectionTracker,
-  ModelElectionService,
-} from "../../ai-engine/llm/selection";
-export type { MissionElectionReservation } from "../../ai-engine/llm/selection";
+export { ModelElectionService } from "../../ai-engine/llm/selection";
 
 // ★ PR-R1 (2026-05-07 per-task rerun + cascade):
 //   Stage 静态依赖图元数据（每 stage 声明 successors / ctxReads / dbWrites / resetFields）

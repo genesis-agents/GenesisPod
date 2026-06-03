@@ -59,19 +59,23 @@ L2.5 AI Harness（11 顶层聚合，全业界标准词）→ modules/ai-harness/
       ├── tracing/        追踪（otel / eval / latency / llm-events / attribution）
       └── lifecycle/      韧性（hooks / manager / supervisor / mission-lifecycle / learning）
 
-L2 AI Engine（10 顶层聚合）→ modules/ai-engine/
+L2 AI Engine（12 顶层聚合，2026-06-02 核实）→ modules/ai-engine/
       ├── facade/        engine 公共桶
-      ├── llm/           LLM 调用 + 模型适配 + 路由 + 定价 + intent
+      ├── llm/           LLM 调用 + 模型适配 + 定价 + intent + selection（无状态择优）
       ├── tools/         项目唯一 tools（含 mcp/openapi/function adapter）
-      ├── rag/           检索基元
+      ├── rag/           检索基元（chunking/embedding/vector/pipeline）
       ├── knowledge/     知识抽取（fact/entity/relation/world-building）
-      ├── skills/        项目唯一 SkillRegistry
+      ├── content/       内容处理（fetch/cleaner/markdown/citation/figure）
+      ├── routing/       请求→模型/技能/工具的无状态打分路由（W-2026-06-02 扩出，非 llm/selection）
+      ├── reliability/   引擎级韧性（rate-limit / entity-health，W7 扩出）
+      ├── evaluation/    无状态启发式质量检查（无 LLM、无 agent 状态，W2 扩出）
+      ├── skills/        项目唯一 SkillRegistry（定义层）
       ├── planning/      任务分解（不含 agent loop）
-      ├── safety/        安全（pii/moderation/injection）
-      ├── content/       内容处理（fetch/cleaner/markdown）
-      └── credentials/   BYOK / secret resolver
+      └── safety/        安全（pii/moderation/injection/guardrails tripwire）
 
 L1 Infrastructure → modules/ai-infra/
+      （含 credentials/ BYOK + secret resolver —— 2026-05-01 fee5d688b 从 L2 迁入，
+        判定依据：BYOK key 解析零 agent/mission 状态，属 L1 通用基元）
 ```
 
 > **MECE 强制原则**：

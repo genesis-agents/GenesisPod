@@ -16,10 +16,18 @@
  *
  * 接入 ToolPipeline middleware：见 rate-limit.middleware.ts
  */
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Inject,
+  Injectable,
+  Logger,
+  Optional,
+  type OnModuleInit,
+} from "@nestjs/common";
+import { CacheService } from "@/common/cache/cache.service";
 import {
   type ITokenBucketStore,
   InMemoryTokenBucketStore,
+  RedisTokenBucketStore,
 } from "./token-bucket";
 
 export interface RateLimitConfig {
@@ -43,25 +51,52 @@ export interface RateLimitCheckResult {
   readonly agentType?: string;
 }
 
-const DEFAULT_GLOBAL_RPM = 600;
 const DEFAULT_PER_TENANT_RPM = 60;
 
 @Injectable()
-export class RateLimitService {
+export class RateLimitService implements OnModuleInit {
   private readonly logger = new Logger(RateLimitService.name);
   private store: ITokenBucketStore = new InMemoryTokenBucketStore();
-  private globalRpm = DEFAULT_GLOBAL_RPM;
+  private storeExplicitlySet = false;
+  // M6 fix：global 桶默认**关闭**（undefined）。旧 RateLimiter 无 global tier；
+  // 默认开 600 RPM 共享桶会噪声邻居（聚合超限时全租户一起被拒）。仅 configure()
+  // 显式给 globalRpm 才启用。
+  private globalRpm: number | undefined = undefined;
   private perTenantRpm = DEFAULT_PER_TENANT_RPM;
   private perAgentTypeRpm: Record<string, number> = {};
   private defaultAgentTypeRpm: number | undefined;
 
-  /** 启动期或运行期注入 Redis-backed store（分布式限流） */
+  constructor(
+    // H1 fix：注入 Redis CacheService（reliability.module 已 imports CacheModule）。
+    // 无 cache（如纯单测 new RateLimitService()）→ 保持 InMemory。
+    @Optional() @Inject(CacheService) private readonly cache?: CacheService,
+  ) {}
+
+  onModuleInit(): void {
+    // H1 fix：生产默认走 Redis-backed store（多 pod 一致），除非调用方已显式
+    // setStore（如测试注入 InMemory）。原先永远 InMemory → 每副本各算一份 quota。
+    if (this.cache && !this.storeExplicitlySet) {
+      this.store = new RedisTokenBucketStore(this.cache);
+      this.logger.log(
+        "[RateLimit] using Redis-backed token bucket (multi-pod consistent)",
+      );
+    }
+  }
+
+  /** 启动期或运行期注入自定义 store（测试用 InMemory，或显式覆盖默认 Redis） */
   setStore(store: ITokenBucketStore): void {
     this.store = store;
+    this.storeExplicitlySet = true;
+  }
+
+  /** retryAfter：按该 tier 的 RPM 折算补 1 个 token 所需毫秒（不再硬编 1000ms） */
+  private retryMs(rpm: number): number {
+    return Math.ceil(60_000 / Math.max(1, rpm));
   }
 
   configure(config: RateLimitConfig): void {
-    this.globalRpm = config.globalRpm ?? DEFAULT_GLOBAL_RPM;
+    // globalRpm 不给 = 保持关闭（opt-in，见字段注释）；给了才启用 global tier
+    this.globalRpm = config.globalRpm;
     this.perTenantRpm = config.perTenantRpm ?? DEFAULT_PER_TENANT_RPM;
     this.perAgentTypeRpm = { ...(config.perAgentTypeRpm ?? {}) };
     this.defaultAgentTypeRpm = config.defaultAgentTypeRpm;
@@ -78,14 +113,20 @@ export class RateLimitService {
     domain: string,
     keys: { tenantId?: string; agentType?: string },
   ): Promise<RateLimitCheckResult> {
-    // ① global
-    const globalRefill = this.globalRpm / 60;
-    const ok1 = await this.store
-      .tryConsume(`global:${domain}`, this.globalRpm, globalRefill)
-      .catch(() => true); // fail-open（store 故障不阻塞主流程）
-    if (!ok1) {
-      this.logger.warn(`[RateLimit] global quota exceeded for ${domain}`);
-      return { allowed: false, scope: "global", retryAfterMs: 1000 };
+    // ① global（M6：仅在显式启用时生效，默认关闭，避免噪声邻居）
+    if (this.globalRpm !== undefined && this.globalRpm > 0) {
+      const globalRefill = this.globalRpm / 60;
+      const ok1 = await this.store
+        .tryConsume(`global:${domain}`, this.globalRpm, globalRefill)
+        .catch(() => true); // fail-open（store 故障不阻塞主流程）
+      if (!ok1) {
+        this.logger.warn(`[RateLimit] global quota exceeded for ${domain}`);
+        return {
+          allowed: false,
+          scope: "global",
+          retryAfterMs: this.retryMs(this.globalRpm),
+        };
+      }
     }
 
     // ② per-tenant
@@ -103,7 +144,7 @@ export class RateLimitService {
           allowed: false,
           scope: "tenant",
           tenantId: keys.tenantId,
-          retryAfterMs: 1000,
+          retryAfterMs: this.retryMs(this.perTenantRpm),
         };
       }
     }
@@ -121,7 +162,7 @@ export class RateLimitService {
             allowed: false,
             scope: "agentType",
             agentType: keys.agentType,
-            retryAfterMs: 1000,
+            retryAfterMs: this.retryMs(rpm),
           };
         }
       }

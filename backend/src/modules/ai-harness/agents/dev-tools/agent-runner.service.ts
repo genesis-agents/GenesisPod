@@ -24,7 +24,7 @@ import type {
   IAgentSpec,
   IRuntimeEnvironment,
 } from "../abstractions";
-import type { MissionElectionReservation } from "../../../ai-engine/llm/selection";
+import type { MissionElectionReservation } from "../../guardrails/runtime/mission-election-tracker.service";
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool.registry";
 import { BuiltinSkillCatalog } from "../skill-runtime";
 import { BillingContext } from "../../../platform/credits/billing-context.store";
@@ -1150,13 +1150,27 @@ export class AgentRunner {
       }
     }
 
+    // Step 6. least-privilege（M1 fix）—— spec.forbiddenTools（agent 级 denylist）过滤。
+    //   放在 P18-2 fallback 之后，确保 fallback 也不会把禁用工具放回召回池。
+    //   召回池同时驱动 <available_tools> catalog + identity.tools，故 prompt-driven
+    //   路径（默认，HARNESS_REACT_NATIVE_FC OFF）的 LLM 也看不到、选不到禁用工具。
+    //   （react-loop.filterVisibleTools 只在 native-FC 分支前置过滤，覆盖不到这条路径。）
+    //   注：subagent 的 allowedTools 白名单已由 spawner 的 filterInheritedTools 反映进
+    //   meta.tools（= 召回 declaredIds），故此处只需再应用 forbiddenTools。
+    const forbiddenTools = meta.forbiddenTools;
+    if (forbiddenTools && forbiddenTools.length > 0) {
+      pool = pool.filter((id) => !forbiddenTools.includes(id));
+    }
+    const finalSet = new Set(pool);
+    const finalPreferIds = effectivePreferIds.filter((id) => finalSet.has(id));
+
     const source: "spec" | "hint" | "spec+hint" = hint
       ? declaredCategories.length > 0 || declaredIds.length > 0
         ? "spec+hint"
         : "hint"
       : "spec";
 
-    return { recalledIds: pool, effectivePreferIds, source };
+    return { recalledIds: pool, effectivePreferIds: finalPreferIds, source };
   }
 
   /**

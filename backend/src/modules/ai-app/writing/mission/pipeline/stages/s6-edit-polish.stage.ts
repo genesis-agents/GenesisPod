@@ -173,7 +173,12 @@ export async function runEditPolishStage(
         "s6-edit-polish",
         `Chapter ${chapterId} content fetch failed: ${err instanceof Error ? err.message.slice(0, 200) : String(err)}`,
       );
-      revisedChapters.push({ chapterId, status: "FAILED", wordCount: 0 });
+      revisedChapters.push({
+        chapterId,
+        chapterNumber, // 0（fetch 未成功）—— 仅占位，FAILED 章不进 sections
+        status: "FAILED",
+        wordCount: 0,
+      });
       continue;
     }
 
@@ -258,6 +263,7 @@ export async function runEditPolishStage(
       );
       revisedChapters.push({
         chapterId,
+        chapterNumber,
         status: "FAILED",
         wordCount: draft.wordCount,
       });
@@ -336,6 +342,7 @@ export async function runEditPolishStage(
 
     revisedChapters.push({
       chapterId,
+      chapterNumber,
       status: "REVISED",
       wordCount: finalWordCount,
     });

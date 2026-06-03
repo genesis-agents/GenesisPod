@@ -163,29 +163,40 @@ export class CostLedgerStore {
    * 列出单 mission 的成本明细（按时间正序）。供审计 / per-mission 成本面板读取。
    */
   async listByMission(missionId: string): Promise<CostLedgerRow[]> {
-    const rows = await this.prisma.agentPlaygroundMissionCostLedger.findMany({
-      where: { missionId },
-      orderBy: { createdAt: "asc" },
-      select: {
-        id: true,
-        stepId: true,
-        role: true,
-        model: true,
-        promptTokens: true,
-        completionTokens: true,
-        costUsd: true,
-        createdAt: true,
-      },
-    });
-    return rows.map((r) => ({
-      id: r.id,
-      stepId: r.stepId,
-      role: r.role,
-      model: r.model,
-      promptTokens: r.promptTokens,
-      completionTokens: r.completionTokens,
-      costUsd: r.costUsd,
-      createdAt: r.createdAt,
-    }));
+    // L6 fix：与 sumByMission 对齐——DB 故障（瞬时 prisma 错 / 未迁移环境）时优雅
+    // 降级返回 []，而非让 GET /missions/:id/cost 的 Promise.all 整体 reject → 500。
+    try {
+      const rows = await this.prisma.agentPlaygroundMissionCostLedger.findMany({
+        where: { missionId },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          stepId: true,
+          role: true,
+          model: true,
+          promptTokens: true,
+          completionTokens: true,
+          costUsd: true,
+          createdAt: true,
+        },
+      });
+      return rows.map((r) => ({
+        id: r.id,
+        stepId: r.stepId,
+        role: r.role,
+        model: r.model,
+        promptTokens: r.promptTokens,
+        completionTokens: r.completionTokens,
+        costUsd: r.costUsd,
+        createdAt: r.createdAt,
+      }));
+    } catch (err: unknown) {
+      this.log.warn(
+        `cost_ledger_list_failed mission=${missionId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return [];
+    }
   }
 }

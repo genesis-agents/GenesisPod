@@ -92,6 +92,11 @@ export class AgentOrchestrator {
           };
           return;
         }
+        // M3 fix：PII 是 redact-not-block（passed=true + transformedContent 脱敏文本）。
+        // 之前只看 passed，把**原始未脱敏 prompt** 发给模型。改用脱敏后的 prompt。
+        if (typeof inputCheck.transformedContent === "string") {
+          input = { ...input, prompt: inputCheck.transformedContent };
+        }
       } catch (guardrailError) {
         this.logger.error(
           `Agent input guardrail execution error: ${(guardrailError as Error).message}`,

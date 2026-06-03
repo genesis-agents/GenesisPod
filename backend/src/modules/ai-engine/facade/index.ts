@@ -428,15 +428,15 @@ export { ModelElectionService } from "../llm/selection";
 export { ModelRecommendationsService } from "../llm/selection";
 export {
   NoEligibleModelError,
-  MissionElectionTracker,
   type ElectionCandidate,
   type ElectionRequest,
   type ElectionResult,
   type ElectionRoleHint,
   type ElectionScore,
   type ElectionCostBias,
-  type MissionElectionReservation,
 } from "../llm/selection";
+// MissionElectionTracker / MissionElectionReservation relocated to ai-harness
+// (mission state is L2.5) — import them from '@/modules/ai-harness/facade'.
 export { SearchService } from "../knowledge/search/search.service";
 export { SkillLoaderService } from "../skills/loader/loading/skill-loader.service";
 // P9c (2026-05-24): SKILL.md loader 上提自首个 ai-app(@migrated-from utils/),通用 Anthropic skill 标准格式 loader + duty 模板渲染。

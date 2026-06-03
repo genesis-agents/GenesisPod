@@ -407,6 +407,38 @@ module.exports = {
                   "MULTI_DIMENSION_REPORT_TEMPLATE / SINGLE_AGENT_FREEFORM_TEMPLATE / " +
                   "expectedSectionCount / StructuralReportAssembler.",
               },
+
+              // ════════════════════════════════════════════════════════════
+              // ★ SECTION 11 (2026-06-02 MECE 审计修复): 12-聚合 catch-all。
+              //   SECTION 1-9 按"子目录"枚举，refactor 后大量路径漂移成死规则
+              //   （agents/core/teams/credentials/orchestration/mcp/api/runtime/
+              //    knowledge.rag/knowledge.memory/content.long-form/analysis/
+              //    synthesis 均已不存在），且新顶层聚合 rag/routing/reliability/
+              //    evaluation 从未被守护。本组按"聚合根"枚举当前 12 个 engine 聚合
+              //    （facade 自身除外），一次性补齐覆盖并防未来漂移。验证：ai-app
+              //    非 *.module.ts 文件 0 处穿透这些路径（2026-06-02）。
+              //   旧的 SECTION 1-9 子目录组保留（匹配为空、无害），其更具体的
+              //    报错信息对仍存活路径仍有指引价值；死路径清理为独立 follow-up。
+              // ════════════════════════════════════════════════════════════
+              {
+                group: [
+                  "**/ai-engine/llm/**",
+                  "**/ai-engine/tools/**",
+                  "**/ai-engine/rag/**",
+                  "**/ai-engine/knowledge/**",
+                  "**/ai-engine/content/**",
+                  "**/ai-engine/routing/**",
+                  "**/ai-engine/reliability/**",
+                  "**/ai-engine/evaluation/**",
+                  "**/ai-engine/skills/**",
+                  "**/ai-engine/planning/**",
+                  "**/ai-engine/safety/**",
+                ],
+                message:
+                  "ai-app 必须通过 'ai-engine/facade' 访问 AI Engine 内部，不得穿透任何聚合内部路径。" +
+                  "缺口符号先在 ai-engine/facade/index.ts 补 export 再用（CLAUDE.md Facade 边界红线）。" +
+                  "*.module.ts 装配例外见 excludedFiles。",
+              },
             ],
           },
         ],
@@ -458,7 +490,11 @@ module.exports = {
                   "**/ai-engine/planning/**",
                   "**/ai-engine/safety/**",
                   "**/ai-engine/content/**",
-                  "**/ai-engine/credentials/**",
+                  // 2026-06-02 MECE 审计：credentials 已迁至 L1 ai-infra（dead path 删除），
+                  // 补齐 2026-06-02 前缺失的新聚合 routing/reliability/evaluation。
+                  "**/ai-engine/routing/**",
+                  "**/ai-engine/reliability/**",
+                  "**/ai-engine/evaluation/**",
                 ],
                 message:
                   "open-api 访问 AI Engine 必须走 'ai-engine/facade'，不得穿透内部路径。" +

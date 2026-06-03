@@ -30,7 +30,7 @@ import type {
   LlmExecutorResult,
 } from "../../../runner/executor/llm-executor";
 import type { IAgentSpec, IAgentTask, IAgentEvent } from "../../abstractions";
-import { MissionElectionTracker } from "../../../../ai-engine/llm/selection/mission-election-tracker.service";
+import { MissionElectionTracker } from "../../../guardrails/runtime/mission-election-tracker.service";
 import type { AiModelConfigService } from "../../../../ai-engine/llm/services/ai-model-config.service";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

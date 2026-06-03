@@ -74,7 +74,12 @@ export function ensureCohereChatPath(
 ): string | null {
   const trimmed = url?.trim();
   if (!trimmed) return null;
-  const normalized = stripTrailingSlash(trimmed);
+  // H2 fix：v2 adapter 发 v2-shaped body，必须打 /v2。把误填/历史的 `/v1`
+  // （`…/v1` 或 `…/v1/chat`）归一化为 v2，存量坏行在运行时自愈。
+  const normalized = stripTrailingSlash(trimmed).replace(
+    /\/v1(\/chat)?$/i,
+    "/v2$1",
+  );
   if (normalized.endsWith("/chat")) return normalized;
   return `${stripModelsSuffix(normalized)}/chat`;
 }

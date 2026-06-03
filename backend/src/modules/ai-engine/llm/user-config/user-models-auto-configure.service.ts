@@ -486,7 +486,9 @@ export class AutoConfigureService {
     if (lower === "cohere") {
       return {
         apiFormat: "cohere",
-        apiEndpoint: "https://api.cohere.com/v1/chat",
+        // H2 fix：v2 chat（adapter 发 v2-shaped body）。原写 /v1/chat 导致 v2 body
+        // 打到 v1 端点 → 自动配置出来的 Cohere 模型运行时全坏 + 连接测试必失败。
+        apiEndpoint: "https://api.cohere.com/v2/chat",
       };
     }
     if (lower === "deepseek") {

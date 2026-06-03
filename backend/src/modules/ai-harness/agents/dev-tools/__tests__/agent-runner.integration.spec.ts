@@ -566,6 +566,34 @@ describe("AgentRunner.performToolRecall() — hint categories and excludeIds", (
     expect(result.recalledIds).toContain("tool-b");
   });
 
+  it("M1: spec.forbiddenTools filters the recalled pool (least-privilege denylist)", async () => {
+    const toolReg = makeToolRegistry([
+      { id: "tool-a" },
+      { id: "tool-b" },
+      { id: "tool-c" },
+    ]);
+    toolReg.listByCategory.mockReturnValue([]);
+    const runner = new AgentRunner(
+      new AgentFactory(),
+      toolReg as never,
+    ) as unknown as PrivateRunner;
+
+    // forbiddenTools 把 tool-b 从召回池（=catalog + identity.tools）剔除，
+    // 让 prompt-driven 路径的 LLM 也看不到、选不到 tool-b。
+    const forbid = await runner.performToolRecall(
+      {
+        id: "t",
+        toolCategories: [],
+        tools: ["tool-a", "tool-b", "tool-c"],
+        forbiddenTools: ["tool-b"],
+      },
+      {},
+    );
+    expect(forbid.recalledIds).toContain("tool-a");
+    expect(forbid.recalledIds).not.toContain("tool-b");
+    expect(forbid.recalledIds).toContain("tool-c");
+  });
+
   it("hint.categories that match spec.toolCategories narrow the pool (path A)", async () => {
     const toolReg = makeToolRegistry([{ id: "tool-a" }, { id: "tool-b" }]);
     toolReg.listByCategory.mockImplementation((cats: string[]) => {

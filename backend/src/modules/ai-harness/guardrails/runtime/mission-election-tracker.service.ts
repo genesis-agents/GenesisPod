@@ -15,15 +15,18 @@
  * The local map is no longer the source of truth. Terminal mission paths must
  * clear durable state so completed/cancelled missions do not accumulate rows.
  *
- * ⚠ Layering caveat (2026-05-11 Round 4 arch review, P3 grey area):
- * `mission_election_states.mission_id` has an ai-app-level FK to reflect the
- * single-caller reality (only one ai-app currently invokes election).
- * Election is an engine-level primitive in principle, but YAGNI applies:
- * do not abstract for hypothetical future callers. If another ai-app later
- * needs election, refactor the FK (soft reference + missionType enum, or
- * a shared `missions` base table) at that point, not now.
- * See `models.prisma` MissionElectionState model comment for the schema-level
- * version of this caveat.
+ * Layering (2026-06-02 MECE audit P0-1 — relocated ai-engine → ai-harness):
+ * This tracker owns mission-scoped persistent state (`mission_election_states`,
+ * whose `mission_id` carries an ai-app-level FK). Mission state is an L2.5
+ * harness concern, so this service lives in ai-harness/guardrails/runtime
+ * alongside MissionTokenLedger. The stateless scoring primitive
+ * (`ModelElectionService`) stays in ai-engine and remains mission-unaware —
+ * callers thread `previouslyElected` through it as a plain parameter. This
+ * separation is enforced by the `Engine mission-state isolation` arch spec
+ * (layer-boundaries.spec.ts): ai-engine may not touch `prisma.mission*`.
+ * If another ai-app later needs election, refactor the FK (soft reference +
+ * missionType enum, or a shared `missions` base table) at that point.
+ * See `models.prisma` MissionElectionState model comment for the schema-level note.
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";

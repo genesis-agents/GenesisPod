@@ -288,7 +288,8 @@ export class MCPServerService implements OnModuleInit {
     }
 
     const toolName = params.name;
-    const args = (params.arguments as Record<string, unknown>) || {};
+    // M3 fix：let（非 const）—— PII redact-not-block 时下面会替换成脱敏后的 args。
+    let args = (params.arguments as Record<string, unknown>) || {};
 
     // 原子性权限 + 配额检查（避免检查与消耗之间的竞态条件）
     const validation = this.sessionManager.validateAndConsumeQuota(
@@ -330,6 +331,20 @@ export class MCPServerService implements OnModuleInit {
             ],
             isError: true,
           };
+        }
+        // M3 fix：PII redact-not-block → 用脱敏后的 args（transformedContent 是
+        // JSON.stringify(args) 的脱敏版）。解析失败（脱敏破坏 JSON，罕见）则保留原
+        // args 不阻断。之前只看 passed，把**未脱敏的工具参数**直接发给模型/工具。
+        if (typeof inputCheck.transformedContent === "string") {
+          try {
+            args =
+              (JSON.parse(inputCheck.transformedContent) as Record<
+                string,
+                unknown
+              >) || args;
+          } catch {
+            /* 保留原 args */
+          }
         }
       } catch (guardrailError) {
         this.logger.error(
