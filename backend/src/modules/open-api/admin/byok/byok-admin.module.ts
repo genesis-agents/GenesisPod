@@ -16,6 +16,7 @@ import { AdminByokDashboardController } from "./admin-byok-dashboard.controller"
 import { KeyAssignmentsModule } from "../../../platform/credentials/key-assignments";
 import { KeyRequestsModule } from "../../../platform/credentials/key-requests";
 import { KeyResolverModule } from "../../../platform/credentials/key-resolver";
+import { ByokDashboardService } from "@/modules/platform/credentials/byok-dashboard.service";
 
 @Module({
   imports: [KeyAssignmentsModule, KeyRequestsModule, KeyResolverModule],
@@ -24,5 +25,9 @@ import { KeyResolverModule } from "../../../platform/credentials/key-resolver";
     AdminKeyRequestsController,
     AdminByokDashboardController,
   ],
+  // AdminByokDashboardController injects ByokDashboardService (only dep: global
+  // PrismaService). It is declared here — not in AdminModule where the controller
+  // does not live — so it resolves within ByokAdminModule's own context.
+  providers: [ByokDashboardService],
 })
 export class ByokAdminModule {}
