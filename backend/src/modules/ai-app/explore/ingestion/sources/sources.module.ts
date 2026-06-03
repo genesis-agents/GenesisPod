@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../../common/prisma/prisma.module";
-import { RawDataModule } from "../../../../../common/rawdata/rawdata.module";
+import { RawDataModule } from "@/modules/ai-app/explore/rawdata/rawdata.module";
 import { CrawlersModule } from "../crawlers/crawlers.module";
 
 // Services

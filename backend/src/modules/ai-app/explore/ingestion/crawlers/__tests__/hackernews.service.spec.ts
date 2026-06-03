@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { HackernewsService } from "../hackernews.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { RawDataService } from "../../../../../../common/rawdata/rawdata.service";
+import { RawDataService } from "@/modules/ai-app/explore/rawdata/rawdata.service";
 import { DeduplicationService } from "../deduplication.service";
 import { AIEnrichmentService } from "../../../../explore/resources/ai-enrichment.service";
 import { HackernewsCommentsService } from "../hackernews-comments.service";

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ArxivService } from "../arxiv.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { RawDataService } from "../../../../../../common/rawdata/rawdata.service";
+import { RawDataService } from "@/modules/ai-app/explore/rawdata/rawdata.service";
 import { DeduplicationService } from "../deduplication.service";
 import axios from "axios";
 import * as xml2js from "xml2js";

@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { GithubService } from "../github.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { RawDataService } from "../../../../../../common/rawdata/rawdata.service";
+import { RawDataService } from "@/modules/ai-app/explore/rawdata/rawdata.service";
 import { DeduplicationService } from "../deduplication.service";
 
 // Mock axios at module level

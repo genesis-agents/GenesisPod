@@ -15,7 +15,7 @@ import { BlogCollectionService } from "./blog-collection.service";
 import { BlogSchedulerService } from "./blog-scheduler.service";
 // Dependencies
 import { ResourcesModule } from "../../../explore/resources/resources.module";
-import { RawDataModule } from "../../../../../common/rawdata/rawdata.module";
+import { RawDataModule } from "@/modules/ai-app/explore/rawdata/rawdata.module";
 
 /**
  * Crawlers Module (数据爬虫模块)

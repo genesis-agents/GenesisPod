@@ -2,7 +2,7 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../../../../common/prisma/prisma.module";
-import { RawDataModule } from "../../../../../common/rawdata/rawdata.module";
+import { RawDataModule } from "@/modules/ai-app/explore/rawdata/rawdata.module";
 import { SourceWhitelistService } from "./services/source-whitelist.service";
 import { SourceWhitelistController } from "./controllers/source-whitelist.controller";
 import { CollectionRuleService } from "./services/collection-rule.service";
