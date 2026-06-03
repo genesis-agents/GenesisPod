@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { ResearchController } from "../research/research.controller";
+import { ResearchTemplateService } from "@/modules/ai-app/research/services/research-template.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
@@ -46,7 +47,7 @@ describe("ResearchController", () => {
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ResearchController],
-      providers: [{ provide: PrismaService, useValue: mockPrisma }],
+      providers: [ResearchTemplateService, { provide: PrismaService, useValue: mockPrisma }],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
