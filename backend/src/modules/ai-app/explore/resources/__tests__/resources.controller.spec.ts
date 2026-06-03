@@ -6,7 +6,7 @@ import { AIEnrichmentService } from "../ai-enrichment.service";
 import { PdfThumbnailService } from "../pdf-thumbnail.service";
 import { DynamicThumbnailService } from "../dynamic-thumbnail.service";
 import { ResourceHealthCheckScheduler } from "../resource-health-check.scheduler";
-import { R2StorageService } from "../../../../platform/storage/runtime/r2-storage.service";
+import { ObjectStorageService } from "../../../../platform/storage/runtime/object-storage.service";
 import { ThrottlerModule } from "@nestjs/throttler";
 
 // Guard mock – allow all requests through in tests
@@ -78,7 +78,7 @@ describe("ResourcesController", () => {
           provide: DynamicThumbnailService,
           useValue: mockDynamicThumbnailService,
         },
-        { provide: R2StorageService, useValue: mockR2StorageService },
+        { provide: ObjectStorageService, useValue: mockR2StorageService },
         {
           provide: ResourceHealthCheckScheduler,
           useValue: mockHealthScheduler,

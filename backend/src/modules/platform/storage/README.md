@@ -7,7 +7,7 @@
 ```text
 storage/
 ├── runtime/
-│   └── r2-storage.service.ts
+│   └── object-storage.service.ts
 ├── governance/
 │   ├── storage-governance.service.ts
 │   ├── storage-governance.controller.ts

@@ -12,7 +12,7 @@
 
 // Break the platform/facade import chain (transitively imports @nestjs/cache-manager)
 jest.mock("@/modules/platform/facade", () => ({
-  R2StorageService: jest.fn(),
+  ObjectStorageService: jest.fn(),
 }));
 
 import { Test, TestingModule } from "@nestjs/testing";

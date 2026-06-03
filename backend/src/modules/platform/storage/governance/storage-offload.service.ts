@@ -15,7 +15,7 @@
  *
  * 处理逻辑（每个表独立）：
  * 1. 扫 {uri} IS NULL AND {content} IS NOT NULL AND len > 2KB 的行
- * 2. 批量上传到对象存储（R2StorageService.uploadText）
+ * 2. 批量上传到对象存储（ObjectStorageService.uploadText）
  * 3. 写 URI 到 DB
  * 4. 清空 DB 里的 content 字段（文本 → ""，JSON → NULL）
  *
@@ -35,7 +35,7 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { R2StorageService } from "../runtime/r2-storage.service";
+import { ObjectStorageService } from "../runtime/object-storage.service";
 import { OFFLOAD_PREFIXES } from "./offload-prefixes";
 import {
   OFFLOAD_TARGETS,
@@ -63,7 +63,7 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: R2StorageService,
+    private readonly storage: ObjectStorageService,
   ) {}
 
   onModuleInit() {

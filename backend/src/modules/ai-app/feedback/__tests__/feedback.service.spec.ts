@@ -7,7 +7,7 @@ import {
   EmailNotificationPresetsService,
   FeedbackStatusUpdatePreset,
 } from "../../../platform/facade";
-import { R2StorageService } from "../../../platform/storage/runtime/r2-storage.service";
+import { ObjectStorageService } from "../../../platform/storage/runtime/object-storage.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
 
 describe("FeedbackService", () => {
@@ -15,7 +15,7 @@ describe("FeedbackService", () => {
   let mockPrisma: jest.Mocked<Partial<PrismaService>>;
   let mockEmailService: jest.Mocked<Partial<EmailNotificationPresetsService>>;
   let mockStatusPreset: jest.Mocked<Partial<FeedbackStatusUpdatePreset>>;
-  let mockR2Storage: jest.Mocked<Partial<R2StorageService>>;
+  let mockR2Storage: jest.Mocked<Partial<ObjectStorageService>>;
   let mockEventEmitter: jest.Mocked<Partial<EventEmitter2>>;
 
   const makeFeedback = (overrides: Record<string, unknown> = {}) => ({
@@ -70,7 +70,7 @@ describe("FeedbackService", () => {
           provide: FeedbackStatusUpdatePreset,
           useValue: mockStatusPreset,
         },
-        { provide: R2StorageService, useValue: mockR2Storage },
+        { provide: ObjectStorageService, useValue: mockR2Storage },
         { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
     }).compile();

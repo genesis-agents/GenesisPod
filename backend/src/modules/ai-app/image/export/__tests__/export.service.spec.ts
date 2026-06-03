@@ -2,17 +2,17 @@
  * ExportService Unit Tests
  *
  * Tests the multi-format export functionality (PNG/SVG/PDF/PPTX).
- * Puppeteer and R2StorageService are fully mocked.
+ * Puppeteer and ObjectStorageService are fully mocked.
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ExportService } from "../export.service";
-import { R2StorageService } from "../../../../platform/storage/runtime/r2-storage.service";
+import { ObjectStorageService } from "../../../../platform/storage/runtime/object-storage.service";
 import { PuppeteerPoolService } from "../../../../../common/browser/puppeteer-pool.service";
 
 describe("ExportService", () => {
   let service: ExportService;
-  let r2Storage: jest.Mocked<R2StorageService>;
+  let r2Storage: jest.Mocked<ObjectStorageService>;
 
   // Puppeteer mock helpers
   const mockPage = {
@@ -53,13 +53,13 @@ describe("ExportService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ExportService,
-        { provide: R2StorageService, useValue: mockR2StorageService },
+        { provide: ObjectStorageService, useValue: mockR2StorageService },
         { provide: PuppeteerPoolService, useValue: mockPuppeteerPool },
       ],
     }).compile();
 
     service = module.get<ExportService>(ExportService);
-    r2Storage = module.get(R2StorageService);
+    r2Storage = module.get(ObjectStorageService);
 
     // Reset mocks between tests
     jest.clearAllMocks();

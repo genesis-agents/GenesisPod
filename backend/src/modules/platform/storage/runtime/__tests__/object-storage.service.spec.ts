@@ -1,5 +1,5 @@
 /**
- * R2StorageService spec（v5.1 R0.5-E W2-A 重构后 orchestrator 单测）
+ * ObjectStorageService spec（v5.1 R0.5-E W2-A 重构后 orchestrator 单测）
  *
  * 历史：service 内部直接持有 S3Client，spec 也 mock S3Client 测 S3 调用细节。
  * W2-A 重构：service 委托 IObjectStorageBackend，本 spec 改测 orchestrator
@@ -8,7 +8,7 @@
  */
 import { Test, TestingModule } from "@nestjs/testing";
 import { ServiceUnavailableException } from "@nestjs/common";
-import { R2StorageService } from "../r2-storage.service";
+import { ObjectStorageService } from "../object-storage.service";
 import {
   OBJECT_STORAGE_BACKEND_TOKEN,
   type IObjectStorageBackend,
@@ -46,17 +46,19 @@ function makeBackend(available = true, id = "r2"): MockBackend {
   };
 }
 
-async function makeService(backend: MockBackend): Promise<R2StorageService> {
+async function makeService(
+  backend: MockBackend,
+): Promise<ObjectStorageService> {
   const module: TestingModule = await Test.createTestingModule({
     providers: [
-      R2StorageService,
+      ObjectStorageService,
       { provide: OBJECT_STORAGE_BACKEND_TOKEN, useValue: backend },
     ],
   }).compile();
-  return module.get(R2StorageService);
+  return module.get(ObjectStorageService);
 }
 
-describe("R2StorageService (W2-A orchestrator)", () => {
+describe("ObjectStorageService (W2-A orchestrator)", () => {
   describe("isEnabled / getProvider", () => {
     it("returns true + provider id when backend available", async () => {
       const svc = await makeService(makeBackend(true, "r2"));

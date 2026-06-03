@@ -4,7 +4,7 @@
  * 落地依据：thinning plan §6.6 / §6.6.2 / §6.6.4 / §B3-2.
  *
  * 取代之前的纯函数 `projectArtifact()`。差异：
- *   1. NestJS @Injectable，可注入 PrismaService + R2StorageService
+ *   1. NestJS @Injectable，可注入 PrismaService + ObjectStorageService
  *   2. §6.6.4 R2 off-load 真实 fetch：reportFull = null 且 reportFullUri 非空时
  *      从 R2 拉 JSON，然后再走 v1→v2 normalize；不再仅 hasOffloadUri 推断
  *   3. async return（之前 sync pure function）；query service 在 loadInputs
@@ -20,7 +20,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { R2StorageService } from "@/modules/platform/facade";
+import { ObjectStorageService } from "@/modules/platform/facade";
 
 import type { MissionDetail } from "../lifecycle/mission-store.service";
 import {
@@ -48,7 +48,7 @@ export class ArtifactComposerService {
     // @Optional：StorageModule 未 import 时 R2 fetch 路径退化为 sentinel，避免
     // agent-playground.module 强依赖 StorageModule 触发循环。后续 wiring 完
     // R2 后此 @Optional 可去掉。
-    @Optional() private readonly r2?: R2StorageService,
+    @Optional() private readonly r2?: ObjectStorageService,
   ) {}
 
   /**
@@ -132,7 +132,7 @@ export class ArtifactComposerService {
   ): Promise<unknown | null> {
     if (!this.r2) {
       this.log.warn(
-        `[fetchOffloadedReportFull ${missionId}] R2StorageService not wired into AgentPlaygroundModule; off-load fetch unavailable, returning null`,
+        `[fetchOffloadedReportFull ${missionId}] ObjectStorageService not wired into AgentPlaygroundModule; off-load fetch unavailable, returning null`,
       );
       return null;
     }

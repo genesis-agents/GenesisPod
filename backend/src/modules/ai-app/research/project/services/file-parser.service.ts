@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
-import { R2StorageService } from "../../../../platform/facade";
+import { ObjectStorageService } from "../../../../platform/facade";
 
 interface ParsedFile {
   title: string;
@@ -20,7 +20,7 @@ interface ParsedFile {
 export class FileParserService {
   private readonly logger = new Logger(FileParserService.name);
 
-  constructor(private readonly r2Storage: R2StorageService) {}
+  constructor(private readonly r2Storage: ObjectStorageService) {}
 
   // Supported file types
   private readonly SUPPORTED_TYPES: Record<string, string> = {

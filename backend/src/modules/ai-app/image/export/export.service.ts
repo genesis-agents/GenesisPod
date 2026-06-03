@@ -6,7 +6,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PuppeteerPoolService } from "../../../../common/browser/puppeteer-pool.service";
-import { R2StorageService } from "../../../platform/facade";
+import { ObjectStorageService } from "../../../platform/facade";
 import {
   ExportOptions,
   ExportResult,
@@ -39,7 +39,7 @@ export class ExportService {
   private readonly logger = new Logger(ExportService.name);
 
   constructor(
-    private readonly r2Storage: R2StorageService,
+    private readonly r2Storage: ObjectStorageService,
     private readonly browserPool: PuppeteerPoolService,
   ) {}
 

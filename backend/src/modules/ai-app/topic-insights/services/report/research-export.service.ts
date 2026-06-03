@@ -16,7 +16,7 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { CitationFormatterService } from "./citation-formatter.service";
 import { CitationStyle } from "../../types/citation.types";
-import { R2StorageService } from "@/modules/platform/facade";
+import { ObjectStorageService } from "@/modules/platform/facade";
 
 /**
  * 导出格式
@@ -85,7 +85,7 @@ export class ResearchExportService {
     private readonly prisma: PrismaService,
     private readonly citationFormatter: CitationFormatterService,
     // ★ Phase 6: 报告云存储
-    @Optional() private readonly r2Storage?: R2StorageService,
+    @Optional() private readonly r2Storage?: ObjectStorageService,
   ) {}
 
   /**
