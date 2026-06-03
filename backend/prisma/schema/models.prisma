@@ -9858,10 +9858,14 @@ model HarnessCheckpoint {
   taskSnapshot  Json?    @map("task_snapshot")
   /// 业务可塞自己的索引字段（missionId / topicId / sessionId 等）
   scope         Json?
+  /// HARNESS-SEC-001：归属用户（来自 envelope.userId）。resume/replay/fork 时按属主过滤，
+  /// 防跨租户读他人 agent 断点（envelope 含对话/工具结果/产物）。可空（系统/匿名断点）。
+  ownerUserId   String?  @map("owner_user_id") @db.VarChar(64)
   takenAt       DateTime @default(now()) @map("taken_at")
 
   @@index([agentId, takenAt(sort: Desc)])
   @@index([takenAt(sort: Desc)])
+  @@index([ownerUserId])
   @@map("harness_checkpoints")
 }
 

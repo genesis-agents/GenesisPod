@@ -14,7 +14,10 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import type { ICheckpoint, ICheckpointStore } from "./checkpoint.types";
-import type { IAgentIdentity, IContextEnvelope } from "../../agents/abstractions";
+import type {
+  IAgentIdentity,
+  IContextEnvelope,
+} from "../../agents/abstractions";
 
 @Injectable()
 export class PrismaCheckpointStore implements ICheckpointStore {
@@ -40,6 +43,8 @@ export class PrismaCheckpointStore implements ICheckpointStore {
           ? (checkpoint.taskSnapshot as Prisma.InputJsonValue)
           : Prisma.JsonNull,
         scope: Prisma.JsonNull,
+        // HARNESS-SEC-001：落归属用户（来自 envelope.userId）供 resume/fork 属主过滤
+        ownerUserId: checkpoint.ownerUserId ?? null,
         takenAt: new Date(checkpoint.takenAt),
       },
     });
@@ -95,11 +100,13 @@ export class PrismaCheckpointStore implements ICheckpointStore {
     identity: unknown;
     eventsEmitted: number;
     taskSnapshot: unknown;
+    ownerUserId: string | null;
     takenAt: Date;
   }): ICheckpoint {
     return {
       id: row.id,
       agentId: row.agentId,
+      ownerUserId: row.ownerUserId ?? undefined,
       reason: row.reason as ICheckpoint["reason"],
       agentState: row.agentState as ICheckpoint["agentState"],
       envelope: row.envelope as IContextEnvelope,

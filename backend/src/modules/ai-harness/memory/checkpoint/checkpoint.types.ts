@@ -16,6 +16,8 @@ import type {
 export interface ICheckpoint {
   readonly id: string;
   readonly agentId: AgentId;
+  /** HARNESS-SEC-001：归属用户（取自 envelope.userId）。resume/fork 按属主过滤。可空=系统/匿名断点。 */
+  readonly ownerUserId?: string;
   readonly takenAt: number;
   readonly reason: CheckpointReason;
   readonly agentState: AgentState;

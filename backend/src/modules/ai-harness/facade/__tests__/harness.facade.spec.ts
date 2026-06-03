@@ -354,7 +354,7 @@ describe("HarnessFacade", () => {
         makeHookRegistry(),
         makeLoopRegistry(),
       );
-      await expect(facade.fork("cp1")).rejects.toThrow(
+      await expect(facade.fork("cp1", "u1")).rejects.toThrow(
         "AgentStepCheckpointService not wired",
       );
     });
@@ -367,7 +367,7 @@ describe("HarnessFacade", () => {
         makeLoopRegistry(),
         checkpointService as any,
       );
-      const result = await facade.fork("missing");
+      const result = await facade.fork("missing", "u1");
       expect(result).toBeNull();
     });
 
@@ -386,7 +386,7 @@ describe("HarnessFacade", () => {
         makeLoopRegistry(),
         checkpointService as any,
       );
-      const result = await facade.fork("cp1");
+      const result = await facade.fork("cp1", "u1");
       expect(result).not.toBeNull();
       expect(factory.createFromCheckpoint).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -395,6 +395,51 @@ describe("HarnessFacade", () => {
           }),
         }),
       );
+    });
+
+    it("HARNESS-SEC-001: denies fork by non-owner (returns null, no agent built)", async () => {
+      const mockCheckpoint = {
+        identity: { id: "agent-1" },
+        ownerUserId: "u1",
+        envelope: { memory: { sessionId: "s1", userId: "u1" } },
+      };
+      const checkpointService = {
+        load: jest.fn().mockResolvedValue(mockCheckpoint),
+      };
+      const factory = makeFactory();
+      const facade = new HarnessFacade(
+        factory,
+        makeHookRegistry(),
+        makeLoopRegistry(),
+        checkpointService as any,
+      );
+      const result = await facade.fork("cp1", "attacker-user");
+      expect(result).toBeNull();
+      expect(factory.createFromCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it("HARNESS-SEC-001: denies resume by non-owner (returns null)", async () => {
+      const mockCheckpoint = {
+        identity: { id: "agent-1" },
+        ownerUserId: "u1",
+        envelope: { memory: { sessionId: "s1", userId: "u1" } },
+      };
+      const checkpointService = {
+        load: jest.fn().mockResolvedValue(mockCheckpoint),
+      };
+      const factory = makeFactory();
+      const facade = new HarnessFacade(
+        factory,
+        makeHookRegistry(),
+        makeLoopRegistry(),
+        checkpointService as any,
+      );
+      const result = await facade.resume({
+        checkpointId: "cp1",
+        requestingUserId: "attacker-user",
+      });
+      expect(result).toBeNull();
+      expect(factory.createFromCheckpoint).not.toHaveBeenCalled();
     });
 
     it("preserves userId when preserveUserId=true", async () => {
@@ -412,7 +457,7 @@ describe("HarnessFacade", () => {
         makeLoopRegistry(),
         checkpointService as any,
       );
-      await facade.fork("cp1", { preserveUserId: true });
+      await facade.fork("cp1", "u1", { preserveUserId: true });
       expect(factory.createFromCheckpoint).toHaveBeenCalledWith(
         expect.objectContaining({
           envelope: expect.objectContaining({
@@ -437,7 +482,7 @@ describe("HarnessFacade", () => {
         makeLoopRegistry(),
         checkpointService as any,
       );
-      await facade.fork("cp1", { newSessionId: "custom-session" });
+      await facade.fork("cp1", "u1", { newSessionId: "custom-session" });
       expect(factory.createFromCheckpoint).toHaveBeenCalledWith(
         expect.objectContaining({
           sessionId: "custom-session",
