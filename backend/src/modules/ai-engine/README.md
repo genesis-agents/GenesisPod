@@ -107,7 +107,7 @@ ai-engine/
 2. **0 反向依赖**：通过 verify:arch + ESLint no-restricted-imports 双重看护。
 3. **facade 为唯一公共入口**：ai-app / ai-harness 必须从 `@/modules/ai-engine/facade` import。
 4. **TaskProfile 优先**：所有 LLM 调用走 `aiChatService.chat({ taskProfile, modelType })`，禁止硬编码 modelId / temperature / maxTokens（CLAUDE.md 红线）。
-5. **顶层只保留 9 个规范聚合**：`llm/tools/rag/knowledge/skills/planning/safety/content/facade`。
+5. **顶层保留 12 个规范聚合**（2026-06-02 核实）：`llm/tools/rag/knowledge/content/routing/reliability/evaluation/skills/planning/safety/facade`。其中 `routing`（W-2026-06-02）/`reliability`（W7）/`evaluation`（W2）为后续扩出；`credentials` 已于 2026-05-01 迁至 L1 `ai-infra/credentials`。
 6. **NestJS module 按子目录就近**：每个能力子域有自己的 `*.module.ts`，集中在 `ai-engine.module.ts` 聚合。
 
 ## 与 L2.5 ai-harness 的边界

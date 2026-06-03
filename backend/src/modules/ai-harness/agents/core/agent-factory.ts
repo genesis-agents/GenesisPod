@@ -16,7 +16,7 @@ import type { ModelElectionService } from "../../../ai-engine/llm/selection";
 import type {
   MissionElectionReservation,
   MissionElectionTracker,
-} from "../../../ai-engine/llm/selection";
+} from "../../guardrails/runtime/mission-election-tracker.service";
 import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import { KernelContext } from "../../../../common/context/kernel-context";

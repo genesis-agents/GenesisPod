@@ -58,8 +58,10 @@ import { AutoConfigureService } from "./user-config/user-models-auto-configure.s
 import { ModelRecommendationsService } from "./selection/model-recommendations.service";
 
 // Environment-aware model election (pick modelId from env snapshot + request hints)
+// NOTE: stateless scoring only. Mission-scoped election state (MissionElectionTracker)
+// was relocated to ai-harness/guardrails/runtime on 2026-06-02 (MECE audit P0-1) —
+// engine must not hold mission state.
 import { ModelElectionService } from "./selection/model-election.service";
-import { MissionElectionTracker } from "./selection/mission-election-tracker.service";
 
 // Single source of truth for model pricing (DB AIModel table → in-memory hydrate)
 import { ModelPricingRegistry } from "./pricing/model-pricing.registry";
@@ -145,9 +147,9 @@ import { CapabilityProbeService } from "./capability/capability-probe.service";
     // Admin — 系统模型全景
     SystemModelInventoryService,
 
-    // Environment-aware model election + mission-scoped diversity tracker
+    // Environment-aware model election (stateless scoring; mission-scoped
+    // diversity tracker relocated to ai-harness 2026-06-02 P0-1)
     ModelElectionService,
-    MissionElectionTracker,
 
     // Pricing single source of truth (replaces 3 hardcoded tables)
     ModelPricingRegistry,
@@ -190,7 +192,6 @@ import { CapabilityProbeService } from "./capability/capability-probe.service";
     ModelRecommendationsService,
     SystemModelInventoryService,
     ModelElectionService,
-    MissionElectionTracker,
     AutoConfigureService,
     ModelPricingRegistry,
     // v3.1 阶段 A review (2026-05-24)：ModelCapabilityService 故意**不** export。

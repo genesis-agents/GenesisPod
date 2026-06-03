@@ -30,7 +30,7 @@ import type {
   LlmExecutorResult,
 } from "../../../runner/executor/llm-executor";
 import { LoopRegistry } from "../../../runner/loop/loop-registry";
-import { MissionElectionTracker } from "../../../../ai-engine/llm/selection/mission-election-tracker.service";
+import { MissionElectionTracker } from "../../../guardrails/runtime/mission-election-tracker.service";
 import { KernelContext } from "../../../../../common/context/kernel-context";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
