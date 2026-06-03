@@ -74,9 +74,7 @@ describe("DbOpsController", () => {
       .useValue({ canActivate: () => true })
       .compile();
 
-    controller = module.get<DbOpsController>(
-      DbOpsController,
-    );
+    controller = module.get<DbOpsController>(DbOpsController);
     service = module.get(DbOpsService);
   });
 

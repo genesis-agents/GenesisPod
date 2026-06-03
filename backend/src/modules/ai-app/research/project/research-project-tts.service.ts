@@ -107,7 +107,8 @@ export class ResearchProjectTTSService {
    * Get available TTS provider (synchronous legacy; reads env only, no BYOK)
    */
   getProvider(): "elevenlabs" | "google" | "none" {
-    if (this.configService.get<string>("ELEVENLABS_API_KEY")) return "elevenlabs";
+    if (this.configService.get<string>("ELEVENLABS_API_KEY"))
+      return "elevenlabs";
     if (this.configService.get<string>("GOOGLE_TTS_API_KEY")) return "google";
     return "none";
   }
@@ -157,7 +158,6 @@ export class ResearchProjectTTSService {
     script: AudioOverviewScript,
     apiKey: string,
   ): Promise<{ audioUrl: string; duration: number } | null> {
-
     // Voice IDs for different hosts
     const voices = {
       Host1: "21m00Tcm4TlvDq8ikWAM", // Rachel - clear, professional
@@ -226,7 +226,6 @@ export class ResearchProjectTTSService {
     script: AudioOverviewScript,
     apiKey: string,
   ): Promise<{ audioUrl: string; duration: number } | null> {
-
     // Voice configurations for different hosts
     const voices = {
       Host1: {

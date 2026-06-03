@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { SecretsService } from "../../platform/secrets/secrets.service";
-import { KeyAssignmentsService } from "../../ai-engine/credentials/key-assignments/key-assignments.service";
+import { KeyAssignmentsService } from "../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   mapWithConcurrency,

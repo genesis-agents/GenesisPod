@@ -67,7 +67,9 @@ describe("EncryptionService", () => {
     it("roundtrips with the same userId", () => {
       const { encryptedValue, iv } = svc.encryptForUser("sk-user-a", "user-a");
       expect(encryptedValue).not.toContain("sk-user-a");
-      expect(svc.decryptForUser(encryptedValue, iv, "user-a")).toBe("sk-user-a");
+      expect(svc.decryptForUser(encryptedValue, iv, "user-a")).toBe(
+        "sk-user-a",
+      );
     });
 
     it("isolates users: user B cannot decrypt user A's ciphertext", () => {
@@ -175,7 +177,9 @@ describe("EncryptionService", () => {
       const flipped = row.authTag.startsWith("0")
         ? "1" + row.authTag.slice(1)
         : "0" + row.authTag.slice(1);
-      expect(await svc.decryptEnvelope({ ...row, authTag: flipped })).toBeNull();
+      expect(
+        await svc.decryptEnvelope({ ...row, authTag: flipped }),
+      ).toBeNull();
     });
 
     it("fails (returns null) when ciphertext is tampered", async () => {

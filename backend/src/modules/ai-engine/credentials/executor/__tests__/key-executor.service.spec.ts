@@ -1,5 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { KeyErrorClassifier, KeyHealthStore } from "@/modules/platform/key-health";
+import {
+  KeyErrorClassifier,
+  KeyHealthStore,
+} from "@/modules/platform/key-health";
 import {
   KeyChain,
   KeyResolverService,
@@ -94,7 +97,9 @@ describe("KeyExecutorService", () => {
 
   describe("provider cooldown short-circuit", () => {
     it("throws ProviderCooldownError (with remainingMs) when in cooldown; never calls callFn", async () => {
-      (healthStore.getProviderCooldownMs as jest.Mock).mockResolvedValue(60_000);
+      (healthStore.getProviderCooldownMs as jest.Mock).mockResolvedValue(
+        60_000,
+      );
       const callFn = jest.fn();
 
       await expect(

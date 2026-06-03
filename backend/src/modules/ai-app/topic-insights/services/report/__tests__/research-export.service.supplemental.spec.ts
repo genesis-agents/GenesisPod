@@ -318,5 +318,3 @@ describe("ResearchExportService (supplemental)", () => {
     });
   });
 });
-
-

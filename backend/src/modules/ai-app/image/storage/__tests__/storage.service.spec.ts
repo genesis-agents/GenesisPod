@@ -660,4 +660,3 @@ describe("ImageStorageService", () => {
     });
   });
 });
-

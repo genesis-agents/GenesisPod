@@ -491,7 +491,8 @@ export class StorageGovernanceService {
       },
     });
 
-    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.parsedMetadata) / 1024;
+    const estimatedSizeMB =
+      (total * STORAGE_SIZE_ESTIMATES.parsedMetadata) / 1024;
 
     let cleanupRecommendation: string | undefined;
     if (expired > 0) {
@@ -549,7 +550,8 @@ export class StorageGovernanceService {
       where: { createdAt: { lt: thirtyDaysAgo } },
     });
 
-    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.userActivities) / 1024;
+    const estimatedSizeMB =
+      (total * STORAGE_SIZE_ESTIMATES.userActivities) / 1024;
 
     let cleanupRecommendation: string | undefined;
     if (oldActivities > 1000) {
@@ -569,7 +571,8 @@ export class StorageGovernanceService {
 
   private async getTopicMessageStats(): Promise<StorageCategory> {
     const total = await this.prisma.topicMessage.count();
-    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.topicMessages) / 1024;
+    const estimatedSizeMB =
+      (total * STORAGE_SIZE_ESTIMATES.topicMessages) / 1024;
 
     return {
       name: "topicMessages",
@@ -728,7 +731,8 @@ export class StorageGovernanceService {
 
   private async getDebateStats(): Promise<StorageCategory> {
     const total = await this.prisma.debateSession.count();
-    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.debateSessions) / 1024;
+    const estimatedSizeMB =
+      (total * STORAGE_SIZE_ESTIMATES.debateSessions) / 1024;
 
     return {
       name: "debateSessions",
@@ -928,7 +932,8 @@ export class StorageGovernanceService {
             },
           });
           totalDeleted += toDelete.length;
-          totalFreedKB += toDelete.length * STORAGE_SIZE_ESTIMATES.generatedImages;
+          totalFreedKB +=
+            toDelete.length * STORAGE_SIZE_ESTIMATES.generatedImages;
         }
       }
 
@@ -1071,7 +1076,8 @@ export class StorageGovernanceService {
         deletedCount: result.count,
         freedSizeMB:
           Math.round(
-            ((result.count * STORAGE_SIZE_ESTIMATES.collectionTasks) / 1024) * 100,
+            ((result.count * STORAGE_SIZE_ESTIMATES.collectionTasks) / 1024) *
+              100,
           ) / 100,
         message: `Cleaned up ${result.count} completed collection tasks older than ${daysOld} days`,
       };
@@ -1141,7 +1147,8 @@ export class StorageGovernanceService {
         deletedCount: result.count,
         freedSizeMB:
           Math.round(
-            ((result.count * STORAGE_SIZE_ESTIMATES.parsedMetadata) / 1024) * 100,
+            ((result.count * STORAGE_SIZE_ESTIMATES.parsedMetadata) / 1024) *
+              100,
           ) / 100,
         message: `Cleaned up ${result.count} expired metadata cache entries`,
       };
@@ -1177,7 +1184,8 @@ export class StorageGovernanceService {
         deletedCount: result.count,
         freedSizeMB:
           Math.round(
-            ((result.count * STORAGE_SIZE_ESTIMATES.userActivities) / 1024) * 100,
+            ((result.count * STORAGE_SIZE_ESTIMATES.userActivities) / 1024) *
+              100,
           ) / 100,
         message: `Cleaned up ${result.count} user activity records older than ${daysOld} days`,
       };

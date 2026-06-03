@@ -306,7 +306,9 @@ export class AutoConfigureService {
       .filter((id: string) => {
         if (isImageType) return true;
         const lower = id.toLowerCase();
-        return !EXCLUDED_MODEL_SUBSTRINGS.some((s: string) => lower.includes(s));
+        return !EXCLUDED_MODEL_SUBSTRINGS.some((s: string) =>
+          lower.includes(s),
+        );
       });
 
     cache.set(cacheKey, filtered);
@@ -555,4 +557,3 @@ export class AutoConfigureService {
     };
   }
 }
-

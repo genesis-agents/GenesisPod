@@ -29,9 +29,7 @@ import {
 export class DbOpsController {
   private readonly logger = new Logger(DbOpsController.name);
 
-  constructor(
-    private readonly dbGovernanceService: DbOpsService,
-  ) {}
+  constructor(private readonly dbGovernanceService: DbOpsService) {}
 
   /**
    * Get list of all tables with filtering, sorting, and pagination

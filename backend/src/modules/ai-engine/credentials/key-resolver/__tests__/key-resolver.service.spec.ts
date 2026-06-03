@@ -127,7 +127,9 @@ describe("KeyResolverService", () => {
       });
 
       it("falls back to provider-level personal key when preferredKeyId not resolvable", async () => {
-        (userApiKeys.getPersonalKeyById as jest.Mock).mockResolvedValueOnce(null);
+        (userApiKeys.getPersonalKeyById as jest.Mock).mockResolvedValueOnce(
+          null,
+        );
         (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValueOnce({
           apiKey: "sk-fallback",
           apiEndpoint: null,

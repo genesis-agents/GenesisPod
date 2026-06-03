@@ -17,7 +17,11 @@ import { YoutubeService } from "./youtube.service";
  * PR-X22: imports SystemSettingModule (YoutubeService 注入 SystemSettingService)
  */
 @Module({
-  imports: [ContentProcessingModule, SystemSettingModule, ToolKeyResolverModule],
+  imports: [
+    ContentProcessingModule,
+    SystemSettingModule,
+    ToolKeyResolverModule,
+  ],
   providers: [
     ContentFetchService,
     YoutubeService,

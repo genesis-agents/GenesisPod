@@ -426,10 +426,7 @@ describe("SemanticScholarSearchTool", () => {
       });
       mockPolicyDataService.httpGet.mockResolvedValue(makeMockApiResponse());
 
-      const result = await tool.execute(
-        { query: "byok test" },
-        makeContext(),
-      );
+      const result = await tool.execute({ query: "byok test" }, makeContext());
 
       expect(mockToolKeyResolverService.resolveToolKey).toHaveBeenCalledWith(
         "semantic-scholar",

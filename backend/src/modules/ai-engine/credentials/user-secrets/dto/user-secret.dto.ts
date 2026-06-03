@@ -40,14 +40,17 @@ export class CreateUserSecretDto {
   @MaxLength(50)
   provider?: string;
 
-  @ApiPropertyOptional({ description: "明文密钥值（与 sourceSecretId 二选一）" })
+  @ApiPropertyOptional({
+    description: "明文密钥值（与 sourceSecretId 二选一）",
+  })
   @IsOptional()
   @IsString()
   @MinLength(1)
   value?: string;
 
   @ApiPropertyOptional({
-    description: "从已保存密钥复制（与 value 二选一）：传入另一条 user_credential 的 id，后端解密其值后作为本条密钥值写入",
+    description:
+      "从已保存密钥复制（与 value 二选一）：传入另一条 user_credential 的 id，后端解密其值后作为本条密钥值写入",
   })
   @IsOptional()
   @IsString()

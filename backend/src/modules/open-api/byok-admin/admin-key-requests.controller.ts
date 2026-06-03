@@ -12,11 +12,11 @@ import { ApiTags } from "@nestjs/swagger";
 import { KeyRequestStatus } from "@prisma/client";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { KeyRequestsService } from "../../ai-engine/credentials/key-requests/key-requests.service";
+import { KeyRequestsService } from "../../ai-engine/facade";
 import {
   ApproveKeyRequestDto,
   RejectKeyRequestDto,
-} from "../../ai-engine/credentials/key-requests/dto";
+} from "../../ai-engine/facade";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

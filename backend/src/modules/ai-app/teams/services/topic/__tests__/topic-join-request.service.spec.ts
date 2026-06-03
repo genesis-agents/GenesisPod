@@ -288,9 +288,7 @@ describe("TopicJoinRequestService", () => {
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(
         notificationPresetsService.notifyJoinRequestResult,
-      ).toHaveBeenCalledWith(
-        expect.objectContaining({ approved: true }),
-      );
+      ).toHaveBeenCalledWith(expect.objectContaining({ approved: true }));
     });
 
     it("should throw NotFoundException when request not found", async () => {

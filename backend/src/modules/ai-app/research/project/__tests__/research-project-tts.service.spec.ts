@@ -1,6 +1,9 @@
 import { ResearchProjectTTSService } from "../research-project-tts.service";
 import type { ConfigService } from "@nestjs/config";
-import { ToolKeyResolverService, NoToolKeyError } from "@/modules/ai-engine/credentials/tool-key-resolver/tool-key-resolver.service";
+import {
+  ToolKeyResolverService,
+  NoToolKeyError,
+} from "@/modules/ai-engine/credentials/tool-key-resolver/tool-key-resolver.service";
 import { RequestContext } from "@/common/context/request-context";
 
 // Mock global fetch
@@ -32,7 +35,10 @@ function createService(
     ? (toolKeyResolver as ToolKeyResolverService)
     : createMockToolKeyResolverService();
   return new ResearchProjectTTSService(
-    createMockConfigService(elevenLabsKey, googleKey) as unknown as ConfigService,
+    createMockConfigService(
+      elevenLabsKey,
+      googleKey,
+    ) as unknown as ConfigService,
     resolver,
   );
 }
@@ -401,7 +407,9 @@ describe("ResearchProjectTTSService", () => {
         "user-byok",
       );
       expect(result).not.toBeNull();
-      expect(mockFetch.mock.calls[0][1].headers["xi-api-key"]).toBe("byok-el-key");
+      expect(mockFetch.mock.calls[0][1].headers["xi-api-key"]).toBe(
+        "byok-el-key",
+      );
     });
 
     it("falls back to env key when no userId is present", async () => {
@@ -418,7 +426,9 @@ describe("ResearchProjectTTSService", () => {
       await service.generateAudio(createMockScript());
 
       expect(mockResolver.resolveToolKey).not.toHaveBeenCalled();
-      expect(mockFetch.mock.calls[0][1].headers["xi-api-key"]).toBe("env-el-key");
+      expect(mockFetch.mock.calls[0][1].headers["xi-api-key"]).toBe(
+        "env-el-key",
+      );
     });
 
     it("returns null when BYOK NoToolKeyError is thrown and no env fallback", async () => {

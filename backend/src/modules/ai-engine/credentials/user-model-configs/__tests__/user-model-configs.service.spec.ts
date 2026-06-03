@@ -201,7 +201,9 @@ describe("UserModelConfigsService", () => {
     });
 
     it("throws BadRequest when apiKeyId provider mismatches model provider", async () => {
-      prisma.userApiKey.findFirst.mockResolvedValueOnce({ provider: "anthropic" });
+      prisma.userApiKey.findFirst.mockResolvedValueOnce({
+        provider: "anthropic",
+      });
       await expect(
         service.create("user-1", {
           ...BASE_INPUT,

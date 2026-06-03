@@ -1,5 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { ClassifiedError, KeyErrorClassifier, KeyHealthStore } from "@/modules/platform/key-health";
+import {
+  ClassifiedError,
+  KeyErrorClassifier,
+  KeyHealthStore,
+} from "@/modules/platform/key-health";
 import {
   KeyResolverService,
   ResolvedKey,

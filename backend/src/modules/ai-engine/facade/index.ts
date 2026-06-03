@@ -793,6 +793,15 @@ export type {
 export { ByokMaintenanceScheduler } from "../credentials/scheduling/byok-maintenance.scheduler";
 export { UserModelConfigsService } from "../credentials/user-model-configs/user-model-configs.service";
 export { CreateKeyRequestDto } from "../credentials/key-requests/dto/create-key-request.dto";
+// admin / byok-admin (open-api) DTOs — exposed so open-api routes through the facade
+export {
+  ApproveKeyRequestDto,
+  RejectKeyRequestDto,
+} from "../credentials/key-requests/dto";
+export {
+  RevokeAssignmentDto,
+  UpdateAssignmentDto,
+} from "../credentials/key-assignments/dto";
 export {
   SaveUserApiKeyDto,
   ApiKeyMode,

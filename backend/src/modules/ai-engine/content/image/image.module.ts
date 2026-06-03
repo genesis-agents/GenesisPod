@@ -139,5 +139,3 @@ export class ImageModule implements OnModuleInit {
     }
   }
 }
-
-
