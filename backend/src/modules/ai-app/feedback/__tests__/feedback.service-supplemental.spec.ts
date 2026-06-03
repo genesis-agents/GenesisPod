@@ -11,7 +11,7 @@ jest.mock("../../../../common/cache/cache.service", () => ({
 }));
 // Mock platform/facade barrel to prevent deep dependency chain loading.
 // We export named classes so that feedback.service.ts gets these mock classes
-// as the DI tokens for EmailNotificationPresetsService and R2StorageService.
+// as the DI tokens for EmailNotificationPresetsService and ObjectStorageService.
 jest.mock("../../../platform/facade", () => ({
   EmailNotificationPresetsService: class EmailNotificationPresetsService {
     sendFeedbackNotification = jest.fn();
@@ -19,7 +19,7 @@ jest.mock("../../../platform/facade", () => ({
   FeedbackStatusUpdatePreset: class FeedbackStatusUpdatePreset {
     notify = jest.fn();
   },
-  R2StorageService: class R2StorageService {
+  ObjectStorageService: class ObjectStorageService {
     uploadBuffer = jest.fn();
   },
   AuthService: class AuthService {},
@@ -69,7 +69,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   EmailNotificationPresetsService,
   FeedbackStatusUpdatePreset,
-  R2StorageService,
+  ObjectStorageService,
 } from "../../../platform/facade";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
 
@@ -137,7 +137,7 @@ describe("FeedbackService (supplemental)", () => {
           provide: FeedbackStatusUpdatePreset,
           useValue: mockStatusPreset,
         },
-        { provide: R2StorageService, useValue: mockR2Storage },
+        { provide: ObjectStorageService, useValue: mockR2Storage },
         { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
     }).compile();

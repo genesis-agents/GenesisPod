@@ -1,6 +1,6 @@
 import { StorageOffloadService } from "../storage-offload.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { R2StorageService } from "../../runtime/r2-storage.service";
+import { ObjectStorageService } from "../../runtime/object-storage.service";
 import { Prisma } from "@prisma/client";
 
 interface OffloadTarget {
@@ -54,7 +54,7 @@ describe("StorageOffloadService - playground targets", () => {
 
   const mockStorage = {
     isEnabled: () => true,
-  } as unknown as R2StorageService;
+  } as unknown as ObjectStorageService;
 
   let service: StorageOffloadService;
 

@@ -30,7 +30,7 @@ export {
 
 // ─── Storage ───
 export { StorageGovernanceService } from "../storage/governance/storage-governance.service";
-export { R2StorageService } from "../storage/runtime/r2-storage.service";
+export { ObjectStorageService } from "../storage/runtime/object-storage.service";
 
 // ─── Email ───
 export { EmailService } from "../email/email.service";

@@ -6,7 +6,7 @@ import { CreateFeedbackDto, FeedbackTypeDto } from "./dto/create-feedback.dto";
 import {
   EmailNotificationPresetsService,
   FeedbackStatusUpdatePreset,
-  R2StorageService,
+  ObjectStorageService,
 } from "../../platform/facade";
 import {
   FeedbackEvent,
@@ -44,7 +44,7 @@ export class FeedbackService {
     private emailNotificationPresetsService: EmailNotificationPresetsService,
     // PR-DR1b F3 整改：用户面通知走 dispatcher（用户可在 settings 关 FEEDBACK_STATUS_CHANGED）
     private feedbackStatusUpdatePreset: FeedbackStatusUpdatePreset,
-    private r2Storage: R2StorageService,
+    private r2Storage: ObjectStorageService,
     private eventEmitter: EventEmitter2,
   ) {}
 

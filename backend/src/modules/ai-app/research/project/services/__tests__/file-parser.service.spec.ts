@@ -1,6 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import { FileParserService } from "../file-parser.service";
-import type { R2StorageService } from "../../../../../platform/storage/runtime/r2-storage.service";
+import type { ObjectStorageService } from "../../../../../platform/storage/runtime/object-storage.service";
 
 // Mock pdf-parse
 jest.mock("pdf-parse", () =>
@@ -26,7 +26,7 @@ function createMockR2Storage(enabled = false) {
       url: "https://storage.example.com/file.pdf",
       key: "ai-studio/files/user-1/file.pdf",
     }),
-  } as unknown as jest.Mocked<R2StorageService>;
+  } as unknown as jest.Mocked<ObjectStorageService>;
 }
 
 function createMockFile(
@@ -50,12 +50,12 @@ function createMockFile(
 
 describe("FileParserService", () => {
   let service: FileParserService;
-  let mockR2Storage: jest.Mocked<R2StorageService>;
+  let mockR2Storage: jest.Mocked<ObjectStorageService>;
 
   beforeEach(() => {
     mockR2Storage = createMockR2Storage(false);
     service = new FileParserService(
-      mockR2Storage as unknown as R2StorageService,
+      mockR2Storage as unknown as ObjectStorageService,
     );
   });
 

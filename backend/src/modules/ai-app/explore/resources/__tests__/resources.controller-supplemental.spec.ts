@@ -23,7 +23,7 @@ import { AIEnrichmentService } from "../ai-enrichment.service";
 import { PdfThumbnailService } from "../pdf-thumbnail.service";
 import { DynamicThumbnailService } from "../dynamic-thumbnail.service";
 import { ResourceHealthCheckScheduler } from "../resource-health-check.scheduler";
-import { R2StorageService } from "../../../../platform/facade";
+import { ObjectStorageService } from "../../../../platform/facade";
 
 // Guards: mock JwtAuthGuard + AdminGuard to always pass in unit tests
 jest.mock("../../../../../common/guards/jwt-auth.guard", () => ({
@@ -120,7 +120,7 @@ describe("ResourcesController (supplemental)", () => {
           provide: DynamicThumbnailService,
           useValue: mockDynamicThumbnailService,
         },
-        { provide: R2StorageService, useValue: mockR2StorageService },
+        { provide: ObjectStorageService, useValue: mockR2StorageService },
         {
           provide: ResourceHealthCheckScheduler,
           useValue: mockHealthScheduler,

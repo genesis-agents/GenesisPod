@@ -6,13 +6,13 @@
  *
  * 落盘路径格式：tool-output-spill/{toolUseId}-{timestamp}.txt
  *
- * 依赖 R2StorageService（uploadText / downloadText），由 StorageModule 提供。
+ * 依赖 ObjectStorageService（uploadText / downloadText），由 StorageModule 提供。
  * 如果 storage 不可用（isEnabled() === false），spill 会降级为直接返回截断字符串，
  * 不抛错，保证 tool invoke 链路稳定。
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { R2StorageService } from "@/modules/platform/storage/runtime/r2-storage.service";
+import { ObjectStorageService } from "@/modules/platform/storage/runtime/object-storage.service";
 
 export interface SpillResult {
   /** object storage key（前缀 tool-output-spill/） */
@@ -25,7 +25,9 @@ export interface SpillResult {
 export class ToolOutputSpillStorageService {
   private readonly logger = new Logger(ToolOutputSpillStorageService.name);
 
-  constructor(@Optional() private readonly storageService?: R2StorageService) {}
+  constructor(
+    @Optional() private readonly storageService?: ObjectStorageService,
+  ) {}
 
   /**
    * 将完整 tool 输出上传到 object storage。

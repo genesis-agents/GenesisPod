@@ -39,7 +39,7 @@ import { AIEnrichmentService } from "./ai-enrichment.service";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
 import { ResourceHealthCheckScheduler } from "./resource-health-check.scheduler";
-import { R2StorageService } from "../../../platform/facade";
+import { ObjectStorageService } from "../../../platform/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { Public } from "../../../../common/decorators/public.decorator";
@@ -73,7 +73,7 @@ export class ResourcesController {
     private aiEnrichmentService: AIEnrichmentService,
     private pdfThumbnailService: PdfThumbnailService,
     private dynamicThumbnailService: DynamicThumbnailService,
-    private r2StorageService: R2StorageService,
+    private r2StorageService: ObjectStorageService,
     private healthScheduler: ResourceHealthCheckScheduler,
   ) {}
 

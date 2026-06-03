@@ -3,7 +3,7 @@
  */
 
 import { ToolOutputSpillStorageService } from "../spill-storage.service";
-import type { R2StorageService } from "@/modules/platform/storage/runtime/r2-storage.service";
+import type { ObjectStorageService } from "@/modules/platform/storage/runtime/object-storage.service";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -16,7 +16,7 @@ function makeStorageService(
     downloadText: jest.Mock;
   }> = {},
 ): jest.Mocked<
-  Pick<R2StorageService, "isEnabled" | "uploadText" | "downloadText">
+  Pick<ObjectStorageService, "isEnabled" | "uploadText" | "downloadText">
 > {
   return {
     isEnabled: jest.fn().mockReturnValue(overrides.isEnabled ?? true),
@@ -29,7 +29,7 @@ function makeStorageService(
     downloadText:
       overrides.downloadText ?? jest.fn().mockResolvedValue("full content"),
   } as jest.Mocked<
-    Pick<R2StorageService, "isEnabled" | "uploadText" | "downloadText">
+    Pick<ObjectStorageService, "isEnabled" | "uploadText" | "downloadText">
   >;
 }
 
@@ -45,7 +45,7 @@ describe("ToolOutputSpillStorageService", () => {
     it("uploads content and returns success=true when storage is available", async () => {
       const storage = makeStorageService();
       const svc = new ToolOutputSpillStorageService(
-        storage as unknown as R2StorageService,
+        storage as unknown as ObjectStorageService,
       );
 
       const result = await svc.spill({
@@ -65,7 +65,7 @@ describe("ToolOutputSpillStorageService", () => {
     it("returns success=false when storage is disabled", async () => {
       const storage = makeStorageService({ isEnabled: false });
       const svc = new ToolOutputSpillStorageService(
-        storage as unknown as R2StorageService,
+        storage as unknown as ObjectStorageService,
       );
 
       const result = await svc.spill({ toolUseId: "use-def", content: "data" });
@@ -81,7 +81,7 @@ describe("ToolOutputSpillStorageService", () => {
           .mockResolvedValue({ success: false, error: "quota exceeded" }),
       });
       const svc = new ToolOutputSpillStorageService(
-        storage as unknown as R2StorageService,
+        storage as unknown as ObjectStorageService,
       );
 
       const result = await svc.spill({
@@ -98,7 +98,7 @@ describe("ToolOutputSpillStorageService", () => {
         uploadText: jest.fn().mockRejectedValue(new Error("network error")),
       });
       const svc = new ToolOutputSpillStorageService(
-        storage as unknown as R2StorageService,
+        storage as unknown as ObjectStorageService,
       );
 
       await expect(
@@ -127,7 +127,7 @@ describe("ToolOutputSpillStorageService", () => {
         downloadText: jest.fn().mockResolvedValue("full original content"),
       });
       const svc = new ToolOutputSpillStorageService(
-        storage as unknown as R2StorageService,
+        storage as unknown as ObjectStorageService,
       );
 
       const content = await svc.retrieve("tool-output-spill/use-abc-1234.txt");
@@ -141,7 +141,7 @@ describe("ToolOutputSpillStorageService", () => {
     it("returns null when storage is disabled", async () => {
       const storage = makeStorageService({ isEnabled: false });
       const svc = new ToolOutputSpillStorageService(
-        storage as unknown as R2StorageService,
+        storage as unknown as ObjectStorageService,
       );
 
       const content = await svc.retrieve("tool-output-spill/any.txt");
@@ -154,7 +154,7 @@ describe("ToolOutputSpillStorageService", () => {
         downloadText: jest.fn().mockRejectedValue(new Error("not found")),
       });
       const svc = new ToolOutputSpillStorageService(
-        storage as unknown as R2StorageService,
+        storage as unknown as ObjectStorageService,
       );
 
       await expect(

@@ -1,7 +1,7 @@
 /**
  * Object Storage Service —（v5.1 R0.5-E W2-A 重构后 orchestrator）
  *
- * 历史名 R2StorageService 保留为 backward-compat alias（30+ 调用方依赖此名）。
+ * 历史名 ObjectStorageService 保留为 backward-compat alias（30+ 调用方依赖此名）。
  * 内部 primitive 操作（put/get/delete/signedUrl）委托给 IObjectStorageBackend
  * （由 plugins/storage/object-storage.module 通过 OBJECT_STORAGE_BACKEND_TOKEN
  * 注入）。Backend 当前实现：plugins/storage/object-r2。未来 backend：S3 native /
@@ -35,8 +35,8 @@ export interface UploadResult {
 }
 
 @Injectable()
-export class R2StorageService {
-  private readonly logger = new Logger(R2StorageService.name);
+export class ObjectStorageService {
+  private readonly logger = new Logger(ObjectStorageService.name);
   // 预签名 URL 有效期（秒）- 7 天
   private readonly PRESIGN_EXPIRES = 7 * 24 * 60 * 60;
 

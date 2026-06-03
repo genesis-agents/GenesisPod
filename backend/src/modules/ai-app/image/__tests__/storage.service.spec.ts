@@ -6,15 +6,15 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ImageStorageService } from "../storage/storage.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
-// Mock the R2StorageService
+// Mock the ObjectStorageService
 const mockR2Storage = {
   isEnabled: jest.fn().mockReturnValue(false),
   uploadBase64Image: jest.fn(),
   refreshImageUrl: jest.fn(),
 };
 
-jest.mock("../../../platform/storage/runtime/r2-storage.service", () => ({
-  R2StorageService: jest.fn().mockImplementation(() => mockR2Storage),
+jest.mock("../../../platform/storage/runtime/object-storage.service", () => ({
+  ObjectStorageService: jest.fn().mockImplementation(() => mockR2Storage),
 }));
 
 describe("ImageStorageService", () => {
@@ -54,14 +54,14 @@ describe("ImageStorageService", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    const { R2StorageService } =
-      await import("../../../platform/storage/runtime/r2-storage.service");
+    const { ObjectStorageService } =
+      await import("../../../platform/storage/runtime/object-storage.service");
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ImageStorageService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: R2StorageService, useValue: mockR2Storage },
+        { provide: ObjectStorageService, useValue: mockR2Storage },
       ],
     }).compile();
 

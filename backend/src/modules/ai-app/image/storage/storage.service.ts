@@ -6,7 +6,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { R2StorageService } from "../../../platform/facade";
+import { ObjectStorageService } from "../../../platform/facade";
 import {
   GeneratedImageResult,
   ProcessingStep,
@@ -63,7 +63,7 @@ export class ImageStorageService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly r2Storage: R2StorageService,
+    private readonly r2Storage: ObjectStorageService,
   ) {}
 
   /**

@@ -17,7 +17,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { R2StorageService } from "../runtime/r2-storage.service";
+import { ObjectStorageService } from "../runtime/object-storage.service";
 import { OFFLOAD_TARGETS } from "./storage-offload.registry";
 
 export interface TableStat {
@@ -86,7 +86,7 @@ export class StorageInventoryService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: R2StorageService,
+    private readonly storage: ObjectStorageService,
   ) {}
 
   onModuleInit() {

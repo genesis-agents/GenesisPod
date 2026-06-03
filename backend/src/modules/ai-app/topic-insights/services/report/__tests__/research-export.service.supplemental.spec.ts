@@ -19,7 +19,7 @@ import {
 } from "../research-export.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { CitationFormatterService } from "../citation-formatter.service";
-import { R2StorageService } from "@/modules/platform/facade";
+import { ObjectStorageService } from "@/modules/platform/facade";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Fixtures
@@ -135,7 +135,7 @@ describe("ResearchExportService (supplemental)", () => {
             provide: CitationFormatterService,
             useValue: mockCitationFormatter,
           },
-          { provide: R2StorageService, useValue: mockR2Storage },
+          { provide: ObjectStorageService, useValue: mockR2Storage },
         ],
       }).compile();
 

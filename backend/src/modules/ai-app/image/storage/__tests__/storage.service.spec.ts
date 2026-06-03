@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ImageStorageService } from "../storage.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { R2StorageService } from "../../../../platform/storage/runtime/r2-storage.service";
+import { ObjectStorageService } from "../../../../platform/storage/runtime/object-storage.service";
 
 describe("ImageStorageService", () => {
   let service: ImageStorageService;
@@ -51,13 +51,13 @@ describe("ImageStorageService", () => {
       providers: [
         ImageStorageService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: R2StorageService, useValue: mockR2StorageService },
+        { provide: ObjectStorageService, useValue: mockR2StorageService },
       ],
     }).compile();
 
     service = module.get<ImageStorageService>(ImageStorageService);
     prismaService = module.get(PrismaService);
-    r2StorageService = module.get(R2StorageService);
+    r2StorageService = module.get(ObjectStorageService);
   });
 
   afterEach(() => {
