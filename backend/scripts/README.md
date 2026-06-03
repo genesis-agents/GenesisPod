@@ -52,10 +52,11 @@ scripts/
 
 ## 合规检查
 
-- 脚本目录合规由 `scripts/utils/check-scripts-compliance.sh` 检查（5 项：fix-_/migrate-_ 误留活跃区、
-  临时文件、目录结构、README、过期归档），`--fix` 可自动归档。
-- **现状**：该检查**未接入任何门禁**（不在 husky / CI / npm script），属手动 + `scripts-guardian`
-  agent 按需触发的 honor-level 看护，与本仓其余"软约束"同级。
+- 脚本目录合规由 `scripts/utils/check-scripts-compliance.sh` 检查（5 项：`fix-*` / `migrate-*`
+  误留活跃区、临时文件、目录结构、README、过期归档），`--fix` 可自动归档。
+- 可跑 `npm run audit:scripts` 触发。
+- **现状**：该检查**未接入任何阻断门禁**（不在 husky pre-commit / pre-push / CI），属手动 +
+  `scripts-guardian` agent 按需触发的 honor-level 看护，与本仓其余"软约束"同级。
 
 ## 注意事项
 
