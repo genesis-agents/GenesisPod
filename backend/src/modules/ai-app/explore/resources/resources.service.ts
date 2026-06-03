@@ -8,7 +8,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { RawDataService } from "../../../../common/rawdata/rawdata.service";
 import { ensureError } from "../../../../common/utils/error.utils";
 import { Prisma, ResourceType } from "@prisma/client";
-import { SourceWhitelistService } from "../../management/ingestion/config/services/source-whitelist.service";
+import { SourceWhitelistService } from "../../explore/ingestion/config/services/source-whitelist.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { ResourcesRepository } from "./resources.repository";
 import { APP_CONFIG } from "../../../../common/config/app.config";

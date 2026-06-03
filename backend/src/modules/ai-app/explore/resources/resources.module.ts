@@ -9,7 +9,7 @@ import { ResourceHealthCheckScheduler } from "./resource-health-check.scheduler"
 import { ResourceLifecycleModule } from "./resource-lifecycle.module";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { RawDataModule } from "../../../../common/rawdata/rawdata.module";
-import { IngestionConfigModule } from "../../management/ingestion/config/config.module";
+import { IngestionConfigModule } from "../../explore/ingestion/config/config.module";
 import { StorageModule } from "../../../platform/storage/storage.module";
 import { ProxyModule } from "../../library/proxy/proxy.module";
 

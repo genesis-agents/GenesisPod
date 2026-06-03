@@ -84,10 +84,10 @@ import { KnowledgeGraphModule } from "./modules/ai-app/library/knowledge-graph/k
 import { RecommendationsModule } from "./modules/ai-app/library/recommendations/recommendations.module";
 // Admin modules (backend management)
 import { WorkspaceModule } from "./modules/ai-app/management/workspace/workspace.module";
-import { CrawlersModule } from "./modules/ai-app/management/ingestion/crawlers/crawlers.module";
-import { SourcesModule } from "./modules/ai-app/management/ingestion/sources/sources.module";
-import { IngestionConfigModule } from "./modules/ai-app/management/ingestion/config/config.module";
-import { SchedulerModule } from "./modules/ai-app/management/ingestion/scheduler/scheduler.module";
+import { CrawlersModule } from "./modules/ai-app/explore/ingestion/crawlers/crawlers.module";
+import { SourcesModule } from "./modules/ai-app/explore/ingestion/sources/sources.module";
+import { IngestionConfigModule } from "./modules/ai-app/explore/ingestion/config/config.module";
+import { SchedulerModule } from "./modules/ai-app/explore/ingestion/scheduler/scheduler.module";
 // Content modules (Phase 3: moved from ai-engine to ai-app)
 import { LongContentModule } from "./modules/ai-app/writing/content-engine/long-content.module";
 import { ContentAnalysisModule } from "./modules/ai-app/office/content-analysis/content-analysis.module";
