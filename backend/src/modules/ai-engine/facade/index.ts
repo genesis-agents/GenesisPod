@@ -774,49 +774,49 @@ export {
 export {
   ToolKeyResolverService,
   NoToolKeyError,
-} from "../credentials/tool-key-resolver/tool-key-resolver.service";
+} from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
 export type {
   ResolvedToolKey,
   ToolKeySource,
-} from "../credentials/tool-key-resolver/tool-key-resolver.service";
-export { UserSecretsService } from "../credentials/user-secrets/user-secrets.service";
+} from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
+export { UserSecretsService } from "@/modules/platform/credentials/user-secrets/user-secrets.service";
 // NOTE: credential-management surfaces (ai-app/byok, open-api/byok-admin) import
 // credential *services* (AuthorizationService / UserToolsService / KeyAssignments
 // etc.) directly from source, NOT via this barrel — adding heavy credential
 // services here bloats the facade barrel and triggers circular-load failures in
 // unrelated consumers (e.g. orchestrator specs: "undefined reading 'SEARCH'").
 // Those surfaces are eslint/ facade-boundary exempted instead.
-export { KeyAssignmentsService } from "../credentials/key-assignments/key-assignments.service";
-export { KeyRequestsService } from "../credentials/key-requests/key-requests.service";
-export { UserApiKeysService } from "../credentials/user-api-keys/user-api-keys.service";
-export { KeyResolverService } from "../credentials/key-resolver/key-resolver.service";
-export { NoAvailableKeyError } from "../credentials/key-resolver/key-resolver.errors";
+export { KeyAssignmentsService } from "@/modules/platform/credentials/key-assignments/key-assignments.service";
+export { KeyRequestsService } from "@/modules/platform/credentials/key-requests/key-requests.service";
+export { UserApiKeysService } from "@/modules/platform/credentials/user-api-keys/user-api-keys.service";
+export { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
+export { NoAvailableKeyError } from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
 export type {
   ResolvedKey,
   KeyChain,
   KeySource,
-} from "../credentials/key-resolver/key-resolver.service";
-export { ByokMaintenanceScheduler } from "../credentials/scheduling/byok-maintenance.scheduler";
-export { UserModelConfigsService } from "../credentials/user-model-configs/user-model-configs.service";
-export { CreateKeyRequestDto } from "../credentials/key-requests/dto/create-key-request.dto";
+} from "@/modules/platform/credentials/key-resolver/key-resolver.service";
+export { ByokMaintenanceScheduler } from "@/modules/platform/credentials/scheduling/byok-maintenance.scheduler";
+export { UserModelConfigsService } from "@/modules/platform/credentials/user-model-configs/user-model-configs.service";
+export { CreateKeyRequestDto } from "@/modules/platform/credentials/key-requests/dto/create-key-request.dto";
 // admin / byok-admin (open-api) DTOs — exposed so open-api routes through the facade
 export {
   ApproveKeyRequestDto,
   RejectKeyRequestDto,
-} from "../credentials/key-requests/dto";
+} from "@/modules/platform/credentials/key-requests/dto";
 export {
   RevokeAssignmentDto,
   UpdateAssignmentDto,
-} from "../credentials/key-assignments/dto";
+} from "@/modules/platform/credentials/key-assignments/dto";
 export {
   SaveUserApiKeyDto,
   ApiKeyMode,
-} from "../credentials/user-api-keys/dto/save-user-api-key.dto";
-export { TestApiKeyDto } from "../credentials/user-api-keys/dto/test-api-key.dto";
+} from "@/modules/platform/credentials/user-api-keys/dto/save-user-api-key.dto";
+export { TestApiKeyDto } from "@/modules/platform/credentials/user-api-keys/dto/test-api-key.dto";
 export {
   CreateUserModelConfigDto,
   UpdateUserModelConfigDto,
-} from "../credentials/user-model-configs/dto/user-model-config.dto";
+} from "@/modules/platform/credentials/user-model-configs/dto/user-model-config.dto";
 export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/models/catalog/ai-model-discovery.service";
 export { AiConnectionTestService } from "@/modules/ai-engine/llm/byok/ai-connection-test.service";
 export { AutoConfigureService } from "@/modules/ai-engine/llm/byok/user-models-auto-configure.service";

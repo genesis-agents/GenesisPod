@@ -5,7 +5,15 @@
  * - JSON form causes lint-staged to chunk files by maxArgLength (4095 on Windows)
  * - Each chunk spawns a separate ESLint process → full TS program rebuild (~11s each)
  * - 68 files = 3 chunks × 11s startup = 33s wasted on redundant type-checking
- * - Function form receives ALL files at once → single ESLint invocation
+ * - Function form receives ALL files at once → we control the chunking
+ *
+ * Why explicit CHUNK_SIZE chunking (2026-06-03)?
+ * - A single eslint invocation with ALL paths overflows the Windows command-line
+ *   length limit (~8191 chars) on large commits (e.g. a 130-file refactor →
+ *   "The command line is too long", pre-commit rejected).
+ * - We chunk at CHUNK_SIZE (50) files/call: commits ≤50 files = 1 chunk =
+ *   identical to before; only larger commits split (still far fewer processes
+ *   than JSON form's 4095-byte auto-chunking, and --cache amortizes rebuilds).
  *
  * Why --cache?
  * - ESLint with type-aware rules rebuilds the TS program every invocation (~11s)
@@ -34,6 +42,39 @@ function toRepoRelative(files) {
 
 function quote(f) {
   return `"${f}"`;
+}
+
+/** Max files per shell command (keeps each invocation under the Windows ~8191-char cmd limit). */
+const CHUNK_SIZE = 50;
+
+function chunk(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Build chunked eslint --fix + prettier (+ optional matching jest) commands for
+ * a workspace, so no single command line exceeds the Windows length limit.
+ */
+function lintCmds(workspace, files, { withTests = false } = {}) {
+  const cmds = [];
+  for (const group of chunk(files, CHUNK_SIZE)) {
+    const rel = toRelative(workspace, group).map(quote).join(" ");
+    const repoRel = toRepoRelative(group).map(quote).join(" ");
+    cmds.push(`npx -w ${workspace} eslint --cache --fix ${rel}`);
+    cmds.push(`prettier --write ${repoRel}`);
+  }
+  if (withTests) {
+    const tests = findMatchingTests(files, workspace);
+    for (const group of chunk(tests, CHUNK_SIZE)) {
+      const testRel = toRelative(workspace, group).map(quote).join(" ");
+      cmds.push(
+        `npx -w ${workspace} jest --passWithNoTests --bail --runInBand ${testRel}`,
+      );
+    }
+  }
+  return cmds;
 }
 
 /**
@@ -69,50 +110,8 @@ function findMatchingTests(files, workspace) {
 module.exports = {
   "**/*.{json,md,yml,yaml}": ["prettier --write"],
 
-  "backend/**/*.{ts,tsx}": (files) => {
-    const rel = toRelative("backend", files).map(quote).join(" ");
-    const repoRel = toRepoRelative(files).map(quote).join(" ");
-    const cmds = [
-      `npx -w backend eslint --cache --fix ${rel}`,
-      `prettier --write ${repoRel}`,
-    ];
-
-    // Auto-run matching tests for changed source files
-    const tests = findMatchingTests(files, "backend");
-    if (tests.length > 0) {
-      const testRel = toRelative("backend", tests).map(quote).join(" ");
-      cmds.push(
-        `npx -w backend jest --passWithNoTests --bail --runInBand ${testRel}`
-      );
-    }
-
-    return cmds;
-  },
-
-  "backend/**/*.{js,jsx}": (files) => {
-    const rel = toRelative("backend", files).map(quote).join(" ");
-    const repoRel = toRepoRelative(files).map(quote).join(" ");
-    return [
-      `npx -w backend eslint --cache --fix ${rel}`,
-      `prettier --write ${repoRel}`,
-    ];
-  },
-
-  "frontend/**/*.{ts,tsx}": (files) => {
-    const rel = toRelative("frontend", files).map(quote).join(" ");
-    const repoRel = toRepoRelative(files).map(quote).join(" ");
-    return [
-      `npx -w frontend eslint --cache --fix ${rel}`,
-      `prettier --write ${repoRel}`,
-    ];
-  },
-
-  "frontend/**/*.{js,jsx}": (files) => {
-    const rel = toRelative("frontend", files).map(quote).join(" ");
-    const repoRel = toRepoRelative(files).map(quote).join(" ");
-    return [
-      `npx -w frontend eslint --cache --fix ${rel}`,
-      `prettier --write ${repoRel}`,
-    ];
-  },
+  "backend/**/*.{ts,tsx}": (files) => lintCmds("backend", files, { withTests: true }),
+  "backend/**/*.{js,jsx}": (files) => lintCmds("backend", files),
+  "frontend/**/*.{ts,tsx}": (files) => lintCmds("frontend", files),
+  "frontend/**/*.{js,jsx}": (files) => lintCmds("frontend", files),
 };

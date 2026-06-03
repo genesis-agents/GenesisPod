@@ -13,7 +13,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { SemanticScholarSearchTool } from "../semantic-scholar-search.tool";
 import { PolicyDataService } from "../../policy/policy-data.service";
-import { ToolKeyResolverService } from "@/modules/ai-engine/credentials/tool-key-resolver/tool-key-resolver.service";
+import { ToolKeyResolverService } from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
 import { RequestContext } from "@/common/context/request-context";
 import { ToolContext } from "../../../../abstractions/tool.interface";
 

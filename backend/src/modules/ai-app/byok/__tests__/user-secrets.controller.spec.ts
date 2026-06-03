@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { UserSecretsController } from "../user-secrets.controller";
-import { UserSecretsService } from "../../../ai-engine/credentials/user-secrets/user-secrets.service";
+import { UserSecretsService } from "../../../platform/credentials/user-secrets/user-secrets.service";
 import { SecretsService } from "../../../platform/secrets/secrets.service";
 import { SecretKeysService } from "../../../platform/secrets/secret-keys.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";

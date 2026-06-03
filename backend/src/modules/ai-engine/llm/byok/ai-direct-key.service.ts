@@ -2,7 +2,10 @@ import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import type { ChatMessage, ChatCompletionResult } from "../chat/ai-chat.service";
+import type {
+  ChatMessage,
+  ChatCompletionResult,
+} from "../chat/ai-chat.service";
 import type { TaskProfile } from "../types";
 import {
   reasoningDepthToEffort,

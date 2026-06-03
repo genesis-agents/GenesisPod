@@ -1,5 +1,5 @@
 // Mock the ai-harness/facade module to prevent module initialization errors
-// from the deep import chain (ai-engine/credentials → IsEnum(AIModelType) when
+// from the deep import chain (platform/credentials → IsEnum(AIModelType) when
 // AIModelType is undefined at load time in the test environment).
 jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: jest.fn(),

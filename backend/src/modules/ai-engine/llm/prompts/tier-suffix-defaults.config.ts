@@ -34,4 +34,3 @@ export const TIER_SUFFIX_DEFAULTS: readonly TierSuffix[] = [
     ].join("\n"),
   },
 ];
-

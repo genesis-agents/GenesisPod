@@ -25,7 +25,7 @@ import {
   CreateUserSecretDto,
   UpdateUserSecretDto,
   UserSecretSource,
-} from "../../ai-engine/credentials/user-secrets/dto/user-secret.dto";
+} from "../../platform/credentials/user-secrets/dto/user-secret.dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

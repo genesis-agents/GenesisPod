@@ -8,8 +8,8 @@ import { EventEmitter } from "events";
 if (EventEmitter.defaultMaxListeners < 30) {
   EventEmitter.defaultMaxListeners = 30;
 }
-import { UserApiKeysService } from "../../../ai-engine/credentials/user-api-keys/user-api-keys.service";
-import { UserModelConfigsService } from "../../../ai-engine/credentials/user-model-configs/user-model-configs.service";
+import { UserApiKeysService } from "../../../platform/credentials/user-api-keys/user-api-keys.service";
+import { UserModelConfigsService } from "../../../platform/credentials/user-model-configs/user-model-configs.service";
 import { AiModelDiscoveryService } from "../models/catalog/ai-model-discovery.service";
 import { AiConnectionTestService } from "./ai-connection-test.service";
 import { ModelRecommendationsService } from "../models/selection/model-recommendations.service";

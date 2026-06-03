@@ -1,11 +1,11 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/platform/facade";
-// PR-X9: BYOK 服务已搬到 ai-engine/credentials/
-import { KeyResolverService } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.service";
-import { NoAvailableKeyError } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.errors";
-import { UserApiKeysService } from "@/modules/ai-engine/credentials/user-api-keys/user-api-keys.service";
-import { UserModelConfigsService } from "@/modules/ai-engine/credentials/user-model-configs/user-model-configs.service";
+// PR-X9: BYOK 服务已搬到 platform/credentials/
+import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
+import { NoAvailableKeyError } from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
+import { UserApiKeysService } from "@/modules/platform/credentials/user-api-keys/user-api-keys.service";
+import { UserModelConfigsService } from "@/modules/platform/credentials/user-model-configs/user-model-configs.service";
 import { RequestContext } from "@/common/context/request-context";
 import { LruMap } from "@/common/utils/lru-map";
 import { AIModel, AIModelType, UserModelConfig } from "@prisma/client";

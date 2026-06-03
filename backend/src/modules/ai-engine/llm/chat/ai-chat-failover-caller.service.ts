@@ -34,8 +34,8 @@ import {
 } from "../models/config/ai-model-config.service";
 import { AiApiCallerService } from "../providers/ai-api-caller.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
-import { KeyExecutorService } from "@/modules/ai-engine/credentials/executor";
-import { BYOKError } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.errors";
+import { KeyExecutorService } from "@/modules/platform/credentials/executor";
+import { BYOKError } from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
 import type { ChatCompletionResult } from "./ai-chat.service";
 import type { StructuredOutputStrategy } from "../output/structured/structured-output-strategy.types";
 import type { FunctionDefinition } from "../../tools/abstractions/tool.interface";

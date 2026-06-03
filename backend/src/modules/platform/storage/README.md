@@ -1,6 +1,6 @@
 # storage
 
-> `ai-infra` 下的存储能力分两类：对象存储 runtime，与存储治理。
+> `platform` 下的存储能力分两类：对象存储 runtime，与存储治理。
 
 ## 结构
 
@@ -37,4 +37,4 @@ storage/
 ## 后续收敛
 
 - 将 `storage-governance.service.ts` 中的治理逻辑继续拆到更细的 `governance/` 服务
-- 将明显的单业务对象包装器留在 app 侧，不回流 infra core
+- 将明显的单业务对象包装器留在 app 侧，不回流 platform core

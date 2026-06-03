@@ -474,10 +474,10 @@ module.exports = {
         // plan-based AgentResult<AgentOutput> 会遮蔽 agent.types 的 AgentResult
         // （含 tokensUsed），类型不兼容，故整目录走 agent.types 直引。
         "**/modules/open-api/agents-api/**/*.ts",
-        // 2026-06-03: credential-admin 面（credentials 迁入 ai-engine 后）。这些是
-        // 管理 BYOK key 的 admin 端点，本就紧贴 credentials；从 ai-engine/facade 大
-        // barrel 取 credential service 会触发循环加载 → NestJS DI 构造参数 undefined
-        // （admin.service index[6] 解析失败）。与 ai-app/byok 同理，直引 credentials source。
+        // 2026-06-03: credential-admin 面（credentials 已迁 L1 platform/credentials）。这些是
+        // 管理 BYOK key 的 admin 端点，本就紧贴 credentials；从 facade 大 barrel 取 credential
+        // service 会触发循环加载 → NestJS DI 构造参数 undefined（admin.service index[6] 解析
+        // 失败）。与 ai-app/byok 同理，直引 platform/credentials source。
         "**/modules/open-api/admin/admin.service.ts",
         "**/modules/open-api/byok-admin/admin-key-assignments.controller.ts",
         "**/modules/open-api/byok-admin/admin-key-requests.controller.ts",
@@ -718,6 +718,35 @@ module.exports = {
                   "harness/engine 不得 import plugin 实现，必须通过 HookBus（plugins/core/）。" +
                   "*.module.ts 文件除外（NestJS DI 装配）。" +
                   "见 standards/19-plugin-system-governance.md 规则 4。",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    // W1-I：platform/** 不得 import plugins/storage 具体实现（object-r2/vector-pgvector/
+    //   vector-jsonb），必须走 plugins/core/abstractions/storage 端口（DI token）。
+    //   ai-engine/ai-harness 已由上一条规则覆盖；此条是 platform 层的新增守护。
+    {
+      files: ["**/modules/platform/**/*.ts"],
+      excludedFiles: [
+        "**/*.spec.ts",
+        "**/*.test.ts",
+        "**/__tests__/**/*.ts",
+        // *.module.ts 允许 import plugins/storage/*.module（@Global NestJS DI 装配）
+        "**/*.module.ts",
+      ],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: ["**/plugins/storage/**", "@/plugins/storage/**"],
+                message:
+                  "platform 不得 import plugins/storage 实现，必须通过 " +
+                  "plugins/core/abstractions/storage 端口（DI token）。" +
+                  "*.module.ts 装配除外。",
               },
             ],
           },

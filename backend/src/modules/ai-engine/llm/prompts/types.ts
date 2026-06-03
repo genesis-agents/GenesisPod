@@ -14,4 +14,3 @@ export interface TierSuffix {
   /** Suffix appended to the system prompt for this tier. Empty = no-op. */
   readonly suffix: string;
 }
-
