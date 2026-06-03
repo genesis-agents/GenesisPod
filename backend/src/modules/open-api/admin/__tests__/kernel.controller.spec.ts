@@ -27,6 +27,7 @@ import { Logger } from "@nestjs/common";
 import { MemoryLayer, ProcessState } from "@prisma/client";
 import { KernelController } from "../kernel/kernel.controller";
 import { KernelApiService } from "../../../ai-harness/facade";
+import { ProcessJournalQueryService } from "../../../ai-harness/memory/process-journal-query.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
@@ -119,6 +120,7 @@ describe("KernelController", () => {
       controllers: [KernelController],
       providers: [
         { provide: KernelApiService, useValue: mockKernelApi },
+        ProcessJournalQueryService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     })

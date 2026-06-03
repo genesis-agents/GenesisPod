@@ -19,7 +19,7 @@ import {
   AIMetricsService,
 } from "../../../platform/facade";
 import { AIAdminService } from "../ai/ai-admin.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { DbHealthService } from "@/modules/platform/monitoring/db-health.service";
 import {
   TraceCollectorService,
   TraceType,
@@ -53,7 +53,7 @@ export class MonitoringController {
     private readonly errorTrackingService: ErrorTrackingService,
     private readonly aiMetricsService: AIMetricsService,
     private readonly aiAdminService: AIAdminService,
-    private readonly prismaService: PrismaService,
+    private readonly dbHealthService: DbHealthService,
     private readonly traceCollectorService: TraceCollectorService,
     private readonly evalPipelineService: EvalPipelineService,
     @Optional() private readonly rateLimitGuard?: RateLimitGuard,
@@ -249,7 +249,7 @@ export class MonitoringController {
   @ApiResponse({ status: 200, description: "返回数据库健康状态" })
   async getDatabaseHealth() {
     this.logger.log("Admin: Fetching database health");
-    return this.prismaService.healthCheck();
+    return this.dbHealthService.databaseHealth();
   }
 
   @Get("database/pool")
@@ -257,7 +257,7 @@ export class MonitoringController {
   @ApiResponse({ status: 200, description: "返回数据库连接池状态" })
   async getDatabasePoolStats() {
     this.logger.log("Admin: Fetching database pool stats");
-    return this.prismaService.getPoolStats();
+    return this.dbHealthService.databasePoolStats();
   }
 
   // ==================== System Health ====================

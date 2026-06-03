@@ -34,6 +34,11 @@ import { MCPExternalController } from "./mcp/external-servers.controller";
 import { MCPServerController } from "./mcp/server.controller";
 import { AdminCreditsController } from "./credits/admin-credits.controller";
 import { ResearchTemplateService } from "@/modules/ai-app/research/services/research-template.service";
+import { ByokDashboardService } from "@/modules/platform/credentials/byok-dashboard.service";
+import { HumanApprovalAdminService } from "@/modules/ai-harness/lifecycle/human-approval-admin.service";
+import { ProcessJournalQueryService } from "@/modules/ai-harness/memory/process-journal-query.service";
+import { KnowledgeAdminService } from "@/modules/ai-app/library/knowledge-graph/knowledge-admin.service";
+import { DbHealthService } from "@/modules/platform/monitoring/db-health.service";
 import { CreditsModule } from "../../platform/credits/credits.module";
 // ★ 2026-06-03 standards/16: System HTTP 上提——platform 的 admin/* controller
 //   迁入 open-api/admin（System API 网关），对应 service 留 L1 platform。
@@ -118,7 +123,12 @@ import {
   ],
   providers: [
     AdminService,
-    ResearchTemplateService, // Wave C：research 模板逻辑下沉 ai-app/research，admin 仅薄 controller
+    ResearchTemplateService, // Wave C
+    ByokDashboardService, // Wave C
+    HumanApprovalAdminService, // Wave C
+    ProcessJournalQueryService, // Wave C
+    KnowledgeAdminService, // Wave C
+    DbHealthService, // Wave C
     AITeamsAdminService,
     AIAdminService,
     // Admin sub-services (dependencies of AdminService)
