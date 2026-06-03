@@ -37,10 +37,10 @@ import { QualityMonitorService } from "../../../../writing/content-engine/servic
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { TopicEventEmitterService } from "../../events";
 import { LeaderModelService } from "../../ai/leader-model.service";
-import { MissionContextService } from "../mission/mission-context.service";
+import { MissionContextService } from "@/modules/ai-harness/facade";
 import { ConstraintEnforcementService } from "@/modules/ai-harness/facade";
 import { EmailNotificationPresetsService } from "../../../../../platform/facade";
-import { MissionStateManager } from "../mission/mission-state.manager";
+import { MissionStateManager } from "@/modules/ai-harness/facade";
 import { MissionLifecycleService } from "../mission/mission-lifecycle.service";
 import { MissionRetryService } from "../mission/mission-retry.service";
 import { MissionHealthCheckService } from "../mission/mission-health-check.service";
