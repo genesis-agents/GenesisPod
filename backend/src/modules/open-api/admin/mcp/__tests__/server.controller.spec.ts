@@ -24,36 +24,36 @@ jest.mock("@/common/cache", () => ({
 }));
 
 // Mock guard modules before any imports
-jest.mock("../../../../common/guards/jwt-auth.guard", () => ({
+jest.mock("../../../../../common/guards/jwt-auth.guard", () => ({
   JwtAuthGuard: jest.fn().mockImplementation(() => ({
     canActivate: jest.fn().mockReturnValue(true),
   })),
 }));
 
-jest.mock("../../../../common/guards/admin.guard", () => ({
+jest.mock("../../../../../common/guards/admin.guard", () => ({
   AdminGuard: jest.fn().mockImplementation(() => ({
     canActivate: jest.fn().mockReturnValue(true),
   })),
 }));
 
 // Mock entire ai-engine facade to prevent further transitive deps
-jest.mock("../../../ai-engine/facade", () => ({
+jest.mock("../../../../ai-engine/facade", () => ({
   GuardrailsPipelineService: jest.fn(),
   AiObservabilityService: jest.fn(),
   CostAttributionService: jest.fn(),
 }));
-jest.mock("../../../ai-harness/facade", () => ({
+jest.mock("../../../../ai-harness/facade", () => ({
   GuardrailsPipelineService: jest.fn(),
   AiObservabilityService: jest.fn(),
   CostAttributionService: jest.fn(),
 }));
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { MCPServerAdminController } from "../mcp-server-admin.controller";
-import { MCPServerService } from "../mcp-server.service";
-import { MCPSessionManager } from "../gateway/mcp-session-manager";
-import { MCPStreamingBridge } from "../streaming/mcp-streaming-bridge";
-import { MCPToolBridgeService } from "../bridge/mcp-tool-bridge.service";
+import { MCPServerAdminController } from "../server.controller";
+import { MCPServerService } from "../../../mcp/mcp-server.service";
+import { MCPSessionManager } from "../../../mcp/gateway/mcp-session-manager";
+import { MCPStreamingBridge } from "../../../mcp/streaming/mcp-streaming-bridge";
+import { MCPToolBridgeService } from "../../../mcp/bridge/mcp-tool-bridge.service";
 
 describe("MCPServerAdminController", () => {
   let controller: MCPServerAdminController;

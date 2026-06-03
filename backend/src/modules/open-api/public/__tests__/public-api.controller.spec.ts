@@ -11,7 +11,7 @@ import { AIModelType } from "@prisma/client";
 import { PublicController } from "../public.controller";
 import { AIFacade } from "../../../ai-harness/facade/ai.facade";
 import { ChatFacade, ToolFacade } from "../../../ai-harness/facade";
-import { MCPApiKeyGuard } from "../../mcp-server/guards/mcp-api-key.guard";
+import { MCPApiKeyGuard } from "../../mcp/guards/mcp-api-key.guard";
 
 describe("PublicController", () => {
   let controller: PublicController;

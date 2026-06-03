@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KernelApiService } from "../../../ai-harness/facade";
-import { MCPServerService } from "../../../open-api/mcp-server/mcp-server.service";
+import { MCPServerService } from "../../../open-api/mcp/mcp-server.service";
 import { GuardrailsPipelineService } from "../../../ai-engine/facade";
 
 /**
