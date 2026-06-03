@@ -24,11 +24,11 @@ import { UnauthorizedException } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { AuthController } from "../auth.controller";
-import { AuthService } from "../auth.service";
-import { AdminAuthService } from "../../../../common/services";
-import { RegisterDto } from "../dto/register.dto";
-import { LoginDto } from "../dto/login.dto";
-import { UpdateProfileDto } from "../dto/update-profile.dto";
+import { AuthService } from "@/modules/platform/auth/auth.service";
+import { AdminAuthService } from "@/common/services";
+import { RegisterDto } from "@/modules/platform/auth/dto/register.dto";
+import { LoginDto } from "@/modules/platform/auth/dto/login.dto";
+import { UpdateProfileDto } from "@/modules/platform/auth/dto/update-profile.dto";
 
 // ---------------------------------------------------------------------------
 // Mock service factories

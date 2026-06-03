@@ -62,7 +62,6 @@ function controllersIn(moduleRel: string): string[] {
 // ⏳ PENDING（待平台上提 Agent 连同其它一起搬），搬完即删；清空后本 ALLOWLIST
 // 应整体删除、断言 platform=0（见文件尾 TODO）。
 const PLATFORM_ALLOWLIST: string[] = [
-  "modules/platform/auth/auth.controller.ts",
   "modules/platform/monitoring/metrics/metrics.controller.ts",
 ];
 
