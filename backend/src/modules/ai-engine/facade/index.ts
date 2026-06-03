@@ -818,6 +818,8 @@ export {
   UpdateUserModelConfigDto,
 } from "@/modules/platform/credentials/user-model-configs/dto/user-model-config.dto";
 export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/models/catalog/ai-model-discovery.service";
+export { ModelTypeService } from "@/modules/ai-engine/llm/models/catalog/model-type.service";
+export type { ModelTypeInput } from "@/modules/ai-engine/llm/models/catalog/model-type.service";
 export { AiConnectionTestService } from "@/modules/ai-engine/llm/byok/ai-connection-test.service";
 export { AutoConfigureService } from "@/modules/ai-engine/llm/byok/user-models-auto-configure.service";
 

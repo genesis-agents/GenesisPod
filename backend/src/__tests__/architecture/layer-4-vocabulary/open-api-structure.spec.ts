@@ -50,7 +50,6 @@ const THIN_GATEWAY_ALLOWLIST = [
   "modules/open-api/admin/monitoring/monitoring-admin.controller.ts",
   "modules/open-api/admin/providers/ai-providers-admin.controller.ts",
   "modules/open-api/admin/providers/api-formats-admin.controller.ts",
-  "modules/open-api/admin/providers/model-types-admin.controller.ts",
   "modules/open-api/admin/research/research-admin.controller.ts",
 ];
 
