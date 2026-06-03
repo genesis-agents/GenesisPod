@@ -1,7 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";
-import { classifyModelTier, ModelTier } from "@/modules/ai-engine/facade";
+import {
+  classifyModelTier,
+  ModelTier,
+} from "@/modules/ai-engine/llm/types/model-tier.types";
 import { AIFacade } from "../../facade/ai.facade";
 import { ChatFacade } from "../../facade/domain/chat.facade";
 import type { RemediationAction, RemediationResult } from "./quality.types";

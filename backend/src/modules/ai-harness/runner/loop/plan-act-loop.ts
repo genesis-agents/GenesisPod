@@ -29,7 +29,7 @@ import type {
 import { ContextEnvelope } from "../../agents/core/context-envelope";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import type { ChatMessage } from "../../../ai-engine/llm/types";
-import { wrapExternalContent } from "@/modules/ai-engine/facade";
+import { wrapExternalContent } from "@/modules/ai-engine/safety/security/llm-injection/external-content-wrapper.utils";
 import { ReActLoop } from "./react-loop";
 import { AIModelType } from "@prisma/client";
 import type { BudgetAccountant } from "../../guardrails/budget/budget-accountant";

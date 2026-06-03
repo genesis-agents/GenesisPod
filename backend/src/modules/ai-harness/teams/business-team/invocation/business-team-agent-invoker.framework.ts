@@ -14,13 +14,13 @@
  */
 
 import { Logger } from "@nestjs/common";
-// ★ 不走 facade barrel（与同目录其他 framework 一致，详见 mission-runtime-shell.framework.ts）：
-//   facade/index.ts 会 re-export 本 framework，构成循环加载。
+// ★ 从 source 直引，不走 facade barrel（与同目录其他 framework 一致，详见 mission-runtime-shell.framework.ts）：
+//   engine/harness facade barrel 会 re-export 本 framework / 海量符号，value-import 构成 import-time 循环加载。
 import {
   isRetryableError,
   calculateBackoffDelay,
   sleep,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-engine/safety/utils/error-detection.utils";
 import { MissionAbortRegistry } from "@/modules/ai-harness/lifecycle/mission-lifecycle/abort-registry";
 import type { IAgentEvent } from "@/modules/ai-harness/agents/abstractions/agent-event.interface";
 import type {
