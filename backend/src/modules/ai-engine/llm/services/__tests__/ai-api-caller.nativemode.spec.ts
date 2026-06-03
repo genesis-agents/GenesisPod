@@ -17,6 +17,11 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
 import { of, throwError } from "rxjs";
 import { AiApiCallerService } from "../ai-api-caller.service";
+import { OpenaiCaller } from "../api-callers/openai-caller";
+import { AnthropicCaller } from "../api-callers/anthropic-caller";
+import { CohereCaller } from "../api-callers/cohere-caller";
+import { GoogleCaller } from "../api-callers/google-caller";
+import { XaiCaller } from "../api-callers/xai-caller";
 import { ModelCapabilityService } from "../../capability/model-capability.service";
 import { ApiCallerSelfHealTriggerService } from "../api-caller-self-heal-trigger.service";
 import type { ChatMessage } from "../../types/task-profile.types";
@@ -54,6 +59,11 @@ describe("AiApiCallerService – nativeMode response_format reconciliation (FIX 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiApiCallerService,
+        OpenaiCaller,
+        AnthropicCaller,
+        CohereCaller,
+        GoogleCaller,
+        XaiCaller,
         { provide: HttpService, useValue: httpMock },
         ModelCapabilityService, // real service — reads catalog
       ],
@@ -276,6 +286,11 @@ describe("AiApiCallerService – nativeMode response_format reconciliation (FIX 
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           AiApiCallerService,
+          OpenaiCaller,
+          AnthropicCaller,
+          CohereCaller,
+          GoogleCaller,
+          XaiCaller,
           { provide: HttpService, useValue: httpMock },
           // deliberately omit ModelCapabilityService
         ],
@@ -344,6 +359,11 @@ describe("AiApiCallerService – self-heal chain-aware degrade (R1)", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiApiCallerService,
+        OpenaiCaller,
+        AnthropicCaller,
+        CohereCaller,
+        GoogleCaller,
+        XaiCaller,
         { provide: HttpService, useValue: httpMock },
         ModelCapabilityService, // real — reads catalog
         {
