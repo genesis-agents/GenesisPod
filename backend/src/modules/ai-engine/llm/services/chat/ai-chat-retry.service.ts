@@ -3,7 +3,7 @@ import {
   AIErrorClassifier,
   AIError,
   AIErrorType,
-} from "../abstractions/error-classifier";
+} from "../../abstractions/error-classifier";
 
 /**
  * AI Chat Retry Service

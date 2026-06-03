@@ -110,7 +110,7 @@ export { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/co
 export { CrossCuttingSynthesisService } from "../../ai-engine/knowledge/synthesis/cross-cutting-synthesis.service";
 export type { SynthesisResult } from "../../ai-engine/knowledge/synthesis/cross-cutting-synthesis.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { PromptCacheCoordinatorService } from "../../ai-engine/llm/services/prompt-cache-coordinator.service";
+export { PromptCacheCoordinatorService } from "../../ai-engine/llm/services/chat/prompt-cache-coordinator.service";
 export type { SaveEvidenceRequest } from "../../ai-engine/knowledge/evidence/abstractions/evidence.interface";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { inferIsReasoning } from "../../ai-engine/llm/types/model.utils";

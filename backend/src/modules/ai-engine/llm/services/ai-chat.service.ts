@@ -10,7 +10,7 @@ import { AIModelType } from "@prisma/client";
 import { RequestContext } from "@/common/context/request-context";
 import { withUserContext } from "@/common/context/with-user-context";
 import { TaskProfile, ChatMessage } from "../types";
-import { TaskProfileMapperService } from "./task-profile-mapper.service";
+import { TaskProfileMapperService } from "./chat/task-profile-mapper.service";
 import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
 // 模型级 failover：chat() 的 BYOK 换模型逻辑抽到独立 util（god-class 不膨胀）。
 import { runChatWithModelFailover } from "../chat-model-failover.util";
@@ -20,14 +20,14 @@ import {
   normalizeDowngradePolicy,
 } from "../selection/model-policy";
 import { AiApiCallerService } from "./ai-api-caller.service";
-import { AiStreamHandlerService } from "./ai-stream-handler.service";
+import { AiStreamHandlerService } from "./chat/ai-stream-handler.service";
 import { AIMetricsService } from "@/modules/platform/facade";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 // ★ P1 PII 脱敏：消费侧改写逻辑抽到 helper，避免 god-class 增长（真生效，非 inert）。
 import {
   redactUserMessages,
   resolveRedactedOutput,
-} from "./pii-guardrail-redaction.helper";
+} from "./chat/pii-guardrail-redaction.helper";
 // ★ L2 ai-engine 内部代码禁止从 @/modules/ai-engine/facade 导入 —— facade 是 L3
 // AI App 的单向入口，L2 自己走 facade barrel 会触发 barrel → 50+ 子模块 → L2
 // 的回环加载，在 module-evaluation 阶段产生 undefined class ref，Nest DI 随后
@@ -43,12 +43,12 @@ import { AiConnectionTestService } from "./ai-connection-test.service";
 import { AiModelDiscoveryService } from "./ai-model-discovery.service";
 import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
-import { AiChatRetryService } from "./ai-chat-retry.service";
+import { AiChatRetryService } from "./chat/ai-chat-retry.service";
 import { KernelContext } from "@/common/context/kernel-context";
 import { BillingContext } from "@/modules/platform/facade";
 import { ModelPricingRegistry } from "../pricing/model-pricing.registry";
 import { KeyResolverService } from "@/modules/ai-engine/credentials/key-resolver/key-resolver.service";
-import { AiChatFailoverCallerService } from "./ai-chat-failover-caller.service";
+import { AiChatFailoverCallerService } from "./chat/ai-chat-failover-caller.service";
 // v5.1 R0.5 PR-5: 双轨接 plugins/core HookBus
 import type { HookBus } from "@/plugins/core/hook-bus";
 import {

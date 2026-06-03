@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { AiChatModelConfigService } from "../ai-chat-model-config.service";
+import { AiChatModelConfigService } from "../chat/ai-chat-model-config.service";
 // v3.1 A0：wrapper 现委托给 canonical AiModelConfigService，测试通过 DI 容器
 // 同时提供两者，验证 wrapper API surface 与底层等价行为。
 import { AiModelConfigService } from "../ai-model-config.service";

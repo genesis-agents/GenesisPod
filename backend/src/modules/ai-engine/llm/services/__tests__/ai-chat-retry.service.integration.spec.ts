@@ -2,7 +2,7 @@
  * AiChatRetryService 扩展测试 - 覆盖 withExponentialBackoff
  */
 import { Test, TestingModule } from "@nestjs/testing";
-import { AiChatRetryService } from "../ai-chat-retry.service";
+import { AiChatRetryService } from "../chat/ai-chat-retry.service";
 
 describe("AiChatRetryService (extended)", () => {
   let service: AiChatRetryService;

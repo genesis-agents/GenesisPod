@@ -26,7 +26,7 @@ import { LLMFactory } from "./factory/llm.factory";
 import { FunctionCallingLLMAdapter } from "./adapters/function-calling-llm.adapter";
 import { AiChatLLMAdapter } from "./adapters/ai-chat-llm.adapter";
 import { UniversalLLMAdapter } from "./adapters/universal-llm.adapter";
-import { TaskProfileMapperService } from "./services/task-profile-mapper.service";
+import { TaskProfileMapperService } from "./services/chat/task-profile-mapper.service";
 
 // Core Services
 import { AiChatService } from "./services/ai-chat.service";
@@ -41,18 +41,18 @@ import { GoogleCaller } from "./services/api-callers/google-caller";
 import { XaiCaller } from "./services/api-callers/xai-caller";
 // v3.1 阶段 D.1 (2026-05-24)：从 AiApiCallerService god-class 抽出的 self-heal 触发器
 import { ApiCallerSelfHealTriggerService } from "./services/api-caller-self-heal-trigger.service";
-import { AiStreamHandlerService } from "./services/ai-stream-handler.service";
-import { AiChatPromptService } from "./services/ai-chat-prompt.service";
-import { AiChatRetryService } from "./services/ai-chat-retry.service";
+import { AiStreamHandlerService } from "./services/chat/ai-stream-handler.service";
+import { AiChatPromptService } from "./services/chat/ai-chat-prompt.service";
+import { AiChatRetryService } from "./services/chat/ai-chat-retry.service";
 // 2026-05-05 抽自 AiChatService（god-class size 治理）：BYOK per-key failover 路径
-import { AiChatFailoverCallerService } from "./services/ai-chat-failover-caller.service";
+import { AiChatFailoverCallerService } from "./services/chat/ai-chat-failover-caller.service";
 
 // Extracted Services (from ai-chat.service.ts God Object split)
 import { AiConnectionTestService } from "./services/ai-connection-test.service";
 import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
 import { AiDirectKeyService } from "./services/ai-direct-key.service";
 import { AiImageGenerationService } from "./services/ai-image-generation.service";
-import { PromptCacheCoordinatorService } from "./services/prompt-cache-coordinator.service";
+import { PromptCacheCoordinatorService } from "./services/chat/prompt-cache-coordinator.service";
 import { SystemModelInventoryService } from "./services/system-model-inventory.service";
 
 // Model Fallback
