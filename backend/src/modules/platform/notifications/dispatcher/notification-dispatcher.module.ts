@@ -16,7 +16,8 @@ import { MissionFailedPreset } from "./presets/mission-failed.preset";
 import { RadarDailyBriefingEmailPreset } from "./presets/radar-daily-briefing-email.preset";
 import { RadarWeeklyBriefingEmailPreset } from "./presets/radar-weekly-briefing-email.preset";
 import { UnsubscribeTokenService } from "./preferences/unsubscribe-token.service";
-import { UnsubscribeController } from "./unsubscribe.controller";
+// UnsubscribeController（notifications/unsubscribe，公开退订）已上提到
+// open-api/public-api（System HTTP → L4）；UnsubscribeTokenService 留 L1 platform 并导出。
 
 /**
  * NotificationDispatcherModule（PR-DR1a）
@@ -49,7 +50,6 @@ import { UnsubscribeController } from "./unsubscribe.controller";
       inject: [ConfigService],
     }),
   ],
-  controllers: [UnsubscribeController],
   providers: [
     NotificationDispatcher,
     DispatcherQuotaService,

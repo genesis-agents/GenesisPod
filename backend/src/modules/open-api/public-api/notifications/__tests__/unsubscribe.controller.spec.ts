@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { UnsubscribeController } from "../unsubscribe.controller";
-import { UnsubscribeTokenService } from "../preferences/unsubscribe-token.service";
+import { UnsubscribeTokenService } from "@/modules/platform/notifications/dispatcher/preferences/unsubscribe-token.service";
 
 describe("UnsubscribeController (PR-DR1b)", () => {
   let controller: UnsubscribeController;
