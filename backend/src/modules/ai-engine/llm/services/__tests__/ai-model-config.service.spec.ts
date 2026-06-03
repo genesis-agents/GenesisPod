@@ -158,6 +158,7 @@ describe("AiModelConfigService", () => {
     const mockUserModelConfigsService = {
       findByModelId: jest.fn().mockResolvedValue(null),
       findDefaultForType: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: "umc-created" }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -1276,6 +1277,43 @@ describe("AiModelConfigService", () => {
       expect(result?.apiEndpoint).toBe("https://api.deepseek.com/v1");
       // 并行取回：两个 provider 的 key 都被请求（不是命中即停的串行）
       expect(userApiKeysService.getPersonalKey).toHaveBeenCalledTimes(2);
+    });
+
+    it("lazily persists the synthesized model as a UserModelConfig (register once)", async () => {
+      const { RequestContext } =
+        await import("../../../../../common/context/request-context");
+      const spy = jest
+        .spyOn(RequestContext, "getUserId")
+        .mockReturnValue("user-byok-lazy");
+
+      (prismaService.aIModel.findFirst as jest.Mock).mockResolvedValue(null);
+      (userApiKeysService.getAvailableProviders as jest.Mock).mockResolvedValue(
+        ["deepseek"],
+      );
+      (userApiKeysService.getPersonalKey as jest.Mock).mockResolvedValue({
+        apiEndpoint: "https://api.deepseek.com/v1",
+        preferredModelId: "agnes-2.0-flash",
+      });
+
+      const result = await service.getModelConfig("agnes-2.0-flash");
+      spy.mockRestore();
+
+      expect(result?.modelId).toBe("agnes-2.0-flash");
+      // ★ 合成后惰性落库成 UserModelConfig —— 下次解析走 findByModelId 快路径，不再 synthesize
+      const create = (
+        service as unknown as { userModelConfigs: { create: jest.Mock } }
+      ).userModelConfigs.create;
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(create).toHaveBeenCalledWith(
+        "user-byok-lazy",
+        expect.objectContaining({
+          provider: "deepseek",
+          modelId: "agnes-2.0-flash",
+          apiEndpoint: "https://api.deepseek.com/v1",
+          isDefault: false,
+          isEnabled: true,
+        }),
+      );
     });
 
     it("preserves provider order: picks the first match when several providers match", async () => {
