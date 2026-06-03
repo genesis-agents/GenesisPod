@@ -113,7 +113,7 @@ import { TeamsApiModule } from "./modules/open-api/teams-api/teams-api.module";
 // A2A API module (open-api layer â€” PR-X17: controller moved from ai-harness/protocols/a2a)
 import { A2AApiModule } from "./modules/open-api/a2a/a2a.module";
 // BYOK Admin module (open-api layer â€” PR-X17: 4 admin controllers moved from platform/credentials)
-import { ByokAdminModule } from "./modules/open-api/byok-admin/byok-admin.module";
+import { ByokAdminModule } from "./modules/open-api/admin/byok/byok-admin.module";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
 // Plugin system 内核（v5.1 R0.5）

@@ -780,7 +780,7 @@ export type {
   ToolKeySource,
 } from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
 export { UserSecretsService } from "@/modules/platform/credentials/user-secrets/user-secrets.service";
-// NOTE: credential-management surfaces (ai-app/byok, open-api/byok-admin) import
+// NOTE: credential-management surfaces (ai-app/byok, open-api/admin/byok) import
 // credential *services* (AuthorizationService / UserToolsService / KeyAssignments
 // etc.) directly from source, NOT via this barrel — adding heavy credential
 // services here bloats the facade barrel and triggers circular-load failures in

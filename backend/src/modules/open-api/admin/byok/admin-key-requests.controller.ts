@@ -10,15 +10,15 @@ import {
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { KeyRequestStatus } from "@prisma/client";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
 // Credential-admin surface imports credentials from source (not the engine
 // facade barrel) to avoid circular-barrel DI breakage; eslint-exempted below.
-import { KeyRequestsService } from "../../platform/credentials/key-requests/key-requests.service";
+import { KeyRequestsService } from "../../../platform/credentials/key-requests/key-requests.service";
 import {
   ApproveKeyRequestDto,
   RejectKeyRequestDto,
-} from "../../platform/credentials/key-requests/dto";
+} from "../../../platform/credentials/key-requests/dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };
