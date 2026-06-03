@@ -56,12 +56,13 @@ function controllersIn(moduleRel: string): string[] {
  * platform 残留 controller 收缩名单（standards/16 §三·补）。
  * 完成一个上提 → 删一行。清空 = platform 与 engine/harness 同样 0 HTTP。
  */
+// 绝对原则（2026-06-03 裁定）：**任何外部可访问的 HTTP 端点都属 open-api 或
+// ai-app**，engine/harness/platform = 0 HTTP，**无永久例外**。Prometheus `/metrics`
+// 抓取端点也是外部访问 → 同样上提（open-api/system/monitoring）。下面两条都是
+// ⏳ PENDING（待平台上提 Agent 连同其它一起搬），搬完即删；清空后本 ALLOWLIST
+// 应整体删除、断言 platform=0（见文件尾 TODO）。
 const PLATFORM_ALLOWLIST: string[] = [
-  // ⏳ PENDING：System HTTP，待上提 open-api/system（service 留 platform）
   "modules/platform/auth/auth.controller.ts",
-  // ⚙️ SPECIAL：Prometheus `/metrics` 抓取端点（机器拉取，非用户/管理 API）。
-  //    OS 类比 = 硬件遥测针脚；可作**永久例外**，或上提 open-api/system/monitoring
-  //    求严格 0（待裁决）。
   "modules/platform/monitoring/metrics/metrics.controller.ts",
 ];
 
@@ -98,4 +99,8 @@ describe("standards/16 · HTTP 只在 L3/L4，下层不开 HTTP", () => {
     );
     expect(true).toBe(true);
   });
+
+  // TODO（platform 上提清零后）：删除 PLATFORM_ALLOWLIST 与本测试，把上面
+  // platform 测试改成 `expect(controllersIn("platform")).toEqual([])`，与
+  // engine/harness 同样硬焊 0 —— 兑现"无永久例外"。
 });
