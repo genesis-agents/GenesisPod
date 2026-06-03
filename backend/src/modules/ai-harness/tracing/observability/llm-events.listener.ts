@@ -12,7 +12,7 @@ import type { RecordActionInput } from "../latency/session-latency.types";
 /**
  * LLM Events Listener
  *
- * 订阅 ai-engine/llm/services/ai-chat.service 通过 EventEmitter2 发出的可观测性事件，
+ * 订阅 ai-engine/llm/chat/ai-chat.service 通过 EventEmitter2 发出的可观测性事件，
  * 转发到 harness 的实际 service。
  *
  * ★ 这是 ai-engine → ai-harness 反向依赖切断后的"软桥接层"。

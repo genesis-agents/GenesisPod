@@ -10,7 +10,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { OutputReviewerService } from "../output-reviewer.service";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../../ai-engine/llm/chat/ai-chat.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 const MOCK_COMPLETION = {

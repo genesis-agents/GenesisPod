@@ -179,7 +179,7 @@ describe("Capability Contract · structured-output field readers baseline (v3.1 
   const EXPECTED_STRATEGY_READERS_BASE = [
     "modules/ai-engine/llm/models/capability/model-capability.service.ts",
     "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
-    "modules/ai-engine/llm/structured-output/structured-output-router.service.ts",
+    "modules/ai-engine/llm/output/structured/structured-output-router.service.ts",
     "modules/ai-harness/runner/executor/llm-executor.ts",
     "modules/open-api/admin/admin.service.ts",
   ];
@@ -188,7 +188,7 @@ describe("Capability Contract · structured-output field readers baseline (v3.1 
   // 仅 structuredOutputStrategy 透传，不透传 fallbackStrategies。
   const EXPECTED_STRATEGY_READERS = [
     ...EXPECTED_STRATEGY_READERS_BASE,
-    "modules/ai-engine/llm/services/ai-chat.service.ts",
+    "modules/ai-engine/llm/chat/ai-chat.service.ts",
   ];
 
   it("`.structuredOutputStrategy` is read only by the documented files (PropertyAccess + element-access + destructuring 三路合集)", () => {

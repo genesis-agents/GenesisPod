@@ -19,7 +19,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
 import type { IVerifier } from "../../runner/loop/reflexion-loop";
 import type { IContextEnvelope } from "../../agents/abstractions";
 import { createConsensusResolver } from "./primitives/consensus";

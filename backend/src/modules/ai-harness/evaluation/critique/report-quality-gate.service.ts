@@ -20,7 +20,7 @@ import {
   stripInternalFigureNotation,
 } from "@/modules/ai-engine/content/report-template/pipeline/report-formatting.utils";
 import { getQualityChecklist } from "@/modules/ai-engine/content/report-template/constants/report-writing-standards.constants";
-import { stripChartJsonFromContent } from "@/modules/ai-engine/llm/output-parsing/strip-chart-json.utils";
+import { stripChartJsonFromContent } from "@/modules/ai-engine/llm/output/sanitization/strip-chart-json.utils";
 
 /**
  * 质量违规项

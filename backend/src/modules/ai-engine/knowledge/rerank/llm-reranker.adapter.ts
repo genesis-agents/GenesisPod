@@ -21,7 +21,7 @@
 // 改造：ChatFacade → AiChatService（ai-engine 内层调用，跟 image module 同款）
 // 简化: 移除 wrapExternalContent 外部依赖，inline 等效安全包装（XML 隔离）。
 import { Injectable, Logger } from "@nestjs/common";
-import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "@/modules/ai-engine/llm/chat/ai-chat.service";
 import { AIModelType } from "@prisma/client";
 
 /** Inline 安全包装：把外部内容包在 XML 标签里，提示 LLM 不信任 */

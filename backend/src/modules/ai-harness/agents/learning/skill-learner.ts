@@ -12,7 +12,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import type { IAgentEvent, IAgentIdentity, IAction } from "../abstractions";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
 import { AIModelType } from "@prisma/client";
 
 export interface SkillCandidate {

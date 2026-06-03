@@ -73,7 +73,7 @@ import {
   sanitizeSectionOutput,
   stripCitationStacking,
   stripLeadingBulletLists,
-} from "../../../llm/output-parsing/sanitize-output.utils";
+} from "../../../llm/output/sanitization/sanitize-output.utils";
 
 /**
  * Quality gate interface (decoupled from any specific service implementation).

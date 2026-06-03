@@ -27,7 +27,7 @@ import { AgentStepCheckpointService } from "../memory/checkpoint/checkpoint.serv
 import { InMemoryCheckpointStore } from "../memory/checkpoint/in-memory-checkpoint-store";
 import { SkillLearner } from "../agents/learning/skill-learner";
 import { ToolRegistry } from "../../ai-engine/tools/registry/tool.registry";
-import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../ai-engine/llm/chat/ai-chat.service";
 
 describe("HarnessModule (NestJS DI integration)", () => {
   /**

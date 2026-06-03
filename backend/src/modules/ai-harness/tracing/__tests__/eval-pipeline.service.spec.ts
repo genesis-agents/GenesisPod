@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { EvalPipelineService } from "../evaluation/eval-pipeline.service";
 import { TraceCollectorService } from "../observability/trace-collector.service";
-import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "@/modules/ai-engine/llm/chat/ai-chat.service";
 import { TraceData } from "../observability/trace.interface";
 
 // ─── Helpers ─────────────────────────────────────────────

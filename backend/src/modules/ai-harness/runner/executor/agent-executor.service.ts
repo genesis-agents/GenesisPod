@@ -13,7 +13,7 @@ import {
   ExecutionConfig,
   ExecutionResult,
 } from "../../../ai-harness/runner/executor/executor.types";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
 // ★ 架构重构：通过 ToolRegistry 调用工具
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool.registry";
 import type { ToolContext } from "../../../ai-engine/tools/abstractions/tool.interface";

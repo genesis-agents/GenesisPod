@@ -27,7 +27,7 @@ import {
   GuardrailInput,
   GuardrailResult,
 } from "../guardrails.interface";
-import { AiChatService } from "../../../llm/services/ai-chat.service";
+import { AiChatService } from "../../../llm/chat/ai-chat.service";
 
 /**
  * LLM 分类标签（结构化、极短输出之一）。
