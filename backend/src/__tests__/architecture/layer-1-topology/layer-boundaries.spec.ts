@@ -729,4 +729,55 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       expect(found).toEqual([]);
     });
   });
+
+  /**
+   * MECE invariant 1 enforcement (2026-06-02 layer-audit P0-1):
+   *
+   * "engine 不知道 agent / mission（无 agent/mission 状态）；harness 必知" 此前是
+   * honor-only（仅靠 code review），审计发现已被 MissionElectionTracker 破坏
+   * （它在 ai-engine 内直接读写 mission-scoped Prisma 表 missionElectionState，
+   * 该表对 ai-app 的 agent_playground_mission 有硬 FK）。
+   *
+   * 本断言把该不变量升级为 jest 强制：ai-engine/** 不得访问 mission/agent-scoped
+   * Prisma 模型（prisma.mission* / prisma.agentPlayground*）。无状态的择优逻辑
+   * （ModelElectionService）通过 caller 传入的 previouslyElected 参数解耦，无需
+   * 触碰持久层 —— mission 持久化属于 L2.5 harness / L3 ai-app 的职责。
+   *
+   * 2026-06-02 P0-1 relocation 已完成：MissionElectionTracker 迁至
+   * ai-harness/guardrails/runtime，allowlist 清零，本断言对全 engine 强制。
+   */
+  describe("Engine mission-state isolation (MECE inv.1)", () => {
+    // 命中 this.prisma.missionXxx / prisma.agentPlaygroundXxx 等 mission/agent 持久层访问
+    const MISSION_PRISMA_RE =
+      /\bprisma\s*\.\s*(mission[A-Za-z0-9]*|agentPlayground[A-Za-z0-9]*)\b/;
+    // 已知债务豁免（当前为空 —— relocation 后无 engine 文件触碰 mission 持久层）
+    const MISSION_STATE_ALLOWLIST: ReadonlySet<string> = new Set<string>([]);
+
+    it("ai-engine 不得访问 mission/agent-scoped Prisma 表（mission 持久化属 harness/app）", () => {
+      const violations: string[] = [];
+      for (const file of ALL_FILES) {
+        if (fileLayer(file) !== "ai-engine") continue;
+        const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
+        if (MISSION_STATE_ALLOWLIST.has(rel)) continue;
+        const raw = fs.readFileSync(file, "utf-8");
+        const stripped = raw
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/^\s*\/\/.*$/gm, "");
+        const lines = stripped.split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+          if (MISSION_PRISMA_RE.test(lines[i])) {
+            violations.push(
+              `${rel}: L${i + 1}: ${lines[i].trim().slice(0, 100)}`,
+            );
+          }
+        }
+      }
+      expect(violations).toEqual([]);
+    });
+
+    it("allowlist 保持为空（防止新增豁免悄悄堆积）", () => {
+      // 防回归：若有人往 allowlist 加新文件绕过本不变量，这里强制 review。
+      expect([...MISSION_STATE_ALLOWLIST]).toEqual([]);
+    });
+  });
 });

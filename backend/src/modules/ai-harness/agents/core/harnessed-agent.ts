@@ -31,7 +31,7 @@ import type { AgentStepCheckpointService } from "../../memory/checkpoint/checkpo
 import type { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import type { AgentRegistry } from "../../handoffs/agent-registry";
-import type { MissionElectionReservation } from "../../../ai-engine/llm/selection";
+import type { MissionElectionReservation } from "../../guardrails/runtime/mission-election-tracker.service";
 
 export interface HarnessedAgentInit {
   identity: IAgentIdentity;

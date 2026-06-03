@@ -6,8 +6,8 @@
  */
 
 export { ModelElectionService } from "./model-election.service";
-export { MissionElectionTracker } from "./mission-election-tracker.service";
-export type { MissionElectionReservation } from "./mission-election-tracker.service";
+// MissionElectionTracker + MissionElectionReservation relocated to
+// ai-harness/guardrails/runtime/mission-election-tracker.service (2026-06-02 P0-1).
 export type {
   ElectionRoleHint,
   ElectionCostBias,

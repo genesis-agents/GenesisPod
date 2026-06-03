@@ -155,18 +155,24 @@ describe("MissionElectionTracker", () => {
     const seenHistories: string[][] = [];
 
     await Promise.all([
-      trackerA.reserveSerializedElection("mission-z", async (previouslyElected) => {
-        seenHistories.push([...previouslyElected]);
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        return { result: "first", electedModelId: "deepseek-v4-pro" };
-      }),
-      trackerB.reserveSerializedElection("mission-z", async (previouslyElected) => {
-        seenHistories.push([...previouslyElected]);
-        return {
-          result: "second",
-          electedModelId: "grok-4-1-fast-reasoning",
-        };
-      }),
+      trackerA.reserveSerializedElection(
+        "mission-z",
+        async (previouslyElected) => {
+          seenHistories.push([...previouslyElected]);
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return { result: "first", electedModelId: "deepseek-v4-pro" };
+        },
+      ),
+      trackerB.reserveSerializedElection(
+        "mission-z",
+        async (previouslyElected) => {
+          seenHistories.push([...previouslyElected]);
+          return {
+            result: "second",
+            electedModelId: "grok-4-1-fast-reasoning",
+          };
+        },
+      ),
     ]);
 
     expect(seenHistories).toEqual([[], ["deepseek-v4-pro"]]);
@@ -188,14 +194,20 @@ describe("MissionElectionTracker", () => {
     const trackerA = new MissionElectionTracker(cache, prisma as never);
     const trackerB = new MissionElectionTracker(cache, prisma as never);
 
-    const first = await trackerA.reserveSerializedElection("mission-y", async () => ({
-      result: "first",
-      electedModelId: "deepseek-v4-pro",
-    }));
-    const second = await trackerB.reserveSerializedElection("mission-y", async () => ({
-      result: "second",
-      electedModelId: "grok-4-1-fast-reasoning",
-    }));
+    const first = await trackerA.reserveSerializedElection(
+      "mission-y",
+      async () => ({
+        result: "first",
+        electedModelId: "deepseek-v4-pro",
+      }),
+    );
+    const second = await trackerB.reserveSerializedElection(
+      "mission-y",
+      async () => ({
+        result: "second",
+        electedModelId: "grok-4-1-fast-reasoning",
+      }),
+    );
 
     await Promise.all([
       trackerA.commitReservation("mission-y", first.reservation?.token),
@@ -256,9 +268,9 @@ describe("MissionElectionTracker", () => {
       reserved.reservation?.token,
     );
 
-    await expect(tracker.getElected("mission-commit-release")).resolves.toEqual([
-      "deepseek-v4-pro",
-    ]);
+    await expect(tracker.getElected("mission-commit-release")).resolves.toEqual(
+      ["deepseek-v4-pro"],
+    );
   });
 
   it("prunes expired reservations from visible history", async () => {
@@ -300,9 +312,11 @@ function createSerializedPrismaMock() {
         async ({ where: { missionId } }: { where: { missionId: string } }) =>
           rows.get(missionId) ?? null,
       ),
-      delete: jest.fn(async ({ where: { missionId } }: { where: { missionId: string } }) => {
-        rows.delete(missionId);
-      }),
+      delete: jest.fn(
+        async ({ where: { missionId } }: { where: { missionId: string } }) => {
+          rows.delete(missionId);
+        },
+      ),
       deleteMany: jest.fn(
         async ({ where: { missionId } }: { where: { missionId: string } }) => {
           rows.delete(missionId);
@@ -322,11 +336,18 @@ function createSerializedPrismaMock() {
           $queryRaw: jest.fn(async () => [{ pg_advisory_xact_lock: null }]),
           missionElectionState: {
             findUnique: jest.fn(
-              async ({ where: { missionId } }: { where: { missionId: string } }) =>
-                rows.get(missionId) ?? null,
+              async ({
+                where: { missionId },
+              }: {
+                where: { missionId: string };
+              }) => rows.get(missionId) ?? null,
             ),
             deleteMany: jest.fn(
-              async ({ where: { missionId } }: { where: { missionId: string } }) => {
+              async ({
+                where: { missionId },
+              }: {
+                where: { missionId: string };
+              }) => {
                 rows.delete(missionId);
                 return { count: 1 };
               },

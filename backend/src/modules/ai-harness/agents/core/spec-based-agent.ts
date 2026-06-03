@@ -27,12 +27,14 @@ import { AIModelType } from "@prisma/client";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import {
   ModelElectionService,
-  MissionElectionTracker,
   NoEligibleModelError,
-  type MissionElectionReservation,
   type ElectionCandidate,
   type ElectionRoleHint,
 } from "../../../ai-engine/llm/selection";
+import {
+  MissionElectionTracker,
+  type MissionElectionReservation,
+} from "../../guardrails/runtime/mission-election-tracker.service";
 import type { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import type {
