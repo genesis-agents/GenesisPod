@@ -17,22 +17,27 @@
 
 ## 目录结构
 
+> 2026-06-03 与现实对齐：原列的 `deployment/` 不存在（实为 `devops/`），并补齐
+> `ci/` `dev/` `devops/` `ui-iteration/` 四个真实目录。
+
 ```
 scripts/
 ├── _archive/                    # 已完成/过期脚本归档
 │   ├── migrations/              # 已完成的迁移脚本
 │   └── fixes/                   # 已完成的修复脚本
 │
-├── deployment/                  # 部署相关脚本
-├── docs-specialist/             # 文档管理脚本
-├── local-server/                # 本地开发服务
-├── merge-to-main/               # 合并工作流
-├── monitoring/                  # 监控和告警
+├── ci/                          # CI 门禁脚本（namespace 检查等）
+├── dev/                         # 开发调试 / 夹具导出 / 本地诊断
+├── devops/                      # 部署 / 运维 / 发布（facade 边界 / 生产监控 / GitHub release 同步）
+├── docs-specialist/             # 文档治理脚本
+├── local-server/                # 本地开发服务启停
+├── merge-to-main/               # 合并工作流（CI 监控 / 预合并校验 / 回滚）
+├── monitoring/                  # 监控和告警（含 config/）
 ├── release-notification/        # 发布通知
+├── ui-iteration/                # UI 自动迭代框架（TS 模块）
 │
-├── utils/                       # 通用工具脚本
-│   ├── diagnostics/             # 诊断工具
-│   └── *.sh / *.js              # 其他工具
+├── utils/                       # 通用工具 + audit-* 治理脚本
+│   └── diagnostics/             # 诊断工具
 │
 └── README.md                    # 目录说明
 ```
@@ -123,20 +128,25 @@ YYYY-MM-{original-name}.{ext}
 
 ## Backend 脚本规范
 
-后端脚本放在 `backend/scripts/` 目录：
+后端脚本放在 `backend/scripts/` 目录。**根目录只放活脚本**（被 package.json / Dockerfile /
+CI 引用的入口），其余按职责进桶（2026-06-03 收敛，详见 `backend/scripts/README.md`）：
 
 ```
 backend/scripts/
-├── _archive/                    # 已完成/过期脚本归档
-├── seed-*.ts                    # 种子数据脚本
-├── generate-*.ts                # 代码/数据生成
-├── validate-*.ts                # 数据验证
-├── update-*.ts                  # 数据更新脚本
-├── check-*.ts                   # 检查脚本
-├── send-*.ts                    # 通知/发送脚本
-├── docker-entrypoint.sh         # Docker 入口
-└── studio-railway.*             # Railway 工具
+├── _archive/                    # 一次性历史脚本归档（YYYY-MM-{name} 前缀，FLAT 不建子目录）
+├── ci/                          # CI 门禁（boot smoke 等）
+├── db/                          # 数据库工具（检查 / 维护 / 应用迁移 / UI patrol 夹具）
+├── dev-tools/                   # 开发调试 / 覆盖率 / 循环依赖 / 监控诊断
+├── maintenance/                 # 数据维护与运维（完整性 / 白名单 / KEK 轮换 / 清理）
+├── thumbnails/                  # 缩略图生成
+├── entrypoint.sh                # Docker 入口（Dockerfile CMD）—— 活脚本留根
+├── copy-build-assets.js         # 构建产物拷贝（package.json build）—— 活脚本留根
+├── audit-*.{cjs,ts}             # 能力/架构债门禁（package.json + arch spec）—— 活脚本留根
+└── README.md                    # 目录说明
 ```
+
+> 命名前缀（`seed-*` / `generate-*` / `validate-*` / `check-*` / `update-*`）仍按上文规范，
+> 但**位置进对应桶**，不再散落根目录。
 
 ### 禁止在 backend/scripts/ 中
 
