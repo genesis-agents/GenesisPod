@@ -1271,6 +1271,10 @@ export {
 export { CollaborationModule } from "../teams/collaboration/collaboration.module";
 export { ReviewWorkflowService } from "../teams/collaboration/review/review-workflow.service";
 export { TodoService } from "../teams/collaboration/todo/todo.service";
+// ★ W2-F: mission 协作上下文/状态/输入服务（从 ai-app/teams 迁入 harness；服务内部 import source 非本 barrel，避免值循环）
+export { MissionStateManager } from "../teams/collaboration/context/mission-state.manager";
+export { MissionContextService } from "../teams/collaboration/context/mission-context.service";
+export { MissionInputService } from "../teams/collaboration/context/mission-input.service";
 export { VotingManager } from "../teams/collaboration/patterns/voting-pattern";
 export {
   HandoffCoordinator,

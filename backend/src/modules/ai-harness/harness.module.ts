@@ -124,6 +124,7 @@ import { AiEngineToolsModule } from "../ai-engine/tools/tools.module";
 // AiEngineMemoryModule 已移除（2026-04-30）—— Memory 服务全部迁到
 // ai-harness/memory（RuntimeMemoryModule @Global），无需在此 forwardRef。
 import { CreditsModule } from "../platform/credits/credits.module";
+import { MissionContextModule } from "./teams/collaboration/context/context.module";
 import { MissionAbortRegistry } from "./lifecycle/mission-lifecycle/abort-registry";
 import { MissionLifecycleManager } from "./lifecycle/mission-lifecycle/mission-lifecycle-manager";
 
@@ -176,6 +177,8 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     //   RuntimeEnvironmentService 由 @Global RuntimeResourceModule 通过 HarnessApiModule
     //   提供，无需在此 import。MissionAbortRegistry 由本模块 providers 直接注册。
     CreditsModule,
+    // ★ W2-F: mission 协作上下文/状态/输入服务（从 ai-app/teams 迁入）@Global
+    MissionContextModule,
   ],
   providers: [
     // Cross-cutting

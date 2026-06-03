@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentTaskStatus } from "@prisma/client";
-import { MissionContextService } from "./mission-context.service";
+import { MissionContextService } from "@/modules/ai-harness/facade";
 import { findMemberByName } from "../utils";
 
 /**

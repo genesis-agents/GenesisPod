@@ -6,9 +6,8 @@ export * from "./mission-execution.service";
 export * from "./mission-review.service";
 export * from "./mission-prompt.service";
 export * from "./mission-query.service";
-export * from "./mission-context.service";
-export * from "./mission-input.service";
-export * from "./mission-state.manager";
+// W2-F: MissionState/Context/Input 已迁 harness/teams/collaboration/context，
+//   消费方改从 @/modules/ai-harness/facade 注入，本 barrel 不再 re-export。
 // task-breakdown.service 已删 (2026-04-30) — 0 处构造器注入死代码
 export * from "./mission-lifecycle.service";
 export * from "./mission-retry.service";

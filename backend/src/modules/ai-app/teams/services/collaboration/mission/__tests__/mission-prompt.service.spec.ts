@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionPromptService } from "../mission-prompt.service";
-import { MissionContextService } from "../mission-context.service";
+import { MissionContextService } from "@/modules/ai-harness/facade";
 import { AgentTaskStatus } from "@prisma/client";
 
 const mockMissionContextService = {

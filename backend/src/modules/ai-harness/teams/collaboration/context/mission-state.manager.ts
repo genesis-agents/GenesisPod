@@ -9,9 +9,9 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { StateCategory } from "@/modules/ai-harness/facade";
-import type { ExecutionStateStats } from "@/modules/ai-harness/facade";
-import { AgentFacade } from "@/modules/ai-harness/facade";
+import { StateCategory } from "@/modules/ai-harness/lifecycle/supervisor/process-supervisor.service";
+import type { ExecutionStateStats } from "@/modules/ai-harness/lifecycle/supervisor/process-supervisor.service";
+import { AgentFacade } from "@/modules/ai-harness/facade/domain/agent.facade";
 
 /**
  * 状态统计信息 (保持原有接口)

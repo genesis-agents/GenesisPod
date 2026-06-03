@@ -3,28 +3,10 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { MissionInputService } from "../mission-input.service";
-import { TokenBudgetService } from "@/modules/ai-harness/facade";
-import { ConstraintEnforcementService } from "@/modules/ai-harness/facade";
-
-// PR-X25: shim files removed; mock the canonical facades instead
-jest.mock("@/modules/ai-harness/facade", () => ({
-  ...jest.requireActual("@/modules/ai-harness/facade"),
-  TokenBudgetService: jest.fn().mockImplementation(() => ({
-    smartTruncate: jest
-      .fn()
-      .mockImplementation((text: string, _maxTokens: number) =>
-        text.substring(0, 7000),
-      ),
-  })),
-}));
-
-jest.mock("@/modules/ai-harness/facade", () => ({
-  ...jest.requireActual("@/modules/ai-harness/facade"),
-  ConstraintEnforcementService: jest.fn().mockImplementation(() => ({
-    extractConstraints: jest.fn().mockReturnValue([]),
-  })),
-}));
+import { MissionInputService } from "@/modules/ai-harness/facade";
+// W2-F: 服务改从 source import；以 source token 提供 useValue mock（不再 mock facade barrel）
+import { ContextBudgetCalculator as TokenBudgetService } from "@/modules/ai-engine/planning/budget/token-budget.service";
+import { ConstraintEnforcementService } from "@/modules/ai-harness/guardrails/constraints/constraint-enforcement.service";
 
 const mockTokenBudgetService = {
   smartTruncate: jest
