@@ -5,7 +5,7 @@
  * - ExpressionMemoryService: 表达记忆服务
  * - CharacterPersonalityService: 角色人格服务
  * - CharacterConsistencyService: 角色一致性服务 - 状态追踪和OOC检测 (v4)
- * - QualityGateService: 质量门禁服务
+ * - WritingQualityGateService: 质量门禁服务
  * - HistoricalKnowledgeService: 历史知识服务
  * - DialogueConstraintsService: 对话约束服务 - 时代对话风格和角色对话生成 (v4)
  * - OutputValidatorService: 输出验证服务
@@ -40,7 +40,7 @@ export * from "./chapter-quality-evaluator.service";
 export * from "./narrative-craft.service";
 
 // Export services with potential type conflicts separately
-export { QualityGateService } from "./quality-gate.service";
+export { WritingQualityGateService } from "./quality-gate.service";
 export type { QualityIssue as QualityGateIssue } from "./quality-gate.service";
 
 export { WritingQualityCheckerService } from "./writing-quality-checker.service";

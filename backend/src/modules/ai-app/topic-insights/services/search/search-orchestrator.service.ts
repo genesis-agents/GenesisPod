@@ -11,7 +11,7 @@
  *   4. Generate source-aware queries via QueryStrategyService
  *   5. Execute parallel search via SearchExecutorService
  *   6. Fuse and deduplicate via ResultFusionService
- *   7. Evaluate quality via QualityGateService
+ *   7. Evaluate quality via SearchFusionQualityGateService
  *   8. Retry with WEB fallback if quality gate fails (max 1 retry)
  */
 
@@ -32,7 +32,7 @@ import type { SearchPipelineOptions, QualityVerdict } from "./search.types";
 import { QueryStrategyService } from "./query/query-strategy.service";
 import { SearchExecutorService } from "./search-executor.service";
 import { ResultFusionService } from "./fusion/result-fusion.service";
-import { QualityGateService } from "./fusion/quality-gate.service";
+import { SearchFusionQualityGateService } from "./fusion/quality-gate.service";
 import { LlmRerankerAdapter } from "./rerank/llm-reranker.adapter";
 import {
   DEFAULT_RERANK_CONFIG,
@@ -58,7 +58,7 @@ export class SearchOrchestratorService {
     private readonly queryStrategy: QueryStrategyService,
     private readonly executor: SearchExecutorService,
     private readonly fusion: ResultFusionService,
-    private readonly qualityGate: QualityGateService,
+    private readonly qualityGate: SearchFusionQualityGateService,
     private readonly reranker: LlmRerankerAdapter,
     @Optional() private readonly toolFacade?: ToolFacade,
     @Optional() private readonly capabilityGuard?: CapabilityGuardService,

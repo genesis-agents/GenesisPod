@@ -18,7 +18,7 @@ import {
   StoryArchitectAgent,
   StoryArchitectInput,
 } from "../story-architect.agent";
-import { QualityGateService } from "../../services/quality/quality-gate.service";
+import { WritingQualityGateService } from "../../services/quality/quality-gate.service";
 import type { AgentContext } from "@/modules/ai-harness/facade";
 import type { WritingContextPackage } from "../../interfaces/writing-context.interface";
 
@@ -201,7 +201,7 @@ describe("StoryArchitectAgent", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StoryArchitectAgent,
-        { provide: QualityGateService, useValue: mockQualityGate },
+        { provide: WritingQualityGateService, useValue: mockQualityGate },
       ],
     }).compile();
 

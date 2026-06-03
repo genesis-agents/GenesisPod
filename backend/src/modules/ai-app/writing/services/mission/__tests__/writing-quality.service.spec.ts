@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { WritingQualityService } from "../writing-quality.service";
 import { ExpressionMemoryService } from "../../quality/expression-memory.service";
-import { QualityGateService } from "../../quality/quality-gate.service";
+import { WritingQualityGateService } from "../../quality/quality-gate.service";
 
 function buildMockExpressionMemory() {
   return {
@@ -34,7 +34,7 @@ describe("WritingQualityService", () => {
       providers: [
         WritingQualityService,
         { provide: ExpressionMemoryService, useValue: expressionMemory },
-        { provide: QualityGateService, useValue: qualityGate },
+        { provide: WritingQualityGateService, useValue: qualityGate },
       ],
     }).compile();
 
@@ -46,7 +46,7 @@ describe("WritingQualityService", () => {
   });
 
   describe("checkChapterQuality", () => {
-    it("should delegate to QualityGateService", async () => {
+    it("should delegate to WritingQualityGateService", async () => {
       const mockResult = { passed: true, score: 85, issues: [] };
       qualityGate.checkQualityGate.mockResolvedValue(mockResult);
 
@@ -66,7 +66,7 @@ describe("WritingQualityService", () => {
       expect(result).toEqual(mockResult);
     });
 
-    it("should propagate errors from QualityGateService", async () => {
+    it("should propagate errors from WritingQualityGateService", async () => {
       qualityGate.checkQualityGate.mockRejectedValue(new Error("DB error"));
 
       await expect(

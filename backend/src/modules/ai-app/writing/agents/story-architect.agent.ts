@@ -19,7 +19,7 @@ import {
 } from "@/modules/ai-harness/facade";
 import { WritingContextPackage } from "../interfaces/writing-context.interface";
 // 增强：注入质量门禁服务用于审核
-import { QualityGateService } from "../services/quality/quality-gate.service";
+import { WritingQualityGateService } from "../services/quality/quality-gate.service";
 
 // ==================== 输入输出类型 ====================
 
@@ -166,7 +166,7 @@ export class StoryArchitectAgent extends BaseAgent<
     BUILTIN_TOOLS.WORKFLOW_ORCHESTRATION,
   ];
 
-  constructor(private readonly qualityGate: QualityGateService) {
+  constructor(private readonly qualityGate: WritingQualityGateService) {
     super();
   }
 

@@ -1,5 +1,5 @@
 /**
- * QualityGateService Unit Tests
+ * SearchFusionQualityGateService Unit Tests
  *
  * Coverage targets:
  * - evaluate: happy path (sufficient), all five gap checks in isolation and combination
@@ -13,7 +13,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { QualityGateService } from "../quality-gate.service";
+import { SearchFusionQualityGateService } from "../quality-gate.service";
 import { DataSourceType } from "../../../../types/data-source.types";
 import type { AggregatedSearchResult } from "../../../../types/data-source.types";
 
@@ -45,15 +45,17 @@ const makeResult = (
 // Test suite
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("QualityGateService", () => {
-  let service: QualityGateService;
+describe("SearchFusionQualityGateService", () => {
+  let service: SearchFusionQualityGateService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [QualityGateService],
+      providers: [SearchFusionQualityGateService],
     }).compile();
 
-    service = module.get<QualityGateService>(QualityGateService);
+    service = module.get<SearchFusionQualityGateService>(
+      SearchFusionQualityGateService,
+    );
   });
 
   // ─────────────────────────── sufficient pass ──────────────────────────────

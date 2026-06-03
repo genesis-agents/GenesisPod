@@ -116,7 +116,7 @@ export {
   SearchExecutorService,
   QueryStrategyService,
   ResultFusionService,
-  QualityGateService,
+  SearchFusionQualityGateService,
   LlmRerankerAdapter,
   WebSearchAdapter,
   AcademicSearchAdapter,
@@ -129,5 +129,3 @@ export {
   LocalSearchAdapter,
   IndustryReportSearchAdapter,
 } from "./search";
-
-

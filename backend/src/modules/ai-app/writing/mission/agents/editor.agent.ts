@@ -6,7 +6,7 @@
  * 职责保留：fix_issues / polish / unify_style / final_review 四操作。
  *
  * 与旧 BaseAgent 的差异：
- * - 不再注入 QualityGateService / ChapterQualityEvaluatorService —— final_review 里
+ * - 不再注入 WritingQualityGateService / ChapterQualityEvaluatorService —— final_review 里
  *   「先跑质量门禁/快速评估再让 LLM 修正」的逻辑外移到 s6/s7 stage，stage 把评估出的
  *   问题列表作为 params（issues / leaderFeedback）喂进来（设计文档 §2 迁移要点）。
  * - 复用 consistency-checker.agent.ts 导出的 ConsistencyIssueSchema / ConsistencyIssue。

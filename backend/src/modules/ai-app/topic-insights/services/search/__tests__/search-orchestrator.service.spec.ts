@@ -18,7 +18,7 @@ import { SearchOrchestratorService } from "../search-orchestrator.service";
 import { QueryStrategyService } from "../query/query-strategy.service";
 import { SearchExecutorService } from "../search-executor.service";
 import { ResultFusionService } from "../fusion/result-fusion.service";
-import { QualityGateService } from "../fusion/quality-gate.service";
+import { SearchFusionQualityGateService } from "../fusion/quality-gate.service";
 import { LlmRerankerAdapter } from "../rerank/llm-reranker.adapter";
 import { ToolFacade } from "@/modules/ai-harness/facade";
 import { CapabilityGuardService } from "@/modules/ai-harness/facade";
@@ -216,7 +216,7 @@ describe("SearchOrchestratorService", () => {
         { provide: QueryStrategyService, useValue: mockQueryStrategy },
         { provide: SearchExecutorService, useValue: mockExecutor },
         { provide: ResultFusionService, useValue: mockFusion },
-        { provide: QualityGateService, useValue: mockQualityGate },
+        { provide: SearchFusionQualityGateService, useValue: mockQualityGate },
         {
           provide: LlmRerankerAdapter,
           useValue: mockReranker,
@@ -1172,7 +1172,10 @@ describe("SearchOrchestratorService", () => {
           { provide: QueryStrategyService, useValue: mockQueryStrategy },
           { provide: SearchExecutorService, useValue: mockExecutor },
           { provide: ResultFusionService, useValue: mockFusion },
-          { provide: QualityGateService, useValue: mockQualityGate },
+          {
+            provide: SearchFusionQualityGateService,
+            useValue: mockQualityGate,
+          },
           {
             provide: LlmRerankerAdapter,
             useValue: {

@@ -93,7 +93,7 @@ import { WriterPoolService } from "../../services/parallel/writer-pool.service";
 import { ExpressionMemoryService } from "../../services/quality/expression-memory.service";
 import { OpeningHookService } from "../../services/quality/opening-hook.service";
 import { NarrativeCraftService } from "../../services/quality/narrative-craft.service";
-import { QualityGateService } from "../../services/quality/quality-gate.service";
+import { WritingQualityGateService } from "../../services/quality/quality-gate.service";
 import { ChapterQualityEvaluatorService } from "../../services/quality/chapter-quality-evaluator.service";
 import { StoryCompletionDetectorService } from "../../services/quality/story-completion-detector.service";
 import { SemanticConsistencyService } from "../../services/quality/semantic-consistency.service";
@@ -177,7 +177,7 @@ export class WritingPipelineDispatcher
     private readonly expressionMemory: ExpressionMemoryService,
     private readonly openingHook: OpeningHookService,
     private readonly narrativeCraft: NarrativeCraftService,
-    private readonly qualityGate: QualityGateService,
+    private readonly qualityGate: WritingQualityGateService,
     private readonly chapterQualityEvaluator: ChapterQualityEvaluatorService,
     private readonly storyCompletionDetector: StoryCompletionDetectorService,
     private readonly semanticConsistency: SemanticConsistencyService,
