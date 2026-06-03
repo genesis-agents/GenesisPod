@@ -12,6 +12,7 @@
 import axios, { AxiosInstance } from "axios";
 import { BaseMCPClient } from "./mcp-client";
 import { sanitizeError } from "@/common/utils/log-sanitizer.utils";
+import { assertUrlSafe } from "@/modules/ai-engine/safety/security/ssrf/ssrf-guard";
 
 /**
  * SSE 事件解析结果
@@ -43,6 +44,12 @@ export class StreamableHttpMCPClient extends BaseMCPClient {
     if (!this.config.url) {
       throw new Error("URL is required for HTTP transport");
     }
+
+    // ENG-002 SSRF 防护：连接前校验 MCP server URL（DNS 解析后复核私网/云元数据 IP）。
+    //   端口非 SSRF 关切（MCP 服务器跑任意端口），放行配置端口；私网/loopback/元数据 IP 仍拦。
+    await assertUrlSafe(this.config.url, {
+      allowedPorts: ["", "80", "443", new URL(this.config.url).port],
+    });
 
     this.httpClient = axios.create({
       baseURL: this.config.url,

@@ -1,3 +1,9 @@
+// SSRF guard mocked pass-through — these specs test MCP protocol, not SSRF (see ssrf-mcp-guard.spec.ts for the real check)
+jest.mock("@/modules/ai-engine/safety/security/ssrf/ssrf-guard", () => ({
+  ...jest.requireActual("@/modules/ai-engine/safety/security/ssrf/ssrf-guard"),
+  assertUrlSafe: jest.fn().mockResolvedValue(new URL("http://mcp.example.com")),
+}));
+
 /**
  * StreamableHttpMCPClient — extra branch coverage
  *
