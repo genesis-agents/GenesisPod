@@ -57,7 +57,7 @@ import { AiImageModule } from "./modules/ai-app/image/ai-image.module";
 import { AiOfficeModule } from "./modules/ai-app/office/ai-office.module";
 import { AiSimulationModule } from "./modules/ai-app/simulation/ai-simulation.module";
 import { AiTeamsModule } from "./modules/ai-app/teams/ai-teams.module";
-import { AiPlanningModule } from "./modules/ai-app/planning/ai-planning.module";
+import { AiPlanningModule } from "./modules/ai-app/ai-planning/ai-planning.module";
 import { RAGModule } from "./modules/ai-app/library/rag/rag.module";
 import { AiWritingModule } from "./modules/ai-app/writing/ai-writing.module";
 import { ResearchModule } from "./modules/ai-app/research";
