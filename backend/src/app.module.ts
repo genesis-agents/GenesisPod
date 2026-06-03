@@ -102,12 +102,11 @@ import { AiFileOrganizerModule } from "./modules/ai-app/library/ai-file-organize
 import { ExportModule } from "./common/export";
 // Open API modules (webhooks, public-api, mcp-server, ai-core, agents-api)
 import { WebhooksModule } from "./modules/open-api/webhooks";
-import { MCPServerModule } from "./modules/open-api/mcp-server";
+import { MCPServerModule } from "./modules/open-api/mcp";
 import { PublicModule } from "./modules/open-api/public/public.module";
 import { OpenApiSystemModule } from "./modules/open-api/system/system.module";
 import { AiModule } from "./modules/open-api/ai/ai.module";
 import { AgentsModule } from "./modules/open-api/agents/agents.module";
-import { McpAdminModule } from "./modules/open-api/mcp-admin/mcp-admin.module";
 import { SkillsModule } from "./modules/open-api/skills/skills.module";
 import { TeamsApiModule } from "./modules/open-api/teams/teams.module";
 // A2A API module (open-api layer â€” PR-X17: controller moved from ai-harness/protocols/a2a)
@@ -284,8 +283,6 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     // Agents API (PR-X6)
     AgentsModule,
 
-    // MCP Admin API (PR-X7)
-    McpAdminModule,
 
     // Skills API (PR-X16: moved from ai-engine/skills/api)
     SkillsModule,

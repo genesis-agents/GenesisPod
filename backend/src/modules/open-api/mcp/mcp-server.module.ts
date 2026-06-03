@@ -14,7 +14,6 @@
 import { Module, OnModuleInit } from "@nestjs/common";
 import { MCPServerController } from "./mcp-server.controller";
 import { MCPServerService } from "./mcp-server.service";
-import { MCPServerAdminController } from "./mcp-server-admin.controller";
 import { MCPApiKeyGuard } from "./guards/mcp-api-key.guard";
 
 // Curated Tool Handlers
@@ -45,7 +44,7 @@ import { AiEngineConstraintModule } from "../../ai-engine/safety/constraint.modu
     AiEngineConstraintModule,
     // ★ DiscussionModule removed — research accessed via AIFacade.executeDirectResearch()
   ],
-  controllers: [MCPServerController, MCPServerAdminController],
+  controllers: [MCPServerController],
   providers: [
     // Core
     MCPServerService,
@@ -69,7 +68,7 @@ import { AiEngineConstraintModule } from "../../ai-engine/safety/constraint.modu
     ContentAnalysisToolHandler,
     WritingAssistToolHandler,
   ],
-  exports: [MCPServerService, MCPSessionManager],
+  exports: [MCPServerService, MCPSessionManager, MCPStreamingBridge, MCPToolBridgeService],
 })
 export class MCPServerModule implements OnModuleInit {
   constructor(
