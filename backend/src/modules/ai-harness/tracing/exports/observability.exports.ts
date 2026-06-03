@@ -3,4 +3,3 @@ export * from "../observability/trace-collector.service";
 export * from "../observability/trace.interface";
 export * from "../observability/ai-observability.service";
 export * from "../observability/cost-attribution.service";
-export * from "../observability/llm-tracing.service";

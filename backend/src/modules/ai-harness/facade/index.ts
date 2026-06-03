@@ -955,7 +955,6 @@ export { TraceCollectorService } from "../tracing/observability/trace-collector.
 export { AiObservabilityService } from "../tracing/observability/ai-observability.service";
 export { CostAttributionService } from "../tracing/observability/cost-attribution.service";
 export { SessionLatencyTrackerService } from "../tracing/latency/session-latency-tracker.service";
-export { LlmTracingService } from "../tracing/observability/llm-tracing.service";
 export { EvalPipelineService } from "../tracing/evaluation/eval-pipeline.service";
 export type { EvalResult } from "../tracing/evaluation/eval-pipeline.service";
 export { EvalHarnessService } from "../tracing/evaluation/eval-harness.service";
