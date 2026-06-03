@@ -55,15 +55,16 @@ function controllersIn(moduleRel: string): string[] {
 /**
  * platform 残留 controller 收缩名单（standards/16 §三·补）。
  * 完成一个上提 → 删一行。清空 = platform 与 engine/harness 同样 0 HTTP。
+ *
+ * 2026-06-03 已清空：auth/credits/notification/storage-governance/metrics 全部上提
+ * open-api（admin/system/public-api），platform 现已硬焊 0 controller。
  */
 // 绝对原则（2026-06-03 裁定）：**任何外部可访问的 HTTP 端点都属 open-api 或
-// ai-app**，engine/harness/platform = 0 HTTP，**无永久例外**。Prometheus `/metrics`
-// 抓取端点也是外部访问 → 同样上提（open-api/system/monitoring）。下面两条都是
-// ⏳ PENDING（待平台上提 Agent 连同其它一起搬），搬完即删；清空后本 ALLOWLIST
-// 应整体删除、断言 platform=0（见文件尾 TODO）。
-const PLATFORM_ALLOWLIST: string[] = [
-  "modules/platform/monitoring/metrics/metrics.controller.ts",
-];
+// ai-app**，engine/harness/platform = 0 HTTP，**无永久例外**（含 Prometheus
+// `/metrics`，已上提 open-api/system/metrics）。
+// 2026-06-03 已清空：auth/credits/notification/storage-governance/metrics 全部上提
+// → platform 现已 0 controller（offenders 断言即兜底硬焊 0）。
+const PLATFORM_ALLOWLIST: string[] = [];
 
 describe("standards/16 · HTTP 只在 L3/L4，下层不开 HTTP", () => {
   it("ai-engine（硬件层）= 0 个 @Controller", () => {
