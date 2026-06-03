@@ -24,21 +24,21 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from "@nestjs/swagger";
-import { AuthService } from "./auth.service";
-import { UpdateProfileDto } from "./dto/update-profile.dto";
-import { RegisterDto } from "./dto/register.dto";
-import { LoginDto } from "./dto/login.dto";
-import { ExchangeCodeDto } from "./dto/exchange-code.dto";
+import { AuthService } from "@/modules/platform/auth/auth.service";
+import { UpdateProfileDto } from "@/modules/platform/auth/dto/update-profile.dto";
+import { RegisterDto } from "@/modules/platform/auth/dto/register.dto";
+import { LoginDto } from "@/modules/platform/auth/dto/login.dto";
+import { ExchangeCodeDto } from "@/modules/platform/auth/dto/exchange-code.dto";
 import {
   AuthResponseDto,
   RefreshTokenResponseDto,
   ExchangeCodeResponseDto,
   UserDto,
   UserStatsDto,
-} from "./dto/auth-response.dto";
-import { AdminAuthService } from "../../../common/services";
-import { Public } from "../../../common/decorators/public.decorator";
-import { GoogleAuthGuard } from "./guards/google-auth.guard";
+} from "@/modules/platform/auth/dto/auth-response.dto";
+import { AdminAuthService } from "@/common/services";
+import { Public } from "@/common/decorators/public.decorator";
+import { GoogleAuthGuard } from "@/modules/platform/auth/guards/google-auth.guard";
 
 /**
  * Auth rate limit configuration

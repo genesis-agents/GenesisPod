@@ -6,6 +6,11 @@ import {
   AdminCreditsController,
 } from "./credits/credits.controller";
 import { CreditsModule } from "../../platform/credits/credits.module";
+import { AuthController } from "./auth/auth.controller";
+import { AuthModule } from "../../platform/auth/auth.module";
+// MetricsController（/metrics Prometheus 端点）：MetricsService 由 @Global MonitoringModule
+// 提供，无需 import；@SkipTransform 随 controller 保留，Prometheus 抓取行为不变。
+import { MetricsController } from "./metrics/metrics.controller";
 
 /**
  * Open-API System Module（系统服务面）
@@ -19,14 +24,18 @@ import { CreditsModule } from "../../platform/credits/credits.module";
  * 的 service 仍由对应 platform 模块提供（此处 import 取用，不重复注册）。
  *
  * 2026-06-03 进驻：NotificationController（notifications）、CreditsController
- * （credits）、AdminCreditsController（admin/credits）。
+ * （credits）、AdminCreditsController（admin/credits）、AuthController（auth，含
+ * OAuth 回调，AuthModule 导出 GoogleAuthGuard 供注入）、MetricsController
+ * （metrics，Prometheus 抓取）。platform 层至此 0 controller。
  */
 @Module({
-  imports: [NotificationModule, CreditsModule], // exports 各自 service（上提的 controller 注入）
+  imports: [NotificationModule, CreditsModule, AuthModule], // exports 各自 service / guard（上提的 controller 注入）
   controllers: [
     NotificationController,
     CreditsController,
     AdminCreditsController,
+    AuthController,
+    MetricsController,
   ],
 })
 export class OpenApiSystemModule {}
