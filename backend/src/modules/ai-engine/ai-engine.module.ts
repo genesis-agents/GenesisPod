@@ -93,7 +93,7 @@ import { CreditsModule } from "../platform/credits/credits.module";
 // Capabilities
 
 // Observability core 全部由 ai-harness/ObservabilityModule (@Global) 提供，
-// 包括 LlmTracingService / EvalPipelineService — engine 不再注册它们。
+// 包括 EvalPipelineService — engine 不再注册它们。
 
 // Prompt Registry
 import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";

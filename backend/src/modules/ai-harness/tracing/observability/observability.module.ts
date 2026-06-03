@@ -18,7 +18,6 @@ import { TraceCollectorService } from "./trace-collector.service";
 import { AiObservabilityService } from "./ai-observability.service";
 import { CostAttributionService } from "./cost-attribution.service";
 import { SessionLatencyTrackerService } from "../latency/session-latency-tracker.service";
-import { LlmTracingService } from "./llm-tracing.service";
 import { EvalPipelineService } from "../evaluation/eval-pipeline.service";
 import { EvalHarnessService } from "../evaluation/eval-harness.service";
 import { EvalExperimentService } from "../evaluation/eval-experiment.service";
@@ -35,7 +34,6 @@ const OBSERVABILITY_PROVIDERS = [
   AiObservabilityService,
   CostAttributionService,
   SessionLatencyTrackerService,
-  LlmTracingService,
   EvalPipelineService,
   InMemoryEvalRunStore,
   PrismaEvalRunStore,
