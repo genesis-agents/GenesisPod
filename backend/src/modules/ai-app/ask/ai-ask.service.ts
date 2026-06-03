@@ -872,7 +872,13 @@ export class AiAskService {
       );
     }
 
-    const userMessage = await this.prisma.askMessage.create({
+    // ★ 用户消息写库挪出关键路径：fire 后不 await，与下面的 RAG + LLM ttft 等待并发跑。
+    //   LLM prompt 用的是内存里的 dto.content（见下方 push），不依赖此行已落库；
+    //   这条消息的 id/createdAt 只在流结束后的 done 事件才需要，届时它早已写完。
+    //   在 done 事件前与 assistant 写库一起 await（见末尾 Promise.all），写库失败仍会
+    //   抛给调用方（与 assistant 写库失败行为一致），只是时机后移到 LLM 调用之后。
+    //   高 DB-RTT 部署上省掉一次串行 RTT（~0.5s 感知延迟）。
+    const userMessagePromise = this.prisma.askMessage.create({
       data: {
         sessionId,
         role: "user",
@@ -884,13 +890,15 @@ export class AiAskService {
     });
 
     const tAfterUserMsg = Date.now();
-    // ★ preLLM 分段：session 查询 / 三路并行(各分支) / 写用户消息
+    // ★ preLLM 分段：session 查询 / 三路并行(各分支) / 派发用户消息写库
+    //   userMsgDispatch 现在只是 fire promise 的耗时（~0ms）——实际写库与 LLM ttft 并发，
+    //   不再计入关键路径；落库在末尾 done 事件前与 assistant 写库一起 await。
     this.logger.log(
       `[sendMessageStream preLLM breakdown] ` +
         `session=${tAfterSession - tReqStart}ms ` +
         `parallel=${tAfterParallel - tParallelStart}ms ` +
         `(model=${tModelMs}ms balance=${tBalanceMs}ms ctx=${tCtxMs}ms) ` +
-        `userMsgInsert=${tAfterUserMsg - tAfterParallel}ms`,
+        `userMsgDispatch=${tAfterUserMsg - tAfterParallel}ms(deferred)`,
     );
 
     contextMessages.push({ role: "user" as const, content: dto.content });
@@ -1021,15 +1029,19 @@ export class AiAskService {
         meta: formatted.meta,
       };
 
-      const errorMessage = await this.prisma.askMessage.create({
-        data: {
-          sessionId,
-          role: "assistant",
-          content: `Error: ${formatted.message}`,
-          modelId: modelConfig.id,
-          modelName: modelConfig.name,
-        },
-      });
+      // 解析此前并发写库的用户消息（done 事件需要其 id/createdAt），与错误消息写库并发。
+      const [userMessage, errorMessage] = await Promise.all([
+        userMessagePromise,
+        this.prisma.askMessage.create({
+          data: {
+            sessionId,
+            role: "assistant",
+            content: `Error: ${formatted.message}`,
+            modelId: modelConfig.id,
+            modelName: modelConfig.name,
+          },
+        }),
+      ]);
       yield {
         type: "done",
         userMessageId: userMessage.id,
@@ -1059,18 +1071,22 @@ export class AiAskService {
       assistantContent = "抱歉，我无法完成这个请求。";
     }
 
-    // 持久化 assistant message
-    const assistantMessage = await this.prisma.askMessage.create({
-      data: {
-        sessionId,
-        role: "assistant",
-        content: assistantContent,
-        modelId: modelConfig.id,
-        modelName: modelConfig.name,
-        webSearch: dto.webSearch || false,
-        tokens: tokensUsed,
-      },
-    });
+    // 持久化 assistant message，并解析此前并发写库的用户消息（done 事件需要其 id/createdAt）。
+    // userMessagePromise 早在 ttft 等待期间就已落库，这里的 Promise.all ≈ 仅 assistant 写库耗时。
+    const [userMessage, assistantMessage] = await Promise.all([
+      userMessagePromise,
+      this.prisma.askMessage.create({
+        data: {
+          sessionId,
+          role: "assistant",
+          content: assistantContent,
+          modelId: modelConfig.id,
+          modelName: modelConfig.name,
+          webSearch: dto.webSearch || false,
+          tokens: tokensUsed,
+        },
+      }),
+    ]);
 
     void this.prisma.askSession
       .update({
