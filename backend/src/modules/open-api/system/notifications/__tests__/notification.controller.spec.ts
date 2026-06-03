@@ -1,10 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotificationController } from "../notification.controller";
-import { NotificationService } from "../notification.service";
+import { NotificationService } from "@/modules/platform/notifications/notification.service";
 import {
   GetNotificationsQueryDto,
   UpdateNotificationPreferenceDto,
-} from "../dto/notification.dto";
+} from "@/modules/platform/notifications/dto/notification.dto";
 
 describe("NotificationController", () => {
   let controller: NotificationController;

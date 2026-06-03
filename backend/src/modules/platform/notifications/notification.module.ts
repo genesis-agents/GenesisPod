@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
-import { NotificationController } from "./notification.controller";
 import { NotificationService } from "./notification.service";
 import { NotificationPresetsService } from "./presets/notification-presets.service";
 import { NotificationGateway } from "./notification.gateway";
@@ -19,7 +18,9 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
       inject: [ConfigService],
     }),
   ],
-  controllers: [NotificationController],
+  // NotificationController（notifications，jwt 一方用户）已上提到 open-api/system
+  // （System HTTP → L4）；NotificationService 留 L1 platform 并导出。
+  // NotificationGateway（WebSocket）留此（gateway 非 HTTP controller）。
   providers: [
     NotificationService,
     NotificationPresetsService,
