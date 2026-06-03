@@ -37,7 +37,7 @@ const SRC_ROOT = path.resolve(__dirname, "../../..");
 
 const ROUTER_FILE = path.join(
   SRC_ROOT,
-  "modules/ai-engine/llm/structured-output/structured-output-router.service.ts",
+  "modules/ai-engine/llm/output/structured/structured-output-router.service.ts",
 );
 const CATALOG_FILE = path.join(
   SRC_ROOT,

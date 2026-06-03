@@ -15,8 +15,8 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import type { z } from "zod";
 import { ModelPricingRegistry } from "../../../ai-engine/llm/models/pricing/model-pricing.registry";
-import { StructuredOutputRouter } from "../../../ai-engine/llm/structured-output/structured-output-router.service";
-import type { StructuredOutputStrategy } from "../../../ai-engine/llm/structured-output/structured-output-strategy.types";
+import { StructuredOutputRouter } from "../../../ai-engine/llm/output/structured/structured-output-router.service";
+import type { StructuredOutputStrategy } from "../../../ai-engine/llm/output/structured/structured-output-strategy.types";
 import { AiModelConfigService } from "../../../ai-engine/llm/models/config/ai-model-config.service";
 // ★ 直接相对路径导入，绕开 facade barrel。
 // 原因：facade/index.ts 是 L3 AI App 的单向入口；L2 harness 内部代码
@@ -24,7 +24,7 @@ import { AiModelConfigService } from "../../../ai-engine/llm/models/config/ai-mo
 // 导致 TypeScript 在 module evaluation 阶段产生 `undefined` 类 reference，
 // Nest DI 随后报 "LlmExecutor dependency at index [0]"。
 // 参考 8ac343b98（agent-factory / spec-based-agent 已同此修复）。
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 import { AIModelType } from "@prisma/client";

@@ -6,7 +6,7 @@
  *   / `provider === 'openai'` 类启发式短路径决定 LLM 行为（response_format /
  *   maxTokens / isReasoning 等）。C 阶段（commit 325afdeef）+ D 阶段（commit
  *   4e95fdba5）已把 3 个真 P0 决策路径清零：
- *     - ai-engine/llm/services/ai-api-caller.service.ts        （能力决策入口）
+ *     - ai-engine/llm/providers/ai-api-caller.service.ts        （能力决策入口）
  *     - ai-engine/llm/services/ai-response.service.ts 不存在 → 真实位置：
  *       ai-app/teams/services/ai/ai-response.service.ts        （teams AI 出口）
  *     - ai-harness/runner/executor/agent-executor.service.ts   （runner 执行器）
@@ -57,7 +57,7 @@ const SRC_ROOT = path.resolve(__dirname, "../../..");
  * 形态零反模式（注：路径必须用正斜杠，与 src 相对路径一致）。
  */
 const ENFORCED_DECISION_FILES: ReadonlyArray<string> = [
-  "modules/ai-engine/llm/services/ai-api-caller.service.ts",
+  "modules/ai-engine/llm/providers/ai-api-caller.service.ts",
   "modules/ai-app/teams/services/ai/ai-response.service.ts",
   "modules/ai-harness/runner/executor/agent-executor.service.ts",
 ];

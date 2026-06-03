@@ -3,7 +3,7 @@
  */
 
 import { UniversalLLMAdapter } from "../universal-llm.adapter";
-import { AiChatService } from "../../services/ai-chat.service";
+import { AiChatService } from "../../chat/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { LLMRequestOptions } from "../abstractions/llm-adapter.interface";
 

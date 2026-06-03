@@ -11,10 +11,11 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "@/common/prisma/prisma.module";
 import { PromptTemplateService } from "./prompt-template.service";
+import { PromptTierAdaptationService } from "./prompt-tier-adaptation.service";
 
 @Module({
   imports: [PrismaModule],
-  providers: [PromptTemplateService],
-  exports: [PromptTemplateService],
+  providers: [PromptTemplateService, PromptTierAdaptationService],
+  exports: [PromptTemplateService, PromptTierAdaptationService],
 })
 export class PromptsModule {}

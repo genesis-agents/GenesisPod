@@ -18,8 +18,8 @@ export * from "./adapters";
 // Factory
 export * from "./factory";
 
-// Services
-export * from "./services";
+// Chat 补全管线（原 services/ai-chat + services/chat/*；含 AiChatService 与子服务）
+export * from "./chat";
 
 // Model Selection (PR-X-Q: 合并自原 election + recommendations + model-fallback)
 export * from "./models/selection";

@@ -14,7 +14,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { ModelResolverService } from "../model-resolver.service";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
 import { AiModelConfigService } from "../../../ai-engine/llm/models/config/ai-model-config.service";
 import { ModelFallbackService } from "../../../ai-engine/llm/models/selection/model-fallback.service";
 import { ORCHESTRATION_FEATURE } from "../facade.providers";

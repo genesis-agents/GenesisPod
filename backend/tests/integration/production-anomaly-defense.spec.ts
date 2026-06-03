@@ -7,9 +7,9 @@
 
 // ★ 2026-05-13: import paths fixed after MECE-W17 reorg (commit 0445c6862)
 //   and PR-Engine-Top (commit 101d7f444) moved these utils to:
-//     stripChartJsonFromContent → ai-engine/llm/output-parsing
+//     stripChartJsonFromContent → ai-engine/llm/output/sanitization
 //     stripLLMMetaNotes        → ai-app/contracts/report-template (unchanged path-key)
-import { stripChartJsonFromContent } from "../../src/modules/ai-engine/llm/output-parsing/strip-chart-json.utils";
+import { stripChartJsonFromContent } from "../../src/modules/ai-engine/llm/output/sanitization/strip-chart-json.utils";
 import { stripLLMMetaNotes } from "../../src/modules/ai-app/contracts/report-template";
 
 // ============================================================================

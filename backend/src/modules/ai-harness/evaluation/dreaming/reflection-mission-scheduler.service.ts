@@ -24,7 +24,7 @@ import { z } from "zod";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { CacheService, CacheTTL } from "@/common/cache/cache.service";
 import { AIModelType } from "@prisma/client";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
 import {
   DEFAULT_DREAMING_CONFIG,
   DreamingRule,

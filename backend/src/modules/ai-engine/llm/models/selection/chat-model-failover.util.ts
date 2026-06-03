@@ -14,7 +14,7 @@ import {
 } from "./model-failover.classifier";
 import type { AiModelConfigService } from "../config/ai-model-config.service";
 // 仅类型导入（运行时擦除）→ 不与 ai-chat.service 形成运行时循环依赖。
-import type { ChatOptions, ChatResult } from "../../services/ai-chat.service";
+import type { ChatOptions, ChatResult } from "../../chat/ai-chat.service";
 
 /**
  * 从错误消息抽 provider 名累积到 failedProviders。失败的 provider 会让

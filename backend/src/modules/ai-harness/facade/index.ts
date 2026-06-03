@@ -95,7 +95,7 @@ export {
   removeOrphanCitations,
   stripChartJsonFromContent,
   extractMarkdownFromJsonString,
-} from "../../ai-engine/llm/output-parsing";
+} from "../../ai-engine/llm/output/sanitization";
 
 // â˜… Planning & Knowledge services
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
@@ -110,7 +110,7 @@ export { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/co
 export { CrossCuttingSynthesisService } from "../../ai-engine/knowledge/synthesis/cross-cutting-synthesis.service";
 export type { SynthesisResult } from "../../ai-engine/knowledge/synthesis/cross-cutting-synthesis.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { PromptCacheCoordinatorService } from "../../ai-engine/llm/services/chat/prompt-cache-coordinator.service";
+export { PromptCacheCoordinatorService } from "../../ai-engine/llm/chat/prompt-cache-coordinator.service";
 export type { SaveEvidenceRequest } from "../../ai-engine/knowledge/evidence/abstractions/evidence.interface";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { inferIsReasoning } from "../../ai-engine/llm/types/model.utils";
@@ -1346,7 +1346,7 @@ export { SKILL_PROVIDERS } from "../agents/abstractions/skill.interface";
 
 // Engine LLM service classes (PR-X14: harness facade 转发常用 engine 服务)
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+export { AiChatService } from "../../ai-engine/llm/chat/ai-chat.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { AiModelConfigService } from "../../ai-engine/llm/models/config/ai-model-config.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
@@ -1388,9 +1388,9 @@ export {
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { AiModelDiscoveryService } from "../../ai-engine/llm/models/catalog/ai-model-discovery.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { AiConnectionTestService } from "../../ai-engine/llm/services/ai-connection-test.service";
+export { AiConnectionTestService } from "../../ai-engine/llm/byok/ai-connection-test.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { AutoConfigureService } from "../../ai-engine/llm/user-config/user-models-auto-configure.service";
+export { AutoConfigureService } from "../../ai-engine/llm/byok/user-models-auto-configure.service";
 
 // Compatibility forwards for ai-app imports that still use the harness facade
 // as the single public entrypoint while their implementations remain engine-owned.

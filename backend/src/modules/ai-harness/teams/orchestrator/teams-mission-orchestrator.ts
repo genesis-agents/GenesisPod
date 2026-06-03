@@ -65,7 +65,7 @@ import {
   HandoffContextBuilder,
 } from "@/modules/ai-harness/teams/collaboration/patterns/handoff-pattern";
 import { CollaborationMessage } from "@/modules/ai-harness/teams/collaboration/abstractions/collaborator.interface";
-import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "@/modules/ai-engine/llm/chat/ai-chat.service";
 import {
   AiChatLLMAdapter,
   ISimpleLLMAdapter,

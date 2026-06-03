@@ -16,7 +16,7 @@ import { ReflectionMissionScheduler } from "../reflection-mission-scheduler.serv
 import { DEFAULT_DREAMING_CONFIG } from "../dreaming.types";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { CacheService } from "@/common/cache/cache.service";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../../ai-engine/llm/chat/ai-chat.service";
 
 class FakeCache {
   private store = new Map<string, unknown>();

@@ -6,7 +6,7 @@ import {
   DataAnalysisInput,
   DataAnalysisTool,
 } from "../data/data-analysis.tool";
-import { AiChatService } from "../../../../llm/services/ai-chat.service";
+import { AiChatService } from "../../../../llm/chat/ai-chat.service";
 import { ToolContext } from "../../../abstractions/tool.interface";
 
 // ============================================================================

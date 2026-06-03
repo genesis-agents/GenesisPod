@@ -33,7 +33,7 @@ import {
 import { AIModelType } from "@prisma/client";
 import { TraceCollectorService } from "../observability/trace-collector.service";
 import { TraceData, SpanData } from "../observability/trace.interface";
-import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "@/modules/ai-engine/llm/chat/ai-chat.service";
 
 // ─────────────────────────────────────────────────────────
 // Public types

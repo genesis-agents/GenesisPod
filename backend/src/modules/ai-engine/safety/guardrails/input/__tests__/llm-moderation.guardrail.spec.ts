@@ -19,7 +19,7 @@ import { IInputGuardrail, GuardrailResult } from "../../guardrails.interface";
 import type {
   AiChatService,
   ChatResult,
-} from "../../../../llm/services/ai-chat.service";
+} from "../../../../llm/chat/ai-chat.service";
 
 /** 构造一个固定返回值的 mock 正则护栏 */
 function fixedGuardrail(id: string, result: GuardrailResult): IInputGuardrail {

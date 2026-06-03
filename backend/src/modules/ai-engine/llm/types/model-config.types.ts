@@ -83,7 +83,7 @@ export interface AIModelConfig {
 
   // ★ 2026-05-06 Structured Output capability matrix
   // 由 StructuredOutputRouter.resolveChain(model) 消费，未配置时按 provider slug
-  // 自动推断默认链。详见 ai-engine/llm/structured-output/。
+  // 自动推断默认链。详见 ai-engine/llm/output/structured/。
   structuredOutputStrategy?: string | null;
   fallbackStrategies?: string[];
   supportsJsonSchemaStrict?: boolean;
