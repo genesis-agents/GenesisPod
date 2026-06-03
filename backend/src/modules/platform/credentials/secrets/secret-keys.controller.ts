@@ -29,8 +29,8 @@ import {
   UpdateSecretKeyMetaDto,
   ReplaceSecretKeyValueDto,
 } from "./dto/secret-key.dto";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
+import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
+import { AdminGuard } from "@/common/guards/admin.guard";
 
 interface AuthenticatedRequest extends Request {
   user?: { userId: string; email: string };

@@ -17,12 +17,12 @@ global.fetch = mockFetch;
 
 // Mock ChatFacade and SecretsService modules
 jest.mock("@/modules/ai-harness/facade/domain/chat.facade");
-jest.mock("../../../../platform/secrets/secrets.service");
+jest.mock("../../../../platform/credentials/secrets/secrets.service");
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ScreenshotAnalyzerService } from "../screenshot-analyzer.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
-import { SecretsService } from "../../../../platform/secrets/secrets.service";
+import { SecretsService } from "../../../../platform/credentials/secrets/secrets.service";
 import type { FeedbackAttachment } from "../../triage/triage-decision.types";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────

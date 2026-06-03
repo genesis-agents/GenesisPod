@@ -6,9 +6,9 @@ import {
 } from "@nestjs/common";
 import { SecretCategory } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { EncryptionService } from "@/modules/platform/encryption/encryption.service";
+import { EncryptionService } from "@/modules/platform/credentials/encryption/encryption.service";
 import { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
-import { SecretsService } from "@/modules/platform/secrets/secrets.service";
+import { SecretsService } from "@/modules/platform/credentials/secrets/secrets.service";
 import { ApiKeyMode } from "../user-api-keys/dto";
 import {
   CreateUserSecretDto,

@@ -4,7 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { of } from "rxjs";
 import { SearchService } from "../search.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/platform/secrets/secrets.service";
+import { SecretsService } from "@/modules/platform/credentials/secrets/secrets.service";
 import { ToolKeyResolverService } from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
 
 // Mock duck-duck-scrape module

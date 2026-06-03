@@ -15,8 +15,8 @@ import { Logger, NotFoundException, BadRequestException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { UserApiKeysService } from "../user-api-keys.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { EncryptionService } from "../../../../platform/encryption/encryption.service";
-import { ProviderProbeService } from "@/modules/platform/key-health/provider-probe.service";
+import { EncryptionService } from "../../../../platform/credentials/encryption/encryption.service";
+import { ProviderProbeService } from "@/modules/platform/credentials/key-health/provider-probe.service";
 import { UserApiKeyMode } from "@prisma/client";
 import { ApiKeyMode } from "../dto";
 

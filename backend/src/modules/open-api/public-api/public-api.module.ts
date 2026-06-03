@@ -10,7 +10,7 @@
 
 import { Module } from "@nestjs/common";
 import { PublicApiController } from "./public-api.controller";
-import { SecretsModule } from "../../platform/secrets/secrets.module";
+import { SecretsModule } from "../../platform/credentials/secrets/secrets.module";
 @Module({
   imports: [
     SecretsModule, // Required for MCPApiKeyGuard

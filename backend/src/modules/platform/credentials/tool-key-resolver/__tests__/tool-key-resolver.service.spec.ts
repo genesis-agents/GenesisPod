@@ -5,8 +5,8 @@ import {
   ToolKeyResolverService,
 } from "../tool-key-resolver.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SecretsService } from "@/modules/platform/secrets/secrets.service";
-import { SecretKeysService } from "@/modules/platform/secrets/secret-keys.service";
+import { SecretsService } from "@/modules/platform/credentials/secrets/secrets.service";
+import { SecretKeysService } from "@/modules/platform/credentials/secrets/secret-keys.service";
 import { UserSecretsService } from "../../user-secrets/user-secrets.service";
 
 describe("ToolKeyResolverService", () => {

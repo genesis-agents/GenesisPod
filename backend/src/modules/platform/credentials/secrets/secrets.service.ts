@@ -13,7 +13,7 @@ import {
   BadRequestException,
   ConflictException,
 } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   Secret,
   SecretCategory,
@@ -30,7 +30,7 @@ import {
 } from "./secret-name.catalog";
 import { EncryptionService } from "../encryption/encryption.service";
 import { SecretKeysService } from "./secret-keys.service";
-import { AuditLogService } from "../monitoring/audit/audit-log.service";
+import { AuditLogService } from "@/modules/platform/monitoring/audit/audit-log.service";
 
 export type SecretAggregateStatus = "ok" | "failed" | "unknown" | "disabled";
 

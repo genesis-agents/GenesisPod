@@ -1,9 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AuthRequestType, ToolKeyFallbackMode } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService } from "@/modules/platform/secrets/secrets.service";
-import { SecretKeysService } from "@/modules/platform/secrets/secret-keys.service";
-import { EXTERNAL_TOOL_SECRET_MAPPING } from "@/modules/platform/secrets/secret-name.catalog";
+import { SecretsService } from "@/modules/platform/credentials/secrets/secrets.service";
+import { SecretKeysService } from "@/modules/platform/credentials/secrets/secret-keys.service";
+import { EXTERNAL_TOOL_SECRET_MAPPING } from "@/modules/platform/credentials/secrets/secret-name.catalog";
 import { UserSecretsService } from "../user-secrets/user-secrets.service";
 
 /** 工具 Key 无法解析时抛出（STRICT 模式下用户未配 + 未授权）。 */

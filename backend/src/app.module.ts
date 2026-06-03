@@ -37,7 +37,7 @@ import { SettingsModule } from "./modules/platform/settings/settings.module";
 import { StorageModule } from "./modules/platform/storage/storage.module";
 import { DbOpsModule } from "./modules/platform/db-ops/db-ops.module";
 import { CreditsModule } from "./modules/platform/credits/credits.module";
-import { EncryptionModule } from "./modules/platform/encryption/encryption.module";
+import { EncryptionModule } from "./modules/platform/credentials/encryption/encryption.module";
 import { UserApiKeysModule } from "./modules/platform/credentials/user-api-keys/user-api-keys.module";
 import { ByokModule } from "./modules/ai-app/byok/byok.module";
 import { KeyAssignmentsModule } from "./modules/platform/credentials/key-assignments";

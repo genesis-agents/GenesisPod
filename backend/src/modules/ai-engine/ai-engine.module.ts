@@ -25,7 +25,7 @@ import {
 import { DiscoveryModule } from "@nestjs/core";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { PrismaService } from "../../common/prisma/prisma.service";
-import { SecretsModule } from "../platform/secrets/secrets.module";
+import { SecretsModule } from "../platform/credentials/secrets/secrets.module";
 
 // ★ 子模块导入
 import { AiEngineLLMModule } from "./llm/llm.module";

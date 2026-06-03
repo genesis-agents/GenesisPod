@@ -455,8 +455,8 @@ export type {
   FullSkillDefinition,
 } from "../skills/content/skill-content.service";
 export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
-export { MultiKeyRegistry } from "@/modules/platform/key-health/multi-key.manager";
-export type { KeyHealthStatus } from "@/modules/platform/key-health/multi-key.manager";
+export { MultiKeyRegistry } from "@/modules/platform/credentials/key-health/multi-key.manager";
+export type { KeyHealthStatus } from "@/modules/platform/credentials/key-health/multi-key.manager";
 // AICapabilityResolver 是 L2.5 ai-harness/runner 服务，2026-05-01 PR-X-M2
 // 下沉为 ai-harness/facade export
 // IntentRouterService / RouteResult / AgentContext 已删 (2026-04-30) — 死代码

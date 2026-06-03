@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { QuotaService } from "../quota.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../../platform/secrets/secrets.service";
+import { SecretsService } from "../../../../platform/credentials/secrets/secrets.service";
 import {
   OpenAIQuotaProvider,
   AnthropicQuotaProvider,

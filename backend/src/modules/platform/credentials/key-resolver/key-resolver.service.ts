@@ -13,7 +13,7 @@ import {
   buildAssignedKeyId,
   buildPersonalKeyId,
   parseKeyId,
-} from "@/modules/platform/key-health";
+} from "@/modules/platform/credentials/key-health";
 import { NoAvailableKeyError } from "./key-resolver.errors";
 
 export type KeySource = "PERSONAL" | "ASSIGNED" | "SYSTEM";

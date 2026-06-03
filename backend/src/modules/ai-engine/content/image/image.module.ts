@@ -14,7 +14,7 @@ import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "@/common/prisma/prisma.module";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/platform/facade";
-import { SecretsModule } from "@/modules/platform/secrets/secrets.module";
+import { SecretsModule } from "@/modules/platform/credentials/secrets/secrets.module";
 import { AIModelType } from "@prisma/client";
 
 import { ImageFactory } from "./factory/image.factory";

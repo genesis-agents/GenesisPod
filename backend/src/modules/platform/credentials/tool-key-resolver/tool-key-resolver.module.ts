@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
-import { SecretsModule } from "@/modules/platform/secrets/secrets.module";
+import { SecretsModule } from "@/modules/platform/credentials/secrets/secrets.module";
 import { UserSecretsModule } from "../user-secrets/user-secrets.module";
 import { ToolKeyResolverService } from "./tool-key-resolver.service";
 

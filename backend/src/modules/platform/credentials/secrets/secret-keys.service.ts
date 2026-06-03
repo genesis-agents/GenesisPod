@@ -15,7 +15,7 @@ import {
   NotFoundException,
   ConflictException,
 } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import { EncryptionService } from "../encryption/encryption.service";
 import { Secret, SecretKey } from "@prisma/client";
 import {

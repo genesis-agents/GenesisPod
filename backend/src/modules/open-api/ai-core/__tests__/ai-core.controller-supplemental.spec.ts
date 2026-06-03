@@ -18,7 +18,7 @@ import { AiCoreController } from "../ai-core.controller";
 import { AiCoreService } from "../ai-core.service";
 import { ChatFacade } from "../../../ai-harness/facade";
 import { RAGPipelineService } from "@/modules/ai-engine/rag/pipeline";
-import { SecretsService } from "../../../platform/secrets/secrets.service";
+import { SecretsService } from "../../../platform/credentials/secrets/secrets.service";
 import { SearchService } from "../../../ai-engine/knowledge/search/search.service";
 
 const mockAiCoreService = {

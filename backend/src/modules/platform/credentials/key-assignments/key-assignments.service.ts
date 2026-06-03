@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { KeyAssignment, KeyAssignmentStatus, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService } from "@/modules/platform/secrets/secrets.service";
+import { SecretsService } from "@/modules/platform/credentials/secrets/secrets.service";
 import { NotificationPresetsService } from "@/modules/platform/notifications/presets/notification-presets.service";
 import { QuotaExceededError } from "../key-resolver/key-resolver.errors";
 

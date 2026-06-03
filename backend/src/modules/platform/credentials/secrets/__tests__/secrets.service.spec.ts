@@ -3,9 +3,9 @@ import { Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { SecretsService } from "../secrets.service";
 import { SecretKeysService } from "../secret-keys.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import { EncryptionService } from "../../encryption/encryption.service";
-import { AuditLogService } from "../../monitoring/audit/audit-log.service";
+import { AuditLogService } from "@/modules/platform/monitoring/audit/audit-log.service";
 import { SecretCategory, SecretAction } from "@prisma/client";
 import { classifySecret } from "../secret-name.catalog";
 

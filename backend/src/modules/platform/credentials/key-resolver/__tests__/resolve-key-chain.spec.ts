@@ -3,7 +3,7 @@ import { KeyResolverService } from "../key-resolver.service";
 import { KeyAssignmentsService } from "../../key-assignments/key-assignments.service";
 import { UserApiKeysService } from "../../user-api-keys/user-api-keys.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { KeyHealthStore } from "@/modules/platform/key-health";
+import { KeyHealthStore } from "@/modules/platform/credentials/key-health";
 
 describe("KeyResolverService.resolveKeyChain", () => {
   let service: KeyResolverService;

@@ -25,8 +25,8 @@ import { CreateSecretDto } from "./dto/create-secret.dto";
 import { UpdateSecretDto } from "./dto/update-secret.dto";
 import { SecretNameValidationPipe } from "./dto/secret-name-validation.pipe";
 import { Throttle } from "@nestjs/throttler";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
+import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
+import { AdminGuard } from "@/common/guards/admin.guard";
 import { SecretCategory } from "@prisma/client";
 
 interface AuthenticatedRequest extends Request {

@@ -9,7 +9,7 @@ import {
   SkillContentService,
   SearchService,
 } from "../../../ai-engine/facade";
-import { SecretsService } from "../../../platform/secrets/secrets.service";
+import { SecretsService } from "../../../platform/credentials/secrets/secrets.service";
 
 describe("AIAdminService", () => {
   let service: AIAdminService;

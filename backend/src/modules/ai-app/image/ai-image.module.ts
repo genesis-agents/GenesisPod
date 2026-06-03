@@ -3,7 +3,7 @@ import { HttpModule } from "@nestjs/axios";
 import { MulterModule } from "@nestjs/platform-express";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { StorageModule } from "../../platform/storage/storage.module";
-import { SecretsModule } from "../../platform/secrets/secrets.module";
+import { SecretsModule } from "../../platform/credentials/secrets/secrets.module";
 import { BrowserModule } from "../../../common/browser/browser.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";

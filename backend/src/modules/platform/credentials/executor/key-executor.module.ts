@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { KeyHealthModule } from "@/modules/platform/key-health/key-health.module";
+import { KeyHealthModule } from "@/modules/platform/credentials/key-health/key-health.module";
 import { KeyResolverModule } from "../key-resolver/key-resolver.module";
 import { KeyExecutorService } from "./key-executor.service";
 

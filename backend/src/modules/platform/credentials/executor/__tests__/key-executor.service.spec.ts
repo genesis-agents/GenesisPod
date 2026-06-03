@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import {
   KeyErrorClassifier,
   KeyHealthStore,
-} from "@/modules/platform/key-health";
+} from "@/modules/platform/credentials/key-health";
 import {
   KeyChain,
   KeyResolverService,
