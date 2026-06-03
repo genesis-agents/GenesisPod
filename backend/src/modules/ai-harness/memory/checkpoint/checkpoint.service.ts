@@ -52,6 +52,9 @@ export class AgentStepCheckpointService implements ICheckpointService {
     const checkpoint: ICheckpoint = {
       id: randomUUID(),
       agentId: params.agentId,
+      // HARNESS-SEC-001：从 envelope.memory 捕获归属用户，供 resume/fork 属主校验
+      //   （optional chain：memory 缺失=系统/匿名断点 → ownerUserId undefined）
+      ownerUserId: params.envelope.memory?.userId,
       takenAt: Date.now(),
       reason: params.reason,
       agentState: params.agentState,

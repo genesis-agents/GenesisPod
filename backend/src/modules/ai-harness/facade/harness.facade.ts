@@ -104,7 +104,9 @@ export class HarnessFacade implements IHarness {
    * Resume — 从 checkpoint id 或最新 checkpoint 恢复 agent 执行
    */
   async resume(
-    params: { checkpointId: string } | { agentId: string; useLatest: true },
+    params:
+      | { checkpointId: string; requestingUserId: string }
+      | { agentId: string; useLatest: true; requestingUserId: string },
   ): Promise<{ agent: IAgent; checkpoint: ICheckpoint } | null> {
     if (!this.checkpointService) {
       throw new Error(
@@ -119,6 +121,15 @@ export class HarnessFacade implements IHarness {
       checkpoint = await this.checkpointService.latestForAgent(params.agentId);
     }
     if (!checkpoint) return null;
+
+    // HARNESS-SEC-001：属主校验——非属主断点视作不存在（防跨租户读 envelope/工具结果/产物）。
+    //   ownerUserId 为空 = 系统/匿名断点，允许恢复。
+    if (
+      checkpoint.ownerUserId != null &&
+      checkpoint.ownerUserId !== params.requestingUserId
+    ) {
+      return null;
+    }
 
     const agent = this.factory.createFromCheckpoint({
       identity: checkpoint.identity,
@@ -141,6 +152,7 @@ export class HarnessFacade implements IHarness {
    */
   async fork(
     checkpointId: string,
+    requestingUserId: string,
     options?: {
       newSessionId?: string;
       /** 默认 false —— 强烈推荐保持隔离，避免 fork 跨用户读取记忆 */
@@ -157,6 +169,14 @@ export class HarnessFacade implements IHarness {
     }
     const checkpoint = await this.checkpointService.load(checkpointId);
     if (!checkpoint) return null;
+
+    // HARNESS-SEC-001：属主校验——非属主断点不可 fork（防跨租户读他人 agent 上下文）。
+    if (
+      checkpoint.ownerUserId != null &&
+      checkpoint.ownerUserId !== requestingUserId
+    ) {
+      return null;
+    }
     const newSessionId =
       options?.newSessionId ??
       `${checkpoint.envelope.memory.sessionId}.fork.${Date.now()}`;
