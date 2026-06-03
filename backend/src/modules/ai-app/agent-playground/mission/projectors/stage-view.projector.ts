@@ -274,17 +274,22 @@ const STAGE_AGENT_PATTERN: Record<
   { ids?: string[]; prefixes?: string[] }
 > = {
   "s2-leader-plan": { ids: ["leader"] },
-  // s3 数据采集：每维度派 researcher#${idx}（retry 走 researcher#${idx}.retry${n}），
-  // 两者都以 "researcher#" 开头 → 单前缀全覆盖，把工具调用 trace 归入数据采集阶段。
-  "s3-researchers": { prefixes: ["researcher#"] },
+  // s3 数据采集：每维度派 researcher#${idx}（retry 走 researcher#${idx}.retry${n}）+
+  // quality-judge#${idx}（章节质量判定），按各自前缀归入数据采集阶段。
+  "s3-researchers": { prefixes: ["researcher#", "quality-judge#"] },
   "s4-leader-assess": { ids: ["leader"] },
   "s5-reconciler": { ids: ["reconciler"] },
   "s6-analyst": { ids: ["analyst"], prefixes: ["analyst."] },
   "s7-writer-outline": { ids: ["outline-planner"] },
-  "s8-writer-draft": { prefixes: ["writer#", "writer."], ids: ["writer"] },
+  // M4 fix：s8 草稿阶段含 writer + reviewer（草稿/评审环），reviewer 之前漏映射。
+  "s8-writer-draft": {
+    prefixes: ["writer#", "writer."],
+    ids: ["writer", "reviewer"],
+  },
   "s8b-quality-enhancement": { ids: ["writer"], prefixes: ["writer#"] },
+  // M4 fix：s9 含 critic + forecast-red-team（红队前瞻），后者之前漏映射。
   "s9-critic-l4": {
-    ids: ["critic", "mission-critic"],
+    ids: ["critic", "mission-critic", "forecast-red-team"],
     prefixes: ["critic."],
   },
   "s9b-objective-evaluation": {

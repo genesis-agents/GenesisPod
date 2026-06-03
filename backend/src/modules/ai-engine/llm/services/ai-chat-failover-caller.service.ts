@@ -62,6 +62,10 @@ export class AiChatFailoverCallerService {
   >();
   private static readonly RPM_CACHE_TTL_MS = 60_000;
   private static readonly RPM_MAX_WAIT_MS = 120_000;
+  // L4 fix：两个 per-(user,model) Map 仅 get/set、无界增长（rpmCache 连 null-rpm
+  // 也缓存 → 对所有 user×model 增长）。周期性清扫 idle 条目防 long-running pod 泄漏。
+  private static readonly RPM_SWEEP_EVERY = 500;
+  private rpmOpCount = 0;
 
   /**
    * 让用户在「添加模型配置」里显式配的 rpmLimit 真正生效：按 rpm 均匀间隔放行调用，
@@ -75,6 +79,9 @@ export class AiChatFailoverCallerService {
   ): Promise<void> {
     const cacheKey = `${userId}:${modelId}`;
     const now = Date.now();
+    if (++this.rpmOpCount % AiChatFailoverCallerService.RPM_SWEEP_EVERY === 0) {
+      this.sweepRpmMaps(now);
+    }
     let entry = this.rpmCache.get(cacheKey);
     if (
       !entry ||
@@ -100,6 +107,17 @@ export class AiChatFailoverCallerService {
       await this.retryService.sleep(
         Math.min(wait, AiChatFailoverCallerService.RPM_MAX_WAIT_MS),
       );
+    }
+  }
+
+  /** L4：清扫无界增长的 rpm Map —— 删 TTL 过期的 rpmCache 与已远过去时隙的 rpmNextSlotAt。 */
+  private sweepRpmMaps(now: number): void {
+    const ttl = AiChatFailoverCallerService.RPM_CACHE_TTL_MS;
+    for (const [k, v] of this.rpmCache) {
+      if (now - v.at > ttl) this.rpmCache.delete(k);
+    }
+    for (const [k, slot] of this.rpmNextSlotAt) {
+      if (slot < now - ttl) this.rpmNextSlotAt.delete(k);
     }
   }
 

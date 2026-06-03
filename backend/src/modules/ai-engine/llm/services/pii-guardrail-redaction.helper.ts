@@ -8,9 +8,22 @@ import type { ChatMessage } from "../types";
  * 管道返回的是 join 后的整串无法可靠拆回单条，故逐条 redactPII，结果等价。
  */
 export function redactUserMessages(messages: ChatMessage[]): ChatMessage[] {
-  return messages.map((m) =>
-    m.role === "user" ? { ...m, content: redactPII(m.content).redacted } : m,
-  );
+  return messages.map((m) => {
+    if (m.role !== "user") return m;
+    const redacted: ChatMessage = {
+      ...m,
+      content: redactPII(m.content).redacted,
+    };
+    // L1 fix：多模态消息的文本块也脱敏（contentParts[].text）。否则 Vision/多模态
+    // 用户文本里的 PII 会绕过脱敏直达 provider（contentParts 在置位时代替 content）。
+    // 图片块（image_url）原样保留。
+    if (Array.isArray(m.contentParts)) {
+      redacted.contentParts = m.contentParts.map((p) =>
+        p.type === "text" ? { ...p, text: redactPII(p.text).redacted } : p,
+      );
+    }
+    return redacted;
+  });
 }
 
 /**

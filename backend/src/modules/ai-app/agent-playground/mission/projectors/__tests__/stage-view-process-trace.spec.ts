@@ -17,6 +17,8 @@
  *  10. stage:lifecycle 事件不被误判为 trace（不影响 status 派生）
  */
 
+import { readdirSync, readFileSync } from "fs";
+import { join } from "path";
 import { projectStages } from "../stage-view.projector";
 
 interface E {
@@ -256,28 +258,33 @@ describe("§ stage-view processTrace (T75)", () => {
     expect(s3.processTrace?.totalDurationMs).toBe(1500);
   });
 
-  // ── Exhaustiveness 守护：pipeline 每个 stage 实际 emit 的代表性 agentId 都必须
-  //    能被 STAGE_AGENT_PATTERN 映射到某个 stage——任何一个映射不到就会被
-  //    projector 的 `if (!stageId) continue` 静默丢弃，面板对该 stage 过程空白
-  //    （正是 s3-researchers 漏映射这个 bug 的本质）。新增会 emit agent 事件的
-  //    stage / 改 agentId 命名时，必须同步更新下面这张清单 + STAGE_AGENT_PATTERN。
-  //
-  //    注：s4/s10 共享 "leader"、s8b 共享 "writer#"、s9b 共享 "critic"，按
-  //    first-wins 命中前序 stage 是设计；故本守护只断言"不被丢弃"，不绑定具体 stage。
-  it("(13) exhaustiveness：每个 pipeline emit 的 agentId 都能映射、不被静默丢弃", () => {
-    const EMITTED_AGENT_IDS = [
-      "leader", // s2 / s4 / s10
-      "researcher#0", // s3
-      "researcher#3.retry1", // s3 retry 变体
-      "reconciler", // s5
-      "analyst", // s6
-      "analyst.retry", // s6 retry 变体
-      "outline-planner", // s7
-      "writer#1", // s8 / s8b
-      "critic", // s9 / s9b
-      "evaluator", // s9b
-    ];
-    const dropped = EMITTED_AGENT_IDS.filter((agentId) => {
+  // ── Exhaustiveness 守护（M4：从源码派生，不再手维护清单）──────────────────
+  //    直接扫 pipeline/stages/*.stage.ts 里所有 `agentId: "..."` / `agentId = \`...\``
+  //    字面量，对每个能解析出的代表性 agentId 断言它能被 STAGE_AGENT_PATTERN
+  //    映射到某 stage——映射不到就会被 projector 的 `if (!stageId) continue`
+  //    静默丢弃、该 stage 过程面板空白（s3-researchers 漏映射 bug 的本质）。
+  //    新增 stage / 改 agentId 命名会被本测试自动覆盖，无需手动同步清单。
+  //    （首次接入即揪出 reviewer / forecast-red-team / quality-judge# 三处漏映射。）
+  it("(13) exhaustiveness：所有 stage emit 的 agentId 都能映射（从源码派生）", () => {
+    const STAGES_DIR = join(__dirname, "..", "..", "pipeline", "stages");
+    const re = /agentId\s*[:=]\s*(?:"([^"]+)"|`([^`]+)`)/g;
+    const sampleIds = new Set<string>();
+    for (const file of readdirSync(STAGES_DIR)) {
+      if (!file.endsWith(".stage.ts")) continue;
+      const src = readFileSync(join(STAGES_DIR, file), "utf8");
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src))) {
+        const raw = m[1] ?? m[2] ?? "";
+        // 模板字面量取首个 ${ 之前的静态前缀；纯变量（以 ${ 开头）无法解析→跳过
+        const staticPart = raw.split("${")[0];
+        if (!staticPart) continue;
+        // 代表性 agentId：含模板用 prefix+"0"，纯字符串原样
+        sampleIds.add(raw.includes("${") ? `${staticPart}0` : staticPart);
+      }
+    }
+    expect(sampleIds.size).toBeGreaterThan(5); // sanity：确实扫到东西
+
+    const dropped = [...sampleIds].filter((agentId) => {
       const stages = projectStages([
         {
           type: "agent-playground.agent:action",
@@ -285,10 +292,9 @@ describe("§ stage-view processTrace (T75)", () => {
           timestamp: 1,
         },
       ]);
-      // "被丢弃" = 没有任何 stage 收到这条 action 的 reactTrace
       return stages.every((s) => !(s.processTrace?.reactTrace?.length ?? 0));
     });
-    // 任何被丢弃的 agentId 都列在这里，断言它为空 —— 失败时直接看到是哪个掉了
+    // 任何映射不到的 agentId 都列在这里——失败时直接看到是哪个 stage 会被丢
     expect(dropped).toEqual([]);
   });
 });

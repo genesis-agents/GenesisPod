@@ -196,6 +196,15 @@ describe("CostLedgerStore", () => {
     });
     expect(wrote).toBe(false);
   });
+
+  it("L6: listByMission 在 DB 故障时优雅降级返回 [] (不抛 → 端点不 500)", async () => {
+    const prisma = makeFakePrisma();
+    prisma.agentPlaygroundMissionCostLedger.findMany.mockRejectedValueOnce(
+      new Error("db down"),
+    );
+    const store = new CostLedgerStore(prisma as never);
+    await expect(store.listByMission("m1")).resolves.toEqual([]);
+  });
 });
 
 // ─── AgentInvoker.tickCost → ledger write ────────────────────────────────────

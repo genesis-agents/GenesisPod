@@ -18,6 +18,7 @@ import {
   SaveUserApiKeyDto,
   TestApiKeyDto,
 } from "@/modules/ai-harness/facade";
+import { AiModelConfigService } from "@/modules/ai-engine/facade";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };
@@ -27,7 +28,12 @@ interface AuthenticatedRequest {
 @Controller("user/api-keys")
 @UseGuards(JwtAuthGuard)
 export class UserApiKeysController {
-  constructor(private readonly userApiKeysService: UserApiKeysService) {}
+  constructor(
+    private readonly userApiKeysService: UserApiKeysService,
+    // M2 fix：加/删 key 后失效 per-(user,modelId) 解析缓存。否则加 key 后模型最长
+    // 60s 仍"不可用"、删 key 后最长 60s 仍"可用"（model-config CRUD 已失效，key 漏）。
+    private readonly aiModelConfig: AiModelConfigService,
+  ) {}
 
   /**
    * 列出用户的所有 API Key 配置
@@ -63,7 +69,7 @@ export class UserApiKeysController {
     @Param("provider") provider: string,
     @Body() dto: SaveUserApiKeyDto,
   ) {
-    return this.userApiKeysService.saveKey(
+    const result = await this.userApiKeysService.saveKey(
       req.user.id,
       provider,
       dto.apiKey,
@@ -72,6 +78,8 @@ export class UserApiKeysController {
       dto.apiEndpoint,
       dto.label,
     );
+    this.aiModelConfig.clearResolvedModelCache(req.user.id);
+    return result;
   }
 
   /**
@@ -83,7 +91,13 @@ export class UserApiKeysController {
     @Param("provider") provider: string,
     @Query("label") label?: string,
   ) {
-    return this.userApiKeysService.deleteKey(req.user.id, provider, label);
+    const result = await this.userApiKeysService.deleteKey(
+      req.user.id,
+      provider,
+      label,
+    );
+    this.aiModelConfig.clearResolvedModelCache(req.user.id);
+    return result;
   }
 
   /**
