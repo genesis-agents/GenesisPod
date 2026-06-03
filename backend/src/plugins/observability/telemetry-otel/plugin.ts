@@ -28,9 +28,9 @@ import { CORE_HOOKS } from "@/plugins/core/abstractions";
 import { TELEMETRY_OTEL_MANIFEST } from "./manifest";
 import {
   type ISpanExporter,
-  type SpanData,
+  type TelemetrySpanData,
   InMemorySpanExporter,
-} from "./span-exporter.interface";
+} from "@/plugins/core/abstractions/observability/span-exporter.port";
 
 /**
  * plugin 配置
@@ -99,7 +99,7 @@ export class TelemetryOtelPlugin implements IPlugin<TelemetryOtelConfig> {
       this.startTimes.get(key) ?? ctx.payload.meta.timestamp ?? Date.now();
     this.startTimes.delete(key);
 
-    const span: SpanData = {
+    const span: TelemetrySpanData = {
       name: "llm.request",
       attributes: this.scrubAttributes({
         "service.name": this.serviceName,
@@ -130,10 +130,10 @@ export class TelemetryOtelPlugin implements IPlugin<TelemetryOtelConfig> {
       this.startTimes.get(key) ?? ctx.payload.meta.timestamp ?? Date.now();
     this.startTimes.delete(key);
 
-    const status: SpanData["status"] = ctx.payload.abortReason
+    const status: TelemetrySpanData["status"] = ctx.payload.abortReason
       ? "aborted"
       : "ok";
-    const span: SpanData = {
+    const span: TelemetrySpanData = {
       name: "tool.execute",
       attributes: this.scrubAttributes({
         "service.name": this.serviceName,
@@ -164,7 +164,7 @@ export class TelemetryOtelPlugin implements IPlugin<TelemetryOtelConfig> {
     const startTime = this.startTimes.get(key) ?? ctx.payload.completedAt;
     this.startTimes.delete(key);
 
-    const span: SpanData = {
+    const span: TelemetrySpanData = {
       name: "mission.run",
       attributes: this.scrubAttributes({
         "service.name": this.serviceName,
@@ -236,7 +236,7 @@ export class TelemetryOtelPlugin implements IPlugin<TelemetryOtelConfig> {
   }
 
   /** 导出 span，吞掉 exporter 异常防止影响主流程 */
-  private exportSafe(span: SpanData): void {
+  private exportSafe(span: TelemetrySpanData): void {
     try {
       const r = this.exporter.export(span);
       if (r && typeof r.catch === "function") {

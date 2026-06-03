@@ -5,6 +5,6 @@ export { TELEMETRY_OTEL_MANIFEST } from "./manifest";
 export { TelemetryOtelPlugin, type TelemetryOtelConfig } from "./plugin";
 export {
   type ISpanExporter,
-  type SpanData,
+  type TelemetrySpanData,
   InMemorySpanExporter,
-} from "./span-exporter.interface";
+} from "@/plugins/core/abstractions/observability/span-exporter.port";
