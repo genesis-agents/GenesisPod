@@ -1,13 +1,13 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { QualityGateService } from "../quality-gate.service";
+import { WritingQualityGateService } from "../quality-gate.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { ExpressionMemoryService } from "../expression-memory.service";
 import { CharacterPersonalityService } from "../character-personality.service";
 import { SemanticConsistencyService } from "../semantic-consistency.service";
 import { NarrativeCraftService } from "../narrative-craft.service";
 
-describe("QualityGateService", () => {
-  let service: QualityGateService;
+describe("WritingQualityGateService", () => {
+  let service: WritingQualityGateService;
   let mockPrisma: jest.Mocked<PrismaService>;
   let mockExpressionMemory: jest.Mocked<ExpressionMemoryService>;
   let mockCharacterPersonality: jest.Mocked<CharacterPersonalityService>;
@@ -72,7 +72,7 @@ describe("QualityGateService", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        QualityGateService,
+        WritingQualityGateService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ExpressionMemoryService, useValue: mockExpressionMemory },
         {
@@ -87,7 +87,7 @@ describe("QualityGateService", () => {
       ],
     }).compile();
 
-    service = module.get<QualityGateService>(QualityGateService);
+    service = module.get<WritingQualityGateService>(WritingQualityGateService);
   });
 
   afterEach(() => {

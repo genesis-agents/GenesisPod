@@ -5,7 +5,7 @@
  * 职责保留：整体规划 / 卷章分解 / 章节审核 / 一致性冲突解决。
  *
  * 与旧 BaseAgent 的差异：
- * - 不再注入 QualityGateService —— 「审核前先跑质量门禁」的逻辑外移到 s3/s7 stage，
+ * - 不再注入 WritingQualityGateService —— 「审核前先跑质量门禁」的逻辑外移到 s3/s7 stage，
  *   把生成好的质量门禁文本作为 reviewData/payload 字段喂进来（设计文档 §2 迁移要点）。
  * - LLM 调用由 runner/invoker 接管，本类只负责 buildSystemPrompt + zod schema。
  * - zod schema 严格对齐旧 StoryArchitectInput / StoryArchitectOutput interface。

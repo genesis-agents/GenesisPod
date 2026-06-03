@@ -14,7 +14,7 @@ export { SearchExecutorService } from "./search-executor.service";
 export { QueryStrategyService } from "./query";
 
 // Fusion
-export { ResultFusionService, QualityGateService } from "./fusion";
+export { ResultFusionService, SearchFusionQualityGateService } from "./fusion";
 
 // Rerank
 export { LlmRerankerAdapter } from "./rerank/llm-reranker.adapter";

@@ -60,7 +60,7 @@ import type { WriterPoolService } from "../../services/parallel/writer-pool.serv
 import type { ExpressionMemoryService } from "../../services/quality/expression-memory.service";
 import type { OpeningHookService } from "../../services/quality/opening-hook.service";
 import type { NarrativeCraftService } from "../../services/quality/narrative-craft.service";
-import type { QualityGateService } from "../../services/quality/quality-gate.service";
+import type { WritingQualityGateService } from "../../services/quality/quality-gate.service";
 import type { ChapterQualityEvaluatorService } from "../../services/quality/chapter-quality-evaluator.service";
 import type { StoryCompletionDetectorService } from "../../services/quality/story-completion-detector.service";
 import type { SemanticConsistencyService } from "../../services/quality/semantic-consistency.service";
@@ -174,13 +174,13 @@ export interface ConsistencyDeps extends CommonDeps {
 // ─── Phase 6: Edit（s6-edit-polish）─────────────────────────────────────
 export interface EditDeps extends CommonDeps {
   readonly editor: EditorService;
-  readonly qualityGate: QualityGateService;
+  readonly qualityGate: WritingQualityGateService;
   readonly chapterQualityEvaluator: ChapterQualityEvaluatorService;
 }
 
 // ─── Phase 7: Quality（s7-quality-evaluate）─────────────────────────────
 export interface QualityDeps extends CommonDeps {
-  readonly qualityGate: QualityGateService;
+  readonly qualityGate: WritingQualityGateService;
   readonly chapterQualityEvaluator: ChapterQualityEvaluatorService;
   readonly narrativeCraft: NarrativeCraftService;
   readonly storyCompletionDetector: StoryCompletionDetectorService;

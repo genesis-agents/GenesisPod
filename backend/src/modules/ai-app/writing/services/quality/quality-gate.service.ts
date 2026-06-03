@@ -1,5 +1,5 @@
 /**
- * QualityGateService - 质量门禁服务
+ * WritingQualityGateService - 质量门禁服务
  *
  * 核心职责：
  * - 计算章节内容的多维度质量评分
@@ -122,8 +122,8 @@ export interface QualityGateResult {
 // ==================== 服务实现 ====================
 
 @Injectable()
-export class QualityGateService {
-  private readonly logger = new Logger(QualityGateService.name);
+export class WritingQualityGateService {
+  private readonly logger = new Logger(WritingQualityGateService.name);
   private config: QualityGateConfig = DEFAULT_QUALITY_GATE_CONFIG;
 
   constructor(

@@ -5,23 +5,23 @@
  * 从 WritingMissionService 拆分出来，专注于质量管理逻辑
  *
  * 注意：这是一个薄包装层，主要用于简化 WritingMissionService 的依赖
- * 实际的质量检查逻辑仍在 ExpressionMemoryService 和 QualityGateService 中
+ * 实际的质量检查逻辑仍在 ExpressionMemoryService 和 WritingQualityGateService 中
  */
 
 import { Injectable } from "@nestjs/common";
 import { ExpressionMemoryService } from "../quality/expression-memory.service";
-import { QualityGateService } from "../quality/quality-gate.service";
+import { WritingQualityGateService } from "../quality/quality-gate.service";
 
 @Injectable()
 export class WritingQualityService {
   constructor(
     private readonly expressionMemory: ExpressionMemoryService,
-    private readonly qualityGate: QualityGateService,
+    private readonly qualityGate: WritingQualityGateService,
   ) {}
 
   /**
    * 检查章节内容质量
-   * 委托给 QualityGateService
+   * 委托给 WritingQualityGateService
    */
   async checkChapterQuality(
     projectId: string,

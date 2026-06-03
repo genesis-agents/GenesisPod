@@ -35,8 +35,8 @@ const ACADEMIC_SOURCE_TYPES = new Set<DataSourceType>([
 ]);
 
 @Injectable()
-export class QualityGateService {
-  private readonly logger = new Logger(QualityGateService.name);
+export class SearchFusionQualityGateService {
+  private readonly logger = new Logger(SearchFusionQualityGateService.name);
 
   /**
    * Evaluate the quality of aggregated search results.

@@ -21,7 +21,7 @@ import { WritingContextPackage } from "../interfaces/writing-context.interface";
 import { ConsistencyIssue } from "./consistency-checker.agent";
 // 增强：注入质量服务
 import {
-  QualityGateService,
+  WritingQualityGateService,
   QualityGateResult,
 } from "../services/quality/quality-gate.service";
 import { ChapterQualityEvaluatorService } from "../services/quality/chapter-quality-evaluator.service";
@@ -132,7 +132,7 @@ export class EditorAgent extends BaseAgent<EditorInput, EditorOutput> {
   ];
 
   constructor(
-    private readonly qualityGate: QualityGateService,
+    private readonly qualityGate: WritingQualityGateService,
     private readonly chapterQualityEvaluator: ChapterQualityEvaluatorService,
   ) {
     super();
