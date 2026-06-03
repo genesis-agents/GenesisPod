@@ -51,6 +51,8 @@ import { AiChatFailoverCallerService } from "./chat/ai-chat-failover-caller.serv
 import { AiConnectionTestService } from "./byok/ai-connection-test.service";
 import { AiModelDiscoveryService } from "./models/catalog/ai-model-discovery.service";
 import { ModelTypeService } from "./models/catalog/model-type.service";
+import { ApiFormatService } from "./models/catalog/api-format.service";
+import { AiProviderService } from "./models/catalog/ai-provider.service";
 import { AiDirectKeyService } from "./byok/ai-direct-key.service";
 import { AiImageGenerationService } from "./image/ai-image-generation.service";
 import { PromptCacheCoordinatorService } from "./chat/prompt-cache-coordinator.service";
@@ -146,6 +148,8 @@ import { CapabilityProbeService } from "./models/capability/capability-probe.ser
     AiConnectionTestService,
     AiModelDiscoveryService,
     ModelTypeService,
+    ApiFormatService,
+    AiProviderService,
     AiDirectKeyService,
     AiImageGenerationService,
 
@@ -201,6 +205,8 @@ import { CapabilityProbeService } from "./models/capability/capability-probe.ser
     AiConnectionTestService,
     AiModelDiscoveryService,
     ModelTypeService,
+    ApiFormatService,
+    AiProviderService,
     AiDirectKeyService,
     AiImageGenerationService,
     PromptCacheCoordinatorService,

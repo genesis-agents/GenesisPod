@@ -17,7 +17,6 @@ import {
   Param,
   Patch,
   Post,
-  BadRequestException,
   UseGuards,
 } from "@nestjs/common";
 import {
@@ -32,7 +31,7 @@ import {
 } from "class-validator";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { ApiFormatService } from "@/modules/ai-engine/facade";
 
 const AUTH_STYLES = [
   "bearer",
@@ -82,57 +81,25 @@ class UpsertApiFormatDto {
 @UseGuards(JwtAuthGuard, AdminGuard)
 @Controller("admin/api-formats")
 export class ApiFormatsAdminController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly apiFormatService: ApiFormatService) {}
 
   @Get()
-  async list() {
-    return this.prisma.apiFormat.findMany({
-      where: { scope: "system" },
-      orderBy: [
-        { isBuiltin: "desc" },
-        { displayOrder: "asc" },
-        { name: "asc" },
-      ],
-    });
+  list() {
+    return this.apiFormatService.list();
   }
 
   @Post()
-  async create(@Body() dto: UpsertApiFormatDto) {
-    if (dto.authStyle === "custom" && !dto.customHeaderName) {
-      throw new BadRequestException(
-        "authStyle=custom 时必须填 customHeaderName",
-      );
-    }
-    return this.prisma.apiFormat.create({
-      data: {
-        ...dto,
-        isBuiltin: false,
-        scope: "system",
-        ownerUserId: null,
-      },
-    });
+  create(@Body() dto: UpsertApiFormatDto) {
+    return this.apiFormatService.create(dto);
   }
 
   @Patch(":id")
-  async update(
-    @Param("id") id: string,
-    @Body() dto: Partial<UpsertApiFormatDto>,
-  ) {
-    const existing = await this.prisma.apiFormat.findUnique({ where: { id } });
-    if (existing?.isBuiltin && dto.slug && dto.slug !== existing.slug) {
-      throw new BadRequestException("不允许修改内置 ApiFormat 的 slug");
-    }
-    return this.prisma.apiFormat.update({ where: { id }, data: dto });
+  update(@Param("id") id: string, @Body() dto: Partial<UpsertApiFormatDto>) {
+    return this.apiFormatService.update(id, dto);
   }
 
   @Delete(":id")
-  async remove(@Param("id") id: string) {
-    const existing = await this.prisma.apiFormat.findUnique({ where: { id } });
-    if (!existing) throw new BadRequestException("ApiFormat 不存在");
-    if (existing.isBuiltin) {
-      throw new BadRequestException("不允许删除内置 ApiFormat");
-    }
-    await this.prisma.apiFormat.delete({ where: { id } });
-    return { success: true };
+  remove(@Param("id") id: string) {
+    return this.apiFormatService.remove(id);
   }
 }
