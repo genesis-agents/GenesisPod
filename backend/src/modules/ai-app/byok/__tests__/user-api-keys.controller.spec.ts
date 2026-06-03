@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { UserApiKeysController } from "../user-api-keys.controller";
 import { UserApiKeysService } from "@/modules/ai-harness/facade";
+import { AiModelConfigService } from "@/modules/ai-engine/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };
@@ -15,6 +16,7 @@ describe("UserApiKeysController", () => {
     deleteKey: jest.Mock;
     testKey: jest.Mock;
   };
+  let aiModelConfig: { clearResolvedModelCache: jest.Mock };
 
   const reqUser = { user: { id: "user-1", email: "u@x.com" } } as never;
 
@@ -27,10 +29,14 @@ describe("UserApiKeysController", () => {
       deleteKey: jest.fn(),
       testKey: jest.fn(),
     };
+    aiModelConfig = { clearResolvedModelCache: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserApiKeysController],
-      providers: [{ provide: UserApiKeysService, useValue: service }],
+      providers: [
+        { provide: UserApiKeysService, useValue: service },
+        { provide: AiModelConfigService, useValue: aiModelConfig },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue(mockGuard)
@@ -102,6 +108,10 @@ describe("UserApiKeysController", () => {
         undefined, // PR-2 label param (default)
       );
       expect(result).toEqual({ id: "k1" });
+      // M2: 保存 key 后失效解析缓存
+      expect(aiModelConfig.clearResolvedModelCache).toHaveBeenCalledWith(
+        "user-1",
+      );
     });
 
     it("supports optional fields being undefined", async () => {
@@ -134,6 +144,10 @@ describe("UserApiKeysController", () => {
         undefined, // PR-2 label query param
       );
       expect(result).toEqual({ deleted: true });
+      // M2: 删除 key 后失效解析缓存
+      expect(aiModelConfig.clearResolvedModelCache).toHaveBeenCalledWith(
+        "user-1",
+      );
     });
   });
 
