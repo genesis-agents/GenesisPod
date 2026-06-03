@@ -96,8 +96,8 @@ const CAPABILITIES: CapabilityDescriptor[] = [
 @Public() // Bypass global JwtAuthGuard - endpoints use MCPApiKeyGuard instead
 @ApiTags("Public API")
 @Controller("public")
-export class PublicApiController {
-  private readonly logger = new Logger(PublicApiController.name);
+export class PublicController {
+  private readonly logger = new Logger(PublicController.name);
 
   constructor(
     private readonly aiFacade: AIFacade,

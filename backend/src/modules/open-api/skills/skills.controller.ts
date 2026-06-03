@@ -19,7 +19,7 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { SkillsApiService } from "./skills-api.service";
+import { SkillsService } from "./skills.service";
 import { SkillAnalyticsService } from "../../ai-engine/facade";
 import { SetDomainOverrideDto } from "./dto/set-domain-override.dto";
 
@@ -30,7 +30,7 @@ export class SkillsController {
   private readonly logger = new Logger(SkillsController.name);
 
   constructor(
-    private readonly skillsApiService: SkillsApiService,
+    private readonly skillsApiService: SkillsService,
     private readonly analyticsService: SkillAnalyticsService,
   ) {}
 

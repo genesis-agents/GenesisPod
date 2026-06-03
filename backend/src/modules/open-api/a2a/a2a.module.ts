@@ -9,8 +9,8 @@
  */
 
 import { Module } from "@nestjs/common";
-import { A2AController } from "../a2a-server.controller";
-import { A2ARpcController } from "../a2a-rpc.controller";
+import { A2AController } from "./a2a-server.controller";
+import { A2ARpcController } from "./a2a-rpc.controller";
 import { A2AModule } from "../../ai-harness/protocols/a2a/a2a.module";
 
 @Module({

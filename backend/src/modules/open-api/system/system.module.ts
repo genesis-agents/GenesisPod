@@ -20,7 +20,7 @@ import { MetricsController } from "./metrics/metrics.controller";
  * engine/harness/platform 永不开 HTTP。
  *
  * 本模块是「系统服务面」——承载一方 jwt 用户的系统横切端点的 HTTP 层（区别于：
- * open-api/admin = 系统管理面；open-api/public-api = 对外公共面）。各 controller
+ * open-api/admin = 系统管理面；open-api/public = 对外公共面）。各 controller
  * 的 service 仍由对应 platform 模块提供（此处 import 取用，不重复注册）。
  *
  * 2026-06-03 进驻：NotificationController（notifications）、CreditsController

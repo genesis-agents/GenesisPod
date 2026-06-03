@@ -1,10 +1,10 @@
 /**
- * Unit tests for SkillsApiService
+ * Unit tests for SkillsService
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { SkillsApiService, SkillItem } from "../skills-api.service";
+import { SkillsService, SkillItem } from "../skills.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SkillRegistry } from "../../../ai-engine/skills/registry/skill.registry";
 import { ISkill } from "../../../ai-engine/skills/abstractions/skill.interface";
@@ -72,8 +72,8 @@ function makeISkill(id: string): ISkill {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("SkillsApiService", () => {
-  let service: SkillsApiService;
+describe("SkillsService", () => {
+  let service: SkillsService;
   let prisma: jest.Mocked<typeof mockPrismaService>;
   let skillRegistry: jest.Mocked<typeof mockSkillRegistry>;
 
@@ -82,7 +82,7 @@ describe("SkillsApiService", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        SkillsApiService,
+        SkillsService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: SkillRegistry, useValue: mockSkillRegistry },
       ],
@@ -90,7 +90,7 @@ describe("SkillsApiService", () => {
       .setLogger(new Logger())
       .compile();
 
-    service = module.get<SkillsApiService>(SkillsApiService);
+    service = module.get<SkillsService>(SkillsService);
     prisma = module.get(PrismaService);
     skillRegistry = module.get(SkillRegistry);
   });

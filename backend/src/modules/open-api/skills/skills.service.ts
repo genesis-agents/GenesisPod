@@ -76,8 +76,8 @@ export interface DomainSkillsResponse {
 }
 
 @Injectable()
-export class SkillsApiService {
-  private readonly logger = new Logger(SkillsApiService.name);
+export class SkillsService {
+  private readonly logger = new Logger(SkillsService.name);
 
   constructor(
     private readonly prisma: PrismaService,

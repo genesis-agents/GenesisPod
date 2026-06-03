@@ -103,15 +103,15 @@ import { ExportModule } from "./common/export";
 // Open API modules (webhooks, public-api, mcp-server, ai-core, agents-api)
 import { WebhooksModule } from "./modules/open-api/webhooks";
 import { MCPServerModule } from "./modules/open-api/mcp-server";
-import { PublicApiModule } from "./modules/open-api/public-api/public-api.module";
+import { PublicModule } from "./modules/open-api/public/public.module";
 import { OpenApiSystemModule } from "./modules/open-api/system/system.module";
 import { AiCoreModule } from "./modules/open-api/ai-core/ai-core.module";
-import { AgentsApiModule } from "./modules/open-api/agents-api/agents-api.module";
+import { AgentsModule } from "./modules/open-api/agents/agents.module";
 import { McpAdminModule } from "./modules/open-api/mcp-admin/mcp-admin.module";
-import { SkillsApiModule } from "./modules/open-api/skills-api/skills-api.module";
+import { SkillsModule } from "./modules/open-api/skills/skills.module";
 import { TeamsApiModule } from "./modules/open-api/teams-api/teams-api.module";
 // A2A API module (open-api layer â€” PR-X17: controller moved from ai-harness/protocols/a2a)
-import { A2AApiModule } from "./modules/open-api/a2a-api/a2a-api.module";
+import { A2AApiModule } from "./modules/open-api/a2a/a2a.module";
 // BYOK Admin module (open-api layer â€” PR-X17: 4 admin controllers moved from platform/credentials)
 import { ByokAdminModule } from "./modules/open-api/byok-admin/byok-admin.module";
 // Request context middleware
@@ -271,24 +271,24 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     MCPServerModule,
 
     // Public API module
-    PublicApiModule,
+    PublicModule,
     // Open-API 系统服务面（standards/16: System HTTP → L4；首个进驻 NotificationController）
     OpenApiSystemModule,
 
-    // A2A API module (PR-X17: controller moved to open-api/a2a-api)
+    // A2A API module (PR-X17: controller moved to open-api/a2a)
     A2AApiModule,
 
     // AI Core API (PR-X6)
     AiCoreModule,
 
     // Agents API (PR-X6)
-    AgentsApiModule,
+    AgentsModule,
 
     // MCP Admin API (PR-X7)
     McpAdminModule,
 
     // Skills API (PR-X16: moved from ai-engine/skills/api)
-    SkillsApiModule,
+    SkillsModule,
 
     // Teams API (PR-X16: moved from ai-harness/teams/controllers)
     TeamsApiModule,

@@ -9,7 +9,7 @@
  */
 
 import { Module } from "@nestjs/common";
-import { PublicApiController } from "./public-api.controller";
+import { PublicController } from "./public.controller";
 import { SecretsModule } from "../../platform/credentials/secrets/secrets.module";
 // ★ 2026-06-03 standards/16: 公开退订端点 HTTP 上提（notifications/unsubscribe，
 //   token-only 无需登录）；UnsubscribeTokenService 留 L1 platform，经
@@ -23,6 +23,6 @@ import { NotificationDispatcherModule } from "../../platform/notifications/dispa
     // ★ DiscussionModule removed — research accessed via AIFacade.executeDirectResearch()
     // AIFacade is @Global, no explicit import needed
   ],
-  controllers: [PublicApiController, UnsubscribeController],
+  controllers: [PublicController, UnsubscribeController],
 })
-export class PublicApiModule {}
+export class PublicModule {}

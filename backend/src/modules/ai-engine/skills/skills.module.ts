@@ -42,7 +42,7 @@ import { SkillsMPClientService } from "./ecosystem/skillsmp-client.service";
 // 让用户在 Admin UI / API 创建的 skill 自动透出到 harness agent 运行时
 import { EngineSkillProvider } from "./runtime/adapters/engine-skill-provider.adapter";
 
-// PR-X16: SkillsController + SkillsApiService 已迁移至 open-api/skills-api/
+// PR-X16: SkillsController + SkillsService 已迁移至 open-api/skills/
 // （HTTP Controller 上提，由 open-api 装配）
 
 @Module({
