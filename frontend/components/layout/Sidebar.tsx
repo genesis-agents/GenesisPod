@@ -252,7 +252,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           /* Expanded state: Logo + Text on left */
           <Link
             href="/"
-            className="group flex items-center"
+            className="group flex min-w-0 items-center overflow-hidden"
             title={config.brand.fullName}
           >
             <BrandLogo
@@ -274,7 +274,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         {showExpanded && (
           <button
             onClick={handleToggle}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            className="ml-1.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
             title={
               sidebarState === 'pinned' ? 'Unpin sidebar' : 'Collapse sidebar'
             }
