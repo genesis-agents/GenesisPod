@@ -88,6 +88,33 @@
 
 OS 心智模型用来**解释和记忆**边界，**不**改变它，也**不**触发重命名。顶层目录仍用 agent 框架的**业界标准词**（runner/agents/memory/...），**禁止**按 OS 词汇自造 `kernel/process/syscall/governance/runtime`（见 §五 互斥性原则；历史：`ai-kernel/`、`ai-engine/runtime/` 曾用此类命名，已删除并整合进 harness）。判别仍以**第一节"有没有 agent/mission 状态"**为唯一标准；OS 类比只是它的助记层。
 
+### §一·补·二、App vs System（什么进 ai-app、什么算系统）
+
+判别口诀——与 engine 黄金法则同构的**"复用 / 重建"测试**：
+
+> **"每个产品都得自己重新建它吗？"**
+> - **不需要**（人人复用的底座：auth/身份、billing/credits、notifications、settings、secrets、storage）→ **System**
+> - **需要**（它是该产品独有的领域功能："深度研究"的流程、"探索"的信息流）→ **App（L3 ai-app）**
+
+等价问法："这是用户打开的一个*产品*，还是*所有产品都依赖的一项能力*？" 产品 → app；人人都要的能力 → system。
+
+> 例：**auth 是 system**——没有哪个产品会"自己重建一套登录"，它是所有产品复用的底座。故 auth 的 HTTP 进 open-api（系统面）、service 留 platform，**不进 ai-app**。用户可见 ≠ 产品。
+
+System 按"职责 vs 暴露"落两层：
+
+- **System 逻辑** → **L1 platform**（基础设施服务的 service 本体）
+- **System HTTP** → **L4 open-api**（系统 API 网关：admin + 对外协议 + 一方系统服务端点）
+- engine（硬件）/ harness（内核）**永不开 HTTP**。
+
+可操作信号：
+
+| 信号                                                       | 判定       |
+| ---------------------------------------------------------- | ---------- |
+| 被多数 app 跨层复用（credits 被 5 app、secrets 被 6 处）   | **system** |
+| 账户 / 身份 / 计费 / 通知 / 设置 / 密钥 / 存储 / 运维 / 对外协议 | **system** |
+| 绑定单一产品域、带领域语义（"研究 / 问答 / 探索"）         | **app**    |
+| 领域内容的生产 / 浏览 / 编辑                               | **app**    |
+
 ---
 
 ## 二、ai-engine 顶层（10 个聚合，业界标准词）
@@ -175,7 +202,20 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 
 - ✅ **engine / harness = 0 controller** —— 最关键的不变量已满足，无需动。
 - ✅ **两个 HTTP 面有意区分，勿合并**：`ai-app` = 一方前端 feature API（ask/explore/byok）；`open-api` = 对外/协议/管理面（a2a / mcp-server / admin / public-api / agents-api·skills-api·teams-api / webhooks）。把 ai-app 的 91 个 feature controller 灌进 open-api 会搅混两个面、破坏内聚 → **不做**。
-- 🔎 **小项（可选上提）**：`platform` 9 个里偏 admin 的（`db-ops` / `storage-governance` / `secrets`）理论上更适合 `open-api/admin/`；`auth` 回调 / `notifications/unsubscribe` / `credits` 属基础设施端点留 platform 合理。逐个确认是否纯内部 admin 后再定，低优先。
+- 🎯 **platform 应 = 0 controller**（与 engine/harness 同理：L1 固件层不开 HTTP）。当前 9 个 controller 该上提；**但 service 留 platform**（实测 CreditsService/SecretsService/NotificationService/SettingsService 被多个 ai-app + ai-engine 跨层消费 = 真·共享 L1 基元）。只搬 HTTP 层（controller+DTO+guard），新家注入 platform service。映射：
+
+  按 **App vs System 原则**（见 §一·补·二）：platform 的 controller **几乎全是 system 横切能力**（auth/credits/notifications/settings/secrets/storage 被多数 app 跨层复用），故 HTTP 一律进 **open-api（系统 API 网关）**，**不进 ai-app**（ai-app 只接纯产品域端点）：
+
+  | platform controller | 路由 | → 去向 | 性质 |
+  | --- | --- | --- | --- |
+  | db-ops · secrets · secret-keys · settings（AdminGuard） | `admin/*` | **open-api/admin** | 系统管理 |
+  | notifications/unsubscribe（RateLimit 无鉴权） | 公开 | **open-api/public-api** | 系统对外 |
+  | auth · credits · notification（jwt 一方用户） | 一方 | **open-api（系统服务面）** | 系统横切（用户可见≠产品）|
+  | storage-governance（无 guard） | 待确认 | open-api（admin 或系统面）| 系统 |
+
+  > **执行约束**：跨层 module 重接线 + 生产关键路由（auth/credits），route/guard **原样保留**，service 留 platform，靠 boot-smoke + 测试验 DI。**独立 PR**，不与其它重构混。分批：先 4 个 `admin/*` → open-api/admin（去向最明确、目录已存在），再 auth/credits/notification → open-api 系统面，最后 unsubscribe / storage-governance。
+  >
+  > **推论（roadmap，本轮不动）**：`ai-app/byok`（用户密钥/provider 管理 10+ controller）按原则属**账户级 system**，非产品域 → 严格说该归 system（open-api），而非 ai-app。
 
 ### 执行优先级
 
