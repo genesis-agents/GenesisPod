@@ -1,16 +1,16 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
+import { AdminGuard } from "@/common/guards/admin.guard";
 import { DbOpsController } from "../db-ops.controller";
-import { DbOpsService } from "../db-ops.service";
+import { DbOpsService } from "@/modules/platform/db-ops/db-ops.service";
 import {
   TableListResponseDto,
   TableDetailDto,
   TableDiagnosisDto,
   CleanupResultDto,
   TableStatsDto,
-} from "../dto/table-info.dto";
+} from "@/modules/platform/db-ops/dto/table-info.dto";
 
 describe("DbOpsController", () => {
   let controller: DbOpsController;

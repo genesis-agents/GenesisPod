@@ -23,12 +23,12 @@ import {
 import { Request } from "express";
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
-import { SecretKeysService } from "./secret-keys.service";
+import { SecretKeysService } from "@/modules/platform/credentials/secrets/secret-keys.service";
 import {
   AddSecretKeyDto,
   UpdateSecretKeyMetaDto,
   ReplaceSecretKeyValueDto,
-} from "./dto/secret-key.dto";
+} from "@/modules/platform/credentials/secrets/dto/secret-key.dto";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { AdminGuard } from "@/common/guards/admin.guard";
 

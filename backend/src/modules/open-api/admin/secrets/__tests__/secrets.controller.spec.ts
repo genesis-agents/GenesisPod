@@ -27,11 +27,11 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { SecretsController } from "../secrets.controller";
-import { SecretsService } from "../secrets.service";
+import { SecretsService } from "@/modules/platform/credentials/secrets/secrets.service";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { AdminGuard } from "@/common/guards/admin.guard";
-import { CreateSecretDto } from "../dto/create-secret.dto";
-import { UpdateSecretDto } from "../dto/update-secret.dto";
+import { CreateSecretDto } from "@/modules/platform/credentials/secrets/dto/create-secret.dto";
+import { UpdateSecretDto } from "@/modules/platform/credentials/secrets/dto/update-secret.dto";
 import { SecretCategory } from "@prisma/client";
 
 // ---------------------------------------------------------------------------

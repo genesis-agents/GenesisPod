@@ -14,8 +14,8 @@ import {
   Logger,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
+import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
+import { AdminGuard } from "@/common/guards/admin.guard";
 import {
   SettingsService,
   EmailSettings,
@@ -24,8 +24,8 @@ import {
   AiSettings,
   SecuritySettings,
   StorageSettings,
-} from "./settings.service";
-import { EmailService } from "../email/email.service";
+} from "@/modules/platform/settings/settings.service";
+import { EmailService } from "@/modules/platform/email/email.service";
 
 @ApiTags("Admin - Settings")
 @Controller("admin/settings")
