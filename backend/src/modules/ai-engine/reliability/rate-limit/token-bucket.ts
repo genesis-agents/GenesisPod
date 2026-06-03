@@ -8,8 +8,11 @@
  * 设计：
  * - 每个 key 一个 bucket（capacity / refillPerSec）
  * - tryConsume(n=1) 成功返回 true；不够返回 false
- * - 内存版（单 pod）；分布式版可后续加 Redis Lua 实现
+ * - InMemoryTokenBucketStore：单 pod；带 idle 驱逐避免 key 无界增长
+ * - RedisTokenBucketStore：多 pod 一致（经 CacheService 共享 bucket 状态）
  */
+import { CacheService } from "@/common/cache/cache.service";
+
 export interface ITokenBucketStore {
   /** 试图消耗 n 个 token；成功 true，失败 false */
   tryConsume(
@@ -27,6 +30,12 @@ interface BucketState {
 
 export class InMemoryTokenBucketStore implements ITokenBucketStore {
   private readonly buckets = new Map<string, BucketState>();
+  // L5 fix：idle bucket 驱逐——一个 idle 超过 MAX_IDLE_MS 的 bucket 必然已满
+  //   （token==capacity），等价于"全新 bucket"，删掉不丢任何信息。否则 per-(tenant)
+  //   key 的 Map 会随租户基数单调增长，long-running pod 慢泄漏。
+  private static readonly MAX_IDLE_MS = 5 * 60_000; // 5 min
+  private static readonly SWEEP_EVERY = 500;
+  private opCount = 0;
 
   async tryConsume(
     key: string,
@@ -50,9 +59,21 @@ export class InMemoryTokenBucketStore implements ITokenBucketStore {
     bucket.tokens = refilled;
     bucket.lastRefill = now;
 
+    if (++this.opCount % InMemoryTokenBucketStore.SWEEP_EVERY === 0) {
+      this.sweepIdle(now);
+    }
+
     if (bucket.tokens < n) return false;
     bucket.tokens -= n;
     return true;
+  }
+
+  private sweepIdle(now: number): void {
+    for (const [k, b] of this.buckets) {
+      if (now - b.lastRefill > InMemoryTokenBucketStore.MAX_IDLE_MS) {
+        this.buckets.delete(k);
+      }
+    }
   }
 
   /** 测试用：手动设置 token */
@@ -63,5 +84,52 @@ export class InMemoryTokenBucketStore implements ITokenBucketStore {
   /** 测试用：清空 */
   clearForTest(): void {
     this.buckets.clear();
+  }
+}
+
+/**
+ * Redis-backed token bucket（H1 fix：多 pod 一致）。
+ *
+ * bucket 状态 { tokens, lastRefill } 存 CacheService（Redis），所有 pod 共享，
+ * 故 per-tenant / global 限额是**全集群**口径，而非每副本各算一份（旧
+ * RateLimiter 用 CacheService 滑动窗口即此口径，本类恢复之）。
+ *
+ * 一致性说明：read-modify-write 非原子（与被替换的旧 RateLimiter 同模型）——
+ * 多 pod 并发同 key 有小竞态窗口，可能轻微超发。要严格原子可后续上 Redis Lua /
+ * INCR-with-expire；当前实现的核心价值是"跨 pod 共享 quota"，已消除按副本数翻倍。
+ */
+export class RedisTokenBucketStore implements ITokenBucketStore {
+  constructor(private readonly cache: CacheService) {}
+
+  private bucketKey(key: string): string {
+    return `engine:rate-limit:bucket:${key}`;
+  }
+
+  async tryConsume(
+    key: string,
+    capacity: number,
+    refillPerSec: number,
+    n = 1,
+  ): Promise<boolean> {
+    const rKey = this.bucketKey(key);
+    const now = Date.now();
+    const prev = await this.cache.get<BucketState>(rKey);
+    const tokens0 = prev?.tokens ?? capacity;
+    const lastRefill = prev?.lastRefill ?? now;
+
+    const elapsedSec = (now - lastRefill) / 1000;
+    let tokens = Math.min(capacity, tokens0 + elapsedSec * refillPerSec);
+
+    // idle 超过补满时长后 key 自动过期清理（Redis TTL，避免无界 key）
+    const ttlSec = Math.max(60, Math.ceil((capacity / refillPerSec) * 2));
+
+    if (tokens < n) {
+      // 写回补充进度（即便拒绝也要持久化 refill），让下次判断接续
+      await this.cache.set(rKey, { tokens, lastRefill: now }, ttlSec);
+      return false;
+    }
+    tokens -= n;
+    await this.cache.set(rKey, { tokens, lastRefill: now }, ttlSec);
+    return true;
   }
 }
