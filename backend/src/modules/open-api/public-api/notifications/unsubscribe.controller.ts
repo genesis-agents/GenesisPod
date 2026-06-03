@@ -6,11 +6,8 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
-import {
-  RateLimit,
-  RateLimitGuard,
-} from "../../../../common/guards/rate-limit.guard";
-import { UnsubscribeTokenService } from "./preferences/unsubscribe-token.service";
+import { RateLimit, RateLimitGuard } from "@/common/guards/rate-limit.guard";
+import { UnsubscribeTokenService } from "@/modules/platform/notifications/dispatcher/preferences/unsubscribe-token.service";
 
 /**
  * UnsubscribeController —— 三级退订 endpoint（K5）
