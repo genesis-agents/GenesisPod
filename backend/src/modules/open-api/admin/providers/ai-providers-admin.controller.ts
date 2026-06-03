@@ -29,7 +29,7 @@ import {
 } from "class-validator";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { AiProviderService } from "@/modules/ai-engine/facade";
 
 class UpsertAIProviderDto {
   @IsString()
@@ -89,34 +89,25 @@ class UpsertAIProviderDto {
 @UseGuards(JwtAuthGuard, AdminGuard)
 @Controller("admin/ai-providers")
 export class AiProvidersAdminController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly aiProviderService: AiProviderService) {}
 
   @Get()
-  async list() {
-    return this.prisma.aIProvider.findMany({
-      where: { scope: "system" },
-      orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
-    });
+  list() {
+    return this.aiProviderService.list();
   }
 
   @Post()
-  async create(@Body() dto: UpsertAIProviderDto) {
-    return this.prisma.aIProvider.create({
-      data: { ...dto, scope: "system", ownerUserId: null },
-    });
+  create(@Body() dto: UpsertAIProviderDto) {
+    return this.aiProviderService.create(dto);
   }
 
   @Patch(":id")
-  async update(
-    @Param("id") id: string,
-    @Body() dto: Partial<UpsertAIProviderDto>,
-  ) {
-    return this.prisma.aIProvider.update({ where: { id }, data: dto });
+  update(@Param("id") id: string, @Body() dto: Partial<UpsertAIProviderDto>) {
+    return this.aiProviderService.update(id, dto);
   }
 
   @Delete(":id")
-  async remove(@Param("id") id: string) {
-    await this.prisma.aIProvider.delete({ where: { id } });
-    return { success: true };
+  remove(@Param("id") id: string) {
+    return this.aiProviderService.remove(id);
   }
 }
