@@ -17,7 +17,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { KernelApiService } from "../../../ai-harness/facade";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { ProcessJournalQueryService } from "@/modules/ai-harness/memory/process-journal-query.service";
 import { MemoryLayer, ProcessState } from "@prisma/client";
 
 @ApiTags("Admin - AI Kernel")
@@ -28,7 +28,7 @@ export class KernelController {
 
   constructor(
     private readonly kernelApi: KernelApiService,
-    private readonly prisma: PrismaService,
+    private readonly journalService: ProcessJournalQueryService,
   ) {}
 
   // ─── Process Management ───
@@ -191,23 +191,7 @@ export class KernelController {
     @Query("limit") limit?: string,
   ) {
     const take = parseInt(limit ?? "100", 10) || 100;
-    const where: Record<string, unknown> = {};
-    if (processId) where.processId = processId;
-    if (type) where.type = type;
-
-    try {
-      const [entries, total] = await Promise.all([
-        this.prisma.processEvent.findMany({
-          where,
-          orderBy: { createdAt: "desc" },
-          take,
-        }),
-        this.prisma.processEvent.count({ where }),
-      ]);
-      return { entries, total };
-    } catch {
-      return { entries: [], total: 0 };
-    }
+    return this.journalService.listJournal({ processId, type, take });
   }
 
   // ─── Memory (Admin) ───

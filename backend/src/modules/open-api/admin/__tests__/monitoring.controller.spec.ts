@@ -4,6 +4,7 @@ import { MonitoringController } from "../monitoring/monitoring.controller";
 import { ErrorTrackingService } from "../../../platform/monitoring";
 import { AIMetricsService } from "../../../platform/monitoring";
 import { AIAdminService } from "../ai/ai-admin.service";
+import { DbHealthService } from "../../../platform/monitoring/db-health.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   TraceCollectorService,
@@ -85,6 +86,7 @@ describe("MonitoringController", () => {
         { provide: AIMetricsService, useValue: mockAIMetricsService },
         { provide: AIAdminService, useValue: mockAIAdminService },
         { provide: PrismaService, useValue: mockPrismaService },
+        DbHealthService,
         { provide: TraceCollectorService, useValue: mockTraceCollectorService },
         { provide: EvalPipelineService, useValue: mockEvalPipelineService },
       ],

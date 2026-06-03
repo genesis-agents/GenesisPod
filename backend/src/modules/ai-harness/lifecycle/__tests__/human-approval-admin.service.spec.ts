@@ -1,15 +1,12 @@
-import { Test, TestingModule } from "@nestjs/testing";
 import { ServiceUnavailableException } from "@nestjs/common";
-import { ApprovalsController } from "../approvals/approvals.controller";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { HumanApprovalAdminService } from "../human-approval-admin.service";
 
-jest.mock("../../../../common/prisma/prisma.service");
-
-describe("ApprovalsController", () => {
-  let controller: ApprovalsController;
-  let _prisma: jest.Mocked<PrismaService>;
+/**
+ * standards/24 薄网关整改（Wave C）：原 open-api/admin/approvals controller 的审批
+ * 业务逻辑下沉至本服务（human-in-the-loop 属 agent 运行时领域），单测随逻辑迁来。
+ */
+describe("HumanApprovalAdminService", () => {
+  let service: HumanApprovalAdminService;
 
   const mockPrisma = {
     $queryRaw: jest.fn(),
@@ -19,75 +16,55 @@ describe("ApprovalsController", () => {
     },
   };
 
-  beforeAll(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [ApprovalsController],
-      providers: [{ provide: PrismaService, useValue: mockPrisma }],
-    })
-      .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: () => true })
-      .overrideGuard(AdminGuard)
-      .useValue({ canActivate: () => true })
-      .compile();
-
-    controller = module.get(ApprovalsController);
-    _prisma = module.get(PrismaService);
-
-    // Simulate onModuleInit with table ready
-    mockPrisma.$queryRaw.mockResolvedValue([{ exists: true }]);
-    await controller.onModuleInit();
-  });
-
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
-    // Reset to table-ready state by default
+    service = new HumanApprovalAdminService(mockPrisma as never);
+    // Default: table ready
     mockPrisma.$queryRaw.mockResolvedValue([{ exists: true }]);
+    await service.onModuleInit();
   });
 
   describe("onModuleInit", () => {
     it("should set memoryTableReady=true when table exists", async () => {
       mockPrisma.$queryRaw.mockResolvedValue([{ exists: true }]);
-      await controller.onModuleInit();
-      // Controller should now serve requests normally
+      await service.onModuleInit();
       mockPrisma.longTermMemory.findMany.mockResolvedValue([]);
-      const result = await controller.listPending();
+      const result = await service.listPending();
       expect(result).toEqual([]);
     });
 
     it("should set memoryTableReady=false when table does not exist", async () => {
       mockPrisma.$queryRaw.mockResolvedValue([{ exists: false }]);
-      await controller.onModuleInit();
-      const result = await controller.listPending();
+      await service.onModuleInit();
+      const result = await service.listPending();
       expect(result).toEqual([]);
-      // Verify findMany was NOT called when table not ready
       expect(mockPrisma.longTermMemory.findMany).not.toHaveBeenCalled();
     });
 
     it("should handle $queryRaw throwing and set memoryTableReady=false", async () => {
       mockPrisma.$queryRaw.mockRejectedValue(new Error("DB error"));
-      await controller.onModuleInit();
-      const result = await controller.listPending();
+      await service.onModuleInit();
+      const result = await service.listPending();
       expect(result).toEqual([]);
     });
   });
 
   describe("listPending", () => {
     beforeEach(async () => {
-      // Ensure table is ready for these tests
       mockPrisma.$queryRaw.mockResolvedValue([{ exists: true }]);
-      await controller.onModuleInit();
+      await service.onModuleInit();
     });
 
     it("should return empty array when memoryTableReady is false", async () => {
       mockPrisma.$queryRaw.mockResolvedValue([{ exists: false }]);
-      await controller.onModuleInit();
-      const result = await controller.listPending();
+      await service.onModuleInit();
+      const result = await service.listPending();
       expect(result).toEqual([]);
     });
 
     it("should query longTermMemory with correct filter when table is ready", async () => {
       mockPrisma.longTermMemory.findMany.mockResolvedValue([]);
-      await controller.listPending();
+      await service.listPending();
       expect(mockPrisma.longTermMemory.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -121,7 +98,7 @@ describe("ApprovalsController", () => {
       ];
       mockPrisma.longTermMemory.findMany.mockResolvedValue(records);
 
-      const result = await controller.listPending();
+      const result = await service.listPending();
 
       expect(result).toHaveLength(1);
       expect(result[0].requestId).toBe("req-1");
@@ -142,13 +119,13 @@ describe("ApprovalsController", () => {
       ];
       mockPrisma.longTermMemory.findMany.mockResolvedValue(records);
 
-      const result = await controller.listPending();
+      const result = await service.listPending();
       expect(result).toEqual([]);
     });
 
     it("should order results by createdAt ascending", async () => {
       mockPrisma.longTermMemory.findMany.mockResolvedValue([]);
-      await controller.listPending();
+      await service.listPending();
       expect(mockPrisma.longTermMemory.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: { createdAt: "asc" },
@@ -160,22 +137,22 @@ describe("ApprovalsController", () => {
   describe("respond", () => {
     beforeEach(async () => {
       mockPrisma.$queryRaw.mockResolvedValue([{ exists: true }]);
-      await controller.onModuleInit();
+      await service.onModuleInit();
     });
 
     it("should throw ServiceUnavailableException when memoryTableReady is false", async () => {
       mockPrisma.$queryRaw.mockResolvedValue([{ exists: false }]);
-      await controller.onModuleInit();
+      await service.onModuleInit();
 
       await expect(
-        controller.respond("req-1", { approved: true }),
+        service.respond("req-1", { approved: true }),
       ).rejects.toThrow(ServiceUnavailableException);
     });
 
     it("should upsert response into longTermMemory and return success", async () => {
       mockPrisma.longTermMemory.upsert.mockResolvedValue({} as never);
 
-      const result = await controller.respond("req-123", {
+      const result = await service.respond("req-123", {
         approved: true,
         choice: "yes",
         feedback: "looks good",
@@ -203,7 +180,7 @@ describe("ApprovalsController", () => {
     it("should return approved=false when approved is false", async () => {
       mockPrisma.longTermMemory.upsert.mockResolvedValue({} as never);
 
-      const result = await controller.respond("req-456", { approved: false });
+      const result = await service.respond("req-456", { approved: false });
 
       expect(result.approved).toBe(false);
       expect(result.success).toBe(true);
@@ -213,9 +190,11 @@ describe("ApprovalsController", () => {
     it("should set null for missing optional fields", async () => {
       mockPrisma.longTermMemory.upsert.mockResolvedValue({} as never);
 
-      await controller.respond("req-789", { approved: true });
+      await service.respond("req-789", { approved: true });
 
-      const upsertCall = mockPrisma.longTermMemory.upsert.mock.calls[0][0];
+      const upsertCall = mockPrisma.longTermMemory.upsert.mock.calls[0][0] as {
+        create: { value: { choice: unknown; input: unknown; feedback: unknown } };
+      };
       expect(upsertCall.create.value.choice).toBeNull();
       expect(upsertCall.create.value.input).toBeNull();
       expect(upsertCall.create.value.feedback).toBeNull();
@@ -225,9 +204,11 @@ describe("ApprovalsController", () => {
       mockPrisma.longTermMemory.upsert.mockResolvedValue({} as never);
       const before = Date.now();
 
-      await controller.respond("req-ttl", { approved: true });
+      await service.respond("req-ttl", { approved: true });
 
-      const upsertCall = mockPrisma.longTermMemory.upsert.mock.calls[0][0];
+      const upsertCall = mockPrisma.longTermMemory.upsert.mock.calls[0][0] as {
+        create: { expiresAt: Date };
+      };
       const expiresAt: Date = upsertCall.create.expiresAt;
       const diff = expiresAt.getTime() - before;
       expect(diff).toBeGreaterThanOrEqual(9 * 60 * 1000);

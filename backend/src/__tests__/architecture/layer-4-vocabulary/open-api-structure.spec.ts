@@ -41,11 +41,6 @@ const ADMIN_SCATTER_ALLOWLIST = [
 
 // ── 律4 薄网关（Prisma in controller）──
 const THIN_GATEWAY_ALLOWLIST = [
-  "modules/open-api/admin/approvals/approvals.controller.ts",
-  "modules/open-api/admin/byok/admin-byok-dashboard.controller.ts",
-  "modules/open-api/admin/kernel/kernel.controller.ts",
-  "modules/open-api/admin/knowledge/knowledge.controller.ts",
-  "modules/open-api/admin/monitoring/monitoring.controller.ts",
 ];
 
 function softStaleWarn(name: string, allowlist: string[], actual: string[]) {
