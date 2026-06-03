@@ -246,7 +246,7 @@ export { ContextCompressionService } from "../planning/context/context-compressi
 // 修复原 reverse path（engine→harness→engine 绕一圈）为直接 engine 自身
 export { ContextBudgetCalculator } from "../planning/budget/token-budget.service";
 /** @deprecated use ContextBudgetCalculator */
-export { ContextBudgetCalculator as TokenBudgetService } from "../planning/budget/token-budget.service";
+export { ContextBudgetCalculator as TokenBudgetCalculatorService } from "../planning/budget/token-budget.service";
 export type {
   ModelConfig as TokenBudgetModelConfig,
   TokenBudget,

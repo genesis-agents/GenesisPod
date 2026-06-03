@@ -31,7 +31,7 @@ import type {
 } from "../../../runner/executor/llm-executor";
 import { LoopRegistry } from "../../../runner/loop/loop-registry";
 import { MissionElectionTracker } from "../../../guardrails/runtime/mission-election-tracker.service";
-import { KernelContext } from "../../../../../common/context/kernel-context";
+import { MissionContext } from "../../../../../common/context/mission-context";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -162,7 +162,7 @@ describe("AgentFactory.setElectionService", () => {
     } as never);
 
     const run = () =>
-      KernelContext.run(
+      MissionContext.run(
         {
           missionId: "mission-serialized",
           userId: "user-1",

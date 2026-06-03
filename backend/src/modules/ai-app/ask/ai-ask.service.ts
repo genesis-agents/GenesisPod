@@ -26,7 +26,7 @@ import {
   type AICapabilityContext,
   type ExecutionConfig,
   MissionExecutorService,
-  ProcessMemoryManagerService,
+  WorkingMemoryManagerService,
 } from "@/modules/ai-harness/facade";
 import { KbQueryService } from "@/modules/ai-app/library/kb-query/kb-query.service";
 // ★ Security (OWASP LLM01 indirect prompt injection): RAG-recalled KB content
@@ -106,7 +106,7 @@ export class AiAskService {
     @Optional() private readonly kbQueryService: KbQueryService,
     @Optional() private readonly creditsService: CreditsService,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
-    @Optional() private readonly kernelMemory?: ProcessMemoryManagerService,
+    @Optional() private readonly kernelMemory?: WorkingMemoryManagerService,
     @Optional()
     private readonly runtimeStateStore?: AskRoomRuntimeStateStore,
     @Optional() private readonly eventEmitter?: EventEmitter2,

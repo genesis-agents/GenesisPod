@@ -47,7 +47,7 @@ import { AiModelDiscoveryService } from "../models/catalog/ai-model-discovery.se
 import { AiDirectKeyService } from "../byok/ai-direct-key.service";
 import { AiImageGenerationService } from "../image/ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
-import { KernelContext } from "@/common/context/kernel-context";
+import { MissionContext } from "@/common/context/mission-context";
 import { BillingContext } from "@/modules/platform/facade";
 import { ModelPricingRegistry } from "../models/pricing/model-pricing.registry";
 import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
@@ -256,8 +256,8 @@ export interface ChatObserverEvent {
   result?: ChatResult;
   error?: Error;
   durationMs: number;
-  /** 便于观察者从 KernelContext 取 missionId / baselineTag 之外直接拿到 */
-  kernelContext?: import("../../../../common/context/kernel-context").KernelContextData;
+  /** 便于观察者从 MissionContext 取 missionId / baselineTag 之外直接拿到 */
+  missionContext?: import("../../../../common/context/mission-context").MissionContextData;
 }
 
 export type ChatObserver = (event: ChatObserverEvent) => void;
@@ -374,7 +374,7 @@ export class AiChatService {
   }
 
   /**
-   * 自动将 LLM 调用记录到 KernelContext 中活跃的 LatencySession（如有）
+   * 自动将 LLM 调用记录到 MissionContext 中活跃的 LatencySession（如有）
    * 通过 EventEmitter2 发出事件，由 LlmEventsListener 转发到 SessionLatencyTrackerService
    */
   private recordToLatencySession(
@@ -388,7 +388,7 @@ export class AiChatService {
     outputTokens?: number,
     operationName?: string,
   ): void {
-    const ctx = KernelContext.get();
+    const ctx = MissionContext.get();
     if (!ctx?.latencySessionId) return;
 
     this.emitLatencyAction(ctx.latencySessionId, {
@@ -1250,7 +1250,7 @@ export class AiChatService {
    * 注册 chat 调用观察者。
    *
    * 返回一个 dispose 函数；调用 dispose 等同于 `removeChatObserver(fn)`。
-   * 典型消费者：Topic Insights baseline 录制（通过 KernelContext.missionId 过滤）。
+   * 典型消费者：Topic Insights baseline 录制（通过 MissionContext.missionId 过滤）。
    */
   addChatObserver(fn: ChatObserver): () => void {
     this.chatObservers.add(fn);
@@ -1325,30 +1325,30 @@ export class AiChatService {
     //   已有上下文（HTTP 请求链路）不覆盖。
     const ctxUserId = RequestContext.getUserId();
 
-    // 2026-05-12 BYOK contract：mission 路径走 KernelContext.run({ missionId,
-    //   userId })，但 KernelContext / RequestContext 是分离的 AsyncLocalStorage，
+    // 2026-05-12 BYOK contract：mission 路径走 MissionContext.run({ missionId,
+    //   userId })，但 MissionContext / RequestContext 是分离的 AsyncLocalStorage，
     //   chat() 之前只看 RequestContext → mission 内任何忘传 options.userId 的
     //   caller 都会退化到 admin pool。
     //
-    //   修法：chat() 入口把 KernelContext.userId 作为 effectiveUserId 第三兜底；
+    //   修法：chat() 入口把 MissionContext.userId 作为 effectiveUserId 第三兜底；
     //   missionId 存在但 effectiveUserId 解不到时 logger.error 形成"contract
     //   violation"信号，方便监控+排查（不 throw，保持非破坏性）。
-    const kctx = KernelContext.get();
+    const kctx = MissionContext.get();
     const kctxUserId = kctx?.userId;
     const effectiveUserId =
       options.userId ?? ctxUserId ?? kctxUserId ?? undefined;
 
     if (kctx?.missionId && !effectiveUserId) {
       this.logger.error(
-        `[chat] BYOK contract violation: KernelContext.missionId=${kctx.missionId} ` +
-          `但 effectiveUserId 解析为空（options.userId / RequestContext / KernelContext.userId 都 null）` +
+        `[chat] BYOK contract violation: MissionContext.missionId=${kctx.missionId} ` +
+          `但 effectiveUserId 解析为空（options.userId / RequestContext / MissionContext.userId 都 null）` +
           `→ 后续模型解析会退化到 admin pool，BYOK 失效。` +
-          `caller 必须 explicit 传 options.userId 或在 KernelContext.run 里塞 userId。` +
+          `caller 必须 explicit 传 options.userId 或在 MissionContext.run 里塞 userId。` +
           `operationName=${options.operationName ?? "unknown"}`,
       );
     }
 
-    // userId 来自 KernelContext 但不在 RequestContext 里 → 也走 withUserContext
+    // userId 来自 MissionContext 但不在 RequestContext 里 → 也走 withUserContext
     //   兜底，让下游 RequestContext-only 读取的路径（getModelConfig /
     //   findUserModelConfigByModelId 等）都能看到 userId
     if (effectiveUserId && !ctxUserId) {
@@ -1397,8 +1397,8 @@ export class AiChatService {
   /** v5.1 PR-5: 双轨期 hook 包装路径 */
   private async chatWithHooks(options: ChatOptions): Promise<ChatResult> {
     const meta = {
-      missionId: KernelContext.get()?.missionId,
-      agentId: KernelContext.get()?.agentId,
+      missionId: MissionContext.get()?.missionId,
+      agentId: MissionContext.get()?.agentId,
       timestamp: Date.now(),
     };
     const requestPayload: LlmRequestPayload = {
@@ -1473,7 +1473,7 @@ export class AiChatService {
         result,
         error,
         durationMs: Date.now() - startedAt,
-        kernelContext: KernelContext.get(),
+        missionContext: MissionContext.get(),
       });
     }
   }
@@ -1559,12 +1559,12 @@ export class AiChatService {
       );
     }
 
-    // ★ KernelContext: fallback to AsyncLocalStorage if processId not explicitly provided.
+    // ★ MissionContext: fallback to AsyncLocalStorage if processId not explicitly provided.
     //   2026-05-11: reads renamed `agentProcessId` slot — only set when caller
     //   actually spawned an AgentProcess via MissionExecutor.execute(). When
     //   undefined, downstream emitJournalRecord is skipped (`if (processId)`),
     //   so non-kernel mission paths no longer trigger EventJournal FK 23503.
-    const processId = explicitProcessId ?? KernelContext.getAgentProcessId();
+    const processId = explicitProcessId ?? MissionContext.getAgentProcessId();
 
     // ★ Observability: Start trace span
     let spanId: string | undefined;
@@ -2057,11 +2057,11 @@ export class AiChatService {
         }
         if (processId) {
           // ★ R2-#36 ATTRIBUTION (additive): populate moduleType/referenceId/agentId
-          // from BillingContext and KernelContext when available.
+          // from BillingContext and MissionContext when available.
           // Falls back to "ai-engine" to preserve existing behaviour for callers
           // that don't wrap in a BillingContext (e.g. direct Ask/Social calls).
           const billingCtx = BillingContext.get();
-          const kernelCtx = KernelContext.get();
+          const kernelCtx = MissionContext.get();
           this.emitCostRecord({
             userId: userId ?? "",
             moduleType: billingCtx?.moduleType ?? "ai-engine",

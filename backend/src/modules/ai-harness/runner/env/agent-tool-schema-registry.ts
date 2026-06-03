@@ -1,5 +1,5 @@
 /**
- * SOTA Runtime · ToolRegistry (function-calling native)
+ * SOTA Runtime · AgentToolSchemaRegistry (function-calling native)
  *
  * 方案文档 §4.5 / §5。每 tool 声明 OpenAI function schema + cost_estimate + retry。
  * ReAct loop 的 Think 阶段把 registry 的所有允许 tool schema 传给 LLM，
@@ -73,11 +73,10 @@ export interface Tool<TArgs = Record<string, unknown>, TData = unknown> {
 @Injectable()
 /**
  * ★ 2026-05-05 [task #9] 名字冲突由审计 P2 标出（与 ai-engine ToolRegistry 同名）。
- * 重命名 → AgentToolRegistry 牵涉 15+ harness 内文件，先暴露 type alias 让 caller
- * 渐进迁移，避免单 PR 大爆炸。新代码 import { AgentToolRegistry } 等价 ToolRegistry。
+ * 已重命名 → AgentToolSchemaRegistry，消除与 ai-engine/tools 唯一 ToolRegistry 的同名。
  */
-export class ToolRegistry {
-  private readonly logger = new Logger(ToolRegistry.name);
+export class AgentToolSchemaRegistry {
+  private readonly logger = new Logger(AgentToolSchemaRegistry.name);
   private readonly tools = new Map<string, Tool>();
   private readonly callCounts = new Map<string, number>(); // `${taskId}:${toolId}` → count
 
@@ -94,7 +93,8 @@ export class ToolRegistry {
 
   mustGet(id: string): Tool {
     const t = this.tools.get(id);
-    if (!t) throw new Error(`[ToolRegistry] tool '${id}' not registered`);
+    if (!t)
+      throw new Error(`[AgentToolSchemaRegistry] tool '${id}' not registered`);
     return t;
   }
 
@@ -169,7 +169,3 @@ export class ToolRegistry {
     return Array.from(this.tools.keys());
   }
 }
-
-// ★ 2026-05-05 [task #9 半完成] 提供 AgentToolRegistry 别名，新代码引用此名
-// 与 ai-engine ToolRegistry 区分，存量 import 渐进迁移（不阻塞当前 PR）。
-export { ToolRegistry as AgentToolRegistry };

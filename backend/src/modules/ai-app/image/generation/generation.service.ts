@@ -26,7 +26,7 @@ import { AIModelType, Prisma } from "@prisma/client";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
-  KernelContext,
+  MissionContext,
 } from "@/modules/ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
 import {
@@ -839,7 +839,7 @@ export class AiImageService {
     };
 
     if (imgProcessId) {
-      await KernelContext.run(
+      await MissionContext.run(
         { agentProcessId: imgProcessId, userId, agentId: "image-generation" },
         runGeneration,
       );

@@ -38,7 +38,10 @@ export type {
 } from "./mission";
 
 // Context 服务（排除冲突的类型）
-export { ConstraintEnforcementService, TokenBudgetService } from "./context";
+export {
+  ConstraintEnforcementService,
+  TokenBudgetCalculatorService,
+} from "./context";
 export type {
   ConstraintSeverity,
   ExtractedConstraint,

@@ -43,10 +43,10 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   ProgressTrackerService: class {},
   MissionExecutorService: class {},
   EventJournalService: class {},
-  ProcessMemoryManagerService: class {},
+  WorkingMemoryManagerService: class {},
   ResourceManagerService: class {},
   EventBusService: class {},
-  KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
+  MissionContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({
   AIFacade: class {},
@@ -56,10 +56,10 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   ProgressTrackerService: class {},
   MissionExecutorService: class {},
   EventJournalService: class {},
-  ProcessMemoryManagerService: class {},
+  WorkingMemoryManagerService: class {},
   ResourceManagerService: class {},
   EventBusService: class {},
-  KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
+  MissionContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
 jest.mock("../../../../platform/facade", () => ({
   BillingContext: {

@@ -30,7 +30,7 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ChatFacade, TeamFacade } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
-  KernelContext,
+  MissionContext,
 } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import { BillingContext } from "../../../../platform/facade";
@@ -182,7 +182,7 @@ export class WritingMissionLifecycleService {
           );
         const missionProcessId = this.kernelProcessIds.get(missionId);
         void (missionProcessId
-          ? KernelContext.run(
+          ? MissionContext.run(
               { agentProcessId: missionProcessId, userId },
               wrappedRun,
             )

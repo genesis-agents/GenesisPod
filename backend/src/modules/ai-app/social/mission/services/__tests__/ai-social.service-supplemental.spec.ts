@@ -42,11 +42,11 @@ jest.mock("../session-crypto", () => ({
 // From __tests__/ subfolder, the path is 3 levels up to ai-harness/facade
 jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: class {},
-  KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
+  MissionContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: class {},
-  KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
+  MissionContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
 
 // Mock ai-harness/facade which has transitive cache-manager deps

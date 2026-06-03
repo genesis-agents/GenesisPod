@@ -19,7 +19,7 @@ import type {
 } from "../../guardrails/runtime/mission-election-tracker.service";
 import { AiModelConfigService } from "../../../ai-engine/llm/models/config/ai-model-config.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
-import { KernelContext } from "../../../../common/context/kernel-context";
+import { MissionContext } from "../../../../common/context/mission-context";
 import { AIModelType } from "@prisma/client";
 import type {
   IAgent,
@@ -171,7 +171,7 @@ export class AgentFactory {
     }
 
     const candidates = this.buildElectionCandidates(args.envSnapshot);
-    const missionId = KernelContext.get()?.missionId;
+    const missionId = MissionContext.get()?.missionId;
     const role = this.resolveElectionRoleHint(args.roleId);
     const runElection = async (previouslyElected: ReadonlyArray<string>) => {
       const result = await this.electionService!.elect({

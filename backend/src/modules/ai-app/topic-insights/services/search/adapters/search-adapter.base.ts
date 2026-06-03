@@ -14,7 +14,7 @@ import {
   TaskCompletionType,
 } from "@/modules/ai-harness/facade";
 import { SessionLatencyTrackerService } from "@/modules/ai-harness/facade";
-import { KernelContext } from "@/modules/ai-harness/facade";
+import { MissionContext } from "@/modules/ai-harness/facade";
 import { withTimeout } from "@/common/utils/timeout.utils";
 import { ToolRegistry, type ToolContext } from "@/modules/ai-harness/facade";
 import type { DataSourceResult } from "../../../types/data-source.types";
@@ -167,7 +167,7 @@ export abstract class SearchAdapterBase implements ISearchAdapter {
     resultCount: number,
   ): void {
     if (!this.latencyTracker) return;
-    const ctx = KernelContext.get();
+    const ctx = MissionContext.get();
     if (!ctx?.latencySessionId) return;
 
     this.latencyTracker.recordAction(ctx.latencySessionId, {

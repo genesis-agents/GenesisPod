@@ -137,11 +137,11 @@ jest.mock("../../idea/research-idea.service", () => ({
 
 jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: jest.fn(),
-  KernelContext: jest.fn(),
+  MissionContext: jest.fn(),
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: jest.fn(),
-  KernelContext: jest.fn(),
+  MissionContext: jest.fn(),
 }));
 
 jest.mock("../../search/research-tool-router.service", () => ({

@@ -6,7 +6,7 @@
 import { Injectable } from "@nestjs/common";
 import { ProcessManagerService } from "../../lifecycle/manager/process-manager.service";
 import { EventJournalService } from "../../protocols/journal/event-journal.service";
-import { ProcessMemoryManagerService } from "../../memory/working/process-memory-manager.service";
+import { WorkingMemoryManagerService } from "../../memory/working/working-memory-manager.service";
 import { ResourceManagerService } from "../../guardrails/resources/resource-manager.service";
 import { MissionExecutorService } from "../../lifecycle/manager/mission-executor.service";
 import { EntityHealthRegistry } from "../../../ai-engine/reliability/entity-health/entity-health.registry";
@@ -39,7 +39,7 @@ export class HarnessApiService {
   constructor(
     private readonly processManager: ProcessManagerService,
     private readonly eventJournal: EventJournalService,
-    private readonly memoryManager: ProcessMemoryManagerService,
+    private readonly memoryManager: WorkingMemoryManagerService,
     private readonly resourceManager: ResourceManagerService,
     private readonly missionExecutor: MissionExecutorService,
     private readonly circuitBreaker: EntityHealthRegistry,

@@ -31,7 +31,7 @@ import {
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import type { ChatMessage } from "@/modules/ai-harness/facade";
 import {
-  KernelContext,
+  MissionContext,
   MissionExecutorService,
 } from "@/modules/ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
@@ -1142,7 +1142,7 @@ ${messagesForSummary
       },
       () =>
         kernelProcessId
-          ? KernelContext.run(
+          ? MissionContext.run(
               { agentProcessId: kernelProcessId, userId },
               runSummary,
             )

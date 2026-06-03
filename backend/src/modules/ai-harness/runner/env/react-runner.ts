@@ -14,7 +14,10 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { BudgetAccountant } from "@/modules/ai-harness/guardrails/budget/budget-accountant";
-import { AgentToolRegistry, type ToolExecContext } from "../env/tool-registry";
+import {
+  AgentToolSchemaRegistry,
+  type ToolExecContext,
+} from "../env/agent-tool-schema-registry";
 import { AgentTracer, type Span } from "../../tracing/tracer/otel-tracer";
 import type {
   StepStore,
@@ -44,7 +47,7 @@ import {
 export interface LLMCaller {
   call(req: {
     messages: Message[];
-    tools?: ReturnType<AgentToolRegistry["getSchemas"]>;
+    tools?: ReturnType<AgentToolSchemaRegistry["getSchemas"]>;
     modelTier: "strong" | "standard" | "basic";
     span: Span;
   }): Promise<{
@@ -132,7 +135,7 @@ export interface ReActExecutionContext<
 > {
   readonly task: AgentTask<TMetadata>;
   readonly budget: BudgetAccountant;
-  readonly toolRegistry: AgentToolRegistry;
+  readonly toolRegistry: AgentToolSchemaRegistry;
   readonly llm: LLMCaller;
   readonly tracer: AgentTracer;
   readonly span: Span;
@@ -155,7 +158,7 @@ export class ReActRunner {
 
   constructor(
     private readonly tracer: AgentTracer,
-    private readonly toolRegistry: AgentToolRegistry,
+    private readonly toolRegistry: AgentToolSchemaRegistry,
   ) {}
 
   async execute<

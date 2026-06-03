@@ -81,9 +81,9 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   TeamFacade: class {},
   RAGFacade: class {},
   ProgressTrackerService: class {},
-  // KernelContext moved from ai-kernel to ai-harness/facade in kernel-merge PR;
+  // MissionContext moved from ai-kernel to ai-harness/facade in kernel-merge PR;
   // tests need a pass-through run() so nested service logic still executes.
-  KernelContext: {
+  MissionContext: {
     run: <T>(_data: unknown, fn: () => T): T => fn(),
     get: () => undefined,
     getAgentProcessId: () => undefined,
@@ -96,9 +96,9 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   TeamFacade: class {},
   RAGFacade: class {},
   ProgressTrackerService: class {},
-  // KernelContext moved from ai-kernel to ai-harness/facade in kernel-merge PR;
+  // MissionContext moved from ai-kernel to ai-harness/facade in kernel-merge PR;
   // tests need a pass-through run() so nested service logic still executes.
-  KernelContext: {
+  MissionContext: {
     run: <T>(_data: unknown, fn: () => T): T => fn(),
     get: () => undefined,
     getAgentProcessId: () => undefined,

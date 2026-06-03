@@ -23,7 +23,10 @@
  */
 
 import { AgentTracer } from "../../../tracing/tracer/otel-tracer";
-import { ToolRegistry, type Tool } from "../tool-registry";
+import {
+  AgentToolSchemaRegistry,
+  type Tool,
+} from "../agent-tool-schema-registry";
 import {
   ReActRunner,
   type LLMCaller,
@@ -41,7 +44,10 @@ function makeTracer(): AgentTracer {
   return new AgentTracer();
 }
 
-function makeTool(id: string, executeResult: object = { success: true, data: {} }): Tool {
+function makeTool(
+  id: string,
+  executeResult: object = { success: true, data: {} },
+): Tool {
   return {
     id,
     description: `Tool ${id}`,
@@ -62,8 +68,8 @@ function makeTool(id: string, executeResult: object = { success: true, data: {} 
   };
 }
 
-function makeToolRegistry(tools: Tool[] = []): ToolRegistry {
-  const reg = new ToolRegistry();
+function makeToolRegistry(tools: Tool[] = []): AgentToolSchemaRegistry {
+  const reg = new AgentToolSchemaRegistry();
   for (const t of tools) reg.register(t);
   return reg;
 }
@@ -165,7 +171,13 @@ describe("ReActRunner.execute() — basic paths", () => {
       parseAction: jest.fn().mockReturnValue({ kind: "done" }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
 
     expect(result).toEqual({ result: "final-answer" });
     expect(stores.taskStore.updateStatus).toHaveBeenCalledWith(
@@ -181,7 +193,9 @@ describe("ReActRunner.execute() — basic paths", () => {
     const stores = makeStores();
     const task = makeTask();
     const protocol = makeProtocol({
-      parseAction: jest.fn().mockReturnValue({ kind: "need_human", question: "What color?" }),
+      parseAction: jest
+        .fn()
+        .mockReturnValue({ kind: "need_human", question: "What color?" }),
     });
 
     await expect(
@@ -199,10 +213,18 @@ describe("ReActRunner.execute() — basic paths", () => {
     const stores = makeStores();
     const task = makeTask();
     const protocol = makeProtocol({
-      parseAction: jest.fn().mockReturnValue({ kind: "abort", reason: "Cannot proceed" }),
+      parseAction: jest
+        .fn()
+        .mockReturnValue({ kind: "abort", reason: "Cannot proceed" }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
 
     expect(result).toBeNull();
     const updateCalls = (stores.taskStore.updateStatus as jest.Mock).mock.calls;
@@ -227,7 +249,13 @@ describe("ReActRunner.execute() — basic paths", () => {
       }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
 
     expect(result).toEqual({ result: "final-answer" });
     const writeCalls = (stores.stepStore.write as jest.Mock).mock.calls;
@@ -240,7 +268,12 @@ describe("ReActRunner.execute() — basic paths", () => {
   });
 
   it("tool_call with costUsd triggers budget.accountTool", async () => {
-    const testTool = makeTool("paid-tool", { success: true, data: {}, costUsd: 0.05, latencyMs: 50 });
+    const testTool = makeTool("paid-tool", {
+      success: true,
+      data: {},
+      costUsd: 0.05,
+      latencyMs: 50,
+    });
     const runner = new ReActRunner(makeTracer(), makeToolRegistry([testTool]));
     const stores = makeStores();
     const task = makeTask();
@@ -249,12 +282,19 @@ describe("ReActRunner.execute() — basic paths", () => {
       allowedTools: ["paid-tool"],
       parseAction: jest.fn().mockImplementation(() => {
         callCount++;
-        if (callCount === 1) return { kind: "tool_call", tool: "paid-tool", args: {} };
+        if (callCount === 1)
+          return { kind: "tool_call", tool: "paid-tool", args: {} };
         return { kind: "done" };
       }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
     expect(result).toBeDefined();
   });
 
@@ -267,7 +307,13 @@ describe("ReActRunner.execute() — basic paths", () => {
       parseAction: jest.fn().mockReturnValue({ kind: "done" }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
     expect(result).toBeDefined();
   });
 
@@ -284,7 +330,8 @@ describe("ReActRunner.execute() — basic paths", () => {
       parseAction: jest.fn().mockImplementation(() => {
         callCount++;
         // First call: tool_call to force a full iteration including self-eval
-        if (callCount === 1) return { kind: "tool_call", tool: "eval-tool", args: {} };
+        if (callCount === 1)
+          return { kind: "tool_call", tool: "eval-tool", args: {} };
         return { kind: "done" };
       }),
       selfEvaluate: selfEval,
@@ -305,7 +352,13 @@ describe("ReActRunner.execute() — basic paths", () => {
       parseAction: jest.fn().mockReturnValue({ kind: "done" }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
     expect(result).toBeDefined();
   });
 
@@ -327,7 +380,13 @@ describe("ReActRunner.execute() — basic paths", () => {
       parseAction: jest.fn().mockReturnValue({ kind: "done" }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus("pass"), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus("pass"),
+      stores,
+    );
 
     expect(result).toEqual({ result: "final-answer" });
     expect(judge.evaluate).toHaveBeenCalled();
@@ -356,7 +415,13 @@ describe("ReActRunner.execute() — basic paths", () => {
       parseAction: jest.fn().mockReturnValue({ kind: "done" }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus("fail"), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus("fail"),
+      stores,
+    );
 
     expect(result).toBeNull();
     expect(stores.taskStore.markForRetry).toHaveBeenCalledWith("task-1");
@@ -380,7 +445,13 @@ describe("ReActRunner.execute() — basic paths", () => {
       parseAction: jest.fn().mockReturnValue({ kind: "done" }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus("fail"), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus("fail"),
+      stores,
+    );
 
     expect(result).toBeNull();
     const updateCalls = (stores.taskStore.updateStatus as jest.Mock).mock.calls;
@@ -396,7 +467,14 @@ describe("ReActRunner.execute() — basic paths", () => {
     // Need at least one judge so consensus is called
     const judge: JudgeSpec = {
       judgeId: "escalate-judge",
-      evaluate: jest.fn().mockResolvedValue({ score: 60, passed: true, critique: "ok", suggestions: [] }),
+      evaluate: jest
+        .fn()
+        .mockResolvedValue({
+          score: 60,
+          passed: true,
+          critique: "ok",
+          suggestions: [],
+        }),
     };
     const protocol = makeProtocol({
       judges: [judge],
@@ -413,7 +491,9 @@ describe("ReActRunner.execute() — basic paths", () => {
 
     expect(result).toBeNull();
     const updateCalls = (stores.taskStore.updateStatus as jest.Mock).mock.calls;
-    expect(updateCalls.some((c: unknown[]) => c[1] === "AWAITING_HUMAN")).toBe(true);
+    expect(updateCalls.some((c: unknown[]) => c[1] === "AWAITING_HUMAN")).toBe(
+      true,
+    );
   });
 
   it("no judges → consensus NOT called, uses default pass", async () => {
@@ -424,9 +504,17 @@ describe("ReActRunner.execute() — basic paths", () => {
       judges: [],
       parseAction: jest.fn().mockReturnValue({ kind: "done" }),
     });
-    const consensus = jest.fn().mockReturnValue({ verdict: "pass", score: 70, note: "no judges" });
+    const consensus = jest
+      .fn()
+      .mockReturnValue({ verdict: "pass", score: 70, note: "no judges" });
 
-    const result = await runner.execute(task, protocol, makeLLM(), consensus, stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      consensus,
+      stores,
+    );
 
     expect(result).toEqual({ result: "final-answer" });
     expect(consensus).not.toHaveBeenCalled();
@@ -446,7 +534,13 @@ describe("ReActRunner.execute() — basic paths", () => {
     });
 
     // When judge fails, verdicts is empty → default pass
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
 
     expect(result).toEqual({ result: "final-answer" });
     expect(failingJudge.evaluate).toHaveBeenCalled();
@@ -463,7 +557,13 @@ describe("ReActRunner.execute() — basic paths", () => {
       call: jest.fn().mockRejectedValue(new Error("LLM service unavailable")),
     };
 
-    const result = await runner.execute(task, protocol, brokenLLM, makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      brokenLLM,
+      makeConsensus(),
+      stores,
+    );
 
     expect(result).toBeNull();
     const updateCalls = (stores.taskStore.updateStatus as jest.Mock).mock.calls;
@@ -476,8 +576,14 @@ describe("ReActRunner.execute() — basic paths", () => {
       taskId: "task-1",
       iteration: 2,
       stepIndex: 0,
-      observations: [{ source: "test-tool", data: { prior: true }, timestamp: 1000 }],
-      reasoningMemory: { notes: ["Prior note"], keyFindings: [], pendingQuestions: [] },
+      observations: [
+        { source: "test-tool", data: { prior: true }, timestamp: 1000 },
+      ],
+      reasoningMemory: {
+        notes: ["Prior note"],
+        keyFindings: [],
+        pendingQuestions: [],
+      },
       toolInvocationHistory: [],
       budgetSnapshot: {
         tier: "strong" as const,
@@ -500,7 +606,13 @@ describe("ReActRunner.execute() — basic paths", () => {
       parseAction: jest.fn().mockReturnValue({ kind: "done" }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
 
     expect(result).toBeDefined();
   });
@@ -516,7 +628,12 @@ describe("ReActRunner.execute() — basic paths", () => {
       parseAction: jest.fn().mockImplementation(() => {
         callCount++;
         if (callCount === 1)
-          return { kind: "tool_call", tool: "linked-tool", args: {}, toolCallId: undefined };
+          return {
+            kind: "tool_call",
+            tool: "linked-tool",
+            args: {},
+            toolCallId: undefined,
+          };
         return { kind: "done" };
       }),
     });
@@ -531,7 +648,13 @@ describe("ReActRunner.execute() — basic paths", () => {
       }),
     };
 
-    const result = await runner.execute(task, protocol, llm, makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      llm,
+      makeConsensus(),
+      stores,
+    );
     expect(result).toBeDefined();
   });
 
@@ -545,7 +668,13 @@ describe("ReActRunner.execute() — basic paths", () => {
       parseAction: jest.fn().mockReturnValue({ kind: "done" }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
     expect(result).toBe(longResult);
     expect(stores.taskStore.writeResult).toHaveBeenCalled();
   });
@@ -559,7 +688,13 @@ describe("ReActRunner.execute() — basic paths", () => {
       parseAction: jest.fn().mockReturnValue({ kind: "done" }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
     expect(result).toBe("Short string result");
   });
 
@@ -573,12 +708,19 @@ describe("ReActRunner.execute() — basic paths", () => {
       allowedTools: ["scoped-tool"],
       parseAction: jest.fn().mockImplementation(() => {
         callCount++;
-        if (callCount === 1) return { kind: "tool_call", tool: "scoped-tool", args: {} };
+        if (callCount === 1)
+          return { kind: "tool_call", tool: "scoped-tool", args: {} };
         return { kind: "done" };
       }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
     expect(result).toBeDefined();
     // scope extraction verified indirectly through successful execution
   });
@@ -593,12 +735,19 @@ describe("ReActRunner.execute() — basic paths", () => {
       allowedTools: ["session-tool"],
       parseAction: jest.fn().mockImplementation(() => {
         callCount++;
-        if (callCount === 1) return { kind: "tool_call", tool: "session-tool", args: {} };
+        if (callCount === 1)
+          return { kind: "tool_call", tool: "session-tool", args: {} };
         return { kind: "done" };
       }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
     expect(result).toBeDefined();
   });
 
@@ -612,12 +761,19 @@ describe("ReActRunner.execute() — basic paths", () => {
       allowedTools: ["default-scope-tool"],
       parseAction: jest.fn().mockImplementation(() => {
         callCount++;
-        if (callCount === 1) return { kind: "tool_call", tool: "default-scope-tool", args: {} };
+        if (callCount === 1)
+          return { kind: "tool_call", tool: "default-scope-tool", args: {} };
         return { kind: "done" };
       }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
     expect(result).toBeDefined();
   });
 
@@ -632,14 +788,23 @@ describe("ReActRunner.execute() — basic paths", () => {
       parseAction: jest.fn().mockReturnValue({ kind: "done" }),
     });
 
-    const result = await runner.execute(task, protocol, makeLLM(), makeConsensus(), stores);
+    const result = await runner.execute(
+      task,
+      protocol,
+      makeLLM(),
+      makeConsensus(),
+      stores,
+    );
     expect(result).toBeDefined();
   });
 });
 
 describe("HumanInLoopPause", () => {
   it("is an Error with taskId and payload", () => {
-    const pause = new HumanInLoopPause("task-abc", { kind: "need_human", question: "ok?" });
+    const pause = new HumanInLoopPause("task-abc", {
+      kind: "need_human",
+      question: "ok?",
+    });
     expect(pause).toBeInstanceOf(Error);
     expect(pause).toBeInstanceOf(HumanInLoopPause);
     expect(pause.taskId).toBe("task-abc");

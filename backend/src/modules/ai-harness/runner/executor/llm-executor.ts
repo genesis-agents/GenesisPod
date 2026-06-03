@@ -25,7 +25,7 @@ import { AiModelConfigService } from "../../../ai-engine/llm/models/config/ai-mo
 // Nest DI 随后报 "LlmExecutor dependency at index [0]"。
 // 参考 8ac343b98（agent-factory / spec-based-agent 已同此修复）。
 import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
-import { KernelContext } from "../../../../common/context/kernel-context";
+import { MissionContext } from "../../../../common/context/mission-context";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 import { AIModelType } from "@prisma/client";
 // 分类器源头已下沉到 L2 ai-engine（model-failover.classifier.ts），让 L2
@@ -70,7 +70,7 @@ export interface LlmExecutorInput<TOutput> {
 
   readonly signal?: AbortSignal;
   readonly userId?: string;
-  /** KernelContext 自动透传；若显式提供覆盖 */
+  /** MissionContext 自动透传；若显式提供覆盖 */
   readonly processId?: string;
   readonly operationName?: string;
 
@@ -418,9 +418,9 @@ export class LlmExecutor {
 
     const maxRetries = input.maxRetries ?? 2;
 
-    // KernelContext 自动带出 agentProcessId / userId（若 caller 未显式传）。
-    //   2026-05-11: slot renamed processId → agentProcessId（见 kernel-context.ts header）。
-    const kctx = KernelContext.get();
+    // MissionContext 自动带出 agentProcessId / userId（若 caller 未显式传）。
+    //   2026-05-11: slot renamed processId → agentProcessId（见 mission-context.ts header）。
+    const kctx = MissionContext.get();
     const processId = input.processId ?? kctx?.agentProcessId;
     const userId = input.userId ?? kctx?.userId;
 

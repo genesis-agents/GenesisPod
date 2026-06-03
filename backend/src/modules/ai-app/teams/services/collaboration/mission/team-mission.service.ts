@@ -94,7 +94,7 @@ import { ProgressTrackerService } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
   EventJournalService,
-  KernelContext,
+  MissionContext,
 } from "@/modules/ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
@@ -942,7 +942,7 @@ export class TeamMissionService implements OnModuleInit {
     }; // end runMission
 
     await (teamProcessId
-      ? KernelContext.run(
+      ? MissionContext.run(
           { agentProcessId: teamProcessId, userId: _userId },
           runMission,
         )

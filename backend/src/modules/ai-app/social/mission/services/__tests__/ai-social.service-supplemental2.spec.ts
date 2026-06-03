@@ -30,11 +30,11 @@ jest.mock("../session-crypto", () => ({
 
 jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: class {},
-  KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
+  MissionContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: class {},
-  KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
+  MissionContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
 
 jest.mock("@/modules/ai-harness/facade", () => ({

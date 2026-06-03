@@ -9,7 +9,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ConstraintEnforcementService } from "@/modules/ai-harness/guardrails/constraints/constraint-enforcement.service";
-import { ContextBudgetCalculator as TokenBudgetService } from "@/modules/ai-engine/planning/budget/token-budget.service";
+import { ContextBudgetCalculator as TokenBudgetCalculatorService } from "@/modules/ai-engine/planning/budget/token-budget.service";
 import type { ExtractedConstraint } from "@/modules/ai-harness/runner/executor/constraint-enforcement.types";
 
 /**
@@ -78,7 +78,7 @@ export class MissionInputService {
   private readonly logger = new Logger(MissionInputService.name);
 
   constructor(
-    private readonly tokenBudgetService: TokenBudgetService,
+    private readonly tokenBudgetService: TokenBudgetCalculatorService,
     private readonly constraintService: ConstraintEnforcementService,
   ) {}
 

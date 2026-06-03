@@ -101,7 +101,7 @@ export {
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { ContextBudgetCalculator } from "../../ai-engine/planning/budget/token-budget.service";
 /** @deprecated use ContextBudgetCalculator; engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { ContextBudgetCalculator as TokenBudgetService } from "../../ai-engine/planning/budget/token-budget.service";
+export { ContextBudgetCalculator as TokenBudgetCalculatorService } from "../../ai-engine/planning/budget/token-budget.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { ContextCompressionService } from "../../ai-engine/planning/context/context-compression.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
@@ -1098,7 +1098,7 @@ export {
 export type { ICheckpoint, AgentEventRecord } from "../memory/checkpoint";
 
 // â"€â"€ Working memory â"€â"€
-export { ProcessMemoryManagerService } from "../memory/working/process-memory-manager.service";
+export { WorkingMemoryManagerService } from "../memory/working/working-memory-manager.service";
 export { HierarchicalMemoryCascadeService } from "../memory/working/hierarchical-memory-cascade.service";
 export type {
   MemoryScope,
@@ -1230,12 +1230,12 @@ export { HarnessApiService, KernelApiService } from "./api/harness-api.service";
 // app.module.ts 已直接 import "./facade/api/harness-api.module"，本行是死代码。
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// Common context (KernelContext lives in common/, surfaced here for ai-app DX)
+// Common context (MissionContext lives in common/, surfaced here for ai-app DX)
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export {
-  KernelContext,
-  type KernelContextData,
-} from "../../../common/context/kernel-context";
+  MissionContext,
+  type MissionContextData,
+} from "../../../common/context/mission-context";
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Kernel (Legacy) — PR-X5
@@ -1503,7 +1503,7 @@ export {
   type StageHookFn,
   type StageHookShape,
   defineStageHooks,
-  type MissionContext,
+  type MissionContext as StageMissionContext,
   type RoleState,
   type PastDecision as StagePastDecision,
 } from "../teams/services/stages/abstractions";

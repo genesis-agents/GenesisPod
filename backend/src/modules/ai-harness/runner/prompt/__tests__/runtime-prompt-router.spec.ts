@@ -1,10 +1,10 @@
 /**
- * PromptRegistry — branch coverage spec
+ * RuntimePromptRouter — branch coverage spec
  *
  * Covers uncovered branches in register(), resolve(), rollback(), and compareSemver().
  */
 
-import { PromptRegistry } from "../prompt-registry";
+import { RuntimePromptRouter } from "../runtime-prompt-router";
 import type { PromptTemplate } from "../prompt-template";
 
 function makeTemplate(overrides: Partial<PromptTemplate> = {}): PromptTemplate {
@@ -19,11 +19,11 @@ function makeTemplate(overrides: Partial<PromptTemplate> = {}): PromptTemplate {
   } as PromptTemplate;
 }
 
-describe("PromptRegistry", () => {
-  let registry: PromptRegistry;
+describe("RuntimePromptRouter", () => {
+  let registry: RuntimePromptRouter;
 
   beforeEach(() => {
-    registry = new PromptRegistry();
+    registry = new RuntimePromptRouter();
   });
 
   describe("register()", () => {

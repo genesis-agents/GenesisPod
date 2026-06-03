@@ -133,7 +133,7 @@ describe("EventJournalService", () => {
       expect(returned.result).toBeNull();
     });
 
-    // 2026-05-11 FK-guard regression: when KernelContext.processId is set to
+    // 2026-05-11 FK-guard regression: when MissionContext.processId is set to
     // a missionId / sessionId that is not a real AgentProcess row, the
     // INSERT ... SELECT ... WHERE EXISTS short-circuits to 0 rows. record()
     // must return a stub entry instead of throwing, and must NOT log at

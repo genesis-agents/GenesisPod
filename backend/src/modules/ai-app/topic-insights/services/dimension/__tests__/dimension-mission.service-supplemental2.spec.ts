@@ -7,7 +7,7 @@
  * - line 474: date parsing for freshness
  * - lines 579-585: EVENT type anchor evidence injection
  * - line 630: context compression failure (non-fatal fallback)
- * - line 652: TokenBudgetService truncation
+ * - line 652: TokenBudgetCalculatorService truncation
  * - line 1080: claim extraction failure (non-fatal warn)
  * - lines 1318-1326: chatFacade call in fact extraction path
  * - line 1674: filterEvidenceForSection zeroScoreCount > 50% path
@@ -34,8 +34,11 @@ import { MissionObservabilityService } from "../../core/mission/mission-observab
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import { DimensionProgressService } from "../dimension-progress.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
-import { ContextCompressionService, ContextEvolutionService } from "@/modules/ai-harness/facade";
-import { TokenBudgetService } from "@/modules/ai-harness/facade";
+import {
+  ContextCompressionService,
+  ContextEvolutionService,
+} from "@/modules/ai-harness/facade";
+import { TokenBudgetCalculatorService } from "@/modules/ai-harness/facade";
 import { ResearchTopic, TopicDimension } from "@prisma/client";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
@@ -364,7 +367,7 @@ async function buildModule(
   }
   if (extras.tokenBudget !== undefined) {
     providers.push({
-      provide: TokenBudgetService,
+      provide: TokenBudgetCalculatorService,
       useValue: extras.tokenBudget,
     });
   }
@@ -812,11 +815,11 @@ describe("DimensionMissionService (supplemental2)", () => {
   });
 
   // ============================================================
-  // executeSearchPhase – TokenBudgetService truncation (line 652)
+  // executeSearchPhase – TokenBudgetCalculatorService truncation (line 652)
   // ============================================================
 
-  describe("executeSearchPhase – TokenBudgetService truncation (line 652)", () => {
-    it("should use TokenBudgetService to truncate when evidence summary is long", async () => {
+  describe("executeSearchPhase – TokenBudgetCalculatorService truncation (line 652)", () => {
+    it("should use TokenBudgetCalculatorService to truncate when evidence summary is long", async () => {
       const mocks = buildBaseMocks();
 
       const largeContent = "Y".repeat(9000);

@@ -4,7 +4,7 @@
  * Targets uncovered lines:
  * - reprocessExistingReport (265-304)
  * - ContextEvolutionService availability check and facts injection (415-429)
- * - TokenBudgetService smart truncation vs. hard truncation fallback (454-468)
+ * - TokenBudgetCalculatorService smart truncation vs. hard truncation fallback (454-468)
  * - Evidence JSON validation / cross-dimension consistency conflict logging (606, 622-637)
  * - LLM synthesis call with full prompt / OutputReviewer quality check (706-770)
  * - Report assembly with charts + citations (1521-1527)
@@ -24,7 +24,7 @@ import {
   OutputReviewerService,
 } from "@/modules/ai-harness/facade";
 import { ContextEvolutionService } from "@/modules/ai-harness/facade";
-import { TokenBudgetService } from "@/modules/ai-harness/facade";
+import { TokenBudgetCalculatorService } from "@/modules/ai-harness/facade";
 import { ReportEditorService } from "../report-editor.service";
 import { ReportAssemblerService } from "../report-assembler.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
@@ -307,7 +307,7 @@ async function buildModule(
   }
   if (extras.tokenBudget) {
     providers.push({
-      provide: TokenBudgetService,
+      provide: TokenBudgetCalculatorService,
       useValue: mocks.mockTokenBudget,
     });
   }
@@ -681,11 +681,11 @@ describe("ReportSynthesisService (supplemental)", () => {
   });
 
   // ============================================================
-  // synthesizeReport — TokenBudgetService truncation
+  // synthesizeReport — TokenBudgetCalculatorService truncation
   // ============================================================
 
-  describe("synthesizeReport — TokenBudgetService truncation", () => {
-    it("should use TokenBudgetService.smartTruncate when dimension content exceeds 8000 chars", async () => {
+  describe("synthesizeReport — TokenBudgetCalculatorService truncation", () => {
+    it("should use TokenBudgetCalculatorService.smartTruncate when dimension content exceeds 8000 chars", async () => {
       const mocks = buildMocks();
       const service = await buildModule(mocks, { tokenBudget: true });
 
@@ -749,7 +749,7 @@ describe("ReportSynthesisService (supplemental)", () => {
       );
     });
 
-    it("should use hard slice fallback when TokenBudgetService is unavailable and content exceeds 8000 chars", async () => {
+    it("should use hard slice fallback when TokenBudgetCalculatorService is unavailable and content exceeds 8000 chars", async () => {
       const mocks = buildMocks();
       const service = await buildModule(mocks, { tokenBudget: false });
 

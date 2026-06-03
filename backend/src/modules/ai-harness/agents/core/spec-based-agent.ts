@@ -24,7 +24,7 @@ import { AIModelType } from "@prisma/client";
 // 若也从 facade 导入，会触发 barrel → 众多子模块 → harness 的回环加载，
 // 导致 TypeScript 在 module evaluation 阶段产生 `undefined` 类 reference，
 // Nest DI 随后报 "Cannot resolve dependency at index [0]"。
-import { KernelContext } from "../../../../common/context/kernel-context";
+import { MissionContext } from "../../../../common/context/mission-context";
 import {
   ModelElectionService,
   NoEligibleModelError,
@@ -102,7 +102,7 @@ export class SpecBasedAgent<
     private readonly envSnapshot?: EnvironmentSnapshot,
     /**
      * 2026-05-10 §3：mission-scoped 选举多样性 tracker。每次选举把已选 modelId
-     * 通过 KernelContext.missionId 累积到这里，下一次同 mission 的选举会读出来
+     * 通过 MissionContext.missionId 累积到这里，下一次同 mission 的选举会读出来
      * 并在 score 维度按 -10 × occurrences 扣分，自然分布到多 provider。
      * 同 electionProvider 一样 lazy，避免 DI 时序坑。
      */
@@ -174,7 +174,7 @@ export class SpecBasedAgent<
         ? input
         : JSON.stringify(input);
 
-    const kctx = KernelContext.get();
+    const kctx = MissionContext.get();
     const effectiveUserId = this.spec.userId ?? kctx?.userId;
 
     // ============================================================
@@ -390,7 +390,7 @@ export class SpecBasedAgent<
     // 同 mission 内 -10 × occurrences 分散选择；mission 外 / tracker 缺失 →
     // 空数组 → 行为退化到无 diversity（单次选举打分）。
     const tracker = this.electionTrackerProvider?.();
-    const missionId = KernelContext.get()?.missionId;
+    const missionId = MissionContext.get()?.missionId;
 
     try {
       const runElection = async (previouslyElected: ReadonlyArray<string>) => {

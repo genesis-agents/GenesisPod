@@ -20,7 +20,7 @@
  *     - computeChain: stepId → string[]（业务自己的 PIPELINE_STEPS 走 computeCascadeChain）
  *     - assertRerunable: stepId 入站校验（黑名单 / dag.rerunable）
  *     - buildStubs: 给 handlers 注入 DI 依赖（业务 stubs shape）
- *     - withCascadeScope: 业务在此包 KernelContext.run（可选）
+ *     - withCascadeScope: 业务在此包 MissionContext.run（可选）
  *     - markStageProgress: cascade 跑完每个 stage 写库（可选）
  */
 
@@ -73,7 +73,7 @@ export abstract class BusinessTeamStageRerunDispatcherFramework<
   protected async runFromStageWithCascade(
     args: CascadeRunInput<TContext, TEmit>,
   ): Promise<CascadeRunResult> {
-    // 业务自定义 scope wrapping（如 KernelContext.run），默认透传
+    // 业务自定义 scope wrapping（如 MissionContext.run），默认透传
     const inner = (): Promise<CascadeRunResult> =>
       this.runFromStageWithCascadeInner(args);
     if (this.hooks.withCascadeScope) {

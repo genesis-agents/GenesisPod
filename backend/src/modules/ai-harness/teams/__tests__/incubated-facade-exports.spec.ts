@@ -56,8 +56,8 @@ describe("ai-harness facade — incubated capability exports", () => {
       expect(typeof facade.AgentStepCheckpointService).toBe("function");
     });
 
-    it("ProcessMemoryManagerService is exported", () => {
-      expect(typeof facade.ProcessMemoryManagerService).toBe("function");
+    it("WorkingMemoryManagerService is exported", () => {
+      expect(typeof facade.WorkingMemoryManagerService).toBe("function");
     });
 
     it("HierarchicalMemoryCascadeService is exported", () => {

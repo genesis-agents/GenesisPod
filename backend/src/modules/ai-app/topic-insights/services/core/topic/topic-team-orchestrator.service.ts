@@ -13,7 +13,7 @@ import {
   SessionLatencyTrackerService,
   type LatencySessionSummary,
 } from "@/modules/ai-harness/facade";
-import { KernelContext } from "@/modules/ai-harness/facade";
+import { MissionContext } from "@/modules/ai-harness/facade";
 import { RESEARCH_INTERNAL_EVENTS } from "../research/research-event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -165,11 +165,11 @@ export class TopicTeamOrchestratorService {
       metadata: { topicName: topic.name, researchDepth: options.researchDepth },
     });
 
-    // ★ 设置 KernelContext 以便嵌套的 AiChatService 调用能自动归属到此时延会话
+    // ★ 设置 MissionContext 以便嵌套的 AiChatService 调用能自动归属到此时延会话
     // 2026-05-11: agentProcessId omitted — topic-insights doesn't spawn a kernel
     // AgentProcess (no missionExecutor.execute call), so leave the FK-bound slot
     // empty. Latency session ID + userId is enough for the downstream consumers.
-    return KernelContext.run(
+    return MissionContext.run(
       {
         userId: topic.userId,
         latencySessionId,
@@ -186,7 +186,7 @@ export class TopicTeamOrchestratorService {
   }
 
   /**
-   * executeRefresh 的核心执行体（在 KernelContext 中运行）
+   * executeRefresh 的核心执行体（在 MissionContext 中运行）
    */
   private async executeRefreshBody(
     topic: ResearchTopic,

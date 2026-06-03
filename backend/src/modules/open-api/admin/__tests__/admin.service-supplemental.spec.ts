@@ -120,19 +120,19 @@ jest.mock("../../../ai-engine/facade", () => ({
   KernelApiService: class {},
   MissionExecutorService: class {},
   EventJournalService: class {},
-  ProcessMemoryManagerService: class {},
+  WorkingMemoryManagerService: class {},
   ResourceManagerService: class {},
   EventBusService: class {},
-  KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
+  MissionContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
 jest.mock("../../../ai-harness/facade", () => ({
   KernelApiService: class {},
   MissionExecutorService: class {},
   EventJournalService: class {},
-  ProcessMemoryManagerService: class {},
+  WorkingMemoryManagerService: class {},
   ResourceManagerService: class {},
   EventBusService: class {},
-  KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
+  MissionContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
 jest.mock("../../mcp/mcp-server.service", () => ({
   MCPServerService: class {},

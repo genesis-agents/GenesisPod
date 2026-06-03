@@ -65,7 +65,7 @@ jest.mock("../../templates/base/themes", () => ({
 
 jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: jest.fn(),
-  KernelContext: {
+  MissionContext: {
     run: jest
       .fn()
       .mockImplementation((_opts: unknown, fn: () => Promise<unknown>) => fn()),
@@ -74,7 +74,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: jest.fn(),
-  KernelContext: {
+  MissionContext: {
     run: jest
       .fn()
       .mockImplementation((_opts: unknown, fn: () => Promise<unknown>) => fn()),

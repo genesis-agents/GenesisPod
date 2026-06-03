@@ -11,7 +11,7 @@ import { SendChatMessageDto, CreateNoteDto, UpdateNoteDto } from "./dto";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import type { ChatMessage as FacadeChatMessage } from "@/modules/ai-harness/facade";
 import {
-  KernelContext,
+  MissionContext,
   MissionExecutorService,
 } from "@/modules/ai-harness/facade";
 import { BillingContext } from "../../../platform/facade";
@@ -112,7 +112,7 @@ export class ResearchProjectChatService {
 
     try {
       const result = await (kernelProcessId
-        ? KernelContext.run(
+        ? MissionContext.run(
             { agentProcessId: kernelProcessId, userId },
             billingRun,
           )

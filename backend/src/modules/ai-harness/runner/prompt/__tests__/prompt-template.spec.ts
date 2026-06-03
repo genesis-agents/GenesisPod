@@ -1,10 +1,10 @@
 /**
- * PromptTemplate + PromptRegistry 单测 (PR-O)
+ * PromptTemplate + RuntimePromptRouter 单测 (PR-O)
  */
 
 import { z } from "zod";
 import { PromptTemplate } from "../prompt-template";
-import { PromptRegistry } from "../prompt-registry";
+import { RuntimePromptRouter } from "../runtime-prompt-router";
 
 describe("PromptTemplate (PR-O)", () => {
   it("renders variables", () => {
@@ -73,7 +73,7 @@ describe("PromptTemplate (PR-O)", () => {
   });
 });
 
-describe("PromptRegistry (PR-O)", () => {
+describe("RuntimePromptRouter (PR-O)", () => {
   function tpl(
     id: string,
     version: string,
@@ -92,14 +92,14 @@ describe("PromptRegistry (PR-O)", () => {
   }
 
   it("resolve returns active version", () => {
-    const reg = new PromptRegistry();
+    const reg = new RuntimePromptRouter();
     reg.register(tpl("p", "1.0.0"));
     reg.register(tpl("p", "2.0.0"));
     expect(reg.resolve("p")?.version).toBe("2.0.0");
   });
 
   it("rollback removes newer versions and resets active", () => {
-    const reg = new PromptRegistry();
+    const reg = new RuntimePromptRouter();
     reg.register(tpl("p", "1.0.0", "v1"));
     reg.register(tpl("p", "2.0.0", "v2"));
     reg.rollback("p", "1.0.0");
@@ -108,7 +108,7 @@ describe("PromptRegistry (PR-O)", () => {
   });
 
   it("A/B routes deterministically (same userId always same variant)", () => {
-    const reg = new PromptRegistry();
+    const reg = new RuntimePromptRouter();
     reg.register(tpl("p", "1.0.0", "tA", "A", 50));
     reg.register(tpl("p", "1.0.0", "tB", "B", 50));
     // 同一 userId 多次 resolve 必返回同一 variant —— 这是核心契约
@@ -122,7 +122,7 @@ describe("PromptRegistry (PR-O)", () => {
   });
 
   it("A/B routes split traffic across variants over enough samples", () => {
-    const reg = new PromptRegistry();
+    const reg = new RuntimePromptRouter();
     reg.register(tpl("p", "1.0.0", "tA", "A", 50));
     reg.register(tpl("p", "1.0.0", "tB", "B", 50));
     const counts: Record<string, number> = { A: 0, B: 0 };
@@ -136,7 +136,7 @@ describe("PromptRegistry (PR-O)", () => {
   });
 
   it("forceVariant overrides hash-based routing", () => {
-    const reg = new PromptRegistry();
+    const reg = new RuntimePromptRouter();
     reg.register(tpl("p", "1.0.0", "tA", "A"));
     reg.register(tpl("p", "1.0.0", "tB", "B"));
     expect(
@@ -145,7 +145,7 @@ describe("PromptRegistry (PR-O)", () => {
   });
 
   it("rollback uses semver numeric comparison (handles 10.0.0 > 9.0.0)", () => {
-    const reg = new PromptRegistry();
+    const reg = new RuntimePromptRouter();
     reg.register(tpl("p", "1.0.0", "v1"));
     reg.register(tpl("p", "9.0.0", "v9"));
     reg.register(tpl("p", "10.0.0", "v10"));

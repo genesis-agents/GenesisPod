@@ -1,5 +1,5 @@
 /**
- * ProcessMemoryManagerService Unit Tests
+ * WorkingMemoryManagerService Unit Tests
  *
  * Tests process-level memory management backed by the ProcessMemory table:
  * - read()     - fetch, expire, and return null
@@ -10,7 +10,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { ProcessMemoryManagerService } from "../process-memory-manager.service";
+import { WorkingMemoryManagerService } from "../working-memory-manager.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { MemoryLayer } from "@prisma/client";
 import type {
@@ -18,8 +18,8 @@ import type {
   MemoryQuery,
 } from "../../../lifecycle/manager/process.types";
 
-describe("ProcessMemoryManagerService", () => {
-  let service: ProcessMemoryManagerService;
+describe("WorkingMemoryManagerService", () => {
+  let service: WorkingMemoryManagerService;
   let mockPrisma: {
     $queryRaw: jest.Mock;
     processMemory: {
@@ -60,13 +60,13 @@ describe("ProcessMemoryManagerService", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ProcessMemoryManagerService,
+        WorkingMemoryManagerService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
-    service = module.get<ProcessMemoryManagerService>(
-      ProcessMemoryManagerService,
+    service = module.get<WorkingMemoryManagerService>(
+      WorkingMemoryManagerService,
     );
 
     await service.onModuleInit();
@@ -328,7 +328,7 @@ describe("ProcessMemoryManagerService", () => {
   // ─── tableReady = false (disabled service) ────────────────────────────────
 
   describe("when process_memories table does not exist", () => {
-    let disabledService: ProcessMemoryManagerService;
+    let disabledService: WorkingMemoryManagerService;
 
     beforeEach(async () => {
       // Return exists: false so tableReady stays false after onModuleInit
@@ -345,13 +345,13 @@ describe("ProcessMemoryManagerService", () => {
 
       const module = await Test.createTestingModule({
         providers: [
-          ProcessMemoryManagerService,
+          WorkingMemoryManagerService,
           { provide: PrismaService, useValue: disabledPrisma },
         ],
       }).compile();
 
-      disabledService = module.get<ProcessMemoryManagerService>(
-        ProcessMemoryManagerService,
+      disabledService = module.get<WorkingMemoryManagerService>(
+        WorkingMemoryManagerService,
       );
       await disabledService.onModuleInit();
     });
@@ -399,13 +399,13 @@ describe("ProcessMemoryManagerService", () => {
 
       const module = await Test.createTestingModule({
         providers: [
-          ProcessMemoryManagerService,
+          WorkingMemoryManagerService,
           { provide: PrismaService, useValue: errorPrisma },
         ],
       }).compile();
 
-      const svc = module.get<ProcessMemoryManagerService>(
-        ProcessMemoryManagerService,
+      const svc = module.get<WorkingMemoryManagerService>(
+        WorkingMemoryManagerService,
       );
       await svc.onModuleInit();
 
@@ -430,13 +430,13 @@ describe("ProcessMemoryManagerService", () => {
 
       const module = await Test.createTestingModule({
         providers: [
-          ProcessMemoryManagerService,
+          WorkingMemoryManagerService,
           { provide: PrismaService, useValue: emptyResultPrisma },
         ],
       }).compile();
 
-      const svc = module.get<ProcessMemoryManagerService>(
-        ProcessMemoryManagerService,
+      const svc = module.get<WorkingMemoryManagerService>(
+        WorkingMemoryManagerService,
       );
       await svc.onModuleInit();
 

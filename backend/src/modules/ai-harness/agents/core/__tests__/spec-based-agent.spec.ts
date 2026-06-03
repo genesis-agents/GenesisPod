@@ -23,7 +23,7 @@
 
 import { SpecBasedAgent } from "../spec-based-agent";
 import { AgentIdentity } from "../agent-identity";
-import { KernelContext } from "../../../../../common/context/kernel-context";
+import { MissionContext } from "../../../../../common/context/mission-context";
 import type {
   LlmExecutor,
   LlmExecutorInput,
@@ -305,7 +305,7 @@ describe("SpecBasedAgent electModelOrNull — BYOK userId skip (2026-05-12)", ()
     expect(call.model).toBeUndefined();
   });
 
-  it("skips election when KernelContext.userId is set (mission path)", async () => {
+  it("skips election when MissionContext.userId is set (mission path)", async () => {
     const executor = makeLlmExecutor();
     const electionService = {
       elect: jest.fn().mockResolvedValue({
@@ -320,7 +320,7 @@ describe("SpecBasedAgent electModelOrNull — BYOK userId skip (2026-05-12)", ()
       () => electionService as never,
     );
 
-    await KernelContext.run(
+    await MissionContext.run(
       { missionId: "mission-byok", userId: "user-1" },
       () => agent.executeSpec("input"),
     );
@@ -519,7 +519,7 @@ describe("SpecBasedAgent electModelOrNull — generic election error returns und
     // 2026-05-12 BYOK fix：election 在有 userId 上下文时整体跳过。本测试验证的
     //   是 election 基础设施错误 fail-closed 行为，仅适用于无 userId 的 admin /
     //   cron mission。BYOK 用户路径下 election 不会跑，自然没这条失败链路。
-    const result = await KernelContext.run(
+    const result = await MissionContext.run(
       { missionId: "mission-strict" },
       () => agent.executeSpec("input"),
     );
@@ -552,7 +552,7 @@ describe("SpecBasedAgent election reservation lifecycle", () => {
     // 2026-05-12 BYOK fix：election + reservation 在有 userId 上下文时整体跳过。
     //   本测试验证的是 reservation commit 行为，仅适用于无 userId 的 admin /
     //   cron mission。
-    await KernelContext.run({ missionId: "mission-commit" }, () =>
+    await MissionContext.run({ missionId: "mission-commit" }, () =>
       agent.executeSpec("input"),
     );
 
@@ -584,7 +584,7 @@ describe("SpecBasedAgent election reservation lifecycle", () => {
     // 2026-05-12 BYOK fix：election + reservation 在有 userId 上下文时整体跳过。
     //   本测试验证的是 reservation release-on-failure 行为，仅适用于无 userId
     //   的 admin / cron mission。
-    await KernelContext.run({ missionId: "mission-release" }, () =>
+    await MissionContext.run({ missionId: "mission-release" }, () =>
       agent.executeSpec("input"),
     );
 

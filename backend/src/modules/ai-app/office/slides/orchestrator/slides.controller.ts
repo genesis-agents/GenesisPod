@@ -76,7 +76,7 @@ import { Public } from "../../../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../../../common/types/express-request.types";
 import { BillingContext } from "../../../../platform/facade";
 import {
-  KernelContext,
+  MissionContext,
   MissionExecutorService,
 } from "@/modules/ai-harness/facade";
 import { Prisma } from "@prisma/client"; // needed for Prisma.JsonNull
@@ -350,7 +350,7 @@ export class SlidesController {
     };
 
     return new Observable<MessageEvent>((subscriber) => {
-      void this.withKernelContext(userId, "slides-generate", async () => {
+      void this.withMissionContext(userId, "slides-generate", async () => {
         await BillingContext.run(billingData, async () => {
           try {
             const generator = slidesEngine.generateSlides({
@@ -418,7 +418,7 @@ export class SlidesController {
     res.setHeader("X-Accel-Buffering", "no"); // 禁用 Nginx/代理缓冲
     res.flushHeaders(); // 立即发送响应头
 
-    await this.withKernelContext(userId, "slides-generate-post", () =>
+    await this.withMissionContext(userId, "slides-generate-post", () =>
       BillingContext.run(
         { userId, moduleType: "ai-office", operationType: "generate-ppt" },
         async () => {
@@ -496,7 +496,7 @@ export class SlidesController {
     res.flushHeaders(); // 立即发送响应头
 
     // 使用相同的引擎，AI Engine 会负责团队协作编排
-    await this.withKernelContext(userId, "slides-team-generate", () =>
+    await this.withMissionContext(userId, "slides-team-generate", () =>
       BillingContext.run(
         { userId, moduleType: "ai-office", operationType: "generate-ppt" },
         async () => {
@@ -1752,11 +1752,11 @@ export class SlidesController {
   // ============================================
 
   /**
-   * Wrap an async operation in KernelContext for process tracking.
+   * Wrap an async operation in MissionContext for process tracking.
    * Creates a kernel process, runs the callback with processId in context,
    * and completes/fails the process when done.
    */
-  private async withKernelContext<T>(
+  private async withMissionContext<T>(
     userId: string,
     operationType: string,
     fn: () => T | Promise<T>,
@@ -1782,7 +1782,7 @@ export class SlidesController {
     }
 
     try {
-      const result = await KernelContext.run(
+      const result = await MissionContext.run(
         { agentProcessId: processId, userId },
         async () => fn(),
       );

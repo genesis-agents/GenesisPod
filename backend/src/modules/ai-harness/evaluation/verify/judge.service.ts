@@ -28,7 +28,7 @@ import type {
   ConsensusDecision,
 } from "@/modules/ai-harness/runner/env/types";
 import { AIModelType } from "@prisma/client";
-import { KernelContext } from "../../../../common/context/kernel-context";
+import { MissionContext } from "../../../../common/context/mission-context";
 
 export type BuiltInVerifierId = "self" | "external" | "critical";
 
@@ -116,7 +116,7 @@ export class JudgeService {
             // 让 BYOK 用户的 consensus 真正去相关。未配置某 type 时 chat()
             // 内部会自动 fallback 到 CHAT，不破坏现有行为。
             modelType: MODEL_TYPE_BY_VERIFIER[id],
-            userId: KernelContext.get()?.userId,
+            userId: MissionContext.get()?.userId,
             signal,
           });
           // 2026-05-13 #53: AiChatService 在 guardrail block 时返回

@@ -79,7 +79,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   TeamFacade: class {},
   RAGFacade: class {},
   ProgressTrackerService: class {},
-  KernelContext: {
+  MissionContext: {
     run: <T>(_data: unknown, fn: () => T): T => fn(),
     get: () => undefined,
     getAgentProcessId: () => undefined,
@@ -92,7 +92,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   TeamFacade: class {},
   RAGFacade: class {},
   ProgressTrackerService: class {},
-  KernelContext: {
+  MissionContext: {
     run: <T>(_data: unknown, fn: () => T): T => fn(),
     get: () => undefined,
     getAgentProcessId: () => undefined,

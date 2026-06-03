@@ -24,7 +24,7 @@ import {
   OutputReviewerService,
 } from "@/modules/ai-harness/facade";
 import { ContextEvolutionService } from "@/modules/ai-harness/facade";
-import { TokenBudgetService } from "@/modules/ai-harness/facade";
+import { TokenBudgetCalculatorService } from "@/modules/ai-harness/facade";
 import { ReportEditorService } from "../report-editor.service";
 import { ReportAssemblerService } from "../report-assembler.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
@@ -323,7 +323,7 @@ async function buildModule(
   }
   if (extras.tokenBudget) {
     providers.push({
-      provide: TokenBudgetService,
+      provide: TokenBudgetCalculatorService,
       useValue: mocks.mockTokenBudget,
     });
   }
@@ -954,11 +954,11 @@ describe("ReportSynthesisService (supplemental2)", () => {
   });
 
   // ============================================================
-  // synthesizeReport — TokenBudgetService path for truncation
+  // synthesizeReport — TokenBudgetCalculatorService path for truncation
   // ============================================================
 
-  describe("synthesizeReport — TokenBudgetService truncation", () => {
-    it("should use smartTruncate when TokenBudgetService is available and content exceeds 8000 chars", async () => {
+  describe("synthesizeReport — TokenBudgetCalculatorService truncation", () => {
+    it("should use smartTruncate when TokenBudgetCalculatorService is available and content exceeds 8000 chars", async () => {
       const mocks = buildMocks();
       const service = await buildModule(mocks, { tokenBudget: true });
 
@@ -984,9 +984,9 @@ describe("ReportSynthesisService (supplemental2)", () => {
       );
     });
 
-    it("should use simple slice when TokenBudgetService is unavailable and content exceeds 8000 chars", async () => {
+    it("should use simple slice when TokenBudgetCalculatorService is unavailable and content exceeds 8000 chars", async () => {
       const mocks = buildMocks();
-      const service = await buildModule(mocks, { tokenBudget: false }); // no TokenBudgetService
+      const service = await buildModule(mocks, { tokenBudget: false }); // no TokenBudgetCalculatorService
 
       const longContent = "Y".repeat(9000);
       const dimWithLongContent = {

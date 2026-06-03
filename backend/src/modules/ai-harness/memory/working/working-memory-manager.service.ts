@@ -1,5 +1,5 @@
 /**
- * Process Memory Manager Service
+ * Working Memory Manager Service
  * Process-level memory management backed by ProcessMemory table.
  */
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
@@ -12,8 +12,8 @@ import type {
 } from "../../../ai-harness/lifecycle/manager/process.types";
 
 @Injectable()
-export class ProcessMemoryManagerService implements OnModuleInit {
-  private readonly logger = new Logger(ProcessMemoryManagerService.name);
+export class WorkingMemoryManagerService implements OnModuleInit {
+  private readonly logger = new Logger(WorkingMemoryManagerService.name);
   private tableReady = false;
 
   constructor(private readonly prisma: PrismaService) {}

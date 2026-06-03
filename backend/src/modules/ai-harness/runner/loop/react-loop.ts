@@ -53,7 +53,7 @@ import {
 import type { ChatMessage } from "../../../ai-engine/llm/types";
 import { AIModelType } from "@prisma/client";
 import { ToolInvoker } from "../tool-invoker/tool-invoker";
-import { AgentToolRegistry } from "../env/tool-registry";
+import { AgentToolSchemaRegistry } from "../env/agent-tool-schema-registry";
 import type { FunctionDefinition } from "@/modules/ai-engine/tools/abstractions/tool.interface";
 import { ContextManager } from "../context/context-manager";
 import { CacheControlPlanner } from "../context/cache-control-planner";
@@ -242,7 +242,7 @@ export class ReActLoop implements IAgentLoop {
     private readonly pluginHookBus?: import("@/plugins/core/hook-bus").HookBus,
     /** PR-1 native-FC: optional —— 启用 native function-calling 路径所需。
      *  缺省（旧测试 / 旧 wiring）走 prompt-driven JSON 路径，行为不变。 */
-    @Optional() private readonly agentToolRegistry?: AgentToolRegistry,
+    @Optional() private readonly agentToolRegistry?: AgentToolSchemaRegistry,
   ) {}
 
   /**

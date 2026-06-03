@@ -17,7 +17,7 @@
  */
 import { AsyncLocalStorage } from "async_hooks";
 
-export interface KernelContextData {
+export interface MissionContextData {
   /**
    * Real `AgentProcess.id` (FK to `agent_processes` table). MUST come
    * from `MissionExecutor.execute(...)` or `ProcessManager.spawn(...)`.
@@ -48,14 +48,14 @@ export interface KernelContextData {
   baselineTag?: string;
 }
 
-class KernelContextStore {
-  private storage = new AsyncLocalStorage<KernelContextData>();
+class MissionContextStore {
+  private storage = new AsyncLocalStorage<MissionContextData>();
 
-  run<T>(data: KernelContextData, fn: () => T): T {
+  run<T>(data: MissionContextData, fn: () => T): T {
     return this.storage.run(data, fn);
   }
 
-  get(): KernelContextData | undefined {
+  get(): MissionContextData | undefined {
     return this.storage.getStore();
   }
 
@@ -72,4 +72,4 @@ class KernelContextStore {
   }
 }
 
-export const KernelContext = new KernelContextStore();
+export const MissionContext = new MissionContextStore();

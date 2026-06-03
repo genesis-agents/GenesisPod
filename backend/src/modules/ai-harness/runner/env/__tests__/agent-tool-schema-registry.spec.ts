@@ -1,4 +1,4 @@
-import { ToolRegistry } from "../tool-registry";
+import { AgentToolSchemaRegistry } from "../agent-tool-schema-registry";
 
 function makeTool(id = "test-tool", maxCallsPerTask = 5, maxRetries = 1) {
   return {
@@ -11,7 +11,9 @@ function makeTool(id = "test-tool", maxCallsPerTask = 5, maxRetries = 1) {
     rateLimit: { maxCallsPerMinute: 10, maxCallsPerTask },
     retry: { maxRetries, backoffMs: 1 },
     estimateCost: jest.fn().mockReturnValue(0),
-    execute: jest.fn().mockResolvedValue({ success: true, data: "ok", latencyMs: 5 }),
+    execute: jest
+      .fn()
+      .mockResolvedValue({ success: true, data: "ok", latencyMs: 5 }),
   };
 }
 
@@ -23,25 +25,27 @@ const makeCtx = (taskId = "task-1") => ({
   callCount: 0,
 });
 
-describe("ToolRegistry", () => {
+describe("AgentToolSchemaRegistry", () => {
   describe("register / get / mustGet", () => {
     it("registers and retrieves a tool", () => {
-      const reg = new ToolRegistry();
+      const reg = new AgentToolSchemaRegistry();
       const tool = makeTool();
       reg.register(tool);
       expect(reg.get("test-tool")).toBe(tool);
     });
 
     it("get returns undefined for unknown tool", () => {
-      expect(new ToolRegistry().get("unknown")).toBeUndefined();
+      expect(new AgentToolSchemaRegistry().get("unknown")).toBeUndefined();
     });
 
     it("mustGet throws for unknown tool", () => {
-      expect(() => new ToolRegistry().mustGet("unknown")).toThrow(/not registered/);
+      expect(() => new AgentToolSchemaRegistry().mustGet("unknown")).toThrow(
+        /not registered/,
+      );
     });
 
     it("warns on duplicate registration", () => {
-      const reg = new ToolRegistry();
+      const reg = new AgentToolSchemaRegistry();
       const t1 = makeTool();
       const t2 = makeTool();
       reg.register(t1);
@@ -52,7 +56,7 @@ describe("ToolRegistry", () => {
 
   describe("getSchemas", () => {
     it("returns schemas for registered tools", () => {
-      const reg = new ToolRegistry();
+      const reg = new AgentToolSchemaRegistry();
       reg.register(makeTool("search"));
       reg.register(makeTool("fetch"));
       const schemas = reg.getSchemas(["search", "unknown"]);
@@ -61,7 +65,7 @@ describe("ToolRegistry", () => {
     });
 
     it("filters out unregistered ids", () => {
-      const reg = new ToolRegistry();
+      const reg = new AgentToolSchemaRegistry();
       const schemas = reg.getSchemas(["ghost"]);
       expect(schemas).toHaveLength(0);
     });
@@ -69,14 +73,14 @@ describe("ToolRegistry", () => {
 
   describe("execute", () => {
     it("executes tool successfully", async () => {
-      const reg = new ToolRegistry();
+      const reg = new AgentToolSchemaRegistry();
       reg.register(makeTool());
       const result = await reg.execute("test-tool", { q: "hi" }, makeCtx());
       expect(result.success).toBe(true);
     });
 
     it("respects per-task rate limit", async () => {
-      const reg = new ToolRegistry();
+      const reg = new AgentToolSchemaRegistry();
       reg.register(makeTool("limited", 2));
       const ctx = makeCtx();
       await reg.execute("limited", {}, ctx);
@@ -87,7 +91,7 @@ describe("ToolRegistry", () => {
     });
 
     it("retries on failure", async () => {
-      const reg = new ToolRegistry();
+      const reg = new AgentToolSchemaRegistry();
       const tool = makeTool("retry-tool", 10, 2);
       let calls = 0;
       tool.execute.mockImplementation(() => {
@@ -102,7 +106,7 @@ describe("ToolRegistry", () => {
     });
 
     it("returns error after max retries exceeded", async () => {
-      const reg = new ToolRegistry();
+      const reg = new AgentToolSchemaRegistry();
       const tool = makeTool("fail-tool", 10, 1);
       tool.execute.mockRejectedValue(new Error("always fail"));
       reg.register(tool);
@@ -112,14 +116,16 @@ describe("ToolRegistry", () => {
     });
 
     it("throws when tool not found", async () => {
-      const reg = new ToolRegistry();
-      await expect(reg.execute("ghost", {}, makeCtx())).rejects.toThrow(/not registered/);
+      const reg = new AgentToolSchemaRegistry();
+      await expect(reg.execute("ghost", {}, makeCtx())).rejects.toThrow(
+        /not registered/,
+      );
     });
   });
 
   describe("clearTaskCallCounts", () => {
     it("clears call counts for a task", async () => {
-      const reg = new ToolRegistry();
+      const reg = new AgentToolSchemaRegistry();
       reg.register(makeTool("t1", 2));
       const ctx = makeCtx("task-99");
       await reg.execute("t1", {}, ctx);
@@ -133,7 +139,7 @@ describe("ToolRegistry", () => {
 
   describe("listIds", () => {
     it("lists registered tool ids", () => {
-      const reg = new ToolRegistry();
+      const reg = new AgentToolSchemaRegistry();
       reg.register(makeTool("a"));
       reg.register(makeTool("b"));
       expect(reg.listIds()).toContain("a");

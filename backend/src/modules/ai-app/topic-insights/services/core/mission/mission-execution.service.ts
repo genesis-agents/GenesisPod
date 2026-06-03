@@ -34,7 +34,7 @@ import { MissionQueryService } from "./mission-query.service";
 import { ReportSynthesisService } from "../../report/report-synthesis.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { SessionLatencyTrackerService } from "@/modules/ai-harness/facade";
-import { KernelContext } from "@/modules/ai-harness/facade";
+import { MissionContext } from "@/modules/ai-harness/facade";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
 import type { ResearchDepth } from "../../../types/research-depth.types";
 import { resolveResearchDepthConfig } from "../../../types/research-depth.types";
@@ -131,7 +131,7 @@ export class MissionExecutionService {
       throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
-    // ★ 时延跟踪：开始会话并在 KernelContext 中传播
+    // ★ 时延跟踪：开始会话并在 MissionContext 中传播
     const latencySessionId = this.latencyTracker?.startSession({
       type: "topic_insights_refresh",
       entityId: topicId,
@@ -143,7 +143,7 @@ export class MissionExecutionService {
       },
     });
 
-    return KernelContext.run(
+    return MissionContext.run(
       {
         // 2026-05-11: agentProcessId left undefined — topic-insights doesn't
         // spawn a kernel AgentProcess, so EventJournal correctly skips the
@@ -164,7 +164,7 @@ export class MissionExecutionService {
     );
   }
 
-  /** startExecution 的核心执行体（在 KernelContext 中运行） */
+  /** startExecution 的核心执行体（在 MissionContext 中运行） */
   private async startExecutionBody(
     missionId: string,
     topicId: string,
@@ -316,7 +316,7 @@ export class MissionExecutionService {
       `[resumeExecution] Reusing existing report: ${existingReport.id}`,
     );
 
-    // ★ 时延跟踪：resume 路径也需要 session + KernelContext
+    // ★ 时延跟踪：resume 路径也需要 session + MissionContext
     const latencySessionId = this.latencyTracker?.startSession({
       type: "topic_insights_refresh",
       entityId: topicId,
@@ -324,7 +324,7 @@ export class MissionExecutionService {
       metadata: { topicName: topic.name, missionId, mode: "resume" },
     });
 
-    await KernelContext.run(
+    await MissionContext.run(
       // 2026-05-11: agentProcessId omitted — see startExecution() comment.
       { userId: topic.userId, latencySessionId },
       async () => {
@@ -455,7 +455,7 @@ export class MissionExecutionService {
         : agentAssignment?.tools || [];
 
     // ★ 时延跟踪：提前获取 context（需要在 catch 中使用）
-    const parentCtx = KernelContext.get();
+    const parentCtx = MissionContext.get();
     let taskStepId: string | undefined;
     const taskStepName = task.dimensionName
       ? `${task.taskType}:${task.dimensionName}`
@@ -510,7 +510,7 @@ export class MissionExecutionService {
         agentRole,
       };
 
-      // ★ 时延跟踪：每个 task 在自己的 KernelContext 中执行
+      // ★ 时延跟踪：每个 task 在自己的 MissionContext 中执行
       if (parentCtx?.latencySessionId && this.latencyTracker) {
         taskStepId = this.latencyTracker.startStep(parentCtx.latencySessionId, {
           name: taskStepName,
@@ -523,10 +523,10 @@ export class MissionExecutionService {
         });
       }
 
-      // Execute — 在带 latencyPhaseId 的 KernelContext 中运行
+      // Execute — 在带 latencyPhaseId 的 MissionContext 中运行
       // 这样 AiChatService.recordToLatencySession 会读到正确的 stepId
       const result: TaskResultJson = parentCtx?.latencySessionId
-        ? await KernelContext.run(
+        ? await MissionContext.run(
             {
               ...parentCtx,
               latencyPhaseId: taskStepId,
@@ -693,7 +693,7 @@ export class MissionExecutionService {
         `[executeTask] Task failed: ${task.title} - ${errorMsg}`,
       );
 
-      // ★ 时延跟踪：失败时也结束 step（用 parentCtx 因为 catch 块不在 KernelContext.run 内）
+      // ★ 时延跟踪：失败时也结束 step（用 parentCtx 因为 catch 块不在 MissionContext.run 内）
       if (parentCtx?.latencySessionId && taskStepId && this.latencyTracker) {
         this.latencyTracker.endStep(parentCtx.latencySessionId, taskStepId);
       }

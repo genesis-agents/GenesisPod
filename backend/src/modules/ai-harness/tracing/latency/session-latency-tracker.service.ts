@@ -30,7 +30,7 @@ import type {
  * ```typescript
  * const sessionId = tracker.startSession({ type: "topic_insights_refresh", entityId: topicId });
  * const stepId = tracker.startStep(sessionId, { name: "TTLT定义/搜索数据" });
- * // LLM calls auto-recorded via KernelContext → recordAction()
+ * // LLM calls auto-recorded via MissionContext → recordAction()
  * tracker.endStep(sessionId, stepId);
  * const summary = tracker.endSession(sessionId);
  * ```

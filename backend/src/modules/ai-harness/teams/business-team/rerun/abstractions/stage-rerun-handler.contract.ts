@@ -74,7 +74,7 @@ export interface CascadeRunResult {
  *   - eventTypes:         lifecycle / aborted 的业务 type 字符串
  *   - markStageProgress?: cascade 跑完每个 stage 后写库（可选）
  *   - log:                业务子类专属 Logger（带 namespace 前缀）
- *   - withMissionContext?: 让 framework 调度部分跑在业务 KernelContext 等域内
+ *   - withMissionContext?: 让 framework 调度部分跑在业务 MissionContext 等域内
  */
 /**
  * Note: TEmit 仅约束为 function（实参由业务自行定义）。framework 通过
@@ -117,7 +117,7 @@ export interface CascadeRunHooks<TContext, TStubs, TEmit> {
   ) => Promise<void>;
   readonly log: Logger;
   /**
-   * 把 dispatcher 跑在业务 context 域（如 KernelContext.run）。framework 调用此
+   * 把 dispatcher 跑在业务 context 域（如 MissionContext.run）。framework 调用此
    * hook 包裹内部 cascade 调度；business 可在此注入 missionId / userId 给链路追踪。
    */
   readonly withCascadeScope?: <T>(

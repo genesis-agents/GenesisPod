@@ -8,7 +8,7 @@
  * - Enrichment statistics logging (line 462)
  * - Date parsing for freshness (line 474)
  * - Knowledge base matching statistics + similarity averaging (lines 579-585)
- * - Context compression pipeline: ContextCompressionService → TokenBudgetService → hard truncate at 12KB (617-667)
+ * - Context compression pipeline: ContextCompressionService → TokenBudgetCalculatorService → hard truncate at 12KB (617-667)
  * - Section writing loop with error handling (lines 1316-1341)
  * - Leader review path (lines 1517-1519)
  * - Integration phase: consolidate section results (lines 1537-1588)
@@ -36,8 +36,11 @@ import { MissionObservabilityService } from "../../core/mission/mission-observab
 import { DimensionProgressService } from "../dimension-progress.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
-import { ContextCompressionService, ContextEvolutionService } from "@/modules/ai-harness/facade";
-import { TokenBudgetService } from "@/modules/ai-harness/facade";
+import {
+  ContextCompressionService,
+  ContextEvolutionService,
+} from "@/modules/ai-harness/facade";
+import { TokenBudgetCalculatorService } from "@/modules/ai-harness/facade";
 import { DimensionStatus } from "@prisma/client";
 import { ResearchTopic, TopicDimension } from "@prisma/client";
 
@@ -371,7 +374,10 @@ async function buildModule(
     providers.push({ provide: ChatFacade, useValue: mockChatFacade });
   }
   if (extras.tokenBudget) {
-    providers.push({ provide: TokenBudgetService, useValue: mockTokenBudget });
+    providers.push({
+      provide: TokenBudgetCalculatorService,
+      useValue: mockTokenBudget,
+    });
   }
 
   const module: TestingModule = await Test.createTestingModule({
@@ -948,7 +954,7 @@ describe("DimensionMissionService (supplemental)", () => {
       );
     });
 
-    it("should fall back to TokenBudgetService when ContextCompressionService is not available", async () => {
+    it("should fall back to TokenBudgetCalculatorService when ContextCompressionService is not available", async () => {
       const mocks = buildBaseMocks();
       const { service, mockTokenBudget } = await buildModule(mocks, {
         contextCompression: false,

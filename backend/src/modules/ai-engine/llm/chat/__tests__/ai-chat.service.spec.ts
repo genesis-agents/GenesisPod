@@ -20,7 +20,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { AIModelType } from "@prisma/client";
 import { AiServiceUnavailableError } from "@/modules/ai-engine/llm/abstractions/ai-service.exception";
 import { RequestContext } from "@/common/context/request-context";
-import { KernelContext } from "@/common/context/kernel-context";
+import { MissionContext } from "@/common/context/mission-context";
 
 // Helper to create mock AIModelConfig
 function createMockModelConfig(
@@ -480,7 +480,7 @@ describe("AiChatService", () => {
   });
 
   // ==================== BYOK contract (2026-05-12) ====================
-  // chat() 入口必须把 KernelContext.userId 作为 effectiveUserId 第三兜底，
+  // chat() 入口必须把 MissionContext.userId 作为 effectiveUserId 第三兜底，
   // 并在 mission 上下文下检测到 userId 解析为空时记录 contract violation error。
   // 详细背景见 ai-chat.service.ts:1244 注释。
 
@@ -509,11 +509,11 @@ describe("AiChatService", () => {
     });
 
     afterEach(() => {
-      jest.spyOn(KernelContext, "get").mockRestore();
+      jest.spyOn(MissionContext, "get").mockRestore();
     });
 
-    it("falls through to KernelContext.userId when no options.userId / no RequestContext", async () => {
-      jest.spyOn(KernelContext, "get").mockReturnValue({
+    it("falls through to MissionContext.userId when no options.userId / no RequestContext", async () => {
+      jest.spyOn(MissionContext, "get").mockReturnValue({
         missionId: "m1",
         userId: "mission-user",
       });
@@ -525,12 +525,12 @@ describe("AiChatService", () => {
         })
         .catch(() => undefined);
 
-      // userId 从 KernelContext 解到 → 不触发 contract violation
+      // userId 从 MissionContext 解到 → 不触发 contract violation
       expect(hasContractViolation()).toBe(false);
     });
 
     it("logs contract violation when mission context exists but no userId anywhere", async () => {
-      jest.spyOn(KernelContext, "get").mockReturnValue({ missionId: "m1" });
+      jest.spyOn(MissionContext, "get").mockReturnValue({ missionId: "m1" });
 
       await service
         .chat({
@@ -550,7 +550,7 @@ describe("AiChatService", () => {
     });
 
     it("does NOT log violation when no missionId (cron / system task without mission scope)", async () => {
-      jest.spyOn(KernelContext, "get").mockReturnValue(undefined);
+      jest.spyOn(MissionContext, "get").mockReturnValue(undefined);
 
       await service
         .chat({
@@ -563,7 +563,7 @@ describe("AiChatService", () => {
     });
 
     it("does NOT log violation when options.userId is provided (explicit BYOK)", async () => {
-      jest.spyOn(KernelContext, "get").mockReturnValue({ missionId: "m1" });
+      jest.spyOn(MissionContext, "get").mockReturnValue({ missionId: "m1" });
 
       await service
         .chat({

@@ -6,7 +6,7 @@
  *
  *   Runtime（agent runtime 状态）
  *   - HierarchicalMemoryCascadeService: 4 层记忆级联（org → team → project → session）
- *   - ProcessMemoryManagerService:      进程级记忆管理（基于 ProcessMemory 表）
+ *   - WorkingMemoryManagerService:      进程级记忆管理（基于 ProcessMemory 表）
  *
  *   Stores（基础存储）
  *   - InMemoryStore:        进程内 KV 存储原语
@@ -29,7 +29,7 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 
 // Working
 import { HierarchicalMemoryCascadeService } from "./hierarchical-memory-cascade.service";
-import { ProcessMemoryManagerService } from "./process-memory-manager.service";
+import { WorkingMemoryManagerService } from "./working-memory-manager.service";
 // ★ 2026-05-04 (PR-5 standardize consumer): handoff token compaction primitive
 import { HandoffCompactorService } from "./handoff-compactor.service";
 
@@ -63,7 +63,7 @@ const conversationMemoryFactory = {
 const HARNESS_MEMORY_PROVIDERS = [
   // Working layer
   HierarchicalMemoryCascadeService,
-  ProcessMemoryManagerService,
+  WorkingMemoryManagerService,
   HandoffCompactorService,
   // Stores
   inMemoryStoreFactory,
@@ -85,7 +85,7 @@ const HARNESS_MEMORY_PROVIDERS = [
 
 const HARNESS_MEMORY_EXPORTS = [
   HierarchicalMemoryCascadeService,
-  ProcessMemoryManagerService,
+  WorkingMemoryManagerService,
   HandoffCompactorService,
   InMemoryStore,
   ConversationMemory,

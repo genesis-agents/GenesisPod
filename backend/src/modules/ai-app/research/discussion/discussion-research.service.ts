@@ -20,7 +20,7 @@ import {
   BillingContext,
 } from "../../../platform/facade";
 import {
-  KernelContext,
+  MissionContext,
   MissionExecutorService,
 } from "@/modules/ai-harness/facade";
 
@@ -103,7 +103,7 @@ export class DiscussionResearchService {
 
       try {
         await (kernelProcessId
-          ? KernelContext.run(
+          ? MissionContext.run(
               { agentProcessId: kernelProcessId, userId },
               billingRun,
             )

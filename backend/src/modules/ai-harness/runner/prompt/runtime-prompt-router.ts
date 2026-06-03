@@ -1,5 +1,5 @@
 /**
- * PromptRegistry — 中央 prompt 表 + A/B 路由 + 版本管理
+ * RuntimePromptRouter — 中央 prompt 表 + A/B 路由 + 版本管理
  *
  * 职责：
  *   - register(template) 注册一个版本
@@ -20,8 +20,8 @@ interface RegistryEntry {
 }
 
 @Injectable()
-export class PromptRegistry {
-  private readonly log = new Logger(PromptRegistry.name);
+export class RuntimePromptRouter {
+  private readonly log = new Logger(RuntimePromptRouter.name);
   /** key = `${id}@${version}@${variant ?? 'default'}` */
   private readonly entries = new Map<string, RegistryEntry>();
   /** index: id → list of variants/versions */

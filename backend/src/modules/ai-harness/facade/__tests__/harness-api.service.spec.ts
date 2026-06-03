@@ -15,7 +15,7 @@ import {
 } from "../api/harness-api.service";
 import { ProcessManagerService } from "../../lifecycle/manager/process-manager.service";
 import { EventJournalService } from "../../protocols/journal/event-journal.service";
-import { ProcessMemoryManagerService } from "../../memory/working/process-memory-manager.service";
+import { WorkingMemoryManagerService } from "../../memory/working/working-memory-manager.service";
 import { ResourceManagerService } from "../../guardrails/resources/resource-manager.service";
 import { MissionExecutorService } from "@/modules/ai-harness/lifecycle/manager/mission-executor.service";
 import { EntityHealthRegistry } from "../../../ai-engine/reliability/entity-health/entity-health.registry";
@@ -174,7 +174,7 @@ describe("HarnessApiService", () => {
         HarnessApiService,
         { provide: ProcessManagerService, useValue: mockProcessManager },
         { provide: EventJournalService, useValue: mockEventJournal },
-        { provide: ProcessMemoryManagerService, useValue: mockMemoryManager },
+        { provide: WorkingMemoryManagerService, useValue: mockMemoryManager },
         { provide: ResourceManagerService, useValue: mockResourceManager },
         { provide: MissionExecutorService, useValue: mockMissionExecutor },
         { provide: EntityHealthRegistry, useValue: mockCircuitBreaker },

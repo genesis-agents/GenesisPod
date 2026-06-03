@@ -11,7 +11,7 @@
  *   - computeChain: PLAYGROUND_PIPELINE.steps → computeCascadeChain
  *   - assertRerunable: 黑名单（s1-budget）+ dag.rerunable
  *   - buildStubs: 注入 store / reportEvaluation / runtimeBuilder / bindings / session
- *   - withCascadeScope: KernelContext.run(missionId, userId)
+ *   - withCascadeScope: MissionContextStore.run(missionId, userId)
  *   - markStageProgress: store.markIntermediateState(lastCompletedStage)
  *   - eventTypes: agent-playground.rerun:* 命名
  *
@@ -19,7 +19,7 @@
  */
 
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
-import { KernelContext } from "@/common/context/kernel-context";
+import { MissionContext as MissionContextStore } from "@/common/context/mission-context";
 import {
   MissionStore,
   type PlaygroundTerminalExtra,
@@ -191,7 +191,7 @@ export class StageRerunDispatcher extends BusinessTeamStageRerunDispatcherFramew
         ctx: HydratedMissionContext,
         fn: () => Promise<T>,
       ): Promise<T> =>
-        KernelContext.run(
+        MissionContextStore.run(
           {
             missionId: ctx.missionId,
             userId: ctx.userId,
@@ -284,7 +284,7 @@ export class StageRerunDispatcher extends BusinessTeamStageRerunDispatcherFramew
   async runFromStageWithCascade(
     args: RunFromStageArgs,
   ): Promise<RunFromStageResult> {
-    // framework 提供 cascade 调度骨架（带 withCascadeScope 自动包 KernelContext）
+    // framework 提供 cascade 调度骨架（带 withCascadeScope 自动包 MissionContextStore）
     return super["runFromStageWithCascade"](args);
   }
 

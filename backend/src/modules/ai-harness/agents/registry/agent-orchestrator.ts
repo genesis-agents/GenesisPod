@@ -20,7 +20,7 @@ import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
 // PR-X3: EventJournal → 通过 EventEmitter 事件解耦；CapabilityGuard 已搬到 engine
 import { CapabilityGuardService } from "../../../ai-engine/safety/security/capability-guard.service";
-import { KernelContext } from "../../../../common/context/kernel-context";
+import { MissionContext } from "../../../../common/context/mission-context";
 
 /**
  * 状态报告项
@@ -70,9 +70,9 @@ export class AgentOrchestrator {
     _userId?: string,
     processId?: string,
   ): AsyncGenerator<AgentEvent> {
-    // ★ KernelContext: fallback to AsyncLocalStorage if processId not explicitly provided
-    //   (renamed slot 2026-05-11; see kernel-context.ts header)
-    const resolvedProcessId = processId ?? KernelContext.getAgentProcessId();
+    // ★ MissionContext: fallback to AsyncLocalStorage if processId not explicitly provided
+    //   (renamed slot 2026-05-11; see mission-context.ts header)
+    const resolvedProcessId = processId ?? MissionContext.getAgentProcessId();
     // Input validation with guardrails
     if (this.guardrailsEnabled && this.guardrailsPipeline) {
       try {

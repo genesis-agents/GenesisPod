@@ -13,7 +13,7 @@ import { ResearchIdeaService } from "../idea/research-idea.service";
 import { AgentFacade, TeamFacade } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
-  KernelContext,
+  MissionContext,
 } from "@/modules/ai-harness/facade";
 import { ResearchReplannerService } from "./research-replanner.service";
 import { ResearchToolRouterService } from "../search/research-tool-router.service";
@@ -681,7 +681,7 @@ export class DiscussionPhaseCoordinatorService {
     };
 
     await (sessionProcessId
-      ? KernelContext.run(
+      ? MissionContext.run(
           { agentProcessId: sessionProcessId, userId: project.userId },
           runPhases,
         )
@@ -1047,7 +1047,7 @@ export class DiscussionPhaseCoordinatorService {
     };
 
     await (sessionProcessId
-      ? KernelContext.run(
+      ? MissionContext.run(
           { agentProcessId: sessionProcessId, userId },
           runPhases,
         )

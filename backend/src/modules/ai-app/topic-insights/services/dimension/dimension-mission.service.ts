@@ -17,7 +17,7 @@
  */
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
-import { KernelContext } from "@/modules/ai-harness/facade";
+import { MissionContext } from "@/modules/ai-harness/facade";
 import { SessionLatencyTrackerService } from "@/modules/ai-harness/facade";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import type { Cache } from "cache-manager";
@@ -84,7 +84,7 @@ import {
   ContextCompressionService,
   ContextEvolutionService,
   PromptCacheCoordinatorService,
-  TokenBudgetService,
+  TokenBudgetCalculatorService,
 } from "@/modules/ai-harness/facade";
 import {
   ChatFacade,
@@ -182,7 +182,8 @@ export class DimensionMissionService {
     @Optional() private readonly contextEvolution?: ContextEvolutionService,
     @Optional() private readonly chatFacade?: ChatFacade,
     // ★ Batch 3: Token 预算智能截断
-    @Optional() private readonly tokenBudgetService?: TokenBudgetService,
+    @Optional()
+    private readonly tokenBudgetService?: TokenBudgetCalculatorService,
     // ★ Phase 5: Prompt cache coordinator for cache prefix sharing across dimension agents
     @Optional()
     private readonly promptCacheCoordinator?: PromptCacheCoordinatorService,
@@ -206,12 +207,12 @@ export class DimensionMissionService {
    */
   /** 时延跟踪：开始一个子 step 并返回 stepId */
   private stepStart(dimName: string, stepName: string): string | undefined {
-    const ctx = KernelContext.get();
+    const ctx = MissionContext.get();
     if (!ctx?.latencySessionId || !this.latencyTracker) return undefined;
     return (
       this.latencyTracker.startStep(ctx.latencySessionId, {
         name: `${dimName}/${stepName}`,
-        // 父 step = task-level step（从 KernelContext 继承）
+        // 父 step = task-level step（从 MissionContext 继承）
         parentStepId: ctx.latencyPhaseId,
       }) || undefined
     );
@@ -220,13 +221,13 @@ export class DimensionMissionService {
   /** 时延跟踪：用 stepId 精确结束（避免并行维度同名冲突） */
   private stepEndById(stepId: string | undefined): void {
     if (!stepId) return;
-    const ctx = KernelContext.get();
+    const ctx = MissionContext.get();
     if (!ctx?.latencySessionId || !this.latencyTracker) return;
     this.latencyTracker.endStep(ctx.latencySessionId, stepId);
   }
 
   /**
-   * 在指定 stepId 的 KernelContext 中执行异步函数
+   * 在指定 stepId 的 MissionContext 中执行异步函数
    * 确保该函数内的所有 LLM 调用归属到正确的 Step
    */
   private async runInStep<T>(
@@ -234,9 +235,9 @@ export class DimensionMissionService {
     fn: () => Promise<T>,
   ): Promise<T> {
     if (!stepId) return fn();
-    const ctx = KernelContext.get();
+    const ctx = MissionContext.get();
     if (!ctx) return fn();
-    return KernelContext.run({ ...ctx, latencyPhaseId: stepId }, fn);
+    return MissionContext.run({ ...ctx, latencyPhaseId: stepId }, fn);
   }
 
   private readonly LOCK_TTL_MS = 150_000; // must exceed Prisma tx timeout (120s)
@@ -851,7 +852,7 @@ export class DimensionMissionService {
       );
     }
 
-    // ★ Batch 3: TokenBudgetService — 当 ContextCompression 不可用时的后备截断
+    // ★ Batch 3: TokenBudgetCalculatorService — 当 ContextCompression 不可用时的后备截断
     if (this.tokenBudgetService && evidenceSummary.length > 8000) {
       try {
         evidenceSummary = this.tokenBudgetService.smartTruncate(
@@ -862,15 +863,17 @@ export class DimensionMissionService {
           `${logPrefix} TokenBudget truncated evidence summary to ${evidenceSummary.length} chars`,
         );
       } catch (e) {
-        this.logger.debug(`TokenBudgetService truncation failed: ${e}`);
+        this.logger.debug(
+          `TokenBudgetCalculatorService truncation failed: ${e}`,
+        );
       }
     } else if (!this.tokenBudgetService && evidenceSummary.length > 8000) {
       this.logger.debug(
-        "[Degraded] TokenBudgetService unavailable, evidence summary may exceed token budget",
+        "[Degraded] TokenBudgetCalculatorService unavailable, evidence summary may exceed token budget",
       );
     }
 
-    // ★ 硬截断兜底：当 ContextCompression 和 TokenBudgetService 都不可用时，
+    // ★ 硬截断兜底：当 ContextCompression 和 TokenBudgetCalculatorService 都不可用时，
     // 必须强制截断，防止 916K+ token 的 prompt 发送给 LLM 导致截断/超时/费用爆炸
     const HARD_TRUNCATE_LIMIT = 12000;
     if (evidenceSummary.length > HARD_TRUNCATE_LIMIT) {

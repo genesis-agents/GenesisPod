@@ -12,7 +12,7 @@
  * - listSessions / getLatestSummary query methods — all filter branches
  * - LRU eviction behaviour
  * - Legacy alias API
- * - KernelContext integration with nested AsyncLocalStorage scopes
+ * - MissionContext integration with nested AsyncLocalStorage scopes
  * - Full production parallel simulation (5 dimensions, mirroring Topic Insights flow)
  */
 
@@ -20,7 +20,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SessionLatencyTrackerService } from "../latency/session-latency-tracker.service";
-import { KernelContext } from "@/common/context/kernel-context";
+import { MissionContext } from "@/common/context/mission-context";
 import type { RecordActionInput } from "../latency/session-latency.types";
 
 // ---------------------------------------------------------------------------
@@ -1937,10 +1937,10 @@ describe("SessionLatencyTrackerService – full flow integration", () => {
 });
 
 // ===========================================================================
-// Suite E – KernelContext integration
+// Suite E – MissionContext integration
 // ===========================================================================
 
-describe("SessionLatencyTrackerService – KernelContext integration", () => {
+describe("SessionLatencyTrackerService – MissionContext integration", () => {
   let service: SessionLatencyTrackerService;
 
   beforeEach(async () => {
@@ -1955,7 +1955,7 @@ describe("SessionLatencyTrackerService – KernelContext integration", () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  it("KernelContext.run propagates latencySessionId to nested async scope", async () => {
+  it("MissionContext.run propagates latencySessionId to nested async scope", async () => {
     const sessionId = service.startSession({
       type: "topic_insights_refresh",
       entityId: "ctx-test",
@@ -1966,14 +1966,14 @@ describe("SessionLatencyTrackerService – KernelContext integration", () => {
 
     const stepId = service.startStep(sessionId, { name: "ctx_step" });
 
-    await KernelContext.run(
+    await MissionContext.run(
       {
         agentProcessId: "proc-1",
         latencySessionId: sessionId,
         latencyPhaseId: stepId,
       },
       async () => {
-        const ctx = KernelContext.get();
+        const ctx = MissionContext.get();
         capturedSessionId = ctx?.latencySessionId;
         capturedPhaseId = ctx?.latencyPhaseId;
 
@@ -2003,7 +2003,7 @@ describe("SessionLatencyTrackerService – KernelContext integration", () => {
     expect(summary!.llmCallCount).toBe(1);
   });
 
-  it("nested KernelContext.run() preserves outer latencySessionId when inner overrides latencyPhaseId", async () => {
+  it("nested MissionContext.run() preserves outer latencySessionId when inner overrides latencyPhaseId", async () => {
     const sessionId = service.startSession({
       type: "topic_insights_refresh",
       entityId: "nested-ctx",
@@ -2011,7 +2011,7 @@ describe("SessionLatencyTrackerService – KernelContext integration", () => {
 
     const outerStepId = service.startStep(sessionId, { name: "outer_step" });
 
-    await KernelContext.run(
+    await MissionContext.run(
       {
         agentProcessId: "proc-outer",
         latencySessionId: sessionId,
@@ -2019,7 +2019,7 @@ describe("SessionLatencyTrackerService – KernelContext integration", () => {
       },
       async () => {
         // Verify outer context
-        const outerCtx = KernelContext.get();
+        const outerCtx = MissionContext.get();
         expect(outerCtx?.latencySessionId).toBe(sessionId);
         expect(outerCtx?.latencyPhaseId).toBe(outerStepId);
 
@@ -2027,13 +2027,13 @@ describe("SessionLatencyTrackerService – KernelContext integration", () => {
         const innerStepId = service.startStep(sessionId, {
           name: "inner_step",
         });
-        await KernelContext.run(
+        await MissionContext.run(
           {
             ...outerCtx!,
             latencyPhaseId: innerStepId,
           },
           async () => {
-            const innerCtx = KernelContext.get();
+            const innerCtx = MissionContext.get();
             // sessionId still propagated from outer
             expect(innerCtx?.latencySessionId).toBe(sessionId);
             // phaseId is the inner one
@@ -2056,7 +2056,7 @@ describe("SessionLatencyTrackerService – KernelContext integration", () => {
         service.endStep(sessionId, innerStepId);
 
         // After inner run, outer context is restored
-        const restoredCtx = KernelContext.get();
+        const restoredCtx = MissionContext.get();
         expect(restoredCtx?.latencyPhaseId).toBe(outerStepId);
       },
     );
@@ -2108,9 +2108,9 @@ describe("SessionLatencyTrackerService – production parallel flow (Topic Insig
    * Core production simulation test.
    *
    * Mirrors the exact flow in MissionExecutionService:
-   *   startSession → KernelContext.run({ latencySessionId }) →
+   *   startSession → MissionContext.run({ latencySessionId }) →
    *     initialization step → task_execution step (parallel: true) →
-   *       Promise.all: 5 dimensions each in KernelContext.run({ latencyPhaseId }) →
+   *       Promise.all: 5 dimensions each in MissionContext.run({ latencyPhaseId }) →
    *         dimension_research step → sub-steps (搜索/大纲/写作) with actions →
    *     report_synthesis step → finalization step → endSession
    */
@@ -2122,13 +2122,13 @@ describe("SessionLatencyTrackerService – production parallel flow (Topic Insig
       userId: "user-mission",
     });
 
-    await KernelContext.run(
+    await MissionContext.run(
       {
         agentProcessId: "mission-proc-1",
         latencySessionId: sessionId,
       },
       async () => {
-        const ctx = KernelContext.get()!;
+        const ctx = MissionContext.get()!;
 
         // --- initialization step ---
         const initStepId = service.startStep(sessionId, {
@@ -2146,10 +2146,10 @@ describe("SessionLatencyTrackerService – production parallel flow (Topic Insig
         // 2. Promise.all: 5 dimensions in parallel
         await Promise.all(
           DIMENSIONS.map((dimension) =>
-            KernelContext.run(
+            MissionContext.run(
               { ...ctx, latencyPhaseId: taskStepId },
               async () => {
-                const dimCtx = KernelContext.get()!;
+                const dimCtx = MissionContext.get()!;
 
                 // Each dimension starts its own wrapper step
                 const dimStepId = service.startStep(sessionId, {

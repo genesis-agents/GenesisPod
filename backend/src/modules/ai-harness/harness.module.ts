@@ -80,7 +80,7 @@ import { SkillLearner, SkillLearningCoordinator } from "./agents/learning";
 // SOTA task-centric runner/planning services available to AI Apps.
 import { ReActRunner } from "./runner/env/react-runner";
 import { AgentTracer } from "./tracing/tracer/otel-tracer";
-import { AgentToolRegistry } from "./runner/env/tool-registry";
+import { AgentToolSchemaRegistry } from "./runner/env/agent-tool-schema-registry";
 import { MissionOrchestrator } from "./runner/plan-execution/task-execution-orchestrator";
 // ModelPricingRegistry 在 AiEngineLLMModule 注册并 export，harness 通过
 // imports: [AiEngineLLMModule] 拿到，不在此重复注册。
@@ -110,7 +110,7 @@ import { EventBus } from "@/common/events/event-bus";
 import { LoggerBroadcastAdapter } from "@/common/events/broadcast-adapter";
 import { DomainConceptRegistry } from "./agents/domain/concept-registry";
 import { DomainAdapterRegistry } from "./agents/domain/domain-adapter";
-import { PromptRegistry } from "./runner/prompt/prompt-registry";
+import { RuntimePromptRouter } from "./runner/prompt/runtime-prompt-router";
 import { ToolSelectorRegistry } from "./runner/tool-routing/tool-selector-registry";
 // ★ 2026-06-02: 语义工具选择器（opt-in，构造时自注册进 ToolSelectorRegistry）
 import { SemanticToolSelector } from "./runner/tool-routing/semantic-tool-selector";
@@ -301,7 +301,7 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
 
     // SOTA task-centric runner/planning services.
     AgentTracer,
-    AgentToolRegistry,
+    AgentToolSchemaRegistry,
     ReActRunner,
     MissionOrchestrator,
 
@@ -345,7 +345,7 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     LoggerBroadcastAdapter,
     DomainConceptRegistry,
     DomainAdapterRegistry,
-    PromptRegistry,
+    RuntimePromptRouter,
     ToolSelectorRegistry,
     // ★ 2026-06-02: 语义工具选择器（注入 ScoredRouter + ToolRegistry，自注册）
     SemanticToolSelector,
@@ -426,7 +426,7 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
 
     // â˜… SOTA runtime exports
     AgentTracer,
-    AgentToolRegistry,
+    AgentToolSchemaRegistry,
     ReActRunner,
     MissionOrchestrator,
     JudgeService,
@@ -462,7 +462,7 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     LoggerBroadcastAdapter,
     DomainConceptRegistry,
     DomainAdapterRegistry,
-    PromptRegistry,
+    RuntimePromptRouter,
     ToolSelectorRegistry,
 
     // 2026-05-14: AICapabilityResolver — 跨模块可用

@@ -12,7 +12,7 @@ import {
   type ChatMessage,
 } from "@/modules/ai-harness/facade";
 import {
-  KernelContext,
+  MissionContext,
   MissionExecutorService,
   ToolRegistry,
   type ToolContext,
@@ -1355,7 +1355,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       );
 
     return kernelProcessId
-      ? KernelContext.run(
+      ? MissionContext.run(
           { agentProcessId: kernelProcessId, userId },
           billingRun,
         )

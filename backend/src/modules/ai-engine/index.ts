@@ -96,7 +96,7 @@ export * as Image from "./content/image";
 // 常用服务导出（便于直接导入）
 export { ToolRegistry } from "./tools/registry";
 // ShortTermMemoryService / LongTermMemoryService / MemoryCoordinatorService /
-// HierarchicalMemoryCascadeService / ProcessMemoryManagerService / ConstraintEngine
+// HierarchicalMemoryCascadeService / WorkingMemoryManagerService / ConstraintEngine
 // 都居住在 ai-harness — 消费方应从 "@/modules/ai-harness/facade" 或
 // "@/modules/ai-harness/memory" 导入。engine 主 barrel 不再做反向 re-export。
 export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";

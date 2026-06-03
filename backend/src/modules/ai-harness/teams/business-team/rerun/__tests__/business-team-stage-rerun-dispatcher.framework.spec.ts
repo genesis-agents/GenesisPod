@@ -156,7 +156,7 @@ describe("BusinessTeamStageRerunDispatcherFramework (fake MarsTeam)", () => {
     expect(markStageProgress.mock.calls[1][1]).toBe("s2");
   });
 
-  it("withCascadeScope wraps execution (business KernelContext injection point)", async () => {
+  it("withCascadeScope wraps execution (business MissionContext injection point)", async () => {
     let scopeEntered = false;
     const handlers = new Map<
       string,

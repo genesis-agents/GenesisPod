@@ -11,7 +11,7 @@ import {
   ContextEvolutionService,
   CrossCuttingSynthesisService,
   type SynthesisResult,
-  TokenBudgetService,
+  TokenBudgetCalculatorService,
 } from "@/modules/ai-harness/facade";
 import {
   ChatFacade,
@@ -112,7 +112,8 @@ export class ReportSynthesisService {
     // ★ Batch 2: 跨维度事实一致性
     @Optional() private readonly contextEvolution?: ContextEvolutionService,
     // ★ Batch 3: Token 预算智能截断
-    @Optional() private readonly tokenBudgetService?: TokenBudgetService,
+    @Optional()
+    private readonly tokenBudgetService?: TokenBudgetCalculatorService,
     @Optional()
     private readonly researchEventEmitter?: ResearchEventEmitterService,
     // ★ Phase 10: Cross-cutting synthesis before report generation
@@ -557,7 +558,7 @@ export class ReportSynthesisService {
       }
     }
 
-    // ★ Batch 3: TokenBudgetService — 截断过长的维度分析，防止超出模型上下文
+    // ★ Batch 3: TokenBudgetCalculatorService — 截断过长的维度分析，防止超出模型上下文
     const truncatedDimensionInputs = dimensionInputs.map((d) => {
       const maxLen = 8000;
       if (d.detailedContent && d.detailedContent.length > maxLen) {
@@ -569,7 +570,7 @@ export class ReportSynthesisService {
           );
         } else {
           this.logger.debug(
-            "[Degraded] TokenBudgetService unavailable, using simple slice for truncation",
+            "[Degraded] TokenBudgetCalculatorService unavailable, using simple slice for truncation",
           );
           truncated = d.detailedContent.slice(0, maxLen);
         }

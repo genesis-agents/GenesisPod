@@ -13,7 +13,7 @@ export type {
   OutputValidationResult,
 } from "@/modules/ai-harness/facade";
 export {
-  TokenBudgetService,
+  TokenBudgetCalculatorService,
   type TokenBudgetModelConfig as ModelConfig,
   type TokenBudget,
   type ContentPriority,

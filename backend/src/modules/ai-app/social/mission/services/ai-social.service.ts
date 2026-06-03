@@ -15,7 +15,7 @@ import { PublishContentDto } from "../../api/dto/publish-content.dto";
 import { SocialContentStatus, SocialContentSourceType } from "../types";
 import {
   MissionExecutorService,
-  KernelContext,
+  MissionContext,
 } from "@/modules/ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
@@ -572,7 +572,7 @@ export class AiSocialService {
       }
     };
     return contentProcessId
-      ? KernelContext.run(
+      ? MissionContext.run(
           { agentProcessId: contentProcessId, userId: content.userId || "" },
           executeGeneration,
         )

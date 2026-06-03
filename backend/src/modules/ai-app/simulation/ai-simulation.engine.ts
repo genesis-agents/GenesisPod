@@ -14,12 +14,12 @@ import type { ChatMessage } from "@/modules/ai-harness/facade";
 import { ProgressTrackerService } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
-  KernelContext,
+  MissionContext,
   EventJournalService,
   ResourceManagerService,
   EventBusService,
 } from "@/modules/ai-harness/facade";
-import { ProcessMemoryManagerService } from "@/modules/ai-harness/facade";
+import { WorkingMemoryManagerService } from "@/modules/ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 interface EvidenceRef {
@@ -126,7 +126,7 @@ export class AiSimulationEngineService {
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly progressTracker?: ProgressTrackerService,
     @Optional() private readonly kernelJournal?: EventJournalService,
-    @Optional() private readonly kernelMemory?: ProcessMemoryManagerService,
+    @Optional() private readonly kernelMemory?: WorkingMemoryManagerService,
     @Optional() private readonly resourceManager?: ResourceManagerService,
     @Optional() private readonly eventBus?: EventBusService,
   ) {
@@ -554,7 +554,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
     }; // end of runSimulation
 
     await (runProcessId
-      ? KernelContext.run(
+      ? MissionContext.run(
           { agentProcessId: runProcessId, userId: run.startedById || "" },
           runSimulation,
         )

@@ -59,7 +59,7 @@ import {
   TeamMemberService,
   // 长内容处理增强服务
   ConstraintEnforcementService,
-  TokenBudgetService,
+  TokenBudgetCalculatorService,
   // Topic 领域服务
   TopicMembershipService,
   TopicPublicService,
@@ -134,7 +134,7 @@ import { DEBATE_TEAM_CONFIG } from "./teams";
 
     // 长内容处理增强服务
     ConstraintEnforcementService,
-    TokenBudgetService,
+    TokenBudgetCalculatorService,
 
     // Topic 领域服务
     TopicMembershipService,
@@ -166,7 +166,7 @@ import { DEBATE_TEAM_CONFIG } from "./teams";
 
     // 长内容处理增强服务
     ConstraintEnforcementService,
-    TokenBudgetService,
+    TokenBudgetCalculatorService,
 
     // Topic 领域服务
     TopicMembershipService,
