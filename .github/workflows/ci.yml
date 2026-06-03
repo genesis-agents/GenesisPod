@@ -279,8 +279,10 @@ jobs:
 
       - run: npm ci
 
-      - name: Generate Prisma client
-        run: npx prisma generate --schema=prisma/schema
+      # 构建到 dist（含 prisma generate + tsc + tsc-alias）——boot 测试针对编译产物运行，
+      # 与生产 `node dist/main.js` 启动路径一致，且避开 tsx 对 `@/` paths 的解析 bug。
+      - name: Build backend
+        run: npm run build
         working-directory: ./backend
 
       - name: Boot smoke test (DI graph resolution)
