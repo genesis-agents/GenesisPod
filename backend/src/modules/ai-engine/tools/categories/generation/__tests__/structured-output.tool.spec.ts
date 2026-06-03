@@ -1,6 +1,6 @@
 import { AIModelType } from "@prisma/client";
 import { StructuredOutputTool } from "../structured-output.tool";
-import { AiChatService } from "../../../../llm/services/ai-chat.service";
+import { AiChatService } from "../../../../llm/chat/ai-chat.service";
 import { ToolContext } from "../../../abstractions/tool.interface";
 
 // ============================================================================

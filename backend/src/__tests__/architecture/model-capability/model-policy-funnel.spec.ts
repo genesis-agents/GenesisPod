@@ -18,7 +18,7 @@ import * as path from "path";
 
 const AI_CHAT_SERVICE = path.resolve(
   __dirname,
-  "../../../modules/ai-engine/llm/services/ai-chat.service.ts",
+  "../../../modules/ai-engine/llm/chat/ai-chat.service.ts",
 );
 
 function readSource(): string {

@@ -36,7 +36,7 @@ import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm.factory";
 import { CostController } from "@/modules/ai-harness/guardrails/resources/cost-controller";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 import { MCPManager } from "@/modules/ai-engine/tools/adapters/mcp/manager/mcp-manager";
-import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "@/modules/ai-engine/llm/chat/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { TraceCollectorService } from "@/modules/ai-harness/tracing/observability/trace-collector.service";
 import { CheckpointManager } from "@/modules/ai-harness/protocols/journal/checkpoint-manager";

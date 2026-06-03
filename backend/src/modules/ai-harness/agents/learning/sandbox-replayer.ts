@@ -11,7 +11,7 @@
  */
 
 import type { SandboxReplayer } from "./skill-learning-coordinator";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
 
 /** 永远 pass，用于框架自检 / 不接 LLM 的轻量场景 */
 export class NoopSandboxReplayer implements SandboxReplayer {

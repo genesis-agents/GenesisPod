@@ -22,7 +22,7 @@ import { RequestContext } from "@/common/context/request-context";
 import { KeyExecutorService } from "@/modules/platform/credentials/executor";
 import { EmbeddingService } from "../embedding";
 import { VectorService } from "../vector";
-import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "@/modules/ai-engine/llm/chat/ai-chat.service";
 import { AIModelType } from "@prisma/client";
 import {
   RAGQuery,

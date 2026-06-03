@@ -43,13 +43,13 @@ import {
   stripReasoningBlocks,
 } from "../../../../common/utils/json-extraction.utils";
 import { parsePositiveIntEnv } from "../../../../common/utils/schema-coercion.utils";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
 import {
   type DelimitedFinalizeShape,
   buildDelimitedFinalizeInstructions,
   hasDelimitedFinalizeMarkers,
   parseDelimitedFinalize,
-} from "../../../ai-engine/llm/structured-output/delimited-finalize.transport";
+} from "../../../ai-engine/llm/output/structured/delimited-finalize.transport";
 import type { ChatMessage } from "../../../ai-engine/llm/types";
 import { AIModelType } from "@prisma/client";
 import { ToolInvoker } from "../tool-invoker/tool-invoker";

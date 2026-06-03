@@ -11,7 +11,7 @@ import {
   ToolCategory,
 } from "../../../abstractions/tool.interface";
 
-import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "@/modules/ai-engine/llm/chat/ai-chat.service";
 
 // ============================================================================
 // Types

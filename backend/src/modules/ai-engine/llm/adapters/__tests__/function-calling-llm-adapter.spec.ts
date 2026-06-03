@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { FunctionCallingLLMAdapter } from "../function-calling-llm.adapter";
-import { AiChatService } from "../../services/ai-chat.service";
+import { AiChatService } from "../../chat/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/platform/secrets/secrets.service";
 import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";

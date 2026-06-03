@@ -216,7 +216,7 @@ export {
 export type {
   StreamTiming,
   StreamChunk,
-} from "@/modules/ai-engine/llm/services/chat/ai-stream-handler.service";
+} from "@/modules/ai-engine/llm/chat/ai-stream-handler.service";
 
 // TaskPlan / IntentRouter / TaskPlanner 已删 (2026-04-30) — 死代码
 export type {
@@ -409,13 +409,13 @@ export {
 } from "../tools/categories/information/policy";
 
 // ★ Batch 2 — Core services
-export { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+export { AiChatService } from "@/modules/ai-engine/llm/chat/ai-chat.service";
 export type {
   ChatObserver,
   ChatObserverEvent,
   ChatOptions,
   ChatResult,
-} from "@/modules/ai-engine/llm/services/ai-chat.service";
+} from "@/modules/ai-engine/llm/chat/ai-chat.service";
 export type { ChatMessage } from "../llm/types";
 export {
   inferIsReasoning,
@@ -455,8 +455,8 @@ export type {
   FullSkillDefinition,
 } from "../skills/content/skill-content.service";
 export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
-export { MultiKeyRegistry } from "@/modules/ai-engine/llm/key-health/multi-key.manager";
-export type { KeyHealthStatus } from "@/modules/ai-engine/llm/key-health/multi-key.manager";
+export { MultiKeyRegistry } from "@/modules/platform/key-health/multi-key.manager";
+export type { KeyHealthStatus } from "@/modules/platform/key-health/multi-key.manager";
 // AICapabilityResolver 是 L2.5 ai-harness/runner 服务，2026-05-01 PR-X-M2
 // 下沉为 ai-harness/facade export
 // IntentRouterService / RouteResult / AgentContext 已删 (2026-04-30) — 死代码
@@ -533,7 +533,7 @@ export {
   // ★ 沉淀（2026-04-29）: 图表 JSON 块清理（LLM 泄漏 metadata 修复）
   stripChartJsonFromContent,
   extractMarkdownFromJsonString,
-} from "../llm/output-parsing";
+} from "../llm/output/sanitization";
 
 // ★ 沉淀（2026-04-29）: figure URL 有效性校验
 export { isValidFigureUrl } from "../safety/utils/figure-url-sanitizer.utils";
@@ -719,8 +719,8 @@ export type {
 } from "../knowledge/consistency/stale-detector.service";
 
 // ★ Phase 5: Prompt Cache Coordination
-export { PromptCacheCoordinatorService } from "@/modules/ai-engine/llm/services/chat/prompt-cache-coordinator.service";
-export type { CachePrefix } from "@/modules/ai-engine/llm/services/chat/prompt-cache-coordinator.service";
+export { PromptCacheCoordinatorService } from "@/modules/ai-engine/llm/chat/prompt-cache-coordinator.service";
+export type { CachePrefix } from "@/modules/ai-engine/llm/chat/prompt-cache-coordinator.service";
 
 // ★ Phase 9: Background Autonomous Agents
 //   2026-04-30 (C2-step1): AutoDream 已搬到 ai-harness/memory/consolidation/，
@@ -818,8 +818,8 @@ export {
   UpdateUserModelConfigDto,
 } from "@/modules/platform/credentials/user-model-configs/dto/user-model-config.dto";
 export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/models/catalog/ai-model-discovery.service";
-export { AiConnectionTestService } from "@/modules/ai-engine/llm/services/ai-connection-test.service";
-export { AutoConfigureService } from "@/modules/ai-engine/llm/user-config/user-models-auto-configure.service";
+export { AiConnectionTestService } from "@/modules/ai-engine/llm/byok/ai-connection-test.service";
+export { AutoConfigureService } from "@/modules/ai-engine/llm/byok/user-models-auto-configure.service";
 
 // ════════════════════════════════════════════════════════════════════
 // v3.1 阶段 B 子片 2 — capability_overrides 写入面（admin / BYOK / self-heal）

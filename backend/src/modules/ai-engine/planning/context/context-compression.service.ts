@@ -18,7 +18,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "@/modules/ai-engine/llm/chat/ai-chat.service";
 import { EmbeddingService } from "@/modules/ai-engine/rag/embedding/embedding.service";
 import {
   DataChunk,

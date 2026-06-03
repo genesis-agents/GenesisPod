@@ -17,7 +17,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { SecretsService } from "@/modules/platform/facade";
-import { AiApiCallerService } from "@/modules/ai-engine/llm/services/ai-api-caller.service";
+import { AiApiCallerService } from "@/modules/ai-engine/llm/providers/ai-api-caller.service";
 import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
 import { NoAvailableKeyError } from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
 import { KeyErrorClassifier } from "@/modules/platform/key-health/key-error-classifier";

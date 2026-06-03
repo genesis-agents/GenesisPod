@@ -18,7 +18,7 @@ import type {
   IContextMessage,
 } from "../../agents/abstractions";
 import { ContextEnvelope } from "../../agents/core/context-envelope";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
 import { estimateEnvelopeTokens } from "./token-estimator";
 import { AIModelType } from "@prisma/client";
 

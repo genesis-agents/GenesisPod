@@ -15,7 +15,7 @@
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../ai-engine/llm/chat/ai-chat.service";
 import { AiModelConfigService } from "../../ai-engine/llm/models/config/ai-model-config.service";
 import { ModelFallbackService } from "../../ai-engine/llm/models/selection/model-fallback.service";
 import { KeyResolverService } from "../../platform/credentials/key-resolver/key-resolver.service";

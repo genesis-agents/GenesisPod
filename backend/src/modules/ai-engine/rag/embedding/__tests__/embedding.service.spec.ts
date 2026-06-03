@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { EmbeddingService } from "../embedding.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/platform/secrets/secrets.service";
-import { AiApiCallerService } from "@/modules/ai-engine/llm/services/ai-api-caller.service";
+import { AiApiCallerService } from "@/modules/ai-engine/llm/providers/ai-api-caller.service";
 import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
 import { AiModelConfigService } from "@/modules/ai-engine/llm/models/config/ai-model-config.service";
 import { KeyErrorClassifier } from "@/modules/platform/key-health/key-error-classifier";

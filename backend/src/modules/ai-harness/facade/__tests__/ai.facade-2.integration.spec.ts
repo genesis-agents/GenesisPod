@@ -11,7 +11,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { AIFacade } from "../ai.facade";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
 import { AiModelConfigService } from "../../../ai-engine/llm/models/config/ai-model-config.service";
 import {
   MEMORY_FEATURE,

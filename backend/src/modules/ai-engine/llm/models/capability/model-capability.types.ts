@@ -21,7 +21,7 @@ import { z } from "zod";
 import {
   STRUCTURED_OUTPUT_STRATEGIES,
   type StructuredOutputStrategy,
-} from "../../structured-output/structured-output-strategy.types";
+} from "../../output/structured/structured-output-strategy.types";
 
 // ─────────────── structuredOutput 维度（v3 §3.2 #1, #2） ───────────────
 

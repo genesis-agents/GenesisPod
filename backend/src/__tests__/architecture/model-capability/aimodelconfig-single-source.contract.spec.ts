@@ -42,7 +42,7 @@ const FILE_SINGLE_SOURCE = path.join(
 const FILE_OLD_WRAPPER = path.join(
   SRC_ROOT,
   // moved into services/chat/ during llm/services MECE concern-grouping
-  "modules/ai-engine/llm/services/chat/ai-chat-model-config.service.ts",
+  "modules/ai-engine/llm/chat/ai-chat-model-config.service.ts",
 );
 const FILE_CANONICAL_SERVICE = path.join(
   SRC_ROOT,

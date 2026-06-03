@@ -16,7 +16,7 @@ import {
   ReviewCriteria,
   AiCallerFn,
 } from "../../../ai-harness/runner/executor/executor.types";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../ai-engine/llm/chat/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 
@@ -581,4 +581,3 @@ ${request.issues.map((issue, i) => `${i + 1}. ${issue}`).join("\n")}
     };
   }
 }
-

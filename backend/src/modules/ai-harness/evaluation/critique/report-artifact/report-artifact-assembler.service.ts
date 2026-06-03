@@ -41,7 +41,7 @@ import { ReportQualityGateService } from "../../../facade";
 //   `mid-line glued ##` 由 detectAndPromoteHeadings 启发式修复。
 import { postProcessFinalReport } from "../../../../ai-engine/content/report-template/pipeline/final-report-post-processing.utils";
 import { formatDimensionContent } from "../../../../ai-engine/content/report-template/pipeline/dimension-content-formatting.utils";
-import { stripChartJsonFromContent } from "../../../../ai-engine/llm/output-parsing/strip-chart-json.utils";
+import { stripChartJsonFromContent } from "../../../../ai-engine/llm/output/sanitization/strip-chart-json.utils";
 import {
   filterJunkReferences,
   deduplicateReferencesByUrl,

@@ -15,7 +15,7 @@ import type {
   ToolCallRequest,
 } from "../abstractions/function-calling-protocol";
 import { FunctionDefinition } from "../../tools/abstractions/tool.interface";
-import { AiChatService, ChatMessage } from "../services/ai-chat.service";
+import { AiChatService, ChatMessage } from "../chat/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/platform/facade";
 import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";

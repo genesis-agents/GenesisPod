@@ -4,7 +4,7 @@ import { RAGPipelineService } from "../rag-pipeline.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EmbeddingService } from "../../embedding";
 import { VectorService } from "../../vector";
-import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "@/modules/ai-engine/llm/chat/ai-chat.service";
 import { UserApiKeysService } from "@/modules/platform/credentials/user-api-keys/user-api-keys.service";
 
 // ─── Mock factories ───────────────────────────────────────

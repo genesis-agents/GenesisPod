@@ -1498,10 +1498,18 @@ export class AiModelConfigService {
   async getModelById(idOrModelId: string): Promise<AIModelConfig | null> {
     // ★ BYOK 解析缓存：命中即跳过整条串行 DB fallback 链（见字段注释）。
     //   key 含 userId —— BYOK 配置按用户隔离；无 userId 的后台调用归入 "system"。
+    const t0 = Date.now();
     const userId = RequestContext.getUserId();
     const cacheKey = `${userId ?? "system"}::${idOrModelId}`;
     const cached = this.resolvedModelCache.get(cacheKey);
     if (cached && Date.now() - cached.time < this.RESOLVED_MODEL_CACHE_TTL) {
+      this.recordResolveSegment(
+        t0,
+        idOrModelId,
+        cached.config,
+        "cached",
+        false,
+      );
       return cached.config;
     }
     const resolved = await this.resolveModelByIdUncached(idOrModelId);
@@ -1509,7 +1517,54 @@ export class AiModelConfigService {
       config: resolved,
       time: Date.now(),
     });
+    this.recordResolveSegment(
+      t0,
+      idOrModelId,
+      resolved,
+      this.classifyResolveSource(resolved),
+      true,
+    );
     return resolved;
+  }
+
+  /**
+   * 把本次模型解析记成请求级时延明细（底层、全模块通用）。source/cold 让"冷解析率"
+   * 和"解析延迟"成为可观测指标 —— 这是 #215/#223/#227 优化的 KPI，原先只在日志里。
+   * 无活跃请求上下文时（后台任务）RequestContext 静默 no-op。
+   */
+  private recordResolveSegment(
+    startedAt: number,
+    requestedId: string,
+    config: AIModelConfig | null,
+    source: "cached" | "registered" | "synthesized",
+    cold: boolean,
+  ): void {
+    RequestContext.pushLatencySegment({
+      kind: "model_resolve",
+      name: requestedId,
+      ms: Date.now() - startedAt,
+      meta: {
+        source,
+        cold,
+        hit: config != null,
+        model: config?.modelId,
+        provider: config?.provider,
+      },
+    });
+  }
+
+  /**
+   * 按 resolved config 的 id 形态判定来源：合成 vs 注册。
+   * synthesizeConfigForUserModel 的 id = `user-${userId}-${provider}-${modelId}`；
+   * UserModelConfig = `user-model-config-${id}`；admin AIModel = DB uuid。
+   */
+  private classifyResolveSource(
+    config: AIModelConfig | null,
+  ): "registered" | "synthesized" {
+    const id = config?.id ?? "";
+    return id.startsWith("user-") && !id.startsWith("user-model-config-")
+      ? "synthesized"
+      : "registered";
   }
 
   /**
