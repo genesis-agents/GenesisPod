@@ -167,6 +167,16 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 - `engine/evaluation`（无状态启发式）/ `harness/evaluation`（agent 感知评判）/ `harness/tracing/evaluation`（评估追踪）：三者职责不同。
 - `engine/skills`（定义）vs `harness/agents/skill-runtime`（运行）：def/runtime 分工，正确。
 
+### HTTP 接口面（controller 归属）
+
+> OS 类比：HTTP 入口属 **L4 open-api（公共 API 网关/daemon）** 与 **L3 ai-app（用户态应用各开各的 socket）**；**engine（硬件）/ harness（内核）不开 HTTP 口**。
+
+实测（2026-06-03）：`@Controller` 数 = open-api **39** · ai-app **91** · **engine 0** · **harness 0** · platform 9。
+
+- ✅ **engine / harness = 0 controller** —— 最关键的不变量已满足，无需动。
+- ✅ **两个 HTTP 面有意区分，勿合并**：`ai-app` = 一方前端 feature API（ask/explore/byok）；`open-api` = 对外/协议/管理面（a2a / mcp-server / admin / public-api / agents-api·skills-api·teams-api / webhooks）。把 ai-app 的 91 个 feature controller 灌进 open-api 会搅混两个面、破坏内聚 → **不做**。
+- 🔎 **小项（可选上提）**：`platform` 9 个里偏 admin 的（`db-ops` / `storage-governance` / `secrets`）理论上更适合 `open-api/admin/`；`auth` 回调 / `notifications/unsubscribe` / `credits` 属基础设施端点留 platform 合理。逐个确认是否纯内部 admin 后再定，低优先。
+
 ### 执行优先级
 
 1. **高置信纯结构**：image 收口、checkpoint 收口（先核实作用域）。
