@@ -13,6 +13,7 @@
     "lint:fix": "eslint \"{src,tests}/**/*.ts\" --fix",
     "type-check": "tsc --noEmit",
     "verify:arch": "jest src/__tests__/architecture --no-coverage --forceExit",
+    "test:boot": "tsx scripts/ci/boot-smoke-test.ts",
     "audit:capability": "node scripts/audit-capability-anti-patterns.cjs",
     "audit:capability:print": "node scripts/audit-capability-anti-patterns.cjs --print",
     "audit:capability:update": "node scripts/audit-capability-anti-patterns.cjs --write",
