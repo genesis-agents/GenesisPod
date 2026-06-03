@@ -98,5 +98,5 @@ export {
 } from "../abstractions/ai-services.interface";
 
 // ─── Database Governance ───
-export { DbGovernanceService } from "../db-governance/db-governance.service";
-export { DataRetentionService } from "../db-governance/data-retention.service";
+export { DbOpsService } from "../db-ops/db-ops.service";
+export { DataRetentionService } from "../db-ops/data-retention.service";

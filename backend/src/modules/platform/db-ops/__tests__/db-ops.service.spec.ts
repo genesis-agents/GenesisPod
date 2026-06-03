@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { DbGovernanceService } from "../db-governance.service";
+import { DbOpsService } from "../db-ops.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { TableCategory } from "../dto/table-info.dto";
 
@@ -39,20 +39,20 @@ const mockPrisma = {
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
-describe("DbGovernanceService", () => {
-  let service: DbGovernanceService;
+describe("DbOpsService", () => {
+  let service: DbOpsService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        DbGovernanceService,
+        DbOpsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
-    service = module.get<DbGovernanceService>(DbGovernanceService);
+    service = module.get<DbOpsService>(DbOpsService);
   });
 
   // ====================== getTableList ======================

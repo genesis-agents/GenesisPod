@@ -28,8 +28,8 @@ import { TABLE_CLEANUP_POLICIES } from "./policies/table-cleanup-policy.catalog"
 import { TABLE_CLEANUP_EXCEPTIONS } from "./policies/table-cleanup-exception.catalog";
 
 @Injectable()
-export class DbGovernanceService {
-  private readonly logger = new Logger(DbGovernanceService.name);
+export class DbOpsService {
+  private readonly logger = new Logger(DbOpsService.name);
 
   constructor(private readonly prisma: PrismaService) {}
 

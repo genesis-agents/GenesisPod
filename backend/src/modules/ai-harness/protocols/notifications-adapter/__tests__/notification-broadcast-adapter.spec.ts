@@ -2,7 +2,7 @@ import { Test } from "@nestjs/testing";
 import { NotificationBroadcastAdapter } from "../notification-broadcast-adapter";
 import { NotificationPresetsService } from "@/modules/platform/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import type { DomainEvent } from "@/modules/ai-harness/facade";
+import type { DomainEvent } from "@/modules/ai-harness/protocols/events";
 
 describe("NotificationBroadcastAdapter", () => {
   let adapter: NotificationBroadcastAdapter;

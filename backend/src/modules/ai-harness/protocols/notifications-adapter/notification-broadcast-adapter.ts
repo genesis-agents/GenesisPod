@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import type {
   IBroadcastAdapter,
   DomainEvent,
-} from "@/modules/ai-harness/facade";
+} from "@/modules/ai-harness/protocols/events";
 import { NotificationPresetsService } from "@/modules/platform/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 

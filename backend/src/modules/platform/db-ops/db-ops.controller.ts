@@ -11,7 +11,7 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { DbGovernanceService } from "./db-governance.service";
+import { DbOpsService } from "./db-ops.service";
 import {
   TableCategory,
   TableListQueryDto,
@@ -26,11 +26,11 @@ import {
 @ApiTags("Admin - Tables")
 @UseGuards(JwtAuthGuard, AdminGuard)
 @Controller("admin/tables")
-export class DbGovernanceController {
-  private readonly logger = new Logger(DbGovernanceController.name);
+export class DbOpsController {
+  private readonly logger = new Logger(DbOpsController.name);
 
   constructor(
-    private readonly dbGovernanceService: DbGovernanceService,
+    private readonly dbGovernanceService: DbOpsService,
   ) {}
 
   /**

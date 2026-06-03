@@ -2,8 +2,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
-import { DbGovernanceController } from "../db-governance.controller";
-import { DbGovernanceService } from "../db-governance.service";
+import { DbOpsController } from "../db-ops.controller";
+import { DbOpsService } from "../db-ops.service";
 import {
   TableListResponseDto,
   TableDetailDto,
@@ -12,9 +12,9 @@ import {
   TableStatsDto,
 } from "../dto/table-info.dto";
 
-describe("DbGovernanceController", () => {
-  let controller: DbGovernanceController;
-  let service: jest.Mocked<DbGovernanceService>;
+describe("DbOpsController", () => {
+  let controller: DbOpsController;
+  let service: jest.Mocked<DbOpsService>;
 
   const mockTableStats: TableStatsDto = {
     totalTables: 10,
@@ -51,10 +51,10 @@ describe("DbGovernanceController", () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [DbGovernanceController],
+      controllers: [DbOpsController],
       providers: [
         {
-          provide: DbGovernanceService,
+          provide: DbOpsService,
           useValue: {
             getTableList: jest.fn().mockResolvedValue(mockTableList),
             getStats: jest.fn().mockResolvedValue(mockTableStats),
@@ -74,10 +74,10 @@ describe("DbGovernanceController", () => {
       .useValue({ canActivate: () => true })
       .compile();
 
-    controller = module.get<DbGovernanceController>(
-      DbGovernanceController,
+    controller = module.get<DbOpsController>(
+      DbOpsController,
     );
-    service = module.get(DbGovernanceService);
+    service = module.get(DbOpsService);
   });
 
   describe("getTableList", () => {

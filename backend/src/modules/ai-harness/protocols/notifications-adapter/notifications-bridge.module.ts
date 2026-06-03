@@ -3,7 +3,7 @@ import { NotificationBroadcastAdapter } from "./notification-broadcast-adapter";
 import { NotificationEventListener } from "./notification-event-listener.service";
 import { NotificationModule } from "@/modules/platform/notifications/notification.module";
 import { HarnessModule } from "@/modules/ai-harness/harness.module";
-import { DomainEventBus } from "@/modules/ai-harness/facade";
+import { DomainEventBus } from "@/modules/ai-harness/protocols/events";
 import { PrismaModule } from "@/common/prisma/prisma.module";
 
 /**

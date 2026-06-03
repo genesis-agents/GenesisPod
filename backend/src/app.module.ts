@@ -36,7 +36,7 @@ import { NotificationDispatcherModule } from "./modules/platform/notifications/d
 import { ReleaseModule } from "./modules/platform/release/release.module";
 import { SettingsModule } from "./modules/platform/settings/settings.module";
 import { StorageModule } from "./modules/platform/storage/storage.module";
-import { DbGovernanceModule } from "./modules/platform/db-governance/db-governance.module";
+import { DbOpsModule } from "./modules/platform/db-ops/db-ops.module";
 import { CreditsModule } from "./modules/platform/credits/credits.module";
 import { EncryptionModule } from "./modules/platform/encryption/encryption.module";
 import { UserApiKeysModule } from "./modules/ai-engine/credentials/user-api-keys/user-api-keys.module";
@@ -64,7 +64,7 @@ import { ResearchModule } from "./modules/ai-app/research";
 import { TopicInsightsModule } from "./modules/ai-app/topic-insights";
 import { AgentPlaygroundModule } from "./modules/ai-app/agent-playground/module/agent-playground.module";
 import { RadarModule } from "./modules/ai-app/radar/module/radar.module";
-import { NotificationsBridgeModule } from "./modules/ai-app/notifications-bridge/notifications-bridge.module";
+import { NotificationsBridgeModule } from "./modules/ai-harness/protocols/notifications-adapter/notifications-bridge.module";
 import { CustomAgentsModule } from "./modules/ai-app/custom-agents/custom-agents.module";
 import { AiSocialModule } from "./modules/ai-app/social/module/ai-social.module";
 import { SocialEngineBridgeModule } from "./modules/ai-app/social/runtime/social-engine-bridge.module";
@@ -196,7 +196,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     ReleaseModule,
     SettingsModule,
     StorageModule,
-    DbGovernanceModule,
+    DbOpsModule,
     CreditsModule,
     EncryptionModule, // å…¨å±€åŠ å¯†æœåŠ¡ï¼ˆå¿…é¡»å…ˆäºŽä¾èµ–å®ƒçš„æ¨¡å—æ³¨å†Œï¼‰
     UserApiKeysModule,
