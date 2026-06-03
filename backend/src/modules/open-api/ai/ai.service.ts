@@ -16,8 +16,8 @@ import { AIModelType } from "@prisma/client";
  * ★ 原则：所有模型查询委托给 AiModelConfigService，不直接访问数据库
  */
 @Injectable()
-export class AiCoreService {
-  private readonly logger = new Logger(AiCoreService.name);
+export class AiService {
+  private readonly logger = new Logger(AiService.name);
 
   constructor(
     private readonly prisma: PrismaService, // 仅用于非模型相关的查询（如 Topic）

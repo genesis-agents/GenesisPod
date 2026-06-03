@@ -105,7 +105,7 @@ import { WebhooksModule } from "./modules/open-api/webhooks";
 import { MCPServerModule } from "./modules/open-api/mcp-server";
 import { PublicModule } from "./modules/open-api/public/public.module";
 import { OpenApiSystemModule } from "./modules/open-api/system/system.module";
-import { AiCoreModule } from "./modules/open-api/ai-core/ai-core.module";
+import { AiModule } from "./modules/open-api/ai/ai.module";
 import { AgentsModule } from "./modules/open-api/agents/agents.module";
 import { McpAdminModule } from "./modules/open-api/mcp-admin/mcp-admin.module";
 import { SkillsModule } from "./modules/open-api/skills/skills.module";
@@ -279,7 +279,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     A2AApiModule,
 
     // AI Core API (PR-X6)
-    AiCoreModule,
+    AiModule,
 
     // Agents API (PR-X6)
     AgentsModule,

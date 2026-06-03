@@ -9,7 +9,7 @@
  *   新实现委托 RAGPipelineService.simpleQuery，走当前 work 的数据模型：
  *     KnowledgeBase → KnowledgeBaseDocument → ParentChunk → ChildChunk →
  *     ChildEmbedding(JSONB) + 应用层余弦相似度
- *   该路径已被 ai-app/library/rag、ai-ask、open-api/ai-core 共用且 work，
+ *   该路径已被 ai-app/library/rag、ai-ask、open-api/ai 共用且 work，
  *   consumer 的 researcher / writing 等消费方自动受益。
  *
  * 行为：

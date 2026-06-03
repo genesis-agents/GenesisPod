@@ -1,13 +1,13 @@
 import { Module } from "@nestjs/common";
-import { AiCoreController } from "./ai-core.controller";
-import { AiCoreService } from "./ai-core.service";
+import { AiController } from "./ai.controller";
+import { AiService } from "./ai.service";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { SecretsModule } from "../../platform/credentials/secrets/secrets.module";
 
 @Module({
   imports: [PrismaModule, AiEngineModule, SecretsModule],
-  controllers: [AiCoreController],
-  providers: [AiCoreService],
+  controllers: [AiController],
+  providers: [AiService],
 })
-export class AiCoreModule {}
+export class AiModule {}

@@ -1,12 +1,12 @@
 /**
- * Unit tests for AiCoreController
+ * Unit tests for AiController
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { AiCoreController } from "../ai-core.controller";
-import { AiCoreService } from "../ai-core.service";
+import { AiController } from "../ai.controller";
+import { AiService } from "../ai.service";
 import { ChatFacade } from "../../../ai-harness/facade";
 import { RAGPipelineService } from "@/modules/ai-engine/rag/pipeline";
 import { SecretsService } from "../../../platform/credentials/secrets/secrets.service";
@@ -68,8 +68,8 @@ function makeResponse() {
   return res;
 }
 
-describe("AiCoreController", () => {
-  let controller: AiCoreController;
+describe("AiController", () => {
+  let controller: AiController;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -79,9 +79,9 @@ describe("AiCoreController", () => {
     jest.spyOn(Logger.prototype, "debug").mockReturnValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [AiCoreController],
+      controllers: [AiController],
       providers: [
-        { provide: AiCoreService, useValue: mockAiCoreService },
+        { provide: AiService, useValue: mockAiCoreService },
         { provide: ChatFacade, useValue: mockAiFacade },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: RAGPipelineService, useValue: mockRagPipelineService },
@@ -90,7 +90,7 @@ describe("AiCoreController", () => {
       ],
     }).compile();
 
-    controller = module.get<AiCoreController>(AiCoreController);
+    controller = module.get<AiController>(AiController);
   });
 
   describe("getEnabledModels", () => {

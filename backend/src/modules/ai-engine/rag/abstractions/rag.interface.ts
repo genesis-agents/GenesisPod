@@ -2,7 +2,7 @@
  * RAG Pipeline Service Interface
  * RAG 检索服务抽象接口 - 供 AI Engine 使用
  *
- * 解决问题: AiCoreController 不应直接依赖 AI Apps 的具体实现
+ * 解决问题: AiController 不应直接依赖 AI Apps 的具体实现
  * 实现位置: backend/src/modules/ai-app/rag/
  */
 
