@@ -1708,7 +1708,7 @@ describe("AiModelConfigService", () => {
   });
 
   // ====================================================================
-  // BYOK 解析缓存（perf：per-(userId, modelId) 60s TTL + 主动失效）
+  // BYOK 解析缓存（perf：per-(userId, modelId) 5min TTL + 主动失效）
   // ====================================================================
   describe("resolved-model cache", () => {
     let resolveSpy: jest.SpyInstance;
@@ -1738,10 +1738,20 @@ describe("AiModelConfigService", () => {
       expect(resolveSpy).toHaveBeenCalledTimes(1);
     });
 
-    it("TTL 过期（>60s）后回源重新解析", async () => {
+    it("TTL 内（2min，旧 60s 已过、新 5min 未过）仍命中缓存", async () => {
       await RequestContext.run({ userId: "u1" }, async () => {
         await service.getModelById("gpt-4o");
-        nowSpy.mockReturnValue(T0 + 60_001); // 越过 60s TTL
+        nowSpy.mockReturnValue(T0 + 120_000); // 旧 60s TTL 已过，但在新 5min TTL 内
+        await service.getModelById("gpt-4o");
+      });
+      // BYOK 冷解析每 5min 才回源一次（而非每会话），这是 TTL 60s→5min 的核心收益
+      expect(resolveSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("TTL 过期（>5min）后回源重新解析", async () => {
+      await RequestContext.run({ userId: "u1" }, async () => {
+        await service.getModelById("gpt-4o");
+        nowSpy.mockReturnValue(T0 + 5 * 60 * 1000 + 1); // 越过 5min TTL
         await service.getModelById("gpt-4o");
       });
       expect(resolveSpy).toHaveBeenCalledTimes(2);
