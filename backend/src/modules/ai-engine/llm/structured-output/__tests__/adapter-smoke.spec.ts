@@ -266,9 +266,26 @@ describe("NoneAdapter (无 structured output)", () => {
 import { HttpService } from "@nestjs/axios";
 import { of } from "rxjs";
 import { AiApiCallerService } from "../../services/ai-api-caller.service";
+import { OpenaiCaller } from "../../services/api-callers/openai-caller";
+import { AnthropicCaller } from "../../services/api-callers/anthropic-caller";
+import { CohereCaller } from "../../services/api-callers/cohere-caller";
+import { GoogleCaller } from "../../services/api-callers/google-caller";
+import { XaiCaller } from "../../services/api-callers/xai-caller";
 
 function makeHttpService(mockFn: jest.Mock): HttpService {
   return { post: mockFn } as unknown as HttpService;
+}
+
+// split 后各 provider 的 requestBody 构建在对应 caller；用真 caller 构造
+// AiApiCallerService(委派路由到真 caller),requestBody 形状与拆分前一致。
+function buildCaller(http: HttpService): AiApiCallerService {
+  return new AiApiCallerService(
+    new OpenaiCaller(http),
+    new AnthropicCaller(http),
+    new CohereCaller(http),
+    new GoogleCaller(http),
+    new XaiCaller(http),
+  );
 }
 
 const BASE_MESSAGES = [
@@ -291,7 +308,7 @@ describe("AiApiCallerService — OpenAI json_schema_strict via router", () => {
         },
       }),
     );
-    const caller = new AiApiCallerService(makeHttpService(mockPost));
+    const caller = buildCaller(makeHttpService(mockPost));
     await caller.callOpenAICompatibleAPI(
       "https://api.openai.com/v1/chat/completions",
       "sk-test",
@@ -336,7 +353,7 @@ describe("AiApiCallerService — Anthropic tool_use via router", () => {
         },
       }),
     );
-    const caller = new AiApiCallerService(makeHttpService(mockPost));
+    const caller = buildCaller(makeHttpService(mockPost));
     const result = await caller.callAnthropicAPI(
       "https://api.anthropic.com/v1/messages",
       "sk-ant-test",
@@ -374,7 +391,7 @@ describe("AiApiCallerService — Anthropic native output_config via router", () 
         },
       }),
     );
-    const caller = new AiApiCallerService(makeHttpService(mockPost));
+    const caller = buildCaller(makeHttpService(mockPost));
     const result = await caller.callAnthropicAPI(
       "https://api.anthropic.com/v1/messages",
       "sk-ant-test",
@@ -416,7 +433,7 @@ describe("AiApiCallerService — Gemini responseSchema via router", () => {
         },
       }),
     );
-    const caller = new AiApiCallerService(makeHttpService(mockPost));
+    const caller = buildCaller(makeHttpService(mockPost));
     await caller.callGoogleAPI(
       "https://generativelanguage.googleapis.com/v1beta",
       "goog-test",
@@ -454,7 +471,7 @@ describe("AiApiCallerService — xAI json_schema_strict via router", () => {
         },
       }),
     );
-    const caller = new AiApiCallerService(makeHttpService(mockPost));
+    const caller = buildCaller(makeHttpService(mockPost));
     await caller.callXAIAPI(
       "https://api.x.ai/v1/chat/completions",
       "xai-test",
@@ -496,7 +513,7 @@ describe("AiApiCallerService — prompt-only strategy injects system addon", () 
         },
       }),
     );
-    const caller = new AiApiCallerService(makeHttpService(mockPost));
+    const caller = buildCaller(makeHttpService(mockPost));
     await caller.callOpenAICompatibleAPI(
       "https://api.openai.com/v1/chat/completions",
       "sk-test",

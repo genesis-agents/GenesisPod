@@ -12,7 +12,27 @@
 import { HttpService } from "@nestjs/axios";
 import { throwError } from "rxjs";
 import { AiApiCallerService } from "../ai-api-caller.service";
+import { OpenaiCaller } from "../api-callers/openai-caller";
+import { AnthropicCaller } from "../api-callers/anthropic-caller";
+import { CohereCaller } from "../api-callers/cohere-caller";
+import { GoogleCaller } from "../api-callers/google-caller";
+import { XaiCaller } from "../api-callers/xai-caller";
 import type { CapabilitySelfHealService } from "../../capability/capability-self-heal.service";
+
+// split 后 self-heal-in-catch 逻辑随各 provider 搬到对应 caller；用真 caller 构造
+// AiApiCallerService(委派打到真 caller),catch 行为与拆分前一致。
+function buildCallerSvc(
+  http: HttpService,
+  sh?: CapabilitySelfHealService,
+): AiApiCallerService {
+  return new AiApiCallerService(
+    new OpenaiCaller(http, undefined, sh),
+    new AnthropicCaller(http, undefined, sh),
+    new CohereCaller(http, undefined, sh),
+    new GoogleCaller(http, undefined, sh),
+    new XaiCaller(http, undefined, sh),
+  );
+}
 
 describe("AiApiCallerService — v3.1 §B.5.2 self-heal trigger in catch", () => {
   let httpService: { post: jest.Mock };
@@ -26,9 +46,8 @@ describe("AiApiCallerService — v3.1 §B.5.2 self-heal trigger in catch", () =>
         .fn()
         .mockResolvedValue({ healed: false, reason: "noop" }),
     };
-    svc = new AiApiCallerService(
+    svc = buildCallerSvc(
       httpService as unknown as HttpService,
-      undefined,
       selfHeal as unknown as CapabilitySelfHealService,
     );
   });
@@ -154,11 +173,7 @@ describe("AiApiCallerService — v3.1 §B.5.2 self-heal trigger in catch", () =>
   // ─────────── 不触发：service 未注入（BC 旧单测路径）───────────
 
   it("does NOT throw when self-heal service not injected (Optional BC)", async () => {
-    const svc2 = new AiApiCallerService(
-      httpService as unknown as HttpService,
-      undefined,
-      undefined, // no self-heal service
-    );
+    const svc2 = buildCallerSvc(httpService as unknown as HttpService); // no self-heal service
     const err = makeAxiosError(400, {
       error: { code: "invalid_request_error", message: "x" },
     });

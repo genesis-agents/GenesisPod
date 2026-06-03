@@ -2,6 +2,11 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
 import { of } from "rxjs";
 import { AiApiCallerService } from "../ai-api-caller.service";
+import { OpenaiCaller } from "../api-callers/openai-caller";
+import { AnthropicCaller } from "../api-callers/anthropic-caller";
+import { CohereCaller } from "../api-callers/cohere-caller";
+import { GoogleCaller } from "../api-callers/google-caller";
+import { XaiCaller } from "../api-callers/xai-caller";
 import { ModelCapabilityService } from "../../capability/model-capability.service";
 import {
   safeReasoningEffort,
@@ -103,6 +108,11 @@ describe("AiApiCallerService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiApiCallerService,
+        OpenaiCaller,
+        AnthropicCaller,
+        CohereCaller,
+        GoogleCaller,
+        XaiCaller,
         { provide: HttpService, useValue: mockHttpService },
         // v3.1 §A review (2026-05-24)：注入真实 ModelCapabilityService，让
         // rejectsResponseFormat 走 catalog 真实判定（消除"假绿"——

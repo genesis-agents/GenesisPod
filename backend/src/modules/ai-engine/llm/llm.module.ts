@@ -32,6 +32,13 @@ import { TaskProfileMapperService } from "./services/task-profile-mapper.service
 import { AiChatService } from "./services/ai-chat.service";
 import { AiModelConfigService } from "./services/ai-model-config.service";
 import { AiApiCallerService } from "./services/ai-api-caller.service";
+// 2026-06：AiApiCallerService 拆分出的 per-provider HTTP callers（thin facade delegate 到这些）。
+// BaseHttpCaller 是 abstract 基类（共享逻辑），不注册为 provider。
+import { OpenaiCaller } from "./services/api-callers/openai-caller";
+import { AnthropicCaller } from "./services/api-callers/anthropic-caller";
+import { CohereCaller } from "./services/api-callers/cohere-caller";
+import { GoogleCaller } from "./services/api-callers/google-caller";
+import { XaiCaller } from "./services/api-callers/xai-caller";
 // v3.1 阶段 D.1 (2026-05-24)：从 AiApiCallerService god-class 抽出的 self-heal 触发器
 import { ApiCallerSelfHealTriggerService } from "./services/api-caller-self-heal-trigger.service";
 import { AiStreamHandlerService } from "./services/ai-stream-handler.service";
@@ -120,6 +127,12 @@ import { CapabilityProbeService } from "./capability/capability-probe.service";
     TaskProfileMapperService,
     AiModelConfigService,
     AiApiCallerService,
+    // 2026-06：per-provider HTTP callers（AiApiCallerService thin facade 的 delegate 目标）
+    OpenaiCaller,
+    AnthropicCaller,
+    CohereCaller,
+    GoogleCaller,
+    XaiCaller,
     // v3.1 阶段 D.1：self-heal 触发器（god-class 拆分）
     ApiCallerSelfHealTriggerService,
     AiStreamHandlerService,
