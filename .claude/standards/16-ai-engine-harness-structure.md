@@ -198,9 +198,11 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 
 ### HTTP 接口面（controller 归属）
 
-> OS 类比：HTTP 入口属 **L4 open-api（公共 API 网关/daemon）** 与 **L3 ai-app（用户态应用各开各的 socket）**；**engine（硬件）/ harness（内核）不开 HTTP 口**。
+> OS 类比：HTTP 入口属 **L4 open-api（公共 API 网关/daemon）** 与 **L3 ai-app（用户态应用各开各的 socket）**；**engine（硬件）/ harness（内核）/ platform（固件）不开 HTTP 口**。
 
-实测（2026-06-03）：`@Controller` 数 = open-api **39** · ai-app **91** · **engine 0** · **harness 0** · platform 9。
+**🔒 已 spec 看护**：`src/__tests__/architecture/layer-1-topology/no-http-in-lower-layers.spec.ts`（进 `verify:arch`）硬焊 **engine/harness = 0 `@Controller`**，platform 带**收缩 ALLOWLIST**（搬一个删一行，清空即焊 0）。新增越界 controller 即红。
+
+实测（2026-06-03）：`@Controller` 数 = open-api 39 · ai-app 91 · **engine 0** · **harness 0** · platform 3（auth/credits/metrics，余 ALLOWLIST 中）。
 
 - ✅ **engine / harness = 0 controller** —— 最关键的不变量已满足，无需动。
 - ✅ **两个 HTTP 面有意区分，勿合并**：`ai-app` = 一方前端 feature API（ask/explore/byok）；`open-api` = 对外/协议/管理面（a2a / mcp-server / admin / public-api / agents-api·skills-api·teams-api / webhooks）。把 ai-app 的 91 个 feature controller 灌进 open-api 会搅混两个面、破坏内聚 → **不做**。
