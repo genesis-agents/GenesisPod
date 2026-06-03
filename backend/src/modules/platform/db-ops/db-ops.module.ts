@@ -1,12 +1,12 @@
 import { Module } from "@nestjs/common";
-import { DbOpsController } from "./db-ops.controller";
 import { DbOpsService } from "./db-ops.service";
 import { DataRetentionService } from "./data-retention.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 
+// HTTP 层（DbOpsController，admin/tables）已上提到 open-api/admin（System HTTP → L4），
+// service 留 L1 platform。
 @Module({
   imports: [PrismaModule],
-  controllers: [DbOpsController],
   providers: [DbOpsService, DataRetentionService],
   exports: [DbOpsService, DataRetentionService],
 })

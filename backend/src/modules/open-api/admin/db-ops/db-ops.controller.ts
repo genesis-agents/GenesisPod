@@ -9,9 +9,9 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { DbOpsService } from "./db-ops.service";
+import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
+import { AdminGuard } from "@/common/guards/admin.guard";
+import { DbOpsService } from "@/modules/platform/db-ops/db-ops.service";
 import {
   TableCategory,
   TableListQueryDto,
@@ -21,7 +21,7 @@ import {
   CleanupResultDto,
   TableStatsDto,
   HealthStatus,
-} from "./dto/table-info.dto";
+} from "@/modules/platform/db-ops/dto/table-info.dto";
 
 @ApiTags("Admin - Tables")
 @UseGuards(JwtAuthGuard, AdminGuard)

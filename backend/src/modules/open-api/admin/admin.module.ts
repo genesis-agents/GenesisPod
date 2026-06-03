@@ -31,6 +31,12 @@ import { DreamingAdminController } from "./dreaming/dreaming-admin.controller";
 import { OpsDashboardController } from "./dashboard/ops-dashboard.controller";
 import { OpsDashboardService } from "./dashboard/ops-dashboard.service";
 import { MCPExternalAdminController } from "../mcp-admin/mcp-external-admin.controller";
+// ★ 2026-06-03 standards/16: System HTTP 上提——platform 的 admin/* controller
+//   迁入 open-api/admin（System API 网关），对应 service 留 L1 platform。
+import { SecretsController } from "./secrets/secrets.controller";
+import { SecretKeysController } from "./secrets/secret-keys.controller";
+import { DbOpsController } from "./db-ops/db-ops.controller";
+import { SettingsController } from "./settings/settings.controller";
 import { AgentConfigService } from "../../ai-harness/facade";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
@@ -39,6 +45,7 @@ import { KeyAssignmentsModule } from "../../platform/credentials/key-assignments
 import { QuotaModule } from "./quota/quota.module";
 import { MCPServerModule } from "../../open-api/mcp-server/mcp-server.module";
 import { StorageModule } from "../../platform/storage/storage.module";
+import { DbOpsModule } from "../../platform/db-ops/db-ops.module";
 
 // Admin sub-services
 import {
@@ -63,9 +70,15 @@ import {
     QuotaModule,
     MCPServerModule,
     StorageModule,
+    DbOpsModule, // DbOpsService（admin/tables controller 上提后注入）；SettingsService/EmailService/SecretsService 已 @Global 或经 SecretsModule 提供
   ],
   controllers: [
     AdminController,
+    // ★ 2026-06-03 standards/16 System HTTP 上提（route/guard 原样保留）
+    SecretsController, // admin/secrets/*
+    SecretKeysController, // admin/secrets/:secretId/keys/*
+    DbOpsController, // admin/tables/*
+    SettingsController, // admin/settings/*
     AITeamsAdminController,
     AITeamsTemplatesController,
     AIAdminController, // /admin/ai/* routes for tools, skills, mcp-servers
