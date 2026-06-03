@@ -986,6 +986,13 @@ export class AiChatService {
           case "cohere":
             // Cohere v2 chat（非 OpenAI-compatible）专用 caller；之前落 default
             // 走 OpenAI 格式必挂，是 cohere chat 假动态根因。
+            // L2 fix：透传 structured-output（之前丢，schema 请求变自由文本）；
+            //   tools 暂不支持原生工具调用，有则告警而非静默丢。
+            if (tools && tools.length > 0) {
+              this.logger.warn(
+                `[chat] Cohere adapter does not support native tool-calling; ${tools.length} tool(s) dropped for model=${modelId}`,
+              );
+            }
             return await this.apiCallerService.callCohereAPI(
               effectiveEndpoint,
               apiKey,
@@ -995,6 +1002,9 @@ export class AiChatService {
               effectiveTemperature,
               timeout,
               responseFormat,
+              structuredOutputStrategy,
+              outputJsonSchema,
+              schemaName,
             );
 
           default:

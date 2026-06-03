@@ -38,6 +38,18 @@ describe("endpoint.utils — tolerate a mis-pasted /models base", () => {
     );
   });
 
+  it("cohere chat: H2 — normalizes legacy /v1/chat to /v2/chat", () => {
+    expect(ensureCohereChatPath("https://api.cohere.com/v1/chat")).toBe(
+      "https://api.cohere.com/v2/chat",
+    );
+  });
+
+  it("cohere chat: H2 — normalizes bare /v1 to /v2/chat", () => {
+    expect(ensureCohereChatPath("https://api.cohere.com/v1")).toBe(
+      "https://api.cohere.com/v2/chat",
+    );
+  });
+
   it("openai embeddings: strips trailing /models", () => {
     expect(
       ensureOpenAIEmbeddingsPath("https://api.tokenmix.ai/v1/models"),

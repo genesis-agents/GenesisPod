@@ -1235,20 +1235,48 @@ export class AiApiCallerService {
     temperature?: number,
     timeout: number = 120000,
     responseFormat?: string,
+    // L2 fix：之前只转发 responseFormat，丢了 structuredOutputStrategy/schema →
+    // schema/strategy 结构化请求在 Cohere 上变成无约束自由文本。下面接 prompt 兜底。
+    structuredOutputStrategy?: StructuredOutputStrategy,
+    outputJsonSchema?: Record<string, unknown>,
+    schemaName?: string,
   ): Promise<ChatCompletionResult> {
     const effectiveEndpoint =
       ensureCohereChatPath(apiEndpoint) || "https://api.cohere.com/v2/chat";
 
     // Cohere v2 messages：role 直通（system/user/assistant/tool），content 转纯文本。
     // 多模态 contentParts 暂以 JSON 字符串兜底（首版不处理 vision block）。
+    const cohereMessages = messages.map((m) => ({
+      role: m.role,
+      content:
+        typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+    }));
+
+    // L2 fix：结构化输出兜底。Cohere v2 chat 无 callOpenAICompatibleAPI 的
+    // injectJsonConstraint 链，故这里：① 需要 JSON 时强制 response_format=json_object；
+    // ② 有 schema 时把 schema 作为 system 指令注入做 prompt-constraint（不依赖
+    // Cohere 端 schema 强约束，至少保证 JSON 形状而非自由文本）。
+    const wantsJson =
+      responseFormat === "json" ||
+      structuredOutputStrategy === "json_mode" ||
+      structuredOutputStrategy === "json_schema" ||
+      structuredOutputStrategy === "json_schema_strict" ||
+      !!outputJsonSchema;
+    if (wantsJson && outputJsonSchema) {
+      cohereMessages.unshift({
+        role: "system",
+        content: `You MUST respond with a single valid JSON object${
+          schemaName ? ` named "${schemaName}"` : ""
+        } conforming to this JSON schema. Output ONLY the JSON, no prose or markdown fences:\n${JSON.stringify(
+          outputJsonSchema,
+        )}`,
+      });
+    }
+
     const requestBody: Record<string, unknown> = {
       model: modelId,
       max_tokens: maxTokens,
-      messages: messages.map((m) => ({
-        role: m.role,
-        content:
-          typeof m.content === "string" ? m.content : JSON.stringify(m.content),
-      })),
+      messages: cohereMessages,
     };
 
     if (temperature !== undefined && temperature !== null) {
@@ -1256,7 +1284,7 @@ export class AiApiCallerService {
     }
 
     // Cohere v2 原生支持 response_format: { type: "json_object" }
-    if (responseFormat === "json") {
+    if (wantsJson) {
       requestBody.response_format = { type: "json_object" };
     }
 
