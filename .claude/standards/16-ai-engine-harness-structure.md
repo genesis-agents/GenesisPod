@@ -22,6 +22,74 @@
 
 ---
 
+## 一·补、Agent OS 心智模型（为什么边界在这里）
+
+> 一句话记住这套分层：**harness 是 Agent OS（操作系统），engine 是它驱动的机器（计算引擎——CPU / 存储 / IO 一应俱全）。**
+> OS 不"变成"CPU——它**调度**CPU；同理 harness 不实现 LLM 能力，它**编排**engine 的能力。
+>
+> **关于 "engine" 这个名字**：`engine` 在此是**复数语义**——engine 层是**一族专用引擎**（compute / storage / network / safety），不是单个马达。`storage engine`（如 InnoDB）、`compute engine`（GCE）、`inference engine` 都是业界标准词，正因如此 `engine` 比 `hardware` / `machine` / `compute` 更适合做这一层的名字，保留不改。
+
+### 映射：engine = 一族引擎，每个聚合各自是一台 Engine
+
+关键认识：engine 不是单一"马达"，而是**一族各司其职的引擎**——`ai-engine` 这个名字 = "引擎家族"。**现有 12 个扁平聚合，每一个本身就是一台 Engine**（`tool engine` / `skill engine` / `retrieval engine` / `inference engine` 全是业界标准词）。harness（OS）调度并驱动它们：
+
+| engine 聚合    | 作为引擎             | OS-硬件类比               | 职责                                           |
+| -------------- | -------------------- | ------------------------- | ---------------------------------------------- |
+| **llm**        | 推理引擎 Inference   | CPU / 计算核心            | prompt/completion；selection 选核、pricing 预算 |
+| **rag**        | 检索引擎 Retrieval   | 磁盘 / 索引               | embedding / vector / retriever / reranker      |
+| **knowledge**  | 知识引擎 Knowledge   | 文件系统语义              | fact / entity / relation 抽取                  |
+| **tools**      | 工具引擎 Tool        | IO 设备 + 驱动            | function/mcp/openapi 执行（项目唯一 tools）     |
+| **skills**     | 技能引擎 Skill       | 指令集 / ISA              | SkillRegistry（项目唯一）                       |
+| **routing**    | 路由引擎 Routing     | 指令译码 / 调度提示       | 无状态语义打分选 model/skill/tool              |
+| **planning**   | 规划引擎 Planning    | 微码 / 指令展开           | 任务分解（不含 agent loop）                    |
+| **content**    | 内容引擎 Content     | IO 控制器                 | fetch / cleaner / markdown                      |
+| **safety**     | 安全引擎 Safety      | MMU / 保护环              | pii / moderation / injection / tripwire        |
+| **reliability**| 韧性引擎 Reliability | 温控 / 健康监测           | rate-limit / entity-health                      |
+| **evaluation** | 评估引擎 Evaluation  | ECC / 奇偶校验            | 无状态启发式质检（无 LLM、无 agent 状态）       |
+| **facade**     | （ABI / 引脚）       | 对外门面                  | 仅 re-export，**本身不是引擎**                  |
+
+> **可选的子系统透镜**（仅叙事，非目录层）：这些引擎可松散归为 计算{llm,routing,planning,evaluation}、存储{rag,knowledge}、IO{tools,content}、能力{skills}、安全{safety,reliability} 四五个子系统——就像硬件分计算复合体/存储子系统/网络子系统/安全协处理器。但**每台引擎独立成立**，不强制按子系统建目录。
+>
+> 对照 **harness/memory = RAM**（OS 管理的工作态）：**检索/存储引擎（engine/rag）= 持久磁盘**。一静一动，正是"无状态基元 vs 有状态运行时"的硬件版。
+>
+> **结论：无需重构**。"engine = 一族引擎"恰好印证当前 12 个扁平聚合就是对的——每个聚合即一台引擎，名字与结构都不用动；4 桶子系统仅作助记，不落地为 `engine/{compute,storage,...}/` 目录层。
+
+### 映射：harness = 操作系统
+
+| harness 聚合   | OS 子系统                   | 含义                                                                  |
+| -------------- | --------------------------- | --------------------------------------------------------------------- |
+| **runner**     | 调度器 / 取指-译码-执行环   | observe→reason→act 就是 OS 主循环                                     |
+| **agents**     | 进程表（PCB）               | 每个 agent/mission = 一个进程                                         |
+| **memory**     | 内存管理                    | working=RAM、checkpoint=swap/快照、event-store=WAL、consolidation=GC |
+| **guardrails** | 资源限额（cgroups/ulimit）  | budget/quota/rate-limit/concurrency = 进程资源配额                   |
+| **protocols**  | IPC + 系统调用              | a2a/ipc/events/realtime/journal = 管道 / 信号 / socket               |
+| **handoffs**   | 上下文切换                  | agent→agent = 进程上下文切换                                         |
+| **teams**      | 多进程编排 / 进程组         | collaboration（voting/debate/review）= 进程组共识                    |
+| **lifecycle**  | init / supervisor           | hooks/manager/supervisor/mission-lifecycle = systemd + 故障恢复     |
+| **tracing**    | 可观测（dtrace/perf）       | otel/latency/llm-events = 系统级追踪                                 |
+| **evaluation** | 带进程上下文的运行时 QA     | critique/verify 知道"哪个 mission 在跑"                              |
+| **facade**     | 系统调用接口 / ABI          | 上层 app 链接的公共入口                                              |
+
+### 上下游
+
+- **L1 platform / ai-infra** = 固件 / BIOS / 物理基座（db、secrets、encryption、key-health = TPM / 存储控制器）——机器之下。
+- **L3 ai-app** = 用户态应用程序；**L4 open-api** = shell / 对外公共 ABI。
+
+### 为什么这个比喻能"证明"我们的铁律
+
+| 现有铁律                                | OS 版表述（更直觉）                                              |
+| --------------------------------------- | --------------------------------------------------------------- |
+| engine 无 agent/mission 状态            | **硬件不知道是哪个进程在用它**——CPU 不记得调用方是谁           |
+| 依赖方向 harness → engine，反向禁止     | **OS 驱动硬件，硬件从不回调 OS**                                |
+| 无状态基元 vs 有状态运行时              | **持久硬件（engine/rag=磁盘）vs OS 管理的工作态（harness/memory=RAM）** |
+| 同名概念全项目唯一（tools 只在 engine） | **一台机器只有一套硬件**；OS 不自带第二块 CPU                   |
+
+### 边界声明：这是叙事，不是改名令
+
+OS 心智模型用来**解释和记忆**边界，**不**改变它，也**不**触发重命名。顶层目录仍用 agent 框架的**业界标准词**（runner/agents/memory/...），**禁止**按 OS 词汇自造 `kernel/process/syscall/governance/runtime`（见 §五 互斥性原则；历史：`ai-kernel/`、`ai-engine/runtime/` 曾用此类命名，已删除并整合进 harness）。判别仍以**第一节"有没有 agent/mission 状态"**为唯一标准；OS 类比只是它的助记层。
+
+---
+
 ## 二、ai-engine 顶层（10 个聚合，业界标准词）
 
 ```
@@ -63,6 +131,48 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 | **tracing**    | WHO observes them                                | otel / eval / latency / llm-events / attribution / observability                                 |
 | **lifecycle**  | WHO recovers them                                | hooks / manager / supervisor / mission-lifecycle / learning                                      |
 | **facade**     | WHO exposes them                                 | ai.facade / domain / sub-facades / api / providers                                               |
+
+---
+
+## 三·补、OS 视角目录再审计（2026-06-03，roadmap）
+
+> 用 §一·补 的 Agent-OS 逻辑重审 engine + harness 目录。四个动作：**下沉**（→L1 platform/固件）、**上提**（→L3 ai-app/用户态）、**收口**（同名概念合一）、**补缺**（gap）。⚠️ 标"看似散落实为有意分层、勿动"。**结论：行为敏感的合并先核实边界再动，不盲目执行。**
+
+### 收口（同名概念多处——优先级最高）
+
+| 概念              | 散落位置                                                                        | 置信 | 性质                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------- | ---- | ---------------------------------------------------------------------------------------- |
+| **checkpoint**    | `harness/memory/checkpoint` + `harness/memory/mission-checkpoint`（各有 checkpoint.service + in-memory-store） | 高   | 同聚合两套；违"checkpoint 不分两处"。**先核实 agent 级 vs mission 级作用域**再合并/重命名 |
+| **prompt registry** | `engine/llm/prompts`（PromptRegistryService）+ `harness/runner/prompt`（PromptRegistry）；均做版本+A/B | 高   | 两套 PromptRegistry、数据模型不同 → **设计级合并**（非移动）；engine 侧=无状态定义、harness 侧=按 userId 运行时路由，先定谁留 |
+| **image/媒体引擎**| `engine/llm/image` + `engine/content/image` + `engine/tools/.../image-search`   | 高   | GPU 引擎散三处                                                                            |
+| **code 执行**     | `engine/skills/sandbox` + `engine/tools/.../execution`                          | 中   | 沙箱/解释器散两处                                                                        |
+| **learning**      | `harness/agents/learning`（技能习得）+ `harness/lifecycle/learning`（失败复盘） | 中   | 两类不同 learning，归属待统一                                                            |
+| **memory tools**  | `harness/memory/tools/*.tool.ts`                                                | 中   | tools 出现在 engine 外；但属**有状态**记忆工具，不能沉 engine → 裁决"定义入 registry、实现留 harness" |
+
+### 下沉 L1 platform
+
+- billing 主体已在 `platform/credits`；`harness/guardrails/billing` 仅 1 个 adapter（端口），低优先。
+
+### 上提 L3 ai-app
+
+- **暂无**。最像的 `harness/agents/domain`、`harness/teams/business-team` 经核实均为**通用框架**（domain-adapter / `.framework.ts`），**留 harness**。
+
+### 补缺（gap，产品 roadmap，非重构）
+
+- **Audio/Speech 引擎**（声卡 ASR/TTS）：全树无。
+- **权限/能力授权**（OS access-control：agent × tool 授权）：待确认 `guardrails/constraints` 是否覆盖。
+
+### ⚠️ 勿动（有意分层，非散落）
+
+- `engine/evaluation`（无状态启发式）/ `harness/evaluation`（agent 感知评判）/ `harness/tracing/evaluation`（评估追踪）：三者职责不同。
+- `engine/skills`（定义）vs `harness/agents/skill-runtime`（运行）：def/runtime 分工，正确。
+
+### 执行优先级
+
+1. **高置信纯结构**：image 收口、checkpoint 收口（先核实作用域）。
+2. **设计级**：prompt registry 边界裁决后合并。
+3. **中**：code-exec、learning、memory-tools 逐个核 import 面排期。
+4. **gap**（语音/权限）：产品定，非重构。
 
 ---
 
