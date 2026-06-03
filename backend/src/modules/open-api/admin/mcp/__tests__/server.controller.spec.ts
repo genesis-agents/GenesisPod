@@ -1,5 +1,5 @@
 /**
- * Unit tests for MCPServerAdminController
+ * Unit tests for MCPServerController
  *
  * Mock the cache service to break the @nestjs/cache-manager transitive dependency
  * (not installed in this project's node_modules).
@@ -49,14 +49,14 @@ jest.mock("../../../../ai-harness/facade", () => ({
 }));
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { MCPServerAdminController } from "../server.controller";
+import { MCPServerController } from "../server.controller";
 import { MCPServerService } from "../../../mcp/mcp-server.service";
 import { MCPSessionManager } from "../../../mcp/gateway/mcp-session-manager";
 import { MCPStreamingBridge } from "../../../mcp/streaming/mcp-streaming-bridge";
 import { MCPToolBridgeService } from "../../../mcp/bridge/mcp-tool-bridge.service";
 
-describe("MCPServerAdminController", () => {
-  let controller: MCPServerAdminController;
+describe("MCPServerController", () => {
+  let controller: MCPServerController;
   let mockMcpServerService: jest.Mocked<MCPServerService>;
   let mockSessionManager: jest.Mocked<MCPSessionManager>;
   let mockStreamingBridge: jest.Mocked<MCPStreamingBridge>;
@@ -154,7 +154,7 @@ describe("MCPServerAdminController", () => {
     } as unknown as jest.Mocked<MCPToolBridgeService>;
 
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [MCPServerAdminController],
+      controllers: [MCPServerController],
       providers: [
         { provide: MCPServerService, useValue: mockMcpServerService },
         { provide: MCPSessionManager, useValue: mockSessionManager },
@@ -163,7 +163,7 @@ describe("MCPServerAdminController", () => {
       ],
     }).compile();
 
-    controller = module.get<MCPServerAdminController>(MCPServerAdminController);
+    controller = module.get<MCPServerController>(MCPServerController);
   });
 
   beforeEach(() => {

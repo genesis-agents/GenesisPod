@@ -5,7 +5,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
  * ModelType 目录服务（model_types 表的系统级 CRUD + 内置保护规则）。
  *
  * standards/24 薄网关整改（Wave C）：原逻辑在 open-api/admin/providers/
- * model-types-admin.controller 内直接操作 Prisma；下沉到 engine 的 catalog
+ * model-types.controller 内直接操作 Prisma；下沉到 engine 的 catalog
  * 聚合（模型类型字典属 LLM 模型目录领域），controller 仅保留薄 HTTP + 委派。
  */
 export interface ModelTypeInput {

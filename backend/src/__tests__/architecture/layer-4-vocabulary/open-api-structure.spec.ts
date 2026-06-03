@@ -41,12 +41,12 @@ const ADMIN_SCATTER_ALLOWLIST = [
 
 // ── 律4 薄网关（Prisma in controller）──
 const THIN_GATEWAY_ALLOWLIST = [
-  "modules/open-api/admin/approvals/approvals-admin.controller.ts",
+  "modules/open-api/admin/approvals/approvals.controller.ts",
   "modules/open-api/admin/byok/admin-byok-dashboard.controller.ts",
-  "modules/open-api/admin/kernel/kernel-admin.controller.ts",
-  "modules/open-api/admin/knowledge/knowledge-admin.controller.ts",
-  "modules/open-api/admin/monitoring/monitoring-admin.controller.ts",
-  "modules/open-api/admin/research/research-admin.controller.ts",
+  "modules/open-api/admin/kernel/kernel.controller.ts",
+  "modules/open-api/admin/knowledge/knowledge.controller.ts",
+  "modules/open-api/admin/monitoring/monitoring.controller.ts",
+  "modules/open-api/admin/research/research.controller.ts",
 ];
 
 function softStaleWarn(name: string, allowlist: string[], actual: string[]) {
@@ -90,4 +90,13 @@ describe("standards/24 · Open API 目录结构", () => {
     softStaleWarn("thin-gateway", THIN_GATEWAY_ALLOWLIST, offenders);
     expect(offenders.filter((o) => !THIN_GATEWAY_ALLOWLIST.includes(o))).toEqual([]);
   });
+
+  it("律2b：open-api/admin 下控制器文件名禁带冗余 -admin 后缀（目录已表达 admin 身份）", () => {
+    const offenders = listTs(path.join(OA, "admin"))
+      .filter((file) => /-admin.controller.ts$/.test(file))
+      .map(rel)
+      .sort();
+    expect(offenders).toEqual([]);
+  });
+
 });

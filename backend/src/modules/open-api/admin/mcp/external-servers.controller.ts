@@ -28,8 +28,8 @@ import {
 @Controller("admin/mcp/external-servers")
 @ApiTags("Admin - MCP External Servers")
 @UseGuards(JwtAuthGuard, AdminGuard)
-export class MCPExternalAdminController {
-  private readonly logger = new Logger(MCPExternalAdminController.name);
+export class MCPExternalController {
+  private readonly logger = new Logger(MCPExternalController.name);
 
   constructor(private readonly registryService: MCPClientRegistryService) {}
 

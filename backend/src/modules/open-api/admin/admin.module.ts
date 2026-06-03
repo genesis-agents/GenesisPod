@@ -2,36 +2,36 @@ import { Module } from "@nestjs/common";
 import { AdminController } from "./admin.controller";
 import { AdminService } from "./admin.service";
 import {
-  AITeamsAdminController,
+  AITeamsController,
   AITeamsTemplatesController,
-} from "./teams/ai-teams-admin.controller";
+} from "./teams/ai-teams.controller";
 import { AITeamsAdminService } from "./teams/ai-teams-admin.service";
-import { AIAdminController } from "./ai/ai-admin.controller";
-import { AiProvidersAdminController } from "./providers/ai-providers-admin.controller";
-import { ApiFormatsAdminController } from "./providers/api-formats-admin.controller";
-import { ModelTypesAdminController } from "./providers/model-types-admin.controller";
+import { AIController } from "./ai/ai.controller";
+import { AiProvidersController } from "./providers/ai-providers.controller";
+import { ApiFormatsController } from "./providers/api-formats.controller";
+import { ModelTypesController } from "./providers/model-types.controller";
 import { ProviderDiscoveryController } from "./providers/provider-discovery.controller";
-import { KnowledgeAdminController } from "./knowledge/knowledge-admin.controller";
+import { KnowledgeController } from "./knowledge/knowledge.controller";
 import { AIAdminService } from "./ai/ai-admin.service";
-import { LogsAdminController } from "./logs/logs-admin.controller";
-import { PermissionsAdminController } from "./permissions/permissions-admin.controller";
-import { BillingAdminController } from "./billing/billing-admin.controller";
-import { NotificationsAdminController } from "./notifications/notifications-admin.controller";
-import { MonitoringAdminController } from "./monitoring/monitoring-admin.controller";
-import { CacheAdminController } from "./cache/cache-admin.controller";
-import { AgentAdminController } from "./agent/agent-admin.controller";
-import { ResearchAdminController } from "./research/research-admin.controller";
-import { ApprovalsAdminController } from "./approvals/approvals-admin.controller";
-import { KernelAdminController } from "./kernel/kernel-admin.controller";
-import { AdminModelRecommendationsController } from "./recommendations/model-recommendations-admin.controller";
-import { ObservabilityAdminController } from "./observability/observability-admin.controller";
+import { LogsController } from "./logs/logs.controller";
+import { PermissionsController } from "./permissions/permissions.controller";
+import { BillingController } from "./billing/billing.controller";
+import { NotificationsController } from "./notifications/notifications.controller";
+import { MonitoringController } from "./monitoring/monitoring.controller";
+import { CacheController } from "./cache/cache.controller";
+import { AgentController } from "./agent/agent.controller";
+import { ResearchController } from "./research/research.controller";
+import { ApprovalsController } from "./approvals/approvals.controller";
+import { KernelController } from "./kernel/kernel.controller";
+import { AdminModelRecommendationsController } from "./recommendations/model-recommendations.controller";
+import { ObservabilityController } from "./observability/observability.controller";
 import { HarnessInspectorController } from "./harness/harness-inspector.controller";
-import { EvalAdminController } from "./eval/eval-admin.controller";
-import { DreamingAdminController } from "./dreaming/dreaming-admin.controller";
+import { EvalController } from "./eval/eval.controller";
+import { DreamingController } from "./dreaming/dreaming.controller";
 import { OpsDashboardController } from "./dashboard/ops-dashboard.controller";
 import { OpsDashboardService } from "./dashboard/ops-dashboard.service";
-import { MCPExternalAdminController } from "./mcp/external-servers.controller";
-import { MCPServerAdminController } from "./mcp/server.controller";
+import { MCPExternalController } from "./mcp/external-servers.controller";
+import { MCPServerController } from "./mcp/server.controller";
 import { AdminCreditsController } from "./credits/admin-credits.controller";
 import { CreditsModule } from "../../platform/credits/credits.module";
 // ★ 2026-06-03 standards/16: System HTTP 上提——platform 的 admin/* controller
@@ -85,31 +85,31 @@ import {
     DbOpsController, // admin/tables/*
     SettingsController, // admin/settings/*
     StorageGovernanceController, // storage/* (STORAGE_ADMIN_KEY header 鉴权的运维清理端点)
-    AITeamsAdminController,
+    AITeamsController,
     AITeamsTemplatesController,
-    AIAdminController, // /admin/ai/* routes for tools, skills, mcp-servers
-    LogsAdminController, // /admin/logs/* routes
-    PermissionsAdminController, // /admin/permissions/* routes
-    BillingAdminController, // /admin/billing/* routes
-    NotificationsAdminController, // /admin/notifications/* routes
-    MonitoringAdminController, // /admin/monitoring/* routes for error tracking & AI metrics
-    CacheAdminController, // /admin/cache/* routes for cache management
-    MCPExternalAdminController, // /admin/mcp/external-servers/* routes
-    MCPServerAdminController, // /admin/mcp/server（原 mcp-server-admin，admin/mcp-server 路由）
+    AIController, // /admin/ai/* routes for tools, skills, mcp-servers
+    LogsController, // /admin/logs/* routes
+    PermissionsController, // /admin/permissions/* routes
+    BillingController, // /admin/billing/* routes
+    NotificationsController, // /admin/notifications/* routes
+    MonitoringController, // /admin/monitoring/* routes for error tracking & AI metrics
+    CacheController, // /admin/cache/* routes for cache management
+    MCPExternalController, // /admin/mcp/external-servers/* routes
+    MCPServerController, // /admin/mcp/server（原 mcp-server-admin，admin/mcp-server 路由）
     AdminCreditsController, // /admin/credits（从 system/credits 拆出）
-    AgentAdminController, // /admin/agents/* routes for agent configuration
-    ResearchAdminController, // /admin/research/templates/* routes for research templates
-    ApprovalsAdminController, // /admin/approvals/* routes for human-in-the-loop approvals
-    KernelAdminController, // /admin/kernel/* routes for AI Kernel process management
+    AgentController, // /admin/agents/* routes for agent configuration
+    ResearchController, // /admin/research/templates/* routes for research templates
+    ApprovalsController, // /admin/approvals/* routes for human-in-the-loop approvals
+    KernelController, // /admin/kernel/* routes for AI Kernel process management
     AdminModelRecommendationsController, // /admin/ai-models/auto-configure + /admin/model-recommendations
-    ObservabilityAdminController, // /admin/traces/* routes (PR-X17: migrated from ai-harness/tracing)
-    EvalAdminController, // /admin/evals/* routes for eval runs and experiments
-    DreamingAdminController, // /admin/dreaming/* 2026-05-15 PR-I Dreaming（主动反思）骨架
-    AiProvidersAdminController, // /admin/ai-providers/* PR-1 数据驱动 provider catalog
-    ApiFormatsAdminController, // /admin/api-formats/* 2026-05-11 P3 ApiFormat CRUD
-    ModelTypesAdminController, // /admin/model-types/* 2026-05-11 P3 ModelType CRUD
+    ObservabilityController, // /admin/traces/* routes (PR-X17: migrated from ai-harness/tracing)
+    EvalController, // /admin/evals/* routes for eval runs and experiments
+    DreamingController, // /admin/dreaming/* 2026-05-15 PR-I Dreaming（主动反思）骨架
+    AiProvidersController, // /admin/ai-providers/* PR-1 数据驱动 provider catalog
+    ApiFormatsController, // /admin/api-formats/* 2026-05-11 P3 ApiFormat CRUD
+    ModelTypesController, // /admin/model-types/* 2026-05-11 P3 ModelType CRUD
     ProviderDiscoveryController, // /admin/ai-models/discover 2026-05-11 P5 一键探测
-    KnowledgeAdminController, // /admin/knowledge/* 2026-05-11 W2 admin 视角知识管理
+    KnowledgeController, // /admin/knowledge/* 2026-05-11 W2 admin 视角知识管理
     OpsDashboardController, // /admin/dashboard/* 运营看板（运营看板 W5）
     ...(process.env.NODE_ENV === "production"
       ? []

@@ -16,8 +16,8 @@ import { MCPToolBridgeService } from "../../mcp/bridge/mcp-tool-bridge.service";
 @ApiTags("Admin - MCP Server")
 @Controller("admin/mcp-server")
 @UseGuards(JwtAuthGuard, AdminGuard)
-export class MCPServerAdminController {
-  private readonly logger = new Logger(MCPServerAdminController.name);
+export class MCPServerController {
+  private readonly logger = new Logger(MCPServerController.name);
 
   constructor(
     private readonly mcpServerService: MCPServerService,
