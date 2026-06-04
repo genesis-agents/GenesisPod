@@ -27,8 +27,8 @@ import {
   Matches,
   MaxLength,
 } from "class-validator";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

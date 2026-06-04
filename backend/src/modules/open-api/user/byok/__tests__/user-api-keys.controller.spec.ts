@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { UserApiKeysController } from "../user-api-keys.controller";
 import { UserApiKeysService } from "@/modules/ai-harness/facade";
 import { AiModelConfigService } from "@/modules/ai-engine/facade";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };
 

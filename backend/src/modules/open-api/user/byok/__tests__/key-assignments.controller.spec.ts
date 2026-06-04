@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { UserKeyAssignmentsController } from "../key-assignments.controller";
 import { KeyAssignmentsService } from "@/modules/ai-harness/facade";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };
 

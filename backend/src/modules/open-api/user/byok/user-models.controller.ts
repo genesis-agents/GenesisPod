@@ -11,7 +11,7 @@ import {
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import {
   AiModelDiscoveryService,
   AiConnectionTestService,

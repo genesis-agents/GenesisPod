@@ -39,7 +39,7 @@ import { DbOpsModule } from "./modules/platform/db-ops/db-ops.module";
 import { CreditsModule } from "./modules/platform/credits/credits.module";
 import { EncryptionModule } from "./modules/platform/credentials/encryption/encryption.module";
 import { UserApiKeysModule } from "./modules/platform/credentials/user-api-keys/user-api-keys.module";
-import { ByokModule } from "./modules/ai-app/byok/byok.module";
+import { ByokModule } from "./modules/open-api/user/byok/byok.module";
 import { KeyAssignmentsModule } from "./modules/platform/credentials/key-assignments";
 import { KeyRequestsModule } from "./modules/platform/credentials/key-requests";
 import { KeyResolverModule } from "./modules/platform/credentials/key-resolver";

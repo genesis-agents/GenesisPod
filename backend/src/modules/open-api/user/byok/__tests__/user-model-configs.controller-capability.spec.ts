@@ -17,7 +17,7 @@ import {
   CapabilityOverridesWriterService,
   AiModelConfigService,
 } from "@/modules/ai-engine/facade";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };
 

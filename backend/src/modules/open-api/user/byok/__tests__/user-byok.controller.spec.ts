@@ -1,12 +1,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AIModelType } from "@prisma/client";
 import { UserByokController } from "../user-byok.controller";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   KeyResolverService,
   UserApiKeysService,
 } from "@/modules/ai-harness/facade";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };
 

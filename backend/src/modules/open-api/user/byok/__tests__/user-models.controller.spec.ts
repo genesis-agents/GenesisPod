@@ -12,7 +12,7 @@ import {
   AutoConfigureService,
 } from "@/modules/ai-harness/facade";
 import { KeyHealthStore } from "@/modules/platform/credentials/key-health";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };
 

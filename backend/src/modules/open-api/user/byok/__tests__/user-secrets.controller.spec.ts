@@ -1,9 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { UserSecretsController } from "../user-secrets.controller";
-import { UserSecretsService } from "../../../platform/credentials/user-secrets/user-secrets.service";
-import { SecretsService } from "../../../platform/credentials/secrets/secrets.service";
-import { SecretKeysService } from "../../../platform/credentials/secrets/secret-keys.service";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { UserSecretsService } from "../../../../platform/credentials/user-secrets/user-secrets.service";
+import { SecretsService } from "../../../../platform/credentials/secrets/secrets.service";
+import { SecretKeysService } from "../../../../platform/credentials/secrets/secret-keys.service";
+import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };
 

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { AuthRequestStatus, AuthRequestType } from "@prisma/client";
-import { SkillRegistry } from "../../ai-engine/facade";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { SkillRegistry } from "../../../ai-engine/facade";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 /**
  * 2026-05-28 BYOK「我的技能」(授权版)：系统技能目录 + 当前用户的授权状态。

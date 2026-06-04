@@ -13,19 +13,19 @@ import {
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { UserSecretsService } from "../../ai-engine/facade";
-import { SecretsService, SecretKeysService } from "../../platform/facade";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { UserSecretsService } from "../../../ai-engine/facade";
+import { SecretsService, SecretKeysService } from "../../../platform/facade";
 import {
   AddSecretKeyDto,
   UpdateSecretKeyMetaDto,
   ReplaceSecretKeyValueDto,
-} from "../../platform/credentials/secrets/dto/secret-key.dto";
+} from "../../../platform/credentials/secrets/dto/secret-key.dto";
 import {
   CreateUserSecretDto,
   UpdateUserSecretDto,
   UserSecretSource,
-} from "../../platform/credentials/user-secrets/dto/user-secret.dto";
+} from "../../../platform/credentials/user-secrets/dto/user-secret.dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };
