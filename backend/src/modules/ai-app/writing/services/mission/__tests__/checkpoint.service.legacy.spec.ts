@@ -1,9 +1,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { CheckpointService, MissionCheckpoint } from "../checkpoint.service";
+import {
+  WritingMissionCheckpointService,
+  MissionCheckpoint,
+} from "../checkpoint.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
-describe("CheckpointService", () => {
-  let service: CheckpointService;
+describe("WritingMissionCheckpointService", () => {
+  let service: WritingMissionCheckpointService;
   let prismaService: PrismaService;
 
   const mockMission = {
@@ -16,7 +19,7 @@ describe("CheckpointService", () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        CheckpointService,
+        WritingMissionCheckpointService,
         {
           provide: PrismaService,
           useValue: {
@@ -30,7 +33,9 @@ describe("CheckpointService", () => {
       ],
     }).compile();
 
-    service = module.get<CheckpointService>(CheckpointService);
+    service = module.get<WritingMissionCheckpointService>(
+      WritingMissionCheckpointService,
+    );
     prismaService = module.get<PrismaService>(PrismaService);
   });
 

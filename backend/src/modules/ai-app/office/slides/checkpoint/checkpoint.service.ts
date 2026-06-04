@@ -128,8 +128,8 @@ const DEFAULT_AUTO_SAVE_CONFIG: AutoSaveConfig = {
 };
 
 @Injectable()
-export class CheckpointService {
-  private readonly logger = new Logger(CheckpointService.name);
+export class SlidesCheckpointService {
+  private readonly logger = new Logger(SlidesCheckpointService.name);
   private autoSaveConfig: AutoSaveConfig = DEFAULT_AUTO_SAVE_CONFIG;
 
   constructor(private readonly prisma: PrismaService) {}

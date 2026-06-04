@@ -12,7 +12,7 @@ import { SlidesController } from "../../orchestrator/slides.controller";
 import { SlidesEngineService } from "../../services/slides-engine.service";
 import { SlidesDataImportService } from "../../services/data-import.service";
 import { AIEditService } from "../../services/ai-edit.service";
-import { CheckpointService } from "../../checkpoint/checkpoint.service";
+import { SlidesCheckpointService } from "../../checkpoint/checkpoint.service";
 import { VoiceNarrationSkill } from "../../skills/voice-narration.skill";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
@@ -30,7 +30,7 @@ import {
 
 describe("SlidesController", () => {
   let controller: SlidesController;
-  let checkpointService: jest.Mocked<CheckpointService>;
+  let checkpointService: jest.Mocked<SlidesCheckpointService>;
   let dataImportService: jest.Mocked<SlidesDataImportService>;
   let aiEditService: jest.Mocked<AIEditService>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,7 +88,7 @@ describe("SlidesController", () => {
       controllers: [SlidesController],
       providers: [
         { provide: SlidesEngineService, useValue: mockSlidesEngine },
-        { provide: CheckpointService, useValue: mockCheckpointService },
+        { provide: SlidesCheckpointService, useValue: mockCheckpointService },
         { provide: SlidesDataImportService, useValue: mockDataImportService },
         { provide: AIEditService, useValue: mockAiEditService },
         { provide: VoiceNarrationSkill, useValue: mockVoiceNarrationSkill },
@@ -103,7 +103,7 @@ describe("SlidesController", () => {
       .compile();
 
     controller = module.get<SlidesController>(SlidesController);
-    checkpointService = module.get(CheckpointService);
+    checkpointService = module.get(SlidesCheckpointService);
     dataImportService = module.get(SlidesDataImportService);
     aiEditService = module.get(AIEditService);
     prismaService = module.get(PrismaService);

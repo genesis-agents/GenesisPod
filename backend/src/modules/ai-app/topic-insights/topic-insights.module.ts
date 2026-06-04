@@ -112,7 +112,7 @@ import {
   PubMedConnector,
   FinanceApiConnector,
   WeatherApiConnector,
-  KnowledgeGraphService,
+  TopicInsightsKnowledgeGraphService,
   MultiLanguageResearchService,
   // ★ P1: 新增增强能力
   CritiqueRefineService,
@@ -224,7 +224,7 @@ const services = [
   PubMedConnector,
   FinanceApiConnector,
   WeatherApiConnector,
-  KnowledgeGraphService,
+  TopicInsightsKnowledgeGraphService,
   MultiLanguageResearchService,
   // ★ P1: 新增增强能力
   CritiqueRefineService,

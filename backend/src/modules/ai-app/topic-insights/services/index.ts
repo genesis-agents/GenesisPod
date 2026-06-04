@@ -85,7 +85,7 @@ export { PubMedConnector } from "./data/connectors/pubmed.connector";
 export { FinanceApiConnector } from "./data/connectors/finance-api.connector";
 export { WeatherApiConnector } from "./data/connectors/weather-api.connector";
 export { RAGFusionService } from "./data/rag-fusion.service";
-export { KnowledgeGraphService } from "./data/knowledge-graph.service";
+export { TopicInsightsKnowledgeGraphService } from "./data/knowledge-graph.service";
 export { MultiLanguageResearchService } from "./data/multi-language-research.service";
 
 // ==================== Collaboration ====================

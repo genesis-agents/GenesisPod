@@ -2,7 +2,7 @@
  * Research Checkpoint Service
  *
  * 断点续传服务 - 保存和恢复研究任务的执行状态
- * 参考 AI Writing 模块的 CheckpointService 实现
+ * 参考 AI Writing 模块的 WritingMissionCheckpointService 实现
  */
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";

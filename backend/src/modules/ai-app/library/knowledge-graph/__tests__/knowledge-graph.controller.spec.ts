@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { KnowledgeGraphController } from "../knowledge-graph.controller";
-import { KnowledgeGraphService } from "../knowledge-graph.service.postgres";
+import { LibraryKnowledgeGraphService } from "../knowledge-graph.service.postgres";
 import { AiChatService } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 
@@ -50,7 +50,7 @@ const mockChatResponse = {
 
 describe("KnowledgeGraphController", () => {
   let controller: KnowledgeGraphController;
-  let kgService: jest.Mocked<KnowledgeGraphService>;
+  let kgService: jest.Mocked<LibraryKnowledgeGraphService>;
   let aiChatService: jest.Mocked<AiChatService>;
 
   beforeEach(async () => {
@@ -76,13 +76,13 @@ describe("KnowledgeGraphController", () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [KnowledgeGraphController],
       providers: [
-        { provide: KnowledgeGraphService, useValue: mockKgService },
+        { provide: LibraryKnowledgeGraphService, useValue: mockKgService },
         { provide: AiChatService, useValue: mockAiChatService },
       ],
     }).compile();
 
     controller = module.get<KnowledgeGraphController>(KnowledgeGraphController);
-    kgService = module.get(KnowledgeGraphService);
+    kgService = module.get(LibraryKnowledgeGraphService);
     aiChatService = module.get(AiChatService);
   });
 

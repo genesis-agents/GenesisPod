@@ -63,7 +63,7 @@ import { WritingAgentCoordinator } from "./services/mission/writing-agent-coordi
 import { WritingContextService } from "./services/mission/writing-context.service";
 import { WritingStyleService } from "./services/mission/writing-style.service";
 import { WritingQualityService } from "./services/mission/writing-quality.service";
-import { CheckpointService } from "./services/mission/checkpoint.service";
+import { WritingMissionCheckpointService } from "./services/mission/checkpoint.service";
 import { WritingJsonParserService } from "./services/mission/writing-json-parser.service";
 import { WritingModelManager } from "./services/mission/writing-model-manager.service";
 import { WritingPersistence } from "./services/mission/writing-persistence.service";
@@ -189,7 +189,7 @@ import {
     WritingContextService,
     WritingStyleService,
     WritingQualityService,
-    CheckpointService,
+    WritingMissionCheckpointService,
     WritingJsonParserService,
     WritingModelManager,
     WritingPersistence,

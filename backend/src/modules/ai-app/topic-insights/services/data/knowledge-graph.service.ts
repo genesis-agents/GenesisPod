@@ -28,8 +28,8 @@ import {
 } from "../../types/knowledge-graph.types";
 
 @Injectable()
-export class KnowledgeGraphService {
-  private readonly logger = new Logger(KnowledgeGraphService.name);
+export class TopicInsightsKnowledgeGraphService {
+  private readonly logger = new Logger(TopicInsightsKnowledgeGraphService.name);
 
   /** 内存缓存（可后续迁移至图数据库） */
   private readonly entities = new Map<string, KnowledgeEntity>();

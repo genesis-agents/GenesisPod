@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { KnowledgeGraphService } from "../knowledge-graph.service";
+import { TopicInsightsKnowledgeGraphService } from "../knowledge-graph.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import {
   EntityType,
@@ -51,20 +51,22 @@ const makeRelation = (
   createdAt: new Date(),
 });
 
-describe("KnowledgeGraphService", () => {
-  let service: KnowledgeGraphService;
+describe("TopicInsightsKnowledgeGraphService", () => {
+  let service: TopicInsightsKnowledgeGraphService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        KnowledgeGraphService,
+        TopicInsightsKnowledgeGraphService,
         { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
-    service = module.get<KnowledgeGraphService>(KnowledgeGraphService);
+    service = module.get<TopicInsightsKnowledgeGraphService>(
+      TopicInsightsKnowledgeGraphService,
+    );
     service.clear(); // ensure clean state
   });
 

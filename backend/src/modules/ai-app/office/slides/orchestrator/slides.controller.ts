@@ -45,7 +45,7 @@ import {
   PolishOptions,
   ChatEditResult,
 } from "../services/ai-edit.service";
-import { CheckpointService } from "../checkpoint/checkpoint.service";
+import { SlidesCheckpointService } from "../checkpoint/checkpoint.service";
 import {
   VoiceNarrationSkill,
   NarrationSlidePage,
@@ -254,7 +254,7 @@ export class SlidesController {
 
   constructor(
     private readonly slidesEngine: SlidesEngineService,
-    private readonly checkpointService: CheckpointService,
+    private readonly checkpointService: SlidesCheckpointService,
     private readonly dataImportService: SlidesDataImportService,
     private readonly aiEditService: AIEditService,
     private readonly voiceNarrationSkill: VoiceNarrationSkill,

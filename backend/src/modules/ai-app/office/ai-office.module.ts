@@ -18,7 +18,7 @@ import {
   SlidesExportService,
   ParameterizedRendererService,
   // Checkpoint
-  CheckpointService,
+  SlidesCheckpointService,
   // Controller
   SlidesController,
   // Engine Service (v4.0: 核心服务)
@@ -96,7 +96,7 @@ import { OfficeContentSourceProvider } from "./integrations/office-content-sourc
     // Slides Services (v5.0: Team-based Orchestrator)
     SlidesExportService,
     ParameterizedRendererService,
-    CheckpointService,
+    SlidesCheckpointService,
     SlidesEngineService, // v4.0: 核心引擎服务
     SlidesDataImportService, // v5.0: 数据导入服务
     AIEditService, // v5.0: AI 编辑服务
@@ -121,7 +121,7 @@ import { OfficeContentSourceProvider } from "./integrations/office-content-sourc
     // Slides Services (v5.0: Team-based Orchestrator)
     SlidesExportService,
     ParameterizedRendererService,
-    CheckpointService,
+    SlidesCheckpointService,
     SlidesEngineService,
     SlidesDataImportService, // v5.0: 数据导入服务
     AIEditService, // v5.0: AI 编辑服务
