@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { TaskStatus } from "@prisma/client";
 import { WorkspaceService } from "../workspace.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CreateWorkspaceDto } from "../dto/create-workspace.dto";
 import { UpdateWorkspaceResourcesDto } from "../dto/update-workspace-resources.dto";
 

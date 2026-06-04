@@ -5,7 +5,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { Prisma, TaskStatus } from "@prisma/client";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../common/prisma/prisma.service";
 import { WorkspaceService } from "./workspace.service";
 import { CreateWorkspaceTaskDto } from "./dto";
 import { WorkspaceAiClient } from "./workspace-ai.client";

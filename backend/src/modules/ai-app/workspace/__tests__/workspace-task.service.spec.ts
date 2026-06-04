@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException, Logger, NotFoundException } from "@nestjs/common";
 import { TaskStatus } from "@prisma/client";
 import { WorkspaceTaskService } from "../workspace-task.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { WorkspaceService } from "../workspace.service";
 import { WorkspaceAiClient } from "../workspace-ai.client";
 import { CreateWorkspaceTaskDto } from "../dto/create-workspace-task.dto";
