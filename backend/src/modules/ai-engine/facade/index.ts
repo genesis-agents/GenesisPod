@@ -470,11 +470,8 @@ export type {
 } from "../safety/guardrails/guardrails.interface";
 
 // ★ Content services
-export { ImageMatchingService } from "../content/image/matching/image-matching.service";
-export type {
-  ImagePrompt,
-  ImageMatchingResult,
-} from "../content/image/matching";
+// ImageMatchingService / ImagePrompt / ImageMatchingResult 已随死代码清理移除
+// （运行时零注入）。matching 仅保留 types，经 content.exports 导出。
 
 // ★ 沉淀（2026-04-29）: figure 抽取（来自 {app}, TI 暂不切换）
 export {
