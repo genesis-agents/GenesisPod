@@ -1,4 +1,4 @@
-// Sediment from {app} (2026-04-29) — ai-engine/safety/utils/
+// Sediment from {app} (2026-04-29); W3 moved safety/utils -> content/figure/
 // 来源: ai-app/{app}/utils/sanitize-image-url.utils.ts
 // 纯函数 utility，0 DI。
 /**

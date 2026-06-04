@@ -98,7 +98,7 @@ const TOP_LEVEL_AGGREGATES = [
 
 // ── 律2 垃圾抽屉目录名 ──
 const JUNK_DRAWER = ["utils", "helpers", "common", "misc"];
-const JUNK_DRAWER_ALLOWLIST = ["modules/ai-engine/safety/utils"];
+const JUNK_DRAWER_ALLOWLIST = []; // W3 已落地：safety/utils 拆分到 reliability + content/figure
 
 // ── 律3 自造词 / 含糊结构目录名（tools/categories/* 分类法除外）──
 const BANNED_VOCAB = [
@@ -109,10 +109,7 @@ const BANNED_VOCAB = [
   "governance",
   "ecosystem",
 ];
-const BANNED_VOCAB_ALLOWLIST = [
-  "modules/ai-engine/skills/runtime",
-  "modules/ai-engine/skills/ecosystem",
-];
+const BANNED_VOCAB_ALLOWLIST = []; // W3 已落地：runtime→integration、ecosystem→marketplace
 
 // ── 律4 R1：agent/mission 运行时表查询 ──
 const AGENT_STATE_QUERY =

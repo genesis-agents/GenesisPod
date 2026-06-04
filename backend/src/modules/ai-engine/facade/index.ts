@@ -9,7 +9,7 @@
  * must be imported from "@/modules/ai-harness/facade".
  */
 
-export { PromptSkillRegistrationService } from "../skills/runtime";
+export { PromptSkillRegistrationService } from "../skills/integration";
 export { CHAT_PROVIDER_PORT } from "./abstractions/runtime-deps.tokens";
 
 // ★ 2026-05-04 (PR-6 standardize consumer): jaccardSimilarity 从
@@ -314,7 +314,7 @@ export { MCPClientRegistryService } from "../tools/adapters/mcp/registry/mcp-cli
 // ai-harness/facade export，engine 不再 re-export
 
 // Error detection utilities
-export type { ErrorDetectionRetryConfig } from "@/modules/ai-engine/safety/utils/error-detection.utils";
+export type { ErrorDetectionRetryConfig } from "@/modules/ai-engine/reliability/error-detection.utils";
 export {
   DEFAULT_RETRY_CONFIG,
   isRetryableError,
@@ -325,7 +325,7 @@ export {
   sleep,
   isApiErrorContent,
   parseErrorType,
-} from "@/modules/ai-engine/safety/utils/error-detection.utils";
+} from "@/modules/ai-engine/reliability/error-detection.utils";
 
 // Skills interfaces
 export type { ISkillOutputManager } from "../skills/output-manager/skill-output-manager.interface";
@@ -533,7 +533,7 @@ export {
 } from "../llm/output/sanitization";
 
 // ★ 沉淀（2026-04-29）: figure URL 有效性校验
-export { isValidFigureUrl } from "../safety/utils/figure-url-sanitizer.utils";
+export { isValidFigureUrl } from "../content/figure/figure-url-sanitizer.utils";
 
 // ★ 沉淀（2026-04-29）: Report Template — 13 类格式化标准（沉淀自 ai-app/contracts/report-template）
 export * from "../content/report-template";

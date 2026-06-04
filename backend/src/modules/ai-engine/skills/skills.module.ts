@@ -36,11 +36,11 @@ import { SkillSandboxService } from "./sandbox/skill-sandbox.service";
 import { SkillPromptBuilder } from "./builder/skill-prompt-builder.service";
 
 // Ecosystem
-import { SkillsMPClientService } from "./ecosystem/skillsmp-client.service";
+import { SkillsMPClientService } from "./marketplace/skillsmp-client.service";
 
 // 2026-05-01 (PR-X-K): EngineSkillProvider 适配到 harness ISkillProvider 端口，
 // 让用户在 Admin UI / API 创建的 skill 自动透出到 harness agent 运行时
-import { EngineSkillProvider } from "./runtime/adapters/engine-skill-provider.adapter";
+import { EngineSkillProvider } from "./integration/adapters/engine-skill-provider.adapter";
 
 // PR-X16: SkillsController + SkillsService 已迁移至 open-api/user/skills/
 // （HTTP Controller 上提，由 open-api 装配）

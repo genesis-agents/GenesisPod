@@ -309,9 +309,9 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 | **routing** | （根）scored-router / signal-scorers / scoring-formulas / eval | `eval/` 与顶层 `evaluation/` 近形同名易混（建议 `benchmark/`） |
 | **reliability** | rate-limit / entity-health | `entity-health` 对外名 vs 内部 circuit-breaker 词汇未对齐 |
 | **evaluation** | abstractions / checkers / services / types | 干净（无 LLM、无 agent 状态，已核实） |
-| **skills** | abstractions / base / registry / types / loader / builder / spec-builder / content / output-manager / routing / analytics / sandbox / marketplace / adapters | `runtime/`（自造词，律3）；`ecosystem/`（含糊词，应 marketplace，律3）；`spec-builder/` 产 `IAgentSpec`（R1 词汇泄漏，律6） |
-| **planning** | budget / context / intent / reflection | `planning.module` 注册了 knowledge 聚合的 service（DI 归属越界） |
-| **safety** | guardrails / moderation / security / validation | `utils/`（垃圾抽屉，律2）；`security/capability-guard` 查 `agentProcess`（R1，律4） |
+| **skills** | abstractions / base / registry / types / loader / builder / spec-builder / content / output-manager / routing / analytics / sandbox / marketplace / integration | ✅W3 `runtime`→`integration`、`ecosystem`→`marketplace`；遗留 `spec-builder/` 产 `IAgentSpec`（R1 词汇泄漏，律6，W2） |
+| **planning** | budget / context / intent / reflection | `planning.module` 注册了 knowledge 聚合的 service（DI 归属越界，W6） |
+| **safety** | guardrails / moderation / security / validation | ✅W3 `utils/` 已拆（reliability + content/figure）；遗留 `security/capability-guard` 查 `agentProcess`（R1，律4，W2） |
 | **facade** | abstractions / exports | `exports/*` 孤儿死分区（无人 import，index.ts 也不 re-export）；index.ts 深穿 L1 credential 内部路径 |
 
 ### 六条律（spec 硬焊）
@@ -319,8 +319,8 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 | 律 | 规则 | 当前 ALLOWLIST（存量违规，清空即焊） |
 | --- | --- | --- |
 | **律1 顶层 12 聚合** | `ai-engine/` 顶层目录 ∈ {llm,tools,rag,knowledge,content,skills,planning,safety,routing,reliability,evaluation,facade}，多一个即红 | 空（已精确） |
-| **律2 禁垃圾抽屉** | 子树内禁出现 `utils`/`helpers`/`common`/`misc` 目录（无单一职责的杂物袋） | `safety/utils` |
-| **律3 禁自造词目录** | 子树内禁结构性目录名 ∈ {runtime,kernel,execution,process,governance,ecosystem}（`tools/categories/*` 工具分类法除外） | `skills/runtime`、`skills/ecosystem` |
+| **律2 禁垃圾抽屉** | 子树内禁出现 `utils`/`helpers`/`common`/`misc` 目录（无单一职责的杂物袋） | 空（W3 已焊：safety/utils 拆 reliability + content/figure） |
+| **律3 禁自造词目录** | 子树内禁结构性目录名 ∈ {runtime,kernel,execution,process,governance,ecosystem}（`tools/categories/*` 工具分类法除外） | 空（W3 已焊：runtime→integration、ecosystem→marketplace） |
 | **律4 R1 无 agent 状态** | engine 源码禁查 agent/mission 运行时表（`prisma.agentProcess` / `prisma.mission.` / `.agentProcess.find\|update\|...`）——engine 不知 agent 是谁 | `safety/security/capability-guard.service.ts` |
 | **律5 同名概念唯一** | 看护类名全项目唯一；`LlmRerankerAdapter` 以**引擎版**（`knowledge/rerank`）为权威，他处禁再声明 | 空（W1 已焊：insight 本地副本已删） |
 | **律6 引擎词汇纯净** | engine 禁出现 `IAgentSpec` / `agent-spec` 命名（agent 概念不进 L2 词汇） | `skills/spec-builder/`（3 文件） |

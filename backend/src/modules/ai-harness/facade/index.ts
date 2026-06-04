@@ -44,7 +44,7 @@ export * from "./domain";
  */
 export { RAGPipelineService } from "../../ai-engine/rag/pipeline/rag-pipeline.service";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { PromptSkillBridge } from "../../ai-engine/skills/runtime";
+export { PromptSkillBridge } from "../../ai-engine/skills/integration";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
 export { ToolRegistry } from "../../ai-engine/tools/registry/tool.registry";
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */

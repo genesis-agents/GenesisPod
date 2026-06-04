@@ -43,4 +43,4 @@ export * from "./analytics";
 export * from "./sandbox";
 
 // Ecosystem - SkillsMP 集成
-export * from "./ecosystem";
+export * from "./marketplace";

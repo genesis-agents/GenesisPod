@@ -7,7 +7,7 @@ import { Logger } from "@nestjs/common";
 import * as path from "path";
 import { SkillCacheService } from "../caching/skill-cache.service";
 import { SkillLoaderService } from "../loading/skill-loader.service";
-import { SkillsMPClientService } from "../../ecosystem/skillsmp-client.service";
+import { SkillsMPClientService } from "../../marketplace/skillsmp-client.service";
 import { SkillContentService } from "../../content/skill-content.service";
 import { SkillMdDefinition } from "../../types/skill-md.types";
 
