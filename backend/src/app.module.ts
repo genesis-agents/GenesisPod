@@ -82,7 +82,7 @@ import { WikiModule } from "./modules/ai-app/library/wiki/wiki.module";
 import { KnowledgeGraphModule } from "./modules/ai-app/library/knowledge-graph/knowledge-graph.module";
 import { RecommendationsModule } from "./modules/ai-app/library/recommendations/recommendations.module";
 // Admin modules (backend management)
-import { WorkspaceModule } from "./modules/ai-app/workspace/workspace.module";
+import { WorkspaceModule } from "./modules/open-api/user/workspace/workspace.module";
 import { CrawlersModule } from "./modules/ai-app/explore/ingestion/crawlers/crawlers.module";
 import { SourcesModule } from "./modules/ai-app/explore/ingestion/sources/sources.module";
 import { IngestionConfigModule } from "./modules/ai-app/explore/ingestion/config/config.module";

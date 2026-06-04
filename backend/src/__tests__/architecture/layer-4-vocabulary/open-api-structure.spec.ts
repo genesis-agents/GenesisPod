@@ -74,6 +74,7 @@ const USER_CHILDREN = [
   "credits",
   "notifications",
   "byok",
+  "workspace",
 ];
 
 // ── 律3 admin 禁含产品域（单域治理须 sink-to-domain）──
