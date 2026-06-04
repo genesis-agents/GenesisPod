@@ -1,7 +1,9 @@
-# agent-playground
+# playground
 
-> Agent Mission Platform 当前生产形态的**标杆 ai-app**。
-> 模块名"playground"是历史命名，实际是 31K LOC 后端 + 19K LOC 前端的核心模块（在 20 个 ai-app 里规模第 4），不是 demo / sandbox。
+> Agent Mission Platform 当前生产形态的**标杆 ai-app**。31K LOC 后端 + 19K LOC 前端的核心模块（在 ai-app 里规模第 4），不是 demo / sandbox。
+>
+> **2026-06 改名**：模块/路由/WS namespace/billing moduleType 由 `agent-playground` 统一改为 `playground`（去冗余 `agent-` 前缀）。
+> 仍保留 `agent-playground` 命名的是：① 前端功能目录 `components/agent-playground/`（前端组织，与后端解耦）；② 历史架构文档目录 `docs/architecture/ai-app/agent-playground/`（按日期归档，不追溯改名）。下方链接因此仍指向 `agent-playground/`。
 
 ## 这是什么
 

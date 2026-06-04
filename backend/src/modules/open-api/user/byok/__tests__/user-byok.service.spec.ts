@@ -1,25 +1,21 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AIModelType } from "@prisma/client";
-import { UserByokController } from "../user-byok.controller";
+import { UserByokService } from "../user-byok.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   KeyResolverService,
   UserApiKeysService,
 } from "@/modules/ai-harness/facade";
-import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
 
-const mockGuard = { canActivate: () => true };
-
-describe("UserByokController", () => {
-  let controller: UserByokController;
+// 逻辑已从 UserByokController（薄网关）下沉到 UserByokService —— 测试随之测 service。
+describe("UserByokService", () => {
+  let service: UserByokService;
   let prisma: {
     aIModel: { findMany: jest.Mock };
     user: { findUnique: jest.Mock };
   };
   let keyResolver: { getAvailableProviders: jest.Mock };
   let userApiKeys: { markOnboardedIfNeeded: jest.Mock };
-
-  const reqUser = { user: { id: "user-1", email: "u@x.com" } } as never;
 
   beforeEach(async () => {
     prisma = {
@@ -30,25 +26,22 @@ describe("UserByokController", () => {
     userApiKeys = { markOnboardedIfNeeded: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [UserByokController],
       providers: [
+        UserByokService,
         { provide: PrismaService, useValue: prisma },
         { provide: KeyResolverService, useValue: keyResolver },
         { provide: UserApiKeysService, useValue: userApiKeys },
       ],
-    })
-      .overrideGuard(JwtAuthGuard)
-      .useValue(mockGuard)
-      .compile();
+    }).compile();
 
-    controller = module.get(UserByokController);
+    service = module.get(UserByokService);
   });
 
   describe("getAvailableModels", () => {
     it("returns empty model list and CHAT default when user has no providers", async () => {
       keyResolver.getAvailableProviders.mockResolvedValue([]);
 
-      const result = await controller.getAvailableModels(reqUser);
+      const result = await service.getAvailableModels("user-1");
 
       expect(keyResolver.getAvailableProviders).toHaveBeenCalledWith("user-1");
       expect(prisma.aIModel.findMany).not.toHaveBeenCalled();
@@ -79,7 +72,7 @@ describe("UserByokController", () => {
       ];
       prisma.aIModel.findMany.mockResolvedValue(dbRows);
 
-      const result = await controller.getAvailableModels(reqUser, "CHAT");
+      const result = await service.getAvailableModels("user-1", "CHAT");
 
       expect(prisma.aIModel.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -104,7 +97,7 @@ describe("UserByokController", () => {
       keyResolver.getAvailableProviders.mockResolvedValue(["openai"]);
       prisma.aIModel.findMany.mockResolvedValue([]);
 
-      const result = await controller.getAvailableModels(reqUser, "BOGUS");
+      const result = await service.getAvailableModels("user-1", "BOGUS");
 
       expect(result.modelType).toBe(AIModelType.CHAT);
       expect(prisma.aIModel.findMany).toHaveBeenCalledWith(
@@ -118,7 +111,7 @@ describe("UserByokController", () => {
       keyResolver.getAvailableProviders.mockResolvedValue(["openai"]);
       prisma.aIModel.findMany.mockResolvedValue([]);
 
-      const result = await controller.getAvailableModels(reqUser, "EMBEDDING");
+      const result = await service.getAvailableModels("user-1", "EMBEDDING");
 
       expect(result.modelType).toBe(AIModelType.EMBEDDING);
     });
@@ -127,7 +120,7 @@ describe("UserByokController", () => {
       keyResolver.getAvailableProviders.mockResolvedValue(["openai"]);
       prisma.aIModel.findMany.mockResolvedValue([]);
 
-      const result = await controller.getAvailableModels(reqUser);
+      const result = await service.getAvailableModels("user-1");
 
       expect(result.modelType).toBe(AIModelType.CHAT);
     });
@@ -141,7 +134,7 @@ describe("UserByokController", () => {
         byokOnboardedAt: onboardedAt,
       });
 
-      const result = await controller.completeOnboarding(reqUser);
+      const result = await service.completeOnboarding("user-1");
 
       expect(userApiKeys.markOnboardedIfNeeded).toHaveBeenCalledWith("user-1");
       expect(prisma.user.findUnique).toHaveBeenCalledWith(
@@ -157,7 +150,7 @@ describe("UserByokController", () => {
       userApiKeys.markOnboardedIfNeeded.mockResolvedValue(undefined);
       prisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await controller.completeOnboarding(reqUser);
+      const result = await service.completeOnboarding("user-1");
 
       expect(result).toEqual({ byokOnboardedAt: null });
     });
@@ -170,7 +163,7 @@ describe("UserByokController", () => {
         role: "USER",
       });
 
-      const result = await controller.getOnboardingStatus(reqUser);
+      const result = await service.getOnboardingStatus("user-1");
 
       expect(result).toEqual({
         byokOnboardedAt: null,
@@ -185,7 +178,7 @@ describe("UserByokController", () => {
         role: "ADMIN",
       });
 
-      const result = await controller.getOnboardingStatus(reqUser);
+      const result = await service.getOnboardingStatus("user-1");
 
       expect(result).toEqual({
         byokOnboardedAt: null,
@@ -201,7 +194,7 @@ describe("UserByokController", () => {
         role: "USER",
       });
 
-      const result = await controller.getOnboardingStatus(reqUser);
+      const result = await service.getOnboardingStatus("user-1");
 
       expect(result).toEqual({
         byokOnboardedAt: at,
@@ -213,7 +206,7 @@ describe("UserByokController", () => {
     it("handles missing user record gracefully", async () => {
       prisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await controller.getOnboardingStatus(reqUser);
+      const result = await service.getOnboardingStatus("user-1");
 
       expect(result).toEqual({
         byokOnboardedAt: null,

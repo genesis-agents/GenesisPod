@@ -24,7 +24,7 @@ export async function POST(
     logger.debug('[Agents Cancel] Canceling task:', taskId);
 
     const response = await fetch(
-      `${API_BASE_URL}/agents/tasks/${taskId}/cancel`,
+      `${API_BASE_URL}/ai-office/agents/tasks/${taskId}/cancel`,
       {
         method: 'POST',
         headers: {

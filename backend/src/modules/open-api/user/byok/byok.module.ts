@@ -28,6 +28,8 @@ import { UserByokController } from "./user-byok.controller";
 import { UserApiKeysController } from "./user-api-keys.controller";
 import { UserModelConfigsController } from "./user-model-configs.controller";
 import { UserProvidersController } from "./user-providers.controller";
+import { UserByokService } from "./user-byok.service";
+import { UserProvidersService } from "./user-providers.service";
 import { UserSecretsController } from "./user-secrets.controller";
 import {
   UserAuthorizationController,
@@ -66,7 +68,7 @@ import { KeyHealthModule } from "../../../platform/credentials/key-health/key-he
     KeyResolverModule,
     KeyHealthModule, // 2026-06-02 Test Connection 成功后 forceHealthy 清除 key 的 DEAD 状态
   ],
-  providers: [UserSkillsService],
+  providers: [UserSkillsService, UserByokService, UserProvidersService],
   controllers: [
     UserModelsController,
     UserModelConfigsAutoController,

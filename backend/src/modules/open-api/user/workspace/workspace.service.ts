@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma, TaskStatus } from "@prisma/client";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CreateWorkspaceDto, UpdateWorkspaceResourcesDto } from "./dto";
 
 const workspaceInclude = {

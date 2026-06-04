@@ -21,7 +21,7 @@ export async function GET(
     const cookieStore = await cookies();
     const token = cookieStore.get('auth-token')?.value;
 
-    const response = await fetch(`${API_BASE_URL}/agents/tasks/${taskId}`, {
+    const response = await fetch(`${API_BASE_URL}/ai-office/agents/tasks/${taskId}`, {
       headers: {
         ...(token && { Authorization: `Bearer ${token}` }),
       },

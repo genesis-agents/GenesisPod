@@ -74,6 +74,7 @@ const USER_CHILDREN = [
   "credits",
   "notifications",
   "byok",
+  "workspace",
 ];
 
 // ── 律3 admin 禁含产品域（单域治理须 sink-to-domain）──
@@ -110,12 +111,7 @@ const ADMIN_SCATTER_ALLOWLIST = [
 ];
 
 // ── 律4 薄网关（Prisma in controller）──
-const THIN_GATEWAY_ALLOWLIST = [
-  // thin-gateway 待下沉债务：byok 2 个厚 controller 直注 PrismaService，
-  // 随 byok 迁入 open-api/user/byok 时一并跟踪，prisma 逻辑应下沉 platform/credentials domain
-  "modules/open-api/user/byok/user-byok.controller.ts", // 5 处 prisma
-  "modules/open-api/user/byok/user-providers.controller.ts", // 8 处 prisma
-];
+const THIN_GATEWAY_ALLOWLIST = []; // 清零：byok 2 个厚 controller 已下沉 UserByokService / UserProvidersService
 
 function softStaleWarn(name: string, allowlist: string[], actual: string[]) {
   const stale = allowlist.filter((a) => !actual.includes(a));
