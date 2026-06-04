@@ -1,5 +1,5 @@
 import { ScoredRouterService } from "../../scored-router.service";
-import type { IEmbeddingPort } from "../../routing.types";
+import type { IEmbeddingPort } from "../../abstractions/routing.types";
 import { EVAL_POOL, EVAL_CASES } from "../tool-routing-eval.fixture";
 import {
   evaluateSemantic,

@@ -12,7 +12,7 @@
  *     生产代表性的 Recall@k / token 节省数字（需 embedding key，建议在有 BYOK 的环境跑）。
  */
 
-import type { IScoredRouter, RoutableCandidate } from "../routing.types";
+import type { IScoredRouter, RoutableCandidate } from "../abstractions/routing.types";
 import { defaultScorers } from "../signal-scorers";
 import type { EvalPoolItem, EvalCase } from "./tool-routing-eval.fixture";
 

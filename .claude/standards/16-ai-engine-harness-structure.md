@@ -342,7 +342,7 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 | **rag** | abstractions / chunking / embedding / vector / pipeline | pipeline 内联 Cohere rerank（与 knowledge/rerank 概念撞） |
 | **knowledge** | abstractions / extraction / consistency / synthesis / world-building / evidence / rerank | ✅W5 `search/`（web egress）已迁 content/web-search；✅W1 `rerank/` 去重为项目唯一权威 |
 | **content** | abstractions / fetch / web-search / sources / markdown / citation / figure / report-template / types | 轴=内容子能力。✅W5 `web-search/` 从 knowledge 迁入（与 fetch 同族）+`SearchResult`→`WebSearchResult`；✅后缀统一 `.utils.ts`→`.util.ts`（§六）；`json-fence-parser.util` / `text-similarity.util` = **轴外跨领域纯原语留聚合根**（无内容子能力可归，§五.0 末段，**勿造 `text/` 分类壳**）；✅`image/` 壳已收（死代码清理后只剩 types 的单子目录残壳，违 §五.2 → image-matching.types 上提 `content/types/`，删 image/） |
-| **routing** | （根）scored-router / signal-scorers / scoring-formulas / benchmark | ✅W6 `eval/`→`benchmark/`（解与顶层 `evaluation/` 近形同名） |
+| **routing** | abstractions / （根）scored-router / signal-scorers / scoring-formulas / benchmark | ✅W6 `eval/`→`benchmark/`；✅`routing.types`→`abstractions/`（对齐其余 11 聚合通用模式）。**单能力聚合，刻意扁平**——再切 `scoring/`/`adapters/`/`utils/` 即造壳违 §五.2 |
 | **reliability** | rate-limit / entity-health | ✅W6 `entity-health` 头注释已澄清=circuit-breaker 模式（内部类型沿用 circuit-breaker 业界术语，对外名 entity-health，accepted） |
 | **evaluation** | abstractions / checkers / services / types | 干净（无 LLM、无 agent 状态，已核实） |
 | **skills** | abstractions / base / registry / types / loader / builder / spec-builder / content / output-manager / routing / analytics / sandbox / marketplace / integration | ✅W3 `runtime`→`integration`、`ecosystem`→`marketplace`；✅W2 `spec-builder` 的 `IAgentSpec`→`ISkillExecSpec`（去 R1 词汇泄漏 + 解与 harness `IAgentSpec` 撞名） |

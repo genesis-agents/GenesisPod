@@ -12,7 +12,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { createHash } from "crypto";
 import { EmbeddingService } from "../rag/embedding";
-import type { IEmbeddingPort } from "./routing.types";
+import type { IEmbeddingPort } from "./abstractions/routing.types";
 
 /** 有界 LRU：插入序淘汰，容量到顶删最旧。够用、零依赖（对齐 ownership-registry 风格）。 */
 class BoundedCache<V> {

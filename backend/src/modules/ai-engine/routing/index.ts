@@ -1,7 +1,7 @@
 /**
  * ai-engine/routing —— 通用语义打分路由聚合（barrel）
  */
-export * from "./routing.types";
+export * from "./abstractions/routing.types";
 export * from "./cosine.util";
 export * from "./signal-scorers";
 export { ScoredRouterService } from "./scored-router.service";

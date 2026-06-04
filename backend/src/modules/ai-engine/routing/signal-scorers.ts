@@ -12,7 +12,7 @@ import type {
   RoutableCandidate,
   RouteQuery,
   SignalScorer,
-} from "./routing.types";
+} from "./abstractions/routing.types";
 import {
   scoreDiversity,
   scoreHealthRate,

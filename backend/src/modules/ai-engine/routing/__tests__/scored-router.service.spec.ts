@@ -1,6 +1,6 @@
 import { ScoredRouterService } from "../scored-router.service";
 import { defaultScorers } from "../signal-scorers";
-import type { IEmbeddingPort, RoutableCandidate } from "../routing.types";
+import type { IEmbeddingPort, RoutableCandidate } from "../abstractions/routing.types";
 
 /**
  * Bag-of-words 假 embedder：向量 = 固定词表上的词频。
