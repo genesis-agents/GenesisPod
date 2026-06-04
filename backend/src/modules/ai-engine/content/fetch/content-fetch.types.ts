@@ -40,6 +40,30 @@ export function sanitizeForDb(str: string | undefined | null): string {
 }
 
 /**
+ * Strip web-scraping junk from fetched content before storage/render.
+ *
+ * Removes <script>/<style>/<template>/<noscript> blocks and ALL HTML comments —
+ * including React Server Component / Next.js streaming flight markers
+ * (`<!--$-->`, `<!--/$-->`, `<!--$?-->`, `<!--$!-->`) and `<template id="B:N">`
+ * placeholders — which leak as visible text when an SSR app shell is scraped.
+ *
+ * Intentionally does NOT blanket-strip every tag: callers wanting plain text run
+ * their own tag strip after this; callers keeping markdown keep legit inline HTML.
+ */
+export function stripScrapedArtifacts(str: string | undefined | null): string {
+  if (!str) return "";
+  return str
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<template[\s\S]*?<\/template>/gi, "")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "") // HTML comments incl. RSC flight markers
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
  * Sanitize JSON data recursively to remove problematic characters.
  */
 export function sanitizeJson(data: unknown): unknown {

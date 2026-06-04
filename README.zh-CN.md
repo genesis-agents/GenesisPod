@@ -27,7 +27,7 @@ Agent 编排、文档/PPT 生成、长文写作、RAG 与知识图谱。
 
 差异点是**可被验证的架构纪律**。多数 Agent 框架在一年内就退化成交叉引用的乱麻。
 GenesisPod 通过三道独立门禁——ESLint 规则、jest 架构 spec 套件、pre-push + CI 合并
-门禁——强制其 5 层边界（`ai-app → ai-engine → ai-harness → ai-infra → open-api`），
+门禁——强制其 5 层边界（`open-api → ai-app → ai-harness → ai-engine → platform`），
 让代码库在增长时仍保持结构清晰。架构合规度是**每次 push 都机器校验**的，而不是
 wiki 里一张会与现实脱节的图。
 
@@ -52,18 +52,19 @@ monorepo，包含三个运行时：
 | `backend/`    | NestJS 10, Prisma, PostgreSQL 16, Redis 7, Socket.IO                     |
 | `ai-service/` | FastAPI（辅助 AI 服务）                                                  |
 
-后端按 5 个顶层模块分层，**严格单向依赖**：
+后端按 5 个顶层模块分层，**严格单向依赖**（每层只能依赖其下方的层）：
 
 ```
-open-api    →  对外 API / MCP / Admin 接口
-ai-app      →  业务应用（research、teams、office、writing ...）
-ai-engine   →  通用 AI 基元（LLM、tools、RAG、knowledge、planning）
-ai-harness  →  多 Agent 运行时、生命周期、评测、协议
-ai-infra    →  认证、存储、密钥、通知
+open-api    →  对外 / Admin / MCP 接口                          (L4)
+ai-app      →  业务应用（research、teams、office、writing ...）  (L3)
+ai-harness  →  多 Agent 运行时、生命周期、评测、协议            (L2.5)
+ai-engine   →  通用 AI 基元（LLM、tools、RAG、knowledge、planning）(L2)
+platform    →  认证、凭证/密钥、存储、credits、通知              (L1)
 ```
 
-`ai-app` 只能经 facade 访问 `ai-engine`；`ai-engine` 绝不导入 `ai-harness`。
-完整结构见 [`STRUCTURE.md`](./STRUCTURE.md)。
+L1 的真实目录是 `backend/src/modules/platform/`（其层概念名为 “ai-infra”）。
+`ai-app` 只能经各层 facade 访问下层；`ai-harness` 可用 `ai-engine`，但
+`ai-engine` 绝不导入 `ai-harness`。完整结构见 [`STRUCTURE.md`](./STRUCTURE.md)。
 
 ## 快速开始
 

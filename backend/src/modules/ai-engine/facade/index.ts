@@ -281,6 +281,7 @@ export { YOUTUBE_SERVICE_TOKEN } from "../content/fetch/content-fetch.service";
 export {
   sanitizeForDb,
   sanitizeJson,
+  stripScrapedArtifacts,
 } from "../content/fetch/content-fetch.types";
 
 // LLM Adapter

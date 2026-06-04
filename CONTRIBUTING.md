@@ -30,8 +30,9 @@ npm run dev             # full stack
 ### Project layout
 
 This is a monorepo: `frontend/` (Next.js), `backend/` (NestJS), `ai-service/`
-(FastAPI). The backend is layered into `ai-app / ai-engine / ai-harness /
-ai-infra / open-api`. See [`STRUCTURE.md`](./STRUCTURE.md).
+(FastAPI). The backend is layered top-to-bottom into `open-api / ai-app /
+ai-harness / ai-engine / platform` (the L1 `platform/` module was historically
+called `ai-infra`). See [`STRUCTURE.md`](./STRUCTURE.md).
 
 ### Code standards (enforced)
 
@@ -91,8 +92,9 @@ npm run dev             # 全栈
 ### 项目结构
 
 这是一个 monorepo：`frontend/`（Next.js）、`backend/`（NestJS）、`ai-service/`
-（FastAPI）。后端按 `ai-app / ai-engine / ai-harness / ai-infra / open-api`
-分层，详见 [`STRUCTURE.md`](./STRUCTURE.md)。
+（FastAPI）。后端自上而下按 `open-api / ai-app / ai-harness / ai-engine /
+platform` 分层（L1 的 `platform/` 模块旧称 `ai-infra`），详见
+[`STRUCTURE.md`](./STRUCTURE.md)。
 
 ### 代码规范（强制）
 

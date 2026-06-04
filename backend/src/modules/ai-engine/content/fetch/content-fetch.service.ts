@@ -18,7 +18,11 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { WebContentExtractionService } from "@/common/content-processing/web-content-extraction.service";
-import { FetchedContent, sanitizeForDb } from "./content-fetch.types";
+import {
+  FetchedContent,
+  sanitizeForDb,
+  stripScrapedArtifacts,
+} from "./content-fetch.types";
 // SSRF 防护：项目唯一的统一出站闸门（字面校验 + DNS 解析复核）。
 import { assertUrlSafe } from "../../safety/security/ssrf/ssrf-guard";
 
@@ -84,7 +88,9 @@ export class ContentFetchService {
 
       return {
         title: sanitizeForDb(extracted.title || "Untitled"),
-        content: sanitizeForDb(extracted.content),
+        // strip scraped SSR-shell junk (RSC flight markers / <template> / leaked CSS)
+        // before DB-safety sanitize, so it never reaches storage/readers
+        content: sanitizeForDb(stripScrapedArtifacts(extracted.content)),
         coverImage: extracted.image,
         url,
         metadata: {
