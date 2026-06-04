@@ -312,7 +312,7 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 | **skills** | abstractions / base / registry / types / loader / builder / spec-builder / content / output-manager / routing / analytics / sandbox / marketplace / integration | ✅W3 `runtime`→`integration`、`ecosystem`→`marketplace`；✅W2 `spec-builder` 的 `IAgentSpec`→`ISkillExecSpec`（去 R1 词汇泄漏 + 解与 harness `IAgentSpec` 撞名） |
 | **planning** | budget / context / intent / reflection | `planning.module` 注册了 knowledge 聚合的 service（DI 归属越界，W6） |
 | **safety** | guardrails / moderation / security / validation | ✅W3 `utils/` 已拆（reliability + content/figure）；✅W2 `security/capability-guard` 迁 harness/guardrails/capability（R1 律4，原 PR-X3 误置 engine） |
-| **facade** | abstractions / exports | `exports/*` 孤儿死分区（无人 import，index.ts 也不 re-export）；index.ts 深穿 L1 credential 内部路径 |
+| **facade** | abstractions | ✅W4 孤儿死分区 `exports/*` 已删；index.ts 深穿 L1 credential = **有意的 circular-load 规避**（facade/index.ts:779-784 文档化：走 platform barrel 会 `export *` 拉大加载图触发循环加载失败），accepted 不改 |
 
 ### 六条律（spec 硬焊）
 
