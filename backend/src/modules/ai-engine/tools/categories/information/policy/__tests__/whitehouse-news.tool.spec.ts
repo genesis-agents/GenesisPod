@@ -11,7 +11,7 @@ import {
   WhiteHouseNewsTool,
   WhiteHouseNewsOutput,
 } from "../whitehouse-news.tool";
-import { SearchService } from "../../../../../knowledge/search/search.service";
+import { SearchService } from "../../../../../content/web-search/web-search.service";
 import { PolicyDataService } from "../policy-data.service";
 import {
   ToolContext,

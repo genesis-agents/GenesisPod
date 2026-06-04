@@ -304,8 +304,8 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 | **llm** | abstractions / adapters / byok / chat / factory / image / models{capability,catalog,config,pricing,selection} / output{sanitization,structured} / prompts / providers / types | — |
 | **tools** | abstractions / base / registry / middleware / concurrency / cache / result-spill / search-fusion / adapters{mcp} / categories{…taxonomy} | `adapters/` 缺 openapi/function（spec 声称有）；`categories/collaboration/*` 含 agent 编排语义（R1 灰区） |
 | **rag** | abstractions / chunking / embedding / vector / pipeline | pipeline 内联 Cohere rerank（与 knowledge/rerank 概念撞） |
-| **knowledge** | abstractions / extraction / consistency / synthesis / world-building / evidence | `search/`=web 搜索 egress（misfiled，属 content/fetch 邻域）；`rerank/`=重复概念（见律5） |
-| **content** | abstractions / fetch / sources / markdown / citation / figure / report-template / types / image{matching} | 根目录散落 util 文件（应入子目录）；`image/matching` 仅剩 types（**活的，office 在用，勿删**） |
+| **knowledge** | abstractions / extraction / consistency / synthesis / world-building / evidence / rerank | ✅W5 `search/`（web egress）已迁 content/web-search；✅W1 `rerank/` 去重为项目唯一权威 |
+| **content** | abstractions / fetch / web-search / sources / markdown / citation / figure / report-template / types / image{matching} | ✅W5 `web-search/`（Tavily/Serper/DDG egress）从 knowledge 迁入（与 fetch 同族）；`SearchResult`→`WebSearchResult` 解与 rag 撞名；`image/matching` 仅剩 types（**活的，office 在用，勿删**） |
 | **routing** | （根）scored-router / signal-scorers / scoring-formulas / eval | `eval/` 与顶层 `evaluation/` 近形同名易混（建议 `benchmark/`） |
 | **reliability** | rate-limit / entity-health | `entity-health` 对外名 vs 内部 circuit-breaker 词汇未对齐 |
 | **evaluation** | abstractions / checkers / services / types | 干净（无 LLM、无 agent 状态，已核实） |

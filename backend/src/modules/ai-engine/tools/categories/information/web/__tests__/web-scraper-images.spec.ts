@@ -7,7 +7,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { WebScraperTool } from "../web-scraper.tool";
-import { SearchService } from "../../../../../knowledge/search/search.service";
+import { SearchService } from "../../../../../content/web-search/web-search.service";
 import { ToolContext } from "../../../../abstractions/tool.interface";
 
 function makeContext(): ToolContext {

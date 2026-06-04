@@ -45,7 +45,7 @@ import { RequestContext } from "@/common/context/request-context";
 import * as duckDuckScrape from "duck-duck-scrape";
 import * as crypto from "crypto";
 
-export interface SearchResult {
+export interface WebSearchResult {
   title: string;
   url: string;
   content: string;
@@ -55,9 +55,9 @@ export interface SearchResult {
   rawScore?: number;
 }
 
-export interface SearchResponse {
+export interface WebSearchResponse {
   success: boolean;
-  results: SearchResult[];
+  results: WebSearchResult[];
   error?: string;
   /** 实际使用的搜索提供商 */
   provider?: string;
@@ -616,7 +616,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     query: string,
     maxResults: number = 5,
     since?: Date,
-  ): Promise<SearchResponse> {
+  ): Promise<WebSearchResponse> {
     // Get search API configuration from system settings
     const searchConfig = await this.getSearchConfig();
 
@@ -757,7 +757,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     maxResults: number,
     since: Date | undefined,
     searchConfig: SearchConfig,
-  ): Promise<{ result: SearchResponse; usedKey: string | null }> {
+  ): Promise<{ result: WebSearchResponse; usedKey: string | null }> {
     switch (provider) {
       case "tavily":
         return this.executeWithKeyRetry(
@@ -791,8 +791,8 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   private async executeWithKeyRetry(
     provider: SearchProvider,
     keys: string[],
-    searchFn: (apiKey: string) => Promise<SearchResponse>,
-  ): Promise<{ result: SearchResponse; usedKey: string | null }> {
+    searchFn: (apiKey: string) => Promise<WebSearchResponse>,
+  ): Promise<{ result: WebSearchResponse; usedKey: string | null }> {
     const validKeys = keys.filter((k) => k && k.trim() !== "");
     const triedKeys = new Set<string>();
     let lastError: unknown = null;
@@ -1057,7 +1057,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     apiKey: string,
     maxResults: number,
     since?: Date,
-  ): Promise<SearchResponse> {
+  ): Promise<WebSearchResponse> {
     this.logger.debug(`Searching with Tavily: "${query}"`);
 
     // Request more results for better ranking/filtering
@@ -1111,7 +1111,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       }),
     );
 
-    const rawResults: SearchResult[] = (response.data.results || []).map(
+    const rawResults: WebSearchResult[] = (response.data.results || []).map(
       (r: {
         title: string;
         url: string;
@@ -1158,10 +1158,10 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
    * Factors: Relevance, Freshness, Quality, Diversity
    */
   private rankSearchResults(
-    results: SearchResult[],
+    results: WebSearchResult[],
     query: string,
     maxResults: number,
-  ): SearchResult[] {
+  ): WebSearchResult[] {
     const queryTerms = query
       .toLowerCase()
       .split(/\s+/)
@@ -1206,7 +1206,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
    * Calculate relevance score based on query matching
    */
   private calculateRelevanceScore(
-    result: SearchResult,
+    result: WebSearchResult,
     queryTerms: string[],
   ): number {
     let score = 0;
@@ -1247,7 +1247,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   /**
    * Calculate quality score based on domain authority
    */
-  private calculateQualityScore(result: SearchResult): number {
+  private calculateQualityScore(result: WebSearchResult): number {
     let score = 50; // Base score
     const domain = result.domain || "";
 
@@ -1346,7 +1346,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   /**
    * Calculate freshness score (prefer recent content)
    */
-  private calculateFreshnessScore(result: SearchResult): number {
+  private calculateFreshnessScore(result: WebSearchResult): number {
     if (!result.publishedDate) {
       return 50; // Unknown date gets neutral score
     }
@@ -1371,7 +1371,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   /**
    * Calculate content depth score
    */
-  private calculateDepthScore(result: SearchResult): number {
+  private calculateDepthScore(result: WebSearchResult): number {
     const contentLength = (result.content || "").length;
 
     if (contentLength >= 400) return 100;
@@ -1386,12 +1386,12 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
    * Limits results from same domain while maintaining top results
    */
   private applyDiversityFilter(
-    results: SearchResult[],
+    results: WebSearchResult[],
     maxResults: number,
-  ): SearchResult[] {
+  ): WebSearchResult[] {
     const domainCounts = new Map<string, number>();
     const maxPerDomain = 2; // Maximum results from same domain
-    const diverseResults: SearchResult[] = [];
+    const diverseResults: WebSearchResult[] = [];
 
     for (const result of results) {
       if (diverseResults.length >= maxResults) break;
@@ -1427,7 +1427,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     apiKey: string,
     maxResults: number,
     since?: Date,
-  ): Promise<SearchResponse> {
+  ): Promise<WebSearchResponse> {
     this.logger.debug(`Searching with Serper: "${query}"`);
 
     // ★ Calculate time range for Google search (tbs parameter)
@@ -1471,7 +1471,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       }),
     );
 
-    const results: SearchResult[] = (response.data.organic || []).map(
+    const results: WebSearchResult[] = (response.data.organic || []).map(
       (r: { title: string; link: string; snippet: string; date?: string }) => ({
         title: r.title,
         url: r.link,
@@ -1500,7 +1500,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     query: string,
     maxResults: number,
     since?: Date,
-  ): Promise<SearchResponse> {
+  ): Promise<WebSearchResponse> {
     // 串行化：把并发 DDG 请求排队，链尾接最小间隔，降低反爬触发概率。
     const run = this.ddgQueue.then(() =>
       this.executeDuckduckgo(query, maxResults, since),
@@ -1522,7 +1522,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     query: string,
     maxResults: number,
     since?: Date,
-  ): Promise<SearchResponse> {
+  ): Promise<WebSearchResponse> {
     // ★ 熔断：冷却窗口内直接快速失败，不再发请求刷屏。
     const cdNow = Date.now();
     if (cdNow < this.ddgCooldownUntil) {
@@ -1577,7 +1577,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         return { success: true, results: [] };
       }
 
-      const rawResults: SearchResult[] = searchResults.results
+      const rawResults: WebSearchResult[] = searchResults.results
         .slice(0, maxResults * 2) // Get more for ranking
         .map((r) => ({
           title: r.title,
@@ -1619,7 +1619,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   /**
    * Format search results for AI context injection
    */
-  formatResultsForContext(results: SearchResult[]): string {
+  formatResultsForContext(results: WebSearchResult[]): string {
     if (results.length === 0) return "";
 
     const formatted = results

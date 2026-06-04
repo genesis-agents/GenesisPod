@@ -7,7 +7,8 @@
  * - VectorService (向量存储)
  * - DocumentChunker (文档分块)
  * - RAGPipelineService (检索增强生成管线)
- * - SearchService (搜索)
+ *
+ * 注：SearchService（web 搜索 egress）W5 已迁 content/web-search（WebSearchModule）。
  */
 
 import { Module } from "@nestjs/common";
@@ -29,8 +30,6 @@ import { VectorService } from "../rag/vector";
 import { DocumentChunker } from "../rag/chunking";
 import { RAGPipelineService } from "../rag/pipeline";
 
-// Search
-import { SearchService } from "./search/search.service";
 
 @Module({
   imports: [
@@ -50,14 +49,12 @@ import { SearchService } from "./search/search.service";
     VectorService,
     DocumentChunker,
     RAGPipelineService,
-    SearchService,
   ],
   exports: [
     EmbeddingService,
     VectorService,
     DocumentChunker,
     RAGPipelineService,
-    SearchService,
   ],
 })
 export class AiEngineKnowledgeModule {}
