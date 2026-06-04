@@ -92,6 +92,44 @@ const SINGLETONS: ReadonlyArray<{
     name: "ITokenBucketStore",
     dir: "modules/platform/resilience/",
   },
+  // Self-Driven Team P1（ADR-009/011）: 新建，非平行
+  {
+    kind: "class",
+    name: "SelfDrivenMissionPlannerService",
+    dir: "modules/ai-harness/teams/orchestrator/self-driven/",
+  },
+  {
+    kind: "class",
+    name: "RubricGeneratorService",
+    dir: "modules/ai-harness/evaluation/rubric/",
+  },
+  // Self-Driven Team P2（ADR-009 §5.3）: RoleInventory 角色原型调色板（唯一权威）
+  {
+    kind: "class",
+    name: "RoleInventory",
+    dir: "modules/ai-harness/teams/role-inventory/",
+  },
+  // Self-Driven Team P2（ADR-009 §5.3）: DynamicTeamBuilder（唯一权威）
+  // 把 planner 产的 RoleAssignments 动态装配成 TeamConfig → ITeam。
+  {
+    kind: "class",
+    name: "DynamicTeamBuilder",
+    dir: "modules/ai-harness/teams/dynamic-team/",
+  },
+  // Self-Driven Team P3（ADR-009 §5.4）: SelfDrivenReportComposer（唯一权威）
+  // deliver 阶段 Markdown 报告组装，零 LLM，归属 orchestrator。
+  {
+    kind: "class",
+    name: "SelfDrivenReportComposer",
+    dir: "modules/ai-harness/teams/orchestrator/self-driven/",
+  },
+  // Self-Driven Team P4a（ADR-010）: SelfDrivenHitlGateService（唯一权威）
+  // 阶段边界 HITL gate：DB-poll 阻塞 + 超时降级 + append sanitize。
+  {
+    kind: "class",
+    name: "SelfDrivenHitlGateService",
+    dir: "modules/ai-harness/teams/orchestrator/self-driven/",
+  },
 ];
 
 describe("capability singleton — 一能力一家（curated 清单）", () => {

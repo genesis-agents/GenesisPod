@@ -13,13 +13,14 @@
  */
 'use client';
 
-import { KeyRound, Layers, Server } from 'lucide-react';
+import { KeyRound, Layers, Server, BotMessageSquare } from 'lucide-react';
 import type { AIModel } from '@/hooks';
 import { useI18n } from '@/lib/i18n/i18n-context';
 
 interface BadgeShape {
   isUserKey?: boolean;
   isMixture?: boolean;
+  isSelfDriven?: boolean;
 }
 
 interface MetaShape extends BadgeShape {
@@ -67,6 +68,12 @@ export function ModelKeyMeta({
 export function ModelBadges({ model }: { model: BadgeShape | AIModel }) {
   return (
     <>
+      {(model as BadgeShape).isSelfDriven && (
+        <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-gradient-to-r from-violet-600 to-purple-600 px-1 py-0.5 text-[10px] text-white">
+          <BotMessageSquare size={10} aria-hidden />
+          Team
+        </span>
+      )}
       {(model as BadgeShape).isMixture && (
         <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
           <Layers size={10} aria-hidden />

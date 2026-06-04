@@ -34,6 +34,9 @@ import { ContextInitializationService } from "../knowledge/world-building/contex
 import { ContextCompressionService } from "./context/context-compression.service";
 import { IntentDetectionService } from "./intent/intent-detection.service";
 import { ReflectionService } from "./reflection/reflection.service";
+// ADR-009 (P1): role-agnostic step decomposition primitive
+// Consumers: SelfDrivenMissionPlanner (harness/teams/orchestrator) + LeaderLLMAdapter.decomposeTask
+import { StepDecompositionService } from "./decomposition/step-decomposition.service";
 // IntentRouterService / TaskPlannerService 已删 (2026-04-30) — 死代码，前端 0 消费
 // ★ Phase 1-4: 基础设施升级新增服务
 import { ContextCompactionPipelineService } from "./context/context-compaction-pipeline.service";
@@ -81,6 +84,8 @@ import { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutti
     // ★ Phase 10: Coordinator Synthesize-Before-Delegate
     CrossCuttingSynthesisService,
     // ★ Phase 7: Session Memory Sidecar
+    // ADR-009 (P1): role-agnostic step decomposition primitive
+    StepDecompositionService,
   ],
   exports: [
     // Executors
@@ -97,6 +102,8 @@ import { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutti
     // ★ Phase 10: Coordinator Synthesize-Before-Delegate
     CrossCuttingSynthesisService,
     // ★ Phase 7: Session Memory Sidecar
+    // ADR-009 (P1): role-agnostic step decomposition primitive
+    StepDecompositionService,
   ],
 })
 export class AiEnginePlanningModule {}

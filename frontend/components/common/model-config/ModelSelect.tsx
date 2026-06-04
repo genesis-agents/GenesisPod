@@ -38,6 +38,7 @@ export interface ModelSelectItem {
   provider: string;
   isUserKey?: boolean;
   isMixture?: boolean;
+  isSelfDriven?: boolean;
 }
 
 export interface ModelSelectProps<T extends ModelSelectItem = ModelSelectItem> {

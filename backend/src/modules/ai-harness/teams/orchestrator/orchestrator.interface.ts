@@ -19,7 +19,22 @@ import { WorkflowExecutionState } from "../abstractions/workflow.interface";
 // ==================== 执行计划 ====================
 
 /**
+ * 角色分配条目（SelfDrivenMissionPlanner P1 新增）。
+ * roleId 必须来自 RoleInventory 白名单；modelId 由 election 填写（"" = 未分配）。
+ */
+export interface RoleAssignment {
+  roleId: string;
+  modelId: string;
+}
+
+/**
  * Mission 执行计划
+ *
+ * 扩展字段（P1 新增，设计见 §3 / §5.1 / ADR-009）：
+ *   roleAssignments — 角色 → 模型映射（election 填 modelId）
+ *   rubric          — LLM 生成的验收维度（passLine 经 clamp [60,90]）
+ *   deliverableType — v1 仅 "report"
+ * 无扩展字段时行为与既有 MissionExecutionPlan 完全兼容。
  */
 export interface MissionExecutionPlan {
   /** 计划 ID */
@@ -43,6 +58,22 @@ export interface MissionExecutionPlan {
   /** 创建时间 */
   createdAt: Date;
 
+  /**
+   * 角色 → 模型 映射列表（SelfDrivenMissionPlanner 输出）。
+   * 普通 Planner 不产此字段，SelfDrivenMissionPlanner 必须填满。
+   */
+  roleAssignments?: RoleAssignment[];
+
+  /**
+   * LLM 生成的验收维度列表（RubricGenerator 输出，passLine ∈ [60, 90]）。
+   */
+  rubric?: Array<{ dimension: string; weight: number; passLine: number }>;
+
+  /**
+   * 交付件类型（v1 仅 "report"）。
+   */
+  deliverableType?: "report";
+
   /** 元数据 */
   metadata?: Record<string, unknown>;
 }
@@ -65,6 +96,18 @@ export interface ExecutionStep {
 
   /** 步骤类型 */
   type: "task" | "review" | "integration" | "delivery";
+
+  /**
+   * 最适合该步骤的执行循环类型（SelfDrivenMissionPlanner P1 新增字段）。
+   * 由 engine/planning StepDecompositionService 在角色无关分解阶段赋值；
+   * harness planner 在组装扩展版 MissionExecutionPlan 时直接拷贝。
+   * 普通 Planner 不填此字段，SelfDrivenMissionPlanner 必须填满。
+   *
+   *   react          → 开放式探索 / 工具调用
+   *   plan-act       → 结构化多步推理，无实时工具
+   *   leader-worker  → 多 worker 并行的任务分解
+   */
+  loopKind?: "react" | "plan-act" | "leader-worker";
 
   /** 依赖的步骤 ID */
   dependencies: string[];

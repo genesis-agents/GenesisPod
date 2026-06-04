@@ -85,3 +85,7 @@ export {
   validateContextPackage,
   mergeContextPackages,
 } from "./mission-context.interface";
+
+// RoleInventory abstractions (Self-Driven Team P2, safety-05/safety-10)
+export type { RolePrototype, IRoleInventory } from "./role-inventory.interface";
+export { ROLE_INVENTORY } from "./role-inventory.interface";

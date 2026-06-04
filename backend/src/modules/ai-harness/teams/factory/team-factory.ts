@@ -22,6 +22,7 @@ import {
 import { RoleRegistry } from "../registry/role-registry";
 import { TeamRegistry } from "../registry/team-registry";
 import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm.factory";
+import type { IStepDecompositionService } from "@/modules/ai-engine/planning/decomposition/abstractions/step-decomposition.interface";
 
 /**
  * 团队实例化选项
@@ -48,6 +49,7 @@ export class TeamFactory {
     private readonly roleRegistry: RoleRegistry,
     private readonly teamRegistry: TeamRegistry,
     @Optional() private readonly llmFactory?: LLMFactory,
+    @Optional() private readonly stepDecomposition?: IStepDecompositionService,
   ) {}
 
   /**
@@ -155,7 +157,11 @@ export class TeamFactory {
     // 创建 LLM 适配器（如果 LLMFactory 可用）
     let llmAdapter: ILeaderLLMAdapter | undefined;
     if (this.llmFactory) {
-      llmAdapter = createLeaderLLMAdapter(this.llmFactory, defaultModel);
+      llmAdapter = createLeaderLLMAdapter(
+        this.llmFactory,
+        defaultModel,
+        this.stepDecomposition,
+      );
     }
 
     // 获取可用角色列表

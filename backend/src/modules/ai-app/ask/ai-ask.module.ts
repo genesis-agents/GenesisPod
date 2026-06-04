@@ -13,6 +13,10 @@ import { CreditsModule } from "../../platform/credits/credits.module";
 import { KbQueryModule } from "@/modules/ai-app/library/kb-query/kb-query.module";
 // W3: harness CollaborationModule 提供 DebatePattern / VotingManager / HandoffCoordinator
 import { CollaborationModule } from "../../ai-harness/teams/collaboration/collaboration.module";
+// Self-Driven Agent Team isolated dispatch
+import { SelfDrivenTeamModule } from "../../ai-harness/teams/orchestrator/self-driven/self-driven-team.module";
+import { AskSelfDrivenController } from "./self-driven/ask-self-driven.controller";
+import { AskSelfDrivenService } from "./self-driven/ask-self-driven.service";
 // Teams 模式（W2 PR3）
 import { AskRoomController } from "./ai-ask-room.controller";
 import { AskRoomService } from "./ai-ask-room.service";
@@ -33,6 +37,7 @@ import { HandoffAdapter } from "./adapters/handoff.adapter";
     KbQueryModule,
     CreditsModule,
     CollaborationModule,
+    SelfDrivenTeamModule,
     // Gateway JWT 校验（与 NotificationGateway / TopicResearchGateway 同模式）
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -43,7 +48,7 @@ import { HandoffAdapter } from "./adapters/handoff.adapter";
       inject: [ConfigService],
     }),
   ],
-  controllers: [AiAskController, AskRoomController],
+  controllers: [AiAskController, AskRoomController, AskSelfDrivenController],
   providers: [
     AiAskService,
     AskRoomService,
@@ -56,6 +61,7 @@ import { HandoffAdapter } from "./adapters/handoff.adapter";
     VoteAdapter,
     ReviewAdapter,
     HandoffAdapter,
+    AskSelfDrivenService,
   ],
   exports: [AiAskService, AskRoomService],
 })

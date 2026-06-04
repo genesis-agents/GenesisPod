@@ -1,0 +1,1360 @@
+/**
+ * Integration test: SelfDrivenMissionRunner.run() full event pipeline.
+ *
+ * Verification strategy:
+ *   - REAL implementations: StepDecompositionService, RubricGeneratorService,
+ *     SelfDrivenMissionPlannerService, RoleInventory, SelfDrivenReportComposer,
+ *     SelfDrivenMissionRunner.
+ *   - MOCKED (bottom-layer side-effects only):
+ *       1. AiChatService – single external LLM boundary; chat() returns
+ *          context-appropriate fake data identified by systemPrompt content.
+ *       2. SelfDrivenHitlGateService – DB-poll gate; mocked to return
+ *          immediately so tests do not block.
+ *       3. DynamicTeamBuilder – mocked to return a minimal ITeam stub
+ *          (TeamFactory pulls in RoleRegistry + LLMFactory which have
+ *          their own heavy DI graphs; the runner only needs the stub to
+ *          call getAllMembers() and access leader/members properties).
+ *
+ * No DB is touched; no HTTP calls are made.
+ */
+
+import { Test, TestingModule } from "@nestjs/testing";
+import { Logger } from "@nestjs/common";
+import { AIModelType } from "@prisma/client";
+
+import { SelfDrivenMissionRunner } from "../self-driven-mission-runner.service";
+import { SelfDrivenMissionPlannerService } from "../self-driven-mission-planner.service";
+import { SelfDrivenReportComposer } from "../self-driven-report-composer";
+import {
+  SelfDrivenHitlGateService,
+  HitlGateOutcome,
+} from "../self-driven-hitl-gate";
+import { DynamicTeamBuilder } from "../../../dynamic-team/dynamic-team-builder";
+import { StepDecompositionService } from "../../../../../ai-engine/planning/decomposition/step-decomposition.service";
+import { RubricGeneratorService } from "../../../../evaluation/rubric/rubric-generator.service";
+import { AiChatService } from "../../../../../ai-engine/llm/chat/ai-chat.service";
+import { AgentFactory } from "../../../../agents/core/agent-factory";
+import { RoleInventory } from "../../../role-inventory/role-inventory";
+import { ROLE_INVENTORY } from "../../../abstractions/role-inventory.interface";
+
+import type { SelfDrivenMissionEvent } from "../abstractions/self-driven-mission.types";
+import type {
+  IAgent,
+  IAgentTask,
+} from "../../../../agents/abstractions/agent.interface";
+import type { IAgentEvent } from "../../../../agents/abstractions/agent-event.interface";
+import type { ITeam, ITeamMember } from "../../../abstractions/team.interface";
+import type { IRole } from "../../../abstractions/role.interface";
+import type { IWorkflow } from "../../../abstractions/workflow.interface";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Drain an async generator into an array of events. */
+async function collectEvents(
+  gen: AsyncGenerator<SelfDrivenMissionEvent, void, unknown>,
+): Promise<SelfDrivenMissionEvent[]> {
+  const events: SelfDrivenMissionEvent[] = [];
+  for await (const event of gen) {
+    events.push(event);
+  }
+  return events;
+}
+
+/** Return all events of a given type from the collected list. */
+function eventsOfType<T extends SelfDrivenMissionEvent["type"]>(
+  events: SelfDrivenMissionEvent[],
+  type: T,
+): Extract<SelfDrivenMissionEvent, { type: T }>[] {
+  return events.filter(
+    (e): e is Extract<SelfDrivenMissionEvent, { type: T }> => e.type === type,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Mock AgentFactory helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a minimal IAgent stub whose execute() yields:
+ *   action_executed (tool_call, one per toolId) → output → terminated
+ *
+ * This ordering satisfies the test assertions that tool_call events precede
+ * chunk events (output is emitted as a chunk by the runner after the loop).
+ */
+function buildMockAgent(toolIds: string[], outputText: string): IAgent {
+  const agentId = "mock-agent-id";
+  const now = Date.now();
+
+  async function* executeGenerator(
+    _task: IAgentTask,
+  ): AsyncIterable<IAgentEvent> {
+    // Emit action_executed (tool_call) events for each tool in coreTools.
+    for (const toolId of toolIds) {
+      yield {
+        type: "action_executed",
+        agentId,
+        timestamp: now,
+        payload: {
+          action: { kind: "tool_call", toolId, input: {} },
+          output: `result from ${toolId}`,
+          latencyMs: 10,
+        },
+      } as IAgentEvent;
+    }
+    // Emit the final output.
+    yield {
+      type: "output",
+      agentId,
+      timestamp: now,
+      payload: { output: outputText },
+    } as IAgentEvent;
+    // Emit terminated.
+    yield {
+      type: "terminated",
+      agentId,
+      timestamp: now,
+      payload: { reason: "completed" },
+    } as IAgentEvent;
+  }
+
+  return {
+    id: agentId as unknown as import("../../../../agents/abstractions/agent.types").AgentId,
+    identity:
+      {} as import("../../../../agents/abstractions/identity.interface").IAgentIdentity,
+    state: "idle" as const,
+    execute: (task: IAgentTask) => executeGenerator(task),
+    spawnSubagent: jest.fn(),
+    getEnvelope: jest.fn(),
+    cancel: jest.fn(),
+  };
+}
+
+/**
+ * Build an AgentFactory mock whose create() returns a mock agent that
+ * yields tool-call events followed by an output event.
+ * toolIds are derived from the spec's identity.tools list.
+ */
+function buildAgentFactoryMock(): AgentFactory {
+  return {
+    create: jest.fn((spec) => {
+      const tools = (spec.identity as { tools?: string[] }).tools ?? [];
+      const taskGoal = "step output via ReActLoop";
+      return buildMockAgent(tools, taskGoal);
+    }),
+  } as unknown as AgentFactory;
+}
+
+/**
+ * Build an AgentFactory mock whose create() returns an agent that immediately throws.
+ * Used to exercise the ReActLoop → chatStream fallback path.
+ */
+function buildFailingAgentFactoryMock(): AgentFactory {
+  return {
+    create: jest.fn(() => {
+      return {
+        id: "mock-agent-fail",
+        identity: {},
+        state: "idle",
+        execute: jest.fn(async function* () {
+          throw new Error("Simulated ReActLoop failure (tool-capable step)");
+        }),
+        spawnSubagent: jest.fn(),
+        getEnvelope: jest.fn(),
+        cancel: jest.fn(),
+      } as unknown as IAgent;
+    }),
+  } as unknown as AgentFactory;
+}
+
+// ---------------------------------------------------------------------------
+// Minimal ITeam stub
+// ---------------------------------------------------------------------------
+
+function buildMinimalTeamStub(): ITeam {
+  const minimalRole: IRole = {
+    id: "analyst",
+    name: "Analyst",
+    description: "Analyst role",
+    type: "member",
+    icon: "",
+    responsibilities: [],
+    coreSkills: [],
+    coreTools: [],
+    systemPromptTemplate: "",
+    metadata: {},
+  };
+
+  const minimalMember: ITeamMember = {
+    id: "member-1",
+    name: "Analyst-1",
+    role: minimalRole,
+    model: "mock-model",
+    skills: [],
+    tools: [],
+    persona: "",
+    workStyle: {
+      communicationStyle: "direct",
+      decisionMaking: "analytical",
+      outputFormat: "structured",
+    },
+    status: "idle",
+    metadata: {},
+    isLeader: () => false,
+    hasSkill: () => false,
+    hasTool: () => false,
+    getSystemPrompt: () => "You are an analyst.",
+  };
+
+  const leaderRole: IRole = {
+    id: "leader",
+    name: "Leader",
+    description: "Leader role",
+    type: "leader",
+    icon: "",
+    responsibilities: [],
+    coreSkills: [],
+    coreTools: [],
+    systemPromptTemplate: "",
+    metadata: {},
+  };
+
+  const leaderMember: ITeamMember = {
+    id: "leader-1",
+    name: "Leader-1",
+    role: leaderRole,
+    model: "mock-model",
+    skills: [],
+    tools: [],
+    persona: "",
+    workStyle: {
+      communicationStyle: "direct",
+      decisionMaking: "analytical",
+      outputFormat: "structured",
+    },
+    status: "idle",
+    metadata: {},
+    isLeader: () => true,
+    hasSkill: () => false,
+    hasTool: () => false,
+    getSystemPrompt: () => "You are the team leader.",
+  };
+
+  const minimalWorkflow: IWorkflow = {
+    id: "workflow-stub",
+    name: "Stub workflow",
+    type: "sequential",
+    steps: [],
+    getCurrentStep: () => undefined,
+    getNextStep: () => undefined,
+    isCompleted: () => false,
+    start: jest.fn(),
+    completeStep: jest.fn(),
+    failStep: jest.fn(),
+    reset: jest.fn(),
+    getState: jest.fn(),
+  };
+
+  const config = {
+    id: "team-stub",
+    name: "Stub Team",
+    description: "Stub",
+    type: "custom" as const,
+    leaderRoleId: "leader",
+    memberRoles: [],
+    workflow: {
+      id: "workflow-stub",
+      name: "Stub",
+      type: "sequential" as const,
+      steps: [],
+      entryStepId: "step-1",
+    },
+    availableSkills: [],
+    availableTools: [],
+    constraintProfile: {
+      maxWallTimeMs: 60_000,
+      maxTokens: 10_000,
+      maxCostUsd: 1,
+      maxIterations: 5,
+      maxParallelSteps: 1,
+    },
+    deliverableTypes: ["report"],
+  };
+
+  return {
+    id: "team-stub",
+    name: "Stub Team",
+    description: "Stub",
+    type: "custom",
+    config,
+    leader: leaderMember,
+    members: [minimalMember],
+    workflow: minimalWorkflow,
+    constraintProfile: config.constraintProfile,
+    getAllMembers: () => [leaderMember, minimalMember],
+    getMembersByRole: () => [],
+    getMemberById: () => undefined,
+    hasRole: () => false,
+    getAvailableSkills: () => [],
+    getAvailableTools: () => [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Fake AiChatService chat() implementation — context-discriminated responses
+// ---------------------------------------------------------------------------
+
+/**
+ * Discriminate which LLM call context we are in by inspecting systemPrompt.
+ * Returns appropriately-shaped fake JSON / text for each call site.
+ * Used for: plan decomposition, rubric generation, and chatStream fallback path.
+ */
+function buildChatMock() {
+  return jest.fn(
+    async (opts: {
+      systemPrompt?: string;
+      messages?: Array<{ role: string; content: string }>;
+      responseFormat?: string;
+      modelType?: AIModelType;
+    }) => {
+      const sys = opts.systemPrompt ?? "";
+      const userContent = opts.messages?.[0]?.content ?? "";
+
+      // StepDecompositionService: expects a JSON array of steps
+      if (
+        sys.includes("role-agnostic planning assistant") ||
+        (userContent.includes("Goal:") && opts.responseFormat === "json")
+      ) {
+        const steps = [
+          {
+            name: "Research the topic",
+            description: "Gather information about the topic.",
+            type: "task",
+            loopKind: "react",
+            dependencyIndices: [],
+            estimatedDurationMs: 60000,
+          },
+          {
+            name: "Analyse findings",
+            description: "Synthesise the gathered research.",
+            type: "task",
+            loopKind: "plan-act",
+            dependencyIndices: [0],
+            estimatedDurationMs: 45000,
+          },
+          {
+            name: "Write report",
+            description: "Produce the final written deliverable.",
+            type: "delivery",
+            loopKind: "plan-act",
+            dependencyIndices: [1],
+            estimatedDurationMs: 30000,
+          },
+        ];
+        return { content: JSON.stringify(steps), isError: false };
+      }
+
+      // RubricGeneratorService: expects a JSON array of rubric dimensions
+      if (
+        sys.includes("expert evaluator") ||
+        userContent.includes("Objective:")
+      ) {
+        const rubric = [
+          { dimension: "accuracy", weight: 0.35, passLine: 75 },
+          { dimension: "completeness", weight: 0.3, passLine: 70 },
+          { dimension: "clarity", weight: 0.2, passLine: 65 },
+          { dimension: "actionability", weight: 0.15, passLine: 65 },
+        ];
+        return { content: JSON.stringify(rubric), isError: false };
+      }
+
+      // fallback chat() for executeStep (used only when chatStream fails)
+      return {
+        content: `Step output for: ${userContent.slice(0, 80)}`,
+        isError: false,
+      };
+    },
+  );
+}
+
+/**
+ * Build a chatStream mock that streams the step output in two chunks.
+ * The systemPrompt is checked to route plan/rubric calls — those still go
+ * through chat(), so chatStream is only called for executeStep paths.
+ */
+function buildChatStreamMock() {
+  return jest.fn(async function* (opts: {
+    systemPrompt?: string;
+    messages?: Array<{ role: string; content: string }>;
+    modelType?: AIModelType;
+    operationName?: string;
+  }) {
+    const userContent = opts.messages?.[0]?.content ?? "";
+    const text = `Step output for: ${userContent.slice(0, 80)}`;
+
+    // Yield the content in two chunks to simulate real streaming
+    const mid = Math.ceil(text.length / 2);
+    yield { content: text.slice(0, mid), done: false };
+    yield {
+      content: text.slice(mid),
+      done: true,
+      usage: { promptTokens: 50, completionTokens: 80, totalTokens: 130 },
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Fake getAvailableModelsAsync
+// ---------------------------------------------------------------------------
+
+function buildGetAvailableModelsMock() {
+  return jest.fn().mockResolvedValue(["mock-model"]);
+}
+
+// ---------------------------------------------------------------------------
+// Shared approved gate mock factory
+// ---------------------------------------------------------------------------
+
+function makeApprovedGate(opts?: {
+  appendInstruction?: string;
+}): jest.Mock<
+  Promise<HitlGateOutcome & { requestId: string }>,
+  Parameters<SelfDrivenHitlGateService["open"]>
+> {
+  return jest.fn().mockResolvedValue({
+    requestId: "test-request-id",
+    approved: true,
+    timedOut: false,
+    appendInstruction: opts?.appendInstruction,
+  });
+}
+
+function makeRejectedGate(): jest.Mock<
+  Promise<HitlGateOutcome & { requestId: string }>,
+  Parameters<SelfDrivenHitlGateService["open"]>
+> {
+  return jest.fn().mockResolvedValue({
+    requestId: "test-request-id",
+    approved: false,
+    timedOut: false,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Test suite
+// ---------------------------------------------------------------------------
+
+describe("SelfDrivenMissionRunner integration", () => {
+  let runner: SelfDrivenMissionRunner;
+  let mockChat: jest.Mock;
+  let mockHitlOpen: jest.Mock;
+  let mockTeamBuilderBuild: jest.Mock;
+  let mockAgentFactory: AgentFactory;
+  let module: TestingModule;
+
+  // Suppress NestJS logger noise during tests
+  beforeAll(() => {
+    jest.spyOn(Logger.prototype, "log").mockImplementation();
+    jest.spyOn(Logger.prototype, "debug").mockImplementation();
+    jest.spyOn(Logger.prototype, "warn").mockImplementation();
+    jest.spyOn(Logger.prototype, "error").mockImplementation();
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
+  beforeEach(async () => {
+    mockChat = buildChatMock();
+
+    const mockGetAvailableModels = buildGetAvailableModelsMock();
+
+    // Partial AiChatService mock — only the methods called by the pipeline.
+    // chatStream is used by non-tool-capable executeStep paths.
+    // chat() is still used by plan decomposition and rubric generation.
+    const mockAiChatService = {
+      chat: mockChat,
+      chatStream: buildChatStreamMock(),
+      getAvailableModelsAsync: mockGetAvailableModels,
+    } as unknown as AiChatService;
+
+    // HitlGateService mock — default to approved; individual tests may override
+    mockHitlOpen = makeApprovedGate();
+    const mockHitlGate = {
+      open: mockHitlOpen,
+    } as unknown as SelfDrivenHitlGateService;
+
+    // DynamicTeamBuilder mock — returns a minimal ITeam stub
+    const teamStub = buildMinimalTeamStub();
+    mockTeamBuilderBuild = jest.fn().mockReturnValue(teamStub);
+    const mockDynamicTeamBuilder = {
+      build: mockTeamBuilderBuild,
+    } as unknown as DynamicTeamBuilder;
+
+    // AgentFactory mock — creates a mock IAgent for tool-capable steps.
+    // The mock agent yields action_executed (tool_call per coreTools id) then output.
+    mockAgentFactory = buildAgentFactoryMock();
+
+    module = await Test.createTestingModule({
+      providers: [
+        // Real implementations under test
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+
+        // Inject RoleInventory under the DI token consumed by Runner and Builder
+        {
+          provide: ROLE_INVENTORY,
+          useExisting: RoleInventory,
+        },
+
+        // Mocked bottom-layer dependencies
+        { provide: AiChatService, useValue: mockAiChatService },
+        { provide: SelfDrivenHitlGateService, useValue: mockHitlGate },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: mockAgentFactory },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+  });
+
+  afterEach(async () => {
+    await module.close();
+    jest.clearAllMocks();
+  });
+
+  // ── Helper: common happy-path input ──────────────────────────────────────
+
+  const MISSION_ID = "test-mission-001";
+  const MISSION_INPUT = {
+    prompt: "Analyse the impact of AI on software engineering jobs",
+    userId: "user-test-42",
+  };
+
+  // =========================================================================
+  // Case 1: Happy path — full event sequence
+  // =========================================================================
+
+  it("happy path: emits full ordered event sequence with real plan, rubric, and composed report", async () => {
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    const types = events.map((e) => e.type);
+
+    // ── 1. Mission started ────────────────────────────────────────────────
+    expect(types[0]).toBe("mission_started");
+
+    // ── 2. Clarify phase ─────────────────────────────────────────────────
+    const clarifyPhases = eventsOfType(events, "phase").filter(
+      (e) => e.phase === "clarify",
+    );
+    expect(clarifyPhases).toHaveLength(2);
+    expect(clarifyPhases[0].status).toBe("started");
+    expect(clarifyPhases[1].status).toBe("completed");
+
+    // ── 3. Plan phase ─────────────────────────────────────────────────────
+    const planPhases = eventsOfType(events, "phase").filter(
+      (e) => e.phase === "plan",
+    );
+    expect(planPhases[0].status).toBe("started");
+    expect(planPhases[1].status).toBe("completed");
+
+    // ── 4. Plan event — real planner output ───────────────────────────────
+    const planEvents = eventsOfType(events, "plan");
+    expect(planEvents).toHaveLength(1);
+
+    const plan = planEvents[0].plan;
+
+    // Steps produced by real StepDecompositionService parsing our mock JSON
+    expect(plan.steps.length).toBeGreaterThanOrEqual(1);
+
+    // Rubric produced by real RubricGeneratorService parsing our mock JSON
+    expect(plan.rubric).toBeDefined();
+    expect(plan.rubric!.length).toBeGreaterThanOrEqual(1);
+
+    for (const dim of plan.rubric!) {
+      expect(dim.passLine).toBeGreaterThanOrEqual(60);
+      expect(dim.passLine).toBeLessThanOrEqual(90);
+    }
+
+    // Role assignments produced by real planner (uses real AiChatService mock)
+    expect(plan.roleAssignments).toBeDefined();
+    expect(plan.roleAssignments!.length).toBeGreaterThanOrEqual(1);
+
+    // ── 5. HITL gate: plan_confirm ────────────────────────────────────────
+    const awaitingPlanApproval = eventsOfType(events, "awaiting_approval").find(
+      (e) => e.gate === "plan_confirm",
+    );
+    expect(awaitingPlanApproval).toBeDefined();
+
+    const planApprovalResolved = eventsOfType(events, "approval_resolved").find(
+      (e) => e.gate === "plan_confirm",
+    );
+    expect(planApprovalResolved).toBeDefined();
+    expect(planApprovalResolved!.approved).toBe(true);
+
+    // ── 6. Execute phase ──────────────────────────────────────────────────
+    const executePhases = eventsOfType(events, "phase").filter(
+      (e) => e.phase === "execute",
+    );
+    expect(executePhases.length).toBeGreaterThanOrEqual(1);
+
+    // ── 7. Team built ─────────────────────────────────────────────────────
+    const teamBuiltEvents = eventsOfType(events, "team_built");
+    expect(teamBuiltEvents).toHaveLength(1);
+    expect(teamBuiltEvents[0].roles.length).toBeGreaterThanOrEqual(1);
+    // Every role in the team_built event must have a roleId string
+    for (const r of teamBuiltEvents[0].roles) {
+      expect(typeof r.roleId).toBe("string");
+    }
+
+    // ── 8. Per-step events ────────────────────────────────────────────────
+    const stepStarted = eventsOfType(events, "step_started");
+    const stepCompleted = eventsOfType(events, "step_completed");
+    const chunks = eventsOfType(events, "chunk");
+
+    expect(stepStarted.length).toBe(plan.steps.length);
+    expect(stepCompleted.length).toBe(plan.steps.length);
+    // Each successful step emits at least one chunk (chatStream yields per-token).
+    // Our mock yields 2 chunks per step, so total >= okSteps.length.
+    const okSteps = stepCompleted.filter((e) => e.ok);
+    expect(chunks.length).toBeGreaterThanOrEqual(okSteps.length);
+
+    // step_started indices are sequential
+    stepStarted.forEach((ev, idx) => {
+      expect(ev.stepIndex).toBe(idx);
+      expect(ev.totalSteps).toBe(plan.steps.length);
+    });
+
+    // ── 9. HITL gate: deliver_confirm ─────────────────────────────────────
+    const awaitingDeliver = eventsOfType(events, "awaiting_approval").find(
+      (e) => e.gate === "deliver_confirm",
+    );
+    expect(awaitingDeliver).toBeDefined();
+
+    const deliverResolved = eventsOfType(events, "approval_resolved").find(
+      (e) => e.gate === "deliver_confirm",
+    );
+    expect(deliverResolved).toBeDefined();
+    expect(deliverResolved!.approved).toBe(true);
+
+    // ── 10. Deliver phase ─────────────────────────────────────────────────
+    const deliverPhases = eventsOfType(events, "phase").filter(
+      (e) => e.phase === "deliver",
+    );
+    expect(deliverPhases.length).toBeGreaterThanOrEqual(1);
+
+    // ── 11. Deliverable — composer output ─────────────────────────────────
+    const deliverableEvents = eventsOfType(events, "deliverable");
+    expect(deliverableEvents).toHaveLength(1);
+    expect(deliverableEvents[0].deliverableType).toBe("report");
+
+    const reportContent = deliverableEvents[0].content;
+    expect(reportContent).toContain("# Mission Report");
+    expect(reportContent).toContain(MISSION_INPUT.prompt);
+
+    // Report should contain content from at least one step
+    const hasStepContent = okSteps.some((step) =>
+      reportContent.includes(step.stepName),
+    );
+    expect(hasStepContent).toBe(true);
+
+    // ── 12. Done ──────────────────────────────────────────────────────────
+    const doneEvents = eventsOfType(events, "done");
+    expect(doneEvents).toHaveLength(1);
+    expect(types.at(-1)).toBe("done");
+
+    // No error events on happy path
+    const errorEvents = eventsOfType(events, "error");
+    expect(errorEvents).toHaveLength(0);
+
+    // HitlGate was called twice: once for plan_confirm, once for deliver_confirm
+    expect(mockHitlOpen).toHaveBeenCalledTimes(2);
+    expect(mockHitlOpen.mock.calls[0][1]).toBe("plan_confirm");
+    expect(mockHitlOpen.mock.calls[1][1]).toBe("deliver_confirm");
+  });
+
+  // =========================================================================
+  // Case 2: Plan gate rejected — mission terminates without entering execute
+  // =========================================================================
+
+  it("reject: plan gate rejected → emits error event, generator terminates before execute", async () => {
+    // Plan gate returns approved=false; deliver gate should never be called
+    mockHitlOpen = makeRejectedGate();
+
+    // Rebuild module with the new mock
+    await module.close();
+    const mockAiChatService = {
+      chat: mockChat,
+      chatStream: buildChatStreamMock(),
+      getAvailableModelsAsync: buildGetAvailableModelsMock(),
+    } as unknown as AiChatService;
+    const mockHitlGate = {
+      open: mockHitlOpen,
+    } as unknown as SelfDrivenHitlGateService;
+    const teamStub = buildMinimalTeamStub();
+    const mockDynamicTeamBuilder = {
+      build: jest.fn().mockReturnValue(teamStub),
+    } as unknown as DynamicTeamBuilder;
+
+    module = await Test.createTestingModule({
+      providers: [
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+        { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+        { provide: AiChatService, useValue: mockAiChatService },
+        { provide: SelfDrivenHitlGateService, useValue: mockHitlGate },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: buildAgentFactoryMock() },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    const types = events.map((e) => e.type);
+
+    // Must have an error event
+    const errorEvents = eventsOfType(events, "error");
+    expect(errorEvents.length).toBeGreaterThanOrEqual(1);
+    expect(errorEvents[0].message).toContain("plan rejected by human");
+
+    // Must NOT have entered execute phase
+    const executePhases = eventsOfType(events, "phase").filter(
+      (e) => e.phase === "execute",
+    );
+    expect(executePhases).toHaveLength(0);
+
+    // Must NOT have built the team
+    expect(eventsOfType(events, "team_built")).toHaveLength(0);
+
+    // Must NOT have reached deliverable
+    expect(eventsOfType(events, "deliverable")).toHaveLength(0);
+
+    // Must NOT have reached done
+    expect(eventsOfType(events, "done")).toHaveLength(0);
+
+    // Last event should be error (generator returns after first rejection)
+    expect(types.at(-1)).toBe("error");
+
+    // Gate was called exactly once (only plan_confirm was opened)
+    expect(mockHitlOpen).toHaveBeenCalledTimes(1);
+    expect(mockHitlOpen.mock.calls[0][1]).toBe("plan_confirm");
+  });
+
+  // =========================================================================
+  // Case 3: Append instruction injected into execute step prompts
+  // =========================================================================
+
+  it("append injection: plan gate appendInstruction appears in subsequent executeStep chatStream calls", async () => {
+    const appendInstruction = "Focus specifically on junior developer roles.";
+
+    // Rebuild with appendInstruction in plan gate
+    await module.close();
+
+    const chatSpy = buildChatMock();
+    const chatStreamSpy = buildChatStreamMock();
+
+    const mockAiChatService = {
+      chat: chatSpy,
+      chatStream: chatStreamSpy,
+      getAvailableModelsAsync: buildGetAvailableModelsMock(),
+    } as unknown as AiChatService;
+
+    const appendGateOpen: jest.Mock<
+      Promise<HitlGateOutcome & { requestId: string }>,
+      Parameters<SelfDrivenHitlGateService["open"]>
+    > = jest.fn().mockResolvedValue({
+      requestId: "append-request-id",
+      approved: true,
+      timedOut: false,
+      appendInstruction,
+    });
+
+    const mockHitlGate = {
+      open: appendGateOpen,
+    } as unknown as SelfDrivenHitlGateService;
+    const teamStub = buildMinimalTeamStub();
+    const mockDynamicTeamBuilder = {
+      build: jest.fn().mockReturnValue(teamStub),
+    } as unknown as DynamicTeamBuilder;
+
+    // AgentFactory mock: capture the spec so we can verify systemPrompt injection
+    const capturedSpecs: Array<{ systemPrompt?: string }> = [];
+    const appendAgentFactory = {
+      create: jest.fn((spec: { systemPrompt?: string; identity: unknown }) => {
+        capturedSpecs.push(spec);
+        const tools = (spec.identity as { tools?: string[] }).tools ?? [];
+        return buildMockAgent(tools, "ReActLoop output with append");
+      }),
+    } as unknown as AgentFactory;
+
+    module = await Test.createTestingModule({
+      providers: [
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+        { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+        { provide: AiChatService, useValue: mockAiChatService },
+        { provide: SelfDrivenHitlGateService, useValue: mockHitlGate },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: appendAgentFactory },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    // Confirm mission completed successfully (done event present, no errors)
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+    expect(eventsOfType(events, "error")).toHaveLength(0);
+
+    // Tool-capable steps (react loopKind) use AgentFactory; the append instruction
+    // is injected into the systemPrompt passed to AgentFactory.create().
+    // Non-tool-capable steps (plan-act) still use chatStream.
+    // Verify all chatStream calls (non-tool-capable steps) contain the append instruction.
+    const streamCalls = chatStreamSpy.mock.calls as Array<
+      [{ systemPrompt?: string }]
+    >;
+    // At least the non-tool-capable steps (plan-act) go through chatStream
+    expect(streamCalls.length).toBeGreaterThanOrEqual(1);
+
+    for (const args of streamCalls) {
+      const opts = args[0];
+      const sys = opts.systemPrompt ?? "";
+      expect(sys).toContain("[User refinement]: " + appendInstruction);
+    }
+
+    // Also verify that AgentFactory was called with systemPrompt containing the append instruction
+    // (tool-capable steps route through AgentFactory.create with the merged systemPrompt)
+    expect(capturedSpecs.length).toBeGreaterThanOrEqual(1);
+    for (const spec of capturedSpecs) {
+      expect(spec.systemPrompt ?? "").toContain(
+        "[User refinement]: " + appendInstruction,
+      );
+    }
+  });
+
+  // =========================================================================
+  // Case 5: Tool-capable step drives real ReActLoop via AgentFactory
+  //   → tool_call events emitted per actual action_executed from IAgentEvent stream
+  //   → chunk events present (output event translated to chunk)
+  //   → step_completed.ok=true (final output captured)
+  // =========================================================================
+
+  it("tool-capable step: emits tool_call events per coreTools entry via AgentFactory.execute(), then chunk event from output, step completes ok=true", async () => {
+    // The default happy-path setup (from beforeEach) has the standard 3-step plan:
+    //   step 0: type=task, loopKind=react, executor=analyst (coreTools: [web-search, data-analysis])
+    //           → tool-capable: uses AgentFactory.create().execute()
+    //   step 1: type=task, loopKind=plan-act, executor=researcher → not tool-capable (chatStream)
+    //   step 2: type=delivery, loopKind=plan-act, executor=writer → not tool-capable (chatStream)
+    // The mock agent yields action_executed (tool_call per coreTools id) then output.
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    // ── tool_call events ─────────────────────────────────────────────────────
+    const toolCallEvents = eventsOfType(events, "tool_call");
+    // analyst has coreTools: [calculator, web_search] → expect 2 tool_call events
+    expect(toolCallEvents.length).toBeGreaterThanOrEqual(1);
+
+    // Every tool_call must carry a non-empty missionId, stepId, and toolId.
+    // NOTE: tool_call events use plan.missionId (the planner's UUID), not the
+    // runner's input missionId, so we only assert it is a non-empty string.
+    for (const tc of toolCallEvents) {
+      expect(typeof tc.missionId).toBe("string");
+      expect(tc.missionId.length).toBeGreaterThan(0);
+      expect(typeof tc.stepId).toBe("string");
+      expect(tc.stepId.length).toBeGreaterThan(0);
+      expect(typeof tc.toolId).toBe("string");
+      expect(tc.toolId.length).toBeGreaterThan(0);
+    }
+
+    // All tool_call events must reference the SAME stepId (they all belong to step 0)
+    const toolCallStepIds = new Set(toolCallEvents.map((tc) => tc.stepId));
+    expect(toolCallStepIds.size).toBe(1);
+
+    // ── chunk events ─────────────────────────────────────────────────────────
+    const chunkEvents = eventsOfType(events, "chunk");
+    // Step 0 (tool-capable): mock agent yields 1 output chunk via AgentFactory.
+    // Steps 1+2 (not tool-capable): chatStream yields 2 chunks each.
+    // Total: at least 3 chunks.
+    expect(chunkEvents.length).toBeGreaterThanOrEqual(3);
+
+    // ── step_completed ok=true for the tool-capable step ────────────────────
+    const stepCompleted = eventsOfType(events, "step_completed");
+    // Find the step_completed event for the tool-capable step (same stepId as tool_call)
+    const toolStepId = [...toolCallStepIds][0];
+    const toolStepCompleted = stepCompleted.find(
+      (e) => e.stepId === toolStepId,
+    );
+    expect(toolStepCompleted).toBeDefined();
+    expect(toolStepCompleted!.ok).toBe(true);
+
+    // ── tool_call events precede the step's chunk events in stream order ──────
+    // The mock agent yields action_executed (→ tool_call) before output (→ chunk).
+    // This mirrors real ReActLoop ordering: tool invocations happen before final output.
+    const toolCallIdx = events.findIndex(
+      (e) =>
+        e.type === "tool_call" &&
+        (e as { stepId: string }).stepId === toolStepId,
+    );
+    const firstChunkIdx = events.findIndex((e) => e.type === "chunk");
+    // tool_call events from the tool-capable step must appear before ANY chunk event
+    expect(toolCallIdx).toBeLessThan(firstChunkIdx);
+
+    // ── mission reaches done (no crash) ─────────────────────────────────────
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+    expect(eventsOfType(events, "error")).toHaveLength(0);
+  });
+
+  // =========================================================================
+  // Case 6: Delivery step streams multiple chunk events via chatStream
+  //   → mock yields N chunks per step
+  //   → self-driven chunk events arrive token-by-token (count > 1 per step)
+  //   → concatenation of all chunks for a step equals the full step text
+  // =========================================================================
+
+  it("delivery step chatStream: yields multiple chunk events; concatenated content equals full step text", async () => {
+    // Rebuild with a chatStream that yields 3 chunks per step (not 2), so we can
+    // unambiguously verify that multiple events arrive per step.
+    await module.close();
+
+    const CHUNK_COUNT = 3;
+    const threeChunkStreamMock = jest.fn(async function* (opts: {
+      systemPrompt?: string;
+      messages?: Array<{ role: string; content: string }>;
+      modelType?: AIModelType;
+      operationName?: string;
+    }) {
+      const userContent = opts.messages?.[0]?.content ?? "";
+      const fullText = `Streamed output for: ${userContent.slice(0, 60)}`;
+      // Split into CHUNK_COUNT equal pieces
+      const chunkSize = Math.ceil(fullText.length / CHUNK_COUNT);
+      for (let i = 0; i < CHUNK_COUNT; i++) {
+        const content = fullText.slice(i * chunkSize, (i + 1) * chunkSize);
+        if (content.length > 0) {
+          const isLast = i === CHUNK_COUNT - 1;
+          yield {
+            content,
+            done: isLast,
+            ...(isLast
+              ? {
+                  usage: {
+                    promptTokens: 30,
+                    completionTokens: 60,
+                    totalTokens: 90,
+                  },
+                }
+              : {}),
+          };
+        }
+      }
+    });
+
+    const chatSpy = buildChatMock();
+    const mockAiChatService = {
+      chat: chatSpy,
+      chatStream: threeChunkStreamMock,
+      getAvailableModelsAsync: buildGetAvailableModelsMock(),
+    } as unknown as AiChatService;
+
+    const approvedGate = {
+      open: makeApprovedGate(),
+    } as unknown as SelfDrivenHitlGateService;
+    const teamStub = buildMinimalTeamStub();
+    const mockDynamicTeamBuilder = {
+      build: jest.fn().mockReturnValue(teamStub),
+    } as unknown as DynamicTeamBuilder;
+
+    module = await Test.createTestingModule({
+      providers: [
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+        { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+        { provide: AiChatService, useValue: mockAiChatService },
+        { provide: SelfDrivenHitlGateService, useValue: approvedGate },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: buildAgentFactoryMock() },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    // ── multiple chunk events total ──────────────────────────────────────────
+    const chunkEvents = eventsOfType(events, "chunk");
+    // Step 0 (tool-capable, AgentFactory): 1 output chunk.
+    // Steps 1+2 (not tool-capable, chatStream): CHUNK_COUNT chunks each.
+    // Total: at least CHUNK_COUNT chunks overall.
+    expect(chunkEvents.length).toBeGreaterThanOrEqual(CHUNK_COUNT);
+
+    // ── per-step chunk count > 1 ─────────────────────────────────────────────
+    // Verify at least one step produced multiple chunk events.
+    // We interleave chunk events with step_started/step_completed, so group them
+    // by which step_started preceded each chunk.
+    const stepStartedEvents = eventsOfType(events, "step_started");
+    const stepCompletedEvents = eventsOfType(events, "step_completed");
+    expect(stepStartedEvents.length).toBeGreaterThanOrEqual(1);
+
+    // For each step, count chunks between step_started and step_completed
+    let foundMultiChunkStep = false;
+    for (const started of stepStartedEvents) {
+      const startIdx = events.findIndex(
+        (e) =>
+          e.type === "step_started" &&
+          (e as typeof started).stepId === started.stepId,
+      );
+      const endIdx = events.findIndex(
+        (e) =>
+          e.type === "step_completed" &&
+          (e as (typeof stepCompletedEvents)[0]).stepId === started.stepId,
+      );
+      if (startIdx === -1 || endIdx === -1) continue;
+      const stepChunks = events
+        .slice(startIdx, endIdx + 1)
+        .filter((e) => e.type === "chunk");
+      if (stepChunks.length > 1) {
+        foundMultiChunkStep = true;
+
+        // ── concatenation equals full text ────────────────────────────────────
+        const concatenated = stepChunks
+          .map(
+            (e) =>
+              (e as { type: "chunk"; missionId: string; content: string })
+                .content,
+          )
+          .join("");
+        // The step userMessage contains "Task: <step.name>\n\n<step.description>"
+        // so fullText starts with "Streamed output for: Task: "
+        expect(concatenated).toMatch(/^Streamed output for:/);
+        expect(concatenated.length).toBeGreaterThan(0);
+      }
+    }
+    expect(foundMultiChunkStep).toBe(true);
+
+    // ── mission done, no errors ───────────────────────────────────────────────
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+    expect(eventsOfType(events, "error")).toHaveLength(0);
+  });
+
+  // =========================================================================
+  // Case 7: ReActLoop path (tool-capable step) AgentFactory.execute() throws
+  //         → degraded gracefully: falls back to chatStream
+  //         → chatStream succeeds → step ok=true
+  //         → mission continues to done
+  // =========================================================================
+
+  it("ReActLoop path degradation: tool-capable step AgentFactory.execute() throws → fallback chatStream produces output → step ok=true, mission reaches done", async () => {
+    // Strategy:
+    //   - AgentFactory.create() returns a mock agent whose execute() throws (step 0)
+    //   - Fallback chatStream succeeds for step 0 (and all non-tool-capable steps)
+    //   - Expected: step 0 ends ok=true (chatStream fallback rescued it), steps 1+2 ok=true,
+    //               mission reaches done, no mission-level error event.
+
+    await module.close();
+
+    const chatStreamSucceeds = jest.fn(async function* (opts: {
+      systemPrompt?: string;
+      messages?: Array<{ role: string; content: string }>;
+      modelType?: AIModelType;
+      operationName?: string;
+    }) {
+      const userContent = opts.messages?.[0]?.content ?? "";
+      const text = `Fallback chatStream output for: ${userContent.slice(0, 60)}`;
+      yield {
+        content: text,
+        done: true,
+        usage: { promptTokens: 20, completionTokens: 40, totalTokens: 60 },
+      };
+    });
+
+    const chatWithPlanSteps = jest.fn(
+      async (opts: {
+        systemPrompt?: string;
+        messages?: Array<{ role: string; content: string }>;
+        responseFormat?: string;
+        modelType?: AIModelType;
+      }) => {
+        const sys = opts.systemPrompt ?? "";
+        const userContent = opts.messages?.[0]?.content ?? "";
+
+        // Plan decomposition: 2-step plan (step 0 react = tool-capable)
+        if (
+          sys.includes("role-agnostic planning assistant") ||
+          (userContent.includes("Goal:") && opts.responseFormat === "json")
+        ) {
+          const steps = [
+            {
+              name: "Research phase",
+              description: "Gather key information on the topic.",
+              type: "task",
+              loopKind: "react",
+              dependencyIndices: [],
+              estimatedDurationMs: 60000,
+            },
+            {
+              name: "Write summary",
+              description: "Produce the written deliverable.",
+              type: "delivery",
+              loopKind: "plan-act",
+              dependencyIndices: [0],
+              estimatedDurationMs: 30000,
+            },
+          ];
+          return { content: JSON.stringify(steps), isError: false };
+        }
+
+        // Rubric generation
+        if (
+          sys.includes("expert evaluator") ||
+          userContent.includes("Objective:")
+        ) {
+          const rubric = [
+            { dimension: "accuracy", weight: 0.5, passLine: 70 },
+            { dimension: "clarity", weight: 0.5, passLine: 65 },
+          ];
+          return { content: JSON.stringify(rubric), isError: false };
+        }
+
+        return {
+          content: `chat fallback: ${userContent.slice(0, 60)}`,
+          isError: false,
+        };
+      },
+    );
+
+    const mockAiChatService = {
+      chat: chatWithPlanSteps,
+      chatStream: chatStreamSucceeds,
+      getAvailableModelsAsync: jest.fn().mockResolvedValue(["mock-model"]),
+    } as unknown as AiChatService;
+
+    const approvedGate = {
+      open: makeApprovedGate(),
+    } as unknown as SelfDrivenHitlGateService;
+    const teamStub = buildMinimalTeamStub();
+    const mockDynamicTeamBuilder = {
+      build: jest.fn().mockReturnValue(teamStub),
+    } as unknown as DynamicTeamBuilder;
+
+    // AgentFactory whose agent throws — triggers chatStream fallback in executeStep
+    const failingFactory = buildFailingAgentFactoryMock();
+
+    module = await Test.createTestingModule({
+      providers: [
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+        { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+        { provide: AiChatService, useValue: mockAiChatService },
+        { provide: SelfDrivenHitlGateService, useValue: approvedGate },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: failingFactory },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    // ── step 0 completed ok=true (chatStream fallback rescued it) ─────────────
+    const stepCompleted = eventsOfType(events, "step_completed");
+    // With 2 steps in the plan, expect exactly 2 step_completed events
+    expect(stepCompleted.length).toBe(2);
+    // The first step (tool-capable, AgentFactory failed → chatStream fallback succeeded) must be ok=true
+    expect(stepCompleted[0].ok).toBe(true);
+    // The second step (not tool-capable, chatStream succeeded) must also be ok=true
+    expect(stepCompleted[1].ok).toBe(true);
+
+    // ── AgentFactory.create() was called once (for the tool-capable step only) ─
+    expect((failingFactory.create as jest.Mock).mock.calls.length).toBe(1);
+
+    // ── chatStream was called for the fallback (step 0) and for step 1 ────────
+    // (step 0 fallback from AgentFactory failure + step 1 normal path)
+    expect((chatStreamSucceeds as jest.Mock).mock.calls.length).toBe(2);
+
+    // ── mission reaches done, no mission-level error event ────────────────────
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+    expect(eventsOfType(events, "error")).toHaveLength(0);
+
+    // ── deliverable is present ────────────────────────────────────────────────
+    const deliverables = eventsOfType(events, "deliverable");
+    expect(deliverables).toHaveLength(1);
+    expect(deliverables[0].content).toContain("# Mission Report");
+  });
+
+  // =========================================================================
+  // Case 4: Single step failure — degraded gracefully, mission reaches done
+  // =========================================================================
+
+  it("step failure: one step chatStream throws (and fallback chat also fails) → step_completed.ok=false, mission continues to done", async () => {
+    let stepCallCount = 0;
+
+    // chat() handles plan decomposition and rubric; also serves as fallback for
+    // chatStream failures. Make fallback chat() also fail for the first step so
+    // the step actually ends up as ok=false (otherwise fallback would succeed).
+    const chatWithFallbackFailure = jest.fn(
+      async (opts: {
+        systemPrompt?: string;
+        messages?: Array<{ role: string; content: string }>;
+        responseFormat?: string;
+        modelType?: AIModelType;
+      }) => {
+        const sys = opts.systemPrompt ?? "";
+        const userContent = opts.messages?.[0]?.content ?? "";
+
+        // Decomposition response
+        if (
+          sys.includes("role-agnostic planning assistant") ||
+          (userContent.includes("Goal:") && opts.responseFormat === "json")
+        ) {
+          // Return two steps so one can fail and another succeeds
+          const steps = [
+            {
+              name: "Research the topic",
+              description: "Gather information.",
+              type: "task",
+              loopKind: "react",
+              dependencyIndices: [],
+              estimatedDurationMs: 60000,
+            },
+            {
+              name: "Write report",
+              description: "Write the final report.",
+              type: "delivery",
+              loopKind: "plan-act",
+              dependencyIndices: [0],
+              estimatedDurationMs: 30000,
+            },
+          ];
+          return { content: JSON.stringify(steps), isError: false };
+        }
+
+        // Rubric response
+        if (
+          sys.includes("expert evaluator") ||
+          userContent.includes("Objective:")
+        ) {
+          const rubric = [
+            { dimension: "accuracy", weight: 0.5, passLine: 70 },
+            { dimension: "clarity", weight: 0.5, passLine: 65 },
+          ];
+          return { content: JSON.stringify(rubric), isError: false };
+        }
+
+        // Fallback chat() for step execution (called when chatStream fails):
+        // fail the FIRST step fallback call, succeed on subsequent ones.
+        stepCallCount++;
+        if (stepCallCount === 1) {
+          throw new Error("Simulated fallback LLM failure for step 1");
+        }
+
+        return {
+          content: `Step ${stepCallCount} output content for task.`,
+          isError: false,
+        };
+      },
+    );
+
+    let streamCallCount = 0;
+    // chatStream: fail the first call (triggers fallback to chat()), succeed on rest
+    const chatStreamWithOneFailure = jest.fn(async function* (opts: {
+      systemPrompt?: string;
+      messages?: Array<{ role: string; content: string }>;
+      modelType?: AIModelType;
+    }) {
+      streamCallCount++;
+      if (streamCallCount === 1) {
+        throw new Error("Simulated chatStream failure for step 1");
+      }
+      const userContent = opts.messages?.[0]?.content ?? "";
+      const text = `Step stream output for: ${userContent.slice(0, 60)}`;
+      yield {
+        content: text,
+        done: true,
+        usage: { promptTokens: 40, completionTokens: 60, totalTokens: 100 },
+      };
+    });
+
+    await module.close();
+
+    const mockAiChatService = {
+      chat: chatWithFallbackFailure,
+      chatStream: chatStreamWithOneFailure,
+      getAvailableModelsAsync: jest.fn().mockResolvedValue(["mock-model"]),
+    } as unknown as AiChatService;
+
+    const approvedHitl = {
+      open: makeApprovedGate(),
+    } as unknown as SelfDrivenHitlGateService;
+
+    const teamStub = buildMinimalTeamStub();
+    const mockDynamicTeamBuilder = {
+      build: jest.fn().mockReturnValue(teamStub),
+    } as unknown as DynamicTeamBuilder;
+
+    // Step 0 (react, tool-capable) uses AgentFactory — succeeds normally.
+    // Step 1 (delivery, plan-act) uses chatStream — which fails on its first call,
+    // then fallback chat() also fails → step 1 ends ok=false.
+    const successfulAgentFactory = buildAgentFactoryMock();
+
+    module = await Test.createTestingModule({
+      providers: [
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+        { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+        { provide: AiChatService, useValue: mockAiChatService },
+        { provide: SelfDrivenHitlGateService, useValue: approvedHitl },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: successfulAgentFactory },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    const stepCompleted = eventsOfType(events, "step_completed");
+
+    // At least one step must have failed
+    const failedSteps = stepCompleted.filter((e) => !e.ok);
+    expect(failedSteps.length).toBeGreaterThanOrEqual(1);
+
+    // Mission must NOT have crashed — done event must be present
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+
+    // No mission-level error event (single-step failure is degraded, not fatal)
+    const missionErrors = eventsOfType(events, "error");
+    expect(missionErrors).toHaveLength(0);
+
+    // Deliverable must still be emitted (possibly with skipped-step note)
+    const deliverables = eventsOfType(events, "deliverable");
+    expect(deliverables).toHaveLength(1);
+    expect(deliverables[0].content).toContain("# Mission Report");
+  });
+});

@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Logger } from "@nestjs/common";
 import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm.factory";
 import { ILLMAdapter } from "@/modules/ai-engine/llm/abstractions/llm-adapter.interface";
+import type { IStepDecompositionService } from "@/modules/ai-engine/planning/decomposition/abstractions/step-decomposition.interface";
 import {
   TaskInput,
   SubTask,
@@ -15,6 +16,7 @@ import {
   IntegratedResult,
 } from "../abstractions/member.interface";
 import { RoleId } from "../abstractions/role.interface";
+import { ROLE_INVENTORY_IDS } from "../role-inventory/role-inventory";
 
 /**
  * Leader LLM 适配器接口
@@ -59,6 +61,7 @@ export class LeaderLLMAdapter implements ILeaderLLMAdapter {
   constructor(
     private readonly llmFactory: LLMFactory,
     model?: string,
+    private readonly stepDecomposition?: IStepDecompositionService,
   ) {
     // 如果未指定模型，从 LLMFactory 获取默认模型，严禁硬编码
     this.model = model || this.llmFactory.getDefaultModel();
@@ -79,6 +82,11 @@ export class LeaderLLMAdapter implements ILeaderLLMAdapter {
 
   /**
    * 使用 LLM 分解任务
+   *
+   * 薄封装 StepDecompositionService（ADR-009 去重）：
+   *   1. 调 engine 分解原语得到 role-agnostic RawExecutionStep[]
+   *   2. 叠加 availableRoles 映射成 SubTask[]（round-robin 角色分配）
+   * 当 StepDecompositionService 不可用时，回退到原有 LLM 直调逻辑。
    */
   async decomposeTask(
     task: TaskInput,
@@ -87,6 +95,90 @@ export class LeaderLLMAdapter implements ILeaderLLMAdapter {
   ): Promise<SubTask[]> {
     this.logger.log(`Decomposing task: ${task.id}`);
 
+    if (this.stepDecomposition) {
+      return this.decomposeViaEngine(task, availableRoles);
+    }
+
+    return this.decomposeViaLegacyLLM(task, availableRoles, leaderPersona);
+  }
+
+  /**
+   * 委托 engine StepDecompositionService 分解，再叠加角色映射。
+   * (ADR-009 去重路径)
+   */
+  private async decomposeViaEngine(
+    task: TaskInput,
+    availableRoles: RoleId[],
+  ): Promise<SubTask[]> {
+    const fallbackRoles =
+      availableRoles.length > 0
+        ? availableRoles
+        : [ROLE_INVENTORY_IDS.RESEARCHER];
+
+    try {
+      const context: Record<string, unknown> = {};
+      if (task.requirements?.length) {
+        context["requirements"] = task.requirements;
+      }
+      if (task.context && Object.keys(task.context).length > 0) {
+        Object.assign(context, task.context);
+      }
+
+      const result = await this.stepDecomposition!.decompose({
+        goal: task.description,
+        context: Object.keys(context).length > 0 ? context : undefined,
+      });
+
+      const rawSteps = result.steps;
+
+      // Pre-allocate stable IDs so dependency indices can be resolved.
+      const stepIds = rawSteps.map(() => uuidv4());
+
+      const subTasks: SubTask[] = rawSteps.map((step, index) => ({
+        id: stepIds[index],
+        parentTaskId: task.id,
+        description: step.description,
+        // Round-robin role assignment; evenly distributes work across members.
+        suggestedRole:
+          fallbackRoles[index % fallbackRoles.length] ?? fallbackRoles[0],
+        dependencies: step.dependencyIndices
+          .filter((depIdx) => depIdx >= 0 && depIdx < index)
+          .map((depIdx) => stepIds[depIdx]),
+        estimatedDuration: step.estimatedDurationMs,
+        // Earlier steps are higher priority (1 = highest).
+        priority: Math.min(index + 1, 5),
+      }));
+
+      this.logger.log(
+        `[decomposeTask] engine decomposed "${task.description.slice(0, 60)}" → ${subTasks.length} subtasks`,
+      );
+      return subTasks;
+    } catch (error) {
+      this.logger.error(
+        `[decomposeTask] engine decomposition failed, using single-step fallback: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [
+        {
+          id: uuidv4(),
+          parentTaskId: task.id,
+          description: task.description,
+          suggestedRole: fallbackRoles[0],
+          dependencies: [],
+          estimatedDuration: 60_000,
+          priority: 1,
+        },
+      ];
+    }
+  }
+
+  /**
+   * 原有 LLM 直调逻辑（当 StepDecompositionService 不可用时使用）。
+   */
+  private async decomposeViaLegacyLLM(
+    task: TaskInput,
+    availableRoles: RoleId[],
+    leaderPersona: string,
+  ): Promise<SubTask[]> {
     const llm = this.getLLM();
 
     const systemPrompt = `${leaderPersona}
@@ -159,7 +251,7 @@ ${task.context ? `上下文：${JSON.stringify(task.context)}` : ""}`;
           id: uuidv4(),
           parentTaskId: task.id,
           description: task.description,
-          suggestedRole: availableRoles[0] || "researcher",
+          suggestedRole: availableRoles[0] || ROLE_INVENTORY_IDS.RESEARCHER,
           dependencies: [],
           estimatedDuration: 60000,
           priority: 1,
@@ -359,10 +451,14 @@ ${typeof r.content === "string" ? r.content : JSON.stringify(r.content, null, 2)
 
 /**
  * 创建 Leader LLM 适配器
+ *
+ * @param stepDecomposition - 若提供，decomposeTask 走 engine 分解原语（ADR-009）；
+ *                            否则回退到原有 LLM 直调逻辑。
  */
 export function createLeaderLLMAdapter(
   llmFactory: LLMFactory,
   model?: string,
+  stepDecomposition?: IStepDecompositionService,
 ): ILeaderLLMAdapter {
-  return new LeaderLLMAdapter(llmFactory, model);
+  return new LeaderLLMAdapter(llmFactory, model, stepDecomposition);
 }

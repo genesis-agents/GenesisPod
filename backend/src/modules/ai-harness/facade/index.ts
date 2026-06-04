@@ -130,6 +130,49 @@ export {
 // #35: strict finalize output schemas (business-agent level)
 export { RESEARCHER_FINALIZE_OUTPUT_JSON_SCHEMA } from "../runner/loop/loop-output-schemas";
 export { ModelResolverService } from "./model-resolver.service";
+// Self-Driven Team public surface (ask-self-driven.service consumer)
+export { SelfDrivenMissionRunner } from "../teams/orchestrator/self-driven/self-driven-mission-runner.service";
+export { SelfDrivenMissionPlannerService } from "../teams/orchestrator/self-driven/self-driven-mission-planner.service";
+// ★ P4a HITL gate (2026-06-04): DB-poll approval primitive + sanitize wrapper
+export { SelfDrivenHitlGateService } from "../teams/orchestrator/self-driven/self-driven-hitl-gate";
+export type { HitlGateOutcome } from "../teams/orchestrator/self-driven/self-driven-hitl-gate";
+// ★ P4a HITL gate: HumanApprovalAdminService — approval response submission side.
+//   open-api/admin imports directly (legacy); new code goes through this facade export.
+export {
+  HumanApprovalAdminService,
+  type ApprovalRespondInput,
+  type ApprovalRequestPayload,
+} from "../lifecycle/human-approval-admin.service";
+export type { SelfDrivenMissionEvent } from "../teams/orchestrator/abstractions/self-driven-mission.types";
+export type {
+  ISelfDrivenMissionPlanner,
+  SelfDrivenPlannerInput,
+} from "../teams/orchestrator/abstractions/self-driven-mission-planner.interface";
+export { SELF_DRIVEN_MISSION_PLANNER } from "../teams/orchestrator/abstractions/self-driven-mission-planner.interface";
+export type {
+  RoleAssignment,
+  MissionExecutionPlan,
+  ExecutionStep,
+} from "../teams/orchestrator/orchestrator.interface";
+// ★ P2 Self-Driven Team (2026-06-04): RoleInventory 角色原型调色板
+//   capability-singleton.spec.ts 锁定唯一实现；DynamicTeamBuilder 白名单来源（safety-05/10）
+export {
+  RoleInventory,
+  ROLE_INVENTORY_IDS,
+} from "../teams/role-inventory/role-inventory";
+export type { RoleInventoryId } from "../teams/role-inventory/role-inventory";
+export type {
+  IRoleInventory,
+  RolePrototype,
+} from "../teams/abstractions/role-inventory.interface";
+export { ROLE_INVENTORY as ROLE_INVENTORY_TOKEN } from "../teams/abstractions/role-inventory.interface";
+// ★ P2 Self-Driven Team (2026-06-04): DynamicTeamBuilder — converts planner
+//   RoleAssignments → live ITeam via TeamFactory (§5.3 / safety-05/09/10).
+//   AgentAccessDeniedError: thrown when a roleId is absent from RoleInventory.
+export {
+  DynamicTeamBuilder,
+  AgentAccessDeniedError,
+} from "../teams/dynamic-team/dynamic-team-builder";
 export {
   FACADE_FEATURE_PROVIDERS,
   MEMORY_FEATURE,
@@ -225,6 +268,14 @@ export {
   type BalancerOptions,
   type BalancerResult,
 } from "../evaluation/critique";
+
+// ★ P1 Self-Driven Team (2026-06-04): LLM 生成验收 rubric（带 clamp 护栏）
+export { RubricGeneratorService } from "../evaluation/rubric/rubric-generator.service";
+export type {
+  IRubricGenerator,
+  RubricDimension,
+  RubricGenerationInput,
+} from "../evaluation/abstractions/rubric-generator.interface";
 
 // ★ 沉淀 Phase 3 (2026-04-29): 通用并发信号量
 export { ConcurrencyLimiter } from "../runner/concurrency";

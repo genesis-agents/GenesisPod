@@ -37,6 +37,7 @@ import { CostController } from "@/modules/ai-harness/guardrails/resources/cost-c
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 import { MCPManager } from "@/modules/ai-engine/tools/adapters/mcp/manager/mcp-manager";
 import { AiChatService } from "@/modules/ai-engine/llm/chat/ai-chat.service";
+import { StepDecompositionService } from "@/modules/ai-engine/planning/decomposition/step-decomposition.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { TraceCollectorService } from "@/modules/ai-harness/tracing/observability/trace-collector.service";
 import { CheckpointManager } from "@/modules/ai-harness/protocols/journal/checkpoint-manager";
@@ -77,17 +78,28 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
       },
       inject: [CostController],
     },
-    // TeamFactory 依赖 RoleRegistry、TeamRegistry 和 LLMFactory
+    // TeamFactory 依赖 RoleRegistry、TeamRegistry、LLMFactory 和 StepDecompositionService（ADR-009）
     {
       provide: TeamFactory,
       useFactory: (
         roleRegistry: RoleRegistry,
         teamRegistry: TeamRegistry,
         llmFactory: LLMFactory,
+        stepDecomposition: StepDecompositionService,
       ) => {
-        return new TeamFactory(roleRegistry, teamRegistry, llmFactory);
+        return new TeamFactory(
+          roleRegistry,
+          teamRegistry,
+          llmFactory,
+          stepDecomposition,
+        );
       },
-      inject: [RoleRegistry, TeamRegistry, LLMFactory],
+      inject: [
+        RoleRegistry,
+        TeamRegistry,
+        LLMFactory,
+        StepDecompositionService,
+      ],
     },
     // CheckpointManager (可选依赖，用于自动保存检查点)
     {

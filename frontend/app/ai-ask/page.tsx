@@ -3,6 +3,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { streamAskMessage } from '@/lib/api/ai-ask-stream';
+import { SelfDrivenStream } from '@/components/ai-ask/SelfDrivenStream';
+import { useSelfDrivenChat } from '@/components/ai-ask/useSelfDrivenChat';
 
 // W4-byok 2026-05-05: 提到共享组件，让所有用到 BYOK 标识的地方走同一来源
 // 2026-05-06 截图 40：ModelKeyMeta 让 AI Ask 模型行也走 KeyRound/Server lucide 图标
@@ -948,6 +950,9 @@ export default function AskPage() {
   const [mixtureResponses, setMixtureResponses] = useState<MixtureResponse[]>(
     []
   );
+  const selfDriven = useSelfDrivenChat({
+    appendUser: (m) => setMessages((prev) => [...prev, m]),
+  });
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
@@ -1119,6 +1124,7 @@ export default function AskPage() {
 
   const selectedModelInfo = chatModels.find((m) => m.id === selectedModel);
   const isMixtureMode = selectedModel === 'mixture';
+  const isSelfDrivenMode = selectedModel === 'self-driven-team';
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -1304,6 +1310,7 @@ export default function AskPage() {
     setCurrentSessionId(null);
     setMessages([]);
     setMixtureResponses([]);
+    selfDriven.reset();
     setMessageSuggestions(new Map());
     setInput('');
   }, []);
@@ -1480,6 +1487,7 @@ export default function AskPage() {
     setIsLoading(true);
     setStreamStage(webSearchEnabled ? 'rag' : 'thinking');
     setMixtureResponses([]);
+    selfDriven.reset();
 
     // Create abort controller for this request
     abortControllerRef.current = new AbortController();
@@ -1490,7 +1498,11 @@ export default function AskPage() {
     }
 
     try {
-      if (isMixtureMode) {
+      if (isSelfDrivenMode) {
+        if (!token) return;
+        setStreamStage(null);
+        await selfDriven.run({ prompt: userContent, token, signal });
+      } else if (isMixtureMode) {
         // Mixture mode: call multiple models in parallel (legacy behavior)
         if (chatModels.length === 0) {
           setToastMessage('No models available for Mixture mode');
@@ -1788,7 +1800,7 @@ export default function AskPage() {
     return 'Good evening';
   };
 
-  // Build model options: only CHAT models + Mixture
+  // Build model options: only CHAT models + Mixture + Self-Driven Team (pseudo-models)
   const modelOptions = [
     ...chatModels,
     {
@@ -1798,6 +1810,14 @@ export default function AskPage() {
       icon: '🔀',
       modelType: 'CHAT' as const,
       isMixture: true,
+    },
+    {
+      id: 'self-driven-team',
+      name: 'Self-Driven Team',
+      provider: 'Agent Harness',
+      icon: '',
+      modelType: 'CHAT' as const,
+      isSelfDriven: true,
     },
   ];
 
@@ -1931,9 +1951,8 @@ export default function AskPage() {
                                   </span>
                                 ) : (
                                   <>
-                                    {isMixtureMode ? (
-                                      <span>🔀</span>
-                                    ) : selectedModelInfo ? (
+                                    {isMixtureMode ||
+                                    isSelfDrivenMode ? null : selectedModelInfo ? (
                                       <ModelIcon
                                         model={selectedModelInfo}
                                         size={16}
@@ -1944,14 +1963,18 @@ export default function AskPage() {
                                     <span
                                       className="min-w-0 truncate"
                                       title={
-                                        isMixtureMode
-                                          ? 'Mixture'
-                                          : selectedModelInfo?.name
+                                        isSelfDrivenMode
+                                          ? 'Self-Driven Team'
+                                          : isMixtureMode
+                                            ? 'Mixture'
+                                            : selectedModelInfo?.name
                                       }
                                     >
-                                      {isMixtureMode
-                                        ? 'Mixture'
-                                        : selectedModelInfo?.name || 'Select'}
+                                      {isSelfDrivenMode
+                                        ? 'Self-Driven Team'
+                                        : isMixtureMode
+                                          ? 'Mixture'
+                                          : selectedModelInfo?.name || 'Select'}
                                     </span>
                                     <svg
                                       className="h-4 w-4 shrink-0 text-gray-400"
@@ -2320,6 +2343,26 @@ export default function AskPage() {
                   );
                 })}
 
+                {/* Self-Driven Team stream output */}
+                {(selfDriven.events.length > 0 ||
+                  (isLoading && isSelfDrivenMode)) && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[90%] rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-100">
+                      <SelfDrivenStream
+                        events={selfDriven.events}
+                        isStreaming={
+                          isLoading &&
+                          isSelfDrivenMode &&
+                          !selfDriven.events.some(
+                            (e) => e.type === 'done' || e.type === 'error'
+                          )
+                        }
+                        token={token ?? ''}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Mixture Responses - show when there are responses (loading or completed) */}
                 {mixtureResponses.length > 0 && (
                   <div className="space-y-3">
@@ -2398,6 +2441,7 @@ export default function AskPage() {
                     temp-assistant 出现就隐藏，避免与流式 bubble 重叠错位 */}
                 {isLoading &&
                   !isMixtureMode &&
+                  !isSelfDrivenMode &&
                   !messages.some(
                     (m) =>
                       m.role === 'assistant' &&
@@ -2650,17 +2694,18 @@ export default function AskPage() {
                             }
                             className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
                           >
-                            {isMixtureMode ? (
-                              <span>🔀</span>
-                            ) : selectedModelInfo ? (
+                            {isMixtureMode ||
+                            isSelfDrivenMode ? null : selectedModelInfo ? (
                               <ModelIcon model={selectedModelInfo} size={16} />
                             ) : (
                               <span>🤖</span>
                             )}
                             <span>
-                              {isMixtureMode
-                                ? 'Mixture'
-                                : selectedModelInfo?.name || 'Model'}
+                              {isSelfDrivenMode
+                                ? 'Self-Driven Team'
+                                : isMixtureMode
+                                  ? 'Mixture'
+                                  : selectedModelInfo?.name || 'Model'}
                             </span>
                             <svg
                               className="h-4 w-4 text-gray-400"

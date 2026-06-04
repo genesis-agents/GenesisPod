@@ -100,3 +100,20 @@ export const RESEARCHER_MAX_ITERATIONS_HARD_CAP = 10;
  * - 框架通过 maxWallTimeMs 强制 abort，避免 reasoning 模型 232s/call × 多轮死等
  */
 export const RESEARCHER_MAX_WALL_TIME_MS = 600_000;
+
+// ============ Self-Driven Agent Team Caps ============
+
+/**
+ * RubricGenerator 产出的 passLine 硬上界。
+ * - clamp(passLine, REVIEW_PASS_THRESHOLD=60, RUBRIC_PASS_LINE_CAP=90)
+ * - 防止 passLine→99 导致质量门永远无法通过（无谓多轮重试浪费 token）
+ * - 设计见 docs/architecture/ai-harness/self-driven-team/ §5.2/§9
+ */
+export const RUBRIC_PASS_LINE_CAP = 90;
+
+/**
+ * Self-Driven Agent 单 mission 最大循环迭代数（全局硬 cap）。
+ * - RoleInventory 可声明 custom 但不得超过此值（safety-09）
+ * - 防止自驱循环无节制烧钱（mission 165c967f 类事故的一般化护栏）
+ */
+export const SELF_DRIVEN_AGENT_MAX_ITERATIONS = 8;

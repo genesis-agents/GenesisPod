@@ -1,0 +1,406 @@
+/**
+ * SelfDrivenStream
+ *
+ * Renders the incremental Self-Driven Team mission output inside the AI Ask
+ * chat area.  Receives the live event list built by page.tsx and maps each
+ * event type to a visual element:
+ *
+ *   mission_started    → missionId chip
+ *   phase              → phase badge (started/completed/failed)
+ *   plan               → execution plan card (steps / roles / rubric)
+ *   team_built         → team member chips
+ *   step_started       → step row (running)
+ *   step_completed     → step row (done / failed + duration)
+ *   awaiting_approval  → HITL approval bar
+ *   approval_resolved  → resolved state on approval bar
+ *   chunk              → accumulated prose text (typewriter)
+ *   deliverable        → final report card
+ *   done               → completion indicator
+ *   error              → error banner
+ *
+ * Stateless — all state lives in page.tsx (except approval bar local submit state).
+ */
+'use client';
+
+import {
+  CheckCircle,
+  CircleDot,
+  AlertCircle,
+  FileText,
+  Loader,
+  Users,
+  ChevronRight,
+  Clock,
+} from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import {
+  StatusBadge,
+  type BadgeTone,
+} from '@/components/ui/badges/StatusBadge';
+import { SelfDrivenPlanCard } from '@/components/ai-ask/SelfDrivenPlanCard';
+import { SelfDrivenApprovalBar } from '@/components/ai-ask/SelfDrivenApprovalBar';
+import type {
+  SelfDrivenMissionEvent,
+  MissionStartedEvent,
+  PhaseEvent,
+  PlanEvent,
+  TeamBuiltEvent,
+  StepStartedEvent,
+  StepCompletedEvent,
+  AwaitingApprovalEvent,
+  ApprovalResolvedEvent,
+  ChunkEvent,
+  DeliverableEvent,
+  DoneEvent,
+  SelfDrivenErrorEvent,
+} from '@/lib/api/self-driven-stream';
+
+interface SelfDrivenStreamProps {
+  events: SelfDrivenMissionEvent[];
+  isStreaming: boolean;
+  /** Bearer token forwarded from page.tsx for HITL approval calls. */
+  token?: string;
+}
+
+// --------------- sub-renderers ---------------
+
+function PhaseBadge({ ev }: { ev: PhaseEvent }) {
+  const toneMap: Record<PhaseEvent['status'], BadgeTone> = {
+    started: 'running',
+    completed: 'success',
+  };
+
+  const tone: BadgeTone = toneMap[ev.status] ?? 'neutral';
+
+  return (
+    <StatusBadge
+      tone={tone}
+      label={
+        <span>
+          <span className="capitalize">{ev.phase}</span>
+          <span className="ml-1 opacity-60">
+            {ev.status === 'started' ? 'Running' : 'Done'}
+          </span>
+        </span>
+      }
+      pulse={ev.status === 'started'}
+      size="sm"
+    />
+  );
+}
+
+function TeamCard({ ev }: { ev: TeamBuiltEvent }) {
+  if (!ev.roles.length) return null;
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2.5">
+        <Users size={15} className="shrink-0 text-violet-600" aria-hidden />
+        <span className="text-sm font-semibold text-gray-800">Team</span>
+        <span className="ml-auto text-xs text-gray-400">
+          {ev.roles.length} members
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2 px-4 py-3">
+        {ev.roles.map((r) => (
+          <div
+            key={r.roleId}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-1.5"
+          >
+            <span className="text-xs font-medium text-gray-700">
+              {r.roleId}
+            </span>
+            {r.modelId && (
+              <>
+                <ChevronRight size={10} className="text-gray-300" aria-hidden />
+                <span className="font-mono text-[11px] text-gray-500">
+                  {r.modelId}
+                </span>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StepRow({
+  step,
+  completed,
+}: {
+  step: StepStartedEvent;
+  completed: StepCompletedEvent | undefined;
+}) {
+  const isRunning = !completed;
+  const ok = completed?.ok ?? true;
+
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm odd:bg-gray-50">
+      {/* Status icon */}
+      <span className="shrink-0">
+        {isRunning ? (
+          <Loader
+            size={13}
+            className="animate-spin text-blue-500"
+            aria-hidden
+          />
+        ) : ok ? (
+          <CheckCircle size={13} className="text-emerald-500" aria-hidden />
+        ) : (
+          <AlertCircle size={13} className="text-red-500" aria-hidden />
+        )}
+      </span>
+
+      {/* Index */}
+      <span className="w-5 shrink-0 text-center text-[11px] font-bold text-gray-400">
+        {step.stepIndex + 1}
+      </span>
+
+      {/* Name */}
+      <span
+        className={`flex-1 ${isRunning ? 'text-gray-800' : ok ? 'text-gray-600' : 'text-red-700'}`}
+      >
+        {step.stepName}
+      </span>
+
+      {/* Executor */}
+      <span className="shrink-0 text-[11px] text-gray-400">
+        {step.executor}
+      </span>
+
+      {/* Duration */}
+      {completed && (
+        <span className="flex shrink-0 items-center gap-0.5 text-[11px] text-gray-400">
+          <Clock size={10} aria-hidden />
+          {(completed.durationMs / 1000).toFixed(1)}s
+        </span>
+      )}
+    </div>
+  );
+}
+
+function StepsProgress({
+  startedEvents,
+  completedEvents,
+}: {
+  startedEvents: StepStartedEvent[];
+  completedEvents: StepCompletedEvent[];
+}) {
+  if (!startedEvents.length) return null;
+
+  const completedMap = new Map(completedEvents.map((e) => [e.stepId, e]));
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2.5">
+        <CheckCircle size={15} className="shrink-0 text-blue-600" aria-hidden />
+        <span className="text-sm font-semibold text-gray-800">Progress</span>
+        <span className="ml-auto text-xs text-gray-400">
+          {completedEvents.length} / {startedEvents[0].totalSteps}
+        </span>
+      </div>
+      <div className="divide-y divide-gray-50 py-1">
+        {startedEvents.map((step) => (
+          <StepRow
+            key={step.stepId}
+            step={step}
+            completed={completedMap.get(step.stepId)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChunkAccumulator({ events }: { events: SelfDrivenMissionEvent[] }) {
+  const accumulated = events
+    .filter((e): e is ChunkEvent => e.type === 'chunk')
+    .map((e) => e.content)
+    .join('');
+
+  if (!accumulated) return null;
+
+  return (
+    <div className="prose prose-sm max-w-none text-gray-800">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{accumulated}</ReactMarkdown>
+    </div>
+  );
+}
+
+function DeliverableCard({ ev }: { ev: DeliverableEvent }) {
+  return (
+    <div className="mt-3 rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2.5">
+        <FileText size={15} className="shrink-0 text-violet-600" aria-hidden />
+        <span className="text-sm font-semibold capitalize text-gray-800">
+          {ev.deliverableType}
+        </span>
+        <CheckCircle
+          size={13}
+          className="ml-auto text-emerald-500"
+          aria-hidden
+        />
+      </div>
+      <div className="prose prose-sm max-w-none px-4 py-3">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{ev.content}</ReactMarkdown>
+      </div>
+    </div>
+  );
+}
+
+// --------------- main component ---------------
+
+export function SelfDrivenStream({
+  events,
+  isStreaming,
+  token = '',
+}: SelfDrivenStreamProps) {
+  if (events.length === 0 && !isStreaming) return null;
+
+  const startedEv = events.find(
+    (e): e is MissionStartedEvent => e.type === 'mission_started'
+  );
+  const missionId = startedEv?.missionId ?? '';
+
+  const phaseEvents = events.filter((e): e is PhaseEvent => e.type === 'phase');
+
+  // plan event — last wins if somehow emitted more than once
+  const planEvents = events.filter((e): e is PlanEvent => e.type === 'plan');
+  const planEvent = planEvents[planEvents.length - 1];
+
+  // team_built
+  const teamBuiltEvent = events.find(
+    (e): e is TeamBuiltEvent => e.type === 'team_built'
+  );
+
+  // step events
+  const stepStartedEvents = events.filter(
+    (e): e is StepStartedEvent => e.type === 'step_started'
+  );
+  const stepCompletedEvents = events.filter(
+    (e): e is StepCompletedEvent => e.type === 'step_completed'
+  );
+
+  // HITL
+  // Last awaiting event wins (in case of multiple gates in sequence)
+  const awaitingEvents = events.filter(
+    (e): e is AwaitingApprovalEvent => e.type === 'awaiting_approval'
+  );
+  const awaitingEvent = awaitingEvents[awaitingEvents.length - 1] ?? null;
+  const resolvedEvent = events.findLast
+    ? (events.findLast(
+        (e): e is ApprovalResolvedEvent => e.type === 'approval_resolved'
+      ) ?? null)
+    : (events
+        .filter(
+          (e): e is ApprovalResolvedEvent => e.type === 'approval_resolved'
+        )
+        .pop() ?? null);
+
+  const deliverables = events.filter(
+    (e): e is DeliverableEvent => e.type === 'deliverable'
+  );
+  const deliverable = deliverables[deliverables.length - 1];
+
+  const done = events.find((e): e is DoneEvent => e.type === 'done');
+
+  const errorEv = events.find(
+    (e): e is SelfDrivenErrorEvent => e.type === 'error'
+  );
+
+  return (
+    <div className="space-y-2.5">
+      {/* Mission ID chip */}
+      {missionId && (
+        <div className="flex items-center gap-1.5">
+          <CircleDot
+            size={12}
+            className={
+              isStreaming ? 'animate-pulse text-violet-500' : 'text-gray-400'
+            }
+            aria-hidden
+          />
+          <span className="font-mono text-[11px] text-gray-400">
+            {missionId.slice(0, 8)}
+          </span>
+        </div>
+      )}
+
+      {/* Phase badges */}
+      {phaseEvents.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {phaseEvents.map((ev, i) => (
+            <PhaseBadge key={`${ev.phase}-${ev.status}-${i}`} ev={ev} />
+          ))}
+        </div>
+      )}
+
+      {/* Execution plan card */}
+      {planEvent && <SelfDrivenPlanCard ev={planEvent} />}
+
+      {/* HITL approval bar — shown after plan or deliver gate */}
+      {awaitingEvent && (
+        <SelfDrivenApprovalBar
+          awaiting={awaitingEvent}
+          resolved={resolvedEvent}
+          token={token}
+        />
+      )}
+
+      {/* Team members */}
+      {teamBuiltEvent && <TeamCard ev={teamBuiltEvent} />}
+
+      {/* Step-by-step progress */}
+      {stepStartedEvents.length > 0 && (
+        <StepsProgress
+          startedEvents={stepStartedEvents}
+          completedEvents={stepCompletedEvents}
+        />
+      )}
+
+      {/* Streaming chunk text (before deliverable arrives) */}
+      {!deliverable && <ChunkAccumulator events={events} />}
+
+      {/* Final deliverable */}
+      {deliverable && <DeliverableCard ev={deliverable} />}
+
+      {/* Error banner */}
+      {errorEv && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden />
+          <span>{errorEv.message}</span>
+        </div>
+      )}
+
+      {/* Done indicator */}
+      {done && !errorEv && (
+        <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+          <CheckCircle size={13} aria-hidden />
+          <span>Mission complete</span>
+        </div>
+      )}
+
+      {/* Streaming pulse when no chunk yet */}
+      {isStreaming && !missionId && (
+        <div className="flex items-center gap-2">
+          <span
+            className="h-2 w-2 animate-bounce rounded-full bg-violet-500"
+            style={{ animationDelay: '0ms' }}
+          />
+          <span
+            className="h-2 w-2 animate-bounce rounded-full bg-violet-500"
+            style={{ animationDelay: '150ms' }}
+          />
+          <span
+            className="h-2 w-2 animate-bounce rounded-full bg-violet-500"
+            style={{ animationDelay: '300ms' }}
+          />
+          <span className="text-sm text-gray-500">
+            Self-Driven Team is thinking...
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
