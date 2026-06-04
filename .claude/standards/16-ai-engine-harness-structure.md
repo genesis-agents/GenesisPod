@@ -287,7 +287,45 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 
 1. **兄弟目录互斥**：同一父目录下子目录不可有功能重叠
 2. **不创建空容器**：禁止 `patterns/`、`utilities/` 这种纯分类壳
-3. **不超过 2 层嵌套**：超过则需重新审视拆分粒度
+3. **不超过 2 层嵌套**：超过则需重新审视拆分粒度（注：`xxx/models/selection`、`tools/categories/<domain>` 等成熟 3 层为已接受例外）
+
+---
+
+## 五·补、ai-engine 递归子目录 MECE 看护（2026-06-04 全量审计后硬化）
+
+> **背景**：2026-06-04 对 `ai-engine/` 12 聚合做了递归全量审计（每个聚合实读 index/module/代表 service）。顶层 12 聚合划分干净，但递归子目录层暴露出"agent 状态泄漏进 L2、同名概念重复、自造词目录、垃圾抽屉"等存量违规。本节把可机判的不变量固化为 **6 条律**，由 spec 看护：
+>
+> **🔒 已 spec 看护**：`src/__tests__/architecture/layer-4-vocabulary/ai-engine-structure.spec.ts`（进 `verify:arch`）。每条律带**收缩 ALLOWLIST**跟踪存量违规（搬一个删一行，清空即硬焊 0），新增违规即红。
+
+### 每个聚合的目标子目录（reviewer 参照，spec 不逐一硬焊；偏离用律 1-6 兜底）
+
+| 聚合 | 目标子目录（√=合规存量） | 已知偏离（待整改） |
+| --- | --- | --- |
+| **llm** | abstractions / adapters / byok / chat / factory / image / models{capability,catalog,config,pricing,selection} / output{sanitization,structured} / prompts / providers / types | — |
+| **tools** | abstractions / base / registry / middleware / concurrency / cache / result-spill / search-fusion / adapters{mcp} / categories{…taxonomy} | `adapters/` 缺 openapi/function（spec 声称有）；`categories/collaboration/*` 含 agent 编排语义（R1 灰区） |
+| **rag** | abstractions / chunking / embedding / vector / pipeline | pipeline 内联 Cohere rerank（与 knowledge/rerank 概念撞） |
+| **knowledge** | abstractions / extraction / consistency / synthesis / world-building / evidence | `search/`=web 搜索 egress（misfiled，属 content/fetch 邻域）；`rerank/`=重复概念（见律5） |
+| **content** | abstractions / fetch / sources / markdown / citation / figure / report-template / types / image{matching} | 根目录散落 util 文件（应入子目录）；`image/matching` 仅剩 types（**活的，office 在用，勿删**） |
+| **routing** | （根）scored-router / signal-scorers / scoring-formulas / eval | `eval/` 与顶层 `evaluation/` 近形同名易混（建议 `benchmark/`） |
+| **reliability** | rate-limit / entity-health | `entity-health` 对外名 vs 内部 circuit-breaker 词汇未对齐 |
+| **evaluation** | abstractions / checkers / services / types | 干净（无 LLM、无 agent 状态，已核实） |
+| **skills** | abstractions / base / registry / types / loader / builder / spec-builder / content / output-manager / routing / analytics / sandbox / marketplace / adapters | `runtime/`（自造词，律3）；`ecosystem/`（含糊词，应 marketplace，律3）；`spec-builder/` 产 `IAgentSpec`（R1 词汇泄漏，律6） |
+| **planning** | budget / context / intent / reflection | `planning.module` 注册了 knowledge 聚合的 service（DI 归属越界） |
+| **safety** | guardrails / moderation / security / validation | `utils/`（垃圾抽屉，律2）；`security/capability-guard` 查 `agentProcess`（R1，律4） |
+| **facade** | abstractions / exports | `exports/*` 孤儿死分区（无人 import，index.ts 也不 re-export）；index.ts 深穿 L1 credential 内部路径 |
+
+### 六条律（spec 硬焊）
+
+| 律 | 规则 | 当前 ALLOWLIST（存量违规，清空即焊） |
+| --- | --- | --- |
+| **律1 顶层 12 聚合** | `ai-engine/` 顶层目录 ∈ {llm,tools,rag,knowledge,content,skills,planning,safety,routing,reliability,evaluation,facade}，多一个即红 | 空（已精确） |
+| **律2 禁垃圾抽屉** | 子树内禁出现 `utils`/`helpers`/`common`/`misc` 目录（无单一职责的杂物袋） | `safety/utils` |
+| **律3 禁自造词目录** | 子树内禁结构性目录名 ∈ {runtime,kernel,execution,process,governance,ecosystem}（`tools/categories/*` 工具分类法除外） | `skills/runtime`、`skills/ecosystem` |
+| **律4 R1 无 agent 状态** | engine 源码禁查 agent/mission 运行时表（`prisma.agentProcess` / `prisma.mission.` / `.agentProcess.find\|update\|...`）——engine 不知 agent 是谁 | `safety/security/capability-guard.service.ts` |
+| **律5 同名概念唯一** | 看护类名全项目唯一；`LlmRerankerAdapter` 以**引擎版**（`knowledge/rerank`）为权威，他处禁再声明 | `ai-app/insight/services/search/rerank/llm-reranker.adapter.ts` |
+| **律6 引擎词汇纯净** | engine 禁出现 `IAgentSpec` / `agent-spec` 命名（agent 概念不进 L2 词汇） | `skills/spec-builder/`（3 文件） |
+
+> 律 1-3、5-6 看目录/类名/符号，律 4 看 DB 查询。**R2（engine 0 controller）已由 `no-http-in-lower-layers.spec.ts` 看护，本 spec 不重复。**
 
 ---
 
