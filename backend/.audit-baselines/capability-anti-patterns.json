@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-03T16:10:12.482Z",
-  "count": 185,
+  "generatedAt": "2026-06-04T14:52:36.415Z",
+  "count": 184,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
     {
@@ -75,6 +75,41 @@
       "snippet": "modelLower.includes(\"imagen\")"
     },
     {
+      "file": "modules/ai-app/insight/services/data/data-source-fetcher.service.ts",
+      "line": 829,
+      "column": 48,
+      "kind": "binary-eq",
+      "snippet": "m.provider === \"xai\""
+    },
+    {
+      "file": "modules/ai-app/insight/services/data/data-source-router.service.ts",
+      "line": 2038,
+      "column": 48,
+      "kind": "binary-eq",
+      "snippet": "m.provider === \"xai\""
+    },
+    {
+      "file": "modules/ai-app/insight/services/report/credibility-report.service.ts",
+      "line": 568,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "domainLower.includes(\"google\")"
+    },
+    {
+      "file": "modules/ai-app/insight/services/report/credibility-report.service.ts",
+      "line": 572,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "domainLower.includes(\"openai\")"
+    },
+    {
+      "file": "modules/ai-app/insight/services/report/credibility-report.service.ts",
+      "line": 573,
+      "column": 9,
+      "kind": "method-call",
+      "snippet": "domainLower.includes(\"anthropic\")"
+    },
+    {
       "file": "modules/ai-app/teams/services/ai/ai-response.service.ts",
       "line": 1927,
       "column": 8,
@@ -117,41 +152,6 @@
       "snippet": "lower.startsWith(\"o3\")"
     },
     {
-      "file": "modules/ai-app/insight/services/data/data-source-fetcher.service.ts",
-      "line": 829,
-      "column": 48,
-      "kind": "binary-eq",
-      "snippet": "m.provider === \"xai\""
-    },
-    {
-      "file": "modules/ai-app/insight/services/data/data-source-router.service.ts",
-      "line": 2038,
-      "column": 48,
-      "kind": "binary-eq",
-      "snippet": "m.provider === \"xai\""
-    },
-    {
-      "file": "modules/ai-app/insight/services/report/credibility-report.service.ts",
-      "line": 568,
-      "column": 9,
-      "kind": "method-call",
-      "snippet": "domainLower.includes(\"google\")"
-    },
-    {
-      "file": "modules/ai-app/insight/services/report/credibility-report.service.ts",
-      "line": 572,
-      "column": 9,
-      "kind": "method-call",
-      "snippet": "domainLower.includes(\"openai\")"
-    },
-    {
-      "file": "modules/ai-app/insight/services/report/credibility-report.service.ts",
-      "line": 573,
-      "column": 9,
-      "kind": "method-call",
-      "snippet": "domainLower.includes(\"anthropic\")"
-    },
-    {
       "file": "modules/ai-app/writing/services/mission/writing-agent-coordinator.service.ts",
       "line": 93,
       "column": 24,
@@ -171,13 +171,6 @@
       "column": 24,
       "kind": "binary-eq",
       "snippet": "m.provider !== \"xAI\""
-    },
-    {
-      "file": "modules/ai-engine/content/image/adapters/gemini-image.adapter.ts",
-      "line": 88,
-      "column": 9,
-      "kind": "method-call",
-      "snippet": "model.includes(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts",
@@ -433,28 +426,28 @@
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-direct-key.service.ts",
-      "line": 765,
+      "line": 774,
       "column": 27,
       "kind": "method-call",
       "snippet": "modelIdLower.startsWith(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-direct-key.service.ts",
-      "line": 768,
+      "line": 777,
       "column": 7,
       "kind": "method-call",
       "snippet": "modelIdLower.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-direct-key.service.ts",
-      "line": 834,
+      "line": 843,
       "column": 41,
       "kind": "method-call",
       "snippet": "modelIdLower.startsWith(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-direct-key.service.ts",
-      "line": 869,
+      "line": 878,
       "column": 7,
       "kind": "method-call",
       "snippet": "effectiveModelId.includes(\"gemini-3\")"

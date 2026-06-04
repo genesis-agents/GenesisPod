@@ -1,9 +1,10 @@
 /**
- * Circuit Breaker Service
- * 熔断器服务 - AI Engine 核心能力
+ * EntityHealthRegistry —— 实体健康/熔断（circuit-breaker 模式）
  *
- * 从 AI Teams 的 AgentCircuitBreakerService 下沉到 AI Engine
- * 提供通用的 Agent/Service 健康管理能力
+ * 聚合对外名 = entity-health（reliability 子域）；内部类型沿用 circuit-breaker
+ * 业界术语（CircuitState 等）描述熔断机制本身。按 entityId（model / provider /
+ * service）维护熔断状态。原 AI Teams AgentCircuitBreakerService 下沉而来，
+ * 提供通用的 entity 健康管理能力
  *
  * 功能：
  * - 故障检测与自动隔离（三态状态机：CLOSED/OPEN/HALF_OPEN）
