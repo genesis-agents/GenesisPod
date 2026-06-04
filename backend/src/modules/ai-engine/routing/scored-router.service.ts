@@ -23,7 +23,7 @@ import {
   type RouteResult,
   type RouteScore,
   type SignalScorer,
-} from "./routing.types";
+} from "./abstractions/routing.types";
 
 /** relevance 满分 40 → 默认带宽 5 = 8 档。相关性差 > 1 档即由相关性主导。 */
 const DEFAULT_RELEVANCE_BAND_WIDTH = 5;

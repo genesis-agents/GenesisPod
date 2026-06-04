@@ -17,7 +17,7 @@ import { defaultScorers } from "../../routing/signal-scorers";
 import type {
   RoutableCandidate,
   RouteResult,
-} from "../../routing/routing.types";
+} from "../../routing/abstractions/routing.types";
 import type { ISkill, SkillLayer } from "../abstractions/skill.interface";
 
 export interface SkillRouteOptions {

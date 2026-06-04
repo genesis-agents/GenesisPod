@@ -1,6 +1,6 @@
 # GenesisPod Structure
 
-最后更新：`2026-05-03`
+最后更新：`2026-06-04`
 
 本文档只描述当前仓库的真实结构，不追溯历史目录命名。
 
@@ -136,16 +136,19 @@ frontend/
 
 ## 3. 后端结构
 
-后端当前不再按旧文档里的 `intent-gateway / ai-kernel` 六层描述维护，而是以下 5 个顶层模块。
+后端当前不再按旧文档里的 `intent-gateway / ai-kernel` 六层描述维护，而是以下 5 个顶层模块（依赖方向 L4→L3→L2.5→L2→L1：`open-api → ai-app → ai-harness → ai-engine → platform`）。
 
 ```text
 backend/src/modules/
-├─ ai-app/
-├─ ai-engine/
-├─ ai-harness/
-├─ ai-infra/
-└─ open-api/
+├─ open-api/   L4 对外/Admin/MCP 接口
+├─ ai-app/     L3 业务应用
+├─ ai-harness/ L2.5 多 Agent 运行时
+├─ ai-engine/  L2 通用 AI 基元
+└─ platform/   L1 平台基础设施（旧称 ai-infra，真实目录就是 platform/）
 ```
+
+> 历史名提示：`ai-infra/`、`intent-gateway/`、`ai-kernel/` 均已不存在。L1 现为 `platform/`。
+> 此外 `backend/src/common/`（跨层共享工具）与 `backend/src/plugins/`（插件系统：`core` + `observability`/`security`/`storage` 实现域）不属于这 5 个分层模块。
 
 ### 3.1 `ai-app/`
 
@@ -153,31 +156,31 @@ backend/src/modules/
 
 ```text
 backend/src/modules/ai-app/
-├─ agent-playground/
 ├─ ask/
-├─ byok/
-├─ contracts/
+├─ contracts/        跨 app 公共契约 shim
+├─ custom-agents/    用户自定义 Agent（playground 衍生）
 ├─ explore/
 ├─ feedback/
 ├─ image/
+├─ insight/          话题洞察（旧称 topic-insights）
 ├─ library/
-├─ management/
 ├─ office/
 ├─ planning/
+├─ playground/       多 Agent mission 编排（旧后端目录名 agent-playground）
+├─ radar/            AI 雷达
 ├─ research/
 ├─ simulation/
 ├─ social/
 ├─ teams/
-├─ topic-insights/
 └─ writing/
 ```
 
 重点：
 
-- `agent-playground/`：当前多 Agent mission 编排、阶段执行、事件流、报告产物
-- `topic-insights/`：洞察专题、章节化报告、来源配置
+- `playground/`：当前多 Agent mission 编排、阶段执行、事件流、报告产物（前端路由仍叫 `agent-playground`）
+- `insight/`：洞察专题、章节化报告、来源配置（前端路由仍叫 `ai-insights`）
+- `custom-agents/`：用户自定义 Agent，复用 `playground/` 的启动与列表能力
 - `office/`：Slides / export / synthesis
-- `management/`：后台配置、摄取、workspace 管理
 
 ### 3.2 `ai-engine/`
 
@@ -186,22 +189,25 @@ backend/src/modules/ai-app/
 ```text
 backend/src/modules/ai-engine/
 ├─ content/
+├─ evaluation/    无状态启发式质量检查
 ├─ facade/
 ├─ knowledge/
-├─ llm/
+├─ llm/           模型接入 + 适配 + 定价 + 选型
 ├─ planning/
 ├─ rag/
+├─ reliability/   引擎级韧性（rate-limit / entity-health）
+├─ routing/       请求→模型/技能/工具的无状态打分路由
 ├─ safety/
 ├─ skills/
-└─ tools/
+└─ tools/         项目唯一 tools（含 mcp/openapi/function adapter）
 ```
 
 职责：
 
-- 模型接入与路由
+- 模型接入、择优与路由
 - 工具注册与执行
 - RAG / 知识处理
-- 内容与安全能力
+- 内容、安全与无状态质量检查能力
 - 对上提供 facade
 
 ### 3.3 `ai-harness/`
@@ -231,27 +237,34 @@ backend/src/modules/ai-harness/
 - tracing / token / protocol
 - handoff / team collaboration
 
-### 3.4 `ai-infra/`
+### 3.4 `platform/`（L1，旧称 ai-infra）
 
-平台基础设施。
+平台基础设施层。真实目录是 `backend/src/modules/platform/`，「ai-infra」只是其层概念名。
 
-常见子域通常包括：
-
-- `auth/`
-- `storage/`
-- `secrets/`
-- `settings/`
-- `notifications/`
-- `credits/`
-- `email/`
+```text
+backend/src/modules/platform/
+├─ abstractions/   共享 DI token 与基础抽象
+├─ auth/           认证与用户身份
+├─ credentials/    BYOK / 密钥解析 / 加解密 / secrets / 用户模型配置
+├─ credits/        通用额度账本与额度规则
+├─ db-ops/         数据库运维：表清单、诊断、保留策略
+├─ email/          邮件发送底座
+├─ facade/         对外稳定入口
+├─ monitoring/     指标、健康检查、错误跟踪、审计、tracing
+├─ notifications/  站内通知基础能力
+├─ release/        发布相关
+├─ resilience/     韧性底座
+├─ settings/       系统设置
+└─ storage/        对象存储底座
+```
 
 职责：
 
 - 认证与授权
-- 对象存储
-- 系统设置
-- 外部密钥管理
-- 计费与通知
+- 凭证与外部密钥管理（含 BYOK）
+- 对象存储、系统设置
+- 数据库运维、监控、计费与通知
+- 不需要知道 agent / mission 语义，也能独立成立的底座能力
 
 ### 3.5 `open-api/`
 
@@ -359,14 +372,14 @@ backend/src/modules/ai-infra/auth/
 frontend/app/agent-playground/team/[missionId]/page.tsx
 frontend/components/agent-playground/
 frontend/lib/agent-playground/
-backend/src/modules/ai-app/agent-playground/
+backend/src/modules/ai-app/playground/
 backend/src/modules/ai-harness/
 ```
 
 ### 报告完整性
 
 ```text
-backend/src/modules/ai-app/agent-playground/services/mission/workflow/
+backend/src/modules/ai-app/playground/services/mission/workflow/
 frontend/components/agent-playground/artifact/
 frontend/lib/agent-playground/
 ```

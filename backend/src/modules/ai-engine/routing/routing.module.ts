@@ -11,7 +11,7 @@ import { Module } from "@nestjs/common";
 import { AiEngineKnowledgeModule } from "../knowledge/knowledge.module";
 import { EmbeddingRouterPort } from "./embedding-router-port.adapter";
 import { ScoredRouterService } from "./scored-router.service";
-import { EMBEDDING_PORT, SCORED_ROUTER } from "./routing.types";
+import { EMBEDDING_PORT, SCORED_ROUTER } from "./abstractions/routing.types";
 
 @Module({
   imports: [AiEngineKnowledgeModule],

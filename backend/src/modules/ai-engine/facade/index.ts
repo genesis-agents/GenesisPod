@@ -161,7 +161,7 @@ export type {
   RouteScore,
   SignalScorer,
   CandidateSignals,
-} from "../routing/routing.types";
+} from "../routing/abstractions/routing.types";
 
 // ★ P17a (2026-05-24): 通用 ContentSource 契约 + Registry
 //   任何 ai-app 暴露内容源都实现 ContentSource、注册到 ContentSourceRegistry。
