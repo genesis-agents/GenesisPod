@@ -20,13 +20,10 @@ export {
   // 服务
   ContentAnalysisService,
   TemplateSelectionService,
-  ImageMatchingService,
   ReadingExperienceService,
   // 服务相关类型
   type SlidePlanItem,
   type PlanningResult,
-  type ImagePrompt,
-  type ImageMatchingResult,
   type OptimizedParagraph,
   type OptimizedSection,
 } from "./common";

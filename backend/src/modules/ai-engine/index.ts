@@ -91,7 +91,6 @@ export * as LLM from "./llm";
 // export * as MCP from "./mcp"; — removed
 // Teams barrel 已迁移到 ai-harness/teams（PR-X4）
 // 消费方请使用 "@/modules/ai-harness/facade" 或 "@/modules/ai-harness/teams"
-export * as Image from "./content/image";
 
 // 常用服务导出（便于直接导入）
 export { ToolRegistry } from "./tools/registry";
@@ -129,14 +128,5 @@ export { AiEngineSafetyModule } from "./safety/safety.module";
 // Prompt Registry 导出
 export { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
 
-// Image 模块核心服务
-export { ImageFactory } from "./content/image/factory";
-export { ImageModule } from "./content/image/image.module";
-export type {
-  IImageAdapter,
-  ImageGenerationOptions,
-  ImageGenerationResult,
-  GeneratedImage,
-  ImageProvider,
-} from "./content/image/abstractions";
-export { IMAGE_PROVIDERS, IMAGE_MODELS } from "./content/image/abstractions";
+// Image 生成栈（content/image factory+adapters+abstractions）已删除：
+// 运行时零注入死代码。活路径为 ai-app/image（raw HTTP）+ llm/image（BYOK）。

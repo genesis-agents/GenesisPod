@@ -2,8 +2,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { FunctionCallingLLMAdapter } from "../function-calling-llm.adapter";
 import { AiChatService } from "../../chat/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/platform/credentials/secrets/secrets.service";
-import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
+import { SecretsService } from "@/modules/platform/credentials/storage/secrets/secrets.service";
+import { KeyResolverService } from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.service";
 
 describe("FunctionCallingLLMAdapter", () => {
   let adapter: FunctionCallingLLMAdapter;
@@ -361,7 +361,7 @@ describe("FunctionCallingLLMAdapter", () => {
 
     it("should throw NoAvailableKeyError when user has no BYOK", async () => {
       const { NoAvailableKeyError } =
-        await import("@/modules/platform/credentials/key-resolver/key-resolver.errors");
+        await import("@/modules/platform/credentials/resolution/key-resolver/key-resolver.errors");
       mockKeyResolver.resolveKey.mockRejectedValue(
         new NoAvailableKeyError("openai"),
       );

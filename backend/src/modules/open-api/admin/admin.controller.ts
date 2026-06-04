@@ -26,7 +26,7 @@ import {
   SystemModelInventoryService,
 } from "../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
-import { SecretsService } from "../../platform/credentials/secrets/secrets.service";
+import { SecretsService } from "../../platform/credentials/storage/secrets/secrets.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { StorageInventoryService } from "../../platform/storage/governance/storage-inventory.service";

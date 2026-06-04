@@ -50,7 +50,7 @@ import { AiChatRetryService } from "./ai-chat-retry.service";
 import { MissionContext } from "@/common/context/mission-context";
 import { BillingContext } from "@/modules/platform/facade";
 import { ModelPricingRegistry } from "../models/pricing/model-pricing.registry";
-import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
+import { KeyResolverService } from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.service";
 import { AiChatFailoverCallerService } from "./ai-chat-failover-caller.service";
 // v5.1 R0.5 PR-5: 双轨接 plugins/core HookBus
 import type { HookBus } from "@/plugins/core/hook-bus";
@@ -65,7 +65,7 @@ import {
   InvalidApiKeyError,
   NoAvailableKeyError,
   QuotaExceededError,
-} from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
+} from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.errors";
 
 export interface ChatCompletionOptions {
   model: string;

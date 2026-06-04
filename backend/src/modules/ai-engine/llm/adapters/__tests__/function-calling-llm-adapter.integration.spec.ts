@@ -20,8 +20,8 @@ import { FunctionCallingLLMAdapter } from "../function-calling-llm.adapter";
 import { AiChatService } from "../../chat/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/platform/facade";
-import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
-import { NoAvailableKeyError } from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
+import { KeyResolverService } from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.service";
+import { NoAvailableKeyError } from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.errors";
 
 describe("FunctionCallingLLMAdapter (extended coverage)", () => {
   let adapter: FunctionCallingLLMAdapter;

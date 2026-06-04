@@ -15,7 +15,7 @@ const mockSecretsService = {
   getValueInternal: jest.fn(),
 };
 
-jest.mock("../../../platform/credentials/secrets/secrets.service", () => ({
+jest.mock("../../../platform/credentials/storage/secrets/secrets.service", () => ({
   SecretsService: jest.fn().mockImplementation(() => mockSecretsService),
 }));
 
@@ -67,7 +67,7 @@ describe("ImageGenerationService", () => {
     mockSecretsService.getValueInternal.mockResolvedValue("default-test-key");
 
     const { SecretsService } =
-      await import("../../../platform/credentials/secrets/secrets.service");
+      await import("../../../platform/credentials/storage/secrets/secrets.service");
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

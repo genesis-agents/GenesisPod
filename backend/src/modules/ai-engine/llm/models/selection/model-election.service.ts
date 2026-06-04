@@ -20,7 +20,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
+import { KeyResolverService } from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.service";
 import { AiModelConfigService } from "../config/ai-model-config.service";
 import type { AIModelConfig } from "../../chat/ai-chat.service";
 import { classifyModelTier, ModelTier } from "../../types/model-tier.types";

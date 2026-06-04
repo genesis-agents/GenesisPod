@@ -10,7 +10,7 @@ import { of, throwError } from "rxjs";
 import { AxiosResponse } from "axios";
 import { PolicyDataService } from "../policy-data.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/platform/credentials/secrets/secrets.service";
+import { SecretsService } from "@/modules/platform/credentials/storage/secrets/secrets.service";
 
 // ==================== Mocks ====================
 

@@ -36,12 +36,9 @@ export {
   type PlanningResult,
 } from "./template-selection.service";
 
-// 图文匹配服务 (PR-X25: shim removed, point to ai-harness/facade)
-export {
-  ImageMatchingService,
-  type ImagePrompt,
-  type ImageMatchingResult,
-} from "@/modules/ai-harness/facade";
+// ImageMatchingService / ImagePrompt / ImageMatchingResult 已随死代码清理移除
+// （运行时零注入）。office 仅使用 ImageType/ImagePlacement/ImageRequirement/
+// ImageMatchingRule types，由 template-selection 直接从 ai-harness/facade 引入。
 
 // 阅读体验服务
 export {

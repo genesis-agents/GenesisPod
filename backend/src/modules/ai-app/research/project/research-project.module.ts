@@ -13,7 +13,7 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { StorageModule } from "../../../platform/storage/storage.module";
 import { CreditsModule } from "../../../platform/credits/credits.module";
-import { ToolKeyResolverModule } from "../../../platform/credentials/tool-key-resolver/tool-key-resolver.module";
+import { ToolKeyResolverModule } from "../../../platform/credentials/resolution/tool-key-resolver/tool-key-resolver.module";
 // ★ 依赖反转: 导入 token 用于提供 ITTSService 实现
 import { TTS_SERVICE } from "@/modules/ai-harness/facade";
 

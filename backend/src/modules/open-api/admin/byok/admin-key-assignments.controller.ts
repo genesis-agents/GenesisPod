@@ -30,11 +30,11 @@ import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 // Credential-admin surface imports credentials from source (not the engine
 // facade barrel) to avoid circular-barrel DI breakage; eslint-exempted below.
-import { KeyAssignmentsService } from "../../../platform/credentials/key-assignments/key-assignments.service";
+import { KeyAssignmentsService } from "../../../platform/credentials/governance/key-assignments/key-assignments.service";
 import {
   RevokeAssignmentDto,
   UpdateAssignmentDto,
-} from "../../../platform/credentials/key-assignments/dto";
+} from "../../../platform/credentials/governance/key-assignments/dto";
 
 /**
  * 模型粒度批量授权 DTO（v5 重构）

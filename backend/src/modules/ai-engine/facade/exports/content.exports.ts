@@ -29,11 +29,6 @@ export {
   ImagePlacement,
   IMAGE_MATCHING_RULES,
 } from "../../content/image/matching/image-matching.types";
-export { ImageMatchingService } from "../../content/image/matching/image-matching.service";
-export type {
-  ImagePrompt,
-  ImageMatchingResult,
-} from "../../content/image/matching";
 export type {
   ILongContentEngine,
   IContinuationProtocol,

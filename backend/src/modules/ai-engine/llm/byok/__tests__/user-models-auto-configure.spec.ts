@@ -27,8 +27,8 @@ import { AutoConfigureService } from "../user-models-auto-configure.service";
 import { AiConnectionTestService } from "@/modules/ai-engine/llm/byok/ai-connection-test.service";
 import { AiModelDiscoveryService } from "@/modules/ai-engine/llm/models/catalog/ai-model-discovery.service";
 import { ModelRecommendationsService } from "@/modules/ai-engine/llm/models/selection/model-recommendations.service";
-import { UserApiKeysService } from "@/modules/platform/credentials/user-api-keys/user-api-keys.service";
-import { UserModelConfigsService } from "@/modules/platform/credentials/user-model-configs/user-model-configs.service";
+import { UserApiKeysService } from "@/modules/platform/credentials/user-owned/user-api-keys/user-api-keys.service";
+import { UserModelConfigsService } from "@/modules/platform/credentials/user-owned/user-model-configs/user-model-configs.service";
 
 // ---------------------------------------------------------------------------
 // Mock factories

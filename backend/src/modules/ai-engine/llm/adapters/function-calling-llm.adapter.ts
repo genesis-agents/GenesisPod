@@ -18,8 +18,8 @@ import { FunctionDefinition } from "../../tools/abstractions/tool.interface";
 import { AiChatService, ChatMessage } from "../chat/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/platform/facade";
-import { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
-import { NoAvailableKeyError } from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
+import { KeyResolverService } from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.service";
+import { NoAvailableKeyError } from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.errors";
 
 /**
  * Function Calling LLM 适配器配置

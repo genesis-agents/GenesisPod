@@ -25,7 +25,7 @@ import {
 import { DiscoveryModule } from "@nestjs/core";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { PrismaService } from "../../common/prisma/prisma.service";
-import { SecretsModule } from "../platform/credentials/secrets/secrets.module";
+import { SecretsModule } from "../platform/credentials/storage/secrets/secrets.module";
 
 // ★ 子模块导入
 import { AiEngineLLMModule } from "./llm/llm.module";
@@ -70,7 +70,7 @@ import { ContentFetchModule } from "./content/fetch/content-fetch.module";
 // ★ Phase 3: SynthesisModule moved to ai-app/office/content-synthesis/
 
 // Other Modules
-import { ImageModule } from "./content/image/image.module";
+// ImageModule（content/image，零注入死代码）已删除
 // ★ 沉淀（2026-04-29）: figure 抽取（来自 {app}，TI 暂不切换）
 //   不创建 sub-module，直接作为 provider 注册（ai-engine.module 已 @Global + imports AiEngineToolsModule）
 import { FigureExtractorService } from "./content/figure";
@@ -144,7 +144,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
     ContentFetchModule,
 
     // Other Modules
-    ImageModule,
     // TeamsModule 已迁移到 ai-harness/teams（PR-X4），由 HarnessApiModule 统一装配
     PromptsModule,
     CreditsModule, // ★ 积分服务（用于 Facade 自动计费）
@@ -205,7 +204,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
     ContentFetchModule,
 
     // Other Modules
-    ImageModule,
     // TeamsModule 已迁移到 ai-harness/teams（PR-X4），不再由 ai-engine 导出
     PromptsModule,
 
