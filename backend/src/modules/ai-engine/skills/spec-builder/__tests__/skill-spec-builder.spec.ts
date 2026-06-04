@@ -51,7 +51,7 @@ describe("OutputSchemaRegistry (v5.1 R1-A0)", () => {
 });
 
 describe("SkillSpecBuilder (v5.1 R1-A0)", () => {
-  it("build：完整字段映射到 IAgentSpec", () => {
+  it("build：完整字段映射到 ISkillExecSpec", () => {
     const tools = makeFakeToolRegistry(["web-search", "rag-search"]);
     const schemas = new OutputSchemaRegistry();
     schemas.register("test.out", z.object({ ok: z.boolean() }));
@@ -122,7 +122,7 @@ describe("SkillSpecBuilder (v5.1 R1-A0)", () => {
     ).toThrow(/references outputSchema "missing-ref" which is not registered/);
   });
 
-  it("IAgentSpec 是纯数据对象（structuredClone 友好）", () => {
+  it("ISkillExecSpec 是纯数据对象（structuredClone 友好）", () => {
     const tools = makeFakeToolRegistry(["t1"]);
     const schemas = new OutputSchemaRegistry();
     const builder = new SkillSpecBuilder(tools, schemas);

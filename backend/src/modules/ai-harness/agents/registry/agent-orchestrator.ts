@@ -19,7 +19,7 @@ import { GuardrailsPipelineService } from "../../../ai-engine/safety/guardrails/
 import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
 // PR-X3: EventJournal → 通过 EventEmitter 事件解耦；CapabilityGuard 已搬到 engine
-import { CapabilityGuardService } from "../../../ai-engine/safety/security/capability-guard.service";
+import { CapabilityGuardService } from "../../guardrails/capability";
 import { MissionContext } from "../../../../common/context/mission-context";
 
 /**

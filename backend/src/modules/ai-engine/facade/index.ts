@@ -744,8 +744,7 @@ export type {
   RateLimitConfig as EngineRateLimitConfig,
   RateLimitCheckResult,
 } from "../reliability/rate-limit/rate-limit.service";
-export { CapabilityGuardService } from "../safety/security/capability-guard.service";
-export type { CapabilityCheckResult } from "../safety/security/capability.types";
+// CapabilityGuardService / CapabilityCheckResult 已迁 ai-harness/guardrails/capability（W2，律4）
 // SSRF / 出站防护(platform-review wave1)：项目唯一统一出站闸门，ai-app / open-api 经此复用
 export {
   assertUrlSafe,

@@ -50,7 +50,7 @@ export interface PastDecision {
 export interface ResolvedRole {
   readonly id: string;
   /** SkillSpecBuilder 产物（含 systemPrompt/allowedTools/outputSchema）*/
-  readonly skillSpec: import("@/modules/ai-engine/skills/spec-builder").IAgentSpec;
+  readonly skillSpec: import("@/modules/ai-engine/skills/spec-builder").ISkillExecSpec;
   /** stateful=true 时 stage primitive 自动 appendDecision 到 store */
   readonly stateful: boolean;
 }

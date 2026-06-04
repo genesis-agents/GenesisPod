@@ -15,7 +15,7 @@ import { MessageBusService } from "../../protocols/ipc/message-bus.service";
 import { ProgressTrackerService } from "../../protocols/ipc/progress-tracker.service";
 import { AiObservabilityService } from "../../tracing/observability/ai-observability.service";
 import { CostAttributionService } from "../../tracing/observability/cost-attribution.service";
-import { CapabilityGuardService } from "../../../ai-engine/safety/security/capability-guard.service";
+import { CapabilityGuardService } from "../../guardrails/capability";
 import { KernelSchedulerService } from "../../runner/scheduler/kernel-scheduler.service";
 import type {
   ProcessId,

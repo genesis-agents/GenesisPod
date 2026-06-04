@@ -1017,10 +1017,12 @@ export type {
 } from "../tracing/latency/session-latency.types";
 
 // â"€â"€ Security â"€â"€
-// PR-X15: 通过 engine/facade barrel，不穿透 engine 私有路径
-/** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
-export { CapabilityGuardService } from "../../ai-engine/facade";
-export type { CapabilityCheckResult } from "../../ai-engine/facade";
+// W2（2026-06-04）：CapabilityGuard 是 agent 进程能力授权（agent 运行时状态），
+// 已迁回 ai-harness/guardrails/capability —— harness 本层能力，facade 直出。
+export {
+  CapabilityGuardService,
+  type CapabilityCheckResult,
+} from "../guardrails/capability";
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Protocol: events + ipc + journal + realtime
