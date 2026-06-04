@@ -59,7 +59,7 @@ import {
   normalizeInlineDoubleDollar,
   normalizeChapterToSection,
   mergeTelegramParagraphs,
-} from "./report-formatting.utils";
+} from "./report-formatting.util";
 
 // ============ Context Interface ============
 

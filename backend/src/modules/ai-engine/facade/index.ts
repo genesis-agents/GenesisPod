@@ -15,7 +15,7 @@ export { CHAT_PROVIDER_PORT } from "./abstractions/runtime-deps.tokens";
 // ★ 2026-05-04 (PR-6 standardize consumer): jaccardSimilarity 从
 //   ai-app/{app} 上提到 engine/content（纯 token-set 文本相似度，
 //   无 agent/mission 状态，跨 ai-app 可复用）
-export { jaccardSimilarity } from "../content/text-similarity.utils";
+export { jaccardSimilarity } from "../content/text-similarity.util";
 
 // ★ 2026-05-04 (PR-10b standardize consumer): JSON-fence 解析基元从
 //   ai-app/{app}/services/chat 上提到 engine/content
@@ -25,7 +25,7 @@ export {
   parseJsonFence,
   extractJsonFenceContent,
   type JsonFenceParseResult,
-} from "../content/json-fence-parser.utils";
+} from "../content/json-fence-parser.util";
 
 // ★ PR-A1 (2026-05-06 v1.4 报告装配重构):
 //   MarkdownSanitizer — 状态机 fence 配对 / H2 精确剥离 / TOC 移除 /
@@ -533,7 +533,7 @@ export {
 } from "../llm/output/sanitization";
 
 // ★ 沉淀（2026-04-29）: figure URL 有效性校验
-export { isValidFigureUrl } from "../content/figure/figure-url-sanitizer.utils";
+export { isValidFigureUrl } from "../content/figure/figure-url-sanitizer.util";
 
 // ★ 沉淀（2026-04-29）: Report Template — 13 类格式化标准（沉淀自 ai-app/contracts/report-template）
 export * from "../content/report-template";

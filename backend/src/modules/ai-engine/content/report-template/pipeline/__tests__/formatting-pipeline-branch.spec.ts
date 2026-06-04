@@ -1,5 +1,5 @@
 /**
- * dimension-content-formatting.utils — supplemental branch coverage
+ * dimension-content-formatting.util — supplemental branch coverage
  *
  * Targets:
  *  - formatDimensionContent optional context branches:
@@ -22,7 +22,7 @@ import {
   normalizeTableDataRows,
   removeOrphanedFigureReferences,
   fixUnbalancedLatexDelimiters,
-} from "../dimension-content-formatting.utils";
+} from "../dimension-content-formatting.util";
 
 // ─────────────────────────────────────────────────────────────────
 // formatDimensionContent — context branch coverage

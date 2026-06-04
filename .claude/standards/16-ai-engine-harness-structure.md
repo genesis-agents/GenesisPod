@@ -278,6 +278,42 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 
 ## 五、子目录 MECE 规则
 
+### 0. 切分轴（正向原则，**先定轴再切目录**）
+
+> **一句话原则**：一个聚合的子目录沿**单一内聚轴**切分，每个子目录 = **一件能独立命名的事**；**绝不按文件种类切**（`utils/` / `helpers/` / `services/` / `models/`-当领域用 = 纯分类壳）。
+
+**轴的两种合法形态**（每聚合取其一，不在同一层混用）：
+
+- **A · pipeline 阶段** —— 聚合本质是条数据流水线时，按阶段切。例：`rag/` = chunking → embedding → vector → pipeline。
+- **B · 内聚子能力 / 关注点** —— 聚合是一族能力时，按"能独立命名的子能力"切。例：`content/` = fetch / web-search / markdown / citation / figure / …。
+
+**唯二例外**（按文件种类、却合法的目录）：`abstractions/`（接口契约）、`types/`（纯类型）—— 规范钦定的通用模式，每聚合可有。
+
+> **关键：内聚的判据随聚合而变，不要求全聚合统一。** "一件事"在 content 里是"对内容做的一个操作"，在 rag 里是"流水线一个阶段"，在 safety 里是"一类安全关注点"。因此**每个聚合必须声明自己的内聚轴**，兄弟目录互斥（见下 #1）按该聚合**声明的轴**检验。
+
+| 聚合 | 内聚轴 | 子目录的单元 = |
+| --- | --- | --- |
+| **llm** | B 调用关注点/阶段 | provider 适配 / chat 编排 / output 处理 / model 择优 / byok / prompts |
+| **rag** | **A pipeline 阶段** | 检索流水线一个阶段（chunk/embed/vector/pipeline） |
+| **knowledge** | B 知识子能力 | 一类知识操作（extraction/consistency/synthesis/world-building/evidence/rerank） |
+| **content** | B 内容子能力 | 对内容做的一件事（fetch/web-search/markdown/citation/figure/report-template/sources） |
+| **tools** | B 执行基建 + 工具领域分类法 | registry/middleware/cache/concurrency/adapters… + `categories/<domain>` |
+| **skills** | B skill 生命周期 + 关注点 | registry/loader/builder/spec-builder/routing/sandbox/integration/marketplace… |
+| **planning** | B 规划/调控原语 | 一类原语（budget/context/intent/reflection） |
+| **safety** | B 安全关注点 | 一类防护（guardrails/moderation/security/validation） |
+| **reliability** | B 韧性机制 | 一种机制（rate-limit/entity-health） |
+| **evaluation** | B 质检组件 | checkers/services（+ abstractions/types 例外） |
+| **routing** | B 打分路由组件 | 基本扁平（根）+ benchmark（离线评测） |
+| **facade** | —— | 仅 `abstractions/`，无领域子目录（门面只 re-export） |
+
+**判一个目录/文件该不该独立成子目录 —— 三问**（任一为否即不该）：
+
+1. 它是不是该聚合**声明轴**上"一个能独立命名的单元"？（✓ `citation`/`chunking`；✗ `utils`/`text`）
+2. 和兄弟目录在**同一轴**上互斥、不功能重叠？
+3. 不是把杂项凑一起的**壳**？
+
+> **轴外的跨领域纯原语**（如某个通用文本/解析 util，不绑任何子能力）：不强切成壳目录——**要么并入它真正所属的子能力，要么（确无归属时）留在聚合根，要么搬到更贴的聚合**。"为清空聚合根而造 `text/` 之类分类壳"本身就违反下 #2。
+
 ### 通用模式（每个聚合 SHOULD 有）
 
 - `abstractions/` —— 接口契约 + 类型定义集合（**每个聚合自己拥有，禁止跨聚合 re-export 大杂烩**）
@@ -285,8 +321,8 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 
 ### 互斥性强制原则
 
-1. **兄弟目录互斥**：同一父目录下子目录不可有功能重叠
-2. **不创建空容器**：禁止 `patterns/`、`utilities/` 这种纯分类壳
+1. **兄弟目录互斥**：同一父目录下子目录不可有功能重叠（按 §五.0 该聚合**声明的轴**检验）
+2. **不创建空容器**：禁止 `patterns/`、`utilities/`、为清根而设的 `text/` 等**纯分类壳**
 3. **不超过 2 层嵌套**：超过则需重新审视拆分粒度（注：`xxx/models/selection`、`tools/categories/<domain>` 等成熟 3 层为已接受例外）
 
 ---
@@ -305,7 +341,7 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 | **tools** | abstractions / base / registry / middleware / concurrency / cache / result-spill / search-fusion / adapters{mcp} / categories{…taxonomy} | `adapters/` 缺 openapi/function（spec 声称有）；`categories/collaboration/*` 含 agent 编排语义（R1 灰区） |
 | **rag** | abstractions / chunking / embedding / vector / pipeline | pipeline 内联 Cohere rerank（与 knowledge/rerank 概念撞） |
 | **knowledge** | abstractions / extraction / consistency / synthesis / world-building / evidence / rerank | ✅W5 `search/`（web egress）已迁 content/web-search；✅W1 `rerank/` 去重为项目唯一权威 |
-| **content** | abstractions / fetch / web-search / sources / markdown / citation / figure / report-template / types / image{matching} | ✅W5 `web-search/`（Tavily/Serper/DDG egress）从 knowledge 迁入（与 fetch 同族）；`SearchResult`→`WebSearchResult` 解与 rag 撞名；`image/matching` 仅剩 types（**活的，office 在用，勿删**） |
+| **content** | abstractions / fetch / web-search / sources / markdown / citation / figure / report-template / types / image{matching} | 轴=内容子能力。✅W5 `web-search/` 从 knowledge 迁入（与 fetch 同族）+`SearchResult`→`WebSearchResult`；✅后缀统一 `.utils.ts`→`.util.ts`（§六）；`json-fence-parser.util` / `text-similarity.util` = **轴外跨领域纯原语留聚合根**（无内容子能力可归，§五.0 末段，**勿造 `text/` 分类壳**）；`image/matching` 仅剩 types（活，office 在用，勿删） |
 | **routing** | （根）scored-router / signal-scorers / scoring-formulas / benchmark | ✅W6 `eval/`→`benchmark/`（解与顶层 `evaluation/` 近形同名） |
 | **reliability** | rate-limit / entity-health | ✅W6 `entity-health` 头注释已澄清=circuit-breaker 模式（内部类型沿用 circuit-breaker 业界术语，对外名 entity-health，accepted） |
 | **evaluation** | abstractions / checkers / services / types | 干净（无 LLM、无 agent 状态，已核实） |

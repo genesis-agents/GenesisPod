@@ -1,5 +1,5 @@
 /**
- * citation-verifier.utils.ts unit tests
+ * citation-verifier.util.ts unit tests
  * Covers: extractCitationsWithContext, buildEvidenceFingerprint,
  *         scoreCitationMatch, verifyCitations,
  *         buildContiguousMapping, restoreGlobalIndices
@@ -11,7 +11,7 @@ import {
   verifyCitations,
   buildContiguousMapping,
   restoreGlobalIndices,
-} from "../citation-verifier.utils";
+} from "../citation-verifier.util";
 
 // ─── sample evidence ─────────────────────────────────────────────────────────
 

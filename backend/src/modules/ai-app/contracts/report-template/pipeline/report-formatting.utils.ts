@@ -6,4 +6,4 @@
  * 在 arch spec / ESLint 中明确 allowlist
  */
 // eslint-disable-next-line no-restricted-imports
-export * from "@/modules/ai-engine/content/report-template/pipeline/report-formatting.utils";
+export * from "@/modules/ai-engine/content/report-template/pipeline/report-formatting.util";

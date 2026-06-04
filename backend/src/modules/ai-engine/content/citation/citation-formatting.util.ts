@@ -1,8 +1,8 @@
 /**
  * Citation Formatter — 5 种学术引用格式（Phase 9 沉淀）
  *
- * 沉淀自：ai-app/{app}/services/report/citation-formatting.utils.service.ts
- * 重构：从 NestJS 服务降级为纯函数模块，与同目录的 citation-verifier.utils 一致风格。
+ * 沉淀自：ai-app/{app}/services/report/citation-formatting.util.service.ts
+ * 重构：从 NestJS 服务降级为纯函数模块，与同目录的 citation-verifier.util 一致风格。
  *
  * 支持：APA 7th / MLA 9th / Chicago 17th / IEEE / Harvard
  *

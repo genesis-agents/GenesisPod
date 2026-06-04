@@ -1,10 +1,10 @@
 /**
- * text-similarity.utils.spec.ts
+ * text-similarity.util.spec.ts
  *
  * Unit tests for jaccardSimilarity — token-set similarity primitive.
  */
 
-import { jaccardSimilarity } from "../text-similarity.utils";
+import { jaccardSimilarity } from "../text-similarity.util";
 
 describe("jaccardSimilarity", () => {
   it("returns 1 for identical strings", () => {

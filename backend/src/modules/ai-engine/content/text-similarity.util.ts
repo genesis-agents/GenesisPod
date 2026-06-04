@@ -1,5 +1,5 @@
 /**
- * text-similarity.utils.ts
+ * text-similarity.util.ts (content/ 聚合根：轴外跨领域纯原语，无内容子能力可归)
  *
  * Lightweight text similarity helpers (zero LLM calls).
  * Pure token-set similarity primitives — no agent / mission state, fits

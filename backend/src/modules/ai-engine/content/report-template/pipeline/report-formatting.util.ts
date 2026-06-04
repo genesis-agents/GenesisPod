@@ -3854,7 +3854,7 @@ export function stripFigureComments(content: string): string {
   return result;
 }
 
-// preprocessDimensionContent and formatDimensionContent are in dimension-content-formatting.utils.ts
+// preprocessDimensionContent and formatDimensionContent are in dimension-content-formatting.util.ts
 // Re-exported via ../index.ts barrel for backward compatibility
 
 /**

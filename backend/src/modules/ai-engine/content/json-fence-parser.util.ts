@@ -1,5 +1,5 @@
 /**
- * json-fence-parser.utils.ts
+ * json-fence-parser.util.ts (content/ 聚合根：轴外跨领域纯原语，无内容子能力可归)
  *
  * LLM 输出 → 结构化 JSON 决策的通用解析基元（零业务语义，纯函数）。
  *
