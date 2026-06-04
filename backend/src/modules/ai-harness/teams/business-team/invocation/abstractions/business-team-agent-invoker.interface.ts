@@ -4,7 +4,7 @@
  * 业务方注入决策与事件钩子，让通用 retry/abort/backoff 骨架成立。
  *
  * 2026-05-24 @migrated-from 两个 ai-app 业务侧 invoker（playground + social 双源 invoker）
- *   - ai-app/agent-playground/services/roles/agent-invoker.service.ts  @migrated-from
+ *   - ai-app/playground/services/roles/agent-invoker.service.ts  @migrated-from
  *   - ai-app/social/services/roles/social-agent-invoker.service.ts  @migrated-from
  */
 

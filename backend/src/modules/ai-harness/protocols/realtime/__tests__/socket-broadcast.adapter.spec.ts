@@ -7,7 +7,7 @@ import type { DomainEvent } from "../../../facade";
 
 function makeEvent(overrides: Partial<DomainEvent> = {}): DomainEvent {
   return {
-    type: "agent-playground.stage:started",
+    type: "playground.stage:started",
     scope: { missionId: "mission-123", userId: "user-1" },
     payload: { stage: "s1" },
     timestamp: Date.now(),
@@ -31,32 +31,32 @@ describe("SocketBroadcastAdapter", () => {
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     adapter = new SocketBroadcastAdapter(mockIo as any, {
-      id: "agent-playground.socket",
-      eventTypePrefix: "agent-playground.",
+      id: "playground.socket",
+      eventTypePrefix: "playground.",
       roomPrefix: "playground",
     });
   });
 
   describe("id", () => {
     it("has correct adapter id", () => {
-      expect(adapter.id).toBe("agent-playground.socket");
+      expect(adapter.id).toBe("playground.socket");
     });
   });
 
   describe("accepts", () => {
-    it("accepts events starting with agent-playground.", () => {
+    it("accepts events starting with playground.", () => {
       expect(adapter.accepts(makeEvent())).toBe(true);
     });
 
-    it("accepts events with any agent-playground.* suffix", () => {
+    it("accepts events with any playground.* suffix", () => {
       expect(
         adapter.accepts(
-          makeEvent({ type: "agent-playground.mission:completed" }),
+          makeEvent({ type: "playground.mission:completed" }),
         ),
       ).toBe(true);
     });
 
-    it("rejects events not starting with agent-playground.", () => {
+    it("rejects events not starting with playground.", () => {
       expect(adapter.accepts(makeEvent({ type: "other.service.event" }))).toBe(
         false,
       );
@@ -113,10 +113,10 @@ describe("SocketBroadcastAdapter", () => {
     });
 
     it("emits correct event.type on the room socket", async () => {
-      const event = makeEvent({ type: "agent-playground.mission:completed" });
+      const event = makeEvent({ type: "playground.mission:completed" });
       await adapter.broadcast(event);
       expect(toChain.emit).toHaveBeenCalledWith(
-        "agent-playground.mission:completed",
+        "playground.mission:completed",
         expect.any(Object),
       );
     });
@@ -134,7 +134,7 @@ describe("SocketBroadcastAdapter", () => {
 
     it("(§6.7.3) injects mission family refreshHint for mission:* events", async () => {
       const event = makeEvent({
-        type: "agent-playground.mission:completed",
+        type: "playground.mission:completed",
         payload: {},
       });
       await adapter.broadcast(event);
@@ -146,7 +146,7 @@ describe("SocketBroadcastAdapter", () => {
 
     it("(§6.7.3) injects artifact family for chapter:* events", async () => {
       const event = makeEvent({
-        type: "agent-playground.chapter:writing:completed",
+        type: "playground.chapter:writing:completed",
         payload: {},
       });
       await adapter.broadcast(event);

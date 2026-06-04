@@ -5,7 +5,7 @@
  * framework 仅承担 logger 提供 + 通用 marker（让 architecture spec 能识别）。
  *
  * 2026-05-24 (P4) 抽取自 ai-app 业务侧 stage bindings service:
- *   - ai-app/agent-playground/services/mission/workflow/mission-stage-bindings.service.ts  @migrated-from
+ *   - ai-app/playground/services/mission/workflow/mission-stage-bindings.service.ts  @migrated-from
  *
  * 没有任何业务团队专属字段在 framework 层；业务侧的具体 MissionContext /
  * MissionDeps 由各业务团队自己在 ai-app/<team>/ 内定义。

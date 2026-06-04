@@ -3,7 +3,7 @@
  *
  * 由 dispatcher 在 runMission 入口装配一次，然后随 SessionEntry 传给每个 stage 函数。
  *
- * 设计决策（照 agent-playground mission-deps.ts）：
+ * 设计决策（照 playground mission-deps.ts）：
  *   • CommonDeps        ← 所有 stage 都用（框架件：invoker / store / runner / emit /
  *                          lifecycle / eventBus / log + markIntermediateState /
  *                          markStageDegraded）

@@ -1,7 +1,7 @@
 /**
  * SocialPipelineDispatcher — SocialPublishMission 唯一入口（W4 PR-4b/round-2）
  *
- * 职责（mirror agent-playground/playground-pipeline-dispatcher）：
+ * 职责（mirror playground/playground-pipeline-dispatcher）：
  *   1. runMission(missionId, input, userId) 异步入口；与 controller fire-and-forget 对接
  *   2. 复用 SocialRuntimeShellService.openSession（拿真实 BillingRuntimeEnvAdapter
  *      + MissionBudgetPool + AbortController + heartbeat + wallTimer）
@@ -209,7 +209,7 @@ export class SocialPipelineDispatcher
     );
 
     // 2026-05-19 fix: 注册 ownership 到 MissionOwnershipRegistry，使前端复用的
-    //   agent-playground/replay/:missionId endpoint 的 assertOwnership 能命中
+    //   playground/replay/:missionId endpoint 的 assertOwnership 能命中
     //   ——之前 social mission 从不注册，导致详情页 SSE/polling 端点全部 403。
     this.ownershipRegistry.assign(missionId, userId);
 

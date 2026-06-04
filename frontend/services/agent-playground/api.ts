@@ -9,7 +9,7 @@
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
-const API_BASE = `${config.apiBaseUrl}/api/v1/agent-playground`;
+const API_BASE = `${config.apiBaseUrl}/api/v1/playground`;
 
 export type BudgetProfile = 'low' | 'medium' | 'high' | 'unlimited';
 export type StyleProfile =

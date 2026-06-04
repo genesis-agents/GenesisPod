@@ -20,7 +20,7 @@ const APP_DOMAINS = [
   "ask",
   "image",
   "insight",
-  "agent-playground",
+  "playground",
 ];
 
 function walkDirs(root: string, out: { full: string; name: string }[] = []) {

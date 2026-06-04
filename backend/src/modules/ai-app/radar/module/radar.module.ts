@@ -162,7 +162,7 @@ import { RADAR_DOMAIN_EVENTS } from "../events/radar.events";
     // 新框架接入 —— pipeline registry / orchestrator 必须由消费模块本地 register
     // （MissionRuntimeShellFramework / EventBus 由 @Global HarnessModule 提供，
     // 但 MissionPipelineRegistry / MissionPipelineOrchestrator 不是 @Global —— 跟
-    // agent-playground / writing-team module 同模式，每个 ai-app 自行注册）
+    // playground / writing-team module 同模式，每个 ai-app 自行注册）
     MissionPipelineRegistry,
     MissionPipelineOrchestrator,
     RadarMissionStore,

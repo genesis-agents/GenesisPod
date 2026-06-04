@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Rerun Guard Framework（P5 Wave 1，2026-05-24）
  *
- * @migrated-from ai-app/agent-playground/services/mission/rerun/rerun-guard.service.ts
+ * @migrated-from ai-app/playground/services/mission/rerun/rerun-guard.service.ts
  *
  * 抽出 RerunGuardService 的机制部分（business-agnostic 骨架），让 social/radar 反向迁移
  * 时只需注入 4 个业务 hook 即可获得完整能力：

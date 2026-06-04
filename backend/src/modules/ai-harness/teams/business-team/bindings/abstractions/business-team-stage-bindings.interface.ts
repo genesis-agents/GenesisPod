@@ -6,7 +6,7 @@
  * 形状不同 —— framework 不规约具体字段名）。
  *
  * 2026-05-24 (P4) 抽取自 ai-app 业务侧 stage bindings service:
- *   - ai-app/agent-playground/services/mission/workflow/mission-stage-bindings.service.ts  @migrated-from
+ *   - ai-app/playground/services/mission/workflow/mission-stage-bindings.service.ts  @migrated-from
  *
  * 设计：
  *   - **TCtxArgs / TCtx / TDeps 全 generic** —— framework 不规约 plan / researcher

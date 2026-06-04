@@ -693,7 +693,7 @@ export class RAGController {
 
   // ==================== Internal Report Import =====================
   // 2026-05-19: KB 作为 import sink，拉取 ai-app 模块产生的报告
-  //   - PlaygroundReport: agent-playground mission 报告（含 rerun versions）
+  //   - PlaygroundReport: playground mission 报告（含 rerun versions）
   //   - TopicReport: topic-insights 话题报告（含 incremental refresh versions）
   // 设计：library 直接读 source 表（PrismaService），不反向 import source module。
   //

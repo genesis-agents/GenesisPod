@@ -38,12 +38,12 @@ describe('mergeStageProcessTrace', () => {
   it('(3) 仅 events 命中 stage → 派生 local reactTrace', () => {
     const events: StageProcessTraceEventLike[] = [
       {
-        type: 'agent-playground.agent:thought',
+        type: 'playground.agent:thought',
         payload: { agentId: 'reconciler', text: 'scanning facts' },
         timestamp: 100,
       },
       {
-        type: 'agent-playground.agent:action',
+        type: 'playground.agent:action',
         payload: { agentId: 'reconciler', toolId: 'web-search' },
         timestamp: 200,
       },
@@ -64,13 +64,13 @@ describe('mergeStageProcessTrace', () => {
     const events: StageProcessTraceEventLike[] = [
       // 同一 (kind|ts|toolId) → 应被 dedupe
       {
-        type: 'agent-playground.agent:action',
+        type: 'playground.agent:action',
         payload: { agentId: 'reconciler', toolId: 'web-search' },
         timestamp: 200,
       },
       // 新的 → 应保留
       {
-        type: 'agent-playground.agent:observation',
+        type: 'playground.agent:observation',
         payload: { agentId: 'reconciler', toolId: 'web-search', latencyMs: 50 },
         timestamp: 300,
       },
@@ -87,7 +87,7 @@ describe('mergeStageProcessTrace', () => {
   it('(5) 不归属本 stage 的 agentId → 忽略', () => {
     const events: StageProcessTraceEventLike[] = [
       {
-        type: 'agent-playground.agent:thought',
+        type: 'playground.agent:thought',
         payload: { agentId: 'analyst', text: 'wrong stage' },
         timestamp: 100,
       },
@@ -100,7 +100,7 @@ describe('mergeStageProcessTrace', () => {
   it('(6) leader 共享 agentId → first-stage-wins (s2-leader-plan)', () => {
     const events: StageProcessTraceEventLike[] = [
       {
-        type: 'agent-playground.agent:thought',
+        type: 'playground.agent:thought',
         payload: { agentId: 'leader', text: 'planning' },
         timestamp: 100,
       },
@@ -115,7 +115,7 @@ describe('mergeStageProcessTrace', () => {
   it('(7) observation.latencyMs / tokensUsed 累计', () => {
     const events: StageProcessTraceEventLike[] = [
       {
-        type: 'agent-playground.agent:observation',
+        type: 'playground.agent:observation',
         payload: {
           agentId: 'reconciler',
           toolId: 'web-search',
@@ -125,7 +125,7 @@ describe('mergeStageProcessTrace', () => {
         timestamp: 100,
       },
       {
-        type: 'agent-playground.agent:observation',
+        type: 'playground.agent:observation',
         payload: {
           agentId: 'reconciler',
           toolId: 'arxiv-search',
@@ -148,7 +148,7 @@ describe('mergeStageProcessTrace', () => {
     };
     const events: StageProcessTraceEventLike[] = [
       {
-        type: 'agent-playground.agent:observation',
+        type: 'playground.agent:observation',
         payload: {
           agentId: 'reconciler',
           toolId: 'web-search',

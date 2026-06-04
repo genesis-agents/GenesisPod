@@ -1,7 +1,7 @@
 /**
  * radar.config.ts —— AI Radar Mission Pipeline 配置
  *
- * 完全照抄 agent-playground/playground.config.ts 范式：
+ * 完全照抄 playground/playground.config.ts 范式：
  *   - 用 defineMissionPipeline 框架（ai-harness/facade）
  *   - 每个 role.skillSpec 走 buildSkillSpecFromMd 从 agents/<dir>/SKILL.md 加载
  *   - 由 MissionPipelineOrchestrator 执行；本文件是唯一配置来源

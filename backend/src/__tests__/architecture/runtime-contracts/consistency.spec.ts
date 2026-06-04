@@ -44,10 +44,10 @@ function* walkTs(dir: string): Generator<string> {
 
 describe("Architecture consistency", () => {
   describe("[task #18] agent spec 必有 budget 配置", () => {
-    it("所有 ai-app/agent-playground/agents 下的 *.agent.ts 必须 @Spec({ budget: ... })", () => {
+    it("所有 ai-app/playground/agents 下的 *.agent.ts 必须 @Spec({ budget: ... })", () => {
       const agentsDir = path.resolve(
         SRC,
-        "modules/ai-app/agent-playground/agents",
+        "modules/ai-app/playground/agents",
       );
       const violations: string[] = [];
       for (const file of walkTs(agentsDir)) {

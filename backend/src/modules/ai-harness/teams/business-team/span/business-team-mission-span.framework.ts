@@ -6,7 +6,7 @@
  * 完成的 span 路由到 SpanExporter sinks (Logger + Langfuse when configured)。
  *
  * 2026-05-24 (P4) 抽取自 ai-app 业务侧 mission-span service:
- *   - ai-app/agent-playground/services/mission/workflow/playground-mission-span.service.ts  @migrated-from
+ *   - ai-app/playground/services/mission/workflow/playground-mission-span.service.ts  @migrated-from
  *
  * 业务侧仅注入 namespace（span name 前缀，由各业务团队选自己的业务唯一名），
  * 通用 mission/stage/agent 三级嵌套语义（含 crash-resume 时旧 stage span 收尾保护）

@@ -22,17 +22,17 @@ import * as path from "path";
 const REPO_ROOT = path.resolve(__dirname, "../../../../..");
 const BACKEND_SRC = path.join(REPO_ROOT, "backend/src");
 const FRONTEND = path.join(REPO_ROOT, "frontend");
-const PLAYGROUND_PREFIX = "agent-playground.";
+const PLAYGROUND_PREFIX = "playground.";
 
 // ----- 数据采集（静态分析）-----
 
 function readBackendRegisteredEvents(): Set<string> {
   const eventsFile = path.join(
     BACKEND_SRC,
-    "modules/ai-app/agent-playground/events/agent-playground.events.ts",
+    "modules/ai-app/playground/events/playground.events.ts",
   );
   const src = fs.readFileSync(eventsFile, "utf8");
-  // T("xxx:yyy") or S("xxx:yyy", schema) → "agent-playground.xxx:yyy"
+  // T("xxx:yyy") or S("xxx:yyy", schema) → "playground.xxx:yyy"
   const re = /\b[ST]\("([^"]+)"/g;
   const out = new Set<string>();
   let m;
@@ -78,6 +78,8 @@ function readFrontendListenedEvents(): {
   const events = new Set<string>();
   const source: Record<string, string[]> = {};
   const dirs = [
+    // 前端功能目录保留 agent-playground 命名（仅后端 dir / WS namespace /
+    // event prefix / billing moduleType 统一为 playground；前端 route + 目录不动）
     path.join(FRONTEND, "lib/features/agent-playground"),
     path.join(FRONTEND, "components/agent-playground"),
     path.join(FRONTEND, "app/agent-playground"),
@@ -86,10 +88,10 @@ function readFrontendListenedEvents(): {
   // 2026-05-19: derive.ts/todo-ledger.ts 用 namespace-agnostic 比较（剥离前缀后
   //   用 'mission:started' 这种 suffix-only 字符串），让 social/ai-radar 等
   //   domain 复用。spec 扫两种格式：
-  //     1) 'agent-playground.X:Y' — 完整明确监听 playground namespace
-  //     2) 'X:Y' — 监听所有 namespace（含 playground），视为也监听了 agent-playground.X:Y
+  //     1) 'playground.X:Y' — 完整明确监听 playground namespace
+  //     2) 'X:Y' — 监听所有 namespace（含 playground），视为也监听了 playground.X:Y
   const reFullyQualified =
-    /['"`]agent-playground\.([a-zA-Z][a-zA-Z0-9_-]*(?::[a-zA-Z][a-zA-Z0-9_-]*)+)['"`]/g;
+    /['"`]playground\.([a-zA-Z][a-zA-Z0-9_-]*(?::[a-zA-Z][a-zA-Z0-9_-]*)+)['"`]/g;
   // suffix-only：只允许合法事件 type 前缀（mission/stage/agent/budget/cost/tools/
   //   iteration/publish/chapter/dimension/leader/critic/verifier/reconciliation），
   //   排除 todo-ledger 内部 ID 如 'system:s3-researchers'
@@ -123,18 +125,18 @@ function readFrontendListenedEvents(): {
 function readBackendEmittedEvents(): Set<string> {
   const events = new Set<string>();
   const dirs = [
-    path.join(BACKEND_SRC, "modules/ai-app/agent-playground"),
+    path.join(BACKEND_SRC, "modules/ai-app/playground"),
     path.join(BACKEND_SRC, "modules/ai-harness"),
   ];
   // 只匹配事件 type（含至少 1 个冒号），排除 adapter id / namespace 字符串
   const re =
-    /['"`]agent-playground\.([a-zA-Z][a-zA-Z0-9_-]*(?::[a-zA-Z][a-zA-Z0-9_-]*)+)['"`]/g;
+    /['"`]playground\.([a-zA-Z][a-zA-Z0-9_-]*(?::[a-zA-Z][a-zA-Z0-9_-]*)+)['"`]/g;
   for (const d of dirs) {
     for (const file of walkTsFiles(d)) {
       // skip events.ts itself（注册不算 emit）+ event-schemas.ts
       if (
-        file.endsWith("agent-playground.events.ts") ||
-        file.endsWith("agent-playground.event-schemas.ts")
+        file.endsWith("playground.events.ts") ||
+        file.endsWith("playground.event-schemas.ts")
       )
         continue;
       const src = fs.readFileSync(file, "utf8");
@@ -152,42 +154,42 @@ function readBackendEmittedEvents(): Set<string> {
 /** 这些事件是合法保留的（向后兼容 fixture / 内部 socket 降级 / 故意未实现） */
 const FRONTEND_LEGACY_LISTENERS_OK = new Set<string>([
   // 单轨化前 fixture 兼容
-  "agent-playground.stage:started",
-  "agent-playground.stage:completed",
+  "playground.stage:started",
+  "playground.stage:completed",
 ]);
 
 /** 这些 backend 注册但暂未 emit（为未来预留 / 测试用 / 兼容历史 fixture） */
 const BACKEND_DEAD_REGISTRATION_OK = new Set<string>([
   // PR-E1 (2026-05-08): EventRelayFramework.relayAgentEvents() / emitLifecycle() / tickCost()
   // 通过 `${this.eventNamespace}.xxx` 动态模板 emit；AgentPlaygroundEventRelay extends
-  // EventRelayFramework("agent-playground") → 这些事件确实被 emit，静态扫描因模板化无法检测。
-  "agent-playground.agent:lifecycle",
-  "agent-playground.agent:thought",
-  "agent-playground.agent:action",
-  "agent-playground.agent:observation",
-  "agent-playground.agent:reflection",
-  "agent-playground.agent:error",
-  "agent-playground.cost:tick",
-  "agent-playground.tools:recalled",
-  "agent-playground.agent:validation-rejected",
-  "agent-playground.iteration:progress",
+  // EventRelayFramework("playground") → 这些事件确实被 emit，静态扫描因模板化无法检测。
+  "playground.agent:lifecycle",
+  "playground.agent:thought",
+  "playground.agent:action",
+  "playground.agent:observation",
+  "playground.agent:reflection",
+  "playground.agent:error",
+  "playground.cost:tick",
+  "playground.tools:recalled",
+  "playground.agent:validation-rejected",
+  "playground.iteration:progress",
   // SocketBroadcastAdapter 内部降级用，不是业务 emit
-  "agent-playground.event:dropped",
-  "agent-playground.event:oversized",
+  "playground.event:dropped",
+  "playground.event:oversized",
   // 暂未 emit 但 frontend 监听（保留事件位等业务实现）
-  "agent-playground.chapter:rewritten",
-  "agent-playground.dimension:integrating:failed",
-  "agent-playground.leader:rejected-revision-recommended",
+  "playground.chapter:rewritten",
+  "playground.dimension:integrating:failed",
+  "playground.leader:rejected-revision-recommended",
   // budget 警告事件已用 mission:budget-warning-{soft,hard}（在 mission lifecycle
   // 上）替代，独立的 budget:warning-{soft,hard} 命名暂保留位但未 emit
-  "agent-playground.budget:warning-soft",
-  "agent-playground.budget:warning-hard",
+  "playground.budget:warning-soft",
+  "playground.budget:warning-hard",
   // 单轨化前的旧事件 — backend 0996e8672 删 emit，但 frontend derive.ts 保留
   // 兼容 listener 让旧 fixture mission 仍能 deriveView。新 mission 走 stage:lifecycle。
-  "agent-playground.stage:started",
-  "agent-playground.stage:completed",
-  "agent-playground.stage:failed",
-  "agent-playground.stage:metrics",
+  "playground.stage:started",
+  "playground.stage:completed",
+  "playground.stage:failed",
+  "playground.stage:metrics",
 ]);
 
 // ----- specs -----
@@ -215,7 +217,7 @@ describe("Playground Event Contract — Frontend ↔ Backend", () => {
         .join("\n");
       throw new Error(
         `Frontend 监听的下列事件 backend 未注册（orphaned listener / typo）:\n${msg}\n\n` +
-          `修法：要么在 backend agent-playground.events.ts 加 T(/S(...))，` +
+          `修法：要么在 backend playground.events.ts 加 T(/S(...))，` +
           `要么删掉 frontend 的死 handler。`,
       );
     }
@@ -250,7 +252,7 @@ describe("Playground Event Contract — Frontend ↔ Backend", () => {
       throw new Error(
         `Backend 代码 emit 下列事件但 events.ts 未注册（EventBus 会 drop + warn）:\n` +
           unregistered.map((e) => `  ✗ ${e}`).join("\n") +
-          `\n\n修法：在 backend agent-playground.events.ts 用 T(...) 或 S(..., schema) 注册。`,
+          `\n\n修法：在 backend playground.events.ts 用 T(...) 或 S(..., schema) 注册。`,
       );
     }
   });
@@ -260,7 +262,7 @@ describe("Playground Event Contract — Frontend ↔ Backend", () => {
     // 处理路径下移到 backend canonical view —— 前端通过 useMissionDetailView refetch
     // 间接消费（refresh hints driven），不再直接监听 event suffix。
     // 仍保留 registered + emitted 断言：防止 backend 单边删除事件。
-    expect(registered.has("agent-playground.stage:lifecycle")).toBe(true);
-    expect(emitted.has("agent-playground.stage:lifecycle")).toBe(true);
+    expect(registered.has("playground.stage:lifecycle")).toBe(true);
+    expect(emitted.has("playground.stage:lifecycle")).toBe(true);
   });
 });

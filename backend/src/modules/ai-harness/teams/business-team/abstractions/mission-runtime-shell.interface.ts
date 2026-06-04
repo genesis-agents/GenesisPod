@@ -6,7 +6,7 @@
  * 通过 IMissionRuntimeAdapter 注入业务专属语义（事件 namespace、
  * mission 行 schema、heartbeat 持久化方式、wallTime/credits 解析规则）。
  *
- * 上提自：ai-app/agent-playground/ @migrated-from
+ * 上提自：ai-app/playground/ @migrated-from
  *   reference 实现已稳定运行，5×5 状态矩阵 + 4 层 timeout 守护 + spec 覆盖。
  *
  * 2026-05-08 PR-E0

@@ -1,7 +1,7 @@
 /**
  * MissionContext —— social SocialPublishMission 跨 stage 共享的可变状态包
  *
- * Mirror of agent-playground/mission/context/mission-context.ts，
+ * Mirror of playground/mission/context/mission-context.ts，
  * 适配 social 12-stage pipeline 的 phase 结构（参见 docs/architecture/ai-app/
  * social/agent-team-w4-implementation-plan.md §"12 Stage → Harness Primitive 映射"）。
  *

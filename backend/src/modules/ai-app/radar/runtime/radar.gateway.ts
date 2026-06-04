@@ -1,7 +1,7 @@
 /**
  * RadarGateway —— Socket.IO 入口
  *
- * 与 agent-playground.gateway 同形：
+ * 与 playground.gateway 同形：
  *   - afterInit 注册 SocketBroadcastAdapter（eventTypePrefix='ai-radar.', roomPrefix='radar'）
  *   - join/leave handler 鉴权 + ownership 校验
  *   - JWT 在 handshake.auth 解析；缺失 / 不匹配 → 拒绝

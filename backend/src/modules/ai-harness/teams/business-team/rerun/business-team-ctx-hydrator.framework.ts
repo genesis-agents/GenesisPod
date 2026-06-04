@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Ctx Hydrator Framework（P5 Wave 1，2026-05-24）
  *
- * @migrated-from ai-app/agent-playground/services/mission/rerun/ctx-hydrator.service.ts
+ * @migrated-from ai-app/playground/services/mission/rerun/ctx-hydrator.service.ts
  *
  * 抽出 ctx hydrate 骨架：fetch main row → ownership / NotFound / size guard /
  * snapshot version 校验 → 委托 schemaProvider.buildHydrated 重建业务 ctx。

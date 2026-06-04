@@ -29,7 +29,7 @@ const AI_APP_ROOT = path.join(PROJECT_ROOT, "src/modules/ai-app");
 /**
  * 例外白名单：登记在 EXCEPTIONS.md（E013 = 当前 B6 baseline）。
  *
- * 现状：B6 把 ~19 个 framework 从 agent-playground 上提到 harness/business-team/。
+ * 现状：B6 把 ~19 个 framework 从 playground 上提到 harness/business-team/。
  * 当前 social / radar 还没全部接入，导致 single-consumer。
  * 不算 regression（B6 提议刚落地），但**新增**文件必须 ≥2 consumer。
  *
@@ -62,7 +62,7 @@ const EXEMPT_PATHS: ReadonlySet<string> = new Set<string>([
  * 已知 mission app 名 —— 用于识别 consumer 所属 app。
  * 新 app 加进来后此处也要扩展。
  */
-const MISSION_APPS = ["agent-playground", "social", "radar"] as const;
+const MISSION_APPS = ["playground", "social", "radar"] as const;
 
 function listHarnessFiles(): string[] {
   if (!fs.existsSync(HARNESS_KERNEL)) return [];

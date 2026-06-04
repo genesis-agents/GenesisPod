@@ -1,7 +1,7 @@
 /**
  * PlaygroundReportImportService
  *
- * 把 `agent-playground` 模块生成的 mission 报告导入 KB 作为 KnowledgeBaseDocument。
+ * 把 `playground` 模块生成的 mission 报告导入 KB 作为 KnowledgeBaseDocument。
  *
  * 设计原则（2026-05-19）：
  *   1. **library 是 import sink**，所有外部源（含内部 ai-app 模块产物）都通过
@@ -319,8 +319,8 @@ export class PlaygroundReportImportService {
       resolvedVersion != null ? `${missionId}#v${resolvedVersion}` : missionId;
     const sourceUrlValue =
       resolvedVersion != null
-        ? `/agent-playground/missions/${missionId}?version=${resolvedVersion}`
-        : `/agent-playground/missions/${missionId}`;
+        ? `/playground/missions/${missionId}?version=${resolvedVersion}`
+        : `/playground/missions/${missionId}`;
 
     // 5. Dedup: same (kb, sourceType, sourceId) already imported → reject (避免重复)
     const dup = await this.prisma.knowledgeBaseDocument.findFirst({
@@ -377,7 +377,7 @@ export class PlaygroundReportImportService {
   }
 
   // ─── Markdown assembly (mirrors mission-export.service.ts shape, but kept
-  //     local to avoid cross-app module dep on agent-playground) ──────────
+  //     local to avoid cross-app module dep on playground) ──────────
 
   private assembleMarkdown(
     reportFull: MissionReportFull,

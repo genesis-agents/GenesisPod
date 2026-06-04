@@ -2,14 +2,14 @@
  * playground-as-template.spec.ts —— Cross-app Tier 1 framework adoption parity.
  *
  * playground-as-template.md §2 Tier 1 Core MUST：
- *   每个 mission app（agent-playground / radar / social）必须 extends 这套 Tier 1
+ *   每个 mission app（playground / radar / social）必须 extends 这套 Tier 1
  *   framework + 用 Tier 1 helper，新增 mission app 必须满足同样不变量。
  *
  * 与 canonical-view-pattern.spec.ts 的关系：那个看 view contract / projector / query
  * service 文件存在与函数调用（I1-I6）；本 spec 看 framework class 真 extends + 通用
  * helper 真使用，是它的补集，不重复。
  *
- * 落地依据：[playground-as-template.md](../../../../../docs/architecture/ai-app/agent-playground/playground-as-template.md)
+ * 落地依据：[playground-as-template.md](../../../../../docs/architecture/ai-app/playground/playground-as-template.md)
  */
 
 import { readdirSync, readFileSync, existsSync } from "fs";
@@ -38,7 +38,7 @@ interface MissionAppSpec {
 
 const MISSION_APPS: MissionAppSpec[] = [
   {
-    name: "agent-playground",
+    name: "playground",
     dispatcherNameSubstrings: ["playground.pipeline"],
     eventBufferNameSubstrings: ["mission-event-buffer"],
     todoBoardProjectorPath: "mission/projectors/todo-board.projector.ts",
@@ -159,7 +159,7 @@ describe("playground-as-template — Tier 1 framework adoption parity", () => {
   });
 
   it("Cross-check: MISSION_APPS 与 canonical-view-pattern.spec 一致（防漏 app）", () => {
-    const expected = ["agent-playground", "social", "radar"];
+    const expected = ["playground", "social", "radar"];
     expect(MISSION_APPS.map((a) => a.name).sort()).toEqual(expected.sort());
   });
 });

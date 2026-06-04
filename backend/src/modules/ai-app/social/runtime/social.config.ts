@@ -9,7 +9,7 @@
  *   - SOCIAL_PIPELINE        13 step（standard / deep）AI 完整改写 + 封面 + polish
  *   - SOCIAL_FAST_PIPELINE   4 step（quick）s1 Steward 预算闸 + s8 真发 + s9 验证 + s11 持久化
  *
- * 设计要点（参照 agent-playground/playground.config.ts）：
+ * 设计要点（参照 playground/playground.config.ts）：
  *   - 所有 step 用 primitive="persist"：social 各 stage 都是 side-effect 操作
  *     （读 / 写 ctx + 写浏览器 + 写远端 API），与 persist primitive 的 hook 形态
  *     （hooks.persist({ ctx, previousOutputs, crossStageState })）天然契合。

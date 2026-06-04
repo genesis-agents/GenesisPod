@@ -1,7 +1,7 @@
 /**
  * social-event-schemas — Zod schemas for social.* EventBus events
  *
- * Mirror of agent-playground/agent-playground.event-schemas.ts。
+ * Mirror of playground/playground.event-schemas.ts。
  *
  * 设计原则：
  *   - lifecycle 事件给最小可观测 payload（status / stage / error）
@@ -59,7 +59,7 @@ export const MissionGatedSchema = z.object({
   evidence: z.string().optional(),
 });
 
-/** agent runner 通用事件 — tool recall / iteration progress（mirror agent-playground schema） */
+/** agent runner 通用事件 — tool recall / iteration progress（mirror playground schema） */
 export const ToolsRecalledSchema = z
   .object({
     role: z.string().optional(),

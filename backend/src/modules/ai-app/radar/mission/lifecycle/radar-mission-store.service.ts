@@ -1,7 +1,7 @@
 /**
  * RadarMissionStore —— RadarRun 表的 CRUD + mission lifecycle 状态机
  *
- * 与 agent-playground/MissionStore 同构（structural typing 满足
+ * 与 playground/MissionStore 同构（structural typing 满足
  * IBusinessTeamMissionStore），让 ai-harness liveness-guard / runtime-shell
  * 框架可以正常工作。
  *

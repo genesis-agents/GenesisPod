@@ -1,7 +1,7 @@
 /**
  * RadarPipelineDispatcher —— Radar mission 入口（彻底重构后）
  *
- * 完全对齐 agent-playground/PlaygroundPipelineDispatcher 范式：
+ * 完全对齐 playground/PlaygroundPipelineDispatcher 范式：
  *   - 启动时 register RADAR_REFRESH_PIPELINE + RADAR_DISCOVERY_PIPELINE 到
  *     MissionPipelineRegistry（每个 step 注入业务 hook 闭包）
  *   - runRefreshMission / runDiscoveryMission 都走 MissionRuntimeShell.openSession

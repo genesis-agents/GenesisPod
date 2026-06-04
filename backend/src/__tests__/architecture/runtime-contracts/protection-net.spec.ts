@@ -8,7 +8,7 @@
  *   3b. EventBus STRICT mode: same payload → throws
  *   3c. EventBus: real leader:goals-set payload shape → passes schema
  *   3d. EventBus: mutated leader:goals-set (initialRisks item is string) → fails
- *   4.  POST /api/v1/agent-playground/error-report endpoint structure check
+ *   4.  POST /api/v1/playground/error-report endpoint structure check
  */
 
 import { z } from "zod";
@@ -236,11 +236,11 @@ describe("Protection Net — ErrorBoundary + error-report endpoint", () => {
   });
 
   describe("4b. backend error-report controller structure", () => {
-    // PR-D god class split (2026-05-15): error-report 路由从 agent-playground.controller.ts
+    // PR-D god class split (2026-05-15): error-report 路由从 playground.controller.ts
     // 拆到 controllers/mission-read.controller.ts，spec readSrc 跟着迁。
     const controllerFile = path.resolve(
       __dirname,
-      "../../../modules/ai-app/agent-playground/api/controller/mission-read.controller.ts",
+      "../../../modules/ai-app/playground/api/controller/mission-read.controller.ts",
     );
 
     it("controller file exists", () => {

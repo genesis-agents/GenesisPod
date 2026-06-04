@@ -14,7 +14,7 @@
  *   - markStageDegraded is never silently swallowed — it throws if eventBus.emit()
  *     fails. Caller (stage) decides whether to let that propagate or catch+log.
  *   - Event type "writing.stage:degraded" mirrors playground pattern
- *     "agent-playground.stage:degraded", 7-field DomainEvent shape.
+ *     "playground.stage:degraded", 7-field DomainEvent shape.
  *
  * @see docs/architecture/writing-pipeline-migration.md §3 (store)
  */
@@ -80,7 +80,7 @@ export class WritingMissionStoreService implements WritingMissionStore {
   /**
    * Emits "writing.stage:degraded" domain event.
    *
-   * Payload (7 fields, mirroring playground "agent-playground.stage:degraded"):
+   * Payload (7 fields, mirroring playground "playground.stage:degraded"):
    *   DomainEvent outer: type, scope { userId, missionId }, payload, timestamp  (4)
    *   payload inner:     stage (=stepId), stepId, reason                        (3)
    *

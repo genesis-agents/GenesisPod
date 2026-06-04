@@ -89,7 +89,7 @@ function previewObject(o: unknown, maxLen = 120): string {
 }
 
 function parseEvent(ev: PlaygroundEvent): ParsedEvent {
-  const t = ev.type.replace('agent-playground.', '');
+  const t = ev.type.replace('playground.', '');
   const p = (ev.payload ?? {}) as Record<string, unknown>;
   const role = (p.role as string) ?? '';
   const RoleIcon = role && ROLE_ICON[role] ? ROLE_ICON[role] : null;

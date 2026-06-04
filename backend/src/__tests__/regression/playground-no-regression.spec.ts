@@ -61,12 +61,12 @@ function prodTsFiles(dir: string): string[] {
 
 describe("P0-A — stage lifecycle emit via orchestrator bridge (no longer in stage files)", () => {
   const dispatcherFile =
-    "ai-app/agent-playground/mission/pipeline/playground.pipeline.ts";
+    "ai-app/playground/mission/pipeline/playground.pipeline.ts";
 
-  it("dispatcher onEvent bridge emits agent-playground.stage:lifecycle", () => {
+  it("dispatcher onEvent bridge emits playground.stage:lifecycle", () => {
     const src = read(dispatcherFile);
     // The bridge must translate stage:started/completed/failed → stage:lifecycle
-    expect(src).toContain("agent-playground.stage:lifecycle");
+    expect(src).toContain("playground.stage:lifecycle");
     expect(src).toContain('event.type === "stage:started"');
     expect(src).toContain('event.type === "stage:completed"');
     expect(src).toContain('event.type === "stage:failed"');
@@ -87,11 +87,11 @@ describe("P0-A — stage lifecycle emit via orchestrator bridge (no longer in st
   // NOTE: Not all files use the exact same keyword; we verify the orchestrator
   // bridge is wired (tested above) and that each stage file still exists.
   const PREVIOUSLY_MISSING_STAGES = [
-    "ai-app/agent-playground/mission/pipeline/stages/s4-leader-assess-research.stage.ts",
-    "ai-app/agent-playground/mission/pipeline/stages/s9-reviewer-critic-l4.stage.ts",
-    "ai-app/agent-playground/mission/pipeline/stages/s10-leader-foreword-and-signoff.stage.ts",
-    "ai-app/agent-playground/mission/pipeline/stages/s11-mission-persist.stage.ts",
-    "ai-app/agent-playground/mission/pipeline/stages/s7-writer-plan-outline.stage.ts",
+    "ai-app/playground/mission/pipeline/stages/s4-leader-assess-research.stage.ts",
+    "ai-app/playground/mission/pipeline/stages/s9-reviewer-critic-l4.stage.ts",
+    "ai-app/playground/mission/pipeline/stages/s10-leader-foreword-and-signoff.stage.ts",
+    "ai-app/playground/mission/pipeline/stages/s11-mission-persist.stage.ts",
+    "ai-app/playground/mission/pipeline/stages/s7-writer-plan-outline.stage.ts",
   ];
 
   it.each(PREVIOUSLY_MISSING_STAGES)(
@@ -126,10 +126,10 @@ describe("P0-A — stage lifecycle emit via orchestrator bridge (no longer in st
 
   it("S1 budget stage does not standalone-emit stage:started (orchestrator handles it)", () => {
     const src = read(
-      "ai-app/agent-playground/mission/pipeline/stages/s1-mission-estimate-budget.stage.ts",
+      "ai-app/playground/mission/pipeline/stages/s1-mission-estimate-budget.stage.ts",
     );
     // S1 emits mission:started — NOT stage:lifecycle independently
-    expect(src).toContain("agent-playground.mission:started");
+    expect(src).toContain("playground.mission:started");
     // The comment confirming single-track
     expect(src).toMatch(/单轨化|P0-A|orchestrator/);
   });
@@ -141,7 +141,7 @@ describe("P0-A — stage lifecycle emit via orchestrator bridge (no longer in st
 
 describe("P0-B — MissionLivenessGuard staleThresholdMs >= 15 min in playground", () => {
   const moduleFile =
-    "ai-app/agent-playground/module/agent-playground.module.ts";
+    "ai-app/playground/module/playground.module.ts";
 
   it("playground module registers liveness adapter with staleThresholdMs", () => {
     const src = read(moduleFile);
@@ -174,7 +174,7 @@ describe("P0-B — MissionLivenessGuard staleThresholdMs >= 15 min in playground
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const {
       loadPlaygroundRuntimeConfig,
-    } = require("../../modules/ai-app/agent-playground/runtime/playground-runtime.config");
+    } = require("../../modules/ai-app/playground/runtime/playground-runtime.config");
     const cfg = loadPlaygroundRuntimeConfig({}) as {
       staleThresholdMin: number;
     };
@@ -194,7 +194,7 @@ describe("P0-B — MissionLivenessGuard staleThresholdMs >= 15 min in playground
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const {
       loadPlaygroundRuntimeConfig,
-    } = require("../../modules/ai-app/agent-playground/runtime/playground-runtime.config");
+    } = require("../../modules/ai-app/playground/runtime/playground-runtime.config");
     const cfg = loadPlaygroundRuntimeConfig({}) as {
       staleThresholdMin: number;
       softWarnThresholdMin: number;
@@ -208,7 +208,7 @@ describe("P0-B — MissionLivenessGuard staleThresholdMs >= 15 min in playground
 // ---------------------------------------------------------------------------
 
 describe("P0-C/G/K — maxCredits required, no fallback hardcoding", () => {
-  const dtoFile = "ai-app/agent-playground/api/dto/run-mission.dto.ts";
+  const dtoFile = "ai-app/playground/api/dto/run-mission.dto.ts";
 
   it("RunMissionInputSchema declares maxCredits as required (no .optional())", () => {
     const src = read(dtoFile);
@@ -257,7 +257,7 @@ describe("P0-C/G/K — maxCredits required, no fallback hardcoding", () => {
 
   it("no ??\\ 300 or ?? 1000 fallback in dispatcher service", () => {
     const dispatcher =
-      "ai-app/agent-playground/mission/pipeline/playground.pipeline.ts";
+      "ai-app/playground/mission/pipeline/playground.pipeline.ts";
     const src = read(dispatcher);
     // maxCredits fallback patterns that would bypass P0-K fix
     expect(src).not.toMatch(/maxCredits\s*\?\?\s*300/);
@@ -273,7 +273,7 @@ describe("P0-C/G/K — maxCredits required, no fallback hardcoding", () => {
 describe("P0-D — trajectory persistence methods exist in MissionStore", () => {
   // 2026-05-15 PR-D god-class 拆分后，trajectory 实现迁到 mission-report.helper.ts
   const storeFile =
-    "ai-app/agent-playground/mission/lifecycle/mission-report.helper.ts";
+    "ai-app/playground/mission/lifecycle/mission-report.helper.ts";
 
   it("saveResearchResult method exists", () => {
     const src = read(storeFile);
@@ -297,7 +297,7 @@ describe("P0-D — trajectory persistence methods exist in MissionStore", () => 
 
   it("saveResearchResult is called from dispatcher pipeline", () => {
     const dispatcher =
-      "ai-app/agent-playground/mission/pipeline/playground.pipeline.ts";
+      "ai-app/playground/mission/pipeline/playground.pipeline.ts";
     const src = read(dispatcher);
     expect(src).toContain("saveResearchResult");
   });
@@ -305,9 +305,9 @@ describe("P0-D — trajectory persistence methods exist in MissionStore", () => 
   it("saveChapterDraft is called from pipeline util or dispatcher", () => {
     // Either per-dim-pipeline or dispatcher uses saveChapterDraft
     const utilFile =
-      "ai-app/agent-playground/mission/pipeline/helpers/per-dim-pipeline.util.ts";
+      "ai-app/playground/mission/pipeline/helpers/per-dim-pipeline.util.ts";
     const dispatcherFile =
-      "ai-app/agent-playground/mission/pipeline/playground.pipeline.ts";
+      "ai-app/playground/mission/pipeline/playground.pipeline.ts";
     const utilHas = exists(utilFile)
       ? read(utilFile).includes("saveChapterDraft")
       : false;
@@ -323,13 +323,13 @@ describe("P0-D — trajectory persistence methods exist in MissionStore", () => 
 // ---------------------------------------------------------------------------
 
 describe("P0-8de5d02b0 — leader:goals-set initialRisks schema is object[]", () => {
-  it("agent-playground event schemas file registers leader:goals-set", () => {
+  it("playground event schemas file registers leader:goals-set", () => {
     const schemasFile =
-      "ai-app/agent-playground/events/agent-playground.event-schemas.ts";
+      "ai-app/playground/events/playground.event-schemas.ts";
     if (!exists(schemasFile)) {
       // May be inline registered; check events file
       const eventsFile =
-        "ai-app/agent-playground/events/agent-playground.events.ts";
+        "ai-app/playground/events/playground.events.ts";
       const src = read(eventsFile);
       // goals-set must appear
       expect(src).toContain("goals-set");

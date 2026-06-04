@@ -25,7 +25,7 @@ describe("MissionCompletionBroadcastAdapter (generic)", () => {
   // ─── accepts（通用后缀匹配，零业务名）────────────────────────────
   describe("accepts", () => {
     it.each([
-      "agent-playground.mission:completed",
+      "playground.mission:completed",
       "radar.mission:completed",
       "writing.mission:completed",
     ])("accepts any <domain>.mission:completed (%s)", (type) => {
@@ -39,7 +39,7 @@ describe("MissionCompletionBroadcastAdapter (generic)", () => {
       ).toBe(true);
     });
 
-    it.each(["agent-playground.agent:thought", "x.mission:failed"])(
+    it.each(["playground.agent:thought", "x.mission:failed"])(
       "rejects non-completion events (%s)",
       (type) => {
         expect(
@@ -58,7 +58,7 @@ describe("MissionCompletionBroadcastAdapter (generic)", () => {
   describe("broadcast", () => {
     const event = (payload: Record<string, unknown>): DomainEvent =>
       ({
-        type: "agent-playground.mission:completed",
+        type: "playground.mission:completed",
         scope: { userId: "u1", missionId: "m1" },
         payload,
         timestamp: 1,
@@ -68,8 +68,8 @@ describe("MissionCompletionBroadcastAdapter (generic)", () => {
       leaderSigned: true,
       reviewScore: 87,
       missionTitle: "Anthropic 产品策略分析",
-      appBasePath: "/agent-playground",
-      relatedType: "agent-playground-mission",
+      appBasePath: "/playground",
+      relatedType: "playground-mission",
     };
 
     it("calls notifyMissionCompleted from payload (no DB query)", async () => {
@@ -78,8 +78,8 @@ describe("MissionCompletionBroadcastAdapter (generic)", () => {
         userId: "u1",
         missionId: "m1",
         missionTitle: "Anthropic 产品策略分析",
-        appBasePath: "/agent-playground",
-        relatedType: "agent-playground-mission",
+        appBasePath: "/playground",
+        relatedType: "playground-mission",
         reviewScore: 87,
       });
     });

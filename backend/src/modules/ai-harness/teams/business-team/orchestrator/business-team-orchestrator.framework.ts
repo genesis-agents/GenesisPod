@@ -25,7 +25,7 @@
  * 业务侧扩展模板：详见 abstractions/business-team-orchestrator.contract.ts
  *
  * 2026-05-24 (P7) 抽取自:
- *   - ai-app/agent-playground/services/mission/workflow/playground-business-orchestrator.service.ts  @migrated-from
+ *   - ai-app/playground/services/mission/workflow/playground-business-orchestrator.service.ts  @migrated-from
  *   - ai-app/social/services/mission/workflow/social-business-orchestrator.service.ts  @migrated-from
  *   - ai-app/radar/services/mission/workflow/radar-business-orchestrator.service.ts  @migrated-from
  */

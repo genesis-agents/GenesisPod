@@ -10,8 +10,8 @@
  *   (C) ai-harness/teams/business-team/ 子目录必须命中 §8.1 白名单
  *
  * 设计参考：
- *   - docs/architecture/ai-app/agent-playground/
- *       agent-playground-target-boundary-and-directory-blueprint-2026-05-24.md §8.2
+ *   - docs/architecture/ai-app/playground/
+ *       playground-target-boundary-and-directory-blueprint-2026-05-24.md §8.2
  *   - docs/architecture/ai-app/agent-app-mass-migration-roadmap-2026-05-24.md
  *
  * 三层看护对位：
@@ -31,7 +31,7 @@ const HARNESS_BUSINESS_TEAM_ROOT = path.resolve(
 );
 
 /** 三个 agent team app —— 每加一个 mission-pipeline 型 app 必须登记到此 */
-const AGENT_TEAM_APPS = ["agent-playground", "social", "radar"];
+const AGENT_TEAM_APPS = ["playground", "social", "radar"];
 
 /**
  * §8.2 顶层目录白名单（每个 agent team app 都必须遵守）。

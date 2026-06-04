@@ -289,13 +289,13 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
     //
     //   合法例外：
     //   - contracts/ 是显式跨 app 公共契约 shim
-    //   - custom-agents → agent-playground：custom-agents 是 playground 衍生模块，
+    //   - custom-agents → playground：custom-agents 是 playground 衍生模块，
     //     playground module.ts 显式 exports dispatcher / mission-store / event-buffer
     //     供其复用（R-CA 2026-05-05 设计决定）
     it("ai-app 模块不得跨 app 直接 import 其他 ai-app 内部路径（除 contracts shim 与 allowlist）", () => {
       const APP_LEVEL_ALLOWLIST: Array<{ from: string; to: string }> = [
-        // R-CA (2026-05-05): custom-agents 复用 agent-playground 启动 + 列表能力
-        { from: "custom-agents", to: "agent-playground" },
+        // R-CA (2026-05-05): custom-agents 复用 playground 启动 + 列表能力
+        { from: "custom-agents", to: "playground" },
       ];
       // ★ 2026-05-10 PR-2 (wiki-as-KB-source): library/kb-query/ 是跨 app
       // 共享的 KB 查询门面（wiki BM25 + chunk RAG 透明合一），任何 ai-app
@@ -621,7 +621,7 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
     // 排除：image / research / writing / library / explore / planning / ask / social
     // 这些词在英语中高频，作为 ai-app 名只能靠 import path 检测（已在 §单向依赖 cover）
     const UNIQUE_BUSINESS_NAMES = [
-      "agent-playground",
+      "playground",
       "topic-insights",
       "topic-report",
     ];
@@ -658,7 +658,7 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       return { hit: false };
     }
 
-    it("ai-engine 不得提及业务唯一名 agent-playground / topic-insights / playground", () => {
+    it("ai-engine 不得提及业务唯一名 playground / topic-insights / playground", () => {
       const violations: string[] = [];
       for (const file of ALL_FILES) {
         if (fileLayer(file) !== "ai-engine") continue;
@@ -672,7 +672,7 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       expect(violations).toEqual([]);
     });
 
-    it("ai-harness 不得提及业务唯一名 agent-playground / topic-insights / playground", () => {
+    it("ai-harness 不得提及业务唯一名 playground / topic-insights / playground", () => {
       const violations: string[] = [];
       for (const file of ALL_FILES) {
         if (fileLayer(file) !== "ai-harness") continue;

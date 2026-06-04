@@ -13,11 +13,11 @@
  *   - 接口契约(`IMissionRunner` / `IMissionListReader`)
  *   - 共享 types(`MissionRunResult` / `MissionListItem`)
  *
- * playground 端在 `agent-playground.module.ts` 用 `useExisting` 把 dispatcher / store
+ * playground 端在 `playground.module.ts` 用 `useExisting` 把 dispatcher / store
  * 注册到 token;custom-agents 端 `@Inject(MISSION_RUNNER)` 拿到 IMissionRunner 接口
  * (而非 PlaygroundPipelineDispatcher 具体类)。
  *
- * 详见 docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md
+ * 详见 docs/architecture/ai-app/playground/agent-team-boundary-audit-2026-05-08.md
  * §3.3 + §7 S1-5。
  */
 

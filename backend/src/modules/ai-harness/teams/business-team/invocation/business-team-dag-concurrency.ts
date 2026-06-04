@@ -9,7 +9,7 @@
  *   两者抽象层次不同，不是双源；本 helper 服务于"stage 内 dim 内存并行"场景。
  *
  * 2026-05-24 (P4) 抽取自 ai-app 业务侧 agent-execution-support.runDagConcurrency:
- *   - ai-app/agent-playground/services/roles/agent-execution-support.ts.runDagConcurrency  @migrated-from
+ *   - ai-app/playground/services/roles/agent-execution-support.ts.runDagConcurrency  @migrated-from
  *
  * 行为契约：
  *   1. 检测 cycle / missing deps → fallback 到 flat ConcurrencyLimiter 调度（仍并发）

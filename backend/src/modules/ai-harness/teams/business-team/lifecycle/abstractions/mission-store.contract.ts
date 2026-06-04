@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Mission Store contract (P6 Wave 1, 2026-05-24)
  *
- * @migrated-from ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts
+ * @migrated-from ai-app/playground/services/mission/lifecycle/mission-store.service.ts
  *
  * Mission CRUD / heartbeat / stage 进度 / orphan cleanup 通用机制。
  *

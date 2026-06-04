@@ -7,7 +7,7 @@
  * `lastPlan` / `lastResearcherResults` / `s4PatchFailures` / `inheritedX`.
  *
  * 2026-05-24 (P4) 抽取自 ai-app 业务侧 cross-stage-state:
- *   - ai-app/agent-playground/services/mission/workflow/playground-cross-stage-state.ts  @migrated-from
+ *   - ai-app/playground/services/mission/workflow/playground-cross-stage-state.ts  @migrated-from
  *
  * 设计目标（idempotent refactor — 外部行为完全保留）：
  *   - subclass getter/setter 语法与原 field 一致（`entry.crossState.lastFoo = X`），

@@ -5,7 +5,7 @@
  *   - afterInit: 注册 SocketBroadcastAdapter 到 EventBus（io 此时已绑定）
  *   - @SubscribeMessage('join'): JWT 鉴权 + ownership 校验 + socket.join(room)
  *
- * Mirror of agent-playground/agent-playground.gateway.ts，区别：
+ * Mirror of playground/playground.gateway.ts，区别：
  *   - namespace="social"，roomPrefix="social"
  *   - ownership 走 SocialMissionStore.getOwner（in-memory record）
  *   - 暂不接 MissionOwnershipRegistry（社交 mission record 本身就承载 ownership）

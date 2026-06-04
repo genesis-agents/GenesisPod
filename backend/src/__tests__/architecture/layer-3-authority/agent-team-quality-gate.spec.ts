@@ -21,7 +21,7 @@ import { join } from "path";
 const APP_ROOT = join(__dirname, "../../../modules/ai-app");
 
 /** mission 型 app 的目录名（新增 mission app 必须登记到此）。 */
-const MISSION_APP_DIRS = ["agent-playground", "radar", "social"];
+const MISSION_APP_DIRS = ["playground", "radar", "social"];
 
 /** 测试比阈值（playground 实测 ~41%，radar 达标；35% 为最低基线）。 */
 const MIN_TEST_RATIO = 0.35;

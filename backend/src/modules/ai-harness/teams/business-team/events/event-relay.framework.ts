@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Event Relay Framework
  *
- * 上提自 ai-app/agent-playground/services/roles/agent-playground-event-relay.ts @migrated-from
+ * 上提自 ai-app/playground/services/roles/playground-event-relay.ts @migrated-from
  * （2026-05-08 PR-E1）。通用 emit + budget exhaustion + IAgentEvent → DomainEvent
  * 翻译现作为框架，业务侧仅注入 eventNamespace（如 "my-app" / "research"），
  * 所有 event type 字符串由 framework 用模板拼接（{namespace}.cost:tick 等）。

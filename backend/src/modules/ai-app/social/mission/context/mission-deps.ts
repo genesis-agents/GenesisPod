@@ -1,7 +1,7 @@
 /**
  * MissionDeps —— social SocialPublishMission stage 函数所需的依赖包
  *
- * Mirror of agent-playground/mission/context/mission-deps.ts。
+ * Mirror of playground/mission/context/mission-deps.ts。
  * PR-3c 简化版：合并到 CommonDeps（不细分 PlanDeps/TransformDeps/...），PR-4
  * dispatcher 装配时一次性注入所有 role services + 基础设施。
  */

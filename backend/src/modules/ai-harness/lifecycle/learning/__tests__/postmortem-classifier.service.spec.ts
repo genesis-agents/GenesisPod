@@ -26,8 +26,8 @@ describe("PostmortemClassifierService", () => {
       const input: ClassifyInput = {
         status: "cancelled",
         events: [
-          makeEvent("agent-playground.stage:started"),
-          makeEvent("agent-playground.user-cancel"),
+          makeEvent("playground.stage:started"),
+          makeEvent("playground.user-cancel"),
         ],
       };
       const result = svc.classify(input);
@@ -40,8 +40,8 @@ describe("PostmortemClassifierService", () => {
       const input: ClassifyInput = {
         status: "cancelled",
         events: [
-          makeEvent("agent-playground.stage:started"),
-          makeEvent("agent-playground.agent:lifecycle"),
+          makeEvent("playground.stage:started"),
+          makeEvent("playground.agent:lifecycle"),
         ],
       };
       const result = svc.classify(input);
@@ -60,7 +60,7 @@ describe("PostmortemClassifierService", () => {
   describe("failure signal detection", () => {
     it("truncationCount=10 (> threshold 5) → tool_truncation, confidence ≈ 1", () => {
       const events = Array.from({ length: 10 }, (_, i) =>
-        makeEvent("agent-playground.tool:truncated", i),
+        makeEvent("playground.tool:truncated", i),
       );
       const result = svc.classify({ status: "failed", events });
       expect(result.mode).toBe("tool_truncation");
@@ -71,7 +71,7 @@ describe("PostmortemClassifierService", () => {
       const events = [
         ...Array.from({ length: 3 }, (_, i) => makeEvent("revision:stuck", i)),
         ...Array.from({ length: 2 }, (_, i) =>
-          makeEvent("agent-playground.tool:truncated", i + 10),
+          makeEvent("playground.tool:truncated", i + 10),
         ),
       ];
       const result = svc.classify({ status: "failed", events });
@@ -90,7 +90,7 @@ describe("PostmortemClassifierService", () => {
 
     it("timeoutCount=6 → llm_timeout, confidence=1 (6/(3*2)=1)", () => {
       const events = Array.from({ length: 6 }, (_, i) =>
-        makeEvent("agent-playground.llm:timeout", i),
+        makeEvent("playground.llm:timeout", i),
       );
       const result = svc.classify({ status: "failed", events });
       expect(result.mode).toBe("llm_timeout");
@@ -99,14 +99,14 @@ describe("PostmortemClassifierService", () => {
 
     it("schemaRejectCount=3 (exactly at threshold) → schema_reject", () => {
       const events = Array.from({ length: 3 }, (_, i) =>
-        makeEvent("agent-playground.validation:failed", i),
+        makeEvent("playground.validation:failed", i),
       );
       const result = svc.classify({ status: "failed", events });
       expect(result.mode).toBe("schema_reject");
     });
 
     it("timeoutCount=1 only → unknown (below threshold=3)", () => {
-      const events = [makeEvent("agent-playground.timeout")];
+      const events = [makeEvent("playground.timeout")];
       const result = svc.classify({ status: "failed", events });
       expect(result.mode).toBe("unknown");
     });
@@ -119,10 +119,10 @@ describe("PostmortemClassifierService", () => {
     it("dominant signal wins when multiple signals present: 8 truncations + 3 timeouts → tool_truncation", () => {
       const events = [
         ...Array.from({ length: 8 }, (_, i) =>
-          makeEvent("agent-playground.tool:truncated", i),
+          makeEvent("playground.tool:truncated", i),
         ),
         ...Array.from({ length: 3 }, (_, i) =>
-          makeEvent("agent-playground.llm:timeout", i + 100),
+          makeEvent("playground.llm:timeout", i + 100),
         ),
       ];
       const result = svc.classify({ status: "failed", events });
@@ -137,7 +137,7 @@ describe("PostmortemClassifierService", () => {
       const events = [
         ...Array.from({ length: 6 }, (_, i) => makeEvent("revision:stuck", i)),
         ...Array.from({ length: 2 }, (_, i) =>
-          makeEvent("agent-playground.tool:truncated", i + 10),
+          makeEvent("playground.tool:truncated", i + 10),
         ),
       ];
       const result = svc.classify({ status: "failed", events });

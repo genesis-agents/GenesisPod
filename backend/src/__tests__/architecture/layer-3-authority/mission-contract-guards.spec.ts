@@ -16,7 +16,7 @@ const BUDGET_DIR = join(
 );
 
 /** 已切换到 C0 finalize 单入口的 mission app（终态写必须经 finalize，禁旁路）。 */
-const CUTOVER_MISSION_APPS = ["agent-playground", "social", "radar"] as const;
+const CUTOVER_MISSION_APPS = ["playground", "social", "radar"] as const;
 
 function appDir(app: string): string {
   return join(__dirname, "../../../modules/ai-app", app);

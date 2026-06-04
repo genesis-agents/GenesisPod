@@ -62,7 +62,7 @@ describe("SocialEventBuffer", () => {
 
     it("returns false for non-social events", () => {
       const ev = makeEvent(
-        "agent-playground.mission:started",
+        "playground.mission:started",
         "m-1",
         Date.now(),
       );

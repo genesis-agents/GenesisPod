@@ -32,7 +32,7 @@ async function reportError(payload: ErrorPayload): Promise<void> {
   try {
     const baseUrl = config.getBackendUrl();
     const auth = getAuthHeader();
-    await fetch(`${baseUrl}/api/v1/agent-playground/error-report`, {
+    await fetch(`${baseUrl}/api/v1/playground/error-report`, {
       method: 'POST',
       credentials: 'include',
       headers: {

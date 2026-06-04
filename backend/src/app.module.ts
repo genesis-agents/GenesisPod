@@ -61,7 +61,7 @@ import { RAGModule } from "./modules/ai-app/library/rag/rag.module";
 import { AiWritingModule } from "./modules/ai-app/writing/ai-writing.module";
 import { ResearchModule } from "./modules/ai-app/research";
 import { InsightModule } from "./modules/ai-app/insight";
-import { AgentPlaygroundModule } from "./modules/ai-app/agent-playground/module/agent-playground.module";
+import { PlaygroundModule } from "./modules/ai-app/playground/module/playground.module";
 import { RadarModule } from "./modules/ai-app/radar/module/radar.module";
 import { CustomAgentsModule } from "./modules/ai-app/custom-agents/custom-agents.module";
 import { AiSocialModule } from "./modules/ai-app/social/module/ai-social.module";
@@ -221,7 +221,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     AiWritingModule,
     ResearchModule, // Deep Research æ¨¡å— (Deep Research + Notebook Research)
     InsightModule, // Topic Insights ä¸“é¢˜æ´žå¯Ÿæ¨¡å— (ä»Ž Research æ‹†åˆ†)
-    AgentPlaygroundModule,
+    PlaygroundModule,
     RadarModule, // AI 雷达：多源数据采集 + 多 Agent 看板 (PR-R1 起)
     CustomAgentsModule, // E R4 Phase 2 PR-E1 (2026-05-05): 用户自定义 agent CRUD
     AiSocialModule,

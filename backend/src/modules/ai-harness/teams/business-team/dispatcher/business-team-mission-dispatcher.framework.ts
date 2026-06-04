@@ -11,7 +11,7 @@
  * framework 不替业务方决策这些；只下沉**纯机制**部分。
  *
  * 2026-05-24 (P4) 抽取自三家业务侧 pipeline-dispatcher 公共 emit/bridge 逻辑:
- *   - ai-app/agent-playground/services/mission/workflow/playground-pipeline-dispatcher.service.ts emitToBus + onEvent bridge  @migrated-from
+ *   - ai-app/playground/services/mission/workflow/playground-pipeline-dispatcher.service.ts emitToBus + onEvent bridge  @migrated-from
  *   - ai-app/social/services/mission/workflow/social-pipeline-dispatcher.service.ts bridgeOrchestratorEvent  @migrated-from
  *   - ai-app/radar/services/mission/workflow/radar-pipeline-dispatcher.service.ts handleOrchestratorEvent + emitToBus  @migrated-from
  *

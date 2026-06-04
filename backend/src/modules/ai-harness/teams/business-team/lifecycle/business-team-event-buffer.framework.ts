@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Mission Event Buffer Framework (P6 Wave 1, 2026-05-24)
  *
- * @migrated-from ai-app/agent-playground/services/mission/lifecycle/mission-event-buffer.service.ts
+ * @migrated-from ai-app/playground/services/mission/lifecycle/mission-event-buffer.service.ts
  *
  * 抽出 in-memory FIFO + DB write-through 兜底通用机制。实现 IBroadcastAdapter。
  *

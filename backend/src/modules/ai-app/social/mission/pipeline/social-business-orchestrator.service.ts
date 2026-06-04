@@ -1,7 +1,7 @@
 /**
  * SocialBusinessOrchestrator —— 业务编排（stage runner 表 + STAGE_NUMBER）
  *
- * 从 dispatcher 抽出"业务编排"职责（mirror agent-playground/
+ * 从 dispatcher 抽出"业务编排"职责（mirror playground/
  * playground-business-orchestrator.service.ts）。dispatcher 留 runtime-glue：
  * sessions Map / runMission 主入口 / cleanup。
  *

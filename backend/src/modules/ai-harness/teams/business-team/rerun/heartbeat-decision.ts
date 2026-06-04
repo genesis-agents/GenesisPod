@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Mission heartbeat 9-cell decision matrix（pure function 框架）
  *
- * 上提自 ai-app/agent-playground/services/mission/rerun/rerun-guard.service.ts @migrated-from
+ * 上提自 ai-app/playground/services/mission/rerun/rerun-guard.service.ts @migrated-from
  * （2026-05-08 PR-E3）。RerunGuard 的核心算法是"heartbeat 三态 × business event
  * 三态"决策矩阵 — 与业务无关、与表/事件类型无关，是纯运算。其它 BusinessAgentTeam
  * 实例（research / writing / TI）反向迁移时可以直接复用。

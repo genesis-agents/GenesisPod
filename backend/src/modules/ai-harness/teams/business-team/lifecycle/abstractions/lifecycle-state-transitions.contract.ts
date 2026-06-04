@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Lifecycle State Transitions contract (P6 Wave 1, 2026-05-24)
  *
- * @migrated-from ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts
+ * @migrated-from ai-app/playground/services/mission/lifecycle/mission-lifecycle.helper.ts
  *
  * 抽出 mission 状态机通用机制：
  *   - writeCompleted / writeCancelled / writeFailed —— 条件写 WHERE status='running' 首写者赢

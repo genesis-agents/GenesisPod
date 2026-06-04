@@ -92,7 +92,7 @@ const PRODUCT_DOMAINS = [
   "feedback",
   "planning",
   "radar",
-  "agent-playground",
+  "playground",
   "knowledge",
   "teams",
 ];

@@ -1,7 +1,7 @@
 /**
  * NarrativeEmitter — writing-specific thin binding over ai-harness narrate factory
  *
- * Mirrors the pattern in agent-playground and social: binds the writing-domain
+ * Mirrors the pattern in playground and social: binds the writing-domain
  * event type string "writing.agent:narrative" so stage files can call
  * narrate(emit, missionId, userId, { stage, role, tag, text }) without
  * knowing the event type string.
