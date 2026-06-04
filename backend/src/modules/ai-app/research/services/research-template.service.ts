@@ -9,7 +9,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 
 /**
  * 研究模板目录服务（research_templates 表 CRUD + 内置保护 + 复制）。
- * standards/24 薄网关整改（Wave C）：原逻辑在 open-api/admin/research/research
+ * standards/24 薄网关整改（Wave C）：原逻辑在 open-api/admin/research（T3 已下沉本域）
  * controller 内直接操作 Prisma；下沉到 ai-app/research 领域。controller 仅薄 HTTP。
  * DTO（class-validator）留在 open-api 边界；本服务取结构化输入。
  */

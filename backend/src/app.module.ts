@@ -101,16 +101,16 @@ import { AiFileOrganizerModule } from "./modules/ai-app/library/ai-file-organize
 // Export module
 import { ExportModule } from "./common/export";
 // Open API modules (webhooks, public-api, mcp-server, ai-core, agents-api)
-import { WebhooksModule } from "./modules/open-api/webhooks";
-import { MCPServerModule } from "./modules/open-api/mcp";
-import { PublicModule } from "./modules/open-api/public/public.module";
+import { WebhooksModule } from "./modules/open-api/external/webhooks";
+import { MCPServerModule } from "./modules/open-api/external/mcp";
+import { PublicModule } from "./modules/open-api/external/rest/public.module";
 import { OpenApiSystemModule } from "./modules/open-api/system/system.module";
-import { AiModule } from "./modules/open-api/ai/ai.module";
-import { AgentsModule } from "./modules/open-api/agents/agents.module";
-import { SkillsModule } from "./modules/open-api/skills/skills.module";
-import { TeamsApiModule } from "./modules/open-api/teams/teams.module";
+import { OpenApiUserModule } from "./modules/open-api/user/user.module";
+import { AiModule } from "./modules/open-api/user/ai/ai.module";
+import { AgentsModule } from "./modules/open-api/user/agents/agents.module";
+import { SkillsModule } from "./modules/open-api/user/skills/skills.module";
 // A2A API module (open-api layer â€” PR-X17: controller moved from ai-harness/protocols/a2a)
-import { A2AApiModule } from "./modules/open-api/a2a/a2a.module";
+import { A2AApiModule } from "./modules/open-api/external/a2a/a2a.module";
 // BYOK Admin module (open-api layer â€” PR-X17: 4 admin controllers moved from platform/credentials)
 import { ByokAdminModule } from "./modules/open-api/admin/byok/byok-admin.module";
 // Request context middleware
@@ -271,10 +271,12 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
 
     // Public API module
     PublicModule,
-    // Open-API 系统服务面（standards/16: System HTTP → L4；首个进驻 NotificationController）
+    // Open-API 系统基建面（standards/24: system = auth/metrics 平台握手，零业务）
     OpenApiSystemModule,
+    // Open-API 用户自助面（standards/24: user = JWT 第一方跨域 credits/notifications）
+    OpenApiUserModule,
 
-    // A2A API module (PR-X17: controller moved to open-api/a2a)
+    // A2A API module (PR-X17: controller moved to open-api/external/a2a)
     A2AApiModule,
 
     // AI Core API (PR-X6)
@@ -283,12 +285,8 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     // Agents API (PR-X6)
     AgentsModule,
 
-
     // Skills API (PR-X16: moved from ai-engine/skills/api)
     SkillsModule,
-
-    // Teams API (PR-X16: moved from ai-harness/teams/controllers)
-    TeamsApiModule,
 
     // BYOK Admin API (PR-X17: 4 admin controllers moved from platform/credentials)
     ByokAdminModule,

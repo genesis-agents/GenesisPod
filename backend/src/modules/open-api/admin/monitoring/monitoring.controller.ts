@@ -32,7 +32,7 @@ import {
 } from "../../../../common/guards";
 import { runSecurityChecks } from "../../../../common/config/security.config";
 import { MetricsService } from "@/modules/platform/monitoring/metrics/metrics.service";
-import { MCPServerService } from "../../../open-api/mcp/mcp-server.service";
+import { MCPServerService } from "../../../open-api/external/mcp/mcp-server.service";
 
 interface AuthenticatedRequest extends Request {
   user?: { id: string; email?: string };

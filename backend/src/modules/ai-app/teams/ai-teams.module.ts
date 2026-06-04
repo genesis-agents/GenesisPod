@@ -25,8 +25,12 @@ import {
   BookmarksController,
   CustomTeamsController,
   PublicReportsController,
+  TeamsController,
+  AITeamsAdminController,
+  AITeamsTemplatesController,
 } from "./controllers";
 import { AiTeamsService } from "./ai-teams.service";
+import { AITeamsAdminService } from "./ai-teams-admin.service";
 import { TeamsRepository } from "./teams.repository";
 import { AiTeamsGateway } from "./ai-teams.gateway";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -98,6 +102,10 @@ import { DEBATE_TEAM_CONFIG } from "./teams";
     BookmarksController,
     CustomTeamsController,
     PublicReportsController,
+    // T3 sink: mission HTTP (route ai/teams) + admin team templates (route admin/ai-teams)
+    TeamsController,
+    AITeamsAdminController,
+    AITeamsTemplatesController,
   ],
   providers: [
     // Repository
@@ -106,6 +114,7 @@ import { DEBATE_TEAM_CONFIG } from "./teams";
     // 核心业务服务
     AiTeamsService,
     AiTeamsGateway,
+    AITeamsAdminService, // backs AITeamsAdminController (T3 sink)
 
     // AI 服务
     ContextRouterService,

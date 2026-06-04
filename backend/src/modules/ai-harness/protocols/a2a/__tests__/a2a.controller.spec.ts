@@ -10,7 +10,7 @@ import {
   HttpException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { A2AController } from "../../../../open-api/a2a/a2a-server.controller";
+import { A2AController } from "../../../../open-api/external/a2a/a2a-server.controller";
 import { AgentCardRegistry } from "../agent-card.registry";
 import { A2AApiKeyGuard } from "../guards/a2a-api-key.guard";
 import { SecretsService } from "@/modules/platform/credentials/secrets/secrets.service";
