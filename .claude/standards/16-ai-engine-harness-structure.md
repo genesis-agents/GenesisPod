@@ -306,11 +306,11 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 | **rag** | abstractions / chunking / embedding / vector / pipeline | pipeline 内联 Cohere rerank（与 knowledge/rerank 概念撞） |
 | **knowledge** | abstractions / extraction / consistency / synthesis / world-building / evidence / rerank | ✅W5 `search/`（web egress）已迁 content/web-search；✅W1 `rerank/` 去重为项目唯一权威 |
 | **content** | abstractions / fetch / web-search / sources / markdown / citation / figure / report-template / types / image{matching} | ✅W5 `web-search/`（Tavily/Serper/DDG egress）从 knowledge 迁入（与 fetch 同族）；`SearchResult`→`WebSearchResult` 解与 rag 撞名；`image/matching` 仅剩 types（**活的，office 在用，勿删**） |
-| **routing** | （根）scored-router / signal-scorers / scoring-formulas / eval | `eval/` 与顶层 `evaluation/` 近形同名易混（建议 `benchmark/`） |
-| **reliability** | rate-limit / entity-health | `entity-health` 对外名 vs 内部 circuit-breaker 词汇未对齐 |
+| **routing** | （根）scored-router / signal-scorers / scoring-formulas / benchmark | ✅W6 `eval/`→`benchmark/`（解与顶层 `evaluation/` 近形同名） |
+| **reliability** | rate-limit / entity-health | ✅W6 `entity-health` 头注释已澄清=circuit-breaker 模式（内部类型沿用 circuit-breaker 业界术语，对外名 entity-health，accepted） |
 | **evaluation** | abstractions / checkers / services / types | 干净（无 LLM、无 agent 状态，已核实） |
 | **skills** | abstractions / base / registry / types / loader / builder / spec-builder / content / output-manager / routing / analytics / sandbox / marketplace / integration | ✅W3 `runtime`→`integration`、`ecosystem`→`marketplace`；✅W2 `spec-builder` 的 `IAgentSpec`→`ISkillExecSpec`（去 R1 词汇泄漏 + 解与 harness `IAgentSpec` 撞名） |
-| **planning** | budget / context / intent / reflection | `planning.module` 注册了 knowledge 聚合的 service（DI 归属越界，W6） |
+| **planning** | budget / context / intent / reflection | `planning.module` 注册了 3 个 knowledge 聚合 service（physical 在 knowledge/，DI 在 planning/）——**accepted**：6-9 消费方经 @Global ai-engine.module 注入，挪 DI 注册有 boot-DI break 风险，收益仅 cosmetic（W6 评估后留） |
 | **safety** | guardrails / moderation / security / validation | ✅W3 `utils/` 已拆（reliability + content/figure）；✅W2 `security/capability-guard` 迁 harness/guardrails/capability（R1 律4，原 PR-X3 误置 engine） |
 | **facade** | abstractions | ✅W4 孤儿死分区 `exports/*` 已删；index.ts 深穿 L1 credential = **有意的 circular-load 规避**（facade/index.ts:779-784 文档化：走 platform barrel 会 `export *` 拉大加载图触发循环加载失败），accepted 不改 |
 

@@ -1,15 +1,11 @@
 /**
  * AI Engine Module
  *
- * 聚合 L2 ai-engine 的原子能力：
- * - llm
- * - tools
- * - skills
- * - planning
- * - knowledge / rag
- * - safety
- * - content
- * - llm user-config / key-health
+ * 聚合 L2 ai-engine 的 12 顶层能力聚合：
+ * - llm · tools · rag · knowledge · content · skills
+ * - planning · safety · routing · reliability · evaluation · facade
+ *   （rag / content 为 provider 级，经 knowledge.module / ContentFetchModule +
+ *    WebSearchModule 等装配，非独立 *.module.ts —— 见 standards/16 §二）
  *
  * 本层不承载 agent / mission / team 运行时语义。
  */

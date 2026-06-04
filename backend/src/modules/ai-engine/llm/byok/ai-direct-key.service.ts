@@ -30,6 +30,15 @@ import { AiChatRetryService } from "../chat/ai-chat-retry.service";
  * - 图片生成请求检测和路由
  * - Provider 特定的 API 调用格式
  */
+
+/**
+ * Gemini 能力纠正回退模型：当用户配置的 Gemini 模型与请求能力不匹配
+ * （image-only 模型跑文本请求 / 文本模型跑图片请求）时切到此通用多模态模型。
+ * 注：这是 **Provider 特定的能力纠正**（Gemini 直调路径必须传真实 model 名），
+ * 不是 TaskProfile 可解析的 LLM 默认值——故不适用"fallback 用空字符串"红线。
+ */
+const GEMINI_CAPABILITY_FALLBACK_MODEL = "gemini-2.0-flash-exp";
+
 @Injectable()
 export class AiDirectKeyService {
   private readonly logger = new Logger(AiDirectKeyService.name);
@@ -836,7 +845,7 @@ export class AiDirectKeyService {
     let effectiveModelId = modelId;
 
     if (isImageOnlyModel && !isImageRequest) {
-      effectiveModelId = "gemini-2.0-flash-exp";
+      effectiveModelId = GEMINI_CAPABILITY_FALLBACK_MODEL;
       this.logger.debug(
         `[Gemini] Image-only model ${modelId} used for non-image request, falling back to ${effectiveModelId}`,
       );
@@ -845,7 +854,7 @@ export class AiDirectKeyService {
         `[Gemini] Using configured Gemini image model: ${modelId}`,
       );
     } else if (isImageRequest && !isGeminiImageModel && !isImagenModel) {
-      const imageCapableModel = "gemini-2.0-flash-exp";
+      const imageCapableModel = GEMINI_CAPABILITY_FALLBACK_MODEL;
       this.logger.debug(
         `[Gemini] Image request with non-image model ${modelId}, switching to ${imageCapableModel}`,
       );
