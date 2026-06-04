@@ -30,7 +30,7 @@ import { SlidesController } from "../slides.controller";
 import { SlidesEngineService } from "../../services/slides-engine.service";
 import { SlidesDataImportService } from "../../services/data-import.service";
 import { AIEditService } from "../../services/ai-edit.service";
-import { CheckpointService } from "../../checkpoint/checkpoint.service";
+import { SlidesCheckpointService } from "../../checkpoint/checkpoint.service";
 import { VoiceNarrationSkill } from "../../skills/voice-narration.skill";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
@@ -129,7 +129,7 @@ async function buildController(mocks: ReturnType<typeof buildMocks>) {
     controllers: [SlidesController],
     providers: [
       { provide: SlidesEngineService, useValue: mocks.slidesEngine },
-      { provide: CheckpointService, useValue: mocks.checkpointService },
+      { provide: SlidesCheckpointService, useValue: mocks.checkpointService },
       { provide: SlidesDataImportService, useValue: mocks.dataImportService },
       { provide: AIEditService, useValue: mocks.aiEditService },
       { provide: VoiceNarrationSkill, useValue: mocks.voiceNarrationSkill },

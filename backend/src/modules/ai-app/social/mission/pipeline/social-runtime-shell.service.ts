@@ -13,7 +13,7 @@
  *   - refreshHeartbeat              ：调 SocialMissionStore.refreshHeartbeat
  *   - emitMissionEvent              ：经 EventBus → 走 buffer + socket adapter
  *
- * Mirror of agent-playground/services/mission/workflow/mission-runtime-shell.service.ts，
+ * Mirror of playground/services/mission/workflow/mission-runtime-shell.service.ts，
  * 但 social 版本 simpler：无 inheritFromMissionId / userProfile JSON 持久化 / leader
  * supervisor 注入。
  */

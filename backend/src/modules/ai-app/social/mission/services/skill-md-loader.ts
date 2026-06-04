@@ -7,7 +7,7 @@
  *       <!-- soul:start --> ... <!-- soul:end -->
  *       <!-- duty:<name>:start --> ... <!-- duty:<name>:end -->
  *
- * Copy of agent-playground/utils/skill-md-loader.ts。若第 3 个 ai-app 也需要，
+ * Copy of playground/utils/skill-md-loader.ts。若第 3 个 ai-app 也需要，
  * 抽到 ai-engine/skills；目前 YAGNI 保留两份。
  */
 import * as fs from "fs";

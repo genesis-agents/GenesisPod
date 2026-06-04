@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Mission Checkpoint Store Framework (P6 Wave 1, 2026-05-24)
  *
- * @migrated-from ai-app/agent-playground/services/mission/lifecycle/prisma-mission-checkpoint.store.ts
+ * @migrated-from ai-app/playground/services/mission/lifecycle/prisma-mission-checkpoint.store.ts
  *
  * 抽出 mission checkpoint 持久化通用机制 —— 实现 `MissionCheckpointStore<TPayload>` 接口。
  *

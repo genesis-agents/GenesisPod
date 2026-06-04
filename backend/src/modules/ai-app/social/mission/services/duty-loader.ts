@@ -1,7 +1,7 @@
 /**
  * Duty Loader for ai-app/social.
  *
- * Copy of agent-playground/utils/duty-loader.ts —— mirror unchanged。若第 3 个
+ * Copy of playground/utils/duty-loader.ts —— mirror unchanged。若第 3 个
  * ai-app 也需要，抽到 ai-engine/skills；目前 YAGNI 保留两份。
  *
  * Loads soul + duty from agents/<agentDir>/SKILL.md and renders the template

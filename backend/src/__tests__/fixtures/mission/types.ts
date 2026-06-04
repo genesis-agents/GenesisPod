@@ -5,14 +5,14 @@
  * 必须从这里导入，禁止直接读 JSON。
  *
  * 落地依据：
- *   docs/architecture/ai-app/agent-playground/agent-team-thinning-plan-2026-05-26.md
+ *   docs/architecture/ai-app/playground/agent-team-thinning-plan-2026-05-26.md
  *   §6.8 / §6.8.1.b / §6.8.4.b
  */
 
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 
-import type { PlaygroundDomainView } from "../../../modules/ai-app/agent-playground/api/contracts/view-state.contract";
+import type { PlaygroundDomainView } from "../../../modules/ai-app/playground/api/contracts/view-state.contract";
 
 // ============================================================================
 // Known fixture ids（§6.8.1 + §6.8.1.b）
@@ -82,7 +82,7 @@ export interface FixtureMissionRow {
 
 /**
  * events.json 单条事件形状。
- * 完整 schema 锚定到 `GET /agent-playground/replay/:missionId` 返回（§6.8 admission rule 3）。
+ * 完整 schema 锚定到 `GET /playground/replay/:missionId` 返回（§6.8 admission rule 3）。
  */
 export interface FixtureEvent {
   seq: number;

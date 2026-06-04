@@ -144,7 +144,7 @@ interface FlowEvent {
 function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
   const out: FlowEvent[] = [];
   for (const ev of events) {
-    // 2026-05-20: 规范化 namespace（同 derive.ts）—— social.* / agent-playground.*
+    // 2026-05-20: 规范化 namespace（同 derive.ts）—— social.* / playground.*
     //   / ai-radar.* 各 domain 都 emit 相同 suffix，剥离前缀让时间线跨 domain 通用。
     const rawType = ev.type ?? '';
     const t = rawType.includes('.')

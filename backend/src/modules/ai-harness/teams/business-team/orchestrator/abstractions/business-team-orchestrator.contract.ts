@@ -29,7 +29,7 @@
  * ```
  *
  * 2026-05-24 (P7) 抽取自三家业务 orchestrator 公共部分:
- *   - ai-app/agent-playground/services/mission/workflow/playground-business-orchestrator.service.ts  @migrated-from
+ *   - ai-app/playground/services/mission/workflow/playground-business-orchestrator.service.ts  @migrated-from
  *   - ai-app/social/services/mission/workflow/social-business-orchestrator.service.ts  @migrated-from
  *   - ai-app/radar/services/mission/workflow/radar-business-orchestrator.service.ts  @migrated-from
  */

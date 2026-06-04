@@ -1,7 +1,7 @@
 /**
  * RadarMissionRuntimeShell —— Radar 业务 adapter（thin wrapper to framework）
  *
- * 完全对齐 agent-playground/MissionRuntimeShellService 范式：
+ * 完全对齐 playground/MissionRuntimeShellService 范式：
  *   - 不再自己实现 lifecycle（wallTimer / heartbeat / abort / cleanup）
  *   - 通过 IMissionRuntimeAdapter 注入业务专属决策，剩下让框架处理
  *   - 复用 ai-harness/teams/business-team/lifecycle/mission-runtime-shell.framework

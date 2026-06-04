@@ -6,7 +6,7 @@
  * 业务专属语义（实际 runner.run / 业务事件 emit / span service / degraded payload 等）。
  *
  * 2026-05-24 @migrated-from 两个 ai-app 业务侧 invoker
- *   - ai-app/agent-playground/services/roles/agent-invoker.service.ts  @migrated-from
+ *   - ai-app/playground/services/roles/agent-invoker.service.ts  @migrated-from
  *   - ai-app/social/services/roles/social-agent-invoker.service.ts  @migrated-from
  *
  * 与 {@link MissionRuntimeShellFramework} 对称：mission lifecycle / role invocation 两个

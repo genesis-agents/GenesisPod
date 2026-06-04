@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { SlidesEngineService } from "../slides-engine.service";
 import { SlidesTeamOrchestrator } from "../../orchestrator/slides-team-orchestrator";
-import { CheckpointService } from "../../checkpoint/checkpoint.service";
+import { SlidesCheckpointService } from "../../checkpoint/checkpoint.service";
 import { SlidesExportService } from "../../rendering/slides-export.service";
 import { ContentCompressionSkill } from "../../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../../skills/template-rendering.skill";
@@ -192,7 +192,7 @@ describe("SlidesEngineService", () => {
 
     service = new SlidesEngineService(
       mockOrchestrator as unknown as SlidesTeamOrchestrator,
-      mockCheckpoint as unknown as CheckpointService,
+      mockCheckpoint as unknown as SlidesCheckpointService,
       mockExport as unknown as SlidesExportService,
       mockCompression,
       mockRendering,
@@ -656,7 +656,7 @@ describe("SlidesEngineService", () => {
       // Create service without optional skills
       const serviceWithoutSkills = new SlidesEngineService(
         mockOrchestrator as unknown as SlidesTeamOrchestrator,
-        mockCheckpoint as unknown as CheckpointService,
+        mockCheckpoint as unknown as SlidesCheckpointService,
         mockExport as unknown as SlidesExportService,
         undefined, // no compression
         undefined, // no rendering

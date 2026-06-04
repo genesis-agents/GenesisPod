@@ -117,35 +117,35 @@
       "snippet": "lower.startsWith(\"o3\")"
     },
     {
-      "file": "modules/ai-app/topic-insights/services/data/data-source-fetcher.service.ts",
+      "file": "modules/ai-app/insight/services/data/data-source-fetcher.service.ts",
       "line": 829,
       "column": 48,
       "kind": "binary-eq",
       "snippet": "m.provider === \"xai\""
     },
     {
-      "file": "modules/ai-app/topic-insights/services/data/data-source-router.service.ts",
+      "file": "modules/ai-app/insight/services/data/data-source-router.service.ts",
       "line": 2038,
       "column": 48,
       "kind": "binary-eq",
       "snippet": "m.provider === \"xai\""
     },
     {
-      "file": "modules/ai-app/topic-insights/services/report/credibility-report.service.ts",
+      "file": "modules/ai-app/insight/services/report/credibility-report.service.ts",
       "line": 568,
       "column": 9,
       "kind": "method-call",
       "snippet": "domainLower.includes(\"google\")"
     },
     {
-      "file": "modules/ai-app/topic-insights/services/report/credibility-report.service.ts",
+      "file": "modules/ai-app/insight/services/report/credibility-report.service.ts",
       "line": 572,
       "column": 9,
       "kind": "method-call",
       "snippet": "domainLower.includes(\"openai\")"
     },
     {
-      "file": "modules/ai-app/topic-insights/services/report/credibility-report.service.ts",
+      "file": "modules/ai-app/insight/services/report/credibility-report.service.ts",
       "line": 573,
       "column": 9,
       "kind": "method-call",

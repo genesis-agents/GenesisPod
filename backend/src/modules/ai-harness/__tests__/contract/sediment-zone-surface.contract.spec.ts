@@ -16,7 +16,7 @@
  *   - Z4.MissionPipelineOrchestrator 改了 public method → 编译 fail → CI fail
  *
  * 详见:
- *   - docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md §7 S0-5 / §8 acceptance
+ *   - docs/architecture/ai-app/playground/agent-team-boundary-audit-2026-05-08.md §7 S0-5 / §8 acceptance
  *   - docs/architecture/ai-harness/facade/sediment-topology.md
  */
 

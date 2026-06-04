@@ -1,10 +1,13 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { CheckpointService, MissionCheckpoint } from "../checkpoint.service";
+import {
+  WritingMissionCheckpointService,
+  MissionCheckpoint,
+} from "../checkpoint.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 
-describe("CheckpointService", () => {
-  let service: CheckpointService;
+describe("WritingMissionCheckpointService", () => {
+  let service: WritingMissionCheckpointService;
   let mockPrisma: any;
 
   const missionId = "mission-abc";
@@ -55,12 +58,14 @@ describe("CheckpointService", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        CheckpointService,
+        WritingMissionCheckpointService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
-    service = module.get<CheckpointService>(CheckpointService);
+    service = module.get<WritingMissionCheckpointService>(
+      WritingMissionCheckpointService,
+    );
 
     jest.spyOn(Logger.prototype, "log").mockImplementation();
     jest.spyOn(Logger.prototype, "warn").mockImplementation();

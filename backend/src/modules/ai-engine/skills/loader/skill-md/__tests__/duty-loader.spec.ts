@@ -139,7 +139,7 @@ describe("buildPromptFromDuty", () => {
   it("combines soul + duty with --- separator when soul exists", () => {
     mockLoadSkill.mockReturnValue({
       frontmatter: {
-        id: "agent-playground.leader",
+        id: "playground.leader",
         name: "Leader",
         allowedTools: [],
         allowedModels: [],
@@ -157,7 +157,7 @@ describe("buildPromptFromDuty", () => {
   it("returns only duty when soul is null", () => {
     mockLoadSkill.mockReturnValue({
       frontmatter: {
-        id: "agent-playground.x",
+        id: "playground.x",
         name: "X",
         allowedTools: [],
         allowedModels: [],
@@ -174,7 +174,7 @@ describe("buildPromptFromDuty", () => {
   it("applies variable rendering to combined prompt", () => {
     mockLoadSkill.mockReturnValue({
       frontmatter: {
-        id: "agent-playground.researcher",
+        id: "playground.researcher",
         name: "Researcher",
         allowedTools: [],
         allowedModels: [],
@@ -194,7 +194,7 @@ describe("buildPromptFromDuty", () => {
   it("throws when SKILL.md does not declare requested duty", () => {
     mockLoadSkill.mockReturnValue({
       frontmatter: {
-        id: "agent-playground.leader",
+        id: "playground.leader",
         name: "Leader",
         allowedTools: [],
         allowedModels: [],

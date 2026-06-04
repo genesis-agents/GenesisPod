@@ -2,7 +2,7 @@
  * SocialEvents — EventBus 事件类型注册清单
  *
  * 未注册的 type 会被 EventBus drop+warn 不广播。所有 social.* 事件必须
- * 在此声明。Mirror of agent-playground/agent-playground.events.ts。
+ * 在此声明。Mirror of playground/playground.events.ts。
  */
 
 import type { DomainEventTypeSpec } from "@/modules/ai-harness/facade";

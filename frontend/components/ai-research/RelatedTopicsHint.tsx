@@ -29,7 +29,7 @@ export function RelatedTopicsHint({ keyword }: RelatedTopicsHintProps) {
     try {
       const params = new URLSearchParams({ search: kw, take: '5' });
       const resp = await fetch(
-        `${config.apiBaseUrl}/api/v1/topic-insights/topics?${params.toString()}`,
+        `${config.apiBaseUrl}/api/v1/insight/topics?${params.toString()}`,
         { headers: getAuthHeader() }
       );
       if (!resp.ok) throw new Error('Failed to search topics');

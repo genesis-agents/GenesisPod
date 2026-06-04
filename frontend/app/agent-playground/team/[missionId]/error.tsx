@@ -8,7 +8,7 @@
  * mission detail 渲染异常（最常见来自 canonical view shape mismatch / shim 转换错误），
  * 让用户看到具体错误而不是空白"出错了"。
  *
- * 同时把错误上报到 backend（POST /api/v1/agent-playground/error-report），
+ * 同时把错误上报到 backend（POST /api/v1/playground/error-report），
  * 让我能从 Railway 日志里看到所有 mission 详情页崩溃，不再依赖用户截图。
  */
 
@@ -32,7 +32,7 @@ async function reportError(payload: ErrorPayload): Promise<void> {
   try {
     const baseUrl = config.getBackendUrl();
     const auth = getAuthHeader();
-    await fetch(`${baseUrl}/api/v1/agent-playground/error-report`, {
+    await fetch(`${baseUrl}/api/v1/playground/error-report`, {
       method: 'POST',
       credentials: 'include',
       headers: {

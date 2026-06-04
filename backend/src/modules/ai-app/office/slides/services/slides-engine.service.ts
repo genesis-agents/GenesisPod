@@ -27,7 +27,7 @@ import {
   SlidesTeamOrchestratorInput,
   SlidesMissionEvent,
 } from "../orchestrator/types";
-import { CheckpointService } from "../checkpoint/checkpoint.service";
+import { SlidesCheckpointService } from "../checkpoint/checkpoint.service";
 import { SlidesExportService } from "../rendering/slides-export.service";
 import {
   CheckpointState,
@@ -139,7 +139,7 @@ export class SlidesEngineService {
 
   constructor(
     private readonly orchestrator: SlidesTeamOrchestrator,
-    private readonly checkpointService: CheckpointService,
+    private readonly checkpointService: SlidesCheckpointService,
     private readonly exportService: SlidesExportService,
     @Optional() private readonly contentCompression: ContentCompressionSkill,
     @Optional() private readonly templateRendering: TemplateRenderingSkill,

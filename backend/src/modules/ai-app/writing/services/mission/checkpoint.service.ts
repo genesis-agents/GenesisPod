@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 /**
- * CheckpointService - 断点续传服务 (P0-A05)
+ * WritingMissionCheckpointService - 断点续传服务 (P0-A05)
  *
  * 核心职责：
  * - 保存 Mission 执行进度
@@ -45,8 +45,8 @@ export interface ResumableInfo {
 }
 
 @Injectable()
-export class CheckpointService {
-  private readonly logger = new Logger(CheckpointService.name);
+export class WritingMissionCheckpointService {
+  private readonly logger = new Logger(WritingMissionCheckpointService.name);
 
   constructor(private readonly prisma: PrismaService) {}
 

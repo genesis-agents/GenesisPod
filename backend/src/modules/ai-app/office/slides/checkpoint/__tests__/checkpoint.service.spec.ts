@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { SlidesSessionStatus, SlidesCheckpointType } from "@prisma/client";
 import {
-  CheckpointService,
+  SlidesCheckpointService,
   CreateCheckpointInput,
   CheckpointFilter,
 } from "../checkpoint.service";
@@ -118,8 +118,8 @@ const makePrismaMock = () => ({
 // Tests
 // ============================================================================
 
-describe("CheckpointService", () => {
-  let service: CheckpointService;
+describe("SlidesCheckpointService", () => {
+  let service: SlidesCheckpointService;
   let prisma: ReturnType<typeof makePrismaMock>;
 
   beforeEach(async () => {
@@ -127,12 +127,12 @@ describe("CheckpointService", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        CheckpointService,
+        SlidesCheckpointService,
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
 
-    service = module.get<CheckpointService>(CheckpointService);
+    service = module.get<SlidesCheckpointService>(SlidesCheckpointService);
   });
 
   afterEach(() => {

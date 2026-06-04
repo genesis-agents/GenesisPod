@@ -157,7 +157,7 @@ describe('fetchWithAuth - auth headers', () => {
 // ---------------------------------------------------------------------------
 
 describe('createPlan', () => {
-  it('calls POST /api/v1/ai-planning with DTO', async () => {
+  it('calls POST /api/v1/planning with DTO', async () => {
     mockFetch.mockResolvedValue(wrappedResponse({ planId: 'plan-1' }));
 
     const result = await createPlan({
@@ -166,7 +166,7 @@ describe('createPlan', () => {
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/ai-planning'),
+      expect.stringContaining('/api/v1/planning'),
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ name: 'AI Research', goal: 'Understand AI' }),
@@ -196,13 +196,13 @@ describe('createPlan', () => {
 // ---------------------------------------------------------------------------
 
 describe('getPlans', () => {
-  it('calls GET /api/v1/ai-planning without search', async () => {
+  it('calls GET /api/v1/planning without search', async () => {
     mockFetch.mockResolvedValue(jsonResponse([PLAN_SUMMARY]));
 
     await getPlans();
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/ai-planning'),
+      expect.stringContaining('/api/v1/planning'),
       expect.anything()
     );
     const url: string = mockFetch.mock.calls[0][0];
@@ -224,7 +224,7 @@ describe('getPlans', () => {
 // ---------------------------------------------------------------------------
 
 describe('getTemplates', () => {
-  it('calls GET /api/v1/ai-planning/templates', async () => {
+  it('calls GET /api/v1/planning/templates', async () => {
     const templates = [
       {
         id: 'tmpl-1',
@@ -238,7 +238,7 @@ describe('getTemplates', () => {
     const result = await getTemplates();
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/ai-planning/templates'),
+      expect.stringContaining('/api/v1/planning/templates'),
       expect.anything()
     );
     expect(result).toHaveLength(1);
@@ -251,7 +251,7 @@ describe('getTemplates', () => {
 // ---------------------------------------------------------------------------
 
 describe('getPlanDetail', () => {
-  it('calls GET /api/v1/ai-planning/:planId', async () => {
+  it('calls GET /api/v1/planning/:planId', async () => {
     const detail = {
       ...PLAN_SUMMARY,
       description: 'Detailed plan',
@@ -265,7 +265,7 @@ describe('getPlanDetail', () => {
     const result = await getPlanDetail('plan-1');
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/ai-planning/plan-1'),
+      expect.stringContaining('/api/v1/planning/plan-1'),
       expect.anything()
     );
     expect(result.id).toBe('plan-1');
@@ -277,13 +277,13 @@ describe('getPlanDetail', () => {
 // ---------------------------------------------------------------------------
 
 describe('advancePhase', () => {
-  it('calls POST /api/v1/ai-planning/:planId/advance', async () => {
+  it('calls POST /api/v1/planning/:planId/advance', async () => {
     mockFetch.mockResolvedValue(wrappedResponse({ currentPhase: 2 }));
 
     const result = await advancePhase('plan-1');
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/ai-planning/plan-1/advance'),
+      expect.stringContaining('/api/v1/planning/plan-1/advance'),
       expect.objectContaining({ method: 'POST' })
     );
     expect(result.currentPhase).toBe(2);
@@ -295,7 +295,7 @@ describe('advancePhase', () => {
 // ---------------------------------------------------------------------------
 
 describe('retryPhase', () => {
-  it('calls POST /api/v1/ai-planning/:planId/phase/:phase/retry', async () => {
+  it('calls POST /api/v1/planning/:planId/phase/:phase/retry', async () => {
     mockFetch.mockResolvedValue(
       new Response('{}', {
         status: 200,
@@ -306,7 +306,7 @@ describe('retryPhase', () => {
     await retryPhase('plan-1', 2);
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/ai-planning/plan-1/phase/2/retry'),
+      expect.stringContaining('/api/v1/planning/plan-1/phase/2/retry'),
       expect.objectContaining({ method: 'POST' })
     );
   });
@@ -317,7 +317,7 @@ describe('retryPhase', () => {
 // ---------------------------------------------------------------------------
 
 describe('cancelPhase', () => {
-  it('calls POST /api/v1/ai-planning/:planId/cancel', async () => {
+  it('calls POST /api/v1/planning/:planId/cancel', async () => {
     mockFetch.mockResolvedValue(
       new Response('{}', {
         status: 200,
@@ -328,7 +328,7 @@ describe('cancelPhase', () => {
     await cancelPhase('plan-1');
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/ai-planning/plan-1/cancel'),
+      expect.stringContaining('/api/v1/planning/plan-1/cancel'),
       expect.objectContaining({ method: 'POST' })
     );
   });
@@ -346,7 +346,7 @@ describe('exportPlan', () => {
     const result = await exportPlan('plan-1');
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/ai-planning/plan-1/export'),
+      expect.stringContaining('/api/v1/planning/plan-1/export'),
       expect.anything()
     );
     expect(result).toBe(markdownContent);
@@ -366,14 +366,14 @@ describe('exportPlan', () => {
 // ---------------------------------------------------------------------------
 
 describe('updatePlan', () => {
-  it('calls PATCH /api/v1/ai-planning/:planId with update fields', async () => {
+  it('calls PATCH /api/v1/planning/:planId with update fields', async () => {
     const updated = { ...PLAN_SUMMARY, name: 'Updated Plan' };
     mockFetch.mockResolvedValue(jsonResponse(updated));
 
     const result = await updatePlan('plan-1', { name: 'Updated Plan' });
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/ai-planning/plan-1'),
+      expect.stringContaining('/api/v1/planning/plan-1'),
       expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ name: 'Updated Plan' }),
@@ -388,13 +388,13 @@ describe('updatePlan', () => {
 // ---------------------------------------------------------------------------
 
 describe('replanFromPhase', () => {
-  it('calls POST /api/v1/ai-planning/:planId/replan with startPhase', async () => {
+  it('calls POST /api/v1/planning/:planId/replan with startPhase', async () => {
     mockFetch.mockResolvedValue(wrappedResponse({ currentPhase: 2 }));
 
     const result = await replanFromPhase('plan-1', 2);
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/ai-planning/plan-1/replan'),
+      expect.stringContaining('/api/v1/planning/plan-1/replan'),
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ startPhase: 2 }),
@@ -409,7 +409,7 @@ describe('replanFromPhase', () => {
 // ---------------------------------------------------------------------------
 
 describe('deletePlan', () => {
-  it('calls DELETE /api/v1/ai-planning/:planId', async () => {
+  it('calls DELETE /api/v1/planning/:planId', async () => {
     mockFetch.mockResolvedValue(
       new Response('{}', {
         status: 200,
@@ -420,7 +420,7 @@ describe('deletePlan', () => {
     await deletePlan('plan-1');
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/ai-planning/plan-1'),
+      expect.stringContaining('/api/v1/planning/plan-1'),
       expect.objectContaining({ method: 'DELETE' })
     );
   });

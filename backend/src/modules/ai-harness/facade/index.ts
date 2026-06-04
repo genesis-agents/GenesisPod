@@ -562,7 +562,7 @@ export type {
 // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
 export { MissionRuntimeShellFramework } from "../teams/business-team/lifecycle/mission-runtime-shell.framework";
 // ★ 2026-05-24 P6 Wave 1: BusinessAgentTeam lifecycle framework 7 件套
-//   抽自 ai-app/agent-playground/services/mission/lifecycle/ @migrated-from
+//   抽自 ai-app/playground/services/mission/lifecycle/ @migrated-from
 //   (mission-store / lifecycle-transitions / update-helper / postmortem-helper /
 //    event-buffer / checkpoint-store / event-categories / report-helper)
 //   未来 social/radar 接入 mission-pipeline 时直接继承 framework + 注入业务 hook。
@@ -691,7 +691,7 @@ export {
   type HeartbeatDecision,
 } from "../teams/business-team/rerun/heartbeat-decision";
 // ★ 2026-05-24 P5 Wave 1: BusinessAgentTeam rerun framework 5 件套
-//   抽自 ai-app/agent-playground/services/mission/rerun/ @migrated-from
+//   抽自 ai-app/playground/services/mission/rerun/ @migrated-from
 //   未来 social/radar 接入 rerun 时直接继承 framework + 提供 business hook 即可。
 export {
   BusinessTeamRerunGuardFramework,

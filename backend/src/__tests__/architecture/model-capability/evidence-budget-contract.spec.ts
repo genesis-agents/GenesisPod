@@ -15,11 +15,11 @@ import * as path from "path";
 
 const WORKFLOW = path.resolve(
   __dirname,
-  "../../../modules/ai-app/agent-playground/mission/pipeline/helpers",
+  "../../../modules/ai-app/playground/mission/pipeline/helpers",
 );
 const ARTIFACTS = path.resolve(
   __dirname,
-  "../../../modules/ai-app/agent-playground/mission/artifacts",
+  "../../../modules/ai-app/playground/mission/artifacts",
 );
 
 function read(rel: string): string {
@@ -57,7 +57,7 @@ describe("Capability Contract · evidence budget guard", () => {
     const reviewer = fs.readFileSync(
       path.resolve(
         __dirname,
-        "../../../modules/ai-app/agent-playground/mission/agents/writer/chapter-reviewer.agent.ts",
+        "../../../modules/ai-app/playground/mission/agents/writer/chapter-reviewer.agent.ts",
       ),
       "utf-8",
     );

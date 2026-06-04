@@ -42,7 +42,7 @@ import { SlidesController } from "../slides.controller";
 import { SlidesEngineService } from "../../services/slides-engine.service";
 import { SlidesDataImportService } from "../../services/data-import.service";
 import { AIEditService } from "../../services/ai-edit.service";
-import { CheckpointService } from "../../checkpoint/checkpoint.service";
+import { SlidesCheckpointService } from "../../checkpoint/checkpoint.service";
 import { VoiceNarrationSkill } from "../../skills/voice-narration.skill";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import type { Response } from "express";
@@ -211,7 +211,7 @@ describe("SlidesController (supplemental3)", () => {
       controllers: [SlidesController],
       providers: [
         { provide: SlidesEngineService, useValue: slidesEngine },
-        { provide: CheckpointService, useValue: checkpointService },
+        { provide: SlidesCheckpointService, useValue: checkpointService },
         { provide: SlidesDataImportService, useValue: dataImportService },
         { provide: AIEditService, useValue: aiEditService },
         { provide: VoiceNarrationSkill, useValue: voiceNarrationSkill },

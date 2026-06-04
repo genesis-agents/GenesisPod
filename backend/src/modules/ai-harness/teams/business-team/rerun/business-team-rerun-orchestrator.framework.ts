@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Mission Rerun Orchestrator Framework（P5 Wave 1，2026-05-24）
  *
- * @migrated-from ai-app/agent-playground/services/mission/rerun/mission-rerun-orchestrator.service.ts
+ * @migrated-from ai-app/playground/services/mission/rerun/mission-rerun-orchestrator.service.ts
  *
  * 抽出 A 路线 mission rerun（创建新 mission）编排骨架。业务方实现 hook 即可获得
  * "rerun guard + status 白名单 + ownership + checkpoint clone + emit + fire-and-forget"

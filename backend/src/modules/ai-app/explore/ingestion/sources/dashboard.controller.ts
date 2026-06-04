@@ -4,7 +4,7 @@ import { DashboardService } from "./dashboard.service";
 
 @ApiTags("Data Collection - Sources Dashboard")
 @Controller("data-collection")
-export class DashboardController {
+export class IngestionSourcesDashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   /**

@@ -11,7 +11,7 @@
  *   2. AgentPlaygroundController 的 (HTTP method, path) 完整集合
  *
  * 守护方式：
- *   1. 事件：从 agent-playground.events.ts 导入运行时 const，sorted 后与 baseline 数组比对
+ *   1. 事件：从 playground.events.ts 导入运行时 const，sorted 后与 baseline 数组比对
  *   2. 端点：源码文本正则提取 @Get / @Post / @Patch / @Delete 装饰器 + 路径，
  *      与 baseline 数组比对（避开 Nest reflection 走 DI 导入大依赖树）
  *
@@ -22,127 +22,127 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import { AGENT_PLAYGROUND_EVENTS } from "../../../modules/ai-app/agent-playground/events/agent-playground.events";
+import { AGENT_PLAYGROUND_EVENTS } from "../../../modules/ai-app/playground/events/playground.events";
 
-// PR-D god class split (2026-05-15): agent-playground 路由从单一 controller 拆到
-// agent-playground.controller.ts + controllers/{base-mission,mission-read,mission-rerun}.controller.ts
+// PR-D god class split (2026-05-15): playground 路由从单一 controller 拆到
+// playground.controller.ts + controllers/{base-mission,mission-read,mission-rerun}.controller.ts
 const CONTROLLER_FILES: string[] = [
   path.resolve(
     __dirname,
-    "../../../modules/ai-app/agent-playground/api/controller/agent-playground.controller.ts",
+    "../../../modules/ai-app/playground/api/controller/playground.controller.ts",
   ),
   path.resolve(
     __dirname,
-    "../../../modules/ai-app/agent-playground/api/controller/base-mission.controller.ts",
+    "../../../modules/ai-app/playground/api/controller/base-mission.controller.ts",
   ),
   path.resolve(
     __dirname,
-    "../../../modules/ai-app/agent-playground/api/controller/mission-read.controller.ts",
+    "../../../modules/ai-app/playground/api/controller/mission-read.controller.ts",
   ),
   path.resolve(
     __dirname,
-    "../../../modules/ai-app/agent-playground/api/controller/mission-rerun.controller.ts",
+    "../../../modules/ai-app/playground/api/controller/mission-rerun.controller.ts",
   ),
 ];
 
 // ── Baseline 1: 事件 type（v5.1 R1-D 锁定基线）──────────────────────────────
 //
-// 70 events from agent-playground.events.ts (2026-05-04)。改本数组前先确认
-// 前端 socket handler 已同步（grep frontend `agent-playground.${suffix}`）。
+// 70 events from playground.events.ts (2026-05-04)。改本数组前先确认
+// 前端 socket handler 已同步（grep frontend `playground.${suffix}`）。
 const EVENT_BASELINE: ReadonlyArray<string> = [
-  "agent-playground.agent:action",
-  "agent-playground.agent:error",
-  "agent-playground.agent:lifecycle",
-  "agent-playground.agent:narrative",
-  "agent-playground.agent:observation",
-  "agent-playground.agent:reflection",
-  "agent-playground.agent:thought",
-  "agent-playground.agent:validation-rejected",
-  "agent-playground.budget:exhausted",
-  "agent-playground.budget:warning-hard",
-  "agent-playground.budget:warning-soft",
-  "agent-playground.chapter:done",
-  "agent-playground.chapter:review:completed",
-  "agent-playground.chapter:review:started",
-  "agent-playground.chapter:revision",
-  "agent-playground.chapter:rewritten",
-  "agent-playground.chapter:writing:completed",
-  "agent-playground.chapter:writing:started",
-  "agent-playground.cost:tick",
-  "agent-playground.critic:verdict",
-  "agent-playground.dimension:degraded",
-  "agent-playground.dimension:graded",
-  "agent-playground.dimension:integrating:completed",
-  "agent-playground.dimension:integrating:failed",
-  "agent-playground.dimension:integrating:started",
-  "agent-playground.dimension:outline:planned",
-  "agent-playground.dimension:research:completed",
-  "agent-playground.dimension:research:started",
-  "agent-playground.dimension:retry-failed",
-  "agent-playground.dimension:retry-phase:completed",
-  "agent-playground.dimension:retry-phase:started",
-  "agent-playground.dimension:retrying",
-  "agent-playground.dimensions:appended",
-  "agent-playground.draft:completed",
-  "agent-playground.event:dropped",
-  "agent-playground.event:oversized",
-  "agent-playground.failure-pattern:pre-applied",
-  "agent-playground.iteration:progress",
-  "agent-playground.leader:decision",
-  "agent-playground.leader:foreword",
-  "agent-playground.leader:goals-set",
-  "agent-playground.leader:rejected-revision-recommended",
-  "agent-playground.leader:signed",
-  "agent-playground.memory:indexed",
-  "agent-playground.mission:budget-warning-hard",
-  "agent-playground.mission:budget-warning-soft",
-  "agent-playground.mission:cancelled",
-  "agent-playground.mission:completed",
-  "agent-playground.mission:degraded",
-  "agent-playground.mission:evolved",
-  "agent-playground.mission:execution-aborted",
-  "agent-playground.mission:failed",
-  "agent-playground.mission:manual-rerun-from-todo",
-  "agent-playground.mission:persist-failed",
-  "agent-playground.mission:postlude:completed",
-  "agent-playground.mission:preflight-warning",
-  "agent-playground.mission:postlude:failed",
-  "agent-playground.mission:postlude:started",
-  "agent-playground.mission:rejected",
-  "agent-playground.mission:reopened",
-  "agent-playground.mission:rerun-completed",
-  "agent-playground.mission:rerun-failed",
-  "agent-playground.mission:rerun-started",
-  "agent-playground.mission:started",
-  "agent-playground.mission:warning",
-  "agent-playground.mission:zombie-cleanup",
-  "agent-playground.reconciliation:completed",
-  "agent-playground.reconciliation:skipped",
-  "agent-playground.reconciliation:warnings-orphaned",
+  "playground.agent:action",
+  "playground.agent:error",
+  "playground.agent:lifecycle",
+  "playground.agent:narrative",
+  "playground.agent:observation",
+  "playground.agent:reflection",
+  "playground.agent:thought",
+  "playground.agent:validation-rejected",
+  "playground.budget:exhausted",
+  "playground.budget:warning-hard",
+  "playground.budget:warning-soft",
+  "playground.chapter:done",
+  "playground.chapter:review:completed",
+  "playground.chapter:review:started",
+  "playground.chapter:revision",
+  "playground.chapter:rewritten",
+  "playground.chapter:writing:completed",
+  "playground.chapter:writing:started",
+  "playground.cost:tick",
+  "playground.critic:verdict",
+  "playground.dimension:degraded",
+  "playground.dimension:graded",
+  "playground.dimension:integrating:completed",
+  "playground.dimension:integrating:failed",
+  "playground.dimension:integrating:started",
+  "playground.dimension:outline:planned",
+  "playground.dimension:research:completed",
+  "playground.dimension:research:started",
+  "playground.dimension:retry-failed",
+  "playground.dimension:retry-phase:completed",
+  "playground.dimension:retry-phase:started",
+  "playground.dimension:retrying",
+  "playground.dimensions:appended",
+  "playground.draft:completed",
+  "playground.event:dropped",
+  "playground.event:oversized",
+  "playground.failure-pattern:pre-applied",
+  "playground.iteration:progress",
+  "playground.leader:decision",
+  "playground.leader:foreword",
+  "playground.leader:goals-set",
+  "playground.leader:rejected-revision-recommended",
+  "playground.leader:signed",
+  "playground.memory:indexed",
+  "playground.mission:budget-warning-hard",
+  "playground.mission:budget-warning-soft",
+  "playground.mission:cancelled",
+  "playground.mission:completed",
+  "playground.mission:degraded",
+  "playground.mission:evolved",
+  "playground.mission:execution-aborted",
+  "playground.mission:failed",
+  "playground.mission:manual-rerun-from-todo",
+  "playground.mission:persist-failed",
+  "playground.mission:postlude:completed",
+  "playground.mission:preflight-warning",
+  "playground.mission:postlude:failed",
+  "playground.mission:postlude:started",
+  "playground.mission:rejected",
+  "playground.mission:reopened",
+  "playground.mission:rerun-completed",
+  "playground.mission:rerun-failed",
+  "playground.mission:rerun-started",
+  "playground.mission:started",
+  "playground.mission:warning",
+  "playground.mission:zombie-cleanup",
+  "playground.reconciliation:completed",
+  "playground.reconciliation:skipped",
+  "playground.reconciliation:warnings-orphaned",
   // ★ Foresight L2 (2026-05-29)：forecast 红队事前验尸 verdict（前端经 artifact.quickView.foresight 消费，事件供实时 trace）
-  "agent-playground.red-team:verdict",
-  "agent-playground.report:assembled",
-  "agent-playground.report:draft",
-  "agent-playground.researcher:completed",
-  "agent-playground.rerun:cascade-aborted",
-  "agent-playground.rerun:stage-started",
-  "agent-playground.section:remediation:summary",
-  "agent-playground.stage:completed",
-  "agent-playground.stage:degraded",
-  "agent-playground.stage:failed",
-  "agent-playground.stage:lifecycle",
-  "agent-playground.stage:metrics",
-  "agent-playground.stage:stalled",
-  "agent-playground.stage:started",
-  "agent-playground.tools:recalled",
-  "agent-playground.verifier:verdict",
+  "playground.red-team:verdict",
+  "playground.report:assembled",
+  "playground.report:draft",
+  "playground.researcher:completed",
+  "playground.rerun:cascade-aborted",
+  "playground.rerun:stage-started",
+  "playground.section:remediation:summary",
+  "playground.stage:completed",
+  "playground.stage:degraded",
+  "playground.stage:failed",
+  "playground.stage:lifecycle",
+  "playground.stage:metrics",
+  "playground.stage:stalled",
+  "playground.stage:started",
+  "playground.tools:recalled",
+  "playground.verifier:verdict",
 ];
 
 // ── Baseline 2: REST 端点（v5.1 R1-D 锁定基线）─────────────────────────────
 //
-// 15 endpoints from agent-playground.controller.ts (2026-05-04)。前缀 controller
-// 路径 "agent-playground" 是 NestJS @Controller("agent-playground") 注册的；
-// 真实 URL = `/api/v1/agent-playground/${path}`（其中 /api/v1 是 Nest global prefix）。
+// 15 endpoints from playground.controller.ts (2026-05-04)。前缀 controller
+// 路径 "playground" 是 NestJS @Controller("playground") 注册的；
+// 真实 URL = `/api/v1/playground/${path}`（其中 /api/v1 是 Nest global prefix）。
 //
 // 元组 = [HTTP_METHOD, route_path（不含 controller prefix）]
 type EndpointSpec = readonly [string, string];

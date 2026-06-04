@@ -493,7 +493,7 @@ function ExportMenu({
     try {
       const { config } = await import('@/lib/utils/config');
       const { getAuthHeader } = await import('@/lib/utils/auth');
-      const url = `${config.apiBaseUrl}/api/v1/agent-playground/missions/${missionId}/export?format=${format}`;
+      const url = `${config.apiBaseUrl}/api/v1/playground/missions/${missionId}/export?format=${format}`;
       const resp = await fetch(url, { headers: getAuthHeader() });
       if (!resp.ok) throw new Error(`Export failed: ${resp.status}`);
       const data = await resp.json();

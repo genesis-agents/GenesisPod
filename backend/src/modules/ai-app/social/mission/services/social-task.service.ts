@@ -46,7 +46,7 @@ export class SocialTaskService {
 
   /**
    * 拉取该 social mission 的累积事件（前端 hydrate + polling 兜底）。
-   * 仿 agent-playground replay；事件源 = SocialEventBuffer（EventBus adapter）。
+   * 仿 playground replay；事件源 = SocialEventBuffer（EventBus adapter）。
    * 鉴权：mission 必须属于该用户（按 missionId 查 task）。
    */
   async getMissionReplay(
@@ -67,7 +67,7 @@ export class SocialTaskService {
 
   /**
    * 拉取该 task 关联 mission 的「持久化快照」（算力 + 终态），供 mission 结束、
-   * 内存事件 buffer 过期（1h TTL）后前端回显历史用。对标 agent-playground 的
+   * 内存事件 buffer 过期（1h TTL）后前端回显历史用。对标 playground 的
    * persisted 兜底：实时事件流没了，仍能从 social_missions 表读到真实 token/费用/耗时。
    * 阶段骨架由前端按 task.status 推断（completed→全 done，failed→失败），故此处只回算力 + 终态。
    */

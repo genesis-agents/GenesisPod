@@ -1,12 +1,12 @@
 /**
- * AI Radar SKILL.md loader —— 与 agent-playground/utils/skill-md-loader 完全同形
+ * AI Radar SKILL.md loader —— 与 playground/utils/skill-md-loader 完全同形
  *
  * 解析 agents/<agentDir>/SKILL.md 的 frontmatter + soul / duty 段：
  *   - frontmatter（YAML between ---）含 id / name / allowedTools / duties[] 等
  *   - body 用 HTML 注释边界标识 soul / 每个 duty 的内容：
  *       <!-- soul:start --> ... <!-- soul:end -->
  *
- * 实现照抄 agent-playground 标准，保证整个项目 SKILL.md 加载行为一致；不依赖
+ * 实现照抄 playground 标准，保证整个项目 SKILL.md 加载行为一致；不依赖
  * 第三方 YAML 库，避免新增 runtime 依赖。
  */
 import * as fs from "fs";

@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Mission Postmortem Helper contract (P6 Wave 1, 2026-05-24)
  *
- * @migrated-from ai-app/agent-playground/services/mission/lifecycle/mission-postmortem.helper.ts
+ * @migrated-from ai-app/playground/services/mission/lifecycle/mission-postmortem.helper.ts
  *
  * 抽出 postmortem 通用记录 / 召回机制：
  *   - embedding fail-soft（缺 service 或 embed 失败 → 空向量，降级 tag-only）

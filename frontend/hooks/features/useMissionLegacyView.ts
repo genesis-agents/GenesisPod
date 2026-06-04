@@ -691,12 +691,12 @@ function dvDeriveVerdictsFromEvents(
   for (const ev of events) {
     if (!ev || typeof ev !== 'object') continue;
     const e = ev as { type?: string; payload?: Record<string, unknown> };
-    // ★ 2026-05-27 #97 修复：backend 实际 emit COLON 形态（agent-playground.events.ts
+    // ★ 2026-05-27 #97 修复：backend 实际 emit COLON 形态（playground.events.ts
     //   注册为 `verifier:verdict`，s8-writer-draft-report.stage.ts:327 实际发送）。
     //   前端旧代码用 DOT → 永远不匹配 → verdicts 永远空。同时容忍 legacy DOT 形态。
     if (
-      (e.type === 'agent-playground.verifier:verdict' ||
-        e.type === 'agent-playground.verifier.verdict') &&
+      (e.type === 'playground.verifier:verdict' ||
+        e.type === 'playground.verifier.verdict') &&
       e.payload
     ) {
       const p = e.payload;
@@ -726,14 +726,14 @@ function dvDeriveMemoryFromEvents(
     if (!ev || typeof ev !== 'object') continue;
     const e = ev as { type?: string; payload?: Record<string, unknown> };
     // ★ 2026-05-27 修复 Screenshot_48：backend 实际 emit 的是 `memory:indexed`
-    //   (COLON, 注册在 agent-playground.events.ts:175)；S8-writer 完成后由
+    //   (COLON, 注册在 playground.events.ts:175)；S8-writer 完成后由
     //   trajectory indexer 发出。旧版前端找 `memory.index` (DOT, 不存在) →
     //   memory panel 永远空 + 显示"backend 待补数据"假象。同时兼容 .index
     //   后缀以防有别处保留旧形态。
     if (
-      e.type === 'agent-playground.memory:indexed' ||
-      e.type === 'agent-playground.memory.index' ||
-      e.type === 'agent-playground.memory.indexed'
+      e.type === 'playground.memory:indexed' ||
+      e.type === 'playground.memory.index' ||
+      e.type === 'playground.memory.indexed'
     ) {
       if (!e.payload) continue;
       const p = e.payload;
@@ -893,7 +893,7 @@ function dvCollectAgentSummary(
     //   读取生命周期（baseline 15d2e93ab 原本是这个路径）。这是 harness 发的
     //   单一 lifecycle 信号；business 派生（chapter:writing:completed 等）作为 fallback。
     if (
-      e.type === 'agent-playground.agent:lifecycle' ||
+      e.type === 'playground.agent:lifecycle' ||
       e.type === 'agent:lifecycle' ||
       e.type.endsWith('.agent:lifecycle')
     ) {
@@ -932,7 +932,7 @@ function dvCollectAgentSummary(
     }
     // dimension:retrying → 把 agent.retryCount + lastRetryReason 落上
     if (
-      e.type === 'agent-playground.dimension:retrying' ||
+      e.type === 'playground.dimension:retrying' ||
       e.type.endsWith('.dimension:retrying')
     ) {
       const p = e.payload ?? {};
@@ -945,12 +945,12 @@ function dvCollectAgentSummary(
     //   事件，agent 生命周期 derive 自 chapter / dim / leader 等业务事件。
     //   规则与后端 agent-view.projector.deriveVerbFromEventType 对齐。
     const verb =
-      e.type === 'agent-playground.agent.started' || e.type === 'agent.started'
+      e.type === 'playground.agent.started' || e.type === 'agent.started'
         ? 'started'
-        : e.type === 'agent-playground.agent.completed' ||
+        : e.type === 'playground.agent.completed' ||
             e.type === 'agent.completed'
           ? 'completed'
-          : e.type === 'agent-playground.agent.failed' ||
+          : e.type === 'playground.agent.failed' ||
               e.type === 'agent.failed'
             ? 'failed'
             : dvDeriveAgentVerbFromEventType(e.type);

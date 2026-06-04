@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Mission Report Helper Framework (P6 Wave 1, 2026-05-24)
  *
- * @migrated-from ai-app/agent-playground/services/mission/lifecycle/mission-report.helper.ts
+ * @migrated-from ai-app/playground/services/mission/lifecycle/mission-report.helper.ts
  *
  * 抽出 report version 化通用机制：
  *   - saveReportVersion: Serializable transaction 内 aggregate next version + create

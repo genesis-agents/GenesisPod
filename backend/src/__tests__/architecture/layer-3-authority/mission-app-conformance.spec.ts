@@ -21,7 +21,7 @@ const APP_ROOT = join(__dirname, "../../../modules/ai-app");
 
 /** 所有 mission 型 app 的模块文件(新增 mission app 必须登记到此 + 注册 liveness)。 */
 const MISSION_APP_MODULES = [
-  "agent-playground/module/agent-playground.module.ts",
+  "playground/module/playground.module.ts",
   "radar/module/radar.module.ts",
   "social/module/ai-social.module.ts",
 ];
@@ -43,7 +43,7 @@ describe("Mission app conformance — C8/L5a 静态", () => {
   //   typed config snapshot(canonical 配置记录单一真源)。新 app 缺则红。
   const MISSION_APP_SHELLS: Array<[string, RegExp]> = [
     [
-      "agent-playground/mission/pipeline/mission-runtime-shell.service.ts",
+      "playground/mission/pipeline/mission-runtime-shell.service.ts",
       /buildForFreshRun|configSnapshot/,
     ],
     [

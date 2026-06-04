@@ -31,7 +31,7 @@ const PROJECT_ROOT = path.join(__dirname, "..", "..", "..", "..");
 const HARNESS_FORBIDDEN_TOKENS = [
   // app 名
   "playground",
-  "agent-playground",
+  "playground",
   "topic-insights",
   "topicInsight",
   // 业务字段（具体业务概念，不是 generic slot）
@@ -51,7 +51,7 @@ const HARNESS_FORBIDDEN_TOKENS = [
 const ENGINE_FORBIDDEN_TOKENS = [
   // app 名
   "playground",
-  "agent-playground",
+  "playground",
   "topic-insights",
   "topicInsight",
   // business 概念

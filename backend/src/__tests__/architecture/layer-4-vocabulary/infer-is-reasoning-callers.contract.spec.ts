@@ -44,7 +44,7 @@ const SRC_ROOT = path.resolve(__dirname, "../../..");
  */
 const EXPECTED_CALLERS: ReadonlyArray<readonly [string, number]> = [
   [
-    "modules/ai-app/topic-insights/services/dimension/section-writer.service.ts",
+    "modules/ai-app/insight/services/dimension/section-writer.service.ts",
     2,
   ],
   // v3.1 A0：ai-chat-model-config.service.ts 已 thin-wrapper 化，

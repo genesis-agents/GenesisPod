@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — RerunGuard 抽象接口
  *
- * 2026-05-08 PR-E3：从 ai-app/agent-playground/services/mission/rerun/ @migrated-from
+ * 2026-05-08 PR-E3：从 ai-app/playground/services/mission/rerun/ @migrated-from
  * rerun-guard.service.ts 提取核心方法签名。reference impl RerunGuardService 是
  * reference 实现（含 SQL LIKE 业务事件查询 / store.markFailed / emit
  * zombie-cleanup），其他 BusinessAgentTeam 实例反向迁移时只需 satisfies 本

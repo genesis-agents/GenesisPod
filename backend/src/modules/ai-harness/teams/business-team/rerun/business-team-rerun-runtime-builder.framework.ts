@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Rerun Runtime Builder Framework（P5 Wave 1，2026-05-24）
  *
- * @migrated-from ai-app/agent-playground/services/mission/rerun/rerun-runtime-builder.service.ts
+ * @migrated-from ai-app/playground/services/mission/rerun/rerun-runtime-builder.service.ts
  *
  * 抽出 cascade rerun session 装配骨架（stale-protect + abort registry + cleanup
  * idempotent guard）；business 实现 composer hooks 决定 session shape + composed ctx

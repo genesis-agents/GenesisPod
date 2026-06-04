@@ -18,7 +18,7 @@ import {
   SlidesExportService,
   ParameterizedRendererService,
   // Checkpoint
-  CheckpointService,
+  SlidesCheckpointService,
   // Controller
   SlidesController,
   // Engine Service (v4.0: 核心服务)
@@ -48,7 +48,7 @@ import {
 } from "./slides/skill-resolver";
 
 // Agents
-import { AgentsController } from "./agents";
+import { AiOfficeAgentsController } from "./agents";
 
 // Common (共享服务) - services are provided by AIOfficeCommonModule
 import { AIOfficeCommonModule } from "./common";
@@ -61,11 +61,11 @@ import {
 } from "./teams";
 import { ResearchModule } from "../research/research.module";
 import { AiWritingModule } from "../writing/ai-writing.module";
-import { TopicInsightsModule } from "../topic-insights/topic-insights.module";
+import { InsightModule } from "../insight/insight.module";
 // Cross-module data export tokens are defined in
 // ai-app/contracts/interfaces/data-export.interface.ts and used by
 // SlidesDataImportService:
-// - TOPIC_INSIGHTS_DATA_EXPORT   provided by TopicInsightsModule
+// - TOPIC_INSIGHTS_DATA_EXPORT   provided by InsightModule
 // - RESEARCH_PROJECT_DATA_EXPORT provided by ResearchModule
 // - WRITING_DATA_EXPORT          provided by AiWritingModule
 import { OfficeContentSourceProvider } from "./integrations/office-content-source.provider";
@@ -81,13 +81,13 @@ import { OfficeContentSourceProvider } from "./integrations/office-content-sourc
     CreditsModule,
     ExportModule,
     AIOfficeCommonModule,
-    TopicInsightsModule,
+    InsightModule,
     ResearchModule,
     AiWritingModule,
     // 使用 forwardRef: SlidesSkillsModule 也导入 AiEngineModule，形成循环
     forwardRef(() => SlidesSkillsModule),
   ],
-  controllers: [AIModelController, SlidesController, AgentsController],
+  controllers: [AIModelController, SlidesController, AiOfficeAgentsController],
   providers: [
     AIModelService,
     // TOPIC_INSIGHTS_DATA_EXPORT / RESEARCH_PROJECT_DATA_EXPORT /
@@ -96,7 +96,7 @@ import { OfficeContentSourceProvider } from "./integrations/office-content-sourc
     // Slides Services (v5.0: Team-based Orchestrator)
     SlidesExportService,
     ParameterizedRendererService,
-    CheckpointService,
+    SlidesCheckpointService,
     SlidesEngineService, // v4.0: 核心引擎服务
     SlidesDataImportService, // v5.0: 数据导入服务
     AIEditService, // v5.0: AI 编辑服务
@@ -121,7 +121,7 @@ import { OfficeContentSourceProvider } from "./integrations/office-content-sourc
     // Slides Services (v5.0: Team-based Orchestrator)
     SlidesExportService,
     ParameterizedRendererService,
-    CheckpointService,
+    SlidesCheckpointService,
     SlidesEngineService,
     SlidesDataImportService, // v5.0: 数据导入服务
     AIEditService, // v5.0: AI 编辑服务

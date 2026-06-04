@@ -4,7 +4,7 @@
  * runMission() 装配阶段构造一个 WritingMissionContext，每个 stage 函数读取之前
  * stage 的产物 + 写入自己的产物到 ctx，最后由 s8-persist stage 落盘 + 投影 WritingArtifact。
  *
- * 设计决策（照 agent-playground mission-context.ts）：
+ * 设计决策（照 playground mission-context.ts）：
  *   • ctx 是 mutable —— stage 通过 ctx.X = ... 写产物，不返回独立结构
  *   • readonly 字段在装配后不可变（mission lifetime 不变量）
  *   • 可变字段为 optional —— 表示「尚未到达该 stage」

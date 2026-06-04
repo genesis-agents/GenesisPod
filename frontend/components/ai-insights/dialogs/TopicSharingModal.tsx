@@ -308,7 +308,7 @@ export function TopicSharingModal({
 
     try {
       const res = await fetch(
-        `/api/v1/topic-insights/topics/${topicId}/visibility`,
+        `/api/v1/insight/topics/${topicId}/visibility`,
         {
           method: 'PATCH',
           headers: getAuthHeaders(),
@@ -339,7 +339,7 @@ export function TopicSharingModal({
 
     try {
       const res = await fetch(
-        `/api/v1/topic-insights/topics/${topicId}/collaborators`,
+        `/api/v1/insight/topics/${topicId}/collaborators`,
         {
           method: 'POST',
           headers: getAuthHeaders(),
@@ -377,7 +377,7 @@ export function TopicSharingModal({
   ) => {
     try {
       const res = await fetch(
-        `/api/v1/topic-insights/topics/${topicId}/collaborators/${collaboratorId}`,
+        `/api/v1/insight/topics/${topicId}/collaborators/${collaboratorId}`,
         {
           method: 'PATCH',
           headers: getAuthHeaders(),
@@ -402,7 +402,7 @@ export function TopicSharingModal({
   const handleRemoveCollaborator = async (collaboratorId: string) => {
     try {
       const res = await fetch(
-        `/api/v1/topic-insights/topics/${topicId}/collaborators/${collaboratorId}`,
+        `/api/v1/insight/topics/${topicId}/collaborators/${collaboratorId}`,
         { method: 'DELETE', headers: getAuthHeaders() }
       );
 
@@ -427,7 +427,7 @@ export function TopicSharingModal({
 
     try {
       const res = await fetch(
-        `/api/v1/topic-insights/topics/${topicId}/applications/${applicationId}/review`,
+        `/api/v1/insight/topics/${topicId}/applications/${applicationId}/review`,
         {
           method: 'POST',
           headers: getAuthHeaders(),

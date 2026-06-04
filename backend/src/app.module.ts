@@ -39,7 +39,7 @@ import { DbOpsModule } from "./modules/platform/db-ops/db-ops.module";
 import { CreditsModule } from "./modules/platform/credits/credits.module";
 import { EncryptionModule } from "./modules/platform/credentials/encryption/encryption.module";
 import { UserApiKeysModule } from "./modules/platform/credentials/user-api-keys/user-api-keys.module";
-import { ByokModule } from "./modules/ai-app/byok/byok.module";
+import { ByokModule } from "./modules/open-api/user/byok/byok.module";
 import { KeyAssignmentsModule } from "./modules/platform/credentials/key-assignments";
 import { KeyRequestsModule } from "./modules/platform/credentials/key-requests";
 import { KeyResolverModule } from "./modules/platform/credentials/key-resolver";
@@ -56,14 +56,13 @@ import { AiImageModule } from "./modules/ai-app/image/ai-image.module";
 import { AiOfficeModule } from "./modules/ai-app/office/ai-office.module";
 import { AiSimulationModule } from "./modules/ai-app/simulation/ai-simulation.module";
 import { AiTeamsModule } from "./modules/ai-app/teams/ai-teams.module";
-import { AiPlanningModule } from "./modules/ai-app/ai-planning/ai-planning.module";
+import { PlanningModule } from "./modules/ai-app/planning/planning.module";
 import { RAGModule } from "./modules/ai-app/library/rag/rag.module";
 import { AiWritingModule } from "./modules/ai-app/writing/ai-writing.module";
 import { ResearchModule } from "./modules/ai-app/research";
-import { TopicInsightsModule } from "./modules/ai-app/topic-insights";
-import { AgentPlaygroundModule } from "./modules/ai-app/agent-playground/module/agent-playground.module";
+import { InsightModule } from "./modules/ai-app/insight";
+import { PlaygroundModule } from "./modules/ai-app/playground/module/playground.module";
 import { RadarModule } from "./modules/ai-app/radar/module/radar.module";
-import { NotificationsBridgeModule } from "./modules/ai-app/notifications-bridge/notifications-bridge.module";
 import { CustomAgentsModule } from "./modules/ai-app/custom-agents/custom-agents.module";
 import { AiSocialModule } from "./modules/ai-app/social/module/ai-social.module";
 import { SocialEngineBridgeModule } from "./modules/ai-app/social/runtime/social-engine-bridge.module";
@@ -83,7 +82,7 @@ import { WikiModule } from "./modules/ai-app/library/wiki/wiki.module";
 import { KnowledgeGraphModule } from "./modules/ai-app/library/knowledge-graph/knowledge-graph.module";
 import { RecommendationsModule } from "./modules/ai-app/library/recommendations/recommendations.module";
 // Admin modules (backend management)
-import { WorkspaceModule } from "./modules/ai-app/management/workspace/workspace.module";
+import { WorkspaceModule } from "./modules/ai-app/workspace/workspace.module";
 import { CrawlersModule } from "./modules/ai-app/explore/ingestion/crawlers/crawlers.module";
 import { SourcesModule } from "./modules/ai-app/explore/ingestion/sources/sources.module";
 import { IngestionConfigModule } from "./modules/ai-app/explore/ingestion/config/config.module";
@@ -217,14 +216,13 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     AiOfficeModule,
     AiSimulationModule,
     AiTeamsModule,
-    AiPlanningModule,
+    PlanningModule,
     RAGModule,
     AiWritingModule,
     ResearchModule, // Deep Research æ¨¡å— (Deep Research + Notebook Research)
-    TopicInsightsModule, // Topic Insights ä¸“é¢˜æ´žå¯Ÿæ¨¡å— (ä»Ž Research æ‹†åˆ†)
-    AgentPlaygroundModule,
+    InsightModule, // Topic Insights ä¸“é¢˜æ´žå¯Ÿæ¨¡å— (ä»Ž Research æ‹†åˆ†)
+    PlaygroundModule,
     RadarModule, // AI 雷达：多源数据采集 + 多 Agent 看板 (PR-R1 起)
-    NotificationsBridgeModule, // 桥接 DomainEvent → 持久化通知（playground mission completion 等）
     CustomAgentsModule, // E R4 Phase 2 PR-E1 (2026-05-05): 用户自定义 agent CRUD
     AiSocialModule,
     SocialEngineBridgeModule, // @Global 绑定 SOCIAL_PUBLISH_PORT → SocialPublishAdapter，给 engine 三个发布 tool 委托

@@ -4,6 +4,7 @@ import { JwtModule } from "@nestjs/jwt";
 import { NotificationService } from "./notification.service";
 import { NotificationPresetsService } from "./presets/notification-presets.service";
 import { NotificationGateway } from "./notification.gateway";
+import { NotificationEventListener } from "./notification-event-listener.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 
 @Module({
@@ -25,6 +26,8 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
     NotificationService,
     NotificationPresetsService,
     NotificationGateway,
+    // 2026-06-03: 从解散的 notifications-bridge 迁入；@OnEvent 业务无关，归位 platform。
+    NotificationEventListener,
   ],
   exports: [NotificationService, NotificationPresetsService],
 })

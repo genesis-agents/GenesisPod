@@ -36,7 +36,7 @@ interface MissionAppSpec {
 
 const MISSION_APPS: MissionAppSpec[] = [
   {
-    name: "agent-playground",
+    name: "playground",
     filePrefix: "mission-view",
     queryPrefix: "mission-query",
     contractRel: "api/contracts/view-state.contract.ts",
@@ -66,7 +66,7 @@ describe("Canonical view pattern — cross-app invariants", () => {
     const todoBoardProjectorPath = join(
       appRoot,
       "mission/projectors",
-      `${app.name === "agent-playground" ? "todo-board" : `${app.name}-todo-board`}.projector.ts`,
+      `${app.name === "playground" ? "todo-board" : `${app.name}-todo-board`}.projector.ts`,
     );
     const queryServicePath = join(
       appRoot,
@@ -113,7 +113,7 @@ describe("Canonical view pattern — cross-app invariants", () => {
   });
 
   it("Cross-check: MISSION_APPS 与 plan §16.4 三 app 列表一致（防漏 app）", () => {
-    const expected = ["agent-playground", "social", "radar"];
+    const expected = ["playground", "social", "radar"];
     expect(MISSION_APPS.map((a) => a.name).sort()).toEqual(expected.sort());
   });
 });
@@ -123,7 +123,7 @@ describe("Canonical view pattern — anti-regression checks", () => {
     const content = readFileSync(
       join(
         APP_ROOT,
-        "agent-playground/mission/projectors/todo-board.projector.ts",
+        "playground/mission/projectors/todo-board.projector.ts",
       ),
       "utf8",
     );
@@ -137,7 +137,7 @@ describe("Canonical view pattern — anti-regression checks", () => {
     const content = readFileSync(
       join(
         APP_ROOT,
-        "agent-playground/mission/projectors/todo-board.projector.ts",
+        "playground/mission/projectors/todo-board.projector.ts",
       ),
       "utf8",
     );
@@ -165,6 +165,6 @@ describe("Canonical view pattern — anti-regression checks", () => {
     expect(content).toMatch(/computeResumable/);
     expect(content).toMatch(/computeRerunnableStages/);
     // 不应在 framework 内引用具体 app 名（business-name-agnostic）
-    expect(content).not.toMatch(/agent-playground|topic-insights|playground\b/);
+    expect(content).not.toMatch(/playground|topic-insights|playground\b/);
   });
 });

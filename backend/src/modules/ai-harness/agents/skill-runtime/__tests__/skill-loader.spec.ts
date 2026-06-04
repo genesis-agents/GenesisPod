@@ -11,7 +11,7 @@ import { BuiltinSkillCatalog } from "../skill-registry";
 
 const PLAYGROUND_SKILLS = path.resolve(
   __dirname,
-  "../../../../ai-app/agent-playground/mission/skills",
+  "../../../../ai-app/playground/mission/skills",
 );
 
 describe("SkillLoader (with injected skill dirs)", () => {

@@ -1,5 +1,5 @@
 /**
- * CheckpointService Unit Tests
+ * SlidesCheckpointService Unit Tests
  *
  * Tests for checkpoint creation, restoration, pruning, and session management.
  */
@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 
-import { CheckpointService } from "../../checkpoint/checkpoint.service";
+import { SlidesCheckpointService } from "../../checkpoint/checkpoint.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { SlidesSessionStatus, SlidesCheckpointType } from "@prisma/client";
 
@@ -22,8 +22,8 @@ import {
   mockMission,
 } from "../fixtures/slides.fixture";
 
-describe("CheckpointService", () => {
-  let service: CheckpointService;
+describe("SlidesCheckpointService", () => {
+  let service: SlidesCheckpointService;
   let prisma: MockPrismaService;
 
   beforeEach(async () => {
@@ -31,12 +31,12 @@ describe("CheckpointService", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        CheckpointService,
+        SlidesCheckpointService,
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
 
-    service = module.get<CheckpointService>(CheckpointService);
+    service = module.get<SlidesCheckpointService>(SlidesCheckpointService);
   });
 
   describe("createSession", () => {

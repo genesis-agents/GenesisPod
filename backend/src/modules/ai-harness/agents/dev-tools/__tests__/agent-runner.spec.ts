@@ -337,7 +337,7 @@ describe("AgentRunner + @DefineAgent (PR-H)", () => {
       {
         userId: "u1",
         billingMeta: {
-          moduleType: "agent-playground",
+          moduleType: "playground",
           operationType: "leader",
           referenceId: "mission-1",
         },
@@ -349,7 +349,7 @@ describe("AgentRunner + @DefineAgent (PR-H)", () => {
 
     expect(observedInside).toBeDefined();
     expect(observedInside!.userId).toBe("u1");
-    expect(observedInside!.moduleType).toBe("agent-playground");
+    expect(observedInside!.moduleType).toBe("playground");
     expect(observedInside!.operationType).toBe("leader");
   });
 

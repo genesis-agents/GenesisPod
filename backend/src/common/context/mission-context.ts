@@ -23,7 +23,7 @@ export interface MissionContextData {
    * from `MissionExecutor.execute(...)` or `ProcessManager.spawn(...)`.
    *
    * If your code path does NOT spawn a kernel-managed AgentProcess
-   * (e.g. business-team / agent-playground / topic-insights), leave
+   * (e.g. business-team / playground / topic-insights), leave
    * this undefined — EventJournal will then skip the journal write
    * instead of FK-failing.
    *

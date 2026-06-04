@@ -6,8 +6,8 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
  * 知识图谱服务（PostgreSQL 实现）
  */
 @Injectable()
-export class KnowledgeGraphService {
-  private readonly logger = new Logger(KnowledgeGraphService.name);
+export class LibraryKnowledgeGraphService {
+  private readonly logger = new Logger(LibraryKnowledgeGraphService.name);
 
   constructor(
     private graphService: GraphService,

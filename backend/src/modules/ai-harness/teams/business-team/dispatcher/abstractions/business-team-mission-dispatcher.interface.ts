@@ -5,7 +5,7 @@
  * 等通用 mechanism，业务侧实现 runMission 主流程（每团队 lifecycle 终态规则不同）。
  *
  * 2026-05-24 (P4) 抽取自三家 ai-app 业务侧 pipeline-dispatcher 公共部分:
- *   - ai-app/agent-playground/services/mission/workflow/playground-pipeline-dispatcher.service.ts  @migrated-from
+ *   - ai-app/playground/services/mission/workflow/playground-pipeline-dispatcher.service.ts  @migrated-from
  *   - ai-app/social/services/mission/workflow/social-pipeline-dispatcher.service.ts  @migrated-from
  *   - ai-app/radar/services/mission/workflow/radar-pipeline-dispatcher.service.ts  @migrated-from
  */

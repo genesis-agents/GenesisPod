@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { KnowledgeGraphService } from "./knowledge-graph.service.postgres";
+import { LibraryKnowledgeGraphService } from "./knowledge-graph.service.postgres";
 import { KnowledgeGraphController } from "./knowledge-graph.controller";
 import { KnowledgeController } from "./knowledge-admin.controller";
 import { KnowledgeAdminService } from "./knowledge-admin.service";
@@ -13,7 +13,7 @@ import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 @Module({
   imports: [GraphModule, PrismaModule, AiEngineModule],
   controllers: [KnowledgeGraphController, KnowledgeController],
-  providers: [KnowledgeGraphService, KnowledgeAdminService],
-  exports: [KnowledgeGraphService, KnowledgeAdminService],
+  providers: [LibraryKnowledgeGraphService, KnowledgeAdminService],
+  exports: [LibraryKnowledgeGraphService, KnowledgeAdminService],
 })
 export class KnowledgeGraphModule {}

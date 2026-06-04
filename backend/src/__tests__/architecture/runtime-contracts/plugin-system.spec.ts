@@ -57,7 +57,7 @@ const HOOK_ID_PATTERN = /^[a-z]+\.[a-z]+\.[a-z]+$/;
 // 业务名黑名单（standards/19 §四 + §0 业务无关红线）
 const AI_APP_BUSINESS_TERMS = [
   "playground",
-  "agent-playground",
+  "playground",
   "research",
   "topic-insights",
   "writing",

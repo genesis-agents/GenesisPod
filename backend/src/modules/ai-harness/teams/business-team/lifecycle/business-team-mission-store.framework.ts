@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Mission Store Framework (P6 Wave 1, 2026-05-24)
  *
- * @migrated-from ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts
+ * @migrated-from ai-app/playground/services/mission/lifecycle/mission-store.service.ts
  *
  * 抽出 mission 表通用 CRUD / heartbeat / stage / orphan cleanup 机制。
  *

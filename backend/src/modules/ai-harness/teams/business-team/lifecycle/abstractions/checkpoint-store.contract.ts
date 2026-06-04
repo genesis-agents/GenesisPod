@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Mission Checkpoint Store contract (P6 Wave 1, 2026-05-24)
  *
- * @migrated-from ai-app/agent-playground/services/mission/lifecycle/prisma-mission-checkpoint.store.ts
+ * @migrated-from ai-app/playground/services/mission/lifecycle/prisma-mission-checkpoint.store.ts
  *
  * 抽出 checkpoint 持久化通用契约。业务方注入：
  *   - JSON 字段读写策略（mission 表 / 独立表均可）

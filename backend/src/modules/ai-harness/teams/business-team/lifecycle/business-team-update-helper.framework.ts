@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Mission Update Helper Framework (P6 Wave 1, 2026-05-24)
  *
- * @migrated-from ai-app/agent-playground/services/mission/lifecycle/mission-update.helper.ts
+ * @migrated-from ai-app/playground/services/mission/lifecycle/mission-update.helper.ts
  *
  * 抽出 user-initiated mission 元数据 update 通用机制：
  *   - runUpdate 双分支（userId 传入 / 缺失）

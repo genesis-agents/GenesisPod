@@ -283,13 +283,13 @@ export default function MissionDetailPage() {
     if (invalidId) return;
     const terminal = events.find((ev) =>
       [
-        'agent-playground.mission:completed',
-        'agent-playground.mission:failed',
-        'agent-playground.mission:cancelled',
-        'agent-playground.mission:rerun-completed',
-        'agent-playground.mission:rerun-failed',
-        'agent-playground.rerun:cascade-aborted',
-        'agent-playground.mission:postlude:completed',
+        'playground.mission:completed',
+        'playground.mission:failed',
+        'playground.mission:cancelled',
+        'playground.mission:rerun-completed',
+        'playground.mission:rerun-failed',
+        'playground.rerun:cascade-aborted',
+        'playground.mission:postlude:completed',
       ].includes(ev.type)
     );
     if (!terminal) return;
@@ -550,7 +550,7 @@ export default function MissionDetailPage() {
 
   const reportToolRecallEntries = useMemo(() => {
     return events
-      .filter((ev) => ev.type === 'agent-playground.tools:recalled')
+      .filter((ev) => ev.type === 'playground.tools:recalled')
       .map((ev) => {
         const p = ev.payload as {
           agentId?: string;

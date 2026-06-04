@@ -15,7 +15,7 @@ import { DataSourceSeederService } from "./data-source-seeder.service";
 // Controllers
 import { DataSourceController } from "./data-source.controller";
 import { CollectionTaskController } from "./collection-task.controller";
-import { DashboardController } from "./dashboard.controller";
+import { IngestionSourcesDashboardController } from "./dashboard.controller";
 import { MonitorController } from "./monitor.controller";
 import { QualityController } from "./quality.controller";
 import { HistoryController } from "./history.controller";
@@ -33,7 +33,7 @@ import { HistoryController } from "./history.controller";
   controllers: [
     DataSourceController,
     CollectionTaskController,
-    DashboardController,
+    IngestionSourcesDashboardController,
     MonitorController,
     QualityController,
     HistoryController,

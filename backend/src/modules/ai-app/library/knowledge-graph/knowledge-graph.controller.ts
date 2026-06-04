@@ -15,7 +15,7 @@ import {
 } from "@nestjs/common";
 import { Request } from "express";
 import { ApiTags } from "@nestjs/swagger";
-import { KnowledgeGraphService } from "./knowledge-graph.service.postgres";
+import { LibraryKnowledgeGraphService } from "./knowledge-graph.service.postgres";
 import { Public } from "../../../../common/decorators/public.decorator";
 import { AiChatService } from "@/modules/ai-harness/facade";
 import { BillingContext } from "../../../platform/facade";
@@ -32,7 +32,7 @@ export class KnowledgeGraphController {
   private readonly logger = new Logger(KnowledgeGraphController.name);
 
   constructor(
-    private kgService: KnowledgeGraphService,
+    private kgService: LibraryKnowledgeGraphService,
     private aiChatService: AiChatService,
   ) {}
 

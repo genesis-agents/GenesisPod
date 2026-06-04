@@ -88,7 +88,7 @@ export class MissionTransformerService {
     );
     this.sectionCounter = 0;
 
-    // ★ 优先尝试 agent-playground mission（playground 路径），命中即返回
+    // ★ 优先尝试 playground mission（playground 路径），命中即返回
     const playgroundMission =
       await this.prisma.agentPlaygroundMission.findUnique({
         where: { id: missionId },
@@ -167,7 +167,7 @@ export class MissionTransformerService {
   }
 
   /**
-   * ★ 2026-05-02 (#7): agent-playground mission 专用转换路径
+   * ★ 2026-05-02 (#7): playground mission 专用转换路径
    *
    * playground mission 与 TeamMission 模型完全不同：
    *   - 没有 tasks[] / leader（playground 是 8-stage 单线程 pipeline）
@@ -288,7 +288,7 @@ export class MissionTransformerService {
   /**
    * v1 ResearchReport → markdown 拼接（mirror artifact.projector.normalizeV1ToV2 的
    * fullMarkdown 部分，但不构造 v2 全 schema —— 仅为 mission-transformer 编辑模式回退用）。
-   * common/export 不能直接 import ai-app/agent-playground/projectors 模块（反向依赖），
+   * common/export 不能直接 import ai-app/playground/projectors 模块（反向依赖），
    * 故在此 duplicate 该简单逻辑（v1 shape 是稳定契约）。
    */
   private buildMarkdownFromV1(reportFull: Record<string, unknown>): string {

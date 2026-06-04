@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Event Categories (P6 Wave 1, 2026-05-24)
  *
- * @migrated-from ai-app/agent-playground/services/mission/lifecycle/event-categories.ts
+ * @migrated-from ai-app/playground/services/mission/lifecycle/event-categories.ts
  *
  * Mission event 通用分类机制 —— BUSINESS / LIFECYCLE / UNKNOWN。
  *

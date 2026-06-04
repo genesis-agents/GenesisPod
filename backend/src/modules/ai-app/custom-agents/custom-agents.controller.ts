@@ -10,7 +10,7 @@
  *   DELETE /user/custom-agents/:id          删除
  *   POST   /user/custom-agents/:id/publish  发布（5 步完整性校验 → DRAFT→PUBLISHED）
  *
- * PR-E3 会加 /run（直接从 custom agent 启 mission）—— 见 agent-playground controller。
+ * PR-E3 会加 /run（直接从 custom agent 启 mission）—— 见 playground controller。
  */
 import {
   Body,
@@ -89,8 +89,8 @@ export class CustomAgentsController {
   /**
    * POST /user/custom-agents/:id/translate
    *
-   * PR-E3: 把 CustomAgentConfig 翻译成 agent-playground RunMissionInput。
-   * 前端拿到后调 /agent-playground/team/run 启动 mission。
+   * PR-E3: 把 CustomAgentConfig 翻译成 playground RunMissionInput。
+   * 前端拿到后调 /playground/team/run 启动 mission。
    *
    * body: { topic: string, overrides?: Record<string, unknown> }
    * resp: { input, metadata: { customAgentId, customAgentSlug, version } }

@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Stage Rerun Dispatcher Framework（P5 Wave 1，2026-05-24）
  *
- * @migrated-from ai-app/agent-playground/services/mission/rerun/stage-rerun.dispatcher.ts
+ * @migrated-from ai-app/playground/services/mission/rerun/stage-rerun.dispatcher.ts
  *
  * 抽出 cascade rerun 的纯调度骨架（顺序执行、emit lifecycle、best-effort partial、
  * mutable ctx 共享、last-stage progress）；业务方注入 handlers + chain provider +

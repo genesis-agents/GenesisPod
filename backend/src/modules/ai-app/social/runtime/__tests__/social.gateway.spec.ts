@@ -2,7 +2,7 @@
  * social.gateway.spec.ts
  *
  * Unit tests for SocialGateway.
- * Mirror of agent-playground.gateway.spec.ts pattern.
+ * Mirror of playground.gateway.spec.ts pattern.
  *
  * Tests: afterInit adapter registration, handleJoin (auth / ownership /
  * room join), handleLeave, extractUserId edge cases.

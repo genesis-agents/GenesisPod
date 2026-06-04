@@ -3,7 +3,7 @@
  *
  * publish 走 validateCustomAgentCompleteness 全 5 步校验。
  * options() 给前端拉真实可选项（skills / models / tools / primitives / 枚举）。
- * PR-E3 集成到 agent-playground.runMission 启动路径。
+ * PR-E3 集成到 playground.runMission 启动路径。
  */
 import {
   Inject,
@@ -34,7 +34,7 @@ import {
   type IMissionListReader,
   type MissionListItem,
 } from "@/modules/ai-app/contracts/mission-platform.contract";
-import { RunMissionInputSchema } from "@/modules/ai-app/agent-playground/api/dto/run-mission.dto";
+import { RunMissionInputSchema } from "@/modules/ai-app/playground/api/dto/run-mission.dto";
 import {
   CUSTOM_AGENT_PRIMITIVES,
   validateCustomAgentCompleteness,
@@ -92,7 +92,7 @@ export class CustomAgentsService {
     private readonly launches: CustomAgentLaunchesService,
     // ★ Rev 5 / S1-5 (2026-05-09): inject via contract tokens(IMissionRunner /
     //   IMissionListReader),不再 import PlaygroundPipelineDispatcher / MissionStore
-    //   具体类。playground 在 agent-playground.module.ts 用 useExisting 把具体实现
+    //   具体类。playground 在 playground.module.ts 用 useExisting 把具体实现
     //   注册到 token,custom-agents 通过 contract interface 调用,实现 Dependency Inversion。
     @Inject(MISSION_RUNNER)
     private readonly missionRunner: IMissionRunner,
@@ -200,7 +200,7 @@ export class CustomAgentsService {
    * POST /user/custom-agents/:id/translate
    *
    * E R4 Phase 2 PR-E3 (2026-05-05): 把 CustomAgentConfig 翻译成
-   * agent-playground RunMissionInput。前端拿到后调 /agent-playground/team/run
+   * playground RunMissionInput。前端拿到后调 /playground/team/run
    * 启动 mission。
    *
    * 翻译规则：
@@ -420,7 +420,7 @@ export class CustomAgentsService {
         }
       });
     await rowReady;
-    return { missionId, streamNamespace: "agent-playground" };
+    return { missionId, streamNamespace: "playground" };
   }
 
   /**
@@ -564,7 +564,7 @@ export class CustomAgentsService {
  * LaunchMissionModal 没给用户预算控件，agent 配置决定一切）。
  * 输出：RunMissionInputSchema 必填的 maxCredits（10..100k）+ budgetMultiplierOverride（0.3..10）。
  *
- * 公式来源：frontend/components/agent-playground/DemoLauncher.tsx#estimateTokens
+ * 公式来源：frontend/components/playground/DemoLauncher.tsx#estimateTokens
  *   - base = 400 (K tokens)
  *   - depthMul: quick 0.4 / standard 0.7 / deep 1
  *   - lenMul: brief 0.5 / standard 1 / deep 1.7 / extended+epic+mega 2.5

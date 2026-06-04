@@ -16,7 +16,7 @@ import { MetadataExtractorService } from "./services/metadata-extractor.service"
 import { DuplicateDetectorService } from "./services/duplicate-detector.service";
 import { PaperMetadataExtractorService } from "./services/paper-metadata-extractor.service";
 import { DashboardService } from "./services/dashboard.service";
-import { DashboardController } from "./controllers/dashboard.controller";
+import { IngestionConfigDashboardController } from "./controllers/dashboard.controller";
 import { ConfigurationController } from "./controllers/configuration.controller";
 import { ConfigurationService } from "./services/configuration.service";
 import { AiUrlClassifierService } from "./services/ai-url-classifier.service";
@@ -57,7 +57,7 @@ import { ResourceLifecycleModule } from "../../../explore/resources/resource-lif
     CollectionRuleController,
     CollectionConfigurationController,
     ImportManagerController,
-    DashboardController,
+    IngestionConfigDashboardController,
     ConfigurationController,
   ],
   exports: [

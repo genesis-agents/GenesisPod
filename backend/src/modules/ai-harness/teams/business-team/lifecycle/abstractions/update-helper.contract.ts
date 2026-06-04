@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Mission Update Helper contract (P6 Wave 1, 2026-05-24)
  *
- * @migrated-from ai-app/agent-playground/services/mission/lifecycle/mission-update.helper.ts
+ * @migrated-from ai-app/playground/services/mission/lifecycle/mission-update.helper.ts
  *
  * 抽出 user-initiated mission 元数据修改通用机制：
  *   - userId 传入 → updateMany where{id, userId}（深度防御）
