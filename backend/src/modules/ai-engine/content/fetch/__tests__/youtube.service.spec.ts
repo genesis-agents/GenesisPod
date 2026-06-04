@@ -3,7 +3,7 @@ import { NotFoundException } from "@nestjs/common";
 import { YoutubeService, TranscriptSegment } from "../youtube.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SystemSettingService } from "@/common/settings/system-setting.service";
-import { ToolKeyResolverService } from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
+import { ToolKeyResolverService } from "@/modules/platform/credentials/resolution/tool-key-resolver/tool-key-resolver.service";
 import { RequestContext } from "@/common/context/request-context";
 
 // Mock external fetch globally

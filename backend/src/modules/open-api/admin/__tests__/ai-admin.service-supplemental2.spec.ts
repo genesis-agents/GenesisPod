@@ -45,7 +45,7 @@ import {
   SearchService,
   MultiKeyRegistry,
 } from "../../../ai-engine/facade";
-import { SecretsService } from "../../../platform/credentials/secrets/secrets.service";
+import { SecretsService } from "../../../platform/credentials/storage/secrets/secrets.service";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

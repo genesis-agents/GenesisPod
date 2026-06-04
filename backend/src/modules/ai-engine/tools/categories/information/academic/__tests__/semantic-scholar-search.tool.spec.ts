@@ -12,7 +12,7 @@ import {
   SemanticScholarSearchOutput,
 } from "../semantic-scholar-search.tool";
 import { PolicyDataService } from "../../policy/policy-data.service";
-import { ToolKeyResolverService } from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
+import { ToolKeyResolverService } from "@/modules/platform/credentials/resolution/tool-key-resolver/tool-key-resolver.service";
 import { RequestContext } from "@/common/context/request-context";
 import {
   ToolContext,

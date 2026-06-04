@@ -455,8 +455,8 @@ export type {
   FullSkillDefinition,
 } from "../skills/content/skill-content.service";
 export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
-export { MultiKeyRegistry } from "@/modules/platform/credentials/key-health/multi-key.manager";
-export type { KeyHealthStatus } from "@/modules/platform/credentials/key-health/multi-key.manager";
+export { MultiKeyRegistry } from "@/modules/platform/credentials/governance/key-health/multi-key.manager";
+export type { KeyHealthStatus } from "@/modules/platform/credentials/governance/key-health/multi-key.manager";
 // AICapabilityResolver 是 L2.5 ai-harness/runner 服务，2026-05-01 PR-X-M2
 // 下沉为 ai-harness/facade export
 // IntentRouterService / RouteResult / AgentContext 已删 (2026-04-30) — 死代码
@@ -774,49 +774,49 @@ export {
 export {
   ToolKeyResolverService,
   NoToolKeyError,
-} from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
+} from "@/modules/platform/credentials/resolution/tool-key-resolver/tool-key-resolver.service";
 export type {
   ResolvedToolKey,
   ToolKeySource,
-} from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
-export { UserSecretsService } from "@/modules/platform/credentials/user-secrets/user-secrets.service";
+} from "@/modules/platform/credentials/resolution/tool-key-resolver/tool-key-resolver.service";
+export { UserSecretsService } from "@/modules/platform/credentials/user-owned/user-secrets/user-secrets.service";
 // NOTE: credential-management surfaces (ai-app/byok, open-api/admin/byok) import
 // credential *services* (AuthorizationService / UserToolsService / KeyAssignments
 // etc.) directly from source, NOT via this barrel — adding heavy credential
 // services here bloats the facade barrel and triggers circular-load failures in
 // unrelated consumers (e.g. orchestrator specs: "undefined reading 'SEARCH'").
 // Those surfaces are eslint/ facade-boundary exempted instead.
-export { KeyAssignmentsService } from "@/modules/platform/credentials/key-assignments/key-assignments.service";
-export { KeyRequestsService } from "@/modules/platform/credentials/key-requests/key-requests.service";
-export { UserApiKeysService } from "@/modules/platform/credentials/user-api-keys/user-api-keys.service";
-export { KeyResolverService } from "@/modules/platform/credentials/key-resolver/key-resolver.service";
-export { NoAvailableKeyError } from "@/modules/platform/credentials/key-resolver/key-resolver.errors";
+export { KeyAssignmentsService } from "@/modules/platform/credentials/governance/key-assignments/key-assignments.service";
+export { KeyRequestsService } from "@/modules/platform/credentials/governance/key-requests/key-requests.service";
+export { UserApiKeysService } from "@/modules/platform/credentials/user-owned/user-api-keys/user-api-keys.service";
+export { KeyResolverService } from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.service";
+export { NoAvailableKeyError } from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.errors";
 export type {
   ResolvedKey,
   KeyChain,
   KeySource,
-} from "@/modules/platform/credentials/key-resolver/key-resolver.service";
-export { ByokMaintenanceScheduler } from "@/modules/platform/credentials/scheduling/byok-maintenance.scheduler";
-export { UserModelConfigsService } from "@/modules/platform/credentials/user-model-configs/user-model-configs.service";
-export { CreateKeyRequestDto } from "@/modules/platform/credentials/key-requests/dto/create-key-request.dto";
+} from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.service";
+export { ByokMaintenanceScheduler } from "@/modules/platform/credentials/governance/scheduling/byok-maintenance.scheduler";
+export { UserModelConfigsService } from "@/modules/platform/credentials/user-owned/user-model-configs/user-model-configs.service";
+export { CreateKeyRequestDto } from "@/modules/platform/credentials/governance/key-requests/dto/create-key-request.dto";
 // admin / byok-admin (open-api) DTOs — exposed so open-api routes through the facade
 export {
   ApproveKeyRequestDto,
   RejectKeyRequestDto,
-} from "@/modules/platform/credentials/key-requests/dto";
+} from "@/modules/platform/credentials/governance/key-requests/dto";
 export {
   RevokeAssignmentDto,
   UpdateAssignmentDto,
-} from "@/modules/platform/credentials/key-assignments/dto";
+} from "@/modules/platform/credentials/governance/key-assignments/dto";
 export {
   SaveUserApiKeyDto,
   ApiKeyMode,
-} from "@/modules/platform/credentials/user-api-keys/dto/save-user-api-key.dto";
-export { TestApiKeyDto } from "@/modules/platform/credentials/user-api-keys/dto/test-api-key.dto";
+} from "@/modules/platform/credentials/user-owned/user-api-keys/dto/save-user-api-key.dto";
+export { TestApiKeyDto } from "@/modules/platform/credentials/user-owned/user-api-keys/dto/test-api-key.dto";
 export {
   CreateUserModelConfigDto,
   UpdateUserModelConfigDto,
-} from "@/modules/platform/credentials/user-model-configs/dto/user-model-config.dto";
+} from "@/modules/platform/credentials/user-owned/user-model-configs/dto/user-model-config.dto";
 export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/models/catalog/ai-model-discovery.service";
 export { ModelTypeService } from "@/modules/ai-engine/llm/models/catalog/model-type.service";
 export { ApiFormatService } from "@/modules/ai-engine/llm/models/catalog/api-format.service";

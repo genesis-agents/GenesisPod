@@ -21,12 +21,12 @@ export { BillingContext } from "../credits/billing-context.store";
 export { InsufficientCreditsException } from "../credits/exceptions/insufficient-credits.exception";
 
 // ─── Secrets ───
-export { SecretsService } from "../credentials/secrets/secrets.service";
-export { SecretKeysService } from "../credentials/secrets/secret-keys.service";
+export { SecretsService } from "../credentials/storage/secrets/secrets.service";
+export { SecretKeysService } from "../credentials/storage/secrets/secret-keys.service";
 export {
   SECRET_NAMES,
   EXTERNAL_TOOL_SECRET_MAPPING,
-} from "../credentials/secrets/secret-name.catalog";
+} from "../credentials/storage/secrets/secret-name.catalog";
 
 // ─── Storage ───
 export { StorageGovernanceService } from "../storage/governance/storage-governance.service";

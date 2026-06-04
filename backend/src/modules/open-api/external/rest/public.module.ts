@@ -10,7 +10,7 @@
 
 import { Module } from "@nestjs/common";
 import { PublicController } from "./public.controller";
-import { SecretsModule } from "../../../platform/credentials/secrets/secrets.module";
+import { SecretsModule } from "../../../platform/credentials/storage/secrets/secrets.module";
 // ★ 2026-06-03 standards/16: 公开退订端点 HTTP 上提（notifications/unsubscribe，
 //   token-only 无需登录）；UnsubscribeTokenService 留 L1 platform，经
 //   NotificationDispatcherModule 导出注入。

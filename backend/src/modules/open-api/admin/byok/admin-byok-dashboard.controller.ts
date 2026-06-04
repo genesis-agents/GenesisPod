@@ -3,7 +3,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
-import { ByokDashboardService } from "@/modules/platform/credentials/byok-dashboard.service";
+import { ByokDashboardService } from "@/modules/platform/credentials/dashboard/byok-dashboard.service";
 
 /**
  * 管理员 BYOK 仪表盘（薄 HTTP，逻辑在 platform/credentials/ByokDashboardService）。

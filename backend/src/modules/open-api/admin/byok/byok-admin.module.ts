@@ -13,10 +13,10 @@ import { Module } from "@nestjs/common";
 import { AdminKeyAssignmentsController } from "./admin-key-assignments.controller";
 import { AdminKeyRequestsController } from "./admin-key-requests.controller";
 import { AdminByokDashboardController } from "./admin-byok-dashboard.controller";
-import { KeyAssignmentsModule } from "../../../platform/credentials/key-assignments";
-import { KeyRequestsModule } from "../../../platform/credentials/key-requests";
-import { KeyResolverModule } from "../../../platform/credentials/key-resolver";
-import { ByokDashboardService } from "@/modules/platform/credentials/byok-dashboard.service";
+import { KeyAssignmentsModule } from "../../../platform/credentials/governance/key-assignments";
+import { KeyRequestsModule } from "../../../platform/credentials/governance/key-requests";
+import { KeyResolverModule } from "../../../platform/credentials/resolution/key-resolver";
+import { ByokDashboardService } from "@/modules/platform/credentials/dashboard/byok-dashboard.service";
 
 @Module({
   imports: [KeyAssignmentsModule, KeyRequestsModule, KeyResolverModule],

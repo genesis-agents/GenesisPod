@@ -10,7 +10,7 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { A2AApiKeyGuard } from "../a2a-api-key.guard";
-import { SecretsService } from "@/modules/platform/credentials/secrets/secrets.service";
+import { SecretsService } from "@/modules/platform/credentials/storage/secrets/secrets.service";
 // IS_PUBLIC_KEY used internally by Reflector in guard
 
 jest.spyOn(Logger.prototype, "log").mockImplementation();

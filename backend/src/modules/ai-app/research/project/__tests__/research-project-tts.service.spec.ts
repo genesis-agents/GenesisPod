@@ -3,7 +3,7 @@ import type { ConfigService } from "@nestjs/config";
 import {
   ToolKeyResolverService,
   NoToolKeyError,
-} from "@/modules/platform/credentials/tool-key-resolver/tool-key-resolver.service";
+} from "@/modules/platform/credentials/resolution/tool-key-resolver/tool-key-resolver.service";
 import { RequestContext } from "@/common/context/request-context";
 
 // Mock global fetch

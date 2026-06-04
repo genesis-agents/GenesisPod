@@ -37,13 +37,13 @@ import { SettingsModule } from "./modules/platform/settings/settings.module";
 import { StorageModule } from "./modules/platform/storage/storage.module";
 import { DbOpsModule } from "./modules/platform/db-ops/db-ops.module";
 import { CreditsModule } from "./modules/platform/credits/credits.module";
-import { EncryptionModule } from "./modules/platform/credentials/encryption/encryption.module";
-import { UserApiKeysModule } from "./modules/platform/credentials/user-api-keys/user-api-keys.module";
+import { EncryptionModule } from "./modules/platform/credentials/storage/encryption/encryption.module";
+import { UserApiKeysModule } from "./modules/platform/credentials/user-owned/user-api-keys/user-api-keys.module";
 import { ByokModule } from "./modules/open-api/user/byok/byok.module";
-import { KeyAssignmentsModule } from "./modules/platform/credentials/key-assignments";
-import { KeyRequestsModule } from "./modules/platform/credentials/key-requests";
-import { KeyResolverModule } from "./modules/platform/credentials/key-resolver";
-import { UserModelConfigsModule } from "./modules/platform/credentials/user-model-configs";
+import { KeyAssignmentsModule } from "./modules/platform/credentials/governance/key-assignments";
+import { KeyRequestsModule } from "./modules/platform/credentials/governance/key-requests";
+import { KeyResolverModule } from "./modules/platform/credentials/resolution/key-resolver";
+import { UserModelConfigsModule } from "./modules/platform/credentials/user-owned/user-model-configs";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
 // AI Harness â€” Agent kernel / execution / memory / process / protocol / governance / facade

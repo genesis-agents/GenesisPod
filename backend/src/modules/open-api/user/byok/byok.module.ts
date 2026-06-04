@@ -41,16 +41,16 @@ import { UserSkillsService } from "./user-skills.service";
 import { AiEngineLLMModule } from "../../../ai-engine/llm/llm.module";
 import { AiEngineSkillsModule } from "../../../ai-engine/skills/skills.module";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
-import { UserApiKeysModule } from "../../../platform/credentials/user-api-keys/user-api-keys.module";
-import { UserModelConfigsModule } from "../../../platform/credentials/user-model-configs/user-model-configs.module";
-import { UserSecretsModule } from "../../../platform/credentials/user-secrets/user-secrets.module";
-import { SecretsModule } from "../../../platform/credentials/secrets/secrets.module";
-import { UserToolsModule } from "../../../platform/credentials/user-tools/user-tools.module";
-import { AuthorizationModule } from "../../../platform/credentials/authorization/authorization.module";
-import { KeyAssignmentsModule } from "../../../platform/credentials/key-assignments";
-import { KeyRequestsModule } from "../../../platform/credentials/key-requests";
-import { KeyResolverModule } from "../../../platform/credentials/key-resolver";
-import { KeyHealthModule } from "../../../platform/credentials/key-health/key-health.module";
+import { UserApiKeysModule } from "../../../platform/credentials/user-owned/user-api-keys/user-api-keys.module";
+import { UserModelConfigsModule } from "../../../platform/credentials/user-owned/user-model-configs/user-model-configs.module";
+import { UserSecretsModule } from "../../../platform/credentials/user-owned/user-secrets/user-secrets.module";
+import { SecretsModule } from "../../../platform/credentials/storage/secrets/secrets.module";
+import { UserToolsModule } from "../../../platform/credentials/user-owned/user-tools/user-tools.module";
+import { AuthorizationModule } from "../../../platform/credentials/governance/authorization/authorization.module";
+import { KeyAssignmentsModule } from "../../../platform/credentials/governance/key-assignments";
+import { KeyRequestsModule } from "../../../platform/credentials/governance/key-requests";
+import { KeyResolverModule } from "../../../platform/credentials/resolution/key-resolver";
+import { KeyHealthModule } from "../../../platform/credentials/governance/key-health/key-health.module";
 
 @Module({
   imports: [

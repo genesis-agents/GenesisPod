@@ -6,7 +6,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { StorageModule } from "../../platform/storage/storage.module";
 import { EmailModule } from "../../platform/email/email.module";
 import { NotificationDispatcherModule } from "../../platform/notifications/dispatcher/notification-dispatcher.module";
-import { SecretsModule } from "../../platform/credentials/secrets/secrets.module";
+import { SecretsModule } from "../../platform/credentials/storage/secrets/secrets.module";
 
 // AI Services
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
