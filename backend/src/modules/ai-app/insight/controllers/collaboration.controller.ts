@@ -34,7 +34,7 @@ import type { RequestWithUser } from "../../../../common/types/express-request.t
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
-@Controller("topic-insights")
+@Controller("insight")
 @UseGuards(JwtAuthGuard)
 export class CollaborationController {
   constructor(

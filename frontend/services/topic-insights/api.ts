@@ -37,7 +37,7 @@ import type {
 // ★ 使用统一的 config.apiBaseUrl，浏览器端返回空字符串以使用相对 URL
 // 这样请求会通过 Next.js rewrites 代理到后端，避免 CORS 和认证问题
 const API_BASE = config.apiBaseUrl;
-const API_PREFIX = '/api/v1/topic-insights';
+const API_PREFIX = '/api/v1/insight';
 
 /**
  * 401 错误类，用于轮询中检测并停止

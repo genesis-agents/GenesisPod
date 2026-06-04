@@ -23,7 +23,7 @@ import {
 import {
   TOPIC_INSIGHTS_AGENT_ID,
   TOPIC_INSIGHTS_AGENT_META,
-} from "../topic-insights/topic-insights.constants";
+} from "../insight/topic-insights.constants";
 import {
   IMAGE_DESIGNER_AGENT_ID,
   IMAGE_DESIGNER_AGENT_META,

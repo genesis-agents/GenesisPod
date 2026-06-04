@@ -37,7 +37,7 @@ import { CollaboratorRole } from "../dto/collaborator.dto";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
-@Controller("topic-insights")
+@Controller("insight")
 @UseGuards(JwtAuthGuard)
 @UseInterceptors(BillingContextInterceptor)
 export class ReportReviewController {

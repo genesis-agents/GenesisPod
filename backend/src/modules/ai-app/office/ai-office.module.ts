@@ -61,11 +61,11 @@ import {
 } from "./teams";
 import { ResearchModule } from "../research/research.module";
 import { AiWritingModule } from "../writing/ai-writing.module";
-import { TopicInsightsModule } from "../topic-insights/topic-insights.module";
+import { InsightModule } from "../insight/insight.module";
 // Cross-module data export tokens are defined in
 // ai-app/contracts/interfaces/data-export.interface.ts and used by
 // SlidesDataImportService:
-// - TOPIC_INSIGHTS_DATA_EXPORT   provided by TopicInsightsModule
+// - TOPIC_INSIGHTS_DATA_EXPORT   provided by InsightModule
 // - RESEARCH_PROJECT_DATA_EXPORT provided by ResearchModule
 // - WRITING_DATA_EXPORT          provided by AiWritingModule
 import { OfficeContentSourceProvider } from "./integrations/office-content-source.provider";
@@ -81,7 +81,7 @@ import { OfficeContentSourceProvider } from "./integrations/office-content-sourc
     CreditsModule,
     ExportModule,
     AIOfficeCommonModule,
-    TopicInsightsModule,
+    InsightModule,
     ResearchModule,
     AiWritingModule,
     // 使用 forwardRef: SlidesSkillsModule 也导入 AiEngineModule，形成循环

@@ -5,7 +5,7 @@
  * 提供专题多维度研究能力 (分钟级)
  */
 
-export { TopicInsightsModule } from "./topic-insights.module";
+export { InsightModule } from "./insight.module";
 export { TopicInsightsService } from "./topic-insights.service";
 export {
   TopicController,

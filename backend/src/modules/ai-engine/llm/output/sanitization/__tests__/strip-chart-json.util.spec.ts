@@ -15,7 +15,7 @@ describe("stripChartJsonFromContent", () => {
   // ★ 2026-05-06 #81 regression: chapter writer 用 ```chartjs fence 包 Chart.js
   //   配置 JSON，前端 markdown renderer 不识别这种 fence 当 code block 显示 raw JSON。
   //   strip-chart-json.utils 必须删除 chartjs / chart-data / chart fence 整段。
-  //   2026-05-08 PR-A1: 用例从 ai-app/topic-insights/utils/__tests__ 合并入此（双源消除）
+  //   2026-05-08 PR-A1: 用例从 ai-app/insight/utils/__tests__ 合并入此（双源消除）
   describe("#81 chartjs fence regression (Mission 1520783d 实证)", () => {
     it("should strip ```chartjs fence with Chart.js config", () => {
       const text = [

@@ -29,7 +29,7 @@ import {
 @ApiTags("Topic Insights - Latency")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller("api/topic-insights/latency")
+@Controller("api/insight/latency")
 export class LatencyController {
   constructor(
     @Optional()

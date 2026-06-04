@@ -56,7 +56,7 @@ export function SedimentToInsightsModal({
     setTopicsLoading(true);
     try {
       const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/topic-insights/topics?take=20`,
+        `${config.apiBaseUrl}/api/v1/insight/topics?take=20`,
         { headers: getAuthHeader() }
       );
       if (!response.ok) throw new Error('Failed to fetch topics');

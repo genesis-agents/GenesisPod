@@ -49,7 +49,7 @@ import { BillingContextInterceptor } from "../guards/billing-context.interceptor
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
-@Controller("topic-insights")
+@Controller("insight")
 @UseGuards(JwtAuthGuard)
 @UseInterceptors(BillingContextInterceptor)
 export class MissionController {

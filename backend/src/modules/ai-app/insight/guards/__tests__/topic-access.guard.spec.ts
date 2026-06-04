@@ -18,7 +18,7 @@ jest.mock("@prisma/client", () => ({
   PrismaClient: class {},
 }));
 
-jest.mock("@/modules/ai-app/topic-insights/services", () => ({
+jest.mock("@/modules/ai-app/insight/services", () => ({
   TopicCollaboratorService: class {},
 }));
 

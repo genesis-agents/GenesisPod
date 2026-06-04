@@ -10,7 +10,7 @@
  * via DI tokens.
  *
  * Ownership map:
- * - TOPIC_INSIGHTS_DATA_EXPORT   → TopicInsightsModule (owns ResearchTopic model)
+ * - TOPIC_INSIGHTS_DATA_EXPORT   → InsightModule (owns ResearchTopic model)
  * - RESEARCH_PROJECT_DATA_EXPORT → ResearchModule (owns ResearchProject model)
  * - WRITING_DATA_EXPORT          → AiWritingModule  (owns WritingProject model)
  */

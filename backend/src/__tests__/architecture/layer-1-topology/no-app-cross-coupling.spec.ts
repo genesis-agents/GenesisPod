@@ -19,7 +19,7 @@ const APP_DOMAINS = [
   "explore",
   "ask",
   "image",
-  "topic-insights",
+  "insight",
   "agent-playground",
 ];
 

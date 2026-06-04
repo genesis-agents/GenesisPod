@@ -86,7 +86,7 @@ const PRODUCT_DOMAINS = [
   "simulation",
   "office",
   "explore",
-  "topic-insights",
+  "insight",
   "custom-agents",
   "library",
   "feedback",

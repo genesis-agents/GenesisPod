@@ -314,8 +314,8 @@ const services = [
     TopicInsightsContentSourceProvider,
   ],
 })
-export class TopicInsightsModule implements OnModuleInit {
-  private readonly logger = new Logger(TopicInsightsModule.name);
+export class InsightModule implements OnModuleInit {
+  private readonly logger = new Logger(InsightModule.name);
 
   constructor(
     private readonly promptSkillBridge: PromptSkillBridge,

@@ -182,7 +182,7 @@ describe('fetchWithAuth - core behaviour', () => {
     await getTopic('topic-1');
 
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/topic-insights/topics/topic-1'),
+      expect.stringContaining('/api/v1/insight/topics/topic-1'),
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer test-token',
