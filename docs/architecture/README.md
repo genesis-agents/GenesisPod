@@ -13,6 +13,10 @@
 | L1       | [platform/](ai-infra/README.md)     | `backend/src/modules/platform/`   | 基础设施底座（旧称 ai-infra）|
 | Frontend | [frontend/](frontend/README.md)     | `frontend/`                       | Next.js 应用                 |
 
+## 图解
+
+- [illustrated/](illustrated/README.md) —— **架构手绘图集**（engine 6 + harness 6，直观心智模型；权威结构仍以 standards/16 为准）
+
 ## 系统级文档
 
 - [../system/README.md](../system/README.md)
