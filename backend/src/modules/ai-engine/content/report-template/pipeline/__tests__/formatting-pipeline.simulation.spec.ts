@@ -15,7 +15,7 @@ import {
   normalizeTableDataRows,
   removeOrphanedFigureReferences,
   fixUnbalancedLatexDelimiters,
-} from "../dimension-content-formatting.utils";
+} from "../dimension-content-formatting.util";
 
 import {
   numberSubHeadings,
@@ -27,7 +27,7 @@ import {
   repairLatexCommands,
   stripInternalFigureNotation,
   stripLLMMetaNotes,
-} from "../report-formatting.utils";
+} from "../report-formatting.util";
 
 // ============================================================
 // Scenario 1: Chapter Numbering — The Core User Complaint

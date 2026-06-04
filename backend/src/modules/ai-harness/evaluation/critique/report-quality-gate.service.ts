@@ -18,7 +18,7 @@ import {
   deduplicateHeadings,
   stripLLMMetaNotes,
   stripInternalFigureNotation,
-} from "@/modules/ai-engine/content/report-template/pipeline/report-formatting.utils";
+} from "@/modules/ai-engine/content/report-template/pipeline/report-formatting.util";
 import { getQualityChecklist } from "@/modules/ai-engine/content/report-template/constants/report-writing-standards.constants";
 import { stripChartJsonFromContent } from "@/modules/ai-engine/llm/output/sanitization/strip-chart-json.utils";
 

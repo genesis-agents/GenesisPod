@@ -39,8 +39,8 @@ import { ReportQualityGateService } from "../../../facade";
 //   原 27-step bespoke 管线下线 —— consumer / TI 共用同一份后处理逻辑，
 //   保证两条产品线的报告格式行为完全一致，且 mission 4fd5efa1 暴露的
 //   `mid-line glued ##` 由 detectAndPromoteHeadings 启发式修复。
-import { postProcessFinalReport } from "../../../../ai-engine/content/report-template/pipeline/final-report-post-processing.utils";
-import { formatDimensionContent } from "../../../../ai-engine/content/report-template/pipeline/dimension-content-formatting.utils";
+import { postProcessFinalReport } from "../../../../ai-engine/content/report-template/pipeline/final-report-post-processing.util";
+import { formatDimensionContent } from "../../../../ai-engine/content/report-template/pipeline/dimension-content-formatting.util";
 import { stripChartJsonFromContent } from "../../../../ai-engine/llm/output/sanitization/strip-chart-json.utils";
 import {
   filterJunkReferences,
@@ -48,7 +48,7 @@ import {
   upgradeHttpToHttps,
   decodeUrlEntities,
   remapCitationIndices,
-} from "../../../../ai-engine/content/report-template/pipeline/report-formatting.utils";
+} from "../../../../ai-engine/content/report-template/pipeline/report-formatting.util";
 import { normalizeMarkdownSlug } from "../../../../ai-engine/content/markdown/slug-normalize.util";
 
 export interface AssembleInput {

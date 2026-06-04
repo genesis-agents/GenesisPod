@@ -64,7 +64,7 @@ import {
   truncateLongListItems,
   wrapBareDisplayMath,
   wrapPseudoCodeBlocks,
-} from "./report-formatting.utils";
+} from "./report-formatting.util";
 import {
   convertOrdinalBulletsToParagraphs,
   normalizeBoldStyle,

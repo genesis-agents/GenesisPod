@@ -1,7 +1,7 @@
 import {
   extractJsonFenceContent,
   parseJsonFence,
-} from "../json-fence-parser.utils";
+} from "../json-fence-parser.util";
 
 describe("parseJsonFence", () => {
   it("plain text → jsonObj=null, response=raw", () => {

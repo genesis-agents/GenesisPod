@@ -1,5 +1,5 @@
 /**
- * report-formatting.utils — branch coverage
+ * report-formatting.util — branch coverage
  *
  * Covers untested pure-function exports:
  *  - deduplicateParagraphs
@@ -38,7 +38,7 @@ import {
   deduplicateHeadings,
   limitBoldFormatting,
   deduplicateAdjacentCitations,
-} from "../report-formatting.utils";
+} from "../report-formatting.util";
 
 // ─────────────────────────────────────────────────────────────────
 // deduplicateParagraphs
