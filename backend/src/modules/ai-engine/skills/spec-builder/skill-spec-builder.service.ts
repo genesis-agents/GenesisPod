@@ -1,8 +1,8 @@
 /**
- * SkillSpecBuilder — SKILL.md 数据 → IAgentSpec（v5.1 R1-A0 / §3.3.2）
+ * SkillSpecBuilder — SKILL.md 数据 → ISkillExecSpec（v5.1 R1-A0 / §3.3.2）
  *
  * 职责：
- *   把 SKILL.md frontmatter + body + outputSchemaRef 转成 runner 用的 IAgentSpec
+ *   把 SKILL.md frontmatter + body + outputSchemaRef 转成 runner 用的 ISkillExecSpec
  *   - 解析 allowedTools[] → 仅过滤已在 ToolRegistry 注册的 id（未注册警告但不阻塞）
  *   - 解析 outputSchemaRef → 通过 OutputSchemaRegistry 查 zod schema
  *   - 不验证 prompt body 内容（由 SkillActivator 在运行时渲染时校验）
@@ -16,7 +16,7 @@ import {
   OutputSchemaRegistry,
   FREE_TEXT_OUTPUT_SCHEMA,
 } from "./output-schema-registry";
-import type { IAgentSpec } from "./agent-spec.interface";
+import type { ISkillExecSpec } from "./skill-exec-spec.interface";
 
 /**
  * SkillSpecBuilder 输入（独立于 ISkill 行为接口）
@@ -51,12 +51,12 @@ export class SkillSpecBuilder {
   ) {}
 
   /**
-   * 从 SkillSpecInput 构建 IAgentSpec
+   * 从 SkillSpecInput 构建 ISkillExecSpec
    *
    * @throws Error 如果 outputSchemaRef 指定但未在 OutputSchemaRegistry 注册
    *               （fail-fast：避免 runner 运行时才发现 schema 缺失）
    */
-  build(input: SkillSpecInput): IAgentSpec {
+  build(input: SkillSpecInput): ISkillExecSpec {
     return {
       id: input.id,
       systemPrompt: input.instructions,

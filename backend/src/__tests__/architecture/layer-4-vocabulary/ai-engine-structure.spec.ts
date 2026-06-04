@@ -114,20 +114,14 @@ const BANNED_VOCAB_ALLOWLIST = []; // W3 已落地：runtime→integration、eco
 // ── 律4 R1：agent/mission 运行时表查询 ──
 const AGENT_STATE_QUERY =
   /prisma\.(agentProcess|mission)\b|\.agentProcess\.(find|update|create|delete|upsert)/;
-const AGENT_STATE_ALLOWLIST = [
-  "modules/ai-engine/safety/security/capability-guard.service.ts",
-];
+const AGENT_STATE_ALLOWLIST = []; // W2 已落地：capability-guard 迁回 ai-harness/guardrails/capability
 
 // ── 律5 同名概念唯一（引擎版权威）──
 const RERANK_CANONICAL = "modules/ai-engine/knowledge/rerank/llm-reranker.adapter.ts";
 const RERANK_DUP_ALLOWLIST = []; // W1 已落地：insight 本地副本已删，硬焊单一权威
 
 // ── 律6 引擎词汇纯净 ──
-const AGENT_SPEC_ALLOWLIST = [
-  "modules/ai-engine/skills/spec-builder/agent-spec.interface.ts",
-  "modules/ai-engine/skills/spec-builder/index.ts",
-  "modules/ai-engine/skills/spec-builder/skill-spec-builder.service.ts",
-];
+const AGENT_SPEC_ALLOWLIST = []; // W2 已落地：engine IAgentSpec → ISkillExecSpec（去 agent 词汇 + 解与 harness IAgentSpec 撞名）
 
 describe("standards/16 §五·补 · ai-engine 递归子目录 MECE", () => {
   it("律1：ai-engine 顶层目录 ∈ 12 聚合（多一个即红）", () => {

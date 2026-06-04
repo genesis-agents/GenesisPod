@@ -152,6 +152,7 @@ import { TraceCollectorService } from "./tracing/observability/trace-collector.s
 import { FailureLearnerService } from "./lifecycle/learning/failure-learner.service";
 import { PostmortemClassifierService } from "./lifecycle/learning/postmortem-classifier.service";
 import { ConstraintEnforcementService } from "./guardrails/constraints/constraint-enforcement.service";
+import { CapabilityGuardService } from "./guardrails/capability";
 import { ProcessSupervisorService } from "./lifecycle/supervisor/process-supervisor.service";
 
 // â˜… PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
@@ -187,6 +188,8 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
   providers: [
     // Cross-cutting
     HookRegistry,
+    // ★ W2（2026-06-04）: Agent 进程能力授权（从 ai-engine/safety 迁回，律4）
+    CapabilityGuardService,
     // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架 + abort registry 上提为 @Global
     MissionRuntimeShellFramework,
     MissionAbortRegistry,
@@ -387,6 +390,8 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
   // HarnessInspectorController moved to open-api/admin/harness-inspector.controller.ts (PR-X17)
   exports: [
     HarnessFacade,
+    // ★ W2（2026-06-04）: Agent 进程能力授权（供 ai-app / harness 注入）
+    CapabilityGuardService,
     // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架 + abort registry @Global
     MissionRuntimeShellFramework,
     MissionAbortRegistry,

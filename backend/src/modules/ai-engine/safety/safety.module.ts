@@ -16,8 +16,8 @@ import { CacheModule } from "@/common/cache/cache.module";
 // Validators
 import { SchemaValidator } from "./validation/schema-validator";
 
-// Security（PR-X3：CapabilityGuard 从 harness 搬到 engine）
-import { CapabilityGuardService } from "./security/capability-guard.service";
+// W2（2026-06-04）：CapabilityGuardService 已迁回 ai-harness/guardrails/capability
+// （按 agent 进程授权表闸访问 = agent 运行时状态，engine 不得知 agent，律4）。
 
 // Guardrails (Legacy)
 import { ContentFilter } from "./moderation/content-filter";
@@ -57,9 +57,6 @@ const contentFilterFactory = {
     // Validators
     SchemaValidator,
 
-    // Security
-    CapabilityGuardService,
-
     // Guardrails (Legacy)
     contentFilterFactory,
 
@@ -76,12 +73,7 @@ const contentFilterFactory = {
     // Output Guardrails
     ContentComplianceCheck,
   ],
-  exports: [
-    SchemaValidator,
-    ContentFilter,
-    CapabilityGuardService,
-    GuardrailsPipelineService,
-  ],
+  exports: [SchemaValidator, ContentFilter, GuardrailsPipelineService],
 })
 export class AiEngineSafetyModule implements OnModuleInit {
   private readonly logger = new Logger(AiEngineSafetyModule.name);

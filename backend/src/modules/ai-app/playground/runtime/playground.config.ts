@@ -19,7 +19,7 @@ import { loadSkill } from "@/modules/ai-engine/facade";
 import type { ZodType } from "zod";
 
 /**
- * 把 SKILL.md frontmatter + 整个 markdown body 装成最小 IAgentSpec；
+ * 把 SKILL.md frontmatter + 整个 markdown body 装成最小 ISkillExecSpec；
  * outputSchema 暂用 always-pass z.unknown() 占位（真实 SkillSpecBuilder 集成
  * 留给 R2-A.1 第一个 stage 迁移时补）。
  */
