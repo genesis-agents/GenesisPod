@@ -54,7 +54,10 @@ export class AskSelfDrivenController {
   ): Promise<void> {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
+    // NB: do NOT set `Connection: keep-alive` — it is a connection-specific
+    // header forbidden under HTTP/2 (RFC 9113 §8.2.2). The Railway edge serves
+    // HTTP/2, where this header triggers an ERR_HTTP2_PROTOCOL_ERROR that resets
+    // the SSE stream before any event reaches the browser.
     res.setHeader("X-Accel-Buffering", "no");
     res.flushHeaders();
 

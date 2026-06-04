@@ -942,6 +942,16 @@ export default function AskPage() {
     'thinking' | 'rag' | 'generating' | null
   >(null);
   const [selectedModel, setSelectedModel] = useState<string>('');
+  // Time-of-day greeting is computed client-side only. Rendering it during SSR
+  // would mismatch the client (server tz=UTC vs browser local tz can land in a
+  // different hour bucket), tripping React hydration errors #418/#423.
+  const [greeting, setGreeting] = useState<string>('');
+  useEffect(() => {
+    const hour = new Date().getHours();
+    setGreeting(
+      hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+    );
+  }, []);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<
@@ -1793,13 +1803,6 @@ export default function AskPage() {
     setStreamStage(null);
   };
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
-  };
-
   // Build model options: only CHAT models + Mixture + Self-Driven Team (pseudo-models)
   const modelOptions = [
     ...chatModels,
@@ -1907,7 +1910,7 @@ export default function AskPage() {
                 ) : (
                   <h1 className="mb-12 text-center text-4xl font-light text-gray-800 md:text-5xl">
                     <span className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
-                      {getGreeting()}
+                      {greeting}
                     </span>
                     {user?.username && (
                       <span className="text-gray-700">
