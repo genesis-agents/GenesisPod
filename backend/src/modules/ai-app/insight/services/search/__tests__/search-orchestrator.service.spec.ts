@@ -19,7 +19,7 @@ import { QueryStrategyService } from "../query/query-strategy.service";
 import { SearchExecutorService } from "../search-executor.service";
 import { ResultFusionService } from "../fusion/result-fusion.service";
 import { SearchFusionQualityGateService } from "../fusion/quality-gate.service";
-import { LlmRerankerAdapter } from "../rerank/llm-reranker.adapter";
+import { LlmRerankerAdapter } from "@/modules/ai-engine/facade";
 import { ToolFacade } from "@/modules/ai-harness/facade";
 import { CapabilityGuardService } from "@/modules/ai-harness/facade";
 import { DataSourceType } from "../../../types/data-source.types";

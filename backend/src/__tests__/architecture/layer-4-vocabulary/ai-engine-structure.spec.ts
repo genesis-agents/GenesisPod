@@ -123,9 +123,7 @@ const AGENT_STATE_ALLOWLIST = [
 
 // ── 律5 同名概念唯一（引擎版权威）──
 const RERANK_CANONICAL = "modules/ai-engine/knowledge/rerank/llm-reranker.adapter.ts";
-const RERANK_DUP_ALLOWLIST = [
-  "modules/ai-app/insight/services/search/rerank/llm-reranker.adapter.ts",
-];
+const RERANK_DUP_ALLOWLIST = []; // W1 已落地：insight 本地副本已删，硬焊单一权威
 
 // ── 律6 引擎词汇纯净 ──
 const AGENT_SPEC_ALLOWLIST = [

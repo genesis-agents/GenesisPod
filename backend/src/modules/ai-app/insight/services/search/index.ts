@@ -16,15 +16,15 @@ export { QueryStrategyService } from "./query";
 // Fusion
 export { ResultFusionService, SearchFusionQualityGateService } from "./fusion";
 
-// Rerank
-export { LlmRerankerAdapter } from "./rerank/llm-reranker.adapter";
+// Rerank（引擎版权威，W1 去重：本地副本已删，统一消费 ai-engine/knowledge/rerank）
+export { LlmRerankerAdapter } from "@/modules/ai-engine/facade";
 export type {
   RerankAdapter,
   RerankCandidate,
   RerankRequest,
   RerankedItem,
   RerankConfig,
-} from "./rerank/rerank.types";
+} from "@/modules/ai-engine/facade";
 
 // Adapters
 export {

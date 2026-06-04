@@ -322,7 +322,7 @@ agents · runner · teams · handoffs · memory · protocols · evaluation · gu
 | **律2 禁垃圾抽屉** | 子树内禁出现 `utils`/`helpers`/`common`/`misc` 目录（无单一职责的杂物袋） | `safety/utils` |
 | **律3 禁自造词目录** | 子树内禁结构性目录名 ∈ {runtime,kernel,execution,process,governance,ecosystem}（`tools/categories/*` 工具分类法除外） | `skills/runtime`、`skills/ecosystem` |
 | **律4 R1 无 agent 状态** | engine 源码禁查 agent/mission 运行时表（`prisma.agentProcess` / `prisma.mission.` / `.agentProcess.find\|update\|...`）——engine 不知 agent 是谁 | `safety/security/capability-guard.service.ts` |
-| **律5 同名概念唯一** | 看护类名全项目唯一；`LlmRerankerAdapter` 以**引擎版**（`knowledge/rerank`）为权威，他处禁再声明 | `ai-app/insight/services/search/rerank/llm-reranker.adapter.ts` |
+| **律5 同名概念唯一** | 看护类名全项目唯一；`LlmRerankerAdapter` 以**引擎版**（`knowledge/rerank`）为权威，他处禁再声明 | 空（W1 已焊：insight 本地副本已删） |
 | **律6 引擎词汇纯净** | engine 禁出现 `IAgentSpec` / `agent-spec` 命名（agent 概念不进 L2 词汇） | `skills/spec-builder/`（3 文件） |
 
 > 律 1-3、5-6 看目录/类名/符号，律 4 看 DB 查询。**R2（engine 0 controller）已由 `no-http-in-lower-layers.spec.ts` 看护，本 spec 不重复。**
