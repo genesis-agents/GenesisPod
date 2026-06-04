@@ -16,7 +16,7 @@ import {
   SearchService,
   SearchResponse,
   SearchResult,
-} from "../../../../../knowledge/search/search.service";
+} from "../../../../../content/web-search/web-search.service";
 import {
   ToolContext,
   ToolResult,

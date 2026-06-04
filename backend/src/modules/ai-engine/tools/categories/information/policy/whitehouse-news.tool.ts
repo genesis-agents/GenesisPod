@@ -13,7 +13,7 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../../abstractions/tool.interface";
-import { SearchService } from "../../../../knowledge/search/search.service";
+import { SearchService } from "../../../../content/web-search/web-search.service";
 import { PolicyDataService } from "./policy-data.service";
 
 // ============================================================================

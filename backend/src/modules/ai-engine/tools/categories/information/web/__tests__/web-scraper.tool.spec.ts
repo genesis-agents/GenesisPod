@@ -12,7 +12,7 @@ import {
   WebScraperInput,
   WebScraperOutput,
 } from "../web-scraper.tool";
-import { SearchService } from "../../../../../knowledge/search/search.service";
+import { SearchService } from "../../../../../content/web-search/web-search.service";
 import {
   ToolContext,
   ToolResult,

@@ -19,7 +19,7 @@ import { AiService } from "../ai.service";
 import { ChatFacade } from "../../../../ai-harness/facade";
 import { RAGPipelineService } from "@/modules/ai-engine/rag/pipeline";
 import { SecretsService } from "../../../../platform/credentials/storage/secrets/secrets.service";
-import { SearchService } from "../../../../ai-engine/knowledge/search/search.service";
+import { SearchService } from "../../../../ai-engine/content/web-search/web-search.service";
 
 const mockAiCoreService = {
   getEnabledModels: jest.fn(),

@@ -13,8 +13,8 @@ import {
 
 import {
   SearchService,
-  SearchResult,
-} from "../../../../knowledge/search/search.service";
+  WebSearchResult,
+} from "../../../../content/web-search/web-search.service";
 import {
   resolveSearchTimeRangeSince,
   resolveEffectiveTimeRange,
@@ -71,7 +71,7 @@ export interface WebSearchOutput {
   /**
    * 搜索结果列表（已按域名分组去重，若 groupByDomain=true）
    */
-  results: SearchResult[];
+  results: WebSearchResult[];
 
   /**
    * 搜索是否成功

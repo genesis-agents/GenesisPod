@@ -66,6 +66,7 @@ import { UniversalLLMAdapter } from "./llm/adapters/universal-llm.adapter";
 
 // Content Fetch (generic URL fetch capability)
 import { ContentFetchModule } from "./content/fetch/content-fetch.module";
+import { WebSearchModule } from "./content/web-search/web-search.module";
 
 // ★ Phase 3: SynthesisModule moved to ai-app/office/content-synthesis/
 
@@ -142,6 +143,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
+    WebSearchModule,
 
     // Other Modules
     // TeamsModule 已迁移到 ai-harness/teams（PR-X4），由 HarnessApiModule 统一装配
@@ -202,6 +204,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
+    WebSearchModule,
 
     // Other Modules
     // TeamsModule 已迁移到 ai-harness/teams（PR-X4），不再由 ai-engine 导出
