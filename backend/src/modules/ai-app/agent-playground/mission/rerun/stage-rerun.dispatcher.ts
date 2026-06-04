@@ -617,6 +617,10 @@ export class StageRerunDispatcher extends BusinessTeamStageRerunDispatcherFramew
         leaderOverallScore: detail.leaderOverallScore,
         rerunRecovered: recovered,
         rerunSource: recovered ? "chapter_drafts" : "ctx_artifact",
+        // 通用通知 adapter 所需业务细节（emit 侧注入）
+        missionTitle: reportPayload?.title,
+        appBasePath: "/agent-playground",
+        relatedType: "agent-playground-mission",
       },
     }).catch((err: unknown) => {
       stubs.log.warn(

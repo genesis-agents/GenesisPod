@@ -124,6 +124,8 @@ import { AiEngineToolsModule } from "../ai-engine/tools/tools.module";
 // AiEngineMemoryModule 已移除（2026-04-30）—— Memory 服务全部迁到
 // ai-harness/memory（RuntimeMemoryModule @Global），无需在此 forwardRef。
 import { CreditsModule } from "../platform/credits/credits.module";
+import { NotificationModule } from "../platform/notifications/notification.module";
+import { MissionCompletionBroadcastAdapter } from "./protocols/realtime/mission-completion-broadcast.adapter";
 import { MissionContextModule } from "./teams/collaboration/context/context.module";
 import { MissionAbortRegistry } from "./lifecycle/mission-lifecycle/abort-registry";
 import { MissionLifecycleManager } from "./lifecycle/mission-lifecycle/mission-lifecycle-manager";
@@ -179,6 +181,8 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     CreditsModule,
     // ★ W2-F: mission 协作上下文/状态/输入服务（从 ai-app/teams 迁入）@Global
     MissionContextModule,
+    // 2026-06-03: 解散 notifications-bridge —— mission-completion adapter 迁入本层，需 NotificationPresetsService
+    NotificationModule,
   ],
   providers: [
     // Cross-cutting
@@ -343,6 +347,7 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     EventRegistry,
     EventBus,
     LoggerBroadcastAdapter,
+    MissionCompletionBroadcastAdapter,
     DomainConceptRegistry,
     DomainAdapterRegistry,
     RuntimePromptRouter,
@@ -494,6 +499,8 @@ export class HarnessModule implements OnApplicationBootstrap {
     @Inject(EventBus) private readonly eventBus: EventBus,
     @Inject(LoggerBroadcastAdapter)
     private readonly defaultBroadcaster: LoggerBroadcastAdapter,
+    @Inject(MissionCompletionBroadcastAdapter)
+    private readonly missionCompletionBroadcaster: MissionCompletionBroadcastAdapter,
     @Optional()
     @Inject(ModelElectionService)
     private readonly election?: ModelElectionService,
@@ -536,5 +543,8 @@ export class HarnessModule implements OnApplicationBootstrap {
 
     // PR-K: 默认把 LoggerBroadcastAdapter 装到 EventBus（业务方可后续注册更多）
     this.eventBus.registerAdapter(this.defaultBroadcaster);
+    // 2026-06-03: 解散 notifications-bridge —— 通用 mission 完成→通知 桥接 adapter
+    // （DomainEvent `*.mission:completed` → 持久化通知，业务细节由 emit 侧 payload 注入）。
+    this.eventBus.registerAdapter(this.missionCompletionBroadcaster);
   }
 }

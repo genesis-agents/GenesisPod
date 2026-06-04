@@ -357,6 +357,10 @@ async function runPersistInner(
                 verifierVerdicts: result.verdicts,
                 leaderSigned: result.leaderSignOff?.signed,
                 leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
+                // 通用通知 adapter 所需业务细节（emit 侧注入；platform/harness 不感知业务路由）
+                missionTitle: reportPayload?.title ?? result.themeSummary,
+                appBasePath: "/agent-playground",
+                relatedType: "agent-playground-mission",
               },
             })
             // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
