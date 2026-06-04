@@ -22,6 +22,7 @@ import { CapabilityGuardService } from "@/modules/ai-harness/facade";
 import {
   DataSourceType,
   type AggregatedSearchResult,
+  type DataSourceResult,
 } from "../../types/data-source.types";
 import {
   dataSourceToToolId,
@@ -33,11 +34,11 @@ import { QueryStrategyService } from "./query/query-strategy.service";
 import { SearchExecutorService } from "./search-executor.service";
 import { ResultFusionService } from "./fusion/result-fusion.service";
 import { SearchFusionQualityGateService } from "./fusion/quality-gate.service";
-import { LlmRerankerAdapter } from "./rerank/llm-reranker.adapter";
 import {
+  LlmRerankerAdapter,
   DEFAULT_RERANK_CONFIG,
   type RerankCandidate,
-} from "./rerank/rerank.types";
+} from "@/modules/ai-engine/facade";
 
 /** Default data sources when dimension provides none */
 const DEFAULT_SOURCES: DataSourceType[] = [
@@ -319,12 +320,12 @@ export class SearchOrchestratorService {
       return aggregated;
     }
 
-    const candidates: RerankCandidate[] = scoredItems
+    const candidates: RerankCandidate<DataSourceResult>[] = scoredItems
       .slice(0, candidatePool)
       .map((s, i) => ({ item: s.item, originalIndex: i }));
 
     const rerankStart = Date.now();
-    const rerankResult = await this.reranker.rerank({
+    const rerankResult = await this.reranker.rerank<DataSourceResult>({
       query,
       candidates,
       topK,

@@ -1,13 +1,14 @@
 /**
- * ai-harness/governance/rerank —— LLM Reranker (沉淀自 {app}, 2026-04-29)
+ * ai-engine/knowledge/rerank —— LLM Reranker（项目唯一权威实现）
  *
  * RAG 两阶段检索的第二阶段：对 fusion 后的候选集做 LLM 精排。
  * Generic over T extends RerankableItem，让任意 ai-app 的 retrieval item 类型可用。
  *
- * 落 ai-harness/governance/ 而非 ai-engine/knowledge/ —— 因为它依赖 ChatFacade
- * 走 BillingContext + 用户 BYOK key 路径。ai-engine 不允许反向 import ai-harness。
+ * 归 ai-engine/knowledge/：搜索精排是无 agent 状态的引擎基元，直接注入
+ * AiChatService（L2 内层调用，与 image module 同款），不经 ChatFacade。
  *
- * TI 仍在使用 ai-app/{app}/services/search/rerank/。
+ * W1（2026-06-04）同名概念去重：删除 ai-app/insight 本地副本，insight 经
+ * ai-engine/facade 统一消费此处。spec 看护见 standards/16 §五·补 律5。
  */
 
 export { LlmRerankerAdapter } from "./llm-reranker.adapter";

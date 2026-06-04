@@ -9,7 +9,7 @@ import type {
   DataSourceType,
   DataSourceResult,
 } from "../../types/data-source.types";
-import type { RerankConfig } from "./rerank/rerank.types";
+import type { RerankConfig } from "@/modules/ai-engine/facade";
 
 // ============================================================================
 // Adapter Interface
