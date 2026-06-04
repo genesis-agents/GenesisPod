@@ -48,7 +48,7 @@ import {
 } from "./slides/skill-resolver";
 
 // Agents
-import { AgentsController } from "./agents";
+import { AiOfficeAgentsController } from "./agents";
 
 // Common (共享服务) - services are provided by AIOfficeCommonModule
 import { AIOfficeCommonModule } from "./common";
@@ -87,7 +87,7 @@ import { OfficeContentSourceProvider } from "./integrations/office-content-sourc
     // 使用 forwardRef: SlidesSkillsModule 也导入 AiEngineModule，形成循环
     forwardRef(() => SlidesSkillsModule),
   ],
-  controllers: [AIModelController, SlidesController, AgentsController],
+  controllers: [AIModelController, SlidesController, AiOfficeAgentsController],
   providers: [
     AIModelService,
     // TOPIC_INSIGHTS_DATA_EXPORT / RESEARCH_PROJECT_DATA_EXPORT /

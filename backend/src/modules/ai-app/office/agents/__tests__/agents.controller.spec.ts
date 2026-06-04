@@ -1,5 +1,5 @@
 /**
- * AgentsController Unit Tests
+ * AiOfficeAgentsController Unit Tests
  *
  * Tests the unified agent execution endpoint, task management,
  * and SSE streaming functionality.
@@ -8,12 +8,12 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
-import { AgentsController } from "../agents.controller";
+import { AiOfficeAgentsController } from "../agents.controller";
 import { AgentType, taskStore } from "../agents.types";
 import { SlidesEngineService } from "../../slides";
 
-describe("AgentsController", () => {
-  let controller: AgentsController;
+describe("AiOfficeAgentsController", () => {
+  let controller: AiOfficeAgentsController;
   let slidesEngine: jest.Mocked<SlidesEngineService>;
 
   // Helper: build async generator from array of events
@@ -33,13 +33,13 @@ describe("AgentsController", () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [AgentsController],
+      controllers: [AiOfficeAgentsController],
       providers: [
         { provide: SlidesEngineService, useValue: mockSlidesEngineService },
       ],
     }).compile();
 
-    controller = module.get<AgentsController>(AgentsController);
+    controller = module.get<AiOfficeAgentsController>(AiOfficeAgentsController);
     slidesEngine = module.get(SlidesEngineService);
   });
 

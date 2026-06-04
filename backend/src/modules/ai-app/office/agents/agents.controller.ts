@@ -36,8 +36,8 @@ interface ExecuteAgentDto {
 
 @ApiTags("Agents")
 @Controller("agents")
-export class AgentsController {
-  private readonly logger = new Logger(AgentsController.name);
+export class AiOfficeAgentsController {
+  private readonly logger = new Logger(AiOfficeAgentsController.name);
 
   constructor(private readonly slidesEngine: SlidesEngineService) {}
 
