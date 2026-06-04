@@ -23,11 +23,11 @@
 
 #### 后端服务
 
-- backend/src/modules/ai-infra/settings/settings.service.ts - AES-256-CBC 加密逻辑
-- backend/src/modules/ai-infra/admin/admin.service.ts - maskApiKey, createAIModel, getAIModelApiKey
-- backend/src/modules/ai-infra/admin/admin.controller.ts - API 端点定义
-- backend/src/modules/ai-infra/admin/admin.module.ts - 引用了不存在的 SecretsModule (行 13)
-- backend/src/modules/ai-infra/secrets/ - 目录不存在（导致编译错误）
+- backend/src/modules/platform/settings/settings.service.ts - AES-256-CBC 加密逻辑
+- backend/src/modules/platform/admin/admin.service.ts - maskApiKey, createAIModel, getAIModelApiKey
+- backend/src/modules/platform/admin/admin.controller.ts - API 端点定义
+- backend/src/modules/platform/admin/admin.module.ts - 引用了不存在的 SecretsModule (行 13)
+- backend/src/modules/platform/credentials/secrets/ - 目录不存在（导致编译错误）
 
 #### 前端组件
 
@@ -60,7 +60,7 @@
 
 ### 1.4 SettingsService 加密实现
 
-文件: backend/src/modules/ai-infra/settings/settings.service.ts
+文件: backend/src/modules/platform/settings/settings.service.ts
 
 加密密钥来源 (行 85-88):
 
@@ -141,7 +141,7 @@
 
 #### 文件结构
 
-backend/src/modules/ai-infra/secrets/
+backend/src/modules/platform/credentials/secrets/
 
 - dto/
   - create-secret.dto.ts
@@ -231,7 +231,7 @@ API Key 配置支持两种模式:
 
 ### Phase 2: 后端模块
 
-1. 创建 backend/src/modules/ai-infra/secrets/ 目录
+1. 创建 backend/src/modules/platform/credentials/secrets/ 目录
 2. 实现 SecretsModule, SecretsService, SecretsController
 3. 创建 DTOs
 4. 确保 AdminModule 正确导入
@@ -254,22 +254,22 @@ API Key 配置支持两种模式:
 
 ### 需要新建
 
-| 文件                                                       | 说明       |
-| ---------------------------------------------------------- | ---------- |
-| backend/src/modules/ai-infra/secrets/secrets.module.ts     | 模块定义   |
-| backend/src/modules/ai-infra/secrets/secrets.service.ts    | 核心服务   |
-| backend/src/modules/ai-infra/secrets/secrets.controller.ts | API 控制器 |
-| backend/src/modules/ai-infra/secrets/dto/\*.ts             | DTOs       |
-| frontend/app/admin/access/secrets/page.tsx                 | 管理页面   |
-| frontend/components/admin/secrets/\*.tsx                   | 组件       |
-| frontend/hooks/domain/useAdminSecrets.ts                   | Hook       |
+| 文件                                                                   | 说明       |
+| ---------------------------------------------------------------------- | ---------- |
+| backend/src/modules/platform/credentials/secrets/secrets.module.ts     | 模块定义   |
+| backend/src/modules/platform/credentials/secrets/secrets.service.ts    | 核心服务   |
+| backend/src/modules/platform/credentials/secrets/secrets.controller.ts | API 控制器 |
+| backend/src/modules/platform/credentials/secrets/dto/\*.ts             | DTOs       |
+| frontend/app/admin/access/secrets/page.tsx                             | 管理页面   |
+| frontend/components/admin/secrets/\*.tsx                               | 组件       |
+| frontend/hooks/domain/useAdminSecrets.ts                               | Hook       |
 
 ### 需要修改
 
 | 文件                                                          | 说明                |
 | ------------------------------------------------------------- | ------------------- |
 | backend/prisma/schema/models.prisma                           | 添加新模型          |
-| backend/src/modules/ai-infra/admin/admin.module.ts            | 修复导入            |
+| backend/src/modules/platform/admin/admin.module.ts            | 修复导入            |
 | backend/src/modules/ai-engine/llm/services/ai-chat.service.ts | 集成 SecretsService |
 | frontend/components/admin/AIModelSettings.tsx                 | 支持 secretKey 选择 |
 

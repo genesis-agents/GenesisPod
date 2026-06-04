@@ -36,14 +36,14 @@
 
 ### 1.2 playground 标杆（照抄模板，已读源码确认）
 
-| 模板                                  | 文件:行                                                                                                                           |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 事件类型清单 + zod schema             | `agent-playground/events/agent-playground.events.ts` + `.event-schemas.ts`                                                        |
-| onModuleInit 注册事件                 | `agent-playground/module/agent-playground.module.ts:285`（`registry.registerAll(...)`）                                           |
-| afterInit 注册 SocketBroadcastAdapter | `agent-playground.gateway.ts:52-64`（`eventTypePrefix:"agent-playground.", roomPrefix:"playground"`）                             |
-| join + JWT + ownership 鉴权           | `agent-playground.gateway.ts:66-134`（`extractUserId` + ownership cache→DB fallback + blocklist fail-open + `await client.join`） |
-| canonical view REST                   | `mission-read.controller.ts:95-107`（`GET missions/:id/view`）                                                                    |
-| replay 兜底                           | `mission-read.controller.ts:330-350`（`GET replay/:missionId?since=`）+ module 注册 `MissionEventBuffer` adapter                  |
+| 模板                                  | 文件:行                                                                                                                                      |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 事件类型清单 + zod schema             | `playground/events/agent-playground.events.ts` + `.event-schemas.ts`                                                                         |
+| onModuleInit 注册事件                 | `playground/module/agent-playground.module.ts:285`（`registry.registerAll(...)`）                                                            |
+| afterInit 注册 SocketBroadcastAdapter | `playground/agent-playground.gateway.ts:52-64`（`eventTypePrefix:"agent-playground.", roomPrefix:"playground"`）                             |
+| join + JWT + ownership 鉴权           | `playground/agent-playground.gateway.ts:66-134`（`extractUserId` + ownership cache→DB fallback + blocklist fail-open + `await client.join`） |
+| canonical view REST                   | `mission-read.controller.ts:95-107`（`GET missions/:id/view`）                                                                               |
+| replay 兜底                           | `mission-read.controller.ts:330-350`（`GET replay/:missionId?since=`）+ module 注册 `MissionEventBuffer` adapter                             |
 
 ### 1.3 前端现状 vs 目标态
 
@@ -100,7 +100,7 @@ WritingArtifactProjector ── GET writing/missions/:id/view  ④ canonical tru
 
 **新建** `backend/src/modules/ai-app/writing/events/writing.events.ts`
 
-- 照 `agent-playground.events.ts` 的工厂模式：`S(suffix, schema)` 强制 `writing.` 前缀 + zod schema。
+- 照 `playground/events/agent-playground.events.ts` 的工厂模式：`S(suffix, schema)` 强制 `writing.` 前缀 + zod schema。
 - 列全测绘 ① 的 topic：
   - `writing.stage:lifecycle` / `writing.stage:stalled` / `writing.stage:degraded`
   - `writing.mission:started/completed/cancelled/failed/aborted`
@@ -120,7 +120,7 @@ WritingArtifactProjector ── GET writing/missions/:id/view  ④ canonical tru
 
 **改 / 新建 gateway**（二选一，见 §3.3 决策）：`backend/src/modules/ai-app/writing/ai-writing.gateway.ts`（改）或新建 `writing-mission.gateway.ts`
 
-- 照 `agent-playground.gateway.ts`：
+- 照 `backend/src/modules/ai-app/playground/agent-playground.gateway.ts`：
   - 注入 `DomainEventBus`, `SocketBroadcastAdapter`(from `ai-harness/facade`), `MissionOwnershipRegistry`, `JwtService`, writing 的 MissionStore（`WritingMissionStoreService`）, `CacheService`。
   - `afterInit()` 注册 `new SocketBroadcastAdapter(this.io, { id:"writing.socket", eventTypePrefix:"writing.", roomPrefix:"writing" })`。
   - `@SubscribeMessage("join")`：`extractUserId`（JWT from handshake.auth + blocklist fail-open）+ ownership（cache miss → DB fallback，区分 `SERVICE_UNAVAILABLE` / `MISSION_NOT_FOUND`）+ `await client.join('writing:${missionId}')`。`leave` 同构。
@@ -292,9 +292,9 @@ WritingArtifactProjector ── GET writing/missions/:id/view  ④ canonical tru
 
 **后端**：
 
-- 桥模板：`backend/src/modules/ai-app/agent-playground/api/controller/agent-playground.gateway.ts:52-134`
-- 事件注册模板：`backend/src/modules/ai-app/agent-playground/events/agent-playground.events.ts` + `module/agent-playground.module.ts:285`
-- view REST 模板：`backend/src/modules/ai-app/agent-playground/api/controller/mission-read.controller.ts:95-107, 330-350`
+- 桥模板：`backend/src/modules/ai-app/playground/api/controller/agent-playground.gateway.ts:52-134`
+- 事件注册模板：`backend/src/modules/ai-app/playground/events/agent-playground.events.ts` + `module/agent-playground.module.ts:285`
+- view REST 模板：`backend/src/modules/ai-app/playground/api/controller/mission-read.controller.ts:95-107, 330-350`
 - writing 待改：`ai-writing.gateway.ts:49-123`、`ai-writing.module.ts:288,326-376`、`ai-writing.controller.ts`、`mission/projectors/writing-artifact.projector.ts:37-209`
 
 **前端**：

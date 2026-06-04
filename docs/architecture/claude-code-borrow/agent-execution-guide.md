@@ -368,7 +368,7 @@ backend/src/modules/ai-engine/tools/middleware/__tests__/output-truncator.middle
 backend/src/modules/ai-engine/tools/middleware/index.ts
 backend/src/modules/ai-engine/tools/registry/tool-registry.ts                    # 注入 middleware
 backend/src/modules/ai-harness/runner/tool-invoker/tool-invoker.ts               # 调用点接 middleware
-backend/src/modules/ai-engine/tools/output-manager/spill-storage.service.ts      # 新建（调 infra/storage）
+backend/src/modules/ai-engine/tools/output-manager/spill-storage.service.ts      # 新建（调 platform/storage）
 backend/src/modules/ai-engine/tools/output-manager/__tests__/spill-storage.service.spec.ts
 backend/src/modules/ai-engine/tools/registry/builtin-tools/*.ts                  # 给每个 builtin tool 设默认 maxResultSizeChars
 ```
@@ -379,7 +379,7 @@ backend/src/modules/ai-engine/tools/registry/builtin-tools/*.ts                 
 - `d:/projects/codes/claude-code-build/src/services/tools/toolExecution.ts`（`processToolResultBlock` 落盘逻辑）
 - `d:/projects/codes/claude-code-build/src/tools/BashTool/BashTool.tsx:77`（30000 字符阈值参考）
 - GenesisPod：`backend/src/modules/ai-engine/tools/abstractions/tool.interface.ts`（接口扩展点）
-- GenesisPod：`backend/src/modules/ai-infra/storage/`（落盘后端）
+- GenesisPod：`backend/src/modules/platform/storage/`（落盘后端）
 
 #### 实施步骤
 
@@ -470,8 +470,8 @@ backend/src/modules/ai-engine/skills/loader/__tests__/*.spec.ts
 backend/src/modules/ai-engine/skills/runtime/skill-invoke-tool.ts                 # 新建
 backend/src/modules/ai-engine/skills/runtime/__tests__/skill-invoke-tool.spec.ts
 backend/src/modules/ai-engine/skills/registry/skill-registry.ts                   # 注入策略
-backend/src/modules/ai-app/agent-playground/services/chat/leader-chat.service.ts  # Leader prompt 改造
-backend/src/modules/ai-app/agent-playground/playground.config.ts                  # config 增 prompt budget 配置
+backend/src/modules/ai-app/playground/services/chat/leader-chat.service.ts  # Leader prompt 改造
+backend/src/modules/ai-app/playground/playground.config.ts                  # config 增 prompt budget 配置
 docs/architecture/ai-harness/skills.md                                            # 协议文档
 ```
 
@@ -481,7 +481,7 @@ docs/architecture/ai-harness/skills.md                                          
 - `d:/projects/codes/claude-code-build/src/skills/loadSkillsDir.ts:100-105`（frontmatter token 估算）
 - `d:/projects/codes/claude-code-build/src/commands/createSkillCommand.ts:344-399`（attach 时机：调用 Skill 工具时）
 - GenesisPod：`backend/src/modules/ai-engine/skills/loader/`（现有解析）
-- GenesisPod：`backend/src/modules/ai-app/agent-playground/services/chat/leader-chat.service.ts`（当前 duty.md 全文塞 prompt 现状）
+- GenesisPod：`backend/src/modules/ai-app/playground/services/chat/leader-chat.service.ts`（当前 duty.md 全文塞 prompt 现状）
 - 必读 [project_skill_sediment_2026_05_01](memory) 与 [reference_two_skill_registries](memory)（项目有 2 个 SkillRegistry，先确认改的是哪个）
 
 #### 实施步骤
@@ -634,7 +634,7 @@ docs/architecture/ai-harness/hooks.md                                           
 ### P1-9 Settings 多源合并 + managed-only 锁
 
 - **目标**：6 source 优先级（cliArg/policy/project/user/session/local）+ `allowManagedHooksOnly`
-- **白名单**：`ai-infra/settings/`
+- **白名单**：`backend/src/modules/platform/settings/`
 - **必读**：`d:/projects/codes/claude-code-build/src/utils/settings/types.ts:435-499`
 - **DoD**：admin 在 policy 锁住 hook → user/project 改不了
 
@@ -912,11 +912,11 @@ Notification / UserPromptSubmit / Setup / TeammateIdle / CwdChanged / Instructio
 | Hook 接口               | `backend/src/modules/ai-harness/agents/abstractions/hook.interface.ts`                                                           |
 | Mission lifecycle       | `backend/src/modules/ai-harness/lifecycle/mission-lifecycle/`                                                                    |
 | Memory（运行时）        | `backend/src/modules/ai-harness/memory/{vector,working,checkpoint,consolidation,indexing}/`                                      |
-| Storage（落盘）         | `backend/src/modules/ai-infra/storage/`                                                                                          |
-| Settings                | `backend/src/modules/ai-infra/settings/`                                                                                         |
+| Storage（落盘）         | `backend/src/modules/platform/storage/`                                                                                          |
+| Settings                | `backend/src/modules/platform/settings/`                                                                                         |
 | Tool sandbox            | `backend/src/modules/ai-engine/tools/sandbox/`                                                                                   |
 | Pricing registry        | `backend/src/modules/ai-engine/llm/pricing/model-pricing.registry.ts`                                                            |
-| Agent playground 业务层 | `backend/src/modules/ai-app/agent-playground/services/chat/leader-chat.service.ts`                                               |
+| Agent playground 业务层 | `backend/src/modules/ai-app/playground/services/chat/leader-chat.service.ts`                                                     |
 
 ---
 

@@ -4,29 +4,32 @@
 
 ## 模块清单
 
-| 模块             | 代码路径                   | 文档目录                               |
-| ---------------- | -------------------------- | -------------------------------------- |
-| agent-playground | `ai-app/agent-playground/` | [agent-playground/](agent-playground/) |
-| ask              | `ai-app/ask/`              | [ask/](ask/)                           |
-| byok             | `ai-app/byok/`             | [byok/](byok/)                         |
-| contracts        | `ai-app/contracts/`        | [contracts/](contracts/)               |
-| explore          | `ai-app/explore/`          | [explore/](explore/)                   |
-| feedback         | `ai-app/feedback/`         | [feedback/](feedback/)                 |
-| image            | `ai-app/image/`            | [image/](image/)                       |
-| library          | `ai-app/library/`          | [library/](library/)                   |
-| management       | `ai-app/management/`       | [management/](management/)             |
-| office           | `ai-app/office/`           | [office/](office/)                     |
-| planning         | `ai-app/planning/`         | [planning/](planning/)                 |
-| research         | `ai-app/research/`         | [research/](research/)                 |
-| simulation       | `ai-app/simulation/`       | [simulation/](simulation/)             |
-| social           | `ai-app/social/`           | [social/](social/)                     |
-| teams            | `ai-app/teams/`            | [teams/](teams/)                       |
-| topic-insights   | `ai-app/topic-insights/`   | [topic-insights/](topic-insights/)     |
-| writing          | `ai-app/writing/`          | [writing/](writing/)                   |
+| 模块          | 后端代码路径            | 文档目录                               |
+| ------------- | ----------------------- | -------------------------------------- |
+| ask           | `ai-app/ask/`           | [ask/](ask/)                           |
+| contracts     | `ai-app/contracts/`     | [contracts/](contracts/)               |
+| custom-agents | `ai-app/custom-agents/` | [custom-agents/](custom-agents/)       |
+| explore       | `ai-app/explore/`       | [explore/](explore/)                   |
+| feedback      | `ai-app/feedback/`      | [feedback/](feedback/)                 |
+| image         | `ai-app/image/`         | [image/](image/)                       |
+| insight       | `ai-app/insight/`       | [insight/](insight/)                   |
+| library       | `ai-app/library/`       | [library/](library/)                   |
+| office        | `ai-app/office/`        | [office/](office/)                     |
+| planning      | `ai-app/planning/`      | [planning/](planning/)                 |
+| playground    | `ai-app/playground/`    | [agent-playground/](agent-playground/) |
+| radar         | `ai-app/radar/`         | [radar/](radar/)                       |
+| research      | `ai-app/research/`      | [research/](research/)                 |
+| simulation    | `ai-app/simulation/`    | [simulation/](simulation/)             |
+| social        | `ai-app/social/`        | [social/](social/)                     |
+| teams         | `ai-app/teams/`         | [teams/](teams/)                       |
+| writing       | `ai-app/writing/`       | [writing/](writing/)                   |
+
+> **命名注意**：后端模块目录已改名——`topic-insights/` → `insight/`，`agent-playground/` → `playground/`。
+> 前端路由保留旧名（`frontend/app/ai-insights/`、`frontend/app/agent-playground/`、`frontend/app/ai-radar/`、`frontend/app/custom-agents/`），文档中指后端路径时用新名。
 
 ## benchmark Agent Team(MissionPipeline 派)
 
-新 MissionPipeline 派 team(`debate-team` / `planning-team` / future)拷贝 `agent-playground` 时的 canonical reference:
+新 MissionPipeline 派 team(`debate-team` / `planning-team` / future)拷贝 `playground` 时的 canonical reference:
 
 - [benchmark-agent-team-template.md](benchmark-agent-team-template.md) — how-to-copy guide(目录骨架 + 拷贝步骤 + 验收清单)
 - [benchmark-agent-team-invariants.md](benchmark-agent-team-invariants.md) — what-must-hold(R6/R7/R8 / sediment topology / stage hook 模式 / idempotent 重构守门 / grep gate suite)

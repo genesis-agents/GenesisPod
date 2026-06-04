@@ -1,6 +1,6 @@
 # credits
 
-> `ai-infra/credits` 负责通用额度账户、账本流水和受控计费策略，不承载 `ai-engine` / `ai-harness` 的运行时编排。
+> `platform/credits`（L1 平台基础设施层）负责通用额度账户、账本流水和受控计费策略，不承载 `ai-engine` / `ai-harness` 的运行时编排。
 
 ## 结构
 

@@ -366,7 +366,7 @@ Verified against (read during authoring):
   envelope `{ success, data, metadata }`.
 - `backend/src/common/filters/all-exceptions.filter.ts` — error envelope fields.
 - `backend/src/main.ts` — global prefix `api/v1`, `.well-known/*` exclusion.
-- `backend/src/modules/ai-infra/secrets/secrets.controller.ts` +
+- `backend/src/modules/platform/credentials/secrets/secrets.controller.ts` +
   `dto/create-secret.dto.ts` + `prisma/schema/models.prisma` (`SecretCategory`
   enum, `MCP` value) — how an MCP API key is created.
   </content>

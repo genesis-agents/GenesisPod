@@ -85,7 +85,7 @@ enum FeedbackStatus {
 
 ### 2.1 Feedback Service
 
-**文件路径**: `backend/src/modules/ai-infra/feedback/feedback.service.ts`
+**文件路径**: `backend/src/modules/platform/feedback/feedback.service.ts`
 
 **完整的反馈处理流程**：
 
@@ -126,7 +126,7 @@ enum FeedbackStatus {
 
 ### 2.2 Feedback Controller
 
-**文件路径**: `backend/src/modules/ai-infra/feedback/feedback.controller.ts`
+**文件路径**: `backend/src/modules/platform/feedback/feedback.controller.ts`
 
 **API 端点**：
 
@@ -172,7 +172,7 @@ POST   /api/v1/feedback/email/reinitialize
 
 ### 2.3 反馈事件系统
 
-**文件路径**: `backend/src/modules/ai-infra/feedback/events/feedback-events.ts`
+**文件路径**: `backend/src/modules/platform/feedback/events/feedback-events.ts`
 
 **事件类型完整**：
 
@@ -465,10 +465,10 @@ async getReplies(@Param('id') feedbackId: string) {
 
 | 文件                                                               | 功能     |
 | ------------------------------------------------------------------ | -------- |
-| `backend/src/modules/ai-infra/feedback/feedback.service.ts`        | 反馈服务 |
-| `backend/src/modules/ai-infra/feedback/feedback.controller.ts`     | 反馈 API |
-| `backend/src/modules/ai-infra/feedback/events/feedback-events.ts`  | 事件定义 |
-| `backend/src/modules/ai-infra/feedback/dto/create-feedback.dto.ts` | 创建 DTO |
+| `backend/src/modules/platform/feedback/feedback.service.ts`        | 反馈服务 |
+| `backend/src/modules/platform/feedback/feedback.controller.ts`     | 反馈 API |
+| `backend/src/modules/platform/feedback/events/feedback-events.ts`  | 事件定义 |
+| `backend/src/modules/platform/feedback/dto/create-feedback.dto.ts` | 创建 DTO |
 
 ### 7.3 前端界面
 

@@ -12,7 +12,7 @@ Three scenarios — pick the one that matches your case.
 
 ### File to edit
 
-`backend/src/modules/ai-infra/secrets/secret-name.catalog.ts`
+`backend/src/modules/platform/credentials/secrets/secret-name.catalog.ts`
 
 ### Change
 
@@ -46,7 +46,7 @@ cd backend && npm run type-check
 
 ### Files to edit
 
-1. `backend/src/modules/ai-infra/secrets/secret-name.catalog.ts`
+1. `backend/src/modules/platform/credentials/secrets/secret-name.catalog.ts`
 
 ### Step A — Add the tool-to-secret mapping
 

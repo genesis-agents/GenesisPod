@@ -18,7 +18,7 @@
 | L3 AI App       | `backend/src/modules/ai-app/{playground,social,radar,...}/` | 业务应用                          |
 | L2.5 AI Harness | `backend/src/modules/ai-harness/`                           | Agent runtime 内核（机制层）      |
 | L2 AI Engine    | `backend/src/modules/ai-engine/`                            | LLM / Tools / RAG 等能力          |
-| L1 AI Infra     | `backend/src/modules/ai-infra/`                             | Credits / Storage / Notifications |
+| L1 Platform     | `backend/src/modules/platform/`（旧称 ai-infra）            | Credits / Storage / Notifications |
 | Frontend        | `frontend/`                                                 | Presentation only                 |
 
 依赖方向严格 **L4 → L3 → L2.5 → L2 → L1**。
@@ -63,7 +63,7 @@ content/  facade/  knowledge/  llm/  planning/  rag/  safety/  skills/  tools/
 
 #### 1.2 机器检查
 
-- `backend/src/__tests__/architecture/agent-team-layout.spec.ts` — ai-app/agent-playground 顶层 + business-team 顶层断言
+- `backend/src/__tests__/architecture/layer-3-authority/agent-team-layout.spec.ts` — ai-app/playground 顶层 + business-team 顶层断言
 - 待补：`mission/` 子目录白名单 spec
 - 待补：`ai-engine` 顶层白名单 spec
 
@@ -135,7 +135,7 @@ ESLint override 必须文档化到 EXCEPTIONS.md（当前 `useMissionLegacyView`
 #### 3.2 机器检查
 
 - `backend/src/__tests__/architecture/canonical-view-pattern.spec.ts` I1-I6
-- `backend/src/modules/ai-app/agent-playground/mission/projectors/__tests__/fixture-replay.spec.ts`
+- `backend/src/modules/ai-app/playground/mission/projectors/__tests__/fixture-replay.spec.ts`
 - 待补：projector 纯函数 AST check（不 import `*Service`，不发事件，不写库）
 - 待补：replay-twice idempotency spec（对每个 fixture 跑 projector N 次，断言 deep-equal）
 

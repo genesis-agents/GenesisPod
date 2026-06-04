@@ -32,13 +32,13 @@ s10-leader-signoff → s11-persist → s12-self-evolution
 
 避免新 app 误抄。详细判定见 [playground-as-template.md §1](../../../../../docs/architecture/ai-app/agent-playground/playground-as-template.md#1-playground-是什么的标杆不是什么的标杆)。
 
-| 不是                                              | 想做这个的话看                                                                                                                                                      |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| dynamic replan / Leader spawn-merge-cancel task   | topic-insights + [30-sota-task-centric-architecture.md](../../../../../docs/architecture/ai-harness/redesign/30-sota-task-centric-architecture.md)                  |
-| HITL editable state（pause → edit task → resume） | 同上，30-sota #9 尚未在 playground 落地                                                                                                                             |
-| "minimal viable agent app" 形态参考               | `ask/` (7K LOC) 或 `simulation/` (4K LOC)                                                                                                                           |
-| todo-board projector 复杂度参考                   | radar 84 LOC 是 Level 1 模板，playground 1,739 LOC 是 Level 2 特例                                                                                                  |
-| 通用 UI 原语来源                                  | playground 的 `components/agent-playground/ui/` 是业务专用（RoleChip / StatusPill / ToneCard 等），不该当 common 抄。`frontend/components/common/` 才是通用 UI 源头 |
+| 不是                                              | 想做这个的话看                                                                                                                                                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| dynamic replan / Leader spawn-merge-cancel task   | insight（ai-app/insight，前端 ai-insights）+ [30-sota-task-centric-architecture.md](../../../../../docs/architecture/ai-harness/redesign/30-sota-task-centric-architecture.md) |
+| HITL editable state（pause → edit task → resume） | 同上，30-sota #9 尚未在 playground 落地                                                                                                                                        |
+| "minimal viable agent app" 形态参考               | `ask/` (7K LOC) 或 `simulation/` (4K LOC)                                                                                                                                      |
+| todo-board projector 复杂度参考                   | radar 84 LOC 是 Level 1 模板，playground 1,739 LOC 是 Level 2 特例                                                                                                             |
+| 通用 UI 原语来源                                  | playground 的 `components/agent-playground/ui/` 是业务专用（RoleChip / StatusPill / ToneCard 等），不该当 common 抄。`frontend/components/common/` 才是通用 UI 源头            |
 
 ## 看护机制
 

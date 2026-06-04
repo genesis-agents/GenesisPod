@@ -432,7 +432,7 @@ POST /api/invitations/:code/decline
 ### 需要创建的文件
 
 ```
-backend/src/modules/ai-infra/notifications/
+backend/src/modules/platform/notifications/
 ├── notification.module.ts
 ├── notification.service.ts
 ├── notification.controller.ts

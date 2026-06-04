@@ -36,7 +36,7 @@
 Prompt → AI生成 → JSON解析 → 存储(DB) → API返回 → 前端渲染 → HTML导出
 ```
 
-**关键文件路径**（topic-insights模块）：
+**关键文件路径**（insight 模块，后端目录 `backend/src/modules/ai-app/insight/`，前端路由 `ai-insights`）：
 
 | 阶段         | 文件                                                                   |
 | ------------ | ---------------------------------------------------------------------- |

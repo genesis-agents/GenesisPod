@@ -7,7 +7,7 @@
 本目录对应两套并行系统：
 
 1. `ai-app/teams`
-2. `ai-app/agent-playground`
+2. `ai-app/playground`（前端路由为 `agent-playground`）
 
 ## 2. 组件关系图
 
@@ -37,7 +37,7 @@ flowchart TB
     subgraph Lower[Lower Layers]
         Harness[ai-harness facade/runtime]
         Engine[ai-engine facade]
-        Infra[ai-infra]
+        Infra[platform L1]
     end
 
     DB[(PostgreSQL)]
@@ -284,7 +284,7 @@ sequenceDiagram
 当前代码的真实分工是：
 
 - `ai-app/teams` 负责实时协作型多 Agent 产品
-- `ai-app/agent-playground` 负责结构化 pipeline 型多 Agent 产品
+- `ai-app/playground` 负责结构化 pipeline 型多 Agent 产品（前端路由仍为 `agent-playground`）
 - `ai-harness` 提供运行时
 - `ai-engine` 提供原子 AI 能力
 

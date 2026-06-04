@@ -125,7 +125,7 @@ async onNoteCreated(payload: { userId: string; noteId: string }) {
 
 ## 六、相关设计
 
-- 加密：`ai-infra/encryption/EncryptionService`
-- Key 解析：`ai-infra/key-resolver/KeyResolverService`
-- 错误类：`ai-infra/key-resolver/key-resolver.errors.ts`
+- 加密：`platform/credentials/encryption/EncryptionService`（L1，旧称 ai-infra/encryption）
+- Key 解析：`platform/credentials/key-resolver/KeyResolverService`（L1，旧称 ai-infra/key-resolver）
+- 错误类：`platform/credentials/key-resolver/key-resolver.errors.ts`
 - 设计文档：[docs/design/byok-system-design.md](../design/byok-system-design.md)

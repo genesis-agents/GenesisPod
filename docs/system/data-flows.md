@@ -6,7 +6,7 @@
 
 - `backend/src/modules/ai-app/teams/controllers/ai-teams.controller.ts`
 - `backend/src/modules/ai-app/teams/ai-teams.gateway.ts`
-- `backend/src/modules/ai-app/agent-playground/agent-playground.controller.ts`
+- `backend/src/modules/ai-app/playground/agent-playground.controller.ts`
 - `frontend/services/ai-teams/api.ts`
 - `frontend/stores/ai-teams/index.ts`
 - `backend/prisma/schema/models.prisma`

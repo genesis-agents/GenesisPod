@@ -108,9 +108,8 @@ curl http://localhost:4000/api/v1/resources/stats/summary
 
 #### 2. 数据完整性
 
-- **MongoDB**: 64条原始数据，100%有resourceId
-- **PostgreSQL**: 64条结构化数据，100%有rawDataId
-- **双向引用**: 完全建立
+- **PostgreSQL**: 64条数据（结构化字段 + JSONB 原始数据），100%有效
+- **数据完整性**: 去重、引用完整性均已验证
 
 #### 3. 数据质量
 
@@ -195,7 +194,7 @@ GET http://localhost:4000/api/v1/recommendations/explore
 1. 打开终端
 2. 运行采集命令（见上方示例）
 3. 刷新前端页面查看新内容
-4. 观察MongoDB和PostgreSQL数据变化
+4. 观察 PostgreSQL 数据变化（`psql` 或 `npx prisma studio`）
 
 ### 📊 场景3: API开发者体验
 
@@ -207,20 +206,9 @@ GET http://localhost:4000/api/v1/recommendations/explore
 
 ## 🗄️ 数据库访问
 
-### MongoDB（原始数据）
+> **说明**：项目已于 2025 年后移除 MongoDB、Neo4j、Qdrant，统一使用 PostgreSQL 16 作为唯一主库（原始数据通过 JSONB 字段存储），Redis 7 用于缓存和会话。
 
-```bash
-# 连接MongoDB
-docker exec -it genesis-mongo mongosh -u genesis -p mongo_dev_password --authenticationDatabase admin genesis
-
-# 查看集合
-show collections
-
-# 查看数据
-db.data_collection_raw_data.find().limit(5)
-```
-
-### PostgreSQL（结构化数据）
+### PostgreSQL（唯一主库）
 
 ```bash
 # 连接PostgreSQL
@@ -233,12 +221,15 @@ docker exec -it genesis-postgres psql -U genesis -d genesis
 SELECT * FROM resources LIMIT 10;
 ```
 
-### Neo4j（知识图谱）
+### Redis（缓存/会话）
 
-浏览器访问: `http://localhost:7474`
+```bash
+# 连接Redis
+docker exec -it genesis-redis redis-cli
 
-- 用户名: `neo4j`
-- 密码: `neo4j_dev_password`
+# 查看键
+KEYS *
+```
 
 ---
 

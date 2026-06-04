@@ -8,7 +8,7 @@
 
 ## 1. Why this document exists
 
-`ai-harness` is **not** a single sediment area. New benchmark Agent Team(MissionPipeline 派)consumers — `agent-playground`、`writing-team`、未来的 `debate-team` / `planning-team` 等 — 必须知道:
+`ai-harness` is **not** a single sediment area. New benchmark Agent Team(MissionPipeline 派)consumers — `playground`（前端路由 `agent-playground`）、`writing-team`、未来的 `debate-team` / `planning-team` 等 — 必须知道:
 
 - 哪些 zone 是 **canonical**(facade 暴露给新 team 主消费的 surface);
 - 哪些 zone 是 **foundational**(底层 primitive,被 canonical zone 内部依赖,facade 也直接 re-export 部分公开符号);
@@ -76,14 +76,14 @@ ai-app benchmark consumer **逻辑上**与 5 个 zone(Z1 / Z2 / Z3 / Z4 / Z5)发
 
 ### Consumer 现状(grep verified)
 
-- `ai-app/agent-playground` 跨 **Z1+Z3+Z4** 消费:
+- `ai-app/playground` 跨 **Z1+Z3+Z4** 消费:
   - `services/mission/lifecycle/mission-store.service.ts` 结构性 satisfies `IBusinessTeamMissionStore`(Z3)
   - dispatcher 注入 `MissionPipelineOrchestrator`(Z4)
   - heartbeat 由 `MissionRuntimeShellFramework`(Z3)接管
 - `ai-app/writing-team` 跨 **Z1+Z4** 消费(**未触及 Z3**):
   - `writing-team.service.ts:16` import `IMissionStore`(Z1)
   - `writing-team.service.ts:18` import `MissionPipelineOrchestrator`(Z4)
-- **WorkflowConfig 派(`ai-app/teams/teams/*` / `ai-app/research/teams/*` / `ai-app/topic-insights/teams/*` / `ai-app/office/teams/*`,共 6 个 config)**消费 `WorkflowConfig`(`ai-harness/facade`)早期抽象层,**不**触达 Z1–Z6 中任意一区,benchmark 不计入第二消费者。
+- **WorkflowConfig 派(`ai-app/teams/teams/*` / `ai-app/research/teams/*` / `ai-app/insight/teams/*` / `ai-app/office/teams/*`,共 6 个 config)**消费 `WorkflowConfig`(`ai-harness/facade`)早期抽象层,**不**触达 Z1–Z6 中任意一区,benchmark 不计入第二消费者。
 
 ---
 

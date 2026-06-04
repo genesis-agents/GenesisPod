@@ -4,7 +4,7 @@
 > 提供"原子能力"。无 Agent 概念、无 mission 概念、无 process 概念。
 > 上层 (L2.5 ai-harness) 编排这些原子能力组装出 agent 运行时。
 >
-> **依赖方向**：ai-engine → ai-infra（L1）。**禁止反向 import** ai-harness / ai-app / open-api。
+> **依赖方向**：ai-engine → platform（L1，真实目录 `modules/platform/`，旧称 ai-infra）。**禁止反向 import** ai-harness / ai-app / open-api。
 > 运行时需要 harness chat 能力的服务统一通过 `CHAT_PROVIDER_PORT` 注入，不允许直接 import `ChatFacade`。
 > 目前唯一保留的直接 harness import 是 `skills/runtime/adapters/engine-skill-provider.adapter.ts`，它是 engine → harness 的窄口 provider adapter。
 > 端口（Dependency Inversion 模式 — adapter 必然 import 它实现的端口接口）。
@@ -126,7 +126,7 @@ ai-engine/
 2. **0 反向依赖**：通过 verify:arch + ESLint no-restricted-imports 双重看护。
 3. **facade 为唯一公共入口**：ai-app / ai-harness 必须从 `@/modules/ai-engine/facade` import。
 4. **TaskProfile 优先**：所有 LLM 调用走 `aiChatService.chat({ taskProfile, modelType })`，禁止硬编码 modelId / temperature / maxTokens（CLAUDE.md 红线）。
-5. **顶层保留 12 个规范聚合**（2026-06-02 核实）：`llm/tools/rag/knowledge/content/routing/reliability/evaluation/skills/planning/safety/facade`。其中 `routing`（W-2026-06-02）/`reliability`（W7）/`evaluation`（W2）为后续扩出；`credentials` 已于 2026-05-01 迁至 L1 `ai-infra/credentials`。
+5. **顶层保留 12 个规范聚合**（2026-06-02 核实）：`llm/tools/rag/knowledge/content/routing/reliability/evaluation/skills/planning/safety/facade`。其中 `routing`（W-2026-06-02）/`reliability`（W7）/`evaluation`（W2）为后续扩出；`credentials` 已于 2026-05-01 迁至 L1 `platform/credentials`（真实路径 `modules/platform/credentials/`）。
 6. **NestJS module 按子目录就近**：每个能力子域有自己的 `*.module.ts`，集中在 `ai-engine.module.ts` 聚合。
 
 ## 与 L2.5 ai-harness 的边界

@@ -40,9 +40,9 @@
 
 ---
 
-## 3. 目录骨架(从 agent-playground 拷贝)
+## 3. 目录骨架(从 playground 拷贝)
 
-新 team `ai-app/<my-team>/` 目录结构,镜像 `agent-playground` 的 post-Stage 1 拓扑:
+新 team `ai-app/<my-team>/` 目录结构,镜像后端 `ai-app/playground/` 的 post-Stage 1 拓扑:
 
 ```
 backend/src/modules/ai-app/<my-team>/
@@ -84,7 +84,7 @@ backend/src/modules/ai-app/<my-team>/
 └── __tests__/                                                  ← 单元 + 集成测试
 ```
 
-**关键命名约定**:`<my-team>` 替换 `agent-playground`(全文件名 + 类名 + event namespace + skill domain)。
+**关键命名约定**:`<my-team>` 替换 `playground`（全文件名 + 类名 + event namespace + skill domain）。事件命名空间延续 `agent-playground.*` 前缀惯例时，以实际业务决策为准。
 
 ---
 
@@ -98,8 +98,8 @@ backend/src/modules/ai-app/<my-team>/
 ### 4.2 复制 + 改名
 
 ```bash
-# 1. 复制 agent-playground 全目录到 my-team
-cp -r backend/src/modules/ai-app/agent-playground backend/src/modules/ai-app/<my-team>
+# 1. 复制 playground 全目录到 my-team
+cp -r backend/src/modules/ai-app/playground backend/src/modules/ai-app/<my-team>
 
 # 2. 全文件 + 类全局 sed:agent-playground → my-team
 #

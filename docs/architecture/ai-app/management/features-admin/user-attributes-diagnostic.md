@@ -94,7 +94,7 @@ model User {
 
 ### 2.1 Admin Service 用户管理
 
-**文件路径**: `backend/src/modules/ai-infra/admin/admin.service.ts`
+**文件路径**: `backend/src/modules/platform/admin/admin.service.ts`
 
 **实现的用户管理功能**：
 
@@ -118,7 +118,7 @@ model User {
 
 ### 2.2 Admin Controller 路由
 
-**文件路径**: `backend/src/modules/ai-infra/admin/admin.controller.ts` (行39-108)
+**文件路径**: `backend/src/modules/platform/admin/admin.controller.ts` (行39-108)
 
 ```
 GET  /api/v1/admin/users          - 获取用户列表
@@ -368,7 +368,7 @@ interface UserPreferences {
 建议添加：
 
 ```typescript
-// backend/src/modules/ai-infra/user/user.controller.ts
+// backend/src/modules/platform/user/user.controller.ts
 @Patch('/profile')
 @UseGuards(JwtAuthGuard)
 async updateProfile(
@@ -485,8 +485,8 @@ AdminService.toggleUserStatus(userId, isActive)
 
 | 文件                                                     | 功能         |
 | -------------------------------------------------------- | ------------ |
-| `backend/src/modules/ai-infra/admin/admin.service.ts`    | 用户管理服务 |
-| `backend/src/modules/ai-infra/admin/admin.controller.ts` | 管理员 API   |
+| `backend/src/modules/platform/admin/admin.service.ts`    | 用户管理服务 |
+| `backend/src/modules/platform/admin/admin.controller.ts` | 管理员 API   |
 | `backend/src/modules/credits/credits.service.ts`         | 积分管理服务 |
 | `backend/src/modules/credits/credits.controller.ts`      | 积分 API     |
 | `backend/src/modules/auth/auth.service.ts`               | 认证服务     |

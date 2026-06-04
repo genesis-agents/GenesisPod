@@ -79,8 +79,8 @@ FRONTEND_URL=https://frontend-development-74d8.up.railway.app
 
 需要检查以下服务是否在环境间隔离:
 
-- Qdrant (向量数据库)
-- Neo4j (已废弃, 改用 PostgreSQL)
+- ~~Qdrant~~ (已移除，向量能力改用 PostgreSQL pgvector)
+- ~~Neo4j~~ (已移除，改用 PostgreSQL)
 - FlareSolverr (爬虫代理)
 - Redis (缓存)
 

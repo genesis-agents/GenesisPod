@@ -161,12 +161,12 @@ backend/src/modules/ai-app/{module}/skills/
 
 ### 4.3 各模块 Skills 路径
 
-| 模块        | Skills 路径                     | domain 值  |
-| ----------- | ------------------------------- | ---------- |
-| AI Writing  | `ai-app/writing/skills/`        | `writing`  |
-| AI Insights | `ai-app/topic-insights/skills/` | `research` |
-| AI Slides   | `ai-app/office/slides/skills/`  | `office`   |
-| 未来模块    | `ai-app/{module}/skills/`       | `{module}` |
+| 模块        | Skills 路径                    | domain 值  |
+| ----------- | ------------------------------ | ---------- |
+| AI Writing  | `ai-app/writing/skills/`       | `writing`  |
+| AI Insights | `ai-app/insight/skills/`       | `research` |
+| AI Slides   | `ai-app/office/slides/skills/` | `office`   |
+| 未来模块    | `ai-app/{module}/skills/`      | `{module}` |
 
 ---
 

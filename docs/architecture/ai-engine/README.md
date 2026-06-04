@@ -3,24 +3,27 @@
 > 核心能力层。提供"原子能力"——无 agent / mission / process 概念。上层 (L2.5 ai-harness) 编排这些原子能力组装出 agent 运行时。
 > 单一信息源：[`backend/src/modules/ai-engine/README.md`](../../../backend/src/modules/ai-engine/README.md)
 
-## 9 个顶层聚合
+## 12 个顶层聚合
 
-| 聚合         | 代码路径               | 职责                                                      |
-| ------------ | ---------------------- | --------------------------------------------------------- |
-| `facade/`    | `ai-engine/facade/`    | 对外门面与共享抽象                                        |
-| `llm/`       | `ai-engine/llm/`       | LLM 调用、适配、选型、定价、prompt adaptation             |
-| `tools/`     | `ai-engine/tools/`     | 工具目录、middleware pipeline、source adapters（含 MCP）  |
-| `rag/`       | `ai-engine/rag/`       | embedding / chunking / vector / pipeline                  |
-| `knowledge/` | `ai-engine/knowledge/` | extraction / synthesis / rerank / world-building          |
-| `skills/`    | `ai-engine/skills/`    | SKILL.md 注册 + runtime + sandbox + ecosystem             |
-| `planning/`  | `ai-engine/planning/`  | budget / context / intent / reflection                    |
-| `safety/`    | `ai-engine/safety/`    | constraint / guardrails / quality / resilience / security |
-| `content/`   | `ai-engine/content/`   | citation / fetch / figure / image / report-template       |
+| 聚合           | 代码路径                 | 职责                                                     |
+| -------------- | ------------------------ | -------------------------------------------------------- |
+| `facade/`      | `ai-engine/facade/`      | 对外门面与共享抽象                                       |
+| `llm/`         | `ai-engine/llm/`         | LLM 调用、适配、选型、定价、prompt adaptation            |
+| `tools/`       | `ai-engine/tools/`       | 工具目录、middleware pipeline、source adapters（含 MCP） |
+| `rag/`         | `ai-engine/rag/`         | embedding / chunking / vector / pipeline                 |
+| `knowledge/`   | `ai-engine/knowledge/`   | extraction / synthesis / rerank / world-building         |
+| `content/`     | `ai-engine/content/`     | citation / fetch / figure / markdown / report-template   |
+| `routing/`     | `ai-engine/routing/`     | 请求→模型/技能/工具的无状态打分路由                      |
+| `reliability/` | `ai-engine/reliability/` | 引擎级韧性（rate-limit / entity-health）                 |
+| `evaluation/`  | `ai-engine/evaluation/`  | 无状态启发式质量检查（无 LLM、无 agent 状态）            |
+| `skills/`      | `ai-engine/skills/`      | SKILL.md 注册 + runtime + sandbox + ecosystem            |
+| `planning/`    | `ai-engine/planning/`    | budget / context / intent / reflection                   |
+| `safety/`      | `ai-engine/safety/`      | pii / moderation / injection / guardrails tripwire       |
 
 ## 设计原则
 
 1. **0 Agent 概念** — 本层不知道什么是 agent / mission / process
-2. **0 反向依赖** — `ai-engine → ai-infra` 单向，依靠 `verify:arch` + ESLint 双重看护
+2. **0 反向依赖** — `ai-engine → platform`（L1）单向，依靠 `verify:arch` + ESLint 双重看护
 3. **facade 为唯一公共入口** — `ai-app` / `ai-harness` 必须从 `@/modules/ai-engine/facade` import
 4. **TaskProfile 优先** — 所有 LLM 调用走 `aiChatService.chat({ taskProfile, modelType })`，禁止硬编码 modelId / temperature / maxTokens（CLAUDE.md 红线）
 5. **MCP 在 engine 不在 harness** — tool source adapter，与 OpenAPI / function 同层

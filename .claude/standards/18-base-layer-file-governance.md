@@ -8,7 +8,7 @@
 
 ## Purpose
 
-This standard governs `ai-infra`, `ai-engine`, and `ai-harness` at file level.
+This standard governs `platform` (L1, formerly ai-infra), `ai-engine`, and `ai-harness` at file level.
 
 It answers three separate questions:
 
@@ -30,7 +30,7 @@ No cleanup wave is considered complete unless all three checks are applied.
 
 Every production file under:
 
-- `backend/src/modules/ai-infra`
+- `backend/src/modules/platform` (L1, formerly ai-infra)
 - `backend/src/modules/ai-engine`
 - `backend/src/modules/ai-harness`
 
@@ -285,7 +285,7 @@ Every cleanup wave must follow this order:
 2. Export the file inventory and anomaly list.
 3. Review each flagged file and assign ownership plus action.
 4. Apply changes in dependency order:
-   - `ai-infra`
+   - `platform` (L1, formerly ai-infra)
    - `ai-engine`
    - `ai-harness`
 5. Re-run:

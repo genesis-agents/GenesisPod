@@ -68,7 +68,7 @@ Adding a new tool?
 
 ```
 backend/prisma/schema/models.prisma:7559          → enum SecretCategory
-backend/src/modules/ai-infra/secrets/
+backend/src/modules/platform/credentials/secrets/
   secret-name-mapping.ts                           → EXTERNAL_TOOL_SECRET_MAPPING, SECRET_NAMES
   secrets.service.ts                               → SecretsService (encryption/CRUD)
 backend/src/modules/open-api/admin/

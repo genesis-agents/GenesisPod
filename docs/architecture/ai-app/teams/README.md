@@ -19,11 +19,11 @@
 - Team Mission
 - Topic 级 WebSocket 实时同步
 
-### 2. `ai-app/agent-playground`
+### 2. `ai-app/playground`
 
 代码目录：
 
-- `backend/src/modules/ai-app/agent-playground/`
+- `backend/src/modules/ai-app/playground/`
 - `frontend/app/agent-playground/`
 
 职责：
@@ -51,7 +51,7 @@
 当前请以：
 
 - `backend/src/modules/ai-app/teams/`
-- `backend/src/modules/ai-app/agent-playground/`
+- `backend/src/modules/ai-app/playground/`
 - `backend/src/modules/ai-harness/`
 - `backend/src/modules/ai-engine/`
 
@@ -63,4 +63,4 @@
 2. [architecture.md](architecture.md)
 3. [features-ai-teams/system-design.md](features-ai-teams/system-design.md)
 4. `backend/src/modules/ai-app/teams/ai-teams.module.ts`
-5. `backend/src/modules/ai-app/agent-playground/agent-playground.module.ts`
+5. `backend/src/modules/ai-app/playground/agent-playground.module.ts`

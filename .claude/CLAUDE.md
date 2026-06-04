@@ -8,20 +8,21 @@
 
 ### 核心模块
 
-| 模块           | 描述                       | 路径                                         |
-| -------------- | -------------------------- | -------------------------------------------- |
-| AI Research    | 深度研究，多步骤规划和报告 | `backend/src/modules/ai-app/research/`       |
-| Topic Insights | 话题洞察，Research 衍生    | `backend/src/modules/ai-app/topic-insights/` |
-| AI Teams       | 多 Agent 协作，辩论碰撞    | `backend/src/modules/ai-app/teams/`          |
-| AI Office      | 文档/PPT/设计生成          | `backend/src/modules/ai-app/office/`         |
-| AI Writing     | AI 写作助手，长文本创作    | `backend/src/modules/ai-app/writing/`        |
-| AI Ask         | 智能问答，多模型切换       | `backend/src/modules/ai-app/ask/`            |
-| AI Image       | AI 图像生成                | `backend/src/modules/ai-app/image/`          |
-| AI Social      | AI 社交内容生成            | `backend/src/modules/ai-app/social/`         |
-| AI Simulation  | 多角色模拟辩论             | `backend/src/modules/ai-app/simulation/`     |
-| AI Planning    | AI 辅助规划                | `backend/src/modules/ai-app/planning/`       |
-| Library        | 资源库，内容管理           | `backend/src/modules/ai-app/library/`        |
-| Explore        | 内容浏览与发现             | `backend/src/modules/ai-app/explore/`        |
+| 模块             | 描述                        | 路径                                                                |
+| ---------------- | --------------------------- | ------------------------------------------------------------------- |
+| AI Research      | 深度研究，多步骤规划和报告  | `backend/src/modules/ai-app/research/`                              |
+| Agent Playground | 多 Agent mission 编排与报告 | `backend/src/modules/ai-app/playground/`（前端 `agent-playground`） |
+| Topic Insights   | 话题洞察，Research 衍生     | `backend/src/modules/ai-app/insight/`（前端 `ai-insights`）         |
+| AI Teams         | 多 Agent 协作，辩论碰撞     | `backend/src/modules/ai-app/teams/`                                 |
+| AI Office        | 文档/PPT/设计生成           | `backend/src/modules/ai-app/office/`                                |
+| AI Writing       | AI 写作助手，长文本创作     | `backend/src/modules/ai-app/writing/`                               |
+| AI Ask           | 智能问答，多模型切换        | `backend/src/modules/ai-app/ask/`                                   |
+| AI Image         | AI 图像生成                 | `backend/src/modules/ai-app/image/`                                 |
+| AI Social        | AI 社交内容生成             | `backend/src/modules/ai-app/social/`                                |
+| AI Simulation    | 多角色模拟辩论              | `backend/src/modules/ai-app/simulation/`                            |
+| AI Planning      | AI 辅助规划                 | `backend/src/modules/ai-app/planning/`                              |
+| Library          | 资源库，内容管理            | `backend/src/modules/ai-app/library/`                               |
+| Explore          | 内容浏览与发现              | `backend/src/modules/ai-app/explore/`                               |
 
 ### 技术栈
 
@@ -73,7 +74,7 @@ L2 AI Engine（12 顶层聚合，2026-06-02 核实）→ modules/ai-engine/
       ├── planning/      通用规划/调控原语（budget/context/intent/reflection，不含 agent loop）
       └── safety/        安全（pii/moderation/injection/guardrails tripwire）
 
-L1 Infrastructure → modules/ai-infra/
+L1 Infrastructure → modules/platform/（层概念名 ai-infra，真实目录 platform/）
       （含 credentials/ BYOK + secret resolver —— 2026-05-01 fee5d688b 从 L2 迁入，
         判定依据：BYOK key 解析零 agent/mission 状态，属 L1 通用基元）
 ```

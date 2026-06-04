@@ -33,7 +33,7 @@
 当前多 Agent 相关的活跃实现主要在：
 
 - `backend/src/modules/ai-app/teams/`
-- `backend/src/modules/ai-app/agent-playground/`
+- `backend/src/modules/ai-app/playground/`（前端路由 `agent-playground`）
 - `backend/src/modules/ai-harness/`
 - `backend/src/modules/ai-engine/`
 

@@ -315,7 +315,7 @@ ALTER TABLE "secret_audit_logs" ADD CONSTRAINT "secret_audit_logs_secret_id_fkey
 ### 4.1 服务架构
 
 ```
-backend/src/modules/ai-infra/secrets/
+backend/src/modules/platform/credentials/secrets/
 ├── secrets.module.ts              # 模块定义
 ├── secrets.service.ts             # 核心服务 (加密/解密/CRUD)
 ├── secrets.controller.ts          # REST API
@@ -911,8 +911,8 @@ import {
   UseGuards,
   Req,
 } from "@nestjs/common";
-import { JwtAuthGuard } from "@/modules/ai-infra/auth/jwt-auth.guard";
-import { AdminGuard } from "@/modules/ai-infra/auth/admin.guard";
+import { JwtAuthGuard } from "@/modules/platform/auth/jwt-auth.guard";
+import { AdminGuard } from "@/modules/platform/auth/admin.guard";
 import { SecretsService, SecretStatus } from "./secrets.service";
 import { SecretCategory } from "@prisma/client";
 

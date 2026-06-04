@@ -68,7 +68,7 @@
 
 - 〇 Plugin **抽取规则**（v2.0 反应式规则）
 - `src/plugins/core/` 内核与 `src/plugins/` 实现的目录边界
-- plugin 与 5 层架构（ai-infra / ai-engine / ai-harness / ai-app / open-api）的依赖方向
+- plugin 与 5 层架构（platform（L1）/ ai-engine / ai-harness / ai-app / open-api）的依赖方向
 - ~~26 个横切关注点必须以 plugin 形态存在的强制要求~~ → v2.0 改为反应式抽取，参见 §〇
 - IPlugin / HookBus / IPluginContext 接口的稳定契约面（SDK 发布预留）
 - 安全姿势（CRIT-1 payload immutability + CRIT-2 plugin trust mode）
@@ -147,7 +147,7 @@ src/plugins/<domain>/<plugin-id>/
 ### 规则 4：5 层 + plugin 系统的合法依赖图
 
 ```
-ai-app  →  ai-harness  →  ai-engine  →  ai-infra
+ai-app  →  ai-harness  →  ai-engine  →  platform（L1）
    ↓             ↓             ↓
    └──── 通过 plugins/core HookBus（不直接 import plugin） ────┘
                               ↑
@@ -448,11 +448,11 @@ overrides: [
 
 ## 十、与现有 standards 的关系
 
-| 规范                           | 与本规范关系                                                               |
-| ------------------------------ | -------------------------------------------------------------------------- |
-| 16-ai-engine-harness-structure | 5 层架构基础；本规范在其之上扩展 plugins/core / plugins 双根目录           |
-| 17-extension-governance        | 现有"扩展必须经过受控扩展点"规则；本规范增加 plugin 作为新的扩展点         |
-| 18-base-layer-file-governance  | 现有"base layer 业务无关"规则；本规范扩展到"base layer 横切关注点剥离"红线 |
+| 规范                           | 与本规范关系                                                                                                                               |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 16-ai-engine-harness-structure | 5 层架构基础（L1 platform / L2 ai-engine / L2.5 ai-harness / L3 ai-app / L4 open-api）；本规范在其之上扩展 plugins/core / plugins 双根目录 |
+| 17-extension-governance        | 现有"扩展必须经过受控扩展点"规则；本规范增加 plugin 作为新的扩展点                                                                         |
+| 18-base-layer-file-governance  | 现有"base layer 业务无关"规则；本规范扩展到"base layer 横切关注点剥离"红线                                                                 |
 
 ---
 

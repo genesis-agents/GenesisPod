@@ -125,7 +125,7 @@ notifications 表 79 行
 
 ### Layer 0：NotificationGateway（W3）
 
-**新文件** `backend/src/modules/ai-infra/notifications/notification.gateway.ts`
+**新文件** `backend/src/modules/platform/notifications/notification.gateway.ts`
 
 ```typescript
 @WebSocketGateway({
@@ -226,7 +226,7 @@ async notifyOfficeSlidesCompleted(params: {
 
 ### Layer 3：NotificationEventListener（W2，新文件）
 
-**新文件** `backend/src/modules/ai-infra/notifications/notification-event-listener.service.ts`
+**新文件** `backend/src/modules/platform/notifications/notification-event-listener.service.ts`
 
 ```typescript
 @Injectable()
@@ -267,12 +267,12 @@ export class NotificationEventListener {
 
 #### 前置条件：业务模块需要 emit 事件 + 包含 userId
 
-| 模块                      | 当前 emit                                         | 需要补    |
-| ------------------------- | ------------------------------------------------- | --------- |
-| `agent-playground`        | `agent-playground.mission:completed`（含 userId） | ✅ 已就绪 |
-| `topic-insights/research` | `research:completed`（含 userId）                 | 需检查    |
-| `writing`                 | `writing.task:completed`（含 userId）             | 需检查    |
-| `office/slides`           | 用 `slides:completed`（含 userId）                | 需检查    |
+| 模块               | 当前 emit                                         | 需要补    |
+| ------------------ | ------------------------------------------------- | --------- |
+| `agent-playground` | `agent-playground.mission:completed`（含 userId） | ✅ 已就绪 |
+| `insight/research` | `research:completed`（含 userId）                 | 需检查    |
+| `writing`          | `writing.task:completed`（含 userId）             | 需检查    |
+| `office/slides`    | 用 `slides:completed`（含 userId）                | 需检查    |
 
 W2 会补齐缺失的 emit 字段。
 
@@ -362,7 +362,7 @@ export function useNotificationSocket(opts: {
 
 ### W2（后端 / 任务完成自动通知，约 1.5h）
 
-- [ ] `backend/.../notifications/notification-event-listener.service.ts` 新建
+- [ ] `backend/src/modules/platform/notifications/notification-event-listener.service.ts` 新建
 - [ ] 注册到 `notification.module.ts` providers
 - [ ] `notification-presets.service.ts` 加 `notifyMissionCompleted` / `notifyWritingTaskCompleted` / `notifyOfficeSlidesCompleted`
 - [ ] 验证 4 个业务模块的完成事件 payload 含 `userId`，缺失则补
@@ -371,7 +371,7 @@ export function useNotificationSocket(opts: {
 
 ### W3（实时推送 / 锦上添花，约 1.5h）
 
-- [ ] `backend/.../notifications/notification.gateway.ts` 新建（namespace=/notifications）
+- [ ] `backend/src/modules/platform/notifications/notification.gateway.ts` 新建（namespace=/notifications）
 - [ ] `notification.gateway.ts` 注册到 `notification.module.ts` providers
 - [ ] `NotificationsAdminService.broadcastNotification` 加 emit `notification.broadcast`
 - [ ] `frontend/hooks/domain/useNotificationSocket.ts` 新建
@@ -412,7 +412,7 @@ export function useNotificationSocket(opts: {
 
 - ✅ **类型枚举细分**：`MISSION_COMPLETED` / `WRITING_COMPLETED` / `OFFICE_COMPLETED` 加进 `NotificationType` enum，迁移文件 `prisma/migrations/20260505e_notification_type_split/`
 - ✅ **research / writing / office 完成事件接入**：业务模块在 mission COMPLETED 后 fire-and-forget emit `notification.task-completed` (NestJS EventEmitter2)，`NotificationEventListener` 接事件后调对应 preset
-  - research: `topic-insights/.../mission-execution.service.ts` 完成路径
+  - research: `insight/.../mission-execution.service.ts` 完成路径
   - writing: `writing/services/mission/writing-mission-execution.service.ts:emitMissionCompleted` 后
   - office: `office/slides/orchestrator/slides-repository.ts:completeMission` 写库后
 - ✅ **Quiet Hours 实战**：`NotificationService.createNotification` 查 `NotificationPreference.quietHoursStart/End`，命中窗口时在 emit `notification.created` 时打 `silent: true`；Gateway 透传该字段；前端 hook payload 类型同步。当前对比按 UTC（无时区列），跨午夜窗口已正确处理。
@@ -431,7 +431,7 @@ export function useNotificationSocket(opts: {
 
 | 现有能力                                                 | 复用方式                                                                            |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `NotificationService` (ai-infra/notifications)           | Layer 1 主体不动                                                                    |
+| `NotificationService` (platform/notifications)           | Layer 1 主体不动                                                                    |
 | `NotificationPresetsService`                             | Layer 2，扩展 `notifyXxx` 方法                                                      |
 | `EmailNotificationPresetsService`                        | 互不影响，未来 Listener 可双发                                                      |
 | `EventEmitter2` (NestJS)                                 | Layer 1→0 已有 emit；Listener 也用 `@OnEvent`                                       |

@@ -37,35 +37,31 @@ genesis-agent-teams/
 ```text
 frontend/app/
 ├─ admin/              管理后台
-├─ agent-playground/   多 Agent 研究编排与报告页
+├─ agent-playground/   多 Agent 研究编排与报告页（后端模块为 ai-app/playground）
 ├─ ai-ask/             通用问答
 ├─ ai-image/           图片生成
-├─ ai-insights/        话题洞察
+├─ ai-insights/        话题洞察（后端模块为 ai-app/insight）
 ├─ ai-office/          Office / Slides
 ├─ ai-planning/        AI 规划
+├─ ai-radar/           AI 雷达
 ├─ ai-research/        AI 研究
 ├─ ai-simulation/      AI 模拟
-├─ ai-skills/          技能中心
 ├─ ai-social/          社媒内容
 ├─ ai-store/           应用市场
 ├─ ai-teams/           团队协作
 ├─ ai-writing/         写作
 ├─ api/                Next API Routes / BFF
 ├─ auth/               OAuth callback
-├─ credits/            Credits
+├─ changelog/          更新日志
+├─ custom-agents/      用户自定义 Agent
 ├─ explore/            资源浏览
 ├─ feedback/           反馈
-├─ knowledge-graph/    知识图谱
 ├─ library/            资源库
 ├─ login/              登录页
 ├─ me/                 用户个人页
 ├─ notifications/      通知
-├─ notion/             Notion 集成页
-├─ profile/            Profile
-├─ rag/                RAG 页面
-├─ report/             报告页
-├─ settings/           设置
-└─ share/              对外分享页
+├─ share/              对外分享页
+└─ unsubscribed/       退订落地页
 ```
 
 重点说明：
@@ -363,7 +359,7 @@ frontend/app/login/page.tsx
 frontend/components/layout/UserProfileButton.tsx
 frontend/components/common/SignInPrompt.tsx
 frontend/app/page.tsx
-backend/src/modules/ai-infra/auth/
+backend/src/modules/platform/auth/
 ```
 
 ### Agent Playground
@@ -388,7 +384,7 @@ frontend/lib/agent-playground/
 
 ```text
 backend/src/modules/ai-engine/tools/
-backend/src/modules/ai-app/topic-insights/
+backend/src/modules/ai-app/insight/
 frontend/app/admin/ai/tools/
 frontend/components/admin/
 ```

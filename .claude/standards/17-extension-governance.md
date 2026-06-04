@@ -87,9 +87,9 @@
 
 禁止：
 
-- 把 `backend/prisma/**` 并入 `modules/ai-infra/**`
+- 把 `backend/prisma/**` 并入 `modules/platform/**`（L1 基础设施）
 - 把 migrations / seed / schema 与 Nest runtime module 混放
-- 让 `ai-infra/**` 同时承担“数据库资产仓库”和“运行时基础设施模块”双重职责
+- 让 `platform/**` 同时承担”数据库资产仓库”和”运行时基础设施模块”双重职责
 
 ---
 
@@ -195,7 +195,7 @@ memory 不是独立层，而是跨层状态能力轴。
 
 - `ai-engine/**`
 - `ai-harness/**`
-- `ai-infra/**`
+- `platform/**`（L1，旧称 ai-infra）
 
 ### 4.2 B 类：领域装配
 

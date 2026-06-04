@@ -131,7 +131,7 @@ npm run dev:crawler    # 单独的数据采集服务
    - 错误处理标准
 
 3. **[数据库设计规范](.claude/standards/06-database-design.md)** 🔴 MUST READ
-   - PostgreSQL+MongoDB双库策略
+   - PostgreSQL 16 唯一主库策略（JSONB 存原始数据，已移除 MongoDB/Neo4j/Qdrant）
    - Schema设计原则
    - 数据一致性保证
 
@@ -431,7 +431,7 @@ git push --no-verify
 
 ### Q9: 如何查看项目的架构决策？
 
-**问题**: 不理解为什么用双数据库/monorepo等架构
+**问题**: 不理解为什么用单库/monorepo等架构
 
 **解决方案**:
 
@@ -439,7 +439,7 @@ git push --no-verify
 # 查看所有ADR（架构决策记录）
 ls .claude/adrs/
 
-# 阅读相关ADR
+# 阅读相关ADR（注意：ADR-0003 双数据库策略已废弃，现为 PostgreSQL 16 单库）
 cat .claude/adrs/0003-dual-database-strategy.md
 ```
 

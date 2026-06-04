@@ -37,15 +37,15 @@ backend/src/modules/ai-app/research/teams/research-team.config.ts
 backend/src/modules/ai-app/research/iteration/iterative-research.service.ts
 backend/src/modules/ai-app/research/evaluation/exit-decision.service.ts
 backend/src/modules/ai-app/research/research.module.ts
-backend/src/modules/ai-app/topic-insights/services/data/data-source-router.service.ts
-backend/src/modules/ai-app/topic-insights/services/search/search-executor.service.ts
-backend/src/modules/ai-app/topic-insights/services/quality/report-quality-gate.service.ts
-backend/src/modules/ai-app/topic-insights/services/verification/claim-verification.service.ts
-backend/src/modules/ai-app/topic-insights/services/verification/self-consistency.service.ts
-backend/src/modules/ai-app/topic-insights/services/core/research-leader.service.ts
-backend/src/modules/ai-app/topic-insights/config/data-source-mapping.config.ts
-backend/src/modules/ai-app/topic-insights/topic-insights.module.ts
-backend/src/modules/ai-app/topic-insights/skills/fact-check.skill.md
+backend/src/modules/ai-app/insight/services/data/data-source-router.service.ts
+backend/src/modules/ai-app/insight/services/search/search-executor.service.ts
+backend/src/modules/ai-app/insight/services/quality/report-quality-gate.service.ts
+backend/src/modules/ai-app/insight/services/verification/claim-verification.service.ts
+backend/src/modules/ai-app/insight/services/verification/self-consistency.service.ts
+backend/src/modules/ai-app/insight/services/core/research-leader.service.ts
+backend/src/modules/ai-app/insight/config/data-source-mapping.config.ts
+backend/src/modules/ai-app/insight/topic-insights.module.ts
+backend/src/modules/ai-app/insight/skills/fact-check.skill.md
 backend/src/modules/ai-engine/skills/runtime/prompt-skill-bridge.service.ts
 ```
 
@@ -1023,7 +1023,7 @@ tags: [{ tag1 }, { tag2 }, { tag3 }]
 
 ## Appendix B: Data Source Mapping Reference
 
-Source: `backend/src/modules/ai-app/topic-insights/config/data-source-mapping.config.ts`
+Source: `backend/src/modules/ai-app/insight/config/data-source-mapping.config.ts`
 
 | DataSourceType   | Tool ID             | API/Provider                  |
 | ---------------- | ------------------- | ----------------------------- |

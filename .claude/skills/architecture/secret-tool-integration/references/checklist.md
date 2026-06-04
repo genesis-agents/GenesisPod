@@ -57,7 +57,7 @@ ALTER TYPE "SecretCategory" ADD VALUE IF NOT EXISTS 'NEW_CATEGORY';
 
 ## Step 3: Add Secret Name Mapping
 
-**File**: `backend/src/modules/ai-infra/secrets/secret-name-mapping.ts`
+**File**: `backend/src/modules/platform/credentials/secrets/secret-name-mapping.ts`
 
 ### 3a. Add to EXTERNAL_TOOL_SECRET_MAPPING
 
@@ -213,7 +213,7 @@ This updates TypeScript types to include the new `SecretCategory` enum value.
 
 ```bash
 # Verify secret mapping exists
-grep -n "new-tool" backend/src/modules/ai-infra/secrets/secret-name-mapping.ts
+grep -n "new-tool" backend/src/modules/platform/credentials/secrets/secret-name-mapping.ts
 
 # Verify backend tool definition
 grep -n "new-tool" backend/src/modules/open-api/admin/ai-admin.service.ts

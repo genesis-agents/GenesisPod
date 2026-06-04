@@ -2630,7 +2630,7 @@ export const RESEARCH_TEAM_CONFIG: TeamConfig = {
 ### 18.9 重构后的目录结构
 
 > **设计原则**: 严格对齐 TI 的目录分层模式，确保两个模块的架构一致性。
-> TI 目录树参考: `backend/src/modules/ai-app/topic-insights/`
+> TI 目录树参考: `backend/src/modules/ai-app/insight/`
 
 ```
 backend/src/modules/ai-app/research/

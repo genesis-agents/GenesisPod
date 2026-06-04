@@ -17,13 +17,13 @@
 
 ## 速查表
 
-| 类型          | 新建文件位置（示例）                                            | 注册 Registry                | 注册方法                   | 导入来源                |
-| ------------- | --------------------------------------------------------------- | ---------------------------- | -------------------------- | ----------------------- |
-| Agent         | `ai-app/<mod>/agents/<name>.agent.ts`                           | `AgentRegistry`              | `.register(agent)`         | `ai-harness/facade`     |
-| Team          | `ai-app/<mod>/teams/<name>-team.config.ts`                      | `TeamRegistry`               | `.registerConfig(config)`  | `ai-harness/facade`     |
-| Skill (code)  | `ai-app/<mod>/skills/<name>.skill.ts`                           | `SkillRegistry`              | `.register(skill)`         | `ai-harness/facade`     |
-| Tool          | `ai-engine/tools/categories/<cat>/<name>.tool.ts`               | `ToolRegistry`（自动批注册） | 加进 `ALL_TOOL_CLASSES`    | 相对路径（engine 内部） |
-| Mission-Stage | `ai-app/agent-playground/mission/pipeline/stages/sN-*.stage.ts` | `MissionPipelineRegistry`    | step + `buildHooksForStep` | `ai-harness/facade`     |
+| 类型          | 新建文件位置（示例）                                      | 注册 Registry                | 注册方法                   | 导入来源                |
+| ------------- | --------------------------------------------------------- | ---------------------------- | -------------------------- | ----------------------- |
+| Agent         | `ai-app/<mod>/agents/<name>.agent.ts`                     | `AgentRegistry`              | `.register(agent)`         | `ai-harness/facade`     |
+| Team          | `ai-app/<mod>/teams/<name>-team.config.ts`                | `TeamRegistry`               | `.registerConfig(config)`  | `ai-harness/facade`     |
+| Skill (code)  | `ai-app/<mod>/skills/<name>.skill.ts`                     | `SkillRegistry`              | `.register(skill)`         | `ai-harness/facade`     |
+| Tool          | `ai-engine/tools/categories/<cat>/<name>.tool.ts`         | `ToolRegistry`（自动批注册） | 加进 `ALL_TOOL_CLASSES`    | 相对路径（engine 内部） |
+| Mission-Stage | `ai-app/playground/mission/pipeline/stages/sN-*.stage.ts` | `MissionPipelineRegistry`    | step + `buildHooksForStep` | `ai-harness/facade`     |
 
 > 验证命令（在 `backend/` 下）：`npm run type-check` / `npm run verify:arch` / `npm run test:quick`。
 > 全栈快捷命令（在仓库根）：`npm run verify:quick`（type-check + test:quick）、`npm run verify:full`。
@@ -67,7 +67,7 @@
 
 ## 配方 1：新增 Agent
 
-参考实现：`backend/src/modules/ai-app/topic-insights/agents/topic-insights.agent.ts`
+参考实现：`backend/src/modules/ai-app/insight/agents/topic-insights.agent.ts`
 
 ### ① 必改/新建文件
 
@@ -150,9 +150,9 @@ export class MyModule implements OnModuleInit {
 
 ## 配方 2：新增 Team
 
-参考实现：`backend/src/modules/ai-app/topic-insights/teams/topic-insights-team.config.ts`（配置）
+参考实现：`backend/src/modules/ai-app/insight/teams/topic-insights-team.config.ts`（配置）
 
-- `backend/src/modules/ai-app/topic-insights/topic-insights.module.ts`（注册，见 `onModuleInit`）
+- `backend/src/modules/ai-app/insight/topic-insights.module.ts`（注册，见 `onModuleInit`）
 
 ### ① 必改/新建文件
 
@@ -448,19 +448,19 @@ Tool 文件用**相对路径**导入 engine 内部基元（`BaseTool` / `ToolCon
 
 参考实现：
 
-- Stage 函数：`backend/src/modules/ai-app/agent-playground/mission/pipeline/stages/s1-mission-estimate-budget.stage.ts`
-- Pipeline 声明：`backend/src/modules/ai-app/agent-playground/runtime/playground.config.ts`（`PLAYGROUND_PIPELINE.steps`）
-- Stage 挂载：`backend/src/modules/ai-app/agent-playground/mission/pipeline/playground-business-orchestrator.service.ts`（`buildHooksForStep` + `build<SN>Hooks`）
+- Stage 函数：`backend/src/modules/ai-app/playground/mission/pipeline/stages/s1-mission-estimate-budget.stage.ts`
+- Pipeline 声明：`backend/src/modules/ai-app/playground/runtime/playground.config.ts`（`PLAYGROUND_PIPELINE.steps`）
+- Stage 挂载：`backend/src/modules/ai-app/playground/mission/pipeline/playground-business-orchestrator.service.ts`（`buildHooksForStep` + `build<SN>Hooks`）
 
 > Stage 不是直接注册到 Registry —— `PlaygroundPipelineDispatcher.onModuleInit` 把整条
 > `PLAYGROUND_PIPELINE`（含每 step 的 hooks）`registry.register(...)` 到 `MissionPipelineRegistry`。
-> 新增一个 stage = ①写 stage 函数 ②在 pipeline.steps 声明 step ③在 orchestrator 加 hook builder 分支。
+> 新增一个 stage = ①写 stage 函数 ②在 `playground.config.ts` 的 pipeline.steps 声明 step ③在 orchestrator 加 hook builder 分支。
 
 ### ① 必改/新建文件
 
-1. 新建 `mission/pipeline/stages/sN-<desc>.stage.ts` —— 导出 `runXxxStage(ctx, deps, ...)` 纯函数。
-2. 改 `runtime/playground.config.ts` —— 在 `PLAYGROUND_PIPELINE.steps` 加一个 step（含 `primitive` / `id` / `dag`）。
-3. 改 `mission/pipeline/playground-business-orchestrator.service.ts` ——
+1. 新建 `backend/src/modules/ai-app/playground/mission/pipeline/stages/sN-<desc>.stage.ts` —— 导出 `runXxxStage(ctx, deps, ...)` 纯函数。
+2. 改 `backend/src/modules/ai-app/playground/runtime/playground.config.ts` —— 在 `PLAYGROUND_PIPELINE.steps` 加一个 step（含 `primitive` / `id` / `dag`）。
+3. 改 `backend/src/modules/ai-app/playground/mission/pipeline/playground-business-orchestrator.service.ts` ——
    在 `buildHooksForStep` 加 `if (stepId === "sN-xxx") return this.buildSNHooks();` + 实现 `buildSNHooks()`，
    并在 `STAGE_NUMBER` 加序号。
 
@@ -527,19 +527,19 @@ private buildMyStageHooks(): ResolvedStageHooks {
 
 ## 参考实现索引（已 Read 核对）
 
-| 配方          | 参考文件（绝对路径）                                                                                                                                                                            |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Agent         | `backend/src/modules/ai-app/topic-insights/agents/topic-insights.agent.ts`                                                                                                                      |
-| Agent 注册    | `backend/src/modules/ai-app/topic-insights/topic-insights.module.ts`（`onModuleInit`: `agentRegistry.register`）                                                                                |
-| Team 配置     | `backend/src/modules/ai-app/topic-insights/teams/topic-insights-team.config.ts`                                                                                                                 |
-| Team 注册     | `backend/src/modules/ai-app/topic-insights/topic-insights.module.ts`（`onModuleInit`: `teamRegistry.registerConfig`）                                                                           |
-| Skill         | `backend/src/modules/ai-app/office/slides/skills/content-compression.skill.ts`                                                                                                                  |
-| Skill 注册    | `backend/src/modules/ai-app/office/slides/skills/slides-skills.module.ts`（`onModuleInit`: `skillRegistry.register`）                                                                           |
-| Tool          | `backend/src/modules/ai-engine/tools/categories/information/jobs/job-search.tool.ts`                                                                                                            |
-| Tool 注册     | `backend/src/modules/ai-engine/tools/tools.provider.ts`（`ALL_TOOL_CLASSES`）+ `backend/src/modules/ai-engine/ai-engine.module.ts`（遍历 `ALL_TOOLS_TOKEN` 调 `toolRegistry.register`）         |
-| Mission-Stage | `backend/src/modules/ai-app/agent-playground/mission/pipeline/stages/s1-mission-estimate-budget.stage.ts`                                                                                       |
-| Pipeline 声明 | `backend/src/modules/ai-app/agent-playground/runtime/playground.config.ts`（`PLAYGROUND_PIPELINE`）                                                                                             |
-| Stage 挂载    | `backend/src/modules/ai-app/agent-playground/mission/pipeline/playground-business-orchestrator.service.ts`（`buildHooksForStep`）+ `.../pipeline/playground.pipeline.ts`（`registry.register`） |
+| 配方          | 参考文件（绝对路径）                                                                                                                                                                      |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agent         | `backend/src/modules/ai-app/insight/agents/topic-insights.agent.ts`                                                                                                                       |
+| Agent 注册    | `backend/src/modules/ai-app/insight/topic-insights.module.ts`（`onModuleInit`: `agentRegistry.register`）                                                                                 |
+| Team 配置     | `backend/src/modules/ai-app/insight/teams/topic-insights-team.config.ts`                                                                                                                  |
+| Team 注册     | `backend/src/modules/ai-app/insight/topic-insights.module.ts`（`onModuleInit`: `teamRegistry.registerConfig`）                                                                            |
+| Skill         | `backend/src/modules/ai-app/office/slides/skills/content-compression.skill.ts`                                                                                                            |
+| Skill 注册    | `backend/src/modules/ai-app/office/slides/skills/slides-skills.module.ts`（`onModuleInit`: `skillRegistry.register`）                                                                     |
+| Tool          | `backend/src/modules/ai-engine/tools/categories/information/jobs/job-search.tool.ts`                                                                                                      |
+| Tool 注册     | `backend/src/modules/ai-engine/tools/tools.provider.ts`（`ALL_TOOL_CLASSES`）+ `backend/src/modules/ai-engine/ai-engine.module.ts`（遍历 `ALL_TOOLS_TOKEN` 调 `toolRegistry.register`）   |
+| Mission-Stage | `backend/src/modules/ai-app/playground/mission/pipeline/stages/s1-mission-estimate-budget.stage.ts`                                                                                       |
+| Pipeline 声明 | `backend/src/modules/ai-app/playground/runtime/playground.config.ts`（`PLAYGROUND_PIPELINE`）                                                                                             |
+| Stage 挂载    | `backend/src/modules/ai-app/playground/mission/pipeline/playground-business-orchestrator.service.ts`（`buildHooksForStep`）+ `.../pipeline/playground.pipeline.ts`（`registry.register`） |
 
 ---
 

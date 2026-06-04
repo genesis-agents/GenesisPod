@@ -1,6 +1,6 @@
 # notifications
 
-> `ai-infra/notifications` 负责通用通知内核，以及受控的预置通知模板。
+> `platform/notifications` 负责通用通知内核，以及受控的预置通知模板。
 
 ## 结构
 

@@ -24,7 +24,7 @@
 - **不承载 engine 原子能力**：单次 LLM、单次 tool、单 skill execute 都在 L2 ai-engine
 - **不承载 app 业务流程**：mission 业务脚本归 L3 ai-app
 - 一切对外消费走 `ai-harness/facade`
-- 依赖方向：`ai-app → ai-harness → ai-engine → ai-infra`，禁止反向
+- 依赖方向：`ai-app → ai-harness → ai-engine → platform`，禁止反向
 
 ## benchmark Agent Team 沉淀拓扑
 
@@ -46,6 +46,15 @@ re-export 的逻辑分区参考,不是直接 import 子路径授权。
 | Mission / multi-agent team | L2.5 harness |
 | Tool 调用                  | L2 ai-engine |
 | ToolInvoker（agent 视角）  | L2.5 harness |
+
+## 跨聚合能力文档簇
+
+| 能力簇            | 目录                                                                    | 说明                                                                                              |
+| ----------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Coding Agent      | [`coding-agent/`](coding-agent/coding-agent-feasibility-and-roadmap.md) | 编码 agent 可行性与路线                                                                           |
+| 全自驱 Agent Team | [`self-driven-team/`](self-driven-team/README.md)                       | AI 问答伪模型入口 → Harness 自驱交付（横跨 teams/evaluation/lifecycle/protocols/runner + engine） |
+
+> 能力簇 = 横跨多个聚合的端到端能力，不与任何单一聚合名重叠（MECE 合规）。
 
 ## 子目录说明
 

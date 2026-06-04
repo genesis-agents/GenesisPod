@@ -7,8 +7,10 @@
 依赖方向严格单向：
 
 ```text
-ai-app -> ai-harness -> ai-engine -> ai-infra
+ai-app -> ai-harness -> ai-engine -> platform
 ```
+
+（`platform` 是 L1 真实目录名，旧称 `ai-infra`；路径为 `modules/platform/`）
 
 判断口径：
 
@@ -57,7 +59,7 @@ ai-harness/
 
 ## benchmark Agent Team 沉淀拓扑
 
-新 MissionPipeline 派 team(`agent-playground` / `writing-team` / 未来 `debate-team`
+新 MissionPipeline 派 team(`playground` / `writing-team` / 未来 `debate-team`
 / `planning-team` 等)拷贝时的 canonical reference:
 
 - 架构文档:[`docs/architecture/ai-harness/facade/sediment-topology.md`](../../../../docs/architecture/ai-harness/facade/sediment-topology.md)

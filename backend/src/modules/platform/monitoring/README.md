@@ -1,6 +1,6 @@
 # monitoring
 
-> `ai-infra/monitoring` 仅保留运行观测能力，不承载数据库保留/清理治理。
+> `platform/monitoring` 仅保留运行观测能力，不承载数据库保留/清理治理。
 
 ## 结构
 
@@ -28,4 +28,4 @@ monitoring/
   - table cleanup
   - retention policy scheduling
 
-这些能力已归位到 `ai-infra/db-governance/`。
+这些能力已归位到 `platform/db-ops/`（真实路径 `modules/platform/db-ops/`）。

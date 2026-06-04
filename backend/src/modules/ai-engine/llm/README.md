@@ -18,4 +18,4 @@
   - 顶层 `credentials/` 回流
   - agent loop / mission / session 编排
 
-`credentials/` 是 `ai-infra` 边界；这里只保留 LLM 配套能力。
+`credentials/` 的边界归 `platform`（L1，真实目录 `modules/platform/credentials/`）；这里只保留 LLM 配套能力。

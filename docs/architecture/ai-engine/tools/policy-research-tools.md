@@ -447,7 +447,7 @@ const DIMENSION_OUTLINE_PROMPT = `
 
 ### 7.1 工具定义更新
 
-**修改文件:** `backend/src/modules/ai-infra/admin/capabilities-admin.service.ts`
+**修改文件:** `backend/src/modules/platform/admin/capabilities-admin.service.ts`
 
 在 `getToolDefinitions()` 方法中添加：
 
@@ -600,7 +600,7 @@ const DIMENSION_OUTLINE_PROMPT = `
 | **新建** | `backend/src/modules/ai-engine/tools/categories/information/policy/congress-gov.tool.ts`     |
 | **新建** | `backend/src/modules/ai-engine/tools/categories/information/policy/whitehouse-news.tool.ts`  |
 | **修改** | `backend/src/modules/ai-engine/ai-engine.module.ts`                                          |
-| **修改** | `backend/src/modules/ai-infra/admin/capabilities-admin.service.ts`                           |
+| **修改** | `backend/src/modules/platform/admin/capabilities-admin.service.ts`                           |
 | **修改** | `backend/src/modules/ai-app/research/topic-research/services/research-leader.service.ts`     |
 | **修改** | `frontend/components/admin/ToolsManagement.tsx`                                              |
 | **修改** | `frontend/lib/i18n/locales/en.json`                                                          |

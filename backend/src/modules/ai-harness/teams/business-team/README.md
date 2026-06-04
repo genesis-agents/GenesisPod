@@ -1,8 +1,8 @@
 # BusinessAgentTeam Framework
 
 > Long-running mission lifecycle 框架（heartbeat / rerun / event relay / store contract），
-> 支撑 `ai-app/agent-playground` 这类 SOTA 多 stage Agent 团队。
-> 反向迁移目标：`ai-app/research`、`ai-app/writing`、`ai-app/topic-insights` 等。
+> 支撑 `ai-app/playground` 这类 SOTA 多 stage Agent 团队。
+> 反向迁移目标：`ai-app/research`、`ai-app/writing`、`ai-app/insight` 等。
 
 ## 文件结构（蓝图 §8.1，2026-05-24 P8 整理后）
 
@@ -112,7 +112,7 @@ class ResearchRerunGuard implements IBusinessRerunGuard {
 ### 单向依赖
 
 ```
-ai-app/agent-playground        ← 业务实现（reference）
+ai-app/playground              ← 业务实现（reference）
    ↓ uses
 ai-harness/teams/business-team ← framework + 接口
    ↓ uses
@@ -143,4 +143,4 @@ zombieDetected 判定，9-cell 矩阵语义全 framework 集中管理。
 | E3   | 2026-05-08 | rerun guard 9-cell 纯函数 + 接口（YAGNI: ctx-hydrator / dispatcher 跳过）            | a1e18f5d3   |
 | E4   | 2026-05-08 | BusinessAgentTeamSpec 聚合接口 + README（NestJS DI 完成装配）                        | (本 commit) |
 | E5   | -          | 邻居业务（research / writing / TI）反向迁移（用户决策：先做实 playground，邻居延后） | -           |
-| E6   | TBD        | 软 rename agent-playground → playground                                              | -           |
+| E6   | 2026-06    | rename 完成：后端模块统一为 `playground`，前端路由/组件目录保留 `agent-playground`   | -           |

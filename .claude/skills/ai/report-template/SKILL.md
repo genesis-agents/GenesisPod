@@ -72,7 +72,7 @@ backend/src/modules/ai-app/shared/report-template/    # Shared module
 │   └── report-formatting.utils.ts     # L2: 后处理函数 (40+)
 └── index.ts                           # barrel export
 
-backend/src/modules/ai-app/topic-insights/             # Consumer (business logic)
+backend/src/modules/ai-app/insight/             # Consumer (business logic，后端模块目录，前端路由为 ai-insights)
 ├── services/report/
 │   └── report-assembler.service.ts    # L2: 管线编排 (imports from shared)
 

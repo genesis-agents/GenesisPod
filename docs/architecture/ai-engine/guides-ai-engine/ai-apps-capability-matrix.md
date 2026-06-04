@@ -20,20 +20,20 @@
 
 ## 能力矩阵
 
-| App 模块       | LLM Chat | LLM Stream | LLM Structured | Skills | Tools | Teams/Agents | RAG/Search | Memory | Image Gen | MCP | Long Content | Model Select |
-| -------------- | :------: | :--------: | :------------: | :----: | :---: | :----------: | :--------: | :----: | :-------: | :-: | :----------: | :----------: |
-| Research       |    ✅    |     ✅     |       ✅       |   ✅   |   —   |      ✅      |     ✅     |   ✅   |     —     |  —  |      —       |      ✅      |
-| Teams          |    ✅    |     ✅     |       ✅       |   ✅   |  ✅   |      ✅      |     ✅     |   ✅   |     —     |  —  |      ✅      |      ✅      |
-| Writing        |    ✅    |     ✅     |       ✅       |   ✅   |   —   |      ✅      |     ✅     |   ✅   |     —     |  —  |      ✅      |      ✅      |
-| Office         |    ✅    |     ✅     |       ✅       |   ✅   |   —   |      ✅      |     —      |   —    |    ✅     |  —  |      —       |      ✅      |
-| Ask            |    ✅    |     ✅     |       —        |   —    |  ✅   |      —       |     ✅     |   ✅   |     —     |  —  |      —       |      ✅      |
-| Social         |    ✅    |     —      |       ✅       |   —    |   —   |      —       |     —      |   —    |     —     | ✅  |      —       |      ✅      |
-| Image          |    ✅    |     —      |       —        |   —    |   —   |      ✅      |     —      |   —    |    ✅     |  —  |      —       |      ✅      |
-| Coding         |    —     |     —      |       —        |   —    |   —   |      —       |     —      |   —    |     —     |  —  |      —       |      —       |
-| Simulation     |    ✅    |     —      |       ✅       |   —    |   —   |      —       |     —      |   —    |     —     |  —  |      —       |      ✅      |
-| Planning       |    ✅    |     —      |       ✅       |   —    |   —   |      ✅      |     —      |   —    |     —     |  —  |      —       |      ✅      |
-| Topic-Insights |    ✅    |     ✅     |       ✅       |   ✅   |  ✅   |      —       |     ✅     |   ✅   |     —     |  —  |      ✅      |      ✅      |
-| RAG（业务层）  |    —     |     —      |       —        |   —    |   —   |      —       |     ✅     |   —    |     —     |  —  |      —       |      —       |
+| App 模块      | LLM Chat | LLM Stream | LLM Structured | Skills | Tools | Teams/Agents | RAG/Search | Memory | Image Gen | MCP | Long Content | Model Select |
+| ------------- | :------: | :--------: | :------------: | :----: | :---: | :----------: | :--------: | :----: | :-------: | :-: | :----------: | :----------: |
+| Research      |    ✅    |     ✅     |       ✅       |   ✅   |   —   |      ✅      |     ✅     |   ✅   |     —     |  —  |      —       |      ✅      |
+| Teams         |    ✅    |     ✅     |       ✅       |   ✅   |  ✅   |      ✅      |     ✅     |   ✅   |     —     |  —  |      ✅      |      ✅      |
+| Writing       |    ✅    |     ✅     |       ✅       |   ✅   |   —   |      ✅      |     ✅     |   ✅   |     —     |  —  |      ✅      |      ✅      |
+| Office        |    ✅    |     ✅     |       ✅       |   ✅   |   —   |      ✅      |     —      |   —    |    ✅     |  —  |      —       |      ✅      |
+| Ask           |    ✅    |     ✅     |       —        |   —    |  ✅   |      —       |     ✅     |   ✅   |     —     |  —  |      —       |      ✅      |
+| Social        |    ✅    |     —      |       ✅       |   —    |   —   |      —       |     —      |   —    |     —     | ✅  |      —       |      ✅      |
+| Image         |    ✅    |     —      |       —        |   —    |   —   |      ✅      |     —      |   —    |    ✅     |  —  |      —       |      ✅      |
+| Coding        |    —     |     —      |       —        |   —    |   —   |      —       |     —      |   —    |     —     |  —  |      —       |      —       |
+| Simulation    |    ✅    |     —      |       ✅       |   —    |   —   |      —       |     —      |   —    |     —     |  —  |      —       |      ✅      |
+| Planning      |    ✅    |     —      |       ✅       |   —    |   —   |      ✅      |     —      |   —    |     —     |  —  |      —       |      ✅      |
+| Insight       |    ✅    |     ✅     |       ✅       |   ✅   |  ✅   |      —       |     ✅     |   ✅   |     —     |  —  |      ✅      |      ✅      |
+| RAG（业务层） |    —     |     —      |       —        |   —    |   —   |      —       |     ✅     |   —    |     —     |  —  |      —       |      —       |
 
 ---
 
@@ -148,7 +148,7 @@
 | Teams/Agents   | `AIEngineFacade.startTeamMission()` |
 | Model Select   | `AIEngineFacade.selectModel()`      |
 
-### Topic-Insights (`ai-app/topic-insights/`)
+### Insight (`ai-app/insight/`)
 
 | 能力           | 访问路径                                            |
 | -------------- | --------------------------------------------------- |

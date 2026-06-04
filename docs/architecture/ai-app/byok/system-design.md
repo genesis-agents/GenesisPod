@@ -900,39 +900,39 @@ ModelResolver.listEnabledModels({
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                     AI Infra                                │
-│  ├─ user-api-keys/       (个人 Key)                         │
-│  ├─ distributable-keys/  ← 新增（分发 Key 池）              │
-│  ├─ key-assignments/     ← 新增（分配关系）                 │
-│  ├─ key-requests/        ← 新增（申请工单）                 │
-│  ├─ key-resolver/        ← 新增（统一解析）                 │
-│  ├─ encryption/          ← 新增（独立加密工具）             │
-│  ├─ secrets/             (系统 Key)                         │
-│  └─ credits/             (成本记录)                         │
+│               Platform / L1 基础设施                        │
+│  ├─ credentials/user-api-keys/  (个人 Key)                  │
+│  ├─ credentials/distributable-keys/  ← 新增（分发 Key 池）  │
+│  ├─ credentials/key-assignments/     ← 新增（分配关系）      │
+│  ├─ credentials/key-requests/        ← 新增（申请工单）      │
+│  ├─ credentials/key-resolver/        ← 新增（统一解析）      │
+│  ├─ credentials/encryption/          ← 新增（独立加密工具）  │
+│  ├─ credentials/secrets/             (系统 Key)             │
+│  └─ credits/                         (成本记录)             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### 6.2 新增模块清单
 
-| 模块                 | 路径                                               | 职责                                                       |
-| -------------------- | -------------------------------------------------- | ---------------------------------------------------------- |
-| `encryption`         | `backend/src/modules/ai-infra/encryption/`         | 统一 AES-256-CBC 加密服务（提取自 UserApiKeys 和 Secrets） |
-| `key-resolver`       | `backend/src/modules/ai-infra/key-resolver/`       | 统一 Key 解析：Personal → Assigned → System（按角色）      |
-| `distributable-keys` | `backend/src/modules/ai-infra/distributable-keys/` | 管理员维护的可分发 Key 池                                  |
-| `key-assignments`    | `backend/src/modules/ai-infra/key-assignments/`    | 分发 Key 与用户的分配关系 + 配额管理                       |
-| `key-requests`       | `backend/src/modules/ai-infra/key-requests/`       | 用户申请工单                                               |
+| 模块                 | 路径                                                           | 职责                                                       |
+| -------------------- | -------------------------------------------------------------- | ---------------------------------------------------------- |
+| `encryption`         | `backend/src/modules/platform/credentials/encryption/`         | 统一 AES-256-CBC 加密服务（提取自 UserApiKeys 和 Secrets） |
+| `key-resolver`       | `backend/src/modules/platform/credentials/key-resolver/`       | 统一 Key 解析：Personal → Assigned → System（按角色）      |
+| `distributable-keys` | `backend/src/modules/platform/credentials/distributable-keys/` | 管理员维护的可分发 Key 池                                  |
+| `key-assignments`    | `backend/src/modules/platform/credentials/key-assignments/`    | 分发 Key 与用户的分配关系 + 配额管理                       |
+| `key-requests`       | `backend/src/modules/platform/credentials/key-requests/`       | 用户申请工单                                               |
 
 ### 6.3 改造模块清单
 
-| 模块                                                          | 改造内容                                            |
-| ------------------------------------------------------------- | --------------------------------------------------- |
-| `ai-engine/llm/ai-chat.service.ts`                            | 移除 Path A/B 分支，统一走 KeyResolver              |
-| `ai-engine/llm/ai-model-config.service.ts`                    | `resolveApiKey` 废弃，替换为 KeyResolver            |
-| `ai-engine/facade/model-resolver.service.ts`                  | 新增 `availableProviders` 过滤参数                  |
-| `ai-engine/orchestration/intelligent-model-router.service.ts` | strategy 增加 `availableProviders`                  |
-| `ai-infra/user-api-keys/user-api-keys.service.ts`             | 停写 donation 字段 + 新增 `getAvailableProviders()` |
-| `ai-infra/user-api-keys/user-api-keys.controller.ts`          | 删除 donate/withdraw 端点 + 新增 test 端点          |
-| `ai-kernel/observability/cost-attribution.service.ts`         | `CostEvent` 增加 `apiKeySource` 字段                |
+| 模块                                                                         | 改造内容                                            |
+| ---------------------------------------------------------------------------- | --------------------------------------------------- |
+| `ai-engine/llm/ai-chat.service.ts`                                           | 移除 Path A/B 分支，统一走 KeyResolver              |
+| `ai-engine/llm/ai-model-config.service.ts`                                   | `resolveApiKey` 废弃，替换为 KeyResolver            |
+| `ai-engine/facade/model-resolver.service.ts`                                 | 新增 `availableProviders` 过滤参数                  |
+| `ai-engine/routing/intelligent-model-router.service.ts`                      | strategy 增加 `availableProviders`                  |
+| `platform/credentials/user-api-keys/user-api-keys.service.ts`                | 停写 donation 字段 + 新增 `getAvailableProviders()` |
+| `platform/credentials/user-api-keys/user-api-keys.controller.ts`             | 删除 donate/withdraw 端点 + 新增 test 端点          |
+| `ai-harness/tracing/cost-attribution.service.ts`（或 ai-engine/llm/billing） | `CostEvent` 增加 `apiKeySource` 字段                |
 
 ---
 
@@ -1204,7 +1204,7 @@ UPDATE "users" SET "byok_onboarded_at" = "created_at" WHERE "byok_onboarded_at" 
 
 ### 8.1 `EncryptionService`（新增）
 
-**路径**: `backend/src/modules/ai-infra/encryption/encryption.service.ts`
+**路径**: `backend/src/modules/platform/credentials/encryption/encryption.service.ts`
 
 ```typescript
 @Injectable()
@@ -1258,7 +1258,7 @@ export class EncryptionService {
 
 ### 8.2 `KeyResolverService`（新增，核心）
 
-**路径**: `backend/src/modules/ai-infra/key-resolver/key-resolver.service.ts`
+**路径**: `backend/src/modules/platform/credentials/key-resolver/key-resolver.service.ts`
 
 ```typescript
 export type KeySource = "PERSONAL" | "ASSIGNED" | "SYSTEM";
@@ -1401,7 +1401,7 @@ export class KeyResolverService {
 
 ### 8.3 `DistributableKeysService`
 
-**路径**: `backend/src/modules/ai-infra/distributable-keys/distributable-keys.service.ts`
+**路径**: `backend/src/modules/platform/credentials/distributable-keys/distributable-keys.service.ts`
 
 ```typescript
 @Injectable()
@@ -1476,7 +1476,7 @@ export class DistributableKeysService {
 
 ### 8.4 `KeyAssignmentsService`
 
-**路径**: `backend/src/modules/ai-infra/key-assignments/key-assignments.service.ts`
+**路径**: `backend/src/modules/platform/credentials/key-assignments/key-assignments.service.ts`
 
 ```typescript
 @Injectable()
@@ -1617,7 +1617,7 @@ export class KeyAssignmentsService {
 
 ### 8.5 `KeyRequestsService`
 
-**路径**: `backend/src/modules/ai-infra/key-requests/key-requests.service.ts`
+**路径**: `backend/src/modules/platform/credentials/key-requests/key-requests.service.ts`
 
 ```typescript
 @Injectable()
@@ -1990,7 +1990,7 @@ catch (error) {
 
 **任务**：
 
-1. 创建 `backend/src/modules/ai-infra/encryption/` 模块
+1. 创建 `backend/src/modules/platform/credentials/encryption/` 模块
 2. 提取 `UserApiKeysService.encrypt/decrypt` 到 `EncryptionService`
 3. 提取 `SecretsService.encrypt/decrypt` 到 `EncryptionService`
 4. 两个 Service 改为注入 `EncryptionService`
@@ -1998,11 +1998,11 @@ catch (error) {
 
 **文件改动清单**：
 
-- 新增: `backend/src/modules/ai-infra/encryption/encryption.service.ts`
-- 新增: `backend/src/modules/ai-infra/encryption/encryption.module.ts`
-- 改: `backend/src/modules/ai-infra/user-api-keys/user-api-keys.service.ts`（替换加密调用）
-- 改: `backend/src/modules/ai-infra/secrets/secrets.service.ts`（替换加密调用）
-- 改: `backend/src/modules/ai-infra/ai-infra.module.ts`（导出 EncryptionModule）
+- 新增: `backend/src/modules/platform/credentials/encryption/encryption.service.ts`
+- 新增: `backend/src/modules/platform/credentials/encryption/encryption.module.ts`
+- 改: `backend/src/modules/platform/credentials/user-api-keys/user-api-keys.service.ts`（替换加密调用）
+- 改: `backend/src/modules/platform/credentials/secrets/secrets.service.ts`（替换加密调用）
+- 改: `backend/src/modules/platform/platform.module.ts`（导出 EncryptionModule）
 
 **验收**: 现有 UserApiKey 和 Secret 操作不受影响，测试全绿。
 
@@ -2043,16 +2043,16 @@ catch (error) {
 
 **文件改动清单**（关键）：
 
-- 新增: `ai-infra/distributable-keys/`（service, controller, module, dto）
-- 新增: `ai-infra/key-assignments/`（同上）
-- 新增: `ai-infra/key-requests/`（同上）
-- 新增: `ai-infra/key-resolver/key-resolver.service.ts`
+- 新增: `platform/credentials/distributable-keys/`（service, controller, module, dto）
+- 新增: `platform/credentials/key-assignments/`（同上）
+- 新增: `platform/credentials/key-requests/`（同上）
+- 新增: `platform/credentials/key-resolver/key-resolver.service.ts`
 - 改: `ai-engine/llm/services/ai-chat.service.ts`
 - 改: `ai-engine/facade/model-resolver.service.ts`
 - 改: `ai-engine/llm/services/ai-api-caller.service.ts`
-- 改: `ai-engine/orchestration/services/intelligent-model-router.service.ts`
-- 改: `ai-infra/user-api-keys/user-api-keys.service.ts`
-- 改: `ai-kernel/observability/cost-attribution.service.ts`
+- 改: `ai-engine/routing/services/intelligent-model-router.service.ts`（routing 子模块，非 orchestration）
+- 改: `platform/credentials/user-api-keys/user-api-keys.service.ts`
+- 改: `ai-harness/tracing/cost-attribution.service.ts`（或 ai-engine/llm/billing；原 ai-kernel 已移除）
 
 **验收**: 单元测试覆盖 KeyResolver 全部分支，集成测试 AiChatService 能正确解析 Key。
 
@@ -2080,7 +2080,7 @@ catch (error) {
 
 **任务**：
 
-1. 审计所有 `@Processor` 类：research / topic-insights / social-publish / 其他
+1. 审计所有 `@Processor` 类：research / insight / social-publish / 其他（后端模块目录名）
 2. 每个 Worker 入口包裹 `RequestContext.run({ userId: job.data.userId })`
 3. 每个 Queue 入队处校验 `userId` 必填（Service 层 throw）
 4. 新增 `docs/development/async-task-userId-guide.md`
@@ -2525,21 +2525,21 @@ catch (error) {
 
 ### 附录 C：参考代码位置
 
-| 主题            | 参考文件                                                                      |
-| --------------- | ----------------------------------------------------------------------------- |
-| 加密一致性      | `backend/src/modules/ai-infra/secrets/secrets.service.ts:608-636`             |
-| 缓存模式        | `backend/src/modules/ai-infra/user-api-keys/user-api-keys.service.ts:440-486` |
-| AdminGuard 用法 | `backend/src/modules/ai-infra/secrets/secrets.controller.ts:1-30`             |
-| RequestContext  | `backend/src/common/context/request-context.ts`                               |
-| Provider 抽象   | `backend/src/common/ai-orchestration/providers/`                              |
-| 审计日志模式    | `backend/src/modules/ai-infra/secrets/secrets.service.ts` (logAccess)         |
-| 手写迁移示例    | `backend/prisma/migrations/*/migration.sql`                                   |
-| AdminPageLayout | `frontend/components/admin/layout/AdminPageLayout.tsx`                        |
-| SecretForm 参考 | `frontend/components/admin/secrets/SecretForm.tsx`                            |
-| Modal 组件      | `frontend/components/ui/dialogs/Modal.tsx`                                    |
-| useApiGet/Post  | `frontend/hooks/core/useApi.ts`                                               |
-| Toast           | `frontend/stores/core/toastStore.ts`                                          |
-| i18n            | `frontend/lib/i18n/i18n-context.tsx`                                          |
+| 主题            | 参考文件                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------------- |
+| 加密一致性      | `backend/src/modules/platform/credentials/secrets/secrets.service.ts:608-636`             |
+| 缓存模式        | `backend/src/modules/platform/credentials/user-api-keys/user-api-keys.service.ts:440-486` |
+| AdminGuard 用法 | `backend/src/modules/platform/credentials/secrets/secrets.controller.ts:1-30`             |
+| RequestContext  | `backend/src/common/context/request-context.ts`                                           |
+| Provider 抽象   | `backend/src/common/ai-orchestration/providers/`                                          |
+| 审计日志模式    | `backend/src/modules/platform/credentials/secrets/secrets.service.ts` (logAccess)         |
+| 手写迁移示例    | `backend/prisma/migrations/*/migration.sql`                                               |
+| AdminPageLayout | `frontend/components/admin/layout/AdminPageLayout.tsx`                                    |
+| SecretForm 参考 | `frontend/components/admin/secrets/SecretForm.tsx`                                        |
+| Modal 组件      | `frontend/components/ui/dialogs/Modal.tsx`                                                |
+| useApiGet/Post  | `frontend/hooks/core/useApi.ts`                                                           |
+| Toast           | `frontend/stores/core/toastStore.ts`                                                      |
+| i18n            | `frontend/lib/i18n/i18n-context.tsx`                                                      |
 
 ### 附录 D：Agent 实施指引
 
