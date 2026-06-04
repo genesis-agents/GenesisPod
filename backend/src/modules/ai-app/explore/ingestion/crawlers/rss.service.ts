@@ -593,13 +593,16 @@ export class RssService {
     let pdfUrl: string | null = null;
     const sourceUrl = this.deduplication.normalizeUrl(item.link!);
 
-    if (sourceUrl.includes("arxiv.org/abs/")) {
+    const isArxivItem = sourceUrl.includes("arxiv.org/abs/");
+    if (isArxivItem) {
       pdfUrl = sourceUrl.replace("/abs/", "/pdf/");
       this.logger.log(`Extracted arXiv PDF URL: ${pdfUrl}`);
     }
 
     return {
-      type: category as ResourceType,
+      // arXiv 预印本即便经 POLICY/BLOG 等源的 RSS 聚合而来（AI 安全/政策机构常转发
+      // arXiv 论文），也必须按条目真实属性归 PAPER，而非沿用源的类目（否则论文落到「政策」tab）
+      type: (isArxivItem ? "PAPER" : category) as ResourceType,
 
       // 基础信息
       title: item.title!,

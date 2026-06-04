@@ -126,6 +126,30 @@ describe("RssService", () => {
       );
     });
 
+    it("types arXiv items as PAPER even from a POLICY-category feed", async () => {
+      // AI 安全/政策机构的 RSS 常转发 arXiv 论文；它们必须归 PAPER 而非源类目 POLICY
+      mockParseURL.mockResolvedValue({
+        title: "CAIS Feed",
+        link: "https://safe.ai",
+        items: [
+          {
+            title: "Benchmarking OOD Alignment Failure in LLMs",
+            link: "https://arxiv.org/abs/2605.21602",
+            guid: "arxiv-2605.21602",
+            isoDate: "2026-05-25T00:00:00.000Z",
+          },
+        ],
+      });
+
+      await service.fetchRssFeed("https://safe.ai/feed.rss", 50, "POLICY");
+
+      expect(mockPrisma.resource.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ type: "PAPER" }),
+        }),
+      );
+    });
+
     it("counts URL duplicates when resource already exists", async () => {
       mockParseURL.mockResolvedValue({
         title: "Test Feed",
