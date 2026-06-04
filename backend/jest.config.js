@@ -85,6 +85,16 @@ module.exports = {
       lines: 85,
       statements: 85,
     },
+    // platform（L1 基础设施）守门：当前实测约 lines ~80 / stmts ~78 / funcs ~73 /
+    // branches ~68（resilience + handlebars-renderer 补测后）。阈值设在实测值下方
+    // 锁基线 —— 只防回退（新增未测代码会被拦），不强求与 harness/engine 同档 85%
+    // （credentials/storage 等大块业务服务尚在渐进补测）。
+    "./src/modules/platform/": {
+      branches: 65,
+      functions: 70,
+      lines: 78,
+      statements: 76,
+    },
   },
 
   // 覆盖率报告格式
