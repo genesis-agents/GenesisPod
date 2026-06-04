@@ -59,7 +59,7 @@ export enum NotificationTypeDto {
 }
 
 /**
- * 创建通知 DTO
+ * 创建通知 DTO（内部使用，platform service 边界）
  */
 export class CreateNotificationDto {
   @ApiProperty({ description: "接收通知的用户ID" })
@@ -110,43 +110,7 @@ export class CreateNotificationDto {
 }
 
 /**
- * 批量创建通知 DTO
- */
-export class BatchCreateNotificationDto {
-  @ApiProperty({ description: "接收通知的用户ID列表" })
-  @IsUUID("4", { each: true })
-  userIds!: string[];
-
-  @ApiProperty({ enum: NotificationTypeDto, description: "通知类型" })
-  @IsEnum(NotificationTypeDto)
-  type!: NotificationTypeDto;
-
-  @ApiProperty({ description: "通知标题" })
-  @IsString()
-  title!: string;
-
-  @ApiProperty({ description: "通知内容" })
-  @IsString()
-  message!: string;
-
-  @ApiPropertyOptional({ description: "操作链接" })
-  @IsOptional()
-  @IsString()
-  actionUrl?: string;
-
-  @ApiPropertyOptional({ description: "操作按钮文字" })
-  @IsOptional()
-  @IsString()
-  actionLabel?: string;
-
-  @ApiPropertyOptional({ description: "元数据" })
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, unknown>;
-}
-
-/**
- * 更新通知偏好 DTO
+ * 更新通知偏好 DTO（platform service 边界；open-api controller 也消费）
  */
 export class UpdateNotificationPreferenceDto {
   @ApiPropertyOptional({ description: "是否启用邮件通知" })
@@ -201,27 +165,37 @@ export class UpdateNotificationPreferenceDto {
 }
 
 /**
- * 查询通知列表参数
+ * 批量创建通知 DTO（内部使用，platform service 边界）
  */
-export class GetNotificationsQueryDto {
-  @ApiPropertyOptional({ description: "页码", default: 1 })
-  @IsOptional()
-  page?: number;
+export class BatchCreateNotificationDto {
+  @ApiProperty({ description: "接收通知的用户ID列表" })
+  @IsUUID("4", { each: true })
+  userIds!: string[];
 
-  @ApiPropertyOptional({ description: "每页数量", default: 20 })
-  @IsOptional()
-  limit?: number;
-
-  @ApiPropertyOptional({
-    enum: NotificationTypeDto,
-    description: "通知类型过滤",
-  })
-  @IsOptional()
+  @ApiProperty({ enum: NotificationTypeDto, description: "通知类型" })
   @IsEnum(NotificationTypeDto)
-  type?: NotificationTypeDto;
+  type!: NotificationTypeDto;
 
-  @ApiPropertyOptional({ description: "是否已读" })
+  @ApiProperty({ description: "通知标题" })
+  @IsString()
+  title!: string;
+
+  @ApiProperty({ description: "通知内容" })
+  @IsString()
+  message!: string;
+
+  @ApiPropertyOptional({ description: "操作链接" })
   @IsOptional()
-  @IsBoolean()
-  read?: boolean;
+  @IsString()
+  actionUrl?: string;
+
+  @ApiPropertyOptional({ description: "操作按钮文字" })
+  @IsOptional()
+  @IsString()
+  actionLabel?: string;
+
+  @ApiPropertyOptional({ description: "元数据" })
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
 }

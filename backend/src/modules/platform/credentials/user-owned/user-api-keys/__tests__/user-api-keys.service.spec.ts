@@ -18,7 +18,7 @@ import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../../../../platform/credentials/storage/encryption/encryption.service";
 import { ProviderProbeService } from "@/modules/platform/credentials/governance/key-health/provider-probe.service";
 import { UserApiKeyMode } from "@prisma/client";
-import { ApiKeyMode } from "../dto";
+import { ApiKeyMode } from "@/modules/open-api/user/byok/dto/user-api-keys.dto";
 
 const buildEncryption = (): EncryptionService =>
   new EncryptionService({

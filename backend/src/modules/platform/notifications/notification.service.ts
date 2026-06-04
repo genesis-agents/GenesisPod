@@ -7,7 +7,7 @@ import {
   BatchCreateNotificationDto,
   UpdateNotificationPreferenceDto,
   NotificationTypeDto,
-} from "./dto/notification.dto";
+} from "./notification.types";
 import { QuietHoursUtil } from "./dispatcher/preferences/quiet-hours.util";
 
 // 用于验证类型的映射

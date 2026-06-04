@@ -8,7 +8,7 @@ import {
   BatchCreateNotificationDto,
   UpdateNotificationPreferenceDto,
   NotificationTypeDto,
-} from "../dto/notification.dto";
+} from "../notification.types";
 
 describe("NotificationService", () => {
   let service: NotificationService;

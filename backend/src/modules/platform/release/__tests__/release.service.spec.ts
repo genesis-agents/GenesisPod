@@ -3,8 +3,8 @@ import { ReleaseService } from "../release.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AI_CHAT_TOKEN } from "../../abstractions/ai-services.interface";
 import { NotificationService } from "../../notifications/notification.service";
-import { NotificationTypeDto } from "../../notifications/dto/notification.dto";
-import { ReleaseInfo } from "../dto/release.dto";
+import { NotificationTypeDto } from "../../notifications/notification.types";
+import { ReleaseInfo } from "../release.types";
 
 // Mock child_process to avoid real git commands
 jest.mock("child_process", () => ({

@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { NotificationService } from "../../notification.service";
-import { NotificationTypeDto } from "../../dto/notification.dto";
+import { NotificationTypeDto } from "../../notification.types";
 import {
   ChannelCapabilities,
   DispatchPayload,

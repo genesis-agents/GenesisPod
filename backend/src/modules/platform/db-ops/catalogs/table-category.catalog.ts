@@ -1,4 +1,4 @@
-import { TableCategory } from "../dto/table-info.dto";
+import { TableCategory } from "../db-ops.types";
 
 export const TABLE_CATEGORIES: Record<string, TableCategory> = {
   // USER category

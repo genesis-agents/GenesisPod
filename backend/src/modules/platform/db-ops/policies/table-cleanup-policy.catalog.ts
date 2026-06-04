@@ -1,4 +1,4 @@
-import { CleanupPolicyDto } from "../dto/table-info.dto";
+import { CleanupPolicyDto } from "../db-ops.types";
 
 export const TABLE_CLEANUP_POLICIES: Record<string, CleanupPolicyDto> = {
   // ==================== LOG tables (high-volume, safe to age-out) ====================

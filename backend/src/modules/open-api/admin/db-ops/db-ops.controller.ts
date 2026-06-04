@@ -21,7 +21,7 @@ import {
   CleanupResultDto,
   TableStatsDto,
   HealthStatus,
-} from "@/modules/platform/db-ops/dto/table-info.dto";
+} from "./dto/table-info.dto";
 
 @ApiTags("Admin - Tables")
 @UseGuards(JwtAuthGuard, AdminGuard)

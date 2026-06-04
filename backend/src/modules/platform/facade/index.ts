@@ -44,7 +44,7 @@ export {
 // ─── Notifications ───
 export { NotificationService } from "../notifications/notification.service";
 export { NotificationPresetsService } from "../notifications/presets/notification-presets.service";
-export { NotificationTypeDto } from "../notifications/dto/notification.dto";
+export { NotificationTypeDto } from "../notifications/notification.types";
 
 // ─── Notification Dispatcher (PR-DR1a/b) ───
 export { NotificationDispatcher } from "../notifications/dispatcher/notification-dispatcher.service";

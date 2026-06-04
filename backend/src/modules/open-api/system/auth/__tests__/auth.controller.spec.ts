@@ -26,9 +26,9 @@ import { ThrottlerModule } from "@nestjs/throttler";
 import { AuthController } from "../auth.controller";
 import { AuthService } from "@/modules/platform/auth/auth.service";
 import { AdminAuthService } from "@/common/services";
-import { RegisterDto } from "@/modules/platform/auth/dto/register.dto";
-import { LoginDto } from "@/modules/platform/auth/dto/login.dto";
-import { UpdateProfileDto } from "@/modules/platform/auth/dto/update-profile.dto";
+import { RegisterDto } from "@/modules/open-api/system/auth/dto/register.dto";
+import { LoginDto } from "@/modules/open-api/system/auth/dto/login.dto";
+import { UpdateProfileDto } from "@/modules/open-api/system/auth/dto/update-profile.dto";
 
 // ---------------------------------------------------------------------------
 // Mock service factories

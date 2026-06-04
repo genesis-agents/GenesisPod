@@ -19,7 +19,7 @@ import {
   ApproveAuthorizationDto,
   CreateAuthorizationRequestDto,
   RejectAuthorizationDto,
-} from "../../../platform/credentials/governance/authorization/dto/authorization.dto";
+} from "./dto/authorization.dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

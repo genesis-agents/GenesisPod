@@ -18,8 +18,8 @@ import { CreditRulesService } from "../policy/credit-rules.service";
 import { AuditLogService } from "../../monitoring/audit/audit-log.service";
 import { InsufficientCreditsException } from "../exceptions/insufficient-credits.exception";
 import { AccountFrozenException } from "../exceptions/insufficient-credits.exception";
-import { ConsumeCreditsParams } from "../dto/consume-credits.dto";
-import { TransactionQueryDto } from "../dto/transaction-query.dto";
+import { ConsumeCreditsParams } from "../credits.types";
+import { TransactionQueryDto } from "../../../open-api/user/credits/dto/transaction-query.dto";
 
 describe("CreditsService", () => {
   let service: CreditsService;

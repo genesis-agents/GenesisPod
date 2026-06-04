@@ -9,13 +9,11 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { EncryptionService } from "@/modules/platform/credentials/storage/encryption/encryption.service";
 import { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
 import { SecretsService } from "@/modules/platform/credentials/storage/secrets/secrets.service";
-import { ApiKeyMode } from "../user-api-keys/dto";
 import {
   CreateUserSecretDto,
   UpdateUserSecretDto,
-  UserSecretListItem,
-  UserSecretSource,
-} from "./dto/user-secret.dto";
+} from "./dto/user-secret-input.dto";
+import { UserSecretListItem, UserSecretSource } from "./user-secrets.types";
 
 /**
  * 2026-05-27 BYOK 全量化：用户私有 Secret 的统一 CRUD。
@@ -144,7 +142,7 @@ export class UserSecretsService {
         userId,
         provider,
         resolvedValue,
-        ApiKeyMode.PERSONAL,
+        "personal",
       );
       // saveKey 返回 { success, mode }，不含 id；用复合唯一键精确回读刚写入的行
       // （复审 Bug 2：findFirst+orderBy 在多 label 并发下可能拿错行，改 findUnique）
@@ -223,7 +221,7 @@ export class UserSecretsService {
           userId,
           key.provider,
           dto.value,
-          ApiKeyMode.PERSONAL,
+          "personal",
           key.preferredModelId ?? undefined,
           key.apiEndpoint ?? undefined,
           key.label,

@@ -41,3 +41,8 @@ export class RevokeAssignmentDto {
   @MaxLength(500)
   reason?: string;
 }
+
+export {
+  ApproveKeyRequestDto,
+  RejectKeyRequestDto,
+} from "./approve-reject.dto";

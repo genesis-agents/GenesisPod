@@ -30,8 +30,8 @@ import { SecretsController } from "../secrets.controller";
 import { SecretsService } from "@/modules/platform/credentials/storage/secrets/secrets.service";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { AdminGuard } from "@/common/guards/admin.guard";
-import { CreateSecretDto } from "@/modules/platform/credentials/storage/secrets/dto/create-secret.dto";
-import { UpdateSecretDto } from "@/modules/platform/credentials/storage/secrets/dto/update-secret.dto";
+import { CreateSecretDto } from "../dto/create-secret.dto";
+import { UpdateSecretDto } from "../dto/update-secret.dto";
 import { SecretCategory } from "@prisma/client";
 
 // ---------------------------------------------------------------------------

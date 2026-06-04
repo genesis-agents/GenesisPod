@@ -17,12 +17,12 @@ import { CreditRulesService } from "@/modules/platform/credits/policy/credit-rul
 import {
   AdminGrantCreditsDto,
   BatchGrantCreditsDto,
-} from "@/modules/platform/credits/dto/grant-credits.dto";
+} from "./dto/grant-credits.dto";
 import {
   FreezeAccountDto,
   UnfreezeAccountDto,
   UpdateCreditRuleDto,
-} from "@/modules/platform/credits/dto/admin-credits.dto";
+} from "./dto/admin-credits.dto";
 
 /**
  * 管理员积分控制器（standards/24：admin 面唯一收在 open-api/admin/，从 system/credits 拆出）

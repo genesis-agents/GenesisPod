@@ -8,9 +8,12 @@ import {
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../../../platform/credentials/storage/encryption/encryption.service";
-import { CacheService, CachePrefix, CacheTTL } from "../../../../../common/cache";
+import {
+  CacheService,
+  CachePrefix,
+  CacheTTL,
+} from "../../../../../common/cache";
 import { UserApiKeyMode, Prisma } from "@prisma/client";
-import { ApiKeyMode } from "./dto";
 import {
   KeyHealthStore,
   buildPersonalKeyId,
@@ -155,7 +158,7 @@ export class UserApiKeysService {
     userId: string,
     provider: string,
     apiKey: string,
-    mode: ApiKeyMode,
+    mode: string,
     preferredModelId?: string,
     apiEndpoint?: string,
     /** PR-2: 多 key 标签（"default" / "personal-org-a" / "backup"） */

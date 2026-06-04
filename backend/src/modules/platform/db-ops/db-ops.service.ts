@@ -9,19 +9,19 @@ import * as path from "path";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
   TableCategory,
+  HealthStatus,
+  CleanupPolicyDto,
   TableInfoDto,
+  TableColumnDto,
+  TableConstraintDto,
+  DiagnosisIssue,
   TableDetailDto,
   TableDiagnosisDto,
   CleanupResultDto,
   TableStatsDto,
   TableListQueryDto,
   TableListResponseDto,
-  HealthStatus,
-  CleanupPolicyDto,
-  DiagnosisIssue,
-  TableColumnDto,
-  TableConstraintDto,
-} from "./dto/table-info.dto";
+} from "./db-ops.types";
 import { TABLE_CATEGORIES } from "./catalogs/table-category.catalog";
 import { TABLE_DISPLAY_NAMES } from "./catalogs/table-display-name.catalog";
 import { TABLE_CLEANUP_POLICIES } from "./policies/table-cleanup-policy.catalog";

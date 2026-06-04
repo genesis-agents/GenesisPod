@@ -14,7 +14,7 @@ import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { CreditsService } from "@/modules/platform/credits/credits.service";
 import { CheckinService } from "@/modules/platform/credits/rewards/checkin.service";
 import { CreditRulesService } from "@/modules/platform/credits/policy/credit-rules.service";
-import { TransactionQueryDto } from "@/modules/platform/credits/dto/transaction-query.dto";
+import { TransactionQueryDto } from "./dto/transaction-query.dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

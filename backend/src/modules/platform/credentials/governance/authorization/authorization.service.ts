@@ -9,7 +9,7 @@ import {
   ApproveAuthorizationDto,
   CreateAuthorizationRequestDto,
   RejectAuthorizationDto,
-} from "./dto/authorization.dto";
+} from "../../../../open-api/user/byok/dto/authorization.dto";
 
 /**
  * 2026-05-27 BYOK：用户向系统申请授权（工具/技能）+ admin 审批。

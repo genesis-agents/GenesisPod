@@ -10,7 +10,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { SUPPORTED_LOCALES } from "../../../../common/constants/locales";
+import { SUPPORTED_LOCALES } from "@/common/constants/locales";
 
 /**
  * 用户偏好设置 DTO（class 形式，class-validator 才能递归校验 nested object）

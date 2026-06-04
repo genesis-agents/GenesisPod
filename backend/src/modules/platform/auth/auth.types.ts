@@ -1,6 +1,23 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 /**
+ * 用户统计 DTO（内部类型，供 AuthService.getUserStats 返回结构描述使用）
+ */
+export class UserStatsDto {
+  @ApiProperty({ description: "创建的资源数量" })
+  resourcesCount!: number;
+
+  @ApiProperty({ description: "研究项目数量" })
+  researchCount!: number;
+
+  @ApiProperty({ description: "团队数量" })
+  teamsCount!: number;
+
+  @ApiProperty({ description: "上传的文件数量" })
+  uploadsCount!: number;
+}
+
+/**
  * 用户响应 DTO
  */
 export class UserResponseDto {

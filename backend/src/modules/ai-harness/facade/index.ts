@@ -1383,12 +1383,6 @@ export {
   UserApiKeysService,
   KeyResolverService,
   UserModelConfigsService,
-  CreateKeyRequestDto,
-  SaveUserApiKeyDto,
-  ApiKeyMode,
-  TestApiKeyDto,
-  CreateUserModelConfigDto,
-  UpdateUserModelConfigDto,
 } from "../../ai-engine/facade";
 
 /** @deprecated engine 原子能力 —— 从 `@/modules/ai-engine/facade` 导入。harness 仅过渡 re-export。 */
