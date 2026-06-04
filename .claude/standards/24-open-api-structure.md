@@ -1,54 +1,76 @@
 # Open API 目录结构规范（L4 系统/对外 API 网关）
 
-**版本：** 1.0
+**版本：** 2.0（2026-06-03 信任边界 MECE 重组）
 **强制级别：** MUST
 **生效日期：** 2026-06-03
 **维护者：** Claude Code
 **看护：** `backend/src/__tests__/architecture/layer-4-vocabulary/open-api-structure.spec.ts`（进 `verify:arch`）
 
-> 本规范定义 `modules/open-api/`（L4）的子目录划分与命名。与 [16-ai-engine-harness-structure.md](16-ai-engine-harness-structure.md) §一·补·二「App vs System」配套：HTTP 入口只属 L4 open-api 与 L3 ai-app；engine/harness/platform 不开 HTTP（见标准 16 HTTP 看护）。
+> 本规范定义 `modules/open-api/`（L4）的子目录划分与命名。与 [16-ai-engine-harness-structure.md](16-ai-engine-harness-structure.md) 配套：HTTP 入口只属 L4 open-api 与 L3 ai-app；engine/harness/platform 不开 HTTP。
+> 权威迁移图见 [docs/architecture/platform-review/2026-06-03-open-api-recursive-mece-attribution.md](../../docs/architecture/platform-review/2026-06-03-open-api-recursive-mece-attribution.md)。
 
 ---
 
 ## 一、定位
 
-`open-api` = **系统 / 对外 API 网关**。它是**薄 HTTP 层**：controller 只做 HTTP 适配 + 鉴权 + 委派下层 service，**不含业务逻辑**（业务逻辑在 ai-app / ai-engine / ai-harness / platform 的 service 里）。
+`open-api` = **不属于任何单一产品域的 HTTP 边界**。它承载：对第三方/机器的契约、跨域的第一方能力、平台运营与基建握手。它是**薄 HTTP 层**：controller 只做 HTTP 适配 + 鉴权 + 委派下层 service，**不含业务逻辑**（业务在 ai-app / ai-engine / ai-harness / platform 的 service 里）。
 
-## 二、子目录 = API 面（按"谁用 / 什么权限 / 什么范围"划分）
+> **与 ai-app(L3) 的边界（两步 MECE 判据）**：
+>
+> 1. 端点是否属于**恰好一个产品域**（research / writing / teams业务 / ask / image / library / explore / office / social / simulation / topic-insights / ai-planning / radar / agent-playground / custom-agents / feedback）？
+>    - 是 → 归 `ai-app/<该域>`（管理端点即该域的 admin 控制器）。
+> 2. 否（跨域 / 平台级 / engine级 / harness级）→ 归 `open-api`，再按**调用方信任边界**落唯一一个区。
 
-| 目录                            | 放什么                       | 判别                                    | 鉴权信号                         |
-| ------------------------------- | ---------------------------- | --------------------------------------- | -------------------------------- |
-| **admin/**                      | 运维 / 管理端点              | **操作员管平台 / 他人资源**             | `AdminGuard` + `/admin/*` 路由   |
-| **system/**                     | 一方用户的系统服务           | **登录用户管自己**的账户级系统能力      | 用户 `JwtAuthGuard`，非 admin    |
-| **public/**                     | 公开 / 匿名端点              | **任何人可访问**（unsubscribe、公共 AI）| `@Public` / RateLimit            |
-| **a2a/** · **mcp/**             | 机器协议端点                 | **agent / 机器间标准协议**，非人类      | API-key / 协议鉴权               |
-| **agents/ skills/ teams/ ai/**  | 程序化 SDK API               | **第三方 / SDK** 调的资源 API           | API-key / SDK token              |
-| **webhooks/**                   | 入站回调                     | 外部系统**推**进来的事件                | 签名校验                         |
+## 二、顶层 = 单轴「调用方信任边界」（4 区，MECE）
 
-### 三个消歧问句
+| 目录          | 放什么                              | 调用方 / 鉴权                           |
+| ------------- | ----------------------------------- | --------------------------------------- |
+| **external/** | 非第一方的对外契约 / 协议           | 第三方 / 机器，API-key / 协议 / 签名    |
+| **admin/**    | 第一方运营，**仅跨域 / 平台级**治理 | 操作员，`AdminGuard` + `/admin/*`       |
+| **system/**   | 平台基建 / 握手，**零业务**         | 平台自身 / 匿名（auth 握手、metrics）   |
+| **user/**     | 第一方登录用户，**跨域通用能力**    | 登录用户 `JwtAuthGuard`（非单一产品域） |
 
-1. **admin 还是 system？** —— "操作员管别人/平台，还是用户管自己？" 管别人 + AdminGuard + `/admin/*` → **admin/**；管自己 + 用户 jwt → **system/**。
-   （同一资源的管理面与用户面要**拆成两个 controller 类**分别归位，如 `AdminCreditsController`→admin/、`CreditsController`→system/。）
-2. **system 还是 public？** —— "要不要登录？" 要 → system/；匿名 → public/。
-3. **system/admin 还是 sdk？** —— "消费方是浏览器里的人，还是程序/合作方？" 人(jwt) → system/admin；程序(API-key) → agents/skills/teams/ai。
+### 区内子目录（受 spec 看护）
+
+```
+open-api/
+├── external/   a2a · mcp · rest（对外 REST facade）· webhooks
+├── admin/      providers · byok · secrets · billing · credits(admin) · quota · permissions ·
+│               settings · monitoring · observability · logs · cache · db-ops · storage ·
+│               approvals · notifications(admin) · eval · consolidation · kernel · harness ·
+│               agent(harness AgentConfig) · ai(tools/skills/MCP 治理) · recommendations ·
+│               dashboard · mcp(网关监控) · services · 根容器
+├── system/     auth · metrics
+└── user/       credits · notifications · agents · skills · ai
+```
+
+### 消歧问句
+
+1. **属于某个产品域吗？** 是 → `ai-app/<域>`（不进 open-api）。
+2. **第三方/机器吗？**（API-key/协议/签名）是 → `external/`。
+3. **运营管平台/他人 + AdminGuard 吗？** 是 → `admin/`（且必须是跨域/平台级；单域治理回到第 1 步下沉）。
+4. **平台握手/基建、零业务吗？**（auth/metrics）是 → `system/`。
+5. 否则（登录用户的跨域自助/通用能力）→ `user/`。
 
 ## 三、铁律（MUST，spec 看护）
 
-1. **所有 `/admin/*` 路由唯一收在 `open-api/admin/`** —— 禁止散落在 byok-admin / mcp-admin / mcp-server / system 等。
-2. **顶层目录名 = API 面语义，禁冗余后缀** —— 去 `-api` / `-admin` / `-server` / `-core`（open-api 已隐含）。顶层目录 ∈ `{admin, system, public, a2a, mcp, agents, skills, teams, ai, webhooks}`。
-3. **协议族用子目录分面** —— `mcp/{server,admin}`、`a2a/{rpc,server,discovery}`，不平级散开。
-4. **薄网关** —— open-api controller 禁止内嵌业务逻辑（重 service / 直接 Prisma 操作应下沉至 ai-app/ai-engine/ai-harness/platform 的 service）。
-5. **目录名 ↔ 主路由前缀对齐**（agents 对 `/agents`，admin/byok 对 `/admin/byok/*`）。
+1. **顶层目录 ∈ `{external, admin, system, user}`** —— 信任边界单轴，禁止协议/资源轴混入顶层。
+2. **区内子目录受控** —— `external ⊆ {a2a,mcp,rest,webhooks}`；`system ⊆ {auth,metrics}`（零业务）；`user ⊆ {credits,notifications,agents,skills,ai}`。
+3. **admin 仅跨域/平台级** —— `admin/` 禁含任一产品域目录（research/knowledge/teams/...）；单域治理必须 `sink-to-domain` 到 `ai-app/<域>`。
+4. **所有 `/admin/*` 路由唯一收在 `open-api/admin/`** —— 禁散落。
+5. **薄网关** —— open-api controller 禁直接注入 `PrismaService` / 内嵌业务逻辑（下沉下层 service）。
+6. **协议族用子目录分面** —— `external/mcp/{server,bridge,gateway,...}`、`external/a2a/{rpc,server}`，不平级散开。
+7. **同名 class 全项目唯一** —— 跨区/跨层同名概念须带受众前缀消歧（如 `AiController`(user) vs `AiAdminController`(admin)；admin 版 teams 须 `AITeamsAdminController`）。
 
-## 四、整改进度（收缩 ALLOWLIST）
+## 四、整改进度（收缩 ALLOWLIST，搬一个删一行）
 
-spec 用收缩 allowlist 跟踪存量违规，搬一个删一行，清空即硬焊：
-
-- **admin 散落（违律 1）**：`mcp-admin/`、`mcp-server/mcp-server-admin`、`system/credits`(AdminCredits) —— 待收编 admin/mcp、admin/credits。
-- **冗余后缀（违律 2）**：`ai-core`(→ai 待定命名)、`mcp-admin`+`mcp-server`(→mcp/{server,admin})、`teams-api`(→teams)。
-- **逻辑泄漏 / admin 臃肿（违律 4，Wave C）**：`admin/services/`(7 个业务 service)、`admin/dashboard`(OpsDashboardService)、`admin/{ai,quota,teams}` 各 1 service、根 `admin.service.ts`、**9 个 controller 直接注入 `PrismaService`** —— 业务逻辑应下沉 platform/ai-app/ai-engine/ai-harness 的 service，open-api 只留薄 controller。
+- **T1 顶层移区（已落地 2026-06-03）**：`a2a/mcp/public/webhooks → external/{a2a,mcp,rest,webhooks}`；`agents/skills/ai → user/`；`system/{credits,notifications} → user/`；`system` 仅留 auth/metrics。**路由 URL 不变（非破坏）**。
+- **T3 跨层下沉（待落地，spec allowlist 跟踪）**：
+  - 顶层 `teams/`（`TeamsController`，mission HTTP）→ 下沉 `ai-app/teams`（与现有 `ai-teams.module` 去重合并）。
+  - `admin/research` → `ai-app/research`；`admin/knowledge` → `ai-app/library`；`admin/teams` → `ai-app/teams`（落地改名 `AITeamsAdminController` 消歧）。
+  - 路由 URL 变更（`public→rest`、admin 单域前缀等）一律 T3，需确认别名策略后单独执行。
 
 ## 五、参考
 
-- [16-ai-engine-harness-structure.md](16-ai-engine-harness-structure.md) §一·补·二 App vs System、§三·补 HTTP 接口面
-- 整改三波：Wave A 去后缀（已合）· Wave B admin 收编（进行中）· Wave C 业务逻辑下沉（独立）
+- 权威迁移图：[2026-06-03-open-api-recursive-mece-attribution.md](../../docs/architecture/platform-review/2026-06-03-open-api-recursive-mece-attribution.md)
+- [16-ai-engine-harness-structure.md](16-ai-engine-harness-structure.md) App vs System、HTTP 接口面

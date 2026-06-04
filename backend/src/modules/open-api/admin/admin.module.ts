@@ -53,7 +53,7 @@ import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { SecretsModule } from "../../platform/credentials/secrets/secrets.module";
 import { KeyAssignmentsModule } from "../../platform/credentials/key-assignments/key-assignments.module";
 import { QuotaModule } from "./quota/quota.module";
-import { MCPServerModule } from "../../open-api/mcp/mcp-server.module";
+import { MCPServerModule } from "../../open-api/external/mcp/mcp-server.module";
 import { StorageModule } from "../../platform/storage/storage.module";
 import { DbOpsModule } from "../../platform/db-ops/db-ops.module";
 

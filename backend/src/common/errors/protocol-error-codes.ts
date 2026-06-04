@@ -14,7 +14,7 @@
  *             requestId?, traceId?, details?, stack? }
  *    `code` is a string token (see {@link RestErrorCode}).
  *
- * 2. MCP JSON-RPC (`/mcp`) — `open-api/mcp/filters/mcp-exception.filter.ts`
+ * 2. MCP JSON-RPC (`/mcp`) — `open-api/external/mcp/filters/mcp-exception.filter.ts`
  *    Shape: { jsonrpc: "2.0", id, error: { code: number, message } }
  *    `code` is a numeric JSON-RPC code (see {@link MCP_RPC_ERROR_CODE}).
  *
@@ -48,7 +48,7 @@ export type RestErrorCode =
 
 /**
  * MCP JSON-RPC numeric codes (mirror of
- * `open-api/mcp/abstractions/mcp-server.interface.ts#JSON_RPC_ERRORS`
+ * `open-api/external/mcp/abstractions/mcp-server.interface.ts#JSON_RPC_ERRORS`
  * plus the inline MCP_AUTH_ERROR in the filter). Kept as a documentation mirror
  * so the cross-protocol table below is self-contained; the filter remains the
  * source of truth for runtime emission.

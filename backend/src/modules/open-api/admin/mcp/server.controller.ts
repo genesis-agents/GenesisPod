@@ -8,10 +8,10 @@ import { Controller, Get, Query, UseGuards, Logger } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
-import { MCPServerService } from "../../mcp/mcp-server.service";
-import { MCPSessionManager } from "../../mcp/gateway/mcp-session-manager";
-import { MCPStreamingBridge } from "../../mcp/streaming/mcp-streaming-bridge";
-import { MCPToolBridgeService } from "../../mcp/bridge/mcp-tool-bridge.service";
+import { MCPServerService } from "../../external/mcp/mcp-server.service";
+import { MCPSessionManager } from "../../external/mcp/gateway/mcp-session-manager";
+import { MCPStreamingBridge } from "../../external/mcp/streaming/mcp-streaming-bridge";
+import { MCPToolBridgeService } from "../../external/mcp/bridge/mcp-tool-bridge.service";
 
 @ApiTags("Admin - MCP Server")
 @Controller("admin/mcp-server")
