@@ -109,7 +109,6 @@ import { OpenApiUserModule } from "./modules/open-api/user/user.module";
 import { AiModule } from "./modules/open-api/user/ai/ai.module";
 import { AgentsModule } from "./modules/open-api/user/agents/agents.module";
 import { SkillsModule } from "./modules/open-api/user/skills/skills.module";
-import { TeamsApiModule } from "./modules/open-api/teams/teams.module";
 // A2A API module (open-api layer â€” PR-X17: controller moved from ai-harness/protocols/a2a)
 import { A2AApiModule } from "./modules/open-api/external/a2a/a2a.module";
 // BYOK Admin module (open-api layer â€” PR-X17: 4 admin controllers moved from platform/credentials)
@@ -288,9 +287,6 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
 
     // Skills API (PR-X16: moved from ai-engine/skills/api)
     SkillsModule,
-
-    // Teams API (PR-X16: moved from ai-harness/teams/controllers)
-    TeamsApiModule,
 
     // BYOK Admin API (PR-X17: 4 admin controllers moved from platform/credentials)
     ByokAdminModule,

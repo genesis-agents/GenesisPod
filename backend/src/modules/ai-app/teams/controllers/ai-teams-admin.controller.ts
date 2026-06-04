@@ -11,7 +11,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { AITeamsAdminService } from "./ai-teams-admin.service";
+import { AITeamsAdminService } from "../ai-teams-admin.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import {
@@ -31,8 +31,8 @@ import { AITeamTemplateStatus } from "@prisma/client";
 @ApiTags("Admin - AI Teams")
 @Controller("admin/ai-teams")
 @UseGuards(JwtAuthGuard, AdminGuard)
-export class AITeamsController {
-  private readonly logger = new Logger(AITeamsController.name);
+export class AITeamsAdminController {
+  private readonly logger = new Logger(AITeamsAdminController.name);
 
   constructor(private readonly aiTeamsService: AITeamsAdminService) {}
 

@@ -22,7 +22,12 @@ export class KnowledgeController {
     @Query("pageSize") pageSize?: string,
   ) {
     return this.knowledgeAdmin.listKnowledgeBases({
-      search, status, type, ownerId, page, pageSize,
+      search,
+      status,
+      type,
+      ownerId,
+      page,
+      pageSize,
     });
   }
 
@@ -41,7 +46,12 @@ export class KnowledgeController {
     @Query("pageSize") pageSize?: string,
   ) {
     return this.knowledgeAdmin.listDocuments({
-      search, status, knowledgeBaseId, sourceType, page, pageSize,
+      search,
+      status,
+      knowledgeBaseId,
+      sourceType,
+      page,
+      pageSize,
     });
   }
 
@@ -59,7 +69,11 @@ export class KnowledgeController {
     @Query("pageSize") pageSize?: string,
   ) {
     return this.knowledgeAdmin.listWikiPages({
-      search, category, knowledgeBaseId, page, pageSize,
+      search,
+      category,
+      knowledgeBaseId,
+      page,
+      pageSize,
     });
   }
 

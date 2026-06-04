@@ -65,10 +65,11 @@ open-api/
 ## 四、整改进度（收缩 ALLOWLIST，搬一个删一行）
 
 - **T1 顶层移区（已落地 2026-06-03）**：`a2a/mcp/public/webhooks → external/{a2a,mcp,rest,webhooks}`；`agents/skills/ai → user/`；`system/{credits,notifications} → user/`；`system` 仅留 auth/metrics。**路由 URL 不变（非破坏）**。
-- **T3 跨层下沉（待落地，spec allowlist 跟踪）**：
-  - 顶层 `teams/`（`TeamsController`，mission HTTP）→ 下沉 `ai-app/teams`（与现有 `ai-teams.module` 去重合并）。
-  - `admin/research` → `ai-app/research`；`admin/knowledge` → `ai-app/library`；`admin/teams` → `ai-app/teams`（落地改名 `AITeamsAdminController` 消歧）。
-  - 路由 URL 变更（`public→rest`、admin 单域前缀等）一律 T3，需确认别名策略后单独执行。
+- **T3 跨层下沉（已落地 2026-06-03，路由 URL 不变）**：
+  - 顶层 `teams/`（`TeamsController`，mission HTTP）→ 已下沉 `ai-app/teams`，TeamsApiModule 折叠进 `AiTeamsModule`。**open-api 顶层 4 区已硬焊**。
+  - `admin/research/templates` → `ai-app/research`；`admin/knowledge` → `ai-app/library/knowledge-graph`；`admin/ai-teams` → `ai-app/teams`（已改名 `AITeamsAdminController` 消歧）。
+  - 这些下沉控制器**保留原 admin/\* 路由 URL（非破坏）**，物理归域；其 admin 路由在律1 `ADMIN_SCATTER_ALLOWLIST` 登记（单域治理归域 vs admin 路由收口的权衡）。
+- **仍待办（独立 PR）**：路由 URL 规整（`admin/research/templates` 等 admin 前缀是否随域改）需确认别名策略后单独执行（破坏外部契约）。
 
 ## 五、参考
 

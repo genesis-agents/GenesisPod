@@ -3,14 +3,14 @@
  */
 
 import { NotFoundException, BadRequestException } from "@nestjs/common";
-import { TeamsController } from "../teams.controller";
+import { TeamsController } from "../controllers/teams.controller";
 import {
   TeamsService,
   TeamInfo,
   MissionStatus,
-} from "../../services/teams.service";
+} from "../../../ai-harness/teams/services/teams.service";
 import { MissionResult } from "../../../ai-harness/agents/abstractions/mission.types";
-import { TeamId } from "../../abstractions/team.interface";
+import { TeamId } from "../../../ai-harness/teams/abstractions/team.interface";
 
 // ==================== Helpers ====================
 

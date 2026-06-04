@@ -134,7 +134,7 @@ jest.mock("../../../ai-harness/facade", () => ({
   EventBusService: class {},
   MissionContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
-jest.mock("../../mcp/mcp-server.service", () => ({
+jest.mock("../../external/mcp/mcp-server.service", () => ({
   MCPServerService: class {},
 }));
 

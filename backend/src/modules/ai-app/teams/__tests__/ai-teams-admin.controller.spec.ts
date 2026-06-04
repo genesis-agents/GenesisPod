@@ -8,10 +8,10 @@ jest.mock("../../../ai-harness/facade", () => ({
 
 import { Test, TestingModule } from "@nestjs/testing";
 import {
-  AITeamsController,
+  AITeamsAdminController,
   AITeamsTemplatesController,
-} from "../teams/ai-teams.controller";
-import { AITeamsAdminService } from "../teams/ai-teams-admin.service";
+} from "../controllers/ai-teams-admin.controller";
+import { AITeamsAdminService } from "../ai-teams-admin.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { AITeamTemplateStatus } from "@prisma/client";
@@ -23,10 +23,10 @@ import {
   ReorderMembersDto,
 } from "../dto/ai-team.dto";
 
-jest.mock("../teams/ai-teams-admin.service");
+jest.mock("../ai-teams-admin.service");
 
-describe("AITeamsController", () => {
-  let controller: AITeamsController;
+describe("AITeamsAdminController", () => {
+  let controller: AITeamsAdminController;
   let service: jest.Mocked<AITeamsAdminService>;
 
   const mockTeam = {
@@ -77,7 +77,7 @@ describe("AITeamsController", () => {
 
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [AITeamsController],
+      controllers: [AITeamsAdminController],
       providers: [{ provide: AITeamsAdminService, useValue: mockService }],
     })
       .overrideGuard(JwtAuthGuard)
@@ -86,7 +86,7 @@ describe("AITeamsController", () => {
       .useValue({ canActivate: () => true })
       .compile();
 
-    controller = module.get(AITeamsController);
+    controller = module.get(AITeamsAdminController);
     service = module.get(AITeamsAdminService);
   });
 

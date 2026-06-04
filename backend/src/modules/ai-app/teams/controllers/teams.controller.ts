@@ -32,7 +32,7 @@ import {
   MissionStatus,
   TeamInfo,
   MissionResult,
-} from "../../ai-harness/facade";
+} from "../../../ai-harness/facade";
 
 // ==================== Request DTOs ====================
 

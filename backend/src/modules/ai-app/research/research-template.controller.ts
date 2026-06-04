@@ -16,13 +16,13 @@ import {
   ApiParam,
   ApiQuery,
 } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../common/guards/admin.guard";
 import { ResearchTemplateService } from "@/modules/ai-app/research/services/research-template.service";
 import {
   CreateResearchTemplateDto,
   UpdateResearchTemplateDto,
-} from "../dto/research-template-admin.dto";
+} from "./dto/research-template-admin.dto";
 
 @ApiTags("Admin - Research Templates")
 @Controller("admin/research/templates")
@@ -36,7 +36,10 @@ export class ResearchController {
   @ApiOperation({ summary: "List all research templates" })
   @ApiQuery({ name: "category", required: false })
   @ApiQuery({ name: "enabled", required: false })
-  @ApiResponse({ status: 200, description: "Returns list of research templates" })
+  @ApiResponse({
+    status: 200,
+    description: "Returns list of research templates",
+  })
   findAll(
     @Query("category") category?: string,
     @Query("enabled") enabled?: string,

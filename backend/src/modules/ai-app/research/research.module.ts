@@ -26,6 +26,8 @@ import { ResearchIdeaService } from "./idea/research-idea.service";
 import { ResearchIdeaController } from "./idea/research-idea.controller";
 import { ResearchDemoService } from "./demo/research-demo.service";
 import { ResearchDemoController } from "./demo/research-demo.controller";
+import { ResearchController } from "./research-template.controller";
+import { ResearchTemplateService } from "./services/research-template.service";
 import { ResearchProjectExportService } from "./services/research-project-export.service";
 import { ResearchProjectExportAdapter } from "./services/research-project-export.adapter";
 import { RESEARCH_PROJECT_DATA_EXPORT } from "../contracts/interfaces/data-export.interface";
@@ -53,9 +55,11 @@ import { ResearchContentSourceProvider } from "./integrations/research-content-s
     DiscussionController,
     ResearchIdeaController,
     ResearchDemoController,
+    ResearchController, // /admin/research/templates/* (sunk from open-api/admin/research, T3)
   ],
   providers: [
     ResearcherAgent,
+    ResearchTemplateService, // backs ResearchController (T3 sink)
     ResearchIdeaService,
     ResearchDemoService,
     ResearchProjectExportService,

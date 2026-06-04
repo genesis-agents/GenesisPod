@@ -62,7 +62,7 @@ function listDirs(dir: string): string[] {
 // ── 律2 顶层 4 区（信任边界）──
 const TOP_LEVEL_ZONES = ["external", "admin", "system", "user"];
 // 收缩 allowlist：T3 跨层下沉未落地的残留顶层目录（搬一个删一行，清空即硬焊）
-const TOP_LEVEL_ALLOWLIST = ["teams"]; // teams/ → T3 下沉 ai-app/teams（mission HTTP 属单一产品域）
+const TOP_LEVEL_ALLOWLIST = []; // T3 已落地：teams/ 已下沉 ai-app/teams（顶层 4 区硬焊）
 
 // ── 律2-sub 区内子目录白名单 ──
 const EXTERNAL_CHILDREN = ["a2a", "mcp", "rest", "webhooks"];
@@ -90,10 +90,16 @@ const PRODUCT_DOMAINS = [
   "teams",
 ];
 // 收缩 allowlist：T3 未下沉的 admin 单域治理目录
-const ADMIN_DOMAIN_ALLOWLIST = ["research", "knowledge", "teams"]; // → T3 下沉 ai-app/{research,library,teams}
+const ADMIN_DOMAIN_ALLOWLIST = []; // T3 已落地：research/knowledge/teams 已下沉 ai-app（admin 仅跨域硬焊）
 
 // ── 律1 admin 散落 ──
-const ADMIN_SCATTER_ALLOWLIST = [];
+// T3 下沉：单域 admin 控制器随域落 ai-app，保留 admin/* 路由 URL（非破坏）。
+// 「单域治理归域」与「admin 路由收口」的权衡——路由 URL 不变，物理归域。
+const ADMIN_SCATTER_ALLOWLIST = [
+  "modules/ai-app/research/research-template.controller.ts", // route admin/research/templates
+  "modules/ai-app/library/knowledge-graph/knowledge-admin.controller.ts", // route admin/knowledge
+  "modules/ai-app/teams/controllers/ai-teams-admin.controller.ts", // route admin/ai-teams
+];
 
 // ── 律4 薄网关（Prisma in controller）──
 const THIN_GATEWAY_ALLOWLIST = [];
