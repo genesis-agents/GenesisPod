@@ -32,8 +32,8 @@ import { RESEARCH_LEAD_ROLE_CONFIG } from "../research/teams";
   providers: [PlanningOrchestratorService, PlanningTemplateService],
   exports: [PlanningOrchestratorService, PlanningTemplateService],
 })
-export class AiPlanningModule implements OnModuleInit {
-  private readonly logger = new Logger(AiPlanningModule.name);
+export class PlanningModule implements OnModuleInit {
+  private readonly logger = new Logger(PlanningModule.name);
 
   constructor(
     private readonly teamRegistry: TeamRegistry,

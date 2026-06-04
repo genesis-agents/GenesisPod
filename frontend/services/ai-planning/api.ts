@@ -106,7 +106,7 @@ export interface CreatePlanPayload {
 export async function createPlan(
   dto: CreatePlanPayload
 ): Promise<{ planId: string }> {
-  return fetchWithAuth('/api/v1/ai-planning', {
+  return fetchWithAuth('/api/v1/planning', {
     method: 'POST',
     body: JSON.stringify(dto),
   });
@@ -114,33 +114,33 @@ export async function createPlan(
 
 export async function getPlans(search?: string): Promise<PlanSummary[]> {
   const params = search ? `?search=${encodeURIComponent(search)}` : '';
-  return fetchWithAuth(`/api/v1/ai-planning${params}`);
+  return fetchWithAuth(`/api/v1/planning${params}`);
 }
 
 export async function getTemplates(): Promise<PlanTemplate[]> {
-  return fetchWithAuth('/api/v1/ai-planning/templates');
+  return fetchWithAuth('/api/v1/planning/templates');
 }
 
 export async function getPlanDetail(planId: string): Promise<PlanDetail> {
-  return fetchWithAuth(`/api/v1/ai-planning/${planId}`);
+  return fetchWithAuth(`/api/v1/planning/${planId}`);
 }
 
 export async function advancePhase(
   planId: string
 ): Promise<{ currentPhase: number }> {
-  return fetchWithAuth(`/api/v1/ai-planning/${planId}/advance`, {
+  return fetchWithAuth(`/api/v1/planning/${planId}/advance`, {
     method: 'POST',
   });
 }
 
 export async function retryPhase(planId: string, phase: number): Promise<void> {
-  return fetchWithAuth(`/api/v1/ai-planning/${planId}/phase/${phase}/retry`, {
+  return fetchWithAuth(`/api/v1/planning/${planId}/phase/${phase}/retry`, {
     method: 'POST',
   });
 }
 
 export async function cancelPhase(planId: string): Promise<void> {
-  return fetchWithAuth(`/api/v1/ai-planning/${planId}/cancel`, {
+  return fetchWithAuth(`/api/v1/planning/${planId}/cancel`, {
     method: 'POST',
   });
 }
@@ -152,10 +152,9 @@ export async function exportPlan(planId: string): Promise<string> {
     headers['Authorization'] = `Bearer ${tokens.accessToken}`;
   }
 
-  const response = await fetch(
-    `${API_BASE}/api/v1/ai-planning/${planId}/export`,
-    { headers }
-  );
+  const response = await fetch(`${API_BASE}/api/v1/planning/${planId}/export`, {
+    headers,
+  });
 
   if (!response.ok) {
     throw new Error(`Export failed: HTTP ${response.status}`);
@@ -168,7 +167,7 @@ export async function updatePlan(
   planId: string,
   dto: { name?: string; goal?: string; depth?: string }
 ): Promise<PlanDetail> {
-  return fetchWithAuth(`/api/v1/ai-planning/${planId}`, {
+  return fetchWithAuth(`/api/v1/planning/${planId}`, {
     method: 'PATCH',
     body: JSON.stringify(dto),
   });
@@ -178,14 +177,14 @@ export async function replanFromPhase(
   planId: string,
   startPhase: number
 ): Promise<{ currentPhase: number }> {
-  return fetchWithAuth(`/api/v1/ai-planning/${planId}/replan`, {
+  return fetchWithAuth(`/api/v1/planning/${planId}/replan`, {
     method: 'POST',
     body: JSON.stringify({ startPhase }),
   });
 }
 
 export async function deletePlan(planId: string): Promise<void> {
-  return fetchWithAuth(`/api/v1/ai-planning/${planId}`, {
+  return fetchWithAuth(`/api/v1/planning/${planId}`, {
     method: 'DELETE',
   });
 }
@@ -194,7 +193,7 @@ export async function setVisibility(
   planId: string,
   visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC'
 ): Promise<{ success: boolean; visibility: string }> {
-  return fetchWithAuth(`/api/v1/ai-planning/${planId}/visibility`, {
+  return fetchWithAuth(`/api/v1/planning/${planId}/visibility`, {
     method: 'PATCH',
     body: JSON.stringify({ visibility }),
   });

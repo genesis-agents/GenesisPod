@@ -83,7 +83,7 @@ const PRODUCT_DOMAINS = [
   "custom-agents",
   "library",
   "feedback",
-  "ai-planning",
+  "planning",
   "radar",
   "agent-playground",
   "knowledge",

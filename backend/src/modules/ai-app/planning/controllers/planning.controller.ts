@@ -29,7 +29,7 @@ import type { RequestWithUser } from "../../../../common/types/express-request.t
 
 @ApiTags("AI Planning")
 @ApiBearerAuth()
-@Controller("ai-planning")
+@Controller("planning")
 @UseGuards(JwtAuthGuard)
 export class PlanningController {
   constructor(
