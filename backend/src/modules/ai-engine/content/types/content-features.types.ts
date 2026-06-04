@@ -5,7 +5,7 @@
  * 这些类型定义在 L2 以确保依赖方向正确（L4 → L2，不反向）。
  *
  * 被以下模块使用：
- * - ai-engine/content/image/matching/ (图文匹配)
+ * - ai-engine/content/types/image-matching.types.ts (图文匹配 types)
  * - ai-app/office/content-analysis/ (内容分析服务)
  * - ai-app/office/common/ (模板选择等)
  */

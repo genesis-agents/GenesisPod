@@ -347,12 +347,12 @@ export { SKILL_LAYERS } from "../skills/abstractions/skill.interface";
 export type {
   ImageMatchingRule,
   ImageRequirement,
-} from "../content/image/matching/image-matching.types";
+} from "../content/types/image-matching.types";
 export {
   ImageType,
   ImagePlacement,
   IMAGE_MATCHING_RULES,
-} from "../content/image/matching/image-matching.types";
+} from "../content/types/image-matching.types";
 
 // Content fetching (URL → markdown/transcript) — used by ai-app/library/document/preparse
 // for W1 预解析管线（YouTube transcript / 网页正文 / SSRF guard 一体化）
