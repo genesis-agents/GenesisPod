@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ImageStorageService } from "../storage.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ObjectStorageService } from "../../../../platform/storage/runtime/object-storage.service";
+import { ObjectStorageService } from "../../../../platform/storage/object-store/object-storage.service";
 
 describe("ImageStorageService", () => {
   let service: ImageStorageService;

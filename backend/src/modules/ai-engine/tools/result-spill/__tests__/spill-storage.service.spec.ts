@@ -3,7 +3,7 @@
  */
 
 import { ToolOutputSpillStorageService } from "../spill-storage.service";
-import type { ObjectStorageService } from "@/modules/platform/storage/runtime/object-storage.service";
+import type { ObjectStorageService } from "@/modules/platform/storage/object-store/object-storage.service";
 
 // ---------------------------------------------------------------------------
 // Helpers

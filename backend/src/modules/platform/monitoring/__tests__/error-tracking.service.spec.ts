@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { ErrorTrackingService } from "../tracking/error-tracking.service";
+import { ErrorTrackingService } from "../error-reporting/error-tracking.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 describe("ErrorTrackingService", () => {

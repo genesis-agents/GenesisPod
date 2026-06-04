@@ -16,7 +16,7 @@
  */
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { HandlebarsRendererService } from "../../../email/template/handlebars-renderer.service";
+import { HandlebarsRendererService } from "../../../email/rendering/handlebars-renderer.service";
 import { NotificationDispatcher } from "../notification-dispatcher.service";
 import { UnsubscribeTokenService } from "../preferences/unsubscribe-token.service";
 

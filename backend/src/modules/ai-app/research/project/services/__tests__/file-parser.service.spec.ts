@@ -1,6 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import { FileParserService } from "../file-parser.service";
-import type { ObjectStorageService } from "../../../../../platform/storage/runtime/object-storage.service";
+import type { ObjectStorageService } from "../../../../../platform/storage/object-store/object-storage.service";
 
 // Mock pdf-parse
 jest.mock("pdf-parse", () =>

@@ -15,7 +15,7 @@ export { AuthService } from "../auth/auth.service";
 
 // ─── Credits & Billing ───
 export { CreditsService } from "../credits/credits.service";
-export { CreditRulesService } from "../credits/policy/credit-rules.service";
+export { CreditRulesService } from "../credits/policies/credit-rules.service";
 export { CheckinService } from "../credits/rewards/checkin.service";
 export { BillingContext } from "../credits/billing-context.store";
 export { InsufficientCreditsException } from "../credits/exceptions/insufficient-credits.exception";
@@ -30,7 +30,7 @@ export {
 
 // ─── Storage ───
 export { StorageGovernanceService } from "../storage/governance/storage-governance.service";
-export { ObjectStorageService } from "../storage/runtime/object-storage.service";
+export { ObjectStorageService } from "../storage/object-store/object-storage.service";
 
 // ─── Email ───
 export { EmailService } from "../email/email.service";
@@ -72,7 +72,7 @@ export { SettingsService } from "../settings/settings.service";
 
 // ─── Monitoring ───
 export { AIMetricsService } from "../monitoring/metrics/ai-metrics.service";
-export { ErrorTrackingService } from "../monitoring/tracking/error-tracking.service";
+export { ErrorTrackingService } from "../monitoring/error-reporting/error-tracking.service";
 export { HealthCheckService } from "../monitoring/health/health-check.service";
 export { AuditLogService } from "../monitoring/audit/audit-log.service";
 export type {

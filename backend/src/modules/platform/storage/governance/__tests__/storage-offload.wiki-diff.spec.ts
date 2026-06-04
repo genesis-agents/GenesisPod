@@ -1,6 +1,6 @@
 import { StorageOffloadService } from "../storage-offload.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ObjectStorageService } from "../../runtime/object-storage.service";
+import { ObjectStorageService } from "../../object-store/object-storage.service";
 import { Prisma, WikiDiffStatus } from "@prisma/client";
 
 interface OffloadTarget {

@@ -12,7 +12,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { ObjectStorageService } from "@/modules/platform/storage/runtime/object-storage.service";
+import { ObjectStorageService } from "@/modules/platform/storage/object-store/object-storage.service";
 
 export interface SpillResult {
   /** object storage key（前缀 tool-output-spill/） */

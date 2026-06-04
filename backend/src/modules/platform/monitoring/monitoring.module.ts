@@ -3,7 +3,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { HealthCheckService } from "./health/health-check.service";
 import { AIMetricsService } from "./metrics/ai-metrics.service";
 import { MetricsService } from "./metrics/metrics.service";
-import { ErrorTrackingService } from "./tracking/error-tracking.service";
+import { ErrorTrackingService } from "./error-reporting/error-tracking.service";
 import { AuditLogService } from "./audit/audit-log.service";
 // UserEventListener 含业务事件词表（TOPIC_INSIGHTS 等），留 common（L1 业务名禁令豁免），由本 @Global 模块装配
 import { UserEventListener } from "@/common/observability/user-event.listener";

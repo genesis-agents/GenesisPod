@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { CreditsService } from "./credits.service";
-import { CreditRulesService } from "./policy/credit-rules.service";
+import { CreditRulesService } from "./policies/credit-rules.service";
 import { CheckinService } from "./rewards/checkin.service";
 
 /**

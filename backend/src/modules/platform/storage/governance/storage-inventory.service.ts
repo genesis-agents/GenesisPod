@@ -17,7 +17,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ObjectStorageService } from "../runtime/object-storage.service";
+import { ObjectStorageService } from "../object-store/object-storage.service";
 import { OFFLOAD_TARGETS } from "./storage-offload.registry";
 
 export interface TableStat {
