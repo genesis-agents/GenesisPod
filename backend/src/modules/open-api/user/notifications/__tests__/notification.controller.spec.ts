@@ -4,7 +4,7 @@ import { NotificationService } from "@/modules/platform/notifications/notificati
 import {
   GetNotificationsQueryDto,
   UpdateNotificationPreferenceDto,
-} from "@/modules/platform/notifications/dto/notification.dto";
+} from "../dto/notification.dto";
 
 describe("NotificationController", () => {
   let controller: NotificationController;

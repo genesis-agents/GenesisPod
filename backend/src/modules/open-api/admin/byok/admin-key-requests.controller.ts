@@ -18,7 +18,7 @@ import { KeyRequestsService } from "../../../platform/credentials/governance/key
 import {
   ApproveKeyRequestDto,
   RejectKeyRequestDto,
-} from "../../../platform/credentials/governance/key-requests/dto";
+} from "./dto/approve-reject.dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

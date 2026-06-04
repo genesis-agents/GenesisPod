@@ -20,8 +20,6 @@ import {
   SecretAccessLog,
   SecretAction,
 } from "@prisma/client";
-import { CreateSecretDto } from "./dto/create-secret.dto";
-import { UpdateSecretDto } from "./dto/update-secret.dto";
 import {
   SYSTEM_SETTING_TO_SECRET_MAPPING,
   normalizeSecretName,
@@ -31,6 +29,28 @@ import {
 import { EncryptionService } from "../encryption/encryption.service";
 import { SecretKeysService } from "./secret-keys.service";
 import { AuditLogService } from "@/modules/platform/monitoring/audit/audit-log.service";
+
+interface CreateSecretDto {
+  name: string;
+  displayName: string;
+  value: string;
+  category?: SecretCategory;
+  description?: string;
+  provider?: string;
+  expiresAt?: string;
+  isActive?: boolean;
+}
+
+interface UpdateSecretDto {
+  displayName?: string;
+  description?: string;
+  category?: SecretCategory;
+  provider?: string;
+  expiresAt?: string;
+  isActive?: boolean;
+  value?: string;
+  changeNote?: string;
+}
 
 export type SecretAggregateStatus = "ok" | "failed" | "unknown" | "disabled";
 

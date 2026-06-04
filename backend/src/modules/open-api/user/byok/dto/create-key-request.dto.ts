@@ -6,7 +6,7 @@ import {
   MaxLength,
   MinLength,
 } from "class-validator";
-import type { EstimatedUsage } from "../key-requests.service";
+import type { EstimatedUsage } from "@/modules/platform/credentials/governance/key-requests/key-requests.service";
 
 /**
  * 2026-05-08：用户申请时不再选 provider（admin 未必有该 provider 可用模型，

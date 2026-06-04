@@ -15,7 +15,7 @@ import { NotificationService } from "@/modules/platform/notifications/notificati
 import {
   GetNotificationsQueryDto,
   UpdateNotificationPreferenceDto,
-} from "@/modules/platform/notifications/dto/notification.dto";
+} from "./dto/notification.dto";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 
 @ApiTags("Notifications")

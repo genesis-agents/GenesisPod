@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DbOpsService } from "../db-ops.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { TableCategory } from "../dto/table-info.dto";
+import { TableCategory } from "../db-ops.types";
 
 // ---------------------------------------------------------------------------
 // Module-level mocks for heavy transitive deps

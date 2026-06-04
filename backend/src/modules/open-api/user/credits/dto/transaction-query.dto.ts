@@ -1,12 +1,13 @@
 import {
   IsString,
-  IsInt,
   IsOptional,
+  IsInt,
+  IsEnum,
   Min,
   Max,
-  IsEnum,
-  MaxLength,
+  IsDateString,
 } from "class-validator";
+import { Type } from "class-transformer";
 import { CreditTransactionType as PrismaCreditTransactionType } from "@prisma/client";
 
 const CreditTransactionType = PrismaCreditTransactionType ?? {
@@ -36,54 +37,35 @@ const CreditTransactionType = PrismaCreditTransactionType ?? {
 };
 
 /**
- * 管理员发放积分 DTO
+ * 交易记录查询 DTO
  */
-export class AdminGrantCreditsDto {
-  @IsString()
-  userId!: string;
-
-  @IsInt()
-  @Min(1)
-  @Max(2_000_000_000, {
-    message: "Single grant amount cannot exceed 2,000,000,000 (INT4 limit)",
-  })
-  amount!: number;
-
+export class TransactionQueryDto {
   @IsOptional()
   @IsEnum(CreditTransactionType)
-  type?: PrismaCreditTransactionType = CreditTransactionType.ADMIN_GRANT;
+  type?: PrismaCreditTransactionType;
 
+  @IsOptional()
   @IsString()
-  @MaxLength(500)
-  description!: string;
-}
+  moduleType?: string;
 
-/**
- * 批量发放积分 DTO
- */
-export class BatchGrantCreditsDto {
-  @IsString({ each: true })
-  userIds!: string[];
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
 
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(2_000_000_000, {
-    message: "Single grant amount cannot exceed 2,000,000,000 (INT4 limit)",
-  })
-  amount!: number;
+  @Max(100)
+  limit?: number = 20;
 
-  @IsString()
-  @MaxLength(500)
-  description!: string;
-}
-
-/**
- * 发放结果
- */
-export interface GrantCreditsResult {
-  success: boolean;
-  userId: string;
-  amount: number;
-  balanceAfter: number;
-  transactionId: string;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offset?: number = 0;
 }

@@ -39,11 +39,11 @@ import { AdminCreditsController } from "../../../admin/credits/admin-credits.con
 import { CreditsService } from "@/modules/platform/credits/credits.service";
 import { CheckinService } from "@/modules/platform/credits/rewards/checkin.service";
 import { CreditRulesService } from "@/modules/platform/credits/policy/credit-rules.service";
-import { TransactionQueryDto } from "@/modules/platform/credits/dto/transaction-query.dto";
+import { TransactionQueryDto } from "../dto/transaction-query.dto";
 import {
   AdminGrantCreditsDto,
   BatchGrantCreditsDto,
-} from "@/modules/platform/credits/dto/grant-credits.dto";
+} from "../../../admin/credits/dto/grant-credits.dto";
 
 // ---------------------------------------------------------------------------
 // Mock service factories

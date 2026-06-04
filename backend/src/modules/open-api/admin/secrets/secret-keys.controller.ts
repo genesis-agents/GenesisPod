@@ -28,7 +28,7 @@ import {
   AddSecretKeyDto,
   UpdateSecretKeyMetaDto,
   ReplaceSecretKeyValueDto,
-} from "@/modules/platform/credentials/storage/secrets/dto/secret-key.dto";
+} from "./dto/secret-key.dto";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { AdminGuard } from "@/common/guards/admin.guard";
 

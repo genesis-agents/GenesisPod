@@ -1,6 +1,10 @@
 /**
- * Table Management DTOs
- * Defines types for database table management API
+ * Internal domain types for db-ops module (service layer only).
+ * These are NOT HTTP request/response shapes; they live at the platform (L1) layer.
+ *
+ * HTTP-facing DTOs (TableListResponseDto, TableDetailDto, TableDiagnosisDto,
+ * CleanupResultDto, TableStatsDto, TableListQueryDto) are in
+ * modules/open-api/admin/db-ops/dto/table-info.dto.ts
  */
 
 /**
@@ -8,21 +12,21 @@
  * Categorizes tables by their functional domain
  */
 export enum TableCategory {
-  USER = "USER", // User management tables
-  RESOURCE = "RESOURCE", // Content/resource tables
-  AI_SESSION = "AI_SESSION", // AI conversation/session tables
-  AI_CONFIG = "AI_CONFIG", // AI configuration tables
-  NOTIFICATION = "NOTIFICATION", // Notification related tables
-  LOG = "LOG", // Logging and audit tables
-  SYSTEM = "SYSTEM", // System configuration tables
-  ANALYTICS = "ANALYTICS", // Analytics and metrics tables
-  EXTERNAL = "EXTERNAL", // External integration tables
-  CACHE = "CACHE", // Cache and temporary data tables
-  KNOWLEDGE = "KNOWLEDGE", // Knowledge base / RAG tables
-  INGESTION = "INGESTION", // Data ingestion tables
-  OFFICE = "OFFICE", // Office document tables
-  RESEARCH = "RESEARCH", // Research project tables
-  OTHER = "OTHER", // Uncategorized tables
+  USER = "USER",
+  RESOURCE = "RESOURCE",
+  AI_SESSION = "AI_SESSION",
+  AI_CONFIG = "AI_CONFIG",
+  NOTIFICATION = "NOTIFICATION",
+  LOG = "LOG",
+  SYSTEM = "SYSTEM",
+  ANALYTICS = "ANALYTICS",
+  EXTERNAL = "EXTERNAL",
+  CACHE = "CACHE",
+  KNOWLEDGE = "KNOWLEDGE",
+  INGESTION = "INGESTION",
+  OFFICE = "OFFICE",
+  RESEARCH = "RESEARCH",
+  OTHER = "OTHER",
 }
 
 /**
@@ -42,7 +46,7 @@ export type CleanupPolicyType =
   | "none";
 
 /**
- * Cleanup Policy DTO
+ * Cleanup Policy
  * Defines cleanup rules for a table
  */
 export interface CleanupPolicyDto {
@@ -56,8 +60,8 @@ export interface CleanupPolicyDto {
 }
 
 /**
- * Table Info DTO
- * Comprehensive information about a database table
+ * Table Info
+ * Comprehensive information about a database table (internal domain type)
  */
 export interface TableInfoDto {
   name: string; // PostgreSQL table name (snake_case)
@@ -79,18 +83,7 @@ export interface TableInfoDto {
 }
 
 /**
- * Table Detail DTO
- * Extended info including schema and sample data
- */
-export interface TableDetailDto extends TableInfoDto {
-  schema: TableColumnDto[];
-  sampleData: Record<string, unknown>[];
-  relatedTables: string[];
-  constraints: TableConstraintDto[];
-}
-
-/**
- * Table Column DTO
+ * Table Column
  */
 export interface TableColumnDto {
   name: string;
@@ -103,7 +96,7 @@ export interface TableColumnDto {
 }
 
 /**
- * Table Constraint DTO
+ * Table Constraint
  */
 export interface TableConstraintDto {
   name: string;
@@ -126,6 +119,17 @@ export interface DiagnosisIssue {
     | "missing_cleanup";
   message: string;
   details?: Record<string, unknown>;
+}
+
+/**
+ * Table Detail DTO
+ * Extended info including schema and sample data
+ */
+export interface TableDetailDto extends TableInfoDto {
+  schema: TableColumnDto[];
+  sampleData: Record<string, unknown>[];
+  relatedTables: string[];
+  constraints: TableConstraintDto[];
 }
 
 /**

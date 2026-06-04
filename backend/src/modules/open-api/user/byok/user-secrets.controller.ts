@@ -20,12 +20,12 @@ import {
   AddSecretKeyDto,
   UpdateSecretKeyMetaDto,
   ReplaceSecretKeyValueDto,
-} from "../../../platform/credentials/storage/secrets/dto/secret-key.dto";
+} from "../../admin/secrets/dto/secret-key.dto";
 import {
   CreateUserSecretDto,
   UpdateUserSecretDto,
-  UserSecretSource,
-} from "../../../platform/credentials/user-owned/user-secrets/dto/user-secret.dto";
+} from "./dto/user-secret.dto";
+import { UserSecretSource } from "../../../platform/credentials/user-owned/user-secrets/user-secrets.types";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

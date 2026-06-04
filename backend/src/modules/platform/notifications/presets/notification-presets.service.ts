@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { NotificationService } from "../notification.service";
-import { NotificationTypeDto } from "../dto/notification.dto";
+import { NotificationTypeDto } from "../notification.types";
 
 @Injectable()
 export class NotificationPresetsService {

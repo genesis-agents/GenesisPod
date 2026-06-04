@@ -15,11 +15,11 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { UserModelConfigsService } from "@/modules/ai-harness/facade";
 import {
-  UserModelConfigsService,
   CreateUserModelConfigDto,
   UpdateUserModelConfigDto,
-} from "@/modules/ai-harness/facade";
+} from "./dto/user-model-config.dto";
 import {
   CapabilityOverridesWriterService,
   ApplyCapabilityOverridesDto,

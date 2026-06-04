@@ -18,17 +18,29 @@ import {
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EncryptionService } from "../encryption/encryption.service";
 import { Secret, SecretKey } from "@prisma/client";
-import {
-  AddSecretKeyDto,
-  UpdateSecretKeyMetaDto,
-  ReplaceSecretKeyValueDto,
-} from "./dto/secret-key.dto";
 import { normalizeSecretName } from "./secret-name.catalog";
 import { ProviderProbeService } from "../../governance/key-health/provider-probe.service";
 import {
   cooldownMsForCode,
   isPermanentCooldown,
 } from "../../governance/key-health/key-cooldown-policy";
+
+interface AddSecretKeyDto {
+  label: string;
+  value: string;
+  priority?: number;
+  isActive?: boolean;
+}
+
+interface UpdateSecretKeyMetaDto {
+  label?: string;
+  priority?: number;
+  isActive?: boolean;
+}
+
+interface ReplaceSecretKeyValueDto {
+  value: string;
+}
 
 export interface SecretKeyListItem {
   id: string;

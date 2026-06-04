@@ -15,11 +15,9 @@ import {
 import {
   ConsumeCreditsParams,
   ConsumeCreditsResult,
-} from "./dto/consume-credits.dto";
-import {
-  TransactionQueryDto,
   PaginatedTransactionsResponse,
-} from "./dto/transaction-query.dto";
+} from "./credits.types";
+import { TransactionQueryDto } from "../../open-api/user/credits/dto/transaction-query.dto";
 import { AuditLogService } from "../monitoring/audit/audit-log.service";
 
 /**

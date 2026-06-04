@@ -795,25 +795,6 @@ export type {
 } from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.service";
 export { ByokMaintenanceScheduler } from "@/modules/platform/credentials/governance/scheduling/byok-maintenance.scheduler";
 export { UserModelConfigsService } from "@/modules/platform/credentials/user-owned/user-model-configs/user-model-configs.service";
-export { CreateKeyRequestDto } from "@/modules/platform/credentials/governance/key-requests/dto/create-key-request.dto";
-// admin / byok-admin (open-api) DTOs — exposed so open-api routes through the facade
-export {
-  ApproveKeyRequestDto,
-  RejectKeyRequestDto,
-} from "@/modules/platform/credentials/governance/key-requests/dto";
-export {
-  RevokeAssignmentDto,
-  UpdateAssignmentDto,
-} from "@/modules/platform/credentials/governance/key-assignments/dto";
-export {
-  SaveUserApiKeyDto,
-  ApiKeyMode,
-} from "@/modules/platform/credentials/user-owned/user-api-keys/dto/save-user-api-key.dto";
-export { TestApiKeyDto } from "@/modules/platform/credentials/user-owned/user-api-keys/dto/test-api-key.dto";
-export {
-  CreateUserModelConfigDto,
-  UpdateUserModelConfigDto,
-} from "@/modules/platform/credentials/user-owned/user-model-configs/dto/user-model-config.dto";
 export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/models/catalog/ai-model-discovery.service";
 export { ModelTypeService } from "@/modules/ai-engine/llm/models/catalog/model-type.service";
 export { ApiFormatService } from "@/modules/ai-engine/llm/models/catalog/api-format.service";

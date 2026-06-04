@@ -10,7 +10,7 @@ import {
   TableDiagnosisDto,
   CleanupResultDto,
   TableStatsDto,
-} from "@/modules/platform/db-ops/dto/table-info.dto";
+} from "@/modules/open-api/admin/db-ops/dto/table-info.dto";
 
 describe("DbOpsController", () => {
   let controller: DbOpsController;
