@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { StorageGovernanceService } from "./governance/storage-governance.service";
-import { ObjectStorageService } from "./runtime/object-storage.service";
+import { ObjectStorageService } from "./object-store/object-storage.service";
 import { StorageOffloadService } from "./governance/storage-offload.service";
 import { StorageInventoryService } from "./governance/storage-inventory.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";

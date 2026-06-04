@@ -14,7 +14,7 @@ import { Logger } from "@nestjs/common";
 import { CreditTransactionType, Prisma } from "@prisma/client";
 import { CreditsService } from "../credits.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { CreditRulesService } from "../policy/credit-rules.service";
+import { CreditRulesService } from "../policies/credit-rules.service";
 import { AuditLogService } from "../../monitoring/audit/audit-log.service";
 import { InsufficientCreditsException } from "../exceptions/insufficient-credits.exception";
 import { AccountFrozenException } from "../exceptions/insufficient-credits.exception";

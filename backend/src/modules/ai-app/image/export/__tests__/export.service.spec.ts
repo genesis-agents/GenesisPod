@@ -7,7 +7,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ExportService } from "../export.service";
-import { ObjectStorageService } from "../../../../platform/storage/runtime/object-storage.service";
+import { ObjectStorageService } from "../../../../platform/storage/object-store/object-storage.service";
 import { PuppeteerPoolService } from "../../../../../common/browser/puppeteer-pool.service";
 
 describe("ExportService", () => {

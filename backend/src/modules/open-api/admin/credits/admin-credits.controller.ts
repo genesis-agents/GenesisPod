@@ -13,7 +13,7 @@ import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { AdminGuard } from "@/common/guards/admin.guard";
 import { CreditTransactionType } from "@prisma/client";
 import { CreditsService } from "@/modules/platform/credits/credits.service";
-import { CreditRulesService } from "@/modules/platform/credits/policy/credit-rules.service";
+import { CreditRulesService } from "@/modules/platform/credits/policies/credit-rules.service";
 import {
   AdminGrantCreditsDto,
   BatchGrantCreditsDto,

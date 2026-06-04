@@ -13,9 +13,12 @@ const mockR2Storage = {
   refreshImageUrl: jest.fn(),
 };
 
-jest.mock("../../../platform/storage/runtime/object-storage.service", () => ({
-  ObjectStorageService: jest.fn().mockImplementation(() => mockR2Storage),
-}));
+jest.mock(
+  "../../../platform/storage/object-store/object-storage.service",
+  () => ({
+    ObjectStorageService: jest.fn().mockImplementation(() => mockR2Storage),
+  }),
+);
 
 describe("ImageStorageService", () => {
   let service: ImageStorageService;
@@ -55,7 +58,7 @@ describe("ImageStorageService", () => {
     jest.clearAllMocks();
 
     const { ObjectStorageService } =
-      await import("../../../platform/storage/runtime/object-storage.service");
+      await import("../../../platform/storage/object-store/object-storage.service");
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

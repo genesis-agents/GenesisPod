@@ -635,8 +635,8 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
     //   - credits/policy 两个 catalog：用 ai-app 名作为业务 key（计费按模块
     //     分类），是业务设计而非泄漏 —— 永久 allowlist。
     const ALLOWLIST: ReadonlySet<string> = new Set<string>([
-      "modules/platform/credits/policy/credit-transaction-type.catalog.ts",
-      "modules/platform/credits/policy/default-credit-rules.catalog.ts",
+      "modules/platform/credits/policies/credit-transaction-type.catalog.ts",
+      "modules/platform/credits/policies/default-credit-rules.catalog.ts",
     ]);
 
     function fileMentionsBusinessName(file: string): {

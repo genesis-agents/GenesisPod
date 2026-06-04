@@ -6,8 +6,8 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreditTransactionType, Prisma } from "@prisma/client";
-import { CreditRulesService } from "./policy/credit-rules.service";
-import { CREDIT_TRANSACTION_TYPE_BY_MODULE } from "./policy/credit-transaction-type.catalog";
+import { CreditRulesService } from "./policies/credit-rules.service";
+import { CREDIT_TRANSACTION_TYPE_BY_MODULE } from "./policies/credit-transaction-type.catalog";
 import {
   InsufficientCreditsException,
   AccountFrozenException,

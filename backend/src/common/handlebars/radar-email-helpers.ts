@@ -3,7 +3,7 @@
  *
  * 来源：daily-briefing-redesign-2026-05-18.md §7.3.3 B14 邮件 helpers 安全契约
  *
- * 历史：原先在 platform/email/template/handlebars-renderer.service.ts（邮件
+ * 历史：原先在 platform/email/rendering/handlebars-renderer.service.ts（邮件
  * 渲染） 与 ai-engine/tools/.../template-render.tool.ts（LLM 工具渲染）各
  * 实现一份，5 处重复（R5 reuse audit 列入 FU3 follow-up）。本模块作为单一
  * 实现源，两端 import 注册即可。

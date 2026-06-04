@@ -6,7 +6,7 @@ import { AIEnrichmentService } from "../ai-enrichment.service";
 import { PdfThumbnailService } from "../pdf-thumbnail.service";
 import { DynamicThumbnailService } from "../dynamic-thumbnail.service";
 import { ResourceHealthCheckScheduler } from "../resource-health-check.scheduler";
-import { ObjectStorageService } from "../../../../platform/storage/runtime/object-storage.service";
+import { ObjectStorageService } from "../../../../platform/storage/object-store/object-storage.service";
 import { ThrottlerModule } from "@nestjs/throttler";
 
 // Guard mock – allow all requests through in tests

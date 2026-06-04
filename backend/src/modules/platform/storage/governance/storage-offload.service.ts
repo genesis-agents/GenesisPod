@@ -35,7 +35,7 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ObjectStorageService } from "../runtime/object-storage.service";
+import { ObjectStorageService } from "../object-store/object-storage.service";
 import { OFFLOAD_PREFIXES } from "./offload-prefixes";
 import {
   OFFLOAD_TARGETS,

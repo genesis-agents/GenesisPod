@@ -7,7 +7,7 @@ import {
   EmailNotificationPresetsService,
   FeedbackStatusUpdatePreset,
 } from "../../../platform/facade";
-import { ObjectStorageService } from "../../../platform/storage/runtime/object-storage.service";
+import { ObjectStorageService } from "../../../platform/storage/object-store/object-storage.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
 
 describe("FeedbackService", () => {

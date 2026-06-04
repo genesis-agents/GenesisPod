@@ -13,7 +13,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { CreditsService } from "@/modules/platform/credits/credits.service";
 import { CheckinService } from "@/modules/platform/credits/rewards/checkin.service";
-import { CreditRulesService } from "@/modules/platform/credits/policy/credit-rules.service";
+import { CreditRulesService } from "@/modules/platform/credits/policies/credit-rules.service";
 import { TransactionQueryDto } from "./dto/transaction-query.dto";
 
 interface AuthenticatedRequest {
