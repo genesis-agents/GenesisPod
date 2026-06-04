@@ -102,8 +102,8 @@ import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
 // 已迁移至 ai-harness/facade，由 HarnessModule (@Global) 统一装配。
 
 // SKILL.md Runtime (PromptSkillRegistrationService + InputBindingResolver)
-import { InputBindingResolver } from "./skills/runtime/binding/skill-input-binding-resolver.service";
-import { PromptSkillRegistrationService } from "./skills/runtime/registration/prompt-skill-registration.service";
+import { InputBindingResolver } from "./skills/integration/binding/skill-input-binding-resolver.service";
+import { PromptSkillRegistrationService } from "./skills/integration/registration/prompt-skill-registration.service";
 
 // ★ VotingManager 和 HandoffCoordinator 已迁移到 CollaborationModule
 // (不再需要在此导入，通过 CollaborationModule 导出)

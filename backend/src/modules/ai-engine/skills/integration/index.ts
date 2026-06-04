@@ -1,5 +1,5 @@
 /**
- * AI Engine - SKILL.md Runtime
+ * AI Engine - SKILL.md Integration (skill adapters / binding / registration)
  *
  * Barrel export for the unified SKILL.md runtime components.
  */

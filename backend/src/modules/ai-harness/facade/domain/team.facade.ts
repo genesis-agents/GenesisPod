@@ -45,8 +45,8 @@ import type {
   SkillContext,
   SkillResult,
 } from "../../../ai-engine/skills/abstractions/skill.interface";
-import type { BindingContext } from "../../../ai-engine/skills/runtime/binding/skill-input-binding-resolver.service";
-import type { PromptSkillAdapter } from "../../../ai-engine/skills/runtime/adapters/prompt-skill.adapter";
+import type { BindingContext } from "../../../ai-engine/skills/integration/binding/skill-input-binding-resolver.service";
+import type { PromptSkillAdapter } from "../../../ai-engine/skills/integration/adapters/prompt-skill.adapter";
 import type { ToolPipeline } from "../../../ai-engine/tools/middleware/tool-pipeline";
 import { AiChatLLMAdapter } from "../../../ai-engine/llm/adapters/ai-chat-llm.adapter";
 import type {

@@ -591,7 +591,7 @@ describe("AIFacade — resolveSkillInputBindings()", () => {
       plainSkill as unknown as import("../../skills/abstractions/skill.interface").ISkill,
       {
         variables: {},
-      } as unknown as import("../../skills/runtime/input-binding-resolver").BindingContext,
+      } as unknown as import("../../skills/integration/input-binding-resolver").BindingContext,
     );
 
     expect(result).toBeNull();
@@ -610,7 +610,7 @@ describe("AIFacade — resolveSkillInputBindings()", () => {
       adapter as unknown as import("../../skills/abstractions/skill.interface").ISkill,
       {
         variables: {},
-      } as unknown as import("../../skills/runtime/input-binding-resolver").BindingContext,
+      } as unknown as import("../../skills/integration/input-binding-resolver").BindingContext,
     );
 
     expect(result).toBeNull();
@@ -658,7 +658,7 @@ describe("AIFacade — resolveSkillInputBindings()", () => {
       adapter as unknown as import("../../skills/abstractions/skill.interface").ISkill,
       {
         variables: { x: "value" },
-      } as unknown as import("../../skills/runtime/input-binding-resolver").BindingContext,
+      } as unknown as import("../../skills/integration/input-binding-resolver").BindingContext,
     );
 
     expect(mockResolver.resolve).toHaveBeenCalled();

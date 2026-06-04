@@ -32,7 +32,7 @@ import { QueryLoopService } from "../../ai-harness/runner/executor/query-loop.se
 import { TokenTrackerService } from "../../ai-harness/runner/executor/token-tracker.service";
 // ★ Skill 扩展依赖
 import { AiChatLLMAdapter } from "../../ai-engine/llm/adapters/ai-chat-llm.adapter";
-import { InputBindingResolver } from "../../ai-engine/skills/runtime/binding/skill-input-binding-resolver.service";
+import { InputBindingResolver } from "../../ai-engine/skills/integration/binding/skill-input-binding-resolver.service";
 import { SkillContentService } from "../../ai-engine/skills/content/skill-content.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 // ★ Tool 扩展依赖

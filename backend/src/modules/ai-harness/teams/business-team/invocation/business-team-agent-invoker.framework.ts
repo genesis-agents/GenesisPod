@@ -20,7 +20,7 @@ import {
   isRetryableError,
   calculateBackoffDelay,
   sleep,
-} from "@/modules/ai-engine/safety/utils/error-detection.utils";
+} from "@/modules/ai-engine/reliability/error-detection.utils";
 import { MissionAbortRegistry } from "@/modules/ai-harness/lifecycle/mission-lifecycle/abort-registry";
 import type { IAgentEvent } from "@/modules/ai-harness/agents/abstractions/agent-event.interface";
 import type {

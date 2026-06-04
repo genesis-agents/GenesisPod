@@ -57,7 +57,7 @@ import {
   SkillActivator,
 } from "./agents/skill-runtime";
 import { SKILL_PROVIDERS } from "./agents/abstractions";
-import { EngineSkillProvider } from "../ai-engine/skills/runtime/adapters/engine-skill-provider.adapter";
+import { EngineSkillProvider } from "../ai-engine/skills/integration/adapters/engine-skill-provider.adapter";
 import { AiEngineSkillsModule } from "../ai-engine/skills/skills.module";
 import { SubagentSpawner } from "./agents/subagents";
 import {

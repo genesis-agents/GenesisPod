@@ -26,7 +26,7 @@ import {
 } from "../../types/skill-md.types";
 import { parseSkillMd, estimateTokens } from "../parsing/skill-parser";
 import { SkillCacheService } from "../caching/skill-cache.service";
-import { SkillsMPClientService } from "../../ecosystem/skillsmp-client.service";
+import { SkillsMPClientService } from "../../marketplace/skillsmp-client.service";
 import { SkillContentService } from "../../content/skill-content.service";
 
 /**
