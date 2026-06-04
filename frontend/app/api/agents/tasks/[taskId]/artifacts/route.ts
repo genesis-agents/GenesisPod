@@ -22,7 +22,7 @@ export async function GET(
     const token = cookieStore.get('auth-token')?.value;
 
     const response = await fetch(
-      `${API_BASE_URL}/agents/tasks/${taskId}/artifacts`,
+      `${API_BASE_URL}/ai-office/agents/tasks/${taskId}/artifacts`,
       {
         headers: {
           ...(token && { Authorization: `Bearer ${token}` }),

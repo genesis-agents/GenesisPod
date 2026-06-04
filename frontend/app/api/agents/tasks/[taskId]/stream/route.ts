@@ -27,7 +27,7 @@ export async function GET(
     logger.debug('[Agents Stream] Connecting to task:', taskId);
 
     const response = await fetch(
-      `${API_BASE_URL}/agents/tasks/${taskId}/stream`,
+      `${API_BASE_URL}/ai-office/agents/tasks/${taskId}/stream`,
       {
         headers: {
           Accept: 'text/event-stream',

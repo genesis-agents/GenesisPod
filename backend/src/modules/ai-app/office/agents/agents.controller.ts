@@ -35,7 +35,7 @@ interface ExecuteAgentDto {
 }
 
 @ApiTags("Agents")
-@Controller("agents")
+@Controller("ai-office/agents")
 export class AiOfficeAgentsController {
   private readonly logger = new Logger(AiOfficeAgentsController.name);
 

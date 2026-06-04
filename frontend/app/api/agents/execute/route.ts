@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       hasPrompt: !!body.prompt,
     });
 
-    const response = await fetch(`${API_BASE_URL}/agents/execute`, {
+    const response = await fetch(`${API_BASE_URL}/ai-office/agents/execute`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
