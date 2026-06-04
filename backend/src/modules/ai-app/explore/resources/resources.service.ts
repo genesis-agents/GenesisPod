@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { stripScrapedArtifacts } from "@/modules/ai-engine/facade";
 import { RawDataService } from "@/modules/ai-app/explore/rawdata/rawdata.service";
 import { ensureError } from "../../../../common/utils/error.utils";
 import { Prisma, ResourceType } from "@prisma/client";
@@ -620,10 +621,9 @@ export class ResourcesService {
       const html = response.data as string;
       if (!html || html.length < 100) return;
 
-      // 提取纯文本（简单去标签）
-      const textContent = html
-        .replace(/<script[\s\S]*?<\/script>/gi, "")
-        .replace(/<style[\s\S]*?<\/style>/gi, "")
+      // 提取纯文本：先剥离 SSR-shell 垃圾（RSC flight 标记 / <template> / 注释 / CSS），
+      // 再去剩余标签。否则被抓的 Next.js 应用壳会把 <!--$--> / <template id="B:0"> 当正文渲染。
+      const textContent = stripScrapedArtifacts(html)
         .replace(/<[^>]+>/g, " ")
         .replace(/\s{2,}/g, " ")
         .trim()

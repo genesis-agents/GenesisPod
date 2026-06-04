@@ -30,7 +30,7 @@ available for closed-source and SaaS use.
 
 The differentiator is **architectural discipline you can verify**. Most agent
 frameworks rot into a tangle of cross-imports within a year. GenesisPod enforces
-its 5-layer boundaries (`ai-app → ai-engine → ai-harness → ai-infra → open-api`)
+its 5-layer boundaries (`open-api → ai-app → ai-harness → ai-engine → platform`)
 through three independent gates — ESLint rules, a jest architecture-spec suite,
 and a pre-push + CI merge gate — so the structure stays sound as the codebase
 grows. The architecture compliance is **machine-checked on every push**, not a
@@ -61,18 +61,20 @@ A monorepo with three runtimes:
 | `ai-service/` | FastAPI (auxiliary AI service)                                           |
 
 The backend is layered into five top-level modules with a **strict one-way
-dependency direction**:
+dependency direction** (each layer may depend only on the ones below it):
 
 ```
-open-api    →  external API / MCP / admin surface
-ai-app      →  business applications (research, teams, office, writing, ...)
-ai-engine   →  reusable AI primitives (LLM, tools, RAG, knowledge, planning)
-ai-harness  →  multi-agent runtime, lifecycle, evaluation, protocols
-ai-infra    →  auth, storage, secrets, notifications
+open-api    →  external / admin / MCP surface          (L4)
+ai-app      →  business applications (research, teams, office, writing, ...)  (L3)
+ai-harness  →  multi-agent runtime, lifecycle, evaluation, protocols          (L2.5)
+ai-engine   →  reusable AI primitives (LLM, tools, RAG, knowledge, planning)  (L2)
+platform    →  auth, credentials/secrets, storage, credits, notifications     (L1)
 ```
 
-`ai-app` reaches `ai-engine` only through a facade; `ai-engine` never imports
-`ai-harness`. See [`STRUCTURE.md`](./STRUCTURE.md) for the full map.
+The L1 directory is `backend/src/modules/platform/` (its conceptual layer name
+is "ai-infra"). `ai-app` reaches the lower layers only through their facades;
+`ai-harness` may use `ai-engine` but `ai-engine` never imports `ai-harness`. See
+[`STRUCTURE.md`](./STRUCTURE.md) for the full map.
 
 ## Quick start
 

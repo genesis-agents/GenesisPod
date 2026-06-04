@@ -7,7 +7,7 @@
 
 ## 1. 这是什么
 
-企业级 AI 深度研究 + 内容管理平台。核心模块：AI Research / Topic Insights / AI Teams / AI Office / Writing / Ask / Image / Social / Simulation / Planning / Library / Explore。
+企业级 AI 深度研究 + 内容管理平台。核心模块：AI Research / Agent Playground（多 Agent mission 编排）/ Insight（话题洞察）/ AI Teams / AI Office / Writing / Ask / Image / Social / Radar / Simulation / Planning / Library / Explore / Custom Agents。
 
 ```
 Frontend: Next.js 14 + TypeScript + Zustand + TailwindCSS
@@ -17,8 +17,8 @@ AI:       LiteLLM + OpenAI/Claude/Grok
 
 ## 2. 代码放哪
 
-**Backend** 分组模块化：`backend/src/modules/{ai,content,core,data-services,integrations}/`，共享在 `common/`。
-AI 分层（严格单向 L4→L3→L2.5→L2→L1）：`ai-app/`（应用）→ `ai-harness/`（Agent 运行时）→ `ai-engine/`（LLM/tools/rag 基元）→ `ai-infra/`。App 只经 `AIEngineFacade` + Registry 访问 Engine，**禁穿透内部路径**（ESLint + 架构 spec 测试 + pre-push 三层守护）。
+**Backend** 顶层即 5 个分层模块：`backend/src/modules/{open-api,ai-app,ai-harness,ai-engine,platform}/`，跨层共享工具在 `common/`，插件系统在 `src/plugins/`（core + observability/security/storage 实现域）。
+AI 分层（严格单向 L4→L3→L2.5→L2→L1）：`open-api/` → `ai-app/`（应用）→ `ai-harness/`（Agent 运行时）→ `ai-engine/`（LLM/tools/rag 基元）→ `platform/`（L1 基础设施，旧称 ai-infra）。App 只经各层 facade（`AIEngineFacade` 等）+ Registry 访问下层，**禁穿透内部路径**（ESLint + 架构 spec 测试 + pre-push 三层守护）。
 
 **Frontend** 七层（单向 `app → components → hooks/stores/contexts → services → lib`）：
 
