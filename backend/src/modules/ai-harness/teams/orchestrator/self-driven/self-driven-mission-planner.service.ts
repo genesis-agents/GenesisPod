@@ -21,6 +21,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { AIModelType } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 import { StepDecompositionService } from "../../../../ai-engine/planning/decomposition/step-decomposition.service";
 import { RubricGeneratorService } from "../../../evaluation/rubric/rubric-generator.service";
@@ -278,30 +279,56 @@ export class SelfDrivenMissionPlannerService implements ISelfDrivenMissionPlanne
     });
     if (roleSet.size === 0) roleSet.add(FALLBACK_ROLE);
 
-    // Resolve available model ids (returns [] on error — AiChatService logs internally).
-    // userId is passed for observability; AiChatService resolves via RequestContext internally.
-    let availableModels: string[] = [];
+    // Resolve a concrete model id for every role. The team CANNOT be built with
+    // an empty model id — TeamFactory's LLMFactory throws "No default AI model
+    // configured" — so we must resolve one here, not defer to a "" downstream.
+    let primaryModel = "";
     try {
-      availableModels = await this.chat.getAvailableModelsAsync();
+      const available = await this.chat.getAvailableModelsAsync();
+      primaryModel = available[0] ?? "";
     } catch (err) {
       this.logger.warn(
-        `[SelfDrivenPlanner] getAvailableModelsAsync failed for user ${userId}, modelId will be "": ${
+        `[SelfDrivenPlanner] getAvailableModelsAsync failed for user ${userId}: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
     }
 
-    // Fallback: "" lets AiChatService resolve via TaskProfile downstream.
-    const primaryModel = availableModels[0] ?? "";
+    // getAvailableModelsAsync filters by *resolvable API key*, which can return
+    // empty even when the user has a working default (e.g. key resolution timing
+    // in a detached task). Fall back to the user's configured default CHAT model
+    // — the same source AiChatService.chat() uses, which is known to resolve.
+    if (!primaryModel) {
+      try {
+        const def = await this.chat.getDefaultModelByType(AIModelType.CHAT);
+        primaryModel = def?.modelId ?? "";
+      } catch (err) {
+        this.logger.warn(
+          `[SelfDrivenPlanner] getDefaultModelByType(CHAT) failed for user ${userId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
+    if (!primaryModel) {
+      // Surface the ROOT cause loudly here instead of letting it resurface as an
+      // opaque team-build failure several steps later.
+      this.logger.error(
+        `[SelfDrivenPlanner] no CHAT model resolvable for user ${userId} — ` +
+          `roles will have no model and execution will fail at team build. ` +
+          `Configure a default CHAT model (Admin Console) or a user BYOK key.`,
+      );
+    } else {
+      this.logger.log(
+        `[SelfDrivenPlanner] elected ${roleSet.size} roles → modelId="${primaryModel}"`,
+      );
+    }
 
     const assignments: RoleAssignment[] = [];
     for (const roleId of roleSet) {
       assignments.push({ roleId, modelId: primaryModel });
     }
-
-    this.logger.debug(
-      `[SelfDrivenPlanner] elected ${assignments.length} roles → modelId="${primaryModel}"`,
-    );
     return assignments;
   }
 
