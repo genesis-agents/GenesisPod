@@ -33,6 +33,7 @@ import { DynamicTeamBuilder } from "../../../dynamic-team/dynamic-team-builder";
 import { StepDecompositionService } from "../../../../../ai-engine/planning/decomposition/step-decomposition.service";
 import { RubricGeneratorService } from "../../../../evaluation/rubric/rubric-generator.service";
 import { AiChatService } from "../../../../../ai-engine/llm/chat/ai-chat.service";
+import { ModelElectionService } from "../../../../../ai-engine/llm/models/selection/model-election.service";
 import { AgentFactory } from "../../../../agents/core/agent-factory";
 import { RoleInventory } from "../../../role-inventory/role-inventory";
 import { ROLE_INVENTORY } from "../../../abstractions/role-inventory.interface";
@@ -514,6 +515,16 @@ describe("SelfDrivenMissionRunner integration", () => {
 
         // Mocked bottom-layer dependencies
         { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
         { provide: SelfDrivenHitlGateService, useValue: mockHitlGate },
         { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
         { provide: AgentFactory, useValue: mockAgentFactory },
@@ -711,6 +722,16 @@ describe("SelfDrivenMissionRunner integration", () => {
         RoleInventory,
         { provide: ROLE_INVENTORY, useExisting: RoleInventory },
         { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
         { provide: SelfDrivenHitlGateService, useValue: mockHitlGate },
         { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
         { provide: AgentFactory, useValue: buildAgentFactoryMock() },
@@ -808,6 +829,16 @@ describe("SelfDrivenMissionRunner integration", () => {
         RoleInventory,
         { provide: ROLE_INVENTORY, useExisting: RoleInventory },
         { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
         { provide: SelfDrivenHitlGateService, useValue: mockHitlGate },
         { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
         { provide: AgentFactory, useValue: appendAgentFactory },
@@ -989,6 +1020,16 @@ describe("SelfDrivenMissionRunner integration", () => {
         RoleInventory,
         { provide: ROLE_INVENTORY, useExisting: RoleInventory },
         { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
         { provide: SelfDrivenHitlGateService, useValue: approvedGate },
         { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
         { provide: AgentFactory, useValue: buildAgentFactoryMock() },
@@ -1168,6 +1209,16 @@ describe("SelfDrivenMissionRunner integration", () => {
         RoleInventory,
         { provide: ROLE_INVENTORY, useExisting: RoleInventory },
         { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
         { provide: SelfDrivenHitlGateService, useValue: approvedGate },
         { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
         { provide: AgentFactory, useValue: failingFactory },
@@ -1329,6 +1380,16 @@ describe("SelfDrivenMissionRunner integration", () => {
         RoleInventory,
         { provide: ROLE_INVENTORY, useExisting: RoleInventory },
         { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
         { provide: SelfDrivenHitlGateService, useValue: approvedHitl },
         { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
         { provide: AgentFactory, useValue: successfulAgentFactory },

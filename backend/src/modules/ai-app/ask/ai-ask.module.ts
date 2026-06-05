@@ -1,7 +1,11 @@
 import { Logger, Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
-import { EventBus, EventRegistry } from "@/modules/ai-harness/facade";
+import {
+  EventBus,
+  EventRegistry,
+  HumanApprovalAdminService,
+} from "@/modules/ai-harness/facade";
 import { AiAskController } from "./ai-ask.controller";
 import { AiAskService } from "./ai-ask.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -84,6 +88,10 @@ import { HandoffAdapter } from "./adapters/handoff.adapter";
     AskSelfDrivenApprovalService,
     AskSelfDrivenGateway,
     SelfDrivenLivenessAdapter,
+    // Single class definition lives in ai-harness/lifecycle; provided here so
+    // AskSelfDrivenApprovalService can delegate the response write to it (same
+    // pattern open-api/admin already uses). Stateless, idempotent onModuleInit.
+    HumanApprovalAdminService,
   ],
   exports: [AiAskService, AskRoomService],
 })

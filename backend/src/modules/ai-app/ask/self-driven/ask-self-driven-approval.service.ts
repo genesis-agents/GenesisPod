@@ -16,6 +16,7 @@ import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   HITL_APPROVAL_USER_ID,
+  HumanApprovalAdminService,
   selfDrivenMissionGateKey,
 } from "@/modules/ai-harness/facade";
 
@@ -23,12 +24,17 @@ import {
 export class AskSelfDrivenApprovalService {
   private readonly logger = new Logger(AskSelfDrivenApprovalService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly humanApprovalAdmin: HumanApprovalAdminService,
+  ) {}
 
   /**
-   * Resolve the mission's currently open gate. Writes the
-   * approval:response:{requestId} row the SelfDrivenHitlGateService poll picks
-   * up within ~2s. Throws NotFound if there is no open gate for the mission.
+   * Resolve the mission's currently open gate by missionId (owner-scoped lookup
+   * the admin endpoint does not do), then DELEGATE the response write to the
+   * shared HumanApprovalAdminService — the same canonical path /admin/approvals
+   * uses, which the SelfDrivenHitlGateService poll picks up within ~2s. No
+   * hand-rolled long_term_memories upsert. Throws NotFound if no gate is open.
    */
   async approve(
     missionId: string,
@@ -49,29 +55,9 @@ export class AskSelfDrivenApprovalService {
       throw new NotFoundException("No open approval gate for this mission");
     }
 
-    const RESPONSE_KEY = `approval:response:${requestId}`;
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-    const value = {
+    await this.humanApprovalAdmin.respond(requestId, {
       approved,
-      choice: null,
-      input: null,
-      feedback: feedback ?? null,
-    } as never;
-
-    await this.prisma.longTermMemory.upsert({
-      where: {
-        userId_key: { userId: HITL_APPROVAL_USER_ID, key: RESPONSE_KEY },
-      },
-      create: {
-        userId: HITL_APPROVAL_USER_ID,
-        key: RESPONSE_KEY,
-        type: "human_approval_response",
-        value,
-        importance: 10,
-        tags: ["human-approval", "response"],
-        expiresAt,
-      },
-      update: { value, expiresAt },
+      feedback: feedback ?? undefined,
     });
 
     this.logger.log(
