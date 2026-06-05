@@ -140,6 +140,13 @@ export class SelfDrivenMissionRunner {
       return;
     }
     let appendContext: string | undefined;
+    // Keep a reference to the generated choices so we can look up label/description
+    // of the chosen option when applying it as a re-plan context refinement.
+    let planGateChoices: Array<{
+      id: string;
+      label: string;
+      description?: string;
+    }> = [];
     {
       const planGatePrompt =
         `Mission "${input.prompt.slice(0, 120)}" — plan ready.\n` +
@@ -147,14 +154,28 @@ export class SelfDrivenMissionRunner {
         `Roles: ${[...new Set(plan.steps.map((s) => s.executor))].join(", ")}.\n` +
         `Approve to proceed, reject to cancel, or provide feedback to adjust.`;
 
-      // Persist the gate FIRST, then advertise it with the real requestId, then
-      // block waiting. Advertising before persistence would let a fast client
-      // POST /approve before the gate mapping exists (spurious 404). See
-      // SelfDrivenHitlGateService.prepareGate.
+      // Generate dynamic context-aware choices (best-effort: never blocks the gate).
+      const planContextSummary =
+        `Objective: ${input.prompt.slice(0, 200)}\n` +
+        `Plan: ${plan.steps.length} steps — ${plan.steps.map((s) => s.name).join(", ")}.\n` +
+        `Roles: ${[...new Set(plan.steps.map((s) => s.executor))].join(", ")}.`;
+      planGateChoices = await this.generateGateChoices(
+        "plan_confirm",
+        planContextSummary,
+        input.userId,
+        missionId,
+      );
+
+      // Persist the gate FIRST (with choices), then advertise it with the real
+      // requestId, then block waiting. Advertising before persistence would let a
+      // fast client POST /approve before the gate mapping exists (spurious 404).
+      // See SelfDrivenHitlGateService.prepareGate.
       const planPrep = await this.hitlGate.prepareGate(
         missionId,
         "plan_confirm",
         planGatePrompt,
+        undefined,
+        planGateChoices.length > 0 ? planGateChoices : undefined,
       );
 
       yield {
@@ -163,6 +184,7 @@ export class SelfDrivenMissionRunner {
         requestId: planPrep.requestId,
         gate: "plan_confirm",
         prompt: planGatePrompt,
+        choices: planGateChoices.length > 0 ? planGateChoices : undefined,
       };
 
       const planGate = planPrep.autoApproved
@@ -211,11 +233,78 @@ export class SelfDrivenMissionRunner {
 
       appendContext = planGate.appendInstruction;
 
+      // ── Apply the human's chosen dynamic option (choice-driven refinement) ────
+      // If the human selected a non-"proceed" option, fold its label+description
+      // into a re-plan so the new plan incorporates the requested adjustment.
+      // Falls back to the existing analysisDepth re-plan path if both fire.
+      const chosenChoiceId = (planGate as { chosenChoiceId?: string })
+        .chosenChoiceId;
+      if (chosenChoiceId && chosenChoiceId !== "proceed" && !signal?.aborted) {
+        const chosenOption = planGateChoices.find(
+          (c) => c.id === chosenChoiceId,
+        );
+        if (chosenOption) {
+          const choiceContext = chosenOption.description
+            ? `${chosenOption.label}: ${chosenOption.description}`
+            : chosenOption.label;
+          this.logger.log(
+            `[SelfDriven] mission ${missionId} re-planning with chosen option ` +
+              `"${chosenChoiceId}": ${choiceContext}`,
+          );
+          yield {
+            type: "phase",
+            missionId,
+            phase: "plan",
+            status: "started",
+            detail: `re-planning per chosen option: ${chosenOption.label}`,
+          };
+          try {
+            // Fold the choice refinement into the planner's `context` field.
+            // The `context` dict is forwarded to StepDecompositionService which
+            // passes it to the LLM so the re-plan adapts to the chosen option.
+            const choiceRefinementContext: Record<string, unknown> = {
+              ...(input.clarifications
+                ? (input.clarifications as Record<string, unknown>)
+                : {}),
+              chosenRefinement: choiceContext,
+            };
+            plan = await this.planner.plan({
+              prompt: input.prompt,
+              userId: input.userId,
+              context: choiceRefinementContext,
+              analysisDepth: input.analysisDepth,
+              signal,
+            });
+            yield {
+              type: "phase",
+              missionId,
+              phase: "plan",
+              status: "completed",
+            };
+            yield { type: "plan", missionId, plan };
+          } catch (err) {
+            // Re-plan failure is non-fatal: keep the already-approved plan.
+            this.logger.warn(
+              `[SelfDriven] mission ${missionId} choice-driven re-plan failed, ` +
+                `keeping original plan: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            yield {
+              type: "phase",
+              missionId,
+              phase: "plan",
+              status: "completed",
+              detail: "re-plan failed — proceeding with the original plan",
+            };
+          }
+        }
+      }
+
       // ── Re-plan if the human changed the analysis depth at this gate ─────────
       // Depth controls step-decomposition maxSteps, so a depth change must
       // regenerate the plan (and re-elect roles) before execution. The new depth
       // also flows into per-step output length via the mutated input below.
-      const chosenDepth = planGate.analysisDepth;
+      const chosenDepth = (planGate as { analysisDepth?: string })
+        .analysisDepth as "quick" | "standard" | "deep" | undefined;
       const currentDepth = input.analysisDepth ?? "standard";
       if (chosenDepth && chosenDepth !== currentDepth && !signal?.aborted) {
         this.logger.log(
@@ -437,10 +526,27 @@ export class SelfDrivenMissionRunner {
         `Approve to assemble the final report, reject to cancel, or provide ` +
         `feedback to adjust before assembly.`;
 
+      // Generate dynamic deliver-gate choices (best-effort).
+      const deliverContextSummary =
+        `Objective: ${input.prompt.slice(0, 200)}\n` +
+        `Completed steps (${stepOutputs.size}/${plan.steps.length}): ` +
+        `${plan.steps
+          .filter((s) => stepOutputs.has(s.id))
+          .map((s) => s.name)
+          .join(", ")}.`;
+      const deliverGateChoices = await this.generateGateChoices(
+        "deliver_confirm",
+        deliverContextSummary,
+        input.userId,
+        missionId,
+      );
+
       const deliverPrep = await this.hitlGate.prepareGate(
         missionId,
         "deliver_confirm",
         deliverGatePrompt,
+        undefined,
+        deliverGateChoices.length > 0 ? deliverGateChoices : undefined,
       );
 
       yield {
@@ -449,6 +555,7 @@ export class SelfDrivenMissionRunner {
         requestId: deliverPrep.requestId,
         gate: "deliver_confirm",
         prompt: deliverGatePrompt,
+        choices: deliverGateChoices.length > 0 ? deliverGateChoices : undefined,
       };
 
       const deliverGate = deliverPrep.autoApproved
@@ -500,6 +607,29 @@ export class SelfDrivenMissionRunner {
         appendContext = appendContext
           ? `${appendContext}\n\n${deliverGate.appendInstruction}`
           : deliverGate.appendInstruction;
+      }
+
+      // Apply the human's chosen deliver-gate option as an additional appendContext.
+      // A non-"proceed" option (e.g. "add executive summary") is appended so the
+      // report composer and remaining steps honour the requested adjustment.
+      const deliverChosenId = (deliverGate as { chosenChoiceId?: string })
+        .chosenChoiceId;
+      if (deliverChosenId && deliverChosenId !== "proceed") {
+        const deliverChosenOption = deliverGateChoices.find(
+          (c) => c.id === deliverChosenId,
+        );
+        if (deliverChosenOption) {
+          const choiceText = deliverChosenOption.description
+            ? `${deliverChosenOption.label}: ${deliverChosenOption.description}`
+            : deliverChosenOption.label;
+          appendContext = appendContext
+            ? `${appendContext}\n\n${choiceText}`
+            : choiceText;
+          this.logger.log(
+            `[SelfDriven] mission ${missionId} deliver-gate choice applied: ` +
+              `"${deliverChosenId}" → appended to context`,
+          );
+        }
       }
     }
 
@@ -678,7 +808,12 @@ export class SelfDrivenMissionRunner {
         title: src.title,
         url: src.url ?? undefined,
         metadata: {
-          ...(src.publisher ? { publisher: src.publisher } : {}),
+          // Most self-driven sources are organizations (Gartner, IDC, IEA…), not
+          // authored papers. Feed the publisher as the (corporate) author so the
+          // bibliography renders "Gartner (2023). …" instead of "Unknown (2023). …".
+          ...(src.publisher
+            ? { publisher: src.publisher, authors: [src.publisher] }
+            : {}),
           ...(src.year ? { publishedYear: src.year } : {}),
         },
       };
@@ -702,6 +837,153 @@ export class SelfDrivenMissionRunner {
     );
 
     return bib.formattedText;
+  }
+
+  /**
+   * Generate dynamic, context-aware gate choices via a single deterministic LLM
+   * call.  Returns an array of options that is always led by a "proceed" entry
+   * (proceed as-is) followed by 2–4 context-specific refinement options.
+   *
+   * Best-effort: any error (LLM failure, parse failure) returns [] so the gate
+   * still functions as a plain approve/reject checkpoint. Never throws.
+   *
+   * Output format expected from the model:
+   *   [{"id":"proceed","label":"按现计划执行","description":"..."},
+   *    {"id":"<slug>","label":"...","description":"..."},...]
+   *
+   * Parsing strategy (mirrors StepDecompositionService.parseSteps):
+   *   1. Strip optional ```json fences.
+   *   2. JSON.parse directly.
+   *   3. Regex-extract first [...] block as fallback.
+   *   4. Validate items have non-empty id + label strings.
+   *   5. Return [] on any failure.
+   */
+  private async generateGateChoices(
+    gate: "plan_confirm" | "deliver_confirm",
+    contextSummary: string,
+    userId: string,
+    missionId: string,
+  ): Promise<Array<{ id: string; label: string; description?: string }>> {
+    const systemPrompt =
+      gate === "plan_confirm"
+        ? `You are a mission planning assistant. Given a mission plan summary, ` +
+          `generate 3–5 actionable choice options the human can select at this ` +
+          `checkpoint. The first option MUST be ` +
+          `{"id":"proceed","label":"按现计划执行","description":"Execute the plan exactly as generated"}. ` +
+          `Additional options should be context-specific adjustments (e.g. go deeper on ` +
+          `a named aspect, reduce/increase steps, add or refocus a step, change depth). ` +
+          `Use concise, specific labels (≤8 words). ` +
+          `Return ONLY a JSON array of objects with fields: id (kebab-slug, unique), ` +
+          `label (string), description (string, optional). No markdown, no prose.`
+        : `You are a mission delivery assistant. Given a mission execution summary, ` +
+          `generate 3–5 actionable choice options the human can select before the ` +
+          `final report is assembled. The first option MUST be ` +
+          `{"id":"proceed","label":"按现计划交付","description":"Assemble and deliver the report as-is"}. ` +
+          `Additional options should be report-level adjustments (e.g. add executive ` +
+          `summary, expand a section, add key takeaways, restructure, add citations). ` +
+          `Use concise, specific labels (≤8 words). ` +
+          `Return ONLY a JSON array of objects with fields: id (kebab-slug, unique), ` +
+          `label (string), description (string, optional). No markdown, no prose.`;
+
+    try {
+      const res = await this.chat.chat({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: contextSummary },
+        ],
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "deterministic", outputLength: "short" },
+        responseFormat: "json",
+        userId,
+      });
+
+      let text = (res.content ?? "").trim();
+
+      // Strip optional ```json fences.
+      const fence = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (fence) text = fence[1].trim();
+
+      const tryParse = (
+        candidate: string,
+      ): Array<{ id: string; label: string; description?: string }> | null => {
+        try {
+          const parsed = JSON.parse(candidate);
+          if (Array.isArray(parsed)) {
+            return (parsed as unknown[])
+              .filter(
+                (
+                  item,
+                ): item is {
+                  id: string;
+                  label: string;
+                  description?: string;
+                } =>
+                  item !== null &&
+                  typeof item === "object" &&
+                  typeof (item as Record<string, unknown>)["id"] === "string" &&
+                  (item as Record<string, unknown>)["id"] !== "" &&
+                  typeof (item as Record<string, unknown>)["label"] ===
+                    "string" &&
+                  (item as Record<string, unknown>)["label"] !== "",
+              )
+              .slice(0, 6);
+          }
+        } catch {
+          /* fall through */
+        }
+        return null;
+      };
+
+      let choices = tryParse(text);
+      if (!choices) {
+        const arrMatch = text.match(/\[[\s\S]*\]/);
+        if (arrMatch) choices = tryParse(arrMatch[0]);
+      }
+
+      if (!choices || choices.length === 0) {
+        this.logger.debug(
+          `[SelfDriven] mission ${missionId} gate=${gate} choice generation: ` +
+            `LLM returned unparseable content — using empty choices`,
+        );
+        return [];
+      }
+
+      // Ensure "proceed" is always first (model may have placed it elsewhere or
+      // forgotten it entirely — inject if missing).
+      const hasProceeed = choices.some((c) => c.id === "proceed");
+      if (!hasProceeed) {
+        const proceedLabel =
+          gate === "plan_confirm" ? "按现计划执行" : "按现计划交付";
+        const proceedDesc =
+          gate === "plan_confirm"
+            ? "Execute the plan exactly as generated"
+            : "Assemble and deliver the report as-is";
+        choices = [
+          { id: "proceed", label: proceedLabel, description: proceedDesc },
+          ...choices,
+        ].slice(0, 6);
+      } else {
+        // Move "proceed" to the front if not already first.
+        const proceedIdx = choices.findIndex((c) => c.id === "proceed");
+        if (proceedIdx > 0) {
+          const proceed = choices.splice(proceedIdx, 1)[0];
+          choices.unshift(proceed);
+        }
+      }
+
+      this.logger.debug(
+        `[SelfDriven] mission ${missionId} gate=${gate} generated ` +
+          `${choices.length} choices`,
+      );
+      return choices;
+    } catch (err) {
+      this.logger.warn(
+        `[SelfDriven] mission ${missionId} gate=${gate} choice generation failed ` +
+          `(non-fatal, gate continues as plain approve/reject): ` +
+          `${err instanceof Error ? err.message : String(err)}`,
+      );
+      return [];
+    }
   }
 
   /**

@@ -1333,6 +1333,17 @@ describe("SelfDrivenMissionRunner integration", () => {
           return { content: JSON.stringify(rubric), isError: false };
         }
 
+        // Dynamic gate choices generation (added with dynamic HITL choices feature).
+        // The runner sends choices prompts as a messages array (no systemPrompt field),
+        // so `sys` is empty; discriminate via the first-message user content instead.
+        // Return empty array so choices generation gracefully returns [].
+        if (
+          userContent.includes("mission planning assistant") ||
+          userContent.includes("mission delivery assistant")
+        ) {
+          return { content: "[]", isError: false };
+        }
+
         // Fallback chat() for step execution (called when chatStream fails):
         // fail the FIRST step fallback call, succeed on subsequent ones.
         stepCallCount++;

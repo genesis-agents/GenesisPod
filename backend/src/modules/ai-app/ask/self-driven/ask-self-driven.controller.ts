@@ -71,6 +71,17 @@ class ApproveDto {
   @IsOptional()
   @IsIn(["quick", "standard", "deep"])
   analysisDepth?: "quick" | "standard" | "deep";
+
+  /**
+   * The id of the dynamic choice option the human selected from the
+   * `choices` array carried by the `awaiting_approval` event.
+   * "proceed" means execute as-is; any other value is a context-specific
+   * refinement the runner applies (re-plan for plan gate, appendContext for
+   * deliver gate). Ignored when absent.
+   */
+  @IsOptional()
+  @IsString()
+  choice?: string;
 }
 
 /**
@@ -161,6 +172,7 @@ export class AskSelfDrivenController {
       dto.approved,
       dto.feedback,
       dto.analysisDepth,
+      dto.choice,
     );
     return { ok: true, requestId };
   }

@@ -18,6 +18,9 @@ import {
  *             (auto-approve is the P4a default; gate is still considered approved).
  * appendInstruction — sanitized text the user appended to refine the next phase
  *             (present only when the user supplied feedback during approval).
+ * chosenChoiceId — the id of the dynamic choice option the human selected (echoed
+ *             back from the approval response's `choice` field). When present and
+ *             not "proceed", the runner applies that choice as a contextual refinement.
  */
 export interface HitlGateOutcome {
   approved: boolean;
@@ -29,6 +32,12 @@ export interface HitlGateOutcome {
    * depth the plan was built with, the runner re-plans at this depth.
    */
   analysisDepth?: "quick" | "standard" | "deep";
+  /**
+   * The id of the dynamic gate choice the human selected. "proceed" means
+   * execute as-is; any other value is a context-specific refinement option
+   * that the runner should fold into its next phase (re-plan or appendContext).
+   */
+  chosenChoiceId?: string;
 }
 
 /** 10-minute default gate timeout (P4a spec). */
@@ -126,17 +135,24 @@ export class SelfDrivenHitlGateService {
    *
    * autoApproved=true means the backing table is unavailable and the gate should
    * be treated as auto-approved (mission must not be silently killed).
+   *
+   * @param choices Dynamically generated option choices for the human to select.
+   *                When provided they are stored in the approval request payload's
+   *                `choices` field (reusing the existing ApprovalRequestPayload
+   *                capability). Pass empty array or omit to send null (plain gate).
    */
   async prepareGate(
     missionId: string,
     gate: "plan_confirm" | "deliver_confirm",
     prompt: string,
-    timeoutMs = GATE_TIMEOUT_MS,
+    timeoutMs?: number,
+    choices?: Array<{ id: string; label: string; description?: string }>,
   ): Promise<{ requestId: string; autoApproved: boolean }> {
+    const resolvedTimeout = timeoutMs ?? GATE_TIMEOUT_MS;
     const requestId = randomUUID();
     this.logger.log(
       `[HitlGate] mission=${missionId} gate=${gate} requestId=${requestId} ` +
-        `timeout=${timeoutMs}ms`,
+        `timeout=${resolvedTimeout}ms choices=${choices?.length ?? 0}`,
     );
     try {
       if (!(await this.approval.tableReady())) {
@@ -146,7 +162,14 @@ export class SelfDrivenHitlGateService {
         );
         return { requestId, autoApproved: true };
       }
-      await this.storeRequest(requestId, missionId, gate, prompt, timeoutMs);
+      await this.storeRequest(
+        requestId,
+        missionId,
+        gate,
+        prompt,
+        resolvedTimeout,
+        choices,
+      );
       return { requestId, autoApproved: false };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -196,11 +219,14 @@ export class SelfDrivenHitlGateService {
     gate: "plan_confirm" | "deliver_confirm",
     prompt: string,
     timeoutMs: number,
+    choices?: Array<{ id: string; label: string; description?: string }>,
   ): Promise<void> {
     const USER_ID = "system";
     const expiresAt = new Date(Date.now() + timeoutMs + 60_000);
 
     // Store the request via the shared primitive (request payload is gate-specific).
+    // choices reuses the existing ApprovalRequestPayload.choices capability —
+    // populated with dynamic context-specific options when present, null otherwise.
     await this.approval.storeRequest({
       requestId,
       payload: {
@@ -209,7 +235,14 @@ export class SelfDrivenHitlGateService {
         approvalType: "review" as const,
         prompt,
         context: { summary: `Self-driven mission gate: ${gate}` },
-        choices: null,
+        choices:
+          choices && choices.length > 0
+            ? choices
+            : (null as unknown as {
+                id: string;
+                label: string;
+                description?: string;
+              }[]),
         defaultAction: "approve",
         status: "pending",
         createdAt: new Date().toISOString(),
@@ -318,12 +351,26 @@ export class SelfDrivenHitlGateService {
       }
     }
 
+    // Decode the dynamic choice id the human echoed back.
+    // `choice` is a top-level string field on the approval response (ApprovalRespondInput).
+    const chosenChoiceId =
+      typeof responseData.choice === "string" && responseData.choice.length > 0
+        ? responseData.choice
+        : undefined;
+
     this.logger.log(
       `[HitlGate] mission=${missionId} gate=${gate} resolved: ` +
-        `approved=${approved} hasAppend=${!!appendInstruction}`,
+        `approved=${approved} hasAppend=${!!appendInstruction} ` +
+        `chosenChoiceId=${chosenChoiceId ?? "none"}`,
     );
     await this.cleanupGate(requestId, missionId, true);
-    return { approved, timedOut: false, appendInstruction, analysisDepth };
+    return {
+      approved,
+      timedOut: false,
+      appendInstruction,
+      analysisDepth,
+      chosenChoiceId,
+    };
   }
 
   /**

@@ -41,6 +41,7 @@ export class AskSelfDrivenApprovalService {
     approved: boolean,
     feedback?: string,
     analysisDepth?: "quick" | "standard" | "deep",
+    choice?: string,
   ): Promise<{ requestId: string }> {
     const mapping = await this.prisma.longTermMemory.findUnique({
       where: {
@@ -59,14 +60,17 @@ export class AskSelfDrivenApprovalService {
     // Depth is carried opaquely through the generic approval `input` field so
     // HumanApprovalAdminService stays self-driven-agnostic; the self-driven gate
     // decodes it. feedback stays the append-instruction channel.
+    // choice echoes the dynamic gate option id back to the gate poller.
     await this.humanApprovalAdmin.respond(requestId, {
       approved,
       feedback: feedback ?? undefined,
       input: analysisDepth ? { analysisDepth } : undefined,
+      choice: choice ?? undefined,
     });
 
     this.logger.log(
-      `[approve] mission=${missionId} requestId=${requestId} approved=${approved}`,
+      `[approve] mission=${missionId} requestId=${requestId} approved=${approved} ` +
+        `choice=${choice ?? "none"}`,
     );
     return { requestId };
   }
