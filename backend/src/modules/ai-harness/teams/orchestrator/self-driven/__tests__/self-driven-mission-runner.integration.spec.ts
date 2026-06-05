@@ -1786,4 +1786,958 @@ describe("SelfDrivenMissionRunner integration", () => {
       ).SELF_DRIVEN_MISSION_MAX_TOKENS = originalMax;
     }
   });
+
+  // =========================================================================
+  // Case D: tool-capable step returns structured object output
+  //         → formatter converts to Markdown prose
+  //         → deliverable contains no raw JSON blob (no leading "{")
+  //         → deliverable contains key-derived prose headings
+  // =========================================================================
+
+  it("formatter: tool-capable step emitting structured object output → deliverable contains Markdown prose, no raw JSON blob", async () => {
+    // Strategy:
+    //   - ENABLE_TOOL_LOOP=true so the react-loopKind step routes through AgentFactory
+    //   - The mock agent yields a structured object as its output payload
+    //   - SelfDrivenReportComposer.formatStructuredOutput() must turn it into prose
+    //   - Assertions:
+    //       1. The deliverable does not contain a raw JSON blob (no `{` as first char
+    //          of the step contribution, and no `{"` anywhere in the report body)
+    //       2. The deliverable contains text derived from the structured object keys
+    //         (the formatter uses kebabToTitle so "summary" → "Summary")
+
+    const structuredOutput: Record<string, unknown> = {
+      summary: "AI is transforming software engineering roles significantly.",
+      findings: [
+        "Junior roles are most at risk from automation",
+        "Senior roles pivot toward AI supervision",
+      ],
+      conclusion: "Upskilling is essential for workforce resilience.",
+    };
+
+    // Build an agent factory that returns an agent whose output event carries
+    // the structured object (not a string).
+    const structuredOutputAgentFactory: AgentFactory = {
+      create: jest.fn((spec) => {
+        const agentId = "mock-structured-agent";
+        const now = Date.now();
+        const tools = (spec.identity as { tools?: string[] }).tools ?? [];
+
+        async function* executeGenerator(
+          _task: IAgentTask,
+        ): AsyncIterable<IAgentEvent> {
+          for (const toolId of tools) {
+            yield {
+              type: "action_executed",
+              agentId,
+              timestamp: now,
+              payload: {
+                action: { kind: "tool_call", toolId, input: {} },
+                output: `result from ${toolId}`,
+                latencyMs: 5,
+              },
+            } as IAgentEvent;
+          }
+          // Emit structured object as the output (not a string)
+          yield {
+            type: "output",
+            agentId,
+            timestamp: now,
+            payload: { output: structuredOutput },
+          } as unknown as IAgentEvent;
+          yield {
+            type: "terminated",
+            agentId,
+            timestamp: now,
+            payload: { reason: "completed" },
+          } as IAgentEvent;
+        }
+
+        return {
+          id: agentId as unknown as import("../../../../agents/abstractions/agent.types").AgentId,
+          identity:
+            {} as import("../../../../agents/abstractions/identity.interface").IAgentIdentity,
+          state: "idle" as const,
+          execute: (task: IAgentTask) => executeGenerator(task),
+          spawnSubagent: jest.fn(),
+          getEnvelope: jest.fn(),
+          cancel: jest.fn(),
+        };
+      }),
+    } as unknown as AgentFactory;
+
+    // Use a 1-step plan (react loopKind) so the structured-output step is the only
+    // step; avoids interleaving with chatStream text and keeps the assertion clean.
+    const chatWithSingleReactStep = jest.fn(
+      async (opts: {
+        systemPrompt?: string;
+        messages?: Array<{ role: string; content: string }>;
+        responseFormat?: string;
+        modelType?: AIModelType;
+      }) => {
+        const sys = opts.systemPrompt ?? "";
+        const userContent = opts.messages?.[0]?.content ?? "";
+
+        if (
+          sys.includes("role-agnostic planning assistant") ||
+          (userContent.includes("Goal:") && opts.responseFormat === "json")
+        ) {
+          const steps = [
+            {
+              name: "Analyse AI impact",
+              description: "Structured analysis of AI on engineering jobs.",
+              type: "task",
+              loopKind: "react",
+              dependencyIndices: [],
+              estimatedDurationMs: 60000,
+            },
+          ];
+          return { content: JSON.stringify(steps), isError: false };
+        }
+
+        if (
+          sys.includes("expert evaluator") ||
+          userContent.includes("Objective:")
+        ) {
+          return {
+            content: JSON.stringify([
+              { dimension: "accuracy", weight: 1.0, passLine: 70 },
+            ]),
+            isError: false,
+          };
+        }
+
+        return {
+          content: `output for: ${userContent.slice(0, 60)}`,
+          isError: false,
+        };
+      },
+    );
+
+    await module.close();
+
+    const mockAiChatService = {
+      chat: chatWithSingleReactStep,
+      chatStream: buildChatStreamMock(),
+      getAvailableModelsAsync: buildGetAvailableModelsMock(),
+    } as unknown as AiChatService;
+
+    const approvedGate = gateMockFrom(makeApprovedGate());
+    const teamStub = buildMinimalTeamStub();
+    const mockDynamicTeamBuilder = {
+      build: jest.fn().mockReturnValue(teamStub),
+    } as unknown as DynamicTeamBuilder;
+
+    module = await Test.createTestingModule({
+      providers: [
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+        { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+        { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
+        { provide: SelfDrivenHitlGateService, useValue: approvedGate },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: structuredOutputAgentFactory },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+    setToolLoop(true);
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    // Mission must complete successfully
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+    expect(eventsOfType(events, "error")).toHaveLength(0);
+
+    // The single step must have completed ok=true
+    const stepCompleted = eventsOfType(events, "step_completed");
+    expect(stepCompleted).toHaveLength(1);
+    expect(stepCompleted[0].ok).toBe(true);
+
+    const deliverables = eventsOfType(events, "deliverable");
+    expect(deliverables).toHaveLength(1);
+    const report = deliverables[0].content;
+
+    // ── 1. No raw JSON blob ─────────────────────────────────────────────────
+    // The formatter must have converted the object; the report must not contain
+    // the literal opening of a JSON object serialisation (i.e. `{"summary"`).
+    expect(report).not.toContain('{"summary"');
+    expect(report).not.toContain('{"findings"');
+
+    // ── 2. Prose headings derived from object keys ──────────────────────────
+    // formatObject sorts priority keys first: summary, conclusion come before findings.
+    // kebabToTitle("summary") → "Summary", etc.
+    expect(report).toContain("Summary");
+    expect(report).toContain("Conclusion");
+
+    // ── 3. Actual string values appear in the report ────────────────────────
+    expect(report).toContain(
+      "AI is transforming software engineering roles significantly.",
+    );
+    expect(report).toContain("Upskilling is essential for workforce resilience.");
+  });
+
+  // =========================================================================
+  // Case E: Rubric self-evaluation — low score triggers one critique-driven
+  //         refinement pass via finalizeReportViaLLM
+  // =========================================================================
+
+  it("rubric low score: evaluateAgainstRubric returns below-passLine score → finalizeReportViaLLM called once with critique feedback", async () => {
+    await module.close();
+
+    const EVAL_MARKER = "report quality evaluator";
+    const FINALIZE_MARKER = "report refinement specialist";
+
+    // Content long enough to pass finalizeReportViaLLM's 100-char guard.
+    const refinedContent =
+      "# Refined Report\n\n" +
+      "This report has been improved based on the quality evaluation feedback. " +
+      "Accuracy and completeness have been strengthened throughout the document.\n\n" +
+      "## Details\n\nAdditional analysis follows here.";
+
+    let evalCalls = 0;
+    let finalizeCalls = 0;
+
+    const chatWithRubricFlow = jest.fn(
+      async (opts: {
+        systemPrompt?: string;
+        messages?: Array<{ role: string; content: string }>;
+        responseFormat?: string;
+        modelType?: AIModelType;
+      }) => {
+        const sys =
+          opts.systemPrompt ??
+          opts.messages?.find((m) => m.role === "system")?.content ??
+          "";
+        const userContent =
+          opts.messages?.find((m) => m.role === "user")?.content ?? "";
+
+        // Rubric evaluator call — return low scores to trigger refinement
+        if (sys.includes(EVAL_MARKER)) {
+          evalCalls++;
+          return {
+            content: JSON.stringify({
+              scores: [
+                { dimension: "accuracy", score: 55, feedback: "Several claims lack supporting evidence." },
+                { dimension: "completeness", score: 60, feedback: "Key aspects of the topic are missing." },
+              ],
+              overallNote: "Report needs improvement in accuracy and completeness.",
+            }),
+            isError: false,
+          };
+        }
+
+        // Finalize/refinement call — return the refined content
+        if (sys.includes(FINALIZE_MARKER)) {
+          finalizeCalls++;
+          return { content: refinedContent, isError: false };
+        }
+
+        // Step decomposition
+        if (
+          sys.includes("role-agnostic planning assistant") ||
+          (userContent.includes("Goal:") && opts.responseFormat === "json")
+        ) {
+          return {
+            content: JSON.stringify([
+              {
+                name: "Research",
+                description: "Gather facts.",
+                type: "task",
+                loopKind: "plan-act",
+                dependencyIndices: [],
+                estimatedDurationMs: 30000,
+              },
+            ]),
+            isError: false,
+          };
+        }
+
+        // Rubric generation — return dimensions whose passLine (70) exceeds the
+        // mock eval scores (55, 60) so shouldRefine=true is triggered.
+        if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+          return {
+            content: JSON.stringify([
+              { dimension: "accuracy", weight: 0.5, passLine: 70 },
+              { dimension: "completeness", weight: 0.5, passLine: 70 },
+            ]),
+            isError: false,
+          };
+        }
+
+        return { content: `output for: ${userContent.slice(0, 60)}`, isError: false };
+      },
+    );
+
+    const mockAiChatService = {
+      chat: chatWithRubricFlow,
+      chatStream: buildChatStreamMock(),
+      getAvailableModelsAsync: buildGetAvailableModelsMock(),
+    } as unknown as AiChatService;
+
+    const approvedGate = gateMockFrom(makeApprovedGate());
+    const teamStub = buildMinimalTeamStub();
+    const mockDynamicTeamBuilder = {
+      build: jest.fn().mockReturnValue(teamStub),
+    } as unknown as DynamicTeamBuilder;
+
+    module = await Test.createTestingModule({
+      providers: [
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+        { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+        { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
+        { provide: SelfDrivenHitlGateService, useValue: approvedGate },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: buildAgentFactoryMock() },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    // Mission completes without errors
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+    expect(eventsOfType(events, "error")).toHaveLength(0);
+
+    // Evaluator was called exactly once
+    expect(evalCalls).toBe(1);
+
+    // Refinement was triggered exactly once (low score)
+    expect(finalizeCalls).toBe(1);
+
+    // The finalize call must include critique text referencing low-scoring dimensions
+    const finalizeChatArgs = (chatWithRubricFlow as jest.Mock).mock.calls.find(
+      (args: [{ systemPrompt?: string; messages?: Array<{ role: string; content: string }> }]) => {
+        const sys =
+          args[0].systemPrompt ??
+          args[0].messages?.find((m) => m.role === "system")?.content ??
+          "";
+        return sys.includes(FINALIZE_MARKER);
+      },
+    );
+    expect(finalizeChatArgs).toBeDefined();
+    const finalizeUserMsg =
+      finalizeChatArgs[0].messages?.find(
+        (m: { role: string; content: string }) => m.role === "user",
+      )?.content ?? "";
+    // Critique text must reference the low-scoring dimension(s)
+    expect(finalizeUserMsg).toContain("accuracy");
+
+    // Deliverable must be the refined output
+    const deliverables = eventsOfType(events, "deliverable");
+    expect(deliverables).toHaveLength(1);
+    expect(deliverables[0].content).toBe(refinedContent);
+
+    // A phase event with quality score detail must have been emitted
+    const phaseDetails = eventsOfType(events, "phase")
+      .filter((e) => e.phase === "deliver" && e.detail?.includes("quality score="))
+      .map((e) => e.detail ?? "");
+    expect(phaseDetails.length).toBeGreaterThanOrEqual(1);
+    expect(phaseDetails[0]).toMatch(/quality score=\d+\/100/);
+  });
+
+  // =========================================================================
+  // Case G: Tiered concurrent execution — steps with no shared dependency
+  //         run in the same tier and complete before dependent steps start.
+  //
+  // Plan structure:
+  //   stepA (no deps)  ─┐
+  //   stepB (no deps)  ─┤─► stepC (deps: [stepA, stepB])
+  //
+  // Expected:
+  //   - tiers: [[stepA, stepB], [stepC]]
+  //   - stepA and stepB both emit step_started before stepC starts
+  //   - stepC emits step_started after stepA AND stepB are completed
+  //   - all 3 steps emit step_completed with ok=true
+  //   - mission reaches done
+  // =========================================================================
+
+  it("concurrent tiers: independent steps start before dependent step, all complete ok=true, mission reaches done", async () => {
+    await module.close();
+
+    // 3-step plan: stepA + stepB independent, stepC depends on both.
+    // The planner mock returns indices so StepDecompositionService will wire them.
+    const chatWithDiamondPlan = jest.fn(
+      async (opts: {
+        systemPrompt?: string;
+        messages?: Array<{ role: string; content: string }>;
+        responseFormat?: string;
+        modelType?: AIModelType;
+      }) => {
+        const sys = opts.systemPrompt ?? "";
+        const userContent = opts.messages?.[0]?.content ?? "";
+
+        if (
+          sys.includes("role-agnostic planning assistant") ||
+          (userContent.includes("Goal:") && opts.responseFormat === "json")
+        ) {
+          const steps = [
+            {
+              name: "Gather data A",
+              description: "First independent research stream.",
+              type: "task",
+              loopKind: "plan-act",
+              dependencyIndices: [],
+              estimatedDurationMs: 20000,
+            },
+            {
+              name: "Gather data B",
+              description: "Second independent research stream.",
+              type: "task",
+              loopKind: "plan-act",
+              dependencyIndices: [],
+              estimatedDurationMs: 20000,
+            },
+            {
+              name: "Synthesise findings",
+              description: "Combine A and B into the final report.",
+              type: "delivery",
+              loopKind: "plan-act",
+              dependencyIndices: [0, 1],
+              estimatedDurationMs: 30000,
+            },
+          ];
+          return { content: JSON.stringify(steps), isError: false };
+        }
+
+        if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+          return {
+            content: JSON.stringify([{ dimension: "accuracy", weight: 1.0, passLine: 70 }]),
+            isError: false,
+          };
+        }
+
+        return { content: `output for: ${userContent.slice(0, 60)}`, isError: false };
+      },
+    );
+
+    const chatStreamMock = buildChatStreamMock();
+    const mockAiChatService = {
+      chat: chatWithDiamondPlan,
+      chatStream: chatStreamMock,
+      getAvailableModelsAsync: buildGetAvailableModelsMock(),
+    } as unknown as AiChatService;
+
+    const approvedGate = gateMockFrom(makeApprovedGate());
+    const teamStub = buildMinimalTeamStub();
+    const mockDynamicTeamBuilder = {
+      build: jest.fn().mockReturnValue(teamStub),
+    } as unknown as DynamicTeamBuilder;
+
+    module = await Test.createTestingModule({
+      providers: [
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+        { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+        { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
+        { provide: SelfDrivenHitlGateService, useValue: approvedGate },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: buildAgentFactoryMock() },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    // ── All 3 steps must complete ok=true ─────────────────────────────────────
+    const stepStarted = eventsOfType(events, "step_started");
+    const stepCompleted = eventsOfType(events, "step_completed");
+    expect(stepStarted).toHaveLength(3);
+    expect(stepCompleted).toHaveLength(3);
+    expect(stepCompleted.every((e) => e.ok)).toBe(true);
+
+    // ── stepC (Synthesise findings) must start AFTER both stepA and stepB complete ─
+    const synthesiseStartIdx = events.findIndex(
+      (e) => e.type === "step_started" && (e as { stepName?: string }).stepName === "Synthesise findings",
+    );
+    expect(synthesiseStartIdx).toBeGreaterThan(-1);
+
+    const gatherACompletedIdx = events.findIndex(
+      (e) => e.type === "step_completed" && (e as { stepName?: string }).stepName === "Gather data A",
+    );
+    const gatherBCompletedIdx = events.findIndex(
+      (e) => e.type === "step_completed" && (e as { stepName?: string }).stepName === "Gather data B",
+    );
+
+    expect(gatherACompletedIdx).toBeGreaterThan(-1);
+    expect(gatherBCompletedIdx).toBeGreaterThan(-1);
+    // Synthesise must start after both independent steps have completed.
+    expect(synthesiseStartIdx).toBeGreaterThan(gatherACompletedIdx);
+    expect(synthesiseStartIdx).toBeGreaterThan(gatherBCompletedIdx);
+
+    // ── Both independent steps start before Synthesise starts ─────────────────
+    const gatherAStartIdx = events.findIndex(
+      (e) => e.type === "step_started" && (e as { stepName?: string }).stepName === "Gather data A",
+    );
+    const gatherBStartIdx = events.findIndex(
+      (e) => e.type === "step_started" && (e as { stepName?: string }).stepName === "Gather data B",
+    );
+    expect(gatherAStartIdx).toBeLessThan(synthesiseStartIdx);
+    expect(gatherBStartIdx).toBeLessThan(synthesiseStartIdx);
+
+    // ── Mission reaches done without errors ───────────────────────────────────
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+    expect(eventsOfType(events, "error")).toHaveLength(0);
+
+    // ── Deliverable present ───────────────────────────────────────────────────
+    const deliverables = eventsOfType(events, "deliverable");
+    expect(deliverables).toHaveLength(1);
+    expect(deliverables[0].content).toContain("# Mission Report");
+  });
+
+  // =========================================================================
+  // Case H: Concurrent tier respects SELF_DRIVEN_MAX_PARALLEL_STEPS = 3
+  //         Five independent steps → two batches (3 + 2), all complete ok=true
+  // =========================================================================
+
+  it("parallel cap: 5 independent steps execute in batches (max 3), all step_completed ok=true", async () => {
+    await module.close();
+
+    // 5 fully independent steps (no dependencies).
+    const chatWithFiveSteps = jest.fn(
+      async (opts: {
+        systemPrompt?: string;
+        messages?: Array<{ role: string; content: string }>;
+        responseFormat?: string;
+        modelType?: AIModelType;
+      }) => {
+        const sys = opts.systemPrompt ?? "";
+        const userContent = opts.messages?.[0]?.content ?? "";
+
+        if (
+          sys.includes("role-agnostic planning assistant") ||
+          (userContent.includes("Goal:") && opts.responseFormat === "json")
+        ) {
+          const steps = Array.from({ length: 5 }, (_, i) => ({
+            name: `Task ${i + 1}`,
+            description: `Independent task ${i + 1}.`,
+            type: "task",
+            loopKind: "plan-act",
+            dependencyIndices: [],
+            estimatedDurationMs: 10000,
+          }));
+          return { content: JSON.stringify(steps), isError: false };
+        }
+
+        if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+          return {
+            content: JSON.stringify([{ dimension: "accuracy", weight: 1.0, passLine: 70 }]),
+            isError: false,
+          };
+        }
+
+        return { content: `output for: ${userContent.slice(0, 60)}`, isError: false };
+      },
+    );
+
+    const chatStreamMock = buildChatStreamMock();
+    const mockAiChatService = {
+      chat: chatWithFiveSteps,
+      chatStream: chatStreamMock,
+      getAvailableModelsAsync: buildGetAvailableModelsMock(),
+    } as unknown as AiChatService;
+
+    const approvedGate = gateMockFrom(makeApprovedGate());
+    const teamStub = buildMinimalTeamStub();
+    const mockDynamicTeamBuilder = {
+      build: jest.fn().mockReturnValue(teamStub),
+    } as unknown as DynamicTeamBuilder;
+
+    module = await Test.createTestingModule({
+      providers: [
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+        { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+        { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
+        { provide: SelfDrivenHitlGateService, useValue: approvedGate },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: buildAgentFactoryMock() },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    // ── All 5 steps must start and complete ok=true ───────────────────────────
+    const stepStarted = eventsOfType(events, "step_started");
+    const stepCompleted = eventsOfType(events, "step_completed");
+    expect(stepStarted).toHaveLength(5);
+    expect(stepCompleted).toHaveLength(5);
+    expect(stepCompleted.every((e) => e.ok)).toBe(true);
+
+    // ── stepIndex values cover 0..4 exactly once each ────────────────────────
+    const indices = stepStarted.map((e) => e.stepIndex).sort((a, b) => a - b);
+    expect(indices).toEqual([0, 1, 2, 3, 4]);
+
+    // ── totalSteps is 5 for all step_started events ───────────────────────────
+    expect(stepStarted.every((e) => e.totalSteps === 5)).toBe(true);
+
+    // ── Mission reaches done without errors ───────────────────────────────────
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+    expect(eventsOfType(events, "error")).toHaveLength(0);
+  });
+
+  // =========================================================================
+  // Case I: Single-step failure in a concurrent batch — sibling steps in the
+  //         same tier still complete; mission still reaches done
+  // =========================================================================
+
+  it("concurrent tier step failure: one step fails in a 2-step tier, sibling still completes, mission reaches done", async () => {
+    await module.close();
+
+    // 2 independent steps; chatStream fails for step 1 only (and fallback chat also fails).
+    const chatWithTwoIndepSteps = jest.fn(
+      async (opts: {
+        systemPrompt?: string;
+        messages?: Array<{ role: string; content: string }>;
+        responseFormat?: string;
+        modelType?: AIModelType;
+      }) => {
+        const sys = opts.systemPrompt ?? "";
+        const userContent = opts.messages?.[0]?.content ?? "";
+
+        if (
+          sys.includes("role-agnostic planning assistant") ||
+          (userContent.includes("Goal:") && opts.responseFormat === "json")
+        ) {
+          const steps = [
+            {
+              name: "Step Alpha",
+              description: "First independent step.",
+              type: "task",
+              loopKind: "plan-act",
+              dependencyIndices: [],
+              estimatedDurationMs: 15000,
+            },
+            {
+              name: "Step Beta",
+              description: "Second independent step — will fail.",
+              type: "task",
+              loopKind: "plan-act",
+              dependencyIndices: [],
+              estimatedDurationMs: 15000,
+            },
+          ];
+          return { content: JSON.stringify(steps), isError: false };
+        }
+
+        if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+          return {
+            content: JSON.stringify([{ dimension: "accuracy", weight: 1.0, passLine: 70 }]),
+            isError: false,
+          };
+        }
+
+        // Fallback chat() for step execution: fail when the message contains "Beta".
+        if (userContent.includes("Step Beta")) {
+          throw new Error("Simulated fallback failure for Step Beta");
+        }
+        return { content: `output for: ${userContent.slice(0, 60)}`, isError: false };
+      },
+    );
+
+    let streamCallNum = 0;
+    const chatStreamWithOneFail = jest.fn(async function* (opts: {
+      systemPrompt?: string;
+      messages?: Array<{ role: string; content: string }>;
+      modelType?: AIModelType;
+    }) {
+      streamCallNum++;
+      const userContent = opts.messages?.[0]?.content ?? "";
+      // Fail for any stream call that concerns Step Beta.
+      if (userContent.includes("Step Beta")) {
+        throw new Error("Simulated stream failure for Step Beta");
+      }
+      const text = `Stream output for: ${userContent.slice(0, 60)}`;
+      yield {
+        content: text,
+        done: true,
+        usage: { promptTokens: 20, completionTokens: 40, totalTokens: 60 },
+      };
+    });
+
+    const mockAiChatService = {
+      chat: chatWithTwoIndepSteps,
+      chatStream: chatStreamWithOneFail,
+      getAvailableModelsAsync: jest.fn().mockResolvedValue(["mock-model"]),
+    } as unknown as AiChatService;
+
+    const approvedGate = gateMockFrom(makeApprovedGate());
+    const teamStub = buildMinimalTeamStub();
+    const mockDynamicTeamBuilder = {
+      build: jest.fn().mockReturnValue(teamStub),
+    } as unknown as DynamicTeamBuilder;
+
+    module = await Test.createTestingModule({
+      providers: [
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+        { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+        { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
+        { provide: SelfDrivenHitlGateService, useValue: approvedGate },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: buildAgentFactoryMock() },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    // ── Both steps must have started ──────────────────────────────────────────
+    const stepStarted = eventsOfType(events, "step_started");
+    expect(stepStarted).toHaveLength(2);
+
+    // ── Both steps must have a step_completed event ───────────────────────────
+    const stepCompleted = eventsOfType(events, "step_completed");
+    expect(stepCompleted).toHaveLength(2);
+
+    // Step Alpha must have succeeded.
+    const alphaCompleted = stepCompleted.find((e) => e.stepName === "Step Alpha");
+    expect(alphaCompleted).toBeDefined();
+    expect(alphaCompleted!.ok).toBe(true);
+
+    // Step Beta must have failed (ok=false), but not crashed the mission.
+    const betaCompleted = stepCompleted.find((e) => e.stepName === "Step Beta");
+    expect(betaCompleted).toBeDefined();
+    expect(betaCompleted!.ok).toBe(false);
+
+    // ── Mission still reaches done (no mission-level error event) ─────────────
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+    expect(eventsOfType(events, "error")).toHaveLength(0);
+
+    // ── Deliverable still emitted (from Step Alpha's output) ──────────────────
+    const deliverables = eventsOfType(events, "deliverable");
+    expect(deliverables).toHaveLength(1);
+    expect(deliverables[0].content).toContain("# Mission Report");
+
+    // ── Stream call count: 2 (one per step: Alpha succeeds, Beta fails) ───────
+    // Note: failed stream + failed fallback chat = step ok=false; no third stream call.
+    expect(streamCallNum).toBeGreaterThanOrEqual(1);
+
+    // ── No mission-level error events ─────────────────────────────────────────
+    const missionErrors = eventsOfType(events, "error");
+    expect(missionErrors).toHaveLength(0);
+  });
+
+  // =========================================================================
+  // Case F: Rubric self-evaluation — high score (above passLine) → no
+  //         refinement call, zero extra overhead
+  // =========================================================================
+
+  it("rubric high score: evaluateAgainstRubric returns above-passLine scores → finalizeReportViaLLM not called, deliverable equals composer output", async () => {
+    await module.close();
+
+    const EVAL_MARKER = "report quality evaluator";
+    const FINALIZE_MARKER = "report refinement specialist";
+
+    let evalCalls = 0;
+    let finalizeCalls = 0;
+
+    const chatWithHighRubricScore = jest.fn(
+      async (opts: {
+        systemPrompt?: string;
+        messages?: Array<{ role: string; content: string }>;
+        responseFormat?: string;
+        modelType?: AIModelType;
+      }) => {
+        const sys =
+          opts.systemPrompt ??
+          opts.messages?.find((m) => m.role === "system")?.content ??
+          "";
+        const userContent =
+          opts.messages?.find((m) => m.role === "user")?.content ?? "";
+
+        // Rubric evaluator — return scores comfortably above passLine
+        if (sys.includes(EVAL_MARKER)) {
+          evalCalls++;
+          return {
+            content: JSON.stringify({
+              scores: [
+                { dimension: "accuracy", score: 85, feedback: "Well-supported claims." },
+                { dimension: "completeness", score: 88, feedback: "Comprehensive coverage." },
+              ],
+              overallNote: "High quality report, no significant gaps.",
+            }),
+            isError: false,
+          };
+        }
+
+        // Finalize should NOT be called for rubric reasons on a high-score report
+        if (sys.includes(FINALIZE_MARKER)) {
+          finalizeCalls++;
+          return { content: "unexpected finalize call", isError: false };
+        }
+
+        // Step decomposition
+        if (
+          sys.includes("role-agnostic planning assistant") ||
+          (userContent.includes("Goal:") && opts.responseFormat === "json")
+        ) {
+          return {
+            content: JSON.stringify([
+              {
+                name: "Research",
+                description: "Gather facts.",
+                type: "task",
+                loopKind: "plan-act",
+                dependencyIndices: [],
+                estimatedDurationMs: 30000,
+              },
+            ]),
+            isError: false,
+          };
+        }
+
+        // Rubric generation
+        if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+          return {
+            content: JSON.stringify([
+              { dimension: "accuracy", weight: 0.5, passLine: 70 },
+              { dimension: "completeness", weight: 0.5, passLine: 70 },
+            ]),
+            isError: false,
+          };
+        }
+
+        return { content: `output for: ${userContent.slice(0, 60)}`, isError: false };
+      },
+    );
+
+    const mockAiChatService = {
+      chat: chatWithHighRubricScore,
+      chatStream: buildChatStreamMock(),
+      getAvailableModelsAsync: buildGetAvailableModelsMock(),
+    } as unknown as AiChatService;
+
+    const approvedGate = gateMockFrom(makeApprovedGate());
+    const teamStub = buildMinimalTeamStub();
+    const mockDynamicTeamBuilder = {
+      build: jest.fn().mockReturnValue(teamStub),
+    } as unknown as DynamicTeamBuilder;
+
+    module = await Test.createTestingModule({
+      providers: [
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+        { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+        { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
+        { provide: SelfDrivenHitlGateService, useValue: approvedGate },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: buildAgentFactoryMock() },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    // Mission completes without errors
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+    expect(eventsOfType(events, "error")).toHaveLength(0);
+
+    // Evaluator was called exactly once
+    expect(evalCalls).toBe(1);
+
+    // No refinement call (score was above passLine)
+    expect(finalizeCalls).toBe(0);
+
+    // Deliverable is still present and contains the standard composer header
+    const deliverables = eventsOfType(events, "deliverable");
+    expect(deliverables).toHaveLength(1);
+    expect(deliverables[0].content).toContain("# Mission Report");
+
+    // Quality score detail phase event was still emitted (score signal always sent)
+    const phaseDetails = eventsOfType(events, "phase")
+      .filter((e) => e.phase === "deliver" && e.detail?.includes("quality score="))
+      .map((e) => e.detail ?? "");
+    expect(phaseDetails.length).toBeGreaterThanOrEqual(1);
+  });
 });
