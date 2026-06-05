@@ -2193,7 +2193,11 @@ export default function AskPage() {
         ) : (
           /* Chat Messages */
           <div className="relative flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto px-4 pb-32 pt-6">
+            <div
+              className={`h-full overflow-y-auto px-4 pt-6 ${
+                isSelfDrivenMode ? 'pb-48' : 'pb-32'
+              }`}
+            >
               <div
                 className={`mx-auto space-y-6 ${
                   isSelfDrivenMode ? 'max-w-6xl' : 'max-w-4xl'
