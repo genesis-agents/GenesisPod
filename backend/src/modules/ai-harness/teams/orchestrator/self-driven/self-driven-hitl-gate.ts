@@ -22,6 +22,18 @@ export interface HitlGateOutcome {
 /** 10-minute default gate timeout (P4a spec). */
 const GATE_TIMEOUT_MS = 10 * 60 * 1000;
 
+/** Fixed owner for approval bookkeeping rows in long_term_memories. */
+export const HITL_APPROVAL_USER_ID = "system";
+
+/**
+ * longTermMemory key mapping a mission to its current open approval requestId.
+ * Shared by the gate (writer) and the owner-scoped approval service (reader) so
+ * a non-admin owner can resolve their own gate by missionId alone.
+ */
+export function selfDrivenMissionGateKey(missionId: string): string {
+  return `approval:mission:${missionId}`;
+}
+
 /** DB poll interval while waiting for a human response. */
 const POLL_INTERVAL_MS = 2_000;
 
@@ -86,7 +98,7 @@ export class SelfDrivenHitlGateService {
         return { requestId, approved: true, timedOut: true };
       }
 
-      await this.storeRequest(requestId, gate, prompt, timeoutMs);
+      await this.storeRequest(requestId, missionId, gate, prompt, timeoutMs);
 
       const outcome = await this.pollForResponse(
         requestId,
@@ -127,6 +139,7 @@ export class SelfDrivenHitlGateService {
 
   private async storeRequest(
     requestId: string,
+    missionId: string,
     gate: "plan_confirm" | "deliver_confirm",
     prompt: string,
     timeoutMs: number,
@@ -137,6 +150,7 @@ export class SelfDrivenHitlGateService {
 
     const requestPayload = {
       requestId,
+      missionId,
       approvalType: "review" as const,
       prompt,
       context: { summary: `Self-driven mission gate: ${gate}` },
@@ -158,6 +172,29 @@ export class SelfDrivenHitlGateService {
         expiresAt,
       },
       update: { value: requestPayload as never, expiresAt },
+    });
+
+    // Owner-scoped approval lookup: the frontend only knows the missionId (the
+    // awaiting_approval event carries requestId=""), so map missionId -> the
+    // current open requestId. AskSelfDrivenApprovalService reads this to resolve
+    // the gate without admin access. Last-open-gate-wins (upsert by missionId).
+    await this.prisma.longTermMemory.upsert({
+      where: {
+        userId_key: {
+          userId: USER_ID,
+          key: selfDrivenMissionGateKey(missionId),
+        },
+      },
+      create: {
+        userId: USER_ID,
+        key: selfDrivenMissionGateKey(missionId),
+        type: "human_approval_mission_gate",
+        value: { requestId, gate } as never,
+        importance: 8,
+        tags: ["human-approval", "self-driven", `mission:${missionId}`],
+        expiresAt,
+      },
+      update: { value: { requestId, gate } as never, expiresAt },
     });
 
     this.logger.debug(
@@ -183,7 +220,9 @@ export class SelfDrivenHitlGateService {
         this.logger.log(
           `[HitlGate] mission=${missionId} gate=${gate} aborted while waiting`,
         );
-        await this.cleanup(USER_ID, REQUEST_KEY, null).catch(() => undefined);
+        await this.cleanup(USER_ID, REQUEST_KEY, null, missionId).catch(
+          () => undefined,
+        );
         return { approved: false, timedOut: false };
       }
 
@@ -193,7 +232,9 @@ export class SelfDrivenHitlGateService {
 
       // Re-check abort after sleep (covers the case where abort fires during sleep).
       if (signal?.aborted) {
-        await this.cleanup(USER_ID, REQUEST_KEY, null).catch(() => undefined);
+        await this.cleanup(USER_ID, REQUEST_KEY, null, missionId).catch(
+          () => undefined,
+        );
         return { approved: false, timedOut: false };
       }
 
@@ -247,7 +288,7 @@ export class SelfDrivenHitlGateService {
           `approved=${approved} hasAppend=${!!appendInstruction}`,
       );
 
-      await this.cleanup(USER_ID, REQUEST_KEY, RESPONSE_KEY).catch(
+      await this.cleanup(USER_ID, REQUEST_KEY, RESPONSE_KEY, missionId).catch(
         () => undefined,
       );
 
@@ -258,7 +299,9 @@ export class SelfDrivenHitlGateService {
     this.logger.warn(
       `[HitlGate] mission=${missionId} gate=${gate} timed out after ${timeoutMs}ms — auto-approving`,
     );
-    await this.cleanup(USER_ID, REQUEST_KEY, null).catch(() => undefined);
+    await this.cleanup(USER_ID, REQUEST_KEY, null, missionId).catch(
+      () => undefined,
+    );
     return { approved: true, timedOut: true };
   }
 
@@ -266,8 +309,9 @@ export class SelfDrivenHitlGateService {
     userId: string,
     requestKey: string,
     responseKey: string | null,
+    missionId: string,
   ): Promise<void> {
-    const keys: string[] = [requestKey];
+    const keys: string[] = [requestKey, selfDrivenMissionGateKey(missionId)];
     if (responseKey) keys.push(responseKey);
     await this.prisma.longTermMemory.deleteMany({
       where: { userId, key: { in: keys } },

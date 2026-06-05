@@ -138,6 +138,11 @@ export { SelfDrivenEventRelay } from "../teams/orchestrator/self-driven/self-dri
 // ★ P4a HITL gate (2026-06-04): DB-poll approval primitive + sanitize wrapper
 export { SelfDrivenHitlGateService } from "../teams/orchestrator/self-driven/self-driven-hitl-gate";
 export type { HitlGateOutcome } from "../teams/orchestrator/self-driven/self-driven-hitl-gate";
+// Owner-scoped approval bookkeeping (mission -> open requestId mapping key).
+export {
+  HITL_APPROVAL_USER_ID,
+  selfDrivenMissionGateKey,
+} from "../teams/orchestrator/self-driven/self-driven-hitl-gate";
 // ★ P4a HITL gate: HumanApprovalAdminService — approval response submission side.
 //   open-api/admin imports directly (legacy); new code goes through this facade export.
 export {

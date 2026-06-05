@@ -2,18 +2,35 @@ import {
   Controller,
   Post,
   Body,
+  Param,
   UseGuards,
   Request,
-  Res,
+  BadRequestException,
+  ForbiddenException,
   Logger,
 } from "@nestjs/common";
-import { Response } from "express";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
-import { IsString, IsOptional, IsObject } from "class-validator";
+import { IsBoolean, IsObject, IsOptional, IsString } from "class-validator";
+import { randomUUID } from "crypto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { AskSelfDrivenService } from "./ask-self-driven.service";
+import {
+  RateLimit,
+  RateLimitGuard,
+} from "../../../../common/guards/rate-limit.guard";
+import {
+  MissionAbortRegistry,
+  MissionAbortReason,
+  MissionOwnershipRegistry,
+} from "@/modules/ai-harness/facade";
+import { AskSelfDrivenMissionStore } from "./ask-self-driven-mission.store";
+import { SelfDrivenMissionDispatcher } from "./self-driven-mission-dispatcher.service";
+import { AskSelfDrivenApprovalService } from "./ask-self-driven-approval.service";
+import { SELF_DRIVEN_NAMESPACE } from "./ask-self-driven.gateway";
 
-class SelfDrivenStreamDto {
+/** Per-user cap on concurrently running self-driven missions. */
+const MAX_CONCURRENT_RUNNING_MISSIONS = 3;
+
+class RunSelfDrivenDto {
   @IsString()
   prompt!: string;
 
@@ -22,92 +39,122 @@ class SelfDrivenStreamDto {
   clarifications?: Record<string, string>;
 }
 
+class ApproveDto {
+  @IsBoolean()
+  approved!: boolean;
+
+  @IsOptional()
+  @IsString()
+  feedback?: string;
+}
+
 /**
- * Isolated SSE endpoint for the Self-Driven Agent Team pseudo-model.
+ * Self-Driven Agent Team transport (durable, connection-decoupled).
  *
- * Deliberately separate from AiAskController so the shared BYOK chat path
- * is never touched when the user picks the `self-driven-team` sentinel.
+ * POST /api/v1/ask/self-driven/run                  → fire-and-forget launch
+ * POST /api/v1/ask/self-driven/missions/:id/approve → owner-scoped HITL approval
+ * POST /api/v1/ask/self-driven/missions/:id/cancel  → cooperative abort
  *
- * POST /api/v1/ask/self-driven/stream
+ * Live events arrive over the `self-driven` Socket.IO namespace; history via
+ * GET /ask/self-driven/replay/:missionId. The old long-held SSE /stream endpoint
+ * is gone — it could not survive the 10-min HITL gate over an HTTP/2 edge.
  */
 @ApiTags("AI Ask")
 @Controller("ask/self-driven")
 @UseGuards(JwtAuthGuard)
 export class AskSelfDrivenController {
   private readonly logger = new Logger(AskSelfDrivenController.name);
-  private static readonly SSE_HEARTBEAT_MS = 15000;
 
-  constructor(private readonly askSelfDrivenService: AskSelfDrivenService) {}
+  constructor(
+    private readonly store: AskSelfDrivenMissionStore,
+    private readonly dispatcher: SelfDrivenMissionDispatcher,
+    private readonly approval: AskSelfDrivenApprovalService,
+    private readonly ownership: MissionOwnershipRegistry,
+    private readonly abortRegistry: MissionAbortRegistry,
+  ) {}
 
-  /**
-   * Stream a self-driven mission as SSE.
-   * POST /api/v1/ask/self-driven/stream
-   */
-  @Post("stream")
-  @ApiOperation({ summary: "Self-Driven Agent Team — SSE stream" })
-  @ApiResponse({ status: 200, description: "text/event-stream SSE" })
-  @ApiResponse({ status: 401, description: "Unauthorized" })
-  async stream(
+  @Post("run")
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ maxRequests: 30, windowSeconds: 60, keyType: "user" })
+  @ApiOperation({ summary: "Launch a self-driven mission (fire-and-forget)" })
+  @ApiResponse({ status: 201, description: "{ missionId, streamNamespace }" })
+  async run(
     @Request() req: { user: { id: string } },
-    @Body() dto: SelfDrivenStreamDto,
-    @Res() res: Response,
-  ): Promise<void> {
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    // NB: do NOT set `Connection: keep-alive` — it is a connection-specific
-    // header forbidden under HTTP/2 (RFC 9113 §8.2.2). The Railway edge serves
-    // HTTP/2, where this header triggers an ERR_HTTP2_PROTOCOL_ERROR that resets
-    // the SSE stream before any event reaches the browser.
-    res.setHeader("X-Accel-Buffering", "no");
-    res.flushHeaders();
+    @Body() dto: RunSelfDrivenDto,
+  ): Promise<{ missionId: string; streamNamespace: string }> {
+    const userId = req.user.id;
 
-    let connectionOpen = true;
-    const abortController = new AbortController();
+    const running = await this.store.countRunningByUser(userId);
+    if (running >= MAX_CONCURRENT_RUNNING_MISSIONS) {
+      throw new BadRequestException(
+        `You already have ${running} self-driven missions running (max ${MAX_CONCURRENT_RUNNING_MISSIONS}). Wait for one to finish.`,
+      );
+    }
 
-    res.on("close", () => {
-      connectionOpen = false;
-      abortController.abort();
-    });
+    const missionId = randomUUID();
+    this.ownership.assign(missionId, userId);
+    await this.store.create(missionId, userId, dto.prompt);
 
-    const writeEvent = (event: unknown): boolean => {
-      if (!connectionOpen) return false;
-      try {
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
-        return true;
-      } catch {
-        connectionOpen = false;
-        return false;
-      }
-    };
+    // Fire-and-forget: the connection is released immediately; the mission runs
+    // in the background and streams over the socket + replay channels.
+    void this.dispatcher
+      .runInBackground(
+        missionId,
+        { prompt: dto.prompt, userId, clarifications: dto.clarifications },
+        userId,
+      )
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.error(`mission ${missionId} dispatch threw: ${message}`);
+        void this.store
+          .applyTerminalIfRunning(missionId, {
+            status: "failed",
+            errorMessage: message,
+          })
+          .catch(() => undefined);
+      });
 
-    const heartbeat = setInterval(() => {
-      if (!connectionOpen) return;
-      try {
-        res.write(":heartbeat\n\n");
-      } catch {
-        connectionOpen = false;
-      }
-    }, AskSelfDrivenController.SSE_HEARTBEAT_MS);
+    return { missionId, streamNamespace: SELF_DRIVEN_NAMESPACE };
+  }
 
-    try {
-      for await (const event of this.askSelfDrivenService.stream({
-        prompt: dto.prompt,
-        userId: req.user.id,
-        clarifications: dto.clarifications,
-        signal: abortController.signal,
-      })) {
-        if (!writeEvent(event)) break;
-        if (event.type === "done" || event.type === "error") {
-          break;
-        }
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`[AskSelfDriven] stream failed: ${message}`);
-      writeEvent({ type: "error", message });
-    } finally {
-      clearInterval(heartbeat);
-      res.end();
+  @Post("missions/:missionId/approve")
+  @ApiOperation({ summary: "Approve/reject the mission's open HITL gate" })
+  async approve(
+    @Request() req: { user: { id: string } },
+    @Param("missionId") missionId: string,
+    @Body() dto: ApproveDto,
+  ): Promise<{ ok: true; requestId: string }> {
+    await this.assertOwner(missionId, req.user.id);
+    const { requestId } = await this.approval.approve(
+      missionId,
+      dto.approved,
+      dto.feedback,
+    );
+    return { ok: true, requestId };
+  }
+
+  @Post("missions/:missionId/cancel")
+  @ApiOperation({ summary: "Cancel a running self-driven mission" })
+  async cancel(
+    @Request() req: { user: { id: string } },
+    @Param("missionId") missionId: string,
+  ): Promise<{ ok: boolean }> {
+    await this.assertOwner(missionId, req.user.id);
+    const aborted = this.abortRegistry.abort(
+      missionId,
+      MissionAbortReason.user_cancelled,
+    );
+    return { ok: aborted };
+  }
+
+  private async assertOwner(missionId: string, userId: string): Promise<void> {
+    let owner = this.ownership.getOwner(missionId);
+    if (!owner) {
+      owner = (await this.store.getOwnerById(missionId)) ?? undefined;
+      if (owner) this.ownership.assign(missionId, owner);
+    }
+    if (!owner || owner !== userId) {
+      throw new ForbiddenException("Not your mission");
     }
   }
 }

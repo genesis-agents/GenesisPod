@@ -17,13 +17,16 @@ import { CollaborationModule } from "../../ai-harness/teams/collaboration/collab
 // Self-Driven Agent Team isolated dispatch
 import { SelfDrivenTeamModule } from "../../ai-harness/teams/orchestrator/self-driven/self-driven-team.module";
 import { AskSelfDrivenController } from "./self-driven/ask-self-driven.controller";
-import { AskSelfDrivenService } from "./self-driven/ask-self-driven.service";
 // Stage 1: durable event journal for self-driven missions (mirrors playground).
 import { SelfDrivenMissionEventBuffer } from "./self-driven/self-driven-mission-event-buffer.service";
 import { SELF_DRIVEN_EVENTS } from "./self-driven/self-driven.events";
 // Stage 2: durable mission store + detached background dispatcher.
 import { AskSelfDrivenMissionStore } from "./self-driven/ask-self-driven-mission.store";
 import { SelfDrivenMissionDispatcher } from "./self-driven/self-driven-mission-dispatcher.service";
+// Stage 3: socket gateway + replay controller + owner-scoped approval.
+import { AskSelfDrivenReplayController } from "./self-driven/ask-self-driven-replay.controller";
+import { AskSelfDrivenGateway } from "./self-driven/ask-self-driven.gateway";
+import { AskSelfDrivenApprovalService } from "./self-driven/ask-self-driven-approval.service";
 // Teams 模式（W2 PR3）
 import { AskRoomController } from "./ai-ask-room.controller";
 import { AskRoomService } from "./ai-ask-room.service";
@@ -55,7 +58,12 @@ import { HandoffAdapter } from "./adapters/handoff.adapter";
       inject: [ConfigService],
     }),
   ],
-  controllers: [AiAskController, AskRoomController, AskSelfDrivenController],
+  controllers: [
+    AiAskController,
+    AskRoomController,
+    AskSelfDrivenController,
+    AskSelfDrivenReplayController,
+  ],
   providers: [
     AiAskService,
     AskRoomService,
@@ -68,10 +76,11 @@ import { HandoffAdapter } from "./adapters/handoff.adapter";
     VoteAdapter,
     ReviewAdapter,
     HandoffAdapter,
-    AskSelfDrivenService,
     SelfDrivenMissionEventBuffer,
     AskSelfDrivenMissionStore,
     SelfDrivenMissionDispatcher,
+    AskSelfDrivenApprovalService,
+    AskSelfDrivenGateway,
   ],
   exports: [AiAskService, AskRoomService],
 })
