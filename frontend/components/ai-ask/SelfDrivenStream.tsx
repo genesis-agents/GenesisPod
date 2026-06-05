@@ -236,8 +236,11 @@ function ChunkAccumulator({ events }: { events: SelfDrivenMissionEvent[] }) {
 
   if (!accumulated) return null;
 
+  // Fixed-height scroll box so the live token stream doesn't balloon the whole
+  // page as 9 steps write (the "starts small, expands huge" jank). The final
+  // deliverable renders as a compact file card separately.
   return (
-    <div className="prose prose-sm max-w-none text-gray-800">
+    <div className="prose prose-sm max-h-64 max-w-none overflow-y-auto rounded-lg border border-gray-100 bg-gray-50/50 p-3 text-gray-800">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{accumulated}</ReactMarkdown>
     </div>
   );
@@ -252,7 +255,9 @@ function DeliverableCard({
 }) {
   const { t } = useI18n();
   const [downloading, setDownloading] = useState(false);
-  const [open, setOpen] = useState(true);
+  // Collapsed by default: show only the compact file card so the deliverable
+  // doesn't render small-then-expand-to-huge (jarring). Click the card to preview.
+  const [open, setOpen] = useState(false);
 
   const filename = `self-driven-report-${ev.missionId.slice(0, 8)}.md`;
   const sizeKb = Math.max(1, Math.round((ev.content?.length ?? 0) / 1024));
