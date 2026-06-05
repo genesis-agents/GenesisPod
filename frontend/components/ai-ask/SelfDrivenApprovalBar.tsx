@@ -5,15 +5,13 @@
  * Shown as an inline bar (not a blocking full-screen modal) so the user can
  * still read the plan/stream context above while deciding.
  *
- * Interactions:
- *   - Approve button  → POST /admin/approvals/{requestId}/respond { approved: true }
- *   - Reject button   → POST /admin/approvals/{requestId}/respond { approved: false }
+ * Interactions (owner-scoped, keyed by missionId — the backend resolves the
+ * mission's open gate, so the UI never needs the requestId):
+ *   - Approve button  → POST /ask/self-driven/missions/{missionId}/approve { approved: true }
+ *   - Reject button   → POST /ask/self-driven/missions/{missionId}/approve { approved: false }
  *   - Append textarea → submitted together with approve (feedback field)
  *
  * The bar is dismissed when the parent passes resolved=true (approval_resolved event).
- *
- * Design note: requestId may be "" at first emit (backend sends the event before
- * the DB record is created). We disable the buttons until requestId is non-empty.
  */
 'use client';
 
@@ -91,15 +89,12 @@ export function SelfDrivenApprovalBar({
     );
   }
 
-  const hasRequestId = Boolean(awaiting.requestId);
-
   async function submit(approved: boolean) {
-    if (!hasRequestId) return;
     setSubmitting(true);
     setError(null);
     try {
       await respondApproval({
-        requestId: awaiting.requestId,
+        missionId: awaiting.missionId,
         approved,
         feedback: appendText.trim() || undefined,
         token,
@@ -128,12 +123,6 @@ export function SelfDrivenApprovalBar({
           <span className="text-sm font-semibold text-amber-800">
             {GATE_LABEL[awaiting.gate]} Required
           </span>
-          {!hasRequestId && (
-            <span className="ml-auto flex items-center gap-1 text-xs text-amber-600">
-              <Loader size={11} className="animate-spin" aria-hidden />
-              Preparing…
-            </span>
-          )}
         </div>
 
         {/* Prompt */}
@@ -144,7 +133,7 @@ export function SelfDrivenApprovalBar({
           <Button
             variant="default"
             size="sm"
-            disabled={!hasRequestId || submitting}
+            disabled={submitting}
             onClick={() => void submit(true)}
             className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-500"
           >
@@ -159,7 +148,7 @@ export function SelfDrivenApprovalBar({
           <Button
             variant="outline"
             size="sm"
-            disabled={!hasRequestId || submitting}
+            disabled={submitting}
             onClick={() => void submit(false)}
             className="border-red-300 text-red-600 hover:bg-red-50"
           >
@@ -169,7 +158,7 @@ export function SelfDrivenApprovalBar({
 
           <button
             type="button"
-            disabled={!hasRequestId || submitting}
+            disabled={submitting}
             onClick={() => setAppendOpen(true)}
             className="ml-auto flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 disabled:pointer-events-none disabled:opacity-50"
           >

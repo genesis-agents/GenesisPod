@@ -10,7 +10,6 @@
  * wiring; this endpoint is fully stateless from the UI's perspective.
  */
 
-import { logger } from '@/lib/utils/logger';
 import { config } from '@/lib/utils/config';
 
 export type SelfDrivenEventType =
@@ -163,18 +162,23 @@ export type SelfDrivenMissionEvent =
   | SelfDrivenErrorEvent;
 
 /**
- * Submit a HITL approval response to the backend.
- * Path: POST /api/v1/admin/approvals/{requestId}/respond
+ * Submit a HITL approval response (owner-scoped, keyed by missionId).
+ * Path: POST /api/v1/ask/self-driven/missions/{missionId}/approve
+ *
+ * The backend resolves the mission's currently open gate — the frontend never
+ * needs the requestId (awaiting_approval carries an empty one).
  */
 export async function respondApproval(opts: {
-  requestId: string;
+  missionId: string;
   approved: boolean;
   feedback?: string;
   token: string;
 }): Promise<void> {
-  const { requestId, approved, feedback, token } = opts;
+  const { missionId, approved, feedback, token } = opts;
   const res = await fetch(
-    `${config.apiUrl}/admin/approvals/${requestId}/respond`,
+    `${config.apiUrl}/ask/self-driven/missions/${encodeURIComponent(
+      missionId
+    )}/approve`,
     {
       method: 'POST',
       headers: {
@@ -192,104 +196,5 @@ export async function respondApproval(opts: {
     throw new Error(
       (body.message as string | undefined) ?? `HTTP ${res.status}`
     );
-  }
-}
-
-export interface SelfDrivenStreamOptions {
-  prompt: string;
-  clarifications?: Record<string, string>;
-  token: string;
-  signal?: AbortSignal;
-  onEvent: (event: SelfDrivenMissionEvent) => void;
-}
-
-/**
- * Opens an SSE connection to the self-driven stream endpoint and calls
- * onEvent for every parsed event until done/error or the signal aborts.
- *
- * Returns when the stream ends (done, error, or abort).
- */
-export async function streamSelfDriven(
-  opts: SelfDrivenStreamOptions
-): Promise<void> {
-  const { prompt, clarifications, token, signal, onEvent } = opts;
-
-  let response: Response;
-  try {
-    response = await fetch(`${config.apiUrl}/ask/self-driven/stream`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ prompt, clarifications }),
-      signal,
-    });
-  } catch (err) {
-    if ((err as Error).name === 'AbortError') return;
-    logger.error('[SelfDriven] fetch failed:', err);
-    onEvent({
-      type: 'error',
-      missionId: '',
-      message: err instanceof Error ? err.message : 'Network error',
-    });
-    return;
-  }
-
-  if (!response.ok || !response.body) {
-    const errorData = (await response.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const msg = errorData.message as string | undefined;
-    logger.error('[SelfDriven] stream HTTP error', { status: response.status });
-    onEvent({
-      type: 'error',
-      missionId: '',
-      message: msg ?? `HTTP ${response.status}`,
-    });
-    return;
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  const flush = (chunks: readonly string[]) => {
-    for (const raw of chunks) {
-      const line = raw.trim();
-      if (!line.startsWith('data:')) continue;
-      const payload = line.slice(5).trim();
-      if (!payload) continue;
-      try {
-        const ev = JSON.parse(payload) as SelfDrivenMissionEvent;
-        onEvent(ev);
-      } catch (parseErr) {
-        logger.warn('[SelfDriven] parse error:', parseErr);
-      }
-    }
-  };
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        if (buffer.trim()) flush([buffer]);
-        break;
-      }
-      buffer += decoder.decode(value, { stream: true });
-      const parts = buffer.split('\n\n');
-      buffer = parts.pop() ?? '';
-      flush(parts);
-    }
-  } catch (err) {
-    if ((err as Error).name !== 'AbortError') {
-      logger.error('[SelfDriven] read error:', err);
-      onEvent({
-        type: 'error',
-        missionId: '',
-        message: err instanceof Error ? err.message : 'Stream read error',
-      });
-    }
   }
 }
