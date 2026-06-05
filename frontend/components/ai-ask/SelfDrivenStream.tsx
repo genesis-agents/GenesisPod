@@ -22,6 +22,7 @@
  */
 'use client';
 
+import { useState } from 'react';
 import {
   CheckCircle,
   CircleDot,
@@ -31,6 +32,7 @@ import {
   Users,
   ChevronRight,
   Clock,
+  Download,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -38,6 +40,9 @@ import {
   StatusBadge,
   type BadgeTone,
 } from '@/components/ui/badges/StatusBadge';
+import { Button } from '@/components/ui/primitives/button';
+import { config } from '@/lib/utils/config';
+import { logger } from '@/lib/utils/logger';
 import { SelfDrivenPlanCard } from '@/components/ai-ask/SelfDrivenPlanCard';
 import { SelfDrivenApprovalBar } from '@/components/ai-ask/SelfDrivenApprovalBar';
 import type {
@@ -228,7 +233,42 @@ function ChunkAccumulator({ events }: { events: SelfDrivenMissionEvent[] }) {
   );
 }
 
-function DeliverableCard({ ev }: { ev: DeliverableEvent }) {
+function DeliverableCard({
+  ev,
+  token,
+}: {
+  ev: DeliverableEvent;
+  token: string;
+}) {
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (!ev.missionId || downloading) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/ask/self-driven/missions/${encodeURIComponent(
+          ev.missionId
+        )}/report.md`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `self-driven-report-${ev.missionId.slice(0, 8)}.md`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      logger.warn('[SelfDriven] report download failed:', err);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="mt-3 rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2.5">
@@ -236,11 +276,20 @@ function DeliverableCard({ ev }: { ev: DeliverableEvent }) {
         <span className="text-sm font-semibold capitalize text-gray-800">
           {ev.deliverableType}
         </span>
-        <CheckCircle
-          size={13}
-          className="ml-auto text-emerald-500"
-          aria-hidden
-        />
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto h-7 gap-1.5 px-2.5 text-xs"
+          onClick={handleDownload}
+          disabled={downloading || !token}
+        >
+          {downloading ? (
+            <Loader size={12} className="animate-spin" aria-hidden />
+          ) : (
+            <Download size={12} aria-hidden />
+          )}
+          {downloading ? 'Downloading…' : 'Download .md'}
+        </Button>
       </div>
       <div className="prose prose-sm max-w-none px-4 py-3">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{ev.content}</ReactMarkdown>
@@ -363,7 +412,7 @@ export function SelfDrivenStream({
       {!deliverable && <ChunkAccumulator events={events} />}
 
       {/* Final deliverable */}
-      {deliverable && <DeliverableCard ev={deliverable} />}
+      {deliverable && <DeliverableCard ev={deliverable} token={token} />}
 
       {/* Error banner */}
       {errorEv && (
