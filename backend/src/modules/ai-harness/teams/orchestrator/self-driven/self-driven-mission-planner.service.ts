@@ -8,12 +8,13 @@
  * Internal chain:
  *   1. engine StepDecompositionService  → role-agnostic step skeleton (loopKind included)
  *   2. harness RubricGeneratorService   → LLM acceptance rubric (passLine clamped [60,90])
- *   3. per-role model election          → modelId from AiChatService.getAvailableModelsAsync()
+ *   3. per-role model election          → engine ModelElectionService.elect() per role
+ *                                          (tier/role/health/cost scored + diversity)
  *   4. cost + duration estimation       → summed from step estimatedDurationMs
  *
- * LLM call pattern (rubric step) mirrors JudgeService:
- *   - injected AiChatService, TaskProfile, no hard-coded model names/temperatures
- *   - fallback modelId = "" (resolved downstream by AiChatService via TaskProfile)
+ * Model selection is NOT hand-rolled here — it delegates to the shared
+ * ModelElectionService capability, so roles get differentiated models and the
+ * scoring/BYOK/health logic lives in one place.
  *
  * Prompt-cache safety (reverse-insights #3/#7):
  *   - system prompts in RubricGeneratorService are static (no timestamps/random ids)

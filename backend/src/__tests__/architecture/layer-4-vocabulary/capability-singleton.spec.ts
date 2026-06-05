@@ -130,6 +130,18 @@ const SINGLETONS: ReadonlyArray<{
     name: "SelfDrivenHitlGateService",
     dir: "modules/ai-harness/teams/orchestrator/self-driven/",
   },
+  // Self-Driven reuse lock (2026-06-05): the capabilities self-driven was made
+  // to reuse instead of hand-rolling. A copy back into self-driven fails here.
+  {
+    kind: "class",
+    name: "ModelElectionService",
+    dir: "modules/ai-engine/llm/models/selection/",
+  },
+  {
+    kind: "class",
+    name: "HumanApprovalAdminService",
+    dir: "modules/ai-harness/lifecycle/",
+  },
 ];
 
 describe("capability singleton — 一能力一家（curated 清单）", () => {
