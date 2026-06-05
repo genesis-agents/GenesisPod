@@ -4,6 +4,7 @@ import { SelfDrivenMissionRunner } from "./self-driven-mission-runner.service";
 import { SelfDrivenMissionPlannerService } from "./self-driven-mission-planner.service";
 import { SelfDrivenReportComposer } from "./self-driven-report-composer";
 import { SelfDrivenHitlGateService } from "./self-driven-hitl-gate";
+import { SelfDrivenEventRelay } from "./self-driven-event-relay";
 import { RoleInventory } from "../../role-inventory/role-inventory";
 import { ROLE_INVENTORY } from "../../abstractions/role-inventory.interface";
 import { DynamicTeamBuilder } from "../../dynamic-team/dynamic-team-builder";
@@ -34,6 +35,9 @@ import { DynamicTeamBuilder } from "../../dynamic-team/dynamic-team-builder";
     SelfDrivenReportComposer,
     // P4a HITL gate — DB-poll approval primitive + sanitize for append injection.
     SelfDrivenHitlGateService,
+    // Stage 1: relays generator events onto the global EventBus as self-driven.*
+    // (EventBus is @Global, no module import needed).
+    SelfDrivenEventRelay,
     // RoleInventory singleton bound to IRoleInventory DI token
     {
       provide: ROLE_INVENTORY,
@@ -47,6 +51,7 @@ import { DynamicTeamBuilder } from "../../dynamic-team/dynamic-team-builder";
     SelfDrivenMissionPlannerService,
     SelfDrivenReportComposer,
     SelfDrivenHitlGateService,
+    SelfDrivenEventRelay,
     DynamicTeamBuilder,
     // Export the token so consumers can inject IRoleInventory directly
     ROLE_INVENTORY,

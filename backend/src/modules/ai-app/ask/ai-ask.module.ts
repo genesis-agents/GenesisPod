@@ -1,6 +1,7 @@
-import { Module } from "@nestjs/common";
+import { Logger, Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
+import { EventBus, EventRegistry } from "@/modules/ai-harness/facade";
 import { AiAskController } from "./ai-ask.controller";
 import { AiAskService } from "./ai-ask.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -17,6 +18,9 @@ import { CollaborationModule } from "../../ai-harness/teams/collaboration/collab
 import { SelfDrivenTeamModule } from "../../ai-harness/teams/orchestrator/self-driven/self-driven-team.module";
 import { AskSelfDrivenController } from "./self-driven/ask-self-driven.controller";
 import { AskSelfDrivenService } from "./self-driven/ask-self-driven.service";
+// Stage 1: durable event journal for self-driven missions (mirrors playground).
+import { SelfDrivenMissionEventBuffer } from "./self-driven/self-driven-mission-event-buffer.service";
+import { SELF_DRIVEN_EVENTS } from "./self-driven/self-driven.events";
 // Teams 模式（W2 PR3）
 import { AskRoomController } from "./ai-ask-room.controller";
 import { AskRoomService } from "./ai-ask-room.service";
@@ -62,7 +66,27 @@ import { HandoffAdapter } from "./adapters/handoff.adapter";
     ReviewAdapter,
     HandoffAdapter,
     AskSelfDrivenService,
+    SelfDrivenMissionEventBuffer,
   ],
   exports: [AiAskService, AskRoomService],
 })
-export class AiAskModule {}
+export class AiAskModule implements OnModuleInit {
+  private readonly logger = new Logger(AiAskModule.name);
+
+  constructor(
+    private readonly eventBus: EventBus,
+    private readonly eventRegistry: EventRegistry,
+    private readonly selfDrivenBuffer: SelfDrivenMissionEventBuffer,
+  ) {}
+
+  onModuleInit(): void {
+    // Register self-driven event types (EventBus drops unregistered types) and
+    // wire the durable buffer as a broadcast adapter so every structural
+    // self-driven.* event is captured in-memory + persisted for /replay.
+    this.eventRegistry.registerAll(SELF_DRIVEN_EVENTS);
+    this.eventBus.registerAdapter(this.selfDrivenBuffer);
+    this.logger.log(
+      `Self-Driven event journal wired: ${SELF_DRIVEN_EVENTS.length} event types registered`,
+    );
+  }
+}

@@ -10128,6 +10128,24 @@ model AgentPlaygroundMissionEvent {
   @@map("agent_playground_mission_events")
 }
 
+/// Self-Driven Agent Team mission event journal (durable replay backbone).
+/// Mirrors agent_playground_mission_events: bigint ms-epoch ts + jsonb payload,
+/// composite (mission_id, ts) index, no FK (soft mission reference). Per-token
+/// `self-driven.chunk` events are socket-only and deliberately NOT persisted here.
+model AskSelfDrivenMissionEvent {
+  id        String   @id @default(uuid())
+  missionId String   @map("mission_id")
+  type      String   @db.VarChar(120)
+  agentId   String?  @map("agent_id") @db.VarChar(120)
+  traceId   String?  @map("trace_id") @db.VarChar(120)
+  payload   Json
+  ts        BigInt // event.timestamp (ms epoch)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([missionId, ts])
+  @@map("ask_self_driven_mission_events")
+}
+
 /// mission-scoped model election state
 /// advisory-lock transaction 内的 authoritative source，用于跨实例多模型分配一致性。
 /// FK ON DELETE CASCADE 让 mission 删除时自动清理状态行，作为应用层 clear() 的兜底
