@@ -97,9 +97,10 @@ export class DynamicTeamBuilder {
     // found" for inventory roles absent from the registry's builtins.
     this.ensureRolesRegistered(assignments);
 
-    // Derive leaderRoleId: first assignment that maps to a LEADER prototype,
-    // falling back to the first assignment.
-    const leaderRoleId = this.pickLeaderRoleId(assignments);
+    // The team leader is the dedicated LEADER role (type:"leader"); the elected
+    // roles are all members. An elected member role cannot double as the leader
+    // (TeamFactory's createLeader rejects non-leader-type roles).
+    const leaderRoleId = ROLE_INVENTORY_IDS.LEADER;
 
     // Member role configs — one slot per assignment (leader role included;
     // TeamFactory creates the leader member separately from leaderRoleId).
@@ -158,7 +159,12 @@ export class DynamicTeamBuilder {
    * have, so builtin roles are never clobbered. Maps RolePrototype → RoleConfig.
    */
   private ensureRolesRegistered(assignments: RoleAssignment[]): void {
-    for (const { roleId } of assignments) {
+    // Members = the elected roles; plus the dedicated LEADER role, which acts as
+    // the team leader (TeamFactory requires the leader to be a type:"leader"
+    // role — an elected member role cannot double as leader).
+    const roleIds = new Set<string>(assignments.map((a) => a.roleId));
+    roleIds.add(ROLE_INVENTORY_IDS.LEADER);
+    for (const roleId of roleIds) {
       if (this.roleRegistry.tryGet(roleId)) continue;
       const proto = this.roleInventory.getRole(roleId);
       if (!proto) continue;
@@ -177,18 +183,6 @@ export class DynamicTeamBuilder {
         },
       });
     }
-  }
-
-  /**
-   * Elect the leader role: prefer the LEADER prototype if present in assignments,
-   * otherwise use the first assignment. This is deterministic and independent
-   * of LLM output ordering (safety-10).
-   */
-  private pickLeaderRoleId(assignments: RoleAssignment[]): string {
-    const leaderEntry = assignments.find(
-      (a) => a.roleId === ROLE_INVENTORY_IDS.LEADER,
-    );
-    return leaderEntry?.roleId ?? assignments[0].roleId;
   }
 
   /**

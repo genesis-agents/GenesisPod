@@ -559,13 +559,11 @@ describe("SelfDrivenMissionRunner integration", () => {
     // ── 1. Mission started ────────────────────────────────────────────────
     expect(types[0]).toBe("mission_started");
 
-    // ── 2. Clarify phase ─────────────────────────────────────────────────
+    // ── 2. No clarify phase is emitted (P2+ feature; no-op today) ─────────
     const clarifyPhases = eventsOfType(events, "phase").filter(
       (e) => e.phase === "clarify",
     );
-    expect(clarifyPhases).toHaveLength(2);
-    expect(clarifyPhases[0].status).toBe("started");
-    expect(clarifyPhases[1].status).toBe("completed");
+    expect(clarifyPhases).toHaveLength(0);
 
     // ── 3. Plan phase ─────────────────────────────────────────────────────
     const planPhases = eventsOfType(events, "phase").filter(

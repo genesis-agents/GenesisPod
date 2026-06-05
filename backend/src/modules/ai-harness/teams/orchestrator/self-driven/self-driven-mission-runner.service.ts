@@ -81,14 +81,9 @@ export class SelfDrivenMissionRunner {
     );
     yield { type: "mission_started", missionId };
 
-    // ── Phase: clarify ────────────────────────────────────────────────────────
-    if (signal?.aborted) {
-      yield { type: "error", missionId, message: "aborted" };
-      return;
-    }
-    yield { type: "phase", missionId, phase: "clarify", status: "started" };
-    // P2+: interactive clarification loop. For now pass through immediately.
-    yield { type: "phase", missionId, phase: "clarify", status: "completed" };
+    // NB: no "clarify" phase is emitted today — interactive clarification is P2+.
+    // A phase that does nothing must not announce itself in the UI (it showed as a
+    // misleading instant "Clarify Running → Done"). Real clarify events land in P2.
 
     // ── Phase: plan ───────────────────────────────────────────────────────────
     if (signal?.aborted) {
