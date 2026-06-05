@@ -1,9 +1,17 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowRight, Network, Radio, type LucideIcon } from 'lucide-react';
+import {
+  ArrowRight,
+  Network,
+  Radio,
+  GitBranch,
+  Loader2,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { AdminPageLayout } from '@/components/admin/layout';
 import { useApiGet } from '@/hooks/core';
 import { useTranslation } from '@/lib/i18n';
@@ -17,6 +25,8 @@ import EvalDashboardPageContent from '../eval/content';
 import GuardrailsPageContent from '../guardrails/content';
 import TracesPageContent from '../traces/content';
 import DreamingDashboardContent from '../dreaming/content';
+import { HarnessRuntimeGraph } from '@/components/harness/HarnessRuntimeGraph';
+import { useMissionReplay } from '@/components/harness/useMissionReplay';
 
 /**
  * AI Harness Hub
@@ -135,6 +145,102 @@ function SubsystemSection({
   );
 }
 
+/** Inline admin component — lets an admin watch a mission's live graph. */
+function RuntimeGraphSection() {
+  const [inputValue, setInputValue] = useState('');
+  const [activeMissionId, setActiveMissionId] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { events, isStreaming, error, load, clear } = useMissionReplay();
+
+  function handleLoad() {
+    const id = inputValue.trim();
+    if (!id) return;
+    setActiveMissionId(id);
+    load(id);
+  }
+
+  function handleClear() {
+    setActiveMissionId('');
+    setInputValue('');
+    clear();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') handleLoad();
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Mission ID input row */}
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Mission ID"
+          className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        />
+        <button
+          onClick={handleLoad}
+          disabled={!inputValue.trim() || isStreaming}
+          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-teal-50 px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isStreaming ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <GitBranch className="h-3.5 w-3.5" />
+          )}
+          {isStreaming ? 'Streaming…' : 'Load'}
+        </button>
+        {activeMissionId && (
+          <button
+            onClick={handleClear}
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700"
+            title="Clear"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Status / error */}
+      {error && (
+        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
+      )}
+
+      {/* Graph or empty state */}
+      {activeMissionId ? (
+        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+          <div className="border-b border-gray-100 px-4 py-2 text-xs text-gray-500">
+            Mission:{' '}
+            <span className="font-mono text-gray-700">{activeMissionId}</span>
+            {isStreaming && (
+              <span className="ml-2 inline-flex items-center gap-1 text-teal-600">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                live
+              </span>
+            )}
+            {!isStreaming && events.length > 0 && (
+              <span className="ml-2 text-gray-400">(completed)</span>
+            )}
+          </div>
+          <div style={{ height: 480 }}>
+            <HarnessRuntimeGraph events={events} isStreaming={isStreaming} />
+          </div>
+        </div>
+      ) : (
+        <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-400">
+          Enter a mission ID above and click Load to visualise the run graph.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HarnessAdminPageInner() {
   const { t } = useTranslation();
   const { data: overviewStats } = useApiGet<Record<string, number>>(
@@ -162,6 +268,9 @@ function HarnessAdminPageInner() {
     >
       {tab === 'execution' && (
         <div className="space-y-8">
+          <SubsystemSection title="Runtime Graph">
+            <RuntimeGraphSection />
+          </SubsystemSection>
           <SubsystemSection title="Scheduler">
             <KernelSchedulerPageContent embedded />
           </SubsystemSection>
