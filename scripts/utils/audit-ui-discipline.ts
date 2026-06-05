@@ -490,6 +490,9 @@ const R7_BESPOKE_OK = [
   "app/library/page.tsx",
   // 纯状态消费：activeTab 仅用于内容条件渲染，onClick 是 setResultsModal（非 tab setter），不渲染 bar
   "components/library/AIOrganizePanel.tsx",
+  // Admin Harness 页：tab 栏用 canonical AdminPageLayout；`tab === '字面量'` 仅做
+  // 内容条件渲染（execution/memory/governance/...），非自写 bar——与 library/page 同型。
+  "app/admin/ai/harness/page.tsx",
 ];
 
 // R7 Signal B：tab 栏的另一种形态——同一类状态变量上 ≥2 处 `xxxTab === '字面量'`
