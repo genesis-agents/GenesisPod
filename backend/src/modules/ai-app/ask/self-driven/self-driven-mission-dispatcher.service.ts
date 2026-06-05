@@ -16,6 +16,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { withUserContext } from "@/common/context/with-user-context";
 import {
   MissionAbortRegistry,
   MissionFailureCode,
@@ -48,6 +49,22 @@ export class SelfDrivenMissionDispatcher {
    * failures are relayed as a `self-driven.error` event and finalized.
    */
   async runInBackground(
+    missionId: string,
+    input: SelfDrivenDispatchInput,
+    userId: string,
+  ): Promise<void> {
+    // Re-establish the request-scoped user context the detached task lost when
+    // execution was decoupled from the HTTP request. Without this, downstream
+    // user-default resolution that reads RequestContext.getUserId() (role model
+    // election via getAvailableModelsAsync, BYOK key resolution, etc.) sees no
+    // user and returns empty — which left every role with modelId="" and the
+    // execute phase failing with "No default AI model configured".
+    await withUserContext(userId, async () => {
+      await this.drive(missionId, input, userId);
+    });
+  }
+
+  private async drive(
     missionId: string,
     input: SelfDrivenDispatchInput,
     userId: string,
