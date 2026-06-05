@@ -93,6 +93,42 @@ export class SelfDrivenMissionRunner {
    */
   private static readonly SELF_DRIVEN_MAX_PARALLEL_STEPS = 3;
 
+  /**
+   * Hard ceiling on any single deliver-phase LLM helper call (references
+   * extraction, rubric evaluation, finalize/refine pass, gate-choice
+   * generation). These run AFTER the deliver gate is approved; if the provider
+   * hangs with no timeout, the `deliverable`/`done` events are never yielded and
+   * the mission sticks forever showing "all steps done, no report" (the UI keeps
+   * the stop button up). A bounded race guarantees the deliver phase always
+   * terminates — on timeout the helper's own try/catch falls back to a safe
+   * default (skip references, keep draft report, proceed).
+   */
+  private static readonly DELIVER_LLM_TIMEOUT_MS = 120_000;
+
+  /**
+   * Reject `work` after `ms` so an unbounded provider hang can't wedge mission
+   * termination. The losing promise is left to settle on its own (no way to
+   * cancel an in-flight chat without a signal); the timer is always cleared.
+   */
+  private async withTimeout<T>(
+    work: Promise<T>,
+    ms: number,
+    label: string,
+  ): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const guard = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`${label} timed out after ${ms}ms`)),
+        ms,
+      );
+    });
+    try {
+      return await Promise.race([work, guard]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
   constructor(
     private readonly planner: SelfDrivenMissionPlannerService,
     private readonly teamBuilder: DynamicTeamBuilder,
@@ -1036,16 +1072,20 @@ export class SelfDrivenMissionRunner {
     }> = [];
 
     try {
-      const res = await this.chat.chat({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: excerpt },
-        ],
-        modelType: AIModelType.CHAT,
-        taskProfile: { creativity: "deterministic", outputLength: "short" },
-        responseFormat: "json",
-        userId,
-      });
+      const res = await this.withTimeout(
+        this.chat.chat({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: excerpt },
+          ],
+          modelType: AIModelType.CHAT,
+          taskProfile: { creativity: "deterministic", outputLength: "short" },
+          responseFormat: "json",
+          userId,
+        }),
+        SelfDrivenMissionRunner.DELIVER_LLM_TIMEOUT_MS,
+        `mission ${missionId} references extraction`,
+      );
 
       // Robust parse — strip optional ```json fences, try direct parse, then
       // regex-extract first [...] block (mirrors StepDecompositionService.parseSteps).
@@ -1185,16 +1225,20 @@ export class SelfDrivenMissionRunner {
           `label (string), description (string, optional). No markdown, no prose.`;
 
     try {
-      const res = await this.chat.chat({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: contextSummary },
-        ],
-        modelType: AIModelType.CHAT,
-        taskProfile: { creativity: "deterministic", outputLength: "short" },
-        responseFormat: "json",
-        userId,
-      });
+      const res = await this.withTimeout(
+        this.chat.chat({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: contextSummary },
+          ],
+          modelType: AIModelType.CHAT,
+          taskProfile: { creativity: "deterministic", outputLength: "short" },
+          responseFormat: "json",
+          userId,
+        }),
+        SelfDrivenMissionRunner.DELIVER_LLM_TIMEOUT_MS,
+        `mission ${missionId} gate-choice generation`,
+      );
 
       let text = (res.content ?? "").trim();
 
@@ -1939,16 +1983,20 @@ export class SelfDrivenMissionRunner {
       `No markdown fences, no prose outside the JSON.`;
 
     try {
-      const res = await this.chat.chat({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Report draft:\n---\n${excerpt}\n---` },
-        ],
-        modelType: AIModelType.CHAT,
-        taskProfile: { creativity: "deterministic", outputLength: "short" },
-        responseFormat: "json",
-        userId,
-      });
+      const res = await this.withTimeout(
+        this.chat.chat({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Report draft:\n---\n${excerpt}\n---` },
+          ],
+          modelType: AIModelType.CHAT,
+          taskProfile: { creativity: "deterministic", outputLength: "short" },
+          responseFormat: "json",
+          userId,
+        }),
+        SelfDrivenMissionRunner.DELIVER_LLM_TIMEOUT_MS,
+        `mission ${missionId} rubric evaluation`,
+      );
 
       // Robust parse — strip optional ```json fences.
       let text = (res.content ?? "").trim();
@@ -2036,12 +2084,16 @@ export class SelfDrivenMissionRunner {
     };
 
     try {
-      const result = await this.chat.chat({
-        messages: [{ role: "system", content: systemPrompt }, userMessage],
-        modelType: AIModelType.CHAT,
-        taskProfile: { creativity: "medium", outputLength: "long" },
-        userId,
-      });
+      const result = await this.withTimeout(
+        this.chat.chat({
+          messages: [{ role: "system", content: systemPrompt }, userMessage],
+          modelType: AIModelType.CHAT,
+          taskProfile: { creativity: "medium", outputLength: "long" },
+          userId,
+        }),
+        SelfDrivenMissionRunner.DELIVER_LLM_TIMEOUT_MS,
+        `mission ${missionId} finalize pass`,
+      );
 
       const refined = (result.content ?? "").trim();
       if (refined.length < 100) {

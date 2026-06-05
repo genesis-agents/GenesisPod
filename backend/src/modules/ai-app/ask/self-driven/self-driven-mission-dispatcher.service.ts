@@ -33,6 +33,23 @@ export function selfDrivenReportKey(missionId: string): string {
   return `self-driven-reports/${missionId}/report.md`;
 }
 
+/**
+ * Reject `work` after `ms`. Used to bound the best-effort report offload so an
+ * external storage / Google Drive hang after the `deliverable` event can't wedge
+ * the consumption loop and prevent the terminal `done` event from being relayed.
+ */
+async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const guard = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms);
+  });
+  try {
+    return await Promise.race([work, guard]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export interface SelfDrivenDispatchInput {
   prompt: string;
   userId: string;
@@ -119,7 +136,19 @@ export class SelfDrivenMissionDispatcher {
           event.deliverableType === "report" &&
           event.content
         ) {
-          await this.offloadReport(missionId, event.content, userId);
+          // Best-effort and strictly non-fatal: the deliverable is already
+          // relayed (above) and lives in the event journal, so a slow/failing
+          // offload must never break this loop or it would starve the terminal
+          // `done` event and leave the UI stuck "running".
+          await this.offloadReport(missionId, event.content, userId).catch(
+            (err: unknown) => {
+              this.logger.warn(
+                `[self-driven ${missionId}] report offload errored (ignored): ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+              );
+            },
+          );
         }
       }
     } catch (err) {
@@ -180,16 +209,25 @@ export class SelfDrivenMissionDispatcher {
       }
     }
 
-    // Cloud storage save (best-effort, via library/export facade).
+    // Cloud storage save (best-effort, via library/export facade). Bounded +
+    // guarded: a Google Drive token-refresh / upload hang here previously had no
+    // timeout and was not wrapped, so it could wedge the loop before `done`.
     const fileName = `self-driven-report-${missionId}.md`;
-    const result = await this.libraryExport.saveMarkdownToUserStorage(
-      userId,
-      fileName,
-      content,
-    );
-    if (result.saved) {
-      this.logger.log(
-        `[self-driven ${missionId}] report saved to ${result.provider} for user ${userId}`,
+    try {
+      const result = await withTimeout(
+        this.libraryExport.saveMarkdownToUserStorage(userId, fileName, content),
+        20_000,
+      );
+      if (result.saved) {
+        this.logger.log(
+          `[self-driven ${missionId}] report saved to ${result.provider} for user ${userId}`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `[self-driven ${missionId}] cloud report save failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       );
     }
   }
