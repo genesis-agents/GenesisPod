@@ -32,6 +32,12 @@ export interface ReportComposerInput {
   stepOutputs: Map<string, string>;
   /** Original user prompt (repeated in the report header for context). */
   userPrompt: string;
+  /**
+   * Optional pre-formatted APA bibliography block (from engine citation API).
+   * When present a "## References / 参考文献" section is appended as the last
+   * block. Absent = no section (never emit an empty heading).
+   */
+  referencesMarkdown?: string;
 }
 
 /** Slim report output — content is a Markdown string. */
@@ -54,7 +60,7 @@ export class SelfDrivenReportComposer {
    *   rubric dimension table (passLine reference, not scored here)
    */
   compose(input: ReportComposerInput): ReportComposerOutput {
-    const { plan, stepOutputs, userPrompt } = input;
+    const { plan, stepOutputs, userPrompt, referencesMarkdown } = input;
     // Each entry is a complete Markdown BLOCK. Blocks are joined with a blank
     // line ("\n\n"). NB: never terminate a block with "\n" — joining
     // newline-terminated blocks with "\n" injects a blank line *inside* a block,
@@ -113,6 +119,15 @@ export class SelfDrivenReportComposer {
       ].join("\n");
       blocks.push(`---`);
       blocks.push(`## Acceptance Rubric\n\n${table}`);
+    }
+
+    // ── References section (best-effort, appended last) ──────────────────────
+    // Only emitted when the runner successfully extracted ≥1 source via the
+    // engine citation API. An absent/empty string means skip — never emit an
+    // empty "## References" heading.
+    if (referencesMarkdown && referencesMarkdown.trim().length > 0) {
+      blocks.push(`---`);
+      blocks.push(`## References / 参考文献\n\n${referencesMarkdown.trim()}`);
     }
 
     const content = blocks.join("\n\n").trim() + "\n";

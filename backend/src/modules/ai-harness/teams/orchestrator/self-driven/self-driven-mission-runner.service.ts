@@ -26,6 +26,12 @@ import type {
   IOutputEvent,
   IErrorEvent,
 } from "../../../agents/abstractions/agent-event.interface";
+import {
+  buildCitationMetadata,
+  generateBibliography,
+  type CitationRawEvidence,
+  type CitationMetadata,
+} from "@/modules/ai-engine/facade";
 
 /**
  * Self-Driven Agent Team runner.
@@ -505,10 +511,20 @@ export class SelfDrivenMissionRunner {
     yield { type: "phase", missionId, phase: "deliver", status: "started" };
 
     try {
+      // ── Best-effort: extract key sources from assembled step text → APA refs ──
+      // Non-fatal: any failure (LLM error, parse failure, 0 sources) silently
+      // skips the references section rather than failing the mission.
+      const referencesMarkdown = await this.extractReferencesMarkdown(
+        stepOutputs,
+        input.userId,
+        missionId,
+      );
+
       const report = this.composer.compose({
         plan,
         stepOutputs,
         userPrompt: input.prompt,
+        referencesMarkdown,
       });
 
       this.logger.log(
@@ -549,6 +565,144 @@ export class SelfDrivenMissionRunner {
   }
 
   // ── Private helpers ─────────────────────────────────────────────────────────
+
+  /**
+   * Best-effort citation extraction from the assembled step outputs.
+   *
+   * Makes ONE LLM call (deterministic, short) to extract key sources mentioned
+   * in the report text, maps them to CitationMetadata via the engine's
+   * buildCitationMetadata, then generates an APA bibliography via
+   * generateBibliography. Returns the formattedText string or undefined when
+   * there is nothing to show.
+   *
+   * Non-fatal: any exception → returns undefined (caller skips the section).
+   */
+  private async extractReferencesMarkdown(
+    stepOutputs: Map<string, string>,
+    userId: string,
+    missionId: string,
+  ): Promise<string | undefined> {
+    if (stepOutputs.size === 0) return undefined;
+
+    const reportText = [...stepOutputs.values()].join("\n\n");
+    if (reportText.trim().length === 0) return undefined;
+
+    // Truncate to avoid hitting token limits on very large reports.
+    const MAX_CHARS = 12_000;
+    const excerpt =
+      reportText.length > MAX_CHARS
+        ? reportText.slice(0, MAX_CHARS) + "\n[...truncated...]"
+        : reportText;
+
+    const systemPrompt =
+      `You are a bibliographic assistant. Analyse the provided report text and ` +
+      `return ONLY a JSON array (max 20 items) of the key sources the text ` +
+      `actually mentions or relies upon. Each element must have exactly these ` +
+      `fields: "title" (string), "publisher" (string or null), ` +
+      `"year" (4-digit string or null), "url" (string or null). ` +
+      `Return [] if no identifiable sources are present. ` +
+      `Output ONLY the JSON array — no markdown fences, no prose.`;
+
+    let rawSources: Array<{
+      title: string;
+      publisher: string | null;
+      year: string | null;
+      url: string | null;
+    }> = [];
+
+    try {
+      const res = await this.chat.chat({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: excerpt },
+        ],
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "deterministic", outputLength: "short" },
+        responseFormat: "json",
+        userId,
+      });
+
+      // Robust parse — strip optional ```json fences, try direct parse, then
+      // regex-extract first [...] block (mirrors StepDecompositionService.parseSteps).
+      let text = (res.content ?? "").trim();
+      const fence = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (fence) text = fence[1].trim();
+
+      const tryParse = (candidate: string) => {
+        try {
+          const parsed = JSON.parse(candidate);
+          if (Array.isArray(parsed)) return parsed;
+        } catch {
+          /* fall through */
+        }
+        return null;
+      };
+
+      let parsed = tryParse(text);
+      if (!parsed) {
+        const arrMatch = text.match(/\[[\s\S]*\]/);
+        if (arrMatch) parsed = tryParse(arrMatch[0]);
+      }
+
+      if (Array.isArray(parsed)) {
+        rawSources = (parsed as unknown[])
+          .slice(0, 20)
+          .filter(
+            (item): item is (typeof rawSources)[number] =>
+              item !== null &&
+              typeof item === "object" &&
+              typeof (item as Record<string, unknown>)["title"] === "string" &&
+              (item as Record<string, unknown>)["title"] !== "",
+          );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `[SelfDriven] mission ${missionId} citation extraction LLM call failed ` +
+          `(non-fatal, skipping references section): ` +
+          `${err instanceof Error ? err.message : String(err)}`,
+      );
+      return undefined;
+    }
+
+    if (rawSources.length === 0) {
+      this.logger.debug(
+        `[SelfDriven] mission ${missionId} citation extraction: 0 sources found, ` +
+          `skipping references section`,
+      );
+      return undefined;
+    }
+
+    // Map to RawEvidence → CitationMetadata using the engine citation API.
+    const metadataList: CitationMetadata[] = rawSources.map((src) => {
+      const evidence: CitationRawEvidence = {
+        title: src.title,
+        url: src.url ?? undefined,
+        metadata: {
+          ...(src.publisher ? { publisher: src.publisher } : {}),
+          ...(src.year ? { publishedYear: src.year } : {}),
+        },
+      };
+      // If we have a year string, synthesise a publishedAt date for the formatter.
+      const publishedAt =
+        src.year && /^\d{4}$/.test(src.year)
+          ? new Date(`${src.year}-01-01`)
+          : undefined;
+      return buildCitationMetadata({ ...evidence, publishedAt });
+    });
+
+    const bib = generateBibliography(metadataList, "apa");
+
+    if (!bib.formattedText || bib.formattedText.trim().length === 0) {
+      return undefined;
+    }
+
+    this.logger.debug(
+      `[SelfDriven] mission ${missionId} citation extraction: ` +
+        `${metadataList.length} source(s) → APA bibliography generated`,
+    );
+
+    return bib.formattedText;
+  }
 
   /**
    * Execute a single plan step, yielding real-time events and returning the
