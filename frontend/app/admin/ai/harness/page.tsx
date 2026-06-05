@@ -16,14 +16,8 @@ import { AdminPageLayout } from '@/components/admin/layout';
 import { useApiGet } from '@/hooks/core';
 import { useTranslation } from '@/lib/i18n';
 import KernelMemoryPageContent from '../../kernel/memory/content';
-import KernelSchedulerPageContent from '../../kernel/scheduler/content';
-import KernelProcessesPageContent from '../../kernel/processes/content';
-import KernelObservabilityPageContent from '../../kernel/observability/content';
-import KernelJournalPageContent from '../../kernel/journal/content';
-import KernelResourcesPageContent from '../../kernel/resources/content';
 import EvalDashboardPageContent from '../eval/content';
 import GuardrailsPageContent from '../guardrails/content';
-import TracesPageContent from '../traces/content';
 import DreamingDashboardContent from '../dreaming/content';
 import { HarnessRuntimeGraph } from '@/components/harness/HarnessRuntimeGraph';
 import { useMissionReplay } from '@/components/harness/useMissionReplay';
@@ -266,31 +260,10 @@ function HarnessAdminPageInner() {
       icon={Network}
       domain="ai"
     >
-      {tab === 'execution' && (
-        <div className="space-y-8">
-          <SubsystemSection title="Runtime Graph">
-            <RuntimeGraphSection />
-          </SubsystemSection>
-          <SubsystemSection title="Scheduler">
-            <KernelSchedulerPageContent embedded />
-          </SubsystemSection>
-          <SubsystemSection title="Processes">
-            <KernelProcessesPageContent embedded />
-          </SubsystemSection>
-          <SubsystemSection title="Traces">
-            <TracesPageContent embedded />
-          </SubsystemSection>
-          <SubsystemSection title="Observability">
-            <KernelObservabilityPageContent embedded />
-          </SubsystemSection>
-          <SubsystemSection title="Event Journal">
-            <KernelJournalPageContent embedded />
-          </SubsystemSection>
-          <SubsystemSection title="Resources">
-            <KernelResourcesPageContent embedded />
-          </SubsystemSection>
-        </div>
-      )}
+      {/* Execution = the live runtime graph only. The old static history blocks
+          (Scheduler / Processes / Traces / Observability / Journal / Resources)
+          were removed per product direction — this view is the dynamic run graph. */}
+      {tab === 'execution' && <RuntimeGraphSection />}
 
       {tab === 'memory' && <KernelMemoryPageContent embedded />}
 
