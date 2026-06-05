@@ -12,7 +12,7 @@
  */
 'use client';
 
-import { ClipboardList, Users, Star, Package } from 'lucide-react';
+import { ClipboardList, Star, Package } from 'lucide-react';
 import type { PlanEvent } from '@/lib/api/self-driven-stream';
 import { SectionPanelCard } from '@/components/ui/cards/SectionPanelCard';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table/Table';
@@ -48,9 +48,12 @@ function SectionHeader({
 export function SelfDrivenPlanCard({ ev }: { ev: PlanEvent }) {
   const { t } = useI18n();
   const { plan } = ev;
-  const hasRoleAssignments =
-    plan.roleAssignments && plan.roleAssignments.length > 0;
   const hasRubric = plan.rubric && plan.rubric.length > 0;
+
+  // role → model lookup so each task row can show the model that runs it.
+  const modelByRole = new Map<string, string>();
+  for (const r of plan.roleAssignments ?? [])
+    modelByRole.set(r.roleId, r.modelId);
 
   return (
     <SectionPanelCard
@@ -67,42 +70,14 @@ export function SelfDrivenPlanCard({ ev }: { ev: PlanEvent }) {
       }
     >
       <div className="space-y-4 px-4 py-3">
-        {/* Steps */}
+        {/* Tasks & assignment — one unified table: each task shows its role, the
+            model that runs it, and the loop strategy. (Previously two separate
+            blocks "Steps" + "Role Assignments"; merged per design feedback.) */}
         {plan.steps.length > 0 && (
           <div className="space-y-1.5">
             <SectionHeader
               icon={<ClipboardList size={12} aria-hidden />}
-              label={t('aiAsk.selfDriven.planStepsLabel')}
-            />
-            <ol className="space-y-1">
-              {plan.steps.map((step, idx) => (
-                <li
-                  key={step.id}
-                  className="flex items-start gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm"
-                >
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-bold text-gray-600">
-                    {idx + 1}
-                  </span>
-                  <span className="flex-1 text-gray-800">{step.name}</span>
-                  {step.loopKind && (
-                    <span
-                      className={`shrink-0 rounded-full px-1.5 py-0.5 text-xs font-medium ${LOOP_KIND_CLS[step.loopKind] ?? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200'}`}
-                    >
-                      {LOOP_KIND_LABEL[step.loopKind] ?? step.loopKind}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-
-        {/* Role Assignments */}
-        {hasRoleAssignments && (
-          <div className="space-y-1.5">
-            <SectionHeader
-              icon={<Users size={12} aria-hidden />}
-              label={t('aiAsk.selfDriven.planRolesLabel')}
+              label={t('aiAsk.selfDriven.planTasksLabel')}
             />
             <Table
               bordered
@@ -111,22 +86,46 @@ export function SelfDrivenPlanCard({ ev }: { ev: PlanEvent }) {
             >
               <THead className="bg-gray-50">
                 <Tr>
+                  <Th className="w-8 px-3 py-1.5 text-center font-semibold text-gray-500">
+                    #
+                  </Th>
+                  <Th className="px-3 py-1.5 font-semibold text-gray-500">
+                    {t('aiAsk.selfDriven.planTaskCol')}
+                  </Th>
                   <Th className="px-3 py-1.5 font-semibold text-gray-500">
                     {t('aiAsk.selfDriven.planRoleCol')}
                   </Th>
                   <Th className="px-3 py-1.5 font-semibold text-gray-500">
                     {t('aiAsk.selfDriven.planModelCol')}
                   </Th>
+                  <Th className="px-3 py-1.5 font-semibold text-gray-500">
+                    {t('aiAsk.selfDriven.planStrategyCol')}
+                  </Th>
                 </Tr>
               </THead>
               <TBody className="divide-y divide-gray-100">
-                {plan.roleAssignments?.map((r) => (
-                  <Tr key={r.roleId}>
-                    <Td className="px-3 py-1.5 font-medium text-gray-700">
-                      {r.roleId}
+                {plan.steps.map((step, idx) => (
+                  <Tr key={step.id}>
+                    <Td className="px-3 py-2 text-center font-bold text-gray-400">
+                      {idx + 1}
                     </Td>
-                    <Td className="font-mono px-3 py-1.5 text-gray-500">
-                      {r.modelId || '—'}
+                    <Td className="px-3 py-2 font-medium text-gray-800">
+                      {step.name}
+                    </Td>
+                    <Td className="px-3 py-2 text-gray-600">{step.executor}</Td>
+                    <Td className="font-mono px-3 py-2 text-gray-500">
+                      {modelByRole.get(step.executor) || '—'}
+                    </Td>
+                    <Td className="px-3 py-2">
+                      {step.loopKind ? (
+                        <span
+                          className={`inline-block rounded-full px-1.5 py-0.5 text-xs font-medium ${LOOP_KIND_CLS[step.loopKind] ?? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200'}`}
+                        >
+                          {LOOP_KIND_LABEL[step.loopKind] ?? step.loopKind}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
                     </Td>
                   </Tr>
                 ))}

@@ -150,7 +150,7 @@ function StepRow({
   const ok = completed?.ok ?? true;
 
   return (
-    <div className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm odd:bg-gray-50">
+    <div className="flex items-center gap-2.5 rounded-lg px-3 py-3 text-sm odd:bg-gray-50">
       {/* Status icon */}
       <span className="shrink-0">
         {isRunning ? (
@@ -226,7 +226,7 @@ function StepsProgress({
           {completedEvents.length} / {startedEvents[0].totalSteps}
         </span>
       </div>
-      <div className="divide-y divide-gray-50 py-1">
+      <div className="divide-y divide-gray-100 px-1.5 py-1.5">
         {startedEvents.map((step) => (
           <StepRow
             key={step.stepId}
