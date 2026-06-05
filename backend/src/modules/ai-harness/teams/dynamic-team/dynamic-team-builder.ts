@@ -26,6 +26,7 @@ import type {
 } from "../abstractions/team.interface";
 import type { RoleAssignment } from "../orchestrator/orchestrator.interface";
 import { TeamFactory } from "../factory/team-factory";
+import { RoleRegistry } from "../registry/role-registry";
 import { getDefaultConstraintProfile } from "../profile/mission-execution-profile";
 import type { WorkflowConfig } from "../abstractions/workflow.interface";
 
@@ -63,6 +64,7 @@ export class DynamicTeamBuilder {
   constructor(
     @Inject(ROLE_INVENTORY) private readonly roleInventory: IRoleInventory,
     private readonly teamFactory: TeamFactory,
+    private readonly roleRegistry: RoleRegistry,
   ) {}
 
   /**
@@ -87,6 +89,13 @@ export class DynamicTeamBuilder {
         throw new AgentAccessDeniedError(roleId);
       }
     }
+
+    // Bridge: TeamFactory resolves role definitions from the generic RoleRegistry,
+    // but self-driven roles live in the curated RoleInventory. Register any
+    // RoleInventory prototype the registry is missing (e.g. "integrator") so
+    // createFromConfig can find it — without this the build throws "Role X not
+    // found" for inventory roles absent from the registry's builtins.
+    this.ensureRolesRegistered(assignments);
 
     // Derive leaderRoleId: first assignment that maps to a LEADER prototype,
     // falling back to the first assignment.
@@ -142,6 +151,33 @@ export class DynamicTeamBuilder {
   }
 
   // ── private helpers ────────────────────────────────────────────────────────
+
+  /**
+   * Register each assigned RoleInventory prototype into the RoleRegistry that
+   * TeamFactory resolves from — but only those the registry does not already
+   * have, so builtin roles are never clobbered. Maps RolePrototype → RoleConfig.
+   */
+  private ensureRolesRegistered(assignments: RoleAssignment[]): void {
+    for (const { roleId } of assignments) {
+      if (this.roleRegistry.tryGet(roleId)) continue;
+      const proto = this.roleInventory.getRole(roleId);
+      if (!proto) continue;
+      this.roleRegistry.registerFromConfig({
+        id: proto.roleId,
+        name: proto.title,
+        description: proto.systemPromptHint,
+        type: proto.roleId === ROLE_INVENTORY_IDS.LEADER ? "leader" : "member",
+        coreSkills: [],
+        coreTools: [...proto.coreTools],
+        responsibilities: [proto.title],
+        systemPromptTemplate: proto.systemPromptHint,
+        metadata: {
+          maxIterations: proto.maxIterations,
+          source: "self-driven-role-inventory",
+        },
+      });
+    }
+  }
 
   /**
    * Elect the leader role: prefer the LEADER prototype if present in assignments,
