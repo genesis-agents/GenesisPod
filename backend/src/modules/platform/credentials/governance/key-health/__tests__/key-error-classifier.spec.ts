@@ -81,6 +81,26 @@ describe("KeyErrorClassifier", () => {
       );
       expect(r.reason).toBe("QUOTA_EXCEEDED");
     });
+
+    it("recovers status from axios' stringified message ('Request failed with status code 402') → QUOTA_EXCEEDED", () => {
+      // The streaming path re-wraps provider errors into a plain Error whose
+      // structured status is gone — only axios' default text survives. Without
+      // message-based status recovery this fell through to UNKNOWN (no cooldown),
+      // so a quota-dead BYOK key was never marked and kept being elected.
+      const r = classifier.classify(
+        new Error("Request failed with status code 402"),
+      );
+      expect(r.reason).toBe("QUOTA_EXCEEDED");
+      expect(r.cooldownMs).toBe(Number.POSITIVE_INFINITY);
+      expect(r.markDead).toBe(false);
+    });
+
+    it("recovers 429 from a stringified 'status code 429' message → RATE_LIMIT_KEY (not UNKNOWN)", () => {
+      const r = classifier.classify(
+        new Error("Request failed with status code 429"),
+      );
+      expect(r.reason).toBe("RATE_LIMIT_KEY");
+    });
   });
 
   describe("REQUEST_TOO_LARGE", () => {

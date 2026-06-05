@@ -206,7 +206,10 @@ export class KeyErrorClassifier {
   }
 
   private extractStatus(err: unknown): number | undefined {
-    if (!err || typeof err !== "object") return undefined;
+    if (!err || typeof err !== "object") {
+      // String errors can still carry the status in their text.
+      return this.statusFromMessage(typeof err === "string" ? err : "");
+    }
     const e = err as Record<string, unknown>;
     // axios style
     if (typeof e.status === "number") return e.status;
@@ -214,6 +217,21 @@ export class KeyErrorClassifier {
     // openai sdk style: err.status / err.response.status
     const response = e.response as Record<string, unknown> | undefined;
     if (response && typeof response.status === "number") return response.status;
+    // Fallback: streaming / re-wrapped provider errors often lose the structured
+    // status and only keep axios' default text ("Request failed with status code
+    // 402"). Parse it so the classifier still distinguishes 402/429/5xx — without
+    // this a quota 402 on the streaming path falls through to UNKNOWN (no
+    // cooldown), so the quota-dead key is never marked and keeps being elected.
+    return this.statusFromMessage(this.extractMessage(err));
+  }
+
+  /** Best-effort HTTP status recovery from an error's text. */
+  private statusFromMessage(message: string): number | undefined {
+    const m = message.match(/status(?:\s*code)?[:\s]+(\d{3})\b/i);
+    if (m) {
+      const n = Number(m[1]);
+      if (n >= 100 && n < 600) return n;
+    }
     return undefined;
   }
 
