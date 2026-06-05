@@ -143,8 +143,13 @@ export function useSelfDrivenChat({ appendUser }: UseSelfDrivenChatOptions) {
   );
 
   const run = useCallback(
-    async (args: { prompt: string; token: string; signal: AbortSignal }) => {
-      const { prompt, token, signal } = args;
+    async (args: {
+      prompt: string;
+      token: string;
+      signal: AbortSignal;
+      analysisDepth?: 'quick' | 'standard' | 'deep';
+    }) => {
+      const { prompt, token, signal, analysisDepth } = args;
       reset();
       appendUser({
         id: 'temp-user-' + Date.now(),
@@ -162,7 +167,7 @@ export function useSelfDrivenChat({ appendUser }: UseSelfDrivenChatOptions) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ prompt }),
+          body: JSON.stringify({ prompt, analysisDepth }),
           signal,
         });
         if (!res.ok) {

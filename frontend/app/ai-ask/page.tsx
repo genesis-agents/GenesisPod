@@ -21,6 +21,7 @@ import { config } from '@/lib/utils/config';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import AskToolsButton from '@/components/ai-ask/AskToolsButton';
 import AskTeamsButton from '@/components/ai-ask/AskTeamsButton';
+import { Button } from '@/components/ui/primitives/button';
 import {
   ActionCards,
   type SuggestedAction,
@@ -1136,6 +1137,12 @@ export default function AskPage() {
   const isMixtureMode = selectedModel === 'mixture';
   const isSelfDrivenMode = selectedModel === 'self-driven-team';
 
+  // Self-Driven analysis depth: quick | standard | deep (controls step count +
+  // per-step output length). Only meaningful in self-driven mode.
+  const [selfDrivenDepth, setSelfDrivenDepth] = useState<
+    'quick' | 'standard' | 'deep'
+  >('standard');
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1511,7 +1518,12 @@ export default function AskPage() {
       if (isSelfDrivenMode) {
         if (!token) return;
         setStreamStage(null);
-        await selfDriven.run({ prompt: userContent, token, signal });
+        await selfDriven.run({
+          prompt: userContent,
+          token,
+          signal,
+          analysisDepth: selfDrivenDepth,
+        });
       } else if (isMixtureMode) {
         // Mixture mode: call multiple models in parallel (legacy behavior)
         if (chatModels.length === 0) {
@@ -2489,6 +2501,34 @@ export default function AskPage() {
             <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-50 via-gray-50/95 to-transparent px-4 pb-4 pt-8">
               <div className="pointer-events-auto mx-auto max-w-4xl">
                 <form onSubmit={handleSubmit}>
+                  {/* Self-Driven analysis depth selector (step count + output length) */}
+                  {isSelfDrivenMode && (
+                    <div className="mb-2 flex items-center gap-2 px-1">
+                      <span className="text-xs text-gray-500">分析深度</span>
+                      <div className="flex gap-1">
+                        {(
+                          [
+                            { v: 'quick', label: '快速' },
+                            { v: 'standard', label: '标准' },
+                            { v: 'deep', label: '深度' },
+                          ] as const
+                        ).map((opt) => (
+                          <Button
+                            key={opt.v}
+                            type="button"
+                            variant={
+                              selfDrivenDepth === opt.v ? 'default' : 'outline'
+                            }
+                            size="sm"
+                            className="h-7 px-3 text-xs"
+                            onClick={() => setSelfDrivenDepth(opt.v)}
+                          >
+                            {opt.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div
                     className={`rounded-2xl border bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all focus-within:border-purple-300 focus-within:shadow-[0_8px_40px_rgba(139,92,246,0.2)] hover:shadow-[0_8px_40px_rgb(0,0,0,0.16)] ${
                       isDragging
