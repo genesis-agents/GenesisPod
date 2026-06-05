@@ -1,15 +1,16 @@
 'use client';
 
-import { Suspense, useState, useRef } from 'react';
+import { Suspense, useState, useRef, useEffect, useCallback } from 'react';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
   ArrowRight,
   Network,
   Radio,
-  GitBranch,
   Loader2,
-  X,
+  RefreshCw,
   type LucideIcon,
 } from 'lucide-react';
 import { AdminPageLayout } from '@/components/admin/layout';
@@ -139,70 +140,111 @@ function SubsystemSection({
   );
 }
 
-/** Inline admin component — lets an admin watch a mission's live graph. */
+interface MissionListItem {
+  id: string;
+  status: string;
+  prompt: string;
+  createdAt: string;
+}
+
+/**
+ * Inline admin component — auto-loads the caller's recent self-driven missions
+ * and renders the live run graph for the selected one. No manual mission-id
+ * entry: it fetches the list on mount, auto-selects the newest (preferring a
+ * running mission), and lets the admin switch via a dropdown.
+ */
 function RuntimeGraphSection() {
-  const [inputValue, setInputValue] = useState('');
+  const [missions, setMissions] = useState<MissionListItem[]>([]);
   const [activeMissionId, setActiveMissionId] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+  const didAutoSelect = useRef(false);
   const { events, isStreaming, error, load, clear } = useMissionReplay();
 
-  function handleLoad() {
-    const id = inputValue.trim();
-    if (!id) return;
-    setActiveMissionId(id);
-    load(id);
-  }
+  const select = useCallback(
+    (id: string) => {
+      setActiveMissionId(id);
+      if (id) load(id);
+      else clear();
+    },
+    [load, clear]
+  );
 
-  function handleClear() {
-    setActiveMissionId('');
-    setInputValue('');
-    clear();
-  }
+  const fetchMissions = useCallback(async () => {
+    setListLoading(true);
+    setListError(null);
+    try {
+      const res = await fetch(`${config.apiUrl}/ask/self-driven/missions`, {
+        headers: getAuthHeader(),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: unknown = await res.json();
+      const envelope = json as {
+        missions?: MissionListItem[];
+        data?: { missions?: MissionListItem[] };
+      };
+      const list = envelope.data?.missions ?? envelope.missions ?? [];
+      setMissions(list);
+      // Auto-select once: prefer the newest running mission, else the newest.
+      if (!didAutoSelect.current && list.length > 0) {
+        didAutoSelect.current = true;
+        const running = list.find((m) => m.status === 'running');
+        select((running ?? list[0]).id);
+      }
+    } catch (err) {
+      setListError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setListLoading(false);
+    }
+  }, [select]);
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') handleLoad();
-  }
+  useEffect(() => {
+    void fetchMissions();
+  }, [fetchMissions]);
+
+  const active = missions.find((m) => m.id === activeMissionId);
 
   return (
     <div className="space-y-4">
-      {/* Mission ID input row */}
+      {/* Mission picker row */}
       <div className="flex items-center gap-2">
-        <input
-          ref={inputRef}
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Mission ID"
-          className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-        />
-        <button
-          onClick={handleLoad}
-          disabled={!inputValue.trim() || isStreaming}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-teal-50 px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-50"
+        <select
+          value={activeMissionId}
+          onChange={(e) => select(e.target.value)}
+          disabled={listLoading || missions.length === 0}
+          className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-50"
         >
-          {isStreaming ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          {missions.length === 0 ? (
+            <option value="">No missions yet</option>
           ) : (
-            <GitBranch className="h-3.5 w-3.5" />
+            missions.map((m) => (
+              <option key={m.id} value={m.id}>
+                {(m.prompt || '(no prompt)').slice(0, 60)} · {m.status} ·{' '}
+                {m.id.slice(0, 8)}
+              </option>
+            ))
           )}
-          {isStreaming ? 'Streaming…' : 'Load'}
+        </select>
+        <button
+          onClick={() => {
+            didAutoSelect.current = false;
+            void fetchMissions();
+          }}
+          disabled={listLoading}
+          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-teal-50 px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-50"
+          title="Refresh mission list"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${listLoading ? 'animate-spin' : ''}`}
+          />
+          Refresh
         </button>
-        {activeMissionId && (
-          <button
-            onClick={handleClear}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700"
-            title="Clear"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
       </div>
 
       {/* Status / error */}
-      {error && (
+      {(listError || error) && (
         <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
+          {listError ?? error}
         </p>
       )}
 
@@ -212,6 +254,9 @@ function RuntimeGraphSection() {
           <div className="border-b border-gray-100 px-4 py-2 text-xs text-gray-500">
             Mission:{' '}
             <span className="font-mono text-gray-700">{activeMissionId}</span>
+            {active && (
+              <span className="ml-2 text-gray-400">· {active.status}</span>
+            )}
             {isStreaming && (
               <span className="ml-2 inline-flex items-center gap-1 text-teal-600">
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -228,7 +273,9 @@ function RuntimeGraphSection() {
         </div>
       ) : (
         <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-400">
-          Enter a mission ID above and click Load to visualise the run graph.
+          {listLoading
+            ? 'Loading missions…'
+            : 'No self-driven missions yet — start one from AI Ask to see its run graph here.'}
         </div>
       )}
     </div>

@@ -112,6 +112,35 @@ export class AskSelfDrivenMissionStore implements MissionTerminalArbiter {
       });
   }
 
+  /**
+   * Recent missions for a user, newest first — powers the admin runtime-graph
+   * picker so it can auto-load the latest run instead of asking for a mission id.
+   */
+  async listRecentByUser(
+    userId: string,
+    limit = 20,
+  ): Promise<
+    Array<{
+      id: string;
+      status: string;
+      prompt: string;
+      createdAt: string;
+    }>
+  > {
+    const rows = await this.prisma.askSelfDrivenMission.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: { id: true, status: true, prompt: true, createdAt: true },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      status: r.status,
+      prompt: r.prompt ?? "",
+      createdAt: r.createdAt.toISOString(),
+    }));
+  }
+
   /** Running missions for the liveness guard (startedAt = createdAt). */
   async listRunning(limit = 200): Promise<
     {

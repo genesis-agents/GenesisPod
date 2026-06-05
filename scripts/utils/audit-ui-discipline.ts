@@ -314,6 +314,7 @@ const R3_WELCOME_OK = [
 // 「空数据占位」——逐源确认，EmptyState 不适配。类型：首跑引导、对话欢迎、守卫
 // (return null)、下拉/标签内联文案、<select> 兜底 option、上下文告警、死代码分支。
 const R3_BESPOKE_OK = [
+  "app/admin/ai/harness/page.tsx", // 运行图 mission picker 的 <select> 兜底 <option>（"No missions yet"），非空数据占位
   "app/ai-office/slides/page.tsx", // 首跑引导（"输入内容，AI团队开始生成"）
   "app/ai-simulation/run/[id]/page.tsx", // return null 守卫 + 加载中状态文案
   "components/ai-insights/research-control/ResearchSettingsModal.tsx", // 搜索下拉内联提示 + 标签 toggle

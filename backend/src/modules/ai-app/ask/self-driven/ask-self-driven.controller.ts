@@ -213,6 +213,20 @@ export class AskSelfDrivenController {
     return { ok: aborted };
   }
 
+  @Get("missions")
+  @ApiOperation({ summary: "List the caller's recent self-driven missions" })
+  async listMissions(@Request() req: { user: { id: string } }): Promise<{
+    missions: Array<{
+      id: string;
+      status: string;
+      prompt: string;
+      createdAt: string;
+    }>;
+  }> {
+    const missions = await this.store.listRecentByUser(req.user.id);
+    return { missions };
+  }
+
   @Get("missions/:missionId/report.md")
   @ApiOperation({ summary: "Download the mission's final report (markdown)" })
   @ApiResponse({ status: 200, description: "text/markdown attachment" })
