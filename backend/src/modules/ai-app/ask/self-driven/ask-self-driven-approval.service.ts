@@ -42,6 +42,7 @@ export class AskSelfDrivenApprovalService {
     feedback?: string,
     analysisDepth?: "quick" | "standard" | "deep",
     choice?: string,
+    choices?: string[],
   ): Promise<{ requestId: string }> {
     const mapping = await this.prisma.longTermMemory.findUnique({
       where: {
@@ -57,20 +58,24 @@ export class AskSelfDrivenApprovalService {
       throw new NotFoundException("No open approval gate for this mission");
     }
 
-    // Depth is carried opaquely through the generic approval `input` field so
-    // HumanApprovalAdminService stays self-driven-agnostic; the self-driven gate
-    // decodes it. feedback stays the append-instruction channel.
-    // choice echoes the dynamic gate option id back to the gate poller.
+    // Depth and multi-select choice ids are carried opaquely through the generic
+    // approval `input` field so HumanApprovalAdminService stays self-driven-agnostic;
+    // the self-driven gate decodes them. feedback stays the append-instruction channel.
+    // choice (single, back-compat) and choices (multi-select array) are both forwarded;
+    // the gate poller prefers choiceIds (from choices) over the single choice.
+    const inputPayload: Record<string, unknown> = {};
+    if (analysisDepth) inputPayload["analysisDepth"] = analysisDepth;
+    if (choices && choices.length > 0) inputPayload["choiceIds"] = choices;
     await this.humanApprovalAdmin.respond(requestId, {
       approved,
       feedback: feedback ?? undefined,
-      input: analysisDepth ? { analysisDepth } : undefined,
+      input: Object.keys(inputPayload).length > 0 ? inputPayload : undefined,
       choice: choice ?? undefined,
     });
 
     this.logger.log(
       `[approve] mission=${missionId} requestId=${requestId} approved=${approved} ` +
-        `choice=${choice ?? "none"}`,
+        `choice=${choice ?? "none"} choices=${choices ? JSON.stringify(choices) : "none"}`,
     );
     return { requestId };
   }

@@ -36,8 +36,14 @@ export interface HitlGateOutcome {
    * The id of the dynamic gate choice the human selected. "proceed" means
    * execute as-is; any other value is a context-specific refinement option
    * that the runner should fold into its next phase (re-plan or appendContext).
+   * @deprecated Use chosenChoiceIds (array) for multi-select. Kept for back-compat.
    */
   chosenChoiceId?: string;
+  /**
+   * All choice ids the human selected (multi-select). When present, supersedes
+   * chosenChoiceId. The runner applies ALL non-"proceed" ids.
+   */
+  chosenChoiceIds?: string[];
 }
 
 /** 10-minute default gate timeout (P4a spec). */
@@ -351,17 +357,33 @@ export class SelfDrivenHitlGateService {
       }
     }
 
-    // Decode the dynamic choice id the human echoed back.
-    // `choice` is a top-level string field on the approval response (ApprovalRespondInput).
+    // Decode multi-select choice ids from the opaque `input.choiceIds` array
+    // (set by the approval service when the multi-select path is used).
+    const rawChoiceIds =
+      inputObj && Array.isArray((inputObj as { choiceIds?: unknown }).choiceIds)
+        ? (inputObj as { choiceIds: unknown[] }).choiceIds.filter(
+            (id): id is string => typeof id === "string" && id.length > 0,
+          )
+        : undefined;
+
+    // Decode the legacy single-choice id (top-level `choice` field, back-compat).
     const chosenChoiceId =
       typeof responseData.choice === "string" && responseData.choice.length > 0
         ? responseData.choice
         : undefined;
 
+    // Resolve the effective set: prefer multi-select array, fall back to single.
+    const chosenChoiceIds: string[] | undefined =
+      rawChoiceIds && rawChoiceIds.length > 0
+        ? rawChoiceIds
+        : chosenChoiceId
+          ? [chosenChoiceId]
+          : undefined;
+
     this.logger.log(
       `[HitlGate] mission=${missionId} gate=${gate} resolved: ` +
         `approved=${approved} hasAppend=${!!appendInstruction} ` +
-        `chosenChoiceId=${chosenChoiceId ?? "none"}`,
+        `chosenChoiceIds=${chosenChoiceIds ? JSON.stringify(chosenChoiceIds) : "none"}`,
     );
     await this.cleanupGate(requestId, missionId, true);
     return {
@@ -370,6 +392,7 @@ export class SelfDrivenHitlGateService {
       appendInstruction,
       analysisDepth,
       chosenChoiceId,
+      chosenChoiceIds,
     };
   }
 

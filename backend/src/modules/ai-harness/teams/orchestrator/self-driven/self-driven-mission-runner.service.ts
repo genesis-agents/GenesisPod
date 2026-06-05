@@ -245,40 +245,48 @@ export class SelfDrivenMissionRunner {
 
       appendContext = planGate.appendInstruction;
 
-      // ── Apply the human's chosen dynamic option (choice-driven refinement) ────
-      // If the human selected a non-"proceed" option, fold its label+description
-      // into a re-plan so the new plan incorporates the requested adjustment.
-      // Falls back to the existing analysisDepth re-plan path if both fire.
-      const chosenChoiceId = (planGate as { chosenChoiceId?: string })
-        .chosenChoiceId;
-      if (chosenChoiceId && chosenChoiceId !== "proceed" && !signal?.aborted) {
-        const chosenOption = planGateChoices.find(
-          (c) => c.id === chosenChoiceId,
-        );
-        if (chosenOption) {
-          const choiceContext = chosenOption.description
-            ? `${chosenOption.label}: ${chosenOption.description}`
-            : chosenOption.label;
+      // ── Apply the human's chosen dynamic options (multi-select refinement) ──
+      // Collect all non-"proceed" ids from chosenChoiceIds (multi) or fall back
+      // to the single chosenChoiceId. Concatenate all their label+description
+      // lines and fold into a single re-plan so the new plan incorporates every
+      // requested adjustment. Non-fatal: keep the original plan on any error.
+      const rawChosenIds =
+        (planGate as { chosenChoiceIds?: string[] }).chosenChoiceIds ??
+        ((planGate as { chosenChoiceId?: string }).chosenChoiceId
+          ? [(planGate as { chosenChoiceId?: string }).chosenChoiceId!]
+          : []);
+      const activeChoiceIds = rawChosenIds.filter((id) => id !== "proceed");
+      if (activeChoiceIds.length > 0 && !signal?.aborted) {
+        const choiceLines = activeChoiceIds
+          .map((id) => {
+            const opt = planGateChoices.find((c) => c.id === id);
+            if (!opt) return null;
+            return opt.description
+              ? `${opt.label}: ${opt.description}`
+              : opt.label;
+          })
+          .filter((line): line is string => line !== null);
+
+        if (choiceLines.length > 0) {
+          const combinedContext = choiceLines.join("\n");
           this.logger.log(
-            `[SelfDriven] mission ${missionId} re-planning with chosen option ` +
-              `"${chosenChoiceId}": ${choiceContext}`,
+            `[SelfDriven] mission ${missionId} re-planning with ${activeChoiceIds.length} chosen option(s): ` +
+              `[${activeChoiceIds.join(", ")}]`,
           );
           yield {
             type: "phase",
             missionId,
             phase: "plan",
             status: "started",
-            detail: `re-planning per chosen option: ${chosenOption.label}`,
+            detail: `re-planning per chosen options: ${activeChoiceIds.join(", ")}`,
           };
           try {
-            // Fold the choice refinement into the planner's `context` field.
-            // The `context` dict is forwarded to StepDecompositionService which
-            // passes it to the LLM so the re-plan adapts to the chosen option.
+            // Fold all choice refinements into the planner's `context` field.
             const choiceRefinementContext: Record<string, unknown> = {
               ...(input.clarifications
                 ? (input.clarifications as Record<string, unknown>)
                 : {}),
-              chosenRefinement: choiceContext,
+              chosenRefinement: combinedContext,
             };
             plan = await this.planner.plan({
               prompt: input.prompt,
@@ -623,27 +631,33 @@ export class SelfDrivenMissionRunner {
           : deliverGate.appendInstruction;
       }
 
-      // Apply the human's chosen deliver-gate option as an additional appendContext.
-      // A non-"proceed" option (e.g. "add executive summary") is appended so the
-      // report composer and remaining steps honour the requested adjustment.
-      const deliverChosenId = (deliverGate as { chosenChoiceId?: string })
-        .chosenChoiceId;
-      if (deliverChosenId && deliverChosenId !== "proceed") {
-        const deliverChosenOption = deliverGateChoices.find(
-          (c) => c.id === deliverChosenId,
-        );
-        if (deliverChosenOption) {
-          const choiceText = deliverChosenOption.description
-            ? `${deliverChosenOption.label}: ${deliverChosenOption.description}`
-            : deliverChosenOption.label;
+      // Apply all human-chosen deliver-gate options as additional appendContext.
+      // Non-"proceed" options (e.g. "add executive summary") are appended so the
+      // report composer honours every requested adjustment. Multi-select: collect
+      // from chosenChoiceIds (array), fall back to single chosenChoiceId.
+      const rawDeliverChosenIds =
+        (deliverGate as { chosenChoiceIds?: string[] }).chosenChoiceIds ??
+        ((deliverGate as { chosenChoiceId?: string }).chosenChoiceId
+          ? [(deliverGate as { chosenChoiceId?: string }).chosenChoiceId!]
+          : []);
+      const activeDeliverIds = rawDeliverChosenIds.filter(
+        (id) => id !== "proceed",
+      );
+      if (activeDeliverIds.length > 0) {
+        for (const id of activeDeliverIds) {
+          const opt = deliverGateChoices.find((c) => c.id === id);
+          if (!opt) continue;
+          const choiceText = opt.description
+            ? `${opt.label}: ${opt.description}`
+            : opt.label;
           appendContext = appendContext
             ? `${appendContext}\n\n${choiceText}`
             : choiceText;
-          this.logger.log(
-            `[SelfDriven] mission ${missionId} deliver-gate choice applied: ` +
-              `"${deliverChosenId}" → appended to context`,
-          );
         }
+        this.logger.log(
+          `[SelfDriven] mission ${missionId} deliver-gate choices applied: ` +
+            `[${activeDeliverIds.join(", ")}] → appended to context`,
+        );
       }
     }
 

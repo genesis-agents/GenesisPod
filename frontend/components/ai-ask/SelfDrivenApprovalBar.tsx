@@ -24,7 +24,8 @@
 import { useState, useRef } from 'react';
 import {
   CheckCircle,
-  Circle,
+  CheckSquare,
+  Square,
   XCircle,
   Loader,
   MessageSquarePlus,
@@ -57,7 +58,9 @@ export function SelfDrivenApprovalBar({
   const [appendOpen, setAppendOpen] = useState(false);
   const [appendText, setAppendText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
+  const [selectedChoiceIds, setSelectedChoiceIds] = useState<Set<string>>(
+    new Set()
+  );
   const [error, setError] = useState<string | null>(null);
   const appendRef = useRef<HTMLTextAreaElement>(null);
 
@@ -103,7 +106,7 @@ export function SelfDrivenApprovalBar({
     );
   }
 
-  async function submit(approved: boolean, choiceId?: string) {
+  async function submit(approved: boolean, choiceIds?: string[]) {
     setSubmitting(true);
     setError(null);
     try {
@@ -112,7 +115,7 @@ export function SelfDrivenApprovalBar({
         approved,
         feedback: appendText.trim() || undefined,
         token,
-        choice: choiceId,
+        choices: choiceIds,
       });
       setAppendOpen(false);
     } catch (err) {
@@ -145,7 +148,7 @@ export function SelfDrivenApprovalBar({
         {/* Prompt */}
         <p className="px-4 py-3 text-sm text-amber-900">{awaiting.prompt}</p>
 
-        {/* Dynamic choices — select one, then Confirm. */}
+        {/* Dynamic choices — select one or more, then Confirm. */}
         {hasChoices && (
           <div className="flex flex-col gap-2 border-t border-amber-100 px-4 py-3">
             <span className="text-xs font-medium text-amber-700">
@@ -153,14 +156,24 @@ export function SelfDrivenApprovalBar({
             </span>
             <div className="flex flex-col gap-2">
               {(awaiting.choices as ApprovalChoice[]).map((choice) => {
-                const selected = selectedChoiceId === choice.id;
+                const selected = selectedChoiceIds.has(choice.id);
                 return (
                   <button
                     key={choice.id}
                     type="button"
                     disabled={submitting}
                     aria-pressed={selected}
-                    onClick={() => setSelectedChoiceId(choice.id)}
+                    onClick={() => {
+                      setSelectedChoiceIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(choice.id)) {
+                          next.delete(choice.id);
+                        } else {
+                          next.add(choice.id);
+                        }
+                        return next;
+                      });
+                    }}
                     className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors disabled:pointer-events-none disabled:opacity-50 ${
                       selected
                         ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-400'
@@ -169,13 +182,13 @@ export function SelfDrivenApprovalBar({
                   >
                     <span className="mt-0.5 shrink-0">
                       {selected ? (
-                        <CheckCircle
+                        <CheckSquare
                           size={16}
                           className="text-emerald-600"
                           aria-hidden
                         />
                       ) : (
-                        <Circle
+                        <Square
                           size={16}
                           className="text-amber-300"
                           aria-hidden
@@ -199,8 +212,8 @@ export function SelfDrivenApprovalBar({
             <Button
               variant="default"
               size="sm"
-              disabled={submitting || !selectedChoiceId}
-              onClick={() => void submit(true, selectedChoiceId ?? undefined)}
+              disabled={submitting || selectedChoiceIds.size === 0}
+              onClick={() => void submit(true, Array.from(selectedChoiceIds))}
               className="mt-1 self-start bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-500"
             >
               {submitting ? (

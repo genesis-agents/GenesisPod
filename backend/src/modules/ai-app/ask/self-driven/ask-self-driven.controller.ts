@@ -15,6 +15,7 @@ import {
 import type { Response } from "express";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import {
+  IsArray,
   IsBoolean,
   IsIn,
   IsObject,
@@ -87,10 +88,20 @@ class ApproveDto {
    * "proceed" means execute as-is; any other value is a context-specific
    * refinement the runner applies (re-plan for plan gate, appendContext for
    * deliver gate). Ignored when absent.
+   * @deprecated Use choices (array) for multi-select. Kept for back-compat.
    */
   @IsOptional()
   @IsString()
   choice?: string;
+
+  /**
+   * Multi-select: all choice ids the human ticked. When present, supersedes
+   * the single `choice` field. The runner applies ALL non-"proceed" ids.
+   */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  choices?: string[];
 }
 
 /**
@@ -183,6 +194,7 @@ export class AskSelfDrivenController {
       dto.feedback,
       dto.analysisDepth,
       dto.choice,
+      dto.choices,
     );
     return { ok: true, requestId };
   }

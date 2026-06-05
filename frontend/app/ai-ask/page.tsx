@@ -2194,7 +2194,11 @@ export default function AskPage() {
           /* Chat Messages */
           <div className="relative flex-1 overflow-hidden">
             <div className="h-full overflow-y-auto px-4 pb-32 pt-6">
-              <div className="mx-auto max-w-4xl space-y-6">
+              <div
+                className={`mx-auto space-y-6 ${
+                  isSelfDrivenMode ? 'max-w-6xl' : 'max-w-4xl'
+                }`}
+              >
                 {messages.map((message) => {
                   const messageModel = chatModels.find(
                     (m) => m.id === message.modelId

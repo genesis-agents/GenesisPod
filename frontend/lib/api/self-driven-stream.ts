@@ -181,9 +181,20 @@ export async function respondApproval(opts: {
   feedback?: string;
   token: string;
   analysisDepth?: 'quick' | 'standard' | 'deep';
+  /** @deprecated Use choices (array) instead. Kept for back-compat. */
   choice?: string;
+  /** Multi-select: all choice ids the user ticked. */
+  choices?: string[];
 }): Promise<void> {
-  const { missionId, approved, feedback, token, analysisDepth, choice } = opts;
+  const {
+    missionId,
+    approved,
+    feedback,
+    token,
+    analysisDepth,
+    choice,
+    choices,
+  } = opts;
   const res = await fetch(
     `${config.apiUrl}/ask/self-driven/missions/${encodeURIComponent(
       missionId
@@ -194,7 +205,13 @@ export async function respondApproval(opts: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ approved, feedback, analysisDepth, choice }),
+      body: JSON.stringify({
+        approved,
+        feedback,
+        analysisDepth,
+        choice,
+        choices,
+      }),
     }
   );
   if (!res.ok) {
