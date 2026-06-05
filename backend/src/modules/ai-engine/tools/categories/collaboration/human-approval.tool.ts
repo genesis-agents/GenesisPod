@@ -4,7 +4,11 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import {
+  HumanApprovalPrimitiveService,
+  approvalRequestKey,
+  approvalResponseKey,
+} from "./human-approval-primitive.service";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -12,7 +16,6 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 // AgentId and AgentResult available from "@/modules/ai-harness/agents/abstractions/agent.types" if needed
-import { PrismaService } from "@/common/prisma/prisma.service";
 
 import { randomUUID } from "crypto";
 
@@ -343,24 +346,9 @@ export class HumanApprovalTool extends BaseTool<
     },
   };
 
-  private memoryTableReady: boolean | null = null;
-
-  constructor(private readonly prisma: PrismaService) {
+  constructor(private readonly approval: HumanApprovalPrimitiveService) {
     super();
     // defaultTimeout set in class property // 稍大于默认审批超时
-  }
-
-  private async ensureMemoryTable(): Promise<boolean> {
-    if (this.memoryTableReady !== null) return this.memoryTableReady;
-    try {
-      const result = await this.prisma.$queryRaw<[{ exists: boolean }]>(
-        Prisma.sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='long_term_memories') AS "exists"`,
-      );
-      this.memoryTableReady = result[0]?.exists ?? false;
-    } catch {
-      this.memoryTableReady = false;
-    }
-    return this.memoryTableReady;
   }
 
   /**
@@ -500,104 +488,56 @@ export class HumanApprovalTool extends BaseTool<
     options: ApprovalOptions,
     timeout: number,
   ): Promise<Omit<HumanApprovalOutput, "respondedAt" | "metadata">> {
-    if (!(await this.ensureMemoryTable())) {
+    if (!(await this.approval.tableReady())) {
       throw new Error(
         "Memory table not available, approval system unavailable",
       );
     }
 
-    const REQUEST_KEY = `approval:request:${requestId}`;
-    const RESPONSE_KEY = `approval:response:${requestId}`;
-    const USER_ID = "system";
-    const expiresAt = new Date(Date.now() + timeout + 60_000); // request lives timeout+1min
-
-    const requestPayload = {
+    // 1. Store the request via the shared primitive (external systems read it).
+    await this.approval.storeRequest({
       requestId,
-      approvalType: type,
-      prompt,
-      context: (context || null) as unknown,
-      choices: (options.choices || null) as unknown,
-      defaultAction: options.defaultAction || null,
-      status: "pending",
-      createdAt: new Date().toISOString(),
-    };
-
-    // 1. Store the approval request in DB (so external systems can read and respond)
-    await this.prisma.longTermMemory.upsert({
-      where: { userId_key: { userId: USER_ID, key: REQUEST_KEY } },
-      create: {
-        userId: USER_ID,
-        key: REQUEST_KEY,
-        type: "human_approval_request",
-        value: requestPayload as never,
-        importance: 8,
-        tags: ["human-approval", type],
-        expiresAt,
+      payload: {
+        requestId,
+        approvalType: type,
+        prompt,
+        context: (context || null) as unknown,
+        choices: (options.choices || null) as unknown,
+        defaultAction: options.defaultAction || null,
+        status: "pending",
+        createdAt: new Date().toISOString(),
       },
-      update: {
-        value: requestPayload as never,
-        expiresAt,
-      },
+      tags: ["human-approval", type],
+      expiresAt: new Date(Date.now() + timeout + 60_000),
     });
-
     this.logger.log(
       `[HumanApproval] Request stored in DB [${requestId}], polling for response (timeout: ${timeout}ms)`,
     );
 
-    // 2. Poll DB for response (external system writes RESPONSE_KEY)
-    const pollIntervalMs = 2000; // poll every 2 seconds
-    const deadline = Date.now() + timeout;
-
-    while (Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-
-      const responseRecord = await this.prisma.longTermMemory.findUnique({
-        where: { userId_key: { userId: USER_ID, key: RESPONSE_KEY } },
-      });
-
-      if (responseRecord) {
-        const responseData = responseRecord.value as {
-          approved: boolean;
-          choice?: string;
-          input?: unknown;
-          feedback?: string;
-        };
-
-        this.logger.log(
-          `[HumanApproval] Response received [${requestId}]: approved=${responseData.approved}`,
-        );
-
-        // Clean up DB records
-        await Promise.all([
-          this.prisma.longTermMemory.deleteMany({
-            where: { userId: USER_ID, key: REQUEST_KEY },
-          }),
-          this.prisma.longTermMemory.deleteMany({
-            where: { userId: USER_ID, key: RESPONSE_KEY },
-          }),
-        ]).catch((err: Error) =>
-          this.logger.debug(`Cleanup failed: ${err?.message}`),
-        );
-
-        return {
-          approved: responseData.approved,
-          response: {
-            choice: responseData.choice,
-            input: responseData.input,
-            feedback: responseData.feedback,
-          },
-          timedOut: false,
-        };
-      }
+    // 2. Poll via the shared primitive. The tool passes no abort signal, so the
+    //    outcome is either "resolved" or "timed_out".
+    const result = await this.approval.pollForResponse(requestId, timeout);
+    if (result.kind === "resolved") {
+      this.logger.log(
+        `[HumanApproval] Response received [${requestId}]: approved=${result.data.approved}`,
+      );
+      await this.approval.cleanup([
+        approvalRequestKey(requestId),
+        approvalResponseKey(requestId),
+      ]);
+      return {
+        approved: result.data.approved ?? false,
+        response: {
+          choice: result.data.choice,
+          input: result.data.input,
+          feedback: result.data.feedback,
+        },
+        timedOut: false,
+      };
     }
 
-    // 3. Timeout: clean up request and throw timeout error
-    await this.prisma.longTermMemory
-      .deleteMany({ where: { userId: USER_ID, key: REQUEST_KEY } })
-      .catch((err: Error) =>
-        this.logger.debug(`Cleanup failed: ${err?.message}`),
-      );
-
+    // 3. Timeout: clean up the request and throw (tool policy: timeout = error).
+    await this.approval.cleanup([approvalRequestKey(requestId)]);
     throw new Error(`Human approval timeout after ${timeout}ms [${requestId}]`);
   }
 

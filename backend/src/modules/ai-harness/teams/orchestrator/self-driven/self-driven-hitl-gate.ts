@@ -1,8 +1,14 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { sanitizePromptInput } from "@/modules/ai-engine/facade";
+// Shared HITL DB primitive. Direct source import (not the facade barrel) since
+// it's a DI-injected @Injectable — avoids the value-import circular-load class.
+import {
+  HumanApprovalPrimitiveService,
+  approvalRequestKey,
+  approvalResponseKey,
+} from "../../../../ai-engine/tools/categories/collaboration/human-approval-primitive.service";
 
 /**
  * HITL gate outcome returned to the runner at each stage boundary.
@@ -61,9 +67,11 @@ const POLL_INTERVAL_MS = 2_000;
 @Injectable()
 export class SelfDrivenHitlGateService {
   private readonly logger = new Logger(SelfDrivenHitlGateService.name);
-  private memoryTableReady: boolean | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly approval: HumanApprovalPrimitiveService,
+  ) {}
 
   /**
    * Open a HITL gate and block until the human responds or the timeout elapses.
@@ -89,7 +97,7 @@ export class SelfDrivenHitlGateService {
     );
 
     try {
-      if (!(await this.ensureMemoryTable())) {
+      if (!(await this.approval.tableReady())) {
         // Memory table absent — auto-approve and continue rather than hard-fail.
         this.logger.warn(
           `[HitlGate] mission=${missionId} long_term_memories table not available — ` +
@@ -121,22 +129,6 @@ export class SelfDrivenHitlGateService {
 
   // ── Private helpers ─────────────────────────────────────────────────────────
 
-  private async ensureMemoryTable(): Promise<boolean> {
-    if (this.memoryTableReady !== null) return this.memoryTableReady;
-    try {
-      const result = await this.prisma.$queryRaw<[{ exists: boolean }]>(
-        Prisma.sql`SELECT EXISTS(
-          SELECT 1 FROM information_schema.tables
-          WHERE table_schema='public' AND table_name='long_term_memories'
-        ) AS "exists"`,
-      );
-      this.memoryTableReady = result[0]?.exists ?? false;
-    } catch {
-      this.memoryTableReady = false;
-    }
-    return this.memoryTableReady;
-  }
-
   private async storeRequest(
     requestId: string,
     missionId: string,
@@ -144,34 +136,25 @@ export class SelfDrivenHitlGateService {
     prompt: string,
     timeoutMs: number,
   ): Promise<void> {
-    const REQUEST_KEY = `approval:request:${requestId}`;
     const USER_ID = "system";
     const expiresAt = new Date(Date.now() + timeoutMs + 60_000);
 
-    const requestPayload = {
+    // Store the request via the shared primitive (request payload is gate-specific).
+    await this.approval.storeRequest({
       requestId,
-      missionId,
-      approvalType: "review" as const,
-      prompt,
-      context: { summary: `Self-driven mission gate: ${gate}` },
-      choices: null,
-      defaultAction: "approve",
-      status: "pending",
-      createdAt: new Date().toISOString(),
-    };
-
-    await this.prisma.longTermMemory.upsert({
-      where: { userId_key: { userId: USER_ID, key: REQUEST_KEY } },
-      create: {
-        userId: USER_ID,
-        key: REQUEST_KEY,
-        type: "human_approval_request",
-        value: requestPayload as never,
-        importance: 8,
-        tags: ["human-approval", "self-driven", gate],
-        expiresAt,
+      payload: {
+        requestId,
+        missionId,
+        approvalType: "review" as const,
+        prompt,
+        context: { summary: `Self-driven mission gate: ${gate}` },
+        choices: null,
+        defaultAction: "approve",
+        status: "pending",
+        createdAt: new Date().toISOString(),
       },
-      update: { value: requestPayload as never, expiresAt },
+      tags: ["human-approval", "self-driven", gate],
+      expiresAt,
     });
 
     // Owner-scoped approval lookup: the frontend only knows the missionId (the
@@ -209,112 +192,79 @@ export class SelfDrivenHitlGateService {
     timeoutMs: number,
     signal?: AbortSignal,
   ): Promise<HitlGateOutcome> {
-    const RESPONSE_KEY = `approval:response:${requestId}`;
-    const REQUEST_KEY = `approval:request:${requestId}`;
-    const USER_ID = "system";
-    const deadline = Date.now() + timeoutMs;
+    // Poll via the shared primitive. The gate keeps its policy: abort →
+    // approved=false, timeout → auto-approve (P4a/ADR-010), resolved → sanitize.
+    const result = await this.approval.pollForResponse(
+      requestId,
+      timeoutMs,
+      signal,
+      POLL_INTERVAL_MS,
+    );
 
-    while (Date.now() < deadline) {
-      // Cooperative abort check.
-      if (signal?.aborted) {
-        this.logger.log(
-          `[HitlGate] mission=${missionId} gate=${gate} aborted while waiting`,
-        );
-        await this.cleanup(USER_ID, REQUEST_KEY, null, missionId).catch(
-          () => undefined,
-        );
-        return { approved: false, timedOut: false };
-      }
-
-      await new Promise<void>((resolve) =>
-        setTimeout(resolve, POLL_INTERVAL_MS),
-      );
-
-      // Re-check abort after sleep (covers the case where abort fires during sleep).
-      if (signal?.aborted) {
-        await this.cleanup(USER_ID, REQUEST_KEY, null, missionId).catch(
-          () => undefined,
-        );
-        return { approved: false, timedOut: false };
-      }
-
-      let responseRecord: { value: unknown } | null = null;
-      try {
-        responseRecord = await this.prisma.longTermMemory.findUnique({
-          where: { userId_key: { userId: USER_ID, key: RESPONSE_KEY } },
-        });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        this.logger.warn(
-          `[HitlGate] mission=${missionId} DB poll error (will retry): ${message}`,
-        );
-        continue;
-      }
-
-      if (!responseRecord) continue;
-
-      const responseData = responseRecord.value as {
-        approved?: boolean;
-        feedback?: string;
-        input?: unknown;
-      };
-
-      const approved = responseData.approved ?? true;
-
-      // Sanitize any append instruction the human provided.
-      let appendInstruction: string | undefined;
-      const rawFeedback =
-        typeof responseData.feedback === "string"
-          ? responseData.feedback
-          : typeof responseData.input === "string"
-            ? responseData.input
-            : undefined;
-
-      if (rawFeedback && rawFeedback.trim().length > 0) {
-        const sanitized = sanitizePromptInput(rawFeedback, { maxLength: 2000 });
-        if (sanitized.sanitized.trim().length > 0) {
-          appendInstruction = sanitized.sanitized;
-          if (sanitized.detectedPatterns.length > 0) {
-            this.logger.warn(
-              `[HitlGate] mission=${missionId} gate=${gate} sanitized append: ` +
-                `detected patterns=[${sanitized.detectedPatterns.join(", ")}]`,
-            );
-          }
-        }
-      }
-
+    if (result.kind === "aborted") {
       this.logger.log(
-        `[HitlGate] mission=${missionId} gate=${gate} resolved: ` +
-          `approved=${approved} hasAppend=${!!appendInstruction}`,
+        `[HitlGate] mission=${missionId} gate=${gate} aborted while waiting`,
       );
-
-      await this.cleanup(USER_ID, REQUEST_KEY, RESPONSE_KEY, missionId).catch(
-        () => undefined,
-      );
-
-      return { approved, timedOut: false, appendInstruction };
+      await this.cleanupGate(requestId, missionId, false);
+      return { approved: false, timedOut: false };
     }
 
-    // Timed out — auto-approve (P4a default per ADR-010).
-    this.logger.warn(
-      `[HitlGate] mission=${missionId} gate=${gate} timed out after ${timeoutMs}ms — auto-approving`,
+    if (result.kind === "timed_out") {
+      this.logger.warn(
+        `[HitlGate] mission=${missionId} gate=${gate} timed out after ${timeoutMs}ms — auto-approving`,
+      );
+      await this.cleanupGate(requestId, missionId, false);
+      return { approved: true, timedOut: true };
+    }
+
+    // resolved
+    const responseData = result.data;
+    const approved = responseData.approved ?? true;
+
+    // Sanitize any append instruction the human provided.
+    let appendInstruction: string | undefined;
+    const rawFeedback =
+      typeof responseData.feedback === "string"
+        ? responseData.feedback
+        : typeof responseData.input === "string"
+          ? responseData.input
+          : undefined;
+
+    if (rawFeedback && rawFeedback.trim().length > 0) {
+      const sanitized = sanitizePromptInput(rawFeedback, { maxLength: 2000 });
+      if (sanitized.sanitized.trim().length > 0) {
+        appendInstruction = sanitized.sanitized;
+        if (sanitized.detectedPatterns.length > 0) {
+          this.logger.warn(
+            `[HitlGate] mission=${missionId} gate=${gate} sanitized append: ` +
+              `detected patterns=[${sanitized.detectedPatterns.join(", ")}]`,
+          );
+        }
+      }
+    }
+
+    this.logger.log(
+      `[HitlGate] mission=${missionId} gate=${gate} resolved: ` +
+        `approved=${approved} hasAppend=${!!appendInstruction}`,
     );
-    await this.cleanup(USER_ID, REQUEST_KEY, null, missionId).catch(
-      () => undefined,
-    );
-    return { approved: true, timedOut: true };
+    await this.cleanupGate(requestId, missionId, true);
+    return { approved, timedOut: false, appendInstruction };
   }
 
-  private async cleanup(
-    userId: string,
-    requestKey: string,
-    responseKey: string | null,
+  /**
+   * Delete the gate's bookkeeping rows: the request + the missionId→requestId
+   * mapping, plus the response row when the gate was resolved by a human.
+   */
+  private async cleanupGate(
+    requestId: string,
     missionId: string,
+    includeResponse: boolean,
   ): Promise<void> {
-    const keys: string[] = [requestKey, selfDrivenMissionGateKey(missionId)];
-    if (responseKey) keys.push(responseKey);
-    await this.prisma.longTermMemory.deleteMany({
-      where: { userId, key: { in: keys } },
-    });
+    const keys = [
+      approvalRequestKey(requestId),
+      selfDrivenMissionGateKey(missionId),
+    ];
+    if (includeResponse) keys.push(approvalResponseKey(requestId));
+    await this.approval.cleanup(keys);
   }
 }

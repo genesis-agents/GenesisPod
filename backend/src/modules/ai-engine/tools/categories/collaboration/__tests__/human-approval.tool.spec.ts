@@ -1,4 +1,5 @@
 import { HumanApprovalTool, HumanApprovalInput } from "../human-approval.tool";
+import { HumanApprovalPrimitiveService } from "../human-approval-primitive.service";
 import { ToolContext } from "../../../abstractions/tool.interface";
 
 // ============================================================================
@@ -38,7 +39,11 @@ describe("HumanApprovalTool", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    tool = new HumanApprovalTool(mockPrisma as never);
+    // Wrap the mock prisma in the REAL primitive so the existing prisma-call
+    // assertions still hold (the tool now delegates store/poll/cleanup to it).
+    tool = new HumanApprovalTool(
+      new HumanApprovalPrimitiveService(mockPrisma as never),
+    );
   });
 
   afterEach(() => {
@@ -330,8 +335,8 @@ describe("HumanApprovalTool", () => {
       await jest.runAllTimersAsync();
       await executePromise;
 
-      // deleteMany should be called twice: once for request key, once for response key
-      expect(mockPrisma.longTermMemory.deleteMany).toHaveBeenCalledTimes(2);
+      // cleanup batches both keys into one deleteMany({ key: { in: [...] } })
+      expect(mockPrisma.longTermMemory.deleteMany).toHaveBeenCalledTimes(1);
     });
 
     it("should call upsert once to store the approval request", async () => {
@@ -639,10 +644,10 @@ describe("HumanApprovalTool", () => {
       await jest.runAllTimersAsync();
       await executePromise;
 
-      // On timeout, deleteMany is called once (for request cleanup)
+      // On timeout, cleanup([requestKey]) → one deleteMany with key IN [requestKey]
       expect(mockPrisma.longTermMemory.deleteMany).toHaveBeenCalledTimes(1);
       const deleteCall = mockPrisma.longTermMemory.deleteMany.mock.calls[0][0];
-      expect(deleteCall.where.key).toMatch(/^approval:request:.+/);
+      expect(deleteCall.where.key.in[0]).toMatch(/^approval:request:.+/);
     });
   });
 });

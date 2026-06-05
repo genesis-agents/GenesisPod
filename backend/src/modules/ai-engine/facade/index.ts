@@ -150,6 +150,16 @@ export type {
 // ★ Registry classes — engine-owned registries only
 export { ToolRegistry } from "../tools/registry/tool.registry";
 export { SkillRegistry } from "../skills/registry/skill.registry";
+// Shared HITL approval DB primitive (HumanApprovalTool + self-driven gate delegate).
+export {
+  HumanApprovalPrimitiveService,
+  approvalRequestKey,
+  approvalResponseKey,
+} from "../tools/categories/collaboration/human-approval-primitive.service";
+export type {
+  ApprovalPollResult,
+  ApprovalResponseData,
+} from "../tools/categories/collaboration/human-approval-primitive.service";
 
 // ★ 2026-06-02: 通用语义打分路由 core（LLM/Tools/Skills 共用）
 export { ScoredRouterService } from "../routing/scored-router.service";

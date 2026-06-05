@@ -33,6 +33,7 @@ import { PermissionMiddleware } from "./middleware/permission.middleware";
 import { ProgressMiddleware } from "./middleware/progress.middleware";
 // ★ L2-7: Tool result cache
 import { ToolResultCacheService } from "./cache/tool-result-cache.service";
+import { HumanApprovalPrimitiveService } from "./categories/collaboration/human-approval-primitive.service";
 // W1-a-fixup: rate-limit 回归 engine 后注入到 ToolPipeline middleware
 import { RateLimitService } from "../reliability/rate-limit/rate-limit.service";
 
@@ -106,6 +107,9 @@ const toolExecutorFactory = {
     ProgressMiddleware,
     // ★ L2-7: Tool result cache
     ToolResultCacheService,
+    // Shared HITL approval DB primitive (HumanApprovalTool + self-driven gate
+    // both delegate store/poll/cleanup here).
+    HumanApprovalPrimitiveService,
 
     // All 46 Built-in Tools
     ...ALL_TOOL_PROVIDERS,
@@ -116,6 +120,7 @@ const toolExecutorFactory = {
     ToolPipeline,
     ToolExecutor,
     PolicyDataService,
+    HumanApprovalPrimitiveService,
     ...ALL_TOOL_PROVIDERS,
     ALL_TOOLS_TOKEN, // Export token for AiEngineModule injection
     // ★ Phase 3
