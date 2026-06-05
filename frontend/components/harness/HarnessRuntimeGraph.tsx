@@ -25,6 +25,8 @@ import {
   ReactFlow,
   Background,
   Controls,
+  Handle,
+  Position,
   MarkerType,
   type Node,
   type Edge,
@@ -61,6 +63,16 @@ const V_GAP = 80; // vertical gap between layers
 // ─── step node status types ──────────────────────────────────────────────────
 
 type StepStatus = 'pending' | 'running' | 'done' | 'failed';
+
+// Edges anchor to Handles; without them reactflow renders no lines. Kept tiny +
+// near-transparent so the connection dots don't clutter the design.
+const HANDLE_STYLE: React.CSSProperties = {
+  width: 6,
+  height: 6,
+  background: '#cbd5e1',
+  border: 'none',
+  opacity: 0.01,
+};
 
 // ─── custom node data shapes ─────────────────────────────────────────────────
 
@@ -119,6 +131,7 @@ function MissionNode({ data }: { data: MissionNodeData }) {
           <span className="ml-1 h-2 w-2 animate-pulse rounded-full bg-violet-400" />
         )}
       </div>
+      <Handle type="source" position={Position.Bottom} style={HANDLE_STYLE} />
     </motion.div>
   );
 }
@@ -133,6 +146,7 @@ function PlanNode({ data }: { data: PlanNodeData }) {
       transition={{ duration: 0.3, ease: 'easeOut' }}
       className="flex w-[200px] flex-col items-center gap-1 rounded-xl border-2 border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm"
     >
+      <Handle type="target" position={Position.Top} style={HANDLE_STYLE} />
       <div className="flex items-center gap-1.5">
         <Zap size={13} className="text-indigo-500" aria-hidden />
         <span className="text-xs font-bold text-indigo-700">{data.label}</span>
@@ -140,6 +154,7 @@ function PlanNode({ data }: { data: PlanNodeData }) {
       <span className="text-[11px] text-indigo-400">
         {data.stepCount} steps
       </span>
+      <Handle type="source" position={Position.Bottom} style={HANDLE_STYLE} />
     </motion.div>
   );
 }
@@ -190,6 +205,7 @@ function StepNode({ data }: { data: StepNodeData }) {
           : undefined
       }
     >
+      <Handle type="target" position={Position.Top} style={HANDLE_STYLE} />
       {/* Status dot + name */}
       <div className="flex items-start gap-2">
         <span className="mt-1 shrink-0">
@@ -233,6 +249,7 @@ function StepNode({ data }: { data: StepNodeData }) {
           <span>{(durationMs / 1000).toFixed(1)}s</span>
         </div>
       )}
+      <Handle type="source" position={Position.Bottom} style={HANDLE_STYLE} />
     </motion.div>
   );
 }
@@ -247,6 +264,7 @@ function DeliverableNode({ data }: { data: DeliverableNodeData }) {
       transition={{ duration: 0.35, ease: 'easeOut' }}
       className="flex w-[200px] items-center gap-2 rounded-xl border-2 border-emerald-300 bg-emerald-50 px-4 py-3 shadow-md"
     >
+      <Handle type="target" position={Position.Top} style={HANDLE_STYLE} />
       <FileText size={14} className="shrink-0 text-emerald-600" aria-hidden />
       <span className="text-xs font-bold text-emerald-700">{data.label}</span>
     </motion.div>
