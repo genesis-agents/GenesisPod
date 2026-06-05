@@ -132,20 +132,35 @@ export class SelfDrivenMissionRunner {
         `Roles: ${[...new Set(plan.steps.map((s) => s.executor))].join(", ")}.\n` +
         `Approve to proceed, reject to cancel, or provide feedback to adjust.`;
 
+      // Persist the gate FIRST, then advertise it with the real requestId, then
+      // block waiting. Advertising before persistence would let a fast client
+      // POST /approve before the gate mapping exists (spurious 404). See
+      // SelfDrivenHitlGateService.prepareGate.
+      const planPrep = await this.hitlGate.prepareGate(
+        missionId,
+        "plan_confirm",
+        planGatePrompt,
+      );
+
       yield {
         type: "awaiting_approval",
         missionId,
-        requestId: "", // filled after gate opens
+        requestId: planPrep.requestId,
         gate: "plan_confirm",
         prompt: planGatePrompt,
       };
 
-      const planGate = await this.hitlGate.open(
-        missionId,
-        "plan_confirm",
-        planGatePrompt,
-        signal,
-      );
+      const planGate = planPrep.autoApproved
+        ? { requestId: planPrep.requestId, approved: true, timedOut: true }
+        : {
+            requestId: planPrep.requestId,
+            ...(await this.hitlGate.awaitGate(
+              planPrep.requestId,
+              missionId,
+              "plan_confirm",
+              signal,
+            )),
+          };
 
       yield {
         type: "approval_resolved",
@@ -355,20 +370,31 @@ export class SelfDrivenMissionRunner {
         `Approve to assemble the final report, reject to cancel, or provide ` +
         `feedback to adjust before assembly.`;
 
+      const deliverPrep = await this.hitlGate.prepareGate(
+        missionId,
+        "deliver_confirm",
+        deliverGatePrompt,
+      );
+
       yield {
         type: "awaiting_approval",
         missionId,
-        requestId: "",
+        requestId: deliverPrep.requestId,
         gate: "deliver_confirm",
         prompt: deliverGatePrompt,
       };
 
-      const deliverGate = await this.hitlGate.open(
-        missionId,
-        "deliver_confirm",
-        deliverGatePrompt,
-        signal,
-      );
+      const deliverGate = deliverPrep.autoApproved
+        ? { requestId: deliverPrep.requestId, approved: true, timedOut: true }
+        : {
+            requestId: deliverPrep.requestId,
+            ...(await this.hitlGate.awaitGate(
+              deliverPrep.requestId,
+              missionId,
+              "deliver_confirm",
+              signal,
+            )),
+          };
 
       yield {
         type: "approval_resolved",

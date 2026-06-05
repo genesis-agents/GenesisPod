@@ -417,14 +417,16 @@ function buildGetAvailableModelsMock() {
 // Shared approved gate mock factory
 // ---------------------------------------------------------------------------
 
+// The gate is now split into prepareGate() (persist + return requestId) and
+// awaitGate() (block for the outcome). These factories produce the awaitGate
+// mock; gateMockFrom() wraps it with a prepareGate stub into a full gate double.
 function makeApprovedGate(opts?: {
   appendInstruction?: string;
 }): jest.Mock<
-  Promise<HitlGateOutcome & { requestId: string }>,
-  Parameters<SelfDrivenHitlGateService["open"]>
+  Promise<HitlGateOutcome>,
+  Parameters<SelfDrivenHitlGateService["awaitGate"]>
 > {
   return jest.fn().mockResolvedValue({
-    requestId: "test-request-id",
     approved: true,
     timedOut: false,
     appendInstruction: opts?.appendInstruction,
@@ -432,14 +434,28 @@ function makeApprovedGate(opts?: {
 }
 
 function makeRejectedGate(): jest.Mock<
-  Promise<HitlGateOutcome & { requestId: string }>,
-  Parameters<SelfDrivenHitlGateService["open"]>
+  Promise<HitlGateOutcome>,
+  Parameters<SelfDrivenHitlGateService["awaitGate"]>
 > {
   return jest.fn().mockResolvedValue({
-    requestId: "test-request-id",
     approved: false,
     timedOut: false,
   });
+}
+
+/** Wrap an awaitGate mock into a full gate double with a prepareGate stub. */
+function gateMockFrom(
+  awaitGate: jest.Mock<
+    Promise<HitlGateOutcome>,
+    Parameters<SelfDrivenHitlGateService["awaitGate"]>
+  >,
+): SelfDrivenHitlGateService {
+  return {
+    prepareGate: jest
+      .fn()
+      .mockResolvedValue({ requestId: "test-request-id", autoApproved: false }),
+    awaitGate,
+  } as unknown as SelfDrivenHitlGateService;
 }
 
 // ---------------------------------------------------------------------------
@@ -480,11 +496,10 @@ describe("SelfDrivenMissionRunner integration", () => {
       getAvailableModelsAsync: mockGetAvailableModels,
     } as unknown as AiChatService;
 
-    // HitlGateService mock — default to approved; individual tests may override
+    // HitlGateService mock — default to approved; individual tests may override.
+    // mockHitlOpen is the awaitGate double (per-gate blocking wait).
     mockHitlOpen = makeApprovedGate();
-    const mockHitlGate = {
-      open: mockHitlOpen,
-    } as unknown as SelfDrivenHitlGateService;
+    const mockHitlGate = gateMockFrom(mockHitlOpen);
 
     // DynamicTeamBuilder mock — returns a minimal ITeam stub
     const teamStub = buildMinimalTeamStub();
@@ -681,10 +696,11 @@ describe("SelfDrivenMissionRunner integration", () => {
     const errorEvents = eventsOfType(events, "error");
     expect(errorEvents).toHaveLength(0);
 
-    // HitlGate was called twice: once for plan_confirm, once for deliver_confirm
+    // Gate was awaited twice: once for plan_confirm, once for deliver_confirm.
+    // awaitGate signature is (requestId, missionId, gate, signal) → gate is [2].
     expect(mockHitlOpen).toHaveBeenCalledTimes(2);
-    expect(mockHitlOpen.mock.calls[0][1]).toBe("plan_confirm");
-    expect(mockHitlOpen.mock.calls[1][1]).toBe("deliver_confirm");
+    expect(mockHitlOpen.mock.calls[0][2]).toBe("plan_confirm");
+    expect(mockHitlOpen.mock.calls[1][2]).toBe("deliver_confirm");
   });
 
   // =========================================================================
@@ -702,9 +718,7 @@ describe("SelfDrivenMissionRunner integration", () => {
       chatStream: buildChatStreamMock(),
       getAvailableModelsAsync: buildGetAvailableModelsMock(),
     } as unknown as AiChatService;
-    const mockHitlGate = {
-      open: mockHitlOpen,
-    } as unknown as SelfDrivenHitlGateService;
+    const mockHitlGate = gateMockFrom(mockHitlOpen);
     const teamStub = buildMinimalTeamStub();
     const mockDynamicTeamBuilder = {
       build: jest.fn().mockReturnValue(teamStub),
@@ -765,9 +779,9 @@ describe("SelfDrivenMissionRunner integration", () => {
     // Last event should be error (generator returns after first rejection)
     expect(types.at(-1)).toBe("error");
 
-    // Gate was called exactly once (only plan_confirm was opened)
+    // Gate was awaited exactly once (only plan_confirm); deliver never reached.
     expect(mockHitlOpen).toHaveBeenCalledTimes(1);
-    expect(mockHitlOpen.mock.calls[0][1]).toBe("plan_confirm");
+    expect(mockHitlOpen.mock.calls[0][2]).toBe("plan_confirm");
   });
 
   // =========================================================================
@@ -790,18 +804,15 @@ describe("SelfDrivenMissionRunner integration", () => {
     } as unknown as AiChatService;
 
     const appendGateOpen: jest.Mock<
-      Promise<HitlGateOutcome & { requestId: string }>,
-      Parameters<SelfDrivenHitlGateService["open"]>
+      Promise<HitlGateOutcome>,
+      Parameters<SelfDrivenHitlGateService["awaitGate"]>
     > = jest.fn().mockResolvedValue({
-      requestId: "append-request-id",
       approved: true,
       timedOut: false,
       appendInstruction,
     });
 
-    const mockHitlGate = {
-      open: appendGateOpen,
-    } as unknown as SelfDrivenHitlGateService;
+    const mockHitlGate = gateMockFrom(appendGateOpen);
     const teamStub = buildMinimalTeamStub();
     const mockDynamicTeamBuilder = {
       build: jest.fn().mockReturnValue(teamStub),
@@ -1000,9 +1011,7 @@ describe("SelfDrivenMissionRunner integration", () => {
       getAvailableModelsAsync: buildGetAvailableModelsMock(),
     } as unknown as AiChatService;
 
-    const approvedGate = {
-      open: makeApprovedGate(),
-    } as unknown as SelfDrivenHitlGateService;
+    const approvedGate = gateMockFrom(makeApprovedGate());
     const teamStub = buildMinimalTeamStub();
     const mockDynamicTeamBuilder = {
       build: jest.fn().mockReturnValue(teamStub),
@@ -1186,9 +1195,7 @@ describe("SelfDrivenMissionRunner integration", () => {
       getAvailableModelsAsync: jest.fn().mockResolvedValue(["mock-model"]),
     } as unknown as AiChatService;
 
-    const approvedGate = {
-      open: makeApprovedGate(),
-    } as unknown as SelfDrivenHitlGateService;
+    const approvedGate = gateMockFrom(makeApprovedGate());
     const teamStub = buildMinimalTeamStub();
     const mockDynamicTeamBuilder = {
       build: jest.fn().mockReturnValue(teamStub),
@@ -1354,9 +1361,7 @@ describe("SelfDrivenMissionRunner integration", () => {
       getAvailableModelsAsync: jest.fn().mockResolvedValue(["mock-model"]),
     } as unknown as AiChatService;
 
-    const approvedHitl = {
-      open: makeApprovedGate(),
-    } as unknown as SelfDrivenHitlGateService;
+    const approvedHitl = gateMockFrom(makeApprovedGate());
 
     const teamStub = buildMinimalTeamStub();
     const mockDynamicTeamBuilder = {

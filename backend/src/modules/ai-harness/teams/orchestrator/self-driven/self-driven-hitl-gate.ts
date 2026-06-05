@@ -89,41 +89,96 @@ export class SelfDrivenHitlGateService {
     signal?: AbortSignal,
     timeoutMs = GATE_TIMEOUT_MS,
   ): Promise<HitlGateOutcome & { requestId: string }> {
-    const requestId = randomUUID();
+    // Back-compat convenience: prepare then wait in one call. Callers that need
+    // to advertise the gate (emit awaiting_approval) between persistence and the
+    // blocking wait — to avoid the approve-before-persist race — should instead
+    // call prepareGate() then awaitGate() and emit in between.
+    const prepared = await this.prepareGate(missionId, gate, prompt, timeoutMs);
+    if (prepared.autoApproved) {
+      return { requestId: prepared.requestId, approved: true, timedOut: true };
+    }
+    const outcome = await this.awaitGate(
+      prepared.requestId,
+      missionId,
+      gate,
+      signal,
+      timeoutMs,
+    );
+    return { requestId: prepared.requestId, ...outcome };
+  }
 
+  /**
+   * Phase 1 of the gate: PERSIST the approval request + the missionId→requestId
+   * mapping, then return the real requestId immediately (no blocking poll).
+   *
+   * The caller MUST persist the gate before it advertises it (emits
+   * awaiting_approval): the owner-scoped approve endpoint resolves the gate via
+   * the mapping this writes, so advertising first would let a fast client POST
+   * /approve before the mapping exists and get a spurious 404. Splitting persist
+   * from wait closes that race and lets the awaiting_approval event carry the
+   * real requestId instead of an empty placeholder.
+   *
+   * autoApproved=true means the backing table is unavailable and the gate should
+   * be treated as auto-approved (mission must not be silently killed).
+   */
+  async prepareGate(
+    missionId: string,
+    gate: "plan_confirm" | "deliver_confirm",
+    prompt: string,
+    timeoutMs = GATE_TIMEOUT_MS,
+  ): Promise<{ requestId: string; autoApproved: boolean }> {
+    const requestId = randomUUID();
     this.logger.log(
       `[HitlGate] mission=${missionId} gate=${gate} requestId=${requestId} ` +
         `timeout=${timeoutMs}ms`,
     );
-
     try {
       if (!(await this.approval.tableReady())) {
-        // Memory table absent — auto-approve and continue rather than hard-fail.
         this.logger.warn(
           `[HitlGate] mission=${missionId} long_term_memories table not available — ` +
             `auto-approving gate=${gate}`,
         );
-        return { requestId, approved: true, timedOut: true };
+        return { requestId, autoApproved: true };
       }
-
       await this.storeRequest(requestId, missionId, gate, prompt, timeoutMs);
+      return { requestId, autoApproved: false };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `[HitlGate] mission=${missionId} gate=${gate} prepare error: ${message}`,
+      );
+      // Persistence failed → auto-approve so the mission is not silently killed.
+      return { requestId, autoApproved: true };
+    }
+  }
 
-      const outcome = await this.pollForResponse(
+  /**
+   * Phase 2 of the gate: BLOCK until the human responds, the abort signal fires,
+   * or the timeout elapses (auto-approve on timeout per P4a/ADR-010). Must be
+   * called with a requestId returned by prepareGate().
+   */
+  async awaitGate(
+    requestId: string,
+    missionId: string,
+    gate: "plan_confirm" | "deliver_confirm",
+    signal?: AbortSignal,
+    timeoutMs = GATE_TIMEOUT_MS,
+  ): Promise<HitlGateOutcome> {
+    try {
+      return await this.pollForResponse(
         requestId,
         missionId,
         gate,
         timeoutMs,
         signal,
       );
-
-      return { requestId, ...outcome };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(
-        `[HitlGate] mission=${missionId} gate=${gate} unexpected error: ${message}`,
+        `[HitlGate] mission=${missionId} gate=${gate} wait error: ${message}`,
       );
       // Unexpected errors auto-approve so the mission is not silently killed.
-      return { requestId, approved: true, timedOut: true };
+      return { approved: true, timedOut: true };
     }
   }
 
