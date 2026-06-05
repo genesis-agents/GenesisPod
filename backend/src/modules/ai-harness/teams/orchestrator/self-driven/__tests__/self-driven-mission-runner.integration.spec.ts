@@ -482,6 +482,17 @@ describe("SelfDrivenMissionRunner integration", () => {
     jest.restoreAllMocks();
   });
 
+  // The tool-capable (ReActLoop/AgentFactory) path is retained in code but
+  // disabled by default (ENABLE_TOOL_LOOP=false) because its structured output
+  // is not report-friendly. The tests below that exercise that retained path
+  // flip the flag on; reset to the production default after every test.
+  const setToolLoop = (on: boolean) => {
+    (
+      SelfDrivenMissionRunner as unknown as { ENABLE_TOOL_LOOP: boolean }
+    ).ENABLE_TOOL_LOOP = on;
+  };
+  afterEach(() => setToolLoop(false));
+
   beforeEach(async () => {
     mockChat = buildChatMock();
 
@@ -855,6 +866,7 @@ describe("SelfDrivenMissionRunner integration", () => {
     }).compile();
 
     runner = module.get(SelfDrivenMissionRunner);
+    setToolLoop(true);
 
     const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
 
@@ -902,6 +914,7 @@ describe("SelfDrivenMissionRunner integration", () => {
     //   step 1: type=task, loopKind=plan-act, executor=researcher → not tool-capable (chatStream)
     //   step 2: type=delivery, loopKind=plan-act, executor=writer → not tool-capable (chatStream)
     // The mock agent yields action_executed (tool_call per coreTools id) then output.
+    setToolLoop(true);
 
     const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
 
@@ -1231,6 +1244,7 @@ describe("SelfDrivenMissionRunner integration", () => {
     }).compile();
 
     runner = module.get(SelfDrivenMissionRunner);
+    setToolLoop(true);
 
     const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
 
