@@ -10146,6 +10146,24 @@ model AskSelfDrivenMissionEvent {
   @@map("ask_self_driven_mission_events")
 }
 
+/// Self-Driven Agent Team mission ownership + terminal status.
+/// Durable backbone so socket-room join / replay authorization (IDOR) and
+/// terminal-state arbitration survive pod recycles (in-memory ownership is lost
+/// on restart). Mirrors the role agent_playground_missions plays for playground.
+model AskSelfDrivenMission {
+  id           String   @id
+  userId       String   @map("user_id")
+  status       String   @default("running") // running | completed | failed | cancelled
+  prompt       String?
+  errorMessage String?  @map("error_message")
+  heartbeatAt  DateTime? @map("heartbeat_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, status])
+  @@map("ask_self_driven_missions")
+}
+
 /// mission-scoped model election state
 /// advisory-lock transaction 内的 authoritative source，用于跨实例多模型分配一致性。
 /// FK ON DELETE CASCADE 让 mission 删除时自动清理状态行，作为应用层 clear() 的兜底

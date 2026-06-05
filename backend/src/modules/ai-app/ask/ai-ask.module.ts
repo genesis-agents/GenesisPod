@@ -21,6 +21,9 @@ import { AskSelfDrivenService } from "./self-driven/ask-self-driven.service";
 // Stage 1: durable event journal for self-driven missions (mirrors playground).
 import { SelfDrivenMissionEventBuffer } from "./self-driven/self-driven-mission-event-buffer.service";
 import { SELF_DRIVEN_EVENTS } from "./self-driven/self-driven.events";
+// Stage 2: durable mission store + detached background dispatcher.
+import { AskSelfDrivenMissionStore } from "./self-driven/ask-self-driven-mission.store";
+import { SelfDrivenMissionDispatcher } from "./self-driven/self-driven-mission-dispatcher.service";
 // Teams 模式（W2 PR3）
 import { AskRoomController } from "./ai-ask-room.controller";
 import { AskRoomService } from "./ai-ask-room.service";
@@ -67,6 +70,8 @@ import { HandoffAdapter } from "./adapters/handoff.adapter";
     HandoffAdapter,
     AskSelfDrivenService,
     SelfDrivenMissionEventBuffer,
+    AskSelfDrivenMissionStore,
+    SelfDrivenMissionDispatcher,
   ],
   exports: [AiAskService, AskRoomService],
 })

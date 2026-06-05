@@ -133,6 +133,8 @@ export { ModelResolverService } from "./model-resolver.service";
 // Self-Driven Team public surface (ask-self-driven.service consumer)
 export { SelfDrivenMissionRunner } from "../teams/orchestrator/self-driven/self-driven-mission-runner.service";
 export { SelfDrivenMissionPlannerService } from "../teams/orchestrator/self-driven/self-driven-mission-planner.service";
+// Stage 1: event relay onto the global EventBus (self-driven.* namespace).
+export { SelfDrivenEventRelay } from "../teams/orchestrator/self-driven/self-driven-event-relay";
 // ★ P4a HITL gate (2026-06-04): DB-poll approval primitive + sanitize wrapper
 export { SelfDrivenHitlGateService } from "../teams/orchestrator/self-driven/self-driven-hitl-gate";
 export type { HitlGateOutcome } from "../teams/orchestrator/self-driven/self-driven-hitl-gate";
