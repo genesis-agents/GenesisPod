@@ -15,6 +15,11 @@
  */
 
 import { Injectable } from "@nestjs/common";
+// Reuse the engine's markdown sanitizer (pure function, facade-exported) instead
+// of trusting raw LLM output — strips <thinking> blocks, prompt-injection text,
+// hallucinated figure tags, and repairs code-fence pairing. Pure fn ⇒ no DI
+// cycle (safe to value-import from the facade barrel).
+import { sanitizeMarkdownBody } from "@/modules/ai-engine/facade";
 import type {
   ExecutionStep,
   MissionExecutionPlan,
@@ -50,67 +55,88 @@ export class SelfDrivenReportComposer {
    */
   compose(input: ReportComposerInput): ReportComposerOutput {
     const { plan, stepOutputs, userPrompt } = input;
-    const sections: string[] = [];
+    // Each entry is a complete Markdown BLOCK. Blocks are joined with a blank
+    // line ("\n\n"). NB: never terminate a block with "\n" — joining
+    // newline-terminated blocks with "\n" injects a blank line *inside* a block,
+    // which (e.g.) splits a GFM table's header from its delimiter row and makes
+    // the whole table render as raw "| pipes |" text. That was the formatting bug.
+    const blocks: string[] = [];
 
     // ── Header ────────────────────────────────────────────────────────────────
-    sections.push(`# Mission Report\n`);
-    sections.push(`**Objective:** ${userPrompt}\n`);
+    blocks.push(`# Mission Report`);
 
+    const meta: string[] = [`**Objective:** ${userPrompt}`];
     const executedCount = stepOutputs.size;
     const totalCount = plan.steps.length;
-    sections.push(
+    meta.push(
       `**Steps executed:** ${executedCount} / ${totalCount}` +
         (executedCount < totalCount
           ? ` (${totalCount - executedCount} step(s) skipped due to errors)`
-          : "") +
-        `\n`,
+          : ""),
     );
-
     if (plan.roleAssignments && plan.roleAssignments.length > 0) {
       const roleList = plan.roleAssignments
         .map((r) => `${r.roleId}${r.modelId ? ` (${r.modelId})` : ""}`)
         .join(", ");
-      sections.push(`**Team:** ${roleList}\n`);
+      meta.push(`**Team:** ${roleList}`);
     }
-
-    sections.push(`---\n`);
+    blocks.push(meta.join("\n\n"));
+    blocks.push(`---`);
 
     // ── Per-step sections ─────────────────────────────────────────────────────
     for (const step of plan.steps) {
       const output = stepOutputs.get(step.id);
       if (!output) {
-        // Step was skipped / failed — note it briefly without breaking the report.
-        sections.push(
+        blocks.push(
           `## ${step.name} — ${step.executor}\n\n` +
-            `_This step did not produce output (execution error or dependency failure)._\n`,
+            `_This step did not produce output (execution error or dependency failure)._`,
         );
         continue;
       }
-      sections.push(
-        `## ${step.name} — ${step.executor}\n\n` + `${output.trim()}\n`,
+      blocks.push(
+        `## ${step.name} — ${step.executor}\n\n${this.cleanStepBody(output)}`,
       );
     }
 
-    sections.push(`---\n`);
-
     // ── Rubric table (reference only, not scored here) ────────────────────────
     if (plan.rubric && plan.rubric.length > 0) {
-      sections.push(`## Acceptance Rubric\n`);
-      sections.push(`| Dimension | Weight | Pass Line |\n`);
-      sections.push(`|-----------|--------|-----------|\n`);
-      for (const dim of plan.rubric) {
-        const weightPct = `${Math.round(dim.weight * 100)}%`;
-        sections.push(
-          `| ${dim.dimension} | ${weightPct} | ${dim.passLine} |\n`,
-        );
-      }
-      sections.push(`\n`);
+      const rows = plan.rubric.map(
+        (dim) =>
+          `| ${dim.dimension} | ${Math.round(dim.weight * 100)}% | ${dim.passLine} |`,
+      );
+      // Header + delimiter + rows are ONE block on consecutive lines so GFM
+      // recognises it as a table.
+      const table = [
+        `| Dimension | Weight | Pass Line |`,
+        `| --- | --- | --- |`,
+        ...rows,
+      ].join("\n");
+      blocks.push(`---`);
+      blocks.push(`## Acceptance Rubric\n\n${table}`);
     }
 
-    const content = sections.join("\n");
+    const content = blocks.join("\n\n").trim() + "\n";
     const wordCount = content.split(/\s+/).filter((w) => w.length > 0).length;
 
     return { content, wordCount };
+  }
+
+  /**
+   * Clean one step's raw LLM markdown through the engine sanitizer (strip
+   * <thinking>/injection/figure junk, repair fences). Headings are preserved
+   * (allowTopLevelHeadings) so the step's own sub-structure survives. Falls back
+   * to the trimmed raw text if the sanitizer throws.
+   */
+  private cleanStepBody(raw: string): string {
+    const trimmed = raw.trim();
+    try {
+      const { body } = sanitizeMarkdownBody(trimmed, {
+        allowTopLevelHeadings: true,
+      });
+      return body.trim() || trimmed;
+    } catch {
+      return trimmed;
+    }
   }
 
   /** Build the system prompt for a given step's executor role. */

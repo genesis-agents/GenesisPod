@@ -54,6 +54,14 @@ import type {
 export class SelfDrivenMissionRunner {
   private readonly logger = new Logger(SelfDrivenMissionRunner.name);
 
+  /**
+   * Feature flag: route tool-capable steps through the ReActLoop (AgentFactory).
+   * Currently false — the ReActLoop returns a structured object that the report
+   * composer can only JSON.stringify (unreadable raw JSON in the deliverable).
+   * Re-enable once that output is post-formatted into Markdown prose.
+   */
+  private static readonly ENABLE_TOOL_LOOP = false;
+
   constructor(
     private readonly planner: SelfDrivenMissionPlannerService,
     private readonly teamBuilder: DynamicTeamBuilder,
@@ -629,7 +637,16 @@ export class SelfDrivenMissionRunner {
     // Tool-capable path: role has coreTools AND step loopKind is react or
     // leader-worker → run a real ReActLoop via AgentFactory.create().execute().
     // Generation path: chatStream for delivery / review / integration steps.
+    //
+    // ⚠ Report quality: the ReActLoop path returns a STRUCTURED object as its
+    // final answer, which the composer can only JSON.stringify into the report —
+    // raw JSON is not readable prose (a single research step dumped a
+    // `{"market_research":{...}}` blob into the report). Until the agent's
+    // structured output is post-formatted into Markdown, force every step through
+    // the chatStream text path so the deliverable is clean prose/tables. The tool
+    // path stays in code (deferred) and is re-enabled by flipping this flag.
     const isToolCapable =
+      SelfDrivenMissionRunner.ENABLE_TOOL_LOOP &&
       (proto?.coreTools.length ?? 0) > 0 &&
       (step.loopKind === "react" || step.loopKind === "leader-worker");
 
