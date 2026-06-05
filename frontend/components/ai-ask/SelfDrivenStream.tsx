@@ -255,9 +255,10 @@ function DeliverableCard({
 }) {
   const { t } = useI18n();
   const [downloading, setDownloading] = useState(false);
-  // Collapsed by default: show only the compact file card so the deliverable
-  // doesn't render small-then-expand-to-huge (jarring). Click the card to preview.
-  const [open, setOpen] = useState(false);
+  // Expanded by default so the report is visible (collapsing it made users think
+  // "no report"). The earlier small-then-huge jank is handled by capping the live
+  // streaming preview height, not by hiding the final report. Click to collapse.
+  const [open, setOpen] = useState(true);
 
   const filename = `self-driven-report-${ev.missionId.slice(0, 8)}.md`;
   const sizeKb = Math.max(1, Math.round((ev.content?.length ?? 0) / 1024));
