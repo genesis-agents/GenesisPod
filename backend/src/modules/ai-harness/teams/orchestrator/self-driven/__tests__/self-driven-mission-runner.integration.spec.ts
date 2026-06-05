@@ -1446,4 +1446,344 @@ describe("SelfDrivenMissionRunner integration", () => {
     expect(deliverables).toHaveLength(1);
     expect(deliverables[0].content).toContain("# Mission Report");
   });
+
+  // =========================================================================
+  // Case A: deliver gate appendInstruction → finalize LLM called, deliverable
+  //         reflects finalize output
+  // =========================================================================
+
+  it("finalize pass: deliver gate appendInstruction triggers finalize LLM call and deliverable uses finalized content", async () => {
+    const deliverInstruction = "Add an executive summary at the top.";
+    // Must be >= 100 chars to pass the sanity check in finalizeReportViaLLM.
+    const finalizedContent =
+      "# Finalized Report\n\n" +
+      "## Executive Summary\n\n" +
+      "This report has been refined per user request to add an executive summary. " +
+      "All original findings are preserved below.\n\n" +
+      "## Original Content\n\nFindings follow.";
+
+    await module.close();
+
+    // Chat mock: plan/rubric/gates → their normal responses;
+    // finalize call → identified by "report refinement specialist" in system prompt.
+    const FINALIZE_MARKER = "report refinement specialist";
+    let finalizeCalls = 0;
+
+    const chatWithFinalize = jest.fn(
+      async (opts: {
+        systemPrompt?: string;
+        messages?: Array<{ role: string; content: string }>;
+        responseFormat?: string;
+        modelType?: AIModelType;
+      }) => {
+        const sys =
+          opts.systemPrompt ??
+          opts.messages?.find((m) => m.role === "system")?.content ??
+          "";
+        const userContent = opts.messages?.find((m) => m.role === "user")?.content ?? "";
+
+        // Finalize LLM call (Change 1)
+        if (sys.includes(FINALIZE_MARKER)) {
+          finalizeCalls++;
+          return { content: finalizedContent, tokensUsed: 500, isError: false };
+        }
+
+        // Step decomposition
+        if (
+          sys.includes("role-agnostic planning assistant") ||
+          (userContent.includes("Goal:") && opts.responseFormat === "json")
+        ) {
+          const steps = [
+            {
+              name: "Research",
+              description: "Gather info.",
+              type: "task",
+              loopKind: "plan-act",
+              dependencyIndices: [],
+              estimatedDurationMs: 30000,
+            },
+          ];
+          return { content: JSON.stringify(steps), isError: false };
+        }
+
+        // Rubric
+        if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+          return {
+            content: JSON.stringify([{ dimension: "accuracy", weight: 1.0, passLine: 70 }]),
+            isError: false,
+          };
+        }
+
+        return { content: `output for: ${userContent.slice(0, 60)}`, tokensUsed: 100, isError: false };
+      },
+    );
+
+    const chatStreamMock = buildChatStreamMock();
+    const mockAiChatService = {
+      chat: chatWithFinalize,
+      chatStream: chatStreamMock,
+      getAvailableModelsAsync: buildGetAvailableModelsMock(),
+    } as unknown as AiChatService;
+
+    // Plan gate: no appendInstruction; deliver gate: has appendInstruction
+    const gateCallCount = { value: 0 };
+    const deliverAppendGate: jest.Mock<
+      Promise<HitlGateOutcome>,
+      Parameters<SelfDrivenHitlGateService["awaitGate"]>
+    > = jest.fn().mockImplementation(
+      async (_requestId: string, _missionId: string, gate: string) => {
+        gateCallCount.value++;
+        if (gate === "deliver_confirm") {
+          return {
+            approved: true,
+            timedOut: false,
+            appendInstruction: deliverInstruction,
+          };
+        }
+        return { approved: true, timedOut: false };
+      },
+    );
+
+    const mockHitlGate = gateMockFrom(deliverAppendGate);
+    const teamStub = buildMinimalTeamStub();
+    const mockDynamicTeamBuilder = {
+      build: jest.fn().mockReturnValue(teamStub),
+    } as unknown as DynamicTeamBuilder;
+
+    module = await Test.createTestingModule({
+      providers: [
+        SelfDrivenMissionRunner,
+        SelfDrivenMissionPlannerService,
+        StepDecompositionService,
+        RubricGeneratorService,
+        SelfDrivenReportComposer,
+        RoleInventory,
+        { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+        { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ModelElectionService,
+          useValue: {
+            elect: jest.fn().mockResolvedValue({
+              elected: { modelId: "mock-chat-model" },
+              scores: [],
+              reason: "mock election",
+            }),
+          },
+        },
+        { provide: SelfDrivenHitlGateService, useValue: mockHitlGate },
+        { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+        { provide: AgentFactory, useValue: buildAgentFactoryMock() },
+      ],
+    }).compile();
+
+    runner = module.get(SelfDrivenMissionRunner);
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    // Mission must complete without errors
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+    expect(eventsOfType(events, "error")).toHaveLength(0);
+
+    // Finalize LLM must have been called exactly once (for the deliver-gate feedback)
+    expect(finalizeCalls).toBe(1);
+
+    // The finalize call must have included the deliver instruction in the user message
+    const finalizeChatCall = (chatWithFinalize as jest.Mock).mock.calls.find(
+      (args: [{ systemPrompt?: string; messages?: Array<{ role: string; content: string }> }]) => {
+        const sys =
+          args[0].systemPrompt ??
+          args[0].messages?.find((m) => m.role === "system")?.content ??
+          "";
+        return sys.includes(FINALIZE_MARKER);
+      },
+    );
+    expect(finalizeChatCall).toBeDefined();
+    const finalizeUserMsg = finalizeChatCall[0].messages?.find(
+      (m: { role: string; content: string }) => m.role === "user",
+    )?.content ?? "";
+    expect(finalizeUserMsg).toContain(deliverInstruction);
+
+    // Deliverable content must be the finalized output (not the raw composed report)
+    const deliverables = eventsOfType(events, "deliverable");
+    expect(deliverables).toHaveLength(1);
+    expect(deliverables[0].content).toBe(finalizedContent);
+  });
+
+  // =========================================================================
+  // Case B: deliver gate with no feedback → no finalize call, deliverable
+  //         equals composer output (zero regression)
+  // =========================================================================
+
+  it("finalize pass: no deliver-gate feedback → finalize LLM not called, deliverable equals composer output", async () => {
+    // Default beforeEach setup has no appendInstruction on either gate.
+    // We count how many chat() calls are made and ensure none is the finalize call.
+    const FINALIZE_MARKER = "report refinement specialist";
+
+    const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+    // No errors
+    expect(eventsOfType(events, "done")).toHaveLength(1);
+    expect(eventsOfType(events, "error")).toHaveLength(0);
+
+    // No finalize LLM call should have been made
+    const finalizeCalls = mockChat.mock.calls.filter(
+      (args: [{ systemPrompt?: string; messages?: Array<{ role: string; content: string }> }]) => {
+        const sys =
+          args[0].systemPrompt ??
+          args[0].messages?.find((m) => m.role === "system")?.content ??
+          "";
+        return sys.includes(FINALIZE_MARKER);
+      },
+    );
+    expect(finalizeCalls).toHaveLength(0);
+
+    // Deliverable must still be present and contain the standard composer header
+    const deliverables = eventsOfType(events, "deliverable");
+    expect(deliverables).toHaveLength(1);
+    expect(deliverables[0].content).toContain("# Mission Report");
+  });
+
+  // =========================================================================
+  // Case C: token budget exceeded mid-mission → later steps skipped,
+  //         deliverable still emitted from completed steps
+  // =========================================================================
+
+  it("budget ceiling: cumulative tokens exceed limit after first step → remaining steps skipped, deliverable emitted", async () => {
+    // Strategy: lower the budget ceiling to 1 token so any step usage exceeds it,
+    // then verify the second step is skipped but the mission still delivers.
+    const originalMax = (
+      SelfDrivenMissionRunner as unknown as { SELF_DRIVEN_MISSION_MAX_TOKENS: number }
+    ).SELF_DRIVEN_MISSION_MAX_TOKENS;
+
+    // Temporarily lower the budget to a value smaller than a single step's usage.
+    // The mock chatStream yields usage: { totalTokens: 130 } on the final chunk.
+    // Setting the ceiling to 50 ensures the budget is exceeded after step 0.
+    (
+      SelfDrivenMissionRunner as unknown as { SELF_DRIVEN_MISSION_MAX_TOKENS: number }
+    ).SELF_DRIVEN_MISSION_MAX_TOKENS = 50;
+
+    try {
+      await module.close();
+
+      // 2-step plan: step 0 uses chatStream (yields 130 tokens), step 1 should be skipped.
+      const chatWithTwoSteps = jest.fn(
+        async (opts: {
+          systemPrompt?: string;
+          messages?: Array<{ role: string; content: string }>;
+          responseFormat?: string;
+          modelType?: AIModelType;
+        }) => {
+          const sys = opts.systemPrompt ?? "";
+          const userContent = opts.messages?.[0]?.content ?? "";
+
+          if (
+            sys.includes("role-agnostic planning assistant") ||
+            (userContent.includes("Goal:") && opts.responseFormat === "json")
+          ) {
+            const steps = [
+              {
+                name: "Step One",
+                description: "First step.",
+                type: "task",
+                loopKind: "plan-act",
+                dependencyIndices: [],
+                estimatedDurationMs: 30000,
+              },
+              {
+                name: "Step Two",
+                description: "Second step — should be skipped by budget.",
+                type: "delivery",
+                loopKind: "plan-act",
+                dependencyIndices: [0],
+                estimatedDurationMs: 30000,
+              },
+            ];
+            return { content: JSON.stringify(steps), isError: false };
+          }
+
+          if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+            return {
+              content: JSON.stringify([{ dimension: "accuracy", weight: 1.0, passLine: 70 }]),
+              isError: false,
+            };
+          }
+
+          return { content: `output for: ${userContent.slice(0, 40)}`, tokensUsed: 100, isError: false };
+        },
+      );
+
+      // chatStream yields 130 tokens total per step (exceeds 50-token ceiling).
+      const chatStreamWithUsage = buildChatStreamMock();
+
+      const mockAiChatService = {
+        chat: chatWithTwoSteps,
+        chatStream: chatStreamWithUsage,
+        getAvailableModelsAsync: buildGetAvailableModelsMock(),
+      } as unknown as AiChatService;
+
+      const approvedGate = gateMockFrom(makeApprovedGate());
+      const teamStub = buildMinimalTeamStub();
+      const mockDynamicTeamBuilder = {
+        build: jest.fn().mockReturnValue(teamStub),
+      } as unknown as DynamicTeamBuilder;
+
+      module = await Test.createTestingModule({
+        providers: [
+          SelfDrivenMissionRunner,
+          SelfDrivenMissionPlannerService,
+          StepDecompositionService,
+          RubricGeneratorService,
+          SelfDrivenReportComposer,
+          RoleInventory,
+          { provide: ROLE_INVENTORY, useExisting: RoleInventory },
+          { provide: AiChatService, useValue: mockAiChatService },
+          {
+            provide: ModelElectionService,
+            useValue: {
+              elect: jest.fn().mockResolvedValue({
+                elected: { modelId: "mock-chat-model" },
+                scores: [],
+                reason: "mock election",
+              }),
+            },
+          },
+          { provide: SelfDrivenHitlGateService, useValue: approvedGate },
+          { provide: DynamicTeamBuilder, useValue: mockDynamicTeamBuilder },
+          { provide: AgentFactory, useValue: buildAgentFactoryMock() },
+        ],
+      }).compile();
+
+      runner = module.get(SelfDrivenMissionRunner);
+
+      const events = await collectEvents(runner.run(MISSION_ID, MISSION_INPUT));
+
+      // Step One must have run and completed
+      const stepStarted = eventsOfType(events, "step_started");
+      const stepCompleted = eventsOfType(events, "step_completed");
+
+      // At least step 0 started and completed
+      expect(stepStarted.length).toBeGreaterThanOrEqual(1);
+      expect(stepCompleted.length).toBeGreaterThanOrEqual(1);
+      expect(stepCompleted[0].stepName).toBe("Step One");
+      expect(stepCompleted[0].ok).toBe(true);
+
+      // Step Two must NOT have started (budget cut off before it)
+      const stepTwoStarted = stepStarted.find((e) => e.stepName === "Step Two");
+      expect(stepTwoStarted).toBeUndefined();
+
+      // Mission must still reach done (budget-exceeded is a graceful stop, not a crash)
+      expect(eventsOfType(events, "done")).toHaveLength(1);
+      expect(eventsOfType(events, "error")).toHaveLength(0);
+
+      // Deliverable must be emitted from whatever steps completed
+      const deliverables = eventsOfType(events, "deliverable");
+      expect(deliverables).toHaveLength(1);
+      expect(deliverables[0].content).toContain("# Mission Report");
+    } finally {
+      // Restore the original budget ceiling regardless of test outcome
+      (
+        SelfDrivenMissionRunner as unknown as { SELF_DRIVEN_MISSION_MAX_TOKENS: number }
+      ).SELF_DRIVEN_MISSION_MAX_TOKENS = originalMax;
+    }
+  });
 });

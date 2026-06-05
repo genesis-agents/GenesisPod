@@ -68,6 +68,19 @@ export class SelfDrivenMissionRunner {
    */
   private static readonly ENABLE_TOOL_LOOP = false;
 
+  /**
+   * Per-mission token budget ceiling. Execution stops dispatching new steps
+   * once the cumulative token count across all completed steps reaches this
+   * value. Already-running or already-completed steps are unaffected; the
+   * report is still assembled from whatever outputs were collected.
+   *
+   * 200 000 tokens ≈ ~150 000 words of combined step I/O. In practice a
+   * standard 3-step mission consumes ~5 000–20 000 tokens total, so the
+   * ceiling is a safety net against runaway deep-depth missions rather than
+   * a normal execution limit.
+   */
+  private static readonly SELF_DRIVEN_MISSION_MAX_TOKENS = 200_000;
+
   constructor(
     private readonly planner: SelfDrivenMissionPlannerService,
     private readonly teamBuilder: DynamicTeamBuilder,
@@ -442,10 +455,38 @@ export class SelfDrivenMissionRunner {
     const stepOutputs = new Map<string, string>();
     const sortedSteps = this.topologicalSort(plan.steps);
 
+    // Mission-level token budget tracking (Change 2: budget ceiling).
+    // missionTokensUsed accumulates total tokens across all completed steps.
+    // Ref-object pattern lets executeStepViaChatStream write back without
+    // changing return types.
+    let missionTokensUsed = 0;
+
     for (let i = 0; i < sortedSteps.length; i++) {
       if (signal?.aborted) {
         yield { type: "error", missionId, message: "aborted" };
         return;
+      }
+
+      // Budget gate: stop dispatching new steps once the ceiling is reached.
+      // Already-collected outputs remain; the report is assembled from them.
+      if (
+        missionTokensUsed >= SelfDrivenMissionRunner.SELF_DRIVEN_MISSION_MAX_TOKENS
+      ) {
+        this.logger.warn(
+          `[SelfDriven] mission ${missionId} token budget exceeded: ` +
+            `${missionTokensUsed} >= ${SelfDrivenMissionRunner.SELF_DRIVEN_MISSION_MAX_TOKENS} — ` +
+            `stopping after ${i}/${sortedSteps.length} steps`,
+        );
+        yield {
+          type: "phase",
+          missionId,
+          phase: "execute",
+          status: "completed",
+          detail:
+            `token budget exceeded after ${i} steps ` +
+            `(${missionTokensUsed}/${SelfDrivenMissionRunner.SELF_DRIVEN_MISSION_MAX_TOKENS} tokens used)`,
+        };
+        break;
       }
 
       const step = sortedSteps[i];
@@ -465,6 +506,10 @@ export class SelfDrivenMissionRunner {
           `"${step.name}" (executor=${step.executor}, loopKind=${step.loopKind ?? "default"})`,
       );
 
+      // Ref-object used by executeStepViaChatStream to write back the step's
+      // token usage without changing the generator's return type.
+      const stepTokensRef = { value: 0 };
+
       try {
         let output = "";
         // Drive the step generator — it yields real-time chunk/tool_call events
@@ -479,6 +524,7 @@ export class SelfDrivenMissionRunner {
           signal,
           appendContext,
           lang,
+          stepTokensRef,
         );
         // eslint-disable-next-line no-constant-condition
         while (true) {
@@ -490,11 +536,13 @@ export class SelfDrivenMissionRunner {
           yield result.value;
         }
 
+        missionTokensUsed += stepTokensRef.value;
         stepOutputs.set(step.id, output);
 
         this.logger.log(
           `[SelfDriven] mission ${missionId} step ${i + 1}/${sortedSteps.length} completed: ` +
             `"${step.name}" ok=true durationMs=${Date.now() - stepStart} outputChars=${output.length}` +
+            ` stepTokens=${stepTokensRef.value} missionTotal=${missionTokensUsed}` +
             (output.length === 0
               ? " (EMPTY OUTPUT — step produced nothing)"
               : ""),
@@ -540,6 +588,10 @@ export class SelfDrivenMissionRunner {
       yield { type: "error", missionId, message: "aborted" };
       return;
     }
+    // Accumulates only deliver-gate feedback (appendInstruction + chosen options).
+    // Kept separate from appendContext (which is used for execute-phase step prompts)
+    // so we can apply it as a finalize LLM pass on the assembled report.
+    let deliverFeedback = "";
     {
       const deliverGatePrompt =
         `Mission "${input.prompt.slice(0, 120)}" — execution complete ` +
@@ -629,6 +681,8 @@ export class SelfDrivenMissionRunner {
         appendContext = appendContext
           ? `${appendContext}\n\n${deliverGate.appendInstruction}`
           : deliverGate.appendInstruction;
+        // Also track deliver-only feedback for the finalize LLM pass.
+        deliverFeedback = deliverGate.appendInstruction;
       }
 
       // Apply all human-chosen deliver-gate options as additional appendContext.
@@ -652,6 +706,10 @@ export class SelfDrivenMissionRunner {
             : opt.label;
           appendContext = appendContext
             ? `${appendContext}\n\n${choiceText}`
+            : choiceText;
+          // Accumulate into deliverFeedback for the finalize LLM pass.
+          deliverFeedback = deliverFeedback
+            ? `${deliverFeedback}\n\n${choiceText}`
             : choiceText;
         }
         this.logger.log(
@@ -693,11 +751,40 @@ export class SelfDrivenMissionRunner {
           `${stepOutputs.size}/${plan.steps.length} steps contributed`,
       );
 
+      // ── Finalize pass: apply deliver-gate feedback via LLM ────────────────
+      // Only triggered when the user provided new instructions at the deliver
+      // gate (appendInstruction or non-proceed choice options). Non-fatal:
+      // any LLM error → falls back to the composed report unchanged.
+      let finalContent = report.content;
+      if (deliverFeedback.trim().length > 0) {
+        this.logger.log(
+          `[SelfDriven] mission ${missionId} finalize pass: ` +
+            `applying deliver-gate feedback (${deliverFeedback.length} chars)`,
+        );
+        const finalized = await this.finalizeReportViaLLM(
+          report.content,
+          deliverFeedback,
+          input.userId,
+          missionId,
+        );
+        if (finalized) {
+          finalContent = finalized;
+          this.logger.log(
+            `[SelfDriven] mission ${missionId} finalize completed: ` +
+              `${finalContent.length} chars`,
+          );
+        } else {
+          this.logger.warn(
+            `[SelfDriven] mission ${missionId} finalize failed — using original report`,
+          );
+        }
+      }
+
       yield {
         type: "deliverable",
         missionId,
         deliverableType: "report",
-        content: report.content,
+        content: finalContent,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1061,6 +1148,7 @@ export class SelfDrivenMissionRunner {
     signal?: AbortSignal,
     appendContext?: string,
     lang?: string,
+    stepTokensRef?: { value: number },
   ): AsyncGenerator<SelfDrivenMissionEvent, string, unknown> {
     const missionId = plan.missionId;
 
@@ -1268,6 +1356,7 @@ export class SelfDrivenMissionRunner {
           modelId,
           input,
           signal,
+          stepTokensRef,
         );
       }
     }
@@ -1282,12 +1371,17 @@ export class SelfDrivenMissionRunner {
       modelId,
       input,
       signal,
+      stepTokensRef,
     );
   }
 
   /**
    * Execute a step via AiChatService.chatStream() with a blocking chat() fallback.
    * Shared by the generation path and the ReActLoop fallback path.
+   *
+   * stepTokensRef: optional ref-object; when provided the method writes the
+   * total tokens used by this step into `stepTokensRef.value` so the caller
+   * can accumulate mission-level token usage without changing the return type.
    */
   private async *executeStepViaChatStream(
     step: ExecutionStep,
@@ -1298,6 +1392,7 @@ export class SelfDrivenMissionRunner {
     modelId: string,
     input: SelfDrivenMissionInput,
     signal?: AbortSignal,
+    stepTokensRef?: { value: number },
   ): AsyncGenerator<SelfDrivenMissionEvent, string, unknown> {
     let accumulated = "";
     try {
@@ -1327,6 +1422,11 @@ export class SelfDrivenMissionRunner {
             missionId,
             content: chunk.content,
           } satisfies SelfDrivenMissionEvent;
+        }
+
+        // Accumulate token usage from the final done-chunk (contains usage).
+        if (chunk.done && chunk.usage && stepTokensRef) {
+          stepTokensRef.value += chunk.usage.totalTokens ?? 0;
         }
       }
 
@@ -1364,6 +1464,11 @@ export class SelfDrivenMissionRunner {
         throw new Error(
           `LLM returned error for step "${step.name}": ${result.content}`,
         );
+      }
+
+      // Accumulate fallback token usage (chat() returns usage.totalTokens).
+      if (stepTokensRef && result.usage?.totalTokens) {
+        stepTokensRef.value += result.usage.totalTokens;
       }
 
       const fallbackContent = result.content ?? "";
@@ -1531,5 +1636,63 @@ export class SelfDrivenMissionRunner {
       }
     }
     return parts.join("\n\n---\n\n");
+  }
+
+  /**
+   * Apply deliver-gate user feedback to the assembled report via a single LLM
+   * call.  The model is instructed to preserve all facts while restructuring or
+   * expanding the report to honour the user's request.
+   *
+   * Non-fatal: returns undefined on any error (empty output, LLM failure, etc.)
+   * so the caller can safely fall back to the original report.
+   *
+   * Uses AiChatService.chat() + TaskProfile — no hard-coded model or temperature.
+   */
+  private async finalizeReportViaLLM(
+    baseReport: string,
+    userFeedback: string,
+    userId: string,
+    missionId: string,
+  ): Promise<string | undefined> {
+    const systemPrompt =
+      `You are a report refinement specialist. ` +
+      `Your task is to take an assembled research report and apply user ` +
+      `feedback to improve it. Preserve all facts and data — only restructure, ` +
+      `expand, or reorganize based on the user's request. ` +
+      `Output ONLY the refined report markdown, no meta-commentary.`;
+
+    const userMessage = {
+      role: "user" as const,
+      content:
+        `Original report:\n---\n${baseReport}\n---\n\n` +
+        `User feedback: ${userFeedback}\n\n` +
+        `Refactor the report to incorporate the user's request.`,
+    };
+
+    try {
+      const result = await this.chat.chat({
+        messages: [{ role: "system", content: systemPrompt }, userMessage],
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "medium", outputLength: "long" },
+        userId,
+      });
+
+      const refined = (result.content ?? "").trim();
+      if (refined.length < 100) {
+        this.logger.warn(
+          `[SelfDriven] mission ${missionId} finalize: LLM output too short ` +
+            `(${refined.length} chars) — reverting to original`,
+        );
+        return undefined;
+      }
+
+      return refined;
+    } catch (err) {
+      this.logger.warn(
+        `[SelfDriven] mission ${missionId} finalize LLM call failed (non-fatal): ` +
+          `${err instanceof Error ? err.message : String(err)}`,
+      );
+      return undefined;
+    }
   }
 }
