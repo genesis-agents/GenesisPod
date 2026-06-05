@@ -196,6 +196,58 @@ export class SelfDrivenMissionRunner {
       }
 
       appendContext = planGate.appendInstruction;
+
+      // ── Re-plan if the human changed the analysis depth at this gate ─────────
+      // Depth controls step-decomposition maxSteps, so a depth change must
+      // regenerate the plan (and re-elect roles) before execution. The new depth
+      // also flows into per-step output length via the mutated input below.
+      const chosenDepth = planGate.analysisDepth;
+      const currentDepth = input.analysisDepth ?? "standard";
+      if (chosenDepth && chosenDepth !== currentDepth && !signal?.aborted) {
+        this.logger.log(
+          `[SelfDriven] mission ${missionId} re-planning: depth ${currentDepth} → ${chosenDepth}`,
+        );
+        yield {
+          type: "phase",
+          missionId,
+          phase: "plan",
+          status: "started",
+          detail: `re-planning at ${chosenDepth} depth`,
+        };
+        try {
+          plan = await this.planner.plan({
+            prompt: input.prompt,
+            userId: input.userId,
+            context: input.clarifications
+              ? (input.clarifications as Record<string, unknown>)
+              : undefined,
+            analysisDepth: chosenDepth,
+            signal,
+          });
+          // Propagate the new depth to execution (per-step output length).
+          input = { ...input, analysisDepth: chosenDepth };
+          yield {
+            type: "phase",
+            missionId,
+            phase: "plan",
+            status: "completed",
+          };
+          yield { type: "plan", missionId, plan };
+        } catch (err) {
+          // Re-plan failure is non-fatal: keep the already-approved plan.
+          this.logger.warn(
+            `[SelfDriven] mission ${missionId} re-plan at depth=${chosenDepth} failed, ` +
+              `keeping original plan: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          yield {
+            type: "phase",
+            missionId,
+            phase: "plan",
+            status: "completed",
+            detail: "re-plan failed — proceeding with the original plan",
+          };
+        }
+      }
     }
 
     // ── Phase: execute ────────────────────────────────────────────────────────

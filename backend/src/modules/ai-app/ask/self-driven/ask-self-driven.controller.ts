@@ -62,6 +62,15 @@ class ApproveDto {
   @IsOptional()
   @IsString()
   feedback?: string;
+
+  /**
+   * Analysis depth chosen at the plan-confirm gate. When it differs from the
+   * depth the plan was built with, the runner re-plans at this depth before
+   * executing (step count adjusts). Ignored for the deliver gate.
+   */
+  @IsOptional()
+  @IsIn(["quick", "standard", "deep"])
+  analysisDepth?: "quick" | "standard" | "deep";
 }
 
 /**
@@ -151,6 +160,7 @@ export class AskSelfDrivenController {
       missionId,
       dto.approved,
       dto.feedback,
+      dto.analysisDepth,
     );
     return { ok: true, requestId };
   }

@@ -23,6 +23,12 @@ export interface HitlGateOutcome {
   approved: boolean;
   timedOut: boolean;
   appendInstruction?: string;
+  /**
+   * Analysis depth the human picked at the plan-confirm gate (decoded from the
+   * approval response's opaque `input`). When present and different from the
+   * depth the plan was built with, the runner re-plans at this depth.
+   */
+  analysisDepth?: "quick" | "standard" | "deep";
 }
 
 /** 10-minute default gate timeout (P4a spec). */
@@ -276,7 +282,21 @@ export class SelfDrivenHitlGateService {
     const responseData = result.data;
     const approved = responseData.approved ?? true;
 
-    // Sanitize any append instruction the human provided.
+    // Decode the optional analysis-depth override carried in the opaque `input`.
+    const inputObj =
+      responseData.input && typeof responseData.input === "object"
+        ? (responseData.input as { analysisDepth?: unknown })
+        : undefined;
+    const analysisDepth =
+      inputObj?.analysisDepth === "quick" ||
+      inputObj?.analysisDepth === "standard" ||
+      inputObj?.analysisDepth === "deep"
+        ? inputObj.analysisDepth
+        : undefined;
+
+    // Sanitize any append instruction the human provided. `input` is now used to
+    // carry the depth object, so the legacy string-input feedback fallback only
+    // applies when input is a plain string (older clients).
     let appendInstruction: string | undefined;
     const rawFeedback =
       typeof responseData.feedback === "string"
@@ -303,7 +323,7 @@ export class SelfDrivenHitlGateService {
         `approved=${approved} hasAppend=${!!appendInstruction}`,
     );
     await this.cleanupGate(requestId, missionId, true);
-    return { approved, timedOut: false, appendInstruction };
+    return { approved, timedOut: false, appendInstruction, analysisDepth };
   }
 
   /**

@@ -173,6 +173,11 @@ export class SelfDrivenMissionPlannerService implements ISelfDrivenMissionPlanne
       this.assembleStep(raw, i, stepIds, roleAssignments),
     );
 
+    // Disambiguate duplicate step names so the progress UI never renders two
+    // identical rows — the decomposition LLM occasionally emits e.g. two review
+    // steps both named "审查报告质量". Suffix repeats with a 1-based counter.
+    this.disambiguateStepNames(steps);
+
     // ── Step 5: aggregate timing + cost estimates ─────────────────────────────
     const estimatedDuration = steps.reduce(
       (sum, s) => sum + s.estimatedDuration,
@@ -350,6 +355,23 @@ export class SelfDrivenMissionPlannerService implements ISelfDrivenMissionPlanne
       }
     }
     return assignments;
+  }
+
+  /**
+   * Append a 1-based counter to any step name that occurs more than once, so the
+   * progress list shows distinct labels (e.g. "Review (1)" / "Review (2)").
+   */
+  private disambiguateStepNames(steps: ExecutionStep[]): void {
+    const totals = new Map<string, number>();
+    for (const s of steps) totals.set(s.name, (totals.get(s.name) ?? 0) + 1);
+    const seen = new Map<string, number>();
+    for (const s of steps) {
+      if ((totals.get(s.name) ?? 0) > 1) {
+        const n = (seen.get(s.name) ?? 0) + 1;
+        seen.set(s.name, n);
+        s.name = `${s.name} (${n})`;
+      }
+    }
   }
 
   private assembleStep(

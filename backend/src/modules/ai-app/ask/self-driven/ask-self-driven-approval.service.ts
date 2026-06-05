@@ -40,6 +40,7 @@ export class AskSelfDrivenApprovalService {
     missionId: string,
     approved: boolean,
     feedback?: string,
+    analysisDepth?: "quick" | "standard" | "deep",
   ): Promise<{ requestId: string }> {
     const mapping = await this.prisma.longTermMemory.findUnique({
       where: {
@@ -55,9 +56,13 @@ export class AskSelfDrivenApprovalService {
       throw new NotFoundException("No open approval gate for this mission");
     }
 
+    // Depth is carried opaquely through the generic approval `input` field so
+    // HumanApprovalAdminService stays self-driven-agnostic; the self-driven gate
+    // decodes it. feedback stays the append-instruction channel.
     await this.humanApprovalAdmin.respond(requestId, {
       approved,
       feedback: feedback ?? undefined,
+      input: analysisDepth ? { analysisDepth } : undefined,
     });
 
     this.logger.log(
