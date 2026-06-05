@@ -46,8 +46,6 @@ import { logger } from '@/lib/utils/logger';
 import { useI18n } from '@/lib/i18n/i18n-context';
 import { SelfDrivenPlanCard } from '@/components/ai-ask/SelfDrivenPlanCard';
 import { SelfDrivenApprovalBar } from '@/components/ai-ask/SelfDrivenApprovalBar';
-import { HarnessRuntimeGraph } from '@/components/harness/HarnessRuntimeGraph';
-import { Network, List as ListIcon } from 'lucide-react';
 import type {
   SelfDrivenMissionEvent,
   MissionStartedEvent,
@@ -142,9 +140,11 @@ function TeamCard({ ev }: { ev: TeamBuiltEvent }) {
 function StepRow({
   step,
   completed,
+  model,
 }: {
   step: StepStartedEvent;
   completed: StepCompletedEvent | undefined;
+  model?: string;
 }) {
   const isRunning = !completed;
   const ok = completed?.ok ?? true;
@@ -178,10 +178,17 @@ function StepRow({
         {step.stepName}
       </span>
 
-      {/* Executor */}
-      <span className="shrink-0 text-[11px] text-gray-400">
+      {/* Executor role */}
+      <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
         {step.executor}
       </span>
+
+      {/* Model */}
+      {model && (
+        <span className="font-mono hidden shrink-0 text-[10px] text-gray-400 sm:inline">
+          {model}
+        </span>
+      )}
 
       {/* Duration */}
       {completed && (
@@ -197,9 +204,11 @@ function StepRow({
 function StepsProgress({
   startedEvents,
   completedEvents,
+  roleModel,
 }: {
   startedEvents: StepStartedEvent[];
   completedEvents: StepCompletedEvent[];
+  roleModel: Map<string, string>;
 }) {
   const { t } = useI18n();
   if (!startedEvents.length) return null;
@@ -223,6 +232,7 @@ function StepsProgress({
             key={step.stepId}
             step={step}
             completed={completedMap.get(step.stepId)}
+            model={roleModel.get(step.executor)}
           />
         ))}
       </div>
@@ -355,8 +365,6 @@ export function SelfDrivenStream({
   token = '',
 }: SelfDrivenStreamProps) {
   const { t } = useI18n();
-  // Default to the dynamic runtime graph; "list" keeps the classic stacked view.
-  const [view, setView] = useState<'graph' | 'list'>('graph');
   if (events.length === 0 && !isStreaming) return null;
 
   const startedEv = events.find(
@@ -374,6 +382,17 @@ export function SelfDrivenStream({
   const teamBuiltEvent = events.find(
     (e): e is TeamBuiltEvent => e.type === 'team_built'
   );
+
+  // role → model map (team_built is the source of truth; fall back to the plan's
+  // roleAssignments). Used to label each task row with the model that ran it.
+  const roleModelMap = new Map<string, string>();
+  for (const r of teamBuiltEvent?.roles ?? []) {
+    if (r.modelId) roleModelMap.set(r.roleId, r.modelId);
+  }
+  for (const a of planEvent?.plan?.roleAssignments ?? []) {
+    if (a.modelId && !roleModelMap.has(a.roleId))
+      roleModelMap.set(a.roleId, a.modelId);
+  }
 
   // step events
   const stepStartedEvents = events.filter(
@@ -431,36 +450,6 @@ export function SelfDrivenStream({
         </div>
       )}
 
-      {/* View toggle: dynamic runtime graph vs. classic stacked list */}
-      {(planEvent || stepStartedEvents.length > 0) && (
-        <div className="flex items-center gap-1 self-start rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-xs">
-          <button
-            type="button"
-            onClick={() => setView('graph')}
-            className={`flex items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors ${
-              view === 'graph'
-                ? 'bg-white text-violet-700 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Network size={12} aria-hidden />
-            {t('aiAsk.selfDriven.graphView')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setView('list')}
-            className={`flex items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors ${
-              view === 'list'
-                ? 'bg-white text-violet-700 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <ListIcon size={12} aria-hidden />
-            {t('aiAsk.selfDriven.listView')}
-          </button>
-        </div>
-      )}
-
       {/* Phase badges */}
       {phaseEvents.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -470,12 +459,10 @@ export function SelfDrivenStream({
         </div>
       )}
 
-      {/* ── Dynamic runtime graph (default) ───────────────────────────────── */}
-      {view === 'graph' && (planEvent || stepStartedEvents.length > 0) && (
-        <HarnessRuntimeGraph events={events} isStreaming={isStreaming} />
-      )}
+      {/* Execution plan card */}
+      {planEvent && <SelfDrivenPlanCard ev={planEvent} />}
 
-      {/* HITL approval bar — shown after plan or deliver gate (both views) */}
+      {/* HITL approval bar — shown after plan or deliver gate */}
       {awaitingEvent && (
         <SelfDrivenApprovalBar
           awaiting={awaitingEvent}
@@ -484,18 +471,16 @@ export function SelfDrivenStream({
         />
       )}
 
-      {/* ── Classic stacked list view ─────────────────────────────────────── */}
-      {view === 'list' && (
-        <>
-          {planEvent && <SelfDrivenPlanCard ev={planEvent} />}
-          {teamBuiltEvent && <TeamCard ev={teamBuiltEvent} />}
-          {stepStartedEvents.length > 0 && (
-            <StepsProgress
-              startedEvents={stepStartedEvents}
-              completedEvents={stepCompletedEvents}
-            />
-          )}
-        </>
+      {/* Team members */}
+      {teamBuiltEvent && <TeamCard ev={teamBuiltEvent} />}
+
+      {/* Step-by-step progress — task · role · model */}
+      {stepStartedEvents.length > 0 && (
+        <StepsProgress
+          startedEvents={stepStartedEvents}
+          completedEvents={stepCompletedEvents}
+          roleModel={roleModelMap}
+        />
       )}
 
       {/* Streaming chunk text (before deliverable arrives) */}

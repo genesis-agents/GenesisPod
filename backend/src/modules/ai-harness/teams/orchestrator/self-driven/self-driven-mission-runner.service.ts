@@ -443,11 +443,20 @@ export class SelfDrivenMissionRunner {
       // while each step actually executes on its own elected modelId
       // (plan.roleAssignments). Emitting the elected assignments keeps the UI's
       // model attribution consistent with what each step really runs on.
-      void team; // built for role validation (safety-10) + registry bridging.
-      const roles = assignments.map((a) => ({
-        roleId: a.roleId,
-        modelId: a.modelId,
-      }));
+      // Include the dedicated LEADER first: it coordinates the team but executes
+      // no plan step, so it has no per-step assignment — the team display would
+      // otherwise be missing the leader. Its model is the team's defaultModel.
+      const leaderMember = team.leader;
+      const roles = [
+        {
+          roleId: leaderMember.role.id,
+          modelId: leaderMember.model ?? "",
+        },
+        ...assignments.map((a) => ({
+          roleId: a.roleId,
+          modelId: a.modelId,
+        })),
+      ];
       yield { type: "team_built", missionId, roles };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -490,7 +499,8 @@ export class SelfDrivenMissionRunner {
         break;
       }
       if (
-        missionTokensUsed >= SelfDrivenMissionRunner.SELF_DRIVEN_MISSION_MAX_TOKENS
+        missionTokensUsed >=
+        SelfDrivenMissionRunner.SELF_DRIVEN_MISSION_MAX_TOKENS
       ) {
         const stepsRun = globalStepIndex;
         this.logger.warn(
@@ -518,8 +528,13 @@ export class SelfDrivenMissionRunner {
 
       // Split the tier into batches of SELF_DRIVEN_MAX_PARALLEL_STEPS.
       // Within each batch, steps run concurrently; batches run sequentially.
-      const maxParallel = SelfDrivenMissionRunner.SELF_DRIVEN_MAX_PARALLEL_STEPS;
-      for (let batchStart = 0; batchStart < tier.length; batchStart += maxParallel) {
+      const maxParallel =
+        SelfDrivenMissionRunner.SELF_DRIVEN_MAX_PARALLEL_STEPS;
+      for (
+        let batchStart = 0;
+        batchStart < tier.length;
+        batchStart += maxParallel
+      ) {
         const batch = tier.slice(batchStart, batchStart + maxParallel);
 
         // Per-step token refs (isolate token tracking per concurrent step).
@@ -554,60 +569,86 @@ export class SelfDrivenMissionRunner {
         // Each generator yields SelfDrivenMissionEvent and returns a string.
         // We need the return value (accumulated text), so we wrap each generator
         // to capture it, then merge the yielded events.
-        type StepResult = { stepId: string; output: string; tokens: number; ok: boolean; err?: string };
+        type StepResult = {
+          stepId: string;
+          output: string;
+          tokens: number;
+          ok: boolean;
+          err?: string;
+        };
         const stepResultPromises: Promise<StepResult>[] = [];
 
         // Create wrapped generators that capture output + tokens.
-        const wrappedGens: AsyncGenerator<SelfDrivenMissionEvent, void, unknown>[] =
-          batch.map((step, batchIdx) => {
-            const tokensRef = stepTokensRefs[batchIdx];
-            // Wrap in an async generator that forwards all events and resolves
-            // the result promise when the inner generator finishes.
-            let resolveResult!: (r: StepResult) => void;
-            const resultPromise = new Promise<StepResult>((res) => {
-              resolveResult = res;
-            });
-            stepResultPromises.push(resultPromise);
-
-            // `this` is the instance here (arrow callback). executeStep returns a
-            // lazy generator (no execution until .next()), so creating it eagerly
-            // here avoids aliasing `this` inside the inner generator function.
-            const stepGen = this.executeStep(
-              step,
-              plan,
-              input,
-              stepOutputs,
-              signal,
-              appendContext,
-              lang,
-              tokensRef,
-            );
-            async function* wrappedStep(): AsyncGenerator<SelfDrivenMissionEvent, void, unknown> {
-              try {
-                let output = "";
-                // eslint-disable-next-line no-constant-condition
-                while (true) {
-                  const result = await stepGen.next();
-                  if (result.done) {
-                    output = result.value ?? "";
-                    break;
-                  }
-                  yield result.value;
-                }
-                resolveResult({ stepId: step.id, output, tokens: tokensRef.value, ok: true });
-              } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err);
-                resolveResult({ stepId: step.id, output: "", tokens: tokensRef.value, ok: false, err: msg });
-              }
-            }
-
-            return wrappedStep();
+        const wrappedGens: AsyncGenerator<
+          SelfDrivenMissionEvent,
+          void,
+          unknown
+        >[] = batch.map((step, batchIdx) => {
+          const tokensRef = stepTokensRefs[batchIdx];
+          // Wrap in an async generator that forwards all events and resolves
+          // the result promise when the inner generator finishes.
+          let resolveResult!: (r: StepResult) => void;
+          const resultPromise = new Promise<StepResult>((res) => {
+            resolveResult = res;
           });
+          stepResultPromises.push(resultPromise);
+
+          // `this` is the instance here (arrow callback). executeStep returns a
+          // lazy generator (no execution until .next()), so creating it eagerly
+          // here avoids aliasing `this` inside the inner generator function.
+          const stepGen = this.executeStep(
+            step,
+            plan,
+            input,
+            stepOutputs,
+            signal,
+            appendContext,
+            lang,
+            tokensRef,
+          );
+          async function* wrappedStep(): AsyncGenerator<
+            SelfDrivenMissionEvent,
+            void,
+            unknown
+          > {
+            try {
+              let output = "";
+              // eslint-disable-next-line no-constant-condition
+              while (true) {
+                const result = await stepGen.next();
+                if (result.done) {
+                  output = result.value ?? "";
+                  break;
+                }
+                yield result.value;
+              }
+              resolveResult({
+                stepId: step.id,
+                output,
+                tokens: tokensRef.value,
+                ok: true,
+              });
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              resolveResult({
+                stepId: step.id,
+                output: "",
+                tokens: tokensRef.value,
+                ok: false,
+                err: msg,
+              });
+            }
+          }
+
+          return wrappedStep();
+        });
 
         // Merge all concurrent generator event streams into the parent yield.
         // mergeAsyncGenerators guarantees per-generator ordering while allowing
         // interleaving between generators (same as Promise.race semantics).
-        for await (const event of SelfDrivenMissionRunner.mergeAsyncGenerators(wrappedGens)) {
+        for await (const event of SelfDrivenMissionRunner.mergeAsyncGenerators(
+          wrappedGens,
+        )) {
           yield event;
         }
 
@@ -628,7 +669,9 @@ export class SelfDrivenMissionRunner {
               `[SelfDriven] mission ${missionId} step "${step.name}" completed: ` +
                 `ok=true durationMs=${Date.now() - stepStart} outputChars=${res.output.length}` +
                 ` stepTokens=${tokensRef.value} missionTotal=${missionTokensUsed}` +
-                (res.output.length === 0 ? " (EMPTY OUTPUT — step produced nothing)" : ""),
+                (res.output.length === 0
+                  ? " (EMPTY OUTPUT — step produced nothing)"
+                  : ""),
             );
             yield {
               type: "step_completed",
@@ -1717,11 +1760,11 @@ export class SelfDrivenMissionRunner {
     if (generators.length === 0) return;
 
     // Map each generator to a pending promise that resolves with { gen, result }.
-    type Slot = { gen: AsyncGenerator<T, void, unknown>; result: IteratorResult<T, void> };
-    const pending = new Map<
-      AsyncGenerator<T, void, unknown>,
-      Promise<Slot>
-    >();
+    type Slot = {
+      gen: AsyncGenerator<T, void, unknown>;
+      result: IteratorResult<T, void>;
+    };
+    const pending = new Map<AsyncGenerator<T, void, unknown>, Promise<Slot>>();
 
     const enqueue = (gen: AsyncGenerator<T, void, unknown>): void => {
       pending.set(
@@ -1883,7 +1926,9 @@ export class SelfDrivenMissionRunner {
         : content;
 
     const dimList = rubric
-      .map((d) => `- ${d.dimension} (weight ${d.weight}, passLine ${d.passLine})`)
+      .map(
+        (d) => `- ${d.dimension} (weight ${d.weight}, passLine ${d.passLine})`,
+      )
       .join("\n");
 
     const systemPrompt =
@@ -1927,7 +1972,12 @@ export class SelfDrivenMissionRunner {
         const weight = dim?.weight ?? 1;
         const passLine = dim?.passLine ?? 70;
         weightedSum += s.score * weight;
-        return { dimension: s.dimension, score: s.score, passLine, feedback: s.feedback };
+        return {
+          dimension: s.dimension,
+          score: s.score,
+          passLine,
+          feedback: s.feedback,
+        };
       });
 
       const totalScore = Math.round(weightedSum / totalWeight);
