@@ -61,13 +61,19 @@ export class SelfDrivenMissionRunner {
   private readonly logger = new Logger(SelfDrivenMissionRunner.name);
 
   /**
-   * Feature flag: route tool-capable steps through the ReActLoop (AgentFactory).
-   * Controlled via SELF_DRIVEN_ENABLE_TOOL_LOOP=1 env var (opt-in, default off).
-   * The formatter in SelfDrivenReportComposer handles structured object output so
-   * the deliverable renders as Markdown prose instead of raw JSON.
+   * Feature flag: route tool-capable steps through the ReActLoop (AgentFactory)
+   * so research/analyst steps actually run WEB_SEARCH and write claims with real
+   * inline source links — instead of the LLM writing prose from parametric
+   * memory with no sources.
+   *
+   * Default ON (2026-06-05). Set SELF_DRIVEN_ENABLE_TOOL_LOOP=0 to disable as an
+   * instant escape hatch (no deploy) if report quality regresses. The formatter
+   * in SelfDrivenReportComposer turns any structured agent output into Markdown
+   * prose, and a 120s per-call timeout in the deliver phase keeps a hanging tool
+   * provider from wedging the mission.
    */
   private static readonly ENABLE_TOOL_LOOP =
-    process.env.SELF_DRIVEN_ENABLE_TOOL_LOOP === "1";
+    process.env.SELF_DRIVEN_ENABLE_TOOL_LOOP !== "0";
 
   /**
    * Per-mission token budget ceiling. Execution stops dispatching new steps

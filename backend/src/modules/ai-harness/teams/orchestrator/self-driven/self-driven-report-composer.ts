@@ -296,6 +296,22 @@ export class SelfDrivenReportComposer {
         `Do not include meta-commentary about your role — output the content directly.`,
     );
 
+    // Inline-citation discipline. When the step ran web search / scraping tools,
+    // every non-trivial factual claim should carry its source as an inline
+    // Markdown link to the REAL URL returned by the tool. This is what turns the
+    // report into a sourced research document (claims you can click through to
+    // verify) rather than unsourced prose.
+    parts.push(
+      `\nCitations: when you state a fact, figure, date, or quote that you ` +
+        `obtained from a tool result (web search/scrape) or from the context ` +
+        `above, cite it INLINE as a Markdown link right after the claim, e.g. ` +
+        `"...launched in 2026 ([IEEE](https://example.com/page))". Use ONLY the ` +
+        `exact URLs that appear in your tool results or the provided context — ` +
+        `never invent, guess, or shorten a URL. If you have no real source URL ` +
+        `for a claim, state the claim without a link rather than fabricating one. ` +
+        `Carry forward any source links already present in the context above.`,
+    );
+
     if (language) {
       parts.push(
         `\nIMPORTANT: Write your entire response in ${language}. Do not mix languages.`,

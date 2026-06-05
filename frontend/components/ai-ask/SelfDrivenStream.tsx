@@ -240,6 +240,26 @@ function StepsProgress({
   );
 }
 
+// Render inline citation links as new-tab anchors so sources are clickable and
+// safe (the report weaves [label](url) citations after factual claims).
+const MD_COMPONENTS = {
+  a: ({
+    href,
+    children,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-violet-600 underline decoration-violet-300 underline-offset-2 hover:text-violet-700"
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+};
+
 function ChunkAccumulator({ events }: { events: SelfDrivenMissionEvent[] }) {
   const accumulated = events
     .filter((e): e is ChunkEvent => e.type === 'chunk')
@@ -253,7 +273,9 @@ function ChunkAccumulator({ events }: { events: SelfDrivenMissionEvent[] }) {
   // deliverable renders as a compact file card separately.
   return (
     <div className="prose prose-sm max-h-64 max-w-none overflow-y-auto rounded-lg border border-gray-100 bg-gray-50/50 p-3 text-gray-800">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{accumulated}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+        {accumulated}
+      </ReactMarkdown>
     </div>
   );
 }
@@ -348,7 +370,7 @@ function DeliverableCard({
       {/* Inline preview of the rendered report (collapsible from the card). */}
       {open && (
         <div className="prose prose-sm max-w-none rounded-xl border border-gray-200 bg-white px-4 py-3">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
             {ev.content}
           </ReactMarkdown>
         </div>

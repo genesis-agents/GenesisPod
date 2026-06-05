@@ -91,6 +91,9 @@ describe("SelfDrivenMissionRunner integration", () => {
   afterEach(() => setToolLoop(false));
 
   beforeEach(async () => {
+    // Production default is now ON; force the text path off so these baseline
+    // tests are deterministic. Tool-path tests opt in with setToolLoop(true).
+    setToolLoop(false);
     mockChat = buildChatMock();
 
     const mockGetAvailableModels = buildGetAvailableModelsMock();

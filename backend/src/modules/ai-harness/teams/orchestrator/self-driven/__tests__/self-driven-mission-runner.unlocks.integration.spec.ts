@@ -85,6 +85,9 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
   afterEach(() => setToolLoop(false));
 
   beforeEach(async () => {
+    // Production default is now ON; force the text path off so baseline tests
+    // are deterministic. Tool-path tests opt in with setToolLoop(true).
+    setToolLoop(false);
     mockChat = buildChatMock();
 
     const mockGetAvailableModels = buildGetAvailableModelsMock();
@@ -197,7 +200,8 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
           opts.systemPrompt ??
           opts.messages?.find((m) => m.role === "system")?.content ??
           "";
-        const userContent = opts.messages?.find((m) => m.role === "user")?.content ?? "";
+        const userContent =
+          opts.messages?.find((m) => m.role === "user")?.content ?? "";
 
         // Finalize LLM call (Change 1)
         if (sys.includes(FINALIZE_MARKER)) {
@@ -224,14 +228,23 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
         }
 
         // Rubric
-        if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+        if (
+          sys.includes("expert evaluator") ||
+          userContent.includes("Objective:")
+        ) {
           return {
-            content: JSON.stringify([{ dimension: "accuracy", weight: 1.0, passLine: 70 }]),
+            content: JSON.stringify([
+              { dimension: "accuracy", weight: 1.0, passLine: 70 },
+            ]),
             isError: false,
           };
         }
 
-        return { content: `output for: ${userContent.slice(0, 60)}`, tokensUsed: 100, isError: false };
+        return {
+          content: `output for: ${userContent.slice(0, 60)}`,
+          tokensUsed: 100,
+          isError: false,
+        };
       },
     );
 
@@ -247,19 +260,21 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
     const deliverAppendGate: jest.Mock<
       Promise<import("../self-driven-hitl-gate").HitlGateOutcome>,
       Parameters<SelfDrivenHitlGateService["awaitGate"]>
-    > = jest.fn().mockImplementation(
-      async (_requestId: string, _missionId: string, gate: string) => {
-        gateCallCount.value++;
-        if (gate === "deliver_confirm") {
-          return {
-            approved: true,
-            timedOut: false,
-            appendInstruction: deliverInstruction,
-          };
-        }
-        return { approved: true, timedOut: false };
-      },
-    );
+    > = jest
+      .fn()
+      .mockImplementation(
+        async (_requestId: string, _missionId: string, gate: string) => {
+          gateCallCount.value++;
+          if (gate === "deliver_confirm") {
+            return {
+              approved: true,
+              timedOut: false,
+              appendInstruction: deliverInstruction,
+            };
+          }
+          return { approved: true, timedOut: false };
+        },
+      );
 
     const mockHitlGate = gateMockFrom(deliverAppendGate);
     const teamStub = buildMinimalTeamStub();
@@ -306,7 +321,14 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
 
     // The finalize call must have included the deliver instruction in the user message
     const finalizeChatCall = (chatWithFinalize as jest.Mock).mock.calls.find(
-      (args: [{ systemPrompt?: string; messages?: Array<{ role: string; content: string }> }]) => {
+      (
+        args: [
+          {
+            systemPrompt?: string;
+            messages?: Array<{ role: string; content: string }>;
+          },
+        ],
+      ) => {
         const sys =
           args[0].systemPrompt ??
           args[0].messages?.find((m) => m.role === "system")?.content ??
@@ -315,9 +337,10 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
       },
     );
     expect(finalizeChatCall).toBeDefined();
-    const finalizeUserMsg = finalizeChatCall[0].messages?.find(
-      (m: { role: string; content: string }) => m.role === "user",
-    )?.content ?? "";
+    const finalizeUserMsg =
+      finalizeChatCall[0].messages?.find(
+        (m: { role: string; content: string }) => m.role === "user",
+      )?.content ?? "";
     expect(finalizeUserMsg).toContain(deliverInstruction);
 
     // Deliverable content must be the finalized output (not the raw composed report)
@@ -344,7 +367,14 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
 
     // No finalize LLM call should have been made
     const finalizeCalls = mockChat.mock.calls.filter(
-      (args: [{ systemPrompt?: string; messages?: Array<{ role: string; content: string }> }]) => {
+      (
+        args: [
+          {
+            systemPrompt?: string;
+            messages?: Array<{ role: string; content: string }>;
+          },
+        ],
+      ) => {
         const sys =
           args[0].systemPrompt ??
           args[0].messages?.find((m) => m.role === "system")?.content ??
@@ -369,14 +399,18 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
     // Strategy: lower the budget ceiling to 1 token so any step usage exceeds it,
     // then verify the second step is skipped but the mission still delivers.
     const originalMax = (
-      SelfDrivenMissionRunner as unknown as { SELF_DRIVEN_MISSION_MAX_TOKENS: number }
+      SelfDrivenMissionRunner as unknown as {
+        SELF_DRIVEN_MISSION_MAX_TOKENS: number;
+      }
     ).SELF_DRIVEN_MISSION_MAX_TOKENS;
 
     // Temporarily lower the budget to a value smaller than a single step's usage.
     // The mock chatStream yields usage: { totalTokens: 130 } on the final chunk.
     // Setting the ceiling to 50 ensures the budget is exceeded after step 0.
     (
-      SelfDrivenMissionRunner as unknown as { SELF_DRIVEN_MISSION_MAX_TOKENS: number }
+      SelfDrivenMissionRunner as unknown as {
+        SELF_DRIVEN_MISSION_MAX_TOKENS: number;
+      }
     ).SELF_DRIVEN_MISSION_MAX_TOKENS = 50;
 
     try {
@@ -418,14 +452,23 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
             return { content: JSON.stringify(steps), isError: false };
           }
 
-          if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+          if (
+            sys.includes("expert evaluator") ||
+            userContent.includes("Objective:")
+          ) {
             return {
-              content: JSON.stringify([{ dimension: "accuracy", weight: 1.0, passLine: 70 }]),
+              content: JSON.stringify([
+                { dimension: "accuracy", weight: 1.0, passLine: 70 },
+              ]),
               isError: false,
             };
           }
 
-          return { content: `output for: ${userContent.slice(0, 40)}`, tokensUsed: 100, isError: false };
+          return {
+            content: `output for: ${userContent.slice(0, 40)}`,
+            tokensUsed: 100,
+            isError: false,
+          };
         },
       );
 
@@ -499,7 +542,9 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
     } finally {
       // Restore the original budget ceiling regardless of test outcome
       (
-        SelfDrivenMissionRunner as unknown as { SELF_DRIVEN_MISSION_MAX_TOKENS: number }
+        SelfDrivenMissionRunner as unknown as {
+          SELF_DRIVEN_MISSION_MAX_TOKENS: number;
+        }
       ).SELF_DRIVEN_MISSION_MAX_TOKENS = originalMax;
     }
   });
@@ -704,7 +749,9 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
     expect(report).toContain(
       "AI is transforming software engineering roles significantly.",
     );
-    expect(report).toContain("Upskilling is essential for workforce resilience.");
+    expect(report).toContain(
+      "Upskilling is essential for workforce resilience.",
+    );
   });
 
   // =========================================================================
@@ -748,10 +795,19 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
           return {
             content: JSON.stringify({
               scores: [
-                { dimension: "accuracy", score: 55, feedback: "Several claims lack supporting evidence." },
-                { dimension: "completeness", score: 60, feedback: "Key aspects of the topic are missing." },
+                {
+                  dimension: "accuracy",
+                  score: 55,
+                  feedback: "Several claims lack supporting evidence.",
+                },
+                {
+                  dimension: "completeness",
+                  score: 60,
+                  feedback: "Key aspects of the topic are missing.",
+                },
               ],
-              overallNote: "Report needs improvement in accuracy and completeness.",
+              overallNote:
+                "Report needs improvement in accuracy and completeness.",
             }),
             isError: false,
           };
@@ -785,7 +841,10 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
 
         // Rubric generation — return dimensions whose passLine (70) exceeds the
         // mock eval scores (55, 60) so shouldRefine=true is triggered.
-        if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+        if (
+          sys.includes("expert evaluator") ||
+          userContent.includes("Objective:")
+        ) {
           return {
             content: JSON.stringify([
               { dimension: "accuracy", weight: 0.5, passLine: 70 },
@@ -795,7 +854,10 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
           };
         }
 
-        return { content: `output for: ${userContent.slice(0, 60)}`, isError: false };
+        return {
+          content: `output for: ${userContent.slice(0, 60)}`,
+          isError: false,
+        };
       },
     );
 
@@ -853,7 +915,14 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
 
     // The finalize call must include critique text referencing low-scoring dimensions
     const finalizeChatArgs = (chatWithRubricFlow as jest.Mock).mock.calls.find(
-      (args: [{ systemPrompt?: string; messages?: Array<{ role: string; content: string }> }]) => {
+      (
+        args: [
+          {
+            systemPrompt?: string;
+            messages?: Array<{ role: string; content: string }>;
+          },
+        ],
+      ) => {
         const sys =
           args[0].systemPrompt ??
           args[0].messages?.find((m) => m.role === "system")?.content ??
@@ -876,7 +945,9 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
 
     // A phase event with quality score detail must have been emitted
     const phaseDetails = eventsOfType(events, "phase")
-      .filter((e) => e.phase === "deliver" && e.detail?.includes("quality score="))
+      .filter(
+        (e) => e.phase === "deliver" && e.detail?.includes("quality score="),
+      )
       .map((e) => e.detail ?? "");
     expect(phaseDetails.length).toBeGreaterThanOrEqual(1);
     expect(phaseDetails[0]).toMatch(/quality score=\d+\/100/);
@@ -946,14 +1017,22 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
           return { content: JSON.stringify(steps), isError: false };
         }
 
-        if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+        if (
+          sys.includes("expert evaluator") ||
+          userContent.includes("Objective:")
+        ) {
           return {
-            content: JSON.stringify([{ dimension: "accuracy", weight: 1.0, passLine: 70 }]),
+            content: JSON.stringify([
+              { dimension: "accuracy", weight: 1.0, passLine: 70 },
+            ]),
             isError: false,
           };
         }
 
-        return { content: `output for: ${userContent.slice(0, 60)}`, isError: false };
+        return {
+          content: `output for: ${userContent.slice(0, 60)}`,
+          isError: false,
+        };
       },
     );
 
@@ -1009,15 +1088,21 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
 
     // ── stepC (Synthesise findings) must start AFTER both stepA and stepB complete ─
     const synthesiseStartIdx = events.findIndex(
-      (e) => e.type === "step_started" && (e as { stepName?: string }).stepName === "Synthesise findings",
+      (e) =>
+        e.type === "step_started" &&
+        (e as { stepName?: string }).stepName === "Synthesise findings",
     );
     expect(synthesiseStartIdx).toBeGreaterThan(-1);
 
     const gatherACompletedIdx = events.findIndex(
-      (e) => e.type === "step_completed" && (e as { stepName?: string }).stepName === "Gather data A",
+      (e) =>
+        e.type === "step_completed" &&
+        (e as { stepName?: string }).stepName === "Gather data A",
     );
     const gatherBCompletedIdx = events.findIndex(
-      (e) => e.type === "step_completed" && (e as { stepName?: string }).stepName === "Gather data B",
+      (e) =>
+        e.type === "step_completed" &&
+        (e as { stepName?: string }).stepName === "Gather data B",
     );
 
     expect(gatherACompletedIdx).toBeGreaterThan(-1);
@@ -1028,10 +1113,14 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
 
     // ── Both independent steps start before Synthesise starts ─────────────────
     const gatherAStartIdx = events.findIndex(
-      (e) => e.type === "step_started" && (e as { stepName?: string }).stepName === "Gather data A",
+      (e) =>
+        e.type === "step_started" &&
+        (e as { stepName?: string }).stepName === "Gather data A",
     );
     const gatherBStartIdx = events.findIndex(
-      (e) => e.type === "step_started" && (e as { stepName?: string }).stepName === "Gather data B",
+      (e) =>
+        e.type === "step_started" &&
+        (e as { stepName?: string }).stepName === "Gather data B",
     );
     expect(gatherAStartIdx).toBeLessThan(synthesiseStartIdx);
     expect(gatherBStartIdx).toBeLessThan(synthesiseStartIdx);
@@ -1080,14 +1169,22 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
           return { content: JSON.stringify(steps), isError: false };
         }
 
-        if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+        if (
+          sys.includes("expert evaluator") ||
+          userContent.includes("Objective:")
+        ) {
           return {
-            content: JSON.stringify([{ dimension: "accuracy", weight: 1.0, passLine: 70 }]),
+            content: JSON.stringify([
+              { dimension: "accuracy", weight: 1.0, passLine: 70 },
+            ]),
             isError: false,
           };
         }
 
-        return { content: `output for: ${userContent.slice(0, 60)}`, isError: false };
+        return {
+          content: `output for: ${userContent.slice(0, 60)}`,
+          isError: false,
+        };
       },
     );
 
@@ -1197,9 +1294,14 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
           return { content: JSON.stringify(steps), isError: false };
         }
 
-        if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+        if (
+          sys.includes("expert evaluator") ||
+          userContent.includes("Objective:")
+        ) {
           return {
-            content: JSON.stringify([{ dimension: "accuracy", weight: 1.0, passLine: 70 }]),
+            content: JSON.stringify([
+              { dimension: "accuracy", weight: 1.0, passLine: 70 },
+            ]),
             isError: false,
           };
         }
@@ -1208,7 +1310,10 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
         if (userContent.includes("Step Beta")) {
           throw new Error("Simulated fallback failure for Step Beta");
         }
-        return { content: `output for: ${userContent.slice(0, 60)}`, isError: false };
+        return {
+          content: `output for: ${userContent.slice(0, 60)}`,
+          isError: false,
+        };
       },
     );
 
@@ -1283,7 +1388,9 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
     expect(stepCompleted).toHaveLength(2);
 
     // Step Alpha must have succeeded.
-    const alphaCompleted = stepCompleted.find((e) => e.stepName === "Step Alpha");
+    const alphaCompleted = stepCompleted.find(
+      (e) => e.stepName === "Step Alpha",
+    );
     expect(alphaCompleted).toBeDefined();
     expect(alphaCompleted!.ok).toBe(true);
 
@@ -1344,8 +1451,16 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
           return {
             content: JSON.stringify({
               scores: [
-                { dimension: "accuracy", score: 85, feedback: "Well-supported claims." },
-                { dimension: "completeness", score: 88, feedback: "Comprehensive coverage." },
+                {
+                  dimension: "accuracy",
+                  score: 85,
+                  feedback: "Well-supported claims.",
+                },
+                {
+                  dimension: "completeness",
+                  score: 88,
+                  feedback: "Comprehensive coverage.",
+                },
               ],
               overallNote: "High quality report, no significant gaps.",
             }),
@@ -1380,7 +1495,10 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
         }
 
         // Rubric generation
-        if (sys.includes("expert evaluator") || userContent.includes("Objective:")) {
+        if (
+          sys.includes("expert evaluator") ||
+          userContent.includes("Objective:")
+        ) {
           return {
             content: JSON.stringify([
               { dimension: "accuracy", weight: 0.5, passLine: 70 },
@@ -1390,7 +1508,10 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
           };
         }
 
-        return { content: `output for: ${userContent.slice(0, 60)}`, isError: false };
+        return {
+          content: `output for: ${userContent.slice(0, 60)}`,
+          isError: false,
+        };
       },
     );
 
@@ -1453,7 +1574,9 @@ describe("SelfDrivenMissionRunner unlocks integration", () => {
 
     // Quality score detail phase event was still emitted (score signal always sent)
     const phaseDetails = eventsOfType(events, "phase")
-      .filter((e) => e.phase === "deliver" && e.detail?.includes("quality score="))
+      .filter(
+        (e) => e.phase === "deliver" && e.detail?.includes("quality score="),
+      )
       .map((e) => e.detail ?? "");
     expect(phaseDetails.length).toBeGreaterThanOrEqual(1);
   });
