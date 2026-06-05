@@ -35,6 +35,55 @@ export class AskSelfDrivenMissionStore implements MissionTerminalArbiter {
     });
   }
 
+  /**
+   * Persist the offloaded report reference (object-storage key + byte size)
+   * after the deliver phase. Best-effort: never throws (a storage hiccup must
+   * not fail the mission — the report is still in the event journal).
+   */
+  async setReportRef(
+    missionId: string,
+    reportUri: string,
+    reportSize: number,
+  ): Promise<void> {
+    await this.prisma.askSelfDrivenMission
+      .update({
+        where: { id: missionId },
+        data: { reportUri, reportSize },
+      })
+      .catch((err: unknown) => {
+        this.logger.warn(
+          `[report-ref ${missionId}] failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  /** Owner + report reference for the download endpoint. */
+  async getReportMeta(missionId: string): Promise<{
+    userId: string;
+    reportUri: string | null;
+  } | null> {
+    const row = await this.prisma.askSelfDrivenMission.findUnique({
+      where: { id: missionId },
+      select: { userId: true, reportUri: true },
+    });
+    return row ? { userId: row.userId, reportUri: row.reportUri } : null;
+  }
+
+  /**
+   * Fallback report source: the most recent `deliverable` event content from
+   * the durable event journal. Used by the download endpoint when object
+   * storage is disabled / the upload failed (reportUri null).
+   */
+  async getLatestDeliverableContent(missionId: string): Promise<string | null> {
+    const row = await this.prisma.askSelfDrivenMissionEvent.findFirst({
+      where: { missionId, type: "self-driven.deliverable" },
+      orderBy: { ts: "desc" },
+      select: { payload: true },
+    });
+    const content = (row?.payload as { content?: unknown } | null)?.content;
+    return typeof content === "string" ? content : null;
+  }
+
   /** Owner userId for a mission, or null if unknown (IDOR fallback). */
   async getOwnerById(missionId: string): Promise<string | null> {
     const row = await this.prisma.askSelfDrivenMission.findUnique({

@@ -1,16 +1,26 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   Param,
+  Res,
   UseGuards,
   Request,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
   Logger,
 } from "@nestjs/common";
+import type { Response } from "express";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
-import { IsBoolean, IsObject, IsOptional, IsString } from "class-validator";
+import {
+  IsBoolean,
+  IsIn,
+  IsObject,
+  IsOptional,
+  IsString,
+} from "class-validator";
 import { randomUUID } from "crypto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import {
@@ -22,6 +32,7 @@ import {
   MissionAbortReason,
   MissionOwnershipRegistry,
 } from "@/modules/ai-harness/facade";
+import { ObjectStorageService } from "@/modules/platform/storage/object-store/object-storage.service";
 import { AskSelfDrivenMissionStore } from "./ask-self-driven-mission.store";
 import { SelfDrivenMissionDispatcher } from "./self-driven-mission-dispatcher.service";
 import { AskSelfDrivenApprovalService } from "./ask-self-driven-approval.service";
@@ -37,6 +48,11 @@ class RunSelfDrivenDto {
   @IsOptional()
   @IsObject()
   clarifications?: Record<string, string>;
+
+  /** Analysis depth: quick | standard | deep (default standard). */
+  @IsOptional()
+  @IsIn(["quick", "standard", "deep"])
+  analysisDepth?: "quick" | "standard" | "deep";
 }
 
 class ApproveDto {
@@ -71,6 +87,7 @@ export class AskSelfDrivenController {
     private readonly approval: AskSelfDrivenApprovalService,
     private readonly ownership: MissionOwnershipRegistry,
     private readonly abortRegistry: MissionAbortRegistry,
+    private readonly objectStorage: ObjectStorageService,
   ) {}
 
   @Post("run")
@@ -100,7 +117,12 @@ export class AskSelfDrivenController {
     void this.dispatcher
       .runInBackground(
         missionId,
-        { prompt: dto.prompt, userId, clarifications: dto.clarifications },
+        {
+          prompt: dto.prompt,
+          userId,
+          clarifications: dto.clarifications,
+          analysisDepth: dto.analysisDepth,
+        },
         userId,
       )
       .catch((err: unknown) => {
@@ -145,6 +167,44 @@ export class AskSelfDrivenController {
       MissionAbortReason.user_cancelled,
     );
     return { ok: aborted };
+  }
+
+  @Get("missions/:missionId/report.md")
+  @ApiOperation({ summary: "Download the mission's final report (markdown)" })
+  @ApiResponse({ status: 200, description: "text/markdown attachment" })
+  async downloadReport(
+    @Request() req: { user: { id: string } },
+    @Param("missionId") missionId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const meta = await this.store.getReportMeta(missionId);
+    if (!meta) throw new NotFoundException("Mission not found");
+    if (meta.userId !== req.user.id) {
+      throw new ForbiddenException("Not your mission");
+    }
+
+    // Prefer external object storage (durable, offloaded); fall back to the
+    // deliverable content kept in the event journal when storage is disabled
+    // or the offload had not completed.
+    let content: string | null = null;
+    if (meta.reportUri && this.objectStorage.isEnabled()) {
+      content = await this.objectStorage
+        .downloadText(meta.reportUri)
+        .catch(() => null);
+    }
+    if (content == null) {
+      content = await this.store.getLatestDeliverableContent(missionId);
+    }
+    if (content == null) {
+      throw new NotFoundException("No report available for this mission yet");
+    }
+
+    res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="self-driven-report-${missionId}.md"`,
+    );
+    res.send(content);
   }
 
   private async assertOwner(missionId: string, userId: string): Promise<void> {

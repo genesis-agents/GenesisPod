@@ -10157,6 +10157,12 @@ model AskSelfDrivenMission {
   prompt       String?
   errorMessage String?  @map("error_message")
   heartbeatAt  DateTime? @map("heartbeat_at")
+  // Downloadable deliverable: the final report is offloaded to external object
+  // storage (reportUri = object key) so it survives + is downloadable later.
+  // Null until the deliver phase completes (or if object storage is disabled —
+  // the download endpoint then falls back to the event journal's deliverable).
+  reportUri    String?  @map("report_uri")
+  reportSize   Int?     @map("report_size")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

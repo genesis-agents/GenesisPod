@@ -65,6 +65,21 @@ type KnownRole = (typeof KNOWN_ROLES)[number];
 /** How many unique roles the planner may assign per plan (safety cap). */
 const MAX_ROLES = 5;
 
+/** Analysis depth → step-decomposition step budget. */
+function depthToMaxSteps(
+  depth: "quick" | "standard" | "deep" | undefined,
+): number {
+  switch (depth) {
+    case "quick":
+      return 4;
+    case "deep":
+      return 12;
+    case "standard":
+    default:
+      return 8;
+  }
+}
+
 /** Fallback single role when LLM decomposition yields no useful role hints. */
 const FALLBACK_ROLE: KnownRole = "researcher";
 
@@ -231,6 +246,7 @@ export class SelfDrivenMissionPlannerService implements ISelfDrivenMissionPlanne
       const result = await this.decomposition.decompose({
         goal: input.prompt,
         context: input.context,
+        maxSteps: depthToMaxSteps(input.analysisDepth),
       });
       this.logger.debug(
         `[SelfDrivenPlanner] decomposed → ${result.steps.length} raw steps`,

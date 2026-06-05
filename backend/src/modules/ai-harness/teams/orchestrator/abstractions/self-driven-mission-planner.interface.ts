@@ -19,6 +19,7 @@
  */
 
 import type { MissionExecutionPlan } from "../orchestrator.interface";
+import type { SelfDrivenAnalysisDepth } from "./self-driven-mission.types";
 
 /** Input that drives one SelfDrivenMissionPlanner.plan() call. */
 export interface SelfDrivenPlannerInput {
@@ -29,6 +30,8 @@ export interface SelfDrivenPlannerInput {
   /** Optional context hints (domain, constraints, etc.). Must NOT include
    *  timestamps or random ids (prompt-cache stability, reverse-insight #3/#7). */
   context?: Record<string, unknown>;
+  /** Analysis depth — controls step-decomposition maxSteps (default "standard"). */
+  analysisDepth?: SelfDrivenAnalysisDepth;
   /** Cooperative cancellation. */
   signal?: AbortSignal;
 }

@@ -12,6 +12,15 @@
 
 import type { MissionExecutionPlan } from "../orchestrator.interface";
 
+/**
+ * Analysis depth knob — controls how thorough the mission is.
+ *   quick    — fewer steps, shorter per-step output (fast skim).
+ *   standard — the default balance (current behaviour).
+ *   deep     — more steps, longer per-step output (exhaustive report).
+ * Maps to step-decomposition maxSteps + per-step TaskProfile outputLength.
+ */
+export type SelfDrivenAnalysisDepth = "quick" | "standard" | "deep";
+
 /** Input that drives one autonomous self-driven mission. */
 export interface SelfDrivenMissionInput {
   /** Raw user request — the only thing the user must provide. */
@@ -20,6 +29,8 @@ export interface SelfDrivenMissionInput {
   userId: string;
   /** Optional answers gathered during the clarify phase. */
   clarifications?: Record<string, string>;
+  /** Analysis depth (default "standard" when omitted). */
+  analysisDepth?: SelfDrivenAnalysisDepth;
 }
 
 /** Coarse-grained lifecycle phases of a self-driven mission. */

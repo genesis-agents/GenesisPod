@@ -24,12 +24,19 @@ import {
   SelfDrivenEventRelay,
   SelfDrivenMissionRunner,
 } from "@/modules/ai-harness/facade";
+import { ObjectStorageService } from "@/modules/platform/storage/object-store/object-storage.service";
 import { AskSelfDrivenMissionStore } from "./ask-self-driven-mission.store";
+
+/** Object-storage key for a mission's downloadable report. */
+export function selfDrivenReportKey(missionId: string): string {
+  return `self-driven-reports/${missionId}/report.md`;
+}
 
 export interface SelfDrivenDispatchInput {
   prompt: string;
   userId: string;
   clarifications?: Record<string, string>;
+  analysisDepth?: "quick" | "standard" | "deep";
 }
 
 @Injectable()
@@ -42,6 +49,7 @@ export class SelfDrivenMissionDispatcher {
     private readonly store: AskSelfDrivenMissionStore,
     private readonly abortRegistry: MissionAbortRegistry,
     private readonly lifecycle: MissionLifecycleManager,
+    private readonly objectStorage: ObjectStorageService,
   ) {}
 
   /**
@@ -88,12 +96,25 @@ export class SelfDrivenMissionDispatcher {
           prompt: input.prompt,
           userId,
           clarifications: input.clarifications,
+          analysisDepth: input.analysisDepth,
         },
         controller.signal,
       )) {
         await this.relay.emitMissionEvent(event, userId);
         if (event.type === "error") {
           failureMessage = event.message;
+        }
+        // Offload the final report to external object storage so it becomes a
+        // durable, downloadable deliverable (reuses the platform object store,
+        // same pattern as TopicReport offload). Best-effort: a storage failure
+        // never fails the mission — the report also lives in the event journal,
+        // which the download endpoint falls back to.
+        if (
+          event.type === "deliverable" &&
+          event.deliverableType === "report" &&
+          event.content
+        ) {
+          await this.offloadReport(missionId, event.content);
         }
       }
     } catch (err) {
@@ -115,6 +136,37 @@ export class SelfDrivenMissionDispatcher {
     }
 
     await this.finalize(missionId, failureMessage);
+  }
+
+  /**
+   * Upload the final report markdown to external object storage and record the
+   * key on the mission row. No-op (and not an error) when object storage is
+   * disabled — the report stays available via the event journal fallback.
+   */
+  private async offloadReport(
+    missionId: string,
+    content: string,
+  ): Promise<void> {
+    if (!this.objectStorage.isEnabled()) return;
+    try {
+      const key = selfDrivenReportKey(missionId);
+      const res = await this.objectStorage.uploadText(content, key);
+      if (res.success && res.key) {
+        await this.store.setReportRef(
+          missionId,
+          res.key,
+          Buffer.byteLength(content, "utf-8"),
+        );
+      } else {
+        this.logger.warn(
+          `[self-driven ${missionId}] report offload skipped: ${res.error ?? "unknown"}`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `[self-driven ${missionId}] report offload failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   private async finalize(

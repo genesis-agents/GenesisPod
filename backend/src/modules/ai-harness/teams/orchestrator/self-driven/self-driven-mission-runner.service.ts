@@ -100,6 +100,7 @@ export class SelfDrivenMissionRunner {
         context: input.clarifications
           ? (input.clarifications as Record<string, unknown>)
           : undefined,
+        analysisDepth: input.analysisDepth,
         signal,
       });
     } catch (err) {
@@ -554,8 +555,8 @@ export class SelfDrivenMissionRunner {
       priorContext,
     );
 
-    // Select TaskProfile based on step type / loopKind.
-    const taskProfile = this.resolveTaskProfile(step);
+    // Select TaskProfile based on step type / loopKind + analysis depth.
+    const taskProfile = this.resolveTaskProfile(step, input.analysisDepth);
 
     // Resolve modelId from the role assignment; "" = LLMFactory default.
     const assignment = plan.roleAssignments?.find(
@@ -837,18 +838,38 @@ export class SelfDrivenMissionRunner {
   }
 
   /**
-   * Resolve TaskProfile based on step type and loopKind.
+   * Resolve TaskProfile based on step type, loopKind, and analysis depth.
    * No hard-coded temperatures — all creativity/length choices go through TaskProfile.
+   *
+   * Depth shifts only the output length: "quick" shortens each step by one notch
+   * (faster, terser), "deep" pushes every step to the longest tier (exhaustive),
+   * "standard" keeps the per-step-type defaults.
    */
-  private resolveTaskProfile(step: ExecutionStep): TaskProfile {
-    if (step.type === "delivery") {
-      return { creativity: "medium", outputLength: "long" };
+  private resolveTaskProfile(
+    step: ExecutionStep,
+    depth?: "quick" | "standard" | "deep",
+  ): TaskProfile {
+    const base: TaskProfile =
+      step.type === "delivery"
+        ? { creativity: "medium", outputLength: "long" }
+        : step.type === "review"
+          ? { creativity: "low", outputLength: "medium" }
+          : // task / integration / default → research-style output
+            { creativity: "low", outputLength: "long" };
+
+    if (depth === "deep") {
+      return { ...base, outputLength: "long" };
     }
-    if (step.type === "review") {
-      return { creativity: "low", outputLength: "medium" };
+    if (depth === "quick") {
+      const shorter: Record<string, TaskProfile["outputLength"]> = {
+        long: "medium",
+        medium: "short",
+        short: "short",
+        minimal: "minimal",
+      };
+      return { ...base, outputLength: shorter[base.outputLength ?? "long"] };
     }
-    // task / integration / default → research-style output
-    return { creativity: "low", outputLength: "long" };
+    return base;
   }
 
   /**

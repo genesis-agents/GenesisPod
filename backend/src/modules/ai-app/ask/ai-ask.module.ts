@@ -12,6 +12,8 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { CreditsModule } from "../../platform/credits/credits.module";
+// External object storage for the downloadable self-driven report deliverable.
+import { StorageModule } from "../../platform/storage/storage.module";
 // PR-2: KbQueryService — wiki-aware unified KB facade. Replaces the direct
 // RAGPipelineService injection in ai-ask.service.ts so wiki augmentation is
 // transparent to the consumer.
@@ -54,6 +56,7 @@ import { HandoffAdapter } from "./adapters/handoff.adapter";
     CreditsModule,
     CollaborationModule,
     SelfDrivenTeamModule,
+    StorageModule,
     // Gateway JWT 校验（与 NotificationGateway / TopicResearchGateway 同模式）
     JwtModule.registerAsync({
       imports: [ConfigModule],
