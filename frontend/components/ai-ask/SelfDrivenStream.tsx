@@ -252,6 +252,10 @@ function DeliverableCard({
 }) {
   const { t } = useI18n();
   const [downloading, setDownloading] = useState(false);
+  const [open, setOpen] = useState(true);
+
+  const filename = `self-driven-report-${ev.missionId.slice(0, 8)}.md`;
+  const sizeKb = Math.max(1, Math.round((ev.content?.length ?? 0) / 1024));
 
   const handleDownload = async () => {
     if (!ev.missionId || downloading) return;
@@ -268,7 +272,7 @@ function DeliverableCard({
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `self-driven-report-${ev.missionId.slice(0, 8)}.md`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -281,32 +285,56 @@ function DeliverableCard({
   };
 
   return (
-    <div className="mt-3 rounded-xl border border-gray-200 bg-white shadow-sm">
-      <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2.5">
-        <FileText size={15} className="shrink-0 text-violet-600" aria-hidden />
-        <span className="text-sm font-semibold capitalize text-gray-800">
-          {t('aiAsk.selfDriven.deliverable')}
-        </span>
+    <div className="mt-3 space-y-2">
+      {/* Embedded file artifact — the deliverable rendered as a downloadable
+          document card (icon + name + type/size + a prominent Download action). */}
+      <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3.5 py-3 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 transition-colors hover:bg-violet-100"
+          aria-label={open ? 'Collapse' : 'Expand'}
+        >
+          <FileText size={18} className="text-violet-600" aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="min-w-0 flex-1 text-left"
+        >
+          <div className="truncate text-sm font-semibold text-gray-800">
+            {filename}
+          </div>
+          <div className="text-xs text-gray-400">
+            {t('aiAsk.selfDriven.deliverable')} · MD · {sizeKb} KB
+          </div>
+        </button>
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
-          className="ml-auto h-7 gap-1.5 px-2.5 text-xs"
+          className="shrink-0 gap-1.5"
           onClick={handleDownload}
           disabled={downloading || !token}
         >
           {downloading ? (
-            <Loader size={12} className="animate-spin" aria-hidden />
+            <Loader size={13} className="animate-spin" aria-hidden />
           ) : (
-            <Download size={12} aria-hidden />
+            <Download size={13} aria-hidden />
           )}
           {downloading
             ? t('aiAsk.selfDriven.downloading')
             : t('aiAsk.selfDriven.download')}
         </Button>
       </div>
-      <div className="prose prose-sm max-w-none px-4 py-3">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{ev.content}</ReactMarkdown>
-      </div>
+
+      {/* Inline preview of the rendered report (collapsible from the card). */}
+      {open && (
+        <div className="prose prose-sm max-w-none rounded-xl border border-gray-200 bg-white px-4 py-3">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {ev.content}
+          </ReactMarkdown>
+        </div>
+      )}
     </div>
   );
 }
