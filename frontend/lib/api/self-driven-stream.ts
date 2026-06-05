@@ -173,8 +173,9 @@ export async function respondApproval(opts: {
   approved: boolean;
   feedback?: string;
   token: string;
+  analysisDepth?: 'quick' | 'standard' | 'deep';
 }): Promise<void> {
-  const { missionId, approved, feedback, token } = opts;
+  const { missionId, approved, feedback, token, analysisDepth } = opts;
   const res = await fetch(
     `${config.apiUrl}/ask/self-driven/missions/${encodeURIComponent(
       missionId
@@ -185,7 +186,7 @@ export async function respondApproval(opts: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ approved, feedback }),
+      body: JSON.stringify({ approved, feedback, analysisDepth }),
     }
   );
   if (!res.ok) {

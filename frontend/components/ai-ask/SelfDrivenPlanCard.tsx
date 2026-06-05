@@ -16,6 +16,7 @@ import { ClipboardList, Users, Star, Package } from 'lucide-react';
 import type { PlanEvent } from '@/lib/api/self-driven-stream';
 import { SectionPanelCard } from '@/components/ui/cards/SectionPanelCard';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table/Table';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 const LOOP_KIND_LABEL: Record<string, string> = {
   react: 'ReAct',
@@ -45,6 +46,7 @@ function SectionHeader({
 }
 
 export function SelfDrivenPlanCard({ ev }: { ev: PlanEvent }) {
+  const { t } = useI18n();
   const { plan } = ev;
   const hasRoleAssignments =
     plan.roleAssignments && plan.roleAssignments.length > 0;
@@ -52,7 +54,7 @@ export function SelfDrivenPlanCard({ ev }: { ev: PlanEvent }) {
 
   return (
     <SectionPanelCard
-      title="Execution Plan"
+      title={t('aiAsk.selfDriven.planTitle')}
       icon={<ClipboardList className="h-4 w-4" aria-hidden />}
       accent="blue"
       actions={
@@ -70,7 +72,7 @@ export function SelfDrivenPlanCard({ ev }: { ev: PlanEvent }) {
           <div className="space-y-1.5">
             <SectionHeader
               icon={<ClipboardList size={12} aria-hidden />}
-              label="Steps"
+              label={t('aiAsk.selfDriven.planStepsLabel')}
             />
             <ol className="space-y-1">
               {plan.steps.map((step, idx) => (
@@ -100,7 +102,7 @@ export function SelfDrivenPlanCard({ ev }: { ev: PlanEvent }) {
           <div className="space-y-1.5">
             <SectionHeader
               icon={<Users size={12} aria-hidden />}
-              label="Role Assignments"
+              label={t('aiAsk.selfDriven.planRolesLabel')}
             />
             <Table
               bordered
@@ -110,10 +112,10 @@ export function SelfDrivenPlanCard({ ev }: { ev: PlanEvent }) {
               <THead className="bg-gray-50">
                 <Tr>
                   <Th className="px-3 py-1.5 font-semibold text-gray-500">
-                    Role
+                    {t('aiAsk.selfDriven.planRoleCol')}
                   </Th>
                   <Th className="px-3 py-1.5 font-semibold text-gray-500">
-                    Model
+                    {t('aiAsk.selfDriven.planModelCol')}
                   </Th>
                 </Tr>
               </THead>
@@ -138,7 +140,7 @@ export function SelfDrivenPlanCard({ ev }: { ev: PlanEvent }) {
           <div className="space-y-1.5">
             <SectionHeader
               icon={<Star size={12} aria-hidden />}
-              label="Acceptance Rubric"
+              label={t('aiAsk.selfDriven.planRubricLabel')}
             />
             <Table
               bordered
@@ -148,13 +150,13 @@ export function SelfDrivenPlanCard({ ev }: { ev: PlanEvent }) {
               <THead className="bg-gray-50">
                 <Tr>
                   <Th className="px-3 py-1.5 font-semibold text-gray-500">
-                    Dimension
+                    {t('aiAsk.selfDriven.planDimensionCol')}
                   </Th>
                   <Th className="px-3 py-1.5 text-right font-semibold text-gray-500">
-                    Weight
+                    {t('aiAsk.selfDriven.planWeightCol')}
                   </Th>
                   <Th className="px-3 py-1.5 text-right font-semibold text-gray-500">
-                    Pass Line
+                    {t('aiAsk.selfDriven.planPassLineCol')}
                   </Th>
                 </Tr>
               </THead>

@@ -32,11 +32,7 @@ import type {
 } from '@/lib/api/self-driven-stream';
 import { respondApproval } from '@/lib/api/self-driven-stream';
 import { logger } from '@/lib/utils/logger';
-
-const GATE_LABEL: Record<AwaitingApprovalEvent['gate'], string> = {
-  plan_confirm: 'Plan Confirmation',
-  deliver_confirm: 'Delivery Confirmation',
-};
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 interface SelfDrivenApprovalBarProps {
   awaiting: AwaitingApprovalEvent;
@@ -49,11 +45,18 @@ export function SelfDrivenApprovalBar({
   resolved,
   token,
 }: SelfDrivenApprovalBarProps) {
+  const { t } = useI18n();
   const [appendOpen, setAppendOpen] = useState(false);
   const [appendText, setAppendText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [depth, setDepth] = useState<'quick' | 'standard' | 'deep'>('standard');
   const appendRef = useRef<HTMLTextAreaElement>(null);
+
+  const GATE_LABEL: Record<AwaitingApprovalEvent['gate'], string> = {
+    plan_confirm: t('aiAsk.selfDriven.planConfirmation'),
+    deliver_confirm: t('aiAsk.selfDriven.deliveryConfirmation'),
+  };
 
   // Once resolved, show the outcome pill and hide action buttons
   if (resolved) {
@@ -75,14 +78,14 @@ export function SelfDrivenApprovalBar({
         <span className="font-medium">
           {GATE_LABEL[awaiting.gate]}
           {timedOut
-            ? ' (timed out — auto-resolved)'
+            ? t('aiAsk.selfDriven.timedOutSuffix')
             : approved
-              ? ' approved'
-              : ' rejected'}
+              ? t('aiAsk.selfDriven.approvedSuffix')
+              : t('aiAsk.selfDriven.rejectedSuffix')}
         </span>
         {resolved.appendInstruction && (
           <span className="ml-auto text-xs opacity-70">
-            Append instruction injected
+            {t('aiAsk.selfDriven.appendInjected')}
           </span>
         )}
       </div>
@@ -98,6 +101,7 @@ export function SelfDrivenApprovalBar({
         approved,
         feedback: appendText.trim() || undefined,
         token,
+        analysisDepth: awaiting.gate === 'plan_confirm' ? depth : undefined,
       });
       setAppendOpen(false);
     } catch (err) {
@@ -121,12 +125,52 @@ export function SelfDrivenApprovalBar({
             aria-hidden
           />
           <span className="text-sm font-semibold text-amber-800">
-            {GATE_LABEL[awaiting.gate]} Required
+            {t('aiAsk.selfDriven.required', {
+              label: GATE_LABEL[awaiting.gate],
+            })}
           </span>
         </div>
 
         {/* Prompt */}
         <p className="px-4 py-3 text-sm text-amber-900">{awaiting.prompt}</p>
+
+        {/* Analysis depth selector — only for plan_confirm gate */}
+        {awaiting.gate === 'plan_confirm' && (
+          <div className="flex items-center gap-2 border-t border-amber-100 px-4 py-2.5">
+            <span className="text-xs text-amber-700">
+              {t('aiAsk.selfDriven.depthLabel')}
+            </span>
+            <div className="flex gap-1">
+              {(
+                [
+                  {
+                    v: 'quick' as const,
+                    label: t('aiAsk.selfDriven.depthQuick'),
+                  },
+                  {
+                    v: 'standard' as const,
+                    label: t('aiAsk.selfDriven.depthStandard'),
+                  },
+                  {
+                    v: 'deep' as const,
+                    label: t('aiAsk.selfDriven.depthDeep'),
+                  },
+                ] as const
+              ).map((opt) => (
+                <Button
+                  key={opt.v}
+                  type="button"
+                  variant={depth === opt.v ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 px-3 text-xs"
+                  onClick={() => setDepth(opt.v)}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex items-center gap-2 border-t border-amber-100 px-4 py-2.5">
@@ -142,7 +186,7 @@ export function SelfDrivenApprovalBar({
             ) : (
               <CheckCircle size={13} aria-hidden />
             )}
-            <span className="ml-1.5">Approve</span>
+            <span className="ml-1.5">{t('aiAsk.selfDriven.approve')}</span>
           </Button>
 
           <Button
@@ -153,7 +197,7 @@ export function SelfDrivenApprovalBar({
             className="border-red-300 text-red-600 hover:bg-red-50"
           >
             <XCircle size={13} aria-hidden />
-            <span className="ml-1.5">Reject</span>
+            <span className="ml-1.5">{t('aiAsk.selfDriven.reject')}</span>
           </Button>
 
           <button
@@ -163,7 +207,7 @@ export function SelfDrivenApprovalBar({
             className="ml-auto flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 disabled:pointer-events-none disabled:opacity-50"
           >
             <MessageSquarePlus size={13} aria-hidden />
-            Append instruction
+            {t('aiAsk.selfDriven.appendInstruction')}
           </button>
         </div>
 
@@ -179,8 +223,8 @@ export function SelfDrivenApprovalBar({
       <Modal
         open={appendOpen}
         onClose={() => setAppendOpen(false)}
-        title="Append Instruction"
-        subtitle="This text will be injected into the mission context before execution continues."
+        title={t('aiAsk.selfDriven.appendModalTitle')}
+        subtitle={t('aiAsk.selfDriven.appendModalSubtitle')}
         size="md"
         closeOnOverlayClick={false}
         footer={
@@ -191,7 +235,7 @@ export function SelfDrivenApprovalBar({
               onClick={() => setAppendOpen(false)}
               disabled={submitting}
             >
-              Cancel
+              {t('aiAsk.selfDriven.cancel')}
             </Button>
             <Button
               variant="default"
@@ -203,7 +247,7 @@ export function SelfDrivenApprovalBar({
               {submitting && (
                 <Loader size={13} className="mr-1.5 animate-spin" aria-hidden />
               )}
-              Approve + Append
+              {t('aiAsk.selfDriven.approveAppend')}
             </Button>
           </>
         }
@@ -211,7 +255,7 @@ export function SelfDrivenApprovalBar({
         <Textarea
           ref={appendRef}
           rows={4}
-          placeholder="e.g. Focus the report on cost implications and add a risk section."
+          placeholder={t('aiAsk.selfDriven.appendPlaceholder')}
           value={appendText}
           onChange={(e) => setAppendText(e.target.value)}
           disabled={submitting}

@@ -43,6 +43,7 @@ import {
 import { Button } from '@/components/ui/primitives/button';
 import { config } from '@/lib/utils/config';
 import { logger } from '@/lib/utils/logger';
+import { useI18n } from '@/lib/i18n/i18n-context';
 import { SelfDrivenPlanCard } from '@/components/ai-ask/SelfDrivenPlanCard';
 import { SelfDrivenApprovalBar } from '@/components/ai-ask/SelfDrivenApprovalBar';
 import type {
@@ -71,6 +72,7 @@ interface SelfDrivenStreamProps {
 // --------------- sub-renderers ---------------
 
 function PhaseBadge({ ev }: { ev: PhaseEvent }) {
+  const { t } = useI18n();
   const toneMap: Record<PhaseEvent['status'], BadgeTone> = {
     started: 'running',
     completed: 'success',
@@ -85,7 +87,9 @@ function PhaseBadge({ ev }: { ev: PhaseEvent }) {
         <span>
           <span className="capitalize">{ev.phase}</span>
           <span className="ml-1 opacity-60">
-            {ev.status === 'started' ? 'Running' : 'Done'}
+            {ev.status === 'started'
+              ? t('aiAsk.selfDriven.phaseRunning')
+              : t('aiAsk.selfDriven.phaseDone')}
           </span>
         </span>
       }
@@ -96,14 +100,17 @@ function PhaseBadge({ ev }: { ev: PhaseEvent }) {
 }
 
 function TeamCard({ ev }: { ev: TeamBuiltEvent }) {
+  const { t } = useI18n();
   if (!ev.roles.length) return null;
   return (
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2.5">
         <Users size={15} className="shrink-0 text-violet-600" aria-hidden />
-        <span className="text-sm font-semibold text-gray-800">Team</span>
+        <span className="text-sm font-semibold text-gray-800">
+          {t('aiAsk.selfDriven.team')}
+        </span>
         <span className="ml-auto text-xs text-gray-400">
-          {ev.roles.length} members
+          {t('aiAsk.selfDriven.members', { count: ev.roles.length })}
         </span>
       </div>
       <div className="flex flex-wrap gap-2 px-4 py-3">
@@ -192,6 +199,7 @@ function StepsProgress({
   startedEvents: StepStartedEvent[];
   completedEvents: StepCompletedEvent[];
 }) {
+  const { t } = useI18n();
   if (!startedEvents.length) return null;
 
   const completedMap = new Map(completedEvents.map((e) => [e.stepId, e]));
@@ -200,7 +208,9 @@ function StepsProgress({
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2.5">
         <CheckCircle size={15} className="shrink-0 text-blue-600" aria-hidden />
-        <span className="text-sm font-semibold text-gray-800">Progress</span>
+        <span className="text-sm font-semibold text-gray-800">
+          {t('aiAsk.selfDriven.progress')}
+        </span>
         <span className="ml-auto text-xs text-gray-400">
           {completedEvents.length} / {startedEvents[0].totalSteps}
         </span>
@@ -240,6 +250,7 @@ function DeliverableCard({
   ev: DeliverableEvent;
   token: string;
 }) {
+  const { t } = useI18n();
   const [downloading, setDownloading] = useState(false);
 
   const handleDownload = async () => {
@@ -274,7 +285,7 @@ function DeliverableCard({
       <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2.5">
         <FileText size={15} className="shrink-0 text-violet-600" aria-hidden />
         <span className="text-sm font-semibold capitalize text-gray-800">
-          {ev.deliverableType}
+          {t('aiAsk.selfDriven.deliverable')}
         </span>
         <Button
           variant="outline"
@@ -288,7 +299,9 @@ function DeliverableCard({
           ) : (
             <Download size={12} aria-hidden />
           )}
-          {downloading ? 'Downloading…' : 'Download .md'}
+          {downloading
+            ? t('aiAsk.selfDriven.downloading')
+            : t('aiAsk.selfDriven.download')}
         </Button>
       </div>
       <div className="prose prose-sm max-w-none px-4 py-3">
@@ -305,6 +318,7 @@ export function SelfDrivenStream({
   isStreaming,
   token = '',
 }: SelfDrivenStreamProps) {
+  const { t } = useI18n();
   if (events.length === 0 && !isStreaming) return null;
 
   const startedEv = events.find(
@@ -360,18 +374,21 @@ export function SelfDrivenStream({
 
   return (
     <div className="space-y-2.5">
-      {/* Mission ID chip */}
+      {/* Mission status chip — friendly label instead of the raw mission UUID.
+          The id is kept in the title tooltip for log/replay correlation. */}
       {missionId && (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5" title={missionId}>
           <CircleDot
             size={12}
             className={
-              isStreaming ? 'animate-pulse text-violet-500' : 'text-gray-400'
+              isStreaming ? 'animate-pulse text-violet-500' : 'text-emerald-500'
             }
             aria-hidden
           />
-          <span className="font-mono text-[11px] text-gray-400">
-            {missionId.slice(0, 8)}
+          <span className="text-[11px] font-medium text-gray-500">
+            {isStreaming
+              ? t('aiAsk.selfDriven.missionStarted')
+              : t('aiAsk.selfDriven.missionComplete')}
           </span>
         </div>
       )}
@@ -426,7 +443,7 @@ export function SelfDrivenStream({
       {done && !errorEv && (
         <div className="flex items-center gap-1.5 text-xs text-emerald-600">
           <CheckCircle size={13} aria-hidden />
-          <span>Mission complete</span>
+          <span>{t('aiAsk.selfDriven.missionComplete')}</span>
         </div>
       )}
 
@@ -446,7 +463,7 @@ export function SelfDrivenStream({
             style={{ animationDelay: '300ms' }}
           />
           <span className="text-sm text-gray-500">
-            Self-Driven Team is thinking...
+            {t('aiAsk.selfDriven.thinking')}
           </span>
         </div>
       )}
