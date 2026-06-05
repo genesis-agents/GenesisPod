@@ -130,7 +130,8 @@ export class StepDecompositionService implements IStepDecompositionService {
 
     if (!raw2 || raw2.length === 0) {
       this.logger.warn(
-        `[StepDecomposition] parseSteps: empty or unparseable response, using fallback`,
+        `[StepDecomposition] parseSteps: empty or unparseable LLM response, ` +
+          `using fallback. raw head (200 chars): ${JSON.stringify(text.slice(0, 200))}`,
       );
       return [];
     }

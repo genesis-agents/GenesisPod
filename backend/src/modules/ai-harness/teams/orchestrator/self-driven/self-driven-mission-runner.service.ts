@@ -193,6 +193,10 @@ export class SelfDrivenMissionRunner {
       return;
     }
     yield { type: "phase", missionId, phase: "execute", status: "started" };
+    this.logger.log(
+      `[SelfDriven] mission ${missionId} → execute phase: ${plan.steps.length} steps, ` +
+        `roles=[${(plan.roleAssignments ?? []).map((a) => `${a.roleId}:${a.modelId || "EMPTY"}`).join(", ")}]`,
+    );
 
     // Build the dynamic team from the planner's role assignments.
     // safety-10: DynamicTeamBuilder validates every roleId against RoleInventory
@@ -260,6 +264,10 @@ export class SelfDrivenMissionRunner {
       };
 
       const stepStart = Date.now();
+      this.logger.log(
+        `[SelfDriven] mission ${missionId} step ${i + 1}/${sortedSteps.length} started: ` +
+          `"${step.name}" (executor=${step.executor}, loopKind=${step.loopKind ?? "default"})`,
+      );
 
       try {
         let output = "";
@@ -286,6 +294,14 @@ export class SelfDrivenMissionRunner {
         }
 
         stepOutputs.set(step.id, output);
+
+        this.logger.log(
+          `[SelfDriven] mission ${missionId} step ${i + 1}/${sortedSteps.length} completed: ` +
+            `"${step.name}" ok=true durationMs=${Date.now() - stepStart} outputChars=${output.length}` +
+            (output.length === 0
+              ? " (EMPTY OUTPUT — step produced nothing)"
+              : ""),
+        );
 
         yield {
           type: "step_completed",
@@ -315,6 +331,10 @@ export class SelfDrivenMissionRunner {
     }
 
     yield { type: "phase", missionId, phase: "execute", status: "completed" };
+    this.logger.log(
+      `[SelfDriven] mission ${missionId} execute phase done: ` +
+        `${stepOutputs.size}/${sortedSteps.length} steps produced output`,
+    );
 
     // ── HITL gate: deliver_confirm ────────────────────────────────────────────
     // Block before the report is assembled so the user can append final
@@ -623,10 +643,23 @@ export class SelfDrivenMissionRunner {
             throw new Error(
               `Agent error for step "${step.name}": ${errorEv.payload.message}`,
             );
+          } else if (ev.type === "validation_failed") {
+            // Previously swallowed silently — surface it: the agent's output did
+            // not satisfy the role's output schema and is being retried/forced.
+            this.logger.warn(
+              `[SelfDriven] mission ${missionId} step "${step.name}" — agent output failed schema validation (retry/force-finalize)`,
+            );
+          } else if (ev.type === "terminated") {
+            const reason = (ev as { payload?: { reason?: string } }).payload
+              ?.reason;
+            if (reason && reason !== "completed" && reason !== "final_answer") {
+              this.logger.warn(
+                `[SelfDriven] mission ${missionId} step "${step.name}" — agent terminated early: reason=${reason}`,
+              );
+            }
           }
-          // "terminated", "budget_warning", "iteration_progress",
-          // "action_planned", "reflection", "tools_recalled", "validation_failed"
-          // are silently consumed — not surfaced to the mission event stream.
+          // budget_warning / iteration_progress / action_planned / reflection /
+          // tools_recalled are intentionally not surfaced (non-diagnostic noise).
         }
 
         // Emit the final agent output as a chunk so the report composer
@@ -637,6 +670,10 @@ export class SelfDrivenMissionRunner {
             missionId,
             content: agentOutput,
           } satisfies SelfDrivenMissionEvent;
+        } else {
+          this.logger.warn(
+            `[SelfDriven] mission ${missionId} step "${step.name}" (executor=${step.executor}, model=${modelId || "default"}) — agent produced NO output; report will mark this step empty`,
+          );
         }
 
         return agentOutput;

@@ -61,11 +61,21 @@ export class TeamFactory {
   ): ITeam {
     this.logger.log(`Creating team instance: ${config.id} (${config.name})`);
 
-    // 从 LLMFactory 或选项获取默认模型，严禁硬编码
-    const defaultModel =
-      options?.defaultModel ||
-      (this.llmFactory?.getDefaultModel() as string) ||
-      "";
+    // Resolve the default model: caller-supplied first, else the LLMFactory's
+    // configured default. NB getDefaultModel() THROWS when nothing is configured
+    // (it does not return ""), so an empty caller model surfaces here as the
+    // opaque "No default AI model configured" — log the resolution explicitly so
+    // the root cause (caller passed no model) is obvious in the trace.
+    let defaultModel = options?.defaultModel ?? "";
+    if (!defaultModel) {
+      this.logger.warn(
+        `[TeamFactory] ${config.id}: no defaultModel from caller — falling back to LLMFactory.getDefaultModel() (throws if unconfigured)`,
+      );
+      defaultModel = (this.llmFactory?.getDefaultModel() as string) ?? "";
+    }
+    this.logger.log(
+      `[TeamFactory] ${config.id} resolved defaultModel="${defaultModel || "EMPTY"}"`,
+    );
 
     // 1. 解析角色
     const roleMap = this.resolveRoles(config);
