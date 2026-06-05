@@ -2355,8 +2355,8 @@ export default function AskPage() {
                 {/* Self-Driven Team stream output */}
                 {(selfDriven.events.length > 0 ||
                   (isLoading && isSelfDrivenMode)) && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[90%] rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-100">
+                  <div className="flex w-full justify-start">
+                    <div className="w-full max-w-[95%] rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-100">
                       <SelfDrivenStream
                         events={selfDriven.events}
                         isStreaming={
