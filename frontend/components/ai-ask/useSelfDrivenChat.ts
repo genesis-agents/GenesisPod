@@ -30,6 +30,17 @@ const SELF_DRIVEN_NAMESPACE = '/self-driven';
 const POLL_INTERVAL_MS = 4000;
 const HANDSHAKE_FAILSAFE_MS = 8000;
 
+/** Unwrap the backend's standard { success, data } response envelope. */
+function unwrap<T>(raw: unknown): T {
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    const wrapper = raw as { data?: unknown };
+    if (wrapper.data && typeof wrapper.data === 'object') {
+      return wrapper.data as T;
+    }
+  }
+  return raw as T;
+}
+
 /**
  * Self-Driven Team chat hook — durable, connection-decoupled.
  *
@@ -112,6 +123,7 @@ export function useSelfDrivenChat({ appendUser }: UseSelfDrivenChatOptions) {
 
   const replay = useCallback(
     async (missionId: string, token: string, since: number) => {
+      if (!missionId) return;
       try {
         const qs = since > 0 ? `?since=${since}` : '';
         const res = await fetch(
@@ -121,7 +133,7 @@ export function useSelfDrivenChat({ appendUser }: UseSelfDrivenChatOptions) {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.ok) return;
-        const data = (await res.json()) as { events?: RawEvent[] };
+        const data = unwrap<{ events?: RawEvent[] }>(await res.json());
         if (Array.isArray(data.events)) ingest(data.events);
       } catch (err) {
         logger.warn('[SelfDriven] replay failed:', err);
@@ -170,7 +182,10 @@ export function useSelfDrivenChat({ appendUser }: UseSelfDrivenChatOptions) {
           ]);
           return;
         }
-        const data = (await res.json()) as { missionId: string };
+        const data = unwrap<{ missionId?: string }>(await res.json());
+        if (!data.missionId) {
+          throw new Error('launch did not return a missionId');
+        }
         missionId = data.missionId;
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
