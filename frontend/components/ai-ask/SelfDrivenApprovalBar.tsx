@@ -24,6 +24,7 @@
 import { useState, useRef } from 'react';
 import {
   CheckCircle,
+  Circle,
   XCircle,
   Loader,
   MessageSquarePlus,
@@ -56,7 +57,7 @@ export function SelfDrivenApprovalBar({
   const [appendOpen, setAppendOpen] = useState(false);
   const [appendText, setAppendText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [activeChoiceId, setActiveChoiceId] = useState<string | null>(null);
+  const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const appendRef = useRef<HTMLTextAreaElement>(null);
 
@@ -105,7 +106,6 @@ export function SelfDrivenApprovalBar({
   async function submit(approved: boolean, choiceId?: string) {
     setSubmitting(true);
     setError(null);
-    if (choiceId) setActiveChoiceId(choiceId);
     try {
       await respondApproval({
         missionId: awaiting.missionId,
@@ -122,7 +122,6 @@ export function SelfDrivenApprovalBar({
       );
     } finally {
       setSubmitting(false);
-      setActiveChoiceId(null);
     }
   }
 
@@ -146,7 +145,7 @@ export function SelfDrivenApprovalBar({
         {/* Prompt */}
         <p className="px-4 py-3 text-sm text-amber-900">{awaiting.prompt}</p>
 
-        {/* Dynamic choices — rendered when backend provides them */}
+        {/* Dynamic choices — select one, then Confirm. */}
         {hasChoices && (
           <div className="flex flex-col gap-2 border-t border-amber-100 px-4 py-3">
             <span className="text-xs font-medium text-amber-700">
@@ -154,26 +153,31 @@ export function SelfDrivenApprovalBar({
             </span>
             <div className="flex flex-col gap-2">
               {(awaiting.choices as ApprovalChoice[]).map((choice) => {
-                const isActive = activeChoiceId === choice.id;
+                const selected = selectedChoiceId === choice.id;
                 return (
                   <button
                     key={choice.id}
                     type="button"
                     disabled={submitting}
-                    onClick={() => void submit(true, choice.id)}
-                    className="flex items-start gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-emerald-400 hover:bg-emerald-50 disabled:pointer-events-none disabled:opacity-50"
+                    aria-pressed={selected}
+                    onClick={() => setSelectedChoiceId(choice.id)}
+                    className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors disabled:pointer-events-none disabled:opacity-50 ${
+                      selected
+                        ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-400'
+                        : 'border-amber-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/40'
+                    }`}
                   >
                     <span className="mt-0.5 shrink-0">
-                      {isActive ? (
-                        <Loader
-                          size={14}
-                          className="animate-spin text-emerald-600"
+                      {selected ? (
+                        <CheckCircle
+                          size={16}
+                          className="text-emerald-600"
                           aria-hidden
                         />
                       ) : (
-                        <CheckCircle
-                          size={14}
-                          className="text-amber-400"
+                        <Circle
+                          size={16}
+                          className="text-amber-300"
                           aria-hidden
                         />
                       )}
@@ -192,6 +196,20 @@ export function SelfDrivenApprovalBar({
                 );
               })}
             </div>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={submitting || !selectedChoiceId}
+              onClick={() => void submit(true, selectedChoiceId ?? undefined)}
+              className="mt-1 self-start bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-500"
+            >
+              {submitting ? (
+                <Loader size={13} className="mr-1.5 animate-spin" aria-hidden />
+              ) : (
+                <CheckCircle size={13} className="mr-1.5" aria-hidden />
+              )}
+              {t('aiAsk.selfDriven.confirm')}
+            </Button>
           </div>
         )}
 

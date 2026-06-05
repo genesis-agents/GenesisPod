@@ -5160,7 +5160,8 @@
       "planWeightCol": "权重",
       "planPassLineCol": "及格线",
       "planTitle": "执行计划",
-      "choicesLabel": "请选择一个选项"
+      "choicesLabel": "请选择一个选项",
+      "confirm": "确认"
     },
     "tools": "工具",
     "tools.image": "AI 图片",

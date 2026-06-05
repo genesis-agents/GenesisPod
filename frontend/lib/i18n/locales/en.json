@@ -5160,7 +5160,8 @@
       "planWeightCol": "Weight",
       "planPassLineCol": "Pass Line",
       "planTitle": "Execution Plan",
-      "choicesLabel": "Select an option"
+      "choicesLabel": "Select an option",
+      "confirm": "Confirm"
     },
     "tools": "Tools",
     "tools.image": "Image",
