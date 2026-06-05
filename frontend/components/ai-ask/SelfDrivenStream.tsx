@@ -46,6 +46,8 @@ import { logger } from '@/lib/utils/logger';
 import { useI18n } from '@/lib/i18n/i18n-context';
 import { SelfDrivenPlanCard } from '@/components/ai-ask/SelfDrivenPlanCard';
 import { SelfDrivenApprovalBar } from '@/components/ai-ask/SelfDrivenApprovalBar';
+import { HarnessRuntimeGraph } from '@/components/harness/HarnessRuntimeGraph';
+import { Network, List as ListIcon } from 'lucide-react';
 import type {
   SelfDrivenMissionEvent,
   MissionStartedEvent,
@@ -353,6 +355,8 @@ export function SelfDrivenStream({
   token = '',
 }: SelfDrivenStreamProps) {
   const { t } = useI18n();
+  // Default to the dynamic runtime graph; "list" keeps the classic stacked view.
+  const [view, setView] = useState<'graph' | 'list'>('graph');
   if (events.length === 0 && !isStreaming) return null;
 
   const startedEv = events.find(
@@ -427,6 +431,36 @@ export function SelfDrivenStream({
         </div>
       )}
 
+      {/* View toggle: dynamic runtime graph vs. classic stacked list */}
+      {(planEvent || stepStartedEvents.length > 0) && (
+        <div className="flex items-center gap-1 self-start rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-xs">
+          <button
+            type="button"
+            onClick={() => setView('graph')}
+            className={`flex items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors ${
+              view === 'graph'
+                ? 'bg-white text-violet-700 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Network size={12} aria-hidden />
+            {t('aiAsk.selfDriven.graphView')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('list')}
+            className={`flex items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors ${
+              view === 'list'
+                ? 'bg-white text-violet-700 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <ListIcon size={12} aria-hidden />
+            {t('aiAsk.selfDriven.listView')}
+          </button>
+        </div>
+      )}
+
       {/* Phase badges */}
       {phaseEvents.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -436,10 +470,12 @@ export function SelfDrivenStream({
         </div>
       )}
 
-      {/* Execution plan card */}
-      {planEvent && <SelfDrivenPlanCard ev={planEvent} />}
+      {/* ── Dynamic runtime graph (default) ───────────────────────────────── */}
+      {view === 'graph' && (planEvent || stepStartedEvents.length > 0) && (
+        <HarnessRuntimeGraph events={events} isStreaming={isStreaming} />
+      )}
 
-      {/* HITL approval bar — shown after plan or deliver gate */}
+      {/* HITL approval bar — shown after plan or deliver gate (both views) */}
       {awaitingEvent && (
         <SelfDrivenApprovalBar
           awaiting={awaitingEvent}
@@ -448,15 +484,18 @@ export function SelfDrivenStream({
         />
       )}
 
-      {/* Team members */}
-      {teamBuiltEvent && <TeamCard ev={teamBuiltEvent} />}
-
-      {/* Step-by-step progress */}
-      {stepStartedEvents.length > 0 && (
-        <StepsProgress
-          startedEvents={stepStartedEvents}
-          completedEvents={stepCompletedEvents}
-        />
+      {/* ── Classic stacked list view ─────────────────────────────────────── */}
+      {view === 'list' && (
+        <>
+          {planEvent && <SelfDrivenPlanCard ev={planEvent} />}
+          {teamBuiltEvent && <TeamCard ev={teamBuiltEvent} />}
+          {stepStartedEvents.length > 0 && (
+            <StepsProgress
+              startedEvents={stepStartedEvents}
+              completedEvents={stepCompletedEvents}
+            />
+          )}
+        </>
       )}
 
       {/* Streaming chunk text (before deliverable arrives) */}

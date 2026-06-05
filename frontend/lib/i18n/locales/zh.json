@@ -5161,7 +5161,16 @@
       "planPassLineCol": "及格线",
       "planTitle": "执行计划",
       "choicesLabel": "请选择一个选项",
-      "confirm": "确认"
+      "confirm": "确认",
+      "graphView": "图谱视图",
+      "listView": "列表视图",
+      "mission": "自驱任务",
+      "plan": "执行计划",
+      "report": "报告",
+      "running": "进行中",
+      "done": "已完成",
+      "failed": "失败",
+      "pending": "待执行"
     },
     "tools": "工具",
     "tools.image": "AI 图片",

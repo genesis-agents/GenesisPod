@@ -5161,7 +5161,16 @@
       "planPassLineCol": "Pass Line",
       "planTitle": "Execution Plan",
       "choicesLabel": "Select an option",
-      "confirm": "Confirm"
+      "confirm": "Confirm",
+      "graphView": "Graph",
+      "listView": "List",
+      "mission": "Mission",
+      "plan": "Plan",
+      "report": "Report",
+      "running": "Running",
+      "done": "Done",
+      "failed": "Failed",
+      "pending": "Pending"
     },
     "tools": "Tools",
     "tools.image": "Image",
