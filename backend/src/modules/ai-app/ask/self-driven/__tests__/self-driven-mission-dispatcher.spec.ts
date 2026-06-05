@@ -10,7 +10,7 @@ function makeDeps(events: any[], throwAt?: number) {
     unregister: jest.fn(),
   };
   const lifecycle = { finalize: jest.fn().mockResolvedValue({ won: true }) };
-  const store = {};
+  const store = { markHeartbeat: jest.fn().mockResolvedValue(undefined) };
   const runner = {
     run: async function* () {
       for (let i = 0; i <= events.length; i++) {

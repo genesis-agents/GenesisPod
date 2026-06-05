@@ -63,6 +63,52 @@ export class AskSelfDrivenMissionStore implements MissionTerminalArbiter {
       });
   }
 
+  /** Running missions for the liveness guard (startedAt = createdAt). */
+  async listRunning(limit = 200): Promise<
+    {
+      id: string;
+      userId: string;
+      startedAt: Date;
+      heartbeatAt: Date | null;
+    }[]
+  > {
+    const rows = await this.prisma.askSelfDrivenMission.findMany({
+      where: { status: "running" },
+      select: { id: true, userId: true, createdAt: true, heartbeatAt: true },
+      take: limit,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      startedAt: r.createdAt,
+      heartbeatAt: r.heartbeatAt,
+    }));
+  }
+
+  /** Most recent journaled event ts per mission (ms epoch), for liveness. */
+  async mostRecentEventTs(
+    missionIds: ReadonlyArray<string>,
+    sinceMs: number,
+  ): Promise<Map<string, number>> {
+    const grouped = await this.prisma.askSelfDrivenMissionEvent.groupBy({
+      by: ["missionId"],
+      where: {
+        missionId: { in: missionIds as string[] },
+        ts: { gte: BigInt(sinceMs) },
+      },
+      _max: { ts: true },
+    });
+    const out = new Map<string, number>();
+    for (const g of grouped) {
+      const ts = g._max.ts;
+      if (ts != null) {
+        const ms = Number(ts);
+        if (Number.isFinite(ms)) out.set(g.missionId, ms);
+      }
+    }
+    return out;
+  }
+
   /**
    * First-writer-wins terminal write. Returns true if THIS call transitioned
    * the row out of `running` (i.e. won the race), false if it was already

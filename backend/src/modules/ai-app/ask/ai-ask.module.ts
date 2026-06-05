@@ -27,6 +27,8 @@ import { SelfDrivenMissionDispatcher } from "./self-driven/self-driven-mission-d
 import { AskSelfDrivenReplayController } from "./self-driven/ask-self-driven-replay.controller";
 import { AskSelfDrivenGateway } from "./self-driven/ask-self-driven.gateway";
 import { AskSelfDrivenApprovalService } from "./self-driven/ask-self-driven-approval.service";
+// Stage 5: dead-pod orphan detection.
+import { SelfDrivenLivenessAdapter } from "./self-driven/self-driven-liveness.adapter";
 // Teams 模式（W2 PR3）
 import { AskRoomController } from "./ai-ask-room.controller";
 import { AskRoomService } from "./ai-ask-room.service";
@@ -81,6 +83,7 @@ import { HandoffAdapter } from "./adapters/handoff.adapter";
     SelfDrivenMissionDispatcher,
     AskSelfDrivenApprovalService,
     AskSelfDrivenGateway,
+    SelfDrivenLivenessAdapter,
   ],
   exports: [AiAskService, AskRoomService],
 })

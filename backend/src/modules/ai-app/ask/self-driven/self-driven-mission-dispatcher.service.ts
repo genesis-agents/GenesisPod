@@ -55,6 +55,15 @@ export class SelfDrivenMissionDispatcher {
     const controller = this.abortRegistry.register(missionId);
     let failureMessage: string | undefined;
 
+    // Independent heartbeat (not event-driven): the mission can sit idle for up
+    // to 10 min at the HITL gate without emitting events, so we keep the DB
+    // heartbeat fresh on a timer. Liveness reclaim then fires ONLY when this
+    // stops (pod dead), never merely because the human is still deciding.
+    void this.store.markHeartbeat(missionId);
+    const heartbeat = setInterval(() => {
+      void this.store.markHeartbeat(missionId);
+    }, 30_000);
+
     try {
       for await (const event of this.runner.run(
         missionId,
@@ -84,6 +93,7 @@ export class SelfDrivenMissionDispatcher {
         )
         .catch(() => undefined);
     } finally {
+      clearInterval(heartbeat);
       this.abortRegistry.unregister(missionId);
     }
 
