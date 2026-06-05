@@ -5159,7 +5159,8 @@
       "planDimensionCol": "Dimension",
       "planWeightCol": "Weight",
       "planPassLineCol": "Pass Line",
-      "planTitle": "Execution Plan"
+      "planTitle": "Execution Plan",
+      "choicesLabel": "Select an option"
     },
     "tools": "Tools",
     "tools.image": "Image",

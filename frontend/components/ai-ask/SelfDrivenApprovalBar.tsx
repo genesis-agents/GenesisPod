@@ -5,10 +5,16 @@
  * Shown as an inline bar (not a blocking full-screen modal) so the user can
  * still read the plan/stream context above while deciding.
  *
+ * When the event carries `choices`, each choice is rendered as a selectable
+ * card. Clicking a choice immediately approves with that choice id. The legacy
+ * Approve/Reject/Append-instruction actions are shown as a fallback when
+ * `choices` is absent or empty (older missions / generation failed).
+ *
  * Interactions (owner-scoped, keyed by missionId — the backend resolves the
  * mission's open gate, so the UI never needs the requestId):
- *   - Approve button  → POST /ask/self-driven/missions/{missionId}/approve { approved: true }
- *   - Reject button   → POST /ask/self-driven/missions/{missionId}/approve { approved: false }
+ *   - Choice card     → POST { approved: true, choice: id }
+ *   - Approve button  → POST { approved: true }            (fallback)
+ *   - Reject button   → POST { approved: false }
  *   - Append textarea → submitted together with approve (feedback field)
  *
  * The bar is dismissed when the parent passes resolved=true (approval_resolved event).
@@ -29,6 +35,7 @@ import { Textarea } from '@/components/ui/form/Textarea';
 import type {
   AwaitingApprovalEvent,
   ApprovalResolvedEvent,
+  ApprovalChoice,
 } from '@/lib/api/self-driven-stream';
 import { respondApproval } from '@/lib/api/self-driven-stream';
 import { logger } from '@/lib/utils/logger';
@@ -49,14 +56,17 @@ export function SelfDrivenApprovalBar({
   const [appendOpen, setAppendOpen] = useState(false);
   const [appendText, setAppendText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [activeChoiceId, setActiveChoiceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [depth, setDepth] = useState<'quick' | 'standard' | 'deep'>('standard');
   const appendRef = useRef<HTMLTextAreaElement>(null);
 
   const GATE_LABEL: Record<AwaitingApprovalEvent['gate'], string> = {
     plan_confirm: t('aiAsk.selfDriven.planConfirmation'),
     deliver_confirm: t('aiAsk.selfDriven.deliveryConfirmation'),
   };
+
+  const hasChoices =
+    Array.isArray(awaiting.choices) && awaiting.choices.length > 0;
 
   // Once resolved, show the outcome pill and hide action buttons
   if (resolved) {
@@ -92,16 +102,17 @@ export function SelfDrivenApprovalBar({
     );
   }
 
-  async function submit(approved: boolean) {
+  async function submit(approved: boolean, choiceId?: string) {
     setSubmitting(true);
     setError(null);
+    if (choiceId) setActiveChoiceId(choiceId);
     try {
       await respondApproval({
         missionId: awaiting.missionId,
         approved,
         feedback: appendText.trim() || undefined,
         token,
-        analysisDepth: awaiting.gate === 'plan_confirm' ? depth : undefined,
+        choice: choiceId,
       });
       setAppendOpen(false);
     } catch (err) {
@@ -111,6 +122,7 @@ export function SelfDrivenApprovalBar({
       );
     } finally {
       setSubmitting(false);
+      setActiveChoiceId(null);
     }
   }
 
@@ -134,60 +146,74 @@ export function SelfDrivenApprovalBar({
         {/* Prompt */}
         <p className="px-4 py-3 text-sm text-amber-900">{awaiting.prompt}</p>
 
-        {/* Analysis depth selector — only for plan_confirm gate */}
-        {awaiting.gate === 'plan_confirm' && (
-          <div className="flex items-center gap-2 border-t border-amber-100 px-4 py-2.5">
-            <span className="text-xs text-amber-700">
-              {t('aiAsk.selfDriven.depthLabel')}
+        {/* Dynamic choices — rendered when backend provides them */}
+        {hasChoices && (
+          <div className="flex flex-col gap-2 border-t border-amber-100 px-4 py-3">
+            <span className="text-xs font-medium text-amber-700">
+              {t('aiAsk.selfDriven.choicesLabel')}
             </span>
-            <div className="flex gap-1">
-              {(
-                [
-                  {
-                    v: 'quick' as const,
-                    label: t('aiAsk.selfDriven.depthQuick'),
-                  },
-                  {
-                    v: 'standard' as const,
-                    label: t('aiAsk.selfDriven.depthStandard'),
-                  },
-                  {
-                    v: 'deep' as const,
-                    label: t('aiAsk.selfDriven.depthDeep'),
-                  },
-                ] as const
-              ).map((opt) => (
-                <Button
-                  key={opt.v}
-                  type="button"
-                  variant={depth === opt.v ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-7 px-3 text-xs"
-                  onClick={() => setDepth(opt.v)}
-                >
-                  {opt.label}
-                </Button>
-              ))}
+            <div className="flex flex-col gap-2">
+              {(awaiting.choices as ApprovalChoice[]).map((choice) => {
+                const isActive = activeChoiceId === choice.id;
+                return (
+                  <button
+                    key={choice.id}
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => void submit(true, choice.id)}
+                    className="flex items-start gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-emerald-400 hover:bg-emerald-50 disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <span className="mt-0.5 shrink-0">
+                      {isActive ? (
+                        <Loader
+                          size={14}
+                          className="animate-spin text-emerald-600"
+                          aria-hidden
+                        />
+                      ) : (
+                        <CheckCircle
+                          size={14}
+                          className="text-amber-400"
+                          aria-hidden
+                        />
+                      )}
+                    </span>
+                    <span className="flex flex-col gap-0.5">
+                      <span className="text-sm font-semibold text-amber-900">
+                        {choice.label}
+                      </span>
+                      {choice.description && (
+                        <span className="text-xs text-amber-700 opacity-80">
+                          {choice.description}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Actions */}
+        {/* Fallback actions — shown when no choices OR always available for Reject / Append */}
         <div className="flex items-center gap-2 border-t border-amber-100 px-4 py-2.5">
-          <Button
-            variant="default"
-            size="sm"
-            disabled={submitting}
-            onClick={() => void submit(true)}
-            className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-500"
-          >
-            {submitting ? (
-              <Loader size={13} className="animate-spin" aria-hidden />
-            ) : (
-              <CheckCircle size={13} aria-hidden />
-            )}
-            <span className="ml-1.5">{t('aiAsk.selfDriven.approve')}</span>
-          </Button>
+          {/* Approve button shown only when there are no dynamic choices */}
+          {!hasChoices && (
+            <Button
+              variant="default"
+              size="sm"
+              disabled={submitting}
+              onClick={() => void submit(true)}
+              className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-500"
+            >
+              {submitting ? (
+                <Loader size={13} className="animate-spin" aria-hidden />
+              ) : (
+                <CheckCircle size={13} aria-hidden />
+              )}
+              <span className="ml-1.5">{t('aiAsk.selfDriven.approve')}</span>
+            </Button>
+          )}
 
           <Button
             variant="outline"

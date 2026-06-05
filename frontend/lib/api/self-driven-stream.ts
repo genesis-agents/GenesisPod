@@ -129,12 +129,19 @@ export interface StepCompletedEvent {
   durationMs: number;
 }
 
+export interface ApprovalChoice {
+  id: string;
+  label: string;
+  description?: string;
+}
+
 export interface AwaitingApprovalEvent {
   type: 'awaiting_approval';
   missionId: string;
   requestId: string;
   gate: 'plan_confirm' | 'deliver_confirm';
   prompt: string;
+  choices?: ApprovalChoice[];
 }
 
 export interface ApprovalResolvedEvent {
@@ -174,8 +181,9 @@ export async function respondApproval(opts: {
   feedback?: string;
   token: string;
   analysisDepth?: 'quick' | 'standard' | 'deep';
+  choice?: string;
 }): Promise<void> {
-  const { missionId, approved, feedback, token, analysisDepth } = opts;
+  const { missionId, approved, feedback, token, analysisDepth, choice } = opts;
   const res = await fetch(
     `${config.apiUrl}/ask/self-driven/missions/${encodeURIComponent(
       missionId
@@ -186,7 +194,7 @@ export async function respondApproval(opts: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ approved, feedback, analysisDepth }),
+      body: JSON.stringify({ approved, feedback, analysisDepth, choice }),
     }
   );
   if (!res.ok) {
