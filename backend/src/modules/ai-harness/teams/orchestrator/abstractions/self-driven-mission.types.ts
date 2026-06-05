@@ -159,6 +159,20 @@ export type SelfDrivenMissionEvent =
        */
       gate: "plan_confirm" | "deliver_confirm";
       prompt: string;
+      /**
+       * Dynamically generated context-specific options the human can choose at
+       * this gate. Each option has an id (to echo back in the approve payload),
+       * a short label, and an optional description.
+       *
+       * Always includes an option with id="proceed" as the first entry (meaning
+       * "execute as-is"). Other options are context-specific refinements generated
+       * by an LLM call in the runner. Consumers that do not yet render choice UI
+       * must silently ignore this field and treat the gate as approve/reject only.
+       *
+       * May be empty or absent when choice generation failed (best-effort; the gate
+       * still works as a plain approve/reject checkpoint).
+       */
+      choices?: Array<{ id: string; label: string; description?: string }>;
     }
   /**
    * Emitted once the HITL gate is resolved (approved, rejected, or timed-out).
