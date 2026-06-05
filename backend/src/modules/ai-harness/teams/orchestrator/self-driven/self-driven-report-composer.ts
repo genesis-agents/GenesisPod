@@ -166,6 +166,108 @@ export class SelfDrivenReportComposer {
     }
   }
 
+  /**
+   * Convert structured agent output (object/array/string) to readable Markdown prose.
+   * Handles ReActLoop final answers that are JSON-serializable objects instead of plain strings.
+   *
+   * Rules:
+   *  - string  → return as-is (trimmed), then passed through cleanStepBody
+   *  - object  → key-value sections with ### headings; priority keys promoted to top
+   *  - array   → bulleted list; each element formatted recursively
+   *  - null/undefined/primitive → String() fallback or ""
+   */
+  formatStructuredOutput(raw: unknown): string {
+    if (raw === null || raw === undefined) {
+      return "";
+    }
+
+    if (typeof raw === "string") {
+      return this.cleanStepBody(raw);
+    }
+
+    if (Array.isArray(raw)) {
+      const body = this.formatArray(raw);
+      return body ? this.cleanStepBody(body) : "";
+    }
+
+    if (typeof raw === "object") {
+      const body = this.formatObject(raw as Record<string, unknown>);
+      return body ? this.cleanStepBody(body) : "";
+    }
+
+    // number, boolean, bigint, symbol
+    return String(raw);
+  }
+
+  private formatObject(obj: Record<string, unknown>): string {
+    const PRIORITY_KEYS = ["summary", "conclusion", "result", "answer"];
+    const keys = Object.keys(obj).sort((a, b) => {
+      const aIdx = PRIORITY_KEYS.indexOf(a.toLowerCase());
+      const bIdx = PRIORITY_KEYS.indexOf(b.toLowerCase());
+      if (aIdx >= 0 && bIdx >= 0) return aIdx - bIdx;
+      if (aIdx >= 0) return -1;
+      if (bIdx >= 0) return 1;
+      return a.localeCompare(b);
+    });
+
+    const blocks: string[] = [];
+    for (const key of keys) {
+      const val = obj[key];
+      if (val === null || val === undefined || val === "") continue;
+
+      const heading = this.kebabToTitle(key);
+
+      if (typeof val === "string") {
+        blocks.push(`### ${heading}\n\n${val.trim()}`);
+      } else if (Array.isArray(val)) {
+        const list = this.formatArray(val);
+        if (list) blocks.push(`### ${heading}\n\n${list}`);
+      } else if (typeof val === "object") {
+        const nested = this.formatObject(val as Record<string, unknown>);
+        if (nested) blocks.push(`### ${heading}\n\n${nested}`);
+      } else {
+        blocks.push(`### ${heading}\n\n${String(val)}`);
+      }
+    }
+
+    return blocks.join("\n\n");
+  }
+
+  private formatArray(arr: unknown[]): string {
+    if (arr.length === 0) return "";
+
+    return arr
+      .map((item) => {
+        if (item === null || item === undefined) return null;
+        if (typeof item === "string") return `- ${item}`;
+        if (typeof item === "object") {
+          return `- ${this.objectToSummary(item as Record<string, unknown>)}`;
+        }
+        return `- ${String(item)}`;
+      })
+      .filter((line): line is string => line !== null)
+      .join("\n");
+  }
+
+  private objectToSummary(obj: Record<string, unknown>): string {
+    const entries = Object.entries(obj)
+      .filter(([, v]) => v !== null && v !== undefined)
+      .slice(0, 3)
+      .map(([k, v]) => {
+        const display =
+          typeof v === "string" ? v : JSON.stringify(v).slice(0, 50);
+        return `${k}: ${display}`;
+      });
+    return entries.length > 0 ? entries.join("; ") : "(empty)";
+  }
+
+  private kebabToTitle(key: string): string {
+    return key
+      .split(/[-_\s]+/)
+      .map((w) => (w.length > 0 ? w.charAt(0).toUpperCase() + w.slice(1) : ""))
+      .join(" ");
+  }
+
   /** Build the system prompt for a given step's executor role. */
   buildStepSystemPrompt(
     step: ExecutionStep,
