@@ -305,7 +305,13 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       const APP_LEVEL_SUBPATH_ALLOWLIST: Array<{
         targetApp: string;
         subPathPrefix: string;
-      }> = [{ targetApp: "library", subPathPrefix: "kb-query/" }];
+      }> = [
+        { targetApp: "library", subPathPrefix: "kb-query/" },
+        // ★ 2026-06-05: library/export/ is the sanctioned cross-app deliverable-export
+        // facade (mirrors kb-query pattern). One public entry: LibraryExportService.
+        // Internals (google-drive integration) remain encapsulated inside library.
+        { targetApp: "library", subPathPrefix: "export/" },
+      ];
       const violations: string[] = [];
       for (const file of ALL_FILES) {
         if (fileLayer(file) !== "ai-app") continue;

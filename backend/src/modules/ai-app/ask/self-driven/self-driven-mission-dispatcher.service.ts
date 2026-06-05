@@ -25,6 +25,7 @@ import {
   SelfDrivenMissionRunner,
 } from "@/modules/ai-harness/facade";
 import { ObjectStorageService } from "@/modules/platform/storage/object-store/object-storage.service";
+import { LibraryExportService } from "@/modules/ai-app/library/export/library-export.service";
 import { AskSelfDrivenMissionStore } from "./ask-self-driven-mission.store";
 
 /** Object-storage key for a mission's downloadable report. */
@@ -50,6 +51,7 @@ export class SelfDrivenMissionDispatcher {
     private readonly abortRegistry: MissionAbortRegistry,
     private readonly lifecycle: MissionLifecycleManager,
     private readonly objectStorage: ObjectStorageService,
+    private readonly libraryExport: LibraryExportService,
   ) {}
 
   /**
@@ -114,7 +116,7 @@ export class SelfDrivenMissionDispatcher {
           event.deliverableType === "report" &&
           event.content
         ) {
-          await this.offloadReport(missionId, event.content);
+          await this.offloadReport(missionId, event.content, userId);
         }
       }
     } catch (err) {
@@ -142,29 +144,49 @@ export class SelfDrivenMissionDispatcher {
    * Upload the final report markdown to external object storage and record the
    * key on the mission row. No-op (and not an error) when object storage is
    * disabled — the report stays available via the event journal fallback.
+   *
+   * Also performs a best-effort save to the user's connected cloud storage
+   * (Google Drive) via the sanctioned LibraryExportService facade. Failures
+   * are logged as warnings and never surface to the caller.
    */
   private async offloadReport(
     missionId: string,
     content: string,
+    userId: string,
   ): Promise<void> {
-    if (!this.objectStorage.isEnabled()) return;
-    try {
-      const key = selfDrivenReportKey(missionId);
-      const res = await this.objectStorage.uploadText(content, key);
-      if (res.success && res.key) {
-        await this.store.setReportRef(
-          missionId,
-          res.key,
-          Buffer.byteLength(content, "utf-8"),
-        );
-      } else {
+    // Platform object-storage offload (unchanged).
+    if (this.objectStorage.isEnabled()) {
+      try {
+        const key = selfDrivenReportKey(missionId);
+        const res = await this.objectStorage.uploadText(content, key);
+        if (res.success && res.key) {
+          await this.store.setReportRef(
+            missionId,
+            res.key,
+            Buffer.byteLength(content, "utf-8"),
+          );
+        } else {
+          this.logger.warn(
+            `[self-driven ${missionId}] report offload skipped: ${res.error ?? "unknown"}`,
+          );
+        }
+      } catch (err) {
         this.logger.warn(
-          `[self-driven ${missionId}] report offload skipped: ${res.error ?? "unknown"}`,
+          `[self-driven ${missionId}] report offload failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
-    } catch (err) {
-      this.logger.warn(
-        `[self-driven ${missionId}] report offload failed: ${err instanceof Error ? err.message : String(err)}`,
+    }
+
+    // Cloud storage save (best-effort, via library/export facade).
+    const fileName = `self-driven-report-${missionId}.md`;
+    const result = await this.libraryExport.saveMarkdownToUserStorage(
+      userId,
+      fileName,
+      content,
+    );
+    if (result.saved) {
+      this.logger.log(
+        `[self-driven ${missionId}] report saved to ${result.provider} for user ${userId}`,
       );
     }
   }

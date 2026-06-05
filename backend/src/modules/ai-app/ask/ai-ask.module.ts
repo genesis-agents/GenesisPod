@@ -18,6 +18,8 @@ import { StorageModule } from "../../platform/storage/storage.module";
 // RAGPipelineService injection in ai-ask.service.ts so wiki augmentation is
 // transparent to the consumer.
 import { KbQueryModule } from "@/modules/ai-app/library/kb-query/kb-query.module";
+// Sanctioned cross-app facade for saving deliverables to user cloud storage.
+import { LibraryExportModule } from "@/modules/ai-app/library/export/library-export.module";
 // W3: harness CollaborationModule 提供 DebatePattern / VotingManager / HandoffCoordinator
 import { CollaborationModule } from "../../ai-harness/teams/collaboration/collaboration.module";
 // Self-Driven Agent Team isolated dispatch
@@ -53,6 +55,7 @@ import { HandoffAdapter } from "./adapters/handoff.adapter";
     PrismaModule,
     AiEngineModule,
     KbQueryModule,
+    LibraryExportModule,
     CreditsModule,
     CollaborationModule,
     SelfDrivenTeamModule,
