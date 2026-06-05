@@ -933,7 +933,7 @@ export default function AskPage() {
   const processedParamsRef = useRef(false);
   const processedSessionRef = useRef(false);
   const { user, accessToken: token } = useAuth();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { userMessageStyle, aiMessageStyle } = useThemeStore();
   const { models, loading: modelsLoading } = useAIModels();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1516,6 +1516,7 @@ export default function AskPage() {
           prompt: userContent,
           token,
           signal,
+          language: locale,
         });
       } else if (isMixtureMode) {
         // Mixture mode: call multiple models in parallel (legacy behavior)

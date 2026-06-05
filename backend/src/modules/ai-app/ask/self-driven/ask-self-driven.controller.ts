@@ -53,6 +53,15 @@ class RunSelfDrivenDto {
   @IsOptional()
   @IsIn(["quick", "standard", "deep"])
   analysisDepth?: "quick" | "standard" | "deep";
+
+  /**
+   * Target output language ('zh' | 'en' or any BCP-47 locale).
+   * When set, every step and the final report are written in this language.
+   * Absent = current behaviour (LLM picks the language).
+   */
+  @IsOptional()
+  @IsString()
+  language?: string;
 }
 
 class ApproveDto {
@@ -142,6 +151,7 @@ export class AskSelfDrivenController {
           userId,
           clarifications: dto.clarifications,
           analysisDepth: dto.analysisDepth,
+          language: dto.language,
         },
         userId,
       )

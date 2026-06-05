@@ -38,6 +38,8 @@ export interface SelfDrivenDispatchInput {
   userId: string;
   clarifications?: Record<string, string>;
   analysisDepth?: "quick" | "standard" | "deep";
+  /** Target output language ('zh' | 'en' or any BCP-47 locale). */
+  language?: string;
 }
 
 @Injectable()
@@ -99,6 +101,7 @@ export class SelfDrivenMissionDispatcher {
           userId,
           clarifications: input.clarifications,
           analysisDepth: input.analysisDepth,
+          language: input.language,
         },
         controller.signal,
       )) {

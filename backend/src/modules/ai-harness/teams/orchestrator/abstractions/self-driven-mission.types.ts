@@ -31,6 +31,12 @@ export interface SelfDrivenMissionInput {
   clarifications?: Record<string, string>;
   /** Analysis depth (default "standard" when omitted). */
   analysisDepth?: SelfDrivenAnalysisDepth;
+  /**
+   * Target language for all step outputs and the final report.
+   * Values: 'zh' | 'en' (or any BCP-47 locale string from the frontend).
+   * When absent the LLM defaults to its own language choice (current behaviour).
+   */
+  language?: string;
 }
 
 /** Coarse-grained lifecycle phases of a self-driven mission. */

@@ -34,10 +34,15 @@ export interface ReportComposerInput {
   userPrompt: string;
   /**
    * Optional pre-formatted APA bibliography block (from engine citation API).
-   * When present a "## References / 参考文献" section is appended as the last
-   * block. Absent = no section (never emit an empty heading).
+   * When present a references section is appended as the last block.
+   * Absent = no section (never emit an empty heading).
    */
   referencesMarkdown?: string;
+  /**
+   * Human-readable target language (e.g. "Chinese (简体中文)" or "English").
+   * Controls the References section heading. Absent = bilingual fallback heading.
+   */
+  language?: string;
 }
 
 /** Slim report output — content is a Markdown string. */
@@ -60,7 +65,8 @@ export class SelfDrivenReportComposer {
    *   rubric dimension table (passLine reference, not scored here)
    */
   compose(input: ReportComposerInput): ReportComposerOutput {
-    const { plan, stepOutputs, userPrompt, referencesMarkdown } = input;
+    const { plan, stepOutputs, userPrompt, referencesMarkdown, language } =
+      input;
     // Each entry is a complete Markdown BLOCK. Blocks are joined with a blank
     // line ("\n\n"). NB: never terminate a block with "\n" — joining
     // newline-terminated blocks with "\n" injects a blank line *inside* a block,
@@ -126,8 +132,14 @@ export class SelfDrivenReportComposer {
     // engine citation API. An absent/empty string means skip — never emit an
     // empty "## References" heading.
     if (referencesMarkdown && referencesMarkdown.trim().length > 0) {
+      const refHeading =
+        language === "Chinese (简体中文)"
+          ? "## 参考文献"
+          : language === "English"
+            ? "## References"
+            : "## References / 参考文献";
       blocks.push(`---`);
-      blocks.push(`## References / 参考文献\n\n${referencesMarkdown.trim()}`);
+      blocks.push(`${refHeading}\n\n${referencesMarkdown.trim()}`);
     }
 
     const content = blocks.join("\n\n").trim() + "\n";
@@ -160,6 +172,7 @@ export class SelfDrivenReportComposer {
     roleHint: string,
     userPrompt: string,
     priorContext: string,
+    language?: string,
   ): string {
     const parts: string[] = [roleHint];
 
@@ -180,6 +193,12 @@ export class SelfDrivenReportComposer {
       `\nProduce thorough, well-structured content for your task. ` +
         `Do not include meta-commentary about your role — output the content directly.`,
     );
+
+    if (language) {
+      parts.push(
+        `\nIMPORTANT: Write your entire response in ${language}. Do not mix languages.`,
+      );
+    }
 
     return parts.join("\n");
   }

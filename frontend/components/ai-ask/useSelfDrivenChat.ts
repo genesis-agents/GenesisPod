@@ -148,8 +148,10 @@ export function useSelfDrivenChat({ appendUser }: UseSelfDrivenChatOptions) {
       token: string;
       signal: AbortSignal;
       analysisDepth?: 'quick' | 'standard' | 'deep';
+      /** BCP-47 locale ('zh' | 'en') — threads through to every step's system prompt. */
+      language?: string;
     }) => {
-      const { prompt, token, signal, analysisDepth } = args;
+      const { prompt, token, signal, analysisDepth, language } = args;
       reset();
       appendUser({
         id: 'temp-user-' + Date.now(),
@@ -167,7 +169,7 @@ export function useSelfDrivenChat({ appendUser }: UseSelfDrivenChatOptions) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ prompt, analysisDepth }),
+          body: JSON.stringify({ prompt, analysisDepth, language }),
           signal,
         });
         if (!res.ok) {

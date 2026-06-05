@@ -95,6 +95,17 @@ export class SelfDrivenMissionRunner {
     );
     yield { type: "mission_started", missionId };
 
+    // Derive a human-readable target language from the locale string.
+    // undefined when absent → backward-compatible (LLM picks language freely).
+    const lang =
+      input.language === "zh"
+        ? "Chinese (简体中文)"
+        : input.language === "en"
+          ? "English"
+          : input.language
+            ? input.language
+            : undefined;
+
     // NB: no "clarify" phase is emitted today — interactive clarification is P2+.
     // A phase that does nothing must not announce itself in the UI (it showed as a
     // misleading instant "Clarify Running → Done"). Real clarify events land in P2.
@@ -164,6 +175,7 @@ export class SelfDrivenMissionRunner {
         planContextSummary,
         input.userId,
         missionId,
+        lang,
       );
 
       // Persist the gate FIRST (with choices), then advertise it with the real
@@ -458,6 +470,7 @@ export class SelfDrivenMissionRunner {
           stepOutputs,
           signal,
           appendContext,
+          lang,
         );
         // eslint-disable-next-line no-constant-condition
         while (true) {
@@ -539,6 +552,7 @@ export class SelfDrivenMissionRunner {
         deliverContextSummary,
         input.userId,
         missionId,
+        lang,
       );
 
       const deliverPrep = await this.hitlGate.prepareGate(
@@ -648,6 +662,7 @@ export class SelfDrivenMissionRunner {
         stepOutputs,
         input.userId,
         missionId,
+        lang,
       );
 
       const report = this.composer.compose({
@@ -655,6 +670,7 @@ export class SelfDrivenMissionRunner {
         stepOutputs,
         userPrompt: input.prompt,
         referencesMarkdown,
+        language: lang,
       });
 
       this.logger.log(
@@ -711,6 +727,7 @@ export class SelfDrivenMissionRunner {
     stepOutputs: Map<string, string>,
     userId: string,
     missionId: string,
+    _lang?: string,
   ): Promise<string | undefined> {
     if (stepOutputs.size === 0) return undefined;
 
@@ -863,7 +880,11 @@ export class SelfDrivenMissionRunner {
     contextSummary: string,
     userId: string,
     missionId: string,
+    lang?: string,
   ): Promise<Array<{ id: string; label: string; description?: string }>> {
+    const langInstruction = lang
+      ? ` Write all label and description values in ${lang}.`
+      : "";
     const systemPrompt =
       gate === "plan_confirm"
         ? `You are a mission planning assistant. Given a mission plan summary, ` +
@@ -872,7 +893,7 @@ export class SelfDrivenMissionRunner {
           `{"id":"proceed","label":"按现计划执行","description":"Execute the plan exactly as generated"}. ` +
           `Additional options should be context-specific adjustments (e.g. go deeper on ` +
           `a named aspect, reduce/increase steps, add or refocus a step, change depth). ` +
-          `Use concise, specific labels (≤8 words). ` +
+          `Use concise, specific labels (≤8 words).${langInstruction} ` +
           `Return ONLY a JSON array of objects with fields: id (kebab-slug, unique), ` +
           `label (string), description (string, optional). No markdown, no prose.`
         : `You are a mission delivery assistant. Given a mission execution summary, ` +
@@ -881,7 +902,7 @@ export class SelfDrivenMissionRunner {
           `{"id":"proceed","label":"按现计划交付","description":"Assemble and deliver the report as-is"}. ` +
           `Additional options should be report-level adjustments (e.g. add executive ` +
           `summary, expand a section, add key takeaways, restructure, add citations). ` +
-          `Use concise, specific labels (≤8 words). ` +
+          `Use concise, specific labels (≤8 words).${langInstruction} ` +
           `Return ONLY a JSON array of objects with fields: id (kebab-slug, unique), ` +
           `label (string), description (string, optional). No markdown, no prose.`;
 
@@ -1025,6 +1046,7 @@ export class SelfDrivenMissionRunner {
     priorOutputs: Map<string, string>,
     signal?: AbortSignal,
     appendContext?: string,
+    lang?: string,
   ): AsyncGenerator<SelfDrivenMissionEvent, string, unknown> {
     const missionId = plan.missionId;
 
@@ -1049,6 +1071,7 @@ export class SelfDrivenMissionRunner {
       roleHint,
       effectivePrompt,
       priorContext,
+      lang,
     );
 
     // Select TaskProfile based on step type / loopKind + analysis depth.
