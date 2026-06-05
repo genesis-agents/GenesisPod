@@ -219,9 +219,19 @@ export class SelfDrivenMissionRunner {
 
       // Emit team_built event (additive — unknown types silently ignored by
       // consumers that have not yet adopted this event).
-      const roles = team
-        .getAllMembers()
-        .map((m) => ({ roleId: m.role.id, modelId: m.model }));
+      //
+      // Source of truth = the planner's per-role elected assignments, NOT the
+      // built team's members: the team is created with a single uniform
+      // defaultModel (TeamFactory.createFromConfig has no per-role model slot),
+      // so team.getAllMembers() would advertise the same model for every role
+      // while each step actually executes on its own elected modelId
+      // (plan.roleAssignments). Emitting the elected assignments keeps the UI's
+      // model attribution consistent with what each step really runs on.
+      void team; // built for role validation (safety-10) + registry bridging.
+      const roles = assignments.map((a) => ({
+        roleId: a.roleId,
+        modelId: a.modelId,
+      }));
       yield { type: "team_built", missionId, roles };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -753,12 +763,22 @@ export class SelfDrivenMissionRunner {
 
       return accumulated;
     } catch (streamErr) {
-      // ── Fallback: blocking chat() call ───────────────────────────────────
+      // ── Fallback: blocking chat() with ENGINE model-level failover ───────
+      // The streaming attempt above pinned the elected model explicitly. When
+      // it fails (e.g. the diversity-elected model is unhealthy at call time),
+      // we DROP the explicit model on the retry: AiChatService.chat() only
+      // engages its built-in model-level failover (runChatWithModelFailover)
+      // when no explicit `model` is passed — passing one short-circuits to a
+      // single chatOnce with no recovery (ai-chat.service.ts §统一 chat 入口).
+      // Dropping it lets the engine fail over to a healthy default, so one bad
+      // per-role election no longer fails the whole step. (Reuses the existing
+      // engine failover capability — no hand-rolled retry loop.)
       const streamMessage =
         streamErr instanceof Error ? streamErr.message : String(streamErr);
       this.logger.warn(
-        `[SelfDriven] step "${step.name}" chatStream failed (${streamMessage}), ` +
-          `falling back to chat()`,
+        `[SelfDriven] step "${step.name}" chatStream failed on model ` +
+          `"${modelId || "default"}" (${streamMessage}) — retrying via chat() ` +
+          `with engine model-level failover (dropping the elected model)`,
       );
 
       const result = await this.chat.chat({
@@ -766,7 +786,7 @@ export class SelfDrivenMissionRunner {
         messages: [userMessage],
         taskProfile,
         modelType: AIModelType.CHAT,
-        model: modelId || undefined,
+        // model intentionally omitted → engine model-level failover engages.
         userId: input.userId,
         signal,
       });
