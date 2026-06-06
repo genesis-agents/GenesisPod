@@ -15,7 +15,11 @@ import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { EntityResolutionService } from "@/modules/ai-engine/facade";
+import {
+  EntityResolutionService,
+  ToolRegistry,
+  type ToolContext,
+} from "@/modules/ai-engine/facade";
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -63,6 +67,32 @@ export interface ChainGraph {
   };
 }
 
+/** 实体行情（best-effort，依赖 finance-api / AV key + 美股 + ticker 可解析）。 */
+export interface EntityFinance {
+  available: boolean;
+  ticker?: string;
+  price?: number;
+  change?: number;
+  changePercent?: string;
+  series?: Array<{ date: string; close: number }>;
+}
+
+// finance-api 工具输出的最小读取形（不跨界 import 引擎内部类型）。
+interface FinPoint {
+  date?: string;
+  value?: string;
+  close?: string;
+}
+interface FinToolOutput {
+  success?: boolean;
+  data?: FinPoint[];
+  metadata?: Record<string, string>;
+}
+
+// SEC ticker 映射缓存（cik→ticker），进程级、按天刷新——finance-api 只认 ticker，库里存 cik。
+let secTickerCache: { at: number; map: Map<string, string> } | null = null;
+const SEC_TICKER_TTL_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class IndustryChainService {
   private readonly logger = new Logger(IndustryChainService.name);
@@ -73,6 +103,7 @@ export class IndustryChainService {
     private readonly orchestrator: MissionPipelineOrchestrator,
     private readonly registry: MissionPipelineRegistry,
     private readonly harness: HarnessFacade,
+    private readonly toolRegistry: ToolRegistry,
   ) {}
 
   /**
@@ -406,6 +437,108 @@ export class IndustryChainService {
       throw new NotFoundException("实体不存在或无访问权限");
     }
     return entity;
+  }
+
+  /** cik→ticker（SEC company_tickers.json，进程级缓存）。finance-api 只认 ticker。 */
+  private async resolveTickerByCik(cik: string): Promise<string | null> {
+    if (!secTickerCache || Date.now() - secTickerCache.at > SEC_TICKER_TTL_MS) {
+      try {
+        const res = await fetch(
+          "https://www.sec.gov/files/company_tickers.json",
+          {
+            headers: { "User-Agent": "IndustryChain industry-chain@gens.team" },
+          },
+        );
+        if (!res.ok) return null;
+        const json = (await res.json()) as Record<
+          string,
+          { cik_str: number; ticker: string }
+        >;
+        const map = new Map<string, string>();
+        for (const v of Object.values(json)) {
+          if (v?.ticker) map.set(String(v.cik_str).padStart(10, "0"), v.ticker);
+        }
+        secTickerCache = { at: Date.now(), map };
+      } catch (e) {
+        this.logger.warn(`[resolveTicker] SEC tickers fetch failed: ${e}`);
+        return null;
+      }
+    }
+    return secTickerCache.map.get(cik) ?? null;
+  }
+
+  /**
+   * 实体行情（M6 越权过滤）。best-effort：需 cik→ticker 可解析 + finance-api(AV key) + 美股。
+   * 任一不满足返回 { available:false }，由前端退回深链入口（不报错、不空白）。
+   */
+  async getEntityFinance(
+    userId: string,
+    entityId: string,
+  ): Promise<EntityFinance> {
+    const entity = await this.prisma.industryEntity.findFirst({
+      where: { id: entityId, chain: { ownerId: userId } },
+    });
+    if (!entity) {
+      throw new NotFoundException("实体不存在或无访问权限");
+    }
+    if (!entity.cik) return { available: false };
+
+    const ticker = await this.resolveTickerByCik(entity.cik);
+    if (!ticker) return { available: false };
+
+    const tool = this.toolRegistry.tryGet("finance-api");
+    if (!tool) return { available: false };
+
+    const ctx: ToolContext = {
+      executionId: randomUUID(),
+      toolId: "finance-api",
+      createdAt: new Date(),
+      userId,
+    };
+    try {
+      const [quoteRes, dailyRes] = await Promise.all([
+        tool.execute({ queryType: "stock_quote", symbol: ticker }, ctx),
+        tool.execute({ queryType: "stock_daily", symbol: ticker }, ctx),
+      ]);
+      const quote = (quoteRes?.data as FinToolOutput | undefined) ?? undefined;
+      const daily = (dailyRes?.data as FinToolOutput | undefined) ?? undefined;
+
+      const priceStr = quote?.success ? quote.data?.[0]?.value : undefined;
+      const price = priceStr ? Number(priceStr) : undefined;
+      const change = quote?.metadata?.["09. change"]
+        ? Number(quote.metadata["09. change"])
+        : undefined;
+      const changePercent = quote?.metadata?.["10. change percent"];
+
+      // AV 日线最新在前；取近 30 点并反转为时间正序（左旧右新）供 sparkline。
+      const series = daily?.success
+        ? (daily.data ?? [])
+            .slice(0, 30)
+            .map((p) => ({
+              date: p.date ?? "",
+              close: Number(p.close ?? p.value ?? 0),
+            }))
+            .filter((p) => p.date && Number.isFinite(p.close) && p.close > 0)
+            .reverse()
+        : [];
+
+      if (price === undefined && series.length === 0) {
+        return { available: false, ticker };
+      }
+      return {
+        available: true,
+        ticker,
+        price: Number.isFinite(price) ? price : undefined,
+        change: Number.isFinite(change) ? change : undefined,
+        changePercent,
+        series,
+      };
+    } catch (e) {
+      this.logger.warn(
+        `[getEntityFinance] entity=${entityId} ticker=${ticker} failed: ${e}`,
+      );
+      return { available: false, ticker };
+    }
   }
 
   /** 取产业链元信息（M6 ownerId 越权过滤）。 */

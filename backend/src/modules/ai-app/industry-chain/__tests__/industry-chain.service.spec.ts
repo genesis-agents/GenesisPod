@@ -10,7 +10,10 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { IndustryChainService } from "../industry-chain.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { EntityResolutionService } from "@/modules/ai-engine/facade";
+import {
+  EntityResolutionService,
+  ToolRegistry,
+} from "@/modules/ai-engine/facade";
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -77,6 +80,7 @@ describe("IndustryChainService", () => {
           },
         },
         { provide: HarnessFacade, useValue: { execute: jest.fn() } },
+        { provide: ToolRegistry, useValue: { tryGet: jest.fn() } },
       ],
     }).compile();
     service = module.get(IndustryChainService);
@@ -283,6 +287,7 @@ describe("IndustryChainService", () => {
             },
           },
           { provide: HarnessFacade, useValue: harness },
+          { provide: ToolRegistry, useValue: { tryGet: jest.fn() } },
         ],
       }).compile();
       const svc = mod.get(IndustryChainService);

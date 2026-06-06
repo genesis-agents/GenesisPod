@@ -54,3 +54,13 @@ export interface AnalyzeChainResult {
   chainId: string;
   missionId: string;
 }
+
+/** 实体行情（best-effort，后端经 finance-api 拉取；不可用时 available=false）。 */
+export interface EntityFinance {
+  available: boolean;
+  ticker?: string;
+  price?: number;
+  change?: number;
+  changePercent?: string;
+  series?: Array<{ date: string; close: number }>;
+}

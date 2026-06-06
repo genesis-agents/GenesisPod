@@ -61,4 +61,14 @@ export class IndustryChainController {
   ) {
     return this.service.getEntity(req.user.id, entityId);
   }
+
+  /** 实体行情（best-effort，依赖 finance-api / AV key + 美股）。 */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Get("entity/:entityId/finance")
+  async getEntityFinance(
+    @Request() req: RequestWithUser,
+    @Param("entityId") entityId: string,
+  ) {
+    return this.service.getEntityFinance(req.user.id, entityId);
+  }
 }

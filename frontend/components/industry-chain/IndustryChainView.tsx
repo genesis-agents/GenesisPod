@@ -13,16 +13,51 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import KnowledgeGraphView from '@/components/common/views/KnowledgeGraphView';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/states';
 import { industryChainApi } from '@/services/industry-chain/api';
 import type {
   ChainGraph,
+  EntityFinance,
   IndustryChain,
   IndustryEntityDetail,
 } from '@/services/industry-chain/types';
 import { logger } from '@/lib/utils/logger';
+
+/** 迷你走势图（series 时间正序，左旧右新）。涨绿跌红。 */
+function Sparkline({ series }: { series: Array<{ close: number }> }) {
+  const closes = series.map((p) => p.close);
+  if (closes.length < 2) return null;
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const range = max - min || 1;
+  const w = 200;
+  const h = 40;
+  const pts = closes
+    .map(
+      (c, i) =>
+        `${(i / (closes.length - 1)) * w},${h - ((c - min) / range) * h}`
+    )
+    .join(' ');
+  const up = closes[closes.length - 1] >= closes[0];
+  return (
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      className="mt-1 h-10 w-full"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={up ? '#10b981' : '#ef4444'}
+        strokeWidth={1.5}
+      />
+    </svg>
+  );
+}
 
 interface Props {
   chainId: string;
@@ -36,6 +71,7 @@ function ChainEntityDetail({ entityId }: { entityId: string }) {
   const [entity, setEntity] = useState<IndustryEntityDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [finance, setFinance] = useState<EntityFinance | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -57,6 +93,30 @@ function ChainEntityDetail({ entityId }: { entityId: string }) {
       alive = false;
     };
   }, [entityId]);
+
+  // 行情（best-effort，仅公司类；后端不可用时静默返回 available:false → 退回深链）
+  useEffect(() => {
+    if (
+      !entity ||
+      (entity.type !== 'COMPANY' && entity.type !== 'PRODUCT') ||
+      !entity.cik
+    ) {
+      setFinance(null);
+      return;
+    }
+    let alive = true;
+    industryChainApi
+      .getEntityFinance(entity.id)
+      .then((f) => {
+        if (alive) setFinance(f);
+      })
+      .catch(() => {
+        if (alive) setFinance(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [entity]);
 
   if (loading) {
     return <p className="text-xs text-gray-400">加载详情…</p>;
@@ -127,6 +187,41 @@ function ChainEntityDetail({ entityId }: { entityId: string }) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+      {finance?.available && (
+        <div className="rounded-lg bg-gray-50 p-2.5">
+          <div className="flex items-baseline gap-2">
+            {finance.price !== undefined && (
+              <span className="text-lg font-bold text-gray-900">
+                {finance.price.toFixed(2)}
+              </span>
+            )}
+            {finance.changePercent && (
+              <span
+                className={`inline-flex items-center gap-0.5 text-xs ${
+                  (finance.change ?? 0) >= 0
+                    ? 'text-emerald-600'
+                    : 'text-red-600'
+                }`}
+              >
+                {(finance.change ?? 0) >= 0 ? (
+                  <TrendingUp className="h-3 w-3" aria-hidden />
+                ) : (
+                  <TrendingDown className="h-3 w-3" aria-hidden />
+                )}
+                {finance.changePercent}
+              </span>
+            )}
+            {finance.ticker && (
+              <span className="ml-auto text-xs text-gray-400">
+                {finance.ticker}
+              </span>
+            )}
+          </div>
+          {finance.series && finance.series.length > 1 && (
+            <Sparkline series={finance.series} />
+          )}
         </div>
       )}
       {deepLinks.length > 0 && (

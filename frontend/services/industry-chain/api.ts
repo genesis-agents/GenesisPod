@@ -6,6 +6,7 @@ import apiClient from '@/lib/api/client';
 import type {
   AnalyzeChainResult,
   ChainGraph,
+  EntityFinance,
   IndustryChain,
   IndustryEntityDetail,
 } from './types';
@@ -31,5 +32,10 @@ export const industryChainApi = {
   /** 单实体详情（点击节点）。 */
   getEntity(entityId: string): Promise<IndustryEntityDetail> {
     return apiClient.get<IndustryEntityDetail>(`${BASE}/entity/${entityId}`);
+  },
+
+  /** 实体行情（best-effort，不可用返回 available:false）。 */
+  getEntityFinance(entityId: string): Promise<EntityFinance> {
+    return apiClient.get<EntityFinance>(`${BASE}/entity/${entityId}/finance`);
   },
 };
