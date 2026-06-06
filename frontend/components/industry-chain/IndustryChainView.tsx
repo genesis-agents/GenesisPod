@@ -20,10 +20,96 @@ import { industryChainApi } from '@/services/industry-chain/api';
 import type {
   ChainGraph,
   IndustryChain,
+  IndustryEntityDetail,
 } from '@/services/industry-chain/types';
+import { logger } from '@/lib/utils/logger';
 
 interface Props {
   chainId: string;
+}
+
+/**
+ * 节点详情：按 entityId 拉 getEntity，展示公司/环节档案（描述 / CIK / SEC 来源链接）。
+ * 作为 renderNodeDetail 注入 KnowledgeGraphView 的领域详情区（key=entityId 切换即重拉）。
+ */
+function ChainEntityDetail({ entityId }: { entityId: string }) {
+  const [entity, setEntity] = useState<IndustryEntityDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setLoadError(null);
+    industryChainApi
+      .getEntity(entityId)
+      .then((e) => {
+        if (alive) setEntity(e);
+      })
+      .catch((err) => {
+        logger.error('[IndustryChain] getEntity failed:', err);
+        if (alive) setLoadError('加载详情失败');
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [entityId]);
+
+  if (loading) {
+    return <p className="text-xs text-gray-400">加载详情…</p>;
+  }
+  if (loadError) {
+    return <p className="text-xs text-red-600">{loadError}</p>;
+  }
+  if (!entity) return null;
+
+  const refs = entity.sourceRefs ?? [];
+  const hasNoDetail = !entity.description && !entity.cik && refs.length < 1;
+  return (
+    <div className="space-y-3">
+      {entity.description && (
+        <p className="text-sm leading-relaxed text-gray-600">
+          {entity.description}
+        </p>
+      )}
+      {entity.cik && (
+        <div className="text-xs text-gray-500">
+          CIK：<span className="font-mono text-gray-700">{entity.cik}</span>
+        </div>
+      )}
+      {refs.length > 0 && (
+        <div>
+          <div className="mb-1 text-xs font-medium text-gray-700">SEC 来源</div>
+          <ul className="space-y-1">
+            {refs.map((r, i) => (
+              <li key={r.accessionNumber ?? r.url ?? i}>
+                {r.url ? (
+                  <a
+                    href={r.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-emerald-600 underline underline-offset-2 hover:text-emerald-700"
+                  >
+                    {r.reportType || r.accessionNumber || r.url}
+                    {r.date ? ` · ${r.date}` : ''}
+                  </a>
+                ) : (
+                  <span className="text-xs text-gray-500">
+                    {r.reportType || r.accessionNumber}
+                    {r.date ? ` · ${r.date}` : ''}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {hasNoDetail && <p className="text-xs text-gray-400">暂无更多详情</p>}
+    </div>
+  );
 }
 
 const POLL_INTERVAL_MS = 3000;
@@ -124,6 +210,9 @@ export default function IndustryChainView({ chainId }: Props) {
         edges={edges}
         defaultLayout="chain"
         title={t('industryChain.title')}
+        renderNodeDetail={(node) => (
+          <ChainEntityDetail key={node.id} entityId={node.id} />
+        )}
       />
     </div>
   );

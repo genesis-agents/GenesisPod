@@ -62,6 +62,11 @@ interface KnowledgeGraphViewProps {
   defaultLayout?: 'force' | 'circular' | 'hierarchical' | 'chain';
   /** 顶部标题（默认"知识图谱"） */
   title?: string;
+  /**
+   * 选中节点详情面板的额外内容渲染器（保持本组件通用：领域详情由调用方提供）。
+   * 例如产业链页传入一个按 node.id 调 getEntity 拉公司档案（描述/CIK/SEC 来源）的渲染器。
+   */
+  renderNodeDetail?: (node: GraphNode) => React.ReactNode;
 }
 
 export default function KnowledgeGraphView({
@@ -69,6 +74,7 @@ export default function KnowledgeGraphView({
   edges,
   defaultLayout = 'force',
   title,
+  renderNodeDetail,
 }: KnowledgeGraphViewProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -635,6 +641,13 @@ export default function KnowledgeGraphView({
                 }
               </div>
             </div>
+
+            {/* 领域详情（由调用方渲染，如产业链公司档案：描述/CIK/SEC 来源） */}
+            {renderNodeDetail && (
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                {renderNodeDetail(selectedNode)}
+              </div>
+            )}
           </div>
         )}
 
