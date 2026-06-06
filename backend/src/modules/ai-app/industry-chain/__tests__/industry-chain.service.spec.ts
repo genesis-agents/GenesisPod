@@ -50,7 +50,7 @@ describe("IndustryChainService", () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EntityResolutionService, useValue: entityResolution },
         { provide: MissionPipelineOrchestrator, useValue: { run: jest.fn() } },
-        { provide: MissionPipelineRegistry, useValue: { register: jest.fn() } },
+        { provide: MissionPipelineRegistry, useValue: { register: jest.fn(), has: jest.fn().mockReturnValue(false) } },
         { provide: HarnessFacade, useValue: { execute: jest.fn() } },
       ],
     }).compile();
@@ -151,7 +151,7 @@ describe("IndustryChainService", () => {
           { provide: PrismaService, useValue: prisma },
           { provide: EntityResolutionService, useValue: entityResolution },
           { provide: MissionPipelineOrchestrator, useValue: { run: jest.fn() } },
-          { provide: MissionPipelineRegistry, useValue: { register: jest.fn() } },
+          { provide: MissionPipelineRegistry, useValue: { register: jest.fn(), has: jest.fn().mockReturnValue(false) } },
           { provide: HarnessFacade, useValue: harness },
         ],
       }).compile();

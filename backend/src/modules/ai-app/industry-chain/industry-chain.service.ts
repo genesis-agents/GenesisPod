@@ -325,12 +325,13 @@ export class IndustryChainService {
     return chain;
   }
 
-  /** 确保产业链 pipeline 已注册（模块 onModuleInit 调用）。 */
+  /**
+   * 确保产业链 pipeline 已注册（模块 onModuleInit 调用）。
+   * 幂等：已注册则跳过；未注册则注册——配置校验/未知 primitive 错误**故意不吞**，
+   * 让其在应用启动期 fail-fast 暴露（避免静默吞错后 analyze 时才报 "pipeline not found"）。
+   */
   ensurePipelineRegistered(config: Parameters<MissionPipelineRegistry["register"]>[0]): void {
-    try {
-      this.registry.register(config);
-    } catch {
-      // 已注册 → 幂等忽略
-    }
+    if (this.registry.has(config.id)) return;
+    this.registry.register(config);
   }
 }
