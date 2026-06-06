@@ -29,6 +29,7 @@ describe("IndustryChainService", () => {
       create: jest.Mock;
       findFirst: jest.Mock;
       deleteMany: jest.Mock;
+      count: jest.Mock;
     };
     industryRelation: { create: jest.Mock; deleteMany: jest.Mock };
     $transaction: jest.Mock;
@@ -51,6 +52,7 @@ describe("IndustryChainService", () => {
           ),
         findFirst: jest.fn(),
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        count: jest.fn().mockResolvedValue(0),
       },
       industryRelation: {
         create: jest.fn().mockResolvedValue({}),

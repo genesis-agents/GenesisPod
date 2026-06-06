@@ -139,10 +139,18 @@ export class IndustryChainService {
       try {
         raw = JSON.parse(output);
       } catch {
+        // agent 返回了非 JSON（多为 prose）——不再静默吞成空，记日志暴露真因。
+        this.logger.warn(
+          `[parseExtraction] agent output is not valid JSON (len=${output.length}): ${output.slice(0, 300)}`,
+        );
         raw = {};
       }
     }
-    return ChainExtractionResultSchema.parse(raw);
+    const parsed = ChainExtractionResultSchema.parse(raw);
+    this.logger.log(
+      `[parseExtraction] segments=${parsed.segments.length} companies=${parsed.companies.length} relations=${parsed.relations.length}`,
+    );
+    return parsed;
   }
 
   /** 创建产业链 + 异步发起动态编排 mission。返回 {chainId, missionId}。 */
@@ -178,10 +186,20 @@ export class IndustryChainService {
         userId,
         input: { topic, chainId },
       });
-      // 编排产出在 persist 步已落库；这里只收尾状态
+      // 编排产出在 persist 步已落库；收尾状态。
+      // 空抽取（0 实体）= 业务失败：标 FAILED 让前端给可重试错误态，而不是静默"无数据"。
+      const entityCount = await this.prisma.industryEntity.count({
+        where: { chainId },
+      });
+      const failed = result?.status === "failed" || entityCount === 0;
+      if (entityCount === 0) {
+        this.logger.warn(
+          `[runMission] chain=${chainId} topic="${topic}" produced 0 entities — marking FAILED (检查 chain-mapper 抽取/工具是否正常)`,
+        );
+      }
       await this.prisma.industryChain.update({
         where: { id: chainId },
-        data: { status: result?.status === "failed" ? "FAILED" : "COMPLETED" },
+        data: { status: failed ? "FAILED" : "COMPLETED" },
       });
     } catch (error) {
       this.logger.error(
