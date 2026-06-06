@@ -13,6 +13,7 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "crypto";
+import { z } from "zod";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EntityResolutionService } from "@/modules/ai-engine/facade";
 import {
@@ -76,8 +77,10 @@ export class IndustryChainService {
       {
         // 单条产业链 → 单 item
         fanOut: ({ ctx }) => [ctx.input],
-        perItemPipeline: async ({ ctx }) => {
-          const input = ctx.input as { topic: string; chainId: string };
+        perItemPipeline: async ({ item, ctx }) => {
+          // 阻断-2：从 item 读（research primitive 把 fanOut 的每个元素作为 item 传入），
+          // 不读 ctx.input——未来 fanOut 产出多 item 时才不会全部分析同一 topic。
+          const input = item as { topic: string; chainId: string };
           const spec: IAgentSpec = {
             identity: {
               role: {
@@ -90,7 +93,9 @@ export class IndustryChainService {
             loop: "react",
             systemPrompt: CHAIN_MAPPER_SYSTEM_PROMPT,
             userId: ctx.userId,
-            outputSchema: ChainExtractionResultSchema as never,
+            // spec 泛型 TOutput=unknown → outputSchema 需 z.ZodType<unknown>；
+            // ChainExtractionResultSchema 是 ZodObject（不变型），收窄到 z.ZodType<unknown>
+            outputSchema: ChainExtractionResultSchema as unknown as z.ZodType<unknown>,
           };
           const task: IAgentTask = {
             goal: `分析"${input.topic}"的产业链结构与参与者`,
@@ -181,35 +186,14 @@ export class IndustryChainService {
   ): Promise<{ entities: number; relations: number; dropped: number }> {
     const result: ChainExtractionResult = ChainExtractionResultSchema.parse(raw);
 
-    // ── 1. 环节实体（按 name 直接去重，不做语义消歧）────────────────────────
-    const canonicalToId = new Map<string, string>();
-    const segmentNames = Array.from(
-      new Set(result.segments.map((s) => s.name.trim()).filter(Boolean)),
-    );
-    for (const seg of result.segments) {
-      const name = seg.name.trim();
-      if (!name || canonicalToId.has(name)) continue;
-      const ent = await this.prisma.industryEntity.create({
-        data: {
-          chainId,
-          name,
-          type: "SEGMENT" satisfies (typeof ENTITY_TYPES)[number],
-          segment: name,
-          description: seg.description ?? null,
-        },
-      });
-      canonicalToId.set(name, ent.id);
-    }
-
-    // ── 2. 公司实体（语义消歧去重）──────────────────────────────────────────
+    // ── 1. 实体消歧（embedding 调用，放事务外，避免长事务持有连接）──────────
     const companyNames = result.companies.map((c) => c.name);
     const resolution = await this.entityResolution.resolve(companyNames);
-    // canonical → 合并后的公司元数据
+    // canonical → 合并后的公司元数据（纯计算）
     const byCanonical = new Map<string, (typeof result.companies)[number]>();
     for (const c of result.companies) {
       const canonical = resolution.canonicalOf[c.name] ?? c.name;
       const existing = byCanonical.get(canonical);
-      // 合并：保留首个，补全缺失字段
       if (!existing) {
         byCanonical.set(canonical, { ...c, name: canonical });
       } else {
@@ -218,54 +202,84 @@ export class IndustryChainService {
           cik: existing.cik ?? c.cik,
           segment: existing.segment ?? c.segment,
           description: existing.description ?? c.description,
-          sourceRefs: [
-            ...(existing.sourceRefs ?? []),
-            ...(c.sourceRefs ?? []),
-          ],
+          sourceRefs: [...(existing.sourceRefs ?? []), ...(c.sourceRefs ?? [])],
         });
       }
     }
-    for (const [canonical, c] of byCanonical) {
-      if (canonicalToId.has(canonical)) continue;
-      const ent = await this.prisma.industryEntity.create({
-        data: {
-          chainId,
-          name: canonical,
-          type: "COMPANY" satisfies (typeof ENTITY_TYPES)[number],
-          cik: c.cik ?? null,
-          segment: c.segment ?? null,
-          description: c.description ?? null,
-          sourceRefs: sanitizeSourceRefs(c.sourceRefs) as object,
-        },
-      });
-      canonicalToId.set(canonical, ent.id);
-    }
 
-    // ── 3. 关系映射 + M8 校验 + 落库 ────────────────────────────────────────
-    const { rows, dropped } = buildRelationRows(
-      result.relations,
-      resolution.canonicalOf,
-      canonicalToId,
-    );
-    if (dropped.length) {
-      this.logger.warn(`[persistExtraction] chain=${chainId} dropped ${dropped.length} invalid relations`);
-    }
-    for (const row of rows) {
-      await this.prisma.industryRelation.create({
-        data: {
-          chainId,
-          sourceId: row.sourceId,
-          targetId: row.targetId,
-          relationType: row.relationType,
-          weight: row.weight,
-          evidence: row.evidence,
-          validFrom: new Date(),
-        },
-      });
-    }
+    // ── 2. 事务落库（阻断-1：原子 + 幂等）──────────────────────────────────
+    // 幂等：先清该 chain 旧实体/关系，再全量重写——resume/重试产生干净状态，
+    // 避免无唯一索引的实体产生幽灵重复 + 唯一约束关系二次 create 崩溃。
+    return this.prisma.$transaction(async (tx) => {
+      await tx.industryRelation.deleteMany({ where: { chainId } });
+      await tx.industryEntity.deleteMany({ where: { chainId } });
 
-    void segmentNames; // 保留以便未来 segment 顺序校验
-    return { entities: canonicalToId.size, relations: rows.length, dropped: dropped.length };
+      const canonicalToId = new Map<string, string>();
+
+      // 2a. 环节实体（按 name 直接去重）
+      for (const seg of result.segments) {
+        const name = seg.name.trim();
+        if (!name || canonicalToId.has(name)) continue;
+        const ent = await tx.industryEntity.create({
+          data: {
+            chainId,
+            name,
+            type: "SEGMENT" satisfies (typeof ENTITY_TYPES)[number],
+            segment: name,
+            description: seg.description ?? null,
+          },
+        });
+        canonicalToId.set(name, ent.id);
+      }
+
+      // 2b. 公司实体（语义消歧去重）
+      for (const [canonical, c] of byCanonical) {
+        if (canonicalToId.has(canonical)) continue;
+        const ent = await tx.industryEntity.create({
+          data: {
+            chainId,
+            name: canonical,
+            type: "COMPANY" satisfies (typeof ENTITY_TYPES)[number],
+            cik: c.cik ?? null,
+            segment: c.segment ?? null,
+            description: c.description ?? null,
+            sourceRefs: sanitizeSourceRefs(c.sourceRefs) as object,
+          },
+        });
+        canonicalToId.set(canonical, ent.id);
+      }
+
+      // 2c. 关系映射 + M8 校验 + 落库
+      const { rows, dropped } = buildRelationRows(
+        result.relations,
+        resolution.canonicalOf,
+        canonicalToId,
+      );
+      if (dropped.length) {
+        this.logger.warn(
+          `[persistExtraction] chain=${chainId} dropped ${dropped.length} invalid relations`,
+        );
+      }
+      for (const row of rows) {
+        await tx.industryRelation.create({
+          data: {
+            chainId,
+            sourceId: row.sourceId,
+            targetId: row.targetId,
+            relationType: row.relationType,
+            weight: row.weight,
+            evidence: row.evidence,
+            validFrom: new Date(),
+          },
+        });
+      }
+
+      return {
+        entities: canonicalToId.size,
+        relations: rows.length,
+        dropped: dropped.length,
+      };
+    });
   }
 
   /** 取图（M6 ownerId 越权过滤）。 */

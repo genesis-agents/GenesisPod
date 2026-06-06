@@ -11,7 +11,9 @@
 
 import { Module, OnModuleInit } from "@nestjs/common";
 import { PrismaModule } from "@/common/prisma/prisma.module";
-import { AiEngineKnowledgeModule } from "@/modules/ai-engine/knowledge/knowledge.module";
+// 顶层 AiEngineModule（@Global，export AiEngineKnowledgeModule → EntityResolutionService）
+// 与 insight/teams/social 一致，不穿透 engine 子模块路径（应修-2）
+import { AiEngineModule } from "@/modules/ai-engine/ai-engine.module";
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -20,7 +22,7 @@ import { IndustryChainService } from "./industry-chain.service";
 import { IndustryChainController } from "./industry-chain.controller";
 
 @Module({
-  imports: [PrismaModule, AiEngineKnowledgeModule],
+  imports: [PrismaModule, AiEngineModule],
   controllers: [IndustryChainController],
   providers: [
     IndustryChainService,

@@ -21,8 +21,9 @@ describe("IndustryChainService", () => {
   let service: IndustryChainService;
   let prisma: {
     industryChain: { create: jest.Mock; update: jest.Mock; findFirst: jest.Mock };
-    industryEntity: { create: jest.Mock; findFirst: jest.Mock };
-    industryRelation: { create: jest.Mock };
+    industryEntity: { create: jest.Mock; findFirst: jest.Mock; deleteMany: jest.Mock };
+    industryRelation: { create: jest.Mock; deleteMany: jest.Mock };
+    $transaction: jest.Mock;
   };
   let entityResolution: { resolve: jest.Mock };
 
@@ -39,8 +40,14 @@ describe("IndustryChainService", () => {
           Promise.resolve({ id: `e-${++entitySeq}`, ...data }),
         ),
         findFirst: jest.fn(),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
-      industryRelation: { create: jest.fn().mockResolvedValue({}) },
+      industryRelation: {
+        create: jest.fn().mockResolvedValue({}),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      // $transaction(cb) 直接以同一 mock 作为 tx 执行回调
+      $transaction: jest.fn((cb: (tx: unknown) => unknown) => cb(prisma)),
     };
     entityResolution = { resolve: jest.fn() };
 
@@ -77,6 +84,11 @@ describe("IndustryChainService", () => {
           { source: "NVIDIA", target: "TSMC", relationType: "CONSUMES" }, // 重复 → 去重
         ],
       });
+
+      // 阻断-1 幂等：事务内先清旧实体/关系再重写
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.industryRelation.deleteMany).toHaveBeenCalledWith({ where: { chainId: "chain-1" } });
+      expect(prisma.industryEntity.deleteMany).toHaveBeenCalledWith({ where: { chainId: "chain-1" } });
 
       // 2 segments + 2 companies（NVIDIA+英伟达 合并）= 4 实体
       expect(result.entities).toBe(4);
