@@ -921,33 +921,37 @@ export class SelfDrivenMissionRunner {
       yield { type: "error", missionId, message: "aborted" };
       return;
     }
-    yield { type: "phase", missionId, phase: "deliver", status: "started" };
+    // "composing" detail so the UI shows the deliver phase is actively working
+    // (it now runs LLM passes that can take a while) instead of a frozen bar.
+    yield {
+      type: "phase",
+      missionId,
+      phase: "deliver",
+      status: "started",
+      detail: "composing report",
+    };
 
     try {
-      // ── Best-effort: extract key sources from assembled step text → APA refs ──
-      // Non-fatal: any failure (LLM error, parse failure, 0 sources) silently
-      // skips the references section rather than failing the mission.
-      const referencesMarkdown = await this.extractReferencesMarkdown(
-        stepOutputs,
-        input.userId,
-        missionId,
-        lang,
-      );
-
-      // ── Synthesis pass ────────────────────────────────────────────────────
-      // The single most important quality step: read ALL step outputs and write
-      // ONE coherent, non-redundant report — integrating the concrete findings
-      // (numbers, tables, scenarios) instead of letting compose() concatenate
-      // every step verbatim (which produced 3 overlapping reports + raw JSON).
-      // Non-fatal: on failure/empty, compose() falls back to legacy concat mode.
-      const synthesizedBody = await this.synthesizeReport(
-        plan,
-        stepOutputs,
-        input.prompt,
-        lang,
-        input.userId,
-        missionId,
-      );
+      // References extraction and the synthesis pass are INDEPENDENT, so run
+      // them concurrently — this is the slowest part of the deliver phase and
+      // serialising them (each up to 120s) is what made the mission look frozen
+      // at "deliver approved" for minutes. Both are non-fatal best-effort.
+      const [referencesMarkdown, synthesizedBody] = await Promise.all([
+        this.extractReferencesMarkdown(
+          stepOutputs,
+          input.userId,
+          missionId,
+          lang,
+        ),
+        this.synthesizeReport(
+          plan,
+          stepOutputs,
+          input.prompt,
+          lang,
+          input.userId,
+          missionId,
+        ),
+      ]);
 
       const report = this.composer.compose({
         plan,
@@ -965,11 +969,16 @@ export class SelfDrivenMissionRunner {
       );
 
       // ── Rubric self-evaluation ────────────────────────────────────────────
-      // After composing the draft report, score it against plan.rubric before
-      // final delivery. Non-fatal: any failure keeps the draft unchanged.
-      // At most ONE critique-driven refinement pass (no loop).
+      // Scores the draft against plan.rubric and optionally triggers ONE
+      // refinement pass. The refinement is a full-report rewrite, which is
+      // SKIPPED for large reports (truncation guard) — so running the eval at
+      // all is wasted latency when it could never act. Only evaluate when a
+      // refinement could actually run.
       let finalContent = report.content;
-      if (plan.rubric && plan.rubric.length > 0) {
+      const canRefine =
+        report.content.length <=
+        SelfDrivenMissionRunner.FINALIZE_MAX_INPUT_CHARS;
+      if (canRefine && plan.rubric && plan.rubric.length > 0) {
         const rubricResult = await this.evaluateAgainstRubric(
           report.content,
           plan.rubric,
