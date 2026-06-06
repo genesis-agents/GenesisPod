@@ -934,12 +934,28 @@ export class SelfDrivenMissionRunner {
         lang,
       );
 
+      // ── Synthesis pass ────────────────────────────────────────────────────
+      // The single most important quality step: read ALL step outputs and write
+      // ONE coherent, non-redundant report — integrating the concrete findings
+      // (numbers, tables, scenarios) instead of letting compose() concatenate
+      // every step verbatim (which produced 3 overlapping reports + raw JSON).
+      // Non-fatal: on failure/empty, compose() falls back to legacy concat mode.
+      const synthesizedBody = await this.synthesizeReport(
+        plan,
+        stepOutputs,
+        input.prompt,
+        lang,
+        input.userId,
+        missionId,
+      );
+
       const report = this.composer.compose({
         plan,
         stepOutputs,
         userPrompt: input.prompt,
         referencesMarkdown,
         language: lang,
+        synthesizedBody,
       });
 
       this.logger.log(
@@ -2084,6 +2100,106 @@ export class SelfDrivenMissionRunner {
           `${err instanceof Error ? err.message : String(err)}`,
       );
       return noopResult;
+    }
+  }
+
+  /**
+   * Synthesis pass — read ALL step outputs and write ONE coherent, non-redundant
+   * report that integrates the concrete findings. This replaces the old
+   * "concatenate every step verbatim" assembly (which produced multiple
+   * overlapping reports + raw-JSON sections + no actual integration).
+   *
+   * Input can be large (all findings); output is one report (~8000 tokens =
+   * a normal report length), so there's no truncation risk — the body is
+   * authored fresh at its natural length, with the full detail preserved in the
+   * appendix the composer adds. Non-fatal: returns undefined on any failure so
+   * the composer falls back to legacy concatenation.
+   */
+  private async synthesizeReport(
+    plan: MissionExecutionPlan,
+    stepOutputs: Map<string, string>,
+    userPrompt: string,
+    language: string | undefined,
+    userId: string,
+    missionId: string,
+  ): Promise<string | undefined> {
+    if (stepOutputs.size === 0) return undefined;
+
+    // Assemble the findings, capping each step so the combined input stays
+    // within a comfortable context budget (8 × 6k ≈ 48k chars ≈ ~16k tokens).
+    const PER_STEP_CAP = 6_000;
+    const findings = plan.steps
+      .map((step) => {
+        const out = stepOutputs.get(step.id);
+        if (!out) return null;
+        const body =
+          out.length > PER_STEP_CAP ? out.slice(0, PER_STEP_CAP) + "…" : out;
+        return `### Finding from "${step.name}" (${step.executor})\n${body}`;
+      })
+      .filter((s): s is string => s !== null)
+      .join("\n\n");
+
+    const langLine = language
+      ? `Write the entire report in ${language}. Do not mix languages.\n`
+      : "";
+
+    const systemPrompt =
+      `You are a senior research report writer. You are given the raw findings ` +
+      `from several specialist steps of a research mission. Your job is to ` +
+      `SYNTHESIZE them into ONE coherent, well-structured, non-redundant report ` +
+      `that directly answers the mission objective.\n\n` +
+      `Hard requirements:\n` +
+      `- Integrate the CONCRETE findings — the actual numbers, tables, ` +
+      `scenarios, and results from the steps. Do NOT write a generic essay from ` +
+      `general knowledge; use what the findings actually say.\n` +
+      `- Do NOT repeat the same content in multiple sections. Each point appears ` +
+      `once, in the most relevant place.\n` +
+      `- Keep important data tables (render them as clean Markdown tables).\n` +
+      `- Preserve any inline source links ([label](url)) that appear in the ` +
+      `findings; never invent URLs.\n` +
+      `- Start with a single top-level "# " title, then a brief executive ` +
+      `summary, then the body, then a conclusion.\n` +
+      `- Output ONLY the report Markdown — no meta-commentary about your task.\n` +
+      langLine;
+
+    const userMessage = {
+      role: "user" as const,
+      content:
+        `Mission objective: ${userPrompt}\n\n` +
+        `Raw findings to synthesize:\n\n${findings}`,
+    };
+
+    try {
+      const result = await this.withTimeout(
+        this.chat.chat({
+          messages: [{ role: "system", content: systemPrompt }, userMessage],
+          modelType: AIModelType.CHAT,
+          taskProfile: { creativity: "medium", outputLength: "long" },
+          userId,
+        }),
+        SelfDrivenMissionRunner.DELIVER_LLM_TIMEOUT_MS,
+        `mission ${missionId} report synthesis`,
+      );
+
+      const synthesized = (result.content ?? "").trim();
+      if (synthesized.length < 200) {
+        this.logger.warn(
+          `[SelfDriven] mission ${missionId} synthesis output too short ` +
+            `(${synthesized.length} chars) — falling back to legacy concat`,
+        );
+        return undefined;
+      }
+      this.logger.log(
+        `[SelfDriven] mission ${missionId} synthesis produced ${synthesized.length} chars ` +
+          `from ${stepOutputs.size} step outputs`,
+      );
+      return synthesized;
+    } catch (err) {
+      this.logger.warn(
+        `[SelfDriven] mission ${missionId} synthesis failed (non-fatal): ` +
+          `${err instanceof Error ? err.message : String(err)}`,
+      );
+      return undefined;
     }
   }
 

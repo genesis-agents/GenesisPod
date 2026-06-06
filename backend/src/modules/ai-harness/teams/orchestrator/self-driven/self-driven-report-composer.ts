@@ -43,6 +43,14 @@ export interface ReportComposerInput {
    * Controls the References section heading. Absent = bilingual fallback heading.
    */
   language?: string;
+  /**
+   * The synthesized report body (one coherent, non-redundant document produced
+   * by the deliver-phase synthesis pass from ALL step outputs). When present,
+   * THIS is the report; the per-step outputs are demoted to a collapsed
+   * appendix and the internal rubric table is omitted. Absent = legacy mode
+   * (concatenate every step output + rubric) for back-compat / synthesis failure.
+   */
+  synthesizedBody?: string;
 }
 
 /** Slim report output — content is a Markdown string. */
@@ -65,8 +73,28 @@ export class SelfDrivenReportComposer {
    *   rubric dimension table (passLine reference, not scored here)
    */
   compose(input: ReportComposerInput): ReportComposerOutput {
-    const { plan, stepOutputs, userPrompt, referencesMarkdown, language } =
-      input;
+    const {
+      plan,
+      stepOutputs,
+      userPrompt,
+      referencesMarkdown,
+      language,
+      synthesizedBody,
+    } = input;
+
+    // Synthesis mode: a real, coherent report exists. Emit it as the body, demote
+    // raw per-step outputs to an appendix, and DROP the internal rubric table
+    // (it's scoring config, not report content). This is the path that fixes the
+    // "8 steps concatenated, three overlapping reports, no synthesis" problem.
+    if (synthesizedBody && synthesizedBody.trim().length > 0) {
+      return this.composeFromSynthesis(
+        synthesizedBody,
+        plan,
+        stepOutputs,
+        referencesMarkdown,
+        language,
+      );
+    }
     // Each entry is a complete Markdown BLOCK. Blocks are joined with a blank
     // line ("\n\n"). NB: never terminate a block with "\n" — joining
     // newline-terminated blocks with "\n" injects a blank line *inside* a block,
@@ -145,6 +173,63 @@ export class SelfDrivenReportComposer {
     const content = blocks.join("\n\n").trim() + "\n";
     const wordCount = content.split(/\s+/).filter((w) => w.length > 0).length;
 
+    return { content, wordCount };
+  }
+
+  /**
+   * Synthesis-mode assembly: the synthesized report is the body; raw step
+   * outputs go into a clearly-separated "process appendix" (so the detailed
+   * research/data is still available without polluting the main report); the
+   * rubric is omitted. References (if any) are appended last.
+   */
+  private composeFromSynthesis(
+    synthesizedBody: string,
+    plan: MissionExecutionPlan,
+    stepOutputs: Map<string, string>,
+    referencesMarkdown: string | undefined,
+    language: string | undefined,
+  ): ReportComposerOutput {
+    const blocks: string[] = [];
+
+    // Body = the synthesized report verbatim (already a coherent document with
+    // its own top-level heading). Sanitize only (strip injection/thinking junk).
+    blocks.push(this.cleanStepBody(synthesizedBody));
+
+    // Appendix — raw per-step outputs, demoted under one H2 so they read as
+    // supporting detail rather than competing reports.
+    const appendixSteps = plan.steps.filter((s) => stepOutputs.get(s.id));
+    if (appendixSteps.length > 0) {
+      const appendixHeading =
+        language === "Chinese (简体中文)"
+          ? "## 附录：研究过程产出"
+          : language === "English"
+            ? "## Appendix: Research Process"
+            : "## Appendix / 附录";
+      blocks.push(`---`);
+      blocks.push(appendixHeading);
+      for (const step of appendixSteps) {
+        const output = stepOutputs.get(step.id)!;
+        // Demote each step to H3 so it nests under the appendix H2.
+        blocks.push(
+          `### ${step.name} — ${step.executor}\n\n${this.cleanStepBody(output)}`,
+        );
+      }
+    }
+
+    // References (best-effort, last).
+    if (referencesMarkdown && referencesMarkdown.trim().length > 0) {
+      const refHeading =
+        language === "Chinese (简体中文)"
+          ? "## 参考文献"
+          : language === "English"
+            ? "## References"
+            : "## References / 参考文献";
+      blocks.push(`---`);
+      blocks.push(`${refHeading}\n\n${referencesMarkdown.trim()}`);
+    }
+
+    const content = blocks.join("\n\n").trim() + "\n";
+    const wordCount = content.split(/\s+/).filter((w) => w.length > 0).length;
     return { content, wordCount };
   }
 
