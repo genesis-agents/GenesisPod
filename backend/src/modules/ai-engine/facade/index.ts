@@ -267,6 +267,13 @@ export type {
 export { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";
 // AgentExecutorService 已搬到 ai-harness/runner/executor/ (2026-04-30)
 export { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
+// Entity Resolution（实体消歧，industry-chain 等多模块复用）
+export { EntityResolutionService } from "../knowledge/entity-resolution/entity-resolution.service";
+export type {
+  EntityResolutionOptions,
+  EntityCluster,
+  EntityResolutionResult,
+} from "../knowledge/entity-resolution/entity-resolution.service";
 // TaskDecomposerService 已删 (2026-04-30) — 死代码
 export { ModelFallbackService } from "../llm/models/selection/model-fallback.service";
 
