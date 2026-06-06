@@ -106,6 +106,21 @@ export function isModelLevelFailoverError(err: unknown): boolean {
   )
     return true;
 
+  // Provider free-tier DAILY request cap (e.g. tokenmix "Daily request limit
+  // exceeded: 10 requests per day for unpaid users. Add credits..."). This is a
+  // PER-PROVIDER cap, NOT an account-wide budget — a DIFFERENT provider/model may
+  // still work, so DO failover. Placed BEFORE the budget guard so the "add
+  // credits"/"limit exceeded" wording isn't misread as account exhaustion. Note
+  // the message says "request limit" (not "rate limit") and carries no "quota"
+  // token, so without this it would fall through to `return false` and the
+  // mission would die on the first model instead of trying the others.
+  if (
+    /daily[\s_-]?(?:request[\s_-]?)?limit|requests?[\s_-]?per[\s_-]?day|remove[\s_-]?this[\s_-]?daily[\s_-]?limit/i.test(
+      msg,
+    )
+  )
+    return true;
+
   // Never failover on budget / billing exhaustion (user must act)
   if (
     /(insufficient[_\s-]?quota|exceeded[_\s\w]*quota|quota[_\s\w]*exceed|billing[_\s\w]*details|insufficient[_\s\w]*credit|insufficient[_\s\w]*balance|payment\s+required)/i.test(

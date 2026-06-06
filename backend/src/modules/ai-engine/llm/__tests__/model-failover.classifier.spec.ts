@@ -94,6 +94,28 @@ describe("isModelLevelFailoverError", () => {
     });
   });
 
+  describe("provider free-tier DAILY request cap (应 failover — 换 provider/模型)", () => {
+    it("tokenmix 'Daily request limit exceeded: 10 requests per day for unpaid users' → true", () => {
+      // Per-provider daily cap, not account budget — a different provider/model
+      // (e.g. the user's deepseek on another key) may still work. Was previously
+      // misclassified as false ('request limit' ≠ 'rate limit', no 'quota'),
+      // so failover never tried the other model.
+      expect(
+        isModelLevelFailoverError(
+          new Error(
+            "Daily request limit exceeded: 10 requests per day for unpaid users. Add credits to remove this daily limit. Retry after 33844s.",
+          ),
+        ),
+      ).toBe(true);
+    });
+
+    it("'requests per day' wording → true", () => {
+      expect(
+        isModelLevelFailoverError(new Error("limit: 50 requests per day")),
+      ).toBe(true);
+    });
+  });
+
   describe("其它既有行为不回归", () => {
     it("5xx → true", () => {
       expect(
