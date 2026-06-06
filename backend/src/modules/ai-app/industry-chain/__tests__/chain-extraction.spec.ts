@@ -10,6 +10,7 @@ import {
   buildStructuralRows,
   mergeRelationRows,
   normalizeSegmentName,
+  classifyFiling,
 } from "../chain-extraction";
 
 describe("chain-extraction", () => {
@@ -197,6 +198,38 @@ describe("chain-extraction", () => {
     it("单环节无脊柱边", () => {
       const rows = buildStructuralRows(["s1"], []);
       expect(rows).toEqual([]);
+    });
+  });
+
+  describe("classifyFiling (SEC 备案一句话提炼)", () => {
+    it("Form 4/3/5 → 内部人交易（insider 标记，供归并）", () => {
+      expect(classifyFiling("4")).toEqual({
+        label: "内部人交易",
+        insider: true,
+      });
+      expect(classifyFiling("3/A")).toEqual({
+        label: "内部人交易",
+        insider: true,
+      });
+    });
+    it("8-K 按 items 代码提炼具体事件（优先非 9.01）", () => {
+      expect(classifyFiling("8-K", "2.01,9.01").label).toBe(
+        "完成并购 / 资产处置",
+      );
+      expect(classifyFiling("8-K", "5.02").label).toBe("高管 / 董事变动");
+      expect(classifyFiling("8-K", "2.02").label).toBe("业绩发布");
+    });
+    it("8-K 仅 9.01 / 无 items → 兜底重大事件", () => {
+      expect(classifyFiling("8-K", "9.01").label).toBe("重大事件");
+      expect(classifyFiling("8-K").label).toBe("重大事件");
+    });
+    it("13D/13G → 举牌 / 大股东", () => {
+      expect(classifyFiling("SC 13D").label).toContain("举牌");
+      expect(classifyFiling("SC 13G/A").label).toContain("大股东");
+    });
+    it("无关表单 → null（过滤）", () => {
+      expect(classifyFiling("10-K").label).toBeNull();
+      expect(classifyFiling("424B5").label).toBeNull();
     });
   });
 

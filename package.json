@@ -65,6 +65,8 @@
     "audit:ui-strict": "tsx scripts/utils/audit-ui-discipline.ts --strict && tsx scripts/utils/audit-ui-tokens.ts --strict",
     "audit:mission-detail": "tsx scripts/utils/audit-mission-detail-discipline.ts",
     "audit:mission-detail-baseline": "tsx scripts/utils/audit-mission-detail-discipline.ts --update-baseline",
+    "capabilities:check": "tsx scripts/utils/generate-capabilities.ts",
+    "capabilities:update": "tsx scripts/utils/generate-capabilities.ts --write",
     "release": "standard-version",
     "release:minor": "standard-version --release-as minor",
     "release:major": "standard-version --release-as major",

@@ -35,6 +35,7 @@ import {
   mergeRelationRows,
   normalizeSegmentName,
   sanitizeSourceRefs,
+  classifyFiling,
   ENTITY_TYPES,
 } from "./chain-extraction";
 import {
@@ -102,17 +103,6 @@ export interface InvestmentItem {
 export interface EntityInvestment {
   available: boolean;
   items: InvestmentItem[];
-}
-
-/** SEC 表单 → 资本动态中文标签；非投资相关表单返回 null（被过滤）。 */
-function investmentFormLabel(form: string): string | null {
-  const f = form.toUpperCase().trim();
-  if (f === "4" || f === "4/A") return "内部人交易";
-  if (f === "3" || f === "3/A" || f === "5" || f === "5/A") return "内部人持仓";
-  if (f.startsWith("8-K")) return "重大事件 / 并购";
-  if (f.startsWith("SC 13D")) return "举牌（主动）";
-  if (f.startsWith("SC 13G")) return "大股东持股（被动）";
-  return null;
 }
 
 @Injectable()
@@ -590,9 +580,9 @@ export class IndustryChainService {
   }
 
   /**
-   * 资本/投资动态（M6 越权过滤）。免费源：复用已接的 SEC EDGAR——拉公司近期备案，
-   * 过滤出 内部人交易(Form 3/4/5) / 并购重大事件(8-K) / 举牌大股东(SC 13D/13G)。
-   * 仅美股上市公司有数据；非美/无 cik 返回 available:false（前端退回搜索深链）。
+   * 资本/投资动态（M6 越权过滤）。直接拉 SEC submissions 拿 8-K 的 **items 代码**，
+   * 提炼成一句话事件（完成并购 / 高管变动 / 业绩…）；内部人交易(Form 3/4/5)频繁且无明细，
+   * **归并成一条带计数**（避免一排重复的"内部人交易"）。仅美股上市公司有数据。
    */
   async getEntityInvestment(
     userId: string,
@@ -606,43 +596,70 @@ export class IndustryChainService {
     }
     if (!entity.cik) return { available: false, items: [] };
 
-    const tool = this.toolRegistry.tryGet("sec-edgar-search");
-    if (!tool) return { available: false, items: [] };
-
-    const ctx: ToolContext = {
-      executionId: randomUUID(),
-      toolId: "sec-edgar-search",
-      createdAt: new Date(),
-      userId,
-    };
     try {
-      const res = await tool.execute({ cik: entity.cik, formType: "all" }, ctx);
-      const out = res?.data as
-        | {
-            success?: boolean;
-            filings?: Array<{
-              form?: string;
-              filingDate?: string;
-              reportDate?: string;
-              url?: string;
-            }>;
-          }
-        | undefined;
-      if (!out?.success || !out.filings) return { available: false, items: [] };
+      const res = await fetch(
+        `https://data.sec.gov/submissions/CIK${entity.cik}.json`,
+        {
+          headers: { "User-Agent": "IndustryChain industry-chain@gens.team" },
+        },
+      );
+      if (!res.ok) return { available: false, items: [] };
+      const json = (await res.json()) as {
+        filings?: {
+          recent?: {
+            form?: string[];
+            filingDate?: string[];
+            accessionNumber?: string[];
+            primaryDocument?: string[];
+            items?: string[];
+          };
+        };
+      };
+      const r = json?.filings?.recent;
+      if (!r?.form) return { available: false, items: [] };
 
-      const items: InvestmentItem[] = [];
-      for (const f of out.filings) {
-        const label = f.form ? investmentFormLabel(f.form) : null;
+      const cikNum = String(parseInt(entity.cik, 10)); // URL 用去零 cik
+      const buildUrl = (acc?: string, doc?: string): string =>
+        acc && doc
+          ? `https://www.sec.gov/Archives/edgar/data/${cikNum}/${acc.replace(/-/g, "")}/${doc}`
+          : "";
+
+      const events: InvestmentItem[] = [];
+      let insiderCount = 0;
+      let insiderLatest = "";
+      let insiderUrl = "";
+      for (let i = 0; i < r.form.length; i++) {
+        const { label, insider } = classifyFiling(r.form[i], r.items?.[i]);
         if (!label) continue;
-        items.push({
-          form: f.form ?? "",
+        if (insider) {
+          insiderCount++;
+          if (!insiderLatest) {
+            insiderLatest = r.filingDate?.[i] ?? "";
+            insiderUrl = buildUrl(
+              r.accessionNumber?.[i],
+              r.primaryDocument?.[i],
+            );
+          }
+          continue;
+        }
+        if (events.length >= 7) continue;
+        events.push({
+          form: r.form[i],
           label,
-          date: f.filingDate ?? f.reportDate ?? "",
-          url: f.url ?? "",
+          date: r.filingDate?.[i] ?? "",
+          url: buildUrl(r.accessionNumber?.[i], r.primaryDocument?.[i]),
         });
-        if (items.length >= 8) break;
       }
-      return { available: items.length > 0, items };
+      // 内部人交易归并成一条（带计数），排在具体事件之后
+      if (insiderCount > 0) {
+        events.push({
+          form: "4",
+          label: `内部人交易（${insiderCount} 笔）`,
+          date: insiderLatest,
+          url: insiderUrl,
+        });
+      }
+      return { available: events.length > 0, items: events };
     } catch (e) {
       this.logger.warn(`[getEntityInvestment] entity=${entityId} failed: ${e}`);
       return { available: false, items: [] };

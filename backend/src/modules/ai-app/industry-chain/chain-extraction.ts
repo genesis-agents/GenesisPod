@@ -198,6 +198,59 @@ export function buildStructuralRows(
   return rows;
 }
 
+// SEC 8-K item 代码 → 中文事件一句话（9.01=财务附件，仅作兜底不优先）。
+const EIGHTK_ITEM_LABELS: Record<string, string> = {
+  "1.01": "签署重大协议",
+  "1.02": "终止重大协议",
+  "1.03": "破产 / 重整",
+  "2.01": "完成并购 / 资产处置",
+  "2.02": "业绩发布",
+  "2.03": "新增重大债务",
+  "2.05": "重组 / 减值",
+  "3.01": "退市 / 上市规则事项",
+  "3.02": "股票增发",
+  "5.01": "控制权变更",
+  "5.02": "高管 / 董事变动",
+  "5.07": "股东投票结果",
+  "7.01": "信息披露 (Reg FD)",
+  "8.01": "其他重大事项",
+  "9.01": "财务报表 / 附件",
+};
+
+/**
+ * 把一条 SEC 备案分类成「一句话事件标签 + 是否内部人」。纯函数，可离线单测。
+ *   - 3/4/5（含 /A）→ 内部人交易（insider=true，调用方应归并计数，避免一排重复）
+ *   - SC 13D/13G → 举牌 / 大股东
+ *   - 8-K → 按 items 代码提炼具体事件（优先非 9.01）
+ *   - 其余 → null（过滤）
+ */
+export function classifyFiling(
+  form: string,
+  items?: string,
+): { label: string | null; insider: boolean } {
+  const f = (form || "").toUpperCase().trim();
+  if (["3", "4", "5", "3/A", "4/A", "5/A"].includes(f)) {
+    return { label: "内部人交易", insider: true };
+  }
+  if (f.startsWith("SC 13D"))
+    return { label: "举牌（主动增持）", insider: false };
+  if (f.startsWith("SC 13G"))
+    return { label: "大股东持股（被动）", insider: false };
+  if (f.startsWith("8-K")) {
+    const codes = (items || "")
+      .split(/[,\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const code of codes) {
+      if (code !== "9.01" && EIGHTK_ITEM_LABELS[code]) {
+        return { label: EIGHTK_ITEM_LABELS[code], insider: false };
+      }
+    }
+    return { label: "重大事件", insider: false };
+  }
+  return { label: null, insider: false };
+}
+
 /** 合并多组关系行：按 (source|target|type) 去重 + 去自环。结构边与 LLM 边在此并轨。 */
 export function mergeRelationRows(
   ...groups: ResolvedRelationRow[][]

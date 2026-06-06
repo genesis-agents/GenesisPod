@@ -315,6 +315,27 @@ jobs:
           STORAGE_ADMIN_KEY: test_storage_admin_key
           NODE_ENV: test
 
+  # ── Capability Index ──────────────────────────────────────
+  # 能力索引漂移看护：capabilities.json 必须与 facade/ui 公共导出一致。
+  # 新增/删除公共能力但忘刷新索引 → Agent 复用清单失真 → 重复造轮子。
+  # 纯 AST 解析源文件，无需 DB / prisma / build。
+  capability-index:
+    name: Capability Index
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - name: Capability index drift check
+        run: npm run capabilities:check
+
   # ── CI Gate ────────────────────────────────────────────────
   ci-status:
     name: CI Status
@@ -330,6 +351,7 @@ jobs:
         arch-boundary,
         ui-discipline,
         boot-smoke,
+        capability-index,
       ]
     steps:
       - name: Check results
@@ -342,6 +364,7 @@ jobs:
           echo "Arch Boundary:  ${{ needs.arch-boundary.result }}"
           echo "UI Discipline:  ${{ needs.ui-discipline.result }}"
           echo "Boot Smoke:     ${{ needs.boot-smoke.result }}"
+          echo "Capability Idx: ${{ needs.capability-index.result }}"
 
           if [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.test-backend.result }}" != "success" ] || \
@@ -350,7 +373,8 @@ jobs:
              [ "${{ needs.quality.result }}" != "success" ] || \
              [ "${{ needs.arch-boundary.result }}" != "success" ] || \
              [ "${{ needs.ui-discipline.result }}" != "success" ] || \
-             [ "${{ needs.boot-smoke.result }}" != "success" ]; then
+             [ "${{ needs.boot-smoke.result }}" != "success" ] || \
+             [ "${{ needs.capability-index.result }}" != "success" ]; then
             echo "CI failed"
             exit 1
           fi

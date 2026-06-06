@@ -282,6 +282,20 @@ else
 fi
 echo ""
 
+# 7. 能力索引漂移守护（capabilities.json 与 facade/ui 公共导出一致）
+# ★ 新增/删除公共能力但忘刷新索引 → Agent 复用清单失真 → 重复造轮子
+#   索引是 Agent 写代码前查 canonical 能力的唯一机器可读真相源。
+echo "[7/7] 能力索引漂移守护..."
+if npm run capabilities:check --silent; then
+    echo "  能力索引与代码一致"
+else
+    echo ""
+    echo "  ✘ 能力索引漂移 — 见上方报告"
+    echo "  → 解决：npm run capabilities:update 然后提交 docs/architecture/capabilities.json"
+    exit 1
+fi
+echo ""
+
 echo "============================================================"
 echo "  所有验证通过"
 echo "============================================================"
