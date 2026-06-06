@@ -962,7 +962,16 @@
     "topicPlaceholder": "例如：新能源汽车动力电池产业链",
     "analyze": "开始分析",
     "analyzing": "分析中…",
-    "analyzeFailed": "分析启动失败，请重试"
+    "analyzeFailed": "分析启动失败，请重试",
+    "examplesTitle": "试试这些产业链",
+    "examplesHint": "点击示例直接发起分析",
+    "loadingChain": "正在加载产业链…",
+    "analyzingDetail": "正在分析产业链结构，可能需要一两分钟，请稍候",
+    "loadFailed": "加载产业链失败",
+    "failedDesc": "分析过程出错，请返回重新发起分析",
+    "emptyTitle": "产业链尚无数据",
+    "emptyDesc": "本次分析未抽取到产业链参与者，请尝试更换主题重新分析",
+    "refresh": "刷新"
   },
   "aiResearch": {
     "title": "AI 研究",

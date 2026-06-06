@@ -56,6 +56,7 @@ const HARD_ZERO_RULES = new Set<string>([
   "R14-PageHeaderHero-Required",
   "R15-CardHome-Required",
   "R16-TruncatedCell-Required",
+  "R17-FullWidth-Required",
 ]);
 
 // 棘轮规则：不进 hard-zero 的「不劣化」规则（cur ≤ baseline）。
@@ -166,14 +167,23 @@ function isRedirectStub(src: string): boolean {
   return /\bredirect\s*\(/.test(src) && !/<[A-Za-z]/.test(src);
 }
 
+// R1 standalone 豁免：无应用外壳（无侧边栏）的独立页——未登录/邮件落地场景不该套 AppShell。
+const R1_STANDALONE_OK = [
+  "app/login/page.tsx", // 登录页：鉴权前，无侧栏
+  "app/unsubscribed/page.tsx", // 邮件退订落地页：未登录场景，文件已注明不复用 AppShell
+];
+
 // R1: AI app 主页必须用 AppShell
 function checkR1AppShell(file: string, src: string): Violation[] {
   const norm = file.split(sep).join("/");
+  // 堆路径盒子（2026-06-06）：作用域从「ai-* + 硬编码白名单」放宽到所有 app 一级模块页
+  // （含其 [id] 详情页），这样新模块（如 industry-chain）不再从规则缝里漏出。
   const isMainPage =
-    /\/frontend\/app\/(ai-[a-z-]+|library|explore|knowledge-graph|custom-agents|notifications|credits|me|profile|feedback|changelog)\/(page\.tsx|\[[^\]]+\]\/page\.tsx)$/.test(
+    /\/frontend\/app\/[a-z][a-z0-9-]*\/(page\.tsx|\[[^\]]+\]\/page\.tsx)$/.test(
       norm,
     );
   if (!isMainPage) return [];
+  if (R1_STANDALONE_OK.some((p) => norm.endsWith(p))) return [];
   if (hasImport(src, "AppShell")) return [];
   // App Router：外壳常由 route layout.tsx 提供，redirect 桩页无 UI —— 均非缺壳
   if (isRedirectStub(src)) return [];
@@ -632,6 +642,40 @@ function checkR16TruncatedCell(file: string, src: string): Violation[] {
   return [];
 }
 
+// R17: AI app 一级主页禁用「居中窄列」外壳（mx-auto + max-w-(xl|2xl|3xl)）——主页必须
+// 全宽（对齐 research/insight/radar 的 sticky PageHeaderHero + px-8 全宽网格范式）。
+// 背景：industry-chain landing 曾用 max-w-3xl 居中窄列，与全局风格割裂（2026-06-06 debug 截图）。
+// 仅作用于一级 index 页（app/<module>/page.tsx，不含 [id] 详情页——详情页可有窄阅读列）。
+const NARROW_SHELL =
+  /\bmx-auto\b[^"`']*\bmax-w-(?:xl|2xl|3xl)\b|\bmax-w-(?:xl|2xl|3xl)\b[^"`']*\bmx-auto\b/;
+// R17 已审批例外（标准 22 §3 留痕）：chat 欢迎 / 内容阅读 / 表单 这类天然窄列页；
+// 以及存量窄列页（本次产业链修复未在范围内重构，逐页冻结留痕，待后续按需对齐全宽）。
+const R17_FULLWIDTH_OK = [
+  "app/ai-ask/page.tsx", // chat 欢迎页：居中输入范式（对话流）
+  "app/ai-simulation/page.tsx", // 存量窄列（决策推演入口），待后续评估
+  "app/changelog/page.tsx", // 内容阅读页：居中阅读宽度
+  "app/feedback/page.tsx", // 反馈表单页：居中表单
+  "app/notifications/page.tsx", // 通知列表：居中窄列
+];
+function checkR17FullWidth(file: string, src: string): Violation[] {
+  const norm = file.split(sep).join("/");
+  const isMainIndexPage = /\/frontend\/app\/[a-z][a-z0-9-]*\/page\.tsx$/.test(
+    norm,
+  );
+  if (!isMainIndexPage) return [];
+  if (!NARROW_SHELL.test(src)) return [];
+  if (R17_FULLWIDTH_OK.some((p) => norm.endsWith(p))) return [];
+  const line = findLine(src, NARROW_SHELL);
+  return [
+    {
+      rule: "R17-FullWidth-Required",
+      file: relative(process.cwd(), file),
+      line,
+      snippet: snippet(src, line),
+    },
+  ];
+}
+
 // TODO(R10): ProgressBar 强制规则待补——需更精准的检测器避免误报
 //   R10 进度条：`overflow-hidden rounded-full bg-gray-200` + width 填充需区分于头像/胶囊
 
@@ -748,10 +792,10 @@ const R14_BESPOKE_OK = [
 ];
 function checkR14PageHeaderHero(file: string, src: string): Violation[] {
   const norm = file.split(sep).join("/");
-  const isMainIndexPage =
-    /\/frontend\/app\/(ai-[a-z-]+|library|explore|knowledge-graph|custom-agents|notifications|credits|me|profile|feedback|changelog)\/page\.tsx$/.test(
-      norm,
-    );
+  // 堆路径盒子（2026-06-06）：放宽到所有 app 一级主页（不再只限 ai-* + 白名单）。
+  const isMainIndexPage = /\/frontend\/app\/[a-z][a-z0-9-]*\/page\.tsx$/.test(
+    norm,
+  );
   if (!isMainIndexPage) return [];
   if (!HERO_H1.test(src)) return []; // 没自写 hero 标题（用了 header 组件 / 无 hero）
   if (hasImport(src, "PageHeaderHero")) return []; // 已用 canonical
@@ -846,6 +890,7 @@ async function main() {
     allViolations.push(...checkR13MessageShell(file, src));
     allViolations.push(...checkR14PageHeaderHero(file, src));
     allViolations.push(...checkR16TruncatedCell(file, src));
+    allViolations.push(...checkR17FullWidth(file, src));
   }
   // R15 结构检查：独立于 file-walk 的目录扫描（卡片目录归属）
   allViolations.push(...(await scanCardDirHomes()));

@@ -260,6 +260,27 @@ jobs:
         run: npm run verify:arch
         working-directory: ./backend
 
+  # ── UI Discipline ─────────────────────────────────────────
+  # 前端公共组件 + 布局范式看护（标准 22）。此前只在本地 .husky/pre-push 拦截，
+  # CI 无关卡——`--no-verify` 或无 husky 环境推送可绕过（2026-06-06 补 CI 合并门）。
+  # 跑 hard-zero 的 audit:ui-discipline（任一规则违规 exit 1）；tokens 审计是 warn-only 不入门控。
+  ui-discipline:
+    name: UI Discipline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - name: UI discipline audit (frontend)
+        run: npm run audit:ui-discipline
+
   # ── Boot Smoke Test ───────────────────────────────────────
   # CI 从不真正启动应用（单测大量 mock），循环导入引发的 DI 解析崩溃
   # 会一路漏到生产（2026-06-03 ContentFetchService 生产崩溃，hotfix #220）。
@@ -307,6 +328,7 @@ jobs:
         build,
         quality,
         arch-boundary,
+        ui-discipline,
         boot-smoke,
       ]
     steps:
@@ -318,6 +340,7 @@ jobs:
           echo "Build:          ${{ needs.build.result }}"
           echo "Quality:        ${{ needs.quality.result }}"
           echo "Arch Boundary:  ${{ needs.arch-boundary.result }}"
+          echo "UI Discipline:  ${{ needs.ui-discipline.result }}"
           echo "Boot Smoke:     ${{ needs.boot-smoke.result }}"
 
           if [ "${{ needs.lint.result }}" != "success" ] || \
@@ -326,6 +349,7 @@ jobs:
              [ "${{ needs.build.result }}" != "success" ] || \
              [ "${{ needs.quality.result }}" != "success" ] || \
              [ "${{ needs.arch-boundary.result }}" != "success" ] || \
+             [ "${{ needs.ui-discipline.result }}" != "success" ] || \
              [ "${{ needs.boot-smoke.result }}" != "success" ]; then
             echo "CI failed"
             exit 1

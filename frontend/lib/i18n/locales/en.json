@@ -962,7 +962,16 @@
     "topicPlaceholder": "e.g. EV power-battery supply chain",
     "analyze": "Start analysis",
     "analyzing": "Analyzing…",
-    "analyzeFailed": "Failed to start analysis, please retry"
+    "analyzeFailed": "Failed to start analysis, please retry",
+    "examplesTitle": "Try one of these chains",
+    "examplesHint": "Click an example to start instantly",
+    "loadingChain": "Loading industry chain…",
+    "analyzingDetail": "Analyzing the industry chain structure — this may take a minute or two",
+    "loadFailed": "Failed to load industry chain",
+    "failedDesc": "The analysis failed. Please go back and start a new analysis",
+    "emptyTitle": "No industry chain data yet",
+    "emptyDesc": "This analysis didn't extract any participants. Try a different topic and analyze again",
+    "refresh": "Refresh"
   },
   "aiResearch": {
     "title": "AI Research",
