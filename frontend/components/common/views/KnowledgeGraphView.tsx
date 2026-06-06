@@ -26,7 +26,7 @@ interface GraphNode extends SimulationNodeDatum {
     | 'COMPANY'
     | 'PRODUCT'
     // 兜底：允许其他领域复用而不破坏类型（保留上面字面量的自动补全）
-    | (string & {});
+    | (string & NonNullable<unknown>);
   properties: {
     /** 产业链：所属环节（chain 布局按此分列） */
     segment?: string | null;
@@ -172,9 +172,7 @@ export default function KnowledgeGraphView({
       // 产业链布局：按 segment 分列（上游→下游，左→右），列内节点纵向堆叠。
       // SEGMENT 节点置于各列顶部作为列标题，COMPANY/PRODUCT 在该列下方堆叠。
       const segmentOf = (n: GraphNode): string =>
-        n.type === 'SEGMENT'
-          ? n.label
-          : n.properties?.segment || '其他';
+        n.type === 'SEGMENT' ? n.label : n.properties?.segment || '其他';
       // 列顺序：优先 SEGMENT 节点出现顺序，其余追加
       const columnOrder: string[] = [];
       nodes
