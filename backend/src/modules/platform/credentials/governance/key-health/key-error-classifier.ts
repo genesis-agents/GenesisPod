@@ -47,6 +47,9 @@ const COOLDOWN_60S = KEY_COOLDOWN_MS.RATE_LIMIT;
 const COOLDOWN_30S = KEY_COOLDOWN_MS.SHORT;
 const COOLDOWN_5MIN = KEY_COOLDOWN_MS.PROVIDER_OR_UNKNOWN;
 const COOLDOWN_INF = KEY_COOLDOWN_MS.INFINITE;
+// A 429 whose retry-after exceeds this is quota/daily-cap exhaustion, not a
+// transient burst limit → escalate to a permanent (quota) cooldown.
+const ONE_HOUR_MS = 60 * 60 * 1000;
 
 @Injectable()
 export class KeyErrorClassifier {
@@ -98,10 +101,15 @@ export class KeyErrorClassifier {
       });
     }
 
-    // 2. QUOTA / PAYMENT — 402 / "insufficient quota" / "billing"
+    // 2. QUOTA / PAYMENT — 402 / "insufficient quota" / "billing" / daily-limit
+    // NB: a "daily request limit / unpaid / add credits" failure usually arrives
+    // as HTTP 429, but it is QUOTA exhaustion (won't recover for hours, needs
+    // billing), NOT a transient rate-limit. It must land here (COOLDOWN_INF) so
+    // KeyHealthStore.filterUsable EXCLUDES it — otherwise the single-key degraded
+    // fallback re-serves the dead key and the caller retries it in a tight loop.
     if (
       status === 402 ||
-      /insufficient[\s_-]?quota|quota[\s_-]?exceeded|billing|insufficient[\s_-]?(?:credits|balance)|exceeded[\s_-]?your[\s_-]?current[\s_-]?quota/i.test(
+      /insufficient[\s_-]?quota|quota[\s_-]?exceeded|billing|insufficient[\s_-]?(?:credits|balance)|exceeded[\s_-]?your[\s_-]?current[\s_-]?quota|daily[\s_-]?(?:request[\s_-]?)?limit|requests?[\s_-]?per[\s_-]?day|unpaid|add[\s_-]?credits|remove[\s_-]?this[\s_-]?daily[\s_-]?limit/i.test(
         message,
       )
     ) {
@@ -122,6 +130,21 @@ export class KeyErrorClassifier {
       /rate[\s_-]?limit|too[\s_-]?many[\s_-]?requests/i.test(message)
     ) {
       const retryAfter = this.extractRetryAfter(err);
+      // A 429 with an hours-long retry-after is a quota/daily-cap exhaustion in
+      // disguise, not a transient burst limit. Treat it as QUOTA (permanent
+      // cooldown, excluded from the single-key degraded fallback) so we stop
+      // re-serving and retrying a key that won't recover for hours.
+      if (retryAfter != null && retryAfter > ONE_HOUR_MS) {
+        return this.build({
+          action: "NEXT_KEY",
+          reason: "QUOTA_EXCEEDED",
+          cooldownMs: COOLDOWN_INF,
+          markDead: false,
+          shouldStopChain: false,
+          message,
+          status,
+        });
+      }
       return this.build({
         action: "NEXT_KEY",
         reason: "RATE_LIMIT_KEY",

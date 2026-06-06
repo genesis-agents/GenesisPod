@@ -144,7 +144,12 @@ export class SecurityAuditLogger {
         this.logger.warn(`${message} | ${metadata}`);
         break;
       default:
-        this.logger.log(`${message} | ${metadata}`);
+        // LOW (e.g. ACCESS_GRANTED / AUTH_SUCCESS) → debug only. These fire on
+        // every successful read; the insight topic page polls mission /
+        // agent-activities / team-messages / health every few seconds, so
+        // logging each grant at LOG level floods prod with audit noise. The
+        // full audit entry is preserved in the message; surface it at debug.
+        this.logger.debug(`${message} | ${metadata}`);
     }
   }
 

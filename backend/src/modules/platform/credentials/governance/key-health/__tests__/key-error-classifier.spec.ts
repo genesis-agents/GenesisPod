@@ -82,6 +82,31 @@ describe("KeyErrorClassifier", () => {
       expect(r.reason).toBe("QUOTA_EXCEEDED");
     });
 
+    it("classifies a daily-limit 429 (tokenmix 'unpaid / add credits') as QUOTA_EXCEEDED + ∞ cooldown, NOT a transient RATE_LIMIT", () => {
+      // Real tokenmix failure: HTTP 429 but the body is daily-quota exhaustion
+      // that won't recover for hours. Must be QUOTA (∞ cooldown) so the single-key
+      // degraded fallback excludes it — otherwise it gets re-served and retried
+      // in a tight loop on every poll/mission tick.
+      const r = classifier.classify({
+        status: 429,
+        message:
+          "Daily request limit exceeded: 10 requests per day for unpaid users. Add credits to remove this daily limit. Retry after 33844s.",
+      });
+      expect(r.reason).toBe("QUOTA_EXCEEDED");
+      expect(r.cooldownMs).toBe(Number.POSITIVE_INFINITY);
+      expect(r.markDead).toBe(false);
+    });
+
+    it("escalates a 429 with an hours-long Retry-After to QUOTA_EXCEEDED", () => {
+      const r = classifier.classify({
+        status: 429,
+        message: "rate limited",
+        response: { headers: { "retry-after": "33844" } },
+      });
+      expect(r.reason).toBe("QUOTA_EXCEEDED");
+      expect(r.cooldownMs).toBe(Number.POSITIVE_INFINITY);
+    });
+
     it("recovers status from axios' stringified message ('Request failed with status code 402') → QUOTA_EXCEEDED", () => {
       // The streaming path re-wraps provider errors into a plain Error whose
       // structured status is gone — only axios' default text survives. Without
