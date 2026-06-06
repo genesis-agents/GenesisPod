@@ -20,8 +20,16 @@ interface GraphNode extends SimulationNodeDatum {
     | 'Note'
     | 'Author'
     | 'Topic'
-    | 'Tag';
+    | 'Tag'
+    // 产业链分析节点类型（additive，复用本组件渲染）
+    | 'SEGMENT'
+    | 'COMPANY'
+    | 'PRODUCT'
+    // 兜底：允许其他领域复用而不破坏类型（保留上面字面量的自动补全）
+    | (string & {});
   properties: {
+    /** 产业链：所属环节（chain 布局按此分列） */
+    segment?: string | null;
     title?: string;
     username?: string;
     name?: string;
@@ -50,17 +58,23 @@ interface GraphLink extends SimulationLinkDatum<GraphNode> {
 interface KnowledgeGraphViewProps {
   nodes: GraphNode[];
   edges: GraphLink[];
+  /** 初始布局（默认 force）；产业链页传 'chain' */
+  defaultLayout?: 'force' | 'circular' | 'hierarchical' | 'chain';
+  /** 顶部标题（默认"知识图谱"） */
+  title?: string;
 }
 
 export default function KnowledgeGraphView({
   nodes,
   edges,
+  defaultLayout = 'force',
+  title,
 }: KnowledgeGraphViewProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
-  const [layout, setLayout] = useState<'force' | 'circular' | 'hierarchical'>(
-    'force'
-  );
+  const [layout, setLayout] = useState<
+    'force' | 'circular' | 'hierarchical' | 'chain'
+  >(defaultLayout);
 
   useEffect(() => {
     if (!svgRef.current || !nodes || nodes.length === 0) return;
@@ -96,6 +110,10 @@ export default function KnowledgeGraphView({
         'Author',
         'Topic',
         'Tag',
+        // 产业链类型（additive）
+        'SEGMENT',
+        'COMPANY',
+        'PRODUCT',
       ])
       .range([
         '#8b5cf6', // User: 紫色
@@ -105,6 +123,9 @@ export default function KnowledgeGraphView({
         '#10b981', // Author: 绿色
         '#ec4899', // Topic: 粉色
         '#ef4444', // Tag: 红色
+        '#0ea5e9', // SEGMENT: 天蓝
+        '#6366f1', // COMPANY: 靛蓝
+        '#f59e0b', // PRODUCT: 琥珀
       ]);
 
     // 节点大小映射
@@ -145,6 +166,45 @@ export default function KnowledgeGraphView({
         node.y = height / 2 + radius * Math.sin(i * angleStep);
         node.fx = node.x;
         node.fy = node.y;
+      });
+      simulation = d3.forceSimulation(nodes);
+    } else if (layout === 'chain') {
+      // 产业链布局：按 segment 分列（上游→下游，左→右），列内节点纵向堆叠。
+      // SEGMENT 节点置于各列顶部作为列标题，COMPANY/PRODUCT 在该列下方堆叠。
+      const segmentOf = (n: GraphNode): string =>
+        n.type === 'SEGMENT'
+          ? n.label
+          : n.properties?.segment || '其他';
+      // 列顺序：优先 SEGMENT 节点出现顺序，其余追加
+      const columnOrder: string[] = [];
+      nodes
+        .filter((n) => n.type === 'SEGMENT')
+        .forEach((n) => {
+          if (!columnOrder.includes(n.label)) columnOrder.push(n.label);
+        });
+      nodes.forEach((n) => {
+        const seg = segmentOf(n);
+        if (!columnOrder.includes(seg)) columnOrder.push(seg);
+      });
+      const colWidth = width / (columnOrder.length + 1);
+      const byColumn: Record<string, GraphNode[]> = {};
+      nodes.forEach((n) => {
+        const seg = segmentOf(n);
+        (byColumn[seg] ||= []).push(n);
+      });
+      columnOrder.forEach((seg, colIndex) => {
+        const colNodes = byColumn[seg] || [];
+        // SEGMENT 标题节点排在列首
+        colNodes.sort((a, b) =>
+          a.type === 'SEGMENT' ? -1 : b.type === 'SEGMENT' ? 1 : 0
+        );
+        const rowHeight = height / (colNodes.length + 1);
+        colNodes.forEach((node, rowIndex) => {
+          node.x = colWidth * (colIndex + 1);
+          node.y = rowHeight * (rowIndex + 1);
+          node.fx = node.x;
+          node.fy = node.y;
+        });
       });
       simulation = d3.forceSimulation(nodes);
     } else {
@@ -385,6 +445,10 @@ export default function KnowledgeGraphView({
     Author: '作者',
     Topic: '主题',
     Tag: '标签',
+    // 产业链类型（additive）
+    SEGMENT: '环节',
+    COMPANY: '公司',
+    PRODUCT: '产品',
   };
 
   return (
@@ -392,12 +456,14 @@ export default function KnowledgeGraphView({
       {/* 顶部工具栏 */}
       <div className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">🗺️ 知识图谱</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {title ?? '🗺️ 知识图谱'}
+          </h1>
 
           <div className="flex items-center gap-4">
             {/* 布局切换 */}
             <div className="flex gap-2 rounded-lg bg-gray-100 p-1">
-              {(['force', 'circular', 'hierarchical'] as const).map(
+              {(['force', 'circular', 'hierarchical', 'chain'] as const).map(
                 (layoutType) => (
                   <button
                     key={layoutType}
@@ -413,6 +479,7 @@ export default function KnowledgeGraphView({
                         force: '力导向',
                         circular: '环形',
                         hierarchical: '层次',
+                        chain: '产业链',
                       }[layoutType]
                     }
                   </button>
@@ -431,6 +498,9 @@ export default function KnowledgeGraphView({
                   'Author',
                   'Topic',
                   'Tag',
+                  'SEGMENT',
+                  'COMPANY',
+                  'PRODUCT',
                 ] as const
               ).map((type) => {
                 const color: Record<string, string> = {
@@ -441,6 +511,9 @@ export default function KnowledgeGraphView({
                   Author: 'bg-green-500',
                   Topic: 'bg-pink-500',
                   Tag: 'bg-red-500',
+                  SEGMENT: 'bg-sky-500',
+                  COMPANY: 'bg-indigo-500',
+                  PRODUCT: 'bg-amber-500',
                 };
                 // 只显示存在于当前图谱中的节点类型
                 const hasType = nodes.some((n) => n.type === type);
