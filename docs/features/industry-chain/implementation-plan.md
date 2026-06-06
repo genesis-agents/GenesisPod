@@ -139,11 +139,12 @@ model IndustryRelation {
 
 ### Phase 1 — 下沉 engine 的通用能力（先建，复用价值高 + 风险最高）
 
-- **1.1 SEC EDGAR 工具**（M3/M4）：`ai-engine/tools/.../sec-edgar.tool.ts`，`createTool()` + 标准 `fetch`（**不**注入 PolicyDataService、**不**照搬 finance-api 15s 节流）。
-  - 限速 `MIN_REQUEST_INTERVAL≈100ms`（10 req/s），标准 HTTP 429 退避；UA = `GenesisPod-IndustryChain admin@<domain>`。
-  - CIK 两步：① `efts.sec.gov/LATEST/search-index?q={name}` 或 `browse-edgar` 查 CIK（多匹配名称消歧）② `data.sec.gov/submissions/CIK{补零10位}.json` 取 submissions。
-  - 安全：固定域名 `assertUrlSafe`；响应体内二级 URL（财报文件链接）做 fetch 时用 `safeFetch`；catch 仅记 HTTP 状态码 + 域名。
-  - **verify**：对 "NVIDIA" 调 `execute()` 真实联网返回 `success && filings.length>0`，且节流间隔 ≈100ms（非 15s）
+- **1.1 SEC EDGAR 工具**（M3/M4）✅ 已实现：`ai-engine/tools/categories/information/data/sec-edgar.tool.ts`，`BaseTool` 子类。
+  - **M3 细化（基于实现期新证据）**：复用 `PolicyDataService.httpGet`（内建 30s 超时 + host 级 429 冷却 + 自定义 header 覆盖，且**不**强制 API Key）——所有同类公开 API 工具（federal-register/congress/arxiv）均复用它，比自写 fetch 更符合"全部复用"。M3 精神（不照搬 finance-api 15s 节流）以**工具内 `MIN_REQUEST_INTERVAL=100ms` 自建节流**（10 req/s）保留。
+  - CIK 查找改用 SEC 推荐的 `company_tickers.json`（ticker/title→CIK 全量映射，内存缓存 6h）；提交记录 `data.sec.gov/submissions/CIK{补零10位}.json`。UA = `{brand.name}-IndustryChain {brand.contactEmail}`（SEC 合规）。
+  - 安全：UA 合规；catch 仅记 message，不透完整响应体/内部拓扑。
+  - **verify（开发态）**✅：类型检查通过 + 9 个离线单测全绿（fixture 喂 mock httpGet，覆盖 CIK 解析/过滤/URL 构造/UA/节流）。
+  - **verify（部署态，待）**：sec.gov 在开发容器 egress 白名单之外（403），真实联网调用 = **部署后冒烟检查**，不在开发态执行。
 - **1.2 实体消歧服务**（M2 配套 + SHOULD）：`ai-engine/knowledge/entity-resolution/entity-resolution.service.ts`，复用 `EmbeddingService` **取向量**，服务内**自实现 cosine** 比较，相似度 > **0.85（初始值，需按所用 embedding 模型分布校准，留调参入口）** 合并。
   - **verify**：集成测试（标注需真实 embedding 服务）或用预计算 mock 向量，"NVIDIA"/"英伟达"/"Nvidia Corp" 归并为 1 实体；含一组"形近不同实体不误并"反例
 
@@ -169,6 +170,7 @@ model IndustryRelation {
 ### Phase 5 — 前端（复用 KnowledgeGraphView，不自写图谱）
 
 - **5.1** `app/industry-chain/[chainId]/page.tsx` + service hook；复用 `components/common/views/KnowledgeGraphView.tsx`；节点配色走 design tokens；入口用 canonical 组件（Modal/Button/EmptyState/LoadingState）。
+  - **链路布局（用户决策 2026-06-06）**：`KnowledgeGraphView` 现有 `force/circular/hierarchical` 均不适配产业链"上→下游分层流向"（hierarchical 实为按节点类型分带）。决策 = **在该 canonical 组件内原地新增 `layout='chain'` 模式**（按 segment 分泳道/分层、方向排列），符合"既有能力原地扩展"铁律，点击交互复用现有 `selectedNode` 详情面板。
 - **5.2** 点击节点 → 右侧面板显示 `description` + SEC 引用链接。**XSS 防护**：`description` 用纯文本节点渲染（禁 `dangerouslySetInnerHTML`）；SEC 链接渲染前校验 `url.startsWith('https://')`，不满足不渲染为链接；WebSocket 监听在组件卸载 `useEffect` 清理中 `socket.off`。
   - **verify**：`audit:ui-discipline` 基线不上涨；类型检查 0 error；远程 URL 实点验证
 
