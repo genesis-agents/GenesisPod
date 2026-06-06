@@ -1013,16 +1013,16 @@ export { TraceCollectorService } from "../tracing/observability/trace-collector.
 export { AiObservabilityService } from "../tracing/observability/ai-observability.service";
 export { CostAttributionService } from "../tracing/observability/cost-attribution.service";
 export { SessionLatencyTrackerService } from "../tracing/latency/session-latency-tracker.service";
-export { EvalPipelineService } from "../tracing/evaluation/eval-pipeline.service";
-export type { EvalResult } from "../tracing/evaluation/eval-pipeline.service";
-export { EvalHarnessService } from "../tracing/evaluation/eval-harness.service";
-export { EvalExperimentService } from "../tracing/evaluation/eval-experiment.service";
+export { EvalPipelineService } from "../tracing/experiments/eval-pipeline.service";
+export type { EvalResult } from "../tracing/experiments/eval-pipeline.service";
+export { EvalHarnessService } from "../tracing/experiments/eval-harness.service";
+export { EvalExperimentService } from "../tracing/experiments/eval-experiment.service";
 export {
   EVAL_RUN_STORE,
   InMemoryEvalRunStore,
   PrismaEvalRunStore,
-} from "../tracing/evaluation/eval-run.store";
-export type { EvalRunStore } from "../tracing/evaluation/eval-run.store";
+} from "../tracing/experiments/eval-run.store";
+export type { EvalRunStore } from "../tracing/experiments/eval-run.store";
 export type {
   EvalCaseDefinition,
   EvalDataset,
@@ -1043,7 +1043,7 @@ export type {
   EvalExperimentViolation,
   EvalExperimentRunRequest,
   EvalExperimentResult,
-} from "../tracing/evaluation/eval-harness.types";
+} from "../tracing/experiments/eval-harness.types";
 export type { TraceType } from "../tracing/observability/trace.interface";
 export type {
   SpanType,

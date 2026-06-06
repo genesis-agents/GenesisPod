@@ -11,7 +11,7 @@
  *   - judgeEvaluated = false when judge returned null
  */
 
-import { EvalPipelineService } from "../evaluation/eval-pipeline.service";
+import { EvalPipelineService } from "../experiments/eval-pipeline.service";
 import { TraceData } from "../observability/trace.interface";
 import { Logger } from "@nestjs/common";
 

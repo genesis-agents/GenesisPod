@@ -18,15 +18,15 @@ import { TraceCollectorService } from "./trace-collector.service";
 import { AiObservabilityService } from "./ai-observability.service";
 import { CostAttributionService } from "./cost-attribution.service";
 import { SessionLatencyTrackerService } from "../latency/session-latency-tracker.service";
-import { EvalPipelineService } from "../evaluation/eval-pipeline.service";
-import { EvalHarnessService } from "../evaluation/eval-harness.service";
-import { EvalExperimentService } from "../evaluation/eval-experiment.service";
+import { EvalPipelineService } from "../experiments/eval-pipeline.service";
+import { EvalHarnessService } from "../experiments/eval-harness.service";
+import { EvalExperimentService } from "../experiments/eval-experiment.service";
 import {
   EVAL_RUN_STORE,
   InMemoryEvalRunStore,
   PrismaEvalRunStore,
   createEvalRunStore,
-} from "../evaluation/eval-run.store";
+} from "../experiments/eval-run.store";
 import { LlmEventsListener } from "./llm-events.listener";
 
 const OBSERVABILITY_PROVIDERS = [

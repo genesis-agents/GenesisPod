@@ -1,7 +1,7 @@
-import { EvalHarnessService } from "../evaluation/eval-harness.service";
-import { EvalPipelineService } from "../evaluation/eval-pipeline.service";
-import { InMemoryEvalRunStore } from "../evaluation/eval-run.store";
-import type { EvalDataset } from "../evaluation/eval-harness.types";
+import { EvalHarnessService } from "../experiments/eval-harness.service";
+import { EvalPipelineService } from "../experiments/eval-pipeline.service";
+import { InMemoryEvalRunStore } from "../experiments/eval-run.store";
+import type { EvalDataset } from "../experiments/eval-harness.types";
 
 function makeService(evaluate = jest.fn()) {
   return new EvalHarnessService(
