@@ -112,6 +112,35 @@ export class SelfDrivenMissionRunner {
   private static readonly DELIVER_LLM_TIMEOUT_MS = 120_000;
 
   /**
+   * Short timeout for gate-choice generation specifically. These LLM calls run
+   * BEFORE the HITL approval event is emitted, so they block the approval bar
+   * from appearing at all. A slow/hung call here makes the mission look frozen
+   * right after "execute completed" — all steps done, no gate, no report. The
+   * choices are a nice-to-have (the gate still works as approve/reject/feedback
+   * without them), so cap them tightly: on timeout we emit the gate with no
+   * dynamic choices instead of stalling the whole mission.
+   */
+  private static readonly GATE_CHOICES_TIMEOUT_MS = 20_000;
+
+  /**
+   * Max input size (chars) for a single whole-document rewrite pass
+   * (finalize / rubric-critique refinement).
+   *
+   * A `TaskProfile` "long" output caps at ~8000 tokens, which is only ~12K
+   * Chinese chars (~1.5 chars/token) or ~32K English chars. Feeding a report
+   * LARGER than the output can hold makes the model SILENTLY TRUNCATE it — and
+   * the `<100 chars` sanity check can't catch a 45K→12K truncation, so the
+   * truncated text would replace the full report (real P0 regression on the
+   * project's actual 27–45K-char reports).
+   *
+   * Conservative ceiling = the Chinese worst case with margin: above this we
+   * skip the whole-document rewrite and keep the original verbatim (safe
+   * degradation). The proper fix — section-targeted editing that rewrites only
+   * the critiqued Markdown subsections and splices them back — is deferred.
+   */
+  private static readonly FINALIZE_MAX_INPUT_CHARS = 10_000;
+
+  /**
    * Reject `work` after `ms` so an unbounded provider hang can't wedge mission
    * termination. The losing promise is left to settle on its own (no way to
    * cancel an in-flight chat without a signal); the timer is always cleared.
@@ -1242,7 +1271,7 @@ export class SelfDrivenMissionRunner {
           responseFormat: "json",
           userId,
         }),
-        SelfDrivenMissionRunner.DELIVER_LLM_TIMEOUT_MS,
+        SelfDrivenMissionRunner.GATE_CHOICES_TIMEOUT_MS,
         `mission ${missionId} gate-choice generation`,
       );
 
@@ -2074,6 +2103,22 @@ export class SelfDrivenMissionRunner {
     userId: string,
     missionId: string,
   ): Promise<string | undefined> {
+    // P0 size guard (covers BOTH callers: deliver-gate finalize AND rubric
+    // critique refinement). A whole-document rewrite cannot fit a report larger
+    // than the ~8000-token output ceiling and would silently truncate it. Skip
+    // the rewrite and keep the original verbatim rather than shipping a
+    // truncated report. See FINALIZE_MAX_INPUT_CHARS.
+    if (baseReport.length > SelfDrivenMissionRunner.FINALIZE_MAX_INPUT_CHARS) {
+      this.logger.warn(
+        `[SelfDriven] mission ${missionId} finalize SKIPPED: report ` +
+          `${baseReport.length} chars exceeds the ` +
+          `${SelfDrivenMissionRunner.FINALIZE_MAX_INPUT_CHARS}-char single-pass ` +
+          `rewrite ceiling (~8000 output tokens) — keeping the original to ` +
+          `avoid silent truncation`,
+      );
+      return undefined;
+    }
+
     const systemPrompt =
       `You are a report refinement specialist. ` +
       `Your task is to take an assembled research report and apply user ` +
