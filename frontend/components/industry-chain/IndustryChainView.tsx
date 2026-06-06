@@ -16,6 +16,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import KnowledgeGraphView from '@/components/common/views/KnowledgeGraphView';
+import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/states';
 import { industryChainApi } from '@/services/industry-chain/api';
 import type {
@@ -64,9 +65,17 @@ interface Props {
   chainId: string;
 }
 
+/** 图谱节点的最小读取形（KnowledgeGraphView 的 GraphNode 子集，用于详情抽屉）。 */
+interface ChainNode {
+  id: string;
+  label: string;
+  type: string;
+  properties?: { segment?: string | null };
+}
+
 /**
  * 节点详情：按 entityId 拉 getEntity，展示公司/环节档案（描述 / CIK / SEC 来源链接）。
- * 作为 renderNodeDetail 注入 KnowledgeGraphView 的领域详情区（key=entityId 切换即重拉）。
+ * 渲染在节点详情 SideDrawer 内（key=entityId 切换即重拉）。
  */
 function ChainEntityDetail({ entityId }: { entityId: string }) {
   const [entity, setEntity] = useState<IndustryEntityDetail | null>(null);
@@ -292,7 +301,15 @@ export default function IndustryChainView({ chainId }: Props) {
   const [chain, setChain] = useState<IndustryChain | null>(null);
   const [graph, setGraph] = useState<ChainGraph | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const [drawerNode, setDrawerNode] = useState<ChainNode | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const typeLabel = (type: string): string => {
+    if (type === 'SEGMENT') return t('industryChain.typeSegment');
+    if (type === 'COMPANY') return t('industryChain.typeCompany');
+    if (type === 'PRODUCT') return t('industryChain.typeProduct');
+    return type;
+  };
 
   const poll = useCallback(async () => {
     try {
@@ -375,6 +392,12 @@ export default function IndustryChainView({ chainId }: Props) {
     type: e.type,
   }));
 
+  const drawerConnections = drawerNode
+    ? graph.edges.filter(
+        (e) => e.source === drawerNode.id || e.target === drawerNode.id
+      ).length
+    : 0;
+
   return (
     <div className="h-full">
       <KnowledgeGraphView
@@ -382,10 +405,40 @@ export default function IndustryChainView({ chainId }: Props) {
         edges={edges}
         defaultLayout="chain"
         title={t('industryChain.title')}
-        renderNodeDetail={(node) => (
-          <ChainEntityDetail key={node.id} entityId={node.id} />
-        )}
+        onNodeSelect={setDrawerNode}
       />
+
+      <SideDrawer
+        open={drawerNode !== null}
+        onClose={() => setDrawerNode(null)}
+        title={drawerNode?.label ?? ''}
+      >
+        {drawerNode && (
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                {typeLabel(drawerNode.type)}
+              </span>
+              {drawerNode.properties?.segment && (
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  {drawerNode.properties.segment}
+                </span>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+              <div className="text-xs text-gray-500">
+                {t('industryChain.connections')}
+              </div>
+              <div className="mt-0.5 text-2xl font-bold text-emerald-600">
+                {drawerConnections}
+              </div>
+            </div>
+
+            <ChainEntityDetail key={drawerNode.id} entityId={drawerNode.id} />
+          </div>
+        )}
+      </SideDrawer>
     </div>
   );
 }

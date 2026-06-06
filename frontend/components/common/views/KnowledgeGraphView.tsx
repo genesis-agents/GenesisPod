@@ -63,10 +63,11 @@ interface KnowledgeGraphViewProps {
   /** 顶部标题（默认"知识图谱"） */
   title?: string;
   /**
-   * 选中节点详情面板的额外内容渲染器（保持本组件通用：领域详情由调用方提供）。
-   * 例如产业链页传入一个按 node.id 调 getEntity 拉公司档案（描述/CIK/SEC 来源）的渲染器。
+   * 节点选中回调（保持本组件通用：详情展示由调用方决定）。
+   * 提供时**抑制内部浮层**，由调用方自行渲染（如产业链页用 canonical SideDrawer）；
+   * 传 null 表示取消选中。
    */
-  renderNodeDetail?: (node: GraphNode) => React.ReactNode;
+  onNodeSelect?: (node: GraphNode | null) => void;
 }
 
 export default function KnowledgeGraphView({
@@ -74,7 +75,7 @@ export default function KnowledgeGraphView({
   edges,
   defaultLayout = 'force',
   title,
-  renderNodeDetail,
+  onNodeSelect,
 }: KnowledgeGraphViewProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -325,6 +326,7 @@ export default function KnowledgeGraphView({
         event.stopPropagation();
         setSelectedNode(d);
         highlightNode(d);
+        onNodeSelect?.(d);
       });
 
     // 节点标签
@@ -446,7 +448,7 @@ export default function KnowledgeGraphView({
     return () => {
       simulation.stop();
     };
-  }, [nodes, edges, layout]);
+  }, [nodes, edges, layout, onNodeSelect]);
 
   // 详情面板标题：覆盖全部已知类型 + 兜底（含产业链 SEGMENT/COMPANY/PRODUCT，
   // 旧版只列了 7 种 library 类型，产业链节点点开标题为空白）。
@@ -573,8 +575,8 @@ export default function KnowledgeGraphView({
           }}
         />
 
-        {/* 节点详情面板 */}
-        {selectedNode && (
+        {/* 节点详情面板（调用方提供 onNodeSelect 时抑制，由其用 SideDrawer 等自行渲染） */}
+        {selectedNode && !onNodeSelect && (
           <div className="absolute right-4 top-4 w-80 rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between">
               <div>
@@ -641,13 +643,6 @@ export default function KnowledgeGraphView({
                 }
               </div>
             </div>
-
-            {/* 领域详情（由调用方渲染，如产业链公司档案：描述/CIK/SEC 来源） */}
-            {renderNodeDetail && (
-              <div className="mt-4 border-t border-gray-100 pt-4">
-                {renderNodeDetail(selectedNode)}
-              </div>
-            )}
           </div>
         )}
 

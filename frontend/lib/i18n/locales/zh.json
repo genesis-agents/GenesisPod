@@ -984,7 +984,11 @@
     "statusRunning": "分析中",
     "statusCompleted": "已完成",
     "statusFailed": "失败",
-    "statusPlanning": "排队中"
+    "statusPlanning": "排队中",
+    "connections": "关联数量",
+    "typeSegment": "环节",
+    "typeCompany": "公司",
+    "typeProduct": "产品"
   },
   "aiResearch": {
     "title": "AI 研究",

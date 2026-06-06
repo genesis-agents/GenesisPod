@@ -984,7 +984,11 @@
     "statusRunning": "Analyzing",
     "statusCompleted": "Completed",
     "statusFailed": "Failed",
-    "statusPlanning": "Queued"
+    "statusPlanning": "Queued",
+    "connections": "Connections",
+    "typeSegment": "Segment",
+    "typeCompany": "Company",
+    "typeProduct": "Product"
   },
   "aiResearch": {
     "title": "AI Research",
