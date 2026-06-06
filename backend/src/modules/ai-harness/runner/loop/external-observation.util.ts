@@ -39,6 +39,8 @@ const EXTERNAL_TOOL_SOURCE: ReadonlyArray<readonly [RegExp, string]> = [
   ],
   // Financial / industry data
   [/finance.?api|industry.?report/i, "financial-data"],
+  // SEC EDGAR filings（M5：财报正文是外部内容，必须包裹防间接注入）
+  [/sec.?edgar|edgar.?sec|sec.?filing/i, "financial-data"],
   // Image search engines
   [/image.?search|bing.?image|google.?image|serpapi.?image/i, "web"],
   // Knowledge graph (external graph traversal)

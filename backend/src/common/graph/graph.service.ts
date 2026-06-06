@@ -1160,4 +1160,114 @@ export class GraphService {
         throw new Error(`Unknown node type: ${nodeType}`);
     }
   }
+
+  // ==========================================================================
+  // N-hop 多跳遍历（首个通用 Recursive CTE / 边表遍历）
+  //   - 参数化边表，标识符走白名单防注入（值仍用 $n 占位参数）。
+  //   - 无向可达：从 rootId 出发，N 跳内可达的全部节点 + 经过的边。
+  //   - 环路检测：path 数组 + NOT (neighbor = ANY(path))，防产业链互供环死循环。
+  // ==========================================================================
+
+  /** 允许遍历的边表白名单（防 SQL 标识符注入）。新增边表在此登记。 */
+  private static readonly EDGE_TABLE_REGISTRY: Record<
+    string,
+    { source: string; target: string; relType: string; scope: string }
+  > = {
+    industry_relations: {
+      source: "source_id",
+      target: "target_id",
+      relType: "relation_type",
+      scope: "chain_id",
+    },
+  };
+
+  /**
+   * 从 rootId 出发做 N 跳无向遍历，返回可达节点 id 与经过的边。
+   * @param params.edgeTable 必须是 EDGE_TABLE_REGISTRY 登记的表名
+   * @param params.scopeValue 限定范围（如 chainId），仅遍历同范围的边
+   */
+  async nHopNeighbors(params: {
+    rootId: string;
+    depth: number;
+    edgeTable: string;
+    relationTypes?: string[];
+    scopeValue?: string;
+  }): Promise<{
+    nodeIds: string[];
+    edges: Array<{ source: string; target: string; relationType: string }>;
+  }> {
+    const cfg = GraphService.EDGE_TABLE_REGISTRY[params.edgeTable];
+    if (!cfg) {
+      throw new Error(`nHopNeighbors: edge table not allow-listed: ${params.edgeTable}`);
+    }
+    const depth = Math.max(1, Math.min(Math.floor(params.depth), 10));
+
+    // 标识符来自白名单（非用户输入），值用 $n 占位参数。
+    const tbl = `"${params.edgeTable}"`;
+    const src = `"${cfg.source}"`;
+    const tgt = `"${cfg.target}"`;
+    const rel = `"${cfg.relType}"`;
+    const scope = `"${cfg.scope}"`;
+
+    const values: Array<string | number | string[]> = [params.rootId, depth];
+    let scopeClause = "";
+    if (params.scopeValue) {
+      values.push(params.scopeValue);
+      scopeClause = `AND e.${scope} = $${values.length}`;
+    }
+    let relClause = "";
+    if (params.relationTypes?.length) {
+      values.push(params.relationTypes);
+      relClause = `AND e.${rel} = ANY($${values.length}::text[])`;
+    }
+
+    const sql = `
+      WITH RECURSIVE traverse AS (
+        SELECT $1::text AS node_id, 0 AS depth, ARRAY[$1::text] AS path
+        UNION ALL
+        SELECT nb.neighbor, t.depth + 1, t.path || nb.neighbor
+        FROM traverse t
+        JOIN LATERAL (
+          SELECT CASE WHEN e.${src} = t.node_id THEN e.${tgt} ELSE e.${src} END AS neighbor
+          FROM ${tbl} e
+          WHERE (e.${src} = t.node_id OR e.${tgt} = t.node_id)
+            ${scopeClause}
+            ${relClause}
+        ) nb ON true
+        WHERE t.depth < $2 AND NOT (nb.neighbor = ANY(t.path))
+      )
+      SELECT DISTINCT node_id FROM traverse WHERE node_id <> $1;
+    `;
+
+    const rows = await this.prisma.$queryRawUnsafe<Array<{ node_id: string }>>(
+      sql,
+      ...values,
+    );
+    const nodeIds = rows.map((r) => r.node_id);
+
+    // 收集这些节点（含 root）之间的边
+    const allIds = [params.rootId, ...nodeIds];
+    const edgeValues: Array<string | string[]> = [allIds];
+    let edgeScope = "";
+    if (params.scopeValue) {
+      edgeValues.push(params.scopeValue);
+      edgeScope = `AND e.${scope} = $${edgeValues.length}`;
+    }
+    let edgeRel = "";
+    if (params.relationTypes?.length) {
+      edgeValues.push(params.relationTypes);
+      edgeRel = `AND e.${rel} = ANY($${edgeValues.length}::text[])`;
+    }
+    const edgeSql = `
+      SELECT e.${src} AS source, e.${tgt} AS target, e.${rel} AS "relationType"
+      FROM ${tbl} e
+      WHERE e.${src} = ANY($1::text[]) AND e.${tgt} = ANY($1::text[])
+        ${edgeScope} ${edgeRel};
+    `;
+    const edges = await this.prisma.$queryRawUnsafe<
+      Array<{ source: string; target: string; relationType: string }>
+    >(edgeSql, ...edgeValues);
+
+    return { nodeIds, edges };
+  }
 }

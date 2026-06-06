@@ -30,6 +30,12 @@ export type { RunResult } from "../agents/dev-tools";
 
 // Service facade
 export { HarnessFacade } from "./harness.facade";
+// Single-agent run contracts（ai-app 经 HarnessFacade.execute 跑单 agent 时用）
+export type {
+  IAgentSpec,
+  IAgentTask,
+  IAgentResult,
+} from "../agents/abstractions";
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // AIFacade + Domain Facades (moved from ai-engine/facade — PR-X13)

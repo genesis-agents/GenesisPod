@@ -1,7 +1,7 @@
 # 产业链分析（Industry Chain Analysis）— 实现方案设计基线
 
-**状态：** ✅ 评审一致通过 v1.1（四路评审，8 项 MUST-FIX 已回填 — 见 [review-minutes.md](./review-minutes.md)）
-**日期：** 2026-06-06（v1.1 回填）
+**状态：** ✅ 实现完成 v1.2（全 6 阶段；37 单测 + 406 arch 全绿；部署态验证项见 §8.5）
+**日期：** 2026-06-06（v1.2 实施完成）
 **作者：** Claude Code
 **分支：** `claude/industrial-chain-analysis-vsNux`
 **关联：** [AI 架构分层 CLAUDE.md](../../../.claude/CLAUDE.md) · [标准 16 AI Engine/Harness 结构](../../../.claude/standards/16-ai-engine-harness-structure.md) · [标准 22 前端 UI 组件治理](../../../.claude/standards/22-frontend-ui-component-governance.md)
@@ -210,6 +210,40 @@ model IndustryRelation {
 | 财报正文超长 | 中 | 抽取走 web-search 摘要 + 关键段落，不全文解析 |
 | 实体消歧误并/漏并 | 中 | 阈值可调（0.85）+ 保留人工校正入口（后续） |
 | 手写迁移失败 | 低 | 禁用 `DO $$ EXCEPTION` 包 ALTER TYPE |
+
+---
+
+## 8.5 实施完成情况（2026-06-06）
+
+全 6 阶段已实现并提交到 `claude/industrial-chain-analysis-vsNux`。开发态验证（类型检查 + 离线单测 + 架构边界 + UI 纪律）全绿；需真实 DB/LLM/SEC egress/前端 runtime 的部分属**部署态验证**（本开发容器无这些）。
+
+| Phase | 内容 | 开发态验证 |
+| ----- | ---- | ---------- |
+| 1.1 | SEC EDGAR 工具 | ✅ tsc + 9 单测 |
+| 1.2 | 实体消歧服务（下沉 engine/knowledge） | ✅ tsc + 7 单测 |
+| 2 | N-hop 递归 CTE（扩展 common/graph） | ✅ tsc + 5 单测（含白名单防注入/环路检测断言） |
+| 3 | 数据模型 + 手写迁移 | ✅ prisma validate/generate + 3 delegate |
+| 4a | 抽取 schema + M2 映射 + M8 校验 + M5 | ✅ tsc + 11 单测 |
+| 4b | service/controller/module/pipeline | ✅ tsc + 5 单测 + verify:arch 406 全绿 |
+| 5 | 前端 chain 布局 + 页面 | ✅ tsc + audit:ui-discipline 0 违规 |
+
+**合计 37 新增单测全绿；verify:arch 406 全绿；前后端 tsc 0 error。**
+
+### 部署态验证清单（待 sec.gov egress / DB / LLM / 前端 runtime 的环境执行）
+1. `prisma migrate deploy` 应用 `20260612_add_industry_chain` 迁移
+2. SEC 工具对真实公司（如 NVIDIA）联网返回 filings（容器 egress 白名单不含 sec.gov → 部署后冒烟）
+3. `POST /industry-chain/analyze {topic:"算力底座"}` 跑通 mission，`GET /:id/graph` 返回 `nodes≥3 && edges≥2`，≥1 COMPANY 带真实 SEC `accessionNumber`
+4. 前端页面点击节点见详情面板（chain 布局上→下游分列）
+
+### 编排 persist 衔接 —— 已按方案 B 接线（用户决策 2026-06-06）
+关键认知：stage primitive 是**通用编排壳**，不自己跑 agent，而是调注入的 hook——所以 **B 包住了 A**：
+- `research.perItemPipeline` hook 经 `HarnessFacade.execute` 跑 chain-mapper agent（ReAct + 工具）产出结构化抽取（= A 的 agent 跑法）。
+- `persist.persist` hook 读 research 输出 → `IndustryChainService.persistExtraction` 落领域表（M2 映射 + M8 校验在内）。
+- 框架白送 mission 生命周期/事件流/checkpoint/cost。
+- pipeline 精简为 `research→persist` 两步（消歧/结构校验已内含于 persistExtraction）；JudgeService 共识 review step 为后续可选增强。
+
+hook 闭包绑定 service（含 HarnessFacade），故 pipeline 运行时构建（`service.buildPipeline()`）后注册。
+**离线验证**：buildPipeline 接线单测（research hook 跑 agent 解析 + persist hook 落库）已绿；**端到端跑通仍属部署态**（需 LLM + SEC egress + DB）。
 
 ---
 

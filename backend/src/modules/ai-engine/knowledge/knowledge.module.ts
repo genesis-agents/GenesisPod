@@ -30,6 +30,9 @@ import { VectorService } from "../rag/vector";
 import { DocumentChunker } from "../rag/chunking";
 import { RAGPipelineService } from "../rag/pipeline";
 
+// Entity Resolution（实体消歧，复用 EmbeddingService）
+import { EntityResolutionService } from "./entity-resolution/entity-resolution.service";
+
 
 @Module({
   imports: [
@@ -49,12 +52,14 @@ import { RAGPipelineService } from "../rag/pipeline";
     VectorService,
     DocumentChunker,
     RAGPipelineService,
+    EntityResolutionService,
   ],
   exports: [
     EmbeddingService,
     VectorService,
     DocumentChunker,
     RAGPipelineService,
+    EntityResolutionService,
   ],
 })
 export class AiEngineKnowledgeModule {}

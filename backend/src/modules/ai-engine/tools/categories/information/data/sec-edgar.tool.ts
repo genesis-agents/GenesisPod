@@ -249,13 +249,19 @@ export class SecEdgarTool extends BaseTool<SecEdgarInput, SecEdgarOutput> {
         filings,
       };
     } catch (error) {
-      // 安全：只记 message，不透出完整响应体 / 内部网络拓扑
+      // 安全（应修-1）：内部网络层错误（HTTP/ECONNREFUSED/ETIMEDOUT 等含主机端口）
+      // 只记日志，不随响应外泄；对外只给业务层通用文案。
       const message = error instanceof Error ? error.message : "Unknown error";
       this.logger.error(`[doExecute] SEC EDGAR lookup failed: ${message}`);
+      const isNetworkLevel =
+        /^HTTP|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|ECONNRESET|socket|network/i.test(
+          message,
+        );
+      const safe = isNetworkLevel ? "SEC 服务暂时不可用，请稍后重试" : message;
       return {
         success: false,
         filings: [],
-        error: `SEC EDGAR 检索失败: ${message}`,
+        error: `SEC EDGAR 检索失败: ${safe}`,
       };
     }
   }
