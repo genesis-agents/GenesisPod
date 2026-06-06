@@ -370,16 +370,23 @@ export default function KnowledgeGraphView({
         );
     }
 
+    // 边端点解析：force 布局由 forceLink 把 source/target 解析成节点对象；
+    // chain/circular/hierarchical 无 link force，source/target 仍是字符串 id，
+    // 需用 nodeById 自行解析——否则 source.x 为 undefined，线画在原点而不可见。
+    const nodeById = new Map(nodes.map((n) => [n.id, n]));
+
     // 更新位置
     simulation.on('tick', () => {
       // 使用二次贝塞尔曲线绘制边
       link.attr('d', (d) => {
-        const source = d.source as GraphNode;
-        const target = d.target as GraphNode;
-        const sourceX = source.x ?? 0;
-        const sourceY = source.y ?? 0;
-        const targetX = target.x ?? 0;
-        const targetY = target.y ?? 0;
+        const source =
+          typeof d.source === 'string' ? nodeById.get(d.source) : d.source;
+        const target =
+          typeof d.target === 'string' ? nodeById.get(d.target) : d.target;
+        const sourceX = source?.x ?? 0;
+        const sourceY = source?.y ?? 0;
+        const targetX = target?.x ?? 0;
+        const targetY = target?.y ?? 0;
 
         // 计算中点
         const midX = (sourceX + targetX) / 2;
