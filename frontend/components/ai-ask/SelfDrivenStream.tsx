@@ -40,6 +40,7 @@ import {
   StatusBadge,
   type BadgeTone,
 } from '@/components/ui/badges/StatusBadge';
+import { ProgressBar } from '@/components/ui/progress/ProgressBar';
 import { Button } from '@/components/ui/primitives/button';
 import { config } from '@/lib/utils/config';
 import { logger } from '@/lib/utils/logger';
@@ -451,6 +452,46 @@ export function SelfDrivenStream({
     (e): e is SelfDrivenErrorEvent => e.type === 'error'
   );
 
+  // ── Overall mission progress ──────────────────────────────────────────────
+  // A single honest progress signal across the plan → execute → deliver phases:
+  //   planning            → ~3%   (indeterminate-ish, plan not ready)
+  //   plan ready          → 5%
+  //   executing           → 5–85% proportional to completed/total steps
+  //   composing report    → 90%
+  //   deliverable ready   → 97%
+  //   done                → 100%
+  const totalSteps = planEvent?.plan?.steps?.length ?? 0;
+  const completedSteps = stepCompletedEvents.length;
+  const deliverStarted = phaseEvents.some(
+    (p) => p.phase === 'deliver' && p.status === 'started'
+  );
+  const executeSeen = phaseEvents.some((p) => p.phase === 'execute');
+
+  let progressPct: number;
+  let progressLabel: string;
+  if (done) {
+    progressPct = 100;
+    progressLabel = t('aiAsk.selfDriven.missionComplete');
+  } else if (deliverable) {
+    progressPct = 97;
+    progressLabel = t('aiAsk.selfDriven.progressComposing');
+  } else if (deliverStarted) {
+    progressPct = 90;
+    progressLabel = t('aiAsk.selfDriven.progressComposing');
+  } else if (totalSteps > 0 && executeSeen) {
+    progressPct = 5 + Math.round((completedSteps / totalSteps) * 80);
+    progressLabel = `${t('aiAsk.selfDriven.progress')} ${completedSteps}/${totalSteps}`;
+  } else if (planEvent) {
+    progressPct = 5;
+    progressLabel = t('aiAsk.selfDriven.progressPlanning');
+  } else {
+    progressPct = 3;
+    progressLabel = t('aiAsk.selfDriven.progressPlanning');
+  }
+  // Show the bar while the mission is live; once done the report card itself
+  // signals completion, so we keep it only when not yet done (or on error).
+  const showProgress = !!missionId && (errorEv ? true : !done);
+
   return (
     <div className="space-y-2.5">
       {/* Mission status chip — friendly label instead of the raw mission UUID.
@@ -470,6 +511,17 @@ export function SelfDrivenStream({
               : t('aiAsk.selfDriven.missionComplete')}
           </span>
         </div>
+      )}
+
+      {/* Overall progress bar */}
+      {showProgress && (
+        <ProgressBar
+          value={progressPct}
+          label={progressLabel}
+          showPercentage
+          tone={errorEv ? 'danger' : 'primary'}
+          size="sm"
+        />
       )}
 
       {/* Phase badges */}

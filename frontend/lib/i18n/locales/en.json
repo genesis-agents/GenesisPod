@@ -5127,6 +5127,8 @@
       "team": "Team",
       "members": "{{count}} members",
       "progress": "Progress",
+      "progressPlanning": "Planning…",
+      "progressComposing": "Composing report…",
       "deliverable": "Report",
       "download": "Download .md",
       "downloading": "Downloading…",
