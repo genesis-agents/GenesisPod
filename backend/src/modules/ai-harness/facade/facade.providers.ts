@@ -65,7 +65,7 @@ import { MessageBusService as A2AMessageBusService } from "../protocols/ipc/mess
 import { TraceCollectorService } from "../tracing/observability/trace-collector.service";
 import { MemoryCoordinatorService } from "../../ai-harness/memory/coordinator/memory-coordinator.service";
 // â˜… Registry Feature ä¾èµ–
-import { AgentRegistry } from "../agents/registry/plan-based-agent-registry";
+import { PlanBasedAgentRegistry } from "../agents/registry/plan-based-agent-registry";
 import { TeamRegistry } from "../teams/registry/team-registry";
 import { RoleRegistry } from "../teams/registry/role-registry";
 import { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
@@ -217,7 +217,7 @@ export interface ObservabilityFeature {
  * 注册表特性
  */
 export interface RegistryFeature {
-  agent?: AgentRegistry;
+  agent?: PlanBasedAgentRegistry;
   team?: TeamRegistry;
   role?: RoleRegistry;
   skill?: SkillRegistry;
@@ -566,7 +566,7 @@ export const observabilityFeatureProvider: Provider = {
 export const registryFeatureProvider: Provider = {
   provide: REGISTRY_FEATURE,
   useFactory: (
-    agent?: AgentRegistry,
+    agent?: PlanBasedAgentRegistry,
     team?: TeamRegistry,
     role?: RoleRegistry,
     skill?: SkillRegistry,
@@ -575,7 +575,7 @@ export const registryFeatureProvider: Provider = {
     return { agent, team, role, skill };
   },
   inject: [
-    { token: AgentRegistry, optional: true },
+    { token: PlanBasedAgentRegistry, optional: true },
     { token: TeamRegistry, optional: true },
     { token: RoleRegistry, optional: true },
     { token: SkillRegistry, optional: true },

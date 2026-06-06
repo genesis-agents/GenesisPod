@@ -1302,10 +1302,14 @@ export {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // Legacy registry (IPlanBasedAgent plan→execute model)
-// Note: Different from handoffs/agent-registry (IAgent runtime model)
+// Note: Different from handoffs/agent-registry (IAgent runtime model). The class
+// was renamed PlanBasedAgentRegistry to kill that name collision; `AgentRegistry`
+// stays here as a @deprecated back-compat alias for existing app consumers.
 export {
-  AgentRegistry,
-  type AgentRegistryStats,
+  PlanBasedAgentRegistry,
+  PlanBasedAgentRegistry as AgentRegistry,
+  type PlanBasedAgentRegistryStats,
+  type PlanBasedAgentRegistryStats as AgentRegistryStats,
 } from "../agents/registry/plan-based-agent-registry";
 export {
   AgentOrchestrator,

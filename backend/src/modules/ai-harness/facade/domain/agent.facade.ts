@@ -49,7 +49,7 @@ import { IntentDetectionService } from "../../../ai-engine/planning/intent/inten
 import { ProcessSupervisorService as ExecutionStateManager } from "../../lifecycle/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../../evaluation/critique/output-reviewer.service";
 import { ContextEvolutionService } from "../../../ai-engine/knowledge/extraction/context-evolution.service";
-import { AgentRegistry } from "../../agents/registry/plan-based-agent-registry";
+import { PlanBasedAgentRegistry } from "../../agents/registry/plan-based-agent-registry";
 
 @Injectable()
 export class AgentFacade {
@@ -209,7 +209,7 @@ export class AgentFacade {
 
   // ==================== Registry Getters ====================
 
-  get agentRegistry(): AgentRegistry | undefined {
+  get agentRegistry(): PlanBasedAgentRegistry | undefined {
     return this.registry?.agent;
   }
 }

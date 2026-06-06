@@ -7,7 +7,11 @@
  * @deprecated Use SpecAgentRegistry for new-style agents.
  */
 
-export { AgentRegistry } from "./plan-based-agent-registry";
-export type { AgentRegistryStats } from "./plan-based-agent-registry";
+export { PlanBasedAgentRegistry } from "./plan-based-agent-registry";
+export type { PlanBasedAgentRegistryStats } from "./plan-based-agent-registry";
+// @deprecated back-compat aliases — the old name `AgentRegistry` collided with
+// ai-harness/handoffs/AgentRegistry. Prefer PlanBasedAgentRegistry.
+export { PlanBasedAgentRegistry as AgentRegistry } from "./plan-based-agent-registry";
+export type { PlanBasedAgentRegistryStats as AgentRegistryStats } from "./plan-based-agent-registry";
 export { AgentOrchestrator } from "./agent-orchestrator";
 export type { AgentStatusReport } from "./agent-orchestrator";

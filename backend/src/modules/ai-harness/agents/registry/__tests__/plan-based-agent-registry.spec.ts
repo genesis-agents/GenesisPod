@@ -1,10 +1,10 @@
 /**
- * Tests for AgentRegistry
+ * Tests for PlanBasedAgentRegistry
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { AgentRegistry } from "../plan-based-agent-registry";
+import { PlanBasedAgentRegistry } from "../plan-based-agent-registry";
 import { IPlanBasedAgent } from "../../base/plan-based-agent";
 import {
   AgentConfig,
@@ -49,18 +49,18 @@ function makeAgent(id: AgentId, name = `Agent ${id}`): IPlanBasedAgent {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("AgentRegistry", () => {
-  let registry: AgentRegistry;
+describe("PlanBasedAgentRegistry", () => {
+  let registry: PlanBasedAgentRegistry;
 
   beforeEach(async () => {
     jest.spyOn(Logger.prototype, "log").mockReturnValue(undefined);
     jest.spyOn(Logger.prototype, "warn").mockReturnValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AgentRegistry],
+      providers: [PlanBasedAgentRegistry],
     }).compile();
 
-    registry = module.get<AgentRegistry>(AgentRegistry);
+    registry = module.get<PlanBasedAgentRegistry>(PlanBasedAgentRegistry);
   });
 
   afterEach(() => {

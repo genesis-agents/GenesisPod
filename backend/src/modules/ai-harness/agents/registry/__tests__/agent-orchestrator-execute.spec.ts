@@ -7,7 +7,7 @@
  */
 
 import { AgentOrchestrator } from "../agent-orchestrator";
-import { AgentRegistry } from "../plan-based-agent-registry";
+import { PlanBasedAgentRegistry } from "../plan-based-agent-registry";
 import { AgentConfigService } from "../../config/agent-config.service";
 import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
 
@@ -74,11 +74,11 @@ async function collectEvents(gen: AsyncGenerator<any>): Promise<any[]> {
 // ------------------------------------------------------------------
 
 describe("AgentOrchestrator — execute()", () => {
-  let registry: AgentRegistry;
+  let registry: PlanBasedAgentRegistry;
   let orchestrator: AgentOrchestrator;
 
   beforeEach(() => {
-    registry = new AgentRegistry();
+    registry = new PlanBasedAgentRegistry();
     orchestrator = new AgentOrchestrator(registry);
   });
 
@@ -233,12 +233,12 @@ describe("AgentOrchestrator — execute()", () => {
 // ------------------------------------------------------------------
 
 describe("AgentOrchestrator — with guardrails", () => {
-  let registry: AgentRegistry;
+  let registry: PlanBasedAgentRegistry;
   let mockGuardrails: any;
   let orchestrator: AgentOrchestrator;
 
   beforeEach(() => {
-    registry = new AgentRegistry();
+    registry = new PlanBasedAgentRegistry();
     mockGuardrails = {
       processInput: jest.fn().mockResolvedValue({ passed: true }),
       processOutput: jest.fn().mockResolvedValue({ passed: true }),
@@ -361,7 +361,7 @@ describe("AgentOrchestrator — with guardrails", () => {
   });
 
   it("should block when guardrails error and failClosed=true", async () => {
-    registry = new AgentRegistry();
+    registry = new PlanBasedAgentRegistry();
     mockGuardrails = {
       processInput: jest
         .fn()
@@ -399,12 +399,12 @@ describe("AgentOrchestrator — with guardrails", () => {
 // ------------------------------------------------------------------
 
 describe("AgentOrchestrator — applyRuntimeConfig", () => {
-  let registry: AgentRegistry;
+  let registry: PlanBasedAgentRegistry;
   let mockAgentConfig: any;
   let orchestrator: AgentOrchestrator;
 
   beforeEach(() => {
-    registry = new AgentRegistry();
+    registry = new PlanBasedAgentRegistry();
     mockAgentConfig = {
       getEffectiveConfig: jest.fn(),
     };
@@ -525,7 +525,7 @@ describe("AgentOrchestrator — applyRuntimeConfig", () => {
 
 describe("AgentOrchestrator — getStatusReport()", () => {
   it("should return status for all registered agents", () => {
-    const registry = new AgentRegistry();
+    const registry = new PlanBasedAgentRegistry();
     const orchestrator = new AgentOrchestrator(registry);
 
     const agent1 = makePlanBasedAgent("agent-x");

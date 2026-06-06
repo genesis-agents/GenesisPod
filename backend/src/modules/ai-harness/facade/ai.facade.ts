@@ -182,7 +182,7 @@ import { TeamsMissionOrchestrator as MissionOrchestrator } from "../teams/orches
 import { OutputReviewerService } from "../evaluation/critique/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
 import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch.service";
-import { AgentRegistry } from "../agents/registry/plan-based-agent-registry";
+import { PlanBasedAgentRegistry } from "../agents/registry/plan-based-agent-registry";
 import { TeamRegistry } from "../teams/registry/team-registry";
 import { RoleRegistry } from "../teams/registry/role-registry";
 import { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
@@ -2953,8 +2953,8 @@ export class AIFacade {
     return this.tools?.registry;
   }
 
-  /** 获取 AgentRegistry（Agent 注册表） */
-  get agentRegistry(): AgentRegistry | undefined {
+  /** 获取 PlanBasedAgentRegistry（Agent 注册表） */
+  get agentRegistry(): PlanBasedAgentRegistry | undefined {
     return this.registry?.agent;
   }
 

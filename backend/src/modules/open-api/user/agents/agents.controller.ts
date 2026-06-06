@@ -22,7 +22,7 @@ import { Observable, map, catchError, of, from, switchMap } from "rxjs";
 // 等字段），与 facade re-export 的 legacy plan-based AgentResult<AgentOutput> 命名冲突，
 // 故 agents-api 整目录在 .eslintrc.js 中文档化豁免，直引 agent.types primitive。
 import { AgentOrchestrator } from "../../../ai-harness/agents/registry/agent-orchestrator";
-import { AgentRegistry } from "../../../ai-harness/agents/registry/plan-based-agent-registry";
+import { PlanBasedAgentRegistry } from "../../../ai-harness/agents/registry/plan-based-agent-registry";
 import { AgentInput } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { isPlatformAgentId } from "@/modules/ai-app/contracts/agent-catalog";
 import { AgentsService } from "./agents.service";
@@ -49,7 +49,7 @@ export class AgentsController {
 
   constructor(
     private readonly orchestrator: AgentOrchestrator,
-    private readonly agentRegistry: AgentRegistry,
+    private readonly agentRegistry: PlanBasedAgentRegistry,
     private readonly agentsService: AgentsService,
     private readonly agentsTaskQueue: AgentsTaskQueueService,
   ) {}

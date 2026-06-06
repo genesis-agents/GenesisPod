@@ -5,7 +5,7 @@
  *
  * 职责：
  * - 只回答"当前 AI Engine 基础设施客观有什么"：
- *   模型（AIModel 表）/ agent（L2 AgentRegistry）/ tool（L2 ToolRegistry）/
+ *   模型（AIModel 表）/ agent（L2 PlanBasedAgentRegistry）/ tool（L2 ToolRegistry）/
  *   skill（L2 SkillRegistry）/ 用户 key / 外部依赖
  * - **不**含任何 AI App 特定概念（没有 "harness"、"{app}"、"research-depth"）
  * - tablesExist() 接受通用表名数组，不硬编码 App 私有表
@@ -17,7 +17,7 @@
 
 import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AgentRegistry } from "@/modules/ai-harness/agents/registry/plan-based-agent-registry";
+import { PlanBasedAgentRegistry } from "@/modules/ai-harness/agents/registry/plan-based-agent-registry";
 import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool.registry";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill.registry";
 // v3.1 A0：AiChatModelConfigService 弃用，迁至 canonical AiModelConfigService
@@ -53,7 +53,7 @@ export class RuntimeEnvironmentService {
 
   constructor(
     @Optional() private readonly prisma?: PrismaService,
-    @Optional() private readonly agentRegistry?: AgentRegistry,
+    @Optional() private readonly agentRegistry?: PlanBasedAgentRegistry,
     @Optional() private readonly toolRegistry?: ToolRegistry,
     @Optional() private readonly skillRegistry?: SkillRegistry,
     @Optional()
@@ -77,7 +77,7 @@ export class RuntimeEnvironmentService {
     }
     if (!this.agentRegistry) {
       this.logger.warn(
-        "AgentRegistry missing — env.agents will be empty (caller should ensure AiEngineOrchestrationModule is imported)",
+        "PlanBasedAgentRegistry missing — env.agents will be empty (caller should ensure AiEngineOrchestrationModule is imported)",
       );
     }
     if (!this.toolRegistry) {
@@ -356,7 +356,7 @@ export class RuntimeEnvironmentService {
   }
 
   private discoverAgents(): string[] {
-    // 合并 legacy AgentRegistry（plan-based agents）+ 新 SpecAgentRegistry（spec agents）
+    // 合并 legacy PlanBasedAgentRegistry（plan-based agents）+ 新 SpecAgentRegistry（spec agents）
     const ids = new Set<string>();
     if (this.agentRegistry) {
       try {

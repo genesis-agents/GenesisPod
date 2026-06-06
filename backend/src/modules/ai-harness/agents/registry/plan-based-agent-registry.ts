@@ -19,7 +19,7 @@ import { IPlanBasedAgent } from "../base/plan-based-agent";
 /**
  * Agent 注册表统计信息
  */
-export interface AgentRegistryStats {
+export interface PlanBasedAgentRegistryStats {
   total: number;
   byId: Record<string, { executions: number; errors: number }>;
 }
@@ -29,10 +29,10 @@ export interface AgentRegistryStats {
  * 管理所有已注册的 Agent 实例
  */
 @Injectable()
-export class AgentRegistry {
-  private readonly logger = new Logger(AgentRegistry.name);
+export class PlanBasedAgentRegistry {
+  private readonly logger = new Logger(PlanBasedAgentRegistry.name);
   private readonly agents = new Map<AgentId, IPlanBasedAgent>();
-  private readonly stats: AgentRegistryStats = {
+  private readonly stats: PlanBasedAgentRegistryStats = {
     total: 0,
     byId: {},
   };
@@ -119,7 +119,7 @@ export class AgentRegistry {
   /**
    * 获取统计信息（返回深拷贝，防止外部修改内部状态）
    */
-  getStats(): AgentRegistryStats {
+  getStats(): PlanBasedAgentRegistryStats {
     const byIdCopy: Record<string, { executions: number; errors: number }> = {};
     for (const [id, counters] of Object.entries(this.stats.byId)) {
       byIdCopy[id] = { ...counters };

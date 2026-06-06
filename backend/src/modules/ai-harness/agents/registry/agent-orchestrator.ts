@@ -14,7 +14,7 @@ import {
   AgentInput,
   AgentEvent,
 } from "@/modules/ai-harness/agents/abstractions/agent.types";
-import { AgentRegistry } from "./plan-based-agent-registry";
+import { PlanBasedAgentRegistry } from "./plan-based-agent-registry";
 import { GuardrailsPipelineService } from "../../../ai-engine/safety/guardrails/guardrails-pipeline.service";
 import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
@@ -44,7 +44,7 @@ export class AgentOrchestrator {
   private readonly guardrailsFailClosed: boolean;
 
   constructor(
-    private readonly registry: AgentRegistry,
+    private readonly registry: PlanBasedAgentRegistry,
     @Optional() private readonly agentConfigService?: AgentConfigService,
     @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
     private readonly configService?: ConfigService,

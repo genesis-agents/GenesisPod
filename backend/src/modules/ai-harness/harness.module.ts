@@ -144,7 +144,7 @@ import {
   EXECUTION_STATE_MANAGER_PORT,
   MCP_PROVIDER_PORT,
 } from "@/modules/ai-engine/facade/abstractions/runtime-deps.tokens";
-import { AgentRegistry as PlanBasedAgentRegistry } from "./agents/registry/plan-based-agent-registry";
+import { PlanBasedAgentRegistry } from "./agents/registry/plan-based-agent-registry";
 import { AgentOrchestrator } from "./agents/registry/agent-orchestrator";
 import { AgentConfigService } from "./agents/config/agent-config.service";
 import { CheckpointManager } from "./protocols/journal/checkpoint-manager";
