@@ -40,7 +40,7 @@ import { MemoryContextBindingService } from "../../memory/indexing/memory-contex
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { describeOutputSchemaForLlm } from "../dev-tools/zod-schema-prompt";
 import { SkillActivator } from "../skill-runtime/skill-activator";
-import { AgentStepCheckpointService } from "../../memory/checkpoint/checkpoint.service";
+import { AgentStepCheckpointService } from "../../memory/checkpoint/agent-step-checkpoint.service";
 import { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
 import { LlmExecutor } from "../../runner/executor/llm-executor";
 import { AgentRegistry } from "../../handoffs/agent-registry";

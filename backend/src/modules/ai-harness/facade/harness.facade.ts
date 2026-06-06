@@ -20,7 +20,7 @@ import type {
 import { AgentFactory } from "../agents/core/agent-factory";
 import { HookRegistry } from "../agents/core/hook-registry";
 import { LoopRegistry } from "../runner/loop/loop-registry";
-import { AgentStepCheckpointService } from "../memory/checkpoint/checkpoint.service";
+import { AgentStepCheckpointService } from "../memory/checkpoint/agent-step-checkpoint.service";
 import type { ICheckpoint } from "../memory/checkpoint/checkpoint.types";
 import {
   AgentEventStore,

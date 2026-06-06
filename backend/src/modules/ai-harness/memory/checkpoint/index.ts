@@ -1,4 +1,4 @@
-export { AgentStepCheckpointService } from "./checkpoint.service";
+export { AgentStepCheckpointService } from "./agent-step-checkpoint.service";
 export { InMemoryCheckpointStore } from "./in-memory-checkpoint-store";
 export { PrismaCheckpointStore } from "./prisma-checkpoint-store";
 export { AgentEventStore } from "./agent-event-store";

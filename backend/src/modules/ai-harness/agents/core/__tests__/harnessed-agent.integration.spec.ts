@@ -26,7 +26,7 @@ import type { SkillActivator } from "../../skill-runtime/skill-activator";
 import type { MemoryContextBindingService } from "../../../memory/indexing/memory-context-binding.service";
 import type { AgentRegistry } from "../../../handoffs/agent-registry";
 import type { AgentEventStore } from "../../../memory/checkpoint/agent-event-store";
-import type { AgentStepCheckpointService } from "../../../memory/checkpoint/checkpoint.service";
+import type { AgentStepCheckpointService } from "../../../memory/checkpoint/agent-step-checkpoint.service";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

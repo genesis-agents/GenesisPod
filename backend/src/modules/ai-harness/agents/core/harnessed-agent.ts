@@ -27,7 +27,7 @@ import { ContextEnvelope } from "./context-envelope";
 import type { MemoryContextBindingService } from "../../memory/indexing/memory-context-binding.service";
 import type { SkillActivator } from "../skill-runtime/skill-activator";
 import type { ISubagentSpawner } from "../abstractions";
-import type { AgentStepCheckpointService } from "../../memory/checkpoint/checkpoint.service";
+import type { AgentStepCheckpointService } from "../../memory/checkpoint/agent-step-checkpoint.service";
 import type { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import type { AgentRegistry } from "../../handoffs/agent-registry";

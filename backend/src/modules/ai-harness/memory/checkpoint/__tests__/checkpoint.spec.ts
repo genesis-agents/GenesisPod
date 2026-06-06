@@ -2,7 +2,7 @@
  * AgentStepCheckpointService + InMemoryStore 单元测试
  */
 
-import { AgentStepCheckpointService } from "../checkpoint.service";
+import { AgentStepCheckpointService } from "../agent-step-checkpoint.service";
 import { InMemoryCheckpointStore } from "../in-memory-checkpoint-store";
 import { ContextEnvelope } from "../../../agents/core/context-envelope";
 import { AgentIdentity } from "../../../agents/core/agent-identity";

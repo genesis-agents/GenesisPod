@@ -5,5 +5,5 @@ export {
 export {
   MissionCheckpointService,
   type MissionResumeDecision,
-} from "./checkpoint.service";
+} from "./mission-checkpoint.service";
 export { InMemoryMissionCheckpointStore } from "./in-memory-checkpoint.store";

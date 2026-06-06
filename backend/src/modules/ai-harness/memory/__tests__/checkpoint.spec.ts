@@ -12,7 +12,7 @@
  */
 
 import { InMemoryCheckpointStore } from "../checkpoint/in-memory-checkpoint-store";
-import { AgentStepCheckpointService } from "../checkpoint/checkpoint.service";
+import { AgentStepCheckpointService } from "../checkpoint/agent-step-checkpoint.service";
 import type {
   ICheckpointStore,
   ICheckpoint,

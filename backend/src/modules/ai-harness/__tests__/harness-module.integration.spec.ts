@@ -23,7 +23,7 @@ import { ContextManager } from "../runner/context/context-manager";
 import { ContextCompactor } from "../runner/context/context-compactor";
 import { PriorityPruner } from "../runner/context/priority-pruner";
 import { MemoryContextBindingService } from "../memory/indexing/memory-context-binding.service";
-import { AgentStepCheckpointService } from "../memory/checkpoint/checkpoint.service";
+import { AgentStepCheckpointService } from "../memory/checkpoint/agent-step-checkpoint.service";
 import { InMemoryCheckpointStore } from "../memory/checkpoint/in-memory-checkpoint-store";
 import { SkillLearner } from "../agents/learning/skill-learner";
 import { ToolRegistry } from "../../ai-engine/tools/registry/tool.registry";

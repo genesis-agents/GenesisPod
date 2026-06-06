@@ -1,4 +1,4 @@
-import { MissionCheckpointService } from "../checkpoint.service";
+import { MissionCheckpointService } from "../mission-checkpoint.service";
 import { InMemoryMissionCheckpointStore } from "../in-memory-checkpoint.store";
 
 interface PayloadShape {
