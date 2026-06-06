@@ -108,9 +108,12 @@ export interface EntityInvestment {
 @Injectable()
 export class IndustryChainService {
   private readonly logger = new Logger(IndustryChainService.name);
-  // SEC cik→ticker 名册缓存（实例级：prod 单例长缓存，单测每实例隔离）。
-  private secTickerCache: { at: number; map: Map<string, string> } | null =
-    null;
+  // SEC 名册缓存（双向 cik↔ticker，实例级：prod 单例长缓存，单测每实例隔离）。
+  private secTickerCache: {
+    at: number;
+    cikToTicker: Map<string, string>;
+    tickerToCik: Map<string, string>;
+  } | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -273,9 +276,9 @@ export class IndustryChainService {
     // ── 1. 实体消歧（embedding 调用，放事务外，避免长事务持有连接）──────────
     const companyNames = result.companies.map((c) => c.name);
     const resolution = await this.entityResolution.resolve(companyNames);
-    // SEC 名册（放事务外）：校验 LLM 给的 cik 真伪——LLM 常给非美/A 股公司编造
-    // 假 CIK（如长电科技 0001127492，SEC 实际 NoSuchKey）。map 取不到则跳过校验（不误删）。
-    const secCikMap = await this.loadSecTickerMap().catch(() => null);
+    // SEC 名册（放事务外）：用 ticker 权威反查 CIK——LLM 直出的 cik 不可信（会"张冠李戴"
+    // 给一个真实但错误的旧公司 cik，导致拉到 2006 年的备案）。无 ticker 或查不到 → 无 SEC 数据。
+    const secMaps = await this.loadSecMaps().catch(() => null);
     // canonical → 合并后的公司元数据（纯计算）
     const byCanonical = new Map<string, (typeof result.companies)[number]>();
     for (const c of result.companies) {
@@ -344,15 +347,14 @@ export class IndustryChainService {
           orphanDropped++;
           continue;
         }
-        // CIK 真伪校验：LLM 常给非美公司编造假 CIK。SEC 名册查不到 → 丢弃 cik +
-        // 连带丢掉挂在假 CIK 上的 sec.gov 来源（避免展示杜撰的 SEC 链接/财报入口）。
-        let cik = c.cik ?? null;
+        // 权威 CIK：用 ticker 反查 SEC（忽略 LLM 直出的 cik，它常张冠李戴）。
+        // 无 ticker / 查不到 → 无 cik（非美或无法确认）→ 同时丢掉 LLM 杜撰的 sec.gov 来源。
+        const cik =
+          c.ticker && secMaps
+            ? (secMaps.tickerToCik.get(c.ticker.toUpperCase()) ?? null)
+            : null;
         let refs = sanitizeSourceRefs(c.sourceRefs);
-        if (cik && secCikMap && !secCikMap.has(cik)) {
-          this.logger.warn(
-            `[persistExtraction] chain=${chainId} company="${canonical}" 假 CIK ${cik}（SEC 无登记）→ 丢弃`,
-          );
-          cik = null;
+        if (!cik) {
           refs = refs.filter((r) => !r.url || !/sec\.gov/i.test(r.url));
         }
         const ent = await tx.industryEntity.create({
@@ -468,8 +470,11 @@ export class IndustryChainService {
     return entity;
   }
 
-  /** SEC 全量 cik→ticker 名册（company_tickers.json，进程级缓存）。失败回退旧缓存/null。 */
-  private async loadSecTickerMap(): Promise<Map<string, string> | null> {
+  /** SEC 全量名册（company_tickers.json，双向 cik↔ticker，进程级缓存）。失败回退旧缓存/null。 */
+  private async loadSecMaps(): Promise<{
+    cikToTicker: Map<string, string>;
+    tickerToCik: Map<string, string>;
+  } | null> {
     if (
       !this.secTickerCache ||
       Date.now() - this.secTickerCache.at > SEC_TICKER_TTL_MS
@@ -481,28 +486,32 @@ export class IndustryChainService {
             headers: { "User-Agent": "IndustryChain industry-chain@gens.team" },
           },
         );
-        if (!res.ok) return this.secTickerCache?.map ?? null;
+        if (!res.ok) return this.secTickerCache;
         const json = (await res.json()) as Record<
           string,
           { cik_str: number; ticker: string }
         >;
-        const map = new Map<string, string>();
+        const cikToTicker = new Map<string, string>();
+        const tickerToCik = new Map<string, string>();
         for (const v of Object.values(json)) {
-          if (v?.ticker) map.set(String(v.cik_str).padStart(10, "0"), v.ticker);
+          if (!v?.ticker) continue;
+          const cik = String(v.cik_str).padStart(10, "0");
+          cikToTicker.set(cik, v.ticker);
+          tickerToCik.set(v.ticker.toUpperCase(), cik);
         }
-        this.secTickerCache = { at: Date.now(), map };
+        this.secTickerCache = { at: Date.now(), cikToTicker, tickerToCik };
       } catch (e) {
-        this.logger.warn(`[loadSecTickerMap] SEC tickers fetch failed: ${e}`);
-        return this.secTickerCache?.map ?? null;
+        this.logger.warn(`[loadSecMaps] SEC tickers fetch failed: ${e}`);
+        return this.secTickerCache;
       }
     }
-    return this.secTickerCache.map;
+    return this.secTickerCache;
   }
 
   /** cik→ticker。finance-api 只认 ticker。 */
   private async resolveTickerByCik(cik: string): Promise<string | null> {
-    const map = await this.loadSecTickerMap();
-    return map?.get(cik) ?? null;
+    const maps = await this.loadSecMaps();
+    return maps?.cikToTicker.get(cik) ?? null;
   }
 
   /**
@@ -617,6 +626,13 @@ export class IndustryChainService {
       };
       const r = json?.filings?.recent;
       if (!r?.form) return { available: false, items: [] };
+
+      // recency 兜底：filings.recent 为倒序，最新一条若已 > 2 年，说明该 cik 失效/张冠李戴
+      // （活跃公司不会两年无任何备案，如旧数据里 NVIDIA 误挂到 2006 停更的旧 cik）→ 不展示。
+      const newestYear = parseInt((r.filingDate?.[0] ?? "").slice(0, 4), 10);
+      if (newestYear && new Date().getFullYear() - newestYear > 2) {
+        return { available: false, items: [] };
+      }
 
       const cikNum = String(parseInt(entity.cik, 10)); // URL 用去零 cik
       const buildUrl = (acc?: string, doc?: string): string =>

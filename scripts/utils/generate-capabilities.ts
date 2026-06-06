@@ -77,10 +77,22 @@ function parse(file: string): ts.SourceFile {
   );
 }
 
-/** 解析相对模块说明符到磁盘文件（.ts/.tsx/index.ts/index.tsx） */
+/**
+ * 解析模块说明符到磁盘文件（.ts/.tsx/index.ts/index.tsx）。
+ * 支持相对路径与 `@/` 别名（backend → backend/src，frontend → frontend）。
+ */
 function resolveModule(fromFile: string, spec: string): string | null {
-  if (!spec.startsWith(".")) return null; // 外部包，跳过
-  const base = resolve(dirname(fromFile), spec);
+  let base: string;
+  if (spec.startsWith(".")) {
+    base = resolve(dirname(fromFile), spec);
+  } else if (spec.startsWith("@/")) {
+    const aliasRoot = toPosix(fromFile).includes("/backend/")
+      ? join(ROOT, "backend", "src")
+      : join(ROOT, "frontend");
+    base = join(aliasRoot, spec.slice(2));
+  } else {
+    return null; // 外部包，跳过
+  }
   const cands = [
     base + ".ts",
     base + ".tsx",
@@ -155,12 +167,19 @@ function collectExports(
         continue;
       }
 
+      // 重导出 `... from "spec"` → 记真实声明文件为 source（domain 由此推断）
+      let declSrc = src;
+      if (spec) {
+        const t = resolveModule(file, spec);
+        if (t) declSrc = relRoot(t);
+      }
+
       if (ts.isNamespaceExport(stmt.exportClause)) {
         // export * as NS from "spec"
         out.push({
           name: stmt.exportClause.name.text,
           kind: "namespace",
-          source: src,
+          source: declSrc,
           fromSpec: spec,
         });
         continue;
@@ -171,7 +190,7 @@ function collectExports(
         out.push({
           name: el.name.text,
           kind: stmt.isTypeOnly || el.isTypeOnly ? "type" : "value",
-          source: src,
+          source: declSrc,
           fromSpec: spec,
         });
       }
@@ -194,11 +213,7 @@ function collectExports(
       hasExportModifier(stmt) &&
       stmt.name
     ) {
-      out.push({
-        name: isDefaultExport(stmt) ? stmt.name.text : stmt.name.text,
-        kind: "value",
-        source: src,
-      });
+      out.push({ name: stmt.name.text, kind: "value", source: src });
       continue;
     }
 
@@ -245,8 +260,19 @@ function collectExports(
 
 function firstSegment(spec: string | undefined): string {
   if (!spec) return "facade";
-  const cleaned = spec.replace(/^\.\.\//, "").replace(/^\.\//, "");
+  const cleaned = spec.replace(/^(\.\.?\/)+/, "").replace(/^@\//, "");
   return cleaned.split("/")[0] || "facade";
+}
+
+/** 后端 domain：取真实声明文件在 ai-harness/ai-engine/platform 下的聚合段 */
+function backendDomain(source: string, fallbackSpec?: string): string {
+  let m = source.match(
+    /\/modules\/(?:ai-harness|ai-engine|platform)\/([^/]+)\//,
+  );
+  if (m) return m[1];
+  m = source.match(/backend\/src\/(common|config)\//);
+  if (m) return m[1];
+  return firstSegment(fallbackSpec);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -287,7 +313,7 @@ function collectBackend(): Capability[] {
         name: e.name,
         kind: e.kind,
         layer: f.layer,
-        domain: firstSegment(e.fromSpec),
+        domain: backendDomain(e.source, e.fromSpec),
         source: e.source,
         import: `import { ${e.name} } from "${f.importPath}";`,
       });

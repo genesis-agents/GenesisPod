@@ -37,6 +37,8 @@ export const ChainSegmentSchema = z.object({
 
 export const ChainCompanySchema = z.object({
   name: z.string().min(1),
+  // 股票代码（语言无关，用于权威反查 SEC CIK；LLM 直出的 cik 不可信，仅作兜底）
+  ticker: z.string().optional(),
   cik: z.string().optional(),
   segment: z.string().optional(),
   description: z.string().optional(),
