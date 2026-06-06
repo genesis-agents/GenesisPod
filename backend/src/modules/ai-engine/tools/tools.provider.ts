@@ -26,6 +26,7 @@ import {
   OpenAlexSearchTool,
   FinanceApiTool,
   WeatherApiTool,
+  SecEdgarTool,
   // Policy Tools
   FederalRegisterTool,
   CongressGovTool,
@@ -161,6 +162,7 @@ export const ALL_TOOL_CLASSES: Type<ITool>[] = [
   OpenAlexSearchTool,
   FinanceApiTool,
   WeatherApiTool,
+  SecEdgarTool,
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
@@ -274,6 +276,7 @@ export const TOOL_ID_CLASS_MAP: Record<string, Type<ITool>> = {
   "openalex-search": OpenAlexSearchTool,
   "finance-api": FinanceApiTool,
   "weather-api": WeatherApiTool,
+  "sec-edgar-search": SecEdgarTool,
   "federal-register": FederalRegisterTool,
   "congress-gov": CongressGovTool,
   "whitehouse-news": WhiteHouseNewsTool,

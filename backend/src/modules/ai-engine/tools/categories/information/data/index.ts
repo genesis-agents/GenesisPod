@@ -14,3 +14,11 @@ export type {
   WeatherApiOutput,
   WeatherData,
 } from "./weather-api.tool";
+
+export { SecEdgarTool } from "./sec-edgar.tool";
+export type {
+  SecEdgarInput,
+  SecEdgarOutput,
+  SecFiling,
+  SecFormType,
+} from "./sec-edgar.tool";

@@ -59,7 +59,7 @@ export type {
 } from "./community";
 
 // Data Tools
-export { FinanceApiTool, WeatherApiTool } from "./data";
+export { FinanceApiTool, WeatherApiTool, SecEdgarTool } from "./data";
 export type {
   FinanceApiInput,
   FinanceApiOutput,
@@ -67,6 +67,10 @@ export type {
   WeatherApiInput,
   WeatherApiOutput,
   WeatherData,
+  SecEdgarInput,
+  SecEdgarOutput,
+  SecFiling,
+  SecFormType,
 } from "./data";
 
 // Knowledge Tools
