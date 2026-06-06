@@ -67,7 +67,29 @@ function ChainEntityDetail({ entityId }: { entityId: string }) {
   if (!entity) return null;
 
   const refs = entity.sourceRefs ?? [];
-  const hasNoDetail = !entity.description && !entity.cik && refs.length < 1;
+  const isCompany = entity.type === 'COMPANY' || entity.type === 'PRODUCT';
+  const q = (s: string) => encodeURIComponent(s);
+  // 深链入口（零依赖，永不空白）：财报走 SEC EDGAR 公司页（需 CIK），
+  // 股价/融资走搜索引擎（按公司名，覆盖非美/未上市）。
+  const deepLinks: Array<{ label: string; href: string }> = [];
+  if (entity.cik) {
+    deepLinks.push({
+      label: 'SEC 财报',
+      href: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${entity.cik}&type=&dateb=&owner=include&count=40`,
+    });
+  }
+  if (isCompany) {
+    deepLinks.push({
+      label: '股价 / 行情',
+      href: `https://www.google.com/search?q=${q(entity.name + ' 股价 行情')}`,
+    });
+    deepLinks.push({
+      label: '融资 / 投资动态',
+      href: `https://www.google.com/search?q=${q(entity.name + ' 融资 投资')}`,
+    });
+  }
+  const hasNoDetail =
+    !entity.description && !entity.cik && refs.length < 1 && !isCompany;
   return (
     <div className="space-y-3">
       {entity.description && (
@@ -105,6 +127,21 @@ function ChainEntityDetail({ entityId }: { entityId: string }) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+      {deepLinks.length > 0 && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {deepLinks.map((l) => (
+            <a
+              key={l.label}
+              href={l.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full border border-gray-200 px-2.5 py-1 text-xs text-gray-600 transition-colors hover:border-emerald-400 hover:text-emerald-700"
+            >
+              {l.label}
+            </a>
+          ))}
         </div>
       )}
       {hasNoDetail && <p className="text-xs text-gray-400">暂无更多详情</p>}
