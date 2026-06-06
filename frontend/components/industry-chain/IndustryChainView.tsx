@@ -13,10 +13,20 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import {
+  Network,
+  LineChart,
+  Activity,
+  FileText,
+  ExternalLink,
+  TrendingUp,
+  TrendingDown,
+} from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import KnowledgeGraphView from '@/components/common/views/KnowledgeGraphView';
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
+import { SectionPanelCard, StatCard } from '@/components/ui/cards';
+import { CitationListItem } from '@/components/common/citations';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/states';
 import { industryChainApi } from '@/services/industry-chain/api';
 import type {
@@ -77,7 +87,14 @@ interface ChainNode {
  * 节点详情：按 entityId 拉 getEntity，展示公司/环节档案（描述 / CIK / SEC 来源链接）。
  * 渲染在节点详情 SideDrawer 内（key=entityId 切换即重拉）。
  */
-function ChainEntityDetail({ entityId }: { entityId: string }) {
+function ChainEntityDetail({
+  entityId,
+  connections,
+}: {
+  entityId: string;
+  connections: number;
+}) {
+  const { t } = useTranslation();
   const [entity, setEntity] = useState<IndustryEntityDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -138,18 +155,25 @@ function ChainEntityDetail({ entityId }: { entityId: string }) {
   }, [entity]);
 
   if (loading) {
-    return <p className="text-xs text-gray-400">加载详情…</p>;
+    return <p className="px-1 py-2 text-sm text-gray-400">加载详情…</p>;
   }
   if (loadError) {
-    return <p className="text-xs text-red-600">{loadError}</p>;
+    return <p className="px-1 py-2 text-sm text-red-600">{loadError}</p>;
   }
   if (!entity) return null;
 
   const refs = entity.sourceRefs ?? [];
   const isCompany = entity.type === 'COMPANY' || entity.type === 'PRODUCT';
+  const typeLabel =
+    entity.type === 'SEGMENT'
+      ? t('industryChain.typeSegment')
+      : entity.type === 'COMPANY'
+        ? t('industryChain.typeCompany')
+        : entity.type === 'PRODUCT'
+          ? t('industryChain.typeProduct')
+          : entity.type;
   const q = (s: string) => encodeURIComponent(s);
-  // 深链入口（零依赖，永不空白）：财报走 SEC EDGAR 公司页（需 CIK），
-  // 股价/融资走搜索引擎（按公司名，覆盖非美/未上市）。
+  // 深链入口（零依赖）：财报走 SEC EDGAR 公司页（需 CIK），股价/融资走搜索（覆盖非美/未上市）。
   const deepLinks: Array<{ label: string; href: string }> = [];
   if (entity.cik) {
     deepLinks.push({
@@ -167,128 +191,141 @@ function ChainEntityDetail({ entityId }: { entityId: string }) {
       href: `https://www.google.com/search?q=${q(entity.name + ' 融资 投资')}`,
     });
   }
-  const hasNoDetail =
-    !entity.description && !entity.cik && refs.length < 1 && !isCompany;
+  const up = (finance?.change ?? 0) >= 0;
+
   return (
-    <div className="space-y-3">
-      {entity.description && (
-        <p className="text-sm leading-relaxed text-gray-600">
-          {entity.description}
-        </p>
-      )}
-      {entity.cik && (
-        <div className="text-xs text-gray-500">
-          CIK：<span className="font-mono text-gray-700">{entity.cik}</span>
+    <div className="space-y-4">
+      {/* 概览 */}
+      <SectionPanelCard
+        title="概览"
+        accent="emerald"
+        titleSize="sm"
+        icon={<Network className="h-4 w-4 text-white" aria-hidden />}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard
+            label={t('industryChain.connections')}
+            value={connections}
+            tone="emerald"
+            icon={<Network className="h-5 w-5" aria-hidden />}
+          />
+          <StatCard label="类型" value={typeLabel} tone="slate" />
         </div>
-      )}
-      {refs.length > 0 && (
-        <div>
-          <div className="mb-1 text-xs font-medium text-gray-700">SEC 来源</div>
-          <ul className="space-y-1">
-            {refs.map((r, i) => (
-              <li key={r.accessionNumber ?? r.url ?? i}>
-                {r.url ? (
-                  <a
-                    href={r.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-emerald-600 underline underline-offset-2 hover:text-emerald-700"
-                  >
-                    {r.reportType || r.accessionNumber || r.url}
-                    {r.date ? ` · ${r.date}` : ''}
-                  </a>
-                ) : (
-                  <span className="text-xs text-gray-500">
-                    {r.reportType || r.accessionNumber}
-                    {r.date ? ` · ${r.date}` : ''}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        {entity.segment && (
+          <div className="mt-3 text-xs text-gray-500">
+            所属环节：<span className="text-gray-700">{entity.segment}</span>
+          </div>
+        )}
+        {entity.cik && (
+          <div className="mt-1 text-xs text-gray-500">
+            CIK：<span className="font-mono text-gray-700">{entity.cik}</span>
+          </div>
+        )}
+        {entity.description && (
+          <p className="mt-3 text-sm leading-relaxed text-gray-600">
+            {entity.description}
+          </p>
+        )}
+      </SectionPanelCard>
+
+      {/* 行情 */}
       {finance?.available && (
-        <div className="rounded-lg bg-gray-50 p-2.5">
-          <div className="flex items-baseline gap-2">
+        <SectionPanelCard
+          title="行情"
+          subtitle={finance.ticker ?? undefined}
+          accent="blue"
+          titleSize="sm"
+          icon={<LineChart className="h-4 w-4 text-white" aria-hidden />}
+        >
+          <div className="grid grid-cols-2 gap-3">
             {finance.price !== undefined && (
-              <span className="text-lg font-bold text-gray-900">
-                {finance.price.toFixed(2)}
-              </span>
+              <StatCard
+                label="现价"
+                value={finance.price.toFixed(2)}
+                tone="blue"
+              />
             )}
             {finance.changePercent && (
-              <span
-                className={`inline-flex items-center gap-0.5 text-xs ${
-                  (finance.change ?? 0) >= 0
-                    ? 'text-emerald-600'
-                    : 'text-red-600'
-                }`}
-              >
-                {(finance.change ?? 0) >= 0 ? (
-                  <TrendingUp className="h-3 w-3" aria-hidden />
-                ) : (
-                  <TrendingDown className="h-3 w-3" aria-hidden />
-                )}
-                {finance.changePercent}
-              </span>
-            )}
-            {finance.ticker && (
-              <span className="ml-auto text-xs text-gray-400">
-                {finance.ticker}
-              </span>
+              <StatCard
+                label="涨跌幅"
+                value={finance.changePercent}
+                tone={up ? 'emerald' : 'red'}
+                trend={{ direction: up ? 'up' : 'down' }}
+              />
             )}
           </div>
           {finance.series && finance.series.length > 1 && (
             <Sparkline series={finance.series} />
           )}
-        </div>
+        </SectionPanelCard>
       )}
+
+      {/* 资本动态 */}
       {investment?.available && investment.items.length > 0 && (
-        <div>
-          <div className="mb-1 text-xs font-medium text-gray-700">
-            资本动态（SEC）
-          </div>
-          <ul className="space-y-1">
+        <SectionPanelCard
+          title="资本动态"
+          subtitle="来自 SEC 备案"
+          accent="amber"
+          titleSize="sm"
+          icon={<Activity className="h-4 w-4 text-white" aria-hidden />}
+        >
+          <div className="space-y-2">
             {investment.items.map((it, i) => (
-              <li
+              <CitationListItem
                 key={(it.form || '') + (it.date || '') + i}
-                className="flex items-baseline gap-2 text-xs"
-              >
-                <span className="shrink-0 text-gray-400">{it.date}</span>
-                {it.url ? (
-                  <a
-                    href={it.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-emerald-600 underline underline-offset-2 hover:text-emerald-700"
-                  >
-                    {it.label}
-                  </a>
-                ) : (
-                  <span className="text-gray-600">{it.label}</span>
-                )}
-                <span className="text-gray-300">{it.form}</span>
-              </li>
+                title={it.label}
+                href={it.url || undefined}
+                meta={`${it.date}${it.form ? ` · ${it.form}` : ''}`}
+              />
             ))}
-          </ul>
-        </div>
+          </div>
+        </SectionPanelCard>
       )}
+
+      {/* SEC 备案来源 */}
+      {refs.length > 0 && (
+        <SectionPanelCard
+          title="SEC 备案来源"
+          accent="gray"
+          titleSize="sm"
+          icon={<FileText className="h-4 w-4 text-white" aria-hidden />}
+        >
+          <div className="space-y-2">
+            {refs.map((r, i) => (
+              <CitationListItem
+                key={r.accessionNumber ?? r.url ?? i}
+                title={r.reportType || r.accessionNumber || 'SEC filing'}
+                href={r.url || undefined}
+                meta={r.date}
+              />
+            ))}
+          </div>
+        </SectionPanelCard>
+      )}
+
+      {/* 外部链接 */}
       {deepLinks.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-1">
-          {deepLinks.map((l) => (
-            <a
-              key={l.label}
-              href={l.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full border border-gray-200 px-2.5 py-1 text-xs text-gray-600 transition-colors hover:border-emerald-400 hover:text-emerald-700"
-            >
-              {l.label}
-            </a>
-          ))}
-        </div>
+        <SectionPanelCard
+          title="外部链接"
+          accent="gray"
+          titleSize="sm"
+          icon={<ExternalLink className="h-4 w-4 text-white" aria-hidden />}
+        >
+          <div className="flex flex-wrap gap-2">
+            {deepLinks.map((l) => (
+              <a
+                key={l.label}
+                href={l.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600 transition-colors hover:border-emerald-400 hover:text-emerald-700"
+              >
+                {l.label}
+              </a>
+            ))}
+          </div>
+        </SectionPanelCard>
       )}
-      {hasNoDetail && <p className="text-xs text-gray-400">暂无更多详情</p>}
     </div>
   );
 }
@@ -303,13 +340,6 @@ export default function IndustryChainView({ chainId }: Props) {
   const [error, setError] = useState<Error | null>(null);
   const [drawerNode, setDrawerNode] = useState<ChainNode | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const typeLabel = (type: string): string => {
-    if (type === 'SEGMENT') return t('industryChain.typeSegment');
-    if (type === 'COMPANY') return t('industryChain.typeCompany');
-    if (type === 'PRODUCT') return t('industryChain.typeProduct');
-    return type;
-  };
 
   const poll = useCallback(async () => {
     try {
@@ -414,29 +444,11 @@ export default function IndustryChainView({ chainId }: Props) {
         title={drawerNode?.label ?? ''}
       >
         {drawerNode && (
-          <div className="space-y-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                {typeLabel(drawerNode.type)}
-              </span>
-              {drawerNode.properties?.segment && (
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                  {drawerNode.properties.segment}
-                </span>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-              <div className="text-xs text-gray-500">
-                {t('industryChain.connections')}
-              </div>
-              <div className="mt-0.5 text-2xl font-bold text-emerald-600">
-                {drawerConnections}
-              </div>
-            </div>
-
-            <ChainEntityDetail key={drawerNode.id} entityId={drawerNode.id} />
-          </div>
+          <ChainEntityDetail
+            key={drawerNode.id}
+            entityId={drawerNode.id}
+            connections={drawerConnections}
+          />
         )}
       </SideDrawer>
     </div>
