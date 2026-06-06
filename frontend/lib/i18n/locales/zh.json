@@ -988,7 +988,8 @@
     "connections": "关联数量",
     "typeSegment": "环节",
     "typeCompany": "公司",
-    "typeProduct": "产品"
+    "typeProduct": "产品",
+    "newAnalysis": "新建分析"
   },
   "aiResearch": {
     "title": "AI 研究",

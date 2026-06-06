@@ -988,7 +988,8 @@
     "connections": "Connections",
     "typeSegment": "Segment",
     "typeCompany": "Company",
-    "typeProduct": "Product"
+    "typeProduct": "Product",
+    "newAnalysis": "New analysis"
   },
   "aiResearch": {
     "title": "AI Research",
