@@ -7,6 +7,9 @@ import {
   isSafeSourceUrl,
   sanitizeSourceRefs,
   buildRelationRows,
+  buildStructuralRows,
+  mergeRelationRows,
+  normalizeSegmentName,
 } from "../chain-extraction";
 
 describe("chain-extraction", () => {
@@ -50,7 +53,11 @@ describe("chain-extraction", () => {
   });
 
   describe("buildRelationRows (M2 映射 + M8 校验)", () => {
-    const canonicalOf = { NVIDIA: "NVIDIA Corp", 英伟达: "NVIDIA Corp", TSMC: "TSMC" };
+    const canonicalOf = {
+      NVIDIA: "NVIDIA Corp",
+      英伟达: "NVIDIA Corp",
+      TSMC: "TSMC",
+    };
     const canonicalToId = new Map([
       ["NVIDIA Corp", "e-nvda"],
       ["TSMC", "e-tsmc"],
@@ -58,13 +65,26 @@ describe("chain-extraction", () => {
 
     it("名→canonical→id 解析并落行", () => {
       const { rows, dropped } = buildRelationRows(
-        [{ source: "英伟达", target: "TSMC", relationType: "CONSUMES", weight: 0.5 }],
+        [
+          {
+            source: "英伟达",
+            target: "TSMC",
+            relationType: "CONSUMES",
+            weight: 0.5,
+          },
+        ],
         canonicalOf,
         canonicalToId,
       );
       expect(dropped).toEqual([]);
       expect(rows).toEqual([
-        { sourceId: "e-nvda", targetId: "e-tsmc", relationType: "CONSUMES", weight: 0.5, evidence: null },
+        {
+          sourceId: "e-nvda",
+          targetId: "e-tsmc",
+          relationType: "CONSUMES",
+          weight: 0.5,
+          evidence: null,
+        },
       ]);
     });
 
@@ -117,11 +137,109 @@ describe("chain-extraction", () => {
 
     it("weight 越界归 null（不丢关系）", () => {
       const { rows } = buildRelationRows(
-        [{ source: "NVIDIA", target: "TSMC", relationType: "CONSUMES", weight: 5 }],
+        [
+          {
+            source: "NVIDIA",
+            target: "TSMC",
+            relationType: "CONSUMES",
+            weight: 5,
+          },
+        ],
         canonicalOf,
         canonicalToId,
       );
       expect(rows[0].weight).toBeNull();
+    });
+  });
+
+  describe("normalizeSegmentName", () => {
+    it("trim + lowercase", () => {
+      expect(normalizeSegmentName("  IC Design ")).toBe("ic design");
+      expect(normalizeSegmentName("Materials")).toBe("materials");
+    });
+  });
+
+  describe("buildStructuralRows (结构骨架合成)", () => {
+    it("环节脊柱：相邻环节 SUPPLIES", () => {
+      const rows = buildStructuralRows(["s1", "s2", "s3"], []);
+      expect(rows).toEqual([
+        {
+          sourceId: "s1",
+          targetId: "s2",
+          relationType: "SUPPLIES",
+          weight: null,
+          evidence: null,
+        },
+        {
+          sourceId: "s2",
+          targetId: "s3",
+          relationType: "SUPPLIES",
+          weight: null,
+          evidence: null,
+        },
+      ]);
+    });
+
+    it("公司归属：公司 BELONGS_TO 环节", () => {
+      const rows = buildStructuralRows(
+        ["s1"],
+        [{ companyId: "c1", segmentId: "s1" }],
+      );
+      expect(rows).toContainEqual({
+        sourceId: "c1",
+        targetId: "s1",
+        relationType: "BELONGS_TO",
+        weight: null,
+        evidence: null,
+      });
+    });
+
+    it("单环节无脊柱边", () => {
+      const rows = buildStructuralRows(["s1"], []);
+      expect(rows).toEqual([]);
+    });
+  });
+
+  describe("mergeRelationRows (并轨去重)", () => {
+    it("跨组按 source|target|type 去重 + 去自环", () => {
+      const a = [
+        {
+          sourceId: "x",
+          targetId: "y",
+          relationType: "SUPPLIES" as const,
+          weight: null,
+          evidence: null,
+        },
+        {
+          sourceId: "z",
+          targetId: "z",
+          relationType: "SUPPLIES" as const,
+          weight: null,
+          evidence: null,
+        }, // 自环
+      ];
+      const b = [
+        {
+          sourceId: "x",
+          targetId: "y",
+          relationType: "SUPPLIES" as const,
+          weight: null,
+          evidence: null,
+        }, // 重复
+        {
+          sourceId: "x",
+          targetId: "y",
+          relationType: "CONSUMES" as const,
+          weight: null,
+          evidence: null,
+        }, // 不同 type → 保留
+      ];
+      const merged = mergeRelationRows(a, b);
+      expect(merged.length).toBe(2);
+      expect(merged.map((r) => r.relationType)).toEqual([
+        "SUPPLIES",
+        "CONSUMES",
+      ]);
     });
   });
 });

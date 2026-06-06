@@ -108,15 +108,23 @@ export function buildRelationRows(
   };
 
   for (const rel of relations) {
-    const relationType = String(rel.relationType || "").toUpperCase() as RelationType;
+    const relationType = String(
+      rel.relationType || "",
+    ).toUpperCase() as RelationType;
     if (!RELATION_TYPES.includes(relationType)) {
-      dropped.push({ reason: `invalid relationType: ${rel.relationType}`, relation: rel });
+      dropped.push({
+        reason: `invalid relationType: ${rel.relationType}`,
+        relation: rel,
+      });
       continue;
     }
     const sourceId = resolveId(rel.source);
     const targetId = resolveId(rel.target);
     if (!sourceId || !targetId) {
-      dropped.push({ reason: "unresolved source/target entity", relation: rel });
+      dropped.push({
+        reason: "unresolved source/target entity",
+        relation: rel,
+      });
       continue;
     }
     if (sourceId === targetId) {
@@ -146,4 +154,64 @@ export function buildRelationRows(
   }
 
   return { rows, dropped };
+}
+
+/** 环节名归一（trim + lowercase），供公司 segment 字段匹配已声明环节。 */
+export function normalizeSegmentName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+/**
+ * 合成产业链**结构骨架**边（确定性，零 LLM）——使图谱必然连通：
+ *   - 环节脊柱：按 order 排好的相邻环节 upstream SUPPLIES downstream
+ *   - 公司归属：公司 BELONGS_TO 其所属环节
+ *
+ * 背景：chain-mapper agent 实测常吐空 relations 或名字对不上落库实体（→ buildRelationRows
+ * 全 drop），导致"20 节点 0 关系"的散点图。结构边由已落库实体 id 直接合成，不依赖 LLM。
+ *
+ * @param orderedSegmentIds  已按 order 排序的环节实体 id
+ * @param companySegmentPairs 公司 id → 其所属环节 id
+ */
+export function buildStructuralRows(
+  orderedSegmentIds: string[],
+  companySegmentPairs: Array<{ companyId: string; segmentId: string }>,
+): ResolvedRelationRow[] {
+  const rows: ResolvedRelationRow[] = [];
+  for (let i = 0; i + 1 < orderedSegmentIds.length; i++) {
+    rows.push({
+      sourceId: orderedSegmentIds[i],
+      targetId: orderedSegmentIds[i + 1],
+      relationType: "SUPPLIES",
+      weight: null,
+      evidence: null,
+    });
+  }
+  for (const { companyId, segmentId } of companySegmentPairs) {
+    rows.push({
+      sourceId: companyId,
+      targetId: segmentId,
+      relationType: "BELONGS_TO",
+      weight: null,
+      evidence: null,
+    });
+  }
+  return rows;
+}
+
+/** 合并多组关系行：按 (source|target|type) 去重 + 去自环。结构边与 LLM 边在此并轨。 */
+export function mergeRelationRows(
+  ...groups: ResolvedRelationRow[][]
+): ResolvedRelationRow[] {
+  const seen = new Set<string>();
+  const out: ResolvedRelationRow[] = [];
+  for (const group of groups) {
+    for (const r of group) {
+      if (r.sourceId === r.targetId) continue;
+      const key = `${r.sourceId}|${r.targetId}|${r.relationType}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(r);
+    }
+  }
+  return out;
 }

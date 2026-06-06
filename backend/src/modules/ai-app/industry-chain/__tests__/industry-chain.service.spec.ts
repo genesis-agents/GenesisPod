@@ -20,8 +20,16 @@ import {
 describe("IndustryChainService", () => {
   let service: IndustryChainService;
   let prisma: {
-    industryChain: { create: jest.Mock; update: jest.Mock; findFirst: jest.Mock };
-    industryEntity: { create: jest.Mock; findFirst: jest.Mock; deleteMany: jest.Mock };
+    industryChain: {
+      create: jest.Mock;
+      update: jest.Mock;
+      findFirst: jest.Mock;
+    };
+    industryEntity: {
+      create: jest.Mock;
+      findFirst: jest.Mock;
+      deleteMany: jest.Mock;
+    };
     industryRelation: { create: jest.Mock; deleteMany: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -36,9 +44,11 @@ describe("IndustryChainService", () => {
         findFirst: jest.fn(),
       },
       industryEntity: {
-        create: jest.fn().mockImplementation(({ data }) =>
-          Promise.resolve({ id: `e-${++entitySeq}`, ...data }),
-        ),
+        create: jest
+          .fn()
+          .mockImplementation(({ data }) =>
+            Promise.resolve({ id: `e-${++entitySeq}`, ...data }),
+          ),
         findFirst: jest.fn(),
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
@@ -57,7 +67,13 @@ describe("IndustryChainService", () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EntityResolutionService, useValue: entityResolution },
         { provide: MissionPipelineOrchestrator, useValue: { run: jest.fn() } },
-        { provide: MissionPipelineRegistry, useValue: { register: jest.fn(), has: jest.fn().mockReturnValue(false) } },
+        {
+          provide: MissionPipelineRegistry,
+          useValue: {
+            register: jest.fn(),
+            has: jest.fn().mockReturnValue(false),
+          },
+        },
         { provide: HarnessFacade, useValue: { execute: jest.fn() } },
       ],
     }).compile();
@@ -87,20 +103,94 @@ describe("IndustryChainService", () => {
 
       // 阻断-1 幂等：事务内先清旧实体/关系再重写
       expect(prisma.$transaction).toHaveBeenCalled();
-      expect(prisma.industryRelation.deleteMany).toHaveBeenCalledWith({ where: { chainId: "chain-1" } });
-      expect(prisma.industryEntity.deleteMany).toHaveBeenCalledWith({ where: { chainId: "chain-1" } });
+      expect(prisma.industryRelation.deleteMany).toHaveBeenCalledWith({
+        where: { chainId: "chain-1" },
+      });
+      expect(prisma.industryEntity.deleteMany).toHaveBeenCalledWith({
+        where: { chainId: "chain-1" },
+      });
 
       // 2 segments + 2 companies（NVIDIA+英伟达 合并）= 4 实体
       expect(result.entities).toBe(4);
-      // 关系去重后 1 条
-      expect(result.relations).toBe(1);
-      expect(prisma.industryRelation.create).toHaveBeenCalledTimes(1);
+      // 关系 = 结构骨架(脊柱 芯片设计→晶圆代工 1 + 归属 NVIDIA→芯片设计/TSMC→晶圆代工 2)
+      //      + LLM 抽取(NVIDIA→TSMC CONSUMES，去重后 1) = 4 条
+      expect(result.relations).toBe(4);
+      expect(prisma.industryRelation.create).toHaveBeenCalledTimes(4);
+      // 含合成的公司归属边（BELONGS_TO）
+      const belongsTo = prisma.industryRelation.create.mock.calls.filter(
+        (c) => c[0].data.relationType === "BELONGS_TO",
+      );
+      expect(belongsTo.length).toBe(2);
 
       // 合并后的 NVIDIA 实体补全了 cik
       const nvidiaCreate = prisma.industryEntity.create.mock.calls.find(
         (c) => c[0].data.name === "NVIDIA",
       );
       expect(nvidiaCreate?.[0].data.cik).toBe("0001045810");
+    });
+
+    it("LLM 吐空 relations 时仍合成结构骨架（脊柱 + 归属），图谱必连通", async () => {
+      entityResolution.resolve.mockResolvedValue({
+        clusters: [],
+        canonicalOf: { NVIDIA: "NVIDIA", TSMC: "TSMC" },
+      });
+      const result = await service.persistExtraction("chain-1", {
+        segments: [
+          { name: "芯片设计", order: 1 },
+          { name: "晶圆代工", order: 2 },
+        ],
+        companies: [
+          { name: "NVIDIA", segment: "芯片设计" },
+          { name: "TSMC", segment: "晶圆代工" },
+        ],
+        relations: [], // LLM 没吐任何关系
+      });
+      // 脊柱 1（芯片设计→晶圆代工）+ 归属 2 = 3 条结构边
+      expect(result.relations).toBe(3);
+      const types = prisma.industryRelation.create.mock.calls.map(
+        (c) => c[0].data.relationType,
+      );
+      expect(types.filter((t) => t === "SUPPLIES").length).toBe(1);
+      expect(types.filter((t) => t === "BELONGS_TO").length).toBe(2);
+    });
+
+    it("丢弃无法归属任一环节的离题公司（如半导体链混进涂料公司）", async () => {
+      entityResolution.resolve.mockResolvedValue({
+        clusters: [],
+        canonicalOf: {
+          NVIDIA: "NVIDIA",
+          "Sherwin-Williams": "Sherwin-Williams",
+        },
+      });
+      const result = await service.persistExtraction("chain-1", {
+        segments: [{ name: "芯片设计", order: 1 }],
+        companies: [
+          { name: "NVIDIA", segment: "芯片设计" },
+          { name: "Sherwin-Williams", segment: "涂料" }, // 环节"涂料"未声明 → 离题，丢弃
+        ],
+        relations: [],
+      });
+      // 1 segment + 1 company（NVIDIA）= 2 实体（Sherwin-Williams 被丢）
+      expect(result.entities).toBe(2);
+      const names = prisma.industryEntity.create.mock.calls.map(
+        (c) => c[0].data.name,
+      );
+      expect(names).not.toContain("Sherwin-Williams");
+      expect(result.dropped).toBeGreaterThanOrEqual(1);
+    });
+
+    it("安全阀：未声明任何环节时不启用离题过滤（避免清空公司）", async () => {
+      entityResolution.resolve.mockResolvedValue({
+        clusters: [],
+        canonicalOf: { NVIDIA: "NVIDIA" },
+      });
+      const result = await service.persistExtraction("chain-1", {
+        segments: [],
+        companies: [{ name: "NVIDIA", segment: "芯片设计" }],
+        relations: [],
+      });
+      // 无 segment 声明 → 不过滤，公司保留
+      expect(result.entities).toBe(1);
     });
 
     it("丢弃非法关系（自环/未解析/非法枚举），不落库", async () => {
@@ -143,14 +233,31 @@ describe("IndustryChainService", () => {
           { id: "e2", name: "NVIDIA", type: "COMPANY", segment: "芯片设计" },
         ],
         relations: [
-          { sourceId: "e1", targetId: "e2", relationType: "BELONGS_TO", weight: null, validTo: null },
-          { sourceId: "e2", targetId: "e1", relationType: "SUPPLIES", weight: 0.3, validTo: new Date() }, // 失效
+          {
+            sourceId: "e1",
+            targetId: "e2",
+            relationType: "BELONGS_TO",
+            weight: null,
+            validTo: null,
+          },
+          {
+            sourceId: "e2",
+            targetId: "e1",
+            relationType: "SUPPLIES",
+            weight: 0.3,
+            validTo: new Date(),
+          }, // 失效
         ],
       });
       const graph = await service.getGraph("u1", "chain-1");
       expect(graph.nodes.length).toBe(2);
       expect(graph.edges.length).toBe(1); // 失效边被过滤
-      expect(graph.stats).toEqual({ totalNodes: 2, totalEdges: 1, segments: 1, companies: 1 });
+      expect(graph.stats).toEqual({
+        totalNodes: 2,
+        totalEdges: 1,
+        segments: 1,
+        companies: 1,
+      });
     });
   });
 
@@ -162,15 +269,28 @@ describe("IndustryChainService", () => {
           IndustryChainService,
           { provide: PrismaService, useValue: prisma },
           { provide: EntityResolutionService, useValue: entityResolution },
-          { provide: MissionPipelineOrchestrator, useValue: { run: jest.fn() } },
-          { provide: MissionPipelineRegistry, useValue: { register: jest.fn(), has: jest.fn().mockReturnValue(false) } },
+          {
+            provide: MissionPipelineOrchestrator,
+            useValue: { run: jest.fn() },
+          },
+          {
+            provide: MissionPipelineRegistry,
+            useValue: {
+              register: jest.fn(),
+              has: jest.fn().mockReturnValue(false),
+            },
+          },
           { provide: HarnessFacade, useValue: harness },
         ],
       }).compile();
       const svc = mod.get(IndustryChainService);
 
       harness.execute.mockResolvedValue({
-        output: { segments: [{ name: "芯片设计" }], companies: [{ name: "NVIDIA" }], relations: [] },
+        output: {
+          segments: [{ name: "芯片设计" }],
+          companies: [{ name: "NVIDIA" }],
+          relations: [],
+        },
         state: "completed",
         iterations: 3,
         tokensUsed: 100,
@@ -179,7 +299,10 @@ describe("IndustryChainService", () => {
 
       const config = svc.buildPipeline();
       expect(config.id).toBe("industry-chain");
-      expect(config.steps.map((s) => s.primitive)).toEqual(["research", "persist"]);
+      expect(config.steps.map((s) => s.primitive)).toEqual([
+        "research",
+        "persist",
+      ]);
 
       // research step hooks
       const research = config.steps[0].hooks as unknown as {
@@ -190,7 +313,9 @@ describe("IndustryChainService", () => {
           ctx: { input: unknown; userId?: string };
         }) => Promise<unknown>;
       };
-      const items = research.fanOut({ ctx: { input: { topic: "算力底座", chainId: "c1" } } });
+      const items = research.fanOut({
+        ctx: { input: { topic: "算力底座", chainId: "c1" } },
+      });
       expect(items.length).toBe(1);
       const out = (await research.perItemPipeline({
         item: items[0],
@@ -202,7 +327,10 @@ describe("IndustryChainService", () => {
     });
 
     it("persist hook 从 research 输出读取并落库", async () => {
-      entityResolution.resolve.mockResolvedValue({ clusters: [], canonicalOf: { NVIDIA: "NVIDIA" } });
+      entityResolution.resolve.mockResolvedValue({
+        clusters: [],
+        canonicalOf: { NVIDIA: "NVIDIA" },
+      });
       const config = service.buildPipeline();
       const persist = config.steps[1].hooks as unknown as {
         persist: (a: {
@@ -214,7 +342,11 @@ describe("IndustryChainService", () => {
       await persist.persist({
         ctx: { input: { chainId: "c1" } },
         previousOutputs: {
-          extract: { results: [{ segments: [], companies: [{ name: "NVIDIA" }], relations: [] }] },
+          extract: {
+            results: [
+              { segments: [], companies: [{ name: "NVIDIA" }], relations: [] },
+            ],
+          },
         },
         crossStageState: {},
       });
@@ -229,7 +361,9 @@ describe("IndustryChainService", () => {
       const res = await service.analyze("u1", "算力底座");
       expect(res.chainId).toBe("chain-9");
       expect(typeof res.missionId).toBe("string");
-      expect(prisma.industryChain.create.mock.calls[0][0].data.ownerId).toBe("u1");
+      expect(prisma.industryChain.create.mock.calls[0][0].data.ownerId).toBe(
+        "u1",
+      );
     });
   });
 });

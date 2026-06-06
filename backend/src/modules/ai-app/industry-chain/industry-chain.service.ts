@@ -27,6 +27,9 @@ import {
   ChainExtractionResult,
   ChainExtractionResultSchema,
   buildRelationRows,
+  buildStructuralRows,
+  mergeRelationRows,
+  normalizeSegmentName,
   sanitizeSourceRefs,
   ENTITY_TYPES,
 } from "./chain-extraction";
@@ -52,7 +55,12 @@ export interface ChainGraphEdge {
 export interface ChainGraph {
   nodes: ChainGraphNode[];
   edges: ChainGraphEdge[];
-  stats: { totalNodes: number; totalEdges: number; segments: number; companies: number };
+  stats: {
+    totalNodes: number;
+    totalEdges: number;
+    segments: number;
+    companies: number;
+  };
 }
 
 @Injectable()
@@ -95,7 +103,8 @@ export class IndustryChainService {
             userId: ctx.userId,
             // spec 泛型 TOutput=unknown → outputSchema 需 z.ZodType<unknown>；
             // ChainExtractionResultSchema 是 ZodObject（不变型），收窄到 z.ZodType<unknown>
-            outputSchema: ChainExtractionResultSchema as unknown as z.ZodType<unknown>,
+            outputSchema:
+              ChainExtractionResultSchema as unknown as z.ZodType<unknown>,
           };
           const task: IAgentTask = {
             goal: `分析"${input.topic}"的产业链结构与参与者`,
@@ -122,7 +131,9 @@ export class IndustryChainService {
   }
 
   /** 容错解析 agent 输出（object 直解 / string 先 JSON.parse）为 ChainExtractionResult。 */
-  private parseExtraction(output: string | Record<string, unknown>): ChainExtractionResult {
+  private parseExtraction(
+    output: string | Record<string, unknown>,
+  ): ChainExtractionResult {
     let raw: unknown = output;
     if (typeof output === "string") {
       try {
@@ -135,7 +146,10 @@ export class IndustryChainService {
   }
 
   /** 创建产业链 + 异步发起动态编排 mission。返回 {chainId, missionId}。 */
-  async analyze(userId: string, topic: string): Promise<{ chainId: string; missionId: string }> {
+  async analyze(
+    userId: string,
+    topic: string,
+  ): Promise<{ chainId: string; missionId: string }> {
     const missionId = randomUUID();
     const chain = await this.prisma.industryChain.create({
       data: { topic, status: "RUNNING", ownerId: userId, missionId },
@@ -155,7 +169,10 @@ export class IndustryChainService {
     topic: string,
   ): Promise<void> {
     try {
-      const result = await this.orchestrator.run<{ topic: string; chainId: string }>({
+      const result = await this.orchestrator.run<{
+        topic: string;
+        chainId: string;
+      }>({
         pipelineId: INDUSTRY_CHAIN_PIPELINE_ID,
         missionId,
         userId,
@@ -172,7 +189,9 @@ export class IndustryChainService {
       );
       await this.prisma.industryChain
         .update({ where: { id: chainId }, data: { status: "FAILED" } })
-        .catch((e) => this.logger.error(`[runMission] status update failed: ${e}`));
+        .catch((e) =>
+          this.logger.error(`[runMission] status update failed: ${e}`),
+        );
     }
   }
 
@@ -184,7 +203,8 @@ export class IndustryChainService {
     chainId: string,
     raw: unknown,
   ): Promise<{ entities: number; relations: number; dropped: number }> {
-    const result: ChainExtractionResult = ChainExtractionResultSchema.parse(raw);
+    const result: ChainExtractionResult =
+      ChainExtractionResultSchema.parse(raw);
 
     // ── 1. 实体消歧（embedding 调用，放事务外，避免长事务持有连接）──────────
     const companyNames = result.companies.map((c) => c.name);
@@ -215,6 +235,8 @@ export class IndustryChainService {
       await tx.industryEntity.deleteMany({ where: { chainId } });
 
       const canonicalToId = new Map<string, string>();
+      // 归一环节名 → {id, order}：供公司归属匹配 + 脊柱排序
+      const segByNorm = new Map<string, { id: string; order: number | null }>();
 
       // 2a. 环节实体（按 name 直接去重）
       for (const seg of result.segments) {
@@ -230,11 +252,31 @@ export class IndustryChainService {
           },
         });
         canonicalToId.set(name, ent.id);
+        segByNorm.set(normalizeSegmentName(name), {
+          id: ent.id,
+          order: seg.order ?? null,
+        });
       }
 
-      // 2b. 公司实体（语义消歧去重）
+      // 2b. 公司实体（语义消歧去重 + 必须归属某已声明环节）。
+      // 产业链中的公司必须落在某个环节；无法归属者多为 LLM 串扰的离题公司（如半导体链
+      // 误抽进涂料公司）→ 丢弃，既滤噪又保证连通。安全阀：一个环节都没声明时不启用此过滤，
+      // 避免把整张图清空（LLM 偶发只给 companies 不给 segments）。
+      const companySegmentPairs: Array<{
+        companyId: string;
+        segmentId: string;
+      }> = [];
+      const enforceSegmentMembership = segByNorm.size > 0;
+      let orphanDropped = 0;
       for (const [canonical, c] of byCanonical) {
         if (canonicalToId.has(canonical)) continue;
+        const seg = c.segment
+          ? segByNorm.get(normalizeSegmentName(c.segment))
+          : undefined;
+        if (enforceSegmentMembership && !seg) {
+          orphanDropped++;
+          continue;
+        }
         const ent = await tx.industryEntity.create({
           data: {
             chainId,
@@ -247,10 +289,29 @@ export class IndustryChainService {
           },
         });
         canonicalToId.set(canonical, ent.id);
+        if (seg)
+          companySegmentPairs.push({ companyId: ent.id, segmentId: seg.id });
+      }
+      if (orphanDropped) {
+        this.logger.warn(
+          `[persistExtraction] chain=${chainId} dropped ${orphanDropped} off-topic companies (no matching segment)`,
+        );
       }
 
-      // 2c. 关系映射 + M8 校验 + 落库
-      const { rows, dropped } = buildRelationRows(
+      // 2c. 关系：合成结构骨架（环节脊柱 + 公司归属）∪ LLM 抽取关系，去重后落库。
+      // 结构骨架确保图谱连通，不再依赖 LLM 是否吐出 relations（实测常吐空/对不上）。
+      const orderedSegmentIds = [...segByNorm.values()]
+        .sort(
+          (a, b) =>
+            (a.order ?? Number.MAX_SAFE_INTEGER) -
+            (b.order ?? Number.MAX_SAFE_INTEGER),
+        )
+        .map((s) => s.id);
+      const structural = buildStructuralRows(
+        orderedSegmentIds,
+        companySegmentPairs,
+      );
+      const { rows: llmRows, dropped } = buildRelationRows(
         result.relations,
         resolution.canonicalOf,
         canonicalToId,
@@ -260,6 +321,7 @@ export class IndustryChainService {
           `[persistExtraction] chain=${chainId} dropped ${dropped.length} invalid relations`,
         );
       }
+      const rows = mergeRelationRows(structural, llmRows);
       for (const row of rows) {
         await tx.industryRelation.create({
           data: {
@@ -277,7 +339,7 @@ export class IndustryChainService {
       return {
         entities: canonicalToId.size,
         relations: rows.length,
-        dropped: dropped.length,
+        dropped: dropped.length + orphanDropped,
       };
     });
   }
@@ -344,7 +406,9 @@ export class IndustryChainService {
    * 幂等：已注册则跳过；未注册则注册——配置校验/未知 primitive 错误**故意不吞**，
    * 让其在应用启动期 fail-fast 暴露（避免静默吞错后 analyze 时才报 "pipeline not found"）。
    */
-  ensurePipelineRegistered(config: Parameters<MissionPipelineRegistry["register"]>[0]): void {
+  ensurePipelineRegistered(
+    config: Parameters<MissionPipelineRegistry["register"]>[0],
+  ): void {
     if (this.registry.has(config.id)) return;
     this.registry.register(config);
   }
