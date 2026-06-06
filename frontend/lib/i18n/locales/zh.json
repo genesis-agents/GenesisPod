@@ -217,6 +217,7 @@
     "aiRadar": "AI 雷达",
     "aiInsights": "AI 洞察",
     "aiResearch": "AI 研究",
+    "industryChain": "产业链分析",
     "aiTeams": "AI 探讨",
     "myTeams": "AI 探讨",
     "aiPlanning": "AI 策划",
@@ -953,6 +954,15 @@
     "skills": {
       "title": "研究技能"
     }
+  },
+  "industryChain": {
+    "title": "产业链分析",
+    "subtitle": "输入一个行业或主题，AI 自动梳理上下游产业链、关键企业与关系图谱",
+    "topicLabel": "分析主题",
+    "topicPlaceholder": "例如：新能源汽车动力电池产业链",
+    "analyze": "开始分析",
+    "analyzing": "分析中…",
+    "analyzeFailed": "分析启动失败，请重试"
   },
   "aiResearch": {
     "title": "AI 研究",

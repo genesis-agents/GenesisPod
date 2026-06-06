@@ -6,7 +6,7 @@ interface PageProps {
 
 export default function IndustryChainPage({ params }: PageProps) {
   return (
-    <div className="h-screen">
+    <div className="h-full">
       <IndustryChainView chainId={params.chainId} />
     </div>
   );

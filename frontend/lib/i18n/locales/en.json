@@ -217,6 +217,7 @@
     "aiRadar": "AI Radar",
     "aiInsights": "AI Insights",
     "aiResearch": "AI Research",
+    "industryChain": "Industry Chain",
     "aiTeams": "AI Teams",
     "myTeams": "AI Debate",
     "aiPlanning": "AI Strategy",
@@ -953,6 +954,15 @@
     "skills": {
       "title": "Research Skills"
     }
+  },
+  "industryChain": {
+    "title": "Industry Chain Analysis",
+    "subtitle": "Enter an industry or topic; the AI maps its upstream/downstream chain, key players, and relationship graph",
+    "topicLabel": "Analysis topic",
+    "topicPlaceholder": "e.g. EV power-battery supply chain",
+    "analyze": "Start analysis",
+    "analyzing": "Analyzing…",
+    "analyzeFailed": "Failed to start analysis, please retry"
   },
   "aiResearch": {
     "title": "AI Research",
