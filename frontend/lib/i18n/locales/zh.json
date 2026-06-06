@@ -971,7 +971,20 @@
     "failedDesc": "分析过程出错，请返回重新发起分析",
     "emptyTitle": "产业链尚无数据",
     "emptyDesc": "本次分析未抽取到产业链参与者，请尝试更换主题重新分析",
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "history": "历史分析",
+    "loadingHistory": "正在加载历史…",
+    "historyLoadFailed": "加载历史失败",
+    "historyEmpty": "还没有产业链分析",
+    "historyEmptyDesc": "在上方输入主题，或点击下方示例，开始第一个产业链分析",
+    "nodeCountSuffix": " 个节点",
+    "deleteTitle": "删除这条产业链分析？",
+    "deleteDesc": "将永久删除该分析及其全部实体与关系，不可恢复。",
+    "deleteConfirm": "永久删除",
+    "statusRunning": "分析中",
+    "statusCompleted": "已完成",
+    "statusFailed": "失败",
+    "statusPlanning": "排队中"
   },
   "aiResearch": {
     "title": "AI 研究",

@@ -971,7 +971,20 @@
     "failedDesc": "The analysis failed. Please go back and start a new analysis",
     "emptyTitle": "No industry chain data yet",
     "emptyDesc": "This analysis didn't extract any participants. Try a different topic and analyze again",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "history": "Past analyses",
+    "loadingHistory": "Loading history…",
+    "historyLoadFailed": "Failed to load history",
+    "historyEmpty": "No industry-chain analyses yet",
+    "historyEmptyDesc": "Enter a topic above, or pick an example below, to start your first analysis",
+    "nodeCountSuffix": " nodes",
+    "deleteTitle": "Delete this analysis?",
+    "deleteDesc": "This permanently deletes the analysis and all its entities and relations.",
+    "deleteConfirm": "Delete permanently",
+    "statusRunning": "Analyzing",
+    "statusCompleted": "Completed",
+    "statusFailed": "Failed",
+    "statusPlanning": "Queued"
   },
   "aiResearch": {
     "title": "AI Research",

@@ -27,6 +27,8 @@ describe("IndustryChainService", () => {
       create: jest.Mock;
       update: jest.Mock;
       findFirst: jest.Mock;
+      findMany: jest.Mock;
+      delete: jest.Mock;
     };
     industryEntity: {
       create: jest.Mock;
@@ -51,6 +53,8 @@ describe("IndustryChainService", () => {
         create: jest.fn(),
         update: jest.fn().mockResolvedValue({}),
         findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        delete: jest.fn().mockResolvedValue({}),
       },
       industryEntity: {
         create: jest
@@ -397,6 +401,42 @@ describe("IndustryChainService", () => {
       });
       // 落库了 1 个公司实体
       expect(prisma.industryEntity.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("listChains / deleteChain", () => {
+    it("listChains 映射 + 带 entityCount，按时间倒序（owner 过滤）", async () => {
+      prisma.industryChain.findMany.mockResolvedValue([
+        {
+          id: "c1",
+          topic: "半导体",
+          status: "COMPLETED",
+          createdAt: new Date("2026-06-06"),
+          _count: { entities: 23 },
+        },
+      ]);
+      const list = await service.listChains("u1");
+      expect(prisma.industryChain.findMany.mock.calls[0][0].where).toEqual({
+        ownerId: "u1",
+      });
+      expect(list[0]).toMatchObject({ id: "c1", entityCount: 23 });
+    });
+
+    it("deleteChain 非属主抛 NotFound，不删", async () => {
+      prisma.industryChain.findFirst.mockResolvedValue(null);
+      await expect(service.deleteChain("intruder", "c1")).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.industryChain.delete).not.toHaveBeenCalled();
+    });
+
+    it("deleteChain 属主删除（级联）", async () => {
+      prisma.industryChain.findFirst.mockResolvedValue({ id: "c1" });
+      const res = await service.deleteChain("u1", "c1");
+      expect(res.deleted).toBe(true);
+      expect(prisma.industryChain.delete).toHaveBeenCalledWith({
+        where: { id: "c1" },
+      });
     });
   });
 

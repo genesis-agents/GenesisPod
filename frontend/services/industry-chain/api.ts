@@ -9,6 +9,7 @@ import type {
   EntityFinance,
   EntityInvestment,
   IndustryChain,
+  IndustryChainListItem,
   IndustryEntityDetail,
 } from './types';
 
@@ -18,6 +19,16 @@ export const industryChainApi = {
   /** 发起产业链分析（动态编排 mission）。 */
   analyze(topic: string): Promise<AnalyzeChainResult> {
     return apiClient.post<AnalyzeChainResult>(`${BASE}/analyze`, { topic });
+  },
+
+  /** 历史产业链分析列表。 */
+  list(): Promise<IndustryChainListItem[]> {
+    return apiClient.get<IndustryChainListItem[]>(BASE);
+  },
+
+  /** 删除产业链。 */
+  remove(chainId: string): Promise<{ deleted: boolean }> {
+    return apiClient.delete<{ deleted: boolean }>(`${BASE}/${chainId}`);
   },
 
   /** 产业链元信息 + 状态。 */

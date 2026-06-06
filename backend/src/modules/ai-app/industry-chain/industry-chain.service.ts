@@ -660,6 +660,39 @@ export class IndustryChainService {
     return chain;
   }
 
+  /** 列出本用户的历史产业链分析（M6 ownerId 过滤），含实体数，按时间倒序。 */
+  async listChains(userId: string) {
+    const chains = await this.prisma.industryChain.findMany({
+      where: { ownerId: userId },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: { _count: { select: { entities: true } } },
+    });
+    return chains.map((c) => ({
+      id: c.id,
+      topic: c.topic,
+      status: c.status,
+      createdAt: c.createdAt,
+      entityCount: c._count.entities,
+    }));
+  }
+
+  /** 删除产业链（M6 ownerId 过滤，级联删实体/关系）。 */
+  async deleteChain(
+    userId: string,
+    chainId: string,
+  ): Promise<{ deleted: boolean }> {
+    const chain = await this.prisma.industryChain.findFirst({
+      where: { id: chainId, ownerId: userId },
+      select: { id: true },
+    });
+    if (!chain) {
+      throw new NotFoundException("产业链不存在或无访问权限");
+    }
+    await this.prisma.industryChain.delete({ where: { id: chainId } });
+    return { deleted: true };
+  }
+
   /**
    * 确保产业链 pipeline 已注册（模块 onModuleInit 调用）。
    * 幂等：已注册则跳过；未注册则注册——配置校验/未知 primitive 错误**故意不吞**，

@@ -12,6 +12,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Body,
   Param,
   Request,
@@ -36,6 +37,20 @@ export class IndustryChainController {
     const userId = req.user.id;
     const topic = sanitizePromptInput(dto.topic).sanitized;
     return this.service.analyze(userId, topic);
+  }
+
+  /** 历史产业链分析列表（本用户）。 */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Get()
+  async list(@Request() req: RequestWithUser) {
+    return this.service.listChains(req.user.id);
+  }
+
+  /** 删除产业链（级联删实体/关系）。 */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Delete(":id")
+  async remove(@Request() req: RequestWithUser, @Param("id") id: string) {
+    return this.service.deleteChain(req.user.id, id);
   }
 
   /** 产业链元信息 + 状态。 */

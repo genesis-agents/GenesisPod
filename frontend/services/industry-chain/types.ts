@@ -55,6 +55,15 @@ export interface AnalyzeChainResult {
   missionId: string;
 }
 
+/** 历史产业链分析列表项。 */
+export interface IndustryChainListItem {
+  id: string;
+  topic: string;
+  status: string; // PLANNING | RUNNING | COMPLETED | FAILED
+  createdAt: string;
+  entityCount: number;
+}
+
 /** 实体行情（best-effort，后端经 finance-api 拉取；不可用时 available=false）。 */
 export interface EntityFinance {
   available: boolean;
