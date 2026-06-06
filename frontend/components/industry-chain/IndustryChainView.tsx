@@ -21,6 +21,7 @@ import {
   ExternalLink,
   TrendingUp,
   TrendingDown,
+  RefreshCw,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import KnowledgeGraphView from '@/components/common/views/KnowledgeGraphView';
@@ -100,6 +101,8 @@ function ChainEntityDetail({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [finance, setFinance] = useState<EntityFinance | null>(null);
   const [investment, setInvestment] = useState<EntityInvestment | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -122,7 +125,7 @@ function ChainEntityDetail({
     };
   }, [entityId]);
 
-  // 行情（best-effort，仅公司类；后端不可用时静默返回 available:false → 退回深链）
+  // 行情 + 资本动态（实时数据，仅公司类）。refreshKey 变化 → 手动刷新重拉。
   useEffect(() => {
     if (
       !entity ||
@@ -130,29 +133,25 @@ function ChainEntityDetail({
       !entity.cik
     ) {
       setFinance(null);
+      setInvestment(null);
       return;
     }
     let alive = true;
-    industryChainApi
-      .getEntityFinance(entity.id)
-      .then((f) => {
+    if (refreshKey > 0) setRefreshing(true);
+    void Promise.allSettled([
+      industryChainApi.getEntityFinance(entity.id).then((f) => {
         if (alive) setFinance(f);
-      })
-      .catch(() => {
-        if (alive) setFinance(null);
-      });
-    industryChainApi
-      .getEntityInvestment(entity.id)
-      .then((inv) => {
+      }),
+      industryChainApi.getEntityInvestment(entity.id).then((inv) => {
         if (alive) setInvestment(inv);
-      })
-      .catch(() => {
-        if (alive) setInvestment(null);
-      });
+      }),
+    ]).finally(() => {
+      if (alive) setRefreshing(false);
+    });
     return () => {
       alive = false;
     };
-  }, [entity]);
+  }, [entity, refreshKey]);
 
   if (loading) {
     return <p className="px-1 py-2 text-sm text-gray-400">加载详情…</p>;
@@ -201,6 +200,23 @@ function ChainEntityDetail({
         accent="emerald"
         titleSize="sm"
         icon={<Network className="h-4 w-4 text-white" aria-hidden />}
+        actions={
+          isCompany ? (
+            <button
+              type="button"
+              onClick={() => setRefreshKey((k) => k + 1)}
+              disabled={refreshing}
+              title="刷新实时数据（股价 / 资本动态）"
+              aria-label="刷新实时数据"
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
+                aria-hidden
+              />
+            </button>
+          ) : undefined
+        }
       >
         <div className="grid grid-cols-2 gap-3">
           <StatCard
