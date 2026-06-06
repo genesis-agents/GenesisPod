@@ -71,4 +71,14 @@ export class IndustryChainController {
   ) {
     return this.service.getEntityFinance(req.user.id, entityId);
   }
+
+  /** 实体资本/投资动态（SEC 备案：内部人交易/并购/举牌，仅美股）。 */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Get("entity/:entityId/investment")
+  async getEntityInvestment(
+    @Request() req: RequestWithUser,
+    @Param("entityId") entityId: string,
+  ) {
+    return this.service.getEntityInvestment(req.user.id, entityId);
+  }
 }

@@ -40,6 +40,11 @@ describe("IndustryChainService", () => {
   let entityResolution: { resolve: jest.Mock };
 
   beforeEach(async () => {
+    // 默认：SEC 名册 fetch 失败 → loadSecTickerMap 返回 null → CIK 校验跳过（不误删）。
+    // 个别用例会覆盖此 mock 以测真伪校验。
+    global.fetch = jest
+      .fn()
+      .mockRejectedValue(new Error("no network in unit test"));
     let entitySeq = 0;
     prisma = {
       industryChain: {
@@ -133,6 +138,39 @@ describe("IndustryChainService", () => {
         (c) => c[0].data.name === "NVIDIA",
       );
       expect(nvidiaCreate?.[0].data.cik).toBe("0001045810");
+    });
+
+    it("校验 CIK 真伪：SEC 名册查不到的假 CIK 被丢弃（如长电科技），真 CIK 保留", async () => {
+      // SEC 名册只含 NVIDIA 的真 CIK；长电科技的 0001127492 不在册（实测 SEC NoSuchKey）。
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "0": { cik_str: 1045810, ticker: "NVDA" },
+        }),
+      });
+      entityResolution.resolve.mockResolvedValue({
+        clusters: [],
+        canonicalOf: { NVIDIA: "NVIDIA", 长电科技: "长电科技" },
+      });
+      await service.persistExtraction("chain-1", {
+        segments: [
+          { name: "芯片设计", order: 1 },
+          { name: "封测", order: 2 },
+        ],
+        companies: [
+          { name: "NVIDIA", cik: "0001045810", segment: "芯片设计" },
+          { name: "长电科技", cik: "0001127492", segment: "封测" }, // 假 CIK
+        ],
+        relations: [],
+      });
+      const nvidia = prisma.industryEntity.create.mock.calls.find(
+        (c) => c[0].data.name === "NVIDIA",
+      );
+      const jcet = prisma.industryEntity.create.mock.calls.find(
+        (c) => c[0].data.name === "长电科技",
+      );
+      expect(nvidia?.[0].data.cik).toBe("0001045810"); // 真 CIK 保留
+      expect(jcet?.[0].data.cik).toBeNull(); // 假 CIK 丢弃
     });
 
     it("LLM 吐空 relations 时仍合成结构骨架（脊柱 + 归属），图谱必连通", async () => {

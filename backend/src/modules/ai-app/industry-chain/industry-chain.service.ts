@@ -89,13 +89,38 @@ interface FinToolOutput {
   metadata?: Record<string, string>;
 }
 
-// SEC ticker 映射缓存（cik→ticker），进程级、按天刷新——finance-api 只认 ticker，库里存 cik。
-let secTickerCache: { at: number; map: Map<string, string> } | null = null;
+// SEC ticker 映射缓存 TTL（cik→ticker，按天刷新）——finance-api 只认 ticker，库里存 cik。
 const SEC_TICKER_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** 资本动态条目（来自 SEC 备案：内部人交易 / 并购 / 举牌等）。 */
+export interface InvestmentItem {
+  form: string;
+  label: string;
+  date: string;
+  url: string;
+}
+export interface EntityInvestment {
+  available: boolean;
+  items: InvestmentItem[];
+}
+
+/** SEC 表单 → 资本动态中文标签；非投资相关表单返回 null（被过滤）。 */
+function investmentFormLabel(form: string): string | null {
+  const f = form.toUpperCase().trim();
+  if (f === "4" || f === "4/A") return "内部人交易";
+  if (f === "3" || f === "3/A" || f === "5" || f === "5/A") return "内部人持仓";
+  if (f.startsWith("8-K")) return "重大事件 / 并购";
+  if (f.startsWith("SC 13D")) return "举牌（主动）";
+  if (f.startsWith("SC 13G")) return "大股东持股（被动）";
+  return null;
+}
 
 @Injectable()
 export class IndustryChainService {
   private readonly logger = new Logger(IndustryChainService.name);
+  // SEC cik→ticker 名册缓存（实例级：prod 单例长缓存，单测每实例隔离）。
+  private secTickerCache: { at: number; map: Map<string, string> } | null =
+    null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -258,6 +283,9 @@ export class IndustryChainService {
     // ── 1. 实体消歧（embedding 调用，放事务外，避免长事务持有连接）──────────
     const companyNames = result.companies.map((c) => c.name);
     const resolution = await this.entityResolution.resolve(companyNames);
+    // SEC 名册（放事务外）：校验 LLM 给的 cik 真伪——LLM 常给非美/A 股公司编造
+    // 假 CIK（如长电科技 0001127492，SEC 实际 NoSuchKey）。map 取不到则跳过校验（不误删）。
+    const secCikMap = await this.loadSecTickerMap().catch(() => null);
     // canonical → 合并后的公司元数据（纯计算）
     const byCanonical = new Map<string, (typeof result.companies)[number]>();
     for (const c of result.companies) {
@@ -326,15 +354,26 @@ export class IndustryChainService {
           orphanDropped++;
           continue;
         }
+        // CIK 真伪校验：LLM 常给非美公司编造假 CIK。SEC 名册查不到 → 丢弃 cik +
+        // 连带丢掉挂在假 CIK 上的 sec.gov 来源（避免展示杜撰的 SEC 链接/财报入口）。
+        let cik = c.cik ?? null;
+        let refs = sanitizeSourceRefs(c.sourceRefs);
+        if (cik && secCikMap && !secCikMap.has(cik)) {
+          this.logger.warn(
+            `[persistExtraction] chain=${chainId} company="${canonical}" 假 CIK ${cik}（SEC 无登记）→ 丢弃`,
+          );
+          cik = null;
+          refs = refs.filter((r) => !r.url || !/sec\.gov/i.test(r.url));
+        }
         const ent = await tx.industryEntity.create({
           data: {
             chainId,
             name: canonical,
             type: "COMPANY" satisfies (typeof ENTITY_TYPES)[number],
-            cik: c.cik ?? null,
+            cik,
             segment: c.segment ?? null,
             description: c.description ?? null,
-            sourceRefs: sanitizeSourceRefs(c.sourceRefs) as object,
+            sourceRefs: refs as object,
           },
         });
         canonicalToId.set(canonical, ent.id);
@@ -439,9 +478,12 @@ export class IndustryChainService {
     return entity;
   }
 
-  /** cik→ticker（SEC company_tickers.json，进程级缓存）。finance-api 只认 ticker。 */
-  private async resolveTickerByCik(cik: string): Promise<string | null> {
-    if (!secTickerCache || Date.now() - secTickerCache.at > SEC_TICKER_TTL_MS) {
+  /** SEC 全量 cik→ticker 名册（company_tickers.json，进程级缓存）。失败回退旧缓存/null。 */
+  private async loadSecTickerMap(): Promise<Map<string, string> | null> {
+    if (
+      !this.secTickerCache ||
+      Date.now() - this.secTickerCache.at > SEC_TICKER_TTL_MS
+    ) {
       try {
         const res = await fetch(
           "https://www.sec.gov/files/company_tickers.json",
@@ -449,7 +491,7 @@ export class IndustryChainService {
             headers: { "User-Agent": "IndustryChain industry-chain@gens.team" },
           },
         );
-        if (!res.ok) return null;
+        if (!res.ok) return this.secTickerCache?.map ?? null;
         const json = (await res.json()) as Record<
           string,
           { cik_str: number; ticker: string }
@@ -458,13 +500,19 @@ export class IndustryChainService {
         for (const v of Object.values(json)) {
           if (v?.ticker) map.set(String(v.cik_str).padStart(10, "0"), v.ticker);
         }
-        secTickerCache = { at: Date.now(), map };
+        this.secTickerCache = { at: Date.now(), map };
       } catch (e) {
-        this.logger.warn(`[resolveTicker] SEC tickers fetch failed: ${e}`);
-        return null;
+        this.logger.warn(`[loadSecTickerMap] SEC tickers fetch failed: ${e}`);
+        return this.secTickerCache?.map ?? null;
       }
     }
-    return secTickerCache.map.get(cik) ?? null;
+    return this.secTickerCache.map;
+  }
+
+  /** cik→ticker。finance-api 只认 ticker。 */
+  private async resolveTickerByCik(cik: string): Promise<string | null> {
+    const map = await this.loadSecTickerMap();
+    return map?.get(cik) ?? null;
   }
 
   /**
@@ -538,6 +586,66 @@ export class IndustryChainService {
         `[getEntityFinance] entity=${entityId} ticker=${ticker} failed: ${e}`,
       );
       return { available: false, ticker };
+    }
+  }
+
+  /**
+   * 资本/投资动态（M6 越权过滤）。免费源：复用已接的 SEC EDGAR——拉公司近期备案，
+   * 过滤出 内部人交易(Form 3/4/5) / 并购重大事件(8-K) / 举牌大股东(SC 13D/13G)。
+   * 仅美股上市公司有数据；非美/无 cik 返回 available:false（前端退回搜索深链）。
+   */
+  async getEntityInvestment(
+    userId: string,
+    entityId: string,
+  ): Promise<EntityInvestment> {
+    const entity = await this.prisma.industryEntity.findFirst({
+      where: { id: entityId, chain: { ownerId: userId } },
+    });
+    if (!entity) {
+      throw new NotFoundException("实体不存在或无访问权限");
+    }
+    if (!entity.cik) return { available: false, items: [] };
+
+    const tool = this.toolRegistry.tryGet("sec-edgar-search");
+    if (!tool) return { available: false, items: [] };
+
+    const ctx: ToolContext = {
+      executionId: randomUUID(),
+      toolId: "sec-edgar-search",
+      createdAt: new Date(),
+      userId,
+    };
+    try {
+      const res = await tool.execute({ cik: entity.cik, formType: "all" }, ctx);
+      const out = res?.data as
+        | {
+            success?: boolean;
+            filings?: Array<{
+              form?: string;
+              filingDate?: string;
+              reportDate?: string;
+              url?: string;
+            }>;
+          }
+        | undefined;
+      if (!out?.success || !out.filings) return { available: false, items: [] };
+
+      const items: InvestmentItem[] = [];
+      for (const f of out.filings) {
+        const label = f.form ? investmentFormLabel(f.form) : null;
+        if (!label) continue;
+        items.push({
+          form: f.form ?? "",
+          label,
+          date: f.filingDate ?? f.reportDate ?? "",
+          url: f.url ?? "",
+        });
+        if (items.length >= 8) break;
+      }
+      return { available: items.length > 0, items };
+    } catch (e) {
+      this.logger.warn(`[getEntityInvestment] entity=${entityId} failed: ${e}`);
+      return { available: false, items: [] };
     }
   }
 

@@ -21,6 +21,7 @@ import { industryChainApi } from '@/services/industry-chain/api';
 import type {
   ChainGraph,
   EntityFinance,
+  EntityInvestment,
   IndustryChain,
   IndustryEntityDetail,
 } from '@/services/industry-chain/types';
@@ -72,6 +73,7 @@ function ChainEntityDetail({ entityId }: { entityId: string }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [finance, setFinance] = useState<EntityFinance | null>(null);
+  const [investment, setInvestment] = useState<EntityInvestment | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -112,6 +114,14 @@ function ChainEntityDetail({ entityId }: { entityId: string }) {
       })
       .catch(() => {
         if (alive) setFinance(null);
+      });
+    industryChainApi
+      .getEntityInvestment(entity.id)
+      .then((inv) => {
+        if (alive) setInvestment(inv);
+      })
+      .catch(() => {
+        if (alive) setInvestment(null);
       });
     return () => {
       alive = false;
@@ -222,6 +232,36 @@ function ChainEntityDetail({ entityId }: { entityId: string }) {
           {finance.series && finance.series.length > 1 && (
             <Sparkline series={finance.series} />
           )}
+        </div>
+      )}
+      {investment?.available && investment.items.length > 0 && (
+        <div>
+          <div className="mb-1 text-xs font-medium text-gray-700">
+            资本动态（SEC）
+          </div>
+          <ul className="space-y-1">
+            {investment.items.map((it, i) => (
+              <li
+                key={(it.form || '') + (it.date || '') + i}
+                className="flex items-baseline gap-2 text-xs"
+              >
+                <span className="shrink-0 text-gray-400">{it.date}</span>
+                {it.url ? (
+                  <a
+                    href={it.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-600 underline underline-offset-2 hover:text-emerald-700"
+                  >
+                    {it.label}
+                  </a>
+                ) : (
+                  <span className="text-gray-600">{it.label}</span>
+                )}
+                <span className="text-gray-300">{it.form}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       {deepLinks.length > 0 && (

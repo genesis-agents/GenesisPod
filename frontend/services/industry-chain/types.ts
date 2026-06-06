@@ -64,3 +64,15 @@ export interface EntityFinance {
   changePercent?: string;
   series?: Array<{ date: string; close: number }>;
 }
+
+/** 资本/投资动态条目（来自 SEC 备案）。 */
+export interface InvestmentItem {
+  form: string;
+  label: string;
+  date: string;
+  url: string;
+}
+export interface EntityInvestment {
+  available: boolean;
+  items: InvestmentItem[];
+}

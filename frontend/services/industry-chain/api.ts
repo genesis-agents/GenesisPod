@@ -7,6 +7,7 @@ import type {
   AnalyzeChainResult,
   ChainGraph,
   EntityFinance,
+  EntityInvestment,
   IndustryChain,
   IndustryEntityDetail,
 } from './types';
@@ -37,5 +38,12 @@ export const industryChainApi = {
   /** 实体行情（best-effort，不可用返回 available:false）。 */
   getEntityFinance(entityId: string): Promise<EntityFinance> {
     return apiClient.get<EntityFinance>(`${BASE}/entity/${entityId}/finance`);
+  },
+
+  /** 实体资本/投资动态（SEC 备案）。 */
+  getEntityInvestment(entityId: string): Promise<EntityInvestment> {
+    return apiClient.get<EntityInvestment>(
+      `${BASE}/entity/${entityId}/investment`
+    );
   },
 };
