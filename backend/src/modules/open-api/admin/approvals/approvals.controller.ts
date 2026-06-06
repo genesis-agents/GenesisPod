@@ -6,7 +6,7 @@ import {
   HumanApprovalAdminService,
   ApprovalRequestPayload,
   ApprovalRespondInput,
-} from "@/modules/ai-harness/lifecycle/human-approval-admin.service";
+} from "@/modules/ai-harness/facade";
 
 /**
  * 人机协作审批 Admin 控制器（薄 HTTP，逻辑在 ai-harness/HumanApprovalAdminService）。
@@ -23,7 +23,10 @@ export class ApprovalsController {
 
   @Get("pending")
   @ApiOperation({ summary: "List all pending human approval requests" })
-  @ApiResponse({ status: 200, description: "Array of pending approval payloads" })
+  @ApiResponse({
+    status: 200,
+    description: "Array of pending approval payloads",
+  })
   listPending(): Promise<ApprovalRequestPayload[]> {
     return this.humanApprovalService.listPending();
   }

@@ -251,7 +251,7 @@ function collectMapRenderedComponents(src: string, set: Set<string>): void {
 function checkR2AssetCard(
   file: string,
   src: string,
-  mapComponents: Set<string>
+  mapComponents: Set<string>,
 ): Violation[] {
   const norm = file.split(sep).join("/");
   if (R2_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
@@ -264,8 +264,7 @@ function checkR2AssetCard(
     const before = src.slice(Math.max(0, idx - 600), idx);
     if (/<AssetCard\b[^>]*$/.test(before)) return false;
     return (
-      /\.map\s*\(/.test(before) &&
-      TITLE_SIGNAL.test(src.slice(idx, idx + 400))
+      /\.map\s*\(/.test(before) && TITLE_SIGNAL.test(src.slice(idx, idx + 400))
     );
   });
   if (inlineHits.length >= 3) {
@@ -289,7 +288,7 @@ function checkR2AssetCard(
     const nextDecl = rest.search(/\n(?:export\s+)?(?:const|function)\s/);
     const body = src.slice(
       start,
-      start + 1 + (nextDecl >= 0 ? Math.min(nextDecl, 2600) : 2600)
+      start + 1 + (nextDecl >= 0 ? Math.min(nextDecl, 2600) : 2600),
     );
     if (CANONICAL_CARD_USE.test(body)) continue; // 已用 canonical 卡型（多卡型识别）
     if (!CARD_CLASS_ANY.test(body)) continue; // 根节点非自写卡
@@ -517,7 +516,8 @@ const TAB_LITERAL =
 
 function distinctTabLiterals(src: string): number {
   const set = new Set<string>();
-  for (const m of src.matchAll(TAB_LITERAL_G)) set.add(m[0].replace(/\s+/g, ""));
+  for (const m of src.matchAll(TAB_LITERAL_G))
+    set.add(m[0].replace(/\s+/g, ""));
   return set.size;
 }
 
@@ -726,7 +726,8 @@ function checkR11CardBaseline(file: string, src: string): Violation[] {
 //   rounded-(lg|xl|2xl) + border + 标题(font-(semibold|medium|bold)/<h3/<h4) + 正文(line-clamp 摘要 或 a[target=_blank] 外链)。
 // 刻意只命中「行卡」——不碰：内联引用 chip（CitationBadge 域：小 span/text-[10px]，无行卡结构）、
 //   已组件化的 SourceLink、纯数据 .map（无 JSX 行卡）。R12_BESPOKE_OK 收 canonical 真不适配的真 bespoke。
-const CITE_MAP_G = /\.(?:citations|references|resources|sources)\b[^.\n]{0,30}\.map\s*\(/g;
+const CITE_MAP_G =
+  /\.(?:citations|references|resources|sources)\b[^.\n]{0,30}\.map\s*\(/g;
 const R12_BESPOKE_OK = [
   // 引用导航参考面板：锚点 id(ref-N) + 高亮环 + HighlightedSnippet 引文高亮 + "点击跳转"提示，
   // 属引用跳转系统的富面板，非通用来源行；塞进 CitationListItem 会为单一消费方过度抽象。
@@ -742,11 +743,13 @@ function checkR12CitationRow(file: string, src: string): Violation[] {
   for (const m of src.matchAll(CITE_MAP_G)) {
     const idx = m.index ?? 0;
     const region = src.slice(idx, idx + 700);
-    const isCard = /rounded-(lg|xl|2xl)/.test(region) && /\bborder\b/.test(region);
+    const isCard =
+      /rounded-(lg|xl|2xl)/.test(region) && /\bborder\b/.test(region);
     const hasTitle = /font-(semibold|medium|bold)|<h[34]\b/.test(region);
     const hasBody = /line-clamp|target=["']_blank/.test(region);
     // chip 排除：极小字号(text-[10px]/[11px]) 且无行卡正文特征 → 是内联徽章不是行卡
-    const isChip = /text-\[1[01]px\]/.test(region) && !/line-clamp|\bp-[34]\b/.test(region);
+    const isChip =
+      /text-\[1[01]px\]/.test(region) && !/line-clamp|\bp-[34]\b/.test(region);
     if (isCard && hasTitle && hasBody && !isChip) {
       const line = src.slice(0, idx).split("\n").length;
       return [
@@ -970,7 +973,11 @@ async function main() {
         ? cur
         : Math.min(next[rule] ?? cur, cur);
     }
-    await writeFile(BASELINE_PATH, JSON.stringify(next, null, 2) + "\n", "utf8");
+    await writeFile(
+      BASELINE_PATH,
+      JSON.stringify(next, null, 2) + "\n",
+      "utf8",
+    );
     console.log(
       `✓ 基线已${ARGS.has("--update-baseline") ? "全量重写" : "棘轮锁低"}：${BASELINE_PATH}`,
     );

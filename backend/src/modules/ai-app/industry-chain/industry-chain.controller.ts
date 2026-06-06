@@ -33,7 +33,7 @@ export class IndustryChainController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("analyze")
   async analyze(@Request() req: RequestWithUser, @Body() dto: AnalyzeChainDto) {
-    const userId = req.user!.id;
+    const userId = req.user.id;
     const topic = sanitizePromptInput(dto.topic).sanitized;
     return this.service.analyze(userId, topic);
   }
@@ -42,14 +42,14 @@ export class IndustryChainController {
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get(":id")
   async getChain(@Request() req: RequestWithUser, @Param("id") id: string) {
-    return this.service.getChain(req.user!.id, id);
+    return this.service.getChain(req.user.id, id);
   }
 
   /** 产业链图谱 {nodes,edges,stats}（供 KnowledgeGraphView）。 */
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get(":id/graph")
   async getGraph(@Request() req: RequestWithUser, @Param("id") id: string) {
-    return this.service.getGraph(req.user!.id, id);
+    return this.service.getGraph(req.user.id, id);
   }
 
   /** 单实体详情（点击节点）。 */
@@ -59,6 +59,6 @@ export class IndustryChainController {
     @Request() req: RequestWithUser,
     @Param("entityId") entityId: string,
   ) {
-    return this.service.getEntity(req.user!.id, entityId);
+    return this.service.getEntity(req.user.id, entityId);
   }
 }

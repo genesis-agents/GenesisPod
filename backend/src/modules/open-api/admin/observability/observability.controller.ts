@@ -9,8 +9,10 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
-import { TraceCollectorService } from "../../../ai-harness/tracing/observability/trace-collector.service";
-import type { TraceType } from "../../../ai-harness/tracing/observability/trace.interface";
+import {
+  TraceCollectorService,
+  type TraceType,
+} from "@/modules/ai-harness/facade";
 
 /**
  * Admin Observability Controller

@@ -1154,6 +1154,8 @@ export { calculateOverallProgress } from "../protocols/realtime/abstractions/pro
 // Memory: indexing + checkpoint + working
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { MemoryAutoIndexer } from "../memory/indexing/memory-auto-indexer";
+// ProcessJournalQueryService — process-journal 只读查询（open-api/admin/kernel 经此 facade 访问，不穿透内部路径）。
+export { ProcessJournalQueryService } from "../memory/process-journal-query.service";
 // ★ 2026-05-15 PR-C: AgentStepCheckpointService（react-loop / agent runtime 粒度，by agentId）
 //   与上方 MissionCheckpointService（mission / business stage 粒度，by missionId）不同 scope，
 //   名字差异化避免混淆。

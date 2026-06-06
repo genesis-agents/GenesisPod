@@ -9,10 +9,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { SecEdgarTool, SecEdgarInput, SecEdgarOutput } from "../sec-edgar.tool";
 import { PolicyDataService } from "../../policy/policy-data.service";
-import {
-  ToolContext,
-  ToolResult,
-} from "../../../../abstractions/tool.interface";
+import { ToolContext } from "../../../../abstractions/tool.interface";
 
 function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
   return {
@@ -35,7 +32,11 @@ const MOCK_SUBMISSIONS_NVDA = {
   name: "NVIDIA CORP",
   filings: {
     recent: {
-      accessionNumber: ["0001045810-24-000029", "0001045810-24-000010", "0001045810-23-000017"],
+      accessionNumber: [
+        "0001045810-24-000029",
+        "0001045810-24-000010",
+        "0001045810-23-000017",
+      ],
       form: ["10-K", "10-Q", "8-K"],
       filingDate: ["2024-02-21", "2024-01-15", "2023-11-21"],
       reportDate: ["2024-01-28", "2023-10-29", "2023-11-21"],
@@ -79,7 +80,7 @@ describe("SecEdgarTool", () => {
   });
 
   async function run(input: SecEdgarInput): Promise<SecEdgarOutput> {
-    const res = (await tool.execute(input, makeContext())) as ToolResult<SecEdgarOutput>;
+    const res = await tool.execute(input, makeContext());
     expect(res.success).toBe(true);
     return res.data as SecEdgarOutput;
   }
@@ -135,10 +136,10 @@ describe("SecEdgarTool", () => {
   });
 
   it("无法匹配公司时返回 success:false + error", async () => {
-    const res = (await tool.execute(
+    const res = await tool.execute(
       { companyName: "不存在的公司zzz" },
       makeContext(),
-    )) as ToolResult<SecEdgarOutput>;
+    );
     expect(res.success).toBe(true); // BaseTool 包装层成功
     expect(res.data?.success).toBe(false);
     expect(res.data?.error).toContain("无法解析 CIK");

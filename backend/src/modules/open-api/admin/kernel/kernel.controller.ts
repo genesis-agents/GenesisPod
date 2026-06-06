@@ -16,8 +16,10 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
-import { KernelApiService } from "../../../ai-harness/facade";
-import { ProcessJournalQueryService } from "@/modules/ai-harness/memory/process-journal-query.service";
+import {
+  KernelApiService,
+  ProcessJournalQueryService,
+} from "../../../ai-harness/facade";
 import { MemoryLayer, ProcessState } from "@prisma/client";
 
 @ApiTags("Admin - AI Kernel")
