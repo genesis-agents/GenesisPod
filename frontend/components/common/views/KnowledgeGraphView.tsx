@@ -442,6 +442,21 @@ export default function KnowledgeGraphView({
     };
   }, [nodes, edges, layout]);
 
+  // 详情面板标题：覆盖全部已知类型 + 兜底（含产业链 SEGMENT/COMPANY/PRODUCT，
+  // 旧版只列了 7 种 library 类型，产业链节点点开标题为空白）。
+  const nodeDisplayName = (n: GraphNode): string => {
+    if (n.type === 'User') return n.properties.username || '我的知识库';
+    if (n.type === 'Note')
+      return n.properties.contentPreview?.substring(0, 30) || '笔记';
+    return (
+      n.properties.title ||
+      n.properties.name ||
+      n.properties.username ||
+      n.label ||
+      n.id
+    );
+  };
+
   const nodeTypeLabels: Record<string, string> = {
     User: '我',
     Collection: '收藏集',
@@ -561,22 +576,16 @@ export default function KnowledgeGraphView({
                   {nodeTypeLabels[selectedNode.type]}
                 </div>
                 <h3 className="mt-1 text-lg font-bold text-gray-900">
-                  {selectedNode.type === 'User' &&
-                    (selectedNode.properties.username || '我的知识库')}
-                  {selectedNode.type === 'Collection' &&
-                    (selectedNode.properties.name || selectedNode.label)}
-                  {selectedNode.type === 'Resource' &&
-                    selectedNode.properties.title}
-                  {selectedNode.type === 'Note' &&
-                    (selectedNode.properties.contentPreview?.substring(0, 30) ||
-                      '笔记')}
-                  {selectedNode.type === 'Author' &&
-                    selectedNode.properties.username}
-                  {(selectedNode.type === 'Topic' ||
-                    selectedNode.type === 'Tag') &&
-                    selectedNode.properties.name}
+                  {nodeDisplayName(selectedNode)}
                 </h3>
                 {/* 显示额外信息 */}
+                {(selectedNode.type === 'COMPANY' ||
+                  selectedNode.type === 'PRODUCT') &&
+                  selectedNode.properties.segment && (
+                    <span className="mt-1 inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
+                      {selectedNode.properties.segment}
+                    </span>
+                  )}
                 {selectedNode.type === 'Collection' &&
                   selectedNode.properties.description && (
                     <p className="mt-1 line-clamp-2 text-sm text-gray-500">
@@ -626,10 +635,6 @@ export default function KnowledgeGraphView({
                 }
               </div>
             </div>
-
-            <button className="mt-4 w-full rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 py-2 text-sm font-medium text-white shadow-sm hover:shadow-md">
-              查看详情
-            </button>
           </div>
         )}
 
