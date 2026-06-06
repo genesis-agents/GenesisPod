@@ -14,6 +14,7 @@ import { EntityResolutionService } from "@/modules/ai-engine/facade";
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
+  HarnessFacade,
 } from "@/modules/ai-harness/facade";
 
 describe("IndustryChainService", () => {
@@ -50,6 +51,7 @@ describe("IndustryChainService", () => {
         { provide: EntityResolutionService, useValue: entityResolution },
         { provide: MissionPipelineOrchestrator, useValue: { run: jest.fn() } },
         { provide: MissionPipelineRegistry, useValue: { register: jest.fn() } },
+        { provide: HarnessFacade, useValue: { execute: jest.fn() } },
       ],
     }).compile();
     service = module.get(IndustryChainService);
@@ -137,6 +139,75 @@ describe("IndustryChainService", () => {
       expect(graph.nodes.length).toBe(2);
       expect(graph.edges.length).toBe(1); // 失效边被过滤
       expect(graph.stats).toEqual({ totalNodes: 2, totalEdges: 1, segments: 1, companies: 1 });
+    });
+  });
+
+  describe("buildPipeline (方案 B 接线)", () => {
+    it("research hook 经 HarnessFacade 跑 agent 并解析结构化输出", async () => {
+      const harness = { execute: jest.fn() };
+      const mod = await Test.createTestingModule({
+        providers: [
+          IndustryChainService,
+          { provide: PrismaService, useValue: prisma },
+          { provide: EntityResolutionService, useValue: entityResolution },
+          { provide: MissionPipelineOrchestrator, useValue: { run: jest.fn() } },
+          { provide: MissionPipelineRegistry, useValue: { register: jest.fn() } },
+          { provide: HarnessFacade, useValue: harness },
+        ],
+      }).compile();
+      const svc = mod.get(IndustryChainService);
+
+      harness.execute.mockResolvedValue({
+        output: { segments: [{ name: "芯片设计" }], companies: [{ name: "NVIDIA" }], relations: [] },
+        state: "completed",
+        iterations: 3,
+        tokensUsed: 100,
+        wallTimeMs: 10,
+      });
+
+      const config = svc.buildPipeline();
+      expect(config.id).toBe("industry-chain");
+      expect(config.steps.map((s) => s.primitive)).toEqual(["research", "persist"]);
+
+      // research step hooks
+      const research = config.steps[0].hooks as unknown as {
+        fanOut: (a: { ctx: { input: unknown } }) => unknown[];
+        perItemPipeline: (a: {
+          item: unknown;
+          role: unknown;
+          ctx: { input: unknown; userId?: string };
+        }) => Promise<unknown>;
+      };
+      const items = research.fanOut({ ctx: { input: { topic: "算力底座", chainId: "c1" } } });
+      expect(items.length).toBe(1);
+      const out = (await research.perItemPipeline({
+        item: items[0],
+        role: {},
+        ctx: { input: { topic: "算力底座", chainId: "c1" }, userId: "u1" },
+      })) as { segments: unknown[] };
+      expect(harness.execute).toHaveBeenCalled();
+      expect(out.segments).toEqual([{ name: "芯片设计" }]);
+    });
+
+    it("persist hook 从 research 输出读取并落库", async () => {
+      entityResolution.resolve.mockResolvedValue({ clusters: [], canonicalOf: { NVIDIA: "NVIDIA" } });
+      const config = service.buildPipeline();
+      const persist = config.steps[1].hooks as unknown as {
+        persist: (a: {
+          ctx: { input: unknown };
+          previousOutputs: Record<string, unknown>;
+          crossStageState: unknown;
+        }) => Promise<void>;
+      };
+      await persist.persist({
+        ctx: { input: { chainId: "c1" } },
+        previousOutputs: {
+          extract: { results: [{ segments: [], companies: [{ name: "NVIDIA" }], relations: [] }] },
+        },
+        crossStageState: {},
+      });
+      // 落库了 1 个公司实体
+      expect(prisma.industryEntity.create).toHaveBeenCalledTimes(1);
     });
   });
 

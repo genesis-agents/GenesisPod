@@ -18,7 +18,6 @@ import {
 } from "@/modules/ai-harness/facade";
 import { IndustryChainService } from "./industry-chain.service";
 import { IndustryChainController } from "./industry-chain.controller";
-import { INDUSTRY_CHAIN_PIPELINE } from "./pipeline/industry-chain.pipeline";
 
 @Module({
   imports: [PrismaModule, AiEngineKnowledgeModule],
@@ -27,13 +26,14 @@ import { INDUSTRY_CHAIN_PIPELINE } from "./pipeline/industry-chain.pipeline";
     IndustryChainService,
     MissionPipelineRegistry,
     MissionPipelineOrchestrator,
+    // HarnessFacade 由 @Global HarnessModule 提供，直接注入无需 provide
   ],
 })
 export class IndustryChainModule implements OnModuleInit {
   constructor(private readonly service: IndustryChainService) {}
 
   onModuleInit(): void {
-    // 注册产业链动态编排 pipeline（幂等）
-    this.service.ensurePipelineRegistered(INDUSTRY_CHAIN_PIPELINE);
+    // 注册产业链动态编排 pipeline（hook 绑定 service，方案 B），幂等
+    this.service.ensurePipelineRegistered(this.service.buildPipeline());
   }
 }

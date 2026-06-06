@@ -18,6 +18,9 @@ import { EntityResolutionService } from "@/modules/ai-engine/facade";
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
+  HarnessFacade,
+  type IAgentSpec,
+  type IAgentTask,
 } from "@/modules/ai-harness/facade";
 import {
   ChainExtractionResult,
@@ -26,7 +29,12 @@ import {
   sanitizeSourceRefs,
   ENTITY_TYPES,
 } from "./chain-extraction";
-import { INDUSTRY_CHAIN_PIPELINE_ID } from "./pipeline/industry-chain.pipeline";
+import {
+  INDUSTRY_CHAIN_PIPELINE_ID,
+  CHAIN_MAPPER_SYSTEM_PROMPT,
+  CHAIN_MAPPER_TOOL_IDS,
+  buildIndustryChainPipeline,
+} from "./pipeline/industry-chain.pipeline";
 
 export interface ChainGraphNode {
   id: string;
@@ -55,7 +63,71 @@ export class IndustryChainService {
     private readonly entityResolution: EntityResolutionService,
     private readonly orchestrator: MissionPipelineOrchestrator,
     private readonly registry: MissionPipelineRegistry,
+    private readonly harness: HarnessFacade,
   ) {}
+
+  /**
+   * 构建产业链 pipeline（方案 B）：hook 闭包绑定本 service。
+   *   - research.perItemPipeline：经 HarnessFacade 跑 chain-mapper agent（ReAct + 工具）→ 结构化抽取
+   *   - persist.persist：读 research 输出 → persistExtraction 落领域表
+   */
+  buildPipeline() {
+    return buildIndustryChainPipeline(
+      {
+        // 单条产业链 → 单 item
+        fanOut: ({ ctx }) => [ctx.input],
+        perItemPipeline: async ({ ctx }) => {
+          const input = ctx.input as { topic: string; chainId: string };
+          const spec: IAgentSpec = {
+            identity: {
+              role: {
+                id: "chain-mapper",
+                name: "Chain Mapper",
+                description: "产业链分析 Agent",
+              },
+              tools: [...CHAIN_MAPPER_TOOL_IDS],
+            },
+            loop: "react",
+            systemPrompt: CHAIN_MAPPER_SYSTEM_PROMPT,
+            userId: ctx.userId,
+            outputSchema: ChainExtractionResultSchema as never,
+          };
+          const task: IAgentTask = {
+            goal: `分析"${input.topic}"的产业链结构与参与者`,
+            input: { topic: input.topic },
+            signal: ctx.signal,
+          };
+          const result = await this.harness.execute(spec, task);
+          return this.parseExtraction(result.output);
+        },
+      },
+      {
+        persist: async ({ ctx, previousOutputs }) => {
+          const input = ctx.input as { chainId: string };
+          const research = previousOutputs["extract"] as
+            | { results?: unknown[] }
+            | undefined;
+          const extraction = research?.results?.[0];
+          if (extraction) {
+            await this.persistExtraction(input.chainId, extraction);
+          }
+        },
+      },
+    );
+  }
+
+  /** 容错解析 agent 输出（object 直解 / string 先 JSON.parse）为 ChainExtractionResult。 */
+  private parseExtraction(output: string | Record<string, unknown>): ChainExtractionResult {
+    let raw: unknown = output;
+    if (typeof output === "string") {
+      try {
+        raw = JSON.parse(output);
+      } catch {
+        raw = {};
+      }
+    }
+    return ChainExtractionResultSchema.parse(raw);
+  }
 
   /** 创建产业链 + 异步发起动态编排 mission。返回 {chainId, missionId}。 */
   async analyze(userId: string, topic: string): Promise<{ chainId: string; missionId: string }> {

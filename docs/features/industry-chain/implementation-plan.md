@@ -235,11 +235,15 @@ model IndustryRelation {
 3. `POST /industry-chain/analyze {topic:"算力底座"}` 跑通 mission，`GET /:id/graph` 返回 `nodes≥3 && edges≥2`，≥1 COMPANY 带真实 SEC `accessionNumber`
 4. 前端页面点击节点见详情面板（chain 布局上→下游分列）
 
-### ⚠️ 待运行时确认的集成点（编排 persist 衔接）
-mission-pipeline 框架的 `persist` primitive 落的是框架 mission store，**不直接落 `IndustryRelation` 领域表**。当前 `IndustryChainService.persistExtraction` 承担领域落库（已独立单测）。二者衔接有两条路，需在可运行环境验证后定夺：
-- **(A) 单 agent 经 HarnessFacade 直跑**：用 AgentFactory 跑 chain-mapper（ReAct loop + 工具）拿结构化结果，service 直接 `persistExtraction`（更简、service 掌控落库）。
-- **(B) pipeline + persist hook**：保留 pipeline，在 `persist`/`review` step 的 hook 内回调 `persistExtraction`。
-当前代码为 (B) 的骨架（pipeline 已注册），但 hook 回调落库的接线需运行时验证。**建议部署态优先验证 (A) 的简洁性**。
+### 编排 persist 衔接 —— 已按方案 B 接线（用户决策 2026-06-06）
+关键认知：stage primitive 是**通用编排壳**，不自己跑 agent，而是调注入的 hook——所以 **B 包住了 A**：
+- `research.perItemPipeline` hook 经 `HarnessFacade.execute` 跑 chain-mapper agent（ReAct + 工具）产出结构化抽取（= A 的 agent 跑法）。
+- `persist.persist` hook 读 research 输出 → `IndustryChainService.persistExtraction` 落领域表（M2 映射 + M8 校验在内）。
+- 框架白送 mission 生命周期/事件流/checkpoint/cost。
+- pipeline 精简为 `research→persist` 两步（消歧/结构校验已内含于 persistExtraction）；JudgeService 共识 review step 为后续可选增强。
+
+hook 闭包绑定 service（含 HarnessFacade），故 pipeline 运行时构建（`service.buildPipeline()`）后注册。
+**离线验证**：buildPipeline 接线单测（research hook 跑 agent 解析 + persist hook 落库）已绿；**端到端跑通仍属部署态**（需 LLM + SEC egress + DB）。
 
 ---
 
