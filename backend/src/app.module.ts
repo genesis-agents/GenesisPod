@@ -64,6 +64,7 @@ import { InsightModule } from "./modules/ai-app/insight";
 import { PlaygroundModule } from "./modules/ai-app/playground/module/playground.module";
 import { RadarModule } from "./modules/ai-app/radar/module/radar.module";
 import { CustomAgentsModule } from "./modules/ai-app/custom-agents/custom-agents.module";
+import { CompanyModule } from "./modules/ai-app/company/company.module";
 import { AiSocialModule } from "./modules/ai-app/social/module/ai-social.module";
 import { SocialEngineBridgeModule } from "./modules/ai-app/social/runtime/social-engine-bridge.module";
 // Explore modules (content discovery)
@@ -224,6 +225,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     PlaygroundModule,
     RadarModule, // AI 雷达：多源数据采集 + 多 Agent 看板 (PR-R1 起)
     CustomAgentsModule, // E R4 Phase 2 PR-E1 (2026-05-05): 用户自定义 agent CRUD
+    CompanyModule, // 一人公司 OS（W1a 市场目录 API）— design.md §10
     AiSocialModule,
     SocialEngineBridgeModule, // @Global 绑定 SOCIAL_PUBLISH_PORT → SocialPublishAdapter，给 engine 三个发布 tool 委托
     // Content engine modules (Phase 3: moved from ai-engine)

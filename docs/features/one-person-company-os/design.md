@@ -252,6 +252,36 @@ frontend/stores/company/companyStore.ts            ← 跨路由共享"我的团
 
 ---
 
+## 10. 后端实现架构（2026-06-07 与用户确认）
+
+**新模块** `backend/src/modules/ai-app/company/`（一人公司 OS）。分层：`api/controller`(REST+WS) · `api/dto`(class-validator) · `services/*`(业务+repository) · `runtime`(接 ai-harness 执行)。facade-only 访问 engine/harness；JwtAuthGuard + RequestWithUser；手写幂等迁移。
+
+**市场目录 = 现有 registry 的只读投影**（不建目录表）：
+
+- Agent → `ai-app/contracts/agent-catalog.ts` `PLATFORM_AGENT_METAS`（8 真实 Agent）+ `SpecAgentRegistry`
+- 技能 → `SkillRegistry` / 内置 skill catalog
+- 工具 → `ToolRegistry.getEnabled()`（~70 真实工具）
+- 工作流 → `TeamRegistry.getAllConfigs()`（真实 TeamConfig + workflow steps）
+
+**Prisma 新模型**（均按 userId 私有，手写迁移）：`CompanyProfile`(ceo+名) · `CompanyTeam` · `CompanyHiredAgent`(models[]/autoFallback/skillIds/toolIds) · `CompanyWorkflow`(origin/stages…) · `CompanyMission`。
+
+**Mission 执行**复用 ai-harness `LeaderWorkerLoop`/runner + WebSocket（照搬 playground），不新造 runner。
+
+### 分三波交付（每波推 main）
+
+- **W1 市场真数据**：W1a 后端目录 API（投影 registry）→ W1b 前端市场接真数据 + 前端 catalog store 取代 marketplace.mock，companyStore 种子改空。
+- **W2 持久化**：Prisma 模型+迁移 + 公司/团队/招募/工作流 CRUD API + 前端「我的团队」接真数据（替换 companyStore in-memory）。
+- **W3 执行**：团队 Mission 接 ai-harness runner + WebSocket 实时流。
+
+### W1 后端目录 DTO 契约（语义层，UI 字段由前端适配）
+
+- `AgentCatalogItem`: id,name,description,role,category,tags[],capabilities[],skillIds[],toolIds[],defaultModel
+- `SkillCatalogItem`: id,name,description,category,tags[],activatesFor[]
+- `ToolCatalogItem`: id,name,description,category,tags[],source(builtin|mcp|openapi)
+- `WorkflowCatalogItem`: id,name,description,category,teamSize,roles[],stages[]
+
+---
+
 ## 附录：相关源码锚点（探索结论）
 
 - Agent 定义：`backend/src/modules/ai-harness/agents/abstractions/identity.interface.ts`、`dev-tools/agent-spec.base.ts`
