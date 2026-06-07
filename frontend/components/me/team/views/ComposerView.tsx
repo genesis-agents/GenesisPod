@@ -50,9 +50,10 @@ export function ComposerView({
     teams.find((t) => t.id === activeTeamId) ?? teams[0] ?? null;
 
   const handleCreateTeam = () => {
-    const id = createTeam(`新团队 ${teams.length + 1}`);
-    setActiveTeamId(id);
-    toast.success('已创建新团队');
+    void createTeam(`新团队 ${teams.length + 1}`).then((id) => {
+      if (id) setActiveTeamId(id);
+      toast.success('已创建新团队');
+    });
   };
 
   const memberOf = (id: string) => hired.find((h) => h.instanceId === id);
@@ -124,7 +125,9 @@ export function ComposerView({
               <div className="flex min-w-0 items-center gap-2">
                 <input
                   value={activeTeam.name}
-                  onChange={(e) => renameTeam(activeTeam.id, e.target.value)}
+                  onChange={(e) =>
+                    void renameTeam(activeTeam.id, e.target.value)
+                  }
                   aria-label="团队名称"
                   className="min-w-0 max-w-[14rem] rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-lg font-semibold text-gray-900 transition-colors hover:border-gray-200 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                 />
@@ -137,7 +140,7 @@ export function ComposerView({
                 <select
                   value={activeTeam.workflowId ?? ''}
                   onChange={(e) =>
-                    setWorkflow(activeTeam.id, e.target.value || null)
+                    void setWorkflow(activeTeam.id, e.target.value || null)
                   }
                   className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
                 >
@@ -150,7 +153,7 @@ export function ComposerView({
                 </select>
                 <button
                   onClick={() => {
-                    deleteTeam(activeTeam.id);
+                    void deleteTeam(activeTeam.id);
                     setActiveTeamId(null);
                     toast.info('已解散该团队');
                   }}
@@ -201,7 +204,7 @@ export function ComposerView({
 
                     <div className="mt-3 flex items-center gap-1 border-t border-gray-100 pt-2.5">
                       <button
-                        onClick={() => setLeader(activeTeam.id, mid)}
+                        onClick={() => void setLeader(activeTeam.id, mid)}
                         disabled={isLeader}
                         className={cn(
                           'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium',
@@ -219,7 +222,7 @@ export function ComposerView({
                         {isLeader ? 'Leader' : '设为 Leader'}
                       </button>
                       <button
-                        onClick={() => removeMember(activeTeam.id, mid)}
+                        onClick={() => void removeMember(activeTeam.id, mid)}
                         className="ml-auto rounded-md p-1 text-gray-300 hover:bg-red-50 hover:text-red-500"
                         aria-label="移出团队"
                       >
@@ -273,7 +276,7 @@ export function ComposerView({
                 <button
                   key={a.instanceId}
                   onClick={() => {
-                    addMember(activeTeam.id, a.instanceId);
+                    void addMember(activeTeam.id, a.instanceId);
                     toast.success(`已把 ${a.name} 加入 ${activeTeam.name}`);
                   }}
                   className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 text-left hover:border-primary hover:bg-gray-50"

@@ -1,25 +1,17 @@
 /**
- * 一人公司 OS · 跨路由共享状态（M0 原型，纯前端内存）。
+ * 一人公司 OS · 跨路由共享状态（API-backed，Zustand 作缓存层）。
  *
  * /marketplace（招人/采购）与 /me 我的团队（组队/任命/下任务）通过本 store 联动。
- * M0 不持久化：整页刷新即回到种子状态。真接后端见 design.md §7 M2。
+ * loadCompany() 拉取后端快照；写 action 调对应 REST API，成功后更新本地缓存。
  */
 
 import { create } from 'zustand';
-import {
-  AGENT_LISTINGS,
-  SKILL_LISTINGS,
-  TOOL_LISTINGS,
-  WORKFLOW_LISTINGS,
-  findListing,
-} from '@/components/marketplace/marketplace.mock';
-import type {
-  AgentListing,
-  Seniority,
-  WorkflowListing,
-} from '@/components/marketplace/marketplace.types';
+import { apiClient } from '@/lib/api/client';
+import { toast } from '@/stores/core/toastStore';
+import type { Seniority } from '@/components/marketplace/marketplace.types';
+import { AVATAR_GRADIENTS } from '@/lib/design/tokens';
 
-/** 可为 Agent 配置的模型档位（M0 展示名；真实走 TaskProfile/模型选择，不硬编码 provider）。 */
+/** 可为 Agent 配置的模型档位（展示名；真实走 TaskProfile/模型选择，不硬编码 provider）。 */
 export const MODEL_OPTIONS = ['Opus', 'Sonnet', 'Haiku'] as const;
 
 export interface HiredAgent {
@@ -80,7 +72,85 @@ export interface CompanyMission {
   createdAt: number;
 }
 
+/** 后端原始形状（与前端 UI 形状不同，loadCompany/写操作经 adapt* 映射补齐 UI 字段） */
+interface BackendHired {
+  id: string;
+  listingId: string;
+  name: string;
+  role: string;
+  models: string[];
+  autoFallback: boolean;
+  skillIds: string[];
+  toolIds: string[];
+}
+interface BackendTeam {
+  id: string;
+  name: string;
+  leaderId: string | null;
+  workflowId: string | null;
+  members: { hiredAgentId: string }[];
+}
+interface BackendWorkflow {
+  id: string;
+  name: string;
+  category: string;
+  stages: string[];
+  teamSize: number;
+  roles: string[];
+  origin: string;
+  sourceListingId: string | null;
+}
+interface BackendSnapshot {
+  profile: { ceoHiredAgentId: string | null };
+  hired: BackendHired[];
+  teams: BackendTeam[];
+  workflows: BackendWorkflow[];
+}
+
+/** 按 id 哈希取头像渐变（UI 字段，后端不存） */
+function gradientForId(id: string): string {
+  let h = 5381;
+  for (let i = 0; i < id.length; i++) h = ((h << 5) + h + id.charCodeAt(i)) | 0;
+  return AVATAR_GRADIENTS[Math.abs(h) % AVATAR_GRADIENTS.length];
+}
+function adaptHired(a: BackendHired): HiredAgent {
+  return {
+    instanceId: a.id,
+    listingId: a.listingId,
+    name: a.name,
+    role: a.role,
+    seniority: 'mid',
+    avatarGradient: gradientForId(a.listingId || a.id),
+    models: a.models ?? [],
+    autoFallback: a.autoFallback,
+    skillIds: a.skillIds ?? [],
+    toolIds: a.toolIds ?? [],
+  };
+}
+function adaptTeam(t: BackendTeam): CompanyTeam {
+  return {
+    id: t.id,
+    name: t.name,
+    leaderId: t.leaderId,
+    workflowId: t.workflowId,
+    memberIds: (t.members ?? []).map((m) => m.hiredAgentId),
+  };
+}
+function adaptWorkflow(w: BackendWorkflow): TeamWorkflow {
+  return {
+    id: w.id,
+    name: w.name,
+    category: w.category,
+    stages: w.stages ?? [],
+    teamSize: w.teamSize,
+    roles: w.roles ?? [],
+    origin: w.origin === 'custom' ? 'custom' : 'market',
+    sourceListingId: w.sourceListingId ?? undefined,
+  };
+}
+
 interface CompanyState {
+  loading: boolean;
   ceoId: string | null;
   hired: HiredAgent[];
   acquiredSkillIds: string[];
@@ -89,36 +159,39 @@ interface CompanyState {
   teams: CompanyTeam[];
   missions: CompanyMission[];
 
+  // ―― 快照加载 ――
+  loadCompany: () => Promise<void>;
+
   // ―― 市场采购 ――
-  hireAgent: (listing: AgentListing) => string;
-  fireAgent: (instanceId: string) => void;
+  hireAgent: (listingId: string) => Promise<string | null>;
+  fireAgent: (instanceId: string) => Promise<void>;
   acquireSkill: (id: string) => void;
   acquireTool: (id: string) => void;
-  acquireWorkflow: (id: string) => void;
+  acquireWorkflow: (sourceListingId: string) => Promise<void>;
 
   // ―― 工作流（市场副本 + 自建，统一可编辑）――
-  addCustomWorkflow: () => string;
-  renameWorkflow: (id: string, name: string) => void;
-  updateWorkflow: (id: string, patch: Partial<TeamWorkflow>) => void;
-  removeWorkflow: (id: string) => void;
+  addCustomWorkflow: () => Promise<string | null>;
+  renameWorkflow: (id: string, name: string) => Promise<void>;
+  updateWorkflow: (id: string, patch: Partial<TeamWorkflow>) => Promise<void>;
+  removeWorkflow: (id: string) => Promise<void>;
 
   // ―― 团队编排 ――
-  appointCeo: (instanceId: string | null) => void;
-  createTeam: (name: string) => string;
-  renameTeam: (teamId: string, name: string) => void;
-  deleteTeam: (teamId: string) => void;
-  addMember: (teamId: string, instanceId: string) => void;
-  removeMember: (teamId: string, instanceId: string) => void;
-  setLeader: (teamId: string, instanceId: string) => void;
-  setWorkflow: (teamId: string, workflowId: string | null) => void;
+  appointCeo: (instanceId: string | null) => Promise<void>;
+  createTeam: (name: string) => Promise<string | null>;
+  renameTeam: (teamId: string, name: string) => Promise<void>;
+  deleteTeam: (teamId: string) => Promise<void>;
+  addMember: (teamId: string, instanceId: string) => Promise<void>;
+  removeMember: (teamId: string, instanceId: string) => Promise<void>;
+  setLeader: (teamId: string, instanceId: string) => Promise<void>;
+  setWorkflow: (teamId: string, workflowId: string | null) => Promise<void>;
 
   // ―― 成员装配 ――
-  toggleAgentSkill: (instanceId: string, skillId: string) => void;
-  toggleAgentTool: (instanceId: string, toolId: string) => void;
-  setAgentModels: (instanceId: string, models: string[]) => void;
-  setAgentAutoFallback: (instanceId: string, value: boolean) => void;
+  toggleAgentSkill: (instanceId: string, skillId: string) => Promise<void>;
+  toggleAgentTool: (instanceId: string, toolId: string) => Promise<void>;
+  setAgentModels: (instanceId: string, models: string[]) => Promise<void>;
+  setAgentAutoFallback: (instanceId: string, value: boolean) => Promise<void>;
 
-  // ―― 任务 ――
+  // ―― 任务（本地，暂未接后端）――
   createMission: (teamId: string, title: string) => string;
   setMissionProgress: (
     missionId: string,
@@ -130,105 +203,66 @@ interface CompanyState {
 let seq = 0;
 const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${seq++}`;
 
-function instanceFromListing(listing: AgentListing): HiredAgent {
-  return {
-    instanceId: uid('m'),
-    listingId: listing.id,
-    name: listing.name,
-    role: listing.role,
-    seniority: listing.seniority,
-    avatarGradient: listing.avatarGradient,
-    models: [listing.defaultModel],
-    autoFallback: true,
-    skillIds: [...listing.skillIds],
-    toolIds: [...listing.toolIds],
-  };
-}
+export const useCompanyStore = create<CompanyState>((set, get) => ({
+  loading: false,
+  ceoId: null,
+  hired: [],
+  acquiredSkillIds: [],
+  acquiredToolIds: [],
+  teamWorkflows: [],
+  teams: [],
+  missions: [],
 
-function toTeamWorkflow(w: WorkflowListing): TeamWorkflow {
-  return {
-    id: w.id,
-    name: w.name,
-    category: w.category,
-    stages: [...w.stages],
-    teamSize: w.teamSize,
-    roles: [...w.roles],
-    origin: 'market',
-    sourceListingId: w.id,
-  };
-}
-
-// ―― 种子数据：已招 4 人、1 个 CEO、2 个 Team、2 个进行中任务 ――
-function seed() {
-  const byId = (id: string) => AGENT_LISTINGS.find((a) => a.id === id)!;
-  const ceo = instanceFromListing(byId('agent-murphy'));
-  const luna = instanceFromListing(byId('agent-luna'));
-  const quill = instanceFromListing(byId('agent-quill'));
-  const ada = instanceFromListing(byId('agent-ada'));
-
-  const teamA: CompanyTeam = {
-    id: uid('t'),
-    name: '内容组',
-    memberIds: [quill.instanceId, luna.instanceId],
-    leaderId: quill.instanceId,
-    workflowId: 'wf-content-factory',
-  };
-  const teamB: CompanyTeam = {
-    id: uid('t'),
-    name: '研发组',
-    memberIds: [ada.instanceId],
-    leaderId: ada.instanceId,
-    workflowId: 'wf-product-sprint',
-  };
-
-  const missions: CompanyMission[] = [
-    {
-      id: uid('ms'),
-      teamId: teamA.id,
-      title: '撰写本季度复盘',
-      status: 'running',
-      progress: 80,
-      createdAt: Date.now() - 1000 * 60 * 42,
-    },
-    {
-      id: uid('ms'),
-      teamId: teamB.id,
-      title: '调研竞品定价策略',
-      status: 'running',
-      progress: 40,
-      createdAt: Date.now() - 1000 * 60 * 18,
-    },
-  ];
-
-  return {
-    ceoId: ceo.instanceId,
-    hired: [ceo, luna, quill, ada],
-    acquiredSkillIds: SKILL_LISTINGS.slice(0, 4).map((s) => s.id),
-    acquiredToolIds: TOOL_LISTINGS.slice(0, 4).map((t) => t.id),
-    teamWorkflows: WORKFLOW_LISTINGS.slice(0, 3).map(toTeamWorkflow),
-    teams: [teamA, teamB],
-    missions,
-  };
-}
-
-export const useCompanyStore = create<CompanyState>((set) => ({
-  ...seed(),
-
-  hireAgent: (listing) => {
-    const agent = instanceFromListing(listing);
-    set((s) => ({
-      hired: [...s.hired, agent],
-      acquiredSkillIds: Array.from(
-        new Set([...s.acquiredSkillIds, ...listing.skillIds])
-      ),
-      acquiredToolIds: Array.from(
-        new Set([...s.acquiredToolIds, ...listing.toolIds])
-      ),
-    }));
-    return agent.instanceId;
+  // ―― 快照加载 ――
+  loadCompany: async () => {
+    set({ loading: true });
+    try {
+      const snap = await apiClient.get<BackendSnapshot>('/company');
+      const hired = snap.hired.map(adaptHired);
+      const allSkillIds = Array.from(new Set(hired.flatMap((a) => a.skillIds)));
+      const allToolIds = Array.from(new Set(hired.flatMap((a) => a.toolIds)));
+      set({
+        ceoId: snap.profile.ceoHiredAgentId ?? null,
+        hired,
+        teams: snap.teams.map(adaptTeam),
+        teamWorkflows: snap.workflows.map(adaptWorkflow),
+        acquiredSkillIds: allSkillIds,
+        acquiredToolIds: allToolIds,
+        loading: false,
+      });
+    } catch {
+      set({ loading: false });
+      toast.error('加载公司数据失败，请稍后重试');
+    }
   },
 
-  fireAgent: (instanceId) =>
+  // ―― 市场采购 ――
+  hireAgent: async (listingId) => {
+    try {
+      const agent = adaptHired(
+        await apiClient.post<BackendHired>('/company/hire', { listingId })
+      );
+      set((s) => ({
+        hired: [...s.hired, agent],
+        acquiredSkillIds: Array.from(
+          new Set([...s.acquiredSkillIds, ...agent.skillIds])
+        ),
+        acquiredToolIds: Array.from(
+          new Set([...s.acquiredToolIds, ...agent.toolIds])
+        ),
+      }));
+      return agent.instanceId;
+    } catch {
+      toast.error('招募 Agent 失败，请稍后重试');
+      return null;
+    }
+  },
+
+  fireAgent: async (instanceId) => {
+    const prev = get().hired;
+    const prevCeo = get().ceoId;
+    const prevTeams = get().teams;
+    // 乐观更新
     set((s) => ({
       hired: s.hired.filter((a) => a.instanceId !== instanceId),
       ceoId: s.ceoId === instanceId ? null : s.ceoId,
@@ -237,95 +271,178 @@ export const useCompanyStore = create<CompanyState>((set) => ({
         memberIds: t.memberIds.filter((m) => m !== instanceId),
         leaderId: t.leaderId === instanceId ? null : t.leaderId,
       })),
-    })),
+    }));
+    try {
+      await apiClient.delete(`/company/hired/${instanceId}`);
+    } catch {
+      set({ hired: prev, ceoId: prevCeo, teams: prevTeams });
+      toast.error('解雇 Agent 失败，请稍后重试');
+    }
+  },
 
   acquireSkill: (id) =>
     set((s) => ({
       acquiredSkillIds: Array.from(new Set([...s.acquiredSkillIds, id])),
     })),
+
   acquireTool: (id) =>
     set((s) => ({
       acquiredToolIds: Array.from(new Set([...s.acquiredToolIds, id])),
     })),
-  acquireWorkflow: (id) =>
-    set((s) => {
-      if (s.teamWorkflows.some((w) => w.sourceListingId === id)) return s;
-      const listing = findListing(id);
-      if (!listing || listing.kind !== 'workflow') return s;
-      return { teamWorkflows: [...s.teamWorkflows, toTeamWorkflow(listing)] };
-    }),
 
-  addCustomWorkflow: () => {
-    const wf: TeamWorkflow = {
-      id: uid('cwf'),
-      name: '新工作流',
-      category: '自建',
-      stages: ['规划', '执行', '评审'],
-      teamSize: 3,
-      roles: ['Leader', '成员'],
-      origin: 'custom',
-    };
-    set((s) => ({ teamWorkflows: [...s.teamWorkflows, wf] }));
-    return wf.id;
+  acquireWorkflow: async (sourceListingId) => {
+    if (
+      get().teamWorkflows.some((w) => w.sourceListingId === sourceListingId)
+    ) {
+      return;
+    }
+    try {
+      const wf = adaptWorkflow(
+        await apiClient.post<BackendWorkflow>('/company/workflows/acquire', {
+          sourceListingId,
+        })
+      );
+      set((s) => ({ teamWorkflows: [...s.teamWorkflows, wf] }));
+    } catch {
+      toast.error('获取工作流失败，请稍后重试');
+    }
   },
 
-  renameWorkflow: (id, name) =>
+  // ―― 工作流 ――
+  addCustomWorkflow: async () => {
+    try {
+      const wf = adaptWorkflow(
+        await apiClient.post<BackendWorkflow>('/company/workflows/custom')
+      );
+      set((s) => ({ teamWorkflows: [...s.teamWorkflows, wf] }));
+      return wf.id;
+    } catch {
+      toast.error('创建工作流失败，请稍后重试');
+      return null;
+    }
+  },
+
+  renameWorkflow: async (id, name) => {
+    const prev = get().teamWorkflows;
     set((s) => ({
       teamWorkflows: s.teamWorkflows.map((w) =>
         w.id === id ? { ...w, name } : w
       ),
-    })),
+    }));
+    try {
+      await apiClient.patch(`/company/workflows/${id}`, { name });
+    } catch {
+      set({ teamWorkflows: prev });
+      toast.error('重命名工作流失败，请稍后重试');
+    }
+  },
 
-  updateWorkflow: (id, patch) =>
+  updateWorkflow: async (id, patch) => {
+    const prev = get().teamWorkflows;
     set((s) => ({
       teamWorkflows: s.teamWorkflows.map((w) =>
         w.id === id ? { ...w, ...patch } : w
       ),
-    })),
+    }));
+    try {
+      await apiClient.patch(`/company/workflows/${id}`, patch);
+    } catch {
+      set({ teamWorkflows: prev });
+      toast.error('更新工作流失败，请稍后重试');
+    }
+  },
 
-  removeWorkflow: (id) =>
+  removeWorkflow: async (id) => {
+    const prev = get().teamWorkflows;
+    const prevTeams = get().teams;
     set((s) => ({
       teamWorkflows: s.teamWorkflows.filter((w) => w.id !== id),
       teams: s.teams.map((t) =>
         t.workflowId === id ? { ...t, workflowId: null } : t
       ),
-    })),
-
-  appointCeo: (instanceId) => set({ ceoId: instanceId }),
-
-  createTeam: (name) => {
-    const team: CompanyTeam = {
-      id: uid('t'),
-      name,
-      memberIds: [],
-      leaderId: null,
-      workflowId: null,
-    };
-    set((s) => ({ teams: [...s.teams, team] }));
-    return team.id;
+    }));
+    try {
+      await apiClient.delete(`/company/workflows/${id}`);
+    } catch {
+      set({ teamWorkflows: prev, teams: prevTeams });
+      toast.error('删除工作流失败，请稍后重试');
+    }
   },
 
-  renameTeam: (teamId, name) =>
+  // ―― 团队编排 ――
+  appointCeo: async (instanceId) => {
+    const prev = get().ceoId;
+    set({ ceoId: instanceId });
+    try {
+      await apiClient.post('/company/ceo', { hiredAgentId: instanceId });
+    } catch {
+      set({ ceoId: prev });
+      toast.error('任命 CEO 失败，请稍后重试');
+    }
+  },
+
+  createTeam: async (name) => {
+    try {
+      const team = adaptTeam(
+        await apiClient.post<BackendTeam>('/company/teams', { name })
+      );
+      set((s) => ({ teams: [...s.teams, team] }));
+      return team.id;
+    } catch {
+      toast.error('创建团队失败，请稍后重试');
+      return null;
+    }
+  },
+
+  renameTeam: async (teamId, name) => {
+    const prev = get().teams;
     set((s) => ({
       teams: s.teams.map((t) => (t.id === teamId ? { ...t, name } : t)),
-    })),
+    }));
+    try {
+      await apiClient.patch(`/company/teams/${teamId}`, { name });
+    } catch {
+      set({ teams: prev });
+      toast.error('重命名团队失败，请稍后重试');
+    }
+  },
 
-  deleteTeam: (teamId) =>
+  deleteTeam: async (teamId) => {
+    const prev = get().teams;
+    const prevMissions = get().missions;
     set((s) => ({
       teams: s.teams.filter((t) => t.id !== teamId),
       missions: s.missions.filter((m) => m.teamId !== teamId),
-    })),
+    }));
+    try {
+      await apiClient.delete(`/company/teams/${teamId}`);
+    } catch {
+      set({ teams: prev, missions: prevMissions });
+      toast.error('删除团队失败，请稍后重试');
+    }
+  },
 
-  addMember: (teamId, instanceId) =>
+  addMember: async (teamId, instanceId) => {
+    const prev = get().teams;
     set((s) => ({
       teams: s.teams.map((t) =>
         t.id === teamId && !t.memberIds.includes(instanceId)
           ? { ...t, memberIds: [...t.memberIds, instanceId] }
           : t
       ),
-    })),
+    }));
+    try {
+      await apiClient.post(`/company/teams/${teamId}/members`, {
+        hiredAgentId: instanceId,
+      });
+    } catch {
+      set({ teams: prev });
+      toast.error('添加成员失败，请稍后重试');
+    }
+  },
 
-  removeMember: (teamId, instanceId) =>
+  removeMember: async (teamId, instanceId) => {
+    const prev = get().teams;
     set((s) => ({
       teams: s.teams.map((t) =>
         t.id === teamId
@@ -336,9 +453,17 @@ export const useCompanyStore = create<CompanyState>((set) => ({
             }
           : t
       ),
-    })),
+    }));
+    try {
+      await apiClient.delete(`/company/teams/${teamId}/members/${instanceId}`);
+    } catch {
+      set({ teams: prev });
+      toast.error('移除成员失败，请稍后重试');
+    }
+  },
 
-  setLeader: (teamId, instanceId) =>
+  setLeader: async (teamId, instanceId) => {
+    const prev = get().teams;
     set((s) => ({
       teams: s.teams.map((t) =>
         t.id === teamId
@@ -351,14 +476,33 @@ export const useCompanyStore = create<CompanyState>((set) => ({
             }
           : t
       ),
-    })),
+    }));
+    try {
+      await apiClient.post(`/company/teams/${teamId}/leader`, {
+        hiredAgentId: instanceId,
+      });
+    } catch {
+      set({ teams: prev });
+      toast.error('设置 Leader 失败，请稍后重试');
+    }
+  },
 
-  setWorkflow: (teamId, workflowId) =>
+  setWorkflow: async (teamId, workflowId) => {
+    const prev = get().teams;
     set((s) => ({
       teams: s.teams.map((t) => (t.id === teamId ? { ...t, workflowId } : t)),
-    })),
+    }));
+    try {
+      await apiClient.post(`/company/teams/${teamId}/workflow`, { workflowId });
+    } catch {
+      set({ teams: prev });
+      toast.error('设置工作流失败，请稍后重试');
+    }
+  },
 
-  toggleAgentSkill: (instanceId, skillId) =>
+  // ―― 成员装配 ――
+  toggleAgentSkill: async (instanceId, skillId) => {
+    const prev = get().hired;
     set((s) => ({
       hired: s.hired.map((a) =>
         a.instanceId === instanceId
@@ -370,9 +514,21 @@ export const useCompanyStore = create<CompanyState>((set) => ({
             }
           : a
       ),
-    })),
+    }));
+    const agent = get().hired.find((a) => a.instanceId === instanceId);
+    if (!agent) return;
+    try {
+      await apiClient.patch(`/company/hired/${instanceId}`, {
+        skillIds: agent.skillIds,
+      });
+    } catch {
+      set({ hired: prev });
+      toast.error('更新技能失败，请稍后重试');
+    }
+  },
 
-  toggleAgentTool: (instanceId, toolId) =>
+  toggleAgentTool: async (instanceId, toolId) => {
+    const prev = get().hired;
     set((s) => ({
       hired: s.hired.map((a) =>
         a.instanceId === instanceId
@@ -384,22 +540,52 @@ export const useCompanyStore = create<CompanyState>((set) => ({
             }
           : a
       ),
-    })),
+    }));
+    const agent = get().hired.find((a) => a.instanceId === instanceId);
+    if (!agent) return;
+    try {
+      await apiClient.patch(`/company/hired/${instanceId}`, {
+        toolIds: agent.toolIds,
+      });
+    } catch {
+      set({ hired: prev });
+      toast.error('更新工具失败，请稍后重试');
+    }
+  },
 
-  setAgentModels: (instanceId, models) =>
+  setAgentModels: async (instanceId, models) => {
+    const prev = get().hired;
     set((s) => ({
       hired: s.hired.map((a) =>
         a.instanceId === instanceId ? { ...a, models } : a
       ),
-    })),
+    }));
+    try {
+      await apiClient.patch(`/company/hired/${instanceId}`, { models });
+    } catch {
+      set({ hired: prev });
+      toast.error('更新模型配置失败，请稍后重试');
+    }
+  },
 
-  setAgentAutoFallback: (instanceId, value) =>
+  setAgentAutoFallback: async (instanceId, value) => {
+    const prev = get().hired;
     set((s) => ({
       hired: s.hired.map((a) =>
         a.instanceId === instanceId ? { ...a, autoFallback: value } : a
       ),
-    })),
+    }));
+    try {
+      await apiClient.patch(`/company/hired/${instanceId}`, {
+        autoFallback: value,
+      });
+    } catch {
+      set({ hired: prev });
+      toast.error('更新 fallback 配置失败，请稍后重试');
+    }
+  },
 
+  // ―― 任务（本地，暂未接后端）――
   createMission: (teamId, title) => {
     const mission: CompanyMission = {
       id: uid('ms'),

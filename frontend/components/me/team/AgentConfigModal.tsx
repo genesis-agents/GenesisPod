@@ -67,9 +67,9 @@ export function AgentConfigModal({
           options={modelOptions}
           selected={agent.models}
           ordered
-          onAdd={(id) => setAgentModels(instanceId, [...agent.models, id])}
+          onAdd={(id) => void setAgentModels(instanceId, [...agent.models, id])}
           onRemove={(id) =>
-            setAgentModels(
+            void setAgentModels(
               instanceId,
               agent.models.filter((m) => m !== id)
             )
@@ -80,7 +80,7 @@ export function AgentConfigModal({
                 type="checkbox"
                 checked={agent.autoFallback}
                 onChange={(e) =>
-                  setAgentAutoFallback(instanceId, e.target.checked)
+                  void setAgentAutoFallback(instanceId, e.target.checked)
                 }
                 className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
               />
@@ -95,8 +95,8 @@ export function AgentConfigModal({
           options={skillOptions}
           selected={agent.skillIds}
           searchable
-          onAdd={(id) => toggleAgentSkill(instanceId, id)}
-          onRemove={(id) => toggleAgentSkill(instanceId, id)}
+          onAdd={(id) => void toggleAgentSkill(instanceId, id)}
+          onRemove={(id) => void toggleAgentSkill(instanceId, id)}
         />
         <CapabilityPicker
           icon={<Wrench className="h-4 w-4 text-blue-500" />}
@@ -104,8 +104,8 @@ export function AgentConfigModal({
           options={toolOptions}
           selected={agent.toolIds}
           searchable
-          onAdd={(id) => toggleAgentTool(instanceId, id)}
-          onRemove={(id) => toggleAgentTool(instanceId, id)}
+          onAdd={(id) => void toggleAgentTool(instanceId, id)}
+          onRemove={(id) => void toggleAgentTool(instanceId, id)}
         />
       </div>
     </Modal>

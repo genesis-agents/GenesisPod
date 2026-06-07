@@ -1,433 +1,88 @@
 /**
- * 智能体市场 mock 货架数据（M0 原型）。
+ * 智能体市场货架数据 —— 由 useMarketplaceCatalog 从后端加载后写入。
  *
- * 决策 #4：团队工作领域不设限 —— Agent 覆盖 市场/运营/财务/法务/研发/设计/客服/内容
- * 等多领域，体现"任意一人公司定位皆可组队"。
+ * 原始 M0 硬编码数组已移除。ALL_LISTINGS 和 findListing 均从模块级缓存读取，
+ * 加载前返回空列表 / undefined；调用方已使用可选链，不会因此崩溃。
+ *
+ * 设计：模块级单例缓存（非 Zustand store），避免为只需同步读取的场景引入
+ * 订阅开销。useMarketplaceCatalog hook 在 data 返回后调用 setMarketplaceCatalog
+ * 写入，MarketplaceView 重渲染后各组件从 ALL_LISTINGS / findListing 取到真实数据。
  */
 
-import { AVATAR_GRADIENTS } from '@/lib/design/tokens';
 import type {
   AgentListing,
+  AnyListing,
+  ListingKind,
   SkillListing,
   ToolListing,
   WorkflowListing,
 } from './marketplace.types';
 
-// ─── 技能市场 ────────────────────────────────────────────────────────────────
-export const SKILL_LISTINGS: SkillListing[] = [
-  {
-    id: 'skill-deep-research',
-    kind: 'skill',
-    name: '深度调研',
-    tagline: '多源检索 + 交叉验证 + 结构化综述',
-    description:
-      '让 Agent 具备系统性文献与网络调研能力：拆解问题、并行检索多源、交叉验证后产出结构化综述，附引用。',
-    category: '研究',
-    tags: ['检索', '综述', '引用'],
-    publisher: '官方',
-    installs: 4820,
-    rating: 4.8,
-    activatesFor: ['researcher', 'analyst'],
-  },
-  {
-    id: 'skill-copywriting',
-    kind: 'skill',
-    name: '商业文案',
-    tagline: '品牌调性一致的高转化文案',
-    description:
-      '掌握 AIDA / PAS 等文案框架，按品牌调性产出落地页、邮件、社媒等高转化文案。',
-    category: '内容',
-    tags: ['文案', '营销', '转化'],
-    publisher: '官方',
-    installs: 6310,
-    rating: 4.7,
-    activatesFor: ['writer', 'marketer'],
-  },
-  {
-    id: 'skill-financial-modeling',
-    kind: 'skill',
-    name: '财务建模',
-    tagline: '三表联动 + 估值 + 敏感性分析',
-    description:
-      '构建三表联动模型、做 DCF/可比估值与敏感性分析，输出可解释的财务测算。',
-    category: '财务',
-    tags: ['建模', '估值', 'Excel'],
-    publisher: '官方',
-    installs: 1980,
-    rating: 4.6,
-    activatesFor: ['analyst', 'cfo'],
-  },
-  {
-    id: 'skill-contract-review',
-    kind: 'skill',
-    name: '合同审阅',
-    tagline: '风险条款识别 + 修改建议',
-    description:
-      '识别合同中的风险条款（赔付、管辖、知识产权等），给出标注与修改建议。',
-    category: '法务',
-    tags: ['合规', '风险', '条款'],
-    publisher: '官方',
-    installs: 1240,
-    rating: 4.5,
-    activatesFor: ['legal'],
-  },
-  {
-    id: 'skill-code-review',
-    kind: 'skill',
-    name: '代码审查',
-    tagline: '缺陷 + 安全 + 可维护性多维审查',
-    description:
-      '从正确性、安全、性能、可维护性多维度审查代码改动，给出可执行的修复建议。',
-    category: '研发',
-    tags: ['质量', '安全', '重构'],
-    publisher: '官方',
-    installs: 3560,
-    rating: 4.9,
-    activatesFor: ['engineer', 'reviewer'],
-  },
-  {
-    id: 'skill-data-viz',
-    kind: 'skill',
-    name: '数据可视化',
-    tagline: '把数据讲成一眼看懂的图',
-    description: '为分析结论选择恰当图表、组织叙事，产出清晰、不误导的可视化。',
-    category: '数据',
-    tags: ['图表', '叙事', 'BI'],
-    publisher: '官方',
-    installs: 2740,
-    rating: 4.6,
-    activatesFor: ['analyst', 'designer'],
-  },
-];
+// ─── 模块级 catalog 缓存 ──────────────────────────────────────────────────────
 
-// ─── 工具市场（含 MCP / OpenAPI 生态对接）────────────────────────────────────
-export const TOOL_LISTINGS: ToolListing[] = [
-  {
-    id: 'tool-web-search',
-    kind: 'tool',
-    name: '联网搜索',
-    tagline: '实时网络检索',
-    description: '对接搜索引擎，按查询返回带来源的实时结果。',
-    category: '信息获取',
-    tags: ['搜索', '实时'],
-    publisher: '官方',
-    installs: 9120,
-    rating: 4.8,
-    source: 'builtin',
-    sideEffect: 'none',
-  },
-  {
-    id: 'tool-github',
-    kind: 'tool',
-    name: 'GitHub',
-    tagline: '读写仓库 / Issue / PR',
-    description: '通过 MCP 连接 GitHub：读代码、建 Issue、提 PR、查 CI 状态。',
-    category: '研发',
-    tags: ['代码', '协作'],
-    publisher: '官方',
-    installs: 5210,
-    rating: 4.7,
-    source: 'mcp',
-    sideEffect: 'idempotent',
-  },
-  {
-    id: 'tool-gmail',
-    kind: 'tool',
-    name: 'Gmail',
-    tagline: '收发与整理邮件',
-    description: '通过 MCP 连接 Gmail：搜索、起草、发送、打标签。',
-    category: '办公',
-    tags: ['邮件', '沟通'],
-    publisher: '官方',
-    installs: 4380,
-    rating: 4.5,
-    source: 'mcp',
-    sideEffect: 'destructive',
-  },
-  {
-    id: 'tool-stripe',
-    kind: 'tool',
-    name: 'Stripe',
-    tagline: '查询账单与收款',
-    description: '通过 OpenAPI 接入 Stripe：查询客户、账单、订阅与收款数据。',
-    category: '财务',
-    tags: ['支付', '账单'],
-    publisher: '官方',
-    installs: 1660,
-    rating: 4.4,
-    source: 'openapi',
-    sideEffect: 'idempotent',
-  },
-  {
-    id: 'tool-notion',
-    kind: 'tool',
-    name: 'Notion',
-    tagline: '读写知识库页面',
-    description: '通过 MCP 连接 Notion：检索、读取、创建与更新页面。',
-    category: '办公',
-    tags: ['知识库', '文档'],
-    publisher: '官方',
-    installs: 3920,
-    rating: 4.6,
-    source: 'mcp',
-    sideEffect: 'idempotent',
-  },
-  {
-    id: 'tool-image-gen',
-    kind: 'tool',
-    name: '图像生成',
-    tagline: '文生图 / 封面设计',
-    description: '根据提示词生成图片，用于封面、配图、概念图。',
-    category: '设计',
-    tags: ['生成', '配图'],
-    publisher: '官方',
-    installs: 6050,
-    rating: 4.5,
-    source: 'builtin',
-    sideEffect: 'destructive',
-  },
-];
+export interface CatalogStore {
+  agent: AgentListing[];
+  skill: SkillListing[];
+  tool: ToolListing[];
+  workflow: WorkflowListing[];
+}
 
-// ─── 工作流市场（团队阵型 + pipeline）────────────────────────────────────────
-export const WORKFLOW_LISTINGS: WorkflowListing[] = [
-  {
-    id: 'wf-content-factory',
-    kind: 'workflow',
-    name: '内容工厂',
-    tagline: '选题 → 写作 → 审校 → 发布',
-    description:
-      '面向自媒体/品牌的一条龙内容生产线：Leader 选题派活，写手成稿，审校把关，最后发布。',
-    category: '内容',
-    tags: ['自媒体', '生产线'],
-    publisher: '官方',
-    installs: 2210,
-    rating: 4.7,
-    teamSize: 4,
-    roles: ['Leader', '写手', '审校', '发布'],
-    stages: ['选题', '撰写', '审校', '发布'],
-  },
-  {
-    id: 'wf-market-research',
-    kind: 'workflow',
-    name: '市场调研',
-    tagline: '多维并行调研 → 综合洞察 → 报告',
-    description:
-      '把一个调研课题拆成多维度并行采集，跨维对账后由分析师综合洞察，产出带引用的报告。',
-    category: '研究',
-    tags: ['调研', '洞察'],
-    publisher: '官方',
-    installs: 1870,
-    rating: 4.8,
-    teamSize: 5,
-    roles: ['Leader', '研究员×3', '分析师'],
-    stages: ['规划', '并行调研', '对账', '综合', '成稿'],
-  },
-  {
-    id: 'wf-product-sprint',
-    kind: 'workflow',
-    name: '产品冲刺',
-    tagline: '需求 → 设计 → 开发 → 评审',
-    description:
-      '小步快跑的产品迭代阵型：PM 拆需求，设计出稿，工程实现，评审把关。',
-    category: '研发',
-    tags: ['敏捷', '迭代'],
-    publisher: '官方',
-    installs: 1430,
-    rating: 4.6,
-    teamSize: 4,
-    roles: ['Leader/PM', '设计', '工程', '评审'],
-    stages: ['需求', '设计', '开发', '评审'],
-  },
-  {
-    id: 'wf-debate',
-    kind: 'workflow',
-    name: '红蓝辩论',
-    tagline: '正反对抗 → 裁判定论',
-    description: '对一个决策做正反方对抗式论证，由裁判综合给出更稳健的结论。',
-    category: '决策',
-    tags: ['决策', '对抗'],
-    publisher: '官方',
-    installs: 980,
-    rating: 4.5,
-    teamSize: 3,
-    roles: ['裁判/Leader', '正方', '反方'],
-    stages: ['立论', '交锋', '裁决'],
-  },
-];
+let _catalog: CatalogStore = {
+  agent: [],
+  skill: [],
+  tool: [],
+  workflow: [],
+};
 
-// ─── Agent 市场（多领域）─────────────────────────────────────────────────────
-export const AGENT_LISTINGS: AgentListing[] = [
-  {
-    id: 'agent-murphy',
-    kind: 'agent',
-    name: '墨菲',
-    tagline: '运筹帷幄的职业经理人',
-    description:
-      '擅长目标拆解、跨团队协调与问责的综合管理者，适合担任 CEO 统管多个 Team。',
-    category: '管理',
-    tags: ['统筹', '协调', 'CEO 候选'],
-    publisher: '官方',
-    installs: 1520,
-    rating: 4.9,
-    role: '职业经理人',
-    seniority: 'lead',
-    avatarGradient: AVATAR_GRADIENTS[0],
-    skillIds: ['skill-deep-research'],
-    toolIds: ['tool-notion'],
-    defaultModel: 'Opus',
-    costPerRun: 12,
-  },
-  {
-    id: 'agent-luna',
-    kind: 'agent',
-    name: '陆娜',
-    tagline: '稳准狠的市场研究员',
-    description:
-      '系统化调研选手，多源检索 + 交叉验证，产出带引用的结构化综述。',
-    category: '市场',
-    tags: ['调研', '综述'],
-    publisher: '官方',
-    installs: 3680,
-    rating: 4.8,
-    role: '市场研究员',
-    seniority: 'senior',
-    avatarGradient: AVATAR_GRADIENTS[1],
-    skillIds: ['skill-deep-research', 'skill-data-viz'],
-    toolIds: ['tool-web-search', 'tool-notion'],
-    defaultModel: 'Sonnet',
-    costPerRun: 6,
-  },
-  {
-    id: 'agent-quill',
-    kind: 'agent',
-    name: '安笔',
-    tagline: '会讲故事的内容写手',
-    description: '掌握多种文案框架，按品牌调性产出高转化的长短文与社媒内容。',
-    category: '内容',
-    tags: ['写作', '文案'],
-    publisher: '官方',
-    installs: 5240,
-    rating: 4.7,
-    role: '内容写手',
-    seniority: 'mid',
-    avatarGradient: AVATAR_GRADIENTS[2],
-    skillIds: ['skill-copywriting'],
-    toolIds: ['tool-web-search'],
-    defaultModel: 'Sonnet',
-    costPerRun: 5,
-  },
-  {
-    id: 'agent-vera',
-    kind: 'agent',
-    name: '薇拉',
-    tagline: '挑剔的质量审校',
-    description:
-      '从逻辑、事实、调性多维度把关，给出可执行的修改意见，是内容/报告的守门人。',
-    category: '内容',
-    tags: ['审校', '质量'],
-    publisher: '官方',
-    installs: 2910,
-    rating: 4.8,
-    role: '质量审校',
-    seniority: 'senior',
-    avatarGradient: AVATAR_GRADIENTS[3],
-    skillIds: ['skill-copywriting'],
-    toolIds: [],
-    defaultModel: 'Sonnet',
-    costPerRun: 5,
-  },
-  {
-    id: 'agent-ada',
-    kind: 'agent',
-    name: '阿达',
-    tagline: '严谨的全栈工程师',
-    description:
-      '能读能写能审的工程主力，擅长实现功能并做缺陷/安全/可维护性审查。',
-    category: '研发',
-    tags: ['编码', '审查'],
-    publisher: '官方',
-    installs: 4170,
-    rating: 4.9,
-    role: '全栈工程师',
-    seniority: 'senior',
-    avatarGradient: AVATAR_GRADIENTS[4],
-    skillIds: ['skill-code-review'],
-    toolIds: ['tool-github'],
-    defaultModel: 'Opus',
-    costPerRun: 8,
-  },
-  {
-    id: 'agent-felix',
-    kind: 'agent',
-    name: '费曼',
-    tagline: '理性的财务分析师',
-    description: '三表联动建模、估值与敏感性分析，把生意算清楚。',
-    category: '财务',
-    tags: ['建模', '分析'],
-    publisher: '官方',
-    installs: 1380,
-    rating: 4.6,
-    role: '财务分析师',
-    seniority: 'senior',
-    avatarGradient: AVATAR_GRADIENTS[5],
-    skillIds: ['skill-financial-modeling', 'skill-data-viz'],
-    toolIds: ['tool-stripe'],
-    defaultModel: 'Opus',
-    costPerRun: 9,
-  },
-  {
-    id: 'agent-iris',
-    kind: 'agent',
-    name: '艾莉',
-    tagline: '细腻的视觉设计师',
-    description: '把概念变成画面，封面/配图/概念图一气呵成。',
-    category: '设计',
-    tags: ['设计', '配图'],
-    publisher: '官方',
-    installs: 3020,
-    rating: 4.5,
-    role: '视觉设计师',
-    seniority: 'mid',
-    avatarGradient: AVATAR_GRADIENTS[6],
-    skillIds: ['skill-data-viz'],
-    toolIds: ['tool-image-gen'],
-    defaultModel: 'Sonnet',
-    costPerRun: 7,
-  },
-  {
-    id: 'agent-leo',
-    kind: 'agent',
-    name: '雷欧',
-    tagline: '稳重的法务顾问',
-    description: '识别合同风险条款并给出修改建议，守住合规底线。',
-    category: '法务',
-    tags: ['合规', '合同'],
-    publisher: '官方',
-    installs: 860,
-    rating: 4.4,
-    role: '法务顾问',
-    seniority: 'senior',
-    avatarGradient: AVATAR_GRADIENTS[7],
-    skillIds: ['skill-contract-review'],
-    toolIds: [],
-    defaultModel: 'Opus',
-    costPerRun: 9,
-  },
-];
+/** 由 useMarketplaceCatalog 在数据就绪后调用，写入适配后的 catalog。 */
+export function setMarketplaceCatalog(catalog: CatalogStore): void {
+  _catalog = catalog;
+}
 
-export const ALL_LISTINGS = {
-  agent: AGENT_LISTINGS,
-  skill: SKILL_LISTINGS,
-  tool: TOOL_LISTINGS,
-  workflow: WORKFLOW_LISTINGS,
-} as const;
+// ─── 公共访问器 ───────────────────────────────────────────────────────────────
 
-/** 按 id 反查任意 listing（详情/装配用）。 */
-export function findListing(id: string) {
+/**
+ * 当前所有货架的 snapshot（按 kind 分组）。
+ * 注：加载完成前各列表为空数组。
+ */
+export function getAllListings(): Record<ListingKind, AnyListing[]> {
+  return {
+    agent: _catalog.agent,
+    skill: _catalog.skill,
+    tool: _catalog.tool,
+    workflow: _catalog.workflow,
+  };
+}
+
+/**
+ * 按 id 反查任意 listing（详情/装配用）。
+ * 加载前或 id 不存在时返回 undefined；调用方需用可选链。
+ */
+export function findListing(id: string): AnyListing | undefined {
   return (
-    AGENT_LISTINGS.find((x) => x.id === id) ??
-    SKILL_LISTINGS.find((x) => x.id === id) ??
-    TOOL_LISTINGS.find((x) => x.id === id) ??
-    WORKFLOW_LISTINGS.find((x) => x.id === id)
+    _catalog.agent.find((x) => x.id === id) ??
+    _catalog.skill.find((x) => x.id === id) ??
+    _catalog.tool.find((x) => x.id === id) ??
+    _catalog.workflow.find((x) => x.id === id)
   );
 }
+
+/**
+ * ALL_LISTINGS —— 向后兼容的对象形式访问器。
+ *
+ * 用法：ALL_LISTINGS[kind] 或 ALL_LISTINGS.agent
+ * 每次读取时返回当前 _catalog 快照（非 reactive，但 MarketplaceView 加载完后
+ * 会整体重渲染，届时读到真实数据）。
+ */
+export const ALL_LISTINGS: Record<ListingKind, AnyListing[]> = new Proxy(
+  {} as Record<ListingKind, AnyListing[]>,
+  {
+    get(_target, prop: string) {
+      if (prop === 'agent') return _catalog.agent;
+      if (prop === 'skill') return _catalog.skill;
+      if (prop === 'tool') return _catalog.tool;
+      if (prop === 'workflow') return _catalog.workflow;
+      return undefined;
+    },
+  }
+);

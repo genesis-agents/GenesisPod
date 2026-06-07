@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Network,
@@ -10,12 +10,14 @@ import {
   Send,
 } from 'lucide-react';
 import { Tabs } from '@/components/ui/tabs';
+import { LoadingState } from '@/components/ui/states/LoadingState';
 import { ManagementOrgChart } from './team-shared';
 import { DashboardView } from './views/DashboardView';
 import { ComposerView } from './views/ComposerView';
 import { TalentPoolView } from './views/TalentPoolView';
 import { AppointCeoView } from './views/AppointCeoView';
 import { MissionRunView } from './views/MissionRunView';
+import { useCompanyStore } from '@/stores/company/companyStore';
 
 type TeamTab = 'dashboard' | 'org' | 'compose' | 'talent' | 'ceo' | 'mission';
 
@@ -27,11 +29,20 @@ type TeamTab = 'dashboard' | 'org' | 'compose' | 'talent' | 'ceo' | 'mission';
 export function AgentTeamSection() {
   const [tab, setTab] = useState<TeamTab>('dashboard');
   const [focusTeamId, setFocusTeamId] = useState<string | null>(null);
+  const { loading, loadCompany } = useCompanyStore();
+
+  useEffect(() => {
+    void loadCompany();
+  }, [loadCompany]);
 
   const gotoTeam = (teamId: string) => {
     setFocusTeamId(teamId);
     setTab('compose');
   };
+
+  if (loading) {
+    return <LoadingState text="加载团队数据中..." />;
+  }
 
   return (
     <div className="space-y-5">

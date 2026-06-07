@@ -52,7 +52,7 @@ export function AppointCeoView() {
                 {isCeo ? (
                   <button
                     onClick={() => {
-                      appointCeo(null);
+                      void appointCeo(null);
                       toast.info(`已卸任 ${a.name} 的 CEO 职务`);
                     }}
                     className="w-full rounded-lg border border-gray-200 bg-white py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
@@ -62,7 +62,7 @@ export function AppointCeoView() {
                 ) : (
                   <button
                     onClick={() => {
-                      appointCeo(a.instanceId);
+                      void appointCeo(a.instanceId);
                       toast.success(`已任命 ${a.name} 为 CEO`);
                     }}
                     className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800"

@@ -5,8 +5,11 @@ import Link from 'next/link';
 import { Store, ArrowUpRight } from 'lucide-react';
 import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { Tabs } from '@/components/ui/tabs';
+import { LoadingState } from '@/components/ui/states/LoadingState';
+import { ErrorState } from '@/components/ui/states/ErrorState';
 import { toast } from '@/stores';
 import { useCompanyStore } from '@/stores/company/companyStore';
+import { useMarketplaceCatalog } from '@/hooks/features/useMarketplaceCatalog';
 import { ALL_LISTINGS } from './marketplace.mock';
 import type { AnyListing, ListingKind } from './marketplace.types';
 import { KIND_META } from './listing-shared';
@@ -18,6 +21,8 @@ const SHELVES: ListingKind[] = ['agent', 'skill', 'tool', 'workflow'];
 export function MarketplaceView() {
   const [tab, setTab] = useState<ListingKind>('agent');
   const [detail, setDetail] = useState<AnyListing | null>(null);
+
+  const { loading, error, refresh } = useMarketplaceCatalog();
 
   const {
     hired,
@@ -46,8 +51,9 @@ export function MarketplaceView() {
   const acquire = (l: AnyListing) => {
     switch (l.kind) {
       case 'agent':
-        hireAgent(l);
-        toast.success(`已招聘「${l.name}」到我的团队`);
+        void hireAgent(l.id).then((instanceId) => {
+          if (instanceId) toast.success(`已招聘「${l.name}」到我的团队`);
+        });
         break;
       case 'skill':
         acquireSkill(l.id);
@@ -58,12 +64,15 @@ export function MarketplaceView() {
         toast.success(`已加入团队工具：${l.name}`);
         break;
       case 'workflow':
-        acquireWorkflow(l.id);
-        toast.success(`已加入团队工作流：${l.name}`);
+        void acquireWorkflow(l.id).then(() => {
+          toast.success(`已加入团队工作流：${l.name}`);
+        });
         break;
     }
     setDetail(null);
   };
+
+  const currentShelf = ALL_LISTINGS[tab];
 
   const tabItems = SHELVES.map((k) => ({
     key: k,
@@ -96,16 +105,21 @@ export function MarketplaceView() {
       </PageHeaderHero>
 
       <div className="mx-auto w-full max-w-7xl px-8 pb-12">
-        <ShelfGrid
-          listings={ALL_LISTINGS[tab] as AnyListing[]}
-          isAcquired={(id) =>
-            isAcquired(
-              (ALL_LISTINGS[tab] as AnyListing[]).find((x) => x.id === id)!
-            )
-          }
-          onOpen={setDetail}
-          onAcquire={acquire}
-        />
+        {loading ? (
+          <LoadingState text="加载市场目录中..." />
+        ) : error ? (
+          <ErrorState error={error} title="加载市场失败" onRetry={refresh} />
+        ) : (
+          <ShelfGrid
+            listings={currentShelf}
+            isAcquired={(id) => {
+              const found = currentShelf.find((x) => x.id === id);
+              return found ? isAcquired(found) : false;
+            }}
+            onOpen={setDetail}
+            onAcquire={acquire}
+          />
+        )}
       </div>
 
       <ListingDetailDrawer

@@ -52,7 +52,7 @@ export const KIND_META: Record<
   },
 };
 
-/** 紧凑评分 + 采用数。 */
+/** 紧凑评分 + 采用数。rating 与 installs 均为 0 时不渲染（后端暂无统计时隐藏）。 */
 export function RatingMeta({
   rating,
   installs,
@@ -60,13 +60,17 @@ export function RatingMeta({
   rating: number;
   installs: number;
 }) {
+  const hasStats = rating > 0 || installs > 0;
+  if (!hasStats) return null;
   return (
     <div className="flex items-center gap-3 text-xs text-gray-500">
-      <span className="inline-flex items-center gap-0.5">
-        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-        {rating.toFixed(1)}
-      </span>
-      <span>{installs.toLocaleString()} 采用</span>
+      {rating > 0 && (
+        <span className="inline-flex items-center gap-0.5">
+          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+          {rating.toFixed(1)}
+        </span>
+      )}
+      {installs > 0 && <span>{installs.toLocaleString()} 采用</span>}
     </div>
   );
 }

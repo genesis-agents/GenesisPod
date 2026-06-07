@@ -105,7 +105,7 @@ export function TalentPoolView() {
                     <Settings2 className="h-3.5 w-3.5" /> 配置
                   </button>
                   <button
-                    onClick={() => fireAgent(a.instanceId)}
+                    onClick={() => void fireAgent(a.instanceId)}
                     className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-400 hover:bg-red-50 hover:text-red-600"
                   >
                     <Trash2 className="h-3.5 w-3.5" /> 解雇

@@ -65,9 +65,10 @@ export function TeamWorkflowsSection() {
       <>
         <button
           onClick={() => {
-            const teamId = createTeam(`${wf.name}小组`);
-            setWorkflow(teamId, wf.id);
-            toast.success(`已用「${wf.name}」套用出新团队`);
+            void createTeam(`${wf.name}小组`).then((teamId) => {
+              if (teamId) void setWorkflow(teamId, wf.id);
+              toast.success(`已用「${wf.name}」套用出新团队`);
+            });
           }}
           className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
         >
@@ -81,7 +82,7 @@ export function TeamWorkflowsSection() {
         </button>
         <button
           onClick={() => {
-            removeWorkflow(wf.id);
+            void removeWorkflow(wf.id);
             toast.info(`已删除「${wf.name}」`);
           }}
           className="rounded-md p-1 text-gray-300 hover:bg-red-50 hover:text-red-500"
@@ -106,8 +107,9 @@ export function TeamWorkflowsSection() {
         headerExtra={
           <button
             onClick={() => {
-              const id = addCustomWorkflow();
-              setEditId(id);
+              void addCustomWorkflow().then((id) => {
+                if (id) setEditId(id);
+              });
             }}
             className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
@@ -143,7 +145,7 @@ function WorkflowEditModal({
       .split(/[,，、]/)
       .map((s) => s.trim())
       .filter(Boolean);
-    updateWorkflow(workflowId, { stages });
+    void updateWorkflow(workflowId, { stages });
   };
 
   return (
@@ -162,7 +164,7 @@ function WorkflowEditModal({
           </label>
           <Input
             value={wf.name}
-            onChange={(e) => renameWorkflow(workflowId, e.target.value)}
+            onChange={(e) => void renameWorkflow(workflowId, e.target.value)}
           />
         </div>
         <div>
@@ -200,7 +202,7 @@ function WorkflowEditModal({
             max={12}
             value={wf.teamSize}
             onChange={(e) =>
-              updateWorkflow(workflowId, {
+              void updateWorkflow(workflowId, {
                 teamSize: Math.max(1, Number(e.target.value) || 1),
               })
             }
