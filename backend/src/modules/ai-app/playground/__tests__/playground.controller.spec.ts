@@ -62,6 +62,8 @@ function makeStore() {
     create: jest.fn().mockResolvedValue(undefined),
     // ★ P0 并发限制 (2026-05-06): 默认返回 0（未超限）
     countRunningByUser: jest.fn().mockResolvedValue(0),
+    // ★ auto-supersede (2026-06-07)：默认无可顶替 mission
+    findOldestRunningMissionId: jest.fn().mockResolvedValue(null),
     // ★ 2026-05-06: 报告版本化 endpoint
     listReportVersions: jest.fn().mockResolvedValue([]),
     getReportVersion: jest.fn().mockResolvedValue(null),
@@ -658,9 +660,24 @@ describe("AgentPlaygroundController", () => {
       );
     });
 
-    it("throws BadRequestException when user already has 3 running missions", async () => {
+    it("auto-supersedes oldest running mission when at concurrency cap, then succeeds", async () => {
+      const { controller, store, abortRegistry } = buildController();
+      // 第一次查 3（满），顶替一个后降到 2
+      store.countRunningByUser.mockResolvedValueOnce(3).mockResolvedValue(2);
+      store.findOldestRunningMissionId.mockResolvedValueOnce("old-mission-1");
+      const result = await controller.runTeam(VALID_INPUT, makeReq("user-1"));
+      expect(store.findOldestRunningMissionId).toHaveBeenCalledWith("user-1");
+      expect(abortRegistry.abort).toHaveBeenCalledWith(
+        "old-mission-1",
+        "user_cancelled",
+      );
+      expect(result.missionId).toBeDefined();
+    });
+
+    it("throws BadRequestException when at cap and no mission can be superseded", async () => {
       const { controller, store } = buildController();
       store.countRunningByUser.mockResolvedValue(3);
+      store.findOldestRunningMissionId.mockResolvedValue(null); // 无可顶替
       await expect(
         controller.runTeam(VALID_INPUT, makeReq("user-1")),
       ).rejects.toThrow(BadRequestException);

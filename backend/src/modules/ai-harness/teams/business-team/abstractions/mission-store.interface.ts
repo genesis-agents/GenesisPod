@@ -75,6 +75,12 @@ export interface IBusinessTeamMissionStore {
   countRunningByUser(userId: string): Promise<number>;
 
   /**
+   * 当前用户**最旧**的 running mission id（createdAt 升序首个），无则 null。
+   * 用于"撞并发上限时自动顶替最旧"（auto-supersede）—— 让用户新建不被 400 卡死。
+   */
+  findOldestRunningMissionId(userId: string): Promise<string | null>;
+
+  /**
    * 标记 mission 失败（终态）。
    *
    * 隔离语义:

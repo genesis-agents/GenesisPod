@@ -301,6 +301,19 @@ export class MissionStore
     this.costLedger = new CostLedgerStore(prisma);
   }
 
+  /**
+   * 当前用户最旧的 running mission id（createdAt 升序首个），无则 null。
+   * auto-supersede 用：撞并发上限时顶替最旧，让用户新建不被 400 卡死。
+   */
+  async findOldestRunningMissionId(userId: string): Promise<string | null> {
+    const row = await this.prisma.agentPlaygroundMission.findFirst({
+      where: { userId, status: "running" },
+      orderBy: { startedAt: "asc" },
+      select: { id: true },
+    });
+    return row?.id ?? null;
+  }
+
   private async clearCheckpointJsonbKey(missionId: string): Promise<void> {
     await this.prisma.$executeRaw`
         UPDATE agent_playground_missions

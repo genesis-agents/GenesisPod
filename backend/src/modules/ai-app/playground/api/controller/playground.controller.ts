@@ -203,10 +203,24 @@ export class AgentPlaygroundController extends BaseMissionController {
     // ★ P0 并发限制：每 user 最多 N 个并发 running mission，防止单用户打爆 pod。
     //   这里是「快速失败 UX 预检」；真正堵 TOCTOU race 的原子兜底在
     //   MissionStore.createMission（advisory-lock + count + insert 同事务）。
-    const running = await this.store.countRunningByUser(userId);
+    // ★ auto-supersede（2026-06-07）：撞并发上限时不再直接 400 卡死用户，而是自动
+    //   取消用户**自己最旧**的 running mission 腾位。bounded：只动该用户自己的 mission、
+    //   只取消最旧、循环到低于上限或无可取消为止（supersedeGuard 防御异常死循环）。
+    let running = await this.store.countRunningByUser(userId);
+    let supersedeGuard = 0;
+    while (
+      running >= MAX_CONCURRENT_RUNNING_MISSIONS &&
+      supersedeGuard <= MAX_CONCURRENT_RUNNING_MISSIONS
+    ) {
+      supersedeGuard += 1;
+      const oldest = await this.store.findOldestRunningMissionId(userId);
+      if (!oldest) break;
+      await this.supersedeRunningMission(oldest, userId);
+      running = await this.store.countRunningByUser(userId);
+    }
     if (running >= MAX_CONCURRENT_RUNNING_MISSIONS) {
       throw new BadRequestException(
-        `已有 ${running} 个 mission 正在运行，最多同时运行 ${MAX_CONCURRENT_RUNNING_MISSIONS} 个，请等待完成后再启动`,
+        `已有 ${running} 个 mission 正在运行，自动顶替最旧后仍超过上限 ${MAX_CONCURRENT_RUNNING_MISSIONS}，请稍后再试`,
       );
     }
 
@@ -305,6 +319,42 @@ export class AgentPlaygroundController extends BaseMissionController {
       result: "success",
     });
     return { ok: true, status: "cancelled" };
+  }
+
+  /**
+   * auto-supersede 用：取消该用户某个 running mission 腾出并发位（撞上限时）。
+   * 复用 cancelMission 的终态仲裁链（abort → finalize 条件写 → broadcast），但用
+   * 区别于手动取消的 message，且不做 ownership 断言（调用方已用 userId 查出本人 mission）。
+   */
+  private async supersedeRunningMission(
+    missionId: string,
+    userId: string,
+  ): Promise<void> {
+    this.abortRegistry.abort(missionId, MissionAbortReason.user_cancelled);
+    await this.lifecycleManager.finalize<PlaygroundTerminalExtra>({
+      missionId,
+      intent: {
+        status: "cancelled",
+        reason: MissionAbortReason.user_cancelled,
+        extra: { kind: "cancelled" },
+      },
+      arbiter: this.store,
+      onWon: async () => {
+        this.electionTracker.clear(missionId);
+        await this.buffer.broadcast({
+          type: "playground.mission:cancelled",
+          scope: { missionId, userId },
+          payload: {
+            reason: "user_cancelled",
+            message: "被新建 mission 自动顶替（已达并发上限）",
+          },
+          timestamp: Date.now(),
+        });
+      },
+    });
+    this.log.log(
+      `[${missionId}] auto-superseded: user ${userId} started a new mission at concurrency cap`,
+    );
   }
 
   /**
