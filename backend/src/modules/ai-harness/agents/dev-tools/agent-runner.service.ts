@@ -720,42 +720,73 @@ export class AgentRunner {
       } else if (ev.type === "action_executed") {
         iter += 1;
         const r = ev.payload as {
-          action: { kind: string; toolId?: string };
+          action?: { kind?: string; toolId?: string };
+          subResults?: readonly {
+            action?: { toolId?: string };
+            error?: { message: string };
+            latencyMs?: number;
+          }[];
           error?: { message: string };
           latencyMs?: number;
           tokensUsed?: number;
         };
         if (r?.tokensUsed) completionTokens += r.tokensUsed;
-        const toolId = r?.action?.toolId;
-        if (toolId) {
-          const cur = toolsAcc.get(toolId) ?? {
+        // ★ 2026-06-07 修：parallel_tool_call 的动作无顶层 toolId（只有 calls[]/
+        //   subResults[]），原逻辑 `r.action.toolId` 取不到 → 并发搜索全漏计 →
+        //   toolsUsed 空 → toolCallCount=0 → 前端"工具调用 0 / Drawer 空"假象
+        //   （prod mission 7ddaad2f 实证：researcher 跑了 2-5 次 parallel_tool_call
+        //   仍报 tcc=0）。先把本次 action 涉及的工具展开成统一列表，再逐个计数。
+        const touched: {
+          toolId: string;
+          latencyMs: number;
+          hasError: boolean;
+        }[] = [];
+        if (Array.isArray(r?.subResults) && r.subResults.length > 0) {
+          for (const sub of r.subResults) {
+            const tid = sub?.action?.toolId;
+            if (tid)
+              touched.push({
+                toolId: tid,
+                latencyMs: sub?.latencyMs ?? 0,
+                hasError: !!sub?.error,
+              });
+          }
+        } else if (r?.action?.toolId) {
+          touched.push({
+            toolId: r.action.toolId,
+            latencyMs: r?.latencyMs ?? 0,
+            hasError: !!r?.error,
+          });
+        }
+        // 注意：consecutiveToolFailures 必须在本（非闭包）作用域内赋值，否则
+        //   闭包捕获会破坏后续 exitReason 处的类型收窄。
+        for (const t of touched) {
+          const cur = toolsAcc.get(t.toolId) ?? {
             calls: 0,
             totalLatencyMs: 0,
             failures: 0,
           };
           cur.calls += 1;
-          cur.totalLatencyMs += r?.latencyMs ?? 0;
-          if (r?.error) {
+          cur.totalLatencyMs += t.latencyMs;
+          if (t.hasError) {
             cur.failures += 1;
             // 跟踪连续同 toolId 失败（用于 failed_tool exitReason 推断）
             if (
               consecutiveToolFailures &&
-              consecutiveToolFailures.toolId === toolId
+              consecutiveToolFailures.toolId === t.toolId
             ) {
               consecutiveToolFailures.count += 1;
             } else {
-              consecutiveToolFailures = { toolId, count: 1 };
+              consecutiveToolFailures = { toolId: t.toolId, count: 1 };
             }
-          } else {
+          } else if (
+            consecutiveToolFailures &&
+            consecutiveToolFailures.toolId === t.toolId
+          ) {
             // 成功 → 重置该 toolId 计数器
-            if (
-              consecutiveToolFailures &&
-              consecutiveToolFailures.toolId === toolId
-            ) {
-              consecutiveToolFailures = null;
-            }
+            consecutiveToolFailures = null;
           }
-          toolsAcc.set(toolId, cur);
+          toolsAcc.set(t.toolId, cur);
         }
       } else if (ev.type === "tools_recalled") {
         const p = ev.payload as { recalledIds?: readonly string[] };
