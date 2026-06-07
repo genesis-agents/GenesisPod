@@ -217,6 +217,10 @@ const R2_BESPOKE_OK = [
   "components/ai-image/ImageGenerator.tsx", // 同款 InsightCard 可折叠洞察面板（内联）
   "components/agent-playground/roster/AgentLiveGrid.tsx", // AgentCard：实时 agent 状态卡（role/trace/耗时）
   "app/admin/ai/dreaming/content.tsx", // 内联 StatCard：统计卡（admin 自成设计系统）
+  // 2026-06-07 用户批准（逐源留痕）：智能体市场只读货架卡，含 Agent 头像渐变/评分/采用数/
+  // 一键「加入」CTA —— 与 AssetCard（我拥有的资产 + 可见性/编辑/删除/分享）语义不同，
+  // 不适配。详见 docs/features/one-person-company-os/design.md §5.1。
+  "components/marketplace/ListingCard.tsx",
 ];
 
 // 卡片三件套（顺序无关，堵旧版「固定顺序」洞）。两版：
