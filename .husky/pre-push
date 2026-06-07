@@ -296,6 +296,44 @@ else
 fi
 echo ""
 
+# 8. backend/scripts 顶层整洁度守护
+# ★ scripts 顶层曾堆 23 个未归类脚本；本守护焊死"顶层禁散落"，强制新脚本归类
+echo "[8/8] backend/scripts 结构守护..."
+if (cd backend && npm run audit:scripts --silent); then
+    echo "  scripts 顶层整洁"
+else
+    echo ""
+    echo "  ✘ backend/scripts 顶层结构违规 — 见上方报告"
+    echo "  → 把散落脚本移入对应子目录（dev-tools/devops/maintenance/db/_archive…）"
+    exit 1
+fi
+echo ""
+
+# 9. 工具分类前后台统一守护（后端 toolId ⟺ 前端细类映射 双向对账）
+# ★ SEC 类工具曾因前端映射漏登记而掉'其他'；本守护焊死"每个后端工具有且仅有一个细类"
+echo "[9/9] 工具分类前后台统一守护..."
+if npm run audit:tool-categories --silent; then
+    echo "  工具分类前后台一致"
+else
+    echo ""
+    echo "  ✘ 工具分类漂移 — 见上方报告"
+    echo "  → 在 frontend/lib/features/admin/tool-categories.ts 登记新工具归属"
+    exit 1
+fi
+echo ""
+
+# 10. AI 应用概览 docs 覆盖守护（admin 概览 ⟺ docs/architecture/ai-app 文件夹）
+echo "[10/10] AI 应用概览覆盖守护..."
+if npm run audit:ai-app-docs --silent; then
+    echo "  AI 应用概览覆盖完整"
+else
+    echo ""
+    echo "  ✘ AI 应用概览与 docs 文件夹不一致 — 见上方报告"
+    echo "  → 在 ai-app-categories.ts 登记模块，或在 audit 脚本 EXCLUDED 排除"
+    exit 1
+fi
+echo ""
+
 echo "============================================================"
 echo "  所有验证通过"
 echo "============================================================"

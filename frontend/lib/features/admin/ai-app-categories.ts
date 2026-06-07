@@ -41,10 +41,12 @@ export const AI_APP_CATEGORIES: Record<AiAppCategoryId, AiAppCategoryConfig> = {
   Ask[AI 问答<br/>ask] -->|短问短答| User((用户))
   Insights[话题洞察<br/>topic-insights] -->|主题追踪| User
   Research[深度研究<br/>research] -->|长篇报告| User
+  Radar[雷达简报<br/>radar] -->|每日简报| User
   Insights -.派生.-> Research
   Research -.溯源.-> Insights
+  Radar -.触发.-> Insights
   classDef app fill:#fff7ed,stroke:#f59e0b,color:#92400e;
-  class Ask,Insights,Research app;`,
+  class Ask,Insights,Research,Radar app;`,
     modules: [
       {
         id: 'ask',
@@ -71,6 +73,12 @@ export const AI_APP_CATEGORIES: Record<AiAppCategoryId, AiAppCategoryConfig> = {
           'research/research-modes.md',
           'research/ui-restructure.md',
         ],
+      },
+      {
+        id: 'radar',
+        label: '雷达简报',
+        blurb: '主题雷达：定时监控 + 每日简报聚合',
+        docCandidates: ['radar/daily-briefing-redesign-2026-05-18.md'],
       },
     ],
   },
@@ -165,6 +173,15 @@ export const AI_APP_CATEGORIES: Record<AiAppCategoryId, AiAppCategoryConfig> = {
           'image/architecture.md',
           'image/README.md',
           'image/visual-engine-migration.md',
+        ],
+      },
+      {
+        id: 'library',
+        label: '知识资源',
+        blurb: '资源库：RAG 知识库 + Wiki + 集合/笔记',
+        docCandidates: [
+          'library/features-rag/readme.md',
+          'library/wiki/llm-wiki.md',
         ],
       },
     ],

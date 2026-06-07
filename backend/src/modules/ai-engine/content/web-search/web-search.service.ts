@@ -1692,7 +1692,10 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
             "Upgrade-Insecure-Requests": "1",
           },
           timeout,
-          maxRedirects: 3, // Reduced to prevent header accumulation
+          // 2026-06-07：3→5。nature.com 等多级重定向（http→https→规范化→区域）
+          //   在 3 跳下报 "Maximum number of redirects exceeded"，整页抓取失败 →
+          //   researcher 拿不到正文只能退回 snippet。5 跳覆盖常见重定向链，仍防环。
+          maxRedirects: 5,
           // ★ 2026-05-04 修：50MB 在 anthropic llms-full.txt（80MB+）/ 其他
           //   超大 docs 仍触发 "maxContentLength size of 52428800 exceeded"。
           //   提到 200MB 覆盖典型大文档；下游 extractMainContent 会截到 markdown

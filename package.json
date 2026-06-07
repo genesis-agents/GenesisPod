@@ -67,6 +67,7 @@
     "audit:mission-detail-baseline": "tsx scripts/utils/audit-mission-detail-discipline.ts --update-baseline",
     "capabilities:check": "tsx scripts/utils/generate-capabilities.ts",
     "capabilities:update": "tsx scripts/utils/generate-capabilities.ts --write",
+    "audit:tool-categories": "tsx scripts/utils/audit-tool-categories.ts",
     "release": "standard-version",
     "release:minor": "standard-version --release-as minor",
     "release:major": "standard-version --release-as major",
@@ -88,7 +89,8 @@
     "e2e:ui": "cd e2e && npx playwright test --ui",
     "sdk:export-spec": "curl -s http://localhost:3001/api/openapi.json > backend/openapi.json",
     "sdk:generate": "npx @openapitools/openapi-generator-cli generate -g typescript-fetch -i backend/openapi.json -o sdk/typescript",
-    "sdk:generate:python": "npx @openapitools/openapi-generator-cli generate -g python -i backend/openapi.json -o sdk/python"
+    "sdk:generate:python": "npx @openapitools/openapi-generator-cli generate -g python -i backend/openapi.json -o sdk/python",
+    "audit:ai-app-docs": "tsx scripts/utils/audit-ai-app-docs.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.4.1",

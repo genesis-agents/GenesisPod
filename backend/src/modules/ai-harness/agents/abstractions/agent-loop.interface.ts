@@ -35,6 +35,12 @@ export interface ILoopTerminationCriteria {
   readonly maxWallTimeMs?: number;
   /** 自定义终止判定（见到 finalize action 即终止） */
   readonly terminateOn?: readonly IAction["kind"][];
+  /**
+   * ★ 工具前置闸：为 true 时，agent 必须至少成功调用一次真实工具后才允许 finalize。
+   * 用于 researcher 这类"必须先检索再产出"的角色，杜绝 0 工具直接幻觉 finalize。
+   * 默认 false（向后兼容：leader/outline 等合法零工具 agent 不受影响）。
+   */
+  readonly requireToolBeforeFinalize?: boolean;
 }
 
 /** Loop 运行选项（v2 · 支持 access matrix + agent id + signal） */

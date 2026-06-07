@@ -394,6 +394,122 @@ describe("ReActLoop — Extended coverage", () => {
     expect(terminated?.payload).toEqual({ reason: "completed" });
   });
 
+  // ── requireToolBeforeFinalize gate (prod mission df6c14ea root-fix) ──────────
+  it("requireToolBeforeFinalize: blocks 0-tool finalize, then accepts after a real tool call", async () => {
+    const chat = mkChat([
+      // iter 0: weak model tries to finalize immediately with fabricated source
+      {
+        content: JSON.stringify({
+          thinking: "I think I know enough",
+          action: {
+            kind: "finalize",
+            output: { findings: [{ claim: "x", source: "arxiv.org" }] },
+          },
+        }),
+      },
+      // iter 1: after gate nudge, it calls a real research tool
+      {
+        content: JSON.stringify({
+          thinking: "let me actually search",
+          action: {
+            kind: "tool_call",
+            toolId: "web-search",
+            input: { query: "q" },
+          },
+        }),
+      },
+      // iter 2: finalize with real evidence → now allowed
+      {
+        content: JSON.stringify({
+          thinking: "done",
+          action: {
+            kind: "finalize",
+            output: {
+              findings: [{ claim: "y", source: "https://real.example" }],
+            },
+          },
+        }),
+      },
+    ]);
+    const reg = mkToolRegistry({
+      "web-search": {
+        success: true,
+        data: { results: [{ title: "t", url: "https://real.example" }] },
+      },
+    });
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const gateCriteria: ILoopTerminationCriteria = {
+      maxIterations: 10,
+      terminateOn: ["finalize"],
+      requireToolBeforeFinalize: true,
+    };
+
+    const events = await drain(
+      loop.run(makeEnvelope({ tools: ["web-search"] }), gateCriteria, {
+        agentId: "gate1",
+      }),
+    );
+
+    // gate emitted a tool-gate validation_failed on the premature finalize
+    const gateBlock = events.find(
+      (e) =>
+        e.type === "validation_failed" &&
+        String((e.payload as Record<string, unknown>).issues ?? "").includes(
+          "tool-gate",
+        ),
+    );
+    expect(gateBlock).toBeDefined();
+
+    // the real tool actually executed
+    expect(events.some((e) => e.type === "action_executed")).toBe(true);
+
+    // finalize accepted after the tool call → completed
+    const terminated = events.find((e) => e.type === "terminated");
+    expect(terminated?.payload).toEqual({ reason: "completed" });
+
+    // exactly 3 LLM turns: finalize(blocked) → tool → finalize(accepted)
+    expect((chat.chat as jest.Mock).mock.calls.length).toBe(3);
+  });
+
+  it("without requireToolBeforeFinalize: immediate 0-tool finalize is accepted (no gate)", async () => {
+    const chat = mkChat([
+      {
+        content: JSON.stringify({
+          thinking: "no tools needed",
+          action: { kind: "finalize", output: { findings: [] } },
+        }),
+      },
+    ]);
+    const reg = mkToolRegistry({});
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const events = await drain(
+      loop.run(makeEnvelope(), criteria, { agentId: "nogate1" }),
+    );
+
+    const terminated = events.find((e) => e.type === "terminated");
+    expect(terminated?.payload).toEqual({ reason: "completed" });
+    expect(
+      events.find(
+        (e) =>
+          e.type === "validation_failed" &&
+          String((e.payload as Record<string, unknown>).issues ?? "").includes(
+            "tool-gate",
+          ),
+      ),
+    ).toBeUndefined();
+    expect((chat.chat as jest.Mock).mock.calls.length).toBe(1);
+  });
+
   it("tool_call envelope in finalize slot → sharper critique + empty output, no garbage (screenshot_22)", async () => {
     // 模型没数据、在 finalize 槽位反复塞 tool_call 信封（想继续搜而非 finalize）
     const toolCallFinalize = {

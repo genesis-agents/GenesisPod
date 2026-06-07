@@ -61,6 +61,11 @@ import { HookRegistry } from "../../agents/core/hook-registry";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import { ModelPricingRegistry } from "@/modules/ai-engine/llm/models/pricing/model-pricing.registry";
 import { wrapToolObservation } from "./external-observation.util";
+import {
+  MAX_TOOL_GATE_NUDGES,
+  shouldBlockFinalizeForToolGate,
+  buildToolGateCritique,
+} from "./tool-gate.util";
 import type { IAgent, ISubagentSpawner } from "../../agents/abstractions";
 import {
   rawContentHasUnexecutedToolIntent,
@@ -456,6 +461,9 @@ export class ReActLoop implements IAgentLoop {
       process.env.REACT_MAX_FINALIZE_REJECTS,
       3,
     );
+    // ★ 工具前置闸（requireToolBeforeFinalize）计数器，逻辑见 tool-gate.util.ts。
+    let successfulToolCalls = 0;
+    let toolGateNudges = 0;
     /**
      * 连续空 LLM 响应计数器 —— 检测 "model 不存在 / API 拒绝 / 输出被过滤" 场景：
      * LLM 每次返回 completion="" + 立即 finalize 空结果。连续 2 次后 abort。
@@ -1339,6 +1347,8 @@ export class ReActLoop implements IAgentLoop {
               }
             } else {
               toolFailureCounters.set(tid, 0);
+              // ★ 工具前置闸：累计成功的真实工具调用（toolIdsTouched 不含 finalize）
+              successfulToolCalls += 1;
             }
           }
         }
@@ -1407,6 +1417,44 @@ export class ReActLoop implements IAgentLoop {
           decision.action.kind === "finalize" ||
           (criteria.terminateOn?.includes(decision.action.kind) ?? false)
         ) {
+          // ★ 工具前置闸（requireToolBeforeFinalize）—— 详见 tool-gate.util.ts。
+          if (
+            decision.action.kind === "finalize" &&
+            shouldBlockFinalizeForToolGate({
+              requireToolBeforeFinalize: criteria.requireToolBeforeFinalize,
+              successfulToolCalls,
+              toolGateNudges,
+              iteration,
+              maxIterations: criteria.maxIterations,
+            })
+          ) {
+            toolGateNudges += 1;
+            this.logger.warn(
+              `[${agentId}] iter=${iteration} ★ tool-gate: finalize blocked — ` +
+                `0 successful tool calls (nudge ${toolGateNudges}/${MAX_TOOL_GATE_NUDGES})`,
+            );
+            yield this.makeEvent(agentId, "validation_failed", {
+              rejectCount: toolGateNudges,
+              maxRejects: MAX_TOOL_GATE_NUDGES,
+              issues:
+                "tool-gate: must call at least one research tool before finalize",
+            });
+            if (currentEnvelope instanceof ContextEnvelope) {
+              currentEnvelope = currentEnvelope.append([
+                {
+                  role: "user",
+                  content: buildToolGateCritique(
+                    toolGateNudges,
+                    MAX_TOOL_GATE_NUDGES,
+                  ),
+                  timestamp: Date.now(),
+                },
+              ]).envelope;
+            }
+            lastActionKind = undefined;
+            continue;
+          }
+
           const output =
             decision.action.kind === "finalize"
               ? decision.action.output

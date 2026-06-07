@@ -1,15 +1,26 @@
 /**
- * Tool Categories —— 工具/能力分类共享真源
+ * Tool Categories —— 工具目录 UI 的分类【单一真源】
  *
- * 2026-05-11 W3r5：tab 分界原则 B = 是否调外部 HTTP 服务，**不是** backend
- *   implemented 字段。federal-register / arxiv-search 等虽然有 BaseTool 类
- *   实现，本质还是调 .gov / arxiv.org 等外部 HTTP endpoint → API 服务工具 tab。
- *   平台自身能力（export-pdf 本地渲染 / data-cleaning 本地计算 / agent-handoff
- *   内部编排 / text-generation 走 ai-engine LLM）才归内置工具 tab。
+ * ★ 原则（前后台统一，脚本焊死）：
+ *   1. 单一真源：后端 ToolRegistry 注册的每个工具，必须在本文件的 toolId→细类
+ *      映射中【有且仅有一个】归属；不允许"未分类"掉进'其他'。
+ *   2. 职责分离（三套 category 各司其职，不混用）：
+ *      - 本文件 = 工具目录 UI 的【展示细类】（20 类中文 + 主题色 + tab）
+ *      - 后端 ToolCategory 粗枚举 = 【功能分类】，registry 索引/过滤/预算在用，不动
+ *      - EXTERNAL_TOOL_DEFINITIONS.category = 【密钥管理 UI】分组，独立功能，不动
+ *   3. 脚本看护：`npm run audit:tool-categories` 双向对账——后端真实 toolId 全部
+ *      被本映射或 EXCLUDED 覆盖，否则 exit 1（pre-push + CI 焊死，杜绝再漂移）。
+ *   新增后端工具后，必须在此登记归属，否则推送被拒。
+ *
+ * tab 分界原则 B = 是否调外部 HTTP 服务（不是 backend implemented 字段）。
+ *   federal-register / arxiv-search / sec-edgar-search 等虽有 BaseTool 实现，
+ *   本质调 .gov / arxiv.org / SEC 等外部 endpoint → API 服务工具 tab。
+ *   平台自身能力（export-pdf 本地渲染 / agent-handoff 内部编排 / rag-search 查
+ *   本地向量库 / text-generation 走 ai-engine LLM）才归内置工具 tab。
  *
  * 分类规则（MECE，4 字标签统一）：
- *   - API 服务工具 tab：12 类（网页/学术/抓取/语音/图像/金融/天气/政策/代码/招聘/通知/云端）
- *   - 内置工具 tab：6 类（导出/文档/数据/执行/协作/生成）
+ *   - API 服务工具 tab：13 类（网页/学术/抓取/语音/图像/金融/天气/政策/代码/招聘/通知/云端/社交发布）
+ *   - 内置工具 tab：7 类（导出/文档/数据/执行/协作/生成/知识记忆）
  *   - 第三方信源 tab：industry-report* 专属（EXCLUDED_FROM_GENERAL_TABS）
  *
  * 注意：audio-generation 是平台 capability（router 决定走 elevenlabs/googleTts），
@@ -36,10 +47,10 @@ export interface ToolCategoryDef {
 }
 
 /**
- * 18 个工具分类 = 12 API 服务工具 + 6 内置工具。
+ * 20 个工具分类 = 13 API 服务工具 + 7 内置工具。
  *
- * order 在各自 tab 内独立递增（api-services 1-12，builtin 13-18），
- * 两 tab 排序时用 CATEGORY_ORDER_KEYS 派生的 index。
+ * order 在各自 tab 内独立递增（api-services 1-13；builtin 13-19，按数组顺序），
+ * 两 tab 排序时用 CATEGORY_ORDER_KEYS 派生的 index（跨 tab order 值可重叠，无碍）。
  */
 export const TOOL_CATEGORIES: ToolCategoryDef[] = [
   // ============ API 服务工具 tab（调外部 HTTP）============
@@ -49,6 +60,7 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
     order: 1,
     tabKind: 'api-services',
     toolIds: [
+      'web-search',
       'tavily',
       'perplexity',
       'serper',
@@ -56,6 +68,8 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
       'brave-search',
       'hackernews',
       'hackernews-search',
+      'social-x-search',
+      'youtube-search',
     ],
     theme: {
       border: 'border-blue-200',
@@ -76,6 +90,8 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
       'pubmed',
       'openalex',
       'openalex-search',
+      'wiki-search',
+      'wiki-page-read',
     ],
     theme: {
       border: 'border-purple-200',
@@ -142,7 +158,12 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
     label: '金融数据',
     order: 6,
     tabKind: 'api-services',
-    toolIds: ['alpha-vantage', 'finance-api'],
+    toolIds: [
+      'alpha-vantage',
+      'finance-api',
+      'sec-edgar-search',
+      'startuphub-startup',
+    ],
     theme: {
       border: 'border-amber-200',
       headerBg: 'bg-amber-50',
@@ -228,6 +249,19 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
       badge: 'bg-teal-100 text-teal-700',
     },
   },
+  {
+    id: 'social-publish',
+    label: '社交发布',
+    order: 13,
+    tabKind: 'api-services',
+    toolIds: ['wechat-mp-publish', 'xhs-publish', 'social-publish-status'],
+    theme: {
+      border: 'border-red-200',
+      headerBg: 'bg-red-50',
+      headerText: 'text-red-800',
+      badge: 'bg-red-100 text-red-700',
+    },
+  },
 
   // ============ 内置工具 tab（平台自身能力，不调外部 endpoint）============
   {
@@ -279,7 +313,12 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
     label: '执行环境',
     order: 16,
     tabKind: 'builtin',
-    toolIds: ['sql-executor', 'container-executor', 'ocr-recognition'],
+    toolIds: [
+      'sql-executor',
+      'container-executor',
+      'ocr-recognition',
+      'browser-context',
+    ],
     theme: {
       border: 'border-amber-200',
       headerBg: 'bg-amber-50',
@@ -325,6 +364,27 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
       headerBg: 'bg-fuchsia-50',
       headerText: 'text-fuchsia-800',
       badge: 'bg-fuchsia-100 text-fuchsia-700',
+    },
+  },
+  {
+    id: 'knowledge-memory',
+    label: '知识记忆',
+    order: 19,
+    tabKind: 'builtin',
+    toolIds: [
+      'rag-search',
+      'knowledge-base',
+      'knowledge-graph',
+      'entity-memory',
+      'user-preferences',
+      'database-query',
+      'data-fetch',
+    ],
+    theme: {
+      border: 'border-lime-200',
+      headerBg: 'bg-lime-50',
+      headerText: 'text-lime-800',
+      badge: 'bg-lime-100 text-lime-700',
     },
   },
 ];
