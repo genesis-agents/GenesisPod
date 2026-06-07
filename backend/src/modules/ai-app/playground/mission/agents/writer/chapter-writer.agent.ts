@@ -104,7 +104,16 @@ const Output = z.object({
     description:
       "Writes one chapter of a dimension report, TI-style strict format",
   },
-  loop: "reflexion",
+  // ★ 2026-06-07 根因修复（"章节稳定 55 分判失败"实证 mission 7ddaad2f）：
+  //   原 loop:"reflexion" 会自动套上全局默认通用判官（self + critical，且 critical
+  //   跑在 CHAT_FAST 弱 tier，judge.service 注释自承"critical 永远 50 分污染 composite"）。
+  //   这俩"有瑕疵就 <60"的通用判官给完整 11K-token 章节打 44/22.5/42.5（还不稳定），
+  //   在章节到达权威的外部 chapter-reviewer（按章节 rubric 打 85-95）之前就把它毙了。
+  //   设计本想用 maxIterations=1 关掉内部自评，但 reflexion 修订由 maxRevisions(=2) 驱动、
+  //   与 maxIterations 无关 → 从未生效。外部 chapter-pipeline 已含完整 写→评→改 循环
+  //   （chapter-pipeline.helper），内部 reflexion 纯属冗余双层循环。
+  //   改 react：单次撰写、无内部判官 gate；外部 chapter-reviewer 是唯一权威 gate（设计原意）。
+  loop: "react",
   // ★ Round 3 真问题修复 (2026-04-29):
   //   原 outputLength="long" → 8000 maxTokens，等于 targetWords 上限 (8000 字)。
   //   中文 1:1 token，意味着 LLM 单次输出永远会被 maxTokens 截断到约 80% 实际产出。
@@ -117,8 +126,8 @@ const Output = z.object({
   //   best-effort 模型(DeepSeek json_object)塞 JSON 时未转义引号会崩整轮 finalize。
   //   声明 body 为 prose 字段 → 走分隔纯文本块，长文不进 JSON，免转义。
   finalizeProseFields: ["body"],
-  // ★ 2026-05-01 (PR-G iter9): maxIterations 走集中常量。原 4 内嵌 reflexion ×
-  //   外部 4 attempt = 16 calls/章节产生指数爆炸。1 = 内部不再 self-critique，
+  // ★ 2026-06-07: loop 已改 react（见上），内部不再有 reflexion 自评循环；
+  //   maxIterations 仅作 react 内 finalize 校验/容错的轮次预算（沿用集中常量）。
   //   外部 chapter-reviewer 评分是唯一权威 gate。
   budget: {
     maxTokens: 22_000,
