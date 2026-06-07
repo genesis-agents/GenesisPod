@@ -1267,7 +1267,8 @@ export class ReActLoop implements IAgentLoop {
 
         yield this.makeEvent(agentId, "thinking", {
           text: decision.thinking,
-          tokenCount: decision.thinking.length,
+          // 真实 completion token 数（旧值用 thinking 字符串长度，推理模型下偏差 4-10x）
+          tokenCount: usage.completionTokens,
           // 暴露 LLM 调用的真实用量给上游（DX runner / 业务 orchestrator 用来算成本）
           promptTokens: usage.promptTokens,
           completionTokens: usage.completionTokens,
@@ -2011,6 +2012,23 @@ export class ReActLoop implements IAgentLoop {
             `model=${response.model ?? "?"}` +
             (parseError ? ` parse_error=${parseError.name}` : ""),
         );
+      }
+    }
+    // ★ 2026-06-07：推理模型（DeepSeek-V4-Flash 等）把 CoT 放在 reasoning_content
+    //   独立通道（response.reasoning），content 只放动作 JSON 且常无 thinking 字段 →
+    //   decision.thinking 空 → 前端「思考」永远空。thinking 空且有 reasoning 时用
+    //   reasoning 回填（去 <think> 标签 + 截断），让用户看到模型真实推理。
+    if (
+      (!decision.thinking || decision.thinking.trim() === "") &&
+      typeof response.reasoning === "string" &&
+      response.reasoning.trim()
+    ) {
+      const r = stripReasoningBlocks(response.reasoning).trim();
+      if (r) {
+        decision = {
+          ...decision,
+          thinking: r.length > 2000 ? `${r.slice(0, 2000)}…` : r,
+        };
       }
     }
     return {

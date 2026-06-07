@@ -230,6 +230,28 @@ export async function runPerDimPipeline(
           dimension: dimensionName,
         });
       } else {
+        // ★ 2026-06-07 B2：5 轴评分阶段失败/异常，但已有落地章节时，用章节真实均分
+        //   做兜底 overall（而非硬记 0），避免"写了内容却 0/100"。仍保留 failed:true，
+        //   让 leader 重派/retry 逻辑不变；只让展示分反映已落地内容的真实质量。
+        const scored = writtenChaptersResult.filter(
+          (c) => typeof c.finalScore === "number" && c.finalScore > 0,
+        );
+        const partial =
+          scored.length > 0
+            ? Math.round(
+                scored.reduce((s, c) => s + c.finalScore, 0) / scored.length,
+              )
+            : 0;
+        const partialGrade =
+          partial >= 80
+            ? "A"
+            : partial >= 70
+              ? "B"
+              : partial >= 60
+                ? "C"
+                : partial >= 50
+                  ? "D"
+                  : "F";
         await deps.emit({
           type: "playground.dimension:graded",
           missionId,
@@ -237,12 +259,16 @@ export async function runPerDimPipeline(
           agentId: gradeAgentId,
           payload: {
             dimension: dimensionName,
-            overall: 0,
-            grade: "F",
+            overall: partial,
+            grade: partialGrade,
             axes: {},
-            summary: payload.summary,
+            summary:
+              partial > 0
+                ? `${payload.summary} · 按 ${scored.length} 章落地均分兜底 ${partial}/100`
+                : payload.summary,
             retryLabel: args.retryLabel,
             failed: true,
+            degraded: partial > 0,
             skipped: payload.skipped ?? false,
             phase: payload.phase,
           },
@@ -520,7 +546,12 @@ export async function runPerDimPipeline(
             firstUseByChapter,
             findings: researcherOut.findings,
             figureCandidates: researcherOut.figureCandidates,
-            emitChapterFailedDone: (failedAttempt, reason, wordCount) =>
+            emitChapterFailedDone: (
+              failedAttempt,
+              reason,
+              wordCount,
+              finalScore,
+            ) =>
               emitChapterFailedDoneEvent(deps, {
                 missionId,
                 userId,
@@ -531,6 +562,7 @@ export async function runPerDimPipeline(
                 reason,
                 wordCount,
                 targetWordCount: targetWordsPerChapter,
+                finalScore,
               }),
             store: deps.store,
           },

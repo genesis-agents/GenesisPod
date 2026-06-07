@@ -118,6 +118,8 @@ export interface ChatCompletionResult {
   cacheReadTokens?: number;
   /** API 返回的完成原因（"stop"=正常完成, "length"=截断） */
   finishReason?: string;
+  /** 推理模型思考链文本（reasoning_content）；content 只放可见输出。 */
+  reasoning?: string;
   /** 标识此响应是否为错误消息（仅在非严格模式下有值） */
   isError?: boolean;
   /** 错误分类类型（仅在 isError=true 时有值，用于 fallback 决策） */
@@ -228,6 +230,8 @@ export interface ChatResult {
   };
   model: string;
   finishReason?: string;
+  /** 推理模型思考链文本（reasoning_content）；供 harness 在 thinking 为空时回退展示。 */
+  reasoning?: string;
   isError?: boolean;
   apiKeySource?: "personal" | "assigned" | "system";
   /**
@@ -1687,6 +1691,7 @@ export class AiChatService {
           },
           model: result.model,
           finishReason: result.finishReason,
+          reasoning: result.reasoning,
           isError: result.isError,
         };
       } catch (error) {
@@ -2177,6 +2182,7 @@ export class AiChatService {
           },
           model: result.model,
           finishReason: result.finishReason,
+          reasoning: result.reasoning,
           isError: false,
           apiKeySource: result.apiKeySource,
           toolCalls: result.toolCalls,

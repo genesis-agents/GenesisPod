@@ -421,6 +421,16 @@ export class OpenaiCaller extends BaseHttpCaller {
       messageObj?.text ||
       messageObj?.output ||
       (typeof messageObj === "string" ? messageObj : null);
+    // ★ 推理模型（DeepSeek-R1/V4-Flash thinking、o系列）把 CoT 放在 reasoning_content
+    //   独立字段，content 只放可见输出。不接此字段 → harness 的「思考」永远空。
+    const reasoning =
+      (typeof messageObj?.reasoning_content === "string" &&
+      messageObj.reasoning_content.trim()
+        ? messageObj.reasoning_content
+        : typeof messageObj?.reasoning === "string" &&
+            messageObj.reasoning.trim()
+          ? messageObj.reasoning
+          : undefined) || undefined;
 
     // ★ 检查 OpenAI 拒绝响应
     if (messageObj?.refusal) {
@@ -547,6 +557,7 @@ export class OpenaiCaller extends BaseHttpCaller {
       outputTokens: openaiUsage.completion_tokens || 0,
       cacheReadTokens: promptTokensDetails.cached_tokens || 0,
       finishReason: data.choices?.[0]?.finish_reason || undefined,
+      reasoning,
       toolCalls,
     };
   }
