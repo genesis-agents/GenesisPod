@@ -25,6 +25,12 @@ export function TeamWorkflowsSection() {
   const usageCount = (wfId: string) =>
     teams.filter((t) => t.workflowId === wfId).length;
 
+  const applyAsNewTeam = (wf: WorkflowListing) => {
+    const teamId = createTeam(`${wf.name}小组`);
+    setWorkflow(teamId, wf.id);
+    toast.success(`已用「${wf.name}」套用出新团队`);
+  };
+
   const cards: TeamResourceCard[] = workflows.map((wf) => ({
     id: wf.id,
     name: wf.name,
@@ -39,6 +45,14 @@ export function TeamWorkflowsSection() {
       </span>
     )),
     usage: `${wf.teamSize} 人阵型 · 已被 ${usageCount(wf.id)} 个团队使用`,
+    actions: (
+      <button
+        onClick={() => applyAsNewTeam(wf)}
+        className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
+      >
+        <Plus className="h-3.5 w-3.5" /> 套用
+      </button>
+    ),
   }));
 
   return (
@@ -50,18 +64,6 @@ export function TeamWorkflowsSection() {
       hint="获取更多 SOP。"
       emptyTitle="还没有工作流"
       emptyDesc="去工作流市场获取现成的团队 SOP"
-      action={{
-        icon: Plus,
-        label: '套用',
-        onClick: (id) => {
-          const wf = findListing(id);
-          if (wf && wf.kind === 'workflow') {
-            const teamId = createTeam(`${wf.name}小组`);
-            setWorkflow(teamId, wf.id);
-            toast.success(`已用「${wf.name}」套用出新团队`);
-          }
-        },
-      }}
     />
   );
 }

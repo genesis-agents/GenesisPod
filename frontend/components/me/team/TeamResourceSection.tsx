@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui/states/LoadingState';
@@ -21,6 +21,8 @@ export interface TeamResourceCard {
   meta?: ReactNode;
   /** 底部左侧用量/状态文案 */
   usage?: ReactNode;
+  /** 底部右侧操作（配置密钥 / 申请授权 / 测试 / 套用…），调用方按数据渲染 */
+  actions?: ReactNode;
 }
 
 /**
@@ -43,8 +45,6 @@ export interface TeamResourceSectionProps {
   hint: string;
   emptyTitle: string;
   emptyDesc: string;
-  /** 可选底部右侧动作（如工作流「套用」），onClick 收到卡片 id */
-  action?: { icon: LucideIcon; label: string; onClick: (id: string) => void };
 }
 
 export function TeamResourceSection({
@@ -58,11 +58,9 @@ export function TeamResourceSection({
   hint,
   emptyTitle,
   emptyDesc,
-  action,
 }: TeamResourceSectionProps) {
   const meta = KIND_META[kind];
   const Icon = meta.Icon;
-  const ActionIcon = action?.icon;
 
   // 按分类分组（每组一个标题 + 卡片网格）
   const grouped = (() => {
@@ -155,15 +153,12 @@ export function TeamResourceSection({
                       </div>
                     )}
 
-                    <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-400">
-                      <span>{card.usage}</span>
-                      {action && ActionIcon && (
-                        <button
-                          onClick={() => action.onClick(card.id)}
-                          className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
-                        >
-                          <ActionIcon className="h-3.5 w-3.5" /> {action.label}
-                        </button>
+                    <div className="mt-3 flex items-center justify-between gap-2 border-t border-gray-100 pt-3 text-xs text-gray-400">
+                      <span className="min-w-0 truncate">{card.usage}</span>
+                      {card.actions && (
+                        <div className="flex flex-shrink-0 items-center gap-1">
+                          {card.actions}
+                        </div>
                       )}
                     </div>
                   </div>
