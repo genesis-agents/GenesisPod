@@ -264,3 +264,26 @@ export const toneToken: Record<
     ring: 'ring-gray-100',
   },
 };
+
+/**
+ * 装饰性渐变色板（非模块识别色）。集中在 design 层，feature 不得写死
+ * `from-/to-{hue}` 渐变（T6 焊死规则）。用于 Agent 头像、市场货架图标等纯装饰色。
+ */
+export const AVATAR_GRADIENTS = [
+  'from-slate-600 to-slate-800',
+  'from-sky-500 to-blue-600',
+  'from-fuchsia-500 to-purple-600',
+  'from-rose-500 to-pink-600',
+  'from-emerald-500 to-teal-600',
+  'from-amber-500 to-orange-600',
+  'from-violet-500 to-purple-600',
+  'from-cyan-500 to-sky-600',
+] as const;
+
+/** 智能体市场四货架的图标渐变（装饰色，非模块识别色）。 */
+export const MARKET_KIND_GRADIENTS = {
+  agent: 'from-green-500 to-emerald-600',
+  skill: 'from-amber-500 to-orange-600',
+  tool: 'from-blue-500 to-indigo-600',
+  workflow: 'from-violet-500 to-purple-600',
+} as const;

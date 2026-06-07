@@ -7,6 +7,7 @@ import { toast } from '@/stores';
 import { useCompanyStore } from '@/stores/company/companyStore';
 import { findListing } from '@/components/marketplace/marketplace.mock';
 import type { WorkflowListing } from '@/components/marketplace/marketplace.types';
+import { MARKET_KIND_GRADIENTS } from '@/lib/design/tokens';
 
 /**
  * 团队工作流 —— 我已从「工作流市场」获取的 SOP 库（独立资源，可被任意 Team 套用）。
@@ -70,7 +71,9 @@ export function TeamWorkflowsSection() {
               className="flex flex-col rounded-xl border border-gray-200 bg-white p-4"
             >
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm">
+                <div
+                  className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${MARKET_KIND_GRADIENTS.workflow} text-white shadow-sm`}
+                >
                   <WorkflowIcon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">

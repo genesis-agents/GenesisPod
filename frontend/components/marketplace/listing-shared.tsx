@@ -8,9 +8,10 @@ import {
   Star,
   type LucideIcon,
 } from 'lucide-react';
+import { MARKET_KIND_GRADIENTS } from '@/lib/design/tokens';
 import type { ListingKind } from './marketplace.types';
 
-/** 各货架的图标 + 名称 + 强调色（token 化，不散落硬编码）。 */
+/** 各货架的图标 + 名称 + 强调色（渐变走 design 层色板，feature 不写死）。 */
 export const KIND_META: Record<
   ListingKind,
   {
@@ -24,28 +25,28 @@ export const KIND_META: Record<
   agent: {
     label: 'Agent',
     Icon: Bot,
-    gradient: 'from-green-500 to-emerald-600',
+    gradient: MARKET_KIND_GRADIENTS.agent,
     soft: 'bg-green-50',
     text: 'text-green-700',
   },
   skill: {
     label: '技能',
     Icon: Sparkles,
-    gradient: 'from-amber-500 to-orange-600',
+    gradient: MARKET_KIND_GRADIENTS.skill,
     soft: 'bg-amber-50',
     text: 'text-amber-700',
   },
   tool: {
     label: '工具',
     Icon: Wrench,
-    gradient: 'from-blue-500 to-indigo-600',
+    gradient: MARKET_KIND_GRADIENTS.tool,
     soft: 'bg-blue-50',
     text: 'text-blue-700',
   },
   workflow: {
     label: '工作流',
     Icon: Workflow,
-    gradient: 'from-violet-500 to-purple-600',
+    gradient: MARKET_KIND_GRADIENTS.workflow,
     soft: 'bg-violet-50',
     text: 'text-violet-700',
   },
