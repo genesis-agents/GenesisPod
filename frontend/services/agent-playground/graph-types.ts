@@ -84,3 +84,14 @@ export interface MissionGraphArtifact {
   analyses: Analyses | null;
   generatedAt: string | null;
 }
+
+// ─── Node enrichment (on-demand entity profile via engine tools) ─────────────
+
+export interface NodeEnrichment {
+  nodeId: string;
+  label: string;
+  type: string;
+  description: string;
+  facts: { label: string; value: string }[];
+  sources: { title: string; url: string }[];
+}

@@ -11,12 +11,13 @@
  *   7. Upsert to DB; return artifact
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { AIModelType, Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   AiChatService,
   EntityResolutionService,
+  SearchService,
 } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { MissionQueryService } from "../query/mission-query.service";
@@ -29,6 +30,7 @@ import {
   type GraphEdge,
   type Analyses,
   type MissionGraphArtifact,
+  type NodeEnrichment,
 } from "./mission-graph.types";
 import type { ReportArtifactV2 } from "../../api/contracts/artifact.contract";
 
@@ -173,7 +175,129 @@ export class MissionGraphService {
     private readonly missionQuery: MissionQueryService,
     private readonly chat: AiChatService,
     private readonly entityResolution: EntityResolutionService,
+    private readonly search: SearchService,
   ) {}
+
+  // ---------------------------------------------------------------------------
+  // enrichNode —— 点击节点时按需用 web-search + LLM 综合实体画像
+  // ---------------------------------------------------------------------------
+
+  async enrichNode(
+    userId: string,
+    missionId: string,
+    nodeId: string,
+  ): Promise<NodeEnrichment> {
+    const artifact = await this.getArtifact(userId, missionId); // 内含 ownership 校验
+    const node = (artifact.graph?.nodes ?? []).find((n) => n.id === nodeId);
+    if (!node) {
+      throw new NotFoundException(`graph node ${nodeId} not found`);
+    }
+
+    const typeHint: Record<string, string> = {
+      ORGANIZATION: "公司 机构 背景 业务 规模 财务 融资 地位",
+      PRODUCT: "产品 用途 厂商 定位",
+      TECHNOLOGY: "技术 原理 应用 代表厂商",
+      PERSON: "人物 背景 任职",
+      EVENT: "事件 时间 影响",
+      METRIC: "指标 含义 数值",
+      TREND: "趋势 驱动 影响",
+    };
+    const query = `${node.label} ${typeHint[node.type] ?? ""}`.trim();
+
+    let results: { title: string; url: string; content: string }[] = [];
+    try {
+      const r = await this.search.search(query, 6);
+      results = r.results ?? [];
+    } catch (err: unknown) {
+      this.logger.warn(
+        `[graph:enrich] search failed for "${node.label}": ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+
+    const ctx = results
+      .map(
+        (x, i) =>
+          `[${i + 1}] ${x.title}\n${(x.content || "").slice(0, 400)}\nURL: ${x.url}`,
+      )
+      .join("\n\n");
+
+    const fallback: NodeEnrichment = {
+      nodeId,
+      label: node.label,
+      type: node.type,
+      description: "",
+      facts: [],
+      sources: results.slice(0, 5).map((x) => ({ title: x.title, url: x.url })),
+    };
+
+    if (!ctx) return fallback;
+
+    const sysPrompt = `你是商业分析师。根据搜索结果为实体"${node.label}"（类型：${node.type}）写一份结构化画像。返回纯JSON，不要prose：
+{
+  "description": "2-4句中文简介",
+  "facts": [{"label": "字段名", "value": "值"}],
+  "sources": [{"title": "", "url": ""}]
+}
+facts 聚焦关键事实（成立时间/规模/主营/产品/财务/融资轮次/市场地位等），最多 6 条；sources 从搜索结果选最相关的，最多 5 条。只用搜索结果中的信息，无依据的不要编造。`;
+
+    try {
+      const res = await this.chat.chat({
+        messages: [{ role: "user", content: ctx }],
+        systemPrompt: sysPrompt,
+        taskProfile: { creativity: "low", outputLength: "short" },
+        modelType: AIModelType.CHAT,
+        userId,
+        operationName: "playground.mission-graph.enrich-node",
+      });
+      if (res.content) {
+        const parsed = extractJsonFromAIResponse<Record<string, unknown>>(
+          res.content,
+          { requiredKey: "description" },
+        );
+        if (parsed.success && parsed.data) {
+          const d = parsed.data;
+          const facts = Array.isArray(d.facts)
+            ? (d.facts as unknown[])
+                .filter(
+                  (f): f is { label: string; value: string } =>
+                    !!f &&
+                    typeof f === "object" &&
+                    typeof (f as Record<string, unknown>).label === "string" &&
+                    typeof (f as Record<string, unknown>).value === "string",
+                )
+                .slice(0, 6)
+            : [];
+          const sources = Array.isArray(d.sources)
+            ? (d.sources as unknown[])
+                .filter(
+                  (s): s is { title: string; url: string } =>
+                    !!s &&
+                    typeof s === "object" &&
+                    typeof (s as Record<string, unknown>).url === "string",
+                )
+                .slice(0, 5)
+            : fallback.sources;
+          return {
+            nodeId,
+            label: node.label,
+            type: node.type,
+            description: String(d.description ?? ""),
+            facts,
+            sources: sources.length > 0 ? sources : fallback.sources,
+          };
+        }
+      }
+    } catch (err: unknown) {
+      this.logger.warn(
+        `[graph:enrich] LLM synth failed for "${node.label}": ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+    return fallback;
+  }
 
   // ---------------------------------------------------------------------------
   // getArtifact

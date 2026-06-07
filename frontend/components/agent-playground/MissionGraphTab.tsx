@@ -12,6 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import KnowledgeGraphView from '@/components/common/views/KnowledgeGraphView';
+import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import { SectionPanelCard, StatCard } from '@/components/ui/cards';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { ErrorState } from '@/components/ui/states/ErrorState';
@@ -20,11 +21,13 @@ import { Button } from '@/components/ui/primitives/button';
 import {
   getMissionGraph,
   buildMissionGraph,
+  enrichGraphNode,
 } from '@/services/agent-playground/api';
 import type {
   MissionGraphArtifact,
   Analyses,
   MissionGraph,
+  NodeEnrichment,
 } from '@/services/agent-playground/graph-types';
 
 interface MissionGraphTabProps {
@@ -115,18 +118,58 @@ export function MissionGraphTab({ missionId }: MissionGraphTabProps) {
   const graph = artifact.graph as MissionGraph;
   const analyses = artifact.analyses as Analyses;
 
-  return <ReadyGraph graph={graph} analyses={analyses} />;
+  return <ReadyGraph graph={graph} analyses={analyses} missionId={missionId} />;
 }
 
 // ─── READY 态：拆成独立组件，让 useMemo / useState（全屏）等 hooks 合法且稳定 ───
 function ReadyGraph({
   graph,
   analyses,
+  missionId,
 }: {
   graph: MissionGraph;
   analyses: Analyses;
+  missionId: string;
 }) {
   const [fullscreen, setFullscreen] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<{
+    id: string;
+    label: string;
+    type: string;
+  } | null>(null);
+  const [enrich, setEnrich] = useState<NodeEnrichment | null>(null);
+  const [enrichLoading, setEnrichLoading] = useState(false);
+  const [enrichError, setEnrichError] = useState(false);
+  const enrichCache = useRef<Map<string, NodeEnrichment>>(new Map());
+
+  // 点击节点 → 打开抽屉 + 按需用 engine 工具抓取实体画像（按 session 缓存）。
+  const handleNodeSelect = useCallback(
+    (node: { id: string; label: string; type: string } | null) => {
+      setSelectedNode(node);
+      if (!node) {
+        setEnrich(null);
+        return;
+      }
+      const cached = enrichCache.current.get(node.id);
+      if (cached) {
+        setEnrich(cached);
+        setEnrichLoading(false);
+        setEnrichError(false);
+        return;
+      }
+      setEnrich(null);
+      setEnrichLoading(true);
+      setEnrichError(false);
+      enrichGraphNode(missionId, node.id)
+        .then((r) => {
+          enrichCache.current.set(node.id, r);
+          setEnrich(r);
+        })
+        .catch(() => setEnrichError(true))
+        .finally(() => setEnrichLoading(false));
+    },
+    [missionId]
+  );
   const graphCardRef = useRef<HTMLDivElement>(null);
 
   // ★ 关键修复（flicker）：viewNodes/viewEdges 必须 useMemo 稳定引用。否则
@@ -238,6 +281,7 @@ function ReadyGraph({
               nodes={viewNodes}
               edges={viewEdges}
               defaultLayout="force"
+              onNodeSelect={handleNodeSelect}
             />
           </div>
         </SectionPanelCard>
@@ -428,6 +472,103 @@ function ReadyGraph({
           </div>
         </SectionPanelCard>
       </div>
+
+      {/* 节点实体画像抽屉（点击节点 → 按需用 engine 工具抓取并展示） */}
+      <SideDrawer
+        open={!!selectedNode}
+        onClose={() => handleNodeSelect(null)}
+        widthPx={420}
+      >
+        {selectedNode && (
+          <div className="space-y-4 p-5">
+            <div>
+              <span className="text-xs font-medium text-gray-500">
+                {ENTITY_TYPE_LABEL[selectedNode.type] ?? selectedNode.type}
+              </span>
+              <h2 className="mt-0.5 text-lg font-bold text-gray-900">
+                {selectedNode.label}
+              </h2>
+            </div>
+
+            {enrichLoading && (
+              <LoadingState text="正在用搜索/工具抓取实体画像…" size="sm" />
+            )}
+            {enrichError && (
+              <p className="text-sm text-red-500">
+                画像抓取失败，可关闭后重试。
+              </p>
+            )}
+
+            {enrich && (
+              <>
+                {enrich.description && (
+                  <p className="text-sm leading-relaxed text-gray-700">
+                    {enrich.description}
+                  </p>
+                )}
+                {enrich.facts.length > 0 && (
+                  <div>
+                    <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                      关键信息
+                    </h3>
+                    <dl className="space-y-1 text-sm">
+                      {enrich.facts.map((f, i) => (
+                        <div key={i} className="flex gap-2">
+                          <dt className="w-20 flex-shrink-0 text-gray-500">
+                            {f.label}
+                          </dt>
+                          <dd className="flex-1 text-gray-800">{f.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                )}
+                {enrich.sources.length > 0 && (
+                  <div>
+                    <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                      来源
+                    </h3>
+                    <ul className="space-y-1">
+                      {enrich.sources.map((s, i) => (
+                        <li key={i}>
+                          <a
+                            href={s.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block truncate text-xs text-blue-600 hover:underline"
+                          >
+                            {s.title || s.url}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {!enrich.description &&
+                  enrich.facts.length === 0 &&
+                  enrich.sources.length === 0 && (
+                    <p className="text-sm text-gray-400">
+                      未能抓取到该实体的更多信息。
+                    </p>
+                  )}
+              </>
+            )}
+          </div>
+        )}
+      </SideDrawer>
     </div>
   );
 }
+
+const ENTITY_TYPE_LABEL: Record<string, string> = {
+  ORGANIZATION: '组织/机构',
+  PERSON: '人物',
+  TECHNOLOGY: '技术',
+  PRODUCT: '产品',
+  CONCEPT: '概念',
+  EVENT: '事件',
+  LOCATION: '地点',
+  TREND: '趋势',
+  METRIC: '指标',
+  OTHER: '其他',
+};
