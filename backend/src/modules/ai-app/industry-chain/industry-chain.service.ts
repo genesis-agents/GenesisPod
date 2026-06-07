@@ -183,6 +183,10 @@ export class IndustryChainService {
             loop: "react",
             systemPrompt: CHAIN_MAPPER_SYSTEM_PROMPT,
             userId: ctx.userId,
+            // 推理模型（如 qwen3-max）会把 token 预算先花在 thinking 上；默认 medium(4000)
+            // 容不下"推理 + 全量产业链 JSON"→ 在产出最终结构前被截断 → 空输出。给 long(8000)
+            // 留足空间。creativity=low（结构化抽取，低温度）。
+            taskProfile: { creativity: "low", outputLength: "long" },
             // spec 泛型 TOutput=unknown → outputSchema 需 z.ZodType<unknown>；
             // ChainExtractionResultSchema 是 ZodObject（不变型），收窄到 z.ZodType<unknown>
             outputSchema:
@@ -193,8 +197,26 @@ export class IndustryChainService {
             input: { topic: input.topic },
             signal: ctx.signal,
           };
-          const result = await this.harness.execute(spec, task);
-          return this.parseExtraction(result.output);
+          // 抽取偶发返回空（推理模型截断 / 瞬时失败；且"成功但空"不触发模型 failover）
+          // → 重试一次，取非空结果。
+          let extraction = this.parseExtraction(
+            (await this.harness.execute(spec, task)).output,
+          );
+          if (
+            extraction.segments.length === 0 &&
+            extraction.companies.length === 0
+          ) {
+            this.logger.warn(
+              `[perItemPipeline] empty extraction for "${input.topic}" — retrying once`,
+            );
+            const retry = this.parseExtraction(
+              (await this.harness.execute(spec, task)).output,
+            );
+            if (retry.segments.length > 0 || retry.companies.length > 0) {
+              extraction = retry;
+            }
+          }
+          return extraction;
         },
       },
       {
