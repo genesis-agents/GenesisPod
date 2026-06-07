@@ -281,6 +281,9 @@ jobs:
       - name: UI discipline audit (frontend)
         run: npm run audit:ui-discipline
 
+      - name: Tool categories guard (frontend↔backend unified)
+        run: npm run audit:tool-categories
+
   # ── Boot Smoke Test ───────────────────────────────────────
   # CI 从不真正启动应用（单测大量 mock），循环导入引发的 DI 解析崩溃
   # 会一路漏到生产（2026-06-03 ContentFetchService 生产崩溃，hotfix #220）。
