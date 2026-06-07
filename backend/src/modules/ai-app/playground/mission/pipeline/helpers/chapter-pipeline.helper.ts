@@ -96,6 +96,7 @@ export interface ChapterPipelineContext {
     failedAttempt: number,
     reason: string,
     wordCount: number,
+    finalScore?: number,
   ) => Promise<void>;
   /** Persistent store — optional (spec mocks may omit). */
   store: MissionDeps["store"];
@@ -167,6 +168,9 @@ export async function runChapterPipeline(
     | { body: string; wordCount: number; citationsUsed: string[] }
     | undefined;
   let lastCritique: string | undefined;
+  // ★ 2026-06-07：记录最近一次 reviewer 评分。章节写了内容但卡在 60 门禁时（兜底落地），
+  //   终态须上报这个真实分（如 55）而非硬编码 0，否则维度被单章拖成 0/100。
+  let lastScore = 0;
   // ★ P1-R4-A (round 4): cap consecutive reviewer failures to avoid token explosion
   let consecutiveReviewerFailures = 0;
   const MAX_REVIEWER_FAILURES = 2;
@@ -419,6 +423,7 @@ export async function runChapterPipeline(
             issues: [],
             critique: "(reviewer failed)",
           };
+    lastScore = verdict.score;
     // ★ degraded also accepted — reviewer is simple-loop but accepted
     const isReviewerFallback =
       (reviewerRes.state !== "completed" && reviewerRes.state !== "degraded") ||
@@ -638,6 +643,7 @@ export async function runChapterPipeline(
     attempt,
     "loop-exhausted",
     lastDraft?.wordCount ?? 0,
+    lastScore, // 兜底落地章节的真实评分（非 0），避免维度被拖成 0/100
   );
   return null;
 }
@@ -664,6 +670,8 @@ export async function emitChapterFailedDoneEvent(
     reason: string;
     wordCount: number;
     targetWordCount: number;
+    /** 章节兜底落地时的真实 reviewer 评分；缺省 0（如 writer 全无产出）。 */
+    finalScore?: number;
   },
 ): Promise<void> {
   const agentId = `chapter-writer#${ctx.dimensionIdx}.${ctx.chapterIndex}.${ctx.failedAttempt}`;
@@ -678,7 +686,7 @@ export async function emitChapterFailedDoneEvent(
         chapterIndex: ctx.chapterIndex,
         finalAttempt: ctx.failedAttempt,
         decision: "fallback-exhausted",
-        finalScore: 0,
+        finalScore: ctx.finalScore ?? 0,
         wordCount: ctx.wordCount,
         targetWordCount: ctx.targetWordCount,
         finalized: true,
