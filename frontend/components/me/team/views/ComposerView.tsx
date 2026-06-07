@@ -1,0 +1,402 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import {
+  Plus,
+  Star,
+  X,
+  Settings2,
+  UserPlus,
+  Workflow as WorkflowIcon,
+  Sparkles,
+  Wrench,
+} from 'lucide-react';
+import { Modal } from '@/components/ui/dialogs/Modal';
+import { Button } from '@/components/ui/primitives/button';
+import { EmptyState } from '@/components/ui/states/EmptyState';
+import { cn } from '@/lib/utils/common';
+import { toast } from '@/stores';
+import { useCompanyStore } from '@/stores/company/companyStore';
+import { findListing } from '@/components/marketplace/marketplace.mock';
+import { AgentAvatar, RoleTag, seniorityLabel } from '../team-shared';
+
+export function ComposerView() {
+  const {
+    teams,
+    hired,
+    createTeam,
+    deleteTeam,
+    addMember,
+    removeMember,
+    setLeader,
+    setWorkflow,
+    acquiredWorkflowIds,
+  } = useCompanyStore();
+
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(
+    teams[0]?.id ?? null
+  );
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [assemblyMemberId, setAssemblyMemberId] = useState<string | null>(null);
+
+  const activeTeam =
+    teams.find((t) => t.id === activeTeamId) ?? teams[0] ?? null;
+
+  const handleCreateTeam = () => {
+    const id = createTeam(`新团队 ${teams.length + 1}`);
+    setActiveTeamId(id);
+    toast.success('已创建新团队');
+  };
+
+  const memberOf = (id: string) => hired.find((h) => h.instanceId === id);
+  const availableToAdd = hired.filter(
+    (h) => !activeTeam?.memberIds.includes(h.instanceId)
+  );
+
+  return (
+    <div className="flex flex-col gap-5 lg:flex-row">
+      {/* 左：团队列表 */}
+      <aside className="w-full flex-shrink-0 lg:w-52">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+            团队
+          </h3>
+          <button
+            onClick={handleCreateTeam}
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            <Plus className="h-3.5 w-3.5" /> 新建
+          </button>
+        </div>
+        <div className="space-y-1">
+          {teams.map((t) => {
+            const leader = memberOf(t.leaderId ?? '');
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTeamId(t.id)}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                  t.id === activeTeam?.id
+                    ? 'bg-slate-100 text-slate-900'
+                    : 'text-gray-600 hover:bg-gray-50'
+                )}
+              >
+                {leader ? (
+                  <AgentAvatar agent={leader} size="xs" />
+                ) : (
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+                    <WorkflowIcon className="h-3.5 w-3.5" />
+                  </span>
+                )}
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {t.name}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {t.memberIds.length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      {/* 右：选中团队画布 */}
+      <div className="min-w-0 flex-1">
+        {!activeTeam ? (
+          <EmptyState
+            type="default"
+            title="还没有团队"
+            description="点左侧「新建」组建第一个 Agent Team"
+            action={{ label: '新建团队', onClick: handleCreateTeam }}
+          />
+        ) : (
+          <div className="space-y-4">
+            {/* 团队头 + 工作流 */}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {activeTeam.name}
+                </h2>
+                <span className="text-xs text-gray-400">
+                  {activeTeam.memberIds.length} 名成员
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500">工作流</label>
+                <select
+                  value={activeTeam.workflowId ?? ''}
+                  onChange={(e) =>
+                    setWorkflow(activeTeam.id, e.target.value || null)
+                  }
+                  className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">未选择</option>
+                  {acquiredWorkflowIds.map((id) => (
+                    <option key={id} value={id}>
+                      {findListing(id)?.name ?? id}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => {
+                    deleteTeam(activeTeam.id);
+                    setActiveTeamId(null);
+                    toast.info('已解散该团队');
+                  }}
+                  className="rounded-md px-2 py-1.5 text-xs text-gray-400 hover:bg-red-50 hover:text-red-600"
+                >
+                  解散
+                </button>
+              </div>
+            </div>
+
+            {/* 成员画布 */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {activeTeam.memberIds.map((mid) => {
+                const m = memberOf(mid);
+                if (!m) return null;
+                const isLeader = activeTeam.leaderId === mid;
+                return (
+                  <div
+                    key={mid}
+                    className={cn(
+                      'group relative rounded-xl border bg-white p-3 transition-colors',
+                      isLeader
+                        ? 'border-amber-300 ring-1 ring-amber-200'
+                        : 'border-gray-200'
+                    )}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <AgentAvatar agent={m} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1">
+                          <span className="truncate text-sm font-semibold text-gray-900">
+                            {m.name}
+                          </span>
+                          <RoleTag kind={isLeader ? 'leader' : 'member'} />
+                        </div>
+                        <p className="truncate text-xs text-gray-400">
+                          {m.role} · {seniorityLabel(m)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 flex items-center gap-1 text-[11px] text-gray-500">
+                      <Sparkles className="h-3 w-3 text-amber-500" />
+                      {m.skillIds.length}
+                      <Wrench className="ml-1.5 h-3 w-3 text-blue-500" />
+                      {m.toolIds.length}
+                    </div>
+
+                    <div className="mt-3 flex items-center gap-1 border-t border-gray-100 pt-2.5">
+                      <button
+                        onClick={() => setLeader(activeTeam.id, mid)}
+                        disabled={isLeader}
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium',
+                          isLeader
+                            ? 'cursor-default text-amber-600'
+                            : 'text-gray-500 hover:bg-amber-50 hover:text-amber-600'
+                        )}
+                      >
+                        <Star
+                          className={cn(
+                            'h-3.5 w-3.5',
+                            isLeader && 'fill-amber-400'
+                          )}
+                        />
+                        {isLeader ? 'Leader' : '设为 Leader'}
+                      </button>
+                      <button
+                        onClick={() => setAssemblyMemberId(mid)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100"
+                      >
+                        <Settings2 className="h-3.5 w-3.5" /> 装配
+                      </button>
+                      <button
+                        onClick={() => removeMember(activeTeam.id, mid)}
+                        className="ml-auto rounded-md p-1 text-gray-300 hover:bg-red-50 hover:text-red-500"
+                        aria-label="移出团队"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* 添加成员卡 */}
+              <button
+                onClick={() => setShowAddMember(true)}
+                className="flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 transition-colors hover:border-primary hover:text-primary"
+              >
+                <UserPlus className="h-6 w-6" />
+                <span className="text-sm font-medium">添加成员</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 添加成员 Modal */}
+      {showAddMember && activeTeam && (
+        <Modal
+          open
+          onClose={() => setShowAddMember(false)}
+          size="md"
+          title="从人才库添加成员"
+          subtitle={`加入「${activeTeam.name}」`}
+        >
+          {availableToAdd.length === 0 ? (
+            <EmptyState
+              type="default"
+              size="sm"
+              title="没有可添加的 Agent"
+              description="人才库里的人都在这个团队了"
+              action={
+                <Link
+                  href="/marketplace"
+                  className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                >
+                  去市场招人
+                </Link>
+              }
+            />
+          ) : (
+            <div className="space-y-2">
+              {availableToAdd.map((a) => (
+                <button
+                  key={a.instanceId}
+                  onClick={() => {
+                    addMember(activeTeam.id, a.instanceId);
+                    toast.success(`已把 ${a.name} 加入 ${activeTeam.name}`);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 text-left hover:border-primary hover:bg-gray-50"
+                >
+                  <AgentAvatar agent={a} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-gray-900">
+                      {a.name}
+                    </div>
+                    <div className="truncate text-xs text-gray-400">
+                      {a.role} · {seniorityLabel(a)}
+                    </div>
+                  </div>
+                  <Plus className="h-4 w-4 text-gray-400" />
+                </button>
+              ))}
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* 成员装配 Modal */}
+      {assemblyMemberId && (
+        <AssemblyModal
+          memberId={assemblyMemberId}
+          onClose={() => setAssemblyMemberId(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── 成员装配（给某成员配技能/工具，从已获取资源里选）──────────────────────────
+function AssemblyModal({
+  memberId,
+  onClose,
+}: {
+  memberId: string;
+  onClose: () => void;
+}) {
+  const {
+    hired,
+    acquiredSkillIds,
+    acquiredToolIds,
+    toggleAgentSkill,
+    toggleAgentTool,
+  } = useCompanyStore();
+  const member = hired.find((h) => h.instanceId === memberId);
+  if (!member) return null;
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="lg"
+      title={`装配 · ${member.name}`}
+      subtitle={`${member.role} —— 勾选要装配的技能与工具`}
+      footer={<Button onClick={onClose}>完成</Button>}
+    >
+      <div className="space-y-5">
+        <Section
+          icon={<Sparkles className="h-4 w-4 text-amber-500" />}
+          title="技能"
+          ids={acquiredSkillIds}
+          activeIds={member.skillIds}
+          onToggle={(id) => toggleAgentSkill(memberId, id)}
+        />
+        <Section
+          icon={<Wrench className="h-4 w-4 text-blue-500" />}
+          title="工具"
+          ids={acquiredToolIds}
+          activeIds={member.toolIds}
+          onToggle={(id) => toggleAgentTool(memberId, id)}
+        />
+      </div>
+    </Modal>
+  );
+}
+
+function Section({
+  icon,
+  title,
+  ids,
+  activeIds,
+  onToggle,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  ids: string[];
+  activeIds: string[];
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+        {icon} {title}
+        <span className="text-xs font-normal text-gray-400">
+          已选 {activeIds.length}/{ids.length}
+        </span>
+      </div>
+      {ids.length === 0 ? (
+        <p className="text-xs text-gray-400">
+          还没有可用的{title}，去市场获取。
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {ids.map((id) => {
+            const ref = findListing(id);
+            const active = activeIds.includes(id);
+            return (
+              <button
+                key={id}
+                onClick={() => onToggle(id)}
+                className={cn(
+                  'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                  active
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                )}
+              >
+                {ref?.name ?? id}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -26,7 +26,9 @@ export type ModuleKey =
   | 'writing'
   | 'social'
   | 'playground'
-  | 'customAgents';
+  | 'customAgents'
+  | 'market'
+  | 'company';
 
 export interface ModuleTheme {
   /** Tailwind 色相名（文档/调试用） */
@@ -211,6 +213,31 @@ export const MODULE_THEMES: Record<ModuleKey, ModuleTheme> = {
     gradient: 'from-pink-500 to-fuchsia-600',
     primaryHsl: '333.3 71.4% 50.6%',
   },
+  // market：智能体市场（平台共享货架）。翡翠绿=交易/市集；emerald 已被 report 占用，
+  // 故用 green，与 report(emerald) 色相相邻但不撞。primaryHsl = Tailwind green-600。
+  market: {
+    hue: 'green',
+    activeBg: 'bg-green-50',
+    text: 'text-green-700',
+    icon: 'text-green-600',
+    softBg: 'bg-green-50',
+    ring: 'ring-green-200',
+    dot: 'bg-green-500',
+    gradient: 'from-green-500 to-emerald-600',
+    primaryHsl: '142.1 76.2% 36.3%',
+  },
+  // company：我的团队（一人公司私有后台）。沉稳灰蓝=董事会气质。primaryHsl = Tailwind slate-600。
+  company: {
+    hue: 'slate',
+    activeBg: 'bg-slate-100',
+    text: 'text-slate-700',
+    icon: 'text-slate-600',
+    softBg: 'bg-slate-50',
+    ring: 'ring-slate-200',
+    dot: 'bg-slate-500',
+    gradient: 'from-slate-600 to-slate-800',
+    primaryHsl: '215.3 19.3% 34.5%',
+  },
 };
 
 export function moduleTheme(key: ModuleKey): ModuleTheme {
@@ -233,6 +260,7 @@ const ROUTE_MODULE: { prefix: string; key: ModuleKey }[] = [
   { prefix: '/ai-social', key: 'social' },
   { prefix: '/agent-playground', key: 'playground' },
   { prefix: '/custom-agents', key: 'customAgents' },
+  { prefix: '/marketplace', key: 'market' },
 ];
 
 /** 由路径推导当前模块 key（匹配不到返回 undefined）。 */

@@ -748,6 +748,33 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.playground')}</span>}
           </Link>
 
+          {/* 智能体市场 — 平台共享货架（Agent/技能/工具/工作流），详见
+              docs/features/one-person-company-os/design.md §4.1 */}
+          <Link
+            href="/marketplace"
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+              pathname?.startsWith('/marketplace')
+                ? `${MODULE_THEMES.market.activeBg} ${MODULE_THEMES.market.text}`
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title={t('nav.marketplace')}
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 9l1.5-4.5h15L21 9M3 9h18M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M9 13h6"
+              />
+            </svg>
+            {showExpanded && <span>{t('nav.marketplace')}</span>}
+          </Link>
+
           {/* AI 商店 / 工具市场 — 暂时不要 */}
 
           {/* Section: 我的 Agent ★ 2026-05-05 R-CA: 动态列出 PUBLISHED custom agents */}

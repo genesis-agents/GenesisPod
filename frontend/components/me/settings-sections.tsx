@@ -3,7 +3,8 @@ import {
   SlidersHorizontal,
   Key,
   Wand2,
-  Bot,
+  Users2,
+  Workflow,
   Blocks,
   Bell,
   CreditCard,
@@ -15,14 +16,15 @@ import { UserApiKeysTab } from '@/components/me/api-keys/UserApiKeysTab';
 import { UserModelsManagement } from '@/components/me/models/UserModelsManagement';
 import { UserToolsTab } from '@/components/me/tools/UserToolsTab';
 import { UserSkillsTab } from '@/components/me/skills/UserSkillsTab';
-import { MyAgentsTab } from '@/components/custom-agents/MyAgentsTab';
+import { AgentTeamSection } from '@/components/me/team/AgentTeamSection';
+import { TeamWorkflowsSection } from '@/components/me/team/TeamWorkflowsSection';
 import { NotificationPreferencesView } from '@/components/me/notifications/NotificationPreferencesView';
 import { AccountSection } from '@/components/me/sections/AccountSection';
 import { GeneralSection } from '@/components/me/sections/GeneralSection';
 import { BillingSection } from '@/components/me/sections/BillingSection';
 import { IntegrationsSection } from '@/components/me/sections/IntegrationsSection';
 
-export type SettingsGroup = 'profile' | 'ai' | 'billing';
+export type SettingsGroup = 'profile' | 'ai' | 'team' | 'billing';
 
 export interface SettingsSection {
   /** 路由 section 段，对应 /me/[id] */
@@ -45,6 +47,7 @@ const NotificationsSection = () => (
 export const SETTINGS_GROUPS: { group: SettingsGroup; labelKey: string }[] = [
   { group: 'profile', labelKey: 'me.nav.groupProfile' },
   { group: 'ai', labelKey: 'me.nav.groupAi' },
+  { group: 'team', labelKey: 'me.nav.groupTeam' },
   { group: 'billing', labelKey: 'me.nav.groupBilling' },
 ];
 
@@ -65,7 +68,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     group: 'profile',
     component: GeneralSection,
   },
-  // API 与模型
+  // API 与模型（收纯：只剩密钥与模型）
   {
     id: 'api-keys',
     labelKey: 'me.nav.apiKeys',
@@ -80,26 +83,35 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     group: 'ai',
     component: UserModelsManagement,
   },
+  // 我的团队（一人公司私有后台）—— 工具/技能由「API 与模型」移入并改名；
+  // agents 保留路由 id（/me/agents 不断链），内容换为一人公司 OS。
+  {
+    id: 'agents',
+    labelKey: 'me.nav.agentTeam',
+    icon: Users2,
+    group: 'team',
+    component: AgentTeamSection,
+  },
   {
     id: 'tools',
-    labelKey: 'me.nav.tools',
+    labelKey: 'me.nav.teamTools',
     icon: Wrench,
-    group: 'ai',
+    group: 'team',
     component: UserToolsTab,
   },
   {
     id: 'skills',
-    labelKey: 'me.nav.skills',
+    labelKey: 'me.nav.teamSkills',
     icon: Sparkles,
-    group: 'ai',
+    group: 'team',
     component: UserSkillsTab,
   },
   {
-    id: 'agents',
-    labelKey: 'me.nav.agents',
-    icon: Bot,
-    group: 'ai',
-    component: MyAgentsTab,
+    id: 'team-workflows',
+    labelKey: 'me.nav.teamWorkflows',
+    icon: Workflow,
+    group: 'team',
+    component: TeamWorkflowsSection,
   },
   // 资源与计费
   {
