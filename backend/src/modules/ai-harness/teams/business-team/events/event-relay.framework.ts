@@ -86,7 +86,10 @@ export class EventRelayFramework {
       const isCritical =
         args.type.includes("lifecycle") ||
         args.type.includes("cost:tick") ||
-        args.type.includes("mission:");
+        args.type.includes("mission:") ||
+        // chapter:done 是前端章节状态机的终态信号；emit 失败若静默吞掉，前端会永远
+        // 卡在「复审中」。纳入 critical 以保证失败被记录（便于排查"卡 reviewing"）。
+        args.type.includes("chapter:done");
       if (isCritical) {
         this.log.warn(
           `[${args.missionId}] critical event emit failed type=${args.type}: ${err instanceof Error ? err.message : String(err)}`,
