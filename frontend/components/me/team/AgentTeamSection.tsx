@@ -1,7 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { LayoutDashboard, Users2, Contact, Crown, Send } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Network,
+  Users2,
+  Contact,
+  Crown,
+  Send,
+} from 'lucide-react';
 import { Tabs } from '@/components/ui/tabs';
 import { ManagementOrgChart } from './team-shared';
 import { DashboardView } from './views/DashboardView';
@@ -10,26 +17,29 @@ import { TalentPoolView } from './views/TalentPoolView';
 import { AppointCeoView } from './views/AppointCeoView';
 import { MissionRunView } from './views/MissionRunView';
 
-type TeamTab = 'dashboard' | 'compose' | 'talent' | 'ceo' | 'mission';
+type TeamTab = 'dashboard' | 'org' | 'compose' | 'talent' | 'ceo' | 'mission';
 
 /**
  * Agent 团队 —— 一人公司 OS（个人中心「我的团队」分组下的核心 section）。
- * 布局方案 A：顶部管理团队组织图横幅 + 内部 Tab 切换。
- * 详见 docs/features/one-person-company-os/design.md §5.2、§9.1。
+ * 内部 Tab 切换；管理团队组织图为独立 tab（2026-06-07 用户反馈：原常驻顶部 banner
+ * 会挤占所有 tab 的呈现），且组织图节点支持跳转到对应团队（→ 组队 tab 并聚焦）。
  */
 export function AgentTeamSection() {
   const [tab, setTab] = useState<TeamTab>('dashboard');
+  const [focusTeamId, setFocusTeamId] = useState<string | null>(null);
+
+  const gotoTeam = (teamId: string) => {
+    setFocusTeamId(teamId);
+    setTab('compose');
+  };
 
   return (
     <div className="space-y-5">
-      {/* 顶部：管理团队组织图 */}
-      <ManagementOrgChart />
-
-      {/* 内部 Tab */}
       <Tabs
         variant="pill"
         items={[
           { key: 'dashboard', label: '驾驶舱', icon: LayoutDashboard },
+          { key: 'org', label: '管理团队', icon: Network },
           { key: 'compose', label: '组队', icon: Users2 },
           { key: 'talent', label: '人才库', icon: Contact },
           { key: 'ceo', label: '任命 CEO', icon: Crown },
@@ -39,12 +49,12 @@ export function AgentTeamSection() {
         onChange={(k) => setTab(k as TeamTab)}
       />
 
-      {/* 内容 */}
       <div>
         {tab === 'dashboard' && (
           <DashboardView onGoMission={() => setTab('mission')} />
         )}
-        {tab === 'compose' && <ComposerView />}
+        {tab === 'org' && <ManagementOrgChart onSelectTeam={gotoTeam} />}
+        {tab === 'compose' && <ComposerView focusTeamId={focusTeamId} />}
         {tab === 'talent' && <TalentPoolView />}
         {tab === 'ceo' && <AppointCeoView />}
         {tab === 'mission' && <MissionRunView />}

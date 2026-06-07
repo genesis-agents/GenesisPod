@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Plus,
@@ -13,15 +13,19 @@ import {
   Wrench,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs/Modal';
-import { Button } from '@/components/ui/primitives/button';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { cn } from '@/lib/utils/common';
 import { toast } from '@/stores';
 import { useCompanyStore } from '@/stores/company/companyStore';
 import { findListing } from '@/components/marketplace/marketplace.mock';
 import { AgentAvatar, RoleTag, seniorityLabel } from '../team-shared';
+import { AgentConfigModal } from '../AgentConfigModal';
 
-export function ComposerView() {
+export function ComposerView({
+  focusTeamId,
+}: {
+  focusTeamId?: string | null;
+} = {}) {
   const {
     teams,
     hired,
@@ -35,8 +39,13 @@ export function ComposerView() {
   } = useCompanyStore();
 
   const [activeTeamId, setActiveTeamId] = useState<string | null>(
-    teams[0]?.id ?? null
+    focusTeamId ?? teams[0]?.id ?? null
   );
+
+  // 从管理团队组织图点击跳转过来时，聚焦到对应团队
+  useEffect(() => {
+    if (focusTeamId) setActiveTeamId(focusTeamId);
+  }, [focusTeamId]);
   const [showAddMember, setShowAddMember] = useState(false);
   const [assemblyMemberId, setAssemblyMemberId] = useState<string | null>(null);
 
@@ -292,110 +301,12 @@ export function ComposerView() {
         </Modal>
       )}
 
-      {/* 成员装配 Modal */}
+      {/* 成员配置（模型 + 技能 + 工具）—— 与人才库共用同一弹层 */}
       {assemblyMemberId && (
-        <AssemblyModal
-          memberId={assemblyMemberId}
+        <AgentConfigModal
+          instanceId={assemblyMemberId}
           onClose={() => setAssemblyMemberId(null)}
         />
-      )}
-    </div>
-  );
-}
-
-// ─── 成员装配（给某成员配技能/工具，从已获取资源里选）──────────────────────────
-function AssemblyModal({
-  memberId,
-  onClose,
-}: {
-  memberId: string;
-  onClose: () => void;
-}) {
-  const {
-    hired,
-    acquiredSkillIds,
-    acquiredToolIds,
-    toggleAgentSkill,
-    toggleAgentTool,
-  } = useCompanyStore();
-  const member = hired.find((h) => h.instanceId === memberId);
-  if (!member) return null;
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      size="lg"
-      title={`装配 · ${member.name}`}
-      subtitle={`${member.role} —— 勾选要装配的技能与工具`}
-      footer={<Button onClick={onClose}>完成</Button>}
-    >
-      <div className="space-y-5">
-        <Section
-          icon={<Sparkles className="h-4 w-4 text-amber-500" />}
-          title="技能"
-          ids={acquiredSkillIds}
-          activeIds={member.skillIds}
-          onToggle={(id) => toggleAgentSkill(memberId, id)}
-        />
-        <Section
-          icon={<Wrench className="h-4 w-4 text-blue-500" />}
-          title="工具"
-          ids={acquiredToolIds}
-          activeIds={member.toolIds}
-          onToggle={(id) => toggleAgentTool(memberId, id)}
-        />
-      </div>
-    </Modal>
-  );
-}
-
-function Section({
-  icon,
-  title,
-  ids,
-  activeIds,
-  onToggle,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  ids: string[];
-  activeIds: string[];
-  onToggle: (id: string) => void;
-}) {
-  return (
-    <div>
-      <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-        {icon} {title}
-        <span className="text-xs font-normal text-gray-400">
-          已选 {activeIds.length}/{ids.length}
-        </span>
-      </div>
-      {ids.length === 0 ? (
-        <p className="text-xs text-gray-400">
-          还没有可用的{title}，去市场获取。
-        </p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {ids.map((id) => {
-            const ref = findListing(id);
-            const active = activeIds.includes(id);
-            return (
-              <button
-                key={id}
-                onClick={() => onToggle(id)}
-                className={cn(
-                  'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-                  active
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                )}
-              >
-                {ref?.name ?? id}
-              </button>
-            );
-          })}
-        </div>
       )}
     </div>
   );

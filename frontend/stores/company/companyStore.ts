@@ -17,6 +17,9 @@ import type {
   Seniority,
 } from '@/components/marketplace/marketplace.types';
 
+/** 可为 Agent 配置的模型档位（M0 展示名；真实走 TaskProfile/模型选择，不硬编码 provider）。 */
+export const MODEL_OPTIONS = ['Opus', 'Sonnet', 'Haiku'] as const;
+
 export interface HiredAgent {
   /** 每次招聘生成的唯一实例 id（同一 listing 可招多个） */
   instanceId: string;
@@ -83,6 +86,7 @@ interface CompanyState {
   // ―― 成员装配 ――
   toggleAgentSkill: (instanceId: string, skillId: string) => void;
   toggleAgentTool: (instanceId: string, toolId: string) => void;
+  setAgentModel: (instanceId: string, model: string) => void;
 
   // ―― 任务 ――
   createMission: (teamId: string, title: string) => string;
@@ -296,6 +300,13 @@ export const useCompanyStore = create<CompanyState>((set) => ({
                 : [...a.toolIds, toolId],
             }
           : a
+      ),
+    })),
+
+  setAgentModel: (instanceId, model) =>
+    set((s) => ({
+      hired: s.hired.map((a) =>
+        a.instanceId === instanceId ? { ...a, model } : a
       ),
     })),
 

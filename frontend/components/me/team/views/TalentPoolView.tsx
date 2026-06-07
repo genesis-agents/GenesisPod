@@ -1,14 +1,17 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { UserPlus, Trash2, Sparkles, Wrench } from 'lucide-react';
+import { UserPlus, Trash2, Sparkles, Wrench, Settings2 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useCompanyStore } from '@/stores/company/companyStore';
 import { findListing } from '@/components/marketplace/marketplace.mock';
 import { AgentAvatar, RoleTag, seniorityLabel } from '../team-shared';
+import { AgentConfigModal } from '../AgentConfigModal';
 
 export function TalentPoolView() {
   const { hired, ceoId, teams, fireAgent } = useCompanyStore();
+  const [configId, setConfigId] = useState<string | null>(null);
 
   const leaderIds = new Set(teams.map((t) => t.leaderId).filter(Boolean));
 
@@ -93,7 +96,13 @@ export function TalentPoolView() {
                   </div>
                 </div>
 
-                <div className="mt-3 flex justify-end border-t border-gray-100 pt-3">
+                <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
+                  <button
+                    onClick={() => setConfigId(a.instanceId)}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100"
+                  >
+                    <Settings2 className="h-3.5 w-3.5" /> 配置
+                  </button>
                   <button
                     onClick={() => fireAgent(a.instanceId)}
                     className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-400 hover:bg-red-50 hover:text-red-600"
@@ -105,6 +114,13 @@ export function TalentPoolView() {
             );
           })}
         </div>
+      )}
+
+      {configId && (
+        <AgentConfigModal
+          instanceId={configId}
+          onClose={() => setConfigId(null)}
+        />
       )}
     </div>
   );

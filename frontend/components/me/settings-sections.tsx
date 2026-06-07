@@ -14,9 +14,9 @@ import {
 } from 'lucide-react';
 import { UserApiKeysTab } from '@/components/me/api-keys/UserApiKeysTab';
 import { UserModelsManagement } from '@/components/me/models/UserModelsManagement';
-import { UserToolsTab } from '@/components/me/tools/UserToolsTab';
-import { UserSkillsTab } from '@/components/me/skills/UserSkillsTab';
 import { AgentTeamSection } from '@/components/me/team/AgentTeamSection';
+import { TeamToolsSection } from '@/components/me/team/TeamToolsSection';
+import { TeamSkillsSection } from '@/components/me/team/TeamSkillsSection';
 import { TeamWorkflowsSection } from '@/components/me/team/TeamWorkflowsSection';
 import { NotificationPreferencesView } from '@/components/me/notifications/NotificationPreferencesView';
 import { AccountSection } from '@/components/me/sections/AccountSection';
@@ -97,14 +97,14 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     labelKey: 'me.nav.teamTools',
     icon: Wrench,
     group: 'team',
-    component: UserToolsTab,
+    component: TeamToolsSection,
   },
   {
     id: 'skills',
     labelKey: 'me.nav.teamSkills',
     icon: Sparkles,
     group: 'team',
-    component: UserSkillsTab,
+    component: TeamSkillsSection,
   },
   {
     id: 'team-workflows',

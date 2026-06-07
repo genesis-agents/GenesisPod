@@ -66,8 +66,13 @@ export function seniorityLabel(a: HiredAgent) {
 /**
  * 管理团队组织图（虚拟）：董事长 → CEO → 各 Team Leader。
  * 这是"多 Team 协同"的组织化表达（design.md §2）。
+ * 传入 onSelectTeam 时，Leader 节点可点击跳转到对应团队。
  */
-export function ManagementOrgChart() {
+export function ManagementOrgChart({
+  onSelectTeam,
+}: {
+  onSelectTeam?: (teamId: string) => void;
+} = {}) {
   const { hired, ceoId, teams } = useCompanyStore();
   const byId = (id: string | null) =>
     id ? (hired.find((h) => h.instanceId === id) ?? null) : null;
@@ -111,13 +116,20 @@ export function ManagementOrgChart() {
 
         {leaders.length > 0 && <div className="h-4 w-px bg-slate-300" />}
 
-        {/* Leaders */}
+        {/* Leaders（传入 onSelectTeam 时可点击跳转到该团队）*/}
         {leaders.length > 0 && (
           <div className="flex flex-wrap items-start justify-center gap-3">
             {leaders.map(({ team, leader }) => (
-              <div
+              <button
                 key={team.id}
-                className="flex w-36 flex-col items-center rounded-xl border border-gray-200 bg-white px-2 py-2"
+                type="button"
+                onClick={() => onSelectTeam?.(team.id)}
+                disabled={!onSelectTeam}
+                className={cn(
+                  'flex w-36 flex-col items-center rounded-xl border border-gray-200 bg-white px-2 py-2 text-center',
+                  onSelectTeam &&
+                    'cursor-pointer transition-colors hover:border-slate-300 hover:bg-slate-50'
+                )}
               >
                 <AgentAvatar agent={leader!} size="sm" />
                 <div className="mt-1 flex items-center gap-1 text-xs font-medium text-gray-900">
@@ -127,7 +139,7 @@ export function ManagementOrgChart() {
                 <div className="mt-0.5 truncate text-[11px] text-gray-400">
                   {team.name}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
