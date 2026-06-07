@@ -39,7 +39,7 @@
           "layer": { "enum": ["frontend", "harness", "engine", "platform"] },
           "domain": {
             "type": "string",
-            "description": "子域（后端取 facade 重导出路径首段，前端取 ui 子目录 / hooks / design-tokens）"
+            "description": "子域（后端取真实声明文件在 ai-harness/ai-engine/platform 下的聚合段，前端取 ui 子目录 / hooks / design-tokens）"
           },
           "source": {
             "type": "string",

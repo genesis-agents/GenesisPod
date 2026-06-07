@@ -640,42 +640,45 @@ export class IndustryChainService {
           ? `https://www.sec.gov/Archives/edgar/data/${cikNum}/${acc.replace(/-/g, "")}/${doc}`
           : "";
 
-      const events: InvestmentItem[] = [];
-      let insiderCount = 0;
-      let insiderLatest = "";
-      let insiderUrl = "";
+      // 按事件类型归并：每类一条（笔数 + 最近日期 + 最近一笔链接），消除"一排同名"。
+      const byLabel = new Map<
+        string,
+        { count: number; latest: string; url: string }
+      >();
       for (let i = 0; i < r.form.length; i++) {
-        const { label, insider } = classifyFiling(r.form[i], r.items?.[i]);
+        const { label } = classifyFiling(r.form[i], r.items?.[i]);
         if (!label) continue;
-        if (insider) {
-          insiderCount++;
-          if (!insiderLatest) {
-            insiderLatest = r.filingDate?.[i] ?? "";
-            insiderUrl = buildUrl(
-              r.accessionNumber?.[i],
-              r.primaryDocument?.[i],
-            );
+        const date = r.filingDate?.[i] ?? "";
+        const url = buildUrl(r.accessionNumber?.[i], r.primaryDocument?.[i]);
+        const ex = byLabel.get(label);
+        if (!ex) {
+          byLabel.set(label, { count: 1, latest: date, url });
+        } else {
+          ex.count++;
+          if (date > ex.latest) {
+            ex.latest = date;
+            ex.url = url;
           }
-          continue;
         }
-        if (events.length >= 7) continue;
-        events.push({
-          form: r.form[i],
-          label,
-          date: r.filingDate?.[i] ?? "",
-          url: buildUrl(r.accessionNumber?.[i], r.primaryDocument?.[i]),
-        });
       }
-      // 内部人交易归并成一条（带计数），排在具体事件之后
-      if (insiderCount > 0) {
-        events.push({
-          form: "4",
-          label: `内部人交易（${insiderCount} 笔）`,
-          date: insiderLatest,
-          url: insiderUrl,
-        });
-      }
-      return { available: events.length > 0, items: events };
+      const nowYear = new Date().getFullYear();
+      const items: InvestmentItem[] = [...byLabel.entries()]
+        .map(([label, v]) => ({ label, ...v }))
+        // 丢弃 >5 年的陈旧类别（如老的内部人交易），只留近期资本动态
+        .filter((v) => {
+          const y = parseInt(v.latest.slice(0, 4), 10);
+          return !y || nowYear - y <= 5;
+        })
+        // 最新在最上面
+        .sort((a, b) => b.latest.localeCompare(a.latest))
+        .slice(0, 8)
+        .map((v) => ({
+          form: "",
+          label: v.count > 1 ? `${v.label}（${v.count} 笔）` : v.label,
+          date: v.latest,
+          url: v.url,
+        }));
+      return { available: items.length > 0, items };
     } catch (e) {
       this.logger.warn(`[getEntityInvestment] entity=${entityId} failed: ${e}`);
       return { available: false, items: [] };

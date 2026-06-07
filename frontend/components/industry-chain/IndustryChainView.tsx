@@ -161,7 +161,10 @@ function ChainEntityDetail({
   }
   if (!entity) return null;
 
-  const refs = entity.sourceRefs ?? [];
+  // SEC 来源按日期倒序（最新在上）
+  const refs = [...(entity.sourceRefs ?? [])].sort((a, b) =>
+    (b.date ?? '').localeCompare(a.date ?? '')
+  );
   const isCompany = entity.type === 'COMPANY' || entity.type === 'PRODUCT';
   const typeLabel =
     entity.type === 'SEGMENT'
