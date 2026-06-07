@@ -21,6 +21,7 @@ import {
   Gavel,
   Layers,
   ListChecks,
+  Network,
   RefreshCw,
   X as XIcon,
 } from 'lucide-react';
@@ -37,6 +38,7 @@ import {
   TeamRosterPanel,
   TodoDetailDrawer,
 } from '@/components/agent-playground';
+import { MissionGraphTab } from '@/components/agent-playground/MissionGraphTab';
 // W7 cutover: deriveTodoLedger 已删除，todoLedger 由 canonical missionView.todoBoard.items 直接消费。
 import type { MissionTodo } from '@/lib/features/agent-playground/mission-todo.types';
 import { cn } from '@/lib/utils/common';
@@ -160,7 +162,7 @@ import {
 import type { ReportVersionMeta } from '@/components/agent-playground/artifact/ArtifactReader';
 import { Modal } from '@/components/ui/dialogs/Modal';
 
-type TabKey = 'tasks' | 'collab' | 'report' | 'references' | 'cost';
+type TabKey = 'tasks' | 'collab' | 'report' | 'references' | 'cost' | 'graph';
 
 const TABS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
   { key: 'tasks', label: '任务列表', Icon: ListChecks },
@@ -168,6 +170,7 @@ const TABS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
   { key: 'report', label: '输出报告', Icon: FileText },
   { key: 'references', label: '参考文献', Icon: Layers },
   { key: 'cost', label: '算力消耗', Icon: Coins },
+  { key: 'graph', label: '图谱分析', Icon: Network },
 ];
 
 // Mission brand icon — playground 沿用 Lucide ClipboardList（文档/任务感）
@@ -1247,6 +1250,8 @@ export default function MissionDetailPage() {
                 />
               );
             })()}
+
+          {activeTab === 'graph' && <MissionGraphTab missionId={missionId} />}
 
           {activeTab === 'cost' && (
             <div className="space-y-4">

@@ -19,7 +19,6 @@ export type ModuleKey =
   | 'radar'
   | 'insights'
   | 'research'
-  | 'industryChain'
   | 'discuss'
   | 'planning'
   | 'decision'
@@ -120,17 +119,6 @@ export const MODULE_THEMES: Record<ModuleKey, ModuleTheme> = {
     dot: 'bg-purple-500',
     gradient: 'from-purple-500 to-fuchsia-600',
     primaryHsl: '271.5 81.3% 55.9%',
-  },
-  industryChain: {
-    hue: 'emerald',
-    activeBg: 'bg-emerald-50',
-    text: 'text-emerald-700',
-    icon: 'text-emerald-600',
-    softBg: 'bg-emerald-50',
-    ring: 'ring-emerald-200',
-    dot: 'bg-emerald-500',
-    gradient: 'from-emerald-500 to-teal-600',
-    primaryHsl: '160.1 84.1% 39.4%',
   },
   discuss: {
     hue: 'amber',
@@ -237,7 +225,6 @@ const ROUTE_MODULE: { prefix: string; key: ModuleKey }[] = [
   { prefix: '/ai-radar', key: 'radar' },
   { prefix: '/ai-insights', key: 'insights' },
   { prefix: '/ai-research', key: 'research' },
-  { prefix: '/industry-chain', key: 'industryChain' },
   { prefix: '/ai-teams', key: 'discuss' },
   { prefix: '/ai-planning', key: 'planning' },
   { prefix: '/ai-simulation', key: 'decision' },

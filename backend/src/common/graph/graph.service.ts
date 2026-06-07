@@ -1173,12 +1173,8 @@ export class GraphService {
     string,
     { source: string; target: string; relType: string; scope: string }
   > = {
-    industry_relations: {
-      source: "source_id",
-      target: "target_id",
-      relType: "relation_type",
-      scope: "chain_id",
-    },
+    // Add edge tables here as new graph features are added.
+    // Format: tableName: { source, target, relType, scope }
   };
 
   /**
@@ -1198,7 +1194,9 @@ export class GraphService {
   }> {
     const cfg = GraphService.EDGE_TABLE_REGISTRY[params.edgeTable];
     if (!cfg) {
-      throw new Error(`nHopNeighbors: edge table not allow-listed: ${params.edgeTable}`);
+      throw new Error(
+        `nHopNeighbors: edge table not allow-listed: ${params.edgeTable}`,
+      );
     }
     const depth = Math.max(1, Math.min(Math.floor(params.depth), 10));
 

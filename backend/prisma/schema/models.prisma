@@ -11174,82 +11174,24 @@ model AgentPlaygroundMissionCostLedger {
   @@map("agent_playground_mission_cost_ledger")
 }
 
+
 // ============================================================================
-// Industry Chain Analysis（产业链分析）
-//   - AI 动态编排（SEC + web）抽取产业链实体/关系，结构化落库供图谱可视化。
-//   - 详见 docs/features/industry-chain/implementation-plan.md
+// Playground Mission Graph（任务图谱分析）
+//   - 从 mission report 中 LLM 抽取实体/关系，构建知识图谱并计算分析指标。
+//   - 每条 mission 最多一个图谱记录（UNIQUE on mission_id）。
+//   - 详见 docs/features/playground/mission-graph-analysis.md
 // ============================================================================
 
-model IndustryChain {
-  id        String @id @default(uuid())
-  topic     String @db.VarChar(300)
-  status    String @default("PLANNING") @db.VarChar(20) // PLANNING|RUNNING|COMPLETED|FAILED
-  ownerId   String @map("owner_id")
-  missionId String? @map("mission_id")
+model PlaygroundMissionGraph {
+  id          String   @id @default(uuid())
+  missionId   String   @unique @map("mission_id")
+  ownerId     String   @map("owner_id")
+  status      String   @default("NONE")
+  graph       Json
+  analyses    Json
+  generatedAt DateTime @default(now()) @map("generated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  entities  IndustryEntity[]
-  relations IndustryRelation[]
-
-  @@index([ownerId])
-  @@index([status])
-  @@map("industry_chains")
-}
-
-model IndustryEntity {
-  id          String  @id @default(uuid())
-  chainId     String  @map("chain_id")
-  name        String  @db.VarChar(300)
-  type        String  @db.VarChar(20) // SEGMENT|COMPANY|PRODUCT
-  cik         String? @db.VarChar(10) // SEC CIK（补零 10 位）
-  companyType String? @map("company_type") @db.VarChar(20) // LISTED_US|LISTED_OTHER|STARTUP|STATE_OWNED|PRIVATE|OTHER
-  segment     String? @db.VarChar(200) // 所属环节
-  description String? @db.Text
-  sourceRefs  Json?   @map("source_refs") // [{accessionNumber,url,reportType,date}]
-
-  // 增量更新支撑（L0 delta 触发）
-  sourceFingerprint String?   @map("source_fingerprint") @db.VarChar(128)
-  version           Int       @default(1)
-  lastRefreshedAt   DateTime? @map("last_refreshed_at")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  chain         IndustryChain      @relation(fields: [chainId], references: [id], onDelete: Cascade)
-  relationsFrom IndustryRelation[] @relation("RelationSource")
-  relationsTo   IndustryRelation[] @relation("RelationTarget")
-
-  @@index([chainId])
-  @@index([cik])
-  @@map("industry_entities")
-}
-
-model IndustryRelation {
-  id           String  @id @default(uuid())
-  chainId      String  @map("chain_id")
-  sourceId     String  @map("source_id")
-  targetId     String  @map("target_id")
-  relationType String  @map("relation_type") @db.VarChar(30) // SUPPLIES|CONSUMES|COMPETES_WITH|PARTNERS_WITH|BELONGS_TO
-  weight       Float? // 敞口 %（0-1）
-  evidence     String? @db.Text
-
-  // 时序软失效（借 Graphiti）：validTo=null 表示当前有效
-  validFrom DateTime? @map("valid_from")
-  validTo   DateTime? @map("valid_to")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  chain  IndustryChain  @relation(fields: [chainId], references: [id], onDelete: Cascade)
-  source IndustryEntity @relation("RelationSource", fields: [sourceId], references: [id], onDelete: Cascade)
-  target IndustryEntity @relation("RelationTarget", fields: [targetId], references: [id], onDelete: Cascade)
-
-  // M8：防增量刷新产生重复边
-  @@unique([chainId, sourceId, targetId, relationType])
-  @@index([chainId])
-  @@index([sourceId])
-  @@index([targetId])
-  @@map("industry_relations")
+  @@map("playground_mission_graphs")
 }

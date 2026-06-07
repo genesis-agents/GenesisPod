@@ -126,7 +126,8 @@ export class SecEdgarTool extends BaseTool<SecEdgarInput, SecEdgarOutput> {
     properties: {
       companyName: {
         type: "string",
-        description: "公司名称，模糊匹配（如 'NVIDIA'）。与 ticker/cik 至少给其一",
+        description:
+          "公司名称，模糊匹配（如 'NVIDIA'）。与 ticker/cik 至少给其一",
       },
       ticker: {
         type: "string",
@@ -139,7 +140,8 @@ export class SecEdgarTool extends BaseTool<SecEdgarInput, SecEdgarOutput> {
       formType: {
         type: "string",
         enum: ["10-K", "10-Q", "8-K", "all"],
-        description: "报告类型：10-K=年报，10-Q=季报，8-K=临时公告，all=全部。默认 10-K",
+        description:
+          "报告类型：10-K=年报，10-Q=季报，8-K=临时公告，all=全部。默认 10-K",
         default: "10-K",
       },
       limit: {
@@ -200,11 +202,12 @@ export class SecEdgarTool extends BaseTool<SecEdgarInput, SecEdgarOutput> {
 
       // ── Step 2: 取提交记录 ────────────────────────────────────────────────
       await this.throttle();
-      const submissions = await this.policyDataService.httpGet<SecSubmissionsResponse>(
-        `${SEC_SUBMISSIONS_BASE}/CIK${resolved.cik}.json`,
-        undefined,
-        { "User-Agent": this.secUserAgent() },
-      );
+      const submissions =
+        await this.policyDataService.httpGet<SecSubmissionsResponse>(
+          `${SEC_SUBMISSIONS_BASE}/CIK${resolved.cik}.json`,
+          undefined,
+          { "User-Agent": this.secUserAgent() },
+        );
 
       const recent = submissions.filings?.recent;
       if (!recent?.accessionNumber?.length) {
@@ -301,7 +304,10 @@ export class SecEdgarTool extends BaseTool<SecEdgarInput, SecEdgarOutput> {
         const best = pool.reduce((a, b) =>
           a.title.length <= b.title.length ? a : b,
         );
-        return { cik: String(best.cik_str).padStart(10, "0"), title: best.title };
+        return {
+          cik: String(best.cik_str).padStart(10, "0"),
+          title: best.title,
+        };
       }
     }
 
@@ -335,7 +341,8 @@ export class SecEdgarTool extends BaseTool<SecEdgarInput, SecEdgarOutput> {
   /** SEC Fair Access：≥100ms 最小请求间隔（进程内串行节流，10 req/s）。 */
   private async throttle(): Promise<void> {
     const now = Date.now();
-    const wait = SecEdgarTool.MIN_REQUEST_INTERVAL_MS - (now - SecEdgarTool.lastRequestAt);
+    const wait =
+      SecEdgarTool.MIN_REQUEST_INTERVAL_MS - (now - SecEdgarTool.lastRequestAt);
     if (wait > 0) {
       await new Promise((r) => setTimeout(r, wait));
     }
@@ -345,7 +352,7 @@ export class SecEdgarTool extends BaseTool<SecEdgarInput, SecEdgarOutput> {
   /** SEC 要求 UA 声明产品名 + 联系方式。 */
   private secUserAgent(): string {
     const brand = APP_CONFIG.brand;
-    return `${brand.name}-IndustryChain ${brand.contactEmail}`;
+    return `${brand.name} ${brand.contactEmail}`;
   }
 
   validateInput(input: SecEdgarInput): boolean {

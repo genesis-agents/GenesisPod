@@ -1,0 +1,85 @@
+// ─── String-literal unions (shared contract) ────────────────────────────────
+
+export type EntityType =
+  | 'ORGANIZATION'
+  | 'PERSON'
+  | 'TECHNOLOGY'
+  | 'PRODUCT'
+  | 'CONCEPT'
+  | 'EVENT'
+  | 'LOCATION'
+  | 'TREND'
+  | 'METRIC'
+  | 'OTHER';
+
+export type RelationType =
+  | 'SUPPLIES'
+  | 'DEPENDS_ON'
+  | 'PRODUCES'
+  | 'USES'
+  | 'COMPETES_WITH'
+  | 'PARTNERS_WITH'
+  | 'BELONGS_TO'
+  | 'INFLUENCES'
+  | 'RELATED_TO'
+  | 'OTHER';
+
+// ─── Core graph interfaces ───────────────────────────────────────────────────
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  type: EntityType;
+}
+
+export interface GraphEdge {
+  source: string; // node id
+  target: string; // node id
+  type: RelationType;
+  weight?: number;
+}
+
+export interface MissionGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  stats: {
+    totalNodes: number;
+    totalEdges: number;
+  };
+}
+
+// ─── Analyses interface ──────────────────────────────────────────────────────
+
+export interface Analyses {
+  keyNodes: {
+    items: { id: string; label: string; degree: number; score: number }[];
+    summary: string;
+  };
+  relatedness: {
+    pairs: { a: string; b: string; strength: number }[];
+    summary: string;
+  };
+  competitive: {
+    clusters: { members: string[] }[];
+    summary: string;
+  };
+  community: {
+    communities: { id: number; members: string[] }[];
+    summary: string;
+  };
+  supplyChain: {
+    layers: { order: number; members: string[] }[];
+    summary: string;
+  };
+}
+
+// ─── API response artifact ───────────────────────────────────────────────────
+
+export type MissionGraphStatus = 'READY' | 'BUILDING' | 'FAILED' | 'NONE';
+
+export interface MissionGraphArtifact {
+  status: MissionGraphStatus;
+  graph: MissionGraph | null;
+  analyses: Analyses | null;
+  generatedAt: string | null;
+}

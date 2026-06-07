@@ -267,7 +267,7 @@ export type {
 export { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";
 // AgentExecutorService 已搬到 ai-harness/runner/executor/ (2026-04-30)
 export { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
-// Entity Resolution（实体消歧，industry-chain 等多模块复用）
+// Entity Resolution（实体消歧，多模块复用）
 export { EntityResolutionService } from "../knowledge/entity-resolution/entity-resolution.service";
 export type {
   EntityResolutionOptions,

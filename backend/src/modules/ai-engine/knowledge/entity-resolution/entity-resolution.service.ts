@@ -12,7 +12,7 @@
  *
  * 阈值 0.85 为初始值，需按所用 embedding 模型的实际分布校准（留 options.threshold 调参入口）。
  *
- * 多消费方：research / insight / library knowledge-graph / industry-chain 均可复用，
+ * 多消费方：research / insight / library knowledge-graph 均可复用，
  * 故下沉 ai-engine/knowledge（非任一 app 模块）。
  */
 
@@ -85,9 +85,7 @@ export class EntityResolutionService {
     const embeddings = batch.embeddings;
     if (!embeddings || embeddings.length !== uniqueKeys.length) {
       // embedding 不可用 → 退化为仅精确去重（不误并）
-      this.logger.warn(
-        "[resolve] embedding 缺失/数量不匹配，退化为仅精确去重",
-      );
+      this.logger.warn("[resolve] embedding 缺失/数量不匹配，退化为仅精确去重");
       return this.buildResult(uniqueKeys.map((k) => normToOriginals.get(k)!));
     }
 
@@ -111,7 +109,11 @@ export class EntityResolutionService {
       }
       if (bestCluster && bestSim >= threshold) {
         bestCluster.keyIndices.push(i);
-        this.updateCentroid(bestCluster.centroid, vec, bestCluster.keyIndices.length);
+        this.updateCentroid(
+          bestCluster.centroid,
+          vec,
+          bestCluster.keyIndices.length,
+        );
       } else {
         clusters.push({ keyIndices: [i], centroid: [...vec] });
       }
@@ -130,7 +132,11 @@ export class EntityResolutionService {
   }
 
   /** 增量更新质心（在线均值）。 */
-  private updateCentroid(centroid: number[], vec: number[], count: number): void {
+  private updateCentroid(
+    centroid: number[],
+    vec: number[],
+    count: number,
+  ): void {
     for (let d = 0; d < centroid.length; d++) {
       centroid[d] += (vec[d] - centroid[d]) / count;
     }

@@ -132,7 +132,7 @@ describe("SecEdgarTool", () => {
       String(c[0]).includes("/submissions/CIK"),
     );
     const headers = submissionsCall?.[2] as Record<string, string> | undefined;
-    expect(headers?.["User-Agent"]).toMatch(/IndustryChain .+@.+/);
+    expect(headers?.["User-Agent"]).toMatch(/.+@.+/);
   });
 
   it("无法匹配公司时返回 success:false + error", async () => {

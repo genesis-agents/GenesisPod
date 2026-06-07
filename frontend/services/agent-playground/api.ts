@@ -8,6 +8,7 @@
 
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import type { MissionGraphArtifact } from './graph-types';
 
 const API_BASE = `${config.apiBaseUrl}/api/v1/playground`;
 
@@ -943,6 +944,52 @@ export async function fetchMissionDagCascade(
   if (!res.ok) throw new Error(`fetchMissionDagCascade failed: ${res.status}`);
   const raw: unknown = await res.json();
   return unwrapStandard<MissionDagCascadePreview>(raw);
+}
+
+// ===== Mission Knowledge Graph (2026-06-07) =====
+
+/**
+ * GET /missions/:id/graph — 拉取已生成的图谱分析结果。
+ * 若从未生成，返回 { status: 'NONE', graph: null, analyses: null, generatedAt: null }。
+ */
+export async function getMissionGraph(
+  id: string
+): Promise<MissionGraphArtifact> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(id)}/graph`,
+    { headers: { ...getAuthHeader() } }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      `Failed to fetch mission graph: ${res.status} ${text.slice(0, 200)}`
+    );
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<MissionGraphArtifact>(raw);
+}
+
+/**
+ * POST /missions/:id/graph — 触发图谱分析构建（同步，完成后返回 READY 结果）。
+ */
+export async function buildMissionGraph(
+  id: string
+): Promise<MissionGraphArtifact> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(id)}/graph`,
+    {
+      method: 'POST',
+      headers: { ...getAuthHeader() },
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      `Failed to build mission graph: ${res.status} ${text.slice(0, 200)}`
+    );
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<MissionGraphArtifact>(raw);
 }
 
 // ===== Phase 2: ReAct 内部循环快照 =====

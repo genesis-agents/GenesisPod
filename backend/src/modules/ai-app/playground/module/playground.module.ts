@@ -29,6 +29,9 @@ import { MissionRerunController } from "../api/controller/mission-rerun.controll
 // ★ 2026-05-26 Mission DAG 可视化(后端定义、前端呈现):/dag + /dag/cascade
 import { MissionDagController } from "../mission/dag-view/mission-dag.controller";
 import { MissionDagService } from "../mission/dag-view/mission-dag.service";
+// ★ 2026-06-07: Mission knowledge-graph artifact
+import { MissionGraphController } from "../api/controller/mission-graph.controller";
+import { MissionGraphService } from "../mission/graph/mission-graph.service";
 import { AgentPlaygroundGateway } from "../api/controller/playground.gateway";
 import { MissionRuntimeShellService } from "../mission/pipeline/mission-runtime-shell.service";
 import { MissionStageBindingsService } from "../mission/pipeline/mission-stage-bindings.service";
@@ -141,9 +144,11 @@ import {
     MissionReadController,
     MissionRerunController,
     MissionDagController,
+    MissionGraphController,
   ],
   providers: [
     MissionDagService,
+    MissionGraphService,
     AgentPlaygroundGateway,
     MissionRuntimeShellService,
     MissionStageBindingsService,
@@ -233,9 +238,7 @@ import {
     MISSION_LIST_READER,
   ],
 })
-export class PlaygroundModule
-  implements OnModuleInit, OnApplicationBootstrap
-{
+export class PlaygroundModule implements OnModuleInit, OnApplicationBootstrap {
   // 2026-05-12 修复：playgroundLogger 之前是 constructor 默认值参数（Logger 类型）
   // 触发 NestJS DI 解析 Logger 失败 → Railway 部署炸。改为类字段无 DI 参与。
   private readonly playgroundLogger = new Logger(PlaygroundModule.name);
@@ -532,8 +535,7 @@ export class PlaygroundModule
    */
   async onApplicationBootstrap(): Promise<void> {
     try {
-      const result =
-        await this.promptSkillBridge.registerDomain("playground");
+      const result = await this.promptSkillBridge.registerDomain("playground");
       this.playgroundLogger.log(
         `Registered playground skill domain: ${result.registered.length} skills bridged ` +
           `(skipped=${result.skipped.length}, errors=${result.errors.length})`,
