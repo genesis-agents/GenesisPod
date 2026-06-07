@@ -1572,6 +1572,9 @@ export class AgentRunner {
           maxWallTimeMs:
             scale(meta.budget?.maxWallTimeMs) ??
             full.constraints?.maxWallTimeMs,
+          requireToolBeforeFinalize:
+            meta.requireToolBeforeFinalize ??
+            full.constraints?.requireToolBeforeFinalize,
         },
       });
     }
@@ -1599,6 +1602,7 @@ export class AgentRunner {
         maxTokens: scale(meta.budget?.maxTokens),
         maxIterations: scaleIters(meta.budget?.maxIterations),
         maxWallTimeMs: scale(meta.budget?.maxWallTimeMs),
+        requireToolBeforeFinalize: meta.requireToolBeforeFinalize,
       },
     });
   }

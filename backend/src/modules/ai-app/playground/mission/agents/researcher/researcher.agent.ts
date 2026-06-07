@@ -221,6 +221,10 @@ const Output = z.object({
     maxIterationsHardCap: RESEARCHER_MAX_ITERATIONS_HARD_CAP,
     maxWallTimeMs: RESEARCHER_MAX_WALL_TIME_MS,
   },
+  // ★ 工具前置闸（2026-06-07 prod mission df6c14ea 根因修复）：弱模型常
+  //   第 1 轮就 finalize、0 工具、编造 arxiv.org/nature.com 假来源 → 维度 0/100。
+  //   开启后 researcher 必须先成功调用一次检索工具才允许 finalize（react-loop 强制）。
+  requireToolBeforeFinalize: true,
 })
 export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {

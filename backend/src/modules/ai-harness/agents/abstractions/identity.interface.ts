@@ -34,6 +34,11 @@ export interface IAgentConstraints {
   maxIterations?: number;
   maxWallTimeMs?: number;
   safetyLevel?: "strict" | "standard" | "permissive";
+  /**
+   * ★ 工具前置闸：为 true 时 agent 必须先成功调用一次真实工具才能 finalize。
+   * researcher 等"先检索再产出"角色启用，杜绝 0 工具幻觉 finalize。默认 false。
+   */
+  requireToolBeforeFinalize?: boolean;
 }
 
 /** Agent 激活的 Skill id 列表（SKILL.md 系统） */

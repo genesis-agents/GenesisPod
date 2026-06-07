@@ -289,6 +289,7 @@ export class HarnessedAgent implements IAgent {
         maxTokens: constraints?.maxTokens,
         maxWallTimeMs: constraints?.maxWallTimeMs ?? DEFAULT_AGENT_WALL_TIME_MS,
         terminateOn: ["finalize"],
+        requireToolBeforeFinalize: constraints?.requireToolBeforeFinalize,
       };
       try {
         // The loop is typed IAgentLoop (run returns AsyncIterable<IAgentEvent>);

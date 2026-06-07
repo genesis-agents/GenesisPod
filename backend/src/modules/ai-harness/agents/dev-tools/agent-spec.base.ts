@@ -121,6 +121,12 @@ export interface DefineAgentOptions<
      */
     maxIterationsHardCap?: number;
   };
+  /**
+   * ★ 工具前置闸：为 true 时，agent 必须至少成功调用一次真实工具后才允许 finalize。
+   * researcher 这类"必须先检索再产出"的角色启用，杜绝 0 工具直接幻觉 finalize
+   * （prod mission df6c14ea 实证根因）。默认 false（leader/outline 等不受影响）。
+   */
+  readonly requireToolBeforeFinalize?: boolean;
   /** 默认 system prompt（如果 buildSystemPrompt 不重写，用此） */
   readonly systemPrompt?: string;
   /**
