@@ -21,6 +21,7 @@ const BACKEND_ROOT = path.resolve(__dirname, "../../../..");
 const SCRIPT = path.join(
   BACKEND_ROOT,
   "scripts",
+  "dev-tools",
   "audit-capability-anti-patterns.cjs",
 );
 const BASELINE_FILE = path.join(
