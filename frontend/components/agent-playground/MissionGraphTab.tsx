@@ -400,12 +400,9 @@ function ReadyGraph({
                             </span>
                           </div>
                           <p className="mb-2 text-xs leading-relaxed text-amber-700">
-                            本层为产业链{roleOf(idx)}环节，包含
-                            {layer.members.length} 个关键实体
-                            {idx < total - 1
-                              ? '，向下游输出能力/产品'
-                              : '，为终端环节'}
-                            。
+                            {layer.description
+                              ? layer.description
+                              : `本层为产业链${roleOf(idx)}环节，包含 ${layer.members.length} 个关键实体${idx < total - 1 ? '，向下游输出能力/产品' : '，为终端环节'}。`}
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {layer.members.map((m, i) => (
