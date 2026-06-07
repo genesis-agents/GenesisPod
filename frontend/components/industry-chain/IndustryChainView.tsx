@@ -600,7 +600,7 @@ export default function IndustryChainView({ chainId }: Props) {
         nodes={nodes}
         edges={edges}
         defaultLayout="chain"
-        title={t('industryChain.title')}
+        title={chain.topic || t('industryChain.title')}
         onNodeSelect={setDrawerNode}
         nodeColor={(node) =>
           node.type === 'COMPANY'
