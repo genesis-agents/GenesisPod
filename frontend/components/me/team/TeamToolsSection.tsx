@@ -1,50 +1,63 @@
 'use client';
 
-import { useCompanyStore } from '@/stores/company/companyStore';
-import { findListing } from '@/components/marketplace/marketplace.mock';
+import { useMemo } from 'react';
+import { useTranslation } from '@/lib/i18n';
+import { StatusBadge } from '@/components/ui/badges';
+import { useUserTools } from '@/hooks/features/useUserTools';
 import {
-  TOOL_SOURCE_LABEL,
-  type ToolListing,
-} from '@/components/marketplace/marketplace.types';
-import { TeamResourceSection } from './TeamResourceSection';
+  TeamResourceSection,
+  type TeamResourceCard,
+} from './TeamResourceSection';
 
 /**
- * 团队工具 —— 已从「工具市场」获取的工具库（独立资源，可装配给任意 Agent）。
- * 风格与团队工作流/技能统一（共用 TeamResourceSection）。design.md §5.3。
+ * 团队工具 —— 接真实后端（/user/tools）的工具库，按分类分组的卡片呈现。
+ * 状态徽章语义同原 UserToolsTab（已配置 / 已授权 / 平台可用 / 需配置）。
  */
 export function TeamToolsSection() {
-  const { acquiredToolIds, hired } = useCompanyStore();
+  const { t } = useTranslation();
+  const { tools, loading, error, refresh } = useUserTools();
 
-  const items = acquiredToolIds
-    .map((id) => findListing(id))
-    .filter((x): x is ToolListing => !!x && x.kind === 'tool');
-
-  const equippedCount = (toolId: string) =>
-    hired.filter((a) => a.toolIds.includes(toolId)).length;
+  const cards: TeamResourceCard[] = useMemo(
+    () =>
+      tools.map((tl) => ({
+        id: tl.toolId,
+        name: tl.name,
+        category: tl.category,
+        meta: (
+          <StatusBadge
+            tone={tl.source === 'none' ? 'warning' : 'success'}
+            label={
+              tl.source === 'user'
+                ? t('me.tools.status.configured')
+                : tl.source === 'granted'
+                  ? t('me.tools.status.grantedSystem')
+                  : tl.source === 'platform'
+                    ? t('me.tools.status.systemAvailable')
+                    : t('me.tools.status.notConfigured')
+            }
+          />
+        ),
+        usage: (
+          <code className="font-mono text-[11px] text-gray-400">
+            {tl.toolId}
+          </code>
+        ),
+      })),
+    [tools, t]
+  );
 
   return (
     <TeamResourceSection
       kind="tool"
-      items={items}
+      cards={cards}
+      loading={loading}
+      error={error}
+      onRetry={refresh}
       unitLabel="个工具"
       marketLabel="工具市场"
       hint="获取更多工具。"
-      emptyTitle="还没有工具"
+      emptyTitle="还没有可用工具"
       emptyDesc="去工具市场获取团队可用的工具"
-      renderMeta={(item) => {
-        const t = item as ToolListing;
-        return (
-          <>
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
-              来自 {TOOL_SOURCE_LABEL[t.source]}
-            </span>
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
-              {t.category}
-            </span>
-          </>
-        );
-      }}
-      renderUsage={(item) => `已被 ${equippedCount(item.id)} 名成员装配`}
     />
   );
 }
