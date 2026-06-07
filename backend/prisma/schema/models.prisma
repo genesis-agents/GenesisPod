@@ -11204,6 +11204,7 @@ model IndustryEntity {
   name        String  @db.VarChar(300)
   type        String  @db.VarChar(20) // SEGMENT|COMPANY|PRODUCT
   cik         String? @db.VarChar(10) // SEC CIK（补零 10 位）
+  companyType String? @map("company_type") @db.VarChar(20) // LISTED_US|LISTED_OTHER|STARTUP|STATE_OWNED|PRIVATE|OTHER
   segment     String? @db.VarChar(200) // 所属环节
   description String? @db.Text
   sourceRefs  Json?   @map("source_refs") // [{accessionNumber,url,reportType,date}]

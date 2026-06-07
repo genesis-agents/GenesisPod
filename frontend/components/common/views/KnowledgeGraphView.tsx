@@ -30,6 +30,8 @@ interface GraphNode extends SimulationNodeDatum {
   properties: {
     /** 产业链：所属环节（chain 布局按此分列） */
     segment?: string | null;
+    /** 产业链：企业类型（调用方可据此自定义节点颜色） */
+    companyType?: string | null;
     title?: string;
     username?: string;
     name?: string;
@@ -68,6 +70,11 @@ interface KnowledgeGraphViewProps {
    * 传 null 表示取消选中。
    */
   onNodeSelect?: (node: GraphNode | null) => void;
+  /**
+   * 自定义节点颜色（保持本组件通用：领域配色由调用方决定）。返回 undefined 则回退默认按 type 着色。
+   * 例如产业链页按 companyType（上市/初创/国企…）着色。
+   */
+  nodeColor?: (node: GraphNode) => string | undefined;
 }
 
 export default function KnowledgeGraphView({
@@ -76,6 +83,7 @@ export default function KnowledgeGraphView({
   defaultLayout = 'force',
   title,
   onNodeSelect,
+  nodeColor,
 }: KnowledgeGraphViewProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -319,7 +327,7 @@ export default function KnowledgeGraphView({
           edges.filter((e) => e.source === d.id || e.target === d.id).length
         )
       )
-      .attr('fill', (d) => colorScale(d.type))
+      .attr('fill', (d) => nodeColor?.(d) ?? colorScale(d.type))
       .attr('stroke', '#fff')
       .attr('stroke-width', 2)
       .on('click', (event, d) => {
@@ -448,7 +456,7 @@ export default function KnowledgeGraphView({
     return () => {
       simulation.stop();
     };
-  }, [nodes, edges, layout, onNodeSelect]);
+  }, [nodes, edges, layout, onNodeSelect, nodeColor]);
 
   // 详情面板标题：覆盖全部已知类型 + 兜底（含产业链 SEGMENT/COMPANY/PRODUCT，
   // 旧版只列了 7 种 library 类型，产业链节点点开标题为空白）。

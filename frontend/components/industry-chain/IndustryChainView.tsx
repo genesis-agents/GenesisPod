@@ -81,8 +81,18 @@ interface ChainNode {
   id: string;
   label: string;
   type: string;
-  properties?: { segment?: string | null };
+  properties?: { segment?: string | null; companyType?: string | null };
 }
+
+/** 企业类型 → 中文标签 + 画布颜色（节点着色 + 图例 + 抽屉徽章共用）。 */
+const COMPANY_TYPE_META: Record<string, { label: string; color: string }> = {
+  LISTED_US: { label: '美股上市', color: '#3b82f6' },
+  LISTED_OTHER: { label: '非美上市', color: '#06b6d4' },
+  STARTUP: { label: '初创', color: '#f59e0b' },
+  STATE_OWNED: { label: '国企', color: '#ef4444' },
+  PRIVATE: { label: '私营', color: '#8b5cf6' },
+  OTHER: { label: '其他', color: '#94a3b8' },
+};
 
 /**
  * 节点详情：按 entityId 拉 getEntity，展示公司/环节档案（描述 / CIK / SEC 来源链接）。
@@ -230,6 +240,22 @@ function ChainEntityDetail({
           />
           <StatCard label="类型" value={typeLabel} tone="slate" />
         </div>
+        {isCompany &&
+          entity.companyType &&
+          COMPANY_TYPE_META[entity.companyType] && (
+            <div className="mt-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{
+                    backgroundColor:
+                      COMPANY_TYPE_META[entity.companyType].color,
+                  }}
+                />
+                {COMPANY_TYPE_META[entity.companyType].label}
+              </span>
+            </div>
+          )}
         {entity.segment && (
           <div className="mt-3 text-xs text-gray-500">
             所属环节：<span className="text-gray-700">{entity.segment}</span>
@@ -433,7 +459,11 @@ export default function IndustryChainView({ chainId }: Props) {
     id: n.id,
     label: n.label,
     type: n.type,
-    properties: { name: n.label, segment: n.segment ?? undefined },
+    properties: {
+      name: n.label,
+      segment: n.segment ?? undefined,
+      companyType: n.companyType ?? undefined,
+    },
   }));
   const edges = graph.edges.map((e) => ({
     source: e.source,
@@ -447,15 +477,47 @@ export default function IndustryChainView({ chainId }: Props) {
       ).length
     : 0;
 
+  // 图例：仅列出本图实际出现的企业类型
+  const presentTypes = Array.from(
+    new Set(
+      graph.nodes
+        .filter((n) => n.type === 'COMPANY' && n.companyType)
+        .map((n) => n.companyType as string)
+    )
+  ).filter((k) => COMPANY_TYPE_META[k]);
+
   return (
-    <div className="h-full">
+    <div className="relative h-full">
       <KnowledgeGraphView
         nodes={nodes}
         edges={edges}
         defaultLayout="chain"
         title={t('industryChain.title')}
         onNodeSelect={setDrawerNode}
+        nodeColor={(node) =>
+          node.type === 'COMPANY'
+            ? COMPANY_TYPE_META[node.properties?.companyType ?? '']?.color
+            : undefined
+        }
       />
+
+      {presentTypes.length > 0 && (
+        <div className="absolute left-4 top-20 z-10 flex flex-col gap-1 rounded-lg bg-white/90 px-3 py-2 text-xs shadow-sm backdrop-blur-sm">
+          <span className="mb-0.5 font-medium text-gray-500">企业类型</span>
+          {presentTypes.map((k) => (
+            <span
+              key={k}
+              className="inline-flex items-center gap-1.5 text-gray-600"
+            >
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: COMPANY_TYPE_META[k].color }}
+              />
+              {COMPANY_TYPE_META[k].label}
+            </span>
+          ))}
+        </div>
+      )}
 
       <SideDrawer
         open={drawerNode !== null}

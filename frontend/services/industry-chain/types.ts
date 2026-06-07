@@ -5,6 +5,7 @@ export interface ChainGraphNode {
   label: string;
   type: string; // SEGMENT | COMPANY | PRODUCT
   segment?: string | null;
+  companyType?: string | null; // LISTED_US | LISTED_OTHER | STARTUP | STATE_OWNED | PRIVATE | OTHER
 }
 
 export interface ChainGraphEdge {
@@ -40,6 +41,7 @@ export interface IndustryEntityDetail {
   name: string;
   type: string;
   cik?: string | null;
+  companyType?: string | null;
   segment?: string | null;
   description?: string | null;
   sourceRefs?: Array<{

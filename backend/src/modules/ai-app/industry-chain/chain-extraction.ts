@@ -35,11 +35,34 @@ export const ChainSegmentSchema = z.object({
   order: z.number().optional(),
 });
 
+// 企业类型（画布按此着色 + 图例）。美股上市由 ticker→CIK 确定性覆盖，其余 LLM 标注。
+export const COMPANY_TYPES = [
+  "LISTED_US",
+  "LISTED_OTHER",
+  "STARTUP",
+  "STATE_OWNED",
+  "PRIVATE",
+  "OTHER",
+] as const;
+export type CompanyType = (typeof COMPANY_TYPES)[number];
+
+/** 归一 LLM 给的 companyType 到合法枚举；非法 → OTHER。 */
+export function normalizeCompanyType(v: unknown): CompanyType {
+  const s = String(v ?? "")
+    .toUpperCase()
+    .trim();
+  return (COMPANY_TYPES as readonly string[]).includes(s)
+    ? (s as CompanyType)
+    : "OTHER";
+}
+
 export const ChainCompanySchema = z.object({
   name: z.string().min(1),
   // 股票代码（语言无关，用于权威反查 SEC CIK；LLM 直出的 cik 不可信，仅作兜底）
   ticker: z.string().optional(),
   cik: z.string().optional(),
+  // 企业类型（LLM 标注；美股上市由 ticker 确定性覆盖）
+  companyType: z.string().optional(),
   segment: z.string().optional(),
   description: z.string().optional(),
   sourceRefs: z.array(SourceRefSchema).optional(),

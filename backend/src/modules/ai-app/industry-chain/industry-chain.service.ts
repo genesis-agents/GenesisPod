@@ -34,6 +34,7 @@ import {
   buildStructuralRows,
   mergeRelationRows,
   normalizeSegmentName,
+  normalizeCompanyType,
   sanitizeSourceRefs,
   classifyFiling,
   ENTITY_TYPES,
@@ -50,6 +51,7 @@ export interface ChainGraphNode {
   label: string;
   type: string; // SEGMENT | COMPANY | PRODUCT
   segment?: string | null;
+  companyType?: string | null; // LISTED_US | LISTED_OTHER | STARTUP | STATE_OWNED | PRIVATE | OTHER
 }
 export interface ChainGraphEdge {
   source: string;
@@ -357,12 +359,17 @@ export class IndustryChainService {
         if (!cik) {
           refs = refs.filter((r) => !r.url || !/sec\.gov/i.test(r.url));
         }
+        // 企业类型：有权威 cik（ticker 反查成功）→ 确定性 LISTED_US；否则用 LLM 标注（归一）。
+        const companyType = cik
+          ? "LISTED_US"
+          : normalizeCompanyType(c.companyType);
         const ent = await tx.industryEntity.create({
           data: {
             chainId,
             name: canonical,
             type: "COMPANY" satisfies (typeof ENTITY_TYPES)[number],
             cik,
+            companyType,
             segment: c.segment ?? null,
             description: c.description ?? null,
             sourceRefs: refs as object,
@@ -438,6 +445,7 @@ export class IndustryChainService {
       label: e.name,
       type: e.type,
       segment: e.segment,
+      companyType: e.companyType,
     }));
     const edges: ChainGraphEdge[] = chain.relations
       .filter((r) => r.validTo === null) // 仅当前有效边
