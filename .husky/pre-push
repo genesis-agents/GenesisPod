@@ -322,6 +322,18 @@ else
 fi
 echo ""
 
+# 10. AI 应用概览 docs 覆盖守护（admin 概览 ⟺ docs/architecture/ai-app 文件夹）
+echo "[10/10] AI 应用概览覆盖守护..."
+if npm run audit:ai-app-docs --silent; then
+    echo "  AI 应用概览覆盖完整"
+else
+    echo ""
+    echo "  ✘ AI 应用概览与 docs 文件夹不一致 — 见上方报告"
+    echo "  → 在 ai-app-categories.ts 登记模块，或在 audit 脚本 EXCLUDED 排除"
+    exit 1
+fi
+echo ""
+
 echo "============================================================"
 echo "  所有验证通过"
 echo "============================================================"
