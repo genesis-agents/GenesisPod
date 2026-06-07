@@ -116,7 +116,8 @@ export interface Analyses {
     summary: string;
   };
   supplyChain: {
-    layers: { order: number; members: string[] }[];
+    /** description：每层的中文段落说明（LLM 生成，可空，前端按层展示）。 */
+    layers: { order: number; members: string[]; description?: string }[];
     summary: string;
   };
 }

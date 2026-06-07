@@ -137,6 +137,31 @@ function fallbackSummary(key: string): string {
   return map[key] ?? "分析完成。";
 }
 
+/**
+ * 把 LLM 返回的 per-layer 描述按 order 合并进结构化 layers。
+ * LLM 漏写/格式异常时该层 description 留空（前端有客户端兜底文案）。
+ */
+function mergeLayerDescriptions(
+  layers: { order: number; members: string[] }[],
+  raw: unknown,
+): { order: number; members: string[]; description?: string }[] {
+  const byOrder = new Map<number, string>();
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (item && typeof item === "object") {
+        const o = item as Record<string, unknown>;
+        if (typeof o.order === "number" && typeof o.description === "string") {
+          byOrder.set(o.order, o.description.trim());
+        }
+      }
+    }
+  }
+  return layers.map((l) => {
+    const desc = byOrder.get(l.order);
+    return desc ? { ...l, description: desc } : { ...l };
+  });
+}
+
 // ─── service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -431,14 +456,19 @@ Be concise. Extract up to 50 entities and 80 relations. Names must match exactly
   ): Promise<Analyses> {
     const graphSummary = buildGraphSummaryForLlm(graph, rawAnalyses);
 
+    const chainOrders = rawAnalyses.supplyChain.layers
+      .map((l) => l.order)
+      .sort((a, b) => a - b);
     const summaryPrompt = `你是一位商业分析专家。根据以下知识图谱分析结果，为每项分析写一段简短的中文专业解读（1-3句，聚焦商业洞察）。
+对 supplyChain（产业链）：除整体 summary 外，还要为**每一层级**单独写一段说明（每段 1-2 句，说明该层在产业链中的定位/角色与代表实体的作用）。
 返回纯JSON，不要prose：
 {
   "keyNodes": "...",
   "relatedness": "...",
   "competitive": "...",
   "community": "...",
-  "supplyChain": "..."
+  "supplyChain": "...",
+  "supplyChainLayers": [${chainOrders.map((o) => `{"order": ${o}, "description": "..."}`).join(", ")}]
 }`;
 
     try {
@@ -484,6 +514,10 @@ Be concise. Extract up to 50 entities and 80 relations. Names must match exactly
             },
             supplyChain: {
               ...rawAnalyses.supplyChain,
+              layers: mergeLayerDescriptions(
+                rawAnalyses.supplyChain.layers,
+                d["supplyChainLayers"],
+              ),
               summary: String(
                 d["supplyChain"] ?? fallbackSummary("supplyChain"),
               ),
