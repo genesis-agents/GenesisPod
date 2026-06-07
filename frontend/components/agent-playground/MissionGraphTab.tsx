@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart2,
   GitBranch,
   Layers,
+  Maximize2,
+  Minimize2,
   Network,
   Share2,
   Users,
@@ -113,21 +115,61 @@ export function MissionGraphTab({ missionId }: MissionGraphTabProps) {
   const graph = artifact.graph as MissionGraph;
   const analyses = artifact.analyses as Analyses;
 
-  // Map contract GraphNode -> KnowledgeGraphView GraphNode (add required properties:{})
-  const viewNodes = graph.nodes.map((n) => ({
-    id: n.id,
-    label: n.label,
-    type: n.type,
-    properties: {},
-  }));
+  return <ReadyGraph graph={graph} analyses={analyses} />;
+}
 
-  // Map contract GraphEdge -> KnowledgeGraphView GraphLink
-  const viewEdges = graph.edges.map((e) => ({
-    source: e.source,
-    target: e.target,
-    type: e.type,
-    ...(e.weight != null ? { weight: e.weight } : {}),
-  }));
+// ─── READY 态：拆成独立组件，让 useMemo / useState（全屏）等 hooks 合法且稳定 ───
+function ReadyGraph({
+  graph,
+  analyses,
+}: {
+  graph: MissionGraph;
+  analyses: Analyses;
+}) {
+  const [fullscreen, setFullscreen] = useState(false);
+  const graphCardRef = useRef<HTMLDivElement>(null);
+
+  // ★ 关键修复（flicker）：viewNodes/viewEdges 必须 useMemo 稳定引用。否则
+  //   continuous(轮询)模式下父组件每次重渲染都 new array → KnowledgeGraphView 的
+  //   useEffect([nodes,edges]) 反复重跑 → 力导向从 alpha=1 重启 → 持续闪烁、无法选中。
+  const viewNodes = useMemo(
+    () =>
+      graph.nodes.map((n) => ({
+        id: n.id,
+        label: n.label,
+        type: n.type,
+        properties: {},
+      })),
+    [graph.nodes]
+  );
+  const viewEdges = useMemo(
+    () =>
+      graph.edges.map((e) => ({
+        source: e.source,
+        target: e.target,
+        type: e.type,
+        ...(e.weight != null ? { weight: e.weight } : {}),
+      })),
+    [graph.edges]
+  );
+
+  // 全屏：用浏览器 Fullscreen API 包裹图谱卡片；失败回退到 fixed inset-0 覆盖层。
+  const toggleFullscreen = useCallback(() => {
+    const el = graphCardRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.().catch(() => setFullscreen(true));
+      setFullscreen(true);
+    } else {
+      void document.exitFullscreen?.();
+      setFullscreen(false);
+    }
+  }, []);
+  useEffect(() => {
+    const onFsChange = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -160,19 +202,46 @@ export function MissionGraphTab({ missionId }: MissionGraphTabProps) {
       </div>
 
       {/* Knowledge graph visualization */}
-      <SectionPanelCard
-        title="知识图谱"
-        icon={<Network className="h-4 w-4" />}
-        accent="blue"
+      <div
+        ref={graphCardRef}
+        className={
+          fullscreen
+            ? 'fixed inset-0 z-50 flex flex-col bg-white p-4'
+            : 'relative'
+        }
       >
-        <div className="h-[480px] w-full">
-          <KnowledgeGraphView
-            nodes={viewNodes}
-            edges={viewEdges}
-            defaultLayout="force"
-          />
-        </div>
-      </SectionPanelCard>
+        <SectionPanelCard
+          title="知识图谱"
+          icon={<Network className="h-4 w-4" />}
+          accent="blue"
+          className={fullscreen ? 'flex flex-1 flex-col' : undefined}
+        >
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            title={fullscreen ? '退出全屏' : '全屏展示'}
+            className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white/90 px-2 py-1 text-xs text-gray-600 shadow-sm backdrop-blur-sm hover:bg-gray-50"
+          >
+            {fullscreen ? (
+              <Minimize2 className="h-3.5 w-3.5" />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" />
+            )}
+            {fullscreen ? '退出全屏' : '全屏'}
+          </button>
+          <div
+            className={
+              fullscreen ? 'h-full min-h-0 w-full flex-1' : 'h-[480px] w-full'
+            }
+          >
+            <KnowledgeGraphView
+              nodes={viewNodes}
+              edges={viewEdges}
+              defaultLayout="force"
+            />
+          </div>
+        </SectionPanelCard>
+      </div>
 
       {/* Five analysis panels */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -296,29 +365,69 @@ export function MissionGraphTab({ missionId }: MissionGraphTabProps) {
           className="lg:col-span-2"
         >
           <div className="space-y-3 p-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm leading-relaxed text-gray-600">
               {analyses.supplyChain.summary}
             </p>
-            {analyses.supplyChain.layers.length > 0 && (
-              <div className="flex flex-wrap gap-3">
-                {analyses.supplyChain.layers
+            {analyses.supplyChain.layers.length > 0 &&
+              (() => {
+                const layers = analyses.supplyChain.layers
                   .slice()
-                  .sort((a, b) => a.order - b.order)
-                  .map((layer) => (
-                    <div
-                      key={layer.order}
-                      className="min-w-[120px] rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm"
-                    >
-                      <div className="mb-1 font-semibold text-amber-800">
-                        层级 {layer.order}
-                      </div>
-                      <div className="text-xs text-amber-700">
-                        {layer.members.join('、')}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            )}
+                  .sort((a, b) => a.order - b.order);
+                const total = layers.length;
+                // 按层位置生成"上游→下游"段落说明（后端暂无 per-layer 文本字段；
+                // 这里据 order/总层数客户端生成定位说明，每层一段）。
+                const roleOf = (idx: number): string => {
+                  if (total === 1) return '全链路';
+                  const r = idx / (total - 1);
+                  if (r <= 0.33) return '上游';
+                  if (r <= 0.66) return '中游';
+                  return '下游';
+                };
+                return (
+                  <ol className="space-y-2">
+                    {layers.map((layer, idx) => (
+                      <li key={layer.order}>
+                        <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-3">
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-500 px-2 text-xs font-bold text-white">
+                              L{layer.order}
+                            </span>
+                            <span className="text-sm font-semibold text-amber-800">
+                              {roleOf(idx)}环节
+                            </span>
+                            <span className="text-xs text-amber-600">
+                              · {layer.members.length} 个实体
+                            </span>
+                          </div>
+                          <p className="mb-2 text-xs leading-relaxed text-amber-700">
+                            本层为产业链{roleOf(idx)}环节，包含
+                            {layer.members.length} 个关键实体
+                            {idx < total - 1
+                              ? '，向下游输出能力/产品'
+                              : '，为终端环节'}
+                            。
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {layer.members.map((m, i) => (
+                              <span
+                                key={i}
+                                className="rounded-md bg-white px-2 py-0.5 text-xs text-amber-800 ring-1 ring-amber-200"
+                              >
+                                {m}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {idx < total - 1 && (
+                          <div className="flex justify-center py-0.5 text-amber-400">
+                            ↓
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                );
+              })()}
           </div>
         </SectionPanelCard>
       </div>

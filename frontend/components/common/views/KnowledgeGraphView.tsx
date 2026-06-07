@@ -2,13 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import type {
-  SimulationNodeDatum,
-  SimulationLinkDatum,
-  ZoomBehavior,
-  Selection,
-  D3DragEvent,
-} from 'd3';
+import type { SimulationNodeDatum, SimulationLinkDatum, D3DragEvent } from 'd3';
 
 interface GraphNode extends SimulationNodeDatum {
   id: string;
@@ -91,6 +85,13 @@ export default function KnowledgeGraphView({
     'force' | 'circular' | 'hierarchical' | 'chain'
   >(defaultLayout);
 
+  // ★ 把回调放进 ref，避免它们进 useEffect 依赖：调用方常传内联函数（每次渲染新引用），
+  //   若入依赖会导致力导向反复重启 → 持续闪烁、无法选中。
+  const onNodeSelectRef = useRef(onNodeSelect);
+  onNodeSelectRef.current = onNodeSelect;
+  const nodeColorRef = useRef(nodeColor);
+  nodeColorRef.current = nodeColor;
+
   useEffect(() => {
     if (!svgRef.current || !nodes || nodes.length === 0) return;
 
@@ -129,6 +130,16 @@ export default function KnowledgeGraphView({
         'SEGMENT',
         'COMPANY',
         'PRODUCT',
+        // EntityType（mission 图谱节点类型，additive）
+        'ORGANIZATION',
+        'PERSON',
+        'TECHNOLOGY',
+        'CONCEPT',
+        'EVENT',
+        'LOCATION',
+        'TREND',
+        'METRIC',
+        'OTHER',
       ])
       .range([
         '#8b5cf6', // User: 紫色
@@ -141,6 +152,15 @@ export default function KnowledgeGraphView({
         '#0ea5e9', // SEGMENT: 天蓝
         '#6366f1', // COMPANY: 靛蓝
         '#f59e0b', // PRODUCT: 琥珀
+        '#6366f1', // ORGANIZATION: 靛蓝
+        '#ec4899', // PERSON: 粉
+        '#3b82f6', // TECHNOLOGY: 蓝
+        '#14b8a6', // CONCEPT: 青
+        '#f97316', // EVENT: 橙
+        '#10b981', // LOCATION: 绿
+        '#a855f7', // TREND: 紫
+        '#eab308', // METRIC: 黄
+        '#94a3b8', // OTHER: 灰
       ]);
 
     // 节点大小映射
@@ -186,8 +206,12 @@ export default function KnowledgeGraphView({
     } else if (layout === 'chain') {
       // 产业链布局：按 segment 分列（上游→下游，左→右），列内节点纵向堆叠。
       // SEGMENT 节点置于各列顶部作为列标题，COMPANY/PRODUCT 在该列下方堆叠。
+      // ★ 2026-06-07 修：无 segment 数据时（mission 图谱 properties 为空）回退按 type
+      //   分列，避免所有节点挤进单个"其他"列纵向堆叠成一团乱麻。
       const segmentOf = (n: GraphNode): string =>
-        n.type === 'SEGMENT' ? n.label : n.properties?.segment || '其他';
+        n.type === 'SEGMENT'
+          ? n.label
+          : n.properties?.segment || n.type || '其他';
       // 列顺序：优先 SEGMENT 节点出现顺序，其余追加
       const columnOrder: string[] = [];
       nodes
@@ -221,33 +245,24 @@ export default function KnowledgeGraphView({
       });
       simulation = d3.forceSimulation(nodes);
     } else {
-      // Grouped layout - organize nodes by type in horizontal bands
-      // This is more appropriate for knowledge graphs than tree layouts
-      const typeOrder = [
-        'User',
-        'Collection',
-        'Resource',
-        'Note',
-        'Author',
-        'Topic',
-        'Tag',
-      ];
+      // Grouped layout - organize nodes by type in horizontal bands.
+      // ★ 2026-06-07 修：typeOrder 必须从**实际出现的节点类型**动态构建。旧版硬编码
+      //   7 个 library 类型，mission 图谱节点是 EntityType(ORGANIZATION/TECHNOLOGY/…)，
+      //   一个都不在表里 → 全部 node 无 x/y → 默认 (0,0) → 整图缩在左上角。
       const nodesByType: Record<string, GraphNode[]> = {};
-
-      // Group nodes by type
       nodes.forEach((node) => {
-        if (!nodesByType[node.type]) {
-          nodesByType[node.type] = [];
-        }
-        nodesByType[node.type].push(node);
+        (nodesByType[node.type] ||= []).push(node);
+      });
+      // 稳定排序：按该类型节点数降序（大类在上），同数按类型名
+      const typeOrder = Object.keys(nodesByType).sort((a, b) => {
+        const d = nodesByType[b].length - nodesByType[a].length;
+        return d !== 0 ? d : a.localeCompare(b);
       });
 
-      // Position nodes in horizontal bands
       const bandHeight = height / (typeOrder.length + 1);
       typeOrder.forEach((type, bandIndex) => {
         const nodesOfType = nodesByType[type] || [];
         const nodeSpacing = width / (nodesOfType.length + 1);
-
         nodesOfType.forEach((node, nodeIndex) => {
           node.x = nodeSpacing * (nodeIndex + 1);
           node.y = bandHeight * (bandIndex + 1);
@@ -327,14 +342,14 @@ export default function KnowledgeGraphView({
           edges.filter((e) => e.source === d.id || e.target === d.id).length
         )
       )
-      .attr('fill', (d) => nodeColor?.(d) ?? colorScale(d.type))
+      .attr('fill', (d) => nodeColorRef.current?.(d) ?? colorScale(d.type))
       .attr('stroke', '#fff')
       .attr('stroke-width', 2)
       .on('click', (event, d) => {
         event.stopPropagation();
         setSelectedNode(d);
         highlightNode(d);
-        onNodeSelect?.(d);
+        onNodeSelectRef.current?.(d);
       });
 
     // 节点标签
@@ -453,10 +468,45 @@ export default function KnowledgeGraphView({
       }
     }
 
+    // ★ zoom-to-fit：布局稳定后把整图缩放平移到可视区中央，避免"缩在左上角/超出视野"。
+    //   force 布局等模拟收敛后 fit；静态布局（circular/chain/hierarchical）下一帧即可 fit。
+    const fitToView = () => {
+      const node0 = g.node();
+      if (!node0) return;
+      const bounds = (node0 as SVGGraphicsElement).getBBox();
+      if (!bounds.width || !bounds.height) return;
+      const fullWidth = width || svgRef.current?.clientWidth || 1;
+      const fullHeight = height || svgRef.current?.clientHeight || 1;
+      const midX = bounds.x + bounds.width / 2;
+      const midY = bounds.y + bounds.height / 2;
+      const scale =
+        0.85 / Math.max(bounds.width / fullWidth, bounds.height / fullHeight);
+      const clamped = Math.min(Math.max(scale, 0.1), 4);
+      const tx = fullWidth / 2 - clamped * midX;
+      const ty = fullHeight / 2 - clamped * midY;
+      const targetTransform = d3.zoomIdentity.translate(tx, ty).scale(clamped);
+      // zoom.transform 是 d3 标准用法（unbound 调用），用 wrapper 规避 unbound-method。
+      svg
+        .transition()
+        .duration(400)
+        .call((t) => zoom.transform(t, targetTransform));
+    };
+    if (layout === 'force') {
+      simulation.on('end', fitToView);
+      // 兜底：力导向可能长时间不触发 end，2.2s 后强制 fit 一次
+      const fitTimer = setTimeout(fitToView, 2200);
+      return () => {
+        clearTimeout(fitTimer);
+        simulation.stop();
+      };
+    }
+    // 静态布局：节点位置已定，下一帧 fit
+    const raf = requestAnimationFrame(fitToView);
     return () => {
+      cancelAnimationFrame(raf);
       simulation.stop();
     };
-  }, [nodes, edges, layout, onNodeSelect, nodeColor]);
+  }, [nodes, edges, layout]);
 
   // 详情面板标题：覆盖全部已知类型 + 兜底（含产业链 SEGMENT/COMPANY/PRODUCT，
   // 旧版只列了 7 种 library 类型，产业链节点点开标题为空白）。
@@ -485,6 +535,47 @@ export default function KnowledgeGraphView({
     SEGMENT: '环节',
     COMPANY: '公司',
     PRODUCT: '产品',
+    // EntityType（mission 图谱）
+    ORGANIZATION: '组织/机构',
+    PERSON: '人物',
+    TECHNOLOGY: '技术',
+    CONCEPT: '概念',
+    EVENT: '事件',
+    LOCATION: '地点',
+    TREND: '趋势',
+    METRIC: '指标',
+    OTHER: '其他',
+  };
+
+  // 选中节点的邻居（用于详情面板展示关键关联内容）
+  const neighborsOf = (n: GraphNode) => {
+    const out: { label: string; relation: string }[] = [];
+    for (const e of edges) {
+      const sid = typeof e.source === 'string' ? e.source : e.source.id;
+      const tid = typeof e.target === 'string' ? e.target : e.target.id;
+      if (sid === n.id || tid === n.id) {
+        const otherId = sid === n.id ? tid : sid;
+        const other = nodes.find((x) => x.id === otherId);
+        out.push({
+          label: other?.label ?? otherId,
+          relation: e.type,
+        });
+      }
+    }
+    return out;
+  };
+
+  const relationLabels: Record<string, string> = {
+    SUPPLIES: '供应',
+    DEPENDS_ON: '依赖',
+    PRODUCES: '生产',
+    USES: '使用',
+    COMPETES_WITH: '竞争',
+    PARTNERS_WITH: '合作',
+    BELONGS_TO: '属于',
+    INFLUENCES: '影响',
+    RELATED_TO: '相关',
+    OTHER: '关联',
   };
 
   return (
@@ -639,18 +730,40 @@ export default function KnowledgeGraphView({
               </button>
             </div>
 
-            <div className="mt-4">
-              <div className="text-sm font-medium text-gray-700">关联数量</div>
-              <div className="mt-1 text-2xl font-bold text-purple-600">
-                {
-                  edges.filter(
-                    (e) =>
-                      e.source === selectedNode.id ||
-                      e.target === selectedNode.id
-                  ).length
-                }
-              </div>
-            </div>
+            {(() => {
+              const neighbors = neighborsOf(selectedNode);
+              return (
+                <div className="mt-4">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm font-medium text-gray-700">
+                      关联节点
+                    </span>
+                    <span className="text-sm font-bold text-purple-600">
+                      {neighbors.length}
+                    </span>
+                  </div>
+                  {neighbors.length > 0 ? (
+                    <ul className="mt-2 max-h-60 space-y-1 overflow-y-auto pr-1">
+                      {neighbors.map((nb, i) => (
+                        <li
+                          key={i}
+                          className="flex items-center justify-between gap-2 rounded-md bg-gray-50 px-2 py-1 text-xs"
+                        >
+                          <span className="flex-1 truncate text-gray-800">
+                            {nb.label}
+                          </span>
+                          <span className="flex-shrink-0 rounded-full bg-purple-50 px-1.5 py-0.5 text-[10px] text-purple-600">
+                            {relationLabels[nb.relation] ?? nb.relation}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-xs text-gray-400">无直接关联节点</p>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 
