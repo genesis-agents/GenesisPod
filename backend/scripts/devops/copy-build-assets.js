@@ -16,7 +16,10 @@
 const fs = require("fs");
 const path = require("path");
 
-const ROOT = path.resolve(__dirname, "..");
+// ★ 2026-06-07：scripts-reorg 把本脚本从 scripts/ 移到 scripts/devops/，深度 +1，
+//   原 `__dirname/..`（= scripts/）算出 ROOT 错成 /app/scripts → dist 找不到 → 部署
+//   构建必挂。须上溯两级到 backend 根（/app）。
+const ROOT = path.resolve(__dirname, "..", "..");
 const SRC = path.join(ROOT, "src");
 const DIST = path.join(ROOT, "dist");
 
