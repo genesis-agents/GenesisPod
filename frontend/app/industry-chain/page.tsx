@@ -6,7 +6,7 @@
  *   → 创建走 canonical Modal。全部复用公共件，不自造。
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Network,
@@ -15,6 +15,7 @@ import {
   Plus,
   Sparkles,
   Trash2,
+  Search,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { PageHeaderHero } from '@/components/ui/page-header-hero';
@@ -49,6 +50,7 @@ export default function IndustryChainLandingPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [chains, setChains] = useState<IndustryChainListItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [deleteTarget, setDeleteTarget] =
@@ -56,6 +58,13 @@ export default function IndustryChainLandingPage() {
   const [deleting, setDeleting] = useState(false);
 
   const theme = MODULE_THEMES.industryChain;
+
+  // 按主题名过滤历史（最新已由后端倒序返回）。
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return chains;
+    return chains.filter((c) => c.topic.toLowerCase().includes(q));
+  }, [chains, searchQuery]);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -146,10 +155,21 @@ export default function IndustryChainLandingPage() {
         action={{ label: t('industryChain.newAnalysis'), onClick: openCreate }}
       />
     );
+  } else if (filtered.length === 0) {
+    body = (
+      <EmptyState
+        title={t('industryChain.searchNoResult')}
+        description={t('industryChain.searchNoResultDesc')}
+        action={{
+          label: t('industryChain.searchClear'),
+          onClick: () => setSearchQuery(''),
+        }}
+      />
+    );
   } else {
     body = (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {chains.map((c) => {
+        {filtered.map((c) => {
           const s = statusMeta(c.status);
           return (
             <AssetCard
@@ -203,7 +223,21 @@ export default function IndustryChainLandingPage() {
               {t('industryChain.newAnalysis')}
             </Button>
           }
-        />
+        >
+          <div className="relative">
+            <Search
+              className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+              aria-hidden
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('industryChain.searchPlaceholder')}
+              className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+            />
+          </div>
+        </PageHeaderHero>
       </div>
 
       <div className="px-8 py-6">

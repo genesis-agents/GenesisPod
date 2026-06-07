@@ -22,3 +22,6 @@ export type {
   SecFiling,
   SecFormType,
 } from "./sec-edgar.tool";
+
+export { StartupHubTool } from "./startuphub.tool";
+export type { StartupHubInput, StartupHubOutput } from "./startuphub.tool";

@@ -96,4 +96,14 @@ export class IndustryChainController {
   ) {
     return this.service.getEntityInvestment(req.user.id, entityId);
   }
+
+  /** 实体初创档案（StartupHub.ai，仅非美上市公司节点）。 */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Get("entity/:entityId/startup")
+  async getEntityStartup(
+    @Request() req: RequestWithUser,
+    @Param("entityId") entityId: string,
+  ) {
+    return this.service.getEntityStartup(req.user.id, entityId);
+  }
 }

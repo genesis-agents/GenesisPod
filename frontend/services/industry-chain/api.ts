@@ -8,6 +8,7 @@ import type {
   ChainGraph,
   EntityFinance,
   EntityInvestment,
+  EntityStartup,
   IndustryChain,
   IndustryChainListItem,
   IndustryEntityDetail,
@@ -56,5 +57,10 @@ export const industryChainApi = {
     return apiClient.get<EntityInvestment>(
       `${BASE}/entity/${entityId}/investment`
     );
+  },
+
+  /** 实体初创档案（StartupHub.ai，仅非美上市公司节点）。 */
+  getEntityStartup(entityId: string): Promise<EntityStartup> {
+    return apiClient.get<EntityStartup>(`${BASE}/entity/${entityId}/startup`);
   },
 };

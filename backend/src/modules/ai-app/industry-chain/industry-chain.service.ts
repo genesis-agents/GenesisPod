@@ -91,6 +91,21 @@ interface FinToolOutput {
   data?: FinPoint[];
   metadata?: Record<string, string>;
 }
+// StartupHubTool 的输出形（与 engine tool 的 StartupHubOutput 对齐，本地声明避免穿透内部路径）
+interface StartupHubToolOutput {
+  found: boolean;
+  name?: string;
+  oneLiner?: string;
+  website?: string;
+  hq?: string;
+  foundedDate?: string;
+  totalFunding?: number;
+  employeeCount?: number;
+  sectors?: string[];
+  operatingStatus?: string;
+  stealth?: boolean;
+  profileUrl?: string;
+}
 
 // SEC ticker 映射缓存 TTL（cik→ticker，按天刷新）——finance-api 只认 ticker，库里存 cik。
 const SEC_TICKER_TTL_MS = 24 * 60 * 60 * 1000;
@@ -105,6 +120,22 @@ export interface InvestmentItem {
 export interface EntityInvestment {
   available: boolean;
   items: InvestmentItem[];
+}
+
+/** 初创/未上市公司档案（来自 StartupHub.ai，免费 AI 创投库）。 */
+export interface EntityStartup {
+  available: boolean;
+  name?: string;
+  oneLiner?: string;
+  website?: string;
+  hq?: string;
+  foundedDate?: string;
+  totalFunding?: number;
+  employeeCount?: number;
+  sectors?: string[];
+  operatingStatus?: string;
+  stealth?: boolean;
+  profileUrl?: string;
 }
 
 @Injectable()
@@ -690,6 +721,60 @@ export class IndustryChainService {
     } catch (e) {
       this.logger.warn(`[getEntityInvestment] entity=${entityId} failed: ${e}`);
       return { available: false, items: [] };
+    }
+  }
+
+  /**
+   * 初创/未上市公司档案（M6 越权过滤）。免费源 StartupHub.ai（AI 创投库）。
+   * 仅对**无 CIK 的公司节点**(非美上市 / 初创 / 私营)启用——美股上市走 SEC/行情。
+   * 需配 STARTUPHUB_API_KEY；未配 / 名称对不上 / 查不到 → available:false（前端退回深链）。
+   */
+  async getEntityStartup(
+    userId: string,
+    entityId: string,
+  ): Promise<EntityStartup> {
+    const entity = await this.prisma.industryEntity.findFirst({
+      where: { id: entityId, chain: { ownerId: userId } },
+    });
+    if (!entity) {
+      throw new NotFoundException("实体不存在或无访问权限");
+    }
+    // 仅非美上市公司(无 cik)用 StartupHub；上市公司有 SEC/行情，不重复
+    if (entity.type !== "COMPANY" || entity.cik) {
+      return { available: false };
+    }
+
+    // 走 engine 注册的 StartupHubTool（key/名称匹配/档案抓取均在 tool 内统一管理）
+    const tool = this.toolRegistry.tryGet("startuphub-startup");
+    if (!tool) return { available: false };
+
+    const ctx: ToolContext = {
+      executionId: randomUUID(),
+      toolId: "startuphub-startup",
+      createdAt: new Date(),
+      userId,
+    };
+    try {
+      const res = await tool.execute({ query: entity.name }, ctx);
+      const out = (res?.data as StartupHubToolOutput | undefined) ?? undefined;
+      if (!out?.found) return { available: false };
+      return {
+        available: true,
+        name: out.name ?? entity.name,
+        oneLiner: out.oneLiner,
+        website: out.website,
+        hq: out.hq,
+        foundedDate: out.foundedDate,
+        totalFunding: out.totalFunding,
+        employeeCount: out.employeeCount,
+        sectors: out.sectors,
+        operatingStatus: out.operatingStatus,
+        stealth: out.stealth,
+        profileUrl: out.profileUrl,
+      };
+    } catch (e) {
+      this.logger.warn(`[getEntityStartup] entity=${entityId} failed: ${e}`);
+      return { available: false };
     }
   }
 

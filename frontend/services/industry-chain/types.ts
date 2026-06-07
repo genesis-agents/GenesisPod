@@ -87,3 +87,19 @@ export interface EntityInvestment {
   available: boolean;
   items: InvestmentItem[];
 }
+
+/** 初创/未上市公司档案（来自 StartupHub.ai，仅非美上市公司节点）。 */
+export interface EntityStartup {
+  available: boolean;
+  name?: string;
+  oneLiner?: string;
+  website?: string;
+  hq?: string;
+  foundedDate?: string;
+  totalFunding?: number;
+  employeeCount?: number;
+  sectors?: string[];
+  operatingStatus?: string;
+  stealth?: boolean;
+  profileUrl?: string;
+}

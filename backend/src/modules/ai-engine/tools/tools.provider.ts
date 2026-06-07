@@ -27,6 +27,7 @@ import {
   FinanceApiTool,
   WeatherApiTool,
   SecEdgarTool,
+  StartupHubTool,
   // Policy Tools
   FederalRegisterTool,
   CongressGovTool,
@@ -163,6 +164,7 @@ export const ALL_TOOL_CLASSES: Type<ITool>[] = [
   FinanceApiTool,
   WeatherApiTool,
   SecEdgarTool,
+  StartupHubTool,
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
@@ -277,6 +279,7 @@ export const TOOL_ID_CLASS_MAP: Record<string, Type<ITool>> = {
   "finance-api": FinanceApiTool,
   "weather-api": WeatherApiTool,
   "sec-edgar-search": SecEdgarTool,
+  "startuphub-startup": StartupHubTool,
   "federal-register": FederalRegisterTool,
   "congress-gov": CongressGovTool,
   "whitehouse-news": WhiteHouseNewsTool,

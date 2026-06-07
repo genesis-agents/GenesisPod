@@ -19,9 +19,8 @@ import {
   Activity,
   FileText,
   ExternalLink,
-  TrendingUp,
-  TrendingDown,
   RefreshCw,
+  Rocket,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import KnowledgeGraphView from '@/components/common/views/KnowledgeGraphView';
@@ -34,6 +33,7 @@ import type {
   ChainGraph,
   EntityFinance,
   EntityInvestment,
+  EntityStartup,
   IndustryChain,
   IndustryEntityDetail,
 } from '@/services/industry-chain/types';
@@ -70,6 +70,19 @@ function Sparkline({ series }: { series: Array<{ close: number }> }) {
       />
     </svg>
   );
+}
+
+/** 融资金额（美元）人性化展示：$1.2B / $340M / $5.0M。 */
+function formatFunding(usd: number): string {
+  if (usd >= 1e9) return `$${(usd / 1e9).toFixed(1)}B`;
+  if (usd >= 1e6) return `$${(usd / 1e6).toFixed(1)}M`;
+  if (usd >= 1e3) return `$${(usd / 1e3).toFixed(0)}K`;
+  return `$${usd}`;
+}
+
+/** 千分位（确定性，避免 toLocaleString 的 SSR 水合不一致）。 */
+function withThousands(n: number): string {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 interface Props {
@@ -111,6 +124,7 @@ function ChainEntityDetail({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [finance, setFinance] = useState<EntityFinance | null>(null);
   const [investment, setInvestment] = useState<EntityInvestment | null>(null);
+  const [startup, setStartup] = useState<EntityStartup | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -158,6 +172,27 @@ function ChainEntityDetail({
     ]).finally(() => {
       if (alive) setRefreshing(false);
     });
+    return () => {
+      alive = false;
+    };
+  }, [entity, refreshKey]);
+
+  // 初创档案（StartupHub.ai）：仅非美上市公司节点（COMPANY 且无 cik）；美股上市走 SEC/行情。
+  useEffect(() => {
+    if (!entity || entity.type !== 'COMPANY' || entity.cik) {
+      setStartup(null);
+      return;
+    }
+    let alive = true;
+    void industryChainApi
+      .getEntityStartup(entity.id)
+      .then((s) => {
+        if (alive) setStartup(s);
+      })
+      .catch((err) => {
+        logger.error('[IndustryChain] getEntityStartup failed:', err);
+        if (alive) setStartup(null);
+      });
     return () => {
       alive = false;
     };
@@ -324,6 +359,79 @@ function ChainEntityDetail({
               />
             ))}
           </div>
+        </SectionPanelCard>
+      )}
+
+      {/* 初创档案（非美上市公司，来自 StartupHub.ai） */}
+      {startup?.available && (
+        <SectionPanelCard
+          title="初创档案"
+          subtitle="来自 StartupHub.ai"
+          accent="amber"
+          titleSize="sm"
+          icon={<Rocket className="h-4 w-4 text-white" aria-hidden />}
+        >
+          {startup.oneLiner && (
+            <p className="mb-3 text-sm leading-relaxed text-gray-600">
+              {startup.oneLiner}
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            {startup.totalFunding !== undefined && (
+              <StatCard
+                label="总融资"
+                value={formatFunding(startup.totalFunding)}
+                tone="amber"
+              />
+            )}
+            {startup.employeeCount !== undefined && (
+              <StatCard
+                label="员工数"
+                value={withThousands(startup.employeeCount)}
+                tone="slate"
+              />
+            )}
+            {startup.foundedDate && (
+              <StatCard
+                label="成立"
+                value={startup.foundedDate.slice(0, 4)}
+                tone="slate"
+              />
+            )}
+            {startup.hq && (
+              <StatCard label="总部" value={startup.hq} tone="slate" />
+            )}
+          </div>
+          {startup.sectors && startup.sectors.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {startup.sectors.slice(0, 6).map((s) => (
+                <span
+                  key={s}
+                  className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs text-amber-700"
+                >
+                  {s}
+                </span>
+              ))}
+            </div>
+          )}
+          {(startup.operatingStatus || startup.stealth) && (
+            <div className="mt-3 text-xs text-gray-500">
+              {startup.stealth
+                ? '隐身模式（Stealth）'
+                : startup.operatingStatus}
+            </div>
+          )}
+          {startup.profileUrl && (
+            <a
+              href={startup.profileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-1 text-xs text-amber-700 hover:underline"
+            >
+              <ExternalLink className="h-3 w-3" aria-hidden />
+              StartupHub 档案
+            </a>
+          )}
         </SectionPanelCard>
       )}
 
