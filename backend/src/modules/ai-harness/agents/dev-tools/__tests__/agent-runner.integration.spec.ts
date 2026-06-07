@@ -385,6 +385,43 @@ describe("AgentRunner.computeRunMetrics() — exitReason branches", () => {
     expect(toolsUsed[0].totalLatencyMs).toBe(250);
   });
 
+  it("counts parallel_tool_call sub-calls in toolsUsed (no top-level toolId)", () => {
+    // ★ 2026-06-07 regression: parallel_tool_call action has no top-level toolId,
+    //   only subResults[]. Earlier `r.action.toolId` missed them → toolCallCount=0
+    //   despite real parallel searches (prod mission 7ddaad2f).
+    const priv = getPrivate();
+    const events = [
+      buildEvent("action_executed", {
+        action: { kind: "parallel_tool_call" },
+        subResults: [
+          { action: { toolId: "web-search" }, latencyMs: 120 },
+          { action: { toolId: "arxiv-search" }, latencyMs: 80 },
+          {
+            action: { toolId: "web-search" },
+            latencyMs: 60,
+            error: { message: "429" },
+          },
+        ],
+      }),
+    ];
+    const { toolsUsed } = priv.computeRunMetrics(events, "completed", true);
+    const totalCalls = toolsUsed.reduce(
+      (s: number, t: { calls: number }) => s + t.calls,
+      0,
+    );
+    expect(totalCalls).toBe(3); // was 0 before the fix
+    const web = toolsUsed.find(
+      (t: { toolId: string }) => t.toolId === "web-search",
+    );
+    expect(web?.calls).toBe(2);
+    expect(web?.failures).toBe(1);
+    expect(web?.totalLatencyMs).toBe(180);
+    expect(
+      toolsUsed.find((t: { toolId: string }) => t.toolId === "arxiv-search")
+        ?.calls,
+    ).toBe(1);
+  });
+
   it("resets consecutive tool failures on success", () => {
     const priv = getPrivate();
     const events = [
