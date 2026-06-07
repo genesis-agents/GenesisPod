@@ -88,13 +88,6 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       activeClass: 'bg-indigo-50',
       prefix: true,
     },
-    {
-      href: '/industry-chain',
-      label: t('nav.industryChain'),
-      icon: 'link',
-      activeClass: 'bg-emerald-50',
-      prefix: true,
-    },
   ];
 
   // Decision Studio section
