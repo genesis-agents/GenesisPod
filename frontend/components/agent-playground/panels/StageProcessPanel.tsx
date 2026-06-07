@@ -233,7 +233,9 @@ export function StageProcessPanel({ processTrace, stageLabel }: Props) {
                   <span className="flex-1">
                     {t.kind === 'thought' && (
                       <span className="italic text-gray-600">
-                        {t.text ?? '（无文本）'}
+                        {/* ★ 用 truthy 判断而非 ??：推理模型 thinking 常是空串(""),
+                            ?? 只兜 null/undefined → 空串直接渲染成空白行（大量空）。 */}
+                        {t.text && t.text.trim() ? t.text : '（无推理文本）'}
                       </span>
                     )}
                     {t.kind === 'action' &&
@@ -309,12 +311,12 @@ export function StageProcessPanel({ processTrace, stageLabel }: Props) {
                     )}
                     {t.kind === 'reflection' && (
                       <span className="text-amber-700">
-                        {t.text ?? '（无总结）'}
+                        {t.text && t.text.trim() ? t.text : '（无总结）'}
                       </span>
                     )}
                     {t.kind === 'error' && (
                       <span className="text-red-600">
-                        {t.error ?? '（错误未详）'}
+                        {t.error && t.error.trim() ? t.error : '（错误未详）'}
                       </span>
                     )}
                   </span>

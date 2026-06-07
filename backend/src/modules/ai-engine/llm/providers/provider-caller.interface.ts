@@ -21,6 +21,11 @@ export interface ChatCompletionResult {
   cacheReadTokens?: number;
   /** API 返回的完成原因（"stop"=正常完成, "length"=截断） */
   finishReason?: string;
+  /**
+   * 推理模型的思考链文本（DeepSeek-R1/V4-Flash 的 reasoning_content、OpenAI o系列）。
+   * content 只放可见输出/动作 JSON，CoT 走此独立字段；不接则前端「思考」永远空。
+   */
+  reasoning?: string;
   toolCalls?: Array<{
     id: string;
     name: string;
