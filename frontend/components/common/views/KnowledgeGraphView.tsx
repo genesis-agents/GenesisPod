@@ -374,32 +374,57 @@ export default function KnowledgeGraphView({
       .attr('fill', '#475569')
       .attr('font-weight', 500);
 
-    // 高亮功能
+    // 边端点归一化：force 布局下 forceLink 把 source/target 解析成节点对象，
+    // 其余布局仍是字符串 id —— 高亮判断必须统一取 id，否则 `e.source === id`
+    // 永远 false → 点击节点根本不高亮（"点了没反应"的真因）。
+    const edgeId = (x: string | GraphNode): string =>
+      typeof x === 'string' ? x : x.id;
+
+    // 高亮：选中节点 + 直接邻居 + 相连边高亮，其余淡出。
     function highlightNode(selectedNode: GraphNode) {
-      const connectedNodeIds = new Set(
-        edges
-          .filter(
-            (e) => e.source === selectedNode.id || e.target === selectedNode.id
-          )
-          .flatMap((e) => [e.source, e.target])
-      );
+      const connectedNodeIds = new Set<string>([selectedNode.id]);
+      edges.forEach((e) => {
+        const s = edgeId(e.source);
+        const t = edgeId(e.target);
+        if (s === selectedNode.id || t === selectedNode.id) {
+          connectedNodeIds.add(s);
+          connectedNodeIds.add(t);
+        }
+      });
 
       node
         .select('circle')
-        .attr('opacity', (d) =>
-          d.id === selectedNode.id || connectedNodeIds.has(d.id) ? 1 : 0.2
-        );
+        .attr('opacity', (d) => (connectedNodeIds.has(d.id) ? 1 : 0.15));
+      node
+        .select('text')
+        .attr('opacity', (d) => (connectedNodeIds.has(d.id) ? 1 : 0.15));
 
       link
         .attr('stroke-opacity', (d) =>
-          d.source === selectedNode.id || d.target === selectedNode.id
-            ? 0.8
-            : 0.1
+          edgeId(d.source) === selectedNode.id ||
+          edgeId(d.target) === selectedNode.id
+            ? 0.9
+            : 0.06
         )
         .attr('stroke-width', (d) =>
-          d.source === selectedNode.id || d.target === selectedNode.id ? 3 : 1
+          edgeId(d.source) === selectedNode.id ||
+          edgeId(d.target) === selectedNode.id
+            ? 3
+            : 1
         );
     }
+
+    // 取消高亮（点击空白处恢复全图）
+    function clearHighlight() {
+      node.select('circle').attr('opacity', 1);
+      node.select('text').attr('opacity', 1);
+      link.attr('stroke-opacity', 0.5).attr('stroke-width', 1.5);
+    }
+    svg.on('click', () => {
+      setSelectedNode(null);
+      onNodeSelectRef.current?.(null);
+      clearHighlight();
+    });
 
     // 边端点解析：force 布局由 forceLink 把 source/target 解析成节点对象；
     // chain/circular/hierarchical 无 link force，source/target 仍是字符串 id，

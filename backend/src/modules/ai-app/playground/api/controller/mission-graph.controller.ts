@@ -20,7 +20,10 @@ import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
 import { MissionStore } from "../../mission/lifecycle/mission-store.service";
 import { BaseMissionController } from "./base-mission.controller";
 import { MissionGraphService } from "../../mission/graph/mission-graph.service";
-import type { MissionGraphArtifact } from "../../mission/graph/mission-graph.types";
+import type {
+  MissionGraphArtifact,
+  NodeEnrichment,
+} from "../../mission/graph/mission-graph.types";
 
 @Controller("playground")
 @UseGuards(JwtAuthGuard)
@@ -59,5 +62,20 @@ export class MissionGraphController extends BaseMissionController {
   ): Promise<MissionGraphArtifact> {
     await this.assertReadAccess(id, req.user?.id);
     return this.graphService.build(req.user.id, id);
+  }
+
+  /**
+   * GET /api/v1/playground/missions/:id/graph/node/:nodeId/enrich
+   * 点击节点时按需用 web-search + LLM 综合该实体的画像（简介/事实/来源）。
+   */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Get("missions/:id/graph/node/:nodeId/enrich")
+  async enrichNode(
+    @Param("id") id: string,
+    @Param("nodeId") nodeId: string,
+    @Request() req: RequestWithUser,
+  ): Promise<NodeEnrichment> {
+    await this.assertReadAccess(id, req.user?.id);
+    return this.graphService.enrichNode(req.user.id, id, nodeId);
   }
 }

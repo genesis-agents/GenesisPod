@@ -8,7 +8,7 @@
 
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
-import type { MissionGraphArtifact } from './graph-types';
+import type { MissionGraphArtifact, NodeEnrichment } from './graph-types';
 
 const API_BASE = `${config.apiBaseUrl}/api/v1/playground`;
 
@@ -990,6 +990,26 @@ export async function buildMissionGraph(
   }
   const raw: unknown = await res.json();
   return unwrapStandard<MissionGraphArtifact>(raw);
+}
+
+export async function enrichGraphNode(
+  missionId: string,
+  nodeId: string
+): Promise<NodeEnrichment> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(
+      missionId
+    )}/graph/node/${encodeURIComponent(nodeId)}/enrich`,
+    { headers: { ...getAuthHeader() } }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      `Failed to enrich graph node: ${res.status} ${text.slice(0, 200)}`
+    );
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<NodeEnrichment>(raw);
 }
 
 // ===== Phase 2: ReAct 内部循环快照 =====

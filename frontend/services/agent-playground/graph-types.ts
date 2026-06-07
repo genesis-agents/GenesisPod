@@ -68,7 +68,8 @@ export interface Analyses {
     summary: string;
   };
   supplyChain: {
-    layers: { order: number; members: string[] }[];
+    /** description：每层的中文段落说明（LLM 生成，可空）。 */
+    layers: { order: number; members: string[]; description?: string }[];
     summary: string;
   };
 }
@@ -82,4 +83,15 @@ export interface MissionGraphArtifact {
   graph: MissionGraph | null;
   analyses: Analyses | null;
   generatedAt: string | null;
+}
+
+// ─── Node enrichment (on-demand entity profile via engine tools) ─────────────
+
+export interface NodeEnrichment {
+  nodeId: string;
+  label: string;
+  type: string;
+  description: string;
+  facts: { label: string; value: string }[];
+  sources: { title: string; url: string }[];
 }

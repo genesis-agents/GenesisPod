@@ -116,9 +116,26 @@ export interface Analyses {
     summary: string;
   };
   supplyChain: {
-    layers: { order: number; members: string[] }[];
+    /** description：每层的中文段落说明（LLM 生成，可空，前端按层展示）。 */
+    layers: { order: number; members: string[]; description?: string }[];
     summary: string;
   };
+}
+
+/**
+ * 单个图谱节点的"实体画像"——点击节点时按需用 engine 工具（web-search 等）
+ * 抓取并由 LLM 综合，丰富详情面板。不持久化（前端按 session 缓存）。
+ */
+export interface NodeEnrichment {
+  nodeId: string;
+  label: string;
+  type: string;
+  /** 2-4 句中文简介 */
+  description: string;
+  /** 关键事实（成立/规模/产品/财务/融资/地位…） */
+  facts: { label: string; value: string }[];
+  /** 引用来源 */
+  sources: { title: string; url: string }[];
 }
 
 // ─── API response artifact ───────────────────────────────────────────────────
