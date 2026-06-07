@@ -11195,3 +11195,85 @@ model PlaygroundMissionGraph {
 
   @@map("playground_mission_graphs")
 }
+
+// ============================================================================
+// Company OS（一人公司操作系统）
+//   - 每个用户独立私有（userId 隔离）
+//   - CompanyProfile: 公司基本信息
+//   - CompanyHiredAgent: 雇员 Agent 档案
+//   - CompanyTeam: 团队配置
+//   - CompanyTeamMember: 团队成员（关联 hired_agent）
+//   - CompanyWorkflow: 工作流模板
+// ============================================================================
+
+model CompanyProfile {
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  name             String
+  ceoHiredAgentId  String?  @map("ceo_hired_agent_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("company_profiles")
+}
+
+model CompanyHiredAgent {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  listingId    String   @map("listing_id")
+  name         String
+  role         String
+  models       String[]
+  autoFallback Boolean  @default(true) @map("auto_fallback")
+  skillIds     String[] @map("skill_ids")
+  toolIds      String[] @map("tool_ids")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("company_hired_agents")
+}
+
+model CompanyTeam {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  name       String
+  leaderId   String?  @map("leader_id")
+  workflowId String?  @map("workflow_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  members CompanyTeamMember[]
+
+  @@index([userId])
+  @@map("company_teams")
+}
+
+model CompanyTeamMember {
+  id             String      @id @default(uuid())
+  teamId         String      @map("team_id")
+  team           CompanyTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  hiredAgentId   String      @map("hired_agent_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  @@unique([teamId, hiredAgentId])
+  @@index([teamId])
+  @@map("company_team_members")
+}
+
+model CompanyWorkflow {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  name            String
+  category        String
+  stages          String[]
+  teamSize        Int      @default(3) @map("team_size")
+  roles           String[]
+  origin          String
+  sourceListingId String?  @map("source_listing_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("company_workflows")
+}
