@@ -34,7 +34,7 @@ const path = require("path");
 // 用 esbuild-register 临时跑 .ts 太重，直接用 typescript 包（dev dep 已装）
 const ts = require("typescript");
 
-const BACKEND_ROOT = path.resolve(__dirname, "..");
+const BACKEND_ROOT = path.resolve(__dirname, "..", "..");
 const SRC_ROOT = path.join(BACKEND_ROOT, "src");
 const SCAN_ROOTS = [
   path.join(SRC_ROOT, "modules", "ai-engine"),

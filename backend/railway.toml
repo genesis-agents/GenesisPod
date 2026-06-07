@@ -3,7 +3,7 @@ builder = "dockerfile"
 useMetal = false
 
 [deploy]
-# 启动入口已统一到 Dockerfile CMD (./scripts/entrypoint.sh)。
+# 启动入口已统一到 Dockerfile CMD (./scripts/devops/entrypoint.sh)。
 # 这里不再覆盖 startCommand —— Railway 会直接执行 OCI CMD，逻辑跟本地
 # `docker run` 完全一致。脚本本身设置 NODE_ENV / NODE_OPTIONS /
 # PUPPETEER_EXECUTABLE_PATH，并依次跑 diagnose / deploy / exec node dist/main。

@@ -296,6 +296,19 @@ else
 fi
 echo ""
 
+# 8. backend/scripts 顶层整洁度守护
+# ★ scripts 顶层曾堆 23 个未归类脚本；本守护焊死"顶层禁散落"，强制新脚本归类
+echo "[8/8] backend/scripts 结构守护..."
+if (cd backend && npm run audit:scripts --silent); then
+    echo "  scripts 顶层整洁"
+else
+    echo ""
+    echo "  ✘ backend/scripts 顶层结构违规 — 见上方报告"
+    echo "  → 把散落脚本移入对应子目录（dev-tools/devops/maintenance/db/_archive…）"
+    exit 1
+fi
+echo ""
+
 echo "============================================================"
 echo "  所有验证通过"
 echo "============================================================"
