@@ -11,10 +11,12 @@ import {
   SKILL_LISTINGS,
   TOOL_LISTINGS,
   WORKFLOW_LISTINGS,
+  findListing,
 } from '@/components/marketplace/marketplace.mock';
 import type {
   AgentListing,
   Seniority,
+  WorkflowListing,
 } from '@/components/marketplace/marketplace.types';
 
 /** 可为 Agent 配置的模型档位（M0 展示名；真实走 TaskProfile/模型选择，不硬编码 provider）。 */
@@ -44,8 +46,26 @@ export interface CompanyTeam {
   /** 成员 = HiredAgent.instanceId（含 leader） */
   memberIds: string[];
   leaderId: string | null;
-  /** 套用的工作流 listing id */
+  /** 套用的工作流 = TeamWorkflow.id */
   workflowId: string | null;
+}
+
+/** 工作流来源：market=从工作流市场获取（私有副本），custom=自建。 */
+export type WorkflowOrigin = 'market' | 'custom';
+
+/**
+ * 团队工作流（私有）—— 市场获取的副本与自建的统一表示，名称/阶段/角色均可编辑。
+ */
+export interface TeamWorkflow {
+  id: string;
+  name: string;
+  category: string;
+  stages: string[];
+  teamSize: number;
+  roles: string[];
+  origin: WorkflowOrigin;
+  /** market 来源的市场 listing id（custom 则无） */
+  sourceListingId?: string;
 }
 
 export type MissionStatus = 'queued' | 'running' | 'review' | 'done' | 'failed';
@@ -65,7 +85,7 @@ interface CompanyState {
   hired: HiredAgent[];
   acquiredSkillIds: string[];
   acquiredToolIds: string[];
-  acquiredWorkflowIds: string[];
+  teamWorkflows: TeamWorkflow[];
   teams: CompanyTeam[];
   missions: CompanyMission[];
 
@@ -75,6 +95,12 @@ interface CompanyState {
   acquireSkill: (id: string) => void;
   acquireTool: (id: string) => void;
   acquireWorkflow: (id: string) => void;
+
+  // ―― 工作流（市场副本 + 自建，统一可编辑）――
+  addCustomWorkflow: () => string;
+  renameWorkflow: (id: string, name: string) => void;
+  updateWorkflow: (id: string, patch: Partial<TeamWorkflow>) => void;
+  removeWorkflow: (id: string) => void;
 
   // ―― 团队编排 ――
   appointCeo: (instanceId: string | null) => void;
@@ -116,6 +142,19 @@ function instanceFromListing(listing: AgentListing): HiredAgent {
     autoFallback: true,
     skillIds: [...listing.skillIds],
     toolIds: [...listing.toolIds],
+  };
+}
+
+function toTeamWorkflow(w: WorkflowListing): TeamWorkflow {
+  return {
+    id: w.id,
+    name: w.name,
+    category: w.category,
+    stages: [...w.stages],
+    teamSize: w.teamSize,
+    roles: [...w.roles],
+    origin: 'market',
+    sourceListingId: w.id,
   };
 }
 
@@ -166,7 +205,7 @@ function seed() {
     hired: [ceo, luna, quill, ada],
     acquiredSkillIds: SKILL_LISTINGS.slice(0, 4).map((s) => s.id),
     acquiredToolIds: TOOL_LISTINGS.slice(0, 4).map((t) => t.id),
-    acquiredWorkflowIds: WORKFLOW_LISTINGS.slice(0, 3).map((w) => w.id),
+    teamWorkflows: WORKFLOW_LISTINGS.slice(0, 3).map(toTeamWorkflow),
     teams: [teamA, teamB],
     missions,
   };
@@ -209,8 +248,47 @@ export const useCompanyStore = create<CompanyState>((set) => ({
       acquiredToolIds: Array.from(new Set([...s.acquiredToolIds, id])),
     })),
   acquireWorkflow: (id) =>
+    set((s) => {
+      if (s.teamWorkflows.some((w) => w.sourceListingId === id)) return s;
+      const listing = findListing(id);
+      if (!listing || listing.kind !== 'workflow') return s;
+      return { teamWorkflows: [...s.teamWorkflows, toTeamWorkflow(listing)] };
+    }),
+
+  addCustomWorkflow: () => {
+    const wf: TeamWorkflow = {
+      id: uid('cwf'),
+      name: '新工作流',
+      category: '自建',
+      stages: ['规划', '执行', '评审'],
+      teamSize: 3,
+      roles: ['Leader', '成员'],
+      origin: 'custom',
+    };
+    set((s) => ({ teamWorkflows: [...s.teamWorkflows, wf] }));
+    return wf.id;
+  },
+
+  renameWorkflow: (id, name) =>
     set((s) => ({
-      acquiredWorkflowIds: Array.from(new Set([...s.acquiredWorkflowIds, id])),
+      teamWorkflows: s.teamWorkflows.map((w) =>
+        w.id === id ? { ...w, name } : w
+      ),
+    })),
+
+  updateWorkflow: (id, patch) =>
+    set((s) => ({
+      teamWorkflows: s.teamWorkflows.map((w) =>
+        w.id === id ? { ...w, ...patch } : w
+      ),
+    })),
+
+  removeWorkflow: (id) =>
+    set((s) => ({
+      teamWorkflows: s.teamWorkflows.filter((w) => w.id !== id),
+      teams: s.teams.map((t) =>
+        t.workflowId === id ? { ...t, workflowId: null } : t
+      ),
     })),
 
   appointCeo: (instanceId) => set({ ceoId: instanceId }),

@@ -5,7 +5,6 @@ import { Send, Play, CircleDot, CheckCircle2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useCompanyStore } from '@/stores/company/companyStore';
-import { findListing } from '@/components/marketplace/marketplace.mock';
 
 type Tone = 'info' | 'leader' | 'member' | 'success';
 interface StreamEvent {
@@ -23,8 +22,14 @@ const TONE_DOT: Record<Tone, string> = {
 };
 
 export function MissionRunView() {
-  const { teams, hired, missions, createMission, setMissionProgress } =
-    useCompanyStore();
+  const {
+    teams,
+    hired,
+    missions,
+    teamWorkflows,
+    createMission,
+    setMissionProgress,
+  } = useCompanyStore();
 
   const [teamId, setTeamId] = useState<string>(teams[0]?.id ?? '');
   const [title, setTitle] = useState('');
@@ -49,11 +54,8 @@ export function MissionRunView() {
       .map((id) => hired.find((h) => h.instanceId === id))
       .filter(Boolean)
       .map((m) => m!.name);
-    const wf = activeTeam.workflowId
-      ? findListing(activeTeam.workflowId)
-      : null;
-    const stages =
-      wf && 'stages' in wf ? wf.stages : ['规划', '执行', '评审', '汇总'];
+    const wf = teamWorkflows.find((w) => w.id === activeTeam.workflowId);
+    const stages = wf ? wf.stages : ['规划', '执行', '评审', '汇总'];
 
     const script: Omit<StreamEvent, 'id'>[] = [];
     script.push({ role: leader, tone: 'leader', text: `接到任务，开始拆解` });
@@ -173,7 +175,7 @@ export function MissionRunView() {
               '（未指定）'}{' '}
             · 成员 {activeTeam.memberIds.length} 名
             {activeTeam.workflowId
-              ? ` · ${findListing(activeTeam.workflowId)?.name}`
+              ? ` · ${teamWorkflows.find((w) => w.id === activeTeam.workflowId)?.name ?? ''}`
               : ''}
           </p>
         )}

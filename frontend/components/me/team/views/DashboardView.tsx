@@ -5,7 +5,6 @@ import { StatCard } from '@/components/ui/cards/StatCard';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { cn } from '@/lib/utils/common';
 import { useCompanyStore } from '@/stores/company/companyStore';
-import { findListing } from '@/components/marketplace/marketplace.mock';
 import { AgentAvatar } from '../team-shared';
 
 const STATUS_META: Record<
@@ -26,7 +25,7 @@ const PENDING_APPROVALS = [
 ];
 
 export function DashboardView({ onGoMission }: { onGoMission: () => void }) {
-  const { teams, hired, missions } = useCompanyStore();
+  const { teams, hired, missions, teamWorkflows } = useCompanyStore();
   const running = missions.filter(
     (m) => m.status === 'running' || m.status === 'review'
   );
@@ -90,9 +89,7 @@ export function DashboardView({ onGoMission }: { onGoMission: () => void }) {
                 const leader = hired.find(
                   (h) => h.instanceId === team.leaderId
                 );
-                const wf = team.workflowId
-                  ? findListing(team.workflowId)
-                  : null;
+                const wf = teamWorkflows.find((w) => w.id === team.workflowId);
                 const teamMissions = missions.filter(
                   (m) => m.teamId === team.id
                 );

@@ -23,7 +23,7 @@ export function MarketplaceView() {
     hired,
     acquiredSkillIds,
     acquiredToolIds,
-    acquiredWorkflowIds,
+    teamWorkflows,
     hireAgent,
     acquireSkill,
     acquireTool,
@@ -39,7 +39,7 @@ export function MarketplaceView() {
       case 'tool':
         return acquiredToolIds.includes(l.id);
       case 'workflow':
-        return acquiredWorkflowIds.includes(l.id);
+        return teamWorkflows.some((w) => w.sourceListingId === l.id);
     }
   };
 

@@ -16,7 +16,6 @@ import { EmptyState } from '@/components/ui/states/EmptyState';
 import { cn } from '@/lib/utils/common';
 import { toast } from '@/stores';
 import { useCompanyStore } from '@/stores/company/companyStore';
-import { findListing } from '@/components/marketplace/marketplace.mock';
 import { AgentAvatar, RoleTag, seniorityLabel } from '../team-shared';
 
 export function ComposerView({
@@ -34,7 +33,7 @@ export function ComposerView({
     setLeader,
     setWorkflow,
     renameTeam,
-    acquiredWorkflowIds,
+    teamWorkflows,
   } = useCompanyStore();
 
   const [activeTeamId, setActiveTeamId] = useState<string | null>(
@@ -143,9 +142,9 @@ export function ComposerView({
                   className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">未选择</option>
-                  {acquiredWorkflowIds.map((id) => (
-                    <option key={id} value={id}>
-                      {findListing(id)?.name ?? id}
+                  {teamWorkflows.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
                     </option>
                   ))}
                 </select>

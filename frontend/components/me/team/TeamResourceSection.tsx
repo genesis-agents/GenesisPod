@@ -23,6 +23,10 @@ export interface TeamResourceCard {
   usage?: ReactNode;
   /** 底部右侧操作（配置密钥 / 申请授权 / 测试 / 套用…），调用方按数据渲染 */
   actions?: ReactNode;
+  /** 传入则标题可内联改名（工作流用） */
+  onRename?: (name: string) => void;
+  /** 标题旁的徽标（如工作流来源「市场/自建」） */
+  badge?: ReactNode;
 }
 
 /**
@@ -45,6 +49,8 @@ export interface TeamResourceSectionProps {
   hint: string;
   emptyTitle: string;
   emptyDesc: string;
+  /** 头部右侧额外内容（如「新建工作流」按钮） */
+  headerExtra?: ReactNode;
 }
 
 export function TeamResourceSection({
@@ -58,6 +64,7 @@ export function TeamResourceSection({
   hint,
   emptyTitle,
   emptyDesc,
+  headerExtra,
 }: TeamResourceSectionProps) {
   const meta = KIND_META[kind];
   const Icon = meta.Icon;
@@ -86,12 +93,15 @@ export function TeamResourceSection({
           </Link>
           {hint}
         </p>
-        <Link
-          href="/marketplace"
-          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          去市场 <ArrowUpRight className="h-4 w-4" />
-        </Link>
+        <div className="flex flex-shrink-0 items-center gap-2">
+          {headerExtra}
+          <Link
+            href="/marketplace"
+            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            去市场 <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
 
       {loading ? (
@@ -136,9 +146,21 @@ export function TeamResourceSection({
                         <Icon className="h-5 w-5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="truncate font-semibold text-gray-900">
-                          {card.name}
-                        </h4>
+                        <div className="flex items-center gap-1.5">
+                          {card.onRename ? (
+                            <input
+                              value={card.name}
+                              onChange={(e) => card.onRename?.(e.target.value)}
+                              aria-label="名称"
+                              className="min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent font-semibold text-gray-900 hover:border-gray-200 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                          ) : (
+                            <h4 className="truncate font-semibold text-gray-900">
+                              {card.name}
+                            </h4>
+                          )}
+                          {card.badge}
+                        </div>
                         {card.subtitle && (
                           <p className="line-clamp-1 text-xs text-gray-500">
                             {card.subtitle}
