@@ -77,7 +77,7 @@
     "@nestjs/swagger": "^11.2.3",
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/websockets": "^10.4.20",
-    "@notionhq/client": "^5.6.0",
+    "@notionhq/client": "^5.20.0",
     "@octokit/rest": "^22.0.1",
     "@prisma/client": "^6.19.3",
     "archiver": "^7.0.1",
