@@ -72,7 +72,8 @@ export function TalentPoolView() {
                       <RoleTag kind={role} />
                     </div>
                     <p className="text-xs text-gray-500">
-                      {a.role} · {seniorityLabel(a)} · {a.model}
+                      {a.role} · {seniorityLabel(a)} ·{' '}
+                      {a.models.join(' → ') || '—'}
                     </p>
                   </div>
                 </div>

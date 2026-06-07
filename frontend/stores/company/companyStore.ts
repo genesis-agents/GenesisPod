@@ -28,7 +28,10 @@ export interface HiredAgent {
   role: string;
   seniority: Seniority;
   avatarGradient: string;
-  model: string;
+  /** 模型 fallback 链（有序，第一个为主模型，后续为备用） */
+  models: string[];
+  /** 自动 fallback：主模型失败时按链顺序自动切换 */
+  autoFallback: boolean;
   /** 已装配技能（listing id），初始 = listing 自带 */
   skillIds: string[];
   /** 已装配工具（listing id），初始 = listing 自带 */
@@ -86,7 +89,8 @@ interface CompanyState {
   // ―― 成员装配 ――
   toggleAgentSkill: (instanceId: string, skillId: string) => void;
   toggleAgentTool: (instanceId: string, toolId: string) => void;
-  setAgentModel: (instanceId: string, model: string) => void;
+  setAgentModels: (instanceId: string, models: string[]) => void;
+  setAgentAutoFallback: (instanceId: string, value: boolean) => void;
 
   // ―― 任务 ――
   createMission: (teamId: string, title: string) => string;
@@ -108,7 +112,8 @@ function instanceFromListing(listing: AgentListing): HiredAgent {
     role: listing.role,
     seniority: listing.seniority,
     avatarGradient: listing.avatarGradient,
-    model: listing.defaultModel,
+    models: [listing.defaultModel],
+    autoFallback: true,
     skillIds: [...listing.skillIds],
     toolIds: [...listing.toolIds],
   };
@@ -303,10 +308,17 @@ export const useCompanyStore = create<CompanyState>((set) => ({
       ),
     })),
 
-  setAgentModel: (instanceId, model) =>
+  setAgentModels: (instanceId, models) =>
     set((s) => ({
       hired: s.hired.map((a) =>
-        a.instanceId === instanceId ? { ...a, model } : a
+        a.instanceId === instanceId ? { ...a, models } : a
+      ),
+    })),
+
+  setAgentAutoFallback: (instanceId, value) =>
+    set((s) => ({
+      hired: s.hired.map((a) =>
+        a.instanceId === instanceId ? { ...a, autoFallback: value } : a
       ),
     })),
 

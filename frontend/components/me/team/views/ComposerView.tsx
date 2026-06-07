@@ -6,7 +6,6 @@ import {
   Plus,
   Star,
   X,
-  Settings2,
   UserPlus,
   Workflow as WorkflowIcon,
   Sparkles,
@@ -19,7 +18,6 @@ import { toast } from '@/stores';
 import { useCompanyStore } from '@/stores/company/companyStore';
 import { findListing } from '@/components/marketplace/marketplace.mock';
 import { AgentAvatar, RoleTag, seniorityLabel } from '../team-shared';
-import { AgentConfigModal } from '../AgentConfigModal';
 
 export function ComposerView({
   focusTeamId,
@@ -47,7 +45,6 @@ export function ComposerView({
     if (focusTeamId) setActiveTeamId(focusTeamId);
   }, [focusTeamId]);
   const [showAddMember, setShowAddMember] = useState(false);
-  const [assemblyMemberId, setAssemblyMemberId] = useState<string | null>(null);
 
   const activeTeam =
     teams.find((t) => t.id === activeTeamId) ?? teams[0] ?? null;
@@ -219,12 +216,6 @@ export function ComposerView({
                         {isLeader ? 'Leader' : '设为 Leader'}
                       </button>
                       <button
-                        onClick={() => setAssemblyMemberId(mid)}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100"
-                      >
-                        <Settings2 className="h-3.5 w-3.5" /> 装配
-                      </button>
-                      <button
                         onClick={() => removeMember(activeTeam.id, mid)}
                         className="ml-auto rounded-md p-1 text-gray-300 hover:bg-red-50 hover:text-red-500"
                         aria-label="移出团队"
@@ -299,14 +290,6 @@ export function ComposerView({
             </div>
           )}
         </Modal>
-      )}
-
-      {/* 成员配置（模型 + 技能 + 工具）—— 与人才库共用同一弹层 */}
-      {assemblyMemberId && (
-        <AgentConfigModal
-          instanceId={assemblyMemberId}
-          onClose={() => setAssemblyMemberId(null)}
-        />
       )}
     </div>
   );

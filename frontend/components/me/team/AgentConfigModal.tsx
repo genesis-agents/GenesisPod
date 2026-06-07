@@ -1,20 +1,26 @@
 'use client';
 
+import { useState, type ReactNode } from 'react';
 import { Sparkles, Wrench, Cpu, X } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { Button } from '@/components/ui/primitives/button';
 import { cn } from '@/lib/utils/common';
 import { useCompanyStore, MODEL_OPTIONS } from '@/stores/company/companyStore';
 import { findListing } from '@/components/marketplace/marketplace.mock';
 
-const SELECT_CLS =
-  'w-full max-w-xs rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary';
+const CONTROL_CLS =
+  'w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary';
+
+interface Option {
+  id: string;
+  name: string;
+}
 
 /**
- * AgentConfigModal —— 在 Agent（人才）上配置：模型 + 技能 + 工具。
- * 模型用下拉单选；技能/工具用「已选标签（可删）+ 下拉添加」，避免平铺全部选项导致弹层过大。
- * 人才库（TalentPoolView）与组队工作台（ComposerView）共用。
+ * AgentConfigModal —— 在 Agent（人才）上配置：模型 fallback 链 + 技能 + 工具。
+ * 模型：有序 fallback 链（主→备）+ 自动 fallback 开关。
+ * 技能/工具：可搜索添加 + 已选标签（可删），避免平铺全部选项。
+ * 人才库（TalentPoolView）唯一配置入口。
  */
 export function AgentConfigModal({
   instanceId,
@@ -29,10 +35,21 @@ export function AgentConfigModal({
     acquiredToolIds,
     toggleAgentSkill,
     toggleAgentTool,
-    setAgentModel,
+    setAgentModels,
+    setAgentAutoFallback,
   } = useCompanyStore();
   const agent = hired.find((h) => h.instanceId === instanceId);
   if (!agent) return null;
+
+  const modelOptions: Option[] = MODEL_OPTIONS.map((m) => ({ id: m, name: m }));
+  const skillOptions: Option[] = acquiredSkillIds.map((id) => ({
+    id,
+    name: findListing(id)?.name ?? id,
+  }));
+  const toolOptions: Option[] = acquiredToolIds.map((id) => ({
+    id,
+    name: findListing(id)?.name ?? id,
+  }));
 
   return (
     <Modal
@@ -40,106 +57,120 @@ export function AgentConfigModal({
       onClose={onClose}
       size="lg"
       title={`配置 · ${agent.name}`}
-      subtitle={`${agent.role} —— 选择模型与要装配的技能、工具`}
+      subtitle={`${agent.role} —— 配置模型 fallback 链、技能与工具`}
       footer={<Button onClick={onClose}>完成</Button>}
     >
       <div className="space-y-5">
-        <Field icon={<Cpu className="h-4 w-4 text-slate-500" />} title="模型">
-          <select
-            className={SELECT_CLS}
-            value={agent.model}
-            onChange={(e) => setAgentModel(instanceId, e.target.value)}
-          >
-            {MODEL_OPTIONS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <CapabilityPicker
+          icon={<Cpu className="h-4 w-4 text-slate-500" />}
+          title="模型"
+          options={modelOptions}
+          selected={agent.models}
+          ordered
+          onAdd={(id) => setAgentModels(instanceId, [...agent.models, id])}
+          onRemove={(id) =>
+            setAgentModels(
+              instanceId,
+              agent.models.filter((m) => m !== id)
+            )
+          }
+          footer={
+            <label className="mt-2 flex items-center gap-2 text-xs text-gray-600">
+              <input
+                type="checkbox"
+                checked={agent.autoFallback}
+                onChange={(e) =>
+                  setAgentAutoFallback(instanceId, e.target.checked)
+                }
+                className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              主模型不可用时，自动按链顺序 fallback 到备用模型
+            </label>
+          }
+        />
 
-        <MultiSelectField
+        <CapabilityPicker
           icon={<Sparkles className="h-4 w-4 text-amber-500" />}
           title="技能"
-          ids={acquiredSkillIds}
-          activeIds={agent.skillIds}
-          onToggle={(id) => toggleAgentSkill(instanceId, id)}
+          options={skillOptions}
+          selected={agent.skillIds}
+          searchable
+          onAdd={(id) => toggleAgentSkill(instanceId, id)}
+          onRemove={(id) => toggleAgentSkill(instanceId, id)}
         />
-        <MultiSelectField
+        <CapabilityPicker
           icon={<Wrench className="h-4 w-4 text-blue-500" />}
           title="工具"
-          ids={acquiredToolIds}
-          activeIds={agent.toolIds}
-          onToggle={(id) => toggleAgentTool(instanceId, id)}
+          options={toolOptions}
+          selected={agent.toolIds}
+          searchable
+          onAdd={(id) => toggleAgentTool(instanceId, id)}
+          onRemove={(id) => toggleAgentTool(instanceId, id)}
         />
       </div>
     </Modal>
   );
 }
 
-function Field({
+function CapabilityPicker({
   icon,
   title,
-  extra,
-  children,
+  options,
+  selected,
+  onAdd,
+  onRemove,
+  ordered = false,
+  searchable = false,
+  footer,
 }: {
   icon: ReactNode;
   title: string;
-  extra?: ReactNode;
-  children: ReactNode;
+  options: Option[];
+  selected: string[];
+  onAdd: (id: string) => void;
+  onRemove: (id: string) => void;
+  ordered?: boolean;
+  searchable?: boolean;
+  footer?: ReactNode;
 }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const nameOf = (id: string) => options.find((o) => o.id === id)?.name ?? id;
+  const available = options.filter((o) => !selected.includes(o.id));
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? available.filter((o) => o.name.toLowerCase().includes(q))
+    : available;
+  const hasSelected = selected.length > 0;
+  const hasAvailable = available.length > 0;
+
   return (
     <div>
       <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900">
         {icon} {title}
-        {extra}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function MultiSelectField({
-  icon,
-  title,
-  ids,
-  activeIds,
-  onToggle,
-}: {
-  icon: ReactNode;
-  title: string;
-  ids: string[];
-  activeIds: string[];
-  onToggle: (id: string) => void;
-}) {
-  const available = ids.filter((id) => !activeIds.includes(id));
-  const nameOf = (id: string) => findListing(id)?.name ?? id;
-  const hasAny = ids.length > 0;
-  const hasSelected = activeIds.length > 0;
-  const hasAvailable = available.length > 0;
-
-  return (
-    <Field
-      icon={icon}
-      title={title}
-      extra={
         <span className="text-xs font-normal text-gray-400">
-          已选 {activeIds.length}
+          已选 {selected.length}
         </span>
-      }
-    >
-      {/* 已选标签（可删） */}
+      </div>
+
+      {/* 已选标签（模型有序，显示 主/备） */}
       {hasSelected ? (
         <div className="mb-2 flex flex-wrap gap-1.5">
-          {activeIds.map((id) => (
+          {selected.map((id, idx) => (
             <span
               key={id}
               className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground"
             >
+              {ordered && (
+                <span className="rounded bg-white/25 px-1 text-[10px]">
+                  {idx === 0 ? '主' : `备${idx}`}
+                </span>
+              )}
               {nameOf(id)}
               <button
                 type="button"
-                onClick={() => onToggle(id)}
+                onClick={() => onRemove(id)}
                 className="rounded-full p-0.5 hover:bg-white/20"
                 aria-label="移除"
               >
@@ -149,31 +180,69 @@ function MultiSelectField({
           ))}
         </div>
       ) : (
-        <p className="mb-2 text-xs text-gray-400">未装配{title}</p>
+        <p className="mb-2 text-xs text-gray-400">未选择{title}</p>
       )}
 
-      {/* 下拉添加（只列未选项） */}
+      {/* 添加：可搜索输入 / 下拉 */}
       {hasAvailable ? (
-        <select
-          className={SELECT_CLS}
-          value=""
-          onChange={(e) => {
-            if (e.target.value) onToggle(e.target.value);
-          }}
-        >
-          <option value="">+ 添加{title}…</option>
-          {available.map((id) => (
-            <option key={id} value={id}>
-              {nameOf(id)}
-            </option>
-          ))}
-        </select>
+        searchable ? (
+          <div className="relative max-w-sm">
+            <input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setOpen(true);
+              }}
+              onFocus={() => setOpen(true)}
+              onBlur={() => setTimeout(() => setOpen(false), 150)}
+              placeholder={`搜索并添加${title}…`}
+              className={CONTROL_CLS}
+            />
+            {open && (
+              <div className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                {filtered.length > 0 ? (
+                  filtered.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        onAdd(o.id);
+                        setQuery('');
+                      }}
+                      className="block w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      {o.name}
+                    </button>
+                  ))
+                ) : (
+                  <p className="px-3 py-2 text-xs text-gray-400">无匹配项</p>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <select
+            className={CONTROL_CLS}
+            value=""
+            onChange={(e) => {
+              if (e.target.value) onAdd(e.target.value);
+            }}
+          >
+            <option value="">+ 添加{title}…</option>
+            {available.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        )
       ) : (
-        <p className="text-xs text-gray-300">
-          {hasAny ? '已全部装配' : `还没有可用的${title}，去市场获取`}
-        </p>
+        <p className="text-xs text-gray-300">已全部添加</p>
       )}
-    </Field>
+
+      {footer}
+    </div>
   );
 }
 
