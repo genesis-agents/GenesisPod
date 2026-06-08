@@ -132,7 +132,8 @@ export function ComposerView({
                   className="min-w-0 max-w-[14rem] rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-lg font-semibold text-gray-900 transition-colors hover:border-gray-200 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <span className="flex-shrink-0 text-xs text-gray-400">
-                  {activeTeam.memberIds.length} 名成员
+                  {activeTeam.memberIds.filter((mid) => memberOf(mid)).length}{' '}
+                  名成员
                 </span>
               </div>
               <div className="flex items-center gap-2">

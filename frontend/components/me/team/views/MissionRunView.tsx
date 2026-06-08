@@ -1,10 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Send, Play, CircleDot, CheckCircle2, Loader2 } from 'lucide-react';
+import {
+  Send,
+  Play,
+  CircleDot,
+  CheckCircle2,
+  Loader2,
+  ArrowLeft,
+} from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { EmptyState } from '@/components/ui/states/EmptyState';
-import { Modal } from '@/components/ui/dialogs/Modal';
 import { useCompanyStore } from '@/stores/company/companyStore';
 import { useCompanyMissionStream } from '@/hooks/features/useCompanyMissionStream';
 import {
@@ -200,6 +206,27 @@ export function MissionRunView() {
     setActiveMissionId(missionId);
   };
 
+  // 点开任务 → 整页详情（可返回任务列表）
+  const reportMission = missions.find((m) => m.id === reportMissionId) ?? null;
+  if (reportMission) {
+    return (
+      <div className="space-y-4">
+        <button
+          onClick={() => setReportMissionId(null)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          返回任务列表
+        </button>
+        <MissionReportView
+          title={reportMission.title}
+          createdAt={reportMission.createdAt}
+          result={reportMission.result as MissionReportResult}
+        />
+      </div>
+    );
+  }
+
   if (teams.length === 0) {
     return (
       <EmptyState
@@ -263,7 +290,13 @@ export function MissionRunView() {
             Leader：
             {hired.find((h) => h.instanceId === activeTeam.leaderId)?.name ??
               '（未指定）'}{' '}
-            · 成员 {activeTeam.memberIds.length} 名
+            · 成员{' '}
+            {
+              activeTeam.memberIds.filter((id) =>
+                hired.some((h) => h.instanceId === id)
+              ).length
+            }{' '}
+            名
             {activeTeam.workflowId
               ? ` · ${teamWorkflows.find((w) => w.id === activeTeam.workflowId)?.name ?? ''}`
               : ''}
@@ -373,31 +406,6 @@ export function MissionRunView() {
           )}
         </div>
       </div>
-
-      <MissionReportModal
-        mission={missions.find((m) => m.id === reportMissionId) ?? null}
-        onClose={() => setReportMissionId(null)}
-      />
     </div>
-  );
-}
-
-/** 研究报告查看：用独立展示组件 MissionReportView 渲染深度研究产物。 */
-function MissionReportModal({
-  mission,
-  onClose,
-}: {
-  mission: { title: string; createdAt?: number; result?: unknown } | null;
-  onClose: () => void;
-}) {
-  if (!mission) return null;
-  return (
-    <Modal open onClose={onClose} size="xl" title="研究报告">
-      <MissionReportView
-        title={mission.title}
-        createdAt={mission.createdAt}
-        result={mission.result as MissionReportResult}
-      />
-    </Modal>
   );
 }
