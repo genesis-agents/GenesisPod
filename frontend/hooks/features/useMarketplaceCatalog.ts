@@ -16,11 +16,13 @@
  *   - sideEffect:     defaults to 'none' for tools
  */
 
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useApiGet } from '@/hooks/core';
 import { AVATAR_GRADIENTS } from '@/lib/design/tokens';
 import {
   setMarketplaceCatalog,
+  subscribeCatalog,
+  getCatalogSnapshot,
   type CatalogStore,
 } from '@/components/marketplace/marketplace.mock';
 import type {
@@ -190,6 +192,8 @@ function adaptCatalog(raw: MarketplaceCatalog): CatalogStore {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export interface UseMarketplaceCatalogResult {
+  /** 当前货架快照（reactive：写入后自动重渲染消费组件）。 */
+  catalog: CatalogStore;
   loading: boolean;
   error: { message?: string } | null;
   refresh: () => void;
@@ -211,5 +215,13 @@ export function useMarketplaceCatalog(): UseMarketplaceCatalogResult {
     }
   }, [data]);
 
-  return { loading, error, refresh: execute };
+  // reactive 读取：setMarketplaceCatalog 通知订阅者后，本组件重渲染拿到真实数据，
+  // 不再依赖"点 Tab 才触发的偶发重渲染"。
+  const catalog = useSyncExternalStore(
+    subscribeCatalog,
+    getCatalogSnapshot,
+    getCatalogSnapshot
+  );
+
+  return { catalog, loading, error, refresh: execute };
 }

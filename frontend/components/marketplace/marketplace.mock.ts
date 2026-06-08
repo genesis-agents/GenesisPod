@@ -34,9 +34,30 @@ let _catalog: CatalogStore = {
   workflow: [],
 };
 
-/** 由 useMarketplaceCatalog 在数据就绪后调用，写入适配后的 catalog。 */
+// ─── 轻量订阅（useSyncExternalStore 用）─────────────────────────────────────────
+// 之前 _catalog 是纯模块变量，setMarketplaceCatalog 写入后不触发任何重渲染，
+// 导致"首次进入市场全部显示 0、点一下 Tab 才出数据"。加最小订阅让读取方可响应。
+
+type CatalogSubscriber = () => void;
+const _subscribers = new Set<CatalogSubscriber>();
+
+/** 订阅 catalog 变更；返回退订函数。供 useSyncExternalStore 使用。 */
+export function subscribeCatalog(cb: CatalogSubscriber): () => void {
+  _subscribers.add(cb);
+  return () => {
+    _subscribers.delete(cb);
+  };
+}
+
+/** 当前 catalog 的稳定快照引用（未变更时返回同一引用，满足 useSyncExternalStore）。 */
+export function getCatalogSnapshot(): CatalogStore {
+  return _catalog;
+}
+
+/** 由 useMarketplaceCatalog 在数据就绪后调用，写入适配后的 catalog 并通知订阅者。 */
 export function setMarketplaceCatalog(catalog: CatalogStore): void {
   _catalog = catalog;
+  _subscribers.forEach((cb) => cb());
 }
 
 // ─── 公共访问器 ───────────────────────────────────────────────────────────────

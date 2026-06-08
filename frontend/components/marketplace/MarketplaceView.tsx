@@ -10,7 +10,6 @@ import { ErrorState } from '@/components/ui/states/ErrorState';
 import { toast } from '@/stores';
 import { useCompanyStore } from '@/stores/company/companyStore';
 import { useMarketplaceCatalog } from '@/hooks/features/useMarketplaceCatalog';
-import { ALL_LISTINGS } from './marketplace.mock';
 import type { AnyListing, ListingKind } from './marketplace.types';
 import { KIND_META } from './listing-shared';
 import { ShelfGrid } from './ShelfGrid';
@@ -22,7 +21,7 @@ export function MarketplaceView() {
   const [tab, setTab] = useState<ListingKind>('agent');
   const [detail, setDetail] = useState<AnyListing | null>(null);
 
-  const { loading, error, refresh } = useMarketplaceCatalog();
+  const { catalog, loading, error, refresh } = useMarketplaceCatalog();
 
   const {
     hired,
@@ -72,12 +71,12 @@ export function MarketplaceView() {
     setDetail(null);
   };
 
-  const currentShelf = ALL_LISTINGS[tab];
+  const currentShelf = catalog[tab];
 
   const tabItems = SHELVES.map((k) => ({
     key: k,
     label: `${KIND_META[k].label}市场`,
-    count: ALL_LISTINGS[k].length,
+    count: catalog[k].length,
   }));
 
   return (
