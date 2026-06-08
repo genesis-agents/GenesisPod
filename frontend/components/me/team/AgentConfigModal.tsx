@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/primitives/button';
 import { cn } from '@/lib/utils/common';
 import { useCompanyStore } from '@/stores/company/companyStore';
 import { useAIModels } from '@/hooks/features/useAIModels';
-import { findListing } from '@/components/marketplace/marketplace.mock';
+import { findListing } from '@/components/marketplace/marketplace.catalog';
 
 const CONTROL_CLS =
   'w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary';

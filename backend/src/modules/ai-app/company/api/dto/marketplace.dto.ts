@@ -52,9 +52,33 @@ export interface WorkflowCatalogItem {
   stages: string[];
 }
 
+/**
+ * 团队模板（成品货架）—— 一组沉淀 Agent + 一条工作流 + 聚合的技能/工具。
+ * "一键成军"用 workflowId 实例化满编团队。
+ */
+export interface TeamCatalogItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  /** 该团队运行的工作流 listing id（一键成军实例化用） */
+  workflowId: string;
+  /** 名册角色 */
+  roles: string[];
+  /** 名册对应的沉淀 Agent listing id */
+  agentIds: string[];
+  /** 名册聚合的技能 id */
+  skillIds: string[];
+  /** 名册聚合的工具 id */
+  toolIds: string[];
+  /** 工作流阶段（展示用） */
+  stages: string[];
+}
+
 export interface MarketplaceCatalog {
   agents: AgentCatalogItem[];
   skills: SkillCatalogItem[];
   tools: ToolCatalogItem[];
   workflows: WorkflowCatalogItem[];
+  teams: TeamCatalogItem[];
 }

@@ -49,6 +49,7 @@ import { CompanyService } from "../../services/company.service";
 import { CompanyMissionService } from "../../services/company-mission.service";
 import {
   AcquireWorkflowDto,
+  InstantiateTeamFromWorkflowDto,
   AddTeamMemberDto,
   CreateMissionDto,
   CreateTeamDto,
@@ -139,6 +140,19 @@ export class CompanyController {
     @Body() dto: CreateTeamDto,
   ) {
     return this.companyService.createTeam(this.getUserId(req), dto.name);
+  }
+
+  @Post("teams/from-workflow")
+  @ApiOperation({ summary: "一键成军：从工作流模板实例化满编团队" })
+  async instantiateTeamFromWorkflow(
+    @Request() req: RequestWithUser,
+    @Body() dto: InstantiateTeamFromWorkflowDto,
+  ) {
+    return this.companyService.instantiateTeamFromWorkflow(
+      this.getUserId(req),
+      dto.workflowListingId,
+      dto.name,
+    );
   }
 
   @Patch("teams/:id")

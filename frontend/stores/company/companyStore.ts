@@ -219,6 +219,11 @@ interface CompanyState {
   acquireSkill: (id: string) => void;
   acquireTool: (id: string) => void;
   acquireWorkflow: (sourceListingId: string) => Promise<void>;
+  /** 一键成军：从团队模板（工作流 listing）实例化满编团队，返回 teamId。 */
+  instantiateTeam: (
+    workflowListingId: string,
+    name?: string
+  ) => Promise<string | null>;
 
   // ―― 工作流（市场副本 + 自建，统一可编辑）――
   addCustomWorkflow: () => Promise<string | null>;
@@ -359,6 +364,21 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
       set((s) => ({ teamWorkflows: [...s.teamWorkflows, wf] }));
     } catch {
       toast.error('获取工作流失败，请稍后重试');
+    }
+  },
+
+  instantiateTeam: async (workflowListingId, name) => {
+    try {
+      const team = await apiClient.post<BackendTeam>(
+        '/company/teams/from-workflow',
+        { workflowListingId, ...(name ? { name } : {}) }
+      );
+      // 雇了人 + 建了队 + 配了工作流/工具，整体重载快照保证一致
+      await get().loadCompany();
+      return team.id;
+    } catch {
+      toast.error('组建团队失败，请稍后重试');
+      return null;
     }
   },
 

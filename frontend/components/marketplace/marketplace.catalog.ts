@@ -14,6 +14,7 @@ import type {
   AnyListing,
   ListingKind,
   SkillListing,
+  TeamListing,
   ToolListing,
   WorkflowListing,
 } from './marketplace.types';
@@ -21,6 +22,7 @@ import type {
 // ─── 模块级 catalog 缓存 ──────────────────────────────────────────────────────
 
 export interface CatalogStore {
+  team: TeamListing[];
   agent: AgentListing[];
   skill: SkillListing[];
   tool: ToolListing[];
@@ -28,6 +30,7 @@ export interface CatalogStore {
 }
 
 let _catalog: CatalogStore = {
+  team: [],
   agent: [],
   skill: [],
   tool: [],
@@ -68,6 +71,7 @@ export function setMarketplaceCatalog(catalog: CatalogStore): void {
  */
 export function getAllListings(): Record<ListingKind, AnyListing[]> {
   return {
+    team: _catalog.team,
     agent: _catalog.agent,
     skill: _catalog.skill,
     tool: _catalog.tool,
@@ -81,6 +85,7 @@ export function getAllListings(): Record<ListingKind, AnyListing[]> {
  */
 export function findListing(id: string): AnyListing | undefined {
   return (
+    _catalog.team.find((x) => x.id === id) ??
     _catalog.agent.find((x) => x.id === id) ??
     _catalog.skill.find((x) => x.id === id) ??
     _catalog.tool.find((x) => x.id === id) ??
@@ -99,6 +104,7 @@ export const ALL_LISTINGS: Record<ListingKind, AnyListing[]> = new Proxy(
   {} as Record<ListingKind, AnyListing[]>,
   {
     get(_target, prop: string) {
+      if (prop === 'team') return _catalog.team;
       if (prop === 'agent') return _catalog.agent;
       if (prop === 'skill') return _catalog.skill;
       if (prop === 'tool') return _catalog.tool;

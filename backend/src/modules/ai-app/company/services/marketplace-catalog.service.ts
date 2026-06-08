@@ -28,6 +28,7 @@ import type {
   SkillCatalogItem,
   ToolCatalogItem,
   WorkflowCatalogItem,
+  TeamCatalogItem,
   MarketplaceCatalog,
 } from "../api/dto/marketplace.dto";
 
@@ -82,7 +83,48 @@ export class MarketplaceCatalogService {
       skills: this.getSkills(),
       tools: this.getTools(),
       workflows: this.getWorkflows(),
+      teams: this.getTeams(),
     };
+  }
+
+  /**
+   * 团队模板货架（成品）：把"角色名册能解析到沉淀 Agent"的工作流，投影成可一键成军的团队。
+   * 名册 = 工作流 roles ∩ 沉淀 Agent（按 role）。聚合各 Agent 自带的技能/工具。
+   */
+  getTeams(): TeamCatalogItem[] {
+    const sedimented = this.getAgents().filter(
+      (a) => a.category === "深度研究团队",
+    );
+    const byRole = new Map(sedimented.map((a) => [a.role, a]));
+
+    const teams: TeamCatalogItem[] = [];
+    for (const wf of this.getWorkflows()) {
+      const roster: AgentCatalogItem[] = [];
+      const seen = new Set<string>();
+      for (const role of wf.roles) {
+        const ag = byRole.get(role);
+        if (ag && !seen.has(ag.id)) {
+          roster.push(ag);
+          seen.add(ag.id);
+        }
+      }
+      if (roster.length === 0) continue; // 无沉淀名册的工作流不成"团队"
+
+      const baseName = wf.name.replace(/工作流$/, "").trim();
+      teams.push({
+        id: `team.${wf.id}`,
+        name: `${baseName}团队`,
+        description: wf.description,
+        category: wf.category,
+        workflowId: wf.id,
+        roles: roster.map((a) => a.role),
+        agentIds: roster.map((a) => a.id),
+        skillIds: Array.from(new Set(roster.flatMap((a) => a.skillIds))),
+        toolIds: Array.from(new Set(roster.flatMap((a) => a.toolIds))),
+        stages: wf.stages,
+      });
+    }
+    return teams;
   }
 
   getAgents(): AgentCatalogItem[] {

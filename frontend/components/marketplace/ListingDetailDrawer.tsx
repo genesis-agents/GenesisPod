@@ -10,7 +10,7 @@ import {
   type AnyListing,
 } from './marketplace.types';
 import { KIND_META, RatingMeta } from './listing-shared';
-import { findListing } from './marketplace.mock';
+import { findListing } from './marketplace.catalog';
 
 interface ListingDetailDrawerProps {
   listing: AnyListing | null;
@@ -65,11 +65,13 @@ export function ListingDetailDrawer({
 
   const acquireLabel = acquired
     ? '已加入我的团队'
-    : listing.kind === 'agent'
-      ? '招聘到我的团队'
-      : listing.kind === 'workflow'
-        ? '套用为新 Team'
-        : '加入我的团队';
+    : listing.kind === 'team'
+      ? '一键组建到我的团队'
+      : listing.kind === 'agent'
+        ? '招聘到我的团队'
+        : listing.kind === 'workflow'
+          ? '套用为新 Team'
+          : '加入我的团队';
 
   return (
     <Modal
@@ -143,6 +145,36 @@ export function ListingDetailDrawer({
             </div>
           </Row>
 
+          {listing.kind === 'team' && (
+            <>
+              <Row label="成员角色">
+                <ChipList ids={listing.agentIds} />
+              </Row>
+              <Row label="自带技能">
+                <ChipList ids={listing.skillIds} />
+              </Row>
+              <Row label="自带工具">
+                <ChipList ids={listing.toolIds} />
+              </Row>
+              <Row label="工作流">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {listing.stages.map((s, i) => (
+                    <span
+                      key={`${s}-${i}`}
+                      className="inline-flex items-center gap-1.5"
+                    >
+                      <span className="rounded-full bg-white px-2 py-0.5 text-xs text-gray-600 ring-1 ring-gray-200">
+                        {s}
+                      </span>
+                      {i < listing.stages.length - 1 && (
+                        <span className="text-gray-300">→</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </Row>
+            </>
+          )}
           {listing.kind === 'agent' && (
             <>
               <Row label="资历">{SENIORITY_LABEL[listing.seniority]}</Row>

@@ -6,7 +6,7 @@
  * teams 的目录投影（见 docs/features/one-person-company-os/design.md §6）。
  */
 
-export type ListingKind = 'agent' | 'skill' | 'tool' | 'workflow';
+export type ListingKind = 'team' | 'agent' | 'skill' | 'tool' | 'workflow';
 
 export interface BaseListing {
   id: string;
@@ -88,7 +88,24 @@ export interface WorkflowListing extends BaseListing {
   stages: string[];
 }
 
+export interface TeamListing extends BaseListing {
+  kind: 'team';
+  /** 该团队运行的工作流 listing id（一键成军实例化用） */
+  workflowId: string;
+  /** 名册角色 */
+  roles: string[];
+  /** 名册对应的 Agent listing id */
+  agentIds: string[];
+  /** 名册聚合的技能 id */
+  skillIds: string[];
+  /** 名册聚合的工具 id */
+  toolIds: string[];
+  /** 工作流阶段 */
+  stages: string[];
+}
+
 export type AnyListing =
+  | TeamListing
   | AgentListing
   | ToolListing
   | SkillListing

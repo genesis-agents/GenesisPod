@@ -24,10 +24,11 @@ import {
   subscribeCatalog,
   getCatalogSnapshot,
   type CatalogStore,
-} from '@/components/marketplace/marketplace.mock';
+} from '@/components/marketplace/marketplace.catalog';
 import type {
   AgentListing,
   SkillListing,
+  TeamListing,
   ToolListing,
   WorkflowListing,
 } from '@/components/marketplace/marketplace.types';
@@ -78,11 +79,25 @@ interface WorkflowCatalogItem {
   stages: string[];
 }
 
+interface TeamCatalogItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  workflowId: string;
+  roles: string[];
+  agentIds: string[];
+  skillIds: string[];
+  toolIds: string[];
+  stages: string[];
+}
+
 interface MarketplaceCatalog {
   agents: AgentCatalogItem[];
   skills: SkillCatalogItem[];
   tools: ToolCatalogItem[];
   workflows: WorkflowCatalogItem[];
+  teams: TeamCatalogItem[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -180,8 +195,30 @@ function adaptWorkflow(item: WorkflowCatalogItem): WorkflowListing {
   };
 }
 
+function adaptTeam(item: TeamCatalogItem): TeamListing {
+  return {
+    id: item.id,
+    kind: 'team',
+    name: item.name,
+    tagline: taglineFrom(item.description),
+    description: item.description,
+    category: item.category,
+    tags: item.roles,
+    publisher: '官方',
+    installs: 0,
+    rating: 0,
+    workflowId: item.workflowId,
+    roles: item.roles,
+    agentIds: item.agentIds,
+    skillIds: item.skillIds,
+    toolIds: item.toolIds,
+    stages: item.stages,
+  };
+}
+
 function adaptCatalog(raw: MarketplaceCatalog): CatalogStore {
   return {
+    team: raw.teams.map(adaptTeam),
     agent: raw.agents.map(adaptAgent),
     skill: raw.skills.map(adaptSkill),
     tool: raw.tools.map(adaptTool),

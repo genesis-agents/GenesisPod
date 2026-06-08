@@ -280,8 +280,9 @@ export const AVATAR_GRADIENTS = [
   'from-cyan-500 to-sky-600',
 ] as const;
 
-/** 智能体市场四货架的图标渐变（装饰色，非模块识别色）。 */
+/** 智能体市场货架的图标渐变（装饰色，非模块识别色）。 */
 export const MARKET_KIND_GRADIENTS = {
+  team: 'from-rose-500 to-pink-600',
   agent: 'from-green-500 to-emerald-600',
   skill: 'from-amber-500 to-orange-600',
   tool: 'from-blue-500 to-indigo-600',

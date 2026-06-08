@@ -232,6 +232,72 @@ export class CompanyService {
     });
   }
 
+  /**
+   * 一键成军：从工作流模板（如「深度研究」）实例化一个**满编**团队。
+   *
+   * 一队一工作流模型：建队 → 获取并挂上该工作流 → 按工作流角色名册雇齐对应的沉淀
+   * Agent（自带 skills/tools）→ 加为成员 → 点一个 Leader。落到「我的团队」，可个性化。
+   *
+   * 角色名册解析：把工作流的 roles 与沉淀 Agent（category=「深度研究团队」）按 role 匹配；
+   * Leader 角色当前无独立沉淀 Agent → 取首个成员兜底为 Leader。
+   */
+  async instantiateTeamFromWorkflow(
+    userId: string,
+    workflowListingId: string,
+    name?: string,
+  ): Promise<CompanyTeamWithMembers> {
+    const workflows = this.catalogService.getWorkflows();
+    const wfListing = workflows.find((w) => w.id === workflowListingId);
+    if (!wfListing) {
+      throw new NotFoundException(
+        `Workflow listing "${workflowListingId}" not found in marketplace catalog`,
+      );
+    }
+
+    // 名册：工作流 roles → 沉淀 Agent（按 role 匹配，去重保序）
+    const sedimented = this.catalogService
+      .getAgents()
+      .filter((a) => a.category === "深度研究团队");
+    const byRole = new Map(sedimented.map((a) => [a.role, a]));
+    const roster: typeof sedimented = [];
+    const seen = new Set<string>();
+    for (const role of wfListing.roles) {
+      const ag = byRole.get(role);
+      if (ag && !seen.has(ag.id)) {
+        roster.push(ag);
+        seen.add(ag.id);
+      }
+    }
+    // 名册解析不出（角色名不匹配等）→ 兜底用全部沉淀 Agent
+    if (roster.length === 0) roster.push(...sedimented);
+
+    // 1. 建队
+    const team = await this.repo.createTeam(
+      userId,
+      name?.trim() || `${wfListing.name}小组`,
+    );
+
+    // 2. 获取工作流到公司库 + 挂到团队
+    const wf = await this.acquireWorkflow(userId, workflowListingId);
+    await this.repo.updateTeam(team.id, userId, { workflowId: wf.id });
+
+    // 3. 雇齐名册 + 加为成员（Agent 自带 skills/tools）
+    let leaderHiredId: string | null = null;
+    for (const ag of roster) {
+      const hired = await this.hire(userId, ag.id);
+      await this.repo.addTeamMember(team.id, hired.id);
+      if (!leaderHiredId) leaderHiredId = hired.id;
+    }
+
+    // 4. 点将 Leader（首个成员兜底）
+    if (leaderHiredId) {
+      await this.repo.updateTeam(team.id, userId, { leaderId: leaderHiredId });
+    }
+
+    const refreshed = await this.repo.findTeamById(team.id, userId);
+    return refreshed!;
+  }
+
   async acquireWorkflow(
     userId: string,
     sourceListingId: string,

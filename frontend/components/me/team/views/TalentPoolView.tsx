@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { UserPlus, Trash2, Sparkles, Wrench, Settings2 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useCompanyStore } from '@/stores/company/companyStore';
-import { findListing } from '@/components/marketplace/marketplace.mock';
+import { findListing } from '@/components/marketplace/marketplace.catalog';
 import { AgentAvatar, RoleTag, seniorityLabel } from '../team-shared';
 import { AgentConfigModal } from '../AgentConfigModal';
 

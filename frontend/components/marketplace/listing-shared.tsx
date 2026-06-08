@@ -5,6 +5,7 @@ import {
   Sparkles,
   Wrench,
   Workflow,
+  Users,
   Star,
   type LucideIcon,
 } from 'lucide-react';
@@ -22,6 +23,13 @@ export const KIND_META: Record<
     text: string;
   }
 > = {
+  team: {
+    label: '团队',
+    Icon: Users,
+    gradient: MARKET_KIND_GRADIENTS.team,
+    soft: 'bg-rose-50',
+    text: 'text-rose-700',
+  },
   agent: {
     label: 'Agent',
     Icon: Bot,

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Store, ArrowUpRight } from 'lucide-react';
 import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { Tabs } from '@/components/ui/tabs';
@@ -15,10 +16,11 @@ import { KIND_META } from './listing-shared';
 import { ShelfGrid } from './ShelfGrid';
 import { ListingDetailDrawer } from './ListingDetailDrawer';
 
-const SHELVES: ListingKind[] = ['agent', 'skill', 'tool', 'workflow'];
+const SHELVES: ListingKind[] = ['team', 'agent', 'skill', 'tool', 'workflow'];
 
 export function MarketplaceView() {
-  const [tab, setTab] = useState<ListingKind>('agent');
+  const router = useRouter();
+  const [tab, setTab] = useState<ListingKind>('team');
   const [detail, setDetail] = useState<AnyListing | null>(null);
 
   const { catalog, loading, error, refresh } = useMarketplaceCatalog();
@@ -32,10 +34,14 @@ export function MarketplaceView() {
     acquireSkill,
     acquireTool,
     acquireWorkflow,
+    instantiateTeam,
   } = useCompanyStore();
 
   const isAcquired = (l: AnyListing): boolean => {
     switch (l.kind) {
+      case 'team':
+        // 团队模板可重复组建（每次生成一个新团队），永不置灰
+        return false;
       case 'agent':
         return hired.some((h) => h.listingId === l.id);
       case 'skill':
@@ -49,6 +55,14 @@ export function MarketplaceView() {
 
   const acquire = (l: AnyListing) => {
     switch (l.kind) {
+      case 'team':
+        void instantiateTeam(l.workflowId).then((teamId) => {
+          if (teamId) {
+            toast.success(`已组建「${l.name}」，进入我的团队`);
+            router.push('/me/agents');
+          }
+        });
+        break;
       case 'agent':
         void hireAgent(l.id).then((instanceId) => {
           if (instanceId) toast.success(`已招聘「${l.name}」到我的团队`);

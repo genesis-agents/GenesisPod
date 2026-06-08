@@ -120,6 +120,19 @@ export class AcquireWorkflowDto {
   sourceListingId!: string;
 }
 
+export class InstantiateTeamFromWorkflowDto {
+  @ApiProperty({
+    description: "Marketplace workflow listing id to staff a new team from",
+  })
+  @IsString()
+  workflowListingId!: string;
+
+  @ApiPropertyOptional({ description: "Optional team name override" })
+  @IsOptional()
+  @IsString()
+  name?: string;
+}
+
 export class UpdateWorkflowDto {
   @ApiPropertyOptional()
   @IsOptional()
