@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { StatusBadge, type BadgeTone } from '@/components/ui/badges';
 import { useCompanyStore } from '@/stores/company/companyStore';
 import { useCompanyMissionStream } from '@/hooks/features/useCompanyMissionStream';
 import {
@@ -34,6 +35,43 @@ const TONE_DOT: Record<Tone, string> = {
   member: 'text-blue-500',
   success: 'text-green-500',
   error: 'text-red-500',
+};
+
+/** mission 状态 → 徽章/进度条/图标底色。 */
+const MISSION_STATUS: Record<
+  string,
+  { tone: BadgeTone; label: string; bar: string; iconBg: string }
+> = {
+  running: {
+    tone: 'running',
+    label: '进行中',
+    bar: 'bg-blue-500',
+    iconBg: 'bg-blue-500',
+  },
+  review: {
+    tone: 'warning',
+    label: '评审中',
+    bar: 'bg-amber-500',
+    iconBg: 'bg-amber-500',
+  },
+  done: {
+    tone: 'success',
+    label: '已完成',
+    bar: 'bg-green-500',
+    iconBg: 'bg-green-500',
+  },
+  failed: {
+    tone: 'danger',
+    label: '失败',
+    bar: 'bg-red-500',
+    iconBg: 'bg-red-500',
+  },
+  queued: {
+    tone: 'neutral',
+    label: '排队中',
+    bar: 'bg-gray-400',
+    iconBg: 'bg-gray-400',
+  },
 };
 
 /** 将后端阶段 id 转为可读中文标签 */
@@ -310,102 +348,111 @@ export function MissionRunView() {
         <MissionLiveRail status={stageStatus} />
       )}
 
-      {/* 实时协作流 */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      {/* 实时协作流（运行中 / 有事件时才出现）*/}
+      {events.length > 0 && (
+        <div>
           <h3 className="mb-2 text-sm font-semibold text-gray-900">
             实时协作流
           </h3>
-          <div className="min-h-[220px] rounded-xl border border-gray-200 bg-white p-4">
-            {events.length === 0 ? (
-              <EmptyState
-                type="default"
-                size="sm"
-                title="等待任务"
-                description="下达任务后，这里实时显示团队协作过程"
-                icon={<Play className="h-8 w-8" />}
-              />
-            ) : (
-              <ol className="space-y-3">
-                {events.map((e) => {
-                  const Icon = e.tone === 'success' ? CheckCircle2 : CircleDot;
-                  return (
-                    <li key={e.id} className="flex items-start gap-2.5">
-                      <Icon
-                        className={cn(
-                          'mt-0.5 h-4 w-4 flex-shrink-0',
-                          TONE_DOT[e.tone]
-                        )}
-                      />
-                      <div className="text-sm">
-                        <span className="font-medium text-gray-900">
-                          {e.role}
-                        </span>
-                        <span className="ml-2 text-gray-600">{e.text}</span>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-          </div>
-        </div>
-
-        {/* 任务列表 */}
-        <div>
-          <h3 className="mb-2 text-sm font-semibold text-gray-900">近期任务</h3>
-          {missions.length === 0 ? (
-            <EmptyState
-              type="default"
-              size="sm"
-              title="暂无任务"
-              description="还没有提交过任务"
-            />
-          ) : (
-            <div className="space-y-2">
-              {missions.slice(0, 8).map((m) => {
-                const team = teams.find((t) => t.id === m.teamId);
-                const done = m.status === 'done';
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <ol className="space-y-3">
+              {events.map((e) => {
+                const Icon = e.tone === 'success' ? CheckCircle2 : CircleDot;
                 return (
-                  <div
-                    key={m.id}
-                    onClick={() => done && setReportMissionId(m.id)}
-                    className={cn(
-                      'rounded-lg border border-gray-200 bg-white p-3',
-                      done &&
-                        'cursor-pointer transition-colors hover:border-primary hover:bg-primary/5'
-                    )}
-                  >
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="truncate font-medium text-gray-900">
-                        {m.title}
+                  <li key={e.id} className="flex items-start gap-2.5">
+                    <Icon
+                      className={cn(
+                        'mt-0.5 h-4 w-4 flex-shrink-0',
+                        TONE_DOT[e.tone]
+                      )}
+                    />
+                    <div className="text-sm">
+                      <span className="font-medium text-gray-900">
+                        {e.role}
                       </span>
-                      <span className="flex-shrink-0 text-xs text-gray-400">
-                        {done ? '查看报告' : `${m.progress}%`}
-                      </span>
+                      <span className="ml-2 text-gray-600">{e.text}</span>
                     </div>
-                    <div className="mt-0.5 text-xs text-gray-400">
-                      {team?.name ?? '—'}
-                    </div>
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                      <div
-                        className={cn(
-                          'h-full rounded-full transition-all',
-                          m.status === 'done'
-                            ? 'bg-green-500'
-                            : m.status === 'failed'
-                              ? 'bg-red-500'
-                              : 'bg-blue-500'
-                        )}
-                        style={{ width: `${m.progress}%` }}
-                      />
-                    </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
-          )}
+            </ol>
+          </div>
         </div>
+      )}
+
+      {/* 任务卡片 */}
+      <div>
+        <h3 className="mb-2 text-sm font-semibold text-gray-900">任务</h3>
+        {missions.length === 0 ? (
+          <EmptyState
+            type="default"
+            size="sm"
+            title="暂无任务"
+            description="给上面的团队下达第一个任务"
+            icon={<Play className="h-8 w-8" />}
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {missions.map((m) => {
+              const team = teams.find((t) => t.id === m.teamId);
+              const done = m.status === 'done';
+              const sm = MISSION_STATUS[m.status] ?? MISSION_STATUS.queued;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => done && setReportMissionId(m.id)}
+                  disabled={!done}
+                  className={cn(
+                    'group flex flex-col rounded-xl border border-gray-200 bg-white p-4 text-left transition-all',
+                    done
+                      ? 'cursor-pointer hover:border-primary/50 hover:shadow-sm'
+                      : 'cursor-default'
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div
+                        className={cn(
+                          'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-white',
+                          sm.iconBg
+                        )}
+                      >
+                        <Send className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-gray-900">
+                          {m.title}
+                        </div>
+                        <div className="truncate text-xs text-gray-400">
+                          {team?.name ?? '—'}
+                        </div>
+                      </div>
+                    </div>
+                    <StatusBadge tone={sm.tone} label={sm.label} />
+                  </div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className={cn(
+                        'h-full rounded-full transition-all',
+                        sm.bar
+                      )}
+                      style={{ width: `${m.progress}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                    <span>{m.progress}%</span>
+                    {done && (
+                      <span className="font-medium text-primary group-hover:underline">
+                        查看报告 →
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

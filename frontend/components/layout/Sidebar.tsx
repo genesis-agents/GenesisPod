@@ -562,233 +562,238 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiResearch')}</span>}
           </Link>
 
-          {/* Section: Decision Studio */}
-          {showExpanded && (
-            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              {t('nav.sections.planningDecision')}
-            </div>
-          )}
-          {!showExpanded && (
-            <div className="my-1 border-t border-gray-200/60" />
-          )}
+          {/* 推演决策 + 内容工坊 暂时隐藏（用户 2026-06 反馈，先收起） */}
+          {false && (
+            <>
+              {/* Section: Decision Studio */}
+              {showExpanded && (
+                <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  {t('nav.sections.planningDecision')}
+                </div>
+              )}
+              {!showExpanded && (
+                <div className="my-1 border-t border-gray-200/60" />
+              )}
 
-          <Link
-            href="/ai-teams"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-              pathname?.startsWith('/ai-teams')
-                ? `${MODULE_THEMES.discuss.activeBg} ${MODULE_THEMES.discuss.text}`
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title={t('nav.myTeams')}
-          >
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.myTeams')}</span>}
-          </Link>
-
-          <Link
-            href="/ai-planning"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-              pathname?.startsWith('/ai-planning')
-                ? `${MODULE_THEMES.planning.activeBg} ${MODULE_THEMES.planning.text}`
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title={t('nav.aiPlanning')}
-          >
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.aiPlanning')}</span>}
-          </Link>
-
-          <Link
-            href="/ai-simulation"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-              pathname?.startsWith('/ai-simulation')
-                ? `${MODULE_THEMES.decision.activeBg} ${MODULE_THEMES.decision.text}`
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title={t('nav.aiSimulation')}
-          >
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <rect
-                x="3"
-                y="3"
-                width="7"
-                height="7"
-                rx="1"
-                strokeWidth={1.5}
-                fill={
-                  pathname?.startsWith('/ai-simulation')
-                    ? 'rgba(239, 68, 68, 0.13)'
-                    : 'none'
-                }
-              />
-              <rect
-                x="14"
-                y="3"
-                width="7"
-                height="7"
-                rx="1"
-                strokeWidth={1.5}
-              />
-              <rect
-                x="3"
-                y="14"
-                width="7"
-                height="7"
-                rx="1"
-                strokeWidth={1.5}
-              />
-              <rect
-                x="14"
-                y="14"
-                width="7"
-                height="7"
-                rx="1"
-                strokeWidth={1.5}
-                fill={
-                  pathname?.startsWith('/ai-simulation')
-                    ? 'rgba(239, 68, 68, 0.13)'
-                    : 'none'
-                }
-              />
-              <circle cx="6.5" cy="6.5" r="2" strokeWidth={1.5} />
-              <circle
-                cx="17.5"
-                cy="17.5"
-                r="2"
-                strokeWidth={1.5}
-                fill="currentColor"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.aiSimulation')}</span>}
-          </Link>
-
-          {/* Section: Content Studio */}
-          {showExpanded && (
-            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              {t('nav.sections.creativeWriting')}
-            </div>
-          )}
-          {!showExpanded && (
-            <div className="my-1 border-t border-gray-200/60" />
-          )}
-
-          <Link
-            href="/ai-office"
-            onClick={(e) => {
-              if (pathname === '/ai-office') {
-                e.preventDefault();
-                window.location.href = '/ai-office';
-              }
-            }}
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} relative rounded-lg px-3 py-1.5 text-sm font-medium ${
-              isActive('/ai-office') || pathname?.startsWith('/ai-office')
-                ? `${MODULE_THEMES.report.activeBg} ${MODULE_THEMES.report.text}`
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title={t('nav.aiReports')}
-          >
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.aiReports')}</span>}
-          </Link>
-
-          <Link
-            href="/ai-writing"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-              pathname?.startsWith('/ai-writing')
-                ? `${MODULE_THEMES.writing.activeBg} ${MODULE_THEMES.writing.text}`
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title={t('nav.aiWriting')}
-          >
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.aiWriting')}</span>}
-          </Link>
-
-          {/* AI 社媒 — 仅管理员可见（admin-only）*/}
-          {isAdmin && (
-            <Link
-              href="/ai-social"
-              className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-                pathname?.startsWith('/ai-social')
-                  ? `${MODULE_THEMES.social.activeBg} ${MODULE_THEMES.social.text}`
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-              title={t('nav.aiSocial')}
-            >
-              <svg
-                className="h-5 w-5 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <Link
+                href="/ai-teams"
+                className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+                  pathname?.startsWith('/ai-teams')
+                    ? `${MODULE_THEMES.discuss.activeBg} ${MODULE_THEMES.discuss.text}`
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+                title={t('nav.myTeams')}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                />
-              </svg>
-              {showExpanded && <span>{t('nav.aiSocial')}</span>}
-            </Link>
+                <svg
+                  className="h-5 w-5 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
+                </svg>
+                {showExpanded && <span>{t('nav.myTeams')}</span>}
+              </Link>
+
+              <Link
+                href="/ai-planning"
+                className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+                  pathname?.startsWith('/ai-planning')
+                    ? `${MODULE_THEMES.planning.activeBg} ${MODULE_THEMES.planning.text}`
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+                title={t('nav.aiPlanning')}
+              >
+                <svg
+                  className="h-5 w-5 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                  />
+                </svg>
+                {showExpanded && <span>{t('nav.aiPlanning')}</span>}
+              </Link>
+
+              <Link
+                href="/ai-simulation"
+                className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+                  pathname?.startsWith('/ai-simulation')
+                    ? `${MODULE_THEMES.decision.activeBg} ${MODULE_THEMES.decision.text}`
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+                title={t('nav.aiSimulation')}
+              >
+                <svg
+                  className="h-5 w-5 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <rect
+                    x="3"
+                    y="3"
+                    width="7"
+                    height="7"
+                    rx="1"
+                    strokeWidth={1.5}
+                    fill={
+                      pathname?.startsWith('/ai-simulation')
+                        ? 'rgba(239, 68, 68, 0.13)'
+                        : 'none'
+                    }
+                  />
+                  <rect
+                    x="14"
+                    y="3"
+                    width="7"
+                    height="7"
+                    rx="1"
+                    strokeWidth={1.5}
+                  />
+                  <rect
+                    x="3"
+                    y="14"
+                    width="7"
+                    height="7"
+                    rx="1"
+                    strokeWidth={1.5}
+                  />
+                  <rect
+                    x="14"
+                    y="14"
+                    width="7"
+                    height="7"
+                    rx="1"
+                    strokeWidth={1.5}
+                    fill={
+                      pathname?.startsWith('/ai-simulation')
+                        ? 'rgba(239, 68, 68, 0.13)'
+                        : 'none'
+                    }
+                  />
+                  <circle cx="6.5" cy="6.5" r="2" strokeWidth={1.5} />
+                  <circle
+                    cx="17.5"
+                    cy="17.5"
+                    r="2"
+                    strokeWidth={1.5}
+                    fill="currentColor"
+                  />
+                </svg>
+                {showExpanded && <span>{t('nav.aiSimulation')}</span>}
+              </Link>
+
+              {/* Section: Content Studio */}
+              {showExpanded && (
+                <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  {t('nav.sections.creativeWriting')}
+                </div>
+              )}
+              {!showExpanded && (
+                <div className="my-1 border-t border-gray-200/60" />
+              )}
+
+              <Link
+                href="/ai-office"
+                onClick={(e) => {
+                  if (pathname === '/ai-office') {
+                    e.preventDefault();
+                    window.location.href = '/ai-office';
+                  }
+                }}
+                className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} relative rounded-lg px-3 py-1.5 text-sm font-medium ${
+                  isActive('/ai-office') || pathname?.startsWith('/ai-office')
+                    ? `${MODULE_THEMES.report.activeBg} ${MODULE_THEMES.report.text}`
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+                title={t('nav.aiReports')}
+              >
+                <svg
+                  className="h-5 w-5 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
+                  />
+                </svg>
+                {showExpanded && <span>{t('nav.aiReports')}</span>}
+              </Link>
+
+              <Link
+                href="/ai-writing"
+                className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+                  pathname?.startsWith('/ai-writing')
+                    ? `${MODULE_THEMES.writing.activeBg} ${MODULE_THEMES.writing.text}`
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+                title={t('nav.aiWriting')}
+              >
+                <svg
+                  className="h-5 w-5 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+                {showExpanded && <span>{t('nav.aiWriting')}</span>}
+              </Link>
+
+              {/* AI 社媒 — 仅管理员可见（admin-only）*/}
+              {isAdmin && (
+                <Link
+                  href="/ai-social"
+                  className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+                    pathname?.startsWith('/ai-social')
+                      ? `${MODULE_THEMES.social.activeBg} ${MODULE_THEMES.social.text}`
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                  title={t('nav.aiSocial')}
+                >
+                  <svg
+                    className="h-5 w-5 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                    />
+                  </svg>
+                  {showExpanded && <span>{t('nav.aiSocial')}</span>}
+                </Link>
+              )}
+            </>
           )}
 
           {/* Section: AI Lab */}

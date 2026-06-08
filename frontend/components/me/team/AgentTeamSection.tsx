@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LayoutDashboard, Network, Users2, Contact, Crown } from 'lucide-react';
 import { Tabs } from '@/components/ui/tabs';
+import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { LoadingState } from '@/components/ui/states/LoadingState';
 import { ManagementOrgChart } from './team-shared';
 import { DashboardView } from './views/DashboardView';
@@ -34,33 +35,41 @@ export function AgentTeamSection() {
     setTab('compose');
   };
 
-  if (loading) {
-    return <LoadingState text="加载团队数据中..." />;
-  }
-
   return (
-    <div className="space-y-5">
-      <Tabs
-        variant="pill"
-        items={[
-          { key: 'dashboard', label: '驾驶舱', icon: LayoutDashboard },
-          { key: 'org', label: '管理团队', icon: Network },
-          { key: 'compose', label: '组队', icon: Users2 },
-          { key: 'talent', label: '人才库', icon: Contact },
-          { key: 'ceo', label: '任命 CEO', icon: Crown },
-        ]}
-        value={tab}
-        onChange={(k) => setTab(k as TeamTab)}
-      />
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto bg-gray-50/50">
+      <PageHeaderHero
+        module="ask"
+        icon={<Users2 className="h-7 w-7 text-white" />}
+        title="我的 Agent 团队"
+        subtitle="一人公司：招募 Agent、组队、任命 CEO、编排管理团队"
+      >
+        <Tabs
+          items={[
+            { key: 'dashboard', label: '驾驶舱', icon: LayoutDashboard },
+            { key: 'org', label: '管理团队', icon: Network },
+            { key: 'compose', label: '组队', icon: Users2 },
+            { key: 'talent', label: '人才库', icon: Contact },
+            { key: 'ceo', label: '任命 CEO', icon: Crown },
+          ]}
+          value={tab}
+          onChange={(k) => setTab(k as TeamTab)}
+        />
+      </PageHeaderHero>
 
-      <div>
-        {tab === 'dashboard' && (
-          <DashboardView onGoMission={() => router.push('/missions')} />
+      <div className="mx-auto w-full max-w-7xl px-8 pb-12 pt-5">
+        {loading ? (
+          <LoadingState text="加载团队数据中..." />
+        ) : (
+          <div>
+            {tab === 'dashboard' && (
+              <DashboardView onGoMission={() => router.push('/missions')} />
+            )}
+            {tab === 'org' && <ManagementOrgChart onSelectTeam={gotoTeam} />}
+            {tab === 'compose' && <ComposerView focusTeamId={focusTeamId} />}
+            {tab === 'talent' && <TalentPoolView />}
+            {tab === 'ceo' && <AppointCeoView />}
+          </div>
         )}
-        {tab === 'org' && <ManagementOrgChart onSelectTeam={gotoTeam} />}
-        {tab === 'compose' && <ComposerView focusTeamId={focusTeamId} />}
-        {tab === 'talent' && <TalentPoolView />}
-        {tab === 'ceo' && <AppointCeoView />}
       </div>
     </div>
   );
