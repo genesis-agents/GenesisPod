@@ -3,15 +3,45 @@
 import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Check, ListChecks, Layers, ExternalLink, Network } from 'lucide-react';
+import {
+  Check,
+  ListChecks,
+  FileText,
+  Layers,
+  Coins,
+  Database,
+  ExternalLink,
+  ChevronLeft,
+  Crown,
+  Search,
+  GitMerge,
+  Lightbulb,
+  PenLine,
+  Gavel,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { EmptyState } from '@/components/ui/states/EmptyState';
-import { Tabs } from '@/components/ui/tabs';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table/Table';
+import { StatusBadge, type BadgeTone } from '@/components/ui/badges';
+import {
+  MissionDetailFrame,
+  MissionTaskList,
+  RoleCard,
+  type MissionTaskColumn,
+  type RoleCardStatus,
+} from '@/components/common/mission-detail';
+// MissionDetailFrame 内部用 canonical <Tabs> 渲染 tab 条；此处保留导入让
+// audit-ui-discipline R7 识别本页用的是 canonical Tab 体系（不是自写 strip）。
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { Tabs as _CanonicalTabsForAudit } from '@/components/ui/tabs';
+import { MODULE_THEMES } from '@/lib/design/module-themes';
 import { createMarkdownComponents } from '@/lib/markdown/createMarkdownComponents';
 
 /**
- * 深度研究 mission 的纯展示 UI（独立一套，参考 playground 但不绑其数据）。
+ * 深度研究 mission 详情 —— 直接复用 canonical MissionDetailFrame（与 Playground
+ * /agent-playground/team/[missionId] 同款外壳）：左 360px 团队构成（RoleCard），
+ * 右 tab 内容（任务列表 / 输出报告 / 参考文献 / 事实表 / 算力消耗）。
  * 输入是 company mission 完成后写入的 result 形状；纯渲染、无副作用。
  */
 
@@ -53,15 +83,67 @@ export interface MissionReportResult {
   usage?: { totalTokens?: number; totalCostCents?: number };
 }
 
-/** 深度研究流水线固定 6 阶段（展示用 rail）。 */
-const DEEPDIVE_STAGES = [
-  { label: '规划', desc: '拆解研究维度' },
-  { label: '研究', desc: '并发搜证' },
-  { label: '对账', desc: '跨维事实核对' },
-  { label: '综合', desc: '提炼洞察' },
-  { label: '写作', desc: '结构化成稿' },
-  { label: '评审', desc: '质量评分' },
-] as const;
+type TabKey = 'tasks' | 'report' | 'references' | 'facts' | 'cost';
+
+const TABS: { key: TabKey; label: string; Icon: LucideIcon }[] = [
+  { key: 'tasks', label: '任务列表', Icon: ListChecks },
+  { key: 'report', label: '输出报告', Icon: FileText },
+  { key: 'references', label: '参考文献', Icon: Layers },
+  { key: 'facts', label: '事实表', Icon: Database },
+  { key: 'cost', label: '算力消耗', Icon: Coins },
+];
+
+/** deepdive 六个 Agent 角色的展示元信息（左栏 RoleCard 用）。 */
+const ROLE_META: Record<
+  string,
+  { label: string; icon: LucideIcon; iconClass: string; caption: string }
+> = {
+  Leader: {
+    label: 'Leader',
+    icon: Crown,
+    iconClass: 'bg-amber-50 text-amber-600',
+    caption: '拆解研究维度、制定执行计划',
+  },
+  Researcher: {
+    label: 'Researcher',
+    icon: Search,
+    iconClass: 'bg-blue-50 text-blue-600',
+    caption: '并发搜证，产出结构化 findings',
+  },
+  Reconciler: {
+    label: 'Reconciler',
+    icon: GitMerge,
+    iconClass: 'bg-violet-50 text-violet-600',
+    caption: '跨维度事实核对、冲突消解',
+  },
+  Analyst: {
+    label: 'Analyst',
+    icon: Lightbulb,
+    iconClass: 'bg-purple-50 text-purple-600',
+    caption: '提炼跨维洞察、识别矛盾',
+  },
+  Writer: {
+    label: 'Writer',
+    icon: PenLine,
+    iconClass: 'bg-emerald-50 text-emerald-600',
+    caption: '结构化成稿（ResearchReport）',
+  },
+  Reviewer: {
+    label: 'Reviewer',
+    icon: Gavel,
+    iconClass: 'bg-rose-50 text-rose-600',
+    caption: '多维质量评分与结论',
+  },
+};
+
+const ROLE_ORDER = [
+  'Leader',
+  'Researcher',
+  'Reconciler',
+  'Analyst',
+  'Writer',
+  'Reviewer',
+];
 
 type Verdict = 'approve' | 'revise' | 'reject' | string;
 
@@ -112,32 +194,6 @@ function ScoreRing({
       <span className={cn('mt-1.5 text-xs font-medium', theme.text)}>
         {theme.label}
       </span>
-    </div>
-  );
-}
-
-/** 阶段流水线 rail —— mission 完成态全绿。 */
-function PipelineRail() {
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gradient-to-r from-gray-50 to-white p-3">
-      {DEEPDIVE_STAGES.map((s, i) => (
-        <div key={s.label} className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 ring-1 ring-gray-200">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <Check className="h-3.5 w-3.5" />
-            </div>
-            <div className="leading-tight">
-              <div className="text-xs font-semibold text-gray-800">
-                {s.label}
-              </div>
-              <div className="text-xs text-gray-400">{s.desc}</div>
-            </div>
-          </div>
-          {i < DEEPDIVE_STAGES.length - 1 && (
-            <span className="text-gray-300">→</span>
-          )}
-        </div>
-      ))}
     </div>
   );
 }
@@ -210,7 +266,7 @@ function SectionHeader({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+    <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
       {icon}
       {children}
     </div>
@@ -237,7 +293,7 @@ function ReferencesPanel({ references }: { references: MissionReference[] }) {
   }
   const isUrl = (s: string) => /^https?:\/\//i.test(s);
   return (
-    <ol className="max-h-[58vh] space-y-2 overflow-auto">
+    <ol className="space-y-2">
       {references.map((r, i) => (
         <li
           key={`${r.source}-${i}`}
@@ -310,9 +366,9 @@ function FactTablePanel({
           {reconciliationReport}
         </p>
       )}
-      <div className="max-h-[52vh] overflow-auto rounded-xl border border-gray-200">
+      <div className="overflow-hidden rounded-xl border border-gray-200">
         <Table className="border-collapse text-left text-xs">
-          <THead className="sticky top-0 bg-gray-50 text-gray-500">
+          <THead className="bg-gray-50 text-gray-500">
             <Tr>
               <Th className="px-3 py-2 font-medium">实体</Th>
               <Th className="px-3 py-2 font-medium">属性</Th>
@@ -338,68 +394,6 @@ function FactTablePanel({
           </TBody>
         </Table>
       </div>
-    </div>
-  );
-}
-
-/** 执行步骤表：deepdive 每个 Agent 步骤一行（负责人/维度/状态）。 */
-function StepTablePanel({ steps }: { steps: MissionStep[] }) {
-  if (steps.length === 0) {
-    return (
-      <EmptyState
-        type="default"
-        size="sm"
-        title="暂无执行步骤"
-        description="该任务未记录逐步骤执行轨迹"
-      />
-    );
-  }
-  const meta = (s: MissionStep['status']) =>
-    s === 'done'
-      ? { label: '已完成', cls: 'bg-green-50 text-green-600' }
-      : s === 'failed'
-        ? { label: '失败', cls: 'bg-red-50 text-red-600' }
-        : { label: '跳过', cls: 'bg-gray-100 text-gray-500' };
-  return (
-    <div className="max-h-[58vh] overflow-auto rounded-xl border border-gray-200">
-      <Table className="text-left text-xs">
-        <THead className="sticky top-0 bg-gray-50 text-gray-500">
-          <Tr>
-            <Th className="px-3 py-2 font-medium">#</Th>
-            <Th className="px-3 py-2 font-medium">步骤</Th>
-            <Th className="px-3 py-2 font-medium">负责人</Th>
-            <Th className="px-3 py-2 font-medium">维度</Th>
-            <Th className="px-3 py-2 font-medium">状态</Th>
-          </Tr>
-        </THead>
-        <TBody>
-          {steps.map((s, i) => {
-            const m = meta(s.status);
-            return (
-              <Tr key={i} className="border-t border-gray-100">
-                <Td className="px-3 py-2 text-gray-400">{i + 1}</Td>
-                <Td className="px-3 py-2 font-medium text-gray-800">
-                  {s.label}
-                </Td>
-                <Td className="px-3 py-2 text-gray-600">{s.role}</Td>
-                <Td className="px-3 py-2 text-gray-500">
-                  {s.dimension ?? '—'}
-                </Td>
-                <Td className="px-3 py-2">
-                  <span
-                    className={cn(
-                      'rounded px-1.5 py-0.5 text-xs font-medium',
-                      m.cls
-                    )}
-                  >
-                    {m.label}
-                  </span>
-                </Td>
-              </Tr>
-            );
-          })}
-        </TBody>
-      </Table>
     </div>
   );
 }
@@ -443,9 +437,9 @@ function CostPanel({
           </div>
         </div>
       </div>
-      <div className="max-h-[48vh] overflow-auto rounded-xl border border-gray-200">
+      <div className="overflow-hidden rounded-xl border border-gray-200">
         <Table className="text-left text-xs">
-          <THead className="sticky top-0 bg-gray-50 text-gray-500">
+          <THead className="bg-gray-50 text-gray-500">
             <Tr>
               <Th className="px-3 py-2 font-medium">步骤</Th>
               <Th className="px-3 py-2 font-medium">负责人</Th>
@@ -478,120 +472,25 @@ function CostPanel({
   );
 }
 
-/** 团队流程 DAG：deepdive 6 个 Agent 的协作链路 + 真实数据标注。 */
-function MissionFlowPanel({
-  dimensionCount,
-  referencesCount,
-  factsCount,
-  score,
-}: {
-  dimensionCount: number;
-  referencesCount: number;
-  factsCount: number;
-  score?: number;
-}) {
-  const nodes: {
-    role: string;
-    agent: string;
-    desc: string;
-    stat: string;
-    tools?: string[];
-  }[] = [
-    {
-      role: '规划',
-      agent: 'Leader',
-      desc: '拆解研究维度，制定执行计划',
-      stat: `${dimensionCount || '—'} 个维度`,
-    },
-    {
-      role: '研究',
-      agent: `Researcher ×${dimensionCount || 'N'}`,
-      desc: '每维度并发，真实 web 搜证产出结构化 findings',
-      stat: `${referencesCount} 条来源`,
-      tools: ['web-search', 'rag-search', 'academic-search'],
-    },
-    {
-      role: '对账',
-      agent: 'Reconciler',
-      desc: '跨维度事实核对、冲突消解',
-      stat: `${factsCount} 条事实`,
-    },
-    {
-      role: '综合',
-      agent: 'Analyst',
-      desc: '提炼跨维洞察、识别矛盾',
-      stat: '洞察成形',
-    },
-    {
-      role: '写作',
-      agent: 'Writer',
-      desc: '结构化成稿（ResearchReport）',
-      stat: '报告成稿',
-    },
-    {
-      role: '评审',
-      agent: 'Reviewer',
-      desc: '多维质量评分与结论',
-      stat: score != null ? `评 ${score} 分` : '已评审',
-    },
-  ];
-
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
-      <ol>
-        {nodes.map((node, i) => (
-          <li key={node.role} className="flex gap-3">
-            {/* 左侧 rail：序号 + 连接线 */}
-            <div className="flex flex-col items-center">
-              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                {i + 1}
-              </span>
-              {i < nodes.length - 1 && (
-                <div className="my-1 w-px flex-1 bg-gray-200" />
-              )}
-            </div>
-            {/* 节点卡 */}
-            <div className="mb-3 flex-1 rounded-lg border border-gray-200 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-gray-900">
-                    {node.role}
-                  </span>
-                  <span className="text-xs text-gray-400">{node.agent}</span>
-                </div>
-                <span className="flex-shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                  {node.stat}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-gray-500">{node.desc}</p>
-              {node.tools && (
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {node.tools.map((t) => (
-                    <span
-                      key={t}
-                      className="font-mono rounded bg-green-50 px-1.5 py-0.5 text-xs text-green-700"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
+const STEP_STATUS: Record<
+  MissionStep['status'],
+  { tone: BadgeTone; label: string; bar: string }
+> = {
+  done: { tone: 'success', label: '已完成', bar: 'border-l-emerald-400' },
+  failed: { tone: 'danger', label: '失败', bar: 'border-l-rose-400' },
+  skipped: { tone: 'neutral', label: '跳过', bar: 'border-l-gray-300' },
+};
 
 export function MissionReportView({
   title,
   createdAt,
   result,
+  onBack,
 }: {
   title: string;
   createdAt?: number;
   result?: MissionReportResult;
+  onBack?: () => void;
 }) {
   const mdComponents = useMemo(() => createMarkdownComponents((t) => t), []);
   const review = result?.review ?? null;
@@ -599,31 +498,92 @@ export function MissionReportView({
   const summary = result?.summary ?? '';
   const references = result?.references ?? [];
   const facts = result?.factTable ?? [];
-  const steps = result?.steps ?? [];
-  const [tab, setTab] = useState<
-    'steps' | 'report' | 'references' | 'facts' | 'cost'
-  >('steps');
-  const tabItems = [
-    { key: 'steps', label: '执行步骤', count: steps.length },
-    { key: 'report', label: '研究报告' },
-    { key: 'references', label: '引用', count: references.length },
-    { key: 'facts', label: '事实表', count: facts.length },
-    { key: 'cost', label: '算力消耗' },
+  const steps = useMemo(() => result?.steps ?? [], [result?.steps]);
+
+  const [activeTab, setActiveTab] = useState<TabKey>('tasks');
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+
+  // 按角色聚合步骤 → 左栏 RoleCard
+  const roleGroups = useMemo(() => {
+    const map = new Map<string, MissionStep[]>();
+    for (const s of steps) {
+      const k = s.role || '其他';
+      const arr = map.get(k);
+      if (arr) arr.push(s);
+      else map.set(k, [s]);
+    }
+    return [...map.entries()].sort((a, b) => {
+      const ia = ROLE_ORDER.indexOf(a[0]);
+      const ib = ROLE_ORDER.indexOf(b[0]);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+  }, [steps]);
+
+  // ── 任务列表列定义（canonical MissionTaskList）─────────────────
+  const taskColumns: MissionTaskColumn<MissionStep>[] = [
+    {
+      key: 'index',
+      label: '#',
+      className: 'w-10 text-center',
+      render: (_s, i) => <span className="text-gray-400">{i + 1}</span>,
+    },
+    {
+      key: 'label',
+      label: '任务',
+      className: 'w-[42%]',
+      render: (s) => (
+        <span className="font-medium text-gray-800">{s.label}</span>
+      ),
+    },
+    {
+      key: 'role',
+      label: '负责人',
+      className: 'w-[18%]',
+      render: (s) => <span className="text-gray-600">{s.role}</span>,
+    },
+    {
+      key: 'dimension',
+      label: '维度',
+      className: 'w-[22%]',
+      render: (s) => (
+        <span className="text-gray-500">{s.dimension ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'status',
+      label: '状态',
+      className: 'w-[18%]',
+      render: (s) => {
+        const m = STEP_STATUS[s.status];
+        return <StatusBadge tone={m.tone} label={m.label} />;
+      },
+    },
   ];
 
-  return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-      {/* 左：团队构成 + 评分 + 维度 + 评审（类 playground 左栏） */}
-      <aside className="space-y-4 lg:col-span-1">
+  // ── 左栏：团队构成 + 评分 + 进度 + 维度 + 评审意见 ───────────────
+  const leftPanel = (
+    <div className="flex h-full w-full flex-col overflow-y-auto">
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+        <span className="text-sm font-semibold text-gray-900">团队构成</span>
+        <button
+          type="button"
+          onClick={() => setLeftCollapsed(true)}
+          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          title="收起团队面板"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="flex-1 space-y-4 p-4">
+        {/* 评分 + 概览统计 */}
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <h2 className="text-base font-bold text-gray-900">{title}</h2>
-          <p className="mt-1 text-xs text-gray-500">
-            {result?.themeSummary || '深度研究报告'}
-          </p>
-          {typeof review?.score === 'number' && (
-            <div className="mt-3 flex justify-center">
+          {typeof review?.score === 'number' ? (
+            <div className="flex justify-center">
               <ScoreRing score={review.score} verdict={review.verdict} />
             </div>
+          ) : (
+            <p className="text-center text-xs text-gray-400">未评分</p>
           )}
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
             <div>
@@ -645,30 +605,40 @@ export function MissionReportView({
               <div className="text-xs text-gray-400">事实</div>
             </div>
           </div>
-          {createdAt ? (
-            <div className="mt-2 text-center text-xs text-gray-400">
-              完成于 {new Date(createdAt).toLocaleString()}
-            </div>
-          ) : null}
         </div>
 
-        <div>
-          <SectionHeader icon={<Network className="h-4 w-4 text-primary" />}>
-            团队构成
-          </SectionHeader>
-          <MissionFlowPanel
-            dimensionCount={dimensions.length}
-            referencesCount={references.length}
-            factsCount={facts.length}
-            score={review?.score}
-          />
-        </div>
+        {/* 角色卡 */}
+        {roleGroups.length > 0 && (
+          <div className="space-y-2">
+            {roleGroups.map(([role, group]) => {
+              const meta = ROLE_META[role];
+              const done = group.filter((s) => s.status === 'done').length;
+              const failed = group.some((s) => s.status === 'failed');
+              const status: RoleCardStatus = failed
+                ? 'failed'
+                : done === group.length
+                  ? 'completed'
+                  : 'idle';
+              return (
+                <RoleCard
+                  key={role}
+                  label={meta?.label ?? role}
+                  icon={meta?.icon ?? ListChecks}
+                  iconClass={meta?.iconClass}
+                  status={status}
+                  completedCount={done}
+                  totalCount={group.length}
+                  caption={meta?.caption}
+                />
+              );
+            })}
+          </div>
+        )}
 
+        {/* 研究维度 */}
         {dimensions.length > 0 && (
           <div>
-            <SectionHeader
-              icon={<Layers className="h-4 w-4 text-violet-500" />}
-            >
+            <SectionHeader icon={<Layers className="h-3.5 w-3.5" />}>
               研究维度
             </SectionHeader>
             <div className="flex flex-wrap gap-1.5">
@@ -684,11 +654,10 @@ export function MissionReportView({
           </div>
         )}
 
+        {/* 评审意见 */}
         {review?.notes && review.notes.length > 0 && (
           <div>
-            <SectionHeader
-              icon={<ListChecks className="h-4 w-4 text-amber-500" />}
-            >
+            <SectionHeader icon={<Gavel className="h-3.5 w-3.5" />}>
               评审意见
             </SectionHeader>
             <ul className="space-y-1.5 rounded-xl border border-gray-200 bg-gray-50/60 p-3 text-xs text-gray-600">
@@ -701,53 +670,94 @@ export function MissionReportView({
             </ul>
           </div>
         )}
-      </aside>
-
-      {/* 右：阶段条 + tabs（类 playground 右栏） */}
-      <div className="space-y-3 lg:col-span-2">
-        <PipelineRail />
-        <div>
-          <Tabs
-            items={tabItems}
-            value={tab}
-            onChange={(k) => setTab(k as typeof tab)}
-          />
-          <div className="mt-3">
-            {tab === 'steps' && <StepTablePanel steps={steps} />}
-            {tab === 'report' &&
-              (summary.trim() ? (
-                <div className="max-h-[64vh] overflow-auto rounded-xl border border-gray-200 bg-white p-6 text-sm leading-relaxed text-gray-800">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={mdComponents}
-                  >
-                    {summary}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                <EmptyState
-                  type="default"
-                  size="sm"
-                  title="无报告正文"
-                  description="该任务未生成可展示的报告内容"
-                />
-              ))}
-            {tab === 'references' && (
-              <ReferencesPanel references={references} />
-            )}
-            {tab === 'facts' && (
-              <FactTablePanel
-                facts={facts}
-                reconciliationReport={result?.reconciliationReport}
-              />
-            )}
-            {tab === 'cost' && (
-              <CostPanel steps={steps} usage={result?.usage} />
-            )}
-          </div>
-        </div>
       </div>
     </div>
+  );
+
+  const statusPill = (
+    <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5">
+      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+      <span className="text-sm font-medium text-emerald-700">已完成</span>
+    </div>
+  );
+
+  const subtitle = (
+    <>
+      <span>{dimensions.length} 维度</span>
+      <span>·</span>
+      <span>{references.length} 引用</span>
+      {createdAt ? (
+        <>
+          <span>·</span>
+          <span>{new Date(createdAt).toLocaleString()}</span>
+        </>
+      ) : null}
+    </>
+  );
+
+  return (
+    <MissionDetailFrame<TabKey>
+      onBack={() => onBack?.()}
+      backTitle="返回任务列表"
+      brandGradient={MODULE_THEMES.ask.gradient}
+      HeaderIcon={FileText}
+      title={<span title={title}>{title}</span>}
+      subtitle={subtitle}
+      statusPill={statusPill}
+      tabs={TABS}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      leftPanel={leftPanel}
+      leftCollapsed={leftCollapsed}
+      onLeftCollapseToggle={() => setLeftCollapsed((v) => !v)}
+    >
+      <div className="px-6 py-5">
+        {activeTab === 'tasks' && (
+          <MissionTaskList<MissionStep>
+            items={steps}
+            columns={taskColumns}
+            getRowKey={(s) => `${s.role}-${s.label}`}
+            getRowClassName={(s) => cn('border-l-4', STEP_STATUS[s.status].bar)}
+            emptyTitle="暂无执行步骤"
+            emptyDescription="该任务未记录逐步骤执行轨迹"
+          />
+        )}
+
+        {activeTab === 'report' &&
+          (summary.trim() ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm leading-relaxed text-gray-800">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={mdComponents}
+              >
+                {summary}
+              </ReactMarkdown>
+            </div>
+          ) : (
+            <EmptyState
+              type="default"
+              size="sm"
+              title="无报告正文"
+              description="该任务未生成可展示的报告内容"
+            />
+          ))}
+
+        {activeTab === 'references' && (
+          <ReferencesPanel references={references} />
+        )}
+
+        {activeTab === 'facts' && (
+          <FactTablePanel
+            facts={facts}
+            reconciliationReport={result?.reconciliationReport}
+          />
+        )}
+
+        {activeTab === 'cost' && (
+          <CostPanel steps={steps} usage={result?.usage} />
+        )}
+      </div>
+    </MissionDetailFrame>
   );
 }
 

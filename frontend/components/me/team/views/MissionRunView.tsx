@@ -7,12 +7,12 @@ import {
   CircleDot,
   CheckCircle2,
   Loader2,
-  ArrowLeft,
   Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Modal } from '@/components/ui/dialogs';
+import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { StatusBadge, type BadgeTone } from '@/components/ui/badges';
 import { useCompanyStore } from '@/stores/company/companyStore';
 import { useCompanyMissionStream } from '@/hooks/features/useCompanyMissionStream';
@@ -120,6 +120,23 @@ function eventToStreamItems(
     ];
   }
   return null;
+}
+
+/**
+ * 列表态外壳：页头 + 居中滚动容器。详情态（MissionDetailFrame）整屏铺满，不走此壳。
+ */
+function ListShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto bg-gray-50/50">
+      <PageHeaderHero
+        module="ask"
+        icon={<Send className="h-7 w-7 text-white" />}
+        title="我的团队任务"
+        subtitle="给团队下达任务，实时看协作过程，完成后查看完整研究报告"
+      />
+      <div className="mx-auto w-full max-w-7xl px-8 pb-12 pt-5">{children}</div>
+    </div>
+  );
 }
 
 export function MissionRunView() {
@@ -257,262 +274,258 @@ export function MissionRunView() {
     setActiveMissionId(missionId);
   };
 
-  // 点开任务 → 整页详情（可返回任务列表）
+  // 点开任务 → 整页详情（canonical MissionDetailFrame，与 playground 同款，整屏铺满）
   const reportMission = missions.find((m) => m.id === reportMissionId) ?? null;
   if (reportMission) {
     return (
-      <div className="space-y-4">
-        <button
-          onClick={() => setReportMissionId(null)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          返回任务列表
-        </button>
-        <MissionReportView
-          title={reportMission.title}
-          createdAt={reportMission.createdAt}
-          result={reportMission.result as MissionReportResult}
-        />
-      </div>
+      <MissionReportView
+        title={reportMission.title}
+        createdAt={reportMission.createdAt}
+        result={reportMission.result as MissionReportResult}
+        onBack={() => setReportMissionId(null)}
+      />
     );
   }
 
   if (teams.length === 0) {
     return (
-      <EmptyState
-        type="default"
-        title="还没有团队"
-        description="先去「组队」建一个 Team，再下任务"
-      />
+      <ListShell>
+        <EmptyState
+          type="default"
+          title="还没有团队"
+          description="先去「组队」建一个 Team，再下任务"
+        />
+      </ListShell>
     );
   }
 
   return (
-    <div className="space-y-5">
-      {/* 下发任务弹窗 */}
-      <Modal
-        open={dispatchOpen}
-        onClose={() => setDispatchOpen(false)}
-        title="下发任务"
-        subtitle="选择团队、描述要做的事，交给团队执行"
-        size="lg"
-        footer={
-          <>
-            <button
-              onClick={() => setDispatchOpen(false)}
-              className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
-            >
-              取消
-            </button>
-            <button
-              onClick={() => void dispatch()}
-              disabled={!title.trim() || running}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-            >
-              {running ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              下发任务
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">
-              交给哪个 Team
-            </label>
-            <select
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">
-              任务
-            </label>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void dispatch();
-              }}
-              placeholder="例如：调研 Q3 竞品定价并给出建议"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          {activeTeam && (
-            <p className="text-xs text-gray-400">
-              Leader：
-              {hired.find((h) => h.instanceId === activeTeam.leaderId)?.name ??
-                '（未指定）'}{' '}
-              · 成员{' '}
-              {
-                activeTeam.memberIds.filter((id) =>
-                  hired.some((h) => h.instanceId === id)
-                ).length
-              }{' '}
-              名
-              {activeTeam.workflowId
-                ? ` · ${teamWorkflows.find((w) => w.id === activeTeam.workflowId)?.name ?? ''}`
-                : ''}
-            </p>
-          )}
-        </div>
-      </Modal>
-
-      {/* 运行中实时阶段进度 */}
-      {(activeMissionId || events.length > 0) && (
-        <MissionLiveRail status={stageStatus} />
-      )}
-
-      {/* 实时协作流（运行中 / 有事件时才出现）*/}
-      {events.length > 0 && (
-        <div>
-          <h3 className="mb-2 text-sm font-semibold text-gray-900">
-            实时协作流
-          </h3>
-          <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <ol className="space-y-3">
-              {events.map((e) => {
-                const Icon = e.tone === 'success' ? CheckCircle2 : CircleDot;
-                return (
-                  <li key={e.id} className="flex items-start gap-2.5">
-                    <Icon
-                      className={cn(
-                        'mt-0.5 h-4 w-4 flex-shrink-0',
-                        TONE_DOT[e.tone]
-                      )}
-                    />
-                    <div className="text-sm">
-                      <span className="font-medium text-gray-900">
-                        {e.role}
-                      </span>
-                      <span className="ml-2 text-gray-600">{e.text}</span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
-        </div>
-      )}
-
-      {/* 任务卡片 */}
-      <div>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 className="flex-shrink-0 text-sm font-semibold text-gray-900">
-            任务
-          </h3>
-          <div className="flex items-center gap-2.5">
-            <div className="relative w-full max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+    <ListShell>
+      <div className="space-y-5">
+        {/* 下发任务弹窗 */}
+        <Modal
+          open={dispatchOpen}
+          onClose={() => setDispatchOpen(false)}
+          title="下发任务"
+          subtitle="选择团队、描述要做的事，交给团队执行"
+          size="lg"
+          footer={
+            <>
+              <button
+                onClick={() => setDispatchOpen(false)}
+                className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => void dispatch()}
+                disabled={!title.trim() || running}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {running ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                下发任务
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">
+                交给哪个 Team
+              </label>
+              <select
+                value={teamId}
+                onChange={(e) => setTeamId(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">
+                任务
+              </label>
               <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="搜索任务…"
-                className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void dispatch();
+                }}
+                placeholder="例如：调研 Q3 竞品定价并给出建议"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
-            <button
-              onClick={() => setDispatchOpen(true)}
-              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-            >
-              <Send className="h-4 w-4" />
-              下发任务
-            </button>
+            {activeTeam && (
+              <p className="text-xs text-gray-400">
+                Leader：
+                {hired.find((h) => h.instanceId === activeTeam.leaderId)
+                  ?.name ?? '（未指定）'}{' '}
+                · 成员{' '}
+                {
+                  activeTeam.memberIds.filter((id) =>
+                    hired.some((h) => h.instanceId === id)
+                  ).length
+                }{' '}
+                名
+                {activeTeam.workflowId
+                  ? ` · ${teamWorkflows.find((w) => w.id === activeTeam.workflowId)?.name ?? ''}`
+                  : ''}
+              </p>
+            )}
           </div>
-        </div>
-        {missions.length === 0 ? (
-          <EmptyState
-            type="default"
-            size="sm"
-            title="暂无任务"
-            description="点击右上角「下发任务」给团队下达第一个任务"
-            icon={<Play className="h-8 w-8" />}
-          />
-        ) : filteredMissions.length === 0 ? (
-          <EmptyState
-            type="default"
-            size="sm"
-            title="无匹配任务"
-            description="换个关键词试试"
-            icon={<Search className="h-8 w-8" />}
-          />
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredMissions.map((m) => {
-              const team = teams.find((t) => t.id === m.teamId);
-              const done = m.status === 'done';
-              const sm = MISSION_STATUS[m.status] ?? MISSION_STATUS.queued;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => done && setReportMissionId(m.id)}
-                  disabled={!done}
-                  className={cn(
-                    'group flex flex-col rounded-xl border border-gray-200 bg-white p-4 text-left transition-all',
-                    done
-                      ? 'cursor-pointer hover:border-primary/50 hover:shadow-sm'
-                      : 'cursor-default'
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <div
+        </Modal>
+
+        {/* 运行中实时阶段进度 */}
+        {(activeMissionId || events.length > 0) && (
+          <MissionLiveRail status={stageStatus} />
+        )}
+
+        {/* 实时协作流（运行中 / 有事件时才出现）*/}
+        {events.length > 0 && (
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-gray-900">
+              实时协作流
+            </h3>
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <ol className="space-y-3">
+                {events.map((e) => {
+                  const Icon = e.tone === 'success' ? CheckCircle2 : CircleDot;
+                  return (
+                    <li key={e.id} className="flex items-start gap-2.5">
+                      <Icon
                         className={cn(
-                          'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-white',
-                          sm.iconBg
+                          'mt-0.5 h-4 w-4 flex-shrink-0',
+                          TONE_DOT[e.tone]
                         )}
-                      >
-                        <Send className="h-4 w-4" />
+                      />
+                      <div className="text-sm">
+                        <span className="font-medium text-gray-900">
+                          {e.role}
+                        </span>
+                        <span className="ml-2 text-gray-600">{e.text}</span>
                       </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-gray-900">
-                          {m.title}
-                        </div>
-                        <div className="truncate text-xs text-gray-400">
-                          {team?.name ?? '—'}
-                        </div>
-                      </div>
-                    </div>
-                    <StatusBadge tone={sm.tone} label={sm.label} />
-                  </div>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className={cn(
-                        'h-full rounded-full transition-all',
-                        sm.bar
-                      )}
-                      style={{ width: `${m.progress}%` }}
-                    />
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
-                    <span>{m.progress}%</span>
-                    {done && (
-                      <span className="font-medium text-primary group-hover:underline">
-                        查看报告 →
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
           </div>
         )}
+
+        {/* 任务卡片 */}
+        <div>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="flex-shrink-0 text-sm font-semibold text-gray-900">
+              任务
+            </h3>
+            <div className="flex items-center gap-2.5">
+              <div className="relative w-full max-w-xs">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="搜索任务…"
+                  className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <button
+                onClick={() => setDispatchOpen(true)}
+                className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+              >
+                <Send className="h-4 w-4" />
+                下发任务
+              </button>
+            </div>
+          </div>
+          {missions.length === 0 ? (
+            <EmptyState
+              type="default"
+              size="sm"
+              title="暂无任务"
+              description="点击右上角「下发任务」给团队下达第一个任务"
+              icon={<Play className="h-8 w-8" />}
+            />
+          ) : filteredMissions.length === 0 ? (
+            <EmptyState
+              type="default"
+              size="sm"
+              title="无匹配任务"
+              description="换个关键词试试"
+              icon={<Search className="h-8 w-8" />}
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredMissions.map((m) => {
+                const team = teams.find((t) => t.id === m.teamId);
+                const done = m.status === 'done';
+                const sm = MISSION_STATUS[m.status] ?? MISSION_STATUS.queued;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => done && setReportMissionId(m.id)}
+                    disabled={!done}
+                    className={cn(
+                      'group flex flex-col rounded-xl border border-gray-200 bg-white p-4 text-left transition-all',
+                      done
+                        ? 'cursor-pointer hover:border-primary/50 hover:shadow-sm'
+                        : 'cursor-default'
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div
+                          className={cn(
+                            'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-white',
+                            sm.iconBg
+                          )}
+                        >
+                          <Send className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold text-gray-900">
+                            {m.title}
+                          </div>
+                          <div className="truncate text-xs text-gray-400">
+                            {team?.name ?? '—'}
+                          </div>
+                        </div>
+                      </div>
+                      <StatusBadge tone={sm.tone} label={sm.label} />
+                    </div>
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all',
+                          sm.bar
+                        )}
+                        style={{ width: `${m.progress}%` }}
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                      <span>{m.progress}%</span>
+                      {done && (
+                        <span className="font-medium text-primary group-hover:underline">
+                          查看报告 →
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </ListShell>
   );
 }
