@@ -322,6 +322,52 @@ export class CompanyMissionService {
     };
   }
 
+  /** 从 researcher findings 聚合去重的引用列表（供前端引用面板）。 */
+  private extractReferences(researcherResults: unknown[]): Array<{
+    source: string;
+    title?: string;
+    snippet?: string;
+    publishedAt?: string;
+    dimension?: string;
+    claim?: string;
+  }> {
+    const seen = new Set<string>();
+    const refs: Array<{
+      source: string;
+      title?: string;
+      snippet?: string;
+      publishedAt?: string;
+      dimension?: string;
+      claim?: string;
+    }> = [];
+    for (const rr of researcherResults) {
+      const r = rr as {
+        dimension?: string;
+        findings?: Array<{
+          source?: string;
+          sourceTitle?: string;
+          sourceSnippet?: string;
+          sourcePublishedAt?: string;
+          claim?: string;
+        }>;
+      };
+      for (const f of r.findings ?? []) {
+        const src = f.source;
+        if (!src || seen.has(src)) continue;
+        seen.add(src);
+        refs.push({
+          source: src,
+          title: f.sourceTitle,
+          snippet: f.sourceSnippet,
+          publishedAt: f.sourcePublishedAt,
+          dimension: r.dimension,
+          claim: f.claim,
+        });
+      }
+    }
+    return refs;
+  }
+
   /** 把 Writer 的 ResearchReportSchema 产物拼成 markdown（兜底 JSON 串）。 */
   private assembleReport(report: unknown): string {
     const r = report as {
@@ -502,6 +548,10 @@ export class CompanyMissionService {
         summary: this.assembleReport(report),
         report: toJson(report),
         review: toJson(review),
+        // Tier 2 展示数据：引用（来自 researcher findings）+ 事实表 + 对账小结（来自 reconciler）
+        references: toJson(this.extractReferences(researcherResults)),
+        factTable: toJson(rec?.factTable ?? []),
+        reconciliationReport: rec?.reconciliationReport ?? "",
         themeSummary: analysis.themeSummary ?? plan.themeSummary,
         dimensions: plan.dimensions.map((d) => d.name),
         completedAt: new Date().toISOString(),

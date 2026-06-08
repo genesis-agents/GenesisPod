@@ -1,11 +1,13 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Check, FileText, ListChecks, Layers } from 'lucide-react';
+import { Check, ListChecks, Layers, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Tabs } from '@/components/ui/tabs';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table/Table';
 import { createMarkdownComponents } from '@/lib/markdown/createMarkdownComponents';
 
 /**
@@ -13,11 +15,31 @@ import { createMarkdownComponents } from '@/lib/markdown/createMarkdownComponent
  * 输入是 company mission 完成后写入的 result 形状；纯渲染、无副作用。
  */
 
+export interface MissionReference {
+  source: string;
+  title?: string;
+  snippet?: string;
+  publishedAt?: string;
+  dimension?: string;
+  claim?: string;
+}
+
+export interface MissionFact {
+  id?: string;
+  entity?: string;
+  attribute?: string;
+  value?: string;
+  sources?: string[];
+}
+
 export interface MissionReportResult {
   summary?: string;
   review?: { score?: number; verdict?: string; notes?: string[] } | null;
   dimensions?: string[];
   themeSummary?: string;
+  references?: MissionReference[];
+  factTable?: MissionFact[];
+  reconciliationReport?: string;
 }
 
 /** 深度研究流水线固定 6 阶段（展示用 rail）。 */
@@ -124,6 +146,131 @@ function SectionHeader({
   );
 }
 
+/** 短化展示 URL：去协议、截断。 */
+function shortUrl(url: string): string {
+  const noProto = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  return noProto.length > 48 ? noProto.slice(0, 48) + '…' : noProto;
+}
+
+/** 引用/参考面板：来自 researcher findings 的去重来源。 */
+function ReferencesPanel({ references }: { references: MissionReference[] }) {
+  if (references.length === 0) {
+    return (
+      <EmptyState
+        type="default"
+        size="sm"
+        title="暂无引用"
+        description="本次研究未产出可展示的来源引用"
+      />
+    );
+  }
+  const isUrl = (s: string) => /^https?:\/\//i.test(s);
+  return (
+    <ol className="max-h-[58vh] space-y-2 overflow-auto">
+      {references.map((r, i) => (
+        <li
+          key={`${r.source}-${i}`}
+          className="rounded-xl border border-gray-200 bg-white p-3"
+        >
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-[11px] font-medium text-gray-500">
+              {i + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="truncate text-sm font-medium text-gray-900">
+                  {r.title || shortUrl(r.source)}
+                </span>
+                {isUrl(r.source) && (
+                  <a
+                    href={r.source}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0 text-gray-400 hover:text-primary"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </div>
+              {r.snippet && (
+                <p className="mt-1 line-clamp-2 text-xs text-gray-500">
+                  {r.snippet}
+                </p>
+              )}
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-400">
+                {r.dimension && (
+                  <span className="rounded bg-violet-50 px-1.5 py-0.5 text-violet-600">
+                    {r.dimension}
+                  </span>
+                )}
+                {r.publishedAt && <span>{r.publishedAt}</span>}
+                <span className="truncate">{shortUrl(r.source)}</span>
+              </div>
+            </div>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** 事实表面板：reconciler 产出的 entity/attribute/value/sources 三元组。 */
+function FactTablePanel({
+  facts,
+  reconciliationReport,
+}: {
+  facts: MissionFact[];
+  reconciliationReport?: string;
+}) {
+  if (facts.length === 0) {
+    return (
+      <EmptyState
+        type="default"
+        size="sm"
+        title="暂无事实表"
+        description="对账阶段未产出结构化事实，或该任务跳过了对账"
+      />
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {reconciliationReport && (
+        <p className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 text-xs leading-relaxed text-gray-600">
+          {reconciliationReport}
+        </p>
+      )}
+      <div className="max-h-[52vh] overflow-auto rounded-xl border border-gray-200">
+        <Table className="border-collapse text-left text-xs">
+          <THead className="sticky top-0 bg-gray-50 text-gray-500">
+            <Tr>
+              <Th className="px-3 py-2 font-medium">实体</Th>
+              <Th className="px-3 py-2 font-medium">属性</Th>
+              <Th className="px-3 py-2 font-medium">取值</Th>
+              <Th className="px-3 py-2 font-medium">来源</Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {facts.map((f, i) => (
+              <Tr key={f.id ?? i} className="border-t border-gray-100">
+                <Td className="px-3 py-2 font-medium text-gray-800">
+                  {f.entity ?? '—'}
+                </Td>
+                <Td className="px-3 py-2 text-gray-600">
+                  {f.attribute ?? '—'}
+                </Td>
+                <Td className="px-3 py-2 text-gray-800">{f.value ?? '—'}</Td>
+                <Td className="px-3 py-2 text-gray-400">
+                  {(f.sources ?? []).length} 条
+                </Td>
+              </Tr>
+            ))}
+          </TBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
 export function MissionReportView({
   title,
   createdAt,
@@ -137,6 +284,14 @@ export function MissionReportView({
   const review = result?.review ?? null;
   const dimensions = result?.dimensions ?? [];
   const summary = result?.summary ?? '';
+  const references = result?.references ?? [];
+  const facts = result?.factTable ?? [];
+  const [tab, setTab] = useState<'report' | 'references' | 'facts'>('report');
+  const tabItems = [
+    { key: 'report', label: '研究报告' },
+    { key: 'references', label: '引用', count: references.length },
+    { key: 'facts', label: '事实表', count: facts.length },
+  ];
 
   return (
     <div className="space-y-5">
@@ -166,28 +321,42 @@ export function MissionReportView({
       <PipelineRail />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* 报告正文 */}
+        {/* 主体：报告 / 引用 / 事实表（tab 切换） */}
         <div className="lg:col-span-2">
-          <SectionHeader icon={<FileText className="h-4 w-4 text-primary" />}>
-            研究报告
-          </SectionHeader>
-          {summary.trim() ? (
-            <div className="max-h-[58vh] overflow-auto rounded-xl border border-gray-200 bg-white p-6 text-sm leading-relaxed text-gray-800">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={mdComponents}
-              >
-                {summary}
-              </ReactMarkdown>
-            </div>
-          ) : (
-            <EmptyState
-              type="default"
-              size="sm"
-              title="无报告正文"
-              description="该任务未生成可展示的报告内容"
-            />
-          )}
+          <Tabs
+            items={tabItems}
+            value={tab}
+            onChange={(k) => setTab(k as typeof tab)}
+          />
+          <div className="mt-3">
+            {tab === 'report' &&
+              (summary.trim() ? (
+                <div className="max-h-[58vh] overflow-auto rounded-xl border border-gray-200 bg-white p-6 text-sm leading-relaxed text-gray-800">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={mdComponents}
+                  >
+                    {summary}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <EmptyState
+                  type="default"
+                  size="sm"
+                  title="无报告正文"
+                  description="该任务未生成可展示的报告内容"
+                />
+              ))}
+            {tab === 'references' && (
+              <ReferencesPanel references={references} />
+            )}
+            {tab === 'facts' && (
+              <FactTablePanel
+                facts={facts}
+                reconciliationReport={result?.reconciliationReport}
+              />
+            )}
+          </div>
         </div>
 
         {/* 侧栏：维度 + 评审意见 */}
