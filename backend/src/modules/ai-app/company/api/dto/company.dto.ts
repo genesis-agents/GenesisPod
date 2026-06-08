@@ -92,6 +92,14 @@ export class SetTeamLeaderDto {
   hiredAgentId!: string;
 }
 
+// ─── Mission ──────────────────────────────────────────────────────────────────
+
+export class CreateMissionDto {
+  @ApiProperty({ description: "Mission title / prompt (2–200 chars)" })
+  @IsString()
+  title!: string;
+}
+
 // ─── Team workflow ────────────────────────────────────────────────────────────
 
 export class SetTeamWorkflowDto {

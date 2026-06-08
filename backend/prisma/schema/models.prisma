@@ -11277,3 +11277,22 @@ model CompanyWorkflow {
   @@index([userId])
   @@map("company_workflows")
 }
+
+// ── CompanyMission ──────────────────────────────────────────────────────────
+// W3: 团队 Mission 持久化记录（一人公司 OS 任务执行记录）
+model CompanyMission {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  teamId    String   @map("team_id")
+  title     String
+  /// queued | running | review | done | failed
+  status    String   @default("queued")
+  progress  Int      @default(0)
+  result    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([teamId])
+  @@map("company_missions")
+}

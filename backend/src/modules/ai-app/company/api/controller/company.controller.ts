@@ -33,16 +33,24 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Request,
   UseGuards,
 } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from "@nestjs/swagger";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "@/common/types/express-request.types";
 import { CompanyService } from "../../services/company.service";
+import { CompanyMissionService } from "../../services/company-mission.service";
 import {
   AcquireWorkflowDto,
   AddTeamMemberDto,
+  CreateMissionDto,
   CreateTeamDto,
   HireAgentDto,
   SetCeoDto,
@@ -58,7 +66,10 @@ import {
 @UseGuards(JwtAuthGuard)
 @Controller("company")
 export class CompanyController {
-  constructor(private readonly companyService: CompanyService) {}
+  constructor(
+    private readonly companyService: CompanyService,
+    private readonly missionService: CompanyMissionService,
+  ) {}
 
   // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -251,5 +262,31 @@ export class CompanyController {
     @Param("id") id: string,
   ): Promise<void> {
     await this.companyService.deleteWorkflow(this.getUserId(req), id);
+  }
+
+  // ── missions ───────────────────────────────────────────────────────────────
+
+  @Post("teams/:id/missions")
+  @ApiOperation({ summary: "为团队创建并启动 Mission" })
+  async createMission(
+    @Request() req: RequestWithUser,
+    @Param("id") teamId: string,
+    @Body() dto: CreateMissionDto,
+  ) {
+    return this.missionService.createMission(
+      this.getUserId(req),
+      teamId,
+      dto.title,
+    );
+  }
+
+  @Get("missions")
+  @ApiOperation({ summary: "获取 Mission 列表（可按 teamId 过滤）" })
+  @ApiQuery({ name: "teamId", required: false, description: "按团队 ID 过滤" })
+  async listMissions(
+    @Request() req: RequestWithUser,
+    @Query("teamId") teamId?: string,
+  ) {
+    return this.missionService.listMissions(this.getUserId(req), teamId);
   }
 }
