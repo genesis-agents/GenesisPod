@@ -1,11 +1,23 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Send, Play, CircleDot, CheckCircle2, Loader2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils/common';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Modal } from '@/components/ui/dialogs/Modal';
+import { StatusBadge } from '@/components/ui/badges';
+import { createMarkdownComponents } from '@/lib/markdown/createMarkdownComponents';
 import { useCompanyStore } from '@/stores/company/companyStore';
 import { useCompanyMissionStream } from '@/hooks/features/useCompanyMissionStream';
+
+/** company mission 完成后存进 result 的形状（company-mission.service runDeepdiveMission）。 */
+interface MissionResult {
+  summary?: string;
+  review?: { score?: number; verdict?: string; notes?: string[] } | null;
+  dimensions?: string[];
+}
 
 type Tone = 'info' | 'leader' | 'member' | 'success' | 'error';
 interface StreamEvent {
@@ -82,6 +94,9 @@ export function MissionRunView() {
   const [teamId, setTeamId] = useState<string>(teams[0]?.id ?? '');
   const [title, setTitle] = useState('');
   const [events, setEvents] = useState<StreamEvent[]>([]);
+  // 点开查看的已完成任务（渲染研究报告）
+  const [reportMissionId, setReportMissionId] = useState<string | null>(null);
+  const mdComponents = useMemo(() => createMarkdownComponents((t) => t), []);
   const [running, setRunning] = useState(false);
   // 当前正在监听的 missionId（null = 未下达）
   const [activeMissionId, setActiveMissionId] = useState<string | null>(null);
@@ -301,17 +316,23 @@ export function MissionRunView() {
             <div className="space-y-2">
               {missions.slice(0, 8).map((m) => {
                 const team = teams.find((t) => t.id === m.teamId);
+                const done = m.status === 'done';
                 return (
                   <div
                     key={m.id}
-                    className="rounded-lg border border-gray-200 bg-white p-3"
+                    onClick={() => done && setReportMissionId(m.id)}
+                    className={cn(
+                      'rounded-lg border border-gray-200 bg-white p-3',
+                      done &&
+                        'cursor-pointer transition-colors hover:border-primary hover:bg-primary/5'
+                    )}
                   >
                     <div className="flex items-center justify-between text-sm">
                       <span className="truncate font-medium text-gray-900">
                         {m.title}
                       </span>
                       <span className="flex-shrink-0 text-xs text-gray-400">
-                        {m.progress}%
+                        {done ? '查看报告' : `${m.progress}%`}
                       </span>
                     </div>
                     <div className="mt-0.5 text-xs text-gray-400">
@@ -337,6 +358,95 @@ export function MissionRunView() {
           )}
         </div>
       </div>
+
+      <MissionReportModal
+        mission={missions.find((m) => m.id === reportMissionId) ?? null}
+        mdComponents={mdComponents}
+        onClose={() => setReportMissionId(null)}
+      />
     </div>
+  );
+}
+
+/** 研究报告查看：渲染深度研究流水线产出的 markdown 报告 + 评审结论。 */
+function MissionReportModal({
+  mission,
+  mdComponents,
+  onClose,
+}: {
+  mission: { title: string; result?: unknown } | null;
+  mdComponents: ReturnType<typeof createMarkdownComponents>;
+  onClose: () => void;
+}) {
+  if (!mission) return null;
+  const result = (mission.result ?? {}) as MissionResult;
+  const review = result.review ?? null;
+  const verdictTone =
+    review?.verdict === 'approve'
+      ? 'success'
+      : review?.verdict === 'reject'
+        ? 'danger'
+        : 'warning';
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="xl"
+      title={mission.title}
+      subtitle="研究报告"
+    >
+      <div className="space-y-4">
+        {(review || result.dimensions?.length) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {typeof review?.score === 'number' && (
+              <StatusBadge
+                tone={verdictTone}
+                label={`评审 ${review.score} 分 · ${review.verdict ?? ''}`}
+              />
+            )}
+            {result.dimensions?.map((d) => (
+              <span
+                key={d}
+                className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+              >
+                {d}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {result.summary ? (
+          <div className="max-h-[60vh] overflow-auto rounded-xl border border-gray-200 bg-white p-5 text-sm leading-relaxed text-gray-800">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={mdComponents}
+            >
+              {result.summary}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <EmptyState
+            type="default"
+            size="sm"
+            title="无报告内容"
+            description="该任务没有生成可展示的报告正文"
+          />
+        )}
+
+        {review?.notes && review.notes.length > 0 && (
+          <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+            <p className="mb-1.5 text-xs font-semibold text-gray-700">
+              评审意见
+            </p>
+            <ul className="list-disc space-y-1 pl-4 text-xs text-gray-600">
+              {review.notes.map((n, i) => (
+                <li key={i}>{n}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }

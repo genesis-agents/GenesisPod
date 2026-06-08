@@ -85,6 +85,8 @@ export interface CompanyMission {
   /** 0–100 */
   progress: number;
   createdAt: number;
+  /** 完成后的产物（深度研究报告 / 评审 / 维度等），由 mission runner 写入。 */
+  result?: unknown;
 }
 
 /** 后端 CompanyMission 原始形状（Prisma 返回，createdAt 为 ISO 字符串） */
@@ -197,6 +199,7 @@ function adaptMission(m: BackendMission): CompanyMission {
     status,
     progress: m.progress,
     createdAt: new Date(m.createdAt).getTime(),
+    result: m.result,
   };
 }
 
