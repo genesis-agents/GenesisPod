@@ -414,26 +414,47 @@ export class CompanyMissionService {
       stage: "planning",
       status: "started",
     });
+    // 逐步骤执行记录（前端任务详情的"执行步骤"表）
+    const steps: Array<{
+      label: string;
+      role: string;
+      dimension?: string;
+      status: "done" | "failed" | "skipped";
+    }> = [];
+
     const plan = await this.planDimensions(topic);
-    const researcherResults = (
-      await Promise.all(
-        plan.dimensions.map((d) =>
-          this.agentRunner
-            .run(
+    steps.push({ label: "拆解研究维度", role: "Leader", status: "done" });
+
+    const researchOutcomes = await Promise.all(
+      plan.dimensions.map(async (d) => {
+        try {
+          const out = (
+            await this.agentRunner.run(
               Researcher,
               { topic, dimension: d.name, language, withFigures: false },
               { userId },
             )
-            .then((r) => r.output)
-            .catch((err: unknown) => {
-              this.log.warn(
-                `deepdive researcher "${d.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
-              );
-              return null;
-            }),
-        ),
-      )
-    ).filter((x): x is NonNullable<typeof x> => x != null);
+          ).output;
+          return { dimension: d.name, output: out, ok: true };
+        } catch (err: unknown) {
+          this.log.warn(
+            `deepdive researcher "${d.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          return { dimension: d.name, output: null, ok: false };
+        }
+      }),
+    );
+    for (const o of researchOutcomes) {
+      steps.push({
+        label: `研究：${o.dimension}`,
+        role: "Researcher",
+        dimension: o.dimension,
+        status: o.ok ? "done" : "failed",
+      });
+    }
+    const researcherResults = researchOutcomes
+      .filter((o) => o.ok)
+      .map((o) => o.output);
     if (researcherResults.length === 0) {
       throw new Error("deepdive: all researchers failed");
     }
@@ -471,6 +492,11 @@ export class CompanyMissionService {
       overlaps?: unknown[];
       gaps?: unknown[];
     } | null;
+    steps.push({
+      label: "跨维事实对账",
+      role: "Reconciler",
+      status: reconciliation ? "done" : "skipped",
+    });
 
     const analysis = (
       await this.agentRunner.run(
@@ -493,6 +519,7 @@ export class CompanyMissionService {
       themeSummary?: string;
       contradictions?: unknown[];
     };
+    steps.push({ label: "综合洞察", role: "Analyst", status: "done" });
 
     const report = (
       await this.agentRunner.run(
@@ -510,6 +537,7 @@ export class CompanyMissionService {
         { userId },
       )
     ).output;
+    steps.push({ label: "撰写研究报告", role: "Writer", status: "done" });
     await this.updateMission(missionId, { progress: 80 });
     await this.emit("company.stage:lifecycle", missionId, userId, {
       stage: "execution",
@@ -537,6 +565,11 @@ export class CompanyMissionService {
         );
       }
     }
+    steps.push({
+      label: "质量评审",
+      role: "Reviewer",
+      status: review ? "done" : "skipped",
+    });
 
     // agent 产物是 Zod 校验过的 JSON；JSON-clone 成 Prisma 可存的 JsonValue
     const toJson = (v: unknown): Prisma.InputJsonValue =>
@@ -552,6 +585,8 @@ export class CompanyMissionService {
         references: toJson(this.extractReferences(researcherResults)),
         factTable: toJson(rec?.factTable ?? []),
         reconciliationReport: rec?.reconciliationReport ?? "",
+        // 逐步骤执行表（前端任务详情）
+        steps: toJson(steps),
         themeSummary: analysis.themeSummary ?? plan.themeSummary,
         dimensions: plan.dimensions.map((d) => d.name),
         completedAt: new Date().toISOString(),

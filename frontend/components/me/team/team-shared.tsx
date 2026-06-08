@@ -1,6 +1,6 @@
 'use client';
 
-import { Crown, Star } from 'lucide-react';
+import { Crown, Star, Users } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import {
   useCompanyStore,
@@ -77,9 +77,15 @@ export function ManagementOrgChart({
   const byId = (id: string | null) =>
     id ? (hired.find((h) => h.instanceId === id) ?? null) : null;
   const ceo = byId(ceoId);
-  const leaders = teams
-    .map((t) => ({ team: t, leader: byId(t.leaderId) }))
-    .filter((x) => x.leader);
+  // 所有团队都进组织图：Leader 优先取 leaderId，缺省回退到首个可解析成员；
+  // 无 Leader 也要显示该团队（之前过滤掉无 Leader 的团队 → 团队在组织架构隐身）。
+  const resolvedMembers = (t: { memberIds: string[] }) =>
+    t.memberIds.filter((id) => hired.some((h) => h.instanceId === id));
+  const teamNodes = teams.map((t) => {
+    const members = resolvedMembers(t);
+    const leader = byId(t.leaderId) ?? byId(members[0] ?? null);
+    return { team: t, leader, memberCount: members.length };
+  });
 
   return (
     <div className="rounded-xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-5">
@@ -114,12 +120,12 @@ export function ManagementOrgChart({
           </div>
         )}
 
-        {leaders.length > 0 && <div className="h-4 w-px bg-slate-300" />}
+        {teamNodes.length > 0 && <div className="h-4 w-px bg-slate-300" />}
 
-        {/* Leaders（传入 onSelectTeam 时可点击跳转到该团队）*/}
-        {leaders.length > 0 && (
+        {/* 各团队（传入 onSelectTeam 时可点击跳转到该团队）*/}
+        {teamNodes.length > 0 && (
           <div className="flex flex-wrap items-start justify-center gap-3">
-            {leaders.map(({ team, leader }) => (
+            {teamNodes.map(({ team, leader, memberCount }) => (
               <button
                 key={team.id}
                 type="button"
@@ -131,13 +137,22 @@ export function ManagementOrgChart({
                     'cursor-pointer transition-colors hover:border-slate-300 hover:bg-slate-50'
                 )}
               >
-                <AgentAvatar agent={leader!} size="sm" />
+                {leader ? (
+                  <AgentAvatar agent={leader} size="sm" />
+                ) : (
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+                    <Users className="h-4 w-4" />
+                  </div>
+                )}
                 <div className="mt-1 flex items-center gap-1 text-xs font-medium text-gray-900">
-                  {leader!.name}
-                  <RoleTag kind="leader" />
+                  {leader ? leader.name : '未指定 Leader'}
+                  {leader && <RoleTag kind="leader" />}
                 </div>
                 <div className="mt-0.5 truncate text-[11px] text-gray-400">
                   {team.name}
+                </div>
+                <div className="text-[11px] text-gray-300">
+                  {memberCount} 名成员
                 </div>
               </button>
             ))}

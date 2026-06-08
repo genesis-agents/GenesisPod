@@ -32,6 +32,13 @@ export interface MissionFact {
   sources?: string[];
 }
 
+export interface MissionStep {
+  label: string;
+  role: string;
+  dimension?: string;
+  status: 'done' | 'failed' | 'skipped';
+}
+
 export interface MissionReportResult {
   summary?: string;
   review?: { score?: number; verdict?: string; notes?: string[] } | null;
@@ -40,6 +47,7 @@ export interface MissionReportResult {
   references?: MissionReference[];
   factTable?: MissionFact[];
   reconciliationReport?: string;
+  steps?: MissionStep[];
 }
 
 /** 深度研究流水线固定 6 阶段（展示用 rail）。 */
@@ -331,6 +339,68 @@ function FactTablePanel({
   );
 }
 
+/** 执行步骤表：deepdive 每个 Agent 步骤一行（负责人/维度/状态）。 */
+function StepTablePanel({ steps }: { steps: MissionStep[] }) {
+  if (steps.length === 0) {
+    return (
+      <EmptyState
+        type="default"
+        size="sm"
+        title="暂无执行步骤"
+        description="该任务未记录逐步骤执行轨迹"
+      />
+    );
+  }
+  const meta = (s: MissionStep['status']) =>
+    s === 'done'
+      ? { label: '已完成', cls: 'bg-green-50 text-green-600' }
+      : s === 'failed'
+        ? { label: '失败', cls: 'bg-red-50 text-red-600' }
+        : { label: '跳过', cls: 'bg-gray-100 text-gray-500' };
+  return (
+    <div className="max-h-[58vh] overflow-auto rounded-xl border border-gray-200">
+      <Table className="text-left text-xs">
+        <THead className="sticky top-0 bg-gray-50 text-gray-500">
+          <Tr>
+            <Th className="px-3 py-2 font-medium">#</Th>
+            <Th className="px-3 py-2 font-medium">步骤</Th>
+            <Th className="px-3 py-2 font-medium">负责人</Th>
+            <Th className="px-3 py-2 font-medium">维度</Th>
+            <Th className="px-3 py-2 font-medium">状态</Th>
+          </Tr>
+        </THead>
+        <TBody>
+          {steps.map((s, i) => {
+            const m = meta(s.status);
+            return (
+              <Tr key={i} className="border-t border-gray-100">
+                <Td className="px-3 py-2 text-gray-400">{i + 1}</Td>
+                <Td className="px-3 py-2 font-medium text-gray-800">
+                  {s.label}
+                </Td>
+                <Td className="px-3 py-2 text-gray-600">{s.role}</Td>
+                <Td className="px-3 py-2 text-gray-500">
+                  {s.dimension ?? '—'}
+                </Td>
+                <Td className="px-3 py-2">
+                  <span
+                    className={cn(
+                      'rounded px-1.5 py-0.5 text-xs font-medium',
+                      m.cls
+                    )}
+                  >
+                    {m.label}
+                  </span>
+                </Td>
+              </Tr>
+            );
+          })}
+        </TBody>
+      </Table>
+    </div>
+  );
+}
+
 /** 团队流程 DAG：deepdive 6 个 Agent 的协作链路 + 真实数据标注。 */
 function MissionFlowPanel({
   dimensionCount,
@@ -452,10 +522,12 @@ export function MissionReportView({
   const summary = result?.summary ?? '';
   const references = result?.references ?? [];
   const facts = result?.factTable ?? [];
-  const [tab, setTab] = useState<'report' | 'references' | 'facts' | 'flow'>(
-    'report'
-  );
+  const steps = result?.steps ?? [];
+  const [tab, setTab] = useState<
+    'steps' | 'report' | 'references' | 'facts' | 'flow'
+  >('steps');
   const tabItems = [
+    { key: 'steps', label: '执行步骤', count: steps.length },
     { key: 'report', label: '研究报告' },
     { key: 'references', label: '引用', count: references.length },
     { key: 'facts', label: '事实表', count: facts.length },
@@ -498,6 +570,7 @@ export function MissionReportView({
             onChange={(k) => setTab(k as typeof tab)}
           />
           <div className="mt-3">
+            {tab === 'steps' && <StepTablePanel steps={steps} />}
             {tab === 'report' &&
               (summary.trim() ? (
                 <div className="max-h-[58vh] overflow-auto rounded-xl border border-gray-200 bg-white p-6 text-sm leading-relaxed text-gray-800">
