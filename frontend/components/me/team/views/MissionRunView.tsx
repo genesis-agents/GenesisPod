@@ -9,7 +9,9 @@ import { useCompanyStore } from '@/stores/company/companyStore';
 import { useCompanyMissionStream } from '@/hooks/features/useCompanyMissionStream';
 import {
   MissionReportView,
+  MissionLiveRail,
   type MissionReportResult,
+  type LiveStageStatus,
 } from '@/components/me/team/mission/MissionReportView';
 
 type Tone = 'info' | 'leader' | 'member' | 'success' | 'error';
@@ -89,6 +91,10 @@ export function MissionRunView() {
   const [events, setEvents] = useState<StreamEvent[]>([]);
   // 点开查看的已完成任务（渲染研究报告）
   const [reportMissionId, setReportMissionId] = useState<string | null>(null);
+  // 运行中实时阶段状态（规划/执行/评审）
+  const [stageStatus, setStageStatus] = useState<
+    Record<string, LiveStageStatus>
+  >({});
   const [running, setRunning] = useState(false);
   // 当前正在监听的 missionId（null = 未下达）
   const [activeMissionId, setActiveMissionId] = useState<string | null>(null);
@@ -134,6 +140,12 @@ export function MissionRunView() {
         setMissionProgress(activeMissionId, 0, 'running');
       } else if (e.type === 'company.stage:lifecycle') {
         const p = e.payload as { stage?: string; status?: string };
+        if (p.stage) {
+          setStageStatus((s) => ({
+            ...s,
+            [p.stage!]: p.status === 'completed' ? 'done' : 'active',
+          }));
+        }
         if (p.status === 'completed') {
           const stageIndex = Object.keys(STAGE_LABELS).indexOf(p.stage ?? '');
           const total = Object.keys(STAGE_LABELS).length;
@@ -146,6 +158,11 @@ export function MissionRunView() {
           }
         }
       } else if (e.type === 'company.mission:completed') {
+        setStageStatus({
+          planning: 'done',
+          execution: 'done',
+          review: 'done',
+        });
         setMissionProgress(activeMissionId, 100, 'done');
         if (runningRef.current) {
           setRunning(false);
@@ -168,6 +185,7 @@ export function MissionRunView() {
     const taskTitle = title.trim();
     setTitle('');
     setEvents([]);
+    setStageStatus({ planning: 'active' });
     setActiveMissionId(null);
     processedTsRef.current = 0;
     setRunning(true);
@@ -252,6 +270,11 @@ export function MissionRunView() {
           </p>
         )}
       </div>
+
+      {/* 运行中实时阶段进度 */}
+      {(activeMissionId || events.length > 0) && (
+        <MissionLiveRail status={stageStatus} />
+      )}
 
       {/* 实时协作流 */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">

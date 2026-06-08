@@ -131,6 +131,66 @@ function PipelineRail() {
   );
 }
 
+export type LiveStageStatus = 'pending' | 'active' | 'done';
+
+const LIVE_STAGES = [
+  { key: 'planning', label: '规划' },
+  { key: 'execution', label: '执行' },
+  { key: 'review', label: '评审' },
+] as const;
+
+/**
+ * 实时阶段进度 rail —— 运行中由 WS 事件驱动（规划/执行/评审）。
+ * active 阶段脉冲高亮，done 打勾，pending 灰。
+ */
+export function MissionLiveRail({
+  status,
+}: {
+  status: Partial<Record<string, LiveStageStatus>>;
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-3">
+      {LIVE_STAGES.map((s, i) => {
+        const st = status[s.key] ?? 'pending';
+        return (
+          <div key={s.key} className="flex flex-1 items-center gap-1">
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium',
+                  st === 'done'
+                    ? 'bg-primary text-primary-foreground'
+                    : st === 'active'
+                      ? 'animate-pulse bg-primary/10 text-primary ring-2 ring-primary'
+                      : 'bg-gray-100 text-gray-400'
+                )}
+              >
+                {st === 'done' ? <Check className="h-4 w-4" /> : i + 1}
+              </div>
+              <span
+                className={cn(
+                  'text-sm font-medium',
+                  st === 'pending' ? 'text-gray-400' : 'text-gray-800'
+                )}
+              >
+                {s.label}
+              </span>
+            </div>
+            {i < LIVE_STAGES.length - 1 && (
+              <div
+                className={cn(
+                  'h-px flex-1',
+                  st === 'done' ? 'bg-primary/40' : 'bg-gray-200'
+                )}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function SectionHeader({
   icon,
   children,
