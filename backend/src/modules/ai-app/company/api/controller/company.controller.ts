@@ -52,6 +52,7 @@ import {
   InstantiateTeamFromWorkflowDto,
   AddTeamMemberDto,
   CreateMissionDto,
+  RenameMissionDto,
   CreateTeamDto,
   HireAgentDto,
   SetCeoDto,
@@ -302,5 +303,26 @@ export class CompanyController {
     @Query("teamId") teamId?: string,
   ) {
     return this.missionService.listMissions(this.getUserId(req), teamId);
+  }
+
+  @Patch("missions/:id")
+  @ApiOperation({ summary: "重命名 Mission" })
+  async renameMission(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+    @Body() dto: RenameMissionDto,
+  ) {
+    await this.missionService.renameMission(this.getUserId(req), id, dto.title);
+    return { success: true };
+  }
+
+  @Delete("missions/:id")
+  @ApiOperation({ summary: "删除 Mission" })
+  async deleteMission(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
+    await this.missionService.deleteMission(this.getUserId(req), id);
+    return { success: true };
   }
 }

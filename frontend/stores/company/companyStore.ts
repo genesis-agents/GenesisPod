@@ -253,6 +253,8 @@ interface CompanyState {
   // ―― 任务 ――
   loadMissions: (teamId?: string) => Promise<void>;
   createMission: (teamId: string, title: string) => Promise<string | null>;
+  deleteMission: (missionId: string) => Promise<void>;
+  renameMission: (missionId: string, title: string) => Promise<void>;
   setMissionProgress: (
     missionId: string,
     progress: number,
@@ -694,6 +696,36 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
     } catch {
       toast.error('创建任务失败，请稍后重试');
       return null;
+    }
+  },
+
+  deleteMission: async (missionId) => {
+    // 乐观删除：先从本地移除，失败再回滚
+    const prev = get().missions;
+    set({ missions: prev.filter((m) => m.id !== missionId) });
+    try {
+      await apiClient.delete(
+        `/company/missions/${encodeURIComponent(missionId)}`
+      );
+    } catch {
+      set({ missions: prev });
+      toast.error('删除任务失败，请稍后重试');
+    }
+  },
+
+  renameMission: async (missionId, title) => {
+    const prev = get().missions;
+    set({
+      missions: prev.map((m) => (m.id === missionId ? { ...m, title } : m)),
+    });
+    try {
+      await apiClient.patch(
+        `/company/missions/${encodeURIComponent(missionId)}`,
+        { title }
+      );
+    } catch {
+      set({ missions: prev });
+      toast.error('重命名失败，请稍后重试');
     }
   },
 

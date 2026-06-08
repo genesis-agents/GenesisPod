@@ -131,6 +131,25 @@ export class CompanyMissionService {
     });
   }
 
+  /** 删除一条 mission（按 userId 归属校验，防越权删他人任务）。 */
+  async deleteMission(userId: string, missionId: string): Promise<void> {
+    await this.prisma.companyMission.deleteMany({
+      where: { id: missionId, userId },
+    });
+  }
+
+  /** 重命名 mission 标题（按 userId 归属校验）。 */
+  async renameMission(
+    userId: string,
+    missionId: string,
+    title: string,
+  ): Promise<void> {
+    await this.prisma.companyMission.updateMany({
+      where: { id: missionId, userId },
+      data: { title },
+    });
+  }
+
   // ── internal runner ────────────────────────────────────────────────────────
 
   /**

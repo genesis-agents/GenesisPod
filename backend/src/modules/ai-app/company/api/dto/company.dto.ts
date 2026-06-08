@@ -100,6 +100,12 @@ export class CreateMissionDto {
   title!: string;
 }
 
+export class RenameMissionDto {
+  @ApiProperty({ description: "New mission title" })
+  @IsString()
+  title!: string;
+}
+
 // ─── Team workflow ────────────────────────────────────────────────────────────
 
 export class SetTeamWorkflowDto {
