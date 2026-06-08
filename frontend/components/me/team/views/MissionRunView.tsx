@@ -196,6 +196,18 @@ export function MissionRunView() {
         createdAt={reportMission.createdAt}
         result={reportMission.result as MissionReportResult}
         onBack={() => setReportMissionId(null)}
+        onRerun={() => {
+          void createMission(reportMission.teamId, reportMission.title).then(
+            (id) => {
+              if (id) setActiveMissionId(id);
+            }
+          );
+          setReportMissionId(null);
+        }}
+        onDelete={() => {
+          void deleteMission(reportMission.id);
+          setReportMissionId(null);
+        }}
       />
     );
   }

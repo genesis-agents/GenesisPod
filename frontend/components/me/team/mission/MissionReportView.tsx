@@ -14,8 +14,6 @@ import {
   ChevronLeft,
   Crown,
   Search,
-  GitMerge,
-  Lightbulb,
   PenLine,
   Gavel,
   type LucideIcon,
@@ -27,10 +25,15 @@ import { StatusBadge, type BadgeTone } from '@/components/ui/badges';
 import {
   MissionDetailFrame,
   MissionTaskList,
-  RoleCard,
+  MissionActionGroup,
   type MissionTaskColumn,
-  type RoleCardStatus,
+  type MissionActionButtonSpec,
 } from '@/components/common/mission-detail';
+import {
+  TeamTopologyCanvas,
+  type TeamTopologyNode,
+  type TeamTopologyConnection,
+} from '@/components/common/team-topology';
 // MissionDetailFrame 内部用 canonical <Tabs> 渲染 tab 条；此处保留导入让
 // audit-ui-discipline R7 识别本页用的是 canonical Tab 体系（不是自写 strip）。
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -91,58 +94,6 @@ const TABS: { key: TabKey; label: string; Icon: LucideIcon }[] = [
   { key: 'references', label: '参考文献', Icon: Layers },
   { key: 'facts', label: '事实表', Icon: Database },
   { key: 'cost', label: '算力消耗', Icon: Coins },
-];
-
-/** deepdive 六个 Agent 角色的展示元信息（左栏 RoleCard 用）。 */
-const ROLE_META: Record<
-  string,
-  { label: string; icon: LucideIcon; iconClass: string; caption: string }
-> = {
-  Leader: {
-    label: 'Leader',
-    icon: Crown,
-    iconClass: 'bg-amber-50 text-amber-600',
-    caption: '拆解研究维度、制定执行计划',
-  },
-  Researcher: {
-    label: 'Researcher',
-    icon: Search,
-    iconClass: 'bg-blue-50 text-blue-600',
-    caption: '并发搜证，产出结构化 findings',
-  },
-  Reconciler: {
-    label: 'Reconciler',
-    icon: GitMerge,
-    iconClass: 'bg-violet-50 text-violet-600',
-    caption: '跨维度事实核对、冲突消解',
-  },
-  Analyst: {
-    label: 'Analyst',
-    icon: Lightbulb,
-    iconClass: 'bg-purple-50 text-purple-600',
-    caption: '提炼跨维洞察、识别矛盾',
-  },
-  Writer: {
-    label: 'Writer',
-    icon: PenLine,
-    iconClass: 'bg-emerald-50 text-emerald-600',
-    caption: '结构化成稿（ResearchReport）',
-  },
-  Reviewer: {
-    label: 'Reviewer',
-    icon: Gavel,
-    iconClass: 'bg-rose-50 text-rose-600',
-    caption: '多维质量评分与结论',
-  },
-};
-
-const ROLE_ORDER = [
-  'Leader',
-  'Researcher',
-  'Reconciler',
-  'Analyst',
-  'Writer',
-  'Reviewer',
 ];
 
 type Verdict = 'approve' | 'revise' | 'reject' | string;
@@ -486,11 +437,17 @@ export function MissionReportView({
   createdAt,
   result,
   onBack,
+  onRerun,
+  onDelete,
 }: {
   title: string;
   createdAt?: number;
   result?: MissionReportResult;
   onBack?: () => void;
+  /** 重新下发同一任务（用相同团队 + 标题起一个新 mission） */
+  onRerun?: () => void;
+  /** 删除该 mission */
+  onDelete?: () => void;
 }) {
   const mdComponents = useMemo(() => createMarkdownComponents((t) => t), []);
   const review = result?.review ?? null;
@@ -503,21 +460,99 @@ export function MissionReportView({
   const [activeTab, setActiveTab] = useState<TabKey>('tasks');
   const [leftCollapsed, setLeftCollapsed] = useState(false);
 
-  // 按角色聚合步骤 → 左栏 RoleCard
-  const roleGroups = useMemo(() => {
-    const map = new Map<string, MissionStep[]>();
-    for (const s of steps) {
-      const k = s.role || '其他';
-      const arr = map.get(k);
-      if (arr) arr.push(s);
-      else map.set(k, [s]);
-    }
-    return [...map.entries()].sort((a, b) => {
-      const ia = ROLE_ORDER.indexOf(a[0]);
-      const ib = ROLE_ORDER.indexOf(b[0]);
-      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  // ── 组织架构图（canonical TeamTopologyCanvas，与 playground 同款 DAG）──
+  //   Leader → 每个维度一个 Researcher（fan-out）→ Writer / Reviewer。
+  //   mission 已完成 → 全部节点 completed。
+  const topo = useMemo(() => {
+    const dimNames =
+      dimensions.length > 0
+        ? dimensions
+        : steps
+            .filter((s) => s.role === 'Researcher')
+            .map((s, i) => s.dimension ?? `维度 ${i + 1}`);
+    const nodes: TeamTopologyNode[] = [
+      {
+        id: 'leader',
+        name: 'Leader',
+        role: 'leader',
+        icon: Crown,
+        status: 'completed',
+        colorKey: 'purple',
+        isLeader: true,
+        avatarRole: 'leader',
+      },
+    ];
+    const researcherIds: string[] = [];
+    dimNames.forEach((d, i) => {
+      const id = `researcher#${i}`;
+      researcherIds.push(id);
+      nodes.push({
+        id,
+        name: d.length > 8 ? d.slice(0, 7) + '…' : d,
+        role: 'researcher',
+        icon: Search,
+        status: 'completed',
+        statusLabel: '研究完成',
+        colorKey: 'blue',
+        avatarRole: 'researcher',
+      });
     });
-  }, [steps]);
+    nodes.push(
+      {
+        id: 'writer',
+        name: 'Writer',
+        role: 'writer',
+        icon: PenLine,
+        status: 'completed',
+        colorKey: 'rose',
+        avatarRole: 'writer',
+      },
+      {
+        id: 'reviewer',
+        name: 'Reviewer',
+        role: 'reviewer',
+        icon: Gavel,
+        status: 'completed',
+        colorKey: 'emerald',
+        avatarRole: 'reviewer',
+      }
+    );
+    const connections: TeamTopologyConnection[] = [
+      ...researcherIds.map((id) => ({ from: 'leader', to: id })),
+      { from: 'leader', to: 'writer' },
+      { from: 'leader', to: 'reviewer' },
+    ];
+    const expanded = researcherIds.length > 1;
+    return {
+      nodes,
+      connections,
+      rows: [['leader'], researcherIds, ['writer', 'reviewer']],
+      viewBoxHeight: expanded ? 240 : 200,
+      rowYPositions: expanded ? [40, 130, 215] : [40, 110, 175],
+      agentCount: nodes.length,
+    };
+  }, [dimensions, steps]);
+
+  // 底部操作按钮（canonical MissionActionGroup，playground 同款）
+  const actionButtons: MissionActionButtonSpec[] = [];
+  if (onRerun) {
+    actionButtons.push({
+      variant: 'primary',
+      emoji: '▶',
+      label: '重新下发',
+      title: '用相同团队 + 任务标题起一个新 mission',
+      onClick: onRerun,
+    });
+  }
+  if (onDelete) {
+    actionButtons.push({
+      variant: 'danger',
+      emoji: '⏹',
+      label: '删除',
+      title: '删除该任务及其报告',
+      onClick: onDelete,
+    });
+  }
 
   // ── 任务列表列定义（canonical MissionTaskList）─────────────────
   const taskColumns: MissionTaskColumn<MissionStep>[] = [
@@ -560,23 +595,44 @@ export function MissionReportView({
     },
   ];
 
-  // ── 左栏：团队构成 + 评分 + 进度 + 维度 + 评审意见 ───────────────
+  // ── 左栏：研究团队（组织架构图 + 评分/维度/评审 + 底部操作按钮）──────
   const leftPanel = (
-    <div className="flex h-full w-full flex-col overflow-y-auto">
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-        <span className="text-sm font-semibold text-gray-900">团队构成</span>
-        <button
-          type="button"
-          onClick={() => setLeftCollapsed(true)}
-          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-          title="收起团队面板"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
+    <div className="flex h-full w-full flex-col">
+      {/* header */}
+      <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          研究团队
+        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">
+            {topo.agentCount} 个 Agent
+          </span>
+          <button
+            type="button"
+            onClick={() => setLeftCollapsed(true)}
+            className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            title="收起团队面板"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 space-y-4 p-4">
-        {/* 评分 + 概览统计 */}
+      {/* 组织架构图（DAG）— 常驻 */}
+      <div className="shrink-0 border-b border-gray-100 px-3 py-3">
+        <TeamTopologyCanvas
+          nodes={topo.nodes}
+          rows={topo.rows}
+          connections={topo.connections}
+          heightClass={topo.viewBoxHeight === 240 ? 'h-[240px]' : 'h-[200px]'}
+          viewBoxHeight={topo.viewBoxHeight}
+          rowYPositions={topo.rowYPositions}
+          patternId="company-mission"
+        />
+      </div>
+
+      {/* 评分 + 维度 + 评审意见 — 滚动区 */}
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           {typeof review?.score === 'number' ? (
             <div className="flex justify-center">
@@ -607,35 +663,6 @@ export function MissionReportView({
           </div>
         </div>
 
-        {/* 角色卡 */}
-        {roleGroups.length > 0 && (
-          <div className="space-y-2">
-            {roleGroups.map(([role, group]) => {
-              const meta = ROLE_META[role];
-              const done = group.filter((s) => s.status === 'done').length;
-              const failed = group.some((s) => s.status === 'failed');
-              const status: RoleCardStatus = failed
-                ? 'failed'
-                : done === group.length
-                  ? 'completed'
-                  : 'idle';
-              return (
-                <RoleCard
-                  key={role}
-                  label={meta?.label ?? role}
-                  icon={meta?.icon ?? ListChecks}
-                  iconClass={meta?.iconClass}
-                  status={status}
-                  completedCount={done}
-                  totalCount={group.length}
-                  caption={meta?.caption}
-                />
-              );
-            })}
-          </div>
-        )}
-
-        {/* 研究维度 */}
         {dimensions.length > 0 && (
           <div>
             <SectionHeader icon={<Layers className="h-3.5 w-3.5" />}>
@@ -654,7 +681,6 @@ export function MissionReportView({
           </div>
         )}
 
-        {/* 评审意见 */}
         {review?.notes && review.notes.length > 0 && (
           <div>
             <SectionHeader icon={<Gavel className="h-3.5 w-3.5" />}>
@@ -671,6 +697,13 @@ export function MissionReportView({
           </div>
         )}
       </div>
+
+      {/* 底部操作按钮 — shrink-0 常驻 */}
+      {actionButtons.length > 0 && (
+        <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-3">
+          <MissionActionGroup buttons={actionButtons} />
+        </div>
+      )}
     </div>
   );
 
