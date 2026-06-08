@@ -1,13 +1,3 @@
-/**
- * Steward stage agent — barrel export
- *
- * 资源守门员，当前唯一 scope: budget-guard（预算 token / cost 阈值警告）。
- * 历史预留 scope（compliance-check / data-boundary / source-diversity）已删
- * （2026-05-15 PR-E），从未接入 orchestrator 也无 SKILL.md duty body。
- */
-
-export {
-  StewardAgent,
-  type StewardInput,
-  type StewardOutput,
-} from "./steward.agent";
+/** @deprecated 上架沉淀留桩：deep-insight 能力 agent 已挪到 marketplace 能力家。
+ *  此处 re-export 桩让 playground 存量 import 不变；后续机械步骤改 import 后删桩。 */
+export * from "@/modules/ai-app/marketplace/capabilities/deep-insight/agents/steward/index";

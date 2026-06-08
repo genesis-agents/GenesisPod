@@ -19,17 +19,17 @@
  */
 import type { z } from "zod";
 import type { AgentSpec } from "@/modules/ai-harness/facade";
-import { LeaderAgent } from "../playground/mission/agents/leader/leader.agent";
-import { ResearcherAgent } from "../playground/mission/agents/researcher/researcher.agent";
-import { AnalystAgent } from "../playground/mission/agents/analyst/analyst.agent";
-import { MissionOutlinePlannerAgent } from "../playground/mission/agents/writer/mission-outline-planner.agent";
-import { SingleShotWriterAgent } from "../playground/mission/agents/writer/single-shot-writer.agent";
-import { DimensionIntegratorAgent } from "../playground/mission/agents/writer/dimension-integrator.agent";
-import { MissionReviewerAgent } from "../playground/mission/agents/reviewer/mission-reviewer.agent";
-import { MissionCriticAgent } from "../playground/mission/agents/reviewer/mission-critic.agent";
-import { VerifierAgent } from "../playground/mission/agents/verifier/verifier.agent";
-import { ReconcilerAgent } from "../playground/mission/agents/reconciler/reconciler.agent";
-import { StewardAgent } from "../playground/mission/agents/steward/steward.agent";
+import { LeaderAgent } from "../marketplace/capabilities/deep-insight/agents/leader/leader.agent";
+import { ResearcherAgent } from "../marketplace/capabilities/deep-insight/agents/researcher/researcher.agent";
+import { AnalystAgent } from "../marketplace/capabilities/deep-insight/agents/analyst/analyst.agent";
+import { MissionOutlinePlannerAgent } from "../marketplace/capabilities/deep-insight/agents/writer/mission-outline-planner.agent";
+import { SingleShotWriterAgent } from "../marketplace/capabilities/deep-insight/agents/writer/single-shot-writer.agent";
+import { DimensionIntegratorAgent } from "../marketplace/capabilities/deep-insight/agents/writer/dimension-integrator.agent";
+import { MissionReviewerAgent } from "../marketplace/capabilities/deep-insight/agents/reviewer/mission-reviewer.agent";
+import { MissionCriticAgent } from "../marketplace/capabilities/deep-insight/agents/reviewer/mission-critic.agent";
+import { VerifierAgent } from "../marketplace/capabilities/deep-insight/agents/verifier/verifier.agent";
+import { ReconcilerAgent } from "../marketplace/capabilities/deep-insight/agents/reconciler/reconciler.agent";
+import { StewardAgent } from "../marketplace/capabilities/deep-insight/agents/steward/steward.agent";
 
 /** 一个可被 AgentRunner.run 直接执行的 @DefineAgent 类。 */
 export type AgentSpecClass = new () => AgentSpec<z.ZodType, z.ZodType>;

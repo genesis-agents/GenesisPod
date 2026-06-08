@@ -311,6 +311,18 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
         // facade (mirrors kb-query pattern). One public entry: LibraryExportService.
         // Internals (google-drive integration) remain encapsulated inside library.
         { targetApp: "library", subPathPrefix: "export/" },
+        // ★ 2026-06-08 [P1 过渡债，P2 必须清零] deep-insight 能力上架沉淀（agents 已挪入
+        //   marketplace/capabilities/deep-insight）。两个 agent 仍过渡性依赖 playground 的
+        //   私有运行配置 / 证据预算工具——属真实耦合点，待 P2 抽出能力级配置端口后删除这两条。
+        //   仅这两条窄路径放行，不放宽 playground 其余内部。
+        {
+          targetApp: "playground",
+          subPathPrefix: "runtime/playground-runtime.config",
+        },
+        {
+          targetApp: "playground",
+          subPathPrefix: "mission/artifacts/evidence-budget",
+        },
       ];
       const violations: string[] = [];
       for (const file of ALL_FILES) {
@@ -328,6 +340,11 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
           const subPath = m[2];
           if (targetApp === selfApp) continue;
           if (targetApp === "contracts") continue;
+          // ★ 2026-06-08: marketplace 是平台共享市场（design.md §4.3「市场=平台共享，去采购」）。
+          //   上架的能力本体（agents / recipe / 契约）住这里，任意 app 可按引用消费——故作为
+          //   *被 import 的目标* 豁免（同 contracts 模式）。**非对称**：不豁免 marketplace 作为
+          //   selfApp，即共享层**不得反依赖任何 app**（marketplace → ai-app/<app> 仍是违规）。
+          if (targetApp === "marketplace") continue;
           if (
             APP_LEVEL_ALLOWLIST.some(
               (a) => a.from === selfApp && a.to === targetApp,

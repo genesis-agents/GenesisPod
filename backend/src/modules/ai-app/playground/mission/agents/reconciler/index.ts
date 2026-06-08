@@ -1,7 +1,3 @@
-/**
- * Reconciliation stage agent (mission pipeline [3.5]) — barrel export
- *
- * 跨维度对账：抽事实表、检测冲突 / 重叠 / 空白、合并图候选池。
- */
-
-export { ReconcilerAgent } from "./reconciler.agent";
+/** @deprecated 上架沉淀留桩：deep-insight 能力 agent 已挪到 marketplace 能力家。
+ *  此处 re-export 桩让 playground 存量 import 不变；后续机械步骤改 import 后删桩。 */
+export * from "@/modules/ai-app/marketplace/capabilities/deep-insight/agents/reconciler/index";

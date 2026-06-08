@@ -1,15 +1,3 @@
-/**
- * Reviewer stage agents — barrel export
- *
- * 三个粒度的评审，分别对应 mission 流水线不同阶段:
- *
- *   - MissionReviewerAgent          mission 级 L3 多 judge 投票
- *   - MissionCriticAgent            mission 级 L4 独立复审（盲点 / 偏见 / 改进建议）
- *   - DimensionQualityJudgeAgent    dim 级 5-axis 评分（chapter pipeline 内，per-dim 整合后）
- *   - ForecastRedTeamAgent          foresight 级前瞻脆性对抗复核（s9c 事前验尸）
- */
-
-export { MissionReviewerAgent } from "./mission-reviewer.agent";
-export { MissionCriticAgent } from "./mission-critic.agent";
-export { DimensionQualityJudgeAgent } from "./dimension-quality-judge.agent";
-export { ForecastRedTeamAgent } from "./forecast-red-team.agent";
+/** @deprecated 上架沉淀留桩：deep-insight 能力 agent 已挪到 marketplace 能力家。
+ *  此处 re-export 桩让 playground 存量 import 不变；后续机械步骤改 import 后删桩。 */
+export * from "@/modules/ai-app/marketplace/capabilities/deep-insight/agents/reviewer/index";
