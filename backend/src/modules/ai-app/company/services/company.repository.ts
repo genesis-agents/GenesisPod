@@ -22,6 +22,24 @@ export interface CompanyTeamWithMembers extends CompanyTeam {
   members: CompanyTeamMember[];
 }
 
+/** Member with hydrated agent record — for mission execution only. */
+export interface CompanyTeamMemberWithAgent {
+  memberId: string;
+  hiredAgentId: string;
+  hiredAgent: CompanyHiredAgent;
+}
+
+/** Team with fully-hydrated member agents + optional workflow — used by mission execution. */
+export interface CompanyTeamForMission {
+  id: string;
+  userId: string;
+  name: string;
+  leaderId: string | null;
+  workflowId: string | null;
+  members: CompanyTeamMemberWithAgent[];
+  workflow: CompanyWorkflow | null;
+}
+
 // ─── input shapes ─────────────────────────────────────────────────────────────
 
 export interface CreateHiredAgentInput {
@@ -146,6 +164,56 @@ export class CompanyRepository {
       where: { id, userId },
       include: { members: true },
     });
+  }
+
+  /**
+   * findTeamForMission — read-only, hydrates each member's HiredAgent record + optional workflow.
+   * Used exclusively by CompanyMissionService.runMission.
+   */
+  async findTeamForMission(
+    teamId: string,
+    userId: string,
+  ): Promise<CompanyTeamForMission | null> {
+    const team = await this.prisma.companyTeam.findFirst({
+      where: { id: teamId, userId },
+      include: { members: true },
+    });
+    if (!team) return null;
+
+    // Hydrate each member's HiredAgent in one query
+    const agentIds = team.members.map((m) => m.hiredAgentId);
+    const agents = await this.prisma.companyHiredAgent.findMany({
+      where: { id: { in: agentIds }, userId },
+    });
+    const agentMap = new Map(agents.map((a) => [a.id, a]));
+
+    const membersWithAgents: CompanyTeamMemberWithAgent[] = team.members
+      .map((m) => {
+        const agent = agentMap.get(m.hiredAgentId);
+        if (!agent) return null;
+        return {
+          memberId: m.id,
+          hiredAgentId: m.hiredAgentId,
+          hiredAgent: agent,
+        };
+      })
+      .filter((m): m is CompanyTeamMemberWithAgent => m !== null);
+
+    const workflow = team.workflowId
+      ? await this.prisma.companyWorkflow.findFirst({
+          where: { id: team.workflowId, userId },
+        })
+      : null;
+
+    return {
+      id: team.id,
+      userId: team.userId,
+      name: team.name,
+      leaderId: team.leaderId,
+      workflowId: team.workflowId,
+      members: membersWithAgents,
+      workflow,
+    };
   }
 
   async createTeam(

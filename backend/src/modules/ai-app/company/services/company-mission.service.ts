@@ -1,30 +1,54 @@
 /**
- * CompanyMissionService — W3 团队 Mission 持久化 + 执行
+ * CompanyMissionService — W3 团队 Mission 持久化 + 真实 LLM 执行
  *
  * Responsibilities:
  *   - createMission(): 落库 company_missions 行，fire-and-forget 异步执行。
  *   - listMissions(): 按 userId / teamId 查询列表。
  *
- * 执行流程（最小化实现）：
+ * 执行流程（真实 LLM 三阶段）：
  *   1. status → 'running'，emit company.mission:started
- *   2. 推进进度 progress 0 → 33 → 66 → 100，emit company.stage:lifecycle
- *   3. status → 'done' / 'failed'，emit company.mission:completed / mission:failed
+ *   2. Stage planning  — Leader 拆解任务，emit company.stage:lifecycle {stage:'planning', ...}
+ *   3. Stage execution — 各成员依 workflow stages 轮流执行，emit company.stage:lifecycle {stage:'execution', ...}
+ *   4. Stage review    — Leader 综合评审，emit company.stage:lifecycle {stage:'review', ...}
+ *   5. status → 'done' / 'failed'，emit company.mission:completed / mission:failed
  *
- * 无可用 LLM Key 时优雅降级——只走 emit 阶段事件驱动的 mock 流，不抛异常。
+ * 无可用 LLM Key / API 错误 → catch → status 'failed' + emit company.mission:failed {message}
+ * 不得吞错伪装成功。
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { EventBus } from "@/modules/ai-harness/facade";
+import { EventBus, ChatFacade } from "@/modules/ai-harness/facade";
 import type { CompanyMission, Prisma } from "@prisma/client";
+import { AIModelType } from "@prisma/client";
+import type { CompanyHiredAgent } from "@prisma/client";
+import {
+  CompanyRepository,
+  type CompanyTeamForMission,
+} from "./company.repository";
 
-// ── 常量 ─────────────────────────────────────────────────────────────────────
+// ── local type alias so we don't need to import ChatRequest from facade types ─
 
-const MOCK_STAGES = [
-  { id: "planning", label: "规划", progressEnd: 33 },
-  { id: "execution", label: "执行", progressEnd: 66 },
-  { id: "review", label: "评审", progressEnd: 100 },
-];
+type TaskProfile = {
+  creativity?: "deterministic" | "low" | "medium" | "high";
+  outputLength?:
+    | "minimal"
+    | "short"
+    | "medium"
+    | "standard"
+    | "long"
+    | "extended";
+};
+
+/**
+ * 前端模型档位（Opus/Sonnet/Haiku 展示名）→ 引擎 modelType。
+ * 不把档位名当真实 model id 传（那会解析失败），统一走 modelType，由引擎按 TaskProfile + fallback 链选模型。
+ */
+const TIER_TO_MODEL_TYPE: Record<string, AIModelType> = {
+  Opus: AIModelType.CHAT,
+  Sonnet: AIModelType.CHAT_FAST,
+  Haiku: AIModelType.CHAT_FAST,
+};
 
 // ── service ───────────────────────────────────────────────────────────────────
 
@@ -35,6 +59,8 @@ export class CompanyMissionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventBus: EventBus,
+    private readonly chatFacade: ChatFacade,
+    private readonly companyRepository: CompanyRepository,
   ) {}
 
   // ── create + dispatch ──────────────────────────────────────────────────────
@@ -73,50 +99,96 @@ export class CompanyMissionService {
   // ── internal runner ────────────────────────────────────────────────────────
 
   /**
-   * 最小执行流：
+   * 真实三阶段执行流：
    *   queued → running → emit started
-   *   逐 stage emit lifecycle + 更新 progress
+   *   planning: Leader LLM 拆解子任务
+   *   execution: 各成员依 workflow stages 顺序执行
+   *   review:    Leader LLM 综合评审
    *   running → done/failed + emit completed/failed
-   *
-   * 无 LLM Key 时优雅降级 —— mock 阶段 emit 只推进状态，不实际调用 LLM。
    */
   private async runMission(missionId: string, userId: string): Promise<void> {
-    // 1. 状态 running
+    // 1. 查 mission 基础信息
+    const mission = await this.prisma.companyMission.findUnique({
+      where: { id: missionId },
+    });
+    if (!mission) {
+      this.log.warn(`CompanyMission ${missionId} not found, aborting run`);
+      return;
+    }
+
+    // 2. 查团队 + 成员 agent + workflow
+    const team = await this.companyRepository.findTeamForMission(
+      mission.teamId,
+      userId,
+    );
+
+    // 3. 状态 running
     await this.updateMission(missionId, { status: "running", progress: 0 });
     await this.emit("company.mission:started", missionId, userId, {
       missionId,
     });
 
     try {
-      // 2. 逐阶段推进
-      for (const stage of MOCK_STAGES) {
-        await this.emit("company.stage:lifecycle", missionId, userId, {
-          stage: stage.id,
-          status: "started",
-        });
+      // ── Stage 1: planning ───────────────────────────────────────────────
+      await this.emit("company.stage:lifecycle", missionId, userId, {
+        stage: "planning",
+        status: "started",
+      });
 
-        // 模拟阶段工作（轻量 mock — 无 LLM 调用）
-        await this.updateMission(missionId, {
-          progress: Math.floor(stage.progressEnd * 0.5),
-        });
+      const planningResult = await this.runPlanning(mission.title, team);
 
-        await this.emit("company.stage:lifecycle", missionId, userId, {
-          stage: stage.id,
-          status: "completed",
-        });
-        await this.updateMission(missionId, {
-          progress: stage.progressEnd,
-        });
-      }
+      await this.updateMission(missionId, { progress: 33 });
+      await this.emit("company.stage:lifecycle", missionId, userId, {
+        stage: "planning",
+        status: "completed",
+      });
 
-      // 3. 完成
+      // ── Stage 2: execution ──────────────────────────────────────────────
+      await this.emit("company.stage:lifecycle", missionId, userId, {
+        stage: "execution",
+        status: "started",
+      });
+
+      const executionResults = await this.runExecution(
+        mission.title,
+        planningResult,
+        team,
+      );
+
+      await this.updateMission(missionId, { progress: 66 });
+      await this.emit("company.stage:lifecycle", missionId, userId, {
+        stage: "execution",
+        status: "completed",
+      });
+
+      // ── Stage 3: review ─────────────────────────────────────────────────
+      await this.emit("company.stage:lifecycle", missionId, userId, {
+        stage: "review",
+        status: "started",
+      });
+
+      const reviewResult = await this.runReview(
+        mission.title,
+        planningResult,
+        executionResults,
+        team,
+      );
+
+      // 4. 完成
       await this.updateMission(missionId, {
         status: "done",
         progress: 100,
         result: {
-          summary: `Mission "${missionId}" completed (W3 mock run).`,
+          summary: reviewResult,
+          planningOutput: planningResult,
+          executionOutputs: executionResults,
           completedAt: new Date().toISOString(),
         },
+      });
+
+      await this.emit("company.stage:lifecycle", missionId, userId, {
+        stage: "review",
+        status: "completed",
       });
       await this.emit("company.mission:completed", missionId, userId, {
         missionId,
@@ -143,7 +215,231 @@ export class CompanyMissionService {
     }
   }
 
+  // ── Stage implementations ──────────────────────────────────────────────────
+
+  /**
+   * Stage 1: Leader 拆解任务。
+   * 返回 planning 输出文本（可为 JSON 描述子任务列表，供 execution 使用）。
+   * 无 leader 时用系统默认模型。
+   */
+  private async runPlanning(
+    missionTitle: string,
+    team: CompanyTeamForMission | null,
+  ): Promise<string> {
+    const leader = this.resolveLeader(team);
+
+    const systemPrompt = [
+      "You are the CEO and team leader of a consulting firm.",
+      "Your task is to analyze the given mission and break it down into a structured execution plan.",
+      "Identify 2–4 concrete subtasks for the team members, each with a clear objective and expected deliverable.",
+      "If a workflow is defined, align subtasks to those stages.",
+      "Output a concise plan in plain text or lightweight JSON.",
+    ].join(" ");
+
+    const userContent = [
+      `Mission: ${missionTitle}`,
+      team?.workflow
+        ? `Team workflow stages: ${team.workflow.stages.join(", ")}`
+        : "",
+      team
+        ? `Team members: ${this.describeMemberRoles(team)}`
+        : "No team configured — use general best practices.",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const req = this.buildChatRequest(
+      systemPrompt,
+      userContent,
+      leader,
+      { creativity: "medium", outputLength: "medium" },
+      "company-mission-planning",
+    );
+
+    const result = await this.chatFacade.chat(req);
+    if (result.isError) {
+      throw new Error(`Planning stage LLM error: ${result.content}`);
+    }
+    return result.content;
+  }
+
+  /**
+   * Stage 2: 各成员（或无成员时用 non-leader model）依 workflow stages 执行。
+   * 返回每个成员/阶段的产出文本数组。
+   */
+  private async runExecution(
+    missionTitle: string,
+    planningOutput: string,
+    team: CompanyTeamForMission | null,
+  ): Promise<string[]> {
+    const executionStages = this.resolveExecutionStages(team);
+    const nonLeaderMembers = this.resolveNonLeaderMembers(team);
+
+    const outputs: string[] = [];
+
+    for (let i = 0; i < executionStages.length; i++) {
+      const stageName = executionStages[i];
+      // Round-robin assign a member if available; otherwise fall back to leader/default
+      const member =
+        nonLeaderMembers.length > 0
+          ? nonLeaderMembers[i % nonLeaderMembers.length]
+          : this.resolveLeader(team);
+
+      const systemPrompt = [
+        member
+          ? `You are a ${member.role} on a consulting team.`
+          : "You are a specialist consultant.",
+        member?.skillIds.length
+          ? `Your expertise includes: ${member.skillIds.join(", ")}.`
+          : "",
+        `Your goal is to execute the "${stageName}" stage of the mission.`,
+        "Be specific, thorough, and professional.",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      const userContent = [
+        `Mission: ${missionTitle}`,
+        `Execution plan:\n${planningOutput}`,
+        `Your focus for stage "${stageName}": produce a detailed, actionable output for this stage.`,
+      ].join("\n\n");
+
+      const req = this.buildChatRequest(
+        systemPrompt,
+        userContent,
+        member,
+        { creativity: "medium", outputLength: "long" },
+        `company-mission-execution-${stageName}`,
+      );
+
+      const result = await this.chatFacade.chat(req);
+      if (result.isError) {
+        throw new Error(
+          `Execution stage "${stageName}" LLM error: ${result.content}`,
+        );
+      }
+      outputs.push(`[${stageName}]\n${result.content}`);
+    }
+
+    return outputs;
+  }
+
+  /**
+   * Stage 3: Leader 综合评审并生成最终交付。
+   * 返回综合后的 final summary 文本。
+   */
+  private async runReview(
+    missionTitle: string,
+    planningOutput: string,
+    executionOutputs: string[],
+    team: CompanyTeamForMission | null,
+  ): Promise<string> {
+    const leader = this.resolveLeader(team);
+
+    const systemPrompt = [
+      "You are the CEO reviewing your team's work.",
+      "Synthesize all stage outputs into a cohesive final deliverable.",
+      "Evaluate completeness, quality, and alignment with the original mission goal.",
+      "Produce a clear, professional final summary and any key recommendations.",
+    ].join(" ");
+
+    const userContent = [
+      `Mission: ${missionTitle}`,
+      `Planning output:\n${planningOutput}`,
+      "Team execution outputs:",
+      ...executionOutputs.map((o, i) => `--- Output ${i + 1} ---\n${o}`),
+      "\nSynthesize these into a final deliverable and provide your assessment.",
+    ].join("\n\n");
+
+    const req = this.buildChatRequest(
+      systemPrompt,
+      userContent,
+      leader,
+      { creativity: "low", outputLength: "long" },
+      "company-mission-review",
+    );
+
+    const result = await this.chatFacade.chat(req);
+    if (result.isError) {
+      throw new Error(`Review stage LLM error: ${result.content}`);
+    }
+    return result.content;
+  }
+
   // ── helpers ────────────────────────────────────────────────────────────────
+
+  /**
+   * Build a chat request from a system prompt + user content.
+   * Uses model from the agent's models array if provided, otherwise falls back to
+   * AIModelType.CHAT (let the engine select the best available model).
+   * TaskProfile is always semantic — never hardcodes temperature or maxTokens.
+   */
+  private buildChatRequest(
+    systemPrompt: string,
+    userContent: string,
+    agent: CompanyHiredAgent | null,
+    taskProfile: TaskProfile,
+    operationName: string,
+  ): Parameters<ChatFacade["chat"]>[0] {
+    // 用成员偏好档位映射到 modelType（不传档位名当真实 model id）；无偏好→CHAT
+    const tier = agent?.models?.[0];
+    const modelType: AIModelType = tier
+      ? (TIER_TO_MODEL_TYPE[tier] ?? AIModelType.CHAT)
+      : AIModelType.CHAT;
+
+    return {
+      messages: [{ role: "user" as const, content: userContent }],
+      systemPrompt,
+      taskProfile,
+      operationName,
+      modelType,
+    };
+  }
+
+  /** Resolve the leader agent (by leaderId → member lookup). Falls back to null. */
+  private resolveLeader(
+    team: CompanyTeamForMission | null,
+  ): CompanyHiredAgent | null {
+    if (!team) return null;
+    if (team.leaderId) {
+      const m = team.members.find((m) => m.hiredAgentId === team.leaderId);
+      if (m) return m.hiredAgent;
+    }
+    // Fallback: first member as leader
+    return team.members[0]?.hiredAgent ?? null;
+  }
+
+  /** Resolve non-leader members. */
+  private resolveNonLeaderMembers(
+    team: CompanyTeamForMission | null,
+  ): CompanyHiredAgent[] {
+    if (!team) return [];
+    return team.members
+      .filter((m) => m.hiredAgentId !== team.leaderId)
+      .map((m) => m.hiredAgent);
+  }
+
+  /**
+   * Execution stage IDs: use workflow.stages if defined, otherwise ["execution"].
+   * We always emit "execution" as the stage:lifecycle event name for frontend compat.
+   * The execution loop may cover one or more workflow stages internally.
+   */
+  private resolveExecutionStages(team: CompanyTeamForMission | null): string[] {
+    if (team?.workflow?.stages.length) {
+      return team.workflow.stages;
+    }
+    return ["execution"];
+  }
+
+  /** Human-readable member role summary for the leader's planning prompt. */
+  private describeMemberRoles(team: CompanyTeamForMission): string {
+    return team.members
+      .map((m) => {
+        const tag = m.hiredAgentId === team.leaderId ? "(leader)" : "";
+        return `${m.hiredAgent.name} [${m.hiredAgent.role}]${tag}`;
+      })
+      .join(", ");
+  }
 
   private async updateMission(
     id: string,
