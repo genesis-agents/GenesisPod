@@ -164,6 +164,14 @@ export class CompanyMissionService {
     });
 
     try {
+      // ★ 深度研究团队 → 真实类型化流水线（researcher→reconciler→analyst→writer→reviewer，
+      //   上游 typed 产物串接进下游 typed 入参，全程真跑 Agent + 真工具）。
+      //   非深度研究团队 → 走下方通用 chat 三阶段。
+      if (this.teamRunsDeepdive(team)) {
+        await this.runDeepdiveMission(missionId, userId, mission.title, team);
+        return;
+      }
+
       // ── Stage 1: planning ───────────────────────────────────────────────
       await this.emit("company.stage:lifecycle", missionId, userId, {
         stage: "planning",
@@ -249,6 +257,264 @@ export class CompanyMissionService {
         message,
       });
     }
+  }
+
+  // ── 真实深度研究流水线（typed 串接）─────────────────────────────────────────
+
+  /** 团队是否为"深度研究"阵型（含 researcher 叶子）→ 走真实流水线。 */
+  private teamRunsDeepdive(team: CompanyTeamForMission | null): boolean {
+    if (!team) return false;
+    return team.members.some(
+      (m) => m.hiredAgent?.listingId === "playground.researcher",
+    );
+  }
+
+  /** 从文本里抽第一段 JSON 对象，解析失败返回 null。 */
+  private safeParseJson(
+    text: string,
+  ): { themeSummary?: unknown; dimensions?: unknown } | null {
+    try {
+      const m = text.match(/\{[\s\S]*\}/);
+      return m ? (JSON.parse(m[0]) as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** 规划：把 topic 拆成 2–4 个研究维度（结构化 LLM 调用，喂 researcher / reconciler）。 */
+  private async planDimensions(topic: string): Promise<{
+    themeSummary: string;
+    dimensions: { id: string; name: string; rationale: string }[];
+  }> {
+    const systemPrompt = [
+      "You are a research lead. Break the topic into 2-4 distinct, non-overlapping research dimensions.",
+      'Respond ONLY with JSON: {"themeSummary": string, "dimensions": [{"id": string, "name": string, "rationale": string}]}.',
+    ].join(" ");
+
+    const res = await this.chatFacade.chat({
+      messages: [{ role: "user", content: `Topic: ${topic}` }],
+      systemPrompt,
+      taskProfile: { creativity: "low", outputLength: "short" },
+      modelType: AIModelType.CHAT,
+      operationName: "company-deepdive-plan",
+    });
+
+    const parsed = this.safeParseJson(res.content);
+    const rawDims = Array.isArray(parsed?.dimensions) ? parsed.dimensions : [];
+    const dimensions = rawDims
+      .filter(
+        (d): d is { id?: unknown; name: string; rationale?: unknown } =>
+          !!d && typeof (d as { name?: unknown }).name === "string",
+      )
+      .slice(0, 4)
+      .map((d, i) => ({
+        id: typeof d.id === "string" ? d.id : `dim-${i + 1}`,
+        name: String(d.name),
+        rationale: typeof d.rationale === "string" ? d.rationale : "",
+      }));
+    if (dimensions.length === 0) {
+      dimensions.push({ id: "dim-1", name: topic, rationale: "" });
+    }
+    return {
+      themeSummary:
+        typeof parsed?.themeSummary === "string" ? parsed.themeSummary : topic,
+      dimensions,
+    };
+  }
+
+  /** 把 Writer 的 ResearchReportSchema 产物拼成 markdown（兜底 JSON 串）。 */
+  private assembleReport(report: unknown): string {
+    const r = report as {
+      title?: string;
+      sections?: { heading?: string; body?: string }[];
+    } | null;
+    if (r?.sections && Array.isArray(r.sections)) {
+      const parts: string[] = [];
+      if (r.title) parts.push(`# ${r.title}`);
+      for (const s of r.sections) {
+        if (s.heading) parts.push(`## ${s.heading}`);
+        if (s.body) parts.push(s.body);
+      }
+      if (parts.length) return parts.join("\n\n");
+    }
+    return this.stringifyAgentOutput(report);
+  }
+
+  /**
+   * 真实深度研究流水线：规划 → 并发研究 → 对账 → 综合 → 写作 → 评审。
+   * 每个 worker 都是真 @DefineAgent 经 AgentRunner 真跑（researcher 带真 web-search），
+   * 上游 typed 产物直接串接进下游 typed 入参；映射到 planning/execution/review 三个
+   * 前端已知 stage 事件。reconciler / reviewer 失败可降级（不阻断 mission）。
+   */
+  private async runDeepdiveMission(
+    missionId: string,
+    userId: string,
+    topic: string,
+    _team: CompanyTeamForMission | null,
+  ): Promise<void> {
+    const Researcher = resolveAgentSpec("playground.researcher");
+    const Reconciler = resolveAgentSpec("playground.reconciler");
+    const Analyst = resolveAgentSpec("playground.analyst");
+    const Writer = resolveAgentSpec("playground.writer");
+    const Reviewer = resolveAgentSpec("playground.reviewer");
+    if (!Researcher || !Analyst || !Writer) {
+      throw new Error("deepdive core agents unavailable");
+    }
+    const language = "zh-CN" as const;
+    const depth = "standard" as const;
+
+    // ── planning: 拆维度 + 并发研究 ───────────────────────────────────────────
+    await this.emit("company.stage:lifecycle", missionId, userId, {
+      stage: "planning",
+      status: "started",
+    });
+    const plan = await this.planDimensions(topic);
+    const researcherResults = (
+      await Promise.all(
+        plan.dimensions.map((d) =>
+          this.agentRunner
+            .run(
+              Researcher,
+              { topic, dimension: d.name, language, withFigures: false },
+              { userId },
+            )
+            .then((r) => r.output)
+            .catch((err: unknown) => {
+              this.log.warn(
+                `deepdive researcher "${d.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
+              return null;
+            }),
+        ),
+      )
+    ).filter((x): x is NonNullable<typeof x> => x != null);
+    if (researcherResults.length === 0) {
+      throw new Error("deepdive: all researchers failed");
+    }
+    await this.updateMission(missionId, { progress: 40 });
+    await this.emit("company.stage:lifecycle", missionId, userId, {
+      stage: "planning",
+      status: "completed",
+    });
+
+    // ── execution: 对账 + 综合 + 写作 ─────────────────────────────────────────
+    await this.emit("company.stage:lifecycle", missionId, userId, {
+      stage: "execution",
+      status: "started",
+    });
+
+    let reconciliation: unknown = null;
+    if (Reconciler) {
+      try {
+        reconciliation = (
+          await this.agentRunner.run(
+            Reconciler,
+            { topic, language, plan, researcherResults },
+            { userId },
+          )
+        ).output;
+      } catch (err: unknown) {
+        this.log.warn(
+          `deepdive reconciler failed (degrade): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    const rec = reconciliation as {
+      reconciliationReport?: string;
+      factTable?: unknown[];
+      overlaps?: unknown[];
+      gaps?: unknown[];
+    } | null;
+
+    const analysis = (
+      await this.agentRunner.run(
+        Analyst,
+        {
+          topic,
+          language,
+          researcherResults,
+          reconciliationReport: {
+            reconciliationReport: rec?.reconciliationReport ?? "",
+            factTable: rec?.factTable ?? [],
+            overlaps: rec?.overlaps ?? [],
+            gaps: rec?.gaps ?? [],
+          },
+        },
+        { userId },
+      )
+    ).output as {
+      insights: unknown[];
+      themeSummary?: string;
+      contradictions?: unknown[];
+    };
+
+    const report = (
+      await this.agentRunner.run(
+        Writer,
+        {
+          topic,
+          depth,
+          language,
+          insights: analysis.insights,
+          themeSummary: analysis.themeSummary ?? plan.themeSummary,
+          ...(analysis.contradictions
+            ? { contradictions: analysis.contradictions }
+            : {}),
+        },
+        { userId },
+      )
+    ).output;
+    await this.updateMission(missionId, { progress: 80 });
+    await this.emit("company.stage:lifecycle", missionId, userId, {
+      stage: "execution",
+      status: "completed",
+    });
+
+    // ── review ────────────────────────────────────────────────────────────────
+    await this.emit("company.stage:lifecycle", missionId, userId, {
+      stage: "review",
+      status: "started",
+    });
+    let review: unknown = null;
+    if (Reviewer) {
+      try {
+        review = (
+          await this.agentRunner.run(
+            Reviewer,
+            { topic, language, draftReport: report },
+            { userId },
+          )
+        ).output;
+      } catch (err: unknown) {
+        this.log.warn(
+          `deepdive reviewer failed (degrade): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // agent 产物是 Zod 校验过的 JSON；JSON-clone 成 Prisma 可存的 JsonValue
+    const toJson = (v: unknown): Prisma.InputJsonValue =>
+      JSON.parse(JSON.stringify(v ?? null)) as Prisma.InputJsonValue;
+    await this.updateMission(missionId, {
+      status: "done",
+      progress: 100,
+      result: {
+        summary: this.assembleReport(report),
+        report: toJson(report),
+        review: toJson(review),
+        themeSummary: analysis.themeSummary ?? plan.themeSummary,
+        dimensions: plan.dimensions.map((d) => d.name),
+        completedAt: new Date().toISOString(),
+      },
+    });
+    await this.emit("company.stage:lifecycle", missionId, userId, {
+      stage: "review",
+      status: "completed",
+    });
+    await this.emit("company.mission:completed", missionId, userId, {
+      missionId,
+    });
+    this.log.log(`CompanyMission ${missionId} completed (real deepdive)`);
   }
 
   // ── Stage implementations ──────────────────────────────────────────────────
