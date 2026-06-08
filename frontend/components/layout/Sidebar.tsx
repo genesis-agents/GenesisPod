@@ -415,7 +415,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           {/* Section: 我的工作台 */}
           {showExpanded && (
-            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <div className="px-3 pb-0.5 pt-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
               我的工作台
             </div>
           )}
@@ -508,7 +508,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           {/* Section: Insights Hub */}
           {showExpanded && (
-            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <div className="px-3 pb-0.5 pt-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.researchAnalysis')}
             </div>
           )}
@@ -602,7 +602,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             <>
               {/* Section: Decision Studio */}
               {showExpanded && (
-                <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                <div className="px-3 pb-0.5 pt-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
                   {t('nav.sections.planningDecision')}
                 </div>
               )}
@@ -731,7 +731,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
               {/* Section: Content Studio */}
               {showExpanded && (
-                <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                <div className="px-3 pb-0.5 pt-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
                   {t('nav.sections.creativeWriting')}
                 </div>
               )}
@@ -837,7 +837,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           {sidebarAgents.length > 0 && (
             <>
               {showExpanded && (
-                <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                <div className="px-3 pb-0.5 pt-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
                   {t('nav.sections.myAgents')}
                 </div>
               )}
