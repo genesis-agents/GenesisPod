@@ -34,6 +34,25 @@ function truncate(text: string | undefined, max: number): string {
   return t.length > max ? t.slice(0, max) + "…" : t;
 }
 
+/**
+ * 基础设施型 domain：这些是某个 AI App 的内部生产管线（如 slides 渲染流水线），
+ * 不是「一人公司」用户可装配的通用方法论技能，不应出现在市场货架。
+ * 可调整：若要把某领域重新放回市场，从这里移除即可。
+ */
+const INFRA_SKILL_DOMAINS = new Set<string>(["office"]);
+
+/**
+ * engine SkillRegistry 里的 prompt 型技能适配器（PromptSkillAdapter）鸭子类型。
+ * 只有 prompt 技能才有可注入 Agent 系统提示的方法论正文；code-backed 执行单元
+ * （slides page-pipeline / content-compression 等 NestJS Provider）没有正文，
+ * 不能被装配，故不进市场。用鸭子类型避免跨 facade 导入 engine 内部类。
+ */
+interface PromptSkillLike {
+  isPromptSkillAdapter?: boolean;
+  getPromptContent?: () => string;
+  getDefinitionMetadata?: () => { allowedTools?: string[] };
+}
+
 @Injectable()
 export class MarketplaceCatalogService {
   private readonly logger = new Logger(MarketplaceCatalogService.name);
@@ -97,9 +116,23 @@ export class MarketplaceCatalogService {
       );
     }
 
-    // Source 2: engine SkillRegistry (DB-backed ISkill objects)
+    // Source 2: engine SkillRegistry
+    // 仅投影 prompt 型方法论技能（有可注入 Agent 的指令正文）；跳过 code-backed
+    // 执行单元（slides 渲染管线、playground 执行体等基础设施，无方法论正文）。
     try {
       for (const skill of this.skillRegistry.getAll()) {
+        const prompt = skill as unknown as PromptSkillLike;
+        const isPromptSkill =
+          prompt.isPromptSkillAdapter === true &&
+          typeof prompt.getPromptContent === "function";
+        if (!isPromptSkill) continue;
+
+        // 跳过某个 App 的内部生产管线领域（如 office/slides）
+        if (INFRA_SKILL_DOMAINS.has(skill.domain)) continue;
+
+        const body = prompt.getPromptContent?.() ?? "";
+        const meta = prompt.getDefinitionMetadata?.() ?? {};
+
         items.push({
           id: skill.id,
           name: skill.name,
@@ -107,8 +140,9 @@ export class MarketplaceCatalogService {
           category: skill.domain ?? "general",
           tags: skill.tags ? [...skill.tags] : [],
           activatesFor: [],
-          instructionsPreview: "",
-          allowedTools: [],
+          // 取技能真正"教什么"的指令正文（截断，避免目录响应过大）
+          instructionsPreview: truncate(body, 1200),
+          allowedTools: meta.allowedTools ? [...meta.allowedTools] : [],
         });
       }
     } catch (err) {

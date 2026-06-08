@@ -18,11 +18,8 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import {
-  EventBus,
-  ChatFacade,
-  BuiltinSkillCatalog,
-} from "@/modules/ai-harness/facade";
+import { EventBus, ChatFacade } from "@/modules/ai-harness/facade";
+import { SkillRegistry } from "@/modules/ai-engine/facade";
 import type { CompanyMission, Prisma } from "@prisma/client";
 import { AIModelType } from "@prisma/client";
 import type { CompanyHiredAgent } from "@prisma/client";
@@ -65,24 +62,30 @@ export class CompanyMissionService {
     private readonly eventBus: EventBus,
     private readonly chatFacade: ChatFacade,
     private readonly companyRepository: CompanyRepository,
-    private readonly skillCatalog: BuiltinSkillCatalog,
+    private readonly skillRegistry: SkillRegistry,
   ) {}
 
   /**
-   * 把 Agent 装配的技能（skillIds）解析回真实 ISkill，注入其 instructions 正文。
+   * 把 Agent 装配的技能（skillIds）解析回真实方法论正文，注入系统提示。
    * 这才让"选了技能"真生效——LLM 拿到的是方法论正文，不是技术 id 字符串。
+   *
+   * 数据源与市场货架一致：engine SkillRegistry 里的 prompt 型技能
+   * （PromptSkillAdapter.getPromptContent() 返回 .skill.md 正文）。
    */
   private buildSkillInstructions(skillIds: string[]): string {
     if (!skillIds.length) return "";
     const blocks: string[] = [];
     for (const id of skillIds) {
-      const skill = this.skillCatalog.get(id);
-      if (skill?.instructions) {
-        blocks.push(`## Skill: ${id}\n${skill.instructions.trim()}`);
+      const skill = this.skillRegistry.tryGet(id) as unknown as
+        | { name?: string; getPromptContent?: () => string }
+        | undefined;
+      const body = skill?.getPromptContent?.()?.trim();
+      if (body) {
+        blocks.push(`## Skill: ${skill?.name ?? id}\n${body}`);
       }
     }
     if (!blocks.length) {
-      // 装配了技能但加载不到正文（如来自 SkillRegistry）：至少声明名字
+      // 装配了技能但加载不到正文（如 code-backed 执行单元）：至少声明名字
       return `You are equipped with skills: ${skillIds.join(", ")}.`;
     }
     return `You are equipped with the following skills. Apply their methodology rigorously:\n\n${blocks.join("\n\n")}`;
