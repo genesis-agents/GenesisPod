@@ -23,8 +23,9 @@ export interface CapabilityManifest {
   /** 稳定 id —— 市场 listingId 的解析键（如 "deep-insight"）。 */
   readonly id: string;
   /**
-   * 语义版本。今天恒 "1.0.0"；未来公开市场用于 pin / 兼容协商。
-   * 解析键对外是 `${id}@${version}`，但 resolve 允许只给 id（取最新）以兼容现状。
+   * 语义版本。今天恒 "1.0.0"，resolve 只取 latest。
+   * ★ ADR 009：未来公开市场的 range 协商 / fail-fast **复用 plugin 的 coreVersionRange**，
+   *   不在此另起一套版本协商机制。
    */
   readonly version: string;
   /** 四原语类型。 */
@@ -38,8 +39,10 @@ export interface CapabilityManifest {
   /** 前端呈现面绑定键（resolveMissionKit）。 */
   readonly missionType?: string;
   /**
-   * 预留：未来公开市场的声明式权限 / 沙箱边界（如 "web-search" / "fs:read"）。
-   * 今天内部一方市场不消费；先占位，避免裸结构锁死未来。
+   * 声明式权限标签（如 "web-search"）。今天内部一方市场不强制消费。
+   * ★ ADR 009：未来公开市场的权限**枚举 + 强制 + 沙箱执行复用 plugin 的 PluginCapability
+   *   模型 + getService 门控 + sandbox-isolated-vm**——本字段只作 L3 声明，**不在此重造
+   *   一套权限/沙箱栈**。第三方 runner 那天经 plugin-backed 适配器落地（见 ADR 009）。
    */
   readonly permissions?: readonly string[];
 }
