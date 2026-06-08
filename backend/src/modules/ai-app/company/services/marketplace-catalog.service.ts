@@ -13,12 +13,16 @@ import {
   ToolRegistry,
   TeamRegistry,
   BuiltinSkillCatalog,
+  MissionPipelineRegistry,
+  readDefineAgentMeta,
 } from "@/modules/ai-harness/facade";
 import { SkillRegistry } from "@/modules/ai-engine/facade";
 import {
   PLATFORM_AGENT_IDS,
   PLATFORM_AGENT_METAS,
 } from "@/modules/ai-app/contracts/agent-catalog";
+import { readPipelineCatalogMeta } from "@/modules/ai-app/contracts/pipeline-catalog.contract";
+import { SEDIMENTED_AGENT_SPECS } from "@/modules/ai-app/contracts/agent-spec-catalog";
 import type {
   AgentCatalogItem,
   SkillCatalogItem,
@@ -53,6 +57,12 @@ interface PromptSkillLike {
   getDefinitionMetadata?: () => { allowedTools?: string[] };
 }
 
+/** "researcher" → "Researcher"（角色 id 无展示名时的兜底标题化）。 */
+function titleCaseRole(role: string): string {
+  if (!role) return role;
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
 @Injectable()
 export class MarketplaceCatalogService {
   private readonly logger = new Logger(MarketplaceCatalogService.name);
@@ -62,6 +72,8 @@ export class MarketplaceCatalogService {
     private readonly teamRegistry: TeamRegistry,
     private readonly builtinSkillCatalog: BuiltinSkillCatalog,
     private readonly skillRegistry: SkillRegistry,
+    // ★ @Global mission pipeline registry —— 投影 ai-app 各 mission 工作流 + 其角色
+    private readonly pipelineRegistry: MissionPipelineRegistry,
   ) {}
 
   getCatalog(): MarketplaceCatalog {
@@ -74,7 +86,8 @@ export class MarketplaceCatalogService {
   }
 
   getAgents(): AgentCatalogItem[] {
-    return PLATFORM_AGENT_IDS.map((id) => {
+    // Source 1: app-level platform agents (PLATFORM_AGENT_METAS).
+    const platform = PLATFORM_AGENT_IDS.map((id) => {
       const meta = PLATFORM_AGENT_METAS[id];
       return {
         id: meta.id,
@@ -89,6 +102,50 @@ export class MarketplaceCatalogService {
         defaultModel: "",
       } satisfies AgentCatalogItem;
     });
+
+    // Source 2: sedimented mission-role agents（单一源 = SEDIMENTED_AGENT_SPECS）。
+    //   SKU = 真 @DefineAgent 类，id/role/description/skills/tools 全部 readDefineAgentMeta
+    //   派生（非手写台账）。SKU id === spec id === 执行层 resolveAgentSpec 的解析键。
+    return [...platform, ...this.getSedimentedAgents()];
+  }
+
+  private getSedimentedAgents(): AgentCatalogItem[] {
+    const items: AgentCatalogItem[] = [];
+    for (const [id, SpecClass] of Object.entries(SEDIMENTED_AGENT_SPECS)) {
+      try {
+        const meta = readDefineAgentMeta(SpecClass);
+        if (!meta) continue;
+
+        const identity = meta.identity;
+        const roleRef = identity.role;
+        const role =
+          typeof roleRef === "string" ? roleRef : (roleRef?.id ?? id);
+        const description =
+          "description" in identity && typeof identity.description === "string"
+            ? identity.description
+            : "";
+        const skillIds = meta.skills ? [...meta.skills] : [];
+        const toolIds = meta.tools ? [...meta.tools] : [];
+
+        items.push({
+          id: meta.id,
+          name: titleCaseRole(role),
+          description,
+          role,
+          category: "深度研究团队",
+          tags: skillIds,
+          capabilities: skillIds,
+          skillIds,
+          toolIds,
+          defaultModel: "",
+        } satisfies AgentCatalogItem);
+      } catch (err) {
+        this.logger.warn(
+          `Sedimented agent projection failed for "${id}": ${String(err)}`,
+        );
+      }
+    }
+    return items;
   }
 
   getSkills(): SkillCatalogItem[] {
@@ -176,6 +233,13 @@ export class MarketplaceCatalogService {
   }
 
   getWorkflows(): WorkflowCatalogItem[] {
+    // Two canonical sources, both projected read-only (标准 28：不建台账):
+    //   1. TeamRegistry —— TeamConfig 阵型（research/debate/slides…）
+    //   2. MissionPipelineRegistry —— mission pipeline（playground 14 阶段 + radar/social/writing）
+    return [...this.getTeamWorkflows(), ...this.getMissionWorkflows()];
+  }
+
+  private getTeamWorkflows(): WorkflowCatalogItem[] {
     try {
       return this.teamRegistry.getAllConfigs().map((config) => {
         const memberTeamSize = config.memberRoles.reduce(
@@ -206,5 +270,38 @@ export class MarketplaceCatalogService {
       this.logger.warn(`TeamRegistry enumeration failed: ${String(err)}`);
       return [];
     }
+  }
+
+  private getMissionWorkflows(): WorkflowCatalogItem[] {
+    const items: WorkflowCatalogItem[] = [];
+    try {
+      for (const pipelineId of this.pipelineRegistry.listIds()) {
+        const config = this.pipelineRegistry.get(pipelineId);
+        const catalog = readPipelineCatalogMeta(config.meta);
+
+        // meta.catalog 提供展示信息时用之（如 playground）；缺省时优雅回退到
+        // 原始 pipeline 字段（其他 app 尚未补 catalog 元数据时仍可见，待后续按
+        // playground 模板各自归位）。
+        const fallbackDesc =
+          typeof config.meta?.description === "string"
+            ? config.meta.description
+            : "";
+
+        items.push({
+          id: config.id,
+          name: catalog?.name ?? config.id,
+          description: catalog?.description ?? fallbackDesc,
+          category: catalog?.category ?? "Mission",
+          teamSize: config.roles.length,
+          roles: config.roles.map((r) => r.id),
+          stages: catalog?.stages ?? config.steps.map((s) => s.id),
+        } satisfies WorkflowCatalogItem);
+      }
+    } catch (err) {
+      this.logger.warn(
+        `MissionPipelineRegistry enumeration failed: ${String(err)}`,
+      );
+    }
+    return items;
   }
 }

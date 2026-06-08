@@ -22,7 +22,6 @@ import {
   MissionLifecycleManager,
   MissionLivenessGuard,
   MissionPipelineOrchestrator,
-  MissionPipelineRegistry,
 } from "@/modules/ai-harness/facade";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { NotificationModule } from "../../../platform/notifications/notification.module";
@@ -159,11 +158,10 @@ import { RADAR_DOMAIN_EVENTS } from "../events/radar.events";
     RadarBriefingQueueService,
     RadarBriefingProcessor,
     DailyBriefingGeneratorService,
-    // 新框架接入 —— pipeline registry / orchestrator 必须由消费模块本地 register
-    // （MissionRuntimeShellFramework / EventBus 由 @Global HarnessModule 提供，
-    // 但 MissionPipelineRegistry / MissionPipelineOrchestrator 不是 @Global —— 跟
-    // playground / writing-team module 同模式，每个 ai-app 自行注册）
-    MissionPipelineRegistry,
+    // 新框架接入 —— orchestrator 由消费模块本地 register
+    // （MissionRuntimeShellFramework / EventBus 由 @Global HarnessModule 提供）
+    // ★ 2026-06-07: MissionPipelineRegistry 已提升为 @Global（teams.module），
+    //   不再 local-provide；dispatcher.onModuleInit 仍向同一全局单例注册本 app pipeline。
     MissionPipelineOrchestrator,
     RadarMissionStore,
     // ★ B7-2 canonical view (thinning plan §B7-2)

@@ -24,9 +24,11 @@ export {
   AgentRunner,
   AgentSpec,
   DefineAgent,
+  // ★ 2026-06-07: 市场 agent 沉淀 —— ai-app 读 @DefineAgent 元数据投影 + 解析可跑 spec
+  readDefineAgentMeta,
   FixtureStore,
 } from "../agents/dev-tools";
-export type { RunResult } from "../agents/dev-tools";
+export type { RunResult, DefineAgentOptions } from "../agents/dev-tools";
 
 // Service facade
 export { HarnessFacade } from "./harness.facade";

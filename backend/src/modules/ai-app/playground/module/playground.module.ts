@@ -44,10 +44,8 @@ import { PlaygroundBusinessOrchestrator } from "../mission/pipeline/playground-b
 import { PredictionCalibrationService } from "../mission/calibration/prediction-calibration.service";
 import { PredictionRecalibrationScheduler } from "../mission/calibration/prediction-recalibration.scheduler";
 import { PlaygroundMissionSpanService } from "../mission/pipeline/playground-mission-span.service";
-import {
-  MissionPipelineOrchestrator,
-  MissionPipelineRegistry,
-} from "@/modules/ai-harness/facade";
+// ★ 2026-06-07: MissionPipelineRegistry 已提升为 @Global（teams.module），不再 local-provide。
+import { MissionPipelineOrchestrator } from "@/modules/ai-harness/facade";
 import {
   SkillLoaderService,
   PromptSkillRegistrationService,
@@ -203,9 +201,9 @@ import {
     //   Auto-discovered via DiscoveryService at runtime
     AgentPlaygroundContentSourceProvider,
     // ★ R2-C 单轨化 (2026-05-04)：pipeline-v1 是唯一 mission 入口
-    //   dispatcher.onModuleInit 注册 PLAYGROUND_PIPELINE 到 registry
+    //   dispatcher.onModuleInit 注册 PLAYGROUND_PIPELINE 到 @Global MissionPipelineRegistry
     //   legacy TeamMission 已删除，PlaygroundRuntimeFlagService 已删除
-    MissionPipelineRegistry,
+    //   ★ 2026-06-07: MissionPipelineRegistry 已 @Global，此处不再 local-provide
     MissionPipelineOrchestrator,
     // ★ Stage 1 / S1-1 (2026-05-09): business-orch 必须在 dispatcher 之前 register,
     //   保证 dispatcher.onModuleInit 调 businessOrch.bindSessionLookup 时 instance 已存在

@@ -17,6 +17,9 @@ import {
 } from "@/modules/ai-harness/facade";
 import { loadSkill } from "@/modules/ai-engine/facade";
 import type { ZodType } from "zod";
+// ★ 2026-06-07: 市场投影展示元数据（标准 28）—— display 信息归位到本 config 的
+//   meta.catalog（单源），company 市场目录据此投影，不另建台账。
+import type { PipelineCatalogMeta } from "@/modules/ai-app/contracts/pipeline-catalog.contract";
 
 /**
  * 把 SKILL.md frontmatter + 整个 markdown body 装成最小 ISkillExecSpec；
@@ -55,6 +58,34 @@ function buildSkillSpecFromMd(agentDir: string): ResolvedRole["skillSpec"] {
     },
   };
 }
+
+/**
+ * 工作流货架的市场投影展示元数据。stages 数量与 PLAYGROUND_PIPELINE.steps 对齐 ——
+ * 由 __tests__/playground-catalog.spec.ts 守护防漂移。
+ * 注：角色 agent 不在此登记 —— 由 contracts/agent-spec-catalog.ts 的真 @DefineAgent
+ * 类经 readDefineAgentMeta 投影到 Agent 货架（单一源、可执行解析）。
+ */
+const PLAYGROUND_CATALOG: PipelineCatalogMeta = {
+  name: "深度研究 Mission（14 阶段）",
+  description:
+    "Leader 领衔的 8 角色深度研究流水线：预算闸 → 规划 → 并行调研 → 评估 → 跨维对账 → 综合分析 → 大纲 → 成稿 → 质量增强 → 元批评 → 客观评估 → 序言签发 → 持久化。",
+  category: "深度研究",
+  stages: [
+    "预算闸",
+    "Leader 规划",
+    "并行调研",
+    "Leader 评估",
+    "跨维对账",
+    "综合分析",
+    "大纲规划",
+    "报告初稿",
+    "质量增强",
+    "元批评",
+    "客观评估",
+    "Leader 序言签发",
+    "最终持久化",
+  ],
+};
 
 /**
  * 完整 13-step pipeline 声明（v5.1 §5 stage 映射表）
@@ -513,6 +544,8 @@ export const PLAYGROUND_PIPELINE: MissionPipelineConfig = defineMissionPipeline(
       description: "playground full mission pipeline (v5.1)",
       eventPrefix: "playground",
       runtimeVersion: "pipeline-v1",
+      // ★ 2026-06-07: 市场投影展示元数据（标准 28，单源归位）
+      catalog: PLAYGROUND_CATALOG,
     },
   },
 );

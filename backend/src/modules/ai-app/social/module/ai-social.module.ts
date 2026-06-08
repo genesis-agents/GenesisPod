@@ -73,7 +73,6 @@ import {
   MissionLifecycleManager,
   MissionLivenessGuard,
   MissionPipelineOrchestrator,
-  MissionPipelineRegistry,
 } from "@/modules/ai-harness/facade";
 import { PromptSkillRegistrationService } from "@/modules/ai-engine/facade";
 
@@ -138,8 +137,7 @@ import { PromptSkillRegistrationService } from "@/modules/ai-engine/facade";
     PolishReviewerService,
     PublishExecutorAgentService,
     PublishVerifierService,
-    // pipeline 基础设施
-    MissionPipelineRegistry,
+    // pipeline 基础设施（★ 2026-06-07: MissionPipelineRegistry 已 @Global，不再 local-provide）
     MissionPipelineOrchestrator,
     // runtime / store / buffer
     SocialMissionStore,

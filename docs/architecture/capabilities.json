@@ -10,11 +10,11 @@
     "frontend/lib/design/tokens.ts"
   ],
   "totals": {
-    "all": 1901,
+    "all": 1903,
     "byLayer": {
       "engine": 521,
       "frontend": 244,
-      "harness": 1086,
+      "harness": 1088,
       "platform": 50
     },
     "byDomain": {
@@ -52,7 +52,7 @@
       "frontend/tag": 2,
       "frontend/ui": 8,
       "frontend/viewers": 6,
-      "harness/agents": 164,
+      "harness/agents": 166,
       "harness/common": 8,
       "harness/content": 5,
       "harness/evaluation": 100,
@@ -6557,6 +6557,14 @@
       "import": "import { DefineAgent } from \"@/modules/ai-harness/facade\";"
     },
     {
+      "name": "DefineAgentOptions",
+      "kind": "type",
+      "layer": "harness",
+      "domain": "agents",
+      "source": "backend/src/modules/ai-harness/agents/dev-tools/index.ts",
+      "import": "import { DefineAgentOptions } from \"@/modules/ai-harness/facade\";"
+    },
+    {
       "name": "DeliverableType",
       "kind": "type",
       "layer": "harness",
@@ -7515,6 +7523,14 @@
       "domain": "agents",
       "source": "backend/src/modules/ai-harness/agents/base/base-agent.ts",
       "import": "import { createAgent } from \"@/modules/ai-harness/facade\";"
+    },
+    {
+      "name": "readDefineAgentMeta",
+      "kind": "value",
+      "layer": "harness",
+      "domain": "agents",
+      "source": "backend/src/modules/ai-harness/agents/dev-tools/index.ts",
+      "import": "import { readDefineAgentMeta } from \"@/modules/ai-harness/facade\";"
     },
     {
       "name": "DomainEvent",

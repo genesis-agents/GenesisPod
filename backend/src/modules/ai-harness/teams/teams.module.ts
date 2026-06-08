@@ -15,6 +15,10 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { RoleRegistry } from "./registry/role-registry";
 import { TeamRegistry } from "./registry/team-registry";
+// ★ 2026-06-07: MissionPipelineRegistry 提升为 @Global 平台 registry（与 ToolRegistry/
+//   TeamRegistry 对齐，"一概念一注册表"）。各 ai-app 不再 local-provide，统一注册进此单例，
+//   company 市场目录据此投影所有 mission 工作流。详见标准 28 + design.md §11。
+import { MissionPipelineRegistry } from "./orchestrator/pipeline/mission-pipeline-registry.service";
 // ★ L2 internal — direct relative paths (禁 facade barrel)
 import { ConstraintEngine } from "@/modules/ai-harness/guardrails/constraints/constraint-engine";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "./orchestrator/teams-mission-orchestrator";
@@ -58,6 +62,8 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
   providers: [
     RoleRegistry,
     TeamRegistry,
+    // ★ @Global mission pipeline registry（替代 4 个 ai-app 各自 local-provide）
+    MissionPipelineRegistry,
     A2AMessageBusService,
     // ★ Phase 9 (2026-04-30): Mission 运行时状态外置 → Redis（CacheService global）
     MissionRuntimeStateStore,
@@ -201,6 +207,7 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
   exports: [
     RoleRegistry,
     TeamRegistry,
+    MissionPipelineRegistry,
     ConstraintEngine,
     TeamFactory,
     MissionOrchestrator,

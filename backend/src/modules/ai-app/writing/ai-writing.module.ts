@@ -11,7 +11,6 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import {
   PromptSkillBridge,
-  MissionPipelineRegistry,
   MissionPipelineOrchestrator,
   MissionCheckpointService,
   InMemoryMissionCheckpointStore,
@@ -258,8 +257,7 @@ import {
     WritingContentSourceProvider,
 
     // ★ B4 Writing Mission Pipeline — new providers (新旧并存，不切换执行路径)
-    // pipeline 基础设施（非 @Global，必须本地注册，对齐 social 形态）
-    MissionPipelineRegistry,
+    // pipeline 基础设施（★ 2026-06-07: MissionPipelineRegistry 已 @Global，不再 local-provide）
     MissionPipelineOrchestrator,
     // checkpoint store + service（WritingMissionStoreService 依赖）
     // InMemoryMissionCheckpointStore: plain class（无 @Injectable），用 useValue 实例化

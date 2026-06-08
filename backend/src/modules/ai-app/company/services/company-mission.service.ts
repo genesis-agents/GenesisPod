@@ -18,7 +18,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { EventBus, ChatFacade } from "@/modules/ai-harness/facade";
+import { EventBus, ChatFacade, AgentRunner } from "@/modules/ai-harness/facade";
 import { SkillRegistry } from "@/modules/ai-engine/facade";
 import type { CompanyMission, Prisma } from "@prisma/client";
 import { AIModelType } from "@prisma/client";
@@ -27,6 +27,12 @@ import {
   CompanyRepository,
   type CompanyTeamForMission,
 } from "./company.repository";
+// ★ ⑤ 真用（工具/ReAct 级）：把招进来的 playground 叶子 agent 解析回真 @DefineAgent 类，
+//   用 AgentRunner 真跑（researcher 带真 web-search），而非仅注入技能文本。
+import {
+  resolveAgentSpec,
+  STANDALONE_RUNNABLE_AGENT_IDS,
+} from "@/modules/ai-app/contracts/agent-spec-catalog";
 
 // ── local type alias so we don't need to import ChatRequest from facade types ─
 
@@ -63,6 +69,7 @@ export class CompanyMissionService {
     private readonly chatFacade: ChatFacade,
     private readonly companyRepository: CompanyRepository,
     private readonly skillRegistry: SkillRegistry,
+    private readonly agentRunner: AgentRunner,
   ) {}
 
   /**
@@ -181,6 +188,7 @@ export class CompanyMissionService {
         mission.title,
         planningResult,
         team,
+        userId,
       );
 
       await this.updateMission(missionId, { progress: 66 });
@@ -304,6 +312,7 @@ export class CompanyMissionService {
     missionTitle: string,
     planningOutput: string,
     team: CompanyTeamForMission | null,
+    userId: string,
   ): Promise<string[]> {
     const executionStages = this.resolveExecutionStages(team);
     const nonLeaderMembers = this.resolveNonLeaderMembers(team);
@@ -317,6 +326,21 @@ export class CompanyMissionService {
         nonLeaderMembers.length > 0
           ? nonLeaderMembers[i % nonLeaderMembers.length]
           : this.resolveLeader(team);
+
+      // ★ ⑤ 真用（工具/ReAct 级）：成员若是可独立跑的 playground 叶子 agent（researcher），
+      //   解析回真 @DefineAgent 类用 AgentRunner 真跑（带真 web-search/ReAct）；
+      //   失败或非叶子 → 退回下方「注入真技能指令的通用 chat」。
+      const realOutput = await this.tryRunRealAgent(
+        member,
+        missionTitle,
+        stageName,
+        planningOutput,
+        userId,
+      );
+      if (realOutput != null) {
+        outputs.push(`[${stageName}]\n${realOutput}`);
+        continue;
+      }
 
       const systemPrompt = [
         member
@@ -353,6 +377,58 @@ export class CompanyMissionService {
     }
 
     return outputs;
+  }
+
+  /**
+   * ⑤ 真用：成员若解析为「可独立跑的 playground 叶子 agent」，用 AgentRunner 真跑
+   * 该 @DefineAgent 类（researcher → 真 web-search/ReAct，出结构化 findings）。
+   * 非叶子 / 未沉淀 / 跑失败 → 返回 null，调用方退回通用 chat（不抛错、不阻断 mission）。
+   */
+  private async tryRunRealAgent(
+    member: CompanyHiredAgent | null,
+    topic: string,
+    dimension: string,
+    context: string,
+    userId: string,
+  ): Promise<string | null> {
+    const listingId = member?.listingId;
+    if (!listingId || !STANDALONE_RUNNABLE_AGENT_IDS.has(listingId))
+      return null;
+    const SpecClass = resolveAgentSpec(listingId);
+    if (!SpecClass) return null;
+
+    try {
+      const result = await this.agentRunner.run(
+        SpecClass,
+        {
+          topic,
+          dimension,
+          language: "zh-CN",
+          description: context.slice(0, 4000),
+          withFigures: false,
+        },
+        { userId },
+      );
+      const text = this.stringifyAgentOutput(result.output);
+      this.log.log(
+        `CompanyMission member "${listingId}" ran real agent (out ${text.length} chars)`,
+      );
+      return text;
+    } catch (err) {
+      this.log.warn(
+        `real agent "${listingId}" run failed, fallback to chat: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
+    }
+  }
+
+  private stringifyAgentOutput(output: unknown): string {
+    if (typeof output === "string") return output;
+    try {
+      return JSON.stringify(output, null, 2);
+    } catch {
+      return String(output);
+    }
   }
 
   /**
